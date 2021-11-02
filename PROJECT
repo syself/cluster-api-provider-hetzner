@@ -1,0 +1,59 @@
+domain: cluster.x-k8s.io
+layout:
+- go.kubebuilder.io/v3
+projectName: cluster-api-provider-hetzner
+repo: github.com/syself/cluster-api-provider-hetzner
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: cluster.x-k8s.io
+  group: infrastructure
+  kind: HetznerCluster
+  path: github.com/syself/cluster-api-provider-hetzner/api/v1beta1
+  version: v1beta1
+  webhooks:
+    defaulting: true
+    validation: true
+    webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: cluster.x-k8s.io
+  group: infrastructure
+  kind: HetznerClusterTemplate
+  path: github.com/syself/cluster-api-provider-hetzner/api/v1beta1
+  version: v1beta1
+  webhooks:
+    defaulting: true
+    validation: true
+    webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: cluster.x-k8s.io
+  group: infrastructure
+  kind: HCloudMachine
+  path: github.com/syself/cluster-api-provider-hetzner/api/v1beta1
+  version: v1beta1
+  webhooks:
+    defaulting: true
+    validation: true
+    webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: cluster.x-k8s.io
+  group: infrastructure
+  kind: HCloudMachineTemplate
+  path: github.com/syself/cluster-api-provider-hetzner/api/v1beta1
+  version: v1beta1
+  webhooks:
+    defaulting: true
+    validation: true
+    webhookVersion: v1
+version: "3"

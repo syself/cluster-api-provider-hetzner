@@ -1,0 +1,16 @@
+{
+    "name": "hetzner",
+    "config": {
+      "image": "quay.io/syself/cluster-api-provider-hetzner",
+      "live_reload_deps": [
+        "main.go",
+        "go.mod",
+        "go.sum",
+        "api",
+        "pkg",
+        "controllers"
+      ],
+      "label": "CAPH",
+      "manager_name": "caph-controller-manager"
+    }
+  }

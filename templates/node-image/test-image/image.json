@@ -1,0 +1,38 @@
+{
+  "variables": {
+    "hcloud_token": "{{env `HCLOUD_TOKEN`}}",
+    "scripts": "{{template_dir}}/scripts",
+    "os": "rocky-8",
+    "image-name": "test-image"
+  },
+  "sensitive-variables": ["hcloud_token"],
+  "builders": [
+      {
+          "type": "hcloud",
+          "token": "{{user `hcloud_token`}}",
+          "image": "{{user `os`}}",
+          "location": "fsn1",
+          "server_type": "cx21",
+          "ssh_username": "root",
+          "snapshot_name": "caph-{{user `os`}}-{{isotime \"2006-01-02-030405\"}}",
+          "snapshot_labels": {
+            "caph-image-name": "{{user `image-name`}}"
+          }
+      }
+  ],
+  "provisioners": [
+    {
+      "type": "shell",
+      "environment_vars": [
+        "PACKER_OS_IMAGE={{user `os`}}"
+      ],
+      "scripts": [
+        "{{user `scripts`}}/configure_base.sh",
+        "{{user `scripts`}}/configure_cri.sh",
+        "{{user `scripts`}}/configure_kubernetes.sh",
+        "{{user `scripts`}}/configure_kernel.sh",
+        "{{user `scripts`}}/cleanup.sh"
+      ]
+    }
+  ]
+}

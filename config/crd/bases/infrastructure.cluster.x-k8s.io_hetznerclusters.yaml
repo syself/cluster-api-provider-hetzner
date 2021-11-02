@@ -1,0 +1,383 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.4.1
+  creationTimestamp: null
+  name: hetznerclusters.infrastructure.cluster.x-k8s.io
+spec:
+  group: infrastructure.cluster.x-k8s.io
+  names:
+    categories:
+    - cluster-api
+    kind: HetznerCluster
+    listKind: HetznerClusterList
+    plural: hetznerclusters
+    shortNames:
+    - capihc
+    singular: hetznercluster
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: Cluster to which this HetznerCluster belongs
+      jsonPath: .metadata.labels.cluster\.x-k8s\.io/cluster-name
+      name: Cluster
+      type: string
+    - description: Cluster infrastructure is ready for Nodes
+      jsonPath: .status.ready
+      name: Ready
+      type: string
+    - description: API Endpoint
+      jsonPath: .spec.controlPlaneEndpoint
+      name: Endpoint
+      priority: 1
+      type: string
+    name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: HetznerCluster is the Schema for the hetznercluster API.
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: HetznerClusterSpec defines the desired state of HetznerCluster.
+            properties:
+              controlPlaneEndpoint:
+                description: ControlPlaneEndpoint represents the endpoint used to
+                  communicate with the control plane.
+                properties:
+                  host:
+                    description: The hostname on which the API server is serving.
+                    type: string
+                  port:
+                    description: The port on which the API server is serving.
+                    format: int32
+                    type: integer
+                required:
+                - host
+                - port
+                type: object
+              controlPlaneLoadBalancer:
+                description: ControlPlaneLoadBalancer is optional configuration for
+                  customizing control plane behavior. Naming convention is from upstream
+                  cluster-api project.
+                properties:
+                  algorithm:
+                    description: Could be round-robin or least-connection
+                    enum:
+                    - round_robin
+                    - least_connections
+                    type: string
+                  id:
+                    type: string
+                  name:
+                    type: string
+                  region:
+                    enum:
+                    - fsn1
+                    - hel1
+                    - nbg1
+                    type: string
+                  services:
+                    description: Defines how traffic will be routed from the Load
+                      Balancer to your target server.
+                    items:
+                      description: LoadBalancerServiceSpec defines a Loadbalncer Service.
+                      properties:
+                        destinationPort:
+                          description: Defines the port on the server
+                          type: integer
+                        listenPort:
+                          description: Equal Source port, defines the incoming port
+                            open on the loadbalancer
+                          type: integer
+                        protocol:
+                          description: http, https, tcp
+                          type: string
+                      required:
+                      - destinationPort
+                      - listenPort
+                      - protocol
+                      type: object
+                    type: array
+                  type:
+                    description: Loadbalancer type
+                    enum:
+                    - lb11
+                    - lb21
+                    - lb31
+                    type: string
+                required:
+                - algorithm
+                - region
+                - services
+                - type
+                type: object
+              controlPlaneRegion:
+                description: Hetzner Regions (fsn, nbg, hel). Because Hetzner Networks
+                  have a very low latency we could assume in some use-cases that a
+                  region is behaving like a zone https://kubernetes.io/docs/reference/labels-annotations-taints/#topologykubernetesiozone
+                  therefore this accepts a list of the hetzner regions.
+                items:
+                  description: HCloudRegion is a Hetzner Location
+                  enum:
+                  - fsn1
+                  - hel1
+                  - nbg1
+                  type: string
+                type: array
+              hcloudTokenRef:
+                description: HcloudTokenRef is a reference to a token to be used when
+                  reconciling this cluster this is generated in the Security section
+                  under API TOKENS. Read & Write is necessary
+                properties:
+                  key:
+                    description: The key of the secret to select from.  Must be a
+                      valid secret key.
+                    type: string
+                  name:
+                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                      TODO: Add other useful fields. apiVersion, kind, uid?'
+                    type: string
+                  optional:
+                    description: Specify whether the Secret or its key must be defined
+                    type: boolean
+                required:
+                - key
+                type: object
+              network:
+                description: NetworkSpec defines the Network for Hetzner Cloud. If
+                  left empty no private Network is configured.
+                properties:
+                  cidrBlock:
+                    description: Defines the cidrBlock of the Hetzner Network. A Subnet
+                      is required.
+                    type: string
+                  enabled:
+                    type: boolean
+                  subnets:
+                    description: Defines subnets. We don't have logic yet to support
+                      multiple subnets.
+                    items:
+                      description: SubnetSpec configures an Hetzner Cloud Subnet.
+                      properties:
+                        cidrBlock:
+                          type: string
+                        networkZone:
+                          description: HCloudNetworkZone describes the Network zone.
+                          type: string
+                      type: object
+                    type: array
+                required:
+                - enabled
+                type: object
+              placementGroup:
+                items:
+                  description: HCloudPlacementGroupSpec defines a PlacementGroup.
+                  properties:
+                    name:
+                      type: string
+                    type:
+                      enum:
+                      - spread
+                      type: string
+                  type: object
+                type: array
+              sshKey:
+                description: define cluster wide SSH keys. Valid values are a valid
+                  SSH key name, or a valid ID.
+                items:
+                  description: HCloudSSHKeySpec defines the SSHKey.
+                  properties:
+                    id:
+                      type: integer
+                    name:
+                      type: string
+                  type: object
+                type: array
+            required:
+            - controlPlaneRegion
+            - hcloudTokenRef
+            type: object
+          status:
+            description: HetznerClusterStatus defines the observed state of HetznerCluster.
+            properties:
+              conditions:
+                description: Conditions provide observations of the operational state
+                  of a Cluster API resource.
+                items:
+                  description: Condition defines an observation of a Cluster API resource
+                    operational state.
+                  properties:
+                    lastTransitionTime:
+                      description: Last time the condition transitioned from one status
+                        to another. This should be when the underlying condition changed.
+                        If that is not known, then using the time when the API field
+                        changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: A human readable message indicating details about
+                        the transition. This field may be empty.
+                      type: string
+                    reason:
+                      description: The reason for the condition's last transition
+                        in CamelCase. The specific API may choose whether or not this
+                        field is considered a guaranteed API. This field may not be
+                        empty.
+                      type: string
+                    severity:
+                      description: Severity provides an explicit classification of
+                        Reason code, so the users or machines can immediately understand
+                        the current situation and act accordingly. The Severity field
+                        MUST be set only when Status=False.
+                      type: string
+                    status:
+                      description: Status of the condition, one of True, False, Unknown.
+                      type: string
+                    type:
+                      description: Type of condition in CamelCase or in foo.example.com/CamelCase.
+                        Many .condition.type values are consistent across resources
+                        like Available, but because arbitrary conditions can be useful
+                        (see .node.status.conditions), the ability to deconflict is
+                        important.
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - status
+                  - type
+                  type: object
+                type: array
+              controlPlaneLoadBalancer:
+                description: HCloudLoadBalancerStatus defines the obeserved state
+                  of the control plane loadbalancer.
+                properties:
+                  algorithm:
+                    description: HCloudLoadBalancerAlgorithmType defines the Algorithm
+                      type.
+                    enum:
+                    - round_robin
+                    - least_connections
+                    type: string
+                  attachedToNetwork:
+                    type: boolean
+                  id:
+                    type: integer
+                  internalIP:
+                    type: string
+                  ipv4:
+                    type: string
+                  ipv6:
+                    type: string
+                  labels:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  name:
+                    type: string
+                  target:
+                    items:
+                      type: integer
+                    type: array
+                  type:
+                    type: string
+                type: object
+              controlPlaneRegion:
+                items:
+                  description: HCloudRegion is a Hetzner Location
+                  enum:
+                  - fsn1
+                  - hel1
+                  - nbg1
+                  type: string
+                type: array
+              failureDomains:
+                additionalProperties:
+                  description: FailureDomainSpec is the Schema for Cluster API failure
+                    domains. It allows controllers to understand how many failure
+                    domains a cluster can optionally span across.
+                  properties:
+                    attributes:
+                      additionalProperties:
+                        type: string
+                      description: Attributes is a free form map of attributes an
+                        infrastructure provider might use or require.
+                      type: object
+                    controlPlane:
+                      description: ControlPlane determines if this failure domain
+                        is suitable for use by control plane machines.
+                      type: boolean
+                  type: object
+                description: FailureDomains is a slice of FailureDomains.
+                type: object
+              networkStatus:
+                description: NetworkStatus defines the observed state of the Hetzner
+                  Private Network.
+                properties:
+                  attachedServer:
+                    items:
+                      type: integer
+                    type: array
+                  cidrBlock:
+                    type: string
+                  id:
+                    type: integer
+                  subnets:
+                    description: Subnets is a slice of Subnet.
+                    items:
+                      description: SubnetSpec configures an Hetzner Cloud Subnet.
+                      properties:
+                        cidrBlock:
+                          type: string
+                        networkZone:
+                          description: HCloudNetworkZone describes the Network zone.
+                          type: string
+                      type: object
+                    type: array
+                type: object
+              placementGroup:
+                items:
+                  description: HCloudPlacementGroupStatus returns the status of a
+                    Placementgroup.
+                  properties:
+                    id:
+                      type: integer
+                    name:
+                      type: string
+                    server:
+                      items:
+                        type: integer
+                      type: array
+                    type:
+                      type: string
+                  type: object
+                type: array
+              ready:
+                default: false
+                type: boolean
+            required:
+            - ready
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

@@ -1,0 +1,184 @@
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: Cluster
+metadata:
+  name: "${CLUSTER_NAME}"
+spec:
+  clusterNetwork:
+    pods:
+      cidrBlocks: 
+        - 10.244.0.0/16
+  infrastructureRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    kind: HetznerCluster
+    name: "${CLUSTER_NAME}"
+  controlPlaneRef:
+    kind: TalosControlPlane
+    apiVersion: controlplane.cluster.x-k8s.io/v1alpha3
+    name: "${CLUSTER_NAME}-controlplane"
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: HetznerCluster
+metadata:
+  name: "${CLUSTER_NAME}"
+spec:
+  network:
+    enabled: true
+  controlPlaneRegion: 
+    - "${HETZNER_REGION}"
+  controlPlaneEndpoint:
+    host: ""
+    port: 443
+  controlPlaneLoadBalancer:
+    region: "${HETZNER_REGION}"
+    type: lb11
+    algorithm: round_robin
+    services:
+    - listenPort: 443
+      destinationPort: 6443
+      protocol: tcp
+  placementGroup:
+  - name: control-plane
+    type: spread
+  - name: md-0
+    type: spread
+  sshKey:
+  - name: "${HETZNER_SSH_KEY}"
+  hcloudTokenRef:
+    key: token
+    name: hetzner-token
+---
+apiVersion: controlplane.cluster.x-k8s.io/v1alpha3
+kind: TalosControlPlane
+metadata:
+  name: ${CLUSTER_NAME}-controlplane
+spec:
+  replicas: ${CONTROL_PLANE_MACHINE_COUNT} 
+  version: v${KUBERNETES_VERSION}
+  controlPlaneConfig:
+    init:
+      generateType: init
+      talosVersion: v0.13
+      configPatches:
+        - op: add
+          path: /cluster/apiServer/extraArgs
+          value:
+            cloud-provider: external
+        - op: add
+          path: /cluster/externalCloudProvider
+          value:
+            enabled: true   
+    controlplane:
+      generateType: controlplane
+      talosVersion: v0.13
+      configPatches:
+        - op: add
+          path: /cluster/externalCloudProvider
+          value:
+            enabled: true 
+  infrastructureTemplate:
+    kind: HCloudMachineTemplate
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    name: "${CLUSTER_NAME}-controlplane"
+---
+kind: HCloudMachineTemplate
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+metadata:
+  name: "${CLUSTER_NAME}-controlplane"
+spec:
+  template:
+    spec:
+      type: "${HETZNER_CONTROL_PLANE_MACHINE_TYPE}"
+      image: 
+        name: "${IMAGE_NAME}"
+      placementGroup: control-plane
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachineHealthCheck
+metadata:
+  name: "${CLUSTER_NAME}-control-plane-unhealthy-5m"
+spec:
+  clusterName: "${CLUSTER_NAME}"
+  maxUnhealthy: 100%
+  selector:
+    matchLabels:
+      cluster.x-k8s.io/control-plane: ""
+  unhealthyConditions:
+    - type: Ready
+      status: Unknown
+      timeout: 300s
+    - type: Ready
+      status: "False"
+      timeout: 300s
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachineDeployment
+metadata:
+  name: "${CLUSTER_NAME}-md-0"
+  labels:
+    nodepool: "${CLUSTER_NAME}-md-0"
+spec:
+  clusterName: "${CLUSTER_NAME}"
+  replicas: ${WORKER_MACHINE_COUNT}
+  selector:
+    matchLabels:
+  template:
+    spec:
+      clusterName: "${CLUSTER_NAME}"
+      failureDomain: "${HETZNER_REGION}"
+      version: "${KUBERNETES_VERSION}"
+      bootstrap:
+        configRef:
+          name: "${CLUSTER_NAME}-md-0"
+          apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
+          kind: TalosConfigTemplate
+      infrastructureRef:
+        name: "${CLUSTER_NAME}-md-0"
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        kind: HCloudMachineTemplate
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: HCloudMachineTemplate
+metadata:
+  name: "${CLUSTER_NAME}-md-0"
+spec:
+  template:
+    spec:
+      type: "${HETZNER_NODE_MACHINE_TYPE}"
+      image: 
+        name: "${IMAGE_NAME}"
+      placementGroup: md-0
+---
+apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
+kind: TalosConfigTemplate
+metadata:
+  name: "${CLUSTER_NAME}-md-0"
+spec:
+  template:
+    spec:
+      generateType: join
+      talosVersion: v0.13
+      configPatches:
+        - op: add
+          path: /cluster/externalCloudProvider
+          value:
+            enabled: true
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachineHealthCheck
+metadata:
+  name: "${CLUSTER_NAME}-md-0-unhealthy-5m"
+spec:
+  clusterName: "${CLUSTER_NAME}"
+  maxUnhealthy: 100%
+  nodeStartupTimeout: 10m
+  selector:
+    matchLabels:
+      nodepool: "${CLUSTER_NAME}-md-0"
+  unhealthyConditions:
+    - type: Ready
+      status: Unknown
+      timeout: 300s
+    - type: Ready
+      status: "False"
+      timeout: 300s

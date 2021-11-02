@@ -1,0 +1,267 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.4.1
+  creationTimestamp: null
+  name: hetznerclustertemplates.infrastructure.cluster.x-k8s.io
+spec:
+  group: infrastructure.cluster.x-k8s.io
+  names:
+    categories:
+    - cluster-api
+    kind: HetznerClusterTemplate
+    listKind: HetznerClusterTemplateList
+    plural: hetznerclustertemplates
+    shortNames:
+    - capihct
+    singular: hetznerclustertemplate
+  scope: Namespaced
+  versions:
+  - name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: HetznerClusterTemplate is the Schema for the hetznerclustertemplates
+          API.
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: HetznerClusterTemplateSpec defines the desired state of HetznerClusterTemplate.
+            properties:
+              template:
+                description: HetznerClusterTemplateResource contains spec for HetznerClusterSpec.
+                properties:
+                  metadata:
+                    description: "ObjectMeta is metadata that all persisted resources
+                      must have, which includes all objects users must create. This
+                      is a copy of customizable fields from metav1.ObjectMeta. \n
+                      ObjectMeta is embedded in `Machine.Spec`, `MachineDeployment.Template`
+                      and `MachineSet.Template`, which are not top-level Kubernetes
+                      objects. Given that metav1.ObjectMeta has lots of special cases
+                      and read-only fields which end up in the generated CRD validation,
+                      having it as a subset simplifies the API and some issues that
+                      can impact user experience. \n During the [upgrade to controller-tools@v2](https://github.com/kubernetes-sigs/cluster-api/pull/1054)
+                      for v1alpha2, we noticed a failure would occur running Cluster
+                      API test suite against the new CRDs, specifically `spec.metadata.creationTimestamp
+                      in body must be of type string: \"null\"`. The investigation
+                      showed that `controller-tools@v2` behaves differently than its
+                      previous version when handling types from [metav1](k8s.io/apimachinery/pkg/apis/meta/v1)
+                      package. \n In more details, we found that embedded (non-top
+                      level) types that embedded `metav1.ObjectMeta` had validation
+                      properties, including for `creationTimestamp` (metav1.Time).
+                      The `metav1.Time` type specifies a custom json marshaller that,
+                      when IsZero() is true, returns `null` which breaks validation
+                      because the field isn't marked as nullable. \n In future versions,
+                      controller-tools@v2 might allow overriding the type and validation
+                      for embedded types. When that happens, this hack should be revisited."
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: 'Annotations is an unstructured key value map
+                          stored with a resource that may be set by external tools
+                          to store and retrieve arbitrary metadata. They are not queryable
+                          and should be preserved when modifying objects. More info:
+                          http://kubernetes.io/docs/user-guide/annotations'
+                        type: object
+                      labels:
+                        additionalProperties:
+                          type: string
+                        description: 'Map of string keys and values that can be used
+                          to organize and categorize (scope and select) objects. May
+                          match selectors of replication controllers and services.
+                          More info: http://kubernetes.io/docs/user-guide/labels'
+                        type: object
+                    type: object
+                  spec:
+                    description: HetznerClusterSpec defines the desired state of HetznerCluster.
+                    properties:
+                      controlPlaneEndpoint:
+                        description: ControlPlaneEndpoint represents the endpoint
+                          used to communicate with the control plane.
+                        properties:
+                          host:
+                            description: The hostname on which the API server is serving.
+                            type: string
+                          port:
+                            description: The port on which the API server is serving.
+                            format: int32
+                            type: integer
+                        required:
+                        - host
+                        - port
+                        type: object
+                      controlPlaneLoadBalancer:
+                        description: ControlPlaneLoadBalancer is optional configuration
+                          for customizing control plane behavior. Naming convention
+                          is from upstream cluster-api project.
+                        properties:
+                          algorithm:
+                            description: Could be round-robin or least-connection
+                            enum:
+                            - round_robin
+                            - least_connections
+                            type: string
+                          id:
+                            type: string
+                          name:
+                            type: string
+                          region:
+                            enum:
+                            - fsn1
+                            - hel1
+                            - nbg1
+                            type: string
+                          services:
+                            description: Defines how traffic will be routed from the
+                              Load Balancer to your target server.
+                            items:
+                              description: LoadBalancerServiceSpec defines a Loadbalncer
+                                Service.
+                              properties:
+                                destinationPort:
+                                  description: Defines the port on the server
+                                  type: integer
+                                listenPort:
+                                  description: Equal Source port, defines the incoming
+                                    port open on the loadbalancer
+                                  type: integer
+                                protocol:
+                                  description: http, https, tcp
+                                  type: string
+                              required:
+                              - destinationPort
+                              - listenPort
+                              - protocol
+                              type: object
+                            type: array
+                          type:
+                            description: Loadbalancer type
+                            enum:
+                            - lb11
+                            - lb21
+                            - lb31
+                            type: string
+                        required:
+                        - algorithm
+                        - region
+                        - services
+                        - type
+                        type: object
+                      controlPlaneRegion:
+                        description: Hetzner Regions (fsn, nbg, hel). Because Hetzner
+                          Networks have a very low latency we could assume in some
+                          use-cases that a region is behaving like a zone https://kubernetes.io/docs/reference/labels-annotations-taints/#topologykubernetesiozone
+                          therefore this accepts a list of the hetzner regions.
+                        items:
+                          description: HCloudRegion is a Hetzner Location
+                          enum:
+                          - fsn1
+                          - hel1
+                          - nbg1
+                          type: string
+                        type: array
+                      hcloudTokenRef:
+                        description: HcloudTokenRef is a reference to a token to be
+                          used when reconciling this cluster this is generated in
+                          the Security section under API TOKENS. Read & Write is necessary
+                        properties:
+                          key:
+                            description: The key of the secret to select from.  Must
+                              be a valid secret key.
+                            type: string
+                          name:
+                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Add other useful fields. apiVersion, kind, uid?'
+                            type: string
+                          optional:
+                            description: Specify whether the Secret or its key must
+                              be defined
+                            type: boolean
+                        required:
+                        - key
+                        type: object
+                      network:
+                        description: NetworkSpec defines the Network for Hetzner Cloud.
+                          If left empty no private Network is configured.
+                        properties:
+                          cidrBlock:
+                            description: Defines the cidrBlock of the Hetzner Network.
+                              A Subnet is required.
+                            type: string
+                          enabled:
+                            type: boolean
+                          subnets:
+                            description: Defines subnets. We don't have logic yet
+                              to support multiple subnets.
+                            items:
+                              description: SubnetSpec configures an Hetzner Cloud
+                                Subnet.
+                              properties:
+                                cidrBlock:
+                                  type: string
+                                networkZone:
+                                  description: HCloudNetworkZone describes the Network
+                                    zone.
+                                  type: string
+                              type: object
+                            type: array
+                        required:
+                        - enabled
+                        type: object
+                      placementGroup:
+                        items:
+                          description: HCloudPlacementGroupSpec defines a PlacementGroup.
+                          properties:
+                            name:
+                              type: string
+                            type:
+                              enum:
+                              - spread
+                              type: string
+                          type: object
+                        type: array
+                      sshKey:
+                        description: define cluster wide SSH keys. Valid values are
+                          a valid SSH key name, or a valid ID.
+                        items:
+                          description: HCloudSSHKeySpec defines the SSHKey.
+                          properties:
+                            id:
+                              type: integer
+                            name:
+                              type: string
+                          type: object
+                        type: array
+                    required:
+                    - controlPlaneRegion
+                    - hcloudTokenRef
+                    type: object
+                required:
+                - spec
+                type: object
+            required:
+            - template
+            type: object
+        type: object
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

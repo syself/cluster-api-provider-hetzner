@@ -1,0 +1,38 @@
+{
+  "variables": {
+    "hcloud_token": "{{env `HCLOUD_TOKEN`}}",
+    "scripts": "{{template_dir}}/scripts",
+    "os": "debian-11",
+    "image-name": "talos-image",
+    "talos_version": "v0.13.0"
+  },
+  "sensitive-variables": ["hcloud_token"],
+  "builders": [
+      {
+          "type": "hcloud",
+          "token": "{{user `hcloud_token`}}",
+          "image": "{{user `os`}}",
+          "location": "fsn1",
+          "rescue": "linux64",
+          "server_type": "cx21",
+          "ssh_username": "root",
+          "snapshot_name": "caph-{{user `os`}}-{{isotime \"2006-01-02-030405\"}}",
+          "snapshot_labels": {
+            "caph-image-name": "{{user `image-name`}}",
+            "talos_version": "{{user `talos_version`}}"
+          }
+      }
+  ],
+  "provisioners": [
+    {
+      "type": "shell",
+      "environment_vars": [
+        "PACKER_OS_IMAGE={{user `os`}}",
+        "IMAGE_URL=https://github.com/talos-systems/talos/releases/download/{{user `talos_version`}}/hcloud-amd64.raw.xz"
+      ],
+      "scripts": [
+        "{{user `scripts`}}/configure_base.sh"
+      ]
+    }
+  ]
+}
