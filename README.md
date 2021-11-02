@@ -1,6 +1,6 @@
 # <img alt="capi" src="docs/pics/cluster-api.png" height="48x" /> Kubernetes Cluster API Provider Hetzner
 
-[![Go Report Card](https://goreportcard.com/badge/syself/cluster-api-provider-hetzner)](https://goreportcard.com/report/syself/cluster-api-provider-hetzner)
+[![Go Report Card](https://goreportcard.com/badge/github.com/syself/cluster-api-provider-hetzner)](https://goreportcard.com/report/github.com/syself/cluster-api-provider-hetzner)
 
 <p align="center">
 <img alt="hcloud" src="docs/pics/hetzner.png"/>
