@@ -158,7 +158,7 @@ func (r *HCloudMachineReconciler) reconcileDelete(ctx context.Context, machineSc
 	hcloudMachine := machineScope.HCloudMachine
 
 	// delete servers
-	if result, brk, err := breakReconcile(server.NewService(machineScope).Delete(machineScope.Ctx)); brk {
+	if result, brk, err := breakReconcile(server.NewService(machineScope).Delete(ctx)); brk {
 		return result, errors.Wrapf(err, "failed to delete servers for HCloudMachine %s/%s", hcloudMachine.Namespace, hcloudMachine.Name)
 	}
 
@@ -177,12 +177,12 @@ func (r *HCloudMachineReconciler) reconcileNormal(ctx context.Context, machineSc
 
 	// Register the finalizer immediately to avoid orphaning HCloud resources
 	// on delete
-	if err := machineScope.PatchObject(machineScope.Ctx); err != nil {
+	if err := machineScope.PatchObject(ctx); err != nil {
 		return ctrl.Result{}, err
 	}
 
 	// reconcile server
-	if result, brk, err := breakReconcile(server.NewService(machineScope).Reconcile(machineScope.Ctx)); brk {
+	if result, brk, err := breakReconcile(server.NewService(machineScope).Reconcile(ctx)); brk {
 		return result, errors.Wrapf(err, "failed to reconcile server for HCloudMachine %s/%s", hcloudMachine.Namespace, hcloudMachine.Name)
 	}
 

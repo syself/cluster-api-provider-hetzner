@@ -12,7 +12,6 @@ jobs:
       matrix:
         working-directory:
           - ""
-          - test
     steps:
       - uses: actions/checkout@v2
       - name: golangci-lint

@@ -52,6 +52,7 @@ type HCloudClient interface {
 	AddServerToPlacementGroup(context.Context, *hcloud.Server, *hcloud.PlacementGroup) (*hcloud.Action, *hcloud.Response, error)
 }
 
+// HCloudClientFactory implements a factory function for HCloudClient repository.
 type HCloudClientFactory func(context.Context) (HCloudClient, error)
 
 var _ HCloudClient = &realHCloudClient{}

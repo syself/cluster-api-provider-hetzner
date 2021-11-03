@@ -1,3 +1,4 @@
+// Package placementgroup implements the lifecycle of Hcloud placement groups
 package placementgroup
 
 import (
@@ -5,7 +6,7 @@ import (
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
 	"github.com/pkg/errors"
-	errorutil "k8s.io/apimachinery/pkg/util/errors"
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 
@@ -14,16 +15,19 @@ import (
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
+// Service struct contains cluster scope to reconcile placement groups.
 type Service struct {
 	scope *scope.ClusterScope
 }
 
+// NewService creates new service object.
 func NewService(scope *scope.ClusterScope) *Service {
 	return &Service{
 		scope: scope,
 	}
 }
 
+// Reconcile implements life cycle of placement groups.
 func (s *Service) Reconcile(ctx context.Context) (err error) {
 	log := ctrl.LoggerFrom(ctx)
 	log.Info("Reconcile placement groups")
@@ -54,7 +58,7 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 		}
 	}
 
-	if err := errorutil.NewAggregate(multierr); err != nil {
+	if err := kerrors.NewAggregate(multierr); err != nil {
 		log.Error(err, "aggregate error - deleting placement groups")
 	}
 
@@ -80,7 +84,7 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 		}
 	}
 
-	if err := errorutil.NewAggregate(multierr); err != nil {
+	if err := kerrors.NewAggregate(multierr); err != nil {
 		log.Error(err, "aggregate error - creating placement groups")
 	}
 
@@ -95,6 +99,7 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 	return nil
 }
 
+// Delete implements deletion of placement groups.
 func (s *Service) Delete(ctx context.Context) (err error) {
 	log := ctrl.LoggerFrom(ctx)
 	log.Info("Delete placement groups")
@@ -107,7 +112,7 @@ func (s *Service) Delete(ctx context.Context) (err error) {
 		}
 	}
 
-	if err := errorutil.NewAggregate(multierr); err != nil {
+	if err := kerrors.NewAggregate(multierr); err != nil {
 		log.Error(err, "aggregate error - deleting placement groups")
 		return err
 	}
