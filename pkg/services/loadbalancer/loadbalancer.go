@@ -1,3 +1,4 @@
+// Package loadbalancer implements the lifecycle of Hcloud load balancers
 package loadbalancer
 
 import (
@@ -15,16 +16,19 @@ import (
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
+// Service is a struct with the cluster scope to reconcile load balancers.
 type Service struct {
 	scope *scope.ClusterScope
 }
 
+// NewService creates a new service object.
 func NewService(scope *scope.ClusterScope) *Service {
 	return &Service{
 		scope: scope,
 	}
 }
 
+// Reconcile implements the life cycle of Hcloud load balancers.
 func (s *Service) Reconcile(ctx context.Context) (err error) {
 	log := ctrl.LoggerFrom(ctx)
 	log.Info("Reconcile load balancer")
@@ -90,26 +94,22 @@ func (s *Service) reconcileNetworkAttachement(ctx context.Context, lb *hcloud.Lo
 		return errors.Wrap(err, "failed to attach load balancer to network")
 	}
 
-	var err error
-	lb, err = findLoadBalancer(s.scope)
-	if err != nil {
-		return errors.Wrap(err, "failed to find load balancer")
-	}
-
 	return nil
 }
 
 func (s *Service) createLoadBalancer(ctx context.Context, spec infrav1.HCloudLoadBalancerSpec) (*hcloud.LoadBalancer, error) {
 	log := ctrl.LoggerFrom(ctx)
+
 	log.Info("Create a new loadbalancer", "algorithm type", spec.Algorithm)
 
 	// gather algorithm type
 	var algType hcloud.LoadBalancerAlgorithmType
-	if spec.Algorithm == infrav1.HCloudLoadBalancerAlgorithmTypeRoundRobin {
+	switch spec.Algorithm {
+	case infrav1.HCloudLoadBalancerAlgorithmTypeLeastConnections:
 		algType = hcloud.LoadBalancerAlgorithmTypeRoundRobin
-	} else if spec.Algorithm == infrav1.HCloudLoadBalancerAlgorithmTypeLeastConnections {
+	case infrav1.HCloudLoadBalancerAlgorithmTypeRoundRobin:
 		algType = hcloud.LoadBalancerAlgorithmTypeLeastConnections
-	} else {
+	default:
 		return nil, fmt.Errorf("error invalid load balancer algorithm type: %s", spec.Algorithm)
 	}
 
@@ -196,6 +196,7 @@ func (s *Service) createLoadBalancer(ctx context.Context, spec infrav1.HCloudLoa
 	return res.LoadBalancer, nil
 }
 
+// Delete implements the deletion of Hcloud load balancers.
 func (s *Service) Delete(ctx context.Context) (err error) {
 	if _, err := s.scope.HCloudClient().DeleteLoadBalancer(ctx, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID); err != nil {
 		record.Eventf(s.scope.HetznerCluster, "FailedLoadBalancerDelete", "Failed to delete load balancer: %s", err)
@@ -248,7 +249,7 @@ func (s *Service) apiToStatus(lb *hcloud.LoadBalancer) (status infrav1.HCloudLoa
 		return status, fmt.Errorf("unknown load balancer algorithm type: %s", lb.Algorithm.Type)
 	}
 
-	var targetIDs []int
+	targetIDs := make([]int, 0, len(lb.Targets))
 
 	for _, server := range lb.Targets {
 		targetIDs = append(targetIDs, server.Server.Server.ID)

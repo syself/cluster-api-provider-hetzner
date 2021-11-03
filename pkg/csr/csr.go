@@ -1,3 +1,4 @@
+// Package csr contains functions to validate certificate signing requests
 package csr
 
 import (
@@ -8,7 +9,7 @@ import (
 	"reflect"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/errors"
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
@@ -73,5 +74,5 @@ func ValidateKubeletCSR(csr *x509.CertificateRequest, machine *infrav1.HCloudMac
 
 	// allow only certain IP addresses
 
-	return errors.NewAggregate(errs)
+	return kerrors.NewAggregate(errs)
 }

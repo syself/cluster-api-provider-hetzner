@@ -1,3 +1,4 @@
+// Package server implements functions to manage the lifecycle of Hcloud servers
 package server
 
 import (
@@ -10,7 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/log"
 	corev1 "k8s.io/api/core/v1"
-	errorutil "k8s.io/apimachinery/pkg/util/errors"
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -21,16 +22,19 @@ import (
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
+// Service defines struct with machine scope to reconcile Hcloud machines.
 type Service struct {
 	scope *scope.MachineScope
 }
 
+// NewService outs a new service with machine scope.
 func NewService(scope *scope.MachineScope) *Service {
 	return &Service{
 		scope: scope,
 	}
 }
 
+// Reconcile implements reconcilement of Hcloud machines.
 func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 	// detect failure domain
 	failureDomain, err := s.scope.GetFailureDomain()
@@ -79,9 +83,7 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 		)
 	}
 
-	if err := setStatusFromAPI(&s.scope.HCloudMachine.Status, instance); err != nil {
-		return nil, errors.New("error setting status")
-	}
+	s.scope.HCloudMachine.Status = setStatusFromAPI(instance)
 
 	switch instance.Status {
 	case hcloud.ServerStatusOff:
@@ -148,7 +150,7 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 		return nil, nil
 	}
 
-	if err := errorutil.NewAggregate(errors); err != nil {
+	if err := kerrors.NewAggregate(errors); err != nil {
 		record.Warnf(
 			s.scope.HCloudMachine,
 			"APIServerNotReady",
@@ -289,18 +291,19 @@ func (s *Service) createServer(ctx context.Context, failureDomain string, imageI
 	return res.Server, nil
 }
 
+// Delete implements delete method of server.
 func (s *Service) Delete(ctx context.Context) (_ *ctrl.Result, err error) {
 	// find current server
 	server, err := s.findServer(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to refresh server status")
 	}
-	var result *ctrl.Result
+
 	// If no server has been found then nothing can be deleted
 	if server == nil {
 		s.scope.V(2).Info("Unable to locate HCloud instance by ID or tags")
 		record.Warnf(s.scope.HCloudMachine, "NoInstanceFound", "Unable to find matching HCloud instance for %s", s.scope.Name())
-		return result, nil
+		return nil, nil
 	}
 
 	err = s.deleteServerOfLoadBalancer(ctx, server)
@@ -323,7 +326,6 @@ func (s *Service) Delete(ctx context.Context) (_ *ctrl.Result, err error) {
 		}
 
 	default:
-		//actionWait
 		return &ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 	record.Eventf(
@@ -332,10 +334,11 @@ func (s *Service) Delete(ctx context.Context) (_ *ctrl.Result, err error) {
 		"HCloud server %s deleted",
 		s.scope.Name(),
 	)
-	return result, nil
+	return nil, nil
 }
 
-func setStatusFromAPI(status *infrav1.HCloudMachineStatus, server *hcloud.Server) error {
+func setStatusFromAPI(server *hcloud.Server) infrav1.HCloudMachineStatus {
+	var status infrav1.HCloudMachineStatus
 	s := server.Status
 	status.InstanceState = &s
 	status.Addresses = []corev1.NodeAddress{}
@@ -351,7 +354,7 @@ func setStatusFromAPI(status *infrav1.HCloudMachineStatus, server *hcloud.Server
 	}
 
 	if ip := server.PublicNet.IPv6.IP; ip.IsGlobalUnicast() {
-		ip[15] += 1
+		ip[15]++
 		status.Addresses = append(
 			status.Addresses,
 			corev1.NodeAddress{
@@ -371,7 +374,7 @@ func setStatusFromAPI(status *infrav1.HCloudMachineStatus, server *hcloud.Server
 		)
 	}
 
-	return nil
+	return status
 }
 
 func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *hcloud.Server) error {
@@ -445,13 +448,13 @@ func (s *Service) deleteServerOfLoadBalancer(ctx context.Context, server *hcloud
 	if err != nil {
 		s.scope.V(1).Info("Could not delete server as target of load balancer", "Server", server.ID, "Load Balancer", lb.ID)
 		return err
-	} else {
-		record.Eventf(
-			s.scope.HetznerCluster,
-			"DeletedTargetOfLoadBalancer",
-			"Deleted new server with id %d of the loadbalancer %v",
-			server.ID, lb.ID)
 	}
+	record.Eventf(
+		s.scope.HetznerCluster,
+		"DeletedTargetOfLoadBalancer",
+		"Deleted new server with id %d of the loadbalancer %v",
+		server.ID, lb.ID)
+
 	return nil
 }
 

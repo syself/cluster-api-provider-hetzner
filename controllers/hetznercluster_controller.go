@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package controllers implements controller types.
 package controllers
 
 import (
@@ -360,7 +361,6 @@ func (r *HetznerClusterReconciler) newTargetClusterManager(ctx context.Context, 
 		},
 	)
 	if err != nil {
-		fmt.Println(err.Error())
 		return nil, errors.Wrapf(err, "failed to setup guest cluster manager")
 	}
 
@@ -375,7 +375,7 @@ func (r *HetznerClusterReconciler) newTargetClusterManager(ctx context.Context, 
 	}
 
 	if err := gr.SetupWithManager(ctx, clusterMgr, controller.Options{}); err != nil {
-		errors.Wrapf(err, "failed to setup CSR controller")
+		return nil, errors.Wrapf(err, "failed to setup CSR controller")
 	}
 
 	return clusterMgr, nil
@@ -453,7 +453,7 @@ func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope
 
 	if err := scope.IsControlPlaneReady(ctx, clientConfig); err != nil {
 		log.V(1).Info("Control plane not ready - reconcile target secret again")
-		return nil
+		return err
 	}
 
 	// Control plane ready, so we can check if the secret exists already

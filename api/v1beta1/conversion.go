@@ -16,7 +16,6 @@ limitations under the License.
 
 package v1beta1
 
-
 // Hub marks HetznerCluster as a conversion hub.
 func (*HetznerCluster) Hub() {}
 

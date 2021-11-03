@@ -172,7 +172,7 @@ envsubst: ## Download envsubst locally if neccessary.
 
 GOLANGCI_LINT = $(shell pwd)/hack/tools/bin/golangci-lint
 golang-ci-lint: ## Download golang-ci-lint locally if neccessary.
-	$(call go-get-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint@v1.42.1)
+	$(call go-get-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint@v1.43.0)
 
 HELMIFY = $(shell pwd)/hack/tools/bin/helmify
 helmify: ## Download helmify locally if necessary.
@@ -369,7 +369,6 @@ set-manifest-pull-policy:
 .PHONY: go-lint
 go-lint: golang-ci-lint $(GOLANGCI_LINT) ## Lint Golang codebase
 	$(GOLANGCI_LINT) run -v $(GOLANGCI_LINT_EXTRA_ARGS)
-	cd $(TEST_DIR); $(GOLANGCI_LINT) run -v $(GOLANGCI_LINT_EXTRA_ARGS)
 
 .PHONY: go-lint-fix
 go-lint-fix: golang-ci-lint $(GOLANGCI_LINT) ## Lint the Go codebase and run auto-fixers if supported by the linter.
