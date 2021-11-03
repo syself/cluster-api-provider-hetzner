@@ -21,7 +21,6 @@ import (
 
 	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/packer"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/server"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -45,7 +44,6 @@ type HCloudMachineReconciler struct {
 	client.Client
 	Scheme           *runtime.Scheme
 	WatchFilterValue string
-	Packer           *packer.Packer
 }
 
 // +kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;patch
@@ -67,15 +65,6 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
-	}
-
-	// Initialize Packer
-	if !hcloudMachine.Status.ImageInitialized {
-		if err := r.Packer.Initialize(hcloudMachine); err != nil {
-			log.Error(err, "unable to initialise packer manager")
-			return reconcile.Result{}, err
-		}
-		hcloudMachine.Status.ImageInitialized = true
 	}
 
 	// Fetch the Machine.
@@ -123,7 +112,6 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			Logger:         log,
 			Cluster:        cluster,
 			HetznerCluster: hetznerCluster,
-			Packer:         r.Packer,
 		},
 		Machine:       machine,
 		HCloudMachine: hcloudMachine,

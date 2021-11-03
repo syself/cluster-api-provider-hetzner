@@ -41,8 +41,8 @@ type HCloudMachineSpec struct {
 	// +kubebuilder:validation:Enum=cpx11;cx21;cpx21;cx31;cpx31;cx41;cpx41;cx51;cpx51;cx21-ceph;cx31-ceph;cx41-ceph;cx51-ceph;ccx11;ccx12;ccx21;ccx22;ccx31;ccx32;ccx41;ccx42;ccx51;ccx52;ccx62;
 	Type HCloudMachineTypeSpec `json:"type"`
 
-	// Image is the reference to the Machine Image from which to create the machine instance.
-	Image HCloudMachineImage `json:"image"`
+	// ImageName is the reference to the Machine Image from which to create the machine instance.
+	ImageName string `json:"imageName"`
 
 	// define Machine specific SSH keys, overrides cluster wide SSH keys
 	// +optional
@@ -61,14 +61,7 @@ type HCloudMachineStatus struct {
 	// Addresses contains the server's associated addresses.
 	Addresses []corev1.NodeAddress `json:"addresses,omitempty"`
 
-	// ImageInitialized returns true if the image has been successfully
-	// initialized by packer
-	// +optional
-	ImageInitialized bool `json:"imageInitialized,omitempty"`
-
-	Region      HCloudRegion   `json:"region,omitempty"`
-	NetworkZone *string        `json:"networkZone,omitempty"`
-	ImageID     *HCloudImageID `json:"imageID,omitempty"`
+	Region HCloudRegion `json:"region,omitempty"`
 
 	// InstanceState is the state of the server for this machine.
 	// +optional

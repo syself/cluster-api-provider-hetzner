@@ -13,9 +13,6 @@ type HCloudLoadBalancerAlgorithmType string
 // HCloudMachineTypeSpec defines the HCloud Machine type.
 type HCloudMachineTypeSpec string
 
-// HCloudImageID defines the Image ID for the status.
-type HCloudImageID int
-
 // ResourceLifecycle configures the lifecycle of a resource.
 type ResourceLifecycle string
 
@@ -32,11 +29,4 @@ type HCloudPlacementGroupStatus struct {
 	Server []int  `json:"server,omitempty"`
 	Name   string `json:"name,omitempty"`
 	Type   string `json:"type,omitempty"`
-}
-
-// HCloudMachineImage defines a HCloud Image.
-type HCloudMachineImage struct {
-	Name string `json:"name"`
-	// +optional
-	URL *string `json:"url,omitempty"`
 }

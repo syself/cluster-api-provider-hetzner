@@ -26,7 +26,6 @@ import (
 	"time"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/packer"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/loadbalancer"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/network"
@@ -62,7 +61,6 @@ type HetznerClusterReconciler struct {
 	client.Client
 	Log              logr.Logger
 	Scheme           *runtime.Scheme
-	Packer           *packer.Packer
 	WatchFilterValue string
 
 	targetClusterManagersCancelCtx map[types.NamespacedName]targetClusterManagerCancelCtx
@@ -193,7 +191,6 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		Logger:         log,
 		Cluster:        cluster,
 		HetznerCluster: hetznerCluster,
-		Packer:         r.Packer,
 	})
 	if err != nil {
 		return reconcile.Result{}, errors.Errorf("failed to create scope: %+v", err)
