@@ -13,6 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -21,6 +22,8 @@ import (
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
+
+const maxShutDownTime = 2 * time.Minute
 
 // Service defines struct with machine scope to reconcile Hcloud machines.
 type Service struct {
@@ -99,6 +102,7 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 	if !s.scope.IsControlPlane() {
 		s.scope.HCloudMachine.Spec.ProviderID = &providerID
 		s.scope.HCloudMachine.Status.Ready = true
+		conditions.MarkTrue(s.scope.HCloudMachine, infrav1.InstanceReadyCondition)
 		return nil, nil
 	}
 
@@ -132,6 +136,7 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 
 		s.scope.HCloudMachine.Spec.ProviderID = &providerID
 		s.scope.HCloudMachine.Status.Ready = true
+		conditions.MarkTrue(s.scope.HCloudMachine, infrav1.InstanceReadyCondition)
 		return nil, nil
 	}
 
@@ -339,10 +344,27 @@ func (s *Service) Delete(ctx context.Context) (_ *ctrl.Result, err error) {
 	// First shut the server down, then delete it
 	switch status := server.Status; status {
 	case hcloud.ServerStatusRunning:
-		if _, _, err := s.scope.HCloudClient().ShutdownServer(ctx, server); err != nil {
-			return &reconcile.Result{}, errors.Wrap(err, "failed to shutdown server")
+		// Check if the server has been tried to shut down already and if so,
+		// if time of last condition change + maxWaitTime is already in the past.
+		// With one of these two conditions true, delete server immediately. Otherwise, shut it down and requeue.
+		if conditions.IsTrue(s.scope.HCloudMachine, infrav1.InstanceReadyCondition) ||
+			conditions.IsFalse(s.scope.HCloudMachine, infrav1.InstanceReadyCondition) &&
+				conditions.GetReason(s.scope.HCloudMachine, infrav1.InstanceReadyCondition) == infrav1.InstanceTerminatedReason &&
+				time.Now().Before(conditions.GetLastTransitionTime(s.scope.HCloudMachine, infrav1.InstanceReadyCondition).Time.Add(maxShutDownTime)) {
+			if _, _, err := s.scope.HCloudClient().ShutdownServer(ctx, server); err != nil {
+				return &reconcile.Result{}, errors.Wrap(err, "failed to shutdown server")
+			}
+			conditions.MarkFalse(s.scope.HCloudMachine,
+				infrav1.InstanceReadyCondition,
+				infrav1.InstanceTerminatedReason,
+				clusterv1.ConditionSeverityInfo,
+				"Instance has been shut down")
+			return &ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 		}
-		return &ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+		if _, err := s.scope.HCloudClient().DeleteServer(ctx, server); err != nil {
+			record.Warnf(s.scope.HCloudMachine, "FailedDeleteHCloudServer", "Failed to delete HCloud server %s", s.scope.Name())
+			return &reconcile.Result{}, errors.Wrap(err, "failed to delete server")
+		}
 
 	case hcloud.ServerStatusOff:
 		if _, err := s.scope.HCloudClient().DeleteServer(ctx, server); err != nil {
