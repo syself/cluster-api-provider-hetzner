@@ -105,16 +105,18 @@ func (m *MachineScope) PatchObject(ctx context.Context) error {
 	return m.patchHelper.Patch(ctx, m.HCloudMachine)
 }
 
+// IsBootstrapDataReady checks the readiness of a capi machine's bootstrap data.
 func (m *MachineScope) IsBootstrapDataReady(ctx context.Context) bool {
 	return m.Machine.Spec.Bootstrap.DataSecretName != nil
 }
 
+// GetFailureDomain returns the machine's failure domain or a default one based on a hash.
 func (m *MachineScope) GetFailureDomain() (string, error) {
 	if m.Machine.Spec.FailureDomain != nil {
 		return *m.Machine.Spec.FailureDomain, nil
 	}
 
-	var failureDomainNames []string
+	failureDomainNames := make([]string, 0, len(m.Cluster.Status.FailureDomains))
 	for fdName, fd := range m.Cluster.Status.FailureDomains {
 		// filter out zones if we are a control plane and the cluster object
 		// wants to avoid contorl planes in that zone

@@ -1,3 +1,4 @@
+// Package network implements the lifecycle of Hcloud networks
 package network
 
 import (
@@ -13,10 +14,12 @@ import (
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
+// Service struct contains cluster scope to reconcile networks.
 type Service struct {
 	scope *scope.ClusterScope
 }
 
+// NewService creates a new service object.
 func NewService(scope *scope.ClusterScope) *Service {
 	return &Service{
 		scope: scope,
@@ -30,7 +33,7 @@ func apiToStatus(network *hcloud.Network) *infrav1.NetworkStatus {
 		subnets[pos].CIDRBlock = n.IPRange.String()
 	}
 
-	var attachedServerIDs []int
+	attachedServerIDs := make([]int, 0, len(network.Servers))
 	for _, s := range network.Servers {
 		attachedServerIDs = append(attachedServerIDs, s.ID)
 	}
@@ -51,6 +54,7 @@ func (s *Service) labels() map[string]string {
 	}
 }
 
+// Reconcile implements life cycle of networks.
 func (s *Service) Reconcile(ctx context.Context) (err error) {
 	log.Info("Reconciling network")
 	if !s.scope.HetznerCluster.Spec.NetworkSpec.NetworkEnabled {
@@ -140,6 +144,7 @@ func (s *Service) deleteNetwork(ctx context.Context, status *infrav1.NetworkStat
 	return err
 }
 
+// Delete implements deletion of networks.
 func (s *Service) Delete(ctx context.Context) (err error) {
 	// update current status
 	networkStatus, err := s.actualStatus(ctx)
@@ -161,7 +166,7 @@ func (s *Service) Delete(ctx context.Context) (err error) {
 func (s *Service) actualStatus(ctx context.Context) (*infrav1.NetworkStatus, error) {
 	opts := hcloud.NetworkListOpts{}
 	opts.LabelSelector = utils.LabelsToLabelSelector(s.labels())
-	networks, err := s.scope.HCloudClient().ListNetworks(s.scope.Ctx, opts)
+	networks, err := s.scope.HCloudClient().ListNetworks(ctx, opts)
 	if err != nil {
 		return nil, err
 	}

@@ -1,3 +1,4 @@
+// Package packer implements functions to build and manage images with Packer
 package packer
 
 import (
@@ -16,6 +17,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/hetznercloud/hcloud-go/hcloud"
+	"github.com/pkg/errors"
 	"github.com/prometheus/common/log"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -24,6 +26,7 @@ import (
 
 const envHCloudToken = "HCLOUD_TOKEN"
 
+// Packer stores information about packer binary and current packer builds.
 type Packer struct {
 	log              logr.Logger
 	packerConfigPath string
@@ -56,6 +59,7 @@ func (b *build) Start() error {
 	return err
 }
 
+// New creates new packer struct.
 func New(log logr.Logger) *Packer {
 	return &Packer{
 		log:    log,
@@ -63,8 +67,8 @@ func New(log logr.Logger) *Packer {
 	}
 }
 
+// Initialize downloads the given tar.gz file and checks packer binary and config.
 func (m *Packer) Initialize(machine *infrav1.HCloudMachine) error {
-
 	// if not set packer won't be started
 	if machine.Spec.Image.URL == nil {
 		return nil
@@ -132,7 +136,7 @@ func (m *Packer) initializeConfig() (errr error) {
 }
 
 func (m *Packer) packerCmd(ctx context.Context, args ...string) *exec.Cmd {
-	c := exec.CommandContext(ctx, m.packerPath, args...)
+	c := exec.CommandContext(ctx, m.packerPath, args...) //nolint:gosec
 	c.Env = []string{}
 	return c
 }
@@ -216,7 +220,7 @@ func (m *Packer) EnsureImage(ctx context.Context, log logr.Logger, hc scope.HClo
 	return nil, nil
 }
 
-// ExtractTarGz extracts a tar gz file
+// ExtractTarGz extracts a tar gz file.
 func ExtractTarGz(gzipStream io.Reader) error {
 	uncompressedStream, err := gzip.NewReader(gzipStream)
 	if err != nil {
@@ -246,10 +250,18 @@ func ExtractTarGz(gzipStream io.Reader) error {
 			if err != nil {
 				return fmt.Errorf("ExtractTarGz: Create() failed: %s", err)
 			}
-			if _, err := io.Copy(outFile, tarReader); err != nil {
-				return fmt.Errorf("ExtractTarGz: Copy() failed: %s", err)
+			for {
+				_, err := io.CopyN(outFile, tarReader, 1024)
+				if err != nil {
+					if err == io.EOF {
+						break
+					}
+					return fmt.Errorf("ExtractTarGz: Copy() failed: %s", err)
+				}
 			}
-			outFile.Close()
+			if err := outFile.Close(); err != nil {
+				return errors.Wrap(err, "failed to close file")
+			}
 
 		default:
 			return fmt.Errorf(
@@ -262,10 +274,10 @@ func ExtractTarGz(gzipStream io.Reader) error {
 	return nil
 }
 
-// DownloadFile dowloads a file
+// DownloadFile downloads a file.
 func DownloadFile(filepath string, url string) ([]byte, error) {
 	// Get the data
-	resp, err := http.Get(url)
+	resp, err := http.Get(url) //nolint:gosec
 	if err != nil {
 		return nil, err
 	}

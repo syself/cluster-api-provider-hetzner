@@ -1,3 +1,4 @@
+// Package region implements the lifecycle of Hcloud regions/locations
 package region
 
 import (
@@ -11,10 +12,12 @@ import (
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 )
 
+// Service object for reconciling region.
 type Service struct {
 	scope localScope
 }
 
+// NewService creates new service object for region.
 func NewService(scope localScope) *Service {
 	return &Service{
 		scope: scope,
@@ -37,12 +40,13 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 		allRegionsMap[l.Name] = l
 	}
 
-	var regions []string
+	var regions []string // nolint:prealloc
 	var networkZone *infrav1.HCloudNetworkZone
 
 	// if no regions have been specified, use the default networkZone
 	specRegions := s.scope.GetSpecRegion()
 	if len(specRegions) == 0 {
+		regions = make([]string, 0, len(allRegions))
 		nZ := infrav1.HCloudNetworkZone(hcloud.NetworkZoneEUCentral)
 		networkZone = &nZ
 		for _, l := range allRegions {
@@ -50,6 +54,8 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 				regions = append(regions, l.Name)
 			}
 		}
+	} else {
+		regions = make([]string, 0, len(specRegions))
 	}
 
 	for _, l := range specRegions {

@@ -11,6 +11,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package scope defines cluster and machine scope as well as a repository for the Hetzner API
 package scope
 
 import (
@@ -35,6 +36,7 @@ import (
 
 const defaultControlPlaneAPIEndpointPort = 6443
 
+// Packer interface implementing method EnsureImage.
 type Packer interface {
 	EnsureImage(ctx context.Context, log logr.Logger, hc HCloudClient, imageName string) (*infrav1.HCloudImageID, error)
 }
@@ -232,8 +234,10 @@ func (s *ClusterScope) ListMachines(ctx context.Context) ([]*clusterv1.Machine, 
 	if err := s.Client.List(ctx, &hcloudMachineListRaw, client.InNamespace(s.Namespace())); err != nil {
 		return nil, nil, err
 	}
-	var machineList []*clusterv1.Machine
-	var hcloudMachineList []*infrav1.HCloudMachine
+
+	machineList := make([]*clusterv1.Machine, 0, len(hcloudMachineListRaw.Items))
+	hcloudMachineList := make([]*infrav1.HCloudMachine, 0, len(hcloudMachineListRaw.Items))
+
 	for pos := range hcloudMachineListRaw.Items {
 		hm := &hcloudMachineListRaw.Items[pos]
 		m, ok := machineByHCloudMachineName[hm.Name]
