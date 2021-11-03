@@ -29,12 +29,14 @@ import (
 // log is for logging in this package.
 var hcloudmachinetemplatelog = logf.Log.WithName("hcloudmachinetemplate-resource")
 
+// SetupWebhookWithManager initializes webhook manager for HetznerMachineTemplate.
 func (r *HCloudMachineTemplate) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
 		Complete()
 }
 
+// SetupWebhookWithManager initializes webhook manager for HetznerMachineTemplateList.
 func (r *HCloudMachineTemplateList) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).

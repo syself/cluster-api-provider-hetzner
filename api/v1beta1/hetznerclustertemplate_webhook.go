@@ -30,6 +30,7 @@ import (
 // log is for logging in this package.
 var hetznerclustertemplatelog = logf.Log.WithName("hetznerclustertemplate-resource")
 
+// SetupWebhookWithManager initializes webhook manager for HetznerClusterTemplate.
 func (r *HetznerClusterTemplate) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
