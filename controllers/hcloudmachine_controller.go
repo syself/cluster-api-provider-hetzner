@@ -55,6 +55,7 @@ type HCloudMachineReconciler struct {
 // +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hcloudmachines/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hcloudmachines/finalizers,verbs=update
 
+// Reconcile manages the lifecycle of an HCloud machine object.
 func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
 

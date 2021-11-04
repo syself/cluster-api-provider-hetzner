@@ -31,6 +31,7 @@ import (
 // log is for logging in this package.
 var hetznerclusterlog = logf.Log.WithName("hetznercluster-resource")
 
+// SetupWebhookWithManager initializes webhook manager for HetznerCluster.
 func (r *HetznerCluster) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
@@ -39,6 +40,7 @@ func (r *HetznerCluster) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 // Could go in own webhook file hetznerclusterlist_webhook
 
+// SetupWebhookWithManager initializes webhook manager for HetznerClusterList.
 func (r *HetznerClusterList) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).

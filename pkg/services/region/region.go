@@ -30,6 +30,7 @@ type localScope interface {
 	SetStatusRegion(region []infrav1.HCloudRegion, networkZone infrav1.HCloudNetworkZone)
 }
 
+// Reconcile manages the lifecycle of regions.
 func (s *Service) Reconcile(ctx context.Context) (err error) {
 	allRegions, err := s.scope.HCloudClient().ListLocation(ctx)
 	if err != nil {

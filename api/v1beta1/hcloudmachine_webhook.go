@@ -31,12 +31,14 @@ import (
 // log is for logging in this package.
 var hcloudmachinelog = logf.Log.WithName("hcloudmachine-resource")
 
+// SetupWebhookWithManager initializes webhook manager for HCloudMachine.
 func (r *HCloudMachine) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
 		Complete()
 }
 
+// SetupWebhookWithManager initializes webhook manager for HCloudMachineList.
 func (r *HCloudMachineList) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
