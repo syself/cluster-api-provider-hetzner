@@ -1,20 +1,21 @@
- <!-- If this is your first PR, welcome! Please make sure you read the [contributing guidelines](../CONTRIBUTING.md). -->
+<!-- If this is your first PR, welcome! Please make sure you read the [contributing guidelines](../CONTRIBUTING.md#contributing-a-patch). -->
+<!-- please add a icon to the title of this PR and delete this line and similar ones -->
+<!-- the icon will be either ⚠️ (:warning:, major or breaking changes), ✨ (:sparkles:, feature additions), 🐛 (:bug:, patch and bugfixes), 📖 (:book:, documentation or proposals), or 🌱 (:seedling:, minor or other) -->
 
- <!-- Please label this pull request according to what type of issue you are addressing (see ../CONTRIBUTING.md) -->
 **What type of PR is this?**
 
 <!--
 Add one of the following kinds:
-/kind feature
-/kind bug
-/kind api-change
-/kind cleanup
-/kind deprecation
-/kind design
-/kind documentation
-/kind failing-test
-/kind flake
-/kind other
+/kind feature           New functionality.
+/kind bug               Fixes a newly discovered bug.
+/kind api-change        Adds, removes, or changes an API
+/kind cleanup           Adding tests, refactoring, fixing old bugs.
+/kind deprecation       Related to a feature/enhancement marked for deprecation.
+/kind design            Related to design.
+/kind documentation     Adds documentation.
+/kind failing-test      CI test case is failing consistently.
+/kind flake             CI test case is showing intermittent failures.
+/kind other             Related to updating dependencies, minor changes or other.
 -->
 
 **What this PR does / why we need it**:
@@ -33,11 +34,3 @@ _Please confirm that if this PR changes any image versions, then that's the sole
 - [ ] includes documentation
 - [ ] adds unit tests
 
-**Release note**:
-<!--  Write your release note:
-1. Enter your extended release note in the below block. If the PR requires additional action from users switching to the new release, include the string "action required".
-2. If no release note is required, just write "NONE".
--->
-```release-note
-
-```
