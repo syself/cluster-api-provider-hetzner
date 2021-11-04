@@ -262,8 +262,6 @@ release: clean-release  ## Builds and push container images using the latest git
 	@if [ -z "${RELEASE_TAG}" ]; then echo "RELEASE_TAG is not set"; exit 1; fi
 	@if ! [ -z "$$(git status --porcelain)" ]; then echo "Your local git repository contains uncommitted changes, use git clean before proceeding."; exit 1; fi
 	git checkout "${RELEASE_TAG}"
-	# Build and push image
-	$(MAKE) release-prod
 	# Set the manifest image to the production bucket.
 	$(MAKE) set-manifest-image MANIFEST_IMG=$(PROD_REGISTRY)/$(IMAGE_NAME) MANIFEST_TAG=$(RELEASE_TAG)
 	$(MAKE) set-manifest-pull-policy PULL_POLICY=IfNotPresent
@@ -292,8 +290,8 @@ release-nightly: ## Builds and push container images to the prod bucket.
 	docker build --pull --build-arg ARCH=$(ARCH) --build-arg LDFLAGS="$(LDFLAGS)" . -t $(PROD_REGISTRY)/$(IMAGE_NAME):$(TAG)
 	docker push $(PROD_REGISTRY)/$(IMAGE_NAME):$(TAG)
 
-.PHONY: release-prod
-release-prod: ## Builds and push container images to the prod bucket.
+.PHONY: release-image
+release-image: ## Builds and push container images to the prod bucket.
 	docker build --pull --build-arg ARCH=$(ARCH) --build-arg LDFLAGS="$(LDFLAGS)" . -t $(PROD_REGISTRY)/$(IMAGE_NAME):$(RELEASE_TAG)
 	docker push $(PROD_REGISTRY)/$(IMAGE_NAME):$(RELEASE_TAG)
 
