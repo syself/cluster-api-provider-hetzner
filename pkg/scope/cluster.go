@@ -36,11 +36,6 @@ import (
 
 const defaultControlPlaneAPIEndpointPort = 6443
 
-// Packer interface implementing method EnsureImage.
-type Packer interface {
-	EnsureImage(ctx context.Context, log logr.Logger, hc HCloudClient, imageName string) (*infrav1.HCloudImageID, error)
-}
-
 // ClusterScopeParams defines the input parameters used to create a new Scope.
 type ClusterScopeParams struct {
 	HCloudClient
@@ -51,7 +46,6 @@ type ClusterScopeParams struct {
 	Logger              logr.Logger
 	Cluster             *clusterv1.Cluster
 	HetznerCluster      *infrav1.HetznerCluster
-	Packer              Packer
 }
 
 // NewClusterScope creates a new Scope from the supplied parameters.
@@ -63,13 +57,9 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 	if params.HetznerCluster == nil {
 		return nil, errors.New("failed to generate new scope from nil HetznerCluster")
 	}
-	if params.Packer == nil {
-		return nil, errors.New("failed to generate new scope from nil Packer")
-	}
 	if params.Logger == nil {
 		params.Logger = klogr.New()
 	}
-
 	if params.Ctx == nil {
 		params.Ctx = context.TODO()
 	}
@@ -113,7 +103,6 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 		hcloudClient:   hcc,
 		hcloudToken:    hcloudToken,
 		patchHelper:    helper,
-		packer:         params.Packer,
 	}, nil
 }
 
@@ -125,7 +114,6 @@ type ClusterScope struct {
 	patchHelper  *patch.Helper
 	hcloudClient HCloudClient
 	hcloudToken  string
-	packer       Packer
 
 	Cluster        *clusterv1.Cluster
 	HetznerCluster *infrav1.HetznerCluster

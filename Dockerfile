@@ -39,12 +39,9 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=${ARCH} \
     go build -ldflags "${LDFLAGS} -extldflags '-static'" \
     -o manager main.go
 
-FROM alpine:3.13.6
+FROM gcr.io/distroless/static:nonroot
 WORKDIR /
 COPY --from=builder /workspace/manager .
-ENV PACKER_VERSION=1.7.7
-RUN apk add --update git bash wget
-ADD https://releases.hashicorp.com/packer/${PACKER_VERSION}/packer_${PACKER_VERSION}_linux_amd64.zip ./
-RUN unzip packer_${PACKER_VERSION}_linux_amd64.zip -d /bin
-RUN rm -f packer_${PACKER_VERSION}_linux_amd64.zip
+# Use uid of nonroot user (65532) because kubernetes expects numeric user when applying pod security policies
+USER 65532
 ENTRYPOINT ["/manager"]

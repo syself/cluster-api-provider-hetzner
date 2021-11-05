@@ -89,8 +89,7 @@ spec:
   template:
     spec:
       type: "${HETZNER_CONTROL_PLANE_MACHINE_TYPE}"
-      image: 
-        name: "${IMAGE_NAME}"
+      imageName: "${IMAGE_NAME}"
       placementGroup: control-plane
 ---
 apiVersion: cluster.x-k8s.io/v1beta1
@@ -145,8 +144,7 @@ spec:
   template:
     spec:
       type: "${HETZNER_NODE_MACHINE_TYPE}"
-      image: 
-        name: "${IMAGE_NAME}"
+      imageName: "${IMAGE_NAME}"
       placementGroup: md-0
 ---
 apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3

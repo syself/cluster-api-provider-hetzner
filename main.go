@@ -38,7 +38,6 @@ import (
 
 	infrastructurev1beta1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/controllers"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/packer"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -106,13 +105,9 @@ func main() {
 	// Setup the context that's going to be used in controllers and for the manager.
 	ctx := ctrl.SetupSignalHandler()
 
-	// packerMgr generator, initialization happens in cluster controller.
-	packerMgr := packer.New(ctrl.Log.WithName("module").WithName("packer"))
-
 	if err = (&controllers.HetznerClusterReconciler{
 		Client:           mgr.GetClient(),
 		WatchFilterValue: watchFilterValue,
-		Packer:           packerMgr,
 		Scheme:           mgr.GetScheme(),
 	}).SetupWithManager(ctx, mgr, controller.Options{}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HetznerCluster")
@@ -121,7 +116,6 @@ func main() {
 	if err = (&controllers.HCloudMachineReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
-		Packer:           packerMgr,
 		WatchFilterValue: watchFilterValue,
 	}).SetupWithManager(ctx, mgr, controller.Options{}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HCloudMachine")

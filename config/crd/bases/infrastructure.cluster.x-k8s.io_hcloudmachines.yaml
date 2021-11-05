@@ -61,17 +61,10 @@ spec:
           spec:
             description: HCloudMachineSpec defines the desired state of HCloudMachine.
             properties:
-              image:
-                description: Image is the reference to the Machine Image from which
-                  to create the machine instance.
-                properties:
-                  name:
-                    type: string
-                  url:
-                    type: string
-                required:
-                - name
-                type: object
+              imageName:
+                description: ImageName is the reference to the Machine Image from
+                  which to create the machine instance.
+                type: string
               placementGroup:
                 type: string
               providerID:
@@ -119,7 +112,7 @@ spec:
                 - ccx62
                 type: string
             required:
-            - image
+            - imageName
             - type
             type: object
           status:
@@ -197,17 +190,8 @@ spec:
                   a terminal problem reconciling the Machine and will contain a succinct
                   value suitable for machine interpretation.
                 type: string
-              imageID:
-                description: HCloudImageID defines the Image ID for the status.
-                type: integer
-              imageInitialized:
-                description: ImageInitialized returns true if the image has been successfully
-                  initialized by packer
-                type: boolean
               instanceState:
                 description: InstanceState is the state of the server for this machine.
-                type: string
-              networkZone:
                 type: string
               ready:
                 description: Ready is true when the provider resource is ready.

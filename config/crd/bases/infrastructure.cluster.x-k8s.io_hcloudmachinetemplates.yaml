@@ -70,17 +70,10 @@ spec:
                     description: Spec is the specification of the desired behavior
                       of the machine.
                     properties:
-                      image:
-                        description: Image is the reference to the Machine Image from
-                          which to create the machine instance.
-                        properties:
-                          name:
-                            type: string
-                          url:
-                            type: string
-                        required:
-                        - name
-                        type: object
+                      imageName:
+                        description: ImageName is the reference to the Machine Image
+                          from which to create the machine instance.
+                        type: string
                       placementGroup:
                         type: string
                       providerID:
@@ -128,7 +121,7 @@ spec:
                         - ccx62
                         type: string
                     required:
-                    - image
+                    - imageName
                     - type
                     type: object
                 required:

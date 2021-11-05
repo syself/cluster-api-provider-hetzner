@@ -43,27 +43,12 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 	}
 	s.scope.HCloudMachine.Status.Region = infrav1.HCloudRegion(failureDomain)
 
-	// gather image ID
-
-	imageID, err := s.scope.EnsureImage(ctx, s.scope.HCloudMachine.Spec.Image.Name)
-	if err != nil {
-		record.Warnf(s.scope.HCloudMachine,
-			"FailedEnsuringHCloudImage",
-			"Failed to ensure image for HCloud server %s: %s",
-			s.scope.Name(),
-			err,
-		)
-		return nil, err
-	}
-	// We have to wait for the image and bootstrap data to be ready
-	if imageID == nil {
-		return &ctrl.Result{RequeueAfter: 20 * time.Second}, nil
-	}
-
+	// Waiting for bootstrap data to be ready
 	if !s.scope.IsBootstrapDataReady(s.scope.Ctx) {
 		return &ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
+	// Try to find an existing server
 	instance, err := s.findServer(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get server")
@@ -71,7 +56,7 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 
 	// If no server is found we have to create one
 	if instance == nil {
-		instance, err = s.createServer(s.scope.Ctx, failureDomain, imageID)
+		instance, err = s.createServer(s.scope.Ctx, failureDomain)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to create server")
 		}
@@ -191,9 +176,8 @@ func (s *Service) reconcileNetworkAttachment(ctx context.Context, server *hcloud
 	return nil
 }
 
-func (s *Service) createServer(ctx context.Context, failureDomain string, imageID *infrav1.HCloudImageID) (*hcloud.Server, error) {
-	s.scope.HCloudMachine.Status.ImageID = imageID
-
+// createServer creates a Server from an image.
+func (s *Service) createServer(ctx context.Context, failureDomain string) (*hcloud.Server, error) {
 	// get userData
 	userData, err := s.scope.GetRawBootstrapData(ctx)
 	if err != nil {
@@ -207,14 +191,55 @@ func (s *Service) createServer(ctx context.Context, failureDomain string, imageI
 
 	var myTrue = true
 	var myFalse = false
+	key := fmt.Sprintf("%s%s", infrav1.NameHetznerProviderPrefix, "image-name")
+
+	// query for an existing image by label this is needed because snapshots doesn't have any name only descriptions and labels.
+	listOpts := hcloud.ImageListOpts{
+		ListOpts: hcloud.ListOpts{
+			LabelSelector: fmt.Sprintf("%s==%s", key, s.scope.HCloudMachine.Spec.ImageName),
+		},
+	}
+
+	imagesByLabel, err := s.scope.HCloudClient().ListImages(ctx, listOpts)
+	if err != nil {
+		return nil, err
+	}
+
+	// query for an existing image by name.
+	listOpts = hcloud.ImageListOpts{
+		Name: s.scope.HCloudMachine.Spec.ImageName,
+	}
+	imagesByName, err := s.scope.HCloudClient().ListImages(ctx, listOpts)
+	if err != nil {
+		return nil, err
+	}
+
+	images := append(imagesByLabel, imagesByName...)
+
+	if len(images) > 1 {
+		record.Warnf(s.scope.HCloudMachine,
+			"ImageNameAmbiguous",
+			"%v images have name %s",
+			len(images),
+			s.scope.HCloudMachine.Spec.ImageName,
+		)
+		return nil, fmt.Errorf("image name is ambiguous. %v images have name %s",
+			len(images), s.scope.HCloudMachine.Spec.ImageName)
+	}
+	if len(images) == 0 {
+		record.Warnf(s.scope.HCloudMachine,
+			"ImageNotFound",
+			"No image found with name %s",
+			s.scope.HCloudMachine.Spec.ImageName,
+		)
+		return nil, fmt.Errorf("no image found with name %s", s.scope.HCloudMachine.Spec.ImageName)
+	}
 
 	name := s.scope.Name()
 	opts := hcloud.ServerCreateOpts{
 		Name:   name,
 		Labels: s.createLabels(),
-		Image: &hcloud.Image{
-			ID: int(*s.scope.HCloudMachine.Status.ImageID),
-		},
+		Image:  images[0],
 		Location: &hcloud.Location{
 			Name: failureDomain,
 		},

@@ -27,11 +27,12 @@ settings = {
         "CONTROL_PLANE_MACHINE_COUNT": "3",
         "WORKER_MACHINE_COUNT": "3",
         "KUBERNETES_VERSION": "v1.21.1",
-        "IMAGE": "test-image",
+        "IMAGE_NAME": "test-image",
         "HETZNER_CONTROL_PLANE_MACHINE_TYPE": "cpx31",
         "HETZNER_NODE_MACHINE_TYPE": "cpx31",
         "CLUSTER_NAME": "test",
     },
+    "talos-bootstrap": "false",
 }
 
 keys = ["TOKEN", "HETZNER_SSH_KEY"]
@@ -145,16 +146,11 @@ RUN wget --output-document /restart.sh --quiet https://raw.githubusercontent.com
 
 ## This should have the same versions as the Dockerfile
 tilt_dockerfile_header = """
-FROM alpine:3.13.6 as tilt
+FROM gcr.io/distroless/base:debug as tilt
 WORKDIR /
 COPY --from=tilt-helper /start.sh .
 COPY --from=tilt-helper /restart.sh .
 COPY manager .
-ENV PACKER_VERSION=1.7.7
-RUN apk add --update git bash wget
-ADD https://releases.hashicorp.com/packer/${PACKER_VERSION}/packer_${PACKER_VERSION}_linux_amd64.zip ./
-RUN unzip packer_${PACKER_VERSION}_linux_amd64.zip -d /bin
-RUN rm -f packer_${PACKER_VERSION}_linux_amd64.zip
 """
 
 # Build CAPH and add feature gates

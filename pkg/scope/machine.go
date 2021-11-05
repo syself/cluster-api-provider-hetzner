@@ -80,11 +80,6 @@ func (m *MachineScope) Close() error {
 	return m.patchHelper.Patch(m.Ctx, m.HCloudMachine)
 }
 
-// EnsureImage ensures that a image for a machine is ready.
-func (m *MachineScope) EnsureImage(ctx context.Context, imageName string) (*infrav1.HCloudImageID, error) {
-	return m.packer.EnsureImage(ctx, m, m.hcloudClient, imageName)
-}
-
 // IsControlPlane returns true if the machine is a control plane.
 func (m *MachineScope) IsControlPlane() bool {
 	return util.IsControlPlaneMachine(m.Machine)
