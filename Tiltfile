@@ -27,7 +27,7 @@ settings = {
         "CONTROL_PLANE_MACHINE_COUNT": "3",
         "WORKER_MACHINE_COUNT": "3",
         "KUBERNETES_VERSION": "v1.21.1",
-        "IMAGE": "test",
+        "IMAGE": "test-image",
         "HETZNER_CONTROL_PLANE_MACHINE_TYPE": "cpx31",
         "HETZNER_NODE_MACHINE_TYPE": "cpx31",
         "CLUSTER_NAME": "test",
