@@ -4,6 +4,11 @@ on:
     types: [opened, edited, synchronize, reopened]
     branches:
       - main
+      - 'releases/**'
+    paths:
+      - '**.go'
+      - '**go.mod'
+      - '**go.sum'
 jobs:
   golangci:
     name: lint

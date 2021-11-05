@@ -381,7 +381,7 @@ tiltfile-fix: ## Format Tiltfile
 	./hack/verify-starlark.sh fix
 
 .PHONY: shell-lint
-shell-lint: ## Run all verifications
+shell-lint: ## Runs the shellcheck
 	./hack/verify-shellcheck.sh
 
 
