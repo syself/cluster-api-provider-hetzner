@@ -32,7 +32,7 @@ settings = {
         "HETZNER_NODE_MACHINE_TYPE": "cpx31",
         "CLUSTER_NAME": "test",
     },
-    "talos-bootstrap": "false"
+    "talos-bootstrap": "false",
 }
 
 keys = ["TOKEN", "HETZNER_SSH_KEY"]
