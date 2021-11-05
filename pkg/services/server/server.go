@@ -178,7 +178,6 @@ func (s *Service) reconcileNetworkAttachment(ctx context.Context, server *hcloud
 
 // createServer creates a Server from an image.
 func (s *Service) createServer(ctx context.Context, failureDomain string) (*hcloud.Server, error) {
-
 	// get userData
 	userData, err := s.scope.GetRawBootstrapData(ctx)
 	if err != nil {
@@ -224,16 +223,16 @@ func (s *Service) createServer(ctx context.Context, failureDomain string) (*hclo
 			len(images),
 			s.scope.HCloudMachine.Spec.ImageName,
 		)
-		return nil, fmt.Errorf("Image name is ambiguous. %v images have name %s",
+		return nil, fmt.Errorf("image name is ambiguous. %v images have name %s",
 			len(images), s.scope.HCloudMachine.Spec.ImageName)
 	}
 	if len(images) == 0 {
 		record.Warnf(s.scope.HCloudMachine,
 			"ImageNotFound",
-			"No image found wih name %s",
+			"No image found with name %s",
 			s.scope.HCloudMachine.Spec.ImageName,
 		)
-		return nil, fmt.Errorf("No image found wih name %s", s.scope.HCloudMachine.Spec.ImageName)
+		return nil, fmt.Errorf("no image found with name %s", s.scope.HCloudMachine.Spec.ImageName)
 	}
 
 	name := s.scope.Name()
