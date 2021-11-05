@@ -43,10 +43,8 @@ project, also you can read the [image-builder book](https://image-builder.sigs.k
 Please refer to the image-builder documentation in order to get the latest requirements to build the node images.
 
 In HCloud the following ways are available:
-1. Using an Image from Hetzner and installing required Software via cloud-init (pre-kubeadm/post-kubeadm) commands. You only need to set the right image-name under spec.template.spec.image.name in the HCloudMachineTemplate.
-2. Building a custom image and snapshoting it. For example via packer. Here it's important that a snapshot label is created with the key: "caph-image-name". The value needs also to be set under spec.template.spec.image.name in the HCloudMachineTemplate.
-3. Providing an remote tar.gz archive for packer as a url. Here you need to set spec.template.spec.image.name in the HCloudMachineTemplate and also spec.template.spec.image.url. A valid unpacked packer image could be found unter templates/node-image/test-image
-
+1. Using an Image from Hetzner and installing required Software via cloud-init (pre-kubeadm/post-kubeadm) commands. You only need to set the right image-name under spec.template.spec.imageName in the HCloudMachineTemplate.
+2. Building a custom image and snapshoting it. For example via packer. Here it's important that a snapshot label is created with the key: "caph-image-name". The value needs also to be set under spec.template.spec.imageName in the HCloudMachineTemplate.
 
 To develop/build an image with packer do:
 
@@ -112,6 +110,10 @@ Other needed binaries as kubebuilder are downloaded on-demand via the go-get-too
 
 ### Using Tilt
 
+<p align="center">
+<img alt="tilt" src="../pics/tilt.png" width=800px/>
+</p> 
+
 Provider Integration development requires a lot of iteration, and the “build, tag, push, update deployment” workflow can be very tedious. Tilt makes this process much simpler by watching for updates, then automatically building and deploying them.
 
 Both of the [Tilt](https://tilt.dev) setups below will get you started developing CAPH in a local kind cluster.The main difference is the number of components you will build from source and the scope of the changes you'd like to make. If you only want to make changes in CAPH, then follow [Tilt in CAPH](#tilt-for-dev-in-CAPH).
@@ -138,18 +140,9 @@ cat <<EOF > tilt-settings.json
 EOF
 ```
 
-These are all defaults + mandatory Keys:
+If you want to set own values (for a full list please have a look into the Tiltfile):
 ```shell
 {
-  "allowed_contexts": [
-      "kind-caph"
-  ],
-  "deploy_cert_manager": True,
-  "preload_images_for_kind": True,
-  "kind_cluster_name": "caph",
-  "capi_version": "v1.0.0",
-  "cert_manager_version": "v1.1.0",
-  "kubernetes_version": "v1.21.1",
   "kustomize_substitutions": [
       "TOKEN": "<YOUR-TOKEN>",
       "HETZNER_SSH_KEY": "test",
@@ -228,7 +221,7 @@ cat <<EOF > tilt-settings.json
     "CONTROL_PLANE_MACHINE_COUNT": "3",
     "WORKER_MACHINE_COUNT": "3",
     "KUBERNETES_VERSION": "v1.21.1",
-    "IMAGE": "test",
+    "IMAGE_NAME": "test",
     "HETZNER_CONTROL_PLANE_MACHINE_TYPE": "cpx31",
     "HETZNER_NODE_MACHINE_TYPE": "cpx31",
     "CLUSTER_NAME": "test"
@@ -276,10 +269,11 @@ $ make delete-workload-cluster
 ### Submitting PRs and testing
 
 Pull requests and issues are highly encouraged!
+For more information please have a look in the [Contribution Guidelines](../../CONTRIBUTING.md)
 If you're interested in submitting PRs to the project, please be sure to run some initial checks prior to submission:
 
 ```shell
-$ make lint # Runs a suite of quick scripts to check code structure
+$ make go-lint # Runs a suite of quick scripts to check code structure
 $ make test # Runs tests on the Go code
 ```
 
