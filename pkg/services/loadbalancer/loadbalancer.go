@@ -143,7 +143,7 @@ func (s *Service) createLoadBalancer(ctx context.Context) (*hcloud.LoadBalancer,
 			Type: algType,
 		},
 		Location: &hcloud.Location{
-			Name: s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Region,
+			Name: string(s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Region),
 		},
 		Network: &hcloud.Network{
 			ID: s.scope.HetznerCluster.Status.Network.ID,

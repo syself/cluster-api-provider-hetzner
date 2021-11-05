@@ -41,7 +41,7 @@ type NetworkStatus struct {
 type Subnets []SubnetSpec
 
 // HCloudRegion is a Hetzner Location
-// +kubebuilder:validation:Enum=fsn1;hel1;nbg1
+// +kubebuilder:validation:Enum=fsn1;hel1;nbg1;ash
 type HCloudRegion string
 
 // HCloudNetworkZone describes the Network zone.

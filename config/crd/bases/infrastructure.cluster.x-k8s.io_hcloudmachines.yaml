@@ -202,6 +202,7 @@ spec:
                 - fsn1
                 - hel1
                 - nbg1
+                - ash
                 type: string
             type: object
         type: object

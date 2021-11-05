@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"errors"
 	"fmt"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -30,6 +31,16 @@ import (
 
 // log is for logging in this package.
 var hetznerclusterlog = logf.Log.WithName("hetznercluster-resource")
+
+var regionsEUCentral = []string{
+	"fsn1",
+	"nbg1",
+	"hel1",
+}
+
+// var regionsUSEast = []string{
+// 	"ash",
+// }
 
 // SetupWebhookWithManager initializes webhook manager for HetznerCluster.
 func (r *HetznerCluster) SetupWebhookWithManager(mgr ctrl.Manager) error {
@@ -60,7 +71,40 @@ var _ webhook.Validator = &HetznerCluster{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
 func (r *HetznerCluster) ValidateCreate() error {
+	// Check whether regions are all in same network zone
+	return areRegionsInSameNetworkZone(r.Spec.ControlPlaneRegion)
+}
+
+func areRegionsInSameNetworkZone(regions []HCloudRegion) error {
+	if len(regions) == 0 {
+		return nil
+	}
+
+	var foundEUCentralRegion bool
+	var foundUSEastRegion bool
+
+	for _, region := range regions {
+		if isStringinArray(regionsEUCentral, string(region)) {
+			foundEUCentralRegion = true
+		} else if isStringinArray(regionsEUCentral, string(region)) {
+			foundUSEastRegion = true
+		}
+	}
+
+	if foundEUCentralRegion && foundUSEastRegion {
+		return errors.New("regions are not in one network zone")
+	}
+
 	return nil
+}
+
+func isStringinArray(arr []string, str string) bool {
+	for _, s := range arr {
+		if s == str {
+			return true
+		}
+	}
+	return false
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
@@ -75,17 +119,17 @@ func (r *HetznerCluster) ValidateUpdate(old runtime.Object) error {
 	}
 
 	oldRegion := sets.NewString()
-	for _, l := range oldC.Spec.Region {
+	for _, l := range oldC.Spec.ControlPlaneRegion {
 		oldRegion.Insert(string(l))
 	}
 	newRegion := sets.NewString()
-	for _, l := range r.Spec.Region {
+	for _, l := range r.Spec.ControlPlaneRegion {
 		newRegion.Insert(string(l))
 	}
 
 	if !oldRegion.Equal(newRegion) {
 		allErrs = append(allErrs,
-			field.Invalid(field.NewPath("spec", "region"), r.Spec.Region, "field is immutable"),
+			field.Invalid(field.NewPath("spec", "region"), r.Spec.ControlPlaneRegion, "field is immutable"),
 		)
 	}
 
