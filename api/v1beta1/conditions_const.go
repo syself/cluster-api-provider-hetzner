@@ -47,6 +47,15 @@ const (
 )
 
 const (
+	// LoadBalancerAttachedToNetworkCondition reports on whether the load balancer is attached to a network.
+	LoadBalancerAttachedToNetworkCondition clusterv1.ConditionType = "LoadBalancerAttachedToNetwork"
+	// LoadBalancerAttachFailedReason is used when load balancer could not be attached to network.
+	LoadBalancerAttachFailedReason = "LoadBalancerAttachFailed"
+	// LoadBalancerNoNetworkFoundReason is used when load balancer could not be attached to network.
+	LoadBalancerNoNetworkFoundReason = "LoadBalancerNoNetworkFound"
+)
+
+const (
 	// InstanceReadyCondition reports on current status of the instance. Ready indicates the instance is in a Running state.
 	InstanceReadyCondition clusterv1.ConditionType = "InstanceReady"
 	// InstanceNotFoundReason used when the instance couldn't be retrieved.

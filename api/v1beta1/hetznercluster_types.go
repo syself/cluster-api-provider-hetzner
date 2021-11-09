@@ -81,22 +81,15 @@ type HCloudLoadBalancerSpec struct {
 
 	// +kubebuilder:validation:Enum=fsn1;hel1;nbg1
 	Region string `json:"region"`
-
-	ID string `json:"id,omitempty"`
 }
 
 // HCloudLoadBalancerStatus defines the obeserved state of the control plane loadbalancer.
 type HCloudLoadBalancerStatus struct {
-	ID                int                             `json:"id,omitempty"`
-	Name              string                          `json:"name,omitempty"`
-	Type              string                          `json:"type,omitempty"`
-	IPv4              string                          `json:"ipv4,omitempty"`
-	IPv6              string                          `json:"ipv6,omitempty"`
-	InternalIP        string                          `json:"internalIP,omitempty"`
-	Labels            map[string]string               `json:"labels,omitempty"`
-	Algorithm         HCloudLoadBalancerAlgorithmType `json:"algorithm,omitempty"`
-	Target            []int                           `json:"target,omitempty"`
-	AttachedToNetwork bool                            `json:"attachedToNetwork,omitempty"`
+	ID         int    `json:"id,omitempty"`
+	IPv4       string `json:"ipv4,omitempty"`
+	IPv6       string `json:"ipv6,omitempty"`
+	InternalIP string `json:"internalIP,omitempty"`
+	Target     []int  `json:"target,omitempty"`
 }
 
 // HetznerClusterStatus defines the observed state of HetznerCluster.

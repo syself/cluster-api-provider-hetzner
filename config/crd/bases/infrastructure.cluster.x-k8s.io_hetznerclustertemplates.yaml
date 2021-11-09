@@ -115,8 +115,6 @@ spec:
                             - round_robin
                             - least_connections
                             type: string
-                          id:
-                            type: string
                           name:
                             type: string
                           region:

@@ -80,8 +80,6 @@ spec:
                     - round_robin
                     - least_connections
                     type: string
-                  id:
-                    type: string
                   name:
                     type: string
                   region:
@@ -264,15 +262,6 @@ spec:
                 description: HCloudLoadBalancerStatus defines the obeserved state
                   of the control plane loadbalancer.
                 properties:
-                  algorithm:
-                    description: HCloudLoadBalancerAlgorithmType defines the Algorithm
-                      type.
-                    enum:
-                    - round_robin
-                    - least_connections
-                    type: string
-                  attachedToNetwork:
-                    type: boolean
                   id:
                     type: integer
                   internalIP:
@@ -281,18 +270,10 @@ spec:
                     type: string
                   ipv6:
                     type: string
-                  labels:
-                    additionalProperties:
-                      type: string
-                    type: object
-                  name:
-                    type: string
                   target:
                     items:
                       type: integer
                     type: array
-                  type:
-                    type: string
                 type: object
               controlPlaneRegion:
                 items:
