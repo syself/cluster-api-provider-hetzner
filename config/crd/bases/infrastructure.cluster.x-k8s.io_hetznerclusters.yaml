@@ -164,24 +164,19 @@ spec:
                   left empty no private Network is configured.
                 properties:
                   cidrBlock:
+                    default: 10.0.0.0/16
                     description: Defines the cidrBlock of the Hetzner Network. A Subnet
                       is required.
                     type: string
                   enabled:
                     type: boolean
-                  subnets:
-                    description: Defines subnets. We don't have logic yet to support
-                      multiple subnets.
-                    items:
-                      description: SubnetSpec configures an Hetzner Cloud Subnet.
-                      properties:
-                        cidrBlock:
-                          type: string
-                        networkZone:
-                          description: HCloudNetworkZone describes the Network zone.
-                          type: string
-                      type: object
-                    type: array
+                  networkZone:
+                    default: eu-central
+                    description: HCloudNetworkZone describes the Network zone.
+                    type: string
+                  subnetCidrBlock:
+                    default: 10.0.0.0/24
+                    type: string
                 required:
                 - enabled
                 type: object
@@ -306,22 +301,8 @@ spec:
                     items:
                       type: integer
                     type: array
-                  cidrBlock:
-                    type: string
                   id:
                     type: integer
-                  subnets:
-                    description: Subnets is a slice of Subnet.
-                    items:
-                      description: SubnetSpec configures an Hetzner Cloud Subnet.
-                      properties:
-                        cidrBlock:
-                          type: string
-                        networkZone:
-                          description: HCloudNetworkZone describes the Network zone.
-                          type: string
-                      type: object
-                    type: array
                 type: object
               placementGroup:
                 items:
