@@ -8,6 +8,8 @@ import (
 	"github.com/hetznercloud/hcloud-go/hcloud"
 	"github.com/pkg/errors"
 	"k8s.io/apiserver/pkg/storage/names"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 
@@ -33,22 +35,17 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 	log := ctrl.LoggerFrom(ctx)
 	log.Info("Reconcile load balancer")
 
-	var lbStatus infrav1.HCloudLoadBalancerStatus
-
 	// find load balancer
 	lb, err := findLoadBalancer(s.scope)
 	if err != nil {
 		return errors.Wrap(err, "failed to find load balancer")
 	}
 
-	if lb != nil {
-		lbStatus, err = s.apiToStatus(lb)
+	if lb == nil {
+		lb, err = s.createLoadBalancer(ctx)
 		if err != nil {
-			return errors.Wrap(err, "failed to obtain load balancer status")
+			return errors.Wrap(err, "failed to create load balancer")
 		}
-		s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer = lbStatus
-	} else if lb, err = s.createLoadBalancer(ctx, s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer); err != nil {
-		return errors.Wrap(err, "failed to create load balancer")
 	}
 
 	// reconcile network attachement
@@ -57,11 +54,7 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 	}
 
 	// update current status
-	lbStatus, err = s.apiToStatus(lb)
-	if err != nil {
-		return errors.Wrap(err, "failed to refresh load balancer status")
-	}
-	s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer = lbStatus
+	s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer = s.apiToStatus(lb)
 
 	return nil
 }
@@ -74,46 +67,56 @@ func (s *Service) reconcileNetworkAttachement(ctx context.Context, lb *hcloud.Lo
 
 	// attach load balancer to network
 	if s.scope.HetznerCluster.Status.Network == nil {
-		return errors.New("no network set on the cluster")
+		conditions.MarkFalse(s.scope.HetznerCluster,
+			infrav1.LoadBalancerAttachedToNetworkCondition,
+			infrav1.LoadBalancerNoNetworkFoundReason,
+			clusterv1.ConditionSeverityInfo,
+			"no network found")
+		return nil
 	}
 
-	networkID := s.scope.HetznerCluster.Status.Network.ID
-
-	opts := hcloud.LoadBalancerAttachToNetworkOpts{
+	if _, _, err := s.scope.HCloudClient().AttachLoadBalancerToNetwork(ctx, lb, hcloud.LoadBalancerAttachToNetworkOpts{
 		Network: &hcloud.Network{
-			ID: networkID,
+			ID: s.scope.HetznerCluster.Status.Network.ID,
 		},
-	}
-
-	if _, _, err := s.scope.HCloudClient().AttachLoadBalancerToNetwork(ctx, lb, opts); err != nil {
+	}); err != nil {
+		// In case lb is already attached don't raise an error
+		if hcloud.IsError(err, hcloud.ErrorCodeLoadBalancerAlreadyAttached) {
+			return nil
+		}
 		record.Warnf(
 			s.scope.HetznerCluster,
 			"FailedAttachLoadBalancer",
 			"Failed to attach load balancer to network: %s",
 			err)
+		conditions.MarkFalse(s.scope.HetznerCluster,
+			infrav1.LoadBalancerAttachedToNetworkCondition,
+			infrav1.LoadBalancerAttachFailedReason,
+			clusterv1.ConditionSeverityError,
+			err.Error())
 		return errors.Wrap(err, "failed to attach load balancer to network")
 	}
+
+	conditions.MarkTrue(s.scope.HetznerCluster, infrav1.LoadBalancerAttachedToNetworkCondition)
 
 	return nil
 }
 
-func (s *Service) createLoadBalancer(ctx context.Context, spec infrav1.HCloudLoadBalancerSpec) (*hcloud.LoadBalancer, error) {
+func (s *Service) createLoadBalancer(ctx context.Context) (*hcloud.LoadBalancer, error) {
 	log := ctrl.LoggerFrom(ctx)
 
-	log.Info("Create a new loadbalancer", "algorithm type", spec.Algorithm)
+	log.Info("Create a new loadbalancer", "algorithm type", s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Algorithm)
 
 	// gather algorithm type
 	var algType hcloud.LoadBalancerAlgorithmType
-	switch spec.Algorithm {
+	switch s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Algorithm {
 	case infrav1.HCloudLoadBalancerAlgorithmTypeLeastConnections:
 		algType = hcloud.LoadBalancerAlgorithmTypeRoundRobin
 	case infrav1.HCloudLoadBalancerAlgorithmTypeRoundRobin:
 		algType = hcloud.LoadBalancerAlgorithmTypeLeastConnections
 	default:
-		return nil, fmt.Errorf("error invalid load balancer algorithm type: %s", spec.Algorithm)
+		return nil, fmt.Errorf("error invalid load balancer algorithm type: %s", s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Algorithm)
 	}
-
-	loadBalancerAlgorithm := &hcloud.LoadBalancerAlgorithm{Type: algType}
 
 	name := names.SimpleNameGenerator.GenerateName(s.scope.HetznerCluster.Name + "-kube-apiserver-")
 	if s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Name != nil {
@@ -121,49 +124,41 @@ func (s *Service) createLoadBalancer(ctx context.Context, spec infrav1.HCloudLoa
 	}
 
 	// Get the Hetzner cloud object of load balancer type
-	loadBalancerType, _, err := s.scope.HCloudClient().GetLoadBalancerTypeByName(ctx, spec.Type)
+	loadBalancerType, _, err := s.scope.HCloudClient().GetLoadBalancerTypeByName(ctx, s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Type)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to find load balancer type")
 	}
 
-	location := &hcloud.Location{Name: s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Region}
+	var proxyprotocol bool
 
-	var network *hcloud.Network
-
-	if s.scope.HetznerCluster.Status.Network != nil {
-		networkID := s.scope.HetznerCluster.Status.Network.ID
-		network, _, err := s.scope.HCloudClient().GetNetwork(ctx, networkID)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to list networks")
-		}
-		if network == nil {
-			return nil, fmt.Errorf("could not find network with ID %v", networkID)
-		}
-	}
-
-	var mybool bool
 	// The first service in the list is the one of kubeAPI
 	kubeAPISpec := s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Services[0]
 
-	createServiceOpts := hcloud.LoadBalancerCreateOptsService{
-		Protocol:        hcloud.LoadBalancerServiceProtocol(kubeAPISpec.Protocol),
-		ListenPort:      &kubeAPISpec.ListenPort,
-		DestinationPort: &kubeAPISpec.DestinationPort,
-		Proxyprotocol:   &mybool,
-	}
-
 	clusterTagKey := infrav1.ClusterTagKey(s.scope.HetznerCluster.Name)
-
-	labels := map[string]string{clusterTagKey: string(infrav1.ResourceLifecycleOwned)}
 
 	opts := hcloud.LoadBalancerCreateOpts{
 		LoadBalancerType: loadBalancerType,
 		Name:             name,
-		Algorithm:        loadBalancerAlgorithm,
-		Location:         location,
-		Network:          network,
-		Labels:           labels,
-		Services:         []hcloud.LoadBalancerCreateOptsService{createServiceOpts},
+		Algorithm: &hcloud.LoadBalancerAlgorithm{
+			Type: algType,
+		},
+		Location: &hcloud.Location{
+			Name: s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Region,
+		},
+		Network: &hcloud.Network{
+			ID: s.scope.HetznerCluster.Status.Network.ID,
+		},
+		Labels: map[string]string{
+			clusterTagKey: string(infrav1.ResourceLifecycleOwned),
+		},
+		Services: []hcloud.LoadBalancerCreateOptsService{
+			{
+				Protocol:        hcloud.LoadBalancerServiceProtocol(kubeAPISpec.Protocol),
+				ListenPort:      &kubeAPISpec.ListenPort,
+				DestinationPort: &kubeAPISpec.DestinationPort,
+				Proxyprotocol:   &proxyprotocol,
+			},
+		},
 	}
 
 	res, _, err := s.scope.HCloudClient().CreateLoadBalancer(ctx, opts)
@@ -173,7 +168,7 @@ func (s *Service) createLoadBalancer(ctx context.Context, spec infrav1.HCloudLoa
 			"FailedCreateLoadBalancer",
 			"Failed to create load balancer: %s",
 			err)
-		return nil, fmt.Errorf("error creating load balancer: %s", err)
+		return nil, errors.Wrap(err, "error creating load balancer")
 	}
 
 	// If there is more than one service in the specs, add them here one after another
@@ -184,7 +179,7 @@ func (s *Service) createLoadBalancer(ctx context.Context, spec infrav1.HCloudLoa
 				Protocol:        hcloud.LoadBalancerServiceProtocol(spec.Protocol),
 				ListenPort:      &spec.ListenPort,
 				DestinationPort: &spec.DestinationPort,
-				Proxyprotocol:   &mybool,
+				Proxyprotocol:   &proxyprotocol,
 			}
 			_, _, err := s.scope.HCloudClient().AddServiceToLoadBalancer(ctx, res.LoadBalancer, serviceOpts)
 			if err != nil {
@@ -202,19 +197,19 @@ func (s *Service) Delete(ctx context.Context) (err error) {
 		record.Eventf(s.scope.HetznerCluster, "FailedLoadBalancerDelete", "Failed to delete load balancer: %s", err)
 		return errors.Wrap(err, "failed to delete load balancer")
 	}
-
 	record.Eventf(s.scope.HetznerCluster, "DeleteLoadBalancer", "Deleted load balancer")
-
 	return nil
 }
 
 func findLoadBalancer(scope *scope.ClusterScope) (*hcloud.LoadBalancer, error) {
 	clusterTagKey := infrav1.ClusterTagKey(scope.HetznerCluster.Name)
-	labels := map[string]string{clusterTagKey: string(infrav1.ResourceLifecycleOwned)}
-	opts := hcloud.LoadBalancerListOpts{}
-	opts.LabelSelector = utils.LabelsToLabelSelector(labels)
-
-	loadBalancers, err := scope.HCloudClient().ListLoadBalancers(scope.Ctx, opts)
+	loadBalancers, err := scope.HCloudClient().ListLoadBalancers(scope.Ctx, hcloud.LoadBalancerListOpts{
+		ListOpts: hcloud.ListOpts{
+			LabelSelector: utils.LabelsToLabelSelector(map[string]string{
+				clusterTagKey: string(infrav1.ResourceLifecycleOwned),
+			}),
+		},
+	})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to list load balancers")
 	}
@@ -229,7 +224,7 @@ func findLoadBalancer(scope *scope.ClusterScope) (*hcloud.LoadBalancer, error) {
 }
 
 // gets the information of the Hetzner load balancer object and returns it in our status object.
-func (s *Service) apiToStatus(lb *hcloud.LoadBalancer) (status infrav1.HCloudLoadBalancerStatus, err error) {
+func (s *Service) apiToStatus(lb *hcloud.LoadBalancer) infrav1.HCloudLoadBalancerStatus {
 	ipv4 := lb.PublicNet.IPv4.IP.String()
 	ipv6 := lb.PublicNet.IPv6.IP.String()
 
@@ -238,35 +233,16 @@ func (s *Service) apiToStatus(lb *hcloud.LoadBalancer) (status infrav1.HCloudLoa
 		internalIP = lb.PrivateNet[0].IP.String()
 	}
 
-	var algType infrav1.HCloudLoadBalancerAlgorithmType
-
-	switch lb.Algorithm.Type {
-	case hcloud.LoadBalancerAlgorithmTypeRoundRobin:
-		algType = infrav1.HCloudLoadBalancerAlgorithmTypeRoundRobin
-	case hcloud.LoadBalancerAlgorithmTypeLeastConnections:
-		algType = infrav1.HCloudLoadBalancerAlgorithmTypeLeastConnections
-	default:
-		return status, fmt.Errorf("unknown load balancer algorithm type: %s", lb.Algorithm.Type)
-	}
-
 	targetIDs := make([]int, 0, len(lb.Targets))
-
 	for _, server := range lb.Targets {
 		targetIDs = append(targetIDs, server.Server.Server.ID)
 	}
 
-	attachedToNetwork := len(lb.PrivateNet) > 0
-
 	return infrav1.HCloudLoadBalancerStatus{
-		ID:                lb.ID,
-		Name:              lb.Name,
-		Type:              lb.LoadBalancerType.Name,
-		IPv4:              ipv4,
-		IPv6:              ipv6,
-		InternalIP:        internalIP,
-		Labels:            lb.Labels,
-		Algorithm:         algType,
-		Target:            targetIDs,
-		AttachedToNetwork: attachedToNetwork,
-	}, nil
+		ID:         lb.ID,
+		IPv4:       ipv4,
+		IPv6:       ipv6,
+		InternalIP: internalIP,
+		Target:     targetIDs,
+	}
 }

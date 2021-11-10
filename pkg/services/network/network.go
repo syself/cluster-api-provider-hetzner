@@ -7,7 +7,7 @@ import (
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
 	"github.com/pkg/errors"
-	"github.com/prometheus/common/log"
+	"sigs.k8s.io/cluster-api/util/record"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
@@ -56,7 +56,7 @@ func (s *Service) labels() map[string]string {
 
 // Reconcile implements life cycle of networks.
 func (s *Service) Reconcile(ctx context.Context) (err error) {
-	log.Info("Reconciling network")
+	s.scope.Info("Reconciling network")
 	if !s.scope.HetznerCluster.Spec.NetworkSpec.NetworkEnabled {
 		return nil
 	}
@@ -98,7 +98,6 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 func (s *Service) createNetwork(ctx context.Context, spec *infrav1.NetworkSpec) (*infrav1.NetworkStatus, error) {
 	hc := s.scope.HetznerCluster
 
-	s.scope.V(2).Info("Create a new network", "cidrBlock", spec.CIDRBlock, "subnets", spec.Subnets)
 	_, network, err := net.ParseCIDR(spec.CIDRBlock)
 	if err != nil {
 		return nil, errors.Wrapf(err, "invalid network '%s'", spec.CIDRBlock)
@@ -122,12 +121,21 @@ func (s *Service) createNetwork(ctx context.Context, spec *infrav1.NetworkSpec) 
 		Subnets: subnets,
 	}
 
-	s.scope.V(1).Info("Create a new network", "opts", opts)
-
 	respNetworkCreate, _, err := s.scope.HCloudClient().CreateNetwork(ctx, opts)
 	if err != nil {
+		record.Warnf(
+			s.scope.HetznerCluster,
+			"NetworkCreatedFailed",
+			"Failed to create network with opts %s",
+			opts)
 		return nil, errors.Wrap(err, "error creating network")
 	}
+
+	record.Eventf(
+		s.scope.HetznerCluster,
+		"NetworkCreated",
+		"Created network with opts %s",
+		opts)
 
 	return apiToStatus(respNetworkCreate), nil
 }
@@ -136,11 +144,24 @@ func (s *Service) deleteNetwork(ctx context.Context, status *infrav1.NetworkStat
 	// ensure deleted network is actually owned by us
 	clusterTagKey := infrav1.ClusterTagKey(s.scope.HetznerCluster.Name)
 	if status.Labels == nil || infrav1.ResourceLifecycle(status.Labels[clusterTagKey]) != infrav1.ResourceLifecycleOwned {
-		s.scope.V(3).Info("Ignore request to delete network, as it is not owned", "id", status.ID, "cidrBlock", status.CIDRBlock)
+		s.scope.V(2).Info("Ignore request to delete network, as it is not owned", "id", status.ID, "cidrBlock", status.CIDRBlock)
 		return nil
 	}
 	_, err := s.scope.HCloudClient().DeleteNetwork(ctx, &hcloud.Network{ID: status.ID})
-	s.scope.V(2).Info("Delete network", "id", status.ID, "cidrBlock", status.CIDRBlock)
+	if err != nil {
+		record.Warnf(
+			s.scope.HetznerCluster,
+			"NetworkDeleteFailed",
+			"Failed to delete network with status %s",
+			status)
+		return err
+	}
+	record.Eventf(
+		s.scope.HetznerCluster,
+		"NetworkDeleted",
+		"Deleted network with status %s",
+		status)
+	s.scope.V(1).Info("Delete network", "id", status.ID, "cidrBlock", status.CIDRBlock)
 	return err
 }
 

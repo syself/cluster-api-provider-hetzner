@@ -4,7 +4,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
@@ -172,7 +171,7 @@ func (s *Service) reconcileNetworkAttachment(ctx context.Context, server *hcloud
 		},
 	}); err != nil {
 		// Check if network status is old and server is in fact already attached
-		if strings.Contains(err.Error(), "already attached") {
+		if hcloud.IsError(err, hcloud.ErrorCodeServerAlreadyAttached) {
 			return nil
 		}
 		return errors.Wrap(err, "failed to attach server to network")
@@ -443,7 +442,7 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 	}
 
 	// If load balancer has not been attached to a network, then it cannot add a server with private IP
-	if hasPrivateIP && !s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.AttachedToNetwork {
+	if hasPrivateIP && !conditions.IsFalse(s.scope.HetznerCluster, infrav1.LoadBalancerAttachedToNetworkCondition) {
 		return nil
 	}
 
@@ -456,7 +455,7 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 			ID: s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID,
 		}); err != nil {
 		// Check if load balancer status is old and server is in fact already attached
-		if strings.Contains(err.Error(), "target_already_defined") {
+		if hcloud.IsError(err, hcloud.ErrorCodeTargetAlreadyDefined) {
 			return nil
 		}
 		s.scope.V(1).Info("Could not add server as target to load balancer",
