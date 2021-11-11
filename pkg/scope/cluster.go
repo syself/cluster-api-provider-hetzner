@@ -146,15 +146,13 @@ func (s *ClusterScope) HCloudClient() HCloudClient {
 
 // GetSpecRegion returns a region.
 func (s *ClusterScope) GetSpecRegion() []infrav1.HCloudRegion {
-	return s.HetznerCluster.Spec.Region
+	return s.HetznerCluster.Spec.ControlPlaneRegion
 }
 
-// SetStatusRegion sets the region for the status.
-func (s *ClusterScope) SetStatusRegion(locations []infrav1.HCloudRegion, networkZone infrav1.HCloudNetworkZone) {
-	s.HetznerCluster.Spec.Region = locations
-	s.HetznerCluster.Status.Region = locations
+// SetStatusFailureDomain sets the region for the status.
+func (s *ClusterScope) SetStatusFailureDomain(regions []infrav1.HCloudRegion) {
 	s.HetznerCluster.Status.FailureDomains = make(clusterv1.FailureDomains)
-	for _, l := range locations {
+	for _, l := range regions {
 		s.HetznerCluster.Status.FailureDomains[string(l)] = clusterv1.FailureDomainSpec{
 			ControlPlane: true,
 		}

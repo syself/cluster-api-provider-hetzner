@@ -118,10 +118,12 @@ spec:
                           name:
                             type: string
                           region:
+                            description: HCloudRegion is a Hetzner Location
                             enum:
                             - fsn1
                             - hel1
                             - nbg1
+                            - ash
                             type: string
                           services:
                             description: Defines how traffic will be routed from the
@@ -170,7 +172,9 @@ spec:
                           - fsn1
                           - hel1
                           - nbg1
+                          - ash
                           type: string
+                        minItems: 1
                         type: array
                       hcloudTokenRef:
                         description: HcloudTokenRef is a reference to a token to be

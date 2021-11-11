@@ -30,7 +30,6 @@ import (
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/loadbalancer"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/network"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/placementgroup"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/services/region"
 	certificatesv1 "k8s.io/api/certificates/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -225,10 +224,8 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 		return ctrl.Result{}, err
 	}
 
-	// ensure a valid location is set
-	if err := region.NewService(clusterScope).Reconcile(ctx); err != nil {
-		return reconcile.Result{}, errors.Wrapf(err, "failed to reconcile location for HetznerCluster %s/%s", hetznerCluster.Namespace, hetznerCluster.Name)
-	}
+	// set failure domains in status using information in spec
+	clusterScope.SetStatusFailureDomain(clusterScope.GetSpecRegion())
 
 	// reconcile the network
 	if err := network.NewService(clusterScope).Reconcile(ctx); err != nil {

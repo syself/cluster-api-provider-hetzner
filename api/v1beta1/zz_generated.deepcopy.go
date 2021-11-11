@@ -421,8 +421,8 @@ func (in *HetznerClusterList) DeepCopyObject() runtime.Object {
 func (in *HetznerClusterSpec) DeepCopyInto(out *HetznerClusterSpec) {
 	*out = *in
 	in.NetworkSpec.DeepCopyInto(&out.NetworkSpec)
-	if in.Region != nil {
-		in, out := &in.Region, &out.Region
+	if in.ControlPlaneRegion != nil {
+		in, out := &in.ControlPlaneRegion, &out.ControlPlaneRegion
 		*out = make([]HCloudRegion, len(*in))
 		copy(*out, *in)
 	}
@@ -468,11 +468,6 @@ func (in *HetznerClusterStatus) DeepCopyInto(out *HetznerClusterStatus) {
 		in, out := &in.Network, &out.Network
 		*out = new(NetworkStatus)
 		(*in).DeepCopyInto(*out)
-	}
-	if in.Region != nil {
-		in, out := &in.Region, &out.Region
-		*out = make([]HCloudRegion, len(*in))
-		copy(*out, *in)
 	}
 	in.ControlPlaneLoadBalancer.DeepCopyInto(&out.ControlPlaneLoadBalancer)
 	if in.PlacementGroup != nil {
