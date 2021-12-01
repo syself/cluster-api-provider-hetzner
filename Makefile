@@ -270,7 +270,7 @@ release: clean-release  ## Builds and push container images using the latest git
 	$(MAKE) release-templates
 
 .PHONY: release-manifests
-release-manifests: manifests $(KUSTOMIZE) $(RELEASE_DIR) ## Builds the manifests to publish with a release
+release-manifests: manifests kustomize $(RELEASE_DIR) ## Builds the manifests to publish with a release
 	$(KUSTOMIZE) build config/default > $(RELEASE_DIR)/infrastructure-components.yaml
 
 .PHONY: release-templates
@@ -416,7 +416,7 @@ tilt-up: envsubst yq kustomize cluster  ## Start a mgt-cluster & Tilt. Installs 
 	EXP_CLUSTER_RESOURCE_SET=true tilt up
 
 .PHONY: create-workload-cluster
-create-workload-cluster: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
+create-workload-cluster-with-network: kustomize envsubst ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
 	$(ENVSUBST) -i templates/cluster-template-hcloud-network.yaml | kubectl apply -f -
 	
@@ -440,7 +440,33 @@ create-workload-cluster: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster.
 
 	@echo 'run "kubectl --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) ..." to work with the new target cluster'
 
-create-talos-workload-cluster: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
+create-workload-cluster: kustomize envsubst ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
+	# Create workload Cluster.
+	$(ENVSUBST) -i templates/cluster-template.yaml | kubectl apply -f -
+	
+	# Wait for the kubeconfig to become available.
+	${TIMEOUT} 5m bash -c "while ! kubectl get secrets | grep $(CLUSTER_NAME)-kubeconfig; do sleep 1; done"
+	# Get kubeconfig and store it locally.
+	kubectl get secrets $(CLUSTER_NAME)-kubeconfig -o json | jq -r .data.value | base64 --decode > $(CAPH_WORKER_CLUSTER_KUBECONFIG)
+	${TIMEOUT} 15m bash -c "while ! kubectl --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) get nodes | grep master; do sleep 1; done"
+
+	# Deploy cilium
+	helm repo add cilium https://helm.cilium.io/
+	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install cilium cilium/cilium --version 1.10.5 \
+  	--namespace kube-system \
+	-f templates/cilium/cilium.yaml
+
+	# Deploy HCloud Cloud Controller Manager
+	helm repo add syself https://charts.syself.com
+	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hcloud --version 1.0.0 \
+	--namespace kube-system \
+	--set secret.name=hetzner-token \
+	--set privateNetwork.enabled=false
+
+	@echo 'run "kubectl --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) ..." to work with the new target cluster'
+
+
+create-talos-workload-cluster: kustomize envsubst ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
 	$(ENVSUBST) -i templates/cluster-template-talos.yaml | kubectl apply -f -
 	
