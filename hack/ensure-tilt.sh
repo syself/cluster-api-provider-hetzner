@@ -4,7 +4,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-MINIMUM_TILT_VERSION=0.22.15
+MINIMUM_TILT_VERSION=0.23.1
 
 
 check_tilt_installed() {

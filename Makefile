@@ -412,13 +412,13 @@ undeploy-controller: ## Undeploy controller from the K8s cluster specified in ~/
 	$(KUSTOMIZE) build config/default | kubectl delete -f -
 
 .PHONY: tilt-up
-tilt-up: envsubst kustomize cluster ## Start a mgt-cluster & Tilt. Installs the CRDs and deploys the controllers
+tilt-up: envsubst yq kustomize cluster  ## Start a mgt-cluster & Tilt. Installs the CRDs and deploys the controllers
 	EXP_CLUSTER_RESOURCE_SET=true tilt up
 
 .PHONY: create-workload-cluster
 create-workload-cluster: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
-	$(KUSTOMIZE) build templates | $(ENVSUBST) | kubectl apply -f -
+	$(ENVSUBST) -i templates/cluster-template-hcloud-network.yaml | kubectl apply -f -
 	
 	# Wait for the kubeconfig to become available.
 	${TIMEOUT} 5m bash -c "while ! kubectl get secrets | grep $(CLUSTER_NAME)-kubeconfig; do sleep 1; done"

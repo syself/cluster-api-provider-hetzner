@@ -3,6 +3,7 @@ module github.com/syself/cluster-api-provider-hetzner
 go 1.16
 
 require (
+	github.com/daixiang0/gci v0.2.9 // indirect
 	github.com/go-logr/logr v0.4.0
 	github.com/hetznercloud/hcloud-go v1.32.0
 	github.com/pkg/errors v0.9.1
