@@ -175,7 +175,7 @@ def caph():
         "manager",
         cmd = 'mkdir -p .tiltbuild;CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags \'-extldflags "-static"\' -o .tiltbuild/manager',
         deps = ["api", "config", "controllers", "pkg", "go.mod", "go.sum", "main.go"],
-        labels = ["CAPH"]
+        labels = ["CAPH"],
     )
 
     dockerfile_contents = "\n".join([
@@ -206,27 +206,28 @@ def caph():
 
     k8s_yaml(blob(yaml))
     k8s_resource(workload = "caph-controller-manager", labels = ["CAPH"])
-    k8s_resource(objects = [
-        'cluster-api-provider-hetzner-system:namespace',
-        'hcloudmachines.infrastructure.cluster.x-k8s.io:customresourcedefinition',
-        'hcloudmachinetemplates.infrastructure.cluster.x-k8s.io:customresourcedefinition',
-        'hetznerclusters.infrastructure.cluster.x-k8s.io:customresourcedefinition',
-        'hetznerclustertemplates.infrastructure.cluster.x-k8s.io:customresourcedefinition',
-        'caph-mutating-webhook-configuration:mutatingwebhookconfiguration',
-        'caph-controller-manager:serviceaccount',
-        'caph-leader-election-role:role',
-        'caph-manager-role:clusterrole',
-        'caph-metrics-reader:clusterrole',
-        'caph-leader-election-rolebinding:rolebinding',
-        'caph-manager-rolebinding:clusterrolebinding',
-        'caph-manager-config:configmap',
-        'caph-serving-cert:certificate',
-        'caph-selfsigned-issuer:issuer',
-        'caph-validating-webhook-configuration:validatingwebhookconfiguration'
-    ],
-    new_name = 'caph-misc',
-    labels = ["CAPH"])
-
+    k8s_resource(
+        objects = [
+            "cluster-api-provider-hetzner-system:namespace",
+            "hcloudmachines.infrastructure.cluster.x-k8s.io:customresourcedefinition",
+            "hcloudmachinetemplates.infrastructure.cluster.x-k8s.io:customresourcedefinition",
+            "hetznerclusters.infrastructure.cluster.x-k8s.io:customresourcedefinition",
+            "hetznerclustertemplates.infrastructure.cluster.x-k8s.io:customresourcedefinition",
+            "caph-mutating-webhook-configuration:mutatingwebhookconfiguration",
+            "caph-controller-manager:serviceaccount",
+            "caph-leader-election-role:role",
+            "caph-manager-role:clusterrole",
+            "caph-metrics-reader:clusterrole",
+            "caph-leader-election-rolebinding:rolebinding",
+            "caph-manager-rolebinding:clusterrolebinding",
+            "caph-manager-config:configmap",
+            "caph-serving-cert:certificate",
+            "caph-selfsigned-issuer:issuer",
+            "caph-validating-webhook-configuration:validatingwebhookconfiguration",
+        ],
+        new_name = "caph-misc",
+        labels = ["CAPH"],
+    )
 
 def base64_encode(to_encode):
     encode_blob = local("echo '{}' | tr -d '\n' | base64 - | tr -d '\n'".format(to_encode), quiet = True)
