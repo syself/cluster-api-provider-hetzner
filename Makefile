@@ -245,7 +245,7 @@ verify-gen: generate
 
 
 ##@ Release
-PREVIOUS_TAG ?= $(shell git tag -l | grep -E "^v[0-9]+\.[0-9]+\.[0-9]+$$" | sort -V | grep -B1 $(RELEASE_TAG) | head -n 1 2>/dev/null)
+PREVIOUS_TAG ?= $(shell git tag -l | grep -E "^v[0-9]+\.[0-9]+\.[0-9]." | sort -V | grep -B1 $(RELEASE_TAG) | head -n 1 2>/dev/null)
 
 RELEASE_TAG := $(shell git describe --abbrev=0 2>/dev/null)
 RELEASE_DIR ?= out
