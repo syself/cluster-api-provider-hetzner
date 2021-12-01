@@ -16,11 +16,11 @@ limitations under the License.
 
 package v1beta1
 
-// NetworkSpec defines the desired state of the Hetzner Private Network.
-type NetworkSpec struct {
+// HCloudNetworkSpec defines the desired state of the HCloud Private Network.
+type HCloudNetworkSpec struct {
 	NetworkEnabled bool `json:"enabled"`
 
-	// Defines the cidrBlock of the Hetzner Network. A Subnet is required.
+	// Defines the cidrBlock of the HCloud Network. A Subnet is required.
 	// +kubebuilder:default="10.0.0.0/16"
 	CIDRBlock string `json:"cidrBlock,omitempty"`
 
@@ -31,7 +31,7 @@ type NetworkSpec struct {
 	NetworkZone HCloudNetworkZone `json:"networkZone,omitempty"`
 }
 
-// NetworkStatus defines the observed state of the Hetzner Private Network.
+// NetworkStatus defines the observed state of the HCloud Private Network.
 type NetworkStatus struct {
 	ID             int               `json:"id,omitempty"`
 	Labels         map[string]string `json:"-"`
@@ -46,7 +46,7 @@ type HCloudRegion string
 type HCloudNetworkZone string
 
 // IsZero return if a private Network is set or not.
-func (s *NetworkSpec) IsZero() bool {
+func (s *HCloudNetworkSpec) IsZero() bool {
 	if len(s.CIDRBlock) > 0 {
 		return false
 	}

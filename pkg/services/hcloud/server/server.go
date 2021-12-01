@@ -1,4 +1,4 @@
-// Package server implements functions to manage the lifecycle of Hcloud servers
+// Package server implements functions to manage the lifecycle of HCloud servers
 package server
 
 import (
@@ -24,7 +24,7 @@ import (
 
 const maxShutDownTime = 2 * time.Minute
 
-// Service defines struct with machine scope to reconcile Hcloud machines.
+// Service defines struct with machine scope to reconcile HCloud machines.
 type Service struct {
 	scope *scope.MachineScope
 }
@@ -36,7 +36,7 @@ func NewService(scope *scope.MachineScope) *Service {
 	}
 }
 
-// Reconcile implements reconcilement of Hcloud machines.
+// Reconcile implements reconcilement of HCloud machines.
 func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 	// detect failure domain
 	failureDomain, err := s.scope.GetFailureDomain()
@@ -258,7 +258,7 @@ func (s *Service) createServer(ctx context.Context, failureDomain string) (*hclo
 	// set placement group if necessary
 	if s.scope.HCloudMachine.Spec.PlacementGroupName != nil {
 		var foundPlacementGroupInStatus bool
-		for _, pgSts := range s.scope.HetznerCluster.Status.PlacementGroup {
+		for _, pgSts := range s.scope.HetznerCluster.Status.HCloudPlacementGroup {
 			if *s.scope.HCloudMachine.Spec.PlacementGroupName == pgSts.Name {
 				foundPlacementGroupInStatus = true
 				opts.PlacementGroup = &hcloud.PlacementGroup{

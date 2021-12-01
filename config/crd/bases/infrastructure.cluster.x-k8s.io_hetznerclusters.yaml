@@ -126,10 +126,10 @@ spec:
                 - type
                 type: object
               controlPlaneRegion:
-                description: Hetzner Regions (fsn, nbg, hel). Because Hetzner Networks
-                  have a very low latency we could assume in some use-cases that a
-                  region is behaving like a zone https://kubernetes.io/docs/reference/labels-annotations-taints/#topologykubernetesiozone
-                  therefore this accepts a list of the hetzner regions.
+                description: ControlPlaneRegion conists of a list of HCloud Regions
+                  (fsn, nbg, hel). Because HCloud Networks have a very low latency
+                  we could assume in some use-cases that a region is behaving like
+                  a zone https://kubernetes.io/docs/reference/labels-annotations-taints/#topologykubernetesiozone
                 items:
                   description: HCloudRegion is a Hetzner Location
                   enum:
@@ -140,8 +140,41 @@ spec:
                   type: string
                 minItems: 1
                 type: array
+              hcloudNetwork:
+                description: HCloudNetworkSpec defines the Network for Hetzner Cloud.
+                  If left empty no private Network is configured.
+                properties:
+                  cidrBlock:
+                    default: 10.0.0.0/16
+                    description: Defines the cidrBlock of the HCloud Network. A Subnet
+                      is required.
+                    type: string
+                  enabled:
+                    type: boolean
+                  networkZone:
+                    default: eu-central
+                    description: HCloudNetworkZone describes the Network zone.
+                    type: string
+                  subnetCidrBlock:
+                    default: 10.0.0.0/24
+                    type: string
+                required:
+                - enabled
+                type: object
+              hcloudPlacementGroup:
+                items:
+                  description: HCloudPlacementGroupSpec defines a PlacementGroup.
+                  properties:
+                    name:
+                      type: string
+                    type:
+                      enum:
+                      - spread
+                      type: string
+                  type: object
+                type: array
               hcloudTokenRef:
-                description: HcloudTokenRef is a reference to a token to be used when
+                description: HCloudTokenRef is a reference to a token to be used when
                   reconciling this cluster this is generated in the Security section
                   under API TOKENS. Read & Write is necessary
                 properties:
@@ -159,44 +192,11 @@ spec:
                 required:
                 - key
                 type: object
-              network:
-                description: NetworkSpec defines the Network for Hetzner Cloud. If
-                  left empty no private Network is configured.
-                properties:
-                  cidrBlock:
-                    default: 10.0.0.0/16
-                    description: Defines the cidrBlock of the Hetzner Network. A Subnet
-                      is required.
-                    type: string
-                  enabled:
-                    type: boolean
-                  networkZone:
-                    default: eu-central
-                    description: HCloudNetworkZone describes the Network zone.
-                    type: string
-                  subnetCidrBlock:
-                    default: 10.0.0.0/24
-                    type: string
-                required:
-                - enabled
-                type: object
-              placementGroup:
-                items:
-                  description: HCloudPlacementGroupSpec defines a PlacementGroup.
-                  properties:
-                    name:
-                      type: string
-                    type:
-                      enum:
-                      - spread
-                      type: string
-                  type: object
-                type: array
               sshKey:
                 description: define cluster wide SSH keys. Valid values are a valid
                   SSH key name, or a valid ID.
                 items:
-                  description: HCloudSSHKeySpec defines the SSHKey.
+                  description: SSHKeySpec defines the SSHKey.
                   properties:
                     id:
                       type: integer
@@ -258,8 +258,8 @@ spec:
                   type: object
                 type: array
               controlPlaneLoadBalancer:
-                description: HCloudLoadBalancerStatus defines the obeserved state
-                  of the control plane loadbalancer.
+                description: LoadBalancerStatus defines the obeserved state of the
+                  control plane loadbalancer.
                 properties:
                   id:
                     type: integer
@@ -293,18 +293,7 @@ spec:
                   type: object
                 description: FailureDomains is a slice of FailureDomains.
                 type: object
-              networkStatus:
-                description: NetworkStatus defines the observed state of the Hetzner
-                  Private Network.
-                properties:
-                  attachedServer:
-                    items:
-                      type: integer
-                    type: array
-                  id:
-                    type: integer
-                type: object
-              placementGroup:
+              hcloudPlacementGroup:
                 items:
                   description: HCloudPlacementGroupStatus returns the status of a
                     Placementgroup.
@@ -321,6 +310,17 @@ spec:
                       type: string
                   type: object
                 type: array
+              networkStatus:
+                description: NetworkStatus defines the observed state of the HCloud
+                  Private Network.
+                properties:
+                  attachedServer:
+                    items:
+                      type: integer
+                    type: array
+                  id:
+                    type: integer
+                type: object
               ready:
                 default: false
                 type: boolean

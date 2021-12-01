@@ -27,9 +27,9 @@ import (
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/services/loadbalancer"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/services/network"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/services/placementgroup"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/loadbalancer"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/network"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/placementgroup"
 	certificatesv1 "k8s.io/api/certificates/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -485,7 +485,7 @@ func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope
 			immutable := false
 			data := make(map[string][]byte)
 			data[clusterScope.HetznerCluster.Spec.HCloudTokenRef.Key] = []byte(hetznerToken)
-			if clusterScope.HetznerCluster.Spec.NetworkSpec.NetworkEnabled {
+			if clusterScope.HetznerCluster.Spec.HCloudNetworkSpec.NetworkEnabled {
 				data["network"] = []byte(strconv.Itoa(clusterScope.HetznerCluster.Status.Network.ID))
 			}
 			data["apiserver-host"] = []byte(clusterScope.HetznerCluster.Spec.ControlPlaneEndpoint.Host)

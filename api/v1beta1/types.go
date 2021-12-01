@@ -1,14 +1,14 @@
 package v1beta1
 
-// HCloudSSHKeySpec defines the SSHKey.
-type HCloudSSHKeySpec struct {
+// SSHKeySpec defines the SSHKey.
+type SSHKeySpec struct {
 	Name *string `json:"name,omitempty"`
 	ID   *int    `json:"id,omitempty"`
 }
 
-// HCloudLoadBalancerAlgorithmType defines the Algorithm type.
+// LoadBalancerAlgorithmType defines the Algorithm type.
 //+kubebuilder:validation:Enum=round_robin;least_connections
-type HCloudLoadBalancerAlgorithmType string
+type LoadBalancerAlgorithmType string
 
 // HCloudMachineTypeSpec defines the HCloud Machine type.
 type HCloudMachineTypeSpec string

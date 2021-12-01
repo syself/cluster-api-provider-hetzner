@@ -75,7 +75,7 @@ spec:
                 description: define Machine specific SSH keys, overrides cluster wide
                   SSH keys
                 items:
-                  description: HCloudSSHKeySpec defines the SSHKey.
+                  description: SSHKeySpec defines the SSHKey.
                   properties:
                     id:
                       type: integer

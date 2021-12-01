@@ -1,4 +1,4 @@
-// Package loadbalancer implements the lifecycle of Hcloud load balancers
+// Package loadbalancer implements the lifecycle of HCloud load balancers
 package loadbalancer
 
 import (
@@ -30,7 +30,7 @@ func NewService(scope *scope.ClusterScope) *Service {
 	}
 }
 
-// Reconcile implements the life cycle of Hcloud load balancers.
+// Reconcile implements the life cycle of HCloud load balancers.
 func (s *Service) Reconcile(ctx context.Context) (err error) {
 	log := ctrl.LoggerFrom(ctx)
 	log.Info("Reconcile load balancer")
@@ -110,9 +110,9 @@ func (s *Service) createLoadBalancer(ctx context.Context) (*hcloud.LoadBalancer,
 	// gather algorithm type
 	var algType hcloud.LoadBalancerAlgorithmType
 	switch s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Algorithm {
-	case infrav1.HCloudLoadBalancerAlgorithmTypeLeastConnections:
+	case infrav1.LoadBalancerAlgorithmTypeLeastConnections:
 		algType = hcloud.LoadBalancerAlgorithmTypeRoundRobin
-	case infrav1.HCloudLoadBalancerAlgorithmTypeRoundRobin:
+	case infrav1.LoadBalancerAlgorithmTypeRoundRobin:
 		algType = hcloud.LoadBalancerAlgorithmTypeLeastConnections
 	default:
 		return nil, fmt.Errorf("error invalid load balancer algorithm type: %s", s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Algorithm)
@@ -191,12 +191,16 @@ func (s *Service) createLoadBalancer(ctx context.Context) (*hcloud.LoadBalancer,
 	return res.LoadBalancer, nil
 }
 
-// Delete implements the deletion of Hcloud load balancers.
+// Delete implements the deletion of HCloud load balancers.
 func (s *Service) Delete(ctx context.Context) (err error) {
 	if _, err := s.scope.HCloudClient().DeleteLoadBalancer(ctx, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID); err != nil {
 		record.Eventf(s.scope.HetznerCluster, "FailedLoadBalancerDelete", "Failed to delete load balancer: %s", err)
 		return errors.Wrap(err, "failed to delete load balancer")
 	}
+
+	// Delete lb information from cluster status
+	s.scope.HetznerCluster.Status = infrav1.HetznerClusterStatus{}
+
 	record.Eventf(s.scope.HetznerCluster, "DeleteLoadBalancer", "Deleted load balancer")
 	return nil
 }
@@ -224,7 +228,7 @@ func findLoadBalancer(scope *scope.ClusterScope) (*hcloud.LoadBalancer, error) {
 }
 
 // gets the information of the Hetzner load balancer object and returns it in our status object.
-func (s *Service) apiToStatus(lb *hcloud.LoadBalancer) infrav1.HCloudLoadBalancerStatus {
+func (s *Service) apiToStatus(lb *hcloud.LoadBalancer) infrav1.LoadBalancerStatus {
 	ipv4 := lb.PublicNet.IPv4.IP.String()
 	ipv6 := lb.PublicNet.IPv6.IP.String()
 
@@ -238,7 +242,7 @@ func (s *Service) apiToStatus(lb *hcloud.LoadBalancer) infrav1.HCloudLoadBalance
 		targetIDs = append(targetIDs, server.Server.Server.ID)
 	}
 
-	return infrav1.HCloudLoadBalancerStatus{
+	return infrav1.LoadBalancerStatus{
 		ID:         lb.ID,
 		IPv4:       ipv4,
 		IPv6:       ipv6,

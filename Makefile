@@ -432,7 +432,7 @@ create-workload-cluster: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster.
   	--namespace kube-system \
 	-f templates/cilium/cilium.yaml
 
-	# Deploy Hcloud Cloud Controller Manager
+	# Deploy HCloud Cloud Controller Manager
 	helm repo add syself https://charts.syself.com
 	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hcloud --version 1.0.0 \
 	--namespace kube-system \
@@ -456,7 +456,7 @@ create-talos-workload-cluster: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cl
   	--namespace kube-system \
 	-f templates/cilium/cilium.yaml
 
-	# Deploy Hcloud Cloud Controller Manager
+	# Deploy HCloud Cloud Controller Manager
 	helm repo add syself https://charts.syself.com
 	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hcloud --version 1.0.0 \
 	--namespace kube-system \

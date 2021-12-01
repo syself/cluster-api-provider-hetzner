@@ -28,50 +28,50 @@ const (
 	// apiserver.
 	ClusterFinalizer = "hetznercluster.infrastructure.cluster.x-k8s.io"
 
-	// HCloudLoadBalancerAlgorithmTypeRoundRobin default for the Kubernetes Api Server loadbalancer.
-	HCloudLoadBalancerAlgorithmTypeRoundRobin = HCloudLoadBalancerAlgorithmType("round_robin")
+	// LoadBalancerAlgorithmTypeRoundRobin default for the Kubernetes Api Server loadbalancer.
+	LoadBalancerAlgorithmTypeRoundRobin = LoadBalancerAlgorithmType("round_robin")
 
-	// HCloudLoadBalancerAlgorithmTypeLeastConnections default for Loadbalancer.
-	HCloudLoadBalancerAlgorithmTypeLeastConnections = HCloudLoadBalancerAlgorithmType("least_connections")
+	// LoadBalancerAlgorithmTypeLeastConnections default for Loadbalancer.
+	LoadBalancerAlgorithmTypeLeastConnections = LoadBalancerAlgorithmType("least_connections")
 )
 
 // HetznerClusterSpec defines the desired state of HetznerCluster.
 type HetznerClusterSpec struct {
-	// NetworkSpec defines the Network for Hetzner Cloud. If left empty no private Network is configured.
+	// HCloudNetworkSpec defines the Network for Hetzner Cloud. If left empty no private Network is configured.
 	// +optional
-	NetworkSpec NetworkSpec `json:"network"`
+	HCloudNetworkSpec HCloudNetworkSpec `json:"hcloudNetwork"`
 
-	// Hetzner Regions (fsn, nbg, hel). Because Hetzner Networks have a very low latency we could assume in some use-cases
-	// that a region is behaving like a zone https://kubernetes.io/docs/reference/labels-annotations-taints/#topologykubernetesiozone
-	// therefore this accepts a list of the hetzner regions.
+	// ControlPlaneRegion conists of a list of HCloud Regions (fsn, nbg, hel). Because HCloud Networks
+	// have a very low latency we could assume in some use-cases that a region is behaving like a zone
+	// https://kubernetes.io/docs/reference/labels-annotations-taints/#topologykubernetesiozone
 	// +kubebuilder:validation:MinItems=1
 	ControlPlaneRegion []HCloudRegion `json:"controlPlaneRegion"`
 
 	// define cluster wide SSH keys. Valid values are a valid SSH key name, or a valid ID.
-	SSHKey []HCloudSSHKeySpec `json:"sshKey,omitempty"`
+	SSHKey []SSHKeySpec `json:"sshKey,omitempty"`
 	// ControlPlaneEndpoint represents the endpoint used to communicate with the control plane.
 	// +optional
 	ControlPlaneEndpoint *clusterv1.APIEndpoint `json:"controlPlaneEndpoint"`
 
 	// ControlPlaneLoadBalancer is optional configuration for customizing control plane behavior. Naming convention is from upstream cluster-api project.
 	// +optional
-	ControlPlaneLoadBalancer HCloudLoadBalancerSpec `json:"controlPlaneLoadBalancer,omitempty"`
+	ControlPlaneLoadBalancer LoadBalancerSpec `json:"controlPlaneLoadBalancer,omitempty"`
 
 	// +optional
-	PlacementGroupSpec []HCloudPlacementGroupSpec `json:"placementGroup,omitempty"`
+	HCloudPlacementGroupSpec []HCloudPlacementGroupSpec `json:"hcloudPlacementGroup,omitempty"`
 
-	// HcloudTokenRef is a reference to a token to be used when reconciling this cluster
+	// HCloudTokenRef is a reference to a token to be used when reconciling this cluster
 	// this is generated in the Security section under API TOKENS. Read & Write is necessary
 	HCloudTokenRef *corev1.SecretKeySelector `json:"hcloudTokenRef"`
 }
 
-// HCloudLoadBalancerSpec defines the desired state of the Control Plane Loadbalancer.
-type HCloudLoadBalancerSpec struct {
+// LoadBalancerSpec defines the desired state of the Control Plane Loadbalancer.
+type LoadBalancerSpec struct {
 	// +optional
 	Name *string `json:"name,omitempty"`
 
 	// Could be round-robin or least-connection
-	Algorithm HCloudLoadBalancerAlgorithmType `json:"algorithm"`
+	Algorithm LoadBalancerAlgorithmType `json:"algorithm"`
 
 	// Loadbalancer type
 	// +kubebuilder:validation:Enum=lb11;lb21;lb31
@@ -83,8 +83,8 @@ type HCloudLoadBalancerSpec struct {
 	Region HCloudRegion `json:"region"`
 }
 
-// HCloudLoadBalancerStatus defines the obeserved state of the control plane loadbalancer.
-type HCloudLoadBalancerStatus struct {
+// LoadBalancerStatus defines the obeserved state of the control plane loadbalancer.
+type LoadBalancerStatus struct {
 	ID         int    `json:"id,omitempty"`
 	IPv4       string `json:"ipv4,omitempty"`
 	IPv6       string `json:"ipv6,omitempty"`
@@ -100,11 +100,11 @@ type HetznerClusterStatus struct {
 	// +optional
 	Network *NetworkStatus `json:"networkStatus,omitempty"`
 
-	ControlPlaneLoadBalancer HCloudLoadBalancerStatus `json:"controlPlaneLoadBalancer,omitempty"`
+	ControlPlaneLoadBalancer LoadBalancerStatus `json:"controlPlaneLoadBalancer,omitempty"`
 	// +optional
-	PlacementGroup []HCloudPlacementGroupStatus `json:"placementGroup,omitempty"`
-	FailureDomains clusterv1.FailureDomains     `json:"failureDomains,omitempty"`
-	Conditions     clusterv1.Conditions         `json:"conditions,omitempty"`
+	HCloudPlacementGroup []HCloudPlacementGroupStatus `json:"hcloudPlacementGroup,omitempty"`
+	FailureDomains       clusterv1.FailureDomains     `json:"failureDomains,omitempty"`
+	Conditions           clusterv1.Conditions         `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true

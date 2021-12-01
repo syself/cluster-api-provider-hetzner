@@ -1,4 +1,4 @@
-// Package network implements the lifecycle of Hcloud networks
+// Package network implements the lifecycle of HCloud networks
 package network
 
 import (
@@ -29,8 +29,8 @@ func NewService(scope *scope.ClusterScope) *Service {
 
 // Reconcile implements life cycle of networks.
 func (s *Service) Reconcile(ctx context.Context) (err error) {
-	s.scope.Info("Reconciling network", "spec", s.scope.HetznerCluster.Spec.NetworkSpec)
-	if !s.scope.HetznerCluster.Spec.NetworkSpec.NetworkEnabled {
+	s.scope.Info("Reconciling network", "spec", s.scope.HetznerCluster.Spec.HCloudNetworkSpec)
+	if !s.scope.HetznerCluster.Spec.HCloudNetworkSpec.NetworkEnabled {
 		return nil
 	}
 
@@ -40,7 +40,7 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 	}
 	if network == nil {
 		// create network
-		network, err = s.createNetwork(ctx, &s.scope.HetznerCluster.Spec.NetworkSpec)
+		network, err = s.createNetwork(ctx, &s.scope.HetznerCluster.Spec.HCloudNetworkSpec)
 		if err != nil {
 			return errors.Wrap(err, "failed to create network")
 		}
@@ -50,7 +50,7 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 	return nil
 }
 
-func (s *Service) createNetwork(ctx context.Context, spec *infrav1.NetworkSpec) (*hcloud.Network, error) {
+func (s *Service) createNetwork(ctx context.Context, spec *infrav1.HCloudNetworkSpec) (*hcloud.Network, error) {
 	hc := s.scope.HetznerCluster
 
 	_, network, err := net.ParseCIDR(spec.CIDRBlock)
@@ -58,9 +58,9 @@ func (s *Service) createNetwork(ctx context.Context, spec *infrav1.NetworkSpec) 
 		return nil, errors.Wrapf(err, "invalid network '%s'", spec.CIDRBlock)
 	}
 
-	_, subnet, err := net.ParseCIDR(s.scope.HetznerCluster.Spec.NetworkSpec.CIDRBlock)
+	_, subnet, err := net.ParseCIDR(s.scope.HetznerCluster.Spec.HCloudNetworkSpec.CIDRBlock)
 	if err != nil {
-		return nil, errors.Wrapf(err, "invalid network '%s'", s.scope.HetznerCluster.Spec.NetworkSpec.CIDRBlock)
+		return nil, errors.Wrapf(err, "invalid network '%s'", s.scope.HetznerCluster.Spec.HCloudNetworkSpec.CIDRBlock)
 	}
 
 	opts := hcloud.NetworkCreateOpts{
@@ -70,7 +70,7 @@ func (s *Service) createNetwork(ctx context.Context, spec *infrav1.NetworkSpec) 
 		Subnets: []hcloud.NetworkSubnet{
 			{
 				IPRange:     subnet,
-				NetworkZone: hcloud.NetworkZone(s.scope.HetznerCluster.Spec.NetworkSpec.NetworkZone),
+				NetworkZone: hcloud.NetworkZone(s.scope.HetznerCluster.Spec.HCloudNetworkSpec.NetworkZone),
 				Type:        hcloud.NetworkSubnetTypeServer,
 			},
 		},
