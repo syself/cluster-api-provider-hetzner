@@ -413,7 +413,11 @@ func (in *HetznerClusterStatus) DeepCopyInto(out *HetznerClusterStatus) {
 		*out = new(NetworkStatus)
 		(*in).DeepCopyInto(*out)
 	}
-	in.ControlPlaneLoadBalancer.DeepCopyInto(&out.ControlPlaneLoadBalancer)
+	if in.ControlPlaneLoadBalancer != nil {
+		in, out := &in.ControlPlaneLoadBalancer, &out.ControlPlaneLoadBalancer
+		*out = new(LoadBalancerStatus)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.HCloudPlacementGroup != nil {
 		in, out := &in.HCloudPlacementGroup, &out.HCloudPlacementGroup
 		*out = make([]HCloudPlacementGroupStatus, len(*in))

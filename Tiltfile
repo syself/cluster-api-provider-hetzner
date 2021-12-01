@@ -303,6 +303,22 @@ caph()
 waitforsystem()
 
 cmd_button(
+    "Create Talos Cluster",
+    argv = ["make", "create-talos-workload-cluster"],
+    location = location.NAV,
+    icon_name = "circle_triangle_up_fill",
+    text = "Create Talos Cluster",
+)
+
+cmd_button(
+    "Create Cluster With Private Network",
+    argv = ["make", "create-workload-cluster-with-network"],
+    location = location.NAV,
+    icon_name = "circle_chevron_up_fill",
+    text = "Create Cluster With Private Network",
+)
+
+cmd_button(
     "Create Workload Cluster",
     argv = ["make", "create-workload-cluster"],
     location = location.NAV,
@@ -311,9 +327,9 @@ cmd_button(
 )
 
 cmd_button(
-    "Delete Workload Cluster",
+    "Delete Cluster",
     argv = ["make", "delete-workload-cluster"],
     location = location.NAV,
     icon_name = "cloud_download",
-    text = "Delete Workload Cluster",
+    text = "Delete Cluster",
 )
