@@ -197,7 +197,7 @@ spec:
                 description: Ready is true when the provider resource is ready.
                 type: boolean
               region:
-                description: HCloudRegion is a Hetzner Location
+                description: Region is a Hetzner Location
                 enum:
                 - fsn1
                 - hel1

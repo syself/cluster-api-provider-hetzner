@@ -41,11 +41,11 @@ type HetznerClusterSpec struct {
 	// +optional
 	HCloudNetworkSpec HCloudNetworkSpec `json:"hcloudNetwork"`
 
-	// ControlPlaneRegion conists of a list of HCloud Regions (fsn, nbg, hel). Because HCloud Networks
+	// ControlPlaneRegion consists of a list of HCloud Regions (fsn, nbg, hel). Because HCloud Networks
 	// have a very low latency we could assume in some use-cases that a region is behaving like a zone
 	// https://kubernetes.io/docs/reference/labels-annotations-taints/#topologykubernetesiozone
 	// +kubebuilder:validation:MinItems=1
-	ControlPlaneRegion []HCloudRegion `json:"controlPlaneRegion"`
+	ControlPlaneRegion []Region `json:"controlPlaneRegion"`
 
 	// define cluster wide SSH keys. Valid values are a valid SSH key name, or a valid ID.
 	SSHKey []SSHKeySpec `json:"sshKey,omitempty"`
@@ -80,7 +80,7 @@ type LoadBalancerSpec struct {
 	// Defines how traffic will be routed from the Load Balancer to your target server.
 	Services []LoadBalancerServiceSpec `json:"services"`
 
-	Region HCloudRegion `json:"region"`
+	Region Region `json:"region"`
 }
 
 // LoadBalancerStatus defines the obeserved state of the control plane loadbalancer.

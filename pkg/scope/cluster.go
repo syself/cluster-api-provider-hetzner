@@ -23,7 +23,6 @@ import (
 	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
-
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	clientcmd "k8s.io/client-go/tools/clientcmd"
@@ -145,12 +144,12 @@ func (s *ClusterScope) HCloudClient() HCloudClient {
 }
 
 // GetSpecRegion returns a region.
-func (s *ClusterScope) GetSpecRegion() []infrav1.HCloudRegion {
+func (s *ClusterScope) GetSpecRegion() []infrav1.Region {
 	return s.HetznerCluster.Spec.ControlPlaneRegion
 }
 
 // SetStatusFailureDomain sets the region for the status.
-func (s *ClusterScope) SetStatusFailureDomain(regions []infrav1.HCloudRegion) {
+func (s *ClusterScope) SetStatusFailureDomain(regions []infrav1.Region) {
 	s.HetznerCluster.Status.FailureDomains = make(clusterv1.FailureDomains)
 	for _, l := range regions {
 		s.HetznerCluster.Status.FailureDomains[string(l)] = clusterv1.FailureDomainSpec{

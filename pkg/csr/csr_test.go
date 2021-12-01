@@ -6,10 +6,9 @@ import (
 	"encoding/pem"
 	"testing"
 
-	corev1 "k8s.io/api/core/v1"
-
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	p "github.com/syself/cluster-api-provider-hetzner/pkg/csr"
+	corev1 "k8s.io/api/core/v1"
 )
 
 func newCSR() *x509.CertificateRequest {

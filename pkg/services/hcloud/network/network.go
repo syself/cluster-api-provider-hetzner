@@ -8,11 +8,10 @@ import (
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
 	"github.com/pkg/errors"
-	"sigs.k8s.io/cluster-api/util/record"
-
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
+	"sigs.k8s.io/cluster-api/util/record"
 )
 
 // Service struct contains cluster scope to reconcile networks.

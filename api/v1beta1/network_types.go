@@ -38,9 +38,9 @@ type NetworkStatus struct {
 	AttachedServer []int             `json:"attachedServer,omitempty"`
 }
 
-// HCloudRegion is a Hetzner Location
+// Region is a Hetzner Location
 // +kubebuilder:validation:Enum=fsn1;hel1;nbg1;ash
-type HCloudRegion string
+type Region string
 
 // HCloudNetworkZone describes the Network zone.
 type HCloudNetworkZone string
