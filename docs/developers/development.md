@@ -83,10 +83,10 @@ Makefile targets and scripts are offered to work with go modules:
 
 ### Setting up the environment
 
-* Create a new hetzner project. For each cluster it is recommended to have a seperate project in the hetzner cloud.
-* Create a hetzner API-TOKEN with read & write permissions.
+* Create a new Hetzner project. For each cluster it is recommended to have a seperate project in the Hetzner cloud.
+* Create a Hetzner API-TOKEN with read & write permissions.
 * Generate a ssh-key (`ssh-keygen -t ed25519 -C "your_email@example.com" -f ~/.ssh/cluster
-`) and upload the public key in the project. Give it a useful name as you need to specify the ssh name in the cluster-template ($HETZNER_SSH_KEY).
+`) and upload the public key in the project. Give it a useful name as you need to specify the ssh name in the cluster-template ($SSH_KEY).
 
 
 ### Tilt Requirements
@@ -125,7 +125,7 @@ This will save you from having to build all of the images for CAPI, which can ta
 If you want to develop in CAPH and get a local development cluster working quickly, this is the path for you.
 Of course there is also a legacy way to 
 
->TOKEN and HETZNER_SSH_KEY are mandadory to set. 
+>HCLOUD_TOKEN and SSH_KEY are mandadory to set. 
 
 Run the following to generate your minimal `tilt-settings.json` file:
 
@@ -133,49 +133,33 @@ Run the following to generate your minimal `tilt-settings.json` file:
 cat <<EOF > tilt-settings.json
 {
   "kustomize_substitutions": {
-    "TOKEN": "<YOUR-TOKEN>",
-    "HETZNER_SSH_KEY": "test"
+    "HCLOUD_TOKEN": "<YOUR-TOKEN>",
+    "SSH_KEY": "test"
   }
 }
 EOF
 ```
 
-If you want to set own values (for a full list please have a look into the Tiltfile):
-```shell
-{
-  "kustomize_substitutions": [
-      "TOKEN": "<YOUR-TOKEN>",
-      "HETZNER_SSH_KEY": "test",
-      "HETZNER_REGION": "fsn1",
-      "CONTROL_PLANE_MACHINE_COUNT": "3",
-      "WORKER_MACHINE_COUNT": "3",
-      "KUBERNETES_VERSION": "v1.21.1",
-      "IMAGE_NAME": "test-image",
-      "HETZNER_CONTROL_PLANE_MACHINE_TYPE": "cpx31",
-      "HETZNER_NODE_MACHINE_TYPE": "cpx31",
-      "CLUSTER_NAME": "test"
-  ]
-}
-```
-Additionally you could set the trigger mode:
-```shell
-  "trigger_mode": "manual",
-```
-This could also be done on the tilt ui on `/overview` on the right side.
+If you want to set own values (for a full list please have a look into the Tiltfile)
+Also visit the [documentation here](tilt.md)
 
+##### Start Tilt
 
 To build a kind cluster and start Tilt, now just run:
 
 ```shell
 make tilt-up
 ```
+> To access the Tilt UI please go to: `http://localhost:10350`
+
 
 By default, the Cluster API components deployed by Tilt have experimental features turned off.
 If you would like to enable these features, add `extra_args` as specified in [The Cluster API Book](https://cluster-api.sigs.k8s.io/developer/tilt.html#create-a-tilt-settingsjson-file).
 
 Once your kind management cluster is up and running, you can deploy a workload cluster.
-This could be done trough the tilt UI, by pressing the button in the top right corner "Create Workload Cluster". This triggers the `make create-workload-cluster` which uses the environment variables (we defined in the tilt-settings.json) and the cluster-template. It also install cilium as CNI.
+This could be done trough the tilt UI, by pressing the button in the top right corner "Create Workload Cluster". This triggers the `make create-workload-cluster` which uses the environment variables (we defined in the tilt-settings.json) and the cluster-template. It also install cilium as CNI. If you want to use the make command manually please ensure to export first the [environment variables](#Deploying-a-workload-cluster).
 
+---- 
 To tear down the workload cluster press the "Delete Workload Cluster" button. After a few minutes the resources should be deleted. 
 
 Of course you could skip the step and delete the managment cluster directly. But then you need to clean-up resources manually in the "hHtzner Cloud Console".
@@ -215,15 +199,15 @@ cat <<EOF > tilt-settings.json
   "provider_repos": ["../cluster-api-provider-hetzner"],
   "enable_providers": ["caph-controller-manager", "kubeadm-bootstrap", "kubeadm-control-plane"],
   "kustomize_substitutions": {
-    "TOKEN": "<YOUR-TOKEN>",
-    "HETZNER_SSH_KEY": "test",
-    "HETZNER_REGION": "fsn1",
+    "HCLOUD_TOKEN": "<YOUR-TOKEN>",
+    "SSH_KEY": "test",
+    "REGION": "fsn1",
     "CONTROL_PLANE_MACHINE_COUNT": "3",
     "WORKER_MACHINE_COUNT": "3",
     "KUBERNETES_VERSION": "v1.21.1",
-    "IMAGE_NAME": "test",
-    "HETZNER_CONTROL_PLANE_MACHINE_TYPE": "cpx31",
-    "HETZNER_NODE_MACHINE_TYPE": "cpx31",
+    "HCLOUD_IMAGE_NAME": "test",
+    "HCLOUD_CONTROL_PLANE_MACHINE_TYPE": "cpx31",
+    "HCLOUD_NODE_MACHINE_TYPE": "cpx31",
     "CLUSTER_NAME": "test"
   }
 }
@@ -240,15 +224,15 @@ If you want to deploy a workload cluster with the common way without letting til
 You need first to set some environment variables.
 
 ```shell
-export TOKEN="<YOUR-TOKEN>" \
-export HETZNER_REGION="fsn1" \
-export HETZNER_SSH_KEY="test" \
+export HCLOUD_TOKEN="<YOUR-TOKEN>" \
+export REGION="fsn1" \
+export SSH_KEY="test" \
 export CONTROL_PLANE_MACHINE_COUNT=1 \
 export WORKER_MACHINE_COUNT=1 \
 export KUBERNETES_VERSION=1.21.1 \
-export IMAGE=<IMAGE-PATH> \
-export HETZNER_CONTROL_PLANE_MACHINE_TYPE=cpx31 \
-export HETZNER_NODE_MACHINE_TYPE=cpx31 \
+export HCLOUD_IMAGE_NAME=<IMAGE-PATH> \
+export HCLOUD_CONTROL_PLANE_MACHINE_TYPE=cpx31 \
+export HCLOUD_NODE_MACHINE_TYPE=cpx31 \
 export CLUSTER_NAME="test" 
 ```
 Creating the secret for the hetzner-token:

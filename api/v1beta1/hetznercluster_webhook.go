@@ -75,7 +75,7 @@ func (r *HetznerCluster) ValidateCreate() error {
 	return areRegionsInSameNetworkZone(r.Spec.ControlPlaneRegion)
 }
 
-func areRegionsInSameNetworkZone(regions []HCloudRegion) error {
+func areRegionsInSameNetworkZone(regions []Region) error {
 	if len(regions) == 0 {
 		return nil
 	}

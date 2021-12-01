@@ -38,6 +38,7 @@ linters:
   - varcheck
   - whitespace
   - golint
+  - gci
 
 linters-settings:
   ifshort:

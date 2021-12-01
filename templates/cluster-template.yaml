@@ -22,28 +22,28 @@ kind: HetznerCluster
 metadata:
   name: "${CLUSTER_NAME}"
 spec:
-  network:
-    enabled: true
+  hcloudNetwork:
+    enabled: false
   controlPlaneRegion: 
-    - "${HETZNER_REGION}"
+    - "${REGION}"
   controlPlaneEndpoint:
     host: ""
     port: 443
   controlPlaneLoadBalancer:
-    region: "${HETZNER_REGION}"
+    region: "${REGION}"
     type: lb11
     algorithm: round_robin
     services:
     - listenPort: 443
       destinationPort: 6443
       protocol: tcp
-  placementGroup:
+  hcloudPlacementGroup:
   - name: control-plane
     type: spread
   - name: md-0
     type: spread
   sshKey:
-  - name: "${HETZNER_SSH_KEY}"
+  - name: "${SSH_KEY}"
   hcloudTokenRef:
     key: token
     name: hetzner-token
@@ -86,8 +86,8 @@ metadata:
 spec:
   template:
     spec:
-      type: "${HETZNER_CONTROL_PLANE_MACHINE_TYPE}"
-      imageName: "${IMAGE_NAME}"
+      type: "${HCLOUD_CONTROL_PLANE_MACHINE_TYPE}"
+      imageName: "${HCLOUD_IMAGE_NAME}"
       placementGroup: control-plane
 ---
 apiVersion: cluster.x-k8s.io/v1beta1
@@ -122,7 +122,7 @@ spec:
   template:
     spec:
       clusterName: "${CLUSTER_NAME}"
-      failureDomain: "${HETZNER_REGION}"
+      failureDomain: "${REGION}"
       version: "${KUBERNETES_VERSION}"
       bootstrap:
         configRef:
@@ -141,8 +141,8 @@ metadata:
 spec:
   template:
     spec:
-      type: "${HETZNER_NODE_MACHINE_TYPE}"
-      imageName: "${IMAGE_NAME}"
+      type: "${HCLOUD_NODE_MACHINE_TYPE}"
+      imageName: "${HCLOUD_IMAGE_NAME}"
       placementGroup: md-0
 ---
 apiVersion: bootstrap.cluster.x-k8s.io/v1beta1

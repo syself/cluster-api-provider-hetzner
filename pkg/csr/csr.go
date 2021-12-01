@@ -8,10 +8,9 @@ import (
 	"fmt"
 	"reflect"
 
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
-
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
 
 // NodesPrefix defines the prefix name for a node.

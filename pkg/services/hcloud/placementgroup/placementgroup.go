@@ -1,4 +1,4 @@
-// Package placementgroup implements the lifecycle of Hcloud placement groups
+// Package placementgroup implements the lifecycle of HCloud placement groups
 package placementgroup
 
 import (
@@ -6,13 +6,12 @@ import (
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
 	"github.com/pkg/errors"
-	kerrors "k8s.io/apimachinery/pkg/util/errors"
-	"sigs.k8s.io/cluster-api/util/record"
-	ctrl "sigs.k8s.io/controller-runtime"
-
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
+	"sigs.k8s.io/cluster-api/util/record"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // Service struct contains cluster scope to reconcile placement groups.
@@ -37,7 +36,7 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 	if err != nil {
 		return errors.Wrap(err, "failed to find placement group")
 	}
-	s.scope.HetznerCluster.Status.PlacementGroup = s.apiToStatus(placementGroups)
+	s.scope.HetznerCluster.Status.HCloudPlacementGroup = s.apiToStatus(placementGroups)
 
 	// Make a diff between placement groups in status and in specs, to see if some need to be deleted or created
 
@@ -45,7 +44,7 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 	var multierr []error
 	for _, pg := range placementGroups {
 		var foundInSpecs bool
-		for _, pgSpec := range s.scope.HetznerCluster.Spec.PlacementGroupSpec {
+		for _, pgSpec := range s.scope.HetznerCluster.Spec.HCloudPlacementGroupSpec {
 			if pg.Name == pgSpec.Name {
 				foundInSpecs = true
 				break
@@ -64,7 +63,7 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 
 	// Create placement groups which are in specs but not in status
 	multierr = []error{}
-	for _, pgSpec := range s.scope.HetznerCluster.Spec.PlacementGroupSpec {
+	for _, pgSpec := range s.scope.HetznerCluster.Spec.HCloudPlacementGroupSpec {
 		var foundInStatus bool
 		for _, pg := range placementGroups {
 			if pg.Name == pgSpec.Name {
@@ -94,7 +93,7 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 		return errors.Wrap(err, "failed to find placement group")
 	}
 
-	s.scope.HetznerCluster.Status.PlacementGroup = s.apiToStatus(placementGroups)
+	s.scope.HetznerCluster.Status.HCloudPlacementGroup = s.apiToStatus(placementGroups)
 
 	return nil
 }
@@ -106,7 +105,7 @@ func (s *Service) Delete(ctx context.Context) (err error) {
 
 	// Delete placement groups which are not in status but in specs
 	var multierr []error
-	for _, pg := range s.scope.HetznerCluster.Status.PlacementGroup {
+	for _, pg := range s.scope.HetznerCluster.Status.HCloudPlacementGroup {
 		if _, err := s.scope.HCloudClient().DeletePlacementGroup(ctx, pg.ID); err != nil {
 			multierr = append(multierr, err)
 		}

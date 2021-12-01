@@ -25,27 +25,26 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-logr/logr"
+	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/services/loadbalancer"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/services/network"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/services/placementgroup"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/loadbalancer"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/network"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/placementgroup"
 	certificatesv1 "k8s.io/api/certificates/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	"sigs.k8s.io/cluster-api/util/predicates"
-	ctrl "sigs.k8s.io/controller-runtime"
-
-	"github.com/go-logr/logr"
-	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
+	"sigs.k8s.io/cluster-api/util/predicates"
 	"sigs.k8s.io/cluster-api/util/record"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -485,7 +484,7 @@ func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope
 			immutable := false
 			data := make(map[string][]byte)
 			data[clusterScope.HetznerCluster.Spec.HCloudTokenRef.Key] = []byte(hetznerToken)
-			if clusterScope.HetznerCluster.Spec.NetworkSpec.NetworkEnabled {
+			if clusterScope.HetznerCluster.Spec.HCloudNetworkSpec.NetworkEnabled {
 				data["network"] = []byte(strconv.Itoa(clusterScope.HetznerCluster.Status.Network.ID))
 			}
 			data["apiserver-host"] = []byte(clusterScope.HetznerCluster.Spec.ControlPlaneEndpoint.Host)

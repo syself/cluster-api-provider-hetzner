@@ -1,4 +1,4 @@
-// Package server implements functions to manage the lifecycle of Hcloud servers
+// Package server implements functions to manage the lifecycle of HCloud servers
 package server
 
 import (
@@ -9,6 +9,9 @@ import (
 	"github.com/hetznercloud/hcloud-go/hcloud"
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/log"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -16,15 +19,11 @@ import (
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
 const maxShutDownTime = 2 * time.Minute
 
-// Service defines struct with machine scope to reconcile Hcloud machines.
+// Service defines struct with machine scope to reconcile HCloud machines.
 type Service struct {
 	scope *scope.MachineScope
 }
@@ -36,14 +35,14 @@ func NewService(scope *scope.MachineScope) *Service {
 	}
 }
 
-// Reconcile implements reconcilement of Hcloud machines.
+// Reconcile implements reconcilement of HCloud machines.
 func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 	// detect failure domain
 	failureDomain, err := s.scope.GetFailureDomain()
 	if err != nil {
 		return nil, err
 	}
-	s.scope.HCloudMachine.Status.Region = infrav1.HCloudRegion(failureDomain)
+	s.scope.HCloudMachine.Status.Region = infrav1.Region(failureDomain)
 
 	// Waiting for bootstrap data to be ready
 	if !s.scope.IsBootstrapDataReady(s.scope.Ctx) {
@@ -258,7 +257,7 @@ func (s *Service) createServer(ctx context.Context, failureDomain string) (*hclo
 	// set placement group if necessary
 	if s.scope.HCloudMachine.Spec.PlacementGroupName != nil {
 		var foundPlacementGroupInStatus bool
-		for _, pgSts := range s.scope.HetznerCluster.Status.PlacementGroup {
+		for _, pgSts := range s.scope.HetznerCluster.Status.HCloudPlacementGroup {
 			if *s.scope.HCloudMachine.Spec.PlacementGroupName == pgSts.Name {
 				foundPlacementGroupInStatus = true
 				opts.PlacementGroup = &hcloud.PlacementGroup{

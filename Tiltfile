@@ -1,6 +1,8 @@
 # -*- mode: Python -*-
 load("ext://uibutton", "cmd_button", "location")
 
+yq_cmd = "./hack/tools/bin/yq"
+kustomize_cmd = "./hack/tools/bin/kustomize"
 envsubst_cmd = "./hack/tools/bin/envsubst"
 tools_bin = "./hack/tools/bin"
 
@@ -15,27 +17,28 @@ settings = {
         "kind-caph",
     ],
     "deploy_cert_manager": True,
+    "deploy_observability": False,
     "preload_images_for_kind": True,
     "kind_cluster_name": "caph",
-    "capi_version": "v1.0.0",
-    "cabpt_version": "v0.5.0-alpha.0",
-    "cacppt_version": "v0.3.0",
+    "capi_version": "v1.0.1",
+    "cabpt_version": "v0.5.0",
+    "cacppt_version": "v0.4.0-alpha.0",
     "cert_manager_version": "v1.1.0",
     "kubernetes_version": "v1.21.1",
     "kustomize_substitutions": {
-        "HETZNER_REGION": "fsn1",
+        "REGION": "fsn1",
         "CONTROL_PLANE_MACHINE_COUNT": "3",
         "WORKER_MACHINE_COUNT": "3",
         "KUBERNETES_VERSION": "v1.21.1",
-        "IMAGE_NAME": "test-image",
-        "HETZNER_CONTROL_PLANE_MACHINE_TYPE": "cpx31",
-        "HETZNER_NODE_MACHINE_TYPE": "cpx31",
+        "HCLOUD_IMAGE_NAME": "test-image",
+        "HCLOUD_CONTROL_PLANE_MACHINE_TYPE": "cpx31",
+        "HCLOUD_NODE_MACHINE_TYPE": "cpx31",
         "CLUSTER_NAME": "test",
     },
     "talos-bootstrap": "false",
 }
 
-keys = ["TOKEN", "HETZNER_SSH_KEY"]
+keys = ["HCLOUD_TOKEN", "SSH_KEY"]
 
 # global settings
 settings.update(read_json(
@@ -132,7 +135,7 @@ def set_env_variables():
 
 def deploy_hetzner_token():
     substitutions = settings.get("kustomize_substitutions", {})
-    token = substitutions.get("TOKEN")
+    token = substitutions.get("HCLOUD_TOKEN")
     local("kubectl create secret generic hetzner-token --from-literal=token=%s --dry-run=client -o yaml | kubectl apply -f -" % token)
 
 tilt_helper_dockerfile_header = """
@@ -172,6 +175,7 @@ def caph():
         "manager",
         cmd = 'mkdir -p .tiltbuild;CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags \'-extldflags "-static"\' -o .tiltbuild/manager',
         deps = ["api", "config", "controllers", "pkg", "go.mod", "go.sum", "main.go"],
+        labels = ["CAPH"],
     )
 
     dockerfile_contents = "\n".join([
@@ -201,6 +205,29 @@ def caph():
     )
 
     k8s_yaml(blob(yaml))
+    k8s_resource(workload = "caph-controller-manager", labels = ["CAPH"])
+    k8s_resource(
+        objects = [
+            "cluster-api-provider-hetzner-system:namespace",
+            "hcloudmachines.infrastructure.cluster.x-k8s.io:customresourcedefinition",
+            "hcloudmachinetemplates.infrastructure.cluster.x-k8s.io:customresourcedefinition",
+            "hetznerclusters.infrastructure.cluster.x-k8s.io:customresourcedefinition",
+            "hetznerclustertemplates.infrastructure.cluster.x-k8s.io:customresourcedefinition",
+            "caph-mutating-webhook-configuration:mutatingwebhookconfiguration",
+            "caph-controller-manager:serviceaccount",
+            "caph-leader-election-role:role",
+            "caph-manager-role:clusterrole",
+            "caph-metrics-reader:clusterrole",
+            "caph-leader-election-rolebinding:rolebinding",
+            "caph-manager-rolebinding:clusterrolebinding",
+            "caph-manager-config:configmap",
+            "caph-serving-cert:certificate",
+            "caph-selfsigned-issuer:issuer",
+            "caph-validating-webhook-configuration:validatingwebhookconfiguration",
+        ],
+        new_name = "caph-misc",
+        labels = ["CAPH"],
+    )
 
 def base64_encode(to_encode):
     encode_blob = local("echo '{}' | tr -d '\n' | base64 - | tr -d '\n'".format(to_encode), quiet = True)
@@ -218,6 +245,18 @@ def base64_decode(to_decode):
     decode_blob = local("echo '{}' | base64 --decode -".format(to_decode), quiet = True)
     return str(decode_blob)
 
+def ensure_yq():
+    if not os.path.exists(yq_cmd):
+        local("make {}".format(yq_cmd))
+
+def ensure_envsubst():
+    if not os.path.exists(envsubst_cmd):
+        local("make {}".format(os.path.abspath(envsubst_cmd)))
+
+def ensure_kustomize():
+    if not os.path.exists(kustomize_cmd):
+        local("make {}".format(os.path.abspath(kustomize_cmd)))
+
 def kustomizesub(folder):
     yaml = local("hack/kustomize-sub.sh {}".format(folder), quiet = True)
     return yaml
@@ -227,9 +266,19 @@ def waitforsystem():
     local("kubectl wait --for=condition=ready --timeout=300s pod --all -n capi-kubeadm-control-plane-system")
     local("kubectl wait --for=condition=ready --timeout=300s pod --all -n capi-system")
 
+def deploy_observability():
+    k8s_yaml(blob(str(local("{} build {}".format(kustomize_cmd, "./hack/observability/"), quiet = True))))
+
+    k8s_resource(workload = "promtail", extra_pod_selectors = [{"app": "promtail"}], labels = ["observability"])
+    k8s_resource(workload = "loki", extra_pod_selectors = [{"app": "loki"}], labels = ["observability"])
+    k8s_resource(workload = "grafana", port_forwards = "3000", extra_pod_selectors = [{"app": "grafana"}], labels = ["observability"])
+
 ##############################
 # Actual work happens here
 ##############################
+ensure_yq()
+ensure_envsubst()
+ensure_kustomize()
 
 include_user_tilt_files()
 
@@ -239,6 +288,9 @@ load("ext://cert_manager", "deploy_cert_manager")
 
 if settings.get("deploy_cert_manager"):
     deploy_cert_manager()
+
+if settings.get("deploy_observability"):
+    deploy_observability()
 
 deploy_capi()
 

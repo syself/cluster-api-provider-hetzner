@@ -4,7 +4,7 @@
     "scripts": "{{template_dir}}/scripts",
     "os": "debian-11",
     "image-name": "talos-image",
-    "talos_version": "v0.13.0"
+    "talos_version": "v0.14.0-alpha.1"
   },
   "sensitive-variables": ["hcloud_token"],
   "builders": [

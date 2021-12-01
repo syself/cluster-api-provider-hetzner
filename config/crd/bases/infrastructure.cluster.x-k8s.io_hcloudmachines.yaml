@@ -75,7 +75,7 @@ spec:
                 description: define Machine specific SSH keys, overrides cluster wide
                   SSH keys
                 items:
-                  description: HCloudSSHKeySpec defines the SSHKey.
+                  description: SSHKeySpec defines the SSHKey.
                   properties:
                     id:
                       type: integer
@@ -197,7 +197,7 @@ spec:
                 description: Ready is true when the provider resource is ready.
                 type: boolean
               region:
-                description: HCloudRegion is a Hetzner Location
+                description: Region is a Hetzner Location
                 enum:
                 - fsn1
                 - hel1

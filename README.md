@@ -17,6 +17,14 @@ hybrid deployments of Kubernetes.
 
 > This is no official Hetzner Project! It's maintained by the folks of the cloud-native startup Syself.
 
+## Features
+
+* Native Kubernetes manifests and API
+* Choice of Linux distribution (as long as a current cloud-init is available)
+* Support for single and multi-node control plane clusters
+* Support for HCloud Placement groups
+* cloud-init based nodes bootstrapping
+
 ## Quick Start
 
 Check out the [Cluster API Quick Start][quickstart] to create your first Kubernetes cluster on Hetzner using Cluster API.
@@ -38,6 +46,12 @@ This provider's versions are able to install and manage the following versions o
 |---|---|
 | Kubernetes 1.21 | ✓ |
 | Kubernetes 1.22 | ✓ |
+
+Test status:
+
+* `✓` tested
+* `+` should work, but we weren't able to test it
+
 
 Each version of Cluster API for Hetzner will attempt to support at least two Kubernetes versions 
 
@@ -71,6 +85,10 @@ that the only people who can get things done around here are the "maintainers".
 
 We also would love to add more "official" maintainers, so show us what you can
 do!
+
+## Code of conduct
+
+Participation in the Kubernetes community is governed by the [Kubernetes Code of Conduct](code-of-conduct.md).
 
 ## Github issues
 

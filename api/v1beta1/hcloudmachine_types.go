@@ -46,7 +46,7 @@ type HCloudMachineSpec struct {
 
 	// define Machine specific SSH keys, overrides cluster wide SSH keys
 	// +optional
-	SSHKey []HCloudSSHKeySpec `json:"sshKey,omitempty"`
+	SSHKey []SSHKeySpec `json:"sshKey,omitempty"`
 
 	// +optional
 	PlacementGroupName *string `json:"placementGroup,omitempty"`
@@ -61,7 +61,7 @@ type HCloudMachineStatus struct {
 	// Addresses contains the server's associated addresses.
 	Addresses []corev1.NodeAddress `json:"addresses,omitempty"`
 
-	Region HCloudRegion `json:"region,omitempty"`
+	Region Region `json:"region,omitempty"`
 
 	// InstanceState is the state of the server for this machine.
 	// +optional
