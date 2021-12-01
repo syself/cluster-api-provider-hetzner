@@ -100,7 +100,7 @@ type HetznerClusterStatus struct {
 	// +optional
 	Network *NetworkStatus `json:"networkStatus,omitempty"`
 
-	ControlPlaneLoadBalancer LoadBalancerStatus `json:"controlPlaneLoadBalancer,omitempty"`
+	ControlPlaneLoadBalancer *LoadBalancerStatus `json:"controlPlaneLoadBalancer,omitempty"`
 	// +optional
 	HCloudPlacementGroup []HCloudPlacementGroupStatus `json:"hcloudPlacementGroup,omitempty"`
 	FailureDomains       clusterv1.FailureDomains     `json:"failureDomains,omitempty"`

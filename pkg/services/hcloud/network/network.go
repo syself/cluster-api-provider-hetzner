@@ -28,10 +28,11 @@ func NewService(scope *scope.ClusterScope) *Service {
 
 // Reconcile implements life cycle of networks.
 func (s *Service) Reconcile(ctx context.Context) (err error) {
-	s.scope.Info("Reconciling network", "spec", s.scope.HetznerCluster.Spec.HCloudNetworkSpec)
 	if !s.scope.HetznerCluster.Spec.HCloudNetworkSpec.NetworkEnabled {
 		return nil
 	}
+
+	s.scope.Info("Reconciling network", "spec", s.scope.HetznerCluster.Spec.HCloudNetworkSpec)
 
 	network, err := s.findNetwork(ctx)
 	if err != nil {
@@ -96,6 +97,10 @@ func (s *Service) createNetwork(ctx context.Context, spec *infrav1.HCloudNetwork
 
 // Delete implements deletion of networks.
 func (s *Service) Delete(ctx context.Context) error {
+	if s.scope.HetznerCluster.Status.Network == nil {
+		// Nothing to delete
+		return nil
+	}
 	_, err := s.scope.HCloudClient().DeleteNetwork(ctx, &hcloud.Network{ID: s.scope.HetznerCluster.Status.Network.ID})
 	if err != nil {
 		// If resource has been deleted already then do nothing

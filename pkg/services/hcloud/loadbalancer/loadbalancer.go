@@ -53,7 +53,8 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 	}
 
 	// update current status
-	s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer = s.apiToStatus(lb)
+	lbStatus := s.apiToStatus(lb)
+	s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer = &lbStatus
 
 	return nil
 }
@@ -135,6 +136,12 @@ func (s *Service) createLoadBalancer(ctx context.Context) (*hcloud.LoadBalancer,
 
 	clusterTagKey := infrav1.ClusterTagKey(s.scope.HetznerCluster.Name)
 
+	var network *hcloud.Network
+	if s.scope.HetznerCluster.Status.Network != nil {
+		network = &hcloud.Network{
+			ID: s.scope.HetznerCluster.Status.Network.ID,
+		}
+	}
 	opts := hcloud.LoadBalancerCreateOpts{
 		LoadBalancerType: loadBalancerType,
 		Name:             name,
@@ -144,9 +151,7 @@ func (s *Service) createLoadBalancer(ctx context.Context) (*hcloud.LoadBalancer,
 		Location: &hcloud.Location{
 			Name: string(s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Region),
 		},
-		Network: &hcloud.Network{
-			ID: s.scope.HetznerCluster.Status.Network.ID,
-		},
+		Network: network,
 		Labels: map[string]string{
 			clusterTagKey: string(infrav1.ResourceLifecycleOwned),
 		},
@@ -192,13 +197,18 @@ func (s *Service) createLoadBalancer(ctx context.Context) (*hcloud.LoadBalancer,
 
 // Delete implements the deletion of HCloud load balancers.
 func (s *Service) Delete(ctx context.Context) (err error) {
+	if s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer == nil {
+		// nothing to do
+		return nil
+	}
+
 	if _, err := s.scope.HCloudClient().DeleteLoadBalancer(ctx, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID); err != nil {
 		record.Eventf(s.scope.HetznerCluster, "FailedLoadBalancerDelete", "Failed to delete load balancer: %s", err)
 		return errors.Wrap(err, "failed to delete load balancer")
 	}
 
 	// Delete lb information from cluster status
-	s.scope.HetznerCluster.Status = infrav1.HetznerClusterStatus{}
+	s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer = nil
 
 	record.Eventf(s.scope.HetznerCluster, "DeleteLoadBalancer", "Deleted load balancer")
 	return nil
