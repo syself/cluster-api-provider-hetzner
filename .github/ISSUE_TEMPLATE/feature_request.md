@@ -17,5 +17,5 @@ about: Suggest an idea for this project.
 **Environment:**
 
 - cluster-api-provider-hetzner version: 
-- Kubernetes version: (use `kubectl version`): 
+- Kubernetes version: (use `kubectl version`)
 - OS (e.g. from `/etc/os-release`): 

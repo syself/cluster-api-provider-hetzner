@@ -22,5 +22,5 @@ about: Tell us about a problem you are experiencing.
 **Environment:**
 
 - cluster-api-provider-hetzner version: 
-- Kubernetes version: (use `kubectl version`): 
+- Kubernetes version: (use `kubectl version`)
 - OS (e.g. from `/etc/os-release`): 

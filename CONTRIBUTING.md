@@ -14,7 +14,7 @@ Read the following guide if you're interested in contributing to cluster-api-pro
 ## Finding Things That Need Help
 
 If you're new to the project and want to help, but don't know where to start, we have a semi-curated list of issues that should not need deep knowledge of the system. [Have a look and see if anything sounds interesting](https://github.com/syself/cluster-api-provider-hetzner/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22). 
-Before starting to work on the issue, make sure that it doesn't have a [lifecycle/active](https://github.com/kubernetes-sigs/cluster-api/labels/lifecycle%2Factive) label. If the issue has been assigned, reach out to the assignee.
+Before starting to work on the issue, make sure that it doesn't have a [lifecycle/active](https://github.com/syself/cluster-api-provider-hetzner/labels/lifecycle%2Factive) label. If the issue has been assigned, reach out to the assignee.
 Alternatively, read some of the docs on other controllers and try to write your own, file and fix any/all issues that come up, including gaps in documentation!
 
 If you're a more experienced contributor, looking at unassigned issues in the next release milestone is a good way to find work that has been prioritized. For example, if the latest minor release is `v1.0`, the next release milestone is `v1.1`.
