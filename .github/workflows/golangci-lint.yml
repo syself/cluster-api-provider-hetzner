@@ -9,6 +9,7 @@ on:
       - '**.go'
       - '**go.mod'
       - '**go.sum'
+      - '!tilt_modules/**'
 jobs:
   golangci:
     name: lint
