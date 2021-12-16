@@ -21,6 +21,7 @@ Create a `tilt-settings.json` file and place it in your local copy of `cluster-a
   "kubernetes_version": "v1.21.1",
   "kustomize_substitutions": {
       "HCLOUD_TOKEN": "<Your-Token>",
+      "SSH_KEY": "<SSH-KEY-NAME-IN-HCLOUD>",
       "REGION": "fsn1",
       "CONTROL_PLANE_MACHINE_COUNT": "3",
       "WORKER_MACHINE_COUNT": "3",
@@ -28,9 +29,9 @@ Create a `tilt-settings.json` file and place it in your local copy of `cluster-a
       "HCLOUD_IMAGE_NAME": "test-image",
       "HCLOUD_CONTROL_PLANE_MACHINE_TYPE": "cpx31",
       "HCLOUD_NODE_MACHINE_TYPE": "cpx31",
-      "CLUSTER_NAME": "test",
+      "CLUSTER_NAME": "test"
   },
-  "talos-bootstrap": "false",
+  "talos-bootstrap": "false"
 }
 ```
 

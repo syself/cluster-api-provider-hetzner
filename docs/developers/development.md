@@ -190,6 +190,8 @@ After you have cloned both repositories, your folder structure should look like:
 ```
 
 Now you need to configure the environment variables, alternatively add them to the kustomize_substitutions.
+
+
 Run the following to generate your `tilt-settings.json` file:
 
 ```shell
@@ -199,7 +201,6 @@ cat <<EOF > tilt-settings.json
   "provider_repos": ["../cluster-api-provider-hetzner"],
   "enable_providers": ["caph-controller-manager", "kubeadm-bootstrap", "kubeadm-control-plane"],
   "kustomize_substitutions": {
-    "HCLOUD_TOKEN": "<YOUR-TOKEN>",
     "SSH_KEY": "test",
     "REGION": "fsn1",
     "CONTROL_PLANE_MACHINE_COUNT": "3",
@@ -218,7 +219,12 @@ EOF
 
 The cluster-api management components that are deployed are configured at the `/config` folder of each repository respectively. Making changes to those files will trigger a redeploy of the management cluster components.
 
-#### Deploying a workload cluster
+##### Creating the secret for the hetzner provider:
+
+```shell
+kubectl create secret generic hetzner --from-literal=hcloud=$HCLOUD_TOKEN
+```
+### Deploying a workload cluster without Tilt
 
 If you want to deploy a workload cluster with the common way without letting tilt doing this for you.
 You need first to set some environment variables.
@@ -235,17 +241,19 @@ export HCLOUD_CONTROL_PLANE_MACHINE_TYPE=cpx31 \
 export HCLOUD_NODE_MACHINE_TYPE=cpx31 \
 export CLUSTER_NAME="test" 
 ```
-Creating the secret for the hetzner-token:
+
+#### Creating the secret for the hetzner provider:
+
 ```shell
-kubectl create secret generic hetzner-token --from-literal=token=$TOKEN
+kubectl create secret generic hetzner --from-literal=hcloud=$HCLOUD_TOKEN
 ```
 
-Creating the "Workload Cluster":
+#### Creating the "Workload Cluster":
 ```shell
 $ make create-workload-cluster
 ```
 
-To delete the "Workload Cluster":
+#### To delete the "Workload Cluster":
 ```shell
 $ make delete-workload-cluster
 ```
