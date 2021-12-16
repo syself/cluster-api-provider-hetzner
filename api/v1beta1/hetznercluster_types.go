@@ -64,9 +64,14 @@ type HetznerClusterSpec struct {
 	HetznerSecretRef HetznerSecretRef `json:"hetznerSecretRef"`
 }
 
-// HetznerSecretRef defines all the name of the secret and the relevant keys needed to access Hetzner API
+// HetznerSecretRef defines all the name of the secret and the relevant keys needed to access Hetzner API.
 type HetznerSecretRef struct {
-	Name        string `json:"name"`
+	Name string              `json:"name"`
+	Key  HetznerSecretKeyRef `json:"key"`
+}
+
+// HetznerSecretKeyRef defines the key name of the HetznerSecret.
+type HetznerSecretKeyRef struct {
 	HCloudToken string `json:"hcloudToken"`
 }
 

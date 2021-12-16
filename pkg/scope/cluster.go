@@ -74,9 +74,9 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 				return nil, errors.Errorf("error getting referenced token secret/%s: %s", tokenSecretName, err)
 			}
 
-			tokenBytes, keyExists := tokenSecret.Data[params.HetznerCluster.Spec.HetznerSecretRef.HCloudToken]
+			tokenBytes, keyExists := tokenSecret.Data[params.HetznerCluster.Spec.HetznerSecretRef.Key.HCloudToken]
 			if !keyExists {
-				return nil, errors.Errorf("error key %s does not exist in secret/%s", params.HetznerCluster.Spec.HetznerSecretRef.HCloudToken, tokenSecretName)
+				return nil, errors.Errorf("error key %s does not exist in secret/%s", params.HetznerCluster.Spec.HetznerSecretRef.Key.HCloudToken, tokenSecretName)
 			}
 			hcloudToken = string(tokenBytes)
 

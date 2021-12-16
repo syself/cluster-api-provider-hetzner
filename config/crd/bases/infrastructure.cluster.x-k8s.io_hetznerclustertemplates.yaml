@@ -215,12 +215,17 @@ spec:
                           in the Security section under API TOKENS. Read & Write is
                           necessary.
                         properties:
-                          hcloudToken:
-                            type: string
+                          key:
+                            properties:
+                              hcloudToken:
+                                type: string
+                            required:
+                            - hcloudToken
+                            type: object
                           name:
                             type: string
                         required:
-                        - hcloudToken
+                        - key
                         - name
                         type: object
                       sshKey:

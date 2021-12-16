@@ -32,7 +32,7 @@ import (
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/loadbalancer"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/network"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/placementgroup"
-	certificatesv1 "k8s.io/api/certificates/v1beta1"
+	certificatesv1 "k8s.io/api/certificates/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -475,15 +475,15 @@ func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope
 				return errors.Errorf("error getting referenced token secret/%s: %s", tokenSecretName, err)
 			}
 
-			tokenBytes, keyExists := tokenSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecretRef.HCloudToken]
+			tokenBytes, keyExists := tokenSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecretRef.Key.HCloudToken]
 			if !keyExists {
-				return errors.Errorf("error key %s does not exist in secret/%s", clusterScope.HetznerCluster.Spec.HetznerSecretRef.HCloudToken, tokenSecretName)
+				return errors.Errorf("error key %s does not exist in secret/%s", clusterScope.HetznerCluster.Spec.HetznerSecretRef.Key.HCloudToken, tokenSecretName)
 			}
 			hetznerToken := string(tokenBytes)
 
 			immutable := false
 			data := make(map[string][]byte)
-			data[clusterScope.HetznerCluster.Spec.HetznerSecretRef.HCloudToken] = []byte(hetznerToken)
+			data[clusterScope.HetznerCluster.Spec.HetznerSecretRef.Key.HCloudToken] = []byte(hetznerToken)
 			if clusterScope.HetznerCluster.Spec.HCloudNetworkSpec.NetworkEnabled {
 				data["network"] = []byte(strconv.Itoa(clusterScope.HetznerCluster.Status.Network.ID))
 			}
