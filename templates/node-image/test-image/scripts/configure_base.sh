@@ -4,6 +4,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+echo '--> Starting Base Installation.'
 # Set locale
 localectl set-locale LANG=en_US.UTF-8 
 localectl set-locale LANGUAGE=en_US.UTF-8
@@ -19,28 +20,17 @@ dnf update -y
 
 # install basic tooling
 dnf -y install \
-    git vim tmux at jq unzip htop wget\
-    socat ipvsadm iperf3 mtr\
-    nfs-utils \
-    iscsi-initiator-utils \
-    firewalld \
-    glibc-langpack-de
+    at jq unzip wget socat mtr firewalld
 
 # Install yq
-YQ_VERSION=v4.14.1 #https://github.com/mikefarah/yq
+YQ_VERSION=v4.16.1 #https://github.com/mikefarah/yq
 YQ_BINARY=yq_linux_amd64
 
 wget https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/${YQ_BINARY} -O /usr/bin/yq &&\
     chmod +x /usr/bin/yq
 
-# disable portmapper rpcbind
-systemctl disable rpcbind.service rpcbind.socket
+echo '--> Starting cilium requirements.'
 
-# disable firewalld
-systemctl disable firewalld.service
-
-# disable kdump service
-systemctl disable kdump.service
 
 # mount bpfs for cilium
 cat > /etc/systemd/system/sys-fs-bpf.mount <<EOF
@@ -68,8 +58,4 @@ systemctl enable sys-fs-bpf.mount
 cat > /etc/sysctl.d/99-cilium.conf <<EOF
 net.ipv4.conf.lxc*.rp_filter = 0
 EOF
-
-# Set SELinux in enforcing mode (effectively disabling it)
-setenforce 1
-sed -i 's/^SELINUX=permissive\$/SELINUX=enforcing/' /etc/selinux/config
 
