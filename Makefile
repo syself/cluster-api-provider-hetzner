@@ -321,8 +321,6 @@ run: manifests generate fmt vet ## Run a controller from your host.
 .PHONY: docker-build
 docker-build: ## Build the docker image for controller-manager
 	docker build --pull --build-arg ARCH=$(ARCH) --build-arg LDFLAGS="$(LDFLAGS)" . -t $(CONTROLLER_IMG):$(TAG)
-	MANIFEST_IMG=$(CONTROLLER_IMG) MANIFEST_TAG=$(TAG) $(MAKE) set-manifest-image
-	$(MAKE) set-manifest-pull-policy
 
 .PHONY: docker-push
 docker-push: ## Push the docker image
@@ -418,7 +416,7 @@ tilt-up: envsubst yq kustomize cluster  ## Start a mgt-cluster & Tilt. Installs 
 .PHONY: create-workload-cluster
 create-workload-cluster-with-network: kustomize envsubst ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
-	$(ENVSUBST) -i templates/cluster-template-hcloud-network.yaml | kubectl apply -f -
+	$(ENVSUBST) -i templates/cluster-template-packer-hcloud-network.yaml | kubectl apply -f -
 	
 	# Wait for the kubeconfig to become available.
 	${TIMEOUT} 5m bash -c "while ! kubectl get secrets | grep $(CLUSTER_NAME)-kubeconfig; do sleep 1; done"
@@ -434,15 +432,17 @@ create-workload-cluster-with-network: kustomize envsubst ## Creates a workload-c
 
 	# Deploy HCloud Cloud Controller Manager
 	helm repo add syself https://charts.syself.com
-	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hcloud --version 1.0.0 \
+	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hcloud --version 1.0.2 \
 	--namespace kube-system \
-	--set secret.name=hetzner-token
+	--set secret.name=hetzner \
+	--set secret.tokenKeyName=hcloud \
+	--set privateNetwork.enabled=false
 
 	@echo 'run "kubectl --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) ..." to work with the new target cluster'
 
 create-workload-cluster: kustomize envsubst ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
-	$(ENVSUBST) -i templates/cluster-template.yaml | kubectl apply -f -
+	$(ENVSUBST) -i templates/cluster-template-packer.yaml | kubectl apply -f -
 	
 	# Wait for the kubeconfig to become available.
 	${TIMEOUT} 5m bash -c "while ! kubectl get secrets | grep $(CLUSTER_NAME)-kubeconfig; do sleep 1; done"
@@ -458,9 +458,10 @@ create-workload-cluster: kustomize envsubst ## Creates a workload-cluster. ENV V
 
 	# Deploy HCloud Cloud Controller Manager
 	helm repo add syself https://charts.syself.com
-	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hcloud --version 1.0.0 \
+	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hcloud --version 1.0.2 \
 	--namespace kube-system \
-	--set secret.name=hetzner-token \
+	--set secret.name=hetzner \
+	--set secret.tokenKeyName=hcloud \
 	--set privateNetwork.enabled=false
 
 	@echo 'run "kubectl --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) ..." to work with the new target cluster'
@@ -468,7 +469,7 @@ create-workload-cluster: kustomize envsubst ## Creates a workload-cluster. ENV V
 
 create-talos-workload-cluster: kustomize envsubst ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
-	$(ENVSUBST) -i templates/cluster-template-talos.yaml | kubectl apply -f -
+	$(ENVSUBST) -i templates/cluster-template-packer-talos.yaml | kubectl apply -f -
 	
 	# Wait for the kubeconfig to become available.
 	${TIMEOUT} 5m bash -c "while ! kubectl get secrets | grep $(CLUSTER_NAME)-kubeconfig; do sleep 1; done"
@@ -484,9 +485,11 @@ create-talos-workload-cluster: kustomize envsubst ## Creates a workload-cluster.
 
 	# Deploy HCloud Cloud Controller Manager
 	helm repo add syself https://charts.syself.com
-	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hcloud --version 1.0.0 \
+	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hcloud --version 1.0.2 \
 	--namespace kube-system \
-	--set secret.name=hetzner-token
+	--set secret.name=hetzner \
+	--set secret.tokenKeyName=hcloud \
+	--set privateNetwork.enabled=false
 
 	@echo 'run "kubectl --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) ..." to work with the new target cluster'
 
