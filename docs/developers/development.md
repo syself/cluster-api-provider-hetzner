@@ -273,3 +273,25 @@ $ make test # Runs tests on the Go code
 
 `make test` executes the project's unit tests. These tests do not stand up a
 Kubernetes cluster, nor do they have external dependencies.
+
+---
+
+## Working with Kubebuilder
+
+### Installation of Kubebuilder
+```shell
+
+# download kubebuilder and install locally.
+curl -L -o kubebuilder https://go.kubebuilder.io/dl/latest/$(go env GOOS)/$(go env GOARCH)
+chmod +x kubebuilder && mv kubebuilder /usr/local/bin/
+```
+
+### Generating API
+```shell
+kubebuilder create api --group infrastructure --version v1beta1 --kind HetznerBareMetalMachine
+```
+
+### Generating Webhook
+```shell
+kubebuilder create webhook --defaulting --programmatic-validation --group infrastructure --version v1beta1 --kind HetznerBareMetalMachine
+```
