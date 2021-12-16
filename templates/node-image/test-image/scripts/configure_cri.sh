@@ -4,44 +4,23 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+echo '--> Starting CRI Script.'
+
 # Prerequisites
+cat <<EOF | tee /etc/modules-load.d/crio.conf
+overlay
+br_netfilter
+EOF
+
 modprobe overlay
 modprobe br_netfilter
 
 sysctl --system
 
-## for cri-o
-dnf module -y install go-toolset
-
-dnf install -y \
-  containers-common \
-  device-mapper-devel \
-  git \
-  make \
-  glib2-devel \
-  glibc-devel \
-  glibc-static \
-  runc \
-  go \
-  gpgme-devel \
-  libassuan \
-  libassuan-devel \
-  libgpg-error \
-  libgpg-error-devel \
-  libseccomp \
-  libselinux \
-  libseccomp-devel \
-  libselinux-devel \
-  pkgconfig \
-  pkgconf-pkg-config 
-
-
-go get github.com/cpuguy83/go-md2man  
-
-RUNC=v1.0.2    # https://github.com/opencontainers/runc/releases
-CRUN=1.2           # https://github.com/containers/crun/releases
-CONMON=v2.0.30      # https://github.com/containers/conmon/releases
-CRIO=v1.21.3        # https://github.com/cri-o/cri-o/releases
+RUNC=v1.0.3    # https://github.com/opencontainers/runc/releases
+CRUN=1.3           # https://github.com/containers/crun/releases
+CONMON=v2.0.31      # https://github.com/containers/conmon/releases
+CRIO=1.22      # https://github.com/cri-o/cri-o/releases
 ## Remember to check CRI-O Configuration updates when updating CRI-O
 CRI_TOOLS=v1.22.0   # https://github.com/kubernetes-sigs/cri-tools/releases
 
@@ -56,14 +35,9 @@ wget https://github.com/containers/conmon/releases/download/$CONMON/conmon-x86.z
 rm -rf conmon.zip conmon
 
 # install cri-o
-wget https://github.com/cri-o/cri-o/archive/$CRIO.tar.gz
-mkdir /tmp/crio && tar zxvf $CRIO.tar.gz -C /tmp/crio --strip-components 1
-(cd /tmp/crio && make)
-(cd /tmp/crio && sudo make install)
-(cd /tmp/crio && sudo make install.config)
-(cd /tmp/crio && make install.systemd)
-rm -f $CRIO.tar.gz
-rm -rf /tmp/crio
+curl -L -o /etc/yum.repos.d/devel:kubic:libcontainers:stable.repo https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/CentOS_8/devel:kubic:libcontainers:stable.repo
+curl -L -o /etc/yum.repos.d/devel:kubic:libcontainers:stable:cri-o:${CRIO}.repo https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable:cri-o:${CRIO}/CentOS_8/devel:kubic:libcontainers:stable:cri-o:${CRIO}.repo
+dnf -y install cri-o
 
 # cri-tool https://github.com/kubernetes-sigs/cri-tools
 # Install crictl
@@ -71,16 +45,8 @@ wget https://github.com/kubernetes-sigs/cri-tools/releases/download/$CRI_TOOLS/c
 tar zxvf crictl-$CRI_TOOLS-linux-amd64.tar.gz -C /usr/local/bin 
 rm -f crictl-$CRI_TOOLS-linux-amd64.tar.gz
 
-# Install critest
-wget https://github.com/kubernetes-sigs/cri-tools/releases/download/$CRI_TOOLS/critest-$CRI_TOOLS-linux-amd64.tar.gz
-tar zxvf critest-$CRI_TOOLS-linux-amd64.tar.gz -C /usr/local/bin
-rm -f critest-$CRI_TOOLS-linux-amd64.tar.gz
-
 # remove default CNIs
 rm -f /etc/cni/net.d/100-crio-bridge.conf /etc/cni/net.d/200-loopback.conf
-
-# add default cni directory the config
-perl -i -0pe 's#plugin_dirs\s*=\s*\[[^\]]*\]#plugin_dirs = [\n  "/opt/cni/bin",\n  "/usr/libexec/cni"\n]#g' /etc/crio/crio.conf
 
 
 # CRI-O Configuration
