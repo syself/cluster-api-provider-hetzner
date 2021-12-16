@@ -26,7 +26,7 @@ import (
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/csr"
-	certificatesv1 "k8s.io/api/certificates/v1beta1"
+	certificatesv1 "k8s.io/api/certificates/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -123,7 +123,7 @@ func (r *GuestCSRReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		condition,
 	)
 
-	if _, err := r.clientSet.CertificatesV1beta1().CertificateSigningRequests().UpdateApproval(ctx, certificateSigningRequest, metav1.UpdateOptions{}); err != nil {
+	if _, err := r.clientSet.CertificatesV1().CertificateSigningRequests().UpdateApproval(ctx, hcloudMachine.Name, certificateSigningRequest, metav1.UpdateOptions{}); err != nil {
 		log.Error(err, "updating approval of csr failed", "username", certificateSigningRequest.Spec.Username, "csr")
 	}
 
