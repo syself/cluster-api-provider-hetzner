@@ -133,5 +133,6 @@ run:
   - "zz_generated.*\\.go$"
   - ".*conversion.*\\.go$"
   skip-dirs:
-  - third_party
+  - "third_party"
+  - "tilt_modules"
   allow-parallel-runners: true
