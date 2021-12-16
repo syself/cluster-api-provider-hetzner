@@ -44,9 +44,10 @@ spec:
     type: spread
   sshKey:
   - name: "${SSH_KEY}"
-  hcloudTokenRef:
-    key: token
-    name: hetzner-token
+  hetznerSecretRef:
+    name: hetzner
+    key:
+      hcloudToken: hcloud
 ---
 kind: KubeadmControlPlane
 apiVersion: controlplane.cluster.x-k8s.io/v1beta1
@@ -77,6 +78,180 @@ spec:
         kubeletExtraArgs:
           cloud-provider: external
           cgroup-driver: "cgroup2fs"
+    files:
+      - path: /etc/systemd/system/sys-fs-bpf.mount
+        owner: "root:root"
+        permissions: "0744"
+        content: |
+          [Unit]
+          Description=Cilium BPF mounts
+          Documentation=https://docs.cilium.io/
+          DefaultDependencies=no
+          Before=local-fs.target umount.target
+          After=swap.target
+
+          [Mount]
+          What=bpffs
+          Where=/sys/fs/bpf
+          Type=bpf
+          Options=rw,nosuid,nodev,noexec,relatime,mode=700
+
+          [Install]
+          WantedBy=multi-user.target
+      - path: /etc/sysctl.d/99-cilium.conf
+        owner: "root:root"
+        permissions: "0744"
+        content: |
+          net.ipv4.conf.lxc*.rp_filter = 0
+      - path: /etc/modules-load.d/crio.conf
+        owner: "root:root"
+        permissions: "0744"
+        content: |
+          overlay
+          br_netfilter
+      - path: /etc/crio/crio.conf
+        owner: "root:root"
+        permissions: "0744"
+        content: |
+          [crio]
+          log_dir = "/var/log/crio/pods"
+          version_file = "/var/run/crio/version"
+          version_file_persist = "/var/lib/crio/version"
+          [crio.api]
+          listen = "/var/run/crio/crio.sock"
+          stream_address = "127.0.0.1"
+          stream_port = "0"
+          stream_enable_tls = false
+          stream_tls_cert = ""
+          stream_tls_key = ""
+          stream_tls_ca = ""
+          grpc_max_send_msg_size = 16777216
+          grpc_max_recv_msg_size = 16777216
+          [crio.runtime]
+          default_runtime = "runc"
+          no_pivot = false
+          decryption_keys_path = "/etc/crio/keys/"
+          conmon = "/usr/local/bin/conmon"
+          conmon_cgroup = "pod"
+          conmon_env = [
+              "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          ]
+          default_env = [
+          ]
+          selinux = false
+          seccomp_profile = ""
+          apparmor_profile = "crio-default"
+          cgroup_manager = "cgroupfs"
+          default_capabilities = [
+            "CHOWN",
+            "DAC_OVERRIDE",
+            "FSETID",
+            "FOWNER",
+            "SETGID",
+            "SETUID",
+            "SETPCAP",
+            "NET_BIND_SERVICE",
+            "KILL",
+              "MKNOD",
+          ]
+          default_sysctls = [
+              "net.ipv4.ping_group_range=0 65535",
+          ]
+          additional_devices = [
+          ]
+          hooks_dir = [
+            "/usr/share/containers/oci/hooks.d",
+          ]
+          default_mounts = [
+          ]
+          pids_limit = 4096
+          log_size_max = -1
+          log_to_journald = false
+          container_exits_dir = "/var/run/crio/exits"
+          container_attach_socket_dir = "/var/run/crio"
+          bind_mount_prefix = ""
+          read_only = false
+          log_level = "info"
+          log_filter = ""
+          uid_mappings = ""
+          gid_mappings = ""
+          ctr_stop_timeout = 30
+          manage_ns_lifecycle = true
+          drop_infra_ctr = false
+          namespaces_dir = "/var/run"
+          pinns_path = ""
+          [crio.runtime.runtimes.runc]
+          runtime_path = ""
+          runtime_type = "oci"
+          runtime_root = "/run/runc"
+          [crio.image]
+          default_transport = "docker://"
+          global_auth_file = ""
+          pause_image = "k8s.gcr.io/pause:3.5"
+          pause_image_auth_file = ""
+          pause_command = "/pause"
+          signature_policy = ""
+          image_volumes = "mkdir"
+          big_files_temporary_dir = ""
+          [crio.network]
+          network_dir = "/etc/cni/net.d/"
+          plugin_dirs = [
+            "/opt/cni/bin",
+            "/usr/libexec/cni"
+          ]
+          [crio.metrics]
+          enable_metrics = true
+          metrics_port = 9090
+          metrics_socket = ""
+      - path: /etc/yum.repos.d/kubernetes.repo
+        owner: "root:root"
+        permissions: "0744"
+        content: |
+          [kubernetes]
+          name=Kubernetes
+          baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
+          enabled=1
+          gpgcheck=1
+          repo_gpgcheck=1
+          gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+      - path: /etc/sysctl.d/99-kubernetes-cri.conf
+        owner: "root:root"
+        permissions: "0744"
+        content: |
+          net.bridge.bridge-nf-call-iptables  = 1
+          net.bridge.bridge-nf-call-ip6tables = 1
+          net.ipv4.ip_forward                 = 1
+      - path: /etc/sysctl.d/99-kubelet.conf
+        owner: "root:root"
+        permissions: "0744"
+        content: |
+          vm.overcommit_memory=1
+          kernel.panic=10
+          kernel.panic_on_oops=1
+    preKubeadmCommands:
+      - localectl set-locale LANG=en_US.UTF-8
+      - localectl set-locale LANGUAGE=en_US.UTF-8
+      - dnf -y install epel-release dnf-plugins-core
+      - dnf config-manager --set-enabled baseos appstream extras epel epel-modular powertools 
+      - dnf update -y
+      - dnf -y install at jq unzip wget socat mtr firewalld
+      - modprobe overlay && modprobe br_netfilter && sysctl --system
+      - wget https://github.com/opencontainers/runc/releases/download/v1.0.3/runc.amd64 -O /usr/local/sbin/runc && chmod +x /usr/local/sbin/runc
+      - wget https://github.com/containers/conmon/releases/download/v2.0.31/conmon-x86.zip -O conmon.zip && unzip conmon.zip -d conmon && mv conmon/bin/conmon /usr/local/bin/conmon && chmod +x /usr/local/bin/conmon && rm -rf conmon.zip conmon
+      - curl -L -o /etc/yum.repos.d/devel:kubic:libcontainers:stable.repo https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/CentOS_8/devel:kubic:libcontainers:stable.repo
+      - curl -L -o /etc/yum.repos.d/devel:kubic:libcontainers:stable:cri-o:1.22.repo https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable:cri-o:1.22/CentOS_8/devel:kubic:libcontainers:stable:cri-o:1.22.repo
+      - dnf -y install cri-o
+      - wget https://github.com/kubernetes-sigs/cri-tools/releases/download/v1.22.0/crictl-v1.22.0-linux-amd64.tar.gz && tar zxvf crictl-v1.22.0-linux-amd64.tar.gz -C /usr/local/bin && rm -f crictl-v1.22.0-linux-amd64.tar.gz
+      - rm -f /etc/cni/net.d/100-crio-bridge.conf /etc/cni/net.d/200-loopback.conf
+      - systemctl enable crio.service && systemctl daemon-reload && systemctl enable crio
+      - dnf install --setopt=obsoletes=0 -y kubelet-0:1.22.4-0 kubeadm-0:1.22.4-0 kubectl-0:1.22.4-0 python3-dnf-plugin-versionlock bash-completion --disableexcludes=kubernetes && dnf versionlock kubelet kubectl kubeadm && systemctl enable kubelet && systemctl start crio && kubeadm config images pull --kubernetes-version 1.22.4
+      - dnf install -y policycoreutils-python-utils
+      - semanage fcontext -a -t container_file_t /var/lib/etcd && mkdir -p /var/lib/etcd && restorecon -rv /var /etc
+      - echo 'source <(kubectl completion bash)' >>~/.bashrc
+      - echo 'export KUBECONFIG=/etc/kubernetes/admin.conf' >>~/.bashrc
+      - setenforce 0 && sed -i -e '/^\(#\|\)SELINUX/s/^.*$/SELINUX=disabled/' /etc/selinux/config
+      - dnf -y autoremove && dnf -y clean all
+
   version: "${KUBERNETES_VERSION}"
 ---
 kind: HCloudMachineTemplate
@@ -157,6 +332,180 @@ spec:
           kubeletExtraArgs:
             cloud-provider: external
             cgroup-driver: "cgroup2fs"
+      files:
+        - path: /etc/systemd/system/sys-fs-bpf.mount
+          owner: "root:root"
+          permissions: "0744"
+          content: |
+            [Unit]
+            Description=Cilium BPF mounts
+            Documentation=https://docs.cilium.io/
+            DefaultDependencies=no
+            Before=local-fs.target umount.target
+            After=swap.target
+
+            [Mount]
+            What=bpffs
+            Where=/sys/fs/bpf
+            Type=bpf
+            Options=rw,nosuid,nodev,noexec,relatime,mode=700
+
+            [Install]
+            WantedBy=multi-user.target
+        - path: /etc/sysctl.d/99-cilium.conf
+          owner: "root:root"
+          permissions: "0744"
+          content: |
+            net.ipv4.conf.lxc*.rp_filter = 0
+        - path: /etc/modules-load.d/crio.conf
+          owner: "root:root"
+          permissions: "0744"
+          content: |
+            overlay
+            br_netfilter
+        - path: /etc/crio/crio.conf
+          owner: "root:root"
+          permissions: "0744"
+          content: |
+            [crio]
+            log_dir = "/var/log/crio/pods"
+            version_file = "/var/run/crio/version"
+            version_file_persist = "/var/lib/crio/version"
+            [crio.api]
+            listen = "/var/run/crio/crio.sock"
+            stream_address = "127.0.0.1"
+            stream_port = "0"
+            stream_enable_tls = false
+            stream_tls_cert = ""
+            stream_tls_key = ""
+            stream_tls_ca = ""
+            grpc_max_send_msg_size = 16777216
+            grpc_max_recv_msg_size = 16777216
+            [crio.runtime]
+            default_runtime = "runc"
+            no_pivot = false
+            decryption_keys_path = "/etc/crio/keys/"
+            conmon = "/usr/local/bin/conmon"
+            conmon_cgroup = "pod"
+            conmon_env = [
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+            ]
+            default_env = [
+            ]
+            selinux = false
+            seccomp_profile = ""
+            apparmor_profile = "crio-default"
+            cgroup_manager = "cgroupfs"
+            default_capabilities = [
+              "CHOWN",
+              "DAC_OVERRIDE",
+              "FSETID",
+              "FOWNER",
+              "SETGID",
+              "SETUID",
+              "SETPCAP",
+              "NET_BIND_SERVICE",
+              "KILL",
+                "MKNOD",
+            ]
+            default_sysctls = [
+                "net.ipv4.ping_group_range=0 65535",
+            ]
+            additional_devices = [
+            ]
+            hooks_dir = [
+              "/usr/share/containers/oci/hooks.d",
+            ]
+            default_mounts = [
+            ]
+            pids_limit = 4096
+            log_size_max = -1
+            log_to_journald = false
+            container_exits_dir = "/var/run/crio/exits"
+            container_attach_socket_dir = "/var/run/crio"
+            bind_mount_prefix = ""
+            read_only = false
+            log_level = "info"
+            log_filter = ""
+            uid_mappings = ""
+            gid_mappings = ""
+            ctr_stop_timeout = 30
+            manage_ns_lifecycle = true
+            drop_infra_ctr = false
+            namespaces_dir = "/var/run"
+            pinns_path = ""
+            [crio.runtime.runtimes.runc]
+            runtime_path = ""
+            runtime_type = "oci"
+            runtime_root = "/run/runc"
+            [crio.image]
+            default_transport = "docker://"
+            global_auth_file = ""
+            pause_image = "k8s.gcr.io/pause:3.5"
+            pause_image_auth_file = ""
+            pause_command = "/pause"
+            signature_policy = ""
+            image_volumes = "mkdir"
+            big_files_temporary_dir = ""
+            [crio.network]
+            network_dir = "/etc/cni/net.d/"
+            plugin_dirs = [
+              "/opt/cni/bin",
+              "/usr/libexec/cni"
+            ]
+            [crio.metrics]
+            enable_metrics = true
+            metrics_port = 9090
+            metrics_socket = ""
+        - path: /etc/yum.repos.d/kubernetes.repo
+          owner: "root:root"
+          permissions: "0744"
+          content: |
+            [kubernetes]
+            name=Kubernetes
+            baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
+            enabled=1
+            gpgcheck=1
+            repo_gpgcheck=1
+            gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+        - path: /etc/sysctl.d/99-kubernetes-cri.conf
+          owner: "root:root"
+          permissions: "0744"
+          content: |
+            net.bridge.bridge-nf-call-iptables  = 1
+            net.bridge.bridge-nf-call-ip6tables = 1
+            net.ipv4.ip_forward                 = 1
+        - path: /etc/sysctl.d/99-kubelet.conf
+          owner: "root:root"
+          permissions: "0744"
+          content: |
+            vm.overcommit_memory=1
+            kernel.panic=10
+            kernel.panic_on_oops=1
+      preKubeadmCommands:
+        - localectl set-locale LANG=en_US.UTF-8
+        - localectl set-locale LANGUAGE=en_US.UTF-8
+        - dnf -y install epel-release dnf-plugins-core
+        - dnf config-manager --set-enabled baseos appstream extras epel epel-modular powertools 
+        - dnf update -y
+        - dnf -y install at jq unzip wget socat mtr firewalld
+        - modprobe overlay && modprobe br_netfilter && sysctl --system
+        - wget https://github.com/opencontainers/runc/releases/download/v1.0.3/runc.amd64 -O /usr/local/sbin/runc && chmod +x /usr/local/sbin/runc
+        - wget https://github.com/containers/conmon/releases/download/v2.0.31/conmon-x86.zip -O conmon.zip && unzip conmon.zip -d conmon && mv conmon/bin/conmon /usr/local/bin/conmon && chmod +x /usr/local/bin/conmon && rm -rf conmon.zip conmon
+        - curl -L -o /etc/yum.repos.d/devel:kubic:libcontainers:stable.repo https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/CentOS_8/devel:kubic:libcontainers:stable.repo
+        - curl -L -o /etc/yum.repos.d/devel:kubic:libcontainers:stable:cri-o:1.22.repo https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable:cri-o:1.22/CentOS_8/devel:kubic:libcontainers:stable:cri-o:1.22.repo
+        - dnf -y install cri-o
+        - wget https://github.com/kubernetes-sigs/cri-tools/releases/download/v1.22.0/crictl-v1.22.0-linux-amd64.tar.gz && tar zxvf crictl-v1.22.0-linux-amd64.tar.gz -C /usr/local/bin && rm -f crictl-v1.22.0-linux-amd64.tar.gz
+        - rm -f /etc/cni/net.d/100-crio-bridge.conf /etc/cni/net.d/200-loopback.conf
+        - systemctl enable crio.service && systemctl daemon-reload && systemctl enable crio
+        - dnf install --setopt=obsoletes=0 -y kubelet-0:1.22.4-0 kubeadm-0:1.22.4-0 kubectl-0:1.22.4-0 python3-dnf-plugin-versionlock bash-completion --disableexcludes=kubernetes && dnf versionlock kubelet kubectl kubeadm && systemctl enable kubelet && systemctl start crio && kubeadm config images pull --kubernetes-version 1.22.4
+        - dnf install -y policycoreutils-python-utils
+        - semanage fcontext -a -t container_file_t /var/lib/etcd && mkdir -p /var/lib/etcd && restorecon -rv /var /etc
+        - echo 'source <(kubectl completion bash)' >>~/.bashrc
+        - echo 'export KUBECONFIG=/etc/kubernetes/admin.conf' >>~/.bashrc
+        - setenforce 0 && sed -i -e '/^\(#\|\)SELINUX/s/^.*$/SELINUX=disabled/' /etc/selinux/config
+        - dnf -y autoremove && dnf -y clean all
+
 ---
 apiVersion: cluster.x-k8s.io/v1beta1
 kind: MachineHealthCheck
