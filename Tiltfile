@@ -1,5 +1,6 @@
 # -*- mode: Python -*-
 load("ext://uibutton", "cmd_button", "location")
+load("ext://restart_process", "docker_build_with_restart")
 
 yq_cmd = "./hack/tools/bin/yq"
 kustomize_cmd = "./hack/tools/bin/kustomize"
@@ -20,11 +21,10 @@ settings = {
     "deploy_observability": False,
     "preload_images_for_kind": True,
     "kind_cluster_name": "caph",
-    "capi_version": "v1.0.1",
+    "capi_version": "v1.0.2",
     "cabpt_version": "v0.5.0",
     "cacppt_version": "v0.4.0-alpha.0",
     "cert_manager_version": "v1.1.0",
-    "kubernetes_version": "v1.21.1",
     "kustomize_substitutions": {
         "REGION": "fsn1",
         "CONTROL_PLANE_MACHINE_COUNT": "3",
@@ -133,26 +133,15 @@ def set_env_variables():
     for key, val in arr:
         os.putenv(key, val)
 
-def deploy_hetzner_token():
+def deploy_hetzner_secret():
     substitutions = settings.get("kustomize_substitutions", {})
-    token = substitutions.get("HCLOUD_TOKEN")
-    local("kubectl create secret generic hetzner-token --from-literal=token=%s --dry-run=client -o yaml | kubectl apply -f -" % token)
-
-tilt_helper_dockerfile_header = """
-# Tilt image
-FROM golang:1.16 as tilt-helper
-# Support live reloading with Tilt
-RUN wget --output-document /restart.sh --quiet https://raw.githubusercontent.com/windmilleng/rerun-process-wrapper/master/restart.sh  && \
-    wget --output-document /start.sh --quiet https://raw.githubusercontent.com/windmilleng/rerun-process-wrapper/master/start.sh && \
-    chmod +x /start.sh && chmod +x /restart.sh
-"""
+    hcloud = substitutions.get("HCLOUD_TOKEN")
+    local("kubectl create secret generic hetzner --from-literal=hcloud=%s --dry-run=client -o yaml | kubectl apply -f -" % hcloud)
 
 ## This should have the same versions as the Dockerfile
 tilt_dockerfile_header = """
 FROM gcr.io/distroless/base:debug as tilt
 WORKDIR /
-COPY --from=tilt-helper /start.sh .
-COPY --from=tilt-helper /restart.sh .
 COPY manager .
 """
 
@@ -178,28 +167,22 @@ def caph():
         labels = ["CAPH"],
     )
 
-    dockerfile_contents = "\n".join([
-        tilt_helper_dockerfile_header,
-        tilt_dockerfile_header,
-    ])
-
-    entrypoint = ["sh", "/start.sh", "/manager"]
+    entrypoint = ["/manager"]
     extra_args = settings.get("extra_args")
     if extra_args:
         entrypoint.extend(extra_args)
 
     # Set up an image build for the provider. The live update configuration syncs the output from the local_resource
     # build into the container.
-    docker_build(
+    docker_build_with_restart(
         ref = "quay.io/syself/cluster-api-provider-hetzner",
         context = "./.tiltbuild/",
-        dockerfile_contents = dockerfile_contents,
+        dockerfile_contents = tilt_dockerfile_header,
         target = "tilt",
         entrypoint = entrypoint,
         only = "manager",
         live_update = [
             sync(".tiltbuild/manager", "/manager"),
-            run("sh /restart.sh"),
         ],
         ignore = ["templates"],
     )
@@ -296,7 +279,7 @@ deploy_capi()
 
 set_env_variables()
 
-deploy_hetzner_token()
+deploy_hetzner_secret()
 
 caph()
 

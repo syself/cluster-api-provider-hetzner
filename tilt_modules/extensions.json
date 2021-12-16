@@ -9,6 +9,11 @@
       "Name": "uibutton",
       "ExtensionRegistry": "https://github.com/tilt-dev/tilt-extensions",
       "TimeFetched": "2021-10-27T19:41:46.910172135+02:00"
+    },
+    {
+      "Name": "restart_process",
+      "ExtensionRegistry": "https://github.com/tilt-dev/tilt-extensions",
+      "TimeFetched": "2021-12-08T20:30:04.816016504+01:00"
     }
   ]
 }
