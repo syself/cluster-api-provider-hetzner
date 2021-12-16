@@ -140,6 +140,50 @@ func main() {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HCloudMachineTemplate")
 		os.Exit(1)
 	}
+	if err = (&controllers.HetznerBareMetalMachineHostReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "HetznerBareMetalMachineHost")
+		os.Exit(1)
+	}
+	if err = (&controllers.HetznerBareMetalMachineReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "HetznerBareMetalMachine")
+		os.Exit(1)
+	}
+	if err = (&controllers.HetznerBareMetalMachineTemplateReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "HetznerBareMetalMachineTemplate")
+		os.Exit(1)
+	}
+	if err = (&controllers.HetznerBareMetalRemediationTemplateReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "HetznerBareMetalRemediationTemplate")
+		os.Exit(1)
+	}
+	if err = (&infrastructurev1beta1.HetznerBareMetalMachineHost{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalMachineHost")
+		os.Exit(1)
+	}
+	if err = (&infrastructurev1beta1.HetznerBareMetalMachine{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalMachine")
+		os.Exit(1)
+	}
+	if err = (&infrastructurev1beta1.HetznerBareMetalMachineTemplate{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalMachineTemplate")
+		os.Exit(1)
+	}
+	if err = (&infrastructurev1beta1.HetznerBareMetalRemediationTemplate{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalRemediationTemplate")
+		os.Exit(1)
+	}
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddReadyzCheck("webhook", mgr.GetWebhookServer().StartedChecker()); err != nil {
