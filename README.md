@@ -22,7 +22,7 @@ hybrid deployments of Kubernetes.
 
 ## Launching a Kubernetes cluster on Hetzner
 
-Check out the [Quickstart Guide](docs/quickstart.md) to create your first Kubernetes cluster on Hetzner using Cluster API.
+Check out the [Quickstart Guide](docs/topics/quickstart.md) to create your first Kubernetes cluster on Hetzner using Cluster API.
 
 ## Features
 
