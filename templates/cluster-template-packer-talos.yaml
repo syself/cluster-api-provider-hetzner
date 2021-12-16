@@ -13,81 +13,80 @@ spec:
     kind: HetznerCluster
     name: "${CLUSTER_NAME}"
   controlPlaneRef:
-    kind: KubeadmControlPlane
-    apiVersion: controlplane.cluster.x-k8s.io/v1beta1
-    name: "${CLUSTER_NAME}-control-plane"
+    kind: TalosControlPlane
+    apiVersion: controlplane.cluster.x-k8s.io/v1alpha3
+    name: "${CLUSTER_NAME}-controlplane"
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: HetznerCluster
 metadata:
   name: "${CLUSTER_NAME}"
 spec:
-  hcloudNetwork:
+  network:
     enabled: true
   controlPlaneRegion: 
-    - "${REGION}"
+    - "${HETZNER_REGION}"
   controlPlaneEndpoint:
     host: ""
     port: 443
   controlPlaneLoadBalancer:
-    region: "${REGION}"
+    region: "${HETZNER_REGION}"
     type: lb11
     algorithm: round_robin
     services:
     - listenPort: 443
       destinationPort: 6443
       protocol: tcp
-  hcloudPlacementGroup:
+  placementGroup:
   - name: control-plane
     type: spread
   - name: md-0
     type: spread
   sshKey:
-  - name: "${SSH_KEY}"
-  hcloudTokenRef:
-    key: token
-    name: hetzner-token
+  - name: "${HETZNER_SSH_KEY}"
+  hetznerSecretRef:
+    name: hetzner
+    key:
+      hcloudToken: hcloud
 ---
-kind: KubeadmControlPlane
-apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+apiVersion: controlplane.cluster.x-k8s.io/v1alpha3
+kind: TalosControlPlane
 metadata:
-  name: "${CLUSTER_NAME}-control-plane"
+  name: ${CLUSTER_NAME}-controlplane
 spec:
-  replicas: ${CONTROL_PLANE_MACHINE_COUNT}
-  machineTemplate:
-    infrastructureRef:
-      kind: HCloudMachineTemplate
-      apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
-      name: "${CLUSTER_NAME}-control-plane"
-  kubeadmConfigSpec:
-    clusterConfiguration:
-      apiServer:
-        extraArgs:
-          cloud-provider: external
-      controllerManager:
-        extraArgs:
-          cloud-provider: external
-    initConfiguration:
-      nodeRegistration:
-        kubeletExtraArgs:
-          cloud-provider: external
-          cgroup-driver: "cgroup2fs"
-    joinConfiguration:
-      nodeRegistration:
-        kubeletExtraArgs:
-          cloud-provider: external
-          cgroup-driver: "cgroup2fs"
-  version: "${KUBERNETES_VERSION}"
+  replicas: ${CONTROL_PLANE_MACHINE_COUNT} 
+  version: v${KUBERNETES_VERSION}
+  controlPlaneConfig:
+    init:
+      generateType: init
+      talosVersion: v0.14
+      configPatches:
+        - op: add
+          path: /cluster/externalCloudProvider
+          value:
+            enabled: true   
+    controlplane:
+      generateType: controlplane
+      talosVersion: v0.13
+      configPatches:
+        - op: add
+          path: /cluster/externalCloudProvider
+          value:
+            enabled: true 
+  infrastructureTemplate:
+    kind: HCloudMachineTemplate
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    name: "${CLUSTER_NAME}-controlplane"
 ---
 kind: HCloudMachineTemplate
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 metadata:
-  name: "${CLUSTER_NAME}-control-plane"
+  name: "${CLUSTER_NAME}-controlplane"
 spec:
   template:
     spec:
-      type: "${HCLOUD_CONTROL_PLANE_MACHINE_TYPE}"
-      imageName: "${HCLOUD_IMAGE_NAME}"
+      type: "${HETZNER_CONTROL_PLANE_MACHINE_TYPE}"
+      imageName: "${IMAGE_NAME}"
       placementGroup: control-plane
 ---
 apiVersion: cluster.x-k8s.io/v1beta1
@@ -122,13 +121,13 @@ spec:
   template:
     spec:
       clusterName: "${CLUSTER_NAME}"
-      failureDomain: "${REGION}"
+      failureDomain: "${HETZNER_REGION}"
       version: "${KUBERNETES_VERSION}"
       bootstrap:
         configRef:
           name: "${CLUSTER_NAME}-md-0"
-          apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
-          kind: KubeadmConfigTemplate
+          apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
+          kind: TalosConfigTemplate
       infrastructureRef:
         name: "${CLUSTER_NAME}-md-0"
         apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
@@ -141,22 +140,24 @@ metadata:
 spec:
   template:
     spec:
-      type: "${HCLOUD_NODE_MACHINE_TYPE}"
-      imageName: "${HCLOUD_IMAGE_NAME}"
+      type: "${HETZNER_NODE_MACHINE_TYPE}"
+      imageName: "${IMAGE_NAME}"
       placementGroup: md-0
 ---
-apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
-kind: KubeadmConfigTemplate
+apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
+kind: TalosConfigTemplate
 metadata:
   name: "${CLUSTER_NAME}-md-0"
 spec:
   template:
     spec:
-      joinConfiguration:
-        nodeRegistration:
-          kubeletExtraArgs:
-            cloud-provider: external
-            cgroup-driver: "cgroup2fs"
+      generateType: join
+      talosVersion: v0.14
+      configPatches:
+        - op: add
+          path: /cluster/externalCloudProvider
+          value:
+            enabled: true
 ---
 apiVersion: cluster.x-k8s.io/v1beta1
 kind: MachineHealthCheck
