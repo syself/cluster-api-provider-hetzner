@@ -465,25 +465,25 @@ func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope
 
 	if _, err := clientSet.CoreV1().Secrets("kube-system").Get(
 		ctx,
-		clusterScope.HetznerCluster.Spec.HCloudTokenRef.Name,
+		clusterScope.HetznerCluster.Spec.HetznerSecretRef.Name,
 		metav1.GetOptions{}); err != nil {
 		// Set new secret as no secret was found
 		if strings.HasSuffix(err.Error(), "not found") {
 			var tokenSecret corev1.Secret
-			tokenSecretName := types.NamespacedName{Namespace: clusterScope.HetznerCluster.Namespace, Name: clusterScope.HetznerCluster.Spec.HCloudTokenRef.Name}
+			tokenSecretName := types.NamespacedName{Namespace: clusterScope.HetznerCluster.Namespace, Name: clusterScope.HetznerCluster.Spec.HetznerSecretRef.Name}
 			if err := clusterScope.Client.Get(ctx, tokenSecretName, &tokenSecret); err != nil {
 				return errors.Errorf("error getting referenced token secret/%s: %s", tokenSecretName, err)
 			}
 
-			tokenBytes, keyExists := tokenSecret.Data[clusterScope.HetznerCluster.Spec.HCloudTokenRef.Key]
+			tokenBytes, keyExists := tokenSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecretRef.HCloudToken]
 			if !keyExists {
-				return errors.Errorf("error key %s does not exist in secret/%s", clusterScope.HetznerCluster.Spec.HCloudTokenRef.Key, tokenSecretName)
+				return errors.Errorf("error key %s does not exist in secret/%s", clusterScope.HetznerCluster.Spec.HetznerSecretRef.HCloudToken, tokenSecretName)
 			}
 			hetznerToken := string(tokenBytes)
 
 			immutable := false
 			data := make(map[string][]byte)
-			data[clusterScope.HetznerCluster.Spec.HCloudTokenRef.Key] = []byte(hetznerToken)
+			data[clusterScope.HetznerCluster.Spec.HetznerSecretRef.HCloudToken] = []byte(hetznerToken)
 			if clusterScope.HetznerCluster.Spec.HCloudNetworkSpec.NetworkEnabled {
 				data["network"] = []byte(strconv.Itoa(clusterScope.HetznerCluster.Status.Network.ID))
 			}
@@ -495,7 +495,7 @@ func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope
 				Data:      data,
 				TypeMeta:  metav1.TypeMeta{},
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      clusterScope.HetznerCluster.Spec.HCloudTokenRef.Name,
+					Name:      clusterScope.HetznerCluster.Spec.HetznerSecretRef.Name,
 					Namespace: "kube-system",
 				},
 			}

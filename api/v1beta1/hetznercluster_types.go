@@ -17,7 +17,6 @@ limitations under the License.
 package v1beta1
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 )
@@ -60,9 +59,15 @@ type HetznerClusterSpec struct {
 	// +optional
 	HCloudPlacementGroupSpec []HCloudPlacementGroupSpec `json:"hcloudPlacementGroup,omitempty"`
 
-	// HCloudTokenRef is a reference to a token to be used when reconciling this cluster
-	// this is generated in the Security section under API TOKENS. Read & Write is necessary
-	HCloudTokenRef *corev1.SecretKeySelector `json:"hcloudTokenRef"`
+	// HetznerSecretRef is a reference to a token to be used when reconciling this cluster.
+	// This is generated in the Security section under API TOKENS. Read & Write is necessary.
+	HetznerSecretRef HetznerSecretRef `json:"hetznerSecretRef"`
+}
+
+// HetznerSecretRef defines all the name of the secret and the relevant keys needed to access Hetzner API
+type HetznerSecretRef struct {
+	Name        string `json:"name"`
+	HCloudToken string `json:"hcloudToken"`
 }
 
 // LoadBalancerSpec defines the desired state of the Control Plane Loadbalancer.

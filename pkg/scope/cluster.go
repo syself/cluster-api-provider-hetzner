@@ -69,14 +69,14 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 		params.HCloudClientFactory = func(ctx context.Context) (HCloudClient, error) {
 			// retrieve token secret
 			var tokenSecret corev1.Secret
-			tokenSecretName := types.NamespacedName{Namespace: params.HetznerCluster.Namespace, Name: params.HetznerCluster.Spec.HCloudTokenRef.Name}
+			tokenSecretName := types.NamespacedName{Namespace: params.HetznerCluster.Namespace, Name: params.HetznerCluster.Spec.HetznerSecretRef.Name}
 			if err := params.Client.Get(ctx, tokenSecretName, &tokenSecret); err != nil {
 				return nil, errors.Errorf("error getting referenced token secret/%s: %s", tokenSecretName, err)
 			}
 
-			tokenBytes, keyExists := tokenSecret.Data[params.HetznerCluster.Spec.HCloudTokenRef.Key]
+			tokenBytes, keyExists := tokenSecret.Data[params.HetznerCluster.Spec.HetznerSecretRef.HCloudToken]
 			if !keyExists {
-				return nil, errors.Errorf("error key %s does not exist in secret/%s", params.HetznerCluster.Spec.HCloudTokenRef.Key, tokenSecretName)
+				return nil, errors.Errorf("error key %s does not exist in secret/%s", params.HetznerCluster.Spec.HetznerSecretRef.HCloudToken, tokenSecretName)
 			}
 			hcloudToken = string(tokenBytes)
 

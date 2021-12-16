@@ -209,25 +209,19 @@ spec:
                               type: string
                           type: object
                         type: array
-                      hcloudTokenRef:
-                        description: HCloudTokenRef is a reference to a token to be
-                          used when reconciling this cluster this is generated in
-                          the Security section under API TOKENS. Read & Write is necessary
+                      hetznerSecretRef:
+                        description: HetznerSecretRef is a reference to a token to
+                          be used when reconciling this cluster. This is generated
+                          in the Security section under API TOKENS. Read & Write is
+                          necessary.
                         properties:
-                          key:
-                            description: The key of the secret to select from.  Must
-                              be a valid secret key.
+                          hcloudToken:
                             type: string
                           name:
-                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                              TODO: Add other useful fields. apiVersion, kind, uid?'
                             type: string
-                          optional:
-                            description: Specify whether the Secret or its key must
-                              be defined
-                            type: boolean
                         required:
-                        - key
+                        - hcloudToken
+                        - name
                         type: object
                       sshKey:
                         description: define cluster wide SSH keys. Valid values are
@@ -243,7 +237,7 @@ spec:
                         type: array
                     required:
                     - controlPlaneRegion
-                    - hcloudTokenRef
+                    - hetznerSecretRef
                     type: object
                 required:
                 - spec
