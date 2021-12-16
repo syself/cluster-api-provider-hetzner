@@ -1,6 +1,9 @@
 # <img alt="capi" src="docs/pics/cluster-api.png" height="48x" /> Kubernetes Cluster API Provider Hetzner
 
+[![GitHub release](https://img.shields.io/github/release/syself/cluster-api-provider-hetzner/all.svg?style=flat-square)](https://github.com/syself/cluster-api-provider-hetzner/releases)
+[![GoDoc](https://godoc.org/github.com/syself/cluster-api-provider-hetzner?status.svg)](https://pkg.go.dev/github.com/syself/cluster-api-provider-hetzner?tab=overview)
 [![Go Report Card](https://goreportcard.com/badge/github.com/syself/cluster-api-provider-hetzner)](https://goreportcard.com/report/github.com/syself/cluster-api-provider-hetzner)
+[![Latest quay.io image tags](https://img.shields.io/github/v/tag/syself/cluster-api-provider-hetzner?include_prereleases&label=quay.io)](https://quay.io/repository/syself/cluster-api-provider-hetzner?tab=tags)
 
 <p align="center">
 <img alt="hcloud" src="docs/pics/hetzner.png"/>
@@ -17,6 +20,10 @@ hybrid deployments of Kubernetes.
 
 > This is no official Hetzner Project! It's maintained by the folks of the cloud-native startup Syself.
 
+## Launching a Kubernetes cluster on Hetzner
+
+Check out the [Quickstart Guide](docs/quickstart.md) to create your first Kubernetes cluster on Hetzner using Cluster API.
+
 ## Features
 
 * Native Kubernetes manifests and API
@@ -24,15 +31,11 @@ hybrid deployments of Kubernetes.
 * Support for single and multi-node control plane clusters
 * Support for HCloud Placement groups
 * cloud-init based nodes bootstrapping
+* Hetzner Dedicated Server *comming soon*
 
-## Quick Start
+---
 
-Check out the [Cluster API Quick Start][quickstart] to create your first Kubernetes cluster on Hetzner using Cluster API.
-Then please check out the [Quickstart Guide](docs/quickstart.md).*cooming soon*
-
-------
-
-## Support Policy
+## Compatibility with Cluster API and Kubernetes Versions
 
 This provider's versions are compatible with the following versions of Cluster API:
 
@@ -59,6 +62,10 @@ Each version of Cluster API for Hetzner will attempt to support at least two Kub
 
 ------
 
+## Operating system images
+Note: Cluster API Provider Hetzner relies on a few prerequisites which have to be already installed in the used operating system images, e.g. a container runtime, kubelet, kubeadm,.. . Reference images can be found in kubernetes-sigs/image-builder and in templates/node-image If it isn't possible to pre-install those prerequisites in the image, you can always deploy and execute some custom scripts through the KubeadmConfig.
+
+---
 ## Documentation
 
 Docs can be found in the `/docs` directory. Index could be found [here](docs/README.md).
