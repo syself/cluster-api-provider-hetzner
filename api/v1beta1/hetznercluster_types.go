@@ -70,8 +70,10 @@ type HetznerClusterStatus struct {
 	ControlPlaneLoadBalancer *LoadBalancerStatus `json:"controlPlaneLoadBalancer,omitempty"`
 	// +optional
 	HCloudPlacementGroup []HCloudPlacementGroupStatus `json:"hcloudPlacementGroups,omitempty"`
-	FailureDomains       clusterv1.FailureDomains     `json:"failureDomains,omitempty"`
-	Conditions           clusterv1.Conditions         `json:"conditions,omitempty"`
+	// +optional
+	HetznerRobotSSHKey *SSHKey                  `json:"hetznerRobotSSHKey,omitempty"`
+	FailureDomains     clusterv1.FailureDomains `json:"failureDomains,omitempty"`
+	Conditions         clusterv1.Conditions     `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true

@@ -30,6 +30,7 @@ import (
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
+	robotclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/loadbalancer"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/network"
@@ -67,12 +68,15 @@ type HetznerClusterReconciler struct {
 	client.Client
 	APIReader                      client.Reader
 	HCloudClientFactory            hcloudclient.Factory
+	RobotClientFactory             robotclient.Factory
 	Log                            logr.Logger
 	WatchFilterValue               string
 	targetClusterManagersStopCh    map[types.NamespacedName]chan struct{}
 	targetClusterManagersLock      sync.Mutex
 	TargetClusterManagersWaitGroup *sync.WaitGroup
 }
+
+var errNoCredentials = errors.New("no credentials for HCloud and Robot provided")
 
 //+kubebuilder:rbac:groups=cluster.x-k8s.io,resources=clusters;clusters/status,verbs=get;list;watch
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hetznerclusters,verbs=get;list;watch;create;update;patch;delete
@@ -342,6 +346,15 @@ func hcloudTokenErrorResult(
 			infrav1.HCloudCredentialsInvalidReason,
 			clusterv1.ConditionSeverityError,
 			"invalid or not specified hcloud token in Hetzner secret",
+		)
+
+		// No need to reconcile again, as it will be triggered as soon as the secret is updated.
+	case *robotclient.CredentialsValidationError:
+		conditions.MarkFalse(setter,
+			conditionType,
+			infrav1.RobotCredentialsInvalidReason,
+			clusterv1.ConditionSeverityError,
+			"invalid or not specified robot credentials in Hetzner secret",
 		)
 
 	default:

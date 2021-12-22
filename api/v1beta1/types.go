@@ -46,7 +46,10 @@ func (algorithmType *LoadBalancerAlgorithmType) HCloudAlgorithmType() hcloud.Loa
 
 // HetznerSSHKeys defines the global SSHKeys HetznerCluster.
 type HetznerSSHKeys struct {
+	// +optional
 	HCloud []SSHKey `json:"hcloud,omitempty"`
+	// +optional
+	Robot RobotSSHSecretRef `json:"robotSecretRef,omitempty"`
 }
 
 // SSHKey defines the SSHKey for HCloud.
@@ -57,6 +60,19 @@ type SSHKey struct {
 	// Fingerprint of SSH key - added by controller
 	// +optional
 	Fingerprint string `json:"fingerprint,omitempty"`
+}
+
+// RobotSSHSecretRef defines the secret containing all information of the SSH key used for Hetzner robot.
+type RobotSSHSecretRef struct {
+	Name string               `json:"name"`
+	Key  RobotSSHSecretKeyRef `json:"key"`
+}
+
+// RobotSSHSecretKeyRef defines the key name of the RobotSSHSecret.
+type RobotSSHSecretKeyRef struct {
+	Name       string `json:"name"`
+	PublicKey  string `json:"publicKey"`
+	PrivateKey string `json:"privateKey"`
 }
 
 // HCloudMachineType defines the HCloud Machine type.
@@ -89,8 +105,14 @@ type HetznerSecretRef struct {
 }
 
 // HetznerSecretKeyRef defines the key name of the HetznerSecret.
+// Need to specify either HCloudToken or both HetznerRobotUser and HetznerRobotPassword
 type HetznerSecretKeyRef struct {
+	// +optional
 	HCloudToken string `json:"hcloudToken"`
+	// +optional
+	HetznerRobotUser string `json:"hetznerRobotUser"`
+	// +optional
+	HetznerRobotPassword string `json:"hetznerRobotPassword"`
 }
 
 // LoadBalancerSpec defines the desired state of the Control Plane Loadbalancer.

@@ -208,11 +208,15 @@ spec:
                 properties:
                   key:
                     description: HetznerSecretKeyRef defines the key name of the HetznerSecret.
+                      Need to specify either HCloudToken or both HetznerRobotUser
+                      and HetznerRobotPassword
                     properties:
                       hcloudToken:
                         type: string
-                    required:
-                    - hcloudToken
+                      hetznerRobotPassword:
+                        type: string
+                      hetznerRobotUser:
+                        type: string
                     type: object
                   name:
                     type: string

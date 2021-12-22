@@ -26,6 +26,7 @@ import (
 	infrastructurev1beta1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/controllers"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
+	hetznerclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/provisioner/hetzner"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -102,7 +103,7 @@ func main() {
 	ctx := ctrl.SetupSignalHandler()
 
 	hcloudClientFactory := hcloudclient.NewFactory()
-
+	provisionerFactory := hetznerclient.NewProvisionerFactory()
 	var wg sync.WaitGroup
 	wg.Add(1)
 	if err = (&controllers.HetznerClusterReconciler{
@@ -121,6 +122,14 @@ func main() {
 		HCloudClientFactory: hcloudClientFactory,
 		WatchFilterValue:    watchFilterValue,
 	}).SetupWithManager(ctx, mgr, controller.Options{}); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "HCloudMachine")
+		os.Exit(1)
+	}
+
+	if err = (&controllers.HetznerBareMetalHostReconciler{
+		Client:             mgr.GetClient(),
+		ProvisionerFactory: provisionerFactory,
+	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HCloudMachine")
 		os.Exit(1)
 	}
@@ -148,20 +157,20 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "HetznerBareMetalMachine")
 		os.Exit(1)
 	}
-	if err = (&controllers.HetznerBareMetalMachineTemplateReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "HetznerBareMetalMachineTemplate")
-		os.Exit(1)
-	}
-	if err = (&controllers.HetznerBareMetalRemediationTemplateReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "HetznerBareMetalRemediationTemplate")
-		os.Exit(1)
-	}
+	// if err = (&controllers.HetznerBareMetalMachineTemplateReconciler{
+	// 	Client: mgr.GetClient(),
+	// 	Scheme: mgr.GetScheme(),
+	// }).SetupWithManager(mgr); err != nil {
+	// 	setupLog.Error(err, "unable to create controller", "controller", "HetznerBareMetalMachineTemplate")
+	// 	os.Exit(1)
+	// }
+	// if err = (&controllers.HetznerBareMetalRemediationTemplateReconciler{
+	// 	Client: mgr.GetClient(),
+	// 	Scheme: mgr.GetScheme(),
+	// }).SetupWithManager(mgr); err != nil {
+	// 	setupLog.Error(err, "unable to create controller", "controller", "HetznerBareMetalRemediationTemplate")
+	// 	os.Exit(1)
+	// }
 	if err = (&infrastructurev1beta1.HetznerBareMetalMachine{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalMachine")
 		os.Exit(1)

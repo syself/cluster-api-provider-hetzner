@@ -20,20 +20,20 @@ spec:
   versions:
   - additionalPrinterColumns:
     - description: Operational status
-      jsonPath: .status.operationalStatus
+      jsonPath: .spec.status.operationalStatus
       name: Status
       priority: 1
       type: string
     - description: Provisioning status
-      jsonPath: .status.provisioning.state
+      jsonPath: .spec.status.provisioning.state
       name: State
       type: string
     - description: Consumer using this host
-      jsonPath: .spec.consumerRef.name
+      jsonPath: .spec.status.consumerRef.name
       name: Consumer
       type: string
     - description: The type of server
-      jsonPath: .status.type
+      jsonPath: .spec.type
       name: Type
       priority: 1
       type: string
@@ -42,7 +42,7 @@ spec:
       name: Online
       type: string
     - description: Type of the most recent error
-      jsonPath: .status.errorType
+      jsonPath: .spec.status.errorType
       name: Error
       type: string
     - description: Time duration since creation of BaremetalHost
@@ -75,47 +75,14 @@ spec:
                 description: When set to true we delete all data when we provision
                   the node.
                 type: boolean
-              consumerRef:
-                description: ConsumerRef can be used to store information about something
-                  that is using a host. When it is not empty, the host is considered
-                  "in use".
-                properties:
-                  apiVersion:
-                    description: API version of the referent.
-                    type: string
-                  fieldPath:
-                    description: 'If referring to a piece of an object instead of
-                      an entire object, this string should contain a valid JSON/Go
-                      field access statement, such as desiredState.manifest.containers[2].
-                      For example, if the object reference is to a container within
-                      a pod, this would take on a value like: "spec.containers{name}"
-                      (where "name" refers to the name of the container that triggered
-                      the event) or if no container name is specified "spec.containers[2]"
-                      (container with index 2 in this pod). This syntax is chosen
-                      only to have some well-defined way of referencing a part of
-                      an object. TODO: this design is not final and this field is
-                      subject to change in the future.'
-                    type: string
-                  kind:
-                    description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-                    type: string
-                  name:
-                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
-                    type: string
-                  namespace:
-                    description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
-                    type: string
-                  resourceVersion:
-                    description: 'Specific resourceVersion to which this reference
-                      is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
-                    type: string
-                  uid:
-                    description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
-                    type: string
-                type: object
               description:
                 description: Description is a human-entered text used to help identify
                   the host
+                type: string
+              hetznerClusterRef:
+                description: HetznerClusterRef is the name of the HetznerCluster object
+                  which is needed as some necessary information is stored there, e.g.
+                  the hrobot password
                 type: string
               image:
                 description: Image holds the details of the image to be provisioned.
@@ -124,26 +91,22 @@ spec:
               online:
                 description: Should the server be online?
                 type: boolean
+              region:
+                description: Region contains the server location.
+                enum:
+                - fsn1
+                - hel1
+                - nbg1
+                - ash
+                type: string
               rootDeviceHints:
                 description: Provide guidance about how to choose the device for the
                   image being provisioned.
                 properties:
-                  deviceName:
-                    description: A Linux device name like "/dev/vda". The hint must
-                      match the actual value exactly.
-                    type: string
-                  hctl:
-                    description: A SCSI bus address like 0:0:0:0. The hint must match
-                      the actual value exactly.
-                    type: string
                   minSizeGigabytes:
                     description: The minimum size of the device in Gigabytes.
                     minimum: 0
                     type: integer
-                  model:
-                    description: A vendor-specific device identifier. The hint can
-                      be a substring of the actual value.
-                    type: string
                   rotational:
                     description: True if the device should use spinning media, false
                       otherwise.
@@ -152,10 +115,6 @@ spec:
                     description: Device serial number. The hint must match the actual
                       value exactly.
                     type: string
-                  vendor:
-                    description: The name of the vendor or manufacturer of the device.
-                      The hint can be a substring of the actual value.
-                    type: string
                   wwn:
                     description: Unique storage identifier. The hint must match the
                       actual value exactly.
@@ -163,271 +122,267 @@ spec:
                 type: object
               serverID:
                 description: ServerID defines the ID of the server provided by Hetzner.
-                type: string
-              type:
-                description: Region contains the server location.
-                enum:
-                - fsn1
-                - hel1
-                - nbg1
-                - ash
-                type: string
-              userData:
-                description: UserData holds the reference to the Secret containing
-                  the user data to be passed to the host before it boots.
+                type: integer
+              status:
+                description: Status contains all status information. DO NOT EDIT!!!
                 properties:
-                  name:
-                    description: Name is unique within a namespace to reference a
-                      secret resource.
+                  consumerRef:
+                    description: ConsumerRef can be used to store information about
+                      something that is using a host. When it is not empty, the host
+                      is considered "in use".
+                    properties:
+                      apiVersion:
+                        description: API version of the referent.
+                        type: string
+                      fieldPath:
+                        description: 'If referring to a piece of an object instead
+                          of an entire object, this string should contain a valid
+                          JSON/Go field access statement, such as desiredState.manifest.containers[2].
+                          For example, if the object reference is to a container within
+                          a pod, this would take on a value like: "spec.containers{name}"
+                          (where "name" refers to the name of the container that triggered
+                          the event) or if no container name is specified "spec.containers[2]"
+                          (container with index 2 in this pod). This syntax is chosen
+                          only to have some well-defined way of referencing a part
+                          of an object. TODO: this design is not final and this field
+                          is subject to change in the future.'
+                        type: string
+                      kind:
+                        description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                        type: string
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                        type: string
+                      namespace:
+                        description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                        type: string
+                      resourceVersion:
+                        description: 'Specific resourceVersion to which this reference
+                          is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
+                        type: string
+                      uid:
+                        description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
+                        type: string
+                    type: object
+                  errorCount:
+                    default: 0
+                    description: ErrorCount records how many times the host has encoutered
+                      an error since the last successful operation.
+                    type: integer
+                  errorMessage:
+                    description: the last error message reported by the provisioning
+                      subsystem.
                     type: string
-                  namespace:
-                    description: Namespace defines the space within which the secret
-                      name must be unique.
+                  errorType:
+                    description: ErrorType indicates the type of failure encountered
+                      when the OperationalStatus is OperationalStatusError
+                    enum:
+                    - provisioned registration error
+                    - registration error
+                    - preparation error
+                    - provisioning error
                     type: string
+                  hardwareDetails:
+                    description: StatusHardwareDetails are automatically gathered
+                      and should not be modified by the user.
+                    properties:
+                      cpu:
+                        description: CPU describes one processor on the host.
+                        properties:
+                          arch:
+                            type: string
+                          clockMegahertz:
+                            description: ClockSpeed is a clock speed in MHz
+                            format: double
+                            type: string
+                          count:
+                            type: integer
+                          flags:
+                            items:
+                              type: string
+                            type: array
+                          model:
+                            type: string
+                        type: object
+                      hostname:
+                        type: string
+                      nics:
+                        items:
+                          description: NIC describes one network interface on the
+                            host.
+                          properties:
+                            ip:
+                              description: The IP address of the interface. This will
+                                be an IPv4 or IPv6 address if one is present.  If
+                                both IPv4 and IPv6 addresses are present in a dual-stack
+                                environment, two nics will be output, one with each
+                                IP.
+                              type: string
+                            mac:
+                              description: The device MAC address
+                              pattern: '[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}'
+                              type: string
+                            model:
+                              description: The vendor and product IDs of the NIC,
+                                e.g. "0x8086 0x1572"
+                              type: string
+                            name:
+                              description: The name of the network interface, e.g.
+                                "en0"
+                              type: string
+                            speedGbps:
+                              description: The speed of the device in Gigabits per
+                                second
+                              type: integer
+                          type: object
+                        type: array
+                      ramMebibytes:
+                        type: integer
+                      storage:
+                        items:
+                          description: 'Storage describes one storage device (disk,
+                            SSD, etc.) on the host. TODO: Could be matched by extracting
+                            the information with: lsblk -b -P -o "NAME,LABEL,FSTYPE,TYPE,HCTL,MODEL,VENDOR,SERIAL,SIZE,WWN,ROTA"
+                            .'
+                          properties:
+                            hctl:
+                              description: The SCSI location of the device
+                              type: string
+                            model:
+                              description: Hardware model
+                              type: string
+                            name:
+                              description: The Linux device name of the disk, e.g.
+                                "/dev/sda". Note that this may not be stable across
+                                reboots.
+                              type: string
+                            serialNumber:
+                              description: The serial number of the device
+                              type: string
+                            sizeBytes:
+                              description: The size of the disk in Bytes
+                              format: int64
+                              type: integer
+                            type:
+                              description: 'Device type, one of: HDD, SSD, NVME.'
+                              enum:
+                              - HDD
+                              - SSD
+                              - NVME
+                              type: string
+                            vendor:
+                              description: The name of the vendor of the device
+                              type: string
+                            wwn:
+                              description: The WWN of the device
+                              type: string
+                          type: object
+                        type: array
+                    type: object
+                  operationHistory:
+                    description: OperationHistory holds information about operations
+                      performed on this host.
+                    properties:
+                      deprovision:
+                        description: OperationMetric contains metadata about an operation
+                          (inspection, provisioning, etc.) used for tracking metrics.
+                        properties:
+                          end:
+                            format: date-time
+                            nullable: true
+                            type: string
+                          start:
+                            format: date-time
+                            nullable: true
+                            type: string
+                        type: object
+                      prepare:
+                        description: OperationMetric contains metadata about an operation
+                          (inspection, provisioning, etc.) used for tracking metrics.
+                        properties:
+                          end:
+                            format: date-time
+                            nullable: true
+                            type: string
+                          start:
+                            format: date-time
+                            nullable: true
+                            type: string
+                        type: object
+                      provision:
+                        description: OperationMetric contains metadata about an operation
+                          (inspection, provisioning, etc.) used for tracking metrics.
+                        properties:
+                          end:
+                            format: date-time
+                            nullable: true
+                            type: string
+                          start:
+                            format: date-time
+                            nullable: true
+                            type: string
+                        type: object
+                      register:
+                        description: OperationMetric contains metadata about an operation
+                          (inspection, provisioning, etc.) used for tracking metrics.
+                        properties:
+                          end:
+                            format: date-time
+                            nullable: true
+                            type: string
+                          start:
+                            format: date-time
+                            nullable: true
+                            type: string
+                        type: object
+                    type: object
+                  operationalStatus:
+                    description: OperationalStatus holds the status of the host
+                    enum:
+                    - ""
+                    - OK
+                    - discovered
+                    - error
+                    - delayed
+                    - detached
+                    type: string
+                  provisioningState:
+                    description: Information tracked by the provisioner.
+                    type: string
+                  userData:
+                    description: UserData holds the reference to the Secret containing
+                      the user data to be passed to the host before it boots.
+                    properties:
+                      name:
+                        description: Name is unique within a namespace to reference
+                          a secret resource.
+                        type: string
+                      namespace:
+                        description: Namespace defines the space within which the
+                          secret name must be unique.
+                        type: string
+                    type: object
+                required:
+                - errorCount
+                - errorMessage
+                - operationalStatus
+                - provisioningState
                 type: object
+              type:
+                description: Type of the server.
+                type: string
             required:
+            - hetznerClusterName
             - online
             type: object
           status:
             description: HetznerBareMetalHostStatus defines the observed state of
               HetznerBareMetalHost.
             properties:
-              errorCount:
-                default: 0
-                description: ErrorCount records how many times the host has encoutered
-                  an error since the last successful operation.
-                type: integer
-              errorMessage:
-                description: the last error message reported by the provisioning subsystem.
-                type: string
-              errorType:
-                description: ErrorType indicates the type of failure encountered when
-                  the OperationalStatus is OperationalStatusError
-                enum:
-                - provisioned registration error
-                - registration error
-                - preparation error
-                - provisioning error
-                type: string
-              hardware:
-                description: The hardware discovered to exist on the host.
-                properties:
-                  cpu:
-                    description: CPU describes one processor on the host.
-                    properties:
-                      arch:
-                        type: string
-                      clockMegahertz:
-                        description: ClockSpeed is a clock speed in MHz
-                        format: double
-                        type: string
-                      count:
-                        type: integer
-                      flags:
-                        items:
-                          type: string
-                        type: array
-                      model:
-                        type: string
-                    type: object
-                  hostname:
-                    type: string
-                  nics:
-                    items:
-                      description: NIC describes one network interface on the host.
-                      properties:
-                        ip:
-                          description: The IP address of the interface. This will
-                            be an IPv4 or IPv6 address if one is present.  If both
-                            IPv4 and IPv6 addresses are present in a dual-stack environment,
-                            two nics will be output, one with each IP.
-                          type: string
-                        mac:
-                          description: The device MAC address
-                          pattern: '[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}'
-                          type: string
-                        model:
-                          description: The vendor and product IDs of the NIC, e.g.
-                            "0x8086 0x1572"
-                          type: string
-                        name:
-                          description: The name of the network interface, e.g. "en0"
-                          type: string
-                        speedGbps:
-                          description: The speed of the device in Gigabits per second
-                          type: integer
-                      type: object
-                    type: array
-                  ramMebibytes:
-                    type: integer
-                  storage:
-                    items:
-                      description: Storage describes one storage device (disk, SSD,
-                        etc.) on the host.
-                      properties:
-                        hctl:
-                          description: The SCSI location of the device
-                          type: string
-                        model:
-                          description: Hardware model
-                          type: string
-                        name:
-                          description: The Linux device name of the disk, e.g. "/dev/sda".
-                            Note that this may not be stable across reboots.
-                          type: string
-                        serialNumber:
-                          description: The serial number of the device
-                          type: string
-                        sizeBytes:
-                          description: The size of the disk in Bytes
-                          format: int64
-                          type: integer
-                        type:
-                          description: 'Device type, one of: HDD, SSD, NVME.'
-                          enum:
-                          - HDD
-                          - SSD
-                          - NVME
-                          type: string
-                        vendor:
-                          description: The name of the vendor of the device
-                          type: string
-                        wwn:
-                          description: The WWN of the device
-                          type: string
-                      type: object
-                    type: array
-                type: object
-              lastUpdated:
-                description: LastUpdated identifies when this status was last observed.
-                format: date-time
-                type: string
-              operationHistory:
-                description: OperationHistory holds information about operations performed
-                  on this host.
-                properties:
-                  deprovision:
-                    description: OperationMetric contains metadata about an operation
-                      (inspection, provisioning, etc.) used for tracking metrics.
-                    properties:
-                      end:
-                        format: date-time
-                        nullable: true
-                        type: string
-                      start:
-                        format: date-time
-                        nullable: true
-                        type: string
-                    type: object
-                  prepare:
-                    description: OperationMetric contains metadata about an operation
-                      (inspection, provisioning, etc.) used for tracking metrics.
-                    properties:
-                      end:
-                        format: date-time
-                        nullable: true
-                        type: string
-                      start:
-                        format: date-time
-                        nullable: true
-                        type: string
-                    type: object
-                  provision:
-                    description: OperationMetric contains metadata about an operation
-                      (inspection, provisioning, etc.) used for tracking metrics.
-                    properties:
-                      end:
-                        format: date-time
-                        nullable: true
-                        type: string
-                      start:
-                        format: date-time
-                        nullable: true
-                        type: string
-                    type: object
-                  register:
-                    description: OperationMetric contains metadata about an operation
-                      (inspection, provisioning, etc.) used for tracking metrics.
-                    properties:
-                      end:
-                        format: date-time
-                        nullable: true
-                        type: string
-                      start:
-                        format: date-time
-                        nullable: true
-                        type: string
-                    type: object
-                type: object
-              operationalStatus:
-                description: OperationalStatus holds the status of the host
-                enum:
-                - ""
-                - OK
-                - discovered
-                - error
-                - delayed
-                - detached
-                type: string
               poweredOn:
                 description: indicator for whether or not the host is powered on.
                 type: boolean
-              provisioning:
-                description: Information tracked by the provisioner.
-                properties:
-                  ID:
-                    description: The machine's UUID from the underlying provisioning
-                      tool
-                    type: string
-                  image:
-                    description: Image holds the details of the last image successfully
-                      provisioned to the host.
-                    type: string
-                  rootDeviceHints:
-                    description: The RootDevicehints set by the user
-                    properties:
-                      deviceName:
-                        description: A Linux device name like "/dev/vda". The hint
-                          must match the actual value exactly.
-                        type: string
-                      hctl:
-                        description: A SCSI bus address like 0:0:0:0. The hint must
-                          match the actual value exactly.
-                        type: string
-                      minSizeGigabytes:
-                        description: The minimum size of the device in Gigabytes.
-                        minimum: 0
-                        type: integer
-                      model:
-                        description: A vendor-specific device identifier. The hint
-                          can be a substring of the actual value.
-                        type: string
-                      rotational:
-                        description: True if the device should use spinning media,
-                          false otherwise.
-                        type: boolean
-                      serialNumber:
-                        description: Device serial number. The hint must match the
-                          actual value exactly.
-                        type: string
-                      vendor:
-                        description: The name of the vendor or manufacturer of the
-                          device. The hint can be a substring of the actual value.
-                        type: string
-                      wwn:
-                        description: Unique storage identifier. The hint must match
-                          the actual value exactly.
-                        type: string
-                    type: object
-                  state:
-                    description: An indiciator for what the provisioner is doing with
-                      the host.
-                    type: string
-                required:
-                - ID
-                - state
-                type: object
-              type:
+              region:
                 description: Region contains the server location.
                 enum:
                 - fsn1
@@ -436,11 +391,7 @@ spec:
                 - ash
                 type: string
             required:
-            - errorCount
-            - errorMessage
-            - operationalStatus
             - poweredOn
-            - provisioning
             type: object
         type: object
     served: true
