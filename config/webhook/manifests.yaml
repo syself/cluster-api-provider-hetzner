@@ -49,13 +49,14 @@ webhooks:
   sideEffects: None
 - admissionReviewVersions:
   - v1
+  - v1beta1
   clientConfig:
     service:
       name: webhook-service
       namespace: system
       path: /mutate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalhost
   failurePolicy: Fail
-  name: mhetznerbaremetalhost.kb.io
+  name: mutation.hetznerbaremetalhost.infrastructure.cluster.x-k8s.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
@@ -69,13 +70,14 @@ webhooks:
   sideEffects: None
 - admissionReviewVersions:
   - v1
+  - v1beta1
   clientConfig:
     service:
       name: webhook-service
       namespace: system
       path: /mutate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalmachine
   failurePolicy: Fail
-  name: mhetznerbaremetalmachine.kb.io
+  name: mutation.hetznerbaremetalmachine.infrastructure.cluster.x-k8s.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
@@ -89,13 +91,14 @@ webhooks:
   sideEffects: None
 - admissionReviewVersions:
   - v1
+  - v1beta1
   clientConfig:
     service:
       name: webhook-service
       namespace: system
       path: /mutate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalmachinetemplate
   failurePolicy: Fail
-  name: mhetznerbaremetalmachinetemplate.kb.io
+  name: mutation.hetznerbaremetalmachinetemplate.infrastructure.cluster.x-k8s.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
@@ -109,13 +112,14 @@ webhooks:
   sideEffects: None
 - admissionReviewVersions:
   - v1
+  - v1beta1
   clientConfig:
     service:
       name: webhook-service
       namespace: system
       path: /mutate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalremediation
   failurePolicy: Fail
-  name: mhetznerbaremetalremediation.kb.io
+  name: mutation.hetznerbaremetalremediation.infrastructure.cluster.x-k8s.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
@@ -219,13 +223,14 @@ webhooks:
   sideEffects: None
 - admissionReviewVersions:
   - v1
+  - v1beta1
   clientConfig:
     service:
       name: webhook-service
       namespace: system
       path: /validate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalhost
   failurePolicy: Fail
-  name: vhetznerbaremetalhost.kb.io
+  name: validation.hetznerbaremetalhost.infrastructure.cluster.x-k8s.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
@@ -239,13 +244,14 @@ webhooks:
   sideEffects: None
 - admissionReviewVersions:
   - v1
+  - v1beta1
   clientConfig:
     service:
       name: webhook-service
       namespace: system
       path: /validate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalmachine
   failurePolicy: Fail
-  name: vhetznerbaremetalmachine.kb.io
+  name: validation.hetznerbaremetalmachine.infrastructure.cluster.x-k8s.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
@@ -259,13 +265,14 @@ webhooks:
   sideEffects: None
 - admissionReviewVersions:
   - v1
+  - v1beta1
   clientConfig:
     service:
       name: webhook-service
       namespace: system
       path: /validate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalmachinetemplate
   failurePolicy: Fail
-  name: vhetznerbaremetalmachinetemplate.kb.io
+  name: validation.hetznerbaremetalmachinetemplate.infrastructure.cluster.x-k8s.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
@@ -279,13 +286,14 @@ webhooks:
   sideEffects: None
 - admissionReviewVersions:
   - v1
+  - v1beta1
   clientConfig:
     service:
       name: webhook-service
       namespace: system
       path: /validate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalremediation
   failurePolicy: Fail
-  name: vhetznerbaremetalremediation.kb.io
+  name: validation.hetznerbaremetalremediation.infrastructure.cluster.x-k8s.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io

@@ -1,5 +1,5 @@
 /*
-Copyright 2021.
+Copyright 2022 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,18 +20,18 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// HetznerBareMetalRemediationTemplateSpec defines the desired state of HetznerBareMetalRemediationTemplate
+// HetznerBareMetalRemediationTemplateSpec defines the desired state of HetznerBareMetalRemediationTemplate.
 type HetznerBareMetalRemediationTemplateSpec struct {
 	Template HetznerBareMetalRemediationTemplateResource `json:"template"`
 }
 
-// HetznerBareMetalRemediationTemplateResource describes the data needed to create a HetznerBareMetalRemediation from a template
+// HetznerBareMetalRemediationTemplateResource describes the data needed to create a HetznerBareMetalRemediation from a template.
 type HetznerBareMetalRemediationTemplateResource struct {
 	// Spec is the specification of the desired behavior of the HetznerBareMetalRemediation.
 	Spec HetznerBareMetalRemediationSpec `json:"spec"`
 }
 
-// HetznerBareMetalRemediationTemplateStatus defines the observed state of HetznerBareMetalRemediationTemplate
+// HetznerBareMetalRemediationTemplateStatus defines the observed state of HetznerBareMetalRemediationTemplate.
 type HetznerBareMetalRemediationTemplateStatus struct {
 	// HetznerBareMetalRemediationStatus defines the observed state of HetznerBareMetalRemediation
 	Status HetznerBareMetalRemediationStatus `json:"status"`
@@ -43,7 +43,7 @@ type HetznerBareMetalRemediationTemplateStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:storageversion
 
-// HetznerBareMetalRemediationTemplate is the Schema for the hetznerbaremetalremediationtemplates API
+// HetznerBareMetalRemediationTemplate is the Schema for the hetznerbaremetalremediationtemplates API.
 type HetznerBareMetalRemediationTemplate struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
@@ -56,7 +56,7 @@ type HetznerBareMetalRemediationTemplate struct {
 
 //+kubebuilder:object:root=true
 
-// HetznerBareMetalRemediationTemplateList contains a list of HetznerBareMetalRemediationTemplate
+// HetznerBareMetalRemediationTemplateList contains a list of HetznerBareMetalRemediationTemplate.
 type HetznerBareMetalRemediationTemplateList struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional

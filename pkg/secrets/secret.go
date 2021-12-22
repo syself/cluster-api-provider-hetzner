@@ -114,19 +114,13 @@ func (sm *SecretManager) claimSecret(ctx context.Context, secret *corev1.Secret,
 	return nil
 }
 
-// AcquireSecret retrieves a Secret and ensures that it has a label that will
-// ensure it is present in the cache (and that we can watch for changes), and
-// that it has a particular owner reference. The owner reference may optionally
-// be a controller reference.
-func (sm *SecretManager) AcquireSecret(ctx context.Context, key types.NamespacedName, owner client.Object, ownerIsController, addFinalizer bool) (*corev1.Secret, error) {
-	if owner == nil {
-		panic("AcquireSecret called with no owner")
-	}
-
-	secret := &corev1.Secret{}
+// findSecret retrieves a Secret from the cache if it is available, and from the
+// k8s API if not.
+func (sm *SecretManager) findSecret(ctx context.Context, key types.NamespacedName) (secret *corev1.Secret, err error) {
+	secret = &corev1.Secret{}
 
 	// Look for secret in the filtered cache
-	err := sm.client.Get(ctx, key, secret)
+	err = sm.client.Get(ctx, key, secret)
 	if err == nil {
 		return secret, nil
 	}
@@ -138,6 +132,35 @@ func (sm *SecretManager) AcquireSecret(ctx context.Context, key types.Namespaced
 	err = sm.apiReader.Get(ctx, key, secret)
 	if err != nil {
 		return nil, err
+	}
+
+	return secret, nil
+}
+
+// ObtainSecret retrieves a Secret and ensures that it has a label that will
+// ensure it is present in the cache (and that we can watch for changes).
+func (sm *SecretManager) ObtainSecret(ctx context.Context, key types.NamespacedName) (*corev1.Secret, error) {
+	secret, err := sm.findSecret(ctx, key)
+	if err != nil {
+		return nil, errors.Wrap(err, fmt.Sprintf("failed to fetch secret %s in namespace %s", key.Name, key.Namespace))
+	}
+	err = sm.claimSecret(ctx, secret, nil, false, false)
+
+	return secret, err
+}
+
+// AcquireSecret retrieves a Secret and ensures that it has a label that will
+// ensure it is present in the cache (and that we can watch for changes), and
+// that it has a particular owner reference. The owner reference may optionally
+// be a controller reference.
+func (sm *SecretManager) AcquireSecret(ctx context.Context, key types.NamespacedName, owner client.Object, ownerIsController, addFinalizer bool) (*corev1.Secret, error) {
+	if owner == nil {
+		panic("AcquireSecret called with no owner")
+	}
+
+	secret, err := sm.findSecret(ctx, key)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to find secret")
 	}
 
 	err = sm.claimSecret(ctx, secret, owner, ownerIsController, addFinalizer)

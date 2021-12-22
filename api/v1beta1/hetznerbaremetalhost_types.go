@@ -1,5 +1,5 @@
 /*
-Copyright 2021.
+Copyright The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,92 +22,67 @@ import (
 )
 
 const (
-	// HetznerBareMetalHostFinalizer is the name of the finalizer added to
+	// BareMetalHostFinalizer is the name of the finalizer added to
 	// hosts to block delete operations until the physical host can be
 	// deprovisioned.
-	HetznerBareMetalHostFinalizer string = "hetznerbaremetalhost.infrastructure.cluster.x-k8s.io"
+	BareMetalHostFinalizer string = "hetznerbaremetalhost.infrastructure.cluster.x-k8s.io"
 
-	// PausedAnnotation is the annotation that pauses the reconciliation (triggers
-	// an immediate requeue).
-	PausedAnnotation = "hetznerbaremetalhost.infrastructure.cluster.x-k8s.io/paused"
-
-	// DetachedAnnotation is the annotation which stops provisioner management of the host
-	// unlike in the paused case, the host status may be updated.
-	DetachedAnnotation = "hetznerbaremetalhost.infrastructure.cluster.x-k8s.io/detached"
+	// HostAnnotation is the key for an annotation that should go on a HetznerBareMetalMachine to
+	// reference what HetznerBareMetalHost it corresponds to.
+	HostAnnotation = "infrastructure.cluster.x-k8s.io/HetznerBareMetalHost"
 )
 
 // RootDeviceHints holds the hints for specifying the storage location
 // for the root filesystem for the image.
-// TODO: Could be gathered by lsblk -b -P -o "NAME,LABEL,FSTYPE,TYPE,HCTL,MODEL,VENDOR,SERIAL,SIZE,WWN,ROTA" .
 type RootDeviceHints struct {
-	// A Linux device name like "/dev/vda". The hint must match the
-	// actual value exactly.
-	DeviceName string `json:"deviceName,omitempty"`
-
-	// A SCSI bus address like 0:0:0:0. The hint must match the actual
-	// value exactly.
-	HCTL string `json:"hctl,omitempty"`
-
-	// A vendor-specific device identifier. The hint can be a
-	// substring of the actual value.
-	Model string `json:"model,omitempty"`
-
-	// The name of the vendor or manufacturer of the device. The hint
-	// can be a substring of the actual value.
-	Vendor string `json:"vendor,omitempty"`
-
-	// Device serial number. The hint must match the actual value
-	// exactly.
-	SerialNumber string `json:"serialNumber,omitempty"`
-
-	// The minimum size of the device in Gigabytes.
-	// +kubebuilder:validation:Minimum=0
-	MinSizeGigabytes int `json:"minSizeGigabytes,omitempty"`
-
 	// Unique storage identifier. The hint must match the actual value
 	// exactly.
 	WWN string `json:"wwn,omitempty"`
-
-	// True if the device should use spinning media, false otherwise.
-	Rotational *bool `json:"rotational,omitempty"`
 }
-
-// OperationalStatus represents the state of the host.
-type OperationalStatus string
-
-const (
-	// OperationalStatusOK is the status value for when the host is
-	// configured correctly and is manageable.
-	OperationalStatusOK OperationalStatus = "OK"
-
-	// OperationalStatusError is the status value for when the host
-	// has any sort of error.
-	OperationalStatusError OperationalStatus = "error"
-
-	// OperationalStatusDetached is the status value when the host is
-	// marked unmanaged via the detached annotation.
-	OperationalStatusDetached OperationalStatus = "detached"
-)
 
 // ErrorType indicates the class of problem that has caused the Host resource
 // to enter an error state.
 type ErrorType string
 
 const (
-	// ProvisionedRegistrationError is an error condition occurring when the controller
-	// is unable to re-register an already provisioned host.
-	ProvisionedRegistrationError ErrorType = "provisioned registration error"
+	// ErrorTypeSSHRebootTooSlow is an error condition that the ssh reboot is too slow.
+	ErrorTypeSSHRebootTooSlow ErrorType = "ssh reboot too slow"
+	// ErrorTypeSoftwareRebootTooSlow is an error condition that the software reboot is too slow.
+	ErrorTypeSoftwareRebootTooSlow ErrorType = "software reboot too slow"
+	// ErrorTypeHardwareRebootTooSlow is an error condition that the hardware reboot is too slow.
+	ErrorTypeHardwareRebootTooSlow ErrorType = "hardware reboot too slow"
+
+	// ErrorTypeSSHRebootNotStarted is an error condition indicating that the ssh reboot did not start.
+	ErrorTypeSSHRebootNotStarted ErrorType = "ssh reboot not started"
+	// ErrorTypeSoftwareRebootNotStarted is an error condition indicating that the software reboot did not start.
+	ErrorTypeSoftwareRebootNotStarted ErrorType = "software reboot not started"
+	// ErrorTypeHardwareRebootNotStarted is an error condition indicating that the hardware reboot did not start.
+	ErrorTypeHardwareRebootNotStarted ErrorType = "hardware reboot not started"
+
+	// ErrorTypeHardwareRebootFailed is an error condition indicating that the hardware reboot failed.
+	ErrorTypeHardwareRebootFailed ErrorType = "hardware reboot failed"
+
 	// RegistrationError is an error condition occurring when the
 	// controller is unable to retrieve information of a specific server via robot.
 	RegistrationError ErrorType = "registration error"
-	// PreparationError is an error condition occurring when a machine fails running installimage.
+	// PreparationError is an error condition occurring when something fails while preparing host reconciliation.
 	PreparationError ErrorType = "preparation error"
 	// ProvisioningError is an error condition occurring when the controller
 	// fails to provision or deprovision the Host.
 	ProvisioningError ErrorType = "provisioning error"
-	// DetachError is an error condition occurring when the
-	// controller is unable to detatch the host from the provisioner.
-	DetachError ErrorType = "detach error"
+)
+
+const (
+	// ErrorMessageMissingRootDeviceHints specifies the error message when no root device hints are specified.
+	ErrorMessageMissingRootDeviceHints string = "no root device hints specified"
+	// ErrorMessageMissingHetznerSecret specifies the error message when no Hetzner secret was found.
+	ErrorMessageMissingHetznerSecret string = "could not find HetznerSecret"
+	// ErrorMessageMissingRescueSSHSecret specifies the error message when no RescueSSH secret was found.
+	ErrorMessageMissingRescueSSHSecret string = "could not find RescueSSHSecret"
+	// ErrorMessageMissingOSSSHSecret specifies the error message when no OSSSH secret was found.
+	ErrorMessageMissingOSSSHSecret string = "could not find OSSSHSecret"
+	// ErrorMessageMissingOrInvalidSecretData specifies the error message when no data in secret is missing or invalid.
+	ErrorMessageMissingOrInvalidSecretData string = "invalid or not specified information in secret"
 )
 
 // ProvisioningState defines the states the provisioner will report the host has having.
@@ -117,195 +92,188 @@ const (
 	// StateNone means the state is unknown.
 	StateNone ProvisioningState = ""
 
-	// StateUnmanaged means there is insufficient information available to register the host.
-	StateUnmanaged ProvisioningState = "unmanaged"
-
-	// StateRegistering means we are telling the backend about the host. Checking if server exists in robot api. -> available.
+	// StateRegistering means we are checking if server exists in robot api and get hardware details.
 	StateRegistering ProvisioningState = "registering"
 
-	// StateAvailable means the host can be consumed.
+	// StateAvailable means the server is registered and waits for provisioning.
 	StateAvailable ProvisioningState = "available"
 
-	// StatePreparing means we are removing existing configuration and install a new image.
-	StatePreparing ProvisioningState = "preparing"
+	// StateImageInstalling means we install a new image.
+	StateImageInstalling ProvisioningState = "image-installing"
 
-	// StatePrepared means we have installed a new image.
-	StatePrepared ProvisioningState = "prepared"
-
-	// StateProvisioning means we are sending user_data to the host and boot the machine.
+	// StateProvisioning means we are sending userData to the host and boot the machine.
 	StateProvisioning ProvisioningState = "provisioning"
 
-	// StateProvisioned means we have sent user_data to the host and booted the machine.
+	// StateEnsureProvisioned means we are ensuring the reboot worked and cloud init is installed.
+	StateEnsureProvisioned ProvisioningState = "ensure-provisioned"
+
+	// StateProvisioned means we have sent userData to the host and booted the machine.
 	StateProvisioned ProvisioningState = "provisioned"
 
-	// StateDeprovisioning means we are removing an image from the host's disk(s).
+	// StateDeprovisioning means we are removing all machine-specific information from host.
 	StateDeprovisioning ProvisioningState = "deprovisioning"
-
-	// StateDeleting means we are in the process of cleaning up the host ready for deletion.
-	StateDeleting ProvisioningState = "deleting"
 )
+
+// RebootType defines the reboot type of servers via Hetzner robot API.
+type RebootType string
+
+const (
+	// RebootTypeHardware defines the hardware reboot.
+	RebootTypeHardware RebootType = "hw"
+	// RebootTypePower defines the power reboot.
+	RebootTypePower RebootType = "power"
+	// RebootTypeSoftware defines the software reboot.
+	RebootTypeSoftware RebootType = "sw"
+	// RebootTypeManual defines the manual reboot.
+	RebootTypeManual RebootType = "man"
+)
+
+// RebootAnnotationArguments defines the arguments of the RebootAnnotation type.
+type RebootAnnotationArguments struct {
+	Type RebootType `json:"type"`
+}
 
 // HetznerBareMetalHostSpec defines the desired state of HetznerBareMetalHost.
 type HetznerBareMetalHostSpec struct {
 	// ServerID defines the ID of the server provided by Hetzner.
-	ServerID string `json:"serverID,omitempty"`
-
-	// Type of the server.
-	Type string `json:"type,omitempty"`
-
-	// Region contains the server location.
-	Region Region `json:"type,omitempty"`
+	ServerID int `json:"serverID"`
 
 	// Provide guidance about how to choose the device for the image
-	// being provisioned.
+	// being provisioned. They need to be specified to provision the host.
+	// +optional
 	RootDeviceHints *RootDeviceHints `json:"rootDeviceHints,omitempty"`
 
-	// Should the server be online?
-	Online bool `json:"online"`
-
 	// ConsumerRef can be used to store information about something
-	// that is using a host. When it is not empty, the host is
-	// considered "in use".
+	// that is using a host. When it is not empty, the host is considered "in use".
+	// +optional
 	ConsumerRef *corev1.ObjectReference `json:"consumerRef,omitempty"`
 
-	// Image holds the details of the image to be provisioned.
-	// http, https, ftp allowed or the name.
-	Image string `json:"image,omitempty"`
-
-	// UserData holds the reference to the Secret containing the user
-	// data to be passed to the host before it boots.
-	UserData *corev1.SecretReference `json:"userData,omitempty"`
+	// MaintenanceMode indicates that a machine is supposed to be deprovisioned
+	// and won't be selected by any Hetzner bare metal machine.
+	MaintenanceMode bool `json:"maintenanceMode,omitempty"`
 
 	// Description is a human-entered text used to help identify the host
 	// +optional
 	Description string `json:"description,omitempty"`
 
-	// When set to true we delete all data when we provision the node.
+	// HetznerClusterRef is the name of the HetznerCluster object which is
+	// needed as some necessary information is stored there, e.g. the hrobot password
+	HetznerClusterRef string `json:"hetznerClusterRef"`
+
+	// Status contains all status information. DO NOT EDIT!!!
 	// +optional
-	// +kubebuilder:default:=false
-	// +kubebuilder:validation:Optional
-	CleanUpData bool `json:"cleanUpData,omitempty"`
+	Status ControllerGeneratedStatus `json:"status,omitempty"`
 }
 
-// HetznerBareMetalHostStatus defines the observed state of HetznerBareMetalHost.
-type HetznerBareMetalHostStatus struct {
-	// OperationalStatus holds the status of the host
-	// +kubebuilder:validation:Enum="";OK;discovered;error;delayed;detached
-	OperationalStatus OperationalStatus `json:"operationalStatus"`
+// ControllerGeneratedStatus contains all status information which is important to persist.
+type ControllerGeneratedStatus struct {
+	// UserData holds the reference to the Secret containing the user
+	// data to be passed to the host before it boots.
+	// +optional
+	UserData *corev1.SecretReference `json:"userData,omitempty"`
+
+	// InstallImage is the configuration which is used for the autosetup configuration for installing an OS via InstallImage.
+	// +optional
+	InstallImage *InstallImage `json:"installImage,omitempty"`
+
+	// StatusHardwareDetails are automatically gathered and should not be modified by the user.
+	// +optional
+	HardwareDetails *HardwareDetails `json:"hardwareDetails,omitempty"`
+
+	// IP address of server.
+	// +optional
+	IP string `json:"ip"`
+
+	// RebootTypes is a list of all available reboot types for API reboots
+	// +optional
+	RebootTypes []RebootType `json:"rebootTypes,omitempty"`
+
+	// SSHSpec defines specs for SSH.
+	SSHSpec *SSHSpec `json:"sshSpec,omitempty"`
+
+	// HetznerRobotSSHKey contains name and fingerprint of the in HetznerCluster spec specified SSH key.
+	// +optional
+	SSHStatus SSHStatus `json:"sshStatus,omitempty"`
 
 	// ErrorType indicates the type of failure encountered when the
 	// OperationalStatus is OperationalStatusError
-	// +kubebuilder:validation:Enum=provisioned registration error;registration error;preparation error;provisioning error
-	ErrorType ErrorType `json:"errorType,omitempty"`
-
-	// LastUpdated identifies when this status was last observed.
 	// +optional
-	LastUpdated *metav1.Time `json:"lastUpdated,omitempty"`
-
-	// Type of the server.
-	Type string `json:"type,omitempty"`
-
-	// Region contains the server location.
-	Region Region `json:"type,omitempty"`
-
-	// The hardware discovered to exist on the host.
-	HardwareDetails *HardwareDetails `json:"hardware,omitempty"`
-
-	// Information tracked by the provisioner.
-	Provisioning ProvisionStatus `json:"provisioning"`
-
-	// the last error message reported by the provisioning subsystem.
-	ErrorMessage string `json:"errorMessage"`
-
-	// indicator for whether or not the host is powered on.
-	PoweredOn bool `json:"poweredOn"`
-
-	// OperationHistory holds information about operations performed
-	// on this host.
-	OperationHistory OperationHistory `json:"operationHistory,omitempty"`
+	ErrorType ErrorType `json:"errorType,omitempty"`
 
 	// ErrorCount records how many times the host has encoutered an error since the last successful operation.
 	// +kubebuilder:default:=0
 	ErrorCount int `json:"errorCount"`
+
+	// Information tracked by the provisioner.
+	ProvisioningState ProvisioningState `json:"provisioningState"`
+
+	// the last error message reported by the provisioning subsystem.
+	// +optional
+	ErrorMessage string `json:"errorMessage"`
+
+	// the last error message reported by the provisioning subsystem.
+	// +optional
+	LastUpdated *metav1.Time `json:"lastUpdated,omitempty"`
 }
 
-// OperationHistory holds information about operations performed on a
-// host.
-type OperationHistory struct {
-	Register    OperationMetric `json:"register,omitempty"`
-	Prepare     OperationMetric `json:"prepare,omitempty"`
-	Provision   OperationMetric `json:"provision,omitempty"`
-	Deprovision OperationMetric `json:"deprovision,omitempty"`
+// HetznerBareMetalHostStatus defines the observed state of HetznerBareMetalHost.
+type HetznerBareMetalHostStatus struct {
+	// Region contains the server location.
+	Region Region `json:"region,omitempty"`
+
+	// Rebooted shows whether the server is currently being rebooted.
+	Rebooted bool `json:"rebooted,omitempty"`
 }
 
-// OperationMetric contains metadata about an operation (inspection,
-// provisioning, etc.) used for tracking metrics.
-type OperationMetric struct {
-	// +nullable
-	Start metav1.Time `json:"start,omitempty"`
-	// +nullable
-	End metav1.Time `json:"end,omitempty"`
+// SSHStatus contains all status information about SSHStatus.
+type SSHStatus struct {
+	// CurrentRescue gives information about the secret where the rescue ssh key is stored.
+	CurrentRescue *SecretStatus `json:"currentRescue,omitempty"`
+	// CurrentOS gives information about the secret where the os ssh key is stored.
+	CurrentOS *SecretStatus `json:"currentOS,omitempty"`
+	// OSKey contains name and fingerprint of the in HetznerBareMetalMachine spec specified SSH key.
+	OSKey *SSHKey `json:"osKey,omitempty"`
+	// RescueKey contains name and fingerprint of the in HetznerCluster spec specified SSH key.
+	RescueKey *SSHKey `json:"rescueKey,omitempty"`
 }
 
-// ProvisionStatus holds the state information for a single target.
-type ProvisionStatus struct {
-	// An indiciator for what the provisioner is doing with the host.
-	State ProvisioningState `json:"state"`
+// SecretStatus contains the reference and version of the last secret that was used.
+type SecretStatus struct {
+	Reference *corev1.SecretReference `json:"credentials,omitempty"`
+	Version   string                  `json:"credentialsVersion,omitempty"`
+}
 
-	// The machine's UUID from the underlying provisioning tool
-	ID string `json:"ID"`
-
-	// Image holds the details of the last image successfully
-	// provisioned to the host.
-	Image string `json:"image,omitempty"`
-
-	// The RootDevicehints set by the user
-	RootDeviceHints *RootDeviceHints `json:"rootDeviceHints,omitempty"`
+// Match compares the saved status information with the name and
+// content of a secret object.
+func (cs SecretStatus) Match(secret corev1.Secret) bool {
+	switch {
+	case cs.Reference == nil:
+		return false
+	case cs.Reference.Name != secret.ObjectMeta.Name:
+		return false
+	case cs.Reference.Namespace != secret.ObjectMeta.Namespace:
+		return false
+	case cs.Version != secret.ObjectMeta.ResourceVersion:
+		return false
+	}
+	return true
 }
 
 // Capacity is a disk size in Bytes.
 type Capacity int64
 
-// Capacity multipliers.
-const (
-	Byte     Capacity = 1
-	KibiByte          = Byte * 1024
-	KiloByte          = Byte * 1000
-	MebiByte          = KibiByte * 1024
-	MegaByte          = KiloByte * 1000
-	GibiByte          = MebiByte * 1024
-	GigaByte          = MegaByte * 1000
-	TebiByte          = GibiByte * 1024
-	TeraByte          = GigaByte * 1000
-)
-
-// DiskType is a disk type, i.e. HDD, SSD, NVME.
-type DiskType string
-
-// DiskType constants.
-const (
-	HDD  DiskType = "HDD"
-	SSD  DiskType = "SSD"
-	NVME DiskType = "NVME"
-)
-
 // ClockSpeed is a clock speed in MHz
 // +kubebuilder:validation:Format=double
 type ClockSpeed string
-
-// ClockSpeed multipliers.
-const (
-	MegaHertz ClockSpeed = "1.0"
-	GigaHertz            = "1000"
-)
 
 // CPU describes one processor on the host.
 type CPU struct {
 	Arch           string     `json:"arch,omitempty"`
 	Model          string     `json:"model,omitempty"`
-	ClockMegahertz ClockSpeed `json:"clockMegahertz,omitempty"`
+	ClockGigahertz ClockSpeed `json:"clockGigahertz,omitempty"`
 	Flags          []string   `json:"flags,omitempty"`
-	Count          int        `json:"count,omitempty"`
+	Threads        int        `json:"threads,omitempty"`
+	Cores          int        `json:"cores,omitempty"`
 }
 
 // Storage describes one storage device (disk, SSD, etc.) on the host.
@@ -313,11 +281,6 @@ type Storage struct {
 	// The Linux device name of the disk, e.g. "/dev/sda". Note that this
 	// may not be stable across reboots.
 	Name string `json:"name,omitempty"`
-
-	// Device type, one of: HDD, SSD, NVME.
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:validation:Enum=HDD;SSD;NVME;
-	Type DiskType `json:"type,omitempty"`
 
 	// The size of the disk in Bytes
 	SizeBytes Capacity `json:"sizeBytes,omitempty"`
@@ -336,6 +299,9 @@ type Storage struct {
 
 	// The SCSI location of the device
 	HCTL string `json:"hctl,omitempty"`
+
+	// Rota defines if its a HDD device or not.
+	Rota bool `json:"rota,omitempty"`
 }
 
 // NIC describes one network interface on the host.
@@ -356,7 +322,7 @@ type NIC struct {
 	IP string `json:"ip,omitempty"`
 
 	// The speed of the device in Gigabits per second
-	SpeedGbps int `json:"speedGbps,omitempty"`
+	SpeedMbps int `json:"speedMbps,omitempty"`
 }
 
 // HardwareDetails collects all of the information about hardware
@@ -366,18 +332,17 @@ type HardwareDetails struct {
 	NIC          []NIC     `json:"nics,omitempty"`
 	Storage      []Storage `json:"storage,omitempty"`
 	CPU          CPU       `json:"cpu,omitempty"`
-	Hostname     string    `json:"hostname,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=hbmh;hbmhost
-// +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.operationalStatus",description="Operational status",priority=1
-// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.provisioning.state",description="Provisioning status"
-// +kubebuilder:printcolumn:name="Consumer",type="string",JSONPath=".spec.consumerRef.name",description="Consumer using this host"
-// +kubebuilder:printcolumn:name="Type",type="string",JSONPath=".status.type",description="The type of server",priority=1
+// +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".spec.status.operationalStatus",description="Operational status",priority=1
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".spec.status.provisioning.state",description="Provisioning status"
+// +kubebuilder:printcolumn:name="Consumer",type="string",JSONPath=".spec.status.consumerRef.name",description="Consumer using this host"
+// +kubebuilder:printcolumn:name="Type",type="string",JSONPath=".spec.type",description="The type of server",priority=1
 // +kubebuilder:printcolumn:name="Online",type="string",JSONPath=".spec.online",description="Whether the host is online or not"
-// +kubebuilder:printcolumn:name="Error",type="string",JSONPath=".status.errorType",description="Type of the most recent error"
+// +kubebuilder:printcolumn:name="Error",type="string",JSONPath=".spec.status.errorType",description="Type of the most recent error"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time duration since creation of BaremetalHost"
 
 // HetznerBareMetalHost is the Schema for the hetznerbaremetalhosts API.
@@ -387,6 +352,66 @@ type HetznerBareMetalHost struct {
 
 	Spec   HetznerBareMetalHostSpec   `json:"spec,omitempty"`
 	Status HetznerBareMetalHostStatus `json:"status,omitempty"`
+}
+
+// UpdateRescueSSHStatus modifies the ssh status with the last chosen ssh secret.
+func (host *HetznerBareMetalHost) UpdateRescueSSHStatus(currentSecret corev1.Secret) {
+	host.Spec.Status.SSHStatus.CurrentRescue = &SecretStatus{
+		Version: currentSecret.ObjectMeta.ResourceVersion,
+		Reference: &corev1.SecretReference{
+			Name:      currentSecret.ObjectMeta.Name,
+			Namespace: currentSecret.ObjectMeta.Namespace,
+		},
+	}
+}
+
+// UpdateOSSSHStatus modifies the ssh status with the last chosen ssh secret.
+func (host *HetznerBareMetalHost) UpdateOSSSHStatus(currentSecret corev1.Secret) {
+	host.Spec.Status.SSHStatus.CurrentOS = &SecretStatus{
+		Version: currentSecret.ObjectMeta.ResourceVersion,
+		Reference: &corev1.SecretReference{
+			Name:      currentSecret.ObjectMeta.Name,
+			Namespace: currentSecret.ObjectMeta.Namespace,
+		},
+	}
+}
+
+// HasSoftwareReboot returns a boolean indicating whether software reboot exists for server.
+func (host *HetznerBareMetalHost) HasSoftwareReboot() bool {
+	for _, rt := range host.Spec.Status.RebootTypes {
+		if rt == RebootTypeSoftware {
+			return true
+		}
+	}
+	return false
+}
+
+// HasHardwareReboot returns a boolean indicating whether hardware reboot exists for server.
+func (host *HetznerBareMetalHost) HasHardwareReboot() bool {
+	for _, rt := range host.Spec.Status.RebootTypes {
+		if rt == RebootTypeHardware {
+			return true
+		}
+	}
+	return false
+}
+
+// HasPowerReboot returns a boolean indicating whether power reboot exists for server.
+func (host *HetznerBareMetalHost) HasPowerReboot() bool {
+	for _, rt := range host.Spec.Status.RebootTypes {
+		if rt == RebootTypeHardware {
+			return true
+		}
+	}
+	return false
+}
+
+// NeedsProvisioning compares the settings with the provisioning
+// status and returns true when more work is needed or false
+// otherwise.
+func (host *HetznerBareMetalHost) NeedsProvisioning() bool {
+	// Without an image, there is nothing to provision.
+	return host.Spec.Status.InstallImage != nil
 }
 
 //+kubebuilder:object:root=true

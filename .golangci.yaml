@@ -68,6 +68,7 @@ linters-settings:
     excludes:
       - G307 # Deferring unsafe method "Close" on type "\*os.File"
       - G108 # Profiling endpoint is automatically exposed on /debug/pprof
+      - G106 # Allowing for insecure ssh
   gocritic:
     disabled-checks:
       - appendAssign
