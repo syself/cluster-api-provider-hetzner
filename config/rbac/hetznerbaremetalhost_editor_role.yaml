@@ -1,13 +1,13 @@
-# permissions for end users to edit hetznerbaremetalmachinehosts.
+# permissions for end users to edit hetznerbaremetalhosts.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: hetznerbaremetalmachinehost-editor-role
+  name: hetznerbaremetalhost-editor-role
 rules:
 - apiGroups:
   - infrastructure.cluster.x-k8s.io
   resources:
-  - hetznerbaremetalmachinehosts
+  - hetznerbaremetalhosts
   verbs:
   - create
   - delete
@@ -19,6 +19,6 @@ rules:
 - apiGroups:
   - infrastructure.cluster.x-k8s.io
   resources:
-  - hetznerbaremetalmachinehosts/status
+  - hetznerbaremetalhosts/status
   verbs:
   - get

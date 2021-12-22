@@ -1,0 +1,109 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.8.0
+  creationTimestamp: null
+  name: hetznerbaremetalremediations.infrastructure.cluster.x-k8s.io
+spec:
+  group: infrastructure.cluster.x-k8s.io
+  names:
+    categories:
+    - cluster-api
+    kind: HetznerBareMetalRemediation
+    listKind: HetznerBareMetalRemediationList
+    plural: hetznerbaremetalremediations
+    shortNames:
+    - hbr
+    - hbremediation
+    singular: hetznerbaremetalremediation
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: How many times remediation controller should attempt to remediate
+        the host
+      jsonPath: .spec.strategy.retryLimit
+      name: Retry limit
+      type: string
+    - description: How many times remediation controller has tried to remediate the
+        node
+      jsonPath: .status.retryCount
+      name: Retry count
+      type: string
+    - description: Timestamp of the last remediation attempt
+      jsonPath: .status.lastRemediated
+      name: Last Remediated
+      type: string
+    - description: Type of the remediation strategy
+      jsonPath: .spec.strategy.type
+      name: Strategy
+      type: string
+    - description: Phase of the remediation
+      jsonPath: .status.phase
+      name: Phase
+      type: string
+    name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: HetznerBareMetalRemediation is the Schema for the hetznerbaremetalremediations
+          API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: HetznerBareMetalRemediationSpec defines the desired state
+              of HetznerBareMetalRemediation
+            properties:
+              strategy:
+                description: Strategy field defines remediation strategy.
+                properties:
+                  retryLimit:
+                    description: Sets maximum number of remediation retries.
+                    type: integer
+                  timeout:
+                    description: Sets the timeout between remediation retries.
+                    type: string
+                  type:
+                    description: Type of remediation.
+                    type: string
+                type: object
+            type: object
+          status:
+            description: HetznerBareMetalRemediationStatus defines the observed state
+              of HetznerBareMetalRemediation
+            properties:
+              lastRemediated:
+                description: LastRemediated identifies when the host was last remediated
+                format: date-time
+                type: string
+              phase:
+                description: Phase represents the current phase of machine remediation.
+                  E.g. Pending, Running, Done etc.
+                type: string
+              retryCount:
+                description: RetryCount can be used as a counter during the remediation.
+                  Field can hold number of reboots etc.
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

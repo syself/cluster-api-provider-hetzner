@@ -1,26 +1,54 @@
-
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.1
+    controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
   name: hetznerbaremetalmachines.infrastructure.cluster.x-k8s.io
 spec:
   group: infrastructure.cluster.x-k8s.io
   names:
+    categories:
+    - cluster-api
     kind: HetznerBareMetalMachine
     listKind: HetznerBareMetalMachineList
     plural: hetznerbaremetalmachines
+    shortNames:
+    - hbm
+    - hbmachine
+    - hbmachines
+    - hetznerbaremetalm
+    - hetznerbaremetalmachine
     singular: hetznerbaremetalmachine
   scope: Namespaced
   versions:
-  - name: v1beta1
+  - additionalPrinterColumns:
+    - description: Time duration since creation of hetznerbaremetalmachine
+      jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - description: Provider ID
+      jsonPath: .spec.providerID
+      name: ProviderID
+      type: string
+    - description: hetznerbaremetalmachine is Ready
+      jsonPath: .status.ready
+      name: Ready
+      type: string
+    - description: Cluster to which this M3Machine belongs
+      jsonPath: .metadata.labels.cluster\.x-k8s\.io/cluster-name
+      name: Cluster
+      type: string
+    - description: hetznerbaremetalmachine current phase
+      jsonPath: .status.phase
+      name: Phase
+      type: string
+    name: v1beta1
     schema:
       openAPIV3Schema:
         description: HetznerBareMetalMachine is the Schema for the hetznerbaremetalmachines
-          API
+          API.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -36,16 +64,131 @@ spec:
             type: object
           spec:
             description: HetznerBareMetalMachineSpec defines the desired state of
-              HetznerBareMetalMachine
+              HetznerBareMetalMachine.
             properties:
-              foo:
-                description: Foo is an example field of HetznerBareMetalMachine. Edit
-                  hetznerbaremetalmachine_types.go to remove/update
+              cleanUpData:
+                default: false
+                description: When set to true we delete all data when we provision
+                  the node.
+                type: boolean
+              hostSelector:
+                description: Type specifies the server type.
                 type: string
+              image:
+                description: Image is the image to be provisioned.
+                type: string
+              providerID:
+                description: ProviderID will be the hetznerbaremetalmachine in ProviderID
+                  format (hetzner://<server-id>)
+                type: string
+              userData:
+                description: UserData references the Secret that holds user data needed
+                  by the bare metal operator. The Namespace is optional; it will default
+                  to the hetznerbaremetalmachine's namespace if not specified.
+                properties:
+                  name:
+                    description: Name is unique within a namespace to reference a
+                      secret resource.
+                    type: string
+                  namespace:
+                    description: Namespace defines the space within which the secret
+                      name must be unique.
+                    type: string
+                type: object
+            required:
+            - image
             type: object
           status:
             description: HetznerBareMetalMachineStatus defines the observed state
-              of HetznerBareMetalMachine
+              of HetznerBareMetalMachine.
+            properties:
+              addresses:
+                description: Addresses is a list of addresses assigned to the machine.
+                  This field is copied from the infrastructure provider reference.
+                items:
+                  description: MachineAddress contains information for the node's
+                    address.
+                  properties:
+                    address:
+                      description: The machine address.
+                      type: string
+                    type:
+                      description: Machine address type, one of Hostname, ExternalIP
+                        or InternalIP.
+                      type: string
+                  required:
+                  - address
+                  - type
+                  type: object
+                type: array
+              failureMessage:
+                description: "FailureMessage will be set in the event that there is
+                  a terminal problem reconciling the hetznerbaremetalmachine and will
+                  contain a more verbose string suitable for logging and human consumption.
+                  \n This field should not be set for transitive errors that a controller
+                  faces that are expected to be fixed automatically over time (like
+                  service outages), but instead indicate that something is fundamentally
+                  wrong with the hetznerbaremetalmachine's spec or the configuration
+                  of the controller, and that manual intervention is required. Examples
+                  of terminal errors would be invalid combinations of settings in
+                  the spec, values that are unsupported by the controller, or the
+                  responsible controller itself being critically misconfigured. \n
+                  Any transient errors that occur during the reconciliation of hetznerbaremetalmachines
+                  can be added as events to the hetznerbaremetalmachine object and/or
+                  logged in the controller's output."
+                type: string
+              failureReason:
+                description: "FailureReason will be set in the event that there is
+                  a terminal problem reconciling the hetznerbaremetalmachine and will
+                  contain a succinct value suitable for machine interpretation. \n
+                  This field should not be set for transitive errors that a controller
+                  faces that are expected to be fixed automatically over time (like
+                  service outages), but instead indicate that something is fundamentally
+                  wrong with the hetznerbaremetalmachine's spec or the configuration
+                  of the controller, and that manual intervention is required. Examples
+                  of terminal errors would be invalid combinations of settings in
+                  the spec, values that are unsupported by the controller, or the
+                  responsible controller itself being critically misconfigured. \n
+                  Any transient errors that occur during the reconciliation of hetznerbaremetalmachines
+                  can be added as events to the hetznerbaremetalmachine object and/or
+                  logged in the controller's output."
+                type: string
+              lastUpdated:
+                description: LastUpdated identifies when this status was last observed.
+                format: date-time
+                type: string
+              phase:
+                description: Phase represents the current phase of machine actuation.
+                  E.g. Pending, Running, Terminating, Failed etc.
+                type: string
+              ready:
+                description: 'Ready is the state of the hetznerbaremetalmachine. TODO
+                  : Document the variable : mhrivnak: " it would be good to document
+                  what this means, how to interpret it, under what circumstances the
+                  value changes, etc."'
+                type: boolean
+              region:
+                description: Region contains the server location.
+                enum:
+                - fsn1
+                - hel1
+                - nbg1
+                - ash
+                type: string
+              userData:
+                description: UserData references the Secret that holds user data needed
+                  by the bare metal operator. The Namespace is optional; it will default
+                  to the hetznerbaremetalmachine's namespace if not specified.
+                properties:
+                  name:
+                    description: Name is unique within a namespace to reference a
+                      secret resource.
+                    type: string
+                  namespace:
+                    description: Namespace defines the space within which the secret
+                      name must be unique.
+                    type: string
+                type: object
             type: object
         type: object
     served: true
