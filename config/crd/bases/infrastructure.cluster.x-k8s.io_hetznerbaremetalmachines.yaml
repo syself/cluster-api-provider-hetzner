@@ -66,37 +66,198 @@ spec:
             description: HetznerBareMetalMachineSpec defines the desired state of
               HetznerBareMetalMachine.
             properties:
-              cleanUpData:
-                default: false
-                description: When set to true we delete all data when we provision
-                  the node.
-                type: boolean
               hostSelector:
-                description: Type specifies the server type.
-                type: string
-              image:
-                description: Image is the image to be provisioned.
-                type: string
+                description: HostSelector specifies matching criteria for labels on
+                  HetznerBareMetalHosts. This is used to limit the set of HetznerBareMetalHost
+                  objects considered for claiming for a HetznerBareMetalMachine.
+                properties:
+                  matchExpressions:
+                    description: Label match expressions that must be true on a chosen
+                      BareMetalHost
+                    items:
+                      description: HostSelectorRequirement defines a requirement used
+                        for MatchExpressions to select host machines.
+                      properties:
+                        key:
+                          type: string
+                        operator:
+                          description: Operator represents a key/field's relationship
+                            to value(s). See labels.Requirement and fields.Requirement
+                            for more details.
+                          type: string
+                        values:
+                          items:
+                            type: string
+                          type: array
+                      required:
+                      - key
+                      - operator
+                      - values
+                      type: object
+                    type: array
+                  matchLabels:
+                    additionalProperties:
+                      type: string
+                    description: Key/value pairs of labels that must exist on a chosen
+                      BareMetalHost
+                    type: object
+                type: object
+              installImage:
+                description: InstallImage is the configuration which is used for the
+                  autosetup configuration for installing an OS via InstallImage.
+                properties:
+                  btrfsDefinitions:
+                    description: BTRFSDefinitions defines the btrfs subvolume definitions
+                      to be created.
+                    items:
+                      description: BTRFSDefinition defines the btrfs subvolume definitions
+                        to be created.
+                      properties:
+                        mount:
+                          description: Mount defines the mountpath.
+                          type: string
+                        subvolume:
+                          description: SubVolume defines the subvolume name.
+                          type: string
+                        volume:
+                          description: Volume defines the btrfs volume name.
+                          type: string
+                      required:
+                      - mount
+                      - subvolume
+                      - volume
+                      type: object
+                    type: array
+                  image:
+                    description: Image is the image to be provisioned.
+                    properties:
+                      name:
+                        description: Name defines the archive name after download.
+                          This has to be a valid name for Installimage.
+                        type: string
+                      path:
+                        description: Path is the local path for a preinstalled image
+                          from upstream.
+                        type: string
+                      url:
+                        description: URL defines the remote URL for downloading a
+                          tar, tar.gz, tar.bz, tar.bz2, tar.xz, tgz, tbz, txz image.
+                        type: string
+                    type: object
+                  logicalVolumeDefinitions:
+                    description: LVMDefinitions defines the logical volume definitions
+                      to be created.
+                    items:
+                      description: LVMDefinition defines the logical volume definitions
+                        to be created.
+                      properties:
+                        filesystem:
+                          description: FileSystem defines the filesystem for this
+                            logical volume.
+                          type: string
+                        mount:
+                          description: Mount defines the mountpath.
+                          type: string
+                        name:
+                          description: Name defines the volume name.
+                          type: string
+                        size:
+                          description: Size defines the size in M/G/T or MiB/GiB/TiB.
+                          type: string
+                        vg:
+                          description: VG defines the vg name.
+                          type: string
+                      required:
+                      - filesystem
+                      - mount
+                      - name
+                      - size
+                      - vg
+                      type: object
+                    type: array
+                  partitions:
+                    description: Partitions defines the additional Partitions to be
+                      created.
+                    items:
+                      description: Partition defines the additional Partitions to
+                        be created.
+                      properties:
+                        fileSystem:
+                          description: FileSystem can be ext2, ext3, ext4, btrfs,
+                            reiserfs, xfs, swap or name of the LVM volume group (VG),
+                            if this PART is a VG.
+                          type: string
+                        mount:
+                          description: 'Mount defines the mount path for this filesystem.
+                            or keyword ''lvm'' to use this PART as volume group (VG)
+                            for LVM identifier ''btrfs.X'' to use this PART as volume
+                            for btrfs subvolumes. X can be replaced with a unique
+                            alphanumeric keyword. NOTE: no support btrfs multi-device
+                            volumes'
+                          type: string
+                        size:
+                          description: Size can use the keyword 'all' to assign all
+                            the remaining space of the drive to the last partition.
+                            can use M/G/T for unit specification in MiB/GiB/TiB
+                          type: string
+                      required:
+                      - fileSystem
+                      - mount
+                      - size
+                      type: object
+                    type: array
+                  postInstallScript:
+                    description: PostInstallScript is used for configuring commands
+                      which should be executed after installimage. It is passed along
+                      with the installimage command.
+                    type: string
+                required:
+                - image
+                - partitions
+                type: object
               providerID:
                 description: ProviderID will be the hetznerbaremetalmachine in ProviderID
                   format (hetzner://<server-id>)
                 type: string
-              userData:
-                description: UserData references the Secret that holds user data needed
-                  by the bare metal operator. The Namespace is optional; it will default
-                  to the hetznerbaremetalmachine's namespace if not specified.
+              sshSpec:
+                description: SSHSpec gives a reference on the secret where SSH details
+                  are specified as well as ports for ssh.
                 properties:
-                  name:
-                    description: Name is unique within a namespace to reference a
-                      secret resource.
-                    type: string
-                  namespace:
-                    description: Namespace defines the space within which the secret
-                      name must be unique.
-                    type: string
+                  portAfterCloudInit:
+                    type: integer
+                  portAfterInstallImage:
+                    type: integer
+                  secretRef:
+                    description: SSHSecretRef defines the secret containing all information
+                      of the SSH key used for Hetzner robot.
+                    properties:
+                      key:
+                        description: SSHSecretKeyRef defines the key name of the SSHSecret.
+                        properties:
+                          name:
+                            type: string
+                          privateKey:
+                            type: string
+                          publicKey:
+                            type: string
+                        required:
+                        - name
+                        - privateKey
+                        - publicKey
+                        type: object
+                      name:
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
+                required:
+                - portAfterCloudInit
+                - portAfterInstallImage
+                - secretRef
                 type: object
             required:
-            - image
+            - installImage
             type: object
           status:
             description: HetznerBareMetalMachineStatus defines the observed state
@@ -121,74 +282,66 @@ spec:
                   - type
                   type: object
                 type: array
+              conditions:
+                description: Conditions defines current service state of the HetznerBareMetalMachine.
+                items:
+                  description: Condition defines an observation of a Cluster API resource
+                    operational state.
+                  properties:
+                    lastTransitionTime:
+                      description: Last time the condition transitioned from one status
+                        to another. This should be when the underlying condition changed.
+                        If that is not known, then using the time when the API field
+                        changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: A human readable message indicating details about
+                        the transition. This field may be empty.
+                      type: string
+                    reason:
+                      description: The reason for the condition's last transition
+                        in CamelCase. The specific API may choose whether or not this
+                        field is considered a guaranteed API. This field may not be
+                        empty.
+                      type: string
+                    severity:
+                      description: Severity provides an explicit classification of
+                        Reason code, so the users or machines can immediately understand
+                        the current situation and act accordingly. The Severity field
+                        MUST be set only when Status=False.
+                      type: string
+                    status:
+                      description: Status of the condition, one of True, False, Unknown.
+                      type: string
+                    type:
+                      description: Type of condition in CamelCase or in foo.example.com/CamelCase.
+                        Many .condition.type values are consistent across resources
+                        like Available, but because arbitrary conditions can be useful
+                        (see .node.status.conditions), the ability to deconflict is
+                        important.
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - status
+                  - type
+                  type: object
+                type: array
               failureMessage:
-                description: "FailureMessage will be set in the event that there is
-                  a terminal problem reconciling the hetznerbaremetalmachine and will
-                  contain a more verbose string suitable for logging and human consumption.
-                  \n This field should not be set for transitive errors that a controller
-                  faces that are expected to be fixed automatically over time (like
-                  service outages), but instead indicate that something is fundamentally
-                  wrong with the hetznerbaremetalmachine's spec or the configuration
-                  of the controller, and that manual intervention is required. Examples
-                  of terminal errors would be invalid combinations of settings in
-                  the spec, values that are unsupported by the controller, or the
-                  responsible controller itself being critically misconfigured. \n
-                  Any transient errors that occur during the reconciliation of hetznerbaremetalmachines
-                  can be added as events to the hetznerbaremetalmachine object and/or
-                  logged in the controller's output."
+                description: FailureMessage will be set in the event that there is
+                  a terminal problem.
                 type: string
               failureReason:
-                description: "FailureReason will be set in the event that there is
-                  a terminal problem reconciling the hetznerbaremetalmachine and will
-                  contain a succinct value suitable for machine interpretation. \n
-                  This field should not be set for transitive errors that a controller
-                  faces that are expected to be fixed automatically over time (like
-                  service outages), but instead indicate that something is fundamentally
-                  wrong with the hetznerbaremetalmachine's spec or the configuration
-                  of the controller, and that manual intervention is required. Examples
-                  of terminal errors would be invalid combinations of settings in
-                  the spec, values that are unsupported by the controller, or the
-                  responsible controller itself being critically misconfigured. \n
-                  Any transient errors that occur during the reconciliation of hetznerbaremetalmachines
-                  can be added as events to the hetznerbaremetalmachine object and/or
-                  logged in the controller's output."
+                description: FailureReason will be set in the event that there is
+                  a terminal problem.
                 type: string
               lastUpdated:
                 description: LastUpdated identifies when this status was last observed.
                 format: date-time
                 type: string
-              phase:
-                description: Phase represents the current phase of machine actuation.
-                  E.g. Pending, Running, Terminating, Failed etc.
-                type: string
               ready:
-                description: 'Ready is the state of the hetznerbaremetalmachine. TODO
-                  : Document the variable : mhrivnak: " it would be good to document
-                  what this means, how to interpret it, under what circumstances the
-                  value changes, etc."'
+                description: Ready is the state of the hetznerbaremetalmachine.
                 type: boolean
-              region:
-                description: Region contains the server location.
-                enum:
-                - fsn1
-                - hel1
-                - nbg1
-                - ash
-                type: string
-              userData:
-                description: UserData references the Secret that holds user data needed
-                  by the bare metal operator. The Namespace is optional; it will default
-                  to the hetznerbaremetalmachine's namespace if not specified.
-                properties:
-                  name:
-                    description: Name is unique within a namespace to reference a
-                      secret resource.
-                    type: string
-                  namespace:
-                    description: Namespace defines the space within which the secret
-                      name must be unique.
-                    type: string
-                type: object
             type: object
         type: object
     served: true

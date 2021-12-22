@@ -54,6 +54,12 @@ func NewService(scope *scope.MachineScope) *Service {
 
 // Reconcile implements reconcilement of HCloud machines.
 func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
+	// If no token information has been given, the server cannot be successfully reconciled
+	if s.scope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken == "" {
+		record.Eventf(s.scope.HCloudMachine, corev1.EventTypeWarning, "NoTokenFound", "No HCloudToken found")
+		return nil, fmt.Errorf("no token for HCloud provided - cannot reconcile hcloud server")
+	}
+
 	// detect failure domain
 	failureDomain, err := s.scope.GetFailureDomain()
 	if err != nil {

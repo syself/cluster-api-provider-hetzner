@@ -146,7 +146,7 @@ rules:
 - apiGroups:
   - infrastructure.cluster.x-k8s.io
   resources:
-  - hetznerbaremetalmachinetemplates
+  - hetznerbaremetalremediations
   verbs:
   - create
   - delete
@@ -158,39 +158,13 @@ rules:
 - apiGroups:
   - infrastructure.cluster.x-k8s.io
   resources:
-  - hetznerbaremetalmachinetemplates/finalizers
+  - hetznerbaremetalremediations/finalizers
   verbs:
   - update
 - apiGroups:
   - infrastructure.cluster.x-k8s.io
   resources:
-  - hetznerbaremetalmachinetemplates/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - infrastructure.cluster.x-k8s.io
-  resources:
-  - hetznerbaremetalremediationtemplates
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - infrastructure.cluster.x-k8s.io
-  resources:
-  - hetznerbaremetalremediationtemplates/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - infrastructure.cluster.x-k8s.io
-  resources:
-  - hetznerbaremetalremediationtemplates/status
+  - hetznerbaremetalremediations/status
   verbs:
   - get
   - patch

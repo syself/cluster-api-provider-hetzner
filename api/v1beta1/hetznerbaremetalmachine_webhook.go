@@ -1,5 +1,5 @@
 /*
-Copyright 2021.
+Copyright 2022 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,59 +17,80 @@ limitations under the License.
 package v1beta1
 
 import (
+	"reflect"
+
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
-// log is for logging in this package.
-var hetznerbaremetalmachinelog = logf.Log.WithName("hetznerbaremetalmachine-resource")
-
+// SetupWebhookWithManager initializes webhook manager for HetznerBareMetalMachine.
 func (r *HetznerBareMetalMachine) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
 		Complete()
 }
 
-// TODO(user): EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-
-//+kubebuilder:webhook:path=/mutate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalmachine,mutating=true,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalmachines,verbs=create;update,versions=v1beta1,name=mhetznerbaremetalmachine.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/mutate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalmachine,mutating=true,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalmachines,verbs=create;update,versions=v1beta1,name=mutation.hetznerbaremetalmachine.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
 
 var _ webhook.Defaulter = &HetznerBareMetalMachine{}
 
-// Default implements webhook.Defaulter so a webhook will be registered for the type
+// Default implements webhook.Defaulter so a webhook will be registered for the type.
 func (r *HetznerBareMetalMachine) Default() {
-	hetznerbaremetalmachinelog.Info("default", "name", r.Name)
-
-	// TODO(user): fill in your defaulting logic.
 }
 
-// TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-//+kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalmachine,mutating=false,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalmachines,verbs=create;update,versions=v1beta1,name=vhetznerbaremetalmachine.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalmachine,mutating=false,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalmachines,verbs=create;update,versions=v1beta1,name=validation.hetznerbaremetalmachine.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
 
 var _ webhook.Validator = &HetznerBareMetalMachine{}
 
-// ValidateCreate implements webhook.Validator so a webhook will be registered for the type
+// ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
 func (r *HetznerBareMetalMachine) ValidateCreate() error {
-	hetznerbaremetalmachinelog.Info("validate create", "name", r.Name)
+	var allErrs field.ErrorList
 
-	// TODO(user): fill in your validation logic upon object creation.
-	return nil
+	if r.Spec.SSHSpec.PortAfterInstallImage == 0 {
+		r.Spec.SSHSpec.PortAfterInstallImage = 22
+	}
+	if r.Spec.SSHSpec.PortAfterCloudInit == 0 {
+		r.Spec.SSHSpec.PortAfterCloudInit = r.Spec.SSHSpec.PortAfterInstallImage
+	}
+
+	if (r.Spec.InstallImage.Image.Name == "" || r.Spec.InstallImage.Image.URL == "") &&
+		r.Spec.InstallImage.Image.Path == "" {
+		allErrs = append(allErrs,
+			field.Invalid(field.NewPath("spec", "installImage", "image"), r.Spec.InstallImage.Image,
+				"have to specify either image name and url or path"),
+		)
+	}
+
+	if r.Spec.InstallImage.Image.URL != "" {
+		if _, err := GetImageSuffix(r.Spec.InstallImage.Image.URL); err != nil {
+			allErrs = append(allErrs,
+				field.Invalid(field.NewPath("spec", "installImage", "image", "url"), r.Spec.InstallImage.Image.URL,
+					"unknown image type in URL"),
+			)
+		}
+	}
+	return aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
 }
 
-// ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
+// ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
 func (r *HetznerBareMetalMachine) ValidateUpdate(old runtime.Object) error {
-	hetznerbaremetalmachinelog.Info("validate update", "name", r.Name)
+	var allErrs field.ErrorList
 
-	// TODO(user): fill in your validation logic upon object update.
-	return nil
+	oldHetznerBareMetalMachine := old.(*HetznerBareMetalMachine)
+	if !reflect.DeepEqual(r.Spec.InstallImage, oldHetznerBareMetalMachine.Spec.InstallImage) {
+		allErrs = append(allErrs,
+			field.Invalid(field.NewPath("spec", "installImage"), r.Spec.InstallImage, "installImage immutable"),
+		)
+		allErrs = append(allErrs,
+			field.Invalid(field.NewPath("spec", "sshSpec"), r.Spec.SSHSpec, "sshSpec immutable"),
+		)
+	}
+	return aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
 }
 
-// ValidateDelete implements webhook.Validator so a webhook will be registered for the type
+// ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
 func (r *HetznerBareMetalMachine) ValidateDelete() error {
-	hetznerbaremetalmachinelog.Info("validate delete", "name", r.Name)
-
-	// TODO(user): fill in your validation logic upon object deletion.
 	return nil
 }

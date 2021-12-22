@@ -29,6 +29,11 @@ import (
 	g "github.com/onsi/ginkgo"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks"
+	robotmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/robot"
+	sshmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/ssh"
+	robotclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/robot"
+	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	fakeclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/fake"
 	corev1 "k8s.io/api/core/v1"
@@ -102,6 +107,11 @@ type (
 		client.Client
 		Config              *rest.Config
 		HCloudClientFactory hcloudclient.Factory
+		RobotClientFactory  robotclient.Factory
+		SSHClientFactory    sshclient.Factory
+		RescueSSHClient     *sshmock.Client
+		OSSSHClient         *sshmock.Client
+		RobotClient         *robotmock.Client
 		cancel              context.CancelFunc
 	}
 )
@@ -142,15 +152,33 @@ func NewTestEnvironment() *TestEnvironment {
 	if err := (&infrav1.HCloudMachineTemplate{}).SetupWebhookWithManager(mgr); err != nil {
 		klog.Fatalf("failed to set up webhook with manager for HCloudMachineTemplate: %s", err)
 	}
-
+	if err := (&infrav1.HetznerBareMetalMachine{}).SetupWebhookWithManager(mgr); err != nil {
+		klog.Fatalf("failed to set up webhook with manager for HetznerBareMetalMachine: %s", err)
+	}
+	if err := (&infrav1.HetznerBareMetalMachineTemplate{}).SetupWebhookWithManager(mgr); err != nil {
+		klog.Fatalf("failed to set up webhook with manager for HetznerBareMetalMachineTemplate: %s", err)
+	}
+	if err := (&infrav1.HetznerBareMetalHost{}).SetupWebhookWithManager(mgr); err != nil {
+		klog.Fatalf("failed to set up webhook with manager for HetznerBareMetalHost: %s", err)
+	}
 	// Create a fake HCloudClientFactory
 	hcloudClientFactory := fakeclient.NewHCloudClientFactory()
+
+	rescueSSHClient := &sshmock.Client{}
+	osSSHClient := &sshmock.Client{}
+
+	robotClient := &robotmock.Client{}
 
 	return &TestEnvironment{
 		Manager:             mgr,
 		Client:              mgr.GetClient(),
 		Config:              mgr.GetConfig(),
 		HCloudClientFactory: hcloudClientFactory,
+		SSHClientFactory:    mocks.NewSSHFactory(rescueSSHClient, osSSHClient),
+		RescueSSHClient:     rescueSSHClient,
+		OSSSHClient:         osSSHClient,
+		RobotClientFactory:  mocks.NewRobotFactory(robotClient),
+		RobotClient:         robotClient,
 	}
 }
 

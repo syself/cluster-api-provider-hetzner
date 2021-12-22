@@ -1,5 +1,5 @@
 /*
-Copyright 2021.
+Copyright 2022 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,44 +19,147 @@ package controllers
 import (
 	"context"
 
-	"k8s.io/apimachinery/pkg/runtime"
+	"github.com/pkg/errors"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/remediation"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"sigs.k8s.io/cluster-api/util"
+	"sigs.k8s.io/cluster-api/util/annotations"
+	"sigs.k8s.io/cluster-api/util/patch"
+	"sigs.k8s.io/cluster-api/util/predicates"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	infrastructurev1beta1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-// HetznerBareMetalRemediationReconciler reconciles a HetznerBareMetalRemediation object
+// HetznerBareMetalRemediationReconciler reconciles a HetznerBareMetalRemediation object.
 type HetznerBareMetalRemediationReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	WatchFilterValue string
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalremediations,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalremediations/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalremediations/finalizers,verbs=update
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the HetznerBareMetalRemediation object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.10.0/pkg/reconcile
-func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+// Reconcile reconciles the hetznerBareMetalRemediation object.
+func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
+	log := ctrl.LoggerFrom(ctx)
 
-	// TODO(user): your logic here
+	// Fetch the Hetzner bare metal host instance.
+	bareMetalRemediation := &infrav1.HetznerBareMetalRemediation{}
+	err := r.Get(ctx, req.NamespacedName, bareMetalRemediation)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, err
+	}
 
-	return ctrl.Result{}, nil
+	// Fetch the Machine.
+	machine, err := util.GetOwnerMachine(ctx, r.Client, bareMetalRemediation.ObjectMeta)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if machine == nil {
+		log.Info("Machine Controller has not yet set OwnerRef")
+		return ctrl.Result{}, nil
+	}
+
+	log = log.WithValues("machine", machine.Name)
+
+	// Fetch the BareMetalMachine instance.
+	bareMetalMachine := &infrav1.HetznerBareMetalMachine{}
+
+	key := client.ObjectKey{
+		Name:      machine.Spec.InfrastructureRef.Name,
+		Namespace: machine.Spec.InfrastructureRef.Namespace,
+	}
+
+	if err := r.Get(ctx, key, bareMetalMachine); err != nil {
+		if apierrors.IsNotFound(err) {
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, err
+	}
+
+	// Fetch the Cluster.
+	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, machine.ObjectMeta)
+	if err != nil {
+		log.Info("Machine is missing cluster label or cluster does not exist")
+		return ctrl.Result{}, nil
+	}
+
+	if annotations.IsPaused(cluster, bareMetalMachine) {
+		log.Info("HCloudMachine or linked Cluster is marked as paused. Won't reconcile")
+		return ctrl.Result{}, nil
+	}
+
+	log = log.WithValues("cluster", cluster.Name)
+
+	hetznerCluster := &infrav1.HetznerCluster{}
+
+	hetznerClusterName := client.ObjectKey{
+		Namespace: bareMetalMachine.Namespace,
+		Name:      cluster.Spec.InfrastructureRef.Name,
+	}
+	if err := r.Client.Get(ctx, hetznerClusterName, hetznerCluster); err != nil {
+		log.Info("HetznerCluster is not available yet")
+		return reconcile.Result{}, nil
+	}
+
+	// Create the scope.
+	remediationScope, err := scope.NewBareMetalRemediationScope(ctx, scope.BareMetalRemediationScopeParams{
+		BareMetalMachineScopeParams: scope.BareMetalMachineScopeParams{
+			Client:           r.Client,
+			Logger:           &log,
+			Machine:          machine,
+			BareMetalMachine: bareMetalMachine,
+		},
+		BareMetalRemediation: bareMetalRemediation,
+	})
+	if err != nil {
+		return reconcile.Result{}, errors.Errorf("failed to create scope: %+v", err)
+	}
+
+	// Always close the scope when exiting this function so we can persist any BareMetalRemediation changes.
+	defer func() {
+		// Always attempt to Patch the Remediation object and status after each reconciliation.
+		// Patch ObservedGeneration only if the reconciliation completed successfully
+		patchOpts := []patch.Option{}
+		patchOpts = append(patchOpts, patch.WithStatusObservedGeneration{})
+
+		if err := remediationScope.Close(ctx, patchOpts...); err != nil && reterr == nil {
+			reterr = err
+		}
+	}()
+
+	if !bareMetalRemediation.ObjectMeta.DeletionTimestamp.IsZero() {
+		// Nothing to do
+		return reconcile.Result{}, nil
+	}
+
+	return r.reconcileNormal(ctx, remediationScope)
+}
+
+func (r *HetznerBareMetalRemediationReconciler) reconcileNormal(ctx context.Context, remediationScope *scope.BareMetalRemediationScope) (reconcile.Result, error) {
+	remediationScope.Info("Reconciling BareMetalRemediation")
+	bareMetalRemediation := remediationScope.BareMetalRemediation
+
+	// reconcile bare metal remediation
+	if result, brk, err := breakReconcile(remediation.NewService(remediationScope).Reconcile(ctx)); brk {
+		return result, errors.Wrapf(err, "failed to reconcile server for BareMetalRemediation %s/%s", bareMetalRemediation.Namespace, bareMetalRemediation.Name)
+	}
+
+	return reconcile.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *HetznerBareMetalRemediationReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *HetznerBareMetalRemediationReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, options controller.Options) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&infrastructurev1beta1.HetznerBareMetalRemediation{}).
+		For(&infrav1.HetznerBareMetalRemediation{}).
+		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(ctrl.LoggerFrom(ctx), r.WatchFilterValue)).
 		Complete(r)
 }

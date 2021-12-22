@@ -47,7 +47,7 @@ spec:
     schema:
       openAPIV3Schema:
         description: HetznerBareMetalRemediation is the Schema for the hetznerbaremetalremediations
-          API
+          API.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -63,7 +63,7 @@ spec:
             type: object
           spec:
             description: HetznerBareMetalRemediationSpec defines the desired state
-              of HetznerBareMetalRemediation
+              of HetznerBareMetalRemediation.
             properties:
               strategy:
                 description: Strategy field defines remediation strategy.
@@ -81,7 +81,7 @@ spec:
             type: object
           status:
             description: HetznerBareMetalRemediationStatus defines the observed state
-              of HetznerBareMetalRemediation
+              of HetznerBareMetalRemediation.
             properties:
               lastRemediated:
                 description: LastRemediated identifies when the host was last remediated

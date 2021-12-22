@@ -68,7 +68,6 @@ var _ webhook.Validator = &HetznerCluster{}
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
 func (r *HetznerCluster) ValidateCreate() error {
 	hetznerclusterlog.V(1).Info("validate create", "name", r.Name)
-
 	var allErrs field.ErrorList
 
 	// Check whether regions are all in same network zone
@@ -76,6 +75,10 @@ func (r *HetznerCluster) ValidateCreate() error {
 		if err := isNetworkZoneSameForAllRegions(r.Spec.ControlPlaneRegions, nil); err != nil {
 			allErrs = append(allErrs, err)
 		}
+	}
+
+	if err := r.validateHetznerSecretKey(); err != nil {
+		allErrs = append(allErrs, err)
 	}
 
 	return aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
@@ -140,7 +143,41 @@ func (r *HetznerCluster) ValidateUpdate(old runtime.Object) error {
 		)
 	}
 
+	if err := r.validateHetznerSecretKey(); err != nil {
+		allErrs = append(allErrs, err)
+	}
+
 	return aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
+}
+
+func (r *HetznerCluster) isNetworkZoneSameForAllRegions(regions []Region, defaultNetworkZone *string) *field.Error {
+	if len(regions) == 0 {
+		return nil
+	}
+
+	defaultNZ := regionNetworkZoneMap[string(regions[0])]
+	if defaultNetworkZone != nil {
+		defaultNZ = *defaultNetworkZone
+	}
+	for _, region := range regions {
+		if regionNetworkZoneMap[string(region)] != defaultNZ {
+			return field.Invalid(field.NewPath("spec", "controlPlaneRegions"), r.Spec.ControlPlaneRegions, "regions are not in one network zone")
+		}
+	}
+	return nil
+}
+
+func (r *HetznerCluster) validateHetznerSecretKey() *field.Error {
+	// Hetzner secret key needs to contain either HCloud or Hrobot credentials
+	if r.Spec.HetznerSecret.Key.HCloudToken == "" &&
+		(r.Spec.HetznerSecret.Key.HetznerRobotUser == "" || r.Spec.HetznerSecret.Key.HetznerRobotPassword == "") {
+		return field.Invalid(
+			field.NewPath("spec", "hetznerSecret", "key"),
+			r.Spec.HetznerSecret.Key,
+			"need to specify credentials for either HCloud or Hetzner robot",
+		)
+	}
+	return nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type.

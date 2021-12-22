@@ -2,7 +2,9 @@
   "dirs_to_skip" : [
     "tilt_modules",
     "hack/boilerplate/testdata/",
-    "api/v1beta1/zz_generated.deepcopy.go"
+    "api/v1beta1/zz_generated.deepcopy.go",
+    "pkg/services/baremetal/client/mocks/robot",
+    "pkg/services/baremetal/client/mocks/ssh"
   ],
   "not_generated_files_to_skip" : [
     "hack/boilerplate/boilerplate.py"

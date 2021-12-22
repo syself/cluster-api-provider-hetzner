@@ -57,6 +57,7 @@ var (
 	wg           sync.WaitGroup
 
 	defaultPlacementGroupName = "caph-placement-group"
+	defaultFailureDomain      = "fsn1"
 )
 
 var _ = BeforeSuite(func() {
@@ -81,6 +82,19 @@ var _ = BeforeSuite(func() {
 		APIReader:           testEnv.Manager.GetAPIReader(),
 		HCloudClientFactory: testEnv.HCloudClientFactory,
 		WatchFilterValue:    "",
+	}).SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
+
+	Expect((&controllers.HetznerBareMetalHostReconciler{
+		Client:             testEnv.Manager.GetClient(),
+		APIReader:          testEnv.Manager.GetAPIReader(),
+		RobotClientFactory: testEnv.RobotClientFactory,
+		SSHClientFactory:   testEnv.SSHClientFactory,
+		WatchFilterValue:   "",
+	}).SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
+
+	Expect((&controllers.HetznerBareMetalMachineReconciler{
+		Client:           testEnv.Manager.GetClient(),
+		WatchFilterValue: "",
 	}).SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
 
 	go func() {
@@ -149,7 +163,9 @@ func getDefaultHetznerClusterSpec() infrav1.HetznerClusterSpec {
 		},
 		HetznerSecret: infrav1.HetznerSecretRef{
 			Key: infrav1.HetznerSecretKeyRef{
-				HCloudToken: "hcloud",
+				HCloudToken:          "hcloud",
+				HetznerRobotUser:     "robot-user",
+				HetznerRobotPassword: "robot-password",
 			},
 			Name: "hetzner-secret",
 		},
@@ -157,6 +173,14 @@ func getDefaultHetznerClusterSpec() infrav1.HetznerClusterSpec {
 			HCloud: []infrav1.SSHKey{
 				{
 					Name: "testsshkey",
+				},
+			},
+			RobotRescueSecretRef: infrav1.SSHSecretRef{
+				Name: "rescue-ssh-secret",
+				Key: infrav1.SSHSecretKeyRef{
+					Name:       "sshkey-name",
+					PublicKey:  "public-key",
+					PrivateKey: "private-key",
 				},
 			},
 		},
@@ -170,7 +194,9 @@ func getDefaultHetznerSecret(namespace string) *corev1.Secret {
 			Namespace: namespace,
 		},
 		Data: map[string][]byte{
-			"hcloud": []byte("my-token"),
+			"hcloud":         []byte("my-token"),
+			"robot-user":     []byte("my-user-name"),
+			"robot-password": []byte("my-password"),
 		},
 	}
 }
@@ -183,6 +209,37 @@ func getDefaultBootstrapSecret(namespace string) *corev1.Secret {
 		},
 		Data: map[string][]byte{
 			"value": []byte("my-bootstrap"),
+		},
+	}
+}
+
+func getDefaultHetznerBareMetalMachineSpec() infrav1.HetznerBareMetalMachineSpec {
+	return infrav1.HetznerBareMetalMachineSpec{
+		InstallImage: infrav1.InstallImage{
+			Image: infrav1.Image{
+				Name: "image-name",
+				URL:  "https://myfile.tar.gz",
+			},
+			PostInstallScript: "my script",
+			Partitions: []infrav1.Partition{
+				{
+					Mount:      "lvm",
+					FileSystem: "ext2",
+					Size:       "1G",
+				},
+			},
+		},
+		SSHSpec: infrav1.SSHSpec{
+			SecretRef: infrav1.SSHSecretRef{
+				Name: "os-ssh-secret",
+				Key: infrav1.SSHSecretKeyRef{
+					Name:       "sshkey-name",
+					PublicKey:  "public-key",
+					PrivateKey: "private-key",
+				},
+			},
+			PortAfterInstallImage: 22,
+			PortAfterCloudInit:    22,
 		},
 	}
 }

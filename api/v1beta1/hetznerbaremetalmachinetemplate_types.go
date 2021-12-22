@@ -1,5 +1,5 @@
 /*
-Copyright 2021.
+Copyright 2022 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,23 +20,17 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// HetznerBareMetalMachineTemplateSpec defines the desired state of HetznerBareMetalMachineTemplate
+// HetznerBareMetalMachineTemplateSpec defines the desired state of HetznerBareMetalMachineTemplate.
 type HetznerBareMetalMachineTemplateSpec struct {
 	Template HetznerBareMetalMachineTemplateResource `json:"template"`
-
-	// When set to True, HetznerBaremetalMachine controller will
-	// pick the same pool of BMHs' that were released during the upgrade operation.
-	// +kubebuilder:default=false
-	// +optional
-	NodeReuse bool `json:"nodeReuse"`
 }
 
+// HetznerBareMetalMachineTemplate is the Schema for the hetznerbaremetalmachinetemplates API.
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time duration since creation of HetznerBareMetalMachineTemplate"
 // +kubebuilder:resource:path=hetznerbaremetalmachinetemplates,scope=Namespaced,categories=cluster-api,shortName=hbmt;hbmmtemplate;hetznerbaremetalmachinetemplates;hetznerbaremetalmachinetemplate
 // +kubebuilder:storageversion
-// HetznerBareMetalMachineTemplate is the Schema for the hetznerbaremetalmachinetemplates API
 type HetznerBareMetalMachineTemplate struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
@@ -48,7 +42,7 @@ type HetznerBareMetalMachineTemplate struct {
 
 //+kubebuilder:object:root=true
 
-// HetznerBareMetalMachineTemplateList contains a list of HetznerBareMetalMachineTemplate
+// HetznerBareMetalMachineTemplateList contains a list of HetznerBareMetalMachineTemplate.
 type HetznerBareMetalMachineTemplateList struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
@@ -56,7 +50,7 @@ type HetznerBareMetalMachineTemplateList struct {
 	Items           []HetznerBareMetalMachineTemplate `json:"items"`
 }
 
-// HetznerBareMetalMachineTemplateResource describes the data needed to create a HetznerBareMetalMachine from a template
+// HetznerBareMetalMachineTemplateResource describes the data needed to create a HetznerBareMetalMachine from a template.
 type HetznerBareMetalMachineTemplateResource struct {
 	// Spec is the specification of the desired behavior of the machine.
 	Spec HetznerBareMetalMachineSpec `json:"spec"`

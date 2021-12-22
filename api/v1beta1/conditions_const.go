@@ -78,3 +78,15 @@ const (
 	// RateLimitNotReachedReason indicates that the rate limit is not reached yet.
 	RateLimitNotReachedReason = "RateLimitNotReached"
 )
+
+const (
+	// HetznerBareMetalHostReady reports on whether the Hetzner cluster is in ready state.
+	HetznerBareMetalHostReady clusterv1.ConditionType = "HetznerBareMetalHostReady"
+	// RobotCredentialsInvalidReason indicates that credentials for Robot are invalid.
+	RobotCredentialsInvalidReason = "RobotCredentialsInvalid" // #nosec
+)
+
+const (
+	// AssociateBMHCondition reports on whether the Hetzner cluster is in ready state.
+	AssociateBMHCondition clusterv1.ConditionType = "AssociateBMHCondition"
+)
