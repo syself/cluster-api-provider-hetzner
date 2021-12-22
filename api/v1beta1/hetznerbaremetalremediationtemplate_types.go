@@ -20,33 +20,37 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // HetznerBareMetalRemediationTemplateSpec defines the desired state of HetznerBareMetalRemediationTemplate
 type HetznerBareMetalRemediationTemplateSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	Template HetznerBareMetalRemediationTemplateResource `json:"template"`
+}
 
-	// Foo is an example field of HetznerBareMetalRemediationTemplate. Edit hetznerbaremetalremediationtemplate_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+// HetznerBareMetalRemediationTemplateResource describes the data needed to create a HetznerBareMetalRemediation from a template
+type HetznerBareMetalRemediationTemplateResource struct {
+	// Spec is the specification of the desired behavior of the HetznerBareMetalRemediation.
+	Spec HetznerBareMetalRemediationSpec `json:"spec"`
 }
 
 // HetznerBareMetalRemediationTemplateStatus defines the observed state of HetznerBareMetalRemediationTemplate
 type HetznerBareMetalRemediationTemplateStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// HetznerBareMetalRemediationStatus defines the observed state of HetznerBareMetalRemediation
+	Status HetznerBareMetalRemediationStatus `json:"status"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:path=hetznerbaremetalremediationtemplates,scope=Namespaced,categories=cluster-api,shortName=hbrt;hbremediationtemplate;hbremediationtemplates;hetznerbaremetalrt;hetznerbaremetalremediationtemplate
+// +kubebuilder:subresource:status
+// +kubebuilder:object:root=true
+// +kubebuilder:storageversion
 
 // HetznerBareMetalRemediationTemplate is the Schema for the hetznerbaremetalremediationtemplates API
 type HetznerBareMetalRemediationTemplate struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	Spec   HetznerBareMetalRemediationTemplateSpec   `json:"spec,omitempty"`
+	// +optional
+	Spec HetznerBareMetalRemediationTemplateSpec `json:"spec,omitempty"`
+	// +optional
 	Status HetznerBareMetalRemediationTemplateStatus `json:"status,omitempty"`
 }
 
@@ -55,6 +59,7 @@ type HetznerBareMetalRemediationTemplate struct {
 // HetznerBareMetalRemediationTemplateList contains a list of HetznerBareMetalRemediationTemplate
 type HetznerBareMetalRemediationTemplateList struct {
 	metav1.TypeMeta `json:",inline"`
+	// +optional
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []HetznerBareMetalRemediationTemplate `json:"items"`
 }

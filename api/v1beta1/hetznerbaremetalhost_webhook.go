@@ -24,9 +24,9 @@ import (
 )
 
 // log is for logging in this package.
-var hetznerbaremetalmachinehostlog = logf.Log.WithName("hetznerbaremetalmachinehost-resource")
+var hetznerbaremetalhostlog = logf.Log.WithName("hetznerbaremetalhost-resource")
 
-func (r *HetznerBareMetalMachineHost) SetupWebhookWithManager(mgr ctrl.Manager) error {
+func (r *HetznerBareMetalHost) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
 		Complete()
@@ -34,41 +34,41 @@ func (r *HetznerBareMetalMachineHost) SetupWebhookWithManager(mgr ctrl.Manager) 
 
 // TODO(user): EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 
-//+kubebuilder:webhook:path=/mutate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalmachinehost,mutating=true,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalmachinehosts,verbs=create;update,versions=v1beta1,name=mhetznerbaremetalmachinehost.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/mutate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalhost,mutating=true,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalhosts,verbs=create;update,versions=v1beta1,name=mhetznerbaremetalhost.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Defaulter = &HetznerBareMetalMachineHost{}
+var _ webhook.Defaulter = &HetznerBareMetalHost{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
-func (r *HetznerBareMetalMachineHost) Default() {
-	hetznerbaremetalmachinehostlog.Info("default", "name", r.Name)
+func (r *HetznerBareMetalHost) Default() {
+	hetznerbaremetalhostlog.Info("default", "name", r.Name)
 
 	// TODO(user): fill in your defaulting logic.
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-//+kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalmachinehost,mutating=false,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalmachinehosts,verbs=create;update,versions=v1beta1,name=vhetznerbaremetalmachinehost.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalhost,mutating=false,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalhosts,verbs=create;update,versions=v1beta1,name=vhetznerbaremetalhost.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Validator = &HetznerBareMetalMachineHost{}
+var _ webhook.Validator = &HetznerBareMetalHost{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *HetznerBareMetalMachineHost) ValidateCreate() error {
-	hetznerbaremetalmachinehostlog.Info("validate create", "name", r.Name)
+func (r *HetznerBareMetalHost) ValidateCreate() error {
+	hetznerbaremetalhostlog.Info("validate create", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object creation.
 	return nil
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *HetznerBareMetalMachineHost) ValidateUpdate(old runtime.Object) error {
-	hetznerbaremetalmachinehostlog.Info("validate update", "name", r.Name)
+func (r *HetznerBareMetalHost) ValidateUpdate(old runtime.Object) error {
+	hetznerbaremetalhostlog.Info("validate update", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object update.
 	return nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *HetznerBareMetalMachineHost) ValidateDelete() error {
-	hetznerbaremetalmachinehostlog.Info("validate delete", "name", r.Name)
+func (r *HetznerBareMetalHost) ValidateDelete() error {
+	hetznerbaremetalhostlog.Info("validate delete", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object deletion.
 	return nil
