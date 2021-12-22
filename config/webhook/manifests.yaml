@@ -53,6 +53,26 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /mutate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalhost
+  failurePolicy: Fail
+  name: mhetznerbaremetalhost.kb.io
+  rules:
+  - apiGroups:
+    - infrastructure.cluster.x-k8s.io
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - hetznerbaremetalhosts
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /mutate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalmachine
   failurePolicy: Fail
   name: mhetznerbaremetalmachine.kb.io
@@ -73,26 +93,6 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalmachinehost
-  failurePolicy: Fail
-  name: mhetznerbaremetalmachinehost.kb.io
-  rules:
-  - apiGroups:
-    - infrastructure.cluster.x-k8s.io
-    apiVersions:
-    - v1beta1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - hetznerbaremetalmachinehosts
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
       path: /mutate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalmachinetemplate
   failurePolicy: Fail
   name: mhetznerbaremetalmachinetemplate.kb.io
@@ -106,6 +106,26 @@ webhooks:
     - UPDATE
     resources:
     - hetznerbaremetalmachinetemplates
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalremediation
+  failurePolicy: Fail
+  name: mhetznerbaremetalremediation.kb.io
+  rules:
+  - apiGroups:
+    - infrastructure.cluster.x-k8s.io
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - hetznerbaremetalremediations
   sideEffects: None
 - admissionReviewVersions:
   - v1
@@ -203,6 +223,26 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /validate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalhost
+  failurePolicy: Fail
+  name: vhetznerbaremetalhost.kb.io
+  rules:
+  - apiGroups:
+    - infrastructure.cluster.x-k8s.io
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - hetznerbaremetalhosts
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /validate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalmachine
   failurePolicy: Fail
   name: vhetznerbaremetalmachine.kb.io
@@ -223,26 +263,6 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalmachinehost
-  failurePolicy: Fail
-  name: vhetznerbaremetalmachinehost.kb.io
-  rules:
-  - apiGroups:
-    - infrastructure.cluster.x-k8s.io
-    apiVersions:
-    - v1beta1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - hetznerbaremetalmachinehosts
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
       path: /validate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalmachinetemplate
   failurePolicy: Fail
   name: vhetznerbaremetalmachinetemplate.kb.io
@@ -256,6 +276,26 @@ webhooks:
     - UPDATE
     resources:
     - hetznerbaremetalmachinetemplates
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalremediation
+  failurePolicy: Fail
+  name: vhetznerbaremetalremediation.kb.io
+  rules:
+  - apiGroups:
+    - infrastructure.cluster.x-k8s.io
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - hetznerbaremetalremediations
   sideEffects: None
 - admissionReviewVersions:
   - v1
