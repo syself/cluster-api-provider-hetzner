@@ -19,12 +19,19 @@ package controllers
 import (
 	"context"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/cluster-api/util"
+	"sigs.k8s.io/cluster-api/util/annotations"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrastructurev1beta1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	"github.com/pkg/errors"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/baremetal"
 )
 
 // HetznerBareMetalMachineReconciler reconciles a HetznerBareMetalMachine object
@@ -37,26 +44,131 @@ type HetznerBareMetalMachineReconciler struct {
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalmachines/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalmachines/finalizers,verbs=update
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the HetznerBareMetalMachine object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.10.0/pkg/reconcile
-func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+// Reconcile implements the reconcilement of HetznerBareMetalMachine objects
+func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
+	log := ctrl.LoggerFrom(ctx)
 
-	// TODO(user): your logic here
+	// Fetch the Hetzner bare metal instance.
+	hbmMachine := &infrav1.HetznerBareMetalMachine{}
+	err := r.Get(ctx, req.NamespacedName, hbmMachine)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, err
+	}
 
-	return ctrl.Result{}, nil
+	// Fetch the Machine.
+	machine, err := util.GetOwnerMachine(ctx, r.Client, hbmMachine.ObjectMeta)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if machine == nil {
+		log.Info("Machine Controller has not yet set OwnerRef")
+		return ctrl.Result{}, nil
+	}
+
+	log = log.WithValues("machine", machine.Name)
+
+	// Fetch the Cluster.
+	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, machine.ObjectMeta)
+	if err != nil {
+		log.Info("Machine is missing cluster label or cluster does not exist")
+		return ctrl.Result{}, nil
+	}
+
+	if annotations.IsPaused(cluster, hbmMachine) {
+		log.Info("HetznerBareMetalMachine or linked Cluster is marked as paused. Won't reconcile")
+		return ctrl.Result{}, nil
+	}
+
+	log = log.WithValues("cluster", cluster.Name)
+
+	// Make sure infrastructure is ready
+	if !cluster.Status.InfrastructureReady {
+		log.Info("Waiting for Hetzner cluster controller to create cluster infrastructure")
+		return ctrl.Result{}, nil
+	}
+
+	hetznerCluster := &infrav1.HetznerCluster{}
+
+	hetznerClusterName := client.ObjectKey{
+		Namespace: hbmMachine.Namespace,
+		Name:      cluster.Spec.InfrastructureRef.Name,
+	}
+	if err := r.Client.Get(ctx, hetznerClusterName, hetznerCluster); err != nil {
+		log.Info("HetznerCluster is not available yet")
+		return reconcile.Result{}, nil
+	}
+
+	// Create the scope.
+	machineScope, err := scope.NewBareMetalMachineScope(ctx, scope.BareMetalMachineScopeParams{
+		ClusterScopeParams: scope.ClusterScopeParams{
+			Client:         r.Client,
+			Logger:         log,
+			Cluster:        cluster,
+			HetznerCluster: hetznerCluster,
+		},
+		Machine:          machine,
+		BareMetalMachine: hbmMachine,
+	})
+	if err != nil {
+		return reconcile.Result{}, errors.Errorf("failed to create scope: %+v", err)
+	}
+
+	// Always close the scope when exiting this function so we can persist any HetznerBareMetalMachine changes.
+	defer func() {
+		if err := machineScope.Close(ctx); err != nil && reterr == nil {
+			reterr = err
+		}
+	}()
+
+	if !hbmMachine.ObjectMeta.DeletionTimestamp.IsZero() {
+		return r.reconcileDelete(ctx, machineScope)
+	}
+
+	return r.reconcileNormal(ctx, machineScope)
+}
+
+func (r *HetznerBareMetalMachineReconciler) reconcileDelete(ctx context.Context, machineScope *scope.BareMetalMachineScope) (reconcile.Result, error) {
+	machineScope.Info("Reconciling HetznerBareMetalMachine delete")
+	hbmMachine := machineScope.BareMetalMachine
+
+	// delete servers
+	if result, brk, err := breakReconcile(baremetal.NewService(machineScope).Delete(ctx)); brk {
+		return result, errors.Wrapf(err, "failed to delete servers for HetznerBareMetalMachine %s/%s", hbmMachine.Namespace, hbmMachine.Name)
+	}
+
+	// Machine is deleted so remove the finalizer.
+	controllerutil.RemoveFinalizer(machineScope.BareMetalMachine, infrav1.MachineFinalizer)
+
+	return reconcile.Result{}, nil
+}
+
+func (r *HetznerBareMetalMachineReconciler) reconcileNormal(ctx context.Context, machineScope *scope.BareMetalMachineScope) (reconcile.Result, error) {
+	machineScope.Info("Reconciling HetznerBareMetalMachine")
+	hbmMachine := machineScope.BareMetalMachine
+
+	// If the HetznerBareMetalMachine doesn't have our finalizer, add it.
+	controllerutil.AddFinalizer(machineScope.BareMetalMachine, infrav1.MachineFinalizer)
+
+	// Register the finalizer immediately to avoid orphaning HetznerBareMetal resources
+	// on delete
+	if err := machineScope.PatchObject(ctx); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// reconcile server
+	if result, brk, err := breakReconcile(baremetal.NewService(machineScope).Reconcile(ctx)); brk {
+		return result, errors.Wrapf(err, "failed to reconcile server for HetznerBareMetalMachine %s/%s", hbmMachine.Namespace, hbmMachine.Name)
+	}
+
+	return reconcile.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *HetznerBareMetalMachineReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&infrastructurev1beta1.HetznerBareMetalMachine{}).
+		For(&infrav1.HetznerBareMetalMachine{}).
 		Complete(r)
 }

@@ -25,6 +25,7 @@ import (
 	"github.com/hetznercloud/hcloud-go/hcloud"
 	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	hrobot "github.com/syself/hrobot-go"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -40,11 +41,12 @@ import (
 type ClusterScopeParams struct {
 	HCloudClient
 
-	HCloudClientFactory HCloudClientFactory
-	Client              client.Client
-	Logger              logr.Logger
-	Cluster             *clusterv1.Cluster
-	HetznerCluster      *infrav1.HetznerCluster
+	HCloudClientFactory       HCloudClientFactory
+	HetznerRobotClientFactory HetznerRobotClientFactory
+	Client                    client.Client
+	Logger                    logr.Logger
+	Cluster                   *clusterv1.Cluster
+	HetznerCluster            *infrav1.HetznerCluster
 }
 
 // NewClusterScope creates a new Scope from the supplied parameters.
@@ -62,22 +64,52 @@ func NewClusterScope(ctx context.Context, params ClusterScopeParams) (*ClusterSc
 
 	// setup client factory if nothing was set
 	var hcloudToken string
-	if params.HCloudClientFactory == nil {
-		params.HCloudClientFactory = func(ctx context.Context) (HCloudClient, error) {
-			// retrieve token secret
-			var tokenSecret corev1.Secret
-			tokenSecretName := types.NamespacedName{Namespace: params.HetznerCluster.Namespace, Name: params.HetznerCluster.Spec.HetznerSecret.Name}
-			if err := params.Client.Get(ctx, tokenSecretName, &tokenSecret); err != nil {
-				return nil, errors.Errorf("error getting referenced token secret/%s: %s", tokenSecretName, err)
-			}
+	if params.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken != "" {
+		if params.HCloudClientFactory == nil {
+			params.HCloudClientFactory = func(ctx context.Context) (HCloudClient, error) {
+				// retrieve token secret
+				var tokenSecret corev1.Secret
+				tokenSecretName := types.NamespacedName{Namespace: params.HetznerCluster.Namespace, Name: params.HetznerCluster.Spec.HetznerSecret.Name}
+				if err := params.Client.Get(ctx, tokenSecretName, &tokenSecret); err != nil {
+					return nil, errors.Errorf("error getting referenced token secret/%s: %s", tokenSecretName, err)
+				}
 
-			tokenBytes, keyExists := tokenSecret.Data[params.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken]
-			if !keyExists {
-				return nil, errors.Errorf("error key %s does not exist in secret/%s", params.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken, tokenSecretName)
+				tokenBytes, keyExists := tokenSecret.Data[params.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken]
+				if !keyExists {
+					return nil, errors.Errorf("error key %s does not exist in secret/%s", params.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken, tokenSecretName)
+				}
+				hcloudToken = string(tokenBytes)
+				return &realHCloudClient{client: hcloud.NewClient(hcloud.WithToken(hcloudToken)), token: hcloudToken}, nil
 			}
-			hcloudToken = string(tokenBytes)
+		}
+	}
+	var hrc HetznerRobotClient
+	if params.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser != "" {
+		if params.HetznerRobotClientFactory == nil {
+			params.HetznerRobotClientFactory = func(ctx context.Context) (HetznerRobotClient, error) {
+				// retrieve token secret
+				var tokenSecret corev1.Secret
+				tokenSecretName := types.NamespacedName{Namespace: params.HetznerCluster.Namespace, Name: params.HetznerCluster.Spec.HetznerSecret.Name}
+				if err := params.Client.Get(ctx, tokenSecretName, &tokenSecret); err != nil {
+					return nil, errors.Errorf("error getting referenced token secret/%s: %s", tokenSecretName, err)
+				}
 
-			return &realHCloudClient{client: hcloud.NewClient(hcloud.WithToken(hcloudToken)), token: hcloudToken}, nil
+				passwordTokenBytes, keyExists := tokenSecret.Data[params.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword]
+				if !keyExists {
+					return nil, errors.Errorf("error key %s does not exist in secret/%s", params.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword, tokenSecretName)
+				}
+				userTokenBytes, keyExists := tokenSecret.Data[params.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser]
+				if !keyExists {
+					return nil, errors.Errorf("error key %s does not exist in secret/%s", params.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser, tokenSecretName)
+				}
+
+				return &realHetznerRobotClient{client: hrobot.NewBasicAuthClient(string(userTokenBytes), string(passwordTokenBytes))}, nil
+			}
+		}
+		var err error
+		hrc, err = params.HetznerRobotClientFactory(ctx)
+		if err != nil {
+			return nil, err
 		}
 	}
 
@@ -91,23 +123,26 @@ func NewClusterScope(ctx context.Context, params ClusterScopeParams) (*ClusterSc
 	}
 
 	return &ClusterScope{
-		Logger:         params.Logger,
-		Client:         params.Client,
-		Cluster:        params.Cluster,
-		HetznerCluster: params.HetznerCluster,
-		hcloudClient:   hcc,
-		hcloudToken:    hcloudToken,
-		patchHelper:    helper,
+		Logger:             params.Logger,
+		Client:             params.Client,
+		Cluster:            params.Cluster,
+		HetznerCluster:     params.HetznerCluster,
+		hcloudClient:       hcc,
+		hetznerRobotClient: hrc,
+		hcloudToken:        hcloudToken,
+		patchHelper:        helper,
 	}, nil
 }
 
 // ClusterScope defines the basic context for an actuator to operate upon.
 type ClusterScope struct {
 	logr.Logger
-	Client       client.Client
-	patchHelper  *patch.Helper
-	hcloudClient HCloudClient
-	hcloudToken  string
+	Client             client.Client
+	patchHelper        *patch.Helper
+	hcloudClient       HCloudClient
+	hetznerRobotClient HetznerRobotClient
+
+	hcloudToken string
 
 	Cluster        *clusterv1.Cluster
 	HetznerCluster *infrav1.HetznerCluster
@@ -136,6 +171,11 @@ func (s *ClusterScope) PatchObject(ctx context.Context) error {
 // HCloudClient gives a hcloud client.
 func (s *ClusterScope) HCloudClient() HCloudClient {
 	return s.hcloudClient
+}
+
+// HetznerRobotClient gives a hcloud client.
+func (s *ClusterScope) HetznerRobotClient() HetznerRobotClient {
+	return s.hetznerRobotClient
 }
 
 // GetSpecRegion returns a region.

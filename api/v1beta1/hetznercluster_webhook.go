@@ -17,7 +17,6 @@ limitations under the License.
 package v1beta1
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 
@@ -69,28 +68,18 @@ var _ webhook.Validator = &HetznerCluster{}
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
 func (r *HetznerCluster) ValidateCreate() error {
 	hetznerclusterlog.V(1).Info("validate create", "name", r.Name)
+	var allErrs field.ErrorList
+
 	// Check whether regions are all in same network zone
 	if !r.Spec.HCloudNetwork.NetworkEnabled {
-		return isNetworkZoneSameForAllRegions(r.Spec.ControlPlaneRegions, nil)
-	}
-	return nil
-}
-
-func isNetworkZoneSameForAllRegions(regions []Region, defaultNetworkZone *string) error {
-	if len(regions) == 0 {
-		return nil
+		allErrs = append(allErrs, r.isNetworkZoneSameForAllRegions(r.Spec.ControlPlaneRegions, nil))
 	}
 
-	defaultNZ := regionNetworkZoneMap[string(regions[0])]
-	if defaultNetworkZone != nil {
-		defaultNZ = *defaultNetworkZone
+	if err := r.validateHetznerSecretKey(); err != nil {
+		allErrs = append(allErrs, err)
 	}
-	for _, region := range regions {
-		if regionNetworkZoneMap[string(region)] != defaultNZ {
-			return errors.New("regions are not in one network zone")
-		}
-	}
-	return nil
+
+	return aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
@@ -117,10 +106,8 @@ func (r *HetznerCluster) ValidateUpdate(old runtime.Object) error {
 			str := regionNetworkZoneMap[string(oldC.Spec.ControlPlaneRegions[0])]
 			defaultNetworkZone = &str
 		}
-		if err := isNetworkZoneSameForAllRegions(r.Spec.ControlPlaneRegions, defaultNetworkZone); err != nil {
-			allErrs = append(allErrs,
-				field.Invalid(field.NewPath("spec", "controlPlaneRegions"), r.Spec.ControlPlaneRegions, err.Error()),
-			)
+		if err := r.isNetworkZoneSameForAllRegions(r.Spec.ControlPlaneRegions, defaultNetworkZone); err != nil {
+			allErrs = append(allErrs, err)
 		}
 	}
 
@@ -136,7 +123,41 @@ func (r *HetznerCluster) ValidateUpdate(old runtime.Object) error {
 		)
 	}
 
+	if err := r.validateHetznerSecretKey(); err != nil {
+		allErrs = append(allErrs, err)
+	}
+
 	return aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
+}
+
+func (r *HetznerCluster) isNetworkZoneSameForAllRegions(regions []Region, defaultNetworkZone *string) *field.Error {
+	if len(regions) == 0 {
+		return nil
+	}
+
+	defaultNZ := regionNetworkZoneMap[string(regions[0])]
+	if defaultNetworkZone != nil {
+		defaultNZ = *defaultNetworkZone
+	}
+	for _, region := range regions {
+		if regionNetworkZoneMap[string(region)] != defaultNZ {
+			return field.Invalid(field.NewPath("spec", "controlPlaneRegions"), r.Spec.ControlPlaneRegions, "regions are not in one network zone")
+		}
+	}
+	return nil
+}
+
+func (r *HetznerCluster) validateHetznerSecretKey() *field.Error {
+	// Hetzner secret key needs to contain either HCloud or Hrobot credentials
+	if r.Spec.HetznerSecret.Key.HCloudToken == "" &&
+		(r.Spec.HetznerSecret.Key.HetznerRobotUser == "" || r.Spec.HetznerSecret.Key.HetznerRobotPassword == "") {
+		return field.Invalid(
+			field.NewPath("spec", "hetznerSecret", "key"),
+			r.Spec.HetznerSecret.Key,
+			"need to specify credentials for either HCloud or Hetzner robot",
+		)
+	}
+	return nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type.

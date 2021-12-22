@@ -63,8 +63,14 @@ type HetznerSecretRef struct {
 }
 
 // HetznerSecretKeyRef defines the key name of the HetznerSecret.
+// Need to specify either HCloudToken or both HetznerRobotUser and HetznerRobotPassword
 type HetznerSecretKeyRef struct {
+	// +optional
 	HCloudToken string `json:"hcloudToken"`
+	// +optional
+	HetznerRobotUser string `json:"hetznerRobotUser"`
+	// +optional
+	HetznerRobotPassword string `json:"hetznerRobotPassword"`
 }
 
 // LoadBalancerSpec defines the desired state of the Control Plane Loadbalancer.

@@ -18,38 +18,72 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/pkg/errors"
 	infrastructurev1beta1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/inventory"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/provisioner"
 )
 
 // HetznerBareMetalHostReconciler reconciles a HetznerBareMetalHost object
 type HetznerBareMetalHostReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme             *runtime.Scheme
+	ProvisionerFactory provisioner.Factory
+	WatchFilterValue   string
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalhosts,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalhosts/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalhosts/finalizers,verbs=update
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the HetznerBareMetalHost object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.10.0/pkg/reconcile
+// Reconcile implements the reconcilement of HetznerBareMetalHost objects
 func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
 
-	// TODO(user): your logic here
+	//	log := ctrl.LoggerFrom(ctx)
+
+	// Fetch the Hetzner bare metal host instance.
+	host := &infrav1.HetznerBareMetalHost{}
+	err := r.Get(ctx, req.NamespacedName, host)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, err
+	}
+
+	initialState := host.Status.Provisioning.State
+
+	info := inventory.NewReconcileInfo(host)
+
+	prov, err := r.ProvisionerFactory.NewProvisioner(provisioner.BuildHostData(*host))
+	if err != nil {
+		return ctrl.Result{}, errors.Wrap(err, "failed to create provisioner")
+	}
+
+	// ready, err := prov.IsReady()
+	// if err != nil {
+	// 	return ctrl.Result{}, errors.Wrap(err, "failed to check services availability")
+	// }
+	// if !ready {
+	// 	reqLogger.Info("provisioner is not ready", "RequeueAfter:", provisionerNotReadyRetryDelay)
+	// 	return ctrl.Result{Requeue: true, RequeueAfter: provisionerNotReadyRetryDelay}, nil
+	// }
+
+	stateMachine := inventory.NewHostStateMachine(host, prov, true)
+	actResult := stateMachine.ReconcileState(info)
+	_, err = actResult.Result() // result, err :=
+	if err != nil {
+		err = errors.Wrap(err, fmt.Sprintf("action %q failed", initialState))
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
 }
