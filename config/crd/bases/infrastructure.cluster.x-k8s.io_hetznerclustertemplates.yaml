@@ -216,6 +216,8 @@ spec:
                           necessary.
                         properties:
                           key:
+                            description: HetznerSecretKeyRef defines the key name
+                              of the HetznerSecret.
                             properties:
                               hcloudToken:
                                 type: string

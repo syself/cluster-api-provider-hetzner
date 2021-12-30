@@ -202,6 +202,11 @@ func (s *Service) Delete(ctx context.Context) (err error) {
 		return nil
 	}
 
+	if s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Protected {
+		record.Eventf(s.scope.HetznerCluster, "LoadBalancerProtectedFromDeletion", "Failed to delete load balancer as it is protected")
+		return nil
+	}
+
 	if _, err := s.scope.HCloudClient().DeleteLoadBalancer(ctx, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID); err != nil {
 		record.Eventf(s.scope.HetznerCluster, "FailedLoadBalancerDelete", "Failed to delete load balancer: %s", err)
 		return errors.Wrap(err, "failed to delete load balancer")
@@ -257,5 +262,6 @@ func (s *Service) apiToStatus(lb *hcloud.LoadBalancer) infrav1.LoadBalancerStatu
 		IPv6:       ipv6,
 		InternalIP: internalIP,
 		Target:     targetIDs,
+		Protected:  lb.Protection.Delete,
 	}
 }
