@@ -107,7 +107,9 @@ func (s *Service) Delete(ctx context.Context) (err error) {
 	var multierr []error
 	for _, pg := range s.scope.HetznerCluster.Status.HCloudPlacementGroup {
 		if _, err := s.scope.HCloudClient().DeletePlacementGroup(ctx, pg.ID); err != nil {
-			multierr = append(multierr, err)
+			if !hcloud.IsError(err, hcloud.ErrorCodeNotFound) {
+				multierr = append(multierr, err)
+			}
 		}
 	}
 
