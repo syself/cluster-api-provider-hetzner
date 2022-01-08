@@ -40,7 +40,7 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 	// detect failure domain
 	failureDomain, err := s.scope.GetFailureDomain()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to get failure domain")
 	}
 	s.scope.HCloudMachine.Status.Region = infrav1.Region(failureDomain)
 
@@ -54,13 +54,14 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get server")
 	}
-
 	// If no server is found we have to create one
+	var instanceCreated bool
 	if instance == nil {
 		instance, err = s.createServer(s.scope.Ctx, failureDomain)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to create server")
 		}
+		instanceCreated = true
 		record.Eventf(
 			s.scope.HCloudMachine,
 			"SuccessfulCreate",
@@ -75,8 +76,11 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 	case hcloud.ServerStatusOff:
 		// Check if server is in ServerStatusOff and turn it on. This is to avoid a bug of Hetzner where
 		// sometimes machines are created and not turned on
-		if _, _, err := s.scope.HCloudClient().PowerOnServer(ctx, instance); err != nil {
-			return nil, err
+		// Don't do this when instance is just created
+		if !instanceCreated {
+			if _, _, err := s.scope.HCloudClient().PowerOnServer(ctx, instance); err != nil {
+				return nil, errors.Wrap(err, "failed to power on server")
+			}
 		}
 	case hcloud.ServerStatusRunning: // Do nothing
 	default:
@@ -113,7 +117,7 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 	// Checks if control-plane is ready. Loops through available control-planes,
 	// rewrites kubeconfig address to address of control-plane.
 	// Requests readyz endpoint of control-plane kube-apiserver
-	var errors []error
+	var multierr []error
 	for _, address := range s.scope.HCloudMachine.Status.Addresses {
 		if address.Type != corev1.NodeExternalIP && address.Type != corev1.NodeExternalDNS {
 			continue
@@ -124,11 +128,11 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 			Port: s.scope.ControlPlaneAPIEndpointPort(),
 		})
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "failed to get client config with API endpoint")
 		}
 
 		if err := scope.IsControlPlaneReady(ctx, clientConfig); err != nil {
-			errors = append(errors, err)
+			multierr = append(multierr, err)
 			break
 		}
 
@@ -138,7 +142,7 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 		return nil, nil
 	}
 
-	if err := kerrors.NewAggregate(errors); err != nil {
+	if err := kerrors.NewAggregate(multierr); err != nil {
 		record.Warnf(
 			s.scope.HCloudMachine,
 			"APIServerNotReady",
@@ -425,6 +429,9 @@ func setStatusFromAPI(server *hcloud.Server) infrav1.HCloudMachineStatus {
 func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *hcloud.Server) error {
 	log := ctrl.LoggerFrom(ctx)
 
+	if s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer == nil {
+		return nil
+	}
 	log.Info("lb targets", "target", s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target)
 
 	// If already attached do nothing
@@ -439,9 +446,8 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 	if len(server.PrivateNet) > 0 {
 		hasPrivateIP = true
 	}
-
 	// If load balancer has not been attached to a network, then it cannot add a server with private IP
-	if hasPrivateIP && !conditions.IsFalse(s.scope.HetznerCluster, infrav1.LoadBalancerAttachedToNetworkCondition) {
+	if hasPrivateIP && conditions.IsFalse(s.scope.HetznerCluster, infrav1.LoadBalancerAttachedToNetworkCondition) {
 		return nil
 	}
 

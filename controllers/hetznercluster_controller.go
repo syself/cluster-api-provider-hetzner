@@ -121,7 +121,7 @@ func (r *HetznerClusterReconciler) SetupWithManager(ctx context.Context, mgr ctr
 			key := types.NamespacedName{Namespace: c.Spec.InfrastructureRef.Namespace, Name: c.Spec.InfrastructureRef.Name}
 
 			if err := r.Get(ctx, key, hetznerCluster); err != nil {
-				log.V(4).Error(err, "Failed to get HCloud cluster")
+				log.V(4).Error(err, "Failed to get HetznerCluster")
 				return nil
 			}
 
@@ -281,12 +281,12 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 }
 
 func (r *HetznerClusterReconciler) reconcileTargetClusterManager(inputctx context.Context, clusterScope *scope.ClusterScope) error {
-	if len(clusterScope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target) == 0 {
-		return nil
-	}
-
 	hetznerCluster := clusterScope.HetznerCluster
 	deleted := !hetznerCluster.DeletionTimestamp.IsZero()
+
+	if !deleted && len(clusterScope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target) == 0 {
+		return nil
+	}
 
 	r.targetClusterManagersLock.Lock()
 	defer r.targetClusterManagersLock.Unlock()
@@ -307,7 +307,6 @@ func (r *HetznerClusterReconciler) reconcileTargetClusterManager(inputctx contex
 			Ctx:      ctx,
 			StopFunc: cancel,
 		}
-
 		go func() {
 			if err := m.Start(ctx); err != nil {
 				clusterScope.Error(err, "failed to start a targetClusterManager")
@@ -322,7 +321,6 @@ func (r *HetznerClusterReconciler) reconcileTargetClusterManager(inputctx contex
 		stopCtx.StopFunc()
 		delete(r.targetClusterManagersCancelCtx, key)
 	}
-
 	return nil
 }
 
@@ -345,6 +343,7 @@ func (r *HetznerClusterReconciler) newTargetClusterManager(ctx context.Context, 
 
 	scheme := runtime.NewScheme()
 	_ = certificatesv1.AddToScheme(scheme)
+	_ = infrav1.AddToScheme(scheme)
 
 	clusterMgr, err := ctrl.NewManager(
 		restConfig,
@@ -423,6 +422,11 @@ func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterS
 	// delete the placement groups
 	if err := placementgroup.NewService(clusterScope).Delete(ctx); err != nil {
 		return reconcile.Result{}, errors.Wrapf(err, "failed to delete placement groups for HetznerCluster %s/%s", hetznerCluster.Namespace, hetznerCluster.Name)
+	}
+
+	// Stop CSR manager
+	if err := r.reconcileTargetClusterManager(ctx, clusterScope); err != nil {
+		return reconcile.Result{}, err
 	}
 
 	// Cluster is deleted so remove the finalizer.
@@ -509,23 +513,3 @@ func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope
 	}
 	return nil
 }
-
-// func (r *HetznerClusterReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, options controller.Options) error {
-// 	r.targetClusterManagersLock.Lock()
-// 	defer r.targetClusterManagersLock.Unlock()
-
-// 	var (
-// 		controlledType     = &infrav1.HetznerCluster{}
-// 		controlledTypeName = reflect.TypeOf(controlledType).Elem().Name()
-// 		controlledTypeGVK  = infrav1.GroupVersion.WithKind(controlledTypeName)
-// 	)
-// 	return ctrl.NewControllerManagedBy(mgr).
-// 		WithOptions(options).
-// 		For(controlledType).
-// 		// Watch the CAPI resource that owns this infrastructure resource.
-// 		Watches(
-// 			&source.Kind{Type: &clusterv1.Cluster{}},
-// 			handler.EnqueueRequestsFromMapFunc(util.ClusterToInfrastructureMapFunc(controlledTypeGVK)),
-// 		).
-// 		Complete(r)
-// }
