@@ -42,13 +42,13 @@ providers:
 
 For the latest version:
 ```shell
-clusterctl init --infrastructure hetzner
+clusterctl init --core cluster-api --bootstrap kubeadm --control-plane kubeadm --infrastructure hetzner
 
 ```
-or for a specific version: `clusterctl init --infrastructure hetzner:vX.X.X`
+or for a specific version: `--infrastructure hetzner:vX.X.X`
 
 ## HA Cluster API Components (optional)
-The clusterctl CLI will create all the four needed components cluster-api, cluster-api-bootstrap-provider-kubeadm, cluster-api-control-plane-kubeadm and cluster-api-provider-hetzner.
+The clusterctl CLI will create all the four needed components cluster-api (CAPI), cluster-api-bootstrap-provider-kubeadm (CAPBK), cluster-api-control-plane-kubeadm (KCP) and cluster-api-provider-hetzner (CAPH).
 It uses the respective *-components.yaml from the releases. However, these are not highly available. By scaling the components we can at least reduce the probability of failure. For whom this is not enough could add pdbs.
 
 Scale up the deployments
@@ -162,7 +162,7 @@ kubectl get kubeadmcontrolplane
 
 After the first control plane node is up and running, we can retrieve the workload cluster Kubeconfig:
 ```shell
-export CAPH_WORKER_CLUSTER_KUBECONFIG=/tmp/my-cluster.kubeconfig
+export CAPH_WORKER_CLUSTER_KUBECONFIG=/tmp/workload-kubeconfig
 clusterctl get kubeconfig my-cluster > $CAPH_WORKER_CLUSTER_KUBECONFIG
 ```
 
@@ -187,3 +187,43 @@ KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/c
 --set privateNetwork.enabled=false
 ```
 
+## Clean Up
+
+Delete workload cluster.
+```shell
+kubectl delete cluster my-cluster
+```
+> **IMPORTANT**: In order to ensure a proper cleanup of your infrastructure you must always delete the cluster object. Deleting the entire cluster template with kubectl delete -f capi-quickstart.yaml might lead to pending resources to be cleaned up manually.
+
+Delete management cluster
+```shell
+kind delete cluster
+```
+
+## Next Steps
+
+### Moving components
+
+In the target cluster run: 
+
+```shell
+clusterctl init --infrastructure hetzner
+```
+or for a specific version:
+```shell
+clusterctl init --infrastructure hetzner:vX.X.X
+```
+Then switch back to the management cluster!
+`kubectl config use-context kind-<mgt-cluster-name> `
+
+In the management cluster do:
+```shell
+clusterctl move --to-kubeconfig /tmp/workload-kubeconfig
+```
+| Flag | Description |
+| ---- | ----------- |
+|*--namespace* | The namespace where the workload cluster is hosted. If unspecified, the current context's namespace is used. |
+| *--kubeconfig*| Path to the kubeconfig file for the source management cluster. If unspecified, default discovery rules apply. |
+|*--kubeconfig-context*| Context to be used within the kubeconfig file for the source management cluster. If empty, current context will be used. |
+|*--to-kubeconfig*| Path to the kubeconfig file to use for the destination management cluster. |
+|*--to-kubeconfig-context*| Context to be used within the kubeconfig file for the destination management cluster. If empty, current context will be used.|

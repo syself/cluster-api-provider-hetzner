@@ -47,8 +47,7 @@ This provider's versions are able to install and manage the following versions o
 
 |  | Hetzner Provider `v1.0.x` |
 |---|---|
-| Kubernetes 1.21 | ✓ |
-| Kubernetes 1.22 | ✓ |
+| Kubernetes 1.22.x | ✓ |
 
 Test status:
 
