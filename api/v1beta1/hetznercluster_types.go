@@ -100,6 +100,7 @@ type LoadBalancerStatus struct {
 	IPv6       string `json:"ipv6,omitempty"`
 	InternalIP string `json:"internalIP,omitempty"`
 	Target     []int  `json:"target,omitempty"`
+	Protected  bool   `json:"protected,omitempty"`
 }
 
 // HetznerClusterStatus defines the observed state of HetznerCluster.

@@ -179,6 +179,7 @@ spec:
                   section under API TOKENS. Read & Write is necessary.
                 properties:
                   key:
+                    description: HetznerSecretKeyRef defines the key name of the HetznerSecret.
                     properties:
                       hcloudToken:
                         type: string
@@ -268,6 +269,8 @@ spec:
                     type: string
                   ipv6:
                     type: string
+                  protected:
+                    type: boolean
                   target:
                     items:
                       type: integer
