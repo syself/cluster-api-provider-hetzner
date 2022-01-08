@@ -136,7 +136,9 @@ def set_env_variables():
 def deploy_hetzner_secret():
     substitutions = settings.get("kustomize_substitutions", {})
     hcloud = substitutions.get("HCLOUD_TOKEN")
+    patch_secret = """kubectl patch secret hetzner -p '{"metadata":{"labels":{"clusterctl.cluster.x-k8s.io/move":""}}}'"""
     local("kubectl create secret generic hetzner --from-literal=hcloud=%s --dry-run=client -o yaml | kubectl apply -f -" % hcloud)
+    local(patch_secret, quiet = True)
 
 ## This should have the same versions as the Dockerfile
 tilt_dockerfile_header = """
@@ -286,27 +288,43 @@ caph()
 waitforsystem()
 
 cmd_button(
-    "Create Talos Cluster",
-    argv = ["make", "create-talos-workload-cluster"],
+    "Create Talos Cluster - with Packer",
+    argv = ["make", "create-talos-workload-cluster-packer"],
     location = location.NAV,
-    icon_name = "circle_triangle_up_fill",
-    text = "Create Talos Cluster",
+    icon_name = "change_history_outlined",
+    text = "Create Talos Cluster - with Packer",
 )
 
 cmd_button(
-    "Create Cluster With Private Network",
+    "Create Cluster With Private Network - with Packer",
+    argv = ["make", "create-workload-cluster-with-network-packer"],
+    location = location.NAV,
+    icon_name = "lock_outlined",
+    text = "Create Cluster With Private Network - with Packer",
+)
+
+cmd_button(
+    "Create Cluster With Private Network - without Packer",
     argv = ["make", "create-workload-cluster-with-network"],
     location = location.NAV,
-    icon_name = "circle_chevron_up_fill",
-    text = "Create Cluster With Private Network",
+    icon_name = "switch_access_shortcut_add_outlined",
+    text = "Create Cluster With Private Network - without Packer",
 )
 
 cmd_button(
-    "Create Workload Cluster",
+    "Create Workload Cluster - without Packer",
     argv = ["make", "create-workload-cluster"],
     location = location.NAV,
+    icon_name = "switch_access_shortcut_outlined",
+    text = "Create Workload Cluster - without Packer",
+)
+
+cmd_button(
+    "Create Workload Cluster - with Packer",
+    argv = ["make", "create-workload-cluster-packer"],
+    location = location.NAV,
     icon_name = "cloud_upload",
-    text = "Create Workload Cluster",
+    text = "Create Workload Cluster - with Packer",
 )
 
 cmd_button(
