@@ -37,6 +37,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -56,19 +58,35 @@ type GuestCSRReconciler struct {
 }
 
 //+kubebuilder:rbac:groups=certificates.k8s.io,resources=certificatesigningrequests,verbs=get;list;watch
+//+kubebuilder:rbac:groups=certificates.k8s.io,resources=certificatesigningrequests/approval,verbs=update
+//+kubebuilder:rbac:groups=certificates.k8s.io,resources=signers,verbs=approve,resourceNames=kubernetes.io/kubelet-serving
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hcloudmachines,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile manages the lifecycle of a CSR object.
 func (r *GuestCSRReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
 
+	log.Info("Starting reconcile CSR", "req", req)
 	// Fetch the CertificateSigningRequest instance.
 	certificateSigningRequest := &certificatesv1.CertificateSigningRequest{}
 	err := r.Get(ctx, req.NamespacedName, certificateSigningRequest)
+
 	if err != nil {
+		if apierrors.IsTimeout(err) {
+			if stsErr, ok := err.(*apierrors.StatusError); ok {
+				log.Info("Status error", "err", stsErr)
+			} else {
+				log.Info("Is timeout but no status error", "err", err)
+			}
+		} else {
+			log.Info("No timeout error", "err", err)
+		}
+
 		if apierrors.IsNotFound(err) {
 			return reconcile.Result{}, nil
 		}
+
+		log.Error(err, "found an error while getting CSR", "namespacedName", req.NamespacedName)
 		return reconcile.Result{}, err
 	}
 
@@ -84,10 +102,14 @@ func (r *GuestCSRReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 
 	// find matching HCloudMachine object
 	var hcloudMachine infrav1.HCloudMachine
-	if err := r.Get(ctx, types.NamespacedName{
-		Namespace: req.Namespace,
+	if err := r.mCluster.Get(ctx, types.NamespacedName{
+		Namespace: r.mCluster.Namespace(),
 		Name:      strings.TrimPrefix(certificateSigningRequest.Spec.Username, nodePrefix),
 	}, &hcloudMachine); err != nil {
+		log.Error(err, "found an error while getting hcloudMachine", "namespacedName", req.NamespacedName,
+			"userName", certificateSigningRequest.Spec.Username,
+			"trimmedUserName", strings.TrimPrefix(certificateSigningRequest.Spec.Username, nodePrefix),
+		)
 		return reconcile.Result{}, err
 	}
 
@@ -111,10 +133,12 @@ func (r *GuestCSRReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	if err := csr.ValidateKubeletCSR(csrRequest, &hcloudMachine); err != nil {
 		condition.Type = certificatesv1.CertificateDenied
 		condition.Reason = "CSRValidationFailed"
+		condition.Status = "True"
 		condition.Message = fmt.Sprintf("Validation by cluster-api-provider-hetzner failed: %s", err)
 	} else {
 		condition.Type = certificatesv1.CertificateApproved
 		condition.Reason = "CSRValidationSucceed"
+		condition.Status = "True"
 		condition.Message = "Validation by cluster-api-provider-hetzner was successful"
 	}
 
@@ -123,9 +147,10 @@ func (r *GuestCSRReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		condition,
 	)
 
-	if _, err := r.clientSet.CertificatesV1().CertificateSigningRequests().UpdateApproval(ctx, hcloudMachine.Name, certificateSigningRequest, metav1.UpdateOptions{}); err != nil {
-		log.Error(err, "updating approval of csr failed", "username", certificateSigningRequest.Spec.Username, "csr")
+	if _, err := r.clientSet.CertificatesV1().CertificateSigningRequests().UpdateApproval(ctx, certificateSigningRequest.Name, certificateSigningRequest, metav1.UpdateOptions{}); err != nil {
+		log.Error(err, "updating approval of csr failed", "username", certificateSigningRequest.Spec.Username)
 	}
+	log.Info("Finished reconcile CSR", "name", certificateSigningRequest.Name)
 
 	return reconcile.Result{}, nil
 }
@@ -136,5 +161,19 @@ func (r *GuestCSRReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Mana
 		WithOptions(options).
 		For(&certificatesv1.CertificateSigningRequest{}).
 		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(ctrl.LoggerFrom(ctx), r.WatchFilterValue)).
+		WithEventFilter(predicate.Funcs{
+			DeleteFunc: func(e event.DeleteEvent) bool {
+				// We don't want to listen to delete events, as CSRs are deleted frequently without us having to do something
+				return false
+			},
+			GenericFunc: func(e event.GenericEvent) bool {
+				// We don't want to listen to generic events, as CSRs are genericd frequently without us having to do something
+				return false
+			},
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				// We don't want to listen to Update events, as CSRs are Updated frequently without us having to do something
+				return false
+			},
+		}).
 		Complete(r)
 }
