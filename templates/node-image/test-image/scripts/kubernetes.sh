@@ -14,11 +14,12 @@ repo_gpgcheck=1
 gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
 EOF
 # Check actual version: https://github.com/kubernetes/kubernetes/releases must be same as cri-o
-KUBERNETES_VERSION=1.22.4
+KUBERNETES_VERSION=1.22.4 # https://kubernetes.io/releases/#release-history
 
 dnf install --setopt=obsoletes=0 -y kubelet-0:$KUBERNETES_VERSION-0 kubeadm-0:$KUBERNETES_VERSION-0 kubectl-0:$KUBERNETES_VERSION-0 python3-dnf-plugin-versionlock bash-completion --disableexcludes=kubernetes
 dnf versionlock kubelet kubectl kubeadm
 systemctl enable kubelet
+
 
 # Set up required sysctl params, these persist across reboots.
 cat > /etc/sysctl.d/99-kubernetes-cri.conf <<EOF
