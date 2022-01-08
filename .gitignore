@@ -37,6 +37,7 @@ tilt_config.json
 # kubeconfigs
 kind.kubeconfig
 kubeconfig
+.kubeconfig
 
 # Common editor / temporary files
 *~
