@@ -1,0 +1,9 @@
+{
+  "dirs_to_skip" : [
+    "tilt_modules",
+    "hack/boilerplate/testdata/"
+  ],
+  "not_generated_files_to_skip" : [
+    "hack/boilerplate/boilerplate.py"
+  ]
+}

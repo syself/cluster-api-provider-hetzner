@@ -15,4 +15,4 @@ jobs:
       - name: checkout repo
         uses: actions/checkout@v2
       - name: run shellcheck
-        run: make shell-lint
+        run: make verify-shellcheck
