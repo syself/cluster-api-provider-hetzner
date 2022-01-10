@@ -1,0 +1,12 @@
+{
+  "dirs_to_skip": [
+    "dir_to_skip",
+    "dont_want_this",
+    "not_interested",
+    "."
+  ],
+  "not_generated_files_to_skip": [
+    "alice skips a file",
+    "bob skips another file"
+  ]
+}

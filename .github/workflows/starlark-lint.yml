@@ -14,4 +14,4 @@ jobs:
       - name: checkout repo
         uses: actions/checkout@v2
       - name: run starlark lint
-        run: make tiltfile-lint
+        run: make verify-tiltfile

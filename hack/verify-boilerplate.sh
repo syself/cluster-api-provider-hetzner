@@ -18,21 +18,61 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-KUBE_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
+if [ "$(uname)" = 'Darwin' ]; then
+  readlinkf(){ perl -MCwd -e 'print Cwd::abs_path shift' "$1";}
+else
+  readlinkf(){ readlink -f "$1"; }
+fi
 
-boilerDir="${KUBE_ROOT}/hack/boilerplate"
+# shellcheck disable=SC2128
+SCRIPT_DIR="$(cd "$(dirname "$(readlinkf "$BASH_SOURCE")")" ; pwd)"
+
+# We assume the link to the script ( {ensure,verify}-boilerplate.sh ) to be
+# in a directory 2 levels down from the repo root, e.g. in
+#   <root>/repo-infra/verify/verify-boilerplate.sh
+# Alternatively, you can set the project root by setting the variable
+# `REPO_ROOT`.
+#
+# shellcheck disable=SC2128
+: "${REPO_ROOT:="$(cd "${SCRIPT_DIR}/.." ; pwd)"}"
+
+boilerDir="${SCRIPT_DIR}/boilerplate/"
 boiler="${boilerDir}/boilerplate.py"
 
-files_need_boilerplate=()
-while IFS=$'\n' read -r line; do
-  files_need_boilerplate+=( "$line" )
-done < <("${boiler}" "$@")
+verify() {
+  # shellcheck disable=SC2207
+  files_need_boilerplate=(
+    $( "$boiler" --rootdir="$REPO_ROOT" --boilerplate-dir="$boilerDir" "$@")
+  )
 
-# Run boilerplate check
-if [[ ${#files_need_boilerplate[@]} -gt 0 ]]; then
-  for file in "${files_need_boilerplate[@]}"; do
-    echo "Boilerplate header is wrong for: ${file}" >&2
-  done
+  # Run boilerplate check
+  if [[ ${#files_need_boilerplate[@]} -gt 0 ]]; then
+    for file in "${files_need_boilerplate[@]}"; do
+      echo "Boilerplate header is wrong for: ${file}" >&2
+    done
 
-  exit 1
-fi
+    return 1
+  fi
+}
+
+ensure() {
+  "$boiler" --rootdir="$REPO_ROOT" --boilerplate-dir="$boilerDir" --ensure "$@"
+}
+
+case "$0" in
+  */ensure-boilerplate.sh)
+    ensure "$@"
+    ;;
+  */verify-boilerplate.sh)
+    verify "$@"
+    ;;
+  *)
+    {
+      echo "unknown command '$0'"
+      echo ""
+      echo "Call the script as either 'verify-boilerplate.sh' or 'ensure-boilerplate.sh'"
+    } >&2
+
+    exit 1
+    ;;
+esac

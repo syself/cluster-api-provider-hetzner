@@ -1,0 +1,1 @@
+../hack/verify-boilerplate.sh
