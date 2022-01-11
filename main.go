@@ -61,7 +61,7 @@ var (
 )
 
 func main() {
-	flag.BoolVar(&verbose, "verbose", true, "Enable verbose logging")
+	flag.BoolVar(&verbose, "verbose", false, "Enable verbose logging")
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "localhost:8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -73,7 +73,7 @@ func main() {
 	flag.StringVar(&watchNamespace, "namespace", "", "Namespace that the controller watches to reconcile cluster-api objects. If unspecified, the controller watches for cluster-api objects across all namespaces.")
 
 	opts := zap.Options{
-		Development: true,
+		Development: verbose,
 	}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
