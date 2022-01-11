@@ -31,6 +31,7 @@ Check out the [Quickstart Guide](docs/topics/quickstart.md) to create your first
 * Support for single and multi-node control plane clusters
 * Support for HCloud Placement groups
 * cloud-init based nodes bootstrapping
+* CSR Support for approving kubelet-serving certificate signing requests
 * Hetzner Dedicated Server *comming soon*
 
 ---
