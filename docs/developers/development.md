@@ -5,7 +5,7 @@
 ### Base requirements
 
 1. Install Go
-   - Get the latest patch version for go v1.16.
+   - Get the latest patch version for go v1.17.
 2. Install Kind
 3. Install Kustomize
 4. Install make
