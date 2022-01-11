@@ -19,6 +19,8 @@ package placementgroup
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
 	"github.com/pkg/errors"
@@ -34,6 +36,8 @@ import (
 type Service struct {
 	scope *scope.ClusterScope
 }
+
+const pgDelimiter = "-"
 
 // NewService creates new service object.
 func NewService(scope *scope.ClusterScope) *Service {
@@ -88,9 +92,10 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 			}
 		}
 		if !foundInStatus {
+			name := fmt.Sprintf("%s%s%s", s.scope.HetznerCluster.Name, pgDelimiter, pgSpec.Name)
 			clusterTagKey := infrav1.ClusterTagKey(s.scope.HetznerCluster.Name)
 			if _, _, err := s.scope.HCloudClient().CreatePlacementGroup(ctx, hcloud.PlacementGroupCreateOpts{
-				Name:   pgSpec.Name,
+				Name:   name,
 				Type:   hcloud.PlacementGroupType(pgSpec.Type),
 				Labels: map[string]string{clusterTagKey: string(infrav1.ResourceLifecycleOwned)},
 			}); err != nil {
@@ -154,7 +159,7 @@ func (s *Service) apiToStatus(placementGroups []*hcloud.PlacementGroup) (status 
 		status = append(status, infrav1.HCloudPlacementGroupStatus{
 			ID:     pg.ID,
 			Server: pg.Servers,
-			Name:   pg.Name,
+			Name:   strings.Split(pg.Name, pgDelimiter)[1],
 			Type:   string(pg.Type),
 		})
 	}
