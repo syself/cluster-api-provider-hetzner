@@ -37,7 +37,6 @@ linters:
   - unparam
   - varcheck
   - whitespace
-  - golint
   - gci
 
 linters-settings:

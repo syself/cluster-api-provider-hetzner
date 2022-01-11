@@ -25,7 +25,7 @@ SHELL = /usr/bin/env bash -o pipefail
 #
 # Go.
 #
-GO_VERSION ?= 1.17.3
+GO_VERSION ?= 1.17.6
 GO_CONTAINER_IMAGE ?= docker.io/library/golang:$(GO_VERSION)
 
 # Use GOPROXY environment variable if set
@@ -261,7 +261,6 @@ modules: ## Runs go mod to ensure modules are up to date.
 .PHONY: lint
 lint: golang-ci-lint $(GOLANGCI_LINT) ## Lint Golang codebase
 	$(GOLANGCI_LINT) run -v $(GOLANGCI_LINT_EXTRA_ARGS)
-	cd $(TOOLS_DIR); $(GOLANGCI_LINT) run -v $(GOLANGCI_LINT_EXTRA_ARGS)
 
 .PHONY: lint-fix
 lint-fix: golang-ci-lint $(GOLANGCI_LINT) ## Lint the Go codebase and run auto-fixers if supported by the linter.
@@ -274,7 +273,7 @@ format-tiltfile: ## Format the Tiltfile
 ALL_VERIFY_CHECKS = boilerplate shellcheck tiltfile modules gen
 
 .PHONY: verify
-verify: $(addprefix verify-,$(ALL_VERIFY_CHECKS)) ## Run all verify-* targets
+verify: $(addprefix verify-,$(ALL_VERIFY_CHECKS)) lint ## Run all verify-* targets
 	@echo "All verify checks passed, congrats!"
 
 
