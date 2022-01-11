@@ -78,21 +78,20 @@ We export the HCloud token as environment variable to use it later. We do the sa
 #### Required configuration for hetzner provider
 
 ```shell
-# The project where your cluster will be placed to.
-# You have to get a token from your HCloud Project. 
-export HCLOUD_TOKEN="<YOUR-TOKEN>" 
-# The SSH Key name you loaded in HCloud 
-export SSH_KEY="<ssh-key-name>"
-# The Image name of your operating system.
-export HCLOUD_IMAGE_NAME=test-image
-export CLUSTER_NAME="my-cluster" 
-export REGION="fsn1" 
-export CONTROL_PLANE_MACHINE_COUNT=1 
-export WORKER_MACHINE_COUNT=1 
-export KUBERNETES_VERSION=1.22.1 
-export HCLOUD_CONTROL_PLANE_MACHINE_TYPE=cpx31 
+export HCLOUD_TOKEN="<YOUR-TOKEN>" \
+export SSH_KEY="<ssh-key-name>" \
+export HCLOUD_IMAGE_NAME=test-image \
+export CLUSTER_NAME="my-cluster" \
+export REGION="fsn1" \
+export CONTROL_PLANE_MACHINE_COUNT=3 \
+export WORKER_MACHINE_COUNT=3 \
+export KUBERNETES_VERSION=1.22.4 \
+export HCLOUD_CONTROL_PLANE_MACHINE_TYPE=cpx31 \
 export HCLOUD_NODE_MACHINE_TYPE=cpx31 
 ```
+HCLOUD_TOKEN: The project where your cluster will be placed to. You have to get a token from your HCloud Project.
+SSH_KEY: The SSH Key name you loaded in HCloud.
+HCLOUD_IMAGE_NAME: The Image name of your operating system. 
 
 For a list of all variables need for generating a cluster manifest (from the cluster-template.yaml) use `clusterctl generate cluster my-cluster --list-variables`:
 ```
@@ -116,6 +115,9 @@ In order for the provider integration hetzner to communicate with the Hetzner AP
 
 ```shell
 kubectl create secret generic hetzner --from-literal=hcloud=$HCLOUD_TOKEN
+
+# Patch the created secret so it is automatically moved to the target cluster later.
+kubectl patch secret hetzner -p '{"metadata":{"labels":{"clusterctl.cluster.x-k8s.io/move":""}}}'
 ``` 
 The secret name and the tokens can also be customized in the cluster template, however, this is out of scope of the quickstart guide.
 
@@ -130,12 +132,12 @@ Generates a YAML file named my-cluster.yaml with a predefined list of Cluster AP
 See also `clusterctl generate cluster --help`.
 
 ```shell
-clusterctl generate cluster my-cluster --kubernetes-version v1.22.1 --control-plane-machine-count=3 --worker-machine-count=3  > my-cluster.yaml
+clusterctl generate cluster my-cluster --kubernetes-version v1.22.4 --control-plane-machine-count=3 --worker-machine-count=3  > my-cluster.yaml
 ```
 
 To use for example the hcloud network use a flavor:
 ```shell
-clusterctl generate cluster my-cluster --kubernetes-version v1.22.1 --control-plane-machine-count=3 --worker-machine-count=3  --flavor hcloud-network > my-cluster.yaml
+clusterctl generate cluster my-cluster --kubernetes-version v1.22.4 --control-plane-machine-count=3 --worker-machine-count=3  --flavor hcloud-network > my-cluster.yaml
 ```
 
 For a full list of flavors please check out the [release page](https://github.com/syself/cluster-api-provider-hetzner/releases) all cluster-templates starts with `cluster-template-`. The flavor name is the suffix.
@@ -170,7 +172,7 @@ clusterctl get kubeconfig my-cluster > $CAPH_WORKER_CLUSTER_KUBECONFIG
 ```shell
 helm repo add cilium https://helm.cilium.io/
 
-KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install cilium cilium/cilium --version 1.11.0 \
+KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install cilium cilium/cilium --version 1.11.0 \
 --namespace kube-system \
 -f templates/cilium/cilium.yaml
 ```
@@ -181,9 +183,10 @@ For a cluster without private network:
 ```shell
 helm repo add syself https://charts.syself.com
 
-KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hcloud --version 1.0.2 \
+KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install ccm syself/ccm-hcloud --version 1.0.2 \
 --namespace kube-system \
---set secret.name=hetzner-token \
+--set secret.name=hetzner \
+--set secret.tokenKeyName=hcloud \
 --set privateNetwork.enabled=false
 ```
 
@@ -202,24 +205,35 @@ kind delete cluster
 
 ## Next Steps
 
+### Switch to the workload cluster
+
+```shell
+export KUBECONFIG=/tmp/workload-kubeconfig
+```
 ### Moving components
 
 In the target cluster run: 
 
+For the latest version:
 ```shell
-clusterctl init --infrastructure hetzner
+clusterctl init --core cluster-api --bootstrap kubeadm --control-plane kubeadm --infrastructure hetzner
+
 ```
-or for a specific version:
-```shell
-clusterctl init --infrastructure hetzner:vX.X.X
-```
+or for a specific version: `--infrastructure hetzner:vX.X.X`
+
 Then switch back to the management cluster!
-`kubectl config use-context kind-<mgt-cluster-name> `
+
+For example with: 
+```shell
+export KUBECONFIG=~/.kube/config
+```
 
 In the management cluster do:
 ```shell
-clusterctl move --to-kubeconfig /tmp/workload-kubeconfig
+clusterctl move --to-kubeconfig $CAPH_WORKER_CLUSTER_KUBECONFIG
 ```
+Clusterctl Flags:
+
 | Flag | Description |
 | ---- | ----------- |
 |*--namespace* | The namespace where the workload cluster is hosted. If unspecified, the current context's namespace is used. |
