@@ -306,7 +306,7 @@ spec:
     spec:
       type: "${HCLOUD_CONTROL_PLANE_MACHINE_TYPE}"
       imageName: "fedora-35"
-      placementGroup: control-plane
+      placementGroupName: control-plane
 ---
 apiVersion: cluster.x-k8s.io/v1beta1
 kind: MachineHealthCheck
@@ -362,7 +362,7 @@ spec:
     spec:
       type: "${HCLOUD_NODE_MACHINE_TYPE}"
       imageName: "fedora-35"
-      placementGroup: md-0
+      placementGroupName: md-0
 ---
 apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
 kind: KubeadmConfigTemplate

@@ -22,22 +22,22 @@ kind: HetznerCluster
 metadata:
   name: "${CLUSTER_NAME}"
 spec:
-  network:
+  hcloudNetwork:
     enabled: true
   controlPlaneRegion: 
-    - "${HETZNER_REGION}"
+    - "${REGION}"
   controlPlaneEndpoint:
     host: ""
     port: 443
   controlPlaneLoadBalancer:
-    region: "${HETZNER_REGION}"
-  placementGroup:
+    region: "${REGION}"
+  hcloudPlacementGroup:
   - name: control-plane
     type: spread
   - name: md-0
     type: spread
   sshKey:
-  - name: "${HETZNER_SSH_KEY}"
+  - name: "${SSH_KEY}"
   hetznerSecretRef:
     name: hetzner
     key:

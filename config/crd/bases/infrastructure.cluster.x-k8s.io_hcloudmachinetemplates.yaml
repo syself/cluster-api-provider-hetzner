@@ -74,7 +74,7 @@ spec:
                         description: ImageName is the reference to the Machine Image
                           from which to create the machine instance.
                         type: string
-                      placementGroup:
+                      placementGroupName:
                         type: string
                       providerID:
                         description: ProviderID is the unique identifier as specified

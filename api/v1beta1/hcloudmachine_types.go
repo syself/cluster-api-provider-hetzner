@@ -49,7 +49,7 @@ type HCloudMachineSpec struct {
 	SSHKey []SSHKeySpec `json:"sshKey,omitempty"`
 
 	// +optional
-	PlacementGroupName *string `json:"placementGroup,omitempty"`
+	PlacementGroupName *string `json:"placementGroupName,omitempty"`
 }
 
 // HCloudMachineStatus defines the observed state of HCloudMachine.
