@@ -37,8 +37,6 @@ type Service struct {
 	scope *scope.ClusterScope
 }
 
-const pgDelimiter = "-"
-
 // NewService creates new service object.
 func NewService(scope *scope.ClusterScope) *Service {
 	return &Service{
@@ -62,16 +60,17 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 
 	// Delete placement groups which are not in status but in specs
 	var multierr []error
-	for _, pg := range placementGroups {
+	for i, pgSts := range s.scope.HetznerCluster.Status.HCloudPlacementGroup {
+		log.Info("pg Status", "i", i, "name", pgSts.Name)
 		var foundInSpecs bool
 		for _, pgSpec := range s.scope.HetznerCluster.Spec.HCloudPlacementGroupSpec {
-			if pg.Name == pgSpec.Name {
+			if pgSts.Name == pgSpec.Name {
 				foundInSpecs = true
 				break
 			}
 		}
 		if !foundInSpecs {
-			if _, err := s.scope.HCloudClient().DeletePlacementGroup(ctx, pg.ID); err != nil {
+			if _, err := s.scope.HCloudClient().DeletePlacementGroup(ctx, pgSts.ID); err != nil {
 				multierr = append(multierr, err)
 			}
 		}
@@ -83,16 +82,17 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 
 	// Create placement groups which are in specs but not in status
 	multierr = []error{}
-	for _, pgSpec := range s.scope.HetznerCluster.Spec.HCloudPlacementGroupSpec {
+	for i, pgSpec := range s.scope.HetznerCluster.Spec.HCloudPlacementGroupSpec {
+		log.Info("pg Spec", "i", i, "name", pgSpec.Name)
 		var foundInStatus bool
-		for _, pg := range placementGroups {
-			if pg.Name == pgSpec.Name {
+		for _, pgSts := range s.scope.HetznerCluster.Status.HCloudPlacementGroup {
+			if pgSts.Name == pgSpec.Name {
 				foundInStatus = true
 				break
 			}
 		}
 		if !foundInStatus {
-			name := fmt.Sprintf("%s%s%s", s.scope.HetznerCluster.Name, pgDelimiter, pgSpec.Name)
+			name := fmt.Sprintf("%s-%s", s.scope.HetznerCluster.Name, pgSpec.Name)
 			clusterTagKey := infrav1.ClusterTagKey(s.scope.HetznerCluster.Name)
 			if _, _, err := s.scope.HCloudClient().CreatePlacementGroup(ctx, hcloud.PlacementGroupCreateOpts{
 				Name:   name,
@@ -159,7 +159,7 @@ func (s *Service) apiToStatus(placementGroups []*hcloud.PlacementGroup) (status 
 		status = append(status, infrav1.HCloudPlacementGroupStatus{
 			ID:     pg.ID,
 			Server: pg.Servers,
-			Name:   strings.Split(pg.Name, pgDelimiter)[1],
+			Name:   strings.TrimPrefix(pg.Name, fmt.Sprintf("%s-", s.scope.HetznerCluster.Name)),
 			Type:   string(pg.Type),
 		})
 	}
