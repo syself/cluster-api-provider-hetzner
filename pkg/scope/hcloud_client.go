@@ -35,6 +35,7 @@ type HCloudClient interface {
 	AddTargetServerToLoadBalancer(context.Context, hcloud.LoadBalancerAddServerTargetOpts, *hcloud.LoadBalancer) (*hcloud.Action, *hcloud.Response, error)
 	DeleteTargetServerOfLoadBalancer(context.Context, *hcloud.LoadBalancer, *hcloud.Server) (*hcloud.Action, *hcloud.Response, error)
 	AddServiceToLoadBalancer(context.Context, *hcloud.LoadBalancer, hcloud.LoadBalancerAddServiceOpts) (*hcloud.Action, *hcloud.Response, error)
+	DeleteServiceFromLoadBalancer(context.Context, *hcloud.LoadBalancer, int) (*hcloud.Action, *hcloud.Response, error)
 	ListImages(context.Context, hcloud.ImageListOpts) ([]*hcloud.Image, error)
 	CreateServer(context.Context, hcloud.ServerCreateOpts) (hcloud.ServerCreateResult, *hcloud.Response, error)
 	AttachServerToNetwork(context.Context, *hcloud.Server, hcloud.ServerAttachToNetworkOpts) (*hcloud.Action, *hcloud.Response, error)
@@ -109,6 +110,10 @@ func (c *realHCloudClient) DeleteTargetServerOfLoadBalancer(ctx context.Context,
 
 func (c *realHCloudClient) AddServiceToLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, opts hcloud.LoadBalancerAddServiceOpts) (*hcloud.Action, *hcloud.Response, error) {
 	return c.client.LoadBalancer.AddService(ctx, lb, opts)
+}
+
+func (c *realHCloudClient) DeleteServiceFromLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, listenPort int) (*hcloud.Action, *hcloud.Response, error) {
+	return c.client.LoadBalancer.DeleteService(ctx, lb, listenPort)
 }
 
 func (c *realHCloudClient) ListImages(ctx context.Context, opts hcloud.ImageListOpts) ([]*hcloud.Image, error) {

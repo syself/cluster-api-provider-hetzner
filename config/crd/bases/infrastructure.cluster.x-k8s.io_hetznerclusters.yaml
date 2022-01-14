@@ -139,7 +139,6 @@ spec:
                     - lb31
                     type: string
                 required:
-                - extraTarget
                 - region
                 type: object
               controlPlaneRegion:

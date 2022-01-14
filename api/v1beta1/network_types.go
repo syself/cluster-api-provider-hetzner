@@ -61,17 +61,17 @@ type LoadBalancerTargetSpec struct {
 	// Protocol specifies the supported Loadbalancer Protocol.
 	// +optional
 	// +kubebuilder:validation:Enum=http;https;tcp
-	Protocol string `json:"protocol"`
+	Protocol string `json:"protocol,omitempty"`
 
 	// Equal Source port, defines the incoming port open on the loadbalancer
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
-	ListenPort int `json:"listenPort"`
+	ListenPort int `json:"listenPort,omitempty"`
 
 	// Defines the port on the server
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
-	DestinationPort int `json:"destinationPort"`
+	DestinationPort int `json:"destinationPort,omitempty"`
 }

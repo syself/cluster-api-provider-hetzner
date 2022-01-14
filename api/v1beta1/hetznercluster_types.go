@@ -100,7 +100,8 @@ type LoadBalancerSpec struct {
 	Port int `json:"port,omitempty"`
 
 	// Defines how traffic will be routed from the Load Balancer to your target server.
-	Targets []LoadBalancerTargetSpec `json:"extraTarget"`
+	// +optional
+	Targets []LoadBalancerTargetSpec `json:"extraTarget,omitempty"`
 
 	Region Region `json:"region"`
 }
