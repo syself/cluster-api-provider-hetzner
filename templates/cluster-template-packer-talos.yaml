@@ -31,12 +31,6 @@ spec:
     port: 443
   controlPlaneLoadBalancer:
     region: "${HETZNER_REGION}"
-    type: lb11
-    algorithm: round_robin
-    services:
-    - listenPort: 443
-      destinationPort: 6443
-      protocol: tcp
   placementGroup:
   - name: control-plane
     type: spread

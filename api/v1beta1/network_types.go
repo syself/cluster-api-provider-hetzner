@@ -56,12 +56,22 @@ func (s *HCloudNetworkSpec) IsZero() bool {
 	return true
 }
 
-// LoadBalancerServiceSpec defines a Loadbalncer Service.
-type LoadBalancerServiceSpec struct {
-	// http, https, tcp
-	Protocol string `json:"protocol"`
+// LoadBalancerTargetSpec defines a Loadbalancer Target.
+type LoadBalancerTargetSpec struct {
+	// Protocol specifies the supported Loadbalancer Protocol.
+	// +optional
+	// +kubebuilder:validation:Enum=http;https;tcp
+	Protocol string `json:"protocol,omitempty"`
+
 	// Equal Source port, defines the incoming port open on the loadbalancer
-	ListenPort int `json:"listenPort"`
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
+	ListenPort int `json:"listenPort,omitempty"`
+
 	// Defines the port on the server
-	DestinationPort int `json:"destinationPort"`
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
+	DestinationPort int `json:"destinationPort,omitempty"`
 }

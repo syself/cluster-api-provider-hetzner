@@ -75,13 +75,53 @@ spec:
                   cluster-api project.
                 properties:
                   algorithm:
-                    description: Could be round-robin or least-connection
-                    enum:
-                    - round_robin
-                    - least_connections
+                    allOf:
+                    - enum:
+                      - round_robin
+                      - least_connections
+                    - enum:
+                      - round_robin
+                      - least_connections
+                    default: round_robin
+                    description: Could be round_robin or least_connection. The default
+                      value is "round_robin".
                     type: string
+                  extraTarget:
+                    description: Defines how traffic will be routed from the Load
+                      Balancer to your target server.
+                    items:
+                      description: LoadBalancerTargetSpec defines a Loadbalancer Target.
+                      properties:
+                        destinationPort:
+                          description: Defines the port on the server
+                          maximum: 65535
+                          minimum: 1
+                          type: integer
+                        listenPort:
+                          description: Equal Source port, defines the incoming port
+                            open on the loadbalancer
+                          maximum: 65535
+                          minimum: 1
+                          type: integer
+                        protocol:
+                          description: Protocol specifies the supported Loadbalancer
+                            Protocol.
+                          enum:
+                          - http
+                          - https
+                          - tcp
+                          type: string
+                      type: object
+                    type: array
                   name:
                     type: string
+                  port:
+                    default: 6443
+                    description: API Server port. It must be valid ports range (1-65535).
+                      If omitted, default value is 6443.
+                    maximum: 65535
+                    minimum: 1
+                    type: integer
                   region:
                     description: Region is a Hetzner Location
                     enum:
@@ -90,29 +130,8 @@ spec:
                     - nbg1
                     - ash
                     type: string
-                  services:
-                    description: Defines how traffic will be routed from the Load
-                      Balancer to your target server.
-                    items:
-                      description: LoadBalancerServiceSpec defines a Loadbalncer Service.
-                      properties:
-                        destinationPort:
-                          description: Defines the port on the server
-                          type: integer
-                        listenPort:
-                          description: Equal Source port, defines the incoming port
-                            open on the loadbalancer
-                          type: integer
-                        protocol:
-                          description: http, https, tcp
-                          type: string
-                      required:
-                      - destinationPort
-                      - listenPort
-                      - protocol
-                      type: object
-                    type: array
                   type:
+                    default: lb11
                     description: Loadbalancer type
                     enum:
                     - lb11
@@ -120,10 +139,7 @@ spec:
                     - lb31
                     type: string
                 required:
-                - algorithm
                 - region
-                - services
-                - type
                 type: object
               controlPlaneRegion:
                 description: ControlPlaneRegion consists of a list of HCloud Regions

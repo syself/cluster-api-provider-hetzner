@@ -26,6 +26,7 @@ import (
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apiserver/pkg/storage/names"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
@@ -66,6 +67,11 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 	// reconcile network attachement
 	if err := s.reconcileNetworkAttachement(ctx, lb); err != nil {
 		return errors.Wrap(err, "failed to reconcile network attachement")
+	}
+
+	// reconcile targets
+	if err := s.reconcileTargets(ctx, lb); err != nil {
+		return errors.Wrap(err, "failed to reconcile targets")
 	}
 
 	// update current status
@@ -118,6 +124,59 @@ func (s *Service) reconcileNetworkAttachement(ctx context.Context, lb *hcloud.Lo
 	return nil
 }
 
+func (s *Service) reconcileTargets(ctx context.Context, lb *hcloud.LoadBalancer) error {
+	// Delete targets which are registered for lb but are not in specs
+	var multierr []error
+	for _, target := range lb.Services {
+		var found bool
+
+		// Do nothing for kubeAPI target
+		if target.ListenPort == int(s.scope.HetznerCluster.Spec.ControlPlaneEndpoint.Port) {
+			continue
+		}
+
+		for _, targetInSpec := range s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Targets {
+			if target.ListenPort == targetInSpec.ListenPort {
+				found = true
+			}
+		}
+
+		if !found {
+			_, _, err := s.scope.HCloudClient().DeleteServiceFromLoadBalancer(ctx, lb, target.ListenPort)
+			if err != nil {
+				multierr = append(multierr, fmt.Errorf("error adding service to load balancer: %s", err))
+			}
+		}
+	}
+
+	// Create targets which are in specs but not registered in Hetzner API
+	for _, targetInSpec := range s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Targets {
+		var found bool
+
+		for _, target := range lb.Services {
+			if target.ListenPort == targetInSpec.ListenPort {
+				found = true
+			}
+		}
+
+		if !found {
+			proxyProtocol := false
+			serviceOpts := hcloud.LoadBalancerAddServiceOpts{
+				Protocol:        hcloud.LoadBalancerServiceProtocol(targetInSpec.Protocol),
+				ListenPort:      &targetInSpec.ListenPort,
+				DestinationPort: &targetInSpec.DestinationPort,
+				Proxyprotocol:   &proxyProtocol,
+			}
+			_, _, err := s.scope.HCloudClient().AddServiceToLoadBalancer(ctx, lb, serviceOpts)
+			if err != nil {
+				multierr = append(multierr, fmt.Errorf("error adding service to load balancer: %s", err))
+			}
+		}
+	}
+
+	return kerrors.NewAggregate(multierr)
+}
+
 func (s *Service) createLoadBalancer(ctx context.Context) (*hcloud.LoadBalancer, error) {
 	log := ctrl.LoggerFrom(ctx)
 
@@ -147,9 +206,6 @@ func (s *Service) createLoadBalancer(ctx context.Context) (*hcloud.LoadBalancer,
 
 	var proxyprotocol bool
 
-	// The first service in the list is the one of kubeAPI
-	kubeAPISpec := s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Services[0]
-
 	clusterTagKey := infrav1.ClusterTagKey(s.scope.HetznerCluster.Name)
 
 	var network *hcloud.Network
@@ -158,6 +214,9 @@ func (s *Service) createLoadBalancer(ctx context.Context) (*hcloud.LoadBalancer,
 			ID: s.scope.HetznerCluster.Status.Network.ID,
 		}
 	}
+
+	listenPort := int(s.scope.HetznerCluster.Spec.ControlPlaneEndpoint.Port)
+
 	opts := hcloud.LoadBalancerCreateOpts{
 		LoadBalancerType: loadBalancerType,
 		Name:             name,
@@ -173,9 +232,9 @@ func (s *Service) createLoadBalancer(ctx context.Context) (*hcloud.LoadBalancer,
 		},
 		Services: []hcloud.LoadBalancerCreateOptsService{
 			{
-				Protocol:        hcloud.LoadBalancerServiceProtocol(kubeAPISpec.Protocol),
-				ListenPort:      &kubeAPISpec.ListenPort,
-				DestinationPort: &kubeAPISpec.DestinationPort,
+				Protocol:        hcloud.LoadBalancerServiceProtocolTCP,
+				ListenPort:      &listenPort,
+				DestinationPort: &s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Port,
 				Proxyprotocol:   &proxyprotocol,
 			},
 		},
@@ -191,22 +250,6 @@ func (s *Service) createLoadBalancer(ctx context.Context) (*hcloud.LoadBalancer,
 		return nil, errors.Wrap(err, "error creating load balancer")
 	}
 
-	// If there is more than one service in the specs, add them here one after another
-	// Adding all at the same time on creation led to an error that the source port is already in use
-	if len(s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Services) > 1 {
-		for _, spec := range s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Services[1:] {
-			serviceOpts := hcloud.LoadBalancerAddServiceOpts{
-				Protocol:        hcloud.LoadBalancerServiceProtocol(spec.Protocol),
-				ListenPort:      &spec.ListenPort,
-				DestinationPort: &spec.DestinationPort,
-				Proxyprotocol:   &proxyprotocol,
-			}
-			_, _, err := s.scope.HCloudClient().AddServiceToLoadBalancer(ctx, res.LoadBalancer, serviceOpts)
-			if err != nil {
-				return nil, fmt.Errorf("error adding service to load balancer: %s", err)
-			}
-		}
-	}
 	record.Eventf(s.scope.HetznerCluster, "CreateLoadBalancer", "Created load balancer")
 	return res.LoadBalancer, nil
 }
