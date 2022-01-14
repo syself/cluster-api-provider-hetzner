@@ -147,9 +147,6 @@ func (s *Service) createLoadBalancer(ctx context.Context) (*hcloud.LoadBalancer,
 
 	var proxyprotocol bool
 
-	// The first service in the list is the one of kubeAPI
-	kubeAPISpec := s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Services[0]
-
 	clusterTagKey := infrav1.ClusterTagKey(s.scope.HetznerCluster.Name)
 
 	var network *hcloud.Network
@@ -158,6 +155,9 @@ func (s *Service) createLoadBalancer(ctx context.Context) (*hcloud.LoadBalancer,
 			ID: s.scope.HetznerCluster.Status.Network.ID,
 		}
 	}
+
+	listenPort := int(s.scope.HetznerCluster.Spec.ControlPlaneEndpoint.Port)
+
 	opts := hcloud.LoadBalancerCreateOpts{
 		LoadBalancerType: loadBalancerType,
 		Name:             name,
@@ -173,9 +173,9 @@ func (s *Service) createLoadBalancer(ctx context.Context) (*hcloud.LoadBalancer,
 		},
 		Services: []hcloud.LoadBalancerCreateOptsService{
 			{
-				Protocol:        hcloud.LoadBalancerServiceProtocol(kubeAPISpec.Protocol),
-				ListenPort:      &kubeAPISpec.ListenPort,
-				DestinationPort: &kubeAPISpec.DestinationPort,
+				Protocol:        hcloud.LoadBalancerServiceProtocolTCP,
+				ListenPort:      &listenPort,
+				DestinationPort: &s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Port,
 				Proxyprotocol:   &proxyprotocol,
 			},
 		},

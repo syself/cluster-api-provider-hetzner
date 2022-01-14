@@ -247,7 +247,7 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 	// destinationPort as default
 	if hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4 != "<nil>" {
 		var defaultHost = hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4
-		var defaultPort = int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Services[0].DestinationPort)
+		var defaultPort = int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port)
 
 		if hetznerCluster.Spec.ControlPlaneEndpoint == nil {
 			hetznerCluster.Spec.ControlPlaneEndpoint = &clusterv1.APIEndpoint{

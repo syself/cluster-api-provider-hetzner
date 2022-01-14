@@ -80,15 +80,27 @@ type LoadBalancerSpec struct {
 	// +optional
 	Name *string `json:"name,omitempty"`
 
-	// Could be round-robin or least-connection
-	Algorithm LoadBalancerAlgorithmType `json:"algorithm"`
+	// Could be round_robin or least_connection. The default value is "round_robin".
+	// +optional
+	// +kubebuilder:validation:Enum=round_robin;least_connections
+	// +kubebuilder:default=round_robin
+	Algorithm LoadBalancerAlgorithmType `json:"algorithm,omitempty"`
 
 	// Loadbalancer type
+	// +optional
 	// +kubebuilder:validation:Enum=lb11;lb21;lb31
-	Type string `json:"type"`
+	// +kubebuilder:default=lb11
+	Type string `json:"type,omitempty"`
+
+	// API Server port. It must be valid ports range (1-65535). If omitted, default value is 6443.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
+	// +kubebuilder:default=6443
+	Port int `json:"port,omitempty"`
 
 	// Defines how traffic will be routed from the Load Balancer to your target server.
-	Services []LoadBalancerServiceSpec `json:"services"`
+	Targets []LoadBalancerTargetSpec `json:"extraTarget"`
 
 	Region Region `json:"region"`
 }
