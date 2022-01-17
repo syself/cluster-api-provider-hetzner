@@ -44,10 +44,10 @@ type HetznerClusterSpec struct {
 	// have a very low latency we could assume in some use-cases that a region is behaving like a zone
 	// https://kubernetes.io/docs/reference/labels-annotations-taints/#topologykubernetesiozone
 	// +kubebuilder:validation:MinItems=1
-	ControlPlaneRegion []Region `json:"controlPlaneRegion"`
+	ControlPlaneRegion []Region `json:"controlPlaneRegions"`
 
 	// define cluster wide SSH keys. Valid values are a valid SSH key name, or a valid ID.
-	SSHKey []SSHKeySpec `json:"sshKey,omitempty"`
+	SSHKey []SSHKeySpec `json:"sshKeys,omitempty"`
 	// ControlPlaneEndpoint represents the endpoint used to communicate with the control plane.
 	// +optional
 	ControlPlaneEndpoint *clusterv1.APIEndpoint `json:"controlPlaneEndpoint"`
@@ -57,7 +57,7 @@ type HetznerClusterSpec struct {
 	ControlPlaneLoadBalancer LoadBalancerSpec `json:"controlPlaneLoadBalancer,omitempty"`
 
 	// +optional
-	HCloudPlacementGroupSpec []HCloudPlacementGroupSpec `json:"hcloudPlacementGroup,omitempty"`
+	HCloudPlacementGroupSpec []HCloudPlacementGroupSpec `json:"hcloudPlacementGroups,omitempty"`
 
 	// HetznerSecretRef is a reference to a token to be used when reconciling this cluster.
 	// This is generated in the Security section under API TOKENS. Read & Write is necessary.
@@ -101,7 +101,7 @@ type LoadBalancerSpec struct {
 
 	// Defines how traffic will be routed from the Load Balancer to your target server.
 	// +optional
-	Targets []LoadBalancerTargetSpec `json:"extraTarget,omitempty"`
+	Targets []LoadBalancerTargetSpec `json:"extraTargets,omitempty"`
 
 	Region Region `json:"region"`
 }
@@ -112,7 +112,7 @@ type LoadBalancerStatus struct {
 	IPv4       string `json:"ipv4,omitempty"`
 	IPv6       string `json:"ipv6,omitempty"`
 	InternalIP string `json:"internalIP,omitempty"`
-	Target     []int  `json:"target,omitempty"`
+	Target     []int  `json:"targets,omitempty"`
 	Protected  bool   `json:"protected,omitempty"`
 }
 
@@ -126,7 +126,7 @@ type HetznerClusterStatus struct {
 
 	ControlPlaneLoadBalancer *LoadBalancerStatus `json:"controlPlaneLoadBalancer,omitempty"`
 	// +optional
-	HCloudPlacementGroup []HCloudPlacementGroupStatus `json:"hcloudPlacementGroup,omitempty"`
+	HCloudPlacementGroup []HCloudPlacementGroupStatus `json:"hcloudPlacementGroups,omitempty"`
 	FailureDomains       clusterv1.FailureDomains     `json:"failureDomains,omitempty"`
 	Conditions           clusterv1.Conditions         `json:"conditions,omitempty"`
 }

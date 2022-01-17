@@ -42,7 +42,7 @@ type HCloudPlacementGroupSpec struct {
 // HCloudPlacementGroupStatus returns the status of a Placementgroup.
 type HCloudPlacementGroupStatus struct {
 	ID     int    `json:"id,omitempty"`
-	Server []int  `json:"server,omitempty"`
+	Server []int  `json:"servers,omitempty"`
 	Name   string `json:"name,omitempty"`
 	Type   string `json:"type,omitempty"`
 }

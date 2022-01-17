@@ -24,19 +24,19 @@ metadata:
 spec:
   hcloudNetwork:
     enabled: true
-  controlPlaneRegion: 
+  controlPlaneRegions: 
     - "${REGION}"
   controlPlaneEndpoint:
     host: ""
     port: 443
   controlPlaneLoadBalancer:
     region: "${REGION}"
-  hcloudPlacementGroup:
+  hcloudPlacementGroups:
   - name: control-plane
     type: spread
   - name: md-0
     type: spread
-  sshKey:
+  sshKeys:
   - name: "${SSH_KEY}"
   hetznerSecretRef:
     name: hetzner

@@ -80,7 +80,7 @@ spec:
                         description: ProviderID is the unique identifier as specified
                           by the cloud provider.
                         type: string
-                      sshKey:
+                      sshKeys:
                         description: define Machine specific SSH keys, overrides cluster
                           wide SSH keys
                         items:
