@@ -86,7 +86,7 @@ spec:
                     description: Could be round_robin or least_connection. The default
                       value is "round_robin".
                     type: string
-                  extraTarget:
+                  extraTargets:
                     description: Defines how traffic will be routed from the Load
                       Balancer to your target server.
                     items:
@@ -141,7 +141,7 @@ spec:
                 required:
                 - region
                 type: object
-              controlPlaneRegion:
+              controlPlaneRegions:
                 description: ControlPlaneRegion consists of a list of HCloud Regions
                   (fsn, nbg, hel). Because HCloud Networks have a very low latency
                   we could assume in some use-cases that a region is behaving like
@@ -177,7 +177,7 @@ spec:
                 required:
                 - enabled
                 type: object
-              hcloudPlacementGroup:
+              hcloudPlacementGroups:
                 items:
                   description: HCloudPlacementGroupSpec defines a PlacementGroup.
                   properties:
@@ -208,7 +208,7 @@ spec:
                 - key
                 - name
                 type: object
-              sshKey:
+              sshKeys:
                 description: define cluster wide SSH keys. Valid values are a valid
                   SSH key name, or a valid ID.
                 items:
@@ -221,7 +221,7 @@ spec:
                   type: object
                 type: array
             required:
-            - controlPlaneRegion
+            - controlPlaneRegions
             - hetznerSecretRef
             type: object
           status:
@@ -287,7 +287,7 @@ spec:
                     type: string
                   protected:
                     type: boolean
-                  target:
+                  targets:
                     items:
                       type: integer
                     type: array
@@ -311,7 +311,7 @@ spec:
                   type: object
                 description: FailureDomains is a slice of FailureDomains.
                 type: object
-              hcloudPlacementGroup:
+              hcloudPlacementGroups:
                 items:
                   description: HCloudPlacementGroupStatus returns the status of a
                     Placementgroup.
@@ -320,7 +320,7 @@ spec:
                       type: integer
                     name:
                       type: string
-                    server:
+                    servers:
                       items:
                         type: integer
                       type: array
@@ -332,7 +332,7 @@ spec:
                 description: NetworkStatus defines the observed state of the HCloud
                   Private Network.
                 properties:
-                  attachedServer:
+                  attachedServers:
                     items:
                       type: integer
                     type: array

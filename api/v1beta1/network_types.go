@@ -35,7 +35,7 @@ type HCloudNetworkSpec struct {
 type NetworkStatus struct {
 	ID             int               `json:"id,omitempty"`
 	Labels         map[string]string `json:"-"`
-	AttachedServer []int             `json:"attachedServer,omitempty"`
+	AttachedServer []int             `json:"attachedServers,omitempty"`
 }
 
 // Region is a Hetzner Location

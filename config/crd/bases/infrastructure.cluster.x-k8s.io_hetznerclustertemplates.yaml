@@ -121,7 +121,7 @@ spec:
                             description: Could be round_robin or least_connection.
                               The default value is "round_robin".
                             type: string
-                          extraTarget:
+                          extraTargets:
                             description: Defines how traffic will be routed from the
                               Load Balancer to your target server.
                             items:
@@ -177,7 +177,7 @@ spec:
                         required:
                         - region
                         type: object
-                      controlPlaneRegion:
+                      controlPlaneRegions:
                         description: ControlPlaneRegion consists of a list of HCloud
                           Regions (fsn, nbg, hel). Because HCloud Networks have a
                           very low latency we could assume in some use-cases that
@@ -213,7 +213,7 @@ spec:
                         required:
                         - enabled
                         type: object
-                      hcloudPlacementGroup:
+                      hcloudPlacementGroups:
                         items:
                           description: HCloudPlacementGroupSpec defines a PlacementGroup.
                           properties:
@@ -246,7 +246,7 @@ spec:
                         - key
                         - name
                         type: object
-                      sshKey:
+                      sshKeys:
                         description: define cluster wide SSH keys. Valid values are
                           a valid SSH key name, or a valid ID.
                         items:
@@ -259,7 +259,7 @@ spec:
                           type: object
                         type: array
                     required:
-                    - controlPlaneRegion
+                    - controlPlaneRegions
                     - hetznerSecretRef
                     type: object
                 required:
