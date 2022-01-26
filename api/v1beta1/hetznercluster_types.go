@@ -44,6 +44,7 @@ type HetznerClusterSpec struct {
 	// have a very low latency we could assume in some use-cases that a region is behaving like a zone
 	// https://kubernetes.io/docs/reference/labels-annotations-taints/#topologykubernetesiozone
 	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:default={fsn1}
 	ControlPlaneRegion []Region `json:"controlPlaneRegions"`
 
 	// define cluster wide SSH keys. Valid values are a valid SSH key name, or a valid ID.
