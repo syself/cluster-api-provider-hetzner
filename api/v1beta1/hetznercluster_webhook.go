@@ -21,16 +21,16 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 // log is for logging in this package.
-var hetznerclusterlog = logf.Log.WithName("hetznercluster-resource")
+var hetznerclusterlog = utils.GetDefaultLogger("info").WithName("hetznercluster-resource")
 
 var regionNetworkZoneMap = map[string]string{
 	"fsn1": "eu-central",
@@ -68,6 +68,7 @@ var _ webhook.Validator = &HetznerCluster{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
 func (r *HetznerCluster) ValidateCreate() error {
+	hetznerclusterlog.V(1).Info("validate create", "name", r.Name)
 	// Check whether regions are all in same network zone
 	if !r.Spec.HCloudNetwork.NetworkEnabled {
 		return isNetworkZoneSameForAllRegions(r.Spec.ControlPlaneRegions, nil)
@@ -94,20 +95,12 @@ func isNetworkZoneSameForAllRegions(regions []Region, defaultNetworkZone *string
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
 func (r *HetznerCluster) ValidateUpdate(old runtime.Object) error {
-	hetznerclusterlog.Info("validate update", "name", r.Name)
-
+	hetznerclusterlog.V(1).Info("validate update", "name", r.Name)
 	var allErrs field.ErrorList
 
 	oldC, ok := old.(*HetznerCluster)
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected an HetznerCluster but got a %T", old))
-	}
-
-	// Control plane endpoint is immutable
-	if !reflect.DeepEqual(oldC.Spec.ControlPlaneEndpoint, r.Spec.ControlPlaneEndpoint) {
-		allErrs = append(allErrs,
-			field.Invalid(field.NewPath("spec", "controlPlaneEndpoint"), r.Spec.ControlPlaneEndpoint, "field is immutable"),
-		)
 	}
 
 	// Network settings are immutable
@@ -121,7 +114,7 @@ func (r *HetznerCluster) ValidateUpdate(old runtime.Object) error {
 	if oldC.Spec.HCloudNetwork.NetworkEnabled {
 		var defaultNetworkZone *string
 		if len(oldC.Spec.ControlPlaneRegions) > 0 {
-			str := string(oldC.Spec.ControlPlaneRegions[0])
+			str := regionNetworkZoneMap[string(oldC.Spec.ControlPlaneRegions[0])]
 			defaultNetworkZone = &str
 		}
 		if err := isNetworkZoneSameForAllRegions(r.Spec.ControlPlaneRegions, defaultNetworkZone); err != nil {
@@ -148,5 +141,6 @@ func (r *HetznerCluster) ValidateUpdate(old runtime.Object) error {
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
 func (r *HetznerCluster) ValidateDelete() error {
+	hetznerclusterlog.V(1).Info("validate delete", "name", r.Name)
 	return nil
 }

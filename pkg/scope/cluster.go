@@ -155,7 +155,7 @@ func (s *ClusterScope) SetStatusFailureDomain(regions []infrav1.Region) {
 
 // ControlPlaneAPIEndpointPort returns the Port of the Kube-api server.
 func (s *ClusterScope) ControlPlaneAPIEndpointPort() int32 {
-	return s.HetznerCluster.Spec.ControlPlaneEndpoint.Port
+	return int32(s.HetznerCluster.Spec.ControlPlaneLoadBalancer.Port)
 }
 
 // ClientConfig return a kubernetes client config for the cluster context.

@@ -63,8 +63,6 @@ type HetznerClusterReconciler struct {
 	targetClusterManagersStopCh map[types.NamespacedName]chan struct{}
 	targetClusterManagersLock   sync.Mutex
 
-	MetricsAddr          string
-	ProbeAddr            string
 	EnableLeaderElection bool
 	WatchNamespace       string
 }
@@ -285,12 +283,12 @@ func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope
 	// getting client set
 	restConfig, err := clientConfig.ClientConfig()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to get rest config")
 	}
 
 	clientSet, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to get client set")
 	}
 
 	if _, err := clientSet.CoreV1().Secrets("kube-system").Get(
@@ -300,7 +298,7 @@ func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope
 	); err != nil {
 		// Set new secret only when no secret was found
 		if !strings.HasSuffix(err.Error(), "not found") {
-			return err
+			return errors.Wrap(err, "failed to get secret")
 		}
 
 		var tokenSecret corev1.Secret
@@ -344,7 +342,7 @@ func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope
 
 		// create secret in cluster
 		if _, err := clientSet.CoreV1().Secrets("kube-system").Create(ctx, &newSecret, metav1.CreateOptions{}); err != nil {
-			return err
+			return errors.Wrap(err, "failed to create secret")
 		}
 	}
 	return nil
@@ -433,11 +431,9 @@ func (r *HetznerClusterReconciler) newTargetClusterManager(ctx context.Context, 
 		restConfig,
 		ctrl.Options{
 			Scheme:                     scheme,
-			MetricsBindAddress:         r.MetricsAddr,
-			Port:                       9443,
-			HealthProbeBindAddress:     r.ProbeAddr,
+			MetricsBindAddress:         "0",
 			LeaderElection:             r.EnableLeaderElection,
-			LeaderElectionID:           "hetzner.cluster.x-k8s.io",
+			LeaderElectionID:           fmt.Sprintf("%s.%s.hetzner.cluster.x-k8s.io", hetznerCluster.Name, hetznerCluster.Namespace),
 			LeaderElectionResourceLock: "leases",
 			Namespace:                  r.WatchNamespace,
 		},

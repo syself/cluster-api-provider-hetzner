@@ -56,7 +56,7 @@ func GetDefaultLogger(logLevel string) logr.Logger {
 
 			LineEnding:     zapcore.DefaultLineEnding,
 			EncodeCaller:   zapcore.ShortCallerEncoder,
-			EncodeLevel:    zapcore.LowercaseColorLevelEncoder,
+			EncodeLevel:    zapcore.CapitalLevelEncoder,
 			EncodeTime:     zapcore.ISO8601TimeEncoder,
 			EncodeName:     zapcore.FullNameEncoder,
 			EncodeDuration: zapcore.SecondsDurationEncoder,

@@ -20,15 +20,16 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 // log is for logging in this package.
-var hcloudmachinelog = logf.Log.WithName("hcloudmachine-resource")
+var hcloudmachinelog = utils.GetDefaultLogger("info").WithName("hcloudmachine-resource")
 
 // SetupWebhookWithManager initializes webhook manager for HCloudMachine.
 func (r *HCloudMachine) SetupWebhookWithManager(mgr ctrl.Manager) error {
@@ -57,28 +58,54 @@ var _ webhook.Validator = &HCloudMachine{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
 func (r *HCloudMachine) ValidateCreate() error {
-	hcloudmachinelog.Info("validate create", "name", r.Name)
+	hcloudmachinelog.V(1).Info("validate create", "name", r.Name)
 	return nil
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
 func (r *HCloudMachine) ValidateUpdate(old runtime.Object) error {
-	hcloudmachinelog.Info("validate update", "name", r.Name)
+	hcloudmachinelog.V(1).Info("validate update", "name", r.Name)
 
 	oldM, ok := old.(*HCloudMachine)
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected an HCloudMachine but got a %T", old))
 	}
 
-	if !reflect.DeepEqual(r.Spec, oldM.Spec) {
-		return apierrors.NewBadRequest("HCloudMachineTemplate.Spec is immutable")
+	var allErrs field.ErrorList
+
+	// Type is immutable
+	if !reflect.DeepEqual(oldM.Spec.Type, r.Spec.Type) {
+		allErrs = append(allErrs,
+			field.Invalid(field.NewPath("spec", "type"), r.Spec.Type, "field is immutable"),
+		)
 	}
 
-	return nil
+	// ImageName is immutable
+	if !reflect.DeepEqual(oldM.Spec.ImageName, r.Spec.ImageName) {
+		allErrs = append(allErrs,
+			field.Invalid(field.NewPath("spec", "imageName"), r.Spec.ImageName, "field is immutable"),
+		)
+	}
+
+	// SSHKeys is immutable
+	if !reflect.DeepEqual(oldM.Spec.SSHKeys, r.Spec.SSHKeys) {
+		allErrs = append(allErrs,
+			field.Invalid(field.NewPath("spec", "sshKeys"), r.Spec.SSHKeys, "field is immutable"),
+		)
+	}
+
+	// Placement group name is immutable
+	if !reflect.DeepEqual(oldM.Spec.PlacementGroupName, r.Spec.PlacementGroupName) {
+		allErrs = append(allErrs,
+			field.Invalid(field.NewPath("spec", "placementGroupName"), r.Spec.PlacementGroupName, "field is immutable"),
+		)
+	}
+
+	return aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
 func (r *HCloudMachine) ValidateDelete() error {
-	hcloudmachinelog.Info("validate delete", "name", r.Name)
+	hcloudmachinelog.V(1).Info("validate delete", "name", r.Name)
 	return nil
 }
