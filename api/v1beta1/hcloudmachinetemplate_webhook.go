@@ -19,15 +19,15 @@ package v1beta1
 import (
 	"reflect"
 
+	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 // log is for logging in this package.
-var hcloudmachinetemplatelog = logf.Log.WithName("hcloudmachinetemplate-resource")
+var hcloudmachinetemplatelog = utils.GetDefaultLogger("info").WithName("hcloudmachinetemplate-resource")
 
 // SetupWebhookWithManager initializes webhook manager for HetznerMachineTemplate.
 func (r *HCloudMachineTemplate) SetupWebhookWithManager(mgr ctrl.Manager) error {
@@ -56,16 +56,16 @@ var _ webhook.Validator = &HCloudMachineTemplate{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
 func (r *HCloudMachineTemplate) ValidateCreate() error {
-	hcloudmachinetemplatelog.Info("validate create", "name", r.Name)
+	hcloudmachinetemplatelog.V(1).Info("validate create", "name", r.Name)
 	return nil
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
 func (r *HCloudMachineTemplate) ValidateUpdate(old runtime.Object) error {
-	hcloudmachinetemplatelog.Info("validate update", "name", r.Name)
+	hcloudmachinetemplatelog.V(1).Info("validate update", "name", r.Name)
 	oldHCloudMachineTemplate := old.(*HCloudMachineTemplate)
-
 	if !reflect.DeepEqual(r.Spec, oldHCloudMachineTemplate.Spec) {
+		hcloudmachinetemplatelog.Info("not equal", "new HcloudMachineTemplateSpec", r.Spec, "old HcloudMachineTemplateSpec", oldHCloudMachineTemplate.Spec)
 		return apierrors.NewBadRequest("HCloudMachineTemplate.Spec is immutable")
 	}
 
@@ -74,6 +74,6 @@ func (r *HCloudMachineTemplate) ValidateUpdate(old runtime.Object) error {
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
 func (r *HCloudMachineTemplate) ValidateDelete() error {
-	hcloudmachinetemplatelog.Info("validate delete", "name", r.Name)
+	hcloudmachinetemplatelog.V(1).Info("validate delete", "name", r.Name)
 	return nil
 }

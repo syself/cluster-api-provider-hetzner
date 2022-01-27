@@ -20,15 +20,15 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 // log is for logging in this package.
-var hetznerclustertemplatelog = logf.Log.WithName("hetznerclustertemplate-resource")
+var hetznerclustertemplatelog = utils.GetDefaultLogger("info").WithName("hetznerclustertemplate-resource")
 
 // SetupWebhookWithManager initializes webhook manager for HetznerClusterTemplate.
 func (r *HetznerClusterTemplate) SetupWebhookWithManager(mgr ctrl.Manager) error {
@@ -42,7 +42,7 @@ var _ webhook.Defaulter = &HetznerClusterTemplate{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type.
 func (r *HetznerClusterTemplate) Default() {
-	hetznerclustertemplatelog.Info("default", "name", r.Name)
+	hetznerclustertemplatelog.V(1).Info("default", "name", r.Name)
 }
 
 //+kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerclustertemplate,mutating=false,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerclustertemplates,verbs=create;update,versions=v1beta1,name=validation.hetznerclustertemplate.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
@@ -51,13 +51,13 @@ var _ webhook.Validator = &HetznerClusterTemplate{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
 func (r *HetznerClusterTemplate) ValidateCreate() error {
-	hetznerclustertemplatelog.Info("validate create", "name", r.Name)
+	hetznerclustertemplatelog.V(1).Info("validate create", "name", r.Name)
 	return nil
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
 func (r *HetznerClusterTemplate) ValidateUpdate(oldRaw runtime.Object) error {
-	hetznerclustertemplatelog.Info("validate update", "name", r.Name)
+	hetznerclustertemplatelog.V(1).Info("validate update", "name", r.Name)
 	old, ok := oldRaw.(*HetznerClusterTemplate)
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected an HetznerClusterTemplate but got a %T", oldRaw))
@@ -71,5 +71,6 @@ func (r *HetznerClusterTemplate) ValidateUpdate(oldRaw runtime.Object) error {
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
 func (r *HetznerClusterTemplate) ValidateDelete() error {
+	hetznerclustertemplatelog.V(1).Info("validate delete", "name", r.Name)
 	return nil
 }

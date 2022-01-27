@@ -100,8 +100,6 @@ func main() {
 		Client:               mgr.GetClient(),
 		WatchFilterValue:     watchFilterValue,
 		Scheme:               mgr.GetScheme(),
-		MetricsAddr:          metricsAddr,
-		ProbeAddr:            probeAddr,
 		EnableLeaderElection: enableLeaderElection,
 		WatchNamespace:       watchNamespace,
 	}).SetupWithManager(ctx, mgr, controller.Options{}); err != nil {

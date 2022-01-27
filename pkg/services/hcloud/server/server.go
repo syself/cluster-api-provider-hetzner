@@ -20,6 +20,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
@@ -367,9 +368,10 @@ func (s *Service) Delete(ctx context.Context) (_ *ctrl.Result, err error) {
 		return nil, nil
 	}
 
-	err = s.deleteServerOfLoadBalancer(ctx, server)
-	if err != nil {
-		return &reconcile.Result{}, errors.Errorf("Error while deleting attached server of loadbalancer: %s", err)
+	if s.scope.IsControlPlane() {
+		if err := s.deleteServerOfLoadBalancer(ctx, server); err != nil {
+			return &reconcile.Result{}, errors.Errorf("Error while deleting attached server of loadbalancer: %s", err)
+		}
 	}
 
 	// First shut the server down, then delete it
@@ -516,7 +518,7 @@ func (s *Service) deleteServerOfLoadBalancer(ctx context.Context, server *hcloud
 			ID: s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID,
 		},
 		server); err != nil {
-		if hcloud.IsError(err, hcloud.ErrorCodeNotFound) {
+		if strings.Contains(err.Error(), "load_balancer_target_not_found") {
 			return nil
 		}
 		s.scope.V(1).Info("Could not delete server as target of load balancer",
