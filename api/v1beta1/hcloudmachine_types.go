@@ -39,14 +39,14 @@ type HCloudMachineSpec struct {
 
 	// Type is the HCloud Machine Type for this machine.
 	// +kubebuilder:validation:Enum=cpx11;cx21;cpx21;cx31;cpx31;cx41;cpx41;cx51;cpx51;ccx11;ccx12;ccx21;ccx22;ccx31;ccx32;ccx41;ccx42;ccx51;ccx52;ccx62;
-	Type HCloudMachineTypeSpec `json:"type"`
+	Type HCloudMachineType `json:"type"`
 
 	// ImageName is the reference to the Machine Image from which to create the machine instance.
 	ImageName string `json:"imageName"`
 
 	// define Machine specific SSH keys, overrides cluster wide SSH keys
 	// +optional
-	SSHKey []SSHKeySpec `json:"sshKeys,omitempty"`
+	SSHKeys []SSHKey `json:"sshKeys,omitempty"`
 
 	// +optional
 	PlacementGroupName *string `json:"placementGroupName,omitempty"`
@@ -61,6 +61,7 @@ type HCloudMachineStatus struct {
 	// Addresses contains the server's associated addresses.
 	Addresses []corev1.NodeAddress `json:"addresses,omitempty"`
 
+	// Region contains the name of the HCloud location the server is running.
 	Region Region `json:"region,omitempty"`
 
 	// InstanceState is the state of the server for this machine.

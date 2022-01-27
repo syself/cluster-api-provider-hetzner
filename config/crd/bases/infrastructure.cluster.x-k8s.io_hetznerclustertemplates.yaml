@@ -129,13 +129,14 @@ spec:
                                 Target.
                               properties:
                                 destinationPort:
-                                  description: Defines the port on the server
+                                  description: DestinationPort defines the port on
+                                    the server.
                                   maximum: 65535
                                   minimum: 1
                                   type: integer
                                 listenPort:
-                                  description: Equal Source port, defines the incoming
-                                    port open on the loadbalancer
+                                  description: ListenPort, i.e. source port, defines
+                                    the incoming port open on the loadbalancer.
                                   maximum: 65535
                                   minimum: 1
                                   type: integer
@@ -159,7 +160,8 @@ spec:
                             minimum: 1
                             type: integer
                           region:
-                            description: Region is a Hetzner Location
+                            description: Region contains the name of the HCloud location
+                              the load balancer is running.
                             enum:
                             - fsn1
                             - hel1
@@ -200,17 +202,22 @@ spec:
                         properties:
                           cidrBlock:
                             default: 10.0.0.0/16
-                            description: Defines the cidrBlock of the HCloud Network.
-                              A Subnet is required.
+                            description: CIDRBlock defines the cidrBlock of the HCloud
+                              Network. A Subnet is required.
                             type: string
                           enabled:
+                            description: NetworkEnabled defines whether the network
+                              should be enabled or not
                             type: boolean
                           networkZone:
                             default: eu-central
-                            description: HCloudNetworkZone describes the Network zone.
+                            description: NetworkZone specifies the HCloud network
+                              zone of the private network.
                             type: string
                           subnetCidrBlock:
                             default: 10.0.0.0/24
+                            description: SubnetCIDRBlock defines the cidrBlock for
+                              the subnet of the HCloud Network.
                             type: string
                         required:
                         - enabled
@@ -230,7 +237,7 @@ spec:
                       hetznerSecretRef:
                         description: HetznerSecretRef is a reference to a token to
                           be used when reconciling this cluster. This is generated
-                          in the Security section under API TOKENS. Read & Write is
+                          in the security section under API TOKENS. Read & write is
                           necessary.
                         properties:
                           key:
@@ -252,7 +259,7 @@ spec:
                         description: define cluster wide SSH keys. Valid values are
                           a valid SSH key name, or a valid ID.
                         items:
-                          description: SSHKeySpec defines the SSHKey.
+                          description: SSHKey defines the SSHKey.
                           properties:
                             id:
                               type: integer

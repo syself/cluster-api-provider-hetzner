@@ -26,29 +26,23 @@ const (
 	// resources associated with HetznerCluster before removing it from the
 	// apiserver.
 	ClusterFinalizer = "hetznercluster.infrastructure.cluster.x-k8s.io"
-
-	// LoadBalancerAlgorithmTypeRoundRobin default for the Kubernetes Api Server loadbalancer.
-	LoadBalancerAlgorithmTypeRoundRobin = LoadBalancerAlgorithmType("round_robin")
-
-	// LoadBalancerAlgorithmTypeLeastConnections default for Loadbalancer.
-	LoadBalancerAlgorithmTypeLeastConnections = LoadBalancerAlgorithmType("least_connections")
 )
 
 // HetznerClusterSpec defines the desired state of HetznerCluster.
 type HetznerClusterSpec struct {
 	// HCloudNetworkSpec defines the Network for Hetzner Cloud. If left empty no private Network is configured.
 	// +optional
-	HCloudNetworkSpec HCloudNetworkSpec `json:"hcloudNetwork"`
+	HCloudNetwork HCloudNetworkSpec `json:"hcloudNetwork"`
 
 	// ControlPlaneRegion consists of a list of HCloud Regions (fsn, nbg, hel). Because HCloud Networks
 	// have a very low latency we could assume in some use-cases that a region is behaving like a zone
 	// https://kubernetes.io/docs/reference/labels-annotations-taints/#topologykubernetesiozone
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:default={fsn1}
-	ControlPlaneRegion []Region `json:"controlPlaneRegions"`
+	ControlPlaneRegions []Region `json:"controlPlaneRegions"`
 
 	// define cluster wide SSH keys. Valid values are a valid SSH key name, or a valid ID.
-	SSHKey []SSHKeySpec `json:"sshKeys,omitempty"`
+	SSHKeys []SSHKey `json:"sshKeys,omitempty"`
 	// ControlPlaneEndpoint represents the endpoint used to communicate with the control plane.
 	// +optional
 	ControlPlaneEndpoint *clusterv1.APIEndpoint `json:"controlPlaneEndpoint"`
@@ -58,63 +52,11 @@ type HetznerClusterSpec struct {
 	ControlPlaneLoadBalancer LoadBalancerSpec `json:"controlPlaneLoadBalancer,omitempty"`
 
 	// +optional
-	HCloudPlacementGroupSpec []HCloudPlacementGroupSpec `json:"hcloudPlacementGroups,omitempty"`
+	HCloudPlacementGroup []HCloudPlacementGroupSpec `json:"hcloudPlacementGroups,omitempty"`
 
 	// HetznerSecretRef is a reference to a token to be used when reconciling this cluster.
-	// This is generated in the Security section under API TOKENS. Read & Write is necessary.
-	HetznerSecretRef HetznerSecretRef `json:"hetznerSecretRef"`
-}
-
-// HetznerSecretRef defines all the name of the secret and the relevant keys needed to access Hetzner API.
-type HetznerSecretRef struct {
-	Name string              `json:"name"`
-	Key  HetznerSecretKeyRef `json:"key"`
-}
-
-// HetznerSecretKeyRef defines the key name of the HetznerSecret.
-type HetznerSecretKeyRef struct {
-	HCloudToken string `json:"hcloudToken"`
-}
-
-// LoadBalancerSpec defines the desired state of the Control Plane Loadbalancer.
-type LoadBalancerSpec struct {
-	// +optional
-	Name *string `json:"name,omitempty"`
-
-	// Could be round_robin or least_connection. The default value is "round_robin".
-	// +optional
-	// +kubebuilder:validation:Enum=round_robin;least_connections
-	// +kubebuilder:default=round_robin
-	Algorithm LoadBalancerAlgorithmType `json:"algorithm,omitempty"`
-
-	// Loadbalancer type
-	// +optional
-	// +kubebuilder:validation:Enum=lb11;lb21;lb31
-	// +kubebuilder:default=lb11
-	Type string `json:"type,omitempty"`
-
-	// API Server port. It must be valid ports range (1-65535). If omitted, default value is 6443.
-	// +optional
-	// +kubebuilder:validation:Minimum=1
-	// +kubebuilder:validation:Maximum=65535
-	// +kubebuilder:default=6443
-	Port int `json:"port,omitempty"`
-
-	// Defines how traffic will be routed from the Load Balancer to your target server.
-	// +optional
-	Targets []LoadBalancerTargetSpec `json:"extraTargets,omitempty"`
-
-	Region Region `json:"region"`
-}
-
-// LoadBalancerStatus defines the obeserved state of the control plane loadbalancer.
-type LoadBalancerStatus struct {
-	ID         int    `json:"id,omitempty"`
-	IPv4       string `json:"ipv4,omitempty"`
-	IPv6       string `json:"ipv6,omitempty"`
-	InternalIP string `json:"internalIP,omitempty"`
-	Target     []int  `json:"targets,omitempty"`
-	Protected  bool   `json:"protected,omitempty"`
+	// This is generated in the security section under API TOKENS. Read & write is necessary.
+	HetznerSecret HetznerSecretRef `json:"hetznerSecretRef"`
 }
 
 // HetznerClusterStatus defines the observed state of HetznerCluster.

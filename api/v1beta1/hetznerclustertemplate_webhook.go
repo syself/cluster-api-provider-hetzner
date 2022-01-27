@@ -43,7 +43,6 @@ var _ webhook.Defaulter = &HetznerClusterTemplate{}
 // Default implements webhook.Defaulter so a webhook will be registered for the type.
 func (r *HetznerClusterTemplate) Default() {
 	hetznerclustertemplatelog.Info("default", "name", r.Name)
-	//TODO: set defaults
 }
 
 //+kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerclustertemplate,mutating=false,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerclustertemplates,verbs=create;update,versions=v1beta1,name=validation.hetznerclustertemplate.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
@@ -53,7 +52,6 @@ var _ webhook.Validator = &HetznerClusterTemplate{}
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
 func (r *HetznerClusterTemplate) ValidateCreate() error {
 	hetznerclustertemplatelog.Info("validate create", "name", r.Name)
-	// TODO: validate SSH Keys
 	return nil
 }
 

@@ -19,10 +19,10 @@ package v1beta1
 import (
 	"errors"
 	"fmt"
+	"reflect"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -32,15 +32,12 @@ import (
 // log is for logging in this package.
 var hetznerclusterlog = logf.Log.WithName("hetznercluster-resource")
 
-var regionsEUCentral = []string{
-	"fsn1",
-	"nbg1",
-	"hel1",
+var regionNetworkZoneMap = map[string]string{
+	"fsn1": "eu-central",
+	"nbg1": "eu-central",
+	"hel1": "eu-central",
+	"ash":  "us-east",
 }
-
-// var regionsUSEast = []string{
-// 	"ash",
-// }
 
 // SetupWebhookWithManager initializes webhook manager for HetznerCluster.
 func (r *HetznerCluster) SetupWebhookWithManager(mgr ctrl.Manager) error {
@@ -72,39 +69,27 @@ var _ webhook.Validator = &HetznerCluster{}
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
 func (r *HetznerCluster) ValidateCreate() error {
 	// Check whether regions are all in same network zone
-	return areRegionsInSameNetworkZone(r.Spec.ControlPlaneRegion)
+	if !r.Spec.HCloudNetwork.NetworkEnabled {
+		return isNetworkZoneSameForAllRegions(r.Spec.ControlPlaneRegions, nil)
+	}
+	return nil
 }
 
-func areRegionsInSameNetworkZone(regions []Region) error {
+func isNetworkZoneSameForAllRegions(regions []Region, defaultNetworkZone *string) error {
 	if len(regions) == 0 {
 		return nil
 	}
 
-	var foundEUCentralRegion bool
-	var foundUSEastRegion bool
-
+	defaultNZ := regionNetworkZoneMap[string(regions[0])]
+	if defaultNetworkZone != nil {
+		defaultNZ = *defaultNetworkZone
+	}
 	for _, region := range regions {
-		if isStringinArray(regionsEUCentral, string(region)) {
-			foundEUCentralRegion = true
-		} else if isStringinArray(regionsEUCentral, string(region)) {
-			foundUSEastRegion = true
+		if regionNetworkZoneMap[string(region)] != defaultNZ {
+			return errors.New("regions are not in one network zone")
 		}
 	}
-
-	if foundEUCentralRegion && foundUSEastRegion {
-		return errors.New("regions are not in one network zone")
-	}
-
 	return nil
-}
-
-func isStringinArray(arr []string, str string) bool {
-	for _, s := range arr {
-		if s == str {
-			return true
-		}
-	}
-	return false
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
@@ -118,26 +103,47 @@ func (r *HetznerCluster) ValidateUpdate(old runtime.Object) error {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected an HetznerCluster but got a %T", old))
 	}
 
-	oldRegion := sets.NewString()
-	for _, l := range oldC.Spec.ControlPlaneRegion {
-		oldRegion.Insert(string(l))
-	}
-	newRegion := sets.NewString()
-	for _, l := range r.Spec.ControlPlaneRegion {
-		newRegion.Insert(string(l))
+	// Control plane endpoint is immutable
+	if !reflect.DeepEqual(oldC.Spec.ControlPlaneEndpoint, r.Spec.ControlPlaneEndpoint) {
+		allErrs = append(allErrs,
+			field.Invalid(field.NewPath("spec", "controlPlaneEndpoint"), r.Spec.ControlPlaneEndpoint, "field is immutable"),
+		)
 	}
 
-	if !oldRegion.Equal(newRegion) {
+	// Network settings are immutable
+	if !reflect.DeepEqual(oldC.Spec.HCloudNetwork, r.Spec.HCloudNetwork) {
 		allErrs = append(allErrs,
-			field.Invalid(field.NewPath("spec", "region"), r.Spec.ControlPlaneRegion, "field is immutable"),
+			field.Invalid(field.NewPath("spec", "hcloudNetwork"), r.Spec.HCloudNetwork, "field is immutable"),
+		)
+	}
+
+	// Check if all regions are in the same network zone if a private network is enabled
+	if oldC.Spec.HCloudNetwork.NetworkEnabled {
+		var defaultNetworkZone *string
+		if len(oldC.Spec.ControlPlaneRegions) > 0 {
+			str := string(oldC.Spec.ControlPlaneRegions[0])
+			defaultNetworkZone = &str
+		}
+		if err := isNetworkZoneSameForAllRegions(r.Spec.ControlPlaneRegions, defaultNetworkZone); err != nil {
+			allErrs = append(allErrs,
+				field.Invalid(field.NewPath("spec", "controlPlaneRegions"), r.Spec.ControlPlaneRegions, err.Error()),
+			)
+		}
+	}
+
+	// Load balancer region and port are immutable
+	if !reflect.DeepEqual(oldC.Spec.ControlPlaneLoadBalancer.Port, r.Spec.ControlPlaneLoadBalancer.Port) {
+		allErrs = append(allErrs,
+			field.Invalid(field.NewPath("spec", "controlPlaneLoadBalancer", "port"), r.Spec.ControlPlaneLoadBalancer.Port, "field is immutable"),
+		)
+	}
+	if !reflect.DeepEqual(oldC.Spec.ControlPlaneLoadBalancer.Region, r.Spec.ControlPlaneLoadBalancer.Region) {
+		allErrs = append(allErrs,
+			field.Invalid(field.NewPath("spec", "controlPlaneLoadBalancer", "region"), r.Spec.ControlPlaneLoadBalancer.Region, "field is immutable"),
 		)
 	}
 
 	return aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
-	// TODO: LoadBalancer
-	// TODO: Network
-	// TODO: TokenRef already set
-	// TODO: validate SSH Key
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type.

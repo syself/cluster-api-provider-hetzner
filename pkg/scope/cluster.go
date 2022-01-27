@@ -36,13 +36,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const defaultControlPlaneAPIEndpointPort = 6443
-
-// ClusterScopeParams defines the input parameters used to create a new Scope.
+// ClusterScopeParams defines the input parameters used to create a new scope.
 type ClusterScopeParams struct {
 	HCloudClient
 
-	Ctx                 context.Context
 	HCloudClientFactory HCloudClientFactory
 	Client              client.Client
 	Logger              logr.Logger
@@ -52,7 +49,7 @@ type ClusterScopeParams struct {
 
 // NewClusterScope creates a new Scope from the supplied parameters.
 // This is meant to be called for each reconcile iteration.
-func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
+func NewClusterScope(ctx context.Context, params ClusterScopeParams) (*ClusterScope, error) {
 	if params.Cluster == nil {
 		return nil, errors.New("failed to generate new scope from nil Cluster")
 	}
@@ -62,9 +59,6 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 	if params.Logger == nil {
 		params.Logger = klogr.New()
 	}
-	if params.Ctx == nil {
-		params.Ctx = context.TODO()
-	}
 
 	// setup client factory if nothing was set
 	var hcloudToken string
@@ -72,14 +66,14 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 		params.HCloudClientFactory = func(ctx context.Context) (HCloudClient, error) {
 			// retrieve token secret
 			var tokenSecret corev1.Secret
-			tokenSecretName := types.NamespacedName{Namespace: params.HetznerCluster.Namespace, Name: params.HetznerCluster.Spec.HetznerSecretRef.Name}
+			tokenSecretName := types.NamespacedName{Namespace: params.HetznerCluster.Namespace, Name: params.HetznerCluster.Spec.HetznerSecret.Name}
 			if err := params.Client.Get(ctx, tokenSecretName, &tokenSecret); err != nil {
 				return nil, errors.Errorf("error getting referenced token secret/%s: %s", tokenSecretName, err)
 			}
 
-			tokenBytes, keyExists := tokenSecret.Data[params.HetznerCluster.Spec.HetznerSecretRef.Key.HCloudToken]
+			tokenBytes, keyExists := tokenSecret.Data[params.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken]
 			if !keyExists {
-				return nil, errors.Errorf("error key %s does not exist in secret/%s", params.HetznerCluster.Spec.HetznerSecretRef.Key.HCloudToken, tokenSecretName)
+				return nil, errors.Errorf("error key %s does not exist in secret/%s", params.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken, tokenSecretName)
 			}
 			hcloudToken = string(tokenBytes)
 
@@ -87,7 +81,7 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 		}
 	}
 
-	hcc, err := params.HCloudClientFactory(params.Ctx)
+	hcc, err := params.HCloudClientFactory(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +91,6 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 	}
 
 	return &ClusterScope{
-		Ctx:            params.Ctx,
 		Logger:         params.Logger,
 		Client:         params.Client,
 		Cluster:        params.Cluster,
@@ -110,7 +103,6 @@ func NewClusterScope(params ClusterScopeParams) (*ClusterScope, error) {
 
 // ClusterScope defines the basic context for an actuator to operate upon.
 type ClusterScope struct {
-	Ctx context.Context
 	logr.Logger
 	Client       client.Client
 	patchHelper  *patch.Helper
@@ -132,8 +124,8 @@ func (s *ClusterScope) Namespace() string {
 }
 
 // Close closes the current scope persisting the cluster configuration and status.
-func (s *ClusterScope) Close() error {
-	return s.patchHelper.Patch(s.Ctx, s.HetznerCluster)
+func (s *ClusterScope) Close(ctx context.Context) error {
+	return s.patchHelper.Patch(ctx, s.HetznerCluster)
 }
 
 // PatchObject persists the machine spec and status.
@@ -148,14 +140,14 @@ func (s *ClusterScope) HCloudClient() HCloudClient {
 
 // GetSpecRegion returns a region.
 func (s *ClusterScope) GetSpecRegion() []infrav1.Region {
-	return s.HetznerCluster.Spec.ControlPlaneRegion
+	return s.HetznerCluster.Spec.ControlPlaneRegions
 }
 
 // SetStatusFailureDomain sets the region for the status.
 func (s *ClusterScope) SetStatusFailureDomain(regions []infrav1.Region) {
 	s.HetznerCluster.Status.FailureDomains = make(clusterv1.FailureDomains)
-	for _, l := range regions {
-		s.HetznerCluster.Status.FailureDomains[string(l)] = clusterv1.FailureDomainSpec{
+	for _, region := range regions {
+		s.HetznerCluster.Status.FailureDomains[string(region)] = clusterv1.FailureDomainSpec{
 			ControlPlane: true,
 		}
 	}
@@ -163,16 +155,16 @@ func (s *ClusterScope) SetStatusFailureDomain(regions []infrav1.Region) {
 
 // ControlPlaneAPIEndpointPort returns the Port of the Kube-api server.
 func (s *ClusterScope) ControlPlaneAPIEndpointPort() int32 {
-	return defaultControlPlaneAPIEndpointPort
+	return s.HetznerCluster.Spec.ControlPlaneEndpoint.Port
 }
 
 // ClientConfig return a kubernetes client config for the cluster context.
-func (s *ClusterScope) ClientConfig() (clientcmd.ClientConfig, error) {
+func (s *ClusterScope) ClientConfig(ctx context.Context) (clientcmd.ClientConfig, error) {
 	var cluster = client.ObjectKey{
 		Name:      s.Cluster.Name,
 		Namespace: s.Cluster.Namespace,
 	}
-	kubeconfigBytes, err := kubeconfig.FromSecret(s.Ctx, s.Client, cluster)
+	kubeconfigBytes, err := kubeconfig.FromSecret(ctx, s.Client, cluster)
 	if err != nil {
 		return nil, errors.Wrap(err, "error retrieving kubeconfig for cluster")
 	}
@@ -180,8 +172,8 @@ func (s *ClusterScope) ClientConfig() (clientcmd.ClientConfig, error) {
 }
 
 // ClientConfigWithAPIEndpoint returns a client config.
-func (s *ClusterScope) ClientConfigWithAPIEndpoint(endpoint clusterv1.APIEndpoint) (clientcmd.ClientConfig, error) {
-	c, err := s.ClientConfig()
+func (s *ClusterScope) ClientConfigWithAPIEndpoint(ctx context.Context, endpoint clusterv1.APIEndpoint) (clientcmd.ClientConfig, error) {
+	c, err := s.ClientConfig(ctx)
 	if err != nil {
 		return nil, err
 	}

@@ -105,9 +105,8 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	// Create the scope.
-	machineScope, err := scope.NewMachineScope(scope.MachineScopeParams{
+	machineScope, err := scope.NewMachineScope(ctx, scope.MachineScopeParams{
 		ClusterScopeParams: scope.ClusterScopeParams{
-			Ctx:            ctx,
 			Client:         r.Client,
 			Logger:         log,
 			Cluster:        cluster,
@@ -122,7 +121,7 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	// Always close the scope when exiting this function so we can persist any HCloudMachine changes.
 	defer func() {
-		if err := machineScope.Close(); err != nil && reterr == nil {
+		if err := machineScope.Close(ctx); err != nil && reterr == nil {
 			reterr = err
 		}
 	}()
@@ -164,8 +163,7 @@ func (r *HCloudMachineReconciler) reconcileNormal(ctx context.Context, machineSc
 	// If the HCloudMachine doesn't have our finalizer, add it.
 	controllerutil.AddFinalizer(machineScope.HCloudMachine, infrav1.MachineFinalizer)
 
-	// Register the finalizer immediately to avoid orphaning HCloud resources
-	// on delete
+	// Register the finalizer immediately to avoid orphaning HCloud resources on delete
 	if err := machineScope.PatchObject(ctx); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -233,14 +231,14 @@ func (r *HCloudMachineReconciler) HetznerClusterToHCloudMachines(ctx context.Con
 
 		// Don't handle deleted HetznerCluster
 		if !c.ObjectMeta.DeletionTimestamp.IsZero() {
-			log.V(4).Info("HetznerCluster has a deletion timestamp, skipping mapping.")
+			log.V(1).Info("HetznerCluster has a deletion timestamp, skipping mapping.")
 			return nil
 		}
 
 		cluster, err := util.GetOwnerCluster(ctx, r.Client, c.ObjectMeta)
 		switch {
 		case apierrors.IsNotFound(err) || cluster == nil:
-			log.V(4).Info("Cluster for HetznerCluster not found, skipping mapping.")
+			log.V(1).Info("Cluster for HetznerCluster not found, skipping mapping.")
 			return result
 		case err != nil:
 			log.Error(err, "failed to get owning cluster, skipping mapping.")
@@ -256,7 +254,7 @@ func (r *HCloudMachineReconciler) HetznerClusterToHCloudMachines(ctx context.Con
 		for _, m := range machineList.Items {
 			log.WithValues("machine", m.Name)
 			if m.Spec.InfrastructureRef.GroupVersionKind().Kind != "HCloudMachine" {
-				log.V(4).Info("Machine has an InfrastructureRef for a different type, will not add to reconciliation request.")
+				log.V(1).Info("Machine has an InfrastructureRef for a different type, will not add to reconciliation request.")
 				continue
 			}
 			if m.Spec.InfrastructureRef.Name == "" {
@@ -264,7 +262,7 @@ func (r *HCloudMachineReconciler) HetznerClusterToHCloudMachines(ctx context.Con
 			}
 			name := client.ObjectKey{Namespace: m.Namespace, Name: m.Spec.InfrastructureRef.Name}
 			log.WithValues("hcloudMachine", name.Name)
-			log.V(4).Info("Adding HCloudMachine to reconciliation request.")
+			log.V(1).Info("Adding HCloudMachine to reconciliation request.")
 			result = append(result, ctrl.Request{NamespacedName: name})
 		}
 

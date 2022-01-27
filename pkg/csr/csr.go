@@ -83,11 +83,8 @@ func ValidateKubeletCSR(csr *x509.CertificateRequest, machine *infrav1.HCloudMac
 	}
 	for _, ip := range csr.IPAddresses {
 		if _, ok := allowedIPAddresses[ip.String()]; !ok {
-			errs = append(errs, fmt.Errorf("the IPAddress '%s' is not allowed", ip.String()))
+			errs = append(errs, fmt.Errorf("the IP address '%s' is not allowed", ip.String()))
 		}
 	}
-
-	// allow only certain IP addresses
-
 	return kerrors.NewAggregate(errs)
 }
