@@ -45,7 +45,7 @@ var ErrFailureDomainNotFound = errors.New("error no failure domain available")
 
 // NewMachineScope creates a new Scope from the supplied parameters.
 // This is meant to be called for each reconcile iteration.
-func NewMachineScope(params MachineScopeParams) (*MachineScope, error) {
+func NewMachineScope(ctx context.Context, params MachineScopeParams) (*MachineScope, error) {
 	if params.Machine == nil {
 		return nil, errors.New("failed to generate new scope from nil Machine")
 	}
@@ -53,7 +53,7 @@ func NewMachineScope(params MachineScopeParams) (*MachineScope, error) {
 		return nil, errors.New("failed to generate new scope from nil HCloudMachine")
 	}
 
-	cs, err := NewClusterScope(params.ClusterScopeParams)
+	cs, err := NewClusterScope(ctx, params.ClusterScopeParams)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to init patch helper")
 	}
@@ -78,8 +78,8 @@ type MachineScope struct {
 }
 
 // Close closes the current scope persisting the cluster configuration and status.
-func (m *MachineScope) Close() error {
-	return m.patchHelper.Patch(m.Ctx, m.HCloudMachine)
+func (m *MachineScope) Close(ctx context.Context) error {
+	return m.patchHelper.Patch(ctx, m.HCloudMachine)
 }
 
 // IsControlPlane returns true if the machine is a control plane.

@@ -84,7 +84,7 @@ spec:
                         description: define Machine specific SSH keys, overrides cluster
                           wide SSH keys
                         items:
-                          description: SSHKeySpec defines the SSHKey.
+                          description: SSHKey defines the SSHKey.
                           properties:
                             id:
                               type: integer

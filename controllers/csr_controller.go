@@ -67,25 +67,14 @@ func (r *GuestCSRReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	log := ctrl.LoggerFrom(ctx)
 
 	log.Info("Starting reconcile CSR", "req", req)
+
 	// Fetch the CertificateSigningRequest instance.
 	certificateSigningRequest := &certificatesv1.CertificateSigningRequest{}
 	err := r.Get(ctx, req.NamespacedName, certificateSigningRequest)
-
 	if err != nil {
-		if apierrors.IsTimeout(err) {
-			if stsErr, ok := err.(*apierrors.StatusError); ok {
-				log.Info("Status error", "err", stsErr)
-			} else {
-				log.Info("Is timeout but no status error", "err", err)
-			}
-		} else {
-			log.Info("No timeout error", "err", err)
-		}
-
 		if apierrors.IsNotFound(err) {
 			return reconcile.Result{}, nil
 		}
-
 		log.Error(err, "found an error while getting CSR", "namespacedName", req.NamespacedName)
 		return reconcile.Result{}, err
 	}
@@ -94,6 +83,7 @@ func (r *GuestCSRReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	if len(certificateSigningRequest.Status.Conditions) > 0 {
 		return reconcile.Result{}, nil
 	}
+
 	nodePrefix := "system:node:"
 	// skip CSR from non-nodes
 	if !strings.HasPrefix(certificateSigningRequest.Spec.Username, nodePrefix) {

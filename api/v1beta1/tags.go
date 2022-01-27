@@ -49,9 +49,6 @@ const (
 
 	// MachineNameTagKey tags related MachineNameTag.
 	MachineNameTagKey = "machine." + NameHetznerProviderPrefix + "name"
-
-	// MachineTemplateHashTagKey tags server resources.
-	MachineTemplateHashTagKey = "machine." + NameHetznerProviderPrefix + "template"
 )
 
 // ClusterTagKey generates the key for resources associated with a cluster.

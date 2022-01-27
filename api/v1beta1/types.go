@@ -16,18 +16,27 @@ limitations under the License.
 
 package v1beta1
 
-// SSHKeySpec defines the SSHKey.
-type SSHKeySpec struct {
-	Name *string `json:"name,omitempty"`
-	ID   *int    `json:"id,omitempty"`
-}
-
 // LoadBalancerAlgorithmType defines the Algorithm type.
 //+kubebuilder:validation:Enum=round_robin;least_connections
 type LoadBalancerAlgorithmType string
 
-// HCloudMachineTypeSpec defines the HCloud Machine type.
-type HCloudMachineTypeSpec string
+const (
+
+	// LoadBalancerAlgorithmTypeRoundRobin default for the Kubernetes Api Server loadbalancer.
+	LoadBalancerAlgorithmTypeRoundRobin = LoadBalancerAlgorithmType("round_robin")
+
+	// LoadBalancerAlgorithmTypeLeastConnections default for Loadbalancer.
+	LoadBalancerAlgorithmTypeLeastConnections = LoadBalancerAlgorithmType("least_connections")
+)
+
+// SSHKey defines the SSHKey.
+type SSHKey struct {
+	Name *string `json:"name,omitempty"`
+	ID   *int    `json:"id,omitempty"`
+}
+
+// HCloudMachineType defines the HCloud Machine type.
+type HCloudMachineType string
 
 // ResourceLifecycle configures the lifecycle of a resource.
 type ResourceLifecycle string
@@ -45,4 +54,120 @@ type HCloudPlacementGroupStatus struct {
 	Server []int  `json:"servers,omitempty"`
 	Name   string `json:"name,omitempty"`
 	Type   string `json:"type,omitempty"`
+}
+
+// HetznerSecretRef defines all the name of the secret and the relevant keys needed to access Hetzner API.
+type HetznerSecretRef struct {
+	Name string              `json:"name"`
+	Key  HetznerSecretKeyRef `json:"key"`
+}
+
+// HetznerSecretKeyRef defines the key name of the HetznerSecret.
+type HetznerSecretKeyRef struct {
+	HCloudToken string `json:"hcloudToken"`
+}
+
+// LoadBalancerSpec defines the desired state of the Control Plane Loadbalancer.
+type LoadBalancerSpec struct {
+	// +optional
+	Name *string `json:"name,omitempty"`
+
+	// Could be round_robin or least_connection. The default value is "round_robin".
+	// +optional
+	// +kubebuilder:validation:Enum=round_robin;least_connections
+	// +kubebuilder:default=round_robin
+	Algorithm LoadBalancerAlgorithmType `json:"algorithm,omitempty"`
+
+	// Loadbalancer type
+	// +optional
+	// +kubebuilder:validation:Enum=lb11;lb21;lb31
+	// +kubebuilder:default=lb11
+	Type string `json:"type,omitempty"`
+
+	// API Server port. It must be valid ports range (1-65535). If omitted, default value is 6443.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
+	// +kubebuilder:default=6443
+	Port int `json:"port,omitempty"`
+
+	// Defines how traffic will be routed from the Load Balancer to your target server.
+	// +optional
+	ExtraTargets []LoadBalancerTargetSpec `json:"extraTargets,omitempty"`
+
+	// Region contains the name of the HCloud location the load balancer is running.
+	Region Region `json:"region"`
+}
+
+// LoadBalancerTargetSpec defines a Loadbalancer Target.
+type LoadBalancerTargetSpec struct {
+	// Protocol specifies the supported Loadbalancer Protocol.
+	// +optional
+	// +kubebuilder:validation:Enum=http;https;tcp
+	Protocol string `json:"protocol,omitempty"`
+
+	// ListenPort, i.e. source port, defines the incoming port open on the loadbalancer.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
+	ListenPort int `json:"listenPort,omitempty"`
+
+	// DestinationPort defines the port on the server.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
+	DestinationPort int `json:"destinationPort,omitempty"`
+}
+
+// LoadBalancerStatus defines the obeserved state of the control plane loadbalancer.
+type LoadBalancerStatus struct {
+	ID         int    `json:"id,omitempty"`
+	IPv4       string `json:"ipv4,omitempty"`
+	IPv6       string `json:"ipv6,omitempty"`
+	InternalIP string `json:"internalIP,omitempty"`
+	Target     []int  `json:"targets,omitempty"`
+	Protected  bool   `json:"protected,omitempty"`
+}
+
+// HCloudNetworkSpec defines the desired state of the HCloud Private Network.
+type HCloudNetworkSpec struct {
+	// NetworkEnabled defines whether the network should be enabled or not
+	NetworkEnabled bool `json:"enabled"`
+
+	// CIDRBlock defines the cidrBlock of the HCloud Network. A Subnet is required.
+	// +kubebuilder:default="10.0.0.0/16"
+	CIDRBlock string `json:"cidrBlock,omitempty"`
+
+	// SubnetCIDRBlock defines the cidrBlock for the subnet of the HCloud Network.
+	// +kubebuilder:default="10.0.0.0/24"
+	SubnetCIDRBlock string `json:"subnetCidrBlock,omitempty"`
+
+	// NetworkZone specifies the HCloud network zone of the private network.
+	// +kubebuilder:default=eu-central
+	NetworkZone HCloudNetworkZone `json:"networkZone,omitempty"`
+}
+
+// NetworkStatus defines the observed state of the HCloud Private Network.
+type NetworkStatus struct {
+	ID              int               `json:"id,omitempty"`
+	Labels          map[string]string `json:"-"`
+	AttachedServers []int             `json:"attachedServers,omitempty"`
+}
+
+// Region is a Hetzner Location
+// +kubebuilder:validation:Enum=fsn1;hel1;nbg1;ash
+type Region string
+
+// HCloudNetworkZone describes the Network zone.
+type HCloudNetworkZone string
+
+// IsZero returns true if a private Network is set.
+func (s *HCloudNetworkSpec) IsZero() bool {
+	if len(s.CIDRBlock) > 0 {
+		return false
+	}
+	if len(s.SubnetCIDRBlock) > 0 {
+		return false
+	}
+	return true
 }

@@ -61,61 +61,53 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 	s.scope.HCloudMachine.Status.Region = infrav1.Region(failureDomain)
 
 	// Waiting for bootstrap data to be ready
-	if !s.scope.IsBootstrapDataReady(s.scope.Ctx) {
+	if !s.scope.IsBootstrapDataReady(ctx) {
 		return &ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
 	// Try to find an existing server
-	instance, err := s.findServer(ctx)
+	server, err := s.findServer(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get server")
 	}
 	// If no server is found we have to create one
-	var instanceCreated bool
-	if instance == nil {
-		instance, err = s.createServer(s.scope.Ctx, failureDomain)
+	if server == nil {
+		server, err = s.createServer(ctx, failureDomain)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to create server")
 		}
-		instanceCreated = true
 		record.Eventf(
 			s.scope.HCloudMachine,
 			"SuccessfulCreate",
 			"Created new server with id %d",
-			instance.ID,
+			server.ID,
 		)
 	}
 
-	s.scope.HCloudMachine.Status = setStatusFromAPI(instance)
+	s.scope.HCloudMachine.Status = setStatusFromAPI(server)
 
-	switch instance.Status {
+	switch server.Status {
 	case hcloud.ServerStatusOff:
 		// Check if server is in ServerStatusOff and turn it on. This is to avoid a bug of Hetzner where
 		// sometimes machines are created and not turned on
-		// Don't do this when instance is just created
-		if !instanceCreated {
-			if _, _, err := s.scope.HCloudClient().PowerOnServer(ctx, instance); err != nil {
-				return nil, errors.Wrap(err, "failed to power on server")
-			}
+		// Don't do this when server is just created
+		if _, _, err := s.scope.HCloudClient().PowerOnServer(ctx, server); err != nil {
+			return nil, errors.Wrap(err, "failed to power on server")
 		}
+
 	case hcloud.ServerStatusRunning: // Do nothing
 	default:
 		s.scope.HCloudMachine.Status.Ready = false
-		s.scope.V(1).Info("server not in running state", "server", instance.Name, "status", instance.Status)
+		s.scope.V(1).Info("server not in running state", "server", server.Name, "status", server.Status)
 		return &reconcile.Result{RequeueAfter: 2 * time.Second}, nil
 	}
 
 	// Check whether server is attached to the network
-	if err := s.reconcileNetworkAttachment(ctx, instance); err != nil {
+	if err := s.reconcileNetworkAttachment(ctx, server); err != nil {
 		return nil, errors.Wrap(err, "failed to reconcile network attachement")
 	}
 
-	// // Check whether server is attached to the placement group
-	// if err := s.reconcilePlacementGroupAttachment(ctx, instance); err != nil {
-	// 	return nil, errors.Wrap(err, "failed to reconcile placement group attachement")
-	// }
-
-	providerID := fmt.Sprintf("hcloud://%d", instance.ID)
+	providerID := fmt.Sprintf("hcloud://%d", server.ID)
 
 	if !s.scope.IsControlPlane() {
 		s.scope.HCloudMachine.Spec.ProviderID = &providerID
@@ -125,49 +117,53 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 	}
 
 	// all control planes have to be attached to the load balancer
-	if err := s.reconcileLoadBalancerAttachment(ctx, instance); err != nil {
+	if err := s.reconcileLoadBalancerAttachment(ctx, server); err != nil {
 		return nil, errors.Wrap(err, "failed to reconcile load balancer attachement")
 	}
 
-	// TODO: Refactor of function:
-	// Checks if control-plane is ready. Loops through available control-planes,
-	// rewrites kubeconfig address to address of control-plane.
-	// Requests readyz endpoint of control-plane kube-apiserver
-	var multierr []error
-	for _, address := range s.scope.HCloudMachine.Status.Addresses {
-		if address.Type != corev1.NodeExternalIP && address.Type != corev1.NodeExternalDNS {
-			continue
-		}
-
-		clientConfig, err := s.scope.ClientConfigWithAPIEndpoint(clusterv1.APIEndpoint{
-			Host: address.Address,
-			Port: s.scope.ControlPlaneAPIEndpointPort(),
-		})
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to get client config with API endpoint")
-		}
-
-		if err := scope.IsControlPlaneReady(ctx, clientConfig); err != nil {
-			multierr = append(multierr, err)
-			break
-		}
-
-		s.scope.HCloudMachine.Spec.ProviderID = &providerID
-		s.scope.HCloudMachine.Status.Ready = true
-		conditions.MarkTrue(s.scope.HCloudMachine, infrav1.InstanceReadyCondition)
-		return nil, nil
-	}
-
-	if err := kerrors.NewAggregate(multierr); err != nil {
+	if err := s.isControlPlaneReady(ctx); err != nil {
 		record.Warnf(
 			s.scope.HCloudMachine,
 			"APIServerNotReady",
 			"Health check for API server failed: %s",
 			err,
 		)
-		log.Error(err, "aggregate error")
+		return nil, errors.Wrap(err, "control plane not ready - no usable address found")
 	}
-	return nil, fmt.Errorf("not usable address found")
+
+	s.scope.HCloudMachine.Spec.ProviderID = &providerID
+	s.scope.HCloudMachine.Status.Ready = true
+	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.InstanceReadyCondition)
+
+	return nil, nil
+}
+
+// Checks if control-plane is ready. Loops through available control-planes,
+// rewrites kubeconfig address to address of control-plane.
+// Requests readyz endpoint of control-plane kube-apiserver.
+func (s *Service) isControlPlaneReady(ctx context.Context) error {
+	var multierr []error
+	for _, address := range s.scope.HCloudMachine.Status.Addresses {
+		if address.Type != corev1.NodeExternalIP && address.Type != corev1.NodeExternalDNS {
+			continue
+		}
+
+		clientConfig, err := s.scope.ClientConfigWithAPIEndpoint(ctx, clusterv1.APIEndpoint{
+			Host: address.Address,
+			Port: s.scope.ControlPlaneAPIEndpointPort(),
+		})
+		if err != nil {
+			multierr = append(multierr, errors.Wrap(err, "failed to get client config with API endpoint"))
+			break
+		}
+
+		if err := scope.IsControlPlaneReady(ctx, clientConfig); err != nil {
+			multierr = append(multierr, err)
+			break
+		}
+		return nil
+	}
+	return kerrors.NewAggregate(multierr)
 }
 
 func (s *Service) reconcileNetworkAttachment(ctx context.Context, server *hcloud.Server) error {
@@ -177,7 +173,7 @@ func (s *Service) reconcileNetworkAttachment(ctx context.Context, server *hcloud
 	}
 
 	// Already attached to network - nothing to do
-	for _, id := range s.scope.HetznerCluster.Status.Network.AttachedServer {
+	for _, id := range s.scope.HetznerCluster.Status.Network.AttachedServers {
 		if id == server.ID {
 			return nil
 		}
@@ -199,7 +195,6 @@ func (s *Service) reconcileNetworkAttachment(ctx context.Context, server *hcloud
 	return nil
 }
 
-// createServer creates a Server from an image.
 func (s *Service) createServer(ctx context.Context, failureDomain string) (*hcloud.Server, error) {
 	// get userData
 	userData, err := s.scope.GetRawBootstrapData(ctx)
@@ -212,8 +207,77 @@ func (s *Service) createServer(ctx context.Context, failureDomain string) (*hclo
 		return nil, fmt.Errorf("failed to get raw bootstrap data: %s", err)
 	}
 
-	var myTrue = true
-	var myFalse = false
+	image, err := s.getServerImage(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get server image")
+	}
+
+	name := s.scope.Name()
+	automount := false
+	startAfterCreate := true
+	opts := hcloud.ServerCreateOpts{
+		Name:   name,
+		Labels: s.createLabels(),
+		Image:  image,
+		Location: &hcloud.Location{
+			Name: failureDomain,
+		},
+		ServerType: &hcloud.ServerType{
+			Name: string(s.scope.HCloudMachine.Spec.Type),
+		},
+		Automount:        &automount,
+		StartAfterCreate: &startAfterCreate,
+		UserData:         string(userData),
+	}
+
+	// set placement group if necessary
+	if s.scope.HCloudMachine.Spec.PlacementGroupName != nil {
+		var foundPlacementGroupInStatus bool
+		for _, pgSts := range s.scope.HetznerCluster.Status.HCloudPlacementGroup {
+			if *s.scope.HCloudMachine.Spec.PlacementGroupName == pgSts.Name {
+				foundPlacementGroupInStatus = true
+				opts.PlacementGroup = &hcloud.PlacementGroup{
+					ID:   pgSts.ID,
+					Name: pgSts.Name,
+					Type: hcloud.PlacementGroupType(pgSts.Type),
+				}
+			}
+		}
+		if !foundPlacementGroupInStatus {
+			log.Info("No placement group found on server creation", "placementGroupName", *s.scope.HCloudMachine.Spec.PlacementGroupName)
+			return nil, errors.New("failed to find server's placement group")
+		}
+	}
+
+	sshKeys, err := s.getSSHKeys(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get ssh keys")
+	}
+	opts.SSHKeys = sshKeys
+
+	// set up network if available
+	if net := s.scope.HetznerCluster.Status.Network; net != nil {
+		opts.Networks = []*hcloud.Network{{
+			ID: net.ID,
+		}}
+	}
+
+	// Create the server
+	res, _, err := s.scope.HCloudClient().CreateServer(ctx, opts)
+	if err != nil {
+		record.Warnf(s.scope.HCloudMachine,
+			"FailedCreateHCloudServer",
+			"Failed to create HCloud server %s: %s",
+			s.scope.Name(),
+			err,
+		)
+		return nil, fmt.Errorf("error while creating HCloud server %s: %s", s.scope.HCloudMachine.Name, err)
+	}
+
+	return res.Server, nil
+}
+
+func (s *Service) getServerImage(ctx context.Context) (*hcloud.Image, error) {
 	key := fmt.Sprintf("%s%s", infrav1.NameHetznerProviderPrefix, "image-name")
 
 	// query for an existing image by label this is needed because snapshots doesn't have any name only descriptions and labels.
@@ -258,50 +322,19 @@ func (s *Service) createServer(ctx context.Context, failureDomain string) (*hclo
 		return nil, fmt.Errorf("no image found with name %s", s.scope.HCloudMachine.Spec.ImageName)
 	}
 
-	name := s.scope.Name()
-	opts := hcloud.ServerCreateOpts{
-		Name:   name,
-		Labels: s.createLabels(),
-		Image:  images[0],
-		Location: &hcloud.Location{
-			Name: failureDomain,
-		},
-		ServerType: &hcloud.ServerType{
-			Name: string(s.scope.HCloudMachine.Spec.Type),
-		},
-		Automount:        &myFalse,
-		StartAfterCreate: &myTrue,
-		UserData:         string(userData),
-	}
+	return images[0], nil
+}
 
-	// set placement group if necessary
-	if s.scope.HCloudMachine.Spec.PlacementGroupName != nil {
-		var foundPlacementGroupInStatus bool
-		for _, pgSts := range s.scope.HetznerCluster.Status.HCloudPlacementGroup {
-			if *s.scope.HCloudMachine.Spec.PlacementGroupName == pgSts.Name {
-				foundPlacementGroupInStatus = true
-				opts.PlacementGroup = &hcloud.PlacementGroup{
-					ID:   pgSts.ID,
-					Name: pgSts.Name,
-					Type: hcloud.PlacementGroupType(pgSts.Type),
-				}
-			}
-		}
-		if !foundPlacementGroupInStatus {
-			log.Info("No placement group found on server creation", "placementGroupName", *s.scope.HCloudMachine.Spec.PlacementGroupName)
-			return nil, errors.New("failed to find server's placement group")
-		}
-	}
-
-	// set up SSH keys
-	sshKeySpecs := s.scope.HCloudMachine.Spec.SSHKey
+func (s *Service) getSSHKeys(ctx context.Context) ([]*hcloud.SSHKey, error) {
+	sshKeySpecs := s.scope.HCloudMachine.Spec.SSHKeys
 	if len(sshKeySpecs) == 0 {
-		sshKeySpecs = s.scope.HetznerCluster.Spec.SSHKey
+		sshKeySpecs = s.scope.HetznerCluster.Spec.SSHKeys
 	}
 	sshKeys, _, err := s.scope.HCloudClient().ListSSHKeys(ctx, hcloud.SSHKeyListOpts{})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed listing ssh heys from hcloud")
 	}
+	resp := make([]*hcloud.SSHKey, 0, len(sshKeys))
 	for _, sshKey := range sshKeys {
 		var match bool
 		for _, sshKeySpec := range sshKeySpecs {
@@ -313,30 +346,10 @@ func (s *Service) createServer(ctx context.Context, failureDomain string) (*hclo
 			}
 		}
 		if match {
-			opts.SSHKeys = append(opts.SSHKeys, sshKey)
+			resp = append(resp, sshKey)
 		}
 	}
-
-	// set up network if available
-	if net := s.scope.HetznerCluster.Status.Network; net != nil {
-		opts.Networks = []*hcloud.Network{{
-			ID: net.ID,
-		}}
-	}
-
-	// Create the server
-	res, _, err := s.scope.HCloudClient().CreateServer(s.scope.Ctx, opts)
-	if err != nil {
-		record.Warnf(s.scope.HCloudMachine,
-			"FailedCreateHCloudServer",
-			"Failed to create HCloud server %s: %s",
-			s.scope.Name(),
-			err,
-		)
-		return nil, fmt.Errorf("error while creating HCloud server %s: %s", s.scope.HCloudMachine.Name, err)
-	}
-
-	return res.Server, nil
+	return resp, nil
 }
 
 // Delete implements delete method of server.
@@ -344,13 +357,13 @@ func (s *Service) Delete(ctx context.Context) (_ *ctrl.Result, err error) {
 	// find current server
 	server, err := s.findServer(ctx)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to refresh server status")
+		return nil, errors.Wrap(err, "failed to find Server")
 	}
 
 	// If no server has been found then nothing can be deleted
 	if server == nil {
-		s.scope.V(2).Info("Unable to locate HCloud instance by ID or tags")
-		record.Warnf(s.scope.HCloudMachine, "NoInstanceFound", "Unable to find matching HCloud instance for %s", s.scope.Name())
+		s.scope.V(2).Info("Unable to locate HCloud server by ID or tags")
+		record.Warnf(s.scope.HCloudMachine, "NoInstanceFound", "Unable to find matching HCloud server for %s", s.scope.Name())
 		return nil, nil
 	}
 
@@ -448,7 +461,6 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 	if s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer == nil {
 		return nil
 	}
-	log.Info("lb targets", "target", s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target)
 
 	// If already attached do nothing
 	for _, id := range s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target {
@@ -456,7 +468,9 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 			return nil
 		}
 	}
-	log.Info("Reconciling load balancer attachement", "targets", s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target)
+
+	log.V(1).Info("Reconciling load balancer attachement", "targets", s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target)
+
 	// We differentiate between private and public net
 	var hasPrivateIP bool
 	if len(server.PrivateNet) > 0 {
@@ -467,7 +481,10 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 		return nil
 	}
 
-	loadBalancerAddServerTargetOpts := hcloud.LoadBalancerAddServerTargetOpts{Server: server, UsePrivateIP: &hasPrivateIP}
+	loadBalancerAddServerTargetOpts := hcloud.LoadBalancerAddServerTargetOpts{
+		Server:       server,
+		UsePrivateIP: &hasPrivateIP,
+	}
 
 	if _, _, err := s.scope.HCloudClient().AddTargetServerToLoadBalancer(
 		ctx,
@@ -475,7 +492,6 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 		&hcloud.LoadBalancer{
 			ID: s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID,
 		}); err != nil {
-		// Check if load balancer status is old and server is in fact already attached
 		if hcloud.IsError(err, hcloud.ErrorCodeTargetAlreadyDefined) {
 			return nil
 		}
@@ -494,33 +510,24 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 }
 
 func (s *Service) deleteServerOfLoadBalancer(ctx context.Context, server *hcloud.Server) error {
-	lb, _, err := s.scope.HCloudClient().GetLoadBalancer(ctx, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID)
-	if err != nil {
-		return err
-	}
-
-	// if the server is not attached to the load balancer then we return without doing anything
-	var stillAttached bool
-	for _, target := range lb.Targets {
-		if target.Server.Server.ID == server.ID {
-			stillAttached = true
+	if _, _, err := s.scope.HCloudClient().DeleteTargetServerOfLoadBalancer(
+		ctx,
+		&hcloud.LoadBalancer{
+			ID: s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID,
+		},
+		server); err != nil {
+		if hcloud.IsError(err, hcloud.ErrorCodeNotFound) {
+			return nil
 		}
-	}
-
-	if !stillAttached {
-		return nil
-	}
-
-	_, _, err = s.scope.HCloudClient().DeleteTargetServerOfLoadBalancer(ctx, lb, server)
-	if err != nil {
-		s.scope.V(1).Info("Could not delete server as target of load balancer", "Server", server.ID, "Load Balancer", lb.ID)
+		s.scope.V(1).Info("Could not delete server as target of load balancer",
+			"Server", server.ID, "Load Balancer", s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID)
 		return err
 	}
 	record.Eventf(
 		s.scope.HetznerCluster,
 		"DeletedTargetOfLoadBalancer",
 		"Deleted new server with id %d of the loadbalancer %v",
-		server.ID, lb.ID)
+		server.ID, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID)
 
 	return nil
 }
@@ -536,7 +543,7 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 	if len(servers) > 1 {
 		record.Warnf(s.scope.HCloudMachine,
 			"MultipleInstances",
-			"Found %v instances of name %s",
+			"Found %v servers of name %s",
 			len(servers),
 			s.scope.Name())
 		return nil, fmt.Errorf("found %v servers with name %s", len(servers), s.scope.Name())

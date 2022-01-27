@@ -18,11 +18,10 @@ package v1beta1
 
 import (
 	"fmt"
+	"reflect"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -56,48 +55,26 @@ func (r *HCloudMachine) Default() {}
 
 var _ webhook.Validator = &HCloudMachine{}
 
-type hCloudMachineSpecer interface {
-	GroupVersionKind() schema.GroupVersionKind
-	GetName() string
-	HCloudMachineSpec() *HCloudMachineSpec
-}
-
-func validateHCloudMachineSpec(r hCloudMachineSpecer) error {
-	var allErrs field.ErrorList
-
-	if len(r.HCloudMachineSpec().Type) == 0 {
-		allErrs = append(allErrs,
-			field.Invalid(field.NewPath("spec", "type"), r.HCloudMachineSpec().Type, "field cannot be empty"),
-		)
-	}
-	return aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.GetName(), allErrs)
-}
-
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
 func (r *HCloudMachine) ValidateCreate() error {
 	hcloudmachinelog.Info("validate create", "name", r.Name)
-	return validateHCloudMachineSpec(r)
-	//TODO: validate SSHKEYNAME, ErrorList
+	return nil
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
 func (r *HCloudMachine) ValidateUpdate(old runtime.Object) error {
 	hcloudmachinelog.Info("validate update", "name", r.Name)
 
-	var allErrs field.ErrorList
-
 	oldM, ok := old.(*HCloudMachine)
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected an HCloudMachine but got a %T", old))
 	}
 
-	if r.Spec.Type != oldM.Spec.Type {
-		allErrs = append(allErrs,
-			field.Invalid(field.NewPath("spec", "type"), r.Spec.Type, "field is immutable"),
-		)
+	if !reflect.DeepEqual(r.Spec, oldM.Spec) {
+		return apierrors.NewBadRequest("HCloudMachineTemplate.Spec is immutable")
 	}
-	// TODO: test all Machine Specs if they changed.
-	return aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
+
+	return nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
