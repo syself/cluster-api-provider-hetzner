@@ -35,6 +35,9 @@ settings = {
         "HCLOUD_NODE_MACHINE_TYPE": "cpx31",
         "CLUSTER_NAME": "test",
     },
+    "extra_args": {
+        "hetzner": ["--log-level=debug"],
+    },
     "talos-bootstrap": "false",
 }
 
@@ -89,14 +92,14 @@ def deploy_talos_controlplane():
     local(cmd, quiet = True)
 
 def patch_args_with_extra_args(namespace, name, extra_args):
-    args_str = str(local("kubectl get deployments {} -n {} -o jsonpath={{.spec.template.spec.containers[1].args}}".format(name, namespace)))
+    args_str = str(local("kubectl get deployments {} -n {} -o jsonpath='{{.spec.template.spec.containers[0].args}}'".format(name, namespace)))
     args_to_add = [arg for arg in extra_args if arg not in args_str]
     if args_to_add:
         args = args_str[1:-1].split()
         args.extend(args_to_add)
         patch = [{
             "op": "replace",
-            "path": "/spec/template/spec/containers/1/args",
+            "path": "/spec/template/spec/containers/0/args",
             "value": args,
         }]
         local("kubectl patch deployment {} -n {} --type json -p='{}'".format(name, namespace, str(encode_json(patch)).replace("\n", "")))
@@ -113,7 +116,7 @@ def append_arg_for_container_in_deployment(yaml_stream, name, namespace, contain
         if item["kind"] == "Deployment" and item.get("metadata").get("name") == name and item.get("metadata").get("namespace") == namespace:
             containers = item.get("spec").get("template").get("spec").get("containers")
             for container in containers:
-                if contains_image_name in container.get("image"):
+                if contains_image_name in container.get("name"):
                     container.get("args").extend(args)
 
 def fixup_yaml_empty_arrays(yaml_str):
@@ -157,7 +160,7 @@ def caph():
         hetzner_extra_args = settings.get("extra_args").get("hetzner")
         if hetzner_extra_args:
             yaml_dict = decode_yaml_stream(yaml)
-            append_arg_for_container_in_deployment(yaml_dict, "caph-controller-manager", "caph-system", hetzner_extra_args)
+            append_arg_for_container_in_deployment(yaml_dict, "caph-controller-manager", "cluster-api-provider-hetzner-system", "manager", hetzner_extra_args)
             yaml = str(encode_yaml_stream(yaml_dict))
             yaml = fixup_yaml_empty_arrays(yaml)
 

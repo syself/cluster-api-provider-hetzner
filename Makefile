@@ -472,112 +472,76 @@ undeploy-controller: ## Undeploy controller from the K8s cluster specified in ~/
 tilt-up: envsubst yq kustomize cluster  ## Start a mgt-cluster & Tilt. Installs the CRDs and deploys the controllers
 	EXP_CLUSTER_RESOURCE_SET=true tilt up
 
+install-essentials: ## This gets the secret and installs a CNI and the CCM. Usage: MAKE install-essentials NAME=<cluster-name>
+	export CAPH_WORKER_CLUSTER_KUBECONFIG=/tmp/workload-kubeconfig
+	$(MAKE) wait-and-get-secret CLUSTER_NAME=$(NAME)
+	$(MAKE) install-manifests
+
+wait-and-get-secret:
+	# Wait for the kubeconfig to become available.
+	${TIMEOUT} 5m bash -c "while ! kubectl get secrets | grep $(CLUSTER_NAME)-kubeconfig; do sleep 1; done"
+	# Get kubeconfig and store it locally.
+	kubectl get secrets $(CLUSTER_NAME)-kubeconfig -o json | jq -r .data.value | base64 --decode > $(CAPH_WORKER_CLUSTER_KUBECONFIG)
+	${TIMEOUT} 15m bash -c "while ! kubectl --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) get nodes | grep master; do sleep 1; done"
+
+install-manifests-network:
+	# Deploy cilium
+	helm repo add cilium https://helm.cilium.io/
+	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install cilium cilium/cilium --version 1.10.5 \
+  	--namespace kube-system \
+	-f templates/cilium/cilium.yaml
+
+	# Deploy HCloud Cloud Controller Manager
+	helm repo add syself https://charts.syself.com
+	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hcloud --version 1.0.2 \
+	--namespace kube-system \
+	--set secret.name=hetzner \
+	--set secret.tokenKeyName=hcloud \
+	--set privateNetwork.enabled=true
+
+	@echo 'run "kubectl --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) ..." to work with the new target cluster'
+
+install-manifests:
+	# Deploy cilium
+	helm repo add cilium https://helm.cilium.io/
+	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install cilium cilium/cilium --version 1.10.5 \
+  	--namespace kube-system \
+	-f templates/cilium/cilium.yaml
+
+	# Deploy HCloud Cloud Controller Manager
+	helm repo add syself https://charts.syself.com
+	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hcloud --version 1.0.2 \
+	--namespace kube-system \
+	--set secret.name=hetzner \
+	--set secret.tokenKeyName=hcloud \
+	--set privateNetwork.enabled=false
+
+	@echo 'run "kubectl --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) ..." to work with the new target cluster'
+
 .PHONY: create-workload-cluster
 create-workload-cluster-with-network-packer: kustomize envsubst ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
 	$(ENVSUBST) -i templates/cluster-template-packer-hcloud-network.yaml | kubectl apply -f -
-	
-	# Wait for the kubeconfig to become available.
-	${TIMEOUT} 5m bash -c "while ! kubectl get secrets | grep $(CLUSTER_NAME)-kubeconfig; do sleep 1; done"
-	# Get kubeconfig and store it locally.
-	kubectl get secrets $(CLUSTER_NAME)-kubeconfig -o json | jq -r .data.value | base64 --decode > $(CAPH_WORKER_CLUSTER_KUBECONFIG)
-	${TIMEOUT} 15m bash -c "while ! kubectl --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) get nodes | grep master; do sleep 1; done"
-
-	# Deploy cilium
-	helm repo add cilium https://helm.cilium.io/
-	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install cilium cilium/cilium --version 1.10.5 \
-  	--namespace kube-system \
-	-f templates/cilium/cilium.yaml
-
-	# Deploy HCloud Cloud Controller Manager
-	helm repo add syself https://charts.syself.com
-	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hcloud --version 1.0.2 \
-	--namespace kube-system \
-	--set secret.name=hetzner \
-	--set secret.tokenKeyName=hcloud \
-	--set privateNetwork.enabled=true
-
-	@echo 'run "kubectl --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) ..." to work with the new target cluster'
+	$(MAKE) wait-and-get-secret
+	$(MAKE) install-manifests-network
 
 create-workload-cluster-with-network: kustomize envsubst ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
 	$(ENVSUBST) -i templates/cluster-template-hcloud-network.yaml | kubectl apply -f -
-	
-	# Wait for the kubeconfig to become available.
-	${TIMEOUT} 5m bash -c "while ! kubectl get secrets | grep $(CLUSTER_NAME)-kubeconfig; do sleep 1; done"
-	# Get kubeconfig and store it locally.
-	kubectl get secrets $(CLUSTER_NAME)-kubeconfig -o json | jq -r .data.value | base64 --decode > $(CAPH_WORKER_CLUSTER_KUBECONFIG)
-	${TIMEOUT} 15m bash -c "while ! kubectl --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) get nodes | grep master; do sleep 1; done"
-
-	# Deploy cilium
-	helm repo add cilium https://helm.cilium.io/
-	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install cilium cilium/cilium --version 1.10.5 \
-  	--namespace kube-system \
-	-f templates/cilium/cilium.yaml
-
-	# Deploy HCloud Cloud Controller Manager
-	helm repo add syself https://charts.syself.com
-	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hcloud --version 1.0.2 \
-	--namespace kube-system \
-	--set secret.name=hetzner \
-	--set secret.tokenKeyName=hcloud \
-	--set privateNetwork.enabled=true
-
-	@echo 'run "kubectl --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) ..." to work with the new target cluster'
-
+	$(MAKE) wait-and-get-secret
+	$(MAKE) install-manifests-network
 
 create-workload-cluster-packer: kustomize envsubst ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
 	$(ENVSUBST) -i templates/cluster-template-packer.yaml | kubectl apply -f -
-	
-	# Wait for the kubeconfig to become available.
-	${TIMEOUT} 5m bash -c "while ! kubectl get secrets | grep $(CLUSTER_NAME)-kubeconfig; do sleep 1; done"
-	# Get kubeconfig and store it locally.
-	kubectl get secrets $(CLUSTER_NAME)-kubeconfig -o json | jq -r .data.value | base64 --decode > $(CAPH_WORKER_CLUSTER_KUBECONFIG)
-	${TIMEOUT} 15m bash -c "while ! kubectl --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) get nodes | grep master; do sleep 1; done"
-
-	# Deploy cilium
-	helm repo add cilium https://helm.cilium.io/
-	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install cilium cilium/cilium --version 1.10.5 \
-  	--namespace kube-system \
-	-f templates/cilium/cilium.yaml
-
-	# Deploy HCloud Cloud Controller Manager
-	helm repo add syself https://charts.syself.com
-	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hcloud --version 1.0.2 \
-	--namespace kube-system \
-	--set secret.name=hetzner \
-	--set secret.tokenKeyName=hcloud \
-	--set privateNetwork.enabled=false
-
-	@echo 'run "kubectl --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) ..." to work with the new target cluster'
+	$(MAKE) wait-and-get-secret
+	$(MAKE) install-manifests
 
 create-workload-cluster: kustomize envsubst ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
 	$(ENVSUBST) -i templates/cluster-template.yaml | kubectl apply -f -
-	
-	# Wait for the kubeconfig to become available.
-	${TIMEOUT} 5m bash -c "while ! kubectl get secrets | grep $(CLUSTER_NAME)-kubeconfig; do sleep 1; done"
-	# Get kubeconfig and store it locally.
-	kubectl get secrets $(CLUSTER_NAME)-kubeconfig -o json | jq -r .data.value | base64 --decode > $(CAPH_WORKER_CLUSTER_KUBECONFIG)
-	${TIMEOUT} 15m bash -c "while ! kubectl --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) get nodes | grep master; do sleep 1; done"
-
-	# Deploy cilium
-	helm repo add cilium https://helm.cilium.io/
-	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install cilium cilium/cilium --version 1.10.5 \
-  	--namespace kube-system \
-	-f templates/cilium/cilium.yaml
-
-	# Deploy HCloud Cloud Controller Manager
-	helm repo add syself https://charts.syself.com
-	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hcloud --version 1.0.2 \
-	--namespace kube-system \
-	--set secret.name=hetzner \
-	--set secret.tokenKeyName=hcloud \
-	--set privateNetwork.enabled=false
-
-	@echo 'run "kubectl --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) ..." to work with the new target cluster'
-
+	$(MAKE) wait-and-get-secret
+	$(MAKE) install-manifests
 
 move-to-workload-cluster:
 	clusterctl init --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) --core cluster-api --bootstrap kubeadm --control-plane kubeadm --infrastructure hetzner
@@ -587,28 +551,8 @@ move-to-workload-cluster:
 create-talos-workload-cluster-packer: kustomize envsubst ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
 	$(ENVSUBST) -i templates/cluster-template-packer-talos.yaml | kubectl apply -f -
-	
-	# Wait for the kubeconfig to become available.
-	${TIMEOUT} 5m bash -c "while ! kubectl get secrets | grep $(CLUSTER_NAME)-kubeconfig; do sleep 1; done"
-	# Get kubeconfig and store it locally.
-	kubectl get secrets $(CLUSTER_NAME)-kubeconfig -o json | jq -r .data.value | base64 --decode > $(CAPH_WORKER_CLUSTER_KUBECONFIG)
-	${TIMEOUT} 15m bash -c "while ! kubectl --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) get nodes | grep master; do sleep 1; done"
-
-	# Deploy cilium
-	helm repo add cilium https://helm.cilium.io/
-	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install cilium cilium/cilium --version 1.10.5 \
-  	--namespace kube-system \
-	-f templates/cilium/cilium.yaml
-
-	# Deploy HCloud Cloud Controller Manager
-	helm repo add syself https://charts.syself.com
-	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hcloud --version 1.0.2 \
-	--namespace kube-system \
-	--set secret.name=hetzner \
-	--set secret.tokenKeyName=hcloud \
-	--set privateNetwork.enabled=false
-
-	@echo 'run "kubectl --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) ..." to work with the new target cluster'
+	$(MAKE) wait-and-get-secret
+	$(MAKE) install-manifests
 
 .PHONY: delete-workload-cluster
 delete-workload-cluster: ## Deletes the example workload Kubernetes cluster
@@ -617,6 +561,11 @@ delete-workload-cluster: ## Deletes the example workload Kubernetes cluster
 	kubectl patch cluster $(CLUSTER_NAME) --type=merge -p '{"spec":{"paused": "false"}}'
 
 ##@ Management Cluster
+
+create-mgt-cluster: cluster ## Start a mgt-cluster with the latest version of all capi components and the hetzner provider. Usage: MAKE create-mgt-cluster HCLOUD=<hcloud-token>
+	clusterctl init --core cluster-api --bootstrap kubeadm --control-plane kubeadm --infrastructure hetzner
+	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD)
+	kubectl patch secret hetzner -p '{"metadata":{"labels":{"clusterctl.cluster.x-k8s.io/move":""}}}'
 
 .PHONY: cluster
 cluster: ## Creates kind-dev Cluster
