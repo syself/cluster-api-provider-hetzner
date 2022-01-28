@@ -20,34 +20,30 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // HetznerBareMetalMachineTemplateSpec defines the desired state of HetznerBareMetalMachineTemplate
 type HetznerBareMetalMachineTemplateSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	Template HetznerBareMetalMachineTemplateResource `json:"template"`
 
-	// Foo is an example field of HetznerBareMetalMachineTemplate. Edit hetznerbaremetalmachinetemplate_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// When set to True, HetznerBaremetalMachine controller will
+	// pick the same pool of BMHs' that were released during the upgrade operation.
+	// +kubebuilder:default=false
+	// +optional
+	NodeReuse bool `json:"nodeReuse"`
 }
 
-// HetznerBareMetalMachineTemplateStatus defines the observed state of HetznerBareMetalMachineTemplate
-type HetznerBareMetalMachineTemplateStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-}
-
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time duration since creation of HetznerBareMetalMachineTemplate"
+// +kubebuilder:resource:path=hetznerbaremetalmachinetemplates,scope=Namespaced,categories=cluster-api,shortName=hbmt;hbmmtemplate;hetznerbaremetalmachinetemplates;hetznerbaremetalmachinetemplate
+// +kubebuilder:storageversion
 // HetznerBareMetalMachineTemplate is the Schema for the hetznerbaremetalmachinetemplates API
 type HetznerBareMetalMachineTemplate struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   HetznerBareMetalMachineTemplateSpec   `json:"spec,omitempty"`
-	Status HetznerBareMetalMachineTemplateStatus `json:"status,omitempty"`
+	// +optional
+	Spec HetznerBareMetalMachineTemplateSpec `json:"spec,omitempty"`
 }
 
 //+kubebuilder:object:root=true
@@ -55,8 +51,15 @@ type HetznerBareMetalMachineTemplate struct {
 // HetznerBareMetalMachineTemplateList contains a list of HetznerBareMetalMachineTemplate
 type HetznerBareMetalMachineTemplateList struct {
 	metav1.TypeMeta `json:",inline"`
+	// +optional
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []HetznerBareMetalMachineTemplate `json:"items"`
+}
+
+// HetznerBareMetalMachineTemplateResource describes the data needed to create a HetznerBareMetalMachine from a template
+type HetznerBareMetalMachineTemplateResource struct {
+	// Spec is the specification of the desired behavior of the machine.
+	Spec HetznerBareMetalMachineSpec `json:"spec"`
 }
 
 func init() {
