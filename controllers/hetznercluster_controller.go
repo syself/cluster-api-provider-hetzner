@@ -57,14 +57,12 @@ import (
 // HetznerClusterReconciler reconciles a HetznerCluster object.
 type HetznerClusterReconciler struct {
 	client.Client
-	Log                         logr.Logger
-	Scheme                      *runtime.Scheme
-	WatchFilterValue            string
-	targetClusterManagersStopCh map[types.NamespacedName]chan struct{}
-	targetClusterManagersLock   sync.Mutex
-
-	EnableLeaderElection bool
-	WatchNamespace       string
+	Log                            logr.Logger
+	Scheme                         *runtime.Scheme
+	WatchFilterValue               string
+	targetClusterManagersStopCh    map[types.NamespacedName]chan struct{}
+	targetClusterManagersLock      sync.Mutex
+	TargetClusterManagersWaitGroup *sync.WaitGroup
 }
 
 //+kubebuilder:rbac:groups=cluster.x-k8s.io,resources=clusters;clusters/status,verbs=get;list;watch
@@ -374,8 +372,12 @@ func (r *HetznerClusterReconciler) reconcileTargetClusterManager(ctx context.Con
 
 		ctx, cancel := context.WithCancel(ctx)
 
+		r.TargetClusterManagersWaitGroup.Add(1)
+
 		// Start manager
 		go func() {
+			defer r.TargetClusterManagersWaitGroup.Done()
+
 			if err := m.Start(ctx); err != nil {
 				clusterScope.Error(err, "failed to start a targetClusterManager")
 			} else {
@@ -430,12 +432,9 @@ func (r *HetznerClusterReconciler) newTargetClusterManager(ctx context.Context, 
 	clusterMgr, err := ctrl.NewManager(
 		restConfig,
 		ctrl.Options{
-			Scheme:                     scheme,
-			MetricsBindAddress:         "0",
-			LeaderElection:             r.EnableLeaderElection,
-			LeaderElectionID:           fmt.Sprintf("%s.%s.hetzner.cluster.x-k8s.io", hetznerCluster.Name, hetznerCluster.Namespace),
-			LeaderElectionResourceLock: "leases",
-			Namespace:                  r.WatchNamespace,
+			Scheme:             scheme,
+			MetricsBindAddress: "0",
+			LeaderElection:     false,
 		},
 	)
 	if err != nil {
