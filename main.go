@@ -20,6 +20,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"sync"
 
 	// +kubebuilder:scaffold:imports
 	infrastructurev1beta1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -96,12 +97,13 @@ func main() {
 	// Setup the context that's going to be used in controllers and for the manager.
 	ctx := ctrl.SetupSignalHandler()
 
+	var wg sync.WaitGroup
+	wg.Add(1)
 	if err = (&controllers.HetznerClusterReconciler{
-		Client:               mgr.GetClient(),
-		WatchFilterValue:     watchFilterValue,
-		Scheme:               mgr.GetScheme(),
-		EnableLeaderElection: enableLeaderElection,
-		WatchNamespace:       watchNamespace,
+		Client:                         mgr.GetClient(),
+		WatchFilterValue:               watchFilterValue,
+		Scheme:                         mgr.GetScheme(),
+		TargetClusterManagersWaitGroup: &wg,
 	}).SetupWithManager(ctx, mgr, controller.Options{}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HetznerCluster")
 		os.Exit(1)
@@ -147,4 +149,8 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+
+	wg.Done()
+	// Wait for all target cluster managers to gracefully shut down.
+	wg.Wait()
 }
