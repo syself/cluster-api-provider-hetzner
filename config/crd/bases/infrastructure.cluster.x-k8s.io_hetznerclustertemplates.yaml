@@ -258,18 +258,23 @@ spec:
                       sshKeys:
                         description: define cluster wide SSH keys. Valid values are
                           a valid SSH key name, or a valid ID.
-                        items:
-                          description: SSHKey defines the SSHKey.
-                          properties:
-                            id:
-                              type: integer
-                            name:
-                              type: string
-                          type: object
-                        type: array
+                        properties:
+                          hcloud:
+                            items:
+                              description: HCloudSSHKey defines the SSHKey for HCloud.
+                                Could be the name or an ID.
+                              properties:
+                                id:
+                                  type: integer
+                                name:
+                                  type: string
+                              type: object
+                            type: array
+                        type: object
                     required:
                     - controlPlaneRegions
                     - hetznerSecretRef
+                    - sshKeys
                     type: object
                 required:
                 - spec

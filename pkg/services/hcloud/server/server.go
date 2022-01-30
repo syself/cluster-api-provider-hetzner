@@ -329,7 +329,7 @@ func (s *Service) getServerImage(ctx context.Context) (*hcloud.Image, error) {
 func (s *Service) getSSHKeys(ctx context.Context) ([]*hcloud.SSHKey, error) {
 	sshKeySpecs := s.scope.HCloudMachine.Spec.SSHKeys
 	if len(sshKeySpecs) == 0 {
-		sshKeySpecs = s.scope.HetznerCluster.Spec.SSHKeys
+		sshKeySpecs = s.scope.HetznerCluster.Spec.SSHKeys.HCloud
 	}
 	sshKeys, _, err := s.scope.HCloudClient().ListSSHKeys(ctx, hcloud.SSHKeyListOpts{})
 	if err != nil {
