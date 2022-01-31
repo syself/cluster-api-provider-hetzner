@@ -35,9 +35,6 @@ settings = {
         "HCLOUD_NODE_MACHINE_TYPE": "cpx31",
         "CLUSTER_NAME": "test",
     },
-    "extra_args": {
-        "hetzner": ["--log-level=debug"],
-    },
     "talos-bootstrap": "false",
 }
 
