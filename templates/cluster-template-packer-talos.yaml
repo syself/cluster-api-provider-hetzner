@@ -37,7 +37,8 @@ spec:
   - name: md-0
     type: spread
   sshKeys:
-  - name: "${SSH_KEY}"
+    hcloud:
+    - name: "${SSH_KEY}"
   hetznerSecretRef:
     name: hetzner
     key:

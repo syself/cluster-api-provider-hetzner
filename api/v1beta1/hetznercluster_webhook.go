@@ -73,7 +73,9 @@ func (r *HetznerCluster) ValidateCreate() error {
 
 	// Check whether regions are all in same network zone
 	if !r.Spec.HCloudNetwork.NetworkEnabled {
-		allErrs = append(allErrs, isNetworkZoneSameForAllRegions(r.Spec.ControlPlaneRegions, nil))
+		if err := isNetworkZoneSameForAllRegions(r.Spec.ControlPlaneRegions, nil); err != nil {
+			allErrs = append(allErrs, err)
+		}
 	}
 
 	for _, err := range checkHCloudSSHKeys(r.Spec.SSHKeys.HCloud) {
@@ -127,7 +129,9 @@ func (r *HetznerCluster) ValidateUpdate(old runtime.Object) error {
 			defaultNetworkZone = &str
 		}
 
-		allErrs = append(allErrs, isNetworkZoneSameForAllRegions(r.Spec.ControlPlaneRegions, defaultNetworkZone))
+		if err := isNetworkZoneSameForAllRegions(r.Spec.ControlPlaneRegions, defaultNetworkZone); err != nil {
+			allErrs = append(allErrs, err)
+		}
 	}
 
 	// Load balancer region and port are immutable
