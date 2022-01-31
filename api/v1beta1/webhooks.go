@@ -17,6 +17,8 @@ limitations under the License.
 package v1beta1
 
 import (
+	"fmt"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -32,4 +34,14 @@ func aggregateObjErrors(gk schema.GroupKind, name string, allErrs field.ErrorLis
 		name,
 		allErrs,
 	)
+}
+
+func checkHCloudSSHKeys(sshKeys []HCloudSSHKey) []error {
+	var errs []error
+	for i, sshKey := range sshKeys {
+		if sshKey.Name == nil && sshKey.ID == nil {
+			errs = append(errs, fmt.Errorf("field %v has neither id nor name", i))
+		}
+	}
+	return errs
 }

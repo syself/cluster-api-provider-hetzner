@@ -29,10 +29,17 @@ const (
 	LoadBalancerAlgorithmTypeLeastConnections = LoadBalancerAlgorithmType("least_connections")
 )
 
-// SSHKey defines the SSHKey.
-type SSHKey struct {
+// SSHKeys defines the global SSHKeys HetznerCluster.
+type SSHKeys struct {
+	HCloud []HCloudSSHKey `json:"hcloud,omitempty"`
+}
+
+// HCloudSSHKey defines the SSHKey for HCloud. Could be the name or an ID.
+type HCloudSSHKey struct {
+	// +optional
 	Name *string `json:"name,omitempty"`
-	ID   *int    `json:"id,omitempty"`
+	// +optional
+	ID *int `json:"id,omitempty"`
 }
 
 // HCloudMachineType defines the HCloud Machine type.

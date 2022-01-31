@@ -17,7 +17,6 @@ limitations under the License.
 package v1beta1
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 
@@ -69,14 +68,24 @@ var _ webhook.Validator = &HetznerCluster{}
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
 func (r *HetznerCluster) ValidateCreate() error {
 	hetznerclusterlog.V(1).Info("validate create", "name", r.Name)
+
+	var allErrs field.ErrorList
+
 	// Check whether regions are all in same network zone
 	if !r.Spec.HCloudNetwork.NetworkEnabled {
-		return isNetworkZoneSameForAllRegions(r.Spec.ControlPlaneRegions, nil)
+		allErrs = append(allErrs, isNetworkZoneSameForAllRegions(r.Spec.ControlPlaneRegions, nil))
 	}
-	return nil
+
+	for _, err := range checkHCloudSSHKeys(r.Spec.SSHKeys.HCloud) {
+		allErrs = append(allErrs,
+			field.Invalid(field.NewPath("spec", "sshKeys", "hcloud"), r.Spec.SSHKeys.HCloud, err.Error()),
+		)
+	}
+
+	return aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
 }
 
-func isNetworkZoneSameForAllRegions(regions []Region, defaultNetworkZone *string) error {
+func isNetworkZoneSameForAllRegions(regions []Region, defaultNetworkZone *string) *field.Error {
 	if len(regions) == 0 {
 		return nil
 	}
@@ -87,7 +96,7 @@ func isNetworkZoneSameForAllRegions(regions []Region, defaultNetworkZone *string
 	}
 	for _, region := range regions {
 		if regionNetworkZoneMap[string(region)] != defaultNZ {
-			return errors.New("regions are not in one network zone")
+			return field.Invalid(field.NewPath("spec", "controlPlaneRegions"), regions, "regions are not in one network zone")
 		}
 	}
 	return nil
@@ -117,11 +126,8 @@ func (r *HetznerCluster) ValidateUpdate(old runtime.Object) error {
 			str := regionNetworkZoneMap[string(oldC.Spec.ControlPlaneRegions[0])]
 			defaultNetworkZone = &str
 		}
-		if err := isNetworkZoneSameForAllRegions(r.Spec.ControlPlaneRegions, defaultNetworkZone); err != nil {
-			allErrs = append(allErrs,
-				field.Invalid(field.NewPath("spec", "controlPlaneRegions"), r.Spec.ControlPlaneRegions, err.Error()),
-			)
-		}
+
+		allErrs = append(allErrs, isNetworkZoneSameForAllRegions(r.Spec.ControlPlaneRegions, defaultNetworkZone))
 	}
 
 	// Load balancer region and port are immutable
