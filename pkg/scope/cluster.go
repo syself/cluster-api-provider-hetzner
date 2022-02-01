@@ -42,7 +42,7 @@ type ClusterScopeParams struct {
 
 	HCloudClientFactory HCloudClientFactory
 	Client              client.Client
-	Logger              logr.Logger
+	Logger              *logr.Logger
 	Cluster             *clusterv1.Cluster
 	HetznerCluster      *infrav1.HetznerCluster
 }
@@ -57,7 +57,8 @@ func NewClusterScope(ctx context.Context, params ClusterScopeParams) (*ClusterSc
 		return nil, errors.New("failed to generate new scope from nil HetznerCluster")
 	}
 	if params.Logger == nil {
-		params.Logger = klogr.New()
+		logger := klogr.New()
+		params.Logger = &logger
 	}
 
 	// setup client factory if nothing was set
@@ -103,7 +104,7 @@ func NewClusterScope(ctx context.Context, params ClusterScopeParams) (*ClusterSc
 
 // ClusterScope defines the basic context for an actuator to operate upon.
 type ClusterScope struct {
-	logr.Logger
+	*logr.Logger
 	Client       client.Client
 	patchHelper  *patch.Helper
 	hcloudClient HCloudClient

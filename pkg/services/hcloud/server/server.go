@@ -25,7 +25,6 @@ import (
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
 	"github.com/pkg/errors"
-	"github.com/prometheus/common/log"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
@@ -197,6 +196,7 @@ func (s *Service) reconcileNetworkAttachment(ctx context.Context, server *hcloud
 }
 
 func (s *Service) createServer(ctx context.Context, failureDomain string) (*hcloud.Server, error) {
+	log := ctrl.LoggerFrom(ctx)
 	// get userData
 	userData, err := s.scope.GetRawBootstrapData(ctx)
 	if err != nil {
