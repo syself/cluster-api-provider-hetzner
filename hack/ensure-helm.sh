@@ -19,7 +19,8 @@ set -o nounset
 set -o pipefail
 
 PATH_BIN="/usr/local/bin"
-MINIMUM_HELM_VERSION=v3.7.1
+# https://github.com/helm/helm/releases
+MINIMUM_HELM_VERSION=v3.8.0
 
 
 

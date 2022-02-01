@@ -17,8 +17,8 @@
 set -o errexit
 set -o nounset
 set -o pipefail
-
-MINIMUM_HCLOUD_VERSION=1.28.1
+# https://github.com/hetznercloud/cli/releases
+MINIMUM_HCLOUD_VERSION=1.29.0
 
 
 

@@ -17,8 +17,8 @@
 set -o errexit
 set -o nounset
 set -o pipefail
-
-MINIMUM_CTLPTL_VERSION=0.5.9
+# https://github.com/tilt-dev/ctlptl/releases
+MINIMUM_CTLPTL_VERSION=0.7.4
 
 
 

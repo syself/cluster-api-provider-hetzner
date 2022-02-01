@@ -18,7 +18,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-MINIMUM_KUBECTL_VERSION=v1.22.0
+MINIMUM_KUBECTL_VERSION=v1.23.0
 
 
 

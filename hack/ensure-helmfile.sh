@@ -18,7 +18,8 @@ set -o errexit
 set -o nounset
 set -o pipefail
 PATH_BIN="/usr/local/bin"
-MINIMUM_HELMFILE_VERSION=v0.141.0
+# https://github.com/roboll/helmfile/releases
+MINIMUM_HELMFILE_VERSION=v0.143.0
 
 
 

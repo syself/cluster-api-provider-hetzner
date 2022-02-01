@@ -17,7 +17,7 @@
 set -o errexit
 set -o nounset
 set -o pipefail
-VERSION="v0.7.2"
+VERSION="v0.8.0"
 
 # disabled lints
 disabled=(
