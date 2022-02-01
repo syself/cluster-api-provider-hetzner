@@ -3,7 +3,7 @@
     "hcloud_token": "{{env `HCLOUD_TOKEN`}}",
     "scripts": "{{template_dir}}/scripts",
     "os": "fedora-35",
-    "image-name": "test-image",
+    "image-name": "1.23.3-fedora-35",
     "version": "{{isotime \"2006-01-02-1504\"}}"
   },
   "sensitive-variables": ["hcloud_token"],
