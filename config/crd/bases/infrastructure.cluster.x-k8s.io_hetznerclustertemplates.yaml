@@ -261,12 +261,13 @@ spec:
                         properties:
                           hcloud:
                             items:
-                              description: HCloudSSHKey defines the SSHKey for HCloud.
-                                Could be the name or an ID.
+                              description: SSHKey defines the SSHKey for HCloud.
                               properties:
-                                id:
-                                  type: integer
+                                fingerprint:
+                                  description: Fingerprint of SSH key - added by controller
+                                  type: string
                                 name:
+                                  description: Name of SSH key
                                   type: string
                               type: object
                             type: array

@@ -61,12 +61,6 @@ func (r *HCloudMachine) ValidateCreate() error {
 	hcloudmachinelog.V(1).Info("validate create", "name", r.Name)
 	var allErrs field.ErrorList
 
-	for _, err := range checkHCloudSSHKeys(r.Spec.SSHKeys) {
-		allErrs = append(allErrs,
-			field.Invalid(field.NewPath("spec", "sshKeys"), r.Spec.SSHKeys, err.Error()),
-		)
-	}
-
 	return aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
 }
 
