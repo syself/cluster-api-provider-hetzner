@@ -18,7 +18,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-
+# https://github.com/kubernetes-sigs/kind/releases
 MINIMUM_KIND_VERSION=v0.11.1
 
 

@@ -17,8 +17,8 @@
 set -o errexit
 set -o nounset
 set -o pipefail
-
-MINIMUM_PACKER_VERSION=1.7.7
+# https://github.com/hashicorp/packer/releases
+MINIMUM_PACKER_VERSION=1.7.9
 
 
 

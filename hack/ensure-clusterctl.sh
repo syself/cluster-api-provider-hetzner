@@ -17,8 +17,8 @@
 set -o errexit
 set -o nounset
 set -o pipefail
-
-MINIMUM_CLUSTERCTL_VERSION=1.0.2
+# https://github.com/kubernetes-sigs/cluster-api/releases
+MINIMUM_CLUSTERCTL_VERSION=1.0.3
 
 
 

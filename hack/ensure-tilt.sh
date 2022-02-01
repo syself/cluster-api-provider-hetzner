@@ -17,8 +17,8 @@
 set -o errexit
 set -o nounset
 set -o pipefail
-
-MINIMUM_TILT_VERSION=0.23.8
+# https://github.com/tilt-dev/tilt/releases
+MINIMUM_TILT_VERSION=0.23.9
 
 
 check_tilt_installed() {
