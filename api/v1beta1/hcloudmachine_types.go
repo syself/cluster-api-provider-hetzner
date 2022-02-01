@@ -46,7 +46,7 @@ type HCloudMachineSpec struct {
 
 	// define Machine specific SSH keys, overrides cluster wide SSH keys
 	// +optional
-	SSHKeys []HCloudSSHKey `json:"sshKeys,omitempty"`
+	SSHKeys []SSHKey `json:"sshKeys,omitempty"`
 
 	// +optional
 	PlacementGroupName *string `json:"placementGroupName,omitempty"`

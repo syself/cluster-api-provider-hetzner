@@ -42,7 +42,7 @@ type HetznerClusterSpec struct {
 	ControlPlaneRegions []Region `json:"controlPlaneRegions"`
 
 	// define cluster wide SSH keys. Valid values are a valid SSH key name, or a valid ID.
-	SSHKeys SSHKeys `json:"sshKeys"`
+	SSHKeys HetznerSSHKeys `json:"sshKeys"`
 	// ControlPlaneEndpoint represents the endpoint used to communicate with the control plane.
 	// +optional
 	ControlPlaneEndpoint *clusterv1.APIEndpoint `json:"controlPlaneEndpoint"`

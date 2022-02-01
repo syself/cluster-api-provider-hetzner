@@ -337,17 +337,11 @@ func (s *Service) getSSHKeys(ctx context.Context) ([]*hcloud.SSHKey, error) {
 	}
 	resp := make([]*hcloud.SSHKey, 0, len(sshKeys))
 	for _, sshKey := range sshKeys {
-		var match bool
 		for _, sshKeySpec := range sshKeySpecs {
-			if sshKeySpec.Name != nil && *sshKeySpec.Name == sshKey.Name {
-				match = true
+			if sshKeySpec.Name == sshKey.Name {
+				resp = append(resp, sshKey)
+				break
 			}
-			if sshKeySpec.ID != nil && *sshKeySpec.ID == sshKey.ID {
-				match = true
-			}
-		}
-		if match {
-			resp = append(resp, sshKey)
 		}
 	}
 	return resp, nil

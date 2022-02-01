@@ -78,12 +78,6 @@ func (r *HetznerCluster) ValidateCreate() error {
 		}
 	}
 
-	for _, err := range checkHCloudSSHKeys(r.Spec.SSHKeys.HCloud) {
-		allErrs = append(allErrs,
-			field.Invalid(field.NewPath("spec", "sshKeys", "hcloud"), r.Spec.SSHKeys.HCloud, err.Error()),
-		)
-	}
-
 	return aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
 }
 
