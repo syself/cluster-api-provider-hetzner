@@ -85,7 +85,7 @@ export CLUSTER_NAME="my-cluster" \
 export REGION="fsn1" \
 export CONTROL_PLANE_MACHINE_COUNT=3 \
 export WORKER_MACHINE_COUNT=3 \
-export KUBERNETES_VERSION=1.22.4 \
+export KUBERNETES_VERSION=1.23.4 \
 export HCLOUD_CONTROL_PLANE_MACHINE_TYPE=cpx31 \
 export HCLOUD_NODE_MACHINE_TYPE=cpx31 
 ```
@@ -132,12 +132,12 @@ Generates a YAML file named my-cluster.yaml with a predefined list of Cluster AP
 See also `clusterctl generate cluster --help`.
 
 ```shell
-clusterctl generate cluster my-cluster --kubernetes-version v1.22.4 --control-plane-machine-count=3 --worker-machine-count=3  > my-cluster.yaml
+clusterctl generate cluster my-cluster --kubernetes-version v1.23.4 --control-plane-machine-count=3 --worker-machine-count=3  > my-cluster.yaml
 ```
 
 To use for example the hcloud network use a flavor:
 ```shell
-clusterctl generate cluster my-cluster --kubernetes-version v1.22.4 --control-plane-machine-count=3 --worker-machine-count=3  --flavor hcloud-network > my-cluster.yaml
+clusterctl generate cluster my-cluster --kubernetes-version v1.23.4 --control-plane-machine-count=3 --worker-machine-count=3  --flavor hcloud-network > my-cluster.yaml
 ```
 
 For a full list of flavors please check out the [release page](https://github.com/syself/cluster-api-provider-hetzner/releases) all cluster-templates starts with `cluster-template-`. The flavor name is the suffix.

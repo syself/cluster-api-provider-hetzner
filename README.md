@@ -31,8 +31,9 @@ Check out the [Quickstart Guide](docs/topics/quickstart.md) to create your first
 * Support for single and multi-node control plane clusters
 * Support for HCloud Placement groups
 * cloud-init based nodes bootstrapping
+* complete day 2 operations - updating nodes, kubernetes versions
 * CSR Support for approving kubelet-serving certificate signing requests
-* Hetzner Dedicated Server *comming soon*
+* Hetzner Dedicated Server *coming soon*
 
 ---
 
@@ -49,6 +50,7 @@ This provider's versions are able to install and manage the following versions o
 |  | Hetzner Provider `v1.0.x` |
 |---|---|
 | Kubernetes 1.22.x | ✓ |
+| Kubernetes 1.23.x | ✓ |
 
 Test status:
 
@@ -77,11 +79,11 @@ maintainers and community, would love your suggestions, contributions, and help!
 Also, the maintainers can be contacted at any time to learn more about how to get
 involved.
 
-To set up your environment checkout the development guide.
+To set up your environment try out the development guide.
 
 In the interest of getting more new people involved, we tag issues with
 [`good first issue`][good_first_issue].
-These are typically issues that have smaller scope but are good ways to start
+These are typically issues that have a smaller scope but are good ways to start
 to get acquainted with the codebase.
 
 We also encourage ALL active community participants to act as if they are
