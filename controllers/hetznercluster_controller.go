@@ -110,7 +110,7 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// Create the scope.
 	clusterScope, err := scope.NewClusterScope(ctx, scope.ClusterScopeParams{
 		Client:         r.Client,
-		Logger:         log,
+		Logger:         &log,
 		Cluster:        cluster,
 		HetznerCluster: hetznerCluster,
 	})

@@ -108,7 +108,7 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	machineScope, err := scope.NewMachineScope(ctx, scope.MachineScopeParams{
 		ClusterScopeParams: scope.ClusterScopeParams{
 			Client:         r.Client,
-			Logger:         log,
+			Logger:         &log,
 			Cluster:        cluster,
 			HetznerCluster: hetznerCluster,
 		},
