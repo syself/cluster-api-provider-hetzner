@@ -44,7 +44,7 @@ Please refer to the image-builder documentation in order to get the latest requi
 
 In HCloud the following ways are available:
 1. Using an Image from Hetzner and installing required Software via cloud-init (pre-kubeadm/post-kubeadm) commands. You only need to set the right image-name under spec.template.spec.imageName in the HCloudMachineTemplate.
-2. Building a custom image and snapshoting it. For example via packer. Here it's important that a snapshot label is created with the key: "caph-image-name". The value needs also to be set under spec.template.spec.imageName in the HCloudMachineTemplate.
+2. Building a custom image and snapshotting it. For example via packer. Here it's important that a snapshot label is created with the key: "caph-image-name". The value needs also to be set under spec.template.spec.imageName in the HCloudMachineTemplate.
 
 To develop/build an image with packer do:
 
@@ -52,10 +52,10 @@ To develop/build an image with packer do:
 export HCLOUD_TOKEN=<your-token>
 
 ## Only build
-packer build templates/node-image/test-image/image.json
+packer build templates/node-image/1.23.3-fedora-35/image.json
 
 ## Debug and ability to ssh into the created server
-packer build --debug --on-error=abort templates/node-image/test-image/image.json
+packer build --debug --on-error=abort templates/node-image/1.23.3-fedora-35/image.json
 ```
 
 It's recommended to use cx21 server type as this is more powerful than cx11 and Kubernetes usual doesn't run well on only 1vCpu. Using this server type will use 40GB of SSD. This means that we cannot boot machines from this snapshot with a disk with less than 40GB.
@@ -79,7 +79,7 @@ To pin a new dependecy:
 Makefile targets and scripts are offered to work with go modules:
 
 - `make modules` runs `go mod tidy` to ensure proper vendoring.
-- `make check-go` checks that the Go version and enviornment variables are properly set.
+- `make check-go` checks that the Go version and environment variables are properly set.
 
 ### Setting up the environment
 
@@ -116,14 +116,14 @@ Other needed binaries as kubebuilder are downloaded on-demand via the go-get-too
 
 Provider Integration development requires a lot of iteration, and the “build, tag, push, update deployment” workflow can be very tedious. Tilt makes this process much simpler by watching for updates, then automatically building and deploying them.
 
-Both of the [Tilt](https://tilt.dev) setups below will get you started developing CAPH in a local kind cluster.The main difference is the number of components you will build from source and the scope of the changes you'd like to make. If you only want to make changes in CAPH, then follow [Tilt in CAPH](#tilt-for-dev-in-CAPH).
+Both of the [Tilt](https://tilt.dev) setups below will get you started developing CAPH in a local kind cluster. The main difference is the number of components you will build from source and the scope of the changes you'd like to make. If you only want to make changes in CAPH, then follow [Tilt in CAPH](#tilt-for-dev-in-CAPH).
 
 This will save you from having to build all of the images for CAPI, which can take a while. If the scope of your development will span both CAPH and CAPI, then follow the [Tilt in CAPH and CAPI](#tilt-for-dev-in-both-CAPH-and-CAPI).
 
 #### Tilt for dev in CAPH
 
 If you want to develop in CAPH and get a local development cluster working quickly, this is the path for you.
-Of course there is also a legacy way to 
+Of course, there is also a legacy way to 
 
 >HCLOUD_TOKEN and SSH_KEY are mandadory to set. 
 
