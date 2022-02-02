@@ -22,7 +22,7 @@ spec:
   issuerRef:
     kind: Issuer
     name: selfsigned-issuer
-  secretName: caph-webhook-server-cert # this secret will not be prefixed, since it's not managed by kustomize
+  secretName: caph-webhook-server-cert  # this secret will not be prefixed, since it's not managed by kustomize
   subject:
     organizations:
-      - k8s-sig-cluster-lifecycle
+    - k8s-sig-cluster-lifecycle

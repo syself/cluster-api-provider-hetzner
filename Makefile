@@ -270,6 +270,9 @@ lint-fix: golang-ci-lint $(GOLANGCI_LINT) ## Lint the Go codebase and run auto-f
 format-tiltfile: ## Format the Tiltfile
 	./hack/verify-starlark.sh fix
 
+yamllint: ## Lints YAML Files
+	yamllint -c .github/linters/yaml-lint.yaml --strict .
+
 ALL_VERIFY_CHECKS = boilerplate shellcheck tiltfile modules gen
 
 .PHONY: verify

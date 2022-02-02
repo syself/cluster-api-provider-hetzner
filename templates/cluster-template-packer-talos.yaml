@@ -6,7 +6,7 @@ metadata:
 spec:
   clusterNetwork:
     pods:
-      cidrBlocks: 
+      cidrBlocks:
         - 10.244.0.0/16
   infrastructureRef:
     apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
@@ -24,7 +24,7 @@ metadata:
 spec:
   hcloudNetwork:
     enabled: false
-  controlPlaneRegions: 
+  controlPlaneRegions:
     - "${REGION}"
   controlPlaneEndpoint:
     host: ""
@@ -32,13 +32,13 @@ spec:
   controlPlaneLoadBalancer:
     region: "${REGION}"
   hcloudPlacementGroups:
-  - name: control-plane
-    type: spread
-  - name: md-0
-    type: spread
+    - name: control-plane
+      type: spread
+    - name: md-0
+      type: spread
   sshKeys:
     hcloud:
-    - name: "${SSH_KEY}"
+      - name: "${SSH_KEY}"
   hetznerSecretRef:
     name: hetzner
     key:
@@ -49,7 +49,7 @@ kind: TalosControlPlane
 metadata:
   name: ${CLUSTER_NAME}-controlplane
 spec:
-  replicas: ${CONTROL_PLANE_MACHINE_COUNT} 
+  replicas: ${CONTROL_PLANE_MACHINE_COUNT}
   version: v${KUBERNETES_VERSION}
   controlPlaneConfig:
     init:
@@ -59,7 +59,7 @@ spec:
         - op: add
           path: /cluster/externalCloudProvider
           value:
-            enabled: true   
+            enabled: true
     controlplane:
       generateType: controlplane
       talosVersion: v0.13
@@ -67,7 +67,7 @@ spec:
         - op: add
           path: /cluster/externalCloudProvider
           value:
-            enabled: true 
+            enabled: true
   infrastructureTemplate:
     kind: HCloudMachineTemplate
     apiVersion: infrastructure.cluster.x-k8s.io/v1beta1

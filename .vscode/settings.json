@@ -1,0 +1,10 @@
+{
+    "prettier.configPath": ".github/linters/.prettierrc.yaml",
+    "prettier.ignorePath": ".github/linters/.prettierignore",
+    "editor.bracketPairColorization.enabled": true,
+    "editor.guides.bracketPairs": true,
+    "editor.hover.delay": 1000,
+    "[yaml]": {
+        "editor.formatOnSave": true
+    }
+}

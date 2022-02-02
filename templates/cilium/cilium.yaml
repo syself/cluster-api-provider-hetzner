@@ -2,7 +2,6 @@ rollOutCiliumPods: true
 priorityClassName: "system-node-critical"
 bandwidthManager: true
 
-
 bpf:
   clockProbe: true
   waitForMount: true
@@ -14,25 +13,25 @@ enableCnpStatusUpdates: true
 enableXTSocketFallback: false
 
 hubble:
-    metrics:
-        enabled:
-            - dns:query;ignoreAAAA
-            - drop
-            - tcp
-            - flow
-            - icmp
-            - http
-    relay:
-        enabled: true
-        rollOutPods: true
-    ui:
-        enabled: true
-        rollOutPods: true
+  metrics:
+    enabled:
+      - dns:query;ignoreAAAA
+      - drop
+      - tcp
+      - flow
+      - icmp
+      - http
+  relay:
+    enabled: true
+    rollOutPods: true
+  ui:
+    enabled: true
+    rollOutPods: true
 ipam:
-    mode: "kubernetes"
+  mode: "kubernetes"
 
 kubeProxyReplacement: "partial"
 
 operator:
-    rollOutPods: true
-    priorityClassName: "system-node-critical"
+  rollOutPods: true
+  priorityClassName: "system-node-critical"

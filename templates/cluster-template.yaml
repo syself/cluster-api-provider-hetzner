@@ -6,7 +6,7 @@ metadata:
 spec:
   clusterNetwork:
     pods:
-      cidrBlocks: 
+      cidrBlocks:
         - 10.244.0.0/16
   infrastructureRef:
     apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
@@ -24,7 +24,7 @@ metadata:
 spec:
   hcloudNetwork:
     enabled: false
-  controlPlaneRegions: 
+  controlPlaneRegions:
     - "${REGION}"
   controlPlaneEndpoint:
     host: ""
@@ -32,13 +32,13 @@ spec:
   controlPlaneLoadBalancer:
     region: "${REGION}"
   hcloudPlacementGroups:
-  - name: control-plane
-    type: spread
-  - name: md-0
-    type: spread
+    - name: control-plane
+      type: spread
+    - name: md-0
+      type: spread
   sshKeys:
     hcloud:
-    - name: "${SSH_KEY}"
+      - name: "${SSH_KEY}"
   hetznerSecretRef:
     name: hetzner
     key:
@@ -96,9 +96,9 @@ spec:
           default-not-ready-toleration-seconds: "45"
           default-unreachable-toleration-seconds: "45"
         extraVolumes:
-        - name: encryption-provider
-          hostPath: /etc/kubernetes/encryption-provider.yaml
-          mountPath: /etc/kubernetes/encryption-provider.yaml
+          - name: encryption-provider
+            hostPath: /etc/kubernetes/encryption-provider.yaml
+            mountPath: /etc/kubernetes/encryption-provider.yaml
       controllerManager:
         extraArgs:
           cloud-provider: external
