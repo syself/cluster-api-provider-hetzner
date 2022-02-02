@@ -23,8 +23,6 @@ temp
 .idea
 *.swp
 *.swo
-*~
-
 .DS_Store
 
 # Tilt files.

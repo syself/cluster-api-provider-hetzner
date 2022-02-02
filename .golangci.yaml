@@ -46,28 +46,28 @@ linters-settings:
   importas:
     no-unaliased: true
     alias:
-      # Kubernetes
-      - pkg: k8s.io/api/core/v1
-        alias: corev1
-      - pkg: k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1
-        alias: apiextensionsv1
-      - pkg: k8s.io/apimachinery/pkg/apis/meta/v1
-        alias: metav1
-      - pkg: k8s.io/apimachinery/pkg/api/errors
-        alias: apierrors
-      - pkg: k8s.io/apimachinery/pkg/util/errors
-        alias: kerrors
-      # Controller Runtime
-      - pkg: sigs.k8s.io/controller-runtime
-        alias: ctrl
+    # Kubernetes
+    - pkg: k8s.io/api/core/v1
+      alias: corev1
+    - pkg: k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1
+      alias: apiextensionsv1
+    - pkg: k8s.io/apimachinery/pkg/apis/meta/v1
+      alias: metav1
+    - pkg: k8s.io/apimachinery/pkg/api/errors
+      alias: apierrors
+    - pkg: k8s.io/apimachinery/pkg/util/errors
+      alias: kerrors
+    # Controller Runtime
+    - pkg: sigs.k8s.io/controller-runtime
+      alias: ctrl
   staticcheck:
     go: "1.17"
   stylecheck:
     go: "1.17"
   gosec:
     excludes:
-    - G307 # Deferring unsafe method "Close" on type "\*os.File"
-    - G108 # Profiling endpoint is automatically exposed on /debug/pprof
+    - G307  # Deferring unsafe method "Close" on type "\*os.File"
+    - G108  # Profiling endpoint is automatically exposed on /debug/pprof
   gocritic:
     disabled-checks:
     - appendAssign
