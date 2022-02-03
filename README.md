@@ -17,7 +17,7 @@ The [Cluster API][cluster_api] brings declarative, Kubernetes-style APIs to clus
 By using the Cluster API, it is very easy to build highly available Kubernetes clusters on Hetzner servers. The Hetzner provider is the most cost-effective of all currently supported providers.
 
 > Disclaimer: This is no official Hetzner Project! It's maintained by the folks of the cloud-native startup Syself.
-> If you have questions or are interested in running production-ready Kubernetes clusters on Hetzner, then please contact us via mail: [info@syself.com](mailto:info@syself.com?subject=cluster-api-provider-hetzner)
+> If you have questions or are interested in running production-ready Kubernetes clusters on Hetzner, then please contact us via e-mail: [info@syself.com](mailto:info@syself.com?subject=cluster-api-provider-hetzner)
 
 ## Launching a Kubernetes cluster on Hetzner
 

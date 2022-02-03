@@ -267,6 +267,10 @@ dry-run: generate
 	mkdir -p dry-run
 	$(KUSTOMIZE) build config/default > dry-run/manifests.yaml
 
+.PHONY: ensure-boilerplate
+ensure-boilerplate: ## Ensures that a boilerplate exists in each file by adding missing boilerplates
+	./hack/ensure-boilerplate.sh
+
 
 ##@ Lint and Verify
 
@@ -293,7 +297,7 @@ yamllint: ## Lints YAML Files
 ALL_VERIFY_CHECKS = boilerplate shellcheck tiltfile modules gen
 
 .PHONY: verify
-verify: $(addprefix verify-,$(ALL_VERIFY_CHECKS)) ## Run all verify-* targets
+verify: lint $(addprefix verify-,$(ALL_VERIFY_CHECKS)) ## Run all verify-* targets
 	@echo "All verify checks passed, congrats!"
 
 
@@ -407,6 +411,22 @@ KUBEBUILDER_ASSETS ?= $(shell $(SETUP_ENVTEST) use --use-env -p path $(KUBEBUILD
 .PHONY: test
 test: $(SETUP_ENVTEST) ## Run unit and integration tests
 	KUBEBUILDER_ASSETS="$(KUBEBUILDER_ASSETS)" go test ./... $(TEST_ARGS)
+
+.PHONY: test-junit
+test-junit: $(SETUP_ENVTEST) $(GOTESTSUM) ## Run tests with verbose setting and generate a junit report
+	set +o errexit; (KUBEBUILDER_ASSETS="$(KUBEBUILDER_ASSETS)" go test -json ./... $(TEST_ARGS); echo $$? > $(ARTIFACTS)/junit.exitcode) | tee $(ARTIFACTS)/junit.stdout
+	$(GOTESTSUM) --junitfile $(ARTIFACTS)/junit.xml --raw-command cat $(ARTIFACTS)/junit.stdout
+	exit $$(cat $(ARTIFACTS)/junit.exitcode)
+
+.PHONY: test-cover
+test-cover: ## Run tests with code coverage and code generate reports
+	$(MAKE) test TEST_ARGS="$(TEST_ARGS) -coverprofile=out/coverage.out"
+	go tool cover -func=out/coverage.out -o out/coverage.txt
+	go tool cover -html=out/coverage.out -o out/coverage.html
+
+.PHONY: test-verbose
+test-verbose: ## Run tests with verbose settings
+	$(MAKE) test TEST_ARGS="$(TEST_ARGS) -v"
 
 .PHONY: test-e2e
 test-e2e: ## Run the e2e tests
