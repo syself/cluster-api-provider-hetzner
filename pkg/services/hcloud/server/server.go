@@ -250,9 +250,18 @@ func (s *Service) createServer(ctx context.Context, failureDomain string) (*hclo
 		}
 	}
 
-	sshKeys, err := s.getSSHKeys(ctx)
+	sshKeySpecs := s.scope.HCloudMachine.Spec.SSHKeys
+	if len(sshKeySpecs) == 0 {
+		sshKeySpecs = s.scope.HetznerCluster.Spec.SSHKeys.HCloud
+	}
+	sshKeysAPI, _, err := s.scope.HCloudClient().ListSSHKeys(ctx, hcloud.SSHKeyListOpts{})
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get ssh keys")
+		return nil, errors.Wrap(err, "failed listing ssh heys from hcloud")
+	}
+
+	sshKeys, err := getSSHKeys(sshKeysAPI, sshKeySpecs)
+	if err != nil {
+		return nil, errors.Wrap(err, "error with ssh keys")
 	}
 	opts.SSHKeys = sshKeys
 
@@ -326,25 +335,22 @@ func (s *Service) getServerImage(ctx context.Context) (*hcloud.Image, error) {
 	return images[0], nil
 }
 
-func (s *Service) getSSHKeys(ctx context.Context) ([]*hcloud.SSHKey, error) {
-	sshKeySpecs := s.scope.HCloudMachine.Spec.SSHKeys
-	if len(sshKeySpecs) == 0 {
-		sshKeySpecs = s.scope.HetznerCluster.Spec.SSHKeys.HCloud
+func getSSHKeys(sshKeysAPI []*hcloud.SSHKey, sshKeysSpec []infrav1.SSHKey) ([]*hcloud.SSHKey, error) {
+	sshKeysAPIMap := make(map[string]*hcloud.SSHKey)
+	for i, sshKey := range sshKeysAPI {
+		sshKeysAPIMap[sshKey.Name] = sshKeysAPI[i]
 	}
-	sshKeys, _, err := s.scope.HCloudClient().ListSSHKeys(ctx, hcloud.SSHKeyListOpts{})
-	if err != nil {
-		return nil, errors.Wrap(err, "failed listing ssh heys from hcloud")
-	}
-	resp := make([]*hcloud.SSHKey, 0, len(sshKeys))
-	for _, sshKey := range sshKeys {
-		for _, sshKeySpec := range sshKeySpecs {
-			if sshKeySpec.Name == sshKey.Name {
-				resp = append(resp, sshKey)
-				break
-			}
+
+	sshKeys := make([]*hcloud.SSHKey, len(sshKeysAPI))
+
+	for i, sshKeySpec := range sshKeysSpec {
+		sshKey, ok := sshKeysAPIMap[sshKeySpec.Name]
+		if !ok {
+			return nil, fmt.Errorf("ssh key not found. Name: %s", sshKey.Name)
 		}
+		sshKeys[i] = sshKey
 	}
-	return resp, nil
+	return sshKeys, nil
 }
 
 // Delete implements delete method of server.

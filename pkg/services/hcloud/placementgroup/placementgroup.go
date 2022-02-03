@@ -54,55 +54,63 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 	if err != nil {
 		return errors.Wrap(err, "failed to find placement group")
 	}
-	s.scope.HetznerCluster.Status.HCloudPlacementGroup = s.apiToStatus(placementGroups)
 
-	// Make a diff between placement groups in status and in specs, to see if some need to be deleted or created
+	s.scope.HetznerCluster.Status.HCloudPlacementGroup = apiToStatus(placementGroups, s.scope.HetznerCluster.Name)
 
-	// Delete placement groups which are not in status but in specs
-	statusPGMap := make(map[string]struct{})
-	specsPGMap := make(map[string]struct{})
+	placementGroupsSpec := s.scope.HetznerCluster.Spec.HCloudPlacementGroup
+	placementGroupsStatus := s.scope.HetznerCluster.Status.HCloudPlacementGroup
 
-	for _, pgSpec := range s.scope.HetznerCluster.Spec.HCloudPlacementGroup {
-		specsPGMap[pgSpec.Name] = struct{}{}
+	// Create arrays and maps to make diff
+	placementGroupNamesStatus := make([]string, len(placementGroupsStatus))
+	placementGroupNamesSpec := make([]string, len(placementGroupsSpec))
+	placementGroupStatusMap := make(map[string]infrav1.HCloudPlacementGroupStatus)
+	placementGroupSpecMap := make(map[string]infrav1.HCloudPlacementGroupSpec)
+
+	for i, pgSpec := range placementGroupsSpec {
+		placementGroupNamesSpec[i] = pgSpec.Name
+		placementGroupSpecMap[pgSpec.Name] = placementGroupsSpec[i]
 	}
 
+	for i, pgSts := range placementGroupsStatus {
+		placementGroupNamesStatus[i] = pgSts.Name
+		placementGroupStatusMap[pgSts.Name] = placementGroupsStatus[i]
+	}
+
+	// Make diff and create/delete placement groups
+	toCreate, toDelete := utils.DifferenceOfStringSlices(placementGroupNamesSpec, placementGroupNamesStatus)
+
 	var multierr []error
-	for _, pgSts := range s.scope.HetznerCluster.Status.HCloudPlacementGroup {
-		statusPGMap[pgSts.Name] = struct{}{}
-		if _, ok := specsPGMap[pgSts.Name]; !ok {
-			if _, err := s.scope.HCloudClient().DeletePlacementGroup(ctx, pgSts.ID); err != nil {
-				multierr = append(multierr, err)
-			}
+	// Create
+	for _, pgName := range toCreate {
+		name := fmt.Sprintf("%s-%s", s.scope.HetznerCluster.Name, placementGroupSpecMap[pgName].Name)
+		clusterTagKey := infrav1.ClusterTagKey(s.scope.HetznerCluster.Name)
+		if _, _, err := s.scope.HCloudClient().CreatePlacementGroup(ctx, hcloud.PlacementGroupCreateOpts{
+			Name:   name,
+			Type:   hcloud.PlacementGroupType(placementGroupSpecMap[pgName].Type),
+			Labels: map[string]string{clusterTagKey: string(infrav1.ResourceLifecycleOwned)},
+		}); err != nil {
+			multierr = append(multierr, err)
 		}
 	}
 
-	// Create placement groups which are in specs but not in status
-	for _, pgSpec := range s.scope.HetznerCluster.Spec.HCloudPlacementGroup {
-		if _, ok := statusPGMap[pgSpec.Name]; !ok {
-			name := fmt.Sprintf("%s-%s", s.scope.HetznerCluster.Name, pgSpec.Name)
-			clusterTagKey := infrav1.ClusterTagKey(s.scope.HetznerCluster.Name)
-			if _, _, err := s.scope.HCloudClient().CreatePlacementGroup(ctx, hcloud.PlacementGroupCreateOpts{
-				Name:   name,
-				Type:   hcloud.PlacementGroupType(pgSpec.Type),
-				Labels: map[string]string{clusterTagKey: string(infrav1.ResourceLifecycleOwned)},
-			}); err != nil {
-				multierr = append(multierr, err)
-			}
+	// Delete
+	for _, pgName := range toDelete {
+		if _, err := s.scope.HCloudClient().DeletePlacementGroup(ctx, placementGroupStatusMap[pgName].ID); err != nil {
+			multierr = append(multierr, err)
 		}
 	}
 
 	if err := kerrors.NewAggregate(multierr); err != nil {
-		log.Error(err, "aggregate error - creating/deleting placement groups")
+		return errors.Wrap(err, "aggregate error - creating/deleting placement groups")
 	}
 
-	// find placement groups
+	// Update status
 	placementGroups, err = s.findPlacementGroups(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to find placement group")
 	}
 
-	s.scope.HetznerCluster.Status.HCloudPlacementGroup = s.apiToStatus(placementGroups)
-
+	s.scope.HetznerCluster.Status.HCloudPlacementGroup = apiToStatus(placementGroups, s.scope.HetznerCluster.Name)
 	return nil
 }
 
@@ -141,13 +149,13 @@ func (s *Service) findPlacementGroups(ctx context.Context) ([]*hcloud.PlacementG
 }
 
 // gets the information of the Hetzner load balancer object and returns it in our status object.
-func (s *Service) apiToStatus(placementGroups []*hcloud.PlacementGroup) []infrav1.HCloudPlacementGroupStatus {
+func apiToStatus(placementGroups []*hcloud.PlacementGroup, clusterName string) []infrav1.HCloudPlacementGroupStatus {
 	status := make([]infrav1.HCloudPlacementGroupStatus, len(placementGroups))
 	for i, pg := range placementGroups {
 		status[i] = infrav1.HCloudPlacementGroupStatus{
 			ID:     pg.ID,
 			Server: pg.Servers,
-			Name:   strings.TrimPrefix(pg.Name, fmt.Sprintf("%s-", s.scope.HetznerCluster.Name)),
+			Name:   strings.TrimPrefix(pg.Name, fmt.Sprintf("%s-", clusterName)),
 			Type:   string(pg.Type),
 		}
 	}
