@@ -1,16 +1,17 @@
-name: verify
+name: unit-test
 on:
   pull_request:
     types: [opened, edited, synchronize, reopened]
     branches:
       - main
       - 'releases/**'
-    paths-ignore:
-      - '**.md'
-
+    paths:
+      - '**.go'
+      - '**go.mod'
+      - '**go.sum'
 jobs:
   test:
-    name: Verify Code
+    name: unit-test
     runs-on: ubuntu-latest
     steps:
       - name: checkout repo
@@ -19,9 +20,5 @@ jobs:
         uses: actions/setup-go@v2
         with:
           go-version: '^1.17'
-      - name: Verify Boilerplate
-        run: make verify-boilerplate
-      - name: Verify Modules
-        run: make verify-modules
-      - name: Verify gen
-        run: make verify-gen
+      - name: Test
+        run: make test-verbose
