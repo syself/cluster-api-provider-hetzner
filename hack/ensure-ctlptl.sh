@@ -17,10 +17,6 @@
 set -o errexit
 set -o nounset
 set -o pipefail
-# https://github.com/tilt-dev/ctlptl/releases
-MINIMUM_CTLPTL_VERSION=0.7.4
-
-
 
 check_ctlptl_installed() {
   # If ctlptl is not available on the path, get it

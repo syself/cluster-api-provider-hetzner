@@ -23,8 +23,8 @@ REPO_ROOT=$(git rev-parse --show-toplevel)
 cd "${REPO_ROOT}" || exit 1
 
 helm_plugins_to_install () {
-    verify_helm_plugin_version "helm-git" "https://github.com/aslafy-z/helm-git" "0.10.0"
-    verify_helm_plugin_version "diff" "https://github.com/databus23/helm-diff" "3.1.3"
+    verify_helm_plugin_version "helm-git" "https://github.com/aslafy-z/helm-git" "${HELM_GIT_VERSION}"
+    verify_helm_plugin_version "diff" "https://github.com/databus23/helm-diff" "${HELM_DIFF_VERSION}"
 }
 
 check_helm_installed() {
@@ -63,7 +63,7 @@ EOF
     confirm && echo "Installing Helm Plugin $1" && update_helm_plugin "$@"
   else
     cat <<EOF
-Detected helm version: ${helm_plugin_version}.
+Detected helm pluginversion: ${helm_plugin_version}.
 Requires ${helm_minimum_plugin_version} or greater.
 Nothing to do!
 
@@ -94,7 +94,8 @@ install_helm_plugin() {
 
 update_helm_plugin() {
     echo "installing $1"
-    helm plugin update "$2" --version "$3"
+    helm plugin remove "$1"
+    helm plugin install "$2" --version "$3"
     echo "Done"
 }
 

@@ -23,6 +23,27 @@ SHELL = /usr/bin/env bash -o pipefail
 .DEFAULT_GOAL:=help
 
 #
+# Binaries.
+#
+MINIMUM_CLUSTERCTL_VERSION=1.1.0				# https://github.com/kubernetes-sigs/cluster-api/releases
+MINIMUM_CTLPTL_VERSION=0.7.4						# https://github.com/tilt-dev/ctlptl/releases
+MINIMUM_GO_VERSION=go$(GO_VERSION)						# Check current project go version
+MINIMUM_HCLOUD_VERSION=1.29.0						# https://github.com/hetznercloud/cli/releases
+MINIMUM_HELMFILE_VERSION=v0.143.0				# https://github.com/roboll/helmfile/releases
+MINIMUM_KIND_VERSION=v0.11.1						# https://github.com/kubernetes-sigs/kind/releases
+MINIMUM_KUBECTL_VERSION=v1.23.0					# https://github.com/kubernetes/kubernetes/releases
+MINIMUM_PACKER_VERSION=1.7.10						# https://github.com/hashicorp/packer/releases
+MINIMUM_TILT_VERSION=0.23.9							# https://github.com/tilt-dev/tilt/releases
+CONTROLLER_GEN_VERSION=v.0.4.1					# https://github.com/kubernetes-sigs/controller-tools/releases
+KUSTOMIZE_VERSION=4.5.1								# https://github.com/kubernetes-sigs/kustomize/releases
+#
+# HELM.
+#
+MINIMUM_HELM_VERSION=v3.8.0							# https://github.com/helm/helm/releases
+HELM_GIT_VERSION=0.11.1									# https://github.com/aslafy-z/helm-git/releases
+HELM_DIFF_VERSION=3.4.1									# https://github.com/databus23/helm-diff/releases
+
+#
 # Go.
 #
 GO_VERSION ?= 1.17.6
@@ -67,8 +88,13 @@ TOOLS_DIR := hack/tools
 TOOLS_BIN_DIR := $(TOOLS_DIR)/$(BIN_DIR)
 GO_APIDIFF_BIN := $(BIN_DIR)/go-apidiff
 GO_APIDIFF := $(TOOLS_DIR)/$(GO_APIDIFF_BIN)
+KUSTOMIZE := $(abspath $(TOOLS_BIN_DIR)/kustomize)
+CONTROLLER_GEN := $(abspath $(TOOLS_BIN_DIR)/controller-gen)
+GOLANGCI_LINT := $(abspath $(TOOLS_BIN_DIR)/golangci-lint)
+CONVERSION_GEN := $(abspath $(TOOLS_BIN_DIR)/conversion-gen)
 ENVSUBST_BIN := $(BIN_DIR)/envsubst
 ENVSUBST := $(TOOLS_DIR)/$(ENVSUBST_BIN)
+
 
 export PATH := $(abspath $(TOOLS_BIN_DIR)):$(PATH)
 
@@ -129,46 +155,46 @@ help: ## Display this help.
 
 .PHONY: install-ctlptl
 install-ctlptl: ## Installs CTLPTL (CLI for declaratively setting up local Kubernetes clusters)
-	./hack/ensure-ctlptl.sh
+	MINIMUM_CTLPTL_VERSION=$(MINIMUM_CTLPTL_VERSION) ./hack/ensure-ctlptl.sh
 
 .PHONY: install-helm
 install-helm: ## Installs Helm (Kubernetes package manager)
-	./hack/ensure-helm.sh
+	MINIMUM_HELM_VERSION=$(MINIMUM_HELM_VERSION) ./hack/ensure-helm.sh
 
 .PHONY: check-go
 check-go: ## Checks go version
-	./hack/ensure-go.sh
+	MINIMUM_GO_VERSION=$(MINIMUM_GO_VERSION) ./hack/ensure-go.sh
 
 .PHONY: install-helmfile
 install-helmfile: ## Installs Helmfile (Helmfile is like a helm for your helm)
-	./hack/ensure-helmfile.sh
+	MINIMUM_HELMFILE_VERSION=$(MINIMUM_HELMFILE_VERSION) ./hack/ensure-helmfile.sh
 
 .PHONY: install-packer
 install-packer: ## Installs Hashicorp Packer
-	./hack/ensure-packer.sh
+	MINIMUM_PACKER_VERSION=$(MINIMUM_PACKER_VERSION) ./hack/ensure-packer.sh
 
 .PHONY: install-hcloud
 install-hcloud: ## Installs hcloud (CLI for Hetzner)
-	./hack/ensure-hcloud.sh
+	MINIMUM_HCLOUD_VERSION=$(MINIMUM_HCLOUD_VERSION) ./hack/ensure-hcloud.sh
 
 .PHONY: install-helm-plugins
 install-helm-plugins: ## Installs Helm Plugins (helm-git)
-	./hack/ensure-helm-plugins.sh
+	HELM_GIT_VERSION=$(HELM_GIT_VERSION) HELM_DIFF_VERSION=$(HELM_DIFF_VERSION) ./hack/ensure-helm-plugins.sh
 
 install-kind: ## Installs Kind (Kubernetes-in-Docker)
-	./hack/ensure-kind.sh
+	MINIMUM_KIND_VERSION=$(MINIMUM_KIND_VERSION) ./hack/ensure-kind.sh
 
 .PHONY: install-kubectl
 install-kubectl: ## Installs Kubectl (CLI for kubernetes)
-	./hack/ensure-kubectl.sh
+	MINIMUM_KUBECTL_VERSION=$(MINIMUM_KUBECTL_VERSION) ./hack/ensure-kubectl.sh
 
 .PHONY: install-tilt
 install-tilt: ## Installs Tilt (watches files, builds containers, ships to k8s)
-	./hack/ensure-tilt.sh
+	MINIMUM_TILT_VERSION=$(MINIMUM_TILT_VERSION) ./hack/ensure-tilt.sh
 
 .PHONY: install-clusterctl
 install-clusterctl: ## Installs clusterctl
-	./hack/ensure-clusterctl.sh
+	MINIMUM_CLUSTERCTL_VERSION=$(MINIMUM_CLUSTERCTL_VERSION) ./hack/ensure-clusterctl.sh
 
 install-dev-prerequisites: ## Installs ctlptl, helm, helmfile, helm-plugins, kind, kubectl, tilt, clusterctl, packer, hcloud and checks installed go version
 	@echo "Start checking dependencies"
@@ -185,44 +211,35 @@ install-dev-prerequisites: ## Installs ctlptl, helm, helmfile, helm-plugins, kin
 	$(MAKE) install-hcloud
 	@echo "Finished: All dependencies up to date"
 
-CONTROLLER_GEN = $(shell pwd)/hack/tools/bin/controller-gen
-controller-gen: ## Download controller-gen locally if necessary.
-	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.4.1)
+controller-gen: $(CONTROLLER_GEN) ## Build a local copy of controller-gen
+$(CONTROLLER_GEN): $(TOOLS_DIR)/go.mod # Build controller-gen from tools folder.
+	cd $(TOOLS_DIR); go build -tags=tools -o $(BIN_DIR)/controller-gen sigs.k8s.io/controller-tools/cmd/controller-gen
 
-KUSTOMIZE = $(shell pwd)/hack/tools/bin/kustomize
-kustomize: ## Download kustomize locally if necessary.
-	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v3@v3.8.7)
+conversion-gen: $(CONVERSION_GEN) ## Build a local copy of conversion-gen
+$(CONVERSION_GEN): $(TOOLS_DIR)/go.mod # Build conversion-gen from tools folder.
+	cd $(TOOLS_DIR); go build -tags=tools -o $(BIN_DIR)/conversion-gen k8s.io/code-generator/cmd/conversion-gen
 
-ENVSUBST = $(shell pwd)/hack/tools/bin/envsubst 
-envsubst: ## Download envsubst locally if neccessary.
-	$(call go-get-tool,$(ENVSUBST),github.com/a8m/envsubst/cmd/envsubst@v1.2.0)
+conversion-verifier: $(CONVERSION_VERIFIER) ## Build a local copy of conversion-verifier
+$(CONVERSION_VERIFIER): $(TOOLS_DIR)/go.mod # Build conversion-verifier from tools folder.
+	cd $(TOOLS_DIR); go build -tags=tools -o $(BIN_DIR)/conversion-verifier sigs.k8s.io/cluster-api/hack/tools/conversion-verifier
 
-GOLANGCI_LINT = $(shell pwd)/hack/tools/bin/golangci-lint
-golang-ci-lint: ## Download golang-ci-lint locally if neccessary.
-	$(call go-get-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint@v1.43.0)
+go-apidiff: $(GO_APIDIFF) ## Build a local copy of apidiff
+$(GO_APIDIFF): $(TOOLS_DIR)/go.mod # Build go-apidiff from tools folder.
+	cd $(TOOLS_DIR) && go build -tags=tools -o $(GO_APIDIFF_BIN) github.com/joelanford/go-apidiff
 
-HELMIFY = $(shell pwd)/hack/tools/bin/helmify
-helmify: ## Download helmify locally if necessary.
-	$(call go-get-tool,$(HELMIFY),github.com/arttor/helmify/cmd/helmify@v0.3.3)
+envsubst: $(ENVSUBST) ## Build a local copy of envsubst
+$(ENVSUBST): $(TOOLS_DIR)/go.mod # Build envsubst from tools folder.
+	cd $(TOOLS_DIR) && go build -tags=tools -o $(ENVSUBST_BIN) github.com/drone/envsubst/v2/cmd/envsubst
 
-YQ = $(shell pwd)/hack/tools/bin/yq
-yq: ## Download yq locally if necessary.
-	$(call go-get-tool,$(YQ),github.com/mikefarah/yq/v4@v4.13.5)
+kustomize: $(KUSTOMIZE) ## Build a local copy of kustomize
+$(KUSTOMIZE): # Download kustomize using hack script into tools folder.
+	KUSTOMIZE_VERSION=$(KUSTOMIZE_VERSION) hack/ensure-kustomize.sh
 
-# go-get-tool will 'go get' any package $2 and install it to $1.
-PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
-define go-get-tool
-@[ -f $(1) ] || { \
-set -e ;\
-TMP_DIR=$$(mktemp -d) ;\
-cd $$TMP_DIR ;\
-go mod init tmp ;\
-echo "Downloading $(2)" ;\
-GOBIN=$(PROJECT_DIR)/hack/tools/bin go get $(2) ;\
-rm -rf $$TMP_DIR ;\
-}
-endef
-
+golangci-lint: $(GOLANGCI_LINT) ## Build a local copy of golangci-lint
+$(GOLANGCI_LINT): .github/workflows/golangci-lint.yml # Download golanci-lint using hack script into tools folder.
+	hack/ensure-golangci-lint.sh \
+		-b $(TOOLS_DIR)/$(BIN_DIR) \
+		$(shell cat .github/workflows/golangci-lint.yml | grep version | sed 's/.*version: //')
 
 
 ##@ Generate / Manifests
@@ -231,7 +248,7 @@ endef
 generate: ## Run all generate-manifests, generate-go-deepcopyand generate-go-conversions targets
 	$(MAKE) generate-manifests generate-go-deepcopy
 
-generate-manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
+generate-manifests: $(CONTROLLER_GEN) ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) \
 			paths=./api/... \
 			crd:crdVersions=v1 \
@@ -240,15 +257,15 @@ generate-manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole
 			output:webhook:dir=./config/webhook \
 			webhook
 
-generate-go-deepcopy: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+generate-go-deepcopy: $(CONTROLLER_GEN) ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) \
 		object:headerFile="./hack/boilerplate/boilerplate.generatego.txt" \
 		paths="./api/..."
 
 dry-run: generate
-	cd config/manager && kustomize edit set image controller=${CONTROLLER_IMG}:${TAG}
+	cd config/manager && $(KUSTOMIZE) edit set image controller=${CONTROLLER_IMG}:${TAG}
 	mkdir -p dry-run
-	kustomize build config/default > dry-run/manifests.yaml
+	$(KUSTOMIZE) build config/default > dry-run/manifests.yaml
 
 
 ##@ Lint and Verify
@@ -259,11 +276,11 @@ modules: ## Runs go mod to ensure modules are up to date.
 	cd $(TOOLS_DIR); go mod tidy
 
 .PHONY: lint
-lint: golang-ci-lint $(GOLANGCI_LINT) ## Lint Golang codebase
+lint: $(GOLANGCI_LINT) ## Lint Golang codebase
 	$(GOLANGCI_LINT) run -v $(GOLANGCI_LINT_EXTRA_ARGS)
 
 .PHONY: lint-fix
-lint-fix: golang-ci-lint $(GOLANGCI_LINT) ## Lint the Go codebase and run auto-fixers if supported by the linter.
+lint-fix: $(GOLANGCI_LINT) ## Lint the Go codebase and run auto-fixers if supported by the linter.
 	GOLANGCI_LINT_EXTRA_ARGS=--fix $(MAKE) lint
 
 .PHONY: format-tiltfile
@@ -276,7 +293,7 @@ yamllint: ## Lints YAML Files
 ALL_VERIFY_CHECKS = boilerplate shellcheck tiltfile modules gen
 
 .PHONY: verify
-verify: $(addprefix verify-,$(ALL_VERIFY_CHECKS)) lint ## Run all verify-* targets
+verify: $(addprefix verify-,$(ALL_VERIFY_CHECKS)) ## Run all verify-* targets
 	@echo "All verify checks passed, congrats!"
 
 
@@ -361,7 +378,7 @@ release: clean-release  ## Builds and push container images using the latest git
 	$(MAKE) release-manifests clean-release-git
 
 .PHONY: release-manifests
-release-manifests: generate kustomize $(RELEASE_DIR) ## Builds the manifests to publish with a release
+release-manifests: generate $(KUSTOMIZE) $(RELEASE_DIR) ## Builds the manifests to publish with a release
 	$(KUSTOMIZE) build config/default > $(RELEASE_DIR)/infrastructure-components.yaml
 	## Build caph-components (aggregate of all of the above).
 	cp metadata.yaml $(RELEASE_DIR)/metadata.yaml
@@ -458,13 +475,13 @@ fmt: ## Run go fmt against code.
 vet: ## Run go vet against code.
 	go vet ./...
 
-install-crds: generate-manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
+install-crds: generate-manifests $(KUSTOMIZE) ## Install CRDs into the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/crd | kubectl apply -f -
 
-uninstall-crds: generate-manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config.
+uninstall-crds: generate-manifests $(KUSTOMIZE) ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/crd | kubectl delete -f -
 
-deploy-controller: generate-manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+deploy-controller: generate-manifests $(KUSTOMIZE) ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${CONTROLLER_IMG}:${TAG}
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
@@ -472,7 +489,7 @@ undeploy-controller: ## Undeploy controller from the K8s cluster specified in ~/
 	$(KUSTOMIZE) build config/default | kubectl delete -f -
 
 .PHONY: tilt-up
-tilt-up: envsubst yq kustomize cluster  ## Start a mgt-cluster & Tilt. Installs the CRDs and deploys the controllers
+tilt-up: $(ENVSUBST) yq $(KUSTOMIZE) cluster  ## Start a mgt-cluster & Tilt. Installs the CRDs and deploys the controllers
 	EXP_CLUSTER_RESOURCE_SET=true tilt up
 
 install-essentials: ## This gets the secret and installs a CNI and the CCM. Usage: MAKE install-essentials NAME=<cluster-name>
@@ -505,25 +522,25 @@ install-manifests:
 	@echo 'run "kubectl --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) ..." to work with the new target cluster'
 
 .PHONY: create-workload-cluster
-create-workload-cluster-with-network-packer: kustomize envsubst ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
+create-workload-cluster-with-network-packer: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
 	$(ENVSUBST) -i templates/cluster-template-packer-hcloud-network.yaml | kubectl apply -f -
 	$(MAKE) wait-and-get-secret
 	$(MAKE) install-manifests PRIVATE_NETWORK=true
 
-create-workload-cluster-with-network: kustomize envsubst ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
+create-workload-cluster-with-network: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
 	$(ENVSUBST) -i templates/cluster-template-hcloud-network.yaml | kubectl apply -f -
 	$(MAKE) wait-and-get-secret
 	$(MAKE) install-manifests PRIVATE_NETWORK=true
 
-create-workload-cluster-packer: kustomize envsubst ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
+create-workload-cluster-packer: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
 	$(ENVSUBST) -i templates/cluster-template-packer.yaml | kubectl apply -f -
 	$(MAKE) wait-and-get-secret
 	$(MAKE) install-manifests PRIVATE_NETWORK=false
 
-create-workload-cluster: kustomize envsubst ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
+create-workload-cluster: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
 	$(ENVSUBST) -i templates/cluster-template.yaml | kubectl apply -f -
 	$(MAKE) wait-and-get-secret
@@ -534,7 +551,7 @@ move-to-workload-cluster:
 	kubectl --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) -n cluster-api-provider-hetzner-system wait deploy/caph-controller-manager --for condition=available && sleep 15s
 	clusterctl move --to-kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG)
 
-create-talos-workload-cluster-packer: kustomize envsubst ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
+create-talos-workload-cluster-packer: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
 	$(ENVSUBST) -i templates/cluster-template-packer-talos.yaml | kubectl apply -f -
 	$(MAKE) wait-and-get-secret

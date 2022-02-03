@@ -17,10 +17,6 @@
 set -o errexit
 set -o nounset
 set -o pipefail
-# https://github.com/kubernetes-sigs/cluster-api/releases
-MINIMUM_CLUSTERCTL_VERSION=1.0.3
-
-
 
 check_clusterctl_installed() {
   # If clusterctl is not available on the path, get it

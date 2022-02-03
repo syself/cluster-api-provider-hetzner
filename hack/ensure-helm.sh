@@ -19,10 +19,6 @@ set -o nounset
 set -o pipefail
 
 PATH_BIN="/usr/local/bin"
-# https://github.com/helm/helm/releases
-MINIMUM_HELM_VERSION=v3.8.0
-
-
 
 check_helm_installed() {
   # If helm is not available on the path, get it
@@ -31,7 +27,6 @@ check_helm_installed() {
     install_helm
   fi
 }
-
 
 verify_helm_version() {
 

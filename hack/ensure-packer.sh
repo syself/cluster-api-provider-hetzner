@@ -17,10 +17,6 @@
 set -o errexit
 set -o nounset
 set -o pipefail
-# https://github.com/hashicorp/packer/releases
-MINIMUM_PACKER_VERSION=1.7.9
-
-
 
 check_packer_installed() {
   # If packer is not available on the path, get it
@@ -29,7 +25,6 @@ check_packer_installed() {
     install_packer
   fi
 }
-
 
 verify_packer_version() {
 
