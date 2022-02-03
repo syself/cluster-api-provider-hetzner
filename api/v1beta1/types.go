@@ -16,6 +16,10 @@ limitations under the License.
 
 package v1beta1
 
+import (
+	"github.com/hetznercloud/hcloud-go/hcloud"
+)
+
 // LoadBalancerAlgorithmType defines the Algorithm type.
 //+kubebuilder:validation:Enum=round_robin;least_connections
 type LoadBalancerAlgorithmType string
@@ -28,6 +32,17 @@ const (
 	// LoadBalancerAlgorithmTypeLeastConnections default for Loadbalancer.
 	LoadBalancerAlgorithmTypeLeastConnections = LoadBalancerAlgorithmType("least_connections")
 )
+
+// HCloudAlgorithmType converts LoadBalancerAlgorithmType to hcloud type.
+func (algorithmType *LoadBalancerAlgorithmType) HCloudAlgorithmType() hcloud.LoadBalancerAlgorithmType {
+	switch *algorithmType {
+	case LoadBalancerAlgorithmTypeLeastConnections:
+		return hcloud.LoadBalancerAlgorithmTypeRoundRobin
+	case LoadBalancerAlgorithmTypeRoundRobin:
+		return hcloud.LoadBalancerAlgorithmTypeLeastConnections
+	}
+	return hcloud.LoadBalancerAlgorithmType("")
+}
 
 // HetznerSSHKeys defines the global SSHKeys HetznerCluster.
 type HetznerSSHKeys struct {

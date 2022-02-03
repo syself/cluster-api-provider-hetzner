@@ -26,6 +26,7 @@ import (
 	"github.com/go-logr/zapr"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"k8s.io/apiserver/pkg/storage/names"
 )
 
 // LabelsToLabelSelector is converting a map of labels to HCloud label
@@ -38,7 +39,66 @@ func LabelsToLabelSelector(labels map[string]string) string {
 			fmt.Sprintf("%s==%s", key, val),
 		)
 	}
+	fmt.Println("parts5", parts)
 	return strings.Join(parts, ",")
+}
+
+// DifferenceOfStringSlices returns the elements in `a` that aren't in `b` as well as elements of `a` not in `b`.
+func DifferenceOfStringSlices(a, b []string) (onlyInA []string, onlyInB []string) {
+	ma := make(map[string]struct{}, len(a))
+	mb := make(map[string]struct{}, len(b))
+	for _, x := range b {
+		mb[x] = struct{}{}
+	}
+	for _, x := range a {
+		ma[x] = struct{}{}
+	}
+
+	for _, x := range a {
+		if _, found := mb[x]; !found {
+			onlyInA = append(onlyInA, x)
+		}
+	}
+
+	for _, x := range a {
+		if _, found := mb[x]; !found {
+			onlyInB = append(onlyInB, x)
+		}
+	}
+	return
+}
+
+// DifferenceOfIntSlices returns the elements in `a` that aren't in `b` as well as elements of `a` not in `b`.
+func DifferenceOfIntSlices(a, b []int) (onlyInA []int, onlyInB []int) {
+	ma := make(map[int]struct{}, len(a))
+	mb := make(map[int]struct{}, len(b))
+	for _, x := range b {
+		mb[x] = struct{}{}
+	}
+	for _, x := range a {
+		ma[x] = struct{}{}
+	}
+
+	for _, x := range a {
+		if _, found := mb[x]; !found {
+			onlyInA = append(onlyInA, x)
+		}
+	}
+
+	for _, x := range a {
+		if _, found := mb[x]; !found {
+			onlyInB = append(onlyInB, x)
+		}
+	}
+	return
+}
+
+// GenerateName takes a name as string pointer. It returns name if pointer is not nil, otherwise it returns fallback with random suffix.
+func GenerateName(name *string, fallback string) string {
+	if name != nil {
+		return *name
+	}
+	return names.SimpleNameGenerator.GenerateName(fallback)
 }
 
 // GetDefaultLogger returns a default zapr logger.

@@ -14,49 +14,56 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+/*
+Copyright 2022 The Kubernetes Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 package csr_test
 
 import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
-	"testing"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
-	p "github.com/syself/cluster-api-provider-hetzner/pkg/csr"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/csr"
 	corev1 "k8s.io/api/core/v1"
 )
 
-func newCSR() *x509.CertificateRequest {
-	bytes, _ := base64.StdEncoding.DecodeString("LS0tLS1CRUdJTiBDRVJUSUZJQ0FURSBSRVFVRVNULS0tLS0KTUlJQlZUQ0IvQUlCQURCUE1SVXdFd1lEVlFRS0V3eHplWE4wWlcwNmJtOWtaWE14TmpBMEJnTlZCQU1UTFhONQpjM1JsYlRwdWIyUmxPbU5vY21semRHbGhiaTFrWlhZdFkyOXVkSEp2YkMxd2JHRnVaUzE2Tld4b2FEQlpNQk1HCkJ5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEEwSUFCQTVtb2xES0NoSElRZ2h2VEhmVk1JZWtITXlGVmU4MVIyb3IKbmh5cFE2Y2xUa3c1a0VBOGZCVlUzcHZXRlM4cG5JaG9nakZkQW9DV1lwT2FFUW50dzBDZ1N6QkpCZ2txaGtpRwo5dzBCQ1E0eFBEQTZNRGdHQTFVZEVRUXhNQytDSVdOb2NtbHpkR2xoYmkxa1pYWXRZMjl1ZEhKdmJDMXdiR0Z1ClpTMTZOV3hvYUljRUNnQUFBb2NFWG9MaW9EQUtCZ2dxaGtqT1BRUURBZ05JQURCRkFpRUFvUzhFeHJqNzhyRGIKNnQxWTUrc1BaaFFiQ09QeFpjLzVRZXp3SlNXZnpGZ0NJRy9rRGZ6VHp4ZEgvb1oxdEtFSHBvdTg0d21rZGFPOAoxbnVkWVRIb21SdTMKLS0tLS1FTkQgQ0VSVElGSUNBVEUgUkVRVUVTVC0tLS0tCg==")
-	block, _ := pem.Decode(bytes)
+var _ = Describe("Validate Kubelet CSR", func() {
+	var machine *infrav1.HCloudMachine
+	var cr *x509.CertificateRequest
 
-	csr, err := x509.ParseCertificateRequest(block.Bytes)
-	if err != nil {
-		panic(err)
-	}
-	return csr
-}
+	BeforeEach(func() {
+		machine = &infrav1.HCloudMachine{}
+		machine.Name = "test2-control-plane-a0653-7w642"
+		machine.Status.Addresses = []corev1.NodeAddress{
+			{
+				Type:    corev1.NodeExternalIP,
+				Address: "168.119.152.147",
+			},
+		}
+		bytes, err := base64.StdEncoding.DecodeString("LS0tLS1CRUdJTiBDRVJUSUZJQ0FURSBSRVFVRVNULS0tLS0KTUlJQkNEQ0Jyd0lCQURCTk1SVXdFd1lEVlFRS0V3eHplWE4wWlcwNmJtOWtaWE14TkRBeUJnTlZCQU1USzNONQpjM1JsYlRwdWIyUmxPblJsYzNReUxXTnZiblJ5YjJ3dGNHeGhibVV0WVRBMk5UTXROM2MyTkRJd1dUQVRCZ2NxCmhrak9QUUlCQmdncWhrak9QUU1CQndOQ0FBVFpwcHp5bjQ2YU0xRE95L0xKMm4zK1hock1scmlteHZwV0E3dGwKcmdBRUtPekdqOUhzcWJqRnZ0eEFPdGNFQ2xCTDNWTUprRjhDMlpQaHlTV01xemRtb0FBd0NnWUlLb1pJemowRQpBd0lEU0FBd1JRSWhBTTJTTnhoU3dabEwwbnp4SE9JZmFDU2R1NFk5K1c4SlJVcWhQWFgxd0VyeEFpQWk0VE1PCmZvclIwTDVjV0xFYVYzVmE3aVVRYnFpSHJjK1lBZmZoSUZ6REhnPT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUgUkVRVUVTVC0tLS0tCg==")
+		Expect(err).To(BeNil())
+		block, _ := pem.Decode(bytes)
+		cr, err = x509.ParseCertificateRequest(block.Bytes)
+		Expect(err).To(BeNil())
+	})
 
-func newMachine() *infrav1.HCloudMachine {
-	m := &infrav1.HCloudMachine{}
-	m.Name = "test-control-plane-z5lhh"
-	m.Status.Addresses = []corev1.NodeAddress{
-		{
-			Type:    corev1.NodeInternalIP,
-			Address: "10.0.0.2",
-		},
-		{
-			Type:    corev1.NodeExternalIP,
-			Address: "94.130.226.160",
-		},
-	}
-	return m
-}
-
-func TestValidateKubeletCSR(t *testing.T) {
-	err := p.ValidateKubeletCSR(newCSR(), newMachine())
-	if err != nil {
-		t.Errorf("unexpected error: %q", err)
-	}
-}
+	It("should not fail", func() {
+		Expect(csr.ValidateKubeletCSR(cr, machine)).To(Succeed())
+	})
+})
