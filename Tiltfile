@@ -21,7 +21,7 @@ settings = {
     "deploy_observability": False,
     "preload_images_for_kind": True,
     "kind_cluster_name": "caph",
-    "capi_version": "v1.0.3",
+    "capi_version": "v1.1.0",
     "cabpt_version": "v0.5.0",
     "cacppt_version": "v0.4.0-alpha.0",
     "cert_manager_version": "v1.1.0",

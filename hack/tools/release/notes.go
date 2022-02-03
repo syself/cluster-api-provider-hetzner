@@ -1,7 +1,7 @@
 // +build tools
 
 /*
-Copyright 2019 The Kubernetes Authors.
+Copyright 2022 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+//go:build tools
 package main
 
 import (
@@ -86,7 +87,7 @@ func firstCommit() string {
 
 func run() int {
 	lastTag := lastTag()
-	cmd := exec.Command("git", "rev-list", lastTag+"..HEAD", "--merges", "--pretty=format:%B")
+	cmd := exec.Command("git", "rev-list", lastTag+"..HEAD", "--merges", "--pretty=format:%B") //nolint:gosec
 
 	merges := map[string][]string{
 		features:      {},
@@ -156,7 +157,7 @@ func run() int {
 			continue
 		}
 		body = fmt.Sprintf("- %s", body)
-		fmt.Sscanf(c.merge, "Merge pull request %s from %s", &prNumber, &fork)
+		_, _ = fmt.Sscanf(c.merge, "Merge pull request %s from %s", &prNumber, &fork)
 		if key == documentation {
 			merges[key] = append(merges[key], prNumber)
 			continue
@@ -187,7 +188,6 @@ func run() int {
 			}
 			fmt.Println()
 		}
-
 	}
 
 	fmt.Println("")

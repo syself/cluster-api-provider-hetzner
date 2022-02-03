@@ -17,10 +17,6 @@
 set -o errexit
 set -o nounset
 set -o pipefail
-# https://github.com/hetznercloud/cli/releases
-MINIMUM_HCLOUD_VERSION=1.29.0
-
-
 
 check_hcloud_installed() {
   # If hcloud is not available on the path, get it

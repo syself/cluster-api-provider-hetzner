@@ -18,10 +18,6 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-MINIMUM_KUBECTL_VERSION=v1.23.0
-
-
-
 check_kubectl_installed() {
   # If kubectl is not available on the path, get it
   if ! [ -x "$(command -v kubectl)" ]; then
@@ -29,7 +25,6 @@ check_kubectl_installed() {
     install_kubectl
   fi
 }
-
 
 verify_kubectl_version() {
 

@@ -1,7 +1,7 @@
 // +build tools
 
 /*
-Copyright 2019 The Kubernetes Authors.
+Copyright 2022 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,16 +16,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+//go:build tools
 // Package tools imports things required by build scripts, to force `go mod` to see them as dependencies
 package tools
 
 import (
 	_ "github.com/drone/envsubst/v2/cmd/envsubst"
 	_ "github.com/joelanford/go-apidiff"
-	_ "github.com/mikefarah/yq/v4"
-	_ "github.com/onsi/ginkgo/ginkgo"
-	_ "gotest.tools/gotestsum"
 	_ "k8s.io/code-generator/cmd/conversion-gen"
-	_ "sigs.k8s.io/controller-runtime/tools/setup-envtest"
 	_ "sigs.k8s.io/controller-tools/cmd/controller-gen"
 )

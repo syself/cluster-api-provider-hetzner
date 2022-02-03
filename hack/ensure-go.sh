@@ -29,18 +29,17 @@ EOF
 
   local go_version
   IFS=" " read -ra go_version <<< "$(go version)"
-  local minimum_go_version
-  minimum_go_version=go1.17.6
-  if [[ "${minimum_go_version}" != $(echo -e "${minimum_go_version}\n${go_version[2]}" | sort -s -t. -k 1,1 -k 2,2n -k 3,3n | head -n1) && "${go_version[2]}" != "devel" ]]; then
+
+  if [[ "${MINIMUM_GO_VERSION}" != $(echo -e "${MINIMUM_GO_VERSION}\n${go_version[2]}" | sort -s -t. -k 1,1 -k 2,2n -k 3,3n | head -n1) && "${go_version[2]}" != "devel" ]]; then
     cat <<EOF
 Detected go version: ${go_version[*]}.
-This project requires ${minimum_go_version} or greater.
-Please install ${minimum_go_version} or later.
+This project requires ${MINIMUM_GO_VERSION} or greater.
+Please install ${MINIMUM_GO_VERSION} or later.
 
 EOF
     return 2
   fi
-  if [[ "${minimum_go_version}" = $(echo -e "${minimum_go_version}\n${go_version[2]}" | sort -s -t. -k 1,1 -k 2,2n -k 3,3n | head -n1) && "${go_version[2]}" != "devel" ]]; then
+  if [[ "${MINIMUM_GO_VERSION}" = $(echo -e "${MINIMUM_GO_VERSION}\n${go_version[2]}" | sort -s -t. -k 1,1 -k 2,2n -k 3,3n | head -n1) && "${go_version[2]}" != "devel" ]]; then
     cat <<EOF
 Detected go version: ${go_version[*]}.
 Nothing todo! You're up to date.

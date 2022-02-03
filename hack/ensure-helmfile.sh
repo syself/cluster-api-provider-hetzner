@@ -18,10 +18,6 @@ set -o errexit
 set -o nounset
 set -o pipefail
 PATH_BIN="/usr/local/bin"
-# https://github.com/roboll/helmfile/releases
-MINIMUM_HELMFILE_VERSION=v0.143.0
-
-
 
 check_helmfile_installed() {
   # If helmfile is not available on the path, get it

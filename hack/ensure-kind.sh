@@ -18,11 +18,6 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-# https://github.com/kubernetes-sigs/kind/releases
-MINIMUM_KIND_VERSION=v0.11.1
-
-
-
 check_kind_installed() {
   # If kind is not available on the path, get it
   if ! [ -x "$(command -v kind)" ]; then
