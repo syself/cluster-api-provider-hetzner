@@ -14,25 +14,23 @@ Kubernetes-native declarative infrastructure for [Hetzner](https://hetzner.cloud
 ## What is the Cluster API Provider Hetzner
 
 The [Cluster API][cluster_api] brings declarative, Kubernetes-style APIs to cluster creation, configuration and management.
+By using the Cluster API, it is very easy to build highly available Kubernetes clusters on Hetzner servers. The Hetzner provider is the most cost-effective of all currently supported providers.
 
-The API itself is shared across multiple cloud providers allowing for true Hetzner
-hybrid deployments of Kubernetes.
-
-> This is no official Hetzner Project! It's maintained by the folks of the cloud-native startup Syself.
+> Disclaimer: This is no official Hetzner Project! It's maintained by the folks of the cloud-native startup Syself.
+> If you have questions or are interested in running production-ready Kubernetes clusters on Hetzner, then please contact us via mail: [info@syself.com](mailto:info@syself.com?subject=cluster-api-provider-hetzner)
 
 ## Launching a Kubernetes cluster on Hetzner
 
-Check out the [Quickstart Guide](docs/topics/quickstart.md) to create your first Kubernetes cluster on Hetzner using Cluster API.
+Check out the [**Quickstart Guide**](docs/topics/quickstart.md) to create your first Kubernetes cluster on Hetzner using Cluster API.
 
 ## Features
 
 * Native Kubernetes manifests and API
 * Choice of Linux distribution (as long as a current cloud-init is available)
-* Support for single and multi-node control plane clusters
-* Support for HCloud Placement groups
-* cloud-init based nodes bootstrapping
-* complete day 2 operations - updating nodes, kubernetes versions
-* CSR Support for approving kubelet-serving certificate signing requests
+* Support for single and multi-node control plane clusters (HA Kubernetes)
+* Support for Hetzner Cloud Placement groups, Network and Loadbalancer
+* Complete day 2 operations - updating Kubernetes and nodes, scale up and down, self-healing
+* Custom CSR-approver for approving [kubelet-serving certificate signing requests](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-certs/#kubelet-serving-certs)
 * Hetzner Dedicated Server *coming soon*
 
 ---
@@ -41,11 +39,11 @@ Check out the [Quickstart Guide](docs/topics/quickstart.md) to create your first
 
 This provider's versions are compatible with the following versions of Cluster API:
 
-|  | Cluster API `v1beta1` (`v1.0.x`) |
-|---|---|
-|Hetzner Provider `v1.0.x` | ✓ |
+|  | Cluster API `v1beta1` (`v1.0.x`) | Cluster API `v1beta1` (`v1.1.x`) |
+|---|---|---|
+|Hetzner Provider `v1.0.x` | ✓ | ✓ |
 
-This provider's versions are able to install and manage the following versions of Kubernetes:
+This provider's versions can install and manage the following versions of Kubernetes:
 
 |  | Hetzner Provider `v1.0.x` |
 |---|---|
@@ -65,7 +63,7 @@ Each version of Cluster API for Hetzner will attempt to support at least two Kub
 ------
 
 ## Operating system images
-Note: Cluster API Provider Hetzner relies on a few prerequisites which have to be already installed in the used operating system images, e.g. a container runtime, kubelet, kubeadm,.. . Reference images can be found in kubernetes-sigs/image-builder and in templates/node-image If it isn't possible to pre-install those prerequisites in the image, you can always deploy and execute some custom scripts through the KubeadmConfig.
+**Note**: Cluster API Provider Hetzner relies on a few prerequisites which have to be already installed in the used operating system images, e.g. a container runtime, kubelet, kubeadm... . Reference images can be found in kubernetes-sigs/image-builder and in [templates/node-image](templates/node-image). If it isn't possible to pre-install those prerequisites in the image, you can always deploy and execute some custom scripts through the KubeadmConfig.
 
 ---
 ## Documentation
