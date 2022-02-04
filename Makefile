@@ -544,25 +544,25 @@ install-manifests:
 .PHONY: create-workload-cluster
 create-workload-cluster-with-network-packer: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
-	$(ENVSUBST) -i templates/cluster-template-packer-hcloud-network.yaml | kubectl apply -f -
+	cat templates/cluster-template-packer-hcloud-network.yaml | $(ENVSUBST) - | kubectl apply -f -
 	$(MAKE) wait-and-get-secret
 	$(MAKE) install-manifests PRIVATE_NETWORK=true
 
 create-workload-cluster-with-network: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
-	$(ENVSUBST) -i templates/cluster-template-hcloud-network.yaml | kubectl apply -f -
+	cat templates/cluster-template-hcloud-network.yaml | $(ENVSUBST) - | kubectl apply -f -
 	$(MAKE) wait-and-get-secret
 	$(MAKE) install-manifests PRIVATE_NETWORK=true
 
 create-workload-cluster-packer: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
-	$(ENVSUBST) -i templates/cluster-template-packer.yaml | kubectl apply -f -
+	cat templates/cluster-template-packer.yaml | $(ENVSUBST) - | kubectl apply -f -
 	$(MAKE) wait-and-get-secret
 	$(MAKE) install-manifests PRIVATE_NETWORK=false
 
 create-workload-cluster: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
-	$(ENVSUBST) -i templates/cluster-template.yaml | kubectl apply -f -
+	cat templates/cluster-template.yaml | $(ENVSUBST) - | kubectl apply -f -
 	$(MAKE) wait-and-get-secret
 	$(MAKE) install-manifests PRIVATE_NETWORK=false
 
@@ -573,7 +573,7 @@ move-to-workload-cluster:
 
 create-talos-workload-cluster-packer: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
-	$(ENVSUBST) -i templates/cluster-template-packer-talos.yaml | kubectl apply -f -
+	cat templates/cluster-template-packer-talos.yaml | $(ENVSUBST) - | kubectl apply -f -
 	$(MAKE) wait-and-get-secret
 	$(MAKE) install-manifests
 
