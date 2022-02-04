@@ -100,7 +100,6 @@ func main() {
 	if err = (&controllers.HetznerClusterReconciler{
 		Client:                         mgr.GetClient(),
 		WatchFilterValue:               watchFilterValue,
-		Scheme:                         mgr.GetScheme(),
 		TargetClusterManagersWaitGroup: &wg,
 	}).SetupWithManager(ctx, mgr, controller.Options{}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HetznerCluster")
@@ -108,7 +107,6 @@ func main() {
 	}
 	if err = (&controllers.HCloudMachineReconciler{
 		Client:           mgr.GetClient(),
-		Scheme:           mgr.GetScheme(),
 		WatchFilterValue: watchFilterValue,
 	}).SetupWithManager(ctx, mgr, controller.Options{}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HCloudMachine")

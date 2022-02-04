@@ -58,7 +58,6 @@ import (
 type HetznerClusterReconciler struct {
 	client.Client
 	Log                            logr.Logger
-	Scheme                         *runtime.Scheme
 	WatchFilterValue               string
 	targetClusterManagersStopCh    map[types.NamespacedName]chan struct{}
 	targetClusterManagersLock      sync.Mutex
