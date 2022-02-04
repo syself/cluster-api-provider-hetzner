@@ -218,7 +218,7 @@ func (s *Service) createServer(ctx context.Context, failureDomain string) (*hclo
 	startAfterCreate := true
 	opts := hcloud.ServerCreateOpts{
 		Name:   name,
-		Labels: s.createLabels(),
+		Labels: createLabels(s.scope.HetznerCluster.Name, s.scope.Name(), s.scope.IsControlPlane()),
 		Image:  image,
 		Location: &hcloud.Location{
 			Name: failureDomain,
@@ -340,13 +340,12 @@ func getSSHKeys(sshKeysAPI []*hcloud.SSHKey, sshKeysSpec []infrav1.SSHKey) ([]*h
 	for i, sshKey := range sshKeysAPI {
 		sshKeysAPIMap[sshKey.Name] = sshKeysAPI[i]
 	}
-
-	sshKeys := make([]*hcloud.SSHKey, len(sshKeysAPI))
+	sshKeys := make([]*hcloud.SSHKey, len(sshKeysSpec))
 
 	for i, sshKeySpec := range sshKeysSpec {
 		sshKey, ok := sshKeysAPIMap[sshKeySpec.Name]
 		if !ok {
-			return nil, fmt.Errorf("ssh key not found. Name: %s", sshKey.Name)
+			return nil, fmt.Errorf("ssh key not found. Name: %s", sshKeySpec.Name)
 		}
 		sshKeys[i] = sshKey
 	}
@@ -537,7 +536,7 @@ func (s *Service) deleteServerOfLoadBalancer(ctx context.Context, server *hcloud
 // We write the server name in the labels, so that all labels are or should be unique.
 func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 	opts := hcloud.ServerListOpts{}
-	opts.LabelSelector = utils.LabelsToLabelSelector(s.createLabels())
+	opts.LabelSelector = utils.LabelsToLabelSelector(createLabels(s.scope.HetznerCluster.Name, s.scope.Name(), s.scope.IsControlPlane()))
 	servers, err := s.scope.HCloudClient().ListServers(ctx, opts)
 	if err != nil {
 		return nil, err
@@ -556,14 +555,14 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 	return servers[0], nil
 }
 
-func (s *Service) createLabels() map[string]string {
+func createLabels(hcloudClusterName, hcloudMachineName string, isControlPlane bool) map[string]string {
 	m := map[string]string{
-		infrav1.ClusterTagKey(s.scope.HetznerCluster.Name): string(infrav1.ResourceLifecycleOwned),
-		infrav1.MachineNameTagKey:                          s.scope.Name(),
+		infrav1.ClusterTagKey(hcloudClusterName): string(infrav1.ResourceLifecycleOwned),
+		infrav1.MachineNameTagKey:                hcloudMachineName,
 	}
 
 	var machineType string
-	if s.scope.IsControlPlane() {
+	if isControlPlane {
 		machineType = "control_plane"
 	} else {
 		machineType = "worker"
