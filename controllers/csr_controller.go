@@ -29,7 +29,6 @@ import (
 	certificatesv1 "k8s.io/api/certificates/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/cluster-api/util/predicates"
@@ -51,7 +50,6 @@ type ManagementCluster interface {
 // GuestCSRReconciler reconciles a CSR object.
 type GuestCSRReconciler struct {
 	client.Client
-	Scheme           *runtime.Scheme
 	WatchFilterValue string
 	clientSet        *kubernetes.Clientset
 	mCluster         ManagementCluster
