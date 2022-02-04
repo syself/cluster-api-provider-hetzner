@@ -2,7 +2,6 @@
 load("ext://uibutton", "cmd_button", "location")
 load("ext://restart_process", "docker_build_with_restart")
 
-yq_cmd = "./hack/tools/bin/yq"
 kustomize_cmd = "./hack/tools/bin/kustomize"
 envsubst_cmd = "./hack/tools/bin/envsubst"
 tools_bin = "./hack/tools/bin"
@@ -230,10 +229,6 @@ def base64_decode(to_decode):
     decode_blob = local("echo '{}' | base64 --decode -".format(to_decode), quiet = True)
     return str(decode_blob)
 
-def ensure_yq():
-    if not os.path.exists(yq_cmd):
-        local("make {}".format(yq_cmd))
-
 def ensure_envsubst():
     if not os.path.exists(envsubst_cmd):
         local("make {}".format(os.path.abspath(envsubst_cmd)))
@@ -261,7 +256,6 @@ def deploy_observability():
 ##############################
 # Actual work happens here
 ##############################
-ensure_yq()
 ensure_envsubst()
 ensure_kustomize()
 

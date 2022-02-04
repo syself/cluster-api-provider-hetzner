@@ -509,7 +509,7 @@ undeploy-controller: ## Undeploy controller from the K8s cluster specified in ~/
 	$(KUSTOMIZE) build config/default | kubectl delete -f -
 
 .PHONY: tilt-up
-tilt-up: $(ENVSUBST) yq $(KUSTOMIZE) cluster  ## Start a mgt-cluster & Tilt. Installs the CRDs and deploys the controllers
+tilt-up: $(ENVSUBST) $(KUSTOMIZE) cluster  ## Start a mgt-cluster & Tilt. Installs the CRDs and deploys the controllers
 	EXP_CLUSTER_RESOURCE_SET=true tilt up
 
 install-essentials: ## This gets the secret and installs a CNI and the CCM. Usage: MAKE install-essentials NAME=<cluster-name>
