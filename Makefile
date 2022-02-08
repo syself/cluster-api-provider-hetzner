@@ -69,7 +69,7 @@ endif
 #
 # Kubebuilder.
 #
-export KUBEBUILDER_ENVTEST_KUBERNETES_VERSION ?= 1.22.0
+export KUBEBUILDER_ENVTEST_KUBERNETES_VERSION ?= 1.23.3
 export KUBEBUILDER_CONTROLPLANE_START_TIMEOUT ?= 60s
 export KUBEBUILDER_CONTROLPLANE_STOP_TIMEOUT ?= 60s
 
@@ -94,7 +94,7 @@ GOLANGCI_LINT := $(abspath $(TOOLS_BIN_DIR)/golangci-lint)
 CONVERSION_GEN := $(abspath $(TOOLS_BIN_DIR)/conversion-gen)
 ENVSUBST_BIN := $(BIN_DIR)/envsubst
 ENVSUBST := $(TOOLS_DIR)/$(ENVSUBST_BIN)
-
+SETUP_ENVTEST := $(abspath $(TOOLS_BIN_DIR)/setup-envtest)
 
 export PATH := $(abspath $(TOOLS_BIN_DIR)):$(PATH)
 
@@ -241,6 +241,9 @@ $(GOLANGCI_LINT): .github/workflows/golangci-lint.yml # Download golanci-lint us
 		-b $(TOOLS_DIR)/$(BIN_DIR) \
 		$(shell cat .github/workflows/golangci-lint.yml | grep version | sed 's/.*version: //')
 
+setup-envtest: $(SETUP_ENVTEST) ## Build a local copy of setup-envtest
+$(SETUP_ENVTEST): $(TOOLS_DIR)/go.mod # Build setup-envtest from tools folder.
+	cd $(TOOLS_DIR); go build -tags=tools -o $(BIN_DIR)/setup-envtest sigs.k8s.io/controller-runtime/tools/setup-envtest
 
 ##@ Generate / Manifests
 
