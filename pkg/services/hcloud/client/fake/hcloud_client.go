@@ -398,7 +398,7 @@ func (c *cacheHCloudClient) DeleteServer(ctx context.Context, server *hcloud.Ser
 }
 
 func (c *cacheHCloudClient) CreateNetwork(ctx context.Context, opts hcloud.NetworkCreateOpts) (*hcloud.Network, error) {
-	if _, found := c.networkCache.nameMap[opts.Name]; !found {
+	if _, found := c.networkCache.nameMap[opts.Name]; found {
 		return nil, fmt.Errorf("already exists")
 	}
 
@@ -454,7 +454,7 @@ func (c *cacheHCloudClient) ListSSHKeys(ctx context.Context, opts hcloud.SSHKeyL
 }
 
 func (c *cacheHCloudClient) CreatePlacementGroup(ctx context.Context, opts hcloud.PlacementGroupCreateOpts) (hcloud.PlacementGroupCreateResult, error) {
-	if _, found := c.placementGroupCache.nameMap[opts.Name]; !found {
+	if _, found := c.placementGroupCache.nameMap[opts.Name]; found {
 		return hcloud.PlacementGroupCreateResult{}, fmt.Errorf("already exists")
 	}
 
