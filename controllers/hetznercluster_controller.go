@@ -167,8 +167,10 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 
 	// reconcile the load balancers
 	if err := loadbalancer.NewService(clusterScope).Reconcile(ctx); err != nil {
+		conditions.MarkFalse(hetznerCluster, infrav1.LoadBalancerAttached, infrav1.LoadBalancerUnreachableReason, clusterv1.ConditionSeverityError, err.Error())
 		return reconcile.Result{}, errors.Wrapf(err, "failed to reconcile load balancers for HetznerCluster %s/%s", hetznerCluster.Namespace, hetznerCluster.Name)
 	}
+	conditions.MarkTrue(hetznerCluster, infrav1.LoadBalancerAttached)
 
 	// reconcile the placement groups
 	if err := placementgroup.NewService(clusterScope).Reconcile(ctx); err != nil {

@@ -18,7 +18,6 @@ package controllers_test
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
@@ -56,84 +55,139 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 		return objectCondition.Status == corev1.ConditionTrue
 	}
 
-	Context("Reconcile a HetznerCluster", func() {
-		var (
-			hetznerSecret *corev1.Secret
-		)
-		BeforeEach(func() {
-			// Create the secret
-			hetznerSecret = getDefaultHetznerSecret("default")
-			Expect(testEnv.Create(ctx, hetznerSecret)).To(Succeed())
+	It("should create a basic cluster", func() {
 
-		})
-		AfterEach(func() {
-			Expect(testEnv.Delete(ctx, hetznerSecret)).To(Succeed())
-		})
+		// Create the secret
+		hetznerSecret := getDefaultHetznerSecret("default")
+		Expect(testEnv.Create(ctx, hetznerSecret)).To(Succeed())
+		defer func() {
+			Expect(testEnv.Cleanup(ctx, hetznerSecret)).To(Succeed())
+		}()
 
-		It("should create a basic cluster", func() {
-			// Create the HetznerCluster object
-			instance := &infrav1.HetznerCluster{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "hetzner-test1",
-					Namespace:    "default",
+		// Create the HetznerCluster object
+		instance := &infrav1.HetznerCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "hetzner-test1",
+				Namespace:    "default",
+			},
+			Spec: getDefaultHetznerClusterSpec(),
+		}
+		Expect(testEnv.Create(ctx, instance)).To(Succeed())
+		defer func() {
+			Expect(testEnv.Delete(ctx, instance)).To(Succeed())
+		}()
+
+		key := client.ObjectKey{Namespace: instance.Namespace, Name: instance.Name}
+
+		// Create capi cluster
+		capiCluster := &clusterv1.Cluster{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "test1-",
+				Namespace:    "default",
+				Finalizers:   []string{clusterv1.ClusterFinalizer},
+			},
+			Spec: clusterv1.ClusterSpec{
+				InfrastructureRef: &corev1.ObjectReference{
+					APIVersion: infrav1.GroupVersion.String(),
+					Kind:       "HetznerCluster",
+					Name:       instance.Name,
 				},
-				Spec: getDefaultHetznerClusterSpec(),
+			},
+		}
+		Expect(testEnv.Create(ctx, capiCluster)).To(Succeed())
+		defer func() {
+			Expect(testEnv.Cleanup(ctx, capiCluster)).To(Succeed())
+		}()
+
+		// Make sure the HetznerCluster exists.
+		Eventually(func() error {
+			return testEnv.Get(ctx, key, instance)
+		}, timeout).Should(BeNil())
+
+		By("setting the OwnerRef on the HetznerCluster")
+		// Set owner reference to Hetzner cluster
+		Eventually(func() error {
+			ph, err := patch.NewHelper(instance, testEnv)
+			Expect(err).ShouldNot(HaveOccurred())
+			instance.OwnerReferences = append(instance.OwnerReferences, metav1.OwnerReference{
+				Kind:       "Cluster",
+				APIVersion: clusterv1.GroupVersion.String(),
+				Name:       capiCluster.Name,
+				UID:        capiCluster.UID,
+			})
+			return ph.Patch(ctx, instance, patch.WithStatusObservedGeneration{})
+		}, timeout).Should(BeNil())
+
+		// Check whether finalizer has been set for HetznerCluster
+		Eventually(func() bool {
+			if err := testEnv.Get(ctx, key, instance); err != nil {
+				return false
 			}
-			Expect(testEnv.Create(ctx, instance)).To(Succeed())
-			defer func() {
-				Expect(testEnv.Delete(ctx, instance)).To(Succeed())
-			}()
+			return len(instance.Finalizers) > 0
+		}, timeout, time.Second).Should(BeTrue())
+	})
 
-			key := client.ObjectKey{Namespace: instance.Namespace, Name: instance.Name}
+	It("should have a load balancer attached", func() {
+		testNs, err := testEnv.CreateNamespace(ctx, "lb-attachement")
+		Expect(err).NotTo(HaveOccurred())
+		namespace := testNs.Name
+		// Create the secret
+		hetznerSecret := getDefaultHetznerSecret(namespace)
+		Expect(testEnv.Create(ctx, hetznerSecret)).To(Succeed())
+		defer func() {
+			Expect(testEnv.Cleanup(ctx, hetznerSecret)).To(Succeed())
+		}()
 
-			// Create capi cluster
-			capiCluster := &clusterv1.Cluster{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test1-",
-					Namespace:    "default",
-					Finalizers:   []string{clusterv1.ClusterFinalizer},
+		hetznerClusterName := utils.GenerateName(nil, "hetzner-test1")
+		// Create capi cluster
+		capiCluster := &clusterv1.Cluster{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "test1-",
+				Namespace:    namespace,
+				Finalizers:   []string{clusterv1.ClusterFinalizer},
+			},
+			Spec: clusterv1.ClusterSpec{
+				InfrastructureRef: &corev1.ObjectReference{
+					APIVersion: infrav1.GroupVersion.String(),
+					Kind:       "HetznerCluster",
+					Name:       hetznerClusterName,
 				},
-				Spec: clusterv1.ClusterSpec{
-					InfrastructureRef: &corev1.ObjectReference{
-						APIVersion: infrav1.GroupVersion.String(),
-						Kind:       "HetznerCluster",
-						Name:       instance.Name,
+			},
+		}
+		Expect(testEnv.Create(ctx, capiCluster)).To(Succeed())
+		defer func() {
+			Expect(testEnv.Cleanup(ctx, capiCluster)).To(Succeed())
+		}()
+
+		// Create the HetznerCluster object
+		instance := &infrav1.HetznerCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      hetznerClusterName,
+				Namespace: namespace,
+				OwnerReferences: []metav1.OwnerReference{
+					{
+						APIVersion: "cluster.x-k8s.io/v1beta1",
+						Kind:       "Cluster",
+						Name:       capiCluster.Name,
+						UID:        capiCluster.UID,
 					},
 				},
+			},
+			Spec: getDefaultHetznerClusterSpec(),
+		}
+		Expect(testEnv.Create(ctx, instance)).To(Succeed())
+		defer func() {
+			Expect(testEnv.Cleanup(ctx, instance)).To(Succeed())
+		}()
+
+		key := client.ObjectKey{Namespace: instance.Namespace, Name: instance.Name}
+
+		Eventually(func() bool {
+			if err := testEnv.Get(ctx, key, instance); err != nil {
+				return false
 			}
-			Expect(testEnv.Create(ctx, capiCluster)).To(Succeed())
-			defer func() {
-				Expect(testEnv.Cleanup(ctx, capiCluster)).To(Succeed())
-			}()
-
-			// Make sure the HetznerCluster exists.
-			Eventually(func() error {
-				return testEnv.Get(ctx, key, instance)
-			}, timeout).Should(BeNil())
-
-			By("setting the OwnerRef on the HetznerCluster")
-			// Set owner reference to Hetzner cluster
-			Eventually(func() error {
-				ph, err := patch.NewHelper(instance, testEnv)
-				Expect(err).ShouldNot(HaveOccurred())
-				instance.OwnerReferences = append(instance.OwnerReferences, metav1.OwnerReference{
-					Kind:       "Cluster",
-					APIVersion: clusterv1.GroupVersion.String(),
-					Name:       capiCluster.Name,
-					UID:        capiCluster.UID,
-				})
-				return ph.Patch(ctx, instance, patch.WithStatusObservedGeneration{})
-			}, timeout).Should(BeNil())
-
-			// Check whether finalizer has been set for HetznerCluster
-			Eventually(func() bool {
-				if err := testEnv.Get(ctx, key, instance); err != nil {
-					fmt.Println("error while getting instance", err)
-					return false
-				}
-				return len(instance.Finalizers) > 0
-			}, timeout, time.Second).Should(BeTrue())
-		})
+			return isPresentAndTrue(key, instance, infrav1.LoadBalancerAttached)
+		}).Should(BeTrue())
 	})
 
 	Context("For HetznerMachines belonging to the cluster", func() {
