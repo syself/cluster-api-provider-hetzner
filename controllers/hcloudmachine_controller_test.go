@@ -69,6 +69,7 @@ var _ = Describe("VsphereMachineReconciler", func() {
 			},
 		}
 		Expect(testEnv.Create(ctx, capiCluster)).To(Succeed())
+
 		infraCluster = &infrav1.HetznerCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "hetzner-test1",
@@ -82,64 +83,14 @@ var _ = Describe("VsphereMachineReconciler", func() {
 					},
 				},
 			},
-			Spec: infrav1.HetznerClusterSpec{
-				ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
-					Algorithm: "round_robin",
-					ExtraTargets: []infrav1.LoadBalancerTargetSpec{
-						{
-							DestinationPort: 8132,
-							ListenPort:      8132,
-							Protocol:        "tcp",
-						},
-						{
-							DestinationPort: 8133,
-							ListenPort:      8133,
-							Protocol:        "tcp",
-						},
-					},
-					Port:   6443,
-					Region: "fsn1",
-					Type:   "lb11",
-				},
-				ControlPlaneEndpoint: &clusterv1.APIEndpoint{},
-				ControlPlaneRegions:  []infrav1.Region{"fsn1"},
-				HetznerSecret: infrav1.HetznerSecretRef{
-					Key: infrav1.HetznerSecretKeyRef{
-						HCloudToken: "hcloud",
-					},
-					Name: "hetzner-secret",
-				},
-				SSHKeys: infrav1.HetznerSSHKeys{
-					HCloud: []infrav1.SSHKey{
-						{
-							Name: "testsshkey",
-						},
-					},
-				},
-			},
+			Spec: getDefaultHetznerClusterSpec(),
 		}
 		Expect(testEnv.Create(ctx, infraCluster)).To(Succeed())
 
-		hetznerSecret = &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "hetzner-secret",
-				Namespace: testNs.Name,
-			},
-			Data: map[string][]byte{
-				"hcloud": []byte("my-token"),
-			},
-		}
+		hetznerSecret = getDefaultHetznerSecret(testNs.Name)
 		Expect(testEnv.Create(ctx, hetznerSecret)).To(Succeed())
 
-		bootstrapSecret = &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "bootstrap-secret",
-				Namespace: testNs.Name,
-			},
-			Data: map[string][]byte{
-				"value": []byte("my-bootstrap"),
-			},
-		}
+		bootstrapSecret = getDefaultBootstrapSecret(testNs.Name)
 		Expect(testEnv.Create(ctx, bootstrapSecret)).To(Succeed())
 
 		failureDomain := "fsn1"

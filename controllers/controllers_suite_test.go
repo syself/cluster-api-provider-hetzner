@@ -97,3 +97,65 @@ var _ = AfterSuite(func() {
 	wg.Done() // Main manager has been stopped
 	wg.Wait() // Wait for target cluster manager
 })
+
+func getDefaultHetznerClusterSpec() infrav1.HetznerClusterSpec {
+	return infrav1.HetznerClusterSpec{
+		ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
+			Algorithm: "round_robin",
+			ExtraTargets: []infrav1.LoadBalancerTargetSpec{
+				{
+					DestinationPort: 8132,
+					ListenPort:      8132,
+					Protocol:        "tcp",
+				},
+				{
+					DestinationPort: 8133,
+					ListenPort:      8133,
+					Protocol:        "tcp",
+				},
+			},
+			Port:   6443,
+			Region: "fsn1",
+			Type:   "lb11",
+		},
+		ControlPlaneEndpoint: &clusterv1.APIEndpoint{},
+		ControlPlaneRegions:  []infrav1.Region{"fsn1"},
+		HetznerSecret: infrav1.HetznerSecretRef{
+			Key: infrav1.HetznerSecretKeyRef{
+				HCloudToken: "hcloud",
+			},
+			Name: "hetzner-secret",
+		},
+		SSHKeys: infrav1.HetznerSSHKeys{
+			HCloud: []infrav1.SSHKey{
+				{
+					Name: "testsshkey",
+				},
+			},
+		},
+	}
+}
+
+func getDefaultHetznerSecret(namespace string) *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "hetzner-secret",
+			Namespace: namespace,
+		},
+		Data: map[string][]byte{
+			"hcloud": []byte("my-token"),
+		},
+	}
+}
+
+func getDefaultBootstrapSecret(namespace string) *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "bootstrap-secret",
+			Namespace: namespace,
+		},
+		Data: map[string][]byte{
+			"value": []byte("my-bootstrap"),
+		},
+	}
+}
