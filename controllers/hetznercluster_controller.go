@@ -29,6 +29,7 @@ import (
 	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
+	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/loadbalancer"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/network"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/placementgroup"
@@ -57,6 +58,7 @@ import (
 // HetznerClusterReconciler reconciles a HetznerCluster object.
 type HetznerClusterReconciler struct {
 	client.Client
+	HCloudClientFactory            hcloudclient.Factory
 	Log                            logr.Logger
 	WatchFilterValue               string
 	targetClusterManagersStopCh    map[types.NamespacedName]chan struct{}
@@ -88,7 +90,7 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// Fetch the Cluster.
 	cluster, err := util.GetOwnerCluster(ctx, r.Client, hetznerCluster.ObjectMeta)
 	if err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, errors.Wrap(err, "failed to get owner cluster")
 	}
 
 	if cluster == nil {
@@ -107,11 +109,19 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	log.V(1).Info("Creating cluster scope")
 	// Create the scope.
+	token, err := retrieveSecret(ctx, r.Client, req.Namespace, hetznerCluster.Spec.HetznerSecret)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "failed to retrieve secret")
+	}
+
+	hcc := r.HCloudClientFactory.NewClient(token)
+
 	clusterScope, err := scope.NewClusterScope(ctx, scope.ClusterScopeParams{
 		Client:         r.Client,
 		Logger:         &log,
 		Cluster:        cluster,
 		HetznerCluster: hetznerCluster,
+		HCloudClient:   hcc,
 	})
 	if err != nil {
 		return reconcile.Result{}, errors.Errorf("failed to create scope: %+v", err)
@@ -254,6 +264,21 @@ func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterS
 	controllerutil.RemoveFinalizer(clusterScope.HetznerCluster, infrav1.ClusterFinalizer)
 
 	return reconcile.Result{}, nil
+}
+
+func retrieveSecret(ctx context.Context, client client.Client, namespace string, hetznerSecret infrav1.HetznerSecretRef) (string, error) {
+	// retrieve token secret
+	var tokenSecret corev1.Secret
+	tokenSecretName := types.NamespacedName{Namespace: namespace, Name: hetznerSecret.Name}
+	if err := client.Get(ctx, tokenSecretName, &tokenSecret); err != nil {
+		return "", errors.Errorf("error getting referenced token secret/%s: %s", tokenSecretName, err)
+	}
+
+	tokenBytes, keyExists := tokenSecret.Data[hetznerSecret.Key.HCloudToken]
+	if !keyExists {
+		return "", errors.Errorf("error key %s does not exist in secret/%s", hetznerSecret.Key.HCloudToken, tokenSecretName)
+	}
+	return string(tokenBytes), nil
 }
 
 func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope) error {

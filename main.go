@@ -25,6 +25,7 @@ import (
 	// +kubebuilder:scaffold:imports
 	infrastructurev1beta1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/controllers"
+	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -95,10 +96,13 @@ func main() {
 	// Setup the context that's going to be used in controllers and for the manager.
 	ctx := ctrl.SetupSignalHandler()
 
+	hcloudClientFactory := hcloudclient.NewFactory()
+
 	var wg sync.WaitGroup
 	wg.Add(1)
 	if err = (&controllers.HetznerClusterReconciler{
 		Client:                         mgr.GetClient(),
+		HCloudClientFactory:            hcloudClientFactory,
 		WatchFilterValue:               watchFilterValue,
 		TargetClusterManagersWaitGroup: &wg,
 	}).SetupWithManager(ctx, mgr, controller.Options{}); err != nil {
@@ -106,8 +110,9 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&controllers.HCloudMachineReconciler{
-		Client:           mgr.GetClient(),
-		WatchFilterValue: watchFilterValue,
+		Client:              mgr.GetClient(),
+		HCloudClientFactory: hcloudClientFactory,
+		WatchFilterValue:    watchFilterValue,
 	}).SetupWithManager(ctx, mgr, controller.Options{}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HCloudMachine")
 		os.Exit(1)

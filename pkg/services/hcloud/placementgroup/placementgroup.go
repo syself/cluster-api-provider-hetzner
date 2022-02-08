@@ -84,7 +84,7 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 	for _, pgName := range toCreate {
 		name := fmt.Sprintf("%s-%s", s.scope.HetznerCluster.Name, placementGroupSpecMap[pgName].Name)
 		clusterTagKey := infrav1.ClusterTagKey(s.scope.HetznerCluster.Name)
-		if _, _, err := s.scope.HCloudClient().CreatePlacementGroup(ctx, hcloud.PlacementGroupCreateOpts{
+		if _, err := s.scope.HCloudClient.CreatePlacementGroup(ctx, hcloud.PlacementGroupCreateOpts{
 			Name:   name,
 			Type:   hcloud.PlacementGroupType(placementGroupSpecMap[pgName].Type),
 			Labels: map[string]string{clusterTagKey: string(infrav1.ResourceLifecycleOwned)},
@@ -95,7 +95,7 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 
 	// Delete
 	for _, pgName := range toDelete {
-		if _, err := s.scope.HCloudClient().DeletePlacementGroup(ctx, placementGroupStatusMap[pgName].ID); err != nil {
+		if err := s.scope.HCloudClient.DeletePlacementGroup(ctx, placementGroupStatusMap[pgName].ID); err != nil {
 			multierr = append(multierr, err)
 		}
 	}
@@ -122,7 +122,7 @@ func (s *Service) Delete(ctx context.Context) (err error) {
 	// Delete placement groups which are not in status but in specs
 	var multierr []error
 	for _, pg := range s.scope.HetznerCluster.Status.HCloudPlacementGroup {
-		if _, err := s.scope.HCloudClient().DeletePlacementGroup(ctx, pg.ID); err != nil {
+		if err := s.scope.HCloudClient.DeletePlacementGroup(ctx, pg.ID); err != nil {
 			if !hcloud.IsError(err, hcloud.ErrorCodeNotFound) {
 				multierr = append(multierr, err)
 			}
@@ -145,7 +145,7 @@ func (s *Service) findPlacementGroups(ctx context.Context) ([]*hcloud.PlacementG
 	opts := hcloud.PlacementGroupListOpts{}
 	opts.LabelSelector = utils.LabelsToLabelSelector(labels)
 
-	return s.scope.HCloudClient().ListPlacementGroups(ctx, opts)
+	return s.scope.HCloudClient.ListPlacementGroups(ctx, opts)
 }
 
 // gets the information of the Hetzner load balancer object and returns it in our status object.

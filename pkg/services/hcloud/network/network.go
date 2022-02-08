@@ -91,7 +91,7 @@ func (s *Service) createNetwork(ctx context.Context, spec *infrav1.HCloudNetwork
 		},
 	}
 
-	resp, _, err := s.scope.HCloudClient().CreateNetwork(ctx, opts)
+	resp, err := s.scope.HCloudClient.CreateNetwork(ctx, opts)
 	if err != nil {
 		record.Warnf(
 			s.scope.HetznerCluster,
@@ -116,7 +116,7 @@ func (s *Service) Delete(ctx context.Context) error {
 		// Nothing to delete
 		return nil
 	}
-	if _, err := s.scope.HCloudClient().DeleteNetwork(ctx, &hcloud.Network{ID: s.scope.HetznerCluster.Status.Network.ID}); err != nil {
+	if err := s.scope.HCloudClient.DeleteNetwork(ctx, &hcloud.Network{ID: s.scope.HetznerCluster.Status.Network.ID}); err != nil {
 		// If resource has been deleted already then do nothing
 		if hcloud.IsError(err, hcloud.ErrorCodeNotFound) {
 			s.scope.V(1).Info("deleting network failed - not found", "id", s.scope.HetznerCluster.Status.Network.ID)
@@ -142,7 +142,7 @@ func (s *Service) Delete(ctx context.Context) error {
 func (s *Service) findNetwork(ctx context.Context) (*hcloud.Network, error) {
 	opts := hcloud.NetworkListOpts{}
 	opts.LabelSelector = utils.LabelsToLabelSelector(s.labels())
-	networks, err := s.scope.HCloudClient().ListNetworks(ctx, opts)
+	networks, err := s.scope.HCloudClient.ListNetworks(ctx, opts)
 	if err != nil {
 		return nil, err
 	}

@@ -19,7 +19,6 @@ package loadbalancer
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"testing"
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
@@ -219,6 +218,5 @@ var _ = BeforeSuite(func() {
 	var buffer bytes.Buffer
 	Expect(json.Compact(&buffer, b))
 	Expect(json.Unmarshal(buffer.Bytes(), &lbSchema)).To(Succeed())
-	fmt.Println(lbSchema)
 	lb = hcloud.LoadBalancerFromSchema(lbSchema)
 })
