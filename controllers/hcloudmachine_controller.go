@@ -22,6 +22,7 @@ import (
 	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
+	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/server"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -41,7 +42,8 @@ import (
 // HCloudMachineReconciler reconciles a HCloudMachine object.
 type HCloudMachineReconciler struct {
 	client.Client
-	WatchFilterValue string
+	HCloudClientFactory hcloudclient.Factory
+	WatchFilterValue    string
 }
 
 // +kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;patch
@@ -103,12 +105,20 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	// Create the scope.
+	token, err := retrieveSecret(ctx, r.Client, req.Namespace, hetznerCluster.Spec.HetznerSecret)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "failed to retrieve secret")
+	}
+
+	hcc := r.HCloudClientFactory.NewClient(token)
+
 	machineScope, err := scope.NewMachineScope(ctx, scope.MachineScopeParams{
 		ClusterScopeParams: scope.ClusterScopeParams{
 			Client:         r.Client,
 			Logger:         &log,
 			Cluster:        cluster,
 			HetznerCluster: hetznerCluster,
+			HCloudClient:   hcc,
 		},
 		Machine:       machine,
 		HCloudMachine: hcloudMachine,

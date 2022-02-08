@@ -33,6 +33,17 @@ var _ = DescribeTable("LabelsToLabelSelector",
 	Entry(nil, map[string]string{}, "", ""),
 )
 
+var _ = DescribeTable("LabelSelectorToLabels",
+	func(str string, expectedOutput map[string]string) {
+		Expect(utils.LabelSelectorToLabels(str)).To(Equal(expectedOutput))
+	},
+	Entry(nil, "key2==label2,key1==label1", map[string]string{
+		"key1": "label1",
+		"key2": "label2",
+	}),
+	Entry(nil, "", map[string]string{}),
+)
+
 var _ = Describe("DifferenceOfStringSlices", func() {
 	var a0 []string
 	var a1 []string

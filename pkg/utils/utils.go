@@ -18,12 +18,14 @@ limitations under the License.
 package utils
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"k8s.io/apiserver/pkg/storage/names"
@@ -39,8 +41,23 @@ func LabelsToLabelSelector(labels map[string]string) string {
 			fmt.Sprintf("%s==%s", key, val),
 		)
 	}
-	fmt.Println("parts5", parts)
 	return strings.Join(parts, ",")
+}
+
+// LabelSelectorToLabels is converting an HCloud label
+// selector to a map of labels.
+func LabelSelectorToLabels(str string) (map[string]string, error) {
+	labels := make(map[string]string)
+	if str == "" {
+		return labels, nil
+	}
+	input := strings.ReplaceAll(str, "==", `":"`)
+	input = strings.ReplaceAll(input, ",", `","`)
+	input = fmt.Sprintf(`{"%s"}`, input)
+	if err := json.Unmarshal([]byte(input), &labels); err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal")
+	}
+	return labels, nil
 }
 
 // DifferenceOfStringSlices returns the elements in `a` that aren't in `b` as well as elements of `a` not in `b`.

@@ -19,7 +19,6 @@ package placementgroup
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"testing"
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
@@ -96,7 +95,6 @@ var _ = BeforeSuite(func() {
 	var buffer bytes.Buffer
 	Expect(json.Compact(&buffer, b))
 	Expect(json.Unmarshal(buffer.Bytes(), &placementGroupsSchema)).To(Succeed())
-	fmt.Println(placementGroupsSchema)
 
 	schemas := placementGroupsSchema.PlacementGroups
 	placementGroups = make([]*hcloud.PlacementGroup, len(schemas))

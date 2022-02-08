@@ -22,11 +22,9 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	"github.com/hetznercloud/hcloud-go/hcloud"
 	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
+	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"k8s.io/client-go/kubernetes"
 	clientcmd "k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2/klogr"
@@ -38,13 +36,11 @@ import (
 
 // ClusterScopeParams defines the input parameters used to create a new scope.
 type ClusterScopeParams struct {
-	HCloudClient
-
-	HCloudClientFactory HCloudClientFactory
-	Client              client.Client
-	Logger              *logr.Logger
-	Cluster             *clusterv1.Cluster
-	HetznerCluster      *infrav1.HetznerCluster
+	Client         client.Client
+	Logger         *logr.Logger
+	HCloudClient   hcloudclient.Client
+	Cluster        *clusterv1.Cluster
+	HetznerCluster *infrav1.HetznerCluster
 }
 
 // NewClusterScope creates a new Scope from the supplied parameters.
@@ -56,36 +52,15 @@ func NewClusterScope(ctx context.Context, params ClusterScopeParams) (*ClusterSc
 	if params.HetznerCluster == nil {
 		return nil, errors.New("failed to generate new scope from nil HetznerCluster")
 	}
+	if params.HCloudClient == nil {
+		return nil, errors.New("failed to generate new scope from nil HCloudClient")
+	}
+
 	if params.Logger == nil {
 		logger := klogr.New()
 		params.Logger = &logger
 	}
 
-	// setup client factory if nothing was set
-	var hcloudToken string
-	if params.HCloudClientFactory == nil {
-		params.HCloudClientFactory = func(ctx context.Context) (HCloudClient, error) {
-			// retrieve token secret
-			var tokenSecret corev1.Secret
-			tokenSecretName := types.NamespacedName{Namespace: params.HetznerCluster.Namespace, Name: params.HetznerCluster.Spec.HetznerSecret.Name}
-			if err := params.Client.Get(ctx, tokenSecretName, &tokenSecret); err != nil {
-				return nil, errors.Errorf("error getting referenced token secret/%s: %s", tokenSecretName, err)
-			}
-
-			tokenBytes, keyExists := tokenSecret.Data[params.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken]
-			if !keyExists {
-				return nil, errors.Errorf("error key %s does not exist in secret/%s", params.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken, tokenSecretName)
-			}
-			hcloudToken = string(tokenBytes)
-
-			return &realHCloudClient{client: hcloud.NewClient(hcloud.WithToken(hcloudToken)), token: hcloudToken}, nil
-		}
-	}
-
-	hcc, err := params.HCloudClientFactory(ctx)
-	if err != nil {
-		return nil, err
-	}
 	helper, err := patch.NewHelper(params.HetznerCluster, params.Client)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to init patch helper")
@@ -96,8 +71,7 @@ func NewClusterScope(ctx context.Context, params ClusterScopeParams) (*ClusterSc
 		Client:         params.Client,
 		Cluster:        params.Cluster,
 		HetznerCluster: params.HetznerCluster,
-		hcloudClient:   hcc,
-		hcloudToken:    hcloudToken,
+		HCloudClient:   params.HCloudClient,
 		patchHelper:    helper,
 	}, nil
 }
@@ -107,8 +81,7 @@ type ClusterScope struct {
 	*logr.Logger
 	Client       client.Client
 	patchHelper  *patch.Helper
-	hcloudClient HCloudClient
-	hcloudToken  string
+	HCloudClient hcloudclient.Client
 
 	Cluster        *clusterv1.Cluster
 	HetznerCluster *infrav1.HetznerCluster
@@ -132,11 +105,6 @@ func (s *ClusterScope) Close(ctx context.Context) error {
 // PatchObject persists the machine spec and status.
 func (s *ClusterScope) PatchObject(ctx context.Context) error {
 	return s.patchHelper.Patch(ctx, s.HetznerCluster)
-}
-
-// HCloudClient gives a hcloud client.
-func (s *ClusterScope) HCloudClient() HCloudClient {
-	return s.hcloudClient
 }
 
 // GetSpecRegion returns a region.
