@@ -29,25 +29,48 @@ import (
 	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("Hetzner ClusterReconciler", func() {
-	BeforeEach(func() {})
-	AfterEach(func() {})
+	isPresentAndFalseWithReason := func(key types.NamespacedName, getter conditions.Getter, condition clusterv1.ConditionType, reason string) bool {
+		ExpectWithOffset(1, testEnv.Get(ctx, key, getter)).To(Succeed())
+		if !conditions.Has(getter, condition) {
+			return false
+		}
+		objectCondition := conditions.Get(getter, condition)
+		return objectCondition.Status == corev1.ConditionFalse &&
+			objectCondition.Reason == reason
+	}
+	isPresentAndTrue := func(key types.NamespacedName, getter conditions.Getter, condition clusterv1.ConditionType) bool {
+		ExpectWithOffset(1, testEnv.Get(ctx, key, getter)).To(Succeed())
+		if !conditions.Has(getter, condition) {
+			return false
+		}
+		objectCondition := conditions.Get(getter, condition)
+		return objectCondition.Status == corev1.ConditionTrue
+	}
 
-	Context("Reconcile an HetznerCluster", func() {
-		It("should create a cluster", func() {
+	Context("Reconcile a HetznerCluster", func() {
+		var (
+			hetznerSecret *corev1.Secret
+		)
+		BeforeEach(func() {
 			// Create the secret
-			hetznerSecret := getDefaultHetznerSecret("default")
+			hetznerSecret = getDefaultHetznerSecret("default")
 			Expect(testEnv.Create(ctx, hetznerSecret)).To(Succeed())
-			defer func() {
-				Expect(testEnv.Delete(ctx, hetznerSecret)).To(Succeed())
-			}()
 
+		})
+		AfterEach(func() {
+			Expect(testEnv.Delete(ctx, hetznerSecret)).To(Succeed())
+		})
+
+		It("should create a basic cluster", func() {
 			// Create the HetznerCluster object
 			instance := &infrav1.HetznerCluster{
 				ObjectMeta: metav1.ObjectMeta{
@@ -127,17 +150,17 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 			Expect(err).NotTo(HaveOccurred())
 			namespace = testNs.Name
 
-			// Create the secret
+			// Create the hetzner secret
 			hetznerSecret = getDefaultHetznerSecret(namespace)
 			Expect(testEnv.Create(ctx, hetznerSecret)).To(Succeed())
-
+			// Create the bootstrap secret
 			bootstrapSecret = getDefaultBootstrapSecret(namespace)
 			Expect(testEnv.Create(ctx, bootstrapSecret)).To(Succeed())
 		})
 
 		AfterEach(func() {
-			Expect(testEnv.Delete(ctx, hetznerSecret)).To(Succeed())
 			Expect(testEnv.Delete(ctx, bootstrapSecret)).To(Succeed())
+			Expect(testEnv.Delete(ctx, hetznerSecret)).To(Succeed())
 			Expect(testEnv.Delete(ctx, testNs)).To(Succeed())
 		})
 
@@ -151,7 +174,9 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 				Spec: getDefaultHetznerClusterSpec(),
 			}
 			Expect(testEnv.Create(ctx, instance)).To(Succeed())
-
+			defer func() {
+				Expect(testEnv.Cleanup(ctx, instance)).To(Succeed())
+			}()
 			capiCluster := &clusterv1.Cluster{
 				ObjectMeta: metav1.ObjectMeta{
 					GenerateName: "capi-test1-",
@@ -168,6 +193,9 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 				},
 			}
 			Expect(testEnv.Create(ctx, capiCluster)).To(Succeed())
+			defer func() {
+				Expect(testEnv.Cleanup(ctx, capiCluster)).To(Succeed())
+			}()
 
 			// Make sure the HCloudCluster exists.
 			Eventually(func() error {
@@ -209,6 +237,101 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 				return len(servers)
 			}, timeout).Should(Equal(machineCount))
 		})
+	})
+
+	Context("toggling network", func() {
+		var (
+			namespace       string
+			testNs          *corev1.Namespace
+			bootstrapSecret *corev1.Secret
+			hetznerSecret   *corev1.Secret
+		)
+
+		hetznerClusterSpecWithDisabledNetwork := getDefaultHetznerClusterSpec()
+		hetznerClusterSpecWithDisabledNetwork.HCloudNetwork.NetworkEnabled = false
+		hetznerClusterSpecWithoutNetwork := getDefaultHetznerClusterSpec()
+		hetznerClusterSpecWithoutNetwork.HCloudNetwork = infrav1.HCloudNetworkSpec{}
+
+		BeforeEach(func() {
+			var err error
+			testNs, err = testEnv.CreateNamespace(ctx, "ns-network")
+			Expect(err).NotTo(HaveOccurred())
+			namespace = testNs.Name
+
+			// Create the bootstrap secret
+			bootstrapSecret = getDefaultBootstrapSecret(namespace)
+			Expect(testEnv.Create(ctx, bootstrapSecret)).To(Succeed())
+			// Create the hetzner secret
+			hetznerSecret = getDefaultHetznerSecret(namespace)
+			Expect(testEnv.Create(ctx, hetznerSecret)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			Expect(testEnv.Delete(ctx, bootstrapSecret)).To(Succeed())
+			Expect(testEnv.Delete(ctx, hetznerSecret)).To(Succeed())
+			Expect(testEnv.Delete(ctx, testNs)).To(Succeed())
+		})
+
+		DescribeTable("toggle network",
+			func(hetznerClusterSpec infrav1.HetznerClusterSpec, expectedConditionState bool, expectedReason string) {
+				hetznerClusterName := utils.GenerateName(nil, "test1-")
+				capiCluster := &clusterv1.Cluster{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "capi-test1-",
+						Namespace:    namespace,
+						Finalizers:   []string{clusterv1.ClusterFinalizer},
+					},
+					Spec: clusterv1.ClusterSpec{
+						InfrastructureRef: &corev1.ObjectReference{
+							APIVersion: infrav1.GroupVersion.String(),
+							Kind:       "HetznerCluster",
+							Name:       hetznerClusterName,
+							Namespace:  namespace,
+						},
+					},
+				}
+				Expect(testEnv.Create(ctx, capiCluster)).To(Succeed())
+				defer func() {
+					Expect(testEnv.Cleanup(ctx, capiCluster)).To(Succeed())
+				}()
+
+				// Create the HetznerCluster object
+				instance := &infrav1.HetznerCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      hetznerClusterName,
+						Namespace: namespace,
+						OwnerReferences: []metav1.OwnerReference{
+							{
+								APIVersion: "cluster.x-k8s.io/v1beta1",
+								Kind:       "Cluster",
+								Name:       capiCluster.Name,
+								UID:        capiCluster.UID,
+							},
+						},
+					},
+					Spec: hetznerClusterSpec,
+				}
+				Expect(testEnv.Create(ctx, instance)).To(Succeed())
+				defer func() {
+					Expect(testEnv.Cleanup(ctx, instance)).To(Succeed())
+				}()
+
+				key := client.ObjectKey{Namespace: instance.Namespace, Name: instance.Name}
+
+				Eventually(func() bool {
+					if err := testEnv.Get(ctx, key, instance); err != nil {
+						return false
+					}
+					if expectedConditionState {
+						return isPresentAndTrue(key, instance, infrav1.NetworkAttached)
+					}
+					return isPresentAndFalseWithReason(key, instance, infrav1.NetworkAttached, expectedReason)
+				}, timeout).Should(BeTrue())
+			},
+			Entry("with disabled network", hetznerClusterSpecWithDisabledNetwork, false, infrav1.NetworkDisabledReason),
+			Entry("without network", hetznerClusterSpecWithoutNetwork, false, infrav1.NetworkDisabledReason),
+			Entry("with network", getDefaultHetznerClusterSpec(), true, ""),
+		)
 	})
 })
 

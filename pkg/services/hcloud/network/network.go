@@ -27,6 +27,8 @@ import (
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -46,6 +48,7 @@ func NewService(scope *scope.ClusterScope) *Service {
 // Reconcile implements life cycle of networks.
 func (s *Service) Reconcile(ctx context.Context) (err error) {
 	if !s.scope.HetznerCluster.Spec.HCloudNetwork.NetworkEnabled {
+		conditions.MarkFalse(s.scope.HetznerCluster, infrav1.NetworkAttached, infrav1.NetworkDisabledReason, clusterv1.ConditionSeverityInfo, "")
 		return nil
 	}
 
@@ -63,6 +66,7 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 		}
 	}
 
+	conditions.MarkTrue(s.scope.HetznerCluster, infrav1.NetworkAttached)
 	s.scope.HetznerCluster.Status.Network = apiToStatus(network)
 	return nil
 }
