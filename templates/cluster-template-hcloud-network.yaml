@@ -154,6 +154,7 @@ spec:
           event-qps: "5"
           rotate-server-certificates: "true"
           max-pods: "120"
+          resolv-conf: /etc/kubernetes/resolv.conf
     joinConfiguration:
       nodeRegistration:
         kubeletExtraArgs:
@@ -168,6 +169,7 @@ spec:
           event-qps: "5"
           rotate-server-certificates: "true"
           max-pods: "120"
+          resolv-conf: /etc/kubernetes/resolv.conf
     files:
       - path: /etc/kubernetes/encryption-provider.yaml
         owner: "root:root"
@@ -274,6 +276,13 @@ spec:
           vm.overcommit_memory=1
           kernel.panic=10
           kernel.panic_on_oops=1
+      - path: /etc/kubernetes/resolv.conf
+        owner: "root:root"
+        permissions: "0744"
+        content: |
+          nameserver 1.1.1.1
+          nameserver 1.0.0.1
+          nameserver 2606:4700:4700::1111
     preKubeadmCommands:
       - localectl set-locale LANG=en_US.UTF-8
       - localectl set-locale LANGUAGE=en_US.UTF-8
@@ -386,6 +395,7 @@ spec:
             event-qps: "5"
             rotate-server-certificates: "true"
             max-pods: "220"
+            resolv-conf: /etc/kubernetes/resolv.conf
       files:
         - path: /etc/systemd/system/sys-fs-bpf.mount
           owner: "root:root"
@@ -471,6 +481,13 @@ spec:
             vm.overcommit_memory=1
             kernel.panic=10
             kernel.panic_on_oops=1
+        - path: /etc/kubernetes/resolv.conf
+          owner: "root:root"
+          permissions: "0744"
+          content: |
+            nameserver 1.1.1.1
+            nameserver 1.0.0.1
+            nameserver 2606:4700:4700::1111
       preKubeadmCommands:
         - localectl set-locale LANG=en_US.UTF-8
         - localectl set-locale LANGUAGE=en_US.UTF-8
