@@ -77,8 +77,8 @@ func DifferenceOfStringSlices(a, b []string) (onlyInA []string, onlyInB []string
 		}
 	}
 
-	for _, x := range a {
-		if _, found := mb[x]; !found {
+	for _, x := range b {
+		if _, found := ma[x]; !found {
 			onlyInB = append(onlyInB, x)
 		}
 	}
@@ -102,8 +102,8 @@ func DifferenceOfIntSlices(a, b []int) (onlyInA []int, onlyInB []int) {
 		}
 	}
 
-	for _, x := range a {
-		if _, found := mb[x]; !found {
+	for _, x := range b {
+		if _, found := ma[x]; !found {
 			onlyInB = append(onlyInB, x)
 		}
 	}
