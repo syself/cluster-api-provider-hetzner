@@ -1,5 +1,3 @@
-// +build tools
-
 /*
 Copyright 2022 The Kubernetes Authors.
 
@@ -16,7 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-//go:build tools
 // Package tools imports things required by build scripts, to force `go mod` to see them as dependencies
 package tools
 
@@ -28,4 +25,5 @@ import (
 	_ "k8s.io/code-generator/cmd/conversion-gen"
 	_ "sigs.k8s.io/controller-runtime/tools/setup-envtest"
 	_ "sigs.k8s.io/controller-tools/cmd/controller-gen"
+	_ "sigs.k8s.io/kind"
 )

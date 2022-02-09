@@ -172,7 +172,7 @@ clusterctl get kubeconfig my-cluster > $CAPH_WORKER_CLUSTER_KUBECONFIG
 ```shell
 helm repo add cilium https://helm.cilium.io/
 
-KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install cilium cilium/cilium --version 1.11.0 \
+KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install cilium cilium/cilium --version 1.11.1 \
 --namespace kube-system \
 -f templates/cilium/cilium.yaml
 ```
@@ -183,10 +183,8 @@ For a cluster without private network:
 ```shell
 helm repo add syself https://charts.syself.com
 
-KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install ccm syself/ccm-hcloud --version 1.0.2 \
+KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install ccm syself/ccm-hcloud --version 1.0.7 \
 --namespace kube-system \
---set secret.name=hetzner \
---set secret.tokenKeyName=hcloud \
 --set privateNetwork.enabled=false
 ```
 
