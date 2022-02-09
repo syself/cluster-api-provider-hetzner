@@ -26,7 +26,7 @@ import (
 	"path/filepath"
 	goruntime "runtime"
 
-	g "github.com/onsi/ginkgo/v2"
+	g "github.com/onsi/ginkgo"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	fakeclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/fake"

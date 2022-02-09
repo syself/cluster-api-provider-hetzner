@@ -7,7 +7,7 @@ replace github.com/syself/cluster-api-provider-hetzner => ../../
 require (
 	github.com/drone/envsubst/v2 v2.0.0-20210615175204-7bf45dbf5372
 	github.com/joelanford/go-apidiff v0.1.0
-	github.com/onsi/ginkgo/v2 v2.1.1
+	github.com/onsi/ginkgo v1.16.5
 	gotest.tools/gotestsum v1.7.0
 	k8s.io/code-generator v0.23.0
 	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20220201142011-b1d9a1641f31
@@ -40,6 +40,7 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
+	github.com/nxadm/tail v1.4.8 // indirect
 	github.com/pelletier/go-toml v1.9.3 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/sergi/go-diff v1.2.0 // indirect
@@ -64,6 +65,7 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/src-d/go-billy.v4 v4.3.2 // indirect
 	gopkg.in/src-d/go-git.v4 v4.13.1 // indirect
+	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
