@@ -4,6 +4,7 @@ ignore: |
   config/crd/**/*.yaml
   config/rbac/**/*.yaml
   config/webhook/**/*.yaml
+  test/e2e/data/cni/**/*.yaml
 rules:
   braces:
     min-spaces-inside: 0

@@ -23,6 +23,25 @@ SHELL = /usr/bin/env bash -o pipefail
 .DEFAULT_GOAL:=help
 
 #
+# Directories.
+#
+# Full directory of where the Makefile resides
+ROOT_DIR:=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
+EXP_DIR := exp
+BIN_DIR := bin
+TEST_DIR := test
+TOOLS_DIR := hack/tools
+TOOLS_BIN_DIR := $(TOOLS_DIR)/$(BIN_DIR)
+export PATH := $(abspath $(TOOLS_BIN_DIR)):$(PATH)
+# Default path for Kubeconfig File.
+CAPH_WORKER_CLUSTER_KUBECONFIG ?= "/tmp/workload-kubeconfig"
+
+E2E_CONF_FILE  ?= "$(abspath test/e2e/config/hetzner-dev.yaml)"
+INTEGRATION_CONF_FILE ?= "$(abspath test/integration/integration-dev.yaml)"
+E2E_TEMPLATE_DIR := "$(abspath test/e2e/data/infrastructure-hetzner/)"
+ARTIFACTS_PATH := $(ROOT_DIR)/_artifacts
+CI_KIND ?= true
+#
 # Binaries.
 #
 MINIMUM_CLUSTERCTL_VERSION=1.1.0				# https://github.com/kubernetes-sigs/cluster-api/releases
@@ -33,9 +52,26 @@ MINIMUM_HELMFILE_VERSION=v0.143.0				# https://github.com/roboll/helmfile/releas
 MINIMUM_KIND_VERSION=v0.11.1						# https://github.com/kubernetes-sigs/kind/releases
 MINIMUM_KUBECTL_VERSION=v1.23.0					# https://github.com/kubernetes/kubernetes/releases
 MINIMUM_PACKER_VERSION=1.7.10						# https://github.com/hashicorp/packer/releases
-MINIMUM_TILT_VERSION=0.23.9							# https://github.com/tilt-dev/tilt/releases
+MINIMUM_TILT_VERSION=0.24.1							# https://github.com/tilt-dev/tilt/releases
 CONTROLLER_GEN_VERSION=v.0.4.1					# https://github.com/kubernetes-sigs/controller-tools/releases
 KUSTOMIZE_VERSION=4.5.1								# https://github.com/kubernetes-sigs/kustomize/releases
+
+#
+# Tooling Binaries.
+#
+CONTROLLER_GEN := $(abspath $(TOOLS_BIN_DIR)/controller-gen)
+KUSTOMIZE := $(abspath $(TOOLS_BIN_DIR)/kustomize)
+GOLANGCI_LINT := $(abspath $(TOOLS_BIN_DIR)/golangci-lint)
+CONVERSION_GEN := $(abspath $(TOOLS_BIN_DIR)/conversion-gen)
+ENVSUBST_BIN := $(BIN_DIR)/envsubst
+ENVSUBST := $(TOOLS_DIR)/$(ENVSUBST_BIN)
+SETUP_ENVTEST := $(abspath $(TOOLS_BIN_DIR)/setup-envtest)
+GINKGO := $(TOOLS_BIN_DIR)/ginkgo
+GO_APIDIFF_BIN := $(BIN_DIR)/go-apidiff
+GO_APIDIFF := $(TOOLS_DIR)/$(GO_APIDIFF_BIN)
+TIMEOUT := $(shell command -v timeout || command -v gtimeout)
+KIND := $(TOOLS_BIN_DIR)/kind
+
 #
 # HELM.
 #
@@ -48,22 +84,25 @@ HELM_DIFF_VERSION=3.4.1									# https://github.com/databus23/helm-diff/release
 #
 GO_VERSION ?= 1.17.6
 GO_CONTAINER_IMAGE ?= docker.io/library/golang:$(GO_VERSION)
-
 # Use GOPROXY environment variable if set
 GOPROXY := $(shell go env GOPROXY)
 ifeq ($(GOPROXY),)
 GOPROXY := https://proxy.golang.org
 endif
 export GOPROXY
-
 # Active module mode, as we use go modules to manage dependencies
 export GO111MODULE=on
-
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
 else
 GOBIN=$(shell go env GOBIN)
+endif
+# Set --output-base for conversion-gen if we are not within GOPATH
+ifneq ($(abspath $(ROOT_DIR)),$(shell go env GOPATH)/src/sigs.k8s.io/cluster-api)
+	CONVERSION_GEN_OUTPUT_BASE := --output-base=$(ROOT_DIR)
+else
+	export GOPATH := $(shell go env GOPATH)
 endif
 
 #
@@ -73,43 +112,6 @@ export KUBEBUILDER_ENVTEST_KUBERNETES_VERSION ?= 1.23.3
 export KUBEBUILDER_CONTROLPLANE_START_TIMEOUT ?= 60s
 export KUBEBUILDER_CONTROLPLANE_STOP_TIMEOUT ?= 60s
 
-# This option is for running docker manifest command
-export DOCKER_CLI_EXPERIMENTAL := enabled
-
-#
-# Directories.
-#
-# Full directory of where the Makefile resides
-ROOT_DIR:=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
-EXP_DIR := exp
-BIN_DIR := bin
-TEST_DIR := test
-TOOLS_DIR := hack/tools
-TOOLS_BIN_DIR := $(TOOLS_DIR)/$(BIN_DIR)
-GO_APIDIFF_BIN := $(BIN_DIR)/go-apidiff
-GO_APIDIFF := $(TOOLS_DIR)/$(GO_APIDIFF_BIN)
-KUSTOMIZE := $(abspath $(TOOLS_BIN_DIR)/kustomize)
-CONTROLLER_GEN := $(abspath $(TOOLS_BIN_DIR)/controller-gen)
-GOLANGCI_LINT := $(abspath $(TOOLS_BIN_DIR)/golangci-lint)
-CONVERSION_GEN := $(abspath $(TOOLS_BIN_DIR)/conversion-gen)
-ENVSUBST_BIN := $(BIN_DIR)/envsubst
-ENVSUBST := $(TOOLS_DIR)/$(ENVSUBST_BIN)
-SETUP_ENVTEST := $(abspath $(TOOLS_BIN_DIR)/setup-envtest)
-
-export PATH := $(abspath $(TOOLS_BIN_DIR)):$(PATH)
-
-# Set --output-base for conversion-gen if we are not within GOPATH
-ifneq ($(abspath $(ROOT_DIR)),$(shell go env GOPATH)/src/sigs.k8s.io/cluster-api)
-	CONVERSION_GEN_OUTPUT_BASE := --output-base=$(ROOT_DIR)
-else
-	export GOPATH := $(shell go env GOPATH)
-endif
-
-TIMEOUT := $(shell command -v timeout || command -v gtimeout)
-
-# Define Docker related variables. Releases should modify and double check these vars.
-# Image URL to use all building/pushing image targets
-IMG ?= quay.io/syself/cluster-api-provider-hetzner:latest
 
 #
 # Container related variables. Releases should modify and double check these vars.
@@ -122,15 +124,12 @@ CONTROLLER_IMG ?= $(REGISTRY)/$(IMAGE_NAME)
 TAG ?= latest
 ARCH ?= amd64
 ALL_ARCH = amd64 arm arm64 ppc64le s390x
-
 # Allow overriding the imagePullPolicy
 PULL_POLICY ?= Always
-
 # Build time versioning details.
 LDFLAGS := $(shell hack/version.sh)
-
-# Default path for Kubeconfig File.
-CAPH_WORKER_CLUSTER_KUBECONFIG ?= "/tmp/workload-kubeconfig"
+# This option is for running docker manifest command
+export DOCKER_CLI_EXPERIMENTAL := enabled
 
 
 all: help
@@ -415,25 +414,44 @@ KUBEBUILDER_ASSETS ?= $(shell $(SETUP_ENVTEST) use --use-env -p path $(KUBEBUILD
 test: $(SETUP_ENVTEST) ## Run unit and integration tests
 	KUBEBUILDER_ASSETS="$(KUBEBUILDER_ASSETS)" go test ./... $(TEST_ARGS)
 
+.PHONY: test-integration
+test-integration: e2e-image
+test-integration: $(GINKGO) $(KUSTOMIZE) $(KIND)
+	time $(GINKGO) -v ./test/integration -- --config="$(INTEGRATION_CONF_FILE)" --artifacts-folder="$(ARTIFACTS_PATH)"
+
+GINKGO_FOCUS ?=
+GINKGO_SKIP ?=
+
+# to set multiple ginkgo skip flags, if any
+ifneq ($(strip $(GINKGO_SKIP)),)
+_SKIP_ARGS := $(foreach arg,$(strip $(GINKGO_SKIP)),-skip="$(arg)")
+endif
+
+.PHONY: test-e2e
+test-e2e: ## Run the e2e tests
+	$(MAKE) -C $(TEST_DIR)/e2e run
+
+.PHONY: test-cover
+test-cover: $(RELEASE_DIR) ## Run tests with code coverage and code generate reports
+	$(MAKE) test TEST_ARGS="$(TEST_ARGS) -coverprofile=out/coverage.out -covermode=atomic"
+	go tool cover -func=out/coverage.out -o $(RELEASE_DIR)/coverage.txt
+	go tool cover -html=out/coverage.out -o $(RELEASE_DIR)/coverage.html
+
+.PHONY: e2e-image
+e2e-image: ## Build the e2e manager image
+	docker build --build-arg ldflags="$(LDFLAGS)" --tag="$(REGISTRY)/$(IMAGE_NAME):e2e" .
+
 .PHONY: test-junit
 test-junit: $(SETUP_ENVTEST) $(GOTESTSUM) ## Run tests with verbose setting and generate a junit report
 	set +o errexit; (KUBEBUILDER_ASSETS="$(KUBEBUILDER_ASSETS)" go test -json ./... $(TEST_ARGS); echo $$? > $(ARTIFACTS)/junit.exitcode) | tee $(ARTIFACTS)/junit.stdout
 	$(GOTESTSUM) --junitfile $(ARTIFACTS)/junit.xml --raw-command cat $(ARTIFACTS)/junit.stdout
 	exit $$(cat $(ARTIFACTS)/junit.exitcode)
 
-.PHONY: test-cover
-test-cover: ## Run tests with code coverage and code generate reports
-	$(MAKE) test TEST_ARGS="$(TEST_ARGS) -coverprofile=out/coverage.out"
-	go tool cover -func=out/coverage.out -o out/coverage.txt
-	go tool cover -html=out/coverage.out -o out/coverage.html
 
 .PHONY: test-verbose
 test-verbose: ## Run tests with verbose settings
 	$(MAKE) test TEST_ARGS="$(TEST_ARGS) -v"
 
-.PHONY: test-e2e
-test-e2e: ## Run the e2e tests
-	$(MAKE) -C $(TEST_DIR)/e2e run
 
 ##@ Build
 
@@ -530,13 +548,13 @@ wait-and-get-secret:
 install-manifests:
 	# Deploy cilium
 	helm repo add cilium https://helm.cilium.io/
-	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install cilium cilium/cilium --version 1.10.5 \
+	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install cilium cilium/cilium --version 1.11.1 \
   	--namespace kube-system \
 	-f templates/cilium/cilium.yaml
 
 	# Deploy HCloud Cloud Controller Manager
 	helm repo add syself https://charts.syself.com
-	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hcloud --version 1.0.5 \
+	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hcloud --version 1.0.7 \
 	--namespace kube-system \
 	--set secret.name=hetzner \
 	--set secret.tokenKeyName=hcloud \

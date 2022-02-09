@@ -1,0 +1,80 @@
+---
+# CI E2E test test configuration scenario using locally build images and manifests for:
+# - cluster-api
+# - bootstrap kubeadm
+# - control-plane kubeadm
+# - hetzner
+
+# For creating local dev images run make e2e-image from the main CAPH repository
+
+images:
+  - name: gcr.io/k8s-staging-cluster-api/cluster-api-controller-amd64:v1.1.0
+    loadBehavior: tryLoad
+  - name: gcr.io/k8s-staging-cluster-api/kubeadm-bootstrap-controller-amd64:v1.1.0
+    loadBehavior: tryLoad
+  - name: gcr.io/k8s-staging-cluster-api/kubeadm-control-plane-controller-amd64:v1.1.0
+    loadBehavior: tryLoad
+  - name: quay.io/syself/cluster-api-provider-hetzner:e2e
+    loadBehavior: mustLoad
+  - name: quay.io/jetstack/cert-manager-cainjector:v1.5.3
+    loadBehavior: tryLoad
+  - name: quay.io/jetstack/cert-manager-webhook:v1.5.3
+    loadBehavior: tryLoad
+  - name: quay.io/jetstack/cert-manager-controller:v1.5.3
+    loadBehavior: tryLoad
+providers:
+  - name: cluster-api
+    type: CoreProvider
+    versions:
+      - name: v1.1.0 # latest published release in the v1beta1 series; this is used for v1beta1
+        value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.1.0/core-components.yaml"
+        type: "url"
+        contract: v1beta1
+        files:
+          - sourcePath: "../e2e/data/shared/metadata.yaml"
+        replacements:
+          - old: "imagePullPolicy: Always"
+            new: "imagePullPolicy: IfNotPresent"
+
+  - name: kubeadm
+    type: BootstrapProvider
+    versions:
+      - name: v1.1.0 # latest published release in the v1beta1 series; this is used for v1beta1
+        value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.1.0/bootstrap-components.yaml"
+        type: "url"
+        contract: "v1beta1"
+        files:
+          - sourcePath: "../e2e/data/shared/metadata.yaml"
+        replacements:
+          - old: "imagePullPolicy: Always"
+            new: "imagePullPolicy: IfNotPresent"
+
+  - name: kubeadm
+    type: ControlPlaneProvider
+    versions:
+      - name: v1.1.0 # latest published release in the v1beta1 series; this is used for v1beta1
+        value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.1.0/control-plane-components.yaml"
+        type: "url"
+        files:
+          - sourcePath: "../e2e/data/shared/metadata.yaml"
+        replacements:
+          - old: "imagePullPolicy: Always"
+            new: "imagePullPolicy: IfNotPresent"
+
+  - name: hetzner
+    type: InfrastructureProvider
+    versions:
+      - name: v1.0.99 # next; use manifest from source files
+        value: ../../config/default
+        contract: v1beta1
+        replacements:
+          - old: quay.io/syself/cluster-api-provider-hetzner:latest
+            new: quay.io/syself/cluster-api-provider-hetzner:e2e
+          - old: "imagePullPolicy: Always"
+            new: "imagePullPolicy: IfNotPresent"
+        files:
+          - sourcePath: "../e2e/data/shared/metadata.yaml"
+variables:
+  HCLOUD_TOKEN: "admin123"
+intervals:
+  default/wait-controllers: ["5m", "10s"]

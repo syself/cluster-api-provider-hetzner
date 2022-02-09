@@ -1,0 +1,3 @@
+bases:
+  - ../../../../../../templates/cluster-template.yaml
+  - ../bases/crs.yaml
