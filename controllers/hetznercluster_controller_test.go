@@ -293,6 +293,158 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 		})
 	})
 
+	Context("Placement groups", func() {
+		var (
+			namespace       string
+			testNs          *corev1.Namespace
+			hetznerSecret   *corev1.Secret
+			bootstrapSecret *corev1.Secret
+
+			instance    *infrav1.HetznerCluster
+			capiCluster *clusterv1.Cluster
+		)
+
+		BeforeEach(func() {
+			var err error
+			testNs, err = testEnv.CreateNamespace(ctx, "ns-placement-groups")
+			Expect(err).NotTo(HaveOccurred())
+			namespace = testNs.Name
+
+			// Create the hetzner secret
+			hetznerSecret = getDefaultHetznerSecret(namespace)
+			Expect(testEnv.Create(ctx, hetznerSecret)).To(Succeed())
+			// Create the bootstrap secret
+			bootstrapSecret = getDefaultBootstrapSecret(namespace)
+			Expect(testEnv.Create(ctx, bootstrapSecret)).To(Succeed())
+
+			hetznerClusterName := utils.GenerateName(nil, "test1-")
+
+			capiCluster = &clusterv1.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "capi-test1-",
+					Namespace:    namespace,
+					Finalizers:   []string{clusterv1.ClusterFinalizer},
+				},
+				Spec: clusterv1.ClusterSpec{
+					InfrastructureRef: &corev1.ObjectReference{
+						APIVersion: infrav1.GroupVersion.String(),
+						Kind:       "HetznerCluster",
+						Name:       hetznerClusterName,
+						Namespace:  namespace,
+					},
+				},
+			}
+			Expect(testEnv.Create(ctx, capiCluster)).To(Succeed())
+
+			instance = &infrav1.HetznerCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      hetznerClusterName,
+					Namespace: namespace,
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: "cluster.x-k8s.io/v1beta1",
+							Kind:       "Cluster",
+							Name:       capiCluster.Name,
+							UID:        capiCluster.UID,
+						},
+					},
+				},
+				Spec: getDefaultHetznerClusterSpec(),
+			}
+		})
+
+		AfterEach(func() {
+			Expect(testEnv.Delete(ctx, bootstrapSecret)).To(Succeed())
+			Expect(testEnv.Delete(ctx, hetznerSecret)).To(Succeed())
+			Expect(testEnv.Delete(ctx, capiCluster)).To(Succeed())
+			Expect(testEnv.Delete(ctx, testNs)).To(Succeed())
+		})
+
+		DescribeTable("create and delete placement groups without error",
+			func(placementGroups []infrav1.HCloudPlacementGroupSpec) {
+				// Create the HetznerCluster object
+				instance.Spec.HCloudPlacementGroup = placementGroups
+				Expect(testEnv.Create(ctx, instance)).To(Succeed())
+				defer func() {
+					Expect(testEnv.Cleanup(ctx, instance)).To(Succeed())
+				}()
+
+				key := client.ObjectKey{Namespace: namespace, Name: instance.Name}
+
+				Eventually(func() bool {
+					if err := testEnv.Get(ctx, key, instance); err != nil {
+						return false
+					}
+					return isPresentAndTrue(key, instance, infrav1.PlacementGroupsSynced)
+				}, timeout).Should(BeTrue())
+
+				By("checking for presence of HCloudPlacementGroup objects")
+				hcc := testEnv.HCloudClientFactory.NewClient("")
+				// Check if placement groups have been created
+				Eventually(func() int {
+					pgs, err := hcc.ListPlacementGroups(ctx, hcloud.PlacementGroupListOpts{
+						ListOpts: hcloud.ListOpts{
+							LabelSelector: utils.LabelsToLabelSelector(map[string]string{infrav1.ClusterTagKey(instance.Name): "owned"}),
+						},
+					})
+					if err != nil {
+						return -1
+					}
+					return len(pgs)
+				}, timeout).Should(Equal(len(placementGroups)))
+
+			},
+			Entry(nil, []infrav1.HCloudPlacementGroupSpec{
+				{
+					Name: "control-plane",
+					Type: "spread",
+				},
+				{
+					Name: "md-0",
+					Type: "spread",
+				},
+			}),
+			Entry(nil, []infrav1.HCloudPlacementGroupSpec{}),
+		)
+
+		Describe("update placement groups", func() {
+			BeforeEach(func() {
+				Expect(testEnv.Create(ctx, instance)).To(Succeed())
+			})
+			AfterEach(func() {
+				Expect(testEnv.Cleanup(ctx, instance)).To(Succeed())
+			})
+
+			DescribeTable("update placement groups",
+				func(newPlacementGroupSpec []infrav1.HCloudPlacementGroupSpec) {
+					ph, err := patch.NewHelper(instance, testEnv)
+					Expect(err).ShouldNot(HaveOccurred())
+					instance.Spec.HCloudPlacementGroup = newPlacementGroupSpec
+					Expect(ph.Patch(ctx, instance, patch.WithStatusObservedGeneration{})).To(Succeed())
+
+					Eventually(func() int {
+						hcc := testEnv.HCloudClientFactory.NewClient("")
+						pgs, err := hcc.ListPlacementGroups(ctx, hcloud.PlacementGroupListOpts{
+							ListOpts: hcloud.ListOpts{
+								LabelSelector: utils.LabelsToLabelSelector(map[string]string{infrav1.ClusterTagKey(instance.Name): "owned"}),
+							},
+						})
+						if err != nil {
+							return -1
+						}
+						return len(pgs)
+					}).Should(Equal(len(newPlacementGroupSpec)))
+				},
+				Entry(nil, []infrav1.HCloudPlacementGroupSpec{{Name: "md-0", Type: "spread"}}),
+				Entry(nil, []infrav1.HCloudPlacementGroupSpec{}),
+				Entry(nil, []infrav1.HCloudPlacementGroupSpec{
+					{Name: "md-0", Type: "spread"},
+					{Name: "md-1", Type: "spread"},
+					{Name: "md-2", Type: "spread"},
+				}),
+			)
+		})
+	})
 	Context("toggling network", func() {
 		var (
 			namespace       string

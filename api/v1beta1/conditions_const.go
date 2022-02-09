@@ -49,3 +49,10 @@ const (
 	// NetworkUnreachableReason indicates that network is unreachable.
 	NetworkUnreachableReason = "NetworkUnreachable"
 )
+
+const (
+	// PlacementGroupsSynced reports on whether the placement groups are successfully synced.
+	PlacementGroupsSynced clusterv1.ConditionType = "PlacementGroupsSynced"
+	// PlacementGroupsUnreachableReason indicates that network is disabled.
+	PlacementGroupsUnreachableReason = "PlacementGroupsUnreachable"
+)
