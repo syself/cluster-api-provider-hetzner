@@ -14,16 +14,22 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package csr_test
+package e2e
 
 import (
-	"testing"
-
 	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 )
 
-func TestCsr(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Csr Suite")
-}
+var _ = Describe("Conformance test", func() {
+	ConformanceSpec(ctx, func() ConformanceSpecInput {
+		return ConformanceSpecInput{
+			E2EConfig:              e2eConfig,
+			ClusterctlConfigPath:   clusterctlConfigPath,
+			BootstrapClusterProxy:  bootstrapClusterProxy,
+			KubetestConfigFilePath: kubetestConfigFilePath,
+			ArtifactFolder:         artifactFolder,
+			SkipCleanup:            skipCleanup,
+			Flavor:                 "",
+		}
+	})
+})

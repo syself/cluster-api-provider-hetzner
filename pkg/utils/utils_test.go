@@ -17,7 +17,8 @@ limitations under the License.
 package utils_test
 
 import (
-	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
@@ -26,22 +27,22 @@ var _ = DescribeTable("LabelsToLabelSelector",
 	func(labels map[string]string, expectedOutput, expectedOutputInverse string) {
 		Expect(utils.LabelsToLabelSelector(labels)).To(Or(Equal(expectedOutput), Equal(expectedOutputInverse)))
 	},
-	Entry(nil, map[string]string{
+	Entry("existing keys", map[string]string{
 		"key1": "label1",
 		"key2": "label2",
 	}, "key2==label2,key1==label1", "key1==label1,key2==label2"),
-	Entry(nil, map[string]string{}, "", ""),
+	Entry("no keys", map[string]string{}, "", ""),
 )
 
 var _ = DescribeTable("LabelSelectorToLabels",
 	func(str string, expectedOutput map[string]string) {
 		Expect(utils.LabelSelectorToLabels(str)).To(Equal(expectedOutput))
 	},
-	Entry(nil, "key2==label2,key1==label1", map[string]string{
+	Entry("existing keys", "key2==label2,key1==label1", map[string]string{
 		"key1": "label1",
 		"key2": "label2",
 	}),
-	Entry(nil, "", map[string]string{}),
+	Entry("no keys", "", map[string]string{}),
 )
 
 var _ = Describe("DifferenceOfStringSlices", func() {
@@ -52,27 +53,27 @@ var _ = Describe("DifferenceOfStringSlices", func() {
 			Expect(outB).To(Equal(onlyInB))
 		},
 		Entry(
-			nil,
+			"entry1",
 			[]string{"string1", "string2", "string3", "string4"},
 			[]string{"string1", "string2"},
 			[]string{"string3", "string4"},
 			nil,
 		),
 		Entry(
-			nil,
+			"entry2",
 			[]string{"string1", "string2"},
 			[]string{"string1", "string2", "string3", "string4"},
 			nil,
 			[]string{"string3", "string4"},
 		),
 		Entry(
-			nil,
+			"entry3",
 			[]string{"string1", "string2"},
 			nil,
 			[]string{"string1", "string2"},
 			nil),
 		Entry(
-			nil,
+			"entry4",
 			nil,
 			[]string{"string1", "string2"},
 			nil,
@@ -88,8 +89,8 @@ var _ = Describe("DifferenceOfIntSlices", func() {
 			Expect(outA).To(Equal(onlyInA))
 			Expect(outB).To(Equal(onlyInB))
 		},
-		Entry(nil, []int{1, 2, 3, 4}, []int{1, 2}, []int{3, 4}, nil),
-		Entry(nil, []int{1, 2}, []int{1, 2, 3, 4}, nil, []int{3, 4}),
-		Entry(nil, []int{1, 2}, nil, []int{1, 2}, nil),
-		Entry(nil, nil, []int{1, 2}, nil, []int{1, 2}))
+		Entry("entry1", []int{1, 2, 3, 4}, []int{1, 2}, []int{3, 4}, nil),
+		Entry("entry2", []int{1, 2}, []int{1, 2, 3, 4}, nil, []int{3, 4}),
+		Entry("entry3", []int{1, 2}, nil, []int{1, 2}, nil),
+		Entry("entry4", nil, []int{1, 2}, nil, []int{1, 2}))
 })

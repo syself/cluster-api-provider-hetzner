@@ -21,7 +21,8 @@ import (
 	"time"
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
-	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
@@ -394,7 +395,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 				}, timeout).Should(Equal(len(placementGroups)))
 
 			},
-			Entry(nil, []infrav1.HCloudPlacementGroupSpec{
+			Entry("placement groups", []infrav1.HCloudPlacementGroupSpec{
 				{
 					Name: "control-plane",
 					Type: "spread",
@@ -404,7 +405,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 					Type: "spread",
 				},
 			}),
-			Entry(nil, []infrav1.HCloudPlacementGroupSpec{}),
+			Entry("no placement groups", []infrav1.HCloudPlacementGroupSpec{}),
 		)
 
 		Describe("update placement groups", func() {
@@ -435,9 +436,9 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 						return len(pgs)
 					}).Should(Equal(len(newPlacementGroupSpec)))
 				},
-				Entry(nil, []infrav1.HCloudPlacementGroupSpec{{Name: "md-0", Type: "spread"}}),
-				Entry(nil, []infrav1.HCloudPlacementGroupSpec{}),
-				Entry(nil, []infrav1.HCloudPlacementGroupSpec{
+				Entry("one pg", []infrav1.HCloudPlacementGroupSpec{{Name: "md-0", Type: "spread"}}),
+				Entry("no pgs", []infrav1.HCloudPlacementGroupSpec{}),
+				Entry("three pgs", []infrav1.HCloudPlacementGroupSpec{
 					{Name: "md-0", Type: "spread"},
 					{Name: "md-1", Type: "spread"},
 					{Name: "md-2", Type: "spread"},

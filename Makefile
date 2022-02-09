@@ -278,7 +278,7 @@ ensure-boilerplate: ## Ensures that a boilerplate exists in each file by adding 
 
 .PHONY: modules
 modules: ## Runs go mod to ensure modules are up to date.
-	go mod tidy
+	go mod tidy -compat=1.17
 	cd $(TOOLS_DIR); go mod tidy
 
 .PHONY: lint
@@ -412,7 +412,7 @@ KUBEBUILDER_ASSETS ?= $(shell $(SETUP_ENVTEST) use --use-env -p path $(KUBEBUILD
 
 .PHONY: test
 test: $(SETUP_ENVTEST) ## Run unit and integration tests
-	KUBEBUILDER_ASSETS="$(KUBEBUILDER_ASSETS)" go test ./... $(TEST_ARGS)
+	KUBEBUILDER_ASSETS="$(KUBEBUILDER_ASSETS)" go test ./controllers/... ./pkg/... $(TEST_ARGS)
 
 .PHONY: test-integration
 test-integration: e2e-image
