@@ -174,8 +174,10 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 
 	// reconcile the placement groups
 	if err := placementgroup.NewService(clusterScope).Reconcile(ctx); err != nil {
+		conditions.MarkFalse(hetznerCluster, infrav1.PlacementGroupsSynced, infrav1.PlacementGroupsUnreachableReason, clusterv1.ConditionSeverityError, err.Error())
 		return reconcile.Result{}, errors.Wrapf(err, "failed to reconcile placement groups for HetznerCluster %s/%s", hetznerCluster.Namespace, hetznerCluster.Name)
 	}
+	conditions.MarkTrue(hetznerCluster, infrav1.PlacementGroupsSynced)
 
 	if hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4 != "<nil>" {
 		var defaultHost = hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4

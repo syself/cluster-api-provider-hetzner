@@ -37,7 +37,7 @@ import (
 
 const (
 	defaultPodNamespace = "caph-system"
-	timeout             = time.Second * 30
+	timeout             = time.Second * 60
 )
 
 func TestControllers(t *testing.T) {
