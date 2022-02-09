@@ -319,7 +319,7 @@ func (c *cacheHCloudClient) CreateServer(ctx context.Context, opts hcloud.Server
 	}
 
 	for _, network := range opts.Networks {
-		server.PrivateNet = append(server.PrivateNet, hcloud.ServerPrivateNet{IP: network.IPRange.IP})
+		server.PrivateNet = append(server.PrivateNet, hcloud.ServerPrivateNet{IP: c.networkCache.idMap[network.ID].IPRange.IP})
 	}
 
 	// Add server to cache
