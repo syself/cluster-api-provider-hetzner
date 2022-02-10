@@ -18,12 +18,14 @@ package controllers_test
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
@@ -128,69 +130,211 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 		}, timeout, time.Second).Should(BeTrue())
 	})
 
-	It("should have a load balancer attached", func() {
-		testNs, err := testEnv.CreateNamespace(ctx, "lb-attachement")
-		Expect(err).NotTo(HaveOccurred())
-		namespace := testNs.Name
-		// Create the secret
-		hetznerSecret := getDefaultHetznerSecret(namespace)
-		Expect(testEnv.Create(ctx, hetznerSecret)).To(Succeed())
-		defer func() {
-			Expect(testEnv.Cleanup(ctx, hetznerSecret)).To(Succeed())
-		}()
+	Context("load balancer", func() {
+		It("should create load balancer and update it accordingly", func() {
+			testNs, err := testEnv.CreateNamespace(ctx, "lb-attachement")
+			Expect(err).NotTo(HaveOccurred())
+			namespace := testNs.Name
+			// Create the secret
+			hetznerSecret := getDefaultHetznerSecret(namespace)
+			Expect(testEnv.Create(ctx, hetznerSecret)).To(Succeed())
+			defer func() {
+				Expect(testEnv.Cleanup(ctx, hetznerSecret)).To(Succeed())
+			}()
 
-		hetznerClusterName := utils.GenerateName(nil, "hetzner-test1")
-		// Create capi cluster
-		capiCluster := &clusterv1.Cluster{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "test1-",
-				Namespace:    namespace,
-				Finalizers:   []string{clusterv1.ClusterFinalizer},
-			},
-			Spec: clusterv1.ClusterSpec{
-				InfrastructureRef: &corev1.ObjectReference{
-					APIVersion: infrav1.GroupVersion.String(),
-					Kind:       "HetznerCluster",
-					Name:       hetznerClusterName,
+			hetznerClusterName := utils.GenerateName(nil, "hetzner-test1")
+			// Create capi cluster
+			capiCluster := &clusterv1.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "test1-",
+					Namespace:    namespace,
+					Finalizers:   []string{clusterv1.ClusterFinalizer},
 				},
-			},
-		}
-		Expect(testEnv.Create(ctx, capiCluster)).To(Succeed())
-		defer func() {
-			Expect(testEnv.Cleanup(ctx, capiCluster)).To(Succeed())
-		}()
-
-		// Create the HetznerCluster object
-		instance := &infrav1.HetznerCluster{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      hetznerClusterName,
-				Namespace: namespace,
-				OwnerReferences: []metav1.OwnerReference{
-					{
-						APIVersion: "cluster.x-k8s.io/v1beta1",
-						Kind:       "Cluster",
-						Name:       capiCluster.Name,
-						UID:        capiCluster.UID,
+				Spec: clusterv1.ClusterSpec{
+					InfrastructureRef: &corev1.ObjectReference{
+						APIVersion: infrav1.GroupVersion.String(),
+						Kind:       "HetznerCluster",
+						Name:       hetznerClusterName,
 					},
 				},
-			},
-			Spec: getDefaultHetznerClusterSpec(),
-		}
-		Expect(testEnv.Create(ctx, instance)).To(Succeed())
-		defer func() {
-			Expect(testEnv.Cleanup(ctx, instance)).To(Succeed())
-		}()
-
-		key := client.ObjectKey{Namespace: instance.Namespace, Name: instance.Name}
-
-		Eventually(func() bool {
-			if err := testEnv.Get(ctx, key, instance); err != nil {
-				return false
 			}
-			return isPresentAndTrue(key, instance, infrav1.LoadBalancerAttached)
-		}).Should(BeTrue())
-	})
+			Expect(testEnv.Create(ctx, capiCluster)).To(Succeed())
+			defer func() {
+				Expect(testEnv.Cleanup(ctx, capiCluster)).To(Succeed())
+			}()
 
+			// Create the HetznerCluster object
+			instance := &infrav1.HetznerCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      hetznerClusterName,
+					Namespace: namespace,
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: "cluster.x-k8s.io/v1beta1",
+							Kind:       "Cluster",
+							Name:       capiCluster.Name,
+							UID:        capiCluster.UID,
+						},
+					},
+				},
+				Spec: getDefaultHetznerClusterSpec(),
+			}
+			Expect(testEnv.Create(ctx, instance)).To(Succeed())
+			defer func() {
+				Expect(testEnv.Cleanup(ctx, instance)).To(Succeed())
+			}()
+
+			key := client.ObjectKey{Namespace: instance.Namespace, Name: instance.Name}
+
+			Eventually(func() bool {
+				if err := testEnv.Get(ctx, key, instance); err != nil {
+					return false
+				}
+				return isPresentAndTrue(key, instance, infrav1.LoadBalancerAttached)
+			}).Should(BeTrue())
+
+			By("updating load balancer specs")
+			newLBName := "new-lb-name"
+			newLBType := "lb31"
+			Eventually(func() error {
+				ph, err := patch.NewHelper(instance, testEnv)
+				Expect(err).ShouldNot(HaveOccurred())
+				instance.Spec.ControlPlaneLoadBalancer.Type = newLBType
+				return ph.Patch(ctx, instance, patch.WithStatusObservedGeneration{})
+			}, timeout).Should(BeNil())
+
+			Eventually(func() error {
+				ph, err := patch.NewHelper(instance, testEnv)
+				Expect(err).ShouldNot(HaveOccurred())
+
+				instance.Spec.ControlPlaneLoadBalancer.Name = &newLBName
+				return ph.Patch(ctx, instance, patch.WithStatusObservedGeneration{})
+			}, timeout).Should(BeNil())
+
+			// Check in hetzner API
+			hcc := testEnv.HCloudClientFactory.NewClient("")
+			Eventually(func() error {
+				loadBalancers, err := hcc.ListLoadBalancers(ctx, hcloud.LoadBalancerListOpts{
+					ListOpts: hcloud.ListOpts{
+						LabelSelector: utils.LabelsToLabelSelector(map[string]string{infrav1.ClusterTagKey(instance.Name): "owned"}),
+					},
+				})
+				if err != nil {
+					return errors.Wrap(err, "error while listing load balancers")
+				}
+				if len(loadBalancers) > 1 {
+					return fmt.Errorf("there are multiple load balancers found: %v", loadBalancers)
+				}
+				if len(loadBalancers) == 0 {
+					return fmt.Errorf("no load balancer found")
+				}
+				lb := loadBalancers[0]
+
+				if lb.Name != newLBName {
+					return fmt.Errorf("wrong name. Want %s, got %s", newLBName, lb.Name)
+				}
+				if lb.LoadBalancerType.Name != newLBType {
+					return fmt.Errorf("wrong name. Want %s, got %s", newLBType, lb.LoadBalancerType.Name)
+				}
+				return nil
+			}, timeout).Should(BeNil())
+
+			By("Getting additional extra targets")
+			Eventually(func() error {
+				ph, err := patch.NewHelper(instance, testEnv)
+				Expect(err).ShouldNot(HaveOccurred())
+				instance.Spec.ControlPlaneLoadBalancer.ExtraTargets = append(instance.Spec.ControlPlaneLoadBalancer.ExtraTargets,
+					infrav1.LoadBalancerTargetSpec{
+						DestinationPort: 8134,
+						ListenPort:      8134,
+						Protocol:        "tcp",
+					})
+				return ph.Patch(ctx, instance, patch.WithStatusObservedGeneration{})
+			}, timeout).Should(BeNil())
+
+			Eventually(func() int {
+				loadBalancers, err := hcc.ListLoadBalancers(ctx, hcloud.LoadBalancerListOpts{
+					ListOpts: hcloud.ListOpts{
+						LabelSelector: utils.LabelsToLabelSelector(map[string]string{infrav1.ClusterTagKey(instance.Name): "owned"}),
+					},
+				})
+				if err != nil {
+					return -1
+				}
+				if len(loadBalancers) > 1 {
+					return -2
+				}
+				if len(loadBalancers) == 0 {
+					return -3
+				}
+				lb := loadBalancers[0]
+
+				return len(lb.Services)
+			}, timeout).Should(Equal(len(instance.Spec.ControlPlaneLoadBalancer.ExtraTargets)))
+
+			By("Getting reducing extra targets")
+			Eventually(func() error {
+				ph, err := patch.NewHelper(instance, testEnv)
+				Expect(err).ShouldNot(HaveOccurred())
+				instance.Spec.ControlPlaneLoadBalancer.ExtraTargets = []infrav1.LoadBalancerTargetSpec{
+					{
+						DestinationPort: 8134,
+						ListenPort:      8134,
+						Protocol:        "tcp",
+					},
+				}
+				return ph.Patch(ctx, instance, patch.WithStatusObservedGeneration{})
+			}, timeout).Should(BeNil())
+
+			Eventually(func() int {
+				loadBalancers, err := hcc.ListLoadBalancers(ctx, hcloud.LoadBalancerListOpts{
+					ListOpts: hcloud.ListOpts{
+						LabelSelector: utils.LabelsToLabelSelector(map[string]string{infrav1.ClusterTagKey(instance.Name): "owned"}),
+					},
+				})
+				if err != nil {
+					return -1
+				}
+				if len(loadBalancers) > 1 {
+					return -2
+				}
+				if len(loadBalancers) == 0 {
+					return -3
+				}
+				lb := loadBalancers[0]
+
+				return len(lb.Services)
+			}, timeout).Should(Equal(len(instance.Spec.ControlPlaneLoadBalancer.ExtraTargets)))
+
+			By("Getting removing extra targets")
+			Eventually(func() error {
+				ph, err := patch.NewHelper(instance, testEnv)
+				Expect(err).ShouldNot(HaveOccurred())
+				instance.Spec.ControlPlaneLoadBalancer.ExtraTargets = nil
+				return ph.Patch(ctx, instance, patch.WithStatusObservedGeneration{})
+			}, timeout).Should(BeNil())
+
+			Eventually(func() int {
+				loadBalancers, err := hcc.ListLoadBalancers(ctx, hcloud.LoadBalancerListOpts{
+					ListOpts: hcloud.ListOpts{
+						LabelSelector: utils.LabelsToLabelSelector(map[string]string{infrav1.ClusterTagKey(instance.Name): "owned"}),
+					},
+				})
+				if err != nil {
+					return -1
+				}
+				if len(loadBalancers) > 1 {
+					return -2
+				}
+				if len(loadBalancers) == 0 {
+					return -3
+				}
+				lb := loadBalancers[0]
+
+				return len(lb.Services)
+			}, timeout).Should(Equal(len(instance.Spec.ControlPlaneLoadBalancer.ExtraTargets)))
+		})
+	})
 	Context("For HetznerMachines belonging to the cluster", func() {
 		var (
 			namespace       string
@@ -434,7 +578,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 							return -1
 						}
 						return len(pgs)
-					}).Should(Equal(len(newPlacementGroupSpec)))
+					}, timeout).Should(Equal(len(newPlacementGroupSpec)))
 				},
 				Entry("one pg", []infrav1.HCloudPlacementGroupSpec{{Name: "md-0", Type: "spread"}}),
 				Entry("no pgs", []infrav1.HCloudPlacementGroupSpec{}),
@@ -446,7 +590,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 			)
 		})
 	})
-	Context("toggling network", func() {
+	Context("network", func() {
 		var (
 			namespace       string
 			testNs          *corev1.Namespace
