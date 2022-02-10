@@ -25,19 +25,19 @@ settings = {
     "cacppt_version": "v0.4.0-alpha.0",
     "cert_manager_version": "v1.1.0",
     "kustomize_substitutions": {
-        "REGION": "fsn1",
+        "HCLOUD_REGION": "fsn1",
         "CONTROL_PLANE_MACHINE_COUNT": "3",
         "WORKER_MACHINE_COUNT": "3",
         "KUBERNETES_VERSION": "v1.21.1",
         "HCLOUD_IMAGE_NAME": "test-image",
         "HCLOUD_CONTROL_PLANE_MACHINE_TYPE": "cpx31",
-        "HCLOUD_NODE_MACHINE_TYPE": "cpx31",
+        "HCLOUD_WORKER_MACHINE_TYPE": "cpx31",
         "CLUSTER_NAME": "test",
     },
     "talos-bootstrap": "false",
 }
 
-keys = ["HCLOUD_TOKEN", "SSH_KEY"]
+keys = ["HCLOUD_TOKEN", "HCLOUD_SSH_KEY"]
 
 # global settings
 settings.update(read_json(

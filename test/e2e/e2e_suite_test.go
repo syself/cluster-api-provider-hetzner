@@ -17,6 +17,7 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -27,11 +28,10 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
-	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	bootstrapv1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
+	capi_e2e "sigs.k8s.io/cluster-api/test/e2e"
 	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/cluster-api/test/framework/bootstrap"
 	"sigs.k8s.io/cluster-api/test/framework/clusterctl"
@@ -124,19 +124,18 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	scheme := initScheme()
 
 	Byf("Loading the e2e test configuration from %q", configPath)
-	var err error
-	e2eConfig, err = helpers.LoadE2EConfig(ctx, configPath)
-	Expect(err).NotTo(HaveOccurred())
 
-	clusterctlConfigPath, err = helpers.CreateClusterctlLocalRepository(ctx, e2eConfig, filepath.Join(artifactFolder, "repository"), true)
-	Expect(err).NotTo(HaveOccurred())
+	By(fmt.Sprintf("Loading the e2e test configuration from %q", configPath))
+	e2eConfig = loadE2EConfig(ctx, configPath)
+
+	By(fmt.Sprintf("Creating a clusterctl local repository into %q", artifactFolder))
+	clusterctlConfigPath = createClusterctlLocalRepository(ctx, e2eConfig, filepath.Join(artifactFolder, "repository"))
 
 	By("Setting up the bootstrap cluster")
-	bootstrapClusterProvider, bootstrapClusterProxy, err = helpers.SetupBootstrapCluster(ctx, e2eConfig, scheme, useExistingCluster, artifactFolder)
-	Expect(err).NotTo(HaveOccurred())
+	bootstrapClusterProvider, bootstrapClusterProxy = setupBootstrapCluster(e2eConfig, scheme, useExistingCluster)
 
 	By("Initializing the bootstrap cluster")
-	helpers.InitBootstrapCluster(ctx, bootstrapClusterProxy, e2eConfig, clusterctlConfigPath, artifactFolder)
+	initBootstrapCluster(ctx, bootstrapClusterProxy, e2eConfig, clusterctlConfigPath, artifactFolder)
 	return []byte(
 		strings.Join([]string{
 			artifactFolder,
@@ -156,9 +155,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	clusterctlConfigPath = parts[2]
 	kubeconfigPath := parts[3]
 
-	var err error
-	e2eConfig, err = helpers.LoadE2EConfig(ctx, configPath)
-	Expect(err).NotTo(HaveOccurred())
+	e2eConfig = loadE2EConfig(ctx, configPath)
 	bootstrapClusterProxy = framework.NewClusterProxy("bootstrap", kubeconfigPath, initScheme(), framework.WithMachineLogCollector(framework.DockerLogCollector{}))
 })
 
@@ -175,16 +172,22 @@ var _ = SynchronizedAfterSuite(func() {
 
 	By("Tearing down the management cluster")
 	if !skipCleanup {
-		helpers.TearDown(ctx, bootstrapClusterProvider, bootstrapClusterProxy)
+		tearDown(ctx, bootstrapClusterProvider, bootstrapClusterProxy)
 	}
 })
 
 func initScheme() *runtime.Scheme {
 	sc := runtime.NewScheme()
-	_ = clusterv1.AddToScheme(sc)
-	_ = bootstrapv1.AddToScheme(sc)
+	framework.TryAddDefaultSchemes(sc)
 	_ = infrav1.AddToScheme(sc)
 	return sc
+}
+
+func loadE2EConfig(ctx context.Context, configPath string) *clusterctl.E2EConfig {
+	config := clusterctl.LoadE2EConfig(ctx, clusterctl.LoadE2EConfigInput{ConfigPath: configPath})
+	Expect(config).ToNot(BeNil(), "Failed to load E2E config from %s", configPath)
+
+	return config
 }
 
 func dumpBootstrapClusterLogs(bootstrapClusterProxy framework.ClusterProxy) {
@@ -221,5 +224,74 @@ func dumpBootstrapClusterLogs(bootstrapClusterProxy framework.ClusterProxy) {
 		if err != nil {
 			fmt.Printf("Failed to get logs for the bootstrap cluster node %s: %v\n", nodeName, err)
 		}
+	}
+}
+
+func createClusterctlLocalRepository(ctx context.Context, config *clusterctl.E2EConfig, repositoryFolder string) string {
+	createRepositoryInput := clusterctl.CreateRepositoryInput{
+		E2EConfig:        config,
+		RepositoryFolder: repositoryFolder,
+	}
+
+	// Ensuring a CNI file is defined in the config and register a FileTransformation to inject the referenced file as in place of the CNI_RESOURCES envSubst variable.
+	Expect(config.Variables).To(HaveKey(capi_e2e.CNIPath), "Missing %s variable in the config", capi_e2e.CNIPath)
+	cniPath := config.GetVariable(capi_e2e.CNIPath)
+	Expect(cniPath).To(BeAnExistingFile(), "The %s variable should resolve to an existing file", capi_e2e.CNIPath)
+	createRepositoryInput.RegisterClusterResourceSetConfigMapTransformation(cniPath, capi_e2e.CNIResources)
+
+	// Ensuring a CCM file is defined in the config and register a FileTransformation to inject the referenced file as in place of the CCM_RESOURCES envSubst variable.
+	Expect(config.Variables).To(HaveKey(CCMPath), "Missing %s variable in the config", CCMPath)
+	ccmPath := config.GetVariable(CCMPath)
+	Expect(ccmPath).To(BeAnExistingFile(), "The %s variable should resolve to an existing file", CCMPath)
+	createRepositoryInput.RegisterClusterResourceSetConfigMapTransformation(ccmPath, CCMResources)
+
+	// Ensuring a CCM file is defined for clusters with networks in the config and register a FileTransformation to inject the referenced file as in place of the CCM_RESOURCES envSubst variable.
+	Expect(config.Variables).To(HaveKey(CCMPath), "Missing %s variable in the config", CCMPath)
+	ccmNetworkPath := config.GetVariable(CCMNetworkPath)
+	Expect(ccmNetworkPath).To(BeAnExistingFile(), "The %s variable should resolve to an existing file", CCMPath)
+	createRepositoryInput.RegisterClusterResourceSetConfigMapTransformation(ccmNetworkPath, CCMNetworkResources)
+
+	clusterctlConfig := clusterctl.CreateRepository(ctx, createRepositoryInput)
+	Expect(clusterctlConfig).To(BeAnExistingFile(), "The clusterctl config file does not exists in the local repository %s", repositoryFolder)
+
+	return clusterctlConfig
+}
+
+func setupBootstrapCluster(config *clusterctl.E2EConfig, scheme *runtime.Scheme, useExistingCluster bool) (bootstrap.ClusterProvider, framework.ClusterProxy) {
+	var clusterProvider bootstrap.ClusterProvider
+	kubeconfigPath := ""
+	if !useExistingCluster {
+		clusterProvider = bootstrap.CreateKindBootstrapClusterAndLoadImages(ctx, bootstrap.CreateKindBootstrapClusterAndLoadImagesInput{
+			Name:               config.ManagementClusterName,
+			RequiresDockerSock: config.HasDockerProvider(),
+			Images:             config.Images,
+		})
+		Expect(clusterProvider).ToNot(BeNil(), "Failed to create a bootstrap cluster")
+
+		kubeconfigPath = clusterProvider.GetKubeconfigPath()
+		Expect(kubeconfigPath).To(BeAnExistingFile(), "Failed to get the kubeconfig file for the bootstrap cluster")
+	}
+
+	clusterProxy := framework.NewClusterProxy("bootstrap", kubeconfigPath, scheme)
+	Expect(clusterProxy).ToNot(BeNil(), "Failed to get a bootstrap cluster proxy")
+
+	return clusterProvider, clusterProxy
+}
+
+func initBootstrapCluster(ctx context.Context, bootstrapClusterProxy framework.ClusterProxy, config *clusterctl.E2EConfig, clusterctlConfig, artifactFolder string) {
+	clusterctl.InitManagementClusterAndWatchControllerLogs(ctx, clusterctl.InitManagementClusterAndWatchControllerLogsInput{
+		ClusterProxy:            bootstrapClusterProxy,
+		ClusterctlConfigPath:    clusterctlConfig,
+		InfrastructureProviders: config.InfrastructureProviders(),
+		LogFolder:               filepath.Join(artifactFolder, "clusters", bootstrapClusterProxy.GetName()),
+	}, config.GetIntervals(bootstrapClusterProxy.GetName(), "wait-controllers")...)
+}
+
+func tearDown(ctx context.Context, bootstrapClusterProvider bootstrap.ClusterProvider, bootstrapClusterProxy framework.ClusterProxy) {
+	if bootstrapClusterProxy != nil {
+		bootstrapClusterProxy.Dispose(ctx)
+	}
+	if bootstrapClusterProvider != nil {
+		bootstrapClusterProvider.Dispose(ctx)
 	}
 }

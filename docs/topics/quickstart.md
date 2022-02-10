@@ -79,18 +79,18 @@ We export the HCloud token as environment variable to use it later. We do the sa
 
 ```shell
 export HCLOUD_TOKEN="<YOUR-TOKEN>" \
-export SSH_KEY="<ssh-key-name>" \
+export HCLOUD_SSH_KEY="<ssh-key-name>" \
 export HCLOUD_IMAGE_NAME=test-image \
 export CLUSTER_NAME="my-cluster" \
-export REGION="fsn1" \
+export HCLOUD_REGION="fsn1" \
 export CONTROL_PLANE_MACHINE_COUNT=3 \
 export WORKER_MACHINE_COUNT=3 \
 export KUBERNETES_VERSION=1.23.4 \
 export HCLOUD_CONTROL_PLANE_MACHINE_TYPE=cpx31 \
-export HCLOUD_NODE_MACHINE_TYPE=cpx31 
+export HCLOUD_WORKER_MACHINE_TYPE=cpx31 
 ```
 HCLOUD_TOKEN: The project where your cluster will be placed to. You have to get a token from your HCloud Project.
-SSH_KEY: The SSH Key name you loaded in HCloud.
+HCLOUD_SSH_KEY: The SSH Key name you loaded in HCloud.
 HCLOUD_IMAGE_NAME: The Image name of your operating system. 
 
 For a list of all variables need for generating a cluster manifest (from the cluster-template.yaml) use `clusterctl generate cluster my-cluster --list-variables`:
@@ -98,9 +98,9 @@ For a list of all variables need for generating a cluster manifest (from the clu
 Required Variables:
   - HCLOUD_CONTROL_PLANE_MACHINE_TYPE
   - HCLOUD_IMAGE_NAME
-  - HCLOUD_NODE_MACHINE_TYPE
-  - REGION
-  - SSH_KEY
+  - HCLOUD_WORKER_MACHINE_TYPE
+  - HCLOUD_REGION
+  - HCLOUD_SSH_KEY
 
 Optional Variables:
   - CLUSTER_NAME                 (defaults to my-cluster)

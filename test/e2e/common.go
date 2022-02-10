@@ -37,6 +37,10 @@ import (
 const (
 	RedactLogScriptPath = "REDACT_LOG_SCRIPT"
 	KubernetesVersion   = "KUBERNETES_VERSION"
+	CCMPath             = "CCM"
+	CCMResources        = "CCM_RESOURCES"
+	CCMNetworkPath      = "CCM_NETWORK"
+	CCMNetworkResources = "CCM_RESOURCES_NETWORK"
 )
 
 func Byf(format string, a ...interface{}) {
@@ -56,10 +60,7 @@ func setupSpecNamespace(ctx context.Context, specName string, clusterProxy frame
 }
 
 func dumpSpecResourcesAndCleanup(ctx context.Context, specName string, clusterProxy framework.ClusterProxy, artifactFolder string, namespace *corev1.Namespace, cancelWatches context.CancelFunc, cluster *clusterv1.Cluster, intervalsGetter func(spec, key string) []interface{}, skipCleanup bool) {
-	Byf("Dumping logs from the %q workload cluster", cluster.Name)
-
-	// Dump all the logs from the workload cluster before deleting them.
-	clusterProxy.CollectWorkloadClusterLogs(ctx, cluster.Namespace, cluster.Name, filepath.Join(artifactFolder, "clusters", cluster.Name))
+	// optional TODO: getting machine logs (CAPIs CollectWorkloadClusterLogs doesn't work for us)
 
 	Byf("Dumping all the Cluster API resources in the %q namespace", namespace.Name)
 
@@ -115,5 +116,5 @@ func redactLogs(variableGetter func(string) string) {
 	By("Redacting sensitive information from the logs")
 	Expect(variableGetter(RedactLogScriptPath)).To(BeAnExistingFile(), "Missing redact log script")
 	cmd := exec.Command(variableGetter(RedactLogScriptPath)) //#nosec
-	Expect(cmd.Run()).To(Succeed())
+	cmd.Run()                                                //#nosec
 }

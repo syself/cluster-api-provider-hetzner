@@ -406,7 +406,9 @@ release-image: ## Builds and push container images to the prod bucket.
 
 ##@ Test
 
-ARTIFACTS ?= ${ROOT_DIR}/_artifacts
+ARTIFACTS ?= _artifacts
+$(ARTIFACTS):
+	mkdir -p $(ARTIFACTS)/
 
 KUBEBUILDER_ASSETS ?= $(shell $(SETUP_ENVTEST) use --use-env -p path $(KUBEBUILDER_ENVTEST_KUBERNETES_VERSION))
 
@@ -414,22 +416,9 @@ KUBEBUILDER_ASSETS ?= $(shell $(SETUP_ENVTEST) use --use-env -p path $(KUBEBUILD
 test: $(SETUP_ENVTEST) ## Run unit and integration tests
 	KUBEBUILDER_ASSETS="$(KUBEBUILDER_ASSETS)" go test ./controllers/... ./pkg/... $(TEST_ARGS)
 
-.PHONY: test-integration
-test-integration: e2e-image
-test-integration: $(GINKGO) $(KUSTOMIZE) $(KIND)
-	time $(GINKGO) -v ./test/integration -- --config="$(INTEGRATION_CONF_FILE)" --artifacts-folder="$(ARTIFACTS_PATH)"
-
-GINKGO_FOCUS ?=
-GINKGO_SKIP ?=
-
-# to set multiple ginkgo skip flags, if any
-ifneq ($(strip $(GINKGO_SKIP)),)
-_SKIP_ARGS := $(foreach arg,$(strip $(GINKGO_SKIP)),-skip="$(arg)")
-endif
-
-.PHONY: test-e2e
-test-e2e: ## Run the e2e tests
-	$(MAKE) -C $(TEST_DIR)/e2e run
+.PHONY: test-verbose
+test-verbose: ## Run tests with verbose settings
+	$(MAKE) test TEST_ARGS="$(TEST_ARGS) -v"
 
 .PHONY: test-cover
 test-cover: $(RELEASE_DIR) ## Run tests with code coverage and code generate reports
@@ -437,20 +426,26 @@ test-cover: $(RELEASE_DIR) ## Run tests with code coverage and code generate rep
 	go tool cover -func=out/coverage.out -o $(RELEASE_DIR)/coverage.txt
 	go tool cover -html=out/coverage.out -o $(RELEASE_DIR)/coverage.html
 
-.PHONY: e2e-image
-e2e-image: ## Build the e2e manager image
-	docker build --build-arg ldflags="$(LDFLAGS)" --tag="$(REGISTRY)/$(IMAGE_NAME):e2e" .
-
 .PHONY: test-junit
 test-junit: $(SETUP_ENVTEST) $(GOTESTSUM) ## Run tests with verbose setting and generate a junit report
 	set +o errexit; (KUBEBUILDER_ASSETS="$(KUBEBUILDER_ASSETS)" go test -json ./... $(TEST_ARGS); echo $$? > $(ARTIFACTS)/junit.exitcode) | tee $(ARTIFACTS)/junit.stdout
 	$(GOTESTSUM) --junitfile $(ARTIFACTS)/junit.xml --raw-command cat $(ARTIFACTS)/junit.stdout
 	exit $$(cat $(ARTIFACTS)/junit.exitcode)
 
+.PHONY: test-e2e
+test-e2e: e2e-image $(ARTIFACTS) ## Run the e2e tests locally
+	GINKGO_SKIP="Conformance" $(MAKE) -C $(TEST_DIR)/e2e run
 
-.PHONY: test-verbose
-test-verbose: ## Run tests with verbose settings
-	$(MAKE) test TEST_ARGS="$(TEST_ARGS) -v"
+test-ci-e2e: ## Run the e2e tests
+	MINIMUM_HCLOUD_VERSION=$(MINIMUM_HCLOUD_VERSION) \
+	MINIMUM_KIND_VERSION=$(MINIMUM_KIND_VERSION) \
+	MINIMUM_KUBECTL_VERSION=$(MINIMUM_KUBECTL_VERSION) \
+	MINIMUM_GO_VERSION=$(MINIMUM_GO_VERSION) \
+	./hack/ci-e2e.sh
+
+.PHONY: e2e-image
+e2e-image: ## Build the e2e manager image
+	docker build --pull --build-arg ARCH=$(ARCH) --build-arg LDFLAGS="$(LDFLAGS)" . -t $(CONTROLLER_IMG):e2e
 
 
 ##@ Build

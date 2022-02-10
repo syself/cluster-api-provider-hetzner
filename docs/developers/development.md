@@ -86,7 +86,7 @@ Makefile targets and scripts are offered to work with go modules:
 * Create a new Hetzner project. For each cluster it is recommended to have a seperate project in the Hetzner cloud.
 * Create a Hetzner API-TOKEN with read & write permissions.
 * Generate a ssh-key (`ssh-keygen -t ed25519 -C "your_email@example.com" -f ~/.ssh/cluster
-`) and upload the public key in the project. Give it a useful name as you need to specify the ssh name in the cluster-template ($SSH_KEY).
+`) and upload the public key in the project. Give it a useful name as you need to specify the ssh name in the cluster-template ($HCLOUD_SSH_KEY).
 
 
 ### Tilt Requirements
@@ -125,7 +125,7 @@ This will save you from having to build all of the images for CAPI, which can ta
 If you want to develop in CAPH and get a local development cluster working quickly, this is the path for you.
 Of course, there is also a legacy way to 
 
->HCLOUD_TOKEN and SSH_KEY are mandadory to set. 
+>HCLOUD_TOKEN and HCLOUD_SSH_KEY are mandadory to set. 
 
 Run the following to generate your minimal `tilt-settings.json` file:
 
@@ -134,7 +134,7 @@ cat <<EOF > tilt-settings.json
 {
   "kustomize_substitutions": {
     "HCLOUD_TOKEN": "<YOUR-TOKEN>",
-    "SSH_KEY": "test"
+    "HCLOUD_SSH_KEY": "test"
   }
 }
 EOF
@@ -201,14 +201,14 @@ cat <<EOF > tilt-settings.json
   "provider_repos": ["../cluster-api-provider-hetzner"],
   "enable_providers": ["caph-controller-manager", "kubeadm-bootstrap", "kubeadm-control-plane"],
   "kustomize_substitutions": {
-    "SSH_KEY": "test",
-    "REGION": "fsn1",
+    "HCLOUD_SSH_KEY": "test",
+    "HCLOUD_REGION": "fsn1",
     "CONTROL_PLANE_MACHINE_COUNT": "3",
     "WORKER_MACHINE_COUNT": "3",
     "KUBERNETES_VERSION": "v1.21.1",
     "HCLOUD_IMAGE_NAME": "test",
     "HCLOUD_CONTROL_PLANE_MACHINE_TYPE": "cpx31",
-    "HCLOUD_NODE_MACHINE_TYPE": "cpx31",
+    "HCLOUD_WORKER_MACHINE_TYPE": "cpx31",
     "CLUSTER_NAME": "test"
   }
 }
@@ -231,14 +231,14 @@ You need first to set some environment variables.
 
 ```shell
 export HCLOUD_TOKEN="<YOUR-TOKEN>" \
-export REGION="fsn1" \
-export SSH_KEY="test" \
+export HCLOUD_REGION="fsn1" \
+export HCLOUD_SSH_KEY="test" \
 export CONTROL_PLANE_MACHINE_COUNT=1 \
 export WORKER_MACHINE_COUNT=1 \
 export KUBERNETES_VERSION=1.21.1 \
 export HCLOUD_IMAGE_NAME=<IMAGE-PATH> \
 export HCLOUD_CONTROL_PLANE_MACHINE_TYPE=cpx31 \
-export HCLOUD_NODE_MACHINE_TYPE=cpx31 \
+export HCLOUD_WORKER_MACHINE_TYPE=cpx31 \
 export CLUSTER_NAME="test" 
 ```
 

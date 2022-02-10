@@ -84,7 +84,7 @@ issues:
       text: "exported: exported method .*\\.(Reconcile|SetupWithManager|SetupWebhookWithManager) should have comment or be unexported"
     - linters:
         - errcheck
-      text: Error return value of .((os\.)?std(out|err)\..*|.*Close|.*Flush|os\.Remove(All)?|.*print(f|ln)?|os\.(Un)?Setenv). is not checked
+      text: Error return value of .((os\.)?std(out|err)\..*|.*Close|.*Flush|cmd.Run()|os\.Remove(All)?|.*print(f|ln)?|os\.(Un)?Setenv). is not checked
     # Exclude some packages or code to require comments, for example test code, or fake clients.
     - linters:
         - revive

@@ -6,6 +6,7 @@ replace github.com/syself/cluster-api-provider-hetzner => ../../
 
 require (
 	github.com/drone/envsubst/v2 v2.0.0-20210615175204-7bf45dbf5372
+	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0
 	github.com/joelanford/go-apidiff v0.1.0
 	github.com/onsi/ginkgo v1.16.5
 	gotest.tools/gotestsum v1.7.0

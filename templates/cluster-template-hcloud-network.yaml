@@ -25,20 +25,15 @@ spec:
   hcloudNetwork:
     enabled: true
   controlPlaneRegions:
-    - "${REGION}"
+    - "${HCLOUD_REGION}"
   controlPlaneEndpoint:
     host: ""
     port: 443
   controlPlaneLoadBalancer:
-    region: "${REGION}"
-  hcloudPlacementGroups:
-    - name: control-plane
-      type: spread
-    - name: md-0
-      type: spread
+    region: "${HCLOUD_REGION}"
   sshKeys:
     hcloud:
-      - name: "${SSH_KEY}"
+      - name: "${HCLOUD_SSH_KEY}"
   hetznerSecretRef:
     name: hetzner
     key:
@@ -316,7 +311,6 @@ spec:
     spec:
       type: "${HCLOUD_CONTROL_PLANE_MACHINE_TYPE}"
       imageName: "fedora-35"
-      placementGroupName: control-plane
 ---
 apiVersion: cluster.x-k8s.io/v1beta1
 kind: MachineHealthCheck
@@ -351,7 +345,7 @@ spec:
   template:
     spec:
       clusterName: "${CLUSTER_NAME}"
-      failureDomain: "${REGION}"
+      failureDomain: "${HCLOUD_REGION}"
       version: "${KUBERNETES_VERSION}"
       bootstrap:
         configRef:
@@ -370,9 +364,8 @@ metadata:
 spec:
   template:
     spec:
-      type: "${HCLOUD_NODE_MACHINE_TYPE}"
+      type: "${HCLOUD_WORKER_MACHINE_TYPE}"
       imageName: "fedora-35"
-      placementGroupName: md-0
 ---
 apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
 kind: KubeadmConfigTemplate

@@ -1,0 +1,12 @@
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: HetznerCluster
+metadata:
+  name: "${CLUSTER_NAME}"
+spec:
+  controlPlaneLoadBalancer:
+    region: "${HCLOUD_REGION}"
+    type: lb11
+    extraServices:
+      - listenPort: 123
+        destinationPort: 123
+        protocol: tcp

@@ -1,3 +1,8 @@
 bases:
   - ../../../../../../templates/cluster-template.yaml
-  - ../bases/crs.yaml
+  - ../bases/crs-cni.yaml
+  - ../bases/crs-ccm.yaml
+  - ../bases/secret.yaml
+patchesStrategicMerge:
+  - ../bases/cluster_patch.yaml
+  - ../bases/full-specified-lb_patch.yaml
