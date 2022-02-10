@@ -246,6 +246,11 @@ func (s *Service) createServer(ctx context.Context, failureDomain string) (*hclo
 			}
 		}
 		if !foundPlacementGroupInStatus {
+			conditions.MarkFalse(s.scope.HCloudMachine,
+				infrav1.InstanceReadyCondition,
+				infrav1.InstanceHasNonExistingPlacementGroupReason,
+				clusterv1.ConditionSeverityError,
+				"Given placement group does  not exist in cluster")
 			log.Info("No placement group found on server creation", "placementGroupName", *s.scope.HCloudMachine.Spec.PlacementGroupName)
 			return nil, errors.New("failed to find server's placement group")
 		}
@@ -263,6 +268,14 @@ func (s *Service) createServer(ctx context.Context, failureDomain string) (*hclo
 	sshKeys, err := getSSHKeys(sshKeysAPI, sshKeySpecs)
 	if err != nil {
 		return nil, errors.Wrap(err, "error with ssh keys")
+	}
+	if len(sshKeys) == 0 {
+		conditions.MarkFalse(s.scope.HCloudMachine,
+			infrav1.InstanceReadyCondition,
+			infrav1.InstanceHasNoValidSSHKeyReason,
+			clusterv1.ConditionSeverityError,
+			"No valid SSH key")
+		return nil, errors.New("no valid ssh key on server creation")
 	}
 	opts.SSHKeys = sshKeys
 

@@ -26,8 +26,10 @@ import (
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -45,7 +47,7 @@ var _ = Describe("VsphereMachineReconciler", func() {
 		hetznerSecret   *corev1.Secret
 		bootstrapSecret *corev1.Secret
 
-		key client.ObjectKey
+		failureDomain = "fsn1"
 	)
 
 	BeforeEach(func() {
@@ -67,6 +69,9 @@ var _ = Describe("VsphereMachineReconciler", func() {
 					Namespace:  testNs.Name,
 				},
 			},
+			Status: clusterv1.ClusterStatus{
+				InfrastructureReady: true,
+			},
 		}
 		Expect(testEnv.Create(ctx, capiCluster)).To(Succeed())
 
@@ -85,82 +90,82 @@ var _ = Describe("VsphereMachineReconciler", func() {
 			},
 			Spec: getDefaultHetznerClusterSpec(),
 		}
-		Expect(testEnv.Create(ctx, infraCluster)).To(Succeed())
 
 		hetznerSecret = getDefaultHetznerSecret(testNs.Name)
 		Expect(testEnv.Create(ctx, hetznerSecret)).To(Succeed())
 
 		bootstrapSecret = getDefaultBootstrapSecret(testNs.Name)
 		Expect(testEnv.Create(ctx, bootstrapSecret)).To(Succeed())
-
-		failureDomain := "fsn1"
-		capiMachine = &clusterv1.Machine{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "capi-machine-",
-				Namespace:    testNs.Name,
-				Finalizers:   []string{clusterv1.MachineFinalizer},
-				Labels: map[string]string{
-					clusterv1.ClusterLabelName: capiCluster.Name,
-				},
-			},
-			Spec: clusterv1.MachineSpec{
-				ClusterName: capiCluster.Name,
-				InfrastructureRef: corev1.ObjectReference{
-					APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
-					Kind:       "HCloudMachine",
-					Name:       "hcloud-machine-3",
-				},
-				FailureDomain: &failureDomain,
-			},
-		}
-		Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
-
-		infraMachine = &infrav1.HCloudMachine{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "hcloud-machine-3",
-				Namespace: testNs.Name,
-				Labels: map[string]string{
-					clusterv1.ClusterLabelName:             capiCluster.Name,
-					clusterv1.MachineControlPlaneLabelName: "",
-				},
-				OwnerReferences: []metav1.OwnerReference{
-					{
-						APIVersion: clusterv1.GroupVersion.String(),
-						Kind:       "Machine",
-						Name:       capiMachine.Name,
-						UID:        capiMachine.UID,
-					},
-				},
-			},
-			Spec: infrav1.HCloudMachineSpec{
-				ImageName: "1.23.3-fedora-35-control-plane",
-				Type:      "cpx31",
-			},
-		}
-		Expect(testEnv.Create(ctx, infraMachine)).To(Succeed())
-
-		key = client.ObjectKey{Namespace: testNs.Name, Name: infraMachine.Name}
 	})
 
 	AfterEach(func() {
-		Expect(testEnv.Cleanup(ctx, testNs, capiCluster, infraCluster, capiMachine, infraMachine)).To(Succeed())
+		Expect(testEnv.Cleanup(ctx, testNs, capiCluster, infraCluster, capiMachine,
+			infraMachine, hetznerSecret, bootstrapSecret)).To(Succeed())
 	})
 
-	It("creates the infra machine", func() {
-		Eventually(func() bool {
-			if err := testEnv.Get(ctx, key, infraMachine); err != nil {
-				return false
-			}
-			return true
-		}, timeout).Should(BeTrue())
-	})
-
-	Context("With Cluster Infrastructure status ready", func() {
+	Context("Basic test", func() {
 		BeforeEach(func() {
-			ph, err := patch.NewHelper(capiCluster, testEnv)
-			Expect(err).ShouldNot(HaveOccurred())
-			capiCluster.Status.InfrastructureReady = true
-			Expect(ph.Patch(ctx, capiCluster, patch.WithStatusObservedGeneration{})).To(Succeed())
+			hcloudMachineName := utils.GenerateName(nil, "hcloud-machine-")
+
+			capiMachine = &clusterv1.Machine{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "capi-machine-",
+					Namespace:    testNs.Name,
+					Finalizers:   []string{clusterv1.MachineFinalizer},
+					Labels: map[string]string{
+						clusterv1.ClusterLabelName: capiCluster.Name,
+					},
+				},
+				Spec: clusterv1.MachineSpec{
+					ClusterName: capiCluster.Name,
+					InfrastructureRef: corev1.ObjectReference{
+						APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
+						Kind:       "HCloudMachine",
+						Name:       hcloudMachineName,
+					},
+					FailureDomain: &failureDomain,
+				},
+			}
+			Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
+
+			pgName := "control-plane"
+
+			infraMachine = &infrav1.HCloudMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      hcloudMachineName,
+					Namespace: testNs.Name,
+					Labels: map[string]string{
+						clusterv1.ClusterLabelName:             capiCluster.Name,
+						clusterv1.MachineControlPlaneLabelName: "",
+					},
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: clusterv1.GroupVersion.String(),
+							Kind:       "Machine",
+							Name:       capiMachine.Name,
+							UID:        capiMachine.UID,
+						},
+					},
+				},
+				Spec: infrav1.HCloudMachineSpec{
+					ImageName:          "1.23.3-fedora-35-control-plane",
+					Type:               "cpx31",
+					PlacementGroupName: &pgName,
+				},
+			}
+
+			Expect(testEnv.Create(ctx, infraMachine)).To(Succeed())
+			Expect(testEnv.Create(ctx, infraCluster)).To(Succeed())
+		})
+
+		It("creates the infra machine", func() {
+			key := client.ObjectKey{Namespace: testNs.Name, Name: infraMachine.Name}
+			Eventually(func() bool {
+				if err := testEnv.Get(ctx, key, infraMachine); err != nil {
+					return false
+				}
+				return true
+			}, timeout).Should(BeTrue())
 		})
 
 		It("creates the HCloud machine in Hetzner", func() {
@@ -199,6 +204,157 @@ var _ = Describe("VsphereMachineReconciler", func() {
 				}
 				return len(servers)
 			}, timeout, time.Second).Should(BeNumerically(">", 0))
+		})
+	})
+
+	Context("various specs", func() {
+		isPresentAndFalseWithReason := func(key types.NamespacedName, getter conditions.Getter, condition clusterv1.ConditionType, reason string) bool {
+			ExpectWithOffset(1, testEnv.Get(ctx, key, getter)).To(Succeed())
+			if !conditions.Has(getter, condition) {
+				return false
+			}
+			objectCondition := conditions.Get(getter, condition)
+			return objectCondition.Status == corev1.ConditionFalse &&
+				objectCondition.Reason == reason
+		}
+
+		var key client.ObjectKey
+
+		BeforeEach(func() {
+			hcloudMachineName := utils.GenerateName(nil, "hcloud-machine-")
+
+			capiMachine = &clusterv1.Machine{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "capi-machine-",
+					Namespace:    testNs.Name,
+					Finalizers:   []string{clusterv1.MachineFinalizer},
+					Labels: map[string]string{
+						clusterv1.ClusterLabelName: capiCluster.Name,
+					},
+				},
+				Spec: clusterv1.MachineSpec{
+					ClusterName: capiCluster.Name,
+					InfrastructureRef: corev1.ObjectReference{
+						APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
+						Kind:       "HCloudMachine",
+						Name:       hcloudMachineName,
+					},
+					FailureDomain: &failureDomain,
+					Bootstrap: clusterv1.Bootstrap{
+						DataSecretName: pointer.String("bootstrap-secret"),
+					},
+				},
+			}
+			Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
+
+			pgName := "control-plane"
+
+			infraMachine = &infrav1.HCloudMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      hcloudMachineName,
+					Namespace: testNs.Name,
+					Labels: map[string]string{
+						clusterv1.ClusterLabelName:             capiCluster.Name,
+						clusterv1.MachineControlPlaneLabelName: "",
+					},
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: clusterv1.GroupVersion.String(),
+							Kind:       "Machine",
+							Name:       capiMachine.Name,
+							UID:        capiMachine.UID,
+						},
+					},
+				},
+				Spec: infrav1.HCloudMachineSpec{
+					ImageName:          "1.23.3-fedora-35-control-plane",
+					Type:               "cpx31",
+					PlacementGroupName: &pgName,
+				},
+			}
+
+			key = client.ObjectKey{Namespace: testNs.Name, Name: infraMachine.Name}
+		})
+
+		Context("without network", func() {
+			BeforeEach(func() {
+				infraCluster.Spec.HCloudNetwork.NetworkEnabled = false
+				Expect(testEnv.Create(ctx, infraCluster)).To(Succeed())
+				Expect(testEnv.Create(ctx, infraMachine)).To(Succeed())
+			})
+
+			It("creates the HCloud machine in Hetzner", func() {
+				hcc := testEnv.HCloudClientFactory.NewClient("")
+				Eventually(func() int {
+					servers, err := hcc.ListServers(ctx, hcloud.ServerListOpts{
+						ListOpts: hcloud.ListOpts{
+							LabelSelector: utils.LabelsToLabelSelector(map[string]string{infrav1.ClusterTagKey(infraCluster.Name): "owned"}),
+						},
+					})
+					if err != nil {
+						return 0
+					}
+					return len(servers)
+				}, timeout, time.Second).Should(BeNumerically(">", 0))
+			})
+		})
+
+		Context("without placement groups", func() {
+			BeforeEach(func() {
+				infraCluster.Spec.HCloudPlacementGroup = nil
+				Expect(testEnv.Create(ctx, infraCluster)).To(Succeed())
+				infraMachine.Spec.PlacementGroupName = nil
+				Expect(testEnv.Create(ctx, infraMachine)).To(Succeed())
+			})
+
+			It("creates the HCloud machine in Hetzner", func() {
+				hcc := testEnv.HCloudClientFactory.NewClient("")
+				Eventually(func() int {
+					servers, err := hcc.ListServers(ctx, hcloud.ServerListOpts{
+						ListOpts: hcloud.ListOpts{
+							LabelSelector: utils.LabelsToLabelSelector(map[string]string{infrav1.ClusterTagKey(infraCluster.Name): "owned"}),
+						},
+					})
+					if err != nil {
+						return 0
+					}
+					return len(servers)
+				}, timeout, time.Second).Should(BeNumerically(">", 0))
+			})
+		})
+
+		Context("without placement groups, but with placement group in hcloudMachine spec", func() {
+			BeforeEach(func() {
+				infraCluster.Spec.HCloudPlacementGroup = nil
+				Expect(testEnv.Create(ctx, infraCluster)).To(Succeed())
+				Expect(testEnv.Create(ctx, infraMachine)).To(Succeed())
+			})
+
+			It("should show the expected reason for server not created", func() {
+				Eventually(func() bool {
+					if err := testEnv.Get(ctx, key, infraMachine); err != nil {
+						return false
+					}
+					return isPresentAndFalseWithReason(key, infraMachine, infrav1.InstanceReadyCondition, infrav1.InstanceHasNonExistingPlacementGroupReason)
+				}, timeout).Should(BeTrue())
+			})
+		})
+
+		Context("without ssh keys", func() {
+			BeforeEach(func() {
+				infraCluster.Spec.SSHKeys = infrav1.HetznerSSHKeys{}
+				Expect(testEnv.Create(ctx, infraCluster)).To(Succeed())
+				Expect(testEnv.Create(ctx, infraMachine)).To(Succeed())
+			})
+
+			It("should show the expected reason for server not created", func() {
+				Eventually(func() bool {
+					if err := testEnv.Get(ctx, key, infraMachine); err != nil {
+						return false
+					}
+					return isPresentAndFalseWithReason(key, infraMachine, infrav1.InstanceReadyCondition, infrav1.InstanceHasNoValidSSHKeyReason)
+				}, timeout).Should(BeTrue())
+			})
 		})
 	})
 })
