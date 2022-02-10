@@ -39,6 +39,10 @@ const (
 	InstanceReadyCondition clusterv1.ConditionType = "InstanceReady"
 	// InstanceTerminatedReason instance is in a terminated state.
 	InstanceTerminatedReason = "InstanceTerminated"
+	// InstanceHasNonExistingPlacementGroupReason instance has a placement group name that does not exist.
+	InstanceHasNonExistingPlacementGroupReason = "InstanceHasNonExistingPlacementGroup"
+	// InstanceHasNoValidSSHKeyReason instance has no valid ssh key.
+	InstanceHasNoValidSSHKeyReason = "InstanceHasNoValidSSHKey"
 )
 
 const (
