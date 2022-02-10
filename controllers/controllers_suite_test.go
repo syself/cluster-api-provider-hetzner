@@ -33,6 +33,7 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 )
 
 const (
@@ -42,7 +43,9 @@ const (
 
 func TestControllers(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Controllers Suite")
+	RunSpecsWithDefaultAndCustomReporters(t,
+		"Controller Suite",
+		[]Reporter{printer.NewlineReporter{}})
 }
 
 var (
