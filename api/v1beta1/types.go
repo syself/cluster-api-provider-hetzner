@@ -52,7 +52,8 @@ type HetznerSSHKeys struct {
 // SSHKey defines the SSHKey for HCloud.
 type SSHKey struct {
 	// Name of SSH key
-	Name string `json:"name,omitempty"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
 	// Fingerprint of SSH key - added by controller
 	// +optional
 	Fingerprint string `json:"fingerprint,omitempty"`
@@ -66,8 +67,10 @@ type ResourceLifecycle string
 
 // HCloudPlacementGroupSpec defines a PlacementGroup.
 type HCloudPlacementGroupSpec struct {
-	Name string `json:"name,omitempty"`
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
 	// +kubebuilder:validation:Enum=spread
+	// +kubebuilder:default=spread
 	Type string `json:"type,omitempty"`
 }
 
@@ -156,14 +159,17 @@ type HCloudNetworkSpec struct {
 
 	// CIDRBlock defines the cidrBlock of the HCloud Network. A Subnet is required.
 	// +kubebuilder:default="10.0.0.0/16"
+	// +optional
 	CIDRBlock string `json:"cidrBlock,omitempty"`
 
 	// SubnetCIDRBlock defines the cidrBlock for the subnet of the HCloud Network.
 	// +kubebuilder:default="10.0.0.0/24"
+	// +optional
 	SubnetCIDRBlock string `json:"subnetCidrBlock,omitempty"`
 
 	// NetworkZone specifies the HCloud network zone of the private network.
 	// +kubebuilder:default=eu-central
+	// +optional
 	NetworkZone HCloudNetworkZone `json:"networkZone,omitempty"`
 }
 

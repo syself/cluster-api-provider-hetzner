@@ -354,3 +354,41 @@ var _ = Describe("VsphereMachineReconciler", func() {
 		})
 	})
 })
+
+var _ = Describe("HCloudMachine validation", func() {
+	var (
+		infraMachine *infrav1.HCloudMachine
+		testNs       *corev1.Namespace
+	)
+
+	BeforeEach(func() {
+		var err error
+		testNs, err = testEnv.CreateNamespace(ctx, "hcloudmachine-validation")
+		Expect(err).NotTo(HaveOccurred())
+
+		infraMachine = &infrav1.HCloudMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "hcloud-validation-machine",
+				Namespace: testNs.Name,
+			},
+			Spec: infrav1.HCloudMachineSpec{
+				ImageName: "1.23.3-fedora-35-control-plane",
+				Type:      "cpx31",
+			},
+		}
+	})
+
+	AfterEach(func() {
+		Expect(testEnv.Cleanup(ctx, testNs, infraMachine)).To(Succeed())
+	})
+
+	It("should fail with wrong type", func() {
+		infraMachine.Spec.Type = "wrong-type"
+		Expect(testEnv.Create(ctx, infraMachine)).ToNot(Succeed())
+	})
+
+	It("should fail without imageName", func() {
+		infraMachine.Spec.ImageName = ""
+		Expect(testEnv.Create(ctx, infraMachine)).ToNot(Succeed())
+	})
+})

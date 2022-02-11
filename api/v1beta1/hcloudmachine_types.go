@@ -42,6 +42,7 @@ type HCloudMachineSpec struct {
 	Type HCloudMachineType `json:"type"`
 
 	// ImageName is the reference to the Machine Image from which to create the machine instance.
+	// +kubebuilder:validation:MinLength=1
 	ImageName string `json:"imageName"`
 
 	// define Machine specific SSH keys, overrides cluster wide SSH keys
