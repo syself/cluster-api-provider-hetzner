@@ -25,6 +25,7 @@ import (
 	. "github.com/onsi/gomega"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/controllers"
+	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -49,9 +50,10 @@ func TestControllers(t *testing.T) {
 }
 
 var (
-	testEnv *helpers.TestEnvironment
-	ctx     = ctrl.SetupSignalHandler()
-	wg      sync.WaitGroup
+	testEnv      *helpers.TestEnvironment
+	hcloudClient hcloudclient.Client
+	ctx          = ctrl.SetupSignalHandler()
+	wg           sync.WaitGroup
 )
 
 var _ = BeforeSuite(func() {
@@ -59,6 +61,7 @@ var _ = BeforeSuite(func() {
 	utilruntime.Must(clusterv1.AddToScheme(scheme.Scheme))
 
 	testEnv = helpers.NewTestEnvironment()
+	hcloudClient = testEnv.HCloudClientFactory.NewClient("")
 
 	wg.Add(1)
 
