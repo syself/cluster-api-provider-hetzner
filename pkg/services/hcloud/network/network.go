@@ -47,7 +47,7 @@ func NewService(scope *scope.ClusterScope) *Service {
 
 // Reconcile implements life cycle of networks.
 func (s *Service) Reconcile(ctx context.Context) (err error) {
-	if !s.scope.HetznerCluster.Spec.HCloudNetwork.NetworkEnabled {
+	if !s.scope.HetznerCluster.Spec.HCloudNetwork.Enabled {
 		conditions.MarkFalse(s.scope.HetznerCluster, infrav1.NetworkAttached, infrav1.NetworkDisabledReason, clusterv1.ConditionSeverityInfo, "")
 		return nil
 	}
