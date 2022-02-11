@@ -238,12 +238,12 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 				return nil
 			}, timeout).Should(BeNil())
 
-			By("Getting additional extra targets")
+			By("Getting additional extra services")
 			Eventually(func() error {
 				ph, err := patch.NewHelper(instance, testEnv)
 				Expect(err).ShouldNot(HaveOccurred())
-				instance.Spec.ControlPlaneLoadBalancer.ExtraTargets = append(instance.Spec.ControlPlaneLoadBalancer.ExtraTargets,
-					infrav1.LoadBalancerTargetSpec{
+				instance.Spec.ControlPlaneLoadBalancer.ExtraServices = append(instance.Spec.ControlPlaneLoadBalancer.ExtraServices,
+					infrav1.LoadBalancerServiceSpec{
 						DestinationPort: 8134,
 						ListenPort:      8134,
 						Protocol:        "tcp",
@@ -269,13 +269,13 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 				lb := loadBalancers[0]
 
 				return len(lb.Services)
-			}, timeout).Should(Equal(len(instance.Spec.ControlPlaneLoadBalancer.ExtraTargets)))
+			}, timeout).Should(Equal(len(instance.Spec.ControlPlaneLoadBalancer.ExtraServices)))
 
 			By("Getting reducing extra targets")
 			Eventually(func() error {
 				ph, err := patch.NewHelper(instance, testEnv)
 				Expect(err).ShouldNot(HaveOccurred())
-				instance.Spec.ControlPlaneLoadBalancer.ExtraTargets = []infrav1.LoadBalancerTargetSpec{
+				instance.Spec.ControlPlaneLoadBalancer.ExtraServices = []infrav1.LoadBalancerServiceSpec{
 					{
 						DestinationPort: 8134,
 						ListenPort:      8134,
@@ -303,13 +303,13 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 				lb := loadBalancers[0]
 
 				return len(lb.Services)
-			}, timeout).Should(Equal(len(instance.Spec.ControlPlaneLoadBalancer.ExtraTargets)))
+			}, timeout).Should(Equal(len(instance.Spec.ControlPlaneLoadBalancer.ExtraServices)))
 
 			By("Getting removing extra targets")
 			Eventually(func() error {
 				ph, err := patch.NewHelper(instance, testEnv)
 				Expect(err).ShouldNot(HaveOccurred())
-				instance.Spec.ControlPlaneLoadBalancer.ExtraTargets = nil
+				instance.Spec.ControlPlaneLoadBalancer.ExtraServices = nil
 				return ph.Patch(ctx, instance, patch.WithStatusObservedGeneration{})
 			}, timeout).Should(BeNil())
 
@@ -331,7 +331,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 				lb := loadBalancers[0]
 
 				return len(lb.Services)
-			}, timeout).Should(Equal(len(instance.Spec.ControlPlaneLoadBalancer.ExtraTargets)))
+			}, timeout).Should(Equal(len(instance.Spec.ControlPlaneLoadBalancer.ExtraServices)))
 		})
 	})
 	Context("For HetznerMachines belonging to the cluster", func() {

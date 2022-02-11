@@ -78,7 +78,7 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 	}
 
 	// reconcile targets
-	if err := s.reconcileTargets(ctx, lb); err != nil {
+	if err := s.reconcileServices(ctx, lb); err != nil {
 		return errors.Wrap(err, "failed to reconcile targets")
 	}
 
@@ -165,44 +165,44 @@ func (s *Service) reconcileLBProperties(ctx context.Context, lb *hcloud.LoadBala
 	return kerrors.NewAggregate(multierr)
 }
 
-func (s *Service) reconcileTargets(ctx context.Context, lb *hcloud.LoadBalancer) error {
+func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer) error {
 	// Build slices and maps to make diffs
-	lbTargetListenPorts := make([]int, len(lb.Services))
-	specTargetListenPorts := make([]int, len(s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.ExtraTargets))
-	specTargetListenPortsMap := make(map[int]infrav1.LoadBalancerTargetSpec, len(s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.ExtraTargets))
+	lbServiceListenPorts := make([]int, len(lb.Services))
+	specServiceListenPorts := make([]int, len(s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.ExtraServices))
+	specServiceListenPortsMap := make(map[int]infrav1.LoadBalancerServiceSpec, len(s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.ExtraServices))
 
-	for i, target := range lb.Services {
-		// Do nothing for kubeAPI target
-		if target.ListenPort == int(s.scope.HetznerCluster.Spec.ControlPlaneEndpoint.Port) {
+	for i, service := range lb.Services {
+		// Do nothing for kubeAPI service
+		if service.ListenPort == int(s.scope.HetznerCluster.Spec.ControlPlaneEndpoint.Port) {
 			continue
 		}
-		lbTargetListenPorts[i] = target.ListenPort
+		lbServiceListenPorts[i] = service.ListenPort
 	}
 
-	for i, targetInSpec := range s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.ExtraTargets {
-		specTargetListenPorts[i] = targetInSpec.ListenPort
-		specTargetListenPortsMap[targetInSpec.ListenPort] = targetInSpec
+	for i, serviceInSpec := range s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.ExtraServices {
+		specServiceListenPorts[i] = serviceInSpec.ListenPort
+		specServiceListenPortsMap[serviceInSpec.ListenPort] = serviceInSpec
 	}
 
-	toCreate, toDelete := utils.DifferenceOfIntSlices(specTargetListenPorts, lbTargetListenPorts)
+	toCreate, toDelete := utils.DifferenceOfIntSlices(specServiceListenPorts, lbServiceListenPorts)
 
-	// Delete targets which are registered for lb but are not in specs
+	// Delete services which are registered for lb but are not in specs
 	var multierr []error
 
 	for _, listenPort := range toDelete {
-		if _, ok := specTargetListenPortsMap[listenPort]; !ok {
+		if _, ok := specServiceListenPortsMap[listenPort]; !ok {
 			if _, err := s.scope.HCloudClient.DeleteServiceFromLoadBalancer(ctx, lb, listenPort); err != nil {
 				multierr = append(multierr, fmt.Errorf("error deleting service from load balancer: %s", err))
 			}
 		}
 	}
 
-	// Create targets which are in specs and not yet in API
+	// Create services which are in specs and not yet in API
 	for i, listenPort := range toCreate {
 		proxyProtocol := false
-		destinationPort := specTargetListenPortsMap[listenPort].DestinationPort
+		destinationPort := specServiceListenPortsMap[listenPort].DestinationPort
 		serviceOpts := hcloud.LoadBalancerAddServiceOpts{
-			Protocol:        hcloud.LoadBalancerServiceProtocol(specTargetListenPortsMap[listenPort].Protocol),
+			Protocol:        hcloud.LoadBalancerServiceProtocol(specServiceListenPortsMap[listenPort].Protocol),
 			ListenPort:      &toCreate[i],
 			DestinationPort: &destinationPort,
 			Proxyprotocol:   &proxyProtocol,
