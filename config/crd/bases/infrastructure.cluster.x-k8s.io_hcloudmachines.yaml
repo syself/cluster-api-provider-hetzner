@@ -63,6 +63,7 @@ spec:
               imageName:
                 description: ImageName is the reference to the Machine Image from
                   which to create the machine instance.
+                minLength: 1
                 type: string
               placementGroupName:
                 type: string
@@ -81,7 +82,10 @@ spec:
                       type: string
                     name:
                       description: Name of SSH key
+                      minLength: 1
                       type: string
+                  required:
+                  - name
                   type: object
                 type: array
               type:

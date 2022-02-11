@@ -226,11 +226,15 @@ spec:
                           description: HCloudPlacementGroupSpec defines a PlacementGroup.
                           properties:
                             name:
+                              minLength: 1
                               type: string
                             type:
+                              default: spread
                               enum:
                               - spread
                               type: string
+                          required:
+                          - name
                           type: object
                         type: array
                       hetznerSecretRef:
@@ -255,8 +259,8 @@ spec:
                         - name
                         type: object
                       sshKeys:
-                        description: define cluster wide SSH keys. Valid values are
-                          a valid SSH key name, or a valid ID.
+                        description: SSHKeys are cluster wide. Valid values are a
+                          valid SSH key name.
                         properties:
                           hcloud:
                             items:
@@ -267,7 +271,10 @@ spec:
                                   type: string
                                 name:
                                   description: Name of SSH key
+                                  minLength: 1
                                   type: string
+                              required:
+                              - name
                               type: object
                             type: array
                         type: object

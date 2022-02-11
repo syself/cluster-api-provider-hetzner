@@ -730,6 +730,60 @@ func createHCloudMachine(ctx context.Context, env *helpers.TestEnvironment, name
 			Type:      "cpx31",
 		},
 	}
-
 	return env.Create(ctx, hcloudMachine)
 }
+
+var _ = Describe("HetznerCluster validation", func() {
+	var (
+		hetznerCluster *infrav1.HetznerCluster
+		testNs         *corev1.Namespace
+	)
+	BeforeEach(func() {
+		var err error
+		testNs, err = testEnv.CreateNamespace(ctx, "hcloudmachine-validation")
+		Expect(err).NotTo(HaveOccurred())
+	})
+	AfterEach(func() {
+		Expect(testEnv.Cleanup(ctx, testNs, hetznerCluster)).To(Succeed())
+	})
+
+	Context("validate create", func() {
+		BeforeEach(func() {
+			hetznerCluster = &infrav1.HetznerCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hcloud-validation-machine",
+					Namespace: testNs.Name,
+				},
+				Spec: getDefaultHetznerClusterSpec(),
+			}
+		})
+
+		It("should fail without a wrong controlPlaneRegion name", func() {
+			hetznerCluster.Spec.ControlPlaneRegions = append(hetznerCluster.Spec.ControlPlaneRegions, infrav1.Region("wrong-region"))
+			Expect(testEnv.Create(ctx, hetznerCluster)).ToNot(Succeed())
+		})
+
+		It("should fail with an SSHKey without name", func() {
+			hetznerCluster.Spec.SSHKeys.HCloud = append(hetznerCluster.Spec.SSHKeys.HCloud, infrav1.SSHKey{})
+			Expect(testEnv.Create(ctx, hetznerCluster)).ToNot(Succeed())
+		})
+
+		It("should fail with an empty controlPlaneLoadBalancer region", func() {
+			hetznerCluster.Spec.ControlPlaneLoadBalancer.Region = ""
+			Expect(testEnv.Create(ctx, hetznerCluster)).ToNot(Succeed())
+		})
+
+		It("should fail with an empty placementGroup name", func() {
+			hetznerCluster.Spec.HCloudPlacementGroup = append(hetznerCluster.Spec.HCloudPlacementGroup, infrav1.HCloudPlacementGroupSpec{})
+			Expect(testEnv.Create(ctx, hetznerCluster)).ToNot(Succeed())
+		})
+
+		It("should fail with a wrong placementGroup type", func() {
+			hetznerCluster.Spec.HCloudPlacementGroup = append(hetznerCluster.Spec.HCloudPlacementGroup, infrav1.HCloudPlacementGroupSpec{
+				Name: "newName",
+				Type: "wrong-type",
+			})
+			Expect(testEnv.Create(ctx, hetznerCluster)).ToNot(Succeed())
+		})
+	})
+})
