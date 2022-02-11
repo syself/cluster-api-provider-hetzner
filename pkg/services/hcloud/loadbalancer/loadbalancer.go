@@ -165,18 +165,25 @@ func (s *Service) reconcileLBProperties(ctx context.Context, lb *hcloud.LoadBala
 	return kerrors.NewAggregate(multierr)
 }
 
+func max(x, y int) int {
+	if x > y {
+		return x
+	}
+	return y
+}
+
 func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer) error {
 	// Build slices and maps to make diffs
-	lbServiceListenPorts := make([]int, len(lb.Services))
+	lbServiceListenPorts := make([]int, 0, max(len(lb.Services)-1, 0))
 	specServiceListenPorts := make([]int, len(s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.ExtraServices))
 	specServiceListenPortsMap := make(map[int]infrav1.LoadBalancerServiceSpec, len(s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.ExtraServices))
 
-	for i, service := range lb.Services {
+	for _, service := range lb.Services {
 		// Do nothing for kubeAPI service
 		if service.ListenPort == int(s.scope.HetznerCluster.Spec.ControlPlaneEndpoint.Port) {
 			continue
 		}
-		lbServiceListenPorts[i] = service.ListenPort
+		lbServiceListenPorts = append(lbServiceListenPorts, service.ListenPort)
 	}
 
 	for i, serviceInSpec := range s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.ExtraServices {
