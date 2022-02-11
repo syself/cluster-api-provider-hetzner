@@ -12,9 +12,9 @@ It is a common practice to create a temporary, local bootstrap cluster which is 
 ## Choose one of the options below:
 
 ### 1. Existing Management Cluster.
-    For production use-cases a “real” Kubernetes cluster should be used with appropriate backup and DR policies and procedures in place. The Kubernetes cluster must be at least v1.22.1.
+For production use-cases a “real” Kubernetes cluster should be used with appropriate backup and DR policies and procedures in place. The Kubernetes cluster must be at least v1.22.1.
 ### 2. Kind. 
-    kind can be used for creating a local Kubernetes cluster for development environments or for the creation of a temporary bootstrap cluster used to provision a target management cluster on the selected infrastructure provider.
+kind can be used for creating a local Kubernetes cluster for development environments or for the creation of a temporary bootstrap cluster used to provision a target management cluster on the selected infrastructure provider.
 
     
 ## Install clusterctl
@@ -26,19 +26,8 @@ or use: `make install-clusterctl`
 ## Initialize the management cluster
 Now that we’ve got clusterctl installed and all the prerequisites in place, let’s transform the Kubernetes cluster into a management cluster by using `clusterctl init`. More informations about clusterctl can be found [here](https://cluster-api.sigs.k8s.io/clusterctl/commands/commands.html).
 
-### Deploying the hetzner provider
-The recommended method is using Clusterctl.
-#### Register the hetzner provider 
-$HOME/.cluster-api/clusterctl.yaml
 
-```
-providers:
-  - name: "hetzner"
-    url: "https://github.com/syself/cluster-api-provider-hetzner/releases/latest/infrastructure-components.yaml"
-    type: "InfrastructureProvider"
-```
-
-#### Initialization of cluster-api provider hetzner
+### Initialization of the cluster-api components
 
 For the latest version:
 ```shell
@@ -105,7 +94,7 @@ Required Variables:
 Optional Variables:
   - CLUSTER_NAME                 (defaults to my-cluster)
   - CONTROL_PLANE_MACHINE_COUNT  (defaults to 1)
-  - KUBERNETES_VERSION           (defaults to 1.21.1)
+  - KUBERNETES_VERSION           
   - WORKER_MACHINE_COUNT         (defaults to 1)
 ```
 

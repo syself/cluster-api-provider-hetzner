@@ -44,9 +44,9 @@ CI_KIND ?= true
 #
 # Binaries.
 #
-MINIMUM_CLUSTERCTL_VERSION=1.1.0				# https://github.com/kubernetes-sigs/cluster-api/releases
+MINIMUM_CLUSTERCTL_VERSION=1.1.1				# https://github.com/kubernetes-sigs/cluster-api/releases
 MINIMUM_CTLPTL_VERSION=0.7.4						# https://github.com/tilt-dev/ctlptl/releases
-MINIMUM_GO_VERSION=go$(GO_VERSION)						# Check current project go version
+MINIMUM_GO_VERSION=go$(GO_VERSION)			# Check current project go version
 MINIMUM_HCLOUD_VERSION=1.29.0						# https://github.com/hetznercloud/cli/releases
 MINIMUM_HELMFILE_VERSION=v0.143.0				# https://github.com/roboll/helmfile/releases
 MINIMUM_KIND_VERSION=v0.11.1						# https://github.com/kubernetes-sigs/kind/releases
@@ -54,7 +54,7 @@ MINIMUM_KUBECTL_VERSION=v1.23.0					# https://github.com/kubernetes/kubernetes/r
 MINIMUM_PACKER_VERSION=1.7.10						# https://github.com/hashicorp/packer/releases
 MINIMUM_TILT_VERSION=0.24.1							# https://github.com/tilt-dev/tilt/releases
 CONTROLLER_GEN_VERSION=v.0.4.1					# https://github.com/kubernetes-sigs/controller-tools/releases
-KUSTOMIZE_VERSION=4.5.1								# https://github.com/kubernetes-sigs/kustomize/releases
+KUSTOMIZE_VERSION=4.5.1									# https://github.com/kubernetes-sigs/kustomize/releases
 
 #
 # Tooling Binaries.
