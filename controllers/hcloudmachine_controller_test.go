@@ -278,7 +278,7 @@ var _ = Describe("VsphereMachineReconciler", func() {
 
 		Context("without network", func() {
 			BeforeEach(func() {
-				infraCluster.Spec.HCloudNetwork.NetworkEnabled = false
+				infraCluster.Spec.HCloudNetwork.Enabled = false
 				Expect(testEnv.Create(ctx, infraCluster)).To(Succeed())
 				Expect(testEnv.Create(ctx, infraMachine)).To(Succeed())
 			})

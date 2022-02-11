@@ -205,8 +205,8 @@ spec:
                               Network. A Subnet is required.
                             type: string
                           enabled:
-                            description: NetworkEnabled defines whether the network
-                              should be enabled or not
+                            description: Enabled defines whether the network should
+                              be enabled or not
                             type: boolean
                           networkZone:
                             default: eu-central

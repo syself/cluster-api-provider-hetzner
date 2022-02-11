@@ -599,7 +599,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 		)
 
 		hetznerClusterSpecWithDisabledNetwork := getDefaultHetznerClusterSpec()
-		hetznerClusterSpecWithDisabledNetwork.HCloudNetwork.NetworkEnabled = false
+		hetznerClusterSpecWithDisabledNetwork.HCloudNetwork.Enabled = false
 		hetznerClusterSpecWithoutNetwork := getDefaultHetznerClusterSpec()
 		hetznerClusterSpecWithoutNetwork.HCloudNetwork = infrav1.HCloudNetworkSpec{}
 

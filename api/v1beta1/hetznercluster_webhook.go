@@ -72,7 +72,7 @@ func (r *HetznerCluster) ValidateCreate() error {
 	var allErrs field.ErrorList
 
 	// Check whether regions are all in same network zone
-	if !r.Spec.HCloudNetwork.NetworkEnabled {
+	if !r.Spec.HCloudNetwork.Enabled {
 		if err := isNetworkZoneSameForAllRegions(r.Spec.ControlPlaneRegions, nil); err != nil {
 			allErrs = append(allErrs, err)
 		}
@@ -116,7 +116,7 @@ func (r *HetznerCluster) ValidateUpdate(old runtime.Object) error {
 	}
 
 	// Check if all regions are in the same network zone if a private network is enabled
-	if oldC.Spec.HCloudNetwork.NetworkEnabled {
+	if oldC.Spec.HCloudNetwork.Enabled {
 		var defaultNetworkZone *string
 		if len(oldC.Spec.ControlPlaneRegions) > 0 {
 			str := regionNetworkZoneMap[string(oldC.Spec.ControlPlaneRegions[0])]

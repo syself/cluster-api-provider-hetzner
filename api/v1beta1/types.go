@@ -154,8 +154,8 @@ type LoadBalancerStatus struct {
 
 // HCloudNetworkSpec defines the desired state of the HCloud Private Network.
 type HCloudNetworkSpec struct {
-	// NetworkEnabled defines whether the network should be enabled or not
-	NetworkEnabled bool `json:"enabled"`
+	// Enabled defines whether the network should be enabled or not
+	Enabled bool `json:"enabled"`
 
 	// CIDRBlock defines the cidrBlock of the HCloud Network. A Subnet is required.
 	// +kubebuilder:default="10.0.0.0/16"

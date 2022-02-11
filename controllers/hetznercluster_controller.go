@@ -351,7 +351,7 @@ func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope
 		data := make(map[string][]byte)
 		data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken] = hetznerToken
 		// Save network ID in secret
-		if clusterScope.HetznerCluster.Spec.HCloudNetwork.NetworkEnabled {
+		if clusterScope.HetznerCluster.Spec.HCloudNetwork.Enabled {
 			data["network"] = []byte(strconv.Itoa(clusterScope.HetznerCluster.Status.Network.ID))
 		}
 		// Save api server information
