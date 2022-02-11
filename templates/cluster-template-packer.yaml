@@ -25,12 +25,12 @@ spec:
   hcloudNetwork:
     enabled: false
   controlPlaneRegions:
-    - "${REGION}"
+    - "${HCLOUD_REGION}"
   controlPlaneEndpoint:
     host: ""
     port: 443
   controlPlaneLoadBalancer:
-    region: "${REGION}"
+    region: "${HCLOUD_REGION}"
   hcloudPlacementGroups:
     - name: control-plane
       type: spread
@@ -38,7 +38,7 @@ spec:
       type: spread
   sshKeys:
     hcloud:
-      - name: "${SSH_KEY}"
+      - name: "${HCLOUD_SSH_KEY}"
   hetznerSecretRef:
     name: hetzner
     key:
@@ -227,7 +227,7 @@ spec:
   template:
     spec:
       clusterName: "${CLUSTER_NAME}"
-      failureDomain: "${REGION}"
+      failureDomain: "${HCLOUD_REGION}"
       version: "${KUBERNETES_VERSION}"
       bootstrap:
         configRef:
@@ -246,7 +246,7 @@ metadata:
 spec:
   template:
     spec:
-      type: "${HCLOUD_NODE_MACHINE_TYPE}"
+      type: "${HCLOUD_WORKER_MACHINE_TYPE}"
       imageName: "${HCLOUD_IMAGE_NAME}"
       placementGroupName: md-0
 ---

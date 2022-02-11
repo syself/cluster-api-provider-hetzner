@@ -25,12 +25,12 @@ spec:
   hcloudNetwork:
     enabled: false
   controlPlaneRegions:
-    - "${REGION}"
+    - "${HCLOUD_REGION}"
   controlPlaneEndpoint:
     host: ""
     port: 443
   controlPlaneLoadBalancer:
-    region: "${REGION}"
+    region: "${HCLOUD_REGION}"
   hcloudPlacementGroups:
     - name: control-plane
       type: spread
@@ -38,7 +38,7 @@ spec:
       type: spread
   sshKeys:
     hcloud:
-      - name: "${SSH_KEY}"
+      - name: "${HCLOUD_SSH_KEY}"
   hetznerSecretRef:
     name: hetzner
     key:

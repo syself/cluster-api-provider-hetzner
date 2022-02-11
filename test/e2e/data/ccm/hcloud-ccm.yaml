@@ -1,0 +1,126 @@
+---
+# Source: ccm-hcloud/templates/pdb.yaml
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ccm-ccm-hcloud
+  namespace: kube-system
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ccm-hcloud
+      app.kubernetes.io/instance: ccm
+---
+# Source: ccm-hcloud/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ccm-ccm-hcloud
+  namespace: kube-system
+  labels:
+    helm.sh/chart: ccm-hcloud-1.0.7
+    app: ccm
+    app.kubernetes.io/name: ccm-hcloud
+    app.kubernetes.io/instance: ccm
+    app.kubernetes.io/version: "1.12.1"
+    app.kubernetes.io/managed-by: Helm
+---
+# Source: ccm-hcloud/templates/serviceaccount.yaml
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: ccm-ccm-hcloud
+  namespace: kube-system
+  labels:
+    helm.sh/chart: ccm-hcloud-1.0.7
+    app: ccm
+    app.kubernetes.io/name: ccm-hcloud
+    app.kubernetes.io/instance: ccm
+    app.kubernetes.io/version: "1.12.1"
+    app.kubernetes.io/managed-by: Helm
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: ccm-ccm-hcloud
+    namespace: kube-system
+---
+# Source: ccm-hcloud/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ccm-ccm-hcloud
+  namespace: kube-system
+  labels:
+    helm.sh/chart: ccm-hcloud-1.0.7
+    app: ccm
+    app.kubernetes.io/name: ccm-hcloud
+    app.kubernetes.io/instance: ccm
+    app.kubernetes.io/version: "1.12.1"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ccm-hcloud
+      app.kubernetes.io/instance: ccm
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ccm-hcloud
+        app.kubernetes.io/instance: ccm
+    spec:
+      dnsPolicy: Default
+      serviceAccountName: ccm-ccm-hcloud
+      securityContext:
+        {}
+      tolerations:
+        # this taint is set by all kubelets running `--cloud-provider=external`
+        # so we should tolerate it to schedule the cloud controller manager
+        - key: "node.cloudprovider.kubernetes.io/uninitialized"
+          value: "true"
+          effect: "NoSchedule"
+        - key: "CriticalAddonsOnly"
+          operator: "Exists"
+        # cloud controller manages should be able to run on masters
+        - key: "node-role.kubernetes.io/master"
+          effect: NoSchedule
+          operator: Exists
+        - key: "node-role.kubernetes.io/control-plane"
+          effect: NoSchedule
+          operator: Exists
+        - key: "node.kubernetes.io/not-ready"
+          effect: "NoSchedule"
+      containers:
+        - name: ccm-hcloud
+          securityContext:
+            {}
+          image: "docker.io/hetznercloud/hcloud-cloud-controller-manager:v1.12.1"
+          imagePullPolicy: Always
+          command:
+            - "/bin/hcloud-cloud-controller-manager"
+            - "--cloud-provider=hcloud"
+            - "--leader-elect=true"
+            - "--allow-untagged-cloud"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 50Mi
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: HCLOUD_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: hetzner
+                  key: hcloud
+            - name: HCLOUD_DEBUG
+              value: "false"
+            - name: HCLOUD_LOAD_BALANCERS_ENABLED
+              value: "true"

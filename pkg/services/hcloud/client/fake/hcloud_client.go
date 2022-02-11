@@ -267,6 +267,9 @@ func (c *cacheHCloudClient) AddServiceToLoadBalancer(ctx context.Context, lb *hc
 
 	// check if already exists
 	for _, s := range c.loadBalancerCache.idMap[lb.ID].Services {
+		if *opts.ListenPort == 0 {
+			return nil, fmt.Errorf("cannot add service with listenPort 0")
+		}
 		if s.ListenPort == *opts.ListenPort {
 			return nil, hcloud.Error{Code: hcloud.ErrorCodeServerAlreadyAdded, Message: "already added"}
 		}

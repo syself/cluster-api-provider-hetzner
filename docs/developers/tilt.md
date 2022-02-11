@@ -21,14 +21,14 @@ Create a `tilt-settings.json` file and place it in your local copy of `cluster-a
   "kubernetes_version": "v1.21.1",
   "kustomize_substitutions": {
       "HCLOUD_TOKEN": "<Your-Token>",
-      "SSH_KEY": "<SSH-KEY-NAME-IN-HCLOUD>",
-      "REGION": "fsn1",
+      "HCLOUD_SSH_KEY": "<SSH-KEY-NAME-IN-HCLOUD>",
+      "HCLOUD_REGION": "fsn1",
       "CONTROL_PLANE_MACHINE_COUNT": "3",
       "WORKER_MACHINE_COUNT": "3",
       "KUBERNETES_VERSION": "v1.21.1",
       "HCLOUD_IMAGE_NAME": "test-image",
       "HCLOUD_CONTROL_PLANE_MACHINE_TYPE": "cpx31",
-      "HCLOUD_NODE_MACHINE_TYPE": "cpx31",
+      "HCLOUD_WORKER_MACHINE_TYPE": "cpx31",
       "CLUSTER_NAME": "test"
   },
   "talos-bootstrap": "false"

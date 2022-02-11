@@ -19,6 +19,7 @@ package tools
 
 import (
 	_ "github.com/drone/envsubst/v2/cmd/envsubst"
+	_ "github.com/go-task/slim-sprig"
 	_ "github.com/joelanford/go-apidiff"
 	_ "github.com/onsi/ginkgo"
 	_ "gotest.tools/gotestsum"

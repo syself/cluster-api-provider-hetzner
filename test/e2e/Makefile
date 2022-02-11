@@ -45,7 +45,7 @@ $(GINKGO): # Build ginkgo from tools folder.
 	cd $(TOOLS_DIR) && go build -tags=tools -o $(BIN_DIR)/ginkgo github.com/onsi/ginkgo/ginkgo
 
 $(KUSTOMIZE): # Build kustomize from tools folder.
-	$(REPO_ROOT)/hack/ensure-kustomize.sh
+	KUSTOMIZE_VERSION=4.5.1	$(REPO_ROOT)/hack/ensure-kustomize.sh
 
 ## --------------------------------------
 ## Templates
@@ -54,23 +54,37 @@ $(KUSTOMIZE): # Build kustomize from tools folder.
 HETZNER_TEMPLATES := $(REPO_ROOT)/test/e2e/data/infrastructure-hetzner
 
 e2e-cilium-templates:
+	helm repo add cilium https://helm.cilium.io/
 	helm template cilium cilium/cilium --version 1.11.1 \
   	--namespace kube-system \
 	-f $(REPO_ROOT)/templates/cilium/cilium.yaml > $(REPO_ROOT)/test/e2e/data/cni/cilium/cilium.yaml
+
+e2e-ccm-templates:
+	helm repo add syself https://charts.syself.com
+	helm template ccm syself/ccm-hcloud --version 1.0.7 \
+	--namespace kube-system \
+	--set secret.name=hetzner \
+	--set secret.tokenKeyName=hcloud \
+	--set privateNetwork.enabled=false > $(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm.yaml
+	helm template ccm syself/ccm-hcloud --version 1.0.7 \
+	--namespace kube-system \
+	--set secret.name=hetzner \
+	--set secret.tokenKeyName=hcloud \
+	--set privateNetwork.enabled=true > $(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm-network.yaml
 
 .PHONY: cluster-templates
 cluster-templates: $(KUSTOMIZE) cluster-templates-v1beta1 ## Generate cluster templates for all versions
 
 cluster-templates-v1beta1: $(KUSTOMIZE) ## Generate cluster templates for v1beta1
-	$(KUSTOMIZE) build $(HETZNER_TEMPLATES)/v1beta1/cluster-template --load-restrictor LoadRestrictionsNone > $(HETZNER_TEMPLATES)/v1beta1/cluster-template.yaml
-	$(KUSTOMIZE) build $(HETZNER_TEMPLATES)/v1beta1/cluster-template-network --load-restrictor LoadRestrictionsNone > $(HETZNER_TEMPLATES)/v1beta1/cluster-template-network.yaml
+	$(KUSTOMIZE) build $(HETZNER_TEMPLATES)/v1beta1/cluster-template --load-restrictor LoadRestrictionsNone | sed 's/hcloud_secret_placeholder/$(shell echo -n "$(HCLOUD_TOKEN)" | base64 | tr -d '\n')/' > $(HETZNER_TEMPLATES)/v1beta1/cluster-template.yaml
+	$(KUSTOMIZE) build $(HETZNER_TEMPLATES)/v1beta1/cluster-template-network --load-restrictor LoadRestrictionsNone | sed 's/hcloud_secret_placeholder/$(shell echo -n "$(HCLOUD_TOKEN)" | base64 | tr -d '\n')/' > $(HETZNER_TEMPLATES)/v1beta1/cluster-template-network.yaml
 
 ## --------------------------------------
 ## Testing
 ## --------------------------------------
 
 GINKGO_FOCUS  ?=
-GINKGO_SKIP ?=
+GINKGO_SKIP ?= 
 GINKGO_NODES  ?= 1
 E2E_CONF_FILE  ?= ${REPO_ROOT}/test/e2e/config/hetzner.yaml
 ARTIFACTS ?= ${REPO_ROOT}/_artifacts
@@ -84,7 +98,7 @@ _SKIP_ARGS := $(foreach arg,$(strip $(GINKGO_SKIP)),-skip="$(arg)")
 endif
 
 .PHONY: run
-run: $(GINKGO) cluster-templates ## Run the end-to-end tests
+run: $(GINKGO) cluster-templates  ## Run the end-to-end tests
 	$(GINKGO) -v -trace -tags=e2e -focus="$(GINKGO_FOCUS)" $(_SKIP_ARGS) -nodes=$(GINKGO_NODES) --noColor=$(GINKGO_NOCOLOR) $(GINKGO_ARGS) . -- \
 	    -e2e.artifacts-folder="$(ARTIFACTS)" \
 	    -e2e.config="$(E2E_CONF_FILE)" \

@@ -7,20 +7,8 @@
 
 # For creating local dev images run make e2e-image from the main CAPH repository
 images:
-  - name: gcr.io/k8s-staging-cluster-api/cluster-api-controller-amd64:v1.1.0
-    loadBehavior: tryLoad
-  - name: gcr.io/k8s-staging-cluster-api/kubeadm-bootstrap-controller-amd64:v1.1.0
-    loadBehavior: tryLoad
-  - name: gcr.io/k8s-staging-cluster-api/kubeadm-control-plane-controller-amd64:v1.1.0
-    loadBehavior: tryLoad
   - name: quay.io/syself/cluster-api-provider-hetzner:e2e
     loadBehavior: mustLoad
-  - name: quay.io/jetstack/cert-manager-cainjector:v1.5.3
-    loadBehavior: tryLoad
-  - name: quay.io/jetstack/cert-manager-webhook:v1.5.3
-    loadBehavior: tryLoad
-  - name: quay.io/jetstack/cert-manager-controller:v1.5.3
-    loadBehavior: tryLoad
 providers:
   - name: cluster-api
     type: CoreProvider
@@ -30,7 +18,7 @@ providers:
         type: "url"
         contract: v1beta1
         files:
-          - sourcePath: "../data/shared/metadata.yaml"
+          - sourcePath: "../data/shared/v1beta1/metadata.yaml"
         replacements:
           - old: "imagePullPolicy: Always"
             new: "imagePullPolicy: IfNotPresent"
@@ -47,7 +35,7 @@ providers:
         type: "url"
         contract: "v1beta1"
         files:
-          - sourcePath: "../data/shared/metadata.yaml"
+          - sourcePath: "../data/shared/v1beta1/metadata.yaml"
         replacements:
           - old: "imagePullPolicy: Always"
             new: "imagePullPolicy: IfNotPresent"
@@ -63,7 +51,7 @@ providers:
         value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.1.0/control-plane-components.yaml"
         type: "url"
         files:
-          - sourcePath: "../data/shared/metadata.yaml"
+          - sourcePath: "../data/shared/v1beta1/metadata.yaml"
         replacements:
           - old: "imagePullPolicy: Always"
             new: "imagePullPolicy: IfNotPresent"
@@ -98,7 +86,14 @@ variables:
   COREDNS_VERSION_UPGRADE_TO: "1.8.4"
 
   # Cluster Addons
-  CNI: "../../../test/e2e/data/cni/cilium/cilium.yaml"
+  CNI: "./data/cni/cilium/cilium.yaml"
+  CCM: "./data/ccm/hcloud-ccm.yaml"
+  CCM_NETWORK: "./data/ccm/hcloud-ccm-network.yaml"
+  BIN_PATH: "${BIN_PATH}"
+
+  # Conformance testing variables
+  CONFORMANCE_WORKER_MACHINE_COUNT: 3
+  CONFORMANCE_CONTROL_PLANE_MACHINE_COUNT: 3
   KUBETEST_CONFIGURATION: "./data/kubetest/conformance.yaml"
   NODE_DRAIN_TIMEOUT: "60s"
   # Enabling the feature flags by setting the env variables.
@@ -111,18 +106,20 @@ variables:
   INIT_WITH_KUBERNETES_VERSION: "v1.23.3"
   # Hetzner Provider Variables
   HCLOUD_TOKEN: "admin123"
-  SSH_KEY: "test"
-  REGION: "fsn1"
+  HCLOUD_SSH_KEY: "test"
+  HCLOUD_REGION: "fsn1"
   HCLOUD_IMAGE_NAME: fedora-35
   HCLOUD_CONTROL_PLANE_MACHINE_TYPE: cpx31
+  HCLOUD_WORKER_MACHINE_TYPE: cpx21
+  REDACT_LOG_SCRIPT: "../../hack/log/redact.sh"
 
 intervals:
-  default/wait-controllers: ["3m", "10s"]
-  default/wait-cluster: ["15m", "10s"]
+  default/wait-controllers: ["5m", "10s"]
+  default/wait-cluster: ["10m", "10s"]
   default/wait-control-plane: ["15m", "10s"]
   default/wait-worker-nodes: ["10m", "10s"]
-  default/wait-delete-cluster: ["3m", "10s"]
-  default/wait-machine-upgrade: ["20m", "10s"]
+  default/wait-delete-cluster: ["10m", "10s"]
+  default/wait-machine-upgrade: ["10m", "10s"]
   default/wait-nodes-ready: ["10m", "10s"]
   default/wait-machine-remediation: ["5m", "10s"]
   default/wait-deployment: ["5m", "10s"]
@@ -130,4 +127,4 @@ intervals:
   default/wait-service: ["3m", "10s"]
   node-drain/wait-deployment-available: ["3m", "10s"]
   node-drain/wait-control-plane: ["15m", "10s"]
-  node-drain/wait-machine-deleted: ["3m", "10s"]
+  node-drain/wait-machine-deleted: ["5m", "10s"]

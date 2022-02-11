@@ -1,3 +1,7 @@
 bases:
   - ../../../../../../templates/cluster-template-hcloud-network.yaml
-  - ../bases/crs.yaml
+  - ../bases/crs-cni.yaml
+  - ../bases/crs-ccm-network.yaml
+  - ../bases/secret.yaml
+patchesStrategicMerge:
+  - ../bases/cluster-network_patch.yaml

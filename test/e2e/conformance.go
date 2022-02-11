@@ -70,7 +70,7 @@ func ConformanceSpec(ctx context.Context, inputGetter func() ConformanceSpecInpu
 		Expect(input.E2EConfig.Variables).To(HaveKey(capi_e2e.KubernetesVersion))
 		Expect(input.E2EConfig.Variables).To(HaveKey(capi_e2e.CNIPath))
 
-		clusterName = fmt.Sprintf("capdo-conf-%s", util.RandomString(6))
+		clusterName = fmt.Sprintf("caph-cfm-%s", util.RandomString(6))
 
 		// Setup a Namespace where to host objects for this spec and create a watcher for the namespace events.
 		namespace, cancelWatches = setupSpecNamespace(ctx, specName, input.BootstrapClusterProxy, input.ArtifactFolder)
