@@ -120,11 +120,11 @@ spec:
                             description: Could be round_robin or least_connection.
                               The default value is "round_robin".
                             type: string
-                          extraTargets:
+                          extraServices:
                             description: Defines how traffic will be routed from the
                               Load Balancer to your target server.
                             items:
-                              description: LoadBalancerTargetSpec defines a Loadbalancer
+                              description: LoadBalancerServiceSpec defines a Loadbalancer
                                 Target.
                               properties:
                                 destinationPort:

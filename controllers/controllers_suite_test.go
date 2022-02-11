@@ -108,7 +108,7 @@ func getDefaultHetznerClusterSpec() infrav1.HetznerClusterSpec {
 	return infrav1.HetznerClusterSpec{
 		ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
 			Algorithm: "round_robin",
-			ExtraTargets: []infrav1.LoadBalancerTargetSpec{
+			ExtraServices: []infrav1.LoadBalancerServiceSpec{
 				{
 					DestinationPort: 8132,
 					ListenPort:      8132,

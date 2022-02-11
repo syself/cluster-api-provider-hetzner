@@ -116,14 +116,14 @@ type LoadBalancerSpec struct {
 
 	// Defines how traffic will be routed from the Load Balancer to your target server.
 	// +optional
-	ExtraTargets []LoadBalancerTargetSpec `json:"extraTargets,omitempty"`
+	ExtraServices []LoadBalancerServiceSpec `json:"extraServices,omitempty"`
 
 	// Region contains the name of the HCloud location the load balancer is running.
 	Region Region `json:"region"`
 }
 
-// LoadBalancerTargetSpec defines a Loadbalancer Target.
-type LoadBalancerTargetSpec struct {
+// LoadBalancerServiceSpec defines a Loadbalancer Target.
+type LoadBalancerServiceSpec struct {
 	// Protocol specifies the supported Loadbalancer Protocol.
 	// +optional
 	// +kubebuilder:validation:Enum=http;https;tcp
