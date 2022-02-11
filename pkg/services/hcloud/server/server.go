@@ -123,13 +123,15 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 	}
 
 	if err := s.isControlPlaneReady(ctx); err != nil {
-		record.Warnf(
-			s.scope.HCloudMachine,
-			"APIServerNotReady",
-			"Health check for API server failed: %s",
-			err,
+		conditions.MarkFalse(s.scope.HCloudMachine,
+			infrav1.InstanceReadyCondition,
+			infrav1.InstanceAsControlPlaneUnreachableReason,
+			clusterv1.ConditionSeverityInfo,
+			fmt.Sprintf("health check for API server failed: %s", err),
 		)
-		return nil, errors.Wrap(err, "control plane not ready - no usable address found")
+		return &reconcile.Result{
+			Requeue: true,
+		}, nil
 	}
 
 	s.scope.HCloudMachine.Spec.ProviderID = &providerID

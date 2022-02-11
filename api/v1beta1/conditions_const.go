@@ -43,6 +43,8 @@ const (
 	InstanceHasNonExistingPlacementGroupReason = "InstanceHasNonExistingPlacementGroup"
 	// InstanceHasNoValidSSHKeyReason instance has no valid ssh key.
 	InstanceHasNoValidSSHKeyReason = "InstanceHasNoValidSSHKey"
+	// InstanceAsControlPlaneUnreachableReason control plane is (not yet) reachable.
+	InstanceAsControlPlaneUnreachableReason = "InstanceAsControlPlaneUnreachable"
 )
 
 const (
