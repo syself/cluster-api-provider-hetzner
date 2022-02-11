@@ -169,10 +169,8 @@ var _ = Describe("VsphereMachineReconciler", func() {
 		})
 
 		It("creates the HCloud machine in Hetzner", func() {
-			hcc := testEnv.HCloudClientFactory.NewClient("")
-
 			Eventually(func() bool {
-				servers, err := hcc.ListServers(ctx, hcloud.ServerListOpts{
+				servers, err := hcloudClient.ListServers(ctx, hcloud.ServerListOpts{
 					ListOpts: hcloud.ListOpts{
 						LabelSelector: utils.LabelsToLabelSelector(map[string]string{infrav1.ClusterTagKey(infraCluster.Name): "owned"}),
 					},
@@ -194,7 +192,7 @@ var _ = Describe("VsphereMachineReconciler", func() {
 			}, timeout, time.Second).Should(BeNil())
 
 			Eventually(func() int {
-				servers, err := hcc.ListServers(ctx, hcloud.ServerListOpts{
+				servers, err := hcloudClient.ListServers(ctx, hcloud.ServerListOpts{
 					ListOpts: hcloud.ListOpts{
 						LabelSelector: utils.LabelsToLabelSelector(map[string]string{infrav1.ClusterTagKey(infraCluster.Name): "owned"}),
 					},
@@ -284,9 +282,8 @@ var _ = Describe("VsphereMachineReconciler", func() {
 			})
 
 			It("creates the HCloud machine in Hetzner", func() {
-				hcc := testEnv.HCloudClientFactory.NewClient("")
 				Eventually(func() int {
-					servers, err := hcc.ListServers(ctx, hcloud.ServerListOpts{
+					servers, err := hcloudClient.ListServers(ctx, hcloud.ServerListOpts{
 						ListOpts: hcloud.ListOpts{
 							LabelSelector: utils.LabelsToLabelSelector(map[string]string{infrav1.ClusterTagKey(infraCluster.Name): "owned"}),
 						},
@@ -308,9 +305,8 @@ var _ = Describe("VsphereMachineReconciler", func() {
 			})
 
 			It("creates the HCloud machine in Hetzner", func() {
-				hcc := testEnv.HCloudClientFactory.NewClient("")
 				Eventually(func() int {
-					servers, err := hcc.ListServers(ctx, hcloud.ServerListOpts{
+					servers, err := hcloudClient.ListServers(ctx, hcloud.ServerListOpts{
 						ListOpts: hcloud.ListOpts{
 							LabelSelector: utils.LabelsToLabelSelector(map[string]string{infrav1.ClusterTagKey(infraCluster.Name): "owned"}),
 						},

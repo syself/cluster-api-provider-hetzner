@@ -212,9 +212,8 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 			}, timeout).Should(BeNil())
 
 			// Check in hetzner API
-			hcc := testEnv.HCloudClientFactory.NewClient("")
 			Eventually(func() error {
-				loadBalancers, err := hcc.ListLoadBalancers(ctx, hcloud.LoadBalancerListOpts{
+				loadBalancers, err := hcloudClient.ListLoadBalancers(ctx, hcloud.LoadBalancerListOpts{
 					ListOpts: hcloud.ListOpts{
 						LabelSelector: utils.LabelsToLabelSelector(map[string]string{infrav1.ClusterTagKey(instance.Name): "owned"}),
 					},
@@ -253,7 +252,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 			}, timeout).Should(BeNil())
 
 			Eventually(func() int {
-				loadBalancers, err := hcc.ListLoadBalancers(ctx, hcloud.LoadBalancerListOpts{
+				loadBalancers, err := hcloudClient.ListLoadBalancers(ctx, hcloud.LoadBalancerListOpts{
 					ListOpts: hcloud.ListOpts{
 						LabelSelector: utils.LabelsToLabelSelector(map[string]string{infrav1.ClusterTagKey(instance.Name): "owned"}),
 					},
@@ -287,7 +286,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 			}, timeout).Should(BeNil())
 
 			Eventually(func() int {
-				loadBalancers, err := hcc.ListLoadBalancers(ctx, hcloud.LoadBalancerListOpts{
+				loadBalancers, err := hcloudClient.ListLoadBalancers(ctx, hcloud.LoadBalancerListOpts{
 					ListOpts: hcloud.ListOpts{
 						LabelSelector: utils.LabelsToLabelSelector(map[string]string{infrav1.ClusterTagKey(instance.Name): "owned"}),
 					},
@@ -315,7 +314,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 			}, timeout).Should(BeNil())
 
 			Eventually(func() int {
-				loadBalancers, err := hcc.ListLoadBalancers(ctx, hcloud.LoadBalancerListOpts{
+				loadBalancers, err := hcloudClient.ListLoadBalancers(ctx, hcloud.LoadBalancerListOpts{
 					ListOpts: hcloud.ListOpts{
 						LabelSelector: utils.LabelsToLabelSelector(map[string]string{infrav1.ClusterTagKey(instance.Name): "owned"}),
 					},
@@ -422,10 +421,9 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 			}, timeout).Should(BeTrue())
 
 			By("checking for presence of HCloudMachine objects")
-			hcc := testEnv.HCloudClientFactory.NewClient("")
 			// Check if machines have been created
 			Eventually(func() int {
-				servers, err := hcc.ListServers(ctx, hcloud.ServerListOpts{
+				servers, err := hcloudClient.ListServers(ctx, hcloud.ServerListOpts{
 					ListOpts: hcloud.ListOpts{
 						LabelSelector: utils.LabelsToLabelSelector(map[string]string{infrav1.ClusterTagKey(instance.Name): "owned"}),
 					},
@@ -524,10 +522,9 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 				}, timeout).Should(BeTrue())
 
 				By("checking for presence of HCloudPlacementGroup objects")
-				hcc := testEnv.HCloudClientFactory.NewClient("")
 				// Check if placement groups have been created
 				Eventually(func() int {
-					pgs, err := hcc.ListPlacementGroups(ctx, hcloud.PlacementGroupListOpts{
+					pgs, err := hcloudClient.ListPlacementGroups(ctx, hcloud.PlacementGroupListOpts{
 						ListOpts: hcloud.ListOpts{
 							LabelSelector: utils.LabelsToLabelSelector(map[string]string{infrav1.ClusterTagKey(instance.Name): "owned"}),
 						},
@@ -568,8 +565,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 					Expect(ph.Patch(ctx, instance, patch.WithStatusObservedGeneration{})).To(Succeed())
 
 					Eventually(func() int {
-						hcc := testEnv.HCloudClientFactory.NewClient("")
-						pgs, err := hcc.ListPlacementGroups(ctx, hcloud.PlacementGroupListOpts{
+						pgs, err := hcloudClient.ListPlacementGroups(ctx, hcloud.PlacementGroupListOpts{
 							ListOpts: hcloud.ListOpts{
 								LabelSelector: utils.LabelsToLabelSelector(map[string]string{infrav1.ClusterTagKey(instance.Name): "owned"}),
 							},
