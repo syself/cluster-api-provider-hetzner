@@ -596,8 +596,10 @@ create-talos-workload-cluster-packer: $(KUSTOMIZE) $(ENVSUBST) ## Creates a work
 .PHONY: delete-workload-cluster
 delete-workload-cluster: ## Deletes the example workload Kubernetes cluster
 	@echo 'Your Hetzner resources will now be deleted, this can take up to 20 minutes'
+	kubectl patch cluster $(CLUSTER_NAME) --type=merge -p '{"spec":{"paused": "false"}}' || true
 	kubectl delete cluster $(CLUSTER_NAME)
-	kubectl patch cluster $(CLUSTER_NAME) --type=merge -p '{"spec":{"paused": "false"}}'
+	${TIMEOUT} 15m bash -c "while kubectl get cluster | grep $(NAME); do sleep 1; done"
+	@echo 'Cluster deleted'
 
 ##@ Management Cluster
 

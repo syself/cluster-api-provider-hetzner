@@ -147,7 +147,6 @@ spec:
           anonymous-auth: "false"
           read-only-port: "0"
           event-qps: "5"
-          rotate-server-certificates: "true"
           max-pods: "120"
           resolv-conf: /etc/kubernetes/resolv.conf
     joinConfiguration:
@@ -162,7 +161,6 @@ spec:
           anonymous-auth: "false"
           read-only-port: "0"
           event-qps: "5"
-          rotate-server-certificates: "true"
           max-pods: "120"
           resolv-conf: /etc/kubernetes/resolv.conf
     files:
@@ -386,7 +384,6 @@ spec:
             anonymous-auth: "false"
             read-only-port: "0"
             event-qps: "5"
-            rotate-server-certificates: "true"
             max-pods: "220"
             resolv-conf: /etc/kubernetes/resolv.conf
       files:
