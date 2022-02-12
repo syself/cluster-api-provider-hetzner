@@ -61,12 +61,12 @@ e2e-cilium-templates:
 
 e2e-ccm-templates:
 	helm repo add syself https://charts.syself.com
-	helm template ccm syself/ccm-hcloud --version 1.0.7 \
+	helm template ccm syself/ccm-hcloud --version 1.0.8 \
 	--namespace kube-system \
 	--set secret.name=hetzner \
 	--set secret.tokenKeyName=hcloud \
 	--set privateNetwork.enabled=false > $(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm.yaml
-	helm template ccm syself/ccm-hcloud --version 1.0.7 \
+	helm template ccm syself/ccm-hcloud --version 1.0.8 \
 	--namespace kube-system \
 	--set secret.name=hetzner \
 	--set secret.tokenKeyName=hcloud \

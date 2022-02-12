@@ -165,6 +165,8 @@ KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install cilium cilium/
 --namespace kube-system \
 -f templates/cilium/cilium.yaml
 ```
+
+Of course feel free to install an alternative CNI like calico.
 ### Deploy HCloud Cloud Controller Manager
 
 For a cluster without private network: 
@@ -172,10 +174,22 @@ For a cluster without private network:
 ```shell
 helm repo add syself https://charts.syself.com
 
-KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install ccm syself/ccm-hcloud --version 1.0.7 \
+KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install ccm syself/ccm-hcloud --version 1.0.8 \
 --namespace kube-system \
 --set privateNetwork.enabled=false
 ```
+
+### Deploy the CSI (optional)
+cat << EOF > csi-values.yaml
+storageClasses:
+- name: hcloud-volumes
+  defaultStorageClass: true
+  reclaimPolicy: Retain
+EOF
+
+KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install csi syself/csi-hcloud --version 0.2.0 \
+--namespace kube-system -f csi-values.yaml
+
 
 ## Clean Up
 
