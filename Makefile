@@ -278,7 +278,7 @@ ensure-boilerplate: ## Ensures that a boilerplate exists in each file by adding 
 
 .PHONY: modules
 modules: ## Runs go mod to ensure modules are up to date.
-	go mod tidy -compat=1.17
+	go mod tidy
 	cd $(TOOLS_DIR); go mod tidy
 
 .PHONY: lint
