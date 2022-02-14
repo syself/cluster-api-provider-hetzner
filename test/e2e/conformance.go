@@ -23,8 +23,8 @@ import (
 	"path/filepath"
 	"strconv"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/ginkgo"
+	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/pointer"
 	capi_e2e "sigs.k8s.io/cluster-api/test/e2e"
@@ -57,18 +57,18 @@ func ConformanceSpec(ctx context.Context, inputGetter func() ConformanceSpecInpu
 		clusterctlLogFolder string
 	)
 
-	BeforeEach(func() {
-		Expect(ctx).NotTo(BeNil(), "ctx is required for %s spec", specName)
+	ginkgo.BeforeEach(func() {
+		gomega.Expect(ctx).NotTo(gomega.BeNil(), "ctx is required for %s spec", specName)
 		input = inputGetter()
-		Expect(input.E2EConfig).ToNot(BeNil(), "Invalid argument. e2eConfig can't be nil when calling %s spec", specName)
-		Expect(input.ClusterctlConfigPath).To(BeAnExistingFile(), "Invalid argument. clusterctlConfigPath must be an existing file when calling %s spec", specName)
-		Expect(input.BootstrapClusterProxy).ToNot(BeNil(), "Invalid argument. bootstrapClusterProxy can't be nil when calling %s spec", specName)
-		Expect(os.MkdirAll(input.ArtifactFolder, 0755)).To(Succeed(), "Invalid argument. artifactFolder can't be created for %s spec", specName) //#nosecs
-		Expect(input.KubetestConfigFilePath).ToNot(BeNil(), "Invalid argument. kubetestConfigFilePath can't be nil")
+		gomega.Expect(input.E2EConfig).ToNot(gomega.BeNil(), "Invalid argument. e2eConfig can't be nil when calling %s spec", specName)
+		gomega.Expect(input.ClusterctlConfigPath).To(gomega.BeAnExistingFile(), "Invalid argument. clusterctlConfigPath must be an existing file when calling %s spec", specName)
+		gomega.Expect(input.BootstrapClusterProxy).ToNot(gomega.BeNil(), "Invalid argument. bootstrapClusterProxy can't be nil when calling %s spec", specName)
+		gomega.Expect(os.MkdirAll(input.ArtifactFolder, 0755)).To(gomega.Succeed(), "Invalid argument. artifactFolder can't be created for %s spec", specName) //#nosecs
+		gomega.Expect(input.KubetestConfigFilePath).ToNot(gomega.BeNil(), "Invalid argument. kubetestConfigFilePath can't be nil")
 
-		Expect(input.E2EConfig.Variables).To(HaveKey(KubernetesVersion))
-		Expect(input.E2EConfig.Variables).To(HaveKey(capi_e2e.KubernetesVersion))
-		Expect(input.E2EConfig.Variables).To(HaveKey(capi_e2e.CNIPath))
+		gomega.Expect(input.E2EConfig.Variables).To(gomega.HaveKey(KubernetesVersion))
+		gomega.Expect(input.E2EConfig.Variables).To(gomega.HaveKey(capi_e2e.KubernetesVersion))
+		gomega.Expect(input.E2EConfig.Variables).To(gomega.HaveKey(capi_e2e.CNIPath))
 
 		clusterName = fmt.Sprintf("caph-cfm-%s", util.RandomString(6))
 
@@ -80,18 +80,18 @@ func ConformanceSpec(ctx context.Context, inputGetter func() ConformanceSpecInpu
 		result = new(clusterctl.ApplyClusterTemplateAndWaitResult)
 	})
 
-	AfterEach(func() {
+	ginkgo.AfterEach(func() {
 		dumpSpecResourcesAndCleanup(ctx, specName, input.BootstrapClusterProxy, input.ArtifactFolder, namespace, cancelWatches, result.Cluster, input.E2EConfig.GetIntervals, input.SkipCleanup)
 		redactLogs(input.E2EConfig.GetVariable)
 	})
 
-	Measure(specName, func(b Benchmarker) {
+	ginkgo.Measure(specName, func(b ginkgo.Benchmarker) {
 		var err error
 
 		workerMachineCount, err := strconv.ParseInt(input.E2EConfig.GetVariable("CONFORMANCE_WORKER_MACHINE_COUNT"), 10, 64)
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		controlPlaneMachineCount, err := strconv.ParseInt(input.E2EConfig.GetVariable("CONFORMANCE_CONTROL_PLANE_MACHINE_COUNT"), 10, 64)
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 		runtime := b.Time("cluster creation", func() {
 			clusterctl.ApplyClusterTemplateAndWait(ctx, clusterctl.ApplyClusterTemplateAndWaitInput{
@@ -117,13 +117,13 @@ func ConformanceSpec(ctx context.Context, inputGetter func() ConformanceSpecInpu
 		b.RecordValue("cluster creation", runtime.Seconds())
 		workloadProxy := input.BootstrapClusterProxy.GetWorkloadCluster(ctx, namespace.Name, clusterName)
 		runtime = b.Time("conformance suite", func() {
-			Expect(kubetest.Run(context.Background(),
+			gomega.Expect(kubetest.Run(context.Background(),
 				kubetest.RunInput{
 					ClusterProxy:   workloadProxy,
 					NumberOfNodes:  int(workerMachineCount),
 					ConfigFilePath: input.KubetestConfigFilePath,
 				},
-			)).To(Succeed())
+			)).To(gomega.Succeed())
 		})
 		b.RecordValue("conformance suite run time", runtime.Seconds())
 	}, 1)

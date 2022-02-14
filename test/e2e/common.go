@@ -24,8 +24,8 @@ import (
 	"path/filepath"
 
 	"github.com/blang/semver"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	ginkgo "github.com/onsi/ginkgo"
+	gomega "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	corev1 "k8s.io/api/core/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -43,8 +43,9 @@ const (
 	CCMNetworkResources = "CCM_RESOURCES_NETWORK"
 )
 
+// Byf implements Ginkgo's By with fmt.Sprintf.
 func Byf(format string, a ...interface{}) {
-	By(fmt.Sprintf(format, a...))
+	ginkgo.By(fmt.Sprintf(format, a...))
 }
 
 func setupSpecNamespace(ctx context.Context, specName string, clusterProxy framework.ClusterProxy, artifactFolder string) (*corev1.Namespace, context.CancelFunc) {
@@ -113,8 +114,8 @@ func (m *validVersionMatcher) NegatedFailureMessage(actual interface{}) (message
 }
 
 func redactLogs(variableGetter func(string) string) {
-	By("Redacting sensitive information from the logs")
-	Expect(variableGetter(RedactLogScriptPath)).To(BeAnExistingFile(), "Missing redact log script")
+	ginkgo.By("Redacting sensitive information from the logs")
+	gomega.Expect(variableGetter(RedactLogScriptPath)).To(gomega.BeAnExistingFile(), "Missing redact log script")
 	cmd := exec.Command(variableGetter(RedactLogScriptPath)) //#nosec
 	cmd.Run()                                                //#nosec
 }
