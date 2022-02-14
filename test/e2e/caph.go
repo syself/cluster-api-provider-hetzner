@@ -22,8 +22,8 @@ import (
 	"os"
 	"path/filepath"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/ginkgo"
+	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/cluster-api/test/framework"
@@ -52,15 +52,15 @@ func CaphClusterDeploymentSpec(ctx context.Context, inputGetter func() CaphClust
 		clusterName      string
 	)
 
-	BeforeEach(func() {
-		Expect(ctx).NotTo(BeNil(), "ctx is required for %s spec", specName)
+	ginkgo.BeforeEach(func() {
+		gomega.Expect(ctx).NotTo(gomega.BeNil(), "ctx is required for %s spec", specName)
 		input = inputGetter()
-		Expect(input.E2EConfig).ToNot(BeNil(), "Invalid argument. input.E2EConfig can't be nil when calling %s spec", specName)
-		Expect(input.ClusterctlConfigPath).To(BeAnExistingFile(), "Invalid argument. input.ClusterctlConfigPath must be an existing file when calling %s spec", specName)
-		Expect(input.BootstrapClusterProxy).ToNot(BeNil(), "Invalid argument. input.BootstrapClusterProxy can't be nil when calling %s spec", specName)
-		Expect(os.MkdirAll(input.ArtifactFolder, 0750)).To(Succeed(), "Invalid argument. input.ArtifactFolder can't be created for %s spec", specName)
-		Expect(input.E2EConfig.Variables).To(HaveKey(KubernetesVersion))
-		Expect(input.E2EConfig.Variables).To(HaveValidVersion(input.E2EConfig.GetVariable(KubernetesVersion)))
+		gomega.Expect(input.E2EConfig).ToNot(gomega.BeNil(), "Invalid argument. input.E2EConfig can't be nil when calling %s spec", specName)
+		gomega.Expect(input.ClusterctlConfigPath).To(gomega.BeAnExistingFile(), "Invalid argument. input.ClusterctlConfigPath must be an existing file when calling %s spec", specName)
+		gomega.Expect(input.BootstrapClusterProxy).ToNot(gomega.BeNil(), "Invalid argument. input.BootstrapClusterProxy can't be nil when calling %s spec", specName)
+		gomega.Expect(os.MkdirAll(input.ArtifactFolder, 0750)).To(gomega.Succeed(), "Invalid argument. input.ArtifactFolder can't be created for %s spec", specName)
+		gomega.Expect(input.E2EConfig.Variables).To(gomega.HaveKey(KubernetesVersion))
+		gomega.Expect(input.E2EConfig.Variables).To(HaveValidVersion(input.E2EConfig.GetVariable(KubernetesVersion)))
 
 		// Setup a Namespace where to host objects for this spec and create a watcher for the namespace events.
 		namespace, cancelWatches = setupSpecNamespace(ctx, specName, input.BootstrapClusterProxy, input.ArtifactFolder)
@@ -69,8 +69,8 @@ func CaphClusterDeploymentSpec(ctx context.Context, inputGetter func() CaphClust
 		clusterName = fmt.Sprintf("%s-%s", specName, util.RandomString(6))
 	})
 
-	It("Should successfully upgrade Machines upon changes in relevant MachineDeployment fields", func() {
-		By("Creating a workload cluster")
+	ginkgo.It("Should successfully upgrade Machines upon changes in relevant MachineDeployment fields", func() {
+		ginkgo.By("Creating a workload cluster")
 		clusterctl.ApplyClusterTemplateAndWait(ctx, clusterctl.ApplyClusterTemplateAndWaitInput{
 			ClusterProxy: input.BootstrapClusterProxy,
 			ConfigCluster: clusterctl.ConfigClusterInput{
@@ -90,7 +90,7 @@ func CaphClusterDeploymentSpec(ctx context.Context, inputGetter func() CaphClust
 			WaitForMachineDeployments:    input.E2EConfig.GetIntervals(specName, "wait-worker-nodes"),
 		}, clusterResources)
 
-		By("Scaling worker node to 3")
+		ginkgo.By("Scaling worker node to 3")
 		clusterctl.ApplyClusterTemplateAndWait(ctx, clusterctl.ApplyClusterTemplateAndWaitInput{
 			ClusterProxy: input.BootstrapClusterProxy,
 			ConfigCluster: clusterctl.ConfigClusterInput{
@@ -110,7 +110,7 @@ func CaphClusterDeploymentSpec(ctx context.Context, inputGetter func() CaphClust
 			WaitForMachineDeployments:    input.E2EConfig.GetIntervals(specName, "wait-worker-nodes"),
 		}, clusterResources)
 
-		By("Scaling control planes to 3")
+		ginkgo.By("Scaling control planes to 3")
 		clusterctl.ApplyClusterTemplateAndWait(ctx, clusterctl.ApplyClusterTemplateAndWaitInput{
 			ClusterProxy: input.BootstrapClusterProxy,
 			ConfigCluster: clusterctl.ConfigClusterInput{
@@ -129,10 +129,10 @@ func CaphClusterDeploymentSpec(ctx context.Context, inputGetter func() CaphClust
 			WaitForControlPlaneIntervals: input.E2EConfig.GetIntervals(specName, "wait-control-plane"),
 			WaitForMachineDeployments:    input.E2EConfig.GetIntervals(specName, "wait-worker-nodes"),
 		}, clusterResources)
-		By("PASSED!")
+		ginkgo.By("PASSED!")
 	})
 
-	AfterEach(func() {
+	ginkgo.AfterEach(func() {
 		// Dumps all the resources in the spec namespace, then cleanups the cluster object and the spec namespace itself.
 		dumpSpecResourcesAndCleanup(ctx, specName, input.BootstrapClusterProxy, input.ArtifactFolder, namespace, cancelWatches, clusterResources.Cluster, input.E2EConfig.GetIntervals, input.SkipCleanup)
 		redactLogs(input.E2EConfig.GetVariable)
