@@ -40,6 +40,31 @@ func (f *cacheHCloudClientFactory) NewClient(hcloudToken string) hcloudclient.Cl
 	return cacheHCloudClientInstance
 }
 
+// Close implements Close method of hcloud client interface.
+func (c *cacheHCloudClient) Close() {
+	cacheHCloudClientInstance.serverCache = serverCache{}
+	cacheHCloudClientInstance.networkCache = networkCache{}
+	cacheHCloudClientInstance.loadBalancerCache = loadBalancerCache{}
+	cacheHCloudClientInstance.placementGroupCache = placementGroupCache{}
+
+	cacheHCloudClientInstance.serverCache = serverCache{
+		idMap:   make(map[int]*hcloud.Server),
+		nameMap: make(map[string]struct{}),
+	}
+	cacheHCloudClientInstance.placementGroupCache = placementGroupCache{
+		idMap:   make(map[int]*hcloud.PlacementGroup),
+		nameMap: make(map[string]struct{}),
+	}
+	cacheHCloudClientInstance.loadBalancerCache = loadBalancerCache{
+		idMap:   make(map[int]*hcloud.LoadBalancer),
+		nameMap: make(map[string]struct{}),
+	}
+	cacheHCloudClientInstance.networkCache = networkCache{
+		idMap:   make(map[int]*hcloud.Network),
+		nameMap: make(map[string]struct{}),
+	}
+}
+
 type cacheHCloudClientFactory struct{}
 
 var cacheHCloudClientInstance = &cacheHCloudClient{
@@ -106,7 +131,7 @@ func (c *cacheHCloudClient) CreateLoadBalancer(ctx context.Context, opts hcloud.
 	}
 
 	lb := &hcloud.LoadBalancer{
-		ID:               len(c.loadBalancerCache.idMap),
+		ID:               len(c.loadBalancerCache.idMap) + 1,
 		Name:             opts.Name,
 		Labels:           opts.Labels,
 		Algorithm:        *opts.Algorithm,
@@ -129,6 +154,7 @@ func (c *cacheHCloudClient) CreateLoadBalancer(ctx context.Context, opts hcloud.
 
 	// Add load balancer to cache
 	c.loadBalancerCache.idMap[lb.ID] = lb
+	c.loadBalancerCache.nameMap[lb.Name] = struct{}{}
 	return hcloud.LoadBalancerCreateResult{
 		LoadBalancer: lb,
 		Action:       &hcloud.Action{},
@@ -174,10 +200,15 @@ func (c *cacheHCloudClient) AttachLoadBalancerToNetwork(ctx context.Context, lb 
 		return nil, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
 	}
 
+	// Check if network exists
+	if _, found := c.networkCache.idMap[opts.Network.ID]; !found {
+		return nil, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+	}
+
 	// check if already exists
 	for _, s := range c.loadBalancerCache.idMap[lb.ID].PrivateNet {
 		if s.IP.Equal(opts.Network.IPRange.IP) {
-			return nil, hcloud.Error{Code: hcloud.ErrorCodeServerAlreadyAdded, Message: "already added"}
+			return nil, fmt.Errorf("already added")
 		}
 	}
 
@@ -264,14 +295,13 @@ func (c *cacheHCloudClient) AddServiceToLoadBalancer(ctx context.Context, lb *hc
 	if _, found := c.loadBalancerCache.idMap[lb.ID]; !found {
 		return nil, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
 	}
-
+	if *opts.ListenPort == 0 {
+		return nil, fmt.Errorf("cannot add service with listenPort 0")
+	}
 	// check if already exists
 	for _, s := range c.loadBalancerCache.idMap[lb.ID].Services {
-		if *opts.ListenPort == 0 {
-			return nil, fmt.Errorf("cannot add service with listenPort 0")
-		}
 		if s.ListenPort == *opts.ListenPort {
-			return nil, hcloud.Error{Code: hcloud.ErrorCodeServerAlreadyAdded, Message: "already added"}
+			return nil, fmt.Errorf("already added")
 		}
 	}
 
@@ -312,7 +342,7 @@ func (c *cacheHCloudClient) CreateServer(ctx context.Context, opts hcloud.Server
 	}
 
 	server := &hcloud.Server{
-		ID:             len(c.serverCache.idMap),
+		ID:             len(c.serverCache.idMap) + 1,
 		Name:           opts.Name,
 		Labels:         opts.Labels,
 		Image:          opts.Image,
@@ -327,6 +357,7 @@ func (c *cacheHCloudClient) CreateServer(ctx context.Context, opts hcloud.Server
 
 	// Add server to cache
 	c.serverCache.idMap[server.ID] = server
+	c.serverCache.nameMap[server.Name] = struct{}{}
 	return hcloud.ServerCreateResult{
 		Server: server,
 		Action: &hcloud.Action{},
@@ -336,6 +367,11 @@ func (c *cacheHCloudClient) CreateServer(ctx context.Context, opts hcloud.Server
 func (c *cacheHCloudClient) AttachServerToNetwork(ctx context.Context, server *hcloud.Server, opts hcloud.ServerAttachToNetworkOpts) (*hcloud.Action, error) {
 	// Check if network exists
 	if _, found := c.networkCache.idMap[opts.Network.ID]; !found {
+		return nil, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+	}
+
+	// Check if server exists
+	if _, found := c.serverCache.idMap[server.ID]; !found {
 		return nil, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
 	}
 
@@ -406,7 +442,7 @@ func (c *cacheHCloudClient) CreateNetwork(ctx context.Context, opts hcloud.Netwo
 	}
 
 	network := &hcloud.Network{
-		ID:      len(c.networkCache.idMap),
+		ID:      len(c.networkCache.idMap) + 1,
 		Name:    opts.Name,
 		Labels:  opts.Labels,
 		IPRange: opts.IPRange,
@@ -415,6 +451,7 @@ func (c *cacheHCloudClient) CreateNetwork(ctx context.Context, opts hcloud.Netwo
 
 	// Add network to cache
 	c.networkCache.idMap[network.ID] = network
+	c.networkCache.nameMap[network.Name] = struct{}{}
 	return network, nil
 }
 
@@ -462,7 +499,7 @@ func (c *cacheHCloudClient) CreatePlacementGroup(ctx context.Context, opts hclou
 	}
 
 	placementGroup := &hcloud.PlacementGroup{
-		ID:     len(c.placementGroupCache.idMap),
+		ID:     len(c.placementGroupCache.idMap) + 1,
 		Name:   opts.Name,
 		Labels: opts.Labels,
 		Type:   opts.Type,
@@ -470,6 +507,7 @@ func (c *cacheHCloudClient) CreatePlacementGroup(ctx context.Context, opts hclou
 
 	// Add placementGroup to cache
 	c.placementGroupCache.idMap[placementGroup.ID] = placementGroup
+	c.placementGroupCache.nameMap[placementGroup.Name] = struct{}{}
 
 	return hcloud.PlacementGroupCreateResult{
 		PlacementGroup: placementGroup,
@@ -514,6 +552,11 @@ func (c *cacheHCloudClient) ListPlacementGroups(ctx context.Context, opts hcloud
 func (c *cacheHCloudClient) AddServerToPlacementGroup(ctx context.Context, server *hcloud.Server, pg *hcloud.PlacementGroup) (*hcloud.Action, error) {
 	// Check if placement group exists
 	if _, found := c.placementGroupCache.idMap[pg.ID]; !found {
+		return nil, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+	}
+
+	// Check if server exists
+	if _, found := c.serverCache.idMap[server.ID]; !found {
 		return nil, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
 	}
 

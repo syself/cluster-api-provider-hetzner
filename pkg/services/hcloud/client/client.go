@@ -25,6 +25,8 @@ import (
 
 // Client collects all methods used by the controller in the hcloud cloud API.
 type Client interface {
+	Close()
+
 	CreateLoadBalancer(context.Context, hcloud.LoadBalancerCreateOpts) (hcloud.LoadBalancerCreateResult, error)
 	DeleteLoadBalancer(context.Context, int) error
 	ListLoadBalancers(context.Context, hcloud.LoadBalancerListOpts) ([]*hcloud.LoadBalancer, error)
@@ -77,6 +79,9 @@ var _ Client = &realClient{}
 type realClient struct {
 	client *hcloud.Client
 }
+
+// Close implements the Close method of the HCloudClient interface.
+func (c *realClient) Close() {}
 
 func (c *realClient) CreateLoadBalancer(ctx context.Context, opts hcloud.LoadBalancerCreateOpts) (hcloud.LoadBalancerCreateResult, error) {
 	res, _, err := c.client.LoadBalancer.Create(ctx, opts)
