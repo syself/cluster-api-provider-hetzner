@@ -726,7 +726,7 @@ func createHCloudMachine(ctx context.Context, env *helpers.TestEnvironment, name
 			},
 		},
 		Spec: infrav1.HCloudMachineSpec{
-			ImageName: "1.23.3-fedora-35-control-plane",
+			ImageName: "1.23.4-fedora-35-control-plane",
 			Type:      "cpx31",
 		},
 	}

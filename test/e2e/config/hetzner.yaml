@@ -78,10 +78,10 @@ providers:
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-network.yaml"
 variables:
-  KUBERNETES_VERSION_MANAGEMENT: "v1.23.3"
-  KUBERNETES_VERSION: "v1.23.3"
+  KUBERNETES_VERSION_MANAGEMENT: "v1.23.4"
+  KUBERNETES_VERSION: "v1.23.4"
   KUBERNETES_VERSION_UPGRADE_FROM: "v1.22.4"
-  KUBERNETES_VERSION_UPGRADE_TO: "v1.23.3"
+  KUBERNETES_VERSION_UPGRADE_TO: "v1.23.4"
   ETCD_VERSION_UPGRADE_TO: "3.5.1-0"
   COREDNS_VERSION_UPGRADE_TO: "1.8.4"
 
@@ -103,7 +103,7 @@ variables:
   # the management cluster to be upgraded.
   INIT_WITH_BINARY: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.1.0/clusterctl-linux-amd64"
   INIT_WITH_PROVIDERS_CONTRACT: "v1beta1"
-  INIT_WITH_KUBERNETES_VERSION: "v1.23.3"
+  INIT_WITH_KUBERNETES_VERSION: "v1.23.4"
   # Hetzner Provider Variables
   HCLOUD_TOKEN: "admin123"
   HCLOUD_SSH_KEY: "test"
