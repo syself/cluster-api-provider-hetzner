@@ -33,7 +33,7 @@ sysctl --system
 RUNC=v1.1.0       # https://github.com/opencontainers/runc/releases
 CRUN=1.4.2        # https://github.com/containers/crun/releases
 CONMON=v2.1.0     # https://github.com/containers/conmon/releases
-CRIO=1.23.0       # https://github.com/cri-o/cri-o/releases
+CRIO=1.23.1       # https://github.com/cri-o/cri-o/releases
 ## Remember to check CRI-O Configuration updates when updating CRI-O
 CRI_TOOLS=v1.23.0 # https://github.com/kubernetes-sigs/cri-tools/releases
 

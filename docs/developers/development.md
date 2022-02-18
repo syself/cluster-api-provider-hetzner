@@ -52,10 +52,10 @@ To develop/build an image with packer do:
 export HCLOUD_TOKEN=<your-token>
 
 ## Only build
-packer build templates/node-image/1.23.3-fedora-35/image.json
+packer build templates/node-image/1.23.4-fedora-35-crio/image.json
 
 ## Debug and ability to ssh into the created server
-packer build --debug --on-error=abort templates/node-image/1.23.3-fedora-35/image.json
+packer build --debug --on-error=abort templates/node-image/1.23.4-fedora-35-crio/image.json
 ```
 
 It's recommended to use cx21 server type as this is more powerful than cx11 and Kubernetes usual doesn't run well on only 1vCpu. Using this server type will use 40GB of SSD. This means that we cannot boot machines from this snapshot with a disk with less than 40GB.

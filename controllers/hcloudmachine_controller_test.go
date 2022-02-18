@@ -148,7 +148,7 @@ var _ = Describe("VsphereMachineReconciler", func() {
 					},
 				},
 				Spec: infrav1.HCloudMachineSpec{
-					ImageName:          "1.23.3-fedora-35-control-plane",
+					ImageName:          "1.23.4-fedora-35-control-plane",
 					Type:               "cpx31",
 					PlacementGroupName: &pgName,
 				},
@@ -265,7 +265,7 @@ var _ = Describe("VsphereMachineReconciler", func() {
 					},
 				},
 				Spec: infrav1.HCloudMachineSpec{
-					ImageName:          "1.23.3-fedora-35-control-plane",
+					ImageName:          "1.23.4-fedora-35-control-plane",
 					Type:               "cpx31",
 					PlacementGroupName: &pgName,
 				},
@@ -372,7 +372,7 @@ var _ = Describe("HCloudMachine validation", func() {
 				Namespace: testNs.Name,
 			},
 			Spec: infrav1.HCloudMachineSpec{
-				ImageName: "1.23.3-fedora-35-control-plane",
+				ImageName: "1.23.4-fedora-35-control-plane",
 				Type:      "cpx31",
 			},
 		}
