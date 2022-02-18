@@ -25,6 +25,7 @@ import (
 	// +kubebuilder:scaffold:imports
 	infrastructurev1beta1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/controllers"
+	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -35,6 +36,7 @@ import (
 	bootstrapv1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 )
@@ -84,6 +86,9 @@ func main() {
 		LeaderElectionID:           "hetzner.cluster.x-k8s.io",
 		LeaderElectionResourceLock: "leases",
 		Namespace:                  watchNamespace,
+		NewCache: cache.BuilderWithOptions(cache.Options{
+			SelectorsByObject: secretutil.AddSecretSelector(nil),
+		}),
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
@@ -102,6 +107,7 @@ func main() {
 	wg.Add(1)
 	if err = (&controllers.HetznerClusterReconciler{
 		Client:                         mgr.GetClient(),
+		APIReader:                      mgr.GetAPIReader(),
 		HCloudClientFactory:            hcloudClientFactory,
 		WatchFilterValue:               watchFilterValue,
 		TargetClusterManagersWaitGroup: &wg,
@@ -111,6 +117,7 @@ func main() {
 	}
 	if err = (&controllers.HCloudMachineReconciler{
 		Client:              mgr.GetClient(),
+		APIReader:           mgr.GetAPIReader(),
 		HCloudClientFactory: hcloudClientFactory,
 		WatchFilterValue:    watchFilterValue,
 	}).SetupWithManager(ctx, mgr, controller.Options{}); err != nil {

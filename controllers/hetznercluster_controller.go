@@ -29,6 +29,7 @@ import (
 	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
+	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/loadbalancer"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/network"
@@ -44,6 +45,7 @@ import (
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
 	"sigs.k8s.io/cluster-api/util/conditions"
+	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -56,9 +58,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
+const (
+	secretErrorRetryDelay = time.Second * 10
+)
+
 // HetznerClusterReconciler reconciles a HetznerCluster object.
 type HetznerClusterReconciler struct {
 	client.Client
+	APIReader                      client.Reader
 	HCloudClientFactory            hcloudclient.Factory
 	Log                            logr.Logger
 	WatchFilterValue               string
@@ -110,19 +117,21 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	log.V(1).Info("Creating cluster scope")
 	// Create the scope.
-	token, err := retrieveSecret(ctx, r.Client, req.Namespace, hetznerCluster.Spec.HetznerSecret)
+	secretManager := secretutil.NewSecretManager(log, r.Client, r.APIReader)
+	hcloudToken, hetznerSecret, err := getAndValidateHCloudToken(ctx, req.Namespace, hetznerCluster, secretManager)
 	if err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "failed to retrieve secret")
+		return hcloudTokenErrorResult(ctx, err, hetznerCluster, infrav1.HetznerClusterReady, r.Client)
 	}
 
-	hcc := r.HCloudClientFactory.NewClient(token)
+	hcloudClient := r.HCloudClientFactory.NewClient(hcloudToken)
 
 	clusterScope, err := scope.NewClusterScope(ctx, scope.ClusterScopeParams{
 		Client:         r.Client,
 		Logger:         &log,
 		Cluster:        cluster,
 		HetznerCluster: hetznerCluster,
-		HCloudClient:   hcc,
+		HCloudClient:   hcloudClient,
+		HetznerSecret:  hetznerSecret,
 	})
 	if err != nil {
 		return reconcile.Result{}, errors.Errorf("failed to create scope: %+v", err)
@@ -238,6 +247,12 @@ func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterS
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
+	secretManager := secretutil.NewSecretManager(log, r.Client, r.APIReader)
+	// Remove finalizer of secret
+	if err := secretManager.ReleaseSecret(ctx, clusterScope.HetznerSecret()); err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "failed to release Hetzner secret")
+	}
+
 	// delete load balancers
 	if err := loadbalancer.NewService(clusterScope).Delete(ctx); err != nil {
 		return reconcile.Result{}, errors.Wrapf(err, "failed to delete load balancers for HetznerCluster %s/%s", hetznerCluster.Namespace, hetznerCluster.Name)
@@ -272,19 +287,81 @@ func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterS
 	return reconcile.Result{}, nil
 }
 
-func retrieveSecret(ctx context.Context, client client.Client, namespace string, hetznerSecret infrav1.HetznerSecretRef) (string, error) {
-	// retrieve token secret
-	var tokenSecret corev1.Secret
-	tokenSecretName := types.NamespacedName{Namespace: namespace, Name: hetznerSecret.Name}
-	if err := client.Get(ctx, tokenSecretName, &tokenSecret); err != nil {
-		return "", errors.Errorf("error getting referenced token secret/%s: %s", tokenSecretName, err)
+func getAndValidateHCloudToken(ctx context.Context, namespace string, hetznerCluster *infrav1.HetznerCluster, secretManager *secretutil.SecretManager) (string, *corev1.Secret, error) {
+	// retrieve Hetzner secret
+	secretNamspacedName := types.NamespacedName{Namespace: namespace, Name: hetznerCluster.Spec.HetznerSecret.Name}
+
+	hetznerSecret, err := secretManager.AcquireSecret(
+		ctx,
+		secretNamspacedName,
+		hetznerCluster,
+		false,
+		hetznerCluster.DeletionTimestamp.IsZero(),
+	)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return "", nil, &secretutil.ResolveSecretRefError{Message: fmt.Sprintf("The Hetzner secret %s does not exist", secretNamspacedName)}
+		}
+		return "", nil, err
 	}
 
-	tokenBytes, keyExists := tokenSecret.Data[hetznerSecret.Key.HCloudToken]
-	if !keyExists {
-		return "", errors.Errorf("error key %s does not exist in secret/%s", hetznerSecret.Key.HCloudToken, tokenSecretName)
+	hcloudToken := string(hetznerSecret.Data[hetznerCluster.Spec.HetznerSecret.Key.HCloudToken])
+
+	// Validate token
+	if hcloudToken == "" {
+		return "", nil, &secretutil.HCloudTokenValidationError{}
 	}
-	return string(tokenBytes), nil
+
+	return hcloudToken, hetznerSecret, nil
+}
+
+func hcloudTokenErrorResult(
+	ctx context.Context,
+	err error,
+	setter conditions.Setter,
+	conditionType clusterv1.ConditionType,
+	client client.Client,
+) (res ctrl.Result, reterr error) {
+	switch err.(type) {
+	// In the event that the reference to the secret is defined, but we cannot find it
+	// we requeue the host as we will not know if they create the secret
+	// at some point in the future.
+	case *secretutil.ResolveSecretRefError:
+		conditions.MarkFalse(setter,
+			conditionType,
+			infrav1.HetznerSecretUnreachableReason,
+			clusterv1.ConditionSeverityError,
+			"could not find HetznerSecret",
+		)
+		res = ctrl.Result{Requeue: true, RequeueAfter: secretErrorRetryDelay}
+
+	// No need to reconcile again, as it will be triggered as soon as the secret is updated.
+	case *secretutil.HCloudTokenValidationError:
+		conditions.MarkFalse(setter,
+			conditionType,
+			infrav1.HCloudCredentialsInvalidReason,
+			clusterv1.ConditionSeverityError,
+			"invalid or not specified hcloud token in Hetzner secret",
+		)
+
+	default:
+		return ctrl.Result{}, errors.Wrap(err, "An unhandled failure occurred with the Hetzner secret")
+	}
+
+	ph, err := patch.NewHelper(setter, client)
+	if err != nil {
+		return ctrl.Result{}, errors.Wrap(err, "failed to init patch helper")
+	}
+
+	if err := ph.Patch(ctx, setter); err != nil {
+		return ctrl.Result{}, errors.Wrap(err, "failed to patch")
+	}
+
+	if err := client.Status().Update(ctx, setter); err != nil {
+		return ctrl.Result{}, errors.Wrap(err, "failed to update")
+	}
+
+	return res, err
 }
 
 func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope) error {

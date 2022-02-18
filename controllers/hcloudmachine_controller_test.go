@@ -21,10 +21,12 @@ import (
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
@@ -34,7 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = Describe("VsphereMachineReconciler", func() {
+var _ = Describe("HCloudMachineReconciler", func() {
 	var (
 		capiCluster *clusterv1.Cluster
 		capiMachine *clusterv1.Machine
@@ -128,8 +130,6 @@ var _ = Describe("VsphereMachineReconciler", func() {
 			}
 			Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
 
-			pgName := "control-plane"
-
 			infraMachine = &infrav1.HCloudMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      hcloudMachineName,
@@ -148,9 +148,9 @@ var _ = Describe("VsphereMachineReconciler", func() {
 					},
 				},
 				Spec: infrav1.HCloudMachineSpec{
-					ImageName:          "1.23.4-fedora-35-control-plane",
+					ImageName:          "fedora-control-plane",
 					Type:               "cpx31",
-					PlacementGroupName: &pgName,
+					PlacementGroupName: &defaultPlacementGroupName,
 				},
 			}
 
@@ -245,8 +245,6 @@ var _ = Describe("VsphereMachineReconciler", func() {
 			}
 			Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
 
-			pgName := "control-plane"
-
 			infraMachine = &infrav1.HCloudMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      hcloudMachineName,
@@ -265,9 +263,9 @@ var _ = Describe("VsphereMachineReconciler", func() {
 					},
 				},
 				Spec: infrav1.HCloudMachineSpec{
-					ImageName:          "1.23.4-fedora-35-control-plane",
+					ImageName:          "fedora-control-plane",
 					Type:               "cpx31",
-					PlacementGroupName: &pgName,
+					PlacementGroupName: &defaultPlacementGroupName,
 				},
 			}
 
@@ -355,6 +353,175 @@ var _ = Describe("VsphereMachineReconciler", func() {
 	})
 })
 
+var _ = Describe("Hetzner secret", func() {
+	var (
+		hetznerCluster     *infrav1.HetznerCluster
+		capiCluster        *clusterv1.Cluster
+		hcloudMachine      *infrav1.HCloudMachine
+		capiMachine        *clusterv1.Machine
+		key                client.ObjectKey
+		hetznerSecret      *corev1.Secret
+		hetznerClusterName string
+	)
+
+	BeforeEach(func() {
+		var err error
+		Expect(err).NotTo(HaveOccurred())
+
+		hetznerClusterName = utils.GenerateName(nil, "hetzner-cluster-test")
+		capiCluster = &clusterv1.Cluster{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "test1-",
+				Namespace:    "default",
+				Finalizers:   []string{clusterv1.ClusterFinalizer},
+			},
+			Spec: clusterv1.ClusterSpec{
+				InfrastructureRef: &corev1.ObjectReference{
+					APIVersion: infrav1.GroupVersion.String(),
+					Kind:       "HetznerCluster",
+					Name:       hetznerClusterName,
+					Namespace:  "default",
+				},
+			},
+		}
+		Expect(testEnv.Create(ctx, capiCluster)).To(Succeed())
+
+		hetznerCluster = &infrav1.HetznerCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      hetznerClusterName,
+				Namespace: "default",
+				OwnerReferences: []metav1.OwnerReference{
+					{
+						APIVersion: "cluster.x-k8s.io/v1beta1",
+						Kind:       "Cluster",
+						Name:       capiCluster.Name,
+						UID:        capiCluster.UID,
+					},
+				},
+			},
+			Spec: getDefaultHetznerClusterSpec(),
+		}
+		Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
+
+		hcloudMachineName := utils.GenerateName(nil, "hcloud-machine-")
+		failureDomain := "fsn1"
+
+		capiMachine = &clusterv1.Machine{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "capi-machine-",
+				Namespace:    "default",
+				Finalizers:   []string{clusterv1.MachineFinalizer},
+				Labels: map[string]string{
+					clusterv1.ClusterLabelName: capiCluster.Name,
+				},
+			},
+			Spec: clusterv1.MachineSpec{
+				ClusterName: capiCluster.Name,
+				InfrastructureRef: corev1.ObjectReference{
+					APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
+					Kind:       "HCloudMachine",
+					Name:       hcloudMachineName,
+				},
+				FailureDomain: &failureDomain,
+				Bootstrap: clusterv1.Bootstrap{
+					DataSecretName: pointer.String("bootstrap-secret"),
+				},
+			},
+		}
+		Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
+
+		hcloudMachine = &infrav1.HCloudMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      hcloudMachineName,
+				Namespace: "default",
+				Labels: map[string]string{
+					clusterv1.ClusterLabelName:             capiCluster.Name,
+					clusterv1.MachineControlPlaneLabelName: "",
+				},
+				OwnerReferences: []metav1.OwnerReference{
+					{
+						APIVersion: clusterv1.GroupVersion.String(),
+						Kind:       "Machine",
+						Name:       capiMachine.Name,
+						UID:        capiMachine.UID,
+					},
+				},
+			},
+			Spec: infrav1.HCloudMachineSpec{
+				ImageName:          "fedora-control-plane",
+				Type:               "cpx31",
+				PlacementGroupName: &defaultPlacementGroupName,
+			},
+		}
+		Expect(testEnv.Create(ctx, hcloudMachine)).To(Succeed())
+		key = client.ObjectKey{Namespace: "default", Name: hcloudMachine.Name}
+	})
+
+	AfterEach(func() {
+		Expect(testEnv.Cleanup(ctx, hetznerCluster, capiCluster, hcloudMachine, capiMachine, hetznerSecret)).To(Succeed())
+
+		Eventually(func() bool {
+			if err := testEnv.Get(ctx, client.ObjectKey{Namespace: hetznerSecret.Namespace, Name: hetznerSecret.Name}, hetznerSecret); err != nil && apierrors.IsNotFound(err) {
+				return true
+			} else if err != nil {
+				return false
+			}
+			// Secret still there, so the finalizers have not been removed. Patch to remove them.
+			ph, err := patch.NewHelper(hetznerSecret, testEnv)
+			Expect(err).ShouldNot(HaveOccurred())
+			hetznerSecret.Finalizers = nil
+			Expect(ph.Patch(ctx, hetznerSecret, patch.WithStatusObservedGeneration{})).To(Succeed())
+			// Should delete secret
+			if err := testEnv.Delete(ctx, hetznerSecret); err != nil && apierrors.IsNotFound(err) {
+				// Has been deleted already
+				return true
+			}
+			return false
+		}, time.Second, time.Second).Should(BeTrue())
+	})
+
+	DescribeTable("test different hetzner secret",
+		func(secret corev1.Secret, expectedReason string) {
+			hetznerSecret = &secret
+			Expect(testEnv.Create(ctx, hetznerSecret)).To(Succeed())
+
+			Eventually(func() bool {
+				if err := testEnv.Get(ctx, key, hcloudMachine); err != nil {
+					return false
+				}
+				return isPresentAndFalseWithReason(key, hcloudMachine, infrav1.InstanceReadyCondition, expectedReason)
+			}, timeout, time.Second).Should(BeTrue())
+		},
+		Entry("no Hetzner secret/wrong reference", corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "wrong-name",
+				Namespace: "default",
+			},
+			Data: map[string][]byte{
+				"hcloud": []byte("my-token"),
+			},
+		}, infrav1.HetznerSecretUnreachableReason),
+		Entry("empty hcloud token", corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "hetzner-secret",
+				Namespace: "default",
+			},
+			Data: map[string][]byte{
+				"hcloud": []byte(""),
+			},
+		}, infrav1.HCloudCredentialsInvalidReason),
+		Entry("wrong key in secret", corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "hetzner-secret",
+				Namespace: "default",
+			},
+			Data: map[string][]byte{
+				"wrongkey": []byte("my-token"),
+			},
+		}, infrav1.HCloudCredentialsInvalidReason),
+	)
+})
+
 var _ = Describe("HCloudMachine validation", func() {
 	var (
 		infraMachine *infrav1.HCloudMachine
@@ -372,7 +539,7 @@ var _ = Describe("HCloudMachine validation", func() {
 				Namespace: testNs.Name,
 			},
 			Spec: infrav1.HCloudMachineSpec{
-				ImageName: "1.23.4-fedora-35-control-plane",
+				ImageName: "fedora-control-plane",
 				Type:      "cpx31",
 			},
 		}

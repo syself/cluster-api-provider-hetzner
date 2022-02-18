@@ -23,11 +23,12 @@ import (
 
 	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
-	corev1 "k8s.io/api/core/v1"
+	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/patch"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // MachineScopeParams defines the input parameters used to create a new Scope.
@@ -35,6 +36,7 @@ type MachineScopeParams struct {
 	ClusterScopeParams
 	Machine       *clusterv1.Machine
 	HCloudMachine *infrav1.HCloudMachine
+	APIReader     client.Reader
 }
 
 // ErrBootstrapDataNotReady return an error if no bootstrap data is ready.
@@ -52,6 +54,9 @@ func NewMachineScope(ctx context.Context, params MachineScopeParams) (*MachineSc
 	if params.HCloudMachine == nil {
 		return nil, errors.New("failed to generate new scope from nil HCloudMachine")
 	}
+	if params.APIReader == nil {
+		return nil, errors.New("failed to generate new scope from nil APIReader")
+	}
 
 	cs, err := NewClusterScope(ctx, params.ClusterScopeParams)
 	if err != nil {
@@ -67,12 +72,14 @@ func NewMachineScope(ctx context.Context, params MachineScopeParams) (*MachineSc
 		ClusterScope:  *cs,
 		Machine:       params.Machine,
 		HCloudMachine: params.HCloudMachine,
+		APIReader:     params.APIReader,
 	}, nil
 }
 
 // MachineScope defines the basic context for an actuator to operate upon.
 type MachineScope struct {
 	ClusterScope
+	APIReader     client.Reader
 	Machine       *clusterv1.Machine
 	HCloudMachine *infrav1.HCloudMachine
 }
@@ -144,10 +151,11 @@ func (m *MachineScope) GetRawBootstrapData(ctx context.Context) ([]byte, error) 
 		return nil, ErrBootstrapDataNotReady
 	}
 
-	secret := &corev1.Secret{}
 	key := types.NamespacedName{Namespace: m.Namespace(), Name: *m.Machine.Spec.Bootstrap.DataSecretName}
-	if err := m.Client.Get(ctx, key, secret); err != nil {
-		return nil, errors.Wrapf(err, "failed to retrieve bootstrap data secret for HCloudMachine %s/%s", m.Namespace(), m.Name())
+	secretManager := secretutil.NewSecretManager(*m.Logger, m.Client, m.APIReader)
+	secret, err := secretManager.AcquireSecret(ctx, key, m.HCloudMachine, false, m.HCloudMachine.DeletionTimestamp.IsZero())
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to acquire secret")
 	}
 
 	value, ok := secret.Data["value"]

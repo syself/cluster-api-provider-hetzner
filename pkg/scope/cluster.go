@@ -25,6 +25,7 @@ import (
 	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	clientcmd "k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2/klogr"
@@ -38,6 +39,7 @@ import (
 type ClusterScopeParams struct {
 	Client         client.Client
 	Logger         *logr.Logger
+	HetznerSecret  *corev1.Secret
 	HCloudClient   hcloudclient.Client
 	Cluster        *clusterv1.Cluster
 	HetznerCluster *infrav1.HetznerCluster
@@ -73,14 +75,17 @@ func NewClusterScope(ctx context.Context, params ClusterScopeParams) (*ClusterSc
 		HetznerCluster: params.HetznerCluster,
 		HCloudClient:   params.HCloudClient,
 		patchHelper:    helper,
+		hetznerSecret:  params.HetznerSecret,
 	}, nil
 }
 
 // ClusterScope defines the basic context for an actuator to operate upon.
 type ClusterScope struct {
 	*logr.Logger
-	Client       client.Client
-	patchHelper  *patch.Helper
+	Client        client.Client
+	patchHelper   *patch.Helper
+	hetznerSecret *corev1.Secret
+
 	HCloudClient hcloudclient.Client
 
 	Cluster        *clusterv1.Cluster
@@ -95,6 +100,11 @@ func (s *ClusterScope) Name() string {
 // Namespace returns the namespace name.
 func (s *ClusterScope) Namespace() string {
 	return s.HetznerCluster.Namespace
+}
+
+// HetznerSecret returns the hetzner secret.
+func (s *ClusterScope) HetznerSecret() *corev1.Secret {
+	return s.hetznerSecret
 }
 
 // Close closes the current scope persisting the cluster configuration and status.

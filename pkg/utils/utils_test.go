@@ -94,3 +94,23 @@ var _ = Describe("DifferenceOfIntSlices", func() {
 		Entry("entry3", []int{1, 2}, nil, []int{1, 2}, nil),
 		Entry("entry4", nil, []int{1, 2}, nil, []int{1, 2}))
 })
+
+var _ = Describe("StringInList", func() {
+	DescribeTable("Test string in list",
+		func(list []string, str string, expectedOutcome bool) {
+			out := utils.StringInList(list, str)
+			Expect(out).To(Equal(expectedOutcome))
+		},
+		Entry("entry1", []string{"a", "b", "c"}, "a", true),
+		Entry("entry2", []string{"a", "b", "c"}, "d", false))
+})
+
+var _ = Describe("FilterStringFromList", func() {
+	DescribeTable("Test filter string from list",
+		func(list []string, str string, expectedOutcome []string) {
+			out := utils.FilterStringFromList(list, str)
+			Expect(out).To(Equal(expectedOutcome))
+		},
+		Entry("entry1", []string{"a", "b", "c"}, "a", []string{"b", "c"}),
+		Entry("entry2", []string{"a", "b", "c"}, "d", []string{"a", "b", "c"}))
+})
