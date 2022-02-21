@@ -49,6 +49,7 @@ type HetznerBareMetalHostReconciler struct {
 	client.Client
 	APIReader          client.Reader
 	ProvisionerFactory provisioner.Factory
+	RobotClientFactory robotclient.Factory
 	WatchFilterValue   string
 }
 
@@ -100,15 +101,26 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	secretManager := secretutil.NewSecretManager(log, r.Client, r.APIReader)
 	robotCreds, _, err := getAndValidateRobotCredentials(ctx, req.Namespace, hetznerCluster, secretManager)
 	if err != nil {
+		// TODO (janis): Implement error handling with conditions similar to the one for HetznerCluster
 		return ctrl.Result{}, errors.Wrap(err, "failed to get Hetzner robot credentials")
 	}
-	prov := r.ProvisionerFactory.NewProvisioner(provisioner.BuildHostData(robotCreds))
+
+	sshCreds, sshSecret, err := getAndValidateSSHCredentials(ctx, req.Namespace, hetznerCluster, host, secretManager)
+	if err != nil {
+		// TODO (janis): Implement error handling with conditions similar to the one for HetznerCluster
+		return ctrl.Result{}, errors.Wrap(err, "failed to get Hetzner robot credentials")
+	}
+
+	robotClient := r.RobotClientFactory.NewClient(robotCreds)
+	prov := r.ProvisionerFactory.NewProvisioner(provisioner.BuildHostData(robotCreds, sshCreds))
 	// Create the scope.
 	hostScope, err := scope.NewBareMetalHostScope(ctx, scope.BareMetalHostScopeParams{
 		Client:               r.Client,
 		HetznerCluster:       hetznerCluster,
 		HetznerBareMetalHost: host,
 		Provisioner:          prov,
+		RobotClient:          robotClient,
+		SSHSecret:            sshSecret,
 	})
 	if err != nil {
 		return reconcile.Result{}, errors.Errorf("failed to create scope: %+v", err)
@@ -161,8 +173,12 @@ func (r *HetznerBareMetalHostReconciler) reconcileNormal(
 	return reconcile.Result{}, nil
 }
 
-func getAndValidateRobotCredentials(ctx context.Context, namespace string, hetznerCluster *infrav1.HetznerCluster, secretManager *secretutil.SecretManager) (robotclient.Credentials, *corev1.Secret, error) {
-	// retrieve Hetzner secret
+func getAndValidateRobotCredentials(
+	ctx context.Context,
+	namespace string,
+	hetznerCluster *infrav1.HetznerCluster,
+	secretManager *secretutil.SecretManager,
+) (robotclient.RobotCredentials, *corev1.Secret, error) {
 	secretNamspacedName := types.NamespacedName{Namespace: namespace, Name: hetznerCluster.Spec.HetznerSecret.Name}
 
 	hetznerSecret, err := secretManager.AcquireSecret(
@@ -174,22 +190,59 @@ func getAndValidateRobotCredentials(ctx context.Context, namespace string, hetzn
 	)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			return robotclient.Credentials{}, nil, &secretutil.ResolveSecretRefError{Message: fmt.Sprintf("The Hetzner secret %s does not exist", secretNamspacedName)}
+			return robotclient.RobotCredentials{}, nil, &secretutil.ResolveSecretRefError{Message: fmt.Sprintf("The Hetzner secret %s does not exist", secretNamspacedName)}
 		}
-		return robotclient.Credentials{}, nil, err
+		return robotclient.RobotCredentials{}, nil, err
 	}
 
-	creds := robotclient.Credentials{
+	creds := robotclient.RobotCredentials{
 		Username: string(hetznerSecret.Data[hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser]),
 		Password: string(hetznerSecret.Data[hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword]),
 	}
 
 	// Validate token
 	if err := creds.Validate(); err != nil {
-		return robotclient.Credentials{}, nil, err
+		return robotclient.RobotCredentials{}, nil, err
 	}
 
 	return creds, hetznerSecret, nil
+}
+
+func getAndValidateSSHCredentials(
+	ctx context.Context,
+	namespace string,
+	hetznerCluster *infrav1.HetznerCluster,
+	host *infrav1.HetznerBareMetalHost,
+	secretManager *secretutil.SecretManager,
+) (robotclient.SSHCredentials, *corev1.Secret, error) {
+	secretNamspacedName := types.NamespacedName{Namespace: namespace, Name: hetznerCluster.Spec.SSHKeys.Robot.Name}
+
+	sshSecret, err := secretManager.AcquireSecret(
+		ctx,
+		secretNamspacedName,
+		host,
+		false,
+		host.DeletionTimestamp.IsZero(),
+	)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return robotclient.SSHCredentials{}, nil, &secretutil.ResolveSecretRefError{Message: fmt.Sprintf("The SSH secret %s does not exist", secretNamspacedName)}
+		}
+		return robotclient.SSHCredentials{}, nil, err
+	}
+
+	creds := robotclient.SSHCredentials{
+		Name:       string(sshSecret.Data[hetznerCluster.Spec.SSHKeys.Robot.Key.Name]),
+		PublicKey:  string(sshSecret.Data[hetznerCluster.Spec.SSHKeys.Robot.Key.PublicKey]),
+		PrivateKey: string(sshSecret.Data[hetznerCluster.Spec.SSHKeys.Robot.Key.PrivateKey]),
+	}
+
+	// Validate token
+	if err := creds.Validate(); err != nil {
+		return robotclient.SSHCredentials{}, nil, err
+	}
+
+	return creds, sshSecret, nil
 }
 
 func hostHasFinalizer(host *infrav1.HetznerBareMetalHost) bool {

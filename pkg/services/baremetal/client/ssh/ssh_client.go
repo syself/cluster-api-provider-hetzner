@@ -1,4 +1,4 @@
-package hetznerclient
+package sshclient
 
 import (
 	"bytes"
@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/provisioner"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -18,11 +17,31 @@ var (
 	ErrSSHDialFailed = errors.New("failed to dial ssh")
 )
 
+type SSHInput struct {
+	IP            string
+	PrivateSSHKey string
+	Port          int
+}
+
+type SSHOutput struct {
+	StdOut string
+	StdErr string
+	Err    error
+}
+type SSHClient interface {
+	GetHostName() SSHOutput
+}
+
+// SSHClientFactory is the interface for creating new SSHClient objects.
+type SSHClientFactory interface {
+	NewSSHClient(*Credentials) SSHClient
+}
+
 type sshClientFactory struct{}
 
-var _ = provisioner.SSHClientFactory(&sshClientFactory{})
+var _ = SSHClientFactory(&sshClientFactory{})
 
-func (f *sshClientFactory) NewSSHClient(hostData *provisioner.HostData) provisioner.SSHClient {
+func (f *sshClientFactory) NewSSHClient(creds Credentials) SSHClient {
 	return &sshClient{
 		ip:            hostData.IP,
 		privateSSHKey: hostData.PrivateSSHKey,
@@ -36,18 +55,18 @@ type sshClient struct {
 	port          int
 }
 
-var _ = provisioner.SSHClient(&sshClient{})
+var _ = SSHClient(&sshClient{})
 
-func (c *sshClient) GetHostName() provisioner.SSHOutput {
+func (c *sshClient) GetHostName() SSHOutput {
 	return runSSH("hostname", c.ip, c.port, c.privateSSHKey)
 }
 
-func runSSH(command, ip string, port int, privateSSHKey string) provisioner.SSHOutput {
+func runSSH(command, ip string, port int, privateSSHKey string) SSHOutput {
 
 	// Create the Signer for this private key.
 	signer, err := ssh.ParsePrivateKey([]byte(privateSSHKey))
 	if err != nil {
-		return provisioner.SSHOutput{Err: errors.Errorf("unable to parse private key: %v", err)}
+		return SSHOutput{Err: errors.Errorf("unable to parse private key: %v", err)}
 	}
 
 	config := &ssh.ClientConfig{
@@ -64,13 +83,13 @@ func runSSH(command, ip string, port int, privateSSHKey string) provisioner.SSHO
 
 	client, err := ssh.Dial("tcp", ip+":"+strconv.Itoa(port), config)
 	if err != nil {
-		return provisioner.SSHOutput{Err: ErrSSHDialFailed}
+		return SSHOutput{Err: ErrSSHDialFailed}
 	}
 	defer client.Close()
 
 	sess, err := client.NewSession()
 	if err != nil {
-		return provisioner.SSHOutput{Err: errors.Wrap(err, "unable to create new ssh session")}
+		return SSHOutput{Err: errors.Wrap(err, "unable to create new ssh session")}
 	}
 	defer sess.Close()
 
@@ -81,7 +100,7 @@ func runSSH(command, ip string, port int, privateSSHKey string) provisioner.SSHO
 	sess.Stderr = &stderrBuffer
 
 	err = sess.Run(command)
-	return provisioner.SSHOutput{
+	return SSHOutput{
 		StdOut: stdoutBuffer.String(),
 		StdErr: stderrBuffer.String(),
 		Err:    err,

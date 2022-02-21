@@ -4,6 +4,7 @@ import (
 	"time"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	robotclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client"
 	"github.com/syself/hrobot-go/models"
 )
 
@@ -29,17 +30,17 @@ type Provisioner interface {
 }
 
 type HostData struct {
-	HetznerRobotCredentials HetznerRobotCredentials
-	PrivateSSHKey           string // TODO: Update to actual ssh object containing all relevant information
-	ServerID                int
-	IP                      string // TODO: What information does the SSH client need that we can provide on client setup?
-	Port                    int
+	RobotCredentials robotclient.RobotCredentials
+	PrivateSSHKey    string // TODO: Update to actual ssh object containing all relevant information
+	ServerID         int
+	IP               string // TODO: What information does the SSH client need that we can provide on client setup?
+	Port             int
 }
 
-func NewHostData(host *infrav1.HetznerBareMetalHost, robotCreds HetznerRobotCredentials) *HostData {
+func NewHostData(host *infrav1.HetznerBareMetalHost, robotCreds robotclient.RobotCredentials) *HostData {
 	return &HostData{
-		HetznerRobotCredentials: robotCreds,
-		ServerID:                host.Spec.ServerID,
+		RobotCredentials: robotCreds,
+		ServerID:         host.Spec.ServerID,
 	}
 }
 
@@ -53,8 +54,9 @@ type Result struct {
 	ErrorMessage string
 }
 
-func BuildHostData(creds HetznerRobotCredentials) HostData {
+func BuildHostData(creds robotclient.RobotCredentials, sshCreds robotclient.SSHCredentials) HostData {
 	return HostData{
-		HetznerRobotCredentials: creds,
+		RobotCredentials: creds,
+		PrivateSSHKey:    sshCreds.PrivateKey,
 	}
 }

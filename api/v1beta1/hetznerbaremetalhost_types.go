@@ -70,6 +70,8 @@ const (
 type ErrorType string
 
 const (
+	ErrorTypeSoftwareResetTooSlow ErrorType = "software reset too slow"
+	ErrorTypeHardwareResetTooSlow ErrorType = "hardware reset too slow"
 	// ProvisionedRegistrationError is an error condition occurring when the controller
 	// is unable to re-register an already provisioned host.
 	ProvisionedRegistrationError ErrorType = "provisioned registration error"
@@ -96,6 +98,9 @@ const (
 	// StateUnmanaged means there is insufficient information available to register the host.
 	StateUnmanaged ProvisioningState = "unmanaged"
 
+	// StateRescueSystem means that we need to put the server in rescue system.
+	StateRescueSystem ProvisioningState = "rescue-system"
+
 	// StateRegistering means we are telling the backend about the host. Checking if server exists in robot api. -> available.
 	StateRegistering ProvisioningState = "registering"
 
@@ -119,6 +124,15 @@ const (
 
 	// StateDeleting means we are in the process of cleaning up the host ready for deletion.
 	StateDeleting ProvisioningState = "deleting"
+)
+
+type ResetType string
+
+const (
+	ResetTypeHardware = "hw"
+	ResetTypePower    = "power"
+	ResetTypeSoftware = "sw"
+	ResetTypeManual   = "man"
 )
 
 // HetznerBareMetalHostSpec defines the desired state of HetznerBareMetalHost.
@@ -184,6 +198,18 @@ type ControllerGeneratedStatus struct {
 	// +kubebuilder:validation:Enum="";OK;discovered;error;delayed;detached
 	OperationalStatus OperationalStatus `json:"operationalStatus"`
 
+	// ResetTypes is a list of all available reset types for API resets
+	ResetTypes []ResetType `json:"resetTypes"`
+
+	// HetznerRobotSSHKey contains name and fingerprint of the in HetznerCluster spec specified SSH key.
+	HetznerRobotSSHKey *SSHKey `json:"hetznerRobotSSHKey,omitempty"`
+
+	// the last credentials we were able to validate as working
+	GoodSSHCredentials CredentialsStatus `json:"goodSSHCredentials,omitempty"`
+
+	// the last credentials we sent to the provisioning backend
+	TriedSSHCredentials CredentialsStatus `json:"triedSSHCredentials,omitempty"`
+
 	// ErrorType indicates the type of failure encountered when the
 	// OperationalStatus is OperationalStatusError
 	// +kubebuilder:validation:Enum=provisioned registration error;registration error;preparation error;provisioning error
@@ -214,6 +240,29 @@ type HetznerBareMetalHostStatus struct {
 
 	// indicator for whether or not the host is powered on.
 	PoweredOn bool `json:"poweredOn"`
+}
+
+// CredentialsStatus contains the reference and version of the last
+// set of credentials the controller was able to validate.
+type CredentialsStatus struct {
+	Reference *corev1.SecretReference `json:"credentials,omitempty"`
+	Version   string                  `json:"credentialsVersion,omitempty"`
+}
+
+// Match compares the saved status information with the name and
+// content of a secret object.
+func (cs CredentialsStatus) Match(secret corev1.Secret) bool {
+	switch {
+	case cs.Reference == nil:
+		return false
+	case cs.Reference.Name != secret.ObjectMeta.Name:
+		return false
+	case cs.Reference.Namespace != secret.ObjectMeta.Namespace:
+		return false
+	case cs.Version != secret.ObjectMeta.ResourceVersion:
+		return false
+	}
+	return true
 }
 
 // OperationHistory holds information about operations performed on a
@@ -362,6 +411,55 @@ type HetznerBareMetalHost struct {
 
 	Spec   HetznerBareMetalHostSpec   `json:"spec,omitempty"`
 	Status HetznerBareMetalHostStatus `json:"status,omitempty"`
+}
+
+// UpdateGoodCredentials modifies the GoodCredentials portion of the
+// Status struct to record the details of the secret containing
+// credentials known to work.
+func (host *HetznerBareMetalHost) UpdateGoodSSHCredentials(currentSecret corev1.Secret) {
+	host.Spec.Status.GoodSSHCredentials.Version = currentSecret.ObjectMeta.ResourceVersion
+	host.Spec.Status.GoodSSHCredentials.Reference = &corev1.SecretReference{
+		Name:      currentSecret.ObjectMeta.Name,
+		Namespace: currentSecret.ObjectMeta.Namespace,
+	}
+}
+
+// UpdateTriedCredentials modifies the TriedCredentials portion of the
+// Status struct to record the details of the secret containing
+// credentials known to work.
+func (host *HetznerBareMetalHost) UpdateTriedSSHCredentials(currentSecret corev1.Secret) {
+	host.Spec.Status.TriedSSHCredentials.Version = currentSecret.ObjectMeta.ResourceVersion
+	host.Spec.Status.TriedSSHCredentials.Reference = &corev1.SecretReference{
+		Name:      currentSecret.ObjectMeta.Name,
+		Namespace: currentSecret.ObjectMeta.Namespace,
+	}
+}
+
+func (host *HetznerBareMetalHost) HasSoftwareReset() bool {
+	for _, rt := range host.Spec.Status.ResetTypes {
+		if rt == ResetTypeSoftware {
+			return true
+		}
+	}
+	return false
+}
+
+func (host *HetznerBareMetalHost) HasHardwareReset() bool {
+	for _, rt := range host.Spec.Status.ResetTypes {
+		if rt == ResetTypeHardware {
+			return true
+		}
+	}
+	return false
+}
+
+func (host *HetznerBareMetalHost) HasPowerReset() bool {
+	for _, rt := range host.Spec.Status.ResetTypes {
+		if rt == ResetTypeHardware {
+			return true
+		}
+	}
+	return false
 }
 
 //+kubebuilder:object:root=true

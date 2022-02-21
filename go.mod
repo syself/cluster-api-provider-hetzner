@@ -10,12 +10,12 @@ require (
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.18.1
 	github.com/pkg/errors v0.9.1
+	github.com/syself/hrobot-go v0.2.4
 	go.uber.org/zap v1.21.0
+	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
 	golang.org/x/mod v0.5.1
 	k8s.io/api v0.23.4
 	k8s.io/apimachinery v0.23.4
-	github.com/syself/hrobot-go v0.2.2
-	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
 	k8s.io/apiserver v0.23.3
 	k8s.io/client-go v0.23.4
 	k8s.io/klog/v2 v2.40.1

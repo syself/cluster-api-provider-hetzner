@@ -50,10 +50,26 @@ func (hsm *hostStateMachine) ReconcileState(info *reconcileInfo) (actionRes acti
 	return actionError{fmt.Errorf("No handler found for state \"%s\"", initialState)}
 }
 
+// handleNone checks whether server exists in Hetzner Robot API, then checks whether
+// the SSH key exists in Robot API, and finally decides whether server is already in
+// rescue mode and sets the next state accordingly.
 func (hsm *hostStateMachine) handleNone(info *reconcileInfo) actionResult {
 	actResult := hsm.reconciler.actionNone(info)
 	if _, ok := actResult.(actionComplete); ok {
 		hsm.nextState = infrav1.StateRegistering
+	}
+	return actResult
+}
+
+func (hsm *hostStateMachine) handleRegistering(info *reconcileInfo) actionResult {
+	server, actResult := hsm.reconciler.verifyReboot(info)
+	if _, ok := actResult.(actionComplete); ok {
+		// Check whether server needs to be set in rescue state
+		if server.Rescue {
+			hsm.nextState = infrav1.StateRegistering
+		} else {
+			hsm.nextState = infrav1.StateRescueSystem
+		}
 	}
 	return actResult
 }
@@ -64,8 +80,6 @@ func (hsm *hostStateMachine) handleAvailable(info *reconcileInfo) actionResult {
 
 	return actionComplete{}
 }
-
-// TODO: Wie macht metal3 es, wenn sie von einem State zum nächsten gehen, der dann aber auch direkt ausgeführt werden soll
 
 // 1. (None) nachschauen in hetzner api ob node existiert. Wenn nicht dann error state mit "not found"
 // 2. (Available) Wir warten bis die machine ausgewählt wurde, ein image gesetzt wurde. Wenn ja, gehe zu Schritt 3
