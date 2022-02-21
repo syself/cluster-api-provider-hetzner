@@ -52,7 +52,7 @@ MINIMUM_HELMFILE_VERSION=v0.143.0				# https://github.com/roboll/helmfile/releas
 MINIMUM_KIND_VERSION=v0.11.1						# https://github.com/kubernetes-sigs/kind/releases
 MINIMUM_KUBECTL_VERSION=v1.23.0					# https://github.com/kubernetes/kubernetes/releases
 MINIMUM_PACKER_VERSION=1.7.10						# https://github.com/hashicorp/packer/releases
-MINIMUM_TILT_VERSION=0.25.0							# https://github.com/tilt-dev/tilt/releases
+MINIMUM_TILT_VERSION=0.25.1							# https://github.com/tilt-dev/tilt/releases
 CONTROLLER_GEN_VERSION=v.0.4.1					# https://github.com/kubernetes-sigs/controller-tools/releases
 KUSTOMIZE_VERSION=4.5.1									# https://github.com/kubernetes-sigs/kustomize/releases
 
@@ -253,6 +253,7 @@ generate: ## Run all generate-manifests, generate-go-deepcopyand generate-go-con
 generate-manifests: $(CONTROLLER_GEN) ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) \
 			paths=./api/... \
+			paths=./controllers/... \
 			crd:crdVersions=v1 \
 			rbac:roleName=manager-role \
 			output:crd:dir=./config/crd/bases \
