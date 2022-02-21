@@ -85,7 +85,7 @@ cluster-templates-v1beta1: $(KUSTOMIZE) ## Generate cluster templates for v1beta
 
 GINKGO_FOCUS  ?=
 GINKGO_SKIP ?= 
-GINKGO_NODES  ?= 1
+GINKGO_NODES  ?= 3  # We set this to more than 2, because we also want to test multiples cluster in one hcloud project.
 E2E_CONF_FILE  ?= ${REPO_ROOT}/test/e2e/config/hetzner.yaml
 ARTIFACTS ?= ${REPO_ROOT}/_artifacts
 SKIP_RESOURCE_CLEANUP ?= false
