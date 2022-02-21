@@ -201,13 +201,14 @@ func (c *cacheHCloudClient) AttachLoadBalancerToNetwork(ctx context.Context, lb 
 	}
 
 	// Check if network exists
-	if _, found := c.networkCache.idMap[opts.Network.ID]; !found {
+	network, found := c.networkCache.idMap[opts.Network.ID]
+	if !found {
 		return nil, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
 	}
 
 	// check if already exists
 	for _, s := range c.loadBalancerCache.idMap[lb.ID].PrivateNet {
-		if s.IP.Equal(opts.Network.IPRange.IP) {
+		if s.IP.Equal(network.IPRange.IP) {
 			return nil, fmt.Errorf("already added")
 		}
 	}
@@ -215,7 +216,7 @@ func (c *cacheHCloudClient) AttachLoadBalancerToNetwork(ctx context.Context, lb 
 	// Add it
 	c.loadBalancerCache.idMap[lb.ID].PrivateNet = append(
 		c.loadBalancerCache.idMap[lb.ID].PrivateNet,
-		hcloud.LoadBalancerPrivateNet{IP: opts.Network.IPRange.IP},
+		hcloud.LoadBalancerPrivateNet{IP: network.IPRange.IP},
 	)
 	return &hcloud.Action{}, nil
 }

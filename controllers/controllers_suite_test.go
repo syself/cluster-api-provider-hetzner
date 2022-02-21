@@ -29,9 +29,11 @@ import (
 	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/kubectl/pkg/scheme"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	"sigs.k8s.io/cluster-api/util/conditions"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
@@ -39,7 +41,7 @@ import (
 
 const (
 	defaultPodNamespace = "caph-system"
-	timeout             = time.Second * 60
+	timeout             = time.Second * 25
 )
 
 func TestControllers(t *testing.T) {
@@ -54,6 +56,8 @@ var (
 	hcloudClient hcloudclient.Client
 	ctx          = ctrl.SetupSignalHandler()
 	wg           sync.WaitGroup
+
+	defaultPlacementGroupName = "caph-placement-group"
 )
 
 var _ = BeforeSuite(func() {
@@ -67,6 +71,7 @@ var _ = BeforeSuite(func() {
 
 	Expect((&controllers.HetznerClusterReconciler{
 		Client:                         testEnv.Manager.GetClient(),
+		APIReader:                      testEnv.Manager.GetAPIReader(),
 		HCloudClientFactory:            testEnv.HCloudClientFactory,
 		WatchFilterValue:               "",
 		TargetClusterManagersWaitGroup: &wg,
@@ -74,6 +79,7 @@ var _ = BeforeSuite(func() {
 
 	Expect((&controllers.HCloudMachineReconciler{
 		Client:              testEnv.Manager.GetClient(),
+		APIReader:           testEnv.Manager.GetAPIReader(),
 		HCloudClientFactory: testEnv.HCloudClientFactory,
 		WatchFilterValue:    "",
 	}).SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
@@ -134,7 +140,7 @@ func getDefaultHetznerClusterSpec() infrav1.HetznerClusterSpec {
 		},
 		HCloudPlacementGroup: []infrav1.HCloudPlacementGroupSpec{
 			{
-				Name: "control-plane",
+				Name: defaultPlacementGroupName,
 				Type: "spread",
 			},
 			{
@@ -180,4 +186,23 @@ func getDefaultBootstrapSecret(namespace string) *corev1.Secret {
 			"value": []byte("my-bootstrap"),
 		},
 	}
+}
+
+func isPresentAndFalseWithReason(key types.NamespacedName, getter conditions.Getter, condition clusterv1.ConditionType, reason string) bool {
+	ExpectWithOffset(1, testEnv.Get(ctx, key, getter)).To(Succeed())
+	if !conditions.Has(getter, condition) {
+		return false
+	}
+	objectCondition := conditions.Get(getter, condition)
+	return objectCondition.Status == corev1.ConditionFalse &&
+		objectCondition.Reason == reason
+}
+
+func isPresentAndTrue(key types.NamespacedName, getter conditions.Getter, condition clusterv1.ConditionType) bool {
+	ExpectWithOffset(1, testEnv.Get(ctx, key, getter)).To(Succeed())
+	if !conditions.Has(getter, condition) {
+		return false
+	}
+	objectCondition := conditions.Get(getter, condition)
+	return objectCondition.Status == corev1.ConditionTrue
 }

@@ -62,3 +62,12 @@ const (
 	// PlacementGroupsUnreachableReason indicates that network is disabled.
 	PlacementGroupsUnreachableReason = "PlacementGroupsUnreachable"
 )
+
+const (
+	// HetznerClusterReady reports on whether the Hetzner cluster is in ready state.
+	HetznerClusterReady clusterv1.ConditionType = "HetznerClusterReady"
+	// HetznerSecretUnreachableReason indicates that Hetzner secret is unreachable.
+	HetznerSecretUnreachableReason = "HetznerSecretUnreachable" // #nosec
+	// HCloudCredentialsInvalidReason indicates that credentials for HCloud are invalid.
+	HCloudCredentialsInvalidReason = "HCloudCredentialsInvalid" // #nosec
+)

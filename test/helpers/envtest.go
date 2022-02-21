@@ -28,6 +28,7 @@ import (
 
 	g "github.com/onsi/ginkgo"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	fakeclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/fake"
 	corev1 "k8s.io/api/core/v1"
@@ -45,6 +46,7 @@ import (
 	"sigs.k8s.io/cluster-api/cmd/clusterctl/log"
 	"sigs.k8s.io/cluster-api/util/kubeconfig"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
@@ -120,6 +122,9 @@ func NewTestEnvironment() *TestEnvironment {
 		Port:               env.WebhookInstallOptions.LocalServingPort,
 		CertDir:            env.WebhookInstallOptions.LocalServingCertDir,
 		MetricsBindAddress: "0",
+		NewCache: cache.BuilderWithOptions(cache.Options{
+			SelectorsByObject: secretutil.AddSecretSelector(nil),
+		}),
 	})
 	if err != nil {
 		klog.Fatalf("unable to create manager: %s", err)
