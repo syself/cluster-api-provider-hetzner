@@ -127,6 +127,7 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	clusterScope, err := scope.NewClusterScope(ctx, scope.ClusterScopeParams{
 		Client:         r.Client,
+		APIReader:      r.APIReader,
 		Logger:         &log,
 		Cluster:        cluster,
 		HetznerCluster: hetznerCluster,
@@ -406,13 +407,14 @@ func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope
 			return errors.Wrap(err, "failed to get secret")
 		}
 
-		var tokenSecret corev1.Secret
 		tokenSecretName := types.NamespacedName{
 			Namespace: clusterScope.HetznerCluster.Namespace,
 			Name:      clusterScope.HetznerCluster.Spec.HetznerSecret.Name,
 		}
-		if err := clusterScope.Client.Get(ctx, tokenSecretName, &tokenSecret); err != nil {
-			return errors.Errorf("error getting referenced token secret/%s: %s", tokenSecretName, err)
+		secretManager := secretutil.NewSecretManager(*clusterScope.Logger, clusterScope.Client, clusterScope.APIReader)
+		tokenSecret, err := secretManager.AcquireSecret(ctx, tokenSecretName, clusterScope.HetznerCluster, false, clusterScope.HetznerCluster.DeletionTimestamp.IsZero())
+		if err != nil {
+			return errors.Wrap(err, "failed to acquire secret")
 		}
 
 		hetznerToken, keyExists := tokenSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken]
@@ -578,6 +580,7 @@ func (r *HetznerClusterReconciler) SetupWithManager(ctx context.Context, mgr ctr
 		For(&infrav1.HetznerCluster{}).
 		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(log, r.WatchFilterValue)).
 		WithEventFilter(predicates.ResourceIsNotExternallyManaged(log)).
+		Owns(&corev1.Secret{}).
 		Build(r)
 	if err != nil {
 		return errors.Wrap(err, "error creating controller")

@@ -123,8 +123,8 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			HetznerCluster: hetznerCluster,
 			HCloudClient:   hcc,
 			HetznerSecret:  hetznerSecret,
+			APIReader:      r.APIReader,
 		},
-		APIReader:     r.APIReader,
 		Machine:       machine,
 		HCloudMachine: hcloudMachine,
 	})

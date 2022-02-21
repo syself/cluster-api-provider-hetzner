@@ -24,20 +24,22 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	clientcmd "k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2/klogr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	"sigs.k8s.io/cluster-api/util/kubeconfig"
 	"sigs.k8s.io/cluster-api/util/patch"
+	"sigs.k8s.io/cluster-api/util/secret"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // ClusterScopeParams defines the input parameters used to create a new scope.
 type ClusterScopeParams struct {
 	Client         client.Client
+	APIReader      client.Reader
 	Logger         *logr.Logger
 	HetznerSecret  *corev1.Secret
 	HCloudClient   hcloudclient.Client
@@ -57,6 +59,9 @@ func NewClusterScope(ctx context.Context, params ClusterScopeParams) (*ClusterSc
 	if params.HCloudClient == nil {
 		return nil, errors.New("failed to generate new scope from nil HCloudClient")
 	}
+	if params.APIReader == nil {
+		return nil, errors.New("failed to generate new scope from nil APIReader")
+	}
 
 	if params.Logger == nil {
 		logger := klogr.New()
@@ -71,6 +76,7 @@ func NewClusterScope(ctx context.Context, params ClusterScopeParams) (*ClusterSc
 	return &ClusterScope{
 		Logger:         params.Logger,
 		Client:         params.Client,
+		APIReader:      params.APIReader,
 		Cluster:        params.Cluster,
 		HetznerCluster: params.HetznerCluster,
 		HCloudClient:   params.HCloudClient,
@@ -83,6 +89,7 @@ func NewClusterScope(ctx context.Context, params ClusterScopeParams) (*ClusterSc
 type ClusterScope struct {
 	*logr.Logger
 	Client        client.Client
+	APIReader     client.Reader
 	patchHelper   *patch.Helper
 	hetznerSecret *corev1.Secret
 
@@ -140,12 +147,18 @@ func (s *ClusterScope) ControlPlaneAPIEndpointPort() int32 {
 // ClientConfig return a kubernetes client config for the cluster context.
 func (s *ClusterScope) ClientConfig(ctx context.Context) (clientcmd.ClientConfig, error) {
 	var cluster = client.ObjectKey{
-		Name:      s.Cluster.Name,
+		Name:      fmt.Sprintf("%s-%s", s.Cluster.Name, secret.Kubeconfig),
 		Namespace: s.Cluster.Namespace,
 	}
-	kubeconfigBytes, err := kubeconfig.FromSecret(ctx, s.Client, cluster)
+
+	secretManager := secretutil.NewSecretManager(*s.Logger, s.Client, s.APIReader)
+	kubeconfigSecret, err := secretManager.AcquireSecret(ctx, cluster, s.HetznerCluster, false, s.HetznerCluster.DeletionTimestamp.IsZero())
 	if err != nil {
-		return nil, errors.Wrap(err, "error retrieving kubeconfig for cluster")
+		return nil, errors.Wrap(err, "failed to acquire secret")
+	}
+	kubeconfigBytes, ok := kubeconfigSecret.Data[secret.KubeconfigDataName]
+	if !ok {
+		return nil, errors.Errorf("missing key %q in secret data", secret.KubeconfigDataName)
 	}
 	return clientcmd.NewClientConfigFromBytes(kubeconfigBytes)
 }
