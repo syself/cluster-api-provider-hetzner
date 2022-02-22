@@ -22,7 +22,8 @@ import (
 
 	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
-	robotclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client"
+	robotclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/robot"
+	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/provisioner"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/cluster-api/util/patch"
@@ -36,6 +37,7 @@ type BareMetalHostScopeParams struct {
 	HetznerCluster       *infrav1.HetznerCluster
 	Provisioner          provisioner.Provisioner
 	RobotClient          robotclient.Client
+	SSHClient            sshclient.Client
 	SSHSecret            *corev1.Secret
 }
 

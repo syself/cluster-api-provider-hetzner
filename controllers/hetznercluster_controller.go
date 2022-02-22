@@ -591,6 +591,7 @@ func (r *HetznerClusterReconciler) SetupWithManager(ctx context.Context, mgr ctr
 		For(&infrav1.HetznerCluster{}).
 		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(log, r.WatchFilterValue)).
 		WithEventFilter(predicates.ResourceIsNotExternallyManaged(log)).
+		Owns(&corev1.Secret{}).
 		Build(r)
 	if err != nil {
 		return errors.Wrap(err, "error creating controller")

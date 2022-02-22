@@ -5,7 +5,6 @@ import (
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	robotclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client"
-	"github.com/syself/hrobot-go/models"
 )
 
 // EventPublisher is a function type for publishing events associated
@@ -20,9 +19,7 @@ type Factory interface {
 // Provisioner holds the state information for talking to the
 // provisioning backend.
 type Provisioner interface {
-	GetBMServer(int) (*models.Server, error)
-
-	ListSSHKeys() ([]models.Key, error)
+	GetHostName()
 	// Provision writes the image from the host spec to the host. It
 	// may be called multiple times, and should return true for its
 	// dirty flag until the provisioning operation is completed.
