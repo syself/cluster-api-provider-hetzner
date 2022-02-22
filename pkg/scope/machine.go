@@ -28,7 +28,6 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/patch"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // MachineScopeParams defines the input parameters used to create a new Scope.
@@ -36,7 +35,6 @@ type MachineScopeParams struct {
 	ClusterScopeParams
 	Machine       *clusterv1.Machine
 	HCloudMachine *infrav1.HCloudMachine
-	APIReader     client.Reader
 }
 
 // ErrBootstrapDataNotReady return an error if no bootstrap data is ready.
@@ -54,9 +52,6 @@ func NewMachineScope(ctx context.Context, params MachineScopeParams) (*MachineSc
 	if params.HCloudMachine == nil {
 		return nil, errors.New("failed to generate new scope from nil HCloudMachine")
 	}
-	if params.APIReader == nil {
-		return nil, errors.New("failed to generate new scope from nil APIReader")
-	}
 
 	cs, err := NewClusterScope(ctx, params.ClusterScopeParams)
 	if err != nil {
@@ -72,14 +67,12 @@ func NewMachineScope(ctx context.Context, params MachineScopeParams) (*MachineSc
 		ClusterScope:  *cs,
 		Machine:       params.Machine,
 		HCloudMachine: params.HCloudMachine,
-		APIReader:     params.APIReader,
 	}, nil
 }
 
 // MachineScope defines the basic context for an actuator to operate upon.
 type MachineScope struct {
 	ClusterScope
-	APIReader     client.Reader
 	Machine       *clusterv1.Machine
 	HCloudMachine *infrav1.HCloudMachine
 }
