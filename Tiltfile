@@ -20,7 +20,7 @@ settings = {
     "deploy_observability": False,
     "preload_images_for_kind": True,
     "kind_cluster_name": "caph",
-    "capi_version": "v1.1.0",
+    "capi_version": "v1.1.2",
     "cabpt_version": "v0.5.0",
     "cacppt_version": "v0.4.0-alpha.0",
     "cert_manager_version": "v1.1.0",
@@ -131,13 +131,6 @@ def set_env_variables():
     arr = [(key, val) for key, val in substitutions.items()]
     for key, val in arr:
         os.putenv(key, val)
-
-def deploy_hetzner_secret():
-    substitutions = settings.get("kustomize_substitutions", {})
-    hcloud = substitutions.get("HCLOUD_TOKEN")
-    patch_secret = """kubectl patch secret hetzner -p '{"metadata":{"labels":{"clusterctl.cluster.x-k8s.io/move":""}}}'"""
-    local("kubectl create secret generic hetzner --from-literal=hcloud=%s --dry-run=client -o yaml | kubectl apply -f -" % hcloud)
-    local(patch_secret, quiet = True)
 
 ## This should have the same versions as the Dockerfile
 tilt_dockerfile_header = """
@@ -274,8 +267,6 @@ if settings.get("deploy_observability"):
 deploy_capi()
 
 set_env_variables()
-
-deploy_hetzner_secret()
 
 caph()
 
