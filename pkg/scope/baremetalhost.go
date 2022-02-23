@@ -20,12 +20,14 @@ package scope
 import (
 	"context"
 
+	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	robotclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/robot"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/provisioner"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/klog/v2/klogr"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -33,6 +35,7 @@ import (
 // BareMetalHostScopeParams defines the input parameters used to create a new scope.
 type BareMetalHostScopeParams struct {
 	Client               client.Client
+	Logger               *logr.Logger
 	HetznerBareMetalHost *infrav1.HetznerBareMetalHost
 	HetznerCluster       *infrav1.HetznerCluster
 	Provisioner          provisioner.Provisioner
@@ -50,8 +53,16 @@ func NewBareMetalHostScope(ctx context.Context, params BareMetalHostScopeParams)
 	if params.RobotClient == nil {
 		return nil, errors.New("cannot create baremetal host scope without robot client")
 	}
+	if params.SSHClient == nil {
+		return nil, errors.New("cannot create baremetal host scope without ssh client")
+	}
 	if params.SSHSecret == nil {
 		return nil, errors.New("cannot create baremetal host scope without ssh secret")
+	}
+
+	if params.Logger == nil {
+		logger := klogr.New()
+		params.Logger = &logger
 	}
 
 	helper, err := patch.NewHelper(params.HetznerCluster, params.Client)
@@ -60,9 +71,11 @@ func NewBareMetalHostScope(ctx context.Context, params BareMetalHostScopeParams)
 	}
 
 	return &BareMetalHostScope{
+		Logger:               params.Logger,
 		Client:               params.Client,
 		Provisioner:          params.Provisioner,
 		RobotClient:          params.RobotClient,
+		SSHClient:            params.SSHClient,
 		patchHelper:          helper,
 		HetznerCluster:       params.HetznerCluster,
 		HetznerBareMetalHost: params.HetznerBareMetalHost,
@@ -72,9 +85,11 @@ func NewBareMetalHostScope(ctx context.Context, params BareMetalHostScopeParams)
 
 // BareMetalHostScope defines the basic context for an actuator to operate upon.
 type BareMetalHostScope struct {
+	*logr.Logger
 	Client               client.Client
 	Provisioner          provisioner.Provisioner
 	RobotClient          robotclient.Client
+	SSHClient            sshclient.Client
 	patchHelper          *patch.Helper
 	HetznerBareMetalHost *infrav1.HetznerBareMetalHost
 	HetznerCluster       *infrav1.HetznerCluster

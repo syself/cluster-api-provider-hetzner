@@ -2,7 +2,8 @@ package hetznerclient
 
 import (
 	"github.com/go-logr/logr"
-	robotclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client"
+	robotclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/robot"
+	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/provisioner"
 	"github.com/syself/hrobot-go/models"
 )
@@ -37,7 +38,7 @@ func NewProvisionerFactory(robotClientFactory robotclient.Factory) provisioner.F
 // configuration for finding the Hetzner services.
 func (f hetznerProvisionerFactory) NewProvisioner(hostData provisioner.HostData) provisioner.Provisioner {
 	return &hetznerProvisioner{
-		robotClient: f.robotClientFactory.NewClient(hostData.HetznerRobotCredentials.Username, hostData.HetznerRobotCredentials.Password),
+		robotClient: f.robotClientFactory.NewClient(hostData.RobotCredentials),
 	}
 }
 
@@ -45,7 +46,7 @@ func (f hetznerProvisionerFactory) NewProvisioner(hostData provisioner.HostData)
 // and uses Hetzner to manage the host.
 type hetznerProvisioner struct {
 	robotClient      robotclient.Client
-	sshClientFactory provisioner.SSHClientFactory
+	sshClientFactory sshclient.Factory
 }
 
 func (c *hetznerProvisioner) GetBMServer(id int) (*models.Server, error) {

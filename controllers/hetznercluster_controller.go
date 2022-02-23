@@ -68,7 +68,6 @@ type HetznerClusterReconciler struct {
 	client.Client
 	APIReader                      client.Reader
 	HCloudClientFactory            hcloudclient.Factory
-	RobotClientFactory             robotclient.Factory
 	Log                            logr.Logger
 	WatchFilterValue               string
 	targetClusterManagersStopCh    map[types.NamespacedName]chan struct{}

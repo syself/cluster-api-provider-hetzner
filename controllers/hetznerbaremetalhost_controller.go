@@ -26,13 +26,13 @@ import (
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
-	robotclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client"
+	robotclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/robot"
+	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/host"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/provisioner"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -50,6 +50,7 @@ type HetznerBareMetalHostReconciler struct {
 	APIReader          client.Reader
 	ProvisionerFactory provisioner.Factory
 	RobotClientFactory robotclient.Factory
+	SSHClientFactory   sshclient.Factory
 	WatchFilterValue   string
 }
 
@@ -108,19 +109,23 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	sshCreds, sshSecret, err := getAndValidateSSHCredentials(ctx, req.Namespace, hetznerCluster, host, secretManager)
 	if err != nil {
 		// TODO (janis): Implement error handling with conditions similar to the one for HetznerCluster
-		return ctrl.Result{}, errors.Wrap(err, "failed to get Hetzner robot credentials")
+		return ctrl.Result{}, errors.Wrap(err, "failed to get ssh credentials")
 	}
+
+	sshClient := r.SSHClientFactory.NewClient(sshCreds)
 
 	robotClient := r.RobotClientFactory.NewClient(robotCreds)
 	prov := r.ProvisionerFactory.NewProvisioner(provisioner.BuildHostData(robotCreds, sshCreds))
 	// Create the scope.
 	hostScope, err := scope.NewBareMetalHostScope(ctx, scope.BareMetalHostScopeParams{
+		Logger:               &log,
 		Client:               r.Client,
 		HetznerCluster:       hetznerCluster,
 		HetznerBareMetalHost: host,
 		Provisioner:          prov,
 		RobotClient:          robotClient,
 		SSHSecret:            sshSecret,
+		SSHClient:            sshClient,
 	})
 	if err != nil {
 		return reconcile.Result{}, errors.Errorf("failed to create scope: %+v", err)
@@ -178,7 +183,7 @@ func getAndValidateRobotCredentials(
 	namespace string,
 	hetznerCluster *infrav1.HetznerCluster,
 	secretManager *secretutil.SecretManager,
-) (robotclient.RobotCredentials, *corev1.Secret, error) {
+) (robotclient.Credentials, *corev1.Secret, error) {
 	secretNamspacedName := types.NamespacedName{Namespace: namespace, Name: hetznerCluster.Spec.HetznerSecret.Name}
 
 	hetznerSecret, err := secretManager.AcquireSecret(
@@ -190,19 +195,19 @@ func getAndValidateRobotCredentials(
 	)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			return robotclient.RobotCredentials{}, nil, &secretutil.ResolveSecretRefError{Message: fmt.Sprintf("The Hetzner secret %s does not exist", secretNamspacedName)}
+			return robotclient.Credentials{}, nil, &secretutil.ResolveSecretRefError{Message: fmt.Sprintf("The Hetzner secret %s does not exist", secretNamspacedName)}
 		}
-		return robotclient.RobotCredentials{}, nil, err
+		return robotclient.Credentials{}, nil, err
 	}
 
-	creds := robotclient.RobotCredentials{
+	creds := robotclient.Credentials{
 		Username: string(hetznerSecret.Data[hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser]),
 		Password: string(hetznerSecret.Data[hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword]),
 	}
 
 	// Validate token
 	if err := creds.Validate(); err != nil {
-		return robotclient.RobotCredentials{}, nil, err
+		return robotclient.Credentials{}, nil, err
 	}
 
 	return creds, hetznerSecret, nil
@@ -214,7 +219,7 @@ func getAndValidateSSHCredentials(
 	hetznerCluster *infrav1.HetznerCluster,
 	host *infrav1.HetznerBareMetalHost,
 	secretManager *secretutil.SecretManager,
-) (robotclient.SSHCredentials, *corev1.Secret, error) {
+) (sshclient.Credentials, *corev1.Secret, error) {
 	secretNamspacedName := types.NamespacedName{Namespace: namespace, Name: hetznerCluster.Spec.SSHKeys.Robot.Name}
 
 	sshSecret, err := secretManager.AcquireSecret(
@@ -226,12 +231,12 @@ func getAndValidateSSHCredentials(
 	)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			return robotclient.SSHCredentials{}, nil, &secretutil.ResolveSecretRefError{Message: fmt.Sprintf("The SSH secret %s does not exist", secretNamspacedName)}
+			return sshclient.Credentials{}, nil, &secretutil.ResolveSecretRefError{Message: fmt.Sprintf("The SSH secret %s does not exist", secretNamspacedName)}
 		}
-		return robotclient.SSHCredentials{}, nil, err
+		return sshclient.Credentials{}, nil, err
 	}
 
-	creds := robotclient.SSHCredentials{
+	creds := sshclient.Credentials{
 		Name:       string(sshSecret.Data[hetznerCluster.Spec.SSHKeys.Robot.Key.Name]),
 		PublicKey:  string(sshSecret.Data[hetznerCluster.Spec.SSHKeys.Robot.Key.PublicKey]),
 		PrivateKey: string(sshSecret.Data[hetznerCluster.Spec.SSHKeys.Robot.Key.PrivateKey]),
@@ -239,7 +244,7 @@ func getAndValidateSSHCredentials(
 
 	// Validate token
 	if err := creds.Validate(); err != nil {
-		return robotclient.SSHCredentials{}, nil, err
+		return sshclient.Credentials{}, nil, err
 	}
 
 	return creds, sshSecret, nil
@@ -247,18 +252,6 @@ func getAndValidateSSHCredentials(
 
 func hostHasFinalizer(host *infrav1.HetznerBareMetalHost) bool {
 	return utils.StringInList(host.Finalizers, infrav1.HetznerBareMetalHostFinalizer)
-}
-
-func (r *HetznerBareMetalHostReconciler) saveHostStatus(host *infrav1.HetznerBareMetalHost) error {
-	t := metav1.Now()
-	host.Spec.Status.LastUpdated = &t
-
-	return r.Status().Update(context.TODO(), host)
-}
-
-func (r *HetznerBareMetalHostReconciler) setErrorCondition(request ctrl.Request, bmHost *infrav1.HetznerBareMetalHost, errType infrav1.ErrorType, message string) error {
-	host.SetErrorMessage(bmHost, errType, message)
-	return r.saveHostStatus(bmHost)
 }
 
 // SetupWithManager sets up the controller with the Manager.

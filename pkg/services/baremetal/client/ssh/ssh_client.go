@@ -17,35 +17,33 @@ var (
 	ErrSSHDialFailed = errors.New("failed to dial ssh")
 )
 
-type SSHInput struct {
-	IP            string
-	PrivateSSHKey string
-	Port          int
+type Input struct {
+	IP         string
+	PrivateKey string
+	Port       int
 }
 
-type SSHOutput struct {
+type Output struct {
 	StdOut string
 	StdErr string
 	Err    error
 }
-type SSHClient interface {
-	GetHostName() SSHOutput
+type Client interface {
+	GetHostName() Output
 }
 
-// SSHClientFactory is the interface for creating new SSHClient objects.
-type SSHClientFactory interface {
-	NewSSHClient(*Credentials) SSHClient
+// Factory is the interface for creating new Client objects.
+type Factory interface {
+	NewClient(Credentials) Client
 }
 
-type sshClientFactory struct{}
+type sshFactory struct{}
 
-var _ = SSHClientFactory(&sshClientFactory{})
+var _ = Factory(&sshFactory{})
 
-func (f *sshClientFactory) NewSSHClient(creds Credentials) SSHClient {
+func (f *sshFactory) NewClient(creds Credentials) Client {
 	return &sshClient{
-		ip:            hostData.IP,
-		privateSSHKey: hostData.PrivateSSHKey,
-		port:          hostData.Port,
+		privateSSHKey: creds.PrivateKey,
 	}
 }
 
@@ -55,18 +53,18 @@ type sshClient struct {
 	port          int
 }
 
-var _ = SSHClient(&sshClient{})
+var _ = Client(&sshClient{})
 
-func (c *sshClient) GetHostName() SSHOutput {
+func (c *sshClient) GetHostName() Output {
 	return runSSH("hostname", c.ip, c.port, c.privateSSHKey)
 }
 
-func runSSH(command, ip string, port int, privateSSHKey string) SSHOutput {
+func runSSH(command, ip string, port int, privateSSHKey string) Output {
 
 	// Create the Signer for this private key.
 	signer, err := ssh.ParsePrivateKey([]byte(privateSSHKey))
 	if err != nil {
-		return SSHOutput{Err: errors.Errorf("unable to parse private key: %v", err)}
+		return Output{Err: errors.Errorf("unable to parse private key: %v", err)}
 	}
 
 	config := &ssh.ClientConfig{
@@ -83,13 +81,13 @@ func runSSH(command, ip string, port int, privateSSHKey string) SSHOutput {
 
 	client, err := ssh.Dial("tcp", ip+":"+strconv.Itoa(port), config)
 	if err != nil {
-		return SSHOutput{Err: ErrSSHDialFailed}
+		return Output{Err: ErrSSHDialFailed}
 	}
 	defer client.Close()
 
 	sess, err := client.NewSession()
 	if err != nil {
-		return SSHOutput{Err: errors.Wrap(err, "unable to create new ssh session")}
+		return Output{Err: errors.Wrap(err, "unable to create new ssh session")}
 	}
 	defer sess.Close()
 
@@ -100,7 +98,7 @@ func runSSH(command, ip string, port int, privateSSHKey string) SSHOutput {
 	sess.Stderr = &stderrBuffer
 
 	err = sess.Run(command)
-	return SSHOutput{
+	return Output{
 		StdOut: stdoutBuffer.String(),
 		StdErr: stderrBuffer.String(),
 		Err:    err,
