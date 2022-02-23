@@ -243,6 +243,31 @@ spec:
                       - name
                       type: object
                     type: array
+                  robotSecretRef:
+                    description: RobotSSHSecretRef defines the secret containing all
+                      information of the SSH key used for Hetzner robot.
+                    properties:
+                      key:
+                        description: RobotSSHSecretKeyRef defines the key name of
+                          the RobotSSHSecret.
+                        properties:
+                          name:
+                            type: string
+                          privateKey:
+                            type: string
+                          publicKey:
+                            type: string
+                        required:
+                        - name
+                        - privateKey
+                        - publicKey
+                        type: object
+                      name:
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
                 type: object
             required:
             - controlPlaneRegions

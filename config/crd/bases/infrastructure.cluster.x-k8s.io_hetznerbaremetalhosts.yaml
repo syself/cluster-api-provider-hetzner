@@ -79,42 +79,32 @@ spec:
                 description: Description is a human-entered text used to help identify
                   the host
                 type: string
+              hetznerClusterName:
+                description: HetznerClusterName points to the name of the HetznerCluster
+                  object and is used internally.
+                type: string
               hetznerClusterRef:
                 description: HetznerClusterRef is the name of the HetznerCluster object
                   which is needed as some necessary information is stored there, e.g.
                   the hrobot password
                 type: string
               image:
-                description: Image holds the details of the image to be provisioned.
-                  http, https, ftp allowed or the name.
+                description: 'Image holds the details of the image to be provisioned.
+                  http, https, ftp, nfs allowed. TODO: Validation ftp:// ; http://
+                  ; https:// ;  hostname:'
                 type: string
+              maintenanceMode:
+                description: MaintenanceMode indicates that a machine is supposed
+                  to be deprovisioned and won't be selected by any Hetzner bare metal
+                  machine.
+                type: boolean
               online:
                 description: Should the server be online?
                 type: boolean
-              region:
-                description: Region contains the server location.
-                enum:
-                - fsn1
-                - hel1
-                - nbg1
-                - ash
-                type: string
               rootDeviceHints:
                 description: Provide guidance about how to choose the device for the
                   image being provisioned.
                 properties:
-                  minSizeGigabytes:
-                    description: The minimum size of the device in Gigabytes.
-                    minimum: 0
-                    type: integer
-                  rotational:
-                    description: True if the device should use spinning media, false
-                      otherwise.
-                    type: boolean
-                  serialNumber:
-                    description: Device serial number. The hint must match the actual
-                      value exactly.
-                    type: string
                   wwn:
                     description: Unique storage identifier. The hint must match the
                       actual value exactly.
@@ -182,6 +172,26 @@ spec:
                     - preparation error
                     - provisioning error
                     type: string
+                  goodSSHCredentials:
+                    description: the last credentials we were able to validate as
+                      working
+                    properties:
+                      credentials:
+                        description: SecretReference represents a Secret Reference.
+                          It has enough information to retrieve secret in any namespace
+                        properties:
+                          name:
+                            description: Name is unique within a namespace to reference
+                              a secret resource.
+                            type: string
+                          namespace:
+                            description: Namespace defines the space within which
+                              the secret name must be unique.
+                            type: string
+                        type: object
+                      credentialsVersion:
+                        type: string
+                    type: object
                   hardwareDetails:
                     description: StatusHardwareDetails are automatically gathered
                       and should not be modified by the user.
@@ -256,6 +266,9 @@ spec:
                                 "/dev/sda". Note that this may not be stable across
                                 reboots.
                               type: string
+                            rota:
+                              description: Rota defines if its a HDD device or not.
+                              type: boolean
                             serialNumber:
                               description: The serial number of the device
                               type: string
@@ -279,6 +292,25 @@ spec:
                           type: object
                         type: array
                     type: object
+                  hetznerRobotSSHKey:
+                    description: HetznerRobotSSHKey contains name and fingerprint
+                      of the in HetznerCluster spec specified SSH key.
+                    properties:
+                      fingerprint:
+                        description: Fingerprint of SSH key - added by controller
+                        type: string
+                      name:
+                        description: Name of SSH key
+                        minLength: 1
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  lastUpdated:
+                    description: the last error message reported by the provisioning
+                      subsystem.
+                    format: date-time
+                    type: string
                   operationHistory:
                     description: OperationHistory holds information about operations
                       performed on this host.
@@ -349,6 +381,32 @@ spec:
                   provisioningState:
                     description: Information tracked by the provisioner.
                     type: string
+                  resetTypes:
+                    description: ResetTypes is a list of all available reset types
+                      for API resets
+                    items:
+                      type: string
+                    type: array
+                  triedSSHCredentials:
+                    description: the last credentials we sent to the provisioning
+                      backend
+                    properties:
+                      credentials:
+                        description: SecretReference represents a Secret Reference.
+                          It has enough information to retrieve secret in any namespace
+                        properties:
+                          name:
+                            description: Name is unique within a namespace to reference
+                              a secret resource.
+                            type: string
+                          namespace:
+                            description: Namespace defines the space within which
+                              the secret name must be unique.
+                            type: string
+                        type: object
+                      credentialsVersion:
+                        type: string
+                    type: object
                   userData:
                     description: UserData holds the reference to the Secret containing
                       the user data to be passed to the host before it boots.
@@ -367,6 +425,7 @@ spec:
                 - errorMessage
                 - operationalStatus
                 - provisioningState
+                - resetTypes
                 type: object
               type:
                 description: Type of the server.

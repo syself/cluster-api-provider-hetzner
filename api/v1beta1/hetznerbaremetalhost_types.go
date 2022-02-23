@@ -72,6 +72,12 @@ type ErrorType string
 const (
 	ErrorTypeSoftwareResetTooSlow ErrorType = "software reset too slow"
 	ErrorTypeHardwareResetTooSlow ErrorType = "hardware reset too slow"
+
+	ErrorTypeSoftwareResetNotStarted ErrorType = "software reset not started"
+	ErrorTypeHardwareResetNotStarted ErrorType = "hardware reset not started"
+
+	ErrorTypeSoftwareResetFailed ErrorType = "software reset failed"
+	ErrorTypeHardwareResetFailed ErrorType = "hardware reset failed"
 	// ProvisionedRegistrationError is an error condition occurring when the controller
 	// is unable to re-register an already provisioned host.
 	ProvisionedRegistrationError ErrorType = "provisioned registration error"
@@ -98,8 +104,8 @@ const (
 	// StateUnmanaged means there is insufficient information available to register the host.
 	StateUnmanaged ProvisioningState = "unmanaged"
 
-	// StateRescueSystem means that we need to put the server in rescue system.
-	StateRescueSystem ProvisioningState = "rescue-system"
+	// StateEnsureRescue means that we ensure the server is in rescue system.
+	StateEnsureRescue ProvisioningState = "ensure-rescue"
 
 	// StateRegistering means we are telling the backend about the host. Checking if server exists in robot api. -> available.
 	StateRegistering ProvisioningState = "registering"
@@ -129,10 +135,10 @@ const (
 type ResetType string
 
 const (
-	ResetTypeHardware = "hw"
-	ResetTypePower    = "power"
-	ResetTypeSoftware = "sw"
-	ResetTypeManual   = "man"
+	ResetTypeHardware ResetType = "hw"
+	ResetTypePower    ResetType = "power"
+	ResetTypeSoftware ResetType = "sw"
+	ResetTypeManual   ResetType = "man"
 )
 
 // HetznerBareMetalHostSpec defines the desired state of HetznerBareMetalHost.

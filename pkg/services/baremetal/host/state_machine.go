@@ -1,6 +1,7 @@
 package host
 
 import (
+	"context"
 	"fmt"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -56,20 +57,16 @@ func (hsm *hostStateMachine) ReconcileState(info *reconcileInfo) (actionRes acti
 func (hsm *hostStateMachine) handleNone(info *reconcileInfo) actionResult {
 	actResult := hsm.reconciler.actionNone(info)
 	if _, ok := actResult.(actionComplete); ok {
-		hsm.nextState = infrav1.StateRegistering
+		hsm.nextState = infrav1.StateEnsureRescue
 	}
 	return actResult
 }
 
-func (hsm *hostStateMachine) handleRegistering(info *reconcileInfo) actionResult {
-	server, actResult := hsm.reconciler.verifyReboot(info)
+func (hsm *hostStateMachine) handleEnsureRescue(ctx context.Context, info *reconcileInfo) actionResult {
+	actResult := hsm.reconciler.handleEnsureRescue(ctx, info)
 	if _, ok := actResult.(actionComplete); ok {
 		// Check whether server needs to be set in rescue state
-		if server.Rescue {
-			hsm.nextState = infrav1.StateRegistering
-		} else {
-			hsm.nextState = infrav1.StateRescueSystem
-		}
+		hsm.nextState = infrav1.StateRegistering
 	}
 	return actResult
 }

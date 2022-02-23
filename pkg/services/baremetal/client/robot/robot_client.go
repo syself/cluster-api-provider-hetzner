@@ -19,6 +19,7 @@ type Client interface {
 	ListSSHKeys() ([]models.Key, error)
 	SetSSHKey(name, publickey string) (*models.Key, error)
 	SetBootRescue(id int, fingerprint string) (*models.Rescue, error)
+	GetBootRescue(id int) (*models.Rescue, error)
 	GetReset(int) (*models.Reset, error)
 }
 
@@ -97,6 +98,10 @@ func (c *realHetznerRobotClient) SetSSHKey(name, publicKey string) (*models.Key,
 
 func (c *realHetznerRobotClient) SetBootRescue(id int, fingerprint string) (*models.Rescue, error) {
 	return c.client.BootRescueSet(id, &models.RescueSetInput{OS: "linux", AuthorizedKey: fingerprint})
+}
+
+func (c *realHetznerRobotClient) GetBootRescue(id int) (*models.Rescue, error) {
+	return c.client.BootRescueGet(id)
 }
 
 func (c *realHetznerRobotClient) GetReset(id int) (*models.Reset, error) {
