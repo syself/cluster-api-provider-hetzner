@@ -12,7 +12,7 @@ It is a common practice to create a temporary, local bootstrap cluster which is 
 ## Choose one of the options below:
 
 ### 1. Existing Management Cluster.
-For production use-cases a “real” Kubernetes cluster should be used with appropriate backup and DR policies and procedures in place. The Kubernetes cluster must be at least v1.22.1.
+For production use-cases a “real” Kubernetes cluster should be used with appropriate backup and DR policies and procedures in place. The Kubernetes cluster must be at least a [supported version](../../README.md#compatibility-with-cluster-api-and-kubernetes-versions).
 ### 2. Kind. 
 kind can be used for creating a local Kubernetes cluster for development environments or for the creation of a temporary bootstrap cluster used to provision a target management cluster on the selected infrastructure provider.
 
@@ -38,7 +38,7 @@ or for a specific version: `--infrastructure hetzner:vX.X.X`
 
 ## HA Cluster API Components (optional)
 The clusterctl CLI will create all the four needed components cluster-api (CAPI), cluster-api-bootstrap-provider-kubeadm (CAPBK), cluster-api-control-plane-kubeadm (KCP) and cluster-api-provider-hetzner (CAPH).
-It uses the respective *-components.yaml from the releases. However, these are not highly available. By scaling the components we can at least reduce the probability of failure. For whom this is not enough could add pdbs.
+It uses the respective *-components.yaml from the releases. However, these are not highly available. By scaling the components we can at least reduce the probability of failure. For whom this is not enough could add anti-affinity rules and PDBs.
 
 Scale up the deployments
 ```shell
@@ -180,6 +180,7 @@ KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install ccm syself/ccm
 ```
 
 ### Deploy the CSI (optional)
+```shell
 cat << EOF > csi-values.yaml
 storageClasses:
 - name: hcloud-volumes
@@ -189,7 +190,7 @@ EOF
 
 KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install csi syself/csi-hcloud --version 0.2.0 \
 --namespace kube-system -f csi-values.yaml
-
+```
 
 ## Clean Up
 
