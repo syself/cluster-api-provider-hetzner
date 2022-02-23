@@ -152,7 +152,7 @@ func (s *ClusterScope) ClientConfig(ctx context.Context) (clientcmd.ClientConfig
 	}
 
 	secretManager := secretutil.NewSecretManager(*s.Logger, s.Client, s.APIReader)
-	kubeconfigSecret, err := secretManager.AcquireSecret(ctx, cluster, s.HetznerCluster, false, s.HetznerCluster.DeletionTimestamp.IsZero())
+	kubeconfigSecret, err := secretManager.AcquireSecret(ctx, cluster, s.HetznerCluster, false, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to acquire secret")
 	}
