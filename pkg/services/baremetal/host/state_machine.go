@@ -63,7 +63,16 @@ func (hsm *hostStateMachine) handleNone(info *reconcileInfo) actionResult {
 }
 
 func (hsm *hostStateMachine) handleEnsureRescue(ctx context.Context, info *reconcileInfo) actionResult {
-	actResult := hsm.reconciler.handleEnsureRescue(ctx, info)
+	actResult := hsm.reconciler.actionEnsureRescue(ctx, info)
+	if _, ok := actResult.(actionComplete); ok {
+		// Check whether server needs to be set in rescue state
+		hsm.nextState = infrav1.StateRegistering
+	}
+	return actResult
+}
+
+func (hsm *hostStateMachine) handleRegistering(ctx context.Context, info *reconcileInfo) actionResult {
+	actResult := hsm.reconciler.actionRegistering(ctx, info)
 	if _, ok := actResult.(actionComplete); ok {
 		// Check whether server needs to be set in rescue state
 		hsm.nextState = infrav1.StateRegistering
@@ -199,10 +208,11 @@ gehe zu StateImageInstallingRescue
 das Ganze nicht funktioniert
 5. StateImageInstalling:
 	1. Prüfe ob in Rescue System.
-	1. Storage devices holen (lsblk -b -P -o "NAME,LABEL,FSTYPE,TYPE,HCTL,MODEL,VENDOR,SERIAL,SIZE,WWN,ROTA)
+	1. Storage devices holen (lsblk -b -P -o "NAME,LABEL,FSTYPE,TYPE,HCTL,MODEL,VENDOR,SERIAL,SIZE,WWN,ROTA) (nicht speichern)
 	2. Wählen Festplatte von type "disk" mit der richtigen WWN aus root device hints aus und merken uns Namen
 	3. Wir haben ein script in einer config map, wo wir ein go template raus machen sollten, um die Variablen os_device, hostname und image
 	einfügen zu können. Die COnfig map müssen wir wie secrets auslesen. Die Referenz muss in den Specs des baremetal machine objects stehen.
+	-> In den specs setzen
 	TODO: Wie kann man das mit go templates machen?
 	Es wäre sinnvoll, die Config map als erstes zu validieren, um direkt in einen error state gehen zu können, ohne die aufwändigen Sachen
 	vom Anfang zu machen. Validierung heißt hier, dass wir die drei Variablen einsetzen können und templaten können. Wir wollen auch einen

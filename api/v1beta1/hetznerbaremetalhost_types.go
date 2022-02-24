@@ -200,6 +200,9 @@ type ControllerGeneratedStatus struct {
 	// StatusHardwareDetails are automatically gathered and should not be modified by the user.
 	HardwareDetails *HardwareDetails `json:"hardwareDetails,omitempty"`
 
+	// IP address of server.
+	IP string `json:"ip"`
+
 	// OperationalStatus holds the status of the host
 	// +kubebuilder:validation:Enum="";OK;discovered;error;delayed;detached
 	OperationalStatus OperationalStatus `json:"operationalStatus"`
@@ -292,59 +295,26 @@ type OperationMetric struct {
 // Capacity is a disk size in Bytes.
 type Capacity int64
 
-// Capacity multipliers.
-const (
-	Byte     Capacity = 1
-	KibiByte          = Byte * 1024
-	KiloByte          = Byte * 1000
-	MebiByte          = KibiByte * 1024
-	MegaByte          = KiloByte * 1000
-	GibiByte          = MebiByte * 1024
-	GigaByte          = MegaByte * 1000
-	TebiByte          = GibiByte * 1024
-	TeraByte          = GigaByte * 1000
-)
-
-// DiskType is a disk type, i.e. HDD, SSD, NVME.
-type DiskType string
-
-// DiskType constants.
-const (
-	HDD  DiskType = "HDD"
-	SSD  DiskType = "SSD"
-	NVME DiskType = "NVME"
-)
-
 // ClockSpeed is a clock speed in MHz
 // +kubebuilder:validation:Format=double
 type ClockSpeed string
-
-// ClockSpeed multipliers.
-const (
-	MegaHertz ClockSpeed = "1.0"
-	GigaHertz            = "1000"
-)
 
 // CPU describes one processor on the host.
 type CPU struct {
 	Arch           string     `json:"arch,omitempty"`
 	Model          string     `json:"model,omitempty"`
-	ClockMegahertz ClockSpeed `json:"clockMegahertz,omitempty"`
+	ClockGigahertz ClockSpeed `json:"clockGigahertz,omitempty"`
 	Flags          []string   `json:"flags,omitempty"`
-	Count          int        `json:"count,omitempty"`
+	Threads        int        `json:"threads,omitempty"`
+	Cores          int        `json:"cores,omitempty"`
 }
 
 // Storage describes one storage device (disk, SSD, etc.) on the host.
-// TODO: Could be matched by extracting the information with: lsblk -b -P -o "NAME,LABEL,FSTYPE,TYPE,HCTL,MODEL,VENDOR,SERIAL,SIZE,WWN,ROTA" .
+// TODO: Could be matched by extracting the information with: lsblk -b -P -o "NAME,TYPE,SIZE,VENDOR,MODEL,SERIAL,WWN,HCTL,ROTA" .
 type Storage struct {
 	// The Linux device name of the disk, e.g. "/dev/sda". Note that this
 	// may not be stable across reboots.
 	Name string `json:"name,omitempty"`
-
-	// Device type, one of: HDD, SSD, NVME.
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:validation:Enum=HDD;SSD;NVME;
-	Type DiskType `json:"type,omitempty"`
 
 	// The size of the disk in Bytes
 	SizeBytes Capacity `json:"sizeBytes,omitempty"`
@@ -386,7 +356,7 @@ type NIC struct {
 	IP string `json:"ip,omitempty"`
 
 	// The speed of the device in Gigabits per second
-	SpeedGbps int `json:"speedGbps,omitempty"`
+	SpeedMbps int `json:"speedMbps,omitempty"`
 }
 
 // HardwareDetails collects all of the information about hardware
@@ -396,7 +366,6 @@ type HardwareDetails struct {
 	NIC          []NIC     `json:"nics,omitempty"`
 	Storage      []Storage `json:"storage,omitempty"`
 	CPU          CPU       `json:"cpu,omitempty"`
-	Hostname     string    `json:"hostname,omitempty"`
 }
 
 // +kubebuilder:object:root=true

@@ -49,6 +49,7 @@ type HetznerBareMetalMachineSpec struct {
 	// +optional
 	Type string `json:"hostSelector,omitempty"`
 
+	AutoSetupTemplateRef *corev1.ConfigMap `json:"autoSetupTemplateRef"`
 	// When set to true we delete all data when we provision the node.
 	// +optional
 	// +kubebuilder:default:=false

@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -150,6 +152,9 @@ func (s *Service) actionNone(info *reconcileInfo) actionResult {
 		}
 		return actionError{err: errors.Wrap(err, "failed to get bare metal server")}
 	}
+
+	s.scope.HetznerBareMetalHost.Spec.Status.IP = server.ServerIP
+
 	hetznerSSHKeys, err := s.scope.RobotClient.ListSSHKeys() // hetznerSSHKeys, err :=
 	if err != nil {
 		if models.IsError(err, models.ErrorCodeNotFound) {
@@ -235,10 +240,9 @@ func (s *Service) actionNone(info *reconcileInfo) actionResult {
 	return actionComplete{}
 }
 
-func (s *Service) handleEnsureRescue(ctx context.Context, info *reconcileInfo) actionResult {
+func (s *Service) actionEnsureRescue(ctx context.Context, info *reconcileInfo) actionResult {
 	// Try accessing server with ssh
 	isInRescue, isInOS, isTimeout, err := checkHostNameOutput(s.scope.SSHClient.GetHostName())
-	fmt.Println("error", err)
 	if err != nil {
 		return actionError{err: errors.Wrap(err, "failed to get host name via ssh")}
 	}
@@ -467,6 +471,170 @@ func (s *Service) ensureRescueModeAndResetServer(resetType infrav1.ResetType) er
 
 	if _, err := s.scope.RobotClient.ResetBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID, resetType); err != nil {
 		return errors.Wrap(err, "failed to reset bare metal server")
+	}
+	return nil
+}
+
+func (s *Service) actionRegistering(ctx context.Context, info *reconcileInfo) actionResult {
+	var hardwareDetails infrav1.HardwareDetails
+	mebiBytes, err := s.obtainHardwareDetailsRam()
+	if err != nil {
+		return actionError{err: err}
+	}
+	hardwareDetails.RAMMebibytes = mebiBytes
+
+	nics, err := s.obtainHardwareDetailsNics()
+	if err != nil {
+		return actionError{err: err}
+	}
+	hardwareDetails.NIC = nics
+
+	storage, err := s.obtainHardwareDetailsStorage()
+	if err != nil {
+		return actionError{err: err}
+	}
+	hardwareDetails.Storage = storage
+
+	s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails = &hardwareDetails
+
+	if s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.WWN == "" {
+		return s.recordActionFailure(infrav1.RegistrationError, "no root device hints specified yet")
+	}
+	for _, st := range storage {
+		if s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.WWN == st.WWN {
+			return actionContinue{}
+		}
+	}
+	return s.recordActionFailure(infrav1.RegistrationError, "no storage device found with root device hints")
+}
+
+func (s *Service) obtainHardwareDetailsRam() (int, error) {
+	out := s.scope.SSHClient.GetHardwareDetailsRam()
+	if err := handleSSHError(out); err != nil {
+		return 0, err
+	}
+
+	kibiBytes, err := strconv.Atoi(out.StdOut)
+	if err != nil {
+		return 0, errors.Wrapf(err, "failed to parse ssh output to memory int. StdOut: %s", out.StdOut)
+	}
+	mebiBytes := kibiBytes / 1024
+
+	return mebiBytes, nil
+}
+
+func (s *Service) obtainHardwareDetailsNics() ([]infrav1.NIC, error) {
+	type originalNic struct {
+		Name      string `json:"name,omitempty"`
+		Model     string `json:"model,omitempty"`
+		MAC       string `json:"mac,omitempty"`
+		IP        string `json:"ip,omitempty"`
+		SpeedMbps string `json:"speedMbps,omitempty"`
+	}
+
+	out := s.scope.SSHClient.GetHardwareDetailsNics()
+	if err := handleSSHError(out); err != nil {
+		return nil, err
+	}
+	stringArray := strings.Split(out.StdOut, "\n")
+	nicsArray := make([]infrav1.NIC, len(stringArray))
+
+	for i, str := range stringArray {
+		validJSONString := validJSONFromSSHOutput(str)
+
+		var nic originalNic
+		if err := json.Unmarshal([]byte(validJSONString), &nic); err != nil {
+			return nil, errors.Wrapf(err, "failed to unmarshal %v. Original ssh output: %s", validJSONString, out.StdOut)
+		}
+		speedMbps, err := strconv.Atoi(nic.SpeedMbps)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to parse int from string %s", nic.SpeedMbps)
+		}
+		nicsArray[i] = infrav1.NIC{
+			Name:      nic.Name,
+			Model:     nic.Model,
+			MAC:       nic.MAC,
+			IP:        nic.IP,
+			SpeedMbps: speedMbps,
+		}
+	}
+
+	return nicsArray, nil
+}
+
+func (s *Service) obtainHardwareDetailsStorage() ([]infrav1.Storage, error) {
+	type originalStorage struct {
+		Name         string `json:"name,omitempty"`
+		Type         string `json:"type,omitempty"`
+		FsType       string `json:"fsType,omitempty"`
+		Label        string `json:"label,omitempty"`
+		SizeBytes    string `json:"size,omitempty"`
+		Vendor       string `json:"vendor,omitempty"`
+		Model        string `json:"model,omitempty"`
+		SerialNumber string `json:"serial,omitempty"`
+		WWN          string `json:"wwn,omitempty"`
+		HCTL         string `json:"hctl,omitempty"`
+		Rota         string `json:"rota,omitempty"`
+	}
+
+	out := s.scope.SSHClient.GetHardwareDetailsStorage()
+	if err := handleSSHError(out); err != nil {
+		return nil, err
+	}
+	stringArray := strings.Split(out.StdOut, "\n")
+	storageArray := make([]infrav1.Storage, 0, len(stringArray))
+
+	for _, str := range stringArray {
+		validJSONString := validJSONFromSSHOutput(str)
+
+		var storage originalStorage
+		if err := json.Unmarshal([]byte(validJSONString), &storage); err != nil {
+			return nil, errors.Wrapf(err, "failed to unmarshal %v. Original ssh output: %s", validJSONString, out.StdOut)
+		}
+		sizeBytes, err := strconv.Atoi(storage.SizeBytes)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to parse int from string %s", storage.SizeBytes)
+		}
+
+		var rota bool
+		switch storage.Rota {
+		case "1":
+			rota = true
+		case "0":
+			rota = false
+		default:
+			return nil, fmt.Errorf("unknown ROTA %s. Expect either 1 or 0", storage.Rota)
+		}
+
+		if storage.Type == "disk" {
+			storageArray = append(storageArray, infrav1.Storage{
+				Name:         storage.Name,
+				SizeBytes:    infrav1.Capacity(sizeBytes),
+				Vendor:       storage.Vendor,
+				Model:        storage.Model,
+				SerialNumber: storage.SerialNumber,
+				WWN:          storage.WWN,
+				HCTL:         storage.HCTL,
+				Rota:         rota,
+			})
+		}
+	}
+
+	return storageArray, nil
+}
+
+func validJSONFromSSHOutput(str string) string {
+	tempString1 := strings.ReplaceAll(str, `" `, `","`)
+	tempString2 := strings.ReplaceAll(tempString1, `="`, `":"`)
+	return fmt.Sprintf(`{"%s}`, strings.TrimSpace(tempString2))
+}
+
+func handleSSHError(out sshclient.Output) error {
+	if out.Err != nil {
+		return errors.Wrap(out.Err, "failed to perform ssh command")
+	}
+	if out.StdErr != "" {
+		return fmt.Errorf("error occured during ssh command. StdErr: %s", out.StdErr)
 	}
 	return nil
 }
