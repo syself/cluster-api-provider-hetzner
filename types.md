@@ -1,50 +1,24 @@
-DRIVE1 /dev/{{ OS_DRIVE }}
+# Wir setzten die folgenden Dinge in die /autosetup datei:
 
-HOSTNAME {{ HOSTNAME }}
+DRIVE1 /dev/<os-drive-name> # bekommen wir von lsblk und der auswahllogik (WWN match)
+HOSTNAME <hetznerbaremetalmachine-name> 
+SWRAID 0
 
-IMAGE {{ IMAGE }}
+# Loop over Partitions:
+PART <MountPoint> <FileSystem> <Size>
 
-## Nicht setzbar wird vom controller gesetzt.
-DRIVE1
-HOSTNAME CentOS-85-64-minimal
+# Loop over LVMDefinitions
+LV <VG> <name> <mount> <filesystem> <size>
 
-## Defaults setzen wir.
-SWRAID 0 # Setzen wir
+Loop over BTRFSDefinitions
+SUBVOL <volume> <subvolume> <mount>
 
-
-## Configuration
-network:
-  ipv4Only: false
-
-partitions:
-  variante1: #normal
-  - mountpoint:
-    filesystem:
-    size:
-  variante2: #lvm
-  - volumeGroup:
-    size:
-  variante3: #btrfs
-  - name:
-    mount: # all??
-
-  lvmDefinitions:
-  - volumeGroup:
-    name:
-    mount:
-    filesystem:
-    size:
-  btrfsSubvolume:
-  - subvolume:
-    name:
-    mount:
+IMAGE <Image> # aus hetznerbaremetalmachine.spec.image
 
 
 
 
-
-
-
+Reference:
 ```shell
 ## ======================================================
 ##  Hetzner Online GmbH - installimage - standard config
