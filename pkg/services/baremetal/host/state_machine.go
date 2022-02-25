@@ -75,14 +75,17 @@ func (hsm *hostStateMachine) handleRegistering(ctx context.Context, info *reconc
 	actResult := hsm.reconciler.actionRegistering(ctx, info)
 	if _, ok := actResult.(actionComplete); ok {
 		// Check whether server needs to be set in rescue state
-		hsm.nextState = infrav1.StateRegistering
+		hsm.nextState = infrav1.StateAvailable
 	}
 	return actResult
 }
 
-func (hsm *hostStateMachine) handleAvailable(info *reconcileInfo) actionResult {
-	// StateAvailable boots the machine in the rescue system. (api hetzner rescue + reboot)
-	// Gathers informations about the machine. (Storage, NIC, CPU, RAM) -> spec.status
+func (hsm *hostStateMachine) handleAvailable(ctx context.Context, info *reconcileInfo) actionResult {
+	actResult := hsm.reconciler.actionAvailable(ctx, info)
+	if _, ok := actResult.(actionComplete); ok {
+		// Check whether server needs to be set in rescue state
+		hsm.nextState = infrav1.StateAvailable
+	}
 
 	return actionComplete{}
 }

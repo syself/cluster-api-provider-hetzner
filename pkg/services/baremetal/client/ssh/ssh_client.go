@@ -35,7 +35,7 @@ type Client interface {
 	GetHardwareDetailsStorage() Output
 	GetHardwareDetailsCPUArch() Output
 	GetHardwareDetailsCPUModel() Output
-	GetHardwareDetailsCPUClockMegahertz() Output
+	GetHardwareDetailsCPUClockGigahertz() Output
 	GetHardwareDetailsCPUFlags() Output
 	GetHardwareDetailsCPUThreads() Output
 	GetHardwareDetailsCPUCores() Output
@@ -113,8 +113,8 @@ func (c *sshClient) GetHardwareDetailsCPUModel() Output {
 	return c.runSSH(`lscpu | grep "Model name:" | awk '{$1=$2=""; print $0}' | sed "s/^[ \t]*//"`)
 }
 
-func (c *sshClient) GetHardwareDetailsCPUClockMegahertz() Output {
-	return c.runSSH(`lscpu | grep "Model name:" | awk '{$1=$2=""; print $0}' | sed "s/^[ \t]*//"`)
+func (c *sshClient) GetHardwareDetailsCPUClockGigahertz() Output {
+	return c.runSSH(`lscpu | grep "CPU max MHz:" |  awk '{printf "%.1f", $4/1000}'`)
 }
 
 func (c *sshClient) GetHardwareDetailsCPUFlags() Output {

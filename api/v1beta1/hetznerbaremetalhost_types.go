@@ -437,6 +437,17 @@ func (host *HetznerBareMetalHost) HasPowerReset() bool {
 	return false
 }
 
+// NeedsProvisioning compares the settings with the provisioning
+// status and returns true when more work is needed or false
+// otherwise.
+func (host *HetznerBareMetalHost) NeedsProvisioning() bool {
+	if host.Spec.Image == "" {
+		// Without an image, there is nothing to provision.
+		return false
+	}
+	return false
+}
+
 //+kubebuilder:object:root=true
 
 // HetznerBareMetalHostList contains a list of HetznerBareMetalHost.

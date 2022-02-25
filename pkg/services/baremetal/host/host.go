@@ -476,33 +476,41 @@ func (s *Service) ensureRescueModeAndResetServer(resetType infrav1.ResetType) er
 }
 
 func (s *Service) actionRegistering(ctx context.Context, info *reconcileInfo) actionResult {
-	var hardwareDetails infrav1.HardwareDetails
-	mebiBytes, err := s.obtainHardwareDetailsRam()
-	if err != nil {
-		return actionError{err: err}
+	if s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails == nil {
+		var hardwareDetails infrav1.HardwareDetails
+
+		mebiBytes, err := s.obtainHardwareDetailsRam()
+		if err != nil {
+			return actionError{err: err}
+		}
+		hardwareDetails.RAMMebibytes = mebiBytes
+
+		nics, err := s.obtainHardwareDetailsNics()
+		if err != nil {
+			return actionError{err: err}
+		}
+		hardwareDetails.NIC = nics
+
+		storage, err := s.obtainHardwareDetailsStorage()
+		if err != nil {
+			return actionError{err: err}
+		}
+		hardwareDetails.Storage = storage
+
+		cpu, err := s.obtainHardwareDetailsCPU()
+		if err != nil {
+			return actionError{err: err}
+		}
+		hardwareDetails.CPU = cpu
+
+		s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails = &hardwareDetails
 	}
-	hardwareDetails.RAMMebibytes = mebiBytes
-
-	nics, err := s.obtainHardwareDetailsNics()
-	if err != nil {
-		return actionError{err: err}
-	}
-	hardwareDetails.NIC = nics
-
-	storage, err := s.obtainHardwareDetailsStorage()
-	if err != nil {
-		return actionError{err: err}
-	}
-	hardwareDetails.Storage = storage
-
-	s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails = &hardwareDetails
-
 	if s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.WWN == "" {
 		return s.recordActionFailure(infrav1.RegistrationError, "no root device hints specified yet")
 	}
-	for _, st := range storage {
+	for _, st := range s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails.Storage {
 		if s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.WWN == st.WWN {
-			return actionContinue{}
+			return actionComplete{}
 		}
 	}
 	return s.recordActionFailure(infrav1.RegistrationError, "no storage device found with root device hints")
@@ -623,6 +631,45 @@ func (s *Service) obtainHardwareDetailsStorage() ([]infrav1.Storage, error) {
 	return storageArray, nil
 }
 
+func (s *Service) obtainHardwareDetailsCPU() (cpu infrav1.CPU, err error) {
+	out := s.scope.SSHClient.GetHardwareDetailsCPUArch()
+	if err := handleSSHError(out); err != nil {
+		return infrav1.CPU{}, err
+	}
+	cpu.Arch = out.StdOut
+
+	out = s.scope.SSHClient.GetHardwareDetailsCPUModel()
+	if err := handleSSHError(out); err != nil {
+		return infrav1.CPU{}, err
+	}
+	cpu.Model = out.StdOut
+
+	out = s.scope.SSHClient.GetHardwareDetailsCPUClockGigahertz()
+	if err := handleSSHError(out); err != nil {
+		return infrav1.CPU{}, err
+	}
+	cpu.ClockGigahertz = infrav1.ClockSpeed(out.StdOut)
+
+	out = s.scope.SSHClient.GetHardwareDetailsCPUThreads()
+	if err := handleSSHError(out); err != nil {
+		return infrav1.CPU{}, err
+	}
+	threads, err := strconv.Atoi(out.StdOut)
+	if err != nil {
+		return infrav1.CPU{}, errors.Wrapf(err, "failed to parse string to int. Stdout: %s", out.StdOut)
+	}
+	cpu.Threads = threads
+
+	out = s.scope.SSHClient.GetHardwareDetailsCPUFlags()
+	if err := handleSSHError(out); err != nil {
+		return infrav1.CPU{}, err
+	}
+	flags := strings.Split(out.StdOut, " ")
+	cpu.Flags = flags
+
+	return
+}
+
 func validJSONFromSSHOutput(str string) string {
 	tempString1 := strings.ReplaceAll(str, `" `, `","`)
 	tempString2 := strings.ReplaceAll(tempString1, `="`, `":"`)
@@ -637,4 +684,11 @@ func handleSSHError(out sshclient.Output) error {
 		return fmt.Errorf("error occured during ssh command. StdErr: %s", out.StdErr)
 	}
 	return nil
+}
+
+func (s *Service) actionAvailable(ctx context.Context, info *reconcileInfo) actionResult {
+	if s.scope.HetznerBareMetalHost.NeedsProvisioning() {
+		return actionComplete{}
+	}
+	return actionContinue{}
 }

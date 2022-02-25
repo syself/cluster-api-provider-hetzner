@@ -1,6 +1,10 @@
 package host
 
 import (
+	"encoding/json"
+	"fmt"
+	"strings"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -23,8 +27,8 @@ var _ = Describe("obtainHardwareDetailsNics", func() {
 		},
 		Entry(
 			"proper response",
-			`name="eth0" model="Realtek Semiconductor Co." mac="a8:a1:59:94:19:42" ipv4="23.88.6.239/26" speedMbps="1000"
-	name="eth0" model="Realtek Semiconductor Co." mac="a8:a1:59:94:19:42" ipv4="2a01:4f8:272:3e0f::2/64" speedMbps="1000"`,
+			`name="eth0" model="Realtek Semiconductor Co." mac="a8:a1:59:94:19:42" ip="23.88.6.239/26" speedMbps="1000"
+	name="eth0" model="Realtek Semiconductor Co." mac="a8:a1:59:94:19:42" ip="2a01:4f8:272:3e0f::2/64" speedMbps="1000"`,
 			[]infrav1.NIC{
 				{
 					Name:      "eth0",
@@ -62,16 +66,6 @@ NAME="nvme2n1" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVL22T0HBLB-00B00" VENDOR="" 
 NAME="nvme1n1" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJQ-00000" VENDOR="" SERIAL="S3W8NX0N811178" SIZE="512110190592" WWN="eui.0025388801b4dff2" ROTA="0"`,
 			[]infrav1.Storage{
 				{
-					Name:         "loop0",
-					HCTL:         "",
-					Model:        "",
-					Vendor:       "",
-					SerialNumber: "",
-					SizeBytes:    3068773888,
-					WWN:          "",
-					Rota:         false,
-				},
-				{
 					Name:         "nvme2n1",
 					HCTL:         "",
 					Model:        "SAMSUNG MZVL22T0HBLB-00B00",
@@ -93,4 +87,18 @@ NAME="nvme1n1" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJQ-00000" VENDOR="" 
 				},
 			}),
 	)
+})
+
+var _ = Describe("obtainHardwareDetailsStorage", func() {
+
+	It("should parse the string to an array", func() {
+		str := "str1 str2 str3"
+		var arr []string
+		str = fmt.Sprintf("[%s]", strings.ReplaceAll(str, " ", ","))
+		expectedArr := []string{"str1", "str2", "str3"}
+
+		Expect(json.Unmarshal([]byte(str), &arr)).To(Succeed())
+
+		Expect(arr).Should(Equal(expectedArr))
+	})
 })

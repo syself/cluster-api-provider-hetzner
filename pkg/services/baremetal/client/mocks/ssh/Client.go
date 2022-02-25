@@ -26,8 +26,8 @@ func (_m *Client) GetHardwareDetailsCPUArch() sshclient.Output {
 	return r0
 }
 
-// GetHardwareDetailsCPUClockMegahertz provides a mock function with given fields:
-func (_m *Client) GetHardwareDetailsCPUClockMegahertz() sshclient.Output {
+// GetHardwareDetailsCPUClockGigahertz provides a mock function with given fields:
+func (_m *Client) GetHardwareDetailsCPUClockGigahertz() sshclient.Output {
 	ret := _m.Called()
 
 	var r0 sshclient.Output
