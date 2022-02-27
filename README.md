@@ -3,6 +3,7 @@
 [![GitHub release](https://img.shields.io/github/release/syself/cluster-api-provider-hetzner/all.svg?style=flat-square)](https://github.com/syself/cluster-api-provider-hetzner/releases)
 [![GoDoc](https://godoc.org/github.com/syself/cluster-api-provider-hetzner?status.svg)](https://pkg.go.dev/github.com/syself/cluster-api-provider-hetzner?tab=overview)
 [![Go Report Card](https://goreportcard.com/badge/github.com/syself/cluster-api-provider-hetzner)](https://goreportcard.com/report/github.com/syself/cluster-api-provider-hetzner)
+[![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/5682/badge)](https://bestpractices.coreinfrastructure.org/projects/5682)
 [![Latest quay.io image tags](https://img.shields.io/github/v/tag/syself/cluster-api-provider-hetzner?include_prereleases&label=quay.io)](https://quay.io/repository/syself/cluster-api-provider-hetzner?tab=tags)
 
 <p align="center">
