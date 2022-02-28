@@ -56,19 +56,8 @@ type HetznerBareMetalMachineSpec struct {
 	// +optional
 	ProviderID *string `json:"providerID,omitempty"`
 
-	// Image is the image to be provisioned.
-	Image string `json:"image"`
-
-	// Partitions defines the additional Partitions to be created.
-	Partitions []Partition `json:"partitions"`
-
-	// LVMDefinitions defines the logical volume definitions to be created.
-	// +optional
-	LVMDefinitions []LVMDefinition `json:"logicalVolumeDefinitions,omitempty"`
-
-	// BTRFSDefinitions defines the btrfs subvolume definitions to be created.
-	// +optional
-	BTRFSDefinitions []BTRFSDefinition `json:"btrfsDefinitions,omitempty"`
+	// InstallImage is the configuration which is used for the autosetup configuration for installing an OS via InstallImage.
+	InstallImage InstallImage `json:"installImage"`
 
 	// HostSelector specifies matching criteria for labels on HetznerBareMetalHosts.
 	// This is used to limit the set of HetznerBareMetalHost objects considered for
@@ -81,7 +70,39 @@ type HetznerBareMetalMachineSpec struct {
 	Type string `json:"hostSelector,omitempty"`
 }
 
-// Partitions defines the additional Partitions to be created.
+// InstallImage defines the configuration for InstallImage.
+type InstallImage struct {
+	// Image is the image to be provisioned.
+	Image Image `json:"image"`
+
+	// PostInstallScript is used for configuring commands which should be executed after installimage. It is passed along with the installimage command.
+	PostInstallScript string `json:"postInstallScript,omitempty"`
+
+	// Partitions defines the additional Partitions to be created.
+	Partitions []Partition `json:"partitions"`
+
+	// LVMDefinitions defines the logical volume definitions to be created.
+	// +optional
+	LVMDefinitions []LVMDefinition `json:"logicalVolumeDefinitions,omitempty"`
+
+	// BTRFSDefinitions defines the btrfs subvolume definitions to be created.
+	// +optional
+	BTRFSDefinitions []BTRFSDefinition `json:"btrfsDefinitions,omitempty"`
+}
+
+// Image defines the properties for the autosetup config.
+type Image struct {
+	// URL defines the remote URL for downloading a tar, tar.gz, tar.bz, tar.bz2, tar.xz, tgz, tbz, txz image.
+	URL string `json:"url,omitempty"`
+
+	// Name defines the archive name after download. This has to be a valid name for Installimage.
+	Name string `json:"name,omitempty"`
+
+	// Path is the local path for a preinstalled image from upstream.
+	Path string `json:"path,omitempty"`
+}
+
+// Partition defines the additional Partitions to be created.
 type Partition struct {
 
 	// Mount defines the mount path for this filesystem.
@@ -100,7 +121,7 @@ type Partition struct {
 	Size string `json:"size,omitempty"`
 }
 
-// BTRFSDefinitions defines the btrfs subvolume definitions to be created.
+// BTRFSDefinition defines the btrfs subvolume definitions to be created.
 type BTRFSDefinition struct {
 	// Volume defines the btrfs volume name.
 	Volume string `json:"volume,omitempty"`
@@ -112,7 +133,7 @@ type BTRFSDefinition struct {
 	Mount string `json:"mount,omitempty"`
 }
 
-// LVMDefinitions defines the logical volume definitions to be created.
+// LVMDefinition defines the logical volume definitions to be created.
 type LVMDefinition struct {
 	// VG defines the vg name.
 	VG string `json:"vg,omitempty"`
