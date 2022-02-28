@@ -99,7 +99,7 @@ func (m *BareMetalMachineScope) SetError(message string, reason capierrors.Machi
 	m.BareMetalMachine.Status.FailureReason = &reason
 }
 
-// IsProvisioned checks if the metal3machine is provisioned
+// IsProvisioned checks if the bareMetalMachine is provisioned
 func (m *BareMetalMachineScope) IsProvisioned() bool {
 	if m.BareMetalMachine.Spec.ProviderID != nil && m.BareMetalMachine.Status.Ready {
 		return true

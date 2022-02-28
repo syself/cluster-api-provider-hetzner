@@ -19,7 +19,9 @@ package v1beta1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/selection"
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	capierrors "sigs.k8s.io/cluster-api/errors"
 )
 
@@ -28,6 +30,25 @@ const (
 	// removing it from the apiserver.
 	BareMetalMachineFinalizer = "hetznerbaremetalmachine.infrastructure.cluster.x-k8s.io"
 )
+
+// HostSelector specifies matching criteria for labels on BareMetalHosts.
+// This is used to limit the set of BareMetalHost objects considered for
+// claiming for a Machine.
+type HostSelector struct {
+	// Key/value pairs of labels that must exist on a chosen BareMetalHost
+	// +optional
+	MatchLabels map[string]string `json:"matchLabels,omitempty"`
+
+	// Label match expressions that must be true on a chosen BareMetalHost
+	// +optional
+	MatchExpressions []HostSelectorRequirement `json:"matchExpressions,omitempty"`
+}
+
+type HostSelectorRequirement struct {
+	Key      string             `json:"key"`
+	Operator selection.Operator `json:"operator"`
+	Values   []string           `json:"values"`
+}
 
 // HetznerBareMetalMachineSpec defines the desired state of HetznerBareMetalMachine.
 type HetznerBareMetalMachineSpec struct {
@@ -39,17 +60,13 @@ type HetznerBareMetalMachineSpec struct {
 	// Image is the image to be provisioned.
 	Image string `json:"image"`
 
-	// UserData references the Secret that holds user data needed by the bare metal
-	// operator. The Namespace is optional; it will default to the hetznerbaremetalmachine's
-	// namespace if not specified.
+	// HostSelector specifies matching criteria for labels on HetznerBareMetalHosts.
+	// This is used to limit the set of HetznerBareMetalHost objects considered for
+	// claiming for a HetznerBareMetalMachine.
 	// +optional
-	UserData *corev1.SecretReference `json:"userData,omitempty"`
+	HostSelector HostSelector `json:"hostSelector,omitempty"`
 
-	// Type specifies the server type.
-	// +optional
-	Type string `json:"hostSelector,omitempty"`
-
-	AutoSetupTemplateRef *corev1.ConfigMap `json:"autoSetupTemplateRef"`
+	AutoSetupTemplateRef *corev1.ConfigMapKeySelector `json:"autoSetupTemplateRef"`
 	// When set to true we delete all data when we provision the node.
 	// +optional
 	// +kubebuilder:default:=false
@@ -122,11 +139,9 @@ type HetznerBareMetalMachineStatus struct {
 	// +optional
 	Ready bool `json:"ready"`
 
-	// UserData references the Secret that holds user data needed by the bare metal
-	// operator. The Namespace is optional; it will default to the hetznerbaremetalmachine's
-	// namespace if not specified.
+	// Conditions defines current service state of the HetznerBareMetalMachine.
 	// +optional
-	UserData *corev1.SecretReference `json:"userData,omitempty"`
+	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -148,6 +163,16 @@ type HetznerBareMetalMachine struct {
 	Spec HetznerBareMetalMachineSpec `json:"spec,omitempty"`
 	// +optional
 	Status HetznerBareMetalMachineStatus `json:"status,omitempty"`
+}
+
+// GetConditions returns the observations of the operational state of the HetznerBareMetalMachine resource.
+func (r *HetznerBareMetalMachine) GetConditions() clusterv1.Conditions {
+	return r.Status.Conditions
+}
+
+// SetConditions sets the underlying service state of the HetznerBareMetalMachine to the predescribed clusterv1.Conditions.
+func (r *HetznerBareMetalMachine) SetConditions(conditions clusterv1.Conditions) {
+	r.Status.Conditions = conditions
 }
 
 //+kubebuilder:object:root=true

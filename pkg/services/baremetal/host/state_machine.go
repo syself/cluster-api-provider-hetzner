@@ -25,57 +25,45 @@ func newHostStateMachine(host *infrav1.HetznerBareMetalHost, reconciler *Service
 	return &r
 }
 
-type stateHandler func(*reconcileInfo) actionResult
+type stateHandler func(context.Context, *reconcileInfo) actionResult
 
 func (hsm *hostStateMachine) handlers() map[infrav1.ProvisioningState]stateHandler {
 	return map[infrav1.ProvisioningState]stateHandler{
-		infrav1.StateNone:           hsm.handleNone,
-		infrav1.StateAvailable:      hsm.handleAvailable,
-		infrav1.StatePreparing:      hsm.handleNone,
-		infrav1.StatePrepared:       hsm.handleNone,
-		infrav1.StateProvisioning:   hsm.handleNone,
-		infrav1.StateProvisioned:    hsm.handleNone,
-		infrav1.StateDeprovisioning: hsm.handleNone,
-		infrav1.StateDeleting:       hsm.handleNone,
+		infrav1.StateNone:            hsm.handleNone,
+		infrav1.StateRegistering:     hsm.handleRegistering,
+		infrav1.StateAvailable:       hsm.handleAvailable,
+		infrav1.StateImageInstalling: hsm.handleImageInstalling,
+		infrav1.StateProvisioning:    hsm.handleProvisioning,
+		infrav1.StateProvisioned:     hsm.handleProvisioned,
 	}
 }
 
-func (hsm *hostStateMachine) ReconcileState(info *reconcileInfo) (actionRes actionResult) {
+func (hsm *hostStateMachine) ReconcileState(ctx context.Context, info *reconcileInfo) (actionRes actionResult) {
 	initialState := hsm.host.Spec.Status.ProvisioningState
 
 	if stateHandler, found := hsm.handlers()[initialState]; found {
-		return stateHandler(info)
+		return stateHandler(ctx, info)
 	}
 
 	info.log.Info("No handler found for state", "state", initialState)
 	return actionError{fmt.Errorf("No handler found for state \"%s\"", initialState)}
 }
 
-// handleNone checks whether server exists in Hetzner Robot API, then checks whether
-// the SSH key exists in Robot API, and finally decides whether server is already in
-// rescue mode and sets the next state accordingly.
-func (hsm *hostStateMachine) handleNone(info *reconcileInfo) actionResult {
+func (hsm *hostStateMachine) handleNone(ctx context.Context, info *reconcileInfo) actionResult {
 	actResult := hsm.reconciler.actionNone(info)
 	if _, ok := actResult.(actionComplete); ok {
-		hsm.nextState = infrav1.StateEnsureRescue
-	}
-	return actResult
-}
-
-func (hsm *hostStateMachine) handleEnsureRescue(ctx context.Context, info *reconcileInfo) actionResult {
-	actResult := hsm.reconciler.actionEnsureRescue(ctx, info)
-	if _, ok := actResult.(actionComplete); ok {
-		// Check whether server needs to be set in rescue state
 		hsm.nextState = infrav1.StateRegistering
 	}
 	return actResult
 }
 
 func (hsm *hostStateMachine) handleRegistering(ctx context.Context, info *reconcileInfo) actionResult {
-	actResult := hsm.reconciler.actionRegistering(ctx, info)
+	actResult := hsm.reconciler.actionEnsureCorrectBoot(ctx, info, "rescue")
 	if _, ok := actResult.(actionComplete); ok {
-		// Check whether server needs to be set in rescue state
-		hsm.nextState = infrav1.StateAvailable
+		actResult := hsm.reconciler.actionRegistering(ctx, info)
+		if _, ok := actResult.(actionComplete); ok {
+			hsm.nextState = infrav1.StateAvailable
+		}
 	}
 	return actResult
 }
@@ -83,10 +71,47 @@ func (hsm *hostStateMachine) handleRegistering(ctx context.Context, info *reconc
 func (hsm *hostStateMachine) handleAvailable(ctx context.Context, info *reconcileInfo) actionResult {
 	actResult := hsm.reconciler.actionAvailable(ctx, info)
 	if _, ok := actResult.(actionComplete); ok {
-		// Check whether server needs to be set in rescue state
+		hsm.nextState = infrav1.StateImageInstalling
+	}
+	return actionComplete{}
+}
+
+func (hsm *hostStateMachine) handleImageInstalling(ctx context.Context, info *reconcileInfo) actionResult {
+	actResult := hsm.reconciler.actionEnsureCorrectBoot(ctx, info, "rescue")
+	if _, ok := actResult.(actionComplete); ok {
+		actResult := hsm.reconciler.actionImageInstalling(ctx, info)
+		if _, ok := actResult.(actionComplete); ok {
+			hsm.nextState = infrav1.StateImageInstalling
+		}
+	}
+	return actionComplete{}
+}
+
+func (hsm *hostStateMachine) handleProvisioning(ctx context.Context, info *reconcileInfo) actionResult {
+	actResult := hsm.reconciler.actionEnsureCorrectBoot(ctx, info, hsm.host.Name)
+	if _, ok := actResult.(actionComplete); ok {
+		actResult := hsm.reconciler.actionProvisioning(ctx, info)
+		if _, ok := actResult.(actionComplete); ok {
+			hsm.nextState = infrav1.StateProvisioned
+		}
+	}
+	return actionComplete{}
+}
+
+func (hsm *hostStateMachine) handleProvisioned(ctx context.Context, info *reconcileInfo) actionResult {
+	actResult := hsm.reconciler.actionProvisioned(ctx, info)
+	if _, ok := actResult.(actionComplete); ok {
+		hsm.nextState = infrav1.StateProvisioned
+	}
+	// TODO: What kind of action leads to deprovisioning?
+	return actionComplete{}
+}
+
+func (hsm *hostStateMachine) handleDeprovisioning(ctx context.Context, info *reconcileInfo) actionResult {
+	actResult := hsm.reconciler.actionDeprovisioning(ctx, info)
+	if _, ok := actResult.(actionComplete); ok {
 		hsm.nextState = infrav1.StateAvailable
 	}
-
 	return actionComplete{}
 }
 

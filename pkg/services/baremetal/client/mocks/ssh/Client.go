@@ -12,6 +12,34 @@ type Client struct {
 	mock.Mock
 }
 
+// CreateAutoSetup provides a mock function with given fields: data
+func (_m *Client) CreateAutoSetup(data string) sshclient.Output {
+	ret := _m.Called(data)
+
+	var r0 sshclient.Output
+	if rf, ok := ret.Get(0).(func(string) sshclient.Output); ok {
+		r0 = rf(data)
+	} else {
+		r0 = ret.Get(0).(sshclient.Output)
+	}
+
+	return r0
+}
+
+// ExecuteInstallImage provides a mock function with given fields:
+func (_m *Client) ExecuteInstallImage() sshclient.Output {
+	ret := _m.Called()
+
+	var r0 sshclient.Output
+	if rf, ok := ret.Get(0).(func() sshclient.Output); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(sshclient.Output)
+	}
+
+	return r0
+}
+
 // GetHardwareDetailsCPUArch provides a mock function with given fields:
 func (_m *Client) GetHardwareDetailsCPUArch() sshclient.Output {
 	ret := _m.Called()
@@ -140,6 +168,20 @@ func (_m *Client) GetHardwareDetailsStorage() sshclient.Output {
 
 // GetHostName provides a mock function with given fields:
 func (_m *Client) GetHostName() sshclient.Output {
+	ret := _m.Called()
+
+	var r0 sshclient.Output
+	if rf, ok := ret.Get(0).(func() sshclient.Output); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(sshclient.Output)
+	}
+
+	return r0
+}
+
+// Reboot provides a mock function with given fields:
+func (_m *Client) Reboot() sshclient.Output {
 	ret := _m.Called()
 
 	var r0 sshclient.Output

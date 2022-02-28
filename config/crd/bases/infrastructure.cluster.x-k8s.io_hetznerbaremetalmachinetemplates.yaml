@@ -63,14 +63,63 @@ spec:
                     description: Spec is the specification of the desired behavior
                       of the machine.
                     properties:
+                      autoSetupTemplateRef:
+                        description: Selects a key from a ConfigMap.
+                        properties:
+                          key:
+                            description: The key to select.
+                            type: string
+                          name:
+                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Add other useful fields. apiVersion, kind, uid?'
+                            type: string
+                          optional:
+                            description: Specify whether the ConfigMap or its key
+                              must be defined
+                            type: boolean
+                        required:
+                        - key
+                        type: object
                       cleanUpData:
                         default: false
                         description: When set to true we delete all data when we provision
                           the node.
                         type: boolean
                       hostSelector:
-                        description: Type specifies the server type.
-                        type: string
+                        description: HostSelector specifies matching criteria for
+                          labels on HetznerBareMetalHosts. This is used to limit the
+                          set of HetznerBareMetalHost objects considered for claiming
+                          for a HetznerBareMetalMachine.
+                        properties:
+                          matchExpressions:
+                            description: Label match expressions that must be true
+                              on a chosen BareMetalHost
+                            items:
+                              properties:
+                                key:
+                                  type: string
+                                operator:
+                                  description: Operator represents a key/field's relationship
+                                    to value(s). See labels.Requirement and fields.Requirement
+                                    for more details.
+                                  type: string
+                                values:
+                                  items:
+                                    type: string
+                                  type: array
+                              required:
+                              - key
+                              - operator
+                              - values
+                              type: object
+                            type: array
+                          matchLabels:
+                            additionalProperties:
+                              type: string
+                            description: Key/value pairs of labels that must exist
+                              on a chosen BareMetalHost
+                            type: object
+                        type: object
                       image:
                         description: Image is the image to be provisioned.
                         type: string
@@ -78,22 +127,8 @@ spec:
                         description: ProviderID will be the hetznerbaremetalmachine
                           in ProviderID format (hetzner://<server-id>)
                         type: string
-                      userData:
-                        description: UserData references the Secret that holds user
-                          data needed by the bare metal operator. The Namespace is
-                          optional; it will default to the hetznerbaremetalmachine's
-                          namespace if not specified.
-                        properties:
-                          name:
-                            description: Name is unique within a namespace to reference
-                              a secret resource.
-                            type: string
-                          namespace:
-                            description: Namespace defines the space within which
-                              the secret name must be unique.
-                            type: string
-                        type: object
                     required:
+                    - autoSetupTemplateRef
                     - image
                     type: object
                 required:

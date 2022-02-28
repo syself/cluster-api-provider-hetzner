@@ -2,6 +2,7 @@ package sshclient
 
 import (
 	"bytes"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -39,6 +40,9 @@ type Client interface {
 	GetHardwareDetailsCPUFlags() Output
 	GetHardwareDetailsCPUThreads() Output
 	GetHardwareDetailsCPUCores() Output
+	CreateAutoSetup(data string) Output
+	ExecuteInstallImage() Output
+	Reboot() Output
 }
 
 // Factory is the interface for creating new Client objects.
@@ -127,6 +131,20 @@ func (c *sshClient) GetHardwareDetailsCPUThreads() Output {
 
 func (c *sshClient) GetHardwareDetailsCPUCores() Output {
 	return c.runSSH(`grep 'cpu cores' /proc/cpuinfo | uniq | awk '{print $4}'`)
+}
+
+func (c *sshClient) CreateAutoSetup(data string) Output {
+	return c.runSSH(fmt.Sprintf(`cat << 'EOF' > /autosetup 
+%s
+EOF`, data))
+}
+
+func (c *sshClient) ExecuteInstallImage() Output {
+	return c.runSSH(`installimage`)
+}
+
+func (c *sshClient) Reboot() Output {
+	return c.runSSH(`reboot`)
 }
 
 func (c *sshClient) runSSH(command string) Output {

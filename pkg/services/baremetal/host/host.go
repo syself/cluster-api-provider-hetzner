@@ -24,6 +24,7 @@ const (
 	rateLimitTimeOut         time.Duration = 660
 	rateLimitTimeOutDeletion time.Duration = 120
 	sshTimeOut               time.Duration = 5 * time.Second
+	sshResetTimeout          time.Duration = 5 * time.Minute
 	softwareResetTimeout     time.Duration = 5 * time.Minute
 	hardwareResetTimeout     time.Duration = 60 * time.Minute
 )
@@ -65,7 +66,7 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 	// TODO: Check whether ssh keys changed and if so react according to the initialState
 
 	hostStateMachine := newHostStateMachine(s.scope.HetznerBareMetalHost, s)
-	actResult := hostStateMachine.ReconcileState(info)
+	actResult := hostStateMachine.ReconcileState(ctx, info)
 	_, err = actResult.Result() // result, err :=
 	if err != nil {
 		err = errors.Wrap(err, fmt.Sprintf("action %q failed", initialState))
@@ -240,13 +241,13 @@ func (s *Service) actionNone(info *reconcileInfo) actionResult {
 	return actionComplete{}
 }
 
-func (s *Service) actionEnsureRescue(ctx context.Context, info *reconcileInfo) actionResult {
+func (s *Service) actionEnsureCorrectBoot(ctx context.Context, info *reconcileInfo, hostName string) actionResult {
 	// Try accessing server with ssh
-	isInRescue, isInOS, isTimeout, err := checkHostNameOutput(s.scope.SSHClient.GetHostName())
+	isInCorrectBoot, isTimeout, err := checkHostNameOutput(s.scope.SSHClient.GetHostName(), hostName)
 	if err != nil {
 		return actionError{err: errors.Wrap(err, "failed to get host name via ssh")}
 	}
-	if isInRescue {
+	if isInCorrectBoot {
 		s.scope.SetErrorCount(0)
 		clearError(s.scope.HetznerBareMetalHost)
 		return actionComplete{}
@@ -258,40 +259,32 @@ func (s *Service) actionEnsureRescue(ctx context.Context, info *reconcileInfo) a
 	case emptyErrorType:
 		if isTimeout {
 			// Reset was too slow - set error message
-			var errorType infrav1.ErrorType
-			if s.scope.HetznerBareMetalHost.HasSoftwareReset() {
-				errorType = infrav1.ErrorTypeSoftwareResetTooSlow
-			} else {
-				errorType = infrav1.ErrorTypeHardwareResetTooSlow
-			}
-			if err := s.setErrorCondition(ctx, errorType, "ssh timeout error - server has not restarted yet"); err != nil {
+			if err := s.setErrorCondition(ctx, infrav1.ErrorTypeSSHResetTooSlow, "ssh timeout error - server has not restarted yet"); err != nil {
 				return actionError{err: errors.Wrap(err, "failed to set error condition")}
+			}
+			return actionContinue{}
+		}
+
+		// We are not in correct boot. Trigger SSH reset.
+		if hostName == "rescue" {
+			if err := s.ensureRescueMode(); err != nil {
+				return actionError{err: errors.Wrap(err, "failed to ensure correct boot mode and reset server")}
 			}
 		}
 
-		if isInOS {
-			// We are not in rescue system. Set an error message and escalate to hw reset if necessary
-			// Switch on rescue mode if it is not switched on already (should not happen)
-			var resetType infrav1.ResetType
-			var errorType infrav1.ErrorType
-			if s.scope.HetznerBareMetalHost.HasSoftwareReset() {
-				resetType = infrav1.ResetTypeSoftware
-				errorType = infrav1.ErrorTypeSoftwareResetNotStarted
-			} else if s.scope.HetznerBareMetalHost.HasHardwareReset() {
-				resetType = infrav1.ResetTypeHardware
-				errorType = infrav1.ErrorTypeHardwareResetNotStarted
-			} else {
-				return actionError{err: errors.New("no software or hardware reset available for host")}
-			}
+		out := s.scope.SSHClient.Reboot()
+		if err := handleSSHError(out); err != nil {
+			return actionError{err: err}
+		}
 
-			// Set an error to keep track of this failure
-			if err := s.setErrorCondition(ctx, errorType, "server is not in rescue mode"); err != nil {
-				return actionError{err: errors.Wrap(err, "failed to set error condition")}
-			}
+		// Set error message that ssh reset did not start in order to keep track of this error.
+		if err := s.setErrorCondition(ctx, infrav1.ErrorTypeSSHResetNotStarted, "server is not in correct boot mode"); err != nil {
+			return actionError{err: errors.Wrap(err, "failed to set error condition")}
+		}
 
-			if err := s.ensureRescueModeAndResetServer(resetType); err != nil {
-				return actionError{err: errors.Wrap(err, "failed to ensure rescue mode and reset server")}
-			}
+	case infrav1.ErrorTypeSSHResetTooSlow:
+		if err := s.handleErrorTypeSSHResetTooSlow(ctx); err != nil {
+			return actionError{err: errors.Wrap(err, "failed to handle ErrorTypeSSHResetTooSlow")}
 		}
 
 	case infrav1.ErrorTypeSoftwareResetTooSlow:
@@ -304,38 +297,63 @@ func (s *Service) actionEnsureRescue(ctx context.Context, info *reconcileInfo) a
 			return actionError{err: errors.Wrap(err, "failed to handle ErrorTypeHardwareResetTooSlow")}
 		}
 
-	case infrav1.ErrorTypeSoftwareResetFailed:
-		// This error condition indicates that a hardware reset has been performed already. This has been too slow
-		if err := s.setErrorCondition(ctx, infrav1.ErrorTypeHardwareResetTooSlow, "hardware reset is too slow"); err != nil {
-			return actionError{err: errors.Wrap(err, "failed to set error condition")}
-		}
-
 	case infrav1.ErrorTypeHardwareResetFailed:
 		if err := s.handleErrorTypeHardwareResetFailed(ctx); err != nil {
 			return actionError{err: errors.Wrap(err, "failed to handle ErrorTypeHardwareResetFailed")}
 		}
 
+	case infrav1.ErrorTypeSSHResetNotStarted:
+		if err := s.handleErrorTypeSSHResetNotStarted(ctx, !isTimeout, hostName == "rescue"); err != nil {
+			return actionError{err: errors.Wrap(err, "failed to handle ErrorTypeSSHResetNotStarted")}
+		}
+
 	case infrav1.ErrorTypeSoftwareResetNotStarted:
-		if err := s.handleErrorTypeSoftwareResetNotStarted(ctx, isInOS); err != nil {
+		if err := s.handleErrorTypeSoftwareResetNotStarted(ctx, !isTimeout, hostName == "rescue"); err != nil {
 			return actionError{err: errors.Wrap(err, "failed to handle ErrorTypeSoftwareResetNotStarted")}
 		}
 
 	case infrav1.ErrorTypeHardwareResetNotStarted:
-		if err := s.handleErrorTypeHardwareResetNotStarted(ctx, isInOS); err != nil {
+		if err := s.handleErrorTypeHardwareResetNotStarted(ctx, !isTimeout, hostName == "rescue"); err != nil {
 			return actionError{err: errors.Wrap(err, "failed to handle ErrorTypeHardwareResetNotStarted")}
 		}
 	}
 	return actionContinue{}
 }
 
-func (s *Service) handleErrorTypeSoftwareResetTooSlow(ctx context.Context) error {
-	if hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated, softwareResetTimeout) {
-		if err := s.setErrorCondition(ctx, infrav1.ErrorTypeSoftwareResetFailed, "software reset timed out"); err != nil {
+func (s *Service) handleErrorTypeSSHResetTooSlow(ctx context.Context) error {
+	if hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated, sshResetTimeout) {
+		// Perform software or hardware reset
+		var resetType infrav1.ResetType
+		var errorType infrav1.ErrorType
+		if s.scope.HetznerBareMetalHost.HasSoftwareReset() {
+			resetType = infrav1.ResetTypeSoftware
+			errorType = infrav1.ErrorTypeSoftwareResetTooSlow
+		} else if s.scope.HetznerBareMetalHost.HasHardwareReset() {
+			resetType = infrav1.ResetTypeHardware
+			errorType = infrav1.ErrorTypeHardwareResetTooSlow
+		} else {
+			return errors.New("no software or hardware reset available for host")
+		}
+		if _, err := s.scope.RobotClient.ResetBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID, resetType); err != nil {
+			return errors.Wrap(err, "failed to reset bare metal server")
+		}
+		// Set error message that software reset is too slow as we perform this reset now
+		if err := s.setErrorCondition(ctx, errorType, "ssh reset timed out"); err != nil {
 			return errors.Wrap(err, "failed to set error condition")
 		}
+	}
+	return nil
+}
+
+func (s *Service) handleErrorTypeSoftwareResetTooSlow(ctx context.Context) error {
+	if hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated, softwareResetTimeout) {
 		// Perform hardware reset
 		if _, err := s.scope.RobotClient.ResetBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID, infrav1.ResetTypeHardware); err != nil {
 			return errors.Wrap(err, "failed to reset bare metal server")
+		}
+		// Set error message that hardware reset is too slow as we perform this reset now
+		if err := s.setErrorCondition(ctx, infrav1.ErrorTypeHardwareResetTooSlow, "software reset timed out"); err != nil {
+			return errors.Wrap(err, "failed to set error condition")
 		}
 	}
 	return nil
@@ -367,18 +385,66 @@ func (s *Service) handleErrorTypeHardwareResetFailed(ctx context.Context) error 
 	return nil
 }
 
-func (s *Service) handleErrorTypeSoftwareResetNotStarted(ctx context.Context, isInOS bool) error {
+func (s *Service) handleErrorTypeSSHResetNotStarted(ctx context.Context, isInWrongBoot bool, wantsRescue bool) error {
+	// Check whether ssh reset has not been started again and escalate if not.
+	// Otherwise set a new error as the ssh reset has just been slow.
+	if isInWrongBoot {
+		if wantsRescue {
+			if err := s.ensureRescueMode(); err != nil {
+				return errors.Wrap(err, "failed to ensure rescue mode")
+			}
+		}
+		var resetType infrav1.ResetType
+		var errorType infrav1.ErrorType
+		if s.scope.HetznerBareMetalHost.HasSoftwareReset() {
+			resetType = infrav1.ResetTypeSoftware
+			errorType = infrav1.ErrorTypeSoftwareResetNotStarted
+		} else if s.scope.HetznerBareMetalHost.HasHardwareReset() {
+			resetType = infrav1.ResetTypeHardware
+			errorType = infrav1.ErrorTypeHardwareResetNotStarted
+		} else {
+			return errors.New("no software or hardware reset available for host")
+		}
+
+		if _, err := s.scope.RobotClient.ResetBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID, resetType); err != nil {
+			return errors.Wrap(err, "failed to reset bare metal server")
+		}
+
+		// set an error that software reset failed to manage further states. If the software reset started successfully
+		// Then we will complete this or go to ErrorStateSoftwareResetTooSlow as expected.
+		if err := s.setErrorCondition(
+			ctx,
+			errorType,
+			"software/hardware reset triggered after ssh reset did not start",
+		); err != nil {
+			return errors.Wrap(err, "failed to set error condition")
+		}
+	} else {
+		if err := s.setErrorCondition(ctx, infrav1.ErrorTypeSSHResetTooSlow, "ssh reset too slow"); err != nil {
+			return errors.Wrap(err, "failed to set error condition")
+		}
+	}
+	return nil
+}
+
+func (s *Service) handleErrorTypeSoftwareResetNotStarted(ctx context.Context, isInWrongBoot bool, wantsRescue bool) error {
 	// Check whether software reset has not been started again and escalate if not.
 	// Otherwise set a new error as the software reset has been slow anyway.
-	if isInOS {
-		if err := s.ensureRescueModeAndResetServer(infrav1.ResetTypeHardware); err != nil {
-			return errors.Wrap(err, "failed to ensure rescue mode and hardware reset server")
+	if isInWrongBoot {
+		if wantsRescue {
+			if err := s.ensureRescueMode(); err != nil {
+				return errors.Wrap(err, "failed to ensure rescue mode")
+			}
 		}
-		// set an error that hardware reset failed to manage further states. If the hardware reset started successfully
+		if _, err := s.scope.RobotClient.ResetBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID, infrav1.ResetTypeHardware); err != nil {
+			return errors.Wrap(err, "failed to reset bare metal server")
+		}
+
+		// set an error that hardware reset not started to manage further states. If the hardware reset started successfully
 		// Then we will complete this or go to ErrorStateHardwareResetTooSlow as expected.
 		if err := s.setErrorCondition(
 			ctx,
-			infrav1.ErrorTypeHardwareResetFailed,
+			infrav1.ErrorTypeHardwareResetNotStarted,
 			"hardware reset triggered after software reset did not start",
 		); err != nil {
 			return errors.Wrap(err, "failed to set error condition")
@@ -391,17 +457,22 @@ func (s *Service) handleErrorTypeSoftwareResetNotStarted(ctx context.Context, is
 	return nil
 }
 
-func (s *Service) handleErrorTypeHardwareResetNotStarted(ctx context.Context, isInOS bool) error {
+func (s *Service) handleErrorTypeHardwareResetNotStarted(ctx context.Context, isInWrongBoot bool, wantsRescue bool) error {
 	// Check whether software reset has not been started again and escalate if not.
 	// Otherwise set a new error as the software reset has been slow anyway.
-	if isInOS {
-		if err := s.ensureRescueModeAndResetServer(infrav1.ResetTypeHardware); err != nil {
-			return errors.Wrap(err, "failed to ensure rescue mode and hardware reset server")
+	if isInWrongBoot {
+		if wantsRescue {
+			if err := s.ensureRescueMode(); err != nil {
+				return errors.Wrap(err, "failed to ensure rescue mode")
+			}
+		}
+		if _, err := s.scope.RobotClient.ResetBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID, infrav1.ResetTypeHardware); err != nil {
+			return errors.Wrap(err, "failed to reset bare metal server")
 		}
 		if err := s.setErrorCondition(
 			ctx,
-			infrav1.ErrorTypeHardwareResetFailed,
-			"hardware reset failed",
+			infrav1.ErrorTypeHardwareResetNotStarted,
+			"hardware reset not started",
 		); err != nil {
 			return errors.Wrap(err, "failed to set error condition")
 		}
@@ -421,7 +492,7 @@ func hasTimedOut(lastUpdated *metav1.Time, timeout time.Duration) bool {
 	return false
 }
 
-func checkHostNameOutput(out sshclient.Output) (isInRescue bool, isInOS bool, isTimeout bool, err error) {
+func checkHostNameOutput(out sshclient.Output, hostName string) (isInCorrectBoot bool, isTimeout bool, err error) {
 	// check err
 	if out.Err != nil {
 		if os.IsTimeout(out.Err) {
@@ -441,19 +512,24 @@ func checkHostNameOutput(out sshclient.Output) (isInRescue bool, isInOS bool, is
 
 	// check stdout
 	switch out.StdOut {
-	case "rescue":
+	case hostName:
 		// We are in rescue system as expected. Go to next state
-		isInRescue = true
+		isInCorrectBoot = true
 	case "":
 		// Hostname should not be empty. This is unexpected.
 		err = errors.New("error empty hostname")
+	case "rescue":
 	default:
-		isInOS = true
+		// We are in the case that hostName != "rescue" && StdOut != hostName
+		// This is unexpected
+		if hostName != "rescue" {
+			err = fmt.Errorf("unexpected hostname %s. Want %s or rescue", out.StdOut, hostName)
+		}
 	}
 	return
 }
 
-func (s *Service) ensureRescueModeAndResetServer(resetType infrav1.ResetType) error {
+func (s *Service) ensureRescueMode() error {
 	rescue, err := s.scope.RobotClient.GetBootRescue(s.scope.HetznerBareMetalHost.Spec.ServerID)
 	if err != nil {
 		return errors.Wrap(err, "failed to get bare metal server")
@@ -467,10 +543,6 @@ func (s *Service) ensureRescueModeAndResetServer(resetType infrav1.ResetType) er
 		); err != nil {
 			return errors.Wrap(err, "failed to set boot rescue")
 		}
-	}
-
-	if _, err := s.scope.RobotClient.ResetBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID, resetType); err != nil {
-		return errors.Wrap(err, "failed to reset bare metal server")
 	}
 	return nil
 }
@@ -690,5 +762,85 @@ func (s *Service) actionAvailable(ctx context.Context, info *reconcileInfo) acti
 	if s.scope.HetznerBareMetalHost.NeedsProvisioning() {
 		return actionComplete{}
 	}
+	return actionContinue{}
+}
+
+func (s *Service) actionImageInstalling(ctx context.Context, info *reconcileInfo) actionResult {
+	// storageDevices, err := s.obtainHardwareDetailsStorage()
+	// if err != nil {
+	// 	return actionError{err: err}
+	// }
+
+	// var deviceName string
+	// for _, device := range storageDevices {
+	// 	if device.WWN == s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.WWN {
+	// 		deviceName = device.Name
+	// 	}
+	// }
+
+	// installImageInput := struct {
+	// 	OSDevice string
+	// 	HostName string
+	// 	Image    string
+	// }{
+	// 	OSDevice: deviceName,
+	// 	HostName: "temp_name", // TODO: Update this
+	// 	Image:    s.scope.HetznerBareMetalHost.Spec.Image,
+	// }
+
+	// configMapManager := configmaputil.NewConfigMapManager(*s.scope.Logger, s.scope.Client, s.scope.APIReader)
+	// key := types.NamespacedName{Namespace: s.scope.Namespace(), Name: s.scope.HetznerBareMetalHost.Spec.AutoSetupTemplateRef.Name}
+	// configMap, err := configMapManager.AcquireConfigMap(ctx, key, s.scope.HetznerBareMetalHost, false, true)
+	// if err != nil {
+	// 	return s.recordActionFailure(
+	// 		infrav1.ProvisioningError,
+	// 		fmt.Sprintf("failed to acquire config map for key %v. Error: %s", key, err),
+	// 	)
+	// }
+	// autoSetupTemplate, found := configMap.Data[s.scope.HetznerBareMetalHost.Spec.AutoSetupTemplateRef.Key]
+	// if !found {
+	// 	return s.recordActionFailure(
+	// 		infrav1.ProvisioningError,
+	// 		fmt.Sprintf("no autoSetupTemplate found - key %s does not exist", s.scope.HetznerBareMetalHost.Spec.AutoSetupTemplateRef.Key),
+	// 	)
+	// }
+
+	// templateRef, err := template.New("autoSetupTemplate").Parse(autoSetupTemplate)
+	// if err != nil {
+	// 	return s.recordActionFailure(
+	// 		infrav1.ProvisioningError,
+	// 		fmt.Sprintf("could not parse autoSetupTemplate %s", autoSetupTemplate),
+	// 	)
+	// }
+	// b := &bytes.Buffer{}
+	// templateRef.Execute(b, installImageInput)
+
+	// out := s.scope.SSHClient.CreateAutoSetup(b.String())
+	// if err := handleSSHError(out); err != nil {
+	// 	return actionError{err: errors.Wrapf(err, "failed to create autosetup %s", b.String())}
+	// }
+
+	// out = s.scope.SSHClient.ExecuteInstallImage()
+	// if err := handleSSHError(out); err != nil {
+	// 	return actionError{err: errors.Wrap(err, "failed to execute installimage")}
+	// }
+
+	// TODO: Should I update now (and wait for installimage) or should we not wait for it and then make sure that it completes in a later reconcile?
+
+	return actionContinue{}
+}
+
+func (s *Service) actionProvisioning(ctx context.Context, info *reconcileInfo) actionResult {
+	// TODO
+	return actionContinue{}
+}
+
+func (s *Service) actionProvisioned(ctx context.Context, info *reconcileInfo) actionResult {
+	// TODO
+	return actionContinue{}
+}
+
+func (s *Service) actionDeprovisioning(ctx context.Context, info *reconcileInfo) actionResult {
+	// TODO
 	return actionContinue{}
 }

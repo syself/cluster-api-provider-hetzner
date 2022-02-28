@@ -70,13 +70,14 @@ const (
 type ErrorType string
 
 const (
+	ErrorTypeSSHResetTooSlow      ErrorType = "ssh reset too slow"
 	ErrorTypeSoftwareResetTooSlow ErrorType = "software reset too slow"
 	ErrorTypeHardwareResetTooSlow ErrorType = "hardware reset too slow"
 
+	ErrorTypeSSHResetNotStarted      ErrorType = "ssh reset not started"
 	ErrorTypeSoftwareResetNotStarted ErrorType = "software reset not started"
 	ErrorTypeHardwareResetNotStarted ErrorType = "hardware reset not started"
 
-	ErrorTypeSoftwareResetFailed ErrorType = "software reset failed"
 	ErrorTypeHardwareResetFailed ErrorType = "hardware reset failed"
 	// ProvisionedRegistrationError is an error condition occurring when the controller
 	// is unable to re-register an already provisioned host.
@@ -104,20 +105,14 @@ const (
 	// StateUnmanaged means there is insufficient information available to register the host.
 	StateUnmanaged ProvisioningState = "unmanaged"
 
-	// StateEnsureRescue means that we ensure the server is in rescue system.
-	StateEnsureRescue ProvisioningState = "ensure-rescue"
-
 	// StateRegistering means we are telling the backend about the host. Checking if server exists in robot api. -> available.
 	StateRegistering ProvisioningState = "registering"
 
 	// StateAvailable
 	StateAvailable ProvisioningState = "available"
 
-	// StatePreparing means we are removing existing configuration and install a new image.
-	StatePreparing ProvisioningState = "preparing"
-
-	// StatePrepared means we have installed a new image.
-	StatePrepared ProvisioningState = "prepared"
+	// StateImageInstalling means we install a new image.
+	StateImageInstalling ProvisioningState = "image-installing"
 
 	// StateProvisioning means we are sending user_data to the host and boot the machine.
 	StateProvisioning ProvisioningState = "provisioning"
@@ -153,8 +148,15 @@ type HetznerBareMetalHostSpec struct {
 	// being provisioned.
 	RootDeviceHints *RootDeviceHints `json:"rootDeviceHints,omitempty"`
 
+	// ConsumerRef can be used to store information about something
+	// that is using a host. When it is not empty, the host is
+	// considered "in use".
+	ConsumerRef *corev1.ObjectReference `json:"consumerRef,omitempty"`
+
 	// Should the server be online?
 	Online bool `json:"online"`
+
+	AutoSetupTemplateRef *corev1.ConfigMapKeySelector `json:"autoSetupTemplateRef"`
 
 	// Image holds the details of the image to be provisioned.
 	// http, https, ftp, nfs allowed.
@@ -188,11 +190,6 @@ type HetznerBareMetalHostSpec struct {
 
 // ControllerGeneratedStatus contains all status information which is important to persist
 type ControllerGeneratedStatus struct {
-	// ConsumerRef can be used to store information about something
-	// that is using a host. When it is not empty, the host is
-	// considered "in use".
-	ConsumerRef *corev1.ObjectReference `json:"consumerRef,omitempty"`
-
 	// UserData holds the reference to the Secret containing the user
 	// data to be passed to the host before it boots.
 	UserData *corev1.SecretReference `json:"userData,omitempty"`
