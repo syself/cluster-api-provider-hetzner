@@ -25,34 +25,40 @@ spec:
         kubectl.kubernetes.io/default-logs-container: manager
     spec:
       containers:
-      - command:
-        - /manager
-        - "--leader-elect=true"
-        - "--log-level=info"
-        image: controller:latest
-        name: manager
-        ports:
-        - containerPort: 9440
-          name: healthz
-          protocol: TCP
-        livenessProbe:
-          httpGet:
-            path: /healthz
-            port: 8081
-          initialDelaySeconds: 15
-          periodSeconds: 20
-        readinessProbe:
-          httpGet:
-            path: /readyz
-            port: 8081
-          initialDelaySeconds: 5
-          periodSeconds: 10
-        resources:
-          limits:
-            cpu: 100m
-            memory: 30Mi
-          requests:
-            cpu: 100m
-            memory: 20Mi
+        - command:
+            - /manager
+            - "--leader-elect=true"
+            - "--log-level=info"
+          image: controller:latest
+          name: manager
+          ports:
+            - containerPort: 9440
+              name: healthz
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: healthz
+              scheme: HTTP
+            timeoutSeconds: 1
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: healthz
+              scheme: HTTP
+            timeoutSeconds: 1
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          resources:
+            limits:
+              cpu: 100m
+              memory: 30Mi
+            requests:
+              cpu: 100m
+              memory: 20Mi
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
