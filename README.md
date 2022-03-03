@@ -1,42 +1,58 @@
-# <img alt="capi" src="docs/pics/cluster-api.png" height="48x" /> Kubernetes Cluster API Provider Hetzner
+<h1 align="center"><img src="docs/pics/caph.png" alt="Kubernetes Cluster API Provider Hetzner"></h1>
 
-[![GitHub release](https://img.shields.io/github/release/syself/cluster-api-provider-hetzner/all.svg?style=flat-square)](https://github.com/syself/cluster-api-provider-hetzner/releases)
-[![GoDoc](https://godoc.org/github.com/syself/cluster-api-provider-hetzner?status.svg)](https://pkg.go.dev/github.com/syself/cluster-api-provider-hetzner?tab=overview)
-[![Go Report Card](https://goreportcard.com/badge/github.com/syself/cluster-api-provider-hetzner)](https://goreportcard.com/report/github.com/syself/cluster-api-provider-hetzner)
-[![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/5682/badge)](https://bestpractices.coreinfrastructure.org/projects/5682)
-[![Latest quay.io image tags](https://img.shields.io/github/v/tag/syself/cluster-api-provider-hetzner?include_prereleases&label=quay.io)](https://quay.io/repository/syself/cluster-api-provider-hetzner?tab=tags)
+<h4 align="center">
+    <a href="docs/topics/quickstart.md">Guide</a> |
+    <a href="docs/README.md">Docs Index</a> |
+    <a href="docs/developers/development.md">Development Docs</a><br/><br/>
+    <a href="https://cluster-api.sigs.k8s.io/">Cluster API Book</a><br/><br/>
+</h4>
+
+---
 
 <p align="center">
-<img alt="hcloud" src="docs/pics/hetzner.png"/>
+    <a href="https://github.com/syself/cluster-api-provider-hetzner/releases"><img src="https://img.shields.io/github/release/syself/cluster-api-provider-hetzner/all.svg?style=flat-square" alt="GitHub release"></a>
+    <a href="https://pkg.go.dev/github.com/syself/cluster-api-provider-hetzner?tab=overview"><img src="https://godoc.org/github.com/syself/cluster-api-provider-hetzner?status.svg" alt="GoDoc"></a>
+    <a href="https://goreportcard.com/report/github.com/syself/cluster-api-provider-hetzner"><img src="https://goreportcard.com/badge/github.com/syself/cluster-api-provider-hetzner" alt="Go Report Card"></a>
+    <a href="https://bestpractices.coreinfrastructure.org/projects/5682"><img src="https://bestpractices.coreinfrastructure.org/projects/5682/badge" alt="CII Best Practices"></a>
+    <a href="https://opensource.org/licenses/Apache-2.0"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License"></a>
+    <a href="https://quay.io/repository/syself/cluster-api-provider-hetzner?tab=tags"><img src="https://img.shields.io/github/v/tag/syself/cluster-api-provider-hetzner?include_prereleases&label=quay.io" alt="Latest quay.io image tags"></a>
 </p>
 
-Kubernetes-native declarative infrastructure for [Hetzner](https://hetzner.cloud).
 
-## What is the Cluster API Provider Hetzner
+The Kubernetes Cluster API provider Hetzner enables declarative provisioning of multiple Kubernetes clusters on [Hetzner infrastructure](https://hetzner.cloud). The Cluster API simplifies the creation, updates, and operation of production-ready clusters. Self-managed Kubernetes clusters can therefore easily be operated even at a large scale.
 
-The [Cluster API][cluster_api] brings declarative, Kubernetes-style APIs to cluster creation, configuration and management.
-By using the Cluster API, it is very easy to build highly available Kubernetes clusters on Hetzner servers. The Hetzner provider is the most cost-effective of all currently supported providers.
-
-> Disclaimer: This is no official Hetzner Project! It's maintained by the folks of the cloud-native startup Syself.
+> Disclaimer: This is no official Hetzner Project! It is maintained by the folks of the cloud-native startup Syself.
 > If you have questions or are interested in running production-ready Kubernetes clusters on Hetzner, then please contact us via e-mail: [info@syself.com](mailto:info@syself.com?subject=cluster-api-provider-hetzner)
 
-## Launching a Kubernetes cluster on Hetzner
+## :newspaper: What is the Cluster API Provider Hetzner?
+The [Cluster API][cluster_api] orchestrates infrastructure similar to the way Kubernetes manages containers. It implements a declarative API like Kubernetes does and extends the resources of the Kubernetes API server via CRDs.
+The Cluster API components consist of the CAPI controller, the control-plane provider, the bootstrap provider, and a provider integration that implements the necessary controllers to enable stable and highly available Kubernetes clusters.
+The controllers ensure that the desired state of the infrastructure is achieved - just as Kubernetes ensures the desired state of containers. This concept is called Infrastructure as Software and has significant advantages over Infrastructure as Code (IaC) solutions because it can react automatically to changes and problems. The best example of this is the MachineHealthCheck, which replaces unhealthy nodes automatically.
 
-Check out the [**Quickstart Guide**](docs/topics/quickstart.md) to create your first Kubernetes cluster on Hetzner using Cluster API.
+Using the Hetzner Provider unites the benefits of declarative infrastructure, cost-effectiveness, and (GDPR compliant) European cloud.
 
-## Features
+
+## :sparkles: Features
 
 * Native Kubernetes manifests and API
 * Choice of Linux distribution (as long as a current cloud-init is available)
 * Support for single and multi-node control plane clusters (HA Kubernetes)
-* Support for Hetzner Cloud Placement groups, Network and Loadbalancer
-* Complete day 2 operations - updating Kubernetes and nodes, scale up and down, self-healing
-* Custom CSR-approver for approving [kubelet-serving certificate signing requests](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-certs/#kubelet-serving-certs)
-* Hetzner Dedicated Server *coming soon*
+* Support for Hetzner Cloud placement groups, network and load balancer
+* Complete day 2 operations - updating Kubernetes and nodes, scaling up and down, self-healing
+* Custom CSR approver for approving [kubelet-serving certificate signing requests](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-certs/#kubelet-serving-certs)
+* Hetzner dedicated servers *coming soon*
 
----
 
-## Compatibility with Cluster API and Kubernetes Versions
+
+
+## :rocket: Get Started
+If you're looking to jump straight into it, go ahead:
+
+* [**Cluster API Provider Hetzner 15 Minute Tutorial**](docs/topics/quickstart.md): Set up a bootstrap cluster using Kind and deploy a Kubernetes cluster on Hetzner
+* [**Develop and test Kubernetes clusters with Tilt**](docs/developers/development.md): Start using Tilt for rapid testing of various cluster flavors, like with/without a private network.
+
+In addition to the pure creation and operation of Kubernetes clusters, this provider can also validate and approve certificate signing requests. This increases security as the kubelets of the nodes can be operated with signed certificates. [Click here](docs/topics/csr-controller.md) to read more about the CSR controller.
+## :fire: Compatibility with Cluster API and Kubernetes Versions
 
 This provider's versions are compatible with the following versions of Cluster API:
 
@@ -57,28 +73,30 @@ Test status:
 * `+` should work, but we weren't able to test it
 
 
-Each version of Cluster API for Hetzner will attempt to support at least two Kubernetes versions 
+Each version of Cluster API for Hetzner will attempt to support at least two Kubernetes versions. 
 
 **NOTE:** As the versioning for this project is tied to the versioning of Cluster API, future modifications to this policy may be made to more closely align with other providers in the Cluster API ecosystem.
 
-------
+---
 
-## Operating system images
-**Note**: Cluster API Provider Hetzner relies on a few prerequisites which have to be already installed in the used operating system images, e.g. a container runtime, kubelet, kubeadm... . Reference images can be found in kubernetes-sigs/image-builder and in [templates/node-image](templates/node-image). If it isn't possible to pre-install those prerequisites in the image, you can always deploy and execute some custom scripts through the KubeadmConfig.
+
+
+## :white_square_button: Operating system images
+**Note**: Cluster API Provider Hetzner relies on a few prerequisites, which have to be already installed in the used operating system images, e.g. a container runtime, kubelet, and Kubeadm. Reference images can be found in kubernetes-sigs/image-builder and [templates/node-image](templates/node-image). If it isn't possible to pre-install these prerequisites in the image, you can always deploy and execute some custom scripts through the Kubeadm config.
 
 ---
-## Documentation
+## :book: Documentation
 
 Docs can be found in the `/docs` directory. Index could be found [here](docs/README.md).
 
-## Getting involved and contributing
+## :busts_in_silhouette: Getting involved and contributing
 
-Are you interested in contributing to cluster-api-provider-hetzner? We, the
+Are you interested in contributing to Cluster API Provider Hetzner? We, the
 maintainers and community, would love your suggestions, contributions, and help!
-Also, the maintainers can be contacted at any time to learn more about how to get
+Also, the maintainers can be contacted at any time to learn more about getting
 involved.
 
-To set up your environment try out the development guide.
+To set up your environment, try out the development guide.
 
 In the interest of getting more new people involved, we tag issues with
 [`good first issue`][good_first_issue].
@@ -94,34 +112,34 @@ that the only people who can get things done around here are the "maintainers".
 We also would love to add more "official" maintainers, so show us what you can
 do!
 
-## Code of conduct
+## :dizzy: Code of conduct
 
 Participation in the Kubernetes community is governed by the [Kubernetes Code of Conduct](code-of-conduct.md).
 
-## Github issues
+## :shipit: Github issues
 
-### Bugs
+### :bug: Bugs
 
 If you think you have found a bug please follow the instructions below.
 
-- Please spend a small amount of time giving due diligence to the issue tracker. Your issue might be a duplicate.
+- Please take some time to give due diligence to the issue tracker. Your issue might be a duplicate.
 - Get the logs from the cluster controllers. Please paste this into your issue.
 - Open a [bug report][bug_report].
-- Remember users might be searching for your issue in the future, so please give it a meaningful title to helps others.
-- Feel free to reach out to the cluster-api community on [kubernetes slack][slack_info].
+- Remember users might be searching for your issue in the future, so please give it a meaningful title to help others.
+- Feel free to reach out to the Cluster API community on [kubernetes slack][slack_info].
 
-### Tracking new features
+### :star: Tracking new features
 
-We also use the issue tracker to track features. If you have an idea for a feature, or think you can help Cluster API Provider Hetzner become even more awesome, then follow the steps below.
+We also use the issue tracker to track features. If you have an idea for a feature or think that you can help Cluster API Provider Hetzner become even more awesome, then follow the steps below.
 
 - Open a [feature request][feature_request].
 - Remember users might be searching for your issue in the future, so please
-  give it a meaningful title to helps others.
+  give it a meaningful title to help others.
 - Clearly define the use case, using concrete examples. EG: I type `this` and
-  cluster-api-provider-hetzner does `that`.
+  Cluster API Provider Hetzner does `that`.
 - Some of our larger features will require some design. If you would like to
   include a technical design for your feature please include it in the issue.
-- After the new feature is well understood, and the design agreed upon we can
+- After the new feature is well understood, and the design is agreed upon, we can
   start coding the feature. We would love for you to code it. So please open
   up a **WIP** *(work in progress)* pull request, and happy coding.
 
