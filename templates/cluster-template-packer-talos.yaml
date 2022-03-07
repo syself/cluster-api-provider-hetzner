@@ -4,10 +4,6 @@ kind: Cluster
 metadata:
   name: "${CLUSTER_NAME}"
 spec:
-  clusterNetwork:
-    pods:
-      cidrBlocks:
-        - 10.244.0.0/16
   infrastructureRef:
     apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
     kind: HetznerCluster
@@ -50,19 +46,11 @@ metadata:
   name: ${CLUSTER_NAME}-controlplane
 spec:
   replicas: ${CONTROL_PLANE_MACHINE_COUNT}
-  version: v${KUBERNETES_VERSION}
+  version: ${KUBERNETES_VERSION}
   controlPlaneConfig:
-    init:
-      generateType: init
-      talosVersion: v0.14
-      configPatches:
-        - op: add
-          path: /cluster/externalCloudProvider
-          value:
-            enabled: true
     controlplane:
       generateType: controlplane
-      talosVersion: v0.13
+      talosVersion: v0.14
       configPatches:
         - op: add
           path: /cluster/externalCloudProvider
@@ -80,8 +68,8 @@ metadata:
 spec:
   template:
     spec:
-      type: "${HETZNER_CONTROL_PLANE_MACHINE_TYPE}"
-      imageName: "${IMAGE_NAME}"
+      type: "${HCLOUD_CONTROL_PLANE_MACHINE_TYPE}"
+      imageName: "${HCLOUD_IMAGE_NAME}"
       placementGroupName: control-plane
 ---
 apiVersion: cluster.x-k8s.io/v1beta1
@@ -116,7 +104,7 @@ spec:
   template:
     spec:
       clusterName: "${CLUSTER_NAME}"
-      failureDomain: "${HETZNER_REGION}"
+      failureDomain: "${HCLOUD_REGION}"
       version: "${KUBERNETES_VERSION}"
       bootstrap:
         configRef:
@@ -135,8 +123,8 @@ metadata:
 spec:
   template:
     spec:
-      type: "${HETZNER_NODE_MACHINE_TYPE}"
-      imageName: "${IMAGE_NAME}"
+      type: "${HCLOUD_WORKER_MACHINE_TYPE}"
+      imageName: "${HCLOUD_IMAGE_NAME}"
       placementGroupName: md-0
 ---
 apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
@@ -146,7 +134,7 @@ metadata:
 spec:
   template:
     spec:
-      generateType: join
+      generateType: worker
       talosVersion: v0.14
       configPatches:
         - op: add

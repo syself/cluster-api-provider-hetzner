@@ -21,8 +21,8 @@ settings = {
     "preload_images_for_kind": True,
     "kind_cluster_name": "caph",
     "capi_version": "v1.1.2",
-    "cabpt_version": "v0.5.0",
-    "cacppt_version": "v0.4.0-alpha.0",
+    "cabpt_version": "v0.5.2",
+    "cacppt_version": "v0.4.5",
     "cert_manager_version": "v1.1.0",
     "kustomize_substitutions": {
         "HCLOUD_REGION": "fsn1",
