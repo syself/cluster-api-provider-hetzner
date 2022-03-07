@@ -594,7 +594,7 @@ move-to-workload-cluster:
 
 create-talos-workload-cluster-packer: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
-	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD_TOKEN) 
+	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD_TOKEN) || true
 	cat templates/cluster-template-packer-talos.yaml | $(ENVSUBST) - | kubectl apply -f -
 	$(MAKE) wait-and-get-secret
 	$(MAKE) install-manifests
