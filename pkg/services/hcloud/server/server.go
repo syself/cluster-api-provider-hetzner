@@ -29,7 +29,6 @@ import (
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
-	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/record"
@@ -122,51 +121,11 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 		return nil, errors.Wrap(err, "failed to reconcile load balancer attachement")
 	}
 
-	if err := s.isControlPlaneReady(ctx); err != nil {
-		conditions.MarkFalse(s.scope.HCloudMachine,
-			infrav1.InstanceReadyCondition,
-			infrav1.InstanceAsControlPlaneUnreachableReason,
-			clusterv1.ConditionSeverityInfo,
-			fmt.Sprintf("health check for API server failed: %s", err),
-		)
-		return &reconcile.Result{
-			Requeue: true,
-		}, nil
-	}
-
 	s.scope.HCloudMachine.Spec.ProviderID = &providerID
 	s.scope.HCloudMachine.Status.Ready = true
 	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.InstanceReadyCondition)
 
 	return nil, nil
-}
-
-// Checks if control-plane is ready. Loops through available control-planes,
-// rewrites kubeconfig address to address of control-plane.
-// Requests readyz endpoint of control-plane kube-apiserver.
-func (s *Service) isControlPlaneReady(ctx context.Context) error {
-	var multierr []error
-	for _, address := range s.scope.HCloudMachine.Status.Addresses {
-		if address.Type != corev1.NodeExternalIP && address.Type != corev1.NodeExternalDNS {
-			continue
-		}
-
-		clientConfig, err := s.scope.ClientConfigWithAPIEndpoint(ctx, clusterv1.APIEndpoint{
-			Host: address.Address,
-			Port: s.scope.ControlPlaneAPIEndpointPort(),
-		})
-		if err != nil {
-			multierr = append(multierr, errors.Wrap(err, "failed to get client config with API endpoint"))
-			break
-		}
-
-		if err := scope.IsControlPlaneReady(ctx, clientConfig); err != nil {
-			multierr = append(multierr, err)
-			break
-		}
-		return nil
-	}
-	return kerrors.NewAggregate(multierr)
 }
 
 func (s *Service) reconcileNetworkAttachment(ctx context.Context, server *hcloud.Server) error {
