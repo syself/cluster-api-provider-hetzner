@@ -52,7 +52,7 @@ MINIMUM_HELMFILE_VERSION=v0.143.0				# https://github.com/roboll/helmfile/releas
 MINIMUM_KIND_VERSION=v0.11.1						# https://github.com/kubernetes-sigs/kind/releases
 MINIMUM_KUBECTL_VERSION=v1.23.0					# https://github.com/kubernetes/kubernetes/releases
 MINIMUM_PACKER_VERSION=1.7.10						# https://github.com/hashicorp/packer/releases
-MINIMUM_TILT_VERSION=0.25.1							# https://github.com/tilt-dev/tilt/releases
+MINIMUM_TILT_VERSION=0.25.3							# https://github.com/tilt-dev/tilt/releases
 CONTROLLER_GEN_VERSION=v.0.4.1					# https://github.com/kubernetes-sigs/controller-tools/releases
 KUSTOMIZE_VERSION=4.5.1									# https://github.com/kubernetes-sigs/kustomize/releases
 
@@ -117,13 +117,13 @@ export KUBEBUILDER_CONTROLPLANE_STOP_TIMEOUT ?= 60s
 # Container related variables. Releases should modify and double check these vars.
 #
 REGISTRY ?= quay.io/syself
-STAGING_REGISTRY := quay.io/syself
 PROD_REGISTRY := quay.io/syself
 IMAGE_NAME ?= cluster-api-provider-hetzner
 CONTROLLER_IMG ?= $(REGISTRY)/$(IMAGE_NAME)
-TAG ?= latest
+TAG ?= dev
 ARCH ?= amd64
-ALL_ARCH = amd64 arm arm64 ppc64le s390x
+# Modify these according to your needs
+PLATFORMS  = linux/amd64,linux/arm64
 # Allow overriding the imagePullPolicy
 PULL_POLICY ?= Always
 # Build time versioning details.
@@ -397,13 +397,11 @@ release-notes: $(RELEASE_NOTES_DIR) $(RELEASE_NOTES)
 
 .PHONY: release-nightly
 release-nightly: ## Builds and push container images to the prod bucket.
-	docker build --pull --build-arg ARCH=$(ARCH) --build-arg LDFLAGS="$(LDFLAGS)" . -t $(PROD_REGISTRY)/$(IMAGE_NAME):$(TAG)
-	docker push $(PROD_REGISTRY)/$(IMAGE_NAME):$(TAG)
+	$(MAKE) CONTROLLER_IMG=$(PROD_REGISTRY)/$(IMAGE_NAME) TAG=latest docker-multiarch
 
 .PHONY: release-image
-release-image: ## Builds and push container images to the prod bucket.
-	docker build --pull --build-arg ARCH=$(ARCH) --build-arg LDFLAGS="$(LDFLAGS)" . -t $(PROD_REGISTRY)/$(IMAGE_NAME):$(RELEASE_TAG)
-	docker push $(PROD_REGISTRY)/$(IMAGE_NAME):$(RELEASE_TAG)
+release-image:  ## Builds and push container images to the prod bucket.
+	$(MAKE) CONTROLLER_IMG=$(PROD_REGISTRY)/$(IMAGE_NAME) TAG=$(RELEASE_TAG) docker-multiarch
 
 ##@ Test
 
@@ -461,36 +459,38 @@ run: generate fmt vet ## Run a controller from your host.
 ## Docker
 ## --------------------------------------
 
-.PHONY: docker-build
-docker-build: ## Build the docker image for controller-manager
-	docker build --pull --build-arg ARCH=$(ARCH) --build-arg LDFLAGS="$(LDFLAGS)" . -t $(CONTROLLER_IMG):$(TAG)
+# Create multi-platform docker image. If you have native systems around, using
+# them will be much more efficient at build time. See e.g.
+BUILDXDETECT = ${HOME}/.docker/cli-plugins/docker-buildx
+# Just one of the many files created
+QEMUDETECT = /proc/sys/fs/binfmt_misc/qemu-m68k
 
-.PHONY: docker-push
-docker-push: ## Push the docker image
-	docker push $(CONTROLLER_IMG)-$(ARCH):$(TAG)
+docker-multiarch: qemu buildx docker-multiarch-builder
+	docker buildx build --builder docker-multiarch --pull --push \
+		--platform ${PLATFORMS} \
+		-t $(CONTROLLER_IMG):$(TAG) .
 
-## --------------------------------------
-## Docker — All ARCH
-## --------------------------------------
+.PHONY: qemu buildx docker-multiarch-builder
 
-docker-build-%:
-	$(MAKE) ARCH=$* docker-build
+qemu:	${QEMUDETECT}
+${QEMUDETECT}:
+	docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
 
-.PHONY: docker-build-all ## Build all the architecture docker images
-docker-build-all: $(addprefix docker-build-,$(ALL_ARCH))
+buildx: ${BUILDXDETECT}
+${BUILDXDETECT}:
+	@echo
+# Output of `uname -m` is too different 
+	@echo "*** 'docker buildx' missing. Install binary for this machine's architecture"
+	@echo "*** from https://github.com/docker/buildx/releases/latest"
+	@echo "*** to ~/.docker/cli-plugins/docker-buildx"
+	@echo
+	@exit 1
 
-.PHONY: docker-push-all ## Push all the architecture docker images
-docker-push-all: $(addprefix docker-push-,$(ALL_ARCH))
-	$(MAKE) docker-push-manifest
-
-.PHONY: docker-push-manifest
-docker-push-manifest: ## Push the fat manifest docker image.
-	## Minimum docker version 18.06.0 is required for creating and pushing manifest images.
-	docker manifest create --amend $(CONTROLLER_IMG):$(TAG) $(shell echo $(ALL_ARCH) | sed -e "s~[^ ]*~$(CONTROLLER_IMG)\-&:$(TAG)~g")
-	@for arch in $(ALL_ARCH); do docker manifest annotate --arch $${arch} ${CONTROLLER_IMG}:${TAG} ${CONTROLLER_IMG}-$${arch}:${TAG}; done
-	docker manifest push --purge ${CONTROLLER_IMG}:${TAG}
-	MANIFEST_IMG=$(CONTROLLER_IMG) MANIFEST_TAG=$(TAG) $(MAKE) set-manifest-image
-	$(MAKE) set-manifest-pull-policy
+docker-multiarch-builder: qemu buildx
+	if ! docker buildx ls | grep -w docker-multiarch > /dev/null; then \
+		docker buildx create --name docker-multiarch && \
+		docker buildx inspect --builder docker-multiarch --bootstrap; \
+	fi
 
 .PHONY: set-manifest-image
 set-manifest-image:
@@ -501,8 +501,6 @@ set-manifest-image:
 set-manifest-pull-policy:
 	$(info Updating kustomize pull policy file for default resource)
 	sed -i'' -e 's@imagePullPolicy: .*@imagePullPolicy: '"$(PULL_POLICY)"'@' ./config/default/manager_pull_policy.yaml
-
-
 
 ##@ Development
 
