@@ -33,6 +33,10 @@ settings = {
         "HCLOUD_CONTROL_PLANE_MACHINE_TYPE": "cpx31",
         "HCLOUD_WORKER_MACHINE_TYPE": "cpx31",
         "CLUSTER_NAME": "test",
+        "HETZNER_SSH_PUB_PATH": "~/.ssh/test",
+        "HETZNER_SSH_PRIV_PATH": "~/.ssh/test",
+        "HETZNER_ROBOT_USER": "test",
+        "HETZNER_ROBOT_PASSWORD": "pw"
     },
     "talos-bootstrap": "false",
 }
@@ -302,6 +306,14 @@ cmd_button(
     location = location.NAV,
     icon_name = "switch_access_shortcut_outlined",
     text = "Create Workload Cluster - without Packer",
+)
+
+cmd_button(
+    "Create Baremetal Workload Cluster - without Packer",
+    argv = ["make", "create-workload-cluster-baremetal"],
+    location = location.NAV,
+    icon_name = "switch_access_shortcut_outlined",
+    text = "Create Baremetal Workload Cluster - without Packer",
 )
 
 cmd_button(
