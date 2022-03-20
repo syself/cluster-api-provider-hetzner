@@ -214,52 +214,26 @@ spec:
         content: |
           overlay
           br_netfilter
-      - path: /etc/crio/crio.conf.d/02-cgroup-manager.conf
+      - path: /etc/containerd/config.toml
         owner: "root:root"
         permissions: "0744"
         content: |
-          [crio]
-          log_dir = "/var/log/crio/pods"
-          grpc_max_send_msg_size = 16777216
-          grpc_max_recv_msg_size = 16777216
-          [crio.runtime]
-          default_runtime = "runc"
-          conmon = "/usr/local/bin/conmon"
-          conmon_env = [
-              "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-          ]
-          default_env = [
-          ]
-          selinux = false
-          seccomp_profile = ""
-          apparmor_profile = "crio-default"
-          default_capabilities = [
-            "CHOWN",
-            "DAC_OVERRIDE",
-            "FSETID",
-            "FOWNER",
-            "SETGID",
-            "SETUID",
-            "SETPCAP",
-            "NET_BIND_SERVICE",
-            "KILL",
-              "MKNOD",
-          ]
-          [crio.runtime.runtimes.runc]
-          runtime_path = ""
-          runtime_type = "oci"
-          runtime_root = "/run/runc"
-      - path: /etc/yum.repos.d/kubernetes.repo
-        owner: "root:root"
-        permissions: "0744"
-        content: |
-          [kubernetes]
-          name=Kubernetes
-          baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
-          enabled=1
-          gpgcheck=1
-          repo_gpgcheck=1
-          gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+          version = 2
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+            runtime_type = "io.containerd.runc.v2"
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+            SystemdCgroup = true
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.crun]
+            runtime_type = "io.containerd.runc.v2"
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.crun.options]
+            BinaryName = "crun"
+            Root = "/usr/local/sbin"
+            SystemdCgroup = true
+          [plugins."io.containerd.grpc.v1.cri".containerd]
+            default_runtime_name = "crun"
+          [plugins."io.containerd.runtime.v1.linux"]
+            runtime = "crun"
+            runtime_root = "/usr/local/sbin"
       - path: /etc/sysctl.d/99-kubernetes-cri.conf
         owner: "root:root"
         permissions: "0744"
@@ -282,27 +256,33 @@ spec:
           nameserver 1.0.0.1
           nameserver 2606:4700:4700::1111
     preKubeadmCommands:
+      - export CRUN=1.4.3
+      - export CONTAINERD=1.6.1
+      - export KUBERNETES_VERSION=1.23.4
       - localectl set-locale LANG=en_US.UTF-8
       - localectl set-locale LANGUAGE=en_US.UTF-8
-      - dnf update -y
-      - dnf -y install at jq unzip wget socat mtr firewalld
+      - apt-get update -y
+      - apt-get -y install at jq unzip wget socat mtr logrotate apt-transport-https
       - sed -i '/swap/d' /etc/fstab
       - swapoff -a
       - modprobe overlay && modprobe br_netfilter && sysctl --system
-      - wget https://github.com/opencontainers/runc/releases/download/v1.1.0/runc.amd64 -O /usr/local/sbin/runc && chmod +x /usr/local/sbin/runc
-      - wget https://github.com/containers/conmon/releases/download/v2.1.0/conmon-x86.zip -O conmon.zip && unzip conmon.zip -d conmon && mv conmon/bin/conmon /usr/local/bin/conmon && chmod +x /usr/local/bin/conmon && rm -rf conmon.zip conmon
-      - curl https://raw.githubusercontent.com/cri-o/cri-o/main/scripts/get | bash -s -- -t v1.23.1 -a amd64
-      - wget https://github.com/kubernetes-sigs/cri-tools/releases/download/v1.23.0/crictl-v1.23.0-linux-amd64.tar.gz && tar zxvf crictl-v1.23.0-linux-amd64.tar.gz -C /usr/local/bin && rm -f crictl-v1.23.0-linux-amd64.tar.gz
-      - rm -f /etc/cni/net.d/100-crio-bridge.conf /etc/cni/net.d/200-loopback.conf
-      - systemctl enable crio.service && systemctl daemon-reload && systemctl enable crio
-      - dnf install --setopt=obsoletes=0 -y kubelet-0:1.23.4-0 kubeadm-0:1.23.4-0 kubectl-0:1.23.4-0 python3-dnf-plugin-versionlock bash-completion --disableexcludes=kubernetes && dnf versionlock kubelet kubectl kubeadm && systemctl enable kubelet && systemctl start crio && kubeadm config images pull --kubernetes-version 1.23.4
-      - dnf install -y policycoreutils-python-utils
-      - semanage fcontext -a -t container_file_t /var/lib/etcd && mkdir -p /var/lib/etcd && restorecon -rv /var /etc
+      - wget https://github.com/containerd/containerd/releases/download/v$CONTAINERD/cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz
+      - wget https://github.com/containerd/containerd/releases/download/v$CONTAINERD/cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
+      - sha256sum --check cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
+      - tar --no-overwrite-dir -C / -xzf cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz
+      - rm -f cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
+      - wget https://github.com/containers/crun/releases/download/$CRUN/crun-$CRUN-linux-amd64 -O /usr/local/sbin/crun && chmod +x /usr/local/sbin/crun
+      - rm -f /etc/cni/net.d/10-containerd-net.conflist
+      - chmod -R 644 /etc/cni && chown -R root:root /etc/cni
+      - systemctl daemon-reload && systemctl enable containerd && systemctl start containerd
+      - curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+      - echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee -a /etc/apt/sources.list.d/kubernetes.list
+      - apt-get update
+      - apt-get install -y kubelet=$KUBERNETES_VERSION-00 kubeadm=$KUBERNETES_VERSION-00 kubectl=$KUBERNETES_VERSION-00  bash-completion && apt-mark hold kubelet kubectl kubeadm && systemctl enable kubelet
+      - kubeadm config images pull --kubernetes-version $KUBERNETES_VERSION
       - echo 'source <(kubectl completion bash)' >>~/.bashrc
       - echo 'export KUBECONFIG=/etc/kubernetes/admin.conf' >>~/.bashrc
-      - setenforce 0 && sed -i -e '/^\(#\|\)SELINUX/s/^.*$/SELINUX=disabled/' /etc/selinux/config
-      - dnf -y remove firewalld
-      - dnf -y autoremove && dnf -y clean all
+      - apt-get -y autoremove && apt-get -y clean all
   version: "${KUBERNETES_VERSION}"
 ---
 kind: HCloudMachineTemplate
@@ -313,7 +293,7 @@ spec:
   template:
     spec:
       type: "${HCLOUD_CONTROL_PLANE_MACHINE_TYPE}"
-      imageName: "fedora-35"
+      imageName: "ubuntu-20.04"
       placementGroupName: control-plane
 ---
 apiVersion: cluster.x-k8s.io/v1beta1
@@ -369,7 +349,7 @@ spec:
   template:
     spec:
       type: "${HCLOUD_WORKER_MACHINE_TYPE}"
-      imageName: "fedora-35"
+      imageName: "ubuntu-20.04"
       placementGroupName: md-0
 ---
 apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
@@ -424,46 +404,26 @@ spec:
           content: |
             overlay
             br_netfilter
-        - path: /etc/crio/crio.conf.d/02-cgroup-manager.conf
+        - path: /etc/containerd/config.toml
           owner: "root:root"
           permissions: "0744"
           content: |
-            [crio.runtime]
-            default_runtime = "runc"
-            conmon = "/usr/local/bin/conmon"
-            conmon_env = [
-                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-            ]
-            selinux = false
-            seccomp_profile = ""
-            apparmor_profile = "crio-default"
-            default_capabilities = [
-              "CHOWN",
-              "DAC_OVERRIDE",
-              "FSETID",
-              "FOWNER",
-              "SETGID",
-              "SETUID",
-              "SETPCAP",
-              "NET_BIND_SERVICE",
-              "KILL",
-              "MKNOD",
-            ]
-            [crio.runtime.runtimes.runc]
-            runtime_path = ""
-            runtime_type = "oci"
-            runtime_root = "/run/runc"
-        - path: /etc/yum.repos.d/kubernetes.repo
-          owner: "root:root"
-          permissions: "0744"
-          content: |
-            [kubernetes]
-            name=Kubernetes
-            baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
-            enabled=1
-            gpgcheck=1
-            repo_gpgcheck=1
-            gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+            version = 2
+            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+              runtime_type = "io.containerd.runc.v2"
+            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+              SystemdCgroup = true
+            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.crun]
+              runtime_type = "io.containerd.runc.v2"
+            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.crun.options]
+              BinaryName = "crun"
+              Root = "/usr/local/sbin"
+              SystemdCgroup = true
+            [plugins."io.containerd.grpc.v1.cri".containerd]
+              default_runtime_name = "crun"
+            [plugins."io.containerd.runtime.v1.linux"]
+              runtime = "crun"
+              runtime_root = "/usr/local/sbin"
         - path: /etc/sysctl.d/99-kubernetes-cri.conf
           owner: "root:root"
           permissions: "0744"
@@ -486,27 +446,33 @@ spec:
             nameserver 1.0.0.1
             nameserver 2606:4700:4700::1111
       preKubeadmCommands:
+        - export CRUN=1.4.3
+        - export CONTAINERD=1.6.1
+        - export KUBERNETES_VERSION=1.23.4
         - localectl set-locale LANG=en_US.UTF-8
         - localectl set-locale LANGUAGE=en_US.UTF-8
-        - dnf update -y
-        - dnf -y install at jq unzip wget socat mtr firewalld
+        - apt-get update -y
+        - apt-get -y install at jq unzip wget socat mtr logrotate apt-transport-https
         - sed -i '/swap/d' /etc/fstab
         - swapoff -a
         - modprobe overlay && modprobe br_netfilter && sysctl --system
-        - wget https://github.com/opencontainers/runc/releases/download/v1.1.0/runc.amd64 -O /usr/local/sbin/runc && chmod +x /usr/local/sbin/runc
-        - wget https://github.com/containers/conmon/releases/download/v2.1.0/conmon-x86.zip -O conmon.zip && unzip conmon.zip -d conmon && mv conmon/bin/conmon /usr/local/bin/conmon && chmod +x /usr/local/bin/conmon && rm -rf conmon.zip conmon
-        - curl https://raw.githubusercontent.com/cri-o/cri-o/main/scripts/get | bash -s -- -t v1.23.1 -a amd64
-        - wget https://github.com/kubernetes-sigs/cri-tools/releases/download/v1.23.0/crictl-v1.23.0-linux-amd64.tar.gz && tar zxvf crictl-v1.23.0-linux-amd64.tar.gz -C /usr/local/bin && rm -f crictl-v1.23.0-linux-amd64.tar.gz
-        - rm -f /etc/cni/net.d/100-crio-bridge.conf /etc/cni/net.d/200-loopback.conf
-        - systemctl enable crio.service && systemctl daemon-reload && systemctl enable crio
-        - dnf install --setopt=obsoletes=0 -y kubelet-0:1.23.4-0 kubeadm-0:1.23.4-0 kubectl-0:1.23.4-0 python3-dnf-plugin-versionlock bash-completion --disableexcludes=kubernetes && dnf versionlock kubelet kubectl kubeadm && systemctl enable kubelet && systemctl start crio && kubeadm config images pull --kubernetes-version 1.23.4
-        - dnf install -y policycoreutils-python-utils
-        - semanage fcontext -a -t container_file_t /var/lib/etcd && mkdir -p /var/lib/etcd && restorecon -rv /var /etc
+        - wget https://github.com/containerd/containerd/releases/download/v$CONTAINERD/cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz
+        - wget https://github.com/containerd/containerd/releases/download/v$CONTAINERD/cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
+        - sha256sum --check cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
+        - tar --no-overwrite-dir -C / -xzf cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz
+        - rm -f cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
+        - wget https://github.com/containers/crun/releases/download/$CRUN/crun-$CRUN-linux-amd64 -O /usr/local/sbin/crun && chmod +x /usr/local/sbin/crun
+        - rm -f /etc/cni/net.d/10-containerd-net.conflist
+        - chmod -R 644 /etc/cni && chown -R root:root /etc/cni
+        - systemctl daemon-reload && systemctl enable containerd && systemctl start containerd
+        - curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+        - echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee -a /etc/apt/sources.list.d/kubernetes.list
+        - apt-get update
+        - apt-get install -y kubelet=$KUBERNETES_VERSION-00 kubeadm=$KUBERNETES_VERSION-00 kubectl=$KUBERNETES_VERSION-00  bash-completion && apt-mark hold kubelet kubectl kubeadm && systemctl enable kubelet
+        - kubeadm config images pull --kubernetes-version $KUBERNETES_VERSION
         - echo 'source <(kubectl completion bash)' >>~/.bashrc
         - echo 'export KUBECONFIG=/etc/kubernetes/admin.conf' >>~/.bashrc
-        - setenforce 0 && sed -i -e '/^\(#\|\)SELINUX/s/^.*$/SELINUX=disabled/' /etc/selinux/config
-        - dnf -y remove firewalld
-        - dnf -y autoremove && dnf -y clean all
+        - apt-get -y autoremove && apt-get -y clean all
 ---
 apiVersion: cluster.x-k8s.io/v1beta1
 kind: MachineHealthCheck
