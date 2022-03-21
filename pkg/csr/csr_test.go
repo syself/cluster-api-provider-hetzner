@@ -23,19 +23,18 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/csr"
 	corev1 "k8s.io/api/core/v1"
 )
 
 var _ = Describe("Validate Kubelet CSR", func() {
-	var machine *infrav1.HCloudMachine
 	var cr *x509.CertificateRequest
-
+	var name string
+	var addresses []corev1.NodeAddress
 	BeforeEach(func() {
-		machine = &infrav1.HCloudMachine{}
-		machine.Name = "test2-control-plane-a0653-7w642"
-		machine.Status.Addresses = []corev1.NodeAddress{
+
+		name = "test2-control-plane-a0653-7w642"
+		addresses = []corev1.NodeAddress{
 			{
 				Type:    corev1.NodeExternalIP,
 				Address: "168.119.152.147",
@@ -49,6 +48,6 @@ var _ = Describe("Validate Kubelet CSR", func() {
 	})
 
 	It("should not fail", func() {
-		Expect(csr.ValidateKubeletCSR(cr, machine)).To(Succeed())
+		Expect(csr.ValidateKubeletCSR(cr, name, addresses)).To(Succeed())
 	})
 })

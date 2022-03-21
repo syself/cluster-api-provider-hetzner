@@ -182,7 +182,9 @@ func (r *HetznerBareMetalHostReconciler) reconcileDelete(
 	}
 	// Machine is deleted so remove the finalizer.
 	controllerutil.RemoveFinalizer(hostScope.HetznerBareMetalHost, infrav1.BareMetalHostFinalizer)
-
+	if err := r.Update(ctx, hostScope.HetznerBareMetalHost); err != nil {
+		return ctrl.Result{}, errors.Wrap(err, "failed to remove finalizer")
+	}
 	return reconcile.Result{}, nil
 }
 
@@ -303,6 +305,11 @@ func (r *HetznerBareMetalHostReconciler) SetupWithManager(ctx context.Context, m
 
 					// If provisioning state changes, then we want to reconcile
 					if objectOld.Spec.Status.ProvisioningState != objectNew.Spec.Status.ProvisioningState {
+						return true
+					}
+
+					// If install image changes, then we want to reconcile, as this is important when working with bm machines
+					if objectOld.Spec.Status.InstallImage != objectNew.Spec.Status.InstallImage {
 						return true
 					}
 

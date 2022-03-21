@@ -1,3 +1,19 @@
+/*
+Copyright 2022 The Kubernetes Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package baremetal
 
 import (
@@ -262,23 +278,23 @@ var _ = Describe("Test NodeAddresses", func() {
 		IP: "172.0.20.2",
 	}
 
-	addr1 := clusterv1.MachineAddress{
-		Type:    clusterv1.MachineInternalIP,
+	addr1 := corev1.NodeAddress{
+		Type:    corev1.NodeInternalIP,
 		Address: "192.168.1.1",
 	}
 
-	addr2 := clusterv1.MachineAddress{
-		Type:    clusterv1.MachineInternalIP,
+	addr2 := corev1.NodeAddress{
+		Type:    corev1.NodeInternalIP,
 		Address: "172.0.20.2",
 	}
 
-	addr3 := clusterv1.MachineAddress{
-		Type:    clusterv1.MachineHostName,
+	addr3 := corev1.NodeAddress{
+		Type:    corev1.NodeHostName,
 		Address: "bm-machine",
 	}
 
-	addr4 := clusterv1.MachineAddress{
-		Type:    clusterv1.MachineInternalDNS,
+	addr4 := corev1.NodeAddress{
+		Type:    corev1.NodeInternalDNS,
 		Address: "bm-machine",
 	}
 
@@ -286,7 +302,7 @@ var _ = Describe("Test NodeAddresses", func() {
 		Machine               clusterv1.Machine
 		BareMetalMachine      infrav1.HetznerBareMetalMachine
 		Host                  *infrav1.HetznerBareMetalHost
-		ExpectedNodeAddresses []clusterv1.MachineAddress
+		ExpectedNodeAddresses []corev1.NodeAddress
 	}
 
 	DescribeTable("Test NodeAddress",
@@ -306,7 +322,7 @@ var _ = Describe("Test NodeAddresses", func() {
 					},
 				},
 			},
-			ExpectedNodeAddresses: []clusterv1.MachineAddress{addr1, addr3, addr4},
+			ExpectedNodeAddresses: []corev1.NodeAddress{addr1, addr3, addr4},
 		}),
 		Entry("Two NICs", testCaseNodeAddress{
 			Host: &infrav1.HetznerBareMetalHost{
@@ -318,7 +334,7 @@ var _ = Describe("Test NodeAddresses", func() {
 					},
 				},
 			},
-			ExpectedNodeAddresses: []clusterv1.MachineAddress{addr1, addr2, addr3, addr4},
+			ExpectedNodeAddresses: []corev1.NodeAddress{addr1, addr2, addr3, addr4},
 		}),
 		Entry("No host", testCaseNodeAddress{
 			Host:                  nil,
@@ -568,14 +584,6 @@ var _ = Describe("Test setOwnerRefInList", func() {
 		Kind:       "HetznerBareMetalMachine",
 		APIVersion: "v1beta1",
 	}
-
-	expectedRefList3 := make([]metav1.OwnerReference, 0, 2)
-	expectedRefList3 = append(expectedRefList3, metav1.OwnerReference{
-
-		Name:       "bm-machine2",
-		Kind:       "HetznerBareMetalMachine",
-		APIVersion: "v1beta1",
-	})
 
 	DescribeTable("Test setOwnerRefInList",
 		func(tc testCaseSetOwnerRefInList) {

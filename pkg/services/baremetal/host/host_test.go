@@ -432,9 +432,9 @@ var _ = Describe("ensureSSHKey", func() {
 			expectedActionResult actionResult,
 			expectSetSSHKey bool,
 		) {
-
+			secret := helpers.GetDefaultSSHSecret("ssh-secret", "default")
 			robotMock := robotmock.Client{}
-			robotMock.On("SetSSHKey", sshSecretKeyRef.Name, mock.Anything).Return(
+			robotMock.On("SetSSHKey", string(secret.Data[sshSecretKeyRef.Name]), mock.Anything).Return(
 				&models.Key{Name: sshSecretKeyRef.Name, Fingerprint: defaultFingerPrint}, nil,
 			)
 			robotMock.On("ListSSHKeys").Return(hetznerSSHKeys, nil)
@@ -446,21 +446,21 @@ var _ = Describe("ensureSSHKey", func() {
 			sshKey, actResult := service.ensureSSHKey(infrav1.SSHSecretRef{
 				Name: "secret-name",
 				Key:  sshSecretKeyRef,
-			}, helpers.GetDefaultSSHSecret("ssh-secret", "default"))
+			}, secret)
 
 			Expect(sshKey.Fingerprint).To(Equal(expectedFingerprint))
 			Expect(actResult).Should(BeAssignableToTypeOf(expectedActionResult))
 			if expectSetSSHKey {
-				Expect(robotMock.AssertCalled(GinkgoT(), "SetSSHKey", sshSecretKeyRef.Name, mock.Anything)).To(BeTrue())
+				Expect(robotMock.AssertCalled(GinkgoT(), "SetSSHKey", string(secret.Data[sshSecretKeyRef.Name]), mock.Anything)).To(BeTrue())
 			} else {
-				Expect(robotMock.AssertNotCalled(GinkgoT(), "SetSSHKey", sshSecretKeyRef.Name, mock.Anything)).To(BeTrue())
+				Expect(robotMock.AssertNotCalled(GinkgoT(), "SetSSHKey", string(secret.Data[sshSecretKeyRef.Name]), mock.Anything)).To(BeTrue())
 			}
 		},
 		Entry(
 			"empty list",
 			nil,
 			infrav1.SSHSecretKeyRef{
-				Name:       "secret1",
+				Name:       "sshkey-name",
 				PublicKey:  "public-key",
 				PrivateKey: "private-key",
 			},
@@ -471,16 +471,16 @@ var _ = Describe("ensureSSHKey", func() {
 		Entry("secret in list",
 			[]models.Key{
 				{
-					Name:        "secret1",
-					Fingerprint: "new fingerprint",
+					Name:        "my-name",
+					Fingerprint: "my-fingerprint",
 				},
 			},
 			infrav1.SSHSecretKeyRef{
-				Name:       "secret1",
+				Name:       "sshkey-name",
 				PublicKey:  "public-key",
 				PrivateKey: "private-key",
 			},
-			"new fingerprint",
+			"my-fingerprint",
 			actionComplete{},
 			false,
 		),
@@ -497,7 +497,7 @@ var _ = Describe("ensureSSHKey", func() {
 				},
 			},
 			infrav1.SSHSecretKeyRef{
-				Name:       "secret1",
+				Name:       "sshkey-name",
 				PublicKey:  "public-key",
 				PrivateKey: "private-key",
 			},
@@ -516,6 +516,7 @@ var _ = Describe("checkHostNameInput", func() {
 			getHostNameError error,
 			expectedIsInCorrectBoot bool,
 			expectedIsTimeout bool,
+			expectedIsConnectionRefused bool,
 			expectedErrMessage *string,
 			expectGetHostNameCall bool,
 		) {
@@ -526,9 +527,10 @@ var _ = Describe("checkHostNameInput", func() {
 			secondarySSHMock := sshmock.Client{}
 			secondarySSHMock.On("GetHostName").Return(sshclient.Output{Err: getHostNameError})
 
-			isInCorrectBoot, isTimeout, err := checkHostNameOutput(out, &secondarySSHMock, hostName, osSSHPort)
+			isInCorrectBoot, isTimeout, isConnectionRefused, err := checkHostNameOutput(out, &secondarySSHMock, hostName, osSSHPort)
 			Expect(isInCorrectBoot).To(Equal(expectedIsInCorrectBoot))
 			Expect(isTimeout).To(Equal(expectedIsTimeout))
+			Expect(isConnectionRefused).To(Equal(expectedIsConnectionRefused))
 			if expectedErrMessage != nil {
 				Expect(err).To(Not(BeNil()))
 				Expect(err.Error()).To(ContainSubstring(*expectedErrMessage))
@@ -547,6 +549,7 @@ var _ = Describe("checkHostNameInput", func() {
 			nil,                                // getHostNameError error
 			true,                               // expectedIsInCorrectBoot bool
 			false,                              // expectedIsTimeout bool
+			false,                              // expectedIsConnectionRefused bool
 			nil,                                // expectedErrMessage *string
 			false,                              // expectGetHostNameCall bool
 		),
@@ -558,6 +561,7 @@ var _ = Describe("checkHostNameInput", func() {
 			nil,                            // getHostNameError error
 			true,                           // expectedIsInCorrectBoot bool
 			false,                          // expectedIsTimeout bool
+			false,                          // expectedIsConnectionRefused bool
 			nil,                            // expectedErrMessage *string
 			false,                          // expectGetHostNameCall bool
 		),
@@ -569,6 +573,7 @@ var _ = Describe("checkHostNameInput", func() {
 			nil,                                   // getHostNameError error
 			false,                                 // expectedIsInCorrectBoot bool
 			false,                                 // expectedIsTimeout bool
+			false,                                 // expectedIsConnectionRefused bool
 			pointer.String("unexpected hostname"), // expectedErrMessage *string
 			false,                                 // expectGetHostNameCall bool
 		),
@@ -580,6 +585,7 @@ var _ = Describe("checkHostNameInput", func() {
 			nil,                            // getHostNameError error
 			false,                          // expectedIsInCorrectBoot bool
 			true,                           // expectedIsTimeout bool
+			false,                          // expectedIsConnectionRefused bool
 			nil,                            // expectedErrMessage *string
 			false,                          // expectGetHostNameCall bool
 		),
@@ -591,6 +597,7 @@ var _ = Describe("checkHostNameInput", func() {
 			nil,                                    // getHostNameError error
 			false,                                  // expectedIsInCorrectBoot bool
 			false,                                  // expectedIsTimeout bool
+			false,                                  // expectedIsConnectionRefused bool
 			pointer.String("failed to get host name via ssh. StdErr: some error"), // expectedErrMessage *string
 			false, // expectGetHostNameCall bool
 		),
@@ -602,6 +609,7 @@ var _ = Describe("checkHostNameInput", func() {
 			nil,                              // getHostNameError error
 			false,                            // expectedIsInCorrectBoot bool
 			false,                            // expectedIsTimeout bool
+			false,                            // expectedIsConnectionRefused bool
 			pointer.String("empty hostname"), // expectedErrMessage *string
 			false,                            // expectGetHostNameCall bool
 		),
@@ -613,6 +621,7 @@ var _ = Describe("checkHostNameInput", func() {
 			nil,                             // getHostNameError error
 			false,                           // expectedIsInCorrectBoot bool
 			false,                           // expectedIsTimeout bool
+			false,                           // expectedIsConnectionRefused bool
 			pointer.String("wrong ssh key"), // expectedErrMessage *string
 			false,                           // expectGetHostNameCall bool
 		),
@@ -624,6 +633,7 @@ var _ = Describe("checkHostNameInput", func() {
 			nil,             // getHostNameError error
 			false,           // expectedIsInCorrectBoot bool
 			false,           // expectedIsTimeout bool
+			false,           // expectedIsConnectionRefused bool
 			nil,             // expectedErrMessage *string
 			true,            // expectGetHostNameCall bool
 		),
@@ -635,19 +645,21 @@ var _ = Describe("checkHostNameInput", func() {
 			errors.New("non-nil error"),     // getHostNameError error
 			false,                           // expectedIsInCorrectBoot bool
 			false,                           // expectedIsTimeout bool
+			false,                           // expectedIsConnectionRefused bool
 			pointer.String("wrong ssh key"), // expectedErrMessage *string
 			true,                            // expectGetHostNameCall bool
 		),
 		Entry(
 			"connection refused - osPort == 22",
 			sshclient.Output{Err: errors.New("ssh error: connect: connection refused")}, // out sshclient.Output
-			"os-other",                   // hostName string
-			pointer.Int(22),              // osSSHPort *int
-			nil,                          // getHostNameError error
-			false,                        // expectedIsInCorrectBoot bool
-			false,                        // expectedIsTimeout bool
-			pointer.String("wrong port"), // expectedErrMessage *string
-			false,                        // expectGetHostNameCall bool
+			"os-other",      // hostName string
+			pointer.Int(22), // osSSHPort *int
+			nil,             // getHostNameError error
+			false,           // expectedIsInCorrectBoot bool
+			false,           // expectedIsTimeout bool
+			true,            // expectedIsConnectionRefused bool
+			nil,             // expectedErrMessage *string
+			false,           // expectGetHostNameCall bool
 		),
 		Entry(
 			"connection refused - osPort != 22, no error for getHostName",
@@ -657,19 +669,21 @@ var _ = Describe("checkHostNameInput", func() {
 			nil,             // getHostNameError error
 			false,           // expectedIsInCorrectBoot bool
 			false,           // expectedIsTimeout bool
+			false,           // expectedIsConnectionRefused bool
 			nil,             // expectedErrMessage *string
 			true,            // expectGetHostNameCall bool
 		),
 		Entry(
 			"connection refused - osPort != 22, error for getHostName",
 			sshclient.Output{Err: errors.New("ssh error: connect: connection refused")}, // out sshclient.Output
-			"os-other",                   // hostName string
-			pointer.Int(21),              // osSSHPort *int
-			errors.New("non-nil error"),  // getHostNameError error
-			false,                        // expectedIsInCorrectBoot bool
-			false,                        // expectedIsTimeout bool
-			pointer.String("wrong port"), // expectedErrMessage *string
-			true,                         // expectGetHostNameCall bool
+			"os-other",                  // hostName string
+			pointer.Int(21),             // osSSHPort *int
+			errors.New("non-nil error"), // getHostNameError error
+			false,                       // expectedIsInCorrectBoot bool
+			false,                       // expectedIsTimeout bool
+			true,                        // expectedIsConnectionRefused bool
+			nil,                         // expectedErrMessage *string
+			true,                        // expectGetHostNameCall bool
 		),
 	)
 })

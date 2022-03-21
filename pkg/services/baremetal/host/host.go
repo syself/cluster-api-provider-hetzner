@@ -76,12 +76,12 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 	result, err := actResult.Result()
 	if err != nil {
 		err = errors.Wrap(err, fmt.Sprintf("action %q failed", initialState))
-		return nil, err
+		return &ctrl.Result{Requeue: true}, err
 	}
 
 	if !reflect.DeepEqual(oldHost, s.scope.HetznerBareMetalHost) {
 		if err := saveHost(ctx, s.scope.Client, s.scope.HetznerBareMetalHost); err != nil {
-			return &ctrl.Result{}, errors.Wrap(err, fmt.Sprintf("failed to save host status after %q", initialState))
+			return &ctrl.Result{RequeueAfter: 2 * time.Second}, errors.Wrap(err, fmt.Sprintf("failed to save host status after %q", initialState))
 		}
 	}
 
@@ -223,14 +223,14 @@ func (s *Service) actionNone() actionResult {
 
 	s.scope.HetznerBareMetalHost.Spec.Status.SSHStatus.RescueKey = &sshKey
 
-	// Populate reset methods in status
+	// Populate reboot methods in status
 	if len(s.scope.HetznerBareMetalHost.Spec.Status.RebootTypes) == 0 {
-		reset, err := s.scope.RobotClient.GetReboot(s.scope.HetznerBareMetalHost.Spec.ServerID)
+		reboot, err := s.scope.RobotClient.GetReboot(s.scope.HetznerBareMetalHost.Spec.ServerID)
 		if err != nil {
-			return actionError{err: errors.Wrap(err, "failed to get reset")}
+			return actionError{err: errors.Wrap(err, "failed to get reboot")}
 		}
 		var rebootTypes []infrav1.RebootType
-		b, err := json.Marshal(reset.Type)
+		b, err := json.Marshal(reboot.Type)
 		if err != nil {
 			return actionError{err: errors.Wrap(err, "failed to marshal")}
 		}
@@ -240,7 +240,7 @@ func (s *Service) actionNone() actionResult {
 		s.scope.HetznerBareMetalHost.Spec.Status.RebootTypes = rebootTypes
 	}
 
-	// Start rescue mode and reset server if necessary
+	// Start rescue mode and reboot server if necessary
 	if !server.Rescue {
 		return s.recordActionFailure(infrav1.RegistrationError, "rescue system not available for server")
 	}
@@ -264,11 +264,11 @@ func (s *Service) actionNone() actionResult {
 	case s.scope.HetznerBareMetalHost.HasHardwareReboot():
 		rebootType = infrav1.RebootTypeHardware
 	default:
-		return actionError{err: errors.New("no software or hardware reset available for host")}
+		return actionError{err: errors.New("no software or hardware reboot available for host")}
 	}
 
 	if _, err := s.scope.RobotClient.RebootBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID, rebootType); err != nil {
-		return actionError{err: errors.Wrap(err, "failed to reset bare metal server")}
+		return actionError{err: errors.Wrap(err, "failed to reboot bare metal server")}
 	}
 
 	s.scope.SetErrorCount(0)
@@ -287,7 +287,7 @@ func (s *Service) ensureSSHKey(sshSecretRef infrav1.SSHSecretRef, sshSecret *cor
 	foundSSHKey := false
 	var sshKey infrav1.SSHKey
 	for _, hetznerSSHKey := range hetznerSSHKeys {
-		if sshSecretRef.Key.Name == hetznerSSHKey.Name {
+		if string(sshSecret.Data[sshSecretRef.Key.Name]) == hetznerSSHKey.Name {
 			foundSSHKey = true
 			sshKey.Name = hetznerSSHKey.Name
 			sshKey.Fingerprint = hetznerSSHKey.Fingerprint
@@ -297,7 +297,7 @@ func (s *Service) ensureSSHKey(sshSecretRef infrav1.SSHSecretRef, sshSecret *cor
 	// Upload SSH key if not found
 	if !foundSSHKey {
 		publicKey := string(sshSecret.Data[sshSecretRef.Key.PublicKey])
-		hetznerSSHKey, err := s.scope.RobotClient.SetSSHKey(sshSecretRef.Key.Name, publicKey)
+		hetznerSSHKey, err := s.scope.RobotClient.SetSSHKey(string(sshSecret.Data[sshSecretRef.Key.Name]), publicKey)
 		if err != nil {
 			return infrav1.SSHKey{}, actionError{err: errors.Wrap(err, "failed to set ssh key")}
 		}
@@ -315,7 +315,7 @@ func (s *Service) actionEnsureCorrectBoot(hostName string, osSSHPort *int) actio
 	mainSSHClient := s.getMainSSHClient(hostName, osSSHPort)
 	secondarySSHClient := s.getSecondarySSHClient(hostName, osSSHPort)
 	// Try accessing server with ssh
-	isInCorrectBoot, isTimeout, err := checkHostNameOutput(mainSSHClient.GetHostName(), secondarySSHClient, hostName, osSSHPort)
+	isInCorrectBoot, isTimeout, isConnectionRefused, err := checkHostNameOutput(mainSSHClient.GetHostName(), secondarySSHClient, hostName, osSSHPort)
 	if err != nil {
 		return actionError{err: errors.Wrap(err, "failed to get host name via ssh")}
 	}
@@ -324,7 +324,20 @@ func (s *Service) actionEnsureCorrectBoot(hostName string, osSSHPort *int) actio
 		clearError(s.scope.HetznerBareMetalHost)
 		return actionComplete{}
 	}
-
+	if isConnectionRefused {
+		if s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeConnectionError {
+			if hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated, time.Minute) {
+				return actionError{err: errors.New("connection refused error of ssh. Might be due to wrong port")}
+			}
+		} else {
+			SetErrorMessage(s.scope.HetznerBareMetalHost, infrav1.ErrorTypeConnectionError, "ssh gave connection error")
+		}
+		return actionContinue{delay: 5 * time.Second}
+	} else if s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeConnectionError {
+		// Remove error if it is of type connection error
+		clearError(s.scope.HetznerBareMetalHost)
+		s.scope.SetErrorCount(0)
+	}
 	// Check whether there has been an error message already, meaning that the reboot did not finish in time
 	var emptyErrorType infrav1.ErrorType
 	switch s.scope.HetznerBareMetalHost.Spec.Status.ErrorType {
@@ -332,13 +345,13 @@ func (s *Service) actionEnsureCorrectBoot(hostName string, osSSHPort *int) actio
 		if isTimeout {
 			// Reset was too slow - set error message
 			SetErrorMessage(s.scope.HetznerBareMetalHost, infrav1.ErrorTypeSSHRebootTooSlow, "ssh timeout error - server has not restarted yet")
-			return actionContinue{}
+			return actionContinue{delay: 5 * time.Second}
 		}
 
-		// We are not in correct boot. Trigger SSH reset.
+		// We are not in correct boot. Trigger SSH reboot.
 		if hostName == rescue {
 			if err := s.ensureRescueMode(); err != nil {
-				return actionError{err: errors.Wrap(err, "failed to ensure correct boot mode and reset server")}
+				return actionError{err: errors.Wrap(err, "failed to ensure correct boot mode and reboot server")}
 			}
 		}
 
@@ -349,13 +362,13 @@ func (s *Service) actionEnsureCorrectBoot(hostName string, osSSHPort *int) actio
 		}
 
 	case infrav1.ErrorTypeSSHRebootTooSlow:
-		err = s.handleErrorTypeSSHRebootTooSlow()
+		err = s.handleErrorTypeSSHRebootTooSlow(isTimeout)
 
 	case infrav1.ErrorTypeSoftwareRebootTooSlow:
-		err = s.handleErrorTypeSoftwareRebootTooSlow()
+		err = s.handleErrorTypeSoftwareRebootTooSlow(isTimeout)
 
 	case infrav1.ErrorTypeHardwareRebootTooSlow:
-		err = s.handleErrorTypeHardwareRebootTooSlow()
+		err = s.handleErrorTypeHardwareRebootTooSlow(isTimeout)
 
 	case infrav1.ErrorTypeHardwareRebootFailed:
 		err = s.handleErrorTypeHardwareRebootFailed()
@@ -372,7 +385,7 @@ func (s *Service) actionEnsureCorrectBoot(hostName string, osSSHPort *int) actio
 	if err != nil {
 		return actionError{err: err}
 	}
-	return actionContinue{}
+	return actionContinue{delay: 5 * time.Second}
 }
 
 func (s *Service) getMainSSHClient(hostName string, osSSHPort *int) sshclient.Client {
@@ -426,12 +439,12 @@ func (s *Service) performReboot(secondarySSHClient sshclient.Client) actionResul
 		out := secondarySSHClient.Reboot()
 		if err := handleSSHError(out); err == nil {
 			// SSH reboot has been performed successfully. Despite that
-			// Set error message that ssh reset did not start in order to keep track of this error.
-			SetErrorMessage(s.scope.HetznerBareMetalHost, infrav1.ErrorTypeSSHRebootNotStarted, "ssh reset just triggered")
-			return actionContinue{}
+			// Set error message that ssh reboot did not start in order to keep track of this error.
+			SetErrorMessage(s.scope.HetznerBareMetalHost, infrav1.ErrorTypeSSHRebootNotStarted, "ssh reboot just triggered")
+			return actionContinue{delay: 5 * time.Second}
 		}
 	}
-	// Perform software or hardware reset if ssh reboot failed or is not available
+	// Perform software or hardware reboot if ssh reboot failed or is not available
 	var rebootType infrav1.RebootType
 	var errorType infrav1.ErrorType
 	switch {
@@ -442,21 +455,21 @@ func (s *Service) performReboot(secondarySSHClient sshclient.Client) actionResul
 		rebootType = infrav1.RebootTypeHardware
 		errorType = infrav1.ErrorTypeHardwareRebootNotStarted
 	default:
-		return s.recordActionFailure(infrav1.PreparationError, "no software or hardware reset available for host")
+		return s.recordActionFailure(infrav1.PreparationError, "no software or hardware reboot available for host")
 	}
 
 	if _, err := s.scope.RobotClient.RebootBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID, rebootType); err != nil {
-		return actionError{err: errors.Wrap(err, "failed to reset bare metal server")}
+		return actionError{err: errors.Wrap(err, "failed to reboot bare metal server")}
 	}
-	// Set error message that ssh reset did not start in order to keep track of this error.
-	SetErrorMessage(s.scope.HetznerBareMetalHost, errorType, "software/hardeware reset just triggered")
+	// Set error message that ssh reboot did not start in order to keep track of this error.
+	SetErrorMessage(s.scope.HetznerBareMetalHost, errorType, "software/hardeware reboot just triggered")
 
 	return actionComplete{}
 }
 
-func (s *Service) handleErrorTypeSSHRebootTooSlow() error {
+func (s *Service) handleErrorTypeSSHRebootTooSlow(isTimeout bool) error {
 	if hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated, sshResetTimeout) {
-		// Perform software or hardware reset
+		// Perform software or hardware reboot
 		var rebootType infrav1.RebootType
 		var errorType infrav1.ErrorType
 		switch {
@@ -467,55 +480,67 @@ func (s *Service) handleErrorTypeSSHRebootTooSlow() error {
 			rebootType = infrav1.RebootTypeHardware
 			errorType = infrav1.ErrorTypeHardwareRebootTooSlow
 		default:
-			return errors.New("no software or hardware reset available for host")
+			return errors.New("no software or hardware reboot available for host")
 		}
 
 		if _, err := s.scope.RobotClient.RebootBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID, rebootType); err != nil {
-			return errors.Wrap(err, "failed to reset bare metal server")
+			return errors.Wrap(err, "failed to reboot bare metal server")
 		}
-		// Set error message that software reset is too slow as we perform this reset now
-		SetErrorMessage(s.scope.HetznerBareMetalHost, errorType, "ssh reset timed out")
+		// Set error message that software reboot is too slow as we perform this reboot now
+		SetErrorMessage(s.scope.HetznerBareMetalHost, errorType, "ssh reboot timed out")
+	}
+	if !isTimeout {
+		// If it is not a timeout error, then it means we are in the wrong system - not that the reboot is too slow
+		SetErrorMessage(s.scope.HetznerBareMetalHost, infrav1.ErrorTypeSSHRebootNotStarted, "ssh reboot not timed out - wrong boot")
 	}
 	return nil
 }
 
-func (s *Service) handleErrorTypeSoftwareRebootTooSlow() error {
+func (s *Service) handleErrorTypeSoftwareRebootTooSlow(isTimeout bool) error {
 	if hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated, softwareResetTimeout) {
-		// Perform hardware reset
+		// Perform hardware reboot
 		if _, err := s.scope.RobotClient.RebootBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID, infrav1.RebootTypeHardware); err != nil {
-			return errors.Wrap(err, "failed to reset bare metal server")
+			return errors.Wrap(err, "failed to reboot bare metal server")
 		}
-		// Set error message that hardware reset is too slow as we perform this reset now
-		SetErrorMessage(s.scope.HetznerBareMetalHost, infrav1.ErrorTypeHardwareRebootTooSlow, "software reset timed out")
+		// Set error message that hardware reboot is too slow as we perform this reboot now
+		SetErrorMessage(s.scope.HetznerBareMetalHost, infrav1.ErrorTypeHardwareRebootTooSlow, "software reboot timed out")
+	}
+	if !isTimeout {
+		// If it is not a timeout error, then it means we are in the wrong system - not that the reboot is too slow
+		SetErrorMessage(s.scope.HetznerBareMetalHost, infrav1.ErrorTypeSoftwareRebootNotStarted, "software reboot not timed out - wrong boot")
 	}
 	return nil
 }
 
-func (s *Service) handleErrorTypeHardwareRebootTooSlow() error {
+func (s *Service) handleErrorTypeHardwareRebootTooSlow(isTimeout bool) error {
 	if hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated, hardwareResetTimeout) {
-		SetErrorMessage(s.scope.HetznerBareMetalHost, infrav1.ErrorTypeHardwareRebootFailed, "hardware reset timed out")
-		// Perform hardware reset
+		SetErrorMessage(s.scope.HetznerBareMetalHost, infrav1.ErrorTypeHardwareRebootFailed, "hardware reboot timed out")
+		// Perform hardware reboot
 		if _, err := s.scope.RobotClient.RebootBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID, infrav1.RebootTypeHardware); err != nil {
-			return errors.Wrap(err, "failed to reset bare metal server")
+			return errors.Wrap(err, "failed to reboot bare metal server")
 		}
+	}
+	if !isTimeout {
+		// If it is not a timeout error, then it means we are in the wrong system - not that the reboot is too slow
+		SetErrorMessage(s.scope.HetznerBareMetalHost, infrav1.ErrorTypeHardwareRebootNotStarted, "hardware reboot not timed out - wrong boot")
 	}
 	return nil
 }
 
 func (s *Service) handleErrorTypeHardwareRebootFailed() error {
-	// If a hardware reset fails we have no option but to trigger a new one if the timeout has been reached.
+	// If a hardware reboot fails we have no option but to trigger a new one if the timeout has been reached.
 	if hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated, hardwareResetTimeout) {
 		if _, err := s.scope.RobotClient.RebootBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID, infrav1.RebootTypeHardware); err != nil {
-			return errors.Wrap(err, "failed to reset bare metal server")
+			return errors.Wrap(err, "failed to reboot bare metal server")
 		}
-		SetErrorMessage(s.scope.HetznerBareMetalHost, infrav1.ErrorTypeHardwareRebootFailed, "hardware reset failed")
+		SetErrorMessage(s.scope.HetznerBareMetalHost, infrav1.ErrorTypeHardwareRebootFailed, "hardware reboot failed")
 	}
 	return nil
 }
 
 func (s *Service) handleErrorTypeSSHRebootNotStarted(isInWrongBoot bool, wantsRescue bool) error {
-	// Check whether ssh reset has not been started again and escalate if not.
-	// Otherwise set a new error as the ssh reset has just been slow.
+	// Check whether ssh reboot has not been started again and escalate if not.
+	// Otherwise set a new error as the ssh reboot has just been slow.
 	if isInWrongBoot {
 		if wantsRescue {
 			if err := s.ensureRescueMode(); err != nil {
@@ -532,25 +557,25 @@ func (s *Service) handleErrorTypeSSHRebootNotStarted(isInWrongBoot bool, wantsRe
 			rebootType = infrav1.RebootTypeHardware
 			errorType = infrav1.ErrorTypeHardwareRebootNotStarted
 		default:
-			return errors.New("no software or hardware reset available for host")
+			return errors.New("no software or hardware reboot available for host")
 		}
 
 		if _, err := s.scope.RobotClient.RebootBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID, rebootType); err != nil {
-			return errors.Wrap(err, "failed to reset bare metal server")
+			return errors.Wrap(err, "failed to reboot bare metal server")
 		}
 
-		// set an error that software reset failed to manage further states. If the software reset started successfully
+		// set an error that software reboot failed to manage further states. If the software reboot started successfully
 		// Then we will complete this or go to ErrorStateSoftwareResetTooSlow as expected.
-		SetErrorMessage(s.scope.HetznerBareMetalHost, errorType, "software/hardware reset triggered after ssh reset did not start")
+		SetErrorMessage(s.scope.HetznerBareMetalHost, errorType, "software/hardware reboot triggered after ssh reboot did not start")
 	} else {
-		SetErrorMessage(s.scope.HetznerBareMetalHost, infrav1.ErrorTypeSSHRebootTooSlow, "ssh reset too slow")
+		SetErrorMessage(s.scope.HetznerBareMetalHost, infrav1.ErrorTypeSSHRebootTooSlow, "ssh reboot too slow")
 	}
 	return nil
 }
 
 func (s *Service) handleErrorTypeSoftwareRebootNotStarted(isInWrongBoot bool, wantsRescue bool) error {
-	// Check whether software reset has not been started again and escalate if not.
-	// Otherwise set a new error as the software reset has been slow anyway.
+	// Check whether software reboot has not been started again and escalate if not.
+	// Otherwise set a new error as the software reboot has been slow anyway.
 	if isInWrongBoot {
 		if wantsRescue {
 			if err := s.ensureRescueMode(); err != nil {
@@ -558,21 +583,21 @@ func (s *Service) handleErrorTypeSoftwareRebootNotStarted(isInWrongBoot bool, wa
 			}
 		}
 		if _, err := s.scope.RobotClient.RebootBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID, infrav1.RebootTypeHardware); err != nil {
-			return errors.Wrap(err, "failed to reset bare metal server")
+			return errors.Wrap(err, "failed to reboot bare metal server")
 		}
 
-		// set an error that hardware reset not started to manage further states. If the hardware reset started successfully
+		// set an error that hardware reboot not started to manage further states. If the hardware reboot started successfully
 		// Then we will complete this or go to ErrorStateHardwareResetTooSlow as expected.
-		SetErrorMessage(s.scope.HetznerBareMetalHost, infrav1.ErrorTypeHardwareRebootNotStarted, "hardware reset triggered after software reset did not start")
+		SetErrorMessage(s.scope.HetznerBareMetalHost, infrav1.ErrorTypeHardwareRebootNotStarted, "hardware reboot triggered after software reboot did not start")
 	} else {
-		SetErrorMessage(s.scope.HetznerBareMetalHost, infrav1.ErrorTypeSoftwareRebootTooSlow, "software reset too slow")
+		SetErrorMessage(s.scope.HetznerBareMetalHost, infrav1.ErrorTypeSoftwareRebootTooSlow, "software reboot too slow")
 	}
 	return nil
 }
 
 func (s *Service) handleErrorTypeHardwareRebootNotStarted(isInWrongBoot bool, wantsRescue bool) error {
-	// Check whether software reset has not been started again and escalate if not.
-	// Otherwise set a new error as the software reset has been slow anyway.
+	// Check whether software reboot has not been started again and escalate if not.
+	// Otherwise set a new error as the software reboot has been slow anyway.
 	if isInWrongBoot {
 		if wantsRescue {
 			if err := s.ensureRescueMode(); err != nil {
@@ -580,11 +605,11 @@ func (s *Service) handleErrorTypeHardwareRebootNotStarted(isInWrongBoot bool, wa
 			}
 		}
 		if _, err := s.scope.RobotClient.RebootBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID, infrav1.RebootTypeHardware); err != nil {
-			return errors.Wrap(err, "failed to reset bare metal server")
+			return errors.Wrap(err, "failed to reboot bare metal server")
 		}
-		SetErrorMessage(s.scope.HetznerBareMetalHost, infrav1.ErrorTypeHardwareRebootNotStarted, "hardware reset not started")
+		SetErrorMessage(s.scope.HetznerBareMetalHost, infrav1.ErrorTypeHardwareRebootNotStarted, "hardware reboot not started")
 	} else {
-		SetErrorMessage(s.scope.HetznerBareMetalHost, infrav1.ErrorTypeHardwareRebootTooSlow, "hardware reset too slow")
+		SetErrorMessage(s.scope.HetznerBareMetalHost, infrav1.ErrorTypeHardwareRebootTooSlow, "hardware reboot too slow")
 	}
 	return nil
 }
@@ -594,11 +619,11 @@ func hasTimedOut(lastUpdated *metav1.Time, timeout time.Duration) bool {
 	return lastUpdated.Add(timeout).Before(now.Time)
 }
 
-func checkHostNameOutput(out sshclient.Output, secondarySSHClient sshclient.Client, hostName string, osSSHPort *int) (isInCorrectBoot bool, isTimeout bool, err error) {
+func checkHostNameOutput(out sshclient.Output, secondarySSHClient sshclient.Client, hostName string, osSSHPort *int) (isInCorrectBoot bool, isTimeout bool, isConnectionRefused bool, err error) {
 	// check err
 	if out.Err != nil {
 		switch {
-		case os.IsTimeout(out.Err):
+		case os.IsTimeout(out.Err) || sshclient.IsTimeoutError(out.Err):
 			isTimeout = true
 		case sshclient.IsAuthenticationFailedError(out.Err):
 			// Check whether we are in the wrong system in the case that rescue and os system might be running on the same port.
@@ -620,7 +645,8 @@ func checkHostNameOutput(out sshclient.Output, secondarySSHClient sshclient.Clie
 					return
 				}
 			}
-			err = errors.Wrap(out.Err, "wrong port")
+			isConnectionRefused = true
+
 		default:
 			err = errors.Wrap(out.Err, "unhandled ssh error while getting hostname")
 		}
@@ -635,7 +661,7 @@ func checkHostNameOutput(out sshclient.Output, secondarySSHClient sshclient.Clie
 	}
 
 	// check stdout
-	switch out.StdOut {
+	switch trimLineBreak(out.StdOut) {
 	case hostName:
 		// We are in rescue system as expected. Go to next state
 		isInCorrectBoot = true
@@ -650,7 +676,7 @@ func checkHostNameOutput(out sshclient.Output, secondarySSHClient sshclient.Clie
 			err = fmt.Errorf("unexpected hostname %s. Want %s or rescue", out.StdOut, hostName)
 		}
 	}
-	return isInCorrectBoot, isTimeout, err
+	return isInCorrectBoot, isTimeout, isConnectionRefused, err
 }
 
 func (s *Service) ensureRescueMode() error {
@@ -728,13 +754,14 @@ func (s *Service) obtainHardwareDetailsRAM(sshClient sshclient.Client) (int, err
 	if err := handleSSHError(out); err != nil {
 		return 0, err
 	}
-	if out.StdOut == "" {
+	stdOut := trimLineBreak(out.StdOut)
+	if stdOut == "" {
 		return 0, sshclient.ErrEmptyStdOut
 	}
 
-	kibiBytes, err := strconv.Atoi(out.StdOut)
+	kibiBytes, err := strconv.Atoi(stdOut)
 	if err != nil {
-		return 0, errors.Wrapf(err, "failed to parse ssh output to memory int. StdOut: %s", out.StdOut)
+		return 0, errors.Wrapf(err, "failed to parse ssh output to memory int. StdOut: %s", stdOut)
 	}
 	mebiBytes := kibiBytes / 1024
 
@@ -754,11 +781,12 @@ func (s *Service) obtainHardwareDetailsNics(sshClient sshclient.Client) ([]infra
 	if err := handleSSHError(out); err != nil {
 		return nil, err
 	}
-	if out.StdOut == "" {
+	stdOut := trimLineBreak(out.StdOut)
+	if stdOut == "" {
 		return nil, sshclient.ErrEmptyStdOut
 	}
 
-	stringArray := strings.Split(out.StdOut, "\n")
+	stringArray := strings.Split(stdOut, "\n")
 	nicsArray := make([]infrav1.NIC, len(stringArray))
 
 	for i, str := range stringArray {
@@ -766,7 +794,7 @@ func (s *Service) obtainHardwareDetailsNics(sshClient sshclient.Client) ([]infra
 
 		var nic originalNic
 		if err := json.Unmarshal([]byte(validJSONString), &nic); err != nil {
-			return nil, errors.Wrapf(err, "failed to unmarshal %v. Original ssh output: %s", validJSONString, out.StdOut)
+			return nil, errors.Wrapf(err, "failed to unmarshal %v. Original ssh output: %s", validJSONString, stdOut)
 		}
 		speedMbps, err := strconv.Atoi(nic.SpeedMbps)
 		if err != nil {
@@ -803,11 +831,12 @@ func (s *Service) obtainHardwareDetailsStorage(sshClient sshclient.Client) ([]in
 	if err := handleSSHError(out); err != nil {
 		return nil, err
 	}
-	if out.StdOut == "" {
+	stdOut := trimLineBreak(out.StdOut)
+	if stdOut == "" {
 		return nil, sshclient.ErrEmptyStdOut
 	}
 
-	stringArray := strings.Split(out.StdOut, "\n")
+	stringArray := strings.Split(stdOut, "\n")
 	storageArray := make([]infrav1.Storage, 0, len(stringArray))
 
 	for _, str := range stringArray {
@@ -815,7 +844,7 @@ func (s *Service) obtainHardwareDetailsStorage(sshClient sshclient.Client) ([]in
 
 		var storage originalStorage
 		if err := json.Unmarshal([]byte(validJSONString), &storage); err != nil {
-			return nil, errors.Wrapf(err, "failed to unmarshal %v. Original ssh output: %s", validJSONString, out.StdOut)
+			return nil, errors.Wrapf(err, "failed to unmarshal %v. Original ssh output: %s", validJSONString, stdOut)
 		}
 		sizeBytes, err := strconv.Atoi(storage.SizeBytes)
 		if err != nil {
@@ -854,43 +883,47 @@ func (s *Service) obtainHardwareDetailsCPU(sshClient sshclient.Client) (cpu infr
 	if err := handleSSHError(out); err != nil {
 		return infrav1.CPU{}, err
 	}
-	if out.StdOut == "" {
+	stdOut := trimLineBreak(out.StdOut)
+	if stdOut == "" {
 		return infrav1.CPU{}, sshclient.ErrEmptyStdOut
 	}
 
-	cpu.Arch = out.StdOut
+	cpu.Arch = stdOut
 
 	out = sshClient.GetHardwareDetailsCPUModel()
+	stdOut = trimLineBreak(out.StdOut)
 	if err := handleSSHError(out); err != nil {
 		return infrav1.CPU{}, err
 	}
-	if out.StdOut == "" {
+	if stdOut == "" {
 		return infrav1.CPU{}, sshclient.ErrEmptyStdOut
 	}
 
-	cpu.Model = out.StdOut
+	cpu.Model = stdOut
 
 	out = sshClient.GetHardwareDetailsCPUClockGigahertz()
+	stdOut = trimLineBreak(out.StdOut)
 	if err := handleSSHError(out); err != nil {
 		return infrav1.CPU{}, err
 	}
-	if out.StdOut == "" {
+	if stdOut == "" {
 		return infrav1.CPU{}, sshclient.ErrEmptyStdOut
 	}
 
-	cpu.ClockGigahertz = infrav1.ClockSpeed(out.StdOut)
+	cpu.ClockGigahertz = infrav1.ClockSpeed(stdOut)
 
 	out = sshClient.GetHardwareDetailsCPUThreads()
+	stdOut = trimLineBreak(out.StdOut)
 	if err := handleSSHError(out); err != nil {
 		return infrav1.CPU{}, err
 	}
-	if out.StdOut == "" {
+	if stdOut == "" {
 		return infrav1.CPU{}, sshclient.ErrEmptyStdOut
 	}
 
-	threads, err := strconv.Atoi(out.StdOut)
+	threads, err := strconv.Atoi(stdOut)
 	if err != nil {
-		return infrav1.CPU{}, errors.Wrapf(err, "failed to parse string to int. Stdout: %s", out.StdOut)
+		return infrav1.CPU{}, errors.Wrapf(err, "failed to parse string to int. Stdout: %s", stdOut)
 	}
 	cpu.Threads = threads
 
@@ -898,11 +931,11 @@ func (s *Service) obtainHardwareDetailsCPU(sshClient sshclient.Client) (cpu infr
 	if err := handleSSHError(out); err != nil {
 		return infrav1.CPU{}, err
 	}
-	if out.StdOut == "" {
+	if stdOut == "" {
 		return infrav1.CPU{}, sshclient.ErrEmptyStdOut
 	}
 
-	flags := strings.Split(out.StdOut, " ")
+	flags := strings.Split(stdOut, " ")
 	cpu.Flags = flags
 
 	return cpu, err
@@ -922,7 +955,7 @@ func (s *Service) actionAvailable() actionResult {
 	if s.scope.HetznerBareMetalHost.NeedsProvisioning() {
 		return actionComplete{}
 	}
-	return actionContinue{}
+	return actionContinue{delay: 10 * time.Second}
 }
 
 func (s *Service) actionImageInstalling() actionResult {
@@ -1046,7 +1079,8 @@ func (s *Service) actionProvisioning() actionResult {
 	if err := handleSSHError(out); err != nil {
 		return actionError{err: errors.Wrap(err, "failed to ensure cloud init")}
 	}
-	if out.StdOut == "" {
+
+	if trimLineBreak(out.StdOut) == "" {
 		return s.recordActionFailure(infrav1.ProvisioningError, "cloud init not installed")
 	}
 
@@ -1091,25 +1125,26 @@ func (s *Service) actionEnsureProvisioned() actionResult {
 	if err := handleSSHError(out); err != nil {
 		return actionError{err: errors.Wrap(err, "failed to reboot")}
 	}
+	stdOut := trimLineBreak(out.StdOut)
 	switch {
-	case strings.Contains(out.StdOut, "status: running"):
+	case strings.Contains(stdOut, "status: running"):
 		// Cloud init is still running
-		return actionContinue{}
-	case strings.Contains(out.StdOut, "status: disabled"):
+		return actionContinue{delay: 5 * time.Second}
+	case strings.Contains(stdOut, "status: disabled"):
 		// Reboot needs to be triggered again - did not start yet
 		out = sshClient.Reboot()
 		if err := handleSSHError(out); err != nil {
 			return actionError{err: errors.Wrap(err, "failed to reboot")}
 		}
-		SetErrorMessage(s.scope.HetznerBareMetalHost, infrav1.ErrorTypeSSHRebootNotStarted, "ssh reset just triggered")
-		return actionContinue{}
-	case strings.Contains(out.StdOut, "status: done"):
+		SetErrorMessage(s.scope.HetznerBareMetalHost, infrav1.ErrorTypeSSHRebootNotStarted, "ssh reboot just triggered")
+		return actionContinue{delay: 5 * time.Second}
+	case strings.Contains(stdOut, "status: done"):
 		s.scope.SetErrorCount(0)
 		clearError(s.scope.HetznerBareMetalHost)
 		return actionComplete{}
 	}
 
-	return actionError{err: fmt.Errorf("unknown response from cloud init: %s", out.StdOut)}
+	return actionError{err: fmt.Errorf("unknown response from cloud init: %s", stdOut)}
 }
 
 func (s *Service) actionProvisioned() actionResult {
@@ -1141,7 +1176,7 @@ func (s *Service) actionProvisioned() actionResult {
 			return actionError{err: err}
 		}
 		s.scope.HetznerBareMetalHost.Status.Rebooted = true
-		return actionContinue{}
+		return actionContinue{delay: 10 * time.Second}
 	}
 
 	return actionComplete{}

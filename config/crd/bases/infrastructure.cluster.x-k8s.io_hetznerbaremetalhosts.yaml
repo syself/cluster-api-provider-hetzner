@@ -19,17 +19,12 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - description: Operational status
-      jsonPath: .spec.status.operationalStatus
-      name: Status
-      priority: 1
-      type: string
     - description: Provisioning status
-      jsonPath: .spec.status.provisioning.state
+      jsonPath: .spec.status.provisioningState
       name: State
       type: string
     - description: Consumer using this host
-      jsonPath: .spec.status.consumerRef.name
+      jsonPath: .spec.consumerRef.name
       name: Consumer
       type: string
     - description: The type of server
@@ -37,13 +32,13 @@ spec:
       name: Type
       priority: 1
       type: string
-    - description: Whether the host is online or not
-      jsonPath: .spec.online
-      name: Online
-      type: string
     - description: Type of the most recent error
       jsonPath: .spec.status.errorType
-      name: Error
+      name: ErrorType
+      type: string
+    - description: Message of the most recent error
+      jsonPath: .spec.status.errorMessage
+      name: ErrorMessage
       type: string
     - description: Time duration since creation of BaremetalHost
       jsonPath: .metadata.creationTimestamp
