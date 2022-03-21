@@ -59,6 +59,9 @@ const (
 	// ErrorTypeHardwareRebootNotStarted is an error condition indicating that the hardware reboot did not start.
 	ErrorTypeHardwareRebootNotStarted ErrorType = "hardware reboot not started"
 
+	// ErrorTypeConnectionError ErrorType is an error condition indicating that ssh command returned a connection refused error.
+	ErrorTypeConnectionError ErrorType = "connection refused error of SSH command"
+
 	// ErrorTypeHardwareRebootFailed is an error condition indicating that the hardware reboot failed.
 	ErrorTypeHardwareRebootFailed ErrorType = "hardware reboot failed"
 
@@ -337,12 +340,11 @@ type HardwareDetails struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=hbmh;hbmhost
-// +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".spec.status.operationalStatus",description="Operational status",priority=1
-// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".spec.status.provisioning.state",description="Provisioning status"
-// +kubebuilder:printcolumn:name="Consumer",type="string",JSONPath=".spec.status.consumerRef.name",description="Consumer using this host"
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".spec.status.provisioningState",description="Provisioning status"
+// +kubebuilder:printcolumn:name="Consumer",type="string",JSONPath=".spec.consumerRef.name",description="Consumer using this host"
 // +kubebuilder:printcolumn:name="Type",type="string",JSONPath=".spec.type",description="The type of server",priority=1
-// +kubebuilder:printcolumn:name="Online",type="string",JSONPath=".spec.online",description="Whether the host is online or not"
-// +kubebuilder:printcolumn:name="Error",type="string",JSONPath=".spec.status.errorType",description="Type of the most recent error"
+// +kubebuilder:printcolumn:name="ErrorType",type="string",JSONPath=".spec.status.errorType",description="Type of the most recent error"
+// +kubebuilder:printcolumn:name="ErrorMessage",type="string",JSONPath=".spec.status.errorMessage",description="Message of the most recent error"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time duration since creation of BaremetalHost"
 
 // HetznerBareMetalHost is the Schema for the hetznerbaremetalhosts API.

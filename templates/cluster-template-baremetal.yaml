@@ -42,7 +42,7 @@ spec:
     robotRescueSecretRef:
       name: robot-ssh
       key:
-        name: robot-ssh
+        name: sshkey-name
         publicKey: ssh-publickey
         privateKey: ssh-privatekey
   hetznerSecretRef:
@@ -496,12 +496,6 @@ metadata:
 spec:
   template:
     spec:
-      hostSelector:
-        matchExpressions:
-          - key: node
-            operator: In
-            values:
-              - md-0
       installImage:
         image:
           path: /root/.oldroot/nfs/install/../images/Ubuntu-2004-focal-64-minimal-hwe.tar.gz
@@ -514,6 +508,7 @@ spec:
             size: all
         postInstallScript: |
           #!/bin/bash
+          apt-get update
           apt-get install -y cloud-init
       sshSpec:
         portAfterInstallImage: 22
@@ -521,7 +516,7 @@ spec:
         secretRef:
           name: robot-ssh
           key:
-            name: robot-ssh
+            name: sshkey-name
             publicKey: ssh-publickey
             privateKey: ssh-privatekey
 ---

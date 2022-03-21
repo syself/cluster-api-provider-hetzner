@@ -59,7 +59,7 @@ const (
 	// requeueAfter gives the duration of time until the next reconciliation should be performed.
 	requeueAfter = time.Second * 30
 
-	// FailureMessageMaintenanceMode indicates that host is in maintenance mode
+	// FailureMessageMaintenanceMode indicates that host is in maintenance mode.
 	FailureMessageMaintenanceMode = "host machine in maintenance mode"
 )
 
@@ -174,7 +174,7 @@ func (s *Service) Delete(ctx context.Context) (_ *ctrl.Result, err error) {
 				return nil, err
 			}
 
-			s.scope.Info("Deprovisioning BaremetalHost, requeuing")
+			s.scope.Info("Patched BaremetalHost while deprovisioning, requeuing")
 			return nil, &scope.RequeueAfterError{}
 		}
 
@@ -580,8 +580,8 @@ func (s *Service) updateMachineStatus(host *infrav1.HetznerBareMetalHost) {
 
 // NodeAddresses returns a slice of corev1.NodeAddress objects for a
 // given HetznerBareMetal machine.
-func nodeAddresses(host *infrav1.HetznerBareMetalHost, bareMetalMachineName string) []capi.MachineAddress {
-	addrs := []capi.MachineAddress{}
+func nodeAddresses(host *infrav1.HetznerBareMetalHost, bareMetalMachineName string) []corev1.NodeAddress {
+	addrs := []corev1.NodeAddress{}
 
 	// If the host is nil or we have no hw details, return an empty address array.
 	if host == nil || host.Spec.Status.HardwareDetails == nil {
@@ -589,20 +589,20 @@ func nodeAddresses(host *infrav1.HetznerBareMetalHost, bareMetalMachineName stri
 	}
 
 	for _, nic := range host.Spec.Status.HardwareDetails.NIC {
-		address := capi.MachineAddress{
-			Type:    capi.MachineInternalIP,
+		address := corev1.NodeAddress{
+			Type:    corev1.NodeInternalIP,
 			Address: nic.IP,
 		}
 		addrs = append(addrs, address)
 	}
 
 	// Add hostname == bareMetalMachineName as well
-	addrs = append(addrs, capi.MachineAddress{
-		Type:    capi.MachineHostName,
+	addrs = append(addrs, corev1.NodeAddress{
+		Type:    corev1.NodeHostName,
 		Address: bareMetalMachineName,
 	})
-	addrs = append(addrs, capi.MachineAddress{
-		Type:    capi.MachineInternalDNS,
+	addrs = append(addrs, corev1.NodeAddress{
+		Type:    corev1.NodeInternalDNS,
 		Address: bareMetalMachineName,
 	})
 

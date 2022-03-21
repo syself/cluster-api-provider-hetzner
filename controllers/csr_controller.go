@@ -27,6 +27,7 @@ import (
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/csr"
 	certificatesv1 "k8s.io/api/certificates/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -88,17 +89,33 @@ func (r *GuestCSRReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return reconcile.Result{}, nil
 	}
 
+	var machineName string
+	var machineAddresses []corev1.NodeAddress
 	// find matching HCloudMachine object
 	var hcloudMachine infrav1.HCloudMachine
-	if err := r.mCluster.Get(ctx, types.NamespacedName{
+	err = r.mCluster.Get(ctx, types.NamespacedName{
 		Namespace: r.mCluster.Namespace(),
 		Name:      strings.TrimPrefix(certificateSigningRequest.Spec.Username, nodePrefix),
-	}, &hcloudMachine); err != nil {
-		log.Error(err, "found an error while getting hcloudMachine", "namespacedName", req.NamespacedName,
-			"userName", certificateSigningRequest.Spec.Username,
-			"trimmedUserName", strings.TrimPrefix(certificateSigningRequest.Spec.Username, nodePrefix),
-		)
-		return reconcile.Result{}, err
+	}, &hcloudMachine)
+
+	if err == nil {
+		machineName = hcloudMachine.GetName()
+		machineAddresses = hcloudMachine.Status.Addresses
+	} else {
+		// Check whether it is a bare metal machine
+		var bmMachine infrav1.HetznerBareMetalMachine
+		if err := r.mCluster.Get(ctx, types.NamespacedName{
+			Namespace: r.mCluster.Namespace(),
+			Name:      strings.TrimPrefix(certificateSigningRequest.Spec.Username, nodePrefix),
+		}, &bmMachine); err != nil {
+			log.Error(err, "found an error while getting machine - bm machine or hcloud machine", "namespacedName", req.NamespacedName,
+				"userName", certificateSigningRequest.Spec.Username,
+				"trimmedUserName", strings.TrimPrefix(certificateSigningRequest.Spec.Username, nodePrefix),
+			)
+			return reconcile.Result{}, err
+		}
+		machineName = bmMachine.GetName()
+		machineAddresses = bmMachine.Status.Addresses
 	}
 
 	csrBlock, _ := pem.Decode(certificateSigningRequest.Spec.Request)
@@ -118,7 +135,8 @@ func (r *GuestCSRReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	var condition = certificatesv1.CertificateSigningRequestCondition{
 		LastUpdateTime: metav1.Time{Time: time.Now()},
 	}
-	if err := csr.ValidateKubeletCSR(csrRequest, &hcloudMachine); err != nil {
+
+	if err := csr.ValidateKubeletCSR(csrRequest, machineName, machineAddresses); err != nil {
 		condition.Type = certificatesv1.CertificateDenied
 		condition.Reason = "CSRValidationFailed"
 		condition.Status = "True"

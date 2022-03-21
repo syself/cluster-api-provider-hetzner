@@ -23,8 +23,8 @@ import (
 	"encoding/asn1"
 	"fmt"
 	"reflect"
+	"strings"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 )
@@ -36,7 +36,7 @@ const NodesPrefix = "system:node:"
 const NodesGroup = "system:nodes"
 
 // ValidateKubeletCSR validates a CSR.
-func ValidateKubeletCSR(csr *x509.CertificateRequest, machine *infrav1.HCloudMachine) error {
+func ValidateKubeletCSR(csr *x509.CertificateRequest, machineName string, addresses []corev1.NodeAddress) error {
 	// check signature and exist quickly
 	if err := csr.CheckSignature(); err != nil {
 		return err
@@ -45,7 +45,7 @@ func ValidateKubeletCSR(csr *x509.CertificateRequest, machine *infrav1.HCloudMac
 	var errs []error
 
 	// validate subject
-	username := fmt.Sprintf("%s%s", NodesPrefix, machine.ObjectMeta.Name)
+	username := fmt.Sprintf("%s%s", NodesPrefix, machineName)
 	subjectExpected := pkix.Name{
 		CommonName:   username,
 		Organization: []string{NodesGroup},
@@ -65,7 +65,7 @@ func ValidateKubeletCSR(csr *x509.CertificateRequest, machine *infrav1.HCloudMac
 
 	// allow only certain DNS names
 	allowedDNSNames := map[string]struct{}{
-		machine.ObjectMeta.Name: {},
+		machineName: {},
 	}
 	for _, name := range csr.DNSNames {
 		if _, ok := allowedDNSNames[name]; !ok {
@@ -75,10 +75,10 @@ func ValidateKubeletCSR(csr *x509.CertificateRequest, machine *infrav1.HCloudMac
 
 	// allow only certain IP addresses
 	allowedIPAddresses := make(map[string]struct{})
-	for _, address := range machine.Status.Addresses {
+	for _, address := range addresses {
 		switch address.Type {
 		case corev1.NodeInternalIP, corev1.NodeExternalIP:
-			allowedIPAddresses[address.Address] = struct{}{}
+			allowedIPAddresses[strings.Split(address.Address, "/")[0]] = struct{}{}
 		}
 	}
 	for _, ip := range csr.IPAddresses {

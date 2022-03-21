@@ -41,6 +41,8 @@ var (
 	ErrAuthenticationFailed = errors.New("ssh: unable to authenticate")
 	// ErrEmptyStdOut means that StdOut equals empty string.
 	ErrEmptyStdOut = errors.New("unexpected empty output in stdout")
+	// ErrTimeout means that there is a timeout error.
+	ErrTimeout = errors.New("i/o timeout")
 
 	errSSHDialFailed = errors.New("failed to dial ssh")
 )
@@ -204,8 +206,8 @@ func (c *sshClient) DownloadImage(path, url string) Output {
 // CreatePostInstallScript implements the CreatePostInstallScript method of the SSHClient interface.
 func (c *sshClient) CreatePostInstallScript(data string) Output {
 	out := c.runSSH(fmt.Sprintf(`cat << 'EOF' > /root/post-install.sh 
-	%s
-	EOF`, data))
+	%sEOF`, data))
+
 	if out.Err != nil || out.StdErr != "" {
 		return out
 	}
@@ -214,10 +216,33 @@ func (c *sshClient) CreatePostInstallScript(data string) Output {
 
 // ExecuteInstallImage implements the ExecuteInstallImage method of the SSHClient interface.
 func (c *sshClient) ExecuteInstallImage(hasPostInstallScript bool) Output {
+	var cmd string
 	if hasPostInstallScript {
-		return c.runSSH(`installimage -a -c /autosetup -x /root/post-install.sh`)
+		cmd = `/root/.oldroot/nfs/install/installimage -a -c /autosetup -x /root/post-install.sh`
+	} else {
+		cmd = `/root/.oldroot/nfs/install/installimage -a -c /autosetup`
 	}
-	return c.runSSH(`installimage -a -c /autosetup`)
+
+	out := c.runSSH(fmt.Sprintf(`cat << 'EOF' > /root/install-image-script.sh 
+#!/bin/bash
+export TERM=xterm
+%s
+EOF`, cmd))
+	if out.Err != nil || out.StdErr != "" {
+		return out
+	}
+
+	out = c.runSSH(`chmod +x /root/install-image-script.sh . `)
+	if out.Err != nil || out.StdErr != "" {
+		return out
+	}
+
+	out = c.runSSH(`sh /root/install-image-script.sh`)
+	if out.Err != nil {
+		return out
+	}
+	// Ignore StdErr in this command
+	return Output{StdOut: out.StdOut}
 }
 
 // Reboot implements the Reboot method of the SSHClient interface.
@@ -249,8 +274,7 @@ EOF`, hostName))
 // CreateUserData implements the CreateUserData method of the SSHClient interface.
 func (c *sshClient) CreateUserData(userData string) Output {
 	return c.runSSH(fmt.Sprintf(`cat << 'EOF' > /var/lib/cloud/seed/nocloud-net/user-data
-%s
-EOF`, userData))
+%sEOF`, userData))
 }
 
 // CloudInitStatus implements the CloudInitStatus method of the SSHClient interface.
@@ -271,6 +295,11 @@ func IsAuthenticationFailedError(err error) bool {
 // IsCommandExitedWithoutExitSignalError checks whether the ssh error is an unplanned exit error.
 func IsCommandExitedWithoutExitSignalError(err error) bool {
 	return strings.Contains(err.Error(), ErrCommandExitedWithoutExitSignal.Error())
+}
+
+// IsTimeoutError checks whether the ssh error is an unplanned exit error.
+func IsTimeoutError(err error) bool {
+	return strings.Contains(err.Error(), ErrTimeout.Error())
 }
 
 func (c *sshClient) runSSH(command string) Output {
@@ -294,7 +323,7 @@ func (c *sshClient) runSSH(command string) Output {
 
 	client, err := ssh.Dial("tcp", c.ip+":"+strconv.Itoa(c.port), config)
 	if err != nil {
-		return Output{Err: errSSHDialFailed}
+		return Output{Err: fmt.Errorf("failed to dial ssh. Error message: %s. DialErr: %w", err.Error(), errSSHDialFailed)}
 	}
 	defer client.Close()
 

@@ -131,20 +131,24 @@ func main() {
 		Client:             mgr.GetClient(),
 		RobotClientFactory: robotclient.NewFactory(),
 		SSHClientFactory:   sshclient.NewFactory(),
+		APIReader:          mgr.GetAPIReader(),
+		WatchFilterValue:   watchFilterValue,
 	}).SetupWithManager(ctx, mgr, controller.Options{}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HetznerBareMetalHost")
 		os.Exit(1)
 	}
 
 	if err = (&controllers.HetznerBareMetalMachineReconciler{
-		Client: mgr.GetClient(),
+		Client:           mgr.GetClient(),
+		WatchFilterValue: watchFilterValue,
 	}).SetupWithManager(ctx, mgr, controller.Options{}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HetznerBareMetalMachine")
 		os.Exit(1)
 	}
 
 	if err = (&controllers.HetznerBareMetalRemediationReconciler{
-		Client: mgr.GetClient(),
+		Client:           mgr.GetClient(),
+		WatchFilterValue: watchFilterValue,
 	}).SetupWithManager(ctx, mgr, controller.Options{}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HetznerBareMetalRemediation")
 		os.Exit(1)
