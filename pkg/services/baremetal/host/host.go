@@ -673,7 +673,7 @@ func checkHostNameOutput(out sshclient.Output, secondarySSHClient sshclient.Clie
 		// We are in the case that hostName != rescue && StdOut != hostName
 		// This is unexpected
 		if hostName != rescue {
-			err = fmt.Errorf("unexpected hostname %s. Want %s or rescue", out.StdOut, hostName)
+			err = fmt.Errorf("unexpected hostname %s. Want %s or rescue", trimLineBreak(out.StdOut), hostName)
 		}
 	}
 	return isInCorrectBoot, isTimeout, isConnectionRefused, err
@@ -1008,10 +1008,11 @@ func (s *Service) actionImageInstalling() actionResult {
 		return s.recordActionFailure(infrav1.ProvisioningError, "no suitable storage device found")
 	}
 
+	hostName := infrav1.BareMetalHostNamePrefix + s.scope.HetznerBareMetalHost.Spec.ConsumerRef.Name
 	// Create autosetup file
 	autoSetupInput := autoSetupInput{
 		osDevice: deviceName,
-		hostName: s.scope.HetznerBareMetalHost.Spec.ConsumerRef.Name,
+		hostName: hostName,
 		image:    imagePath,
 	}
 
@@ -1089,7 +1090,7 @@ func (s *Service) actionProvisioning() actionResult {
 		return actionError{err: errors.Wrap(err, "failed to create no cloud directory")}
 	}
 
-	out = sshClient.CreateMetaData(s.scope.HetznerBareMetalHost.Spec.ConsumerRef.Name)
+	out = sshClient.CreateMetaData(infrav1.BareMetalHostNamePrefix + s.scope.HetznerBareMetalHost.Spec.ConsumerRef.Name)
 	if err := handleSSHError(out); err != nil {
 		return actionError{err: errors.Wrap(err, "failed to create meta data")}
 	}
@@ -1141,10 +1142,19 @@ func (s *Service) actionEnsureProvisioned() actionResult {
 	case strings.Contains(stdOut, "status: done"):
 		s.scope.SetErrorCount(0)
 		clearError(s.scope.HetznerBareMetalHost)
-		return actionComplete{}
+	default:
+		return actionError{err: fmt.Errorf("unknown response from cloud init: %s", stdOut)}
 	}
 
-	return actionError{err: fmt.Errorf("unknown response from cloud init: %s", stdOut)}
+	// Update name in robot API
+	if _, err := s.scope.RobotClient.SetBMServerName(
+		s.scope.HetznerBareMetalHost.Spec.ServerID,
+		infrav1.BareMetalHostNamePrefix+s.scope.HetznerBareMetalHost.Spec.ConsumerRef.Name,
+	); err != nil {
+		return actionError{err: fmt.Errorf("failed to update name of host in robot API: %w", err)}
+	}
+
+	return actionComplete{}
 }
 
 func (s *Service) actionProvisioned() actionResult {
@@ -1162,7 +1172,7 @@ func (s *Service) actionProvisioned() actionResult {
 	if rebootDesired {
 		if isRebooted {
 			// Reboot has been done already. Check whether it has been successful
-			actResult := s.actionEnsureCorrectBoot(s.scope.HetznerBareMetalHost.Spec.ConsumerRef.Name, &port)
+			actResult := s.actionEnsureCorrectBoot(infrav1.BareMetalHostNamePrefix+s.scope.HetznerBareMetalHost.Spec.ConsumerRef.Name, &port)
 			if _, ok := actResult.(actionComplete); ok {
 				// Reboot has been successful
 				s.scope.HetznerBareMetalHost.Status.Rebooted = false
@@ -1182,10 +1192,23 @@ func (s *Service) actionProvisioned() actionResult {
 	return actionComplete{}
 }
 
-func (s *Service) actionDeprovisioning() {
+func (s *Service) actionDeprovisioning() actionResult {
+	// Update name in robot API
+	if _, err := s.scope.RobotClient.SetBMServerName(
+		s.scope.HetznerBareMetalHost.Spec.ServerID,
+		s.scope.HetznerBareMetalHost.Spec.ConsumerRef.Name,
+	); err != nil {
+		return actionError{err: fmt.Errorf("failed to update name of host in robot API: %w", err)}
+	}
+
 	// Remove all data related to bare metal machine
 	s.scope.HetznerBareMetalHost.Spec.Status.InstallImage = nil
 	s.scope.HetznerBareMetalHost.Spec.Status.UserData = nil
 	s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec = nil
 	s.scope.HetznerBareMetalHost.Spec.ConsumerRef = nil
+
+	s.scope.SetErrorCount(0)
+	clearError(s.scope.HetznerBareMetalHost)
+
+	return actionComplete{}
 }

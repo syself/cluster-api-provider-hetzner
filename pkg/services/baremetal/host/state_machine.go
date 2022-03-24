@@ -182,7 +182,7 @@ func (hsm *hostStateMachine) handleProvisioning() actionResult {
 	}
 
 	port := hsm.host.Spec.Status.SSHSpec.PortAfterInstallImage
-	actResult := hsm.reconciler.actionEnsureCorrectBoot(hsm.host.Spec.ConsumerRef.Name, &port)
+	actResult := hsm.reconciler.actionEnsureCorrectBoot(infrav1.BareMetalHostNamePrefix+hsm.host.Spec.ConsumerRef.Name, &port)
 	if _, ok := actResult.(actionComplete); ok {
 		actResult := hsm.reconciler.actionProvisioning()
 		if _, ok := actResult.(actionComplete); ok {
@@ -200,7 +200,7 @@ func (hsm *hostStateMachine) handleEnsureProvisioned() actionResult {
 	}
 
 	port := hsm.host.Spec.Status.SSHSpec.PortAfterCloudInit
-	actResult := hsm.reconciler.actionEnsureCorrectBoot(hsm.host.Spec.ConsumerRef.Name, &port)
+	actResult := hsm.reconciler.actionEnsureCorrectBoot(infrav1.BareMetalHostNamePrefix+hsm.host.Spec.ConsumerRef.Name, &port)
 	if _, ok := actResult.(actionComplete); ok {
 		actResult := hsm.reconciler.actionEnsureProvisioned()
 		if _, ok := actResult.(actionComplete); ok {
@@ -220,9 +220,12 @@ func (hsm *hostStateMachine) handleProvisioned() actionResult {
 }
 
 func (hsm *hostStateMachine) handleDeprovisioning() actionResult {
-	hsm.reconciler.actionDeprovisioning()
-	hsm.nextState = infrav1.StateAvailable
-	return actionComplete{}
+	actResult := hsm.reconciler.actionDeprovisioning()
+	if _, ok := actResult.(actionComplete); ok {
+		hsm.nextState = infrav1.StateAvailable
+		return actionComplete{}
+	}
+	return actResult
 }
 
 func (hsm *hostStateMachine) provisioningCancelled() bool {

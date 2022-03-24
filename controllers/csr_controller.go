@@ -95,7 +95,7 @@ func (r *GuestCSRReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	var hcloudMachine infrav1.HCloudMachine
 	err = r.mCluster.Get(ctx, types.NamespacedName{
 		Namespace: r.mCluster.Namespace(),
-		Name:      strings.TrimPrefix(certificateSigningRequest.Spec.Username, nodePrefix),
+		Name:      strings.TrimPrefix(certificateSigningRequest.Spec.Username, nodePrefix+infrav1.HCloudHostNamePrefix),
 	}, &hcloudMachine)
 
 	if err == nil {
@@ -106,11 +106,11 @@ func (r *GuestCSRReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		var bmMachine infrav1.HetznerBareMetalMachine
 		if err := r.mCluster.Get(ctx, types.NamespacedName{
 			Namespace: r.mCluster.Namespace(),
-			Name:      strings.TrimPrefix(certificateSigningRequest.Spec.Username, nodePrefix),
+			Name:      strings.TrimPrefix(certificateSigningRequest.Spec.Username, nodePrefix+infrav1.BareMetalHostNamePrefix),
 		}, &bmMachine); err != nil {
 			log.Error(err, "found an error while getting machine - bm machine or hcloud machine", "namespacedName", req.NamespacedName,
 				"userName", certificateSigningRequest.Spec.Username,
-				"trimmedUserName", strings.TrimPrefix(certificateSigningRequest.Spec.Username, nodePrefix),
+				"nodePrefix", nodePrefix,
 			)
 			return reconcile.Result{}, err
 		}
