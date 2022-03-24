@@ -553,12 +553,10 @@ install-manifests:
   	--namespace kube-system \
 	-f templates/cilium/cilium.yaml
 
-	# Deploy HCloud Cloud Controller Manager
+	# Deploy Hetzner Cloud Controller Manager
 	helm repo add syself https://charts.syself.com
-	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hcloud --version 1.0.9 \
+	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hetzner --version 1.1.0 \
 	--namespace kube-system \
-	--set secret.name=hetzner \
-	--set secret.tokenKeyName=hcloud \
 	--set privateNetwork.enabled=$(PRIVATE_NETWORK)
 
 	@echo 'run "kubectl --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) ..." to work with the new target cluster'
