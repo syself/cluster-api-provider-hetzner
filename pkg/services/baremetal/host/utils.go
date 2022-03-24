@@ -72,3 +72,7 @@ func validJSONFromSSHOutput(str string) string {
 	tempString2 := strings.ReplaceAll(tempString1, `="`, `":"`)
 	return fmt.Sprintf(`{"%s}`, strings.TrimSpace(tempString2))
 }
+
+func trimLineBreak(str string) string {
+	return strings.TrimSuffix(str, "\n")
+}

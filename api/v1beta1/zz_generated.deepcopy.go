@@ -609,7 +609,7 @@ func (in *HetznerBareMetalMachineStatus) DeepCopyInto(out *HetznerBareMetalMachi
 	}
 	if in.Addresses != nil {
 		in, out := &in.Addresses, &out.Addresses
-		*out = make(apiv1beta1.MachineAddresses, len(*in))
+		*out = make([]v1.NodeAddress, len(*in))
 		copy(*out, *in)
 	}
 	if in.Conditions != nil {

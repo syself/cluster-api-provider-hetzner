@@ -84,7 +84,7 @@ var _ = BeforeSuite(func() {
 		WatchFilterValue:    "",
 	}).SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
 
-	Expect((&controllers.HetznerBareMetalHostReconciler{
+	Expect((&HetznerBareMetalHostReconciler{
 		Client:             testEnv.Manager.GetClient(),
 		APIReader:          testEnv.Manager.GetAPIReader(),
 		RobotClientFactory: testEnv.RobotClientFactory,
@@ -92,7 +92,7 @@ var _ = BeforeSuite(func() {
 		WatchFilterValue:   "",
 	}).SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
 
-	Expect((&controllers.HetznerBareMetalMachineReconciler{
+	Expect((&HetznerBareMetalMachineReconciler{
 		Client:           testEnv.Manager.GetClient(),
 		WatchFilterValue: "",
 	}).SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())

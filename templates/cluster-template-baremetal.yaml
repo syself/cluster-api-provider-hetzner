@@ -39,10 +39,18 @@ spec:
   sshKeys:
     hcloud:
       - name: "${HCLOUD_SSH_KEY}"
+    robotRescueSecretRef:
+      name: robot-ssh
+      key:
+        name: sshkey-name
+        publicKey: ssh-publickey
+        privateKey: ssh-privatekey
   hetznerSecretRef:
     name: hetzner
     key:
       hcloudToken: hcloud
+      hetznerRobotUser: robot-user
+      hetznerRobotPassword: robot-password
 ---
 kind: KubeadmControlPlane
 apiVersion: controlplane.cluster.x-k8s.io/v1beta1
@@ -315,43 +323,6 @@ spec:
       status: "False"
       timeout: 300s
 ---
-apiVersion: cluster.x-k8s.io/v1beta1
-kind: MachineDeployment
-metadata:
-  name: "${CLUSTER_NAME}-md-0"
-  labels:
-    nodepool: "${CLUSTER_NAME}-md-0"
-spec:
-  clusterName: "${CLUSTER_NAME}"
-  replicas: ${WORKER_MACHINE_COUNT}
-  selector:
-    matchLabels:
-  template:
-    spec:
-      clusterName: "${CLUSTER_NAME}"
-      failureDomain: "${HCLOUD_REGION}"
-      version: "${KUBERNETES_VERSION}"
-      bootstrap:
-        configRef:
-          name: "${CLUSTER_NAME}-md-0"
-          apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
-          kind: KubeadmConfigTemplate
-      infrastructureRef:
-        name: "${CLUSTER_NAME}-md-0"
-        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
-        kind: HCloudMachineTemplate
----
-apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
-kind: HCloudMachineTemplate
-metadata:
-  name: "${CLUSTER_NAME}-md-0"
-spec:
-  template:
-    spec:
-      type: "${HCLOUD_WORKER_MACHINE_TYPE}"
-      imageName: "ubuntu-20.04"
-      placementGroupName: md-0
----
 apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
 kind: KubeadmConfigTemplate
 metadata:
@@ -492,3 +463,71 @@ spec:
     - type: Ready
       status: "False"
       timeout: 300s
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachineDeployment
+metadata:
+  name: "${CLUSTER_NAME}-md-0"
+  labels:
+    nodepool: "${CLUSTER_NAME}-md-0"
+spec:
+  clusterName: "${CLUSTER_NAME}"
+  replicas: ${WORKER_MACHINE_COUNT}
+  selector:
+    matchLabels:
+  template:
+    spec:
+      clusterName: "${CLUSTER_NAME}"
+      version: "${KUBERNETES_VERSION}"
+      bootstrap:
+        configRef:
+          name: "${CLUSTER_NAME}-md-0"
+          apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+          kind: KubeadmConfigTemplate
+      infrastructureRef:
+        name: "${CLUSTER_NAME}-md-0"
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        kind: HetznerBareMetalMachineTemplate
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: HetznerBareMetalMachineTemplate
+metadata:
+  name: "${CLUSTER_NAME}-md-0"
+spec:
+  template:
+    spec:
+      installImage:
+        image:
+          path: /root/.oldroot/nfs/install/../images/Ubuntu-2004-focal-64-minimal-hwe.tar.gz
+        partitions:
+          - mount: /boot
+            fileSystem: ext4
+            size: 1024M
+          - mount: /
+            fileSystem: ext4
+            size: all
+        postInstallScript: |
+          #!/bin/bash
+          apt-get update
+          apt-get install -y cloud-init
+      sshSpec:
+        portAfterInstallImage: 22
+        portAfterCloudInit: 22
+        secretRef:
+          name: robot-ssh
+          key:
+            name: sshkey-name
+            publicKey: ssh-publickey
+            privateKey: ssh-privatekey
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: HetznerBareMetalHost
+metadata:
+  name: "${CLUSTER_NAME}-md-0"
+spec:
+  serverID: ${BAREMETAL_SERVER_0_ID}
+  rootDeviceHints:
+    wwn: ${BAREMETAL_SERVER_0_WWN}
+  maintenanceMode: false
+  description: Test Machine 0
+  hetznerClusterRef: "${CLUSTER_NAME}"

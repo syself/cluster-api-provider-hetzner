@@ -267,14 +267,13 @@ spec:
                 description: Addresses is a list of addresses assigned to the machine.
                   This field is copied from the infrastructure provider reference.
                 items:
-                  description: MachineAddress contains information for the node's
-                    address.
+                  description: NodeAddress contains information for the node's address.
                   properties:
                     address:
-                      description: The machine address.
+                      description: The node address.
                       type: string
                     type:
-                      description: Machine address type, one of Hostname, ExternalIP
+                      description: Node address type, one of Hostname, ExternalIP
                         or InternalIP.
                       type: string
                   required:

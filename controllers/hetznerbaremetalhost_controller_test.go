@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controllers_test
+package controllers
 
 import (
 	"time"
@@ -147,7 +147,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 		}, nil)
 		robotClient.On("ListSSHKeys").Return([]models.Key{
 			{
-				Name:        "sshkey-name",
+				Name:        "my-name",
 				Fingerprint: "my-fingerprint",
 				Data:        "my-public-key",
 			},
@@ -542,7 +542,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 		}, nil)
 		robotClient.On("ListSSHKeys").Return([]models.Key{
 			{
-				Name:        "sshkey-name",
+				Name:        "my-name",
 				Fingerprint: "my-fingerprint",
 				Data:        "my-public-key",
 			},

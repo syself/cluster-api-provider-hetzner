@@ -133,6 +133,9 @@ func (r *HetznerBareMetalMachineReconciler) reconcileDelete(ctx context.Context,
 	machineScope.Info("Reconciling HetznerBareMetalMachine delete")
 	// delete servers
 	if result, brk, err := breakReconcile(baremetal.NewService(machineScope).Delete(ctx)); brk {
+		if requeueErr, ok := errors.Cause(err).(scope.HasRequeueAfterError); ok {
+			return ctrl.Result{Requeue: true, RequeueAfter: requeueErr.GetRequeueAfter()}, nil
+		}
 		return result, errors.Wrapf(
 			err,
 			"failed to delete servers for HetznerBareMetalMachine %s/%s",
