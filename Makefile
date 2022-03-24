@@ -44,7 +44,7 @@ CI_KIND ?= true
 #
 # Binaries.
 #
-MINIMUM_CLUSTERCTL_VERSION=1.1.2				# https://github.com/kubernetes-sigs/cluster-api/releases
+MINIMUM_CLUSTERCTL_VERSION=1.1.3				# https://github.com/kubernetes-sigs/cluster-api/releases
 MINIMUM_CTLPTL_VERSION=0.7.4						# https://github.com/tilt-dev/ctlptl/releases
 MINIMUM_GO_VERSION=go$(GO_VERSION)			# Check current project go version
 MINIMUM_HCLOUD_VERSION=1.29.0						# https://github.com/hetznercloud/cli/releases
@@ -542,7 +542,7 @@ wait-and-get-secret:
 install-manifests:
 	# Deploy cilium
 	helm repo add cilium https://helm.cilium.io/
-	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install cilium cilium/cilium --version 1.11.1 \
+	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install cilium cilium/cilium --version 1.10.5 \
   	--namespace kube-system \
 	-f templates/cilium/cilium.yaml
 
@@ -559,29 +559,37 @@ install-manifests:
 .PHONY: create-workload-cluster
 create-workload-cluster-with-network-packer: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
-	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD_TOKEN) 
+	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD_TOKEN) --save-config --dry-run=client -o yaml | kubectl apply -f -
 	cat templates/cluster-template-packer-hcloud-network.yaml | $(ENVSUBST) - | kubectl apply -f -
 	$(MAKE) wait-and-get-secret
 	$(MAKE) install-manifests PRIVATE_NETWORK=true
 
 create-workload-cluster-with-network: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
-	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD_TOKEN) 
+	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD_TOKEN) --save-config --dry-run=client -o yaml | kubectl apply -f -
 	cat templates/cluster-template-hcloud-network.yaml | $(ENVSUBST) - | kubectl apply -f -
 	$(MAKE) wait-and-get-secret
 	$(MAKE) install-manifests PRIVATE_NETWORK=true
 
 create-workload-cluster-packer: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
-	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD_TOKEN) 
+	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD_TOKEN) --save-config --dry-run=client -o yaml | kubectl apply -f -
 	cat templates/cluster-template-packer.yaml | $(ENVSUBST) - | kubectl apply -f -
 	$(MAKE) wait-and-get-secret
 	$(MAKE) install-manifests PRIVATE_NETWORK=false
 
 create-workload-cluster: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
-	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD_TOKEN) 
+	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD_TOKEN) --save-config --dry-run=client -o yaml | kubectl apply -f -
 	cat templates/cluster-template.yaml | $(ENVSUBST) - | kubectl apply -f -
+	$(MAKE) wait-and-get-secret
+	$(MAKE) install-manifests PRIVATE_NETWORK=false
+
+create-workload-cluster-baremetal: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
+	# Create workload Cluster.
+	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD_TOKEN) --from-literal=robot-user=$(HETZNER_ROBOT_USER) --from-literal=robot-password=$(HETZNER_ROBOT_PASSWORD) --save-config --dry-run=client -o yaml | kubectl apply -f -
+	kubectl create secret generic robot-ssh --from-literal=sshkey-name=cluster --from-file=ssh-privatekey=${HETZNER_SSH_PRIV_PATH} --from-file=ssh-publickey=${HETZNER_SSH_PUB_PATH} --save-config --dry-run=client -o yaml | kubectl apply -f -
+	cat templates/cluster-template-baremetal.yaml | $(ENVSUBST) - | kubectl apply -f -
 	$(MAKE) wait-and-get-secret
 	$(MAKE) install-manifests PRIVATE_NETWORK=false
 
@@ -592,7 +600,7 @@ move-to-workload-cluster:
 
 create-talos-workload-cluster-packer: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
-	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD_TOKEN) || true
+	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD_TOKEN) --save-config --dry-run=client -o yaml | kubectl apply -f -
 	cat templates/cluster-template-packer-talos.yaml | $(ENVSUBST) - | kubectl apply -f -
 	$(MAKE) wait-and-get-secret
 	$(MAKE) install-manifests

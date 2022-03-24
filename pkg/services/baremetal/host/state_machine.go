@@ -142,6 +142,7 @@ func (hsm *hostStateMachine) handleRegistering() actionResult {
 		if _, ok := actResult.(actionComplete); ok {
 			hsm.nextState = infrav1.StateAvailable
 		}
+		return actResult
 	}
 	return actResult
 }
@@ -169,6 +170,7 @@ func (hsm *hostStateMachine) handleImageInstalling() actionResult {
 		if _, ok := actResult.(actionComplete); ok {
 			hsm.nextState = infrav1.StateProvisioning
 		}
+		return actResult
 	}
 	return actResult
 }
@@ -186,6 +188,7 @@ func (hsm *hostStateMachine) handleProvisioning() actionResult {
 		if _, ok := actResult.(actionComplete); ok {
 			hsm.nextState = infrav1.StateEnsureProvisioned
 		}
+		return actResult
 	}
 	return actResult
 }
@@ -203,6 +206,7 @@ func (hsm *hostStateMachine) handleEnsureProvisioned() actionResult {
 		if _, ok := actResult.(actionComplete); ok {
 			hsm.nextState = infrav1.StateProvisioned
 		}
+		return actResult
 	}
 	return actResult
 }
