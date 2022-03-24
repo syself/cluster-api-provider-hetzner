@@ -463,6 +463,15 @@ func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope
 		var immutable bool
 		data := make(map[string][]byte)
 		data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken] = hetznerToken
+
+		// Save robot credentials if available
+		robotUserName, keyExists := tokenSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser]
+		if keyExists {
+			data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser] = robotUserName
+			robotPassword := tokenSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword]
+			data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword] = robotPassword
+		}
+
 		// Save network ID in secret
 		if clusterScope.HetznerCluster.Spec.HCloudNetwork.Enabled {
 			data["network"] = []byte(strconv.Itoa(clusterScope.HetznerCluster.Status.Network.ID))
