@@ -32,6 +32,9 @@ const (
 	// BareMetalMachineFinalizer allows Reconcilehetznerbaremetalmachine to clean up resources associated with hetznerbaremetalmachine before
 	// removing it from the apiserver.
 	BareMetalMachineFinalizer = "hetznerbaremetalmachine.infrastructure.cluster.x-k8s.io"
+
+	// BareMetalHostNamePrefix is a prefix for all hostNames of bare metal servers.
+	BareMetalHostNamePrefix = "robot-"
 )
 
 var errUnknownSuffix = errors.New("unknown suffix")

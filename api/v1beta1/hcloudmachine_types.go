@@ -29,6 +29,9 @@ const (
 	// resources associated with HCloudMachine before removing it from the
 	// apiserver.
 	MachineFinalizer = "hcloudmachine.infrastructure.cluster.x-k8s.io"
+
+	// HCloudHostNamePrefix is a prefix for all hostNames of hcloud servers.
+	HCloudHostNamePrefix = "hcloud-"
 )
 
 // HCloudMachineSpec defines the desired state of HCloudMachine.
