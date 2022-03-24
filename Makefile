@@ -557,6 +557,7 @@ install-manifests:
 	helm repo add syself https://charts.syself.com
 	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hetzner --version 1.1.0 \
 	--namespace kube-system \
+	--set image.tag=latest \
 	--set privateNetwork.enabled=$(PRIVATE_NETWORK)
 
 	@echo 'run "kubectl --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) ..." to work with the new target cluster'
