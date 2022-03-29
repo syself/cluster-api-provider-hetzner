@@ -288,6 +288,9 @@ type Storage struct {
 	// The size of the disk in Bytes
 	SizeBytes Capacity `json:"sizeBytes,omitempty"`
 
+	// The size of the disk in GB
+	SizeGB Capacity `json:"sizeGB,omitempty"`
+
 	// The name of the vendor of the device
 	Vendor string `json:"vendor,omitempty"`
 

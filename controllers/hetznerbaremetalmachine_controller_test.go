@@ -145,7 +145,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 		}, nil)
 		robotClient.On("ListSSHKeys").Return([]models.Key{
 			{
-				Name:        "sshkey-name",
+				Name:        "my-name",
 				Fingerprint: "my-fingerprint",
 				Data:        "my-public-key",
 			},
@@ -155,6 +155,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 		robotClient.On("SetBootRescue", 1, mock.Anything).Return(&models.Rescue{Active: true}, nil)
 		robotClient.On("DeleteBootRescue", 1).Return(&models.Rescue{Active: false}, nil)
 		robotClient.On("RebootBMServer", mock.Anything, mock.Anything).Return(&models.ResetPost{}, nil)
+		robotClient.On("SetBMServerName", 1, mock.Anything).Return(nil, nil)
 
 		configureRescueSSHClient(rescueSSHClient)
 
@@ -165,7 +166,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 		osSSHClient.On("EnsureCloudInit").Return(sshclient.Output{StdOut: "cloud-init"})
 		osSSHClient.On("CloudInitStatus").Return(sshclient.Output{StdOut: "status: done"})
 		osSSHClient.On("GetHostName").Return(sshclient.Output{
-			StdOut: bmMachineName,
+			StdOut: infrav1.BareMetalHostNamePrefix + bmMachineName,
 			StdErr: "",
 			Err:    nil})
 	})

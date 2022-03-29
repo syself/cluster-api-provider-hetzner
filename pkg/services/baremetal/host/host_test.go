@@ -176,6 +176,7 @@ NAME="nvme1n1" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJQ-00000" VENDOR="" 
 					Vendor:       "",
 					SerialNumber: "S677NF0R402742",
 					SizeBytes:    2048408248320,
+					SizeGB:       2048,
 					WWN:          "eui.002538b411b2cee8",
 					Rota:         false,
 				},
@@ -186,6 +187,7 @@ NAME="nvme1n1" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJQ-00000" VENDOR="" 
 					Vendor:       "",
 					SerialNumber: "S3W8NX0N811178",
 					SizeBytes:    512110190592,
+					SizeGB:       512,
 					WWN:          "eui.0025388801b4dff2",
 					Rota:         false,
 				},
@@ -856,9 +858,13 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				"default",
 				helpers.WithSSHSpecInclPorts(),
 				helpers.WithIP(),
+				helpers.WithConsumerRef(),
 			)
 
-			service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), nil)
+			robotMock := robotmock.Client{}
+			robotMock.On("SetBMServerName", bareMetalHostID, infrav1.BareMetalHostNamePrefix+host.Spec.ConsumerRef.Name).Return(nil, nil)
+
+			service := newTestService(host, &robotMock, bmmock.NewSSHFactory(sshMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), nil)
 
 			actResult := service.actionEnsureProvisioned()
 			Expect(actResult).Should(BeAssignableToTypeOf(expectedActionResult))
@@ -922,7 +928,7 @@ var _ = Describe("actionProvisioned", func() {
 			sshMock := &sshmock.Client{}
 			var hostNameOutput sshclient.Output
 			if rebootFinished {
-				hostNameOutput = sshclient.Output{StdOut: host.Spec.ConsumerRef.Name}
+				hostNameOutput = sshclient.Output{StdOut: infrav1.BareMetalHostNamePrefix + host.Spec.ConsumerRef.Name}
 			} else {
 				hostNameOutput = sshclient.Output{Err: timeout}
 			}
