@@ -112,13 +112,13 @@ func (hsm *hostStateMachine) updateSSHKey() actionResult {
 		switch hsm.nextState {
 		case infrav1.StateRegistering, infrav1.StateAvailable, infrav1.StateImageInstalling:
 			hsm.log.Info("Attention: Going back to state none as rescue secret was updated", "state", hsm.nextState,
-				"currentRescue", hsm.host.Spec.Status.SSHStatus.CurrentRescue, "newRescue", rescueSSHSecret)
+				"currentRescue", hsm.host.Spec.Status.SSHStatus.CurrentRescue)
 			hsm.nextState = infrav1.StateNone
 		case infrav1.StateDeprovisioning:
 			// Remove all possible information of the bare metal machine from host and then go to StateNone
 			hsm.reconciler.actionDeprovisioning()
 			hsm.log.Info("Attention: Going back to state none as rescue secret was updated", "state", hsm.nextState,
-				"currentRescue", hsm.host.Spec.Status.SSHStatus.CurrentRescue, "newRescue", rescueSSHSecret)
+				"currentRescue", hsm.host.Spec.Status.SSHStatus.CurrentRescue)
 			hsm.nextState = infrav1.StateNone
 		}
 		hsm.host.UpdateRescueSSHStatus(*rescueSSHSecret)

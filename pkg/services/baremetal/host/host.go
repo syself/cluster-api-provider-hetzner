@@ -861,10 +861,14 @@ func (s *Service) obtainHardwareDetailsStorage(sshClient sshclient.Client) ([]in
 			return nil, fmt.Errorf("unknown ROTA %s. Expect either 1 or 0", storage.Rota)
 		}
 
+		sizeGB := sizeBytes / 1000000000
+		capacityGB := infrav1.Capacity(sizeGB)
+
 		if storage.Type == "disk" {
 			storageArray = append(storageArray, infrav1.Storage{
 				Name:         storage.Name,
 				SizeBytes:    infrav1.Capacity(sizeBytes),
+				SizeGB:       capacityGB,
 				Vendor:       storage.Vendor,
 				Model:        storage.Model,
 				SerialNumber: storage.SerialNumber,
