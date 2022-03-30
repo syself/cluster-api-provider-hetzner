@@ -1043,6 +1043,14 @@ func (s *Service) actionImageInstalling() actionResult {
 		return actionError{err: errors.Wrap(err, "failed to execute installimage")}
 	}
 
+	// Update name in robot API
+	if _, err := s.scope.RobotClient.SetBMServerName(
+		s.scope.HetznerBareMetalHost.Spec.ServerID,
+		infrav1.BareMetalHostNamePrefix+s.scope.HetznerBareMetalHost.Spec.ConsumerRef.Name,
+	); err != nil {
+		return actionError{err: fmt.Errorf("failed to update name of host in robot API: %w", err)}
+	}
+
 	out = sshClient.Reboot()
 	if err := handleSSHError(out); err != nil {
 		return actionError{err: errors.Wrap(err, "failed to reboot server")}
@@ -1148,14 +1156,6 @@ func (s *Service) actionEnsureProvisioned() actionResult {
 		clearError(s.scope.HetznerBareMetalHost)
 	default:
 		return actionError{err: fmt.Errorf("unknown response from cloud init: %s", stdOut)}
-	}
-
-	// Update name in robot API
-	if _, err := s.scope.RobotClient.SetBMServerName(
-		s.scope.HetznerBareMetalHost.Spec.ServerID,
-		infrav1.BareMetalHostNamePrefix+s.scope.HetznerBareMetalHost.Spec.ConsumerRef.Name,
-	); err != nil {
-		return actionError{err: fmt.Errorf("failed to update name of host in robot API: %w", err)}
 	}
 
 	return actionComplete{}

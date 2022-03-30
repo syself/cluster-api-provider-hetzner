@@ -59,12 +59,14 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req c
 	err := r.Get(ctx, req.NamespacedName, hbmMachine)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
+			log.Info("BareMetalMachine not found", "namespacedName", req.NamespacedName)
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
 	}
 
 	if hbmMachine.Status.FailureMessage != nil {
+		log.Info("FailureMessage set", "failureMessage", hbmMachine.Status.FailureMessage)
 		return ctrl.Result{}, nil
 	}
 	// Fetch the Machine.

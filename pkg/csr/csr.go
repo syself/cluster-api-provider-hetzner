@@ -25,6 +25,7 @@ import (
 	"reflect"
 	"strings"
 
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 )
@@ -36,16 +37,23 @@ const NodesPrefix = "system:node:"
 const NodesGroup = "system:nodes"
 
 // ValidateKubeletCSR validates a CSR.
-func ValidateKubeletCSR(csr *x509.CertificateRequest, machineName string, addresses []corev1.NodeAddress) error {
+func ValidateKubeletCSR(csr *x509.CertificateRequest, machineName string, isHCloudMachine bool, addresses []corev1.NodeAddress) error {
 	// check signature and exist quickly
 	if err := csr.CheckSignature(); err != nil {
 		return err
 	}
 
+	var hostNamePrefix string
+	if isHCloudMachine {
+		hostNamePrefix = infrav1.HCloudHostNamePrefix
+	} else {
+		hostNamePrefix = infrav1.BareMetalHostNamePrefix
+	}
+
 	var errs []error
 
 	// validate subject
-	username := fmt.Sprintf("%s%s", NodesPrefix, machineName)
+	username := fmt.Sprintf("%s%s", NodesPrefix+hostNamePrefix, machineName)
 	subjectExpected := pkix.Name{
 		CommonName:   username,
 		Organization: []string{NodesGroup},
@@ -65,7 +73,7 @@ func ValidateKubeletCSR(csr *x509.CertificateRequest, machineName string, addres
 
 	// allow only certain DNS names
 	allowedDNSNames := map[string]struct{}{
-		machineName: {},
+		hostNamePrefix + machineName: {},
 	}
 	for _, name := range csr.DNSNames {
 		if _, ok := allowedDNSNames[name]; !ok {

@@ -89,6 +89,7 @@ func (r *GuestCSRReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return reconcile.Result{}, nil
 	}
 
+	var isHCloudMachine bool
 	var machineName string
 	var machineAddresses []corev1.NodeAddress
 	// find matching HCloudMachine object
@@ -99,6 +100,7 @@ func (r *GuestCSRReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	}, &hcloudMachine)
 
 	if err == nil {
+		isHCloudMachine = true
 		machineName = hcloudMachine.GetName()
 		machineAddresses = hcloudMachine.Status.Addresses
 	} else {
@@ -136,11 +138,12 @@ func (r *GuestCSRReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		LastUpdateTime: metav1.Time{Time: time.Now()},
 	}
 
-	if err := csr.ValidateKubeletCSR(csrRequest, machineName, machineAddresses); err != nil {
+	if err := csr.ValidateKubeletCSR(csrRequest, machineName, isHCloudMachine, machineAddresses); err != nil {
 		condition.Type = certificatesv1.CertificateDenied
 		condition.Reason = "CSRValidationFailed"
 		condition.Status = "True"
 		condition.Message = fmt.Sprintf("Validation by cluster-api-provider-hetzner failed: %s", err)
+		log.Error(err, "failed to validate kubelet csr")
 	} else {
 		condition.Type = certificatesv1.CertificateApproved
 		condition.Reason = "CSRValidationSucceed"

@@ -33,14 +33,14 @@ var _ = Describe("Validate Kubelet CSR", func() {
 	var addresses []corev1.NodeAddress
 	BeforeEach(func() {
 
-		name = "test2-control-plane-a0653-7w642"
+		name = "testing-control-plane-vgnlc"
 		addresses = []corev1.NodeAddress{
 			{
 				Type:    corev1.NodeExternalIP,
-				Address: "168.119.152.147",
+				Address: "195.201.236.66",
 			},
 		}
-		bytes, err := base64.StdEncoding.DecodeString("LS0tLS1CRUdJTiBDRVJUSUZJQ0FURSBSRVFVRVNULS0tLS0KTUlJQkNEQ0Jyd0lCQURCTk1SVXdFd1lEVlFRS0V3eHplWE4wWlcwNmJtOWtaWE14TkRBeUJnTlZCQU1USzNONQpjM1JsYlRwdWIyUmxPblJsYzNReUxXTnZiblJ5YjJ3dGNHeGhibVV0WVRBMk5UTXROM2MyTkRJd1dUQVRCZ2NxCmhrak9QUUlCQmdncWhrak9QUU1CQndOQ0FBVFpwcHp5bjQ2YU0xRE95L0xKMm4zK1hock1scmlteHZwV0E3dGwKcmdBRUtPekdqOUhzcWJqRnZ0eEFPdGNFQ2xCTDNWTUprRjhDMlpQaHlTV01xemRtb0FBd0NnWUlLb1pJemowRQpBd0lEU0FBd1JRSWhBTTJTTnhoU3dabEwwbnp4SE9JZmFDU2R1NFk5K1c4SlJVcWhQWFgxd0VyeEFpQWk0VE1PCmZvclIwTDVjV0xFYVYzVmE3aVVRYnFpSHJjK1lBZmZoSUZ6REhnPT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUgUkVRVUVTVC0tLS0tCg==")
+		bytes, err := base64.StdEncoding.DecodeString("LS0tLS1CRUdJTiBDRVJUSUZJQ0FURSBSRVFVRVNULS0tLS0KTUlJQlVUQ0IrQUlCQURCUU1SVXdFd1lEVlFRS0V3eHplWE4wWlcwNmJtOWtaWE14TnpBMUJnTlZCQU1UTG5ONQpjM1JsYlRwdWIyUmxPbWhqYkc5MVpDMTBaWE4wYVc1bkxXTnZiblJ5YjJ3dGNHeGhibVV0ZG1kdWJHTXdXVEFUCkJnY3Foa2pPUFFJQkJnZ3Foa2pPUFFNQkJ3TkNBQVJrMmdPTkhyZi9keUxnd05qZXk5MWRJVHY0ai9tRDJDNTkKNkpzcGJuK3dydlR2eFBIWVBWUmJEZEZweGJodU81WnM2U3lGUUtJcjd2d2hJTjlYeTVhTm9FWXdSQVlKS29aSQpodmNOQVFrT01UY3dOVEF6QmdOVkhSRUVMREFxZ2lKb1kyeHZkV1F0ZEdWemRHbHVaeTFqYjI1MGNtOXNMWEJzCllXNWxMWFpuYm14amh3VER5ZXhDTUFvR0NDcUdTTTQ5QkFNQ0EwZ0FNRVVDSUg1bE9QNWZLYmV0eTlFRDI0VVkKWTdGb1N1eVJDYjFpNi9CRW14SGEvYjdtQWlFQWdlbEs4S0oyckJROUVMK0JHai9WTVNsc3BHVUdTRXlkMUthMQpISXVpU3NJPQotLS0tLUVORCBDRVJUSUZJQ0FURSBSRVFVRVNULS0tLS0K")
 		Expect(err).To(BeNil())
 		block, _ := pem.Decode(bytes)
 		cr, err = x509.ParseCertificateRequest(block.Bytes)
@@ -48,6 +48,6 @@ var _ = Describe("Validate Kubelet CSR", func() {
 	})
 
 	It("should not fail", func() {
-		Expect(csr.ValidateKubeletCSR(cr, name, addresses)).To(Succeed())
+		Expect(csr.ValidateKubeletCSR(cr, name, true, addresses)).To(Succeed())
 	})
 })

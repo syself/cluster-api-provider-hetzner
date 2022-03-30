@@ -555,7 +555,7 @@ install-manifests:
 
 	# Deploy Hetzner Cloud Controller Manager
 	helm repo add syself https://charts.syself.com
-	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hetzner --version 1.1.0 \
+	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hetzner --version 1.1.1 \
 	--namespace kube-system \
 	--set image.tag=latest \
 	--set privateNetwork.enabled=$(PRIVATE_NETWORK)

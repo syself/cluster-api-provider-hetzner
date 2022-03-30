@@ -60,7 +60,6 @@ IMAGE %s`, autoSetupInput.image)
 %s
 %s
 %s`, drive, partitions, lvmDefinitions, btrfsDefinitions, image)
-	fmt.Printf("Output: \n%s", output)
 	return output
 }
 
