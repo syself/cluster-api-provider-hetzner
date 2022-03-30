@@ -55,7 +55,7 @@ const (
 
 const (
 	// ProviderIDPrefix is a prefix for ProviderID.
-	ProviderIDPrefix = "hetznerrobot://"
+	ProviderIDPrefix = "hetzner://"
 	// requeueAfter gives the duration of time until the next reconciliation should be performed.
 	requeueAfter = time.Second * 30
 
