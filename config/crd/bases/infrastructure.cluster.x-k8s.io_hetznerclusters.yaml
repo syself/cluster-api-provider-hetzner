@@ -341,7 +341,20 @@ spec:
                     type: boolean
                   targets:
                     items:
-                      type: integer
+                      properties:
+                        ip:
+                          type: string
+                        serverID:
+                          type: integer
+                        type:
+                          description: LoadBalancerTargetType defines the target type.
+                          enum:
+                          - server
+                          - ip
+                          type: string
+                      required:
+                      - type
+                      type: object
                     type: array
                 type: object
               failureDomains:

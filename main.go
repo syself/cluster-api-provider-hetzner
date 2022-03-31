@@ -139,8 +139,10 @@ func main() {
 	}
 
 	if err = (&controllers.HetznerBareMetalMachineReconciler{
-		Client:           mgr.GetClient(),
-		WatchFilterValue: watchFilterValue,
+		Client:              mgr.GetClient(),
+		APIReader:           mgr.GetAPIReader(),
+		HCloudClientFactory: hcloudClientFactory,
+		WatchFilterValue:    watchFilterValue,
 	}).SetupWithManager(ctx, mgr, controller.Options{}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HetznerBareMetalMachine")
 		os.Exit(1)

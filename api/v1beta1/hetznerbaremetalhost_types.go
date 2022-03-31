@@ -183,9 +183,13 @@ type ControllerGeneratedStatus struct {
 	// +optional
 	HardwareDetails *HardwareDetails `json:"hardwareDetails,omitempty"`
 
-	// IP address of server.
+	// IPv4 address of server.
 	// +optional
-	IP string `json:"ip"`
+	IPv4 string `json:"ipv4"`
+
+	// IPv6 address of server.
+	// +optional
+	IPv6 string `json:"ipv6"`
 
 	// RebootTypes is a list of all available reboot types for API reboots
 	// +optional

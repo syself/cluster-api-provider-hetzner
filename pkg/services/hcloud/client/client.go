@@ -19,6 +19,7 @@ package hcloudclient
 
 import (
 	"context"
+	"net"
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
 )
@@ -36,6 +37,8 @@ type Client interface {
 	UpdateLoadBalancer(context.Context, *hcloud.LoadBalancer, hcloud.LoadBalancerUpdateOpts) (*hcloud.LoadBalancer, error)
 	AddTargetServerToLoadBalancer(context.Context, hcloud.LoadBalancerAddServerTargetOpts, *hcloud.LoadBalancer) (*hcloud.Action, error)
 	DeleteTargetServerOfLoadBalancer(context.Context, *hcloud.LoadBalancer, *hcloud.Server) (*hcloud.Action, error)
+	AddIPTargetToLoadBalancer(context.Context, hcloud.LoadBalancerAddIPTargetOpts, *hcloud.LoadBalancer) (*hcloud.Action, error)
+	DeleteIPTargetOfLoadBalancer(context.Context, *hcloud.LoadBalancer, net.IP) (*hcloud.Action, error)
 	AddServiceToLoadBalancer(context.Context, *hcloud.LoadBalancer, hcloud.LoadBalancerAddServiceOpts) (*hcloud.Action, error)
 	DeleteServiceFromLoadBalancer(context.Context, *hcloud.LoadBalancer, int) (*hcloud.Action, error)
 	ListImages(context.Context, hcloud.ImageListOpts) ([]*hcloud.Image, error)
@@ -124,8 +127,18 @@ func (c *realClient) AddTargetServerToLoadBalancer(ctx context.Context, opts hcl
 	return res, err
 }
 
+func (c *realClient) AddIPTargetToLoadBalancer(ctx context.Context, opts hcloud.LoadBalancerAddIPTargetOpts, lb *hcloud.LoadBalancer) (*hcloud.Action, error) {
+	res, _, err := c.client.LoadBalancer.AddIPTarget(ctx, lb, opts)
+	return res, err
+}
+
 func (c *realClient) DeleteTargetServerOfLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, server *hcloud.Server) (*hcloud.Action, error) {
 	res, _, err := c.client.LoadBalancer.RemoveServerTarget(ctx, lb, server)
+	return res, err
+}
+
+func (c *realClient) DeleteIPTargetOfLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, ip net.IP) (*hcloud.Action, error) {
+	res, _, err := c.client.LoadBalancer.RemoveIPTarget(ctx, lb, ip)
 	return res, err
 }
 
