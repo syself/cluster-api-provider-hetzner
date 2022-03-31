@@ -1,0 +1,557 @@
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: Cluster
+metadata:
+  name: "${CLUSTER_NAME}"
+spec:
+  clusterNetwork:
+    pods:
+      cidrBlocks:
+        - 10.244.0.0/16
+  infrastructureRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    kind: HetznerCluster
+    name: "${CLUSTER_NAME}"
+  controlPlaneRef:
+    kind: KubeadmControlPlane
+    apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+    name: "${CLUSTER_NAME}-control-plane"
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: HetznerCluster
+metadata:
+  name: "${CLUSTER_NAME}"
+spec:
+  hcloudNetwork:
+    enabled: false
+  controlPlaneRegions:
+    - "${HCLOUD_REGION}"
+  controlPlaneEndpoint:
+    host: ""
+    port: 443
+  controlPlaneLoadBalancer:
+    region: "${HCLOUD_REGION}"
+  hcloudPlacementGroups:
+    - name: control-plane
+      type: spread
+    - name: md-0
+      type: spread
+  sshKeys:
+    hcloud:
+      - name: "${HCLOUD_SSH_KEY}"
+    robotRescueSecretRef:
+      name: robot-ssh
+      key:
+        name: sshkey-name
+        publicKey: ssh-publickey
+        privateKey: ssh-privatekey
+  hetznerSecretRef:
+    name: hetzner
+    key:
+      hcloudToken: hcloud
+      hetznerRobotUser: robot-user
+      hetznerRobotPassword: robot-password
+---
+kind: KubeadmControlPlane
+apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+metadata:
+  name: "${CLUSTER_NAME}-control-plane"
+spec:
+  replicas: ${CONTROL_PLANE_MACHINE_COUNT}
+  machineTemplate:
+    infrastructureRef:
+      kind: HetznerBareMetalMachineTemplate
+      apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+      name: "${CLUSTER_NAME}-control-plane"
+  kubeadmConfigSpec:
+    clusterConfiguration:
+      apiServer:
+        extraArgs:
+          # CA certificate for validating API clients.
+          client-ca-file: /etc/kubernetes/pki/ca.crt # enable X509 Client Certs Auth
+          # TLS certificates for HTTPS serving.
+          tls-cert-file: /etc/kubernetes/pki/apiserver.crt
+          tls-private-key-file: /etc/kubernetes/pki/apiserver.key
+          tls-cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
+          # Required for kubelet communication.
+          kubelet-client-certificate: /etc/kubernetes/pki/apiserver-kubelet-client.crt
+          kubelet-client-key: /etc/kubernetes/pki/apiserver-kubelet-client.key
+          # Secure communication to etcd servers.
+          etcd-cafile: /etc/kubernetes/pki/etcd/ca.crt
+          etcd-certfile: /etc/kubernetes/pki/etcd/server.crt
+          etcd-keyfile: /etc/kubernetes/pki/etcd/server.key
+          # Required to validate service account tokens created by controller manager.
+          service-account-lookup: "true"
+          service-account-key-file: /etc/kubernetes/pki/sa.pub
+          # Required for aggregation layer
+          requestheader-client-ca-file: /etc/kubernetes/pki/front-proxy-ca.crt
+          proxy-client-key-file: /etc/kubernetes/pki/front-proxy-client.key
+          proxy-client-cert-file: /etc/kubernetes/pki/front-proxy-client.crt
+          requestheader-allowed-names: front-proxy-client
+          requestheader-extra-headers-prefix: X-Remote-Extra-
+          requestheader-group-headers: X-Remote-Group
+          requestheader-username-headers: X-Remote-User
+          enable-aggregator-routing: "true"
+          # Etcd Secret Encrytion
+          encryption-provider-config: /etc/kubernetes/encryption-provider.yaml
+          # Additional Configuration
+          cloud-provider: external
+          authorization-mode: "Node,RBAC"
+          kubelet-preferred-address-types: ExternalIP,Hostname,InternalDNS,ExternalDNS
+          profiling: "false"
+          enable-bootstrap-token-auth: "true"
+          insecure-port: "0"
+          default-not-ready-toleration-seconds: "45"
+          default-unreachable-toleration-seconds: "45"
+        extraVolumes:
+          - name: encryption-provider
+            hostPath: /etc/kubernetes/encryption-provider.yaml
+            mountPath: /etc/kubernetes/encryption-provider.yaml
+      controllerManager:
+        extraArgs:
+          cloud-provider: external
+          cluster-signing-cert-file: /etc/kubernetes/pki/ca.crt
+          cluster-signing-key-file: /etc/kubernetes/pki/ca.key
+          cluster-signing-duration: 6h0m0s
+          terminated-pod-gc-threshold: "10"
+          profiling: "false"
+          use-service-account-credentials: "true"
+          service-account-private-key-file: /etc/kubernetes/pki/sa.key
+          root-ca-file: /etc/kubernetes/pki/ca.crt
+          requestheader-client-ca-file: /etc/kubernetes/pki/front-proxy-ca.crt
+          kubeconfig: /etc/kubernetes/controller-manager.conf
+          authentication-kubeconfig: /etc/kubernetes/controller-manager.conf
+          authorization-kubeconfig: /etc/kubernetes/controller-manager.conf
+          address: "127.0.0.1"
+          bind-address: "0.0.0.0"
+          port: "0"
+          secure-port: "10257"
+          allocate-node-cidrs: "true"
+          pod-eviction-timeout: 2m
+      scheduler:
+        extraArgs:
+          profiling: "false"
+          kubeconfig: /etc/kubernetes/scheduler.conf
+          address: "127.0.0.1"
+          bind-address: "0.0.0.0"
+          port: "0"
+          secure-port: "10259"
+      etcd:
+        local:
+          dataDir: /var/lib/etcd
+          extraArgs:
+            cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
+            cert-file: /etc/kubernetes/pki/etcd/server.crt
+            key-file: /etc/kubernetes/pki/etcd/server.key
+            client-cert-auth: "true"
+            auto-tls: "false"
+            peer-client-cert-auth: "true"
+            peer-auto-tls: "false"
+            trusted-ca-file: /etc/kubernetes/pki/etcd/ca.crt
+    initConfiguration:
+      nodeRegistration:
+        kubeletExtraArgs:
+          cloud-provider: external
+          tls-cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
+          kubeconfig: /etc/kubernetes/kubelet.conf
+          authentication-token-webhook: "true"
+          authorization-mode: Webhook
+          anonymous-auth: "false"
+          read-only-port: "0"
+          event-qps: "5"
+          rotate-server-certificates: "true"
+          max-pods: "120"
+          resolv-conf: /etc/kubernetes/resolv.conf
+    joinConfiguration:
+      nodeRegistration:
+        kubeletExtraArgs:
+          cloud-provider: external
+          tls-cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
+          kubeconfig: /etc/kubernetes/kubelet.conf
+          authentication-token-webhook: "true"
+          authorization-mode: Webhook
+          anonymous-auth: "false"
+          read-only-port: "0"
+          event-qps: "5"
+          rotate-server-certificates: "true"
+          max-pods: "120"
+          resolv-conf: /etc/kubernetes/resolv.conf
+    files:
+      - path: /etc/kubernetes/encryption-provider.yaml
+        owner: "root:root"
+        permissions: "0600"
+        content: |
+          apiVersion: apiserver.config.k8s.io/v1
+          kind: EncryptionConfiguration
+          resources:
+            - resources:
+              - secrets
+              providers:
+              - aescbc:
+                  keys:
+                  - name: key1
+                    secret: 8d7iAcg3/NwN9aijhtEXj5kL2NOHIgokGFjbIBfL6X0=
+              - identity: {}
+      - path: /etc/systemd/system/sys-fs-bpf.mount
+        owner: "root:root"
+        permissions: "0744"
+        content: |
+          [Unit]
+          Description=Cilium BPF mounts
+          Documentation=https://docs.cilium.io/
+          DefaultDependencies=no
+          Before=local-fs.target umount.target
+          After=swap.target
+
+          [Mount]
+          What=bpffs
+          Where=/sys/fs/bpf
+          Type=bpf
+          Options=rw,nosuid,nodev,noexec,relatime,mode=700
+
+          [Install]
+          WantedBy=multi-user.target
+      - path: /etc/sysctl.d/99-cilium.conf
+        owner: "root:root"
+        permissions: "0744"
+        content: |
+          net.ipv4.conf.lxc*.rp_filter = 0
+      - path: /etc/modules-load.d/crio.conf
+        owner: "root:root"
+        permissions: "0744"
+        content: |
+          overlay
+          br_netfilter
+      - path: /etc/containerd/config.toml
+        owner: "root:root"
+        permissions: "0744"
+        content: |
+          version = 2
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+            runtime_type = "io.containerd.runc.v2"
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+            SystemdCgroup = true
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.crun]
+            runtime_type = "io.containerd.runc.v2"
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.crun.options]
+            BinaryName = "crun"
+            Root = "/usr/local/sbin"
+            SystemdCgroup = true
+          [plugins."io.containerd.grpc.v1.cri".containerd]
+            default_runtime_name = "crun"
+          [plugins."io.containerd.runtime.v1.linux"]
+            runtime = "crun"
+            runtime_root = "/usr/local/sbin"
+      - path: /etc/sysctl.d/99-kubernetes-cri.conf
+        owner: "root:root"
+        permissions: "0744"
+        content: |
+          net.bridge.bridge-nf-call-iptables  = 1
+          net.bridge.bridge-nf-call-ip6tables = 1
+          net.ipv4.ip_forward                 = 1
+      - path: /etc/sysctl.d/99-kubelet.conf
+        owner: "root:root"
+        permissions: "0744"
+        content: |
+          vm.overcommit_memory=1
+          kernel.panic=10
+          kernel.panic_on_oops=1
+      - path: /etc/kubernetes/resolv.conf
+        owner: "root:root"
+        permissions: "0744"
+        content: |
+          nameserver 1.1.1.1
+          nameserver 1.0.0.1
+          nameserver 2606:4700:4700::1111
+    preKubeadmCommands:
+      - export CRUN=1.4.3
+      - export CONTAINERD=1.6.1
+      - export KUBERNETES_VERSION=1.23.4
+      - localectl set-locale LANG=en_US.UTF-8
+      - localectl set-locale LANGUAGE=en_US.UTF-8
+      - apt-get update -y
+      - apt-get -y install at jq unzip wget socat mtr logrotate apt-transport-https
+      - sed -i '/swap/d' /etc/fstab
+      - swapoff -a
+      - modprobe overlay && modprobe br_netfilter && sysctl --system
+      - wget https://github.com/containerd/containerd/releases/download/v$CONTAINERD/cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz
+      - wget https://github.com/containerd/containerd/releases/download/v$CONTAINERD/cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
+      - sha256sum --check cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
+      - tar --no-overwrite-dir -C / -xzf cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz
+      - rm -f cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
+      - wget https://github.com/containers/crun/releases/download/$CRUN/crun-$CRUN-linux-amd64 -O /usr/local/sbin/crun && chmod +x /usr/local/sbin/crun
+      - rm -f /etc/cni/net.d/10-containerd-net.conflist
+      - chmod -R 644 /etc/cni && chown -R root:root /etc/cni
+      - systemctl daemon-reload && systemctl enable containerd && systemctl start containerd
+      - curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+      - echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee -a /etc/apt/sources.list.d/kubernetes.list
+      - apt-get update
+      - apt-get install -y kubelet=$KUBERNETES_VERSION-00 kubeadm=$KUBERNETES_VERSION-00 kubectl=$KUBERNETES_VERSION-00  bash-completion && apt-mark hold kubelet kubectl kubeadm && systemctl enable kubelet
+      - kubeadm config images pull --kubernetes-version $KUBERNETES_VERSION
+      - echo 'source <(kubectl completion bash)' >>~/.bashrc
+      - echo 'export KUBECONFIG=/etc/kubernetes/admin.conf' >>~/.bashrc
+      - apt-get -y autoremove && apt-get -y clean all
+  version: "${KUBERNETES_VERSION}"
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachineHealthCheck
+metadata:
+  name: "${CLUSTER_NAME}-control-plane-unhealthy-5m"
+spec:
+  clusterName: "${CLUSTER_NAME}"
+  maxUnhealthy: 100%
+  nodeStartupTimeout: 20m
+  selector:
+    matchLabels:
+      cluster.x-k8s.io/control-plane: ""
+  unhealthyConditions:
+    - type: Ready
+      status: Unknown
+      timeout: 300s
+    - type: Ready
+      status: "False"
+      timeout: 300s
+---
+apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+kind: KubeadmConfigTemplate
+metadata:
+  name: "${CLUSTER_NAME}-md-0"
+spec:
+  template:
+    spec:
+      joinConfiguration:
+        nodeRegistration:
+          kubeletExtraArgs:
+            cloud-provider: external
+            tls-cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
+            kubeconfig: /etc/kubernetes/kubelet.conf
+            authentication-token-webhook: "true"
+            authorization-mode: Webhook
+            anonymous-auth: "false"
+            read-only-port: "0"
+            event-qps: "5"
+            rotate-server-certificates: "true"
+            max-pods: "220"
+            resolv-conf: /etc/kubernetes/resolv.conf
+      files:
+        - path: /etc/systemd/system/sys-fs-bpf.mount
+          owner: "root:root"
+          permissions: "0744"
+          content: |
+            [Unit]
+            Description=Cilium BPF mounts
+            Documentation=https://docs.cilium.io/
+            DefaultDependencies=no
+            Before=local-fs.target umount.target
+            After=swap.target
+
+            [Mount]
+            What=bpffs
+            Where=/sys/fs/bpf
+            Type=bpf
+            Options=rw,nosuid,nodev,noexec,relatime,mode=700
+
+            [Install]
+            WantedBy=multi-user.target
+        - path: /etc/sysctl.d/99-cilium.conf
+          owner: "root:root"
+          permissions: "0744"
+          content: |
+            net.ipv4.conf.lxc*.rp_filter = 0
+        - path: /etc/modules-load.d/crio.conf
+          owner: "root:root"
+          permissions: "0744"
+          content: |
+            overlay
+            br_netfilter
+        - path: /etc/containerd/config.toml
+          owner: "root:root"
+          permissions: "0744"
+          content: |
+            version = 2
+            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+              runtime_type = "io.containerd.runc.v2"
+            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+              SystemdCgroup = true
+            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.crun]
+              runtime_type = "io.containerd.runc.v2"
+            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.crun.options]
+              BinaryName = "crun"
+              Root = "/usr/local/sbin"
+              SystemdCgroup = true
+            [plugins."io.containerd.grpc.v1.cri".containerd]
+              default_runtime_name = "crun"
+            [plugins."io.containerd.runtime.v1.linux"]
+              runtime = "crun"
+              runtime_root = "/usr/local/sbin"
+        - path: /etc/sysctl.d/99-kubernetes-cri.conf
+          owner: "root:root"
+          permissions: "0744"
+          content: |
+            net.bridge.bridge-nf-call-iptables  = 1
+            net.bridge.bridge-nf-call-ip6tables = 1
+            net.ipv4.ip_forward                 = 1
+        - path: /etc/sysctl.d/99-kubelet.conf
+          owner: "root:root"
+          permissions: "0744"
+          content: |
+            vm.overcommit_memory=1
+            kernel.panic=10
+            kernel.panic_on_oops=1
+        - path: /etc/kubernetes/resolv.conf
+          owner: "root:root"
+          permissions: "0744"
+          content: |
+            nameserver 1.1.1.1
+            nameserver 1.0.0.1
+            nameserver 2606:4700:4700::1111
+      preKubeadmCommands:
+        - export CRUN=1.4.3
+        - export CONTAINERD=1.6.1
+        - export KUBERNETES_VERSION=1.23.4
+        - localectl set-locale LANG=en_US.UTF-8
+        - localectl set-locale LANGUAGE=en_US.UTF-8
+        - apt-get update -y
+        - apt-get -y install at jq unzip wget socat mtr logrotate apt-transport-https
+        - sed -i '/swap/d' /etc/fstab
+        - swapoff -a
+        - modprobe overlay && modprobe br_netfilter && sysctl --system
+        - wget https://github.com/containerd/containerd/releases/download/v$CONTAINERD/cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz
+        - wget https://github.com/containerd/containerd/releases/download/v$CONTAINERD/cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
+        - sha256sum --check cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
+        - tar --no-overwrite-dir -C / -xzf cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz
+        - rm -f cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
+        - wget https://github.com/containers/crun/releases/download/$CRUN/crun-$CRUN-linux-amd64 -O /usr/local/sbin/crun && chmod +x /usr/local/sbin/crun
+        - rm -f /etc/cni/net.d/10-containerd-net.conflist
+        - chmod -R 644 /etc/cni && chown -R root:root /etc/cni
+        - systemctl daemon-reload && systemctl enable containerd && systemctl start containerd
+        - curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+        - echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee -a /etc/apt/sources.list.d/kubernetes.list
+        - apt-get update
+        - apt-get install -y kubelet=$KUBERNETES_VERSION-00 kubeadm=$KUBERNETES_VERSION-00 kubectl=$KUBERNETES_VERSION-00  bash-completion && apt-mark hold kubelet kubectl kubeadm && systemctl enable kubelet
+        - kubeadm config images pull --kubernetes-version $KUBERNETES_VERSION
+        - echo 'source <(kubectl completion bash)' >>~/.bashrc
+        - echo 'export KUBECONFIG=/etc/kubernetes/admin.conf' >>~/.bashrc
+        - apt-get -y autoremove && apt-get -y clean all
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachineHealthCheck
+metadata:
+  name: "${CLUSTER_NAME}-md-0-unhealthy-5m"
+spec:
+  clusterName: "${CLUSTER_NAME}"
+  maxUnhealthy: 100%
+  nodeStartupTimeout: 20m
+  selector:
+    matchLabels:
+      nodepool: "${CLUSTER_NAME}-md-0"
+  unhealthyConditions:
+    - type: Ready
+      status: Unknown
+      timeout: 300s
+    - type: Ready
+      status: "False"
+      timeout: 300s
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachineDeployment
+metadata:
+  name: "${CLUSTER_NAME}-md-0"
+  labels:
+    nodepool: "${CLUSTER_NAME}-md-0"
+spec:
+  clusterName: "${CLUSTER_NAME}"
+  replicas: ${WORKER_MACHINE_COUNT}
+  selector:
+    matchLabels:
+  template:
+    spec:
+      clusterName: "${CLUSTER_NAME}"
+      failureDomain: "${HCLOUD_REGION}"
+      version: "${KUBERNETES_VERSION}"
+      bootstrap:
+        configRef:
+          name: "${CLUSTER_NAME}-md-0"
+          apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+          kind: KubeadmConfigTemplate
+      infrastructureRef:
+        name: "${CLUSTER_NAME}-md-0"
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        kind: HCloudMachineTemplate
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: HCloudMachineTemplate
+metadata:
+  name: "${CLUSTER_NAME}-md-0"
+spec:
+  template:
+    spec:
+      type: "${HCLOUD_WORKER_MACHINE_TYPE}"
+      imageName: "ubuntu-20.04"
+      placementGroupName: md-0
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: HetznerBareMetalMachineTemplate
+metadata:
+  name: "${CLUSTER_NAME}-control-plane"
+spec:
+  template:
+    spec:
+      installImage:
+        image:
+          path: /root/.oldroot/nfs/install/../images/Ubuntu-2004-focal-64-minimal-hwe.tar.gz
+        partitions:
+          - mount: /boot
+            fileSystem: ext4
+            size: 1024M
+          - mount: /
+            fileSystem: ext4
+            size: all
+        postInstallScript: |
+          #!/bin/bash
+          apt-get update && apt-get install -y cloud-init apparmor apparmor-utils
+      sshSpec:
+        portAfterInstallImage: 22
+        portAfterCloudInit: 22
+        secretRef:
+          name: robot-ssh
+          key:
+            name: sshkey-name
+            publicKey: ssh-publickey
+            privateKey: ssh-privatekey
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: HetznerBareMetalHost
+metadata:
+  name: "${CLUSTER_NAME}-control-plane-0"
+spec:
+  serverID: ${BAREMETAL_SERVER_0_ID}
+  rootDeviceHints:
+    wwn: ${BAREMETAL_SERVER_0_WWN}
+  maintenanceMode: false
+  description: Test Machine 0
+  hetznerClusterRef: "${CLUSTER_NAME}"
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: HetznerBareMetalHost
+metadata:
+  name: "${CLUSTER_NAME}-control-plane-1"
+spec:
+  serverID: ${BAREMETAL_SERVER_1_ID}
+  rootDeviceHints:
+    wwn: ${BAREMETAL_SERVER_1_WWN}
+  maintenanceMode: false
+  description: Test Machine 1
+  hetznerClusterRef: "${CLUSTER_NAME}"
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: HetznerBareMetalHost
+metadata:
+  name: "${CLUSTER_NAME}-control-plane-2"
+spec:
+  serverID: ${BAREMETAL_SERVER_2_ID}
+  rootDeviceHints:
+    wwn: ${BAREMETAL_SERVER_2_WWN}
+  maintenanceMode: false
+  description: Test Machine 2
+  hetznerClusterRef: "${CLUSTER_NAME}"

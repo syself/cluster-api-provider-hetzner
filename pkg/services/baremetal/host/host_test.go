@@ -721,13 +721,13 @@ var _ = Describe("actionRegistering", func() {
 					"test-host",
 					"default",
 					helpers.WithRootDeviceHints(),
-					helpers.WithIP(),
+					helpers.WithIPv4(),
 				)
 			} else {
 				host = helpers.BareMetalHost(
 					"test-host",
 					"default",
-					helpers.WithIP(),
+					helpers.WithIPv4(),
 				)
 			}
 
@@ -857,7 +857,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				"test-host",
 				"default",
 				helpers.WithSSHSpecInclPorts(),
-				helpers.WithIP(),
+				helpers.WithIPv4(),
 				helpers.WithConsumerRef(),
 			)
 
@@ -915,7 +915,7 @@ var _ = Describe("actionProvisioned", func() {
 				"test-host",
 				"default",
 				helpers.WithSSHSpecInclPorts(),
-				helpers.WithIP(),
+				helpers.WithIPv4(),
 				helpers.WithConsumerRef(),
 			)
 

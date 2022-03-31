@@ -33,6 +33,19 @@ const (
 	LoadBalancerAlgorithmTypeLeastConnections = LoadBalancerAlgorithmType("least_connections")
 )
 
+// LoadBalancerTargetType defines the target type.
+//+kubebuilder:validation:Enum=server;ip
+type LoadBalancerTargetType string
+
+const (
+
+	// LoadBalancerTargetTypeServer default for the Kubernetes Api Server loadbalancer.
+	LoadBalancerTargetTypeServer = LoadBalancerTargetType("server")
+
+	// LoadBalancerTargetTypeIP default for Loadbalancer.
+	LoadBalancerTargetTypeIP = LoadBalancerTargetType("ip")
+)
+
 // HCloudAlgorithmType converts LoadBalancerAlgorithmType to hcloud type.
 func (algorithmType *LoadBalancerAlgorithmType) HCloudAlgorithmType() hcloud.LoadBalancerAlgorithmType {
 	switch *algorithmType {
@@ -152,12 +165,19 @@ type LoadBalancerServiceSpec struct {
 
 // LoadBalancerStatus defines the obeserved state of the control plane loadbalancer.
 type LoadBalancerStatus struct {
-	ID         int    `json:"id,omitempty"`
-	IPv4       string `json:"ipv4,omitempty"`
-	IPv6       string `json:"ipv6,omitempty"`
-	InternalIP string `json:"internalIP,omitempty"`
-	Target     []int  `json:"targets,omitempty"`
-	Protected  bool   `json:"protected,omitempty"`
+	ID         int                  `json:"id,omitempty"`
+	IPv4       string               `json:"ipv4,omitempty"`
+	IPv6       string               `json:"ipv6,omitempty"`
+	InternalIP string               `json:"internalIP,omitempty"`
+	Target     []LoadBalancerTarget `json:"targets,omitempty"`
+	Protected  bool                 `json:"protected,omitempty"`
+}
+
+// LoadBalancerTarget defines the target of a load balancer.
+type LoadBalancerTarget struct {
+	Type     LoadBalancerTargetType `json:"type"`
+	ServerID int                    `json:"serverID,omitempty"`
+	IP       string                 `json:"ip,omitempty"`
 }
 
 // HCloudNetworkSpec defines the desired state of the HCloud Private Network.

@@ -22,9 +22,11 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"k8s.io/klog/v2/klogr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	capierrors "sigs.k8s.io/cluster-api/errors"
+	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -35,6 +37,8 @@ type BareMetalMachineScopeParams struct {
 	Client           client.Client
 	Machine          *clusterv1.Machine
 	BareMetalMachine *infrav1.HetznerBareMetalMachine
+	HetznerCluster   *infrav1.HetznerCluster
+	HCloudClient     hcloudclient.Client
 }
 
 // NewBareMetalMachineScope creates a new Scope from the supplied parameters.
@@ -48,6 +52,12 @@ func NewBareMetalMachineScope(ctx context.Context, params BareMetalMachineScopeP
 	}
 	if params.BareMetalMachine == nil {
 		return nil, errors.New("failed to generate new scope from nil BareMetalMachine")
+	}
+	if params.HetznerCluster == nil {
+		return nil, errors.New("failed to generate new scope from nil HetznerCluster")
+	}
+	if params.HCloudClient == nil {
+		return nil, errors.New("failed to generate new scope from nil HCloudClient")
 	}
 
 	if params.Logger == nil {
@@ -66,6 +76,8 @@ func NewBareMetalMachineScope(ctx context.Context, params BareMetalMachineScopeP
 		patchHelper:      patchHelper,
 		Machine:          params.Machine,
 		BareMetalMachine: params.BareMetalMachine,
+		HetznerCluster:   params.HetznerCluster,
+		HCloudClient:     params.HCloudClient,
 	}, nil
 }
 
@@ -76,6 +88,9 @@ type BareMetalMachineScope struct {
 	patchHelper      *patch.Helper
 	Machine          *clusterv1.Machine
 	BareMetalMachine *infrav1.HetznerBareMetalMachine
+	HetznerCluster   *infrav1.HetznerCluster
+
+	HCloudClient hcloudclient.Client
 }
 
 // Close closes the current scope persisting the cluster configuration and status.
@@ -112,6 +127,11 @@ func (m *BareMetalMachineScope) IsProvisioned() bool {
 		return true
 	}
 	return false
+}
+
+// IsControlPlane returns true if the machine is a control plane.
+func (m *BareMetalMachineScope) IsControlPlane() bool {
+	return util.IsControlPlaneMachine(m.Machine)
 }
 
 // IsBootstrapReady checks the readiness of a capi machine's bootstrap data.

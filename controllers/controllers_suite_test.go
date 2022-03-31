@@ -94,8 +94,10 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
 
 	Expect((&controllers.HetznerBareMetalMachineReconciler{
-		Client:           testEnv.Manager.GetClient(),
-		WatchFilterValue: "",
+		Client:              testEnv.Manager.GetClient(),
+		APIReader:           testEnv.Manager.GetAPIReader(),
+		HCloudClientFactory: testEnv.HCloudClientFactory,
+		WatchFilterValue:    "",
 	}).SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
 
 	go func() {

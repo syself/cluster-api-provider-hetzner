@@ -262,14 +262,19 @@ func (c *cacheHCloudClient) AddTargetServerToLoadBalancer(ctx context.Context, o
 
 	// check if already exists
 	for _, s := range c.loadBalancerCache.idMap[lb.ID].Targets {
-		if s.Server.Server.ID == opts.Server.ID {
+		if s.Type == hcloud.LoadBalancerTargetTypeServer && s.Server.Server.ID == opts.Server.ID {
 			return nil, hcloud.Error{Code: hcloud.ErrorCodeServerAlreadyAdded, Message: "already added"}
 		}
 	}
 
 	// Add it
 	c.loadBalancerCache.idMap[lb.ID].Targets = append(
-		c.loadBalancerCache.idMap[lb.ID].Targets, hcloud.LoadBalancerTarget{Server: &hcloud.LoadBalancerTargetServer{Server: opts.Server}})
+		c.loadBalancerCache.idMap[lb.ID].Targets,
+		hcloud.LoadBalancerTarget{
+			Type:   hcloud.LoadBalancerTargetTypeServer,
+			Server: &hcloud.LoadBalancerTargetServer{Server: opts.Server},
+		},
+	)
 	return &hcloud.Action{}, nil
 }
 
@@ -281,7 +286,49 @@ func (c *cacheHCloudClient) DeleteTargetServerOfLoadBalancer(ctx context.Context
 
 	// delete it if it exists
 	for i, s := range c.loadBalancerCache.idMap[lb.ID].Targets {
-		if s.Server.Server.ID == server.ID {
+		if s.Type == hcloud.LoadBalancerTargetTypeServer && s.Server.Server.ID == server.ID {
+			// Truncate the slice
+			c.loadBalancerCache.idMap[lb.ID].Targets[i] = c.loadBalancerCache.idMap[lb.ID].Targets[len(c.loadBalancerCache.idMap[lb.ID].Targets)-1]
+			c.loadBalancerCache.idMap[lb.ID].Targets = c.loadBalancerCache.idMap[lb.ID].Targets[:len(c.loadBalancerCache.idMap[lb.ID].Targets)-1]
+			return &hcloud.Action{}, nil
+		}
+	}
+	return nil, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+}
+
+func (c *cacheHCloudClient) AddIPTargetToLoadBalancer(ctx context.Context, opts hcloud.LoadBalancerAddIPTargetOpts, lb *hcloud.LoadBalancer) (*hcloud.Action, error) {
+	// Check if loadBalancer exists
+	if _, found := c.loadBalancerCache.idMap[lb.ID]; !found {
+		return nil, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+	}
+
+	// check if already exists
+	for _, s := range c.loadBalancerCache.idMap[lb.ID].Targets {
+		if s.Type == hcloud.LoadBalancerTargetTypeIP && s.IP.IP == opts.IP.String() {
+			return nil, hcloud.Error{Code: hcloud.ErrorCodeServerAlreadyAdded, Message: "already added"}
+		}
+	}
+
+	// Add it
+	c.loadBalancerCache.idMap[lb.ID].Targets = append(
+		c.loadBalancerCache.idMap[lb.ID].Targets,
+		hcloud.LoadBalancerTarget{
+			Type: hcloud.LoadBalancerTargetTypeIP,
+			IP:   &hcloud.LoadBalancerTargetIP{IP: opts.IP.String()},
+		},
+	)
+	return &hcloud.Action{}, nil
+}
+
+func (c *cacheHCloudClient) DeleteIPTargetOfLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, ip net.IP) (*hcloud.Action, error) {
+	// Check if loadBalancer exists
+	if _, found := c.loadBalancerCache.idMap[lb.ID]; !found {
+		return nil, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+	}
+
+	// delete it if it exists
+	for i, s := range c.loadBalancerCache.idMap[lb.ID].Targets {
+		if s.Type == hcloud.LoadBalancerTargetTypeIP && s.IP.IP == ip.String() {
 			// Truncate the slice
 			c.loadBalancerCache.idMap[lb.ID].Targets[i] = c.loadBalancerCache.idMap[lb.ID].Targets[len(c.loadBalancerCache.idMap[lb.ID].Targets)-1]
 			c.loadBalancerCache.idMap[lb.ID].Targets = c.loadBalancerCache.idMap[lb.ID].Targets[:len(c.loadBalancerCache.idMap[lb.ID].Targets)-1]

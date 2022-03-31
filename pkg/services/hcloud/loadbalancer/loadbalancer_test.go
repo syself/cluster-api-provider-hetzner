@@ -26,11 +26,13 @@ var _ = Describe("Loadbalancer", func() {
 	Context("hcloud cluster has network attached", func() {
 		var sts infrav1.LoadBalancerStatus
 		BeforeEach(func() {
-			sts = apiToStatus(lb, true)
+			var err error
+			sts, err = apiToStatus(lb, true)
+			Expect(err).To(Succeed())
 		})
 
 		It("should have two targets", func() {
-			Expect(sts.Target).To(Equal(targetIDs))
+			Expect(sts.Target).To(Equal(targets))
 		})
 		It("should have the right ip addresses", func() {
 			Expect(sts.IPv4).To(Equal(ipv4))
@@ -46,11 +48,13 @@ var _ = Describe("Loadbalancer", func() {
 	Context("hcloud cluster has no network attached", func() {
 		var sts infrav1.LoadBalancerStatus
 		BeforeEach(func() {
-			sts = apiToStatus(lb, false)
+			var err error
+			sts, err = apiToStatus(lb, false)
+			Expect(err).To(Succeed())
 		})
 
 		It("should have two targets", func() {
-			Expect(sts.Target).To(Equal(targetIDs))
+			Expect(sts.Target).To(Equal(targets))
 		})
 		It("should have the right ip addresses", func() {
 			Expect(sts.IPv4).To(Equal(ipv4))

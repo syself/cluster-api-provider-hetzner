@@ -20,7 +20,7 @@ settings = {
     "deploy_observability": False,
     "preload_images_for_kind": True,
     "kind_cluster_name": "caph",
-    "capi_version": "v1.1.2",
+    "capi_version": "v1.1.3",
     "cabpt_version": "v0.5.2",
     "cacppt_version": "v0.4.5",
     "cert_manager_version": "v1.1.0",
@@ -314,6 +314,14 @@ cmd_button(
     location = location.NAV,
     icon_name = "switch_access_shortcut_outlined",
     text = "Create Baremetal Workload Cluster - without Packer",
+)
+
+cmd_button(
+    "Create Pure Baremetal Workload Cluster - without Packer",
+    argv = ["make", "create-workload-cluster-pure-baremetal"],
+    location = location.NAV,
+    icon_name = "switch_access_shortcut_outlined",
+    text = "Create Pure Baremetal Workload Cluster - without Packer",
 )
 
 cmd_button(
