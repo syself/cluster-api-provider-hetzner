@@ -63,9 +63,6 @@ func NewBareMetalHostScope(ctx context.Context, params BareMetalHostScopeParams)
 	if params.SSHClientFactory == nil {
 		return nil, errors.New("cannot create baremetal host scope without ssh client factory")
 	}
-	if params.RescueSSHSecret == nil {
-		return nil, errors.New("cannot create baremetal host scope without rescue ssh secret")
-	}
 	if params.SecretManager == nil {
 		return nil, errors.New("cannot create baremetal host scope without secret manager")
 	}

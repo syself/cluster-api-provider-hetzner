@@ -31,6 +31,7 @@ import (
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	"github.com/syself/hrobot-go/models"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -174,7 +175,7 @@ func (s *Service) getSSHKeysAndUpdateStatus() (osSSHSecret *corev1.Secret, rescu
 	if s.scope.HetznerBareMetalHost.Spec.Status.SSHStatus.CurrentOS == nil && osSSHSecret != nil {
 		s.scope.HetznerBareMetalHost.UpdateOSSSHStatus(*osSSHSecret)
 	}
-	if s.scope.HetznerBareMetalHost.Spec.Status.SSHStatus.CurrentRescue == nil {
+	if s.scope.HetznerBareMetalHost.Spec.Status.SSHStatus.CurrentRescue == nil && rescueSSHSecret != nil {
 		s.scope.HetznerBareMetalHost.UpdateRescueSSHStatus(*rescueSSHSecret)
 	}
 	return osSSHSecret, rescueSSHSecret
@@ -202,7 +203,7 @@ func (s *Service) validateSSHKey(sshSecret *corev1.Secret, secretType string) ac
 	return actionComplete{}
 }
 
-func (s *Service) actionNone() actionResult {
+func (s *Service) actionPreparing() actionResult {
 	server, err := s.scope.RobotClient.GetBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID)
 	if err != nil {
 		if models.IsError(err, models.ErrorCodeServerNotFound) {
@@ -963,13 +964,6 @@ func handleSSHError(out sshclient.Output) error {
 	return nil
 }
 
-func (s *Service) actionAvailable() actionResult {
-	if s.scope.HetznerBareMetalHost.NeedsProvisioning() {
-		return actionComplete{}
-	}
-	return actionContinue{delay: 10 * time.Second}
-}
-
 func (s *Service) actionImageInstalling() actionResult {
 	creds := sshclient.CredentialsFromSecret(s.scope.RescueSSHSecret, s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef)
 	in := sshclient.Input{
@@ -1213,14 +1207,25 @@ func (s *Service) actionDeprovisioning() actionResult {
 		return actionError{err: fmt.Errorf("failed to update name of host in robot API: %w", err)}
 	}
 
-	// Remove all data related to bare metal machine
-	s.scope.HetznerBareMetalHost.Spec.Status.InstallImage = nil
-	s.scope.HetznerBareMetalHost.Spec.Status.UserData = nil
-	s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec = nil
-	s.scope.HetznerBareMetalHost.Spec.ConsumerRef = nil
-
 	s.scope.SetErrorCount(0)
 	clearError(s.scope.HetznerBareMetalHost)
 
 	return actionComplete{}
+}
+
+func (s *Service) actionDeleting() actionResult {
+	s.scope.Info("Marked to be deleted", "timestamp", s.scope.HetznerBareMetalHost.DeletionTimestamp)
+
+	if !utils.StringInList(s.scope.HetznerBareMetalHost.Finalizers, infrav1.BareMetalHostFinalizer) {
+		s.scope.Info("Ready to be deleted")
+		return deleteComplete{}
+	}
+
+	s.scope.HetznerBareMetalHost.Finalizers = utils.FilterStringFromList(s.scope.HetznerBareMetalHost.Finalizers, infrav1.BareMetalHostFinalizer)
+	if err := s.scope.Client.Update(context.Background(), s.scope.HetznerBareMetalHost); err != nil {
+		return actionError{errors.Wrap(err, "failed to remove finalizer")}
+	}
+
+	s.scope.Info("Cleanup complete. Removed finalizer", "remaining", s.scope.HetznerBareMetalHost.Finalizers)
+	return deleteComplete{}
 }

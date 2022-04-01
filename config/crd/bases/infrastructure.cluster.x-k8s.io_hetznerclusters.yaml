@@ -338,6 +338,8 @@ spec:
                     type: boolean
                   targets:
                     items:
+                      description: LoadBalancerTarget defines the target of a load
+                        balancer.
                       properties:
                         ip:
                           type: string

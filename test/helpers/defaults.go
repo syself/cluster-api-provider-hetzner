@@ -88,7 +88,7 @@ func WithRootDeviceHints() HostOpts {
 // WithHetznerClusterRef gives the option to define a host with cluster ref.
 func WithHetznerClusterRef(hetznerClusterRef string) HostOpts {
 	return func(host *infrav1.HetznerBareMetalHost) {
-		host.Spec.HetznerClusterRef = hetznerClusterRef
+		host.Spec.Status.HetznerClusterRef = hetznerClusterRef
 	}
 }
 

@@ -323,6 +323,43 @@ spec:
       status: "False"
       timeout: 300s
 ---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachineDeployment
+metadata:
+  name: "${CLUSTER_NAME}-md-0"
+  labels:
+    nodepool: "${CLUSTER_NAME}-md-0"
+spec:
+  clusterName: "${CLUSTER_NAME}"
+  replicas: ${WORKER_MACHINE_COUNT}
+  selector:
+    matchLabels:
+  template:
+    spec:
+      clusterName: "${CLUSTER_NAME}"
+      failureDomain: "${HCLOUD_REGION}"
+      version: "${KUBERNETES_VERSION}"
+      bootstrap:
+        configRef:
+          name: "${CLUSTER_NAME}-md-0"
+          apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+          kind: KubeadmConfigTemplate
+      infrastructureRef:
+        name: "${CLUSTER_NAME}-md-0"
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        kind: HCloudMachineTemplate
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: HCloudMachineTemplate
+metadata:
+  name: "${CLUSTER_NAME}-md-0"
+spec:
+  template:
+    spec:
+      type: "${HCLOUD_WORKER_MACHINE_TYPE}"
+      imageName: "ubuntu-20.04"
+      placementGroupName: md-0
+---
 apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
 kind: KubeadmConfigTemplate
 metadata:
@@ -464,15 +501,156 @@ spec:
       status: "False"
       timeout: 300s
 ---
+apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+kind: KubeadmConfigTemplate
+metadata:
+  name: "${CLUSTER_NAME}-md-1"
+spec:
+  template:
+    spec:
+      joinConfiguration:
+        nodeRegistration:
+          kubeletExtraArgs:
+            cloud-provider: external
+            tls-cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
+            kubeconfig: /etc/kubernetes/kubelet.conf
+            authentication-token-webhook: "true"
+            authorization-mode: Webhook
+            anonymous-auth: "false"
+            read-only-port: "0"
+            event-qps: "5"
+            rotate-server-certificates: "true"
+            max-pods: "220"
+            resolv-conf: /etc/kubernetes/resolv.conf
+      files:
+        - path: /etc/systemd/system/sys-fs-bpf.mount
+          owner: "root:root"
+          permissions: "0744"
+          content: |
+            [Unit]
+            Description=Cilium BPF mounts
+            Documentation=https://docs.cilium.io/
+            DefaultDependencies=no
+            Before=local-fs.target umount.target
+            After=swap.target
+
+            [Mount]
+            What=bpffs
+            Where=/sys/fs/bpf
+            Type=bpf
+            Options=rw,nosuid,nodev,noexec,relatime,mode=700
+
+            [Install]
+            WantedBy=multi-user.target
+        - path: /etc/sysctl.d/99-cilium.conf
+          owner: "root:root"
+          permissions: "0744"
+          content: |
+            net.ipv4.conf.lxc*.rp_filter = 0
+        - path: /etc/modules-load.d/crio.conf
+          owner: "root:root"
+          permissions: "0744"
+          content: |
+            overlay
+            br_netfilter
+        - path: /etc/containerd/config.toml
+          owner: "root:root"
+          permissions: "0744"
+          content: |
+            version = 2
+            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+              runtime_type = "io.containerd.runc.v2"
+            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+              SystemdCgroup = true
+            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.crun]
+              runtime_type = "io.containerd.runc.v2"
+            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.crun.options]
+              BinaryName = "crun"
+              Root = "/usr/local/sbin"
+              SystemdCgroup = true
+            [plugins."io.containerd.grpc.v1.cri".containerd]
+              default_runtime_name = "crun"
+            [plugins."io.containerd.runtime.v1.linux"]
+              runtime = "crun"
+              runtime_root = "/usr/local/sbin"
+        - path: /etc/sysctl.d/99-kubernetes-cri.conf
+          owner: "root:root"
+          permissions: "0744"
+          content: |
+            net.bridge.bridge-nf-call-iptables  = 1
+            net.bridge.bridge-nf-call-ip6tables = 1
+            net.ipv4.ip_forward                 = 1
+        - path: /etc/sysctl.d/99-kubelet.conf
+          owner: "root:root"
+          permissions: "0744"
+          content: |
+            vm.overcommit_memory=1
+            kernel.panic=10
+            kernel.panic_on_oops=1
+        - path: /etc/kubernetes/resolv.conf
+          owner: "root:root"
+          permissions: "0744"
+          content: |
+            nameserver 1.1.1.1
+            nameserver 1.0.0.1
+            nameserver 2606:4700:4700::1111
+      preKubeadmCommands:
+        - export CRUN=1.4.3
+        - export CONTAINERD=1.6.1
+        - export KUBERNETES_VERSION=1.23.4
+        - localectl set-locale LANG=en_US.UTF-8
+        - localectl set-locale LANGUAGE=en_US.UTF-8
+        - apt-get update -y
+        - apt-get -y install at jq unzip wget socat mtr logrotate apt-transport-https
+        - sed -i '/swap/d' /etc/fstab
+        - swapoff -a
+        - modprobe overlay && modprobe br_netfilter && sysctl --system
+        - wget https://github.com/containerd/containerd/releases/download/v$CONTAINERD/cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz
+        - wget https://github.com/containerd/containerd/releases/download/v$CONTAINERD/cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
+        - sha256sum --check cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
+        - tar --no-overwrite-dir -C / -xzf cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz
+        - rm -f cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
+        - wget https://github.com/containers/crun/releases/download/$CRUN/crun-$CRUN-linux-amd64 -O /usr/local/sbin/crun && chmod +x /usr/local/sbin/crun
+        - rm -f /etc/cni/net.d/10-containerd-net.conflist
+        - chmod -R 644 /etc/cni && chown -R root:root /etc/cni
+        - systemctl daemon-reload && systemctl enable containerd && systemctl start containerd
+        - curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+        - echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee -a /etc/apt/sources.list.d/kubernetes.list
+        - apt-get update
+        - apt-get install -y kubelet=$KUBERNETES_VERSION-00 kubeadm=$KUBERNETES_VERSION-00 kubectl=$KUBERNETES_VERSION-00  bash-completion && apt-mark hold kubelet kubectl kubeadm && systemctl enable kubelet
+        - kubeadm config images pull --kubernetes-version $KUBERNETES_VERSION
+        - echo 'source <(kubectl completion bash)' >>~/.bashrc
+        - echo 'export KUBECONFIG=/etc/kubernetes/admin.conf' >>~/.bashrc
+        - apt-get -y autoremove && apt-get -y clean all
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachineHealthCheck
+metadata:
+  name: "${CLUSTER_NAME}-md-1-unhealthy-5m"
+spec:
+  clusterName: "${CLUSTER_NAME}"
+  maxUnhealthy: 100%
+  nodeStartupTimeout: 20m
+  selector:
+    matchLabels:
+      nodepool: "${CLUSTER_NAME}-md-1"
+  unhealthyConditions:
+    - type: Ready
+      status: Unknown
+      timeout: 300s
+    - type: Ready
+      status: "False"
+      timeout: 300s
+---
 apiVersion: cluster.x-k8s.io/v1beta1
 kind: MachineDeployment
 metadata:
-  name: "${CLUSTER_NAME}-md-0"
+  name: "${CLUSTER_NAME}-md-1"
   labels:
-    nodepool: "${CLUSTER_NAME}-md-0"
+    nodepool: "${CLUSTER_NAME}-md-1"
 spec:
   clusterName: "${CLUSTER_NAME}"
-  replicas: ${WORKER_MACHINE_COUNT}
+  replicas: ${BM_WORKER_MACHINE_COUNT}
   selector:
     matchLabels:
   template:
@@ -481,18 +659,18 @@ spec:
       version: "${KUBERNETES_VERSION}"
       bootstrap:
         configRef:
-          name: "${CLUSTER_NAME}-md-0"
+          name: "${CLUSTER_NAME}-md-1"
           apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
           kind: KubeadmConfigTemplate
       infrastructureRef:
-        name: "${CLUSTER_NAME}-md-0"
+        name: "${CLUSTER_NAME}-md-1"
         apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
         kind: HetznerBareMetalMachineTemplate
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: HetznerBareMetalMachineTemplate
 metadata:
-  name: "${CLUSTER_NAME}-md-0"
+  name: "${CLUSTER_NAME}-md-1"
 spec:
   template:
     spec:
@@ -518,39 +696,3 @@ spec:
             name: sshkey-name
             publicKey: ssh-publickey
             privateKey: ssh-privatekey
----
-apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
-kind: HetznerBareMetalHost
-metadata:
-  name: "${CLUSTER_NAME}-md-0"
-spec:
-  serverID: ${BAREMETAL_SERVER_0_ID}
-  rootDeviceHints:
-    wwn: ${BAREMETAL_SERVER_0_WWN}
-  maintenanceMode: false
-  description: Test Machine 0
-  hetznerClusterRef: "${CLUSTER_NAME}"
----
-apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
-kind: HetznerBareMetalHost
-metadata:
-  name: "${CLUSTER_NAME}-md-1"
-spec:
-  serverID: ${BAREMETAL_SERVER_1_ID}
-  rootDeviceHints:
-    wwn: ${BAREMETAL_SERVER_1_WWN}
-  maintenanceMode: false
-  description: Test Machine 1
-  hetznerClusterRef: "${CLUSTER_NAME}"
----
-apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
-kind: HetznerBareMetalHost
-metadata:
-  name: "${CLUSTER_NAME}-md-2"
-spec:
-  serverID: ${BAREMETAL_SERVER_2_ID}
-  rootDeviceHints:
-    wwn: ${BAREMETAL_SERVER_2_WWN}
-  maintenanceMode: false
-  description: Test Machine 2
-  hetznerClusterRef: "${CLUSTER_NAME}"

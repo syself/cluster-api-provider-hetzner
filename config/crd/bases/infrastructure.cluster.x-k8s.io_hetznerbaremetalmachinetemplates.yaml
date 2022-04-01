@@ -212,7 +212,7 @@ spec:
                         type: object
                       providerID:
                         description: ProviderID will be the hetznerbaremetalmachine
-                          in ProviderID format (hetzner://<server-id>)
+                          in ProviderID format (hcloud://<server-id>)
                         type: string
                       sshSpec:
                         description: SSHSpec gives a reference on the secret where

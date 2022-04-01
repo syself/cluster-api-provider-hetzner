@@ -45,16 +45,15 @@ CI_KIND ?= true
 # Binaries.
 #
 MINIMUM_CLUSTERCTL_VERSION=1.1.3				# https://github.com/kubernetes-sigs/cluster-api/releases
-MINIMUM_CTLPTL_VERSION=0.7.4						# https://github.com/tilt-dev/ctlptl/releases
+MINIMUM_CTLPTL_VERSION=0.7.8						# https://github.com/tilt-dev/ctlptl/releases
 MINIMUM_GO_VERSION=go$(GO_VERSION)			# Check current project go version
-MINIMUM_HCLOUD_VERSION=1.29.0						# https://github.com/hetznercloud/cli/releases
-MINIMUM_HELMFILE_VERSION=v0.143.0				# https://github.com/roboll/helmfile/releases
-MINIMUM_KIND_VERSION=v0.11.1						# https://github.com/kubernetes-sigs/kind/releases
+MINIMUM_HCLOUD_VERSION=1.29.4						# https://github.com/hetznercloud/cli/releases
+MINIMUM_HELMFILE_VERSION=v0.144.0				# https://github.com/roboll/helmfile/releases
+MINIMUM_KIND_VERSION=v0.12.0						# https://github.com/kubernetes-sigs/kind/releases
 MINIMUM_KUBECTL_VERSION=v1.23.0					# https://github.com/kubernetes/kubernetes/releases
-MINIMUM_PACKER_VERSION=1.7.10						# https://github.com/hashicorp/packer/releases
-MINIMUM_TILT_VERSION=0.25.3							# https://github.com/tilt-dev/tilt/releases
-CONTROLLER_GEN_VERSION=v.0.4.1					# https://github.com/kubernetes-sigs/controller-tools/releases
-KUSTOMIZE_VERSION=4.5.1									# https://github.com/kubernetes-sigs/kustomize/releases
+MINIMUM_PACKER_VERSION=1.8.0						# https://github.com/hashicorp/packer/releases
+MINIMUM_TILT_VERSION=0.27.0							# https://github.com/tilt-dev/tilt/releases
+KUSTOMIZE_VERSION=4.5.4									# https://github.com/kubernetes-sigs/kustomize/releases
 
 #
 # Tooling Binaries.
@@ -530,7 +529,8 @@ tilt-up: $(ENVSUBST) $(KUSTOMIZE) cluster  ## Start a mgt-cluster & Tilt. Instal
 install-essentials: ## This gets the secret and installs a CNI and the CCM. Usage: MAKE install-essentials NAME=<cluster-name>
 	export CAPH_WORKER_CLUSTER_KUBECONFIG=/tmp/workload-kubeconfig
 	$(MAKE) wait-and-get-secret CLUSTER_NAME=$(NAME)
-	$(MAKE) install-manifests
+	$(MAKE) install-manifests-cilium
+	$(MAKE) install-manifests-ccm-hetzner
 
 wait-and-get-secret:
 	# Wait for the kubeconfig to become available.
@@ -539,18 +539,30 @@ wait-and-get-secret:
 	kubectl get secrets $(CLUSTER_NAME)-kubeconfig -o json | jq -r .data.value | base64 --decode > $(CAPH_WORKER_CLUSTER_KUBECONFIG)
 	${TIMEOUT} 15m bash -c "while ! kubectl --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) get nodes | grep master; do sleep 1; done"
 
-install-manifests:
+install-manifests-cilium:
 	# Deploy cilium
 	helm repo add cilium https://helm.cilium.io/
 	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install cilium cilium/cilium --version 1.10.5 \
   	--namespace kube-system \
 	-f templates/cilium/cilium.yaml
 
+install-manifests-ccm-hetzner:
 	# Deploy Hetzner Cloud Controller Manager
 	helm repo add syself https://charts.syself.com
 	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hetzner --version 1.1.1 \
 	--namespace kube-system \
 	--set image.tag=latest \
+	--set privateNetwork.enabled=$(PRIVATE_NETWORK)
+
+	@echo 'run "kubectl --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) ..." to work with the new target cluster'
+
+install-manifests-ccm-hcloud:
+	# Deploy Hcloud Cloud Controller Manager
+	helm repo add syself https://charts.syself.com
+	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hcloud --version 1.0.10 \
+	--namespace kube-system \
+	--set secret.name=hetzner \
+	--set secret.tokenKeyName=hcloud \
 	--set privateNetwork.enabled=$(PRIVATE_NETWORK)
 
 	@echo 'run "kubectl --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) ..." to work with the new target cluster'
@@ -561,28 +573,32 @@ create-workload-cluster-with-network-packer: $(KUSTOMIZE) $(ENVSUBST) ## Creates
 	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD_TOKEN) --save-config --dry-run=client -o yaml | kubectl apply -f -
 	cat templates/cluster-template-packer-hcloud-network.yaml | $(ENVSUBST) - | kubectl apply -f -
 	$(MAKE) wait-and-get-secret
-	$(MAKE) install-manifests PRIVATE_NETWORK=true
+	$(MAKE) install-manifests-cilium
+	$(MAKE) install-manifests-ccm-hcloud PRIVATE_NETWORK=true
 
 create-workload-cluster-with-network: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
 	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD_TOKEN) --save-config --dry-run=client -o yaml | kubectl apply -f -
 	cat templates/cluster-template-hcloud-network.yaml | $(ENVSUBST) - | kubectl apply -f -
 	$(MAKE) wait-and-get-secret
-	$(MAKE) install-manifests PRIVATE_NETWORK=true
+	$(MAKE) install-manifests-cilium
+	$(MAKE) install-manifests-ccm-hcloud PRIVATE_NETWORK=true
 
 create-workload-cluster-packer: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
 	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD_TOKEN) --save-config --dry-run=client -o yaml | kubectl apply -f -
 	cat templates/cluster-template-packer.yaml | $(ENVSUBST) - | kubectl apply -f -
 	$(MAKE) wait-and-get-secret
-	$(MAKE) install-manifests PRIVATE_NETWORK=false
+	$(MAKE) install-manifests-cilium
+	$(MAKE) install-manifests-ccm-hcloud PRIVATE_NETWORK=false
 
 create-workload-cluster: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
 	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD_TOKEN) --save-config --dry-run=client -o yaml | kubectl apply -f -
 	cat templates/cluster-template.yaml | $(ENVSUBST) - | kubectl apply -f -
 	$(MAKE) wait-and-get-secret
-	$(MAKE) install-manifests PRIVATE_NETWORK=false
+	$(MAKE) install-manifests-cilium
+	$(MAKE) install-manifests-ccm-hcloud PRIVATE_NETWORK=false
 
 create-workload-cluster-baremetal: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
@@ -590,7 +606,8 @@ create-workload-cluster-baremetal: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workloa
 	kubectl create secret generic robot-ssh --from-literal=sshkey-name=cluster --from-file=ssh-privatekey=${HETZNER_SSH_PRIV_PATH} --from-file=ssh-publickey=${HETZNER_SSH_PUB_PATH} --save-config --dry-run=client -o yaml | kubectl apply -f -
 	cat templates/cluster-template-baremetal.yaml | $(ENVSUBST) - | kubectl apply -f -
 	$(MAKE) wait-and-get-secret
-	$(MAKE) install-manifests PRIVATE_NETWORK=false
+	$(MAKE) install-manifests-cilium
+	$(MAKE) install-manifests-ccm-hetzner PRIVATE_NETWORK=false
 
 create-workload-cluster-pure-baremetal: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
@@ -598,7 +615,8 @@ create-workload-cluster-pure-baremetal: $(KUSTOMIZE) $(ENVSUBST) ## Creates a wo
 	kubectl create secret generic robot-ssh --from-literal=sshkey-name=cluster --from-file=ssh-privatekey=${HETZNER_SSH_PRIV_PATH} --from-file=ssh-publickey=${HETZNER_SSH_PUB_PATH} --save-config --dry-run=client -o yaml | kubectl apply -f -
 	cat templates/cluster-template-baremetal-control-planes.yaml | $(ENVSUBST) - | kubectl apply -f -
 	$(MAKE) wait-and-get-secret
-	$(MAKE) install-manifests PRIVATE_NETWORK=false
+	$(MAKE) install-manifests-cilium
+	$(MAKE) install-manifests-ccm-hetzner PRIVATE_NETWORK=false
 
 move-to-workload-cluster:
 	clusterctl init --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) --core cluster-api --bootstrap kubeadm --control-plane kubeadm --infrastructure hetzner
@@ -610,7 +628,8 @@ create-talos-workload-cluster-packer: $(KUSTOMIZE) $(ENVSUBST) ## Creates a work
 	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD_TOKEN) --save-config --dry-run=client -o yaml | kubectl apply -f -
 	cat templates/cluster-template-packer-talos.yaml | $(ENVSUBST) - | kubectl apply -f -
 	$(MAKE) wait-and-get-secret
-	$(MAKE) install-manifests
+	$(MAKE) install-manifests-cilium
+	$(MAKE) install-manifests-ccm-hcloud PRIVATE_NETWORK=false
 
 .PHONY: delete-workload-cluster
 delete-workload-cluster: ## Deletes the example workload Kubernetes cluster

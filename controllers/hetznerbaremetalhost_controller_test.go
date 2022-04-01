@@ -81,6 +81,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		hetznerClusterName = utils.GenerateName(nil, "hetzner-cluster-test")
+
 		capiCluster = &clusterv1.Cluster{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "test1-",
@@ -157,8 +158,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 		robotClient.On("SetBootRescue", 1, mock.Anything).Return(&models.Rescue{Active: true}, nil)
 		robotClient.On("DeleteBootRescue", 1).Return(&models.Rescue{Active: false}, nil)
 		robotClient.On("RebootBMServer", mock.Anything, mock.Anything).Return(&models.ResetPost{}, nil)
-		robotClient.On("SetBMServerName", mock.Anything, mock.Anything).Return(nil, nil)
-
+		robotClient.On("SetBMServerName", 1, mock.Anything).Return(nil, nil)
 		configureRescueSSHClient(rescueSSHClient)
 
 		osSSHClient.On("Reboot").Return(sshclient.Output{})
@@ -203,21 +203,6 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 			}, timeout).Should(BeTrue())
 		})
 
-		It("reaches the state available", func() {
-			defer func() {
-				Expect(testEnv.Delete(ctx, host)).To(Succeed())
-			}()
-			Eventually(func() bool {
-				if err := testEnv.Get(ctx, key, host); err != nil {
-					return false
-				}
-				if host.Spec.Status.ProvisioningState == infrav1.StateAvailable {
-					return true
-				}
-				return false
-			}, timeout).Should(BeTrue())
-		})
-
 		It("sets the finalizer", func() {
 			defer func() {
 				Expect(testEnv.Delete(ctx, host)).To(Succeed())
@@ -249,63 +234,8 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 		})
 	})
 
-	Context("Test root device life cycle", func() {
+	Context("Tests with bm machine", func() {
 		BeforeEach(func() {
-			host = helpers.BareMetalHost(
-				hostName,
-				testNs.Name,
-				helpers.WithHetznerClusterRef(hetznerClusterName),
-			)
-			Expect(testEnv.Create(ctx, host)).To(Succeed())
-
-			key = client.ObjectKey{Namespace: testNs.Name, Name: host.Name}
-		})
-
-		AfterEach(func() {
-			Expect(testEnv.Delete(ctx, host)).To(Succeed())
-		})
-
-		It("gives an error if no root device hints are set", func() {
-			Eventually(func() bool {
-				if err := testEnv.Get(ctx, key, host); err != nil {
-					return false
-				}
-				return verifyError(host, infrav1.RegistrationError, infrav1.ErrorMessageMissingRootDeviceHints)
-			}, timeout).Should(BeTrue())
-		})
-
-		It("reaches the state available", func() {
-			ph, err := patch.NewHelper(host, testEnv)
-			Expect(err).ShouldNot(HaveOccurred())
-			host.Spec.RootDeviceHints = &infrav1.RootDeviceHints{
-				WWN: helpers.DefaultWWN,
-			}
-			Expect(ph.Patch(ctx, host, patch.WithStatusObservedGeneration{})).To(Succeed())
-
-			Eventually(func() bool {
-				if err := testEnv.Get(ctx, key, host); err != nil {
-					return false
-				}
-				if host.Spec.Status.ProvisioningState == infrav1.StateAvailable {
-					return true
-				}
-				return false
-			}, timeout).Should(BeTrue())
-		})
-	})
-
-	Context("provision host", func() {
-		BeforeEach(func() {
-			host = helpers.BareMetalHost(
-				hostName,
-				testNs.Name,
-				helpers.WithRootDeviceHints(),
-				helpers.WithHetznerClusterRef(hetznerClusterName),
-			)
-			Expect(testEnv.Create(ctx, host)).To(Succeed())
-
-			key = client.ObjectKey{Namespace: testNs.Name, Name: host.Name}
-
 			capiMachine = &clusterv1.Machine{
 				ObjectMeta: metav1.ObjectMeta{
 					GenerateName: "capi-machine-",
@@ -352,108 +282,171 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 		})
 
 		AfterEach(func() {
-			Expect(testEnv.Cleanup(ctx, capiMachine, bmMachine, host)).To(Succeed())
+			Expect(testEnv.Cleanup(ctx, capiMachine, bmMachine)).To(Succeed())
 		})
 
-		It("gets selected from a bm machine and provisions", func() {
-			defer func() {
-				Expect(testEnv.Delete(ctx, bmMachine))
-			}()
+		Context("Test root device life cycle", func() {
+			BeforeEach(func() {
+				host = helpers.BareMetalHost(
+					hostName,
+					testNs.Name,
+					helpers.WithHetznerClusterRef(hetznerClusterName),
+				)
+				Expect(testEnv.Create(ctx, host)).To(Succeed())
 
-			var machine clusterv1.Machine
-			Expect(testEnv.Get(ctx, client.ObjectKey{Namespace: testNs.Name, Name: capiMachine.Name}, &machine)).To(Succeed())
+				key = client.ObjectKey{Namespace: testNs.Name, Name: host.Name}
+			})
 
-			Eventually(func() bool {
-				if err := testEnv.Get(ctx, key, host); err != nil {
-					return false
-				}
-				if host.Spec.Status.ProvisioningState == infrav1.StateProvisioned {
-					return true
-				}
-				return false
-			}, timeout).Should(BeTrue())
-		})
+			AfterEach(func() {
+				Expect(testEnv.Delete(ctx, host)).To(Succeed())
+			})
 
-		It("it deprovisions after bmMachine is deleted", func() {
-			var machine clusterv1.Machine
-			Expect(testEnv.Get(ctx, client.ObjectKey{Namespace: testNs.Name, Name: capiMachine.Name}, &machine)).To(Succeed())
+			It("gives an error if no root device hints are set", func() {
+				Eventually(func() bool {
+					if err := testEnv.Get(ctx, key, host); err != nil {
+						return false
+					}
+					return verifyError(host, infrav1.RegistrationError, infrav1.ErrorMessageMissingRootDeviceHints)
+				}, timeout).Should(BeTrue())
+			})
 
-			Eventually(func() bool {
-				if err := testEnv.Get(ctx, key, host); err != nil {
-					return false
+			It("reaches the state image installing", func() {
+				ph, err := patch.NewHelper(host, testEnv)
+				Expect(err).ShouldNot(HaveOccurred())
+				host.Spec.RootDeviceHints = &infrav1.RootDeviceHints{
+					WWN: helpers.DefaultWWN,
 				}
-				if host.Spec.Status.ProvisioningState == infrav1.StateProvisioned {
-					return true
-				}
-				return false
-			}, timeout).Should(BeTrue())
+				Expect(ph.Patch(ctx, host, patch.WithStatusObservedGeneration{})).To(Succeed())
 
-			By("deleting bm machine")
-			Expect(testEnv.Delete(ctx, bmMachine)).To(Succeed())
-
-			Eventually(func() bool {
-				if err := testEnv.Get(ctx, key, host); err != nil {
-					return false
-				}
-				if host.Spec.Status.ProvisioningState != infrav1.StateDeprovisioning {
-					return false
-				}
-				return true
-			}, timeout).Should(BeTrue())
-
-			Eventually(func() bool {
-				if err := testEnv.Get(ctx, key, host); err != nil {
-					return false
-				}
-				if host.Spec.Status.ProvisioningState != infrav1.StateAvailable {
-					return false
-				}
-				if host.Spec.Status.SSHSpec != nil {
-					return false
-				}
-				if host.Spec.Status.UserData != nil {
-					return false
-				}
-				if host.Spec.ConsumerRef != nil {
-					return false
-				}
-				return true
-			}, timeout).Should(BeTrue())
-		})
-	})
-
-	Context("Test secret owner refs", func() {
-		BeforeEach(func() {
-			host = helpers.BareMetalHost(
-				hostName,
-				testNs.Name,
-				helpers.WithHetznerClusterRef(hetznerClusterName),
-			)
-			Expect(testEnv.Create(ctx, host)).To(Succeed())
-
-			key = client.ObjectKey{Namespace: testNs.Name, Name: host.Name}
-		})
-
-		AfterEach(func() {
-			Expect(testEnv.Cleanup(ctx, host)).To(Succeed())
-		})
-
-		It("should create an owner ref of the cluster in the rescue ssh secret", func() {
-			Eventually(func() bool {
-				var secret corev1.Secret
-				secretKey := types.NamespacedName{Name: rescueSSHSecret.Name, Namespace: rescueSSHSecret.Namespace}
-				if err := testEnv.Get(ctx, secretKey, &secret); err != nil {
-					return false
-				}
-
-				for _, owner := range secret.GetOwnerReferences() {
-					if owner.UID == hetznerCluster.GetUID() {
+				Eventually(func() bool {
+					if err := testEnv.Get(ctx, key, host); err != nil {
+						return false
+					}
+					if host.Spec.Status.ProvisioningState == infrav1.StateImageInstalling {
 						return true
 					}
-				}
+					return false
+				}, timeout).Should(BeTrue())
+			})
+		})
 
-				return false
-			}, timeout, time.Second).Should(BeTrue())
+		Context("provision host", func() {
+			BeforeEach(func() {
+				host = helpers.BareMetalHost(
+					hostName,
+					testNs.Name,
+					helpers.WithRootDeviceHints(),
+					helpers.WithHetznerClusterRef(hetznerClusterName),
+				)
+				Expect(testEnv.Create(ctx, host)).To(Succeed())
+
+				key = client.ObjectKey{Namespace: testNs.Name, Name: host.Name}
+			})
+
+			AfterEach(func() {
+				Expect(testEnv.Cleanup(ctx, host)).To(Succeed())
+			})
+
+			It("gets selected from a bm machine and provisions", func() {
+				defer func() {
+					Expect(testEnv.Delete(ctx, bmMachine))
+				}()
+
+				var machine clusterv1.Machine
+				Expect(testEnv.Get(ctx, client.ObjectKey{Namespace: testNs.Name, Name: capiMachine.Name}, &machine)).To(Succeed())
+
+				Eventually(func() bool {
+					if err := testEnv.Get(ctx, key, host); err != nil {
+						return false
+					}
+					if host.Spec.Status.ProvisioningState == infrav1.StateProvisioned {
+						return true
+					}
+					return false
+				}, timeout).Should(BeTrue())
+			})
+
+			It("it deprovisions after bmMachine is deleted", func() {
+				var machine clusterv1.Machine
+				Expect(testEnv.Get(ctx, client.ObjectKey{Namespace: testNs.Name, Name: capiMachine.Name}, &machine)).To(Succeed())
+
+				Eventually(func() bool {
+					if err := testEnv.Get(ctx, key, host); err != nil {
+						return false
+					}
+					if host.Spec.Status.ProvisioningState == infrav1.StateProvisioned {
+						return true
+					}
+					return false
+				}, timeout).Should(BeTrue())
+
+				By("deleting bm machine")
+				Expect(testEnv.Delete(ctx, bmMachine)).To(Succeed())
+
+				Eventually(func() bool {
+					if err := testEnv.Get(ctx, key, host); err != nil {
+						return false
+					}
+					if host.Spec.Status.ProvisioningState != infrav1.StateDeprovisioning {
+						return false
+					}
+					return true
+				}, timeout).Should(BeTrue())
+
+				Eventually(func() bool {
+					if err := testEnv.Get(ctx, key, host); err != nil {
+						return false
+					}
+					if host.Spec.Status.ProvisioningState != infrav1.StateNone {
+						return false
+					}
+					if host.Spec.Status.SSHSpec != nil {
+						return false
+					}
+					if host.Spec.Status.UserData != nil {
+						return false
+					}
+					if host.Spec.ConsumerRef != nil {
+						return false
+					}
+					return true
+				}, timeout).Should(BeTrue())
+			})
+		})
+
+		Context("Test secret owner refs", func() {
+			BeforeEach(func() {
+				host = helpers.BareMetalHost(
+					hostName,
+					testNs.Name,
+					helpers.WithHetznerClusterRef(hetznerClusterName),
+				)
+				Expect(testEnv.Create(ctx, host)).To(Succeed())
+
+				key = client.ObjectKey{Namespace: testNs.Name, Name: host.Name}
+			})
+
+			AfterEach(func() {
+				Expect(testEnv.Cleanup(ctx, host)).To(Succeed())
+			})
+
+			It("should create an owner ref of the cluster in the rescue ssh secret", func() {
+				Eventually(func() bool {
+					var secret corev1.Secret
+					secretKey := types.NamespacedName{Name: rescueSSHSecret.Name, Namespace: rescueSSHSecret.Namespace}
+					if err := testEnv.Get(ctx, secretKey, &secret); err != nil {
+						return false
+					}
+
+					for _, owner := range secret.GetOwnerReferences() {
+						if owner.UID == hetznerCluster.GetUID() {
+							return true
+						}
+					}
+
+					return false
+				}, timeout, time.Second).Should(BeTrue())
+			})
 		})
 	})
 })
@@ -487,6 +480,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		hetznerClusterName = utils.GenerateName(nil, "hetzner-cluster-test")
+
 		capiCluster = &clusterv1.Cluster{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "test1-",
@@ -530,6 +524,50 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 		}
 		Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
 
+		capiMachine = &clusterv1.Machine{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "capi-machine-",
+				Namespace:    testNs.Name,
+				Finalizers:   []string{clusterv1.MachineFinalizer},
+				Labels: map[string]string{
+					clusterv1.ClusterLabelName: capiCluster.Name,
+				},
+			},
+			Spec: clusterv1.MachineSpec{
+				ClusterName: capiCluster.Name,
+				InfrastructureRef: corev1.ObjectReference{
+					APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
+					Kind:       "HetznerBareMetalMachine",
+					Name:       bmMachineName,
+				},
+				FailureDomain: &defaultFailureDomain,
+				Bootstrap: clusterv1.Bootstrap{
+					DataSecretName: pointer.String("bootstrap-secret"),
+				},
+			},
+		}
+		Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
+
+		bmMachine = &infrav1.HetznerBareMetalMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      bmMachineName,
+				Namespace: testNs.Name,
+				Labels: map[string]string{
+					clusterv1.ClusterLabelName: capiCluster.Name,
+				},
+				OwnerReferences: []metav1.OwnerReference{
+					{
+						APIVersion: "cluster.x-k8s.io/v1beta1",
+						Kind:       "Machine",
+						Name:       capiMachine.Name,
+						UID:        capiMachine.UID,
+					},
+				},
+			},
+			Spec: getDefaultHetznerBareMetalMachineSpec(),
+		}
+		Expect(testEnv.Create(ctx, bmMachine)).To(Succeed())
+
 		bootstrapSecret = getDefaultBootstrapSecret(testNs.Name)
 		Expect(testEnv.Create(ctx, bootstrapSecret)).To(Succeed())
 
@@ -557,59 +595,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 	})
 
 	AfterEach(func() {
-		Expect(testEnv.Cleanup(ctx, testNs, capiCluster, hetznerCluster, bootstrapSecret)).To(Succeed())
-	})
-
-	Context("Test missing Hetzner secret", func() {
-		BeforeEach(func() {
-			host = helpers.BareMetalHost(
-				hostName,
-				testNs.Name,
-				helpers.WithHetznerClusterRef(hetznerClusterName),
-			)
-			Expect(testEnv.Create(ctx, host)).To(Succeed())
-
-			key = client.ObjectKey{Namespace: testNs.Name, Name: host.Name}
-		})
-
-		AfterEach(func() {
-			Expect(testEnv.Delete(ctx, host)).To(Succeed())
-		})
-
-		It("gives the right error if secret is missing", func() {
-			Eventually(func() bool {
-				if err := testEnv.Get(ctx, key, host); err != nil {
-					return false
-				}
-				return verifyError(host, infrav1.PreparationError, infrav1.ErrorMessageMissingHetznerSecret)
-			}, timeout).Should(BeTrue())
-		})
-
-		It("gives the right error if secret is invalid", func() {
-
-			hetznerSecret = &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "hetzner-secret",
-					Namespace: testNs.Name,
-				},
-				Data: map[string][]byte{
-					"private-key": []byte("hetzner-secret-private-key"),
-					"sshkey-name": []byte(""),
-					"public-key":  []byte("my-public-key"),
-				},
-			}
-			Expect(testEnv.Create(ctx, hetznerSecret)).To(Succeed())
-			defer func() {
-				Expect(testEnv.Delete(ctx, hetznerSecret)).To(Succeed())
-			}()
-
-			Eventually(func() bool {
-				if err := testEnv.Get(ctx, key, host); err != nil {
-					return false
-				}
-				return verifyError(host, infrav1.PreparationError, infrav1.ErrorMessageMissingOrInvalidSecretData)
-			}, timeout).Should(BeTrue())
-		})
+		Expect(testEnv.Cleanup(ctx, testNs, capiCluster, hetznerCluster, capiMachine, bmMachine, bootstrapSecret)).To(Succeed())
 	})
 
 	Context("Test missing Rescue SSH secret", func() {
@@ -625,10 +611,13 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 
 			hetznerSecret = getDefaultHetznerSecret(testNs.Name)
 			Expect(testEnv.Create(ctx, hetznerSecret)).To(Succeed())
+
+			osSSHSecret = helpers.GetDefaultSSHSecret("os-ssh-secret", testNs.Name)
+			Expect(testEnv.Create(ctx, osSSHSecret)).To(Succeed())
 		})
 
 		AfterEach(func() {
-			Expect(testEnv.Cleanup(ctx, host, hetznerSecret)).To(Succeed())
+			Expect(testEnv.Cleanup(ctx, host, hetznerSecret, osSSHSecret)).To(Succeed())
 		})
 
 		It("gives an error", func() {
@@ -684,54 +673,10 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 
 			rescueSSHSecret = helpers.GetDefaultSSHSecret("rescue-ssh-secret", testNs.Name)
 			Expect(testEnv.Create(ctx, rescueSSHSecret)).To(Succeed())
-
-			capiMachine = &clusterv1.Machine{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "capi-machine-",
-					Namespace:    testNs.Name,
-					Finalizers:   []string{clusterv1.MachineFinalizer},
-					Labels: map[string]string{
-						clusterv1.ClusterLabelName: capiCluster.Name,
-					},
-				},
-				Spec: clusterv1.MachineSpec{
-					ClusterName: capiCluster.Name,
-					InfrastructureRef: corev1.ObjectReference{
-						APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
-						Kind:       "HetznerBareMetalMachine",
-						Name:       bmMachineName,
-					},
-					FailureDomain: &defaultFailureDomain,
-					Bootstrap: clusterv1.Bootstrap{
-						DataSecretName: pointer.String("bootstrap-secret"),
-					},
-				},
-			}
-			Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
-
-			bmMachine = &infrav1.HetznerBareMetalMachine{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      bmMachineName,
-					Namespace: testNs.Name,
-					Labels: map[string]string{
-						clusterv1.ClusterLabelName: capiCluster.Name,
-					},
-					OwnerReferences: []metav1.OwnerReference{
-						{
-							APIVersion: "cluster.x-k8s.io/v1beta1",
-							Kind:       "Machine",
-							Name:       capiMachine.Name,
-							UID:        capiMachine.UID,
-						},
-					},
-				},
-				Spec: getDefaultHetznerBareMetalMachineSpec(),
-			}
-			Expect(testEnv.Create(ctx, bmMachine)).To(Succeed())
 		})
 
 		AfterEach(func() {
-			Expect(testEnv.Cleanup(ctx, host, hetznerSecret, rescueSSHSecret, bmMachine, capiMachine)).To(Succeed())
+			Expect(testEnv.Cleanup(ctx, host, hetznerSecret, rescueSSHSecret)).To(Succeed())
 		})
 
 		It("gives the right error if secret is missing", func() {

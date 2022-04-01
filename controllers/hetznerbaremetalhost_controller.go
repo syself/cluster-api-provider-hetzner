@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"time"
 
 	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -37,7 +38,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -72,16 +72,6 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		return ctrl.Result{}, err
 	}
 
-	hetznerCluster := &infrav1.HetznerCluster{}
-
-	hetznerClusterName := client.ObjectKey{
-		Namespace: bmHost.Namespace,
-		Name:      bmHost.Spec.HetznerClusterRef,
-	}
-	if err := r.Client.Get(ctx, hetznerClusterName, hetznerCluster); err != nil {
-		return ctrl.Result{}, errors.New("HetznerCluster not found")
-	}
-
 	// Add a finalizer to newly created objects.
 	if bmHost.DeletionTimestamp.IsZero() && !hostHasFinalizer(bmHost) {
 		log.Info("adding finalizer", "existingFinalizers", bmHost.Finalizers, "newValue", infrav1.BareMetalHostFinalizer)
@@ -94,6 +84,53 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		return ctrl.Result{Requeue: true}, nil
 	}
 
+	switch bmHost.Spec.Status.ProvisioningState {
+	// Handle StateNone: check whether needs to be provisioned or deleted.
+	case infrav1.StateNone:
+		var needsUpdate bool
+		if !bmHost.DeletionTimestamp.IsZero() && bmHost.Spec.ConsumerRef == nil {
+			bmHost.Spec.Status.ProvisioningState = infrav1.StateDeleting
+			needsUpdate = true
+		} else if bmHost.NeedsProvisioning() {
+			bmHost.Spec.Status.ProvisioningState = infrav1.StatePreparing
+			needsUpdate = true
+		}
+		if needsUpdate {
+			err := r.Update(ctx, bmHost)
+			if err != nil {
+				return ctrl.Result{}, errors.Wrap(err, "failed to add finalizer")
+			}
+		}
+
+		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
+
+		// Handle StateDeleting
+	case infrav1.StateDeleting:
+		log.Info("Marked to be deleted", "timestamp", bmHost.DeletionTimestamp)
+
+		if !utils.StringInList(bmHost.Finalizers, infrav1.BareMetalHostFinalizer) {
+			log.Info("Ready to be deleted")
+			return ctrl.Result{}, nil
+		}
+
+		bmHost.Finalizers = utils.FilterStringFromList(bmHost.Finalizers, infrav1.BareMetalHostFinalizer)
+		if err := r.Update(context.Background(), bmHost); err != nil {
+			return ctrl.Result{}, errors.Wrap(err, "failed to remove finalizer")
+		}
+		log.Info("Cleanup complete. Removed finalizer", "remaining", bmHost.Finalizers)
+		return ctrl.Result{}, nil
+	}
+
+	hetznerCluster := &infrav1.HetznerCluster{}
+
+	hetznerClusterName := client.ObjectKey{
+		Namespace: bmHost.Namespace,
+		Name:      bmHost.Spec.Status.HetznerClusterRef,
+	}
+	if err := r.Client.Get(ctx, hetznerClusterName, hetznerCluster); err != nil {
+		return ctrl.Result{}, errors.New("HetznerCluster not found")
+	}
+
 	// Get Hetzner robot api credentials
 	secretManager := secretutil.NewSecretManager(log, r.Client, r.APIReader)
 	robotCreds, err := getAndValidateRobotCredentials(ctx, req.Namespace, hetznerCluster, secretManager)
@@ -103,6 +140,8 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 
 	// If bare metal machine has already set ssh spec, then acquire os ssh secret
 	var osSSHSecret *corev1.Secret
+	var rescueSSHSecret *corev1.Secret
+	// in case of deprovisioning, we might not have the sshSpec (still) set
 	if bmHost.Spec.Status.SSHSpec != nil {
 		osSSHSecretNamespacedName := types.NamespacedName{Namespace: req.Namespace, Name: bmHost.Spec.Status.SSHSpec.SecretRef.Name}
 		osSSHSecret, err = secretManager.ObtainSecret(ctx, osSSHSecretNamespacedName)
@@ -121,26 +160,25 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 			}
 			return reconcile.Result{}, errors.Wrap(err, "failed to get secret")
 		}
-	}
 
-	rescueSSHSecretNamespacedName := types.NamespacedName{Namespace: req.Namespace, Name: hetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Name}
-	rescueSSHSecret, err := secretManager.AcquireSecret(ctx, rescueSSHSecretNamespacedName, hetznerCluster, false, hetznerCluster.DeletionTimestamp.IsZero())
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			if err := host.SetErrorCondition(
-				ctx,
-				bmHost,
-				r.Client,
-				infrav1.PreparationError,
-				infrav1.ErrorMessageMissingRescueSSHSecret,
-			); err != nil {
-				return ctrl.Result{}, err
+		rescueSSHSecretNamespacedName := types.NamespacedName{Namespace: req.Namespace, Name: hetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Name}
+		rescueSSHSecret, err = secretManager.AcquireSecret(ctx, rescueSSHSecretNamespacedName, hetznerCluster, false, hetznerCluster.DeletionTimestamp.IsZero())
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				if err := host.SetErrorCondition(
+					ctx,
+					bmHost,
+					r.Client,
+					infrav1.PreparationError,
+					infrav1.ErrorMessageMissingRescueSSHSecret,
+				); err != nil {
+					return ctrl.Result{}, err
+				}
+				return ctrl.Result{RequeueAfter: host.CalculateBackoff(bmHost.Spec.Status.ErrorCount)}, nil
 			}
-			return ctrl.Result{RequeueAfter: host.CalculateBackoff(bmHost.Spec.Status.ErrorCount)}, nil
+			return reconcile.Result{}, errors.Wrap(err, "failed to acquire secret")
 		}
-		return reconcile.Result{}, errors.Wrap(err, "failed to acquire secret")
 	}
-
 	// Create the scope.
 	hostScope, err := scope.NewBareMetalHostScope(ctx, scope.BareMetalHostScopeParams{
 		Logger:               &log,
@@ -157,38 +195,10 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		return reconcile.Result{}, errors.Errorf("failed to create scope: %+v", err)
 	}
 
-	if !bmHost.ObjectMeta.DeletionTimestamp.IsZero() {
-		return r.reconcileDelete(ctx, hostScope)
-	}
-
-	return r.reconcileNormal(ctx, hostScope)
+	return r.reconcile(ctx, hostScope)
 }
 
-func (r *HetznerBareMetalHostReconciler) reconcileDelete(
-	ctx context.Context,
-	hostScope *scope.BareMetalHostScope,
-) (reconcile.Result, error) {
-	log := ctrl.LoggerFrom(ctx)
-
-	log.Info("Reconciling HetznerBareMetalHost delete")
-
-	if result, brk, err := breakReconcile(host.NewService(hostScope).Delete(ctx)); brk {
-		return result, errors.Wrapf(
-			err,
-			"failed to delete HetznerBareMetalHost %s/%s",
-			hostScope.HetznerBareMetalHost.Namespace,
-			hostScope.HetznerBareMetalHost.Name,
-		)
-	}
-	// Machine is deleted so remove the finalizer.
-	controllerutil.RemoveFinalizer(hostScope.HetznerBareMetalHost, infrav1.BareMetalHostFinalizer)
-	if err := r.Update(ctx, hostScope.HetznerBareMetalHost); err != nil {
-		return ctrl.Result{}, errors.Wrap(err, "failed to remove finalizer")
-	}
-	return reconcile.Result{}, nil
-}
-
-func (r *HetznerBareMetalHostReconciler) reconcileNormal(
+func (r *HetznerBareMetalHostReconciler) reconcile(
 	ctx context.Context,
 	hostScope *scope.BareMetalHostScope,
 ) (reconcile.Result, error) {

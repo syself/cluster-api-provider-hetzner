@@ -55,7 +55,7 @@ var _ = Describe("chooseHost", func() {
 				Namespace: defaultNamespace,
 			},
 			Status: infrav1.ControllerGeneratedStatus{
-				ProvisioningState: infrav1.StateAvailable,
+				ProvisioningState: infrav1.StateNone,
 			},
 		},
 	}
@@ -73,7 +73,7 @@ var _ = Describe("chooseHost", func() {
 				APIVersion: infrav1.GroupVersion.String(),
 			},
 			Status: infrav1.ControllerGeneratedStatus{
-				ProvisioningState: infrav1.StateAvailable,
+				ProvisioningState: infrav1.StateNone,
 			},
 		},
 	}
@@ -86,7 +86,7 @@ var _ = Describe("chooseHost", func() {
 		Spec: infrav1.HetznerBareMetalHostSpec{
 			MaintenanceMode: true,
 			Status: infrav1.ControllerGeneratedStatus{
-				ProvisioningState: infrav1.StateAvailable,
+				ProvisioningState: infrav1.StateNone,
 			},
 		},
 	}
@@ -100,7 +100,7 @@ var _ = Describe("chooseHost", func() {
 		},
 		Spec: infrav1.HetznerBareMetalHostSpec{
 			Status: infrav1.ControllerGeneratedStatus{
-				ProvisioningState: infrav1.StateAvailable,
+				ProvisioningState: infrav1.StateNone,
 			},
 		},
 	}
@@ -113,7 +113,7 @@ var _ = Describe("chooseHost", func() {
 		Spec: infrav1.HetznerBareMetalHostSpec{
 			Status: infrav1.ControllerGeneratedStatus{
 				ErrorMessage:      "some error",
-				ProvisioningState: infrav1.StateAvailable,
+				ProvisioningState: infrav1.StateNone,
 			},
 		},
 	}
@@ -139,7 +139,7 @@ var _ = Describe("chooseHost", func() {
 		},
 		Spec: infrav1.HetznerBareMetalHostSpec{
 			Status: infrav1.ControllerGeneratedStatus{
-				ProvisioningState: infrav1.StateAvailable,
+				ProvisioningState: infrav1.StateNone,
 			},
 		},
 	}
@@ -151,7 +151,7 @@ var _ = Describe("chooseHost", func() {
 		},
 		Spec: infrav1.HetznerBareMetalHostSpec{
 			Status: infrav1.ControllerGeneratedStatus{
-				ProvisioningState: infrav1.StateAvailable,
+				ProvisioningState: infrav1.StateNone,
 			},
 		},
 	}
@@ -163,7 +163,7 @@ var _ = Describe("chooseHost", func() {
 		},
 		Spec: infrav1.HetznerBareMetalHostSpec{
 			Status: infrav1.ControllerGeneratedStatus{
-				ProvisioningState: infrav1.StateAvailable,
+				ProvisioningState: infrav1.StateNone,
 			},
 		},
 	}
@@ -176,7 +176,7 @@ var _ = Describe("chooseHost", func() {
 		},
 		Spec: infrav1.HetznerBareMetalHostSpec{
 			Status: infrav1.ControllerGeneratedStatus{
-				ProvisioningState: infrav1.StateAvailable,
+				ProvisioningState: infrav1.StateNone,
 			},
 		},
 	}
@@ -190,7 +190,7 @@ var _ = Describe("chooseHost", func() {
 		Spec: infrav1.HetznerBareMetalHostSpec{
 			MaintenanceMode: true,
 			Status: infrav1.ControllerGeneratedStatus{
-				ProvisioningState: infrav1.StateAvailable,
+				ProvisioningState: infrav1.StateNone,
 			},
 		},
 	}
