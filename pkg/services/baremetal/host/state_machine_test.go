@@ -85,23 +85,23 @@ var _ = Describe("updateSSHKey", func() {
 		},
 		Entry(
 			"nothing changed",
-			"1",                    // osSecretVersion string
-			"1",                    // rescueSecretVersion string
-			infrav1.StateAvailable, // currentState infrav1.ProvisioningState
-			actionComplete{},       // expectedActionResult actionResult
-			infrav1.StateAvailable, // expectedNextState infrav1.ProvisioningState
-			"1",                    // expectedOSSecretVersion string
-			"1",                    // expectedRescueSecretVersion string
+			"1",                      // osSecretVersion string
+			"1",                      // rescueSecretVersion string
+			infrav1.StateRegistering, // currentState infrav1.ProvisioningState
+			actionComplete{},         // expectedActionResult actionResult
+			infrav1.StateRegistering, // expectedNextState infrav1.ProvisioningState
+			"1",                      // expectedOSSecretVersion string
+			"1",                      // expectedRescueSecretVersion string
 		),
 		Entry(
 			"os secret changed - state available",
-			"0",                    // osSecretVersion string
-			"1",                    // rescueSecretVersion string
-			infrav1.StateAvailable, // currentState infrav1.ProvisioningState
-			actionComplete{},       // expectedActionResult actionResult
-			infrav1.StateAvailable, // expectedNextState infrav1.ProvisioningState
-			"1",                    // expectedOSSecretVersion string
-			"1",                    // expectedRescueSecretVersion string
+			"0",                      // osSecretVersion string
+			"1",                      // rescueSecretVersion string
+			infrav1.StateRegistering, // currentState infrav1.ProvisioningState
+			actionComplete{},         // expectedActionResult actionResult
+			infrav1.StateRegistering, // expectedNextState infrav1.ProvisioningState
+			"1",                      // expectedOSSecretVersion string
+			"1",                      // expectedRescueSecretVersion string
 		),
 		Entry(
 			"os secret changed - state provisioned",
@@ -135,13 +135,13 @@ var _ = Describe("updateSSHKey", func() {
 		),
 		Entry(
 			"rescue secret changed - state available",
-			"1",                    // osSecretVersion string
-			"0",                    // rescueSecretVersion string
-			infrav1.StateAvailable, // currentState infrav1.ProvisioningState
-			actionComplete{},       // expectedActionResult actionResult
-			infrav1.StateNone,      // expectedNextState infrav1.ProvisioningState
-			"1",                    // expectedOSSecretVersion string
-			"1",                    // expectedRescueSecretVersion string
+			"1",                      // osSecretVersion string
+			"0",                      // rescueSecretVersion string
+			infrav1.StateRegistering, // currentState infrav1.ProvisioningState
+			actionComplete{},         // expectedActionResult actionResult
+			infrav1.StateNone,        // expectedNextState infrav1.ProvisioningState
+			"1",                      // expectedOSSecretVersion string
+			"1",                      // expectedRescueSecretVersion string
 		),
 	)
 })

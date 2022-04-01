@@ -519,39 +519,3 @@ spec:
             name: sshkey-name
             publicKey: ssh-publickey
             privateKey: ssh-privatekey
----
-apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
-kind: HetznerBareMetalHost
-metadata:
-  name: "${CLUSTER_NAME}-control-plane-0"
-spec:
-  serverID: ${BAREMETAL_SERVER_0_ID}
-  rootDeviceHints:
-    wwn: ${BAREMETAL_SERVER_0_WWN}
-  maintenanceMode: false
-  description: Test Machine 0
-  hetznerClusterRef: "${CLUSTER_NAME}"
----
-apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
-kind: HetznerBareMetalHost
-metadata:
-  name: "${CLUSTER_NAME}-control-plane-1"
-spec:
-  serverID: ${BAREMETAL_SERVER_1_ID}
-  rootDeviceHints:
-    wwn: ${BAREMETAL_SERVER_1_WWN}
-  maintenanceMode: false
-  description: Test Machine 1
-  hetznerClusterRef: "${CLUSTER_NAME}"
----
-apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
-kind: HetznerBareMetalHost
-metadata:
-  name: "${CLUSTER_NAME}-control-plane-2"
-spec:
-  serverID: ${BAREMETAL_SERVER_2_ID}
-  rootDeviceHints:
-    wwn: ${BAREMETAL_SERVER_2_WWN}
-  maintenanceMode: false
-  description: Test Machine 2
-  hetznerClusterRef: "${CLUSTER_NAME}"

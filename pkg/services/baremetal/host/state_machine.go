@@ -49,14 +49,14 @@ type stateHandler func() actionResult
 
 func (hsm *hostStateMachine) handlers() map[infrav1.ProvisioningState]stateHandler {
 	return map[infrav1.ProvisioningState]stateHandler{
-		infrav1.StateNone:              hsm.handleNone,
+		infrav1.StatePreparing:         hsm.handlePreparing,
 		infrav1.StateRegistering:       hsm.handleRegistering,
-		infrav1.StateAvailable:         hsm.handleAvailable,
 		infrav1.StateImageInstalling:   hsm.handleImageInstalling,
 		infrav1.StateProvisioning:      hsm.handleProvisioning,
 		infrav1.StateEnsureProvisioned: hsm.handleEnsureProvisioned,
 		infrav1.StateProvisioned:       hsm.handleProvisioned,
 		infrav1.StateDeprovisioning:    hsm.handleDeprovisioning,
+		infrav1.StateDeleting:          hsm.handleDeleting,
 	}
 }
 
@@ -68,6 +68,11 @@ func (hsm *hostStateMachine) ReconcileState(ctx context.Context) (actionRes acti
 			hsm.host.Spec.Status.ProvisioningState = hsm.nextState
 		}
 	}()
+
+	if hsm.checkInitiateDelete() {
+		hsm.log.Info("Initiating host deletion")
+		return actionComplete{}
+	}
 
 	actResult := hsm.updateSSHKey()
 	if _, complete := actResult.(actionComplete); !complete {
@@ -82,7 +87,31 @@ func (hsm *hostStateMachine) ReconcileState(ctx context.Context) (actionRes acti
 	return actionError{fmt.Errorf("no handler found for state \"%s\"", initialState)}
 }
 
+func (hsm *hostStateMachine) checkInitiateDelete() bool {
+	if hsm.host.DeletionTimestamp.IsZero() {
+		// Delete not requested
+		return false
+	}
+
+	switch hsm.nextState {
+	default:
+		hsm.nextState = infrav1.StateDeleting
+	case infrav1.StateRegistering, infrav1.StateImageInstalling, infrav1.StateProvisioning,
+		infrav1.StateEnsureProvisioned, infrav1.StateProvisioned:
+		hsm.nextState = infrav1.StateDeprovisioning
+	case infrav1.StateDeprovisioning:
+		// Continue deprovisioning.
+		return false
+	}
+	return true
+}
+
 func (hsm *hostStateMachine) updateSSHKey() actionResult {
+	// Skip if deprovisioning
+	if hsm.host.Spec.Status.ProvisioningState == infrav1.StateDeprovisioning {
+		return actionComplete{}
+	}
+
 	// Get ssh key secrets from secret
 	osSSHSecret, rescueSSHSecret := hsm.reconciler.getSSHKeysAndUpdateStatus()
 
@@ -107,28 +136,31 @@ func (hsm *hostStateMachine) updateSSHKey() actionResult {
 		}
 	}
 
-	if !hsm.host.Spec.Status.SSHStatus.CurrentRescue.Match(*rescueSSHSecret) {
-		// Take action depending on state
-		switch hsm.nextState {
-		case infrav1.StateRegistering, infrav1.StateAvailable, infrav1.StateImageInstalling:
-			hsm.log.Info("Attention: Going back to state none as rescue secret was updated", "state", hsm.nextState,
-				"currentRescue", hsm.host.Spec.Status.SSHStatus.CurrentRescue)
-			hsm.nextState = infrav1.StateNone
-		case infrav1.StateDeprovisioning:
-			// Remove all possible information of the bare metal machine from host and then go to StateNone
-			hsm.reconciler.actionDeprovisioning()
-			hsm.log.Info("Attention: Going back to state none as rescue secret was updated", "state", hsm.nextState,
-				"currentRescue", hsm.host.Spec.Status.SSHStatus.CurrentRescue)
-			hsm.nextState = infrav1.StateNone
+	if rescueSSHSecret != nil {
+		if !hsm.host.Spec.Status.SSHStatus.CurrentRescue.Match(*rescueSSHSecret) {
+			// Take action depending on state
+			switch hsm.nextState {
+			case infrav1.StatePreparing, infrav1.StateRegistering, infrav1.StateImageInstalling:
+				hsm.log.Info("Attention: Going back to state none as rescue secret was updated", "state", hsm.nextState,
+					"currentRescue", hsm.host.Spec.Status.SSHStatus.CurrentRescue)
+				hsm.nextState = infrav1.StateNone
+			}
+			hsm.host.UpdateRescueSSHStatus(*rescueSSHSecret)
 		}
-		hsm.host.UpdateRescueSSHStatus(*rescueSSHSecret)
+		actResult := hsm.reconciler.validateSSHKey(rescueSSHSecret, "rescue")
+		if _, complete := actResult.(actionComplete); !complete {
+			return actResult
+		}
 	}
-
-	return hsm.reconciler.validateSSHKey(rescueSSHSecret, "rescue")
+	return actionComplete{}
 }
 
-func (hsm *hostStateMachine) handleNone() actionResult {
-	actResult := hsm.reconciler.actionNone()
+func (hsm *hostStateMachine) handlePreparing() actionResult {
+	if hsm.provisioningCancelled() {
+		hsm.nextState = infrav1.StateDeprovisioning
+		return actionComplete{}
+	}
+	actResult := hsm.reconciler.actionPreparing()
 	if _, ok := actResult.(actionComplete); ok {
 		hsm.nextState = infrav1.StateRegistering
 	}
@@ -136,21 +168,17 @@ func (hsm *hostStateMachine) handleNone() actionResult {
 }
 
 func (hsm *hostStateMachine) handleRegistering() actionResult {
+	if hsm.provisioningCancelled() {
+		hsm.nextState = infrav1.StateDeprovisioning
+		return actionComplete{}
+	}
 	actResult := hsm.reconciler.actionEnsureCorrectBoot(rescue, nil)
 	if _, ok := actResult.(actionComplete); ok {
 		actResult := hsm.reconciler.actionRegistering()
 		if _, ok := actResult.(actionComplete); ok {
-			hsm.nextState = infrav1.StateAvailable
+			hsm.nextState = infrav1.StateImageInstalling
 		}
 		return actResult
-	}
-	return actResult
-}
-
-func (hsm *hostStateMachine) handleAvailable() actionResult {
-	actResult := hsm.reconciler.actionAvailable()
-	if _, ok := actResult.(actionComplete); ok {
-		hsm.nextState = infrav1.StateImageInstalling
 	}
 	return actResult
 }
@@ -222,10 +250,14 @@ func (hsm *hostStateMachine) handleProvisioned() actionResult {
 func (hsm *hostStateMachine) handleDeprovisioning() actionResult {
 	actResult := hsm.reconciler.actionDeprovisioning()
 	if _, ok := actResult.(actionComplete); ok {
-		hsm.nextState = infrav1.StateAvailable
+		hsm.nextState = infrav1.StateNone
 		return actionComplete{}
 	}
 	return actResult
+}
+
+func (hsm *hostStateMachine) handleDeleting() actionResult {
+	return hsm.reconciler.actionDeleting()
 }
 
 func (hsm *hostStateMachine) provisioningCancelled() bool {

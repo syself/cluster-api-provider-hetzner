@@ -28,6 +28,7 @@ settings = {
         "HCLOUD_REGION": "fsn1",
         "CONTROL_PLANE_MACHINE_COUNT": "3",
         "WORKER_MACHINE_COUNT": "3",
+        "BM_WORKER_MACHINE_COUNT": "3",
         "KUBERNETES_VERSION": "v1.21.1",
         "HCLOUD_IMAGE_NAME": "test-image",
         "HCLOUD_CONTROL_PLANE_MACHINE_TYPE": "cpx31",
@@ -190,6 +191,11 @@ def caph():
     k8s_resource(
         objects = [
             "cluster-api-provider-hetzner-system:namespace",
+            "hetznerbaremetalhosts.infrastructure.cluster.x-k8s.io:customresourcedefinition",
+            "hetznerbaremetalmachines.infrastructure.cluster.x-k8s.io:customresourcedefinition",
+            "hetznerbaremetalmachinetemplates.infrastructure.cluster.x-k8s.io:customresourcedefinition",
+            "hetznerbaremetalremediations.infrastructure.cluster.x-k8s.io:customresourcedefinition",
+            "hetznerbaremetalremediationtemplates.infrastructure.cluster.x-k8s.io:customresourcedefinition",
             "hcloudmachines.infrastructure.cluster.x-k8s.io:customresourcedefinition",
             "hcloudmachinetemplates.infrastructure.cluster.x-k8s.io:customresourcedefinition",
             "hetznerclusters.infrastructure.cluster.x-k8s.io:customresourcedefinition",
@@ -209,6 +215,19 @@ def caph():
         new_name = "caph-misc",
         labels = ["CAPH"],
     )
+
+    if os.path.exists('baremetalhosts.yaml'):
+        k8s_custom_deploy(
+            'baremetal-hosts',
+            deps=['caph-controller-manager', 'caph-misc'],
+            apply_cmd="kubectl apply -f baremetalhosts.yaml 1>&2",
+            delete_cmd="kubectl delete -f baremetalhosts.yaml")
+        k8s_resource(
+            'baremetal-hosts',
+            labels=['CAPH'],
+            resource_deps=['caph-controller-manager', 'caph-misc']
+        )
+
 
 def base64_encode(to_encode):
     encode_blob = local("echo '{}' | tr -d '\n' | base64 - | tr -d '\n'".format(to_encode), quiet = True)

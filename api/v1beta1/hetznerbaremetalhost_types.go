@@ -95,11 +95,11 @@ const (
 	// StateNone means the state is unknown.
 	StateNone ProvisioningState = ""
 
-	// StateRegistering means we are checking if server exists in robot api and get hardware details.
-	StateRegistering ProvisioningState = "registering"
+	// StatePreparing means we are checking if server exists and prepare it.
+	StatePreparing ProvisioningState = "preparing"
 
-	// StateAvailable means the server is registered and waits for provisioning.
-	StateAvailable ProvisioningState = "available"
+	// StateRegistering means we are getting hardware details.
+	StateRegistering ProvisioningState = "registering"
 
 	// StateImageInstalling means we install a new image.
 	StateImageInstalling ProvisioningState = "image-installing"
@@ -115,6 +115,9 @@ const (
 
 	// StateDeprovisioning means we are removing all machine-specific information from host.
 	StateDeprovisioning ProvisioningState = "deprovisioning"
+
+	// StateDeleting means we are deleting the host.
+	StateDeleting ProvisioningState = "deleting"
 )
 
 // RebootType defines the reboot type of servers via Hetzner robot API.
@@ -159,10 +162,6 @@ type HetznerBareMetalHostSpec struct {
 	// +optional
 	Description string `json:"description,omitempty"`
 
-	// HetznerClusterRef is the name of the HetznerCluster object which is
-	// needed as some necessary information is stored there, e.g. the hrobot password
-	HetznerClusterRef string `json:"hetznerClusterRef"`
-
 	// Status contains all status information. DO NOT EDIT!!!
 	// +optional
 	Status ControllerGeneratedStatus `json:"status,omitempty"`
@@ -170,6 +169,10 @@ type HetznerBareMetalHostSpec struct {
 
 // ControllerGeneratedStatus contains all status information which is important to persist.
 type ControllerGeneratedStatus struct {
+	// HetznerClusterRef is the name of the HetznerCluster object which is
+	// needed as some necessary information is stored there, e.g. the hrobot password
+	HetznerClusterRef string `json:"hetznerClusterRef"`
+
 	// UserData holds the reference to the Secret containing the user
 	// data to be passed to the host before it boots.
 	// +optional
@@ -212,7 +215,8 @@ type ControllerGeneratedStatus struct {
 	ErrorCount int `json:"errorCount"`
 
 	// Information tracked by the provisioner.
-	ProvisioningState ProvisioningState `json:"provisioningState"`
+	// +optional
+	ProvisioningState ProvisioningState `json:"provisioningState,omitempty"`
 
 	// the last error message reported by the provisioning subsystem.
 	// +optional

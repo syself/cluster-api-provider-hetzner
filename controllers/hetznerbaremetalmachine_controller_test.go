@@ -293,7 +293,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				if err := testEnv.Get(ctx, hostKey, host); err != nil {
 					return false
 				}
-				return host.Spec.Status.ProvisioningState == infrav1.StateAvailable
+				return host.Spec.Status.ProvisioningState == infrav1.StateNone
 			}, timeout, time.Second).Should(BeTrue())
 		})
 
