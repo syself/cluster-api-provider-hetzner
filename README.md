@@ -50,6 +50,7 @@ If you're looking to jump straight into it, go ahead:
 
 * [**Cluster API Provider Hetzner 15 Minute Tutorial**](docs/topics/quickstart.md): Set up a bootstrap cluster using Kind and deploy a Kubernetes cluster on Hetzner
 * [**Develop and test Kubernetes clusters with Tilt**](docs/developers/development.md): Start using Tilt for rapid testing of various cluster flavors, like with/without a private network.
+* [**Develop and test own node-images**](docs/topics/node-image.md): How to Use your own machine images for production systems.
 
 In addition to the pure creation and operation of Kubernetes clusters, this provider can also validate and approve certificate signing requests. This increases security as the kubelets of the nodes can be operated with signed certificates. [Click here](docs/topics/csr-controller.md) to read more about the CSR controller.
 ## :fire: Compatibility with Cluster API and Kubernetes Versions
@@ -82,7 +83,7 @@ Each version of Cluster API for Hetzner will attempt to support at least two Kub
 
 
 ## :white_square_button: Operating system images
-**Note**: Cluster API Provider Hetzner relies on a few prerequisites, which have to be already installed in the used operating system images, e.g. a container runtime, kubelet, and Kubeadm. Reference images can be found in kubernetes-sigs/image-builder and [templates/node-image](templates/node-image). If it isn't possible to pre-install these prerequisites in the image, you can always deploy and execute some custom scripts through the Kubeadm config.
+**Note**: Cluster API Provider Hetzner relies on a few prerequisites, which have to be already installed in the used operating system images, e.g. a container runtime, kubelet, and Kubeadm. Reference images can be found in kubernetes-sigs/image-builder and [templates/node-image](templates/node-image). If it isn't possible to pre-install these prerequisites in the image, you can always deploy and execute some custom scripts through the Kubeadm config. [Read more...](docs/topics/node-image.md)
 
 ---
 ## :book: Documentation

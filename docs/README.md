@@ -7,6 +7,7 @@
 
 ## Topics
 - [CSR Controller](topics/csr-controller.md)
+- [Node Images](topics/node-image.md)
 ## Development
 
 - [Development guide](developers/development.md)
