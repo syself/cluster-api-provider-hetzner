@@ -64,7 +64,11 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 	}
 
 	// update current status
-	lbStatus := apiToStatus(lb, s.scope.HetznerCluster.Status.Network != nil)
+	lbStatus, err := apiToStatus(lb, s.scope.HetznerCluster.Status.Network != nil)
+	if err != nil {
+		return errors.Wrap(err, "failed to get status from api object")
+	}
+
 	s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer = &lbStatus
 
 	// Check whether load balancer name, algorithm or type has been changed
@@ -364,7 +368,7 @@ func (s *Service) findLoadBalancer(ctx context.Context) (*hcloud.LoadBalancer, e
 }
 
 // gets the information of the Hetzner load balancer object and returns it in our status object.
-func apiToStatus(lb *hcloud.LoadBalancer, hasNetwork bool) infrav1.LoadBalancerStatus {
+func apiToStatus(lb *hcloud.LoadBalancer, hasNetwork bool) (infrav1.LoadBalancerStatus, error) {
 	ipv4 := lb.PublicNet.IPv4.IP.String()
 	ipv6 := lb.PublicNet.IPv6.IP.String()
 
@@ -373,9 +377,24 @@ func apiToStatus(lb *hcloud.LoadBalancer, hasNetwork bool) infrav1.LoadBalancerS
 		internalIP = lb.PrivateNet[0].IP.String()
 	}
 
-	targetIDs := make([]int, 0, len(lb.Targets))
-	for _, server := range lb.Targets {
-		targetIDs = append(targetIDs, server.Server.Server.ID)
+	targets := make([]infrav1.LoadBalancerTarget, 0, len(lb.Targets))
+	for _, target := range lb.Targets {
+		switch target.Type {
+		case hcloud.LoadBalancerTargetTypeServer:
+			targets = append(targets, infrav1.LoadBalancerTarget{
+				Type:     infrav1.LoadBalancerTargetTypeServer,
+				ServerID: target.Server.Server.ID,
+			},
+			)
+		case hcloud.LoadBalancerTargetTypeIP:
+			targets = append(targets, infrav1.LoadBalancerTarget{
+				Type: infrav1.LoadBalancerTargetTypeIP,
+				IP:   target.IP.IP,
+			},
+			)
+		default:
+			return infrav1.LoadBalancerStatus{}, fmt.Errorf("unknown load balancer target type %s", target.Type)
+		}
 	}
 
 	return infrav1.LoadBalancerStatus{
@@ -383,7 +402,7 @@ func apiToStatus(lb *hcloud.LoadBalancer, hasNetwork bool) infrav1.LoadBalancerS
 		IPv4:       ipv4,
 		IPv6:       ipv6,
 		InternalIP: internalIP,
-		Target:     targetIDs,
+		Target:     targets,
 		Protected:  lb.Protection.Delete,
-	}
+	}, nil
 }

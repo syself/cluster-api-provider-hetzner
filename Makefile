@@ -599,6 +599,14 @@ create-workload-cluster-baremetal: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workloa
 	$(MAKE) wait-and-get-secret
 	$(MAKE) install-manifests PRIVATE_NETWORK=false
 
+create-workload-cluster-pure-baremetal: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
+	# Create workload Cluster.
+	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD_TOKEN) --from-literal=robot-user=$(HETZNER_ROBOT_USER) --from-literal=robot-password=$(HETZNER_ROBOT_PASSWORD) --save-config --dry-run=client -o yaml | kubectl apply -f -
+	kubectl create secret generic robot-ssh --from-literal=sshkey-name=cluster --from-file=ssh-privatekey=${HETZNER_SSH_PRIV_PATH} --from-file=ssh-publickey=${HETZNER_SSH_PUB_PATH} --save-config --dry-run=client -o yaml | kubectl apply -f -
+	cat templates/cluster-template-baremetal-control-planes.yaml | $(ENVSUBST) - | kubectl apply -f -
+	$(MAKE) wait-and-get-secret
+	$(MAKE) install-manifests PRIVATE_NETWORK=false
+
 move-to-workload-cluster:
 	clusterctl init --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) --core cluster-api --bootstrap kubeadm --control-plane kubeadm --infrastructure hetzner
 	kubectl --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) -n cluster-api-provider-hetzner-system wait deploy/caph-controller-manager --for condition=available && sleep 15s

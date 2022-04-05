@@ -168,7 +168,7 @@ var _ = Describe("Load balancer", func() {
 		Expect(hcloud.IsError(err, hcloud.ErrorCodeNotFound)).To(BeTrue())
 	})
 
-	It("adds a target to load balancer successfully", func() {
+	It("adds a server target to load balancer successfully", func() {
 		Expect(len(lb.Targets)).To(Equal(0))
 		_, err := client.AddTargetServerToLoadBalancer(ctx, hcloud.LoadBalancerAddServerTargetOpts{
 			Server: &hcloud.Server{
@@ -183,7 +183,20 @@ var _ = Describe("Load balancer", func() {
 		Expect(resp[0].Targets[0].Server.Server.ID).To(Equal(42))
 	})
 
-	It("gives a AlreadyAdded error when a target is added twice", func() {
+	It("adds an IP target to load balancer successfully", func() {
+		Expect(len(lb.Targets)).To(Equal(0))
+		_, err := client.AddIPTargetToLoadBalancer(ctx, hcloud.LoadBalancerAddIPTargetOpts{
+			IP: net.ParseIP("1.2.3.4"),
+		}, lb)
+		Expect(err).To(Succeed())
+		resp, err := client.ListLoadBalancers(ctx, listOpts)
+		Expect(err).To(BeNil())
+		Expect(len(resp)).To(Equal(1))
+		Expect(len(resp[0].Targets)).To(Equal(1))
+		Expect(resp[0].Targets[0].IP.IP).To(Equal("1.2.3.4"))
+	})
+
+	It("gives a AlreadyAdded error when a server target is added twice", func() {
 		_, err := client.AddTargetServerToLoadBalancer(ctx, hcloud.LoadBalancerAddServerTargetOpts{
 			Server: &hcloud.Server{
 				ID: 42,
@@ -199,6 +212,18 @@ var _ = Describe("Load balancer", func() {
 		Expect(hcloud.IsError(err, hcloud.ErrorCodeServerAlreadyAdded)).To(BeTrue())
 	})
 
+	It("gives a AlreadyAdded error when an IP target is added twice", func() {
+		_, err := client.AddIPTargetToLoadBalancer(ctx, hcloud.LoadBalancerAddIPTargetOpts{
+			IP: net.ParseIP("1.2.3.4"),
+		}, lb)
+		Expect(err).To(BeNil())
+		_, err = client.AddIPTargetToLoadBalancer(ctx, hcloud.LoadBalancerAddIPTargetOpts{
+			IP: net.ParseIP("1.2.3.4"),
+		}, lb)
+		Expect(err).ToNot(BeNil())
+		Expect(hcloud.IsError(err, hcloud.ErrorCodeServerAlreadyAdded)).To(BeTrue())
+	})
+
 	It("gives a NotFound error when a target is added to a non-existing load balancer", func() {
 		_, err := client.AddTargetServerToLoadBalancer(ctx, hcloud.LoadBalancerAddServerTargetOpts{
 			Server: &hcloud.Server{
@@ -209,7 +234,7 @@ var _ = Describe("Load balancer", func() {
 		Expect(hcloud.IsError(err, hcloud.ErrorCodeNotFound)).To(BeTrue())
 	})
 
-	It("adds and deletes a target of load balancer successfully", func() {
+	It("adds and deletes a server target of load balancer successfully", func() {
 		server := &hcloud.Server{
 			ID: 42,
 		}
@@ -222,6 +247,23 @@ var _ = Describe("Load balancer", func() {
 		Expect(len(resp)).To(Equal(1))
 		Expect(len(resp[0].Targets)).To(Equal(1))
 		_, err = client.DeleteTargetServerOfLoadBalancer(ctx, lb, server)
+		Expect(err).To(Succeed())
+		resp2, err := client.ListLoadBalancers(ctx, listOpts)
+		Expect(err).To(BeNil())
+		Expect(len(resp2)).To(Equal(1))
+		Expect(len(resp2[0].Targets)).To(Equal(0))
+	})
+
+	It("adds and deletes an IP target of load balancer successfully", func() {
+		_, err := client.AddIPTargetToLoadBalancer(ctx, hcloud.LoadBalancerAddIPTargetOpts{
+			IP: net.ParseIP("1.2.3.4"),
+		}, lb)
+		Expect(err).To(Succeed())
+		resp, err := client.ListLoadBalancers(ctx, listOpts)
+		Expect(err).To(BeNil())
+		Expect(len(resp)).To(Equal(1))
+		Expect(len(resp[0].Targets)).To(Equal(1))
+		_, err = client.DeleteIPTargetOfLoadBalancer(ctx, lb, net.ParseIP("1.2.3.4"))
 		Expect(err).To(Succeed())
 		resp2, err := client.ListLoadBalancers(ctx, listOpts)
 		Expect(err).To(BeNil())

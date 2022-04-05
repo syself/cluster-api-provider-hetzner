@@ -355,8 +355,11 @@ spec:
                     - image
                     - partitions
                     type: object
-                  ip:
-                    description: IP address of server.
+                  ipv4:
+                    description: IPv4 address of server.
+                    type: string
+                  ipv6:
+                    description: IPv6 address of server.
                     type: string
                   lastUpdated:
                     description: the last error message reported by the provisioning

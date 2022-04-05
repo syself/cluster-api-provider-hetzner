@@ -142,10 +142,10 @@ func WithSSHStatus() HostOpts {
 	}
 }
 
-// WithIP gives the option to define a host with IP.
-func WithIP() HostOpts {
+// WithIPv4 gives the option to define a host with IP.
+func WithIPv4() HostOpts {
 	return func(host *infrav1.HetznerBareMetalHost) {
-		host.Spec.Status.IP = "1.2.3.4"
+		host.Spec.Status.IPv4 = "1.2.3.4"
 	}
 }
 

@@ -539,8 +539,8 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 	}
 
 	// If already attached do nothing
-	for _, id := range s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target {
-		if id == server.ID {
+	for _, target := range s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target {
+		if target.Type == infrav1.LoadBalancerTargetTypeServer && target.ServerID == server.ID {
 			return nil
 		}
 	}

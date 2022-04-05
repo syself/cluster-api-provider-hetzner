@@ -157,6 +157,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 		robotClient.On("SetBootRescue", 1, mock.Anything).Return(&models.Rescue{Active: true}, nil)
 		robotClient.On("DeleteBootRescue", 1).Return(&models.Rescue{Active: false}, nil)
 		robotClient.On("RebootBMServer", mock.Anything, mock.Anything).Return(&models.ResetPost{}, nil)
+		robotClient.On("SetBMServerName", mock.Anything, mock.Anything).Return(nil, nil)
 
 		configureRescueSSHClient(rescueSSHClient)
 

@@ -23,7 +23,9 @@ import (
 	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
+	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/baremetal"
+	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -43,7 +45,9 @@ import (
 // HetznerBareMetalMachineReconciler reconciles a HetznerBareMetalMachine object.
 type HetznerBareMetalMachineReconciler struct {
 	client.Client
-	WatchFilterValue string
+	APIReader           client.Reader
+	HCloudClientFactory hcloudclient.Factory
+	WatchFilterValue    string
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalmachines,verbs=get;list;watch;create;update;patch;delete
@@ -107,11 +111,22 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req c
 	}
 
 	// Create the scope.
+	secretManager := secretutil.NewSecretManager(log, r.Client, r.APIReader)
+	hcloudToken, _, err := getAndValidateHCloudToken(ctx, req.Namespace, hetznerCluster, secretManager)
+	if err != nil {
+		return hcloudTokenErrorResult(ctx, err, hbmMachine, infrav1.InstanceReadyCondition, r.Client)
+	}
+
+	hcc := r.HCloudClientFactory.NewClient(hcloudToken)
+
+	// Create the scope.
 	machineScope, err := scope.NewBareMetalMachineScope(ctx, scope.BareMetalMachineScopeParams{
 		Client:           r.Client,
 		Logger:           &log,
 		Machine:          machine,
 		BareMetalMachine: hbmMachine,
+		HetznerCluster:   hetznerCluster,
+		HCloudClient:     hcc,
 	})
 	if err != nil {
 		return reconcile.Result{}, errors.Errorf("failed to create scope: %+v", err)

@@ -25,6 +25,7 @@ import (
 	"github.com/hetznercloud/hcloud-go/hcloud/schema"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
 
 var lb *hcloud.LoadBalancer
@@ -205,7 +206,16 @@ const ipv6 = "2001:db8::1"
 const protected = false
 const internalIP = "10.0.0.2"
 
-var targetIDs = []int{80, 81}
+var targets = []infrav1.LoadBalancerTarget{
+	{
+		Type:     infrav1.LoadBalancerTargetTypeServer,
+		ServerID: 80,
+	},
+	{
+		Type:     infrav1.LoadBalancerTargetTypeServer,
+		ServerID: 81,
+	},
+}
 
 func TestLoadbalancer(t *testing.T) {
 	RegisterFailHandler(Fail)

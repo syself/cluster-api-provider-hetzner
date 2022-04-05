@@ -21,10 +21,13 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"net"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/hetznercloud/hcloud-go/hcloud"
 	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
@@ -55,7 +58,7 @@ const (
 
 const (
 	// ProviderIDPrefix is a prefix for ProviderID.
-	ProviderIDPrefix = "hetzner://"
+	ProviderIDPrefix = "hcloud://"
 	// requeueAfter gives the duration of time until the next reconciliation should be performed.
 	requeueAfter = time.Second * 30
 
@@ -116,7 +119,7 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 			return s.checkMachineError(err, "failed to get the providerID for the bareMetalMachine", errType)
 		}
 		if bmhID != nil {
-			providerID = fmt.Sprintf("%s%s", ProviderIDPrefix, *bmhID)
+			providerID = fmt.Sprintf("%s%s%s", ProviderIDPrefix, infrav1.BareMetalHostNamePrefix, *bmhID)
 		}
 	}
 	if bmhID != nil {
@@ -139,6 +142,12 @@ func (s *Service) Delete(ctx context.Context) (_ *ctrl.Result, err error) {
 	}
 
 	if host != nil && host.Spec.ConsumerRef != nil {
+		if s.scope.IsControlPlane() {
+			if err := s.deleteServerOfLoadBalancer(ctx, host); err != nil {
+				return nil, errors.Errorf("Error while deleting attached server of loadbalancer: %s", err)
+			}
+		}
+
 		// don't remove the ConsumerRef if it references some other bareMetalMachine
 		if !consumerRefMatches(host.Spec.ConsumerRef, s.scope.BareMetalMachine) {
 			s.scope.Info("host already associated with another bareMetalMachine",
@@ -260,6 +269,12 @@ func (s *Service) update(ctx context.Context, log logr.Logger) error {
 		return err
 	}
 
+	if s.scope.IsControlPlane() {
+		if err := s.reconcileLoadBalancerAttachment(ctx, host); err != nil {
+			return errors.Wrap(err, "failed to reconcile load balancer attachement")
+		}
+	}
+
 	err = s.ensureAnnotation(host)
 	if err != nil {
 		return err
@@ -268,6 +283,111 @@ func (s *Service) update(ctx context.Context, log logr.Logger) error {
 	s.updateMachineStatus(host)
 
 	log.Info("Finished updating machine")
+	return nil
+}
+
+func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *infrav1.HetznerBareMetalHost) error {
+	log := ctrl.LoggerFrom(ctx)
+
+	if s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer == nil {
+		return nil
+	}
+
+	// IPv4 and IPv6 might be empty
+	var foundIPv4 bool
+	if host.Spec.Status.IPv4 == "" {
+		foundIPv4 = true
+	}
+	var foundIPv6 bool
+	if host.Spec.Status.IPv6 == "" {
+		foundIPv6 = true
+	}
+
+	for _, target := range s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target {
+		if target.Type == infrav1.LoadBalancerTargetTypeIP {
+			if target.IP == host.Spec.Status.IPv4 {
+				foundIPv4 = true
+			} else if target.IP == host.Spec.Status.IPv6 {
+				foundIPv6 = true
+			}
+		}
+	}
+
+	// If already attached do nothing
+	if foundIPv4 && foundIPv6 {
+		return nil
+	}
+
+	log.V(1).Info("Reconciling load balancer attachement", "targets", s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target)
+
+	targetIPs := make([]string, 0, 2)
+	if !foundIPv4 {
+		targetIPs = append(targetIPs, host.Spec.Status.IPv4)
+	}
+	if !foundIPv6 {
+		targetIPs = append(targetIPs, host.Spec.Status.IPv6)
+	}
+
+	for _, ip := range targetIPs {
+		loadBalancerAddIPTargetOpts := hcloud.LoadBalancerAddIPTargetOpts{
+			IP: net.ParseIP(ip),
+		}
+
+		if _, err := s.scope.HCloudClient.AddIPTargetToLoadBalancer(
+			ctx,
+			loadBalancerAddIPTargetOpts,
+			&hcloud.LoadBalancer{
+				ID: s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID,
+			}); err != nil {
+			if hcloud.IsError(err, hcloud.ErrorCodeTargetAlreadyDefined) {
+				return nil
+			}
+			s.scope.V(1).Info("Could not add ip as target to load balancer",
+				"Server", host.Spec.ServerID, "ip", ip, "Load Balancer", s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID)
+			return err
+		}
+
+		record.Eventf(
+			s.scope.HetznerCluster,
+			"AddedAsTargetToLoadBalancer",
+			"Added new target with server number %d and with ip %s to the loadbalancer %v",
+			host.Spec.ServerID, ip, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID)
+	}
+	return nil
+}
+
+func (s *Service) deleteServerOfLoadBalancer(ctx context.Context, host *infrav1.HetznerBareMetalHost) error {
+	if _, err := s.scope.HCloudClient.DeleteIPTargetOfLoadBalancer(
+		ctx,
+		&hcloud.LoadBalancer{
+			ID: s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID,
+		},
+		net.ParseIP(host.Spec.Status.IPv4)); err != nil {
+		if !strings.Contains(err.Error(), "load_balancer_target_not_found") {
+			s.scope.Info("Could not delete server IPv4 as target of load balancer",
+				"Server", host.Spec.ServerID, "IP", host.Spec.Status.IPv4, "Load Balancer", s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID)
+			return err
+		}
+	}
+
+	if _, err := s.scope.HCloudClient.DeleteIPTargetOfLoadBalancer(
+		ctx,
+		&hcloud.LoadBalancer{
+			ID: s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID,
+		},
+		net.ParseIP(host.Spec.Status.IPv6)); err != nil {
+		if !strings.Contains(err.Error(), "load_balancer_target_not_found") {
+			s.scope.Info("Could not delete server IPv6 as target of load balancer",
+				"Server", host.Spec.ServerID, "IP", host.Spec.Status.IPv6, "Load Balancer", s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID)
+			return err
+		}
+	}
+	record.Eventf(
+		s.scope.HetznerCluster,
+		"DeletedTargetOfLoadBalancer",
+		"Deleted new server with id %d and ipv4 %s and host.Spec.Status.IPv6 %s of the loadbalancer %v",
+		host.Spec.Status.IPv4, host.Spec.Status.IPv6, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID)
+
 	return nil
 }
 
@@ -494,7 +614,7 @@ func (s *Service) GetBaremetalHostID(ctx context.Context) (*string, error) {
 		return nil, &scope.RequeueAfterError{RequeueAfter: requeueAfter}
 	}
 	if host.Spec.Status.ProvisioningState == infrav1.StateProvisioned {
-		return pointer.StringPtr(string(host.ObjectMeta.UID)), nil
+		return pointer.StringPtr(strconv.Itoa(host.Spec.ServerID)), nil
 	}
 	s.scope.Logger.Info("Provisioning BaremetalHost, requeuing")
 	// Do not requeue since BMH update will trigger a reconciliation

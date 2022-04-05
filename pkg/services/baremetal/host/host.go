@@ -214,7 +214,8 @@ func (s *Service) actionNone() actionResult {
 		return actionError{err: errors.Wrap(err, "failed to get bare metal server")}
 	}
 
-	s.scope.HetznerBareMetalHost.Spec.Status.IP = server.ServerIP
+	s.scope.HetznerBareMetalHost.Spec.Status.IPv4 = server.ServerIP
+	s.scope.HetznerBareMetalHost.Spec.Status.IPv6 = server.ServerIPv6Net + "1"
 
 	sshKey, actResult := s.ensureSSHKey(s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef, s.scope.RescueSSHSecret)
 	if _, complete := actResult.(actionComplete); !complete {
@@ -274,6 +275,13 @@ func (s *Service) actionNone() actionResult {
 	s.scope.SetErrorCount(0)
 	clearError(s.scope.HetznerBareMetalHost)
 	return actionComplete{}
+}
+
+func getIPAddress(status infrav1.ControllerGeneratedStatus) string {
+	if status.IPv4 == "" {
+		return status.IPv6
+	}
+	return status.IPv4
 }
 
 func (s *Service) ensureSSHKey(sshSecretRef infrav1.SSHSecretRef, sshSecret *corev1.Secret) (infrav1.SSHKey, actionResult) {
@@ -403,7 +411,7 @@ func (s *Service) getMainSSHClient(hostName string, osSSHPort *int) sshclient.Cl
 	in := sshclient.Input{
 		PrivateKey: privateSSHKey,
 		Port:       port,
-		IP:         s.scope.HetznerBareMetalHost.Spec.Status.IP,
+		IP:         getIPAddress(s.scope.HetznerBareMetalHost.Spec.Status),
 	}
 	return s.scope.SSHClientFactory.NewClient(in)
 }
@@ -424,7 +432,7 @@ func (s *Service) getSecondarySSHClient(hostName string, osSSHPort *int) sshclie
 		in := sshclient.Input{
 			PrivateKey: privateSSHKey,
 			Port:       port,
-			IP:         s.scope.HetznerBareMetalHost.Spec.Status.IP,
+			IP:         getIPAddress(s.scope.HetznerBareMetalHost.Spec.Status),
 		}
 		return s.scope.SSHClientFactory.NewClient(in)
 	}
@@ -702,7 +710,7 @@ func (s *Service) actionRegistering() actionResult {
 	in := sshclient.Input{
 		PrivateKey: creds.PrivateKey,
 		Port:       rescuePort,
-		IP:         s.scope.HetznerBareMetalHost.Spec.Status.IP,
+		IP:         getIPAddress(s.scope.HetznerBareMetalHost.Spec.Status),
 	}
 	sshClient := s.scope.SSHClientFactory.NewClient(in)
 
@@ -967,7 +975,7 @@ func (s *Service) actionImageInstalling() actionResult {
 	in := sshclient.Input{
 		PrivateKey: creds.PrivateKey,
 		Port:       rescuePort,
-		IP:         s.scope.HetznerBareMetalHost.Spec.Status.IP,
+		IP:         getIPAddress(s.scope.HetznerBareMetalHost.Spec.Status),
 	}
 	sshClient := s.scope.SSHClientFactory.NewClient(in)
 
@@ -1085,7 +1093,7 @@ func (s *Service) actionProvisioning() actionResult {
 	sshClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
 		PrivateKey: sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.SecretRef).PrivateKey,
 		Port:       s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterInstallImage,
-		IP:         s.scope.HetznerBareMetalHost.Spec.Status.IP,
+		IP:         getIPAddress(s.scope.HetznerBareMetalHost.Spec.Status),
 	})
 
 	out := sshClient.EnsureCloudInit()
@@ -1131,7 +1139,7 @@ func (s *Service) actionEnsureProvisioned() actionResult {
 	sshClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
 		PrivateKey: sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.SecretRef).PrivateKey,
 		Port:       s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterInstallImage,
-		IP:         s.scope.HetznerBareMetalHost.Spec.Status.IP,
+		IP:         getIPAddress(s.scope.HetznerBareMetalHost.Spec.Status),
 	})
 
 	out := sshClient.CloudInitStatus()
@@ -1169,7 +1177,7 @@ func (s *Service) actionProvisioned() actionResult {
 	in := sshclient.Input{
 		PrivateKey: creds.PrivateKey,
 		Port:       s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterCloudInit,
-		IP:         s.scope.HetznerBareMetalHost.Spec.Status.IP,
+		IP:         getIPAddress(s.scope.HetznerBareMetalHost.Spec.Status),
 	}
 	sshClient := s.scope.SSHClientFactory.NewClient(in)
 
