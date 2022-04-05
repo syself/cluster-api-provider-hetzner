@@ -33,7 +33,7 @@ test/e2e/data/infrastructure-hetzner/v1beta1/env*
 /tilt.d
 tilt-settings.json
 tilt_config.json
-
+baremetalhosts.yaml
 
 # kubeconfigs
 kind.kubeconfig
@@ -69,3 +69,4 @@ __pycache__/
 *.py[cod]
 *$py.class
 /_output
+

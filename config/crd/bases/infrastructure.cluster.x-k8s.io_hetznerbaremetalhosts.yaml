@@ -107,11 +107,6 @@ spec:
                 description: Description is a human-entered text used to help identify
                   the host
                 type: string
-              hetznerClusterRef:
-                description: HetznerClusterRef is the name of the HetznerCluster object
-                  which is needed as some necessary information is stored there, e.g.
-                  the hrobot password
-                type: string
               maintenanceMode:
                 description: MaintenanceMode indicates that a machine is supposed
                   to be deprovisioned and won't be selected by any Hetzner bare metal
@@ -241,6 +236,11 @@ spec:
                           type: object
                         type: array
                     type: object
+                  hetznerClusterRef:
+                    description: HetznerClusterRef is the name of the HetznerCluster
+                      object which is needed as some necessary information is stored
+                      there, e.g. the hrobot password
+                    type: string
                   installImage:
                     description: InstallImage is the configuration which is used for
                       the autosetup configuration for installing an OS via InstallImage.
@@ -504,10 +504,9 @@ spec:
                     type: object
                 required:
                 - errorCount
-                - provisioningState
+                - hetznerClusterRef
                 type: object
             required:
-            - hetznerClusterRef
             - serverID
             type: object
           status:

@@ -175,6 +175,11 @@ func (s *Service) Delete(ctx context.Context) (_ *ctrl.Result, err error) {
 			host.Spec.Status.SSHSpec = nil
 			bmhUpdated = true
 		}
+		emptySSHStatus := infrav1.SSHStatus{}
+		if host.Spec.Status.SSHStatus != emptySSHStatus {
+			host.Spec.Status.SSHStatus = infrav1.SSHStatus{}
+			bmhUpdated = true
+		}
 
 		if bmhUpdated {
 			// Update the BMH object, if the errors are NotFound, do not return the
@@ -188,17 +193,18 @@ func (s *Service) Delete(ctx context.Context) (_ *ctrl.Result, err error) {
 		}
 
 		waiting := true
-		switch host.Spec.Status.ProvisioningState {
-		case infrav1.StateRegistering, infrav1.StateAvailable, infrav1.StateNone:
+		if host.Spec.Status.ProvisioningState == infrav1.StateNone {
 			// Host is not provisioned.
 			waiting = false
 		}
 		if waiting {
-			s.scope.Info("Deprovisioning BaremetalHost, requeuing")
+			s.scope.Info("Deprovisioning BaremetalHost, requeuing", "host.Spec.Status.ProvisioningState", host.Spec.Status.ProvisioningState)
 			return nil, &scope.RequeueAfterError{RequeueAfter: requeueAfter}
 		}
 
 		host.Spec.ConsumerRef = nil
+		host.Spec.Status.HetznerClusterRef = ""
+		host.SetDeletionTimestamp(nil)
 
 		// Remove the ownerreference to this machine.
 		host.OwnerReferences, err = s.DeleteOwnerRef(host.OwnerReferences)
@@ -565,7 +571,7 @@ func (s *Service) chooseHost(ctx context.Context) (*infrav1.HetznerBareMetalHost
 
 		if labelSelector.Matches(labels.Set(host.ObjectMeta.Labels)) {
 			switch host.Spec.Status.ProvisioningState {
-			case infrav1.StateAvailable:
+			case infrav1.StateNone:
 			default:
 				continue
 			}
@@ -636,6 +642,7 @@ func (s *Service) setHostSpec(host *infrav1.HetznerBareMetalHost) {
 		host.Spec.Status.InstallImage = &s.scope.BareMetalMachine.Spec.InstallImage
 		host.Spec.Status.UserData = &corev1.SecretReference{Namespace: s.scope.Namespace(), Name: *s.scope.Machine.Spec.Bootstrap.DataSecretName}
 		host.Spec.Status.SSHSpec = &s.scope.BareMetalMachine.Spec.SSHSpec
+		host.Spec.Status.HetznerClusterRef = s.scope.HetznerCluster.Name
 	}
 }
 
@@ -665,13 +672,14 @@ func patchIfFound(ctx context.Context, helper *patch.Helper, host client.Object)
 
 // setHostConsumerRef will ensure the host's Spec is set to link to this Hetzner bare metalMachine.
 func (s *Service) setHostConsumerRef(host *infrav1.HetznerBareMetalHost) error {
-	host.Spec.ConsumerRef = &corev1.ObjectReference{
-		Kind:       "HetznerBareMetalMachine",
-		Name:       s.scope.BareMetalMachine.Name,
-		Namespace:  s.scope.BareMetalMachine.Namespace,
-		APIVersion: s.scope.BareMetalMachine.APIVersion,
+	if host.Spec.ConsumerRef == nil || host.Spec.ConsumerRef.Name != s.scope.BareMetalMachine.Name {
+		host.Spec.ConsumerRef = &corev1.ObjectReference{
+			Kind:       "HetznerBareMetalMachine",
+			Name:       s.scope.BareMetalMachine.Name,
+			Namespace:  s.scope.BareMetalMachine.Namespace,
+			APIVersion: s.scope.BareMetalMachine.APIVersion,
+		}
 	}
-
 	// Set OwnerReferences
 	hostOwnerReferences, err := s.SetOwnerRef(host.OwnerReferences, true)
 	if err != nil {
