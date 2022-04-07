@@ -333,23 +333,6 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				}, timeout).Should(BeTrue())
 			})
 		})
-
-		Context("without ssh keys", func() {
-			BeforeEach(func() {
-				infraCluster.Spec.SSHKeys = infrav1.HetznerSSHKeys{}
-				Expect(testEnv.Create(ctx, infraCluster)).To(Succeed())
-				Expect(testEnv.Create(ctx, infraMachine)).To(Succeed())
-			})
-
-			It("should show the expected reason for server not created", func() {
-				Eventually(func() bool {
-					if err := testEnv.Get(ctx, key, infraMachine); err != nil {
-						return false
-					}
-					return isPresentAndFalseWithReason(key, infraMachine, infrav1.InstanceReadyCondition, infrav1.InstanceHasNoValidSSHKeyReason)
-				}, timeout).Should(BeTrue())
-			})
-		})
 	})
 })
 

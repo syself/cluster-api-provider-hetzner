@@ -230,14 +230,7 @@ func (s *Service) createServer(ctx context.Context, failureDomain string) (*hclo
 	if err != nil {
 		return nil, errors.Wrap(err, "error with ssh keys")
 	}
-	if len(sshKeys) == 0 {
-		conditions.MarkFalse(s.scope.HCloudMachine,
-			infrav1.InstanceReadyCondition,
-			infrav1.InstanceHasNoValidSSHKeyReason,
-			clusterv1.ConditionSeverityError,
-			"No valid SSH key")
-		return nil, errors.New("no valid ssh key on server creation")
-	}
+
 	opts.SSHKeys = sshKeys
 
 	// set up network if available
