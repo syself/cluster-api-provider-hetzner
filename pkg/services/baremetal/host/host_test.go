@@ -1244,6 +1244,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 			sshMock.On("GetHostName").Return(sshclient.Output{StdOut: infrav1.BareMetalHostNamePrefix + host.Spec.ConsumerRef.Name})
 			sshMock.On("Reboot").Return(sshclient.Output{})
 			sshMock.On("CloudInitStatus").Return(sshclient.Output{StdOut: cloudInitStatus})
+			sshMock.On("CheckCloudInitLogsForSigTerm").Return(sshclient.Output{})
 
 			robotMock := robotmock.Client{}
 			robotMock.On("SetBMServerName", bareMetalHostID, infrav1.BareMetalHostNamePrefix+host.Spec.ConsumerRef.Name).Return(nil, nil)
@@ -1301,6 +1302,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 			sshMock.On("GetHostName").Return(getHostNameOutput)
 			sshMock.On("Reboot").Return(sshclient.Output{})
 			sshMock.On("CloudInitStatus").Return(sshclient.Output{StdOut: "status: done"})
+			sshMock.On("CheckCloudInitLogsForSigTerm").Return(sshclient.Output{})
 
 			robotMock := robotmock.Client{}
 			robotMock.On("SetBMServerName", bareMetalHostID, infrav1.BareMetalHostNamePrefix+host.Spec.ConsumerRef.Name).Return(nil, nil)

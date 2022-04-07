@@ -246,12 +246,22 @@ func (s *Service) update(ctx context.Context, log logr.Logger) error {
 		return errors.Errorf("host not found for machine %s", s.scope.Machine.Name)
 	}
 
-	if host.Spec.MaintenanceMode {
+	if host.Spec.MaintenanceMode && s.scope.BareMetalMachine.Status.FailureReason == nil {
 		s.scope.BareMetalMachine.SetFailure(capierrors.UpdateMachineError, "host machine in maintenance mode")
 		record.Eventf(
 			s.scope.BareMetalMachine,
 			"BareMetalMachineSetFailure",
 			"set failure reason due to maintenance mode of underlying host",
+		)
+		return nil
+	}
+
+	if host.Spec.Status.ErrorType == infrav1.FatalError && s.scope.BareMetalMachine.Status.FailureReason == nil {
+		s.scope.BareMetalMachine.SetFailure(capierrors.UpdateMachineError, host.Spec.Status.ErrorMessage)
+		record.Eventf(
+			s.scope.BareMetalMachine,
+			"BareMetalMachineSetFailure",
+			host.Spec.Status.ErrorMessage,
 		)
 		return nil
 	}

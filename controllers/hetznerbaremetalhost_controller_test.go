@@ -167,6 +167,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 		osSSHClient.On("CreateUserData", mock.Anything).Return(sshclient.Output{})
 		osSSHClient.On("EnsureCloudInit").Return(sshclient.Output{StdOut: "cloud-init"})
 		osSSHClient.On("CloudInitStatus").Return(sshclient.Output{StdOut: "status: done"})
+		osSSHClient.On("CheckCloudInitLogsForSigTerm").Return(sshclient.Output{})
 		osSSHClient.On("GetHostName").Return(sshclient.Output{
 			StdOut: infrav1.BareMetalHostNamePrefix + bmMachineName,
 			StdErr: "",
@@ -363,53 +364,6 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 						return true
 					}
 					return false
-				}, timeout).Should(BeTrue())
-			})
-
-			It("it deprovisions after bmMachine is deleted", func() {
-				var machine clusterv1.Machine
-				Expect(testEnv.Get(ctx, client.ObjectKey{Namespace: testNs.Name, Name: capiMachine.Name}, &machine)).To(Succeed())
-
-				Eventually(func() bool {
-					if err := testEnv.Get(ctx, key, host); err != nil {
-						return false
-					}
-					if host.Spec.Status.ProvisioningState == infrav1.StateProvisioned {
-						return true
-					}
-					return false
-				}, timeout).Should(BeTrue())
-
-				By("deleting bm machine")
-				Expect(testEnv.Delete(ctx, bmMachine)).To(Succeed())
-
-				Eventually(func() bool {
-					if err := testEnv.Get(ctx, key, host); err != nil {
-						return false
-					}
-					if host.Spec.Status.ProvisioningState != infrav1.StateDeprovisioning {
-						return false
-					}
-					return true
-				}, timeout).Should(BeTrue())
-
-				Eventually(func() bool {
-					if err := testEnv.Get(ctx, key, host); err != nil {
-						return false
-					}
-					if host.Spec.Status.ProvisioningState != infrav1.StateNone {
-						return false
-					}
-					if host.Spec.Status.SSHSpec != nil {
-						return false
-					}
-					if host.Spec.Status.UserData != nil {
-						return false
-					}
-					if host.Spec.ConsumerRef != nil {
-						return false
-					}
-					return true
 				}, timeout).Should(BeTrue())
 			})
 		})
