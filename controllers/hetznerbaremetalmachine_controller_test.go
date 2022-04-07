@@ -165,6 +165,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 		osSSHClient.On("CreateUserData", mock.Anything).Return(sshclient.Output{})
 		osSSHClient.On("EnsureCloudInit").Return(sshclient.Output{StdOut: "cloud-init"})
 		osSSHClient.On("CloudInitStatus").Return(sshclient.Output{StdOut: "status: done"})
+		osSSHClient.On("CheckCloudInitLogsForSigTerm").Return(sshclient.Output{})
 		osSSHClient.On("GetHostName").Return(sshclient.Output{
 			StdOut: infrav1.BareMetalHostNamePrefix + bmMachineName,
 			StdErr: "",

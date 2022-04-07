@@ -35,6 +35,9 @@ const (
 var (
 	// ErrCommandExitedWithoutExitSignal means the ssh command exited unplanned.
 	ErrCommandExitedWithoutExitSignal = errors.New("wait: remote command exited without exit status or exit signal")
+	// ErrCommandExitedWithStatusOne means the ssh command exited with sttatus 1.
+	ErrCommandExitedWithStatusOne = errors.New("Process exited with status 1")
+
 	// ErrConnectionRefused means the ssh connection was refused.
 	ErrConnectionRefused = errors.New("connect: connection refused")
 	// ErrAuthenticationFailed means ssh was unable to authenticate.
@@ -83,6 +86,9 @@ type Client interface {
 	CreateMetaData(hostName string) Output
 	CreateUserData(userData string) Output
 	CloudInitStatus() Output
+	CheckCloudInitLogsForSigTerm() Output
+	CleanCloudInitLogs() Output
+	CleanCloudInitInstances() Output
 }
 
 // Factory is the interface for creating new Client objects.
@@ -248,7 +254,7 @@ EOF`, cmd))
 // Reboot implements the Reboot method of the SSHClient interface.
 func (c *sshClient) Reboot() Output {
 	out := c.runSSH(`reboot`)
-	if strings.Contains(out.Err.Error(), ErrCommandExitedWithoutExitSignal.Error()) {
+	if out.Err != nil && strings.Contains(out.Err.Error(), ErrCommandExitedWithoutExitSignal.Error()) {
 		return Output{}
 	}
 	return out
@@ -280,6 +286,25 @@ func (c *sshClient) CreateUserData(userData string) Output {
 // CloudInitStatus implements the CloudInitStatus method of the SSHClient interface.
 func (c *sshClient) CloudInitStatus() Output {
 	return c.runSSH("cloud-init status")
+}
+
+// CheckCloudInitLogsForSigTerm implements the CheckCloudInitLogsForSigTerm method of the SSHClient interface.
+func (c *sshClient) CheckCloudInitLogsForSigTerm() Output {
+	out := c.runSSH(`cat /var/log/cloud-init.log | grep "SIGTERM"`)
+	if out.Err != nil && strings.Contains(out.Err.Error(), ErrCommandExitedWithStatusOne.Error()) {
+		return Output{}
+	}
+	return out
+}
+
+// CleanCloudInitLogs implements the CleanCloudInitLogs method of the SSHClient interface.
+func (c *sshClient) CleanCloudInitLogs() Output {
+	return c.runSSH(`cloud-init clean --logs`)
+}
+
+// CleanCloudInitInstances implements the CleanCloudInitInstances method of the SSHClient interface.
+func (c *sshClient) CleanCloudInitInstances() Output {
+	return c.runSSH(`rm -rf /var/lib/cloud/instances`)
 }
 
 // IsConnectionRefusedError checks whether the ssh error is a connection refused error.

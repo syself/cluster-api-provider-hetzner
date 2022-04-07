@@ -73,6 +73,9 @@ const (
 	// ProvisioningError is an error condition occurring when the controller
 	// fails to provision or deprovision the Host.
 	ProvisioningError ErrorType = "provisioning error"
+
+	// FatalError is a fatal error that triggers a failureMessage in the bm machine.
+	FatalError ErrorType = "fatal error"
 )
 
 const (

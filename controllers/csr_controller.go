@@ -114,7 +114,7 @@ func (r *GuestCSRReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 				"userName", certificateSigningRequest.Spec.Username,
 				"nodePrefix", nodePrefix,
 			)
-			return reconcile.Result{}, err
+			return reconcile.Result{RequeueAfter: 20 * time.Second}, nil
 		}
 		machineName = bmMachine.GetName()
 		machineAddresses = bmMachine.Status.Addresses

@@ -35,6 +35,7 @@ import (
 	"github.com/syself/hrobot-go/models"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -1131,9 +1132,6 @@ func (s *Service) actionEnsureProvisioned() actionResult {
 	}
 
 	out = sshClient.CloudInitStatus()
-	if err := handleSSHError(out); err != nil {
-		return actionError{err: errors.Wrap(err, "failed to reboot")}
-	}
 	stdOut := trimLineBreak(out.StdOut)
 	switch {
 	case strings.Contains(stdOut, "status: running"):
@@ -1150,8 +1148,41 @@ func (s *Service) actionEnsureProvisioned() actionResult {
 	case strings.Contains(stdOut, "status: done"):
 		s.scope.SetErrorCount(0)
 		clearError(s.scope.HetznerBareMetalHost)
+	case strings.Contains(stdOut, "status: error"):
+		record.Event(
+			s.scope.HetznerBareMetalHost,
+			"FatalError",
+			"cloud init returned status error",
+		)
+		return s.recordActionFailure(infrav1.FatalError, "cloud init returned status error")
 	default:
-		return actionError{err: fmt.Errorf("unknown response from cloud init: %s", stdOut)}
+		// Errors are handled after stdOut in this case, as status: error returns an exited with status 1 error
+		if err := handleSSHError(out); err != nil {
+			return actionError{err: errors.Wrap(err, "failed to get cloud init status")}
+		}
+	}
+
+	// Check whether cloud init really was successfully. Sigterm causes problems there.
+	out = sshClient.CheckCloudInitLogsForSigTerm()
+	if err := handleSSHError(out); err != nil {
+		return actionError{err: errors.Wrap(err, "failed to CheckCloudInitLogsForSigTerm")}
+	}
+
+	if trimLineBreak(out.StdOut) != "" {
+		// it was not succesfull. Prepare and reboot again
+		out = sshClient.CleanCloudInitLogs()
+		if err := handleSSHError(out); err != nil {
+			return actionError{err: errors.Wrap(err, "failed to CleanCloudInitLogs")}
+		}
+		out = sshClient.CleanCloudInitInstances()
+		if err := handleSSHError(out); err != nil {
+			return actionError{err: errors.Wrap(err, "failed to CleanCloudInitInstances")}
+		}
+		out = sshClient.Reboot()
+		if err := handleSSHError(out); err != nil {
+			return actionError{err: errors.Wrap(err, "failed to reboot")}
+		}
+		return actionContinue{delay: 10 * time.Second}
 	}
 
 	return actionComplete{}
