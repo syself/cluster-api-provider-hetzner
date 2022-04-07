@@ -30,6 +30,7 @@ import (
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	capierrors "sigs.k8s.io/cluster-api/errors"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -37,6 +38,7 @@ import (
 )
 
 const maxShutDownTime = 2 * time.Minute
+const serverOffTimeout = 10 * time.Minute
 
 // Service defines struct with machine scope to reconcile HCloud machines.
 type Service struct {
@@ -88,13 +90,13 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 
 	switch server.Status {
 	case hcloud.ServerStatusOff:
-		// Check if server is in ServerStatusOff and turn it on. This is to avoid a bug of Hetzner where
-		// sometimes machines are created and not turned on
-		// Don't do this when server is just created
-		if _, err := s.scope.HCloudClient.PowerOnServer(ctx, server); err != nil {
-			return nil, errors.Wrap(err, "failed to power on server")
-		}
-
+		return s.handleServerStatusOff(ctx, server)
+	case hcloud.ServerStatusStarting:
+		// Requeue here so that server does not switch back and forth between off and starting.
+		// If we don't return here, the condition InstanceReady would get marked as true in this
+		// case. However, if the server is stuck and does not power on, we should not mark the
+		// condition InstanceReady as true to be able to remediate the server after a timeout.
+		return &reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 	case hcloud.ServerStatusRunning: // Do nothing
 	default:
 		s.scope.HCloudMachine.Status.Ready = false
@@ -126,6 +128,42 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.InstanceReadyCondition)
 
 	return nil, nil
+}
+
+func (s *Service) handleServerStatusOff(ctx context.Context, server *hcloud.Server) (*reconcile.Result, error) {
+	// Check if server is in ServerStatusOff and turn it on. This is to avoid a bug of Hetzner where
+	// sometimes machines are created and not turned on
+
+	condition := conditions.Get(s.scope.HCloudMachine, infrav1.InstanceReadyCondition)
+	if condition != nil &&
+		condition.Status == corev1.ConditionFalse &&
+		condition.Reason == infrav1.ServerOffReason {
+		if time.Now().Before(condition.LastTransitionTime.Time.Add(serverOffTimeout)) {
+			// Not yet timed out, try again to power on
+			if _, err := s.scope.HCloudClient.PowerOnServer(ctx, server); err != nil {
+				return nil, errors.Wrap(err, "failed to power on server")
+			}
+		} else {
+			// Timed out. Set failure reason
+			s.scope.SetError("reached timeout of waiting for machines that are switched off", capierrors.CreateMachineError)
+			return nil, nil
+		}
+	} else {
+		// No condition set yet. Try to power server on.
+		if _, err := s.scope.HCloudClient.PowerOnServer(ctx, server); err != nil {
+			return nil, errors.Wrap(err, "failed to power on server")
+		}
+		conditions.MarkFalse(
+			s.scope.HCloudMachine,
+			infrav1.InstanceReadyCondition,
+			infrav1.ServerOffReason,
+			clusterv1.ConditionSeverityInfo,
+			"server is switched off",
+		)
+	}
+
+	// Try again in 30 sec.
+	return &reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 }
 
 func (s *Service) reconcileNetworkAttachment(ctx context.Context, server *hcloud.Server) error {

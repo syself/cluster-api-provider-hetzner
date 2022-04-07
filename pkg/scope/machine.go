@@ -26,6 +26,7 @@ import (
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	capierrors "sigs.k8s.io/cluster-api/errors"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/patch"
 )
@@ -100,6 +101,14 @@ func (m *MachineScope) Namespace() string {
 // PatchObject persists the machine spec and status.
 func (m *MachineScope) PatchObject(ctx context.Context) error {
 	return m.patchHelper.Patch(ctx, m.HCloudMachine)
+}
+
+// SetError sets the ErrorMessage and ErrorReason fields on the machine and logs
+// the message. It assumes the reason is invalid configuration, since that is
+// currently the only relevant MachineStatusError choice.
+func (m *MachineScope) SetError(message string, reason capierrors.MachineStatusError) {
+	m.HCloudMachine.Status.FailureMessage = &message
+	m.HCloudMachine.Status.FailureReason = &reason
 }
 
 // IsBootstrapDataReady checks the readiness of a capi machine's bootstrap data.

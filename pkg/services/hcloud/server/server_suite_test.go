@@ -25,6 +25,9 @@ import (
 	"github.com/hetznercloud/hcloud-go/hcloud/schema"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
+	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -205,3 +208,14 @@ var _ = BeforeSuite(func() {
 
 	server = hcloud.ServerFromSchema(serverSchema)
 })
+
+func newTestService(hcloudMachine *infrav1.HCloudMachine, hcloudClient hcloudclient.Client) *Service {
+	return &Service{
+		&scope.MachineScope{
+			HCloudMachine: hcloudMachine,
+			ClusterScope: scope.ClusterScope{
+				HCloudClient: hcloudClient,
+			},
+		},
+	}
+}
