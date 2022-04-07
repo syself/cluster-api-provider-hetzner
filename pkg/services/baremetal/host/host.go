@@ -316,32 +316,16 @@ func (s *Service) ensureSSHKey(sshSecretRef infrav1.SSHSecretRef, sshSecret *cor
 	return sshKey, actionComplete{}
 }
 
-func (s *Service) actionEnsureCorrectBoot(hostName string, osSSHPort *int) actionResult {
-	if hostName != rescue && osSSHPort == nil {
-		return actionError{err: errors.New("cannot procceed without osSSHPort specified")}
-	}
-
-	mainSSHClient := s.getMainSSHClient(hostName, osSSHPort)
-	secondarySSHClient := s.getSecondarySSHClient(hostName, osSSHPort)
-	// Try accessing server with ssh
-	isInCorrectBoot, isTimeout, isConnectionRefused, err := checkHostNameOutput(mainSSHClient.GetHostName(), secondarySSHClient, hostName, osSSHPort)
-	if err != nil {
-		return actionError{err: errors.Wrap(err, "failed to get host name via ssh")}
-	}
-	if isInCorrectBoot {
-		s.scope.SetErrorCount(0)
-		clearError(s.scope.HetznerBareMetalHost)
-		return actionComplete{}
-	}
+func (s *Service) handleIncompleteBootError(isRebootIntoRescue bool, isTimeout bool, isConnectionRefused bool) error {
 	if isConnectionRefused {
 		if s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeConnectionError {
 			if hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated, time.Minute) {
-				return actionError{err: errors.New("connection refused error of ssh. Might be due to wrong port")}
+				return errors.New("connection refused error of ssh. Might be due to wrong port")
 			}
 		} else {
 			SetErrorMessage(s.scope.HetznerBareMetalHost, infrav1.ErrorTypeConnectionError, "ssh gave connection error")
 		}
-		return actionContinue{delay: 5 * time.Second}
+		return nil
 	} else if s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeConnectionError {
 		// Remove error if it is of type connection error
 		clearError(s.scope.HetznerBareMetalHost)
@@ -354,126 +338,35 @@ func (s *Service) actionEnsureCorrectBoot(hostName string, osSSHPort *int) actio
 		if isTimeout {
 			// Reset was too slow - set error message
 			SetErrorMessage(s.scope.HetznerBareMetalHost, infrav1.ErrorTypeSSHRebootTooSlow, "ssh timeout error - server has not restarted yet")
-			return actionContinue{delay: 5 * time.Second}
+			return nil
 		}
 
-		// We are not in correct boot. Trigger SSH reboot.
-		if hostName == rescue {
-			if err := s.ensureRescueMode(); err != nil {
-				return actionError{err: errors.Wrap(err, "failed to ensure correct boot mode and reboot server")}
-			}
-		}
-
-		// Perform reboot
-		actResult := s.performReboot(secondarySSHClient)
-		if _, complete := actResult.(actionComplete); !complete {
-			return actResult
-		}
+		// The (ssh) reboot did not start This triggers trigger an API reboot.
+		return s.handleErrorTypeSSHRebootNotStarted(!isTimeout, isRebootIntoRescue)
 
 	case infrav1.ErrorTypeSSHRebootTooSlow:
-		err = s.handleErrorTypeSSHRebootTooSlow(isTimeout)
+		return s.handleErrorTypeSSHRebootTooSlow(isTimeout)
 
 	case infrav1.ErrorTypeSoftwareRebootTooSlow:
-		err = s.handleErrorTypeSoftwareRebootTooSlow(isTimeout)
+		return s.handleErrorTypeSoftwareRebootTooSlow(isTimeout)
 
 	case infrav1.ErrorTypeHardwareRebootTooSlow:
-		err = s.handleErrorTypeHardwareRebootTooSlow(isTimeout)
+		return s.handleErrorTypeHardwareRebootTooSlow(isTimeout)
 
 	case infrav1.ErrorTypeHardwareRebootFailed:
-		err = s.handleErrorTypeHardwareRebootFailed()
+		return s.handleErrorTypeHardwareRebootFailed()
 
 	case infrav1.ErrorTypeSSHRebootNotStarted:
-		err = s.handleErrorTypeSSHRebootNotStarted(!isTimeout, hostName == rescue)
+		return s.handleErrorTypeSSHRebootNotStarted(!isTimeout, isRebootIntoRescue)
 
 	case infrav1.ErrorTypeSoftwareRebootNotStarted:
-		err = s.handleErrorTypeSoftwareRebootNotStarted(!isTimeout, hostName == rescue)
+		return s.handleErrorTypeSoftwareRebootNotStarted(!isTimeout, isRebootIntoRescue)
 
 	case infrav1.ErrorTypeHardwareRebootNotStarted:
-		err = s.handleErrorTypeHardwareRebootNotStarted(!isTimeout, hostName == rescue)
-	}
-	if err != nil {
-		return actionError{err: err}
-	}
-	return actionContinue{delay: 5 * time.Second}
-}
-
-func (s *Service) getMainSSHClient(hostName string, osSSHPort *int) sshclient.Client {
-	var port int
-	var privateSSHKey string
-
-	if hostName == rescue {
-		port = rescuePort
-		privateSSHKey = sshclient.CredentialsFromSecret(s.scope.RescueSSHSecret, s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef).PrivateKey
-	} else {
-		port = *osSSHPort
-		privateSSHKey = sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.SecretRef).PrivateKey
+		return s.handleErrorTypeHardwareRebootNotStarted(!isTimeout, isRebootIntoRescue)
 	}
 
-	in := sshclient.Input{
-		PrivateKey: privateSSHKey,
-		Port:       port,
-		IP:         getIPAddress(s.scope.HetznerBareMetalHost.Spec.Status),
-	}
-	return s.scope.SSHClientFactory.NewClient(in)
-}
-
-func (s *Service) getSecondarySSHClient(hostName string, osSSHPort *int) sshclient.Client {
-	var port int
-	var privateSSHKey string
-
-	if osSSHPort != nil {
-		if hostName == rescue {
-			port = *osSSHPort
-			privateSSHKey = sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.SecretRef).PrivateKey
-		} else {
-			port = rescuePort
-			privateSSHKey = sshclient.CredentialsFromSecret(s.scope.RescueSSHSecret, s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef).PrivateKey
-		}
-
-		in := sshclient.Input{
-			PrivateKey: privateSSHKey,
-			Port:       port,
-			IP:         getIPAddress(s.scope.HetznerBareMetalHost.Spec.Status),
-		}
-		return s.scope.SSHClientFactory.NewClient(in)
-	}
-
-	// If no osSSHPort is specified, then we don't need this client
 	return nil
-}
-
-func (s *Service) performReboot(secondarySSHClient sshclient.Client) actionResult {
-	// Check whether we should try ssh reboot
-	if secondarySSHClient != nil {
-		out := secondarySSHClient.Reboot()
-		if err := handleSSHError(out); err == nil {
-			// SSH reboot has been performed successfully. Despite that
-			// Set error message that ssh reboot did not start in order to keep track of this error.
-			SetErrorMessage(s.scope.HetznerBareMetalHost, infrav1.ErrorTypeSSHRebootNotStarted, "ssh reboot just triggered")
-			return actionContinue{delay: 5 * time.Second}
-		}
-	}
-	// Perform software or hardware reboot if ssh reboot failed or is not available
-	var rebootType infrav1.RebootType
-	var errorType infrav1.ErrorType
-	switch {
-	case s.scope.HetznerBareMetalHost.HasSoftwareReboot():
-		rebootType = infrav1.RebootTypeSoftware
-		errorType = infrav1.ErrorTypeSoftwareRebootNotStarted
-	case s.scope.HetznerBareMetalHost.HasHardwareReboot():
-		rebootType = infrav1.RebootTypeHardware
-		errorType = infrav1.ErrorTypeHardwareRebootNotStarted
-	default:
-		return s.recordActionFailure(infrav1.PreparationError, "no software or hardware reboot available for host")
-	}
-
-	if _, err := s.scope.RobotClient.RebootBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID, rebootType); err != nil {
-		return actionError{err: errors.Wrap(err, "failed to reboot bare metal server")}
-	}
-	// Set error message that ssh reboot did not start in order to keep track of this error.
-	SetErrorMessage(s.scope.HetznerBareMetalHost, errorType, "software/hardeware reboot just triggered")
-
-	return actionComplete{}
 }
 
 func (s *Service) handleErrorTypeSSHRebootTooSlow(isTimeout bool) error {
@@ -484,10 +377,10 @@ func (s *Service) handleErrorTypeSSHRebootTooSlow(isTimeout bool) error {
 		switch {
 		case s.scope.HetznerBareMetalHost.HasSoftwareReboot():
 			rebootType = infrav1.RebootTypeSoftware
-			errorType = infrav1.ErrorTypeSoftwareRebootTooSlow
+			errorType = infrav1.ErrorTypeSoftwareRebootNotStarted
 		case s.scope.HetznerBareMetalHost.HasHardwareReboot():
 			rebootType = infrav1.RebootTypeHardware
-			errorType = infrav1.ErrorTypeHardwareRebootTooSlow
+			errorType = infrav1.ErrorTypeHardwareRebootNotStarted
 		default:
 			return errors.New("no software or hardware reboot available for host")
 		}
@@ -628,66 +521,6 @@ func hasTimedOut(lastUpdated *metav1.Time, timeout time.Duration) bool {
 	return lastUpdated.Add(timeout).Before(now.Time)
 }
 
-func checkHostNameOutput(out sshclient.Output, secondarySSHClient sshclient.Client, hostName string, osSSHPort *int) (isInCorrectBoot bool, isTimeout bool, isConnectionRefused bool, err error) {
-	// check err
-	if out.Err != nil {
-		switch {
-		case os.IsTimeout(out.Err) || sshclient.IsTimeoutError(out.Err):
-			isTimeout = true
-		case sshclient.IsAuthenticationFailedError(out.Err):
-			// Check whether we are in the wrong system in the case that rescue and os system might be running on the same port.
-			if osSSHPort != nil && *osSSHPort == 22 {
-				secondaryOut := secondarySSHClient.GetHostName()
-				if secondaryOut.Err == nil {
-					// We are in the wrong system, so return false, false, nil
-					return
-				}
-			}
-			err = errors.Wrap(out.Err, "wrong ssh key")
-		case sshclient.IsConnectionRefusedError(out.Err):
-			// Check whether we are in the wrong system in the case that rescue and os system are running on different ports.
-			if osSSHPort != nil && *osSSHPort != 22 {
-				// Check whether we are in the wrong system
-				secondaryOut := secondarySSHClient.GetHostName()
-				if secondaryOut.Err == nil {
-					// We are in the wrong system, so return false, false, nil
-					return
-				}
-			}
-			isConnectionRefused = true
-
-		default:
-			err = errors.Wrap(out.Err, "unhandled ssh error while getting hostname")
-		}
-		return
-	}
-
-	// check stderr
-	if out.StdErr != "" {
-		// This is an unexpected error
-		err = fmt.Errorf("failed to get host name via ssh. StdErr: %s", out.StdErr)
-		return
-	}
-
-	// check stdout
-	switch trimLineBreak(out.StdOut) {
-	case hostName:
-		// We are in rescue system as expected. Go to next state
-		isInCorrectBoot = true
-	case "":
-		// Hostname should not be empty. This is unexpected.
-		err = errors.New("error empty hostname")
-	case rescue:
-	default:
-		// We are in the case that hostName != rescue && StdOut != hostName
-		// This is unexpected
-		if hostName != rescue {
-			err = fmt.Errorf("unexpected hostname %s. Want %s or rescue", trimLineBreak(out.StdOut), hostName)
-		}
-	}
-	return isInCorrectBoot, isTimeout, isConnectionRefused, err
-}
-
 func (s *Service) ensureRescueMode() error {
 	rescue, err := s.scope.RobotClient.GetBootRescue(s.scope.HetznerBareMetalHost.Spec.ServerID)
 	if err != nil {
@@ -714,6 +547,26 @@ func (s *Service) actionRegistering() actionResult {
 		IP:         getIPAddress(s.scope.HetznerBareMetalHost.Spec.Status),
 	}
 	sshClient := s.scope.SSHClientFactory.NewClient(in)
+
+	// Check hostname with sshClient
+	out := sshClient.GetHostName()
+	if trimLineBreak(out.StdOut) != rescue {
+		isTimeout, isConnectionFailed, err := s.handleIncompleteBootRegistering(out)
+		if err != nil {
+			return actionError{err: errors.Wrap(err, "failed to handle incomplete boot - registering")}
+		}
+		if !isTimeout && !isConnectionFailed {
+			// In this case we are in a wrong boot. We need to trigger the rescue system in the case where it is not yet triggered.
+			// The rest of the logic is handled in the function below
+			if err := s.ensureRescueMode(); err != nil {
+				return actionError{err: errors.Wrap(err, "failed to ensure rescue")}
+			}
+		}
+		if err := s.handleIncompleteBootError(true, isTimeout, isConnectionFailed); err != nil {
+			return actionError{err: errors.Wrap(err, "failed to handle incomplete boot")}
+		}
+		return actionContinue{delay: 10 * time.Second}
+	}
 
 	if s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails == nil {
 		var hardwareDetails infrav1.HardwareDetails
@@ -756,6 +609,57 @@ func (s *Service) actionRegistering() actionResult {
 		}
 	}
 	return s.recordActionFailure(infrav1.RegistrationError, "no storage device found with root device hints")
+}
+
+func (s *Service) handleIncompleteBootRegistering(out sshclient.Output) (isTimeout bool, isConnectionRefused bool, reterr error) {
+	if out.Err != nil {
+		switch {
+		case os.IsTimeout(out.Err) || sshclient.IsTimeoutError(out.Err):
+			isTimeout = true
+		case sshclient.IsAuthenticationFailedError(out.Err):
+			// Check if the reboot did not trigger.
+			rescue, err := s.scope.RobotClient.GetBootRescue(s.scope.HetznerBareMetalHost.Spec.ServerID)
+			if err != nil {
+				reterr = errors.Wrap(err, "failed to get bare metal server")
+				return
+			}
+			if rescue.Active {
+				// Reboot did not trigger
+				return
+			}
+			reterr = errors.Wrap(out.Err, "wrong ssh key")
+		case sshclient.IsConnectionRefusedError(out.Err):
+			// Check if the reboot did not trigger.
+			rescue, err := s.scope.RobotClient.GetBootRescue(s.scope.HetznerBareMetalHost.Spec.ServerID)
+			if err != nil {
+				reterr = errors.Wrap(err, "failed to get bare metal server")
+				return
+			}
+			if rescue.Active {
+				// Reboot did not trigger
+				return
+			}
+			isConnectionRefused = true
+
+		default:
+			reterr = errors.Wrap(out.Err, "unhandled ssh error while getting hostname")
+		}
+		return
+	}
+
+	// check stderr
+	if out.StdErr != "" {
+		// This is an unexpected error
+		reterr = fmt.Errorf("failed to get host name via ssh. StdErr: %s", out.StdErr)
+		return
+	}
+
+	// check stdout
+	if trimLineBreak(out.StdOut) == "" {
+		// Hostname should not be empty. This is unexpected.
+		reterr = errors.New("error empty hostname")
+	}
+	return isTimeout, isConnectionRefused, reterr
 }
 
 func (s *Service) obtainHardwareDetailsRAM(sshClient sshclient.Client) (int, error) {
@@ -1084,13 +988,35 @@ func getImageDetails(image infrav1.Image) (imagePath string, needsDownload bool,
 }
 
 func (s *Service) actionProvisioning() actionResult {
+	port := s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterInstallImage
 	sshClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
 		PrivateKey: sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.SecretRef).PrivateKey,
 		Port:       s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterInstallImage,
 		IP:         getIPAddress(s.scope.HetznerBareMetalHost.Spec.Status),
 	})
 
-	out := sshClient.EnsureCloudInit()
+	// Check hostname with sshClient
+	out := sshClient.GetHostName()
+	if trimLineBreak(out.StdOut) != infrav1.BareMetalHostNamePrefix+s.scope.HetznerBareMetalHost.Spec.ConsumerRef.Name {
+		creds := sshclient.CredentialsFromSecret(s.scope.RescueSSHSecret, s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef)
+		in := sshclient.Input{
+			PrivateKey: creds.PrivateKey,
+			Port:       rescuePort,
+			IP:         getIPAddress(s.scope.HetznerBareMetalHost.Spec.Status),
+		}
+		rescueSSHClient := s.scope.SSHClientFactory.NewClient(in)
+
+		isTimeout, isConnectionFailed, err := handleIncompleteBootInstallImage(out, rescueSSHClient, port)
+		if err != nil {
+			return actionError{err: errors.Wrap(err, "failed to handle incomplete boot - installImage")}
+		}
+		if err := s.handleIncompleteBootError(false, isTimeout, isConnectionFailed); err != nil {
+			return actionError{err: errors.Wrap(err, "failed to handle incomplete boot")}
+		}
+		return actionContinue{delay: 10 * time.Second}
+	}
+
+	out = sshClient.EnsureCloudInit()
 	if err := handleSSHError(out); err != nil {
 		return actionError{err: errors.Wrap(err, "failed to ensure cloud init")}
 	}
@@ -1129,14 +1055,82 @@ func (s *Service) actionProvisioning() actionResult {
 	return actionComplete{}
 }
 
+func handleIncompleteBootInstallImage(out sshclient.Output, sshClient sshclient.Client, port int) (isTimeout bool, isConnectionRefused bool, reterr error) {
+	// check err
+	if out.Err != nil {
+		switch {
+		case os.IsTimeout(out.Err) || sshclient.IsTimeoutError(out.Err):
+			isTimeout = true
+		case sshclient.IsAuthenticationFailedError(out.Err):
+			// Check whether we are in the wrong system in the case that rescue and os system might be running on the same port.
+			if port == 22 {
+				secondaryOut := sshClient.GetHostName()
+				if secondaryOut.Err == nil {
+					// We are in the wrong system, so return false, false, nil
+					return
+				}
+			}
+			reterr = errors.Wrap(out.Err, "wrong ssh key")
+		case sshclient.IsConnectionRefusedError(out.Err):
+			// Check whether we are in the wrong system in the case that rescue and os system are running on different ports.
+			if port != 22 {
+				// Check whether we are in the wrong system
+				secondaryOut := sshClient.GetHostName()
+				if secondaryOut.Err == nil {
+					// We are in the wrong system, so return false, false, nil
+					return
+				}
+			}
+			isConnectionRefused = true
+
+		default:
+			reterr = errors.Wrap(out.Err, "unhandled ssh error while getting hostname")
+		}
+		return
+	}
+
+	// check stderr
+	if out.StdErr != "" {
+		// This is an unexpected error
+		reterr = fmt.Errorf("failed to get host name via ssh. StdErr: %s", out.StdErr)
+		return
+	}
+
+	// check stdout
+	switch trimLineBreak(out.StdOut) {
+	case "":
+		// Hostname should not be empty. This is unexpected.
+		reterr = errors.New("error empty hostname")
+	case rescue: // We are in wrong boot, nothing has to be done to trigger reboot
+	default:
+		// We are in the case that hostName != rescue && StdOut != hostName
+		// This is unexpected
+		reterr = fmt.Errorf("unexpected hostname %s", trimLineBreak(out.StdOut))
+	}
+	return isTimeout, isConnectionRefused, reterr
+}
+
 func (s *Service) actionEnsureProvisioned() actionResult {
 	sshClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
 		PrivateKey: sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.SecretRef).PrivateKey,
-		Port:       s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterInstallImage,
+		Port:       s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterCloudInit,
 		IP:         getIPAddress(s.scope.HetznerBareMetalHost.Spec.Status),
 	})
 
-	out := sshClient.CloudInitStatus()
+	// Check hostname with sshClient
+	out := sshClient.GetHostName()
+	if trimLineBreak(out.StdOut) != infrav1.BareMetalHostNamePrefix+s.scope.HetznerBareMetalHost.Spec.ConsumerRef.Name {
+		isTimeout, isConnectionFailed, err := handleIncompleteBootProvisioned(out)
+		if err != nil {
+			return actionError{err: errors.Wrap(err, "failed to handle incomplete boot - provisioning")}
+		}
+		if err := s.handleIncompleteBootError(false, isTimeout, isConnectionFailed); err != nil {
+			return actionError{err: errors.Wrap(err, "failed to handle incomplete boot")}
+		}
+		return actionContinue{delay: 10 * time.Second}
+	}
+
+	out = sshClient.CloudInitStatus()
 	if err := handleSSHError(out); err != nil {
 		return actionError{err: errors.Wrap(err, "failed to reboot")}
 	}
@@ -1163,11 +1157,47 @@ func (s *Service) actionEnsureProvisioned() actionResult {
 	return actionComplete{}
 }
 
+func handleIncompleteBootProvisioned(out sshclient.Output) (isTimeout bool, isConnectionRefused bool, reterr error) {
+	// check err
+	if out.Err != nil {
+		switch {
+		case os.IsTimeout(out.Err) || sshclient.IsTimeoutError(out.Err):
+			isTimeout = true
+		case sshclient.IsAuthenticationFailedError(out.Err):
+			// As the same ssh key has been used before and after, something is wrong here.
+			reterr = errors.Wrap(out.Err, "wrong ssh key")
+		case sshclient.IsConnectionRefusedError(out.Err):
+			// We strongly assume that the ssh reboot that has been done before has been triggered. Hence we do nothing specific here.
+			isConnectionRefused = true
+		default:
+			reterr = errors.Wrap(out.Err, "unhandled ssh error while getting hostname")
+		}
+		return
+	}
+
+	// check stderr
+	if out.StdErr != "" {
+		// This is an unexpected error
+		reterr = fmt.Errorf("failed to get host name via ssh. StdErr: %s", out.StdErr)
+		return
+	}
+
+	// check stdout
+	switch trimLineBreak(out.StdOut) {
+	case "":
+		// Hostname should not be empty. This is unexpected.
+		reterr = errors.New("error empty hostname")
+	case rescue: // We are in wrong boot, nothing has to be done to trigger reboot
+	default:
+		reterr = fmt.Errorf("unexpected hostname %s", trimLineBreak(out.StdOut))
+	}
+	return isTimeout, isConnectionRefused, reterr
+}
+
 func (s *Service) actionProvisioned() actionResult {
 	rebootDesired := hasRebootAnnotation(*s.scope.HetznerBareMetalHost)
 	isRebooted := s.scope.HetznerBareMetalHost.Status.Rebooted
 	creds := sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.SecretRef)
-	port := s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterCloudInit
 	in := sshclient.Input{
 		PrivateKey: creds.PrivateKey,
 		Port:       s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterCloudInit,
@@ -1178,13 +1208,23 @@ func (s *Service) actionProvisioned() actionResult {
 	if rebootDesired {
 		if isRebooted {
 			// Reboot has been done already. Check whether it has been successful
-			actResult := s.actionEnsureCorrectBoot(infrav1.BareMetalHostNamePrefix+s.scope.HetznerBareMetalHost.Spec.ConsumerRef.Name, &port)
-			if _, ok := actResult.(actionComplete); ok {
+			// Check hostname with sshClient
+			out := sshClient.GetHostName()
+			if trimLineBreak(out.StdOut) == infrav1.BareMetalHostNamePrefix+s.scope.HetznerBareMetalHost.Spec.ConsumerRef.Name {
 				// Reboot has been successful
 				s.scope.HetznerBareMetalHost.Status.Rebooted = false
 				clearRebootAnnotations(s.scope.HetznerBareMetalHost)
+				return actionComplete{}
 			}
-			return actResult
+			// Reboot has been ongoing
+			isTimeout, isConnectionFailed, err := handleIncompleteBootProvisioned(out)
+			if err != nil {
+				return actionError{err: errors.Wrap(err, "failed to handle incomplete boot - provisioning")}
+			}
+			if err := s.handleIncompleteBootError(false, isTimeout, isConnectionFailed); err != nil {
+				return actionError{err: errors.Wrap(err, "failed to handle incomplete boot")}
+			}
+			return actionContinue{delay: 10 * time.Second}
 		}
 		// Reboot now
 		out := sshClient.Reboot()
