@@ -69,10 +69,6 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req c
 		return ctrl.Result{}, err
 	}
 
-	if hbmMachine.Status.FailureMessage != nil {
-		log.Info("FailureMessage set", "failureMessage", hbmMachine.Status.FailureMessage)
-		return ctrl.Result{}, nil
-	}
 	// Fetch the Machine.
 	machine, err := util.GetOwnerMachine(ctx, r.Client, hbmMachine.ObjectMeta)
 	if err != nil {

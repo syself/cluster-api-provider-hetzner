@@ -205,52 +205,17 @@ NAME="nvme1n1" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJQ-00000" VENDOR="" 
 	)
 })
 
-var _ = Describe("actionEnsureCorrectBoot", func() {
+var _ = Describe("handleIncompleteBootError", func() {
 	Context("correct hostname == rescue", func() {
-
-		DescribeTable("Complete successfully",
-			func(stderr string, hostErrorType infrav1.ErrorType) {
-				sshMock := &sshmock.Client{}
-				sshMock.On("GetHostName").Return(sshclient.Output{StdOut: "rescue", StdErr: stderr})
-				sshMock.On("Reboot").Return(sshclient.Output{})
-
-				robotMock := robotmock.Client{}
-				robotMock.On("SetBootRescue", bareMetalHostID, sshFingerprint).Return(nil, nil)
-				robotMock.On("GetBootRescue", bareMetalHostID).Return(&models.Rescue{Active: true}, nil)
-				robotMock.On("RebootBMServer", bareMetalHostID, mock.Anything).Return(nil, nil)
-
-				host := helpers.BareMetalHost("test-host", "default",
-					helpers.WithRebootTypes([]infrav1.RebootType{
-						infrav1.RebootTypeSoftware,
-						infrav1.RebootTypeHardware,
-						infrav1.RebootTypePower,
-					}),
-					helpers.WithSSHSpec(),
-					helpers.WithSSHStatus(),
-					helpers.WithError(hostErrorType, "", 1, metav1.Now()),
-				)
-				service := newTestService(host, &robotMock, bmmock.NewSSHFactory(sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
-
-				Expect(service.actionEnsureCorrectBoot("rescue", nil)).Should(BeAssignableToTypeOf(actionComplete{}))
-				Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.ErrorType("")))
-			},
-			Entry("without errorType", "", infrav1.ErrorType("")),
-			Entry("with errorType", "", infrav1.ErrorTypeHardwareRebootFailed),
-		)
-
 		DescribeTable("hostName = rescue, varying error type and ssh client response - robot client giving all positive results, no timeouts",
 			func(
-				stdout, stderr string,
-				err error,
+				isRebootIntoRescue bool,
+				isTimeOut bool,
+				isConnectionRefused bool,
 				hostErrorType infrav1.ErrorType,
-				expectedActionResult actionResult,
+				expectedReturnError error,
 				expectedHostErrorType infrav1.ErrorType,
 			) {
-				sshMock := &sshmock.Client{}
-
-				sshMock.On("GetHostName").Return(sshclient.Output{StdOut: stdout, StdErr: stderr, Err: err})
-				sshMock.On("Reboot").Return(sshclient.Output{})
-
 				robotMock := robotmock.Client{}
 				robotMock.On("SetBootRescue", bareMetalHostID, sshFingerprint).Return(nil, nil)
 				robotMock.On("GetBootRescue", bareMetalHostID).Return(&models.Rescue{Active: true}, nil)
@@ -266,39 +231,92 @@ var _ = Describe("actionEnsureCorrectBoot", func() {
 					helpers.WithSSHStatus(),
 					helpers.WithError(hostErrorType, "", 1, metav1.Now()),
 				)
-				service := newTestService(host, &robotMock, bmmock.NewSSHFactory(sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+				service := newTestService(host, &robotMock, nil, nil, nil)
 
-				Expect(service.actionEnsureCorrectBoot("rescue", nil)).Should(BeAssignableToTypeOf(expectedActionResult))
+				if expectedReturnError == nil {
+					Expect(service.handleIncompleteBootError(isRebootIntoRescue, isTimeOut, isConnectionRefused)).To(Succeed())
+				} else {
+					Expect(service.handleIncompleteBootError(isRebootIntoRescue, isTimeOut, isConnectionRefused)).Should(Equal(expectedReturnError))
+				}
+
 				Expect(host.Spec.Status.ErrorType).To(Equal(expectedHostErrorType))
 			},
-			Entry("hostName == rescue, error is set", "rescue", "", errors.New("testerror"), infrav1.ErrorType(""), actionError{}, infrav1.ErrorType("")),
-			Entry("timeout, no errorType", "", "", timeout, infrav1.ErrorType(""), actionContinue{}, infrav1.ErrorTypeSSHRebootTooSlow),
-			Entry("stderr set", "", "std error", nil, infrav1.ErrorType(""), actionError{}, infrav1.ErrorType("")),
-			Entry("stderr and errorType set", "", "std error", nil, infrav1.ErrorTypeSoftwareRebootTooSlow, actionError{}, infrav1.ErrorTypeSoftwareRebootTooSlow),
-			Entry("timeout,ErrorType == ErrorTypeSoftwareRebootTooSlow", "", "", timeout, infrav1.ErrorTypeSoftwareRebootTooSlow, actionContinue{}, infrav1.ErrorTypeSoftwareRebootTooSlow),
-			Entry("timeout,ErrorType == ErrorTypeHardwareRebootTooSlow", "", "", timeout, infrav1.ErrorTypeHardwareRebootTooSlow, actionContinue{}, infrav1.ErrorTypeHardwareRebootTooSlow),
-			Entry("timeout,ErrorType == ErrorTypeHardwareRebootFailed", "", "", timeout, infrav1.ErrorTypeHardwareRebootFailed, actionContinue{}, infrav1.ErrorTypeHardwareRebootFailed),
-			Entry("timeout,ErrorType == ErrorTypeSoftwareRebootNotStarted", "", "", timeout, infrav1.ErrorTypeSoftwareRebootNotStarted, actionContinue{}, infrav1.ErrorTypeSoftwareRebootTooSlow),
-			Entry("timeout,ErrorType == ErrorTypeHardwareRebootNotStarted", "", "", timeout, infrav1.ErrorTypeHardwareRebootNotStarted, actionContinue{}, infrav1.ErrorTypeHardwareRebootTooSlow),
-			Entry("hostname != rescue", "fedoramachine", "", nil, infrav1.ErrorType(""), actionContinue{}, infrav1.ErrorTypeSoftwareRebootNotStarted),
-			Entry("hostname != rescue, ErrorType == ErrorTypeSoftwareRebootNotStarted", "fedoramachine", "", nil, infrav1.ErrorTypeSoftwareRebootNotStarted, actionContinue{}, infrav1.ErrorTypeHardwareRebootNotStarted),
-			Entry("hostname != rescue, ErrorType == ErrorTypeHardwareRebootNotStarted", "fedoramachine", "", nil, infrav1.ErrorTypeHardwareRebootNotStarted, actionContinue{}, infrav1.ErrorTypeHardwareRebootNotStarted),
+			Entry("timeout, no errorType",
+				true,                              // isRebootIntoRescue bool
+				true,                              // isTimeOut bool
+				false,                             // isConnectionRefused bool
+				infrav1.ErrorType(""),             // hostErrorType infrav1.ErrorType
+				nil,                               //	expectedReturnError error
+				infrav1.ErrorTypeSSHRebootTooSlow, // expectedHostErrorType infrav1.ErrorType
+			),
+			Entry("timeout,ErrorType == ErrorTypeSoftwareRebootTooSlow",
+				true,                                   // isRebootIntoRescue bool
+				true,                                   // isTimeOut bool
+				false,                                  // isConnectionRefused bool
+				infrav1.ErrorTypeSoftwareRebootTooSlow, // hostErrorType infrav1.ErrorType
+				nil,                                    //	expectedReturnError error
+				infrav1.ErrorTypeSoftwareRebootTooSlow, // expectedHostErrorType infrav1.ErrorType
+			),
+			Entry("timeout,ErrorType == ErrorTypeHardwareRebootTooSlow",
+				true,                                   // isRebootIntoRescue bool
+				true,                                   // isTimeOut bool
+				false,                                  // isConnectionRefused bool
+				infrav1.ErrorTypeHardwareRebootTooSlow, // hostErrorType infrav1.ErrorType
+				nil,                                    //	expectedReturnError error
+				infrav1.ErrorTypeHardwareRebootTooSlow, // expectedHostErrorType infrav1.ErrorType
+			),
+			Entry("timeout,ErrorType == ErrorTypeHardwareRebootFailed",
+				true,                                  // isRebootIntoRescue bool
+				true,                                  // isTimeOut bool
+				false,                                 // isConnectionRefused bool
+				infrav1.ErrorTypeHardwareRebootFailed, // hostErrorType infrav1.ErrorType
+				nil,                                   //	expectedReturnError error
+				infrav1.ErrorTypeHardwareRebootFailed, // expectedHostErrorType infrav1.ErrorType
+			),
+			Entry("timeout,ErrorType == ErrorTypeSoftwareRebootNotStarted",
+				true,  // isRebootIntoRescue bool
+				true,  // isTimeOut bool
+				false, // isConnectionRefused bool
+				infrav1.ErrorTypeSoftwareRebootNotStarted, // hostErrorType infrav1.ErrorType
+				nil,                                    //	expectedReturnError error
+				infrav1.ErrorTypeSoftwareRebootTooSlow, // expectedHostErrorType infrav1.ErrorType
+			),
+			Entry("timeout,ErrorType == ErrorTypeHardwareRebootNotStarted",
+				true,  // isRebootIntoRescue bool
+				true,  // isTimeOut bool
+				false, // isConnectionRefused bool
+				infrav1.ErrorTypeHardwareRebootNotStarted, // hostErrorType infrav1.ErrorType
+				nil,                                    //	expectedReturnError error
+				infrav1.ErrorTypeHardwareRebootTooSlow, // expectedHostErrorType infrav1.ErrorType
+			),
+			Entry("timeout,ErrorType == ErrorTypeSSHRebootNotStarted",
+				true,                                 // isRebootIntoRescue bool
+				false,                                // isTimeOut bool
+				false,                                // isConnectionRefused bool
+				infrav1.ErrorTypeSSHRebootNotStarted, // hostErrorType infrav1.ErrorType
+				nil,                                  //	expectedReturnError error
+				infrav1.ErrorTypeSoftwareRebootNotStarted, // expectedHostErrorType infrav1.ErrorType
+			),
+			Entry("wrong boot",
+				false,                 // isRebootIntoRescue bool
+				false,                 // isTimeOut bool
+				false,                 // isConnectionRefused bool
+				infrav1.ErrorType(""), // hostErrorType infrav1.ErrorType
+				nil,                   //	expectedReturnError error
+				infrav1.ErrorTypeSoftwareRebootNotStarted, // expectedHostErrorType infrav1.ErrorType
+			),
 		)
 
 		// Test with different reset type only software on machine
 		DescribeTable("Different reset types",
 			func(
-				stdout string,
-				err error,
+				isTimeOut bool,
+				isConnectionRefused bool,
 				rebootTypes []infrav1.RebootType,
 				hostErrorType infrav1.ErrorType,
 				expectedHostErrorType infrav1.ErrorType,
 				expectedRebootType infrav1.RebootType,
 			) {
-				sshMock := &sshmock.Client{}
-				sshMock.On("GetHostName").Return(sshclient.Output{StdOut: stdout, StdErr: "", Err: err})
-				sshMock.On("Reboot").Return(sshclient.Output{})
-
 				robotMock := robotmock.Client{}
 				robotMock.On("SetBootRescue", bareMetalHostID, sshFingerprint).Return(nil, nil)
 				robotMock.On("GetBootRescue", bareMetalHostID).Return(&models.Rescue{Active: true}, nil)
@@ -311,22 +329,64 @@ var _ = Describe("actionEnsureCorrectBoot", func() {
 					helpers.WithError(hostErrorType, "", 1, metav1.NewTime(time.Now().Add(-time.Hour))),
 					helpers.WithRebootTypes(rebootTypes),
 				)
-				service := newTestService(host, &robotMock, bmmock.NewSSHFactory(sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+				service := newTestService(host, &robotMock, nil, nil, nil)
 
-				Expect(service.actionEnsureCorrectBoot("rescue", nil)).Should(BeAssignableToTypeOf(actionContinue{}))
+				Expect(service.handleIncompleteBootError(true, isTimeOut, isConnectionRefused)).To(Succeed())
 				Expect(host.Spec.Status.ErrorType).To(Equal(expectedHostErrorType))
 				if expectedRebootType != infrav1.RebootType("") {
 					Expect(robotMock.AssertCalled(GinkgoT(), "RebootBMServer", bareMetalHostID, expectedRebootType)).To(BeTrue())
+				} else {
+					Expect(robotMock.AssertNotCalled(GinkgoT(), "RebootBMServer", bareMetalHostID, mock.Anything)).To(BeTrue())
 				}
-
 			},
-			Entry("timeout, no errorType, only hw reset", "", timeout, []infrav1.RebootType{infrav1.RebootTypeHardware}, infrav1.ErrorTypeSSHRebootTooSlow, infrav1.ErrorTypeHardwareRebootTooSlow, infrav1.RebootTypeHardware),
-			Entry("hostname != rescue, only hw reset", "fedoramachine", nil, []infrav1.RebootType{infrav1.RebootTypeHardware}, infrav1.ErrorType(""), infrav1.ErrorTypeHardwareRebootNotStarted, infrav1.RebootType("")),
-			Entry("hostname != rescue", "", timeout, []infrav1.RebootType{infrav1.RebootTypeSoftware, infrav1.RebootTypeHardware}, infrav1.ErrorTypeSSHRebootTooSlow, infrav1.ErrorTypeSoftwareRebootTooSlow, infrav1.RebootTypeSoftware),
-			Entry("hostname != rescue, only hw reset, errorType =ErrorTypeSSHRebootNotStarted", "fedoramachine", nil, []infrav1.RebootType{infrav1.RebootTypeHardware}, infrav1.ErrorTypeSSHRebootNotStarted, infrav1.ErrorTypeHardwareRebootNotStarted, infrav1.RebootTypeHardware),
-			Entry("hostname != rescue", "fedoramachine", nil, []infrav1.RebootType{infrav1.RebootTypeSoftware, infrav1.RebootTypeHardware}, infrav1.ErrorTypeSSHRebootNotStarted, infrav1.ErrorTypeSoftwareRebootNotStarted, infrav1.RebootTypeSoftware),
-			Entry("hostname != rescue, errorType = ErrorTypeSoftwareRebootNotStarted", "fedoramachine", nil, []infrav1.RebootType{infrav1.RebootTypeSoftware, infrav1.RebootTypeHardware}, infrav1.ErrorTypeSoftwareRebootNotStarted, infrav1.ErrorTypeHardwareRebootNotStarted, infrav1.RebootTypeHardware),
-			Entry("hostname != rescue, errorType = ErrorTypeHardwareRebootNotStarted", "fedoramachine", nil, []infrav1.RebootType{infrav1.RebootTypeSoftware, infrav1.RebootTypeHardware}, infrav1.ErrorTypeHardwareRebootNotStarted, infrav1.ErrorTypeHardwareRebootNotStarted, infrav1.RebootTypeHardware),
+			Entry("timeout, no errorType, only hw reset",
+				true,  // isTimeOut bool
+				false, // isConnectionRefused bool
+				[]infrav1.RebootType{infrav1.RebootTypeHardware}, // rebootTypes []infrav1.RebootType
+				infrav1.ErrorTypeSSHRebootTooSlow,                // hostErrorType infrav1.ErrorType
+				infrav1.ErrorTypeHardwareRebootNotStarted,        // expectedHostErrorType infrav1.ErrorType
+				infrav1.RebootTypeHardware,                       // expectedRebootType infrav1.RebootType
+			),
+			Entry("wrong boot, only hw reset",
+				false, // isTimeOut bool
+				false, // isConnectionRefused bool
+				[]infrav1.RebootType{infrav1.RebootTypeHardware}, // rebootTypes []infrav1.RebootType
+				infrav1.ErrorType(""),                            // hostErrorType infrav1.ErrorType
+				infrav1.ErrorTypeHardwareRebootNotStarted,        // expectedHostErrorType infrav1.ErrorType
+				infrav1.RebootTypeHardware,                       // expectedRebootType infrav1.RebootType
+			),
+			Entry("wrong boot, only hw reset, errorType =ErrorTypeSSHRebootNotStarted",
+				false, // isTimeOut bool
+				false, // isConnectionRefused bool
+				[]infrav1.RebootType{infrav1.RebootTypeHardware}, // rebootTypes []infrav1.RebootType
+				infrav1.ErrorTypeSSHRebootNotStarted,             // hostErrorType infrav1.ErrorType
+				infrav1.ErrorTypeHardwareRebootNotStarted,        // expectedHostErrorType infrav1.ErrorType
+				infrav1.RebootTypeHardware,                       // expectedRebootType infrav1.RebootType
+			),
+			Entry("wrong boot, errorType =ErrorTypeSSHRebootNotStarted",
+				false, // isTimeOut bool
+				false, // isConnectionRefused bool
+				[]infrav1.RebootType{infrav1.RebootTypeSoftware, infrav1.RebootTypeHardware}, // rebootTypes []infrav1.RebootType
+				infrav1.ErrorTypeSSHRebootNotStarted,                                         // hostErrorType infrav1.ErrorType
+				infrav1.ErrorTypeSoftwareRebootNotStarted,                                    // expectedHostErrorType infrav1.ErrorType
+				infrav1.RebootTypeSoftware,                                                   // expectedRebootType infrav1.RebootType
+			),
+			Entry("wrong boot,  errorType =ErrorTypeSoftwareRebootNotStarted",
+				false, // isTimeOut bool
+				false, // isConnectionRefused bool
+				[]infrav1.RebootType{infrav1.RebootTypeSoftware, infrav1.RebootTypeHardware}, // rebootTypes []infrav1.RebootType
+				infrav1.ErrorTypeSoftwareRebootNotStarted,                                    // hostErrorType infrav1.ErrorType
+				infrav1.ErrorTypeHardwareRebootNotStarted,                                    // expectedHostErrorType infrav1.ErrorType
+				infrav1.RebootTypeHardware,                                                   // expectedRebootType infrav1.RebootType
+			),
+			Entry("wrong boot,  errorType =ErrorTypeHardwareRebootNotStarted",
+				false, // isTimeOut bool
+				false, // isConnectionRefused bool
+				[]infrav1.RebootType{infrav1.RebootTypeSoftware, infrav1.RebootTypeHardware}, // rebootTypes []infrav1.RebootType
+				infrav1.ErrorTypeHardwareRebootNotStarted,                                    // hostErrorType infrav1.ErrorType
+				infrav1.ErrorTypeHardwareRebootNotStarted,                                    // expectedHostErrorType infrav1.ErrorType
+				infrav1.RebootTypeHardware,                                                   // expectedRebootType infrav1.RebootType
+			),
 		)
 
 		// Test with reached timeouts
@@ -337,9 +397,6 @@ var _ = Describe("actionEnsureCorrectBoot", func() {
 				expectedHostErrorType infrav1.ErrorType,
 				expectedRebootType infrav1.RebootType,
 			) {
-				sshMock := &sshmock.Client{}
-				sshMock.On("GetHostName").Return(sshclient.Output{Err: timeout})
-
 				robotMock := robotmock.Client{}
 				robotMock.On("SetBootRescue", bareMetalHostID, sshFingerprint).Return(nil, nil)
 				robotMock.On("GetBootRescue", bareMetalHostID).Return(&models.Rescue{Active: true}, nil)
@@ -355,41 +412,70 @@ var _ = Describe("actionEnsureCorrectBoot", func() {
 					helpers.WithSSHStatus(),
 					helpers.WithError(hostErrorType, "", 1, metav1.Time{Time: lastUpdated}),
 				)
-				service := newTestService(host, &robotMock, bmmock.NewSSHFactory(sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+				service := newTestService(host, &robotMock, nil, nil, nil)
 
-				Expect(service.actionEnsureCorrectBoot("rescue", nil)).Should(BeAssignableToTypeOf(actionContinue{}))
+				Expect(service.handleIncompleteBootError(true, true, false)).To(Succeed())
 				Expect(host.Spec.Status.ErrorType).To(Equal(expectedHostErrorType))
 				if expectedRebootType != infrav1.RebootType("") {
 					Expect(robotMock.AssertCalled(GinkgoT(), "RebootBMServer", bareMetalHostID, expectedRebootType)).To(BeTrue())
+				} else {
+					Expect(robotMock.AssertNotCalled(GinkgoT(), "RebootBMServer", bareMetalHostID, mock.Anything)).To(BeTrue())
 				}
-
 			},
-			Entry("timed out hw reset", infrav1.ErrorTypeHardwareRebootTooSlow, time.Now().Add(-time.Hour), infrav1.ErrorTypeHardwareRebootFailed, infrav1.RebootTypeHardware),
-			Entry("timed out failed hw reset", infrav1.ErrorTypeHardwareRebootFailed, time.Now().Add(-time.Hour), infrav1.ErrorTypeHardwareRebootFailed, infrav1.RebootTypeHardware),
-			Entry("timed out sw reset", infrav1.ErrorTypeSoftwareRebootTooSlow, time.Now().Add(-5*time.Minute), infrav1.ErrorTypeHardwareRebootTooSlow, infrav1.RebootTypeHardware),
-			Entry("not timed out hw reset", infrav1.ErrorTypeHardwareRebootTooSlow, time.Now().Add(-30*time.Minute), infrav1.ErrorTypeHardwareRebootTooSlow, infrav1.RebootType("")),
-			Entry("not timed out failed hw reset", infrav1.ErrorTypeHardwareRebootFailed, time.Now().Add(-30*time.Minute), infrav1.ErrorTypeHardwareRebootFailed, infrav1.RebootType("")),
-			Entry("not timed out sw reset", infrav1.ErrorTypeSoftwareRebootTooSlow, time.Now().Add(-3*time.Minute), infrav1.ErrorTypeSoftwareRebootTooSlow, infrav1.RebootType("")),
+			Entry(
+				"timed out hw reset",                   // hostErrorType infrav1.ErrorType
+				infrav1.ErrorTypeHardwareRebootTooSlow, // hostErrorType infrav1.ErrorType
+				time.Now().Add(-time.Hour),             // lastUpdated time.Time
+				infrav1.ErrorTypeHardwareRebootFailed,  // expectedHostErrorType infrav1.ErrorType
+				infrav1.RebootTypeHardware,             // expectedRebootType infrav1.RebootType
+			),
+			Entry(
+				"timed out failed hw reset",           // hostErrorType infrav1.ErrorType
+				infrav1.ErrorTypeHardwareRebootFailed, // hostErrorType infrav1.ErrorType
+				time.Now().Add(-time.Hour),            // lastUpdated time.Time
+				infrav1.ErrorTypeHardwareRebootFailed, // expectedHostErrorType infrav1.ErrorType
+				infrav1.RebootTypeHardware,            // expectedRebootType infrav1.RebootType
+			),
+			Entry(
+				"timed out sw reset",                   // hostErrorType infrav1.ErrorType
+				infrav1.ErrorTypeSoftwareRebootTooSlow, // hostErrorType infrav1.ErrorType
+				time.Now().Add(-5*time.Minute),         // lastUpdated time.Time
+				infrav1.ErrorTypeHardwareRebootTooSlow, // expectedHostErrorType infrav1.ErrorType
+				infrav1.RebootTypeHardware,             // expectedRebootType infrav1.RebootType
+			),
+			Entry(
+				"not timed out hw reset",               // hostErrorType infrav1.ErrorType
+				infrav1.ErrorTypeHardwareRebootTooSlow, // hostErrorType infrav1.ErrorType
+				time.Now().Add(-30*time.Minute),        // lastUpdated time.Time
+				infrav1.ErrorTypeHardwareRebootTooSlow, // expectedHostErrorType infrav1.ErrorType
+				infrav1.RebootType(""),                 // expectedRebootType infrav1.RebootType
+			),
+			Entry(
+				"not timed out failed hw reset",       // hostErrorType infrav1.ErrorType
+				infrav1.ErrorTypeHardwareRebootFailed, // hostErrorType infrav1.ErrorType
+				time.Now().Add(-30*time.Minute),       // lastUpdated time.Time
+				infrav1.ErrorTypeHardwareRebootFailed, // expectedHostErrorType infrav1.ErrorType
+				infrav1.RebootType(""),                // expectedRebootType infrav1.RebootType
+			),
+			Entry(
+				"not timed out sw reset",
+				infrav1.ErrorTypeSoftwareRebootTooSlow, // hostErrorType infrav1.ErrorType
+				time.Now().Add(-3*time.Minute),         // lastUpdated time.Time
+				infrav1.ErrorTypeSoftwareRebootTooSlow, // expectedHostErrorType infrav1.ErrorType
+				infrav1.RebootType(""),                 // expectedRebootType infrav1.RebootType
+			),
 		)
 	})
 
 	Context("hostname rescue vs machinename", func() {
-		osSSHPort := 23
 		DescribeTable("vary hostname and see whether rescue gets triggered",
 			func(
-				stdout, stderr string,
-				err error,
-				hostName string,
-				osSSHPort *int,
+				isRebootIntoRescue bool,
 				hostErrorType infrav1.ErrorType,
-				expectedActionResult actionResult,
+				expectedReturnError error,
 				expectedHostErrorType infrav1.ErrorType,
 				expectsRescueCall bool,
 			) {
-				sshMock := &sshmock.Client{}
-				sshMock.On("GetHostName").Return(sshclient.Output{StdOut: stdout, StdErr: stderr, Err: err})
-				sshMock.On("Reboot").Return(sshclient.Output{})
-
 				robotMock := robotmock.Client{}
 				robotMock.On("SetBootRescue", bareMetalHostID, sshFingerprint).Return(nil, nil)
 				robotMock.On("GetBootRescue", bareMetalHostID).Return(&models.Rescue{Active: true}, nil)
@@ -405,9 +491,13 @@ var _ = Describe("actionEnsureCorrectBoot", func() {
 					helpers.WithSSHStatus(),
 					helpers.WithError(hostErrorType, "", 1, metav1.Now()),
 				)
-				service := newTestService(host, &robotMock, bmmock.NewSSHFactory(sshMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+				service := newTestService(host, &robotMock, nil, nil, nil)
 
-				Expect(service.actionEnsureCorrectBoot(hostName, osSSHPort)).Should(BeAssignableToTypeOf(expectedActionResult))
+				if expectedReturnError == nil {
+					Expect(service.handleIncompleteBootError(isRebootIntoRescue, false, false)).To(Succeed())
+				} else {
+					Expect(service.handleIncompleteBootError(isRebootIntoRescue, false, false)).Should(Equal(expectedReturnError))
+				}
 				Expect(host.Spec.Status.ErrorType).To(Equal(expectedHostErrorType))
 				if expectsRescueCall {
 					Expect(robotMock.AssertCalled(GinkgoT(), "GetBootRescue", bareMetalHostID)).To(BeTrue())
@@ -415,12 +505,34 @@ var _ = Describe("actionEnsureCorrectBoot", func() {
 					Expect(robotMock.AssertNotCalled(GinkgoT(), "GetBootRescue", bareMetalHostID)).To(BeTrue())
 				}
 			},
-			Entry("hostname == rescue", "fedoramachine", "", nil, "rescue", nil, infrav1.ErrorType(""), actionContinue{}, infrav1.ErrorTypeSoftwareRebootNotStarted, true),
-			Entry("hostname == rescue", "fedoramachine", "", nil, "rescue", &osSSHPort, infrav1.ErrorType(""), actionContinue{}, infrav1.ErrorTypeSSHRebootNotStarted, true),
-			Entry("hostname == machinename", "rescue", "", nil, "machinename", &osSSHPort, infrav1.ErrorType(""), actionContinue{}, infrav1.ErrorTypeSSHRebootNotStarted, false),
-			Entry("hostname == machinename, stdout = othermachine", "othermachine", "", nil, "machinename", &osSSHPort, infrav1.ErrorType(""), actionError{}, infrav1.ErrorType(""), false),
-			Entry("ErrType == ErrorTypeSSHRebootNotStarted, hostName = rescue, stdout != rescue", "fedoramachine", "", nil, "rescue", &osSSHPort, infrav1.ErrorTypeSSHRebootNotStarted, actionContinue{}, infrav1.ErrorTypeSoftwareRebootNotStarted, true),
-			Entry("ErrType == ErrorTypeSSHRebootNotStarted, hostName != rescue, stdout == rescue", "rescue", "", nil, "machinename", &osSSHPort, infrav1.ErrorTypeSSHRebootNotStarted, actionContinue{}, infrav1.ErrorTypeSoftwareRebootNotStarted, false),
+			Entry("hostname == rescue",
+				true,                  // isRebootIntoRescue bool
+				infrav1.ErrorType(""), // hostErrorType infrav1.ErrorType
+				nil,                   // expectedReturnError error
+				infrav1.ErrorTypeSoftwareRebootNotStarted, // expectedHostErrorType infrav1.ErrorType
+				true, // expectsRescueCall bool
+			),
+			Entry("hostname != rescue",
+				false,                 // isRebootIntoRescue bool
+				infrav1.ErrorType(""), // hostErrorType infrav1.ErrorType
+				nil,                   // expectedReturnError error
+				infrav1.ErrorTypeSoftwareRebootNotStarted, // expectedHostErrorType infrav1.ErrorType
+				false, // expectsRescueCall bool
+			),
+			Entry("hostname == rescue, ErrType == ErrorTypeSSHRebootNotStarted",
+				true,                                 // isRebootIntoRescue bool
+				infrav1.ErrorTypeSSHRebootNotStarted, // hostErrorType infrav1.ErrorType
+				nil,                                  // expectedReturnError error
+				infrav1.ErrorTypeSoftwareRebootNotStarted, // expectedHostErrorType infrav1.ErrorType
+				true, // expectsRescueCall bool
+			),
+			Entry("hostname != rescue, ErrType == ErrorTypeSSHRebootNotStarted",
+				false,                                // isRebootIntoRescue bool
+				infrav1.ErrorTypeSSHRebootNotStarted, // hostErrorType infrav1.ErrorType
+				nil,                                  // expectedReturnError error
+				infrav1.ErrorTypeSoftwareRebootNotStarted, // expectedHostErrorType infrav1.ErrorType
+				false, // expectsRescueCall bool
+			),
 		)
 	})
 })
@@ -510,182 +622,412 @@ var _ = Describe("ensureSSHKey", func() {
 	)
 })
 
-var _ = Describe("checkHostNameInput", func() {
-	DescribeTable("checkHostNameInput",
-		func(out sshclient.Output,
+var _ = Describe("handleIncompleteBootInstallImage", func() {
+	DescribeTable("handleIncompleteBootInstallImage - out.Err",
+		func(
+			err error,
+			rescueActive bool,
+			expectedIsTimeout bool,
+			expectedIsConnectionRefused bool,
+			expectedErrMessage string,
+		) {
+			host := helpers.BareMetalHost(
+				"test-host",
+				"default",
+			)
+
+			robotMock := robotmock.Client{}
+			robotMock.On("GetBootRescue", bareMetalHostID).Return(&models.Rescue{Active: rescueActive}, nil)
+
+			service := newTestService(host, &robotMock, nil, nil, nil)
+
+			isTimeout, isConnectionRefused, err := service.handleIncompleteBootRegistering(sshclient.Output{Err: err})
+			Expect(isTimeout).To(Equal(expectedIsTimeout))
+			Expect(isConnectionRefused).To(Equal(expectedIsConnectionRefused))
+			if expectedErrMessage != "" {
+				Expect(err).To(Not(BeNil()))
+				Expect(err.Error()).To(ContainSubstring(expectedErrMessage))
+			} else {
+				Expect(err).To(BeNil())
+			}
+		},
+		Entry(
+			"timeout error",
+			timeout, // err error
+			true,    // rescueActive bool
+			true,    // expectedIsTimeout bool
+			false,   // expectedIsConnectionRefused bool
+			"",      // expectedErrMessage string
+		),
+		Entry(
+			"authenticationFailed error, rescue active",
+			sshclient.ErrAuthenticationFailed, // err error
+			true,                              // rescueActive bool
+			false,                             // expectedIsTimeout bool
+			false,                             // expectedIsConnectionRefused bool
+			"",                                // expectedErrMessage string
+		),
+		Entry(
+			"authenticationFailed error, rescue not active",
+			sshclient.ErrAuthenticationFailed, // err error
+			false,                             // rescueActive bool
+			false,                             // expectedIsTimeout bool
+			false,                             // expectedIsConnectionRefused bool
+			"wrong ssh key",                   // expectedErrMessage string
+		),
+		Entry(
+			"connectionRefused error, rescue active",
+			sshclient.ErrConnectionRefused, // err error
+			true,                           // rescueActive bool
+			false,                          // expectedIsTimeout bool
+			false,                          // expectedIsConnectionRefused bool
+			"",                             // expectedErrMessage string
+		),
+		Entry(
+			"connectionRefused error, rescue not active",
+			sshclient.ErrConnectionRefused, // err error
+			false,                          // rescueActive bool
+			false,                          // expectedIsTimeout bool
+			true,                           // expectedIsConnectionRefused bool
+			"",                             // expectedErrMessage string
+		),
+	)
+
+	DescribeTable("handleIncompleteBootRegistering - toggle stdErr and hostName",
+		func(
+			hasNilErr bool,
+			stdErr string,
 			hostName string,
-			osSSHPort *int,
-			getHostNameError error,
-			expectedIsInCorrectBoot bool,
+			expectedErrMessage string,
+		) {
+			var err error
+			if !hasNilErr {
+				err = errors.New("unknown error")
+			}
+
+			out := sshclient.Output{
+				StdOut: hostName,
+				StdErr: stdErr,
+				Err:    err,
+			}
+
+			host := helpers.BareMetalHost(
+				"test-host",
+				"default",
+			)
+
+			service := newTestService(host, nil, nil, nil, nil)
+
+			isTimeout, isConnectionRefused, err := service.handleIncompleteBootRegistering(out)
+			Expect(isTimeout).To(Equal(false))
+			Expect(isConnectionRefused).To(Equal(false))
+			if expectedErrMessage != "" {
+				Expect(err).To(Not(BeNil()))
+				Expect(err.Error()).To(ContainSubstring(expectedErrMessage))
+			} else {
+				Expect(err).To(BeNil())
+			}
+		},
+		Entry(
+			"stderr not empty",
+			true,             // hasNilErr bool
+			"command failed", // stdErr string
+			"hostName",       // hostName string
+			"failed to get host name via ssh. StdErr:", // expectedErrMessage string
+		),
+		Entry(
+			"stderr not empty - err != nil",
+			false,            // hasNilErr bool
+			"command failed", // stdErr string
+			"",               // hostName string
+			"unhandled ssh error while getting hostname", // expectedErrMessage string
+		),
+		Entry(
+			"stderr not empty - wrong hostName",
+			true,             // hasNilErr bool
+			"command failed", // stdErr string
+			"",               // hostName string
+			"failed to get host name via ssh. StdErr:", // expectedErrMessage string
+		),
+		Entry(
+			"stderr empty - wrong hostName",
+			true,                   // hasNilErr bool
+			"",                     // stdErr string
+			"",                     // hostName string
+			"error empty hostname", // expectedErrMessage string
+		),
+	)
+})
+
+var _ = Describe("handleIncompleteBootInstallImage", func() {
+	DescribeTable("handleIncompleteBootInstallImage - out.Err",
+		func(
+			err error,
+			getHostNameErrNil bool,
+			port int,
+			expectedIsTimeout bool,
+			expectedIsConnectionRefused bool,
+			expectedErrMessage string,
+		) {
+			sshMock := &sshmock.Client{}
+			var getHostNameErr error
+			if !getHostNameErrNil {
+				getHostNameErr = errors.New("non-nil error")
+			}
+			sshMock.On("GetHostName").Return(sshclient.Output{Err: getHostNameErr})
+
+			isTimeout, isConnectionRefused, err := handleIncompleteBootInstallImage(sshclient.Output{Err: err}, sshMock, port)
+			Expect(isTimeout).To(Equal(expectedIsTimeout))
+			Expect(isConnectionRefused).To(Equal(expectedIsConnectionRefused))
+			if expectedErrMessage != "" {
+				Expect(err).To(Not(BeNil()))
+				Expect(err.Error()).To(ContainSubstring(expectedErrMessage))
+			} else {
+				Expect(err).To(BeNil())
+			}
+		},
+		Entry(
+			"timeout error",
+			timeout, // err error
+			true,    // getHostNameErrNil bool
+			22,      // port int
+			true,    // expectedIsTimeout bool
+			false,   // expectedIsConnectionRefused bool
+			"",      // expectedErrMessage string
+		),
+		Entry(
+			"authenticationFailed error, port 22, no hostName error",
+			sshclient.ErrAuthenticationFailed, // err error
+			true,                              // getHostNameErrNil bool
+			22,                                // port int
+			false,                             // expectedIsTimeout bool
+			false,                             // expectedIsConnectionRefused bool
+			"",                                // expectedErrMessage string
+		),
+		Entry(
+			"authenticationFailed error, port 22, hostName error",
+			sshclient.ErrAuthenticationFailed, // err error
+			false,                             // getHostNameErrNil bool
+			22,                                // port int
+			false,                             // expectedIsTimeout bool
+			false,                             // expectedIsConnectionRefused bool
+			"wrong ssh key",                   // expectedErrMessage string
+		),
+		Entry(
+			"authenticationFailed error, port != 22",
+			sshclient.ErrAuthenticationFailed, // err error
+			true,                              // getHostNameErrNil bool
+			23,                                // port int
+			false,                             // expectedIsTimeout bool
+			false,                             // expectedIsConnectionRefused bool
+			"wrong ssh key",                   // expectedErrMessage string
+		),
+		Entry(
+			"connectionRefused error, port 22",
+			sshclient.ErrConnectionRefused, // err error
+			true,                           // getHostNameErrNil bool
+			22,                             // port int
+			false,                          // expectedIsTimeout bool
+			true,                           // expectedIsConnectionRefused bool
+			"",                             // expectedErrMessage string
+		),
+		Entry(
+			"connectionRefused error, port != 22, hostname error",
+			sshclient.ErrConnectionRefused, // err error
+			false,                          // getHostNameErrNil bool
+			23,                             // port int
+			false,                          // expectedIsTimeout bool
+			true,                           // expectedIsConnectionRefused bool
+			"",                             // expectedErrMessage string
+		),
+		Entry(
+			"connectionRefused error, port != 22, no hostname error",
+			sshclient.ErrConnectionRefused, // err error
+			true,                           // getHostNameErrNil bool
+			23,                             // port int
+			false,                          // expectedIsTimeout bool
+			false,                          // expectedIsConnectionRefused bool
+			"",                             // expectedErrMessage string
+		),
+	)
+
+	DescribeTable("handleIncompleteBootInstallImage - StdErr not empty",
+		func(
+			hasNilErr bool,
+			stdErr string,
+			hasWrongHostName bool,
+			expectedErrMessage string,
+		) {
+			var err error
+			if !hasNilErr {
+				err = errors.New("unknown error")
+			}
+			hostName := "rescue"
+			if hasWrongHostName {
+				hostName = "wrongHostName"
+			}
+
+			out := sshclient.Output{
+				StdOut: hostName,
+				StdErr: stdErr,
+				Err:    err,
+			}
+			isTimeout, isConnectionRefused, err := handleIncompleteBootInstallImage(out, nil, 22)
+			Expect(isTimeout).To(Equal(false))
+			Expect(isConnectionRefused).To(Equal(false))
+			if expectedErrMessage != "" {
+				Expect(err).To(Not(BeNil()))
+				Expect(err.Error()).To(ContainSubstring(expectedErrMessage))
+			} else {
+				Expect(err).To(BeNil())
+			}
+		},
+		Entry(
+			"stderr not empty",
+			true,             // hasNilErr bool
+			"command failed", // stdErr string
+			false,            // hasWrongHostName bool
+			"failed to get host name via ssh. StdErr:", // expectedErrMessage string
+		),
+		Entry(
+			"stderr not empty - err != nil",
+			false,            // hasNilErr bool
+			"command failed", // stdErr string
+			false,            // hasWrongHostName bool
+			"unhandled ssh error while getting hostname", // expectedErrMessage string
+		),
+		Entry(
+			"stderr not empty - wrong hostName",
+			true,             // hasNilErr bool
+			"command failed", // stdErr string
+			true,             // hasWrongHostName bool
+			"failed to get host name via ssh. StdErr:", // expectedErrMessage string
+		),
+	)
+
+	DescribeTable("handleIncompleteBootInstallImage - wrong hostName",
+		func(
+			hasNilErr bool,
+			stdErr string,
+			hostName string,
+			expectedErrMessage string,
+		) {
+			var err error
+			if !hasNilErr {
+				err = errors.New("unknown error")
+			}
+
+			out := sshclient.Output{
+				StdOut: hostName,
+				StdErr: stdErr,
+				Err:    err,
+			}
+			isTimeout, isConnectionRefused, err := handleIncompleteBootInstallImage(out, nil, 22)
+			Expect(isTimeout).To(Equal(false))
+			Expect(isConnectionRefused).To(Equal(false))
+			if expectedErrMessage != "" {
+				Expect(err).To(Not(BeNil()))
+				Expect(err.Error()).To(ContainSubstring(expectedErrMessage))
+			} else {
+				Expect(err).To(BeNil())
+			}
+		},
+		Entry(
+			"empty hostname",
+			true,                   // hasNilErr bool
+			"",                     // stdErr string
+			"",                     // 	hostName string
+			"error empty hostname", // expectedErrMessage string
+		),
+		Entry(
+			"empty hostname - err not empty",
+			false, // hasNilErr bool
+			"",    // stdErr string
+			"",    // 	hostName string
+			"unhandled ssh error while getting hostname", // expectedErrMessage string
+		),
+		Entry(
+			"empty hostname stderr not empty",
+			true,             // hasNilErr bool
+			"command failed", // stdErr string
+			"",               // 	hostName string
+			"failed to get host name via ssh. StdErr:", // expectedErrMessage string
+		),
+		Entry(
+			"hostname == rescue",
+			true,     // hasNilErr bool
+			"",       // stdErr string
+			"rescue", // 	hostName string
+			"",       // expectedErrMessage string
+		),
+		Entry(
+			"hostname == otherHostName",
+			true,                  // hasNilErr bool
+			"",                    // stdErr string
+			"otherHostName",       // 	hostName string
+			"unexpected hostname", // expectedErrMessage string
+		),
+	)
+})
+
+var _ = Describe("handleIncompleteBootProvisioned", func() {
+	DescribeTable("handleIncompleteBootProvisioned",
+		func(out sshclient.Output,
 			expectedIsTimeout bool,
 			expectedIsConnectionRefused bool,
 			expectedErrMessage *string,
-			expectGetHostNameCall bool,
 		) {
-
-			sshMock := sshmock.Client{}
-			sshMock.On("GetHostName").Return(out)
-
-			secondarySSHMock := sshmock.Client{}
-			secondarySSHMock.On("GetHostName").Return(sshclient.Output{Err: getHostNameError})
-
-			isInCorrectBoot, isTimeout, isConnectionRefused, err := checkHostNameOutput(out, &secondarySSHMock, hostName, osSSHPort)
-			Expect(isInCorrectBoot).To(Equal(expectedIsInCorrectBoot))
+			isTimeout, isConnectionRefused, err := handleIncompleteBootProvisioned(out)
 			Expect(isTimeout).To(Equal(expectedIsTimeout))
 			Expect(isConnectionRefused).To(Equal(expectedIsConnectionRefused))
 			if expectedErrMessage != nil {
 				Expect(err).To(Not(BeNil()))
 				Expect(err.Error()).To(ContainSubstring(*expectedErrMessage))
-			}
-			if expectGetHostNameCall {
-				Expect(secondarySSHMock.AssertCalled(GinkgoT(), "GetHostName")).To(BeTrue())
 			} else {
-				Expect(secondarySSHMock.AssertNotCalled(GinkgoT(), "GetHostName")).To(BeTrue())
+				Expect(err).To(BeNil())
 			}
 		},
 		Entry(
-			"correct boot - rescue",
-			sshclient.Output{StdOut: "rescue"}, // out sshclient.Output
-			rescue,                             // hostName string
-			nil,                                // osSSHPort *int
-			nil,                                // getHostNameError error
-			true,                               // expectedIsInCorrectBoot bool
-			false,                              // expectedIsTimeout bool
-			false,                              // expectedIsConnectionRefused bool
-			nil,                                // expectedErrMessage *string
-			false,                              // expectGetHostNameCall bool
-		),
-		Entry(
-			"correct boot - os",
-			sshclient.Output{StdOut: "os"}, // out sshclient.Output
-			"os",                           // hostName string
-			nil,                            // osSSHPort *int
-			nil,                            // getHostNameError error
-			true,                           // expectedIsInCorrectBoot bool
-			false,                          // expectedIsTimeout bool
-			false,                          // expectedIsConnectionRefused bool
-			nil,                            // expectedErrMessage *string
-			false,                          // expectGetHostNameCall bool
-		),
-		Entry(
-			"incorrect boot - os",
-			sshclient.Output{StdOut: "os"},        // out sshclient.Output
-			"os-other",                            // hostName string
-			nil,                                   // osSSHPort *int
-			nil,                                   // getHostNameError error
-			false,                                 // expectedIsInCorrectBoot bool
+			"incorrect boot",
+			sshclient.Output{StdOut: "wrong_hostname"}, // out sshclient.Output
 			false,                                 // expectedIsTimeout bool
 			false,                                 // expectedIsConnectionRefused bool
 			pointer.String("unexpected hostname"), // expectedErrMessage *string
-			false,                                 // expectGetHostNameCall bool
 		),
 		Entry(
 			"timeout error",
 			sshclient.Output{Err: timeout}, // out sshclient.Output
-			"os-other",                     // hostName string
-			nil,                            // osSSHPort *int
-			nil,                            // getHostNameError error
-			false,                          // expectedIsInCorrectBoot bool
 			true,                           // expectedIsTimeout bool
 			false,                          // expectedIsConnectionRefused bool
 			nil,                            // expectedErrMessage *string
-			false,                          // expectGetHostNameCall bool
 		),
 		Entry(
 			"stdErr non-empty",
 			sshclient.Output{StdErr: "some error"}, // out sshclient.Output
-			"os-other",                             // hostName string
-			nil,                                    // osSSHPort *int
-			nil,                                    // getHostNameError error
-			false,                                  // expectedIsInCorrectBoot bool
 			false,                                  // expectedIsTimeout bool
 			false,                                  // expectedIsConnectionRefused bool
 			pointer.String("failed to get host name via ssh. StdErr: some error"), // expectedErrMessage *string
-			false, // expectGetHostNameCall bool
 		),
 		Entry(
-			"incorrect boot - os",
+			"incorrect boot - empty hostname",
 			sshclient.Output{StdOut: ""},     // out sshclient.Output
-			"os-other",                       // hostName string
-			nil,                              // osSSHPort *int
-			nil,                              // getHostNameError error
-			false,                            // expectedIsInCorrectBoot bool
 			false,                            // expectedIsTimeout bool
 			false,                            // expectedIsConnectionRefused bool
 			pointer.String("empty hostname"), // expectedErrMessage *string
-			false,                            // expectGetHostNameCall bool
 		),
 		Entry(
-			"unable to authenticate - osPort != 22",
-			sshclient.Output{Err: errors.New("ssh error: ssh: unable to authenticate")}, // out sshclient.Output
-			"os-other",                      // hostName string
-			pointer.Int(21),                 // osSSHPort *int
-			nil,                             // getHostNameError error
-			false,                           // expectedIsInCorrectBoot bool
+			"unable to authenticate",
+			sshclient.Output{Err: sshclient.ErrAuthenticationFailed}, // out sshclient.Output
 			false,                           // expectedIsTimeout bool
 			false,                           // expectedIsConnectionRefused bool
 			pointer.String("wrong ssh key"), // expectedErrMessage *string
-			false,                           // expectGetHostNameCall bool
 		),
 		Entry(
-			"unable to authenticate - osPort == 22, no error for getHostName",
-			sshclient.Output{Err: errors.New("ssh error: ssh: unable to authenticate")}, // out sshclient.Output
-			"os-other",      // hostName string
-			pointer.Int(22), // osSSHPort *int
-			nil,             // getHostNameError error
-			false,           // expectedIsInCorrectBoot bool
-			false,           // expectedIsTimeout bool
-			false,           // expectedIsConnectionRefused bool
-			nil,             // expectedErrMessage *string
-			true,            // expectGetHostNameCall bool
-		),
-		Entry(
-			"unable to authenticate - osPort == 22, error for getHostName",
-			sshclient.Output{Err: errors.New("ssh error: ssh: unable to authenticate")}, // out sshclient.Output
-			"os-other",                      // hostName string
-			pointer.Int(22),                 // osSSHPort *int
-			errors.New("non-nil error"),     // getHostNameError error
-			false,                           // expectedIsInCorrectBoot bool
-			false,                           // expectedIsTimeout bool
-			false,                           // expectedIsConnectionRefused bool
-			pointer.String("wrong ssh key"), // expectedErrMessage *string
-			true,                            // expectGetHostNameCall bool
-		),
-		Entry(
-			"connection refused - osPort == 22",
-			sshclient.Output{Err: errors.New("ssh error: connect: connection refused")}, // out sshclient.Output
-			"os-other",      // hostName string
-			pointer.Int(22), // osSSHPort *int
-			nil,             // getHostNameError error
-			false,           // expectedIsInCorrectBoot bool
-			false,           // expectedIsTimeout bool
-			true,            // expectedIsConnectionRefused bool
-			nil,             // expectedErrMessage *string
-			false,           // expectGetHostNameCall bool
-		),
-		Entry(
-			"connection refused - osPort != 22, no error for getHostName",
-			sshclient.Output{Err: errors.New("ssh error: connect: connection refused")}, // out sshclient.Output
-			"os-other",      // hostName string
-			pointer.Int(21), // osSSHPort *int
-			nil,             // getHostNameError error
-			false,           // expectedIsInCorrectBoot bool
-			false,           // expectedIsTimeout bool
-			false,           // expectedIsConnectionRefused bool
-			nil,             // expectedErrMessage *string
-			true,            // expectGetHostNameCall bool
-		),
-		Entry(
-			"connection refused - osPort != 22, error for getHostName",
-			sshclient.Output{Err: errors.New("ssh error: connect: connection refused")}, // out sshclient.Output
-			"os-other",                  // hostName string
-			pointer.Int(21),             // osSSHPort *int
-			errors.New("non-nil error"), // getHostNameError error
-			false,                       // expectedIsInCorrectBoot bool
-			false,                       // expectedIsTimeout bool
-			true,                        // expectedIsConnectionRefused bool
-			nil,                         // expectedErrMessage *string
-			true,                        // expectGetHostNameCall bool
+			"connection refused",
+			sshclient.Output{Err: sshclient.ErrConnectionRefused}, // out sshclient.Output
+			false, // expectedIsTimeout bool
+			true,  // expectedIsConnectionRefused bool
+			nil,   // expectedErrMessage *string
 		),
 	)
 })
@@ -699,7 +1041,25 @@ var _ = Describe("actionRegistering", func() {
 			expectedErrorMessage *string,
 		) {
 
+			var host *infrav1.HetznerBareMetalHost
+			if includeRootDeviceHints {
+				host = helpers.BareMetalHost(
+					"test-host",
+					"default",
+					helpers.WithRootDeviceHints(),
+					helpers.WithIPv4(),
+					helpers.WithConsumerRef(),
+				)
+			} else {
+				host = helpers.BareMetalHost(
+					"test-host",
+					"default",
+					helpers.WithIPv4(),
+					helpers.WithConsumerRef(),
+				)
+			}
 			sshMock := &sshmock.Client{}
+			sshMock.On("GetHostName").Return(sshclient.Output{StdOut: "rescue"})
 			sshMock.On("GetHardwareDetailsRAM").Return(sshclient.Output{StdOut: "10000"})
 			sshMock.On("GetHardwareDetailsStorage").Return(sshclient.Output{
 				StdOut: storageStdOut,
@@ -714,22 +1074,6 @@ var _ = Describe("actionRegistering", func() {
 			sshMock.On("GetHardwareDetailsCPUFlags").Return(sshclient.Output{StdOut: "flag1 flag2 flag3"})
 			sshMock.On("GetHardwareDetailsCPUThreads").Return(sshclient.Output{StdOut: "123"})
 			sshMock.On("GetHardwareDetailsCPUCores").Return(sshclient.Output{StdOut: "12"})
-
-			var host *infrav1.HetznerBareMetalHost
-			if includeRootDeviceHints {
-				host = helpers.BareMetalHost(
-					"test-host",
-					"default",
-					helpers.WithRootDeviceHints(),
-					helpers.WithIPv4(),
-				)
-			} else {
-				host = helpers.BareMetalHost(
-					"test-host",
-					"default",
-					helpers.WithIPv4(),
-				)
-			}
 
 			service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 
@@ -766,6 +1110,46 @@ var _ = Describe("actionRegistering", func() {
 			false,
 			actionFailed{},
 			pointer.String(infrav1.ErrorMessageMissingRootDeviceHints),
+		),
+	)
+
+	DescribeTable("actionRegistering - incomplete reboot",
+		func(
+			getHostNameOutput sshclient.Output,
+			expectedErrorType infrav1.ErrorType,
+		) {
+			host := helpers.BareMetalHost(
+				"test-host",
+				"default",
+				helpers.WithRebootTypes([]infrav1.RebootType{infrav1.RebootTypeHardware}),
+				helpers.WithRootDeviceHints(),
+				helpers.WithIPv4(),
+				helpers.WithConsumerRef(),
+			)
+
+			sshMock := &sshmock.Client{}
+			sshMock.On("GetHostName").Return(getHostNameOutput)
+
+			robotMock := robotmock.Client{}
+			robotMock.On("GetBootRescue", bareMetalHostID).Return(&models.Rescue{Active: false}, nil)
+
+			service := newTestService(host, &robotMock, bmmock.NewSSHFactory(sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+
+			actResult := service.actionRegistering()
+			Expect(actResult).Should(BeAssignableToTypeOf(actionContinue{}))
+			if expectedErrorType != infrav1.ErrorType("") {
+				Expect(host.Spec.Status.ErrorType).To(Equal(expectedErrorType))
+			}
+		},
+		Entry(
+			"timeout",
+			sshclient.Output{Err: timeout},    // getHostNameOutput sshclient.Output
+			infrav1.ErrorTypeSSHRebootTooSlow, // expectedErrorType string
+		),
+		Entry(
+			"connectionRefused",
+			sshclient.Output{Err: sshclient.ErrConnectionRefused}, // getHostNameOutput sshclient.Output
+			infrav1.ErrorTypeConnectionError,                      // expectedErrorType string
 		),
 	)
 })
@@ -848,11 +1232,6 @@ var _ = Describe("actionEnsureProvisioned", func() {
 			expectedErrorType infrav1.ErrorType,
 			shouldCallReboot bool,
 		) {
-
-			sshMock := &sshmock.Client{}
-			sshMock.On("CloudInitStatus").Return(sshclient.Output{StdOut: cloudInitStatus})
-			sshMock.On("Reboot").Return(sshclient.Output{})
-
 			host := helpers.BareMetalHost(
 				"test-host",
 				"default",
@@ -860,6 +1239,11 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				helpers.WithIPv4(),
 				helpers.WithConsumerRef(),
 			)
+
+			sshMock := &sshmock.Client{}
+			sshMock.On("GetHostName").Return(sshclient.Output{StdOut: infrav1.BareMetalHostNamePrefix + host.Spec.ConsumerRef.Name})
+			sshMock.On("Reboot").Return(sshclient.Output{})
+			sshMock.On("CloudInitStatus").Return(sshclient.Output{StdOut: cloudInitStatus})
 
 			robotMock := robotmock.Client{}
 			robotMock.On("SetBMServerName", bareMetalHostID, infrav1.BareMetalHostNamePrefix+host.Spec.ConsumerRef.Name).Return(nil, nil)
@@ -897,6 +1281,47 @@ var _ = Describe("actionEnsureProvisioned", func() {
 			actionContinue{},                     // expectedActionResult actionResult
 			infrav1.ErrorTypeSSHRebootNotStarted, // expectedErrorType string
 			true,                                 // shouldCallReboot bool
+		),
+	)
+
+	DescribeTable("actionEnsureProvisioned - incomplete reboot",
+		func(
+			getHostNameOutput sshclient.Output,
+			expectedErrorType infrav1.ErrorType,
+		) {
+			host := helpers.BareMetalHost(
+				"test-host",
+				"default",
+				helpers.WithSSHSpecInclPorts(),
+				helpers.WithIPv4(),
+				helpers.WithConsumerRef(),
+			)
+
+			sshMock := &sshmock.Client{}
+			sshMock.On("GetHostName").Return(getHostNameOutput)
+			sshMock.On("Reboot").Return(sshclient.Output{})
+			sshMock.On("CloudInitStatus").Return(sshclient.Output{StdOut: "status: done"})
+
+			robotMock := robotmock.Client{}
+			robotMock.On("SetBMServerName", bareMetalHostID, infrav1.BareMetalHostNamePrefix+host.Spec.ConsumerRef.Name).Return(nil, nil)
+
+			service := newTestService(host, &robotMock, bmmock.NewSSHFactory(sshMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), nil)
+
+			actResult := service.actionEnsureProvisioned()
+			Expect(actResult).Should(BeAssignableToTypeOf(actionContinue{}))
+			if expectedErrorType != infrav1.ErrorType("") {
+				Expect(host.Spec.Status.ErrorType).To(Equal(expectedErrorType))
+			}
+		},
+		Entry(
+			"timeout",
+			sshclient.Output{Err: timeout},    // getHostNameOutput sshclient.Output
+			infrav1.ErrorTypeSSHRebootTooSlow, // expectedErrorType string
+		),
+		Entry(
+			"connectionRefused",
+			sshclient.Output{Err: sshclient.ErrConnectionRefused}, // getHostNameOutput sshclient.Output
+			infrav1.ErrorTypeConnectionError,                      // expectedErrorType string
 		),
 	)
 })

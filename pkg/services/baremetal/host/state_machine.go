@@ -172,13 +172,10 @@ func (hsm *hostStateMachine) handleRegistering() actionResult {
 		hsm.nextState = infrav1.StateDeprovisioning
 		return actionComplete{}
 	}
-	actResult := hsm.reconciler.actionEnsureCorrectBoot(rescue, nil)
+
+	actResult := hsm.reconciler.actionRegistering()
 	if _, ok := actResult.(actionComplete); ok {
-		actResult := hsm.reconciler.actionRegistering()
-		if _, ok := actResult.(actionComplete); ok {
-			hsm.nextState = infrav1.StateImageInstalling
-		}
-		return actResult
+		hsm.nextState = infrav1.StateImageInstalling
 	}
 	return actResult
 }
@@ -189,16 +186,9 @@ func (hsm *hostStateMachine) handleImageInstalling() actionResult {
 		return actionComplete{}
 	}
 
-	// If the ssh reboot can be used, then only in the case where the server has been deprovisioned before
-	// and still uses the port after cloud init.
-	port := hsm.host.Spec.Status.SSHSpec.PortAfterCloudInit
-	actResult := hsm.reconciler.actionEnsureCorrectBoot(rescue, &port)
+	actResult := hsm.reconciler.actionImageInstalling()
 	if _, ok := actResult.(actionComplete); ok {
-		actResult := hsm.reconciler.actionImageInstalling()
-		if _, ok := actResult.(actionComplete); ok {
-			hsm.nextState = infrav1.StateProvisioning
-		}
-		return actResult
+		hsm.nextState = infrav1.StateProvisioning
 	}
 	return actResult
 }
@@ -209,14 +199,9 @@ func (hsm *hostStateMachine) handleProvisioning() actionResult {
 		return actionComplete{}
 	}
 
-	port := hsm.host.Spec.Status.SSHSpec.PortAfterInstallImage
-	actResult := hsm.reconciler.actionEnsureCorrectBoot(infrav1.BareMetalHostNamePrefix+hsm.host.Spec.ConsumerRef.Name, &port)
+	actResult := hsm.reconciler.actionProvisioning()
 	if _, ok := actResult.(actionComplete); ok {
-		actResult := hsm.reconciler.actionProvisioning()
-		if _, ok := actResult.(actionComplete); ok {
-			hsm.nextState = infrav1.StateEnsureProvisioned
-		}
-		return actResult
+		hsm.nextState = infrav1.StateEnsureProvisioned
 	}
 	return actResult
 }
@@ -227,14 +212,9 @@ func (hsm *hostStateMachine) handleEnsureProvisioned() actionResult {
 		return actionComplete{}
 	}
 
-	port := hsm.host.Spec.Status.SSHSpec.PortAfterCloudInit
-	actResult := hsm.reconciler.actionEnsureCorrectBoot(infrav1.BareMetalHostNamePrefix+hsm.host.Spec.ConsumerRef.Name, &port)
+	actResult := hsm.reconciler.actionEnsureProvisioned()
 	if _, ok := actResult.(actionComplete); ok {
-		actResult := hsm.reconciler.actionEnsureProvisioned()
-		if _, ok := actResult.(actionComplete); ok {
-			hsm.nextState = infrav1.StateProvisioned
-		}
-		return actResult
+		hsm.nextState = infrav1.StateProvisioned
 	}
 	return actResult
 }

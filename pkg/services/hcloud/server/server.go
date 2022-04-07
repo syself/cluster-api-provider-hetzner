@@ -181,11 +181,10 @@ func (s *Service) createServer(ctx context.Context, failureDomain string) (*hclo
 		return nil, errors.Wrap(err, "failed to get server image")
 	}
 
-	name := infrav1.HCloudHostNamePrefix + s.scope.Name()
 	automount := false
 	startAfterCreate := true
 	opts := hcloud.ServerCreateOpts{
-		Name:   name,
+		Name:   s.scope.Name(),
 		Labels: createLabels(s.scope.HetznerCluster.Name, s.scope.Name(), s.scope.IsControlPlane()),
 		Image:  image,
 		Location: &hcloud.Location{
