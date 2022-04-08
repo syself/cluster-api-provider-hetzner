@@ -41,8 +41,8 @@ const (
 	InstanceTerminatedReason = "InstanceTerminated"
 	// InstanceHasNonExistingPlacementGroupReason instance has a placement group name that does not exist.
 	InstanceHasNonExistingPlacementGroupReason = "InstanceHasNonExistingPlacementGroup"
-	// InstanceHasNoValidSSHKeyReason instance has no valid ssh key.
-	InstanceHasNoValidSSHKeyReason = "InstanceHasNoValidSSHKey"
+	// ServerOffReason instance is off.
+	ServerOffReason = "ServerOff"
 	// InstanceAsControlPlaneUnreachableReason control plane is (not yet) reachable.
 	InstanceAsControlPlaneUnreachableReason = "InstanceAsControlPlaneUnreachable"
 )

@@ -17,11 +17,20 @@ limitations under the License.
 package server
 
 import (
+	"context"
+	"time"
+
 	"github.com/hetznercloud/hcloud-go/hcloud"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	fakeclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/fake"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	"sigs.k8s.io/cluster-api/util/conditions"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 var _ = Describe("setStatusFromAPI", func() {
@@ -154,5 +163,76 @@ var _ = Describe("getSSHKeys", func() {
 			},
 		})
 		Expect(err).To(HaveOccurred())
+	})
+})
+
+var _ = Describe("handleServerStatusOff", func() {
+	var hcloudMachine *infrav1.HCloudMachine
+	client := fakeclient.NewHCloudClientFactory().NewClient("")
+
+	res, err := client.CreateServer(context.Background(), hcloud.ServerCreateOpts{Name: "serverName"})
+	Expect(err).To(Succeed())
+	server := res.Server
+
+	BeforeEach(func() {
+		hcloudMachine = &infrav1.HCloudMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "hcloudMachineName",
+				Namespace: "default",
+			},
+			Spec: infrav1.HCloudMachineSpec{
+				ImageName: "fedora-control-plane",
+				Type:      "cpx31",
+			},
+		}
+
+		server.Status = hcloud.ServerStatusOff
+	})
+
+	It("sets a condition if none is previously set", func() {
+		service := newTestService(hcloudMachine, client)
+		res, err := service.handleServerStatusOff(context.Background(), server)
+		Expect(err).To(Succeed())
+		Expect(res).Should(Equal(&reconcile.Result{RequeueAfter: 30 * time.Second}))
+		Expect(conditions.GetReason(hcloudMachine, infrav1.InstanceReadyCondition)).To(Equal(infrav1.ServerOffReason))
+		Expect(server.Status).To(Equal(hcloud.ServerStatusRunning))
+	})
+
+	It("tries to power on server again if it is not timed out", func() {
+		conditions.MarkFalse(hcloudMachine, infrav1.InstanceReadyCondition, infrav1.ServerOffReason, clusterv1.ConditionSeverityInfo, "")
+		service := newTestService(hcloudMachine, client)
+		res, err := service.handleServerStatusOff(context.Background(), server)
+		Expect(err).To(Succeed())
+		Expect(res).Should(Equal(&reconcile.Result{RequeueAfter: 30 * time.Second}))
+		Expect(server.Status).To(Equal(hcloud.ServerStatusRunning))
+		Expect(conditions.GetReason(hcloudMachine, infrav1.InstanceReadyCondition)).To(Equal(infrav1.ServerOffReason))
+	})
+
+	It("sets a failure message if it timed out", func() {
+		conditions.MarkFalse(hcloudMachine, infrav1.InstanceReadyCondition, infrav1.ServerOffReason, clusterv1.ConditionSeverityInfo, "")
+		// manipulate lastTransitionTime
+		conditionsList := hcloudMachine.GetConditions()
+		for i, c := range conditionsList {
+			if c.Type == infrav1.InstanceReadyCondition {
+				conditionsList[i].LastTransitionTime = metav1.NewTime(time.Now().Add(-time.Hour))
+			}
+		}
+		service := newTestService(hcloudMachine, client)
+		res, err := service.handleServerStatusOff(context.Background(), server)
+		Expect(err).To(Succeed())
+		var nilResult *reconcile.Result
+		Expect(res).Should(Equal(nilResult))
+		Expect(server.Status).To(Equal(hcloud.ServerStatusOff))
+		Expect(hcloudMachine.Status.FailureMessage).Should(Equal(pointer.String("reached timeout of waiting for machines that are switched off")))
+	})
+
+	It("tries to power on server and sets new condition if different one is set", func() {
+		conditions.MarkTrue(hcloudMachine, infrav1.InstanceReadyCondition)
+		service := newTestService(hcloudMachine, client)
+		res, err := service.handleServerStatusOff(context.Background(), server)
+		Expect(err).To(Succeed())
+		Expect(res).Should(Equal(&reconcile.Result{RequeueAfter: 30 * time.Second}))
+		Expect(conditions.GetReason(hcloudMachine, infrav1.InstanceReadyCondition)).To(Equal(infrav1.ServerOffReason))
+		Expect(server.Status).To(Equal(hcloud.ServerStatusRunning))
 	})
 })
