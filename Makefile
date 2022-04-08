@@ -36,7 +36,6 @@ export PATH := $(abspath $(TOOLS_BIN_DIR)):$(PATH)
 # Default path for Kubeconfig File.
 CAPH_WORKER_CLUSTER_KUBECONFIG ?= "/tmp/workload-kubeconfig"
 
-E2E_CONF_FILE  ?= "$(abspath test/e2e/config/hetzner-dev.yaml)"
 INTEGRATION_CONF_FILE ?= "$(abspath test/integration/integration-dev.yaml)"
 E2E_TEMPLATE_DIR := "$(abspath test/e2e/data/infrastructure-hetzner/)"
 ARTIFACTS_PATH := $(ROOT_DIR)/_artifacts
@@ -373,6 +372,12 @@ $(RELEASE_DIR):
 $(RELEASE_NOTES_DIR):
 	mkdir -p $(RELEASE_NOTES_DIR)/
 
+.PHONY: test-release
+test-release:
+	$(MAKE) set-manifest-image MANIFEST_IMG=$(REGISTRY)/$(IMAGE_NAME) MANIFEST_TAG=$(TAG)
+	$(MAKE) set-manifest-pull-policy PULL_POLICY=IfNotPresent
+	$(MAKE) release-manifests
+
 .PHONY: release
 release: clean-release  ## Builds and push container images using the latest git tag for the commit.
 	@if [ -z "${RELEASE_TAG}" ]; then echo "RELEASE_TAG is not set"; exit 1; fi
@@ -410,6 +415,24 @@ $(ARTIFACTS):
 	mkdir -p $(ARTIFACTS)/
 
 KUBEBUILDER_ASSETS ?= $(shell $(SETUP_ENVTEST) use --use-env -p path $(KUBEBUILDER_ENVTEST_KUBERNETES_VERSION))
+REPO_ROOT := $(shell git rev-parse --show-toplevel)
+
+E2E_DIR ?= $(REPO_ROOT)/test/e2e
+E2E_CONF_FILE_SOURCE ?= $(E2E_DIR)/config/hetzner.yaml
+E2E_CONF_FILE ?= $(E2E_DIR)/config/hetzner-ci-envsubst.yaml
+
+.PHONY: e2e-image
+e2e-image: ## Build the e2e manager image
+	docker build --pull --build-arg ARCH=$(ARCH) --build-arg LDFLAGS="$(LDFLAGS)" . -t $(CONTROLLER_IMG):e2e
+
+.PHONY: $(E2E_CONF_FILE)
+$(E2E_CONF_FILE): $(ENVSUBST) $(E2E_CONF_FILE_SOURCE)
+	mkdir -p $(shell dirname $(E2E_CONF_FILE))
+	$(ENVSUBST) < $(E2E_CONF_FILE_SOURCE) > $(E2E_CONF_FILE)
+
+.PHONY: test-e2e
+test-e2e: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
+	./hack/ci-e2e-capi.sh
 
 .PHONY: test
 test: $(SETUP_ENVTEST) ## Run unit and integration tests
@@ -430,22 +453,6 @@ test-junit: $(SETUP_ENVTEST) $(GOTESTSUM) ## Run tests with verbose setting and 
 	set +o errexit; (KUBEBUILDER_ASSETS="$(KUBEBUILDER_ASSETS)" go test -json ./... $(TEST_ARGS); echo $$? > $(ARTIFACTS)/junit.exitcode) | tee $(ARTIFACTS)/junit.stdout
 	$(GOTESTSUM) --junitfile $(ARTIFACTS)/junit.xml --raw-command cat $(ARTIFACTS)/junit.stdout
 	exit $$(cat $(ARTIFACTS)/junit.exitcode)
-
-.PHONY: test-e2e
-test-e2e: e2e-image $(ARTIFACTS) ## Run the e2e tests locally
-	GINKGO_SKIP="Conformance" $(MAKE) -C $(TEST_DIR)/e2e run
-
-test-ci-e2e: ## Run the e2e tests
-	MINIMUM_HCLOUD_VERSION=$(MINIMUM_HCLOUD_VERSION) \
-	MINIMUM_KIND_VERSION=$(MINIMUM_KIND_VERSION) \
-	MINIMUM_KUBECTL_VERSION=$(MINIMUM_KUBECTL_VERSION) \
-	MINIMUM_GO_VERSION=$(MINIMUM_GO_VERSION) \
-	./hack/ci-e2e.sh
-
-.PHONY: e2e-image
-e2e-image: ## Build the e2e manager image
-	docker build --pull --build-arg ARCH=$(ARCH) --build-arg LDFLAGS="$(LDFLAGS)" . -t $(CONTROLLER_IMG):e2e
-
 
 ##@ Build
 
