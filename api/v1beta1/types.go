@@ -168,6 +168,7 @@ type HCloudNetworkSpec struct {
 	SubnetCIDRBlock string `json:"subnetCidrBlock,omitempty"`
 
 	// NetworkZone specifies the HCloud network zone of the private network.
+	// +kubebuilder:validation:Enum=eu-central;us-east
 	// +kubebuilder:default=eu-central
 	// +optional
 	NetworkZone HCloudNetworkZone `json:"networkZone,omitempty"`
