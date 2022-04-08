@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"time"
 
 	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -138,6 +139,11 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			reterr = err
 		}
 	}()
+
+	// check whether rate limit has been reached and if so, then wait.
+	if wait := reconcileRateLimit(hcloudMachine); wait {
+		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+	}
 
 	if !hcloudMachine.ObjectMeta.DeletionTimestamp.IsZero() {
 		return r.reconcileDelete(ctx, machineScope)

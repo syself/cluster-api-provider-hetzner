@@ -97,6 +97,13 @@ func (s *Service) createNetwork(ctx context.Context, spec *infrav1.HCloudNetwork
 
 	resp, err := s.scope.HCloudClient.CreateNetwork(ctx, opts)
 	if err != nil {
+		if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
+			conditions.MarkTrue(s.scope.HetznerCluster, infrav1.RateLimitExceeded)
+			record.Event(s.scope.HetznerCluster,
+				"RateLimitExceeded",
+				"exceeded rate limit with calling hcloud function CreateNetwork",
+			)
+		}
 		record.Warnf(
 			s.scope.HetznerCluster,
 			"NetworkCreatedFailed",
@@ -121,6 +128,13 @@ func (s *Service) Delete(ctx context.Context) error {
 		return nil
 	}
 	if err := s.scope.HCloudClient.DeleteNetwork(ctx, &hcloud.Network{ID: s.scope.HetznerCluster.Status.Network.ID}); err != nil {
+		if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
+			conditions.MarkTrue(s.scope.HetznerCluster, infrav1.RateLimitExceeded)
+			record.Event(s.scope.HetznerCluster,
+				"RateLimitExceeded",
+				"exceeded rate limit with calling hcloud function DeleteNetwork",
+			)
+		}
 		// If resource has been deleted already then do nothing
 		if hcloud.IsError(err, hcloud.ErrorCodeNotFound) {
 			s.scope.V(1).Info("deleting network failed - not found", "id", s.scope.HetznerCluster.Status.Network.ID)
@@ -148,7 +162,14 @@ func (s *Service) findNetwork(ctx context.Context) (*hcloud.Network, error) {
 	opts.LabelSelector = utils.LabelsToLabelSelector(s.labels())
 	networks, err := s.scope.HCloudClient.ListNetworks(ctx, opts)
 	if err != nil {
-		return nil, err
+		if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
+			conditions.MarkTrue(s.scope.HetznerCluster, infrav1.RateLimitExceeded)
+			record.Event(s.scope.HetznerCluster,
+				"RateLimitExceeded",
+				"exceeded rate limit with calling hcloud function ListNetworks",
+			)
+		}
+		return nil, errors.Wrap(err, "failed to list networks")
 	}
 
 	if len(networks) > 1 {

@@ -71,3 +71,10 @@ const (
 	// HCloudCredentialsInvalidReason indicates that credentials for HCloud are invalid.
 	HCloudCredentialsInvalidReason = "HCloudCredentialsInvalid" // #nosec
 )
+
+const (
+	// RateLimitExceeded reports whether the rate limit has been reached.
+	RateLimitExceeded clusterv1.ConditionType = "RateLimitExceeded"
+	// RateLimitNotReachedReason indicates that the rate limit is not reached yet.
+	RateLimitNotReachedReason = "RateLimitNotReached"
+)

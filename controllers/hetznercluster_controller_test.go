@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controllers_test
+package controllers
 
 import (
 	"context"
@@ -34,6 +34,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -315,6 +316,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 			}, timeout).Should(Equal(len(instance.Spec.ControlPlaneLoadBalancer.ExtraServices)))
 		})
 	})
+
 	Context("For HetznerMachines belonging to the cluster", func() {
 		var (
 			namespace       string
@@ -884,4 +886,39 @@ var _ = Describe("HetznerCluster validation", func() {
 			Expect(testEnv.Create(ctx, hetznerCluster)).ToNot(Succeed())
 		})
 	})
+})
+
+var _ = Describe("reconcileRateLimit", func() {
+	var hetznerCluster *infrav1.HetznerCluster
+	BeforeEach(func() {
+		hetznerCluster = &infrav1.HetznerCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "rate-limit-cluster",
+				Namespace: "default",
+			},
+			Spec: getDefaultHetznerClusterSpec(),
+		}
+	})
+
+	It("returns wait== true if rate limit condition is set and time is not over", func() {
+		conditions.MarkTrue(hetznerCluster, infrav1.RateLimitExceeded)
+		Expect(reconcileRateLimit(hetznerCluster)).To(BeTrue())
+	})
+
+	It("returns wait== false if rate limit condition is set and time is over", func() {
+		conditions.MarkTrue(hetznerCluster, infrav1.RateLimitExceeded)
+		conditionList := hetznerCluster.GetConditions()
+		conditionList[0].LastTransitionTime = metav1.NewTime(time.Now().Add(-time.Hour))
+		Expect(reconcileRateLimit(hetznerCluster)).To(BeFalse())
+	})
+
+	It("returns wait== false if rate limit condition is set to false", func() {
+		conditions.MarkFalse(hetznerCluster, infrav1.RateLimitExceeded, "", clusterv1.ConditionSeverityInfo, "")
+		Expect(reconcileRateLimit(hetznerCluster)).To(BeFalse())
+	})
+
+	It("returns wait== false if rate limit condition is not set", func() {
+		Expect(reconcileRateLimit(hetznerCluster)).To(BeFalse())
+	})
+
 })

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controllers_test
+package controllers
 
 import (
 	"sync"
@@ -24,7 +24,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
-	"github.com/syself/cluster-api-provider-hetzner/controllers"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
 	corev1 "k8s.io/api/core/v1"
@@ -69,7 +68,7 @@ var _ = BeforeSuite(func() {
 
 	wg.Add(1)
 
-	Expect((&controllers.HetznerClusterReconciler{
+	Expect((&HetznerClusterReconciler{
 		Client:                         testEnv.Manager.GetClient(),
 		APIReader:                      testEnv.Manager.GetAPIReader(),
 		HCloudClientFactory:            testEnv.HCloudClientFactory,
@@ -77,7 +76,7 @@ var _ = BeforeSuite(func() {
 		TargetClusterManagersWaitGroup: &wg,
 	}).SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
 
-	Expect((&controllers.HCloudMachineReconciler{
+	Expect((&HCloudMachineReconciler{
 		Client:              testEnv.Manager.GetClient(),
 		APIReader:           testEnv.Manager.GetAPIReader(),
 		HCloudClientFactory: testEnv.HCloudClientFactory,

@@ -106,6 +106,13 @@ func (s *Service) reconcileNetworkAttachement(ctx context.Context, lb *hcloud.Lo
 			ID: s.scope.HetznerCluster.Status.Network.ID,
 		},
 	}); err != nil {
+		if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
+			conditions.MarkTrue(s.scope.HetznerCluster, infrav1.RateLimitExceeded)
+			record.Event(s.scope.HetznerCluster,
+				"RateLimitExceeded",
+				"exceeded rate limit with calling hcloud function AttachServerToNetwork",
+			)
+		}
 		// In case lb is already attached don't raise an error
 		if hcloud.IsError(err, hcloud.ErrorCodeLoadBalancerAlreadyAttached) {
 			return nil
@@ -136,6 +143,14 @@ func (s *Service) reconcileLBProperties(ctx context.Context, lb *hcloud.LoadBala
 				Name: s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Type,
 			},
 		}); err != nil {
+			if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
+				conditions.MarkTrue(s.scope.HetznerCluster, infrav1.RateLimitExceeded)
+				record.Event(s.scope.HetznerCluster,
+					"RateLimitExceeded",
+					"exceeded rate limit with calling hcloud function ChangeLoadBalancerType",
+				)
+				return errors.Wrap(err, "rate limit exceeded while changing lb type")
+			}
 			multierr = append(multierr, errors.Wrap(err, "failed to change load balancer type"))
 		}
 		record.Eventf(s.scope.HetznerCluster, "ChangeLoadBalancerType", "Changed load balancer type")
@@ -146,7 +161,15 @@ func (s *Service) reconcileLBProperties(ctx context.Context, lb *hcloud.LoadBala
 		if _, err := s.scope.HCloudClient.ChangeLoadBalancerAlgorithm(ctx, lb, hcloud.LoadBalancerChangeAlgorithmOpts{
 			Type: hcloud.LoadBalancerAlgorithmType(s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Algorithm),
 		}); err != nil {
-			multierr = append(multierr, errors.Wrap(err, "failed to change load balancer type"))
+			if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
+				conditions.MarkTrue(s.scope.HetznerCluster, infrav1.RateLimitExceeded)
+				record.Event(s.scope.HetznerCluster,
+					"RateLimitExceeded",
+					"exceeded rate limit with calling hcloud function ChangeLoadBalancerAlgorithm",
+				)
+				return errors.Wrap(err, "rate limit exceeded while changing lb algorithm")
+			}
+			multierr = append(multierr, errors.Wrap(err, "failed to change load balancer algorithm"))
 		}
 		record.Eventf(s.scope.HetznerCluster, "ChangeLoadBalancerAlgorithm", "Changed load balancer algorithm")
 	}

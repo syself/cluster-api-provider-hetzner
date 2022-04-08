@@ -60,6 +60,7 @@ import (
 
 const (
 	secretErrorRetryDelay = time.Second * 10
+	rateLimitWaitTime     = 5 * time.Minute
 )
 
 // HetznerClusterReconciler reconciles a HetznerCluster object.
@@ -144,6 +145,11 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			reterr = err
 		}
 	}()
+
+	// check whether rate limit has been reached and if so, then wait.
+	if wait := reconcileRateLimit(hetznerCluster); wait {
+		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+	}
 
 	// Handle deleted clusters
 	if !hetznerCluster.DeletionTimestamp.IsZero() {
@@ -286,6 +292,29 @@ func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterS
 	controllerutil.RemoveFinalizer(clusterScope.HetznerCluster, infrav1.ClusterFinalizer)
 
 	return reconcile.Result{}, nil
+}
+
+// reconcileRateLimit checks whether a rate limit has been reached and returns whether
+// the controller should wait a bit more.
+func reconcileRateLimit(setter conditions.Setter) bool {
+	condition := conditions.Get(setter, infrav1.RateLimitExceeded)
+	if condition != nil && condition.Status == corev1.ConditionTrue {
+		if time.Now().Before(condition.LastTransitionTime.Time.Add(rateLimitWaitTime)) {
+			// Not yet timed out, reconcile again after timeout
+			// Don't give a more precise requeueAfter value to not reconcile too many
+			// objects at the same time
+			return true
+		}
+		// Wait time is over, we continue
+		conditions.MarkFalse(
+			setter,
+			infrav1.RateLimitExceeded,
+			infrav1.RateLimitNotReachedReason,
+			clusterv1.ConditionSeverityInfo,
+			"wait time is over. Try reconciling again",
+		)
+	}
+	return false
 }
 
 func getAndValidateHCloudToken(ctx context.Context, namespace string, hetznerCluster *infrav1.HetznerCluster, secretManager *secretutil.SecretManager) (string, *corev1.Secret, error) {
