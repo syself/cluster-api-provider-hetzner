@@ -212,6 +212,9 @@ spec:
                             default: eu-central
                             description: NetworkZone specifies the HCloud network
                               zone of the private network.
+                            enum:
+                            - eu-central
+                            - us-east
                             type: string
                           subnetCidrBlock:
                             default: 10.0.0.0/24
