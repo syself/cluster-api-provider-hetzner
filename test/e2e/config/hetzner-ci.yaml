@@ -7,7 +7,7 @@
 
 # For creating local dev images run make e2e-image from the main CAPH repository
 images:
-  - name: quay.io/syself/cluster-api-provider-hetzner:e2e
+  - name: quay.io/syself/cluster-api-provider-hetzner:${TAG:=e2e}
     loadBehavior: mustLoad
 providers:
   - name: cluster-api
@@ -64,17 +64,11 @@ providers:
     type: InfrastructureProvider
     versions:
       - name: v1.0.99 # next; use manifest from source files
-        value: ../../../config/default
+        value: "${MANIFEST_PATH:=..}/infrastructure-components.yaml"
+        type: "url"
         contract: v1beta1
-        replacements:
-          - old: quay.io/syself/cluster-api-provider-hetzner:latest
-            new: quay.io/syself/cluster-api-provider-hetzner:e2e
-          - old: "imagePullPolicy: Always"
-            new: "imagePullPolicy: IfNotPresent"
-          - old: --metrics-bind-addr=localhost:8080
-            new: --metrics-bind-addr=:8080
         files:
-          - sourcePath: "../../../metadata.yaml"
+          - sourcePath: "${MANIFEST_PATH:=..}/metadata.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-network.yaml"
 variables:

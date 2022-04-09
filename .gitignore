@@ -54,6 +54,8 @@ vendor
 
 # test results
 _artifacts
+test/e2e/config/hetzner-ci-envsubst.yaml
+
 
 # release artifacts
 out

@@ -83,23 +83,30 @@ cluster-templates-v1beta1: $(KUSTOMIZE) ## Generate cluster templates for v1beta
 ## Testing
 ## --------------------------------------
 
-GINKGO_FOCUS  ?=
-GINKGO_SKIP ?= 
-GINKGO_NODES  ?= 3  # We set this to more than 2, because we also want to test multiples cluster in one hcloud project.
-E2E_CONF_FILE  ?= ${REPO_ROOT}/test/e2e/config/hetzner.yaml
-ARTIFACTS ?= ${REPO_ROOT}/_artifacts
-SKIP_RESOURCE_CLEANUP ?= false
-USE_EXISTING_CLUSTER ?= false
+GINKGO_NODES ?= 1
 GINKGO_NOCOLOR ?= false
+GINKGO_FOCUS ?= ""
+GINKGO_SKIP ?= ""
+GINKGO_FLAKE_ATTEMPTS ?= 2
+ARTIFACTS ?= $(ROOT_DIR)/_artifacts
+SKIP_CLEANUP ?= false
+SKIP_CREATE_MGMT_CLUSTER ?= false
+E2E_DIR ?= $(REPO_ROOT)/test/e2e
+E2E_CONF_FILE ?= $(E2E_DIR)/config/hetzner-ci-envsubst.yaml
 
-# to set multiple ginkgo skip flags, if any
-ifneq ($(strip $(GINKGO_SKIP)),)
-_SKIP_ARGS := $(foreach arg,$(strip $(GINKGO_SKIP)),-skip="$(arg)")
-endif
+# # to set multiple ginkgo skip flags, if any
+# ifneq ($(strip $(GINKGO_SKIP)),)
+# _SKIP_ARGS := $(foreach arg,$(strip $(GINKGO_SKIP)),-skip="$(arg)")
+# endif
 
 .PHONY: run
-run: $(GINKGO) cluster-templates  ## Run the end-to-end tests
-	$(GINKGO) -v -trace -tags=e2e -focus="$(GINKGO_FOCUS)" $(_SKIP_ARGS) -nodes=$(GINKGO_NODES) --noColor=$(GINKGO_NOCOLOR) $(GINKGO_ARGS) . -- \
-	    -e2e.artifacts-folder="$(ARTIFACTS)" \
-	    -e2e.config="$(E2E_CONF_FILE)" \
-	    -e2e.skip-resource-cleanup=$(SKIP_RESOURCE_CLEANUP) -e2e.use-existing-cluster=$(USE_EXISTING_CLUSTER)
+run: $(GINKGO)  cluster-templates  ## Run the end-to-end tests
+	time $(GINKGO) -v -trace -progress -v -tags=e2e \
+		--randomizeAllSpecs -race $(GINKGO_ADDITIONAL_ARGS) \
+		-focus=$(GINKGO_FOCUS) -skip=$(GINKGO_SKIP) \
+		-nodes=$(GINKGO_NODES) --noColor=$(GINKGO_NOCOLOR) \
+		--flakeAttempts=$(GINKGO_FLAKE_ATTEMPTS) ./ -- \
+		-e2e.artifacts-folder="$(ARTIFACTS)" \
+		-e2e.config="$(E2E_CONF_FILE)" \
+		-e2e.skip-resource-cleanup=$(SKIP_CLEANUP) \
+		-e2e.use-existing-cluster=$(SKIP_CREATE_MGMT_CLUSTER)

@@ -20,7 +20,7 @@ import (
 	. "github.com/onsi/ginkgo"
 )
 
-var _ = Describe("Testing basic cluster", func() {
+var _ = Describe("[Basic] Testing basic cluster", func() {
 	CaphClusterDeploymentSpec(ctx, func() CaphClusterDeploymentSpecInput {
 		return CaphClusterDeploymentSpecInput{
 			E2EConfig:             e2eConfig,
@@ -33,7 +33,7 @@ var _ = Describe("Testing basic cluster", func() {
 	})
 })
 
-var _ = Describe("Testing basic cluster with network", func() {
+var _ = Describe("[Basic] Testing basic cluster with network", func() {
 	CaphClusterDeploymentSpec(ctx, func() CaphClusterDeploymentSpecInput {
 		return CaphClusterDeploymentSpecInput{
 			E2EConfig:             e2eConfig,

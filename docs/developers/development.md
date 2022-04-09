@@ -273,3 +273,12 @@ $ make test # Runs tests on the Go code
 
 `make test` executes the project's unit tests. These tests do not stand up a
 Kubernetes cluster, nor do they have external dependencies.
+
+### Running local e2e test
+
+```
+export HCLOUD_TOKEN=<your-hcloud-token>
+make test-e2e
+```
+
+These commands will build the manager-image locally and will create automatically a SSH Key in Hcloud. Then it will start the e2e test suite with Ginkgo.

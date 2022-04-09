@@ -20,7 +20,7 @@ import (
 	. "github.com/onsi/ginkgo"
 )
 
-var _ = Describe("Conformance test", func() {
+var _ = Describe("[Conformance] Conformance test", func() {
 	ConformanceSpec(ctx, func() ConformanceSpecInput {
 		return ConformanceSpecInput{
 			E2EConfig:              e2eConfig,

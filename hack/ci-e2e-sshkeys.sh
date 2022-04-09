@@ -15,11 +15,21 @@
 # limitations under the License.
 
 set -o errexit
-set -o nounset
 set -o pipefail
 
-REPO_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
-# shellcheck source=../hack/ensure-go.sh
-source "${REPO_ROOT}/hack/ensure-go.sh"
 
-cd "${REPO_ROOT}" && make build
+create_ssh_key() {
+    echo "generating new ssh key"
+    ssh-keygen -t ed25519 -f ${SSH_KEY_PATH} -N '' 2>/dev/null <<< y >/dev/null
+    echo "importing ssh key "
+    hcloud ssh-key create --name ${SSH_KEY_NAME} --public-key-from-file ${SSH_KEY_PATH}.pub
+}
+
+remove_ssh_key() {
+    local ssh_fingerprint=$1
+    echo "removing ssh key"
+    hcloud ssh-key delete ${SSH_KEY_NAME}
+    rm -f ${SSH_KEY_PATH}
+
+    ${REPO_ROOT}/hack/log/redact.sh || true
+}

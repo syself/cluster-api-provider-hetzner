@@ -1,0 +1,40 @@
+name: "Metadata"
+description: "Generate Image Metadata"
+inputs:
+  quay_username:
+    description: "quay_username"
+    required: true
+  metadata_flavor:
+    description: "metadata_flavor"
+    required: true
+  metadata_tags:
+    description: "metadata_tags"
+    required: true
+outputs:
+  tags:
+    description: "generated image tags"
+    value: ${{ steps.meta.outputs.tags }}
+  labels:
+    description: "generated image labels"
+    value: ${{ steps.meta.outputs.labels }}
+  version:
+    description: "generated image version"
+    value: ${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
+runs:
+  using: "composite"
+  steps:
+    - name: Build image urls
+      shell: bash
+      id: image-urls
+      env:
+        QUAY_USERNAME: ${{ inputs.quay_username }}
+      run: |
+        [[ -n "$QUAY_USERNAME" ]] && IMAGES=${IMAGES},${REGISTRY}/${IMAGE_NAME}
+        echo "::set-output name=images::${IMAGES}"
+    - name: Docker manager metadata
+      id: meta
+      uses: docker/metadata-action@v3
+      with:
+        images: ${{ steps.image-urls.outputs.images }}
+        flavor: ${{ inputs.metadata_flavor }}
+        tags: ${{ inputs.metadata_tags }}
