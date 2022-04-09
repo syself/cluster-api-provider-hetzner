@@ -102,7 +102,7 @@ jobs:
             ${{ runner.os }}-tools-bin-e2e-
             ${{ runner.os }}-tools-bin-
       - name: Download artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: test-release
           path: out
