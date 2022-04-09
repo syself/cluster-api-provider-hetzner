@@ -86,7 +86,7 @@ jobs:
           TAG: ${{ steps.meta.outputs.version }}
         run: make test-release
       - name: Upload artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: test-release
           path: out
@@ -142,7 +142,7 @@ jobs:
           SKIP_IMAGE_BUILD: "1"
         run: make test-e2e
       - name: Upload artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         if: ${{ always() }}
         with:
           name: e2e-basic
