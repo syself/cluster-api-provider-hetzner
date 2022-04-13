@@ -195,6 +195,12 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		return reconcile.Result{}, errors.Errorf("failed to create scope: %+v", err)
 	}
 
+	// check whether rate limit has been reached and if so, then wait.
+	if wait := reconcileRateLimit(bmHost); wait {
+		log.Info("Rate limit exceeded - requeue in 30 seconds")
+		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+	}
+
 	return r.reconcile(ctx, hostScope)
 }
 

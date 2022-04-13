@@ -33,7 +33,7 @@ var _ = Describe("Validate Kubelet CSR", func() {
 	var addresses []corev1.NodeAddress
 	BeforeEach(func() {
 
-		name = "testing-control-plane-vgnlc"
+		name = "hcloud-testing-control-plane-vgnlc"
 		addresses = []corev1.NodeAddress{
 			{
 				Type:    corev1.NodeExternalIP,
