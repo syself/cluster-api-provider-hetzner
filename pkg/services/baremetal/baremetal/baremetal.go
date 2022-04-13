@@ -266,6 +266,11 @@ func (s *Service) update(ctx context.Context, log logr.Logger) error {
 		return nil
 	}
 
+	if host.Spec.Status.ErrorType == infrav1.ErrorType("") {
+		s.scope.BareMetalMachine.Status.FailureMessage = nil
+		s.scope.BareMetalMachine.Status.FailureReason = nil
+	}
+
 	// ensure that the host's consumer ref is correctly set
 	err = s.setHostConsumerRef(host)
 	if err != nil {

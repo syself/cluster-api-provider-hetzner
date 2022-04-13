@@ -228,15 +228,15 @@ type ControllerGeneratedStatus struct {
 	// the last error message reported by the provisioning subsystem.
 	// +optional
 	LastUpdated *metav1.Time `json:"lastUpdated,omitempty"`
+
+	// Rebooted shows whether the server is currently being rebooted.
+	Rebooted bool `json:"rebooted,omitempty"`
 }
 
 // HetznerBareMetalHostStatus defines the observed state of HetznerBareMetalHost.
 type HetznerBareMetalHostStatus struct {
 	// Region contains the server location.
 	Region Region `json:"region,omitempty"`
-
-	// Rebooted shows whether the server is currently being rebooted.
-	Rebooted bool `json:"rebooted,omitempty"`
 }
 
 // SSHStatus contains all status information about SSHStatus.

@@ -105,14 +105,15 @@ type (
 	TestEnvironment struct {
 		ctrl.Manager
 		client.Client
-		Config              *rest.Config
-		HCloudClientFactory hcloudclient.Factory
-		RobotClientFactory  robotclient.Factory
-		SSHClientFactory    sshclient.Factory
-		RescueSSHClient     *sshmock.Client
-		OSSSHClient         *sshmock.Client
-		RobotClient         *robotmock.Client
-		cancel              context.CancelFunc
+		Config                       *rest.Config
+		HCloudClientFactory          hcloudclient.Factory
+		RobotClientFactory           robotclient.Factory
+		SSHClientFactory             sshclient.Factory
+		RescueSSHClient              *sshmock.Client
+		OSSSHClientAfterInstallImage *sshmock.Client
+		OSSSHClientAfterCloudInit    *sshmock.Client
+		RobotClient                  *robotmock.Client
+		cancel                       context.CancelFunc
 	}
 )
 
@@ -165,20 +166,22 @@ func NewTestEnvironment() *TestEnvironment {
 	hcloudClientFactory := fakeclient.NewHCloudClientFactory()
 
 	rescueSSHClient := &sshmock.Client{}
-	osSSHClient := &sshmock.Client{}
+	osSSHClientAfterInstallImage := &sshmock.Client{}
+	osSSHClientAfterCloudInit := &sshmock.Client{}
 
 	robotClient := &robotmock.Client{}
 
 	return &TestEnvironment{
-		Manager:             mgr,
-		Client:              mgr.GetClient(),
-		Config:              mgr.GetConfig(),
-		HCloudClientFactory: hcloudClientFactory,
-		SSHClientFactory:    mocks.NewSSHFactory(rescueSSHClient, osSSHClient),
-		RescueSSHClient:     rescueSSHClient,
-		OSSSHClient:         osSSHClient,
-		RobotClientFactory:  mocks.NewRobotFactory(robotClient),
-		RobotClient:         robotClient,
+		Manager:                      mgr,
+		Client:                       mgr.GetClient(),
+		Config:                       mgr.GetConfig(),
+		HCloudClientFactory:          hcloudClientFactory,
+		SSHClientFactory:             mocks.NewSSHFactory(rescueSSHClient, osSSHClientAfterInstallImage, osSSHClientAfterCloudInit),
+		RescueSSHClient:              rescueSSHClient,
+		OSSSHClientAfterInstallImage: osSSHClientAfterInstallImage,
+		OSSSHClientAfterCloudInit:    osSSHClientAfterCloudInit,
+		RobotClientFactory:           mocks.NewRobotFactory(robotClient),
+		RobotClient:                  robotClient,
 	}
 }
 

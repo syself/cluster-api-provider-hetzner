@@ -334,7 +334,11 @@ spec:
   replicas: ${WORKER_MACHINE_COUNT}
   selector:
     matchLabels:
+      nodepool: "${CLUSTER_NAME}-md-0"
   template:
+    metadata:
+      labels:
+        nodepool: "${CLUSTER_NAME}-md-0"
     spec:
       clusterName: "${CLUSTER_NAME}"
       failureDomain: "${HCLOUD_REGION}"
@@ -641,6 +645,22 @@ spec:
     - type: Ready
       status: "False"
       timeout: 300s
+  remediationTemplate: # added infrastructure reference
+    kind: HetznerBareMetalRemediationTemplate
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    name: worker-remediation-request
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: HetznerBareMetalRemediationTemplate
+metadata:
+  name: worker-remediation-request
+spec:
+  template:
+    spec:
+      strategy:
+        type: "Reboot"
+        retryLimit: 2
+        timeout: 300s
 ---
 apiVersion: cluster.x-k8s.io/v1beta1
 kind: MachineDeployment
@@ -653,7 +673,11 @@ spec:
   replicas: ${BM_WORKER_MACHINE_COUNT}
   selector:
     matchLabels:
+      nodepool: "${CLUSTER_NAME}-md-1"
   template:
+    metadata:
+      labels:
+        nodepool: "${CLUSTER_NAME}-md-1"
     spec:
       clusterName: "${CLUSTER_NAME}"
       version: "${KUBERNETES_VERSION}"

@@ -25,15 +25,21 @@ import (
 )
 
 type sshFactory struct {
-	rescueClient *sshmock.Client
-	osClient     *sshmock.Client
+	rescueClient              *sshmock.Client
+	osClientAfterInstallImage *sshmock.Client
+	osClientAfterCloudInit    *sshmock.Client
 }
 
 // NewSSHFactory creates a new factory for SSH clients.
-func NewSSHFactory(rescueClient *sshmock.Client, osClient *sshmock.Client) sshclient.Factory {
+func NewSSHFactory(
+	rescueClient *sshmock.Client,
+	osClientAfterInstallImage *sshmock.Client,
+	osClientAfterCloudInit *sshmock.Client,
+) sshclient.Factory {
 	return &sshFactory{
-		rescueClient: rescueClient,
-		osClient:     osClient,
+		rescueClient:              rescueClient,
+		osClientAfterInstallImage: osClientAfterInstallImage,
+		osClientAfterCloudInit:    osClientAfterCloudInit,
 	}
 }
 
@@ -48,7 +54,10 @@ func (f *sshFactory) NewClient(in sshclient.Input) sshclient.Client {
 	if in.PrivateKey == "rescue-ssh-secret-private-key" {
 		return f.rescueClient
 	}
-	return f.osClient
+	if in.Port == 24 {
+		return f.osClientAfterCloudInit
+	}
+	return f.osClientAfterInstallImage
 }
 
 type robotFactory struct {

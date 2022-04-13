@@ -377,6 +377,10 @@ spec:
                         Hetzner robot API.
                       type: string
                     type: array
+                  rebooted:
+                    description: Rebooted shows whether the server is currently being
+                      rebooted.
+                    type: boolean
                   sshSpec:
                     description: SSHSpec defines specs for SSH.
                     properties:
@@ -513,10 +517,6 @@ spec:
             description: HetznerBareMetalHostStatus defines the observed state of
               HetznerBareMetalHost.
             properties:
-              rebooted:
-                description: Rebooted shows whether the server is currently being
-                  rebooted.
-                type: boolean
               region:
                 description: Region contains the server location.
                 enum:

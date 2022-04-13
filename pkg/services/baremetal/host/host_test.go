@@ -111,7 +111,7 @@ var _ = Describe("obtainHardwareDetailsNics", func() {
 				helpers.WithSSHStatus(),
 			)
 
-			service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+			service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 
 			Expect(service.obtainHardwareDetailsNics(sshMock)).Should(Equal(expectedOutput))
 		},
@@ -153,7 +153,7 @@ var _ = Describe("obtainHardwareDetailsStorage", func() {
 				helpers.WithSSHStatus(),
 			)
 
-			service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+			service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 
 			storageDevices, err := service.obtainHardwareDetailsStorage(sshMock)
 			Expect(storageDevices).Should(Equal(expectedOutput))
@@ -1075,7 +1075,7 @@ var _ = Describe("actionRegistering", func() {
 			sshMock.On("GetHardwareDetailsCPUThreads").Return(sshclient.Output{StdOut: "123"})
 			sshMock.On("GetHardwareDetailsCPUCores").Return(sshclient.Output{StdOut: "12"})
 
-			service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+			service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 
 			actResult := service.actionRegistering()
 			Expect(actResult).Should(BeAssignableToTypeOf(expectedActionResult))
@@ -1133,7 +1133,7 @@ var _ = Describe("actionRegistering", func() {
 			robotMock := robotmock.Client{}
 			robotMock.On("GetBootRescue", bareMetalHostID).Return(&models.Rescue{Active: false}, nil)
 
-			service := newTestService(host, &robotMock, bmmock.NewSSHFactory(sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+			service := newTestService(host, &robotMock, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 
 			actResult := service.actionRegistering()
 			Expect(actResult).Should(BeAssignableToTypeOf(actionContinue{}))
@@ -1225,105 +1225,361 @@ var _ = Describe("getImageDetails", func() {
 })
 
 var _ = Describe("actionEnsureProvisioned", func() {
+	type ensureProvisionedInputs struct {
+		outSSHClientGetHostName                sshclient.Output
+		outSSHClientCloudInitStatus            sshclient.Output
+		outSSHClientCheckSigterm               sshclient.Output
+		outOldSSHClientCloudInitStatus         sshclient.Output
+		outOldSSHClientCheckSigterm            sshclient.Output
+		samePorts                              bool
+		expectedActionResult                   actionResult
+		expectedErrorType                      infrav1.ErrorType
+		expectsSSHClientCallCloudInitStatus    bool
+		expectsSSHClientCallCheckSigterm       bool
+		expectsSSHClientCallReboot             bool
+		expectsOldSSHClientCallCloudInitStatus bool
+		expectsOldSSHClientCallCheckSigterm    bool
+		expectsOldSSHClientCallReboot          bool
+	}
 	DescribeTable("actionEnsureProvisioned",
-		func(
-			cloudInitStatus string,
-			expectedActionResult actionResult,
-			expectedErrorType infrav1.ErrorType,
-			shouldCallReboot bool,
-		) {
+		func(in ensureProvisionedInputs) {
+			var (
+				portAfterCloudInit    int = 24
+				portAfterInstallImage int = 23
+			)
+			if in.samePorts {
+				portAfterInstallImage = 24
+			}
+
 			host := helpers.BareMetalHost(
 				"test-host",
 				"default",
-				helpers.WithSSHSpecInclPorts(),
+				helpers.WithSSHSpecInclPorts(portAfterInstallImage, portAfterCloudInit),
 				helpers.WithIPv4(),
 				helpers.WithConsumerRef(),
 			)
 
 			sshMock := &sshmock.Client{}
-			sshMock.On("GetHostName").Return(sshclient.Output{StdOut: infrav1.BareMetalHostNamePrefix + host.Spec.ConsumerRef.Name})
+			sshMock.On("GetHostName").Return(in.outSSHClientGetHostName)
+			sshMock.On("CloudInitStatus").Return(in.outSSHClientCloudInitStatus)
+			sshMock.On("CheckCloudInitLogsForSigTerm").Return(in.outSSHClientCheckSigterm)
+			sshMock.On("CleanCloudInitLogs").Return(sshclient.Output{})
+			sshMock.On("CleanCloudInitInstances").Return(sshclient.Output{})
 			sshMock.On("Reboot").Return(sshclient.Output{})
-			sshMock.On("CloudInitStatus").Return(sshclient.Output{StdOut: cloudInitStatus})
-			sshMock.On("CheckCloudInitLogsForSigTerm").Return(sshclient.Output{})
+
+			oldSSHMock := &sshmock.Client{}
+			oldSSHMock.On("CloudInitStatus").Return(in.outOldSSHClientCloudInitStatus)
+			oldSSHMock.On("CheckCloudInitLogsForSigTerm").Return(in.outOldSSHClientCheckSigterm)
+			oldSSHMock.On("CleanCloudInitLogs").Return(sshclient.Output{})
+			oldSSHMock.On("CleanCloudInitInstances").Return(sshclient.Output{})
+			oldSSHMock.On("Reboot").Return(sshclient.Output{})
 
 			robotMock := robotmock.Client{}
 			robotMock.On("SetBMServerName", bareMetalHostID, infrav1.BareMetalHostNamePrefix+host.Spec.ConsumerRef.Name).Return(nil, nil)
 
-			service := newTestService(host, &robotMock, bmmock.NewSSHFactory(sshMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), nil)
+			service := newTestService(host, &robotMock, bmmock.NewSSHFactory(sshMock, oldSSHMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), nil)
 
 			actResult := service.actionEnsureProvisioned()
-			Expect(actResult).Should(BeAssignableToTypeOf(expectedActionResult))
-			if expectedErrorType != infrav1.ErrorType("") {
-				Expect(host.Spec.Status.ErrorType).To(Equal(expectedErrorType))
+			Expect(actResult).Should(BeAssignableToTypeOf(in.expectedActionResult))
+			if in.expectedErrorType != infrav1.ErrorType("") {
+				Expect(host.Spec.Status.ErrorType).To(Equal(in.expectedErrorType))
 			}
-			if shouldCallReboot {
+			if in.expectsSSHClientCallCloudInitStatus {
+				Expect(sshMock.AssertCalled(GinkgoT(), "CloudInitStatus")).To(BeTrue())
+			} else {
+				Expect(sshMock.AssertNotCalled(GinkgoT(), "CloudInitStatus")).To(BeTrue())
+			}
+			if in.expectsSSHClientCallCheckSigterm {
+				Expect(sshMock.AssertCalled(GinkgoT(), "CheckCloudInitLogsForSigTerm")).To(BeTrue())
+			} else {
+				Expect(sshMock.AssertNotCalled(GinkgoT(), "CheckCloudInitLogsForSigTerm")).To(BeTrue())
+			}
+			if in.expectsSSHClientCallReboot {
 				Expect(sshMock.AssertCalled(GinkgoT(), "Reboot")).To(BeTrue())
 			} else {
 				Expect(sshMock.AssertNotCalled(GinkgoT(), "Reboot")).To(BeTrue())
 			}
-		},
-		Entry(
-			"status running",
-			"status: running",     // cloudInitStatus string
-			actionContinue{},      // expectedActionResult actionResult
-			infrav1.ErrorType(""), // expectedErrorType string
-			false,                 // shouldCallReboot bool
-		),
-		Entry(
-			"status done",
-			"status: done",        // cloudInitStatus string
-			actionComplete{},      // expectedActionResult actionResult
-			infrav1.ErrorType(""), // expectedErrorType string
-			false,                 // shouldCallReboot bool
-		),
-		Entry(
-			"status disabled",
-			"status: disabled",                   // cloudInitStatus string
-			actionContinue{},                     // expectedActionResult actionResult
-			infrav1.ErrorTypeSSHRebootNotStarted, // expectedErrorType string
-			true,                                 // shouldCallReboot bool
-		),
-	)
-
-	DescribeTable("actionEnsureProvisioned - incomplete reboot",
-		func(
-			getHostNameOutput sshclient.Output,
-			expectedErrorType infrav1.ErrorType,
-		) {
-			host := helpers.BareMetalHost(
-				"test-host",
-				"default",
-				helpers.WithSSHSpecInclPorts(),
-				helpers.WithIPv4(),
-				helpers.WithConsumerRef(),
-			)
-
-			sshMock := &sshmock.Client{}
-			sshMock.On("GetHostName").Return(getHostNameOutput)
-			sshMock.On("Reboot").Return(sshclient.Output{})
-			sshMock.On("CloudInitStatus").Return(sshclient.Output{StdOut: "status: done"})
-			sshMock.On("CheckCloudInitLogsForSigTerm").Return(sshclient.Output{})
-
-			robotMock := robotmock.Client{}
-			robotMock.On("SetBMServerName", bareMetalHostID, infrav1.BareMetalHostNamePrefix+host.Spec.ConsumerRef.Name).Return(nil, nil)
-
-			service := newTestService(host, &robotMock, bmmock.NewSSHFactory(sshMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), nil)
-
-			actResult := service.actionEnsureProvisioned()
-			Expect(actResult).Should(BeAssignableToTypeOf(actionContinue{}))
-			if expectedErrorType != infrav1.ErrorType("") {
-				Expect(host.Spec.Status.ErrorType).To(Equal(expectedErrorType))
+			if in.expectsOldSSHClientCallCloudInitStatus {
+				Expect(oldSSHMock.AssertCalled(GinkgoT(), "CloudInitStatus")).To(BeTrue())
+			} else {
+				Expect(oldSSHMock.AssertNotCalled(GinkgoT(), "CloudInitStatus")).To(BeTrue())
+			}
+			if in.expectsOldSSHClientCallCheckSigterm {
+				Expect(oldSSHMock.AssertCalled(GinkgoT(), "CheckCloudInitLogsForSigTerm")).To(BeTrue())
+			} else {
+				Expect(oldSSHMock.AssertNotCalled(GinkgoT(), "CheckCloudInitLogsForSigTerm")).To(BeTrue())
+			}
+			if in.expectsOldSSHClientCallReboot {
+				Expect(oldSSHMock.AssertCalled(GinkgoT(), "Reboot")).To(BeTrue())
+			} else {
+				Expect(oldSSHMock.AssertNotCalled(GinkgoT(), "Reboot")).To(BeTrue())
 			}
 		},
 		Entry(
-			"timeout",
-			sshclient.Output{Err: timeout},    // getHostNameOutput sshclient.Output
-			infrav1.ErrorTypeSSHRebootTooSlow, // expectedErrorType string
+			"correct hostname, cloud init running",
+			ensureProvisionedInputs{
+				outSSHClientGetHostName:                sshclient.Output{StdOut: infrav1.BareMetalHostNamePrefix + "bm-machine"},
+				outSSHClientCloudInitStatus:            sshclient.Output{StdOut: "status: running"},
+				outSSHClientCheckSigterm:               sshclient.Output{},
+				outOldSSHClientCloudInitStatus:         sshclient.Output{},
+				outOldSSHClientCheckSigterm:            sshclient.Output{},
+				samePorts:                              true,
+				expectedActionResult:                   actionContinue{},
+				expectedErrorType:                      infrav1.ErrorType(""),
+				expectsSSHClientCallCloudInitStatus:    true,
+				expectsSSHClientCallCheckSigterm:       false,
+				expectsSSHClientCallReboot:             false,
+				expectsOldSSHClientCallCloudInitStatus: false,
+				expectsOldSSHClientCallCheckSigterm:    false,
+				expectsOldSSHClientCallReboot:          false,
+			},
 		),
 		Entry(
-			"connectionRefused",
-			sshclient.Output{Err: sshclient.ErrConnectionRefused}, // getHostNameOutput sshclient.Output
-			infrav1.ErrorTypeConnectionError,                      // expectedErrorType string
+			"correct hostname, cloud init done, no SIGTERM",
+			ensureProvisionedInputs{
+				outSSHClientGetHostName:                sshclient.Output{StdOut: infrav1.BareMetalHostNamePrefix + "bm-machine"},
+				outSSHClientCloudInitStatus:            sshclient.Output{StdOut: "status: done"},
+				outSSHClientCheckSigterm:               sshclient.Output{StdOut: ""},
+				outOldSSHClientCloudInitStatus:         sshclient.Output{},
+				outOldSSHClientCheckSigterm:            sshclient.Output{},
+				samePorts:                              true,
+				expectedActionResult:                   actionComplete{},
+				expectedErrorType:                      infrav1.ErrorType(""),
+				expectsSSHClientCallCloudInitStatus:    true,
+				expectsSSHClientCallCheckSigterm:       true,
+				expectsSSHClientCallReboot:             false,
+				expectsOldSSHClientCallCloudInitStatus: false,
+				expectsOldSSHClientCallCheckSigterm:    false,
+				expectsOldSSHClientCallReboot:          false,
+			},
+		),
+		Entry(
+			"correct hostname, cloud init done, SIGTERM",
+			ensureProvisionedInputs{
+				outSSHClientGetHostName:                sshclient.Output{StdOut: infrav1.BareMetalHostNamePrefix + "bm-machine"},
+				outSSHClientCloudInitStatus:            sshclient.Output{StdOut: "status: done"},
+				outSSHClientCheckSigterm:               sshclient.Output{StdOut: "found SIGTERM in cloud init output logs"},
+				outOldSSHClientCloudInitStatus:         sshclient.Output{},
+				outOldSSHClientCheckSigterm:            sshclient.Output{},
+				samePorts:                              true,
+				expectedActionResult:                   actionContinue{},
+				expectedErrorType:                      infrav1.ErrorType(""),
+				expectsSSHClientCallCloudInitStatus:    true,
+				expectsSSHClientCallCheckSigterm:       true,
+				expectsSSHClientCallReboot:             true,
+				expectsOldSSHClientCallCloudInitStatus: false,
+				expectsOldSSHClientCallCheckSigterm:    false,
+				expectsOldSSHClientCallReboot:          false,
+			},
+		),
+		Entry(
+			"correct hostname, cloud init error",
+			ensureProvisionedInputs{
+				outSSHClientGetHostName:                sshclient.Output{StdOut: infrav1.BareMetalHostNamePrefix + "bm-machine"},
+				outSSHClientCloudInitStatus:            sshclient.Output{StdOut: "status: error"},
+				outSSHClientCheckSigterm:               sshclient.Output{},
+				outOldSSHClientCloudInitStatus:         sshclient.Output{},
+				outOldSSHClientCheckSigterm:            sshclient.Output{},
+				samePorts:                              true,
+				expectedActionResult:                   actionFailed{},
+				expectedErrorType:                      infrav1.FatalError,
+				expectsSSHClientCallCloudInitStatus:    true,
+				expectsSSHClientCallCheckSigterm:       false,
+				expectsSSHClientCallReboot:             false,
+				expectsOldSSHClientCallCloudInitStatus: false,
+				expectsOldSSHClientCallCheckSigterm:    false,
+				expectsOldSSHClientCallReboot:          false,
+			},
+		),
+		Entry(
+			"correct hostname, cloud init disabled",
+			ensureProvisionedInputs{
+				outSSHClientGetHostName:                sshclient.Output{StdOut: infrav1.BareMetalHostNamePrefix + "bm-machine"},
+				outSSHClientCloudInitStatus:            sshclient.Output{StdOut: "status: disabled"},
+				outSSHClientCheckSigterm:               sshclient.Output{},
+				outOldSSHClientCloudInitStatus:         sshclient.Output{},
+				outOldSSHClientCheckSigterm:            sshclient.Output{},
+				samePorts:                              true,
+				expectedActionResult:                   actionContinue{},
+				expectedErrorType:                      infrav1.ErrorType(""),
+				expectsSSHClientCallCloudInitStatus:    true,
+				expectsSSHClientCallCheckSigterm:       false,
+				expectsSSHClientCallReboot:             true,
+				expectsOldSSHClientCallCloudInitStatus: false,
+				expectsOldSSHClientCallCheckSigterm:    false,
+				expectsOldSSHClientCallReboot:          false,
+			},
+		),
+		Entry(
+			"connectionFailed, same ports",
+			ensureProvisionedInputs{
+				outSSHClientGetHostName:                sshclient.Output{Err: sshclient.ErrConnectionRefused},
+				outSSHClientCloudInitStatus:            sshclient.Output{},
+				outSSHClientCheckSigterm:               sshclient.Output{},
+				outOldSSHClientCloudInitStatus:         sshclient.Output{},
+				outOldSSHClientCheckSigterm:            sshclient.Output{},
+				samePorts:                              true,
+				expectedActionResult:                   actionContinue{},
+				expectedErrorType:                      infrav1.ErrorTypeConnectionError,
+				expectsSSHClientCallCloudInitStatus:    false,
+				expectsSSHClientCallCheckSigterm:       false,
+				expectsSSHClientCallReboot:             false,
+				expectsOldSSHClientCallCloudInitStatus: false,
+				expectsOldSSHClientCallCheckSigterm:    false,
+				expectsOldSSHClientCallReboot:          false,
+			},
+		),
+		Entry(
+			"connectionFailed, different ports, connectionFailed of oldSSHClient",
+			ensureProvisionedInputs{
+				outSSHClientGetHostName:                sshclient.Output{Err: sshclient.ErrConnectionRefused},
+				outSSHClientCloudInitStatus:            sshclient.Output{},
+				outSSHClientCheckSigterm:               sshclient.Output{},
+				outOldSSHClientCloudInitStatus:         sshclient.Output{Err: sshclient.ErrConnectionRefused},
+				outOldSSHClientCheckSigterm:            sshclient.Output{},
+				samePorts:                              false,
+				expectedActionResult:                   actionContinue{},
+				expectedErrorType:                      infrav1.ErrorTypeConnectionError,
+				expectsSSHClientCallCloudInitStatus:    false,
+				expectsSSHClientCallCheckSigterm:       false,
+				expectsSSHClientCallReboot:             false,
+				expectsOldSSHClientCallCloudInitStatus: true,
+				expectsOldSSHClientCallCheckSigterm:    false,
+				expectsOldSSHClientCallReboot:          false,
+			},
+		),
+		Entry(
+			"connectionFailed, different ports, status running of oldSSHClient",
+			ensureProvisionedInputs{
+				outSSHClientGetHostName:                sshclient.Output{Err: sshclient.ErrConnectionRefused},
+				outSSHClientCloudInitStatus:            sshclient.Output{},
+				outSSHClientCheckSigterm:               sshclient.Output{},
+				outOldSSHClientCloudInitStatus:         sshclient.Output{StdOut: "status: running"},
+				outOldSSHClientCheckSigterm:            sshclient.Output{},
+				samePorts:                              false,
+				expectedActionResult:                   actionContinue{},
+				expectedErrorType:                      infrav1.ErrorType(""),
+				expectsSSHClientCallCloudInitStatus:    false,
+				expectsSSHClientCallCheckSigterm:       false,
+				expectsSSHClientCallReboot:             false,
+				expectsOldSSHClientCallCloudInitStatus: true,
+				expectsOldSSHClientCallCheckSigterm:    false,
+				expectsOldSSHClientCallReboot:          false,
+			},
+		),
+		Entry(
+			"connectionFailed, different ports, status error of oldSSHClient",
+			ensureProvisionedInputs{
+				outSSHClientGetHostName:                sshclient.Output{Err: sshclient.ErrConnectionRefused},
+				outSSHClientCloudInitStatus:            sshclient.Output{},
+				outSSHClientCheckSigterm:               sshclient.Output{},
+				outOldSSHClientCloudInitStatus:         sshclient.Output{StdOut: "status: error"},
+				outOldSSHClientCheckSigterm:            sshclient.Output{},
+				samePorts:                              false,
+				expectedActionResult:                   actionFailed{},
+				expectedErrorType:                      infrav1.FatalError,
+				expectsSSHClientCallCloudInitStatus:    false,
+				expectsSSHClientCallCheckSigterm:       false,
+				expectsSSHClientCallReboot:             false,
+				expectsOldSSHClientCallCloudInitStatus: true,
+				expectsOldSSHClientCallCheckSigterm:    false,
+				expectsOldSSHClientCallReboot:          false,
+			},
+		),
+		Entry(
+			"connectionFailed, different ports, status disabled of oldSSHClient",
+			ensureProvisionedInputs{
+				outSSHClientGetHostName:                sshclient.Output{Err: sshclient.ErrConnectionRefused},
+				outSSHClientCloudInitStatus:            sshclient.Output{},
+				outSSHClientCheckSigterm:               sshclient.Output{},
+				outOldSSHClientCloudInitStatus:         sshclient.Output{StdOut: "status: disabled"},
+				outOldSSHClientCheckSigterm:            sshclient.Output{},
+				samePorts:                              false,
+				expectedActionResult:                   actionContinue{},
+				expectedErrorType:                      infrav1.ErrorType(""),
+				expectsSSHClientCallCloudInitStatus:    false,
+				expectsSSHClientCallCheckSigterm:       false,
+				expectsSSHClientCallReboot:             false,
+				expectsOldSSHClientCallCloudInitStatus: true,
+				expectsOldSSHClientCallCheckSigterm:    false,
+				expectsOldSSHClientCallReboot:          true,
+			},
+		),
+		Entry(
+			"connectionFailed, different ports, status done of oldSSHClient, SIGTERM of oldSSHClient",
+			ensureProvisionedInputs{
+				outSSHClientGetHostName:                sshclient.Output{Err: sshclient.ErrConnectionRefused},
+				outSSHClientCloudInitStatus:            sshclient.Output{},
+				outSSHClientCheckSigterm:               sshclient.Output{},
+				outOldSSHClientCloudInitStatus:         sshclient.Output{StdOut: "status: done"},
+				outOldSSHClientCheckSigterm:            sshclient.Output{StdOut: "found SIGTERM in cloud init output logs"},
+				samePorts:                              false,
+				expectedActionResult:                   actionContinue{},
+				expectedErrorType:                      infrav1.ErrorType(""),
+				expectsSSHClientCallCloudInitStatus:    false,
+				expectsSSHClientCallCheckSigterm:       false,
+				expectsSSHClientCallReboot:             false,
+				expectsOldSSHClientCallCloudInitStatus: true,
+				expectsOldSSHClientCallCheckSigterm:    true,
+				expectsOldSSHClientCallReboot:          true,
+			},
+		),
+		Entry(
+			"connectionFailed, different ports, status done of oldSSHClient, no SIGTERM of oldSSHClient",
+			ensureProvisionedInputs{
+				outSSHClientGetHostName:                sshclient.Output{Err: sshclient.ErrConnectionRefused},
+				outSSHClientCloudInitStatus:            sshclient.Output{},
+				outSSHClientCheckSigterm:               sshclient.Output{},
+				outOldSSHClientCloudInitStatus:         sshclient.Output{StdOut: "status: done"},
+				outOldSSHClientCheckSigterm:            sshclient.Output{StdOut: ""},
+				samePorts:                              false,
+				expectedActionResult:                   actionContinue{},
+				expectedErrorType:                      infrav1.ErrorType(""),
+				expectsSSHClientCallCloudInitStatus:    false,
+				expectsSSHClientCallCheckSigterm:       false,
+				expectsSSHClientCallReboot:             false,
+				expectsOldSSHClientCallCloudInitStatus: true,
+				expectsOldSSHClientCallCheckSigterm:    true,
+				expectsOldSSHClientCallReboot:          false,
+			},
+		),
+		Entry(
+			"connectionFailed, different ports, timeout of oldSSHClient",
+			ensureProvisionedInputs{
+				outSSHClientGetHostName:                sshclient.Output{Err: sshclient.ErrConnectionRefused},
+				outSSHClientCloudInitStatus:            sshclient.Output{},
+				outSSHClientCheckSigterm:               sshclient.Output{},
+				outOldSSHClientCloudInitStatus:         sshclient.Output{Err: timeout},
+				outOldSSHClientCheckSigterm:            sshclient.Output{},
+				samePorts:                              false,
+				expectedActionResult:                   actionContinue{},
+				expectedErrorType:                      infrav1.ErrorTypeConnectionError,
+				expectsSSHClientCallCloudInitStatus:    false,
+				expectsSSHClientCallCheckSigterm:       false,
+				expectsSSHClientCallReboot:             false,
+				expectsOldSSHClientCallCloudInitStatus: true,
+				expectsOldSSHClientCallCheckSigterm:    false,
+				expectsOldSSHClientCallReboot:          false,
+			},
+		),
+		Entry(
+			"timeout of sshclient",
+			ensureProvisionedInputs{
+				outSSHClientGetHostName:                sshclient.Output{Err: timeout},
+				outSSHClientCloudInitStatus:            sshclient.Output{},
+				outSSHClientCheckSigterm:               sshclient.Output{},
+				outOldSSHClientCloudInitStatus:         sshclient.Output{},
+				outOldSSHClientCheckSigterm:            sshclient.Output{},
+				samePorts:                              false,
+				expectedActionResult:                   actionContinue{},
+				expectedErrorType:                      infrav1.ErrorTypeSSHRebootTooSlow,
+				expectsSSHClientCallCloudInitStatus:    false,
+				expectsSSHClientCallCheckSigterm:       false,
+				expectsSSHClientCallReboot:             false,
+				expectsOldSSHClientCallCloudInitStatus: false,
+				expectsOldSSHClientCallCheckSigterm:    false,
+				expectsOldSSHClientCallReboot:          false,
+			},
 		),
 	)
 })
@@ -1341,7 +1597,7 @@ var _ = Describe("actionProvisioned", func() {
 			host := helpers.BareMetalHost(
 				"test-host",
 				"default",
-				helpers.WithSSHSpecInclPorts(),
+				helpers.WithSSHSpecInclPorts(23, 24),
 				helpers.WithIPv4(),
 				helpers.WithConsumerRef(),
 			)
@@ -1350,7 +1606,7 @@ var _ = Describe("actionProvisioned", func() {
 				host.SetAnnotations(map[string]string{infrav1.RebootAnnotation: "reboot"})
 			}
 
-			host.Status.Rebooted = rebooted
+			host.Spec.Status.Rebooted = rebooted
 
 			sshMock := &sshmock.Client{}
 			var hostNameOutput sshclient.Output
@@ -1362,11 +1618,11 @@ var _ = Describe("actionProvisioned", func() {
 			sshMock.On("GetHostName").Return(hostNameOutput)
 			sshMock.On("Reboot").Return(sshclient.Output{})
 
-			service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+			service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 
 			actResult := service.actionProvisioned()
 			Expect(actResult).Should(BeAssignableToTypeOf(expectedActionResult))
-			Expect(host.Status.Rebooted).To(Equal(expectRebootInStatus))
+			Expect(host.Spec.Status.Rebooted).To(Equal(expectRebootInStatus))
 			Expect(hasRebootAnnotation(*host)).To(Equal(expectRebootAnnotation))
 
 			if shouldHaveRebootAnnotation && !rebooted {

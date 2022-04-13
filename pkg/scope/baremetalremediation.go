@@ -19,14 +19,21 @@ package scope
 import (
 	"context"
 
+	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/patch"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // BareMetalRemediationScopeParams defines the input parameters used to create a new Scope.
 type BareMetalRemediationScopeParams struct {
-	BareMetalMachineScopeParams
+	Logger               *logr.Logger
+	Client               client.Client
+	Machine              *clusterv1.Machine
+	BareMetalMachine     *infrav1.HetznerBareMetalMachine
+	HetznerCluster       *infrav1.HetznerCluster
 	BareMetalRemediation *infrav1.HetznerBareMetalRemediation
 }
 
@@ -36,26 +43,38 @@ func NewBareMetalRemediationScope(ctx context.Context, params BareMetalRemediati
 	if params.BareMetalRemediation == nil {
 		return nil, errors.New("failed to generate new scope from nil BareMetalRemediation")
 	}
-
-	cs, err := NewBareMetalMachineScope(ctx, params.BareMetalMachineScopeParams)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to init patch helper")
+	if params.Client == nil {
+		return nil, errors.New("cannot create baremetal host scope without client")
+	}
+	if params.Machine == nil {
+		return nil, errors.New("failed to generate new scope from nil Machine")
+	}
+	if params.BareMetalMachine == nil {
+		return nil, errors.New("failed to generate new scope from nil BareMetalMachine")
 	}
 
-	cs.patchHelper, err = patch.NewHelper(params.BareMetalRemediation, params.Client)
+	patchHelper, err := patch.NewHelper(params.BareMetalRemediation, params.Client)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to init patch helper")
 	}
 
 	return &BareMetalRemediationScope{
-		BareMetalMachineScope: *cs,
-		BareMetalRemediation:  params.BareMetalRemediation,
+		Logger:               params.Logger,
+		Client:               params.Client,
+		patchHelper:          patchHelper,
+		Machine:              params.Machine,
+		BareMetalMachine:     params.BareMetalMachine,
+		BareMetalRemediation: params.BareMetalRemediation,
 	}, nil
 }
 
 // BareMetalRemediationScope defines the basic context for an actuator to operate upon.
 type BareMetalRemediationScope struct {
-	BareMetalMachineScope
+	*logr.Logger
+	Client               client.Client
+	patchHelper          *patch.Helper
+	Machine              *clusterv1.Machine
+	BareMetalMachine     *infrav1.HetznerBareMetalMachine
 	BareMetalRemediation *infrav1.HetznerBareMetalRemediation
 }
 

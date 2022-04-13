@@ -44,9 +44,7 @@ func ValidateKubeletCSR(csr *x509.CertificateRequest, machineName string, isHClo
 	}
 
 	var hostNamePrefix string
-	if isHCloudMachine {
-		hostNamePrefix = infrav1.HCloudHostNamePrefix
-	} else {
+	if !isHCloudMachine {
 		hostNamePrefix = infrav1.BareMetalHostNamePrefix
 	}
 

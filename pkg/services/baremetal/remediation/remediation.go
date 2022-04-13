@@ -62,6 +62,15 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 		return &ctrl.Result{}, errors.Wrapf(err, "unable to find a host for unhealthy machine")
 	}
 
+	// If host is not in state provisioned, then remediate immediately
+	if host.Spec.Status.ProvisioningState != infrav1.StateProvisioned {
+		log.Info("Deleting host without remediation", "provisioningState", host.Spec.Status.ProvisioningState)
+		if err := s.setOwnerRemediatedConditionNew(ctx); err != nil {
+			s.scope.Error(err, "error setting cluster api conditions")
+			return &ctrl.Result{}, errors.Wrapf(err, "error setting cluster api conditions")
+		}
+	}
+
 	remediationType := s.scope.BareMetalRemediation.Spec.Strategy.Type
 
 	if remediationType != infrav1.RebootRemediationStrategy {
@@ -91,7 +100,7 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 			}
 
 			if s.scope.BareMetalRemediation.Spec.Strategy.RetryLimit > 0 &&
-				s.scope.BareMetalRemediation.Spec.Strategy.RetryLimit == s.scope.BareMetalRemediation.Status.RetryCount {
+				s.scope.BareMetalRemediation.Spec.Strategy.RetryLimit > s.scope.BareMetalRemediation.Status.RetryCount {
 				okToRemediate, nextRemediation := s.timeToRemediate(s.scope.BareMetalRemediation.Spec.Strategy.Timeout.Duration)
 
 				if okToRemediate {
@@ -181,7 +190,7 @@ func (s *Service) getHost(ctx context.Context) (*infrav1.HetznerBareMetalHost, e
 
 // setRebootAnnotation sets reboot annotation on unhealthy host.
 func (s *Service) setRebootAnnotation(ctx context.Context, host *infrav1.HetznerBareMetalHost, helper *patch.Helper) error {
-	s.scope.Info("Adding Reboot annotation to host", host.Name)
+	s.scope.Info("Adding Reboot annotation to host", "host", host.Name)
 	reboot := infrav1.RebootAnnotationArguments{}
 	reboot.Type = infrav1.RebootTypeHardware
 	marshalledMode, err := json.Marshal(reboot)
@@ -216,7 +225,7 @@ func (s *Service) timeToRemediate(timeout time.Duration) (bool, time.Duration) {
 // setOwnerRemediatedConditionNew sets MachineOwnerRemediatedCondition on CAPI machine object
 // that have failed a healthcheck.
 func (s *Service) setOwnerRemediatedConditionNew(ctx context.Context) error {
-	capiMachine, err := s.GetCapiMachine(ctx)
+	capiMachine, err := s.getCapiMachine(ctx)
 	if err != nil {
 		s.scope.Info("Unable to fetch CAPI Machine")
 		return err
@@ -230,14 +239,14 @@ func (s *Service) setOwnerRemediatedConditionNew(ctx context.Context) error {
 	conditions.MarkFalse(capiMachine, capi.MachineOwnerRemediatedCondition, capi.WaitingForRemediationReason, capi.ConditionSeverityWarning, "")
 	err = machineHelper.Patch(ctx, capiMachine)
 	if err != nil {
-		s.scope.Info("Unable to patch Machine %d", capiMachine)
+		s.scope.Info("Unable to patch Machine", "machine", capiMachine)
 		return err
 	}
 	return nil
 }
 
-// GetCapiMachine returns CAPI machine object owning the current resource.
-func (s *Service) GetCapiMachine(ctx context.Context) (*capi.Machine, error) {
+// getCapiMachine returns CAPI machine object owning the current resource.
+func (s *Service) getCapiMachine(ctx context.Context) (*capi.Machine, error) {
 	capiMachine, err := util.GetOwnerMachine(ctx, s.scope.Client, s.scope.BareMetalRemediation.ObjectMeta)
 	if err != nil {
 		s.scope.Error(err, "metal3Remediation's owner Machine could not be retrieved")

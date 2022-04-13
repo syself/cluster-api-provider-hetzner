@@ -40,7 +40,7 @@ var _ = Describe("updateSSHKey", func() {
 				"test-host",
 				"default",
 				helpers.WithSSHStatus(),
-				helpers.WithSSHSpecInclPorts(),
+				helpers.WithSSHSpecInclPorts(23, 24),
 			)
 			host.Spec.Status.SSHStatus.CurrentOS = &infrav1.SecretStatus{
 				Version: osSecretVersion,

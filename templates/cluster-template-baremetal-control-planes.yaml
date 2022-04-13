@@ -291,6 +291,9 @@ spec:
       - echo 'source <(kubectl completion bash)' >>~/.bashrc
       - echo 'export KUBECONFIG=/etc/kubernetes/admin.conf' >>~/.bashrc
       - apt-get -y autoremove && apt-get -y clean all
+      - sed -i -e '/^\(#\|\)Port/s/^.*$/Port 103/' /etc/ssh/sshd_config
+      - sed -i -e '/^\(#\|\)MaxAuthTries/s/^.*$/MaxAuthTries 2/' /etc/ssh/sshd_config
+      - systemctl restart sshd
   version: "${KUBERNETES_VERSION}"
 ---
 apiVersion: cluster.x-k8s.io/v1beta1
@@ -311,6 +314,22 @@ spec:
     - type: Ready
       status: "False"
       timeout: 300s
+  remediationTemplate: # added infrastructure reference
+    kind: HetznerBareMetalRemediationTemplate
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    name: control-plane-remediation-request
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: HetznerBareMetalRemediationTemplate
+metadata:
+  name: control-plane-remediation-request
+spec:
+  template:
+    spec:
+      strategy:
+        type: "Reboot"
+        retryLimit: 2
+        timeout: 300s
 ---
 apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
 kind: KubeadmConfigTemplate
@@ -433,6 +452,9 @@ spec:
         - echo 'source <(kubectl completion bash)' >>~/.bashrc
         - echo 'export KUBECONFIG=/etc/kubernetes/admin.conf' >>~/.bashrc
         - apt-get -y autoremove && apt-get -y clean all
+        - sed -i -e '/^\(#\|\)Port/s/^.*$/Port 103/' /etc/ssh/sshd_config
+        - sed -i -e '/^\(#\|\)MaxAuthTries/s/^.*$/MaxAuthTries 2/' /etc/ssh/sshd_config
+        - systemctl restart sshd
 ---
 apiVersion: cluster.x-k8s.io/v1beta1
 kind: MachineHealthCheck
@@ -510,9 +532,11 @@ spec:
         postInstallScript: |
           #!/bin/bash
           apt-get update && apt-get install -y cloud-init apparmor apparmor-utils
+          sed -i -e '/^\(#\|\)Port/s/^.*$/Port 100/' /etc/ssh/sshd_config
+          sed -i -e '/^\(#\|\)MaxAuthTries/s/^.*$/MaxAuthTries 2/' /etc/ssh/sshd_config
       sshSpec:
-        portAfterInstallImage: 22
-        portAfterCloudInit: 22
+        portAfterInstallImage: 100
+        portAfterCloudInit: 103
         secretRef:
           name: robot-ssh
           key:

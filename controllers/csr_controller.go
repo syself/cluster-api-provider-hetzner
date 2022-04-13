@@ -96,7 +96,7 @@ func (r *GuestCSRReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	var hcloudMachine infrav1.HCloudMachine
 	err = r.mCluster.Get(ctx, types.NamespacedName{
 		Namespace: r.mCluster.Namespace(),
-		Name:      strings.TrimPrefix(certificateSigningRequest.Spec.Username, nodePrefix+infrav1.HCloudHostNamePrefix),
+		Name:      strings.TrimPrefix(certificateSigningRequest.Spec.Username, nodePrefix),
 	}, &hcloudMachine)
 
 	if err == nil {

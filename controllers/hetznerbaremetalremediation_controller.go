@@ -43,6 +43,7 @@ type HetznerBareMetalRemediationReconciler struct {
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalremediations,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalremediations/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalremediations/finalizers,verbs=update
+//+kubebuilder:rbac:groups=cluster.x-k8s.io,resources=machines;machines/status,verbs=get;update;patch
 
 // Reconcile reconciles the hetznerBareMetalRemediation object.
 func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
@@ -112,12 +113,11 @@ func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, r
 
 	// Create the scope.
 	remediationScope, err := scope.NewBareMetalRemediationScope(ctx, scope.BareMetalRemediationScopeParams{
-		BareMetalMachineScopeParams: scope.BareMetalMachineScopeParams{
-			Client:           r.Client,
-			Logger:           &log,
-			Machine:          machine,
-			BareMetalMachine: bareMetalMachine,
-		},
+		Client:               r.Client,
+		Logger:               &log,
+		Machine:              machine,
+		BareMetalMachine:     bareMetalMachine,
+		HetznerCluster:       hetznerCluster,
 		BareMetalRemediation: bareMetalRemediation,
 	})
 	if err != nil {

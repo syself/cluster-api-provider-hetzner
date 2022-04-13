@@ -70,9 +70,10 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 
 		key client.ObjectKey
 
-		robotClient     *robotmock.Client
-		rescueSSHClient *sshmock.Client
-		osSSHClient     *sshmock.Client
+		robotClient                  *robotmock.Client
+		rescueSSHClient              *sshmock.Client
+		osSSHClientAfterInstallImage *sshmock.Client
+		osSSHClientAfterCloudInit    *sshmock.Client
 	)
 
 	BeforeEach(func() {
@@ -139,7 +140,8 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 
 		robotClient = testEnv.RobotClient
 		rescueSSHClient = testEnv.RescueSSHClient
-		osSSHClient = testEnv.OSSSHClient
+		osSSHClientAfterInstallImage = testEnv.OSSSHClientAfterInstallImage
+		osSSHClientAfterCloudInit = testEnv.OSSSHClientAfterCloudInit
 
 		robotClient.On("GetBMServer", 1).Return(&models.Server{
 			ServerNumber: 1,
@@ -161,17 +163,24 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 		robotClient.On("SetBMServerName", 1, mock.Anything).Return(nil, nil)
 		configureRescueSSHClient(rescueSSHClient)
 
-		osSSHClient.On("Reboot").Return(sshclient.Output{})
-		osSSHClient.On("CreateNoCloudDirectory").Return(sshclient.Output{})
-		osSSHClient.On("CreateMetaData", mock.Anything).Return(sshclient.Output{})
-		osSSHClient.On("CreateUserData", mock.Anything).Return(sshclient.Output{})
-		osSSHClient.On("EnsureCloudInit").Return(sshclient.Output{StdOut: "cloud-init"})
-		osSSHClient.On("CloudInitStatus").Return(sshclient.Output{StdOut: "status: done"})
-		osSSHClient.On("CheckCloudInitLogsForSigTerm").Return(sshclient.Output{})
-		osSSHClient.On("GetHostName").Return(sshclient.Output{
+		osSSHClientAfterInstallImage.On("Reboot").Return(sshclient.Output{})
+		osSSHClientAfterInstallImage.On("CreateNoCloudDirectory").Return(sshclient.Output{})
+		osSSHClientAfterInstallImage.On("CreateMetaData", mock.Anything).Return(sshclient.Output{})
+		osSSHClientAfterInstallImage.On("CreateUserData", mock.Anything).Return(sshclient.Output{})
+		osSSHClientAfterInstallImage.On("EnsureCloudInit").Return(sshclient.Output{StdOut: "cloud-init"})
+		osSSHClientAfterInstallImage.On("CloudInitStatus").Return(sshclient.Output{StdOut: "status: done"})
+		osSSHClientAfterInstallImage.On("CheckCloudInitLogsForSigTerm").Return(sshclient.Output{})
+		osSSHClientAfterInstallImage.On("GetHostName").Return(sshclient.Output{
 			StdOut: infrav1.BareMetalHostNamePrefix + bmMachineName,
 			StdErr: "",
 			Err:    nil})
+
+		osSSHClientAfterCloudInit.On("GetHostName").Return(sshclient.Output{
+			StdOut: infrav1.BareMetalHostNamePrefix + bmMachineName,
+			StdErr: "",
+			Err:    nil})
+		osSSHClientAfterCloudInit.On("CloudInitStatus").Return(sshclient.Output{StdOut: "status: done"})
+		osSSHClientAfterCloudInit.On("CheckCloudInitLogsForSigTerm").Return(sshclient.Output{})
 	})
 
 	AfterEach(func() {
@@ -400,6 +409,98 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 
 					return false
 				}, timeout, time.Second).Should(BeTrue())
+			})
+		})
+	})
+
+	Context("Tests with bm machine and different ports after installImage and cloudInit", func() {
+		BeforeEach(func() {
+			capiMachine = &clusterv1.Machine{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "capi-machine-",
+					Namespace:    testNs.Name,
+					Finalizers:   []string{clusterv1.MachineFinalizer},
+					Labels: map[string]string{
+						clusterv1.ClusterLabelName: capiCluster.Name,
+					},
+				},
+				Spec: clusterv1.MachineSpec{
+					ClusterName: capiCluster.Name,
+					InfrastructureRef: corev1.ObjectReference{
+						APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
+						Kind:       "HetznerBareMetalMachine",
+						Name:       bmMachineName,
+					},
+					FailureDomain: &defaultFailureDomain,
+					Bootstrap: clusterv1.Bootstrap{
+						DataSecretName: pointer.String("bootstrap-secret"),
+					},
+				},
+			}
+			Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
+
+			bmMachine = &infrav1.HetznerBareMetalMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      bmMachineName,
+					Namespace: testNs.Name,
+					Labels: map[string]string{
+						clusterv1.ClusterLabelName: capiCluster.Name,
+					},
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: "cluster.x-k8s.io/v1beta1",
+							Kind:       "Machine",
+							Name:       capiMachine.Name,
+							UID:        capiMachine.UID,
+						},
+					},
+				},
+				Spec: getDefaultHetznerBareMetalMachineSpec(),
+			}
+			bmMachine.Spec.SSHSpec.PortAfterInstallImage = 23
+			bmMachine.Spec.SSHSpec.PortAfterCloudInit = 24
+
+			Expect(testEnv.Create(ctx, bmMachine)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			Expect(testEnv.Cleanup(ctx, capiMachine, bmMachine)).To(Succeed())
+		})
+
+		Context("provision host", func() {
+			BeforeEach(func() {
+				host = helpers.BareMetalHost(
+					hostName,
+					testNs.Name,
+					helpers.WithRootDeviceHints(),
+					helpers.WithHetznerClusterRef(hetznerClusterName),
+				)
+				Expect(testEnv.Create(ctx, host)).To(Succeed())
+
+				key = client.ObjectKey{Namespace: testNs.Name, Name: host.Name}
+			})
+
+			AfterEach(func() {
+				Expect(testEnv.Cleanup(ctx, host)).To(Succeed())
+			})
+
+			It("gets selected from a bm machine and provisions", func() {
+				defer func() {
+					Expect(testEnv.Delete(ctx, bmMachine))
+				}()
+
+				var machine clusterv1.Machine
+				Expect(testEnv.Get(ctx, client.ObjectKey{Namespace: testNs.Name, Name: capiMachine.Name}, &machine)).To(Succeed())
+
+				Eventually(func() bool {
+					if err := testEnv.Get(ctx, key, host); err != nil {
+						return false
+					}
+					if host.Spec.Status.ProvisioningState == infrav1.StateProvisioned {
+						return true
+					}
+					return false
+				}, timeout).Should(BeTrue())
 			})
 		})
 	})

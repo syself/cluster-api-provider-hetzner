@@ -136,7 +136,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 		robotClient = testEnv.RobotClient
 		rescueSSHClient = testEnv.RescueSSHClient
-		osSSHClient = testEnv.OSSSHClient
+		osSSHClient = testEnv.OSSSHClientAfterInstallImage
 
 		robotClient.On("GetBMServer", 1).Return(&models.Server{
 			ServerNumber: 1,

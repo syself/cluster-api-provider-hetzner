@@ -556,13 +556,7 @@ func (s *Service) actionRegistering() actionResult {
 		if err != nil {
 			return actionError{err: errors.Wrap(err, "failed to handle incomplete boot - registering")}
 		}
-		if !isTimeout && !isConnectionFailed {
-			// In this case we are in a wrong boot. We need to trigger the rescue system in the case where it is not yet triggered.
-			// The rest of the logic is handled in the function below
-			if err := s.ensureRescueMode(); err != nil {
-				return actionError{err: errors.Wrap(err, "failed to ensure rescue")}
-			}
-		}
+
 		if err := s.handleIncompleteBootError(true, isTimeout, isConnectionFailed); err != nil {
 			return actionError{err: errors.Wrap(err, "failed to handle incomplete boot")}
 		}
@@ -1125,26 +1119,77 @@ func (s *Service) actionEnsureProvisioned() actionResult {
 		if err != nil {
 			return actionError{err: errors.Wrap(err, "failed to handle incomplete boot - provisioning")}
 		}
+		// A connection failed error could mean that cloud init is still running (if cloudInit introduces a new port)
+		if isConnectionFailed &&
+			s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterInstallImage != s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterCloudInit {
+			oldSSHClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
+				PrivateKey: sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.SecretRef).PrivateKey,
+				Port:       s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterInstallImage,
+				IP:         getIPAddress(s.scope.HetznerBareMetalHost.Spec.Status),
+			})
+			actResult, err := s.checkCloudInitStatus(oldSSHClient)
+			// If this ssh client also gives an error, then we go back to analyzing the error of the first ssh call
+			// This happens in the statement below this one.
+			if err == nil {
+				// If cloud-init status == "done" and cloud init was successful,
+				// then we will soon reboot and be able to access the server via the new port
+				if _, complete := actResult.(actionComplete); complete {
+					// Check whether cloud init did not run successfully even though it shows "done"
+					actResult := s.handleCloudInitNotStarted()
+					if _, complete := actResult.(actionComplete); complete {
+						return actionContinue{delay: 10 * time.Second}
+					}
+					return actResult
+				}
+			}
+			if _, actionerr := actResult.(actionError); !actionerr {
+				return actResult
+			}
+		}
+
 		if err := s.handleIncompleteBootError(false, isTimeout, isConnectionFailed); err != nil {
 			return actionError{err: errors.Wrap(err, "failed to handle incomplete boot")}
 		}
 		return actionContinue{delay: 10 * time.Second}
 	}
 
-	out = sshClient.CloudInitStatus()
+	// Check the status of cloud init
+	actResult, _ := s.checkCloudInitStatus(sshClient)
+	if _, complete := actResult.(actionComplete); !complete {
+		return actResult
+	}
+
+	// Check whether cloud init did not run successfully even though it shows "done"
+	actResult = s.handleCloudInitNotStarted()
+	if _, complete := actResult.(actionComplete); !complete {
+		return actResult
+	}
+
+	s.scope.SetErrorCount(0)
+	clearError(s.scope.HetznerBareMetalHost)
+	return actionComplete{}
+}
+
+func (s *Service) checkCloudInitStatus(sshClient sshclient.Client) (actionResult, error) {
+	out := sshClient.CloudInitStatus()
+	// This error is interesting for further logic and might happen because of the fact that the sshClient has the wrong port
+	if out.Err != nil {
+		return actionError{err: errors.Wrap(out.Err, "failed to get cloud init status")}, out.Err
+	}
+
 	stdOut := trimLineBreak(out.StdOut)
 	switch {
 	case strings.Contains(stdOut, "status: running"):
 		// Cloud init is still running
-		return actionContinue{delay: 5 * time.Second}
+		return actionContinue{delay: 5 * time.Second}, nil
 	case strings.Contains(stdOut, "status: disabled"):
 		// Reboot needs to be triggered again - did not start yet
 		out = sshClient.Reboot()
 		if err := handleSSHError(out); err != nil {
-			return actionError{err: errors.Wrap(err, "failed to reboot")}
+			return actionError{err: errors.Wrap(err, "failed to reboot")}, nil
 		}
 		SetErrorMessage(s.scope.HetznerBareMetalHost, infrav1.ErrorTypeSSHRebootNotStarted, "ssh reboot just triggered")
-		return actionContinue{delay: 5 * time.Second}
+		return actionContinue{delay: 5 * time.Second}, nil
 	case strings.Contains(stdOut, "status: done"):
 		s.scope.SetErrorCount(0)
 		clearError(s.scope.HetznerBareMetalHost)
@@ -1154,31 +1199,39 @@ func (s *Service) actionEnsureProvisioned() actionResult {
 			"FatalError",
 			"cloud init returned status error",
 		)
-		return s.recordActionFailure(infrav1.FatalError, "cloud init returned status error")
+		return s.recordActionFailure(infrav1.FatalError, "cloud init returned status error"), nil
 	default:
 		// Errors are handled after stdOut in this case, as status: error returns an exited with status 1 error
 		if err := handleSSHError(out); err != nil {
-			return actionError{err: errors.Wrap(err, "failed to get cloud init status")}
+			return actionError{err: errors.Wrap(err, "failed to get cloud init status")}, nil
 		}
 	}
+	return actionComplete{}, nil
+}
 
+func (s *Service) handleCloudInitNotStarted() actionResult {
 	// Check whether cloud init really was successfully. Sigterm causes problems there.
-	out = sshClient.CheckCloudInitLogsForSigTerm()
+	oldSSHClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
+		PrivateKey: sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.SecretRef).PrivateKey,
+		Port:       s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterInstallImage,
+		IP:         getIPAddress(s.scope.HetznerBareMetalHost.Spec.Status),
+	})
+	out := oldSSHClient.CheckCloudInitLogsForSigTerm()
 	if err := handleSSHError(out); err != nil {
 		return actionError{err: errors.Wrap(err, "failed to CheckCloudInitLogsForSigTerm")}
 	}
 
 	if trimLineBreak(out.StdOut) != "" {
 		// it was not succesfull. Prepare and reboot again
-		out = sshClient.CleanCloudInitLogs()
+		out = oldSSHClient.CleanCloudInitLogs()
 		if err := handleSSHError(out); err != nil {
 			return actionError{err: errors.Wrap(err, "failed to CleanCloudInitLogs")}
 		}
-		out = sshClient.CleanCloudInitInstances()
+		out = oldSSHClient.CleanCloudInitInstances()
 		if err := handleSSHError(out); err != nil {
 			return actionError{err: errors.Wrap(err, "failed to CleanCloudInitInstances")}
 		}
-		out = sshClient.Reboot()
+		out = oldSSHClient.Reboot()
 		if err := handleSSHError(out); err != nil {
 			return actionError{err: errors.Wrap(err, "failed to reboot")}
 		}
@@ -1227,7 +1280,7 @@ func handleIncompleteBootProvisioned(out sshclient.Output) (isTimeout bool, isCo
 
 func (s *Service) actionProvisioned() actionResult {
 	rebootDesired := hasRebootAnnotation(*s.scope.HetznerBareMetalHost)
-	isRebooted := s.scope.HetznerBareMetalHost.Status.Rebooted
+	isRebooted := s.scope.HetznerBareMetalHost.Spec.Status.Rebooted
 	creds := sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.SecretRef)
 	in := sshclient.Input{
 		PrivateKey: creds.PrivateKey,
@@ -1243,8 +1296,10 @@ func (s *Service) actionProvisioned() actionResult {
 			out := sshClient.GetHostName()
 			if trimLineBreak(out.StdOut) == infrav1.BareMetalHostNamePrefix+s.scope.HetznerBareMetalHost.Spec.ConsumerRef.Name {
 				// Reboot has been successful
-				s.scope.HetznerBareMetalHost.Status.Rebooted = false
+				s.scope.HetznerBareMetalHost.Spec.Status.Rebooted = false
 				clearRebootAnnotations(s.scope.HetznerBareMetalHost)
+				s.scope.SetErrorCount(0)
+				clearError(s.scope.HetznerBareMetalHost)
 				return actionComplete{}
 			}
 			// Reboot has been ongoing
@@ -1262,7 +1317,7 @@ func (s *Service) actionProvisioned() actionResult {
 		if err := handleSSHError(out); err != nil {
 			return actionError{err: err}
 		}
-		s.scope.HetznerBareMetalHost.Status.Rebooted = true
+		s.scope.HetznerBareMetalHost.Spec.Status.Rebooted = true
 		return actionContinue{delay: 10 * time.Second}
 	}
 

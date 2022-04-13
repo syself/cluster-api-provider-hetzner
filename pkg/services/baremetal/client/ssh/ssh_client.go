@@ -285,7 +285,11 @@ func (c *sshClient) CreateUserData(userData string) Output {
 
 // CloudInitStatus implements the CloudInitStatus method of the SSHClient interface.
 func (c *sshClient) CloudInitStatus() Output {
-	return c.runSSH("cloud-init status")
+	out := c.runSSH("cloud-init status")
+	if out.Err != nil && strings.Contains(out.Err.Error(), ErrCommandExitedWithStatusOne.Error()) {
+		return Output{StdOut: "status: error"}
+	}
+	return out
 }
 
 // CheckCloudInitLogsForSigTerm implements the CheckCloudInitLogsForSigTerm method of the SSHClient interface.
