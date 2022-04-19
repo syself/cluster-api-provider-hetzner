@@ -19,6 +19,7 @@ package v1beta1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 )
 
 const (
@@ -231,12 +232,26 @@ type ControllerGeneratedStatus struct {
 
 	// Rebooted shows whether the server is currently being rebooted.
 	Rebooted bool `json:"rebooted,omitempty"`
+
+	// Conditions defines current service state of the HetznerBareMetalHost.
+	// +optional
+	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
 }
 
 // HetznerBareMetalHostStatus defines the observed state of HetznerBareMetalHost.
 type HetznerBareMetalHostStatus struct {
 	// Region contains the server location.
 	Region Region `json:"region,omitempty"`
+}
+
+// GetConditions returns the observations of the operational state of the HetznerBareMetalHost resource.
+func (r *HetznerBareMetalHost) GetConditions() clusterv1.Conditions {
+	return r.Spec.Status.Conditions
+}
+
+// SetConditions sets the underlying service state of the HetznerBareMetalHost to the predescribed clusterv1.Conditions.
+func (r *HetznerBareMetalHost) SetConditions(conditions clusterv1.Conditions) {
+	r.Spec.Status.Conditions = conditions
 }
 
 // SSHStatus contains all status information about SSHStatus.
