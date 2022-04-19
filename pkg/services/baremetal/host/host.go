@@ -1045,12 +1045,7 @@ func (s *Service) actionImageInstalling() actionResult {
 		return actionError{err: err}
 	}
 
-	var deviceName string
-	for _, device := range storageDevices {
-		if device.WWN == s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.WWN {
-			deviceName = device.Name
-		}
-	}
+	deviceName := getDeviceName(s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.WWN, storageDevices)
 
 	// Should find a storage device
 	if deviceName == "" {
@@ -1112,6 +1107,15 @@ func (s *Service) actionImageInstalling() actionResult {
 	s.scope.SetErrorCount(0)
 	clearError(s.scope.HetznerBareMetalHost)
 	return actionComplete{}
+}
+
+func getDeviceName(wwn string, storageDevices []infrav1.Storage) string {
+	for _, device := range storageDevices {
+		if device.WWN == wwn {
+			return device.Name
+		}
+	}
+	return ""
 }
 
 func getImageDetails(image infrav1.Image) (imagePath string, needsDownload bool, errorMessage string) {

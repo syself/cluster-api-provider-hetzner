@@ -1244,8 +1244,8 @@ var _ = Describe("actionEnsureProvisioned", func() {
 	DescribeTable("actionEnsureProvisioned",
 		func(in ensureProvisionedInputs) {
 			var (
-				portAfterCloudInit    int = 24
-				portAfterInstallImage int = 23
+				portAfterCloudInit    = 24
+				portAfterInstallImage = 23
 			)
 			if in.samePorts {
 				portAfterInstallImage = 24

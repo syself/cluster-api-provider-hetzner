@@ -86,65 +86,75 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 
 		switch s.scope.BareMetalRemediation.Status.Phase {
 		case infrav1.PhaseRunning:
-			// host is not rebooted yet
-			if s.scope.BareMetalRemediation.Status.LastRemediated == nil {
-				s.scope.Info("Rebooting the host")
-				err := s.setRebootAnnotation(ctx, host, helper)
-				if err != nil {
-					s.scope.Error(err, "error setting reboot annotation")
-					return &ctrl.Result{}, errors.Wrap(err, "error setting reboot annotation")
-				}
-				now := metav1.Now()
-				s.scope.BareMetalRemediation.Status.LastRemediated = &now
-				s.scope.BareMetalRemediation.Status.RetryCount++
-			}
-
-			if s.scope.BareMetalRemediation.Spec.Strategy.RetryLimit > 0 &&
-				s.scope.BareMetalRemediation.Spec.Strategy.RetryLimit > s.scope.BareMetalRemediation.Status.RetryCount {
-				okToRemediate, nextRemediation := s.timeToRemediate(s.scope.BareMetalRemediation.Spec.Strategy.Timeout.Duration)
-
-				if okToRemediate {
-					err := s.setRebootAnnotation(ctx, host, helper)
-					if err != nil {
-						s.scope.Error(err, "error setting reboot annotation")
-						return &ctrl.Result{}, errors.Wrapf(err, "error setting reboot annotation")
-					}
-					now := metav1.Now()
-					s.scope.BareMetalRemediation.Status.LastRemediated = &now
-					s.scope.BareMetalRemediation.Status.RetryCount++
-				}
-
-				if nextRemediation > 0 {
-					// Not yet time to remediate, requeue
-					return &ctrl.Result{RequeueAfter: nextRemediation}, nil
-				}
-			} else {
-				s.scope.BareMetalRemediation.Status.Phase = infrav1.PhaseWaiting
-			}
+			return s.handlePhaseRunning(ctx, host, helper)
 		case infrav1.PhaseWaiting:
-			okToStop, nextCheck := s.timeToRemediate(s.scope.BareMetalRemediation.Spec.Strategy.Timeout.Duration)
-
-			if okToStop {
-				s.scope.BareMetalRemediation.Status.Phase = infrav1.PhaseDeleting
-				// When machine is still unhealthy after remediation, setting of OwnerRemediatedCondition
-				// moves control to CAPI machine controller. The owning controller will do
-				// preflight checks and handles the Machine deletion
-
-				err = s.setOwnerRemediatedConditionNew(ctx)
-				if err != nil {
-					s.scope.Error(err, "error setting cluster api conditions")
-					return &ctrl.Result{}, errors.Wrapf(err, "error setting cluster api conditions")
-				}
-			}
-
-			if nextCheck > 0 {
-				// Not yet time to stop remediation, requeue
-				return &ctrl.Result{RequeueAfter: nextCheck}, nil
-			}
+			return s.handlePhaseWaiting(ctx)
 		default:
 		}
 	}
 	return &ctrl.Result{}, nil
+}
+
+func (s *Service) handlePhaseRunning(ctx context.Context, host *infrav1.HetznerBareMetalHost, helper *patch.Helper) (*ctrl.Result, error) {
+	// host is not rebooted yet
+	if s.scope.BareMetalRemediation.Status.LastRemediated == nil {
+		s.scope.Info("Rebooting the host")
+		err := s.setRebootAnnotation(ctx, host, helper)
+		if err != nil {
+			s.scope.Error(err, "error setting reboot annotation")
+			return &ctrl.Result{}, errors.Wrap(err, "error setting reboot annotation")
+		}
+		now := metav1.Now()
+		s.scope.BareMetalRemediation.Status.LastRemediated = &now
+		s.scope.BareMetalRemediation.Status.RetryCount++
+	}
+
+	if s.scope.BareMetalRemediation.Spec.Strategy.RetryLimit > 0 &&
+		s.scope.BareMetalRemediation.Spec.Strategy.RetryLimit > s.scope.BareMetalRemediation.Status.RetryCount {
+		okToRemediate, nextRemediation := s.timeToRemediate(s.scope.BareMetalRemediation.Spec.Strategy.Timeout.Duration)
+
+		if okToRemediate {
+			err := s.setRebootAnnotation(ctx, host, helper)
+			if err != nil {
+				s.scope.Error(err, "error setting reboot annotation")
+				return &ctrl.Result{}, errors.Wrapf(err, "error setting reboot annotation")
+			}
+			now := metav1.Now()
+			s.scope.BareMetalRemediation.Status.LastRemediated = &now
+			s.scope.BareMetalRemediation.Status.RetryCount++
+		}
+
+		if nextRemediation > 0 {
+			// Not yet time to remediate, requeue
+			return &ctrl.Result{RequeueAfter: nextRemediation}, nil
+		}
+	} else {
+		s.scope.BareMetalRemediation.Status.Phase = infrav1.PhaseWaiting
+	}
+	return nil, nil
+}
+
+func (s *Service) handlePhaseWaiting(ctx context.Context) (*ctrl.Result, error) {
+	okToStop, nextCheck := s.timeToRemediate(s.scope.BareMetalRemediation.Spec.Strategy.Timeout.Duration)
+
+	if okToStop {
+		s.scope.BareMetalRemediation.Status.Phase = infrav1.PhaseDeleting
+		// When machine is still unhealthy after remediation, setting of OwnerRemediatedCondition
+		// moves control to CAPI machine controller. The owning controller will do
+		// preflight checks and handles the Machine deletion
+
+		err := s.setOwnerRemediatedConditionNew(ctx)
+		if err != nil {
+			s.scope.Error(err, "error setting cluster api conditions")
+			return &ctrl.Result{}, errors.Wrapf(err, "error setting cluster api conditions")
+		}
+	}
+
+	if nextCheck > 0 {
+		// Not yet time to stop remediation, requeue
+		return &ctrl.Result{RequeueAfter: nextCheck}, nil
+	}
+	return nil, nil
 }
 
 func (s *Service) getUnhealthyHost(ctx context.Context) (*infrav1.HetznerBareMetalHost, *patch.Helper, error) {

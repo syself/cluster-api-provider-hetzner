@@ -431,12 +431,16 @@ spec:
                     description: SSHSpec defines specs for SSH.
                     properties:
                       portAfterCloudInit:
+                        description: PortAfterCloudInit specifies the port that has
+                          to be used to connect to the machine after cloud init.
                         type: integer
                       portAfterInstallImage:
+                        default: 22
+                        description: PortAfterInstallImage specifies the port that
+                          has to be used to connect to the machine after install image.
                         type: integer
                       secretRef:
-                        description: SSHSecretRef defines the secret containing all
-                          information of the SSH key used for Hetzner robot.
+                        description: SecretRef gives reference to the secret.
                         properties:
                           key:
                             description: SSHSecretKeyRef defines the key name of the
@@ -460,8 +464,6 @@ spec:
                         - name
                         type: object
                     required:
-                    - portAfterCloudInit
-                    - portAfterInstallImage
                     - secretRef
                     type: object
                   sshStatus:
@@ -562,15 +564,6 @@ spec:
           status:
             description: HetznerBareMetalHostStatus defines the observed state of
               HetznerBareMetalHost.
-            properties:
-              region:
-                description: Region contains the server location.
-                enum:
-                - fsn1
-                - hel1
-                - nbg1
-                - ash
-                type: string
             type: object
         type: object
     served: true

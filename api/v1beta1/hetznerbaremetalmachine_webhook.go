@@ -48,9 +48,6 @@ var _ webhook.Validator = &HetznerBareMetalMachine{}
 func (r *HetznerBareMetalMachine) ValidateCreate() error {
 	var allErrs field.ErrorList
 
-	if r.Spec.SSHSpec.PortAfterInstallImage == 0 {
-		r.Spec.SSHSpec.PortAfterInstallImage = 22
-	}
 	if r.Spec.SSHSpec.PortAfterCloudInit == 0 {
 		r.Spec.SSHSpec.PortAfterCloudInit = r.Spec.SSHSpec.PortAfterInstallImage
 	}

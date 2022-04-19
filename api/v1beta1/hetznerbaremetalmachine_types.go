@@ -103,9 +103,17 @@ type HostSelectorRequirement struct {
 
 // SSHSpec defines specs for SSH.
 type SSHSpec struct {
-	SecretRef             SSHSecretRef `json:"secretRef"`
-	PortAfterInstallImage int          `json:"portAfterInstallImage"`
-	PortAfterCloudInit    int          `json:"portAfterCloudInit"`
+	// SecretRef gives reference to the secret.
+	SecretRef SSHSecretRef `json:"secretRef"`
+
+	// PortAfterInstallImage specifies the port that has to be used to connect to the machine after install image.
+	// +kubebuilder:default=22
+	// +optional
+	PortAfterInstallImage int `json:"portAfterInstallImage"`
+
+	// PortAfterCloudInit specifies the port that has to be used to connect to the machine after cloud init.
+	// +optional
+	PortAfterCloudInit int `json:"portAfterCloudInit"`
 }
 
 // SSHSecretRef defines the secret containing all information of the SSH key used for Hetzner robot.
