@@ -156,42 +156,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&infrastructurev1beta1.HetznerCluster{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerCluster")
-		os.Exit(1)
-	}
-	if err = (&infrastructurev1beta1.HetznerClusterTemplate{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerClusterTemplate")
-		os.Exit(1)
-	}
-	if err = (&infrastructurev1beta1.HCloudMachine{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "HCloudMachine")
-		os.Exit(1)
-	}
-	if err = (&infrastructurev1beta1.HCloudMachineTemplate{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "HCloudMachineTemplate")
-		os.Exit(1)
-	}
-	if err = (&infrastructurev1beta1.HetznerBareMetalHost{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalHost")
-		os.Exit(1)
-	}
-	if err = (&infrastructurev1beta1.HetznerBareMetalMachine{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalMachine")
-		os.Exit(1)
-	}
-	if err = (&infrastructurev1beta1.HetznerBareMetalMachineTemplate{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalMachineTemplate")
-		os.Exit(1)
-	}
-	if err = (&infrastructurev1beta1.HetznerBareMetalRemediation{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalRemediation")
-		os.Exit(1)
-	}
-	if err = (&infrastructurev1beta1.HetznerBareMetalRemediationTemplate{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalRemediationTemplate")
-		os.Exit(1)
-	}
+	setUpWebhookWithManager(mgr)
 
 	//+kubebuilder:scaffold:builder
 
@@ -214,4 +179,43 @@ func main() {
 	wg.Done()
 	// Wait for all target cluster managers to gracefully shut down.
 	wg.Wait()
+}
+
+func setUpWebhookWithManager(mgr ctrl.Manager) {
+	if err := (&infrastructurev1beta1.HetznerCluster{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerCluster")
+		os.Exit(1)
+	}
+	if err := (&infrastructurev1beta1.HetznerClusterTemplate{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerClusterTemplate")
+		os.Exit(1)
+	}
+	if err := (&infrastructurev1beta1.HCloudMachine{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "HCloudMachine")
+		os.Exit(1)
+	}
+	if err := (&infrastructurev1beta1.HCloudMachineTemplate{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "HCloudMachineTemplate")
+		os.Exit(1)
+	}
+	if err := (&infrastructurev1beta1.HetznerBareMetalHost{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalHost")
+		os.Exit(1)
+	}
+	if err := (&infrastructurev1beta1.HetznerBareMetalMachine{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalMachine")
+		os.Exit(1)
+	}
+	if err := (&infrastructurev1beta1.HetznerBareMetalMachineTemplate{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalMachineTemplate")
+		os.Exit(1)
+	}
+	if err := (&infrastructurev1beta1.HetznerBareMetalRemediation{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalRemediation")
+		os.Exit(1)
+	}
+	if err := (&infrastructurev1beta1.HetznerBareMetalRemediationTemplate{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalRemediationTemplate")
+		os.Exit(1)
+	}
 }

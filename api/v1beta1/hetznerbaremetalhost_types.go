@@ -238,12 +238,6 @@ type ControllerGeneratedStatus struct {
 	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
 }
 
-// HetznerBareMetalHostStatus defines the observed state of HetznerBareMetalHost.
-type HetznerBareMetalHostStatus struct {
-	// Region contains the server location.
-	Region Region `json:"region,omitempty"`
-}
-
 // GetConditions returns the observations of the operational state of the HetznerBareMetalHost resource.
 func (r *HetznerBareMetalHost) GetConditions() clusterv1.Conditions {
 	return r.Spec.Status.Conditions
@@ -364,6 +358,10 @@ type HardwareDetails struct {
 	NIC          []NIC     `json:"nics,omitempty"`
 	Storage      []Storage `json:"storage,omitempty"`
 	CPU          CPU       `json:"cpu,omitempty"`
+}
+
+// HetznerBareMetalHostStatus defines the observed state of HetznerBareMetalHost.
+type HetznerBareMetalHostStatus struct {
 }
 
 // +kubebuilder:object:root=true

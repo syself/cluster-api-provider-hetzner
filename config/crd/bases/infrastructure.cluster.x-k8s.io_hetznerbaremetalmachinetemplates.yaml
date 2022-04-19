@@ -219,12 +219,18 @@ spec:
                           SSH details are specified as well as ports for ssh.
                         properties:
                           portAfterCloudInit:
+                            description: PortAfterCloudInit specifies the port that
+                              has to be used to connect to the machine after cloud
+                              init.
                             type: integer
                           portAfterInstallImage:
+                            default: 22
+                            description: PortAfterInstallImage specifies the port
+                              that has to be used to connect to the machine after
+                              install image.
                             type: integer
                           secretRef:
-                            description: SSHSecretRef defines the secret containing
-                              all information of the SSH key used for Hetzner robot.
+                            description: SecretRef gives reference to the secret.
                             properties:
                               key:
                                 description: SSHSecretKeyRef defines the key name
@@ -248,8 +254,6 @@ spec:
                             - name
                             type: object
                         required:
-                        - portAfterCloudInit
-                        - portAfterInstallImage
                         - secretRef
                         type: object
                     required:

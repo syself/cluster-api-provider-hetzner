@@ -486,7 +486,11 @@ spec:
   replicas: ${WORKER_MACHINE_COUNT}
   selector:
     matchLabels:
+      nodepool: "${CLUSTER_NAME}-md-0"
   template:
+    metadata:
+      labels:
+        nodepool: "${CLUSTER_NAME}-md-0"
     spec:
       clusterName: "${CLUSTER_NAME}"
       failureDomain: "${HCLOUD_REGION}"

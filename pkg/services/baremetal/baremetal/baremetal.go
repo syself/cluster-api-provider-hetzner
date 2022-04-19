@@ -161,27 +161,7 @@ func (s *Service) Delete(ctx context.Context) (_ *ctrl.Result, err error) {
 			return nil, err
 		}
 
-		bmhUpdated := false
-
-		if host.Spec.Status.InstallImage != nil {
-			host.Spec.Status.InstallImage = nil
-			bmhUpdated = true
-		}
-		if host.Spec.Status.UserData != nil {
-			host.Spec.Status.UserData = nil
-			bmhUpdated = true
-		}
-		if host.Spec.Status.SSHSpec != nil {
-			host.Spec.Status.SSHSpec = nil
-			bmhUpdated = true
-		}
-		emptySSHStatus := infrav1.SSHStatus{}
-		if host.Spec.Status.SSHStatus != emptySSHStatus {
-			host.Spec.Status.SSHStatus = infrav1.SSHStatus{}
-			bmhUpdated = true
-		}
-
-		if bmhUpdated {
+		if removeMachineSpecsFromHost(host) {
 			// Update the BMH object, if the errors are NotFound, do not return the
 			// errors.
 			if err := patchIfFound(ctx, helper, host); err != nil {
@@ -192,12 +172,7 @@ func (s *Service) Delete(ctx context.Context) (_ *ctrl.Result, err error) {
 			return nil, &scope.RequeueAfterError{}
 		}
 
-		waiting := true
-		if host.Spec.Status.ProvisioningState == infrav1.StateNone {
-			// Host is not provisioned.
-			waiting = false
-		}
-		if waiting {
+		if host.Spec.Status.ProvisioningState != infrav1.StateNone {
 			s.scope.Info("Deprovisioning BaremetalHost, requeuing", "host.Spec.Status.ProvisioningState", host.Spec.Status.ProvisioningState)
 			return nil, &scope.RequeueAfterError{RequeueAfter: requeueAfter}
 		}
@@ -232,6 +207,27 @@ func (s *Service) Delete(ctx context.Context) (_ *ctrl.Result, err error) {
 		s.scope.Name(),
 	)
 	return nil, nil
+}
+
+func removeMachineSpecsFromHost(host *infrav1.HetznerBareMetalHost) (updatedHost bool) {
+	if host.Spec.Status.InstallImage != nil {
+		host.Spec.Status.InstallImage = nil
+		updatedHost = true
+	}
+	if host.Spec.Status.UserData != nil {
+		host.Spec.Status.UserData = nil
+		updatedHost = true
+	}
+	if host.Spec.Status.SSHSpec != nil {
+		host.Spec.Status.SSHSpec = nil
+		updatedHost = true
+	}
+	var emptySSHStatus = infrav1.SSHStatus{}
+	if host.Spec.Status.SSHStatus != emptySSHStatus {
+		host.Spec.Status.SSHStatus = emptySSHStatus
+		updatedHost = true
+	}
+	return updatedHost
 }
 
 // update updates a machine and is invoked by the Machine Controller.
@@ -415,12 +411,6 @@ func (s *Service) deleteServerOfLoadBalancer(ctx context.Context, host *infrav1.
 func (s *Service) associate(ctx context.Context, log logr.Logger) error {
 	log.Info("Associating machine", "machine", s.scope.Machine.Name)
 
-	// load and validate the config
-	if s.scope.BareMetalMachine == nil {
-		// Should have been picked earlier. Do not requeue
-		return nil
-	}
-
 	// look for associated BMH
 	host, helper, err := s.getHost(ctx)
 	if err != nil {
@@ -446,8 +436,6 @@ func (s *Service) associate(ctx context.Context, log logr.Logger) error {
 			return &scope.RequeueAfterError{RequeueAfter: requeueAfter}
 		}
 		log.Info("Associating machine with host", "host", host.Name)
-	} else {
-		log.Info("Machine already associated with host", "host", host.Name)
 	}
 
 	if host.Labels == nil {
@@ -536,32 +524,14 @@ func (s *Service) chooseHost(ctx context.Context) (*infrav1.HetznerBareMetalHost
 		Namespace: s.scope.BareMetalMachine.Namespace,
 	}
 
-	err := s.scope.Client.List(ctx, &hosts, opts)
+	if err := s.scope.Client.List(ctx, &hosts, opts); err != nil {
+		return nil, nil, errors.Wrap(err, "failed to list hosts")
+	}
+
+	labelSelector, err := s.getLabelSelector()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Wrap(err, "failed to get label selector")
 	}
-
-	labelSelector := labels.NewSelector()
-	var reqs labels.Requirements
-
-	for labelKey, labelVal := range s.scope.BareMetalMachine.Spec.HostSelector.MatchLabels {
-		r, err := labels.NewRequirement(labelKey, selection.Equals, []string{labelVal})
-		if err != nil {
-			s.scope.Error(err, "Failed to create MatchLabel requirement, not choosing host")
-			return nil, nil, err
-		}
-		reqs = append(reqs, *r)
-	}
-	for _, req := range s.scope.BareMetalMachine.Spec.HostSelector.MatchExpressions {
-		lowercaseOperator := selection.Operator(strings.ToLower(string(req.Operator)))
-		r, err := labels.NewRequirement(req.Key, lowercaseOperator, req.Values)
-		if err != nil {
-			s.scope.Error(err, "Failed to create MatchExpression requirement, not choosing host")
-			return nil, nil, err
-		}
-		reqs = append(reqs, *r)
-	}
-	labelSelector = labelSelector.Add(reqs...)
 
 	availableHosts := []*infrav1.HetznerBareMetalHost{}
 
@@ -585,13 +555,10 @@ func (s *Service) chooseHost(ctx context.Context) (*infrav1.HetznerBareMetalHost
 		}
 
 		if labelSelector.Matches(labels.Set(host.ObjectMeta.Labels)) {
-			switch host.Spec.Status.ProvisioningState {
-			case infrav1.StateNone:
-			default:
-				continue
+			if host.Spec.Status.ProvisioningState == infrav1.StateNone {
+				s.scope.Info(fmt.Sprintf("Host %v matched hostSelector for HetznerBareMetalMachine, adding it to availableHosts list", host.Name))
+				availableHosts = append(availableHosts, &hosts.Items[i])
 			}
-			s.scope.Info(fmt.Sprintf("Host %v matched hostSelector for HetznerBareMetalMachine, adding it to availableHosts list", host.Name))
-			availableHosts = append(availableHosts, &hosts.Items[i])
 		} else {
 			s.scope.Info(fmt.Sprintf("Host %v did not match hostSelector for HetznerBareMetalMachine", host.Name))
 		}
@@ -609,6 +576,33 @@ func (s *Service) chooseHost(ctx context.Context) (*infrav1.HetznerBareMetalHost
 
 	helper, err := patch.NewHelper(chosenHost, s.scope.Client)
 	return chosenHost, helper, err
+}
+
+func (s *Service) getLabelSelector() (labels.Selector, error) {
+	labelSelector := labels.NewSelector()
+	var reqs labels.Requirements
+
+	for labelKey, labelVal := range s.scope.BareMetalMachine.Spec.HostSelector.MatchLabels {
+		r, err := labels.NewRequirement(labelKey, selection.Equals, []string{labelVal})
+		if err != nil {
+			s.scope.Error(err, "Failed to create MatchLabel requirement, not choosing host")
+			return nil, err
+		}
+		reqs = append(reqs, *r)
+	}
+	for _, req := range s.scope.BareMetalMachine.Spec.HostSelector.MatchExpressions {
+		lowercaseOperator := selection.Operator(strings.ToLower(string(req.Operator)))
+		r, err := labels.NewRequirement(req.Key, lowercaseOperator, req.Values)
+		if err != nil {
+			s.scope.Error(err, "Failed to create MatchExpression requirement, not choosing host")
+			return nil, err
+		}
+		reqs = append(reqs, *r)
+	}
+
+	labelSelector = labelSelector.Add(reqs...)
+
+	return labelSelector, nil
 }
 
 // GetProviderIDAndBMHID returns providerID and bmhID.
