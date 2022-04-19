@@ -40,10 +40,6 @@ spec:
       jsonPath: .metadata.labels.cluster\.x-k8s\.io/cluster-name
       name: Cluster
       type: string
-    - description: hetznerbaremetalmachine current phase
-      jsonPath: .status.phase
-      name: Phase
-      type: string
     name: v1beta1
     schema:
       openAPIV3Schema:

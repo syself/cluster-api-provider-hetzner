@@ -23,14 +23,29 @@ spec:
       jsonPath: .spec.status.provisioningState
       name: State
       type: string
+    - description: IPv4 of the host
+      jsonPath: .spec.status.ipv4
+      name: IPv4
+      type: string
+    - description: IPv6 of the host
+      jsonPath: .spec.status.ipv6
+      name: IPv6
+      type: string
+    - description: CPU threads
+      jsonPath: .spec.status.hardwareDetails.cpu.threads
+      name: Threads
+      type: string
+    - description: CPU clock speed
+      jsonPath: .spec.status.hardwareDetails.cpu.clockGigahertz
+      name: Clock speed
+      type: string
+    - description: RAM in GB
+      jsonPath: .spec.status.hardwareDetails.ramGB
+      name: RAM in GB
+      type: string
     - description: Consumer using this host
       jsonPath: .spec.consumerRef.name
       name: Consumer
-      type: string
-    - description: The type of server
-      jsonPath: .spec.type
-      name: Type
-      priority: 1
       type: string
     - description: Type of the most recent error
       jsonPath: .spec.status.errorType
@@ -241,7 +256,7 @@ spec:
                               type: integer
                           type: object
                         type: array
-                      ramMebibytes:
+                      ramGB:
                         type: integer
                       storage:
                         items:

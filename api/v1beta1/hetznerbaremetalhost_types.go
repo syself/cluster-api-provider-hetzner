@@ -354,10 +354,10 @@ type NIC struct {
 // HardwareDetails collects all of the information about hardware
 // discovered on the host.
 type HardwareDetails struct {
-	RAMMebibytes int       `json:"ramMebibytes,omitempty"`
-	NIC          []NIC     `json:"nics,omitempty"`
-	Storage      []Storage `json:"storage,omitempty"`
-	CPU          CPU       `json:"cpu,omitempty"`
+	RAMGB   int       `json:"ramGB,omitempty"`
+	NIC     []NIC     `json:"nics,omitempty"`
+	Storage []Storage `json:"storage,omitempty"`
+	CPU     CPU       `json:"cpu,omitempty"`
 }
 
 // HetznerBareMetalHostStatus defines the observed state of HetznerBareMetalHost.
@@ -368,8 +368,12 @@ type HetznerBareMetalHostStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=hbmh;hbmhost
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=".spec.status.provisioningState",description="Provisioning status"
+// +kubebuilder:printcolumn:name="IPv4",type="string",JSONPath=".spec.status.ipv4",description="IPv4 of the host"
+// +kubebuilder:printcolumn:name="IPv6",type="string",JSONPath=".spec.status.ipv6",description="IPv6 of the host"
+// +kubebuilder:printcolumn:name="Threads",type="string",JSONPath=".spec.status.hardwareDetails.cpu.threads",description="CPU threads"
+// +kubebuilder:printcolumn:name="Clock speed",type="string",JSONPath=".spec.status.hardwareDetails.cpu.clockGigahertz",description="CPU clock speed"
+// +kubebuilder:printcolumn:name="RAM in GB",type="string",JSONPath=".spec.status.hardwareDetails.ramGB",description="RAM in GB"
 // +kubebuilder:printcolumn:name="Consumer",type="string",JSONPath=".spec.consumerRef.name",description="Consumer using this host"
-// +kubebuilder:printcolumn:name="Type",type="string",JSONPath=".spec.type",description="The type of server",priority=1
 // +kubebuilder:printcolumn:name="ErrorType",type="string",JSONPath=".spec.status.errorType",description="Type of the most recent error"
 // +kubebuilder:printcolumn:name="ErrorMessage",type="string",JSONPath=".spec.status.errorMessage",description="Message of the most recent error"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time duration since creation of BaremetalHost"
