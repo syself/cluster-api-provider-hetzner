@@ -698,7 +698,7 @@ func (s *Service) actionRegistering() actionResult {
 		if err != nil {
 			return actionError{err: err}
 		}
-		hardwareDetails.RAMMebibytes = mebiBytes
+		hardwareDetails.RAMGB = mebiBytes / 1000
 
 		nics, err := s.obtainHardwareDetailsNics(sshClient)
 		if err != nil {

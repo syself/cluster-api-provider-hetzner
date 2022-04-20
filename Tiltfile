@@ -340,7 +340,7 @@ cmd_button(
     argv = ["make", "create-workload-cluster-pure-baremetal"],
     location = location.NAV,
     icon_name = "switch_access_shortcut_outlined",
-    text = "Create Pure Baremetal Workload Cluster - without Packer",
+    text = "Create Baremetal Control Plane Workload Cluster - without Packer",
 )
 
 cmd_button(

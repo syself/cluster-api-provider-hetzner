@@ -91,6 +91,9 @@ type HCloudMachineStatus struct {
 // +kubebuilder:storageversion
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Cluster",type="string",JSONPath=".metadata.labels.cluster\\.x-k8s\\.io/cluster-name",description="Cluster to which this HCloudMachine belongs"
+// +kubebuilder:printcolumn:name="Image",type="string",JSONPath=".spec.imageName",description="Image name"
+// +kubebuilder:printcolumn:name="Placement group",type="string",JSONPath=".spec.placementGroupName",description="Placement group name"
+// +kubebuilder:printcolumn:name="Type",type="string",JSONPath=".spec.type",description="Server type"
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.instanceState",description="HCloud instance state"
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.ready",description="Machine ready status"
 // +kubebuilder:printcolumn:name="InstanceID",type="string",JSONPath=".spec.providerID",description="HCloud instance ID"

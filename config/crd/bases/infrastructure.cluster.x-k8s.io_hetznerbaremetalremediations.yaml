@@ -21,27 +21,31 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - description: Type of the remediation strategy
+      jsonPath: .spec.strategy.type
+      name: Strategy
+      type: string
     - description: How many times remediation controller should attempt to remediate
         the host
       jsonPath: .spec.strategy.retryLimit
       name: Retry limit
       type: string
-    - description: How many times remediation controller has tried to remediate the
-        node
-      jsonPath: .status.retryCount
-      name: Retry count
+    - description: Timeout for the remediation
+      jsonPath: .spec.strategy.timeout
+      name: Timeout
+      type: string
+    - description: Phase of the remediation
+      jsonPath: .status.phase
+      name: Phase
       type: string
     - description: Timestamp of the last remediation attempt
       jsonPath: .status.lastRemediated
       name: Last Remediated
       type: string
-    - description: Type of the remediation strategy
-      jsonPath: .spec.strategy.type
-      name: Strategy
-      type: string
-    - description: Phase of the remediation
-      jsonPath: .status.phase
-      name: Phase
+    - description: How many times remediation controller has tried to remediate the
+        node
+      jsonPath: .status.retryCount
+      name: Retry count
       type: string
     name: v1beta1
     schema:

@@ -24,6 +24,18 @@ spec:
       jsonPath: .metadata.labels.cluster\.x-k8s\.io/cluster-name
       name: Cluster
       type: string
+    - description: Image name
+      jsonPath: .spec.imageName
+      name: Image
+      type: string
+    - description: Placement group name
+      jsonPath: .spec.placementGroupName
+      name: Placement group
+      type: string
+    - description: Server type
+      jsonPath: .spec.type
+      name: Type
+      type: string
     - description: HCloud instance state
       jsonPath: .status.instanceState
       name: State

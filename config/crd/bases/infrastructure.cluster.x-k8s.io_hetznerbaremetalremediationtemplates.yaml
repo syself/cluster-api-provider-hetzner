@@ -23,7 +23,21 @@ spec:
     singular: hetznerbaremetalremediationtemplate
   scope: Namespaced
   versions:
-  - name: v1beta1
+  - additionalPrinterColumns:
+    - description: Type of the remediation strategy
+      jsonPath: .spec.template.spec.strategy.type
+      name: Strategy
+      type: string
+    - description: How many times remediation controller should attempt to remediate
+        the host
+      jsonPath: .spec.template.spec.strategy.retryLimit
+      name: Retry limit
+      type: string
+    - description: Timeout for the remediation
+      jsonPath: .spec.template.spec.strategy.timeout
+      name: Timeout
+      type: string
+    name: v1beta1
     schema:
       openAPIV3Schema:
         description: HetznerBareMetalRemediationTemplate is the Schema for the hetznerbaremetalremediationtemplates

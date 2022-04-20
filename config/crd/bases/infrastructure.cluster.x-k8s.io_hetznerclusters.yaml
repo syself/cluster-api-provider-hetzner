@@ -33,6 +33,14 @@ spec:
       name: Endpoint
       priority: 1
       type: string
+    - description: Control plane regions
+      jsonPath: .spec.controlPlaneRegions
+      name: Regions
+      type: string
+    - description: Indicates if private network is enabled.
+      jsonPath: .spec.hcloudNetwork.enabled
+      name: Network enabled
+      type: boolean
     name: v1beta1
     schema:
       openAPIV3Schema:
