@@ -21,7 +21,7 @@ Some of them like helmfile or packer are not needed for developing the controlle
 
 ## Preparing Hetzner project
 
-For more information, please see [here](/docs/topics/preparation-of-hetzner-project.md).
+For more information, please see [here](/docs/topics/preparing-hetzner.md).
 
 ## Setting Tilt up
 
@@ -65,6 +65,8 @@ make tilt-up
 
 
 Once your kind management cluster is up and running, you can deploy a workload cluster. This could be done through the Tilt UI, by pressing one of the buttons in the top right corner, e.g. "Create Workload Cluster - without Packer". This triggers the `make create-workload-cluster`, which uses the environment variables (we defined in the tilt-settings.json) and the cluster-template. Additionally, it installs cilium as CNI.
+
+If you update the API in some way, you need to run `make generate` in order to generate everything related to kubebuilder and the CRDs.
 
 To tear down the workload cluster press the "Delete Workload Cluster" button. After a few minutes the resources should be deleted. 
 
