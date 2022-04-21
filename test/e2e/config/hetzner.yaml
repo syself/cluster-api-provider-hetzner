@@ -63,6 +63,18 @@ providers:
   - name: hetzner
     type: InfrastructureProvider
     versions:
+      - name: v1.0.0-alpha.16 # latest published release
+        value: https://github.com/syself/cluster-api-provider-hetzner/releases/download/v1.0.0-alpha.16/infrastructure-components.yaml
+        type: "url"
+        contract: v1beta1
+        files:
+          - sourcePath: "../../../metadata.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-network.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-kcp-scale-in.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-node-drain.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-md-remediation.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-kcp-remediation.yaml"
       - name: v1.0.99 # next; use manifest from source files
         value: ../../../config/default
         contract: v1beta1
@@ -111,6 +123,7 @@ variables:
   INIT_WITH_BINARY: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.1.0/clusterctl-linux-amd64"
   INIT_WITH_PROVIDERS_CONTRACT: "v1beta1"
   INIT_WITH_KUBERNETES_VERSION: "v1.23.6"
+  INIT_WITH_INFRASTRUCTURE_PROVIDER_VERSION: "v1.0.0-alpha.16"
 
   # Hetzner Provider Variables
   HCLOUD_TOKEN: "admin123"
