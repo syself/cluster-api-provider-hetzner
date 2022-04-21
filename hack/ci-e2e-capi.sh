@@ -42,6 +42,6 @@ if [[ "${CI:-""}" == "true" ]]; then
     make set-manifest-pull-policy PULL_POLICY=IfNotPresent
 fi
 
-make -C test/e2e/ run ACK_GINKGO_RC="true" GINKGO_NODES="2" GINKGO_FOCUS="'\[Basic\]'"
+make -C test/e2e/ run ACK_GINKGO_RC="true" ACK_GINKGO_DEPRECATIONS=1.16.5 GINKGO_NODES="${GINKO_NODES}" GINKGO_FOCUS="${GINKO_FOKUS}"
 
 test_status="${?}"

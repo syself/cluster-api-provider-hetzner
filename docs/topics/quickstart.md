@@ -174,7 +174,7 @@ For a cluster without private network:
 ```shell
 helm repo add syself https://charts.syself.com
 
-KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install ccm syself/ccm-hcloud --version 1.0.9 \
+KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install ccm syself/ccm-hcloud --version 1.0.10 \
 --namespace kube-system \
 --set privateNetwork.enabled=false
 ```

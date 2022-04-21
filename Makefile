@@ -51,7 +51,7 @@ MINIMUM_HELMFILE_VERSION=v0.144.0				# https://github.com/roboll/helmfile/releas
 MINIMUM_KIND_VERSION=v0.12.0						# https://github.com/kubernetes-sigs/kind/releases
 MINIMUM_KUBECTL_VERSION=v1.23.0					# https://github.com/kubernetes/kubernetes/releases
 MINIMUM_PACKER_VERSION=1.8.0						# https://github.com/hashicorp/packer/releases
-MINIMUM_TILT_VERSION=0.27.0							# https://github.com/tilt-dev/tilt/releases
+MINIMUM_TILT_VERSION=0.27.2							# https://github.com/tilt-dev/tilt/releases
 KUSTOMIZE_VERSION=4.5.4									# https://github.com/kubernetes-sigs/kustomize/releases
 
 #
@@ -272,6 +272,16 @@ dry-run: generate
 ensure-boilerplate: ## Ensures that a boilerplate exists in each file by adding missing boilerplates
 	./hack/ensure-boilerplate.sh
 
+cluster-templates: $(KUSTOMIZE)
+	$(KUSTOMIZE) build templates/cluster-templates/hcloud --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template.yaml
+	$(KUSTOMIZE) build templates/cluster-templates/hcloud --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud.yaml
+	$(KUSTOMIZE) build templates/cluster-templates/hcloud-packer --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-packer.yaml
+	$(KUSTOMIZE) build templates/cluster-templates/hcloud-talos-packer --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-talos-packer.yaml
+	$(KUSTOMIZE) build templates/cluster-templates/hcloud-network --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-network.yaml
+	$(KUSTOMIZE) build templates/cluster-templates/hcloud-network-packer --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-network-packer.yaml
+	$(KUSTOMIZE) build templates/cluster-templates/hetzner-hcloud-control-planes --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hetzner-hcloud-control-planes.yaml
+	$(KUSTOMIZE) build templates/cluster-templates/hetzner-baremetal-control-planes --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hetzner-baremetal-control-planes.yaml
+	$(KUSTOMIZE) build templates/cluster-templates/hetzner-baremetal-control-planes-remediation --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hetzner-baremetal-control-planes-remediation.yaml
 
 ##@ Lint and Verify
 
@@ -389,11 +399,11 @@ release: clean-release  ## Builds and push container images using the latest git
 	$(MAKE) release-manifests clean-release-git
 
 .PHONY: release-manifests
-release-manifests: generate $(KUSTOMIZE) $(RELEASE_DIR) ## Builds the manifests to publish with a release
+release-manifests: generate $(KUSTOMIZE) $(RELEASE_DIR) cluster-templates ## Builds the manifests to publish with a release
 	$(KUSTOMIZE) build config/default > $(RELEASE_DIR)/infrastructure-components.yaml
 	## Build caph-components (aggregate of all of the above).
 	cp metadata.yaml $(RELEASE_DIR)/metadata.yaml
-	cp templates/cluster-template* $(RELEASE_DIR)/
+	cp templates/cluster-templates/cluster-template* $(RELEASE_DIR)/
 
 .PHONY: release-notes
 release-notes: $(RELEASE_NOTES_DIR) $(RELEASE_NOTES)
@@ -431,7 +441,31 @@ $(E2E_CONF_FILE): $(ENVSUBST) $(E2E_CONF_FILE_SOURCE)
 
 .PHONY: test-e2e
 test-e2e: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	./hack/ci-e2e-capi.sh
+	GINKO_FOKUS="'\[Basic\]'" GINKO_NODES=2 ./hack/ci-e2e-capi.sh
+
+.PHONY: test-e2e-quickstart
+test-e2e-quickstart: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
+	GINKO_FOKUS="'\[QuickStart\]'" GINKO_NODES=1 ./hack/ci-e2e-capi.sh
+
+.PHONY: test-e2e-self-hosted
+test-e2e-self-hosted: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
+	GINKO_FOKUS="'\[Self Hosted\]'" GINKO_NODES=1 ./hack/ci-e2e-capi.sh
+
+.PHONY: test-e2e-general
+test-e2e-general: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
+	GINKO_FOKUS="'\[General\]'" GINKO_NODES=2 ./hack/ci-e2e-capi.sh
+
+.PHONY: test-e2e-workload-upgrade
+test-e2e-workload-upgrade: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
+	GINKO_FOKUS="'\[Workload Upgrade\]'" GINKO_NODES=1 ./hack/ci-e2e-capi.sh
+
+.PHONY: test-e2e-conformance
+test-e2e-conformance: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
+	GINKO_FOKUS="'\[Conformance\]'" GINKO_NODES=2 ./hack/ci-e2e-capi.sh
+
+.PHONY: test-e2e-management-upgrade
+test-e2e-management-upgrade: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
+	GINKO_FOKUS="'\[Management Upgrade\]'" GINKO_NODES=1 ./hack/ci-e2e-capi.sh
 
 .PHONY: test
 test: $(SETUP_ENVTEST) ## Run unit and integration tests
@@ -556,7 +590,8 @@ install-manifests-cilium:
 install-manifests-ccm-hetzner:
 	# Deploy Hetzner Cloud Controller Manager
 	helm repo add syself https://charts.syself.com
-	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hetzner --version 1.1.1 \
+	helm repo update syself
+	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hetzner --version 1.1.2 \
 	--namespace kube-system \
 	--set image.tag=latest \
 	--set privateNetwork.enabled=$(PRIVATE_NETWORK)
@@ -566,6 +601,7 @@ install-manifests-ccm-hetzner:
 install-manifests-ccm-hcloud:
 	# Deploy Hcloud Cloud Controller Manager
 	helm repo add syself https://charts.syself.com
+	helm repo update syself
 	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hcloud --version 1.0.10 \
 	--namespace kube-system \
 	--set secret.name=hetzner \
@@ -574,53 +610,77 @@ install-manifests-ccm-hcloud:
 
 	@echo 'run "kubectl --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) ..." to work with the new target cluster'
 
-.PHONY: create-workload-cluster
-create-workload-cluster-with-network-packer: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
+create-workload-cluster-hcloud: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
 	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD_TOKEN) --save-config --dry-run=client -o yaml | kubectl apply -f -
-	cat templates/cluster-template-packer-hcloud-network.yaml | $(ENVSUBST) - | kubectl apply -f -
-	$(MAKE) wait-and-get-secret
-	$(MAKE) install-manifests-cilium
-	$(MAKE) install-manifests-ccm-hcloud PRIVATE_NETWORK=true
-
-create-workload-cluster-with-network: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
-	# Create workload Cluster.
-	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD_TOKEN) --save-config --dry-run=client -o yaml | kubectl apply -f -
-	cat templates/cluster-template-hcloud-network.yaml | $(ENVSUBST) - | kubectl apply -f -
-	$(MAKE) wait-and-get-secret
-	$(MAKE) install-manifests-cilium
-	$(MAKE) install-manifests-ccm-hcloud PRIVATE_NETWORK=true
-
-create-workload-cluster-packer: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
-	# Create workload Cluster.
-	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD_TOKEN) --save-config --dry-run=client -o yaml | kubectl apply -f -
-	cat templates/cluster-template-packer.yaml | $(ENVSUBST) - | kubectl apply -f -
+	$(KUSTOMIZE) build templates/cluster-templates/hcloud --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud.yaml
+	cat templates/cluster-templates/cluster-template-hcloud.yaml | $(ENVSUBST) - | kubectl apply -f -
 	$(MAKE) wait-and-get-secret
 	$(MAKE) install-manifests-cilium
 	$(MAKE) install-manifests-ccm-hcloud PRIVATE_NETWORK=false
 
-create-workload-cluster: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
+create-workload-cluster-hcloud-packer: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
 	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD_TOKEN) --save-config --dry-run=client -o yaml | kubectl apply -f -
-	cat templates/cluster-template.yaml | $(ENVSUBST) - | kubectl apply -f -
+	$(KUSTOMIZE) build templates/cluster-templates/hcloud-packer --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-packer.yaml
+	cat templates/cluster-templates/cluster-template-hcloud-packer.yaml | $(ENVSUBST) - | kubectl apply -f -
 	$(MAKE) wait-and-get-secret
 	$(MAKE) install-manifests-cilium
 	$(MAKE) install-manifests-ccm-hcloud PRIVATE_NETWORK=false
 
-create-workload-cluster-baremetal: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
+create-workload-cluster-hcloud-talos-packer: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
+	# Create workload Cluster.
+	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD_TOKEN) --save-config --dry-run=client -o yaml | kubectl apply -f -
+	$(KUSTOMIZE) build templates/cluster-templates/hcloud-talos-packer --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-talos-packer.yaml
+	cat templates/cluster-templates/cluster-template-hcloud-talos-packer.yaml | $(ENVSUBST) - | kubectl apply -f -
+	$(MAKE) wait-and-get-secret
+	$(MAKE) install-manifests-cilium
+	$(MAKE) install-manifests-ccm-hcloud PRIVATE_NETWORK=false
+
+create-workload-cluster-hcloud-network: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
+	# Create workload Cluster.
+	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD_TOKEN) --save-config --dry-run=client -o yaml | kubectl apply -f -
+	$(KUSTOMIZE) build templates/cluster-templates/hcloud-network --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-network.yaml
+	cat templates/cluster-templates/cluster-template-hcloud-network.yaml | $(ENVSUBST) - | kubectl apply -f -
+	$(MAKE) wait-and-get-secret
+	$(MAKE) install-manifests-cilium
+	$(MAKE) install-manifests-ccm-hcloud PRIVATE_NETWORK=true
+
+create-workload-cluster-hcloud-network-packer: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
+	# Create workload Cluster.
+	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD_TOKEN) --save-config --dry-run=client -o yaml | kubectl apply -f -
+	$(KUSTOMIZE) build templates/cluster-templates/hcloud-network-packer --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-network-packer.yaml
+	cat templates/cluster-templates/cluster-template-hcloud-network-packer.yaml | $(ENVSUBST) - | kubectl apply -f -
+	$(MAKE) wait-and-get-secret
+	$(MAKE) install-manifests-cilium
+	$(MAKE) install-manifests-ccm-hcloud PRIVATE_NETWORK=true
+
+create-workload-cluster-hetzner-hcloud-control-plane: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
 	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD_TOKEN) --from-literal=robot-user=$(HETZNER_ROBOT_USER) --from-literal=robot-password=$(HETZNER_ROBOT_PASSWORD) --save-config --dry-run=client -o yaml | kubectl apply -f -
 	kubectl create secret generic robot-ssh --from-literal=sshkey-name=cluster --from-file=ssh-privatekey=${HETZNER_SSH_PRIV_PATH} --from-file=ssh-publickey=${HETZNER_SSH_PUB_PATH} --save-config --dry-run=client -o yaml | kubectl apply -f -
-	cat templates/cluster-template-baremetal.yaml | $(ENVSUBST) - | kubectl apply -f -
+	$(KUSTOMIZE) build templates/cluster-templates/hetzner-hcloud-control-planes --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hetzner-hcloud-control-planes.yaml
+	cat templates/cluster-templates/cluster-template-hetzner-hcloud-control-planes.yaml | $(ENVSUBST) - | kubectl apply -f -
 	$(MAKE) wait-and-get-secret
 	$(MAKE) install-manifests-cilium
 	$(MAKE) install-manifests-ccm-hetzner PRIVATE_NETWORK=false
 
-create-workload-cluster-pure-baremetal: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
+create-workload-cluster-hetzner-baremetal-control-plane: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
 	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD_TOKEN) --from-literal=robot-user=$(HETZNER_ROBOT_USER) --from-literal=robot-password=$(HETZNER_ROBOT_PASSWORD) --save-config --dry-run=client -o yaml | kubectl apply -f -
 	kubectl create secret generic robot-ssh --from-literal=sshkey-name=cluster --from-file=ssh-privatekey=${HETZNER_SSH_PRIV_PATH} --from-file=ssh-publickey=${HETZNER_SSH_PUB_PATH} --save-config --dry-run=client -o yaml | kubectl apply -f -
-	cat templates/cluster-template-baremetal-control-planes.yaml | $(ENVSUBST) - | kubectl apply -f -
+	$(KUSTOMIZE) build templates/cluster-templates/hetzner-baremetal-control-planes --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hetzner-baremetal-control-planes.yaml
+	cat templates/cluster-templates/cluster-template-hetzner-baremetal-control-planes.yaml | $(ENVSUBST) - | kubectl apply -f -
+	$(MAKE) wait-and-get-secret
+	$(MAKE) install-manifests-cilium
+	$(MAKE) install-manifests-ccm-hetzner PRIVATE_NETWORK=false
+
+create-workload-cluster-hetzner-baremetal-control-plane-remediation: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
+	# Create workload Cluster.
+	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD_TOKEN) --from-literal=robot-user=$(HETZNER_ROBOT_USER) --from-literal=robot-password=$(HETZNER_ROBOT_PASSWORD) --save-config --dry-run=client -o yaml | kubectl apply -f -
+	kubectl create secret generic robot-ssh --from-literal=sshkey-name=cluster --from-file=ssh-privatekey=${HETZNER_SSH_PRIV_PATH} --from-file=ssh-publickey=${HETZNER_SSH_PUB_PATH} --save-config --dry-run=client -o yaml | kubectl apply -f -
+	$(KUSTOMIZE) build templates/cluster-templates/hetzner-baremetal-control-planes-remediation --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hetzner-baremetal-control-planes-remediation.yaml
+	cat templates/cluster-templates/cluster-template-hetzner-baremetal-control-planes-remediation.yaml | $(ENVSUBST) - | kubectl apply -f -
 	$(MAKE) wait-and-get-secret
 	$(MAKE) install-manifests-cilium
 	$(MAKE) install-manifests-ccm-hetzner PRIVATE_NETWORK=false
@@ -630,13 +690,7 @@ move-to-workload-cluster:
 	kubectl --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) -n cluster-api-provider-hetzner-system wait deploy/caph-controller-manager --for condition=available && sleep 15s
 	clusterctl move --to-kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG)
 
-create-talos-workload-cluster-packer: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
-	# Create workload Cluster.
-	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD_TOKEN) --save-config --dry-run=client -o yaml | kubectl apply -f -
-	cat templates/cluster-template-packer-talos.yaml | $(ENVSUBST) - | kubectl apply -f -
-	$(MAKE) wait-and-get-secret
-	$(MAKE) install-manifests-cilium
-	$(MAKE) install-manifests-ccm-hcloud PRIVATE_NETWORK=false
+
 
 .PHONY: delete-workload-cluster
 delete-workload-cluster: ## Deletes the example workload Kubernetes cluster

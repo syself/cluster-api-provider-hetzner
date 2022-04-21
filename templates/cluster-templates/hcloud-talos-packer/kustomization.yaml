@@ -1,0 +1,10 @@
+bases:
+  - ../bases/capi-cluster-talos.yaml
+  - ../bases/hcloud-hetznerCluster.yaml
+  - ../bases/hcloud-tcp-packer.yaml
+  - ../bases/hcloud-mt-control-plane-packer.yaml
+  - ../bases/hcloud-mhc-control-plane.yaml
+  - ../bases/hcloud-md-0-kubeadm.yaml
+  - ../bases/tct-md-0-packer.yaml
+  - ../bases/hcloud-mt-md-0-packer.yaml
+  - ../bases/hcloud-mhc-md-0.yaml

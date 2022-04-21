@@ -17,19 +17,40 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo"
+	"k8s.io/utils/pointer"
+	capi_e2e "sigs.k8s.io/cluster-api/test/e2e"
+	"sigs.k8s.io/cluster-api/test/framework/clusterctl"
 )
 
-var _ = Describe("[Conformance] Conformance test", func() {
-	ConformanceSpec(ctx, func() ConformanceSpecInput {
-		return ConformanceSpecInput{
-			E2EConfig:              e2eConfig,
-			ClusterctlConfigPath:   clusterctlConfigPath,
-			BootstrapClusterProxy:  bootstrapClusterProxy,
-			KubetestConfigFilePath: kubetestConfigFilePath,
-			ArtifactFolder:         artifactFolder,
-			SkipCleanup:            skipCleanup,
-			Flavor:                 "",
-		}
+var _ = Describe("[Conformance] Running the Cluster API E2E Conformance tests", func() {
+	ctx := context.TODO()
+
+	Context("Running the k8s-conformance spec", func() {
+		capi_e2e.K8SConformanceSpec(ctx, func() capi_e2e.K8SConformanceSpecInput {
+			return capi_e2e.K8SConformanceSpecInput{
+				E2EConfig:             e2eConfig,
+				ClusterctlConfigPath:  clusterctlConfigPath,
+				BootstrapClusterProxy: bootstrapClusterProxy,
+				ArtifactFolder:        artifactFolder,
+				SkipCleanup:           skipCleanup,
+				Flavor:                "network",
+			}
+		})
+	})
+
+	Context("Running the cluster-upgrade spec", func() {
+		capi_e2e.ClusterUpgradeConformanceSpec(ctx, func() capi_e2e.ClusterUpgradeConformanceSpecInput {
+			return capi_e2e.ClusterUpgradeConformanceSpecInput{
+				E2EConfig:             e2eConfig,
+				ClusterctlConfigPath:  clusterctlConfigPath,
+				BootstrapClusterProxy: bootstrapClusterProxy,
+				ArtifactFolder:        artifactFolder,
+				SkipCleanup:           skipCleanup,
+				Flavor:                pointer.String(clusterctl.DefaultFlavor),
+			}
+		})
 	})
 })

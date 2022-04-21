@@ -55,19 +55,21 @@ HETZNER_TEMPLATES := $(REPO_ROOT)/test/e2e/data/infrastructure-hetzner
 
 e2e-cilium-templates:
 	helm repo add cilium https://helm.cilium.io/
-	helm template cilium cilium/cilium --version 1.11.1 \
+	helm template cilium cilium/cilium --version 1.10.5 \
   	--namespace kube-system \
 	-f $(REPO_ROOT)/templates/cilium/cilium.yaml > $(REPO_ROOT)/test/e2e/data/cni/cilium/cilium.yaml
 
 e2e-ccm-templates:
 	helm repo add syself https://charts.syself.com
-	helm template ccm syself/ccm-hcloud --version 1.0.9 \
+	helm template ccm syself/ccm-hcloud --version 1.0.10 \
 	--namespace kube-system \
+	--set pdb.enabled=false \
 	--set secret.name=hetzner \
 	--set secret.tokenKeyName=hcloud \
 	--set privateNetwork.enabled=false > $(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm.yaml
-	helm template ccm syself/ccm-hcloud --version 1.0.9 \
+	helm template ccm syself/ccm-hcloud --version 1.0.10 \
 	--namespace kube-system \
+	--set pdb.enabled=false \
 	--set secret.name=hetzner \
 	--set secret.tokenKeyName=hcloud \
 	--set privateNetwork.enabled=true > $(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm-network.yaml
@@ -78,6 +80,10 @@ cluster-templates: $(KUSTOMIZE) cluster-templates-v1beta1 ## Generate cluster te
 cluster-templates-v1beta1: $(KUSTOMIZE) ## Generate cluster templates for v1beta1
 	$(KUSTOMIZE) build $(HETZNER_TEMPLATES)/v1beta1/cluster-template --load-restrictor LoadRestrictionsNone | sed 's/hcloud_secret_placeholder/$(shell echo -n "$(HCLOUD_TOKEN)" | base64 | tr -d '\n')/' > $(HETZNER_TEMPLATES)/v1beta1/cluster-template.yaml
 	$(KUSTOMIZE) build $(HETZNER_TEMPLATES)/v1beta1/cluster-template-network --load-restrictor LoadRestrictionsNone | sed 's/hcloud_secret_placeholder/$(shell echo -n "$(HCLOUD_TOKEN)" | base64 | tr -d '\n')/' > $(HETZNER_TEMPLATES)/v1beta1/cluster-template-network.yaml
+	$(KUSTOMIZE) build $(HETZNER_TEMPLATES)/v1beta1/cluster-template-kcp-remediation --load-restrictor LoadRestrictionsNone | sed 's/hcloud_secret_placeholder/$(shell echo -n "$(HCLOUD_TOKEN)" | base64 | tr -d '\n')/' > $(HETZNER_TEMPLATES)/v1beta1/cluster-template-kcp-remediation.yaml
+	$(KUSTOMIZE) build $(HETZNER_TEMPLATES)/v1beta1/cluster-template-md-remediation --load-restrictor LoadRestrictionsNone | sed 's/hcloud_secret_placeholder/$(shell echo -n "$(HCLOUD_TOKEN)" | base64 | tr -d '\n')/' > $(HETZNER_TEMPLATES)/v1beta1/cluster-template-md-remediation.yaml
+	$(KUSTOMIZE) build $(HETZNER_TEMPLATES)/v1beta1/cluster-template-kcp-scale-in --load-restrictor LoadRestrictionsNone | sed 's/hcloud_secret_placeholder/$(shell echo -n "$(HCLOUD_TOKEN)" | base64 | tr -d '\n')/' > $(HETZNER_TEMPLATES)/v1beta1/cluster-template-kcp-scale-in.yaml
+	$(KUSTOMIZE) build $(HETZNER_TEMPLATES)/v1beta1/cluster-template-node-drain --load-restrictor LoadRestrictionsNone | sed 's/hcloud_secret_placeholder/$(shell echo -n "$(HCLOUD_TOKEN)" | base64 | tr -d '\n')/' > $(HETZNER_TEMPLATES)/v1beta1/cluster-template-node-drain.yaml
 
 ## --------------------------------------
 ## Testing
@@ -93,6 +99,7 @@ SKIP_CLEANUP ?= false
 SKIP_CREATE_MGMT_CLUSTER ?= false
 E2E_DIR ?= $(REPO_ROOT)/test/e2e
 E2E_CONF_FILE ?= $(E2E_DIR)/config/hetzner-ci-envsubst.yaml
+KUBETEST_CONF_PATH ?= $(abspath $(E2E_DIR)/data/kubetest/conformance.yaml)
 
 # # to set multiple ginkgo skip flags, if any
 # ifneq ($(strip $(GINKGO_SKIP)),)
