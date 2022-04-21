@@ -1,0 +1,20 @@
+# permissions for end users to view hetznerbaremetalremediations.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: hetznerbaremetalremediation-viewer-role
+rules:
+- apiGroups:
+  - infrastructure.cluster.x-k8s.io
+  resources:
+  - hetznerbaremetalremediations
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - infrastructure.cluster.x-k8s.io
+  resources:
+  - hetznerbaremetalremediations/status
+  verbs:
+  - get

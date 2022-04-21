@@ -1,0 +1,34 @@
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: HetznerCluster
+metadata:
+  name: "${CLUSTER_NAME}"
+spec:
+  hcloudNetwork:
+    enabled: false
+  controlPlaneRegions:
+    - "${HCLOUD_REGION}"
+  controlPlaneEndpoint:
+    host: ""
+    port: 443
+  controlPlaneLoadBalancer:
+    region: "${HCLOUD_REGION}"
+  hcloudPlacementGroups:
+    - name: control-plane
+      type: spread
+    - name: md-0
+      type: spread
+  sshKeys:
+    hcloud:
+      - name: "${HCLOUD_SSH_KEY}"
+    robotRescueSecretRef:
+      name: robot-ssh
+      key:
+        name: sshkey-name
+        publicKey: ssh-publickey
+        privateKey: ssh-privatekey
+  hetznerSecretRef:
+    name: hetzner
+    key:
+      hcloudToken: hcloud
+      hetznerRobotUser: robot-user
+      hetznerRobotPassword: robot-password

@@ -1,16 +1,5 @@
 rollOutCiliumPods: true
 priorityClassName: "system-node-critical"
-bandwidthManager: true
-
-bpf:
-  clockProbe: true
-  waitForMount: true
-  preallocateMaps: true
-  masquerade: true
-  tproxy: true
-
-enableCnpStatusUpdates: true
-enableXTSocketFallback: false
 
 hubble:
   metrics:

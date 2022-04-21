@@ -39,6 +39,7 @@ type CaphClusterDeploymentSpecInput struct {
 	ArtifactFolder        string
 	SkipCleanup           bool
 	Flavor                string
+	WorkerMachineCount    int64
 }
 
 // CaphClusterDeploymentSpec implements a test that verifies that MachineDeployment rolling updates are successful.
@@ -69,7 +70,7 @@ func CaphClusterDeploymentSpec(ctx context.Context, inputGetter func() CaphClust
 		clusterName = fmt.Sprintf("%s-%s", specName, util.RandomString(6))
 	})
 
-	ginkgo.It("Should successfully upgrade Machines upon changes in relevant MachineDeployment fields", func() {
+	ginkgo.It("Should successfully create a cluster with three control planes", func() {
 		ginkgo.By("Creating a workload cluster")
 		clusterctl.ApplyClusterTemplateAndWait(ctx, clusterctl.ApplyClusterTemplateAndWaitInput{
 			ClusterProxy: input.BootstrapClusterProxy,
@@ -82,7 +83,7 @@ func CaphClusterDeploymentSpec(ctx context.Context, inputGetter func() CaphClust
 				Namespace:                namespace.Name,
 				ClusterName:              clusterName,
 				KubernetesVersion:        input.E2EConfig.GetVariable(KubernetesVersion),
-				ControlPlaneMachineCount: pointer.Int64Ptr(1),
+				ControlPlaneMachineCount: pointer.Int64Ptr(3),
 				WorkerMachineCount:       pointer.Int64Ptr(1),
 			},
 			WaitForClusterIntervals:      input.E2EConfig.GetIntervals(specName, "wait-cluster"),
@@ -90,45 +91,6 @@ func CaphClusterDeploymentSpec(ctx context.Context, inputGetter func() CaphClust
 			WaitForMachineDeployments:    input.E2EConfig.GetIntervals(specName, "wait-worker-nodes"),
 		}, clusterResources)
 
-		ginkgo.By("Scaling worker node to 3")
-		clusterctl.ApplyClusterTemplateAndWait(ctx, clusterctl.ApplyClusterTemplateAndWaitInput{
-			ClusterProxy: input.BootstrapClusterProxy,
-			ConfigCluster: clusterctl.ConfigClusterInput{
-				LogFolder:                filepath.Join(input.ArtifactFolder, "clusters", input.BootstrapClusterProxy.GetName()),
-				ClusterctlConfigPath:     input.ClusterctlConfigPath,
-				KubeconfigPath:           input.BootstrapClusterProxy.GetKubeconfigPath(),
-				InfrastructureProvider:   clusterctl.DefaultInfrastructureProvider,
-				Flavor:                   input.Flavor,
-				Namespace:                namespace.Name,
-				ClusterName:              clusterName,
-				KubernetesVersion:        input.E2EConfig.GetVariable(KubernetesVersion),
-				ControlPlaneMachineCount: pointer.Int64Ptr(1),
-				WorkerMachineCount:       pointer.Int64Ptr(3),
-			},
-			WaitForClusterIntervals:      input.E2EConfig.GetIntervals(specName, "wait-cluster"),
-			WaitForControlPlaneIntervals: input.E2EConfig.GetIntervals(specName, "wait-control-plane"),
-			WaitForMachineDeployments:    input.E2EConfig.GetIntervals(specName, "wait-worker-nodes"),
-		}, clusterResources)
-
-		ginkgo.By("Scaling control planes to 3")
-		clusterctl.ApplyClusterTemplateAndWait(ctx, clusterctl.ApplyClusterTemplateAndWaitInput{
-			ClusterProxy: input.BootstrapClusterProxy,
-			ConfigCluster: clusterctl.ConfigClusterInput{
-				LogFolder:                filepath.Join(input.ArtifactFolder, "clusters", input.BootstrapClusterProxy.GetName()),
-				ClusterctlConfigPath:     input.ClusterctlConfigPath,
-				KubeconfigPath:           input.BootstrapClusterProxy.GetKubeconfigPath(),
-				InfrastructureProvider:   clusterctl.DefaultInfrastructureProvider,
-				Flavor:                   input.Flavor,
-				Namespace:                namespace.Name,
-				ClusterName:              clusterName,
-				KubernetesVersion:        input.E2EConfig.GetVariable(KubernetesVersion),
-				ControlPlaneMachineCount: pointer.Int64Ptr(3),
-				WorkerMachineCount:       pointer.Int64Ptr(3),
-			},
-			WaitForClusterIntervals:      input.E2EConfig.GetIntervals(specName, "wait-cluster"),
-			WaitForControlPlaneIntervals: input.E2EConfig.GetIntervals(specName, "wait-control-plane"),
-			WaitForMachineDeployments:    input.E2EConfig.GetIntervals(specName, "wait-worker-nodes"),
-		}, clusterResources)
 		ginkgo.By("PASSED!")
 	})
 

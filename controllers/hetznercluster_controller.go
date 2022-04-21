@@ -45,7 +45,6 @@ import (
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
 	"sigs.k8s.io/cluster-api/util/conditions"
-	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -260,6 +259,24 @@ func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterS
 		return reconcile.Result{}, errors.Wrap(err, "failed to release Hetzner secret")
 	}
 
+	// Check if rescue ssh secret exists and release it if yes
+	if hetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Name != "" {
+		rescueSSHSecretObjectKey := client.ObjectKey{Name: hetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Name, Namespace: hetznerCluster.Namespace}
+		rescueSSHSecret, err := secretManager.ObtainSecret(ctx, rescueSSHSecretObjectKey)
+		if err != nil {
+			if !apierrors.IsNotFound(err) {
+				return reconcile.Result{}, errors.Wrap(err, "failed to get Rescue SSH secret")
+			}
+		}
+		if rescueSSHSecret != nil {
+			if err := secretManager.ReleaseSecret(ctx, rescueSSHSecret); err != nil {
+				if !apierrors.IsNotFound(err) {
+					return reconcile.Result{}, errors.Wrap(err, "failed to release Rescue SSH secret")
+				}
+			}
+		}
+	}
+
 	// delete load balancers
 	if err := loadbalancer.NewService(clusterScope).Delete(ctx); err != nil {
 		return reconcile.Result{}, errors.Wrapf(err, "failed to delete load balancers for HetznerCluster %s/%s", hetznerCluster.Namespace, hetznerCluster.Name)
@@ -378,15 +395,6 @@ func hcloudTokenErrorResult(
 		return ctrl.Result{}, errors.Wrap(err, "An unhandled failure occurred with the Hetzner secret")
 	}
 
-	ph, err := patch.NewHelper(setter, client)
-	if err != nil {
-		return ctrl.Result{}, errors.Wrap(err, "failed to init patch helper")
-	}
-
-	if err := ph.Patch(ctx, setter); err != nil {
-		return ctrl.Result{}, errors.Wrap(err, "failed to patch")
-	}
-
 	if err := client.Status().Update(ctx, setter); err != nil {
 		return ctrl.Result{}, errors.Wrap(err, "failed to update")
 	}
@@ -458,6 +466,15 @@ func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope
 		var immutable bool
 		data := make(map[string][]byte)
 		data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken] = hetznerToken
+
+		// Save robot credentials if available
+		robotUserName, keyExists := tokenSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser]
+		if keyExists {
+			data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser] = robotUserName
+			robotPassword := tokenSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword]
+			data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword] = robotPassword
+		}
+
 		// Save network ID in secret
 		if clusterScope.HetznerCluster.Spec.HCloudNetwork.Enabled {
 			data["network"] = []byte(strconv.Itoa(clusterScope.HetznerCluster.Status.Network.ID))

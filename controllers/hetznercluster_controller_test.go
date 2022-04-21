@@ -667,7 +667,6 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 
 func createHCloudMachine(ctx context.Context, env *helpers.TestEnvironment, namespace, clusterName string) error {
 	hcloudMachineName := utils.GenerateName(nil, "hcloud-machine")
-	failureDomain := "fsn1"
 	capiMachine := &clusterv1.Machine{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "capi-machine-",
@@ -684,7 +683,7 @@ func createHCloudMachine(ctx context.Context, env *helpers.TestEnvironment, name
 				Kind:       "HCloudMachine",
 				Name:       hcloudMachineName,
 			},
-			FailureDomain: &failureDomain,
+			FailureDomain: &defaultFailureDomain,
 			Bootstrap: clusterv1.Bootstrap{
 				DataSecretName: pointer.String("bootstrap-secret"),
 			},

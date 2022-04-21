@@ -1,0 +1,14 @@
+resources:
+  - ../bases/capi-cluster-kubeadm.yaml
+  - ../bases/hetzner-hetznerCluster.yaml
+  - ../bases/hetznerbaremetal-kcp-ubuntu.yaml
+  - ../bases/hetznerbaremetal-mt-control-plane-ubuntu.yaml
+  - ../bases/hetznerbaremetal-mhc-control-plane.yaml
+  - ../bases/hcloud-md-0-kubeadm.yaml
+  - ../bases/kct-md-0-ubuntu.yaml
+  - ../bases/hcloud-mt-md-0-ubuntu.yaml
+  - ../bases/hcloud-mhc-md-0.yaml
+  - ../bases/hetznerbaremetal-md-1-kubeadm.yaml
+  - md-1
+  - ../bases/hetznerbaremetal-mt-md-1-ubuntu.yaml
+  - ../bases/hetznerbaremetal-mhc-md-1.yaml

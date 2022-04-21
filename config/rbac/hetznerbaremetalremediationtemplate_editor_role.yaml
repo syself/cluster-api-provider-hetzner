@@ -1,0 +1,24 @@
+# permissions for end users to edit hetznerbaremetalremediationtemplates.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: hetznerbaremetalremediationtemplate-editor-role
+rules:
+- apiGroups:
+  - infrastructure.cluster.x-k8s.io
+  resources:
+  - hetznerbaremetalremediationtemplates
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - infrastructure.cluster.x-k8s.io
+  resources:
+  - hetznerbaremetalremediationtemplates/status
+  verbs:
+  - get

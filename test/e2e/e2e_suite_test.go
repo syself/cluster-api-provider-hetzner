@@ -154,7 +154,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	kubeconfigPath := parts[3]
 
 	e2eConfig = loadE2EConfig(ctx, configPath)
-	bootstrapClusterProxy = framework.NewClusterProxy("bootstrap", kubeconfigPath, initScheme(), framework.WithMachineLogCollector(framework.DockerLogCollector{}))
+	bootstrapClusterProxy = framework.NewClusterProxy("bootstrap", kubeconfigPath, initScheme())
 })
 
 // Using a SynchronizedAfterSuite for controlling how to delete resources shared across ParallelNodes (~ginkgo threads).
@@ -162,12 +162,14 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 // The local clusterctl repository is preserved like everything else created into the artifact folder.
 var _ = SynchronizedAfterSuite(func() {
 	// After each ParallelNode.
-}, func() {
-	// After all ParallelNodes.
-
 	By("Tearing down the management cluster")
 	if !skipCleanup {
-		tearDown(ctx, bootstrapClusterProvider, bootstrapClusterProxy)
+		tearDown(ctx, nil, bootstrapClusterProxy)
+	}
+}, func() {
+	// After all ParallelNodes.
+	if !skipCleanup {
+		tearDown(ctx, bootstrapClusterProvider, nil)
 	}
 })
 

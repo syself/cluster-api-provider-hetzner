@@ -26,6 +26,8 @@ import (
 	infrastructurev1beta1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/controllers"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
+	robotclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/robot"
+	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -104,6 +106,7 @@ func main() {
 
 	var wg sync.WaitGroup
 	wg.Add(1)
+
 	if err = (&controllers.HetznerClusterReconciler{
 		Client:                         mgr.GetClient(),
 		APIReader:                      mgr.GetAPIReader(),
@@ -124,22 +127,37 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&infrastructurev1beta1.HetznerCluster{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerCluster")
+	if err = (&controllers.HetznerBareMetalHostReconciler{
+		Client:             mgr.GetClient(),
+		RobotClientFactory: robotclient.NewFactory(),
+		SSHClientFactory:   sshclient.NewFactory(),
+		APIReader:          mgr.GetAPIReader(),
+		WatchFilterValue:   watchFilterValue,
+	}).SetupWithManager(ctx, mgr, controller.Options{}); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "HetznerBareMetalHost")
 		os.Exit(1)
 	}
-	if err = (&infrastructurev1beta1.HetznerClusterTemplate{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerClusterTemplate")
+
+	if err = (&controllers.HetznerBareMetalMachineReconciler{
+		Client:              mgr.GetClient(),
+		APIReader:           mgr.GetAPIReader(),
+		HCloudClientFactory: hcloudClientFactory,
+		WatchFilterValue:    watchFilterValue,
+	}).SetupWithManager(ctx, mgr, controller.Options{}); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "HetznerBareMetalMachine")
 		os.Exit(1)
 	}
-	if err = (&infrastructurev1beta1.HCloudMachine{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "HCloudMachine")
+
+	if err = (&controllers.HetznerBareMetalRemediationReconciler{
+		Client:           mgr.GetClient(),
+		WatchFilterValue: watchFilterValue,
+	}).SetupWithManager(ctx, mgr, controller.Options{}); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "HetznerBareMetalRemediation")
 		os.Exit(1)
 	}
-	if err = (&infrastructurev1beta1.HCloudMachineTemplate{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "HCloudMachineTemplate")
-		os.Exit(1)
-	}
+
+	setUpWebhookWithManager(mgr)
+
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddReadyzCheck("webhook", mgr.GetWebhookServer().StartedChecker()); err != nil {
@@ -161,4 +179,43 @@ func main() {
 	wg.Done()
 	// Wait for all target cluster managers to gracefully shut down.
 	wg.Wait()
+}
+
+func setUpWebhookWithManager(mgr ctrl.Manager) {
+	if err := (&infrastructurev1beta1.HetznerCluster{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerCluster")
+		os.Exit(1)
+	}
+	if err := (&infrastructurev1beta1.HetznerClusterTemplate{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerClusterTemplate")
+		os.Exit(1)
+	}
+	if err := (&infrastructurev1beta1.HCloudMachine{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "HCloudMachine")
+		os.Exit(1)
+	}
+	if err := (&infrastructurev1beta1.HCloudMachineTemplate{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "HCloudMachineTemplate")
+		os.Exit(1)
+	}
+	if err := (&infrastructurev1beta1.HetznerBareMetalHost{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalHost")
+		os.Exit(1)
+	}
+	if err := (&infrastructurev1beta1.HetznerBareMetalMachine{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalMachine")
+		os.Exit(1)
+	}
+	if err := (&infrastructurev1beta1.HetznerBareMetalMachineTemplate{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalMachineTemplate")
+		os.Exit(1)
+	}
+	if err := (&infrastructurev1beta1.HetznerBareMetalRemediation{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalRemediation")
+		os.Exit(1)
+	}
+	if err := (&infrastructurev1beta1.HetznerBareMetalRemediationTemplate{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalRemediationTemplate")
+		os.Exit(1)
+	}
 }

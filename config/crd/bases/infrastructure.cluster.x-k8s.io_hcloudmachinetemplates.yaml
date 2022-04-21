@@ -19,7 +19,20 @@ spec:
     singular: hcloudmachinetemplate
   scope: Namespaced
   versions:
-  - name: v1beta1
+  - additionalPrinterColumns:
+    - description: Image name
+      jsonPath: .spec.template.spec.imageName
+      name: Image
+      type: string
+    - description: Placement group name
+      jsonPath: .spec.template.spec.placementGroupName
+      name: Placement group
+      type: string
+    - description: Server type
+      jsonPath: .spec.template.spec.type
+      name: Type
+      type: string
+    name: v1beta1
     schema:
       openAPIV3Schema:
         description: HCloudMachineTemplate is the Schema for the hcloudmachinetemplates
@@ -134,6 +147,7 @@ spec:
         type: object
     served: true
     storage: true
+    subresources: {}
 status:
   acceptedNames:
     kind: ""

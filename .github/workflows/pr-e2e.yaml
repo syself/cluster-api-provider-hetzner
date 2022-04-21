@@ -130,6 +130,20 @@ jobs:
         env:
           TAG: ${{ steps.meta.outputs.version }}
 
+      - name: HCLOUD_TOKEN
+        env:
+          TTS_TOKEN: ${{ secrets.TTS_TOKEN }}
+        run: |
+          set -ueo pipefail
+          if [[ "${TTS_TOKEN:-}" != "" ]]; then
+                    token="$(./hack/ci-e2e-get-token.sh)"
+                    echo "::add-mask::$token"
+                    echo "HCLOUD_TOKEN=$token" >> "$GITHUB_ENV"
+          else
+            echo "::error ::Couldn't determine HCLOUD_TOKEN. Check that repository secrets are setup correctly."
+            exit 1
+          fi
+
       - name: "e2e-basic"
         env:
           CI: "true"
@@ -138,7 +152,7 @@ jobs:
           TAG: ${{ steps.meta.outputs.version }}
           E2E_CONF_FILE_SOURCE: "${{ github.workspace }}/test/e2e/config/hetzner-ci.yaml"
           MANIFEST_PATH: "../../../out"
-          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+          HCLOUD_TOKEN: ${{ env.HCLOUD_TOKEN }}
           SKIP_IMAGE_BUILD: "1"
         run: make test-e2e
       - name: Upload artifact
@@ -147,3 +161,11 @@ jobs:
         with:
           name: e2e-basic
           path: _artifacts
+
+      - name: Clean Up
+        if: always()
+        env:
+          TTS_TOKEN: ${{ secrets.TTS_TOKEN }}
+          HCLOUD_TOKEN: ${{ env.HCLOUD_TOKEN }}
+        run: |
+          ./hack/ci-e2e-delete-token.sh $HCLOUD_TOKEN

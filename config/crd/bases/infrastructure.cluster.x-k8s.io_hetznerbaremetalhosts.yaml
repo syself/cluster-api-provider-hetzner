@@ -1,0 +1,593 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.8.0
+  creationTimestamp: null
+  name: hetznerbaremetalhosts.infrastructure.cluster.x-k8s.io
+spec:
+  group: infrastructure.cluster.x-k8s.io
+  names:
+    kind: HetznerBareMetalHost
+    listKind: HetznerBareMetalHostList
+    plural: hetznerbaremetalhosts
+    shortNames:
+    - hbmh
+    - hbmhost
+    singular: hetznerbaremetalhost
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: Provisioning status
+      jsonPath: .spec.status.provisioningState
+      name: State
+      type: string
+    - description: IPv4 of the host
+      jsonPath: .spec.status.ipv4
+      name: IPv4
+      type: string
+    - description: IPv6 of the host
+      jsonPath: .spec.status.ipv6
+      name: IPv6
+      type: string
+    - description: CPU threads
+      jsonPath: .spec.status.hardwareDetails.cpu.threads
+      name: Threads
+      type: string
+    - description: CPU clock speed
+      jsonPath: .spec.status.hardwareDetails.cpu.clockGigahertz
+      name: Clock speed
+      type: string
+    - description: RAM in GB
+      jsonPath: .spec.status.hardwareDetails.ramGB
+      name: RAM in GB
+      type: string
+    - description: Consumer using this host
+      jsonPath: .spec.consumerRef.name
+      name: Consumer
+      type: string
+    - description: Type of the most recent error
+      jsonPath: .spec.status.errorType
+      name: ErrorType
+      type: string
+    - description: Message of the most recent error
+      jsonPath: .spec.status.errorMessage
+      name: ErrorMessage
+      type: string
+    - description: Time duration since creation of BaremetalHost
+      jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: HetznerBareMetalHost is the Schema for the hetznerbaremetalhosts
+          API.
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: HetznerBareMetalHostSpec defines the desired state of HetznerBareMetalHost.
+            properties:
+              consumerRef:
+                description: ConsumerRef can be used to store information about something
+                  that is using a host. When it is not empty, the host is considered
+                  "in use".
+                properties:
+                  apiVersion:
+                    description: API version of the referent.
+                    type: string
+                  fieldPath:
+                    description: 'If referring to a piece of an object instead of
+                      an entire object, this string should contain a valid JSON/Go
+                      field access statement, such as desiredState.manifest.containers[2].
+                      For example, if the object reference is to a container within
+                      a pod, this would take on a value like: "spec.containers{name}"
+                      (where "name" refers to the name of the container that triggered
+                      the event) or if no container name is specified "spec.containers[2]"
+                      (container with index 2 in this pod). This syntax is chosen
+                      only to have some well-defined way of referencing a part of
+                      an object. TODO: this design is not final and this field is
+                      subject to change in the future.'
+                    type: string
+                  kind:
+                    description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                    type: string
+                  name:
+                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                    type: string
+                  namespace:
+                    description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                    type: string
+                  resourceVersion:
+                    description: 'Specific resourceVersion to which this reference
+                      is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
+                    type: string
+                  uid:
+                    description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
+                    type: string
+                type: object
+              description:
+                description: Description is a human-entered text used to help identify
+                  the host
+                type: string
+              maintenanceMode:
+                description: MaintenanceMode indicates that a machine is supposed
+                  to be deprovisioned and won't be selected by any Hetzner bare metal
+                  machine.
+                type: boolean
+              rootDeviceHints:
+                description: Provide guidance about how to choose the device for the
+                  image being provisioned. They need to be specified to provision
+                  the host.
+                properties:
+                  wwn:
+                    description: Unique storage identifier. The hint must match the
+                      actual value exactly.
+                    type: string
+                type: object
+              serverID:
+                description: ServerID defines the ID of the server provided by Hetzner.
+                type: integer
+              status:
+                description: Status contains all status information. DO NOT EDIT!!!
+                properties:
+                  conditions:
+                    description: Conditions defines current service state of the HetznerBareMetalHost.
+                    items:
+                      description: Condition defines an observation of a Cluster API
+                        resource operational state.
+                      properties:
+                        lastTransitionTime:
+                          description: Last time the condition transitioned from one
+                            status to another. This should be when the underlying
+                            condition changed. If that is not known, then using the
+                            time when the API field changed is acceptable.
+                          format: date-time
+                          type: string
+                        message:
+                          description: A human readable message indicating details
+                            about the transition. This field may be empty.
+                          type: string
+                        reason:
+                          description: The reason for the condition's last transition
+                            in CamelCase. The specific API may choose whether or not
+                            this field is considered a guaranteed API. This field
+                            may not be empty.
+                          type: string
+                        severity:
+                          description: Severity provides an explicit classification
+                            of Reason code, so the users or machines can immediately
+                            understand the current situation and act accordingly.
+                            The Severity field MUST be set only when Status=False.
+                          type: string
+                        status:
+                          description: Status of the condition, one of True, False,
+                            Unknown.
+                          type: string
+                        type:
+                          description: Type of condition in CamelCase or in foo.example.com/CamelCase.
+                            Many .condition.type values are consistent across resources
+                            like Available, but because arbitrary conditions can be
+                            useful (see .node.status.conditions), the ability to deconflict
+                            is important.
+                          type: string
+                      required:
+                      - lastTransitionTime
+                      - status
+                      - type
+                      type: object
+                    type: array
+                  errorCount:
+                    default: 0
+                    description: ErrorCount records how many times the host has encoutered
+                      an error since the last successful operation.
+                    type: integer
+                  errorMessage:
+                    description: the last error message reported by the provisioning
+                      subsystem.
+                    type: string
+                  errorType:
+                    description: ErrorType indicates the type of failure encountered
+                      when the OperationalStatus is OperationalStatusError
+                    type: string
+                  hardwareDetails:
+                    description: StatusHardwareDetails are automatically gathered
+                      and should not be modified by the user.
+                    properties:
+                      cpu:
+                        description: CPU describes one processor on the host.
+                        properties:
+                          arch:
+                            type: string
+                          clockGigahertz:
+                            description: ClockSpeed is a clock speed in MHz
+                            format: double
+                            type: string
+                          cores:
+                            type: integer
+                          flags:
+                            items:
+                              type: string
+                            type: array
+                          model:
+                            type: string
+                          threads:
+                            type: integer
+                        type: object
+                      nics:
+                        items:
+                          description: NIC describes one network interface on the
+                            host.
+                          properties:
+                            ip:
+                              description: The IP address of the interface. This will
+                                be an IPv4 or IPv6 address if one is present.  If
+                                both IPv4 and IPv6 addresses are present in a dual-stack
+                                environment, two nics will be output, one with each
+                                IP.
+                              type: string
+                            mac:
+                              description: The device MAC address
+                              pattern: '[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}'
+                              type: string
+                            model:
+                              description: The vendor and product IDs of the NIC,
+                                e.g. "0x8086 0x1572"
+                              type: string
+                            name:
+                              description: The name of the network interface, e.g.
+                                "en0"
+                              type: string
+                            speedMbps:
+                              description: The speed of the device in Gigabits per
+                                second
+                              type: integer
+                          type: object
+                        type: array
+                      ramGB:
+                        type: integer
+                      storage:
+                        items:
+                          description: Storage describes one storage device (disk,
+                            SSD, etc.) on the host.
+                          properties:
+                            hctl:
+                              description: The SCSI location of the device
+                              type: string
+                            model:
+                              description: Hardware model
+                              type: string
+                            name:
+                              description: The Linux device name of the disk, e.g.
+                                "/dev/sda". Note that this may not be stable across
+                                reboots.
+                              type: string
+                            rota:
+                              description: Rota defines if its a HDD device or not.
+                              type: boolean
+                            serialNumber:
+                              description: The serial number of the device
+                              type: string
+                            sizeBytes:
+                              description: The size of the disk in Bytes
+                              format: int64
+                              type: integer
+                            sizeGB:
+                              description: The size of the disk in GB
+                              format: int64
+                              type: integer
+                            vendor:
+                              description: The name of the vendor of the device
+                              type: string
+                            wwn:
+                              description: The WWN of the device
+                              type: string
+                          type: object
+                        type: array
+                    type: object
+                  hetznerClusterRef:
+                    description: HetznerClusterRef is the name of the HetznerCluster
+                      object which is needed as some necessary information is stored
+                      there, e.g. the hrobot password
+                    type: string
+                  installImage:
+                    description: InstallImage is the configuration which is used for
+                      the autosetup configuration for installing an OS via InstallImage.
+                    properties:
+                      btrfsDefinitions:
+                        description: BTRFSDefinitions defines the btrfs subvolume
+                          definitions to be created.
+                        items:
+                          description: BTRFSDefinition defines the btrfs subvolume
+                            definitions to be created.
+                          properties:
+                            mount:
+                              description: Mount defines the mountpath.
+                              type: string
+                            subvolume:
+                              description: SubVolume defines the subvolume name.
+                              type: string
+                            volume:
+                              description: Volume defines the btrfs volume name.
+                              type: string
+                          required:
+                          - mount
+                          - subvolume
+                          - volume
+                          type: object
+                        type: array
+                      image:
+                        description: Image is the image to be provisioned.
+                        properties:
+                          name:
+                            description: Name defines the archive name after download.
+                              This has to be a valid name for Installimage.
+                            type: string
+                          path:
+                            description: Path is the local path for a preinstalled
+                              image from upstream.
+                            type: string
+                          url:
+                            description: URL defines the remote URL for downloading
+                              a tar, tar.gz, tar.bz, tar.bz2, tar.xz, tgz, tbz, txz
+                              image.
+                            type: string
+                        type: object
+                      logicalVolumeDefinitions:
+                        description: LVMDefinitions defines the logical volume definitions
+                          to be created.
+                        items:
+                          description: LVMDefinition defines the logical volume definitions
+                            to be created.
+                          properties:
+                            filesystem:
+                              description: FileSystem defines the filesystem for this
+                                logical volume.
+                              type: string
+                            mount:
+                              description: Mount defines the mountpath.
+                              type: string
+                            name:
+                              description: Name defines the volume name.
+                              type: string
+                            size:
+                              description: Size defines the size in M/G/T or MiB/GiB/TiB.
+                              type: string
+                            vg:
+                              description: VG defines the vg name.
+                              type: string
+                          required:
+                          - filesystem
+                          - mount
+                          - name
+                          - size
+                          - vg
+                          type: object
+                        type: array
+                      partitions:
+                        description: Partitions defines the additional Partitions
+                          to be created.
+                        items:
+                          description: Partition defines the additional Partitions
+                            to be created.
+                          properties:
+                            fileSystem:
+                              description: FileSystem can be ext2, ext3, ext4, btrfs,
+                                reiserfs, xfs, swap or name of the LVM volume group
+                                (VG), if this PART is a VG.
+                              type: string
+                            mount:
+                              description: 'Mount defines the mount path for this
+                                filesystem. or keyword ''lvm'' to use this PART as
+                                volume group (VG) for LVM identifier ''btrfs.X'' to
+                                use this PART as volume for btrfs subvolumes. X can
+                                be replaced with a unique alphanumeric keyword. NOTE:
+                                no support btrfs multi-device volumes'
+                              type: string
+                            size:
+                              description: Size can use the keyword 'all' to assign
+                                all the remaining space of the drive to the last partition.
+                                can use M/G/T for unit specification in MiB/GiB/TiB
+                              type: string
+                          required:
+                          - fileSystem
+                          - mount
+                          - size
+                          type: object
+                        type: array
+                      postInstallScript:
+                        description: PostInstallScript is used for configuring commands
+                          which should be executed after installimage. It is passed
+                          along with the installimage command.
+                        type: string
+                    required:
+                    - image
+                    - partitions
+                    type: object
+                  ipv4:
+                    description: IPv4 address of server.
+                    type: string
+                  ipv6:
+                    description: IPv6 address of server.
+                    type: string
+                  lastUpdated:
+                    description: the last error message reported by the provisioning
+                      subsystem.
+                    format: date-time
+                    type: string
+                  provisioningState:
+                    description: Information tracked by the provisioner.
+                    type: string
+                  rebootTypes:
+                    description: RebootTypes is a list of all available reboot types
+                      for API reboots
+                    items:
+                      description: RebootType defines the reboot type of servers via
+                        Hetzner robot API.
+                      type: string
+                    type: array
+                  rebooted:
+                    description: Rebooted shows whether the server is currently being
+                      rebooted.
+                    type: boolean
+                  sshSpec:
+                    description: SSHSpec defines specs for SSH.
+                    properties:
+                      portAfterCloudInit:
+                        description: PortAfterCloudInit specifies the port that has
+                          to be used to connect to the machine after cloud init.
+                        type: integer
+                      portAfterInstallImage:
+                        default: 22
+                        description: PortAfterInstallImage specifies the port that
+                          has to be used to connect to the machine after install image.
+                        type: integer
+                      secretRef:
+                        description: SecretRef gives reference to the secret.
+                        properties:
+                          key:
+                            description: SSHSecretKeyRef defines the key name of the
+                              SSHSecret.
+                            properties:
+                              name:
+                                type: string
+                              privateKey:
+                                type: string
+                              publicKey:
+                                type: string
+                            required:
+                            - name
+                            - privateKey
+                            - publicKey
+                            type: object
+                          name:
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                    required:
+                    - secretRef
+                    type: object
+                  sshStatus:
+                    description: HetznerRobotSSHKey contains name and fingerprint
+                      of the in HetznerCluster spec specified SSH key.
+                    properties:
+                      currentOS:
+                        description: CurrentOS gives information about the secret
+                          where the os ssh key is stored.
+                        properties:
+                          credentials:
+                            description: SecretReference represents a Secret Reference.
+                              It has enough information to retrieve secret in any
+                              namespace
+                            properties:
+                              name:
+                                description: Name is unique within a namespace to
+                                  reference a secret resource.
+                                type: string
+                              namespace:
+                                description: Namespace defines the space within which
+                                  the secret name must be unique.
+                                type: string
+                            type: object
+                          credentialsVersion:
+                            type: string
+                        type: object
+                      currentRescue:
+                        description: CurrentRescue gives information about the secret
+                          where the rescue ssh key is stored.
+                        properties:
+                          credentials:
+                            description: SecretReference represents a Secret Reference.
+                              It has enough information to retrieve secret in any
+                              namespace
+                            properties:
+                              name:
+                                description: Name is unique within a namespace to
+                                  reference a secret resource.
+                                type: string
+                              namespace:
+                                description: Namespace defines the space within which
+                                  the secret name must be unique.
+                                type: string
+                            type: object
+                          credentialsVersion:
+                            type: string
+                        type: object
+                      osKey:
+                        description: OSKey contains name and fingerprint of the in
+                          HetznerBareMetalMachine spec specified SSH key.
+                        properties:
+                          fingerprint:
+                            description: Fingerprint of SSH key - added by controller
+                            type: string
+                          name:
+                            description: Name of SSH key
+                            minLength: 1
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      rescueKey:
+                        description: RescueKey contains name and fingerprint of the
+                          in HetznerCluster spec specified SSH key.
+                        properties:
+                          fingerprint:
+                            description: Fingerprint of SSH key - added by controller
+                            type: string
+                          name:
+                            description: Name of SSH key
+                            minLength: 1
+                            type: string
+                        required:
+                        - name
+                        type: object
+                    type: object
+                  userData:
+                    description: UserData holds the reference to the Secret containing
+                      the user data to be passed to the host before it boots.
+                    properties:
+                      name:
+                        description: Name is unique within a namespace to reference
+                          a secret resource.
+                        type: string
+                      namespace:
+                        description: Namespace defines the space within which the
+                          secret name must be unique.
+                        type: string
+                    type: object
+                required:
+                - errorCount
+                - hetznerClusterRef
+                type: object
+            required:
+            - serverID
+            type: object
+          status:
+            description: HetznerBareMetalHostStatus defines the observed state of
+              HetznerBareMetalHost.
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

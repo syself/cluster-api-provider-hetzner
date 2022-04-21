@@ -33,7 +33,7 @@ test/e2e/data/infrastructure-hetzner/v1beta1/env*
 /tilt.d
 tilt-settings.json
 tilt_config.json
-
+baremetalhosts.yaml
 
 # kubeconfigs
 kind.kubeconfig
@@ -55,11 +55,12 @@ vendor
 # test results
 _artifacts
 test/e2e/config/hetzner-ci-envsubst.yaml
-
+resp.json
 
 # release artifacts
 out
 _releasenotes
+templates/cluster-templates/cluster-template*
 
 # Helm
 .helm
@@ -69,3 +70,4 @@ __pycache__/
 *.py[cod]
 *$py.class
 /_output
+

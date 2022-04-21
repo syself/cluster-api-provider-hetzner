@@ -248,12 +248,15 @@ spec:
                         properties:
                           key:
                             description: HetznerSecretKeyRef defines the key name
-                              of the HetznerSecret.
+                              of the HetznerSecret. Need to specify either HCloudToken
+                              or both HetznerRobotUser and HetznerRobotPassword.
                             properties:
                               hcloudToken:
                                 type: string
-                            required:
-                            - hcloudToken
+                              hetznerRobotPassword:
+                                type: string
+                              hetznerRobotUser:
+                                type: string
                             type: object
                           name:
                             type: string
@@ -280,6 +283,31 @@ spec:
                               - name
                               type: object
                             type: array
+                          robotRescueSecretRef:
+                            description: SSHSecretRef defines the secret containing
+                              all information of the SSH key used for Hetzner robot.
+                            properties:
+                              key:
+                                description: SSHSecretKeyRef defines the key name
+                                  of the SSHSecret.
+                                properties:
+                                  name:
+                                    type: string
+                                  privateKey:
+                                    type: string
+                                  publicKey:
+                                    type: string
+                                required:
+                                - name
+                                - privateKey
+                                - publicKey
+                                type: object
+                              name:
+                                type: string
+                            required:
+                            - key
+                            - name
+                            type: object
                         type: object
                     required:
                     - controlPlaneRegions

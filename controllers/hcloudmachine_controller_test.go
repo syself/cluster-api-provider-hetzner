@@ -48,8 +48,6 @@ var _ = Describe("HCloudMachineReconciler", func() {
 
 		hetznerSecret   *corev1.Secret
 		bootstrapSecret *corev1.Secret
-
-		failureDomain = "fsn1"
 	)
 
 	BeforeEach(func() {
@@ -125,7 +123,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 						Kind:       "HCloudMachine",
 						Name:       hcloudMachineName,
 					},
-					FailureDomain: &failureDomain,
+					FailureDomain: &defaultFailureDomain,
 				},
 			}
 			Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
@@ -237,7 +235,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 						Kind:       "HCloudMachine",
 						Name:       hcloudMachineName,
 					},
-					FailureDomain: &failureDomain,
+					FailureDomain: &defaultFailureDomain,
 					Bootstrap: clusterv1.Bootstrap{
 						DataSecretName: pointer.String("bootstrap-secret"),
 					},
@@ -387,7 +385,6 @@ var _ = Describe("Hetzner secret", func() {
 		Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
 
 		hcloudMachineName := utils.GenerateName(nil, "hcloud-machine-")
-		failureDomain := "fsn1"
 
 		capiMachine = &clusterv1.Machine{
 			ObjectMeta: metav1.ObjectMeta{
@@ -405,7 +402,7 @@ var _ = Describe("Hetzner secret", func() {
 					Kind:       "HCloudMachine",
 					Name:       hcloudMachineName,
 				},
-				FailureDomain: &failureDomain,
+				FailureDomain: &defaultFailureDomain,
 				Bootstrap: clusterv1.Bootstrap{
 					DataSecretName: pointer.String("bootstrap-secret"),
 				},

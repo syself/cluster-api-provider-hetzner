@@ -80,6 +80,8 @@ type HetznerClusterStatus struct {
 // +kubebuilder:printcolumn:name="Cluster",type="string",JSONPath=".metadata.labels.cluster\\.x-k8s\\.io/cluster-name",description="Cluster to which this HetznerCluster belongs"
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.ready",description="Cluster infrastructure is ready for Nodes"
 // +kubebuilder:printcolumn:name="Endpoint",type="string",JSONPath=".spec.controlPlaneEndpoint",description="API Endpoint",priority=1
+// +kubebuilder:printcolumn:name="Regions",type="string",JSONPath=".spec.controlPlaneRegions",description="Control plane regions"
+// +kubebuilder:printcolumn:name="Network enabled",type="boolean",JSONPath=".spec.hcloudNetwork.enabled",description="Indicates if private network is enabled."
 // +k8s:defaulter-gen=true
 
 // HetznerCluster is the Schema for the hetznercluster API.

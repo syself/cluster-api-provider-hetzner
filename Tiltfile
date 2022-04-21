@@ -20,7 +20,7 @@ settings = {
     "deploy_observability": False,
     "preload_images_for_kind": True,
     "kind_cluster_name": "caph",
-    "capi_version": "v1.1.2",
+    "capi_version": "v1.1.3",
     "cabpt_version": "v0.5.2",
     "cacppt_version": "v0.4.5",
     "cert_manager_version": "v1.1.0",
@@ -33,6 +33,10 @@ settings = {
         "HCLOUD_CONTROL_PLANE_MACHINE_TYPE": "cpx31",
         "HCLOUD_WORKER_MACHINE_TYPE": "cpx31",
         "CLUSTER_NAME": "test",
+        "HETZNER_SSH_PUB_PATH": "~/.ssh/test",
+        "HETZNER_SSH_PRIV_PATH": "~/.ssh/test",
+        "HETZNER_ROBOT_USER": "test",
+        "HETZNER_ROBOT_PASSWORD": "pw",
     },
     "talos-bootstrap": "false",
 }
@@ -186,6 +190,11 @@ def caph():
     k8s_resource(
         objects = [
             "cluster-api-provider-hetzner-system:namespace",
+            "hetznerbaremetalhosts.infrastructure.cluster.x-k8s.io:customresourcedefinition",
+            "hetznerbaremetalmachines.infrastructure.cluster.x-k8s.io:customresourcedefinition",
+            "hetznerbaremetalmachinetemplates.infrastructure.cluster.x-k8s.io:customresourcedefinition",
+            "hetznerbaremetalremediations.infrastructure.cluster.x-k8s.io:customresourcedefinition",
+            "hetznerbaremetalremediationtemplates.infrastructure.cluster.x-k8s.io:customresourcedefinition",
             "hcloudmachines.infrastructure.cluster.x-k8s.io:customresourcedefinition",
             "hcloudmachinetemplates.infrastructure.cluster.x-k8s.io:customresourcedefinition",
             "hetznerclusters.infrastructure.cluster.x-k8s.io:customresourcedefinition",
@@ -205,6 +214,19 @@ def caph():
         new_name = "caph-misc",
         labels = ["CAPH"],
     )
+
+    if os.path.exists("baremetalhosts.yaml"):
+        k8s_custom_deploy(
+            "baremetal-hosts",
+            deps = ["caph-controller-manager", "caph-misc"],
+            apply_cmd = "kubectl apply -f baremetalhosts.yaml 1>&2",
+            delete_cmd = "kubectl delete -f baremetalhosts.yaml",
+        )
+        k8s_resource(
+            "baremetal-hosts",
+            labels = ["CAPH"],
+            resource_deps = ["caph-controller-manager", "caph-misc"],
+        )
 
 def base64_encode(to_encode):
     encode_blob = local("echo '{}' | tr -d '\n' | base64 - | tr -d '\n'".format(to_encode), quiet = True)
@@ -273,43 +295,67 @@ caph()
 waitforsystem()
 
 cmd_button(
-    "Create Talos Cluster - with Packer",
-    argv = ["make", "create-talos-workload-cluster-packer"],
-    location = location.NAV,
-    icon_name = "change_history_outlined",
-    text = "Create Talos Cluster - with Packer",
-)
-
-cmd_button(
-    "Create Cluster With Private Network - with Packer",
-    argv = ["make", "create-workload-cluster-with-network-packer"],
-    location = location.NAV,
-    icon_name = "lock_outlined",
-    text = "Create Cluster With Private Network - with Packer",
-)
-
-cmd_button(
-    "Create Cluster With Private Network - without Packer",
-    argv = ["make", "create-workload-cluster-with-network"],
-    location = location.NAV,
-    icon_name = "switch_access_shortcut_add_outlined",
-    text = "Create Cluster With Private Network - without Packer",
-)
-
-cmd_button(
-    "Create Workload Cluster - without Packer",
-    argv = ["make", "create-workload-cluster"],
+    "Create Hcloud Cluster",
+    argv = ["make", "create-workload-cluster-hcloud"],
     location = location.NAV,
     icon_name = "switch_access_shortcut_outlined",
-    text = "Create Workload Cluster - without Packer",
+    text = "Create Hcloud Cluster",
 )
 
 cmd_button(
-    "Create Workload Cluster - with Packer",
-    argv = ["make", "create-workload-cluster-packer"],
+    "Create Hcloud Cluster - with Packer",
+    argv = ["make", "create-workload-cluster-hcloud-packer"],
     location = location.NAV,
     icon_name = "cloud_upload",
-    text = "Create Workload Cluster - with Packer",
+    text = "Create Hcloud Cluster - with Packer",
+)
+
+cmd_button(
+    "Create Hcloud Cluster - Talos with Packer",
+    argv = ["make", "create-workload-cluster-hcloud-talos-packer"],
+    location = location.NAV,
+    icon_name = "change_history_outlined",
+    text = "Create Hcloud Cluster - Talos with Packer",
+)
+
+cmd_button(
+    "Create Hcloud Cluster Private Network",
+    argv = ["make", "create-workload-cluster-hcloud-network"],
+    location = location.NAV,
+    icon_name = "switch_access_shortcut_add_outlined",
+    text = "Create Hcloud Cluster Private Network",
+)
+
+cmd_button(
+    "Create Hcloud Cluster Private Network - with Packer",
+    argv = ["make", "create-workload-cluster-hcloud-network-packer"],
+    location = location.NAV,
+    icon_name = "lock_outlined",
+    text = "Create Hcloud Cluster Private Network - with Packer",
+)
+
+cmd_button(
+    "Create Baremetal Cluster - with hcloud control-planes",
+    argv = ["make", "create-workload-cluster-hetzner-hcloud-control-plane"],
+    location = location.NAV,
+    icon_name = "dns_outline",
+    text = "Create Baremetal Cluster - with hcloud control-planes",
+)
+
+cmd_button(
+    "Create Hetzner Cluster - with baremetal control-planes",
+    argv = ["make", "create-workload-cluster-hetzner-baremetal-control-plane"],
+    location = location.NAV,
+    icon_name = "storage",
+    text = "Create Hetzner Cluster - with baremetal control-planes",
+)
+
+cmd_button(
+    "Create Hetzner Cluster - with baremetal control-planes - remediation",
+    argv = ["make", "create-workload-cluster-hetzner-baremetal-control-plane-remediation"],
+    location = location.NAV,
+    icon_name = "dvr",
+    text = "Create Hetzner Cluster - remediation - baremetal control-planes",
 )
 
 cmd_button(
