@@ -4,7 +4,9 @@
     "hack/boilerplate/testdata/",
     "api/v1beta1/zz_generated.deepcopy.go",
     "pkg/services/baremetal/client/mocks/robot",
-    "pkg/services/baremetal/client/mocks/ssh"
+    "pkg/services/baremetal/client/mocks/ssh",
+    "hack/ci-e2e-get-token.sh",
+    "hack/ci-e2e-delete-token.sh"
   ],
   "not_generated_files_to_skip" : [
     "hack/boilerplate/boilerplate.py"

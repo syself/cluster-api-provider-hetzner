@@ -36,7 +36,7 @@ settings = {
         "HETZNER_SSH_PUB_PATH": "~/.ssh/test",
         "HETZNER_SSH_PRIV_PATH": "~/.ssh/test",
         "HETZNER_ROBOT_USER": "test",
-        "HETZNER_ROBOT_PASSWORD": "pw"
+        "HETZNER_ROBOT_PASSWORD": "pw",
     },
     "talos-bootstrap": "false",
 }
@@ -215,18 +215,18 @@ def caph():
         labels = ["CAPH"],
     )
 
-    if os.path.exists('baremetalhosts.yaml'):
+    if os.path.exists("baremetalhosts.yaml"):
         k8s_custom_deploy(
-            'baremetal-hosts',
-            deps=['caph-controller-manager', 'caph-misc'],
-            apply_cmd="kubectl apply -f baremetalhosts.yaml 1>&2",
-            delete_cmd="kubectl delete -f baremetalhosts.yaml")
-        k8s_resource(
-            'baremetal-hosts',
-            labels=['CAPH'],
-            resource_deps=['caph-controller-manager', 'caph-misc']
+            "baremetal-hosts",
+            deps = ["caph-controller-manager", "caph-misc"],
+            apply_cmd = "kubectl apply -f baremetalhosts.yaml 1>&2",
+            delete_cmd = "kubectl delete -f baremetalhosts.yaml",
         )
-
+        k8s_resource(
+            "baremetal-hosts",
+            labels = ["CAPH"],
+            resource_deps = ["caph-controller-manager", "caph-misc"],
+        )
 
 def base64_encode(to_encode):
     encode_blob = local("echo '{}' | tr -d '\n' | base64 - | tr -d '\n'".format(to_encode), quiet = True)
@@ -357,7 +357,6 @@ cmd_button(
     icon_name = "dvr",
     text = "Create Hetzner Cluster - remediation - baremetal control-planes",
 )
-
 
 cmd_button(
     "Delete Cluster",
