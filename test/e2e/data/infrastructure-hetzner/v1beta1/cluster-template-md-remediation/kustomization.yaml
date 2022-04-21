@@ -1,0 +1,20 @@
+resources:
+  - ../../../../../../templates/cluster-templates/bases/capi-cluster-kubeadm.yaml
+  - ../../../../../../templates/cluster-templates/bases/hcloud-hetznerCluster.yaml
+  - ../../../../../../templates/cluster-templates/bases/hcloud-kcp-ubuntu.yaml
+  - ../../../../../../templates/cluster-templates/bases/hcloud-mt-control-plane-ubuntu.yaml
+  - ../../../../../../templates/cluster-templates/bases/hcloud-md-0-kubeadm.yaml
+  - ../../../../../../templates/cluster-templates/bases/kct-md-0-ubuntu.yaml
+  - ../../../../../../templates/cluster-templates/bases/hcloud-mt-md-0-ubuntu.yaml
+  - ../bases/crs-cni.yaml
+  - ../bases/crs-ccm.yaml
+  - ../bases/secret.yaml
+  - ../bases/md-0-mhc.yaml
+patchesStrategicMerge:
+  - ../bases/cluster_patch.yaml
+  - ../bases/full-specified-lb_patch.yaml
+
+patches:
+  - path: ../patches/md-0-remediation.yaml
+    target:
+      kind: MachineDeployment

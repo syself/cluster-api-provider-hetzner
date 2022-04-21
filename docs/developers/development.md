@@ -88,6 +88,7 @@ With `make verify` you can run all linting checks and others. Make sure that all
 
 With `make test` all unit tests are triggered. If they fail out of nowhere, then please re-run them. They are not 100% stable and sometimes there are tests failing due to something related to Kubernetes' `envtest`.
 
+With `make generate` new CRDs are generated, this is necessary if you change the api.
 ### Running local e2e test
 
 If you are interested in running the E2E tests locally, then you can use the following commands:

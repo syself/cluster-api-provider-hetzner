@@ -28,7 +28,6 @@ settings = {
         "HCLOUD_REGION": "fsn1",
         "CONTROL_PLANE_MACHINE_COUNT": "3",
         "WORKER_MACHINE_COUNT": "3",
-        "BM_WORKER_MACHINE_COUNT": "3",
         "KUBERNETES_VERSION": "v1.21.1",
         "HCLOUD_IMAGE_NAME": "test-image",
         "HCLOUD_CONTROL_PLANE_MACHINE_TYPE": "cpx31",
@@ -296,60 +295,69 @@ caph()
 waitforsystem()
 
 cmd_button(
-    "Create Talos Cluster - with Packer",
-    argv = ["make", "create-talos-workload-cluster-packer"],
-    location = location.NAV,
-    icon_name = "change_history_outlined",
-    text = "Create Talos Cluster - with Packer",
-)
-
-cmd_button(
-    "Create Cluster With Private Network - with Packer",
-    argv = ["make", "create-workload-cluster-with-network-packer"],
-    location = location.NAV,
-    icon_name = "lock_outlined",
-    text = "Create Cluster With Private Network - with Packer",
-)
-
-cmd_button(
-    "Create Cluster With Private Network - without Packer",
-    argv = ["make", "create-workload-cluster-with-network"],
-    location = location.NAV,
-    icon_name = "switch_access_shortcut_add_outlined",
-    text = "Create Cluster With Private Network - without Packer",
-)
-
-cmd_button(
-    "Create Workload Cluster - without Packer",
-    argv = ["make", "create-workload-cluster"],
+    "Create Hcloud Cluster",
+    argv = ["make", "create-workload-cluster-hcloud"],
     location = location.NAV,
     icon_name = "switch_access_shortcut_outlined",
-    text = "Create Workload Cluster - without Packer",
+    text = "Create Hcloud Cluster",
 )
 
 cmd_button(
-    "Create Baremetal Workload Cluster - without Packer",
-    argv = ["make", "create-workload-cluster-baremetal"],
-    location = location.NAV,
-    icon_name = "switch_access_shortcut_outlined",
-    text = "Create Baremetal Workload Cluster - without Packer",
-)
-
-cmd_button(
-    "Create Pure Baremetal Workload Cluster - without Packer",
-    argv = ["make", "create-workload-cluster-pure-baremetal"],
-    location = location.NAV,
-    icon_name = "switch_access_shortcut_outlined",
-    text = "Create Baremetal Control Plane Workload Cluster - without Packer",
-)
-
-cmd_button(
-    "Create Workload Cluster - with Packer",
-    argv = ["make", "create-workload-cluster-packer"],
+    "Create Hcloud Cluster - with Packer",
+    argv = ["make", "create-workload-cluster-hcloud-packer"],
     location = location.NAV,
     icon_name = "cloud_upload",
-    text = "Create Workload Cluster - with Packer",
+    text = "Create Hcloud Cluster - with Packer",
 )
+
+cmd_button(
+    "Create Hcloud Cluster - Talos with Packer",
+    argv = ["make", "create-workload-cluster-hcloud-talos-packer"],
+    location = location.NAV,
+    icon_name = "change_history_outlined",
+    text = "Create Hcloud Cluster - Talos with Packer",
+)
+
+cmd_button(
+    "Create Hcloud Cluster Private Network",
+    argv = ["make", "create-workload-cluster-hcloud-network"],
+    location = location.NAV,
+    icon_name = "switch_access_shortcut_add_outlined",
+    text = "Create Hcloud Cluster Private Network",
+)
+
+cmd_button(
+    "Create Hcloud Cluster Private Network - with Packer",
+    argv = ["make", "create-workload-cluster-hcloud-network-packer"],
+    location = location.NAV,
+    icon_name = "lock_outlined",
+    text = "Create Hcloud Cluster Private Network - with Packer",
+)
+
+cmd_button(
+    "Create Baremetal Cluster - with hcloud control-planes",
+    argv = ["make", "create-workload-cluster-hetzner-hcloud-control-plane"],
+    location = location.NAV,
+    icon_name = "dns_outline",
+    text = "Create Baremetal Cluster - with hcloud control-planes",
+)
+
+cmd_button(
+    "Create Hetzner Cluster - with baremetal control-planes",
+    argv = ["make", "create-workload-cluster-hetzner-baremetal-control-plane"],
+    location = location.NAV,
+    icon_name = "storage",
+    text = "Create Hetzner Cluster - with baremetal control-planes",
+)
+
+cmd_button(
+    "Create Hetzner Cluster - with baremetal control-planes - remediation",
+    argv = ["make", "create-workload-cluster-hetzner-baremetal-control-plane-remediation"],
+    location = location.NAV,
+    icon_name = "dvr",
+    text = "Create Hetzner Cluster - remediation - baremetal control-planes",
+)
+
 
 cmd_button(
     "Delete Cluster",
