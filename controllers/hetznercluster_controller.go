@@ -260,20 +260,23 @@ func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterS
 	}
 
 	// Check if rescue ssh secret exists and release it if yes
-	rescueSSHSecretObjectKey := client.ObjectKey{Name: hetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Name, Namespace: hetznerCluster.Namespace}
-	rescueSSHSecret, err := secretManager.ObtainSecret(ctx, rescueSSHSecretObjectKey)
-	if err != nil {
-		if !apierrors.IsNotFound(err) {
-			return reconcile.Result{}, errors.Wrap(err, "failed to get Rescue SSH secret")
-		}
-	}
-	if rescueSSHSecret != nil {
-		if err := secretManager.ReleaseSecret(ctx, rescueSSHSecret); err != nil {
+	if hetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Name != "" {
+		rescueSSHSecretObjectKey := client.ObjectKey{Name: hetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Name, Namespace: hetznerCluster.Namespace}
+		rescueSSHSecret, err := secretManager.ObtainSecret(ctx, rescueSSHSecretObjectKey)
+		if err != nil {
 			if !apierrors.IsNotFound(err) {
-				return reconcile.Result{}, errors.Wrap(err, "failed to release Rescue SSH secret")
+				return reconcile.Result{}, errors.Wrap(err, "failed to get Rescue SSH secret")
+			}
+		}
+		if rescueSSHSecret != nil {
+			if err := secretManager.ReleaseSecret(ctx, rescueSSHSecret); err != nil {
+				if !apierrors.IsNotFound(err) {
+					return reconcile.Result{}, errors.Wrap(err, "failed to release Rescue SSH secret")
+				}
 			}
 		}
 	}
+
 	// delete load balancers
 	if err := loadbalancer.NewService(clusterScope).Delete(ctx); err != nil {
 		return reconcile.Result{}, errors.Wrapf(err, "failed to delete load balancers for HetznerCluster %s/%s", hetznerCluster.Namespace, hetznerCluster.Name)
