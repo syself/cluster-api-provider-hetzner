@@ -18,14 +18,13 @@ package e2e
 
 import (
 	. "github.com/onsi/ginkgo"
-	capi_e2e "sigs.k8s.io/cluster-api/test/e2e"
 )
 
 var _ = Describe("[Management Upgrade] Running the Cluster API E2E tests", func() {
 	Context("[Needs Published Image] Running tests that require published images", func() {
-		Context("Running the clusterctl upgrade spec on a cluster with hetzner-ccm", func() {
-			capi_e2e.ClusterctlUpgradeSpec(ctx, func() capi_e2e.ClusterctlUpgradeSpecInput {
-				return capi_e2e.ClusterctlUpgradeSpecInput{
+		Context("Testing clusterctl upgrade against an older infrastructure provider version", func() {
+			ClusterctlUpgradeSpec(ctx, func() ClusterctlUpgradeSpecInput {
+				return ClusterctlUpgradeSpecInput{
 					E2EConfig:             e2eConfig,
 					ClusterctlConfigPath:  clusterctlConfigPath,
 					BootstrapClusterProxy: bootstrapClusterProxy,
