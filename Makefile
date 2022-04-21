@@ -457,7 +457,7 @@ test-e2e-general: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFA
 
 .PHONY: test-e2e-workload-upgrade
 test-e2e-workload-upgrade: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKO_FOKUS="'\[Workload Upgrade\]'" GINKO_NODES=1 ./hack/ci-e2e-capi.sh
+	GINKO_FOKUS="'\[Workload Upgrade\]'" GINKO_NODES=3 ./hack/ci-e2e-capi.sh
 
 .PHONY: test-e2e-conformance
 test-e2e-conformance: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)

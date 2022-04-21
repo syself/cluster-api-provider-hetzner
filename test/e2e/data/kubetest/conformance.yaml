@@ -1,5 +1,5 @@
 ginkgo.focus: \[Conformance\]
-ginkgo.skip: \[Serial\]
+ginkgo.skip: \[Serial\]|HostPort.*\[Conformance\].*
 disable-log-dump: true
 ginkgo.progress: true
 ginkgo.slowSpecThreshold: 120.0
