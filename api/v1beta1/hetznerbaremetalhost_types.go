@@ -239,13 +239,13 @@ type ControllerGeneratedStatus struct {
 }
 
 // GetConditions returns the observations of the operational state of the HetznerBareMetalHost resource.
-func (r *HetznerBareMetalHost) GetConditions() clusterv1.Conditions {
-	return r.Spec.Status.Conditions
+func (host *HetznerBareMetalHost) GetConditions() clusterv1.Conditions {
+	return host.Spec.Status.Conditions
 }
 
 // SetConditions sets the underlying service state of the HetznerBareMetalHost to the predescribed clusterv1.Conditions.
-func (r *HetznerBareMetalHost) SetConditions(conditions clusterv1.Conditions) {
-	r.Spec.Status.Conditions = conditions
+func (host *HetznerBareMetalHost) SetConditions(conditions clusterv1.Conditions) {
+	host.Spec.Status.Conditions = conditions
 }
 
 // SSHStatus contains all status information about SSHStatus.
