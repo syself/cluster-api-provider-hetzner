@@ -79,8 +79,11 @@ spec:
                     description: Sets the timeout between remediation retries.
                     type: string
                   type:
+                    default: Reboot
                     description: Type of remediation.
                     type: string
+                required:
+                - timeout
                 type: object
             type: object
           status:

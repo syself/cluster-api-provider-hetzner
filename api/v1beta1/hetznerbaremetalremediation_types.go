@@ -49,13 +49,13 @@ const (
 // HetznerBareMetalRemediationSpec defines the desired state of HetznerBareMetalRemediation.
 type HetznerBareMetalRemediationSpec struct {
 	// Strategy field defines remediation strategy.
-	// +optional
 	Strategy *RemediationStrategy `json:"strategy,omitempty"`
 }
 
 // RemediationStrategy describes how to remediate machines.
 type RemediationStrategy struct {
 	// Type of remediation.
+	// +kubebuilder:default=Reboot
 	// +optional
 	Type RemediationType `json:"type,omitempty"`
 
@@ -64,7 +64,6 @@ type RemediationStrategy struct {
 	RetryLimit int `json:"retryLimit,omitempty"`
 
 	// Sets the timeout between remediation retries.
-	// +optional
 	Timeout *metav1.Duration `json:"timeout"`
 }
 
