@@ -21,7 +21,7 @@ Some of them like helmfile or packer are not needed for developing the controlle
 
 ## Preparing Hetzner project
 
-For more information, please see [here](/docs/topics/preparing-hetzner.md).
+For more information, please see [here](/docs/topics/preparation.md).
 
 ## Setting Tilt up
 
