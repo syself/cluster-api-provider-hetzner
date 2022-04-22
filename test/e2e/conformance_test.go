@@ -20,9 +20,7 @@ import (
 	"context"
 
 	. "github.com/onsi/ginkgo"
-	"k8s.io/utils/pointer"
 	capi_e2e "sigs.k8s.io/cluster-api/test/e2e"
-	"sigs.k8s.io/cluster-api/test/framework/clusterctl"
 )
 
 var _ = Describe("[Conformance] Running the Cluster API E2E Conformance tests", func() {
@@ -37,19 +35,6 @@ var _ = Describe("[Conformance] Running the Cluster API E2E Conformance tests", 
 				ArtifactFolder:        artifactFolder,
 				SkipCleanup:           skipCleanup,
 				Flavor:                "network",
-			}
-		})
-	})
-
-	Context("Running the cluster-upgrade spec", func() {
-		capi_e2e.ClusterUpgradeConformanceSpec(ctx, func() capi_e2e.ClusterUpgradeConformanceSpecInput {
-			return capi_e2e.ClusterUpgradeConformanceSpecInput{
-				E2EConfig:             e2eConfig,
-				ClusterctlConfigPath:  clusterctlConfigPath,
-				BootstrapClusterProxy: bootstrapClusterProxy,
-				ArtifactFolder:        artifactFolder,
-				SkipCleanup:           skipCleanup,
-				Flavor:                pointer.String(clusterctl.DefaultFlavor),
 			}
 		})
 	})
