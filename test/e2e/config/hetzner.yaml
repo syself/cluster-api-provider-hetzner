@@ -128,7 +128,7 @@ variables:
   # Hetzner Provider Variables
   HCLOUD_TOKEN: "admin123"
   HCLOUD_SSH_KEY: "test"
-  HCLOUD_REGION: "fsn1"
+  HCLOUD_REGION: "nbg1"
   HCLOUD_IMAGE_NAME: fedora-35
   HCLOUD_CONTROL_PLANE_MACHINE_TYPE: cpx31
   HCLOUD_WORKER_MACHINE_TYPE: cpx21
