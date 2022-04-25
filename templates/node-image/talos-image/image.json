@@ -4,7 +4,8 @@
     "scripts": "{{template_dir}}/scripts",
     "os": "debian-11",
     "image-name": "talos-image",
-    "talos_version": "v0.14.3"
+    "talos_version": "v1.0.4",
+    "version": "{{isotime \"2006-01-02-1504\"}}"
   },
   "sensitive-variables": ["hcloud_token"],
   "builders": [
@@ -18,7 +19,7 @@
           "ssh_username": "root",
           "snapshot_name": "caph-{{user `os`}}-{{isotime \"2006-01-02-030405\"}}",
           "snapshot_labels": {
-            "caph-image-name": "{{user `image-name`}}",
+            "caph-image-name": "{{user `image-name`}}-{{user `version`}}",
             "talos_version": "{{user `talos_version`}}"
           }
       }
@@ -34,5 +35,17 @@
         "{{user `scripts`}}/configure_base.sh"
       ]
     }
+  ],
+  "post-processors": [
+    [
+      {
+        "output": "manifest.json",
+        "strip_path": false,
+        "type": "manifest",
+        "custom_data": {
+          "snapshot_label": "{{user `image-name`}}-{{user `version`}}"
+        }
+      }
+    ]
   ]
 }

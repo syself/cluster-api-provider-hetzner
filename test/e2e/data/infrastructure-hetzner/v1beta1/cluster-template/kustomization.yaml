@@ -10,5 +10,4 @@ bases:
   - ../bases/crs-ccm.yaml
   - ../bases/secret.yaml
 patchesStrategicMerge:
-  - ../bases/cluster_patch.yaml
-  - ../bases/full-specified-lb_patch.yaml
+  - ../patches/cluster_patch.yaml

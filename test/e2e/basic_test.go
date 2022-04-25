@@ -20,32 +20,33 @@ import (
 	"context"
 
 	. "github.com/onsi/ginkgo"
-	capi_e2e "sigs.k8s.io/cluster-api/test/e2e"
 )
 
-var _ = Describe("[General] Running the Cluster API E2E tests", func() {
+var _ = Describe("[Basic] Testing Cluster 3x control-planes 1x worker and multi-tenancy", func() {
 	ctx := context.TODO()
 
-	Context("Running the mhc-remediation spec", func() {
-		capi_e2e.MachineRemediationSpec(ctx, func() capi_e2e.MachineRemediationSpecInput {
-			return capi_e2e.MachineRemediationSpecInput{
+	Context("Running the CaphClusterDeploymentSpec in hcloud with the default flavor", func() {
+		CaphClusterDeploymentSpec(ctx, func() CaphClusterDeploymentSpecInput {
+			return CaphClusterDeploymentSpecInput{
 				E2EConfig:             e2eConfig,
 				ClusterctlConfigPath:  clusterctlConfigPath,
 				BootstrapClusterProxy: bootstrapClusterProxy,
 				ArtifactFolder:        artifactFolder,
 				SkipCleanup:           skipCleanup,
+				Flavor:                "",
 			}
 		})
 	})
 
-	Context("Running the node-drain-timeout spec", func() {
-		capi_e2e.NodeDrainTimeoutSpec(ctx, func() capi_e2e.NodeDrainTimeoutSpecInput {
-			return capi_e2e.NodeDrainTimeoutSpecInput{
+	Context("Running the CaphClusterDeploymentSpec in hcloud with flavor network", func() {
+		CaphClusterDeploymentSpec(ctx, func() CaphClusterDeploymentSpecInput {
+			return CaphClusterDeploymentSpecInput{
 				E2EConfig:             e2eConfig,
 				ClusterctlConfigPath:  clusterctlConfigPath,
 				BootstrapClusterProxy: bootstrapClusterProxy,
 				ArtifactFolder:        artifactFolder,
 				SkipCleanup:           skipCleanup,
+				Flavor:                "network",
 			}
 		})
 	})

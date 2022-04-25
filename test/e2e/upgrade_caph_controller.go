@@ -77,7 +77,7 @@ type ClusterctlUpgradeSpecInput struct {
 // It tests an older infrastructure provider against a newer one.
 func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpgradeSpecInput) {
 	var (
-		specName = "clusterctl-upgrade"
+		specName = "upgrade-caph"
 		input    ClusterctlUpgradeSpecInput
 
 		testNamespace     *corev1.Namespace

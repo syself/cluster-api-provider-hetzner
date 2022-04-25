@@ -11,10 +11,5 @@ resources:
   - ../bases/secret.yaml
   - ../bases/md-0-mhc.yaml
 patchesStrategicMerge:
-  - ../bases/cluster_patch.yaml
-  - ../bases/full-specified-lb_patch.yaml
-
-patches:
-  - path: ../patches/md-0-remediation.yaml
-    target:
-      kind: MachineDeployment
+  - ../patches/cluster_patch.yaml
+  - ../patches/md-0-remediation.yaml

@@ -22,10 +22,9 @@ import (
 	. "github.com/onsi/ginkgo"
 	"k8s.io/utils/pointer"
 	capi_e2e "sigs.k8s.io/cluster-api/test/e2e"
-	"sigs.k8s.io/cluster-api/test/framework/clusterctl"
 )
 
-var _ = Describe("[Workload Upgrade] Running the Cluster API E2E Workload Cluster Upgrade tests", func() {
+var _ = Describe("[Upgrade Kubernetes][Slow] Testing Upgrade of Kubernetes Version", func() {
 	ctx := context.TODO()
 
 	// The following upstream tests are not implemented because they are subsets of
@@ -44,23 +43,7 @@ var _ = Describe("[Workload Upgrade] Running the Cluster API E2E Workload Cluste
 				SkipConformanceTests:     true,
 				ControlPlaneMachineCount: pointer.Int64(1),
 				WorkerMachineCount:       pointer.Int64(1),
-				Flavor:                   pointer.String(clusterctl.DefaultFlavor),
-			}
-		})
-	})
-
-	Context("Running the cluster-upgrade spec with HA control plane", func() {
-		capi_e2e.ClusterUpgradeConformanceSpec(ctx, func() capi_e2e.ClusterUpgradeConformanceSpecInput {
-			return capi_e2e.ClusterUpgradeConformanceSpecInput{
-				E2EConfig:                e2eConfig,
-				ClusterctlConfigPath:     clusterctlConfigPath,
-				BootstrapClusterProxy:    bootstrapClusterProxy,
-				ArtifactFolder:           artifactFolder,
-				SkipCleanup:              skipCleanup,
-				SkipConformanceTests:     true,
-				ControlPlaneMachineCount: pointer.Int64(3),
-				WorkerMachineCount:       pointer.Int64(1),
-				Flavor:                   pointer.String(clusterctl.DefaultFlavor),
+				Flavor:                   pointer.String("k8s-upgrade"),
 			}
 		})
 	})
@@ -76,7 +59,7 @@ var _ = Describe("[Workload Upgrade] Running the Cluster API E2E Workload Cluste
 				SkipConformanceTests:     true,
 				ControlPlaneMachineCount: pointer.Int64(3),
 				WorkerMachineCount:       pointer.Int64(1),
-				Flavor:                   pointer.String("kcp-scale-in"),
+				Flavor:                   pointer.String("k8s-upgrade-kcp-scale-in"),
 			}
 		})
 	})

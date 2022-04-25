@@ -435,6 +435,7 @@ e2e-image: ## Build the e2e manager image
 	docker build --pull --build-arg ARCH=$(ARCH) --build-arg LDFLAGS="$(LDFLAGS)" . -t $(CONTROLLER_IMG):e2e
 
 .PHONY: $(E2E_CONF_FILE)
+e2e-conf-file: $(E2E_CONF_FILE)
 $(E2E_CONF_FILE): $(ENVSUBST) $(E2E_CONF_FILE_SOURCE)
 	mkdir -p $(shell dirname $(E2E_CONF_FILE))
 	$(ENVSUBST) < $(E2E_CONF_FILE_SOURCE) > $(E2E_CONF_FILE)
@@ -443,29 +444,29 @@ $(E2E_CONF_FILE): $(ENVSUBST) $(E2E_CONF_FILE_SOURCE)
 test-e2e: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
 	GINKO_FOKUS="'\[Basic\]'" GINKO_NODES=2 ./hack/ci-e2e-capi.sh
 
-.PHONY: test-e2e-quickstart
-test-e2e-quickstart: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKO_FOKUS="'\[QuickStart\]'" GINKO_NODES=1 ./hack/ci-e2e-capi.sh
+.PHONY: test-e2e-feature
+test-e2e-feature: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
+	GINKO_FOKUS="'\[Feature\]'" GINKO_NODES=3 ./hack/ci-e2e-capi.sh
 
-.PHONY: test-e2e-self-hosted
-test-e2e-self-hosted: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKO_FOKUS="'\[Self Hosted\]'" GINKO_NODES=1 ./hack/ci-e2e-capi.sh
+.PHONY: test-e2e-feature-talos
+test-e2e-feature-talos: $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
+	GINKO_FOKUS="'\[Feature Talos\]'" GINKO_NODES=1 PACKER_TALOS=templates/node-image/talos-image ./hack/ci-e2e-capi.sh
 
-.PHONY: test-e2e-general
-test-e2e-general: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKO_FOKUS="'\[General\]'" GINKO_NODES=2 ./hack/ci-e2e-capi.sh
+.PHONY: test-e2e-lifecycle
+test-e2e-lifecycle: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
+	GINKO_FOKUS="'\[Lifecycle\]'" GINKO_NODES=3 ./hack/ci-e2e-capi.sh
 
-.PHONY: test-e2e-workload-upgrade
-test-e2e-workload-upgrade: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKO_FOKUS="'\[Workload Upgrade\]'" GINKO_NODES=1 ./hack/ci-e2e-capi.sh
+.PHONY: test-e2e-upgrade-caph
+test-e2e-upgrade-caph: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
+	GINKO_FOKUS="'\[Upgrade CAPH\]'" GINKO_NODES=1 ./hack/ci-e2e-capi.sh
+
+.PHONY: test-e2e-upgrade-kubernetes
+test-e2e-upgrade-kubernetes: $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
+	GINKO_FOKUS="'\[Upgrade Kubernetes\]'" GINKO_NODES=2 PACKER_KUBERNETES_UPGRADE_FROM=templates/node-image/1.23.4-ubuntu-20-04-containerd PACKER_KUBERNETES_UPGRADE_TO=templates/node-image/1.23.6-ubuntu-20-04-containerd ./hack/ci-e2e-capi.sh
 
 .PHONY: test-e2e-conformance
 test-e2e-conformance: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKO_FOKUS="'\[Conformance\]'" GINKO_NODES=2 ./hack/ci-e2e-capi.sh
-
-.PHONY: test-e2e-management-upgrade
-test-e2e-management-upgrade: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKO_FOKUS="'\[Management Upgrade\]'" GINKO_NODES=1 ./hack/ci-e2e-capi.sh
+	GINKO_FOKUS="'\[Conformance\]'" GINKO_NODES=1 ./hack/ci-e2e-capi.sh
 
 .PHONY: test
 test: $(SETUP_ENVTEST) ## Run unit and integration tests

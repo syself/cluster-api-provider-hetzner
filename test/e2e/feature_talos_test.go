@@ -17,19 +17,23 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo"
-	capi_e2e "sigs.k8s.io/cluster-api/test/e2e"
 )
 
-var _ = Describe("[QuickStart] Running the Cluster API E2E QuickStart tests", func() {
-	Context("Running the quickstart spec", func() {
-		capi_e2e.QuickStartSpec(ctx, func() capi_e2e.QuickStartSpecInput {
-			return capi_e2e.QuickStartSpecInput{
+var _ = Describe("[Feature Talos] Testing Talos Flavor with 3x control-planes 1x worker", func() {
+	ctx := context.TODO()
+
+	Context("Testing Talos", func() {
+		CaphClusterDeploymentSpec(ctx, func() CaphClusterDeploymentSpecInput {
+			return CaphClusterDeploymentSpecInput{
 				E2EConfig:             e2eConfig,
 				ClusterctlConfigPath:  clusterctlConfigPath,
 				BootstrapClusterProxy: bootstrapClusterProxy,
 				ArtifactFolder:        artifactFolder,
 				SkipCleanup:           skipCleanup,
+				Flavor:                "hcloud-feature-talos",
 			}
 		})
 	})

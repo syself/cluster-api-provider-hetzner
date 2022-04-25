@@ -33,7 +33,7 @@ runs:
         echo "::set-output name=images::${IMAGES}"
     - name: Docker manager metadata
       id: meta
-      uses: docker/metadata-action@v3
+      uses: docker/metadata-action@v3.7.0
       with:
         images: ${{ steps.image-urls.outputs.images }}
         flavor: ${{ inputs.metadata_flavor }}

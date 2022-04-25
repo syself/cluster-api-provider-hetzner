@@ -17,11 +17,15 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo"
 	capi_e2e "sigs.k8s.io/cluster-api/test/e2e"
 )
 
-var _ = Describe("[Self Hosted] Running the Cluster API E2E self-hosted tests", func() {
+var _ = Describe("[Lifecycle] Testing Self Hosted Cluster", func() {
+	ctx := context.TODO()
+
 	Context("[Needs Published Image] Running tests that require published images", func() {
 		Context("Running the self-hosted spec", func() {
 			capi_e2e.SelfHostedSpec(ctx, func() capi_e2e.SelfHostedSpecInput {
@@ -33,6 +37,30 @@ var _ = Describe("[Self Hosted] Running the Cluster API E2E self-hosted tests", 
 					SkipCleanup:           skipCleanup,
 				}
 			})
+		})
+	})
+
+	Context("Running the mhc-remediation spec", func() {
+		capi_e2e.MachineRemediationSpec(ctx, func() capi_e2e.MachineRemediationSpecInput {
+			return capi_e2e.MachineRemediationSpecInput{
+				E2EConfig:             e2eConfig,
+				ClusterctlConfigPath:  clusterctlConfigPath,
+				BootstrapClusterProxy: bootstrapClusterProxy,
+				ArtifactFolder:        artifactFolder,
+				SkipCleanup:           skipCleanup,
+			}
+		})
+	})
+
+	Context("Running the node-drain-timeout spec", func() {
+		capi_e2e.NodeDrainTimeoutSpec(ctx, func() capi_e2e.NodeDrainTimeoutSpecInput {
+			return capi_e2e.NodeDrainTimeoutSpecInput{
+				E2EConfig:             e2eConfig,
+				ClusterctlConfigPath:  clusterctlConfigPath,
+				BootstrapClusterProxy: bootstrapClusterProxy,
+				ArtifactFolder:        artifactFolder,
+				SkipCleanup:           skipCleanup,
+			}
 		})
 	})
 })

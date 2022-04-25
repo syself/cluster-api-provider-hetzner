@@ -12,3 +12,6 @@ resources:
   - md-1
   - ../bases/hetznerbaremetal-mt-md-1-ubuntu.yaml
   - ../bases/hetznerbaremetal-mhc-md-1.yaml
+patchesStrategicMerge:
+  - ../bases/hcloud-hetznerCluster-placementGroup_patch.yaml
+  - ../bases/hcloud-mt-md-0-placementGroup_patch.yaml

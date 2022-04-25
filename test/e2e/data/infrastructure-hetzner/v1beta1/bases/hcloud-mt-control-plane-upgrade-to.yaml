@@ -1,0 +1,9 @@
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: HCloudMachineTemplate
+metadata:
+  name: "k8s-upgrade-control-plane"
+spec:
+  template:
+    spec:
+      type: "${HCLOUD_CONTROL_PLANE_MACHINE_TYPE}"
+      imageName: "${KUBERNETES_IMAGE_UPGRADE_TO}"

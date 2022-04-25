@@ -17,7 +17,7 @@
           "ssh_username": "root",
           "snapshot_name": "{{user `image-name`}}-{{user `version`}}",
           "snapshot_labels": {
-            "caph-image-name": "{{user `image-name`}}"
+            "caph-image-name": "{{user `image-name`}}-{{user `version`}}"
           }
       }
   ],
@@ -35,5 +35,17 @@
         "{{user `scripts`}}/cleanup.sh"
       ]
     }
+  ],
+  "post-processors": [
+    [
+      {
+        "output": "manifest.json",
+        "strip_path": false,
+        "type": "manifest",
+        "custom_data": {
+          "snapshot_label": "{{user `image-name`}}-{{user `version`}}"
+        }
+      }
+    ]
   ]
 }

@@ -7,4 +7,3 @@ spec:
     spec:
       type: "${HCLOUD_WORKER_MACHINE_TYPE}"
       imageName: "fedora-35"
-      placementGroupName: md-0

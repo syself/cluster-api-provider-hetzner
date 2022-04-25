@@ -63,15 +63,20 @@ providers:
   - name: hetzner
     type: InfrastructureProvider
     versions:
-      - name: v1.0.0-alpha.16 # latest published release
-        value: https://github.com/syself/cluster-api-provider-hetzner/releases/download/v1.0.0-alpha.16/infrastructure-components.yaml
+      - name: ${CAPH_LATEST_VERSION:-v1.0.0-alpha.17} # latest published release
+        value: https://github.com/syself/cluster-api-provider-hetzner/releases/download/${CAPH_LATEST_VERSION:-v1.0.0-alpha.17}/infrastructure-components.yaml
         type: "url"
         contract: v1beta1
         files:
           - sourcePath: "${MANIFEST_PATH:=..}/metadata.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-k8s-upgrade.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-k8s-upgrade-kcp-scale-in.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-csr-off.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-load-balancer-extra-services.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-placement-groups.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-talos.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-network.yaml"
-          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-kcp-scale-in.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-node-drain.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-md-remediation.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-kcp-remediation.yaml"
@@ -82,19 +87,36 @@ providers:
         files:
           - sourcePath: "${MANIFEST_PATH:=..}/metadata.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-k8s-upgrade.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-k8s-upgrade-kcp-scale-in.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-csr-off.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-load-balancer-extra-services.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-placement-groups.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-talos.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-network.yaml"
-          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-kcp-scale-in.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-node-drain.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-md-remediation.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-kcp-remediation.yaml"
 variables:
+  # Upgrade Test
   KUBERNETES_VERSION_MANAGEMENT: "v1.23.6"
   KUBERNETES_VERSION: "${KUBERNETES_VERSION:-v1.23.6}"
   KUBERNETES_VERSION_UPGRADE_FROM: "v1.23.0"
   KUBERNETES_VERSION_UPGRADE_TO: "v1.23.6"
+  CONTROL_PLANE_MACHINE_TEMPLATE_UPGRADE_TO: "k8s-upgrade-control-plane"
+  WORKERS_MACHINE_TEMPLATE_UPGRADE_TO: "k8s-upgrade-worker"
+  KUBERNETES_IMAGE_UPGRADE_FROM: ${KUBERNETES_IMAGE_UPGRADE_FROM:-}
+  KUBERNETES_IMAGE_UPGRADE_TO: ${KUBERNETES_IMAGE_UPGRADE_TO:-}
   ETCD_VERSION_UPGRADE_TO: "3.5.3-0"
-  COREDNS_VERSION_UPGRADE_TO: "1.8.6"
+  COREDNS_VERSION_UPGRADE_TO: "v1.8.6"
   IP_FAMILY: "IPv4"
+
+  # NOTE: INIT_WITH_BINARY and INIT_WITH_KUBERNETES_VERSION are only used by the clusterctl upgrade test to initialize
+  # the management cluster to be upgraded.
+  INIT_WITH_BINARY: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.1.0/clusterctl-linux-amd64"
+  INIT_WITH_PROVIDERS_CONTRACT: "v1beta1"
+  INIT_WITH_KUBERNETES_VERSION: "v1.23.6"
+  INIT_WITH_INFRASTRUCTURE_PROVIDER_VERSION: ${CAPH_LATEST_VERSION:-v1.0.0-alpha.17}
 
   # Cluster Addons
   CNI: "./data/cni/cilium/cilium.yaml"
@@ -112,18 +134,11 @@ variables:
   EXP_CLUSTER_RESOURCE_SET: "true"
   CLUSTER_TOPOLOGY: "true"
 
-  # NOTE: INIT_WITH_BINARY and INIT_WITH_KUBERNETES_VERSION are only used by the clusterctl upgrade test to initialize
-  # the management cluster to be upgraded.
-  INIT_WITH_BINARY: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.1.0/clusterctl-linux-amd64"
-  INIT_WITH_PROVIDERS_CONTRACT: "v1beta1"
-  INIT_WITH_KUBERNETES_VERSION: "v1.23.6"
-  INIT_WITH_INFRASTRUCTURE_PROVIDER_VERSION: "v1.0.0-alpha.16"
-
   # Hetzner Provider Variables
   HCLOUD_TOKEN: "admin123"
   HCLOUD_SSH_KEY: "test"
   HCLOUD_REGION: "nbg1"
-  HCLOUD_IMAGE_NAME: fedora-35
+  HCLOUD_IMAGE_NAME: ${HCLOUD_IMAGE_NAME:-fedora-35}
   HCLOUD_CONTROL_PLANE_MACHINE_TYPE: cpx31
   HCLOUD_WORKER_MACHINE_TYPE: cpx21
   REDACT_LOG_SCRIPT: "../../hack/log/redact.sh"

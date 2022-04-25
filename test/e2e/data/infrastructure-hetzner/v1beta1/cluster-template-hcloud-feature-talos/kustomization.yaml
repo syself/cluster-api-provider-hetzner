@@ -1,0 +1,13 @@
+bases:
+  - ../../../../../../templates/cluster-templates/bases/capi-cluster-talos.yaml
+  - ../../../../../../templates/cluster-templates/bases/hcloud-hetznerCluster.yaml
+  - ../../../../../../templates/cluster-templates/bases/hcloud-tcp-packer.yaml
+  - ../../../../../../templates/cluster-templates/bases/hcloud-mt-control-plane-packer.yaml
+  - ../../../../../../templates/cluster-templates/bases/hcloud-md-0-kubeadm.yaml
+  - ../../../../../../templates/cluster-templates/bases/tct-md-0-packer.yaml
+  - ../../../../../../templates/cluster-templates/bases/hcloud-mt-md-0-packer.yaml
+  - ../bases/crs-cni.yaml
+  - ../bases/crs-ccm.yaml
+  - ../bases/secret.yaml
+patchesStrategicMerge:
+  - ../patches/cluster_patch.yaml
