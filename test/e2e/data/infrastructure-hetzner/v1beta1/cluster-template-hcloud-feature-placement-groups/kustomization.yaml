@@ -1,4 +1,4 @@
-resources:
+bases:
   - ../../../../../../templates/cluster-templates/bases/capi-cluster-kubeadm.yaml
   - ../../../../../../templates/cluster-templates/bases/hcloud-hetznerCluster.yaml
   - ../../../../../../templates/cluster-templates/bases/hcloud-kcp-ubuntu.yaml
@@ -10,10 +10,7 @@ resources:
   - ../bases/crs-ccm.yaml
   - ../bases/secret.yaml
 patchesStrategicMerge:
-  - ../bases/cluster_patch.yaml
-  - ../bases/full-specified-lb_patch.yaml
-
-patches:
-  - path: ../patches/kcp-scale-in.yaml
-    target:
-      kind: KubeadmControlPlane
+  - ../patches/cluster_patch.yaml
+  - ../../../../../../templates/cluster-templates/bases/hcloud-hetznerCluster-placementGroup_patch.yaml
+  - ../../../../../../templates/cluster-templates/bases/hcloud-mt-control-plane-placementGroup_patch.yaml
+  - ../../../../../../templates/cluster-templates/bases/hcloud-mt-md-0-placementGroup_patch.yaml

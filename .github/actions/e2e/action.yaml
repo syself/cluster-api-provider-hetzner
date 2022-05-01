@@ -1,0 +1,92 @@
+name: "E2E Test"
+description: "Runs the e2e test"
+inputs:
+  e2e_name:
+    description: "e2e_name"
+    required: true
+  e2e_make_target:
+    description: "e2e_make_target"
+    required: true
+  e2e_quay_username:
+    description: "e2e_quay_username"
+    required: true
+  e2e_tts_token:
+    description: "e2e_tts_token"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - uses: ./.github/actions/setup-go
+    - uses: actions/cache@v3
+      with:
+        path: hack/tools/bin
+        key: ${{ runner.os }}-tools-bin-e2e-${{ hashFiles('Makefile') }}
+        restore-keys: |
+          ${{ runner.os }}-tools-bin-e2e-
+          ${{ runner.os }}-tools-bin-
+    - name: Download artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: test-release
+        path: out
+    - name: Install hcloud
+      shell: bash
+      run: curl -fsSL https://github.com/hetznercloud/cli/releases/download/v${{ env.hcloudctl_version }}/hcloud-linux-amd64.tar.gz | tar -xzv hcloud ; mv hcloud hack/tools/bin/hcloud
+
+    - name: Generate metadata
+      id: meta
+      uses: ./.github/actions/metadata
+      with:
+        quay_username: ${{ inputs.e2e_quay_username}}
+        metadata_flavor: ${{ env.metadata_flavor }}
+        metadata_tags: ${{ env.metadata_tags }}
+
+    - name: Prepull the pre-built image
+      shell: bash
+      run: docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${TAG}
+      env:
+        TAG: ${{ steps.meta.outputs.version }}
+
+    - name: HCLOUD_TOKEN
+      env:
+        TTS_TOKEN: ${{ inputs.e2e_tts_token }}
+      shell: bash
+      run: |
+        set -ueo pipefail
+        if [[ "${TTS_TOKEN:-}" != "" ]]; then
+                  token="$(./hack/ci-e2e-get-token.sh)"
+                  echo "::add-mask::$token"
+                  echo "HCLOUD_TOKEN=$token" >> "$GITHUB_ENV"
+        else
+          echo "::error ::Couldn't determine HCLOUD_TOKEN. Check that repository secrets are setup correctly."
+          exit 1
+        fi
+
+    - name: "e2e-${{ inputs.e2e_name }}"
+      shell: bash
+      env:
+        CI: "true"
+        REGISTRY: ${{ env.REGISTRY }}
+        IMAGE_NAME: ${{ env.IMAGE_NAME }}
+        TAG: ${{ steps.meta.outputs.version }}
+        E2E_CONF_FILE_SOURCE: "${{ github.workspace }}/test/e2e/config/hetzner-ci.yaml"
+        MANIFEST_PATH: "../../../out"
+        HCLOUD_TOKEN: ${{ env.HCLOUD_TOKEN }}
+        SKIP_IMAGE_BUILD: "1"
+        CAPH_LATEST_VERSION: "v1.0.0-alpha.17"
+      run: make ${{ inputs.e2e_make_target }}
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      if: ${{ always() }}
+      with:
+        name: e2e-${{ inputs.e2e_name }}
+        path: _artifacts
+
+    - name: Clean Up
+      if: always()
+      shell: bash
+      env:
+        TTS_TOKEN: ${{ inputs.e2e_tts_token }}
+        HCLOUD_TOKEN: ${{ env.HCLOUD_TOKEN }}
+      run: |
+        ./hack/ci-e2e-delete-token.sh $HCLOUD_TOKEN

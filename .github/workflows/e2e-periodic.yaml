@@ -1,0 +1,111 @@
+name: E2E Periodic Tests
+on:
+  workflow_dispatch:
+env:
+  hcloudctl_version: 1.29.4
+  IMAGE_NAME: cluster-api-provider-hetzner
+  REGISTRY: quay.io/syself
+  metadata_flavor: latest=false
+  metadata_tags: type=sha
+
+jobs:
+  manager-image:
+    name: Build and push manager image
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+      - name: Build and push manager image
+        id: manager-image
+        uses: ./.github/actions/manager-image
+        with:
+          manager_image_quay_username: ${{ secrets.QUAY_USERNAME }}
+          manager_image_quay_password: ${{ secrets.QUAY_PASSWORD }}
+
+  test-release:
+    name: Test Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+      - name: Test Release
+        id: manager-image
+        uses: ./.github/actions/test-release
+        with:
+          test_release_quay_username: ${{ secrets.QUAY_USERNAME }}
+
+  e2e-hcloud-basic:
+    name: Test Hcloud Basic
+    concurrency: ci-${{ github.ref }}-e2e-basic
+    runs-on: ubuntu-latest
+    needs:
+      - manager-image
+      - test-release
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+      - name: Run e2e Test
+        id: e2e
+        uses: ./.github/actions/e2e
+        with:
+          e2e_name: hcloud-basic
+          e2e_make_target: test-e2e
+          e2e_quay_username: ${{ secrets.QUAY_USERNAME }}
+          e2e_tts_token: ${{ secrets.TTS_TOKEN }}
+
+  e2e-hcloud-feature:
+    name: Test Hcloud Features
+    concurrency: ci-${{ github.ref }}-e2e-feature
+    runs-on: ubuntu-latest
+    needs:
+      - manager-image
+      - test-release
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+      - name: Run e2e Test
+        id: e2e
+        uses: ./.github/actions/e2e
+        with:
+          e2e_name: hcloud-feature
+          e2e_make_target: test-e2e-feature
+          e2e_quay_username: ${{ secrets.QUAY_USERNAME }}
+          e2e_tts_token: ${{ secrets.TTS_TOKEN }}
+
+  e2e-hcloud-lifecycle:
+    name: Test Hcloud Lifecycle
+    concurrency: ci-${{ github.ref }}-e2e-lifecycle
+    runs-on: ubuntu-latest
+    needs:
+      - manager-image
+      - test-release
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+      - name: Run e2e Test
+        id: e2e
+        uses: ./.github/actions/e2e
+        with:
+          e2e_name: hcloud-lifecycle
+          e2e_make_target: test-e2e-lifecycle
+          e2e_quay_username: ${{ secrets.QUAY_USERNAME }}
+          e2e_tts_token: ${{ secrets.TTS_TOKEN }}
+
+  e2e-hcloud-conformance:
+    name: Test Hcloud Conformance
+    concurrency: ci-${{ github.ref }}-e2e-conformance
+    runs-on: ubuntu-latest
+    needs:
+      - manager-image
+      - test-release
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+      - name: Run e2e Test
+        id: e2e
+        uses: ./.github/actions/e2e
+        with:
+          e2e_name: hcloud-conformance
+          e2e_make_target: test-e2e-conformance
+          e2e_quay_username: ${{ secrets.QUAY_USERNAME }}
+          e2e_tts_token: ${{ secrets.TTS_TOKEN }}

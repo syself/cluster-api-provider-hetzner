@@ -154,7 +154,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	kubeconfigPath := parts[3]
 
 	e2eConfig = loadE2EConfig(ctx, configPath)
-	bootstrapClusterProxy = framework.NewClusterProxy("bootstrap", kubeconfigPath, initScheme())
+	bootstrapClusterProxy = framework.NewClusterProxy("bootstrap", kubeconfigPath, initScheme(), framework.WithMachineLogCollector(logCollector{}))
 })
 
 // Using a SynchronizedAfterSuite for controlling how to delete resources shared across ParallelNodes (~ginkgo threads).
@@ -232,7 +232,7 @@ func setupBootstrapCluster(config *clusterctl.E2EConfig, scheme *runtime.Scheme,
 		Expect(kubeconfigPath).To(BeAnExistingFile(), "Failed to get the kubeconfig file for the bootstrap cluster")
 	}
 
-	clusterProxy := framework.NewClusterProxy("bootstrap", kubeconfigPath, scheme)
+	clusterProxy := framework.NewClusterProxy("bootstrap", kubeconfigPath, scheme, framework.WithMachineLogCollector(logCollector{}))
 	Expect(clusterProxy).ToNot(BeNil(), "Failed to get a bootstrap cluster proxy")
 
 	return clusterProvider, clusterProxy

@@ -20,9 +20,9 @@ import (
 	. "github.com/onsi/ginkgo"
 )
 
-var _ = Describe("[Management Upgrade] Running the Cluster API E2E tests", func() {
+var _ = Describe("[Upgrade CAPH][Slow] Testing Upgrade of Caph Controller", func() {
 	Context("[Needs Published Image] Running tests that require published images", func() {
-		Context("Testing clusterctl upgrade against an older infrastructure provider version", func() {
+		Context("Testing the upgrade from the latest published caph version to a rc version", func() {
 			ClusterctlUpgradeSpec(ctx, func() ClusterctlUpgradeSpecInput {
 				return ClusterctlUpgradeSpecInput{
 					E2EConfig:             e2eConfig,

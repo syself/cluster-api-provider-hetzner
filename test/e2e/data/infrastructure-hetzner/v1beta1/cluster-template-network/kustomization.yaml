@@ -10,4 +10,4 @@ bases:
   - ../bases/crs-ccm-network.yaml
   - ../bases/secret.yaml
 patchesStrategicMerge:
-  - ../bases/cluster-network_patch.yaml
+  - ../patches/cluster-network_patch.yaml

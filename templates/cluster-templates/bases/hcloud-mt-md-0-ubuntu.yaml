@@ -7,4 +7,3 @@ spec:
     spec:
       type: "${HCLOUD_WORKER_MACHINE_TYPE}"
       imageName: "ubuntu-20.04"
-      placementGroupName: md-0

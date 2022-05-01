@@ -1,0 +1,17 @@
+bases:
+  - ../../../../../../templates/cluster-templates/bases/capi-cluster-kubeadm.yaml
+  - ../../../../../../templates/cluster-templates/bases/hcloud-hetznerCluster.yaml
+  - ../../../../../../templates/cluster-templates/bases/hcloud-kcp-packer.yaml
+  - ../../../../../../templates/cluster-templates/bases/hcloud-mt-control-plane-packer.yaml
+  - ../../../../../../templates/cluster-templates/bases/hcloud-md-0-kubeadm.yaml
+  - ../../../../../../templates/cluster-templates/bases/kct-md-0-packer.yaml
+  - ../../../../../../templates/cluster-templates/bases/hcloud-mt-md-0-packer.yaml
+  - ../bases/hcloud-mt-control-plane-upgrade-to.yaml
+  - ../bases/hcloud-mt-md-0-upgrade-to.yaml
+  - ../bases/crs-cni.yaml
+  - ../bases/crs-ccm.yaml
+  - ../bases/secret.yaml
+patchesStrategicMerge:
+  - ../patches/cluster_patch.yaml
+  - ../patches/hcloud-mt-control-plane-upgrade-from.yaml
+  - ../patches/hcloud-mt-md-0-upgrade-from.yaml

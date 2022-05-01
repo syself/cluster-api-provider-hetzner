@@ -1,0 +1,14 @@
+kind: KubeadmControlPlane
+apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+metadata:
+  name: "${CLUSTER_NAME}-control-plane"
+spec:
+  kubeadmConfigSpec:
+    initConfiguration:
+      nodeRegistration:
+        kubeletExtraArgs:
+          rotate-server-certificates: "false"
+    joinConfiguration:
+      nodeRegistration:
+        kubeletExtraArgs:
+          rotate-server-certificates: "false"

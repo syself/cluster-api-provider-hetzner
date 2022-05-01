@@ -1,0 +1,36 @@
+name: "Test Release"
+description: "Testing Release"
+inputs:
+  test_release_quay_username:
+    description: "test_release_quay_username"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - uses: ./.github/actions/setup-go
+    - uses: actions/cache@v3
+      with:
+        path: hack/tools/bin
+        key: ${{ runner.os }}-tools-bin-release-${{ hashFiles('Makefile') }}
+        restore-keys: |
+          ${{ runner.os }}-tools-bin-release-
+          ${{ runner.os }}-tools-bin-
+
+    - name: Generate metadata
+      id: meta
+      uses: ./.github/actions/metadata
+      with:
+        quay_username: ${{ inputs.test_release_quay_username }}
+        metadata_flavor: ${{ env.metadata_flavor }}
+        metadata_tags: ${{ env.metadata_tags }}
+
+    - name: Test Release
+      shell: bash
+      env:
+        TAG: ${{ steps.meta.outputs.version }}
+      run: make test-release
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-release
+        path: out

@@ -1,0 +1,51 @@
+{
+  "variables": {
+    "hcloud_token": "{{env `HCLOUD_TOKEN`}}",
+    "scripts": "{{template_dir}}/scripts",
+    "os": "ubuntu-20.04",
+    "image-name": "1.23.6-ubuntu-20.04-containerd",
+    "version": "{{isotime \"2006-01-02-1504\"}}"
+  },
+  "sensitive-variables": ["hcloud_token"],
+  "builders": [
+      {
+          "type": "hcloud",
+          "token": "{{user `hcloud_token`}}",
+          "image": "{{user `os`}}",
+          "location": "fsn1",
+          "server_type": "cx21",
+          "ssh_username": "root",
+          "snapshot_name": "{{user `image-name`}}-{{user `version`}}",
+          "snapshot_labels": {
+            "caph-image-name": "{{user `image-name`}}-{{user `version`}}"
+          }
+      }
+  ],
+  "provisioners": [
+    {
+      "type": "shell",
+      "environment_vars": [
+        "PACKER_OS_IMAGE={{user `os`}}"
+      ],
+      "scripts": [
+        "{{user `scripts`}}/base.sh",
+        "{{user `scripts`}}/cilium-requirements.sh",
+        "{{user `scripts`}}/cri.sh",
+        "{{user `scripts`}}/kubernetes.sh",
+        "{{user `scripts`}}/cleanup.sh"
+      ]
+    }
+  ],
+  "post-processors": [
+    [
+      {
+        "output": "manifest.json",
+        "strip_path": false,
+        "type": "manifest",
+        "custom_data": {
+          "snapshot_label": "{{user `image-name`}}-{{user `version`}}"
+        }
+      }
+    ]
+  ]
+}

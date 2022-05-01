@@ -1,0 +1,14 @@
+bases:
+  - ../../../../../../templates/cluster-templates/bases/capi-cluster-kubeadm.yaml
+  - ../../../../../../templates/cluster-templates/bases/hcloud-hetznerCluster.yaml
+  - ../../../../../../templates/cluster-templates/bases/hcloud-kcp-ubuntu.yaml
+  - ../../../../../../templates/cluster-templates/bases/hcloud-mt-control-plane-ubuntu.yaml
+  - ../../../../../../templates/cluster-templates/bases/hcloud-md-0-kubeadm.yaml
+  - ../../../../../../templates/cluster-templates/bases/kct-md-0-ubuntu.yaml
+  - ../../../../../../templates/cluster-templates/bases/hcloud-mt-md-0-ubuntu.yaml
+  - ../bases/crs-cni.yaml
+  - ../bases/crs-ccm.yaml
+  - ../bases/secret.yaml
+patchesStrategicMerge:
+  - ../patches/cluster_patch.yaml
+  - ../patches/lb-extraServices.yaml

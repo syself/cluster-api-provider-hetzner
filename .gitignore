@@ -56,6 +56,7 @@ vendor
 _artifacts
 test/e2e/config/hetzner-ci-envsubst.yaml
 resp.json
+**manifest.json
 
 # release artifacts
 out

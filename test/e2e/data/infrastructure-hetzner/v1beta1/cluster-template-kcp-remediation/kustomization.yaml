@@ -11,5 +11,4 @@ resources:
   - ../bases/secret.yaml
   - ../bases/kcp-mhc.yaml
 patchesStrategicMerge:
-  - ../bases/cluster_patch.yaml
-  - ../bases/full-specified-lb_patch.yaml
+  - ../patches/cluster_patch.yaml

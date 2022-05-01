@@ -7,4 +7,3 @@ spec:
     spec:
       type: "${HCLOUD_CONTROL_PLANE_MACHINE_TYPE}"
       imageName: "ubuntu-20.04"
-      placementGroupName: control-plane

@@ -10,13 +10,6 @@ resources:
   - ../bases/crs-ccm.yaml
   - ../bases/secret.yaml
 patchesStrategicMerge:
-  - ../bases/cluster_patch.yaml
-  - ../bases/full-specified-lb_patch.yaml
-
-patches:
-  - path: ../patches/kcp-node-drain-timeout.yaml
-    target:
-      kind: KubeadmControlPlane
-  - path: ../patches/md-0-node-drain-timeout.yaml
-    target:
-      kind: MachineDeployment
+  - ../patches/cluster_patch.yaml
+  - ../patches/kcp-node-drain-timeout.yaml
+  - ../patches/md-0-node-drain-timeout.yaml

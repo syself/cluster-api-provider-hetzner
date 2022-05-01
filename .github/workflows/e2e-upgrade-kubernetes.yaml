@@ -1,0 +1,54 @@
+name: E2E Upgrade Kubernetes
+on:
+  workflow_dispatch:
+env:
+  hcloudctl_version: 1.29.4
+  IMAGE_NAME: cluster-api-provider-hetzner
+  REGISTRY: quay.io/syself
+  metadata_flavor: latest=false
+  metadata_tags: type=sha
+
+jobs:
+  manager-image:
+    name: Build and push manager image
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+      - name: Build and push manager image
+        id: manager-image
+        uses: ./.github/actions/manager-image
+        with:
+          manager_image_quay_username: ${{ secrets.QUAY_USERNAME }}
+          manager_image_quay_password: ${{ secrets.QUAY_PASSWORD }}
+
+  test-release:
+    name: Test Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+      - name: Test Release
+        id: manager-image
+        uses: ./.github/actions/test-release
+        with:
+          test_release_quay_username: ${{ secrets.QUAY_USERNAME }}
+
+  e2e-upgrade-kubernetes:
+    name: Test Kubernetes Upgrade
+    concurrency: ci-${{ github.ref }}-e2e-upgrade-kubernetes
+    runs-on: ubuntu-latest
+    needs:
+      - manager-image
+      - test-release
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+      - name: Run e2e Test
+        id: e2e
+        uses: ./.github/actions/e2e
+        with:
+          e2e_name: upgrade-kubernetes
+          e2e_make_target: test-e2e-upgrade-kubernetes
+          e2e_quay_username: ${{ secrets.QUAY_USERNAME }}
+          e2e_tts_token: ${{ secrets.TTS_TOKEN }}

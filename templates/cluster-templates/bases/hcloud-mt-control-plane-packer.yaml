@@ -7,4 +7,3 @@ spec:
     spec:
       type: "${HCLOUD_CONTROL_PLANE_MACHINE_TYPE}"
       imageName: "${HCLOUD_IMAGE_NAME}"
-      placementGroupName: control-plane

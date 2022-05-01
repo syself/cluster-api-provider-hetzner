@@ -23,7 +23,7 @@ import (
 	capi_e2e "sigs.k8s.io/cluster-api/test/e2e"
 )
 
-var _ = Describe("[Conformance] Running the Cluster API E2E Conformance tests", func() {
+var _ = Describe("[Conformance][Slow] Tests against the Kubernetes Conformance Test Suite", func() {
 	ctx := context.TODO()
 
 	Context("Running the k8s-conformance spec", func() {
