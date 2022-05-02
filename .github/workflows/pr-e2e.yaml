@@ -1,6 +1,6 @@
 name: E2E PR Blocking
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, edited, synchronize, reopened]
     branches:
       - main
