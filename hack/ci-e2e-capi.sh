@@ -55,6 +55,16 @@ if [[ "${PACKER_KUBERNETES_UPGRADE_FROM:-""}" != "" ]]; then
     make e2e-conf-file
 fi
 
+if [[ "${PACKER_IMAGE_NAME:-""}" != "" ]]; then
+    (cd ${REPO_ROOT}/${PACKER_IMAGE_NAME} && packer build image.json)
+    export HCLOUD_IMAGE_NAME=$(jq -r '.builds[-1].custom_data.snapshot_label' ${REPO_ROOT}/${PACKER_IMAGE_NAME}/manifest.json)
+    trap 'remove_manifests' EXIT
+    remove_manifests() {
+        rm ${REPO_ROOT}/${PACKER_IMAGE_NAME}/manifest.json
+    }
+    make e2e-conf-file
+fi
+
 if [[ "${PACKER_TALOS:-""}" != "" ]]; then
     (cd ${REPO_ROOT}/${PACKER_TALOS} && packer build image.json)
     export HCLOUD_IMAGE_NAME=$(jq -r '.builds[-1].custom_data.snapshot_label' ${REPO_ROOT}/${PACKER_TALOS}/manifest.json)

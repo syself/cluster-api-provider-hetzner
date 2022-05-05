@@ -95,7 +95,7 @@ variables:
   INIT_WITH_BINARY: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.1.0/clusterctl-linux-amd64"
   INIT_WITH_PROVIDERS_CONTRACT: "v1beta1"
   INIT_WITH_KUBERNETES_VERSION: "v1.23.6"
-  INIT_WITH_INFRASTRUCTURE_PROVIDER_VERSION: ${CAPH_LATEST_VERSION:-v1.0.0-alpha.17}
+  INIT_WITH_INFRASTRUCTURE_PROVIDER_VERSION: ${CAPH_LATEST_VERSION:-v1.0.0-alpha.18}
 
   # Cluster Addons
   CNI: "./data/cni/cilium/cilium.yaml"

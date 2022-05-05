@@ -208,7 +208,7 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 			LogFolder:               filepath.Join(input.ArtifactFolder, "clusters", cluster.Name),
 		}, input.E2EConfig.GetIntervals(specName, "wait-controllers")...)
 
-		ginkgo.By("THE MANAGEMENT CLUSTER WITH THE OLDER VERSION OF PROVIDERS IS UP&RUNNING!")
+		ginkgo.By("THE MANAGEMENT CLUSTER WITH THE OLDER VERSION OF PROVIDERS IS UP & RUNNING!")
 
 		Byf("Creating a namespace for hosting the %s test workload cluster", specName)
 		testNamespace, testCancelWatches = framework.CreateNamespaceAndWatchEvents(ctx, framework.CreateNamespaceAndWatchEventsInput{
@@ -269,7 +269,7 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 			return n, nil
 		}, input.E2EConfig.GetIntervals(specName, "wait-worker-nodes")...).Should(gomega.Equal(*controlPlaneMachineCount + *workerMachineCount))
 
-		ginkgo.By("THE MANAGEMENT CLUSTER WITH OLDER VERSION OF PROVIDERS WORKS!")
+		ginkgo.By("THE MANAGEMENT CLUSTER WITH THE OLDER VERSION OF CAPH WORKS!")
 
 		if input.PreUpgrade != nil {
 			ginkgo.By("Running Pre-upgrade steps against the management cluster")

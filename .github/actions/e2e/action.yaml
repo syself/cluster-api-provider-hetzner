@@ -73,7 +73,7 @@ runs:
         MANIFEST_PATH: "../../../out"
         HCLOUD_TOKEN: ${{ env.HCLOUD_TOKEN }}
         SKIP_IMAGE_BUILD: "1"
-        CAPH_LATEST_VERSION: "v1.0.0-alpha.17"
+        CAPH_LATEST_VERSION: "v1.0.0-alpha.18"
       run: make ${{ inputs.e2e_make_target }}
     - name: Upload artifact
       uses: actions/upload-artifact@v3

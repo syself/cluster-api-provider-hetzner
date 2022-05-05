@@ -50,8 +50,8 @@ EOF
 # Apply sysctl params without reboot
 sysctl --system
 
-CRUN=1.4.3        # https://github.com/containers/crun/releases
-CONTAINERD=1.6.1  # https://github.com/containerd/containerd/releases
+CRUN=1.4.5        # https://github.com/containers/crun/releases
+CONTAINERD=1.6.5  # https://github.com/containerd/containerd/releases
 
 # Install containerd
 wget https://github.com/containerd/containerd/releases/download/v${CONTAINERD}/cri-containerd-cni-${CONTAINERD}-linux-amd64.tar.gz

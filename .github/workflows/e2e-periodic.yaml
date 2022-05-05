@@ -72,6 +72,25 @@ jobs:
           e2e_quay_username: ${{ secrets.QUAY_USERNAME }}
           e2e_tts_token: ${{ secrets.TTS_TOKEN }}
 
+  e2e-hcloud-feature-packer:
+    name: Test Hcloud Feature Packer Image
+    concurrency: ci-${{ github.ref }}-e2e-feature-packer
+    runs-on: ubuntu-latest
+    needs:
+      - manager-image
+      - test-release
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+      - name: Run e2e Test
+        id: e2e
+        uses: ./.github/actions/e2e
+        with:
+          e2e_name: hcloud-feature-packer
+          e2e_make_target: test-e2e-feature-packer
+          e2e_quay_username: ${{ secrets.QUAY_USERNAME }}
+          e2e_tts_token: ${{ secrets.TTS_TOKEN }}
+
   e2e-hcloud-lifecycle:
     name: Test Hcloud Lifecycle
     concurrency: ci-${{ github.ref }}-e2e-lifecycle
