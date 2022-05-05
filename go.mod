@@ -17,7 +17,7 @@ require (
 	golang.org/x/mod v0.6.0-dev.0.20220106191415-9b9b3d81d5e3
 	k8s.io/api v0.24.0
 	k8s.io/apimachinery v0.24.0
-	k8s.io/apiserver v0.23.6
+	k8s.io/apiserver v0.24.0
 	k8s.io/client-go v0.24.0
 	k8s.io/klog/v2 v2.60.1
 	k8s.io/kubectl v0.24.0
