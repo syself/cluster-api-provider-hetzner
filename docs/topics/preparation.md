@@ -72,8 +72,10 @@ export HCLOUD_CONTROL_PLANE_MACHINE_TYPE=cpx31 \
 export HCLOUD_WORKER_MACHINE_TYPE=cpx31
 ```
 
-HCLOUD_SSH_KEY: The SSH Key name you loaded in HCloud.
-HCLOUD_IMAGE_NAME: The Image name of your operating system.
+* HCLOUD_SSH_KEY: The SSH Key name you loaded in HCloud.
+* HCLOUD_REGION: https://docs.hetzner.com/cloud/general/locations/
+* HCLOUD_IMAGE_NAME: The Image name of your operating system.
+* HCLOUD_X_MACHINE_TYPE: https://www.hetzner.com/cloud#pricing
 
 For a list of all variables need for generating a cluster manifest (from the cluster-template.yaml) use `clusterctl generate cluster my-cluster --list-variables`:
 
