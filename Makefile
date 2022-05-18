@@ -80,7 +80,7 @@ HELM_DIFF_VERSION=3.4.1									# https://github.com/databus23/helm-diff/release
 #
 # Go.
 #
-GO_VERSION ?= 1.17.6
+GO_VERSION ?= 1.18.2
 GO_CONTAINER_IMAGE ?= docker.io/library/golang:$(GO_VERSION)
 # Use GOPROXY environment variable if set
 GOPROXY := $(shell go env GOPROXY)

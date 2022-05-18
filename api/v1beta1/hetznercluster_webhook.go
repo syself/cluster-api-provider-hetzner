@@ -165,7 +165,7 @@ func (r *HetznerCluster) isNetworkZoneSameForAllRegions(regions []Region, defaul
 		}
 	}
 	return nil
-}
+} //lint:ignore U1000 Ignore unused function temporarily for debugging
 
 func (r *HetznerCluster) validateHetznerSecretKey() *field.Error {
 	// Hetzner secret key needs to contain either HCloud or Hrobot credentials

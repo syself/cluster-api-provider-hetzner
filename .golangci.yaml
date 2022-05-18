@@ -3,14 +3,15 @@ linters:
   enable:
     - asciicheck
     - bodyclose
+    - containedctx
     - deadcode
     - depguard
     - dogsled
     - errcheck
     - exportloopref
+    - gci
     - goconst
     - gocritic
-    - gocyclo
     - godot
     - gofmt
     - goimports
@@ -24,8 +25,10 @@ linters:
     - misspell
     - nakedret
     - nilerr
+    - noctx
     - nolintlint
     - prealloc
+    - predeclared
     - revive
     - rowserrcheck
     - staticcheck
@@ -35,9 +38,9 @@ linters:
     - typecheck
     - unconvert
     - unparam
+    - unused
     - varcheck
     - whitespace
-    - gci
 
 linters-settings:
   ifshort:
@@ -60,10 +63,14 @@ linters-settings:
       # Controller Runtime
       - pkg: sigs.k8s.io/controller-runtime
         alias: ctrl
+  nolintlint:
+    allow-unused: false
+    allow-leading-space: false
+    require-specific: true
   staticcheck:
-    go: "1.17"
+    go: "1.18"
   stylecheck:
-    go: "1.17"
+    go: "1.18"
   gosec:
     excludes:
       - G307 # Deferring unsafe method "Close" on type "\*os.File"

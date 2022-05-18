@@ -4,7 +4,7 @@ inputs:
   version:
     description: 'Go Version to setup'
     required: true
-    default: "1.17"
+    default: "1.18"
 runs:
   using: "composite"
   steps:
