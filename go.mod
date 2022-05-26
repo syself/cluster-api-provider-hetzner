@@ -16,7 +16,7 @@ require (
 	golang.org/x/crypto v0.0.0-20220214200702-86341886e292
 	golang.org/x/mod v0.6.0-dev.0.20220106191415-9b9b3d81d5e3
 	k8s.io/api v0.24.0
-	k8s.io/apimachinery v0.24.0
+	k8s.io/apimachinery v0.24.1
 	k8s.io/apiserver v0.24.0
 	k8s.io/client-go v0.24.0
 	k8s.io/klog/v2 v2.60.1
