@@ -20,10 +20,10 @@ settings = {
     "deploy_observability": False,
     "preload_images_for_kind": True,
     "kind_cluster_name": "caph",
-    "capi_version": "v1.1.3",
+    "capi_version": "v1.1.4",
     "cabpt_version": "v0.5.2",
     "cacppt_version": "v0.4.5",
-    "cert_manager_version": "v1.1.0",
+    "cert_manager_version": "v1.7.2",
     "kustomize_substitutions": {
         "HCLOUD_REGION": "fsn1",
         "CONTROL_PLANE_MACHINE_COUNT": "3",
