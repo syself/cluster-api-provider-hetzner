@@ -43,7 +43,7 @@ CI_KIND ?= true
 #
 # Binaries.
 #
-MINIMUM_CLUSTERCTL_VERSION=1.1.3				# https://github.com/kubernetes-sigs/cluster-api/releases
+MINIMUM_CLUSTERCTL_VERSION=1.1.4				# https://github.com/kubernetes-sigs/cluster-api/releases
 MINIMUM_CTLPTL_VERSION=0.7.8						# https://github.com/tilt-dev/ctlptl/releases
 MINIMUM_GO_VERSION=go$(GO_VERSION)			# Check current project go version
 MINIMUM_HCLOUD_VERSION=1.29.4						# https://github.com/hetznercloud/cli/releases
