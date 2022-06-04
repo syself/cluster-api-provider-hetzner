@@ -63,8 +63,8 @@ providers:
   - name: hetzner
     type: InfrastructureProvider
     versions:
-      - name: ${CAPH_LATEST_VERSION:-v1.0.0-alpha.18} # latest published release
-        value: https://github.com/syself/cluster-api-provider-hetzner/releases/download/${CAPH_LATEST_VERSION:-v1.0.0-alpha.18}/infrastructure-components.yaml
+      - name: ${CAPH_LATEST_VERSION:-} # latest published release
+        value: https://github.com/syself/cluster-api-provider-hetzner/releases/download/${CAPH_LATEST_VERSION:-}/infrastructure-components.yaml
         type: "url"
         contract: v1beta1
         files:
@@ -115,10 +115,10 @@ variables:
 
   # NOTE: INIT_WITH_BINARY and INIT_WITH_KUBERNETES_VERSION are only used by the clusterctl upgrade test to initialize
   # the management cluster to be upgraded.
-  INIT_WITH_BINARY: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.1.4/clusterctl-linux-amd64"
+  INIT_WITH_BINARY: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.1.0/clusterctl-linux-amd64"
   INIT_WITH_PROVIDERS_CONTRACT: "v1beta1"
   INIT_WITH_KUBERNETES_VERSION: "v1.24.1"
-  INIT_WITH_INFRASTRUCTURE_PROVIDER_VERSION: ${CAPH_LATEST_VERSION:-v1.0.0-alpha.18}
+  INIT_WITH_INFRASTRUCTURE_PROVIDER_VERSION: ${CAPH_LATEST_VERSION:-}
 
   # Cluster Addons
   CNI: "./data/cni/cilium/cilium.yaml"
@@ -146,9 +146,9 @@ variables:
   REDACT_LOG_SCRIPT: "../../hack/log/redact.sh"
 
 intervals:
-  default/wait-cluster: ["15m", "10s"]
+  default/wait-cluster: ["20m", "10s"]
   default/wait-control-plane: ["30m", "10s"]
-  default/wait-worker-nodes: ["20m", "10s"]
+  default/wait-worker-nodes: ["15m", "10s"]
   default/wait-controllers: ["5m", "10s"]
   default/wait-delete-cluster: ["20m", "10s"]
   default/wait-machine-upgrade: ["20m", "10s"]
