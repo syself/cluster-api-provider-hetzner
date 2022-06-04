@@ -1,12 +1,12 @@
-name: verify
+name: Verify PR Code
 on:
   pull_request:
     types: [opened, edited, synchronize, reopened]
     branches:
       - main
-      - 'releases/**'
+      - "releases/**"
     paths-ignore:
-      - '**.md'
+      - "**.md"
 
 jobs:
   test:
@@ -18,7 +18,7 @@ jobs:
       - name: Install go
         uses: actions/setup-go@v3
         with:
-          go-version: '^1.17'
+          go-version: "^1.17"
       - name: Verify Boilerplate
         run: make verify-boilerplate
       - name: Verify Modules

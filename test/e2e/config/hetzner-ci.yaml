@@ -63,8 +63,8 @@ providers:
   - name: hetzner
     type: InfrastructureProvider
     versions:
-      - name: ${CAPH_LATEST_VERSION:-v1.0.0-alpha.17} # latest published release
-        value: https://github.com/syself/cluster-api-provider-hetzner/releases/download/${CAPH_LATEST_VERSION:-v1.0.0-alpha.17}/infrastructure-components.yaml
+      - name: ${CAPH_LATEST_VERSION:-v1.0.0-alpha.18} # latest published release
+        value: https://github.com/syself/cluster-api-provider-hetzner/releases/download/${CAPH_LATEST_VERSION:-v1.0.0-alpha.18}/infrastructure-components.yaml
         type: "url"
         contract: v1beta1
         files:
@@ -72,6 +72,7 @@ providers:
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-k8s-upgrade.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-k8s-upgrade-kcp-scale-in.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-packer.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-csr-off.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-load-balancer-extra-services.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-placement-groups.yaml"
@@ -89,6 +90,7 @@ providers:
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-k8s-upgrade.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-k8s-upgrade-kcp-scale-in.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-packer.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-csr-off.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-load-balancer-extra-services.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-placement-groups.yaml"
@@ -99,10 +101,10 @@ providers:
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-kcp-remediation.yaml"
 variables:
   # Upgrade Test
-  KUBERNETES_VERSION_MANAGEMENT: "v1.23.6"
-  KUBERNETES_VERSION: "${KUBERNETES_VERSION:-v1.23.6}"
-  KUBERNETES_VERSION_UPGRADE_FROM: "v1.23.0"
-  KUBERNETES_VERSION_UPGRADE_TO: "v1.23.6"
+  KUBERNETES_VERSION_MANAGEMENT: "v1.24.1"
+  KUBERNETES_VERSION: "${KUBERNETES_VERSION:-v1.24.1}"
+  KUBERNETES_VERSION_UPGRADE_FROM: "v1.23.6"
+  KUBERNETES_VERSION_UPGRADE_TO: "v1.24.1"
   CONTROL_PLANE_MACHINE_TEMPLATE_UPGRADE_TO: "k8s-upgrade-control-plane"
   WORKERS_MACHINE_TEMPLATE_UPGRADE_TO: "k8s-upgrade-worker"
   KUBERNETES_IMAGE_UPGRADE_FROM: ${KUBERNETES_IMAGE_UPGRADE_FROM:-}
@@ -113,10 +115,10 @@ variables:
 
   # NOTE: INIT_WITH_BINARY and INIT_WITH_KUBERNETES_VERSION are only used by the clusterctl upgrade test to initialize
   # the management cluster to be upgraded.
-  INIT_WITH_BINARY: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.1.0/clusterctl-linux-amd64"
+  INIT_WITH_BINARY: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.1.4/clusterctl-linux-amd64"
   INIT_WITH_PROVIDERS_CONTRACT: "v1beta1"
-  INIT_WITH_KUBERNETES_VERSION: "v1.23.6"
-  INIT_WITH_INFRASTRUCTURE_PROVIDER_VERSION: ${CAPH_LATEST_VERSION:-v1.0.0-alpha.17}
+  INIT_WITH_KUBERNETES_VERSION: "v1.24.1"
+  INIT_WITH_INFRASTRUCTURE_PROVIDER_VERSION: ${CAPH_LATEST_VERSION:-v1.0.0-alpha.18}
 
   # Cluster Addons
   CNI: "./data/cni/cilium/cilium.yaml"
@@ -138,7 +140,7 @@ variables:
   HCLOUD_TOKEN: "admin123"
   HCLOUD_SSH_KEY: "test"
   HCLOUD_REGION: "nbg1"
-  HCLOUD_IMAGE_NAME: ${HCLOUD_IMAGE_NAME:-fedora-35}
+  HCLOUD_IMAGE_NAME: ${HCLOUD_IMAGE_NAME:-}
   HCLOUD_CONTROL_PLANE_MACHINE_TYPE: cpx31
   HCLOUD_WORKER_MACHINE_TYPE: cpx21
   REDACT_LOG_SCRIPT: "../../hack/log/redact.sh"
@@ -146,7 +148,7 @@ variables:
 intervals:
   default/wait-cluster: ["15m", "10s"]
   default/wait-control-plane: ["30m", "10s"]
-  default/wait-worker-nodes: ["15m", "10s"]
+  default/wait-worker-nodes: ["20m", "10s"]
   default/wait-controllers: ["5m", "10s"]
   default/wait-delete-cluster: ["20m", "10s"]
   default/wait-machine-upgrade: ["20m", "10s"]

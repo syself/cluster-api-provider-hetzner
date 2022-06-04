@@ -55,7 +55,8 @@ HETZNER_TEMPLATES := $(REPO_ROOT)/test/e2e/data/infrastructure-hetzner
 
 e2e-cilium-templates:
 	helm repo add cilium https://helm.cilium.io/
-	helm template cilium cilium/cilium --version 1.10.5 \
+	helm repo update cilium
+	helm template cilium cilium/cilium --version 1.11.5 \
   	--namespace kube-system \
 	-f $(REPO_ROOT)/templates/cilium/cilium.yaml > $(REPO_ROOT)/test/e2e/data/cni/cilium/cilium.yaml
 
@@ -81,6 +82,7 @@ cluster-templates-v1beta1: $(KUSTOMIZE) ## Generate cluster templates for v1beta
 	$(KUSTOMIZE) build $(HETZNER_TEMPLATES)/v1beta1/cluster-template --load-restrictor LoadRestrictionsNone | sed 's/hcloud_secret_placeholder/$(shell echo -n "$(HCLOUD_TOKEN)" | base64 | tr -d '\n')/' > $(HETZNER_TEMPLATES)/v1beta1/cluster-template.yaml
 	$(KUSTOMIZE) build $(HETZNER_TEMPLATES)/v1beta1/cluster-template-k8s-upgrade --load-restrictor LoadRestrictionsNone | sed 's/hcloud_secret_placeholder/$(shell echo -n "$(HCLOUD_TOKEN)" | base64 | tr -d '\n')/' > $(HETZNER_TEMPLATES)/v1beta1/cluster-template-k8s-upgrade.yaml
 	$(KUSTOMIZE) build $(HETZNER_TEMPLATES)/v1beta1/cluster-template-k8s-upgrade-kcp-scale-in --load-restrictor LoadRestrictionsNone | sed 's/hcloud_secret_placeholder/$(shell echo -n "$(HCLOUD_TOKEN)" | base64 | tr -d '\n')/' > $(HETZNER_TEMPLATES)/v1beta1/cluster-template-k8s-upgrade-kcp-scale-in.yaml
+	$(KUSTOMIZE) build $(HETZNER_TEMPLATES)/v1beta1/cluster-template-hcloud-feature-packer --load-restrictor LoadRestrictionsNone | sed 's/hcloud_secret_placeholder/$(shell echo -n "$(HCLOUD_TOKEN)" | base64 | tr -d '\n')/' > $(HETZNER_TEMPLATES)/v1beta1/cluster-template-hcloud-feature-packer.yaml
 	$(KUSTOMIZE) build $(HETZNER_TEMPLATES)/v1beta1/cluster-template-hcloud-feature-csr-off --load-restrictor LoadRestrictionsNone | sed 's/hcloud_secret_placeholder/$(shell echo -n "$(HCLOUD_TOKEN)" | base64 | tr -d '\n')/' > $(HETZNER_TEMPLATES)/v1beta1/cluster-template-hcloud-feature-csr-off.yaml
 	$(KUSTOMIZE) build $(HETZNER_TEMPLATES)/v1beta1/cluster-template-hcloud-feature-load-balancer-extra-services --load-restrictor LoadRestrictionsNone | sed 's/hcloud_secret_placeholder/$(shell echo -n "$(HCLOUD_TOKEN)" | base64 | tr -d '\n')/' > $(HETZNER_TEMPLATES)/v1beta1/cluster-template-hcloud-feature-load-balancer-extra-services.yaml
 	$(KUSTOMIZE) build $(HETZNER_TEMPLATES)/v1beta1/cluster-template-hcloud-feature-placement-groups --load-restrictor LoadRestrictionsNone | sed 's/hcloud_secret_placeholder/$(shell echo -n "$(HCLOUD_TOKEN)" | base64 | tr -d '\n')/' > $(HETZNER_TEMPLATES)/v1beta1/cluster-template-hcloud-feature-placement-groups.yaml

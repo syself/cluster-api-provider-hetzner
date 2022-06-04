@@ -23,7 +23,7 @@ echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee -a /etc/
 apt-get update
 
 # Check actual version: https://github.com/kubernetes/kubernetes/releases
-KUBERNETES_VERSION=1.23.4 # https://kubernetes.io/releases/#release-history
+KUBERNETES_VERSION=1.24.1 # https://kubernetes.io/releases/#release-history
 
 apt-get install -y kubelet=$KUBERNETES_VERSION-00 kubeadm=$KUBERNETES_VERSION-00 kubectl=$KUBERNETES_VERSION-00  bash-completion
 apt-mark hold kubelet kubectl kubeadm

@@ -3,7 +3,7 @@
     "hcloud_token": "{{env `HCLOUD_TOKEN`}}",
     "scripts": "{{template_dir}}/scripts",
     "os": "ubuntu-20.04",
-    "image-name": "1.23.4-ubuntu-20.04-containerd",
+    "image-name": "1.24.1-ubuntu-20.04-containerd",
     "version": "{{isotime \"2006-01-02-1504\"}}"
   },
   "sensitive-variables": ["hcloud_token"],

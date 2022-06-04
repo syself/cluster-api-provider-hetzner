@@ -46,7 +46,6 @@ spec:
           kubelet-preferred-address-types: ExternalIP,Hostname,InternalDNS,ExternalDNS
           profiling: "false"
           enable-bootstrap-token-auth: "true"
-          insecure-port: "0"
           default-not-ready-toleration-seconds: "45"
           default-unreachable-toleration-seconds: "45"
         extraVolumes:
@@ -68,9 +67,7 @@ spec:
           kubeconfig: /etc/kubernetes/controller-manager.conf
           authentication-kubeconfig: /etc/kubernetes/controller-manager.conf
           authorization-kubeconfig: /etc/kubernetes/controller-manager.conf
-          address: "127.0.0.1"
           bind-address: "0.0.0.0"
-          port: "0"
           secure-port: "10257"
           allocate-node-cidrs: "true"
           pod-eviction-timeout: 2m
@@ -78,9 +75,7 @@ spec:
         extraArgs:
           profiling: "false"
           kubeconfig: /etc/kubernetes/scheduler.conf
-          address: "127.0.0.1"
           bind-address: "0.0.0.0"
-          port: "0"
           secure-port: "10259"
       etcd:
         local:

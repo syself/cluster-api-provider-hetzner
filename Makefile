@@ -44,14 +44,14 @@ CI_KIND ?= true
 # Binaries.
 #
 MINIMUM_CLUSTERCTL_VERSION=1.1.4				# https://github.com/kubernetes-sigs/cluster-api/releases
-MINIMUM_CTLPTL_VERSION=0.7.8						# https://github.com/tilt-dev/ctlptl/releases
+MINIMUM_CTLPTL_VERSION=0.8.3						# https://github.com/tilt-dev/ctlptl/releases
 MINIMUM_GO_VERSION=go$(GO_VERSION)			# Check current project go version
 MINIMUM_HCLOUD_VERSION=1.29.4						# https://github.com/hetznercloud/cli/releases
 MINIMUM_HELMFILE_VERSION=v0.144.0				# https://github.com/roboll/helmfile/releases
-MINIMUM_KIND_VERSION=v0.12.0						# https://github.com/kubernetes-sigs/kind/releases
-MINIMUM_KUBECTL_VERSION=v1.23.0					# https://github.com/kubernetes/kubernetes/releases
-MINIMUM_PACKER_VERSION=1.8.0						# https://github.com/hashicorp/packer/releases
-MINIMUM_TILT_VERSION=0.27.2							# https://github.com/tilt-dev/tilt/releases
+MINIMUM_KIND_VERSION=v0.14.0						# https://github.com/kubernetes-sigs/kind/releases
+MINIMUM_KUBECTL_VERSION=v1.24.0					# https://github.com/kubernetes/kubernetes/releases
+MINIMUM_PACKER_VERSION=1.8.1						# https://github.com/hashicorp/packer/releases
+MINIMUM_TILT_VERSION=0.30.1							# https://github.com/tilt-dev/tilt/releases
 KUSTOMIZE_VERSION=4.5.4									# https://github.com/kubernetes-sigs/kustomize/releases
 
 #
@@ -448,6 +448,10 @@ test-e2e: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
 test-e2e-feature: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
 	GINKO_FOKUS="'\[Feature\]'" GINKO_NODES=3 ./hack/ci-e2e-capi.sh
 
+.PHONY: test-e2e-feature-packer
+test-e2e-feature-packer: $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
+	GINKO_FOKUS="'\[Feature Packer\]'" GINKO_NODES=1 PACKER_IMAGE_NAME=templates/node-image/1.24.1-ubuntu-20-04-containerd ./hack/ci-e2e-capi.sh
+
 .PHONY: test-e2e-feature-talos
 test-e2e-feature-talos: $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
 	GINKO_FOKUS="'\[Feature Talos\]'" GINKO_NODES=1 PACKER_TALOS=templates/node-image/talos-image ./hack/ci-e2e-capi.sh
@@ -462,7 +466,7 @@ test-e2e-upgrade-caph: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(A
 
 .PHONY: test-e2e-upgrade-kubernetes
 test-e2e-upgrade-kubernetes: $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKO_FOKUS="'\[Upgrade Kubernetes\]'" GINKO_NODES=2 PACKER_KUBERNETES_UPGRADE_FROM=templates/node-image/1.23.4-ubuntu-20-04-containerd PACKER_KUBERNETES_UPGRADE_TO=templates/node-image/1.23.6-ubuntu-20-04-containerd ./hack/ci-e2e-capi.sh
+	GINKO_FOKUS="'\[Upgrade Kubernetes\]'" GINKO_NODES=2 PACKER_KUBERNETES_UPGRADE_FROM=templates/node-image/1.23.6-ubuntu-20-04-containerd PACKER_KUBERNETES_UPGRADE_TO=templates/node-image/1.24.1-ubuntu-20-04-containerd ./hack/ci-e2e-capi.sh
 
 .PHONY: test-e2e-conformance
 test-e2e-conformance: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
@@ -579,12 +583,13 @@ wait-and-get-secret:
 	${TIMEOUT} 5m bash -c "while ! kubectl get secrets | grep $(CLUSTER_NAME)-kubeconfig; do sleep 1; done"
 	# Get kubeconfig and store it locally.
 	kubectl get secrets $(CLUSTER_NAME)-kubeconfig -o json | jq -r .data.value | base64 --decode > $(CAPH_WORKER_CLUSTER_KUBECONFIG)
-	${TIMEOUT} 15m bash -c "while ! kubectl --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) get nodes | grep master; do sleep 1; done"
+	${TIMEOUT} 15m bash -c "while ! kubectl --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) get nodes | grep control-plane; do sleep 1; done"
 
 install-manifests-cilium:
 	# Deploy cilium
 	helm repo add cilium https://helm.cilium.io/
-	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install cilium cilium/cilium --version 1.10.5 \
+	helm repo update cilium
+	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install cilium cilium/cilium --version 1.11.5 \
   	--namespace kube-system \
 	-f templates/cilium/cilium.yaml
 
