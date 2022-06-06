@@ -35,8 +35,17 @@ All pre-configured flavors can be found on the [release page](https://github.com
 
 ## Hetzner Dedicated / Bare Metal Server
 
-If you want to create a cluster with bare metal servers, you need to additionally set up the robot credentials in the preparation step. As described in the [reference](/docs/reference/hetzner-bare-metal-machine-template.md), you need to manually buy bare metal servers before-hand.
-Then you need to create a `HetznerBareMetalHost` object for each bare metal server that you bought and specify its server ID in the specs. If you already know the WWN of the storage device you want to choose for booting, then specify it in `rootDeviceHints`. If not, then you can wait for the host to start provisioning. It will show you an error that you did not specify the WWN. If you reach this point, have a look at the status of `HetznerBareMetalHost`. There you find `hardwareDetails`, in which you can see a list of all relevant storage devices as well as their properties. You can just copy+paste the WWN of your favorite storage device into `rootDeviceHints`.  ....
+If you want to create a cluster with bare metal servers, you need to additionally set up the robot credentials in the preparation step. As described in the [reference](/docs/reference/hetzner-bare-metal-machine-template.md), you need to manually buy bare metal servers before-hand. To use bare metal servers for your deployment, you should choose one of the following flavors:
+
+| Flavor                                       | What it does                                                                                                                                 |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| hetzner-baremetal-control-planes-remediation | Uses bare metal servers for the control plane nodes - with custom remediation (try to reboot machines first)  |
+| hetzner-baremetal-control-planes             | Uses bare metal servers for the control plane nodes - with normal remediation (unprovision/recreate machines) |
+| hetzner-hcloud-control-planes                | Uses the hcloud servers for the control plane nodes and the bare metal servers for the worker nodes                                          |
+
+Then you need to create a `HetznerBareMetalHost` object for each bare metal server that you bought and specify its server ID in the specs. See an [example](/docs/reference/hetzner-bare-metal-host.md). Add the created objects to your my-cluster.yaml file. If you already know the WWN of the storage device you want to choose for booting, then specify it in `rootDeviceHints` of the object. If not, you can apply the workload cluster and start the provisioning without specifying the WWN and then wait for the bare metal hosts to show an error.
+
+Then have a look at the status of `HetznerBareMetalHost` by running `kubectl describe hetznerbaremetalhost` in your management cluster. There you will find `hardwareDetails` of all of your bare metal hosts, in which you can see a list of all the relevant storage devices as well as their properties. You can just copy+paste the WWN:s of your desired storage device into the `rootDeviceHints` of your `HetznerBareMetalHost` objects.
 
 ## Apply the workload cluster
 
@@ -89,7 +98,7 @@ You can, of course, also install an alternative CNI, e.g. calico.
 
 ## Deploy the CCM
 
-### Deploy HCloud Cloud Controller Manager - *hcloud only*
+### Deploy HCloud Cloud Controller Manager - _hcloud only_
 
 This make command will install the CCM in your workload cluster.
 
@@ -117,7 +126,7 @@ KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install ccm syself/ccm
 helm repo add syself https://charts.syself.com
 helm repo update syself
 
-KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG)helm upgrade --install ccm syself/ccm-hetzner --version 1.1.2 \
+KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install ccm syself/ccm-hetzner --version 1.1.2 \
 --namespace kube-system \
 --set image.tag=latest \
 --set privateNetwork.enabled=false
@@ -188,8 +197,8 @@ Clusterctl Flags:
 
 | Flag                      | Description                                                                                                                   |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| _--namespace_             | The namespace where the workload cluster is hosted. If unspecified, the current context's namespace is used. |
-| _--kubeconfig_            | Path to the kubeconfig file for the source management cluster. If unspecified, default discovery rules apply. |
-| _--kubeconfig-context_    | Context to be used within the kubeconfig file for the source management cluster. If empty, current context will be used. |
-| _--to-kubeconfig_         | Path to the kubeconfig file to use for the destination management cluster. |
+| _--namespace_             | The namespace where the workload cluster is hosted. If unspecified, the current context's namespace is used.                  |
+| _--kubeconfig_            | Path to the kubeconfig file for the source management cluster. If unspecified, default discovery rules apply.                 |
+| _--kubeconfig-context_    | Context to be used within the kubeconfig file for the source management cluster. If empty, current context will be used.      |
+| _--to-kubeconfig_         | Path to the kubeconfig file to use for the destination management cluster.                                                    |
 | _--to-kubeconfig-context_ | Context to be used within the kubeconfig file for the destination management cluster. If empty, current context will be used. |
