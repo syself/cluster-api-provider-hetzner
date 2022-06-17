@@ -24,6 +24,14 @@ log_files=( $(find "${ARTIFACTS:-${PWD}/_artifacts}" -type f) )
 redact_vars=(
     "${HCLOUD_TOKEN:-}"
     "$(echo -n "${HCLOUD_TOKEN:-}" | base64 | tr -d '\n')"
+    "${HETZNER_ROBOT_USER:-}"
+    "$(echo -n "${HETZNER_ROBOT_USER:-}" | base64 | tr -d '\n')"
+    "${HETZNER_ROBOT_PASSWORD:-}"
+    "$(echo -n "${HETZNER_ROBOT_PASSWORD:-}" | base64 | tr -d '\n')"
+    "${HETZNER_SSH_PUB:-}"
+    "$(echo -n "${HETZNER_SSH_PUB:-}" | base64 | tr -d '\n')"
+    "${HETZNER_SSH_PRIV:-}"
+    "$(echo -n "${HETZNER_SSH_PRIV:-}" | tr -d '\n' | base64 )"
 )
 
 for log_file in "${log_files[@]}"; do

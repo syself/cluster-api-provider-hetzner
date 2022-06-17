@@ -52,6 +52,7 @@ jobs:
           e2e_make_target: test-e2e
           e2e_quay_username: ${{ secrets.QUAY_USERNAME }}
           e2e_tts_token: ${{ secrets.TTS_TOKEN }}
+          e2e_hcloud_token: ${{ secrets.HCLOUD_TOKEN }}
 
   e2e-hcloud-feature:
     name: Test Hcloud Features
@@ -71,6 +72,7 @@ jobs:
           e2e_make_target: test-e2e-feature
           e2e_quay_username: ${{ secrets.QUAY_USERNAME }}
           e2e_tts_token: ${{ secrets.TTS_TOKEN }}
+          e2e_hcloud_token: ${{ secrets.HCLOUD_TOKEN }}
 
   e2e-hcloud-feature-packer:
     name: Test Hcloud Feature Packer Image
@@ -90,6 +92,7 @@ jobs:
           e2e_make_target: test-e2e-feature-packer
           e2e_quay_username: ${{ secrets.QUAY_USERNAME }}
           e2e_tts_token: ${{ secrets.TTS_TOKEN }}
+          e2e_hcloud_token: ${{ secrets.HCLOUD_TOKEN }}
 
   e2e-hcloud-lifecycle:
     name: Test Hcloud Lifecycle
@@ -109,6 +112,7 @@ jobs:
           e2e_make_target: test-e2e-lifecycle
           e2e_quay_username: ${{ secrets.QUAY_USERNAME }}
           e2e_tts_token: ${{ secrets.TTS_TOKEN }}
+          e2e_hcloud_token: ${{ secrets.HCLOUD_TOKEN }}
 
   e2e-hcloud-conformance:
     name: Test Hcloud Conformance
@@ -128,3 +132,4 @@ jobs:
           e2e_make_target: test-e2e-conformance
           e2e_quay_username: ${{ secrets.QUAY_USERNAME }}
           e2e_tts_token: ${{ secrets.TTS_TOKEN }}
+          e2e_hcloud_token: ${{ secrets.HCLOUD_TOKEN }}

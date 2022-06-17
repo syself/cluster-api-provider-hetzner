@@ -1,4 +1,4 @@
-name: E2E Upgrade Kubernetes
+name: E2E Basic Baremetal
 on:
   workflow_dispatch:
 env:
@@ -34,9 +34,9 @@ jobs:
         with:
           test_release_quay_username: ${{ secrets.QUAY_USERNAME }}
 
-  e2e-upgrade-kubernetes:
-    name: Test Kubernetes Upgrade
-    concurrency: ci-${{ github.ref }}-e2e-upgrade-kubernetes
+  e2e-hetzner-basic:
+    name: Test Hetzner Basic
+    concurrency: ci-${{ github.ref }}-e2e-basic-hetzner
     runs-on: ubuntu-latest
     needs:
       - manager-image
@@ -48,8 +48,12 @@ jobs:
         id: e2e
         uses: ./.github/actions/e2e
         with:
-          e2e_name: upgrade-kubernetes
-          e2e_make_target: test-e2e-upgrade-kubernetes
+          e2e_name: hetzner-basic
+          e2e_make_target: test-e2e-baremetal
           e2e_quay_username: ${{ secrets.QUAY_USERNAME }}
           e2e_tts_token: ${{ secrets.TTS_TOKEN }}
           e2e_hcloud_token: ${{ secrets.HCLOUD_TOKEN }}
+          e2e_robot_user: ${{ secrets.HETZNER_ROBOT_USER }}
+          e2e_robot_password: ${{ secrets.HETZNER_ROBOT_PASSWORD }}
+          e2e_ssh_pub: ${{ secrets.HETZNER_SSH_PUB }}
+          e2e_ssh_priv: ${{ secrets.HETZNER_SSH_PRIV }}
