@@ -41,6 +41,7 @@ const (
 	CCMResources        = "CCM_RESOURCES"
 	CCMNetworkPath      = "CCM_NETWORK"
 	CCMNetworkResources = "CCM_RESOURCES_NETWORK"
+	HelmFileConfigPath  = "HELMFILE_CONFIG_PATH"
 )
 
 // Byf implements Ginkgo's By with fmt.Sprintf.

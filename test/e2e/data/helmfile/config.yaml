@@ -1,0 +1,5 @@
+apps:
+  - name: konnectivity-server
+    helmfilePath: my/path
+    environment: dev
+    selector: apps=konnectivity-service
