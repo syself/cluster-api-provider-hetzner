@@ -35,9 +35,9 @@
 | preload_images_for_kind | bool | true | no | If set to true, uses `kind load docker-image` to preload images into a kind cluster |
 | kind_cluster_name | []object | "caph" | no | The name of the kind cluster to use when preloading images |
 | capi_version | string | "v1.2.0-beta.1" | no | Version of CAPI |
-| cabpt_version | string | "v0.5.2" | no | Version of Cluster API Bootstrap Provider Talos |
-| cacppt_version | string | "v0.4.5" | no | Version of Cluster API Control Plane Provider Talos |
-| cert_manager_version | string | "v1.1.0" | no | Version of cert manager |
+| cabpt_version | string | "v0.5.4" | no | Version of Cluster API Bootstrap Provider Talos |
+| cacppt_version | string | "v0.4.6" | no | Version of Cluster API Control Plane Provider Talos |
+| cert_manager_version | string | "v1.7.2" | no | Version of cert manager |
 | kustomize_substitutions | map[string]string | {
         "HCLOUD_REGION": "fsn1",
         "CONTROL_PLANE_MACHINE_COUNT": "3",
