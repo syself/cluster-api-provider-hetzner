@@ -79,7 +79,7 @@ func appendWebhookConfiguration(configyamlFile []byte, tag string) ([]*v1.Mutati
 
 func initializeWebhookInEnvironment() {
 	// Get the root of the current file to use in CRD paths.
-	_, filename, _, _ := goruntime.Caller(0) //nolint
+	_, filename, _, _ := goruntime.Caller(0) //nolint:dogsled
 	root := path.Join(path.Dir(filename), "..", "..")
 	path := filepath.Join(root, "config", "webhook", "manifests.yaml")
 	configyamlFile, err := os.ReadFile(path) //#nosec
