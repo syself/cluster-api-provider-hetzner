@@ -331,6 +331,31 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				}, timeout).Should(BeTrue())
 			})
 		})
+
+		Context("with public network specs", func() {
+			BeforeEach(func() {
+				infraMachine.Spec.PublicNetwork = &infrav1.PublicNetworkSpec{
+					EnableIPv4: false,
+					EnableIPv6: false,
+				}
+				Expect(testEnv.Create(ctx, infraCluster)).To(Succeed())
+				Expect(testEnv.Create(ctx, infraMachine)).To(Succeed())
+			})
+
+			It("creates the HCloud machine in Hetzner", func() {
+				Eventually(func() int {
+					servers, err := hcloudClient.ListServers(ctx, hcloud.ServerListOpts{
+						ListOpts: hcloud.ListOpts{
+							LabelSelector: utils.LabelsToLabelSelector(map[string]string{infrav1.ClusterTagKey(infraCluster.Name): "owned"}),
+						},
+					})
+					if err != nil {
+						return 0
+					}
+					return len(servers)
+				}, timeout, time.Second).Should(BeNumerically(">", 0))
+			})
+		})
 	})
 })
 

@@ -51,6 +51,10 @@ type HCloudMachineSpec struct {
 
 	// +optional
 	PlacementGroupName *string `json:"placementGroupName,omitempty"`
+
+	// PublicNetwork specifies information for public networks
+	// +optional
+	PublicNetwork *PublicNetworkSpec `json:"publicNetwork,omitempty"`
 }
 
 // HCloudMachineStatus defines the observed state of HCloudMachine.

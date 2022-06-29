@@ -150,23 +150,6 @@ func (r *HetznerCluster) ValidateUpdate(old runtime.Object) error {
 	return aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
 }
 
-func (r *HetznerCluster) isNetworkZoneSameForAllRegions(regions []Region, defaultNetworkZone *string) *field.Error {
-	if len(regions) == 0 {
-		return nil
-	}
-
-	defaultNZ := regionNetworkZoneMap[string(regions[0])]
-	if defaultNetworkZone != nil {
-		defaultNZ = *defaultNetworkZone
-	}
-	for _, region := range regions {
-		if regionNetworkZoneMap[string(region)] != defaultNZ {
-			return field.Invalid(field.NewPath("spec", "controlPlaneRegions"), r.Spec.ControlPlaneRegions, "regions are not in one network zone")
-		}
-	}
-	return nil
-} //lint:ignore U1000 Ignore unused function temporarily for debugging
-
 func (r *HetznerCluster) validateHetznerSecretKey() *field.Error {
 	// Hetzner secret key needs to contain either HCloud or Hrobot credentials
 	if r.Spec.HetznerSecret.Key.HCloudToken == "" &&

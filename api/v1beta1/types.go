@@ -114,6 +114,16 @@ type HetznerSecretKeyRef struct {
 	HetznerRobotPassword string `json:"hetznerRobotPassword"`
 }
 
+// PublicNetworkSpec contains specs about public network spec of an HCloud server.
+type PublicNetworkSpec struct {
+	// +optional
+	// +kubebuilder:default=true
+	EnableIPv4 bool `json:"enableIPv4"`
+	// +optional
+	// +kubebuilder:default=true
+	EnableIPv6 bool `json:"enableIPv6"`
+}
+
 // LoadBalancerSpec defines the desired state of the Control Plane Loadbalancer.
 type LoadBalancerSpec struct {
 	// +optional

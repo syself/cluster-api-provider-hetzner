@@ -50,7 +50,14 @@ func (r *HCloudMachineList) SetupWebhookWithManager(mgr ctrl.Manager) error {
 var _ webhook.Defaulter = &HCloudMachine{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type.
-func (r *HCloudMachine) Default() {}
+func (r *HCloudMachine) Default() {
+	if r.Spec.PublicNetwork == nil {
+		r.Spec.PublicNetwork = &PublicNetworkSpec{
+			EnableIPv4: true,
+			EnableIPv6: true,
+		}
+	}
+}
 
 //+kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta1-hcloudmachine,mutating=false,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hcloudmachines,verbs=create;update,versions=v1beta1,name=validation.hcloudmachine.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
 

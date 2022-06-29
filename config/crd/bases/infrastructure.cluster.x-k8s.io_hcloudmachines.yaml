@@ -83,6 +83,16 @@ spec:
                 description: ProviderID is the unique identifier as specified by the
                   cloud provider.
                 type: string
+              publicNetwork:
+                description: PublicNetwork specifies information for public networks
+                properties:
+                  enableIPv4:
+                    default: true
+                    type: boolean
+                  enableIPv6:
+                    default: true
+                    type: boolean
+                type: object
               sshKeys:
                 description: define Machine specific SSH keys, overrides cluster wide
                   SSH keys

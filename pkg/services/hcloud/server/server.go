@@ -304,6 +304,14 @@ func (s *Service) createServer(ctx context.Context, failureDomain string) (*hclo
 		}}
 	}
 
+	// if no private network exists
+	if !s.scope.HetznerCluster.Spec.HCloudNetwork.Enabled {
+		opts.PublicNet = &hcloud.ServerCreatePublicNet{
+			EnableIPv4: s.scope.HCloudMachine.Spec.PublicNetwork.EnableIPv4,
+			EnableIPv6: s.scope.HCloudMachine.Spec.PublicNetwork.EnableIPv6,
+		}
+	}
+
 	// Create the server
 	res, err := s.scope.HCloudClient.CreateServer(ctx, opts)
 	if err != nil {
@@ -571,38 +579,40 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 		return nil
 	}
 
-	loadBalancerAddServerTargetOpts := hcloud.LoadBalancerAddServerTargetOpts{
-		Server:       server,
-		UsePrivateIP: &hasPrivateIP,
-	}
-
-	if _, err := s.scope.HCloudClient.AddTargetServerToLoadBalancer(
-		ctx,
-		loadBalancerAddServerTargetOpts,
-		&hcloud.LoadBalancer{
-			ID: s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID,
-		}); err != nil {
-		if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
-			conditions.MarkTrue(s.scope.HCloudMachine, infrav1.RateLimitExceeded)
-			record.Event(s.scope.HCloudMachine,
-				"RateLimitExceeded",
-				"exceeded rate limit with calling hcloud function AddTargetServerToLoadBalancer",
-			)
+	// Only if server has IPv4, otherwise Hetzner cannot handle it
+	if server.PublicNet.IPv4.IP != nil {
+		loadBalancerAddServerTargetOpts := hcloud.LoadBalancerAddServerTargetOpts{
+			Server:       server,
+			UsePrivateIP: &hasPrivateIP,
 		}
-		if hcloud.IsError(err, hcloud.ErrorCodeTargetAlreadyDefined) {
-			return nil
+
+		if _, err := s.scope.HCloudClient.AddTargetServerToLoadBalancer(
+			ctx,
+			loadBalancerAddServerTargetOpts,
+			&hcloud.LoadBalancer{
+				ID: s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID,
+			}); err != nil {
+			if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
+				conditions.MarkTrue(s.scope.HCloudMachine, infrav1.RateLimitExceeded)
+				record.Event(s.scope.HCloudMachine,
+					"RateLimitExceeded",
+					"exceeded rate limit with calling hcloud function AddTargetServerToLoadBalancer",
+				)
+			}
+			if hcloud.IsError(err, hcloud.ErrorCodeTargetAlreadyDefined) {
+				return nil
+			}
+			s.scope.V(1).Info("Could not add server as target to load balancer",
+				"Server", server.ID, "Load Balancer", s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID)
+			return err
 		}
-		s.scope.V(1).Info("Could not add server as target to load balancer",
-			"Server", server.ID, "Load Balancer", s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID)
-		return err
+
+		record.Eventf(
+			s.scope.HetznerCluster,
+			"AddedAsTargetToLoadBalancer",
+			"Added new server with id %d to the loadbalancer %v",
+			server.ID, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID)
 	}
-
-	record.Eventf(
-		s.scope.HetznerCluster,
-		"AddedAsTargetToLoadBalancer",
-		"Added new server with id %d to the loadbalancer %v",
-		server.ID, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID)
-
 	return nil
 }
 
