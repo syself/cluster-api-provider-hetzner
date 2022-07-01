@@ -50,6 +50,10 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 	log := ctrl.LoggerFrom(ctx)
 	log.V(1).Info("Reconcile load balancer")
 
+	if !s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
+		return nil
+	}
+
 	// find load balancer
 	lb, err := s.findLoadBalancer(ctx)
 	if err != nil {

@@ -194,7 +194,8 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 	}
 	conditions.MarkTrue(hetznerCluster, infrav1.PlacementGroupsSynced)
 
-	if hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4 != "<nil>" {
+	if hetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled &&
+		hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4 != "<nil>" {
 		var defaultHost = hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4
 		var defaultPort = int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port)
 

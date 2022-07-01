@@ -124,9 +124,28 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 		return nil, nil
 	}
 
-	// all control planes have to be attached to the load balancer
+	// all control planes have to be attached to the load balancer if it exists
 	if err := s.reconcileLoadBalancerAttachment(ctx, server); err != nil {
 		return nil, errors.Wrap(err, "failed to reconcile load balancer attachement")
+	}
+
+	// If there is no load balancer the IP of the SINGLE control plane should be added
+	// as control plane endpoint
+	if !s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
+		var defaultHost string
+		defaultPort := int32(6443)
+		if server.PublicNet.IPv4.IP != nil {
+			defaultHost = server.PublicNet.IPv4.IP.String()
+		} else if server.PublicNet.IPv6.IP != nil {
+			defaultHost = server.PublicNet.IPv6.IP.String()
+		}
+
+		if s.scope.HetznerCluster.Spec.ControlPlaneEndpoint == nil {
+			s.scope.HetznerCluster.Spec.ControlPlaneEndpoint = &clusterv1.APIEndpoint{
+				Host: defaultHost,
+				Port: defaultPort,
+			}
+		}
 	}
 
 	s.scope.HCloudMachine.Spec.ProviderID = &providerID
@@ -428,7 +447,7 @@ func (s *Service) Delete(ctx context.Context) (_ *ctrl.Result, err error) {
 		return nil, nil
 	}
 
-	if s.scope.IsControlPlane() {
+	if s.scope.IsControlPlane() && s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
 		if err := s.deleteServerOfLoadBalancer(ctx, server); err != nil {
 			return &reconcile.Result{}, errors.Errorf("Error while deleting attached server of loadbalancer: %s", err)
 		}
