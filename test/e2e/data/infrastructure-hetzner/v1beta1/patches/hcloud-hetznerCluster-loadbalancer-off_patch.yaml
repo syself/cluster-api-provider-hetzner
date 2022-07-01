@@ -1,0 +1,7 @@
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: HetznerCluster
+metadata:
+  name: "${CLUSTER_NAME}"
+spec:
+  controlPlaneLoadBalancer:
+    enabled: false

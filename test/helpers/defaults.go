@@ -164,6 +164,7 @@ func WithConsumerRef() HostOpts {
 func GetDefaultHetznerClusterSpec() infrav1.HetznerClusterSpec {
 	return infrav1.HetznerClusterSpec{
 		ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
+			Enabled:   true,
 			Algorithm: "round_robin",
 			ExtraServices: []infrav1.LoadBalancerServiceSpec{
 				{

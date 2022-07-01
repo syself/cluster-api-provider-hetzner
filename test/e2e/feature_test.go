@@ -63,4 +63,17 @@ var _ = Describe("[Feature] Testing Cluster Flavor with 3x control-planes 1x wor
 			}
 		})
 	})
+
+	Context("Testing deactivated loadbalancer", func() {
+		CaphClusterDeploymentSpec(ctx, func() CaphClusterDeploymentSpecInput {
+			return CaphClusterDeploymentSpecInput{
+				E2EConfig:             e2eConfig,
+				ClusterctlConfigPath:  clusterctlConfigPath,
+				BootstrapClusterProxy: bootstrapClusterProxy,
+				ArtifactFolder:        artifactFolder,
+				SkipCleanup:           skipCleanup,
+				Flavor:                "hcloud-feature-loadbalancer-off",
+			}
+		})
+	})
 })

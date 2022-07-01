@@ -127,6 +127,10 @@ type PublicNetworkSpec struct {
 // LoadBalancerSpec defines the desired state of the Control Plane Loadbalancer.
 type LoadBalancerSpec struct {
 	// +optional
+	// +kubebuilder:default=true
+	Enabled bool `json:"enabled"`
+
+	// +optional
 	Name *string `json:"name,omitempty"`
 
 	// Could be round_robin or least_connection. The default value is "round_robin".
