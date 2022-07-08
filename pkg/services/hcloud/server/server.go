@@ -579,8 +579,8 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 		return nil
 	}
 
-	// Only if server has IPv4, otherwise Hetzner cannot handle it
-	if server.PublicNet.IPv4.IP != nil {
+	// Only if server has private IP or public IPv4, otherwise Hetzner cannot handle it
+	if server.PublicNet.IPv4.IP != nil || hasPrivateIP {
 		loadBalancerAddServerTargetOpts := hcloud.LoadBalancerAddServerTargetOpts{
 			Server:       server,
 			UsePrivateIP: &hasPrivateIP,
