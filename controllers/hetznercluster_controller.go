@@ -404,10 +404,6 @@ func hcloudTokenErrorResult(
 }
 
 func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope) error {
-	if len(clusterScope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target) == 0 {
-		return nil
-	}
-
 	log := ctrl.LoggerFrom(ctx)
 
 	// Checking if control plane is ready
@@ -503,10 +499,6 @@ func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope
 }
 
 func (r *HetznerClusterReconciler) reconcileTargetClusterManager(ctx context.Context, clusterScope *scope.ClusterScope) error {
-	if len(clusterScope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target) == 0 {
-		return nil
-	}
-
 	r.targetClusterManagersLock.Lock()
 	defer r.targetClusterManagersLock.Unlock()
 
