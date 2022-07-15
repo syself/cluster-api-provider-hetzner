@@ -315,6 +315,98 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 				return len(lb.Services)
 			}, timeout).Should(Equal(len(instance.Spec.ControlPlaneLoadBalancer.ExtraServices)))
 		})
+
+		Context("should not create load balancer if disabled", func() {
+
+			var (
+				namespace       string
+				testNs          *corev1.Namespace
+				hetznerSecret   *corev1.Secret
+				bootstrapSecret *corev1.Secret
+
+				instance    *infrav1.HetznerCluster
+				capiCluster *clusterv1.Cluster
+			)
+
+			BeforeEach(func() {
+				var err error
+				testNs, err = testEnv.CreateNamespace(ctx, "lb-disabled")
+				Expect(err).NotTo(HaveOccurred())
+				namespace = testNs.Name
+
+				// Create the hetzner secret
+				hetznerSecret = getDefaultHetznerSecret(namespace)
+				Expect(testEnv.Create(ctx, hetznerSecret)).To(Succeed())
+				// Create the bootstrap secret
+				bootstrapSecret = getDefaultBootstrapSecret(namespace)
+				Expect(testEnv.Create(ctx, bootstrapSecret)).To(Succeed())
+
+				hetznerClusterName := utils.GenerateName(nil, "test1-")
+
+				capiCluster = &clusterv1.Cluster{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "capi-test1-",
+						Namespace:    namespace,
+						Finalizers:   []string{clusterv1.ClusterFinalizer},
+					},
+					Spec: clusterv1.ClusterSpec{
+						InfrastructureRef: &corev1.ObjectReference{
+							APIVersion: infrav1.GroupVersion.String(),
+							Kind:       "HetznerCluster",
+							Name:       hetznerClusterName,
+							Namespace:  namespace,
+						},
+					},
+				}
+				Expect(testEnv.Create(ctx, capiCluster)).To(Succeed())
+
+				instance = &infrav1.HetznerCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      hetznerClusterName,
+						Namespace: namespace,
+						OwnerReferences: []metav1.OwnerReference{
+							{
+								APIVersion: "cluster.x-k8s.io/v1beta1",
+								Kind:       "Cluster",
+								Name:       capiCluster.Name,
+								UID:        capiCluster.UID,
+							},
+						},
+					},
+					Spec: getDefaultHetznerClusterSpec(),
+				}
+				instance.Spec.ControlPlaneLoadBalancer.Enabled = false
+				instance.Spec.ControlPlaneEndpoint = &clusterv1.APIEndpoint{
+					Host: "my.test.host",
+					Port: 6443,
+				}
+				Expect(testEnv.Create(ctx, instance)).To(Succeed())
+			})
+
+			AfterEach(func() {
+				Expect(testEnv.Delete(ctx, bootstrapSecret)).To(Succeed())
+				Expect(testEnv.Delete(ctx, hetznerSecret)).To(Succeed())
+				Expect(testEnv.Delete(ctx, capiCluster)).To(Succeed())
+				Expect(testEnv.Delete(ctx, instance)).To(Succeed())
+				Expect(testEnv.Delete(ctx, testNs)).To(Succeed())
+			})
+
+			It("should not create load balancer and cluster should be ready", func() {
+				key := client.ObjectKey{Namespace: instance.Namespace, Name: instance.Name}
+				fmt.Println("------------------------------------------------------------------------------------------", key)
+				Eventually(func() bool {
+					if err := testEnv.Get(ctx, key, instance); err != nil {
+						fmt.Println("Did not find instance")
+						return false
+					}
+
+					fmt.Println(instance.Status.ControlPlaneLoadBalancer)
+					fmt.Println(instance.Status.Ready)
+
+					return instance.Status.ControlPlaneLoadBalancer == nil && instance.Status.Ready
+				}, timeout, time.Second).Should(BeTrue())
+			})
+		})
 	})
 
 	Context("For HetznerMachines belonging to the cluster", func() {

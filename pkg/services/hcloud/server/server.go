@@ -129,25 +129,6 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 		return nil, errors.Wrap(err, "failed to reconcile load balancer attachement")
 	}
 
-	// If there is no load balancer the IP of the SINGLE control plane should be added
-	// as control plane endpoint
-	if !s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
-		var defaultHost string
-		defaultPort := int32(6443)
-		if server.PublicNet.IPv4.IP != nil {
-			defaultHost = server.PublicNet.IPv4.IP.String()
-		} else if server.PublicNet.IPv6.IP != nil {
-			defaultHost = server.PublicNet.IPv6.IP.String()
-		}
-
-		if s.scope.HetznerCluster.Spec.ControlPlaneEndpoint == nil {
-			s.scope.HetznerCluster.Spec.ControlPlaneEndpoint = &clusterv1.APIEndpoint{
-				Host: defaultHost,
-				Port: defaultPort,
-			}
-		}
-	}
-
 	s.scope.HCloudMachine.Spec.ProviderID = &providerID
 	s.scope.HCloudMachine.Status.Ready = true
 	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.InstanceReadyCondition)

@@ -214,6 +214,8 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 		}
 
 		hetznerCluster.Status.Ready = true
+	} else if hetznerCluster.Spec.ControlPlaneEndpoint != nil {
+		hetznerCluster.Status.Ready = true
 	}
 
 	if err := r.reconcileTargetClusterManager(ctx, clusterScope); err != nil {
