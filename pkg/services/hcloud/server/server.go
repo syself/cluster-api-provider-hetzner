@@ -124,7 +124,7 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 		return nil, nil
 	}
 
-	// all control planes have to be attached to the load balancer
+	// all control planes have to be attached to the load balancer if it exists
 	if err := s.reconcileLoadBalancerAttachment(ctx, server); err != nil {
 		return nil, errors.Wrap(err, "failed to reconcile load balancer attachement")
 	}
@@ -428,7 +428,7 @@ func (s *Service) Delete(ctx context.Context) (_ *ctrl.Result, err error) {
 		return nil, nil
 	}
 
-	if s.scope.IsControlPlane() {
+	if s.scope.IsControlPlane() && s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
 		if err := s.deleteServerOfLoadBalancer(ctx, server); err != nil {
 			return &reconcile.Result{}, errors.Errorf("Error while deleting attached server of loadbalancer: %s", err)
 		}

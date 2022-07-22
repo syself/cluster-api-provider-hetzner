@@ -120,6 +120,9 @@ spec:
                             description: Could be round_robin or least_connection.
                               The default value is "round_robin".
                             type: string
+                          enabled:
+                            default: true
+                            type: boolean
                           extraServices:
                             description: Defines how traffic will be routed from the
                               Load Balancer to your target server.

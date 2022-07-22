@@ -77,6 +77,21 @@ func (r *HetznerCluster) ValidateCreate() error {
 		}
 	}
 
+	// Check whether controlPlaneEndpoint is specified if controlPlaneLoadBalancer is not enabled
+	if !r.Spec.ControlPlaneLoadBalancer.Enabled {
+		if r.Spec.ControlPlaneEndpoint == nil ||
+			r.Spec.ControlPlaneEndpoint.Host == "" ||
+			r.Spec.ControlPlaneEndpoint.Port == 0 {
+			allErrs = append(allErrs,
+				field.Invalid(
+					field.NewPath("spec", "controlPlaneEndpoint"),
+					r.Spec.ControlPlaneEndpoint,
+					"controlPlaneEndpoint has to be specified if controlPlaneLoadBalancer is not enabled",
+				),
+			)
+		}
+	}
+
 	if err := r.validateHetznerSecretKey(); err != nil {
 		allErrs = append(allErrs, err)
 	}
@@ -129,6 +144,13 @@ func (r *HetznerCluster) ValidateUpdate(old runtime.Object) error {
 		if err := isNetworkZoneSameForAllRegions(r.Spec.ControlPlaneRegions, defaultNetworkZone); err != nil {
 			allErrs = append(allErrs, err)
 		}
+	}
+
+	// Load balancer enabled/disabled is immutable
+	if !reflect.DeepEqual(oldC.Spec.ControlPlaneLoadBalancer.Enabled, r.Spec.ControlPlaneLoadBalancer.Enabled) {
+		allErrs = append(allErrs,
+			field.Invalid(field.NewPath("spec", "controlPlaneLoadBalancer", "enabled"), r.Spec.ControlPlaneLoadBalancer.Enabled, "field is immutable"),
+		)
 	}
 
 	// Load balancer region and port are immutable

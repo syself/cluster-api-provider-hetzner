@@ -194,7 +194,8 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 	}
 	conditions.MarkTrue(hetznerCluster, infrav1.PlacementGroupsSynced)
 
-	if hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4 != "<nil>" {
+	if hetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled &&
+		hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4 != "<nil>" {
 		var defaultHost = hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4
 		var defaultPort = int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port)
 
@@ -212,6 +213,8 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 			}
 		}
 
+		hetznerCluster.Status.Ready = true
+	} else if hetznerCluster.Spec.ControlPlaneEndpoint != nil {
 		hetznerCluster.Status.Ready = true
 	}
 
@@ -403,10 +406,6 @@ func hcloudTokenErrorResult(
 }
 
 func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope) error {
-	if len(clusterScope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target) == 0 {
-		return nil
-	}
-
 	log := ctrl.LoggerFrom(ctx)
 
 	// Checking if control plane is ready
@@ -502,10 +501,6 @@ func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope
 }
 
 func (r *HetznerClusterReconciler) reconcileTargetClusterManager(ctx context.Context, clusterScope *scope.ClusterScope) error {
-	if len(clusterScope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target) == 0 {
-		return nil
-	}
-
 	r.targetClusterManagersLock.Lock()
 	defer r.targetClusterManagersLock.Unlock()
 
