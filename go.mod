@@ -10,7 +10,7 @@ require (
 	github.com/go-logr/zapr v1.2.3
 	github.com/hetznercloud/hcloud-go v1.35.1
 	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/gomega v1.19.0
+	github.com/onsi/gomega v1.20.0
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.8.0
 	github.com/syself/hrobot-go v0.2.4
