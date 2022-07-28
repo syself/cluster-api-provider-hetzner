@@ -1,0 +1,123 @@
+---
+# Source: ccm-hetzner/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ccm-ccm-hetzner
+  namespace: kube-system
+  labels:
+    helm.sh/chart: ccm-hetzner-1.1.2
+    app: ccm
+    app.kubernetes.io/name: ccm-hetzner
+    app.kubernetes.io/instance: ccm
+    app.kubernetes.io/version: "1.12.2"
+    app.kubernetes.io/managed-by: Helm
+---
+# Source: ccm-hetzner/templates/serviceaccount.yaml
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: ccm-ccm-hetzner
+  namespace: kube-system
+  labels:
+    helm.sh/chart: ccm-hetzner-1.1.2
+    app: ccm
+    app.kubernetes.io/name: ccm-hetzner
+    app.kubernetes.io/instance: ccm
+    app.kubernetes.io/version: "1.12.2"
+    app.kubernetes.io/managed-by: Helm
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: ccm-ccm-hetzner
+    namespace: kube-system
+---
+# Source: ccm-hetzner/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ccm-ccm-hetzner
+  namespace: kube-system
+  labels:
+    helm.sh/chart: ccm-hetzner-1.1.2
+    app: ccm
+    app.kubernetes.io/name: ccm-hetzner
+    app.kubernetes.io/instance: ccm
+    app.kubernetes.io/version: "1.12.2"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ccm-hetzner
+      app.kubernetes.io/instance: ccm
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ccm-hetzner
+        app.kubernetes.io/instance: ccm
+    spec:
+      dnsPolicy: Default
+      serviceAccountName: ccm-ccm-hetzner
+      securityContext:
+        {}
+      tolerations:
+        # this taint is set by all kubelets running `--cloud-provider=external`
+        # so we should tolerate it to schedule the cloud controller manager
+        - key: "node.cloudprovider.kubernetes.io/uninitialized"
+          value: "true"
+          effect: "NoSchedule"
+        - key: "CriticalAddonsOnly"
+          operator: "Exists"
+        # cloud controller manages should be able to run on masters
+        - key: "node-role.kubernetes.io/master"
+          effect: NoSchedule
+          operator: Exists
+        - key: "node-role.kubernetes.io/control-plane"
+          effect: NoSchedule
+          operator: Exists
+        - key: "node.kubernetes.io/not-ready"
+          effect: "NoSchedule"
+      containers:
+        - name: ccm-hetzner
+          securityContext:
+            {}
+          image: "quay.io/syself/hetzner-cloud-controller-manager:latest"
+          imagePullPolicy: Always
+          command:
+            - "/bin/hetzner-cloud-controller-manager"
+            - "--cloud-provider=hcloud"
+            - "--leader-elect=true"
+            - "--allow-untagged-cloud"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 50Mi
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: HCLOUD_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: hetzner
+                  key: hcloud
+            - name: ROBOT_USER_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: hetzner
+                  key: robot-user
+            - name: ROBOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: hetzner
+                  key: robot-password
+            - name: HCLOUD_DEBUG
+              value: "false"
+            - name: HCLOUD_LOAD_BALANCERS_ENABLED
+              value: "true"

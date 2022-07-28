@@ -13,6 +13,18 @@ inputs:
   e2e_tts_token:
     description: "e2e_tts_token"
     required: true
+  e2e_robot_user:
+    description: "e2e_robot_user"
+    required: false
+  e2e_robot_password:
+    description: "e2e_robot_password"
+    required: false
+  e2e_ssh_pub:
+    description: "e2e_ssh_pub"
+    required: false
+  e2e_ssh_priv:
+    description: "e2e_ssh_priv"
+    required: false
 runs:
   using: "composite"
   steps:
@@ -72,6 +84,10 @@ runs:
         E2E_CONF_FILE_SOURCE: "${{ github.workspace }}/test/e2e/config/hetzner-ci.yaml"
         MANIFEST_PATH: "../../../out"
         HCLOUD_TOKEN: ${{ env.HCLOUD_TOKEN }}
+        HETZNER_ROBOT_USER: ${{ inputs.e2e_robot_user }}
+        HETZNER_ROBOT_PASSWORD: ${{ inputs.e2e_robot_password }}
+        HETZNER_SSH_PUB: ${{ inputs.e2e_ssh_pub }}
+        HETZNER_SSH_PRIV: ${{ inputs.e2e_ssh_priv }}
         SKIP_IMAGE_BUILD: "1"
         CAPH_LATEST_VERSION: "v1.0.0-alpha.20"
       run: make ${{ inputs.e2e_make_target }}
@@ -88,5 +104,9 @@ runs:
       env:
         TTS_TOKEN: ${{ inputs.e2e_tts_token }}
         HCLOUD_TOKEN: ${{ env.HCLOUD_TOKEN }}
+        HETZNER_ROBOT_USER: ${{ inputs.e2e_robot_user }}
+        HETZNER_ROBOT_PASSWORD: ${{ inputs.e2e_robot_password }}
+        HETZNER_SSH_PUB: ${{ inputs.e2e_ssh_pub }}
+        HETZNER_SSH_PRIV: ${{ inputs.e2e_ssh_priv }}
       run: |
-        ./hack/ci-e2e-delete-token.sh $HCLOUD_TOKEN
+        ./hack/ci-e2e-delete-token.sh $HCLOUD_TOKEN $HETZNER_ROBOT_USER $HETZNER_ROBOT_PASSWORD $HETZNER_SSH_PUB $HETZNER_SSH_PRIV

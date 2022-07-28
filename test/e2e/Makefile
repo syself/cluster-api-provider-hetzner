@@ -74,6 +74,11 @@ e2e-ccm-templates:
 	--set secret.name=hetzner \
 	--set secret.tokenKeyName=hcloud \
 	--set privateNetwork.enabled=true > $(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm-network.yaml
+	helm template ccm syself/ccm-hetzner --version 1.1.2 \
+	--namespace kube-system \
+	--set pdb.enabled=false \
+	--set image.tag=latest \
+	--set privateNetwork.enabled=false > $(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm-hetzner.yaml
 
 .PHONY: cluster-templates
 cluster-templates: $(KUSTOMIZE) cluster-templates-v1beta1 ## Generate cluster templates for all versions
@@ -91,6 +96,9 @@ cluster-templates-v1beta1: $(KUSTOMIZE) ## Generate cluster templates for v1beta
 	$(KUSTOMIZE) build $(HETZNER_TEMPLATES)/v1beta1/cluster-template-kcp-remediation --load-restrictor LoadRestrictionsNone | sed 's/hcloud_secret_placeholder/$(shell echo -n "$(HCLOUD_TOKEN)" | base64 | tr -d '\n')/' > $(HETZNER_TEMPLATES)/v1beta1/cluster-template-kcp-remediation.yaml
 	$(KUSTOMIZE) build $(HETZNER_TEMPLATES)/v1beta1/cluster-template-md-remediation --load-restrictor LoadRestrictionsNone | sed 's/hcloud_secret_placeholder/$(shell echo -n "$(HCLOUD_TOKEN)" | base64 | tr -d '\n')/' > $(HETZNER_TEMPLATES)/v1beta1/cluster-template-md-remediation.yaml
 	$(KUSTOMIZE) build $(HETZNER_TEMPLATES)/v1beta1/cluster-template-node-drain --load-restrictor LoadRestrictionsNone | sed 's/hcloud_secret_placeholder/$(shell echo -n "$(HCLOUD_TOKEN)" | base64 | tr -d '\n')/' > $(HETZNER_TEMPLATES)/v1beta1/cluster-template-node-drain.yaml
+
+	$(KUSTOMIZE) build $(HETZNER_TEMPLATES)/v1beta1/cluster-template-hetzner-baremetal --load-restrictor LoadRestrictionsNone | sed 's/hcloud_secret_placeholder/$(shell echo -n "$(HCLOUD_TOKEN)" | base64 | tr -d '\n')/' | sed 's/robot-user_secret_placeholder/$(shell echo -n "$(HETZNER_ROBOT_USER)" | base64 | tr -d '\n')/' | sed 's/robot-password_secret_placeholder/$(shell echo -n "$(HETZNER_ROBOT_PASSWORD)" | base64 | tr -d '\n')/' | sed 's/ssh-publickey_secret_placeholder/$(shell echo -n "$(HETZNER_SSH_PUB)" | base64 | tr -d '\n')/' | sed 's/ssh-privatekey_secret_placeholder/$(shell echo -n "$(HETZNER_SSH_PRIV)"  | base64 | tr -d '\n')/' > $(HETZNER_TEMPLATES)/v1beta1/cluster-template-hetzner-baremetal.yaml
+
 
 ## --------------------------------------
 ## Testing

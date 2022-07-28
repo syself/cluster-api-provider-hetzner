@@ -374,36 +374,45 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 }
 
 func (s *Service) deleteServerOfLoadBalancer(ctx context.Context, host *infrav1.HetznerBareMetalHost) error {
-	if _, err := s.scope.HCloudClient.DeleteIPTargetOfLoadBalancer(
-		ctx,
-		&hcloud.LoadBalancer{
-			ID: s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID,
-		},
-		net.ParseIP(host.Spec.Status.IPv4)); err != nil {
-		if !strings.Contains(err.Error(), "load_balancer_target_not_found") {
-			s.scope.Info("Could not delete server IPv4 as target of load balancer",
-				"Server", host.Spec.ServerID, "IP", host.Spec.Status.IPv4, "Load Balancer", s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID)
-			return err
+	if host.Spec.Status.IPv4 != "" {
+		if _, err := s.scope.HCloudClient.DeleteIPTargetOfLoadBalancer(
+			ctx,
+			&hcloud.LoadBalancer{
+				ID: s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID,
+			},
+			net.ParseIP(host.Spec.Status.IPv4)); err != nil {
+			if !strings.Contains(err.Error(), "load_balancer_target_not_found") {
+				s.scope.Info("Could not delete server IPv4 as target of load balancer",
+					"Server", host.Spec.ServerID, "IP", host.Spec.Status.IPv4, "Load Balancer", s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID)
+				return err
+			}
 		}
+		record.Eventf(
+			s.scope.HetznerCluster,
+			"DeletedTargetOfLoadBalancer",
+			"Deleted new server with id %d and IPv4 %s of the loadbalancer %v",
+			host.Spec.ServerID, host.Spec.Status.IPv4, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID)
 	}
 
-	if _, err := s.scope.HCloudClient.DeleteIPTargetOfLoadBalancer(
-		ctx,
-		&hcloud.LoadBalancer{
-			ID: s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID,
-		},
-		net.ParseIP(host.Spec.Status.IPv6)); err != nil {
-		if !strings.Contains(err.Error(), "load_balancer_target_not_found") {
-			s.scope.Info("Could not delete server IPv6 as target of load balancer",
-				"Server", host.Spec.ServerID, "IP", host.Spec.Status.IPv6, "Load Balancer", s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID)
-			return err
+	if host.Spec.Status.IPv6 != "" {
+		if _, err := s.scope.HCloudClient.DeleteIPTargetOfLoadBalancer(
+			ctx,
+			&hcloud.LoadBalancer{
+				ID: s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID,
+			},
+			net.ParseIP(host.Spec.Status.IPv6)); err != nil {
+			if !strings.Contains(err.Error(), "load_balancer_target_not_found") {
+				s.scope.Info("Could not delete server IPv6 as target of load balancer",
+					"Server", host.Spec.ServerID, "IP", host.Spec.Status.IPv6, "Load Balancer", s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID)
+				return err
+			}
 		}
+		record.Eventf(
+			s.scope.HetznerCluster,
+			"DeletedTargetOfLoadBalancer",
+			"Deleted new server with id %d and IPv6 %s of the loadbalancer %v",
+			host.Spec.ServerID, host.Spec.Status.IPv6, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID)
 	}
-	record.Eventf(
-		s.scope.HetznerCluster,
-		"DeletedTargetOfLoadBalancer",
-		"Deleted new server with id %d and ipv4 %s and host.Spec.Status.IPv6 %s of the loadbalancer %v",
-		host.Spec.Status.IPv4, host.Spec.Status.IPv6, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID)
 
 	return nil
 }

@@ -81,6 +81,7 @@ providers:
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-node-drain.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-md-remediation.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-kcp-remediation.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hetzner-baremetal.yaml"
       - name: v1.0.99 # next; use manifest from source files
         value: "${MANIFEST_PATH:=..}/infrastructure-components.yaml"
         type: "url"
@@ -99,6 +100,8 @@ providers:
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-node-drain.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-md-remediation.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-kcp-remediation.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hetzner-baremetal.yaml"
+
 variables:
   # Upgrade Test
   KUBERNETES_VERSION_MANAGEMENT: "v1.24.1"
@@ -124,6 +127,7 @@ variables:
   CNI: "./data/cni/cilium/cilium.yaml"
   CCM: "./data/ccm/hcloud-ccm.yaml"
   CCM_NETWORK: "./data/ccm/hcloud-ccm-network.yaml"
+  CCM_HETZNER: "./data/ccm/hcloud-ccm-hetzner.yaml"
   BIN_PATH: "${BIN_PATH}"
 
   # Conformance testing variables
@@ -138,6 +142,10 @@ variables:
 
   # Hetzner Provider Variables
   HCLOUD_TOKEN: "admin123"
+  HETZNER_ROBOT_USER: "robot"
+  HETZNER_ROBOT_PASSWORD: "secret"
+  HETZNER_SSH_PUB: "secret"
+  HETZNER_SSH_PRIV: "secret"
   HCLOUD_SSH_KEY: "test"
   HCLOUD_REGION: "nbg1"
   HCLOUD_IMAGE_NAME: ${HCLOUD_IMAGE_NAME:-}
@@ -147,8 +155,8 @@ variables:
 
 intervals:
   default/wait-cluster: ["20m", "10s"]
-  default/wait-control-plane: ["30m", "10s"]
-  default/wait-worker-nodes: ["15m", "10s"]
+  default/wait-control-plane: ["120m", "10s"]
+  default/wait-worker-nodes: ["120m", "10s"]
   default/wait-controllers: ["5m", "10s"]
   default/wait-delete-cluster: ["20m", "10s"]
   default/wait-machine-upgrade: ["20m", "10s"]
