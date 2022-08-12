@@ -5,3 +5,6 @@ metadata:
 spec:
   controlPlaneLoadBalancer:
     enabled: false
+  controlPlaneEndpoint:
+    host: "my.test.host"
+    port: 6443
