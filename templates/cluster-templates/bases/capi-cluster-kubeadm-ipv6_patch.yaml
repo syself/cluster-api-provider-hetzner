@@ -1,0 +1,12 @@
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: Cluster
+metadata:
+  name: "${CLUSTER_NAME}"
+spec:
+  clusterNetwork:
+    pods:
+      cidrBlocks:
+        - 2001:1234:5678:9a40::/58
+    services:
+      cidrBlocks:
+        - fd00::/108

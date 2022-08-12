@@ -64,7 +64,20 @@ var _ = Describe("[Feature] Testing Cluster Flavor with 3x control-planes 1x wor
 	// 	})
 	// })
 
-	Context("Testing Dualstack", func() {
+	// Context("Testing Dualstack", func() {
+	// 	CaphClusterDeploymentSpec(ctx, func() CaphClusterDeploymentSpecInput {
+	// 		return CaphClusterDeploymentSpecInput{
+	// 			E2EConfig:             e2eConfig,
+	// 			ClusterctlConfigPath:  clusterctlConfigPath,
+	// 			BootstrapClusterProxy: bootstrapClusterProxy,
+	// 			ArtifactFolder:        artifactFolder,
+	// 			SkipCleanup:           skipCleanup,
+	// 			Flavor:                "hcloud-feature-dualstack",
+	// 		}
+	// 	})
+	// })
+
+	Context("Testing IPv6 only", func() {
 		CaphClusterDeploymentSpec(ctx, func() CaphClusterDeploymentSpecInput {
 			return CaphClusterDeploymentSpecInput{
 				E2EConfig:             e2eConfig,
@@ -72,7 +85,7 @@ var _ = Describe("[Feature] Testing Cluster Flavor with 3x control-planes 1x wor
 				BootstrapClusterProxy: bootstrapClusterProxy,
 				ArtifactFolder:        artifactFolder,
 				SkipCleanup:           skipCleanup,
-				Flavor:                "hcloud-feature-dualstack",
+				Flavor:                "hcloud-feature-ipv6",
 			}
 		})
 	})

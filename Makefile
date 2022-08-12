@@ -276,6 +276,7 @@ cluster-templates: $(KUSTOMIZE)
 	$(KUSTOMIZE) build templates/cluster-templates/hcloud --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template.yaml
 	$(KUSTOMIZE) build templates/cluster-templates/hcloud --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud.yaml
 	$(KUSTOMIZE) build templates/cluster-templates/hcloud-dualstack --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-dualstack.yaml
+	$(KUSTOMIZE) build templates/cluster-templates/hcloud-ipv6 --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-ipv6.yaml
 	$(KUSTOMIZE) build templates/cluster-templates/hcloud-packer --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-packer.yaml
 	$(KUSTOMIZE) build templates/cluster-templates/hcloud-talos-packer --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-talos-packer.yaml
 	$(KUSTOMIZE) build templates/cluster-templates/hcloud-network --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-network.yaml
