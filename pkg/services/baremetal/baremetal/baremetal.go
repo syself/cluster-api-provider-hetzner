@@ -142,7 +142,7 @@ func (s *Service) Delete(ctx context.Context) (_ *ctrl.Result, err error) {
 	}
 
 	if host != nil && host.Spec.ConsumerRef != nil {
-		if s.scope.IsControlPlane() {
+		if s.scope.IsControlPlane() && s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
 			if err := s.deleteServerOfLoadBalancer(ctx, host); err != nil {
 				return nil, errors.Errorf("Error while deleting attached server of loadbalancer: %s", err)
 			}

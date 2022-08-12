@@ -63,26 +63,26 @@ jobs:
           e2e_tts_token: ${{ secrets.TTS_TOKEN }}
           e2e_hcloud_token: ${{ secrets.HCLOUD_TOKEN }}
 
-  e2e-hetzner-basic:
-    name: Test Hetzner Basic
-    concurrency: ci-${{ github.ref }}-e2e-basic-hetzner
-    runs-on: ubuntu-latest
-    needs:
-      - manager-image
-      - test-release
-    steps:
-      - name: checkout
-        uses: actions/checkout@v3
-      - name: Run e2e Test
-        id: e2e
-        uses: ./.github/actions/e2e
-        with:
-          e2e_name: hetzner-basic
-          e2e_make_target: test-e2e-baremetal
-          e2e_quay_username: ${{ secrets.QUAY_USERNAME }}
-          e2e_tts_token: ${{ secrets.TTS_TOKEN }}
-          e2e_hcloud_token: ${{ secrets.HCLOUD_TOKEN }}
-          e2e_robot_user: ${{ secrets.HETZNER_ROBOT_USER }}
-          e2e_robot_password: ${{ secrets.HETZNER_ROBOT_PASSWORD }}
-          e2e_ssh_pub: ${{ secrets.HETZNER_SSH_PUB }}
-          e2e_ssh_priv: ${{ secrets.HETZNER_SSH_PRIV }}
+  # e2e-hetzner-basic:
+  #   name: Test Hetzner Basic
+  #   concurrency: ci-${{ github.ref }}-e2e-basic-hetzner
+  #   runs-on: ubuntu-latest
+  #   needs:
+  #     - manager-image
+  #     - test-release
+  #   steps:
+  #     - name: checkout
+  #       uses: actions/checkout@v3
+  #     - name: Run e2e Test
+  #       id: e2e
+  #       uses: ./.github/actions/e2e
+  #       with:
+  #         e2e_name: hetzner-basic
+  #         e2e_make_target: test-e2e-baremetal
+  #         e2e_quay_username: ${{ secrets.QUAY_USERNAME }}
+  #         e2e_tts_token: ${{ secrets.TTS_TOKEN }}
+  #         e2e_hcloud_token: ${{ secrets.HCLOUD_TOKEN }}
+  #         e2e_robot_user: ${{ secrets.HETZNER_ROBOT_USER }}
+  #         e2e_robot_password: ${{ secrets.HETZNER_ROBOT_PASSWORD }}
+  #         e2e_ssh_pub: ${{ secrets.HETZNER_SSH_PUB }}
+  #         e2e_ssh_priv: ${{ secrets.HETZNER_SSH_PRIV }}
