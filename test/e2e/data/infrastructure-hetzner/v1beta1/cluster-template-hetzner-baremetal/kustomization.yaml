@@ -1,0 +1,14 @@
+bases:
+  - ../../../../../../templates/cluster-templates/bases/capi-cluster-kubeadm.yaml
+  - ../../../../../../templates/cluster-templates/bases/hetzner-hetznerCluster.yaml
+  - ../../../../../../templates/cluster-templates/bases/hetznerbaremetal-kcp-ubuntu.yaml
+  - ../../../../../../templates/cluster-templates/bases/hetznerbaremetal-mt-control-plane-ubuntu.yaml
+  - ../../../../../../templates/cluster-templates/bases/hetznerbaremetal-md-1-kubeadm.yaml
+  - ../../../../../../templates/cluster-templates/bases/kct-md-0-ubuntu.yaml
+  - ../../../../../../templates/cluster-templates/bases/hetznerbaremetal-mt-md-1-ubuntu.yaml
+  - ../bases/crs-cni.yaml
+  - ../bases/crs-ccm-hetzner.yaml
+  - ../bases/hetzner-secret.yaml
+  - ../bases/hetznerbaremetalhosts.yaml
+patchesStrategicMerge:
+  - ../patches/cluster-hetzner_patch.yaml

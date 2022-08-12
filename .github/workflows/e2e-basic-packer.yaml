@@ -52,3 +52,4 @@ jobs:
           e2e_make_target: test-e2e-feature-packer
           e2e_quay_username: ${{ secrets.QUAY_USERNAME }}
           e2e_tts_token: ${{ secrets.TTS_TOKEN }}
+          e2e_hcloud_token: ${{ secrets.HCLOUD_TOKEN }}

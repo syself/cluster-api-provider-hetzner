@@ -5,7 +5,7 @@ metadata:
 spec:
   clusterName: "${CLUSTER_NAME}"
   maxUnhealthy: 100%
-  nodeStartupTimeout: 20m
+  nodeStartupTimeout: 60m
   selector:
     matchLabels:
       nodepool: "${CLUSTER_NAME}-md-1"

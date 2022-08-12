@@ -1,0 +1,65 @@
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: HetznerBareMetalHost
+metadata:
+  name: "bm-1"
+spec:
+  serverID: 1670788
+  rootDeviceHints:
+    wwn: "0x5002538c0004413f"
+  maintenanceMode: false
+  description: Test Machine 1
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: HetznerBareMetalHost
+metadata:
+  name: "bm-2"
+spec:
+  serverID: 1716772
+  rootDeviceHints:
+    wwn: "0x500a07510fe0ce34"
+  maintenanceMode: false
+  description: Test Machine 2
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: HetznerBareMetalHost
+metadata:
+  name: "bm-3"
+spec:
+  serverID: 1724024
+  rootDeviceHints:
+    wwn: "0x500a075111968d25"
+  maintenanceMode: false
+  description: Test Machine 3
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: HetznerBareMetalHost
+metadata:
+  name: "bm-4"
+spec:
+  serverID: 1731561
+  rootDeviceHints:
+    wwn: "0x500a075119615dc2"
+  maintenanceMode: false
+  description: Test Machine 4
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: HetznerBareMetalHost
+metadata:
+  name: "bm-5"
+spec:
+  serverID: 1751550
+  rootDeviceHints:
+    wwn: "0x500a075110b39df5"
+  maintenanceMode: false
+  description: Test Machine 5
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: HetznerBareMetalHost
+metadata:
+  name: "bm-6"
+spec:
+  serverID: 1763731
+  rootDeviceHints:
+    wwn: "0x500a07511756c36d"
+  maintenanceMode: false
+  description: Test Machine 6
