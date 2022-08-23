@@ -345,12 +345,14 @@ func (s *Service) ensureSSHKey(sshSecretRef infrav1.SSHSecretRef, sshSecret *cor
 	foundSSHKey := false
 	var sshKey infrav1.SSHKey
 	for _, hetznerSSHKey := range hetznerSSHKeys {
-		if string(sshSecret.Data[sshSecretRef.Key.Name]) == hetznerSSHKey.Name {
+		if strings.TrimSuffix(string(sshSecret.Data[sshSecretRef.Key.Name]), "\n") == hetznerSSHKey.Name {
 			foundSSHKey = true
 			sshKey.Name = hetznerSSHKey.Name
 			sshKey.Fingerprint = hetznerSSHKey.Fingerprint
 		}
 	}
+
+	s.scope.Info("SSH key", "private key", string(sshSecret.Data[sshSecretRef.Key.PrivateKey]), "publicKey", string(sshSecret.Data[sshSecretRef.Key.PublicKey]))
 
 	// Upload SSH key if not found
 	if !foundSSHKey {
@@ -1497,6 +1499,20 @@ func (s *Service) actionDeprovisioning() actionResult {
 		return actionError{err: fmt.Errorf("failed to update name of host in robot API: %w", err)}
 	}
 
+	// If has been provisioned completely, stop all running pods
+	if s.scope.OSSSHSecret != nil {
+		sshClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
+			PrivateKey: sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.SecretRef).PrivateKey,
+			Port:       s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterCloudInit,
+			IP:         getIPAddress(s.scope.HetznerBareMetalHost.Spec.Status),
+		})
+		out := sshClient.ResetKubeadm()
+		if err := handleSSHError(out); err != nil {
+			s.scope.Info("Error while reseting kubeadm", "err", err)
+		}
+	} else {
+		s.scope.Info("OS SSH Secret is empty - cannot reset kubeadm")
+	}
 	s.scope.SetErrorCount(0)
 	clearError(s.scope.HetznerBareMetalHost)
 

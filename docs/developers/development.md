@@ -103,3 +103,8 @@ export HETZNER_SSH_PUB=<your-ssh-pub-key>
 export HETZNER_SSH_PRIV=<your-ssh-private-key>
 make test-e2e
 ```
+
+For the ssh public and private key, you should use the following command to encode the keys. Note that the E2E test will not work if the ssh key is in any other format!
+```
+export HETZNER_SSH_PRIV=$(cat ~/.ssh/cluster | base64 -w0)
+```.

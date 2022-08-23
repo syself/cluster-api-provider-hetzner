@@ -89,6 +89,7 @@ type Client interface {
 	CheckCloudInitLogsForSigTerm() Output
 	CleanCloudInitLogs() Output
 	CleanCloudInitInstances() Output
+	ResetKubeadm() Output
 }
 
 // Factory is the interface for creating new Client objects.
@@ -309,6 +310,11 @@ func (c *sshClient) CleanCloudInitLogs() Output {
 // CleanCloudInitInstances implements the CleanCloudInitInstances method of the SSHClient interface.
 func (c *sshClient) CleanCloudInitInstances() Output {
 	return c.runSSH(`rm -rf /var/lib/cloud/instances`)
+}
+
+// ResetKubeadm implements the ResetKubeadm method of the SSHClient interface.
+func (c *sshClient) ResetKubeadm() Output {
+	return c.runSSH(`kubeadm reset -f`)
 }
 
 // IsConnectionRefusedError checks whether the ssh error is a connection refused error.

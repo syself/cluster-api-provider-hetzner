@@ -162,8 +162,8 @@ variables:
   REDACT_LOG_SCRIPT: "../../hack/log/redact.sh"
 
 intervals:
-  default/wait-cluster: ["20m", "10s"]
-  default/wait-control-plane: ["30m", "10s"]
+  default/wait-cluster: ["15m", "10s"]
+  default/wait-control-plane: ["20m", "10s"]
   default/wait-worker-nodes: ["15m", "10s"]
   default/wait-controllers: ["5m", "10s"]
   default/wait-delete-cluster: ["20m", "10s"]

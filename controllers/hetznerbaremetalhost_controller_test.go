@@ -181,6 +181,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 			Err:    nil})
 		osSSHClientAfterCloudInit.On("CloudInitStatus").Return(sshclient.Output{StdOut: "status: done"})
 		osSSHClientAfterCloudInit.On("CheckCloudInitLogsForSigTerm").Return(sshclient.Output{})
+		osSSHClientAfterInstallImage.On("ResetKubeadm").Return(sshclient.Output{})
 	})
 
 	AfterEach(func() {
