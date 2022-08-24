@@ -17,6 +17,7 @@ limitations under the License.
 package controllers
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
@@ -48,6 +49,8 @@ var _ = Describe("HCloudMachineReconciler", func() {
 
 		hetznerSecret   *corev1.Secret
 		bootstrapSecret *corev1.Secret
+
+		key client.ObjectKey
 	)
 
 	BeforeEach(func() {
@@ -154,10 +157,11 @@ var _ = Describe("HCloudMachineReconciler", func() {
 
 			Expect(testEnv.Create(ctx, infraMachine)).To(Succeed())
 			Expect(testEnv.Create(ctx, infraCluster)).To(Succeed())
+
+			key = client.ObjectKey{Namespace: testNs.Name, Name: infraMachine.Name}
 		})
 
 		It("creates the infra machine", func() {
-			key := client.ObjectKey{Namespace: testNs.Name, Name: infraMachine.Name}
 			Eventually(func() bool {
 				if err := testEnv.Get(ctx, key, infraMachine); err != nil {
 					return false
@@ -179,6 +183,14 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				return len(servers) == 0
 			}).Should(BeTrue())
 
+			// Check whether bootstrap condition is not ready
+			Eventually(func() bool {
+				if err := testEnv.Get(ctx, key, infraMachine); err != nil {
+					return false
+				}
+				return isPresentAndFalseWithReason(key, infraMachine, infrav1.InstanceBootstrapReadyCondition, infrav1.InstanceBootstrapNotReadyReason)
+			}, timeout, time.Second).Should(BeTrue())
+
 			By("setting the bootstrap data")
 			Eventually(func() error {
 				ph, err := patch.NewHelper(capiMachine, testEnv)
@@ -188,6 +200,16 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				}
 				return ph.Patch(ctx, capiMachine, patch.WithStatusObservedGeneration{})
 			}, timeout, time.Second).Should(BeNil())
+
+			// Check whether bootstrap condition is ready
+			Eventually(func() bool {
+				if err := testEnv.Get(ctx, key, infraMachine); err != nil {
+					return false
+				}
+				objectCondition := conditions.Get(infraMachine, infrav1.InstanceBootstrapReadyCondition)
+				fmt.Println(objectCondition)
+				return isPresentAndTrue(key, infraMachine, infrav1.InstanceBootstrapReadyCondition)
+			}, timeout, time.Second).Should(BeTrue())
 
 			Eventually(func() int {
 				servers, err := hcloudClient.ListServers(ctx, hcloud.ServerListOpts{

@@ -93,8 +93,21 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 	// Make sure bootstrap data is available and populated. If not, return, we
 	// will get an event from the machine update when the flag is set to true.
 	if !s.scope.IsBootstrapReady(ctx) {
+		s.scope.V(1).Info("Bootstrap not ready - requeuing")
+		conditions.MarkFalse(
+			s.scope.BareMetalMachine,
+			infrav1.InstanceBootstrapReadyCondition,
+			infrav1.InstanceBootstrapNotReadyReason,
+			capi.ConditionSeverityInfo,
+			"bootstrap not ready yet",
+		)
 		return &ctrl.Result{}, nil
 	}
+
+	conditions.MarkTrue(
+		s.scope.BareMetalMachine,
+		infrav1.InstanceBootstrapReadyCondition,
+	)
 
 	errType := capierrors.CreateMachineError
 

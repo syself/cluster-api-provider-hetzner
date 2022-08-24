@@ -196,6 +196,100 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 						Name:       bmMachineName,
 					},
 					FailureDomain: &defaultFailureDomain,
+				},
+			}
+			Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
+
+			bmMachine = &infrav1.HetznerBareMetalMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      bmMachineName,
+					Namespace: testNs.Name,
+					Labels: map[string]string{
+						clusterv1.ClusterLabelName: capiCluster.Name,
+					},
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: "cluster.x-k8s.io/v1beta1",
+							Kind:       "Machine",
+							Name:       capiMachine.Name,
+							UID:        capiMachine.UID,
+						},
+					},
+				},
+				Spec: getDefaultHetznerBareMetalMachineSpec(),
+			}
+			Expect(testEnv.Create(ctx, bmMachine)).To(Succeed())
+
+			key = client.ObjectKey{Namespace: testNs.Name, Name: bmMachineName}
+		})
+
+		It("creates the bare metal machine and provisions host", func() {
+			// Check whether bootstrap condition is not ready
+			Eventually(func() bool {
+				if err := testEnv.Get(ctx, key, bmMachine); err != nil {
+					return false
+				}
+				return isPresentAndFalseWithReason(key, bmMachine, infrav1.InstanceBootstrapReadyCondition, infrav1.InstanceBootstrapNotReadyReason)
+			}, timeout, time.Second).Should(BeTrue())
+
+			Eventually(func() error {
+				ph, err := patch.NewHelper(capiMachine, testEnv)
+				Expect(err).ShouldNot(HaveOccurred())
+				capiMachine.Spec.Bootstrap = clusterv1.Bootstrap{
+					DataSecretName: pointer.String("bootstrap-secret"),
+				}
+				return ph.Patch(ctx, capiMachine, patch.WithStatusObservedGeneration{})
+			}, timeout, time.Second).Should(BeNil())
+
+			// Check whether bootstrap condition is ready
+			Eventually(func() bool {
+				if err := testEnv.Get(ctx, key, bmMachine); err != nil {
+					return false
+				}
+				return isPresentAndTrue(key, bmMachine, infrav1.InstanceBootstrapReadyCondition)
+			}, timeout, time.Second).Should(BeTrue())
+
+			defer func() {
+				Expect(testEnv.Delete(ctx, bmMachine)).To(Succeed())
+			}()
+			Eventually(func() bool {
+				if err := testEnv.Get(ctx, hostKey, host); err != nil {
+					return false
+				}
+				if host.Spec.Status.ProvisioningState == infrav1.StateProvisioned {
+					return true
+				}
+				return false
+			}, timeout).Should(BeTrue())
+
+			Eventually(func() bool {
+				if err := testEnv.Get(ctx, key, bmMachine); err != nil {
+					return false
+				}
+				return bmMachine.Status.Ready
+			}, timeout).Should(BeTrue())
+		})
+	})
+
+	Context("Basic test", func() {
+		BeforeEach(func() {
+			capiMachine = &clusterv1.Machine{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "capi-machine-",
+					Namespace:    testNs.Name,
+					Finalizers:   []string{clusterv1.MachineFinalizer},
+					Labels: map[string]string{
+						clusterv1.ClusterLabelName: capiCluster.Name,
+					},
+				},
+				Spec: clusterv1.MachineSpec{
+					ClusterName: capiCluster.Name,
+					InfrastructureRef: corev1.ObjectReference{
+						APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
+						Kind:       "HetznerBareMetalMachine",
+						Name:       bmMachineName,
+					},
+					FailureDomain: &defaultFailureDomain,
 					Bootstrap: clusterv1.Bootstrap{
 						DataSecretName: pointer.String("bootstrap-secret"),
 					},

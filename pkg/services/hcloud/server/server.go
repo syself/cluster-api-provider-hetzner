@@ -69,9 +69,21 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 
 	// Waiting for bootstrap data to be ready
 	if !s.scope.IsBootstrapDataReady(ctx) {
-		s.scope.V(1).Info("Bootstrap not ready - requeuing")
+		s.scope.Info("Bootstrap not ready - requeuing")
+		conditions.MarkFalse(
+			s.scope.HCloudMachine,
+			infrav1.InstanceBootstrapReadyCondition,
+			infrav1.InstanceBootstrapNotReadyReason,
+			clusterv1.ConditionSeverityInfo,
+			"bootstrap not ready yet",
+		)
 		return &ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}
+
+	conditions.MarkTrue(
+		s.scope.HCloudMachine,
+		infrav1.InstanceBootstrapReadyCondition,
+	)
 
 	// Try to find an existing server
 	server, err := s.findServer(ctx)
@@ -92,7 +104,9 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 		)
 	}
 
+	c := s.scope.HCloudMachine.Status.Conditions.DeepCopy()
 	s.scope.HCloudMachine.Status = setStatusFromAPI(server)
+	s.scope.HCloudMachine.Status.Conditions = c
 
 	switch server.Status {
 	case hcloud.ServerStatusOff:
