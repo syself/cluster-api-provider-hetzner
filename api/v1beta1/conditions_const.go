@@ -48,6 +48,13 @@ const (
 )
 
 const (
+	// InstanceBootstrapReadyCondition reports on current status of the instance. BootstrapReady indicates the bootstrap is ready.
+	InstanceBootstrapReadyCondition clusterv1.ConditionType = "InstanceBootstrapReady"
+	// InstanceBootstrapNotReadyReason bootstrap not ready yet.
+	InstanceBootstrapNotReadyReason = "InstanceBootstrapNotReady"
+)
+
+const (
 	// NetworkAttached reports on whether there is a network attached to the cluster.
 	NetworkAttached clusterv1.ConditionType = "NetworkAttached"
 	// NetworkDisabledReason indicates that network is disabled.
