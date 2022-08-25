@@ -46,6 +46,7 @@ type Client interface {
 	AttachServerToNetwork(context.Context, *hcloud.Server, hcloud.ServerAttachToNetworkOpts) (*hcloud.Action, error)
 	ListServers(context.Context, hcloud.ServerListOpts) ([]*hcloud.Server, error)
 	DeleteServer(context.Context, *hcloud.Server) error
+	ListServerTypes(context.Context) ([]*hcloud.ServerType, error)
 	PowerOnServer(context.Context, *hcloud.Server) (*hcloud.Action, error)
 	ShutdownServer(context.Context, *hcloud.Server) (*hcloud.Action, error)
 	CreateNetwork(context.Context, hcloud.NetworkCreateOpts) (*hcloud.Network, error)
@@ -168,6 +169,10 @@ func (c *realClient) AttachServerToNetwork(ctx context.Context, server *hcloud.S
 
 func (c *realClient) ListServers(ctx context.Context, opts hcloud.ServerListOpts) ([]*hcloud.Server, error) {
 	return c.client.Server.AllWithOpts(ctx, opts)
+}
+
+func (c *realClient) ListServerTypes(ctx context.Context) ([]*hcloud.ServerType, error) {
+	return c.client.ServerType.All(ctx)
 }
 
 func (c *realClient) ShutdownServer(ctx context.Context, server *hcloud.Server) (*hcloud.Action, error) {

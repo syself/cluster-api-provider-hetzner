@@ -28,6 +28,12 @@ import (
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
+// DefaultCPUCores defines the default cpu cores for HCloud machines' capacities.
+const DefaultCPUCores = 1
+
+// DefaultMemoryInGB defines the default memory in GB for HCloud machines' capacities.
+const DefaultMemoryInGB = float32(4)
+
 type cacheHCloudClient struct {
 	serverCache         serverCache
 	placementGroupCache placementGroupCache
@@ -482,6 +488,29 @@ func (c *cacheHCloudClient) DeleteServer(ctx context.Context, server *hcloud.Ser
 	delete(c.serverCache.nameMap, n.Name)
 	delete(c.serverCache.idMap, server.ID)
 	return nil
+}
+
+func (c *cacheHCloudClient) ListServerTypes(ctx context.Context) ([]*hcloud.ServerType, error) {
+	return []*hcloud.ServerType{
+		{
+			ID:     1,
+			Name:   "cpx11",
+			Cores:  DefaultCPUCores,
+			Memory: DefaultMemoryInGB,
+		},
+		{
+			ID:     2,
+			Name:   "cpx21",
+			Cores:  DefaultCPUCores,
+			Memory: DefaultMemoryInGB,
+		},
+		{
+			ID:     3,
+			Name:   "cpx31",
+			Cores:  DefaultCPUCores,
+			Memory: DefaultMemoryInGB,
+		},
+	}, nil
 }
 
 func (c *cacheHCloudClient) CreateNetwork(ctx context.Context, opts hcloud.NetworkCreateOpts) (*hcloud.Network, error) {

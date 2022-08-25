@@ -170,6 +170,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 		osSSHClientAfterInstallImage.On("EnsureCloudInit").Return(sshclient.Output{StdOut: "cloud-init"})
 		osSSHClientAfterInstallImage.On("CloudInitStatus").Return(sshclient.Output{StdOut: "status: done"})
 		osSSHClientAfterInstallImage.On("CheckCloudInitLogsForSigTerm").Return(sshclient.Output{})
+		osSSHClientAfterInstallImage.On("ResetKubeadm").Return(sshclient.Output{})
 		osSSHClientAfterInstallImage.On("GetHostName").Return(sshclient.Output{
 			StdOut: infrav1.BareMetalHostNamePrefix + bmMachineName,
 			StdErr: "",

@@ -294,7 +294,7 @@ func buildLoadBalancerCreateOpts(hc *infrav1.HetznerCluster) hcloud.LoadBalancer
 	}
 
 	listenPort := int(hc.Spec.ControlPlaneEndpoint.Port)
-
+	boolTrue := true
 	return hcloud.LoadBalancerCreateOpts{
 		LoadBalancerType: &hcloud.LoadBalancerType{
 			Name: hc.Spec.ControlPlaneLoadBalancer.Type,
@@ -310,6 +310,7 @@ func buildLoadBalancerCreateOpts(hc *infrav1.HetznerCluster) hcloud.LoadBalancer
 		Labels: map[string]string{
 			clusterTagKey: string(infrav1.ResourceLifecycleOwned),
 		},
+		PublicInterface: &boolTrue,
 		Services: []hcloud.LoadBalancerCreateOptsService{
 			{
 				Protocol:        hcloud.LoadBalancerServiceProtocolTCP,

@@ -117,6 +117,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "HetznerCluster")
 		os.Exit(1)
 	}
+
 	if err = (&controllers.HCloudMachineReconciler{
 		Client:              mgr.GetClient(),
 		APIReader:           mgr.GetAPIReader(),
@@ -124,6 +125,16 @@ func main() {
 		WatchFilterValue:    watchFilterValue,
 	}).SetupWithManager(ctx, mgr, controller.Options{}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HCloudMachine")
+		os.Exit(1)
+	}
+
+	if err = (&controllers.HCloudMachineTemplateReconciler{
+		Client:              mgr.GetClient(),
+		APIReader:           mgr.GetAPIReader(),
+		HCloudClientFactory: hcloudClientFactory,
+		WatchFilterValue:    watchFilterValue,
+	}).SetupWithManager(ctx, mgr, controller.Options{}); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "HCloudMachineTemplate")
 		os.Exit(1)
 	}
 
