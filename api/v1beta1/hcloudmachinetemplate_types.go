@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 )
@@ -26,6 +27,20 @@ type HCloudMachineTemplateSpec struct {
 	Template HCloudMachineTemplateResource `json:"template"`
 }
 
+// HCloudMachineTemplateStatus defines the observed state of HCloudMachineTemplate.
+type HCloudMachineTemplateStatus struct {
+	// Capacity defines the resource capacity for this machine.
+	// This value is used for autoscaling from zero operations as defined in:
+	// https://github.com/kubernetes-sigs/cluster-api/blob/main/docs/proposals/20210310-opt-in-autoscaling-from-zero.md
+	// +optional
+	Capacity corev1.ResourceList `json:"capacity,omitempty"`
+
+	// Conditions defines current service state of the HCloudMachineTemplate.
+	// +optional
+	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
+}
+
+// +kubebuilder:subresource:status
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=hcloudmachinetemplates,scope=Namespaced,categories=cluster-api,shortName=capihcmt
 // +kubebuilder:printcolumn:name="Image",type="string",JSONPath=".spec.template.spec.imageName",description="Image name"
@@ -39,7 +54,18 @@ type HCloudMachineTemplate struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec HCloudMachineTemplateSpec `json:"spec,omitempty"`
+	Spec   HCloudMachineTemplateSpec   `json:"spec,omitempty"`
+	Status HCloudMachineTemplateStatus `json:"status,omitempty"`
+}
+
+// GetConditions returns the observations of the operational state of the HCloudMachine resource.
+func (r *HCloudMachineTemplate) GetConditions() clusterv1.Conditions {
+	return r.Status.Conditions
+}
+
+// SetConditions sets the underlying service state of the HCloudMachine to the predescribed clusterv1.Conditions.
+func (r *HCloudMachineTemplate) SetConditions(conditions clusterv1.Conditions) {
+	r.Status.Conditions = conditions
 }
 
 //+kubebuilder:object:root=true

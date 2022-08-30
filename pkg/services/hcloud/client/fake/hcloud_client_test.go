@@ -553,6 +553,31 @@ var _ = Describe("Server", func() {
 		Expect(err).ToNot(Succeed())
 		Expect(hcloud.IsError(err, hcloud.ErrorCodeNotFound)).To(BeTrue())
 	})
+
+	It("returns the correct server types", func() {
+		serverTypes, err := client.ListServerTypes(ctx)
+		Expect(err).To(Succeed())
+		Expect(serverTypes).To(Equal([]*hcloud.ServerType{
+			{
+				ID:     1,
+				Name:   "cpx11",
+				Cores:  fake.DefaultCPUCores,
+				Memory: fake.DefaultMemoryInGB,
+			},
+			{
+				ID:     2,
+				Name:   "cpx21",
+				Cores:  fake.DefaultCPUCores,
+				Memory: fake.DefaultMemoryInGB,
+			},
+			{
+				ID:     3,
+				Name:   "cpx31",
+				Cores:  fake.DefaultCPUCores,
+				Memory: fake.DefaultMemoryInGB,
+			},
+		}))
+	})
 })
 
 var _ = Describe("Network", func() {
