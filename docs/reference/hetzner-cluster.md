@@ -6,8 +6,10 @@ There are two different modes for the cluster. A pure HCloud cluster and a clust
 
 [Here](/docs/topics/managing-ssh-keys.md) you can find more information regarding the handling of SSH keys. Some of them are specified in ```HetznerCluster``` to have them cluster-wide, others are machine-scoped.
 
+### Usage without HCloud Load Balancer
+It is also possible not to use the cloud load balancer from Hetzner. This is useful for setups with only one control plane, or if you have your own cloud load balancer. Using controlPlaneLoadBalancer.enabled=false prevents the creation of a hcloud load balancer. Then you need to configure controlPlaneEndpoint.port=6443 & controlPlaneEndpoint.host, which should be a domain that has A records configured pointing to the control plane IP for example. If you are using your own load balancer, you need to point towards it and configure the load balancer to target the control planes of the cluster. 
 
-### Overview of HetznerCluster.Spec
+## Overview of HetznerCluster.Spec
 | Key | Type | Default | Required | Description |
 |-----|-----|------|---------|-------------|
 | hcloudNetwork | object |  | no | Specifies details about Hetzner cloud private networks |
@@ -30,6 +32,7 @@ There are two different modes for the cluster. A pure HCloud cluster and a clust
 | controlPlaneEndpoint.host | string | | yes | Defines host |
 | controlPlaneEndpoint.port | int32 | | yes | Defines port |
 |controlPlaneLoadBalancer | object | | yes | Defines specs of load balancer |
+|controlPlaneLoadBalancer.enabled | bool | true | no | Specifies if a load balancer should be created |
 |controlPlaneLoadBalancer.name | string | | no | Name of load balancer |
  |controlPlaneLoadBalancer.algorithm | string | round_robin | no | Type of load balancer algorithm. Either round_robin or least_connections |
 |controlPlaneLoadBalancer.type | string | lb11 | no | Type of load balancer. One of lb11, lb21, lb31 |
