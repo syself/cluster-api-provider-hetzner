@@ -11,7 +11,7 @@ on:
       - "**go.sum"
       - "<templates|test>/**/*.<yml|yaml>"
 env:
-  hcloudctl_version: 1.29.4
+  hcloudctl_version: 1.30.3
   IMAGE_NAME: cluster-api-provider-hetzner
   REGISTRY: quay.io/syself
   metadata_flavor: latest=false
