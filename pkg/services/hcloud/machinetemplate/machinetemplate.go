@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package machinetemplate implements functions to manage the lifecycle of HCloud machine templates
+// Package machinetemplate implements functions to manage the lifecycle of HCloud machine templates.
 package machinetemplate
 
 import (

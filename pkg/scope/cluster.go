@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package scope defines cluster and machine scope as well as a repository for the Hetzner API
+// Package scope defines cluster and machine scope as well as a repository for the Hetzner API.
 package scope
 
 import (

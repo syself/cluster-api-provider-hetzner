@@ -1,14 +1,14 @@
-name: 'Setup Go'
-description: 'Setup Go'
+name: "Setup Go"
+description: "Setup Go"
 inputs:
   version:
-    description: 'Go Version to setup'
+    description: "Go Version to setup"
     required: true
     default: "1.19"
 runs:
   using: "composite"
   steps:
-    - uses: actions/setup-go@v2
+    - uses: actions/setup-go@v3
       with:
         go-version: ${{ inputs.version }}
     - id: go-cache-paths

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package network implements the lifecycle of HCloud networks
+// Package network implements the lifecycle of HCloud networks.
 package network
 
 import (

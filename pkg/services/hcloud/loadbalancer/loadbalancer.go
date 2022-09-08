@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package loadbalancer implements the lifecycle of HCloud load balancers
+// Package loadbalancer implements the lifecycle of HCloud load balancers.
 package loadbalancer
 
 import (

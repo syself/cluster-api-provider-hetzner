@@ -45,7 +45,7 @@ func (r *HetznerCluster) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-// Could go in own webhook file hetznerclusterlist_webhook
+// Could go in own webhook file hetznerclusterlist_webhook.
 
 // SetupWebhookWithManager initializes webhook manager for HetznerClusterList.
 func (r *HetznerClusterList) SetupWebhookWithManager(mgr ctrl.Manager) error {

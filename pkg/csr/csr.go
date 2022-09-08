@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package csr contains functions to validate certificate signing requests
+// Package csr contains functions to validate certificate signing requests.
 package csr
 
 import (

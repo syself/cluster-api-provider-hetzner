@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package baremetal implements functions to manage the lifecycle of baremetal machines as inventory
+// Package baremetal implements functions to manage the lifecycle of baremetal machines as inventory.
 package baremetal
 
 import (
@@ -53,7 +53,7 @@ import (
 const (
 // hoursBeforeDeletion      time.Duration = 36 // TODO: Implement logic for removal of unpaid servers
 // rateLimitTimeOut         time.Duration = 660 // TODO: Implement logic to handle rate limits
-// rateLimitTimeOutDeletion time.Duration = 120
+// rateLimitTimeOutDeletion time.Duration = 120.
 )
 
 const (
