@@ -236,7 +236,7 @@ golangci-lint: $(GOLANGCI_LINT) ## Build a local copy of golangci-lint
 $(GOLANGCI_LINT): .github/workflows/pr-golangci-lint.yml # Download golanci-lint using hack script into tools folder.
 	hack/ensure-golangci-lint.sh \
 		-b $(TOOLS_DIR)/$(BIN_DIR) \
-		$(shell cat .github/workflows/pr-golangci-lint.yml | grep version | sed 's/.*version: //')
+		$(shell cat .github/workflows/pr-golangci-lint.yml | grep "\<version:\>" | sed 's/.*version: //')
 
 setup-envtest: $(SETUP_ENVTEST) ## Build a local copy of setup-envtest
 $(SETUP_ENVTEST): $(TOOLS_DIR)/go.mod # Build setup-envtest from tools folder.

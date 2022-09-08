@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package server implements functions to manage the lifecycle of HCloud servers
+// Package server implements functions to manage the lifecycle of HCloud servers.
 package server
 
 import (

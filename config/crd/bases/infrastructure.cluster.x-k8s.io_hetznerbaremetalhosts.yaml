@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.9.0
+    controller-gen.kubebuilder.io/version: v0.9.2
   creationTimestamp: null
   name: hetznerbaremetalhosts.infrastructure.cluster.x-k8s.io
 spec:
@@ -118,6 +118,7 @@ spec:
                     description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
                     type: string
                 type: object
+                x-kubernetes-map-type: atomic
               description:
                 description: Description is a human-entered text used to help identify
                   the host
@@ -503,6 +504,7 @@ spec:
                                   the secret name must be unique.
                                 type: string
                             type: object
+                            x-kubernetes-map-type: atomic
                           credentialsVersion:
                             type: string
                         type: object
@@ -524,6 +526,7 @@ spec:
                                   the secret name must be unique.
                                 type: string
                             type: object
+                            x-kubernetes-map-type: atomic
                           credentialsVersion:
                             type: string
                         type: object
@@ -569,6 +572,7 @@ spec:
                           secret name must be unique.
                         type: string
                     type: object
+                    x-kubernetes-map-type: atomic
                 required:
                 - errorCount
                 - hetznerClusterRef

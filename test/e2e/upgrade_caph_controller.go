@@ -173,7 +173,7 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 		// Download the older clusterctl version to be used for setting up the management cluster to be upgraded
 
 		fmt.Fprintf(ginkgo.GinkgoWriter, "Downloading clusterctl binary from %s", clusterctlBinaryURL)
-		clusterctlBinaryPath := downloadToTmpFile(clusterctlBinaryURL)
+		clusterctlBinaryPath := downloadToTmpFile(ctx, clusterctlBinaryURL)
 		defer os.Remove(clusterctlBinaryPath) // clean up
 
 		err := os.Chmod(clusterctlBinaryPath, 0744) //nolint:gosec
@@ -363,13 +363,16 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 	})
 }
 
-func downloadToTmpFile(url string) string {
+func downloadToTmpFile(ctx context.Context, url string) string {
 	tmpFile, err := os.CreateTemp("", "clusterctl")
 	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to get temporary file")
 	defer tmpFile.Close()
 
 	// Get the data
-	resp, err := http.Get(url) //nolint:gosec
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to create new http request")
+
+	resp, err := http.DefaultClient.Do(req)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to get clusterctl")
 	defer resp.Body.Close()
 

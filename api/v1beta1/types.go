@@ -21,7 +21,7 @@ import (
 )
 
 // LoadBalancerAlgorithmType defines the Algorithm type.
-//+kubebuilder:validation:Enum=round_robin;least_connections
+// +kubebuilder:validation:Enum=round_robin;least_connections
 type LoadBalancerAlgorithmType string
 
 const (
@@ -34,7 +34,7 @@ const (
 )
 
 // LoadBalancerTargetType defines the target type.
-//+kubebuilder:validation:Enum=server;ip
+// +kubebuilder:validation:Enum=server;ip
 type LoadBalancerTargetType string
 
 const (
