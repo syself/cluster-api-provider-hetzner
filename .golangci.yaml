@@ -1,12 +1,16 @@
 linters:
   disable-all: true
   enable:
+    - asasalint
     - asciicheck
+    - bidichk
     - bodyclose
     - containedctx
     - depguard
     - dogsled
+    - durationcheck
     - errcheck
+    - errchkjson
     - exportloopref
     - gci
     - goconst
@@ -61,6 +65,8 @@ linters-settings:
         alias: apierrors
       - pkg: k8s.io/apimachinery/pkg/util/errors
         alias: kerrors
+      - pkg: k8s.io/component-base/logs/api/v1
+        alias: logsv1
       # Controller Runtime
       - pkg: sigs.k8s.io/controller-runtime
         alias: ctrl
@@ -78,8 +84,26 @@ linters-settings:
       - G108 # Profiling endpoint is automatically exposed on /debug/pprof
       - G106 # Allowing for insecure ssh
   gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - performance
     disabled-checks:
       - appendAssign
+      - dupImport # https://github.com/go-critic/go-critic/issues/845
+      - evalOrder
+      - ifElseChain
+      - octalLiteral
+      - regexpSimplify
+      - sloppyReassign
+      - truncateCmp
+      - typeDefFirst
+      - unnamedResult
+      - unnecessaryDefer
+      - whyNoLint
+      - wrapperFunc
+      - rangeValCopy
+      - hugeParam
   unused:
     go: "1.19"
 issues:
@@ -94,7 +118,7 @@ issues:
       text: "exported: exported method .*\\.(Reconcile|SetupWithManager|SetupWebhookWithManager) should have comment or be unexported"
     - linters:
         - errcheck
-      text: Error return value of .((os\.)?std(out|err)\..*|.*Close|.*Flush|cmd.Run()|os\.Remove(All)?|.*print(f|ln)?|os\.(Un)?Setenv). is not checked
+      text: Error return value of .((os\.)?std(out|err)\..*|.*Close|.*Flush|os\.Remove(All)?|.*print(f|ln)?|os\.(Un)?Setenv). is not checked
     # Exclude some packages or code to require comments, for example test code, or fake clients.
     - linters:
         - revive
@@ -104,6 +128,10 @@ issues:
         - revive
       text: exported (method|function|type|const) (.+) should have comment or be unexported
       path: fake_\.go
+    - linters:
+        - revive
+      text: exported (method|function|type|const) (.+) should have comment or be unexported
+      path: "(framework|e2e)/.*.go"
     - linters:
         - revive
       text: exported (method|function|type|const) (.+) should have comment or be unexported
@@ -117,7 +145,7 @@ issues:
     # within test files.
     - path: _test\.go
       text: should not use dot imports
-    - path: (e2e)/.*.go
+    - path: (framework|e2e)/.*.go
       text: should not use dot imports
     - path: _test\.go
       text: cyclomatic complexity
@@ -165,7 +193,10 @@ run:
   skip-files:
     - "zz_generated.*\\.go$"
     - ".*conversion.*\\.go$"
+    - "test/e2e/*\\.go$"
   skip-dirs:
     - "third_party"
     - "tilt_modules"
+    - "test"
   allow-parallel-runners: true
+  modules-download-mode: readonly

@@ -207,7 +207,7 @@ EOF`, data))
 
 // DownloadImage implements the DownloadImage method of the SSHClient interface.
 func (c *sshClient) DownloadImage(path, url string) Output {
-	return c.runSSH(fmt.Sprintf(`curl -sLo "%s" "%s"`, path, url))
+	return c.runSSH(fmt.Sprintf(`curl -sLo "%q" "%q"`, path, url))
 }
 
 // CreatePostInstallScript implements the CreatePostInstallScript method of the SSHClient interface.

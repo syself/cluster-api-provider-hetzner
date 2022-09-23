@@ -50,11 +50,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const (
-// hoursBeforeDeletion      time.Duration = 36 // TODO: Implement logic for removal of unpaid servers
-// rateLimitTimeOut         time.Duration = 660 // TODO: Implement logic to handle rate limits
-// rateLimitTimeOutDeletion time.Duration = 120.
-)
+// TODO: Implement logic for removal of unpaid servers.
+// TODO: Implement logic to handle rate limits.
 
 const (
 	// ProviderIDPrefix is a prefix for ProviderID.
@@ -759,8 +756,7 @@ func nodeAddresses(host *infrav1.HetznerBareMetalHost, bareMetalMachineName stri
 	addrs = append(addrs, corev1.NodeAddress{
 		Type:    corev1.NodeHostName,
 		Address: bareMetalMachineName,
-	})
-	addrs = append(addrs, corev1.NodeAddress{
+	}, corev1.NodeAddress{
 		Type:    corev1.NodeInternalDNS,
 		Address: bareMetalMachineName,
 	})

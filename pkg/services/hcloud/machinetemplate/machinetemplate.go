@@ -72,21 +72,21 @@ func (s *Service) getCapacity(ctx context.Context) (corev1.ResourceList, error) 
 	// Find the correct server type and check number of CPU cores and GB of memory
 	var foundServerType bool
 	for _, serverType := range serverTypes {
-		if serverType.Name == string(s.scope.HCloudMachineTemplate.Spec.Template.Spec.Type) {
-			foundServerType = true
-
-			cpu, err := GetCPUQuantityFromInt(serverType.Cores)
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed to parse quantity. CPU cores: %v. Server type: %+v", serverType.Cores, serverType)
-			}
-			capacity[corev1.ResourceCPU] = cpu
-
-			memory, err := GetMemoryQuantityFromFloat32(serverType.Memory)
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed to parse quantity. Memory: %v. Server type: %+v", serverType.Memory, serverType)
-			}
-			capacity[corev1.ResourceMemory] = memory
+		if serverType.Name != string(s.scope.HCloudMachineTemplate.Spec.Template.Spec.Type) {
+			continue
 		}
+
+		foundServerType = true
+		cpu, err := GetCPUQuantityFromInt(serverType.Cores)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to parse quantity. CPU cores: %v. Server type: %+v", serverType.Cores, serverType)
+		}
+		capacity[corev1.ResourceCPU] = cpu
+		memory, err := GetMemoryQuantityFromFloat32(serverType.Memory)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to parse quantity. Memory: %v. Server type: %+v", serverType.Memory, serverType)
+		}
+		capacity[corev1.ResourceMemory] = memory
 	}
 	if !foundServerType {
 		return nil, fmt.Errorf("failed to find server type for %s", s.scope.HCloudMachineTemplate.Spec.Template.Spec.Type)
