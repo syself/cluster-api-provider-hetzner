@@ -148,6 +148,18 @@ type InstallImage struct {
 	// BTRFSDefinitions defines the btrfs subvolume definitions to be created.
 	// +optional
 	BTRFSDefinitions []BTRFSDefinition `json:"btrfsDefinitions,omitempty"`
+
+	// Swraid defines the SWRAID in InstallImage.
+	// +optional
+	// +kubebuilder:default=0
+	// +kubebuilder:validation:Enum=0;1;
+	Swraid int `json:"swraid"`
+
+	// SwraidLevel defines the SWRAIDLEVEL in InstallImage. Ignored if Swraid=0.
+	// +optional
+	// +kubebuilder:default=1
+	// +kubebuilder:validation:Enum=0;1;5;6;10;
+	SwraidLevel int `json:"swraidLevel,omitempty"`
 }
 
 // Image defines the properties for the autosetup config.

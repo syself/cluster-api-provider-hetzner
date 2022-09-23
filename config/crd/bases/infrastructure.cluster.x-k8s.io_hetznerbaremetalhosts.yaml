@@ -133,6 +133,14 @@ spec:
                   image being provisioned. They need to be specified to provision
                   the host.
                 properties:
+                  raid:
+                    description: To specify multiple storage devices.
+                    properties:
+                      wwn:
+                        items:
+                          type: string
+                        type: array
+                    type: object
                   wwn:
                     description: Unique storage identifier. The hint must match the
                       actual value exactly.
@@ -413,6 +421,24 @@ spec:
                           which should be executed after installimage. It is passed
                           along with the installimage command.
                         type: string
+                      swraid:
+                        default: 0
+                        description: Swraid defines the SWRAID in InstallImage.
+                        enum:
+                        - 0
+                        - 1
+                        type: integer
+                      swraidLevel:
+                        default: 1
+                        description: SwraidLevel defines the SWRAIDLEVEL in InstallImage.
+                          Ignored if Swraid=0.
+                        enum:
+                        - 0
+                        - 1
+                        - 5
+                        - 6
+                        - 10
+                        type: integer
                     required:
                     - image
                     - partitions

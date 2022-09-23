@@ -26,7 +26,6 @@ import (
 var _ = Describe("buildAutoSetup", func() {
 	DescribeTable("buildAutoSetup",
 		func(installImageSpec infrav1.InstallImage, autoSetupInput autoSetupInput, expectedOutput string) {
-
 			Expect(buildAutoSetup(installImageSpec, autoSetupInput)).Should(Equal(expectedOutput))
 		},
 		Entry(
@@ -72,13 +71,16 @@ var _ = Describe("buildAutoSetup", func() {
 						Mount:     "/usr",
 					},
 				},
+				Swraid:      0,
+				SwraidLevel: 1,
 			},
 			autoSetupInput{
-				image:    "my-image",
-				osDevice: "device",
-				hostName: "my-host",
+				image:     "my-image",
+				osDevices: []string{"device"},
+				hostName:  "my-host",
 			},
 			`DRIVE1 /dev/device
+
 HOSTNAME my-host
 SWRAID 0
 
@@ -118,13 +120,64 @@ IMAGE my-image`),
 						Mount:     "/",
 					},
 				},
+				Swraid:      1,
+				SwraidLevel: 1,
 			},
 			autoSetupInput{
-				image:    "my-image",
-				osDevice: "device",
-				hostName: "my-host",
+				image:     "my-image",
+				osDevices: []string{"device"},
+				hostName:  "my-host",
 			},
 			`DRIVE1 /dev/device
+
+HOSTNAME my-host
+SWRAID 1
+SWRAIDLEVEL 1
+
+PART /boot ext2 512M
+
+LV vg0 root / ext4 10G
+
+SUBVOL btrfs.1 @ /
+
+IMAGE my-image`),
+		Entry(
+			"multiple drives",
+			infrav1.InstallImage{
+				Partitions: []infrav1.Partition{
+					{
+						Mount:      "/boot",
+						FileSystem: "ext2",
+						Size:       "512M",
+					},
+				},
+				LVMDefinitions: []infrav1.LVMDefinition{
+					{
+						VG:         "vg0",
+						Name:       "root",
+						Mount:      "/",
+						FileSystem: "ext4",
+						Size:       "10G",
+					},
+				},
+				BTRFSDefinitions: []infrav1.BTRFSDefinition{
+					{
+						Volume:    "btrfs.1",
+						SubVolume: "@",
+						Mount:     "/",
+					},
+				},
+				Swraid:      0,
+				SwraidLevel: 1,
+			},
+			autoSetupInput{
+				image:     "my-image",
+				osDevices: []string{"device1", "device2"},
+				hostName:  "my-host",
+			},
+			`DRIVE1 /dev/device1
+DRIVE2 /dev/device2
+
 HOSTNAME my-host
 SWRAID 0
 
@@ -147,13 +200,16 @@ IMAGE my-image`),
 				},
 				LVMDefinitions:   []infrav1.LVMDefinition{},
 				BTRFSDefinitions: []infrav1.BTRFSDefinition{},
+				Swraid:           0,
+				SwraidLevel:      1,
 			},
 			autoSetupInput{
-				image:    "my-image",
-				osDevice: "device",
-				hostName: "my-host",
+				image:     "my-image",
+				osDevices: []string{"device"},
+				hostName:  "my-host",
 			},
 			`DRIVE1 /dev/device
+
 HOSTNAME my-host
 SWRAID 0
 

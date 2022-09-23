@@ -195,7 +195,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 			host = helpers.BareMetalHost(
 				hostName,
 				testNs.Name,
-				helpers.WithRootDeviceHints(),
+				helpers.WithRootDeviceHintWWN(),
 				helpers.WithHetznerClusterRef(hetznerClusterName),
 			)
 			Expect(testEnv.Create(ctx, host)).To(Succeed())
@@ -347,7 +347,44 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 				host = helpers.BareMetalHost(
 					hostName,
 					testNs.Name,
-					helpers.WithRootDeviceHints(),
+					helpers.WithRootDeviceHintWWN(),
+					helpers.WithHetznerClusterRef(hetznerClusterName),
+				)
+				Expect(testEnv.Create(ctx, host)).To(Succeed())
+
+				key = client.ObjectKey{Namespace: testNs.Name, Name: host.Name}
+			})
+
+			AfterEach(func() {
+				Expect(testEnv.Cleanup(ctx, host)).To(Succeed())
+			})
+
+			It("gets selected from a bm machine and provisions", func() {
+				defer func() {
+					Expect(testEnv.Delete(ctx, bmMachine))
+				}()
+
+				var machine clusterv1.Machine
+				Expect(testEnv.Get(ctx, client.ObjectKey{Namespace: testNs.Name, Name: capiMachine.Name}, &machine)).To(Succeed())
+
+				Eventually(func() bool {
+					if err := testEnv.Get(ctx, key, host); err != nil {
+						return false
+					}
+					if host.Spec.Status.ProvisioningState == infrav1.StateProvisioned {
+						return true
+					}
+					return false
+				}, timeout).Should(BeTrue())
+			})
+		})
+
+		Context("provision host with rootDeviceHints raid", func() {
+			BeforeEach(func() {
+				host = helpers.BareMetalHost(
+					hostName,
+					testNs.Name,
+					helpers.WithRootDeviceHintRaid(),
 					helpers.WithHetznerClusterRef(hetznerClusterName),
 				)
 				Expect(testEnv.Create(ctx, host)).To(Succeed())
@@ -474,7 +511,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 				host = helpers.BareMetalHost(
 					hostName,
 					testNs.Name,
-					helpers.WithRootDeviceHints(),
+					helpers.WithRootDeviceHintWWN(),
 					helpers.WithHetznerClusterRef(hetznerClusterName),
 				)
 				Expect(testEnv.Create(ctx, host)).To(Succeed())
@@ -719,7 +756,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 				hostName,
 				testNs.Name,
 				helpers.WithHetznerClusterRef(hetznerClusterName),
-				helpers.WithRootDeviceHints(),
+				helpers.WithRootDeviceHintWWN(),
 			)
 			Expect(testEnv.Create(ctx, host)).To(Succeed())
 

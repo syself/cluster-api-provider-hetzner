@@ -26,15 +26,17 @@ Maintenance mode means that the host will not be consumed by any `HetznerBareMet
 
 ### Overview of HetznerBareMetalHost.Spec
 
-| Key                 | Type   | Default | Required | Description                                                                                                                                                                                                                                                         |
-| ------------------- | ------ | ------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| serverID            | int    |         | yes      | Server ID of the Hetzner dedicated server, you can find it on your Hetzner robot dashboard                                                                                                                                                                          |
-| rootDeviceHints     | object |         | no       | Important to find the correct root device. If none are specified, the host will stop provisioning in between to wait for the details to be specified. HardwareDetails in the host's status can be used to find the correct device. Currently, only WWN is supported |
-| rootDeviceHints.wwn | string |         | yes      | Unique storage identifier                                                                                                                                                                                                                                           |
-| consumerRef         | object |         | no       | Used by the controller and references the bare metal machine that consumes this host                                                                                                                                                                                |
-| maintenanceMode     | bool   |         | no       | If set to true, the host deprovisions and will not be consumed by any bare metal machine                                                                                                                                                                            |
-| description         | string |         | no       | Description can be used to store some valuable information about this host                                                                                                                                                                                          |
-| status              | object |         | no       | The controller writes this status. As there are some that cannot be regenerated during any reconcilement, the status is in the specs of the object - not the actual status. DO NOT EDIT!!!                                                                          |
+| Key                      | Type      | Default | Required | Description                                                                                                                                                                                                                                                                            |
+| ------------------------ | --------- | ------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| serverID                 | int       |         | yes      | Server ID of the Hetzner dedicated server, you can find it on your Hetzner robot dashboard                                                                                                                                                                                             |
+| rootDeviceHints          | object    |         | no       | Important to find the correct root device. If none are specified, the host will stop provisioning in between to wait for the details to be specified. HardwareDetails in the host's status can be used to find the correct device. Currently, you can specify one disk or a raid setup |
+| rootDeviceHints.wwn      | string    |         | no       | Unique storage identifier for non raid setups                                                                                                                                                                                                                                          |
+| rootDeviceHints.raid     | object    |         | no       | Used to provide the controller with information on which disks a raid can be established                                                                                                                                                                                               |
+| rootDeviceHints.raid.wwn | []string |         | no       | Defines a list of Unique storage identifier used for raid setups                                                                                                                                                                                                                       |
+| consumerRef              | object    |         | no       | Used by the controller and references the bare metal machine that consumes this host                                                                                                                                                                                                   |
+| maintenanceMode          | bool      |         | no       | If set to true, the host deprovisions and will not be consumed by any bare metal machine                                                                                                                                                                                               |
+| description              | string    |         | no       | Description can be used to store some valuable information about this host                                                                                                                                                                                                             |
+| status                   | object    |         | no       | The controller writes this status. As there are some that cannot be regenerated during any reconcilement, the status is in the specs of the object - not the actual status. DO NOT EDIT!!!                                                                                             |
 
 ### Example of the HetznerBareMetalHost object
 
@@ -49,6 +51,23 @@ spec:
   serverID: 1682566 #change
   rootDeviceHints:
     wwn: "eui.0068475201b4egh2" #change
+  maintenanceMode: false
+  description: Test Machine 0 #example
+```
+If you want to create an object which will be used in a raid setup, the following can serve as an example.
+
+```yaml
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: HetznerBareMetalHost
+metadata:
+  name: "bm-0" #example
+spec:
+  serverID: 1682566 #change
+  rootDeviceHints:
+    raid:
+      wwn:
+        - "eui.0068475201b4egh2" #change
+        - "eui.0068475201b4egh3" #change
   maintenanceMode: false
   description: Test Machine 0 #example
 ```
