@@ -8,6 +8,7 @@ resources:
   - ../bases/crs-cni.yaml
   - ../bases/crs-ccm-hetzner.yaml
   - ../bases/hetzner-secret.yaml
+  - ../cluster-template-hetzner-secret.yaml
   - ../bases/hetznerbaremetalhosts.yaml
   - md-1
 patchesStrategicMerge:

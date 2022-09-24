@@ -22,7 +22,8 @@ import (
 
 var _ = Describe("[Upgrade CAPH][Slow] Testing Upgrade of Caph Controller", func() {
 	Context("[Needs Published Image] Running tests that require published images", func() {
-		Context("Testing the upgrade from the latest published caph version to a rc version", func() {
+
+		Context("Hcloud - Testing the upgrade from the latest published caph version to a rc version", func() {
 			ClusterctlUpgradeSpec(ctx, func() ClusterctlUpgradeSpecInput {
 				return ClusterctlUpgradeSpecInput{
 					E2EConfig:             e2eConfig,
@@ -30,7 +31,22 @@ var _ = Describe("[Upgrade CAPH][Slow] Testing Upgrade of Caph Controller", func
 					BootstrapClusterProxy: bootstrapClusterProxy,
 					ArtifactFolder:        artifactFolder,
 					SkipCleanup:           skipCleanup,
+					MgmtFlavor:            "",
 					WorkloadFlavor:        "",
+				}
+			})
+		})
+
+		Context("Baremetal - Testing the upgrade from the latest published caph version to a rc version", func() {
+			ClusterctlUpgradeSpec(ctx, func() ClusterctlUpgradeSpecInput {
+				return ClusterctlUpgradeSpecInput{
+					E2EConfig:             e2eConfig,
+					ClusterctlConfigPath:  clusterctlConfigPath,
+					BootstrapClusterProxy: bootstrapClusterProxy,
+					ArtifactFolder:        artifactFolder,
+					SkipCleanup:           skipCleanup,
+					MgmtFlavor:            "",
+					WorkloadFlavor:        "hetzner-baremetal",
 				}
 			})
 		})

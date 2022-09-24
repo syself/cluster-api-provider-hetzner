@@ -12,7 +12,10 @@ inputs:
     required: true
   e2e_tts_token:
     description: "e2e_tts_token"
-    required: true
+    required: false
+  e2e_hcloud_token:
+    description: "e2e_hcloud_token"
+    required: false
   e2e_robot_user:
     description: "e2e_robot_user"
     required: false
@@ -92,7 +95,7 @@ runs:
         HETZNER_SSH_PUB: ${{ inputs.e2e_ssh_pub }}
         HETZNER_SSH_PRIV: ${{ inputs.e2e_ssh_priv }}
         SKIP_IMAGE_BUILD: "1"
-        CAPH_LATEST_VERSION: "v1.0.0-alpha.20"
+        CAPH_LATEST_VERSION: "v1.0.0-beta.1"
       run: make ${{ inputs.e2e_make_target }}
     - name: Upload artifact
       uses: actions/upload-artifact@v3

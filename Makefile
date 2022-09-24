@@ -462,7 +462,7 @@ test-e2e-lifecycle: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTI
 
 .PHONY: test-e2e-upgrade-caph
 test-e2e-upgrade-caph: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKO_FOKUS="'\[Upgrade CAPH\]'" GINKO_NODES=1 ./hack/ci-e2e-capi.sh
+	GINKO_FOKUS="'\[Upgrade CAPH\]'" GINKO_NODES=2 ./hack/ci-e2e-capi.sh
 
 .PHONY: test-e2e-upgrade-kubernetes
 test-e2e-upgrade-kubernetes: $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
