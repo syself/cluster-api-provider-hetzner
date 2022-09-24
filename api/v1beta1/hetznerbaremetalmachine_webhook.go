@@ -79,8 +79,6 @@ func (r *HetznerBareMetalMachine) ValidateUpdate(old runtime.Object) error {
 	if !reflect.DeepEqual(r.Spec.InstallImage, oldHetznerBareMetalMachine.Spec.InstallImage) {
 		allErrs = append(allErrs,
 			field.Invalid(field.NewPath("spec", "installImage"), r.Spec.InstallImage, "installImage immutable"),
-		)
-		allErrs = append(allErrs,
 			field.Invalid(field.NewPath("spec", "sshSpec"), r.Spec.SSHSpec, "sshSpec immutable"),
 		)
 	}
