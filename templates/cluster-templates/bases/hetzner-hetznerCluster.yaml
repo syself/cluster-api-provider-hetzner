@@ -12,11 +12,6 @@ spec:
     port: 443
   controlPlaneLoadBalancer:
     region: "${HCLOUD_REGION}"
-  hcloudPlacementGroups:
-    - name: control-plane
-      type: spread
-    - name: md-0
-      type: spread
   sshKeys:
     hcloud:
       - name: "${HCLOUD_SSH_KEY}"
