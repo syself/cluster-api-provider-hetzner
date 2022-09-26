@@ -74,7 +74,7 @@ jobs:
       - name: checkout
         uses: actions/checkout@v3
       - name: Run e2e Test
-        id: e2e
+        id: e2e-bm
         uses: ./.github/actions/e2e
         with:
           e2e_name: hetzner-basic
