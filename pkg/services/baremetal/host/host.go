@@ -723,17 +723,25 @@ func (s *Service) actionRegistering() actionResult {
 		s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails = &hardwareDetails
 	}
 	if s.scope.HetznerBareMetalHost.Spec.RootDeviceHints == nil ||
-		s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.WWN == "" {
+		!s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.IsValid() {
 		return s.recordActionFailure(infrav1.RegistrationError, infrav1.ErrorMessageMissingRootDeviceHints)
 	}
-	for _, st := range s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails.Storage {
-		if s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.WWN == st.WWN {
-			s.scope.SetErrorCount(0)
-			clearError(s.scope.HetznerBareMetalHost)
-			return actionComplete{}
+
+	for _, wwn := range s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.ListOfWWN() {
+		foundWWN := false
+		for _, st := range s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails.Storage {
+			if wwn == st.WWN {
+				foundWWN = true
+				continue
+			}
+		}
+		if !foundWWN {
+			return s.recordActionFailure(infrav1.RegistrationError, fmt.Sprintf("no storage device found with root device hint %s", wwn))
 		}
 	}
-	return s.recordActionFailure(infrav1.RegistrationError, "no storage device found with root device hints")
+	s.scope.SetErrorCount(0)
+	clearError(s.scope.HetznerBareMetalHost)
+	return actionComplete{}
 }
 
 func (s *Service) handleIncompleteBootRegistering(out sshclient.Output) (isTimeout bool, isConnectionRefused bool, reterr error) {
@@ -1047,19 +1055,19 @@ func (s *Service) actionImageInstalling() actionResult {
 		return actionError{err: err}
 	}
 
-	deviceName := getDeviceName(s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.WWN, storageDevices)
+	deviceNames := getDeviceNames(s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.ListOfWWN(), storageDevices)
 
 	// Should find a storage device
-	if deviceName == "" {
+	if len(deviceNames) == 0 {
 		return s.recordActionFailure(infrav1.ProvisioningError, "no suitable storage device found")
 	}
 
 	hostName := infrav1.BareMetalHostNamePrefix + s.scope.HetznerBareMetalHost.Spec.ConsumerRef.Name
 	// Create autosetup file
 	autoSetupInput := autoSetupInput{
-		osDevice: deviceName,
-		hostName: hostName,
-		image:    imagePath,
+		osDevices: deviceNames,
+		hostName:  hostName,
+		image:     imagePath,
 	}
 
 	autoSetup := buildAutoSetup(*s.scope.HetznerBareMetalHost.Spec.Status.InstallImage, autoSetupInput)
@@ -1111,13 +1119,23 @@ func (s *Service) actionImageInstalling() actionResult {
 	return actionComplete{}
 }
 
-func getDeviceName(wwn string, storageDevices []infrav1.Storage) string {
+func getDeviceNames(wwn []string, storageDevices []infrav1.Storage) []string {
+	deviceNames := make([]string, 0, len(storageDevices))
 	for _, device := range storageDevices {
-		if device.WWN == wwn {
-			return device.Name
+		if stringInList(device.WWN, wwn) {
+			deviceNames = append(deviceNames, device.Name)
 		}
 	}
-	return ""
+	return deviceNames
+}
+
+func stringInList(str string, list []string) bool {
+	for _, s := range list {
+		if str == s {
+			return true
+		}
+	}
+	return false
 }
 
 func getImageDetails(image infrav1.Image) (imagePath string, needsDownload bool, errorMessage string) {

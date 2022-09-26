@@ -24,15 +24,29 @@ import (
 )
 
 type autoSetupInput struct {
-	osDevice string
-	hostName string
-	image    string
+	osDevices []string
+	hostName  string
+	image     string
 }
 
 func buildAutoSetup(installImageSpec infrav1.InstallImage, autoSetupInput autoSetupInput) string {
-	drive := fmt.Sprintf(`DRIVE1 /dev/%s
+	var drives string
+	for i, osDevice := range autoSetupInput.osDevices {
+		if i > 0 {
+			drives = fmt.Sprintf(`%s
+DRIVE%v /dev/%s`, drives, i+1, osDevice)
+		} else {
+			drives = fmt.Sprintf(`DRIVE%v /dev/%s`, i+1, osDevice)
+		}
+	}
+
+	hostName := fmt.Sprintf(`
 HOSTNAME %s
-SWRAID 0`, autoSetupInput.osDevice, autoSetupInput.hostName)
+SWRAID %v`, autoSetupInput.hostName, installImageSpec.Swraid)
+	if installImageSpec.Swraid == 1 {
+		hostName = fmt.Sprintf(`%s
+SWRAIDLEVEL %v`, hostName, installImageSpec.SwraidLevel)
+	}
 
 	var partitions string
 	for _, partition := range installImageSpec.Partitions {
@@ -59,7 +73,8 @@ IMAGE %s`, autoSetupInput.image)
 %s
 %s
 %s
-%s`, drive, partitions, lvmDefinitions, btrfsDefinitions, image)
+%s
+%s`, drives, hostName, partitions, lvmDefinitions, btrfsDefinitions, image)
 	return output
 }
 

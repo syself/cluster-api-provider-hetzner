@@ -1036,17 +1036,26 @@ var _ = Describe("actionRegistering", func() {
 	DescribeTable("actionRegistering",
 		func(
 			storageStdOut string,
-			includeRootDeviceHints bool,
+			includeRootDeviceHintWWN bool,
+			includeRootDeviceHintRaid bool,
 			expectedActionResult actionResult,
 			expectedErrorMessage *string,
 		) {
 
 			var host *infrav1.HetznerBareMetalHost
-			if includeRootDeviceHints {
+			if includeRootDeviceHintWWN {
 				host = helpers.BareMetalHost(
 					"test-host",
 					"default",
-					helpers.WithRootDeviceHints(),
+					helpers.WithRootDeviceHintWWN(),
+					helpers.WithIPv4(),
+					helpers.WithConsumerRef(),
+				)
+			} else if includeRootDeviceHintRaid {
+				host = helpers.BareMetalHost(
+					"test-host",
+					"default",
+					helpers.WithRootDeviceHintRaid(),
 					helpers.WithIPv4(),
 					helpers.WithConsumerRef(),
 				)
@@ -1090,6 +1099,17 @@ var _ = Describe("actionRegistering", func() {
 		NAME="nvme2n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVL22T0HBLB-00B00" VENDOR="" SERIAL="S677NF0R402742" SIZE="2048408248320" WWN="eui.002538b411b2cee8" ROTA="0"
 		NAME="nvme1n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJQ-00000" VENDOR="" SERIAL="S3W8NX0N811178" SIZE="512110190592" WWN="eui.0025388801b4dff2" ROTA="0"`,
 			true,
+			false,
+			actionComplete{},
+			nil,
+		),
+		Entry(
+			"working example - rootDeviceHints raid",
+			`NAME="loop0" LABEL="" FSTYPE="ext2" TYPE="loop" HCTL="" MODEL="" VENDOR="" SERIAL="" SIZE="3068773888" WWN="" ROTA="0"
+		NAME="nvme2n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVL22T0HBLB-00B00" VENDOR="" SERIAL="S677NF0R402742" SIZE="2048408248320" WWN="eui.002538b411b2cee8" ROTA="0"
+		NAME="nvme1n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJQ-00000" VENDOR="" SERIAL="S3W8NX0N811178" SIZE="512110190592" WWN="eui.0025388801b4dff2" ROTA="0"`,
+			false,
+			true,
 			actionComplete{},
 			nil,
 		),
@@ -1099,14 +1119,16 @@ var _ = Describe("actionRegistering", func() {
 			NAME="nvme2n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVL22T0HBLB-00B00" VENDOR="" SERIAL="S677NF0R402742" SIZE="2048408248320" WWN="eui.002538b411b2cee2" ROTA="0"
 			NAME="nvme1n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJQ-00000" VENDOR="" SERIAL="S3W8NX0N811178" SIZE="512110190592" WWN="eui.0025388801b4dff2" ROTA="0"`,
 			true,
+			false,
 			actionFailed{},
-			pointer.String("no storage device found with root device hints"),
+			pointer.String("no storage device found with root device hint eui.002538b411b2cee8"),
 		),
 		Entry(
 			"no root device hints",
 			`NAME="loop0" LABEL="" FSTYPE="ext2" TYPE="loop" HCTL="" MODEL="" VENDOR="" SERIAL="" SIZE="3068773888" WWN="" ROTA="0"
 			NAME="nvme2n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVL22T0HBLB-00B00" VENDOR="" SERIAL="S677NF0R402742" SIZE="2048408248320" WWN="eui.002538b411b2cee2" ROTA="0"
 			NAME="nvme1n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJQ-00000" VENDOR="" SERIAL="S3W8NX0N811178" SIZE="512110190592" WWN="eui.0025388801b4dff2" ROTA="0"`,
+			false,
 			false,
 			actionFailed{},
 			pointer.String(infrav1.ErrorMessageMissingRootDeviceHints),
@@ -1122,7 +1144,7 @@ var _ = Describe("actionRegistering", func() {
 				"test-host",
 				"default",
 				helpers.WithRebootTypes([]infrav1.RebootType{infrav1.RebootTypeHardware}),
-				helpers.WithRootDeviceHints(),
+				helpers.WithRootDeviceHintWWN(),
 				helpers.WithIPv4(),
 				helpers.WithConsumerRef(),
 			)

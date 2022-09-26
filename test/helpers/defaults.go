@@ -33,6 +33,8 @@ const (
 
 	// DefaultWWN specifies the default WWN.
 	DefaultWWN = "eui.002538b411b2cee8"
+	// DefaultWWN2 specifies the default WWN.
+	DefaultWWN2 = "eui.0025388801b4dff2"
 )
 
 var (
@@ -76,11 +78,20 @@ func WithRebootTypes(rebootTypes []infrav1.RebootType) HostOpts {
 	}
 }
 
-// WithRootDeviceHints gives the option to define a host with root device hints.
-func WithRootDeviceHints() HostOpts {
+// WithRootDeviceHintWWN gives the option to define a host with root device hints.
+func WithRootDeviceHintWWN() HostOpts {
 	return func(host *infrav1.HetznerBareMetalHost) {
 		host.Spec.RootDeviceHints = &infrav1.RootDeviceHints{
 			WWN: DefaultWWN,
+		}
+	}
+}
+
+// WithRootDeviceHintRaid gives the option to define a host with root device hints.
+func WithRootDeviceHintRaid() HostOpts {
+	return func(host *infrav1.HetznerBareMetalHost) {
+		host.Spec.RootDeviceHints = &infrav1.RootDeviceHints{
+			Raid: infrav1.Raid{WWN: []string{DefaultWWN, DefaultWWN2}},
 		}
 	}
 }

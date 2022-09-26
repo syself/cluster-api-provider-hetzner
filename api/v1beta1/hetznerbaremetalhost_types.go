@@ -34,11 +34,38 @@ const (
 )
 
 // RootDeviceHints holds the hints for specifying the storage location
-// for the root filesystem for the image.
+// for the root filesystem for the image. Need to specify either WWN or raid
+// to provision host machine successfully.
 type RootDeviceHints struct {
 	// Unique storage identifier. The hint must match the actual value
 	// exactly.
+	// +optional
 	WWN string `json:"wwn,omitempty"`
+	// To specify multiple storage devices.
+	// +optional
+	Raid Raid `json:"raid,omitempty"`
+}
+
+// IsValid checks whether rootDeviceHint is valid.
+func (rdh *RootDeviceHints) IsValid() bool {
+	if rdh.WWN == "" && len(rdh.Raid.WWN) == 0 ||
+		rdh.WWN != "" && len(rdh.Raid.WWN) > 0 {
+		return false
+	}
+	return true
+}
+
+// ListOfWWN gives the list of WWNs - no matter if it's in WWN or Raid.
+func (rdh *RootDeviceHints) ListOfWWN() []string {
+	if rdh.WWN == "" {
+		return rdh.Raid.WWN
+	}
+	return []string{rdh.WWN}
+}
+
+// Raid can be used instead of WWN to point to multiple storage devices.
+type Raid struct {
+	WWN []string `json:"wwn,omitempty"`
 }
 
 // ErrorType indicates the class of problem that has caused the Host resource
