@@ -28,12 +28,14 @@ var _ = Describe("[Feature Packer] Testing Cluster Flavor with 3x control-planes
 	Context("Testing packer image", func() {
 		CaphClusterDeploymentSpec(ctx, func() CaphClusterDeploymentSpecInput {
 			return CaphClusterDeploymentSpecInput{
-				E2EConfig:             e2eConfig,
-				ClusterctlConfigPath:  clusterctlConfigPath,
-				BootstrapClusterProxy: bootstrapClusterProxy,
-				ArtifactFolder:        artifactFolder,
-				SkipCleanup:           skipCleanup,
-				Flavor:                "hcloud-feature-packer",
+				E2EConfig:                e2eConfig,
+				ClusterctlConfigPath:     clusterctlConfigPath,
+				BootstrapClusterProxy:    bootstrapClusterProxy,
+				ArtifactFolder:           artifactFolder,
+				SkipCleanup:              skipCleanup,
+				ControlPlaneMachineCount: 3,
+				WorkerMachineCount:       1,
+				Flavor:                   "hcloud-feature-packer",
 			}
 		})
 	})

@@ -83,6 +83,7 @@ providers:
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-md-remediation.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-kcp-remediation.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hetzner-baremetal.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hetzner-baremetal-feature-raid-setup.yaml"
       - name: v1.0.99 # next; use manifest from source files
         value: ../../../config/default
         contract: v1beta1
@@ -109,6 +110,7 @@ providers:
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-md-remediation.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-kcp-remediation.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hetzner-baremetal.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hetzner-baremetal-feature-raid-setup.yaml"
 
 variables:
   # Upgrade Test

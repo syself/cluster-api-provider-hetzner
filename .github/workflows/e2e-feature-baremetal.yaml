@@ -1,4 +1,4 @@
-name: E2E Basic Baremetal
+name: E2E Baremetal Feature
 on:
   workflow_dispatch:
 env:
@@ -34,8 +34,8 @@ jobs:
         with:
           test_release_quay_username: ${{ secrets.QUAY_USERNAME }}
 
-  e2e-hetzner-basic:
-    name: Test Hetzner Basic
+  e2e-hetzner-baremetal-feature:
+    name: Test Hetzner Baremetal Features
     concurrency: ci-${{ github.ref }}-e2e-baremetal-hetzner
     runs-on: ubuntu-latest
     needs:
@@ -48,8 +48,8 @@ jobs:
         id: e2e
         uses: ./.github/actions/e2e
         with:
-          e2e_name: hetzner-basic
-          e2e_make_target: test-e2e-baremetal
+          e2e_name: hetzner-baremetal-feature
+          e2e_make_target: test-e2e-baremetal-feature
           e2e_quay_username: ${{ secrets.QUAY_USERNAME }}
           e2e_tts_token: ${{ secrets.TTS_TOKEN }}
           e2e_hcloud_token: ${{ secrets.HCLOUD_TOKEN }}

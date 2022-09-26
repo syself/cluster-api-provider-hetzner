@@ -476,6 +476,10 @@ test-e2e-conformance: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(AR
 test-e2e-baremetal: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
 	GINKO_FOKUS="'\[Baremetal\]'" GINKO_NODES=1 ./hack/ci-e2e-capi.sh
 
+.PHONY: test-e2e-baremetal-feature
+test-e2e-baremetal-feature: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
+	GINKO_FOKUS="'\[Baremetal Feature\]'" GINKO_NODES=1 ./hack/ci-e2e-capi.sh
+
 .PHONY: test
 test: $(SETUP_ENVTEST) ## Run unit and integration tests
 	KUBEBUILDER_ASSETS="$(KUBEBUILDER_ASSETS)" go test ./controllers/... ./pkg/... $(TEST_ARGS)
