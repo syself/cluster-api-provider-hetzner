@@ -49,7 +49,7 @@ metadata:
 spec:
   serverID: 1751550
   rootDeviceHints:
-    wwn: "0x500a075110b39df5"
+    wwn: "0x500a075119549dcf"
   maintenanceMode: false
   description: Test Machine 5
 ---
