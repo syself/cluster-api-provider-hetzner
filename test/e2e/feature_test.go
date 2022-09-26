@@ -70,18 +70,19 @@ var _ = Describe("[Feature] Testing Cluster Flavor with 3x control-planes 1x wor
 		})
 	})
 
-	Context("Testing deactivated loadbalancer", func() {
-		CaphClusterDeploymentSpec(ctx, func() CaphClusterDeploymentSpecInput {
-			return CaphClusterDeploymentSpecInput{
-				E2EConfig:                e2eConfig,
-				ClusterctlConfigPath:     clusterctlConfigPath,
-				BootstrapClusterProxy:    bootstrapClusterProxy,
-				ArtifactFolder:           artifactFolder,
-				SkipCleanup:              skipCleanup,
-				ControlPlaneMachineCount: 3,
-				WorkerMachineCount:       1,
-				Flavor:                   "hcloud-feature-loadbalancer-off",
-			}
-		})
-	})
+	// TODO: If deactivated it's necessary to set a domain name. Currently this is not supported on the CI
+	// Context("Testing deactivated loadbalancer", func() {
+	// 	CaphClusterDeploymentSpec(ctx, func() CaphClusterDeploymentSpecInput {
+	// 		return CaphClusterDeploymentSpecInput{
+	// 			E2EConfig:                e2eConfig,
+	// 			ClusterctlConfigPath:     clusterctlConfigPath,
+	// 			BootstrapClusterProxy:    bootstrapClusterProxy,
+	// 			ArtifactFolder:           artifactFolder,
+	// 			SkipCleanup:              skipCleanup,
+	// 			ControlPlaneMachineCount: 3,
+	// 			WorkerMachineCount:       1,
+	// 			Flavor:                   "hcloud-feature-loadbalancer-off",
+	// 		}
+	// 	})
+	// })
 })
