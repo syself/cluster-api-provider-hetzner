@@ -1,0 +1,10 @@
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: HetznerBareMetalMachineTemplate
+metadata:
+  name: "${CLUSTER_NAME}-md-1"
+spec:
+  template:
+    spec:
+      installImage:
+        swraid: 1
+        swraidLevel: 1

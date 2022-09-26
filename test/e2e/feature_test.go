@@ -28,12 +28,14 @@ var _ = Describe("[Feature] Testing Cluster Flavor with 3x control-planes 1x wor
 	Context("Testing deactivated csr", func() {
 		CaphClusterDeploymentSpec(ctx, func() CaphClusterDeploymentSpecInput {
 			return CaphClusterDeploymentSpecInput{
-				E2EConfig:             e2eConfig,
-				ClusterctlConfigPath:  clusterctlConfigPath,
-				BootstrapClusterProxy: bootstrapClusterProxy,
-				ArtifactFolder:        artifactFolder,
-				SkipCleanup:           skipCleanup,
-				Flavor:                "hcloud-feature-csr-off",
+				E2EConfig:                e2eConfig,
+				ClusterctlConfigPath:     clusterctlConfigPath,
+				BootstrapClusterProxy:    bootstrapClusterProxy,
+				ArtifactFolder:           artifactFolder,
+				SkipCleanup:              skipCleanup,
+				ControlPlaneMachineCount: 3,
+				WorkerMachineCount:       1,
+				Flavor:                   "hcloud-feature-csr-off",
 			}
 		})
 	})
@@ -41,12 +43,14 @@ var _ = Describe("[Feature] Testing Cluster Flavor with 3x control-planes 1x wor
 	Context("Testing Extra Services on Loadbalancer", func() {
 		CaphClusterDeploymentSpec(ctx, func() CaphClusterDeploymentSpecInput {
 			return CaphClusterDeploymentSpecInput{
-				E2EConfig:             e2eConfig,
-				ClusterctlConfigPath:  clusterctlConfigPath,
-				BootstrapClusterProxy: bootstrapClusterProxy,
-				ArtifactFolder:        artifactFolder,
-				SkipCleanup:           skipCleanup,
-				Flavor:                "hcloud-feature-load-balancer-extra-services",
+				E2EConfig:                e2eConfig,
+				ClusterctlConfigPath:     clusterctlConfigPath,
+				BootstrapClusterProxy:    bootstrapClusterProxy,
+				ArtifactFolder:           artifactFolder,
+				SkipCleanup:              skipCleanup,
+				ControlPlaneMachineCount: 3,
+				WorkerMachineCount:       1,
+				Flavor:                   "hcloud-feature-load-balancer-extra-services",
 			}
 		})
 	})
@@ -54,12 +58,14 @@ var _ = Describe("[Feature] Testing Cluster Flavor with 3x control-planes 1x wor
 	Context("Testing Placement Groups", func() {
 		CaphClusterDeploymentSpec(ctx, func() CaphClusterDeploymentSpecInput {
 			return CaphClusterDeploymentSpecInput{
-				E2EConfig:             e2eConfig,
-				ClusterctlConfigPath:  clusterctlConfigPath,
-				BootstrapClusterProxy: bootstrapClusterProxy,
-				ArtifactFolder:        artifactFolder,
-				SkipCleanup:           skipCleanup,
-				Flavor:                "hcloud-feature-placement-groups",
+				E2EConfig:                e2eConfig,
+				ClusterctlConfigPath:     clusterctlConfigPath,
+				BootstrapClusterProxy:    bootstrapClusterProxy,
+				ArtifactFolder:           artifactFolder,
+				SkipCleanup:              skipCleanup,
+				ControlPlaneMachineCount: 3,
+				WorkerMachineCount:       1,
+				Flavor:                   "hcloud-feature-placement-groups",
 			}
 		})
 	})
@@ -67,12 +73,14 @@ var _ = Describe("[Feature] Testing Cluster Flavor with 3x control-planes 1x wor
 	Context("Testing deactivated loadbalancer", func() {
 		CaphClusterDeploymentSpec(ctx, func() CaphClusterDeploymentSpecInput {
 			return CaphClusterDeploymentSpecInput{
-				E2EConfig:             e2eConfig,
-				ClusterctlConfigPath:  clusterctlConfigPath,
-				BootstrapClusterProxy: bootstrapClusterProxy,
-				ArtifactFolder:        artifactFolder,
-				SkipCleanup:           skipCleanup,
-				Flavor:                "hcloud-feature-loadbalancer-off",
+				E2EConfig:                e2eConfig,
+				ClusterctlConfigPath:     clusterctlConfigPath,
+				BootstrapClusterProxy:    bootstrapClusterProxy,
+				ArtifactFolder:           artifactFolder,
+				SkipCleanup:              skipCleanup,
+				ControlPlaneMachineCount: 3,
+				WorkerMachineCount:       1,
+				Flavor:                   "hcloud-feature-loadbalancer-off",
 			}
 		})
 	})

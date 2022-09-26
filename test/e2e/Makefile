@@ -99,6 +99,7 @@ cluster-templates-v1beta1: $(KUSTOMIZE) ## Generate cluster templates for v1beta
 	$(KUSTOMIZE) build $(HETZNER_TEMPLATES)/v1beta1/cluster-template-node-drain --load-restrictor LoadRestrictionsNone | sed 's/hcloud_secret_placeholder/$(shell echo -n "$(HCLOUD_TOKEN)" | base64 | tr -d '\n')/' > $(HETZNER_TEMPLATES)/v1beta1/cluster-template-node-drain.yaml
 	HETZNER_SSH_PUB=$(HETZNER_SSH_PUB) HETZNER_SSH_PRIV=$(HETZNER_SSH_PRIV) ../../hack/ci-hetzner-secret.sh 
 	$(KUSTOMIZE) build $(HETZNER_TEMPLATES)/v1beta1/cluster-template-hetzner-baremetal --load-restrictor LoadRestrictionsNone | sed 's/hcloud_secret_placeholder/$(shell echo -n "$(HCLOUD_TOKEN)" | base64 | tr -d '\n')/' | sed 's/robot-user_secret_placeholder/$(shell echo -n "$(HETZNER_ROBOT_USER)" | base64 | tr -d '\n')/' | sed 's/robot-password_secret_placeholder/$(shell echo -n "$(HETZNER_ROBOT_PASSWORD)" | base64 | tr -d '\n')/' > $(HETZNER_TEMPLATES)/v1beta1/cluster-template-hetzner-baremetal.yaml
+	$(KUSTOMIZE) build $(HETZNER_TEMPLATES)/v1beta1/cluster-template-hetzner-baremetal-feature-raid-setup --load-restrictor LoadRestrictionsNone | sed 's/hcloud_secret_placeholder/$(shell echo -n "$(HCLOUD_TOKEN)" | base64 | tr -d '\n')/' | sed 's/robot-user_secret_placeholder/$(shell echo -n "$(HETZNER_ROBOT_USER)" | base64 | tr -d '\n')/' | sed 's/robot-password_secret_placeholder/$(shell echo -n "$(HETZNER_ROBOT_PASSWORD)" | base64 | tr -d '\n')/' > $(HETZNER_TEMPLATES)/v1beta1/cluster-template-hetzner-baremetal-feature-raid-setup.yaml
 
 
 ## --------------------------------------

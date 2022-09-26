@@ -28,12 +28,14 @@ var _ = Describe("[Basic] Testing Cluster 3x control-planes 1x worker and multi-
 	Context("Running the CaphClusterDeploymentSpec in hcloud with the default flavor", func() {
 		CaphClusterDeploymentSpec(ctx, func() CaphClusterDeploymentSpecInput {
 			return CaphClusterDeploymentSpecInput{
-				E2EConfig:             e2eConfig,
-				ClusterctlConfigPath:  clusterctlConfigPath,
-				BootstrapClusterProxy: bootstrapClusterProxy,
-				ArtifactFolder:        artifactFolder,
-				SkipCleanup:           skipCleanup,
-				Flavor:                "",
+				E2EConfig:                e2eConfig,
+				ClusterctlConfigPath:     clusterctlConfigPath,
+				BootstrapClusterProxy:    bootstrapClusterProxy,
+				ArtifactFolder:           artifactFolder,
+				SkipCleanup:              skipCleanup,
+				ControlPlaneMachineCount: 3,
+				WorkerMachineCount:       1,
+				Flavor:                   "",
 			}
 		})
 	})
@@ -41,12 +43,14 @@ var _ = Describe("[Basic] Testing Cluster 3x control-planes 1x worker and multi-
 	Context("Running the CaphClusterDeploymentSpec in hcloud with flavor network", func() {
 		CaphClusterDeploymentSpec(ctx, func() CaphClusterDeploymentSpecInput {
 			return CaphClusterDeploymentSpecInput{
-				E2EConfig:             e2eConfig,
-				ClusterctlConfigPath:  clusterctlConfigPath,
-				BootstrapClusterProxy: bootstrapClusterProxy,
-				ArtifactFolder:        artifactFolder,
-				SkipCleanup:           skipCleanup,
-				Flavor:                "network",
+				E2EConfig:                e2eConfig,
+				ClusterctlConfigPath:     clusterctlConfigPath,
+				BootstrapClusterProxy:    bootstrapClusterProxy,
+				ArtifactFolder:           artifactFolder,
+				SkipCleanup:              skipCleanup,
+				ControlPlaneMachineCount: 3,
+				WorkerMachineCount:       1,
+				Flavor:                   "network",
 			}
 		})
 	})

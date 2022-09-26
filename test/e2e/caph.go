@@ -33,13 +33,14 @@ import (
 
 // CaphClusterDeploymentSpecInput is the input for CaphClusterDeploymentSpec.
 type CaphClusterDeploymentSpecInput struct {
-	E2EConfig             *clusterctl.E2EConfig
-	ClusterctlConfigPath  string
-	BootstrapClusterProxy framework.ClusterProxy
-	ArtifactFolder        string
-	SkipCleanup           bool
-	Flavor                string
-	WorkerMachineCount    int64
+	E2EConfig                *clusterctl.E2EConfig
+	ClusterctlConfigPath     string
+	BootstrapClusterProxy    framework.ClusterProxy
+	ArtifactFolder           string
+	SkipCleanup              bool
+	Flavor                   string
+	WorkerMachineCount       int64
+	ControlPlaneMachineCount int64
 }
 
 // CaphClusterDeploymentSpec implements a test that verifies that MachineDeployment rolling updates are successful.
@@ -83,8 +84,8 @@ func CaphClusterDeploymentSpec(ctx context.Context, inputGetter func() CaphClust
 				Namespace:                namespace.Name,
 				ClusterName:              clusterName,
 				KubernetesVersion:        input.E2EConfig.GetVariable(KubernetesVersion),
-				ControlPlaneMachineCount: pointer.Int64Ptr(3),
-				WorkerMachineCount:       pointer.Int64Ptr(1),
+				ControlPlaneMachineCount: pointer.Int64Ptr(input.ControlPlaneMachineCount),
+				WorkerMachineCount:       pointer.Int64Ptr(input.WorkerMachineCount),
 			},
 			WaitForClusterIntervals:      input.E2EConfig.GetIntervals(specName, "wait-cluster"),
 			WaitForControlPlaneIntervals: input.E2EConfig.GetIntervals(specName, "wait-control-plane"),

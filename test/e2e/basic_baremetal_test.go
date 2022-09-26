@@ -28,12 +28,14 @@ var _ = Describe("[Baremetal] Testing Cluster 3x control-planes 1x worker ", fun
 	Context("Running the CaphClusterDeploymentSpec in Hetzner Baremetal", func() {
 		CaphClusterDeploymentSpec(ctx, func() CaphClusterDeploymentSpecInput {
 			return CaphClusterDeploymentSpecInput{
-				E2EConfig:             e2eConfig,
-				ClusterctlConfigPath:  clusterctlConfigPath,
-				BootstrapClusterProxy: bootstrapClusterProxy,
-				ArtifactFolder:        artifactFolder,
-				SkipCleanup:           skipCleanup,
-				Flavor:                "hetzner-baremetal",
+				E2EConfig:                e2eConfig,
+				ClusterctlConfigPath:     clusterctlConfigPath,
+				BootstrapClusterProxy:    bootstrapClusterProxy,
+				ArtifactFolder:           artifactFolder,
+				SkipCleanup:              skipCleanup,
+				ControlPlaneMachineCount: 3,
+				WorkerMachineCount:       1,
+				Flavor:                   "hetzner-baremetal",
 			}
 		})
 	})

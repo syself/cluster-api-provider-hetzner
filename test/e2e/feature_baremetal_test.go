@@ -22,10 +22,10 @@ import (
 	. "github.com/onsi/ginkgo"
 )
 
-var _ = Describe("[Feature Talos] Testing Talos Flavor with 3x control-planes 1x worker", func() {
+var _ = Describe("[Baremetal Feature] Testing Cluster Flavor with 3x control-planes 1x worker", func() {
 	ctx := context.TODO()
 
-	Context("Testing Talos", func() {
+	Context("Testing raid setup", func() {
 		CaphClusterDeploymentSpec(ctx, func() CaphClusterDeploymentSpecInput {
 			return CaphClusterDeploymentSpecInput{
 				E2EConfig:                e2eConfig,
@@ -33,10 +33,11 @@ var _ = Describe("[Feature Talos] Testing Talos Flavor with 3x control-planes 1x
 				BootstrapClusterProxy:    bootstrapClusterProxy,
 				ArtifactFolder:           artifactFolder,
 				SkipCleanup:              skipCleanup,
-				ControlPlaneMachineCount: 3,
+				ControlPlaneMachineCount: 1,
 				WorkerMachineCount:       1,
-				Flavor:                   "hcloud-feature-talos",
+				Flavor:                   "hetzner-baremetal-feature-raid-setup",
 			}
 		})
 	})
+
 })
