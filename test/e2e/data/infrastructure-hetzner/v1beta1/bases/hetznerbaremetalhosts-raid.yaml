@@ -15,20 +15,6 @@ spec:
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: HetznerBareMetalHost
 metadata:
-  name: "bm-5"
-spec:
-  serverID: 1751550
-  rootDeviceHints:
-    raid:
-      wwn:
-        - "0x500a075119549dcf"
-        - "0x500a075110b39df5"
-  maintenanceMode: false
-  description: Test Machine 5
----
-apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
-kind: HetznerBareMetalHost
-metadata:
   name: "bm-6"
 spec:
   serverID: 1763731
