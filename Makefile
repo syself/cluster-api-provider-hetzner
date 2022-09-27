@@ -43,16 +43,16 @@ CI_KIND ?= true
 #
 # Binaries.
 #
-MINIMUM_CLUSTERCTL_VERSION=1.1.4				# https://github.com/kubernetes-sigs/cluster-api/releases
-MINIMUM_CTLPTL_VERSION=0.8.3						# https://github.com/tilt-dev/ctlptl/releases
+MINIMUM_CLUSTERCTL_VERSION=1.2.2				# https://github.com/kubernetes-sigs/cluster-api/releases
+MINIMUM_CTLPTL_VERSION=0.8.8						# https://github.com/tilt-dev/ctlptl/releases
 MINIMUM_GO_VERSION=go$(GO_VERSION)			# Check current project go version
 MINIMUM_HCLOUD_VERSION=1.30.3						# https://github.com/hetznercloud/cli/releases
 MINIMUM_HELMFILE_VERSION=v0.144.0				# https://github.com/roboll/helmfile/releases
-MINIMUM_KIND_VERSION=v0.14.0						# https://github.com/kubernetes-sigs/kind/releases
-MINIMUM_KUBECTL_VERSION=v1.24.0					# https://github.com/kubernetes/kubernetes/releases
-MINIMUM_PACKER_VERSION=1.8.1						# https://github.com/hashicorp/packer/releases
-MINIMUM_TILT_VERSION=0.30.1							# https://github.com/tilt-dev/tilt/releases
-KUSTOMIZE_VERSION=4.5.4									# https://github.com/kubernetes-sigs/kustomize/releases
+MINIMUM_KIND_VERSION=v0.16.0						# https://github.com/kubernetes-sigs/kind/releases
+MINIMUM_KUBECTL_VERSION=v1.25.0					# https://github.com/kubernetes/kubernetes/releases
+MINIMUM_PACKER_VERSION=1.8.3						# https://github.com/hashicorp/packer/releases
+MINIMUM_TILT_VERSION=0.30.8							# https://github.com/tilt-dev/tilt/releases
+KUSTOMIZE_VERSION=4.5.7									# https://github.com/kubernetes-sigs/kustomize/releases
 
 #
 # Tooling Binaries.
@@ -106,7 +106,7 @@ endif
 #
 # Kubebuilder.
 #
-export KUBEBUILDER_ENVTEST_KUBERNETES_VERSION ?= 1.23.3
+export KUBEBUILDER_ENVTEST_KUBERNETES_VERSION ?= 1.25.0
 export KUBEBUILDER_CONTROLPLANE_START_TIMEOUT ?= 60s
 export KUBEBUILDER_CONTROLPLANE_STOP_TIMEOUT ?= 60s
 
@@ -450,7 +450,7 @@ test-e2e-feature: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFA
 
 .PHONY: test-e2e-feature-packer
 test-e2e-feature-packer: $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKO_FOKUS="'\[Feature Packer\]'" GINKO_NODES=1 PACKER_IMAGE_NAME=templates/node-image/1.24.1-ubuntu-20-04-containerd ./hack/ci-e2e-capi.sh
+	GINKO_FOKUS="'\[Feature Packer\]'" GINKO_NODES=1 PACKER_IMAGE_NAME=templates/node-image/1.25.2-ubuntu-22-04-containerd ./hack/ci-e2e-capi.sh
 
 .PHONY: test-e2e-feature-talos
 test-e2e-feature-talos: $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
@@ -466,7 +466,7 @@ test-e2e-upgrade-caph: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(A
 
 .PHONY: test-e2e-upgrade-kubernetes
 test-e2e-upgrade-kubernetes: $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKO_FOKUS="'\[Upgrade Kubernetes\]'" GINKO_NODES=2 PACKER_KUBERNETES_UPGRADE_FROM=templates/node-image/1.23.6-ubuntu-20-04-containerd PACKER_KUBERNETES_UPGRADE_TO=templates/node-image/1.24.1-ubuntu-20-04-containerd ./hack/ci-e2e-capi.sh
+	GINKO_FOKUS="'\[Upgrade Kubernetes\]'" GINKO_NODES=2 PACKER_KUBERNETES_UPGRADE_FROM=templates/node-image/1.24.1-ubuntu-20-04-containerd PACKER_KUBERNETES_UPGRADE_TO=templates/node-image/1.25.2-ubuntu-22-04-containerd ./hack/ci-e2e-capi.sh
 
 .PHONY: test-e2e-conformance
 test-e2e-conformance: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
@@ -597,7 +597,7 @@ install-manifests-cilium:
 	# Deploy cilium
 	helm repo add cilium https://helm.cilium.io/
 	helm repo update cilium
-	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install cilium cilium/cilium --version 1.11.5 \
+	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install cilium cilium/cilium --version 1.12.2 \
   	--namespace kube-system \
 	-f templates/cilium/cilium.yaml
 
@@ -605,7 +605,7 @@ install-manifests-ccm-hetzner:
 	# Deploy Hetzner Cloud Controller Manager
 	helm repo add syself https://charts.syself.com
 	helm repo update syself
-	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hetzner --version 1.1.2 \
+	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hetzner --version 1.1.4 \
 	--namespace kube-system \
 	--set image.tag=latest \
 	--set privateNetwork.enabled=$(PRIVATE_NETWORK)
@@ -616,7 +616,7 @@ install-manifests-ccm-hcloud:
 	# Deploy Hcloud Cloud Controller Manager
 	helm repo add syself https://charts.syself.com
 	helm repo update syself
-	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hcloud --version 1.0.10 \
+	KUBECONFIG=$(CAPH_WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hcloud --version 1.0.11 \
 	--namespace kube-system \
 	--set secret.name=hetzner \
 	--set secret.tokenKeyName=hcloud \

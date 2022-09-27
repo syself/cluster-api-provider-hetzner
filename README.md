@@ -66,9 +66,10 @@ This provider's versions can install and manage the following versions of Kubern
 
 |  | Hetzner Provider `v1.0.x` |
 |---|---|
-| Kubernetes 1.22.x | ✓ |
+| Kubernetes 1.22.x | + |
 | Kubernetes 1.23.x | ✓ |
 | Kubernetes 1.24.x | ✓ |
+| Kubernetes 1.25.x | ✓ |
 
 Test status:
 

@@ -45,7 +45,7 @@ $(GINKGO): # Build ginkgo from tools folder.
 	cd $(TOOLS_DIR) && go build -tags=tools -o $(BIN_DIR)/ginkgo github.com/onsi/ginkgo/ginkgo
 
 $(KUSTOMIZE): # Build kustomize from tools folder.
-	KUSTOMIZE_VERSION=4.5.1	$(REPO_ROOT)/hack/ensure-kustomize.sh
+	KUSTOMIZE_VERSION=4.5.7	$(REPO_ROOT)/hack/ensure-kustomize.sh
 
 ## --------------------------------------
 ## Templates
@@ -56,28 +56,27 @@ HETZNER_TEMPLATES := $(REPO_ROOT)/test/e2e/data/infrastructure-hetzner
 e2e-cilium-templates:
 	helm repo add cilium https://helm.cilium.io/
 	helm repo update cilium
-	helm template cilium cilium/cilium --version 1.11.5 \
+	helm template cilium cilium/cilium --version 1.12.2 \
   	--namespace kube-system \
 	-f $(REPO_ROOT)/templates/cilium/cilium.yaml > $(REPO_ROOT)/test/e2e/data/cni/cilium/cilium.yaml
 
 e2e-ccm-templates:
 	helm repo add syself https://charts.syself.com
-	helm template ccm syself/ccm-hcloud --version 1.0.10 \
+	helm template ccm syself/ccm-hcloud --version 1.0.11 \
 	--namespace kube-system \
 	--set pdb.enabled=false \
 	--set secret.name=hetzner \
 	--set secret.tokenKeyName=hcloud \
 	--set privateNetwork.enabled=false > $(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm.yaml
-	helm template ccm syself/ccm-hcloud --version 1.0.10 \
+	helm template ccm syself/ccm-hcloud --version 1.0.11 \
 	--namespace kube-system \
 	--set pdb.enabled=false \
 	--set secret.name=hetzner \
 	--set secret.tokenKeyName=hcloud \
 	--set privateNetwork.enabled=true > $(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm-network.yaml
-	helm template ccm syself/ccm-hetzner --version 1.1.2 \
+	helm template ccm syself/ccm-hetzner --version 1.1.4 \
 	--namespace kube-system \
 	--set pdb.enabled=false \
-	--set image.tag=latest \
 	--set privateNetwork.enabled=false > $(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm-hetzner.yaml
 
 .PHONY: cluster-templates
