@@ -6,11 +6,11 @@ metadata:
   name: ccm-ccm-hcloud
   namespace: kube-system
   labels:
-    helm.sh/chart: ccm-hcloud-1.0.10
+    helm.sh/chart: ccm-hcloud-1.0.11
     app: ccm
     app.kubernetes.io/name: ccm-hcloud
     app.kubernetes.io/instance: ccm
-    app.kubernetes.io/version: "1.12.1"
+    app.kubernetes.io/version: "1.13.0"
     app.kubernetes.io/managed-by: Helm
 ---
 # Source: ccm-hcloud/templates/serviceaccount.yaml
@@ -20,11 +20,11 @@ metadata:
   name: ccm-ccm-hcloud
   namespace: kube-system
   labels:
-    helm.sh/chart: ccm-hcloud-1.0.10
+    helm.sh/chart: ccm-hcloud-1.0.11
     app: ccm
     app.kubernetes.io/name: ccm-hcloud
     app.kubernetes.io/instance: ccm
-    app.kubernetes.io/version: "1.12.1"
+    app.kubernetes.io/version: "1.13.0"
     app.kubernetes.io/managed-by: Helm
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -42,11 +42,11 @@ metadata:
   name: ccm-ccm-hcloud
   namespace: kube-system
   labels:
-    helm.sh/chart: ccm-hcloud-1.0.10
+    helm.sh/chart: ccm-hcloud-1.0.11
     app: ccm
     app.kubernetes.io/name: ccm-hcloud
     app.kubernetes.io/instance: ccm
-    app.kubernetes.io/version: "1.12.1"
+    app.kubernetes.io/version: "1.13.0"
     app.kubernetes.io/managed-by: Helm
 spec:
   replicas: 1
@@ -86,7 +86,7 @@ spec:
         - name: ccm-hcloud
           securityContext:
             {}
-          image: "docker.io/hetznercloud/hcloud-cloud-controller-manager:v1.12.1"
+          image: "docker.io/hetznercloud/hcloud-cloud-controller-manager:v1.13.0"
           imagePullPolicy: Always
           command:
             - "/bin/hcloud-cloud-controller-manager"
