@@ -133,25 +133,6 @@ spec:
                   - name: key1
                     secret: 8d7iAcg3/NwN9aijhtEXj5kL2NOHIgokGFjbIBfL6X0=
               - identity: {}
-      - path: /etc/systemd/system/sys-fs-bpf.mount
-        owner: "root:root"
-        permissions: "0744"
-        content: |
-          [Unit]
-          Description=Cilium BPF mounts
-          Documentation=https://docs.cilium.io/
-          DefaultDependencies=no
-          Before=local-fs.target umount.target
-          After=swap.target
-
-          [Mount]
-          What=bpffs
-          Where=/sys/fs/bpf
-          Type=bpf
-          Options=rw,nosuid,nodev,noexec,relatime,mode=700
-
-          [Install]
-          WantedBy=multi-user.target
       - path: /etc/sysctl.d/99-cilium.conf
         owner: "root:root"
         permissions: "0744"

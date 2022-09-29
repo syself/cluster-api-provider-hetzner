@@ -5,7 +5,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: "${CLUSTER_NAME}-crs-cni"
-data: ${CNI_RESOURCES}
+data: ${CILIUM_RESOURCES}
 binaryData:
 ---
 # ClusterResourceSet object with
