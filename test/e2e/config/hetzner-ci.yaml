@@ -128,11 +128,10 @@ variables:
   INIT_WITH_INFRASTRUCTURE_PROVIDER_VERSION: ${CAPH_LATEST_VERSION:-}
 
   # Cluster Addons
-  CNI: "./data/cni/cilium/cilium.yaml"
+  CILIUM: "./data/cni/cilium/cilium.yaml"
   CCM: "./data/ccm/hcloud-ccm.yaml"
   CCM_NETWORK: "./data/ccm/hcloud-ccm-network.yaml"
   CCM_HETZNER: "./data/ccm/hcloud-ccm-hetzner.yaml"
-  BIN_PATH: "${BIN_PATH}"
 
   # Conformance testing variables
   CONFORMANCE_WORKER_MACHINE_COUNT: 3

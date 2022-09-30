@@ -59,6 +59,7 @@ e2e-cilium-templates:
 	helm template cilium cilium/cilium --version 1.12.2 \
   	--namespace kube-system \
 	-f $(REPO_ROOT)/templates/cilium/cilium.yaml > $(REPO_ROOT)/test/e2e/data/cni/cilium/cilium.yaml
+	sed -i 's/$${BIN_PATH}/$$BIN_PATH/' $(REPO_ROOT)/test/e2e/data/cni/cilium/cilium.yaml
 
 e2e-ccm-templates:
 	helm repo add syself https://charts.syself.com

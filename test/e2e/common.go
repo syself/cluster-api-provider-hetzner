@@ -37,6 +37,8 @@ import (
 const (
 	RedactLogScriptPath = "REDACT_LOG_SCRIPT"
 	KubernetesVersion   = "KUBERNETES_VERSION"
+	CiliumPath          = "CILIUM"
+	CiliumResources     = "CILIUM_RESOURCES"
 	CCMPath             = "CCM"
 	CCMResources        = "CCM_RESOURCES"
 	CCMNetworkPath      = "CCM_NETWORK"
