@@ -29,7 +29,7 @@
       "type": "shell",
       "environment_vars": [
         "PACKER_OS_IMAGE={{user `os`}}",
-        "IMAGE_URL=https://github.com/talos-systems/talos/releases/download/{{user `talos_version`}}/hcloud-amd64.raw.xz"
+        "IMAGE_URL=https://github.com/siderolabs/talos/releases/download/{{user `talos_version`}}/hcloud-amd64.raw.xz"
       ],
       "scripts": [
         "{{user `scripts`}}/configure_base.sh"

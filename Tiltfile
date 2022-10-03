@@ -81,13 +81,13 @@ def deploy_capi():
 
 def deploy_talos_bootstrap():
     version = settings.get("cabpt_version")
-    cabpt_uri = "https://github.com/talos-systems/cluster-api-bootstrap-provider-talos/releases/download/{}/bootstrap-components.yaml".format(version)
+    cabpt_uri = "https://github.com/siderolabs/cluster-api-bootstrap-provider-talos/releases/download/{}/bootstrap-components.yaml".format(version)
     cmd = "curl -sSL {} | {} | kubectl apply -f -".format(cabpt_uri, envsubst_cmd)
     local(cmd, quiet = True)
 
 def deploy_talos_controlplane():
     version = settings.get("cacppt_version")
-    cacppt_uri = "https://github.com/talos-systems/cluster-api-control-plane-provider-talos/releases/download/{}/control-plane-components.yaml".format(version)
+    cacppt_uri = "https://github.com/siderolabs/cluster-api-control-plane-provider-talos/releases/download/{}/control-plane-components.yaml".format(version)
     cmd = "curl -sSL {} | {} | kubectl apply -f -".format(cacppt_uri, envsubst_cmd)
     local(cmd, quiet = True)
 
