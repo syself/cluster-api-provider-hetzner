@@ -43,7 +43,7 @@ CI_KIND ?= true
 #
 # Binaries.
 #
-MINIMUM_CLUSTERCTL_VERSION=1.2.2				# https://github.com/kubernetes-sigs/cluster-api/releases
+MINIMUM_CLUSTERCTL_VERSION=1.2.3				# https://github.com/kubernetes-sigs/cluster-api/releases
 MINIMUM_CTLPTL_VERSION=0.8.8						# https://github.com/tilt-dev/ctlptl/releases
 MINIMUM_GO_VERSION=go$(GO_VERSION)			# Check current project go version
 MINIMUM_HCLOUD_VERSION=1.30.3						# https://github.com/hetznercloud/cli/releases
@@ -490,9 +490,7 @@ test-verbose: ## Run tests with verbose settings
 
 .PHONY: test-cover
 test-cover: $(RELEASE_DIR) ## Run tests with code coverage and code generate reports
-	$(MAKE) test TEST_ARGS="$(TEST_ARGS) -coverprofile=out/coverage.out -covermode=atomic"
-	go tool cover -func=out/coverage.out -o $(RELEASE_DIR)/coverage.txt
-	go tool cover -html=out/coverage.out -o $(RELEASE_DIR)/coverage.html
+	$(MAKE) test TEST_ARGS="$(TEST_ARGS) -coverprofile=out/coverage.txt -covermode=atomic"
 
 .PHONY: test-junit
 test-junit: $(SETUP_ENVTEST) $(GOTESTSUM) ## Run tests with verbose setting and generate a junit report
