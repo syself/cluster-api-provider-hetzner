@@ -20,7 +20,7 @@ settings = {
     "deploy_observability": False,
     "preload_images_for_kind": True,
     "kind_cluster_name": "caph",
-    "capi_version": "v1.2.2",
+    "capi_version": "v1.2.3",
     "cabpt_version": "v0.5.4",
     "cacppt_version": "v0.4.6",
     "cert_manager_version": "v1.9.1",

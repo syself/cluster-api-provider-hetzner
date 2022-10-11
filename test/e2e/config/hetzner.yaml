@@ -13,8 +13,8 @@ providers:
   - name: cluster-api
     type: CoreProvider
     versions:
-      - name: v1.2.2 # latest published release in the v1beta1 series; this is used for v1beta1
-        value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.2.2/core-components.yaml"
+      - name: v1.2.3 # latest published release in the v1beta1 series; this is used for v1beta1
+        value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.2.3/core-components.yaml"
         type: "url"
         contract: v1beta1
         files:
@@ -30,8 +30,8 @@ providers:
   - name: kubeadm
     type: BootstrapProvider
     versions:
-      - name: v1.2.2 # latest published release in the v1beta1 series; this is used for v1beta1
-        value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.2.2/bootstrap-components.yaml"
+      - name: v1.2.3 # latest published release in the v1beta1 series; this is used for v1beta1
+        value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.2.3/bootstrap-components.yaml"
         type: "url"
         contract: "v1beta1"
         files:
@@ -47,8 +47,8 @@ providers:
   - name: kubeadm
     type: ControlPlaneProvider
     versions:
-      - name: v1.2.2 # latest published release in the v1beta1 series; this is used for v1beta1
-        value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.2.2/control-plane-components.yaml"
+      - name: v1.2.3 # latest published release in the v1beta1 series; this is used for v1beta1
+        value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.2.3/control-plane-components.yaml"
         type: "url"
         files:
           - sourcePath: "../data/shared/v1beta1/metadata.yaml"
@@ -164,7 +164,7 @@ variables:
 
 intervals:
   default/wait-cluster: ["20m", "10s"]
-  default/wait-control-plane: ["20m", "10s"]
+  default/wait-control-plane: ["25m", "10s"]
   default/wait-worker-nodes: ["15m", "10s"]
   default/wait-controllers: ["5m", "10s"]
   default/wait-delete-cluster: ["20m", "10s"]
