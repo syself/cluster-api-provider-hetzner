@@ -262,6 +262,10 @@ func (s *Service) createServer(ctx context.Context, failureDomain string) (*hclo
 		Automount:        &automount,
 		StartAfterCreate: &startAfterCreate,
 		UserData:         string(userData),
+		PublicNet: &hcloud.ServerCreatePublicNet{
+			EnableIPv4: s.scope.HCloudMachine.Spec.PublicNetwork.EnableIPv4,
+			EnableIPv6: s.scope.HCloudMachine.Spec.PublicNetwork.EnableIPv6,
+		},
 	}
 
 	// set placement group if necessary
@@ -318,12 +322,9 @@ func (s *Service) createServer(ctx context.Context, failureDomain string) (*hclo
 		}}
 	}
 
-	// if no private network exists
+	// if no private network exists there must be an IPv4 for the load balancer.
 	if !s.scope.HetznerCluster.Spec.HCloudNetwork.Enabled {
-		opts.PublicNet = &hcloud.ServerCreatePublicNet{
-			EnableIPv4: s.scope.HCloudMachine.Spec.PublicNetwork.EnableIPv4,
-			EnableIPv6: s.scope.HCloudMachine.Spec.PublicNetwork.EnableIPv6,
-		}
+		opts.PublicNet.EnableIPv4 = true
 	}
 
 	// Create the server

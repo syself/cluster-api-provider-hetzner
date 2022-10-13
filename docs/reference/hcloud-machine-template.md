@@ -13,6 +13,6 @@ In ```HCloudMachineTemplate``` you can define all important properties for ```HC
 | template.spec.sshKeys.hcloud.name | string | | yes | Name of SSH key |
 | template.spec.sshKeys.hcloud.fingerprint | string | | no| Fingerprint of SSH key - used by the controller |
 | template.spec.placementGroupName | string | | no | Placement group of the machine in HCloud API, must be referencing an existing placement group |
-| template.spec.publicNetwork | object | {enabledIPv4: true, enabledIPv6: true} | no | Specs about primary IP address of server. If both IPv4 and IPv6 are disabled, then the private network has to be enabled |
-| template.spec.enabledIPv4 | bool | true | no | Defines whether server has IPv4 address enabled. Note that IPv4 has to be enabled if server is supposed to be added to load balancers! Hetzner load balancers CANNOT handle IPv6. |
-| template.spec.enabledIPv6 | bool | true | no | Defines whether server has IPv6 address enabled |
+| template.spec.publicNetwork | object | {enableIPv4: true, enabledIPv6: true} | no | Specs about primary IP address of server. If both IPv4 and IPv6 are disabled, then the private network has to be enabled |
+| template.spec.enableIPv4 | bool | true | no | Defines whether server has IPv4 address enabled. As Hetzner load balancers require an IPv4 address, this setting will be ignored and set to true if there is not private net. |
+| template.spec.enableIPv6 | bool | true | no | Defines whether server has IPv6 address enabled |
