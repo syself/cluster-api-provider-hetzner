@@ -19,7 +19,7 @@ require (
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4
 	k8s.io/api v0.25.3
 	k8s.io/apimachinery v0.25.3
-	k8s.io/apiserver v0.25.2
+	k8s.io/apiserver v0.25.3
 	k8s.io/client-go v0.25.3
 	k8s.io/klog/v2 v2.80.1
 	k8s.io/kubectl v0.25.2
@@ -136,7 +136,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/apiextensions-apiserver v0.25.0 // indirect
 	k8s.io/cluster-bootstrap v0.24.0 // indirect
-	k8s.io/component-base v0.25.2 // indirect
+	k8s.io/component-base v0.25.3 // indirect
 	k8s.io/kube-openapi v0.0.0-20220803162953-67bda5d908f1 // indirect
 	sigs.k8s.io/json v0.0.0-20220713155537-f223a00ba0e2 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
