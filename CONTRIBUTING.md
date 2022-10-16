@@ -40,7 +40,7 @@ this should generally not be the case.
 
 1. If working on an issue, signal other contributors that you are actively working on it using `/lifecycle active`.
 2. Fork the desired repo, develop and test your code changes.
-    1. See the [Development Guide](development.md) for more instructions on setting up your environment and testing changes locally.
+    1. See the [Development Guide](docs/developers/development.md) for more instructions on setting up your environment and testing changes locally.
 3. Submit a pull request.
     1. All PRs should be labeled with one of the following kinds
          - `/kind feature` for PRs releated to adding new features/tests
@@ -67,4 +67,4 @@ this should generally not be the case.
 
 All changes must be code reviewed. Coding conventions and standards are explained in the official [developer docs](https://github.com/kubernetes/community/tree/master/contributors/devel). Expect reviewers to request that you avoid common [go style mistakes](https://github.com/golang/go/wiki/CodeReviewComments) in your PRs.
 
-In case you want to run our E2E tests locally, please refer to [Testing](development.md#submitting-prs-and-testing) guide. An overview of our e2e-test jobs (and also all our other jobs) can be found in [Jobs](jobs.md).
+In case you want to run our E2E tests locally, please refer to [Testing](docs/developers/development.md#submitting-prs-and-testing) guide. 
