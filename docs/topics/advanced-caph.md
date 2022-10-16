@@ -14,7 +14,7 @@ tls-private-key-file: "/var/lib/kubelet/pki/kubelet-client-current.pem"
 
 For more information, see: 
 * https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-certs/
-* https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping/#client-and-serving-certificates
+* https://kubernetes.io/docs/reference/access-authn-authz/kubelet-tls-bootstrapping/#client-and-serving-certificates
 
 ## Rate Limits
 
@@ -26,7 +26,7 @@ We support multi-tenancy. You can start multiple clusters in one Hetzner project
 
 ## Machine Health Checks with Custom Remediation Template
 
-Cluster API allows to [configure Machine Health Checks](https://cluster-api.sigs.k8s.io/tasks/healthcheck.html) with custom remediation strategies. This is helpful for our bare metal servers. If the health checks find out that one server cannot be reached, the normal strategy would be to delete it. In that case it would need to be provisioned again. This takes, of course, longer for bare metal servers than for virtual cloud servers. Therefore, we want to try to avoid this with the help of our `HetznerBareMetalRemediationController`. Instead of deleting the object and deprovisioning it, we first try to reboot it and see whether this helps. If it solves the problem, we save a lot of time that is required for re-provisioning it.
+Cluster API allows to [configure Machine Health Checks](https://cluster-api.sigs.k8s.io/tasks/automated-machine-management/healthchecking.html) with custom remediation strategies. This is helpful for our bare metal servers. If the health checks find out that one server cannot be reached, the normal strategy would be to delete it. In that case it would need to be provisioned again. This takes, of course, longer for bare metal servers than for virtual cloud servers. Therefore, we want to try to avoid this with the help of our `HetznerBareMetalRemediationController`. Instead of deleting the object and deprovisioning it, we first try to reboot it and see whether this helps. If it solves the problem, we save a lot of time that is required for re-provisioning it.
 
 If the MHC are configured to be used with the `HetznerBareMetalRemediationTemplate` (also see the [reference of the object](/docs/reference/hetzner-bare-metal-remediation-template.md)), then such an object is created every time the MHC finds an unhealthy machine. The controller that reconciles this object, then sets an annotation in the relevant `HetznerBareMetalHost` object that specifies the desired remediation strategy. At the moment, only "reboot" is supported.
 
