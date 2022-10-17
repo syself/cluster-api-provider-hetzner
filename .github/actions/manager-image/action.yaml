@@ -12,7 +12,7 @@ runs:
   steps:
     - uses: ./.github/actions/setup-go
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v1
+      uses: docker/setup-buildx-action@v2
 
     - name: Generate metadata
       id: meta
