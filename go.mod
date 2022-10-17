@@ -2,7 +2,7 @@ module github.com/syself/cluster-api-provider-hetzner
 
 go 1.19
 
-replace sigs.k8s.io/cluster-api => sigs.k8s.io/cluster-api v1.2.3
+replace sigs.k8s.io/cluster-api => sigs.k8s.io/cluster-api v1.2.4
 
 require (
 	github.com/blang/semver v3.5.1+incompatible
@@ -24,8 +24,8 @@ require (
 	k8s.io/klog/v2 v2.80.1
 	k8s.io/kubectl v0.25.3
 	k8s.io/utils v0.0.0-20221012122500-cfd413dd9e85
-	sigs.k8s.io/cluster-api v1.2.3
-	sigs.k8s.io/cluster-api/test v1.2.3
+	sigs.k8s.io/cluster-api v1.2.4
+	sigs.k8s.io/cluster-api/test v1.2.4
 	sigs.k8s.io/controller-runtime v0.12.3
 	sigs.k8s.io/kind v0.16.0
 )
