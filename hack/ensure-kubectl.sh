@@ -29,7 +29,7 @@ check_kubectl_installed() {
 verify_kubectl_version() {
 
   local kubectl_version
-  kubectl_version="v$(kubectl version --client --short | grep -Eo "([0-9]{1,}\.)+[0-9]{1,}")"
+  kubectl_version="$(kubectl version --client --short | grep -Eo "([0-9]{1,}\.)+[0-9]{1,}")"
   if [[ "${MINIMUM_KUBECTL_VERSION}" != $(echo -e "${MINIMUM_KUBECTL_VERSION}\n${kubectl_version}" | sort -s -t. -k 1,1n -k 2,2n -k 3,3n | head -n1) ]]; then
     cat <<EOF
 Detected kubectl version: ${kubectl_version}.
@@ -66,10 +66,10 @@ confirm() {
 
 install_kubectl() {
     if [[ "${OSTYPE}" == "linux"* ]]; then
-      curl -sLo "kubectl" https://storage.googleapis.com/kubernetes-release/release/${MINIMUM_KUBECTL_VERSION}/bin/linux/amd64/kubectl
+      curl -sLo "kubectl" https://dl.k8s.io/release/v${MINIMUM_KUBECTL_VERSION}/bin/linux/amd64/kubectl
       copy_binary
     elif [[ "$OSTYPE" == "darwin"* ]]; then
-      curl -sLo "kubectl" https://storage.googleapis.com/kubernetes-release/release/${MINIMUM_KUBECTL_VERSION}/bin/darwin/amd64/kubectl
+      curl -sLo "kubectl" https://dl.k8s.io/release/v${MINIMUM_KUBECTL_VERSION}/bin/darwin/amd64/kubectl
       copy_binary
     else
       set +x

@@ -43,17 +43,16 @@ CI_KIND ?= true
 #
 # Binaries.
 #
-MINIMUM_CLUSTERCTL_VERSION=1.2.3				# https://github.com/kubernetes-sigs/cluster-api/releases
-MINIMUM_CTLPTL_VERSION=0.8.8						# https://github.com/tilt-dev/ctlptl/releases
+MINIMUM_CLUSTERCTL_VERSION=1.2.3 # update: datasource=github-tags depName=kubernetes-sigs/cluster-api extractVersion=^v(?<version>.*)$
+MINIMUM_CTLPTL_VERSION=0.8.8 # update: datasource=github-releases depName=tilt-dev/ctlptl extractVersion=^v(?<version>.*)$
 MINIMUM_GO_VERSION=go$(GO_VERSION)			# Check current project go version
-MINIMUM_HCLOUD_VERSION=1.30.3						# https://github.com/hetznercloud/cli/releases
-MINIMUM_HELMFILE_VERSION=v0.144.0				# https://github.com/roboll/helmfile/releases
-MINIMUM_KIND_VERSION=v0.16.0						# https://github.com/kubernetes-sigs/kind/releases
-MINIMUM_KUBECTL_VERSION=v1.25.0					# https://github.com/kubernetes/kubernetes/releases
-MINIMUM_PACKER_VERSION=1.8.3						# https://github.com/hashicorp/packer/releases
-MINIMUM_TILT_VERSION=0.30.8							# https://github.com/tilt-dev/tilt/releases
-KUSTOMIZE_VERSION=4.5.7									# https://github.com/kubernetes-sigs/kustomize/releases
-
+MINIMUM_HCLOUD_VERSION=1.30.3 # update: datasource=github-tags depName=hetznercloud/cli extractVersion=^v(?<version>.*)$
+MINIMUM_HELMFILE_VERSION=v0.144.0 # update: datasource=github-tags depName=helmfile/helmfile extractVersion=^v(?<version>.*)$
+MINIMUM_KIND_VERSION=v0.16.0 # update: datasource=github-tags depName=kubernetes-sigs/kind extractVersion=^v(?<version>.*)$
+MINIMUM_KUBECTL_VERSION=v1.25.0 # update: datasource=github-tags depName=kubernetes/kubernetes extractVersion=^v(?<version>.*)$
+MINIMUM_PACKER_VERSION=1.8.3 # update: datasource=github-tags depName=hashicorp/packer extractVersion=^v(?<version>.*)$
+MINIMUM_TILT_VERSION=0.30.8 # update: datasource=github-releases depName=tilt-dev/ctlptl extractVersion=^v(?<version>.*)$
+KUSTOMIZE_VERSION=4.5.7
 #
 # Tooling Binaries.
 #
@@ -73,9 +72,9 @@ KIND := $(TOOLS_BIN_DIR)/kind
 #
 # HELM.
 #
-MINIMUM_HELM_VERSION=v3.8.0							# https://github.com/helm/helm/releases
-HELM_GIT_VERSION=0.11.1									# https://github.com/aslafy-z/helm-git/releases
-HELM_DIFF_VERSION=3.4.1									# https://github.com/databus23/helm-diff/releases
+MINIMUM_HELM_VERSION=v3.8.0 # update: datasource=github-tags depName=helm/helm extractVersion=^v(?<version>.*)$
+HELM_GIT_VERSION=0.11.1 # update: datasource=github-tags depName=aslafy-z/helm-git extractVersion=^v(?<version>.*)$
+HELM_DIFF_VERSION=3.4.1	# update: datasource=github-tags depName=databus23/helm-diff extractVersion=^v(?<version>.*)$
 
 #
 # Go.

@@ -68,10 +68,10 @@ confirm() {
 
 install_helmfile() {
     if [[ "${OSTYPE}" == "linux"* ]]; then
-      curl -sLo "helmfile" https://github.com/roboll/helmfile/releases/download/${MINIMUM_HELMFILE_VERSION}/helmfile_linux_amd64
+      curl -fsSL "helmfile" https://github.com/helmfile/helmfile/releases/download/v${MINIMUM_HELMFILE_VERSION}/helmfile_${MINIMUM_HELMFILE_VERSION}_linux_amd64.tar.gz | tar -xzv helmfile
       copy_binary
     elif [[ "$OSTYPE" == "darwin"* ]]; then
-      curl -sLo "helmfile" https://github.com/roboll/helmfile/releases/download/${MINIMUM_HELMFILE_VERSION}/helmfile_darwin_amd64
+      curl -fsSL "helmfile" https://github.com/helmfile/helmfile/releases/download/v${MINIMUM_HELMFILE_VERSION}/helmfile_${MINIMUM_HELMFILE_VERSION}_darwin_amd64.tar.gz | tar -xzv helmfile
       copy_binary
     else
       set +x

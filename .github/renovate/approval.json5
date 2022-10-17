@@ -1,0 +1,18 @@
+{
+    "packageRules": [
+      {
+        "matchUpdateTypes": ["major", "minor"],
+        "matchManagers": ["gomod"],
+        "matchDepTypes": ["golang"],
+        "description": "Ask for approval for golang updates",
+        "dependencyDashboardApproval": true
+      },
+      {
+        "matchUpdateTypes": ["minor"],
+        "matchManagers": ["gomod"],
+        "matchDepTypes": ["sigs.k8s.io/controller-runtime"],
+        "description": "Ask for approval for controller-runtime updates",
+        "dependencyDashboardApproval": true
+      }
+    ]
+  }

@@ -30,7 +30,7 @@ check_kind_installed() {
 verify_kind_version() {
 
   local kind_version
-  kind_version="v$(kind version -q)"
+  kind_version="$(kind version -q)"
   if [[ "${MINIMUM_KIND_VERSION}" != $(echo -e "${MINIMUM_KIND_VERSION}\n${kind_version}" | sort -s -t. -k 1,1n -k 2,2n -k 3,3n | head -n1) ]]; then
     cat <<EOF
 Detected kind version: ${kind_version}.
@@ -67,10 +67,10 @@ confirm() {
 
 install_kind() {
     if [[ "${OSTYPE}" == "linux"* ]]; then
-      curl -sLo "kind" https://github.com/kubernetes-sigs/kind/releases/download/${MINIMUM_KIND_VERSION}/kind-linux-amd64
+      curl -sLo "kind" https://github.com/kubernetes-sigs/kind/releases/download/v${MINIMUM_KIND_VERSION}/kind-linux-amd64
       copy_binary
     elif [[ "$OSTYPE" == "darwin"* ]]; then
-      curl -sLo "kind" https://github.com/kubernetes-sigs/kind/releases/download/${MINIMUM_KIND_VERSION}/kind-darwin-amd64
+      curl -sLo "kind" https://github.com/kubernetes-sigs/kind/releases/download/v${MINIMUM_KIND_VERSION}/kind-darwin-amd64
       copy_binary
     else
       set +x
