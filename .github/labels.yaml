@@ -1,0 +1,80 @@
+---
+# Area
+- name: area/code
+  color: "72ccf3"
+  description: >-
+    Changes made in the code directory
+- name: area/api
+  color: "72ccf3"
+  description: >-
+    Changes made in the api directory
+- name: area/github
+  color: "72ccf3"
+  description: >-
+    Changes made in the github directory
+- name: area/hack
+  color: "72ccf3"
+  description: >-
+    Changes made in the hack directory
+- name: area/test
+  color: "72ccf3"
+  description: >-
+    Changes made in the test directory
+- name: area/templates
+  color: "72ccf3"
+  description: >-
+    Changes made in the templates directory
+# Update
+- name: update/container
+  color: "ffc300"
+- name: update/github-action
+  color: "ffc300"
+- name: update/helm
+  color: "ffc300"
+- name: update/go
+  color: "ffc300"
+# Semantic Type
+- name: type/patch
+  color: "FFEC19"
+- name: type/minor
+  color: "FF9800"
+- name: type/major
+  color: "F6412D"
+# Size
+- name: size/XS
+  color: "009900"
+  description: >-
+    Denotes a PR that changes 0-20 lines, ignoring generated files.
+- name: size/S
+  color: "77bb00"
+  description: >-
+    Denotes a PR that changes 20-50 lines, ignoring generated files.
+- name: size/M
+  color: "eebb00"
+  description: >-
+    Denotes a PR that changes 50-200 lines, ignoring generated files.
+- name: size/L
+  color: "ee9900"
+  description: >-
+    Denotes a PR that changes 200-800 lines, ignoring generated files.
+- name: size/XL
+  color: "ee5500"
+  description: >-
+    Denotes a PR that changes 800-2000 lines, ignoring generated files.
+- name: size/XXL
+  color: "ee0000"
+  description: >-
+    Denotes a PR that changes 2000+ lines, ignoring generated files.
+# Uncategorized
+- name: bug
+  color: "ee0701"
+- name: do-not-merge
+  color: "ee0701"
+- name: docs
+  color: "F4D1B7"
+- name: enhancement
+  color: "84b6eb"
+- name: link-checker
+  color: "7B55D7"
+- name: question
+  color: "cc317c"

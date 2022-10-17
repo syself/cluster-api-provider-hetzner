@@ -1,0 +1,16 @@
+---
+area/code:
+  - "controllers/**/*"
+  - "pkg/**/*"
+area/api:
+  - "api/**/*"
+  - "config/crd/**/*"
+area/github:
+  - ".github/**/*"
+area/hack:
+  - "hack/**/*"
+  - "Makefile"
+area/test:
+  - "test/**/*"
+area/templates:
+  - "templates/**/*"
