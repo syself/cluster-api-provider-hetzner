@@ -33,7 +33,7 @@ runs:
         password: ${{ inputs.manager_image_quay_password }}
 
     - name: Build and push manager image
-      uses: docker/build-push-action@v2
+      uses: docker/build-push-action@v3
       with:
         context: .
         push: true
