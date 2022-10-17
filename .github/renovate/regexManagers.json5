@@ -1,0 +1,12 @@
+{
+  "regexManagers": [
+    {
+      "fileMatch": [".yaml$", ".yml$"],
+      "matchStrings": [
+        ".*(=|:\\s)(?<currentValue>[v0-9.-]+)\\s#\\supdate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)( extractVersion=(?<extractVersion>.+?))?( versioning=(?<versioning>.*?))?\\s"
+      ],
+      "extractVersionTemplate":"{{#if extractVersion}}{{{extractVersion}}}{{/if}}",
+      "versioningTemplate": "{{#if versioning}}{{{versioning}}}{{else}}semver{{/if}}"
+    }
+  ]
+}

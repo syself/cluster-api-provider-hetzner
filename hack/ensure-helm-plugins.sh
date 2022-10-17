@@ -19,8 +19,6 @@ set -o nounset
 set -o pipefail
 
 
-REPO_ROOT=$(git rev-parse --show-toplevel)
-cd "${REPO_ROOT}" || exit 1
 
 helm_plugins_to_install () {
     verify_helm_plugin_version "helm-git" "https://github.com/aslafy-z/helm-git" "${HELM_GIT_VERSION}"
@@ -30,8 +28,7 @@ helm_plugins_to_install () {
 check_helm_installed() {
   # If helm is not available on the path, get it
   if ! [ -x "$(command -v helm)" ]; then
-    echo 'helm not found, installing'
-    source "${REPO_ROOT}/hack/helm.sh"
+    echo 'helm not found!'
   fi
 }
 
@@ -54,7 +51,7 @@ verify_helm_plugin_version() {
 
   if [[ "${helm_minimum_plugin_version}" != $(echo -e "${helm_minimum_plugin_version}\n${helm_plugin_version}" | sort -s -t. -k 1,1n -k 2,2n -k 3,3n | head -n1) ]]; then
     cat <<EOF
-Detected helm plugin version of $1: ${helm_plugin_version}.
+Detected helm plugin version of $1: ${helm_plugin_version}
 Requires ${helm_minimum_plugin_version} or greater.
 Please install ${helm_minimum_plugin_version} or later.
 
@@ -63,7 +60,7 @@ EOF
     confirm && echo "Installing Helm Plugin $1" && update_helm_plugin "$@"
   else
     cat <<EOF
-Detected helm pluginversion: ${helm_plugin_version}.
+Detected helm pluginversion: ${helm_plugin_version}
 Requires ${helm_minimum_plugin_version} or greater.
 Nothing to do!
 

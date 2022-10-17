@@ -1,0 +1,49 @@
+name: verify-renovate-config
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+    branches:
+      - main
+      - "releases/**"
+    paths:
+      - ".github/renovate.json5"
+      - ".github/renovate/**.json"
+
+jobs:
+  config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: "16"
+      - name: Install renovate
+        run: npm i -g renovate
+      - name: Validate config
+        run: renovate-config-validator
+        env:
+          RENOVATE_CONFIG_FILE: .github/renovate.json5
+      - name: Validate config
+        run: renovate-config-validator
+        env:
+          RENOVATE_CONFIG_FILE: .github/renovate/approval.json5
+      - name: Validate config
+        run: renovate-config-validator
+        env:
+          RENOVATE_CONFIG_FILE: .github/renovate/autoMerge.json5
+      - name: Validate config
+        run: renovate-config-validator
+        env:
+          RENOVATE_CONFIG_FILE: .github/renovate/commitMessage.json5
+      - name: Validate config
+        run: renovate-config-validator
+        env:
+          RENOVATE_CONFIG_FILE: .github/renovate/golang.json5
+      - name: Validate config
+        run: renovate-config-validator
+        env:
+          RENOVATE_CONFIG_FILE: .github/renovate/labels.json5
+      - name: Validate config
+        run: renovate-config-validator
+        env:
+          RENOVATE_CONFIG_FILE: .github/renovate/regexManagers.json5

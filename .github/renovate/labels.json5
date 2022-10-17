@@ -1,0 +1,32 @@
+{
+    "packageRules": [
+      {
+        "matchUpdateTypes": ["major"],
+        "labels": ["type/major"]
+      },
+      {
+        "matchUpdateTypes": ["minor"],
+        "labels": ["type/minor"]
+      },
+      {
+        "matchUpdateTypes": ["patch"],
+        "labels": ["type/patch"]
+      },
+      {
+        "matchDatasources": ["helm"],
+        "addLabels": ["update/helm"]
+      },
+      {
+        "matchDatasources": ["docker"],
+        "addLabels": ["update/container"]
+      },
+      {
+        "matchManagers": ["github-actions"],
+        "addLabels": ["update/github-action"]
+      },
+      {
+        "matchDatasources": ["go"],
+        "addLabels": ["update/go"]
+      }
+    ]
+  }

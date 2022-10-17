@@ -1,0 +1,12 @@
+{
+  "golang": {
+    "postUpdateOptions": [
+      "gomodTidy",
+      "gomodUpdateImportPaths"
+    ]
+  },
+  // https://docs.renovatebot.com/configuration-options/#constraints
+  "constraints": {
+    "go": "1.19"
+  }
+}
