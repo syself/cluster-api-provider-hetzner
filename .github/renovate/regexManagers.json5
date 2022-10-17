@@ -1,7 +1,7 @@
 {
   "regexManagers": [
     {
-      "fileMatch": [".yaml$", ".yml$"],
+      "fileMatch": [".yaml$", ".yml$", "Makefile"],
       "matchStrings": [
         ".*(=|:\\s)(?<currentValue>[v0-9.-]+)\\s#\\supdate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)( extractVersion=(?<extractVersion>.+?))?( versioning=(?<versioning>.*?))?\\s"
       ],
