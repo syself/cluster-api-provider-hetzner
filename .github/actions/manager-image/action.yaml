@@ -23,7 +23,7 @@ runs:
         metadata_tags: ${{ env.metadata_tags }}
 
     - name: Log into quay.io
-      uses: docker/login-action@v1
+      uses: docker/login-action@v2
       env:
         QUAY_USERNAME: ${{ inputs.manager_image_quay_username }}
       if: ${{ env.QUAY_USERNAME != '' }}
