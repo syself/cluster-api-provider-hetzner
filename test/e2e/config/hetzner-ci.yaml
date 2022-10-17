@@ -13,7 +13,7 @@ providers:
   - name: cluster-api
     type: CoreProvider
     versions:
-      - name: v1.2.3 # update: datasource=github-tags depName=kubernetes-sigs/cluster-api extractVersion=^v(?<version>.*)$
+      - name: 1.2.4 # update: datasource=github-tags depName=kubernetes-sigs/cluster-api extractVersion=^v(?<version>.*)$
         value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.2.3/core-components.yaml"
         type: "url"
         contract: v1beta1
@@ -30,7 +30,7 @@ providers:
   - name: kubeadm
     type: BootstrapProvider
     versions:
-      - name: v1.2.3 # update: datasource=github-tags depName=kubernetes-sigs/cluster-api extractVersion=^v(?<version>.*)$
+      - name: 1.2.4 # update: datasource=github-tags depName=kubernetes-sigs/cluster-api extractVersion=^v(?<version>.*)$
         value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.2.3/bootstrap-components.yaml"
         type: "url"
         contract: "v1beta1"
@@ -47,7 +47,7 @@ providers:
   - name: kubeadm
     type: ControlPlaneProvider
     versions:
-      - name: v1.2.3 # update: datasource=github-tags depName=kubernetes-sigs/cluster-api extractVersion=^v(?<version>.*)$
+      - name: 1.2.4 # update: datasource=github-tags depName=kubernetes-sigs/cluster-api extractVersion=^v(?<version>.*)$
         value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.2.3/control-plane-components.yaml"
         type: "url"
         files:
