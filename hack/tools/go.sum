@@ -1025,8 +1025,8 @@ rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8
 rsc.io/quote/v3 v3.1.0/go.mod h1:yEA65RcK8LyAZtP9Kv3t0HmxON59tX3rD+tICJqUlj0=
 rsc.io/sampler v1.3.0/go.mod h1:T1hPZKmBbMNahiBKFy5HrXp6adAjACjK9JXDnKaTXpA=
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.0.30/go.mod h1:fEO7lRTdivWO2qYVCVG7dEADOMo/MLDCVr8So2g88Uw=
-sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20220907012636-c83076e9f792 h1:qaeHrIwKgPuZglWht3uBja3re5h/kat2H6yg+XFFMpc=
-sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20220907012636-c83076e9f792/go.mod h1:oiCXd8V7ZaS/wwvXKZ9pYkoU0BYM86CyEa0RvivM0nw=
+sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20221007015352-8ad090e0663e h1:3e/FEdLbOPc5S3D040XM9g7dBjlrA7YCIAXjjwkjCgk=
+sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20221007015352-8ad090e0663e/go.mod h1:oiCXd8V7ZaS/wwvXKZ9pYkoU0BYM86CyEa0RvivM0nw=
 sigs.k8s.io/controller-tools v0.9.2 h1:AkTE3QAdz9LS4iD3EJvHyYxBkg/g9fTbgiYsrcsFCcM=
 sigs.k8s.io/controller-tools v0.9.2/go.mod h1:NUkn8FTV3Sad3wWpSK7dt/145qfuQ8CKJV6j4jHC5rM=
 sigs.k8s.io/json v0.0.0-20211208200746-9f7c6b3444d2 h1:kDi4JBNAsJWfz1aEXhO8Jg87JJaPNLh5tIzYHgStQ9Y=
