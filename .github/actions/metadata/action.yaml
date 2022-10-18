@@ -23,18 +23,10 @@ outputs:
 runs:
   using: "composite"
   steps:
-    - name: Build image urls
-      shell: bash
-      id: image-urls
-      env:
-        QUAY_USERNAME: ${{ inputs.quay_username }}
-      run: |
-        [[ -n "$QUAY_USERNAME" ]] && IMAGES=${IMAGES},${REGISTRY}/${IMAGE_NAME}
-        echo "::set-output name=images::${IMAGES}"
     - name: Docker manager metadata
       id: meta
       uses: docker/metadata-action@v4.1.1
       with:
-        images: ${{ steps.image-urls.outputs.images }}
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
         flavor: ${{ inputs.metadata_flavor }}
         tags: ${{ inputs.metadata_tags }}
