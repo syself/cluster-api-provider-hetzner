@@ -5,7 +5,7 @@ go 1.19
 replace sigs.k8s.io/cluster-api => sigs.k8s.io/cluster-api v1.2.4
 
 require (
-	github.com/blang/semver v3.5.1+incompatible
+	github.com/blang/semver/v4 v4.0.0
 	github.com/go-logr/logr v1.2.3
 	github.com/go-logr/zapr v1.2.3
 	github.com/hetznercloud/hcloud-go v1.35.3
