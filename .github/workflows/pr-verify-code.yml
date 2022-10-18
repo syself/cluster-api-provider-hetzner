@@ -1,7 +1,7 @@
 name: Verify PR Code
 on:
   pull_request:
-    types: [opened, edited, synchronize, reopened]
+    types: [opened, synchronize, reopened]
     branches:
       - main
       - "releases/**"
