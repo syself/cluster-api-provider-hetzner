@@ -23,7 +23,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/blang/semver"
+	"github.com/blang/semver/v4"
 	ginkgo "github.com/onsi/ginkgo"
 	gomega "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"

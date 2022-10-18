@@ -5,7 +5,7 @@ go 1.19
 replace sigs.k8s.io/cluster-api => sigs.k8s.io/cluster-api v1.2.4
 
 require (
-	github.com/blang/semver v3.8.0+incompatible
+	github.com/blang/semver/v4 v4.0.0
 	github.com/go-logr/logr v1.2.3
 	github.com/go-logr/zapr v1.2.3
 	github.com/hetznercloud/hcloud-go v1.35.3
@@ -50,7 +50,7 @@ require (
 	github.com/antlr/antlr4/runtime/Go/antlr v0.0.0-20220418222510-f25a4f6275ed // indirect
 	github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/blang/semver/v4 v4.0.0 // indirect
+	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/coredns/caddy v1.1.0 // indirect
 	github.com/coredns/corefile-migration v1.0.17 // indirect
