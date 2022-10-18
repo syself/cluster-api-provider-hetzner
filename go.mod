@@ -26,7 +26,7 @@ require (
 	k8s.io/utils v0.0.0-20221012122500-cfd413dd9e85
 	sigs.k8s.io/cluster-api v1.2.4
 	sigs.k8s.io/cluster-api/test v1.2.4
-	sigs.k8s.io/controller-runtime v0.12.3
+	sigs.k8s.io/controller-runtime v0.13.0
 	sigs.k8s.io/kind v0.16.0
 )
 
