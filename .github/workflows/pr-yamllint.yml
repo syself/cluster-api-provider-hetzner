@@ -2,13 +2,13 @@ name: yamllint test
 
 on:
   pull_request:
-    types: [opened, edited, synchronize, reopened]
+    types: [opened, synchronize, reopened]
     branches:
       - main
-      - 'releases/**'
+      - "releases/**"
     paths:
-      - '**.yaml'
-      - '**.yml'
+      - "**.yaml"
+      - "**.yml"
 jobs:
   test:
     runs-on: ubuntu-latest
