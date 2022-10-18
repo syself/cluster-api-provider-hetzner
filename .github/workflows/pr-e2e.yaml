@@ -10,6 +10,9 @@ on:
       - "**go.mod"
       - "**go.sum"
       - "<templates|test>/**/*.<yml|yaml>"
+      - ".github/actions/**/*"
+      - ".github/workflows/e2e-*"
+      - ".github/workflows/pr-*"
 env:
   hcloudctl_version: 1.30.3
   IMAGE_NAME: cluster-api-provider-hetzner

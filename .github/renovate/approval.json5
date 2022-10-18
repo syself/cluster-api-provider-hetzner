@@ -10,7 +10,7 @@
       {
         "matchUpdateTypes": ["minor"],
         "matchManagers": ["gomod"],
-        "matchDepTypes": ["sigs.k8s.io/controller-runtime"],
+        "matchPackageNames": ["sigs.k8s.io/controller-runtime"],
         "description": "Ask for approval for controller-runtime updates",
         "dependencyDashboardApproval": true
       }

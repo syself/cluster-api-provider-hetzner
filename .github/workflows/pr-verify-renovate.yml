@@ -42,6 +42,10 @@ jobs:
       - name: Validate config
         run: renovate-config-validator
         env:
+          RENOVATE_CONFIG_FILE: .github/renovate/groups.json5
+      - name: Validate config
+        run: renovate-config-validator
+        env:
           RENOVATE_CONFIG_FILE: .github/renovate/labels.json5
       - name: Validate config
         run: renovate-config-validator

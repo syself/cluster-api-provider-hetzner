@@ -12,12 +12,13 @@
     "github>syself/cluster-api-provider-hetzner//.github/renovate/autoMerge.json5",
     "github>syself/cluster-api-provider-hetzner//.github/renovate/commitMessage.json5",
     "github>syself/cluster-api-provider-hetzner//.github/renovate/golang.json5",
+    "github>syself/cluster-api-provider-hetzner//.github/renovate/groups.json5",
     "github>syself/cluster-api-provider-hetzner//.github/renovate/labels.json5",
     "github>syself/cluster-api-provider-hetzner//.github/renovate/regexManagers.json5"
   ],
   "platform": "github",
   "onboarding": false,
-  "requireConfig": "optional",
+  "requireConfig": "ignored",
   "timezone": "Europe/Berlin",
   // repo config
   "repositories": ["syself/cluster-api-provider-hetzner"],
