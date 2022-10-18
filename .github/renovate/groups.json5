@@ -1,0 +1,19 @@
+{
+  packageRules: [
+    {
+      description: "Update Makefile",
+      groupName: "Makefile",
+      matchManagers: ["regex"],
+      matchFiles: ["Makefile"],
+      matchUpdateTypes: ["minor", "patch"],
+      group: { commitMessageTopic: "{{{groupName}}} group" },
+    },
+    {
+      description: "Update Github Actions",
+      groupName: "github-actions",
+      matchManagers: ["github-actions"],
+      matchUpdateTypes: ["minor", "patch"],
+      group: { commitMessageTopic: "{{{groupName}}} group" },
+    }
+  ]
+}
