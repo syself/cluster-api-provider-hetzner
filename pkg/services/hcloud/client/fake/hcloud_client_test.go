@@ -21,7 +21,7 @@ import (
 	"net"
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/fake"
 )
