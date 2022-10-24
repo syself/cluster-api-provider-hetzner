@@ -19,7 +19,7 @@ package e2e
 import (
 	"context"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 )
 
 var _ = Describe("[Baremetal Feature] Testing Cluster Flavor with 3x control-planes 1x worker", func() {
