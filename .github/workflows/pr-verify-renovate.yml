@@ -30,10 +30,6 @@ jobs:
       - name: Validate config
         run: renovate-config-validator
         env:
-          RENOVATE_CONFIG_FILE: .github/renovate/autoMerge.json5
-      - name: Validate config
-        run: renovate-config-validator
-        env:
           RENOVATE_CONFIG_FILE: .github/renovate/commitMessage.json5
       - name: Validate config
         run: renovate-config-validator
