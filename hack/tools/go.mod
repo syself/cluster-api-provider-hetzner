@@ -12,7 +12,7 @@ require (
 	k8s.io/code-generator v0.25.3
 	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20221025140236-7d16aec4e84d
 	sigs.k8s.io/controller-tools v0.10.0
-	sigs.k8s.io/kind v0.16.0
+	sigs.k8s.io/kind v0.17.0
 )
 
 require (
@@ -34,6 +34,7 @@ require (
 	github.com/gobuffalo/flect v0.2.5 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/google/gofuzz v1.1.0 // indirect
+	github.com/google/safetext v0.0.0-20220905092116-b49f7bc46da2 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/imdario/mergo v0.3.12 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
