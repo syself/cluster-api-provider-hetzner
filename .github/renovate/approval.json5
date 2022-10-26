@@ -13,6 +13,13 @@
         "matchPackageNames": ["sigs.k8s.io/controller-runtime"],
         "description": "Ask for approval for controller-runtime updates",
         "dependencyDashboardApproval": true
+      },
+      {
+        "matchUpdateTypes": ["minor"],
+        "matchManagers": ["gomod"],
+        "matchPackageNames": ["github.com/onsi/ginkgo"],
+        "description": "Ask for approval for ginkgo updates",
+        "dependencyDashboardApproval": true
       }
     ]
   }

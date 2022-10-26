@@ -9,7 +9,6 @@
     "group:recommended",
     "github>whitesource/merge-confidence:beta",
     "github>syself/cluster-api-provider-hetzner//.github/renovate/approval.json5",
-    "github>syself/cluster-api-provider-hetzner//.github/renovate/autoMerge.json5",
     "github>syself/cluster-api-provider-hetzner//.github/renovate/commitMessage.json5",
     "github>syself/cluster-api-provider-hetzner//.github/renovate/golang.json5",
     "github>syself/cluster-api-provider-hetzner//.github/renovate/groups.json5",
