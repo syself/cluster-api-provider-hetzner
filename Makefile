@@ -44,13 +44,13 @@ CI_KIND ?= true
 # Binaries.
 #
 MINIMUM_CLUSTERCTL_VERSION=1.2.4 # update: datasource=github-tags depName=kubernetes-sigs/cluster-api extractVersion=^v(?<version>.*)$
-MINIMUM_CTLPTL_VERSION=0.8.10 # update: datasource=github-releases depName=tilt-dev/ctlptl extractVersion=^v(?<version>.*)$
+MINIMUM_CTLPTL_VERSION=0.8.11 # update: datasource=github-releases depName=tilt-dev/ctlptl extractVersion=^v(?<version>.*)$
 MINIMUM_GO_VERSION=go$(GO_VERSION)			# Check current project go version
 MINIMUM_HCLOUD_VERSION=1.30.3 # update: datasource=github-tags depName=hetznercloud/cli extractVersion=^v(?<version>.*)$
 MINIMUM_HELMFILE_VERSION=0.147.0 # update: datasource=github-tags depName=helmfile/helmfile extractVersion=^v(?<version>.*)$
 MINIMUM_KIND_VERSION=0.17.0 # update: datasource=github-tags depName=kubernetes-sigs/kind extractVersion=^v(?<version>.*)$
 MINIMUM_KUBECTL_VERSION=1.25.3 # update: datasource=github-tags depName=kubernetes/kubernetes extractVersion=^v(?<version>.*)$
-MINIMUM_PACKER_VERSION=1.8.3 # update: datasource=github-tags depName=hashicorp/packer extractVersion=^v(?<version>.*)$
+MINIMUM_PACKER_VERSION=1.8.4 # update: datasource=github-tags depName=hashicorp/packer extractVersion=^v(?<version>.*)$
 MINIMUM_TILT_VERSION=0.30.8 # update: datasource=github-releases depName=tilt-dev/ctlptl extractVersion=^v(?<version>.*)$
 KUSTOMIZE_VERSION=4.5.7
 #
