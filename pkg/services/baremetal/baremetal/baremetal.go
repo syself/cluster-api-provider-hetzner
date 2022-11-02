@@ -630,7 +630,7 @@ func (s *Service) GetProviderIDAndBMHID() (string, *string) {
 	if providerID == nil {
 		return "", nil
 	}
-	return *providerID, pointer.StringPtr(parseProviderID(*providerID))
+	return *providerID, pointer.String(parseProviderID(*providerID))
 }
 
 // GetBaremetalHostID return the provider identifier for this machine.
@@ -648,7 +648,7 @@ func (s *Service) GetBaremetalHostID(ctx context.Context) (*string, error) {
 		return nil, &scope.RequeueAfterError{RequeueAfter: requeueAfter}
 	}
 	if host.Spec.Status.ProvisioningState == infrav1.StateProvisioned {
-		return pointer.StringPtr(strconv.Itoa(host.Spec.ServerID)), nil
+		return pointer.String(strconv.Itoa(host.Spec.ServerID)), nil
 	}
 	s.scope.Logger.Info("Provisioning BaremetalHost, requeuing")
 	// Do not requeue since BMH update will trigger a reconciliation
@@ -803,13 +803,13 @@ func setOwnerRefInList(refList []metav1.OwnerReference, controller bool,
 			Kind:       objType.Kind,
 			Name:       objMeta.Name,
 			UID:        objMeta.UID,
-			Controller: pointer.BoolPtr(controller),
+			Controller: pointer.Bool(controller),
 		})
 	} else {
 		// The UID and the APIVersion might change due to move or version upgrade
 		refList[index].APIVersion = objType.APIVersion
 		refList[index].UID = objMeta.UID
-		refList[index].Controller = pointer.BoolPtr(controller)
+		refList[index].Controller = pointer.Bool(controller)
 	}
 	return refList, nil
 }
