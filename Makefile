@@ -73,7 +73,7 @@ KIND := $(TOOLS_BIN_DIR)/kind
 # HELM.
 #
 MINIMUM_HELM_VERSION=3.10.1 # update: datasource=github-tags depName=helm/helm extractVersion=^v(?<version>.*)$
-HELM_GIT_VERSION=0.13.0 # update: datasource=github-tags depName=aslafy-z/helm-git extractVersion=^v(?<version>.*)$
+HELM_GIT_VERSION=0.14.0 # update: datasource=github-tags depName=aslafy-z/helm-git extractVersion=^v(?<version>.*)$
 HELM_DIFF_VERSION=3.6.0	# update: datasource=github-tags depName=databus23/helm-diff extractVersion=^v(?<version>.*)$
 
 #
