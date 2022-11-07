@@ -23,7 +23,7 @@ require (
 	k8s.io/client-go v0.25.3
 	k8s.io/klog/v2 v2.80.1
 	k8s.io/kubectl v0.25.3
-	k8s.io/utils v0.0.0-20221101230645-61b03e2f6476
+	k8s.io/utils v0.0.0-20221107191617-1a15be271d1d
 	sigs.k8s.io/cluster-api v1.2.4
 	sigs.k8s.io/cluster-api/test v1.2.4
 	sigs.k8s.io/controller-runtime v0.12.3
