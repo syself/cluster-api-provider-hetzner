@@ -25,12 +25,12 @@ jobs:
           private_key: ${{ secrets.SYSELF_APP_PRIVATE_KEY }}
 
       - name: Link Checker
-        uses: lycheeverse/lychee-action@v1.5.4
+        uses: lycheeverse/lychee-action@v1.5.1
         id: lychee
         env:
           GITHUB_TOKEN: "${{ steps.generate-token.outputs.token }}"
         with:
-          args: --verbose --no-progress './**/*.md' --exclude https://hetzner.cloud/ mailto:info@syself.com https://www.hetzner.com/*
+          args: --verbose --no-progress './**/*.md' --exclude https://hetzner.cloud/ --exclude mailto:info@syself.com --exclude https://www.hetzner.com/*
           output: ./lychee.md
           format: markdown
 
