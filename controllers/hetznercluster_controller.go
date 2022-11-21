@@ -194,26 +194,27 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 	}
 	conditions.MarkTrue(hetznerCluster, infrav1.PlacementGroupsSynced)
 
-	if hetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled &&
-		hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4 != "<nil>" {
-		var defaultHost = hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4
-		var defaultPort = int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port)
+	if hetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
+		if hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4 != "<nil>" {
+			var defaultHost = hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4
+			var defaultPort = int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port)
 
-		if hetznerCluster.Spec.ControlPlaneEndpoint == nil {
-			hetznerCluster.Spec.ControlPlaneEndpoint = &clusterv1.APIEndpoint{
-				Host: defaultHost,
-				Port: defaultPort,
+			if hetznerCluster.Spec.ControlPlaneEndpoint == nil {
+				hetznerCluster.Spec.ControlPlaneEndpoint = &clusterv1.APIEndpoint{
+					Host: defaultHost,
+					Port: defaultPort,
+				}
+			} else {
+				if hetznerCluster.Spec.ControlPlaneEndpoint.Host == "" {
+					hetznerCluster.Spec.ControlPlaneEndpoint.Host = defaultHost
+				}
+				if hetznerCluster.Spec.ControlPlaneEndpoint.Port == 0 {
+					hetznerCluster.Spec.ControlPlaneEndpoint.Port = defaultPort
+				}
 			}
-		} else {
-			if hetznerCluster.Spec.ControlPlaneEndpoint.Host == "" {
-				hetznerCluster.Spec.ControlPlaneEndpoint.Host = defaultHost
-			}
-			if hetznerCluster.Spec.ControlPlaneEndpoint.Port == 0 {
-				hetznerCluster.Spec.ControlPlaneEndpoint.Port = defaultPort
-			}
+
+			hetznerCluster.Status.Ready = true
 		}
-
-		hetznerCluster.Status.Ready = true
 	} else if hetznerCluster.Spec.ControlPlaneEndpoint != nil {
 		hetznerCluster.Status.Ready = true
 	}
