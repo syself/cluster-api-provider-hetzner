@@ -1148,8 +1148,8 @@ k8s.io/utils v0.0.0-20221108210102-8e77b1f39fe2/go.mod h1:OLgZIPagt7ERELqWJFomSt
 rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=
 rsc.io/quote/v3 v3.1.0/go.mod h1:yEA65RcK8LyAZtP9Kv3t0HmxON59tX3rD+tICJqUlj0=
 rsc.io/sampler v1.3.0/go.mod h1:T1hPZKmBbMNahiBKFy5HrXp6adAjACjK9JXDnKaTXpA=
-sigs.k8s.io/cluster-api v1.2.5 h1:Am4W5ITO0v5FUNkfCuD6gwE29phDt1gyQY9EGWnTYIU=
-sigs.k8s.io/cluster-api v1.2.5/go.mod h1:Ye5gn15u+q6VcE+Se7nBMSo6INm55F+zBcCiWzrjxFc=
+sigs.k8s.io/cluster-api v1.2.6 h1:wueslUK8LdTH8rOI697WIj1jutbaGY3a24t4XjZvLI8=
+sigs.k8s.io/cluster-api v1.2.6/go.mod h1:Ye5gn15u+q6VcE+Se7nBMSo6INm55F+zBcCiWzrjxFc=
 sigs.k8s.io/cluster-api/test v1.2.5 h1:oS5r0d7caFfu+w/2K1mFZXwA/jrkJcddlZHyW1sE7gs=
 sigs.k8s.io/cluster-api/test v1.2.5/go.mod h1:uDGdxAADhTIuQoHoGSYehqMWKQ9sR4/LGE8y2k0Y2LM=
 sigs.k8s.io/controller-runtime v0.12.3 h1:FCM8xeY/FI8hoAfh/V4XbbYMY20gElh9yh+A98usMio=
