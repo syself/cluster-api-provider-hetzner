@@ -531,6 +531,9 @@ spec:
                                 type: string
                             type: object
                             x-kubernetes-map-type: atomic
+                          credentialsDataHash:
+                            format: byte
+                            type: string
                           credentialsVersion:
                             type: string
                         type: object
@@ -553,6 +556,9 @@ spec:
                                 type: string
                             type: object
                             x-kubernetes-map-type: atomic
+                          credentialsDataHash:
+                            format: byte
+                            type: string
                           credentialsVersion:
                             type: string
                         type: object

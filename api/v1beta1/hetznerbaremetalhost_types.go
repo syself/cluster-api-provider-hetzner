@@ -17,6 +17,11 @@ limitations under the License.
 package v1beta1
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/json"
+	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -291,10 +296,11 @@ type SSHStatus struct {
 type SecretStatus struct {
 	Reference *corev1.SecretReference `json:"credentials,omitempty"`
 	Version   string                  `json:"credentialsVersion,omitempty"`
+	DataHash  []byte                  `json:"credentialsDataHash,omitempty"`
 }
 
 // Match compares the saved status information with the name and
-// content of a secret object.
+// content of a secret object. Returns false if an error occurred.
 func (cs SecretStatus) Match(secret corev1.Secret) bool {
 	switch {
 	case cs.Reference == nil:
@@ -303,10 +309,29 @@ func (cs SecretStatus) Match(secret corev1.Secret) bool {
 		return false
 	case cs.Reference.Namespace != secret.ObjectMeta.Namespace:
 		return false
-	case cs.Version != secret.ObjectMeta.ResourceVersion:
+	}
+
+	hash, err := HashOfSecretData(secret.Data)
+	if err != nil {
 		return false
 	}
-	return true
+
+	return bytes.Equal(cs.DataHash, hash)
+}
+
+// HashOfSecretData returns the sha256 of secret data.
+func HashOfSecretData(data map[string][]byte) ([]byte, error) {
+	b, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+
+	hash := sha256.New()
+	if _, err := hash.Write(b); err != nil {
+		return nil, err
+	}
+
+	return hash.Sum(nil), nil
 }
 
 // Capacity is a disk size in Bytes.
@@ -415,25 +440,35 @@ type HetznerBareMetalHost struct {
 }
 
 // UpdateRescueSSHStatus modifies the ssh status with the last chosen ssh secret.
-func (host *HetznerBareMetalHost) UpdateRescueSSHStatus(currentSecret corev1.Secret) {
+func (host *HetznerBareMetalHost) UpdateRescueSSHStatus(currentSecret corev1.Secret) error {
+	hash, err := HashOfSecretData(currentSecret.Data)
+	if err != nil {
+		return fmt.Errorf("failed to calculate hash of data")
+	}
 	host.Spec.Status.SSHStatus.CurrentRescue = &SecretStatus{
-		Version: currentSecret.ObjectMeta.ResourceVersion,
 		Reference: &corev1.SecretReference{
 			Name:      currentSecret.ObjectMeta.Name,
 			Namespace: currentSecret.ObjectMeta.Namespace,
 		},
+		DataHash: hash,
 	}
+	return nil
 }
 
 // UpdateOSSSHStatus modifies the ssh status with the last chosen ssh secret.
-func (host *HetznerBareMetalHost) UpdateOSSSHStatus(currentSecret corev1.Secret) {
+func (host *HetznerBareMetalHost) UpdateOSSSHStatus(currentSecret corev1.Secret) error {
+	hash, err := HashOfSecretData(currentSecret.Data)
+	if err != nil {
+		return fmt.Errorf("failed to calculate hash of data")
+	}
 	host.Spec.Status.SSHStatus.CurrentOS = &SecretStatus{
-		Version: currentSecret.ObjectMeta.ResourceVersion,
 		Reference: &corev1.SecretReference{
 			Name:      currentSecret.ObjectMeta.Name,
 			Namespace: currentSecret.ObjectMeta.Namespace,
 		},
+		DataHash: hash,
 	}
+	return nil
 }
 
 // HasSoftwareReboot returns a boolean indicating whether software reboot exists for server.

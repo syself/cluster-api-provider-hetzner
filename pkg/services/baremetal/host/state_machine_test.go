@@ -17,6 +17,8 @@ limitations under the License.
 package host
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -28,13 +30,13 @@ import (
 var _ = Describe("updateSSHKey", func() {
 	DescribeTable("updateSSHKey",
 		func(
-			osSecretVersion string,
-			rescueSecretVersion string,
+			osSecretData map[string][]byte,
+			rescueSecretData map[string][]byte,
 			currentState infrav1.ProvisioningState,
 			expectedActionResult actionResult,
 			expectedNextState infrav1.ProvisioningState,
-			expectedOSSecretVersion string,
-			expectedRescueSecretVersion string,
+			expectedOSSecretData map[string][]byte,
+			expectedRescueSecretData map[string][]byte,
 		) {
 			host := helpers.BareMetalHost(
 				"test-host",
@@ -42,106 +44,218 @@ var _ = Describe("updateSSHKey", func() {
 				helpers.WithSSHStatus(),
 				helpers.WithSSHSpecInclPorts(23, 24),
 			)
+
+			dataHashOS, err := infrav1.HashOfSecretData(osSecretData)
+			Expect(err).To(BeNil())
+
+			dataHashRescue, err := infrav1.HashOfSecretData(rescueSecretData)
+			Expect(err).To(BeNil())
+
+			expectedDataHashOS, err := infrav1.HashOfSecretData(expectedOSSecretData)
+			Expect(err).To(BeNil())
+
+			expectedDataHashRescue, err := infrav1.HashOfSecretData(expectedRescueSecretData)
+			Expect(err).To(BeNil())
+
 			host.Spec.Status.SSHStatus.CurrentOS = &infrav1.SecretStatus{
-				Version: osSecretVersion,
 				Reference: &corev1.SecretReference{
 					Name:      osSSHKeyName,
 					Namespace: "default",
 				},
+				DataHash: dataHashOS,
 			}
 			host.Spec.Status.SSHStatus.CurrentRescue = &infrav1.SecretStatus{
-				Version: rescueSecretVersion,
 				Reference: &corev1.SecretReference{
 					Name:      rescueSSHKeyName,
 					Namespace: "default",
 				},
+				DataHash: dataHashRescue,
 			}
 			host.Spec.Status.ProvisioningState = currentState
 
 			osSSHSecret := helpers.GetDefaultSSHSecret(osSSHKeyName, "default")
 			osSSHSecret.ObjectMeta.ResourceVersion = "1"
+
 			rescueSSHSecret := helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default")
 			rescueSSHSecret.ObjectMeta.ResourceVersion = "1"
+
 			service := newTestService(host, nil, nil, osSSHSecret, rescueSSHSecret)
 			hsm := newTestHostStateMachine(host, service)
 
 			actResult := hsm.updateSSHKey()
+
 			Expect(actResult).Should(BeAssignableToTypeOf(expectedActionResult))
 			Expect(*host.Spec.Status.SSHStatus.CurrentRescue).Should(Equal(infrav1.SecretStatus{
-				Version: expectedRescueSecretVersion,
 				Reference: &corev1.SecretReference{
 					Name:      rescueSSHKeyName,
 					Namespace: "default",
 				},
+				DataHash: expectedDataHashRescue,
 			}))
 			Expect(*host.Spec.Status.SSHStatus.CurrentOS).Should(Equal(infrav1.SecretStatus{
-				Version: expectedOSSecretVersion,
 				Reference: &corev1.SecretReference{
 					Name:      osSSHKeyName,
 					Namespace: "default",
 				},
+				DataHash: expectedDataHashOS,
 			}))
 			Expect(hsm.nextState).Should(Equal(expectedNextState))
 		},
 		Entry(
 			"nothing changed",
-			"1",                      // osSecretVersion string
-			"1",                      // rescueSecretVersion string
+			map[string][]byte{
+				"private-key": []byte(fmt.Sprintf("%s-private-key", osSSHKeyName)),
+				"sshkey-name": []byte("my-name"),
+				"public-key":  []byte("my-public-key"),
+			}, // osSecretData string
+			map[string][]byte{
+				"private-key": []byte(fmt.Sprintf("%s-private-key", rescueSSHKeyName)),
+				"sshkey-name": []byte("my-name"),
+				"public-key":  []byte("my-public-key"),
+			}, // rescueSecretData string
 			infrav1.StateRegistering, // currentState infrav1.ProvisioningState
 			actionComplete{},         // expectedActionResult actionResult
 			infrav1.StateRegistering, // expectedNextState infrav1.ProvisioningState
-			"1",                      // expectedOSSecretVersion string
-			"1",                      // expectedRescueSecretVersion string
+			map[string][]byte{
+				"private-key": []byte(fmt.Sprintf("%s-private-key", osSSHKeyName)),
+				"sshkey-name": []byte("my-name"),
+				"public-key":  []byte("my-public-key"),
+			}, // expectedOSSecretData string
+			map[string][]byte{
+				"private-key": []byte(fmt.Sprintf("%s-private-key", rescueSSHKeyName)),
+				"sshkey-name": []byte("my-name"),
+				"public-key":  []byte("my-public-key"),
+			}, // expectedRescueSecretData string
 		),
 		Entry(
 			"os secret changed - state available",
-			"0",                      // osSecretVersion string
-			"1",                      // rescueSecretVersion string
+			map[string][]byte{
+				"private-key": []byte(fmt.Sprintf("%s-private-key", osSSHKeyName)),
+				"sshkey-name": []byte("my-old-name"),
+				"public-key":  []byte("my-old-public-key"),
+			}, // osSecretData string
+			map[string][]byte{
+				"private-key": []byte(fmt.Sprintf("%s-private-key", rescueSSHKeyName)),
+				"sshkey-name": []byte("my-name"),
+				"public-key":  []byte("my-public-key"),
+			}, // rescueSecretData string
 			infrav1.StateRegistering, // currentState infrav1.ProvisioningState
 			actionComplete{},         // expectedActionResult actionResult
 			infrav1.StateRegistering, // expectedNextState infrav1.ProvisioningState
-			"1",                      // expectedOSSecretVersion string
-			"1",                      // expectedRescueSecretVersion string
+			map[string][]byte{
+				"private-key": []byte(fmt.Sprintf("%s-private-key", osSSHKeyName)),
+				"sshkey-name": []byte("my-name"),
+				"public-key":  []byte("my-public-key"),
+			}, // expectedOSSecretData string
+			map[string][]byte{
+				"private-key": []byte(fmt.Sprintf("%s-private-key", rescueSSHKeyName)),
+				"sshkey-name": []byte("my-name"),
+				"public-key":  []byte("my-public-key"),
+			}, // expectedRescueSecretData string
 		),
 		Entry(
 			"os secret changed - state provisioned",
-			"0",                      // osSecretVersion string
-			"1",                      // rescueSecretVersion string
+			map[string][]byte{
+				"private-key": []byte(fmt.Sprintf("%s-private-key", osSSHKeyName)),
+				"sshkey-name": []byte("my-old-name"),
+				"public-key":  []byte("my-old-public-key"),
+			}, // osSecretData string
+			map[string][]byte{
+				"private-key": []byte(fmt.Sprintf("%s-private-key", rescueSSHKeyName)),
+				"sshkey-name": []byte("my-name"),
+				"public-key":  []byte("my-public-key"),
+			}, // rescueSecretData string
 			infrav1.StateProvisioned, // currentState infrav1.ProvisioningState
 			actionFailed{},           // expectedActionResult actionResult
 			infrav1.StateProvisioned, // expectedNextState infrav1.ProvisioningState
-			"0",                      // expectedOSSecretVersion string
-			"1",                      // expectedRescueSecretVersion string
+			map[string][]byte{
+				"private-key": []byte(fmt.Sprintf("%s-private-key", osSSHKeyName)),
+				"sshkey-name": []byte("my-old-name"),
+				"public-key":  []byte("my-old-public-key"),
+			}, // expectedOSSecretData string
+			map[string][]byte{
+				"private-key": []byte(fmt.Sprintf("%s-private-key", rescueSSHKeyName)),
+				"sshkey-name": []byte("my-name"),
+				"public-key":  []byte("my-public-key"),
+			}, // expectedRescueSecretData string
 		),
 		Entry(
 			"os secret changed - state provisioning",
-			"0",                          // osSecretVersion string
-			"1",                          // rescueSecretVersion string
+			map[string][]byte{
+				"private-key": []byte(fmt.Sprintf("%s-private-key", osSSHKeyName)),
+				"sshkey-name": []byte("my-old-name"),
+				"public-key":  []byte("my-old-public-key"),
+			}, // osSecretData string
+			map[string][]byte{
+				"private-key": []byte(fmt.Sprintf("%s-private-key", rescueSSHKeyName)),
+				"sshkey-name": []byte("my-name"),
+				"public-key":  []byte("my-public-key"),
+			}, // rescueSecretData string
 			infrav1.StateProvisioning,    // currentState infrav1.ProvisioningState
 			actionComplete{},             // expectedActionResult actionResult
 			infrav1.StateImageInstalling, // expectedNextState infrav1.ProvisioningState
-			"1",                          // expectedOSSecretVersion string
-			"1",                          // expectedRescueSecretVersion string
+			map[string][]byte{
+				"private-key": []byte(fmt.Sprintf("%s-private-key", osSSHKeyName)),
+				"sshkey-name": []byte("my-name"),
+				"public-key":  []byte("my-public-key"),
+			}, // expectedOSSecretData string
+			map[string][]byte{
+				"private-key": []byte(fmt.Sprintf("%s-private-key", rescueSSHKeyName)),
+				"sshkey-name": []byte("my-name"),
+				"public-key":  []byte("my-public-key"),
+			}, // expectedRescueSecretData string
 		),
 		Entry(
 			"rescue secret changed - state provisioning",
-			"1",                       // osSecretVersion string
-			"0",                       // rescueSecretVersion string
+			map[string][]byte{
+				"private-key": []byte(fmt.Sprintf("%s-private-key", osSSHKeyName)),
+				"sshkey-name": []byte("my-name"),
+				"public-key":  []byte("my-public-key"),
+			}, // osSecretData string
+			map[string][]byte{
+				"private-key": []byte(fmt.Sprintf("%s-private-key", rescueSSHKeyName)),
+				"sshkey-name": []byte("my-old-name"),
+				"public-key":  []byte("my-old-public-key"),
+			}, // rescueSecretData string
 			infrav1.StateProvisioning, // currentState infrav1.ProvisioningState
 			actionComplete{},          // expectedActionResult actionResult
 			infrav1.StateProvisioning, // expectedNextState infrav1.ProvisioningState
-			"1",                       // expectedOSSecretVersion string
-			"1",                       // expectedRescueSecretVersion string
+			map[string][]byte{
+				"private-key": []byte(fmt.Sprintf("%s-private-key", osSSHKeyName)),
+				"sshkey-name": []byte("my-name"),
+				"public-key":  []byte("my-public-key"),
+			}, // expectedOSSecretData string
+			map[string][]byte{
+				"private-key": []byte(fmt.Sprintf("%s-private-key", rescueSSHKeyName)),
+				"sshkey-name": []byte("my-name"),
+				"public-key":  []byte("my-public-key"),
+			}, // expectedRescueSecretData string
 		),
 		Entry(
 			"rescue secret changed - state available",
-			"1",                      // osSecretVersion string
-			"0",                      // rescueSecretVersion string
+			map[string][]byte{
+				"private-key": []byte(fmt.Sprintf("%s-private-key", osSSHKeyName)),
+				"sshkey-name": []byte("my-name"),
+				"public-key":  []byte("my-public-key"),
+			}, // osSecretData string
+			map[string][]byte{
+				"private-key": []byte(fmt.Sprintf("%s-private-key", rescueSSHKeyName)),
+				"sshkey-name": []byte("my-old-name"),
+				"public-key":  []byte("my-old-public-key"),
+			}, // rescueSecretData string
 			infrav1.StateRegistering, // currentState infrav1.ProvisioningState
 			actionComplete{},         // expectedActionResult actionResult
 			infrav1.StateNone,        // expectedNextState infrav1.ProvisioningState
-			"1",                      // expectedOSSecretVersion string
-			"1",                      // expectedRescueSecretVersion string
+			map[string][]byte{
+				"private-key": []byte(fmt.Sprintf("%s-private-key", osSSHKeyName)),
+				"sshkey-name": []byte("my-name"),
+				"public-key":  []byte("my-public-key"),
+			}, // expectedOSSecretData string
+			map[string][]byte{
+				"private-key": []byte(fmt.Sprintf("%s-private-key", rescueSSHKeyName)),
+				"sshkey-name": []byte("my-name"),
+				"public-key":  []byte("my-public-key"),
+			}, // expectedRescueSecretData string
 		),
 	)
 })
