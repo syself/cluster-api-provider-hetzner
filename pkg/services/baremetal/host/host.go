@@ -169,18 +169,22 @@ func clearRebootAnnotations(host *infrav1.HetznerBareMetalHost) {
 	}
 }
 
-func (s *Service) getSSHKeysAndUpdateStatus() (osSSHSecret *corev1.Secret, rescueSSHSecret *corev1.Secret) {
+func (s *Service) getSSHKeysAndUpdateStatus() (osSSHSecret *corev1.Secret, rescueSSHSecret *corev1.Secret, err error) {
 	// Set ssh status if none has been set so far
 	osSSHSecret = s.scope.OSSSHSecret
 	rescueSSHSecret = s.scope.RescueSSHSecret
 	// If os ssh secret is set and the status not yet, then update it
 	if s.scope.HetznerBareMetalHost.Spec.Status.SSHStatus.CurrentOS == nil && osSSHSecret != nil {
-		s.scope.HetznerBareMetalHost.UpdateOSSSHStatus(*osSSHSecret)
+		if err := s.scope.HetznerBareMetalHost.UpdateOSSSHStatus(*osSSHSecret); err != nil {
+			return nil, nil, fmt.Errorf("failed to update OS SSH secret status: %w", err)
+		}
 	}
 	if s.scope.HetznerBareMetalHost.Spec.Status.SSHStatus.CurrentRescue == nil && rescueSSHSecret != nil {
-		s.scope.HetznerBareMetalHost.UpdateRescueSSHStatus(*rescueSSHSecret)
+		if err := s.scope.HetznerBareMetalHost.UpdateRescueSSHStatus(*rescueSSHSecret); err != nil {
+			return nil, nil, fmt.Errorf("failed to update rescue SSH secret status: %w", err)
+		}
 	}
-	return osSSHSecret, rescueSSHSecret
+	return osSSHSecret, rescueSSHSecret, nil
 }
 
 func (s *Service) validateSSHKey(sshSecret *corev1.Secret, secretType string) actionResult {
@@ -351,8 +355,6 @@ func (s *Service) ensureSSHKey(sshSecretRef infrav1.SSHSecretRef, sshSecret *cor
 			sshKey.Fingerprint = hetznerSSHKey.Fingerprint
 		}
 	}
-
-	s.scope.Info("SSH key", "private key", string(sshSecret.Data[sshSecretRef.Key.PrivateKey]), "publicKey", string(sshSecret.Data[sshSecretRef.Key.PublicKey]))
 
 	// Upload SSH key if not found
 	if !foundSSHKey {
