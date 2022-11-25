@@ -26,6 +26,7 @@ import (
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/machinetemplate"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/cluster-api/util"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -47,7 +48,7 @@ type HCloudMachineTemplateReconciler struct {
 
 // Reconcile manages the lifecycle of an HCloudMachineTemplate object.
 func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
-	log := ctrl.LoggerFrom(ctx).WithValues("hcloudmachinetemplate", req.NamespacedName)
+	log := ctrl.LoggerFrom(ctx)
 	log.Info("Reconcile HCloudMachineTemplate")
 
 	machineTemplate := &infrav1.HCloudMachineTemplate{}
@@ -56,6 +57,8 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
+	log = log.WithValues("HCloudMachineTemplate", klog.KObj(machineTemplate))
+
 	// Fetch the Cluster.
 	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, machineTemplate.ObjectMeta)
 	if err != nil {
@@ -63,7 +66,7 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, nil
 	}
 
-	log = log.WithValues("cluster", cluster.Name)
+	log = log.WithValues("Cluster", klog.KObj(cluster))
 
 	hetznerCluster := &infrav1.HetznerCluster{}
 
@@ -75,6 +78,9 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req ctr
 		log.Info("HetznerCluster is not available yet")
 		return ctrl.Result{}, nil
 	}
+
+	log = log.WithValues("HetznerCluster", klog.KObj(hetznerCluster))
+	ctx = ctrl.LoggerInto(ctx, log)
 
 	// Create the scope.
 	secretManager := secretutil.NewSecretManager(log, r.Client, r.APIReader)

@@ -27,6 +27,7 @@ import (
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/server"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/klog/v2"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
@@ -70,6 +71,8 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 
+	log = log.WithValues("HCloudMachine", klog.KObj(hcloudMachine))
+
 	// Fetch the Machine.
 	machine, err := util.GetOwnerMachine(ctx, r.Client, hcloudMachine.ObjectMeta)
 	if err != nil {
@@ -80,7 +83,7 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, nil
 	}
 
-	log = log.WithValues("machine", machine.Name)
+	log = log.WithValues("Machine", klog.KObj(machine))
 
 	// Fetch the Cluster.
 	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, machine.ObjectMeta)
@@ -94,7 +97,7 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, nil
 	}
 
-	log = log.WithValues("cluster", cluster.Name)
+	log = log.WithValues("Cluster", klog.KObj(cluster))
 
 	hetznerCluster := &infrav1.HetznerCluster{}
 
@@ -106,6 +109,9 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		log.Info("HetznerCluster is not available yet")
 		return reconcile.Result{}, nil
 	}
+
+	log = log.WithValues("HetznerCluster", klog.KObj(hetznerCluster))
+	ctx = ctrl.LoggerInto(ctx, log)
 
 	// Create the scope.
 	secretManager := secretutil.NewSecretManager(log, r.Client, r.APIReader)

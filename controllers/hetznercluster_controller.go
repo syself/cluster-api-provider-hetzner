@@ -41,6 +41,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/klog/v2"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
@@ -93,6 +94,8 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return reconcile.Result{}, err
 	}
 
+	log = log.WithValues("HetznerCluster", klog.KObj(hetznerCluster))
+
 	log.Info("Starting reconciling cluster")
 
 	// Fetch the Cluster.
@@ -100,6 +103,9 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "failed to get owner cluster")
 	}
+
+	log = log.WithValues("Cluster", klog.KObj(cluster))
+	ctx = ctrl.LoggerInto(ctx, log)
 
 	if cluster == nil {
 		log.Info("Cluster Controller has not yet set OwnerRef")

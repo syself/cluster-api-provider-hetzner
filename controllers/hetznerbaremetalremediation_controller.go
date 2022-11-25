@@ -24,6 +24,7 @@ import (
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/remediation"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
 	"sigs.k8s.io/cluster-api/util/patch"
@@ -59,6 +60,8 @@ func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, r
 		return ctrl.Result{}, err
 	}
 
+	log = log.WithValues("HetznerBareMetalRemediation", klog.KObj(bareMetalRemediation))
+
 	// Fetch the Machine.
 	machine, err := util.GetOwnerMachine(ctx, r.Client, bareMetalRemediation.ObjectMeta)
 	if err != nil {
@@ -69,7 +72,7 @@ func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, r
 		return ctrl.Result{}, nil
 	}
 
-	log = log.WithValues("machine", machine.Name)
+	log = log.WithValues("Machine", klog.KObj(machine))
 
 	// Fetch the BareMetalMachine instance.
 	bareMetalMachine := &infrav1.HetznerBareMetalMachine{}
@@ -86,6 +89,8 @@ func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, r
 		return ctrl.Result{}, err
 	}
 
+	log = log.WithValues("HetznerBareMetalMachine", klog.KObj(bareMetalMachine))
+
 	// Fetch the Cluster.
 	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, machine.ObjectMeta)
 	if err != nil {
@@ -98,7 +103,7 @@ func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, r
 		return ctrl.Result{}, nil
 	}
 
-	log = log.WithValues("cluster", cluster.Name)
+	log = log.WithValues("Cluster", klog.KObj(cluster))
 
 	hetznerCluster := &infrav1.HetznerCluster{}
 
@@ -110,6 +115,9 @@ func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, r
 		log.Info("HetznerCluster is not available yet")
 		return reconcile.Result{}, nil
 	}
+
+	log = log.WithValues("HetznerCluster", klog.KObj(hetznerCluster))
+	ctx = ctrl.LoggerInto(ctx, log)
 
 	// Create the scope.
 	remediationScope, err := scope.NewBareMetalRemediationScope(ctx, scope.BareMetalRemediationScopeParams{
