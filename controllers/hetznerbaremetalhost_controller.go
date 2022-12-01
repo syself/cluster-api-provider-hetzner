@@ -34,6 +34,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -72,6 +73,8 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		return ctrl.Result{}, err
 	}
 
+	log = log.WithValues("HetznerBareMetalHost", klog.KObj(bmHost))
+
 	// Add a finalizer to newly created objects.
 	if bmHost.DeletionTimestamp.IsZero() && !hostHasFinalizer(bmHost) {
 		log.Info("adding finalizer", "existingFinalizers", bmHost.Finalizers, "newValue", infrav1.BareMetalHostFinalizer)
@@ -100,6 +103,9 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	if err := r.Client.Get(ctx, hetznerClusterName, hetznerCluster); err != nil {
 		return ctrl.Result{}, errors.New("HetznerCluster not found")
 	}
+
+	log = log.WithValues("HetznerCluster", klog.KObj(hetznerCluster))
+	ctx = ctrl.LoggerInto(ctx, log)
 
 	// Get Hetzner robot api credentials
 	secretManager := secretutil.NewSecretManager(log, r.Client, r.APIReader)

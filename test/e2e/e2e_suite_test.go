@@ -25,7 +25,7 @@ import (
 	"strings"
 	"testing"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -105,8 +105,7 @@ func TestE2E(t *testing.T) {
 		defer w.Close()
 	}
 
-	junitReporter := framework.CreateJUnitReporterForProw(artifactFolder)
-	RunSpecsWithDefaultAndCustomReporters(t, "caph-e2e", []Reporter{junitReporter})
+	RunSpecs(t, "caph-e2e")
 }
 
 // Using a SynchronizedBeforeSuite for controlling how to create resources shared across ParallelNodes (~ginkgo threads).

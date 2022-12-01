@@ -43,7 +43,7 @@ CI_KIND ?= true
 #
 # Binaries.
 #
-MINIMUM_CLUSTERCTL_VERSION=1.2.6 # update: datasource=github-tags depName=kubernetes-sigs/cluster-api extractVersion=^v(?<version>.*)$
+MINIMUM_CLUSTERCTL_VERSION=1.3.0 # update: datasource=github-tags depName=kubernetes-sigs/cluster-api extractVersion=^v(?<version>.*)$
 MINIMUM_CTLPTL_VERSION=0.8.12 # update: datasource=github-releases depName=tilt-dev/ctlptl extractVersion=^v(?<version>.*)$
 MINIMUM_GO_VERSION=go$(GO_VERSION)			# Check current project go version
 MINIMUM_HCLOUD_VERSION=1.30.4 # update: datasource=github-tags depName=hetznercloud/cli extractVersion=^v(?<version>.*)$
@@ -63,7 +63,6 @@ CONVERSION_GEN := $(abspath $(TOOLS_BIN_DIR)/conversion-gen)
 ENVSUBST_BIN := $(BIN_DIR)/envsubst
 ENVSUBST := $(TOOLS_DIR)/$(ENVSUBST_BIN)
 SETUP_ENVTEST := $(abspath $(TOOLS_BIN_DIR)/setup-envtest)
-GINKGO := $(TOOLS_BIN_DIR)/ginkgo
 GO_APIDIFF_BIN := $(BIN_DIR)/go-apidiff
 GO_APIDIFF := $(TOOLS_DIR)/$(GO_APIDIFF_BIN)
 TIMEOUT := $(shell command -v timeout || command -v gtimeout)

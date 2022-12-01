@@ -32,6 +32,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -92,33 +93,43 @@ func (r *GuestCSRReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 	var isHCloudMachine bool
 	var machineName string
 	var machineAddresses []corev1.NodeAddress
+
 	// find matching HCloudMachine object
 	var hcloudMachine infrav1.HCloudMachine
-	err = r.mCluster.Get(ctx, types.NamespacedName{
+	hcloudMachineName := types.NamespacedName{
 		Namespace: r.mCluster.Namespace(),
 		Name:      strings.TrimPrefix(certificateSigningRequest.Spec.Username, nodePrefix),
-	}, &hcloudMachine)
+	}
+	err = r.mCluster.Get(ctx, hcloudMachineName, &hcloudMachine)
 
 	if err == nil {
 		isHCloudMachine = true
 		machineName = hcloudMachine.GetName()
 		machineAddresses = hcloudMachine.Status.Addresses
+
+		log = log.WithValues("HCloudMachine", klog.KRef(hcloudMachineName.Namespace, hcloudMachine.Name))
 	} else {
 		// Check whether it is a bare metal machine
 		var bmMachine infrav1.HetznerBareMetalMachine
-		if err := r.mCluster.Get(ctx, types.NamespacedName{
+		bmMachineName := types.NamespacedName{
 			Namespace: r.mCluster.Namespace(),
 			Name:      strings.TrimPrefix(certificateSigningRequest.Spec.Username, nodePrefix+infrav1.BareMetalHostNamePrefix),
-		}, &bmMachine); err != nil {
+		}
+
+		if err := r.mCluster.Get(ctx, bmMachineName, &bmMachine); err != nil {
 			log.Error(err, "found an error while getting machine - bm machine or hcloud machine", "namespacedName", req.NamespacedName,
 				"userName", certificateSigningRequest.Spec.Username,
 				"nodePrefix", nodePrefix,
 			)
 			return reconcile.Result{RequeueAfter: 20 * time.Second}, nil
 		}
+
 		machineName = bmMachine.GetName()
 		machineAddresses = bmMachine.Status.Addresses
+
+		log = log.WithValues("HetznerBareMetalMachine", klog.KRef(bmMachineName.Namespace, bmMachine.Name))
 	}
+	ctx = ctrl.LoggerInto(ctx, log)
 
 	csrBlock, _ := pem.Decode(certificateSigningRequest.Spec.Request)
 

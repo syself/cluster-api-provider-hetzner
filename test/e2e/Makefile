@@ -42,7 +42,7 @@ GINKGO := $(TOOLS_BIN_DIR)/ginkgo
 KUSTOMIZE := $(TOOLS_BIN_DIR)/kustomize
 
 $(GINKGO): # Build ginkgo from tools folder.
-	cd $(TOOLS_DIR) && go build -tags=tools -o $(BIN_DIR)/ginkgo github.com/onsi/ginkgo/ginkgo
+	cd $(TOOLS_DIR) && go build -tags=tools -o $(BIN_DIR)/ginkgo github.com/onsi/ginkgo/v2/ginkgo
 
 $(KUSTOMIZE): # Build kustomize from tools folder.
 	KUSTOMIZE_VERSION=4.5.7	$(REPO_ROOT)/hack/ensure-kustomize.sh
@@ -125,10 +125,11 @@ KUBETEST_CONF_PATH ?= $(abspath $(E2E_DIR)/data/kubetest/conformance.yaml)
 
 .PHONY: run
 run: $(GINKGO)  cluster-templates  ## Run the end-to-end tests
-	time $(GINKGO) -v -trace -progress -v -tags=e2e \
+	time $(GINKGO) -v --trace -progress --tags=e2e \
 		--randomizeAllSpecs -race $(GINKGO_ADDITIONAL_ARGS) \
-		-focus=$(GINKGO_FOCUS) -skip=$(GINKGO_SKIP) \
-		-nodes=$(GINKGO_NODES) --noColor=$(GINKGO_NOCOLOR) \
+		--output-dir="$(ARTIFACTS)" \
+		--focus=$(GINKGO_FOCUS) --skip=$(GINKGO_SKIP) \
+		--nodes=$(GINKGO_NODES) --no-color=$(GINKGO_NOCOLOR) \
 		--flakeAttempts=$(GINKGO_FLAKE_ATTEMPTS) ./ -- \
 		-e2e.artifacts-folder="$(ARTIFACTS)" \
 		-e2e.config="$(E2E_CONF_FILE)" \

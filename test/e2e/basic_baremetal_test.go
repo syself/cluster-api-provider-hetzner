@@ -19,7 +19,7 @@ package e2e
 import (
 	"context"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 )
 
 var _ = Describe("[Baremetal] Testing Cluster 3x control-planes 1x worker ", func() {
