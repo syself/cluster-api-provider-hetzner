@@ -76,6 +76,6 @@ if [[ "${PACKER_TALOS:-""}" != "" ]]; then
 fi
 
 
-make -C test/e2e/ run ACK_GINKGO_RC="true" ACK_GINKGO_DEPRECATIONS=1.16.5 GINKGO_NODES="${GINKO_NODES}" GINKGO_FOCUS="${GINKO_FOKUS}"
+make -C test/e2e/ run GINKGO_NODES="${GINKGO_NODES}" GINKGO_FOCUS="${GINKGO_FOKUS}"
 
 test_status="${?}"
