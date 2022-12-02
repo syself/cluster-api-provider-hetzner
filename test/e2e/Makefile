@@ -128,6 +128,7 @@ run: $(GINKGO)  cluster-templates  ## Run the end-to-end tests
 	time $(GINKGO) -v --trace -progress --tags=e2e \
 		--randomizeAllSpecs -race $(GINKGO_ADDITIONAL_ARGS) \
 		--output-dir="$(ARTIFACTS)" \
+		--junit-report="junit.e2e_suite.1.xml" \
 		--focus=$(GINKGO_FOCUS) --skip=$(GINKGO_SKIP) \
 		--nodes=$(GINKGO_NODES) --no-color=$(GINKGO_NOCOLOR) \
 		--flakeAttempts=$(GINKGO_FLAKE_ATTEMPTS) ./ -- \

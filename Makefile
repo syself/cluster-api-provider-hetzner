@@ -440,43 +440,43 @@ $(E2E_CONF_FILE): $(ENVSUBST) $(E2E_CONF_FILE_SOURCE)
 
 .PHONY: test-e2e
 test-e2e: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKO_FOKUS="'\[Basic\]'" GINKO_NODES=2 ./hack/ci-e2e-capi.sh
+	GINKGO_FOKUS="'\[Basic\]'" GINKGO_NODES=2 ./hack/ci-e2e-capi.sh
 
 .PHONY: test-e2e-feature
 test-e2e-feature: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKO_FOKUS="'\[Feature\]'" GINKO_NODES=3 ./hack/ci-e2e-capi.sh
+	GINKGO_FOKUS="'\[Feature\]'" GINKGO_NODES=3 ./hack/ci-e2e-capi.sh
 
 .PHONY: test-e2e-feature-packer
 test-e2e-feature-packer: $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKO_FOKUS="'\[Feature Packer\]'" GINKO_NODES=1 PACKER_IMAGE_NAME=templates/node-image/1.25.2-ubuntu-22-04-containerd ./hack/ci-e2e-capi.sh
+	GINKGO_FOKUS="'\[Feature Packer\]'" GINKGO_NODES=1 PACKER_IMAGE_NAME=templates/node-image/1.25.2-ubuntu-22-04-containerd ./hack/ci-e2e-capi.sh
 
 .PHONY: test-e2e-feature-talos
 test-e2e-feature-talos: $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKO_FOKUS="'\[Feature Talos\]'" GINKO_NODES=1 PACKER_TALOS=templates/node-image/talos-image ./hack/ci-e2e-capi.sh
+	GINKGO_FOKUS="'\[Feature Talos\]'" GINKGO_NODES=1 PACKER_TALOS=templates/node-image/talos-image ./hack/ci-e2e-capi.sh
 
 .PHONY: test-e2e-lifecycle
 test-e2e-lifecycle: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKO_FOKUS="'\[Lifecycle\]'" GINKO_NODES=3 ./hack/ci-e2e-capi.sh
+	GINKGO_FOKUS="'\[Lifecycle\]'" GINKGO_NODES=3 ./hack/ci-e2e-capi.sh
 
 .PHONY: test-e2e-upgrade-caph
 test-e2e-upgrade-caph: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKO_FOKUS="'\[Upgrade CAPH\]'" GINKO_NODES=2 ./hack/ci-e2e-capi.sh
+	GINKGO_FOKUS="'\[Upgrade CAPH\]'" GINKGO_NODES=2 ./hack/ci-e2e-capi.sh
 
 .PHONY: test-e2e-upgrade-kubernetes
 test-e2e-upgrade-kubernetes: $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKO_FOKUS="'\[Upgrade Kubernetes\]'" GINKO_NODES=2 PACKER_KUBERNETES_UPGRADE_FROM=templates/node-image/1.24.1-ubuntu-20-04-containerd PACKER_KUBERNETES_UPGRADE_TO=templates/node-image/1.25.2-ubuntu-22-04-containerd ./hack/ci-e2e-capi.sh
+	GINKGO_FOKUS="'\[Upgrade Kubernetes\]'" GINKGO_NODES=2 PACKER_KUBERNETES_UPGRADE_FROM=templates/node-image/1.24.1-ubuntu-20-04-containerd PACKER_KUBERNETES_UPGRADE_TO=templates/node-image/1.25.2-ubuntu-22-04-containerd ./hack/ci-e2e-capi.sh
 
 .PHONY: test-e2e-conformance
 test-e2e-conformance: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKO_FOKUS="'\[Conformance\]'" GINKO_NODES=1 ./hack/ci-e2e-capi.sh
+	GINKGO_FOKUS="'\[Conformance\]'" GINKGO_NODES=1 ./hack/ci-e2e-capi.sh
 
 .PHONY: test-e2e-baremetal
 test-e2e-baremetal: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKO_FOKUS="'\[Baremetal\]'" GINKO_NODES=1 ./hack/ci-e2e-capi.sh
+	GINKGO_FOKUS="'\[Baremetal\]'" GINKGO_NODES=1 ./hack/ci-e2e-capi.sh
 
 .PHONY: test-e2e-baremetal-feature
 test-e2e-baremetal-feature: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKO_FOKUS="'\[Baremetal Feature\]'" GINKO_NODES=1 ./hack/ci-e2e-capi.sh
+	GINKGO_FOKUS="'\[Baremetal Feature\]'" GINKGO_NODES=1 ./hack/ci-e2e-capi.sh
 
 .PHONY: test
 test: $(SETUP_ENVTEST) ## Run unit and integration tests
