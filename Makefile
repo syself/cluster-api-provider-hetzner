@@ -44,7 +44,7 @@ CI_KIND ?= true
 # Binaries.
 #
 MINIMUM_CLUSTERCTL_VERSION=1.3.0 # update: datasource=github-tags depName=kubernetes-sigs/cluster-api extractVersion=^v(?<version>.*)$
-MINIMUM_CTLPTL_VERSION=0.8.12 # update: datasource=github-releases depName=tilt-dev/ctlptl extractVersion=^v(?<version>.*)$
+MINIMUM_CTLPTL_VERSION=0.8.13 # update: datasource=github-releases depName=tilt-dev/ctlptl extractVersion=^v(?<version>.*)$
 MINIMUM_GO_VERSION=go$(GO_VERSION)			# Check current project go version
 MINIMUM_HCLOUD_VERSION=1.31.0 # update: datasource=github-tags depName=hetznercloud/cli extractVersion=^v(?<version>.*)$
 MINIMUM_HELMFILE_VERSION=0.148.1 # update: datasource=github-tags depName=helmfile/helmfile extractVersion=^v(?<version>.*)$
