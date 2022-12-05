@@ -37,7 +37,7 @@ For production use-cases a “real” Kubernetes cluster should be used with app
 
 #### 2. Kind.
 
-kind can be used for creating a local Kubernetes cluster for development environments or for the creation of a temporary bootstrap cluster used to provision a target management cluster on the selected infrastructure provider.
+[kind](https://kind.sigs.k8s.io/) can be used for creating a local Kubernetes cluster for development environments or for the creation of a temporary bootstrap cluster used to provision a target management cluster on the selected infrastructure provider.
 
 ---
 ## Install Clusterctl and initialize Management Cluster
@@ -131,8 +131,9 @@ kubectl create secret generic hetzner --from-literal=hcloud=$HCLOUD_TOKEN --from
 
 kubectl create secret generic robot-ssh --from-literal=sshkey-name=cluster --from-file=ssh-privatekey=$HETZNER_SSH_PRIV_PATH --from-file=ssh-publickey=$HETZNER_SSH_PUB_PATH
 
-# Patch the created secret so it is automatically moved to the target cluster later.
+# Patch the created secrets so they are automatically moved to the target cluster later.
 kubectl patch secret hetzner -p '{"metadata":{"labels":{"clusterctl.cluster.x-k8s.io/move":""}}}'
+kubectl patch secret robot-ssh -p '{"metadata":{"labels":{"clusterctl.cluster.x-k8s.io/move":""}}}'
 ```
 
 The secret name and the tokens can also be customized in the cluster template.
@@ -142,6 +143,6 @@ The secret name and the tokens can also be customized in the cluster template.
 
 For using cluster-api with the bootstrap provider kubeadm, we need a server with all the necessary binaries and settings for running kubernetes.
 There are several ways to achieve this. In the quick-start guide we use pre-kubeadm commands in the KubeadmControlPlane and KubeadmConfigTemplate object. These are propagated from the bootstrap provider kubeadm and the control plane provider kubeadm to the node as cloud-init commands. This way is usable universally also in other infrastructure providers.
-For Hcloud there is an alternative way using packer, that creates a snapshot to boot from, this is in the sense of versioning and the speed of creating a node clearly advantageous. The same is possible for Hetzner Bare Metal as we could use installimage and a prepared tarball which gets then installed.
+For Hcloud there is an alternative way using packer, that creates a snapshot to boot from, this makes it easier to version the images, and creating new nodes using this image is faster. The same is possible for Hetzner Bare Metal as we could use installimage and a prepared tarball which gets then installed.
 
-See [node-image](./node-image.md) for more informations.
+See [node-image](./node-image.md) for more information.
