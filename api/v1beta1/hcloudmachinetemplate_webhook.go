@@ -17,63 +17,66 @@ limitations under the License.
 package v1beta1
 
 import (
+	"context"
+	"fmt"
 	"reflect"
 
-	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation/field"
+	"sigs.k8s.io/cluster-api/util/topology"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-// log is for logging in this package.
-var hcloudmachinetemplatelog = utils.GetDefaultLogger("info").WithName("hcloudmachinetemplate-resource")
-
 // SetupWebhookWithManager initializes webhook manager for HetznerMachineTemplate.
-func (r *HCloudMachineTemplate) SetupWebhookWithManager(mgr ctrl.Manager) error {
+func (r *HCloudMachineTemplateWebhook) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(r).
+		For(&HCloudMachineTemplate{}).
+		WithValidator(r).
 		Complete()
 }
 
-// SetupWebhookWithManager initializes webhook manager for HetznerMachineTemplateList.
-func (r *HCloudMachineTemplateList) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(r).
-		Complete()
-}
+// HCloudMachineTemplateWebhook implements a custom validation webhook for HCloudMachineTemplate.
+// +kubebuilder:object:generate=false
+type HCloudMachineTemplateWebhook struct{}
 
-//+kubebuilder:webhook:path=/mutate-infrastructure-cluster-x-k8s-io-v1beta1-hcloudmachinetemplate,mutating=true,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hcloudmachinetemplates,verbs=create;update,versions=v1beta1,name=mutation.hcloudmachinetemplate.infrastructure.x-k8s.io,admissionReviewVersions={v1,v1beta1}
+// +kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta1-hcloudmachinetemplate,mutating=false,sideEffects=None,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hcloudmachinetemplates,verbs=create;update,versions=v1beta1,name=validation.hcloudmachinetemplate.infrastructure.x-k8s.io,admissionReviewVersions=v1;v1beta1
 
-var _ webhook.Defaulter = &HCloudMachineTemplate{}
-
-// Default implements webhook.Defaulter so a webhook will be registered for the type.
-func (r *HCloudMachineTemplate) Default() {}
-
-//+kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta1-hcloudmachinetemplate,mutating=false,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hcloudmachinetemplates,verbs=create;update,versions=v1beta1,name=validation.hcloudmachinetemplate.infrastructure.x-k8s.io,admissionReviewVersions={v1,v1beta1}
-
-var _ webhook.Validator = &HCloudMachineTemplate{}
+var _ webhook.CustomValidator = &HCloudMachineTemplateWebhook{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
-func (r *HCloudMachineTemplate) ValidateCreate() error {
-	hcloudmachinetemplatelog.V(1).Info("validate create", "name", r.Name)
+func (r *HCloudMachineTemplateWebhook) ValidateCreate(_ context.Context, _ runtime.Object) error {
 	return nil
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
-func (r *HCloudMachineTemplate) ValidateUpdate(old runtime.Object) error {
-	hcloudmachinetemplatelog.V(1).Info("validate update", "name", r.Name)
-	oldHCloudMachineTemplate := old.(*HCloudMachineTemplate)
-	if !reflect.DeepEqual(r.Spec, oldHCloudMachineTemplate.Spec) {
-		hcloudmachinetemplatelog.Info("not equal", "new HcloudMachineTemplateSpec", r.Spec, "old HcloudMachineTemplateSpec", oldHCloudMachineTemplate.Spec)
-		return apierrors.NewBadRequest("HCloudMachineTemplate.Spec is immutable")
+func (r *HCloudMachineTemplateWebhook) ValidateUpdate(ctx context.Context, oldRaw runtime.Object, newRaw runtime.Object) error {
+	newHCloudMachineTemplate, ok := newRaw.(*HCloudMachineTemplate)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a HCloudMachineTemplate but got a %T", newRaw))
+	}
+	oldHCloudMachineTemplate, ok := oldRaw.(*HCloudMachineTemplate)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a HCloudMachineTemplate but got a %T", oldRaw))
 	}
 
-	return nil
+	req, err := admission.RequestFromContext(ctx)
+	if err != nil {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a admission.Request inside context: %v", err))
+	}
+
+	var allErrs field.ErrorList
+
+	if !topology.ShouldSkipImmutabilityChecks(req, newHCloudMachineTemplate) && !reflect.DeepEqual(newHCloudMachineTemplate.Spec, oldHCloudMachineTemplate.Spec) {
+		allErrs = append(allErrs, field.Invalid(field.NewPath("spec"), newHCloudMachineTemplate, "HCloudMachineTemplate.Spec is immutable"))
+	}
+
+	return aggregateObjErrors(newHCloudMachineTemplate.GroupVersionKind().GroupKind(), newHCloudMachineTemplate.Name, allErrs)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
-func (r *HCloudMachineTemplate) ValidateDelete() error {
-	hcloudmachinetemplatelog.V(1).Info("validate delete", "name", r.Name)
+func (r *HCloudMachineTemplateWebhook) ValidateDelete(_ context.Context, _ runtime.Object) error {
 	return nil
 }

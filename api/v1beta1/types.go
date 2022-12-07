@@ -157,7 +157,7 @@ type LoadBalancerSpec struct {
 	ExtraServices []LoadBalancerServiceSpec `json:"extraServices,omitempty"`
 
 	// Region contains the name of the HCloud location the load balancer is running.
-	Region Region `json:"region"`
+	Region Region `json:"region,omitempty"`
 }
 
 // LoadBalancerServiceSpec defines a Loadbalancer Target.
