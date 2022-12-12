@@ -70,6 +70,34 @@ func (r *HetznerCluster) ValidateCreate() error {
 	hetznerclusterlog.V(1).Info("validate create", "name", r.Name)
 	var allErrs field.ErrorList
 
+	if len(r.Spec.ControlPlaneRegions) == 0 {
+		allErrs = append(allErrs, field.Invalid(
+			field.NewPath("spec", "controlPlaneRegions"),
+			r.Spec.ControlPlaneRegions,
+			"control plane regions must not be empty",
+		))
+	}
+
+	for _, region := range r.Spec.ControlPlaneRegions {
+		if _, ok := regionNetworkZoneMap[string(region)]; !ok {
+			allErrs = append(allErrs, field.Invalid(
+				field.NewPath("spec", "controlPlaneRegions"),
+				r.Spec.ControlPlaneRegions,
+				"wrong control plane region. Should be fsn1, nbg1, hel1, or ash",
+			))
+		}
+	}
+
+	if r.Spec.ControlPlaneLoadBalancer.Enabled {
+		if r.Spec.ControlPlaneLoadBalancer.Region == Region("") {
+			allErrs = append(allErrs, field.Invalid(
+				field.NewPath("spec", "controlPlaneLoadBalancer", "region"),
+				r.Spec.ControlPlaneLoadBalancer.Region,
+				"region should not be empty if load balancer is enabled"),
+			)
+		}
+	}
+
 	// Check whether regions are all in same network zone
 	if !r.Spec.HCloudNetwork.Enabled {
 		if err := isNetworkZoneSameForAllRegions(r.Spec.ControlPlaneRegions, nil); err != nil {

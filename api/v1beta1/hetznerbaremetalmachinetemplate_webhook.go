@@ -17,49 +17,66 @@ limitations under the License.
 package v1beta1
 
 import (
+	"context"
+	"fmt"
 	"reflect"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation/field"
+	"sigs.k8s.io/cluster-api/util/topology"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 // SetupWebhookWithManager initializes webhook manager for HetznerBareMetalMachineTemplate.
-func (r *HetznerBareMetalMachineTemplate) SetupWebhookWithManager(mgr ctrl.Manager) error {
+func (r *HetznerBareMetalMachineTemplateWebhook) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(r).
+		For(&HetznerBareMetalMachineTemplate{}).
+		WithValidator(r).
 		Complete()
 }
 
-//+kubebuilder:webhook:path=/mutate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalmachinetemplate,mutating=true,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalmachinetemplates,verbs=create;update,versions=v1beta1,name=mutation.hetznerbaremetalmachinetemplate.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
+// HetznerBareMetalMachineTemplateWebhook implements a custom validation webhook for HetznerBareMetalMachineTemplate.
+// +kubebuilder:object:generate=false
+type HetznerBareMetalMachineTemplateWebhook struct{}
 
-var _ webhook.Defaulter = &HetznerBareMetalMachineTemplate{}
+//+kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalmachinetemplate,mutating=false,sideEffects=None,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalmachinetemplates,verbs=create;update,versions=v1beta1,name=validation.hetznerbaremetalmachinetemplate.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
 
-// Default implements webhook.Defaulter so a webhook will be registered for the type.
-func (r *HetznerBareMetalMachineTemplate) Default() {
-}
-
-//+kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalmachinetemplate,mutating=false,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalmachinetemplates,verbs=create;update,versions=v1beta1,name=validation.hetznerbaremetalmachinetemplate.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
-
-var _ webhook.Validator = &HetznerBareMetalMachineTemplate{}
+var _ webhook.CustomValidator = &HetznerBareMetalMachineTemplateWebhook{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
-func (r *HetznerBareMetalMachineTemplate) ValidateCreate() error {
+func (r *HetznerBareMetalMachineTemplateWebhook) ValidateCreate(_ context.Context, _ runtime.Object) error {
 	return nil
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
-func (r *HetznerBareMetalMachineTemplate) ValidateUpdate(old runtime.Object) error {
-	oldHetznerBareMetalMachineTemplate := old.(*HetznerBareMetalMachineTemplate)
-	if !reflect.DeepEqual(r.Spec, oldHetznerBareMetalMachineTemplate.Spec) {
-		hcloudmachinetemplatelog.Info("not equal", "new HetznerBareMetalMachineTemplateSpec", r.Spec, "old HetznerBareMetalMachineTemplateSpec", oldHetznerBareMetalMachineTemplate.Spec)
-		return apierrors.NewBadRequest("HetznerBareMetalMachineTemplate.Spec is immutable")
+func (r *HetznerBareMetalMachineTemplateWebhook) ValidateUpdate(ctx context.Context, oldRaw runtime.Object, newRaw runtime.Object) error {
+	newHetznerBareMetalMachineTemplate, ok := newRaw.(*HetznerBareMetalMachineTemplate)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a HetznerBareMetalMachineTemplate but got a %T", newRaw))
 	}
-	return nil
+	oldHetznerBareMetalMachineTemplate, ok := oldRaw.(*HetznerBareMetalMachineTemplate)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a HetznerBareMetalMachineTemplate but got a %T", oldRaw))
+	}
+
+	req, err := admission.RequestFromContext(ctx)
+	if err != nil {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected a admission.Request inside context: %v", err))
+	}
+
+	var allErrs field.ErrorList
+
+	if !topology.ShouldSkipImmutabilityChecks(req, newHetznerBareMetalMachineTemplate) && !reflect.DeepEqual(newHetznerBareMetalMachineTemplate.Spec, oldHetznerBareMetalMachineTemplate.Spec) {
+		allErrs = append(allErrs, field.Invalid(field.NewPath("spec"), newHetznerBareMetalMachineTemplate, "HetznerBareMetalMachineTemplate.Spec is immutable"))
+	}
+
+	return aggregateObjErrors(newHetznerBareMetalMachineTemplate.GroupVersionKind().GroupKind(), newHetznerBareMetalMachineTemplate.Name, allErrs)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
-func (r *HetznerBareMetalMachineTemplate) ValidateDelete() error {
+func (r *HetznerBareMetalMachineTemplateWebhook) ValidateDelete(_ context.Context, _ runtime.Object) error {
 	return nil
 }

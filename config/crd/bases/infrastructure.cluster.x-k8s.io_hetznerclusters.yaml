@@ -150,12 +150,8 @@ spec:
                     - lb21
                     - lb31
                     type: string
-                required:
-                - region
                 type: object
               controlPlaneRegions:
-                default:
-                - fsn1
                 description: ControlPlaneRegion consists of a list of HCloud Regions
                   (fsn, nbg, hel). Because HCloud Networks have a very low latency
                   we could assume in some use-cases that a region is behaving like
@@ -168,7 +164,6 @@ spec:
                   - nbg1
                   - ash
                   type: string
-                minItems: 1
                 type: array
               hcloudNetwork:
                 description: HCloudNetworkSpec defines the Network for Hetzner Cloud.

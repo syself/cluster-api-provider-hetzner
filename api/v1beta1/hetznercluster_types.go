@@ -37,8 +37,6 @@ type HetznerClusterSpec struct {
 	// ControlPlaneRegion consists of a list of HCloud Regions (fsn, nbg, hel). Because HCloud Networks
 	// have a very low latency we could assume in some use-cases that a region is behaving like a zone
 	// https://kubernetes.io/docs/reference/labels-annotations-taints/#topologykubernetesiozone
-	// +kubebuilder:validation:MinItems=1
-	// +kubebuilder:default={fsn1}
 	ControlPlaneRegions []Region `json:"controlPlaneRegions"`
 
 	// SSHKeys are cluster wide. Valid values are a valid SSH key name.
