@@ -68,6 +68,10 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req ctr
 
 	log = log.WithValues("Cluster", klog.KObj(cluster))
 
+	if cluster.Spec.InfrastructureRef == nil {
+		return ctrl.Result{Requeue: true}, nil
+	}
+
 	hetznerCluster := &infrav1.HetznerCluster{}
 
 	hetznerClusterName := client.ObjectKey{
