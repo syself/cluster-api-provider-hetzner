@@ -25,7 +25,7 @@ require (
 	k8s.io/kubectl v0.25.4
 	k8s.io/utils v0.0.0-20221128185143-99ec85e7a448
 	sigs.k8s.io/cluster-api v1.3.1
-	sigs.k8s.io/cluster-api/test v1.3.0
+	sigs.k8s.io/cluster-api/test v1.3.1
 	sigs.k8s.io/controller-runtime v0.13.1
 	sigs.k8s.io/kind v0.17.0
 )
