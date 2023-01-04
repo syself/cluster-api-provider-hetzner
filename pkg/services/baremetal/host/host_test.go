@@ -1584,6 +1584,25 @@ var _ = Describe("actionEnsureProvisioned", func() {
 			},
 		),
 		Entry(
+			"correct hostname, cloud init done, no SIGTERM, ports different",
+			ensureProvisionedInputs{
+				outSSHClientGetHostName:                sshclient.Output{StdOut: infrav1.BareMetalHostNamePrefix + "bm-machine"},
+				outSSHClientCloudInitStatus:            sshclient.Output{StdOut: "status: done"},
+				outSSHClientCheckSigterm:               sshclient.Output{StdOut: ""},
+				outOldSSHClientCloudInitStatus:         sshclient.Output{},
+				outOldSSHClientCheckSigterm:            sshclient.Output{},
+				samePorts:                              false,
+				expectedActionResult:                   actionComplete{},
+				expectedErrorType:                      infrav1.ErrorType(""),
+				expectsSSHClientCallCloudInitStatus:    true,
+				expectsSSHClientCallCheckSigterm:       false,
+				expectsSSHClientCallReboot:             false,
+				expectsOldSSHClientCallCloudInitStatus: false,
+				expectsOldSSHClientCallCheckSigterm:    false,
+				expectsOldSSHClientCallReboot:          false,
+			},
+		),
+		Entry(
 			"timeout of sshclient",
 			ensureProvisionedInputs{
 				outSSHClientGetHostName:                sshclient.Output{Err: timeout},

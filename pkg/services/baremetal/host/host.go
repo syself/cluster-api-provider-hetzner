@@ -1338,9 +1338,13 @@ func (s *Service) actionEnsureProvisioned() actionResult {
 	}
 
 	// Check whether cloud init did not run successfully even though it shows "done"
-	actResult = s.handleCloudInitNotStarted()
-	if _, complete := actResult.(actionComplete); !complete {
-		return actResult
+	// Check this only when the port did not change. Because if it did, then we can already confirm at this point
+	// that the change worked and the new port is usable. This is a strong enough indication for us to assume cloud init worked.
+	if s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterInstallImage == s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterCloudInit {
+		actResult = s.handleCloudInitNotStarted()
+		if _, complete := actResult.(actionComplete); !complete {
+			return actResult
+		}
 	}
 
 	s.scope.SetErrorCount(0)
