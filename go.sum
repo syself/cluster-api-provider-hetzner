@@ -1138,8 +1138,8 @@ k8s.io/kube-openapi v0.0.0-20220803164354-a70c9af30aea h1:3QOH5+2fGsY8e1qf+GIFpg
 k8s.io/kube-openapi v0.0.0-20220803164354-a70c9af30aea/go.mod h1:C/N6wCaBHeBHkHUesQOQy2/MZqGgMAFPqGsGQLdbZBU=
 k8s.io/kubectl v0.25.4 h1:O3OA1z4V1ZyvxCvScjq0pxAP7ABgznr8UvnVObgI6Dc=
 k8s.io/kubectl v0.25.4/go.mod h1:CKMrQ67Bn2YCP26tZStPQGq62zr9pvzEf65A0navm8k=
-k8s.io/utils v0.0.0-20221128185143-99ec85e7a448 h1:KTgPnR10d5zhztWptI952TNtt/4u5h3IzDXkdIMuo2Y=
-k8s.io/utils v0.0.0-20221128185143-99ec85e7a448/go.mod h1:OLgZIPagt7ERELqWJFomSt595RzquPNLL48iOWgYOg0=
+k8s.io/utils v0.0.0-20230115233650-391b47cb4029 h1:L8zDtT4jrxj+TaQYD0k8KNlr556WaVQylDXswKmX+dE=
+k8s.io/utils v0.0.0-20230115233650-391b47cb4029/go.mod h1:OLgZIPagt7ERELqWJFomSt595RzquPNLL48iOWgYOg0=
 rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=
 rsc.io/quote/v3 v3.1.0/go.mod h1:yEA65RcK8LyAZtP9Kv3t0HmxON59tX3rD+tICJqUlj0=
 rsc.io/sampler v1.3.0/go.mod h1:T1hPZKmBbMNahiBKFy5HrXp6adAjACjK9JXDnKaTXpA=
