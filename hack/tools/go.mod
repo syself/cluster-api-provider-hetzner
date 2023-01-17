@@ -12,7 +12,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.5.1
 	gotest.tools/gotestsum v1.8.2
 	k8s.io/code-generator v0.25.4
-	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20230103223931-056869c967cd
+	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20230117163034-e1fd8e72d3a9
 	sigs.k8s.io/controller-tools v0.10.0
 	sigs.k8s.io/kind v0.17.0
 )
