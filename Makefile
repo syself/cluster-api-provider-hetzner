@@ -402,6 +402,7 @@ release-manifests: generate $(KUSTOMIZE) $(RELEASE_DIR) cluster-templates ## Bui
 	## Build caph-components (aggregate of all of the above).
 	cp metadata.yaml $(RELEASE_DIR)/metadata.yaml
 	cp templates/cluster-templates/cluster-template* $(RELEASE_DIR)/
+	cp templates/cluster-class* $(RELEASE_DIR)/
 
 .PHONY: release-notes
 release-notes: $(RELEASE_NOTES_DIR) $(RELEASE_NOTES)
