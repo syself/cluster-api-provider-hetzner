@@ -10,7 +10,7 @@ require (
 	github.com/google/pprof v0.0.0-20230111200839-76d1ae5aea2b
 	github.com/joelanford/go-apidiff v0.5.0
 	github.com/onsi/ginkgo/v2 v2.5.1
-	gotest.tools/gotestsum v1.8.2
+	gotest.tools/gotestsum v1.9.0
 	k8s.io/code-generator v0.25.4
 	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20230103223931-056869c967cd
 	sigs.k8s.io/controller-tools v0.10.0
