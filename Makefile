@@ -49,7 +49,7 @@ MINIMUM_GO_VERSION=go$(GO_VERSION)			# Check current project go version
 MINIMUM_HCLOUD_VERSION=1.31.1 # update: datasource=github-tags depName=hetznercloud/cli extractVersion=^v(?<version>.*)$
 MINIMUM_HELMFILE_VERSION=0.150.0 # update: datasource=github-tags depName=helmfile/helmfile extractVersion=^v(?<version>.*)$
 MINIMUM_KIND_VERSION=0.17.0 # update: datasource=github-tags depName=kubernetes-sigs/kind extractVersion=^v(?<version>.*)$
-MINIMUM_KUBECTL_VERSION=1.26.0 # update: datasource=github-tags depName=kubernetes/kubernetes extractVersion=^v(?<version>.*)$
+MINIMUM_KUBECTL_VERSION=1.26.1 # update: datasource=github-tags depName=kubernetes/kubernetes extractVersion=^v(?<version>.*)$
 MINIMUM_PACKER_VERSION=1.8.5 # update: datasource=github-tags depName=hashicorp/packer extractVersion=^v(?<version>.*)$
 MINIMUM_TILT_VERSION=0.30.8 # update: datasource=github-releases depName=tilt-dev/ctlptl extractVersion=^v(?<version>.*)$
 KUSTOMIZE_VERSION=4.5.7
@@ -71,7 +71,7 @@ KIND := $(TOOLS_BIN_DIR)/kind
 #
 # HELM.
 #
-MINIMUM_HELM_VERSION=3.10.3 # update: datasource=github-tags depName=helm/helm extractVersion=^v(?<version>.*)$
+MINIMUM_HELM_VERSION=3.11.0 # update: datasource=github-tags depName=helm/helm extractVersion=^v(?<version>.*)$
 HELM_GIT_VERSION=0.14.2 # update: datasource=github-tags depName=aslafy-z/helm-git extractVersion=^v(?<version>.*)$
 HELM_DIFF_VERSION=3.6.0	# update: datasource=github-tags depName=databus23/helm-diff extractVersion=^v(?<version>.*)$
 
