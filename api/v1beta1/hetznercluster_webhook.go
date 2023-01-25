@@ -36,6 +36,7 @@ var regionNetworkZoneMap = map[string]string{
 	"nbg1": "eu-central",
 	"hel1": "eu-central",
 	"ash":  "us-east",
+	"hil":  "us-west",
 }
 
 // SetupWebhookWithManager initializes webhook manager for HetznerCluster.
