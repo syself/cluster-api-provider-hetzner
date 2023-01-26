@@ -162,6 +162,12 @@ func NewTestEnvironment() *TestEnvironment {
 	if err := (&infrav1.HetznerBareMetalHost{}).SetupWebhookWithManager(mgr); err != nil {
 		klog.Fatalf("failed to set up webhook with manager for HetznerBareMetalHost: %s", err)
 	}
+	if err := (&infrav1.HetznerBareMetalRemediation{}).SetupWebhookWithManager(mgr); err != nil {
+		klog.Fatalf("failed to set up webhook with manager for HetznerBareMetalRemediation: %s", err)
+	}
+	if err := (&infrav1.HetznerBareMetalRemediationTemplate{}).SetupWebhookWithManager(mgr); err != nil {
+		klog.Fatalf("failed to set up webhook with manager for HetznerBareMetalRemediationTemplate: %s", err)
+	}
 	// Create a fake HCloudClientFactory
 	hcloudClientFactory := fakeclient.NewHCloudClientFactory()
 
