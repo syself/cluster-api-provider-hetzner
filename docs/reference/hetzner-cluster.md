@@ -16,7 +16,7 @@ It is also possible not to use the cloud load balancer from Hetzner. This is use
 | hcloudNetwork.enabled | bool |  | yes| States whether network should be enabled or disabled |
 | hcloudNetwork.cidrBlock | string | "10.0.0.0/16" | no | Defines the CIDR block |
 | hcloudNetwork.subnetCidrBlock | string | "10.0.0.0/24" | no | Defines the CIDR block of the subnet. Note that one subnet ist required |
-| hcloudNetwork.networkZone | string | "eu-central" | no | Defines the network zone. Must be eu-central or us-east |
+| hcloudNetwork.networkZone | string | "eu-central" | no | Defines the network zone. Must be eu-central, us-east or us-west |
 | controlPlaneRegions | []string | []string{fsn1} | no | This is the base for the failureDomains of the cluster |
 | sshKeys | object | | no | Cluster-wide SSH keys that serve as default for machines as well |
 | sshKeys.hcloud | []object | | no | SSH keys for hcloud |

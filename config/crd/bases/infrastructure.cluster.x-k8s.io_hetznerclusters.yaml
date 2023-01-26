@@ -141,6 +141,7 @@ spec:
                     - hel1
                     - nbg1
                     - ash
+                    - hil
                     type: string
                   type:
                     default: lb11
@@ -163,6 +164,7 @@ spec:
                   - hel1
                   - nbg1
                   - ash
+                  - hil
                   type: string
                 type: array
               hcloudNetwork:
@@ -185,6 +187,7 @@ spec:
                     enum:
                     - eu-central
                     - us-east
+                    - us-west
                     type: string
                   subnetCidrBlock:
                     default: 10.0.0.0/24

@@ -227,6 +227,7 @@ spec:
                 - hel1
                 - nbg1
                 - ash
+                - hil
                 type: string
             type: object
         type: object
