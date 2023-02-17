@@ -17,10 +17,16 @@ limitations under the License.
 package host
 
 import (
+	"testing"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
+
+func TestTheCI(t *testing.T) {
+	t.Fail() // fail this test
+}
 
 var _ = Describe("buildAutoSetup", func() {
 	DescribeTable("buildAutoSetup",
@@ -223,7 +229,6 @@ IMAGE my-image`),
 var _ = Describe("validJSONFromSSHOutput", func() {
 	DescribeTable("validJSONFromSSHOutput",
 		func(input string, expectedOutput string) {
-
 			Expect(validJSONFromSSHOutput(input)).Should(Equal(expectedOutput))
 		},
 		Entry(
