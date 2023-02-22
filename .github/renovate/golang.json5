@@ -15,6 +15,13 @@
       enabled: false,
     },
     {
+      description: "Disable slim-sprig",
+      matchManagers: ["gomod"],
+      matchDepNames: ["github.com/go-task/slim-sprig"],
+      matchPaths: ["hack/tools/**"],
+      enabled: false,
+    },
+    {
       description: "Disable update controller-tools",
       matchManagers: ["gomod"],
       matchDepNames: ["sigs.k8s.io/controller-tools"],
