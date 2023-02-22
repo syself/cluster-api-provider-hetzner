@@ -9,7 +9,7 @@ require (
 	github.com/go-logr/logr v1.2.3
 	github.com/go-logr/zapr v1.2.3
 	github.com/hetznercloud/hcloud-go v1.40.0
-	github.com/onsi/ginkgo/v2 v2.7.0
+	github.com/onsi/ginkgo/v2 v2.7.1
 	github.com/onsi/gomega v1.26.0
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.8.1
@@ -25,7 +25,7 @@ require (
 	k8s.io/kubectl v0.25.4
 	k8s.io/utils v0.0.0-20230209194617-a36077c30491
 	sigs.k8s.io/cluster-api v1.3.3
-	sigs.k8s.io/cluster-api/test v1.3.2
+	sigs.k8s.io/cluster-api/test v1.3.3
 	sigs.k8s.io/controller-runtime v0.13.1
 	sigs.k8s.io/kind v0.17.0
 )
