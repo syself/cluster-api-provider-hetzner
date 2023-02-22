@@ -10,7 +10,7 @@
     {
       description: "Disable Golang update for major and minor versions",
       matchManagers: ["dockerfile"],
-      matchDepNames: ["golang"],
+      matchDepNames: ["docker.io/library/golang"],
       matchUpdateTypes: ["major", "minor"],
       enabled: false,
     },
