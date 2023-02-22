@@ -32,7 +32,7 @@ runs:
   using: "composite"
   steps:
     - uses: ./.github/actions/setup-go
-    - uses: actions/cache@v3
+    - uses: actions/cache@69d9d449aced6a2ede0bc19182fadc3a0a42d2b0 # v3
       with:
         path: hack/tools/bin
         key: ${{ runner.os }}-tools-bin-e2e-${{ hashFiles('Makefile') }}
@@ -40,7 +40,7 @@ runs:
           ${{ runner.os }}-tools-bin-e2e-
           ${{ runner.os }}-tools-bin-
     - name: Download artifact
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3
       with:
         name: test-release
         path: out
@@ -98,7 +98,7 @@ runs:
         CAPH_LATEST_VERSION: "v1.0.0-beta.1"
       run: make ${{ inputs.e2e_make_target }}
     - name: Upload artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3
       if: ${{ always() }}
       with:
         name: e2e-${{ inputs.e2e_name }}

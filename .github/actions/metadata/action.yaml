@@ -25,7 +25,7 @@ runs:
   steps:
     - name: Docker manager metadata
       id: meta
-      uses: docker/metadata-action@v4.3.0
+      uses: docker/metadata-action@507c2f2dc502c992ad446e3d7a5dfbe311567a96 # v4.3.0
       with:
         images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
         flavor: ${{ inputs.metadata_flavor }}
