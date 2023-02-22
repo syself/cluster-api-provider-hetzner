@@ -3,6 +3,7 @@
   "commitMessageTopic": "{{depName}}",
   "commitMessageExtra": "to {{newVersion}}",
   "commitMessageSuffix": "",
+  "group": { commitMessageTopic: "{{{groupName}}} group" },
   "packageRules": [
     {
       "matchDatasources": ["helm"],

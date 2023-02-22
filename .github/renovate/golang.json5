@@ -1,12 +1,30 @@
 {
-  "golang": {
-    "postUpdateOptions": [
-      "gomodTidy",
-      "gomodUpdateImportPaths"
-    ]
+  golang: {
+    postUpdateOptions: ["gomodTidy", "gomodUpdateImportPaths"],
   },
   // https://docs.renovatebot.com/configuration-options/#constraints
   "constraints": {
     "go": "1.19"
-  }
+  },
+  packageRules: [
+    {
+      description: "Disable Golang update for major and minor versions",
+      matchManagers: ["dockerfile"],
+      matchDepNames: ["golang"],
+      matchUpdateTypes: ["major", "minor"],
+      enabled: false,
+    },
+    {
+      description: "Disable update controller-tools",
+      matchManagers: ["gomod"],
+      matchDepNames: ["sigs.k8s.io/controller-tools"],
+      enabled: false,
+    },
+    {
+      description: "Disable update k8s packages",
+      matchManagers: ["gomod"],
+      matchDepNames: ["k8s.io/api", "k8s.io/apimachinery", "k8s.io/apiserver", "k8s.io/client-go", "k8s.io/kubectl", "k8s.io/code-generator"],
+      enabled: false,
+    },
+  ],
 }

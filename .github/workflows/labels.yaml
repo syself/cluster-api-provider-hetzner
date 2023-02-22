@@ -2,7 +2,7 @@
 name: Labels
 
 on: # yamllint disable-line rule:truthy
-  pull_request:
+  pull_request_target:
     branches:
       - main
 
