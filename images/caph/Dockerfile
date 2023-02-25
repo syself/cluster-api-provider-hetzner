@@ -36,7 +36,7 @@ ARG ARCH
 ARG LDFLAGS
 
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=${ARCH} \
-    go build -ldflags "${LDFLAGS} -extldflags '-static'" \
+    go build -mod=vendor -ldflags "${LDFLAGS} -extldflags '-static'" \
     -o manager main.go
 
 FROM gcr.io/distroless/static:nonroot

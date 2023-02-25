@@ -1,10 +1,4 @@
----
 extends: default
-ignore: |
-  config/crd/**/*.yaml
-  config/rbac/**/*.yaml
-  config/webhook/**/*.yaml
-  test/e2e/data/**/*.yaml
 rules:
   braces:
     min-spaces-inside: 0
@@ -21,3 +15,17 @@ rules:
   document-start: false
   comments:
     min-spaces-from-content: 1
+
+yaml-files:
+  - '*.yaml'
+  - '*.yml'
+
+ignore:
+  - '**/vendor/**'
+  - '.cache'
+  - _artifacts
+  - config/crd/**/*.yaml
+  - config/rbac/**/*.yaml
+  - config/webhook/**/*.yaml
+  - test/e2e/data/**/*.yaml
+  - test/e2e/config/hetzner-ci-envsubst.yaml

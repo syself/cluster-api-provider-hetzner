@@ -1,21 +1,16 @@
----
 name: "Schedule - Check links"
-
 on: # yamllint disable-line rule:truthy
   workflow_dispatch:
   schedule:
-    - cron: "0 0 * * 0"
-  push:
-    branches:
-      - main
-
+    - cron: "0 0 1 * *"
+# yamllint disable rule:line-length
 jobs:
   link-checker:
     name: Link Checker
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
 
       - name: Generate Token
         uses: tibdex/github-app-token@b62528385c34dbc9f38e5f4225ac829252d1ea92 # v1
@@ -30,7 +25,7 @@ jobs:
         env:
           GITHUB_TOKEN: "${{ steps.generate-token.outputs.token }}"
         with:
-          args: --verbose --no-progress './**/*.md' --exclude https://hetzner.cloud/ --exclude mailto:info@syself.com --exclude https://www.hetzner.com/*
+          args: --no-progress --verbose --config .lychee.toml './**/*.md'
           output: ./lychee.md
           format: markdown
 

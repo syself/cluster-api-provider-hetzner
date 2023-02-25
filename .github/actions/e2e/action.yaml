@@ -7,9 +7,6 @@ inputs:
   e2e_make_target:
     description: "e2e_make_target"
     required: true
-  e2e_quay_username:
-    description: "e2e_quay_username"
-    required: true
   e2e_tts_token:
     description: "e2e_tts_token"
     required: false
@@ -46,13 +43,14 @@ runs:
         path: out
     - name: Install hcloud
       shell: bash
+      env:
+        hcloudctl_version: 1.31.1
       run: curl -fsSL https://github.com/hetznercloud/cli/releases/download/v${{ env.hcloudctl_version }}/hcloud-linux-amd64.tar.gz | tar -xzv hcloud ; mv hcloud hack/tools/bin/hcloud
 
     - name: Generate metadata
       id: meta
       uses: ./.github/actions/metadata
       with:
-        quay_username: ${{ inputs.e2e_quay_username}}
         metadata_flavor: ${{ env.metadata_flavor }}
         metadata_tags: ${{ env.metadata_tags }}
 

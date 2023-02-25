@@ -1,16 +1,14 @@
 name: "Setup Go"
 description: "Setup Go"
-inputs:
-  version:
-    description: "Go Version to setup"
-    required: true
-    default: "1.19"
 runs:
   using: "composite"
   steps:
-    - uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3
+    - name: Install go
+      uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
       with:
-        go-version: ${{ inputs.version }}
+        go-version-file: "go.mod"
+        cache: true
+        cache-dependency-path: go.sum
     - id: go-cache-paths
       shell: bash
       run: |

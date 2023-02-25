@@ -1,6 +1,24 @@
 {
   packageRules: [
     {
+      description: "Update Builder Image",
+      groupName: "Builder Image",
+      matchManagers: ["dockerfile", "regex"],
+      matchUpdateTypes: ["major", "minor", "patch"],
+      matchPaths: ["images/builder/**"],
+      commitMessageTopic: "Builder Image group",
+      groupSlug: "caph-builder-image",
+    },
+    {
+      description: "Update Caph Image",
+      groupName: "Caph Image",
+      matchManagers: ["dockerfile", "regex"],
+      matchUpdateTypes: ["minor", "patch"],
+      matchPaths: ["images/caph/**"],
+      commitMessageTopic: "Caph Image group",
+      groupSlug: "caph-manager-image",
+    },
+    {
       description: "Update Makefile",
       groupName: "Makefile",
       matchManagers: ["regex"],
@@ -41,6 +59,13 @@
       ignorePaths: ["hack/tools/**"],
       commitMessageTopic: "Golang Dependencies group",
       groupSlug: "golang-deps",
+    },
+    {
+      description: "disable update of caph builder image",
+      matchManagers: ["github-actions"],
+      matchUpdateTypes: ["major", "minor", "patch"],
+      matchPackageNames: ["ghcr.io/syself/caph-builder"],
+      enabled: false,
     },
   ]
 }

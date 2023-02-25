@@ -28,7 +28,6 @@ Fixes #
 _Please confirm that if this PR changes any image versions, then that's the sole change this PR makes._
 
 **TODOs**:
-<!-- Put an "X" character inside the brackets of each completed task. Some may be optional depending on the PR. -->
 
 - [ ] squashed commits
 - [ ] includes documentation

@@ -1,7 +1,7 @@
 {
     "name": "hetzner",
     "config": {
-      "image": "quay.io/syself/cluster-api-provider-hetzner",
+      "image": "ghcr.io/syself/caph-staging",
       "live_reload_deps": [
         "main.go",
         "go.mod",

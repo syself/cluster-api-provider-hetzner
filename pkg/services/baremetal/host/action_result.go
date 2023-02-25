@@ -66,7 +66,7 @@ func (r actionComplete) Result() (result reconcile.Result, err error) {
 // deleteComplete is a result indicating that the deletion action has
 // completed, and that the resource has now been deleted.
 type deleteComplete struct {
-	actionComplete
+	actionComplete //nolint:unused
 }
 
 func (r deleteComplete) Result() (result reconcile.Result, err error) {

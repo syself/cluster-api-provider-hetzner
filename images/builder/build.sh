@@ -1,6 +1,6 @@
-#!/usr/bin/env bash
+#!/bin/sh
 
-# Copyright 2022 The Kubernetes Authors.
+# Copyright 2023 The Kubernetes Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,23 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -euo pipefail
+set -eu
 
-echo "WARNING! Are you sure to erase all container, images & volumes? [y/N]"
-read -r -p "" response
-case "$response" in
-        [yY][eE][sS]|[yY]) 
-            true
-            ;;
-        *)
-            false
-            return 2
-            ;;
-    esac
+SRC_PATH=/src/cluster-api-provider-hetzner
 
-echo "Delete is in progress..." 
-docker kill $(docker ps -q) || true
-docker rm $(docker ps -a -q) || true
-docker volume rm $(docker volume ls -q) || true
-docker image prune -af || true
-echo "Done"
+uid=$(stat --format="%u" "${SRC_PATH}")
+gid=$(stat --format="%g" "${SRC_PATH}")
+echo "caph:x:${uid}:${gid}::${SRC_PATH}:/bin/bash" >>/etc/passwd
+echo "caph:*:::::::" >>/etc/shadow
+echo "caph	ALL=(ALL)	NOPASSWD: ALL" >>/etc/sudoers
+
+su caph -c "PATH=${PATH} make -C ${SRC_PATH} BUILD_IN_CONTAINER=false $*"

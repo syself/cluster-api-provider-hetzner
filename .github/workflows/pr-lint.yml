@@ -1,0 +1,43 @@
+name: "Lint Pull Request"
+on: # yamllint disable-line rule:truthy
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches:
+      - main
+      - "releases/**"
+    paths:
+      - "!**/vendor/**"
+# yamllint disable rule:line-length
+jobs:
+  pr-lint:
+    name: "Lint Pull Request"
+    if: github.event_name != 'pull_request_target' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/syself/caph-builder:1.0.0
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.github_token }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+      - name: Fixup git permissions
+        # https://github.com/actions/checkout/issues/766
+        shell: bash
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: Verify Golang Modules
+        run: make BUILD_IN_CONTAINER=false generate-modules-ci
+
+      - name: Link Checker
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        run: make BUILD_IN_CONTAINER=false lint-links
+
+      - name: Lint YAML
+        run: make BUILD_IN_CONTAINER=false lint-yaml-ci
+
+      - name: Lint Dockerfile
+        run: make BUILD_IN_CONTAINER=false lint-dockerfile
+
+      - name: Lint Golang Code
+        run: make BUILD_IN_CONTAINER=false lint-golang-ci

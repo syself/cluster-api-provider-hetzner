@@ -1,7 +1,7 @@
 name: E2E PR Blocking
 on:
   pull_request_target:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, ready_for_review]
     branches:
       - main
       - "releases/**"
@@ -14,9 +14,8 @@ on:
       - ".github/workflows/e2e-*"
       - ".github/workflows/pr-*"
 env:
-  hcloudctl_version: 1.30.3
-  IMAGE_NAME: cluster-api-provider-hetzner
-  REGISTRY: quay.io/syself
+  IMAGE_NAME: caph-staging
+  REGISTRY: ghcr.io/syself
   metadata_flavor: latest=false
   metadata_tags: type=ref,event=pr
 
@@ -25,14 +24,15 @@ jobs:
     name: Build and push manager image
     runs-on: ubuntu-latest
     steps:
-      - name: checkout
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3
+      - name: Checkout repository
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
       - name: Build and push manager image
         id: manager-image
         uses: ./.github/actions/manager-image
-        with:
-          manager_image_quay_username: ${{ secrets.QUAY_USERNAME }}
-          manager_image_quay_password: ${{ secrets.QUAY_PASSWORD }}
 
   test-release:
     name: Test Release
@@ -43,8 +43,6 @@ jobs:
       - name: Test Release
         id: manager-image
         uses: ./.github/actions/test-release
-        with:
-          test_release_quay_username: ${{ secrets.QUAY_USERNAME }}
 
   e2e-hcloud-basic:
     name: Test Hcloud Basic
@@ -62,7 +60,6 @@ jobs:
         with:
           e2e_name: hcloud-basic
           e2e_make_target: test-e2e
-          e2e_quay_username: ${{ secrets.QUAY_USERNAME }}
           e2e_tts_token: ${{ secrets.TTS_TOKEN }}
           e2e_hcloud_token: ${{ secrets.HCLOUD_TOKEN }}
 
@@ -82,7 +79,6 @@ jobs:
         with:
           e2e_name: hetzner-basic
           e2e_make_target: test-e2e-baremetal
-          e2e_quay_username: ${{ secrets.QUAY_USERNAME }}
           e2e_tts_token: ${{ secrets.TTS_TOKEN }}
           e2e_hcloud_token: ${{ secrets.HCLOUD_TOKEN }}
           e2e_robot_user: ${{ secrets.HETZNER_ROBOT_USER }}

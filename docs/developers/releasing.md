@@ -15,7 +15,7 @@
 
 ## Manual creation of images
 
-1. Login to quay
+1. Login to ghcr
 2. Do:
    - `make release-image`
 

@@ -1,9 +1,5 @@
 name: "Test Release"
 description: "Testing Release"
-inputs:
-  test_release_quay_username:
-    description: "test_release_quay_username"
-    required: true
 runs:
   using: "composite"
   steps:
@@ -20,7 +16,6 @@ runs:
       id: meta
       uses: ./.github/actions/metadata
       with:
-        quay_username: ${{ inputs.test_release_quay_username }}
         metadata_flavor: ${{ env.metadata_flavor }}
         metadata_tags: ${{ env.metadata_tags }}
 
@@ -28,7 +23,7 @@ runs:
       shell: bash
       env:
         TAG: ${{ steps.meta.outputs.version }}
-      run: make test-release
+      run: make test-release-staging
     - name: Upload artifact
       uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3
       with:

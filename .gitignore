@@ -11,7 +11,9 @@ testbin/*
 temp
 # Test binary, build with `go test -c`
 *.test
-
+.coverage
+.cache
+.reports
 # E2E test templates
 test/e2e/data/infrastructure-hetzner/v1beta1/cluster-template*.yaml
 test/e2e/data/infrastructure-hetzner/v1beta1/env*
