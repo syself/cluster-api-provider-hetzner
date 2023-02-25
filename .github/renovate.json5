@@ -21,7 +21,11 @@
   timezone: "Europe/Berlin",
   // repo config
   repositories: ["syself/cluster-api-provider-hetzner"],
-  ignorePaths: [],
+  ignorePaths: [
+    "**/vendor/**",
+    "**/test/**",
+    "**/tests/**"
+  ],
   username: "syself-bot[bot]",
   gitAuthor: "syself-bot[bot] <115953087+syself-bot[bot]@users.noreply.github.com>",
   // PR config
@@ -34,6 +38,7 @@
   prHourlyLimit: 1,
   printConfig: true,
   pruneStaleBranches: true,
+  allowPostUpgradeCommandTemplating: true,
   separateMajorMinor: true,
   separateMultipleMajor: true,
   separateMinorPatch: true,
