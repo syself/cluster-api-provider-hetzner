@@ -13,6 +13,7 @@ on:
       - ".github/actions/**/*"
       - ".github/workflows/e2e-*"
       - ".github/workflows/pr-*"
+      - "!**/vendor/**"
 env:
   IMAGE_NAME: caph-staging
   REGISTRY: ghcr.io/syself
