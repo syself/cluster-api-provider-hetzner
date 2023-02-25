@@ -21,7 +21,6 @@ test/e2e/data/infrastructure-hetzner/v1beta1/env*
 *.out
 
 # Kubernetes Generated files - skip generated files, except for vendored files
-
 !vendor/**/zz_generated.*
 
 # editor and IDE paraphernalia
@@ -38,9 +37,9 @@ tilt_config.json
 baremetalhosts.yaml
 
 # kubeconfigs
-kind.kubeconfig
-kubeconfig
-.kubeconfig
+./kind.kubeconfig
+./kubeconfig
+./.kubeconfig
 
 # Common editor / temporary files
 *~

@@ -11,9 +11,9 @@ on: # yamllint disable-line rule:truthy
       - "**.go"
       - "**go.mod"
       - "**go.sum"
+      - ".github/workflows/**"
       - "images/builder/**"
       - "images/caph/**"
-      - "!**/vendor/**"
   push:
     branches:
       - main
@@ -29,7 +29,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
-
       - name: Coverage result name
         id: name
         run: |
@@ -48,7 +47,7 @@ jobs:
           cache-dependency-path: go.sum
 
       - name: Install dependencies
-        run: make gotestsum go-cover-treemap
+        run: make gotestsum go-cover-treemap setup-envtest
 
       - name: Running tests
         run: make test-unit

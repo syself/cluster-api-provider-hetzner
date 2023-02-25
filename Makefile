@@ -91,12 +91,12 @@ export KUBEBUILDER_CONTROLPLANE_STOP_TIMEOUT ?= 60s
 CONTROLLER_GEN := $(abspath $(TOOLS_BIN_DIR)/controller-gen)
 controller-gen: $(CONTROLLER_GEN) ## Build a local copy of controller-gen
 $(CONTROLLER_GEN): $(TOOLS_DIR)/go.mod # Build controller-gen from tools folder.
-	cd $(TOOLS_DIR); go build -tags=tools -o $(BIN_DIR)/controller-gen sigs.k8s.io/controller-tools/cmd/controller-gen
+	cd $(TOOLS_DIR); go build -mod=vendor -tags=tools -o $(BIN_DIR)/controller-gen sigs.k8s.io/controller-tools/cmd/controller-gen
 
 KUSTOMIZE := $(abspath $(TOOLS_BIN_DIR)/kustomize)
 kustomize: $(KUSTOMIZE) ## Build a local copy of kustomize
 $(KUSTOMIZE): # Build kustomize from tools folder.
-	cd $(TOOLS_DIR) && go build -tags=tools -o $(KUSTOMIZE) sigs.k8s.io/kustomize/kustomize/v4
+	cd $(TOOLS_DIR) && go build -mod=vendor -tags=tools -o $(KUSTOMIZE) sigs.k8s.io/kustomize/kustomize/v4
 
 GOLANGCI_LINT := $(abspath $(TOOLS_BIN_DIR)/golangci-lint)
 golangci-lint: $(GOLANGCI_LINT) ## Build a local copy of golangci-lint. After running this command do: BUILD_IN_CONTAINER=false make lint
@@ -114,27 +114,27 @@ $(TILT):
 ENVSUBST := $(abspath $(TOOLS_BIN_DIR)/envsubst)
 envsubst: $(ENVSUBST) ## Build a local copy of envsubst
 $(ENVSUBST): $(TOOLS_DIR)/go.mod # Build envsubst from tools folder.
-	cd $(TOOLS_DIR) && go build -tags=tools -o $(ENVSUBST) github.com/drone/envsubst/v2/cmd/envsubst
+	cd $(TOOLS_DIR) && go build -mod=vendor -tags=tools -o $(ENVSUBST) github.com/drone/envsubst/v2/cmd/envsubst
 
 SETUP_ENVTEST := $(abspath $(TOOLS_BIN_DIR)/setup-envtest)
 setup-envtest: $(SETUP_ENVTEST) ## Build a local copy of setup-envtest
 $(SETUP_ENVTEST): $(TOOLS_DIR)/go.mod # Build setup-envtest from tools folder.
-	cd $(TOOLS_DIR); go build -tags=tools -o $(BIN_DIR)/setup-envtest sigs.k8s.io/controller-runtime/tools/setup-envtest
+	cd $(TOOLS_DIR); go build -mod=vendor -tags=tools -o $(BIN_DIR)/setup-envtest sigs.k8s.io/controller-runtime/tools/setup-envtest
 
 CTLPTL := $(abspath $(TOOLS_BIN_DIR)/ctlptl)
 ctlptl: $(CTLPTL) ## Build a local copy of ctlptl
 $(CTLPTL): 
-	cd $(TOOLS_DIR) && go build -tags=tools -o $(CTLPTL) github.com/tilt-dev/ctlptl/cmd/ctlptl
+	cd $(TOOLS_DIR) && go build -mod=vendor -tags=tools -o $(CTLPTL) github.com/tilt-dev/ctlptl/cmd/ctlptl
 
 CLUSTERCTL := $(abspath $(TOOLS_BIN_DIR)/clusterctl)
 clusterctl: $(CLUSTERCTL) ## Build a local copy of clusterctl
 $(CLUSTERCTL): $(TOOLS_DIR)/go.mod 
-	cd $(TOOLS_DIR) && go build -tags=tools -o $(CLUSTERCTL) sigs.k8s.io/cluster-api/cmd/clusterctl
+	cd $(TOOLS_DIR) && go build -mod=vendor -tags=tools -o $(CLUSTERCTL) sigs.k8s.io/cluster-api/cmd/clusterctl
 
 KIND := $(abspath $(TOOLS_BIN_DIR)/kind)
 kind: $(KIND) ## Build a local copy of kind
 $(KIND): $(TOOLS_DIR)/go.mod
-	cd $(TOOLS_DIR) && go build -tags=tools -o $(KIND) sigs.k8s.io/kind
+	cd $(TOOLS_DIR) && go build -mod=vendor -tags=tools -o $(KIND) sigs.k8s.io/kind
 
 go-binsize-treemap := $(abspath $(TOOLS_BIN_DIR)/go-binsize-treemap)
 go-binsize-treemap: $(go-binsize-treemap) # Build go-binsize-treemap from tools folder.
@@ -427,7 +427,7 @@ ARTIFACTS ?= _artifacts
 $(ARTIFACTS):
 	mkdir -p $(ARTIFACTS)/
 
-KUBEBUILDER_ASSETS ?= $(shell $(SETUP_ENVTEST) use --use-env -p path $(KUBEBUILDER_ENVTEST_KUBERNETES_VERSION))
+KUBEBUILDER_ASSETS ?= $(shell $(SETUP_ENVTEST) use --use-env --bin-dir $(abspath $(TOOLS_BIN_DIR)) -p path $(KUBEBUILDER_ENVTEST_KUBERNETES_VERSION))
 
 E2E_DIR ?= $(ROOT_DIR)/test/e2e
 E2E_CONF_FILE_SOURCE ?= $(E2E_DIR)/config/hetzner.yaml
@@ -436,7 +436,7 @@ E2E_CONF_FILE ?= $(E2E_DIR)/config/hetzner-ci-envsubst.yaml
 .PHONY: test-unit
 test-unit: $(SETUP_ENVTEST) $(GOTESTSUM) ## Run unit and integration tests
 	@mkdir -p $(shell pwd)/.coverage
-	KUBEBUILDER_ASSETS="$(KUBEBUILDER_ASSETS)" $(GOTESTSUM) --junitfile=.coverage/junit.xml --format testname -- -covermode=atomic -coverprofile=.coverage/cover.out -p=4 ./controllers/... ./pkg/...
+	KUBEBUILDER_ASSETS="$(KUBEBUILDER_ASSETS)" $(GOTESTSUM) --junitfile=.coverage/junit.xml --format testname -- -covermode=atomic -mod=vendor -coverprofile=.coverage/cover.out -p=4 ./controllers/... ./pkg/...
 
 .PHONY: e2e-image
 e2e-image: ## Build the e2e manager image
