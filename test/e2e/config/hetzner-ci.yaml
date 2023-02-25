@@ -7,7 +7,7 @@
 
 # For creating local dev images run make e2e-image from the main CAPH repository
 images:
-  - name: quay.io/syself/cluster-api-provider-hetzner:${TAG:=e2e}
+  - name: ghcr.io/syself/caph-staging:${TAG:=e2e}
     loadBehavior: mustLoad
 providers:
   - name: cluster-api

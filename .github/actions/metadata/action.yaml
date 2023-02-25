@@ -1,9 +1,6 @@
 name: "Metadata"
 description: "Generate Image Metadata"
 inputs:
-  quay_username:
-    description: "quay_username"
-    required: true
   metadata_flavor:
     description: "metadata_flavor"
     required: true

@@ -1,0 +1,27 @@
+name: "Schedule - Scan Images"
+on: # yamllint disable-line rule:truthy
+  schedule:
+    - cron: "0 12 * * 1"
+  workflow_dispatch:
+# yamllint disable rule:line-length
+jobs:
+  scan:
+    name: Trivy
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/syself/caph-builder:1.0.0
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.github_token }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+      - name: Fixup git permissions
+        # https://github.com/actions/checkout/issues/766
+        shell: bash
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: Verify Containers
+        env:
+          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+          TRIVY_USERNAME: ${{ github.actor }}
+        run: make verify-container-images

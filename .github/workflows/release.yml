@@ -4,8 +4,8 @@ on:
     tags:
       - "v*" # Push events to matching v*, i.e. v1.0, v20.15.10
 env:
-  IMAGE_NAME: cluster-api-provider-hetzner
-  REGISTRY: quay.io/syself
+  IMAGE_NAME: caph
+  REGISTRY: ghcr.io/syself
   metadata_flavor: latest=true
   metadata_tags: type=ref,event=tag
 
@@ -26,19 +26,25 @@ jobs:
         id: meta
         uses: ./.github/actions/metadata
         with:
-          quay_username: ${{ secrets.QUAY_USERNAME }}
           metadata_flavor: ${{ env.metadata_flavor }}
           metadata_tags: ${{ env.metadata_tags }}
 
-      - name: Log into quay.io
-        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a # v2
-        env:
-          QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
-        if: ${{ env.QUAY_USERNAME != '' }}
+      - name: Login to ghcr.io for CI
+        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a # v2.1.0
         with:
-          registry: quay.io
-          username: ${{ secrets.QUAY_USERNAME }}
-          password: ${{ secrets.QUAY_PASSWORD }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@9becc617647dfa20ae7b1151972e9b3a2c338a2b # v2.8.1
+
+      - name: Install Bom
+        shell: bash
+        run: |
+          curl -L https://github.com/kubernetes-sigs/bom/releases/download/v0.4.1/bom-linux-amd64 -o bom
+          sudo mv ./bom /usr/local/bin/bom
+          sudo chmod +x /usr/local/bin/bom
 
       - name: Setup Env
         run: |
@@ -49,8 +55,11 @@ jobs:
 
       - name: Build and push manager image
         uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671 # v4
+        id: docker_build_release
         with:
+          provenance: false
           context: .
+          file: ./images/caph/Dockerfile.cross
           push: true
           build-args: |
             LDFLAGS=${{ env.DOCKER_BUILD_LDFLAGS }}
@@ -59,6 +68,53 @@ jobs:
           platforms: linux/amd64,linux/arm64
           cache-from: type=gha, scope=${{ github.workflow }}
           cache-to: type=gha, mode=max, scope=${{ github.workflow }}
+
+      - name: Sign Container Images
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+        run: |
+          cosign sign ghcr.io/syself/caph@${{ steps.docker_build_release.outputs.digest }}
+
+      - name: Generate SBOM
+        shell: bash
+        # To-Do: generate SBOM from source after https://github.com/kubernetes-sigs/bom/issues/202 is fixed
+        # To-Do: format SBOM output to json after cosign v2.0 is released with https://github.com/sigstore/cosign/pull/2479
+        run: |
+          bom generate -o sbom_ci_main_caph_${{ steps.meta.outputs.tags }}.spdx \
+          --image=ghcr.io/syself/caph:${{ steps.meta.outputs.tags }}
+
+      - name: Attach SBOM to Container Images
+        run: |
+          cosign attach sbom --sbom sbom_ci_main_caph_${{ steps.meta.outputs.tags }}.spdx ghcr.io/syself/caph@${{ steps.docker_build_release.outputs.digest }}
+
+      - name: Sign SBOM Images
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+        run: |
+          docker_build_release_digest="${{ steps.docker_build_release.outputs.digest }}"
+          image_name="ghcr.io/syself/caph:${docker_build_release_digest/:/-}.sbom"
+          docker_build_release_sbom_digest="sha256:$(docker buildx imagetools inspect --raw ${image_name} | sha256sum | head -c 64)"
+          cosign sign "ghcr.io/syself/caph@${docker_build_release_sbom_digest}"
+
+      - name: Image Releases digests
+        shell: bash
+        run: |
+          mkdir -p image-digest/
+          echo "ghcr.io/syself/caph:{{ steps.meta.outputs.tags }}@${{ steps.docker_build_release.outputs.digest }}" >> image-digest/caph.txt
+
+      # Upload artifact digests
+      - name: Upload artifact digests
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        with:
+          name: image-digest caph
+          path: image-digest
+          retention-days: 90
+
+      - name: Image Digests Output
+        shell: bash
+        run: |
+          cd image-digest/
+          find -type f | sort | xargs -d '\n' cat
 
   release:
     name: Create draft release
@@ -73,9 +129,11 @@ jobs:
         with:
           fetch-depth: 0
       - name: Install go
-        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3
+        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
         with:
-          go-version: "^1.19"
+          go-version-file: "go.mod"
+          cache: true
+          cache-dependency-path: go.sum
       - name: install kustomize
         run: |
           make kustomize

@@ -38,7 +38,7 @@ mkdir -p "$ARTIFACTS"
 echo "+ run tests!"
 
 if [[ "${CI:-""}" == "true" ]]; then  
-    make set-manifest-image MANIFEST_IMG=${REGISTRY}/${IMAGE_NAME} MANIFEST_TAG=${TAG}
+    make set-manifest-image MANIFEST_IMG=${IMAGE_PREFIX}/caph-staging MANIFEST_TAG=${TAG}
     make set-manifest-pull-policy PULL_POLICY=IfNotPresent
 fi
 

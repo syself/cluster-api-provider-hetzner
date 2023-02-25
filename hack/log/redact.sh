@@ -19,7 +19,7 @@ set -o nounset
 set -o pipefail
 
 echo "================ REDACTING LOGS ================"
-
+# shellcheck disable=SC2207 
 log_files=( $(find "${ARTIFACTS:-${PWD}/_artifacts}" -type f) )
 redact_vars=(
     "${HCLOUD_TOKEN:-}"

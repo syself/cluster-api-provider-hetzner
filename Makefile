@@ -12,123 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Ensure Make is run with bash shell as some syntax below is bash-specific
-# Setting SHELL to bash allows bash commands to be executed by recipes.
-# This is a requirement for 'setup-envtest.sh' in the test target.
-# Options are set to exit when a recipe line exits non-zero or a piped command fails.
 
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
-
 .DEFAULT_GOAL:=help
-
-#
-# Directories.
-#
-# Full directory of where the Makefile resides
-ROOT_DIR:=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
-EXP_DIR := exp
-BIN_DIR := bin
-TEST_DIR := test
-TOOLS_DIR := hack/tools
-TOOLS_BIN_DIR := $(TOOLS_DIR)/$(BIN_DIR)
-export PATH := $(abspath $(TOOLS_BIN_DIR)):$(PATH)
-# Default path for Kubeconfig File.
-CAPH_WORKER_CLUSTER_KUBECONFIG ?= "/tmp/workload-kubeconfig"
-
-INTEGRATION_CONF_FILE ?= "$(abspath test/integration/integration-dev.yaml)"
-E2E_TEMPLATE_DIR := "$(abspath test/e2e/data/infrastructure-hetzner/)"
-ARTIFACTS_PATH := $(ROOT_DIR)/_artifacts
-CI_KIND ?= true
-#
-# Binaries.
-#
-MINIMUM_CLUSTERCTL_VERSION=1.3.3 # update: datasource=github-tags depName=kubernetes-sigs/cluster-api extractVersion=^v(?<version>.*)$
-MINIMUM_CTLPTL_VERSION=0.8.16 # update: datasource=github-releases depName=tilt-dev/ctlptl extractVersion=^v(?<version>.*)$
-MINIMUM_GO_VERSION=go$(GO_VERSION)			# Check current project go version
-MINIMUM_HCLOUD_VERSION=1.31.1 # update: datasource=github-tags depName=hetznercloud/cli extractVersion=^v(?<version>.*)$
-MINIMUM_HELMFILE_VERSION=0.151.0 # update: datasource=github-tags depName=helmfile/helmfile extractVersion=^v(?<version>.*)$
-MINIMUM_KIND_VERSION=0.17.0 # update: datasource=github-tags depName=kubernetes-sigs/kind extractVersion=^v(?<version>.*)$
-MINIMUM_KUBECTL_VERSION=1.26.1 # update: datasource=github-tags depName=kubernetes/kubernetes extractVersion=^v(?<version>.*)$
-MINIMUM_PACKER_VERSION=1.8.6 # update: datasource=github-tags depName=hashicorp/packer extractVersion=^v(?<version>.*)$
-MINIMUM_TILT_VERSION=0.30.8 # update: datasource=github-releases depName=tilt-dev/ctlptl extractVersion=^v(?<version>.*)$
-KUSTOMIZE_VERSION=4.5.7
-#
-# Tooling Binaries.
-#
-CONTROLLER_GEN := $(abspath $(TOOLS_BIN_DIR)/controller-gen)
-KUSTOMIZE := $(abspath $(TOOLS_BIN_DIR)/kustomize)
-GOLANGCI_LINT := $(abspath $(TOOLS_BIN_DIR)/golangci-lint)
-CONVERSION_GEN := $(abspath $(TOOLS_BIN_DIR)/conversion-gen)
-ENVSUBST_BIN := $(BIN_DIR)/envsubst
-ENVSUBST := $(TOOLS_DIR)/$(ENVSUBST_BIN)
-SETUP_ENVTEST := $(abspath $(TOOLS_BIN_DIR)/setup-envtest)
-GO_APIDIFF_BIN := $(BIN_DIR)/go-apidiff
-GO_APIDIFF := $(TOOLS_DIR)/$(GO_APIDIFF_BIN)
-TIMEOUT := $(shell command -v timeout || command -v gtimeout)
-KIND := $(TOOLS_BIN_DIR)/kind
-
-#
-# HELM.
-#
-MINIMUM_HELM_VERSION=3.11.1 # update: datasource=github-tags depName=helm/helm extractVersion=^v(?<version>.*)$
-HELM_GIT_VERSION=0.14.3 # update: datasource=github-tags depName=aslafy-z/helm-git extractVersion=^v(?<version>.*)$
-HELM_DIFF_VERSION=3.6.0	# update: datasource=github-tags depName=databus23/helm-diff extractVersion=^v(?<version>.*)$
-
-#
-# Go.
-#
-GO_VERSION ?= 1.19.1
-GO_CONTAINER_IMAGE ?= docker.io/library/golang:$(GO_VERSION)
-# Use GOPROXY environment variable if set
-GOPROXY := $(shell go env GOPROXY)
-ifeq ($(GOPROXY),)
-GOPROXY := https://proxy.golang.org
-endif
-export GOPROXY
-# Active module mode, as we use go modules to manage dependencies
-export GO111MODULE=on
-# Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
-ifeq (,$(shell go env GOBIN))
-GOBIN=$(shell go env GOPATH)/bin
-else
-GOBIN=$(shell go env GOBIN)
-endif
-# Set --output-base for conversion-gen if we are not within GOPATH
-ifneq ($(abspath $(ROOT_DIR)),$(shell go env GOPATH)/src/sigs.k8s.io/cluster-api)
-	CONVERSION_GEN_OUTPUT_BASE := --output-base=$(ROOT_DIR)
-else
-	export GOPATH := $(shell go env GOPATH)
-endif
-
-#
-# Kubebuilder.
-#
-export KUBEBUILDER_ENVTEST_KUBERNETES_VERSION ?= 1.25.0
-export KUBEBUILDER_CONTROLPLANE_START_TIMEOUT ?= 60s
-export KUBEBUILDER_CONTROLPLANE_STOP_TIMEOUT ?= 60s
-
-
-#
-# Container related variables. Releases should modify and double check these vars.
-#
-REGISTRY ?= quay.io/syself
-PROD_REGISTRY := quay.io/syself
-IMAGE_NAME ?= cluster-api-provider-hetzner
-CONTROLLER_IMG ?= $(REGISTRY)/$(IMAGE_NAME)
-TAG ?= dev
-ARCH ?= amd64
-# Modify these according to your needs
-PLATFORMS  = linux/amd64,linux/arm64
-# Allow overriding the imagePullPolicy
-PULL_POLICY ?= Always
-# Build time versioning details.
-LDFLAGS := $(shell hack/version.sh)
-# This option is for running docker manifest command
-export DOCKER_CLI_EXPERIMENTAL := enabled
-
-
-all: help
+GOTEST ?= go test
 
 ##@ General
 
@@ -143,423 +31,130 @@ all: help
 # More info on the awk command:
 # http://linuxcommand.org/lc3_adv_awk.php
 
+.PHONY: help
 help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
-##@ Binaries / Software
+#############
+# Variables #
+#############
 
-.PHONY: install-ctlptl
-install-ctlptl: ## Installs CTLPTL (CLI for declaratively setting up local Kubernetes clusters)
-	MINIMUM_CTLPTL_VERSION=$(MINIMUM_CTLPTL_VERSION) ./hack/ensure-ctlptl.sh
+# Certain aspects of the build are done in containers for consistency (e.g. protobuf generation)
+# If you have the correct tools installed and you want to speed up development you can run
+# make BUILD_IN_CONTAINER=false target
+# or you can override this with an environment variable
+BUILD_IN_CONTAINER ?= true
 
-.PHONY: install-helm
-install-helm: ## Installs Helm (Kubernetes package manager)
-	MINIMUM_HELM_VERSION=$(MINIMUM_HELM_VERSION) ./hack/ensure-helm.sh
+# ensure you run `make ci` after changing this
+BUILDER_IMAGE_VERSION := 1.0.0
 
-.PHONY: check-go
-check-go: ## Checks go version
-	MINIMUM_GO_VERSION=$(MINIMUM_GO_VERSION) ./hack/ensure-go.sh
+# Boiler plate for building Docker containers.
+IMAGE_PREFIX ?= ghcr.io/syself
+TAG ?= dev
+ARCH ?= amd64
+# Allow overriding the imagePullPolicy
+PULL_POLICY ?= Always
+# Build time versioning details.
+LDFLAGS := $(shell hack/version.sh)
 
-.PHONY: install-helmfile
-install-helmfile: ## Installs Helmfile (Helmfile is like a helm for your helm)
-	MINIMUM_HELMFILE_VERSION=$(MINIMUM_HELMFILE_VERSION) ./hack/ensure-helmfile.sh
+TIMEOUT := $(shell command -v timeout || command -v gtimeout)
 
-.PHONY: install-packer
-install-packer: ## Installs Hashicorp Packer
-	MINIMUM_PACKER_VERSION=$(MINIMUM_PACKER_VERSION) ./hack/ensure-packer.sh
+# Directories
+ROOT_DIR:=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
+EXP_DIR := exp
+TEST_DIR := test
+BIN_DIR := bin
+TOOLS_DIR := hack/tools
+TOOLS_BIN_DIR := $(TOOLS_DIR)/$(BIN_DIR)
+export PATH := $(abspath $(TOOLS_BIN_DIR)):$(PATH)
+# Default path for Kubeconfig File.
+CAPH_WORKER_CLUSTER_KUBECONFIG ?= "/tmp/workload-kubeconfig"
 
-.PHONY: install-hcloud
-install-hcloud: ## Installs hcloud (CLI for Hetzner)
-	MINIMUM_HCLOUD_VERSION=$(MINIMUM_HCLOUD_VERSION) ./hack/ensure-hcloud.sh
+INTEGRATION_CONF_FILE ?= "$(abspath test/integration/integration-dev.yaml)"
+E2E_TEMPLATE_DIR := "$(abspath test/e2e/data/infrastructure-hetzner/)"
+ARTIFACTS_PATH := $(ROOT_DIR)/_artifacts
+CI_KIND ?= true
 
-.PHONY: install-helm-plugins
-install-helm-plugins: ## Installs Helm Plugins (helm-git)
-	HELM_GIT_VERSION=$(HELM_GIT_VERSION) HELM_DIFF_VERSION=$(HELM_DIFF_VERSION) ./hack/ensure-helm-plugins.sh
+# Docker
+RM := --rm
+TTY := -t
 
-install-kind: ## Installs Kind (Kubernetes-in-Docker)
-	MINIMUM_KIND_VERSION=$(MINIMUM_KIND_VERSION) ./hack/ensure-kind.sh
+# Kubebuilder.
+export KUBEBUILDER_ENVTEST_KUBERNETES_VERSION ?= 1.25.0
+export KUBEBUILDER_CONTROLPLANE_START_TIMEOUT ?= 60s
+export KUBEBUILDER_CONTROLPLANE_STOP_TIMEOUT ?= 60s
 
-.PHONY: install-kubectl
-install-kubectl: ## Installs Kubectl (CLI for kubernetes)
-	MINIMUM_KUBECTL_VERSION=$(MINIMUM_KUBECTL_VERSION) ./hack/ensure-kubectl.sh
-
-.PHONY: install-tilt
-install-tilt: ## Installs Tilt (watches files, builds containers, ships to k8s)
-	MINIMUM_TILT_VERSION=$(MINIMUM_TILT_VERSION) ./hack/ensure-tilt.sh
-
-.PHONY: install-clusterctl
-install-clusterctl: ## Installs clusterctl
-	MINIMUM_CLUSTERCTL_VERSION=$(MINIMUM_CLUSTERCTL_VERSION) ./hack/ensure-clusterctl.sh
-
-install-dev-prerequisites: ## Installs ctlptl, helm, helmfile, helm-plugins, kind, kubectl, tilt, clusterctl, packer, hcloud and checks installed go version
-	@echo "Start checking dependencies"
-	$(MAKE) install-ctlptl
-	$(MAKE) install-helm
-	$(MAKE) check-go
-	$(MAKE) install-helmfile
-	$(MAKE) install-helm-plugins
-	$(MAKE) install-kind
-	$(MAKE) install-kubectl
-	$(MAKE) install-tilt
-	$(MAKE) install-clusterctl
-	$(MAKE) install-packer
-	$(MAKE) install-hcloud
-	@echo "Finished: All dependencies up to date"
-
+##@ Binaries
+############
+# Binaries #
+############
+CONTROLLER_GEN := $(abspath $(TOOLS_BIN_DIR)/controller-gen)
 controller-gen: $(CONTROLLER_GEN) ## Build a local copy of controller-gen
 $(CONTROLLER_GEN): $(TOOLS_DIR)/go.mod # Build controller-gen from tools folder.
 	cd $(TOOLS_DIR); go build -tags=tools -o $(BIN_DIR)/controller-gen sigs.k8s.io/controller-tools/cmd/controller-gen
 
-conversion-gen: $(CONVERSION_GEN) ## Build a local copy of conversion-gen
-$(CONVERSION_GEN): $(TOOLS_DIR)/go.mod # Build conversion-gen from tools folder.
-	cd $(TOOLS_DIR); go build -tags=tools -o $(BIN_DIR)/conversion-gen k8s.io/code-generator/cmd/conversion-gen
-
-conversion-verifier: $(CONVERSION_VERIFIER) ## Build a local copy of conversion-verifier
-$(CONVERSION_VERIFIER): $(TOOLS_DIR)/go.mod # Build conversion-verifier from tools folder.
-	cd $(TOOLS_DIR); go build -tags=tools -o $(BIN_DIR)/conversion-verifier sigs.k8s.io/cluster-api/hack/tools/conversion-verifier
-
-go-apidiff: $(GO_APIDIFF) ## Build a local copy of apidiff
-$(GO_APIDIFF): $(TOOLS_DIR)/go.mod # Build go-apidiff from tools folder.
-	cd $(TOOLS_DIR) && go build -tags=tools -o $(GO_APIDIFF_BIN) github.com/joelanford/go-apidiff
-
-envsubst: $(ENVSUBST) ## Build a local copy of envsubst
-$(ENVSUBST): $(TOOLS_DIR)/go.mod # Build envsubst from tools folder.
-	cd $(TOOLS_DIR) && go build -tags=tools -o $(ENVSUBST_BIN) github.com/drone/envsubst/v2/cmd/envsubst
-
+KUSTOMIZE := $(abspath $(TOOLS_BIN_DIR)/kustomize)
 kustomize: $(KUSTOMIZE) ## Build a local copy of kustomize
-$(KUSTOMIZE): # Download kustomize using hack script into tools folder.
-	KUSTOMIZE_VERSION=$(KUSTOMIZE_VERSION) hack/ensure-kustomize.sh
+$(KUSTOMIZE): # Build kustomize from tools folder.
+	cd $(TOOLS_DIR) && go build -tags=tools -o $(KUSTOMIZE) sigs.k8s.io/kustomize/kustomize/v4
 
-golangci-lint: $(GOLANGCI_LINT) ## Build a local copy of golangci-lint
-$(GOLANGCI_LINT): .github/workflows/pr-golangci-lint.yml # Download golanci-lint using hack script into tools folder.
+GOLANGCI_LINT := $(abspath $(TOOLS_BIN_DIR)/golangci-lint)
+golangci-lint: $(GOLANGCI_LINT) ## Build a local copy of golangci-lint. After running this command do: BUILD_IN_CONTAINER=false make lint
+$(GOLANGCI_LINT): images/builder/Dockerfile # Download golanci-lint using hack script into tools folder.
 	hack/ensure-golangci-lint.sh \
 		-b $(TOOLS_DIR)/$(BIN_DIR) \
-		$(shell cat .github/workflows/pr-golangci-lint.yml | grep "\<version:\>" | sed 's/.*version: //')
+		$(shell cat images/builder/Dockerfile | grep "GOLANGCI_VERSION=" | sed 's/.*GOLANGCI_VERSION=//' | sed 's/\s.*$//')
 
+TILT := $(abspath $(TOOLS_BIN_DIR)/tilt)
+tilt: $(TILT) ## Build a local copy of tilt
+$(TILT):  
+	@mkdir $(TOOLS_BIN_DIR) || true
+	MINIMUM_TILT_VERSION=0.31.2 hack/ensure-tilt.sh
+
+ENVSUBST := $(abspath $(TOOLS_BIN_DIR)/envsubst)
+envsubst: $(ENVSUBST) ## Build a local copy of envsubst
+$(ENVSUBST): $(TOOLS_DIR)/go.mod # Build envsubst from tools folder.
+	cd $(TOOLS_DIR) && go build -tags=tools -o $(ENVSUBST) github.com/drone/envsubst/v2/cmd/envsubst
+
+SETUP_ENVTEST := $(abspath $(TOOLS_BIN_DIR)/setup-envtest)
 setup-envtest: $(SETUP_ENVTEST) ## Build a local copy of setup-envtest
 $(SETUP_ENVTEST): $(TOOLS_DIR)/go.mod # Build setup-envtest from tools folder.
 	cd $(TOOLS_DIR); go build -tags=tools -o $(BIN_DIR)/setup-envtest sigs.k8s.io/controller-runtime/tools/setup-envtest
 
-##@ Generate / Manifests
-
-.PHONY: generate
-generate: ## Run all generate-manifests, generate-go-deepcopyand generate-go-conversions targets
-	$(MAKE) generate-manifests generate-go-deepcopy
-
-generate-manifests: $(CONTROLLER_GEN) ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN) \
-			paths=./api/... \
-			paths=./controllers/... \
-			crd:crdVersions=v1 \
-			rbac:roleName=manager-role \
-			output:crd:dir=./config/crd/bases \
-			output:webhook:dir=./config/webhook \
-			webhook
-
-generate-go-deepcopy: $(CONTROLLER_GEN) ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
-	$(CONTROLLER_GEN) \
-		object:headerFile="./hack/boilerplate/boilerplate.generatego.txt" \
-		paths="./api/..."
-
-dry-run: generate
-	cd config/manager && $(KUSTOMIZE) edit set image controller=${CONTROLLER_IMG}:${TAG}
-	mkdir -p dry-run
-	$(KUSTOMIZE) build config/default > dry-run/manifests.yaml
-
-.PHONY: ensure-boilerplate
-ensure-boilerplate: ## Ensures that a boilerplate exists in each file by adding missing boilerplates
-	./hack/ensure-boilerplate.sh
-
-cluster-templates: $(KUSTOMIZE)
-	$(KUSTOMIZE) build templates/cluster-templates/hcloud --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template.yaml
-	$(KUSTOMIZE) build templates/cluster-templates/hcloud --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud.yaml
-	$(KUSTOMIZE) build templates/cluster-templates/hcloud-packer --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-packer.yaml
-	$(KUSTOMIZE) build templates/cluster-templates/hcloud-talos-packer --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-talos-packer.yaml
-	$(KUSTOMIZE) build templates/cluster-templates/hcloud-network --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-network.yaml
-	$(KUSTOMIZE) build templates/cluster-templates/hcloud-network-packer --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-network-packer.yaml
-	$(KUSTOMIZE) build templates/cluster-templates/hetzner-hcloud-control-planes --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hetzner-hcloud-control-planes.yaml
-	$(KUSTOMIZE) build templates/cluster-templates/hetzner-baremetal-control-planes --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hetzner-baremetal-control-planes.yaml
-	$(KUSTOMIZE) build templates/cluster-templates/hetzner-baremetal-control-planes-remediation --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hetzner-baremetal-control-planes-remediation.yaml
-
-##@ Lint and Verify
-
-.PHONY: modules
-modules: ## Runs go mod to ensure modules are up to date.
-	go mod tidy
-	cd $(TOOLS_DIR); go mod tidy
-
-.PHONY: lint
-lint: $(GOLANGCI_LINT) ## Lint Golang codebase
-	$(GOLANGCI_LINT) run -v $(GOLANGCI_LINT_EXTRA_ARGS)
-
-.PHONY: lint-fix
-lint-fix: $(GOLANGCI_LINT) ## Lint the Go codebase and run auto-fixers if supported by the linter.
-	GOLANGCI_LINT_EXTRA_ARGS=--fix $(MAKE) lint
-
-.PHONY: format-tiltfile
-format-tiltfile: ## Format the Tiltfile
-	./hack/verify-starlark.sh fix
-
-yamllint: ## Lints YAML Files
-	yamllint -c .github/linters/yaml-lint.yaml --strict .
-
-ALL_VERIFY_CHECKS = boilerplate shellcheck tiltfile modules gen
-
-.PHONY: verify
-verify: lint $(addprefix verify-,$(ALL_VERIFY_CHECKS)) ## Run all verify-* targets
-	@echo "All verify checks passed, congrats!"
-
-
-.PHONY: verify-modules
-verify-modules: modules  ## Verify go modules are up to date
-	@if !(git diff --quiet HEAD -- go.sum go.mod $(TOOLS_DIR)/go.mod $(TOOLS_DIR)/go.sum $(TEST_DIR)/go.mod $(TEST_DIR)/go.sum); then \
-		git diff; \
-		echo "go module files are out of date"; exit 1; \
-	fi
-	@if (find . -name 'go.mod' | xargs -n1 grep -q -i 'k8s.io/client-go.*+incompatible'); then \
-		find . -name "go.mod" -exec grep -i 'k8s.io/client-go.*+incompatible' {} \; -print; \
-		echo "go module contains an incompatible client-go version"; exit 1; \
-	fi
-
-.PHONY: verify-gen
-verify-gen: generate  ## Verfiy go generated files are up to date
-	@if !(git diff --quiet HEAD); then \
-		git diff; \
-		echo "generated files are out of date, run make generate"; exit 1; \
-	fi
-
-.PHONY: verify-boilerplate
-verify-boilerplate: ## Verify boilerplate text exists in each file
-	./hack/verify-boilerplate.sh
-
-.PHONY: verify-shellcheck
-verify-shellcheck: ## Verify shell files
-	./hack/verify-shellcheck.sh
-
-.PHONY: verify-tiltfile
-verify-tiltfile: ## Verify Tiltfile format
-	./hack/verify-starlark.sh
-
-
-##@ Clean
-
-.PHONY: clean
-clean: ## Remove all generated files
-	$(MAKE) clean-bin
-
-.PHONY: clean-bin
-clean-bin: ## Remove all generated helper binaries
-	rm -rf $(BIN_DIR)
-	rm -rf $(TOOLS_BIN_DIR)
-
-.PHONY: clean-release
-clean-release: ## Remove the release folder
-	rm -rf $(RELEASE_DIR)
-
-.PHONY: clean-docker-all
-clean-docker-all: ## Erases all container and images
-	./hack/erase-docker-all.sh
-
-.PHONY: clean-release-git
-clean-release-git: ## Restores the git files usually modified during a release
-	git restore ./*manager_image_patch.yaml ./*manager_pull_policy.yaml
-
-##@ Release
-
-## latest git tag for the commit, e.g., v0.3.10
-RELEASE_TAG ?= $(shell git describe --abbrev=0 2>/dev/null)
-# the previous release tag, e.g., v0.3.9, excluding pre-release tags
-PREVIOUS_TAG ?= $(shell git tag -l | grep -E "^v[0-9]+\.[0-9]+\.[0-9]." | sort -V | grep -B1 $(RELEASE_TAG) | head -n 1 2>/dev/null)
-RELEASE_DIR ?= out
-RELEASE_NOTES_DIR := _releasenotes
-
-$(RELEASE_DIR):
-	mkdir -p $(RELEASE_DIR)/
-
-$(RELEASE_NOTES_DIR):
-	mkdir -p $(RELEASE_NOTES_DIR)/
-
-.PHONY: test-release
-test-release:
-	$(MAKE) set-manifest-image MANIFEST_IMG=$(REGISTRY)/$(IMAGE_NAME) MANIFEST_TAG=$(TAG)
-	$(MAKE) set-manifest-pull-policy PULL_POLICY=IfNotPresent
-	$(MAKE) release-manifests
-
-.PHONY: release
-release: clean-release  ## Builds and push container images using the latest git tag for the commit.
-	@if [ -z "${RELEASE_TAG}" ]; then echo "RELEASE_TAG is not set"; exit 1; fi
-	@if ! [ -z "$$(git status --porcelain)" ]; then echo "Your local git repository contains uncommitted changes, use git clean before proceeding."; exit 1; fi
-	git checkout "${RELEASE_TAG}"
-	# Set the manifest image to the production bucket.
-	$(MAKE) set-manifest-image MANIFEST_IMG=$(PROD_REGISTRY)/$(IMAGE_NAME) MANIFEST_TAG=$(RELEASE_TAG)
-	$(MAKE) set-manifest-pull-policy PULL_POLICY=IfNotPresent
-	## Build the manifests
-	$(MAKE) release-manifests clean-release-git
-
-.PHONY: release-manifests
-release-manifests: generate $(KUSTOMIZE) $(RELEASE_DIR) cluster-templates ## Builds the manifests to publish with a release
-	$(KUSTOMIZE) build config/default > $(RELEASE_DIR)/infrastructure-components.yaml
-	## Build caph-components (aggregate of all of the above).
-	cp metadata.yaml $(RELEASE_DIR)/metadata.yaml
-	cp templates/cluster-templates/cluster-template* $(RELEASE_DIR)/
-	cp templates/cluster-templates/cluster-class* $(RELEASE_DIR)/
-
-.PHONY: release-notes
-release-notes: $(RELEASE_NOTES_DIR) $(RELEASE_NOTES)
-	go run ./hack/tools/release/notes.go --from=$(PREVIOUS_TAG) > $(RELEASE_NOTES_DIR)/$(RELEASE_TAG).md
-
-.PHONY: release-nightly
-release-nightly: ## Builds and push container images to the prod bucket.
-	$(MAKE) CONTROLLER_IMG=$(PROD_REGISTRY)/$(IMAGE_NAME) TAG=latest docker-multiarch
-
-.PHONY: release-image
-release-image:  ## Builds and push container images to the prod bucket.
-	$(MAKE) CONTROLLER_IMG=$(PROD_REGISTRY)/$(IMAGE_NAME) TAG=$(RELEASE_TAG) docker-multiarch
-
-##@ Test
-
-ARTIFACTS ?= _artifacts
-$(ARTIFACTS):
-	mkdir -p $(ARTIFACTS)/
-
-KUBEBUILDER_ASSETS ?= $(shell $(SETUP_ENVTEST) use --use-env -p path $(KUBEBUILDER_ENVTEST_KUBERNETES_VERSION))
-REPO_ROOT := $(shell git rev-parse --show-toplevel)
-
-E2E_DIR ?= $(REPO_ROOT)/test/e2e
-E2E_CONF_FILE_SOURCE ?= $(E2E_DIR)/config/hetzner.yaml
-E2E_CONF_FILE ?= $(E2E_DIR)/config/hetzner-ci-envsubst.yaml
-
-.PHONY: e2e-image
-e2e-image: ## Build the e2e manager image
-	docker build --pull --build-arg ARCH=$(ARCH) --build-arg LDFLAGS="$(LDFLAGS)" . -t $(CONTROLLER_IMG):e2e
-
-.PHONY: $(E2E_CONF_FILE)
-e2e-conf-file: $(E2E_CONF_FILE)
-$(E2E_CONF_FILE): $(ENVSUBST) $(E2E_CONF_FILE_SOURCE)
-	mkdir -p $(shell dirname $(E2E_CONF_FILE))
-	$(ENVSUBST) < $(E2E_CONF_FILE_SOURCE) > $(E2E_CONF_FILE)
-
-.PHONY: test-e2e
-test-e2e: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKGO_FOKUS="'\[Basic\]'" GINKGO_NODES=2 ./hack/ci-e2e-capi.sh
-
-.PHONY: test-e2e-feature
-test-e2e-feature: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKGO_FOKUS="'\[Feature\]'" GINKGO_NODES=3 ./hack/ci-e2e-capi.sh
-
-.PHONY: test-e2e-feature-packer
-test-e2e-feature-packer: $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKGO_FOKUS="'\[Feature Packer\]'" GINKGO_NODES=1 PACKER_IMAGE_NAME=templates/node-image/1.25.2-ubuntu-22-04-containerd ./hack/ci-e2e-capi.sh
-
-.PHONY: test-e2e-feature-talos
-test-e2e-feature-talos: $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKGO_FOKUS="'\[Feature Talos\]'" GINKGO_NODES=1 PACKER_TALOS=templates/node-image/talos-image ./hack/ci-e2e-capi.sh
-
-.PHONY: test-e2e-lifecycle
-test-e2e-lifecycle: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKGO_FOKUS="'\[Lifecycle\]'" GINKGO_NODES=3 ./hack/ci-e2e-capi.sh
-
-.PHONY: test-e2e-upgrade-caph
-test-e2e-upgrade-caph: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKGO_FOKUS="'\[Upgrade CAPH\]'" GINKGO_NODES=2 ./hack/ci-e2e-capi.sh
-
-.PHONY: test-e2e-upgrade-kubernetes
-test-e2e-upgrade-kubernetes: $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKGO_FOKUS="'\[Upgrade Kubernetes\]'" GINKGO_NODES=2 PACKER_KUBERNETES_UPGRADE_FROM=templates/node-image/1.24.1-ubuntu-20-04-containerd PACKER_KUBERNETES_UPGRADE_TO=templates/node-image/1.25.2-ubuntu-22-04-containerd ./hack/ci-e2e-capi.sh
-
-.PHONY: test-e2e-conformance
-test-e2e-conformance: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKGO_FOKUS="'\[Conformance\]'" GINKGO_NODES=1 ./hack/ci-e2e-capi.sh
-
-.PHONY: test-e2e-baremetal
-test-e2e-baremetal: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKGO_FOKUS="'\[Baremetal\]'" GINKGO_NODES=1 ./hack/ci-e2e-capi.sh
-
-.PHONY: test-e2e-baremetal-feature
-test-e2e-baremetal-feature: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKGO_FOKUS="'\[Baremetal Feature\]'" GINKGO_NODES=1 ./hack/ci-e2e-capi.sh
-
-.PHONY: test
-test: $(SETUP_ENVTEST) ## Run unit and integration tests
-	KUBEBUILDER_ASSETS="$(KUBEBUILDER_ASSETS)" go test ./controllers/... ./pkg/... $(TEST_ARGS)
-
-.PHONY: test-verbose
-test-verbose: ## Run tests with verbose settings
-	$(MAKE) test TEST_ARGS="$(TEST_ARGS) -v"
-
-.PHONY: test-cover
-test-cover: $(RELEASE_DIR) ## Run tests with code coverage and code generate reports
-	$(MAKE) test TEST_ARGS="$(TEST_ARGS) -coverprofile=out/coverage.txt -covermode=atomic"
-
-.PHONY: test-junit
-test-junit: $(SETUP_ENVTEST) $(GOTESTSUM) ## Run tests with verbose setting and generate a junit report
-	set +o errexit; (KUBEBUILDER_ASSETS="$(KUBEBUILDER_ASSETS)" go test -json ./... $(TEST_ARGS); echo $$? > $(ARTIFACTS)/junit.exitcode) | tee $(ARTIFACTS)/junit.stdout
-	$(GOTESTSUM) --junitfile $(ARTIFACTS)/junit.xml --raw-command cat $(ARTIFACTS)/junit.stdout
-	exit $$(cat $(ARTIFACTS)/junit.exitcode)
-
-##@ Build
-
-build: generate fmt vet ## Build manager binary.
-	go build -o bin/manager main.go
-
-run: generate fmt vet ## Run a controller from your host.
-	go run ./main.go
-
-## --------------------------------------
-## Docker
-## --------------------------------------
-
-# Create multi-platform docker image. If you have native systems around, using
-# them will be much more efficient at build time. See e.g.
-BUILDXDETECT = ${HOME}/.docker/cli-plugins/docker-buildx
-# Just one of the many files created
-QEMUDETECT = /proc/sys/fs/binfmt_misc/qemu-m68k
-
-docker-multiarch: qemu buildx docker-multiarch-builder
-	docker buildx build --builder docker-multiarch --pull --push \
-		--platform ${PLATFORMS} \
-		-t $(CONTROLLER_IMG):$(TAG) .
-
-.PHONY: qemu buildx docker-multiarch-builder
-
-qemu:	${QEMUDETECT}
-${QEMUDETECT}:
-	docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-
-buildx: ${BUILDXDETECT}
-${BUILDXDETECT}:
-	@echo
-# Output of `uname -m` is too different 
-	@echo "*** 'docker buildx' missing. Install binary for this machine's architecture"
-	@echo "*** from https://github.com/docker/buildx/releases/latest"
-	@echo "*** to ~/.docker/cli-plugins/docker-buildx"
-	@echo
-	@exit 1
-
-docker-multiarch-builder: qemu buildx
-	if ! docker buildx ls | grep -w docker-multiarch > /dev/null; then \
-		docker buildx create --name docker-multiarch && \
-		docker buildx inspect --builder docker-multiarch --bootstrap; \
-	fi
-
-.PHONY: set-manifest-image
-set-manifest-image:
-	$(info Updating kustomize image patch file for default resource)
-	sed -i'' -e 's@image: .*@image: '"${MANIFEST_IMG}:$(MANIFEST_TAG)"'@' ./config/default/manager_image_patch.yaml
-
-.PHONY: set-manifest-pull-policy
-set-manifest-pull-policy:
-	$(info Updating kustomize pull policy file for default resource)
-	sed -i'' -e 's@imagePullPolicy: .*@imagePullPolicy: '"$(PULL_POLICY)"'@' ./config/default/manager_pull_policy.yaml
+CTLPTL := $(abspath $(TOOLS_BIN_DIR)/ctlptl)
+ctlptl: $(CTLPTL) ## Build a local copy of ctlptl
+$(CTLPTL): 
+	cd $(TOOLS_DIR) && go build -tags=tools -o $(CTLPTL) github.com/tilt-dev/ctlptl/cmd/ctlptl
+
+CLUSTERCTL := $(abspath $(TOOLS_BIN_DIR)/clusterctl)
+clusterctl: $(CLUSTERCTL) ## Build a local copy of clusterctl
+$(CLUSTERCTL): $(TOOLS_DIR)/go.mod 
+	cd $(TOOLS_DIR) && go build -tags=tools -o $(CLUSTERCTL) sigs.k8s.io/cluster-api/cmd/clusterctl
+
+KIND := $(abspath $(TOOLS_BIN_DIR)/kind)
+kind: $(KIND) ## Build a local copy of kind
+$(KIND): $(TOOLS_DIR)/go.mod
+	cd $(TOOLS_DIR) && go build -tags=tools -o $(KIND) sigs.k8s.io/kind
+
+go-binsize-treemap := $(abspath $(TOOLS_BIN_DIR)/go-binsize-treemap)
+go-binsize-treemap: $(go-binsize-treemap) # Build go-binsize-treemap from tools folder.
+$(go-binsize-treemap): 
+	cd $(TOOLS_DIR); go build -mod=vendor -tags=tools -o $(BIN_DIR)/go-binsize-treemap github.com/nikolaydubina/go-binsize-treemap
+
+go-cover-treemap := $(abspath $(TOOLS_BIN_DIR)/go-cover-treemap)
+go-cover-treemap: $(go-cover-treemap) # Build go-cover-treemap from tools folder.
+$(go-cover-treemap): 
+	cd $(TOOLS_DIR); go build -mod=vendor -tags=tools -o $(BIN_DIR)/go-cover-treemap github.com/nikolaydubina/go-cover-treemap
+
+GOTESTSUM := $(abspath $(TOOLS_BIN_DIR)/gotestsum)
+gotestsum: $(GOTESTSUM) # Build gotestsum from tools folder.
+$(GOTESTSUM): 
+	cd $(TOOLS_DIR); go build -mod=vendor -tags=tools -o $(BIN_DIR)/gotestsum gotest.tools/gotestsum
 
 ##@ Development
-
-fmt: ## Run go fmt against code.
-	go fmt ./...
-
-vet: ## Run go vet against code.
-	go vet ./...
-
+###############
+# Development #
+###############
 install-crds: generate-manifests $(KUSTOMIZE) ## Install CRDs into the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/crd | kubectl apply -f -
 
@@ -567,15 +162,11 @@ uninstall-crds: generate-manifests $(KUSTOMIZE) ## Uninstall CRDs from the K8s c
 	$(KUSTOMIZE) build config/crd | kubectl delete -f -
 
 deploy-controller: generate-manifests $(KUSTOMIZE) ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	cd config/manager && $(KUSTOMIZE) edit set image controller=${CONTROLLER_IMG}:${TAG}
+	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMAGE_PREFIX}/caph-staging:${TAG}
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
 undeploy-controller: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/default | kubectl delete -f -
-
-.PHONY: tilt-up
-tilt-up: $(ENVSUBST) $(KUSTOMIZE) cluster  ## Start a mgt-cluster & Tilt. Installs the CRDs and deploys the controllers
-	EXP_CLUSTER_RESOURCE_SET=true tilt up
 
 install-essentials: ## This gets the secret and installs a CNI and the CCM. Usage: MAKE install-essentials NAME=<cluster-name>
 	export CAPH_WORKER_CLUSTER_KUBECONFIG=/tmp/workload-kubeconfig
@@ -606,7 +197,6 @@ install-manifests-ccm-hetzner:
 	--namespace kube-system \
 	--set image.tag=latest \
 	--set privateNetwork.enabled=$(PRIVATE_NETWORK)
-
 	@echo 'run "kubectl --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) ..." to work with the new target cluster'
 
 install-manifests-ccm-hcloud:
@@ -618,7 +208,6 @@ install-manifests-ccm-hcloud:
 	--set secret.name=hetzner \
 	--set secret.tokenKeyName=hcloud \
 	--set privateNetwork.enabled=$(PRIVATE_NETWORK)
-
 	@echo 'run "kubectl --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) ..." to work with the new target cluster'
 
 create-workload-cluster-hcloud: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
@@ -696,12 +285,10 @@ create-workload-cluster-hetzner-baremetal-control-plane-remediation: $(KUSTOMIZE
 	$(MAKE) install-manifests-cilium
 	$(MAKE) install-manifests-ccm-hetzner PRIVATE_NETWORK=false
 
-move-to-workload-cluster:
-	clusterctl init --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) --core cluster-api --bootstrap kubeadm --control-plane kubeadm --infrastructure hetzner
+move-to-workload-cluster: $(CLUSTERCTL)
+	$(CLUSTERCTL) init --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) --core cluster-api --bootstrap kubeadm --control-plane kubeadm --infrastructure hetzner
 	kubectl --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) -n cluster-api-provider-hetzner-system wait deploy/caph-controller-manager --for condition=available && sleep 15s
-	clusterctl move --to-kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG)
-
-
+	$(CLUSTERCTL) move --to-kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG)
 
 .PHONY: delete-workload-cluster
 delete-workload-cluster: ## Deletes the example workload Kubernetes cluster
@@ -711,26 +298,444 @@ delete-workload-cluster: ## Deletes the example workload Kubernetes cluster
 	${TIMEOUT} 15m bash -c "while kubectl get cluster | grep $(NAME); do sleep 1; done"
 	@echo 'Cluster deleted'
 
-##@ Management Cluster
-
-create-mgt-cluster: cluster ## Start a mgt-cluster with the latest version of all capi components and the hetzner provider. Usage: MAKE create-mgt-cluster HCLOUD=<hcloud-token>
-	clusterctl init --core cluster-api --bootstrap kubeadm --control-plane kubeadm --infrastructure hetzner
+create-mgt-cluster: $(CLUSTERCTL) cluster ## Start a mgt-cluster with the latest version of all capi components and the hetzner provider. Usage: MAKE create-mgt-cluster HCLOUD=<hcloud-token>
+	$(CLUSTERCTL) init --core cluster-api --bootstrap kubeadm --control-plane kubeadm --infrastructure hetzner
 	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD_TOKEN) 
 	kubectl patch secret hetzner -p '{"metadata":{"labels":{"clusterctl.cluster.x-k8s.io/move":""}}}'
 
 .PHONY: cluster
-cluster: ## Creates kind-dev Cluster
+cluster: $(CTLPTL) ## Creates kind-dev Cluster
 	./hack/kind-dev.sh
 
 .PHONY: delete-cluster
-delete-cluster: ## Deletes Kind-dev Cluster (default)
-	ctlptl delete cluster kind-caph
+delete-cluster: $(CTLPTL) ## Deletes Kind-dev Cluster (default)
+	$(CTLPTL) delete cluster kind-caph
 
 .PHONY: delete-registry
-delete-registry: ## Deletes Kind-dev Cluster and the local registry
-	ctlptl delete registry caph-registry
+delete-registry: $(CTLPTL) ## Deletes Kind-dev Cluster and the local registry
+	$(CTLPTL) delete registry caph-registry
 
 .PHONY: delete-cluster-registry
-delete-cluster-registry: ## Deletes Kind-dev Cluster and the local registry
-	ctlptl delete cluster kind-caph
-	ctlptl delete registry caph-registry
+delete-cluster-registry: $(CTLPTL) ## Deletes Kind-dev Cluster and the local registry
+	$(CTLPTL) delete cluster kind-caph
+	$(CTLPTL) delete registry caph-registry
+
+##@ Clean
+#########
+# Clean #
+#########
+.PHONY: clean
+clean: ## Remove all generated files
+	$(MAKE) clean-bin
+
+.PHONY: clean-bin
+clean-bin: ## Remove all generated helper binaries
+	rm -rf $(BIN_DIR)
+	rm -rf $(TOOLS_BIN_DIR)
+
+.PHONY: clean-release
+clean-release: ## Remove the release folder
+	rm -rf $(RELEASE_DIR)
+
+.PHONY: clean-release-git
+clean-release-git: ## Restores the git files usually modified during a release
+	git restore ./*manager_image_patch.yaml ./*manager_pull_policy.yaml
+
+##@ Releasing
+#############
+# Releasing #
+#############
+## latest git tag for the commit, e.g., v0.3.10
+RELEASE_TAG ?= $(shell git describe --abbrev=0 2>/dev/null)
+# the previous release tag, e.g., v0.3.9, excluding pre-release tags
+PREVIOUS_TAG ?= $(shell git tag -l | grep -E "^v[0-9]+\.[0-9]+\.[0-9]." | sort -V | grep -B1 $(RELEASE_TAG) | head -n 1 2>/dev/null)
+RELEASE_DIR ?= out
+RELEASE_NOTES_DIR := _releasenotes
+
+$(RELEASE_DIR):
+	mkdir -p $(RELEASE_DIR)/
+
+$(RELEASE_NOTES_DIR):
+	mkdir -p $(RELEASE_NOTES_DIR)/
+
+.PHONY: test-release
+test-release:
+	$(MAKE) set-manifest-image MANIFEST_IMG=$(IMAGE_PREFIX)/caph-staging MANIFEST_TAG=$(TAG)
+	$(MAKE) set-manifest-pull-policy PULL_POLICY=IfNotPresent
+	$(MAKE) release-manifests
+
+.PHONY: release-manifests
+release-manifests: generate $(KUSTOMIZE) $(RELEASE_DIR) cluster-templates ## Builds the manifests to publish with a release
+	$(KUSTOMIZE) build config/default > $(RELEASE_DIR)/infrastructure-components.yaml
+	## Build caph-components (aggregate of all of the above).
+	cp metadata.yaml $(RELEASE_DIR)/metadata.yaml
+	cp templates/cluster-templates/cluster-template* $(RELEASE_DIR)/
+	cp templates/cluster-templates/cluster-class* $(RELEASE_DIR)/
+
+.PHONY: release
+release: clean-release  ## Builds and push container images using the latest git tag for the commit.
+	@if [ -z "${RELEASE_TAG}" ]; then echo "RELEASE_TAG is not set"; exit 1; fi
+	@if ! [ -z "$$(git status --porcelain)" ]; then echo "Your local git repository contains uncommitted changes, use git clean before proceeding."; exit 1; fi
+	git checkout "${RELEASE_TAG}"
+	# Set the manifest image to the production bucket.
+	$(MAKE) set-manifest-image MANIFEST_IMG=$(IMAGE_PREFIX)/caph MANIFEST_TAG=$(RELEASE_TAG)
+	$(MAKE) set-manifest-pull-policy PULL_POLICY=IfNotPresent
+	## Build the manifests
+	$(MAKE) release-manifests clean-release-git
+
+.PHONY: release-notes
+release-notes: $(RELEASE_NOTES_DIR) $(RELEASE_NOTES)
+	go run ./hack/tools/release/notes.go --from=$(PREVIOUS_TAG) > $(RELEASE_NOTES_DIR)/$(RELEASE_TAG).md
+
+##@ Images
+##########
+# Images #
+##########
+caph-image: ## Build caph image
+	$(SUDO) docker build -t $(IMAGE_PREFIX)/caph-staging:$(TAG) -f images/caph/Dockerfile .
+caph-image-cross: ## Build caph image all arch image
+	$(SUDO) DOCKER_BUILDKIT=1 docker build -t $(IMAGE_PREFIX)/caph-staging:$(TAG) -f images/caph/Dockerfile.cross .
+
+.PHONY: set-manifest-image
+set-manifest-image:
+	$(info Updating kustomize image patch file for default resource)
+	sed -i'' -e 's@image: .*@image: '"${MANIFEST_IMG}:$(MANIFEST_TAG)"'@' ./config/default/manager_image_patch.yaml
+
+.PHONY: set-manifest-pull-policy
+set-manifest-pull-policy:
+	$(info Updating kustomize pull policy file for default resource)
+	sed -i'' -e 's@imagePullPolicy: .*@imagePullPolicy: '"$(PULL_POLICY)"'@' ./config/default/manager_pull_policy.yaml
+
+builder-image-promote-latest:
+	skopeo copy --src-creds=$(USERNAME):$(PASSWORD) --dest-creds=$(USERNAME):$(PASSWORD) docker://ghcr.io/syself/caph-builder:$(BUILDER_IMAGE_VERSION) docker://ghcr.io/syself/caph-builder:latest
+
+##@ Binary
+##########
+# Binary #
+##########
+caph: ## Build Caph binary.
+	go build -mod=vendor -o bin/manager main.go 
+
+run: ## Run a controller from your host.
+	go run ./main.go
+
+##@ Testing
+###########
+# Testing #
+###########
+ARTIFACTS ?= _artifacts
+$(ARTIFACTS):
+	mkdir -p $(ARTIFACTS)/
+
+KUBEBUILDER_ASSETS ?= $(shell $(SETUP_ENVTEST) use --use-env -p path $(KUBEBUILDER_ENVTEST_KUBERNETES_VERSION))
+
+E2E_DIR ?= $(ROOT_DIR)/test/e2e
+E2E_CONF_FILE_SOURCE ?= $(E2E_DIR)/config/hetzner.yaml
+E2E_CONF_FILE ?= $(E2E_DIR)/config/hetzner-ci-envsubst.yaml
+
+.PHONY: test-unit
+test-unit: $(SETUP_ENVTEST) $(GOTESTSUM) ## Run unit and integration tests
+	@mkdir -p $(shell pwd)/.coverage
+	KUBEBUILDER_ASSETS="$(KUBEBUILDER_ASSETS)" $(GOTESTSUM) --junitfile=.coverage/junit.xml --format testname -- -covermode=atomic -coverprofile=.coverage/cover.out -p=4 ./controllers/... ./pkg/...
+
+.PHONY: e2e-image
+e2e-image: ## Build the e2e manager image
+	docker build --pull --build-arg ARCH=$(ARCH) --build-arg LDFLAGS="$(LDFLAGS)" -t $(IMAGE_PREFIX)/caph-staging:e2e -f images/caph/Dockerfile .
+
+.PHONY: $(E2E_CONF_FILE)
+e2e-conf-file: $(E2E_CONF_FILE)
+$(E2E_CONF_FILE): $(ENVSUBST) $(E2E_CONF_FILE_SOURCE)
+	mkdir -p $(shell dirname $(E2E_CONF_FILE))
+	$(ENVSUBST) < $(E2E_CONF_FILE_SOURCE) > $(E2E_CONF_FILE)
+
+.PHONY: test-e2e
+test-e2e: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
+	GINKGO_FOKUS="'\[Basic\]'" GINKGO_NODES=2 ./hack/ci-e2e-capi.sh
+
+.PHONY: test-e2e-feature
+test-e2e-feature: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
+	GINKGO_FOKUS="'\[Feature\]'" GINKGO_NODES=3 ./hack/ci-e2e-capi.sh
+
+.PHONY: test-e2e-feature-packer
+test-e2e-feature-packer: $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
+	GINKGO_FOKUS="'\[Feature Packer\]'" GINKGO_NODES=1 PACKER_IMAGE_NAME=templates/node-image/1.25.2-ubuntu-22-04-containerd ./hack/ci-e2e-capi.sh
+
+.PHONY: test-e2e-feature-talos
+test-e2e-feature-talos: $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
+	GINKGO_FOKUS="'\[Feature Talos\]'" GINKGO_NODES=1 PACKER_TALOS=templates/node-image/talos-image ./hack/ci-e2e-capi.sh
+
+.PHONY: test-e2e-lifecycle
+test-e2e-lifecycle: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
+	GINKGO_FOKUS="'\[Lifecycle\]'" GINKGO_NODES=3 ./hack/ci-e2e-capi.sh
+
+.PHONY: test-e2e-upgrade-caph
+test-e2e-upgrade-caph: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
+	GINKGO_FOKUS="'\[Upgrade CAPH\]'" GINKGO_NODES=2 ./hack/ci-e2e-capi.sh
+
+.PHONY: test-e2e-upgrade-kubernetes
+test-e2e-upgrade-kubernetes: $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
+	GINKGO_FOKUS="'\[Upgrade Kubernetes\]'" GINKGO_NODES=2 PACKER_KUBERNETES_UPGRADE_FROM=templates/node-image/1.24.1-ubuntu-20-04-containerd PACKER_KUBERNETES_UPGRADE_TO=templates/node-image/1.25.2-ubuntu-22-04-containerd ./hack/ci-e2e-capi.sh
+
+.PHONY: test-e2e-conformance
+test-e2e-conformance: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
+	GINKGO_FOKUS="'\[Conformance\]'" GINKGO_NODES=1 ./hack/ci-e2e-capi.sh
+
+.PHONY: test-e2e-baremetal
+test-e2e-baremetal: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
+	GINKGO_FOKUS="'\[Baremetal\]'" GINKGO_NODES=1 ./hack/ci-e2e-capi.sh
+
+.PHONY: test-e2e-baremetal-feature
+test-e2e-baremetal-feature: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
+	GINKGO_FOKUS="'\[Baremetal Feature\]'" GINKGO_NODES=1 ./hack/ci-e2e-capi.sh
+
+##@ Report
+##########
+# Report #
+##########
+report-cover-html: ## Create a html report
+	@mkdir -p $(shell pwd)/.reports
+	go tool cover -html .coverage/cover.out -o .reports/coverage.html
+
+report-binsize-treemap: $(go-binsize-treemap) ## Creates a treemap of the binary
+	@mkdir -p $(shell pwd)/.reports
+	go tool nm -size bin/manager | $(go-binsize-treemap) -w 1024 -h 256 > .reports/caph-binsize-treemap-sm.svg
+	go tool nm -size bin/manager | $(go-binsize-treemap) -w 1024 -h 1024 > .reports/caph-binsize-treemap.svg
+	go tool nm -size bin/manager | $(go-binsize-treemap) -w 2048 -h 2048 > .reports/caph-binsize-treemap-lg.svg
+
+report-binsize-treemap-all: $(go-binsize-treemap) report-binsize-treemap
+	@mkdir -p $(shell pwd)/.reports
+	go tool nm -size bin/manager | $(go-binsize-treemap) -w 4096 -h 4096 > .reports/caph-binsize-treemap-xl.svg
+	go tool nm -size bin/manager | $(go-binsize-treemap) -w 8192 -h 8192 > .reports/caph-binsize-treemap-xxl.svg
+
+report-cover-treemap: $(go-cover-treemap) ## Creates a treemap of the coverage
+	@mkdir -p $(shell pwd)/.reports
+	$(go-cover-treemap) -w 1080 -h 360 -coverprofile .coverage/cover.out > .reports/caph-cover-treemap-sm.svg
+	$(go-cover-treemap) -w 2048 -h 1280 -coverprofile .coverage/cover.out > .reports/caph-cover-treemap-lg.svg
+	$(go-cover-treemap) --only-folders -coverprofile .coverage/cover.out > .reports/caph-cover-treemap-folders.svg
+
+##@ Verify
+##########
+# Verify #
+##########
+.PHONY: verify-boilerplate
+verify-boilerplate: ## Verify boilerplate text exists in each file
+	./hack/verify-boilerplate.sh
+
+.PHONY: verify-shellcheck
+verify-shellcheck: ## Verify shell files
+	./hack/verify-shellcheck.sh
+
+.PHONY: verify-starlark
+verify-starlark: ## Verify Starlark Code
+	./hack/verify-starlark.sh
+
+.PHONY: verify-container-images
+verify-container-images: ## Verify container images
+	trivy image -q --exit-code 1 --ignore-unfixed --severity MEDIUM,HIGH,CRITICAL ghcr.io/syself/caph:latest
+
+##@ Generate
+############
+# Generate #
+############
+.PHONY: generate-boilerplate
+generate-boilerplate: ## Generates missing boilerplates
+	./hack/ensure-boilerplate.sh
+
+# support go modules
+generate-modules: ## Generates missing go modules
+ifeq ($(BUILD_IN_CONTAINER),true)
+	$(SUDO) docker run  $(RM) $(TTY) -i \
+		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
+		-v $(shell pwd):/src/cluster-api-provider-hetzner$(MOUNT_FLAGS) \
+		$(IMAGE_PREFIX)/caph-builder:$(BUILDER_IMAGE_VERSION) $@;
+else
+	./hack/golang-modules-update.sh
+endif
+
+generate-modules-ci: generate-modules
+	@if ! (git diff --exit-code ); then \
+		echo "\nChanges found in generated files"; \
+		exit 1; \
+	fi
+
+generate-manifests: $(CONTROLLER_GEN) ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
+	$(CONTROLLER_GEN) \
+			paths=./api/... \
+			paths=./controllers/... \
+			crd:crdVersions=v1 \
+			rbac:roleName=manager-role \
+			output:crd:dir=./config/crd/bases \
+			output:webhook:dir=./config/webhook \
+			webhook
+
+generate-go-deepcopy: $(CONTROLLER_GEN) ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+	$(CONTROLLER_GEN) \
+		object:headerFile="./hack/boilerplate/boilerplate.generatego.txt" \
+		paths="./api/..."
+
+generate-api-ci: generate-manifests generate-go-deepcopy
+	@if ! (git diff --exit-code ); then \
+		echo "\nChanges found in generated files"; \
+		exit 1; \
+	fi
+
+cluster-templates: $(KUSTOMIZE)
+	$(KUSTOMIZE) build templates/cluster-templates/hcloud --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template.yaml
+	$(KUSTOMIZE) build templates/cluster-templates/hcloud --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud.yaml
+	$(KUSTOMIZE) build templates/cluster-templates/hcloud-packer --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-packer.yaml
+	$(KUSTOMIZE) build templates/cluster-templates/hcloud-talos-packer --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-talos-packer.yaml
+	$(KUSTOMIZE) build templates/cluster-templates/hcloud-network --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-network.yaml
+	$(KUSTOMIZE) build templates/cluster-templates/hcloud-network-packer --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-network-packer.yaml
+	$(KUSTOMIZE) build templates/cluster-templates/hetzner-hcloud-control-planes --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hetzner-hcloud-control-planes.yaml
+	$(KUSTOMIZE) build templates/cluster-templates/hetzner-baremetal-control-planes --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hetzner-baremetal-control-planes.yaml
+	$(KUSTOMIZE) build templates/cluster-templates/hetzner-baremetal-control-planes-remediation --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hetzner-baremetal-control-planes-remediation.yaml
+
+##@ Format
+##########
+# Format #
+##########
+.PHONY: format-golang
+format-golang: ## Format the Go codebase and run auto-fixers if supported by the linter.
+ifeq ($(BUILD_IN_CONTAINER),true)
+	$(SUDO) docker run  $(RM) $(TTY) -i \
+		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
+		-v $(shell pwd):/src/cluster-api-provider-hetzner$(MOUNT_FLAGS) \
+		$(IMAGE_PREFIX)/caph-builder:$(BUILDER_IMAGE_VERSION) $@;
+else
+	go version
+	golangci-lint version
+	GO111MODULE=on golangci-lint run -v --fix
+endif
+
+.PHONY: format-starlark
+format-starlark: ## Format the Starlark codebase
+	./hack/verify-starlark.sh fix
+
+.PHONY: format-yaml
+format-yaml: ## Lint YAML files
+ifeq ($(BUILD_IN_CONTAINER),true)
+	$(SUDO) docker run  $(RM) $(TTY) -i \
+		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
+		-v $(shell pwd):/src/cluster-api-provider-hetzner$(MOUNT_FLAGS) \
+		$(IMAGE_PREFIX)/caph-builder:$(BUILDER_IMAGE_VERSION) $@;
+else
+	yamlfixer --version
+	yamlfixer -c .yamllint.yaml .
+endif
+
+##@ Lint
+########
+# Lint #
+########
+.PHONY: lint-golang
+lint-golang: ## Lint Golang codebase
+ifeq ($(BUILD_IN_CONTAINER),true)
+	$(SUDO) docker run  $(RM) $(TTY) -i \
+		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
+		-v $(shell pwd):/src/cluster-api-provider-hetzner$(MOUNT_FLAGS) \
+		$(IMAGE_PREFIX)/caph-builder:$(BUILDER_IMAGE_VERSION) $@;
+else
+	go version
+	golangci-lint version
+	GO111MODULE=on golangci-lint run -v 
+endif
+
+.PHONY: lint-golang-ci
+lint-golang-ci:
+ifeq ($(BUILD_IN_CONTAINER),true)
+	$(SUDO) docker run  $(RM) $(TTY) -i \
+		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
+		-v $(shell pwd):/src/cluster-api-provider-hetzner$(MOUNT_FLAGS) \
+		$(IMAGE_PREFIX)/caph-builder:$(BUILDER_IMAGE_VERSION) $@;
+else
+	go version
+	golangci-lint version
+	GO111MODULE=on golangci-lint run -v --out-format=github-actions
+endif
+
+.PHONY: lint-yaml
+lint-yaml: ## Lint YAML files
+ifeq ($(BUILD_IN_CONTAINER),true)
+	$(SUDO) docker run  $(RM) $(TTY) -i \
+		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
+		-v $(shell pwd):/src/cluster-api-provider-hetzner$(MOUNT_FLAGS) \
+		$(IMAGE_PREFIX)/caph-builder:$(BUILDER_IMAGE_VERSION) $@;
+else
+	yamllint --version
+	yamllint -c .yamllint.yaml --strict .
+endif
+
+.PHONY: lint-yaml-ci
+lint-yaml-ci:
+ifeq ($(BUILD_IN_CONTAINER),true)
+	$(SUDO) docker run  $(RM) $(TTY) -i \
+		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
+		-v $(shell pwd):/src/cluster-api-provider-hetzner$(MOUNT_FLAGS) \
+		$(IMAGE_PREFIX)/caph-builder:$(BUILDER_IMAGE_VERSION) $@;
+else
+	yamllint --version
+	yamllint -c .yamllint.yaml . --format github
+endif
+
+DOCKERFILES=$(shell find . -not \( -path ./hack -prune \) -not \( -path ./vendor -prune \) -type f -regex ".*Dockerfile.*"  | tr '\n' ' ')
+.PHONY: lint-dockerfile
+lint-dockerfile: ## Lint Dockerfiles
+ifeq ($(BUILD_IN_CONTAINER),true)
+	$(SUDO) docker run  $(RM) $(TTY) -i \
+		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
+		-v $(shell pwd):/src/cluster-api-provider-hetzner$(MOUNT_FLAGS) \
+		$(IMAGE_PREFIX)/caph-builder:$(BUILDER_IMAGE_VERSION) $@;
+else
+	hadolint --version
+	hadolint -t error $(DOCKERFILES)
+endif
+
+lint-links: ## Link Checker
+ifeq ($(BUILD_IN_CONTAINER),true)
+	$(SUDO) docker run $(RM) $(TTY) -i \
+		-v $(shell pwd):/src/cluster-api-provider-hetzner$(MOUNT_FLAGS) \
+		$(IMAGE_PREFIX)/caph-builder:$(BUILDER_IMAGE_VERSION) $@;
+else
+	lychee --verbose --config .lychee.toml ./*.md  ./docs/**/*.md  ./cmd/**/*.md
+endif
+
+##@ Main Targets
+################
+# Main Targets #
+################
+.PHONY: lint
+lint: lint-golang lint-yaml lint-dockerfile lint-links ## Lint Codebase
+
+.PHONY: format
+format: format-starlark format-golang format-yaml ## Format Codebase
+
+.PHONY: generate
+generate: generate-manifests generate-go-deepcopy generate-boilerplate generate-modules ## Generate Files
+
+ALL_VERIFY_CHECKS = boilerplate shellcheck starlark
+.PHONY: verify
+verify: generate lint $(addprefix verify-,$(ALL_VERIFY_CHECKS)) ## Verify all
+	@if ! (git diff --exit-code ); then \
+		echo "\nChanges found in generated files"; \
+		echo "Please check the generated files and stage or commit the changes to fix this error."; \
+		echo "If you are actively developing these files you can ignore this error"; \
+		echo "(Don't forget to check in the generated files when finished)\n"; \
+		exit 1; \
+	fi
+
+.PHONY: modules
+modules: generate-modules ## Update go.mod & go.sum 
+
+.PHONY: boilerplate
+boilerplate: generate-boilerplate ## Ensure that your files have a boilerplate header 
+
+.PHONY: builder-image-push
+builder-image-push: ## Build caph-builder to a new version. For more information see README.
+	./hack/upgrade-builder-image.sh
+
+.PHONY: test
+test: test-unit ## Runs all unit and integration tests.
+
+.PHONY: tilt-up
+tilt-up: $(ENVSUBST) $(KUSTOMIZE) $(TILT) cluster  ## Start a mgt-cluster & Tilt. Installs the CRDs and deploys the controllers
+	EXP_CLUSTER_RESOURCE_SET=true $(TILT) up

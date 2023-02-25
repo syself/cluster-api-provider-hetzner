@@ -1,0 +1,7 @@
+failure-threshold: warning
+format: json
+ignored: []
+no-color: false
+no-fail: false
+strict-labels: false
+disable-ignore-pragma: false

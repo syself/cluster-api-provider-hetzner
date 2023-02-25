@@ -1,0 +1,31 @@
+extends: default
+rules:
+  braces:
+    min-spaces-inside: 0
+    max-spaces-inside: 1
+  brackets:
+    min-spaces-inside: 0
+    max-spaces-inside: 1
+  indentation:
+    spaces: 2
+    indent-sequences: consistent
+  line-length: disable
+  new-line-at-end-of-file: disable
+  truthy: disable
+  document-start: false
+  comments:
+    min-spaces-from-content: 1
+
+yaml-files:
+  - '*.yaml'
+  - '*.yml'
+
+ignore:
+  - '**/vendor/**'
+  - '.cache'
+  - _artifacts
+  - config/crd/**/*.yaml
+  - config/rbac/**/*.yaml
+  - config/webhook/**/*.yaml
+  - test/e2e/data/**/*.yaml
+  - test/e2e/config/hetzner-ci-envsubst.yaml

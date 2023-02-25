@@ -6,7 +6,11 @@
     "pkg/services/baremetal/client/mocks/robot",
     "pkg/services/baremetal/client/mocks/ssh",
     "hack/ci-e2e-get-token.sh",
-    "hack/ci-e2e-delete-token.sh"
+    "hack/ci-e2e-delete-token.sh",
+    "hack/tools/",
+    "vendor",
+    ".cache",
+    ".pkg"
   ],
   "not_generated_files_to_skip" : [
     "hack/boilerplate/boilerplate.py"

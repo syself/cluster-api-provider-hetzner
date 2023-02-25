@@ -7,7 +7,7 @@
 
 # For creating local dev images run make e2e-image from the main CAPH repository
 images:
-  - name: quay.io/syself/cluster-api-provider-hetzner:e2e
+  - name: ghcr.io/syself/caph-staging:e2e
     loadBehavior: mustLoad
 providers:
   - name: cluster-api
@@ -88,8 +88,8 @@ providers:
         value: ../../../config/default
         contract: v1beta1
         replacements:
-          - old: quay.io/syself/cluster-api-provider-hetzner:latest
-            new: quay.io/syself/cluster-api-provider-hetzner:e2e
+          - old: ghcr.io/syself/caph-staging:latest
+            new: ghcr.io/syself/caph-staging:e2e
           - old: "imagePullPolicy: Always"
             new: "imagePullPolicy: IfNotPresent"
           - old: --metrics-bind-addr=localhost:8080
