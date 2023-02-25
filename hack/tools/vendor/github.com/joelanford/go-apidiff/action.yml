@@ -1,0 +1,57 @@
+name: 'go-apidiff'
+description: 'Test API compatibility of changes in your Go library'
+branding:
+  icon: 'code'  
+  color: 'blue'
+inputs:
+  base-ref:
+    description: 'Base reference for API compatibility comparison (default: base branch)'
+    required: false
+    default: "origin/${GITHUB_BASE_REF}"
+  version:
+    description: 'Version of go-apidiff to use'
+    required: false
+    default: "latest"
+  compare-imports:
+    description: 'Compare exported API differences in the imports of the repo.'
+    required: false
+    default: 'false'
+  print-compatible:
+    description: 'Print compatible API changes'
+    required: false
+    default: 'true'
+  repo-path:
+    description: 'Path to root of git repository to compare'
+    required: false
+    default: '.'
+  skip-cache:
+    description: 'Skip automatic caching of go module directories'
+    required: false
+    default: false
+runs:
+  using: 'composite'
+  steps:
+    - uses: actions/cache@v2
+      if: ${{ inputs.skip-cache != 'true' }}
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-apidiff-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-apidiff
+    - shell: bash
+      run: |
+        if [[ "${{ github.repository }}" == "joelanford/go-apidiff" && "${{ inputs.version }}" == "latest" ]]; then
+          echo "*** Installing go-apidiff from source ***"
+          go install .
+        else
+          INSTALL_CMD="go install"
+          if [[ "$(go version | cut -d' ' -f3 | cut -d'.' -f2 | grep -o -E '[0-9]+' | head -1)" -lt "16" ]]; then
+            INSTALL_CMD="go get"
+          fi
+          DIR=$(mktemp -d)
+          (cd ${DIR} && GO111MODULE=on ${INSTALL_CMD} github.com/joelanford/go-apidiff@${{ inputs.version }}) && rmdir ${DIR}
+        fi
+        set -x
+        $(go env GOPATH)/bin/go-apidiff ${{ inputs.base-ref }} --compare-imports=${{ inputs.compare-imports }} --print-compatible=${{ inputs.print-compatible }} --repo-path=${{ inputs.repo-path }}
