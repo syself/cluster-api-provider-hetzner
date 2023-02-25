@@ -51,7 +51,7 @@ jobs:
         run: make gotestsum go-cover-treemap
 
       - name: Running tests
-        run: make testing-unit
+        run: make test-unit
 
       - name: Create Report
         run: make report-cover-html report-cover-treemap
