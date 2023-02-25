@@ -36,6 +36,7 @@ jobs:
           state: open
           labels: |
             link-checker
+
       - name: Update Issue
         uses: peter-evans/create-issue-from-file@433e51abf769039ee20ba1293a088ca19d573b7f # v4
         with:

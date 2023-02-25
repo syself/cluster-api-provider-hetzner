@@ -6,9 +6,6 @@ on: # yamllint disable-line rule:truthy
 # yamllint disable rule:line-length
 jobs:
   scan:
-    strategy:
-      matrix:
-        branch: ["main"]
     name: Trivy
     runs-on: ubuntu-latest
     container:
@@ -19,8 +16,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
-        with:
-          ref: ${{ matrix.branch }}
       - name: Fixup git permissions
         # https://github.com/actions/checkout/issues/766
         shell: bash

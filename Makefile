@@ -408,6 +408,7 @@ set-manifest-pull-policy:
 
 builder-image-promote-latest:
 	skopeo copy --src-creds=$(USERNAME):$(PASSWORD) --dest-creds=$(USERNAME):$(PASSWORD) docker://ghcr.io/syself/caph-builder:$(BUILDER_IMAGE_VERSION) docker://ghcr.io/syself/caph-builder:latest
+
 ##@ Binary
 ##########
 # Binary #
@@ -531,6 +532,7 @@ verify-starlark: ## Verify Starlark Code
 .PHONY: verify-container-images
 verify-container-images: ## Verify container images
 	trivy image -q --exit-code 1 --ignore-unfixed --severity MEDIUM,HIGH,CRITICAL ghcr.io/syself/caph:latest
+
 ##@ Generate
 ############
 # Generate #
