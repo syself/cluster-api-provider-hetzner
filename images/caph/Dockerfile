@@ -13,35 +13,19 @@
 # limitations under the License.
 
 # Build the manager binary
-FROM docker.io/library/golang:1.19.6@sha256:0c9665d64c752eb2cf5bb192d1e99e12db75b325cc5670d47da911f7e05aee18 as builder
-WORKDIR /workspace
+FROM --platform=${BUILDPLATFORM} docker.io/library/golang:1.19.6@sha256:0c9665d64c752eb2cf5bb192d1e99e12db75b325cc5670d47da911f7e05aee18 as build
+ARG TARGETOS TARGETARCH
 
-# Run this with docker build --build_arg $(go env GOPROXY) to override the goproxy
-ARG goproxy=https://proxy.golang.org
-ENV GOPROXY=$goproxy
-
-# Copy the Go Modules manifests
-COPY go.mod go.mod
-COPY go.sum go.sum
-
-# cache deps before building and copying source so that we don't need to re-download as much
-# and so that source changes don't invalidate our downloaded layer
-RUN go mod download
-
-# Copy the go source
-COPY ./ ./
-
-# Build
-ARG ARCH
-ARG LDFLAGS
-
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=${ARCH} \
+COPY . /src/cluster-api-provider-hetzner
+WORKDIR /src/cluster-api-provider-hetzner
+RUN --mount=type=cache,target=/root/.cache --mount=type=cache,target=/go/pkg \
+    GOOS=${TARGETOS} GOARCH=${TARGETARCH} CGO_ENABLED=0 \
     go build -mod=vendor -ldflags "${LDFLAGS} -extldflags '-static'" \
     -o manager main.go
 
-FROM gcr.io/distroless/static:nonroot
+FROM --platform=${BUILDPLATFORM} gcr.io/distroless/static:nonroot
 WORKDIR /
-COPY --from=builder /workspace/manager .
+COPY --from=build /src/cluster-api-provider-hetzner/manager .
 # Use uid of nonroot user (65532) because kubernetes expects numeric user when applying pod security policies
 USER 65532
 ENTRYPOINT ["/manager"]
