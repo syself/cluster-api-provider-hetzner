@@ -30,7 +30,7 @@ runs:
         provenance: false
         context: .
         push: true
-        file: ./images/caph/Dockerfile.cross
+        file: ./images/caph/Dockerfile
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
         platforms: linux/amd64

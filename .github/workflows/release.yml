@@ -8,7 +8,11 @@ env:
   REGISTRY: ghcr.io/syself
   metadata_flavor: latest=true
   metadata_tags: type=ref,event=tag
-
+permissions:
+  contents: read
+  packages: write
+  # Required to generate OIDC tokens for `sigstore/cosign-installer` authentication
+  id-token: write
 jobs:
   manager-image:
     name: Build and push manager image
@@ -59,7 +63,7 @@ jobs:
         with:
           provenance: false
           context: .
-          file: ./images/caph/Dockerfile.cross
+          file: ./images/caph/Dockerfile
           push: true
           build-args: |
             LDFLAGS=${{ env.DOCKER_BUILD_LDFLAGS }}

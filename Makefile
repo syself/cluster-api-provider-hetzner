@@ -391,10 +391,8 @@ release-notes: $(RELEASE_NOTES_DIR) $(RELEASE_NOTES)
 ##########
 # Images #
 ##########
-caph-image: ## Build caph image
-	$(SUDO) docker build -t $(IMAGE_PREFIX)/caph-staging:$(TAG) -f images/caph/Dockerfile .
 caph-image-cross: ## Build caph image all arch image
-	$(SUDO) DOCKER_BUILDKIT=1 docker build -t $(IMAGE_PREFIX)/caph-staging:$(TAG) -f images/caph/Dockerfile.cross .
+	$(SUDO) DOCKER_BUILDKIT=1 docker build -t $(IMAGE_PREFIX)/caph-staging:$(TAG) -f images/caph/Dockerfile .
 
 .PHONY: set-manifest-image
 set-manifest-image:

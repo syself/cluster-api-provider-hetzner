@@ -20,7 +20,6 @@ env:
   metadata_flavor: latest=false
   metadata_tags: type=ref,event=pr
   registry_password: ${{ secrets.GITHUB_TOKEN }}
-
 jobs:
   manager-image:
     name: Build and push manager image
