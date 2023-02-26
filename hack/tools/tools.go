@@ -24,7 +24,7 @@ import (
 	_ "github.com/joelanford/go-apidiff"
 	_ "github.com/nikolaydubina/go-binsize-treemap"
 	_ "github.com/nikolaydubina/go-cover-treemap"
-	_ "github.com/onsi/ginkgo/v2"
+	_ "github.com/onsi/ginkgo/v2/ginkgo"
 	_ "github.com/tilt-dev/ctlptl/cmd/ctlptl"
 	_ "gotest.tools/gotestsum"
 	_ "k8s.io/code-generator/cmd/conversion-gen"

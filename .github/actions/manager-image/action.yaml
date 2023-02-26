@@ -1,5 +1,9 @@
 name: "Manager Image"
 description: "Build and Push Manager Image"
+inputs:
+  registry_password:
+    description: "registry_password"
+    required: true
 runs:
   using: "composite"
   steps:
@@ -11,7 +15,7 @@ runs:
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+        password: ${{ env.registry_password }}
 
     - name: Generate metadata
       id: meta
