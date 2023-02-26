@@ -12,6 +12,7 @@ on: # yamllint disable-line rule:truthy
       - "**go.mod"
       - "**go.sum"
       - ".github/workflows/**"
+      - "Makefile"
       - "images/builder/**"
       - "images/caph/**"
   push:
@@ -43,11 +44,14 @@ jobs:
         uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
         with:
           go-version-file: "go.mod"
-          cache: true
-          cache-dependency-path: go.sum
 
       - name: Install dependencies
         run: make gotestsum go-cover-treemap setup-envtest
+
+      - name: Install go modules for test
+        shell: bash
+        run: |
+          cd test && GO111MODULE=on GOPROXY=https://proxy.golang.org go mod download
 
       - name: Running tests
         run: make test-unit

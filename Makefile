@@ -436,7 +436,7 @@ E2E_CONF_FILE ?= $(E2E_DIR)/config/hetzner-ci-envsubst.yaml
 .PHONY: test-unit
 test-unit: $(SETUP_ENVTEST) $(GOTESTSUM) ## Run unit and integration tests
 	@mkdir -p $(shell pwd)/.coverage
-	KUBEBUILDER_ASSETS="$(KUBEBUILDER_ASSETS)" $(GOTESTSUM) --junitfile=.coverage/junit.xml --format testname -- -covermode=atomic -mod=vendor -coverprofile=.coverage/cover.out -p=4 ./controllers/... ./pkg/...
+	KUBEBUILDER_ASSETS="$(KUBEBUILDER_ASSETS)" $(GOTESTSUM) --junitfile=.coverage/junit.xml --format testname -- -mod=vendor -covermode=atomic -coverprofile=.coverage/cover.out -p=4 ./controllers/... ./pkg/...
 
 .PHONY: e2e-image
 e2e-image: ## Build the e2e manager image
