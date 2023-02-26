@@ -1,0 +1,41 @@
+name: Caph Image Cache Cleaner
+# yamllint disable rule:line-length
+on: # yamllint disable-line rule:truthy
+  workflow_dispatch:
+  schedule:
+    # Run the GC on the first day in the month at 6am
+    - cron: "0 6 1 * *"
+permissions: read-all
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
+  cancel-in-progress: true
+jobs:
+  cache-cleaner:
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        include:
+          - name: symin
+    steps:
+      # Load Golang cache build from GitHub
+      - name: Load Caph Golang cache build from GitHub
+        uses: actions/cache@6998d139ddd3e68c71e9e398d8e40b71a2f39812 # v3.2.5
+        id: cache
+        with:
+          path: /tmp/.cache/caph
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-caph-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-caph-
+            ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-
+            ${{ runner.os }}-go-
+      - name: Create Caph cache directory
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        run: |
+          mkdir -p /tmp/.cache/caph
+      # Clean docker's golang's cache
+      - name: Clean Caph Golang cache from GitHub
+        shell: bash
+        run: |
+          rm -f /tmp/.cache/caph/go-build-cache.tar.gz
+          rm -f /tmp/.cache/caph/go-pkg-cache.tar.gz
