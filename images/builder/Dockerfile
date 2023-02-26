@@ -19,7 +19,7 @@
 # Install Lychee
 FROM docker.io/library/alpine:3.17.2@sha256:e2e16842c9b54d985bf1ef9242a313f36b856181f188de21313820e177002501 as lychee
 # update: datasource=github-tags depName=lycheeverse/lychee versioning=semver
-ENV LYCHEE_VERSION="v0.10.3"
+ENV LYCHEE_VERSION="v0.11.1"
 # hadolint ignore=DL3018
 RUN apk add --no-cache curl && \
     curl -L -o /tmp/lychee-${LYCHEE_VERSION}.tgz https://github.com/lycheeverse/lychee/releases/download/${LYCHEE_VERSION}/lychee-${LYCHEE_VERSION}-x86_64-unknown-linux-gnu.tar.gz && \
