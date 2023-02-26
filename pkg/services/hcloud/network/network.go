@@ -77,9 +77,9 @@ func (s *Service) createNetwork(ctx context.Context, spec *infrav1.HCloudNetwork
 		return nil, errors.Wrapf(err, "invalid network '%s'", spec.CIDRBlock)
 	}
 
-	_, subnet, err := net.ParseCIDR(s.scope.HetznerCluster.Spec.HCloudNetwork.CIDRBlock)
+	_, subnet, err := net.ParseCIDR(spec.SubnetCIDRBlock)
 	if err != nil {
-		return nil, errors.Wrapf(err, "invalid network '%s'", s.scope.HetznerCluster.Spec.HCloudNetwork.CIDRBlock)
+		return nil, errors.Wrapf(err, "invalid network '%s'", spec.SubnetCIDRBlock)
 	}
 
 	opts := hcloud.NetworkCreateOpts{
