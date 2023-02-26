@@ -13,6 +13,7 @@ on:
       - ".github/actions/**/*"
       - ".github/workflows/e2e-*"
       - ".github/workflows/pr-*"
+      - "images/caph/**"
       - "!**/vendor/**"
 env:
   IMAGE_NAME: caph-staging
@@ -43,6 +44,8 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
       - name: Test Release
         id: manager-image
         uses: ./.github/actions/test-release
@@ -58,6 +61,8 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
       - name: Run e2e Test
         id: e2e
         uses: ./.github/actions/e2e
@@ -78,6 +83,8 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
       - name: Run e2e Test
         id: e2e-bm
         uses: ./.github/actions/e2e

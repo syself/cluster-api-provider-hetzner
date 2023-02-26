@@ -61,6 +61,35 @@ jobs:
           echo $DOCKER_BUILD_LDFLAGS >> $GITHUB_ENV
           echo 'EOF' >> $GITHUB_ENV
 
+      # Load Golang cache build from GitHub
+      - name: Load Caph Golang cache build from GitHub
+        uses: actions/cache@6998d139ddd3e68c71e9e398d8e40b71a2f39812 # v3.2.5
+        id: cache
+        with:
+          path: /tmp/.cache/caph
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-caph-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-caph-
+            ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-
+            ${{ runner.os }}-go-
+
+      - name: Create Caph cache directory
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        run: |
+          mkdir -p /tmp/.cache/caph
+
+      # Import GitHub's cache build to docker cache
+      - name: Copy Caph Golang cache to docker cache
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671 # v4.0.0
+        with:
+          provenance: false
+          context: /tmp/.cache/caph
+          file: ./images/cache/Dockerfile
+          push: false
+          platforms: linux/amd64
+          target: import-cache
+
       - name: Build and push manager image
         uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671 # v4
         id: docker_build_release
@@ -74,8 +103,6 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64
-          cache-from: type=gha, scope=${{ github.workflow }}
-          cache-to: type=gha, mode=max, scope=${{ github.workflow }}
 
       - name: Sign Container Images
         env:
@@ -96,6 +123,32 @@ jobs:
           name: image-digest caph
           path: image-digest
           retention-days: 90
+
+      # Store docker's golang's cache build locally only on the main branch
+      - name: Store Caph Golang cache build locally
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671 # v4.0.0
+        with:
+          provenance: false
+          context: .
+          file: ./images/cache/Dockerfile
+          push: false
+          outputs: type=local,dest=/tmp/docker-cache-caph
+          platforms: linux/amd64
+          target: export-cache
+
+      # Store docker's golang's cache build locally only on the main branch
+      - name: Store Caph Golang cache in GitHub cache path
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        run: |
+          mkdir -p /tmp/.cache/caph/
+          if [ -f /tmp/docker-cache-caph/tmp/go-build-cache.tar.gz ]; then
+          cp /tmp/docker-cache-caph/tmp/go-build-cache.tar.gz /tmp/.cache/caph/
+          fi
+          if [ -f /tmp/docker-cache-caph/tmp/go-pkg-cache.tar.gz ]; then
+          cp /tmp/docker-cache-caph/tmp/go-pkg-cache.tar.gz /tmp/.cache/caph/
+          fi
 
       - name: Image Digests Output
         shell: bash
