@@ -19,6 +19,7 @@ env:
   REGISTRY: ghcr.io/syself
   metadata_flavor: latest=false
   metadata_tags: type=ref,event=pr
+  registry_password: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
   manager-image:
