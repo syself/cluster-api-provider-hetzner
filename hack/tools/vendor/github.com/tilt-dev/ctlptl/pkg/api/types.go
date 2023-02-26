@@ -176,6 +176,11 @@ type Registry struct {
 	// that are tagged "app: k3d".
 	Labels map[string]string `json:"labels,omitempty" yaml:"labels,omitempty"`
 
+	// Environment vars to use for registry container (optional).
+	//
+	// Can be used to change some parameters likes REGISTRY_HTTP_ADDR, REGISTRY_PROXY_REMOTEURL
+	Env []string `json:"env,omitempty" yaml:"env,omitempty"`
+
 	// Image to use for registry container (optional).
 	//
 	// Can be used to provide an alternate image or use a different registry
@@ -222,6 +227,9 @@ type RegistryStatus struct {
 
 	// Labels attached to the running container.
 	Labels map[string]string `json:"labels,omitempty" yaml:"labels,omitempty"`
+
+	// Env attached to the running container.
+	Env []string `json:"env,omitempty" yaml:"env,omitempty"`
 
 	// Image for the running container.
 	Image string `json:"image,omitempty" yaml:"image,omitempty"`

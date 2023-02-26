@@ -44,7 +44,7 @@ github.com/Masterminds/sprig/v3
 ## explicit; go 1.13
 github.com/Microsoft/go-winio
 github.com/Microsoft/go-winio/pkg/guid
-# github.com/Microsoft/hcsshim v0.9.4
+# github.com/Microsoft/hcsshim v0.9.6
 ## explicit; go 1.13
 github.com/Microsoft/hcsshim/osversion
 # github.com/ProtonMail/go-crypto v0.0.0-20210428141323-04723f9f07d7
@@ -92,7 +92,7 @@ github.com/cespare/xxhash/v2
 # github.com/chzyer/readline v1.5.0
 ## explicit; go 1.15
 github.com/chzyer/readline
-# github.com/containerd/containerd v1.6.8
+# github.com/containerd/containerd v1.6.18
 ## explicit; go 1.17
 github.com/containerd/containerd/errdefs
 github.com/containerd/containerd/log
@@ -479,7 +479,7 @@ github.com/mattn/go-isatty
 # github.com/mattn/go-runewidth v0.0.14
 ## explicit; go 1.9
 github.com/mattn/go-runewidth
-# github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369
+# github.com/matttproud/golang_protobuf_extensions v1.0.4
 ## explicit; go 1.9
 github.com/matttproud/golang_protobuf_extensions/pbutil
 # github.com/miekg/pkcs11 v1.1.1
@@ -702,8 +702,8 @@ github.com/theupdateframework/notary/tuf/validation
 # github.com/tilt-dev/clusterid v0.1.3
 ## explicit; go 1.18
 github.com/tilt-dev/clusterid
-# github.com/tilt-dev/ctlptl v0.8.16
-## explicit; go 1.19
+# github.com/tilt-dev/ctlptl v0.8.17
+## explicit; go 1.20
 github.com/tilt-dev/ctlptl/cmd/ctlptl
 github.com/tilt-dev/ctlptl/internal/dctr
 github.com/tilt-dev/ctlptl/internal/exec
@@ -798,7 +798,7 @@ golang.org/x/exp/apidiff
 golang.org/x/mod/internal/lazyregexp
 golang.org/x/mod/module
 golang.org/x/mod/semver
-# golang.org/x/net v0.5.0
+# golang.org/x/net v0.7.0
 ## explicit; go 1.17
 golang.org/x/net/context
 golang.org/x/net/context/ctxhttp
@@ -823,7 +823,7 @@ golang.org/x/oauth2/jwt
 # golang.org/x/sync v0.1.0
 ## explicit
 golang.org/x/sync/errgroup
-# golang.org/x/sys v0.4.0
+# golang.org/x/sys v0.5.0
 ## explicit; go 1.17
 golang.org/x/sys/cpu
 golang.org/x/sys/execabs
@@ -832,10 +832,10 @@ golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 golang.org/x/sys/windows/registry
-# golang.org/x/term v0.4.0
+# golang.org/x/term v0.5.0
 ## explicit; go 1.17
 golang.org/x/term
-# golang.org/x/text v0.6.0
+# golang.org/x/text v0.7.0
 ## explicit; go 1.17
 golang.org/x/text/cases
 golang.org/x/text/encoding
