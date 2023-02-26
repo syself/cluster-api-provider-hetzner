@@ -6,6 +6,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"regexp"
+	"reflect"
 
 	"github.com/docker/distribution/reference"
 	"github.com/docker/docker/api/types"
@@ -132,6 +134,11 @@ func (c *Controller) List(ctx context.Context, options ListOptions) (*api.Regist
 		name := strings.TrimPrefix(container.Names[0], "/")
 		created := time.Unix(container.Created, 0)
 
+		inspect, err := c.dockerClient.ContainerInspect(ctx, container.ID)
+		if err != nil {
+			return nil, err
+		}
+		env := inspect.Config.Env
 		netSummary := container.NetworkSettings
 		ipAddress := ""
 		networks := []string{}
@@ -163,6 +170,7 @@ func (c *Controller) List(ctx context.Context, options ListOptions) (*api.Regist
 				State:             container.State,
 				Labels:            container.Labels,
 				Image:             container.Image,
+				Env:               env,
 			},
 		}
 
@@ -218,6 +226,38 @@ func (c *Controller) Apply(ctx context.Context, desired *api.Registry) (*api.Reg
 			needsDelete = true
 		}
 	}
+
+	r := regexp.MustCompile("^(?P<key>[^=]+)=(?P<value>.*)")
+	desiredEnvs := make(map[string]string)
+	for _, value := range desired.Env {
+		m := r.FindStringSubmatch(value)
+		if m != nil {
+			k := m[r.SubexpIndex("key")]
+			v := m[r.SubexpIndex("value")]
+			if k != "PATH" {
+				desiredEnvs[k] = v
+			}
+		}
+	}
+	existingEnvs := make(map[string]string)
+	for _, value := range existing.Status.Env {
+		m := r.FindStringSubmatch(value)
+		if m != nil {
+			k := m[r.SubexpIndex("key")]
+			v := m[r.SubexpIndex("value")]
+			if k != "PATH" {
+				existingEnvs[k] = v
+			}
+		}
+	}
+	if _, ok := desiredEnvs["REGISTRY_STORAGE_DELETE_ENABLED"]; ! ok {
+		desiredEnvs["REGISTRY_STORAGE_DELETE_ENABLED"] = "true"
+		desired.Env = append(desired.Env, "REGISTRY_STORAGE_DELETE_ENABLED=true")
+	}
+	if eq := reflect.DeepEqual(desiredEnvs, existingEnvs); ! eq {
+		needsDelete = true
+	}
+
 	if needsDelete && existing.Name != "" {
 		err = c.Delete(ctx, existing.Name)
 		if err != nil {
@@ -253,7 +293,7 @@ func (c *Controller) Apply(ctx context.Context, desired *api.Registry) (*api.Reg
 			Image:        desired.Image,
 			ExposedPorts: exposedPorts,
 			Labels:       c.labelConfigs(existing, desired),
-			Env:          []string{"REGISTRY_STORAGE_DELETE_ENABLED=true"},
+			Env:          desired.Env,
 		},
 		&container.HostConfig{
 			RestartPolicy: container.RestartPolicy{Name: "always"},
