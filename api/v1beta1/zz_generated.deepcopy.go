@@ -216,7 +216,7 @@ func (in *HCloudMachineStatus) DeepCopyInto(out *HCloudMachineStatus) {
 	*out = *in
 	if in.Addresses != nil {
 		in, out := &in.Addresses, &out.Addresses
-		*out = make([]v1.NodeAddress, len(*in))
+		*out = make([]apiv1beta1.MachineAddress, len(*in))
 		copy(*out, *in)
 	}
 	if in.InstanceState != nil {
@@ -651,7 +651,7 @@ func (in *HetznerBareMetalMachineStatus) DeepCopyInto(out *HetznerBareMetalMachi
 	}
 	if in.Addresses != nil {
 		in, out := &in.Addresses, &out.Addresses
-		*out = make([]v1.NodeAddress, len(*in))
+		*out = make([]apiv1beta1.MachineAddress, len(*in))
 		copy(*out, *in)
 	}
 	if in.Conditions != nil {

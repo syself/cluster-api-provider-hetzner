@@ -18,7 +18,6 @@ package v1beta1
 
 import (
 	"github.com/hetznercloud/hcloud-go/hcloud"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/errors"
@@ -64,7 +63,7 @@ type HCloudMachineStatus struct {
 	Ready bool `json:"ready"`
 
 	// Addresses contains the server's associated addresses.
-	Addresses []corev1.NodeAddress `json:"addresses,omitempty"`
+	Addresses []clusterv1.MachineAddress `json:"addresses,omitempty"`
 
 	// Region contains the name of the HCloud location the server is running.
 	Region Region `json:"region,omitempty"`

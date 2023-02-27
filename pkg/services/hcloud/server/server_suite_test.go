@@ -28,7 +28,7 @@ import (
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
-	corev1 "k8s.io/api/core/v1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 )
 
 const serverJSON = `
@@ -192,7 +192,7 @@ var server *hcloud.Server
 const instanceState = hcloud.ServerStatusRunning
 
 var ips = []string{"1.2.3.4", "2001:db8::3", "10.0.0.2"}
-var addressTypes = []corev1.NodeAddressType{corev1.NodeExternalIP, corev1.NodeExternalIP, corev1.NodeInternalIP}
+var addressTypes = []clusterv1.MachineAddressType{clusterv1.MachineExternalIP, clusterv1.MachineExternalIP, clusterv1.MachineInternalIP}
 
 func TestServer(t *testing.T) {
 	RegisterFailHandler(Fail)
