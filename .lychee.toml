@@ -1,8 +1,6 @@
 ###
 ### Display
 ###
-# Verbose program output
-verbose = "warn"
 
 # Show progress
 progress = false
@@ -58,6 +56,7 @@ exclude = [
     "https://hetzner.cloud/",
     "mailto:info@syself.com",
     "https://www.hetzner.com/*",
+    "https://opensource.org/license/apache-2-0/",
 ]
 
 include = []

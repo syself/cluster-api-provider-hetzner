@@ -14,7 +14,7 @@
     <a href="https://pkg.go.dev/github.com/syself/cluster-api-provider-hetzner?tab=overview"><img src="https://godoc.org/github.com/syself/cluster-api-provider-hetzner?status.svg" alt="GoDoc"></a>
     <a href="https://goreportcard.com/report/github.com/syself/cluster-api-provider-hetzner"><img src="https://goreportcard.com/badge/github.com/syself/cluster-api-provider-hetzner" alt="Go Report Card"></a>
     <a href="https://bestpractices.coreinfrastructure.org/projects/5682"><img src="https://bestpractices.coreinfrastructure.org/projects/5682/badge" alt="CII Best Practices"></a>
-    <a href="https://opensource.org/licenses/Apache-2.0"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License"></a>
+    <a href="https://opensource.org/license/apache-2-0/"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License"></a>
     <a href="https://quay.io/repository/syself/cluster-api-provider-hetzner?tab=tags"><img src="https://img.shields.io/github/v/tag/syself/cluster-api-provider-hetzner?include_prereleases&label=quay.io" alt="Latest quay.io image tags"></a>
 </p>
 
