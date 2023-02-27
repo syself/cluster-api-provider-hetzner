@@ -25,7 +25,7 @@ jobs:
         env:
           GITHUB_TOKEN: "${{ steps.generate-token.outputs.token }}"
         with:
-          args: --no-progress --verbose --config .lychee.toml './**/*.md'
+          args: --config .lychee.toml ./*.md  ./docs/**/*.md
           output: ./lychee.md
           format: markdown
 

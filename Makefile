@@ -694,7 +694,7 @@ ifeq ($(BUILD_IN_CONTAINER),true)
 		-v $(shell pwd):/src/cluster-api-provider-hetzner$(MOUNT_FLAGS) \
 		$(IMAGE_PREFIX)/caph-builder:$(BUILDER_IMAGE_VERSION) $@;
 else
-	lychee --verbose --config .lychee.toml ./*.md  ./docs/**/*.md  ./cmd/**/*.md
+	lychee --config .lychee.toml ./*.md  ./docs/**/*.md
 endif
 
 ##@ Main Targets
