@@ -2,7 +2,7 @@
 ### Display
 ###
 # Verbose program output
-verbose = false
+verbose = "warn"
 
 # Show progress
 progress = false
