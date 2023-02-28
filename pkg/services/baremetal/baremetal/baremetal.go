@@ -32,6 +32,7 @@ import (
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	corev1 "k8s.io/api/core/v1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -734,10 +735,10 @@ func (s *Service) updateMachineStatus(host *infrav1.HetznerBareMetalHost) {
 	}
 }
 
-// NodeAddresses returns a slice of corev1.NodeAddress objects for a
+// NodeAddresses returns a slice of clusterv1.MachineAddress objects for a
 // given HetznerBareMetal machine.
-func nodeAddresses(host *infrav1.HetznerBareMetalHost, bareMetalMachineName string) []corev1.NodeAddress {
-	addrs := []corev1.NodeAddress{}
+func nodeAddresses(host *infrav1.HetznerBareMetalHost, bareMetalMachineName string) []clusterv1.MachineAddress {
+	addrs := []clusterv1.MachineAddress{}
 
 	// If the host is nil or we have no hw details, return an empty address array.
 	if host == nil || host.Spec.Status.HardwareDetails == nil {
@@ -745,19 +746,19 @@ func nodeAddresses(host *infrav1.HetznerBareMetalHost, bareMetalMachineName stri
 	}
 
 	for _, nic := range host.Spec.Status.HardwareDetails.NIC {
-		address := corev1.NodeAddress{
-			Type:    corev1.NodeInternalIP,
+		address := clusterv1.MachineAddress{
+			Type:    clusterv1.MachineInternalIP,
 			Address: nic.IP,
 		}
 		addrs = append(addrs, address)
 	}
 
 	// Add hostname == bareMetalMachineName as well
-	addrs = append(addrs, corev1.NodeAddress{
-		Type:    corev1.NodeHostName,
+	addrs = append(addrs, clusterv1.MachineAddress{
+		Type:    clusterv1.MachineHostName,
 		Address: bareMetalMachineName,
-	}, corev1.NodeAddress{
-		Type:    corev1.NodeInternalDNS,
+	}, clusterv1.MachineAddress{
+		Type:    clusterv1.MachineInternalDNS,
 		Address: bareMetalMachineName,
 	})
 

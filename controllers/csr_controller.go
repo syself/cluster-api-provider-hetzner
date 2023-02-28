@@ -27,7 +27,7 @@ import (
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/csr"
 	certificatesv1 "k8s.io/api/certificates/v1"
-	corev1 "k8s.io/api/core/v1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -92,7 +92,7 @@ func (r *GuestCSRReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 
 	var isHCloudMachine bool
 	var machineName string
-	var machineAddresses []corev1.NodeAddress
+	var machineAddresses []clusterv1.MachineAddress
 
 	// find matching HCloudMachine object
 	var hcloudMachine infrav1.HCloudMachine

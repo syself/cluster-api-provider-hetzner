@@ -24,19 +24,19 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/csr"
-	corev1 "k8s.io/api/core/v1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 )
 
 var _ = Describe("Validate Kubelet CSR", func() {
 	var cr *x509.CertificateRequest
 	var name string
-	var addresses []corev1.NodeAddress
+	var addresses []clusterv1.MachineAddress
 	BeforeEach(func() {
 
 		name = "hcloud-testing-control-plane-vgnlc"
-		addresses = []corev1.NodeAddress{
+		addresses = []clusterv1.MachineAddress{
 			{
-				Type:    corev1.NodeExternalIP,
+				Type:    clusterv1.MachineExternalIP,
 				Address: "195.201.236.66",
 			},
 		}

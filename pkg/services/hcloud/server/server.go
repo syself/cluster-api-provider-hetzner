@@ -532,13 +532,13 @@ func setStatusFromAPI(server *hcloud.Server) infrav1.HCloudMachineStatus {
 	var status infrav1.HCloudMachineStatus
 	s := server.Status
 	status.InstanceState = &s
-	status.Addresses = []corev1.NodeAddress{}
+	status.Addresses = []clusterv1.MachineAddress{}
 
 	if ip := server.PublicNet.IPv4.IP.String(); ip != "" {
 		status.Addresses = append(
 			status.Addresses,
-			corev1.NodeAddress{
-				Type:    corev1.NodeExternalIP,
+			clusterv1.MachineAddress{
+				Type:    clusterv1.MachineExternalIP,
 				Address: ip,
 			},
 		)
@@ -548,8 +548,8 @@ func setStatusFromAPI(server *hcloud.Server) infrav1.HCloudMachineStatus {
 		ip[15]++
 		status.Addresses = append(
 			status.Addresses,
-			corev1.NodeAddress{
-				Type:    corev1.NodeExternalIP,
+			clusterv1.MachineAddress{
+				Type:    clusterv1.MachineExternalIP,
 				Address: ip.String(),
 			},
 		)
@@ -558,8 +558,8 @@ func setStatusFromAPI(server *hcloud.Server) infrav1.HCloudMachineStatus {
 	for _, net := range server.PrivateNet {
 		status.Addresses = append(
 			status.Addresses,
-			corev1.NodeAddress{
-				Type:    corev1.NodeInternalIP,
+			clusterv1.MachineAddress{
+				Type:    clusterv1.MachineInternalIP,
 				Address: net.IP.String(),
 			},
 		)

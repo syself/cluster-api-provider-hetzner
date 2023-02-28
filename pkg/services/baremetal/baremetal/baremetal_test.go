@@ -31,6 +31,7 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+
 )
 
 var _ = Describe("chooseHost", func() {
@@ -277,23 +278,23 @@ var _ = Describe("Test NodeAddresses", func() {
 		IP: "172.0.20.2",
 	}
 
-	addr1 := corev1.NodeAddress{
-		Type:    corev1.NodeInternalIP,
+	addr1 := clusterv1.MachineAddress{
+		Type:    clusterv1.MachineInternalIP,
 		Address: "192.168.1.1",
 	}
 
-	addr2 := corev1.NodeAddress{
-		Type:    corev1.NodeInternalIP,
+	addr2 := clusterv1.MachineAddress{
+		Type:    clusterv1.MachineInternalIP,
 		Address: "172.0.20.2",
 	}
 
-	addr3 := corev1.NodeAddress{
-		Type:    corev1.NodeHostName,
+	addr3 := clusterv1.MachineAddress{
+		Type:    clusterv1.MachineHostName,
 		Address: "bm-machine",
 	}
 
-	addr4 := corev1.NodeAddress{
-		Type:    corev1.NodeInternalDNS,
+	addr4 := clusterv1.MachineAddress{
+		Type:    clusterv1.MachineInternalDNS,
 		Address: "bm-machine",
 	}
 
@@ -301,7 +302,7 @@ var _ = Describe("Test NodeAddresses", func() {
 		Machine               clusterv1.Machine
 		BareMetalMachine      infrav1.HetznerBareMetalMachine
 		Host                  *infrav1.HetznerBareMetalHost
-		ExpectedNodeAddresses []corev1.NodeAddress
+		ExpectedNodeAddresses []clusterv1.MachineAddress
 	}
 
 	DescribeTable("Test NodeAddress",
@@ -321,7 +322,7 @@ var _ = Describe("Test NodeAddresses", func() {
 					},
 				},
 			},
-			ExpectedNodeAddresses: []corev1.NodeAddress{addr1, addr3, addr4},
+			ExpectedNodeAddresses: []clusterv1.MachineAddress{addr1, addr3, addr4},
 		}),
 		Entry("Two NICs", testCaseNodeAddress{
 			Host: &infrav1.HetznerBareMetalHost{
@@ -333,7 +334,7 @@ var _ = Describe("Test NodeAddresses", func() {
 					},
 				},
 			},
-			ExpectedNodeAddresses: []corev1.NodeAddress{addr1, addr2, addr3, addr4},
+			ExpectedNodeAddresses: []clusterv1.MachineAddress{addr1, addr2, addr3, addr4},
 		}),
 		Entry("No host", testCaseNodeAddress{
 			Host:                  nil,

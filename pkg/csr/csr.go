@@ -26,7 +26,7 @@ import (
 	"strings"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
-	corev1 "k8s.io/api/core/v1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 )
 
@@ -37,7 +37,7 @@ const NodesPrefix = "system:node:"
 const NodesGroup = "system:nodes"
 
 // ValidateKubeletCSR validates a CSR.
-func ValidateKubeletCSR(csr *x509.CertificateRequest, machineName string, isHCloudMachine bool, addresses []corev1.NodeAddress) error {
+func ValidateKubeletCSR(csr *x509.CertificateRequest, machineName string, isHCloudMachine bool, addresses []clusterv1.MachineAddress) error {
 	// check signature and exist quickly
 	if err := csr.CheckSignature(); err != nil {
 		return err
@@ -83,7 +83,7 @@ func ValidateKubeletCSR(csr *x509.CertificateRequest, machineName string, isHClo
 	allowedIPAddresses := make(map[string]struct{})
 	for _, address := range addresses {
 		switch address.Type {
-		case corev1.NodeInternalIP, corev1.NodeExternalIP:
+		case clusterv1.MachineInternalIP, clusterv1.MachineExternalIP:
 			allowedIPAddresses[strings.Split(address.Address, "/")[0]] = struct{}{}
 		}
 	}
