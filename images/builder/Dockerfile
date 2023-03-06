@@ -40,12 +40,12 @@ RUN apk add --no-cache curl && \
 FROM docker.io/hadolint/hadolint:v2.12.0-alpine@sha256:7dba9a9f1a0350f6d021fb2f6f88900998a4fb0aaf8e4330aa8c38544f04db42 as hadolint
 
 # Install Trivy
-FROM docker.io/aquasec/trivy:0.37.3@sha256:fbf4fd64d54f56d9175ae804839becb7cc7bd45c41abc93bc6c295a99dda2630 as trivy
+FROM docker.io/aquasec/trivy:0.38.1@sha256:ca3582f0e1129181674ad07fd0f6c6e84b9adcd10c7daca684281b9676ae863a as trivy
 
 ############################
 # Caph Build Image Base #
 ############################
-FROM docker.io/library/golang:1.20.1-bullseye@sha256:745aa72cefb6f9527c1588590982c0bdf85a1be5d611dda849e54b5dbf551506
+FROM docker.io/library/golang:1.20.1-bullseye@sha256:b03e75040e516c6e349e27a0f64a99883728958b38e744ea0293389e3643ecbb
 
 # update: datasource=repology depName=debian_11/skopeo versioning=loose
 ENV SKOPEO_VERSION="1.2.2+dfsg1-1+b6"

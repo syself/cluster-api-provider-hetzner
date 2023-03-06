@@ -9,7 +9,7 @@ jobs:
     name: Trivy
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/syself/caph-builder:1.0.1
+      image: ghcr.io/syself/caph-builder:1.0.2
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.github_token }}
