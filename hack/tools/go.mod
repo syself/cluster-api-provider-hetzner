@@ -15,7 +15,7 @@ require (
 	github.com/tilt-dev/ctlptl v0.8.17
 	gotest.tools/gotestsum v1.9.0
 	k8s.io/code-generator v0.25.4
-	sigs.k8s.io/cluster-api v1.3.3
+	sigs.k8s.io/cluster-api v1.3.5
 	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20230217020737-e2b265bf7879
 	sigs.k8s.io/controller-tools v0.10.0
 	sigs.k8s.io/kind v0.17.0
