@@ -108,7 +108,7 @@ jobs:
         env:
           COSIGN_EXPERIMENTAL: "true"
         run: |
-          cosign sign ghcr.io/syself/caph-staging@${{ steps.docker_build_release.outputs.digest }}
+          cosign sign --yes ghcr.io/syself/caph-staging@${{ steps.docker_build_release.outputs.digest }}
 
       - name: Image Releases digests
         shell: bash
