@@ -55,10 +55,13 @@ spec:
             failureThreshold: 3
           resources:
             limits:
-              cpu: 100m
-              memory: 100Mi
+              cpu: 150m
+              memory: 250Mi
             requests:
               cpu: 100m
-              memory: 20Mi
+              memory: 100Mi
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
+      tolerations:
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/control-plane
