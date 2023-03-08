@@ -429,6 +429,7 @@ type HetznerBareMetalHostStatus struct {
 // +kubebuilder:printcolumn:name="ErrorType",type="string",JSONPath=".spec.status.errorType",description="Type of the most recent error"
 // +kubebuilder:printcolumn:name="ErrorMessage",type="string",JSONPath=".spec.status.errorMessage",description="Message of the most recent error"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time duration since creation of BaremetalHost"
+// +k8s:defaulter-gen=true
 
 // HetznerBareMetalHost is the Schema for the hetznerbaremetalhosts API.
 type HetznerBareMetalHost struct {

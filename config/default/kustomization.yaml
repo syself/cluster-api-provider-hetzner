@@ -1,4 +1,4 @@
-namespace: cluster-api-provider-hetzner-system
+namespace: caph-system
 
 namePrefix: caph-
 
@@ -11,11 +11,9 @@ bases:
 - ../manager
 - ../webhook
 - ../certmanager
-# - ../prometheus
 
 patchesStrategicMerge:
-- manager_image_patch.yaml
-# - manager_config_patch.yaml
+- manager_config_patch.yaml
 - manager_webhook_patch.yaml
 - webhookcainjection_patch.yaml
 - manager_pull_policy.yaml
