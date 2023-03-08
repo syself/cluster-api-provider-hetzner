@@ -9,7 +9,7 @@ env:
   metadata_flavor: latest=true
   metadata_tags: type=ref,event=tag
 permissions:
-  contents: read
+  contents: write
   packages: write
   # Required to generate OIDC tokens for `sigstore/cosign-installer` authentication
   id-token: write
