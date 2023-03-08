@@ -17,7 +17,6 @@ limitations under the License.
 package builder
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
@@ -183,6 +182,10 @@ func (blder *Builder) Build(r reconcile.Reconciler) (controller.Controller, erro
 	if blder.forInput.err != nil {
 		return nil, blder.forInput.err
 	}
+	// Checking the reconcile type exist or not
+	if blder.forInput.object == nil {
+		return nil, fmt.Errorf("must provide an object for reconciliation")
+	}
 
 	// Set the ControllerManagedBy
 	if err := blder.doController(r); err != nil {
@@ -216,23 +219,18 @@ func (blder *Builder) project(obj client.Object, proj objectProjection) (client.
 
 func (blder *Builder) doWatch() error {
 	// Reconcile type
-	if blder.forInput.object != nil {
-		typeForSrc, err := blder.project(blder.forInput.object, blder.forInput.objectProjection)
-		if err != nil {
-			return err
-		}
-		src := &source.Kind{Type: typeForSrc}
-		hdler := &handler.EnqueueRequestForObject{}
-		allPredicates := append(blder.globalPredicates, blder.forInput.predicates...)
-		if err := blder.ctrl.Watch(src, hdler, allPredicates...); err != nil {
-			return err
-		}
+	typeForSrc, err := blder.project(blder.forInput.object, blder.forInput.objectProjection)
+	if err != nil {
+		return err
+	}
+	src := &source.Kind{Type: typeForSrc}
+	hdler := &handler.EnqueueRequestForObject{}
+	allPredicates := append(blder.globalPredicates, blder.forInput.predicates...)
+	if err := blder.ctrl.Watch(src, hdler, allPredicates...); err != nil {
+		return err
 	}
 
 	// Watches the managed types
-	if len(blder.ownsInput) > 0 && blder.forInput.object == nil {
-		return errors.New("Owns() can only be used together with For()")
-	}
 	for _, own := range blder.ownsInput {
 		typeForSrc, err := blder.project(own.object, own.objectProjection)
 		if err != nil {
@@ -251,9 +249,6 @@ func (blder *Builder) doWatch() error {
 	}
 
 	// Do the watch requests
-	if len(blder.watchesInput) == 0 && blder.forInput.object == nil {
-		return errors.New("there are no watches configured, controller will never get triggered. Use For(), Owns() or Watches() to set them up")
-	}
 	for _, w := range blder.watchesInput {
 		allPredicates := append([]predicate.Predicate(nil), blder.globalPredicates...)
 		allPredicates = append(allPredicates, w.predicates...)
@@ -274,14 +269,11 @@ func (blder *Builder) doWatch() error {
 	return nil
 }
 
-func (blder *Builder) getControllerName(gvk schema.GroupVersionKind, hasGVK bool) (string, error) {
+func (blder *Builder) getControllerName(gvk schema.GroupVersionKind) string {
 	if blder.name != "" {
-		return blder.name, nil
+		return blder.name
 	}
-	if !hasGVK {
-		return "", errors.New("one of For() or Named() must be called")
-	}
-	return strings.ToLower(gvk.Kind), nil
+	return strings.ToLower(gvk.Kind)
 }
 
 func (blder *Builder) doController(r reconcile.Reconciler) error {
@@ -294,18 +286,13 @@ func (blder *Builder) doController(r reconcile.Reconciler) error {
 
 	// Retrieve the GVK from the object we're reconciling
 	// to prepopulate logger information, and to optionally generate a default name.
-	var gvk schema.GroupVersionKind
-	hasGVK := blder.forInput.object != nil
-	if hasGVK {
-		var err error
-		gvk, err = getGvk(blder.forInput.object, blder.mgr.GetScheme())
-		if err != nil {
-			return err
-		}
+	gvk, err := getGvk(blder.forInput.object, blder.mgr.GetScheme())
+	if err != nil {
+		return err
 	}
 
 	// Setup concurrency.
-	if ctrlOptions.MaxConcurrentReconciles == 0 && hasGVK {
+	if ctrlOptions.MaxConcurrentReconciles == 0 {
 		groupKind := gvk.GroupKind().String()
 
 		if concurrency, ok := globalOpts.GroupKindConcurrency[groupKind]; ok && concurrency > 0 {
@@ -318,30 +305,21 @@ func (blder *Builder) doController(r reconcile.Reconciler) error {
 		ctrlOptions.CacheSyncTimeout = *globalOpts.CacheSyncTimeout
 	}
 
-	controllerName, err := blder.getControllerName(gvk, hasGVK)
-	if err != nil {
-		return err
-	}
+	controllerName := blder.getControllerName(gvk)
 
 	// Setup the logger.
 	if ctrlOptions.LogConstructor == nil {
 		log := blder.mgr.GetLogger().WithValues(
 			"controller", controllerName,
+			"controllerGroup", gvk.Group,
+			"controllerKind", gvk.Kind,
 		)
-		if hasGVK {
-			log = log.WithValues(
-				"controllerGroup", gvk.Group,
-				"controllerKind", gvk.Kind,
-			)
-		}
 
 		ctrlOptions.LogConstructor = func(req *reconcile.Request) logr.Logger {
 			log := log
 			if req != nil {
-				if hasGVK {
-					log = log.WithValues(gvk.Kind, klog.KRef(req.Namespace, req.Name))
-				}
 				log = log.WithValues(
+					gvk.Kind, klog.KRef(req.Namespace, req.Name),
 					"namespace", req.Namespace, "name", req.Name,
 				)
 			}

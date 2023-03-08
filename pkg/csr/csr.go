@@ -26,8 +26,8 @@ import (
 	"strings"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 )
 
 // NodesPrefix defines the prefix name for a node.

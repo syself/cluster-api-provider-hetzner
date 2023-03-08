@@ -83,10 +83,6 @@ func (ks *kindWithCache) Start(ctx context.Context, handler handler.EventHandler
 	return ks.kind.Start(ctx, handler, queue, prct...)
 }
 
-func (ks *kindWithCache) String() string {
-	return ks.kind.String()
-}
-
 func (ks *kindWithCache) WaitForSync(ctx context.Context) error {
 	return ks.kind.WaitForSync(ctx)
 }
@@ -159,11 +155,7 @@ func (ks *Kind) Start(ctx context.Context, handler handler.EventHandler, queue w
 			return
 		}
 
-		_, err := i.AddEventHandler(internal.EventHandler{Queue: queue, EventHandler: handler, Predicates: prct})
-		if err != nil {
-			ks.started <- err
-			return
-		}
+		i.AddEventHandler(internal.EventHandler{Queue: queue, EventHandler: handler, Predicates: prct})
 		if !ks.cache.WaitForCacheSync(ctx) {
 			// Would be great to return something more informative here
 			ks.started <- errors.New("cache did not sync")
@@ -359,10 +351,7 @@ func (is *Informer) Start(ctx context.Context, handler handler.EventHandler, que
 		return fmt.Errorf("must specify Informer.Informer")
 	}
 
-	_, err := is.Informer.AddEventHandler(internal.EventHandler{Queue: queue, EventHandler: handler, Predicates: prct})
-	if err != nil {
-		return err
-	}
+	is.Informer.AddEventHandler(internal.EventHandler{Queue: queue, EventHandler: handler, Predicates: prct})
 	return nil
 }
 

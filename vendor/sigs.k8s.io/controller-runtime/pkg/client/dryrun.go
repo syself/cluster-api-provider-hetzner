@@ -82,38 +82,25 @@ func (c *dryRunClient) List(ctx context.Context, obj ObjectList, opts ...ListOpt
 }
 
 // Status implements client.StatusClient.
-func (c *dryRunClient) Status() SubResourceWriter {
-	return c.SubResource("status")
+func (c *dryRunClient) Status() StatusWriter {
+	return &dryRunStatusWriter{client: c.client.Status()}
 }
 
-// SubResource implements client.SubResourceClient.
-func (c *dryRunClient) SubResource(subResource string) SubResourceClient {
-	return &dryRunSubResourceClient{client: c.client.SubResource(subResource)}
-}
+// ensure dryRunStatusWriter implements client.StatusWriter.
+var _ StatusWriter = &dryRunStatusWriter{}
 
-// ensure dryRunSubResourceWriter implements client.SubResourceWriter.
-var _ SubResourceWriter = &dryRunSubResourceClient{}
-
-// dryRunSubResourceClient is client.SubResourceWriter that writes status subresource with dryRun mode
+// dryRunStatusWriter is client.StatusWriter that writes status subresource with dryRun mode
 // enforced.
-type dryRunSubResourceClient struct {
-	client SubResourceClient
+type dryRunStatusWriter struct {
+	client StatusWriter
 }
 
-func (sw *dryRunSubResourceClient) Get(ctx context.Context, obj, subResource Object, opts ...SubResourceGetOption) error {
-	return sw.client.Get(ctx, obj, subResource, opts...)
-}
-
-func (sw *dryRunSubResourceClient) Create(ctx context.Context, obj, subResource Object, opts ...SubResourceCreateOption) error {
-	return sw.client.Create(ctx, obj, subResource, append(opts, DryRunAll)...)
-}
-
-// Update implements client.SubResourceWriter.
-func (sw *dryRunSubResourceClient) Update(ctx context.Context, obj Object, opts ...SubResourceUpdateOption) error {
+// Update implements client.StatusWriter.
+func (sw *dryRunStatusWriter) Update(ctx context.Context, obj Object, opts ...UpdateOption) error {
 	return sw.client.Update(ctx, obj, append(opts, DryRunAll)...)
 }
 
-// Patch implements client.SubResourceWriter.
-func (sw *dryRunSubResourceClient) Patch(ctx context.Context, obj Object, patch Patch, opts ...SubResourcePatchOption) error {
+// Patch implements client.StatusWriter.
+func (sw *dryRunStatusWriter) Patch(ctx context.Context, obj Object, patch Patch, opts ...PatchOption) error {
 	return sw.client.Patch(ctx, obj, patch, append(opts, DryRunAll)...)
 }

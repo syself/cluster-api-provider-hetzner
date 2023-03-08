@@ -4,7 +4,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
-
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
@@ -21,16 +20,12 @@ type transformFuncByGVK struct {
 	transformers     map[schema.GroupVersionKind]cache.TransformFunc
 }
 
-// TransformFuncByObjectFromMap creates a TransformFuncByObject from a map that
-// maps GVKs to TransformFuncs.
-func TransformFuncByObjectFromMap(in map[schema.GroupVersionKind]cache.TransformFunc) TransformFuncByObject {
-	byGVK := &transformFuncByGVK{}
-	if defaultFunc, hasDefault := in[schema.GroupVersionKind{}]; hasDefault {
-		byGVK.defaultTransform = defaultFunc
+// NewTransformFuncByObject creates a new TransformFuncByObject instance.
+func NewTransformFuncByObject() TransformFuncByObject {
+	return &transformFuncByGVK{
+		transformers:     make(map[schema.GroupVersionKind]cache.TransformFunc),
+		defaultTransform: nil,
 	}
-	delete(in, schema.GroupVersionKind{})
-	byGVK.transformers = in
-	return byGVK
 }
 
 func (t *transformFuncByGVK) SetDefault(transformer cache.TransformFunc) {

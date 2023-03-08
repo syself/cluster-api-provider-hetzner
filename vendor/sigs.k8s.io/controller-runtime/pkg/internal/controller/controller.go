@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/util/workqueue"
@@ -92,7 +91,7 @@ type Controller struct {
 	LogConstructor func(request *reconcile.Request) logr.Logger
 
 	// RecoverPanic indicates whether the panic caused by reconcile should be recovered.
-	RecoverPanic *bool
+	RecoverPanic bool
 }
 
 // watchDescription contains all the information necessary to start a watch.
@@ -106,7 +105,7 @@ type watchDescription struct {
 func (c *Controller) Reconcile(ctx context.Context, req reconcile.Request) (_ reconcile.Result, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			if c.RecoverPanic != nil && *c.RecoverPanic {
+			if c.RecoverPanic {
 				for _, fn := range utilruntime.PanicHandlers {
 					fn(r)
 				}
@@ -312,11 +311,9 @@ func (c *Controller) reconcileHandler(ctx context.Context, obj interface{}) {
 	}
 
 	log := c.LogConstructor(&req)
-	reconcileID := uuid.NewUUID()
 
-	log = log.WithValues("reconcileID", reconcileID)
+	log = log.WithValues("reconcileID", uuid.NewUUID())
 	ctx = logf.IntoContext(ctx, log)
-	ctx = addReconcileID(ctx, reconcileID)
 
 	// RunInformersAndControllers the syncHandler, passing it the Namespace/Name string of the
 	// resource to be synced.
@@ -360,22 +357,4 @@ func (c *Controller) InjectFunc(f inject.Func) error {
 // updateMetrics updates prometheus metrics within the controller.
 func (c *Controller) updateMetrics(reconcileTime time.Duration) {
 	ctrlmetrics.ReconcileTime.WithLabelValues(c.Name).Observe(reconcileTime.Seconds())
-}
-
-// ReconcileIDFromContext gets the reconcileID from the current context.
-func ReconcileIDFromContext(ctx context.Context) types.UID {
-	r, ok := ctx.Value(reconcileIDKey{}).(types.UID)
-	if !ok {
-		return ""
-	}
-
-	return r
-}
-
-// reconcileIDKey is a context.Context Value key. Its associated value should
-// be a types.UID.
-type reconcileIDKey struct{}
-
-func addReconcileID(ctx context.Context, reconcileID types.UID) context.Context {
-	return context.WithValue(ctx, reconcileIDKey{}, reconcileID)
 }
