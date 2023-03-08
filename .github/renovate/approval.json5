@@ -7,19 +7,5 @@
       description: "Ask for approval for golang updates",
       dependencyDashboardApproval: true,
     },
-    {
-      matchUpdateTypes: ["minor"],
-      matchManagers: ["gomod"],
-      matchPackageNames: ["sigs.k8s.io/controller-runtime"],
-      description: "Ask for approval for controller-runtime updates",
-      dependencyDashboardApproval: true,
-    },
-    {
-      matchUpdateTypes: ["minor"],
-      matchManagers: ["gomod"],
-      matchPackageNames: ["github.com/onsi/ginkgo/v2"],
-      description: "Ask for approval for ginkgo updates",
-      dependencyDashboardApproval: true,
-    },
   ],
 }
