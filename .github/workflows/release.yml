@@ -86,12 +86,12 @@ jobs:
         # To-Do: generate SBOM from source after https://github.com/kubernetes-sigs/bom/issues/202 is fixed
         # To-Do: format SBOM output to json after cosign v2.0 is released with https://github.com/sigstore/cosign/pull/2479
         run: |
-          bom generate -o sbom_ci_main_caph_${{ steps.meta.outputs.tags }}.spdx \
-          --image=ghcr.io/syself/caph:${{ steps.meta.outputs.tags }}
+          bom generate -o sbom_ci_main_caph_${{ steps.meta.outputs.version }}.spdx \
+          --image=ghcr.io/syself/caph:${{ steps.meta.outputs.version }}
 
       - name: Attach SBOM to Container Images
         run: |
-          cosign attach sbom --sbom sbom_ci_main_caph_${{ steps.meta.outputs.tags }}.spdx ghcr.io/syself/caph@${{ steps.docker_build_release.outputs.digest }}
+          cosign attach sbom --sbom sbom_ci_main_caph_${{ steps.meta.outputs.version }}.spdx ghcr.io/syself/caph@${{ steps.docker_build_release.outputs.digest }}
 
       - name: Sign SBOM Images
         env:
@@ -106,7 +106,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p image-digest/
-          echo "ghcr.io/syself/caph:{{ steps.meta.outputs.tags }}@${{ steps.docker_build_release.outputs.digest }}" >> image-digest/caph.txt
+          echo "ghcr.io/syself/caph:{{ steps.meta.outputs.version }}@${{ steps.docker_build_release.outputs.digest }}" >> image-digest/caph.txt
 
       # Upload artifact digests
       - name: Upload artifact digests
