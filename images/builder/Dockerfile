@@ -45,7 +45,7 @@ FROM docker.io/aquasec/trivy:0.38.1@sha256:ca3582f0e1129181674ad07fd0f6c6e84b9ad
 ############################
 # Caph Build Image Base #
 ############################
-FROM docker.io/library/golang:1.20.1-bullseye@sha256:b03e75040e516c6e349e27a0f64a99883728958b38e744ea0293389e3643ecbb
+FROM docker.io/library/golang:1.20.2-bullseye@sha256:bd4a3e7eee6d6ea30b2e27d6c1ac3c56809e78e08c7e44ddf91f8c741091f5ad
 
 # update: datasource=repology depName=debian_11/skopeo versioning=loose
 ENV SKOPEO_VERSION="1.2.2+dfsg1-1+b6"
