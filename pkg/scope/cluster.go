@@ -29,7 +29,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	clientcmd "k8s.io/client-go/tools/clientcmd"
-	"k8s.io/klog/v2/klogr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/secret"
@@ -40,7 +39,7 @@ import (
 type ClusterScopeParams struct {
 	Client         client.Client
 	APIReader      client.Reader
-	Logger         *logr.Logger
+	Logger         logr.Logger
 	HetznerSecret  *corev1.Secret
 	HCloudClient   hcloudclient.Client
 	Cluster        *clusterv1.Cluster
@@ -63,9 +62,9 @@ func NewClusterScope(ctx context.Context, params ClusterScopeParams) (*ClusterSc
 		return nil, errors.New("failed to generate new scope from nil APIReader")
 	}
 
-	if params.Logger == nil {
-		logger := klogr.New()
-		params.Logger = &logger
+	emptyLogger := logr.Logger{}
+	if params.Logger == emptyLogger {
+		return nil, errors.New("failed to generate new scope from nil Logger")
 	}
 
 	helper, err := patch.NewHelper(params.HetznerCluster, params.Client)
@@ -87,7 +86,7 @@ func NewClusterScope(ctx context.Context, params ClusterScopeParams) (*ClusterSc
 
 // ClusterScope defines the basic context for an actuator to operate upon.
 type ClusterScope struct {
-	*logr.Logger
+	logr.Logger
 	Client        client.Client
 	APIReader     client.Reader
 	patchHelper   *patch.Helper
@@ -146,12 +145,12 @@ func (s *ClusterScope) ControlPlaneAPIEndpointPort() int32 {
 
 // ClientConfig return a kubernetes client config for the cluster context.
 func (s *ClusterScope) ClientConfig(ctx context.Context) (clientcmd.ClientConfig, error) {
-	var cluster = client.ObjectKey{
+	cluster := client.ObjectKey{
 		Name:      fmt.Sprintf("%s-%s", s.Cluster.Name, secret.Kubeconfig),
 		Namespace: s.Cluster.Namespace,
 	}
 
-	secretManager := secretutil.NewSecretManager(*s.Logger, s.Client, s.APIReader)
+	secretManager := secretutil.NewSecretManager(s.Logger, s.Client, s.APIReader)
 	kubeconfigSecret, err := secretManager.AcquireSecret(ctx, cluster, s.HetznerCluster, false, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to acquire secret")
@@ -186,7 +185,7 @@ func (s *ClusterScope) ClientConfigWithAPIEndpoint(ctx context.Context, endpoint
 func (s *ClusterScope) ListMachines(ctx context.Context) ([]*clusterv1.Machine, []*infrav1.HCloudMachine, error) {
 	// get and index Machines by HCloudMachine name
 	var machineListRaw clusterv1.MachineList
-	var machineByHCloudMachineName = make(map[string]*clusterv1.Machine)
+	machineByHCloudMachineName := make(map[string]*clusterv1.Machine)
 	if err := s.Client.List(ctx, &machineListRaw, client.InNamespace(s.Namespace())); err != nil {
 		return nil, nil, err
 	}

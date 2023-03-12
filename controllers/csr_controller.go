@@ -27,12 +27,12 @@ import (
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/csr"
 	certificatesv1 "k8s.io/api/certificates/v1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -145,7 +145,7 @@ func (r *GuestCSRReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return reconcile.Result{}, err
 	}
 
-	var condition = certificatesv1.CertificateSigningRequestCondition{
+	condition := certificatesv1.CertificateSigningRequestCondition{
 		LastUpdateTime: metav1.Time{Time: time.Now()},
 	}
 

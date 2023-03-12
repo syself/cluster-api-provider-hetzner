@@ -154,7 +154,7 @@ func (m *MachineScope) GetRawBootstrapData(ctx context.Context) ([]byte, error) 
 	}
 
 	key := types.NamespacedName{Namespace: m.Namespace(), Name: *m.Machine.Spec.Bootstrap.DataSecretName}
-	secretManager := secretutil.NewSecretManager(*m.Logger, m.Client, m.APIReader)
+	secretManager := secretutil.NewSecretManager(m.Logger, m.Client, m.APIReader)
 	secret, err := secretManager.AcquireSecret(ctx, key, m.HCloudMachine, false, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to acquire secret")

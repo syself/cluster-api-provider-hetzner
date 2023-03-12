@@ -134,7 +134,7 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	clusterScope, err := scope.NewClusterScope(ctx, scope.ClusterScopeParams{
 		Client:         r.Client,
 		APIReader:      r.APIReader,
-		Logger:         &log,
+		Logger:         log,
 		Cluster:        cluster,
 		HetznerCluster: hetznerCluster,
 		HCloudClient:   hcloudClient,
@@ -202,8 +202,8 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 
 	if hetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
 		if hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4 != "<nil>" {
-			var defaultHost = hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4
-			var defaultPort = int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port)
+			defaultHost := hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4
+			defaultPort := int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port)
 
 			if hetznerCluster.Spec.ControlPlaneEndpoint == nil {
 				hetznerCluster.Spec.ControlPlaneEndpoint = &clusterv1.APIEndpoint{
@@ -454,7 +454,7 @@ func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope
 			Namespace: clusterScope.HetznerCluster.Namespace,
 			Name:      clusterScope.HetznerCluster.Spec.HetznerSecret.Name,
 		}
-		secretManager := secretutil.NewSecretManager(*clusterScope.Logger, clusterScope.Client, clusterScope.APIReader)
+		secretManager := secretutil.NewSecretManager(clusterScope.Logger, clusterScope.Client, clusterScope.APIReader)
 		tokenSecret, err := secretManager.AcquireSecret(ctx, tokenSecretName, clusterScope.HetznerCluster, false, clusterScope.HetznerCluster.DeletionTimestamp.IsZero())
 		if err != nil {
 			return errors.Wrap(err, "failed to acquire secret")
