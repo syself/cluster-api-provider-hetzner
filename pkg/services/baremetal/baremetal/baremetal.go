@@ -19,6 +19,7 @@ package baremetal
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"net"
@@ -28,11 +29,9 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/hetznercloud/hcloud-go/hcloud"
-	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	corev1 "k8s.io/api/core/v1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -42,13 +41,14 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/pointer"
-	capi "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	capierrors "sigs.k8s.io/cluster-api/errors"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 // TODO: Implement logic for removal of unpaid servers.
@@ -96,7 +96,7 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 			s.scope.BareMetalMachine,
 			infrav1.InstanceBootstrapReadyCondition,
 			infrav1.InstanceBootstrapNotReadyReason,
-			capi.ConditionSeverityInfo,
+			clusterv1.ConditionSeverityInfo,
 			"bootstrap not ready yet",
 		)
 		return &ctrl.Result{}, nil
@@ -155,7 +155,7 @@ func (s *Service) Delete(ctx context.Context) (_ *ctrl.Result, err error) {
 	if host != nil && host.Spec.ConsumerRef != nil {
 		if s.scope.IsControlPlane() && s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
 			if err := s.deleteServerOfLoadBalancer(ctx, host); err != nil {
-				return nil, errors.Errorf("Error while deleting attached server of loadbalancer: %s", err)
+				return nil, fmt.Errorf("failed to delet attached server of loadbalancer: %w", err)
 			}
 		}
 
@@ -198,8 +198,8 @@ func (s *Service) Delete(ctx context.Context) (_ *ctrl.Result, err error) {
 			return nil, err
 		}
 
-		if host.Labels != nil && host.Labels[capi.ClusterLabelName] == s.scope.Machine.Spec.ClusterName {
-			delete(host.Labels, capi.ClusterLabelName)
+		if host.Labels != nil && host.Labels[clusterv1.ClusterLabelName] == s.scope.Machine.Spec.ClusterName {
+			delete(host.Labels, clusterv1.ClusterLabelName)
 		}
 
 		// Update the BMH object, if the errors are NotFound, do not return the
@@ -233,7 +233,7 @@ func removeMachineSpecsFromHost(host *infrav1.HetznerBareMetalHost) (updatedHost
 		host.Spec.Status.SSHSpec = nil
 		updatedHost = true
 	}
-	var emptySSHStatus = infrav1.SSHStatus{}
+	emptySSHStatus := infrav1.SSHStatus{}
 	if host.Spec.Status.SSHStatus != emptySSHStatus {
 		host.Spec.Status.SSHStatus = emptySSHStatus
 		updatedHost = true
@@ -250,7 +250,7 @@ func (s *Service) update(ctx context.Context, log logr.Logger) error {
 		return err
 	}
 	if host == nil {
-		return errors.Errorf("host not found for machine %s", s.scope.Machine.Name)
+		return fmt.Errorf("host not found for machine %s: %w", s.scope.Machine.Name, err)
 	}
 
 	if host.Spec.MaintenanceMode && s.scope.BareMetalMachine.Status.FailureReason == nil {
@@ -299,7 +299,7 @@ func (s *Service) update(ctx context.Context, log logr.Logger) error {
 
 	if s.scope.IsControlPlane() {
 		if err := s.reconcileLoadBalancerAttachment(ctx, host); err != nil {
-			return errors.Wrap(err, "failed to reconcile load balancer attachement")
+			return fmt.Errorf("failed to reconcile load balancer attachement: %w", err)
 		}
 	}
 
@@ -461,7 +461,7 @@ func (s *Service) associate(ctx context.Context, log logr.Logger) error {
 	if host.Labels == nil {
 		host.Labels = make(map[string]string)
 	}
-	host.Labels[capi.ClusterLabelName] = s.scope.Machine.Spec.ClusterName
+	host.Labels[clusterv1.ClusterLabelName] = s.scope.Machine.Spec.ClusterName
 
 	err = s.setHostConsumerRef(host)
 	if err != nil {
@@ -545,12 +545,12 @@ func (s *Service) chooseHost(ctx context.Context) (*infrav1.HetznerBareMetalHost
 	}
 
 	if err := s.scope.Client.List(ctx, &hosts, opts); err != nil {
-		return nil, nil, errors.Wrap(err, "failed to list hosts")
+		return nil, nil, fmt.Errorf("failed to list hosts: %w", err)
 	}
 
 	labelSelector, err := s.getLabelSelector()
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to get label selector")
+		return nil, nil, fmt.Errorf("failed to get label selector: %w", err)
 	}
 
 	availableHosts := []*infrav1.HetznerBareMetalHost{}
@@ -902,16 +902,17 @@ func (s *Service) checkMachineError(err error, errMessage string, errType capier
 	if err == nil {
 		return &ctrl.Result{}, nil
 	}
-	if requeueErr, ok := errors.Cause(err).(scope.HasRequeueAfterError); ok {
-		return &ctrl.Result{Requeue: true, RequeueAfter: requeueErr.GetRequeueAfter()}, nil
+	var requeueError *scope.RequeueAfterError
+	if ok := errors.As(err, &requeueError); ok {
+		return &reconcile.Result{Requeue: true, RequeueAfter: requeueError.GetRequeueAfter()}, nil
 	}
+
 	s.scope.SetError(errMessage, errType)
-	return &ctrl.Result{}, errors.Wrap(err, errMessage)
+	return &ctrl.Result{}, fmt.Errorf("%s: %w", errMessage, err)
 }
 
 // NotFoundError represents that an object was not found.
-type NotFoundError struct {
-}
+type NotFoundError struct{}
 
 // Error implements the error interface.
 func (e *NotFoundError) Error() string {

@@ -18,12 +18,12 @@ package scope
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
-	"k8s.io/klog/v2/klogr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	capierrors "sigs.k8s.io/cluster-api/errors"
 	"sigs.k8s.io/cluster-api/util"
@@ -33,7 +33,7 @@ import (
 
 // BareMetalMachineScopeParams defines the input parameters used to create a new Scope.
 type BareMetalMachineScopeParams struct {
-	Logger           *logr.Logger
+	Logger           logr.Logger
 	Client           client.Client
 	Machine          *clusterv1.Machine
 	BareMetalMachine *infrav1.HetznerBareMetalMachine
@@ -45,24 +45,24 @@ type BareMetalMachineScopeParams struct {
 // This is meant to be called for each reconcile iteration.
 func NewBareMetalMachineScope(ctx context.Context, params BareMetalMachineScopeParams) (*BareMetalMachineScope, error) {
 	if params.Client == nil {
-		return nil, errors.New("cannot create baremetal host scope without client")
+		return nil, fmt.Errorf("cannot create baremetal host scope without client")
 	}
 	if params.Machine == nil {
-		return nil, errors.New("failed to generate new scope from nil Machine")
+		return nil, fmt.Errorf("failed to generate new scope from nil Machine")
 	}
 	if params.BareMetalMachine == nil {
-		return nil, errors.New("failed to generate new scope from nil BareMetalMachine")
+		return nil, fmt.Errorf("failed to generate new scope from nil BareMetalMachine")
 	}
 	if params.HetznerCluster == nil {
-		return nil, errors.New("failed to generate new scope from nil HetznerCluster")
+		return nil, fmt.Errorf("failed to generate new scope from nil HetznerCluster")
 	}
 	if params.HCloudClient == nil {
-		return nil, errors.New("failed to generate new scope from nil HCloudClient")
+		return nil, fmt.Errorf("failed to generate new scope from nil HCloudClient")
 	}
 
-	if params.Logger == nil {
-		logger := klogr.New()
-		params.Logger = &logger
+	var emptyLogger logr.Logger
+	if params.Logger == emptyLogger {
+		return nil, fmt.Errorf("failed to generate new scope from nil Logger")
 	}
 
 	patchHelper, err := patch.NewHelper(params.BareMetalMachine, params.Client)
@@ -83,7 +83,7 @@ func NewBareMetalMachineScope(ctx context.Context, params BareMetalMachineScopeP
 
 // BareMetalMachineScope defines the basic context for an actuator to operate upon.
 type BareMetalMachineScope struct {
-	*logr.Logger
+	logr.Logger
 	Client           client.Client
 	patchHelper      *patch.Helper
 	Machine          *clusterv1.Machine
