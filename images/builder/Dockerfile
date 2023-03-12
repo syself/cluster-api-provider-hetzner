@@ -40,7 +40,7 @@ RUN apk add --no-cache curl && \
 FROM docker.io/hadolint/hadolint:v2.12.0-alpine@sha256:7dba9a9f1a0350f6d021fb2f6f88900998a4fb0aaf8e4330aa8c38544f04db42 as hadolint
 
 # Install Trivy
-FROM docker.io/aquasec/trivy:0.38.1@sha256:ca3582f0e1129181674ad07fd0f6c6e84b9adcd10c7daca684281b9676ae863a as trivy
+FROM docker.io/aquasec/trivy:0.38.2@sha256:8038205ca56f2d88b93d804d0407831056ee0e40616cb0b8d74b0770c93aaa9f as trivy
 
 ############################
 # Caph Build Image Base #
