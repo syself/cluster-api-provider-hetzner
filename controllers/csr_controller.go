@@ -57,16 +57,18 @@ type GuestCSRReconciler struct {
 	mCluster         ManagementCluster
 }
 
+const nodePrefix = "system:node:"
+
 //+kubebuilder:rbac:groups=certificates.k8s.io,resources=certificatesigningrequests,verbs=get;list;watch
 //+kubebuilder:rbac:groups=certificates.k8s.io,resources=certificatesigningrequests/approval,verbs=update
 //+kubebuilder:rbac:groups=certificates.k8s.io,resources=signers,verbs=approve,resourceNames=kubernetes.io/kubelet-serving
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hcloudmachines,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile manages the lifecycle of a CSR object.
-func (r *GuestCSRReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
+func (r *GuestCSRReconciler) Reconcile(ctx context.Context, req reconcile.Request) (_ reconcile.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
 
-	log.Info("Starting reconcile CSR", "req", req)
+	log.Info("Starting reconcile CSR")
 
 	// Fetch the CertificateSigningRequest instance.
 	certificateSigningRequest := &certificatesv1.CertificateSigningRequest{}
@@ -75,8 +77,7 @@ func (r *GuestCSRReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		if apierrors.IsNotFound(err) {
 			return reconcile.Result{}, nil
 		}
-		log.Error(err, "found an error while getting CSR", "namespacedName", req.NamespacedName)
-		return reconcile.Result{}, err
+		return reconcile.Result{}, fmt.Errorf("failed to get CSR: %w", err)
 	}
 
 	// skip CSR that have already been decided
@@ -84,56 +85,33 @@ func (r *GuestCSRReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return reconcile.Result{}, nil
 	}
 
-	nodePrefix := "system:node:"
+	log = log.WithValues("CertificateSigningRequest", klog.KObj(certificateSigningRequest))
+
 	// skip CSR from non-nodes
-	if !strings.HasPrefix(certificateSigningRequest.Spec.Username, nodePrefix) {
+	if !isCSRFromNode(certificateSigningRequest) {
 		return reconcile.Result{}, nil
 	}
 
-	var isHCloudMachine bool
-	var machineName string
-	var machineAddresses []clusterv1.MachineAddress
-
-	// find matching HCloudMachine object
-	var hcloudMachine infrav1.HCloudMachine
-	hcloudMachineName := types.NamespacedName{
-		Namespace: r.mCluster.Namespace(),
-		Name:      strings.TrimPrefix(certificateSigningRequest.Spec.Username, nodePrefix),
+	// get machine addresses from corresponding machine
+	machineAddresses, isHCloudMachine, err := r.getMachineAddresses(ctx, certificateSigningRequest)
+	if err != nil {
+		log.Error(err, "could not find an associated bm machine or hcloud machine",
+			"userName", certificateSigningRequest.Spec.Username)
+		return reconcile.Result{RequeueAfter: 20 * time.Second}, nil
 	}
-	err = r.mCluster.Get(ctx, hcloudMachineName, &hcloudMachine)
 
-	if err == nil {
-		isHCloudMachine = true
-		machineName = hcloudMachine.GetName()
-		machineAddresses = hcloudMachine.Status.Addresses
+	machineName := machineNameFromCSR(certificateSigningRequest, isHCloudMachine)
+	machineRef := klog.KRef(r.mCluster.Namespace(), machineName)
 
-		log = log.WithValues("HCloudMachine", klog.KRef(hcloudMachineName.Namespace, hcloudMachine.Name))
+	if isHCloudMachine {
+		log = log.WithValues("HCloudMachine", machineRef)
 	} else {
-		// Check whether it is a bare metal machine
-		var bmMachine infrav1.HetznerBareMetalMachine
-		bmMachineName := types.NamespacedName{
-			Namespace: r.mCluster.Namespace(),
-			Name:      strings.TrimPrefix(certificateSigningRequest.Spec.Username, nodePrefix+infrav1.BareMetalHostNamePrefix),
-		}
-
-		if err := r.mCluster.Get(ctx, bmMachineName, &bmMachine); err != nil {
-			log.Error(err, "found an error while getting machine - bm machine or hcloud machine", "namespacedName", req.NamespacedName,
-				"userName", certificateSigningRequest.Spec.Username,
-				"nodePrefix", nodePrefix,
-			)
-			return reconcile.Result{RequeueAfter: 20 * time.Second}, nil
-		}
-
-		machineName = bmMachine.GetName()
-		machineAddresses = bmMachine.Status.Addresses
-
-		log = log.WithValues("HetznerBareMetalMachine", klog.KRef(bmMachineName.Namespace, bmMachine.Name))
+		log = log.WithValues("HetznerBareMetalMachine", machineRef)
 	}
+
 	ctx = ctrl.LoggerInto(ctx, log)
 
-	csrBlock, _ := pem.Decode(certificateSigningRequest.Spec.Request)
-
-	csrRequest, err := x509.ParseCertificateRequest(csrBlock.Bytes)
+	csrRequest, err := getx509CSR(certificateSigningRequest)
 	if err != nil {
 		record.Warnf(
 			certificateSigningRequest,
@@ -167,12 +145,80 @@ func (r *GuestCSRReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		condition,
 	)
 
-	if _, err := r.clientSet.CertificatesV1().CertificateSigningRequests().UpdateApproval(ctx, certificateSigningRequest.Name, certificateSigningRequest, metav1.UpdateOptions{}); err != nil {
-		log.Error(err, "updating approval of csr failed", "username", certificateSigningRequest.Spec.Username)
+	if _, err := r.clientSet.CertificatesV1().CertificateSigningRequests().UpdateApproval(
+		ctx,
+		certificateSigningRequest.Name,
+		certificateSigningRequest,
+		metav1.UpdateOptions{},
+	); err != nil {
+		return reconcile.Result{}, fmt.Errorf("updating approval of csr failed. userName %q: %w",
+			certificateSigningRequest.Spec.Username, err)
 	}
-	log.Info("Finished reconcile CSR", "name", certificateSigningRequest.Name)
 
+	log.Info("Finished reconcile CSR", "name", certificateSigningRequest.Name)
 	return reconcile.Result{}, nil
+}
+
+func isCSRFromNode(certificateSigningRequest *certificatesv1.CertificateSigningRequest) bool {
+	return strings.HasPrefix(certificateSigningRequest.Spec.Username, nodePrefix)
+}
+
+func hcloudMachineNameFromCSR(certificateSigningRequest *certificatesv1.CertificateSigningRequest) string {
+	return strings.TrimPrefix(certificateSigningRequest.Spec.Username, nodePrefix)
+}
+
+func bmMachineNameFromCSR(certificateSigningRequest *certificatesv1.CertificateSigningRequest) string {
+	return strings.TrimPrefix(certificateSigningRequest.Spec.Username, nodePrefix+infrav1.BareMetalHostNamePrefix)
+}
+
+func machineNameFromCSR(certificateSigningRequest *certificatesv1.CertificateSigningRequest, isHCloudMachine bool) string {
+	if isHCloudMachine {
+		return hcloudMachineNameFromCSR(certificateSigningRequest)
+	}
+	return bmMachineNameFromCSR(certificateSigningRequest)
+}
+
+func (r *GuestCSRReconciler) getMachineAddresses(
+	ctx context.Context,
+	certificateSigningRequest *certificatesv1.CertificateSigningRequest,
+) (machineAddresses []clusterv1.MachineAddress, isHCloudMachine bool, err error) {
+	// try to find matching HCloudMachine object
+	var hcloudMachine infrav1.HCloudMachine
+
+	hcloudMachineName := types.NamespacedName{
+		Namespace: r.mCluster.Namespace(),
+		Name:      hcloudMachineNameFromCSR(certificateSigningRequest),
+	}
+
+	err = r.mCluster.Get(ctx, hcloudMachineName, &hcloudMachine)
+	if err != nil {
+		// Could not find HCloud machine. Try to find bare metal machine.
+		var bmMachine infrav1.HetznerBareMetalMachine
+		bmMachineName := types.NamespacedName{
+			Namespace: r.mCluster.Namespace(),
+			Name:      bmMachineNameFromCSR(certificateSigningRequest),
+		}
+
+		if err := r.mCluster.Get(ctx, bmMachineName, &bmMachine); err != nil {
+			return nil, false, fmt.Errorf("failed to get hcloud and bare metal machine")
+		}
+
+		return bmMachine.Status.Addresses, false, nil
+	}
+
+	return hcloudMachine.Status.Addresses, true, nil
+}
+
+func getx509CSR(certificateSigningRequest *certificatesv1.CertificateSigningRequest) (*x509.CertificateRequest, error) {
+	csrBlock, _ := pem.Decode(certificateSigningRequest.Spec.Request)
+	if csrBlock == nil {
+		return nil, fmt.Errorf("failed to decode csr request")
+	}
+	csrRequest, err := x509.ParseCertificateRequest(csrBlock.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse CSR to x509: %w", err)
+	}
+	return csrRequest, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
