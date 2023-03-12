@@ -201,12 +201,17 @@ func (s *Service) getHost(ctx context.Context) (*infrav1.HetznerBareMetalHost, e
 // setRebootAnnotation sets reboot annotation on unhealthy host.
 func (s *Service) setRebootAnnotation(ctx context.Context, host *infrav1.HetznerBareMetalHost, helper *patch.Helper) error {
 	s.scope.Info("Adding Reboot annotation to host", "host", host.Name)
+
 	reboot := infrav1.RebootAnnotationArguments{}
 	reboot.Type = infrav1.RebootTypeHardware
-	marshalledMode, err := json.Marshal(reboot)
 
+	marshalledMode, err := json.Marshal(reboot)
 	if err != nil {
 		return err
+	}
+
+	if host.Annotations == nil {
+		host.Annotations = make(map[string]string)
 	}
 
 	host.Annotations[infrav1.RebootAnnotation] = string(marshalledMode)
