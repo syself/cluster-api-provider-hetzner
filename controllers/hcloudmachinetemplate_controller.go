@@ -18,9 +18,9 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
@@ -47,14 +47,14 @@ type HCloudMachineTemplateReconciler struct {
 // +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hcloudmachinetemplates/status,verbs=get;update;patch
 
 // Reconcile manages the lifecycle of an HCloudMachineTemplate object.
-func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
+func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req reconcile.Request) (_ reconcile.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
 	log.Info("Reconcile HCloudMachineTemplate")
 
 	machineTemplate := &infrav1.HCloudMachineTemplate{}
 	if err := r.Get(ctx, req.NamespacedName, machineTemplate); err != nil {
 		log.Error(err, "unable to fetch HCloudMachineTemplate")
-		return ctrl.Result{}, client.IgnoreNotFound(err)
+		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
 	log = log.WithValues("HCloudMachineTemplate", klog.KObj(machineTemplate))
@@ -63,13 +63,14 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req ctr
 	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, machineTemplate.ObjectMeta)
 	if err != nil {
 		log.Info("Machine is missing cluster label or cluster does not exist")
-		return ctrl.Result{}, nil
+		return reconcile.Result{}, nil
 	}
 
 	log = log.WithValues("Cluster", klog.KObj(cluster))
 
+	// Requeue if cluster has no infrastructure yet.
 	if cluster.Spec.InfrastructureRef == nil {
-		return ctrl.Result{Requeue: true}, nil
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	hetznerCluster := &infrav1.HetznerCluster{}
@@ -80,7 +81,7 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req ctr
 	}
 	if err := r.Client.Get(ctx, hetznerClusterName, hetznerCluster); err != nil {
 		log.Info("HetznerCluster is not available yet")
-		return ctrl.Result{}, nil
+		return reconcile.Result{}, nil
 	}
 
 	log = log.WithValues("HetznerCluster", klog.KObj(hetznerCluster))
@@ -102,7 +103,7 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req ctr
 		HCloudClient:          hcc,
 	})
 	if err != nil {
-		return reconcile.Result{}, errors.Errorf("failed to create scope: %+v", err)
+		return reconcile.Result{}, fmt.Errorf("failed to create scope: %w", err)
 	}
 
 	// Always close the scope when exiting this function so we can persist any HCloudMachine changes.
@@ -114,7 +115,7 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req ctr
 
 	// check whether rate limit has been reached and if so, then wait.
 	if wait := reconcileRateLimit(machineTemplate); wait {
-		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
 	return r.reconcile(ctx, machineTemplateScope)
@@ -129,12 +130,13 @@ func (r *HCloudMachineTemplateReconciler) reconcile(ctx context.Context, machine
 
 	// Register the finalizer immediately to avoid orphaning HCloud resources on delete
 	if err := machineTemplateScope.PatchObject(ctx); err != nil {
-		return ctrl.Result{}, err
+		return reconcile.Result{}, err
 	}
 
-	// reconcile machinetemplate
+	// reconcile machine template
 	if result, brk, err := breakReconcile(machinetemplate.NewService(machineTemplateScope).Reconcile(ctx)); brk {
-		return result, errors.Wrapf(err, "failed to reconcile machinetemplate for HCloudMachineTemplate %s/%s", hcloudMachine.Namespace, hcloudMachine.Name)
+		return result, fmt.Errorf("failed to reconcile machine template for HCloudMachineTemplate %s/%s: %w",
+			hcloudMachine.Namespace, hcloudMachine.Name, err)
 	}
 
 	return reconcile.Result{}, nil

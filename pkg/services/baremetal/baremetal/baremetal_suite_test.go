@@ -27,9 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var (
-	log = klogr.New()
-)
+var log = klogr.New()
 
 func TestBaremetal(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -42,7 +40,7 @@ func newTestService(
 ) *Service {
 	return &Service{
 		&scope.BareMetalMachineScope{
-			Logger:           &log,
+			Logger:           log,
 			Client:           client,
 			BareMetalMachine: bmMachine,
 		},

@@ -18,8 +18,8 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/remediation"
@@ -47,7 +47,7 @@ type HetznerBareMetalRemediationReconciler struct {
 //+kubebuilder:rbac:groups=cluster.x-k8s.io,resources=machines;machines/status,verbs=get;update;patch
 
 // Reconcile reconciles the hetznerBareMetalRemediation object.
-func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
+func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, req reconcile.Request) (_ reconcile.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
 
 	// Fetch the Hetzner bare metal host instance.
@@ -55,9 +55,9 @@ func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, r
 	err := r.Get(ctx, req.NamespacedName, bareMetalRemediation)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			return ctrl.Result{}, nil
+			return reconcile.Result{}, nil
 		}
-		return ctrl.Result{}, err
+		return reconcile.Result{}, err
 	}
 
 	log = log.WithValues("HetznerBareMetalRemediation", klog.KObj(bareMetalRemediation))
@@ -65,11 +65,11 @@ func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, r
 	// Fetch the Machine.
 	machine, err := util.GetOwnerMachine(ctx, r.Client, bareMetalRemediation.ObjectMeta)
 	if err != nil {
-		return ctrl.Result{}, err
+		return reconcile.Result{}, err
 	}
 	if machine == nil {
 		log.Info("Machine Controller has not yet set OwnerRef")
-		return ctrl.Result{}, nil
+		return reconcile.Result{}, nil
 	}
 
 	log = log.WithValues("Machine", klog.KObj(machine))
@@ -84,9 +84,9 @@ func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, r
 
 	if err := r.Get(ctx, key, bareMetalMachine); err != nil {
 		if apierrors.IsNotFound(err) {
-			return ctrl.Result{}, nil
+			return reconcile.Result{}, nil
 		}
-		return ctrl.Result{}, err
+		return reconcile.Result{}, err
 	}
 
 	log = log.WithValues("HetznerBareMetalMachine", klog.KObj(bareMetalMachine))
@@ -95,12 +95,12 @@ func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, r
 	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, machine.ObjectMeta)
 	if err != nil {
 		log.Info("Machine is missing cluster label or cluster does not exist")
-		return ctrl.Result{}, nil
+		return reconcile.Result{}, nil
 	}
 
 	if annotations.IsPaused(cluster, bareMetalMachine) {
 		log.Info("HCloudMachine or linked Cluster is marked as paused. Won't reconcile")
-		return ctrl.Result{}, nil
+		return reconcile.Result{}, nil
 	}
 
 	log = log.WithValues("Cluster", klog.KObj(cluster))
@@ -129,7 +129,7 @@ func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, r
 		BareMetalRemediation: bareMetalRemediation,
 	})
 	if err != nil {
-		return reconcile.Result{}, errors.Errorf("failed to create scope: %+v", err)
+		return reconcile.Result{}, fmt.Errorf("failed to create scope: %w", err)
 	}
 
 	// Always close the scope when exiting this function so we can persist any BareMetalRemediation changes.
@@ -158,7 +158,8 @@ func (r *HetznerBareMetalRemediationReconciler) reconcileNormal(ctx context.Cont
 
 	// reconcile bare metal remediation
 	if result, brk, err := breakReconcile(remediation.NewService(remediationScope).Reconcile(ctx)); brk {
-		return result, errors.Wrapf(err, "failed to reconcile server for BareMetalRemediation %s/%s", bareMetalRemediation.Namespace, bareMetalRemediation.Name)
+		return result, fmt.Errorf("failed to reconcile server for BareMetalRemediation %s/%s: %w",
+			bareMetalRemediation.Namespace, bareMetalRemediation.Name, err)
 	}
 
 	return reconcile.Result{}, nil

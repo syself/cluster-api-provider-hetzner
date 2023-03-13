@@ -42,6 +42,11 @@ func (e *RequeueAfterError) Error() string {
 	return fmt.Sprintf("requeue in: %s", e.RequeueAfter)
 }
 
+// Unwrap implements the error interface.
+func (e *RequeueAfterError) Unwrap() error {
+	return fmt.Errorf("%s", e.Error())
+}
+
 // GetRequeueAfter gets the duration to wait until the managed object is
 // requeued for further processing.
 func (e *RequeueAfterError) GetRequeueAfter() time.Duration {

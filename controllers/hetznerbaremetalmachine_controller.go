@@ -18,9 +18,10 @@ package controllers
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	"github.com/go-logr/logr"
-	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
@@ -56,18 +57,14 @@ type HetznerBareMetalMachineReconciler struct {
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalmachines/finalizers,verbs=update
 
 // Reconcile implements the reconcilement of HetznerBareMetalMachine objects.
-func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
+func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req reconcile.Request) (_ reconcile.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
 
 	// Fetch the Hetzner bare metal instance.
 	hbmMachine := &infrav1.HetznerBareMetalMachine{}
 	err := r.Get(ctx, req.NamespacedName, hbmMachine)
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			log.Info("BareMetalMachine not found", "namespacedName", req.NamespacedName)
-			return ctrl.Result{}, nil
-		}
-		return ctrl.Result{}, err
+		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
 	log = log.WithValues("HetznerBareMetalMachine", klog.KObj(hbmMachine))
@@ -75,11 +72,12 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req c
 	// Fetch the Machine.
 	machine, err := util.GetOwnerMachine(ctx, r.Client, hbmMachine.ObjectMeta)
 	if err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "failed to get owner machine. BareMetalMachine.ObjectMeta.OwnerReferences: %v", hbmMachine.ObjectMeta.OwnerReferences)
+		return reconcile.Result{}, fmt.Errorf("failed to get owner machine. BareMetalMachine.ObjectMeta.OwnerReferences %v: %w",
+			hbmMachine.ObjectMeta.OwnerReferences, err)
 	}
 	if machine == nil {
 		log.Info("Machine Controller has not yet set OwnerRef")
-		return ctrl.Result{}, nil
+		return reconcile.Result{}, nil
 	}
 
 	log = log.WithValues("Machine", klog.KObj(machine))
@@ -88,12 +86,12 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req c
 	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, machine.ObjectMeta)
 	if err != nil {
 		log.Info("Machine is missing cluster label or cluster does not exist")
-		return ctrl.Result{}, nil
+		return reconcile.Result{}, nil
 	}
 
 	if annotations.IsPaused(cluster, hbmMachine) {
 		log.Info("HetznerBareMetalMachine or linked Cluster is marked as paused. Won't reconcile")
-		return ctrl.Result{}, nil
+		return reconcile.Result{}, nil
 	}
 
 	log = log.WithValues("Cluster", klog.KObj(cluster))
@@ -124,14 +122,14 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req c
 	// Create the scope.
 	machineScope, err := scope.NewBareMetalMachineScope(ctx, scope.BareMetalMachineScopeParams{
 		Client:           r.Client,
-		Logger:           &log,
+		Logger:           log,
 		Machine:          machine,
 		BareMetalMachine: hbmMachine,
 		HetznerCluster:   hetznerCluster,
 		HCloudClient:     hcc,
 	})
 	if err != nil {
-		return reconcile.Result{}, errors.Errorf("failed to create scope: %+v", err)
+		return reconcile.Result{}, fmt.Errorf("failed to create scope: %w", err)
 	}
 
 	// Always close the scope when exiting this function so we can persist any HetznerBareMetalMachine changes.
@@ -152,15 +150,12 @@ func (r *HetznerBareMetalMachineReconciler) reconcileDelete(ctx context.Context,
 	machineScope.Info("Reconciling HetznerBareMetalMachine delete")
 	// delete servers
 	if result, brk, err := breakReconcile(baremetal.NewService(machineScope).Delete(ctx)); brk {
-		if requeueErr, ok := errors.Cause(err).(scope.HasRequeueAfterError); ok {
-			return ctrl.Result{Requeue: true, RequeueAfter: requeueErr.GetRequeueAfter()}, nil
+		var requeueError *scope.RequeueAfterError
+		if ok := errors.As(err, &requeueError); ok {
+			return reconcile.Result{Requeue: true, RequeueAfter: requeueError.GetRequeueAfter()}, nil
 		}
-		return result, errors.Wrapf(
-			err,
-			"failed to delete servers for HetznerBareMetalMachine %s/%s",
-			machineScope.BareMetalMachine.Namespace,
-			machineScope.BareMetalMachine.Name,
-		)
+		return result, fmt.Errorf("failed to delete servers for HetznerBareMetalMachine %s/%s: %w",
+			machineScope.BareMetalMachine.Namespace, machineScope.BareMetalMachine.Name, err)
 	}
 
 	// Machine is deleted so remove the finalizer.
@@ -177,17 +172,13 @@ func (r *HetznerBareMetalMachineReconciler) reconcileNormal(ctx context.Context,
 
 	// Register the finalizer immediately to avoid orphaning HetznerBareMetal resources on delete
 	if err := machineScope.PatchObject(ctx); err != nil {
-		return ctrl.Result{}, err
+		return reconcile.Result{}, err
 	}
 
 	// reconcile server
 	if result, brk, err := breakReconcile(baremetal.NewService(machineScope).Reconcile(ctx)); brk {
-		return result, errors.Wrapf(
-			err,
-			"failed to reconcile server for HetznerBareMetalMachine %s/%s",
-			machineScope.BareMetalMachine.Namespace,
-			machineScope.BareMetalMachine.Name,
-		)
+		return result, fmt.Errorf("failed to reconcile server for HetznerBareMetalMachine %s/%s: %w",
+			machineScope.BareMetalMachine.Namespace, machineScope.BareMetalMachine.Name, err)
 	}
 
 	return reconcile.Result{}, nil
@@ -199,7 +190,7 @@ func (r *HetznerBareMetalMachineReconciler) SetupWithManager(ctx context.Context
 	c, err := ctrl.NewControllerManagedBy(mgr).
 		WithOptions(options).
 		For(&infrav1.HetznerBareMetalMachine{}).
-		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(ctrl.LoggerFrom(ctx), r.WatchFilterValue)).
+		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(log, r.WatchFilterValue)).
 		Watches(
 			&source.Kind{Type: &clusterv1.Machine{}},
 			handler.EnqueueRequestsFromMapFunc(util.MachineToInfrastructureMapFunc(infrav1.GroupVersion.WithKind("HetznerBareMetalMachine"))),
@@ -218,12 +209,12 @@ func (r *HetznerBareMetalMachineReconciler) SetupWithManager(ctx context.Context
 		).
 		Build(r)
 	if err != nil {
-		return errors.Wrap(err, "error creating controller")
+		return fmt.Errorf("error creating controller: %w", err)
 	}
 
 	clusterToObjectFunc, err := util.ClusterToObjectsMapper(r.Client, &infrav1.HetznerBareMetalMachineList{}, mgr.GetScheme())
 	if err != nil {
-		return errors.Wrap(err, "failed to create mapper for Cluster to BareMetalMachines")
+		return fmt.Errorf("failed to create mapper for Cluster to BareMetalMachines: %w", err)
 	}
 
 	// Add a watch on clusterv1.Cluster object for unpause & ready notifications.
@@ -232,7 +223,7 @@ func (r *HetznerBareMetalMachineReconciler) SetupWithManager(ctx context.Context
 		handler.EnqueueRequestsFromMapFunc(clusterToObjectFunc),
 		predicates.ClusterUnpausedAndInfrastructureReady(log),
 	); err != nil {
-		return errors.Wrap(err, "failed adding a watch for ready clusters")
+		return fmt.Errorf("failed adding a watch for ready clusters: %w", err)
 	}
 
 	return nil
@@ -241,14 +232,15 @@ func (r *HetznerBareMetalMachineReconciler) SetupWithManager(ctx context.Context
 // HetznerClusterToBareMetalMachines is a handler.ToRequestsFunc to be used to enqeue requests for reconciliation
 // of BareMetalMachines.
 func (r *HetznerBareMetalMachineReconciler) HetznerClusterToBareMetalMachines(ctx context.Context) handler.MapFunc {
-	return func(o client.Object) []ctrl.Request {
-		result := []ctrl.Request{}
+	return func(o client.Object) []reconcile.Request {
+		result := []reconcile.Request{}
 
 		log := log.FromContext(ctx)
 
 		c, ok := o.(*infrav1.HetznerCluster)
 		if !ok {
-			log.Error(errors.Errorf("expected a HetznerCluster but got a %T", o), "failed to get BareMetalMachine for HetznerCluster")
+			log.Error(fmt.Errorf("expected a HetznerCluster but got a %T", o),
+				"failed to get BareMetalMachine for HetznerCluster")
 			return nil
 		}
 
@@ -256,39 +248,41 @@ func (r *HetznerBareMetalMachineReconciler) HetznerClusterToBareMetalMachines(ct
 
 		// Don't handle deleted HetznerCluster
 		if !c.ObjectMeta.DeletionTimestamp.IsZero() {
-			log.V(1).Info("HetznerCluster has a deletion timestamp, skipping mapping.")
+			log.V(1).Info("HetznerCluster has a deletion timestamp, skipping mapping")
 			return nil
 		}
 
 		cluster, err := util.GetOwnerCluster(ctx, r.Client, c.ObjectMeta)
 		switch {
 		case apierrors.IsNotFound(err) || cluster == nil:
-			log.V(1).Info("Cluster for HetznerCluster not found, skipping mapping.")
+			log.V(1).Info("Cluster for HetznerCluster not found, skipping mapping")
 			return result
 		case err != nil:
-			log.Error(err, "failed to get owning cluster, skipping mapping.")
+			log.Error(err, "failed to get owning cluster, skipping mapping")
 			return result
 		}
 
 		labels := map[string]string{clusterv1.ClusterLabelName: cluster.Name}
 		machineList := &clusterv1.MachineList{}
 		if err := r.List(ctx, machineList, client.InNamespace(c.Namespace), client.MatchingLabels(labels)); err != nil {
-			log.Error(err, "failed to list Machines, skipping mapping.")
+			log.Error(err, "failed to list Machines, skipping mapping")
 			return nil
 		}
 		for _, m := range machineList.Items {
-			log.WithValues("machine", m.Name)
+			log = log.WithValues("machine", m.Name)
 			if m.Spec.InfrastructureRef.GroupVersionKind().Kind != "HetznerBareMetalMachine" {
-				log.V(1).Info("Machine has an InfrastructureRef for a different type, will not add to reconciliation request.")
+				log.V(1).Info("Machine has an InfrastructureRef for a different type, will not add to reconciliation request")
 				continue
 			}
 			if m.Spec.InfrastructureRef.Name == "" {
 				continue
 			}
+
 			name := client.ObjectKey{Namespace: m.Namespace, Name: m.Spec.InfrastructureRef.Name}
-			log.WithValues("bareMetalMachine", name.Name)
-			log.V(1).Info("Adding BareMetalMachine to reconciliation request.")
-			result = append(result, ctrl.Request{NamespacedName: name})
+
+			log.V(1).Info("Adding BareMetalMachine to reconciliation request", "bareMetalMachine", name.Name)
+
+			result = append(result, reconcile.Request{NamespacedName: name})
 		}
 
 		return result
@@ -298,14 +292,13 @@ func (r *HetznerBareMetalMachineReconciler) HetznerClusterToBareMetalMachines(ct
 // ClusterToBareMetalMachines is a handler.ToRequestsFunc to be used to enqeue
 // requests for reconciliation of BareMetalMachines.
 func (r *HetznerBareMetalMachineReconciler) ClusterToBareMetalMachines(ctx context.Context, log logr.Logger) handler.MapFunc {
-	return func(obj client.Object) []ctrl.Request {
-		result := []ctrl.Request{}
+	return func(obj client.Object) []reconcile.Request {
+		result := []reconcile.Request{}
 		c, ok := obj.(*clusterv1.Cluster)
 
 		if !ok {
-			log.Error(errors.Errorf("expected a Cluster but got a %T", obj),
-				"failed to get BareMetalMachine for Cluster",
-			)
+			log.Error(fmt.Errorf("expected a Cluster but got a %T", obj),
+				"failed to get BareMetalMachine for Cluster")
 			return nil
 		}
 
@@ -325,7 +318,7 @@ func (r *HetznerBareMetalMachineReconciler) ClusterToBareMetalMachines(ctx conte
 			if m.Spec.InfrastructureRef.Namespace != "" {
 				name = client.ObjectKey{Namespace: m.Spec.InfrastructureRef.Namespace, Name: m.Spec.InfrastructureRef.Name}
 			}
-			result = append(result, ctrl.Request{NamespacedName: name})
+			result = append(result, reconcile.Request{NamespacedName: name})
 		}
 
 		return result
@@ -335,12 +328,12 @@ func (r *HetznerBareMetalMachineReconciler) ClusterToBareMetalMachines(ctx conte
 // BareMetalHostToBareMetalMachines will return a reconcile request for a BareMetalMachine if the event is for a
 // BareMetalHost and that BareMetalHost references a BareMetalMachine.
 func (r *HetznerBareMetalMachineReconciler) BareMetalHostToBareMetalMachines(log logr.Logger) handler.MapFunc {
-	return func(obj client.Object) []ctrl.Request {
+	return func(obj client.Object) []reconcile.Request {
 		if host, ok := obj.(*infrav1.HetznerBareMetalHost); ok {
 			if host.Spec.ConsumerRef != nil &&
 				host.Spec.ConsumerRef.Kind == "HetznerBareMetalMachine" &&
 				host.Spec.ConsumerRef.GroupVersionKind().Group == infrav1.GroupVersion.Group {
-				return []ctrl.Request{
+				return []reconcile.Request{
 					{
 						NamespacedName: types.NamespacedName{
 							Name:      host.Spec.ConsumerRef.Name,
@@ -350,10 +343,9 @@ func (r *HetznerBareMetalMachineReconciler) BareMetalHostToBareMetalMachines(log
 				}
 			}
 		} else {
-			log.Error(errors.Errorf("expected a BareMetalHost but got a %T", obj),
-				"failed to get BareMetalMachine for BareMetalHost",
-			)
+			log.Error(fmt.Errorf("expected a BareMetalHost but got a %T", obj),
+				"failed to get BareMetalMachine for BareMetalHost")
 		}
-		return []ctrl.Request{}
+		return []reconcile.Request{}
 	}
 }
