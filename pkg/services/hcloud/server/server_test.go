@@ -32,14 +32,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-var _ = Describe("setStatusFromAPI", func() {
+var _ = Describe("statusFromAPI", func() {
 	var sts infrav1.HCloudMachineStatus
 	BeforeEach(func() {
-		sts = setStatusFromAPI(server)
+		sts = statusFromAPI(server)
 	})
 	It("should have the right instance state", func() {
 		Expect(*sts.InstanceState).To(Equal(instanceState))
-
 	})
 	It("should have three addresses", func() {
 		Expect(len(sts.Addresses)).To(Equal(3))
@@ -72,7 +71,15 @@ var _ = DescribeTable("createLabels",
 	}),
 )
 
-var _ = Describe("getSSHKeys", func() {
+var _ = DescribeTable("providerIDFromServerID",
+	func(serverID int, expectedOutput string) {
+		Expect(providerIDFromServerID(serverID)).To(Equal(expectedOutput))
+	},
+	Entry("first_server_id", 42, "hcloud://42"),
+	Entry("second_server_id", 1, "hcloud://1"),
+)
+
+var _ = Describe("filterHCloudSSHKeys", func() {
 	var sshKeysAPI []*hcloud.SSHKey
 	BeforeEach(func() {
 		sshKeysAPI = []*hcloud.SSHKey{
@@ -93,9 +100,9 @@ var _ = Describe("getSSHKeys", func() {
 			},
 		}
 	})
-	var _ = DescribeTable("no_error",
+	_ = DescribeTable("no_error",
 		func(sshKeysSpec []infrav1.SSHKey, expectedOutput []*hcloud.SSHKey) {
-			Expect(getSSHKeys(sshKeysAPI, sshKeysSpec)).Should(Equal(expectedOutput))
+			Expect(filterHCloudSSHKeys(sshKeysAPI, sshKeysSpec)).Should(Equal(expectedOutput))
 		},
 		Entry("no_error_same_length", []infrav1.SSHKey{
 			{
@@ -151,7 +158,7 @@ var _ = Describe("getSSHKeys", func() {
 	)
 
 	It("should error", func() {
-		_, err := getSSHKeys(sshKeysAPI, []infrav1.SSHKey{
+		_, err := filterHCloudSSHKeys(sshKeysAPI, []infrav1.SSHKey{
 			{
 				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:2f",
 				Name:        "sshkey1",

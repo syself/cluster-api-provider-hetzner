@@ -38,8 +38,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const bmMachineName = "bm-machine-host-testing"
-const hostName = "test-host"
+const (
+	bmMachineName = "bm-machine-host-testing"
+	hostName      = "test-host"
+)
 
 func verifyError(host *infrav1.HetznerBareMetalHost, errorType infrav1.ErrorType, errorMessage string) bool {
 	if host.Spec.Status.ErrorType != errorType {
@@ -174,12 +176,14 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 		osSSHClientAfterInstallImage.On("GetHostName").Return(sshclient.Output{
 			StdOut: infrav1.BareMetalHostNamePrefix + bmMachineName,
 			StdErr: "",
-			Err:    nil})
+			Err:    nil,
+		})
 
 		osSSHClientAfterCloudInit.On("GetHostName").Return(sshclient.Output{
 			StdOut: infrav1.BareMetalHostNamePrefix + bmMachineName,
 			StdErr: "",
-			Err:    nil})
+			Err:    nil,
+		})
 		osSSHClientAfterCloudInit.On("CloudInitStatus").Return(sshclient.Output{StdOut: "status: done"})
 		osSSHClientAfterCloudInit.On("CheckCloudInitLogsForSigTerm").Return(sshclient.Output{})
 		osSSHClientAfterCloudInit.On("ResetKubeadm").Return(sshclient.Output{})
@@ -724,7 +728,6 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 		})
 
 		It("gives the right error if secret is invalid", func() {
-
 			rescueSSHSecret = &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "rescue-ssh-secret",
@@ -783,7 +786,6 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 		})
 
 		It("gives the right error if secret is invalid", func() {
-
 			osSSHSecret = &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "os-ssh-secret",
@@ -814,46 +816,56 @@ func configureRescueSSHClient(sshClient *sshmock.Client) {
 	sshClient.On("GetHostName").Return(sshclient.Output{
 		StdOut: "rescue",
 		StdErr: "",
-		Err:    nil})
+		Err:    nil,
+	})
 	sshClient.On("GetHardwareDetailsRAM").Return(sshclient.Output{
 		StdOut: "100000",
 		StdErr: "",
-		Err:    nil})
+		Err:    nil,
+	})
 	sshClient.On("GetHardwareDetailsStorage").Return(sshclient.Output{
 		StdOut: `NAME="loop0" LABEL="" FSTYPE="ext2" TYPE="loop" HCTL="" MODEL="" VENDOR="" SERIAL="" SIZE="3068773888" WWN="" ROTA="0"
 NAME="nvme2n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVL22T0HBLB-00B00" VENDOR="" SERIAL="S677NF0R402742" SIZE="2048408248320" WWN="eui.002538b411b2cee8" ROTA="0"
 NAME="nvme1n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJQ-00000" VENDOR="" SERIAL="S3W8NX0N811178" SIZE="512110190592" WWN="eui.0025388801b4dff2" ROTA="0"`,
 		StdErr: "",
-		Err:    nil})
+		Err:    nil,
+	})
 	sshClient.On("GetHardwareDetailsNics").Return(sshclient.Output{
 		StdOut: `name="eth0" model="Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller (rev 15)" mac="a8:a1:59:94:19:42" ipv4="23.88.6.239/26" speedMbps="1000"
 name="eth0" model="Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller (rev 15)" mac="a8:a1:59:94:19:42" ipv6="2a01:4f8:272:3e0f::2/64" speedMbps="1000"`,
 		StdErr: "",
-		Err:    nil})
+		Err:    nil,
+	})
 	sshClient.On("GetHardwareDetailsCPUArch").Return(sshclient.Output{
 		StdOut: "myarch",
 		StdErr: "",
-		Err:    nil})
+		Err:    nil,
+	})
 	sshClient.On("GetHardwareDetailsCPUModel").Return(sshclient.Output{
 		StdOut: "mymodel",
 		StdErr: "",
-		Err:    nil})
+		Err:    nil,
+	})
 	sshClient.On("GetHardwareDetailsCPUClockGigahertz").Return(sshclient.Output{
 		StdOut: "42654",
 		StdErr: "",
-		Err:    nil})
+		Err:    nil,
+	})
 	sshClient.On("GetHardwareDetailsCPUFlags").Return(sshclient.Output{
 		StdOut: "flag1 flag2 flag3",
 		StdErr: "",
-		Err:    nil})
+		Err:    nil,
+	})
 	sshClient.On("GetHardwareDetailsCPUThreads").Return(sshclient.Output{
 		StdOut: "123",
 		StdErr: "",
-		Err:    nil})
+		Err:    nil,
+	})
 	sshClient.On("GetHardwareDetailsCPUCores").Return(sshclient.Output{
 		StdOut: "12",
 		StdErr: "",
-		Err:    nil})
+		Err:    nil,
+	})
 	sshClient.On("DownloadImage", mock.Anything, mock.Anything).Return(sshclient.Output{})
 	sshClient.On("CreateAutoSetup", mock.Anything).Return(sshclient.Output{})
 	sshClient.On("CreatePostInstallScript", mock.Anything).Return(sshclient.Output{})
