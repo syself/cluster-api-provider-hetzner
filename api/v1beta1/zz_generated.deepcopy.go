@@ -522,6 +522,11 @@ func (in *HetznerBareMetalHostSpec) DeepCopyInto(out *HetznerBareMetalHostSpec) 
 		*out = new(v1.ObjectReference)
 		**out = **in
 	}
+	if in.MaintenanceMode != nil {
+		in, out := &in.MaintenanceMode, &out.MaintenanceMode
+		*out = new(bool)
+		**out = **in
+	}
 	in.Status.DeepCopyInto(&out.Status)
 }
 

@@ -411,7 +411,8 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 			ph, err := patch.NewHelper(host, testEnv)
 			Expect(err).ShouldNot(HaveOccurred())
-			host.Spec.MaintenanceMode = true
+			maintenanceMode := true
+			host.Spec.MaintenanceMode = &maintenanceMode
 			Expect(ph.Patch(ctx, host, patch.WithStatusObservedGeneration{})).To(Succeed())
 
 			// It sets a failure reason

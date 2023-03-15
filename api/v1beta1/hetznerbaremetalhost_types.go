@@ -192,7 +192,7 @@ type HetznerBareMetalHostSpec struct {
 
 	// MaintenanceMode indicates that a machine is supposed to be deprovisioned
 	// and won't be selected by any Hetzner bare metal machine.
-	MaintenanceMode bool `json:"maintenanceMode,omitempty"`
+	MaintenanceMode *bool `json:"maintenanceMode,omitempty"`
 
 	// Description is a human-entered text used to help identify the host
 	// +optional
@@ -413,8 +413,7 @@ type HardwareDetails struct {
 }
 
 // HetznerBareMetalHostStatus defines the observed state of HetznerBareMetalHost.
-type HetznerBareMetalHostStatus struct {
-}
+type HetznerBareMetalHostStatus struct{}
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
