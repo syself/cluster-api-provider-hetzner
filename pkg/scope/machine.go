@@ -111,6 +111,21 @@ func (m *MachineScope) SetError(message string, reason capierrors.MachineStatusE
 	m.HCloudMachine.Status.FailureReason = &reason
 }
 
+// SetRegion sets the region field on the machine.
+func (m *MachineScope) SetRegion(region string) {
+	m.HCloudMachine.Status.Region = infrav1.Region(region)
+}
+
+// SetProviderID sets the providerID field on the machine.
+func (m *MachineScope) SetProviderID(providerID string) {
+	m.HCloudMachine.Spec.ProviderID = &providerID
+}
+
+// SetReady sets the ready field on the machine.
+func (m *MachineScope) SetReady(ready bool) {
+	m.HCloudMachine.Status.Ready = ready
+}
+
 // IsBootstrapDataReady checks the readiness of a capi machine's bootstrap data.
 func (m *MachineScope) IsBootstrapDataReady(ctx context.Context) bool {
 	return m.Machine.Spec.Bootstrap.DataSecretName != nil

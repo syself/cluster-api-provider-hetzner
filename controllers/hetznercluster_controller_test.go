@@ -40,7 +40,6 @@ import (
 
 var _ = Describe("Hetzner ClusterReconciler", func() {
 	It("should create a basic cluster", func() {
-
 		// Create the secret
 		hetznerSecret := getDefaultHetznerSecret("default")
 		Expect(testEnv.Create(ctx, hetznerSecret)).To(Succeed())
@@ -316,7 +315,6 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 		})
 
 		Context("should not create load balancer if disabled", func() {
-
 			var (
 				namespace       string
 				testNs          *corev1.Namespace
@@ -608,7 +606,6 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 					}
 					return len(pgs)
 				}, timeout).Should(Equal(len(placementGroups)))
-
 			},
 			Entry("placement groups", []infrav1.HCloudPlacementGroupSpec{
 				{
@@ -855,7 +852,6 @@ var _ = Describe("Hetzner secret", func() {
 		Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
 
 		key = client.ObjectKey{Namespace: hetznerCluster.Namespace, Name: hetznerCluster.Name}
-
 	})
 
 	AfterEach(func() {
@@ -1010,5 +1006,4 @@ var _ = Describe("reconcileRateLimit", func() {
 	It("returns wait== false if rate limit condition is not set", func() {
 		Expect(reconcileRateLimit(hetznerCluster)).To(BeFalse())
 	})
-
 })

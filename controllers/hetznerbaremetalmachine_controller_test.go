@@ -170,7 +170,8 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 		osSSHClient.On("GetHostName").Return(sshclient.Output{
 			StdOut: infrav1.BareMetalHostNamePrefix + bmMachineName,
 			StdErr: "",
-			Err:    nil})
+			Err:    nil,
+		})
 	})
 
 	AfterEach(func() {
