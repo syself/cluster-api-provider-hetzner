@@ -258,7 +258,7 @@ create-workload-cluster-hcloud-network-packer: $(KUSTOMIZE) $(ENVSUBST) ## Creat
 create-workload-cluster-hetzner-hcloud-control-plane: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
 	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD_TOKEN) --from-literal=robot-user=$(HETZNER_ROBOT_USER) --from-literal=robot-password=$(HETZNER_ROBOT_PASSWORD) --save-config --dry-run=client -o yaml | kubectl apply -f -
-	kubectl create secret generic robot-ssh --from-literal=sshkey-name=cluster --from-file=ssh-privatekey=${HETZNER_SSH_PRIV_PATH} --from-file=ssh-publickey=${HETZNER_SSH_PUB_PATH} --save-config --dry-run=client -o yaml | kubectl apply -f -
+	kubectl create secret generic robot-ssh --from-literal=sshkey-name=test --from-file=ssh-privatekey=${HETZNER_SSH_PRIV_PATH} --from-file=ssh-publickey=${HETZNER_SSH_PUB_PATH} --save-config --dry-run=client -o yaml | kubectl apply -f -
 	$(KUSTOMIZE) build templates/cluster-templates/hetzner-hcloud-control-planes --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hetzner-hcloud-control-planes.yaml
 	cat templates/cluster-templates/cluster-template-hetzner-hcloud-control-planes.yaml | $(ENVSUBST) - | kubectl apply -f -
 	$(MAKE) wait-and-get-secret
@@ -268,7 +268,7 @@ create-workload-cluster-hetzner-hcloud-control-plane: $(KUSTOMIZE) $(ENVSUBST) #
 create-workload-cluster-hetzner-baremetal-control-plane: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
 	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD_TOKEN) --from-literal=robot-user=$(HETZNER_ROBOT_USER) --from-literal=robot-password=$(HETZNER_ROBOT_PASSWORD) --save-config --dry-run=client -o yaml | kubectl apply -f -
-	kubectl create secret generic robot-ssh --from-literal=sshkey-name=cluster --from-file=ssh-privatekey=${HETZNER_SSH_PRIV_PATH} --from-file=ssh-publickey=${HETZNER_SSH_PUB_PATH} --save-config --dry-run=client -o yaml | kubectl apply -f -
+	kubectl create secret generic robot-ssh --from-literal=sshkey-name=test --from-file=ssh-privatekey=${HETZNER_SSH_PRIV_PATH} --from-file=ssh-publickey=${HETZNER_SSH_PUB_PATH} --save-config --dry-run=client -o yaml | kubectl apply -f -
 	$(KUSTOMIZE) build templates/cluster-templates/hetzner-baremetal-control-planes --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hetzner-baremetal-control-planes.yaml
 	cat templates/cluster-templates/cluster-template-hetzner-baremetal-control-planes.yaml | $(ENVSUBST) - | kubectl apply -f -
 	$(MAKE) wait-and-get-secret
@@ -278,7 +278,7 @@ create-workload-cluster-hetzner-baremetal-control-plane: $(KUSTOMIZE) $(ENVSUBST
 create-workload-cluster-hetzner-baremetal-control-plane-remediation: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
 	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD_TOKEN) --from-literal=robot-user=$(HETZNER_ROBOT_USER) --from-literal=robot-password=$(HETZNER_ROBOT_PASSWORD) --save-config --dry-run=client -o yaml | kubectl apply -f -
-	kubectl create secret generic robot-ssh --from-literal=sshkey-name=cluster --from-file=ssh-privatekey=${HETZNER_SSH_PRIV_PATH} --from-file=ssh-publickey=${HETZNER_SSH_PUB_PATH} --save-config --dry-run=client -o yaml | kubectl apply -f -
+	kubectl create secret generic robot-ssh --from-literal=sshkey-name=test --from-file=ssh-privatekey=${HETZNER_SSH_PRIV_PATH} --from-file=ssh-publickey=${HETZNER_SSH_PUB_PATH} --save-config --dry-run=client -o yaml | kubectl apply -f -
 	$(KUSTOMIZE) build templates/cluster-templates/hetzner-baremetal-control-planes-remediation --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hetzner-baremetal-control-planes-remediation.yaml
 	cat templates/cluster-templates/cluster-template-hetzner-baremetal-control-planes-remediation.yaml | $(ENVSUBST) - | kubectl apply -f -
 	$(MAKE) wait-and-get-secret

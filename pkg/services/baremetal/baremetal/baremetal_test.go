@@ -31,7 +31,6 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
-
 )
 
 var _ = Describe("chooseHost", func() {
@@ -78,13 +77,14 @@ var _ = Describe("chooseHost", func() {
 		},
 	}
 
+	maintenanceMode := true
 	hostInMaintenanceMode := infrav1.HetznerBareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "hostInMaintenanceMode",
 			Namespace: defaultNamespace,
 		},
 		Spec: infrav1.HetznerBareMetalHostSpec{
-			MaintenanceMode: true,
+			MaintenanceMode: &maintenanceMode,
 			Status: infrav1.ControllerGeneratedStatus{
 				ProvisioningState: infrav1.StateNone,
 			},
@@ -188,7 +188,7 @@ var _ = Describe("chooseHost", func() {
 			Labels:    map[string]string{"key": "value"},
 		},
 		Spec: infrav1.HetznerBareMetalHostSpec{
-			MaintenanceMode: true,
+			MaintenanceMode: &maintenanceMode,
 			Status: infrav1.ControllerGeneratedStatus{
 				ProvisioningState: infrav1.StateNone,
 			},
@@ -512,7 +512,6 @@ var _ = Describe("Test deleteOwnerRefFromList", func() {
 
 	expectedRefList3 := make([]metav1.OwnerReference, 0, 2)
 	expectedRefList3 = append(expectedRefList3, metav1.OwnerReference{
-
 		Name:       "bm-machine2",
 		Kind:       "HetznerBareMetalMachine",
 		APIVersion: "v1beta1",
@@ -523,7 +522,6 @@ var _ = Describe("Test deleteOwnerRefFromList", func() {
 			refList, err := deleteOwnerRefFromList(tc.RefList, objectType, objectMeta)
 			Expect(err).To(Succeed())
 			Expect(refList).To(Equal(tc.ExpectedRefList))
-
 		},
 		Entry("List of one matching entry", testCaseFindOwnerRefFromList{
 			RefList: []metav1.OwnerReference{
@@ -590,7 +588,6 @@ var _ = Describe("Test setOwnerRefInList", func() {
 			refList, err := setOwnerRefInList(tc.RefList, tc.Controller, objectType, objectMeta)
 			Expect(err).To(Succeed())
 			Expect(refList).To(Equal(tc.ExpectedRefList))
-
 		},
 		Entry("List of one non-matching entry", testCaseSetOwnerRefInList{
 			RefList: []metav1.OwnerReference{

@@ -253,7 +253,7 @@ func (s *Service) update(ctx context.Context, log logr.Logger) error {
 		return fmt.Errorf("host not found for machine %s: %w", s.scope.Machine.Name, err)
 	}
 
-	if host.Spec.MaintenanceMode && s.scope.BareMetalMachine.Status.FailureReason == nil {
+	if host.Spec.MaintenanceMode != nil && *host.Spec.MaintenanceMode && s.scope.BareMetalMachine.Status.FailureReason == nil {
 		s.scope.BareMetalMachine.SetFailure(capierrors.UpdateMachineError, "host machine in maintenance mode")
 		record.Eventf(
 			s.scope.BareMetalMachine,
@@ -564,7 +564,7 @@ func (s *Service) chooseHost(ctx context.Context) (*infrav1.HetznerBareMetalHost
 		if host.Spec.ConsumerRef != nil {
 			continue
 		}
-		if host.Spec.MaintenanceMode {
+		if host.Spec.MaintenanceMode != nil && *host.Spec.MaintenanceMode {
 			continue
 		}
 		if host.GetDeletionTimestamp() != nil {
