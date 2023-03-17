@@ -12,6 +12,6 @@ kubectl -n capi-kubeadm-bootstrap-system scale deployment capi-kubeadm-bootstrap
 
 kubectl -n capi-kubeadm-control-plane-system scale deployment capi-kubeadm-control-plane-controller-manager --replicas=2
 
-kubectl -n cluster-api-provider-hetzner-system scale deployment caph-controller-manager --replicas=2
+kubectl -n caph-system scale deployment caph-controller-manager --replicas=2
 
 ```

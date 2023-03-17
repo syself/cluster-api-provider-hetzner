@@ -287,7 +287,7 @@ create-workload-cluster-hetzner-baremetal-control-plane-remediation: $(KUSTOMIZE
 
 move-to-workload-cluster: $(CLUSTERCTL)
 	$(CLUSTERCTL) init --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) --core cluster-api --bootstrap kubeadm --control-plane kubeadm --infrastructure hetzner
-	kubectl --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) -n cluster-api-provider-hetzner-system wait deploy/caph-controller-manager --for condition=available && sleep 15s
+	kubectl --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) -n caph-system wait deploy/caph-controller-manager --for condition=available && sleep 15s
 	$(CLUSTERCTL) move --to-kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG)
 
 .PHONY: delete-workload-cluster
