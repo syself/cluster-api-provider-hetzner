@@ -153,7 +153,7 @@ def caph():
         hetzner_extra_args = settings.get("extra_args").get("hetzner")
         if hetzner_extra_args:
             yaml_dict = decode_yaml_stream(yaml)
-            append_arg_for_container_in_deployment(yaml_dict, "caph-controller-manager", "cluster-api-provider-hetzner-system", "manager", hetzner_extra_args)
+            append_arg_for_container_in_deployment(yaml_dict, "caph-controller-manager", "caph-system", "manager", hetzner_extra_args)
             yaml = str(encode_yaml_stream(yaml_dict))
             yaml = fixup_yaml_empty_arrays(yaml)
 
@@ -189,7 +189,7 @@ def caph():
     k8s_resource(workload = "caph-controller-manager", labels = ["CAPH"])
     k8s_resource(
         objects = [
-            "cluster-api-provider-hetzner-system:namespace",
+            "caph-system:namespace",
             "hetznerbaremetalhosts.infrastructure.cluster.x-k8s.io:customresourcedefinition",
             "hetznerbaremetalmachines.infrastructure.cluster.x-k8s.io:customresourcedefinition",
             "hetznerbaremetalmachinetemplates.infrastructure.cluster.x-k8s.io:customresourcedefinition",
@@ -206,7 +206,6 @@ def caph():
             "caph-metrics-reader:clusterrole",
             "caph-leader-election-rolebinding:rolebinding",
             "caph-manager-rolebinding:clusterrolebinding",
-            "caph-manager-config:configmap",
             "caph-serving-cert:certificate",
             "caph-selfsigned-issuer:issuer",
             "caph-validating-webhook-configuration:validatingwebhookconfiguration",
