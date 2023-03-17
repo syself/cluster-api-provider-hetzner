@@ -17,9 +17,13 @@ limitations under the License.
 package v1beta1
 
 import (
+	"fmt"
 	"reflect"
+	"strings"
 
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -68,6 +72,26 @@ func (r *HetznerBareMetalMachine) ValidateCreate() error {
 			)
 		}
 	}
+
+	// validate host selector
+	for labelKey, labelVal := range r.Spec.HostSelector.MatchLabels {
+		if _, err := labels.NewRequirement(labelKey, selection.Equals, []string{labelVal}); err != nil {
+			allErrs = append(allErrs, field.Invalid(
+				field.NewPath("spec", "hostSelector", "matchLabels"), r.Spec.HostSelector.MatchLabels,
+				fmt.Sprintf("invalid match label: %s", err.Error()),
+			))
+		}
+	}
+	for _, req := range r.Spec.HostSelector.MatchExpressions {
+		lowercaseOperator := selection.Operator(strings.ToLower(string(req.Operator)))
+		if _, err := labels.NewRequirement(req.Key, lowercaseOperator, req.Values); err != nil {
+			allErrs = append(allErrs, field.Invalid(
+				field.NewPath("spec", "hostSelector", "matchExpressions"), r.Spec.HostSelector.MatchExpressions,
+				fmt.Sprintf("invalid match expression: %s", err.Error()),
+			))
+		}
+	}
+
 	return aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
 }
 
@@ -79,7 +103,16 @@ func (r *HetznerBareMetalMachine) ValidateUpdate(old runtime.Object) error {
 	if !reflect.DeepEqual(r.Spec.InstallImage, oldHetznerBareMetalMachine.Spec.InstallImage) {
 		allErrs = append(allErrs,
 			field.Invalid(field.NewPath("spec", "installImage"), r.Spec.InstallImage, "installImage immutable"),
+		)
+	}
+	if !reflect.DeepEqual(r.Spec.SSHSpec, oldHetznerBareMetalMachine.Spec.SSHSpec) {
+		allErrs = append(allErrs,
 			field.Invalid(field.NewPath("spec", "sshSpec"), r.Spec.SSHSpec, "sshSpec immutable"),
+		)
+	}
+	if !reflect.DeepEqual(r.Spec.HostSelector, oldHetznerBareMetalMachine.Spec.HostSelector) {
+		allErrs = append(allErrs,
+			field.Invalid(field.NewPath("spec", "hostSelector"), r.Spec.HostSelector, "hostSelector immutable"),
 		)
 	}
 	return aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
