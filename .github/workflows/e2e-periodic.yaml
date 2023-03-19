@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3
       - name: Build and push manager image
         id: manager-image
         uses: ./.github/actions/manager-image
@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3
       - name: Test Release
         id: manager-image
         uses: ./.github/actions/test-release
@@ -37,7 +37,7 @@ jobs:
       - test-release
     steps:
       - name: checkout
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3
       - name: Run e2e Test
         id: e2e
         uses: ./.github/actions/e2e
@@ -56,7 +56,7 @@ jobs:
       - test-release
     steps:
       - name: checkout
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3
       - name: Run e2e Test
         id: e2e
         uses: ./.github/actions/e2e
@@ -75,7 +75,7 @@ jobs:
       - test-release
     steps:
       - name: checkout
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3
       - name: Run e2e Test
         id: e2e
         uses: ./.github/actions/e2e
@@ -94,7 +94,7 @@ jobs:
       - test-release
     steps:
       - name: checkout
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3
       - name: Run e2e Test
         id: e2e
         uses: ./.github/actions/e2e
@@ -113,7 +113,7 @@ jobs:
       - test-release
     steps:
       - name: checkout
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3
       - name: Run e2e Test
         id: e2e
         uses: ./.github/actions/e2e
