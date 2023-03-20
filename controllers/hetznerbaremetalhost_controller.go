@@ -218,14 +218,14 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 		osSSHSecret, err = secretManager.ObtainSecret(ctx, osSSHSecretNamespacedName)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				if err := host.SetErrorCondition(
+				if res, brk, err := breakReconcile(host.SetErrorCondition(
 					ctx,
 					bmHost,
 					r.Client,
 					infrav1.PreparationError,
 					infrav1.ErrorMessageMissingOSSSHSecret,
-				); err != nil {
-					return nil, nil, &ctrl.Result{}, err
+				)); brk {
+					return nil, nil, &res, err
 				}
 				return nil, nil, &ctrl.Result{RequeueAfter: host.CalculateBackoff(bmHost.Spec.Status.ErrorCount)}, nil
 			}
@@ -236,14 +236,14 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 		rescueSSHSecret, err = secretManager.AcquireSecret(ctx, rescueSSHSecretNamespacedName, hetznerCluster, false, hetznerCluster.DeletionTimestamp.IsZero())
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				if err := host.SetErrorCondition(
+				if res, brk, err := breakReconcile(host.SetErrorCondition(
 					ctx,
 					bmHost,
 					r.Client,
 					infrav1.PreparationError,
 					infrav1.ErrorMessageMissingRescueSSHSecret,
-				); err != nil {
-					return nil, nil, &ctrl.Result{}, err
+				)); brk {
+					return nil, nil, &res, err
 				}
 				return nil, nil, &ctrl.Result{RequeueAfter: host.CalculateBackoff(bmHost.Spec.Status.ErrorCount)}, nil
 			}
@@ -300,28 +300,29 @@ func hetznerSecretErrorResult(
 	// we requeue the host as we will not know if they create the secret
 	// at some point in the future.
 	case *secretutil.ResolveSecretRefError:
-		if err := host.SetErrorCondition(
+		if res, brk, err := breakReconcile(host.SetErrorCondition(
 			ctx,
 			bmHost,
 			client,
 			infrav1.PreparationError,
 			infrav1.ErrorMessageMissingHetznerSecret,
-		); err != nil {
-			return ctrl.Result{}, err
+		)); brk {
+			return res, err
 		}
 		backoff := host.CalculateBackoff(bmHost.Spec.Status.ErrorCount)
 		res = ctrl.Result{RequeueAfter: backoff}
 		// No need to reconcile again, as it will be triggered as soon as the secret is updated.
 	case *bmclient.CredentialsValidationError:
-		if err := host.SetErrorCondition(
+		if res, brk, err := breakReconcile(host.SetErrorCondition(
 			ctx,
 			bmHost,
 			client,
 			infrav1.PreparationError,
 			infrav1.ErrorMessageMissingOrInvalidSecretData,
-		); err != nil {
-			return ctrl.Result{}, err
+		)); brk {
+			return res, err
 		}
+
 	default:
 		return ctrl.Result{}, errors.Wrap(err, "An unhandled failure occurred")
 	}

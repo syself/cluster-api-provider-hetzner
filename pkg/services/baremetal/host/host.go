@@ -34,11 +34,13 @@ import (
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	"github.com/syself/hrobot-go/models"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 const (
@@ -82,10 +84,8 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 		return &ctrl.Result{Requeue: true}, err
 	}
 
-	if !reflect.DeepEqual(oldHost, s.scope.HetznerBareMetalHost) {
-		if err := saveHost(ctx, s.scope.Client, s.scope.HetznerBareMetalHost); err != nil {
-			return &ctrl.Result{RequeueAfter: 2 * time.Second}, errors.Wrap(err, fmt.Sprintf("failed to save host status after %q", initialState))
-		}
+	if !reflect.DeepEqual(oldHost, *s.scope.HetznerBareMetalHost) {
+		return saveHost(ctx, s.scope.Client, s.scope.HetznerBareMetalHost)
 	}
 
 	return &result, nil
@@ -115,23 +115,23 @@ func (s *Service) recordActionFailure(errorType infrav1.ErrorType, errorMessage 
 }
 
 // SetErrorCondition sets the error in host status and updates the host object.
-func SetErrorCondition(ctx context.Context, host *infrav1.HetznerBareMetalHost, client client.Client, errType infrav1.ErrorType, message string) error {
+func SetErrorCondition(ctx context.Context, host *infrav1.HetznerBareMetalHost, client client.Client, errType infrav1.ErrorType, message string) (*reconcile.Result, error) {
 	SetErrorMessage(host, errType, message)
-
-	if err := saveHost(ctx, client, host); err != nil {
-		return errors.Wrap(err, "failed to update error message")
-	}
-	return nil
+	return saveHost(ctx, client, host)
 }
 
-func saveHost(ctx context.Context, client client.Client, host *infrav1.HetznerBareMetalHost) error {
+func saveHost(ctx context.Context, client client.Client, host *infrav1.HetznerBareMetalHost) (*reconcile.Result, error) {
 	t := metav1.Now()
 	host.Spec.Status.LastUpdated = &t
 
-	if err := client.Update(ctx, host); err != nil {
-		return errors.Wrap(err, "failed to update status")
+	return analyzeUpdateError(client.Update(ctx, host))
+}
+
+func analyzeUpdateError(err error) (*reconcile.Result, error) {
+	if apierrors.IsConflict(err) {
+		return &reconcile.Result{Requeue: true}, nil
 	}
-	return nil
+	return nil, err
 }
 
 // clearError removes any existing error message.

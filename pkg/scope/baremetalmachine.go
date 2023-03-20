@@ -25,7 +25,6 @@ import (
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	capierrors "sigs.k8s.io/cluster-api/errors"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -111,14 +110,6 @@ func (m *BareMetalMachineScope) Namespace() string {
 // PatchObject persists the machine spec and status.
 func (m *BareMetalMachineScope) PatchObject(ctx context.Context) error {
 	return m.patchHelper.Patch(ctx, m.BareMetalMachine)
-}
-
-// SetError sets the ErrorMessage and ErrorReason fields on the machine and logs
-// the message. It assumes the reason is invalid configuration, since that is
-// currently the only relevant MachineStatusError choice.
-func (m *BareMetalMachineScope) SetError(message string, reason capierrors.MachineStatusError) {
-	m.BareMetalMachine.Status.FailureMessage = &message
-	m.BareMetalMachine.Status.FailureReason = &reason
 }
 
 // IsProvisioned checks if the bareMetalMachine is provisioned.

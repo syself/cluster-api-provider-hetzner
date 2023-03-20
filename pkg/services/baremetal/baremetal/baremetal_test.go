@@ -18,19 +18,26 @@ package baremetal
 
 import (
 	"context"
+	"fmt"
+	"time"
 
+	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/selection"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/utils/pointer"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 var _ = Describe("chooseHost", func() {
@@ -336,10 +343,6 @@ var _ = Describe("Test NodeAddresses", func() {
 			},
 			ExpectedNodeAddresses: []clusterv1.MachineAddress{addr1, addr2, addr3, addr4},
 		}),
-		Entry("No host", testCaseNodeAddress{
-			Host:                  nil,
-			ExpectedNodeAddresses: nil,
-		}),
 	)
 })
 
@@ -428,13 +431,13 @@ var _ = Describe("Test findOwnerRefFromList", func() {
 
 	DescribeTable("Test findOwnerRefFromList",
 		func(tc testCaseFindOwnerRefFromList) {
-			position, err := findOwnerRefFromList(tc.RefList, objectType, objectMeta)
+			position, found := findOwnerRefFromList(tc.RefList, objectType, objectMeta)
 
 			if tc.ExpectedPosition != nil {
-				Expect(err).To(Succeed())
+				Expect(found).To(BeTrue())
 				Expect(position).To(Equal(*tc.ExpectedPosition))
 			} else {
-				Expect(err).ToNot(Succeed())
+				Expect(found).To(BeFalse())
 			}
 		},
 		Entry("Matching consumer", testCaseFindOwnerRefFromList{
@@ -495,8 +498,8 @@ var _ = Describe("Test findOwnerRefFromList", func() {
 	)
 })
 
-var _ = Describe("Test deleteOwnerRefFromList", func() {
-	type testCaseFindOwnerRefFromList struct {
+var _ = Describe("Test removeOwnerRefFromList", func() {
+	type testCaseRemoveOwnerRefFromList struct {
 		RefList         []metav1.OwnerReference
 		ExpectedRefList []metav1.OwnerReference
 	}
@@ -517,13 +520,12 @@ var _ = Describe("Test deleteOwnerRefFromList", func() {
 		APIVersion: "v1beta1",
 	})
 
-	DescribeTable("Test deleteOwnerRefFromList",
-		func(tc testCaseFindOwnerRefFromList) {
-			refList, err := deleteOwnerRefFromList(tc.RefList, objectType, objectMeta)
-			Expect(err).To(Succeed())
+	DescribeTable("Test removeOwnerRefFromList",
+		func(tc testCaseRemoveOwnerRefFromList) {
+			refList := removeOwnerRefFromList(tc.RefList, objectType, objectMeta)
 			Expect(refList).To(Equal(tc.ExpectedRefList))
 		},
-		Entry("List of one matching entry", testCaseFindOwnerRefFromList{
+		Entry("List of one matching entry", testCaseRemoveOwnerRefFromList{
 			RefList: []metav1.OwnerReference{
 				{
 					Name:       "bm-machine",
@@ -533,7 +535,7 @@ var _ = Describe("Test deleteOwnerRefFromList", func() {
 			},
 			ExpectedRefList: []metav1.OwnerReference{},
 		}),
-		Entry("List of one non-matching entry", testCaseFindOwnerRefFromList{
+		Entry("List of one non-matching entry", testCaseRemoveOwnerRefFromList{
 			RefList: []metav1.OwnerReference{
 				{
 					Name:       "bm-machine2",
@@ -549,7 +551,7 @@ var _ = Describe("Test deleteOwnerRefFromList", func() {
 				},
 			},
 		}),
-		Entry("Two entries with matching", testCaseFindOwnerRefFromList{
+		Entry("Two entries with matching", testCaseRemoveOwnerRefFromList{
 			RefList: []metav1.OwnerReference{
 				{
 					Name:       "bm-machine2",
@@ -570,7 +572,6 @@ var _ = Describe("Test deleteOwnerRefFromList", func() {
 var _ = Describe("Test setOwnerRefInList", func() {
 	type testCaseSetOwnerRefInList struct {
 		RefList         []metav1.OwnerReference
-		Controller      bool
 		ExpectedRefList []metav1.OwnerReference
 	}
 
@@ -585,8 +586,7 @@ var _ = Describe("Test setOwnerRefInList", func() {
 
 	DescribeTable("Test setOwnerRefInList",
 		func(tc testCaseSetOwnerRefInList) {
-			refList, err := setOwnerRefInList(tc.RefList, tc.Controller, objectType, objectMeta)
-			Expect(err).To(Succeed())
+			refList := setOwnerRefInList(tc.RefList, objectType, objectMeta)
 			Expect(refList).To(Equal(tc.ExpectedRefList))
 		},
 		Entry("List of one non-matching entry", testCaseSetOwnerRefInList{
@@ -597,7 +597,6 @@ var _ = Describe("Test setOwnerRefInList", func() {
 					APIVersion: "v1beta1",
 				},
 			},
-			Controller: false,
 			ExpectedRefList: []metav1.OwnerReference{
 				{
 					Name:       "bm-machine2",
@@ -608,7 +607,7 @@ var _ = Describe("Test setOwnerRefInList", func() {
 					Name:       "bm-machine",
 					Kind:       "HetznerBareMetalMachine",
 					APIVersion: "v1beta1",
-					Controller: pointer.Bool(false),
+					Controller: pointer.Bool(true),
 				},
 			},
 		}),
@@ -620,13 +619,12 @@ var _ = Describe("Test setOwnerRefInList", func() {
 					APIVersion: "v1beta1",
 				},
 			},
-			Controller: false,
 			ExpectedRefList: []metav1.OwnerReference{
 				{
 					Name:       "bm-machine",
 					Kind:       "HetznerBareMetalMachine",
 					APIVersion: "v1beta1",
-					Controller: pointer.Bool(false),
+					Controller: pointer.Bool(true),
 				},
 			},
 		}),
@@ -643,7 +641,6 @@ var _ = Describe("Test setOwnerRefInList", func() {
 					APIVersion: "v1beta2",
 				},
 			},
-			Controller: true,
 			ExpectedRefList: []metav1.OwnerReference{
 				{
 					Name:       "bm-machine2",
@@ -666,14 +663,14 @@ var _ = Describe("Test setOwnerRefInList", func() {
 	)
 })
 
-var _ = Describe("Test ensureAnnotation", func() {
-	type testCaseEnsureAnnotation struct {
+var _ = Describe("Test ensureMachineAnnotation", func() {
+	type testCaseEnsureMachineyyAnnotation struct {
 		Annotations         map[string]string
 		ExpectedAnnotations map[string]string
 	}
 
-	DescribeTable("Test setOwnerRefInList",
-		func(tc testCaseEnsureAnnotation) {
+	DescribeTable("Test ensureMachineAnnotation",
+		func(tc testCaseEnsureMachineyyAnnotation) {
 			bmMachine := &infrav1.HetznerBareMetalMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "bm-machine",
@@ -690,24 +687,199 @@ var _ = Describe("Test ensureAnnotation", func() {
 				},
 			}
 
-			Expect(service.ensureAnnotation(&host)).To(Succeed())
+			service.ensureMachineAnnotation(&host)
 			Expect(bmMachine.GetAnnotations()).Should(Equal(tc.ExpectedAnnotations))
 		},
-		Entry("List of one non-matching entry", testCaseEnsureAnnotation{
+		Entry("List of one non-matching entry", testCaseEnsureMachineyyAnnotation{
 			Annotations:         map[string]string{"key1": "val1"},
 			ExpectedAnnotations: map[string]string{"key1": "val1", infrav1.HostAnnotation: "default/hostName"},
 		}),
-		Entry("Empty list", testCaseEnsureAnnotation{
+		Entry("Empty list", testCaseEnsureMachineyyAnnotation{
 			Annotations:         map[string]string{},
 			ExpectedAnnotations: map[string]string{infrav1.HostAnnotation: "default/hostName"},
 		}),
-		Entry("Nil list", testCaseEnsureAnnotation{
+		Entry("Nil list", testCaseEnsureMachineyyAnnotation{
 			Annotations:         nil,
 			ExpectedAnnotations: map[string]string{infrav1.HostAnnotation: "default/hostName"},
 		}),
-		Entry("List of one non-matching and one matching entry", testCaseEnsureAnnotation{
+		Entry("List of one non-matching and one matching entry", testCaseEnsureMachineyyAnnotation{
 			Annotations:         map[string]string{"key1": "val1", infrav1.HostAnnotation: "default/hostName"},
 			ExpectedAnnotations: map[string]string{"key1": "val1", infrav1.HostAnnotation: "default/hostName"},
+		}),
+	)
+})
+
+var _ = Describe("Test updateHostAnnotation", func() {
+	type testCaseUpdateHostAnnotation struct {
+		Annotations         map[string]string
+		ExpectedAnnotations map[string]string
+	}
+
+	const hostKey = "default/hostName"
+
+	DescribeTable("Test updateHostAnnotation",
+		func(tc testCaseUpdateHostAnnotation) {
+			updatedAnnotations := updateHostAnnotation(tc.Annotations, hostKey, logr.Discard())
+			Expect(updatedAnnotations).Should(Equal(tc.ExpectedAnnotations))
+		},
+		Entry("List of one non-matching entry", testCaseUpdateHostAnnotation{
+			Annotations:         map[string]string{"key1": "val1"},
+			ExpectedAnnotations: map[string]string{"key1": "val1", infrav1.HostAnnotation: hostKey},
+		}),
+		Entry("Empty list", testCaseUpdateHostAnnotation{
+			Annotations:         map[string]string{},
+			ExpectedAnnotations: map[string]string{infrav1.HostAnnotation: hostKey},
+		}),
+		Entry("Nil list", testCaseUpdateHostAnnotation{
+			Annotations:         nil,
+			ExpectedAnnotations: map[string]string{infrav1.HostAnnotation: hostKey},
+		}),
+		Entry("List of one non-matching and one matching entry", testCaseUpdateHostAnnotation{
+			Annotations:         map[string]string{"key1": "val1", infrav1.HostAnnotation: hostKey},
+			ExpectedAnnotations: map[string]string{"key1": "val1", infrav1.HostAnnotation: hostKey},
+		}),
+	)
+})
+
+var _ = Describe("Test ensureClusterLabel", func() {
+	type testCaseEnsureClusterLabel struct {
+		labels         map[string]string
+		expectedLabels map[string]string
+	}
+
+	const clusterName = "clusterName"
+
+	DescribeTable("Test ensureClusterLabel",
+		func(tc testCaseEnsureClusterLabel) {
+			host := &infrav1.HetznerBareMetalHost{}
+			host.Labels = tc.labels
+
+			ensureClusterLabel(host, clusterName)
+
+			Expect(host.Labels).Should(Equal(tc.expectedLabels))
+		},
+		Entry("Existing labels", testCaseEnsureClusterLabel{
+			labels:         map[string]string{"key1": "val1"},
+			expectedLabels: map[string]string{"key1": "val1", clusterv1.ClusterLabelName: clusterName},
+		}),
+		Entry("Empty labels", testCaseEnsureClusterLabel{
+			labels:         map[string]string{},
+			expectedLabels: map[string]string{clusterv1.ClusterLabelName: clusterName},
+		}),
+		Entry("Nil labels", testCaseEnsureClusterLabel{
+			labels:         nil,
+			expectedLabels: map[string]string{clusterv1.ClusterLabelName: clusterName},
+		}),
+	)
+})
+
+var _ = Describe("Test providerIDFromServerID", func() {
+	Expect(providerIDFromServerID(42)).To(Equal("hcloud://bm-42"))
+})
+
+var _ = Describe("Test hostKey", func() {
+	host := &infrav1.HetznerBareMetalHost{}
+	host.Namespace = "namespace"
+	host.Name = "name"
+
+	Expect(hostKey(host)).To(Equal("namespace/name"))
+})
+
+var _ = Describe("Test splitHostKey", func() {
+	namespace, name := splitHostKey("namespace/name")
+	Expect(namespace).To(Equal("namespace"))
+	Expect(name).To(Equal("name"))
+})
+
+var _ = Describe("Test checkForRequeueError", func() {
+	type testCaseCheckForRequeueError struct {
+		err            error
+		expectedResult *reconcile.Result
+		expectedErrMsg string
+	}
+
+	DescribeTable("Test ensureClusterLabel",
+		func(tc testCaseCheckForRequeueError) {
+			errMsg := "test message"
+			res, err := checkForRequeueError(tc.err, errMsg)
+
+			if tc.expectedErrMsg == "" {
+				Expect(err).To(BeNil())
+			} else {
+				Expect(err).ToNot(BeNil())
+				Expect(err.Error()).To(Equal(tc.expectedErrMsg))
+			}
+
+			Expect(res).To(Equal(tc.expectedResult))
+		},
+		Entry("Nil error", testCaseCheckForRequeueError{
+			err:            nil,
+			expectedResult: nil,
+			expectedErrMsg: "",
+		}),
+		Entry("Requeue error", testCaseCheckForRequeueError{
+			err:            &scope.RequeueAfterError{RequeueAfter: 30 * time.Second},
+			expectedResult: &reconcile.Result{Requeue: true, RequeueAfter: 30 * time.Second},
+			expectedErrMsg: "",
+		}),
+		Entry("Other error", testCaseCheckForRequeueError{
+			err:            fmt.Errorf("other error"),
+			expectedResult: nil,
+			expectedErrMsg: "test message: other error",
+		}),
+	)
+})
+
+var _ = Describe("Test splitHostKey", func() {
+	namespace, name := splitHostKey("namespace/name")
+	Expect(namespace).To(Equal("namespace"))
+	Expect(name).To(Equal("name"))
+})
+
+var _ = Describe("Test analyzePatchError", func() {
+	type testCaseAnalyzePatchError struct {
+		ignoreNotFound bool
+		err            error
+		expectedErr    error
+	}
+
+	groupResource := schema.GroupResource{Group: "testgroup", Resource: "testresource"}
+
+	DescribeTable("Test analyzePatchError",
+		func(tc testCaseAnalyzePatchError) {
+			err := analyzePatchError(tc.err, tc.ignoreNotFound)
+
+			// must not compare nil with nil
+			if tc.expectedErr == nil {
+				Expect(err).To(BeNil())
+			} else {
+				Expect(err).To(Equal(tc.expectedErr))
+			}
+		},
+		Entry("Nil error", testCaseAnalyzePatchError{
+			ignoreNotFound: false,
+			err:            nil,
+			expectedErr:    nil,
+		}),
+		Entry("Not found", testCaseAnalyzePatchError{
+			ignoreNotFound: true,
+			err:            apierrors.NewNotFound(groupResource, "groupResource"),
+			expectedErr:    nil,
+		}),
+		Entry("Not found but do not ignore it", testCaseAnalyzePatchError{
+			ignoreNotFound: false,
+			err:            apierrors.NewNotFound(groupResource, "groupResource"),
+			expectedErr:    apierrors.NewNotFound(groupResource, "groupResource"),
+		}),
+		Entry("Conflict error", testCaseAnalyzePatchError{
+			ignoreNotFound: true,
+			err:            apierrors.NewConflict(groupResource, "groupResource", fmt.Errorf("conflict error")),
+			expectedErr:    &scope.RequeueAfterError{},
+		}),
+		Entry("Conflict error without ignoring not found", testCaseAnalyzePatchError{
+			ignoreNotFound: false,
+			err:            apierrors.NewConflict(groupResource, "groupResource", fmt.Errorf("conflict error")),
+			expectedErr:    &scope.RequeueAfterError{},
 		}),
 	)
 })
