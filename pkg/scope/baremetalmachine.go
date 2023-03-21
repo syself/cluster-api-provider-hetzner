@@ -112,14 +112,6 @@ func (m *BareMetalMachineScope) PatchObject(ctx context.Context) error {
 	return m.patchHelper.Patch(ctx, m.BareMetalMachine)
 }
 
-// IsProvisioned checks if the bareMetalMachine is provisioned.
-func (m *BareMetalMachineScope) IsProvisioned() bool {
-	if m.BareMetalMachine.Spec.ProviderID != nil && m.BareMetalMachine.Status.Ready {
-		return true
-	}
-	return false
-}
-
 // IsControlPlane returns true if the machine is a control plane.
 func (m *BareMetalMachineScope) IsControlPlane() bool {
 	return util.IsControlPlaneMachine(m.Machine)
@@ -128,14 +120,4 @@ func (m *BareMetalMachineScope) IsControlPlane() bool {
 // IsBootstrapReady checks the readiness of a capi machine's bootstrap data.
 func (m *BareMetalMachineScope) IsBootstrapReady(ctx context.Context) bool {
 	return m.Machine.Spec.Bootstrap.DataSecretName != nil
-}
-
-// HasAnnotation makes sure the machine has an annotation that references a host.
-func (m *BareMetalMachineScope) HasAnnotation() bool {
-	annotations := m.BareMetalMachine.ObjectMeta.GetAnnotations()
-	if annotations == nil {
-		return false
-	}
-	_, ok := annotations[infrav1.HostAnnotation]
-	return ok
 }

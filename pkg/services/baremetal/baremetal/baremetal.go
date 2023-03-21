@@ -96,7 +96,7 @@ func (s *Service) Reconcile(ctx context.Context) (_ *reconcile.Result, err error
 	)
 
 	// Check if the bareMetalmachine is associated with a host already. If not, associate a new host.
-	if !s.scope.HasAnnotation() {
+	if !s.scope.BareMetalMachine.HasHostAnnotation() {
 		err := s.associate(ctx)
 		if err != nil {
 			return checkForRequeueError(err, "failed to associate machine to a host")

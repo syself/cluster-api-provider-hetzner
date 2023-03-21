@@ -21,6 +21,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -270,6 +271,14 @@ type ControllerGeneratedStatus struct {
 	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
 }
 
+// GetIPAddress returns the IPv6 if set, otherwise the IPv4.
+func (sts ControllerGeneratedStatus) GetIPAddress() string {
+	if sts.IPv4 == "" {
+		return sts.IPv6
+	}
+	return sts.IPv4
+}
+
 // GetConditions returns the observations of the operational state of the HetznerBareMetalHost resource.
 func (host *HetznerBareMetalHost) GetConditions() clusterv1.Conditions {
 	return host.Spec.Status.Conditions
@@ -317,21 +326,6 @@ func (cs SecretStatus) Match(secret corev1.Secret) bool {
 	}
 
 	return bytes.Equal(cs.DataHash, hash)
-}
-
-// HashOfSecretData returns the sha256 of secret data.
-func HashOfSecretData(data map[string][]byte) ([]byte, error) {
-	b, err := json.Marshal(data)
-	if err != nil {
-		return nil, err
-	}
-
-	hash := sha256.New()
-	if _, err := hash.Write(b); err != nil {
-		return nil, err
-	}
-
-	return hash.Sum(nil), nil
 }
 
 // Capacity is a disk size in Bytes.
@@ -440,35 +434,53 @@ type HetznerBareMetalHost struct {
 }
 
 // UpdateRescueSSHStatus modifies the ssh status with the last chosen ssh secret.
-func (host *HetznerBareMetalHost) UpdateRescueSSHStatus(currentSecret corev1.Secret) error {
-	hash, err := HashOfSecretData(currentSecret.Data)
+func (host *HetznerBareMetalHost) UpdateRescueSSHStatus(secret corev1.Secret) error {
+	status, err := statusFromSecret(secret)
 	if err != nil {
-		return fmt.Errorf("failed to calculate hash of data")
+		return fmt.Errorf("failed get status from secret: %w", err)
 	}
-	host.Spec.Status.SSHStatus.CurrentRescue = &SecretStatus{
-		Reference: &corev1.SecretReference{
-			Name:      currentSecret.ObjectMeta.Name,
-			Namespace: currentSecret.ObjectMeta.Namespace,
-		},
-		DataHash: hash,
-	}
+	host.Spec.Status.SSHStatus.CurrentRescue = status
 	return nil
 }
 
 // UpdateOSSSHStatus modifies the ssh status with the last chosen ssh secret.
-func (host *HetznerBareMetalHost) UpdateOSSSHStatus(currentSecret corev1.Secret) error {
-	hash, err := HashOfSecretData(currentSecret.Data)
+func (host *HetznerBareMetalHost) UpdateOSSSHStatus(secret corev1.Secret) error {
+	status, err := statusFromSecret(secret)
 	if err != nil {
-		return fmt.Errorf("failed to calculate hash of data")
+		return fmt.Errorf("failed get status from secret: %w", err)
 	}
-	host.Spec.Status.SSHStatus.CurrentOS = &SecretStatus{
+	host.Spec.Status.SSHStatus.CurrentOS = status
+	return nil
+}
+
+// statusFromSecret modifies the ssh status with information from ssh secret.
+func statusFromSecret(secret corev1.Secret) (*SecretStatus, error) {
+	hash, err := HashOfSecretData(secret.Data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate hash of data")
+	}
+	return &SecretStatus{
 		Reference: &corev1.SecretReference{
-			Name:      currentSecret.ObjectMeta.Name,
-			Namespace: currentSecret.ObjectMeta.Namespace,
+			Name:      secret.ObjectMeta.Name,
+			Namespace: secret.ObjectMeta.Namespace,
 		},
 		DataHash: hash,
+	}, nil
+}
+
+// HashOfSecretData returns the sha256 of secret data.
+func HashOfSecretData(data map[string][]byte) ([]byte, error) {
+	b, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
 	}
-	return nil
+
+	hash := sha256.New()
+	if _, err := hash.Write(b); err != nil {
+		return nil, err
+	}
+
+	return hash.Sum(nil), nil
 }
 
 // HasSoftwareReboot returns a boolean indicating whether software reboot exists for server.
@@ -494,7 +506,7 @@ func (host *HetznerBareMetalHost) HasHardwareReboot() bool {
 // HasPowerReboot returns a boolean indicating whether power reboot exists for server.
 func (host *HetznerBareMetalHost) HasPowerReboot() bool {
 	for _, rt := range host.Spec.Status.RebootTypes {
-		if rt == RebootTypeHardware {
+		if rt == RebootTypePower {
 			return true
 		}
 	}
@@ -507,6 +519,53 @@ func (host *HetznerBareMetalHost) HasPowerReboot() bool {
 func (host *HetznerBareMetalHost) NeedsProvisioning() bool {
 	// Without an image, there is nothing to provision.
 	return host.Spec.Status.InstallImage != nil
+}
+
+// SetError updates the error type and message in the status struct and increases the ErrorCount.
+func (host *HetznerBareMetalHost) SetError(errType ErrorType, errMessage string) {
+	if errType == host.Spec.Status.ErrorType && errMessage == host.Spec.Status.ErrorMessage {
+		host.Spec.Status.ErrorCount++
+	} else {
+		// new error - start fresh error count
+		host.Spec.Status.ErrorCount = 1
+	}
+	host.Spec.Status.ErrorType = errType
+	host.Spec.Status.ErrorMessage = errMessage
+}
+
+// ClearError removes the error on the host and resets the error count to 0.
+func (host *HetznerBareMetalHost) ClearError() {
+	var emptyErrType ErrorType
+	if host.Spec.Status.ErrorType != emptyErrType {
+		host.Spec.Status.ErrorType = emptyErrType
+	}
+	if host.Spec.Status.ErrorMessage != "" {
+		host.Spec.Status.ErrorMessage = ""
+	}
+	host.Spec.Status.ErrorCount = 0
+}
+
+// HasRebootAnnotation checks for existence of reboot annotations and returns true if at least one exist.
+func (host *HetznerBareMetalHost) HasRebootAnnotation() bool {
+	for annotation := range host.GetAnnotations() {
+		if isRebootAnnotation(annotation) {
+			return true
+		}
+	}
+	return false
+}
+
+// ClearRebootAnnotations deletes all reboot annotations that exist on the host.
+func (host *HetznerBareMetalHost) ClearRebootAnnotations() {
+	for annotation := range host.Annotations {
+		if isRebootAnnotation(annotation) {
+			delete(host.Annotations, annotation)
+		}
+	}
+}
+
+func isRebootAnnotation(annotation string) bool {
+	return strings.HasPrefix(annotation, RebootAnnotation+"/") || annotation == RebootAnnotation
 }
 
 //+kubebuilder:object:root=true

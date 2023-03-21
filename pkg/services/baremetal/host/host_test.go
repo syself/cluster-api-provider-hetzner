@@ -44,7 +44,6 @@ var _ = Describe("SetErrorMessage", func() {
 			expectedErrorType infrav1.ErrorType,
 			expectedErrorMessage string,
 		) {
-
 			var host *infrav1.HetznerBareMetalHost
 			if hasErrorInStatus {
 				host = helpers.BareMetalHost(
@@ -59,7 +58,7 @@ var _ = Describe("SetErrorMessage", func() {
 				)
 			}
 
-			SetErrorMessage(host, errorType, errorMessage)
+			host.SetError(errorType, errorMessage)
 			Expect(host.Spec.Status.ErrorCount).To(Equal(expectedErrorCount))
 			Expect(host.Spec.Status.ErrorMessage).To(Equal(expectedErrorMessage))
 			Expect(host.Spec.Status.ErrorType).To(Equal(expectedErrorType))
@@ -1040,7 +1039,6 @@ var _ = Describe("actionRegistering", func() {
 			expectedActionResult actionResult,
 			expectedErrorMessage *string,
 		) {
-
 			var host *infrav1.HetznerBareMetalHost
 			if includeRootDeviceHintWWN {
 				host = helpers.BareMetalHost(
@@ -1182,7 +1180,7 @@ var _ = Describe("getImageDetails", func() {
 			expectedNeedsDownload bool,
 			expectedErrorMessage string,
 		) {
-			imagePath, needsDownload, errorMessage := getImageDetails(image)
+			imagePath, needsDownload, errorMessage := image.GetDetails()
 			Expect(imagePath).To(Equal(expectedImagePath))
 			Expect(needsDownload).To(Equal(expectedNeedsDownload))
 			Expect(errorMessage).To(Equal(expectedErrorMessage))
@@ -1663,7 +1661,7 @@ var _ = Describe("actionProvisioned", func() {
 			actResult := service.actionProvisioned()
 			Expect(actResult).Should(BeAssignableToTypeOf(expectedActionResult))
 			Expect(host.Spec.Status.Rebooted).To(Equal(expectRebootInStatus))
-			Expect(hasRebootAnnotation(*host)).To(Equal(expectRebootAnnotation))
+			Expect(host.HasRebootAnnotation()).To(Equal(expectRebootAnnotation))
 
 			if shouldHaveRebootAnnotation && !rebooted {
 				Expect(sshMock.AssertCalled(GinkgoT(), "Reboot")).To(BeTrue())
