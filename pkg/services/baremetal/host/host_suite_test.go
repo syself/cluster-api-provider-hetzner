@@ -64,7 +64,7 @@ var (
 )
 
 func newTestHostStateMachine(host *infrav1.HetznerBareMetalHost, service *Service) *hostStateMachine {
-	return newHostStateMachine(host, service, &log)
+	return newHostStateMachine(host, service, log)
 }
 
 func newTestService(
@@ -79,7 +79,7 @@ func newTestService(
 	c := fakeclient.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(host).Build()
 	return &Service{
 		&scope.BareMetalHostScope{
-			Logger:               &log,
+			Logger:               log,
 			Client:               c,
 			SSHClientFactory:     sshClientFactory,
 			RobotClient:          robotClient,

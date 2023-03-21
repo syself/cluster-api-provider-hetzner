@@ -32,10 +32,10 @@ type hostStateMachine struct {
 	host       *infrav1.HetznerBareMetalHost
 	reconciler *Service
 	nextState  infrav1.ProvisioningState
-	log        *logr.Logger
+	log        logr.Logger
 }
 
-func newHostStateMachine(host *infrav1.HetznerBareMetalHost, reconciler *Service, log *logr.Logger) *hostStateMachine {
+func newHostStateMachine(host *infrav1.HetznerBareMetalHost, reconciler *Service, log logr.Logger) *hostStateMachine {
 	currentState := host.Spec.Status.ProvisioningState
 	r := hostStateMachine{
 		host:       host,

@@ -30,9 +30,9 @@ import (
 )
 
 // SetupWebhookWithManager initializes webhook manager for HetznerBareMetalMachine.
-func (r *HetznerBareMetalMachine) SetupWebhookWithManager(mgr ctrl.Manager) error {
+func (bmMachine *HetznerBareMetalMachine) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(r).
+		For(bmMachine).
 		Complete()
 }
 
@@ -41,84 +41,83 @@ func (r *HetznerBareMetalMachine) SetupWebhookWithManager(mgr ctrl.Manager) erro
 var _ webhook.Defaulter = &HetznerBareMetalMachine{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type.
-func (r *HetznerBareMetalMachine) Default() {
-}
+func (bmMachine *HetznerBareMetalMachine) Default() {}
 
 //+kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalmachine,mutating=false,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalmachines,verbs=create;update,versions=v1beta1,name=validation.hetznerbaremetalmachine.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
 
 var _ webhook.Validator = &HetznerBareMetalMachine{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
-func (r *HetznerBareMetalMachine) ValidateCreate() error {
+func (bmMachine *HetznerBareMetalMachine) ValidateCreate() error {
 	var allErrs field.ErrorList
 
-	if r.Spec.SSHSpec.PortAfterCloudInit == 0 {
-		r.Spec.SSHSpec.PortAfterCloudInit = r.Spec.SSHSpec.PortAfterInstallImage
+	if bmMachine.Spec.SSHSpec.PortAfterCloudInit == 0 {
+		bmMachine.Spec.SSHSpec.PortAfterCloudInit = bmMachine.Spec.SSHSpec.PortAfterInstallImage
 	}
 
-	if (r.Spec.InstallImage.Image.Name == "" || r.Spec.InstallImage.Image.URL == "") &&
-		r.Spec.InstallImage.Image.Path == "" {
+	if (bmMachine.Spec.InstallImage.Image.Name == "" || bmMachine.Spec.InstallImage.Image.URL == "") &&
+		bmMachine.Spec.InstallImage.Image.Path == "" {
 		allErrs = append(allErrs,
-			field.Invalid(field.NewPath("spec", "installImage", "image"), r.Spec.InstallImage.Image,
+			field.Invalid(field.NewPath("spec", "installImage", "image"), bmMachine.Spec.InstallImage.Image,
 				"have to specify either image name and url or path"),
 		)
 	}
 
-	if r.Spec.InstallImage.Image.URL != "" {
-		if _, err := GetImageSuffix(r.Spec.InstallImage.Image.URL); err != nil {
+	if bmMachine.Spec.InstallImage.Image.URL != "" {
+		if _, err := GetImageSuffix(bmMachine.Spec.InstallImage.Image.URL); err != nil {
 			allErrs = append(allErrs,
-				field.Invalid(field.NewPath("spec", "installImage", "image", "url"), r.Spec.InstallImage.Image.URL,
+				field.Invalid(field.NewPath("spec", "installImage", "image", "url"), bmMachine.Spec.InstallImage.Image.URL,
 					"unknown image type in URL"),
 			)
 		}
 	}
 
 	// validate host selector
-	for labelKey, labelVal := range r.Spec.HostSelector.MatchLabels {
+	for labelKey, labelVal := range bmMachine.Spec.HostSelector.MatchLabels {
 		if _, err := labels.NewRequirement(labelKey, selection.Equals, []string{labelVal}); err != nil {
 			allErrs = append(allErrs, field.Invalid(
-				field.NewPath("spec", "hostSelector", "matchLabels"), r.Spec.HostSelector.MatchLabels,
+				field.NewPath("spec", "hostSelector", "matchLabels"), bmMachine.Spec.HostSelector.MatchLabels,
 				fmt.Sprintf("invalid match label: %s", err.Error()),
 			))
 		}
 	}
-	for _, req := range r.Spec.HostSelector.MatchExpressions {
+	for _, req := range bmMachine.Spec.HostSelector.MatchExpressions {
 		lowercaseOperator := selection.Operator(strings.ToLower(string(req.Operator)))
 		if _, err := labels.NewRequirement(req.Key, lowercaseOperator, req.Values); err != nil {
 			allErrs = append(allErrs, field.Invalid(
-				field.NewPath("spec", "hostSelector", "matchExpressions"), r.Spec.HostSelector.MatchExpressions,
+				field.NewPath("spec", "hostSelector", "matchExpressions"), bmMachine.Spec.HostSelector.MatchExpressions,
 				fmt.Sprintf("invalid match expression: %s", err.Error()),
 			))
 		}
 	}
 
-	return aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
+	return aggregateObjErrors(bmMachine.GroupVersionKind().GroupKind(), bmMachine.Name, allErrs)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
-func (r *HetznerBareMetalMachine) ValidateUpdate(old runtime.Object) error {
+func (bmMachine *HetznerBareMetalMachine) ValidateUpdate(old runtime.Object) error {
 	var allErrs field.ErrorList
 
 	oldHetznerBareMetalMachine := old.(*HetznerBareMetalMachine)
-	if !reflect.DeepEqual(r.Spec.InstallImage, oldHetznerBareMetalMachine.Spec.InstallImage) {
+	if !reflect.DeepEqual(bmMachine.Spec.InstallImage, oldHetznerBareMetalMachine.Spec.InstallImage) {
 		allErrs = append(allErrs,
-			field.Invalid(field.NewPath("spec", "installImage"), r.Spec.InstallImage, "installImage immutable"),
+			field.Invalid(field.NewPath("spec", "installImage"), bmMachine.Spec.InstallImage, "installImage immutable"),
 		)
 	}
-	if !reflect.DeepEqual(r.Spec.SSHSpec, oldHetznerBareMetalMachine.Spec.SSHSpec) {
+	if !reflect.DeepEqual(bmMachine.Spec.SSHSpec, oldHetznerBareMetalMachine.Spec.SSHSpec) {
 		allErrs = append(allErrs,
-			field.Invalid(field.NewPath("spec", "sshSpec"), r.Spec.SSHSpec, "sshSpec immutable"),
+			field.Invalid(field.NewPath("spec", "sshSpec"), bmMachine.Spec.SSHSpec, "sshSpec immutable"),
 		)
 	}
-	if !reflect.DeepEqual(r.Spec.HostSelector, oldHetznerBareMetalMachine.Spec.HostSelector) {
+	if !reflect.DeepEqual(bmMachine.Spec.HostSelector, oldHetznerBareMetalMachine.Spec.HostSelector) {
 		allErrs = append(allErrs,
-			field.Invalid(field.NewPath("spec", "hostSelector"), r.Spec.HostSelector, "hostSelector immutable"),
+			field.Invalid(field.NewPath("spec", "hostSelector"), bmMachine.Spec.HostSelector, "hostSelector immutable"),
 		)
 	}
-	return aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
+	return aggregateObjErrors(bmMachine.GroupVersionKind().GroupKind(), bmMachine.Name, allErrs)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
-func (r *HetznerBareMetalMachine) ValidateDelete() error {
+func (bmMachine *HetznerBareMetalMachine) ValidateDelete() error {
 	return nil
 }

@@ -19,6 +19,7 @@ package scope
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -28,14 +29,13 @@ import (
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog/v2/klogr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // BareMetalHostScopeParams defines the input parameters used to create a new scope.
 type BareMetalHostScopeParams struct {
 	Client               client.Client
-	Logger               *logr.Logger
+	Logger               logr.Logger
 	HetznerBareMetalHost *infrav1.HetznerBareMetalHost
 	HetznerCluster       *infrav1.HetznerCluster
 	RobotClient          robotclient.Client
@@ -67,9 +67,9 @@ func NewBareMetalHostScope(ctx context.Context, params BareMetalHostScopeParams)
 		return nil, errors.New("cannot create baremetal host scope without secret manager")
 	}
 
-	if params.Logger == nil {
-		logger := klogr.New()
-		params.Logger = &logger
+	var emptyLogger logr.Logger
+	if params.Logger == emptyLogger {
+		return nil, fmt.Errorf("failed to generate new scope from nil Logger")
 	}
 
 	return &BareMetalHostScope{
@@ -87,7 +87,7 @@ func NewBareMetalHostScope(ctx context.Context, params BareMetalHostScopeParams)
 
 // BareMetalHostScope defines the basic context for an actuator to operate upon.
 type BareMetalHostScope struct {
-	*logr.Logger
+	logr.Logger
 	Client               client.Client
 	SecretManager        *secretutil.SecretManager
 	RobotClient          robotclient.Client
@@ -106,11 +106,6 @@ func (s *BareMetalHostScope) Name() string {
 // Namespace returns the namespace name.
 func (s *BareMetalHostScope) Namespace() string {
 	return s.HetznerBareMetalHost.Namespace
-}
-
-// SetErrorCount sets the operational status of the HetznerBareMetalHost.
-func (s *BareMetalHostScope) SetErrorCount(count int) {
-	s.HetznerBareMetalHost.Spec.Status.ErrorCount = count
 }
 
 // GetRawBootstrapData returns the bootstrap data from the secret in the Machine's bootstrap.dataSecretName.

@@ -173,9 +173,29 @@ type Image struct {
 	Path string `json:"path,omitempty"`
 }
 
+// GetDetails returns the path of the image and whether the image has to be downloaded.
+func (image Image) GetDetails() (imagePath string, needsDownload bool, errorMessage string) {
+	// If image is set, then the URL is also set and we have to download a remote file
+	switch {
+	case image.Name != "" && image.URL != "":
+		suffix, err := GetImageSuffix(image.URL)
+		if err != nil {
+			errorMessage = "wrong image url suffix"
+			return
+		}
+		imagePath = fmt.Sprintf("/root/%s.%s", image.Name, suffix)
+		needsDownload = true
+	case image.Path != "":
+		// In the other case a local imagePath is specified
+		imagePath = image.Path
+	default:
+		errorMessage = "invalid image - need to specify either name and url or path"
+	}
+	return imagePath, needsDownload, errorMessage
+}
+
 // Partition defines the additional Partitions to be created.
 type Partition struct {
-
 	// Mount defines the mount path for this filesystem.
 	// or keyword 'lvm' to use this PART as volume group (VG) for LVM
 	// identifier 'btrfs.X' to use this PART as volume for
@@ -224,7 +244,6 @@ type LVMDefinition struct {
 
 // HetznerBareMetalMachineStatus defines the observed state of HetznerBareMetalMachine.
 type HetznerBareMetalMachineStatus struct {
-
 	// LastUpdated identifies when this status was last observed.
 	// +optional
 	LastUpdated *metav1.Time `json:"lastUpdated,omitempty"`
@@ -273,19 +292,19 @@ type HetznerBareMetalMachine struct {
 }
 
 // GetConditions returns the observations of the operational state of the HetznerBareMetalMachine resource.
-func (r *HetznerBareMetalMachine) GetConditions() clusterv1.Conditions {
-	return r.Status.Conditions
+func (bmMachine *HetznerBareMetalMachine) GetConditions() clusterv1.Conditions {
+	return bmMachine.Status.Conditions
 }
 
 // SetConditions sets the underlying service state of the HetznerBareMetalMachine to the predescribed clusterv1.Conditions.
-func (r *HetznerBareMetalMachine) SetConditions(conditions clusterv1.Conditions) {
-	r.Status.Conditions = conditions
+func (bmMachine *HetznerBareMetalMachine) SetConditions(conditions clusterv1.Conditions) {
+	bmMachine.Status.Conditions = conditions
 }
 
 // SetFailure sets a failure reason and message.
-func (r *HetznerBareMetalMachine) SetFailure(reason capierrors.MachineStatusError, message string) {
-	r.Status.FailureReason = &reason
-	r.Status.FailureMessage = &message
+func (bmMachine *HetznerBareMetalMachine) SetFailure(reason capierrors.MachineStatusError, message string) {
+	bmMachine.Status.FailureReason = &reason
+	bmMachine.Status.FailureMessage = &message
 }
 
 // GetImageSuffix tests whether the suffix is known and outputs it if yes. Otherwise it returns an error.
@@ -306,6 +325,16 @@ func GetImageSuffix(url string) (string, error) {
 	}
 
 	return "", errors.Wrapf(errUnknownSuffix, "unknown suffix in URL %s", url)
+}
+
+// HasHostAnnotation checks whether the annotation that references a host exists.
+func (bmMachine *HetznerBareMetalMachine) HasHostAnnotation() bool {
+	annotations := bmMachine.GetAnnotations()
+	if annotations == nil {
+		return false
+	}
+	_, ok := annotations[HostAnnotation]
+	return ok
 }
 
 //+kubebuilder:object:root=true

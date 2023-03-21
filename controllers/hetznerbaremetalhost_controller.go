@@ -122,7 +122,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 
 	// Create the scope.
 	hostScope, err := scope.NewBareMetalHostScope(ctx, scope.BareMetalHostScopeParams{
-		Logger:               &log,
+		Logger:               log,
 		Client:               r.Client,
 		HetznerCluster:       hetznerCluster,
 		HetznerBareMetalHost: bmHost,
@@ -218,15 +218,12 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 		osSSHSecret, err = secretManager.ObtainSecret(ctx, osSSHSecretNamespacedName)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				if res, brk, err := breakReconcile(host.SetErrorCondition(
-					ctx,
-					bmHost,
-					r.Client,
-					infrav1.PreparationError,
-					infrav1.ErrorMessageMissingOSSSHSecret,
-				)); brk {
+				bmHost.SetError(infrav1.PreparationError, infrav1.ErrorMessageMissingOSSSHSecret)
+
+				if res, brk, err := breakReconcile(host.SaveHostAndReturn(ctx, r.Client, bmHost)); brk {
 					return nil, nil, &res, err
 				}
+
 				return nil, nil, &ctrl.Result{RequeueAfter: host.CalculateBackoff(bmHost.Spec.Status.ErrorCount)}, nil
 			}
 			return nil, nil, &ctrl.Result{}, errors.Wrap(err, "failed to get secret")
@@ -236,15 +233,12 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 		rescueSSHSecret, err = secretManager.AcquireSecret(ctx, rescueSSHSecretNamespacedName, hetznerCluster, false, hetznerCluster.DeletionTimestamp.IsZero())
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				if res, brk, err := breakReconcile(host.SetErrorCondition(
-					ctx,
-					bmHost,
-					r.Client,
-					infrav1.PreparationError,
-					infrav1.ErrorMessageMissingRescueSSHSecret,
-				)); brk {
+				bmHost.SetError(infrav1.PreparationError, infrav1.ErrorMessageMissingRescueSSHSecret)
+
+				if res, brk, err := breakReconcile(host.SaveHostAndReturn(ctx, r.Client, bmHost)); brk {
 					return nil, nil, &res, err
 				}
+
 				return nil, nil, &ctrl.Result{RequeueAfter: host.CalculateBackoff(bmHost.Spec.Status.ErrorCount)}, nil
 			}
 			return nil, nil, &ctrl.Result{}, errors.Wrap(err, "failed to acquire secret")
@@ -300,26 +294,18 @@ func hetznerSecretErrorResult(
 	// we requeue the host as we will not know if they create the secret
 	// at some point in the future.
 	case *secretutil.ResolveSecretRefError:
-		if res, brk, err := breakReconcile(host.SetErrorCondition(
-			ctx,
-			bmHost,
-			client,
-			infrav1.PreparationError,
-			infrav1.ErrorMessageMissingHetznerSecret,
-		)); brk {
+		bmHost.SetError(infrav1.PreparationError, infrav1.ErrorMessageMissingHetznerSecret)
+
+		if res, brk, err := breakReconcile(host.SaveHostAndReturn(ctx, client, bmHost)); brk {
 			return res, err
 		}
 		backoff := host.CalculateBackoff(bmHost.Spec.Status.ErrorCount)
 		res = ctrl.Result{RequeueAfter: backoff}
 		// No need to reconcile again, as it will be triggered as soon as the secret is updated.
 	case *bmclient.CredentialsValidationError:
-		if res, brk, err := breakReconcile(host.SetErrorCondition(
-			ctx,
-			bmHost,
-			client,
-			infrav1.PreparationError,
-			infrav1.ErrorMessageMissingOrInvalidSecretData,
-		)); brk {
+		bmHost.SetError(infrav1.PreparationError, infrav1.ErrorMessageMissingOrInvalidSecretData)
+
+		if res, brk, err := breakReconcile(host.SaveHostAndReturn(ctx, client, bmHost)); brk {
 			return res, err
 		}
 
