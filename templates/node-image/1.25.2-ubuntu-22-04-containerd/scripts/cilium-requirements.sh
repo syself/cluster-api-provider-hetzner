@@ -46,5 +46,10 @@ cat > /etc/sysctl.d/99-cilium.conf <<EOF
 net.ipv4.conf.lxc*.rp_filter = 0
 EOF
 
-
-
+# Cilium 1.13 Requirements
+# https://docs.cilium.io/en/v1.13/operations/system_requirements/#systemd-based-distributions
+cat > /etc/systemd/networkd.conf <<EOF
+[Network]
+ManageForeignRoutes=no
+ManageForeignRoutingPolicyRules=no
+EOF
