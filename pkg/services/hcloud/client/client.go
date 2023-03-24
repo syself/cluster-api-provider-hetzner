@@ -80,6 +80,7 @@ type Factory interface {
 func (f *factory) NewClient(hcloudToken string) Client {
 	opts := []hcloud.ClientOption{
 		hcloud.WithToken(hcloudToken),
+		hcloud.WithApplication("cluster-api-provider-hetzner", ""),
 	}
 
 	// controller-runtime hides their default prometheus registry it uses (and exposes via HTTP) behind a custom
