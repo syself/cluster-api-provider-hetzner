@@ -464,12 +464,20 @@ func (c *cacheHCloudClient) ListServers(ctx context.Context, opts hcloud.ServerL
 	return servers, nil
 }
 
+func (c *cacheHCloudClient) GetServer(ctx context.Context, id int) (*hcloud.Server, error) {
+	return c.serverCache.idMap[id], nil
+}
+
 func (c *cacheHCloudClient) ShutdownServer(ctx context.Context, server *hcloud.Server) (*hcloud.Action, error) {
 	if _, found := c.serverCache.idMap[server.ID]; !found {
 		return nil, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
 	}
 	c.serverCache.idMap[server.ID].Status = hcloud.ServerStatusOff
 	return &hcloud.Action{}, nil
+}
+
+func (c *cacheHCloudClient) RebootServer(ctx context.Context, server *hcloud.Server) (*hcloud.Action, error) {
+	return nil, nil
 }
 
 func (c *cacheHCloudClient) PowerOnServer(ctx context.Context, server *hcloud.Server) (*hcloud.Action, error) {

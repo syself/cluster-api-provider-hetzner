@@ -169,6 +169,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err = (&controllers.HCloudRemediationReconciler{
+		Client:              mgr.GetClient(),
+		APIReader:           mgr.GetAPIReader(),
+		HCloudClientFactory: hcloudClientFactory,
+		WatchFilterValue:    watchFilterValue,
+	}).SetupWithManager(ctx, mgr, controller.Options{}); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "HCloudRemediation")
+		os.Exit(1)
+	}
+
 	setUpWebhookWithManager(mgr)
 
 	//+kubebuilder:scaffold:builder
@@ -229,6 +239,14 @@ func setUpWebhookWithManager(mgr ctrl.Manager) {
 	}
 	if err := (&infrastructurev1beta1.HetznerBareMetalRemediationTemplate{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalRemediationTemplate")
+		os.Exit(1)
+	}
+	if err := (&infrastructurev1beta1.HCloudRemediation{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "HCloudRemediation")
+		os.Exit(1)
+	}
+	if err := (&infrastructurev1beta1.HCloudRemediationTemplate{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "HCloudRemediationTemplate")
 		os.Exit(1)
 	}
 }

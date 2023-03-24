@@ -28,11 +28,13 @@ import (
 
 const labelSelector = "key1==val1"
 
-var factory = fake.NewHCloudClientFactory()
-var ctx = context.Background()
+var (
+	factory = fake.NewHCloudClientFactory()
+	ctx     = context.Background()
+)
 
 var _ = Describe("Load balancer", func() {
-	var opts = hcloud.LoadBalancerCreateOpts{
+	opts := hcloud.LoadBalancerCreateOpts{
 		Name: "lb-name",
 		Labels: map[string]string{
 			"key1": "val1",
@@ -56,7 +58,7 @@ var _ = Describe("Load balancer", func() {
 	var listOpts hcloud.LoadBalancerListOpts
 	listOpts.LabelSelector = labelSelector
 
-	var networkOpts = hcloud.NetworkCreateOpts{
+	networkOpts := hcloud.NetworkCreateOpts{
 		Name: "network-name",
 		Labels: map[string]string{
 			"key1": "val1",
@@ -66,7 +68,7 @@ var _ = Describe("Load balancer", func() {
 		Subnets: []hcloud.NetworkSubnet{{IPRange: &net.IPNet{IP: net.IP("1.2.3.6")}}},
 	}
 
-	var client = factory.NewClient("")
+	client := factory.NewClient("")
 
 	var lb *hcloud.LoadBalancer
 	var network *hcloud.Network
@@ -407,9 +409,9 @@ var _ = Describe("Load balancer", func() {
 		Expect(err).ToNot(Succeed())
 	})
 
-	var _ = Describe("Images", func() {
+	_ = Describe("Images", func() {
 		var listOpts hcloud.ImageListOpts
-		var client = factory.NewClient("")
+		client := factory.NewClient("")
 		BeforeEach(func() {
 			listOpts.LabelSelector = labelSelector
 		})
@@ -425,9 +427,9 @@ var _ = Describe("Server", func() {
 	var listOpts hcloud.ServerListOpts
 	listOpts.LabelSelector = labelSelector
 
-	var client = factory.NewClient("")
+	client := factory.NewClient("")
 
-	var opts = hcloud.ServerCreateOpts{
+	opts := hcloud.ServerCreateOpts{
 		Name: "test-server",
 		Labels: map[string]string{
 			"key1": "val1",
@@ -502,6 +504,13 @@ var _ = Describe("Server", func() {
 		Expect(err).To(Succeed())
 		Expect(len(resp)).To(Equal(1))
 		Expect(resp[0].ID).To(Equal(server.ID))
+	})
+
+	It("gets a server", func() {
+		resp, err := client.GetServer(ctx, 1)
+		Expect(err).To(Succeed())
+		Expect(resp).ToNot(BeNil())
+		Expect(resp.ID).To(Equal(server.ID))
 	})
 
 	It("shuts a server down", func() {
@@ -584,9 +593,9 @@ var _ = Describe("Network", func() {
 	var listOpts hcloud.NetworkListOpts
 	listOpts.LabelSelector = labelSelector
 
-	var client = factory.NewClient("")
+	client := factory.NewClient("")
 
-	var opts = hcloud.NetworkCreateOpts{
+	opts := hcloud.NetworkCreateOpts{
 		Name: "test-network",
 		Labels: map[string]string{
 			"key1": "val1",
@@ -641,7 +650,7 @@ var _ = Describe("Placement groups", func() {
 	var listOpts hcloud.PlacementGroupListOpts
 	listOpts.LabelSelector = labelSelector
 
-	var opts = hcloud.PlacementGroupCreateOpts{
+	opts := hcloud.PlacementGroupCreateOpts{
 		Name: "placement-group-name",
 		Labels: map[string]string{
 			"key1": "val1",
@@ -650,7 +659,7 @@ var _ = Describe("Placement groups", func() {
 		Type: "stream",
 	}
 
-	var client = factory.NewClient("")
+	client := factory.NewClient("")
 
 	var server *hcloud.Server
 	var placementGroup *hcloud.PlacementGroup
