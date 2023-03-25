@@ -5,6 +5,7 @@
       groupName: "Builder Image",
       matchManagers: ["dockerfile", "regex"],
       matchUpdateTypes: ["major", "minor", "patch", "digest", "pin", "pinDigest"],
+      separateMinorPatch: false,
       matchPaths: ["images/builder/**"],
       commitMessageTopic: "Builder Image group",
       groupSlug: "caph-builder-image",
