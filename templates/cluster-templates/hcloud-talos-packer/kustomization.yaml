@@ -4,7 +4,7 @@ bases:
   - ../bases/hcloud-tcp-packer.yaml
   - ../bases/hcloud-mt-control-plane-packer.yaml
   - ../bases/hcloud-mhc-control-plane.yaml
-  - ../bases/hcloud-md-0-kubeadm.yaml
+  - ../bases/hcloud-md-0-talos.yaml
   - ../bases/tct-md-0-packer.yaml
   - ../bases/hcloud-mt-md-0-packer.yaml
   - ../bases/hcloud-mhc-md-0.yaml
