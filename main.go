@@ -80,14 +80,15 @@ func main() {
 	ctrl.SetLogger(utils.GetDefaultLogger(logLevel))
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                     scheme,
-		MetricsBindAddress:         metricsAddr,
-		Port:                       9443,
-		HealthProbeBindAddress:     probeAddr,
-		LeaderElection:             enableLeaderElection,
-		LeaderElectionID:           "hetzner.cluster.x-k8s.io",
-		LeaderElectionResourceLock: "leases",
-		Namespace:                  watchNamespace,
+		Scheme:                        scheme,
+		MetricsBindAddress:            metricsAddr,
+		Port:                          9443,
+		HealthProbeBindAddress:        probeAddr,
+		LeaderElection:                enableLeaderElection,
+		LeaderElectionID:              "hetzner.cluster.x-k8s.io",
+		LeaderElectionResourceLock:    "leases",
+		LeaderElectionReleaseOnCancel: true,
+		Namespace:                     watchNamespace,
 		NewCache: cache.BuilderWithOptions(cache.Options{
 			SelectorsByObject: secretutil.AddSecretSelector(nil),
 		}),
