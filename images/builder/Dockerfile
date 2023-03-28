@@ -45,12 +45,12 @@ FROM docker.io/aquasec/trivy:0.38.3@sha256:5a290a63ed8b927fee29ceed3480036c00ce5
 ############################
 # Caph Build Image Base #
 ############################
-FROM docker.io/library/golang:1.20.2-bullseye@sha256:bd4a3e7eee6d6ea30b2e27d6c1ac3c56809e78e08c7e44ddf91f8c741091f5ad
+FROM docker.io/library/golang:1.20.2-bullseye@sha256:2101aa981e68ab1e06e3d4ac35ae75ed122f0380e5331e3ae4ba7e811bf9d256
 
 # update: datasource=repology depName=debian_11/skopeo versioning=loose
 ENV SKOPEO_VERSION="1.2.2+dfsg1-1+b6"
 # update: datasource=github-tags depName=adrienverge/yamllint versioning=semver
-ENV YAMLLINT_VERSION="v1.29.0"
+ENV YAMLLINT_VERSION="v1.30.0"
 # update: datasource=github-tags depName=opt-nc/yamlfixer versioning=semver
 ENV YAMLFIXER_VERSION="0.9.15"
 
