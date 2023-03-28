@@ -364,3 +364,12 @@ cmd_button(
     icon_name = "cloud_download",
     text = "Delete Cluster",
 )
+
+
+cmd_button(
+    "Add SSH Key to HCloud",
+    argv=["make", "add-ssh-pub-key-to-hcloud"],
+    location=location.NAV,
+    icon_name="trending_up",
+    text="Add SSH Key to HCloud",
+)

@@ -55,7 +55,6 @@ type HCloudRemediationReconciler struct {
 func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconcile.Request) (_ reconcile.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
 
-	// Fetch the Hetzner bare metal host instance.
 	hcloudRemediation := &infrav1.HCloudRemediation{}
 	err := r.Get(ctx, req.NamespacedName, hcloudRemediation)
 	if err != nil {
@@ -175,7 +174,7 @@ func (r *HCloudRemediationReconciler) reconcileNormal(ctx context.Context, remed
 	remediationScope.Info("Reconciling HCloudRemediation")
 	hcloudRemediation := remediationScope.HCloudRemediation
 
-	// reconcile bare metal remediation
+	// reconcile hcloud remediation
 	result, err := hcloudremediation.NewService(remediationScope).Reconcile(ctx)
 	if err != nil {
 		return result, fmt.Errorf("failed to reconcile server for HCloudRemediation %s/%s: %w",

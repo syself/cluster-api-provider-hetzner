@@ -108,7 +108,7 @@ $(GOLANGCI_LINT): images/builder/Dockerfile # Download golanci-lint using hack s
 TILT := $(abspath $(TOOLS_BIN_DIR)/tilt)
 tilt: $(TILT) ## Build a local copy of tilt
 $(TILT):  
-	@mkdir $(TOOLS_BIN_DIR) || true
+	@mkdir -p $(TOOLS_BIN_DIR)
 	MINIMUM_TILT_VERSION=0.31.2 hack/ensure-tilt.sh
 
 ENVSUBST := $(abspath $(TOOLS_BIN_DIR)/envsubst)
@@ -210,6 +210,18 @@ install-manifests-ccm-hcloud:
 	--set privateNetwork.enabled=$(PRIVATE_NETWORK)
 	@echo 'run "kubectl --kubeconfig=$(CAPH_WORKER_CLUSTER_KUBECONFIG) ..." to work with the new target cluster'
 
+add-ssh-pub-key-to-hcloud:
+	@test $${HCLOUD_TOKEN?Please set environment variable}
+	@test $${SSH_KEY?Please set environment variable}
+	@test $${HCLOUD_SSH_KEY?Please set environment variable}
+	SSH_KEY_CONTENT=$$(cat $(SSH_KEY)) ; \
+	curl \
+		-X POST \
+		-H "Authorization: Bearer $${HCLOUD_TOKEN}" \
+		-H "Content-Type: application/json" \
+		-d '{"labels":{},"name":"${HCLOUD_SSH_KEY}","public_key":"'"$${SSH_KEY_CONTENT}"'"}' \
+		'https://api.hetzner.cloud/v1/ssh_keys'
+
 create-workload-cluster-hcloud: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
 	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD_TOKEN) --save-config --dry-run=client -o yaml | kubectl apply -f -
@@ -292,6 +304,7 @@ move-to-workload-cluster: $(CLUSTERCTL)
 
 .PHONY: delete-workload-cluster
 delete-workload-cluster: ## Deletes the example workload Kubernetes cluster
+	@test $${CLUSTER_NAME?Please set environment variable}
 	@echo 'Your Hetzner resources will now be deleted, this can take up to 20 minutes'
 	kubectl patch cluster $(CLUSTER_NAME) --type=merge -p '{"spec":{"paused": "false"}}' || true
 	kubectl delete cluster $(CLUSTER_NAME)
