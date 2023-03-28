@@ -17,11 +17,11 @@ limitations under the License.
 package host
 
 import (
+	"errors"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	robotclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/robot"

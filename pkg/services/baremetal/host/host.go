@@ -20,6 +20,7 @@ package host
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"reflect"
@@ -27,7 +28,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
@@ -169,7 +169,7 @@ func (s *Service) actionPreparing() actionResult {
 			)
 			return actionContinue{}
 		}
-		return actionError{err: errors.Wrap(err, "failed to get bare metal server")}
+		return actionError{err: fmt.Errorf("failed to get bare metal server: %w", err)}
 	}
 
 	s.scope.HetznerBareMetalHost.Spec.Status.IPv4 = server.ServerIP
@@ -194,15 +194,15 @@ func (s *Service) actionPreparing() actionResult {
 				)
 				return actionContinue{}
 			}
-			return actionError{err: errors.Wrap(err, "failed to get reboot")}
+			return actionError{err: fmt.Errorf("failed to get reboot: %w", err)}
 		}
 		var rebootTypes []infrav1.RebootType
 		b, err := json.Marshal(reboot.Type)
 		if err != nil {
-			return actionError{err: errors.Wrap(err, "failed to marshal")}
+			return actionError{err: fmt.Errorf("failed to marshal: %w", err)}
 		}
 		if err := json.Unmarshal(b, &rebootTypes); err != nil {
-			return actionError{err: errors.Wrap(err, "failed to unmarshal")}
+			return actionError{err: fmt.Errorf("failed to unmarshal: %w", err)}
 		}
 		s.scope.HetznerBareMetalHost.Spec.Status.RebootTypes = rebootTypes
 	}
@@ -222,7 +222,7 @@ func (s *Service) actionPreparing() actionResult {
 			)
 			return actionContinue{}
 		}
-		return actionError{err: errors.Wrap(err, "failed to delete boot rescue")}
+		return actionError{err: fmt.Errorf("failed to delete boot rescue: %w", err)}
 	}
 
 	if _, err := s.scope.RobotClient.SetBootRescue(
@@ -236,7 +236,7 @@ func (s *Service) actionPreparing() actionResult {
 				"exceeded rate limit with calling robot function SetBootRescue",
 			)
 		}
-		return actionError{err: errors.Wrap(err, "failed to set boot rescue")}
+		return actionError{err: fmt.Errorf("failed to set boot rescue: %w", err)}
 	}
 
 	var rebootType infrav1.RebootType
@@ -258,7 +258,7 @@ func (s *Service) actionPreparing() actionResult {
 			)
 			return actionContinue{}
 		}
-		return actionError{err: errors.Wrap(err, "failed to reboot bare metal server")}
+		return actionError{err: fmt.Errorf("failed to reboot bare metal server: %w", err)}
 	}
 
 	s.scope.HetznerBareMetalHost.ClearError()
@@ -277,7 +277,7 @@ func (s *Service) ensureSSHKey(sshSecretRef infrav1.SSHSecretRef, sshSecret *cor
 			return infrav1.SSHKey{}, actionContinue{}
 		}
 		if !models.IsError(err, models.ErrorCodeNotFound) {
-			return infrav1.SSHKey{}, actionError{err: errors.Wrap(err, "failed to list ssh heys")}
+			return infrav1.SSHKey{}, actionError{err: fmt.Errorf("failed to list ssh heys: %w", err)}
 		}
 	}
 
@@ -304,7 +304,7 @@ func (s *Service) ensureSSHKey(sshSecretRef infrav1.SSHSecretRef, sshSecret *cor
 				)
 				return infrav1.SSHKey{}, actionContinue{}
 			}
-			return infrav1.SSHKey{}, actionError{err: errors.Wrap(err, "failed to set ssh key")}
+			return infrav1.SSHKey{}, actionError{err: fmt.Errorf("failed to set ssh key: %w", err)}
 		}
 		sshKey.Name = hetznerSSHKey.Name
 		sshKey.Fingerprint = hetznerSSHKey.Fingerprint
@@ -389,7 +389,7 @@ func (s *Service) handleErrorTypeSSHRebootTooSlow(isTimeout bool) error {
 				)
 				return nil
 			}
-			return errors.Wrap(err, "failed to reboot bare metal server")
+			return fmt.Errorf("failed to reboot bare metal server: %w", err)
 		}
 		// Set error message that software reboot is too slow as we perform this reboot now
 		s.scope.HetznerBareMetalHost.SetError(errorType, "ssh reboot timed out")
@@ -413,7 +413,7 @@ func (s *Service) handleErrorTypeSoftwareRebootTooSlow(isTimeout bool) error {
 				)
 				return nil
 			}
-			return errors.Wrap(err, "failed to reboot bare metal server")
+			return fmt.Errorf("failed to reboot bare metal server: %w", err)
 		}
 		// Set error message that hardware reboot is too slow as we perform this reboot now
 		s.scope.HetznerBareMetalHost.SetError(infrav1.ErrorTypeHardwareRebootTooSlow, "software reboot timed out")
@@ -438,7 +438,7 @@ func (s *Service) handleErrorTypeHardwareRebootTooSlow(isTimeout bool) error {
 				)
 				return nil
 			}
-			return errors.Wrap(err, "failed to reboot bare metal server")
+			return fmt.Errorf("failed to reboot bare metal server: %w", err)
 		}
 	}
 	if !isTimeout {
@@ -460,7 +460,7 @@ func (s *Service) handleErrorTypeHardwareRebootFailed() error {
 				)
 				return nil
 			}
-			return errors.Wrap(err, "failed to reboot bare metal server")
+			return fmt.Errorf("failed to reboot bare metal server: %w", err)
 		}
 		s.scope.HetznerBareMetalHost.SetError(infrav1.ErrorTypeHardwareRebootFailed, "hardware reboot failed")
 	}
@@ -473,7 +473,7 @@ func (s *Service) handleErrorTypeSSHRebootNotStarted(isInWrongBoot bool, wantsRe
 	if isInWrongBoot {
 		if wantsRescue {
 			if err := s.ensureRescueMode(); err != nil {
-				return errors.Wrap(err, "failed to ensure rescue mode")
+				return fmt.Errorf("failed to ensure rescue mode: %w", err)
 			}
 		}
 		var rebootType infrav1.RebootType
@@ -498,7 +498,7 @@ func (s *Service) handleErrorTypeSSHRebootNotStarted(isInWrongBoot bool, wantsRe
 				)
 				return nil
 			}
-			return errors.Wrap(err, "failed to reboot bare metal server")
+			return fmt.Errorf("failed to reboot bare metal server: %w", err)
 		}
 
 		// set an error that software reboot failed to manage further states. If the software reboot started successfully
@@ -516,7 +516,7 @@ func (s *Service) handleErrorTypeSoftwareRebootNotStarted(isInWrongBoot bool, wa
 	if isInWrongBoot {
 		if wantsRescue {
 			if err := s.ensureRescueMode(); err != nil {
-				return errors.Wrap(err, "failed to ensure rescue mode")
+				return fmt.Errorf("failed to ensure rescue mode: %w", err)
 			}
 		}
 		if _, err := s.scope.RobotClient.RebootBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID, infrav1.RebootTypeHardware); err != nil {
@@ -528,7 +528,7 @@ func (s *Service) handleErrorTypeSoftwareRebootNotStarted(isInWrongBoot bool, wa
 				)
 				return nil
 			}
-			return errors.Wrap(err, "failed to reboot bare metal server")
+			return fmt.Errorf("failed to reboot bare metal server: %w", err)
 		}
 
 		// set an error that hardware reboot not started to manage further states. If the hardware reboot started successfully
@@ -546,7 +546,7 @@ func (s *Service) handleErrorTypeHardwareRebootNotStarted(isInWrongBoot bool, wa
 	if isInWrongBoot {
 		if wantsRescue {
 			if err := s.ensureRescueMode(); err != nil {
-				return errors.Wrap(err, "failed to ensure rescue mode")
+				return fmt.Errorf("failed to ensure rescue mode: %w", err)
 			}
 		}
 		if _, err := s.scope.RobotClient.RebootBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID, infrav1.RebootTypeHardware); err != nil {
@@ -558,7 +558,7 @@ func (s *Service) handleErrorTypeHardwareRebootNotStarted(isInWrongBoot bool, wa
 				)
 				return nil
 			}
-			return errors.Wrap(err, "failed to reboot bare metal server")
+			return fmt.Errorf("failed to reboot bare metal server: %w", err)
 		}
 		s.scope.HetznerBareMetalHost.SetError(infrav1.ErrorTypeHardwareRebootNotStarted, "hardware reboot not started")
 	} else {
@@ -583,7 +583,7 @@ func (s *Service) ensureRescueMode() error {
 			)
 			return nil
 		}
-		return errors.Wrap(err, "failed to get bare metal server")
+		return fmt.Errorf("failed to get bare metal server: %w", err)
 	}
 	if !rescue.Active {
 		// Rescue system is still not active - activate again
@@ -600,7 +600,7 @@ func (s *Service) ensureRescueMode() error {
 				)
 				return nil
 			}
-			return errors.Wrap(err, "failed to set boot rescue")
+			return fmt.Errorf("failed to set boot rescue: %w", err)
 		}
 	}
 	return nil
@@ -620,11 +620,11 @@ func (s *Service) actionRegistering() actionResult {
 	if trimLineBreak(out.StdOut) != rescue {
 		isTimeout, isConnectionFailed, err := s.handleIncompleteBootRegistering(out)
 		if err != nil {
-			return actionError{err: errors.Wrap(err, "failed to handle incomplete boot - registering")}
+			return actionError{err: fmt.Errorf("failed to handle incomplete boot - registering: %w", err)}
 		}
 
 		if err := s.handleIncompleteBootError(true, isTimeout, isConnectionFailed); err != nil {
-			return actionError{err: errors.Wrap(err, "failed to handle incomplete boot")}
+			return actionError{err: fmt.Errorf("failed to handle incomplete boot: %w", err)}
 		}
 		return actionContinue{delay: 10 * time.Second}
 	}
@@ -697,14 +697,14 @@ func (s *Service) handleIncompleteBootRegistering(out sshclient.Output) (isTimeo
 					)
 					return
 				}
-				reterr = errors.Wrap(err, "failed to get bare metal server")
+				reterr = fmt.Errorf("failed to get bare metal server: %w", err)
 				return
 			}
 			if rescue.Active {
 				// Reboot did not trigger
 				return
 			}
-			reterr = errors.Wrap(out.Err, "wrong ssh key")
+			reterr = fmt.Errorf("wrong ssh key: %w", out.Err)
 		case sshclient.IsConnectionRefusedError(out.Err):
 			// Check if the reboot did not trigger.
 			rescue, err := s.scope.RobotClient.GetBootRescue(s.scope.HetznerBareMetalHost.Spec.ServerID)
@@ -717,7 +717,7 @@ func (s *Service) handleIncompleteBootRegistering(out sshclient.Output) (isTimeo
 					)
 					return
 				}
-				reterr = errors.Wrap(err, "failed to get bare metal server")
+				reterr = fmt.Errorf("failed to get bare metal server: %w", err)
 				return
 			}
 			if rescue.Active {
@@ -727,7 +727,7 @@ func (s *Service) handleIncompleteBootRegistering(out sshclient.Output) (isTimeo
 			isConnectionRefused = true
 
 		default:
-			reterr = errors.Wrap(out.Err, "unhandled ssh error while getting hostname")
+			reterr = fmt.Errorf("unhandled ssh error while getting hostname: %w", out.Err)
 		}
 		return
 	}
@@ -759,7 +759,7 @@ func (s *Service) obtainHardwareDetailsRAM(sshClient sshclient.Client) (int, err
 
 	kibiBytes, err := strconv.Atoi(stdOut)
 	if err != nil {
-		return 0, errors.Wrapf(err, "failed to parse ssh output to memory int. StdOut: %s", stdOut)
+		return 0, fmt.Errorf("failed to parse ssh output to memory int. StdOut %s: %w", stdOut, err)
 	}
 	mebiBytes := kibiBytes / 1024
 
@@ -792,11 +792,11 @@ func (s *Service) obtainHardwareDetailsNics(sshClient sshclient.Client) ([]infra
 
 		var nic originalNic
 		if err := json.Unmarshal([]byte(validJSONString), &nic); err != nil {
-			return nil, errors.Wrapf(err, "failed to unmarshal %v. Original ssh output: %s", validJSONString, stdOut)
+			return nil, fmt.Errorf("failed to unmarshal %v. Original ssh output %s: %w", validJSONString, stdOut, err)
 		}
 		speedMbps, err := strconv.Atoi(nic.SpeedMbps)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to parse int from string %s", nic.SpeedMbps)
+			return nil, fmt.Errorf("failed to parse int from string %s: %w", nic.SpeedMbps, err)
 		}
 		nicsArray[i] = infrav1.NIC{
 			Name:      nic.Name,
@@ -842,11 +842,11 @@ func (s *Service) obtainHardwareDetailsStorage(sshClient sshclient.Client) ([]in
 
 		var storage originalStorage
 		if err := json.Unmarshal([]byte(validJSONString), &storage); err != nil {
-			return nil, errors.Wrapf(err, "failed to unmarshal %v. Original ssh output: %s", validJSONString, stdOut)
+			return nil, fmt.Errorf("failed to unmarshal %v. Original ssh output %s: %w", validJSONString, stdOut, err)
 		}
 		sizeBytes, err := strconv.Atoi(storage.SizeBytes)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to parse int from string %s", storage.SizeBytes)
+			return nil, fmt.Errorf("failed to parse int from string %s: %w", storage.SizeBytes, err)
 		}
 
 		var rota bool
@@ -925,7 +925,7 @@ func (s *Service) obtainHardwareDetailsCPU(sshClient sshclient.Client) (cpu infr
 
 	threads, err := strconv.Atoi(stdOut)
 	if err != nil {
-		return infrav1.CPU{}, errors.Wrapf(err, "failed to parse string to int. Stdout: %s", stdOut)
+		return infrav1.CPU{}, fmt.Errorf("failed to parse string to int. Stdout %s: %w", stdOut, err)
 	}
 	cpu.Threads = threads
 
@@ -945,7 +945,7 @@ func (s *Service) obtainHardwareDetailsCPU(sshClient sshclient.Client) (cpu infr
 
 func handleSSHError(out sshclient.Output) error {
 	if out.Err != nil {
-		return errors.Wrap(out.Err, "failed to perform ssh command")
+		return fmt.Errorf("failed to perform ssh command: %w", out.Err)
 	}
 	if out.StdErr != "" {
 		return fmt.Errorf("error occurred during ssh command. StdErr: %s", out.StdErr)
@@ -981,7 +981,7 @@ func (s *Service) actionImageInstalling() actionResult {
 	if needsDownload {
 		out := sshClient.DownloadImage(imagePath, image.URL)
 		if err := handleSSHError(out); err != nil {
-			return actionError{err: errors.Wrap(err, "failed to download image")}
+			return actionError{err: fmt.Errorf("failed to download image: %w", err)}
 		}
 	}
 
@@ -1010,7 +1010,7 @@ func (s *Service) actionImageInstalling() actionResult {
 
 	out := sshClient.CreateAutoSetup(autoSetup)
 	if err := handleSSHError(out); err != nil {
-		return actionError{err: errors.Wrapf(err, "failed to create autosetup %s", autoSetup)}
+		return actionError{err: fmt.Errorf("failed to create autosetup %s: %w", autoSetup, err)}
 	}
 
 	// Create post install script
@@ -1019,14 +1019,14 @@ func (s *Service) actionImageInstalling() actionResult {
 	if postInstallScript != "" {
 		out := sshClient.CreatePostInstallScript(postInstallScript)
 		if err := handleSSHError(out); err != nil {
-			return actionError{err: errors.Wrapf(err, "failed to create post install script %s", postInstallScript)}
+			return actionError{err: fmt.Errorf("failed to create post install script %s: %w", postInstallScript, err)}
 		}
 	}
 
 	// Execute install image
 	out = sshClient.ExecuteInstallImage(postInstallScript != "")
 	if err := handleSSHError(out); err != nil {
-		return actionError{err: errors.Wrap(err, "failed to execute installimage")}
+		return actionError{err: fmt.Errorf("failed to execute installimage: %w", err)}
 	}
 
 	// Update name in robot API
@@ -1047,7 +1047,7 @@ func (s *Service) actionImageInstalling() actionResult {
 
 	out = sshClient.Reboot()
 	if err := handleSSHError(out); err != nil {
-		return actionError{err: errors.Wrap(err, "failed to reboot server")}
+		return actionError{err: fmt.Errorf("failed to reboot server: %w", err)}
 	}
 
 	s.scope.HetznerBareMetalHost.ClearError()
@@ -1094,17 +1094,17 @@ func (s *Service) actionProvisioning() actionResult {
 
 		isTimeout, isConnectionFailed, err := handleIncompleteBootInstallImage(out, rescueSSHClient, port)
 		if err != nil {
-			return actionError{err: errors.Wrap(err, "failed to handle incomplete boot - installImage")}
+			return actionError{err: fmt.Errorf("failed to handle incomplete boot - installImage: %w", err)}
 		}
 		if err := s.handleIncompleteBootError(false, isTimeout, isConnectionFailed); err != nil {
-			return actionError{err: errors.Wrap(err, "failed to handle incomplete boot")}
+			return actionError{err: fmt.Errorf("failed to handle incomplete boot: %w", err)}
 		}
 		return actionContinue{delay: 10 * time.Second}
 	}
 
 	out = sshClient.EnsureCloudInit()
 	if err := handleSSHError(out); err != nil {
-		return actionError{err: errors.Wrap(err, "failed to ensure cloud init")}
+		return actionError{err: fmt.Errorf("failed to ensure cloud init: %w", err)}
 	}
 
 	if trimLineBreak(out.StdOut) == "" {
@@ -1113,27 +1113,27 @@ func (s *Service) actionProvisioning() actionResult {
 
 	out = sshClient.CreateNoCloudDirectory()
 	if err := handleSSHError(out); err != nil {
-		return actionError{err: errors.Wrap(err, "failed to create no cloud directory")}
+		return actionError{err: fmt.Errorf("failed to create no cloud directory: %w", err)}
 	}
 
 	out = sshClient.CreateMetaData(infrav1.BareMetalHostNamePrefix + s.scope.HetznerBareMetalHost.Spec.ConsumerRef.Name)
 	if err := handleSSHError(out); err != nil {
-		return actionError{err: errors.Wrap(err, "failed to create meta data")}
+		return actionError{err: fmt.Errorf("failed to create meta data: %w", err)}
 	}
 
 	userData, err := s.scope.GetRawBootstrapData(context.TODO())
 	if err != nil {
-		return actionError{err: errors.Wrap(err, "failed to get user data")}
+		return actionError{err: fmt.Errorf("failed to get user data: %w", err)}
 	}
 
 	out = sshClient.CreateUserData(string(userData))
 	if err := handleSSHError(out); err != nil {
-		return actionError{err: errors.Wrap(err, "failed to create user data")}
+		return actionError{err: fmt.Errorf("failed to create user data: %w", err)}
 	}
 
 	out = sshClient.Reboot()
 	if err := handleSSHError(out); err != nil {
-		return actionError{err: errors.Wrap(err, "failed to reboot")}
+		return actionError{err: fmt.Errorf("failed to reboot: %w", err)}
 	}
 
 	s.scope.HetznerBareMetalHost.ClearError()
@@ -1155,7 +1155,7 @@ func handleIncompleteBootInstallImage(out sshclient.Output, sshClient sshclient.
 					return
 				}
 			}
-			reterr = errors.Wrap(out.Err, "wrong ssh key")
+			reterr = fmt.Errorf("wrong ssh key: %w", out.Err)
 		case sshclient.IsConnectionRefusedError(out.Err):
 			// Check whether we are in the wrong system in the case that rescue and os system are running on different ports.
 			if port != 22 {
@@ -1169,7 +1169,7 @@ func handleIncompleteBootInstallImage(out sshclient.Output, sshClient sshclient.
 			isConnectionRefused = true
 
 		default:
-			reterr = errors.Wrap(out.Err, "unhandled ssh error while getting hostname")
+			reterr = fmt.Errorf("unhandled ssh error while getting hostname: %w", out.Err)
 		}
 		return
 	}
@@ -1207,7 +1207,7 @@ func (s *Service) actionEnsureProvisioned() actionResult {
 	if trimLineBreak(out.StdOut) != infrav1.BareMetalHostNamePrefix+s.scope.HetznerBareMetalHost.Spec.ConsumerRef.Name {
 		isTimeout, isConnectionFailed, err := handleIncompleteBootProvisioned(out)
 		if err != nil {
-			return actionError{err: errors.Wrap(err, "failed to handle incomplete boot - provisioning")}
+			return actionError{err: fmt.Errorf("failed to handle incomplete boot - provisioning: %w", err)}
 		}
 		// A connection failed error could mean that cloud init is still running (if cloudInit introduces a new port)
 		if isConnectionFailed &&
@@ -1238,7 +1238,7 @@ func (s *Service) actionEnsureProvisioned() actionResult {
 		}
 
 		if err := s.handleIncompleteBootError(false, isTimeout, isConnectionFailed); err != nil {
-			return actionError{err: errors.Wrap(err, "failed to handle incomplete boot")}
+			return actionError{err: fmt.Errorf("failed to handle incomplete boot: %w", err)}
 		}
 		return actionContinue{delay: 10 * time.Second}
 	}
@@ -1267,7 +1267,7 @@ func (s *Service) checkCloudInitStatus(sshClient sshclient.Client) (actionResult
 	out := sshClient.CloudInitStatus()
 	// This error is interesting for further logic and might happen because of the fact that the sshClient has the wrong port
 	if out.Err != nil {
-		return actionError{err: errors.Wrap(out.Err, "failed to get cloud init status")}, out.Err
+		return actionError{err: fmt.Errorf("failed to get cloud init status: %w", out.Err)}, out.Err
 	}
 
 	stdOut := trimLineBreak(out.StdOut)
@@ -1279,7 +1279,7 @@ func (s *Service) checkCloudInitStatus(sshClient sshclient.Client) (actionResult
 		// Reboot needs to be triggered again - did not start yet
 		out = sshClient.Reboot()
 		if err := handleSSHError(out); err != nil {
-			return actionError{err: errors.Wrap(err, "failed to reboot")}, nil
+			return actionError{err: fmt.Errorf("failed to reboot: %w", err)}, nil
 		}
 		s.scope.HetznerBareMetalHost.SetError(infrav1.ErrorTypeSSHRebootNotStarted, "ssh reboot just triggered")
 		return actionContinue{delay: 5 * time.Second}, nil
@@ -1296,7 +1296,7 @@ func (s *Service) checkCloudInitStatus(sshClient sshclient.Client) (actionResult
 	default:
 		// Errors are handled after stdOut in this case, as status: error returns an exited with status 1 error
 		if err := handleSSHError(out); err != nil {
-			return actionError{err: errors.Wrap(err, "failed to get cloud init status")}, nil
+			return actionError{err: fmt.Errorf("failed to get cloud init status: %w", err)}, nil
 		}
 	}
 	return actionComplete{}, nil
@@ -1311,22 +1311,22 @@ func (s *Service) handleCloudInitNotStarted() actionResult {
 	})
 	out := oldSSHClient.CheckCloudInitLogsForSigTerm()
 	if err := handleSSHError(out); err != nil {
-		return actionError{err: errors.Wrap(err, "failed to CheckCloudInitLogsForSigTerm")}
+		return actionError{err: fmt.Errorf("failed to CheckCloudInitLogsForSigTerm: %w", err)}
 	}
 
 	if trimLineBreak(out.StdOut) != "" {
 		// it was not succesfull. Prepare and reboot again
 		out = oldSSHClient.CleanCloudInitLogs()
 		if err := handleSSHError(out); err != nil {
-			return actionError{err: errors.Wrap(err, "failed to CleanCloudInitLogs")}
+			return actionError{err: fmt.Errorf("failed to CleanCloudInitLogs: %w", err)}
 		}
 		out = oldSSHClient.CleanCloudInitInstances()
 		if err := handleSSHError(out); err != nil {
-			return actionError{err: errors.Wrap(err, "failed to CleanCloudInitInstances")}
+			return actionError{err: fmt.Errorf("failed to CleanCloudInitInstances: %w", err)}
 		}
 		out = oldSSHClient.Reboot()
 		if err := handleSSHError(out); err != nil {
-			return actionError{err: errors.Wrap(err, "failed to reboot")}
+			return actionError{err: fmt.Errorf("failed to reboot: %w", err)}
 		}
 		return actionContinue{delay: 10 * time.Second}
 	}
@@ -1342,12 +1342,12 @@ func handleIncompleteBootProvisioned(out sshclient.Output) (isTimeout bool, isCo
 			isTimeout = true
 		case sshclient.IsAuthenticationFailedError(out.Err):
 			// As the same ssh key has been used before and after, something is wrong here.
-			reterr = errors.Wrap(out.Err, "wrong ssh key")
+			reterr = fmt.Errorf("wrong ssh key: %w", out.Err)
 		case sshclient.IsConnectionRefusedError(out.Err):
 			// We strongly assume that the ssh reboot that has been done before has been triggered. Hence we do nothing specific here.
 			isConnectionRefused = true
 		default:
-			reterr = errors.Wrap(out.Err, "unhandled ssh error while getting hostname")
+			reterr = fmt.Errorf("unhandled ssh error while getting hostname: %w", out.Err)
 		}
 		return
 	}
@@ -1398,10 +1398,10 @@ func (s *Service) actionProvisioned() actionResult {
 			// Reboot has been ongoing
 			isTimeout, isConnectionFailed, err := handleIncompleteBootProvisioned(out)
 			if err != nil {
-				return actionError{err: errors.Wrap(err, "failed to handle incomplete boot - provisioning")}
+				return actionError{err: fmt.Errorf("failed to handle incomplete boot - provisioning: %w", err)}
 			}
 			if err := s.handleIncompleteBootError(false, isTimeout, isConnectionFailed); err != nil {
-				return actionError{err: errors.Wrap(err, "failed to handle incomplete boot")}
+				return actionError{err: fmt.Errorf("failed to handle incomplete boot: %w", err)}
 			}
 			return actionContinue{delay: 10 * time.Second}
 		}
@@ -1464,7 +1464,7 @@ func (s *Service) actionDeleting() actionResult {
 
 	s.scope.HetznerBareMetalHost.Finalizers = utils.FilterStringFromList(s.scope.HetznerBareMetalHost.Finalizers, infrav1.BareMetalHostFinalizer)
 	if err := s.scope.Client.Update(context.Background(), s.scope.HetznerBareMetalHost); err != nil {
-		return actionError{errors.Wrap(err, "failed to remove finalizer")}
+		return actionError{fmt.Errorf("failed to remove finalizer: %w", err)}
 	}
 
 	s.scope.Info("Cleanup complete. Removed finalizer", "remaining", s.scope.HetznerBareMetalHost.Finalizers)

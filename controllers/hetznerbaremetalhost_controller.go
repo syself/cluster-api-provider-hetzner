@@ -176,7 +176,7 @@ func (r *HetznerBareMetalHostReconciler) reconcileSelectedStates(ctx context.Con
 		if needsUpdate {
 			err := r.Update(ctx, bmHost)
 			if err != nil {
-				return &ctrl.Result{}, errors.Wrap(err, "failed to add finalizer")
+				return nil, errors.Wrap(err, "failed to add finalizer")
 			}
 		}
 
@@ -188,15 +188,15 @@ func (r *HetznerBareMetalHostReconciler) reconcileSelectedStates(ctx context.Con
 
 		if !utils.StringInList(bmHost.Finalizers, infrav1.BareMetalHostFinalizer) {
 			log.Info("Ready to be deleted")
-			return &ctrl.Result{}, nil
+			return nil, nil
 		}
 
 		bmHost.Finalizers = utils.FilterStringFromList(bmHost.Finalizers, infrav1.BareMetalHostFinalizer)
 		if err := r.Update(context.Background(), bmHost); err != nil {
-			return &ctrl.Result{}, errors.Wrap(err, "failed to remove finalizer")
+			return nil, errors.Wrap(err, "failed to remove finalizer")
 		}
 		log.Info("Cleanup complete. Removed finalizer", "remaining", bmHost.Finalizers)
-		return &ctrl.Result{}, nil
+		return nil, nil
 	}
 	return nil, nil
 }
@@ -226,7 +226,7 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 
 				return nil, nil, &ctrl.Result{RequeueAfter: host.CalculateBackoff(bmHost.Spec.Status.ErrorCount)}, nil
 			}
-			return nil, nil, &ctrl.Result{}, errors.Wrap(err, "failed to get secret")
+			return nil, nil, nil, errors.Wrap(err, "failed to get secret")
 		}
 
 		rescueSSHSecretNamespacedName := types.NamespacedName{Namespace: bmHost.Namespace, Name: hetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Name}
@@ -241,7 +241,7 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 
 				return nil, nil, &ctrl.Result{RequeueAfter: host.CalculateBackoff(bmHost.Spec.Status.ErrorCount)}, nil
 			}
-			return nil, nil, &ctrl.Result{}, errors.Wrap(err, "failed to acquire secret")
+			return nil, nil, nil, errors.Wrap(err, "failed to acquire secret")
 		}
 	}
 	return osSSHSecret, rescueSSHSecret, nil, nil
