@@ -111,7 +111,7 @@ GINKGO_NODES ?= 1
 GINKGO_NOCOLOR ?= false
 GINKGO_FOCUS ?= ""
 GINKGO_SKIP ?= ""
-GINKGO_FLAKE_ATTEMPTS ?= 1
+GINKGO_FLAKE_ATTEMPTS ?= 0
 ARTIFACTS ?= $(ROOT_DIR)/_artifacts
 SKIP_CLEANUP ?= false
 SKIP_CREATE_MGMT_CLUSTER ?= false
@@ -126,13 +126,13 @@ KUBETEST_CONF_PATH ?= $(abspath $(E2E_DIR)/data/kubetest/conformance.yaml)
 
 .PHONY: run
 run: $(GINKGO)  cluster-templates  ## Run the end-to-end tests
-	time $(GINKGO) -v --trace -progress --tags=e2e \
-		--randomizeAllSpecs -race $(GINKGO_ADDITIONAL_ARGS) \
+	time $(GINKGO) -v --trace --show-node-events --tags=e2e \
+		--randomize-all -race $(GINKGO_ADDITIONAL_ARGS) \
 		--output-dir="$(ARTIFACTS)" \
 		--junit-report="junit.e2e_suite.1.xml" \
 		--focus=$(GINKGO_FOCUS) --skip=$(GINKGO_SKIP) \
 		--nodes=$(GINKGO_NODES) --no-color=$(GINKGO_NOCOLOR) \
-		--flakeAttempts=$(GINKGO_FLAKE_ATTEMPTS) ./ -- \
+		--flake-attempts=$(GINKGO_FLAKE_ATTEMPTS) ./ -- \
 		-e2e.artifacts-folder="$(ARTIFACTS)" \
 		-e2e.config="$(E2E_CONF_FILE)" \
 		-e2e.skip-resource-cleanup=$(SKIP_CLEANUP) \
