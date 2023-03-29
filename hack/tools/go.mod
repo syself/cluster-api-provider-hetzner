@@ -1,6 +1,6 @@
 module github.com/syself/cluster-api-provider-hetzner/hack/tools
 
-go 1.19
+go 1.20
 
 replace github.com/syself/cluster-api-provider-hetzner => ../../
 
