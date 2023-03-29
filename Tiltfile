@@ -302,13 +302,6 @@ cmd_button(
 )
 
 cmd_button(
-    "Create Hcloud Cluster - with Remediation",
-    argv=["make", "create-workload-cluster-hcloud-remediation"],
-    location=location.NAV,
-    icon_name="switch_access_shortcut_outlined",
-    text="Create Hcloud Cluster - with Remediation",
-)
-cmd_button(
     "Create Hcloud Cluster - with Packer",
     argv = ["make", "create-workload-cluster-hcloud-packer"],
     location = location.NAV,

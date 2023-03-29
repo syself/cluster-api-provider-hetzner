@@ -231,16 +231,6 @@ create-workload-cluster-hcloud: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-c
 	$(MAKE) install-manifests-cilium
 	$(MAKE) install-manifests-ccm-hcloud PRIVATE_NETWORK=false
 
-create-workload-cluster-hcloud-remediation: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster with custom remediation. ENV Variables need to be exported or defined in the tilt-settings.json
-	# Create workload Cluster.
-	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD_TOKEN) --save-config --dry-run=client -o yaml | kubectl apply -f -
-	$(KUSTOMIZE) build templates/cluster-templates/hcloud-remediation --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-remediation.yaml
-	cat templates/cluster-templates/cluster-template-hcloud-remediation.yaml | $(ENVSUBST) - | kubectl apply -f -
-	$(MAKE) wait-and-get-secret
-	$(MAKE) install-manifests-cilium
-	$(MAKE) install-manifests-ccm-hcloud PRIVATE_NETWORK=false
-
-
 create-workload-cluster-hcloud-packer: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
 	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD_TOKEN) --save-config --dry-run=client -o yaml | kubectl apply -f -
@@ -603,13 +593,11 @@ cluster-templates: $(KUSTOMIZE)
 	$(KUSTOMIZE) build templates/cluster-templates/hcloud --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template.yaml
 	$(KUSTOMIZE) build templates/cluster-templates/hcloud --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud.yaml
 	$(KUSTOMIZE) build templates/cluster-templates/hcloud-packer --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-packer.yaml
-	$(KUSTOMIZE) build templates/cluster-templates/hcloud-remediation --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-remediation.yaml
 	$(KUSTOMIZE) build templates/cluster-templates/hcloud-talos-packer --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-talos-packer.yaml
 	$(KUSTOMIZE) build templates/cluster-templates/hcloud-network --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-network.yaml
 	$(KUSTOMIZE) build templates/cluster-templates/hcloud-network-packer --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-network-packer.yaml
 	$(KUSTOMIZE) build templates/cluster-templates/hetzner-hcloud-control-planes --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hetzner-hcloud-control-planes.yaml
 	$(KUSTOMIZE) build templates/cluster-templates/hetzner-baremetal-control-planes --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hetzner-baremetal-control-planes.yaml
-	$(KUSTOMIZE) build templates/cluster-templates/hetzner-baremetal-control-planes-remediation --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hetzner-baremetal-control-planes-remediation.yaml
 	$(KUSTOMIZE) build templates/cluster-templates/hetzner-baremetal-control-planes-remediation --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hetzner-baremetal-control-planes-remediation.yaml
 
 ##@ Format
