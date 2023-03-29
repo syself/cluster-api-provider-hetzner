@@ -157,12 +157,13 @@ func (r *HetznerBareMetalRemediationReconciler) reconcileNormal(ctx context.Cont
 	bareMetalRemediation := remediationScope.BareMetalRemediation
 
 	// reconcile bare metal remediation
-	if result, brk, err := breakReconcile(remediation.NewService(remediationScope).Reconcile(ctx)); brk {
+	result, err := remediation.NewService(remediationScope).Reconcile(ctx)
+	if err != nil {
 		return result, fmt.Errorf("failed to reconcile server for BareMetalRemediation %s/%s: %w",
 			bareMetalRemediation.Namespace, bareMetalRemediation.Name, err)
 	}
 
-	return reconcile.Result{}, nil
+	return result, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

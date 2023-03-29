@@ -163,11 +163,14 @@ func (r *HCloudMachineReconciler) reconcileDelete(ctx context.Context, machineSc
 	hcloudMachine := machineScope.HCloudMachine
 
 	// Delete servers.
-	if result, brk, err := breakReconcile(server.NewService(machineScope).Delete(ctx)); brk {
-		return result, fmt.Errorf("failed to delete servers for HCloudMachine %s/%s: %w",
-			hcloudMachine.Namespace, hcloudMachine.Name, err)
+	result, err := server.NewService(machineScope).Delete(ctx)
+	if err != nil {
+		return result, fmt.Errorf("failed to delete servers for HCloudMachine %s/%s: %w", hcloudMachine.Namespace, hcloudMachine.Name, err)
 	}
-
+	emptyResult := reconcile.Result{}
+	if result != emptyResult {
+		return result, nil
+	}
 	// Machine is deleted so remove the finalizer.
 	controllerutil.RemoveFinalizer(machineScope.HCloudMachine, infrav1.MachineFinalizer)
 
@@ -187,12 +190,13 @@ func (r *HCloudMachineReconciler) reconcileNormal(ctx context.Context, machineSc
 	}
 
 	// reconcile server
-	if result, brk, err := breakReconcile(server.NewService(machineScope).Reconcile(ctx)); brk {
+	result, err := server.NewService(machineScope).Reconcile(ctx)
+	if err != nil {
 		return result, fmt.Errorf("failed to reconcile server for HCloudMachine %s/%s: %w",
 			hcloudMachine.Namespace, hcloudMachine.Name, err)
 	}
 
-	return reconcile.Result{}, nil
+	return result, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

@@ -68,7 +68,7 @@ func NewService(scope *scope.BareMetalHostScope) *Service {
 }
 
 // Reconcile implements reconcilement of HetznerBareMetalHosts.
-func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
+func (s *Service) Reconcile(ctx context.Context) (result ctrl.Result, err error) {
 	s.scope.Info("Reconciling baremetal host", "name", s.scope.HetznerBareMetalHost.Name)
 
 	initialState := s.scope.HetznerBareMetalHost.Spec.Status.ProvisioningState
@@ -79,9 +79,9 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 
 	// reconcile state
 	actResult := hostStateMachine.ReconcileState(ctx)
-	result, err := actResult.Result()
+	result, err = actResult.Result()
 	if err != nil {
-		return &ctrl.Result{Requeue: true}, fmt.Errorf("action %q failed: %w", initialState, err)
+		return ctrl.Result{Requeue: true}, fmt.Errorf("action %q failed: %w", initialState, err)
 	}
 
 	// save host if it changed during reconciliation
@@ -89,7 +89,7 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 		return SaveHostAndReturn(ctx, s.scope.Client, s.scope.HetznerBareMetalHost)
 	}
 
-	return &result, nil
+	return result, nil
 }
 
 func (s *Service) recordActionFailure(errorType infrav1.ErrorType, errorMessage string) actionFailed {
@@ -99,17 +99,17 @@ func (s *Service) recordActionFailure(errorType infrav1.ErrorType, errorMessage 
 }
 
 // SaveHostAndReturn saves host object, updates LastUpdated in host status and returns the reconcile Result.
-func SaveHostAndReturn(ctx context.Context, client client.Client, host *infrav1.HetznerBareMetalHost) (*reconcile.Result, error) {
+func SaveHostAndReturn(ctx context.Context, client client.Client, host *infrav1.HetznerBareMetalHost) (res reconcile.Result, err error) {
 	t := metav1.Now()
 	host.Spec.Status.LastUpdated = &t
 
 	if err := client.Update(ctx, host); err != nil {
 		if apierrors.IsConflict(err) {
-			return &reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{Requeue: true}, nil
 		}
-		return nil, fmt.Errorf("failed to update host object: %w", err)
+		return res, fmt.Errorf("failed to update host object: %w", err)
 	}
-	return nil, nil
+	return res, nil
 }
 
 func (s *Service) getSSHKeysAndUpdateStatus() (osSSHSecret *corev1.Secret, rescueSSHSecret *corev1.Secret, err error) {
@@ -266,6 +266,9 @@ func (s *Service) actionPreparing() actionResult {
 }
 
 func (s *Service) ensureSSHKey(sshSecretRef infrav1.SSHSecretRef, sshSecret *corev1.Secret) (infrav1.SSHKey, actionResult) {
+	if sshSecret == nil {
+		return infrav1.SSHKey{}, actionError{err: fmt.Errorf("ssh secret is nil")}
+	}
 	hetznerSSHKeys, err := s.scope.RobotClient.ListSSHKeys()
 	if err != nil {
 		if models.IsError(err, models.ErrorCodeRateLimitExceeded) {

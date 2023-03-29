@@ -28,7 +28,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/record"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // Service defines struct with HCloudMachineTemplate scope to reconcile HCloud machine templates.
@@ -44,14 +43,14 @@ func NewService(scope *scope.HCloudMachineTemplateScope) *Service {
 }
 
 // Reconcile implements reconcilement of HCloud machines.
-func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
+func (s *Service) Reconcile(ctx context.Context) error {
 	capacity, err := s.getCapacity(ctx)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get capacity")
+		return errors.Wrap(err, "failed to get capacity")
 	}
 
 	s.scope.HCloudMachineTemplate.Status.Capacity = capacity
-	return nil, nil
+	return nil
 }
 
 func (s *Service) getCapacity(ctx context.Context) (corev1.ResourceList, error) {

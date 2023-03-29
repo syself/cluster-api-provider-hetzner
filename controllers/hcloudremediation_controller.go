@@ -176,12 +176,13 @@ func (r *HCloudRemediationReconciler) reconcileNormal(ctx context.Context, remed
 	hcloudRemediation := remediationScope.HCloudRemediation
 
 	// reconcile bare metal remediation
-	if result, brk, err := breakReconcile(hcloudremediation.NewService(remediationScope).Reconcile(ctx)); brk {
+	result, err := hcloudremediation.NewService(remediationScope).Reconcile(ctx)
+	if err != nil {
 		return result, fmt.Errorf("failed to reconcile server for HCloudRemediation %s/%s: %w",
 			hcloudRemediation.Namespace, hcloudRemediation.Name, err)
 	}
 
-	return reconcile.Result{}, nil
+	return result, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
