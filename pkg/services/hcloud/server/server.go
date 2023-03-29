@@ -157,7 +157,7 @@ func (s *Service) Delete(ctx context.Context) (_ *reconcile.Result, err error) {
 
 	if s.scope.IsControlPlane() && s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
 		if err := s.deleteServerOfLoadBalancer(ctx, server); err != nil {
-			return &reconcile.Result{}, fmt.Errorf("failed to delete attached server of loadbalancer: %w", err)
+			return nil, fmt.Errorf("failed to delete attached server of loadbalancer: %w", err)
 		}
 	}
 
@@ -518,7 +518,7 @@ func (s *Service) handleDeleteServerStatusRunning(ctx context.Context, server *h
 					"exceeded rate limit with calling hcloud function ShutdownServer",
 				)
 			}
-			return &reconcile.Result{}, fmt.Errorf("failed to shutdown server: %w", err)
+			return nil, fmt.Errorf("failed to shutdown server: %w", err)
 		}
 		conditions.MarkFalse(s.scope.HCloudMachine,
 			infrav1.InstanceReadyCondition,
@@ -536,7 +536,7 @@ func (s *Service) handleDeleteServerStatusRunning(ctx context.Context, server *h
 			)
 		}
 		record.Warnf(s.scope.HCloudMachine, "FailedDeleteHCloudServer", "Failed to delete HCloud server %s", s.scope.Name())
-		return &reconcile.Result{}, fmt.Errorf("failed to delete server: %w", err)
+		return nil, fmt.Errorf("failed to delete server: %w", err)
 	}
 
 	record.Eventf(
@@ -558,7 +558,7 @@ func (s *Service) handleDeleteServerStatusOff(ctx context.Context, server *hclou
 			)
 		}
 		record.Warnf(s.scope.HCloudMachine, "FailedDeleteHCloudServer", "Failed to delete HCloud server %s", s.scope.Name())
-		return &reconcile.Result{}, fmt.Errorf("failed to delete server: %w", err)
+		return nil, fmt.Errorf("failed to delete server: %w", err)
 	}
 
 	record.Eventf(

@@ -59,7 +59,7 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 	host, helper, err := s.getUnhealthyHost(ctx)
 	if err != nil {
 		s.scope.Error(err, "unable to find a host for unhealthy machine")
-		return &ctrl.Result{}, errors.Wrapf(err, "unable to find a host for unhealthy machine")
+		return nil, errors.Wrapf(err, "unable to find a host for unhealthy machine")
 	}
 
 	// If host is not in state provisioned, then remediate immediately
@@ -67,7 +67,7 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 		log.Info("Deleting host without remediation", "provisioningState", host.Spec.Status.ProvisioningState)
 		if err := s.setOwnerRemediatedConditionNew(ctx); err != nil {
 			s.scope.Error(err, "error setting cluster api conditions")
-			return &ctrl.Result{}, errors.Wrapf(err, "error setting cluster api conditions")
+			return nil, errors.Wrapf(err, "error setting cluster api conditions")
 		}
 	}
 
@@ -75,7 +75,7 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 
 	if remediationType != infrav1.RebootRemediationStrategy {
 		s.scope.Info("unsupported remediation strategy")
-		return &ctrl.Result{}, nil
+		return nil, nil
 	}
 
 	if remediationType == infrav1.RebootRemediationStrategy {
@@ -92,7 +92,7 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 		default:
 		}
 	}
-	return &ctrl.Result{}, nil
+	return nil, nil
 }
 
 func (s *Service) handlePhaseRunning(ctx context.Context, host *infrav1.HetznerBareMetalHost, helper *patch.Helper) (*ctrl.Result, error) {
@@ -102,7 +102,7 @@ func (s *Service) handlePhaseRunning(ctx context.Context, host *infrav1.HetznerB
 		err := s.setRebootAnnotation(ctx, host, helper)
 		if err != nil {
 			s.scope.Error(err, "error setting reboot annotation")
-			return &ctrl.Result{}, errors.Wrap(err, "error setting reboot annotation")
+			return nil, errors.Wrap(err, "error setting reboot annotation")
 		}
 		now := metav1.Now()
 		s.scope.BareMetalRemediation.Status.LastRemediated = &now
@@ -117,7 +117,7 @@ func (s *Service) handlePhaseRunning(ctx context.Context, host *infrav1.HetznerB
 			err := s.setRebootAnnotation(ctx, host, helper)
 			if err != nil {
 				s.scope.Error(err, "error setting reboot annotation")
-				return &ctrl.Result{}, errors.Wrapf(err, "error setting reboot annotation")
+				return nil, errors.Wrapf(err, "error setting reboot annotation")
 			}
 			now := metav1.Now()
 			s.scope.BareMetalRemediation.Status.LastRemediated = &now
@@ -146,7 +146,7 @@ func (s *Service) handlePhaseWaiting(ctx context.Context) (*ctrl.Result, error) 
 		err := s.setOwnerRemediatedConditionNew(ctx)
 		if err != nil {
 			s.scope.Error(err, "error setting cluster api conditions")
-			return &ctrl.Result{}, errors.Wrapf(err, "error setting cluster api conditions")
+			return nil, errors.Wrapf(err, "error setting cluster api conditions")
 		}
 	}
 
