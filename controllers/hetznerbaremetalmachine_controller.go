@@ -149,7 +149,8 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 func (r *HetznerBareMetalMachineReconciler) reconcileDelete(ctx context.Context, machineScope *scope.BareMetalMachineScope) (reconcile.Result, error) {
 	machineScope.Info("Reconciling HetznerBareMetalMachine delete")
 	// delete servers
-	if result, brk, err := breakReconcile(baremetal.NewService(machineScope).Delete(ctx)); brk {
+	result, err := baremetal.NewService(machineScope).Delete(ctx)
+	if err != nil {
 		var requeueError *scope.RequeueAfterError
 		if ok := errors.As(err, &requeueError); ok {
 			return reconcile.Result{Requeue: true, RequeueAfter: requeueError.GetRequeueAfter()}, nil
@@ -157,11 +158,14 @@ func (r *HetznerBareMetalMachineReconciler) reconcileDelete(ctx context.Context,
 		return result, fmt.Errorf("failed to delete servers for HetznerBareMetalMachine %s/%s: %w",
 			machineScope.BareMetalMachine.Namespace, machineScope.BareMetalMachine.Name, err)
 	}
-
+	emptyResult := reconcile.Result{}
+	if result != emptyResult {
+		return result, nil
+	}
 	// Machine is deleted so remove the finalizer.
 	controllerutil.RemoveFinalizer(machineScope.BareMetalMachine, infrav1.BareMetalMachineFinalizer)
 
-	return reconcile.Result{}, nil
+	return result, nil
 }
 
 func (r *HetznerBareMetalMachineReconciler) reconcileNormal(ctx context.Context, machineScope *scope.BareMetalMachineScope) (reconcile.Result, error) {
@@ -176,12 +180,13 @@ func (r *HetznerBareMetalMachineReconciler) reconcileNormal(ctx context.Context,
 	}
 
 	// reconcile server
-	if result, brk, err := breakReconcile(baremetal.NewService(machineScope).Reconcile(ctx)); brk {
+	result, err := baremetal.NewService(machineScope).Reconcile(ctx)
+	if err != nil {
 		return result, fmt.Errorf("failed to reconcile server for HetznerBareMetalMachine %s/%s: %w",
 			machineScope.BareMetalMachine.Namespace, machineScope.BareMetalMachine.Name, err)
 	}
 
-	return reconcile.Result{}, nil
+	return result, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

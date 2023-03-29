@@ -58,7 +58,7 @@ type HetznerBareMetalHostReconciler struct {
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalhosts/finalizers,verbs=update
 
 // Reconcile implements the reconcilement of HetznerBareMetalHost objects.
-func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
+func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res ctrl.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
 
 	log.Info("Reconciling baremetal host", "name", req.Name)
@@ -89,9 +89,10 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 
 	// Certain cases need to be handled here and not later in the host state machine.
 	// If res != nil, then we should return, otherwise not.
-	res, err := r.reconcileSelectedStates(ctx, bmHost)
-	if res != nil {
-		return *res, err
+	res, err = r.reconcileSelectedStates(ctx, bmHost)
+	emptyResult := reconcile.Result{}
+	if res != emptyResult || err != nil {
+		return res, err
 	}
 
 	hetznerCluster := &infrav1.HetznerCluster{}
@@ -116,10 +117,9 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 
 	// Get secrets. Return when result != nil.
 	osSSHSecret, rescueSSHSecret, res, err := r.getSecrets(ctx, *secretManager, bmHost, hetznerCluster)
-	if res != nil {
-		return *res, err
+	if err != nil || res != emptyResult {
+		return res, err
 	}
-
 	// Create the scope.
 	hostScope, err := scope.NewBareMetalHostScope(ctx, scope.BareMetalHostScopeParams{
 		Logger:               log,
@@ -149,18 +149,15 @@ func (r *HetznerBareMetalHostReconciler) reconcile(
 	ctx context.Context,
 	hostScope *scope.BareMetalHostScope,
 ) (reconcile.Result, error) {
-	if result, brk, err := breakReconcile(host.NewService(hostScope).Reconcile(ctx)); brk {
-		return result, errors.Wrapf(
-			err,
-			"failed to reconcile HetznerBareMetalHost %s/%s",
-			hostScope.HetznerBareMetalHost.Namespace,
-			hostScope.HetznerBareMetalHost.Name,
-		)
+	result, err := host.NewService(hostScope).Reconcile(ctx)
+	if err != nil {
+		return result, fmt.Errorf("failed to reconcile HetznerBareMetalHost %s/%s: %w",
+			hostScope.HetznerBareMetalHost.Namespace, hostScope.HetznerBareMetalHost.Name, err)
 	}
-	return reconcile.Result{}, nil
+	return result, nil
 }
 
-func (r *HetznerBareMetalHostReconciler) reconcileSelectedStates(ctx context.Context, bmHost *infrav1.HetznerBareMetalHost) (*ctrl.Result, error) {
+func (r *HetznerBareMetalHostReconciler) reconcileSelectedStates(ctx context.Context, bmHost *infrav1.HetznerBareMetalHost) (res ctrl.Result, err error) {
 	log := ctrl.LoggerFrom(ctx)
 	switch bmHost.Spec.Status.ProvisioningState {
 	// Handle StateNone: check whether needs to be provisioned or deleted.
@@ -176,11 +173,11 @@ func (r *HetznerBareMetalHostReconciler) reconcileSelectedStates(ctx context.Con
 		if needsUpdate {
 			err := r.Update(ctx, bmHost)
 			if err != nil {
-				return nil, errors.Wrap(err, "failed to add finalizer")
+				return res, errors.Wrap(err, "failed to add finalizer")
 			}
 		}
 
-		return &ctrl.Result{RequeueAfter: 10 * time.Second}, nil
+		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 
 		// Handle StateDeleting
 	case infrav1.StateDeleting:
@@ -188,17 +185,17 @@ func (r *HetznerBareMetalHostReconciler) reconcileSelectedStates(ctx context.Con
 
 		if !utils.StringInList(bmHost.Finalizers, infrav1.BareMetalHostFinalizer) {
 			log.Info("Ready to be deleted")
-			return nil, nil
+			return res, nil
 		}
 
 		bmHost.Finalizers = utils.FilterStringFromList(bmHost.Finalizers, infrav1.BareMetalHostFinalizer)
 		if err := r.Update(context.Background(), bmHost); err != nil {
-			return nil, errors.Wrap(err, "failed to remove finalizer")
+			return res, errors.Wrap(err, "failed to remove finalizer")
 		}
 		log.Info("Cleanup complete. Removed finalizer", "remaining", bmHost.Finalizers)
-		return nil, nil
+		return res, nil
 	}
-	return nil, nil
+	return res, nil
 }
 
 func (r *HetznerBareMetalHostReconciler) getSecrets(
@@ -209,9 +206,10 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 ) (
 	osSSHSecret *corev1.Secret,
 	rescueSSHSecret *corev1.Secret,
-	res *ctrl.Result,
+	res ctrl.Result,
 	reterr error,
 ) {
+	emptyResult := reconcile.Result{}
 	if bmHost.Spec.Status.SSHSpec != nil {
 		var err error
 		osSSHSecretNamespacedName := types.NamespacedName{Namespace: bmHost.Namespace, Name: bmHost.Spec.Status.SSHSpec.SecretRef.Name}
@@ -220,13 +218,14 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 			if apierrors.IsNotFound(err) {
 				bmHost.SetError(infrav1.PreparationError, infrav1.ErrorMessageMissingOSSSHSecret)
 
-				if res, brk, err := breakReconcile(host.SaveHostAndReturn(ctx, r.Client, bmHost)); brk {
-					return nil, nil, &res, err
+				result, err := host.SaveHostAndReturn(ctx, r.Client, bmHost)
+				if result != emptyResult || err != nil {
+					return nil, nil, res, err
 				}
 
-				return nil, nil, &ctrl.Result{RequeueAfter: host.CalculateBackoff(bmHost.Spec.Status.ErrorCount)}, nil
+				return nil, nil, ctrl.Result{RequeueAfter: host.CalculateBackoff(bmHost.Spec.Status.ErrorCount)}, nil
 			}
-			return nil, nil, nil, errors.Wrap(err, "failed to get secret")
+			return nil, nil, res, errors.Wrap(err, "failed to get secret")
 		}
 
 		rescueSSHSecretNamespacedName := types.NamespacedName{Namespace: bmHost.Namespace, Name: hetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Name}
@@ -235,16 +234,17 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 			if apierrors.IsNotFound(err) {
 				bmHost.SetError(infrav1.PreparationError, infrav1.ErrorMessageMissingRescueSSHSecret)
 
-				if res, brk, err := breakReconcile(host.SaveHostAndReturn(ctx, r.Client, bmHost)); brk {
-					return nil, nil, &res, err
+				result, err := host.SaveHostAndReturn(ctx, r.Client, bmHost)
+				if result != emptyResult || err != nil {
+					return nil, nil, result, err
 				}
 
-				return nil, nil, &ctrl.Result{RequeueAfter: host.CalculateBackoff(bmHost.Spec.Status.ErrorCount)}, nil
+				return nil, nil, ctrl.Result{RequeueAfter: host.CalculateBackoff(bmHost.Spec.Status.ErrorCount)}, nil
 			}
-			return nil, nil, nil, errors.Wrap(err, "failed to acquire secret")
+			return nil, nil, res, errors.Wrap(err, "failed to acquire secret")
 		}
 	}
-	return osSSHSecret, rescueSSHSecret, nil, nil
+	return osSSHSecret, rescueSSHSecret, res, nil
 }
 
 func getAndValidateRobotCredentials(
@@ -296,8 +296,10 @@ func hetznerSecretErrorResult(
 	case *secretutil.ResolveSecretRefError:
 		bmHost.SetError(infrav1.PreparationError, infrav1.ErrorMessageMissingHetznerSecret)
 
-		if res, brk, err := breakReconcile(host.SaveHostAndReturn(ctx, client, bmHost)); brk {
-			return res, err
+		result, err := host.SaveHostAndReturn(ctx, client, bmHost)
+		emptyResult := reconcile.Result{}
+		if result != emptyResult || err != nil {
+			return result, err
 		}
 		backoff := host.CalculateBackoff(bmHost.Spec.Status.ErrorCount)
 		res = ctrl.Result{RequeueAfter: backoff}
@@ -305,9 +307,7 @@ func hetznerSecretErrorResult(
 	case *bmclient.CredentialsValidationError:
 		bmHost.SetError(infrav1.PreparationError, infrav1.ErrorMessageMissingOrInvalidSecretData)
 
-		if res, brk, err := breakReconcile(host.SaveHostAndReturn(ctx, client, bmHost)); brk {
-			return res, err
-		}
+		res, err = host.SaveHostAndReturn(ctx, client, bmHost)
 
 	default:
 		return ctrl.Result{}, errors.Wrap(err, "An unhandled failure occurred")

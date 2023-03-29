@@ -123,7 +123,7 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 
 func (r *HCloudMachineTemplateReconciler) reconcile(ctx context.Context, machineTemplateScope *scope.HCloudMachineTemplateScope) (reconcile.Result, error) {
 	machineTemplateScope.Info("Reconciling HCloudMachineTemplate")
-	hcloudMachine := machineTemplateScope.HCloudMachineTemplate
+	hcloudMachineTemplate := machineTemplateScope.HCloudMachineTemplate
 
 	// If the HCloudMachineTemplate doesn't have our finalizer, add it.
 	controllerutil.AddFinalizer(machineTemplateScope.HCloudMachineTemplate, infrav1.MachineFinalizer)
@@ -134,9 +134,9 @@ func (r *HCloudMachineTemplateReconciler) reconcile(ctx context.Context, machine
 	}
 
 	// reconcile machine template
-	if result, brk, err := breakReconcile(machinetemplate.NewService(machineTemplateScope).Reconcile(ctx)); brk {
-		return result, fmt.Errorf("failed to reconcile machine template for HCloudMachineTemplate %s/%s: %w",
-			hcloudMachine.Namespace, hcloudMachine.Name, err)
+	if err := machinetemplate.NewService(machineTemplateScope).Reconcile(ctx); err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to reconcile machine template for HCloudMachineTemplate %s/%s: %w",
+			hcloudMachineTemplate.Namespace, hcloudMachineTemplate.Name, err)
 	}
 
 	return reconcile.Result{}, nil
