@@ -73,12 +73,12 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 
 	remediationType := s.scope.BareMetalRemediation.Spec.Strategy.Type
 
-	if remediationType != infrav1.RebootRemediationStrategy {
+	if remediationType != infrav1.RemediationTypeReboot {
 		s.scope.Info("unsupported remediation strategy")
 		return nil, nil
 	}
 
-	if remediationType == infrav1.RebootRemediationStrategy {
+	if remediationType == infrav1.RemediationTypeReboot {
 		// If no phase set, default to running
 		if s.scope.BareMetalRemediation.Status.Phase == "" {
 			s.scope.BareMetalRemediation.Status.Phase = infrav1.PhaseRunning

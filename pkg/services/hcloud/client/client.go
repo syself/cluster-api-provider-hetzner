@@ -45,10 +45,12 @@ type Client interface {
 	CreateServer(context.Context, hcloud.ServerCreateOpts) (hcloud.ServerCreateResult, error)
 	AttachServerToNetwork(context.Context, *hcloud.Server, hcloud.ServerAttachToNetworkOpts) (*hcloud.Action, error)
 	ListServers(context.Context, hcloud.ServerListOpts) ([]*hcloud.Server, error)
+	GetServer(context.Context, int) (*hcloud.Server, error)
 	DeleteServer(context.Context, *hcloud.Server) error
 	ListServerTypes(context.Context) ([]*hcloud.ServerType, error)
 	PowerOnServer(context.Context, *hcloud.Server) (*hcloud.Action, error)
 	ShutdownServer(context.Context, *hcloud.Server) (*hcloud.Action, error)
+	RebootServer(context.Context, *hcloud.Server) (*hcloud.Action, error)
 	CreateNetwork(context.Context, hcloud.NetworkCreateOpts) (*hcloud.Network, error)
 	ListNetworks(context.Context, hcloud.NetworkListOpts) ([]*hcloud.Network, error)
 	DeleteNetwork(context.Context, *hcloud.Network) error
@@ -171,12 +173,22 @@ func (c *realClient) ListServers(ctx context.Context, opts hcloud.ServerListOpts
 	return c.client.Server.AllWithOpts(ctx, opts)
 }
 
+func (c *realClient) GetServer(ctx context.Context, id int) (*hcloud.Server, error) {
+	res, _, err := c.client.Server.GetByID(ctx, id)
+	return res, err
+}
+
 func (c *realClient) ListServerTypes(ctx context.Context) ([]*hcloud.ServerType, error) {
 	return c.client.ServerType.All(ctx)
 }
 
 func (c *realClient) ShutdownServer(ctx context.Context, server *hcloud.Server) (*hcloud.Action, error) {
 	res, _, err := c.client.Server.Shutdown(ctx, server)
+	return res, err
+}
+
+func (c *realClient) RebootServer(ctx context.Context, server *hcloud.Server) (*hcloud.Action, error) {
+	res, _, err := c.client.Server.Reboot(ctx, server)
 	return res, err
 }
 

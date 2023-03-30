@@ -26,11 +26,14 @@ We support multi-tenancy. You can start multiple clusters in one Hetzner project
 
 ## Machine Health Checks with Custom Remediation Template
 
-Cluster API allows to [configure Machine Health Checks](https://cluster-api.sigs.k8s.io/tasks/automated-machine-management/healthchecking.html) with custom remediation strategies. This is helpful for our bare metal servers. If the health checks find out that one server cannot be reached, the normal strategy would be to delete it. In that case it would need to be provisioned again. This takes, of course, longer for bare metal servers than for virtual cloud servers. Therefore, we want to try to avoid this with the help of our `HetznerBareMetalRemediationController`. Instead of deleting the object and deprovisioning it, we first try to reboot it and see whether this helps. If it solves the problem, we save a lot of time that is required for re-provisioning it.
+Cluster API allows to [configure Machine Health Checks](https://cluster-api.sigs.k8s.io/tasks/automated-machine-management/healthchecking.html) with custom remediation strategies. This is helpful for our bare metal servers. If the health checks find out that one server cannot be reached, the normal strategy would be to delete it. In that case it would need to be provisioned again. This takes, of course, longer for bare metal servers than for virtual cloud servers. Therefore, we want to try to avoid this with the help of our `HetznerBareMetalRemediationController` and `HCloudRemediationController`. Instead of deleting the object and deprovisioning it, we first try to reboot it and see whether this helps. If it solves the problem, we save a lot of time that is required for re-provisioning it.
 
-If the MHC are configured to be used with the `HetznerBareMetalRemediationTemplate` (also see the [reference of the object](/docs/reference/hetzner-bare-metal-remediation-template.md)), then such an object is created every time the MHC finds an unhealthy machine. The controller that reconciles this object, then sets an annotation in the relevant `HetznerBareMetalHost` object that specifies the desired remediation strategy. At the moment, only "reboot" is supported.
+If the MHC are configured to be used with the `HetznerBareMetalRemediationTemplate` (also see the [reference of the object](/docs/reference/hetzner-bare-metal-remediation-template.md)) and `HCloudRemediationTemplate` (also see the [reference of the object](/docs/reference/hcloud-remediation-template.md)), then such an object is created every time the MHC finds an unhealthy machine. 
 
-Here is an example of how to configure the Machine Health Check and remediation template:
+The `HetznerBareMetalRemediationController` reconciles this object, then sets an annotation in the relevant `HetznerBareMetalHost` object that specifies the desired remediation strategy. At the moment, only "reboot" is supported.
+The `HCloudRemediationController` reboots the HCloudMachine directly via HCloud API. For HCloud servers, there is no other strategy than "reboot" either.
+
+Here is an example of how to configure the Machine Health Check and `HetznerBareMetalRemediationTemplate`:
 
 ```yaml
 apiVersion: cluster.x-k8s.io/v1beta1
@@ -69,6 +72,3 @@ spec:
         timeout: 300s
 
 ```
-
-Please also refer to the [reference](/docs/reference/hetzner-bare-metal-remediation-template.md) for more details on how to configure the `HetznerBareMetalRemediationTemplate`
-
