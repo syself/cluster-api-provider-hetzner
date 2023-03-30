@@ -794,7 +794,7 @@ var _ = Describe("Test splitHostKey", func() {
 var _ = Describe("Test checkForRequeueError", func() {
 	type testCaseCheckForRequeueError struct {
 		err            error
-		expectedResult *reconcile.Result
+		expectedResult reconcile.Result
 		expectedErrMsg string
 	}
 
@@ -814,17 +814,17 @@ var _ = Describe("Test checkForRequeueError", func() {
 		},
 		Entry("Nil error", testCaseCheckForRequeueError{
 			err:            nil,
-			expectedResult: nil,
+			expectedResult: reconcile.Result{},
 			expectedErrMsg: "",
 		}),
 		Entry("Requeue error", testCaseCheckForRequeueError{
 			err:            &scope.RequeueAfterError{RequeueAfter: 30 * time.Second},
-			expectedResult: &reconcile.Result{Requeue: true, RequeueAfter: 30 * time.Second},
+			expectedResult: reconcile.Result{Requeue: true, RequeueAfter: 30 * time.Second},
 			expectedErrMsg: "",
 		}),
 		Entry("Other error", testCaseCheckForRequeueError{
 			err:            fmt.Errorf("other error"),
-			expectedResult: nil,
+			expectedResult: reconcile.Result{},
 			expectedErrMsg: "test message: other error",
 		}),
 	)

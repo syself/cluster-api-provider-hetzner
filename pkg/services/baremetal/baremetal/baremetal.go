@@ -74,7 +74,7 @@ func NewService(scope *scope.BareMetalMachineScope) *Service {
 }
 
 // Reconcile implements reconcilement of HetznerBareMetalMachines.
-func (s *Service) Reconcile(ctx context.Context) (_ *reconcile.Result, err error) {
+func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err error) {
 	s.scope.Info("Reconciling bare metal machine")
 
 	// Make sure bootstrap data is available and populated. If not, return, we
@@ -87,7 +87,7 @@ func (s *Service) Reconcile(ctx context.Context) (_ *reconcile.Result, err error
 			clusterv1.ConditionSeverityInfo,
 			"bootstrap not ready yet",
 		)
-		return nil, nil
+		return res, nil
 	}
 
 	conditions.MarkTrue(
@@ -105,36 +105,36 @@ func (s *Service) Reconcile(ctx context.Context) (_ *reconcile.Result, err error
 
 	// update the machine
 	if err := s.update(ctx); err != nil {
-		return nil, fmt.Errorf("failed to update machine: %w", err)
+		return checkForRequeueError(err, "failed to update machine")
 	}
 
 	// set providerID if necessary
 	if err := s.setProviderID(ctx); err != nil {
-		return nil, fmt.Errorf("failed to set providerID: %w", err)
+		return res, fmt.Errorf("failed to set providerID: %w", err)
 	}
 
 	// set machine ready
 	s.scope.BareMetalMachine.Status.Ready = true
 	conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.InstanceReadyCondition)
 
-	return nil, nil
+	return res, nil
 }
 
 // Delete implements delete method of bare metal machine.
-func (s *Service) Delete(ctx context.Context) (_ *reconcile.Result, err error) {
+func (s *Service) Delete(ctx context.Context) (res reconcile.Result, err error) {
 	s.scope.Info("Deleting bare metal machine")
 
 	// get host - ignore if not found
 	host, helper, err := s.getAssociatedHost(ctx)
 	if err != nil && !apierrors.IsNotFound(err) {
-		return nil, fmt.Errorf("failed to get associated host: %w", err)
+		return res, fmt.Errorf("failed to get associated host: %w", err)
 	}
 
 	if host != nil && host.Spec.ConsumerRef != nil {
 		// remove control plane as load balancer target
 		if s.scope.IsControlPlane() && s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
 			if err := s.removeAttachedServerOfLoadBalancer(ctx, host); err != nil {
-				return nil, fmt.Errorf("failed to delete attached server of load balancer: %w", err)
+				return res, fmt.Errorf("failed to delete attached server of load balancer: %w", err)
 			}
 		}
 
@@ -145,23 +145,23 @@ func (s *Service) Delete(ctx context.Context) (_ *reconcile.Result, err error) {
 			// remove the ownerRef to this host, even if the consumerRef references another machine
 			host.OwnerReferences = s.removeOwnerRef(host.OwnerReferences)
 
-			return nil, nil
+			return res, nil
 		}
 
 		if removeMachineSpecsFromHost(host) {
 			// Patch the host object. If the error is NotFound, do not return the error.
 			if err := analyzePatchError(helper.Patch(ctx, host), true); err != nil {
-				return nil, fmt.Errorf("failed to patch host: %w", err)
+				return checkForRequeueError(err, "failed to patch host")
 			}
 
 			s.scope.Info("Patched BaremetalHost while deprovisioning, requeuing")
-			return nil, &scope.RequeueAfterError{}
+			return reconcile.Result{Requeue: true}, nil
 		}
 
 		// check if deprovisioning is done
 		if host.Spec.Status.ProvisioningState != infrav1.StateNone {
 			s.scope.Info("Deprovisioning BaremetalHost, requeuing", "provisioning state", host.Spec.Status.ProvisioningState)
-			return nil, &scope.RequeueAfterError{RequeueAfter: requeueAfter}
+			return reconcile.Result{RequeueAfter: requeueAfter}, nil
 		}
 
 		// deprovisiong is done - remove all references of host
@@ -177,7 +177,7 @@ func (s *Service) Delete(ctx context.Context) (_ *reconcile.Result, err error) {
 
 		// patch host object
 		if err := analyzePatchError(helper.Patch(ctx, host), true); err != nil {
-			return nil, fmt.Errorf("failed to patch host: %w", err)
+			return checkForRequeueError(err, "failed to patch host")
 		}
 	}
 
@@ -189,7 +189,7 @@ func (s *Service) Delete(ctx context.Context) (_ *reconcile.Result, err error) {
 		"HetznerBareMetalMachine with name %s deleted",
 		s.scope.Name(),
 	)
-	return nil, nil
+	return res, nil
 }
 
 // update updates a machine and is invoked by the Machine Controller.
@@ -814,16 +814,16 @@ func splitHostKey(key string) (namespace, name string) {
 	return parts[0], parts[1]
 }
 
-func checkForRequeueError(err error, errMessage string) (*reconcile.Result, error) {
+func checkForRequeueError(err error, errMessage string) (res reconcile.Result, reterr error) {
 	if err == nil {
-		return nil, nil
+		return res, nil
 	}
 	var requeueError *scope.RequeueAfterError
 	if ok := errors.As(err, &requeueError); ok {
-		return &reconcile.Result{Requeue: true, RequeueAfter: requeueError.GetRequeueAfter()}, nil
+		return reconcile.Result{Requeue: true, RequeueAfter: requeueError.GetRequeueAfter()}, nil
 	}
 
-	return nil, fmt.Errorf("%s: %w", errMessage, err)
+	return res, fmt.Errorf("%s: %w", errMessage, err)
 }
 
 func providerIDFromServerID(serverID int) string {

@@ -45,12 +45,12 @@ func NewService(scope *scope.HCloudRemediationScope) *Service {
 }
 
 // Reconcile implements reconcilement of HCloudRemediation.
-func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
+func (s *Service) Reconcile(ctx context.Context) (res ctrl.Result, err error) {
 	s.scope.Info("Reconciling hcloud remediation", "name", s.scope.HCloudRemediation.Name)
 
 	server, err := s.findServer(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find the server of unhealthy machine: %w", err)
+		return res, fmt.Errorf("failed to find the server of unhealthy machine: %w", err)
 	}
 
 	remediationType := s.scope.HCloudRemediation.Spec.Strategy.Type
@@ -58,7 +58,7 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 	if remediationType != infrav1.RemediationTypeReboot {
 		s.scope.Info("unsupported remediation strategy")
 		record.Warnf(s.scope.HCloudRemediation, "UnsupportedRemdiationStrategy", "remediation strategy %q is unsupported", remediationType)
-		return nil, nil
+		return res, nil
 	}
 
 	if remediationType == infrav1.RemediationTypeReboot {
@@ -75,16 +75,16 @@ func (s *Service) Reconcile(ctx context.Context) (_ *ctrl.Result, err error) {
 		default:
 		}
 	}
-	return nil, nil
+	return res, nil
 }
 
-func (s *Service) handlePhaseRunning(ctx context.Context, server *hcloud.Server) (*ctrl.Result, error) {
+func (s *Service) handlePhaseRunning(ctx context.Context, server *hcloud.Server) (res ctrl.Result, err error) {
 	// server is not rebooted yet
 	if s.scope.HCloudRemediation.Status.LastRemediated == nil {
 		s.scope.Info("Rebooting the server")
 
 		if err := s.rebootServer(ctx, server); err != nil {
-			return nil, fmt.Errorf("failed to reboot server: %w", err)
+			return res, fmt.Errorf("failed to reboot server: %w", err)
 		}
 
 		now := metav1.Now()
@@ -102,7 +102,7 @@ func (s *Service) handlePhaseRunning(ctx context.Context, server *hcloud.Server)
 			s.scope.Info("Rebooting the server")
 
 			if err := s.rebootServer(ctx, server); err != nil {
-				return nil, fmt.Errorf("failed to reboot server: %w", err)
+				return res, fmt.Errorf("failed to reboot server: %w", err)
 			}
 
 			now := metav1.Now()
@@ -112,15 +112,15 @@ func (s *Service) handlePhaseRunning(ctx context.Context, server *hcloud.Server)
 
 		if nextRemediation > 0 {
 			// Not yet time to remediate, requeue
-			return &ctrl.Result{RequeueAfter: nextRemediation}, nil
+			return ctrl.Result{RequeueAfter: nextRemediation}, nil
 		}
 	} else {
 		s.scope.HCloudRemediation.Status.Phase = infrav1.PhaseWaiting
 	}
-	return nil, nil
+	return res, nil
 }
 
-func (s *Service) handlePhaseWaiting(ctx context.Context) (*ctrl.Result, error) {
+func (s *Service) handlePhaseWaiting(ctx context.Context) (res ctrl.Result, err error) {
 	okToStop, nextCheck := s.timeToRemediate()
 
 	if okToStop {
@@ -130,15 +130,15 @@ func (s *Service) handlePhaseWaiting(ctx context.Context) (*ctrl.Result, error) 
 		// preflight checks and handles the Machine deletion
 
 		if err := s.setOwnerRemediatedCondition(ctx); err != nil {
-			return nil, fmt.Errorf("failed to set conditions on CAPI machine: %w", err)
+			return res, fmt.Errorf("failed to set conditions on CAPI machine: %w", err)
 		}
 	}
 
 	if nextCheck > 0 {
 		// Not yet time to stop remediation, requeue
-		return &ctrl.Result{RequeueAfter: nextCheck}, nil
+		return ctrl.Result{RequeueAfter: nextCheck}, nil
 	}
-	return nil, nil
+	return res, nil
 }
 
 func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
