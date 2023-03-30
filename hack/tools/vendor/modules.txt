@@ -309,7 +309,7 @@ github.com/go-openapi/jsonreference/internal
 # github.com/go-openapi/swag v0.22.3
 ## explicit; go 1.18
 github.com/go-openapi/swag
-# github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0
+# github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572
 ## explicit; go 1.13
 github.com/go-task/slim-sprig
 # github.com/gobuffalo/flect v0.3.0
@@ -546,7 +546,7 @@ github.com/nikolaydubina/treemap/render
 # github.com/olekukonko/tablewriter v0.0.5
 ## explicit; go 1.12
 github.com/olekukonko/tablewriter
-# github.com/onsi/ginkgo/v2 v2.9.1
+# github.com/onsi/ginkgo/v2 v2.9.2
 ## explicit; go 1.18
 github.com/onsi/ginkgo/v2/config
 github.com/onsi/ginkgo/v2/formatter
@@ -564,7 +564,7 @@ github.com/onsi/ginkgo/v2/internal/interrupt_handler
 github.com/onsi/ginkgo/v2/internal/parallel_support
 github.com/onsi/ginkgo/v2/reporters
 github.com/onsi/ginkgo/v2/types
-# github.com/onsi/gomega v1.27.3
+# github.com/onsi/gomega v1.27.4
 ## explicit; go 1.18
 github.com/onsi/gomega
 github.com/onsi/gomega/format
