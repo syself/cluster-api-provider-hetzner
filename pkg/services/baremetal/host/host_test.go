@@ -537,6 +537,44 @@ var _ = Describe("handleIncompleteBootError", func() {
 
 var _ = Describe("ensureSSHKey", func() {
 	defaultFingerPrint := "my-fingerprint"
+
+	It("sets a fatal error if a key that exists under another name is uploaded", func() {
+		secret := helpers.GetDefaultSSHSecret("ssh-secret", "default")
+		robotMock := robotmock.Client{}
+		sshSecretKeyRef := infrav1.SSHSecretKeyRef{
+			Name:       "sshkey-name",
+			PublicKey:  "public-key",
+			PrivateKey: "private-key",
+		}
+		robotMock.On("SetSSHKey", string(secret.Data[sshSecretKeyRef.Name]), mock.Anything).Return(
+			nil, models.Error{Code: models.ErrorCodeKeyAlreadyExists, Message: "key already exists"},
+		)
+		robotMock.On("ListSSHKeys").Return([]models.Key{
+			{
+				Name:        "secret2",
+				Fingerprint: "my fingerprint",
+			},
+			{
+				Name:        "secret3",
+				Fingerprint: "my fingerprint",
+			},
+		}, nil)
+
+		host := helpers.BareMetalHost("test-host", "default")
+
+		service := newTestService(host, &robotMock, nil, nil, nil)
+
+		sshKey, actResult := service.ensureSSHKey(infrav1.SSHSecretRef{
+			Name: "secret-name",
+			Key:  sshSecretKeyRef,
+		}, secret)
+
+		emptySSHKey := infrav1.SSHKey{}
+		Expect(sshKey).To(Equal(emptySSHKey))
+		Expect(actResult).To(BeAssignableToTypeOf(actionFailed{}))
+		Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.FatalError))
+	})
+
 	DescribeTable("ensureSSHKey",
 		func(hetznerSSHKeys []models.Key,
 			sshSecretKeyRef infrav1.SSHSecretKeyRef,
