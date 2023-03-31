@@ -3,11 +3,10 @@
     {
       description: "Update Builder Image",
       groupName: "Builder Image",
-      matchManagers: ["dockerfile", "regex"],
-      matchUpdateTypes: ["major", "minor", "patch", "digest", "pin", "pinDigest"],
-      matchPaths: ["images/builder/**"],
-      commitMessageTopic: "Builder Image group",
       groupSlug: "caph-builder-image",
+      commitMessageTopic: "Builder Image group",
+      matchPaths: ["images/builder/**"],
+      matchUpdateTypes: ["major", "minor", "patch", "digest", "pin", "pinDigest"],
     },
     {
       description: "Update Caph Image",
