@@ -307,6 +307,11 @@ func (s *Service) ensureSSHKey(sshSecretRef infrav1.SSHSecretRef, sshSecret *cor
 				)
 				return infrav1.SSHKey{}, actionContinue{}
 			}
+			if models.IsError(err, models.ErrorCodeKeyAlreadyExists) {
+				record.Warnf(s.scope.HetznerBareMetalHost, "SSHKeyAlreadyExists",
+					"failed to upload ssh key %s - it already exists under a different name", string(sshSecret.Data[sshSecretRef.Key.Name]))
+				return infrav1.SSHKey{}, s.recordActionFailure(infrav1.FatalError, "cannot upload ssh key - exists already under a different name")
+			}
 			return infrav1.SSHKey{}, actionError{err: fmt.Errorf("failed to set ssh key: %w", err)}
 		}
 		sshKey.Name = hetznerSSHKey.Name
