@@ -151,9 +151,12 @@ func (r *GuestCSRReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		certificateSigningRequest,
 		metav1.UpdateOptions{},
 	); err != nil {
+		record.Warnf(certificateSigningRequest, "ApprovalFailed", "approval of csr failed: %s", err.Error())
 		return reconcile.Result{}, fmt.Errorf("updating approval of csr failed. userName %q: %w",
 			certificateSigningRequest.Spec.Username, err)
 	}
+
+	record.Event(certificateSigningRequest, "CSRApproved", "approved csr")
 
 	log.Info("Finished reconcile CSR", "name", certificateSigningRequest.Name)
 	return reconcile.Result{}, nil
