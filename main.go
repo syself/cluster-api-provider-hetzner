@@ -57,22 +57,31 @@ func init() {
 }
 
 var (
-	metricsAddr          string
-	enableLeaderElection bool
-	verbose              bool
-	probeAddr            string
-	watchFilterValue     string
-	watchNamespace       string
-	logLevel             string
+	metricsAddr                        string
+	enableLeaderElection               bool
+	leaderElectionNamespace            string
+	verbose                            bool
+	probeAddr                          string
+	watchFilterValue                   string
+	watchNamespace                     string
+	hetznerClusterConcurrency          int
+	hcloudMachineConcurrency           int
+	hetznerBareMetalMachineConcurrency int
+	hetznerBareMetalHostConcurrency    int
+	logLevel                           string
 )
 
 func main() {
-	flag.BoolVar(&verbose, "verbose", false, "Enable verbose logging")
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "localhost:8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":9440", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", true, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
+	flag.StringVar(&leaderElectionNamespace, "leader-elect-namespace", "", "Namespace that the controller performs leader election in. If unspecified, the controller will discover which namespace it is running in.")
 	flag.StringVar(&watchFilterValue, "watch-filter", "", fmt.Sprintf("Label value that the controller watches to reconcile cluster-api objects. Label key is always %s. If unspecified, the controller watches for all cluster-api objects.", clusterv1.WatchLabel))
 	flag.StringVar(&watchNamespace, "namespace", "", "Namespace that the controller watches to reconcile cluster-api objects. If unspecified, the controller watches for cluster-api objects across all namespaces.")
+	flag.IntVar(&hetznerClusterConcurrency, "hetznercluster-concurrency", 1, "Number of HetznerClusters to process simultaneously")
+	flag.IntVar(&hcloudMachineConcurrency, "hcloudmachine-concurrency", 1, "Number of HcloudMachines to process simultaneously")
+	flag.IntVar(&hetznerBareMetalMachineConcurrency, "hetznerbaremetalmachine-concurrency", 1, "Number of HetznerBareMetalMachines to process simultaneously")
+	flag.IntVar(&hetznerBareMetalHostConcurrency, "hetznerbaremetalhost-concurrency", 1, "Number of HetznerBareMetalHosts to process simultaneously")
 	flag.StringVar(&logLevel, "log-level", "debug", "Specifies log level. Options are 'debug', 'info' and 'error'")
 
 	flag.Parse()
@@ -86,6 +95,7 @@ func main() {
 		HealthProbeBindAddress:        probeAddr,
 		LeaderElection:                enableLeaderElection,
 		LeaderElectionID:              "hetzner.cluster.x-k8s.io",
+		LeaderElectionNamespace:       leaderElectionNamespace,
 		LeaderElectionResourceLock:    "leases",
 		LeaderElectionReleaseOnCancel: true,
 		Namespace:                     watchNamespace,
@@ -115,7 +125,7 @@ func main() {
 		HCloudClientFactory:            hcloudClientFactory,
 		WatchFilterValue:               watchFilterValue,
 		TargetClusterManagersWaitGroup: &wg,
-	}).SetupWithManager(ctx, mgr, controller.Options{}); err != nil {
+	}).SetupWithManager(ctx, mgr, controller.Options{MaxConcurrentReconciles: hetznerClusterConcurrency}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HetznerCluster")
 		os.Exit(1)
 	}
@@ -125,7 +135,7 @@ func main() {
 		APIReader:           mgr.GetAPIReader(),
 		HCloudClientFactory: hcloudClientFactory,
 		WatchFilterValue:    watchFilterValue,
-	}).SetupWithManager(ctx, mgr, controller.Options{}); err != nil {
+	}).SetupWithManager(ctx, mgr, controller.Options{MaxConcurrentReconciles: hcloudMachineConcurrency}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HCloudMachine")
 		os.Exit(1)
 	}
@@ -146,7 +156,7 @@ func main() {
 		SSHClientFactory:   sshclient.NewFactory(),
 		APIReader:          mgr.GetAPIReader(),
 		WatchFilterValue:   watchFilterValue,
-	}).SetupWithManager(ctx, mgr, controller.Options{}); err != nil {
+	}).SetupWithManager(ctx, mgr, controller.Options{MaxConcurrentReconciles: hetznerBareMetalHostConcurrency}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HetznerBareMetalHost")
 		os.Exit(1)
 	}
@@ -156,7 +166,7 @@ func main() {
 		APIReader:           mgr.GetAPIReader(),
 		HCloudClientFactory: hcloudClientFactory,
 		WatchFilterValue:    watchFilterValue,
-	}).SetupWithManager(ctx, mgr, controller.Options{}); err != nil {
+	}).SetupWithManager(ctx, mgr, controller.Options{MaxConcurrentReconciles: hetznerBareMetalMachineConcurrency}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HetznerBareMetalMachine")
 		os.Exit(1)
 	}

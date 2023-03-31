@@ -28,6 +28,7 @@ import (
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/machinetemplate"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/cluster-api/util"
+	"sigs.k8s.io/cluster-api/util/predicates"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -146,5 +147,6 @@ func (r *HCloudMachineTemplateReconciler) SetupWithManager(ctx context.Context, 
 	return ctrl.NewControllerManagedBy(mgr).
 		WithOptions(options).
 		For(&infrav1.HCloudMachineTemplate{}).
+		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(ctrl.LoggerFrom(ctx), r.WatchFilterValue)).
 		Complete(r)
 }
