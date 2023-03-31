@@ -31,6 +31,7 @@ import (
 	"github.com/hetznercloud/hcloud-go/hcloud"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
+	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -467,6 +468,7 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 		}
 
 		if _, err := s.scope.HCloudClient.AddIPTargetToLoadBalancer(ctx, opts, lb); err != nil {
+			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "AddIPTargetToLoadBalancer")
 			if hcloud.IsError(err, hcloud.ErrorCodeTargetAlreadyDefined) {
 				return nil
 			}
@@ -490,6 +492,7 @@ func (s *Service) removeAttachedServerOfLoadBalancer(ctx context.Context, host *
 	// remove host IPv4 as target
 	if host.Spec.Status.IPv4 != "" {
 		if _, err := s.scope.HCloudClient.DeleteIPTargetOfLoadBalancer(ctx, lb, net.ParseIP(host.Spec.Status.IPv4)); err != nil {
+			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "DeleteIPTargetOfLoadBalancer")
 			// ignore not found errors
 			if !strings.Contains(err.Error(), "load_balancer_target_not_found") {
 				return fmt.Errorf("failed to remove IPv4 %v as target of load balancer: %w", host.Spec.Status.IPv4, err)
@@ -500,6 +503,7 @@ func (s *Service) removeAttachedServerOfLoadBalancer(ctx context.Context, host *
 	// remove host IPv6 as target
 	if host.Spec.Status.IPv6 != "" {
 		if _, err := s.scope.HCloudClient.DeleteIPTargetOfLoadBalancer(ctx, lb, net.ParseIP(host.Spec.Status.IPv6)); err != nil {
+			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "DeleteIPTargetOfLoadBalancer")
 			// ignore not found errors
 			if !strings.Contains(err.Error(), "load_balancer_target_not_found") {
 				return fmt.Errorf("failed to remove IPv6 %v as target of load balancer: %w", host.Spec.Status.IPv6, err)

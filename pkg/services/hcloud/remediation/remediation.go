@@ -25,6 +25,7 @@ import (
 	"github.com/hetznercloud/hcloud-go/hcloud"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
+	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
@@ -149,13 +150,7 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 
 	server, err := s.scope.HCloudClient.GetServer(ctx, serverID)
 	if err != nil {
-		if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
-			conditions.MarkTrue(s.scope.HCloudRemediation, infrav1.RateLimitExceeded)
-			record.Event(s.scope.HCloudRemediation,
-				"RateLimitExceeded",
-				"exceeded rate limit with calling hcloud function GetServer",
-			)
-		}
+		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "GetServer")
 		return nil, fmt.Errorf("failed to get server: %w", err)
 	}
 
@@ -165,13 +160,7 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 func (s *Service) rebootServer(ctx context.Context, server *hcloud.Server) error {
 	s.scope.Info("Rebooting server", "server", server.ID)
 	if _, err := s.scope.HCloudClient.RebootServer(ctx, server); err != nil {
-		if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
-			conditions.MarkTrue(s.scope.HCloudRemediation, infrav1.RateLimitExceeded)
-			record.Event(s.scope.HCloudRemediation,
-				"RateLimitExceeded",
-				"exceeded rate limit with calling hcloud function RebootServer",
-			)
-		}
+		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "RebootServer")
 		return fmt.Errorf("failed to reboot server %v: %w", server.ID, err)
 	}
 	return nil

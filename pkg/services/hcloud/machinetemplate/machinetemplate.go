@@ -21,13 +21,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hetznercloud/hcloud-go/hcloud"
 	"github.com/pkg/errors"
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
+	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
 	corev1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/cluster-api/util/conditions"
-	"sigs.k8s.io/cluster-api/util/record"
 )
 
 // Service defines struct with HCloudMachineTemplate scope to reconcile HCloud machine templates.
@@ -58,13 +55,7 @@ func (s *Service) getCapacity(ctx context.Context) (corev1.ResourceList, error) 
 	// List all server types
 	serverTypes, err := s.scope.HCloudClient.ListServerTypes(ctx)
 	if err != nil {
-		if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
-			conditions.MarkTrue(s.scope.HCloudMachineTemplate, infrav1.RateLimitExceeded)
-			record.Event(s.scope.HCloudMachineTemplate,
-				"RateLimitExceeded",
-				"exceeded rate limit with calling hcloud function ListServerTypes",
-			)
-		}
+		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachineTemplate, err, "ListServerTypes")
 		return nil, errors.Wrap(err, "failed to list server types")
 	}
 
