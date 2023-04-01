@@ -40,17 +40,17 @@ RUN apk add --no-cache curl && \
 FROM docker.io/hadolint/hadolint:v2.12.0-alpine@sha256:7dba9a9f1a0350f6d021fb2f6f88900998a4fb0aaf8e4330aa8c38544f04db42 as hadolint
 
 # Install Trivy
-FROM docker.io/aquasec/trivy:0.38.3@sha256:5a290a63ed8b927fee29ceed3480036c00ce5460a75d0ad3598d7c8636e067a9 as trivy
+FROM docker.io/aquasec/trivy:0.39.0@sha256:ab281f43ee11b8ea5443ca8897641441f04f14e8832fefd103d32b4acd7055e1 as trivy
 
 ############################
 # Caph Build Image Base #
 ############################
-FROM docker.io/library/golang:1.20.2-bullseye@sha256:bd4a3e7eee6d6ea30b2e27d6c1ac3c56809e78e08c7e44ddf91f8c741091f5ad
+FROM docker.io/library/golang:1.20.2-bullseye@sha256:2101aa981e68ab1e06e3d4ac35ae75ed122f0380e5331e3ae4ba7e811bf9d256
 
 # update: datasource=repology depName=debian_11/skopeo versioning=loose
 ENV SKOPEO_VERSION="1.2.2+dfsg1-1+b6"
 # update: datasource=github-tags depName=adrienverge/yamllint versioning=semver
-ENV YAMLLINT_VERSION="v1.29.0"
+ENV YAMLLINT_VERSION="v1.30.0"
 # update: datasource=github-tags depName=opt-nc/yamlfixer versioning=semver
 ENV YAMLFIXER_VERSION="0.9.15"
 
