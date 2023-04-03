@@ -203,7 +203,7 @@ NAME="nvme1n1" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJQ-00000" VENDOR="" 
 	)
 })
 
-var _ = Describe("handleIncompleteBootError", func() {
+var _ = Describe("handleIncompleteBoot", func() {
 	Context("correct hostname == rescue", func() {
 		DescribeTable("hostName = rescue, varying error type and ssh client response - robot client giving all positive results, no timeouts",
 			func(
@@ -232,76 +232,68 @@ var _ = Describe("handleIncompleteBootError", func() {
 				service := newTestService(host, &robotMock, nil, nil, nil)
 
 				if expectedReturnError == nil {
-					Expect(service.handleIncompleteBootError(isRebootIntoRescue, isTimeOut, isConnectionRefused)).To(Succeed())
+					Expect(service.handleIncompleteBoot(isRebootIntoRescue, isTimeOut, isConnectionRefused)).To(Succeed())
 				} else {
-					Expect(service.handleIncompleteBootError(isRebootIntoRescue, isTimeOut, isConnectionRefused)).Should(Equal(expectedReturnError))
+					Expect(service.handleIncompleteBoot(isRebootIntoRescue, isTimeOut, isConnectionRefused)).Should(Equal(expectedReturnError))
 				}
 
 				Expect(host.Spec.Status.ErrorType).To(Equal(expectedHostErrorType))
 			},
 			Entry("timeout, no errorType",
-				true,                              // isRebootIntoRescue bool
-				true,                              // isTimeOut bool
-				false,                             // isConnectionRefused bool
-				infrav1.ErrorType(""),             // hostErrorType infrav1.ErrorType
-				nil,                               //	expectedReturnError error
-				infrav1.ErrorTypeSSHRebootTooSlow, // expectedHostErrorType infrav1.ErrorType
+				true,                                // isRebootIntoRescue bool
+				true,                                // isTimeOut bool
+				false,                               // isConnectionRefused bool
+				infrav1.ErrorType(""),               // hostErrorType infrav1.ErrorType
+				nil,                                 //	expectedReturnError error
+				infrav1.ErrorTypeSSHRebootTriggered, // expectedHostErrorType infrav1.ErrorType
 			),
-			Entry("timeout,ErrorType == ErrorTypeSoftwareRebootTooSlow",
-				true,                                   // isRebootIntoRescue bool
-				true,                                   // isTimeOut bool
-				false,                                  // isConnectionRefused bool
-				infrav1.ErrorTypeSoftwareRebootTooSlow, // hostErrorType infrav1.ErrorType
-				nil,                                    //	expectedReturnError error
-				infrav1.ErrorTypeSoftwareRebootTooSlow, // expectedHostErrorType infrav1.ErrorType
+			Entry("timeout,ErrorType == ErrorTypeSoftwareRebootTriggered",
+				true,                                     // isRebootIntoRescue bool
+				true,                                     // isTimeOut bool
+				false,                                    // isConnectionRefused bool
+				infrav1.ErrorTypeSoftwareRebootTriggered, // hostErrorType infrav1.ErrorType
+				nil,                                      //	expectedReturnError error
+				infrav1.ErrorTypeSoftwareRebootTriggered, // expectedHostErrorType infrav1.ErrorType
 			),
-			Entry("timeout,ErrorType == ErrorTypeHardwareRebootTooSlow",
-				true,                                   // isRebootIntoRescue bool
-				true,                                   // isTimeOut bool
-				false,                                  // isConnectionRefused bool
-				infrav1.ErrorTypeHardwareRebootTooSlow, // hostErrorType infrav1.ErrorType
-				nil,                                    //	expectedReturnError error
-				infrav1.ErrorTypeHardwareRebootTooSlow, // expectedHostErrorType infrav1.ErrorType
+			Entry("timeout,ErrorType == ErrorTypeHardwareRebootTriggered",
+				true,                                     // isRebootIntoRescue bool
+				true,                                     // isTimeOut bool
+				false,                                    // isConnectionRefused bool
+				infrav1.ErrorTypeHardwareRebootTriggered, // hostErrorType infrav1.ErrorType
+				nil,                                      //	expectedReturnError error
+				infrav1.ErrorTypeHardwareRebootTriggered, // expectedHostErrorType infrav1.ErrorType
 			),
-			Entry("timeout,ErrorType == ErrorTypeHardwareRebootFailed",
-				true,                                  // isRebootIntoRescue bool
-				true,                                  // isTimeOut bool
-				false,                                 // isConnectionRefused bool
-				infrav1.ErrorTypeHardwareRebootFailed, // hostErrorType infrav1.ErrorType
-				nil,                                   //	expectedReturnError error
-				infrav1.ErrorTypeHardwareRebootFailed, // expectedHostErrorType infrav1.ErrorType
+			Entry("timeout,ErrorType == ErrorTypeSoftwareRebootTriggered",
+				true,                                     // isRebootIntoRescue bool
+				true,                                     // isTimeOut bool
+				false,                                    // isConnectionRefused bool
+				infrav1.ErrorTypeSoftwareRebootTriggered, // hostErrorType infrav1.ErrorType
+				nil,                                      //	expectedReturnError error
+				infrav1.ErrorTypeSoftwareRebootTriggered, // expectedHostErrorType infrav1.ErrorType
 			),
-			Entry("timeout,ErrorType == ErrorTypeSoftwareRebootNotStarted",
-				true,  // isRebootIntoRescue bool
-				true,  // isTimeOut bool
-				false, // isConnectionRefused bool
-				infrav1.ErrorTypeSoftwareRebootNotStarted, // hostErrorType infrav1.ErrorType
-				nil,                                    //	expectedReturnError error
-				infrav1.ErrorTypeSoftwareRebootTooSlow, // expectedHostErrorType infrav1.ErrorType
+			Entry("timeout,ErrorType == ErrorTypeHardwareRebootTriggered",
+				true,                                     // isRebootIntoRescue bool
+				true,                                     // isTimeOut bool
+				false,                                    // isConnectionRefused bool
+				infrav1.ErrorTypeHardwareRebootTriggered, // hostErrorType infrav1.ErrorType
+				nil,                                      //	expectedReturnError error
+				infrav1.ErrorTypeHardwareRebootTriggered, // expectedHostErrorType infrav1.ErrorType
 			),
-			Entry("timeout,ErrorType == ErrorTypeHardwareRebootNotStarted",
-				true,  // isRebootIntoRescue bool
-				true,  // isTimeOut bool
-				false, // isConnectionRefused bool
-				infrav1.ErrorTypeHardwareRebootNotStarted, // hostErrorType infrav1.ErrorType
-				nil,                                    //	expectedReturnError error
-				infrav1.ErrorTypeHardwareRebootTooSlow, // expectedHostErrorType infrav1.ErrorType
-			),
-			Entry("timeout,ErrorType == ErrorTypeSSHRebootNotStarted",
-				true,                                 // isRebootIntoRescue bool
-				false,                                // isTimeOut bool
-				false,                                // isConnectionRefused bool
-				infrav1.ErrorTypeSSHRebootNotStarted, // hostErrorType infrav1.ErrorType
-				nil,                                  //	expectedReturnError error
-				infrav1.ErrorTypeSoftwareRebootNotStarted, // expectedHostErrorType infrav1.ErrorType
+			Entry("timeout,ErrorType == ErrorTypeSSHRebootTriggered",
+				true,                                     // isRebootIntoRescue bool
+				false,                                    // isTimeOut bool
+				false,                                    // isConnectionRefused bool
+				infrav1.ErrorTypeSSHRebootTriggered,      // hostErrorType infrav1.ErrorType
+				nil,                                      //	expectedReturnError error
+				infrav1.ErrorTypeSoftwareRebootTriggered, // expectedHostErrorType infrav1.ErrorType
 			),
 			Entry("wrong boot",
-				false,                 // isRebootIntoRescue bool
-				false,                 // isTimeOut bool
-				false,                 // isConnectionRefused bool
-				infrav1.ErrorType(""), // hostErrorType infrav1.ErrorType
-				nil,                   //	expectedReturnError error
-				infrav1.ErrorTypeSoftwareRebootNotStarted, // expectedHostErrorType infrav1.ErrorType
+				false,                                    // isRebootIntoRescue bool
+				false,                                    // isTimeOut bool
+				false,                                    // isConnectionRefused bool
+				infrav1.ErrorType(""),                    // hostErrorType infrav1.ErrorType
+				nil,                                      //	expectedReturnError error
+				infrav1.ErrorTypeSoftwareRebootTriggered, // expectedHostErrorType infrav1.ErrorType
 			),
 		)
 
@@ -329,7 +321,7 @@ var _ = Describe("handleIncompleteBootError", func() {
 				)
 				service := newTestService(host, &robotMock, nil, nil, nil)
 
-				Expect(service.handleIncompleteBootError(true, isTimeOut, isConnectionRefused)).To(Succeed())
+				Expect(service.handleIncompleteBoot(true, isTimeOut, isConnectionRefused)).To(Succeed())
 				Expect(host.Spec.Status.ErrorType).To(Equal(expectedHostErrorType))
 				if expectedRebootType != infrav1.RebootType("") {
 					Expect(robotMock.AssertCalled(GinkgoT(), "RebootBMServer", bareMetalHostID, expectedRebootType)).To(BeTrue())
@@ -341,8 +333,8 @@ var _ = Describe("handleIncompleteBootError", func() {
 				true,  // isTimeOut bool
 				false, // isConnectionRefused bool
 				[]infrav1.RebootType{infrav1.RebootTypeHardware}, // rebootTypes []infrav1.RebootType
-				infrav1.ErrorTypeSSHRebootTooSlow,                // hostErrorType infrav1.ErrorType
-				infrav1.ErrorTypeHardwareRebootNotStarted,        // expectedHostErrorType infrav1.ErrorType
+				infrav1.ErrorTypeSSHRebootTriggered,              // hostErrorType infrav1.ErrorType
+				infrav1.ErrorTypeHardwareRebootTriggered,         // expectedHostErrorType infrav1.ErrorType
 				infrav1.RebootTypeHardware,                       // expectedRebootType infrav1.RebootType
 			),
 			Entry("wrong boot, only hw reset",
@@ -350,39 +342,39 @@ var _ = Describe("handleIncompleteBootError", func() {
 				false, // isConnectionRefused bool
 				[]infrav1.RebootType{infrav1.RebootTypeHardware}, // rebootTypes []infrav1.RebootType
 				infrav1.ErrorType(""),                            // hostErrorType infrav1.ErrorType
-				infrav1.ErrorTypeHardwareRebootNotStarted,        // expectedHostErrorType infrav1.ErrorType
+				infrav1.ErrorTypeHardwareRebootTriggered,         // expectedHostErrorType infrav1.ErrorType
 				infrav1.RebootTypeHardware,                       // expectedRebootType infrav1.RebootType
 			),
-			Entry("wrong boot, only hw reset, errorType =ErrorTypeSSHRebootNotStarted",
+			Entry("wrong boot, only hw reset, errorType =ErrorTypeSSHRebootTriggered",
 				false, // isTimeOut bool
 				false, // isConnectionRefused bool
 				[]infrav1.RebootType{infrav1.RebootTypeHardware}, // rebootTypes []infrav1.RebootType
-				infrav1.ErrorTypeSSHRebootNotStarted,             // hostErrorType infrav1.ErrorType
-				infrav1.ErrorTypeHardwareRebootNotStarted,        // expectedHostErrorType infrav1.ErrorType
+				infrav1.ErrorTypeSSHRebootTriggered,              // hostErrorType infrav1.ErrorType
+				infrav1.ErrorTypeHardwareRebootTriggered,         // expectedHostErrorType infrav1.ErrorType
 				infrav1.RebootTypeHardware,                       // expectedRebootType infrav1.RebootType
 			),
-			Entry("wrong boot, errorType =ErrorTypeSSHRebootNotStarted",
+			Entry("wrong boot, errorType =ErrorTypeSSHRebootTriggered",
 				false, // isTimeOut bool
 				false, // isConnectionRefused bool
 				[]infrav1.RebootType{infrav1.RebootTypeSoftware, infrav1.RebootTypeHardware}, // rebootTypes []infrav1.RebootType
-				infrav1.ErrorTypeSSHRebootNotStarted,                                         // hostErrorType infrav1.ErrorType
-				infrav1.ErrorTypeSoftwareRebootNotStarted,                                    // expectedHostErrorType infrav1.ErrorType
+				infrav1.ErrorTypeSSHRebootTriggered,                                          // hostErrorType infrav1.ErrorType
+				infrav1.ErrorTypeSoftwareRebootTriggered,                                     // expectedHostErrorType infrav1.ErrorType
 				infrav1.RebootTypeSoftware,                                                   // expectedRebootType infrav1.RebootType
 			),
-			Entry("wrong boot,  errorType =ErrorTypeSoftwareRebootNotStarted",
+			Entry("wrong boot,  errorType =ErrorTypeSoftwareRebootTriggered",
 				false, // isTimeOut bool
 				false, // isConnectionRefused bool
 				[]infrav1.RebootType{infrav1.RebootTypeSoftware, infrav1.RebootTypeHardware}, // rebootTypes []infrav1.RebootType
-				infrav1.ErrorTypeSoftwareRebootNotStarted,                                    // hostErrorType infrav1.ErrorType
-				infrav1.ErrorTypeHardwareRebootNotStarted,                                    // expectedHostErrorType infrav1.ErrorType
+				infrav1.ErrorTypeSoftwareRebootTriggered,                                     // hostErrorType infrav1.ErrorType
+				infrav1.ErrorTypeHardwareRebootTriggered,                                     // expectedHostErrorType infrav1.ErrorType
 				infrav1.RebootTypeHardware,                                                   // expectedRebootType infrav1.RebootType
 			),
-			Entry("wrong boot,  errorType =ErrorTypeHardwareRebootNotStarted",
+			Entry("wrong boot,  errorType =ErrorTypeHardwareRebootTriggered",
 				false, // isTimeOut bool
 				false, // isConnectionRefused bool
 				[]infrav1.RebootType{infrav1.RebootTypeSoftware, infrav1.RebootTypeHardware}, // rebootTypes []infrav1.RebootType
-				infrav1.ErrorTypeHardwareRebootNotStarted,                                    // hostErrorType infrav1.ErrorType
-				infrav1.ErrorTypeHardwareRebootNotStarted,                                    // expectedHostErrorType infrav1.ErrorType
+				infrav1.ErrorTypeHardwareRebootTriggered,                                     // hostErrorType infrav1.ErrorType
+				infrav1.ErrorTypeHardwareRebootTriggered,                                     // expectedHostErrorType infrav1.ErrorType
 				infrav1.RebootTypeHardware,                                                   // expectedRebootType infrav1.RebootType
 			),
 		)
@@ -412,7 +404,7 @@ var _ = Describe("handleIncompleteBootError", func() {
 				)
 				service := newTestService(host, &robotMock, nil, nil, nil)
 
-				Expect(service.handleIncompleteBootError(true, true, false)).To(Succeed())
+				Expect(service.handleIncompleteBoot(true, true, false)).To(Succeed())
 				Expect(host.Spec.Status.ErrorType).To(Equal(expectedHostErrorType))
 				if expectedRebootType != infrav1.RebootType("") {
 					Expect(robotMock.AssertCalled(GinkgoT(), "RebootBMServer", bareMetalHostID, expectedRebootType)).To(BeTrue())
@@ -421,46 +413,32 @@ var _ = Describe("handleIncompleteBootError", func() {
 				}
 			},
 			Entry(
-				"timed out hw reset",                   // hostErrorType infrav1.ErrorType
-				infrav1.ErrorTypeHardwareRebootTooSlow, // hostErrorType infrav1.ErrorType
-				time.Now().Add(-time.Hour),             // lastUpdated time.Time
-				infrav1.ErrorTypeHardwareRebootFailed,  // expectedHostErrorType infrav1.ErrorType
-				infrav1.RebootTypeHardware,             // expectedRebootType infrav1.RebootType
+				"timed out hw reset",                     // hostErrorType infrav1.ErrorType
+				infrav1.ErrorTypeHardwareRebootTriggered, // hostErrorType infrav1.ErrorType
+				time.Now().Add(-time.Hour),               // lastUpdated time.Time
+				infrav1.ErrorTypeHardwareRebootTriggered, // expectedHostErrorType infrav1.ErrorType
+				infrav1.RebootTypeHardware,               // expectedRebootType infrav1.RebootType
 			),
 			Entry(
-				"timed out failed hw reset",           // hostErrorType infrav1.ErrorType
-				infrav1.ErrorTypeHardwareRebootFailed, // hostErrorType infrav1.ErrorType
-				time.Now().Add(-time.Hour),            // lastUpdated time.Time
-				infrav1.ErrorTypeHardwareRebootFailed, // expectedHostErrorType infrav1.ErrorType
-				infrav1.RebootTypeHardware,            // expectedRebootType infrav1.RebootType
+				"timed out sw reset",                     // hostErrorType infrav1.ErrorType
+				infrav1.ErrorTypeSoftwareRebootTriggered, // hostErrorType infrav1.ErrorType
+				time.Now().Add(-5*time.Minute),           // lastUpdated time.Time
+				infrav1.ErrorTypeHardwareRebootTriggered, // expectedHostErrorType infrav1.ErrorType
+				infrav1.RebootTypeHardware,               // expectedRebootType infrav1.RebootType
 			),
 			Entry(
-				"timed out sw reset",                   // hostErrorType infrav1.ErrorType
-				infrav1.ErrorTypeSoftwareRebootTooSlow, // hostErrorType infrav1.ErrorType
-				time.Now().Add(-5*time.Minute),         // lastUpdated time.Time
-				infrav1.ErrorTypeHardwareRebootTooSlow, // expectedHostErrorType infrav1.ErrorType
-				infrav1.RebootTypeHardware,             // expectedRebootType infrav1.RebootType
-			),
-			Entry(
-				"not timed out hw reset",               // hostErrorType infrav1.ErrorType
-				infrav1.ErrorTypeHardwareRebootTooSlow, // hostErrorType infrav1.ErrorType
-				time.Now().Add(-30*time.Minute),        // lastUpdated time.Time
-				infrav1.ErrorTypeHardwareRebootTooSlow, // expectedHostErrorType infrav1.ErrorType
-				infrav1.RebootType(""),                 // expectedRebootType infrav1.RebootType
-			),
-			Entry(
-				"not timed out failed hw reset",       // hostErrorType infrav1.ErrorType
-				infrav1.ErrorTypeHardwareRebootFailed, // hostErrorType infrav1.ErrorType
-				time.Now().Add(-30*time.Minute),       // lastUpdated time.Time
-				infrav1.ErrorTypeHardwareRebootFailed, // expectedHostErrorType infrav1.ErrorType
-				infrav1.RebootType(""),                // expectedRebootType infrav1.RebootType
+				"not timed out hw reset",                 // hostErrorType infrav1.ErrorType
+				infrav1.ErrorTypeHardwareRebootTriggered, // hostErrorType infrav1.ErrorType
+				time.Now().Add(-30*time.Minute),          // lastUpdated time.Time
+				infrav1.ErrorTypeHardwareRebootTriggered, // expectedHostErrorType infrav1.ErrorType
+				infrav1.RebootType(""),                   // expectedRebootType infrav1.RebootType
 			),
 			Entry(
 				"not timed out sw reset",
-				infrav1.ErrorTypeSoftwareRebootTooSlow, // hostErrorType infrav1.ErrorType
-				time.Now().Add(-3*time.Minute),         // lastUpdated time.Time
-				infrav1.ErrorTypeSoftwareRebootTooSlow, // expectedHostErrorType infrav1.ErrorType
-				infrav1.RebootType(""),                 // expectedRebootType infrav1.RebootType
+				infrav1.ErrorTypeSoftwareRebootTriggered, // hostErrorType infrav1.ErrorType
+				time.Now().Add(-3*time.Minute),           // lastUpdated time.Time
+				infrav1.ErrorTypeSoftwareRebootTriggered, // expectedHostErrorType infrav1.ErrorType
+				infrav1.RebootType(""),                   // expectedRebootType infrav1.RebootType
 			),
 		)
 	})
@@ -492,9 +470,9 @@ var _ = Describe("handleIncompleteBootError", func() {
 				service := newTestService(host, &robotMock, nil, nil, nil)
 
 				if expectedReturnError == nil {
-					Expect(service.handleIncompleteBootError(isRebootIntoRescue, false, false)).To(Succeed())
+					Expect(service.handleIncompleteBoot(isRebootIntoRescue, false, false)).To(Succeed())
 				} else {
-					Expect(service.handleIncompleteBootError(isRebootIntoRescue, false, false)).Should(Equal(expectedReturnError))
+					Expect(service.handleIncompleteBoot(isRebootIntoRescue, false, false)).Should(Equal(expectedReturnError))
 				}
 				Expect(host.Spec.Status.ErrorType).To(Equal(expectedHostErrorType))
 				if expectsRescueCall {
@@ -504,32 +482,32 @@ var _ = Describe("handleIncompleteBootError", func() {
 				}
 			},
 			Entry("hostname == rescue",
-				true,                  // isRebootIntoRescue bool
-				infrav1.ErrorType(""), // hostErrorType infrav1.ErrorType
-				nil,                   // expectedReturnError error
-				infrav1.ErrorTypeSoftwareRebootNotStarted, // expectedHostErrorType infrav1.ErrorType
-				true, // expectsRescueCall bool
+				true,                                     // isRebootIntoRescue bool
+				infrav1.ErrorType(""),                    // hostErrorType infrav1.ErrorType
+				nil,                                      // expectedReturnError error
+				infrav1.ErrorTypeSoftwareRebootTriggered, // expectedHostErrorType infrav1.ErrorType
+				true,                                     // expectsRescueCall bool
 			),
 			Entry("hostname != rescue",
-				false,                 // isRebootIntoRescue bool
-				infrav1.ErrorType(""), // hostErrorType infrav1.ErrorType
-				nil,                   // expectedReturnError error
-				infrav1.ErrorTypeSoftwareRebootNotStarted, // expectedHostErrorType infrav1.ErrorType
-				false, // expectsRescueCall bool
+				false,                                    // isRebootIntoRescue bool
+				infrav1.ErrorType(""),                    // hostErrorType infrav1.ErrorType
+				nil,                                      // expectedReturnError error
+				infrav1.ErrorTypeSoftwareRebootTriggered, // expectedHostErrorType infrav1.ErrorType
+				false,                                    // expectsRescueCall bool
 			),
-			Entry("hostname == rescue, ErrType == ErrorTypeSSHRebootNotStarted",
-				true,                                 // isRebootIntoRescue bool
-				infrav1.ErrorTypeSSHRebootNotStarted, // hostErrorType infrav1.ErrorType
-				nil,                                  // expectedReturnError error
-				infrav1.ErrorTypeSoftwareRebootNotStarted, // expectedHostErrorType infrav1.ErrorType
-				true, // expectsRescueCall bool
+			Entry("hostname == rescue, ErrType == ErrorTypeSSHRebootTriggered",
+				true,                                     // isRebootIntoRescue bool
+				infrav1.ErrorTypeSSHRebootTriggered,      // hostErrorType infrav1.ErrorType
+				nil,                                      // expectedReturnError error
+				infrav1.ErrorTypeSoftwareRebootTriggered, // expectedHostErrorType infrav1.ErrorType
+				true,                                     // expectsRescueCall bool
 			),
-			Entry("hostname != rescue, ErrType == ErrorTypeSSHRebootNotStarted",
-				false,                                // isRebootIntoRescue bool
-				infrav1.ErrorTypeSSHRebootNotStarted, // hostErrorType infrav1.ErrorType
-				nil,                                  // expectedReturnError error
-				infrav1.ErrorTypeSoftwareRebootNotStarted, // expectedHostErrorType infrav1.ErrorType
-				false, // expectsRescueCall bool
+			Entry("hostname != rescue, ErrType == ErrorTypeSSHRebootTriggered",
+				false,                                    // isRebootIntoRescue bool
+				infrav1.ErrorTypeSSHRebootTriggered,      // hostErrorType infrav1.ErrorType
+				nil,                                      // expectedReturnError error
+				infrav1.ErrorTypeSoftwareRebootTriggered, // expectedHostErrorType infrav1.ErrorType
+				false,                                    // expectsRescueCall bool
 			),
 		)
 	})
@@ -658,8 +636,8 @@ var _ = Describe("ensureSSHKey", func() {
 	)
 })
 
-var _ = Describe("handleIncompleteBootInstallImage", func() {
-	DescribeTable("handleIncompleteBootInstallImage - out.Err",
+var _ = Describe("analyzeSSHOutputInstallImage", func() {
+	DescribeTable("analyzeSSHOutputInstallImage - out.Err",
 		func(
 			err error,
 			rescueActive bool,
@@ -677,7 +655,7 @@ var _ = Describe("handleIncompleteBootInstallImage", func() {
 
 			service := newTestService(host, &robotMock, nil, nil, nil)
 
-			isTimeout, isConnectionRefused, err := service.handleIncompleteBootRegistering(sshclient.Output{Err: err})
+			isTimeout, isConnectionRefused, err := service.analyzeSSHOutputRegistering(sshclient.Output{Err: err})
 			Expect(isTimeout).To(Equal(expectedIsTimeout))
 			Expect(isConnectionRefused).To(Equal(expectedIsConnectionRefused))
 			if expectedErrMessage != "" {
@@ -729,7 +707,7 @@ var _ = Describe("handleIncompleteBootInstallImage", func() {
 		),
 	)
 
-	DescribeTable("handleIncompleteBootRegistering - toggle stdErr and hostName",
+	DescribeTable("analyzeSSHOutputRegistering - toggle stdErr and hostName",
 		func(
 			hasNilErr bool,
 			stdErr string,
@@ -754,7 +732,7 @@ var _ = Describe("handleIncompleteBootInstallImage", func() {
 
 			service := newTestService(host, nil, nil, nil, nil)
 
-			isTimeout, isConnectionRefused, err := service.handleIncompleteBootRegistering(out)
+			isTimeout, isConnectionRefused, err := service.analyzeSSHOutputRegistering(out)
 			Expect(isTimeout).To(Equal(false))
 			Expect(isConnectionRefused).To(Equal(false))
 			if expectedErrMessage != "" {
@@ -795,8 +773,8 @@ var _ = Describe("handleIncompleteBootInstallImage", func() {
 	)
 })
 
-var _ = Describe("handleIncompleteBootInstallImage", func() {
-	DescribeTable("handleIncompleteBootInstallImage - out.Err",
+var _ = Describe("analyzeSSHOutputInstallImage", func() {
+	DescribeTable("analyzeSSHOutputInstallImage - out.Err",
 		func(
 			err error,
 			getHostNameErrNil bool,
@@ -812,7 +790,7 @@ var _ = Describe("handleIncompleteBootInstallImage", func() {
 			}
 			sshMock.On("GetHostName").Return(sshclient.Output{Err: getHostNameErr})
 
-			isTimeout, isConnectionRefused, err := handleIncompleteBootInstallImage(sshclient.Output{Err: err}, sshMock, port)
+			isTimeout, isConnectionRefused, err := analyzeSSHOutputInstallImage(sshclient.Output{Err: err}, sshMock, port)
 			Expect(isTimeout).To(Equal(expectedIsTimeout))
 			Expect(isConnectionRefused).To(Equal(expectedIsConnectionRefused))
 			if expectedErrMessage != "" {
@@ -887,7 +865,7 @@ var _ = Describe("handleIncompleteBootInstallImage", func() {
 		),
 	)
 
-	DescribeTable("handleIncompleteBootInstallImage - StdErr not empty",
+	DescribeTable("analyzeSSHOutputInstallImage - StdErr not empty",
 		func(
 			hasNilErr bool,
 			stdErr string,
@@ -908,7 +886,7 @@ var _ = Describe("handleIncompleteBootInstallImage", func() {
 				StdErr: stdErr,
 				Err:    err,
 			}
-			isTimeout, isConnectionRefused, err := handleIncompleteBootInstallImage(out, nil, 22)
+			isTimeout, isConnectionRefused, err := analyzeSSHOutputInstallImage(out, nil, 22)
 			Expect(isTimeout).To(Equal(false))
 			Expect(isConnectionRefused).To(Equal(false))
 			if expectedErrMessage != "" {
@@ -941,7 +919,7 @@ var _ = Describe("handleIncompleteBootInstallImage", func() {
 		),
 	)
 
-	DescribeTable("handleIncompleteBootInstallImage - wrong hostName",
+	DescribeTable("analyzeSSHOutputInstallImage - wrong hostName",
 		func(
 			hasNilErr bool,
 			stdErr string,
@@ -958,7 +936,7 @@ var _ = Describe("handleIncompleteBootInstallImage", func() {
 				StdErr: stdErr,
 				Err:    err,
 			}
-			isTimeout, isConnectionRefused, err := handleIncompleteBootInstallImage(out, nil, 22)
+			isTimeout, isConnectionRefused, err := analyzeSSHOutputInstallImage(out, nil, 22)
 			Expect(isTimeout).To(Equal(false))
 			Expect(isConnectionRefused).To(Equal(false))
 			if expectedErrMessage != "" {
@@ -1006,14 +984,14 @@ var _ = Describe("handleIncompleteBootInstallImage", func() {
 	)
 })
 
-var _ = Describe("handleIncompleteBootProvisioned", func() {
-	DescribeTable("handleIncompleteBootProvisioned",
+var _ = Describe("analyzeSSHOutputProvisioned", func() {
+	DescribeTable("analyzeSSHOutputProvisioned",
 		func(out sshclient.Output,
 			expectedIsTimeout bool,
 			expectedIsConnectionRefused bool,
 			expectedErrMessage *string,
 		) {
-			isTimeout, isConnectionRefused, err := handleIncompleteBootProvisioned(out)
+			isTimeout, isConnectionRefused, err := analyzeSSHOutputProvisioned(out)
 			Expect(isTimeout).To(Equal(expectedIsTimeout))
 			Expect(isConnectionRefused).To(Equal(expectedIsConnectionRefused))
 			if expectedErrMessage != nil {
@@ -1200,8 +1178,8 @@ var _ = Describe("actionRegistering", func() {
 		},
 		Entry(
 			"timeout",
-			sshclient.Output{Err: timeout},    // getHostNameOutput sshclient.Output
-			infrav1.ErrorTypeSSHRebootTooSlow, // expectedErrorType string
+			sshclient.Output{Err: timeout},      // getHostNameOutput sshclient.Output
+			infrav1.ErrorTypeSSHRebootTriggered, // expectedErrorType string
 		),
 		Entry(
 			"connectionRefused",
@@ -1648,7 +1626,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				outOldSSHClientCheckSigterm:            sshclient.Output{},
 				samePorts:                              false,
 				expectedActionResult:                   actionContinue{},
-				expectedErrorType:                      infrav1.ErrorTypeSSHRebootTooSlow,
+				expectedErrorType:                      infrav1.ErrorTypeSSHRebootTriggered,
 				expectsSSHClientCallCloudInitStatus:    false,
 				expectsSSHClientCallCheckSigterm:       false,
 				expectsSSHClientCallReboot:             false,

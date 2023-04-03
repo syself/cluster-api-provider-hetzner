@@ -79,25 +79,15 @@ type Raid struct {
 type ErrorType string
 
 const (
-	// ErrorTypeSSHRebootTooSlow is an error condition that the ssh reboot is too slow.
-	ErrorTypeSSHRebootTooSlow ErrorType = "ssh reboot too slow"
-	// ErrorTypeSoftwareRebootTooSlow is an error condition that the software reboot is too slow.
-	ErrorTypeSoftwareRebootTooSlow ErrorType = "software reboot too slow"
-	// ErrorTypeHardwareRebootTooSlow is an error condition that the hardware reboot is too slow.
-	ErrorTypeHardwareRebootTooSlow ErrorType = "hardware reboot too slow"
-
-	// ErrorTypeSSHRebootNotStarted is an error condition indicating that the ssh reboot did not start.
-	ErrorTypeSSHRebootNotStarted ErrorType = "ssh reboot not started"
-	// ErrorTypeSoftwareRebootNotStarted is an error condition indicating that the software reboot did not start.
-	ErrorTypeSoftwareRebootNotStarted ErrorType = "software reboot not started"
-	// ErrorTypeHardwareRebootNotStarted is an error condition indicating that the hardware reboot did not start.
-	ErrorTypeHardwareRebootNotStarted ErrorType = "hardware reboot not started"
+	// ErrorTypeSSHRebootTriggered is an error condition that the ssh reboot is triggered.
+	ErrorTypeSSHRebootTriggered ErrorType = "ssh reboot triggered"
+	// ErrorTypeSoftwareRebootTriggered is an error condition that the software reboot is triggered.
+	ErrorTypeSoftwareRebootTriggered ErrorType = "software reboot triggered"
+	// ErrorTypeHardwareRebootTriggered is an error condition that the hardware reboot is triggered.
+	ErrorTypeHardwareRebootTriggered ErrorType = "hardware reboot triggered"
 
 	// ErrorTypeConnectionError ErrorType is an error condition indicating that ssh command returned a connection refused error.
 	ErrorTypeConnectionError ErrorType = "connection refused error of SSH command"
-
-	// ErrorTypeHardwareRebootFailed is an error condition indicating that the hardware reboot failed.
-	ErrorTypeHardwareRebootFailed ErrorType = "hardware reboot failed"
 
 	// RegistrationError is an error condition occurring when the
 	// controller is unable to retrieve information of a specific server via robot.
