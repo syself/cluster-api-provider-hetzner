@@ -22,6 +22,8 @@ import (
 
 	"github.com/go-logr/logr"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
+	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/cluster-api/util/record"
 )
 
@@ -112,14 +114,18 @@ func (hsm *hostStateMachine) updateSSHKey() actionResult {
 		return actionComplete{}
 	}
 
-	// Get ssh key secrets from secret
-	osSSHSecret, rescueSSHSecret, err := hsm.reconciler.getSSHKeysAndUpdateStatus()
-	if err != nil {
-		return actionError{err: fmt.Errorf("failed to get ssh keys and update status: %w", err)}
-	}
+	osSSHSecret := hsm.reconciler.scope.OSSSHSecret
+	rescueSSHSecret := hsm.reconciler.scope.RescueSSHSecret
 
 	// Check whether os secret has been updated if it exists already
 	if osSSHSecret != nil {
+		// if status is not set yet, then update it
+		if hsm.host.Spec.Status.SSHStatus.CurrentOS == nil {
+			if err := hsm.host.UpdateOSSSHStatus(*osSSHSecret); err != nil {
+				return actionError{err: fmt.Errorf("failed to update OS SSH secret status: %w", err)}
+			}
+		}
+
 		if !hsm.host.Spec.Status.SSHStatus.CurrentOS.Match(*osSSHSecret) {
 			// Take action depending on state
 			switch hsm.nextState {
@@ -135,13 +141,20 @@ func (hsm *hostStateMachine) updateSSHKey() actionResult {
 				return actionError{err: fmt.Errorf("failed to update status of OS SSH secret: %w", err)}
 			}
 		}
-		actResult := hsm.reconciler.validateSSHKey(osSSHSecret, "os")
-		if _, complete := actResult.(actionComplete); !complete {
-			return actResult
+		if err := validateSSHKey(osSSHSecret, hsm.host.Spec.Status.SSHSpec.SecretRef); err != nil {
+			return hsm.reconciler.recordActionFailure(infrav1.PreparationError, infrav1.ErrorMessageMissingOrInvalidSecretData)
 		}
 	}
 
+	// Check whether rescue secret has been updated if it exists already
 	if rescueSSHSecret != nil {
+		// if status is not set yet, then update it
+		if hsm.host.Spec.Status.SSHStatus.CurrentRescue == nil {
+			if err := hsm.host.UpdateRescueSSHStatus(*rescueSSHSecret); err != nil {
+				return actionError{err: fmt.Errorf("failed to update rescue SSH secret status: %w", err)}
+			}
+		}
+
 		if !hsm.host.Spec.Status.SSHStatus.CurrentRescue.Match(*rescueSSHSecret) {
 			// Take action depending on state
 			switch hsm.nextState {
@@ -154,12 +167,26 @@ func (hsm *hostStateMachine) updateSSHKey() actionResult {
 				return actionError{err: fmt.Errorf("failed to update status of rescue SSH secret: %w", err)}
 			}
 		}
-		actResult := hsm.reconciler.validateSSHKey(rescueSSHSecret, "rescue")
-		if _, complete := actResult.(actionComplete); !complete {
-			return actResult
+		if err := validateSSHKey(rescueSSHSecret, hsm.reconciler.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef); err != nil {
+			return hsm.reconciler.recordActionFailure(infrav1.PreparationError, infrav1.ErrorMessageMissingOrInvalidSecretData)
 		}
 	}
 	return actionComplete{}
+}
+
+func validateSSHKey(sshSecret *corev1.Secret, secretRef infrav1.SSHSecretRef) error {
+	creds := sshclient.Credentials{
+		Name:       string(sshSecret.Data[secretRef.Key.Name]),
+		PublicKey:  string(sshSecret.Data[secretRef.Key.PublicKey]),
+		PrivateKey: string(sshSecret.Data[secretRef.Key.PrivateKey]),
+	}
+
+	// Validate token
+	if err := creds.Validate(); err != nil {
+		return fmt.Errorf("failed to validate token: %w", err)
+	}
+
+	return nil
 }
 
 func (hsm *hostStateMachine) handlePreparing() actionResult {

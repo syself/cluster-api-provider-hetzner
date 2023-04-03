@@ -21,6 +21,12 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/hetznercloud/hcloud-go/hcloud"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/cluster-api/util/conditions"
+	"sigs.k8s.io/cluster-api/util/record"
 )
 
 const providerIDPrefix = "hcloud://"
@@ -53,4 +59,17 @@ func ServerIDFromProviderID(providerID *string) (int, error) {
 	}
 
 	return id, nil
+}
+
+type runtimeObjectWithConditions interface {
+	conditions.Setter
+	runtime.Object
+}
+
+// HandleRateLimitExceeded handles rate limit exceeded errors.
+func HandleRateLimitExceeded(obj runtimeObjectWithConditions, err error, functionName string) {
+	if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
+		conditions.MarkTrue(obj, infrav1.RateLimitExceeded)
+		record.Warnf(obj, "RateLimitExceeded", "exceeded rate limit with calling function %q", functionName)
+	}
 }

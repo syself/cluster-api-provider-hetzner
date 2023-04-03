@@ -26,9 +26,9 @@ import (
 	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
+	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
-	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -90,14 +90,7 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 			Type:   hcloud.PlacementGroupType(placementGroupSpecMap[pgName].Type),
 			Labels: map[string]string{clusterTagKey: string(infrav1.ResourceLifecycleOwned)},
 		}); err != nil {
-			if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
-				conditions.MarkTrue(s.scope.HetznerCluster, infrav1.RateLimitExceeded)
-				record.Event(s.scope.HetznerCluster,
-					"RateLimitExceeded",
-					"exceeded rate limit with calling hcloud function CreatePlacementGroup",
-				)
-				return err
-			}
+			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "CreatePlacementGroup")
 			multierr = append(multierr, err)
 		}
 	}
@@ -105,14 +98,7 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 	// Delete
 	for _, pgName := range toDelete {
 		if err := s.scope.HCloudClient.DeletePlacementGroup(ctx, placementGroupStatusMap[pgName].ID); err != nil {
-			if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
-				conditions.MarkTrue(s.scope.HetznerCluster, infrav1.RateLimitExceeded)
-				record.Event(s.scope.HetznerCluster,
-					"RateLimitExceeded",
-					"exceeded rate limit with calling hcloud function DeletePlacementGroup",
-				)
-				return err
-			}
+			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "DeletePlacementGroup")
 			multierr = append(multierr, err)
 		}
 	}
@@ -140,14 +126,7 @@ func (s *Service) Delete(ctx context.Context) (err error) {
 	var multierr []error
 	for _, pg := range s.scope.HetznerCluster.Status.HCloudPlacementGroup {
 		if err := s.scope.HCloudClient.DeletePlacementGroup(ctx, pg.ID); err != nil {
-			if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
-				conditions.MarkTrue(s.scope.HetznerCluster, infrav1.RateLimitExceeded)
-				record.Event(s.scope.HetznerCluster,
-					"RateLimitExceeded",
-					"exceeded rate limit with calling hcloud function DeletePlacementGroup",
-				)
-				return err
-			}
+			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "DeletePlacementGroup")
 			if !hcloud.IsError(err, hcloud.ErrorCodeNotFound) {
 				multierr = append(multierr, err)
 			}
@@ -172,13 +151,7 @@ func (s *Service) findPlacementGroups(ctx context.Context) ([]*hcloud.PlacementG
 
 	placementGroups, err := s.scope.HCloudClient.ListPlacementGroups(ctx, opts)
 	if err != nil {
-		if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
-			conditions.MarkTrue(s.scope.HetznerCluster, infrav1.RateLimitExceeded)
-			record.Event(s.scope.HetznerCluster,
-				"RateLimitExceeded",
-				"exceeded rate limit with calling hcloud function ListPlacementGroups",
-			)
-		}
+		hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "ListPlacementGroups")
 		return nil, errors.Wrap(err, "failed to list placement groups")
 	}
 	return placementGroups, nil
