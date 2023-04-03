@@ -98,13 +98,6 @@ kustomize: $(KUSTOMIZE) ## Build a local copy of kustomize
 $(KUSTOMIZE): # Build kustomize from tools folder.
 	cd $(TOOLS_DIR) && go build -mod=vendor -tags=tools -o $(KUSTOMIZE) sigs.k8s.io/kustomize/kustomize/v4
 
-GOLANGCI_LINT := $(abspath $(TOOLS_BIN_DIR)/golangci-lint)
-golangci-lint: $(GOLANGCI_LINT) ## Build a local copy of golangci-lint. After running this command do: BUILD_IN_CONTAINER=false make lint
-$(GOLANGCI_LINT): images/builder/Dockerfile # Download golanci-lint using hack script into tools folder.
-	hack/ensure-golangci-lint.sh \
-		-b $(TOOLS_DIR)/$(BIN_DIR) \
-		$(shell cat images/builder/Dockerfile | grep "GOLANGCI_VERSION=" | sed 's/.*GOLANGCI_VERSION=//' | sed 's/\s.*$$//')
-
 TILT := $(abspath $(TOOLS_BIN_DIR)/tilt)
 tilt: $(TILT) ## Build a local copy of tilt
 $(TILT):  
