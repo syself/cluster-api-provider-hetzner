@@ -28,6 +28,7 @@ test/e2e/data/infrastructure-hetzner/v1beta1/env*
 *.swp
 *.swo
 .DS_Store
+.envrc
 
 # Tilt files.
 .tiltbuild
