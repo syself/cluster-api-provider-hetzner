@@ -1,6 +1,6 @@
 <!-- If this is your first PR, welcome! Please make sure you read the [contributing guidelines](../CONTRIBUTING.md#contributing-a-patch). -->
-<!-- please add a icon to the title of this PR and delete this line and similar ones -->
-<!-- the icon will be either ⚠️ (:warning:, major or breaking changes), ✨ (:sparkles:, feature additions), 🐛 (:bug:, patch and bugfixes), 📖 (:book:, documentation or proposals), or 🌱 (:seedling:, minor or other) -->
+<!-- please add an icon to the title of this PR and delete this line and similar ones -->
+<!-- the icon will be either ⚠️ (:warning:, major or breaking changes), ✨ (:sparkles:, feature additions), 🐛 (:bug:, patches and bugfixes), 📖 (:book:, documentation or proposals), or 🌱 (:seedling:, minor or other) -->
 
 **What this PR does / why we need it**:
 
@@ -13,7 +13,7 @@ _Please confirm that if this PR changes any image versions, then that's the sole
 
 **TODOs**:
 
-- [ ] squashed commits
-- [ ] includes documentation
-- [ ] adds unit tests
+- [ ] squash commits
+- [ ] include documentation
+- [ ] add unit tests
 
