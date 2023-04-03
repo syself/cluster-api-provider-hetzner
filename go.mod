@@ -27,7 +27,7 @@ require (
 	sigs.k8s.io/cluster-api v1.3.5
 	sigs.k8s.io/cluster-api/test v1.3.5
 	sigs.k8s.io/controller-runtime v0.13.1
-	sigs.k8s.io/kind v0.17.0
+	sigs.k8s.io/kind v0.18.0
 )
 
 require (
