@@ -484,64 +484,57 @@ func (c *Controller) populateCluster(ctx context.Context, cluster *api.Cluster) 
 		klog.V(4).Infof("WARNING: creating cluster %s client: %v\n", name, err)
 		return
 	}
-	wg := sync.WaitGroup{}
-	ctx, cancel := context.WithCancel(ctx)
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	cluster.Status.Current = c.configCurrent() == cluster.Name
 
-		v, err := c.healthCheckCluster(ctx, client)
-		if err != nil {
-			// Cancel all other fetching.
-			cancel()
-			return
-		}
+	v, err := c.healthCheckCluster(ctx, client)
+	if err != nil {
+		cluster.Status.Error = fmt.Sprintf("healthcheck: %s", err.Error())
 
-		cluster.Status.KubernetesVersion = v.GitVersion
-	}()
+		// If the cluster isn't reachable, don't try updating the rest
+		// of the fields.
+		return
+	}
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	cluster.Status.KubernetesVersion = v.GitVersion
 
+	g, ctx := errgroup.WithContext(ctx)
+	g.Go(func() error {
 		err := c.populateCreationTimestamp(ctx, cluster, client)
 		if err != nil {
 			klog.V(4).Infof("WARNING: reading cluster %s creation time: %v\n", name, err)
 		}
-	}()
+		return err
+	})
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-
+	g.Go(func() error {
 		err := c.populateLocalRegistryHosting(ctx, cluster, client)
 		if err != nil {
 			klog.V(4).Infof("WARNING: reading cluster %s registry: %v\n", name, err)
 		}
-	}()
+		return err
+	})
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	g.Go(func() error {
 		err := c.populateMachineStatus(ctx, cluster)
 		if err != nil {
 			klog.V(4).Infof("WARNING: reading cluster %s machine: %v\n", name, err)
 		}
-	}()
+		return err
+	})
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	g.Go(func() error {
 		err := c.populateClusterSpec(ctx, cluster, client)
 		if err != nil {
 			klog.V(4).Infof("WARNING: reading cluster %s spec: %v\n", name, err)
 		}
-	}()
+		return err
+	})
 
-	wg.Wait()
-
-	cluster.Status.Current = c.configCurrent() == cluster.Name
+	err = g.Wait()
+	if err != nil {
+		cluster.Status.Error = fmt.Sprintf("reading status: %s", err.Error())
+	}
 }
 
 func FillDefaults(cluster *api.Cluster) {

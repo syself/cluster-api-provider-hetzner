@@ -12,6 +12,11 @@ import (
 // independent of the configuration of the machine it's running on.
 type Admin interface {
 	EnsureInstalled(ctx context.Context) error
+
+	// Create a new cluster.
+	//
+	// Make a best effort attempt to delete any resources that might block creation
+	// of the cluster.
 	Create(ctx context.Context, desired *api.Cluster, registry *api.Registry) error
 
 	// Infers the LocalRegistryHosting that this admin will try to configure.

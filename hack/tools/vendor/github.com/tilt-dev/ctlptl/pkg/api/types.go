@@ -94,6 +94,9 @@ type ClusterStatus struct {
 	// v1.18.10-gke.601
 	// v1.19.3-34+fa32ff1c160058
 	KubernetesVersion string `json:"kubernetesVersion,omitempty" yaml:"kubernetesVersion,omitempty"`
+
+	// Populated when we encounter an error reading the cluster status.
+	Error string `json:"error,omitempty"`
 }
 
 // MinikubeCluster describes minikube-specific options for starting a cluster.
