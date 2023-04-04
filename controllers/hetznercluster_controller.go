@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
@@ -101,7 +100,7 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// Fetch the Cluster.
 	cluster, err := util.GetOwnerCluster(ctx, r.Client, hetznerCluster.ObjectMeta)
 	if err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "failed to get owner cluster")
+		return reconcile.Result{}, fmt.Errorf("failed to get owner cluster: %w", err)
 	}
 
 	log = log.WithValues("Cluster", klog.KObj(cluster))
@@ -141,7 +140,7 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		HetznerSecret:  hetznerSecret,
 	})
 	if err != nil {
-		return reconcile.Result{}, errors.Errorf("failed to create scope: %+v", err)
+		return reconcile.Result{}, fmt.Errorf("failed to create scope: %w", err)
 	}
 
 	// Always close the scope when exiting this function so we can persist any HetznerCluster changes.
@@ -183,20 +182,20 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 	// reconcile the network
 	if err := network.NewService(clusterScope).Reconcile(ctx); err != nil {
 		conditions.MarkFalse(hetznerCluster, infrav1.NetworkAttached, infrav1.NetworkUnreachableReason, clusterv1.ConditionSeverityError, err.Error())
-		return reconcile.Result{}, errors.Wrapf(err, "failed to reconcile network for HetznerCluster %s/%s", hetznerCluster.Namespace, hetznerCluster.Name)
+		return reconcile.Result{}, fmt.Errorf("failed to reconcile network for HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
 	}
 
 	// reconcile the load balancers
 	if err := loadbalancer.NewService(clusterScope).Reconcile(ctx); err != nil {
 		conditions.MarkFalse(hetznerCluster, infrav1.LoadBalancerAttached, infrav1.LoadBalancerUnreachableReason, clusterv1.ConditionSeverityError, err.Error())
-		return reconcile.Result{}, errors.Wrapf(err, "failed to reconcile load balancers for HetznerCluster %s/%s", hetznerCluster.Namespace, hetznerCluster.Name)
+		return reconcile.Result{}, fmt.Errorf("failed to reconcile load balancers for HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
 	}
 	conditions.MarkTrue(hetznerCluster, infrav1.LoadBalancerAttached)
 
 	// reconcile the placement groups
 	if err := placementgroup.NewService(clusterScope).Reconcile(ctx); err != nil {
 		conditions.MarkFalse(hetznerCluster, infrav1.PlacementGroupsSynced, infrav1.PlacementGroupsUnreachableReason, clusterv1.ConditionSeverityError, err.Error())
-		return reconcile.Result{}, errors.Wrapf(err, "failed to reconcile placement groups for HetznerCluster %s/%s", hetznerCluster.Namespace, hetznerCluster.Name)
+		return reconcile.Result{}, fmt.Errorf("failed to reconcile placement groups for HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
 	}
 	conditions.MarkTrue(hetznerCluster, infrav1.PlacementGroupsSynced)
 
@@ -226,11 +225,11 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 	}
 
 	if err := r.reconcileTargetClusterManager(ctx, clusterScope); err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "failed to reconcile target cluster manager")
+		return reconcile.Result{}, fmt.Errorf("failed to reconcile target cluster manager: %w", err)
 	}
 
 	if err := reconcileTargetSecret(ctx, clusterScope); err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "failed to reconcile target secret")
+		return reconcile.Result{}, fmt.Errorf("failed to reconcile target secret: %w", err)
 	}
 
 	log.V(1).Info("Reconciling finished")
@@ -247,7 +246,7 @@ func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterS
 	// wait for all hcloudMachines to be deleted
 	machines, _, err := clusterScope.ListMachines(ctx)
 	if err != nil {
-		return reconcile.Result{}, errors.Wrapf(err, "failed to list machines for HetznerCluster %s/%s", hetznerCluster.Namespace, hetznerCluster.Name)
+		return reconcile.Result{}, fmt.Errorf("failed to list machines for HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
 	}
 	if len(machines) > 0 {
 		names := make([]string, len(machines))
@@ -266,7 +265,7 @@ func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterS
 	secretManager := secretutil.NewSecretManager(log, r.Client, r.APIReader)
 	// Remove finalizer of secret
 	if err := secretManager.ReleaseSecret(ctx, clusterScope.HetznerSecret()); err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "failed to release Hetzner secret")
+		return reconcile.Result{}, fmt.Errorf("failed to release Hetzner secret: %w", err)
 	}
 
 	// Check if rescue ssh secret exists and release it if yes
@@ -275,13 +274,13 @@ func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterS
 		rescueSSHSecret, err := secretManager.ObtainSecret(ctx, rescueSSHSecretObjectKey)
 		if err != nil {
 			if !apierrors.IsNotFound(err) {
-				return reconcile.Result{}, errors.Wrap(err, "failed to get Rescue SSH secret")
+				return reconcile.Result{}, fmt.Errorf("failed to get Rescue SSH secret: %w", err)
 			}
 		}
 		if rescueSSHSecret != nil {
 			if err := secretManager.ReleaseSecret(ctx, rescueSSHSecret); err != nil {
 				if !apierrors.IsNotFound(err) {
-					return reconcile.Result{}, errors.Wrap(err, "failed to release Rescue SSH secret")
+					return reconcile.Result{}, fmt.Errorf("failed to release Rescue SSH secret: %w", err)
 				}
 			}
 		}
@@ -289,17 +288,17 @@ func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterS
 
 	// delete load balancers
 	if err := loadbalancer.NewService(clusterScope).Delete(ctx); err != nil {
-		return reconcile.Result{}, errors.Wrapf(err, "failed to delete load balancers for HetznerCluster %s/%s", hetznerCluster.Namespace, hetznerCluster.Name)
+		return reconcile.Result{}, fmt.Errorf("failed to delete load balancers for HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
 	}
 
 	// delete the network
 	if err := network.NewService(clusterScope).Delete(ctx); err != nil {
-		return reconcile.Result{}, errors.Wrapf(err, "failed to delete network for HetznerCluster %s/%s", hetznerCluster.Namespace, hetznerCluster.Name)
+		return reconcile.Result{}, fmt.Errorf("failed to delete network for HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
 	}
 
 	// delete the placement groups
 	if err := placementgroup.NewService(clusterScope).Delete(ctx); err != nil {
-		return reconcile.Result{}, errors.Wrapf(err, "failed to delete placement groups for HetznerCluster %s/%s", hetznerCluster.Namespace, hetznerCluster.Name)
+		return reconcile.Result{}, fmt.Errorf("failed to delete placement groups for HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
 	}
 
 	// Stop CSR manager
@@ -402,11 +401,11 @@ func hcloudTokenErrorResult(
 		)
 
 	default:
-		return ctrl.Result{}, errors.Wrap(err, "An unhandled failure occurred with the Hetzner secret")
+		return ctrl.Result{}, fmt.Errorf("an unhandled failure occurred with the Hetzner secret: %w", err)
 	}
 
 	if err := client.Status().Update(ctx, setter); err != nil {
-		return ctrl.Result{}, errors.Wrap(err, "failed to update")
+		return ctrl.Result{}, fmt.Errorf("failed to update: %w", err)
 	}
 
 	return res, err
@@ -432,12 +431,12 @@ func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope
 	// getting client set
 	restConfig, err := clientConfig.ClientConfig()
 	if err != nil {
-		return errors.Wrap(err, "failed to get rest config")
+		return fmt.Errorf("failed to get rest config: %w", err)
 	}
 
 	clientSet, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
-		return errors.Wrap(err, "failed to get client set")
+		return fmt.Errorf("failed to get client set: %w", err)
 	}
 
 	if _, err := clientSet.CoreV1().Secrets("kube-system").Get(
@@ -447,7 +446,7 @@ func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope
 	); err != nil {
 		// Set new secret only when no secret was found
 		if !strings.HasSuffix(err.Error(), "not found") {
-			return errors.Wrap(err, "failed to get secret")
+			return fmt.Errorf("failed to get secret: %w", err)
 		}
 
 		tokenSecretName := types.NamespacedName{
@@ -457,15 +456,16 @@ func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope
 		secretManager := secretutil.NewSecretManager(clusterScope.Logger, clusterScope.Client, clusterScope.APIReader)
 		tokenSecret, err := secretManager.AcquireSecret(ctx, tokenSecretName, clusterScope.HetznerCluster, false, clusterScope.HetznerCluster.DeletionTimestamp.IsZero())
 		if err != nil {
-			return errors.Wrap(err, "failed to acquire secret")
+			return fmt.Errorf("failed to acquire secret: %w", err)
 		}
 
 		hetznerToken, keyExists := tokenSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken]
 		if !keyExists {
-			return errors.Errorf(
-				"error key %s does not exist in secret/%s",
+			return fmt.Errorf(
+				"error key %s does not exist in secret/%s: %w",
 				clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken,
 				tokenSecretName,
+				err,
 			)
 		}
 
@@ -501,7 +501,7 @@ func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope
 
 		// create secret in cluster
 		if _, err := clientSet.CoreV1().Secrets("kube-system").Create(ctx, &newSecret, metav1.CreateOptions{}); err != nil {
-			return errors.Wrap(err, "failed to create secret")
+			return fmt.Errorf("failed to create secret: %w", err)
 		}
 	}
 	return nil
@@ -520,9 +520,10 @@ func (r *HetznerClusterReconciler) reconcileTargetClusterManager(ctx context.Con
 		// create a new cluster manager
 		m, err := r.newTargetClusterManager(ctx, clusterScope)
 		if err != nil {
-			return errors.Wrapf(err, "failed to create a clusterManager for HetznerCluster %s/%s",
+			return fmt.Errorf("failed to create a clusterManager for HetznerCluster %s/%s: %w",
 				clusterScope.HetznerCluster.Namespace,
 				clusterScope.HetznerCluster.Name,
+				err,
 			)
 		}
 		r.targetClusterManagersStopCh[key] = make(chan struct{})
@@ -570,16 +571,16 @@ func (r *HetznerClusterReconciler) newTargetClusterManager(ctx context.Context, 
 
 	clientConfig, err := clusterScope.ClientConfig(ctx)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get a clientConfig for the API of HetznerCluster %s/%s", hetznerCluster.Namespace, hetznerCluster.Name)
+		return nil, fmt.Errorf("failed to get a clientConfig for the API of HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
 	}
 	restConfig, err := clientConfig.ClientConfig()
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get a restConfig for the API of HetznerCluster %s/%s", hetznerCluster.Namespace, hetznerCluster.Name)
+		return nil, fmt.Errorf("failed to get a restConfig for the API of HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
 	}
 
 	clientSet, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get a clientSet for the API of HetznerCluster %s/%s", hetznerCluster.Namespace, hetznerCluster.Name)
+		return nil, fmt.Errorf("failed to get a clientSet for the API of HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
 	}
 
 	scheme := runtime.NewScheme()
@@ -595,7 +596,7 @@ func (r *HetznerClusterReconciler) newTargetClusterManager(ctx context.Context, 
 		},
 	)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to setup guest cluster manager")
+		return nil, fmt.Errorf("failed to setup guest cluster manager: %w", err)
 	}
 
 	gr := &GuestCSRReconciler{
@@ -609,7 +610,7 @@ func (r *HetznerClusterReconciler) newTargetClusterManager(ctx context.Context, 
 	}
 
 	if err := gr.SetupWithManager(ctx, clusterMgr, controller.Options{}); err != nil {
-		return nil, errors.Wrapf(err, "failed to setup CSR controller")
+		return nil, fmt.Errorf("failed to setup CSR controller: %w", err)
 	}
 
 	return clusterMgr, nil
@@ -631,7 +632,7 @@ func (r *HetznerClusterReconciler) SetupWithManager(ctx context.Context, mgr ctr
 		Owns(&corev1.Secret{}).
 		Build(r)
 	if err != nil {
-		return errors.Wrap(err, "error creating controller")
+		return fmt.Errorf("error creating controller: %w", err)
 	}
 
 	return controller.Watch(

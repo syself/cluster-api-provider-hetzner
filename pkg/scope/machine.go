@@ -18,10 +18,11 @@ package scope
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"hash/crc32"
 	"sort"
 
-	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	"k8s.io/apimachinery/pkg/types"
@@ -56,12 +57,12 @@ func NewMachineScope(ctx context.Context, params MachineScopeParams) (*MachineSc
 
 	cs, err := NewClusterScope(ctx, params.ClusterScopeParams)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to init patch helper")
+		return nil, fmt.Errorf("failed create new cluster scope: %w", err)
 	}
 
 	cs.patchHelper, err = patch.NewHelper(params.HCloudMachine, params.Client)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to init patch helper")
+		return nil, fmt.Errorf("failed to init patch helper: %w", err)
 	}
 
 	return &MachineScope{
@@ -172,7 +173,7 @@ func (m *MachineScope) GetRawBootstrapData(ctx context.Context) ([]byte, error) 
 	secretManager := secretutil.NewSecretManager(m.Logger, m.Client, m.APIReader)
 	secret, err := secretManager.AcquireSecret(ctx, key, m.HCloudMachine, false, false)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to acquire secret")
+		return nil, fmt.Errorf("failed to acquire secret: %w", err)
 	}
 
 	value, ok := secret.Data["value"]

@@ -23,7 +23,6 @@ import (
 	"strings"
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
-	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
@@ -53,7 +52,7 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 	// find placement groups
 	placementGroups, err := s.findPlacementGroups(ctx)
 	if err != nil {
-		return errors.Wrap(err, "failed to find placement group")
+		return fmt.Errorf("failed to find placement group: %w", err)
 	}
 
 	s.scope.HetznerCluster.Status.HCloudPlacementGroup = apiToStatus(placementGroups, s.scope.HetznerCluster.Name)
@@ -104,13 +103,13 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 	}
 
 	if err := kerrors.NewAggregate(multierr); err != nil {
-		return errors.Wrap(err, "aggregate error - creating/deleting placement groups")
+		return fmt.Errorf("aggregate error - creating/deleting placement groups: %w", err)
 	}
 
 	// Update status
 	placementGroups, err = s.findPlacementGroups(ctx)
 	if err != nil {
-		return errors.Wrap(err, "failed to find placement group")
+		return fmt.Errorf("failed to find placement group: %w", err)
 	}
 
 	s.scope.HetznerCluster.Status.HCloudPlacementGroup = apiToStatus(placementGroups, s.scope.HetznerCluster.Name)
@@ -152,7 +151,7 @@ func (s *Service) findPlacementGroups(ctx context.Context) ([]*hcloud.PlacementG
 	placementGroups, err := s.scope.HCloudClient.ListPlacementGroups(ctx, opts)
 	if err != nil {
 		hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "ListPlacementGroups")
-		return nil, errors.Wrap(err, "failed to list placement groups")
+		return nil, fmt.Errorf("failed to list placement groups: %w", err)
 	}
 	return placementGroups, nil
 }

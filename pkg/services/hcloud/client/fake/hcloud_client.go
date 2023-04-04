@@ -23,7 +23,6 @@ import (
 	"net"
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
-	"github.com/pkg/errors"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
@@ -182,7 +181,7 @@ func (c *cacheHCloudClient) ListLoadBalancers(ctx context.Context, opts hcloud.L
 
 	labels, err := utils.LabelSelectorToLabels(opts.LabelSelector)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to convert label selector to labels")
+		return nil, fmt.Errorf("failed to convert label selector to labels: %w", err)
 	}
 
 	for _, lb := range c.loadBalancerCache.idMap {
@@ -446,7 +445,7 @@ func (c *cacheHCloudClient) ListServers(ctx context.Context, opts hcloud.ServerL
 
 	labels, err := utils.LabelSelectorToLabels(opts.LabelSelector)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to convert label selector to labels")
+		return nil, fmt.Errorf("failed to convert label selector to labels: %w", err)
 	}
 
 	for _, s := range c.serverCache.idMap {
@@ -545,7 +544,7 @@ func (c *cacheHCloudClient) ListNetworks(ctx context.Context, opts hcloud.Networ
 
 	labels, err := utils.LabelSelectorToLabels(opts.LabelSelector)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to convert label selector to labels")
+		return nil, fmt.Errorf("failed to convert label selector to labels: %w", err)
 	}
 
 	for _, network := range c.networkCache.idMap {
@@ -615,7 +614,7 @@ func (c *cacheHCloudClient) ListPlacementGroups(ctx context.Context, opts hcloud
 
 	labels, err := utils.LabelSelectorToLabels(opts.LabelSelector)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to convert label selector to labels")
+		return nil, fmt.Errorf("failed to convert label selector to labels: %w", err)
 	}
 
 	for _, pg := range c.placementGroupCache.idMap {

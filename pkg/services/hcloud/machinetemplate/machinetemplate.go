@@ -21,7 +21,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/pkg/errors"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
 	corev1 "k8s.io/api/core/v1"
@@ -43,7 +42,7 @@ func NewService(scope *scope.HCloudMachineTemplateScope) *Service {
 func (s *Service) Reconcile(ctx context.Context) error {
 	capacity, err := s.getCapacity(ctx)
 	if err != nil {
-		return errors.Wrap(err, "failed to get capacity")
+		return fmt.Errorf("failed to get capacity: %w", err)
 	}
 
 	s.scope.HCloudMachineTemplate.Status.Capacity = capacity
@@ -56,7 +55,7 @@ func (s *Service) getCapacity(ctx context.Context) (corev1.ResourceList, error) 
 	serverTypes, err := s.scope.HCloudClient.ListServerTypes(ctx)
 	if err != nil {
 		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachineTemplate, err, "ListServerTypes")
-		return nil, errors.Wrap(err, "failed to list server types")
+		return nil, fmt.Errorf("failed to list server types: %w", err)
 	}
 
 	// Find the correct server type and check number of CPU cores and GB of memory
@@ -69,12 +68,12 @@ func (s *Service) getCapacity(ctx context.Context) (corev1.ResourceList, error) 
 		foundServerType = true
 		cpu, err := GetCPUQuantityFromInt(serverType.Cores)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to parse quantity. CPU cores: %v. Server type: %+v", serverType.Cores, serverType)
+			return nil, fmt.Errorf("failed to parse quantity. CPU cores %v. Server type %+v: %w", serverType.Cores, serverType, err)
 		}
 		capacity[corev1.ResourceCPU] = cpu
 		memory, err := GetMemoryQuantityFromFloat32(serverType.Memory)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to parse quantity. Memory: %v. Server type: %+v", serverType.Memory, serverType)
+			return nil, fmt.Errorf("failed to parse quantity. Memory %v. Server type %+v: %w", serverType.Memory, serverType, err)
 		}
 		capacity[corev1.ResourceMemory] = memory
 	}

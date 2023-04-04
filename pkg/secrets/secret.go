@@ -22,7 +22,6 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
@@ -76,7 +75,7 @@ func (sm *SecretManager) claimSecret(ctx context.Context, secret *corev1.Secret,
 			if !metav1.IsControlledBy(secret, owner) {
 				ownerLog.Info("setting secret controller reference")
 				if err := controllerutil.SetControllerReference(owner, secret, sm.client.Scheme()); err != nil {
-					return errors.Wrap(err, "failed to set secret controller reference")
+					return fmt.Errorf("failed to set secret controller reference: %w", err)
 				}
 				needsUpdate = true
 			}
@@ -92,7 +91,7 @@ func (sm *SecretManager) claimSecret(ctx context.Context, secret *corev1.Secret,
 			if !alreadyOwned {
 				ownerLog.Info("setting secret owner reference")
 				if err := controllerutil.SetOwnerReference(owner, secret, sm.client.Scheme()); err != nil {
-					return errors.Wrap(err, "failed to set secret owner reference")
+					return fmt.Errorf("failed to set secret owner reference: %w", err)
 				}
 				needsUpdate = true
 			}
@@ -107,7 +106,7 @@ func (sm *SecretManager) claimSecret(ctx context.Context, secret *corev1.Secret,
 
 	if needsUpdate {
 		if err := sm.client.Update(ctx, secret); err != nil {
-			return errors.Wrap(err, fmt.Sprintf("failed to update secret %s in namespace %s", secret.ObjectMeta.Name, secret.ObjectMeta.Namespace))
+			return fmt.Errorf("failed to update secret %s in namespace %s: %w", secret.ObjectMeta.Name, secret.ObjectMeta.Namespace, err)
 		}
 	}
 
@@ -142,7 +141,7 @@ func (sm *SecretManager) findSecret(ctx context.Context, key types.NamespacedNam
 func (sm *SecretManager) ObtainSecret(ctx context.Context, key types.NamespacedName) (*corev1.Secret, error) {
 	secret, err := sm.findSecret(ctx, key)
 	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("failed to fetch secret %s in namespace %s", key.Name, key.Namespace))
+		return nil, fmt.Errorf("failed to fetch secret %s in namespace %s: %w", key.Name, key.Namespace, err)
 	}
 	err = sm.claimSecret(ctx, secret, nil, false, false)
 
@@ -160,7 +159,7 @@ func (sm *SecretManager) AcquireSecret(ctx context.Context, key types.Namespaced
 
 	secret, err := sm.findSecret(ctx, key)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to find secret")
+		return nil, fmt.Errorf("failed to find secret: %w", err)
 	}
 
 	err = sm.claimSecret(ctx, secret, owner, ownerIsController, addFinalizer)
@@ -179,8 +178,8 @@ func (sm *SecretManager) ReleaseSecret(ctx context.Context, secret *corev1.Secre
 		secret.Finalizers, SecretFinalizer)
 
 	if err := sm.client.Update(ctx, secret); err != nil {
-		return errors.Wrap(err, fmt.Sprintf("failed to remove finalizer from secret %s in namespace %s",
-			secret.ObjectMeta.Name, secret.ObjectMeta.Namespace))
+		return fmt.Errorf("failed to remove finalizer from secret %s in namespace %s: %w",
+			secret.ObjectMeta.Name, secret.ObjectMeta.Namespace, err)
 	}
 
 	sm.log.Info("removed secret finalizer",

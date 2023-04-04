@@ -26,7 +26,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	expv1 "sigs.k8s.io/cluster-api/exp/api/v1beta1"
@@ -82,7 +81,7 @@ func (collector logCollector) CollectMachineLog(_ context.Context, _ client.Clie
 			if err := executeRemoteCommand(
 				f, hostIPAddr,
 				"tar", "--hard-dereference", "-hcf", "-", pathToDir); err != nil {
-				return errors.Wrapf(err, "failed to tar dir %s", pathToDir)
+				return fmt.Errorf("failed to tar dir %s: %w", pathToDir, err)
 			}
 
 			err = os.MkdirAll(outputDir, os.ModePerm)
@@ -92,7 +91,7 @@ func (collector logCollector) CollectMachineLog(_ context.Context, _ client.Clie
 
 			cmd := exec.Command("tar", "--extract", "--file", tempfileName, "--directory", outputDir) // #nosec
 			if err := cmd.Run(); err != nil {
-				return errors.Wrap(err, "failed to run command")
+				return fmt.Errorf("failed to run command: %w", err)
 			}
 
 			return nil
@@ -133,13 +132,13 @@ func executeRemoteCommand(f io.StringWriter, hostIPAddr, command string, args ..
 
 	hostClient, err := ssh.Dial("tcp", fmt.Sprintf("%s:%s", hostIPAddr, port), config)
 	if err != nil {
-		return errors.Wrapf(err, "dialing host IP address at %s", hostIPAddr)
+		return fmt.Errorf("dialing host IP address at %s: %w", hostIPAddr, err)
 	}
 	defer hostClient.Close()
 
 	session, err := hostClient.NewSession()
 	if err != nil {
-		return errors.Wrap(err, "opening SSH session")
+		return fmt.Errorf("opening SSH session: %w", err)
 	}
 	defer session.Close()
 
@@ -150,10 +149,10 @@ func executeRemoteCommand(f io.StringWriter, hostIPAddr, command string, args ..
 		command += " " + strings.Join(args, " ")
 	}
 	if err = session.Run(command); err != nil {
-		return errors.Wrapf(err, "running command \"%s\"", command)
+		return fmt.Errorf("running command %q: %w", command, err)
 	}
 	if _, err = f.WriteString(stdoutBuf.String()); err != nil {
-		return errors.Wrap(err, "writing output to file")
+		return fmt.Errorf("writing output to file: %w", err)
 	}
 
 	return nil
@@ -168,7 +167,7 @@ func newSSHConfig() (*ssh.ClientConfig, error) {
 
 	signer, err := ssh.ParsePrivateKey(sshPrivateKeyContent)
 	if err != nil {
-		return nil, errors.Wrapf(err, fmt.Sprintf("error parsing private key: %s", sshPrivateKeyContent))
+		return nil, fmt.Errorf("failed to parse private key %s: %w", sshPrivateKeyContent, err)
 	}
 
 	config := &ssh.ClientConfig{
@@ -185,7 +184,7 @@ func newSSHConfig() (*ssh.ClientConfig, error) {
 func readPrivateKey() ([]byte, error) {
 	privateKeyFilePath := os.Getenv(hetznerPrivateKeyFilePath)
 	if len(privateKeyFilePath) == 0 {
-		return nil, errors.Errorf("private key information missing. Please set %s environment variable", hetznerPrivateKeyFilePath)
+		return nil, fmt.Errorf("private key information missing. Please set %s environment variable", hetznerPrivateKeyFilePath)
 	}
 
 	return os.ReadFile(privateKeyFilePath) // #nosec

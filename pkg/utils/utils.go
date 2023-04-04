@@ -25,7 +25,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"k8s.io/apiserver/pkg/storage/names"
@@ -56,7 +55,7 @@ func LabelSelectorToLabels(str string) (map[string]string, error) {
 	input = fmt.Sprintf(`{"%s"}`, input) //nolint:gocritic
 
 	if err := json.Unmarshal([]byte(input), &labels); err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal")
+		return nil, fmt.Errorf("failed to unmarshal: %w", err)
 	}
 	return labels, nil
 }

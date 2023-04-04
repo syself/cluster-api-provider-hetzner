@@ -11,7 +11,6 @@ require (
 	github.com/hetznercloud/hcloud-go v1.41.0
 	github.com/onsi/ginkgo/v2 v2.9.2
 	github.com/onsi/gomega v1.27.6
-	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.8.2
 	github.com/syself/hrobot-go v0.2.4
 	go.uber.org/zap v1.24.0
@@ -100,6 +99,7 @@ require (
 	github.com/opencontainers/image-spec v1.0.2 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.5 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_golang v1.14.0 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect

@@ -22,7 +22,6 @@ import (
 	"fmt"
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
-	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
@@ -58,37 +57,37 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 	// find load balancer
 	lb, err := s.findLoadBalancer(ctx)
 	if err != nil {
-		return errors.Wrap(err, "failed to find load balancer")
+		return fmt.Errorf("failed to find load balancer: %w", err)
 	}
 
 	if lb == nil {
 		lb, err = s.createLoadBalancer(ctx)
 		if err != nil {
-			return errors.Wrap(err, "failed to create load balancer")
+			return fmt.Errorf("failed to create load balancer: %w", err)
 		}
 	}
 
 	// update current status
 	lbStatus, err := apiToStatus(lb, s.scope.HetznerCluster.Status.Network != nil)
 	if err != nil {
-		return errors.Wrap(err, "failed to get status from api object")
+		return fmt.Errorf("failed to get status from api object: %w", err)
 	}
 
 	s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer = &lbStatus
 
 	// Check whether load balancer name, algorithm or type has been changed
 	if err := s.reconcileLBProperties(ctx, lb); err != nil {
-		return errors.Wrap(err, "failed to reconcile load balancer properties")
+		return fmt.Errorf("failed to reconcile load balancer properties: %w", err)
 	}
 
 	// reconcile network attachement
 	if err := s.reconcileNetworkAttachement(ctx, lb); err != nil {
-		return errors.Wrap(err, "failed to reconcile network attachement")
+		return fmt.Errorf("failed to reconcile network attachement: %w", err)
 	}
 
 	// reconcile targets
 	if err := s.reconcileServices(ctx, lb); err != nil {
-		return errors.Wrap(err, "failed to reconcile targets")
+		return fmt.Errorf("failed to reconcile targets: %w", err)
 	}
 
 	return nil
@@ -130,7 +129,7 @@ func (s *Service) reconcileNetworkAttachement(ctx context.Context, lb *hcloud.Lo
 			infrav1.LoadBalancerAttachFailedReason,
 			clusterv1.ConditionSeverityError,
 			err.Error())
-		return errors.Wrap(err, "failed to attach load balancer to network")
+		return fmt.Errorf("failed to attach load balancer to network: %w", err)
 	}
 
 	conditions.MarkTrue(s.scope.HetznerCluster, infrav1.LoadBalancerAttachedToNetworkCondition)
@@ -147,7 +146,7 @@ func (s *Service) reconcileLBProperties(ctx context.Context, lb *hcloud.LoadBala
 			},
 		}); err != nil {
 			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "ChangeLoadBalancerType")
-			multierr = append(multierr, errors.Wrap(err, "failed to change load balancer type"))
+			multierr = append(multierr, fmt.Errorf("failed to change load balancer type: %w", err))
 		}
 		record.Eventf(s.scope.HetznerCluster, "ChangeLoadBalancerType", "Changed load balancer type")
 	}
@@ -158,7 +157,7 @@ func (s *Service) reconcileLBProperties(ctx context.Context, lb *hcloud.LoadBala
 			Type: hcloud.LoadBalancerAlgorithmType(s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Algorithm),
 		}); err != nil {
 			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "ChangeLoadBalancerAlgorithm")
-			multierr = append(multierr, errors.Wrap(err, "failed to change load balancer algorithm"))
+			multierr = append(multierr, fmt.Errorf("failed to change load balancer algorithm: %w", err))
 		}
 		record.Eventf(s.scope.HetznerCluster, "ChangeLoadBalancerAlgorithm", "Changed load balancer algorithm")
 	}
@@ -170,7 +169,7 @@ func (s *Service) reconcileLBProperties(ctx context.Context, lb *hcloud.LoadBala
 			Name: *s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Name,
 		}); err != nil {
 			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "UpdateLoadBalancer")
-			multierr = append(multierr, errors.Wrap(err, "failed to update load balancer name"))
+			multierr = append(multierr, fmt.Errorf("failed to update load balancer name: %w", err))
 		}
 		record.Eventf(s.scope.HetznerCluster, "ChangeLoadBalancerName", "Changed load balancer name")
 	}
@@ -250,7 +249,7 @@ func (s *Service) createLoadBalancer(ctx context.Context) (*hcloud.LoadBalancer,
 			"FailedCreateLoadBalancer",
 			"Failed to create load balancer: %s",
 			err)
-		return nil, errors.Wrap(err, "error creating load balancer")
+		return nil, fmt.Errorf("error creating load balancer: %w", err)
 	}
 
 	record.Eventf(s.scope.HetznerCluster, "CreateLoadBalancer", "Created load balancer")
@@ -326,7 +325,7 @@ func (s *Service) Delete(ctx context.Context) (err error) {
 			return nil
 		}
 		record.Eventf(s.scope.HetznerCluster, "FailedLoadBalancerDelete", "Failed to delete load balancer: %s", err)
-		return errors.Wrap(err, "failed to delete load balancer")
+		return fmt.Errorf("failed to delete load balancer: %w", err)
 	}
 
 	// Delete lb information from cluster status
@@ -347,7 +346,7 @@ func (s *Service) findLoadBalancer(ctx context.Context) (*hcloud.LoadBalancer, e
 	})
 	if err != nil {
 		hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "ListLoadBalancers")
-		return nil, errors.Wrap(err, "failed to list load balancers")
+		return nil, fmt.Errorf("failed to list load balancers: %w", err)
 	}
 
 	if len(loadBalancers) > 1 {

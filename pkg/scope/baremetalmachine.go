@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -66,7 +65,7 @@ func NewBareMetalMachineScope(ctx context.Context, params BareMetalMachineScopeP
 
 	patchHelper, err := patch.NewHelper(params.BareMetalMachine, params.Client)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to init patch helper")
+		return nil, fmt.Errorf("failed to init patch helper: %w", err)
 	}
 
 	return &BareMetalMachineScope{

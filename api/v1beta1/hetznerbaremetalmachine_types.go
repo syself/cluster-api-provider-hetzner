@@ -17,10 +17,10 @@ limitations under the License.
 package v1beta1
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
-	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/selection"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -324,7 +324,7 @@ func GetImageSuffix(url string) (string, error) {
 		}
 	}
 
-	return "", errors.Wrapf(errUnknownSuffix, "unknown suffix in URL %s", url)
+	return "", fmt.Errorf("unknown suffix in URL %s: %w", url, errUnknownSuffix)
 }
 
 // HasHostAnnotation checks whether the annotation that references a host exists.
