@@ -63,8 +63,6 @@ func NewService(scope *scope.BareMetalHostScope) *Service {
 
 // Reconcile implements reconcilement of HetznerBareMetalHosts.
 func (s *Service) Reconcile(ctx context.Context) (result reconcile.Result, err error) {
-	s.scope.Info("Reconciling baremetal host")
-
 	initialState := s.scope.HetznerBareMetalHost.Spec.Status.ProvisioningState
 
 	oldHost := *s.scope.HetznerBareMetalHost
@@ -381,7 +379,6 @@ func (s *Service) ensureRescueMode() error {
 	}
 	if !rescue.Active {
 		// Rescue system is still not active - activate again
-		s.scope.Info("Rescue system not active - activate again")
 		if _, err := s.scope.RobotClient.SetBootRescue(
 			s.scope.HetznerBareMetalHost.Spec.ServerID,
 			s.scope.HetznerBareMetalHost.Spec.Status.SSHStatus.RescueKey.Fingerprint,
@@ -1192,7 +1189,8 @@ func (s *Service) actionDeprovisioning() actionResult {
 		})
 		out := sshClient.ResetKubeadm()
 		if err := handleSSHError(out); err != nil {
-			s.scope.Info("Error while reseting kubeadm", "err", err)
+			record.Warnf(s.scope.HetznerBareMetalHost, "FailedResetKubeAdm", "failed to reset kubeadm: %s", err.Error())
+			s.scope.Error(err, "failed to reset kubeadm")
 		}
 	} else {
 		s.scope.Info("OS SSH Secret is empty - cannot reset kubeadm")
@@ -1204,10 +1202,7 @@ func (s *Service) actionDeprovisioning() actionResult {
 }
 
 func (s *Service) actionDeleting() actionResult {
-	s.scope.Info("Marked to be deleted", "timestamp", s.scope.HetznerBareMetalHost.DeletionTimestamp)
-
 	if !utils.StringInList(s.scope.HetznerBareMetalHost.Finalizers, infrav1.BareMetalHostFinalizer) {
-		s.scope.Info("Ready to be deleted")
 		return deleteComplete{}
 	}
 
@@ -1216,7 +1211,6 @@ func (s *Service) actionDeleting() actionResult {
 		return actionError{fmt.Errorf("failed to remove finalizer: %w", err)}
 	}
 
-	s.scope.Info("Cleanup complete. Removed finalizer", "remaining", s.scope.HetznerBareMetalHost.Finalizers)
 	return deleteComplete{}
 }
 

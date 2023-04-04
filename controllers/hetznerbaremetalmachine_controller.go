@@ -39,7 +39,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
@@ -169,8 +168,6 @@ func (r *HetznerBareMetalMachineReconciler) reconcileDelete(ctx context.Context,
 }
 
 func (r *HetznerBareMetalMachineReconciler) reconcileNormal(ctx context.Context, machineScope *scope.BareMetalMachineScope) (reconcile.Result, error) {
-	machineScope.Info("Reconciling HetznerBareMetalMachine")
-
 	// If the HetznerBareMetalMachine doesn't have our finalizer, add it.
 	controllerutil.AddFinalizer(machineScope.BareMetalMachine, infrav1.BareMetalMachineFinalizer)
 
@@ -202,7 +199,7 @@ func (r *HetznerBareMetalMachineReconciler) SetupWithManager(ctx context.Context
 		).
 		Watches(
 			&source.Kind{Type: &infrav1.HetznerCluster{}},
-			handler.EnqueueRequestsFromMapFunc(r.HetznerClusterToBareMetalMachines(ctx)),
+			handler.EnqueueRequestsFromMapFunc(r.HetznerClusterToBareMetalMachines(ctx, log)),
 		).
 		Watches(
 			&source.Kind{Type: &clusterv1.Cluster{}},
@@ -236,11 +233,9 @@ func (r *HetznerBareMetalMachineReconciler) SetupWithManager(ctx context.Context
 
 // HetznerClusterToBareMetalMachines is a handler.ToRequestsFunc to be used to enqeue requests for reconciliation
 // of BareMetalMachines.
-func (r *HetznerBareMetalMachineReconciler) HetznerClusterToBareMetalMachines(ctx context.Context) handler.MapFunc {
+func (r *HetznerBareMetalMachineReconciler) HetznerClusterToBareMetalMachines(ctx context.Context, log logr.Logger) handler.MapFunc {
 	return func(o client.Object) []reconcile.Request {
 		result := []reconcile.Request{}
-
-		log := log.FromContext(ctx)
 
 		c, ok := o.(*infrav1.HetznerCluster)
 		if !ok {

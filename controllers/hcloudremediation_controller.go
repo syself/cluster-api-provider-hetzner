@@ -171,7 +171,6 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 }
 
 func (r *HCloudRemediationReconciler) reconcileNormal(ctx context.Context, remediationScope *scope.HCloudRemediationScope) (reconcile.Result, error) {
-	remediationScope.Info("Reconciling HCloudRemediation")
 	hcloudRemediation := remediationScope.HCloudRemediation
 
 	// reconcile hcloud remediation

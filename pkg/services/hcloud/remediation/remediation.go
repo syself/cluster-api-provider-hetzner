@@ -47,8 +47,6 @@ func NewService(scope *scope.HCloudRemediationScope) *Service {
 
 // Reconcile implements reconcilement of HCloudRemediation.
 func (s *Service) Reconcile(ctx context.Context) (res ctrl.Result, err error) {
-	s.scope.Info("Reconciling hcloud remediation", "name", s.scope.HCloudRemediation.Name)
-
 	server, err := s.findServer(ctx)
 	if err != nil {
 		return res, fmt.Errorf("failed to find the server of unhealthy machine: %w", err)
@@ -82,8 +80,6 @@ func (s *Service) Reconcile(ctx context.Context) (res ctrl.Result, err error) {
 func (s *Service) handlePhaseRunning(ctx context.Context, server *hcloud.Server) (res ctrl.Result, err error) {
 	// server is not rebooted yet
 	if s.scope.HCloudRemediation.Status.LastRemediated == nil {
-		s.scope.Info("Rebooting the server")
-
 		if err := s.rebootServer(ctx, server); err != nil {
 			return res, fmt.Errorf("failed to reboot server: %w", err)
 		}
@@ -100,8 +96,6 @@ func (s *Service) handlePhaseRunning(ctx context.Context, server *hcloud.Server)
 		okToRemediate, nextRemediation := s.timeToRemediate()
 
 		if okToRemediate {
-			s.scope.Info("Rebooting the server")
-
 			if err := s.rebootServer(ctx, server); err != nil {
 				return res, fmt.Errorf("failed to reboot server: %w", err)
 			}
@@ -158,7 +152,6 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 }
 
 func (s *Service) rebootServer(ctx context.Context, server *hcloud.Server) error {
-	s.scope.Info("Rebooting server", "server", server.ID)
 	if _, err := s.scope.HCloudClient.RebootServer(ctx, server); err != nil {
 		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "RebootServer")
 		return fmt.Errorf("failed to reboot server %v: %w", server.ID, err)

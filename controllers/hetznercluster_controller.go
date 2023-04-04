@@ -96,8 +96,6 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	log = log.WithValues("HetznerCluster", klog.KObj(hetznerCluster))
 
-	log.Info("Starting reconciling cluster")
-
 	// Fetch the Cluster.
 	cluster, err := util.GetOwnerCluster(ctx, r.Client, hetznerCluster.ObjectMeta)
 	if err != nil {
@@ -121,7 +119,6 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	log = log.WithValues("cluster", cluster.Name)
 
-	log.V(1).Info("Creating cluster scope")
 	// Create the scope.
 	secretManager := secretutil.NewSecretManager(log, r.Client, r.APIReader)
 	hcloudToken, hetznerSecret, err := getAndValidateHCloudToken(ctx, req.Namespace, hetznerCluster, secretManager)
@@ -166,9 +163,6 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 }
 
 func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterScope *scope.ClusterScope) (ctrl.Result, error) {
-	log := ctrl.LoggerFrom(ctx)
-	log.V(1).Info("Reconciling HetznerCluster")
-
 	hetznerCluster := clusterScope.HetznerCluster
 
 	// If the HetznerCluster doesn't have our finalizer, add it.
@@ -239,15 +233,10 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 		return reconcile.Result{}, fmt.Errorf("failed to reconcile target secret: %w", err)
 	}
 
-	log.V(1).Info("Reconciling finished")
 	return reconcile.Result{}, nil
 }
 
 func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterScope *scope.ClusterScope) (reconcile.Result, error) {
-	log := ctrl.LoggerFrom(ctx)
-
-	log.Info("Reconciling HetznerCluster delete")
-
 	hetznerCluster := clusterScope.HetznerCluster
 
 	// wait for all hcloudMachines to be deleted
@@ -269,7 +258,7 @@ func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterS
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
-	secretManager := secretutil.NewSecretManager(log, r.Client, r.APIReader)
+	secretManager := secretutil.NewSecretManager(clusterScope.Logger, r.Client, r.APIReader)
 	// Remove finalizer of secret
 	if err := secretManager.ReleaseSecret(ctx, clusterScope.HetznerSecret()); err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to release Hetzner secret: %w", err)
@@ -419,17 +408,15 @@ func hcloudTokenErrorResult(
 }
 
 func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope) error {
-	log := ctrl.LoggerFrom(ctx)
-
 	// Checking if control plane is ready
 	clientConfig, err := clusterScope.ClientConfig(ctx)
 	if err != nil {
-		log.V(1).Info("failed to get clientconfig with api endpoint")
+		clusterScope.V(1).Info("failed to get clientconfig with api endpoint")
 		return err
 	}
 
 	if err := scope.IsControlPlaneReady(ctx, clientConfig); err != nil {
-		log.V(1).Info("Control plane not ready - reconcile target secret again")
+		clusterScope.V(1).Info("Control plane not ready - reconcile target secret again")
 		return err
 	}
 

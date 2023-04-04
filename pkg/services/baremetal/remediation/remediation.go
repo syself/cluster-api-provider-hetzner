@@ -97,10 +97,8 @@ func (s *Service) Reconcile(ctx context.Context) (res ctrl.Result, err error) {
 func (s *Service) handlePhaseRunning(ctx context.Context, host *infrav1.HetznerBareMetalHost, helper *patch.Helper) (res ctrl.Result, err error) {
 	// host is not rebooted yet
 	if s.scope.BareMetalRemediation.Status.LastRemediated == nil {
-		s.scope.Info("Rebooting the host")
 		err := s.setRebootAnnotation(ctx, host, helper)
 		if err != nil {
-			s.scope.Error(err, "error setting reboot annotation")
 			return res, fmt.Errorf("error setting reboot annotation: %w", err)
 		}
 		now := metav1.Now()
@@ -199,8 +197,6 @@ func (s *Service) getHost(ctx context.Context) (*infrav1.HetznerBareMetalHost, e
 
 // setRebootAnnotation sets reboot annotation on unhealthy host.
 func (s *Service) setRebootAnnotation(ctx context.Context, host *infrav1.HetznerBareMetalHost, helper *patch.Helper) error {
-	s.scope.Info("Adding Reboot annotation to host", "host", host.Name)
-
 	reboot := infrav1.RebootAnnotationArguments{}
 	reboot.Type = infrav1.RebootTypeHardware
 
@@ -241,20 +237,17 @@ func (s *Service) timeToRemediate(timeout time.Duration) (bool, time.Duration) {
 func (s *Service) setOwnerRemediatedConditionNew(ctx context.Context) error {
 	capiMachine, err := s.getCapiMachine(ctx)
 	if err != nil {
-		s.scope.Info("Unable to fetch CAPI Machine")
-		return err
+		return fmt.Errorf("failed to get capi machine: %w", err)
 	}
 
 	machineHelper, err := patch.NewHelper(capiMachine, s.scope.Client)
 	if err != nil {
-		s.scope.Info("Unable to create patch helper for Machine")
-		return err
+		return fmt.Errorf("failed to create patch helper: %w", err)
 	}
 	conditions.MarkFalse(capiMachine, capi.MachineOwnerRemediatedCondition, capi.WaitingForRemediationReason, capi.ConditionSeverityWarning, "")
 	err = machineHelper.Patch(ctx, capiMachine)
 	if err != nil {
-		s.scope.Info("Unable to patch Machine", "machine", capiMachine)
-		return err
+		return fmt.Errorf("failed to patch capi machine: %w", err)
 	}
 	return nil
 }
@@ -263,8 +256,7 @@ func (s *Service) setOwnerRemediatedConditionNew(ctx context.Context) error {
 func (s *Service) getCapiMachine(ctx context.Context) (*capi.Machine, error) {
 	capiMachine, err := util.GetOwnerMachine(ctx, s.scope.Client, s.scope.BareMetalRemediation.ObjectMeta)
 	if err != nil {
-		s.scope.Error(err, "metal3Remediation's owner Machine could not be retrieved")
-		return nil, fmt.Errorf("metal3Remediation's owner Machine could not be retrieved: %w", err)
+		return nil, fmt.Errorf("owner mMachine could not be retrieved: %w", err)
 	}
 	return capiMachine, nil
 }

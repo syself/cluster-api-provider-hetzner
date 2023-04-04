@@ -30,7 +30,6 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/record"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // Service struct contains cluster scope to reconcile networks.
@@ -51,9 +50,6 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 		conditions.MarkFalse(s.scope.HetznerCluster, infrav1.NetworkAttached, infrav1.NetworkDisabledReason, clusterv1.ConditionSeverityInfo, "")
 		return nil
 	}
-
-	log := ctrl.LoggerFrom(ctx)
-	log.V(1).Info("Reconciling network", "spec", s.scope.HetznerCluster.Spec.HCloudNetwork)
 
 	network, err := s.findNetwork(ctx)
 	if err != nil {
@@ -140,7 +136,6 @@ func (s *Service) Delete(ctx context.Context) error {
 		"NetworkDeleted",
 		"Deleted network with ID %v",
 		s.scope.HetznerCluster.Status.Network.ID)
-	s.scope.V(1).Info("Delete network", "id", s.scope.HetznerCluster.Status.Network.ID)
 
 	return nil
 }

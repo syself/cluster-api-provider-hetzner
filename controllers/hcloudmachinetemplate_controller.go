@@ -50,7 +50,6 @@ type HCloudMachineTemplateReconciler struct {
 // Reconcile manages the lifecycle of an HCloudMachineTemplate object.
 func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req reconcile.Request) (_ reconcile.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
-	log.Info("Reconcile HCloudMachineTemplate")
 
 	machineTemplate := &infrav1.HCloudMachineTemplate{}
 	if err := r.Get(ctx, req.NamespacedName, machineTemplate); err != nil {
@@ -123,7 +122,6 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 }
 
 func (r *HCloudMachineTemplateReconciler) reconcile(ctx context.Context, machineTemplateScope *scope.HCloudMachineTemplateScope) (reconcile.Result, error) {
-	machineTemplateScope.Info("Reconciling HCloudMachineTemplate")
 	hcloudMachineTemplate := machineTemplateScope.HCloudMachineTemplate
 
 	// If the HCloudMachineTemplate doesn't have our finalizer, add it.

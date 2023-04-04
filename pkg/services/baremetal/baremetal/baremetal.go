@@ -76,8 +76,6 @@ func NewService(scope *scope.BareMetalMachineScope) *Service {
 
 // Reconcile implements reconcilement of HetznerBareMetalMachines.
 func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err error) {
-	s.scope.Info("Reconciling bare metal machine")
-
 	// Make sure bootstrap data is available and populated. If not, return, we
 	// will get an event from the machine update when the flag is set to true.
 	if !s.scope.IsBootstrapReady(ctx) {
@@ -123,8 +121,6 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 
 // Delete implements delete method of bare metal machine.
 func (s *Service) Delete(ctx context.Context) (res reconcile.Result, err error) {
-	s.scope.Info("Deleting bare metal machine")
-
 	// get host - ignore if not found
 	host, helper, err := s.getAssociatedHost(ctx)
 	if err != nil && !apierrors.IsNotFound(err) {
@@ -141,8 +137,6 @@ func (s *Service) Delete(ctx context.Context) (res reconcile.Result, err error) 
 
 		// don't remove the consumerRef if it references some other HetznerBareMetalMachine
 		if !consumerRefMatches(host.Spec.ConsumerRef, s.scope.BareMetalMachine) {
-			s.scope.Info("host is associated with another HetznerBareMetalMachine", "host", host.Name)
-
 			// remove the ownerRef to this host, even if the consumerRef references another machine
 			host.OwnerReferences = s.removeOwnerRef(host.OwnerReferences)
 
@@ -155,13 +149,11 @@ func (s *Service) Delete(ctx context.Context) (res reconcile.Result, err error) 
 				return checkForRequeueError(err, "failed to patch host")
 			}
 
-			s.scope.Info("Patched BaremetalHost while deprovisioning, requeuing")
 			return reconcile.Result{Requeue: true}, nil
 		}
 
 		// check if deprovisioning is done
 		if host.Spec.Status.ProvisioningState != infrav1.StateNone {
-			s.scope.Info("Deprovisioning BaremetalHost, requeuing", "provisioning state", host.Spec.Status.ProvisioningState)
 			return reconcile.Result{RequeueAfter: requeueAfter}, nil
 		}
 
@@ -182,8 +174,6 @@ func (s *Service) Delete(ctx context.Context) (res reconcile.Result, err error) 
 		}
 	}
 
-	s.scope.Info("finished deleting HetznerBareMetalMachine")
-
 	record.Eventf(
 		s.scope.BareMetalMachine,
 		"BareMetalMachineDeleted",
@@ -195,8 +185,6 @@ func (s *Service) Delete(ctx context.Context) (res reconcile.Result, err error) 
 
 // update updates a machine and is invoked by the Machine Controller.
 func (s *Service) update(ctx context.Context) error {
-	s.scope.V(1).Info("Updating machine")
-
 	host, helper, err := s.getAssociatedHost(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get host: %w", err)
@@ -255,14 +243,10 @@ func (s *Service) update(ctx context.Context) error {
 
 	// update status of HetznerBareMetalMachine with infos from host
 	s.updateMachineAddresses(host)
-
-	s.scope.Info("Finished updating machine")
 	return nil
 }
 
 func (s *Service) associate(ctx context.Context) error {
-	s.scope.Info("Associating machine with host")
-
 	// look for associated host
 	associatedHost, _, err := s.getAssociatedHost(ctx)
 	if err != nil {
@@ -280,7 +264,7 @@ func (s *Service) associate(ctx context.Context) error {
 		return fmt.Errorf("failed to choose host: %w", err)
 	}
 	if host == nil {
-		s.scope.Info("No available host found. Requeuing.")
+		s.scope.V(1).Info("No available host found. Requeuing.")
 		return &scope.RequeueAfterError{RequeueAfter: requeueAfter}
 	}
 
@@ -298,8 +282,6 @@ func (s *Service) associate(ctx context.Context) error {
 	}
 
 	s.ensureMachineAnnotation(host)
-
-	s.scope.Info("Finished associating machine with host", "host", host.Name)
 	return nil
 }
 
@@ -357,7 +339,6 @@ func (s *Service) chooseHost(ctx context.Context) (*infrav1.HetznerBareMetalHost
 
 	for i, host := range hosts.Items {
 		if host.Spec.ConsumerRef != nil && consumerRefMatches(host.Spec.ConsumerRef, s.scope.BareMetalMachine) {
-			s.scope.Info("Found host with existing ConsumerRef", "host", host.Name)
 			helper, err := patch.NewHelper(&hosts.Items[i], s.scope.Client)
 			if err != nil {
 				return nil, nil, fmt.Errorf("failed to create patch helper: %w", err)
@@ -378,25 +359,19 @@ func (s *Service) chooseHost(ctx context.Context) (*infrav1.HetznerBareMetalHost
 		}
 
 		if !labelSelector.Matches(labels.Set(host.ObjectMeta.Labels)) {
-			s.scope.Info(fmt.Sprintf("Host %v did not match hostSelector", host.Name))
 			continue
 		}
 
 		if host.Spec.Status.ProvisioningState != infrav1.StateNone {
-			s.scope.Info(fmt.Sprintf("Host %v matched hostSelector but is not in StateNone", host.Name))
 			continue
 		}
 
-		s.scope.Info(fmt.Sprintf("Host %v matched hostSelector, adding it to availableHosts", host.Name))
 		availableHosts = append(availableHosts, &hosts.Items[i])
 	}
 
 	if len(availableHosts) == 0 {
-		s.scope.Info("Found no available hosts")
 		return nil, nil, nil
 	}
-
-	s.scope.Info("Choose a host randomly from list of available hosts", "number of available hosts", len(availableHosts))
 
 	// choose a host
 	randomNumber, err := rand.Int(rand.Reader, big.NewInt(int64(len(availableHosts))))
@@ -453,12 +428,6 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 	if !foundIPv6 {
 		newIPTargets = append(newIPTargets, host.Spec.Status.IPv6)
 	}
-
-	s.scope.V(1).Info(
-		"Reconciling load balancer attachement",
-		"current targets", s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target,
-		"new targets", newIPTargets,
-	)
 
 	lb := &hcloud.LoadBalancer{ID: s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID}
 
@@ -559,7 +528,6 @@ func (s *Service) setProviderID(ctx context.Context) error {
 	}
 
 	if host.Spec.Status.ProvisioningState != infrav1.StateProvisioned {
-		s.scope.Info("Provisioning host, requeuing")
 		// no need for requeue error since host update will trigger a reconciliation
 		return nil
 	}
@@ -721,7 +689,7 @@ func updateHostAnnotation(annotations map[string]string, hostKey string, log log
 		if existing == hostKey {
 			return annotations
 		}
-		log.Info("Warning: found stray annotation for host on machine - overwriting", "current annotation", existing)
+		log.V(1).Info("Warning: found stray annotation for host on machine - overwriting", "current annotation", existing)
 	}
 	annotations[infrav1.HostAnnotation] = hostKey
 	return annotations

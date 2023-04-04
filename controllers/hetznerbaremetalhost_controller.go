@@ -61,8 +61,6 @@ type HetznerBareMetalHostReconciler struct {
 func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res ctrl.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
 
-	log.Info("Reconciling baremetal host", "name", req.Name)
-
 	// Fetch the Hetzner bare metal host instance.
 	bmHost := &infrav1.HetznerBareMetalHost{}
 	err := r.Get(ctx, req.NamespacedName, bmHost)
@@ -77,7 +75,6 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 
 	// Add a finalizer to newly created objects.
 	if bmHost.DeletionTimestamp.IsZero() && !hostHasFinalizer(bmHost) {
-		log.Info("adding finalizer", "existingFinalizers", bmHost.Finalizers, "newValue", infrav1.BareMetalHostFinalizer)
 		bmHost.Finalizers = append(bmHost.Finalizers,
 			infrav1.BareMetalHostFinalizer)
 		err := r.Update(ctx, bmHost)
@@ -158,7 +155,6 @@ func (r *HetznerBareMetalHostReconciler) reconcile(
 }
 
 func (r *HetznerBareMetalHostReconciler) reconcileSelectedStates(ctx context.Context, bmHost *infrav1.HetznerBareMetalHost) (res ctrl.Result, err error) {
-	log := ctrl.LoggerFrom(ctx)
 	switch bmHost.Spec.Status.ProvisioningState {
 	// Handle StateNone: check whether needs to be provisioned or deleted.
 	case infrav1.StateNone:
@@ -181,10 +177,7 @@ func (r *HetznerBareMetalHostReconciler) reconcileSelectedStates(ctx context.Con
 
 		// Handle StateDeleting
 	case infrav1.StateDeleting:
-		log.Info("Marked to be deleted", "timestamp", bmHost.DeletionTimestamp)
-
 		if !utils.StringInList(bmHost.Finalizers, infrav1.BareMetalHostFinalizer) {
-			log.Info("Ready to be deleted")
 			return res, nil
 		}
 
@@ -192,7 +185,6 @@ func (r *HetznerBareMetalHostReconciler) reconcileSelectedStates(ctx context.Con
 		if err := r.Update(context.Background(), bmHost); err != nil {
 			return res, fmt.Errorf("failed to remove finalizer: %w", err)
 		}
-		log.Info("Cleanup complete. Removed finalizer", "remaining", bmHost.Finalizers)
 		return res, nil
 	}
 	return res, nil
