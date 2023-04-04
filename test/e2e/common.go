@@ -65,22 +65,31 @@ func setupSpecNamespace(ctx context.Context, specName string, clusterProxy frame
 }
 
 func dumpSpecResourcesAndCleanup(ctx context.Context, specName string, clusterProxy framework.ClusterProxy, artifactFolder string, namespace *corev1.Namespace, cancelWatches context.CancelFunc, cluster *clusterv1.Cluster, intervalsGetter func(spec, key string) []interface{}, skipCleanup bool) {
-	Byf("Dumping logs from the %q workload cluster", cluster.Name)
+	var clusterName string
+	var clusterNamespace string
+	if cluster != nil {
+		clusterName = cluster.Name
+		clusterNamespace = cluster.Namespace
+		Byf("Dumping logs from the %q workload cluster", clusterName)
 
-	// Dump all the logs from the workload cluster before deleting them.
-	clusterProxy.CollectWorkloadClusterLogs(ctx, cluster.Namespace, cluster.Name, filepath.Join(artifactFolder, "clusters", cluster.Name))
+		// Dump all the logs from the workload cluster before deleting them.
+		clusterProxy.CollectWorkloadClusterLogs(ctx, clusterNamespace, clusterName, filepath.Join(artifactFolder, "clusters", clusterName))
 
-	Byf("Dumping all the Cluster API resources in the %q namespace", namespace.Name)
+		Byf("Dumping all the Cluster API resources in the %q namespace", namespace.Name)
 
-	// Dump all Cluster API related resources to artifacts before deleting them.
-	framework.DumpAllResources(ctx, framework.DumpAllResourcesInput{
-		Lister:    clusterProxy.GetClient(),
-		Namespace: namespace.Name,
-		LogPath:   filepath.Join(artifactFolder, "clusters", clusterProxy.GetName(), "resources"),
-	})
+		// Dump all Cluster API related resources to artifacts before deleting them.
+		framework.DumpAllResources(ctx, framework.DumpAllResourcesInput{
+			Lister:    clusterProxy.GetClient(),
+			Namespace: namespace.Name,
+			LogPath:   filepath.Join(artifactFolder, "clusters", clusterProxy.GetName(), "resources"),
+		})
+	} else {
+		clusterName = "empty"
+		clusterNamespace = "empty"
+	}
 
 	if !skipCleanup {
-		Byf("Deleting cluster %s/%s", cluster.Namespace, cluster.Name)
+		Byf("Deleting cluster %s/%s", clusterNamespace, clusterName)
 		// While https://github.com/kubernetes-sigs/cluster-api/issues/2955 is addressed in future iterations, there is a chance
 		// that cluster variable is not set even if the cluster exists, so we are calling DeleteAllClustersAndWait
 		// instead of DeleteClusterAndWait
