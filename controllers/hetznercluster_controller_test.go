@@ -24,7 +24,6 @@ import (
 	"github.com/hetznercloud/hcloud-go/hcloud"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
@@ -199,7 +198,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 					},
 				})
 				if err != nil {
-					return errors.Wrap(err, "error while listing load balancers")
+					return fmt.Errorf("failed to list load balancers: %w", err)
 				}
 				if len(loadBalancers) > 1 {
 					return fmt.Errorf("there are multiple load balancers found: %v", loadBalancers)

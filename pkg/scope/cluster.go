@@ -19,10 +19,10 @@ package scope
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/go-logr/logr"
-	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
@@ -69,7 +69,7 @@ func NewClusterScope(ctx context.Context, params ClusterScopeParams) (*ClusterSc
 
 	helper, err := patch.NewHelper(params.HetznerCluster, params.Client)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to init patch helper")
+		return nil, fmt.Errorf("failed to init patch helper: %w", err)
 	}
 
 	return &ClusterScope{
@@ -153,11 +153,11 @@ func (s *ClusterScope) ClientConfig(ctx context.Context) (clientcmd.ClientConfig
 	secretManager := secretutil.NewSecretManager(s.Logger, s.Client, s.APIReader)
 	kubeconfigSecret, err := secretManager.AcquireSecret(ctx, cluster, s.HetznerCluster, false, false)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to acquire secret")
+		return nil, fmt.Errorf("failed to acquire secret: %w", err)
 	}
 	kubeconfigBytes, ok := kubeconfigSecret.Data[secret.KubeconfigDataName]
 	if !ok {
-		return nil, errors.Errorf("missing key %q in secret data", secret.KubeconfigDataName)
+		return nil, fmt.Errorf("missing key %q in secret data", secret.KubeconfigDataName)
 	}
 	return clientcmd.NewClientConfigFromBytes(kubeconfigBytes)
 }
@@ -171,7 +171,7 @@ func (s *ClusterScope) ClientConfigWithAPIEndpoint(ctx context.Context, endpoint
 
 	raw, err := c.RawConfig()
 	if err != nil {
-		return nil, errors.Wrap(err, "error retrieving rawConfig from clientConfig")
+		return nil, fmt.Errorf("error retrieving rawConfig from clientConfig: %w", err)
 	}
 	// update cluster endpint in config
 	for key := range raw.Clusters {

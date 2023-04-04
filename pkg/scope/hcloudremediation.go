@@ -18,9 +18,10 @@ package scope
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	"github.com/go-logr/logr"
-	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
@@ -66,12 +67,12 @@ func NewHCloudRemediationScope(ctx context.Context, params HCloudRemediationScop
 
 	patchHelper, err := patch.NewHelper(params.HCloudRemediation, params.Client)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to init patch helper")
+		return nil, fmt.Errorf("failed to init patch helper: %w", err)
 	}
 
 	machinePatchHelper, err := patch.NewHelper(params.Machine, params.Client)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to init machine patch helper")
+		return nil, fmt.Errorf("failed to init machine patch helper: %w", err)
 	}
 
 	return &HCloudRemediationScope{

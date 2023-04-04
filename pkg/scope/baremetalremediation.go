@@ -18,9 +18,10 @@ package scope
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	"github.com/go-logr/logr"
-	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/patch"
@@ -55,7 +56,7 @@ func NewBareMetalRemediationScope(ctx context.Context, params BareMetalRemediati
 
 	patchHelper, err := patch.NewHelper(params.BareMetalRemediation, params.Client)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to init patch helper")
+		return nil, fmt.Errorf("failed to init patch helper: %w", err)
 	}
 
 	return &BareMetalRemediationScope{

@@ -30,9 +30,9 @@ limitations under the License.
 package helpers
 
 import (
+	"fmt"
 	"os"
 
-	"github.com/pkg/errors"
 	"golang.org/x/mod/modfile"
 )
 
@@ -67,7 +67,7 @@ func (m mod) FindDependencyVersion(dependency string) (string, error) {
 		}
 	}
 	if version == "" {
-		return version, errors.Errorf("could not find required package: %s", dependency)
+		return version, fmt.Errorf("could not find required package: %s", dependency)
 	}
 
 	for _, entry := range f.Replace {

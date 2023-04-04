@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -59,7 +58,7 @@ func (s *Service) Reconcile(ctx context.Context) (res ctrl.Result, err error) {
 	host, helper, err := s.getUnhealthyHost(ctx)
 	if err != nil {
 		s.scope.Error(err, "unable to find a host for unhealthy machine")
-		return res, errors.Wrapf(err, "unable to find a host for unhealthy machine")
+		return res, fmt.Errorf("unable to find a host for unhealthy machine: %w", err)
 	}
 
 	// If host is not in state provisioned, then remediate immediately
@@ -67,7 +66,7 @@ func (s *Service) Reconcile(ctx context.Context) (res ctrl.Result, err error) {
 		log.Info("Deleting host without remediation", "provisioningState", host.Spec.Status.ProvisioningState)
 		if err := s.setOwnerRemediatedConditionNew(ctx); err != nil {
 			s.scope.Error(err, "error setting cluster api conditions")
-			return res, errors.Wrapf(err, "error setting cluster api conditions")
+			return res, fmt.Errorf("error setting cluster api conditions: %w", err)
 		}
 	}
 
@@ -102,7 +101,7 @@ func (s *Service) handlePhaseRunning(ctx context.Context, host *infrav1.HetznerB
 		err := s.setRebootAnnotation(ctx, host, helper)
 		if err != nil {
 			s.scope.Error(err, "error setting reboot annotation")
-			return res, errors.Wrap(err, "error setting reboot annotation")
+			return res, fmt.Errorf("error setting reboot annotation: %w", err)
 		}
 		now := metav1.Now()
 		s.scope.BareMetalRemediation.Status.LastRemediated = &now
@@ -117,7 +116,7 @@ func (s *Service) handlePhaseRunning(ctx context.Context, host *infrav1.HetznerB
 			err := s.setRebootAnnotation(ctx, host, helper)
 			if err != nil {
 				s.scope.Error(err, "error setting reboot annotation")
-				return res, errors.Wrapf(err, "error setting reboot annotation")
+				return res, fmt.Errorf("error setting reboot annotation: %w", err)
 			}
 			now := metav1.Now()
 			s.scope.BareMetalRemediation.Status.LastRemediated = &now
@@ -146,7 +145,7 @@ func (s *Service) handlePhaseWaiting(ctx context.Context) (res ctrl.Result, err 
 		err := s.setOwnerRemediatedConditionNew(ctx)
 		if err != nil {
 			s.scope.Error(err, "error setting cluster api conditions")
-			return res, errors.Wrapf(err, "error setting cluster api conditions")
+			return res, fmt.Errorf("error setting cluster api conditions: %w", err)
 		}
 	}
 
@@ -265,7 +264,7 @@ func (s *Service) getCapiMachine(ctx context.Context) (*capi.Machine, error) {
 	capiMachine, err := util.GetOwnerMachine(ctx, s.scope.Client, s.scope.BareMetalRemediation.ObjectMeta)
 	if err != nil {
 		s.scope.Error(err, "metal3Remediation's owner Machine could not be retrieved")
-		return nil, errors.Wrapf(err, "metal3Remediation's owner Machine could not be retrieved")
+		return nil, fmt.Errorf("metal3Remediation's owner Machine could not be retrieved: %w", err)
 	}
 	return capiMachine, nil
 }

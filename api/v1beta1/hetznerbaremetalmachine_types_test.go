@@ -17,9 +17,10 @@ limitations under the License.
 package v1beta1
 
 import (
+	"errors"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/pkg/errors"
 	capierrors "sigs.k8s.io/cluster-api/errors"
 )
 

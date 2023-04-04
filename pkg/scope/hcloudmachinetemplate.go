@@ -19,9 +19,10 @@ package scope
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	"github.com/go-logr/logr"
-	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"k8s.io/klog/v2/klogr"
@@ -51,7 +52,7 @@ func NewHCloudMachineTemplateScope(ctx context.Context, params HCloudMachineTemp
 
 	helper, err := patch.NewHelper(params.HCloudMachineTemplate, params.Client)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to init patch helper")
+		return nil, fmt.Errorf("failed to init patch helper: %w", err)
 	}
 
 	return &HCloudMachineTemplateScope{

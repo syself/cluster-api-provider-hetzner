@@ -23,7 +23,6 @@ import (
 	"net"
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
-	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
@@ -58,12 +57,12 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 
 	network, err := s.findNetwork(ctx)
 	if err != nil {
-		return errors.Wrap(err, "failed to find network")
+		return fmt.Errorf("failed to find network: %w", err)
 	}
 	if network == nil {
 		network, err = s.createNetwork(ctx, &s.scope.HetznerCluster.Spec.HCloudNetwork)
 		if err != nil {
-			return errors.Wrap(err, "failed to create network")
+			return fmt.Errorf("failed to create network: %w", err)
 		}
 	}
 
@@ -75,12 +74,12 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 func (s *Service) createNetwork(ctx context.Context, spec *infrav1.HCloudNetworkSpec) (*hcloud.Network, error) {
 	_, network, err := net.ParseCIDR(spec.CIDRBlock)
 	if err != nil {
-		return nil, errors.Wrapf(err, "invalid network '%s'", spec.CIDRBlock)
+		return nil, fmt.Errorf("invalid network '%s': %w", spec.CIDRBlock, err)
 	}
 
 	_, subnet, err := net.ParseCIDR(spec.SubnetCIDRBlock)
 	if err != nil {
-		return nil, errors.Wrapf(err, "invalid network '%s'", spec.SubnetCIDRBlock)
+		return nil, fmt.Errorf("invalid network '%s': %w", spec.SubnetCIDRBlock, err)
 	}
 
 	opts := hcloud.NetworkCreateOpts{
@@ -104,7 +103,7 @@ func (s *Service) createNetwork(ctx context.Context, spec *infrav1.HCloudNetwork
 			"NetworkCreatedFailed",
 			"Failed to create network with opts %s",
 			opts)
-		return nil, errors.Wrap(err, "error creating network")
+		return nil, fmt.Errorf("error creating network: %w", err)
 	}
 
 	record.Eventf(
@@ -152,7 +151,7 @@ func (s *Service) findNetwork(ctx context.Context) (*hcloud.Network, error) {
 	networks, err := s.scope.HCloudClient.ListNetworks(ctx, opts)
 	if err != nil {
 		hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "ListNetworks")
-		return nil, errors.Wrap(err, "failed to list networks")
+		return nil, fmt.Errorf("failed to list networks: %w", err)
 	}
 
 	if len(networks) > 1 {

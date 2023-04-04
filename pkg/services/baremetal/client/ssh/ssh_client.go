@@ -19,12 +19,12 @@ package sshclient
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -341,7 +341,7 @@ func (c *sshClient) runSSH(command string) Output {
 	// Create the Signer for this private key.
 	signer, err := ssh.ParsePrivateKey([]byte(c.privateSSHKey))
 	if err != nil {
-		return Output{Err: errors.Errorf("unable to parse private key: %v", err)}
+		return Output{Err: fmt.Errorf("unable to parse private key: %w", err)}
 	}
 
 	config := &ssh.ClientConfig{
@@ -364,7 +364,7 @@ func (c *sshClient) runSSH(command string) Output {
 
 	sess, err := client.NewSession()
 	if err != nil {
-		return Output{Err: errors.Wrap(err, "unable to create new ssh session")}
+		return Output{Err: fmt.Errorf("unable to create new ssh session: %w", err)}
 	}
 	defer sess.Close()
 

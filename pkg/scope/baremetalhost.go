@@ -19,10 +19,10 @@ package scope
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/go-logr/logr"
-	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	robotclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/robot"
@@ -117,7 +117,7 @@ func (s *BareMetalHostScope) GetRawBootstrapData(ctx context.Context) ([]byte, e
 	key := types.NamespacedName{Namespace: s.HetznerBareMetalHost.Spec.Status.UserData.Namespace, Name: s.HetznerBareMetalHost.Spec.Status.UserData.Name}
 	secret, err := s.SecretManager.AcquireSecret(ctx, key, s.HetznerBareMetalHost, false, false)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to acquire secret")
+		return nil, fmt.Errorf("failed to acquire secret: %w", err)
 	}
 
 	value, ok := secret.Data["value"]

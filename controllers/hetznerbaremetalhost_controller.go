@@ -18,11 +18,11 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"time"
 
-	"github.com/pkg/errors"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
@@ -82,7 +82,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 			infrav1.BareMetalHostFinalizer)
 		err := r.Update(ctx, bmHost)
 		if err != nil {
-			return ctrl.Result{}, errors.Wrap(err, "failed to add finalizer")
+			return ctrl.Result{}, fmt.Errorf("failed to add finalizer: %w", err)
 		}
 		return ctrl.Result{Requeue: true}, nil
 	}
@@ -133,7 +133,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		SecretManager:        secretManager,
 	})
 	if err != nil {
-		return reconcile.Result{}, errors.Errorf("failed to create scope: %+v", err)
+		return reconcile.Result{}, fmt.Errorf("failed to create scope: %w", err)
 	}
 
 	// check whether rate limit has been reached and if so, then wait.
@@ -173,7 +173,7 @@ func (r *HetznerBareMetalHostReconciler) reconcileSelectedStates(ctx context.Con
 		if needsUpdate {
 			err := r.Update(ctx, bmHost)
 			if err != nil {
-				return res, errors.Wrap(err, "failed to add finalizer")
+				return res, fmt.Errorf("failed to add finalizer: %w", err)
 			}
 		}
 
@@ -190,7 +190,7 @@ func (r *HetznerBareMetalHostReconciler) reconcileSelectedStates(ctx context.Con
 
 		bmHost.Finalizers = utils.FilterStringFromList(bmHost.Finalizers, infrav1.BareMetalHostFinalizer)
 		if err := r.Update(context.Background(), bmHost); err != nil {
-			return res, errors.Wrap(err, "failed to remove finalizer")
+			return res, fmt.Errorf("failed to remove finalizer: %w", err)
 		}
 		log.Info("Cleanup complete. Removed finalizer", "remaining", bmHost.Finalizers)
 		return res, nil
@@ -225,7 +225,7 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 
 				return nil, nil, ctrl.Result{RequeueAfter: host.CalculateBackoff(bmHost.Spec.Status.ErrorCount)}, nil
 			}
-			return nil, nil, res, errors.Wrap(err, "failed to get secret")
+			return nil, nil, res, fmt.Errorf("failed to get secret: %w", err)
 		}
 
 		rescueSSHSecretNamespacedName := types.NamespacedName{Namespace: bmHost.Namespace, Name: hetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Name}
@@ -241,7 +241,7 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 
 				return nil, nil, ctrl.Result{RequeueAfter: host.CalculateBackoff(bmHost.Spec.Status.ErrorCount)}, nil
 			}
-			return nil, nil, res, errors.Wrap(err, "failed to acquire secret")
+			return nil, nil, res, fmt.Errorf("failed to acquire secret: %w", err)
 		}
 	}
 	return osSSHSecret, rescueSSHSecret, res, nil
@@ -310,7 +310,7 @@ func hetznerSecretErrorResult(
 		res, err = host.SaveHostAndReturn(ctx, client, bmHost)
 
 	default:
-		return ctrl.Result{}, errors.Wrap(err, "An unhandled failure occurred")
+		return ctrl.Result{}, fmt.Errorf("an unhandled failure occurred: %w", err)
 	}
 
 	return res, err
