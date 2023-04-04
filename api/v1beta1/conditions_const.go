@@ -80,6 +80,15 @@ const (
 )
 
 const (
+	// HetznerClusterTargetClusterReady reports on whether the kubeconfig in the target cluster is ready.
+	HetznerClusterTargetClusterReady clusterv1.ConditionType = "HetznerClusterTargetClusterReady"
+	// KubeConfigNotFound indicates that the Kubeconfig could not be found.
+	KubeConfigNotFound = "KubeConfigNotFound"
+	// KubeAPIServerNotResponding indicates that the api server cannot be reached.
+	KubeAPIServerNotResponding = "KubeAPIServerNotResponding"
+)
+
+const (
 	// RateLimitExceeded reports whether the rate limit has been reached.
 	RateLimitExceeded clusterv1.ConditionType = "RateLimitExceeded"
 	// RateLimitNotReachedReason indicates that the rate limit is not reached yet.
