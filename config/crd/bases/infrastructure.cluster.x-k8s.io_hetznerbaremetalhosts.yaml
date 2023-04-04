@@ -47,14 +47,6 @@ spec:
       jsonPath: .spec.consumerRef.name
       name: Consumer
       type: string
-    - description: Type of the most recent error
-      jsonPath: .spec.status.errorType
-      name: ErrorType
-      type: string
-    - description: Message of the most recent error
-      jsonPath: .spec.status.errorMessage
-      name: ErrorMessage
-      type: string
     - description: Time duration since creation of BaremetalHost
       jsonPath: .metadata.creationTimestamp
       name: Age

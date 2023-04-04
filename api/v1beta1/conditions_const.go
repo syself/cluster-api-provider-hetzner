@@ -91,6 +91,14 @@ const (
 	HetznerBareMetalHostReady clusterv1.ConditionType = "HetznerBareMetalHostReady"
 	// RobotCredentialsInvalidReason indicates that credentials for Robot are invalid.
 	RobotCredentialsInvalidReason = "RobotCredentialsInvalid" // #nosec
+	// SSHCredentialsInSecretInvalid indicates that ssh credentials are invalid.
+	SSHCredentialsInSecretInvalid = "SSHCredentialsInSecretInvalid" // #nosec
+	// SSHKeyAlreadyExists indicates that the ssh key which is specified in the host spec exists already under a different name in Hetzner robot.
+	SSHKeyAlreadyExists = "SSHKeyAlreadyExists"
+	// OSSSHSecretMissing indicates that secret with the os ssh key is missing.
+	OSSSHSecretMissing = "OSSSHSecretMissing"
+	// RescueSSHSecretMissing indicates that secret with the rescue ssh key is missing.
+	RescueSSHSecretMissing = "RescueSSHSecretMissing"
 )
 
 const (

@@ -24,6 +24,8 @@ import (
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	corev1 "k8s.io/api/core/v1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/record"
 )
 
@@ -80,6 +82,9 @@ func (hsm *hostStateMachine) ReconcileState(ctx context.Context) (actionRes acti
 	if _, complete := actResult.(actionComplete); !complete {
 		return actResult
 	}
+
+	// Set host ready now. This can be changed while the state is handled.
+	conditions.MarkTrue(hsm.host, infrav1.HetznerBareMetalHostReady)
 
 	if stateHandler, found := hsm.handlers()[initialState]; found {
 		return stateHandler()
@@ -142,6 +147,9 @@ func (hsm *hostStateMachine) updateSSHKey() actionResult {
 			}
 		}
 		if err := validateSSHKey(osSSHSecret, hsm.host.Spec.Status.SSHSpec.SecretRef); err != nil {
+			msg := fmt.Sprintf("ssh credentials are invalid: %s", err.Error())
+			conditions.MarkFalse(hsm.host, infrav1.HetznerBareMetalHostReady, infrav1.SSHCredentialsInSecretInvalid, clusterv1.ConditionSeverityError, msg)
+			record.Warnf(hsm.host, infrav1.SSHKeyAlreadyExists, msg)
 			return hsm.reconciler.recordActionFailure(infrav1.PreparationError, infrav1.ErrorMessageMissingOrInvalidSecretData)
 		}
 	}
@@ -168,6 +176,8 @@ func (hsm *hostStateMachine) updateSSHKey() actionResult {
 			}
 		}
 		if err := validateSSHKey(rescueSSHSecret, hsm.reconciler.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef); err != nil {
+			msg := fmt.Sprintf("ssh credentials for rescue system are invalid: %s", err.Error())
+			conditions.MarkFalse(hsm.host, infrav1.HetznerBareMetalHostReady, infrav1.SSHCredentialsInSecretInvalid, clusterv1.ConditionSeverityError, msg)
 			return hsm.reconciler.recordActionFailure(infrav1.PreparationError, infrav1.ErrorMessageMissingOrInvalidSecretData)
 		}
 	}
