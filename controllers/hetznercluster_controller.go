@@ -49,6 +49,7 @@ import (
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -224,8 +225,14 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 		hetznerCluster.Status.Ready = true
 	}
 
-	if err := r.reconcileTargetClusterManager(ctx, clusterScope); err != nil {
+	result, err := r.reconcileTargetClusterManager(ctx, clusterScope)
+	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to reconcile target cluster manager: %w", err)
+	}
+
+	emptyResult := reconcile.Result{}
+	if result != emptyResult {
+		return result, nil
 	}
 
 	if err := reconcileTargetSecret(ctx, clusterScope); err != nil {
@@ -507,7 +514,7 @@ func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope
 	return nil
 }
 
-func (r *HetznerClusterReconciler) reconcileTargetClusterManager(ctx context.Context, clusterScope *scope.ClusterScope) error {
+func (r *HetznerClusterReconciler) reconcileTargetClusterManager(ctx context.Context, clusterScope *scope.ClusterScope) (res reconcile.Result, err error) {
 	r.targetClusterManagersLock.Lock()
 	defer r.targetClusterManagersLock.Unlock()
 
@@ -520,12 +527,18 @@ func (r *HetznerClusterReconciler) reconcileTargetClusterManager(ctx context.Con
 		// create a new cluster manager
 		m, err := r.newTargetClusterManager(ctx, clusterScope)
 		if err != nil {
-			return fmt.Errorf("failed to create a clusterManager for HetznerCluster %s/%s: %w",
+			return res, fmt.Errorf("failed to create a clusterManager for HetznerCluster %s/%s: %w",
 				clusterScope.HetznerCluster.Namespace,
 				clusterScope.HetznerCluster.Name,
 				err,
 			)
 		}
+
+		// manager could not be created yet - reconcile again
+		if m == nil {
+			return reconcile.Result{Requeue: true}, nil
+		}
+
 		r.targetClusterManagersStopCh[key] = make(chan struct{})
 
 		ctx, cancel := context.WithCancel(ctx)
@@ -552,7 +565,7 @@ func (r *HetznerClusterReconciler) reconcileTargetClusterManager(ctx context.Con
 			cancel()
 		}()
 	}
-	return nil
+	return res, nil
 }
 
 var _ ManagementCluster = &managementCluster{}
@@ -571,8 +584,13 @@ func (r *HetznerClusterReconciler) newTargetClusterManager(ctx context.Context, 
 
 	clientConfig, err := clusterScope.ClientConfig(ctx)
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			conditions.MarkFalse(hetznerCluster, infrav1.HetznerClusterTargetClusterReady, infrav1.KubeConfigNotFound, clusterv1.ConditionSeverityInfo, "kubeconfig not found (yet)")
+			return nil, nil
+		}
 		return nil, fmt.Errorf("failed to get a clientConfig for the API of HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
 	}
+
 	restConfig, err := clientConfig.ClientConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get a restConfig for the API of HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
@@ -586,6 +604,15 @@ func (r *HetznerClusterReconciler) newTargetClusterManager(ctx context.Context, 
 	scheme := runtime.NewScheme()
 	_ = certificatesv1.AddToScheme(scheme)
 	_ = infrav1.AddToScheme(scheme)
+
+	// Check whether kubeapi server responds
+	if _, err := apiutil.NewDynamicRESTMapper(restConfig); err != nil {
+		conditions.MarkFalse(hetznerCluster, infrav1.HetznerClusterTargetClusterReady, infrav1.KubeAPIServerNotResponding, clusterv1.ConditionSeverityInfo, "kubeapi server not responding (yet)")
+		return nil, nil //nolint:nilerr
+	}
+
+	// target cluster is ready
+	conditions.MarkTrue(hetznerCluster, infrav1.HetznerClusterTargetClusterReady)
 
 	clusterMgr, err := ctrl.NewManager(
 		restConfig,
@@ -666,7 +693,6 @@ func (r *HetznerClusterReconciler) SetupWithManager(ctx context.Context, mgr ctr
 			key := types.NamespacedName{Namespace: c.Spec.InfrastructureRef.Namespace, Name: c.Spec.InfrastructureRef.Name}
 
 			if err := r.Get(ctx, key, hetznerCluster); err != nil {
-				log.V(1).Error(err, "Failed to get HetznerCluster")
 				return nil
 			}
 
