@@ -50,9 +50,9 @@ const (
 func (algorithmType *LoadBalancerAlgorithmType) HCloudAlgorithmType() hcloud.LoadBalancerAlgorithmType {
 	switch *algorithmType {
 	case LoadBalancerAlgorithmTypeLeastConnections:
-		return hcloud.LoadBalancerAlgorithmTypeRoundRobin
-	case LoadBalancerAlgorithmTypeRoundRobin:
 		return hcloud.LoadBalancerAlgorithmTypeLeastConnections
+	case LoadBalancerAlgorithmTypeRoundRobin:
+		return hcloud.LoadBalancerAlgorithmTypeRoundRobin
 	}
 	return hcloud.LoadBalancerAlgorithmType("")
 }
