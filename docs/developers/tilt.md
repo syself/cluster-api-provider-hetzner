@@ -7,10 +7,10 @@
     "deploy_observability": False,
     "preload_images_for_kind": True,
     "kind_cluster_name": "caph",
-    "capi_version": "v1.3.5",
+    "capi_version": "v1.4.1",
     "cabpt_version": "v0.5.5",
     "cacppt_version": "v0.4.10",
-    "cert_manager_version": "v1.10.1",
+    "cert_manager_version": "v1.11.0",
     "kustomize_substitutions": {
         "HCLOUD_REGION": "fsn1",
         "CONTROL_PLANE_MACHINE_COUNT": "3",
@@ -34,10 +34,10 @@
 | deploy_observability | bool | false | no | If true, installs grafana, loki and promtail in the dev cluster. Grafana UI will be accessible via a link in the tilt console. Important! This feature requires the `helm` command to be available in the user's path |
 | preload_images_for_kind | bool | true | no | If set to true, uses `kind load docker-image` to preload images into a kind cluster |
 | kind_cluster_name | []object | "caph" | no | The name of the kind cluster to use when preloading images |
-| capi_version | string | "v1.3.5" | no | Version of CAPI |
-| cabpt_version | string | "v0.5.5" | no | Version of Cluster API Bootstrap Provider Talos |
-| cacppt_version | string | "v0.4.10" | no | Version of Cluster API Control Plane Provider Talos |
-| cert_manager_version | string | "v1.10.1" | no | Version of cert manager |
+| capi_version | string | "v1.4.1" | no | Version of CAPI |
+| cabpt_version | string | "v0.5.6" | no | Version of Cluster API Bootstrap Provider Talos |
+| cacppt_version | string | "v0.4.11" | no | Version of Cluster API Control Plane Provider Talos |
+| cert_manager_version | string | "v1.11.0" | no | Version of cert manager |
 | kustomize_substitutions | map[string]string | {
         "HCLOUD_REGION": "fsn1",
         "CONTROL_PLANE_MACHINE_COUNT": "3",
