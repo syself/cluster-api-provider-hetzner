@@ -66,6 +66,10 @@ func (a *k3dAdmin) Create(ctx context.Context, desired *api.Cluster, registry *a
 		return errors.Wrap(err, "creating k3d cluster")
 	}
 
+	// Delete any orphaned cluster resources, ignoring any errors.
+	// This can happen if the cluster exists but has been removed from the kubeconfig.
+	_ = a.Delete(ctx, desired)
+
 	if k3dV.LT(v5_3) {
 		// 5.2 and below
 		args := []string{"cluster", "create", k3dConfig.Name}

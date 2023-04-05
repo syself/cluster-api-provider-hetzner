@@ -181,6 +181,11 @@ func (in *Registry) DeepCopyInto(out *Registry) {
 			(*out)[key] = val
 		}
 	}
+	if in.Env != nil {
+		in, out := &in.Env, &out.Env
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	in.Status.DeepCopyInto(&out.Status)
 	return
 }
@@ -250,6 +255,11 @@ func (in *RegistryStatus) DeepCopyInto(out *RegistryStatus) {
 		for key, val := range *in {
 			(*out)[key] = val
 		}
+	}
+	if in.Env != nil {
+		in, out := &in.Env, &out.Env
+		*out = make([]string, len(*in))
+		copy(*out, *in)
 	}
 	return
 }
