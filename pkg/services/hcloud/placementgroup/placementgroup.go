@@ -29,7 +29,6 @@ import (
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"sigs.k8s.io/cluster-api/util/record"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // Service struct contains cluster scope to reconcile placement groups.
@@ -46,9 +45,6 @@ func NewService(scope *scope.ClusterScope) *Service {
 
 // Reconcile implements life cycle of placement groups.
 func (s *Service) Reconcile(ctx context.Context) (err error) {
-	log := ctrl.LoggerFrom(ctx)
-	log.V(1).Info("Reconcile placement groups")
-
 	// find placement groups
 	placementGroups, err := s.findPlacementGroups(ctx)
 	if err != nil {
@@ -118,9 +114,6 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 
 // Delete implements deletion of placement groups.
 func (s *Service) Delete(ctx context.Context) (err error) {
-	log := ctrl.LoggerFrom(ctx)
-	log.V(1).Info("Delete placement groups")
-
 	// Delete placement groups which are not in status but in specs
 	var multierr []error
 	for _, pg := range s.scope.HetznerCluster.Status.HCloudPlacementGroup {
@@ -133,8 +126,7 @@ func (s *Service) Delete(ctx context.Context) (err error) {
 	}
 
 	if err := kerrors.NewAggregate(multierr); err != nil {
-		log.Error(err, "aggregate error - deleting placement groups")
-		return err
+		return fmt.Errorf("failed to delete placement groups: %w", err)
 	}
 
 	record.Eventf(s.scope.HetznerCluster, "PlacementGroupsDeleted", "Deleted placement groups")

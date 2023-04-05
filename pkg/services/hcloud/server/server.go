@@ -111,7 +111,6 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	case hcloud.ServerStatusRunning: // Do nothing
 	default:
 		s.scope.SetReady(false)
-		s.scope.V(1).Info("server not in running state", "server", server.Name, "status", server.Status)
 		return reconcile.Result{RequeueAfter: 2 * time.Second}, nil
 	}
 
@@ -214,8 +213,6 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 			return nil
 		}
 	}
-
-	s.scope.V(1).Info("Reconciling load balancer attachement", "targets", s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target)
 
 	// we differentiate between private and public net
 	var hasPrivateIP bool
@@ -515,9 +512,8 @@ func (s *Service) deleteServerOfLoadBalancer(ctx context.Context, server *hcloud
 		if strings.Contains(err.Error(), "load_balancer_target_not_found") {
 			return nil
 		}
-		s.scope.V(1).Info("Could not delete server as target of load balancer",
-			"Server", server.ID, "Load Balancer", s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID)
-		return err
+		return fmt.Errorf("failed to delete server %v as target of load balancer %v: %w",
+			server.ID, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID, err)
 	}
 	record.Eventf(
 		s.scope.HetznerCluster,

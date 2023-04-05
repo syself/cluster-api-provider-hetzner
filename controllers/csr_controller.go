@@ -68,8 +68,6 @@ const nodePrefix = "system:node:"
 func (r *GuestCSRReconciler) Reconcile(ctx context.Context, req reconcile.Request) (_ reconcile.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
 
-	log.Info("Starting reconcile CSR")
-
 	// Fetch the CertificateSigningRequest instance.
 	certificateSigningRequest := &certificatesv1.CertificateSigningRequest{}
 	err := r.Get(ctx, req.NamespacedName, certificateSigningRequest)
@@ -132,7 +130,7 @@ func (r *GuestCSRReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		condition.Reason = "CSRValidationFailed"
 		condition.Status = "True"
 		condition.Message = fmt.Sprintf("Validation by cluster-api-provider-hetzner failed: %s", err)
-		log.Error(err, "failed to validate kubelet csr")
+		record.Warnf(certificateSigningRequest, condition.Reason, "failed to validate kubelet csr: %s", err.Error())
 	} else {
 		condition.Type = certificatesv1.CertificateApproved
 		condition.Reason = "CSRValidationSucceed"
@@ -157,8 +155,6 @@ func (r *GuestCSRReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 	}
 
 	record.Event(certificateSigningRequest, "CSRApproved", "approved csr")
-
-	log.Info("Finished reconcile CSR", "name", certificateSigningRequest.Name)
 	return reconcile.Result{}, nil
 }
 

@@ -153,7 +153,6 @@ func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, r
 }
 
 func (r *HetznerBareMetalRemediationReconciler) reconcileNormal(ctx context.Context, remediationScope *scope.BareMetalRemediationScope) (reconcile.Result, error) {
-	remediationScope.Info("Reconciling BareMetalRemediation")
 	bareMetalRemediation := remediationScope.BareMetalRemediation
 
 	// reconcile bare metal remediation

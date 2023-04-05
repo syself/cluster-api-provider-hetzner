@@ -59,21 +59,14 @@ func NewSecretManager(log logr.Logger, cacheClient client.Client, apiReader clie
 // present in the cache (and that we can watch for changes), and optionally
 // that it has a particular owner reference.
 func (sm *SecretManager) claimSecret(ctx context.Context, secret *corev1.Secret, owner client.Object, ownerIsController, addFinalizer bool) error {
-	log := sm.log.WithValues("secret", secret.Name, "secretNamespace", secret.Namespace)
 	needsUpdate := false
 	if !metav1.HasLabel(secret.ObjectMeta, LabelEnvironmentName) {
-		log.Info("setting secret environment label")
 		metav1.SetMetaDataLabel(&secret.ObjectMeta, LabelEnvironmentName, LabelEnvironmentValue)
 		needsUpdate = true
 	}
 	if owner != nil {
-		ownerLog := log.WithValues(
-			"ownerKind", owner.GetObjectKind().GroupVersionKind().Kind,
-			"owner", owner.GetNamespace()+"/"+owner.GetName(),
-			"ownerUID", owner.GetUID())
 		if ownerIsController {
 			if !metav1.IsControlledBy(secret, owner) {
-				ownerLog.Info("setting secret controller reference")
 				if err := controllerutil.SetControllerReference(owner, secret, sm.client.Scheme()); err != nil {
 					return fmt.Errorf("failed to set secret controller reference: %w", err)
 				}
@@ -89,7 +82,6 @@ func (sm *SecretManager) claimSecret(ctx context.Context, secret *corev1.Secret,
 				}
 			}
 			if !alreadyOwned {
-				ownerLog.Info("setting secret owner reference")
 				if err := controllerutil.SetOwnerReference(owner, secret, sm.client.Scheme()); err != nil {
 					return fmt.Errorf("failed to set secret owner reference: %w", err)
 				}
@@ -99,7 +91,6 @@ func (sm *SecretManager) claimSecret(ctx context.Context, secret *corev1.Secret,
 	}
 
 	if addFinalizer && !utils.StringInList(secret.Finalizers, SecretFinalizer) {
-		log.Info("setting secret finalizer")
 		secret.Finalizers = append(secret.Finalizers, SecretFinalizer)
 		needsUpdate = true
 	}
@@ -181,9 +172,6 @@ func (sm *SecretManager) ReleaseSecret(ctx context.Context, secret *corev1.Secre
 		return fmt.Errorf("failed to remove finalizer from secret %s in namespace %s: %w",
 			secret.ObjectMeta.Name, secret.ObjectMeta.Namespace, err)
 	}
-
-	sm.log.Info("removed secret finalizer",
-		"remaining", secret.Finalizers)
 
 	return nil
 }

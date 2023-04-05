@@ -68,13 +68,12 @@ func (hsm *hostStateMachine) ReconcileState(ctx context.Context) (actionRes acti
 	initialState := hsm.host.Spec.Status.ProvisioningState
 	defer func() {
 		if hsm.nextState != initialState {
-			hsm.log.Info("changing provisioning state", "old", initialState, "new", hsm.nextState)
+			hsm.log.V(1).Info("changing provisioning state", "old", initialState, "new", hsm.nextState)
 			hsm.host.Spec.Status.ProvisioningState = hsm.nextState
 		}
 	}()
 
 	if hsm.checkInitiateDelete() {
-		hsm.log.Info("Initiating host deletion")
 		return actionComplete{}
 	}
 
@@ -90,7 +89,6 @@ func (hsm *hostStateMachine) ReconcileState(ctx context.Context) (actionRes acti
 		return stateHandler()
 	}
 
-	hsm.log.Info("No handler found for state", "state", initialState)
 	return actionError{fmt.Errorf("no handler found for state \"%s\"", initialState)}
 }
 
@@ -167,8 +165,9 @@ func (hsm *hostStateMachine) updateSSHKey() actionResult {
 			// Take action depending on state
 			switch hsm.nextState {
 			case infrav1.StatePreparing, infrav1.StateRegistering, infrav1.StateImageInstalling:
-				hsm.log.Info("Attention: Going back to state none as rescue secret was updated", "state", hsm.nextState,
-					"currentRescue", hsm.host.Spec.Status.SSHStatus.CurrentRescue)
+				msg := "stopped provisioning host as rescue ssh secret was updated"
+				record.Warn(hsm.host, "HostProvisioningStopped", msg)
+				hsm.log.V(1).Info(msg, "state", hsm.nextState)
 				hsm.nextState = infrav1.StateNone
 			}
 			if err := hsm.host.UpdateRescueSSHStatus(*rescueSSHSecret); err != nil {
