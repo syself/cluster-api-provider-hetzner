@@ -115,7 +115,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 					Namespace:    testNs.Name,
 					Finalizers:   []string{clusterv1.MachineFinalizer},
 					Labels: map[string]string{
-						clusterv1.ClusterLabelName: capiCluster.Name,
+						clusterv1.ClusterNameLabel: capiCluster.Name,
 					},
 				},
 				Spec: clusterv1.MachineSpec{
@@ -135,8 +135,8 @@ var _ = Describe("HCloudMachineReconciler", func() {
 					Name:      hcloudMachineName,
 					Namespace: testNs.Name,
 					Labels: map[string]string{
-						clusterv1.ClusterLabelName:             capiCluster.Name,
-						clusterv1.MachineControlPlaneLabelName: "",
+						clusterv1.ClusterNameLabel:             capiCluster.Name,
+						clusterv1.MachineControlPlaneNameLabel: "",
 					},
 					OwnerReferences: []metav1.OwnerReference{
 						{
@@ -246,7 +246,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 					Namespace:    testNs.Name,
 					Finalizers:   []string{clusterv1.MachineFinalizer},
 					Labels: map[string]string{
-						clusterv1.ClusterLabelName: capiCluster.Name,
+						clusterv1.ClusterNameLabel: capiCluster.Name,
 					},
 				},
 				Spec: clusterv1.MachineSpec{
@@ -269,8 +269,8 @@ var _ = Describe("HCloudMachineReconciler", func() {
 					Name:      hcloudMachineName,
 					Namespace: testNs.Name,
 					Labels: map[string]string{
-						clusterv1.ClusterLabelName:             capiCluster.Name,
-						clusterv1.MachineControlPlaneLabelName: "",
+						clusterv1.ClusterNameLabel:             capiCluster.Name,
+						clusterv1.MachineControlPlaneNameLabel: "",
 					},
 					OwnerReferences: []metav1.OwnerReference{
 						{
@@ -438,7 +438,7 @@ var _ = Describe("Hetzner secret", func() {
 				Namespace:    "default",
 				Finalizers:   []string{clusterv1.MachineFinalizer},
 				Labels: map[string]string{
-					clusterv1.ClusterLabelName: capiCluster.Name,
+					clusterv1.ClusterNameLabel: capiCluster.Name,
 				},
 			},
 			Spec: clusterv1.MachineSpec{
@@ -461,8 +461,8 @@ var _ = Describe("Hetzner secret", func() {
 				Name:      hcloudMachineName,
 				Namespace: "default",
 				Labels: map[string]string{
-					clusterv1.ClusterLabelName:             capiCluster.Name,
-					clusterv1.MachineControlPlaneLabelName: "",
+					clusterv1.ClusterNameLabel:             capiCluster.Name,
+					clusterv1.MachineControlPlaneNameLabel: "",
 				},
 				OwnerReferences: []metav1.OwnerReference{
 					{

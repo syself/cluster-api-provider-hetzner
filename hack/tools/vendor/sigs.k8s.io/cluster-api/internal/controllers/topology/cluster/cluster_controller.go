@@ -46,6 +46,8 @@ import (
 	"sigs.k8s.io/cluster-api/internal/hooks"
 	tlog "sigs.k8s.io/cluster-api/internal/log"
 	runtimeclient "sigs.k8s.io/cluster-api/internal/runtime/client"
+	"sigs.k8s.io/cluster-api/internal/util/ssa"
+	"sigs.k8s.io/cluster-api/internal/webhooks"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
 	"sigs.k8s.io/cluster-api/util/patch"
@@ -116,7 +118,7 @@ func (r *Reconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, opt
 	r.patchEngine = patches.NewEngine(r.RuntimeClient)
 	r.recorder = mgr.GetEventRecorderFor("topology/cluster")
 	if r.patchHelperFactory == nil {
-		r.patchHelperFactory = serverSideApplyPatchHelperFactory(r.Client)
+		r.patchHelperFactory = serverSideApplyPatchHelperFactory(r.Client, ssa.NewCache())
 	}
 	return nil
 }
@@ -202,9 +204,32 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Re
 func (r *Reconciler) reconcile(ctx context.Context, s *scope.Scope) (ctrl.Result, error) {
 	var err error
 
+	// Get ClusterClass.
+	clusterClass := &clusterv1.ClusterClass{}
+	key := client.ObjectKey{Name: s.Current.Cluster.Spec.Topology.Class, Namespace: s.Current.Cluster.Namespace}
+	if err := r.Client.Get(ctx, key, clusterClass); err != nil {
+		return ctrl.Result{}, errors.Wrapf(err, "failed to retrieve ClusterClass %s", s.Current.Cluster.Spec.Topology.Class)
+	}
+
+	s.Blueprint.ClusterClass = clusterClass
+	// If the ClusterClass `metadata.Generation` doesn't match the `status.ObservedGeneration` return as the ClusterClass
+	// is not up to date.
+	// Note: This doesn't require requeue as a change to ClusterClass observedGeneration will cause an additional reconcile
+	// in the Cluster.
+	if clusterClass.GetGeneration() != clusterClass.Status.ObservedGeneration {
+		return ctrl.Result{}, nil
+	}
+
+	// Default and Validate the Cluster variables based on information from the ClusterClass.
+	// This step is needed as if the ClusterClass does not exist at Cluster creation some fields may not be defaulted or
+	// validated in the webhook.
+	if errs := webhooks.DefaultAndValidateVariables(s.Current.Cluster, clusterClass); len(errs) > 0 {
+		return ctrl.Result{}, apierrors.NewInvalid(clusterv1.GroupVersion.WithKind("Cluster").GroupKind(), s.Current.Cluster.Name, errs)
+	}
+
 	// Gets the blueprint with the ClusterClass and the referenced templates
 	// and store it in the request scope.
-	s.Blueprint, err = r.getBlueprint(ctx, s.Current.Cluster)
+	s.Blueprint, err = r.getBlueprint(ctx, s.Current.Cluster, s.Blueprint.ClusterClass)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err, "error reading the ClusterClass")
 	}
@@ -367,9 +392,9 @@ func (r *Reconciler) reconcileDelete(ctx context.Context, cluster *clusterv1.Clu
 }
 
 // serverSideApplyPatchHelperFactory makes use of managed fields provided by server side apply and is used by the controller.
-func serverSideApplyPatchHelperFactory(c client.Client) structuredmerge.PatchHelperFactoryFunc {
+func serverSideApplyPatchHelperFactory(c client.Client, ssaCache ssa.Cache) structuredmerge.PatchHelperFactoryFunc {
 	return func(ctx context.Context, original, modified client.Object, opts ...structuredmerge.HelperOption) (structuredmerge.PatchHelper, error) {
-		return structuredmerge.NewServerSidePatchHelper(ctx, original, modified, c, opts...)
+		return structuredmerge.NewServerSidePatchHelper(ctx, original, modified, c, ssaCache, opts...)
 	}
 }
 

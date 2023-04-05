@@ -41,8 +41,8 @@ var _ = Describe("[Lifecycle] Testing Self Hosted Cluster", func() {
 	})
 
 	Context("Running the mhc-remediation spec", func() {
-		capi_e2e.MachineRemediationSpec(ctx, func() capi_e2e.MachineRemediationSpecInput {
-			return capi_e2e.MachineRemediationSpecInput{
+		capi_e2e.MachineDeploymentRemediationSpec(ctx, func() capi_e2e.MachineDeploymentRemediationSpecInput {
+			return capi_e2e.MachineDeploymentRemediationSpecInput{
 				E2EConfig:             e2eConfig,
 				ClusterctlConfigPath:  clusterctlConfigPath,
 				BootstrapClusterProxy: bootstrapClusterProxy,

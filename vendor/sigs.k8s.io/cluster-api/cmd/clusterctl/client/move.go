@@ -48,34 +48,6 @@ type MoveOptions struct {
 	DryRun bool
 }
 
-// BackupOptions holds options supported by backup.
-//
-// Deprecated: This will be dropped in a future release. Please use MoveOptions.
-type BackupOptions struct {
-	// FromKubeconfig defines the kubeconfig to use for accessing the source management cluster. If empty,
-	// default rules for kubeconfig discovery will be used.
-	FromKubeconfig Kubeconfig
-
-	// Namespace where the objects describing the workload cluster exists. If unspecified, the current
-	// namespace will be used.
-	Namespace string
-
-	// Directory defines the local directory to store the cluster objects
-	Directory string
-}
-
-// RestoreOptions holds options supported by restore.
-//
-// Deprecated: This will be dropped in a future release. Please use MoveOptions.
-type RestoreOptions struct {
-	// FromKubeconfig defines the kubeconfig to use for accessing the target management cluster. If empty,
-	// default rules for kubeconfig discovery will be used.
-	ToKubeconfig Kubeconfig
-
-	// Directory defines the local directory to restore cluster objects from
-	Directory string
-}
-
 func (c *clusterctlClient) Move(options MoveOptions) error {
 	// Both backup and restore makes no sense. It's a complete move.
 	if options.FromDirectory != "" && options.ToDirectory != "" {
@@ -158,27 +130,6 @@ func (c *clusterctlClient) toDirectory(options MoveOptions) error {
 	}
 
 	return fromCluster.ObjectMover().ToDirectory(options.Namespace, options.ToDirectory)
-}
-
-// Backup saves all the Cluster API objects existing in a namespace (or from all the namespaces if empty) to a target directory.
-//
-// Deprecated: This will be dropped in a future release. Please use ToDirectory.
-func (c *clusterctlClient) Backup(options BackupOptions) error {
-	return c.Move(MoveOptions{
-		FromKubeconfig: options.FromKubeconfig,
-		ToDirectory:    options.Directory,
-		Namespace:      options.Namespace,
-	})
-}
-
-// Restore restores all the Cluster API objects existing in a configured directory to a target management cluster.
-//
-// Deprecated: This will be dropped in a future release. Please use FromDirectory.
-func (c *clusterctlClient) Restore(options RestoreOptions) error {
-	return c.Move(MoveOptions{
-		ToKubeconfig:  options.ToKubeconfig,
-		FromDirectory: options.Directory,
-	})
 }
 
 func (c *clusterctlClient) getClusterClient(kubeconfig Kubeconfig) (cluster.Client, error) {

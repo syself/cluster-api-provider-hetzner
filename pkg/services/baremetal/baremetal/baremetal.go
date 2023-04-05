@@ -164,8 +164,8 @@ func (s *Service) Delete(ctx context.Context) (res reconcile.Result, err error) 
 		host.OwnerReferences = s.removeOwnerRef(host.OwnerReferences)
 
 		// remove labels
-		if host.Labels != nil && host.Labels[clusterv1.ClusterLabelName] == s.scope.Machine.Spec.ClusterName {
-			delete(host.Labels, clusterv1.ClusterLabelName)
+		if host.Labels != nil && host.Labels[clusterv1.ClusterNameLabel] == s.scope.Machine.Spec.ClusterName {
+			delete(host.Labels, clusterv1.ClusterNameLabel)
 		}
 
 		// patch host object
@@ -721,7 +721,7 @@ func ensureClusterLabel(host *infrav1.HetznerBareMetalHost, clusterName string) 
 	if host.Labels == nil {
 		host.Labels = make(map[string]string)
 	}
-	host.Labels[clusterv1.ClusterLabelName] = clusterName
+	host.Labels[clusterv1.ClusterNameLabel] = clusterName
 }
 
 // nodeAddresses returns a slice of clusterv1.MachineAddress objects for a given host.

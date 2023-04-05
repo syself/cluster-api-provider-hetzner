@@ -32,16 +32,23 @@ import (
 	"sigs.k8s.io/cluster-api/cmd/clusterctl/client"
 )
 
-// printYamlOutput prints the yaml content of a generated template to stdout.
-func printYamlOutput(printer client.YamlPrinter) error {
+// printYamlOutput prints the yaml content of a generated template to stdout or to a local file if specified.
+func printYamlOutput(printer client.YamlPrinter, outputFile string) error {
 	yaml, err := printer.Yaml()
 	if err != nil {
 		return err
 	}
 	yaml = append(yaml, '\n')
-
-	if _, err := os.Stdout.Write(yaml); err != nil {
-		return errors.Wrap(err, "failed to write yaml to Stdout")
+	outputFile = strings.TrimSpace(outputFile)
+	if outputFile == "" || outputFile == "-" {
+		if _, err := os.Stdout.Write(yaml); err != nil {
+			return errors.Wrap(err, "failed to write yaml to Stdout")
+		}
+		return nil
+	}
+	outputFile = filepath.Clean(outputFile)
+	if err := os.WriteFile(outputFile, yaml, 0600); err != nil {
+		return errors.Wrap(err, "failed to write to destination file")
 	}
 	return nil
 }

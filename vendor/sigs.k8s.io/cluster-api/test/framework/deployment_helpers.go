@@ -26,6 +26,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -34,13 +35,18 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
 	"k8s.io/api/policy/v1beta1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	utilversion "k8s.io/apimachinery/pkg/util/version"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/pointer"
+	toolscache "sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
@@ -95,34 +101,60 @@ func DescribeFailedDeployment(input WaitForDeploymentsAvailableInput, deployment
 	return b.String()
 }
 
-// WatchDeploymentLogsInput is the input for WatchDeploymentLogs.
-type WatchDeploymentLogsInput struct {
+// WatchDeploymentLogsByLabelSelectorInput is the input for WatchDeploymentLogsByLabelSelector.
+type WatchDeploymentLogsByLabelSelectorInput struct {
+	GetLister GetLister
+	Cache     toolscache.Cache
+	ClientSet *kubernetes.Clientset
+	Labels    map[string]string
+	LogPath   string
+}
+
+// WatchDeploymentLogsByLabelSelector streams logs for all containers for all pods belonging to a deployment on the basis of label. Each container's logs are streamed
+// in a separate goroutine so they can all be streamed concurrently. This only causes a test failure if there are errors
+// retrieving the deployment, its pods, or setting up a log file. If there is an error with the log streaming itself,
+// that does not cause the test to fail.
+func WatchDeploymentLogsByLabelSelector(ctx context.Context, input WatchDeploymentLogsByLabelSelectorInput) {
+	Expect(ctx).NotTo(BeNil(), "ctx is required for WatchDeploymentLogsByLabelSelector")
+	Expect(input.Cache).NotTo(BeNil(), "input.Cache is required for WatchDeploymentLogsByLabelSelector")
+	Expect(input.ClientSet).NotTo(BeNil(), "input.ClientSet is required for WatchDeploymentLogsByLabelSelector")
+	Expect(input.Labels).NotTo(BeNil(), "input.Selector is required for WatchDeploymentLogsByLabelSelector")
+
+	deploymentList := &appsv1.DeploymentList{}
+	Eventually(func() error {
+		return input.GetLister.List(ctx, deploymentList, client.MatchingLabels(input.Labels))
+	}, retryableOperationTimeout, retryableOperationInterval).Should(Succeed(), "Failed to get deployment for labels")
+
+	for _, deployment := range deploymentList.Items {
+		watchPodLogs(ctx, watchPodLogsInput{
+			Cache:          input.Cache,
+			ClientSet:      input.ClientSet,
+			Namespace:      deployment.Namespace,
+			DeploymentName: deployment.Name,
+			LabelSelector:  deployment.Spec.Selector,
+			LogPath:        input.LogPath,
+		})
+	}
+}
+
+// WatchDeploymentLogsByNameInput is the input for WatchDeploymentLogsByName.
+type WatchDeploymentLogsByNameInput struct {
 	GetLister  GetLister
+	Cache      toolscache.Cache
 	ClientSet  *kubernetes.Clientset
 	Deployment *appsv1.Deployment
 	LogPath    string
 }
 
-// logMetadata contains metadata about the logs.
-// The format is very similar to the one used by promtail.
-type logMetadata struct {
-	Job       string `json:"job"`
-	Namespace string `json:"namespace"`
-	App       string `json:"app"`
-	Pod       string `json:"pod"`
-	Container string `json:"container"`
-	NodeName  string `json:"node_name"`
-	Stream    string `json:"stream"`
-}
-
-// WatchDeploymentLogs streams logs for all containers for all pods belonging to a deployment. Each container's logs are streamed
+// WatchDeploymentLogsByName streams logs for all containers for all pods belonging to a deployment. Each container's logs are streamed
 // in a separate goroutine so they can all be streamed concurrently. This only causes a test failure if there are errors
 // retrieving the deployment, its pods, or setting up a log file. If there is an error with the log streaming itself,
 // that does not cause the test to fail.
-func WatchDeploymentLogs(ctx context.Context, input WatchDeploymentLogsInput) {
-	Expect(ctx).NotTo(BeNil(), "ctx is required for WatchControllerLogs")
-	Expect(input.ClientSet).NotTo(BeNil(), "input.ClientSet is required for WatchControllerLogs")
-	Expect(input.Deployment).NotTo(BeNil(), "input.Deployment is required for WatchControllerLogs")
+func WatchDeploymentLogsByName(ctx context.Context, input WatchDeploymentLogsByNameInput) {
+	Expect(ctx).NotTo(BeNil(), "ctx is required for WatchDeploymentLogsByName")
+	Expect(input.Cache).NotTo(BeNil(), "input.Cache is required for WatchDeploymentLogsByName")
+	Expect(input.ClientSet).NotTo(BeNil(), "input.ClientSet is required for WatchDeploymentLogsByName")
+	Expect(input.Deployment).NotTo(BeNil(), "input.Deployment is required for WatchDeploymentLogsByName")
 
 	deployment := &appsv1.Deployment{}
 	key := client.ObjectKeyFromObject(input.Deployment)
@@ -130,54 +162,152 @@ func WatchDeploymentLogs(ctx context.Context, input WatchDeploymentLogsInput) {
 		return input.GetLister.Get(ctx, key, deployment)
 	}, retryableOperationTimeout, retryableOperationInterval).Should(Succeed(), "Failed to get deployment %s", klog.KObj(input.Deployment))
 
-	selector, err := metav1.LabelSelectorAsMap(deployment.Spec.Selector)
-	Expect(err).NotTo(HaveOccurred(), "Failed to Pods selector for deployment %s", klog.KObj(input.Deployment))
+	watchPodLogs(ctx, watchPodLogsInput{
+		Cache:          input.Cache,
+		ClientSet:      input.ClientSet,
+		Namespace:      deployment.Namespace,
+		DeploymentName: deployment.Name,
+		LabelSelector:  deployment.Spec.Selector,
+		LogPath:        input.LogPath,
+	})
+}
 
-	pods := &corev1.PodList{}
-	Expect(input.GetLister.List(ctx, pods, client.InNamespace(input.Deployment.Namespace), client.MatchingLabels(selector))).To(Succeed(), "Failed to list Pods for deployment %s", klog.KObj(input.Deployment))
+// watchPodLogsInput is the input for watchPodLogs.
+type watchPodLogsInput struct {
+	Cache          toolscache.Cache
+	ClientSet      *kubernetes.Clientset
+	Namespace      string
+	DeploymentName string
+	LabelSelector  *metav1.LabelSelector
+	LogPath        string
+}
 
-	for _, pod := range pods.Items {
-		for _, container := range deployment.Spec.Template.Spec.Containers {
-			log.Logf("Creating log watcher for controller %s, pod %s, container %s", klog.KObj(input.Deployment), pod.Name, container.Name)
+// watchPodLogs streams logs for all containers for all pods belonging to a deployment with the given label. Each container's logs are streamed
+// in a separate goroutine so they can all be streamed concurrently. This only causes a test failure if there are errors
+// retrieving the deployment, its pods, or setting up a log file. If there is an error with the log streaming itself,
+// that does not cause the test to fail.
+func watchPodLogs(ctx context.Context, input watchPodLogsInput) {
+	// Create informer to watch for pods matching input.
 
-			// Create log metadata file.
-			logMetadataFile := filepath.Clean(path.Join(input.LogPath, input.Deployment.Name, pod.Name, container.Name+"-log-metadata.json"))
-			Expect(os.MkdirAll(filepath.Dir(logMetadataFile), 0750)).To(Succeed())
+	podInformer, err := input.Cache.GetInformer(ctx, &corev1.Pod{})
+	Expect(err).ToNot(HaveOccurred(), "Failed to create controller-runtime informer from cache")
 
-			metadata := logMetadata{
-				Job:       input.Deployment.Namespace + "/" + input.Deployment.Name,
-				Namespace: input.Deployment.Namespace,
-				App:       input.Deployment.Name,
-				Pod:       pod.Name,
+	selector, err := metav1.LabelSelectorAsSelector(input.LabelSelector)
+	Expect(err).NotTo(HaveOccurred())
+
+	eventHandler := newWatchPodLogsEventHandler(ctx, input, selector)
+
+	handlerRegistration, err := podInformer.AddEventHandler(eventHandler)
+	Expect(err).NotTo(HaveOccurred())
+
+	go func() {
+		defer GinkgoRecover()
+		<-ctx.Done()
+		Expect(podInformer.RemoveEventHandler(handlerRegistration)).To(Succeed())
+	}()
+}
+
+type watchPodLogsEventHandler struct {
+	//nolint:containedctx
+	ctx         context.Context
+	input       watchPodLogsInput
+	selector    labels.Selector
+	startedPods sync.Map
+}
+
+func newWatchPodLogsEventHandler(ctx context.Context, input watchPodLogsInput, selector labels.Selector) cache.ResourceEventHandler {
+	return &watchPodLogsEventHandler{
+		ctx:         ctx,
+		input:       input,
+		selector:    selector,
+		startedPods: sync.Map{},
+	}
+}
+
+func (eh *watchPodLogsEventHandler) OnAdd(obj interface{}) {
+	pod := obj.(*corev1.Pod)
+	eh.streamPodLogs(pod)
+}
+
+func (eh *watchPodLogsEventHandler) OnUpdate(_, newObj interface{}) {
+	pod := newObj.(*corev1.Pod)
+	eh.streamPodLogs(pod)
+}
+
+func (eh *watchPodLogsEventHandler) OnDelete(_ interface{}) {}
+
+func (eh *watchPodLogsEventHandler) streamPodLogs(pod *corev1.Pod) {
+	if pod.GetNamespace() != eh.input.Namespace {
+		return
+	}
+	if !eh.selector.Matches(labels.Set(pod.GetLabels())) {
+		return
+	}
+	if pod.Status.Phase != corev1.PodRunning {
+		return
+	}
+	if _, loaded := eh.startedPods.LoadOrStore(pod.GetUID(), struct{}{}); loaded {
+		return
+	}
+
+	for _, container := range pod.Spec.Containers {
+		log.Logf("Creating log watcher for controller %s, pod %s, container %s", klog.KRef(eh.input.Namespace, eh.input.DeploymentName), pod.Name, container.Name)
+
+		// Create log metadata file.
+		logMetadataFile := filepath.Clean(path.Join(eh.input.LogPath, eh.input.DeploymentName, pod.Name, container.Name+"-log-metadata.json"))
+		Expect(os.MkdirAll(filepath.Dir(logMetadataFile), 0750)).To(Succeed())
+
+		metadata := logMetadata{
+			Job:       eh.input.Namespace + "/" + eh.input.DeploymentName,
+			Namespace: eh.input.Namespace,
+			App:       eh.input.DeploymentName,
+			Pod:       pod.Name,
+			Container: container.Name,
+			NodeName:  pod.Spec.NodeName,
+			Stream:    "stderr",
+		}
+		metadataBytes, err := json.Marshal(&metadata)
+		Expect(err).To(BeNil())
+		Expect(os.WriteFile(logMetadataFile, metadataBytes, 0600)).To(Succeed())
+
+		// Watch each container's logs in a goroutine so we can stream them all concurrently.
+		go func(pod *corev1.Pod, container corev1.Container) {
+			defer GinkgoRecover()
+
+			logFile := filepath.Clean(path.Join(eh.input.LogPath, eh.input.DeploymentName, pod.Name, container.Name+".log"))
+			Expect(os.MkdirAll(filepath.Dir(logFile), 0750)).To(Succeed())
+
+			f, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+			Expect(err).NotTo(HaveOccurred())
+			defer f.Close()
+
+			opts := &corev1.PodLogOptions{
 				Container: container.Name,
-				NodeName:  pod.Spec.NodeName,
-				Stream:    "stderr",
+				Follow:    true,
 			}
-			metadataBytes, err := json.Marshal(&metadata)
-			Expect(err).To(BeNil())
-			Expect(os.WriteFile(logMetadataFile, metadataBytes, 0600)).To(Succeed())
 
-			// Watch each container's logs in a goroutine so we can stream them all concurrently.
-			go func(pod corev1.Pod, container corev1.Container) {
-				defer GinkgoRecover()
-
-				logFile := filepath.Clean(path.Join(input.LogPath, input.Deployment.Name, pod.Name, container.Name+".log"))
-				Expect(os.MkdirAll(filepath.Dir(logFile), 0750)).To(Succeed())
-
-				f, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
-				Expect(err).NotTo(HaveOccurred())
-				defer f.Close()
-
-				opts := &corev1.PodLogOptions{
-					Container: container.Name,
-					Follow:    true,
-				}
-
-				podLogs, err := input.ClientSet.CoreV1().Pods(input.Deployment.Namespace).GetLogs(pod.Name, opts).Stream(ctx)
+			// Retry streaming the logs of the pods unless ctx.Done() or if the pod does not exist anymore.
+			err = wait.PollInfiniteWithContext(eh.ctx, 2*time.Second, func(ctx context.Context) (done bool, err error) {
+				// Wait for pod to be in running state
+				actual, err := eh.input.ClientSet.CoreV1().Pods(pod.Namespace).Get(ctx, pod.Name, metav1.GetOptions{})
 				if err != nil {
-					// Failing to stream logs should not cause the test to fail
+					// The pod got deleted if the error IsNotFound. In this case there are also no logs to stream anymore.
+					if apierrors.IsNotFound(err) {
+						return true, nil
+					}
+					// Only log the error to not cause the test to fail via GinkgoRecover
+					log.Logf("Error getting pod %s, container %s: %v", klog.KRef(pod.Namespace, pod.Name), container.Name, err)
+					return true, nil
+				}
+				// Retry later if pod is currently not running
+				if actual.Status.Phase != corev1.PodRunning {
+					return false, nil
+				}
+				podLogs, err := eh.input.ClientSet.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, opts).Stream(ctx)
+				if err != nil {
+					// Only log the error to not cause the test to fail via GinkgoRecover
 					log.Logf("Error starting logs stream for pod %s, container %s: %v", klog.KRef(pod.Namespace, pod.Name), container.Name, err)
-					return
+					return true, nil
 				}
 				defer podLogs.Close()
 
@@ -188,9 +318,26 @@ func WatchDeploymentLogs(ctx context.Context, input WatchDeploymentLogsInput) {
 					// Failing to stream logs should not cause the test to fail
 					log.Logf("Got error while streaming logs for pod %s, container %s: %v", klog.KRef(pod.Namespace, pod.Name), container.Name, err)
 				}
-			}(pod, container)
-		}
+				return false, nil
+			})
+			if err != nil {
+				log.Logf("Stopped streaming logs for pod %s, container %s: %v", klog.KRef(pod.Namespace, pod.Name), container.Name, err)
+			}
+		}(pod, container)
 	}
+}
+
+// logMetadata contains metadata about the logs.
+// The format is very similar to the one used by promtail.
+type logMetadata struct {
+	Job       string            `json:"job"`
+	Namespace string            `json:"namespace"`
+	App       string            `json:"app"`
+	Pod       string            `json:"pod"`
+	Container string            `json:"container"`
+	NodeName  string            `json:"node_name"`
+	Stream    string            `json:"stream"`
+	Labels    map[string]string `json:"labels,omitempty"`
 }
 
 type WatchPodMetricsInput struct {
@@ -215,7 +362,7 @@ func WatchPodMetrics(ctx context.Context, input WatchPodMetricsInput) {
 	}, retryableOperationTimeout, retryableOperationInterval).Should(Succeed(), "Failed to get deployment %s", klog.KObj(input.Deployment))
 
 	selector, err := metav1.LabelSelectorAsMap(deployment.Spec.Selector)
-	Expect(err).NotTo(HaveOccurred(), "Failed to Pods selector for deployment %s", klog.KObj(input.Deployment))
+	Expect(err).NotTo(HaveOccurred(), "Failed to create Pods selector for deployment %s", klog.KObj(input.Deployment))
 
 	pods := &corev1.PodList{}
 	Eventually(func() error {

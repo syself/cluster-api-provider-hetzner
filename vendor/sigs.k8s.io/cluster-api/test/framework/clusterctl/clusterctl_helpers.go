@@ -23,6 +23,7 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/cmd/clusterctl/client/config"
@@ -107,8 +108,9 @@ func InitManagementClusterAndWatchControllerLogs(ctx context.Context, input Init
 		}, intervals...)
 
 		// Start streaming logs from all controller providers
-		framework.WatchDeploymentLogs(ctx, framework.WatchDeploymentLogsInput{
+		framework.WatchDeploymentLogsByName(ctx, framework.WatchDeploymentLogsByNameInput{
 			GetLister:  client,
+			Cache:      input.ClusterProxy.GetCache(ctx),
 			ClientSet:  input.ClusterProxy.GetClientSet(),
 			Deployment: deployment,
 			LogPath:    filepath.Join(input.LogFolder, "logs", deployment.GetNamespace()),
@@ -186,14 +188,6 @@ func UpgradeManagementClusterAndWait(ctx context.Context, input UpgradeManagemen
 			Getter:     client,
 			Deployment: deployment,
 		}, intervals...)
-
-		// Start streaming logs from all controller providers
-		framework.WatchDeploymentLogs(ctx, framework.WatchDeploymentLogsInput{
-			GetLister:  client,
-			ClientSet:  input.ClusterProxy.GetClientSet(),
-			Deployment: deployment,
-			LogPath:    filepath.Join(input.LogFolder, "logs", deployment.GetNamespace()),
-		})
 
 		framework.WatchPodMetrics(ctx, framework.WatchPodMetricsInput{
 			GetLister:   client,
@@ -280,6 +274,14 @@ func ApplyClusterTemplateAndWait(ctx context.Context, input ApplyClusterTemplate
 
 	log.Logf("Creating the workload cluster with name %q using the %q template (Kubernetes %s, %d control-plane machines, %d worker machines)",
 		input.ConfigCluster.ClusterName, valueOrDefault(input.ConfigCluster.Flavor), input.ConfigCluster.KubernetesVersion, *input.ConfigCluster.ControlPlaneMachineCount, *input.ConfigCluster.WorkerMachineCount)
+
+	// Ensure we have a Cluster for dump and cleanup steps in AfterEach even if ApplyClusterTemplateAndWait fails.
+	result.Cluster = &clusterv1.Cluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      input.ConfigCluster.ClusterName,
+			Namespace: input.ConfigCluster.Namespace,
+		},
+	}
 
 	log.Logf("Getting the cluster template yaml")
 	workloadClusterTemplate := ConfigCluster(ctx, ConfigClusterInput{

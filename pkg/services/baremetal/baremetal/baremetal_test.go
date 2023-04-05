@@ -760,15 +760,15 @@ var _ = Describe("Test ensureClusterLabel", func() {
 		},
 		Entry("Existing labels", testCaseEnsureClusterLabel{
 			labels:         map[string]string{"key1": "val1"},
-			expectedLabels: map[string]string{"key1": "val1", clusterv1.ClusterLabelName: clusterName},
+			expectedLabels: map[string]string{"key1": "val1", clusterv1.ClusterNameLabel: clusterName},
 		}),
 		Entry("Empty labels", testCaseEnsureClusterLabel{
 			labels:         map[string]string{},
-			expectedLabels: map[string]string{clusterv1.ClusterLabelName: clusterName},
+			expectedLabels: map[string]string{clusterv1.ClusterNameLabel: clusterName},
 		}),
 		Entry("Nil labels", testCaseEnsureClusterLabel{
 			labels:         nil,
-			expectedLabels: map[string]string{clusterv1.ClusterLabelName: clusterName},
+			expectedLabels: map[string]string{clusterv1.ClusterNameLabel: clusterName},
 		}),
 	)
 })

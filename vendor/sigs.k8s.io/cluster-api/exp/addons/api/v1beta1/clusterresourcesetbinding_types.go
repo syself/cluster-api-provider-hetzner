@@ -58,14 +58,18 @@ type ResourceSetBinding struct {
 
 // IsApplied returns true if the resource is applied to the cluster by checking the cluster's binding.
 func (r *ResourceSetBinding) IsApplied(resourceRef ResourceRef) bool {
+	resourceBinding := r.GetResource(resourceRef)
+	return resourceBinding != nil && resourceBinding.Applied
+}
+
+// GetResource returns a ResourceBinding for a resource ref if present.
+func (r *ResourceSetBinding) GetResource(resourceRef ResourceRef) *ResourceBinding {
 	for _, resource := range r.Resources {
 		if reflect.DeepEqual(resource.ResourceRef, resourceRef) {
-			if resource.Applied {
-				return true
-			}
+			return &resource
 		}
 	}
-	return false
+	return nil
 }
 
 // SetBinding sets resourceBinding for a resource in resourceSetbinding either by updating the existing one or
@@ -102,7 +106,7 @@ func (c *ClusterResourceSetBinding) DeleteBinding(clusterResourceSet *ClusterRes
 			break
 		}
 	}
-	c.OwnerReferences = util.RemoveOwnerRef(c.OwnerReferences, metav1.OwnerReference{
+	c.OwnerReferences = util.RemoveOwnerRef(c.GetOwnerReferences(), metav1.OwnerReference{
 		APIVersion: clusterResourceSet.APIVersion,
 		Kind:       clusterResourceSet.Kind,
 		Name:       clusterResourceSet.Name,
@@ -129,6 +133,11 @@ type ClusterResourceSetBindingSpec struct {
 	// Bindings is a list of ClusterResourceSets and their resources.
 	// +optional
 	Bindings []*ResourceSetBinding `json:"bindings,omitempty"`
+
+	// ClusterName is the name of the Cluster this binding applies to.
+	// Note: this field mandatory in v1beta2.
+	// +optional
+	ClusterName string `json:"clusterName,omitempty"`
 }
 
 // ANCHOR_END: ClusterResourceSetBindingSpec

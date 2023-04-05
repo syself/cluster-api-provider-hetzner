@@ -17,13 +17,16 @@ limitations under the License.
 package alpha
 
 import (
+	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -43,10 +46,16 @@ func getMachineDeployment(proxy cluster.Proxy, name, namespace string) (*cluster
 		Name:      name,
 	}
 	if err := c.Get(ctx, mdObjKey, mdObj); err != nil {
-		return nil, errors.Wrapf(err, "error reading MachineDeployment %s/%s",
+		return nil, errors.Wrapf(err, "failed to get MachineDeployment %s/%s",
 			mdObjKey.Namespace, mdObjKey.Name)
 	}
 	return mdObj, nil
+}
+
+// setRolloutAfterOnMachineDeployment sets MachineDeployment.spec.rolloutAfter.
+func setRolloutAfterOnMachineDeployment(proxy cluster.Proxy, name, namespace string) error {
+	patch := client.RawPatch(types.MergePatchType, []byte(fmt.Sprintf(`{"spec":{"rolloutAfter":"%v"}}`, time.Now().Format(time.RFC3339))))
+	return patchMachineDeployment(proxy, name, namespace, patch)
 }
 
 // patchMachineDeployment applies a patch to a machinedeployment.
@@ -61,11 +70,11 @@ func patchMachineDeployment(proxy cluster.Proxy, name, namespace string, patch c
 		Name:      name,
 	}
 	if err := cFrom.Get(ctx, mdObjKey, mdObj); err != nil {
-		return errors.Wrapf(err, "error reading MachineDeployment %s/%s", mdObj.GetNamespace(), mdObj.GetName())
+		return errors.Wrapf(err, "failed to get MachineDeployment %s/%s", mdObj.GetNamespace(), mdObj.GetName())
 	}
 
 	if err := cFrom.Patch(ctx, mdObj, patch); err != nil {
-		return errors.Wrapf(err, "error while patching MachineDeployment %s/%s", mdObj.GetNamespace(), mdObj.GetName())
+		return errors.Wrapf(err, "failed while patching MachineDeployment %s/%s", mdObj.GetNamespace(), mdObj.GetName())
 	}
 	return nil
 }
@@ -109,7 +118,7 @@ func findMachineDeploymentRevision(toRevision int64, allMSs []*clusterv1.Machine
 }
 
 // getMachineSetsForDeployment returns a list of MachineSets associated with a MachineDeployment.
-func getMachineSetsForDeployment(proxy cluster.Proxy, d *clusterv1.MachineDeployment) ([]*clusterv1.MachineSet, error) {
+func getMachineSetsForDeployment(proxy cluster.Proxy, md *clusterv1.MachineDeployment) ([]*clusterv1.MachineSet, error) {
 	log := logf.Log
 	c, err := proxy.NewClient()
 	if err != nil {
@@ -117,7 +126,7 @@ func getMachineSetsForDeployment(proxy cluster.Proxy, d *clusterv1.MachineDeploy
 	}
 	// List all MachineSets to find those we own but that no longer match our selector.
 	machineSets := &clusterv1.MachineSetList{}
-	if err := c.List(ctx, machineSets, client.InNamespace(d.Namespace)); err != nil {
+	if err := c.List(ctx, machineSets, client.InNamespace(md.Namespace)); err != nil {
 		return nil, err
 	}
 
@@ -126,12 +135,12 @@ func getMachineSetsForDeployment(proxy cluster.Proxy, d *clusterv1.MachineDeploy
 		ms := &machineSets.Items[idx]
 
 		// Skip this MachineSet if its controller ref is not pointing to this MachineDeployment
-		if !metav1.IsControlledBy(ms, d) {
+		if !metav1.IsControlledBy(ms, md) {
 			log.V(5).Info("Skipping MachineSet, controller ref does not match MachineDeployment", "machineset", ms.Name)
 			continue
 		}
 
-		selector, err := metav1.LabelSelectorAsSelector(&d.Spec.Selector)
+		selector, err := metav1.LabelSelectorAsSelector(&md.Spec.Selector)
 		if err != nil {
 			log.V(5).Info("Skipping MachineSet, failed to get label selector from spec selector", "machineset", ms.Name)
 			continue

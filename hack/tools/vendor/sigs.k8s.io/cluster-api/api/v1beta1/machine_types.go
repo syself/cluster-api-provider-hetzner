@@ -27,8 +27,8 @@ const (
 	// MachineFinalizer is set on PrepareForCreate callback.
 	MachineFinalizer = "machine.cluster.x-k8s.io"
 
-	// MachineControlPlaneLabelName is the label set on machines or related objects that are part of a control plane.
-	MachineControlPlaneLabelName = "cluster.x-k8s.io/control-plane"
+	// MachineControlPlaneLabel is the label set on machines or related objects that are part of a control plane.
+	MachineControlPlaneLabel = "cluster.x-k8s.io/control-plane"
 
 	// ExcludeNodeDrainingAnnotation annotation explicitly skips node draining if set.
 	ExcludeNodeDrainingAnnotation = "machine.cluster.x-k8s.io/exclude-node-draining"
@@ -36,12 +36,12 @@ const (
 	// ExcludeWaitForNodeVolumeDetachAnnotation annotation explicitly skips the waiting for node volume detaching if set.
 	ExcludeWaitForNodeVolumeDetachAnnotation = "machine.cluster.x-k8s.io/exclude-wait-for-node-volume-detach"
 
-	// MachineSetLabelName is the label set on machines if they're controlled by MachineSet.
+	// MachineSetNameLabel is the label set on machines if they're controlled by MachineSet.
 	// Note: The value of this label may be a hash if the MachineSet name is longer than 63 characters.
-	MachineSetLabelName = "cluster.x-k8s.io/set-name"
+	MachineSetNameLabel = "cluster.x-k8s.io/set-name"
 
-	// MachineDeploymentLabelName is the label set on machines if they're controlled by MachineDeployment.
-	MachineDeploymentLabelName = "cluster.x-k8s.io/deployment-name"
+	// MachineDeploymentNameLabel is the label set on machines if they're controlled by MachineDeployment.
+	MachineDeploymentNameLabel = "cluster.x-k8s.io/deployment-name"
 
 	// MachineControlPlaneNameLabel is the label set on machines if they're controlled by a ControlPlane.
 	// Note: The value of this label may be a hash if the control plane name is longer than 63 characters.
@@ -64,6 +64,13 @@ const (
 	// This annotation can be set on BootstrapConfig or Machine objects. The value set on the Machine object takes precedence.
 	// This annotation can only be used on Control Plane Machines.
 	MachineCertificatesExpiryDateAnnotation = "machine.cluster.x-k8s.io/certificates-expiry"
+
+	// NodeRoleLabelPrefix is one of the CAPI managed Node label prefixes.
+	NodeRoleLabelPrefix = "node-role.kubernetes.io"
+	// NodeRestrictionLabelDomain is one of the CAPI managed Node label domains.
+	NodeRestrictionLabelDomain = "node-restriction.kubernetes.io"
+	// ManagedNodeLabelDomain is one of the CAPI managed Node label domains.
+	ManagedNodeLabelDomain = "node.cluster.x-k8s.io"
 )
 
 // ANCHOR: MachineSpec

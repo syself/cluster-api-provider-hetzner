@@ -41,7 +41,10 @@ var (
 
 	restartExample = templates.Examples(`
 		# Restart a machinedeployment
-		clusterctl alpha rollout restart machinedeployment/my-md-0`)
+		clusterctl alpha rollout restart machinedeployment/my-md-0
+
+		# Restart a kubeadmcontrolplane
+		clusterctl alpha rollout restart kubeadmcontrolplane/my-kcp`)
 )
 
 // NewCmdRolloutRestart returns a Command instance for 'rollout restart' sub command.
@@ -73,7 +76,7 @@ func runRestart(cfgFile string, _ *cobra.Command, args []string) error {
 		return err
 	}
 
-	return c.RolloutRestart(client.RolloutOptions{
+	return c.RolloutRestart(client.RolloutRestartOptions{
 		Kubeconfig: client.Kubeconfig{Path: restartOpt.kubeconfig, Context: restartOpt.kubeconfigContext},
 		Namespace:  restartOpt.namespace,
 		Resources:  restartOpt.resources,
