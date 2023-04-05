@@ -164,6 +164,6 @@ variables:
 
 intervals:
   default/wait-cluster: ["5m", "10s"] ## wait until Infrastructure == ready and ControlPlaneEndpoint is valid
-  default/wait-control-plane: ["15m", "10s"] ## wait until first control plane is ready
+  default/wait-control-plane: ["20m", "10s"] ## wait until first control plane is ready
   default/wait-worker-nodes: ["20m", "10s"] ## wait until all workers are ready from the moment when the control plane is ready
   default/wait-delete-cluster: ["20m", "10s"] ## wait until cluster is deleted
