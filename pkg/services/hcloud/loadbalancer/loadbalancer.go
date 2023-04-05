@@ -263,8 +263,6 @@ func createOptsFromSpec(hc *infrav1.HetznerCluster) hcloud.LoadBalancerCreateOpt
 
 	proxyprotocol := false
 
-	clusterTagKey := infrav1.ClusterTagKey(hc.Name)
-
 	var network *hcloud.Network
 	if hc.Status.Network != nil {
 		network = &hcloud.Network{ID: hc.Status.Network.ID}
@@ -278,7 +276,7 @@ func createOptsFromSpec(hc *infrav1.HetznerCluster) hcloud.LoadBalancerCreateOpt
 		Algorithm:        &hcloud.LoadBalancerAlgorithm{Type: algorithmType},
 		Location:         &hcloud.Location{Name: string(hc.Spec.ControlPlaneLoadBalancer.Region)},
 		Network:          network,
-		Labels:           map[string]string{clusterTagKey: string(infrav1.ResourceLifecycleOwned)},
+		Labels:           map[string]string{hc.ClusterTagKey(): string(infrav1.ResourceLifecycleOwned)},
 		PublicInterface:  &publicInterface,
 		Services: []hcloud.LoadBalancerCreateOptsService{
 			{
@@ -321,7 +319,7 @@ func (s *Service) Delete(ctx context.Context) (err error) {
 }
 
 func (s *Service) findLoadBalancer(ctx context.Context) (*hcloud.LoadBalancer, error) {
-	clusterTagKey := infrav1.ClusterTagKey(s.scope.HetznerCluster.Name)
+	clusterTagKey := s.scope.HetznerCluster.ClusterTagKey()
 	opts := hcloud.LoadBalancerListOpts{
 		ListOpts: hcloud.ListOpts{
 			LabelSelector: utils.LabelsToLabelSelector(map[string]string{

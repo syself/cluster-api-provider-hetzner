@@ -37,9 +37,7 @@ const (
 	DefaultWWN2 = "eui.0025388801b4dff2"
 )
 
-var (
-	defaultPlacementGroupName = "caph-placement-group"
-)
+var defaultPlacementGroupName = "caph-placement-group"
 
 // BareMetalHost returns a bare metal host given options.
 func BareMetalHost(name, namespace string, opts ...HostOpts) *infrav1.HetznerBareMetalHost {
@@ -201,7 +199,7 @@ func GetDefaultHetznerClusterSpec() infrav1.HetznerClusterSpec {
 			NetworkZone:     "eu-central",
 			SubnetCIDRBlock: "10.0.0.0/24",
 		},
-		HCloudPlacementGroup: []infrav1.HCloudPlacementGroupSpec{
+		HCloudPlacementGroups: []infrav1.HCloudPlacementGroupSpec{
 			{
 				Name: defaultPlacementGroupName,
 				Type: "spread",

@@ -60,14 +60,14 @@ var _ = DescribeTable("createLabels",
 		Expect(createLabels(hcloudClusterName, hcloudMachineName, isControlPlane)).To(Equal(expectedOutput))
 	},
 	Entry("is_controlplane", "hcloudCluster", "hcloudMachine", true, map[string]string{
-		infrav1.ClusterTagKey("hcloudCluster"): string(infrav1.ResourceLifecycleOwned),
-		infrav1.MachineNameTagKey:              "hcloudMachine",
-		"machine_type":                         "control_plane",
+		"caph-cluster-hcloudCluster": string(infrav1.ResourceLifecycleOwned),
+		infrav1.MachineNameTagKey:    "hcloudMachine",
+		"machine_type":               "control_plane",
 	}),
 	Entry("is_worker", "hcloudCluster", "hcloudMachine", false, map[string]string{
-		infrav1.ClusterTagKey("hcloudCluster"): string(infrav1.ResourceLifecycleOwned),
-		infrav1.MachineNameTagKey:              "hcloudMachine",
-		"machine_type":                         "worker",
+		"caph-cluster-hcloudCluster": string(infrav1.ResourceLifecycleOwned),
+		infrav1.MachineNameTagKey:    "hcloudMachine",
+		"machine_type":               "worker",
 	}),
 )
 

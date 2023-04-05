@@ -49,7 +49,7 @@ type HetznerClusterSpec struct {
 	ControlPlaneLoadBalancer LoadBalancerSpec `json:"controlPlaneLoadBalancer,omitempty"`
 
 	// +optional
-	HCloudPlacementGroup []HCloudPlacementGroupSpec `json:"hcloudPlacementGroups,omitempty"`
+	HCloudPlacementGroups []HCloudPlacementGroupSpec `json:"hcloudPlacementGroups,omitempty"`
 
 	// HetznerSecretRef is a reference to a token to be used when reconciling this cluster.
 	// This is generated in the security section under API TOKENS. Read & write is necessary.
@@ -66,9 +66,9 @@ type HetznerClusterStatus struct {
 
 	ControlPlaneLoadBalancer *LoadBalancerStatus `json:"controlPlaneLoadBalancer,omitempty"`
 	// +optional
-	HCloudPlacementGroup []HCloudPlacementGroupStatus `json:"hcloudPlacementGroups,omitempty"`
-	FailureDomains       clusterv1.FailureDomains     `json:"failureDomains,omitempty"`
-	Conditions           clusterv1.Conditions         `json:"conditions,omitempty"`
+	HCloudPlacementGroups []HCloudPlacementGroupStatus `json:"hcloudPlacementGroups,omitempty"`
+	FailureDomains        clusterv1.FailureDomains     `json:"failureDomains,omitempty"`
+	Conditions            clusterv1.Conditions         `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -108,6 +108,11 @@ func (r *HetznerCluster) GetConditions() clusterv1.Conditions {
 // SetConditions sets the underlying service state of the HetznerCluster to the predescribed clusterv1.Conditions.
 func (r *HetznerCluster) SetConditions(conditions clusterv1.Conditions) {
 	r.Status.Conditions = conditions
+}
+
+// ClusterTagKey generates the key for resources associated with a cluster.
+func (r *HetznerCluster) ClusterTagKey() string {
+	return NameHetznerProviderOwned + r.Name
 }
 
 func init() {

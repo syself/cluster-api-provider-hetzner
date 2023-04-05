@@ -158,7 +158,7 @@ func getDefaultHetznerClusterSpec() infrav1.HetznerClusterSpec {
 			NetworkZone:     "eu-central",
 			SubnetCIDRBlock: "10.0.0.0/24",
 		},
-		HCloudPlacementGroup: []infrav1.HCloudPlacementGroupSpec{
+		HCloudPlacementGroups: []infrav1.HCloudPlacementGroupSpec{
 			{
 				Name: defaultPlacementGroupName,
 				Type: "spread",

@@ -178,7 +178,7 @@ func apiToStatus(network *hcloud.Network) *infrav1.NetworkStatus {
 }
 
 func (s *Service) labels() map[string]string {
-	clusterTagKey := infrav1.ClusterTagKey(s.scope.HetznerCluster.Name)
+	clusterTagKey := s.scope.HetznerCluster.ClusterTagKey()
 	return map[string]string{
 		clusterTagKey: string(infrav1.ResourceLifecycleOwned),
 	}
