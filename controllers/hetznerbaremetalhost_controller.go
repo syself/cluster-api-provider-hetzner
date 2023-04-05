@@ -35,7 +35,10 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/predicates"
+	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -216,14 +219,22 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 		osSSHSecret, err = secretManager.ObtainSecret(ctx, osSSHSecretNamespacedName)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				bmHost.SetError(infrav1.PreparationError, infrav1.ErrorMessageMissingOSSSHSecret)
+				conditions.MarkFalse(
+					bmHost,
+					infrav1.HetznerBareMetalHostReady,
+					infrav1.OSSSHSecretMissing,
+					clusterv1.ConditionSeverityError,
+					infrav1.ErrorMessageMissingOSSSHSecret,
+				)
+
+				record.Warnf(bmHost, infrav1.OSSSHSecretMissing, infrav1.ErrorMessageMissingOSSSHSecret)
 
 				result, err := host.SaveHostAndReturn(ctx, r.Client, bmHost)
 				if result != emptyResult || err != nil {
 					return nil, nil, res, err
 				}
 
-				return nil, nil, ctrl.Result{RequeueAfter: host.CalculateBackoff(bmHost.Spec.Status.ErrorCount)}, nil
+				return nil, nil, ctrl.Result{Requeue: true}, nil
 			}
 			return nil, nil, res, fmt.Errorf("failed to get secret: %w", err)
 		}
@@ -232,14 +243,22 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 		rescueSSHSecret, err = secretManager.AcquireSecret(ctx, rescueSSHSecretNamespacedName, hetznerCluster, false, hetznerCluster.DeletionTimestamp.IsZero())
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				bmHost.SetError(infrav1.PreparationError, infrav1.ErrorMessageMissingRescueSSHSecret)
+				conditions.MarkFalse(
+					bmHost,
+					infrav1.HetznerBareMetalHostReady,
+					infrav1.RescueSSHSecretMissing,
+					clusterv1.ConditionSeverityError,
+					infrav1.ErrorMessageMissingRescueSSHSecret,
+				)
+
+				record.Warnf(bmHost, infrav1.RescueSSHSecretMissing, infrav1.ErrorMessageMissingRescueSSHSecret)
 
 				result, err := host.SaveHostAndReturn(ctx, r.Client, bmHost)
 				if result != emptyResult || err != nil {
 					return nil, nil, result, err
 				}
 
-				return nil, nil, ctrl.Result{RequeueAfter: host.CalculateBackoff(bmHost.Spec.Status.ErrorCount)}, nil
+				return nil, nil, ctrl.Result{Requeue: true}, nil
 			}
 			return nil, nil, res, fmt.Errorf("failed to acquire secret: %w", err)
 		}
@@ -294,18 +313,33 @@ func hetznerSecretErrorResult(
 	// we requeue the host as we will not know if they create the secret
 	// at some point in the future.
 	case *secretutil.ResolveSecretRefError:
-		bmHost.SetError(infrav1.PreparationError, infrav1.ErrorMessageMissingHetznerSecret)
+		conditions.MarkFalse(
+			bmHost,
+			infrav1.HetznerBareMetalHostReady,
+			infrav1.HetznerSecretUnreachableReason,
+			clusterv1.ConditionSeverityError,
+			infrav1.ErrorMessageMissingHetznerSecret,
+		)
+
+		record.Warnf(bmHost, infrav1.HetznerSecretUnreachableReason, infrav1.ErrorMessageMissingHetznerSecret)
 
 		result, err := host.SaveHostAndReturn(ctx, client, bmHost)
 		emptyResult := reconcile.Result{}
 		if result != emptyResult || err != nil {
 			return result, err
 		}
-		backoff := host.CalculateBackoff(bmHost.Spec.Status.ErrorCount)
-		res = ctrl.Result{RequeueAfter: backoff}
+
+		res = ctrl.Result{Requeue: true}
 		// No need to reconcile again, as it will be triggered as soon as the secret is updated.
 	case *bmclient.CredentialsValidationError:
-		bmHost.SetError(infrav1.PreparationError, infrav1.ErrorMessageMissingOrInvalidSecretData)
+		conditions.MarkFalse(
+			bmHost,
+			infrav1.HetznerBareMetalHostReady,
+			infrav1.RobotCredentialsInvalidReason,
+			clusterv1.ConditionSeverityError,
+			infrav1.ErrorMessageMissingOrInvalidSecretData,
+		)
+		record.Warnf(bmHost, infrav1.SSHKeyAlreadyExists, infrav1.ErrorMessageMissingOrInvalidSecretData)
 
 		res, err = host.SaveHostAndReturn(ctx, client, bmHost)
 

@@ -723,7 +723,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 				if err := testEnv.Get(ctx, key, host); err != nil {
 					return false
 				}
-				return verifyError(host, infrav1.PreparationError, infrav1.ErrorMessageMissingRescueSSHSecret)
+				return isPresentAndFalseWithReason(key, host, infrav1.HetznerBareMetalHostReady, infrav1.RescueSSHSecretMissing)
 			}, timeout).Should(BeTrue())
 		})
 
@@ -748,7 +748,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 				if err := testEnv.Get(ctx, key, host); err != nil {
 					return false
 				}
-				return verifyError(host, infrav1.PreparationError, infrav1.ErrorMessageMissingOrInvalidSecretData)
+				return isPresentAndFalseWithReason(key, host, infrav1.HetznerBareMetalHostReady, infrav1.SSHCredentialsInSecretInvalid)
 			}, timeout).Should(BeTrue())
 		})
 	})
@@ -781,7 +781,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 				if err := testEnv.Get(ctx, key, host); err != nil {
 					return false
 				}
-				return verifyError(host, infrav1.PreparationError, infrav1.ErrorMessageMissingOSSSHSecret)
+				return isPresentAndFalseWithReason(key, host, infrav1.HetznerBareMetalHostReady, infrav1.OSSSHSecretMissing)
 			}, timeout).Should(BeTrue())
 		})
 
@@ -806,7 +806,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 				if err := testEnv.Get(ctx, key, host); err != nil {
 					return false
 				}
-				return verifyError(host, infrav1.PreparationError, infrav1.ErrorMessageMissingOrInvalidSecretData)
+				return isPresentAndFalseWithReason(key, host, infrav1.HetznerBareMetalHostReady, infrav1.SSHCredentialsInSecretInvalid)
 			}, timeout).Should(BeTrue())
 		})
 	})

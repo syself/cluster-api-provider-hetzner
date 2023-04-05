@@ -35,6 +35,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -207,12 +208,20 @@ func (s *Service) ensureSSHKey(sshSecretRef infrav1.SSHSecretRef, sshSecret *cor
 		if err != nil {
 			s.handleRateLimitExceeded(err, "SetSSHKey")
 			if models.IsError(err, models.ErrorCodeKeyAlreadyExists) {
-				record.Warnf(s.scope.HetznerBareMetalHost, "SSHKeyAlreadyExists",
-					"failed to upload ssh key %s - it already exists under a different name", string(sshSecret.Data[sshSecretRef.Key.Name]))
-				return infrav1.SSHKey{}, s.recordActionFailure(infrav1.FatalError, "cannot upload ssh key - exists already under a different name")
+				msg := fmt.Sprintf("cannot upload ssh key %s - exists already under a different name", string(sshSecret.Data[sshSecretRef.Key.Name]))
+				conditions.MarkFalse(
+					s.scope.HetznerBareMetalHost,
+					infrav1.HetznerBareMetalHostReady,
+					infrav1.SSHKeyAlreadyExists,
+					clusterv1.ConditionSeverityError,
+					msg,
+				)
+				record.Warnf(s.scope.HetznerBareMetalHost, infrav1.SSHKeyAlreadyExists, msg)
+				return infrav1.SSHKey{}, s.recordActionFailure(infrav1.FatalError, msg)
 			}
 			return infrav1.SSHKey{}, actionError{err: fmt.Errorf("failed to set ssh key: %w", err)}
 		}
+
 		sshKey.Name = hetznerSSHKey.Name
 		sshKey.Fingerprint = hetznerSSHKey.Fingerprint
 	}
@@ -225,7 +234,7 @@ func (s *Service) handleIncompleteBoot(isRebootIntoRescue bool, isTimeout bool, 
 	// error keeps coming, we give an error.
 	if isConnectionRefused {
 		if s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeConnectionError {
-			// if error has occured before, check the timeout
+			// if error has occurred before, check the timeout
 			if hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated, time.Minute) {
 				record.Warnf(s.scope.HetznerBareMetalHost, "SSHConnectionError",
 					"Connection error when targeting server with ssh that might be due to a wrong ssh port. Please check.")
@@ -736,9 +745,6 @@ func (s *Service) actionImageInstalling() actionResult {
 	sshClient := s.scope.SSHClientFactory.NewClient(in)
 
 	// Ensure os ssh secret
-	if s.scope.OSSSHSecret == nil {
-		return s.recordActionFailure(infrav1.PreparationError, infrav1.ErrorMessageMissingOSSSHSecret)
-	}
 	sshKey, actResult := s.ensureSSHKey(s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.SecretRef, s.scope.OSSSHSecret)
 	if _, isComplete := actResult.(actionComplete); !isComplete {
 		return actResult

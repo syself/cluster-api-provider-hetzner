@@ -409,8 +409,6 @@ type HetznerBareMetalHostStatus struct{}
 // +kubebuilder:printcolumn:name="Clock speed",type="string",JSONPath=".spec.status.hardwareDetails.cpu.clockGigahertz",description="CPU clock speed"
 // +kubebuilder:printcolumn:name="RAM in GB",type="string",JSONPath=".spec.status.hardwareDetails.ramGB",description="RAM in GB"
 // +kubebuilder:printcolumn:name="Consumer",type="string",JSONPath=".spec.consumerRef.name",description="Consumer using this host"
-// +kubebuilder:printcolumn:name="ErrorType",type="string",JSONPath=".spec.status.errorType",description="Type of the most recent error"
-// +kubebuilder:printcolumn:name="ErrorMessage",type="string",JSONPath=".spec.status.errorMessage",description="Message of the most recent error"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time duration since creation of BaremetalHost"
 // +k8s:defaulter-gen=true
 
