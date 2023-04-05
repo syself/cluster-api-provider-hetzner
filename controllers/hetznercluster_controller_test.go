@@ -760,7 +760,7 @@ func createHCloudMachine(ctx context.Context, env *helpers.TestEnvironment, name
 			Namespace:    namespace,
 			Finalizers:   []string{clusterv1.MachineFinalizer},
 			Labels: map[string]string{
-				clusterv1.ClusterLabelName: clusterName,
+				clusterv1.ClusterNameLabel: clusterName,
 			},
 		},
 		Spec: clusterv1.MachineSpec{
@@ -784,7 +784,7 @@ func createHCloudMachine(ctx context.Context, env *helpers.TestEnvironment, name
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      hcloudMachineName,
 			Namespace: namespace,
-			Labels:    map[string]string{clusterv1.ClusterLabelName: clusterName},
+			Labels:    map[string]string{clusterv1.ClusterNameLabel: clusterName},
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion: clusterv1.GroupVersion.String(),

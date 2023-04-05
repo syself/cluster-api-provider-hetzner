@@ -93,10 +93,10 @@ type Client interface {
 	Unregister(extensionConfig *runtimev1.ExtensionConfig) error
 
 	// CallAllExtensions calls all the ExtensionHandler registered for the hook.
-	CallAllExtensions(ctx context.Context, hook runtimecatalog.Hook, forObject metav1.Object, request runtime.Object, response runtimehooksv1.ResponseObject) error
+	CallAllExtensions(ctx context.Context, hook runtimecatalog.Hook, forObject metav1.Object, request runtimehooksv1.RequestObject, response runtimehooksv1.ResponseObject) error
 
 	// CallExtension calls the ExtensionHandler with the given name.
-	CallExtension(ctx context.Context, hook runtimecatalog.Hook, forObject metav1.Object, name string, request runtime.Object, response runtimehooksv1.ResponseObject) error
+	CallExtension(ctx context.Context, hook runtimecatalog.Hook, forObject metav1.Object, name string, request runtimehooksv1.RequestObject, response runtimehooksv1.ResponseObject) error
 }
 
 var _ Client = &client{}
@@ -108,10 +108,7 @@ type client struct {
 }
 
 func (c *client) WarmUp(extensionConfigList *runtimev1.ExtensionConfigList) error {
-	if err := c.registry.WarmUp(extensionConfigList); err != nil {
-		return err
-	}
-	return nil
+	return c.registry.WarmUp(extensionConfigList)
 }
 
 func (c *client) IsReady() bool {
@@ -193,7 +190,7 @@ func (c *client) Unregister(extensionConfig *runtimev1.ExtensionConfig) error {
 // This ensures we don't end up waiting for timeout from multiple unreachable Extensions.
 // See CallExtension for more details on when an ExtensionHandler returns an error.
 // The aggregated result of the ExtensionHandlers is updated into the response object passed to the function.
-func (c *client) CallAllExtensions(ctx context.Context, hook runtimecatalog.Hook, forObject metav1.Object, request runtime.Object, response runtimehooksv1.ResponseObject) error {
+func (c *client) CallAllExtensions(ctx context.Context, hook runtimecatalog.Hook, forObject metav1.Object, request runtimehooksv1.RequestObject, response runtimehooksv1.ResponseObject) error {
 	hookName := runtimecatalog.HookName(hook)
 	log := ctrl.LoggerFrom(ctx).WithValues("hook", hookName)
 	ctx = ctrl.LoggerInto(ctx, log)
@@ -263,7 +260,7 @@ func aggregateSuccessfulResponses(aggregatedResponse runtimehooksv1.ResponseObje
 	for _, resp := range responses {
 		aggregatedRetryResponse, ok := aggregatedResponse.(runtimehooksv1.RetryResponseObject)
 		if ok {
-			aggregatedRetryResponse.SetRetryAfterSeconds(lowestNonZeroRetryAfterSeconds(
+			aggregatedRetryResponse.SetRetryAfterSeconds(util.LowestNonZeroInt32(
 				aggregatedRetryResponse.GetRetryAfterSeconds(),
 				resp.(runtimehooksv1.RetryResponseObject).GetRetryAfterSeconds(),
 			))
@@ -273,20 +270,6 @@ func aggregateSuccessfulResponses(aggregatedResponse runtimehooksv1.ResponseObje
 		}
 	}
 	aggregatedResponse.SetMessage(strings.Join(messages, ", "))
-}
-
-// lowestNonZeroRetryAfterSeconds returns the lowest non-zero value of the two provided values.
-func lowestNonZeroRetryAfterSeconds(i, j int32) int32 {
-	if i == 0 {
-		return j
-	}
-	if j == 0 {
-		return i
-	}
-	if i < j {
-		return i
-	}
-	return j
 }
 
 // CallExtension makes the call to the extension with the given name.
@@ -301,7 +284,7 @@ func lowestNonZeroRetryAfterSeconds(i, j int32) int32 {
 // Nb. FailurePolicy does not affect the following kinds of errors:
 // - Internal errors. Examples: hooks is incompatible with ExtensionHandler, ExtensionHandler information is missing.
 // - Error when ExtensionHandler returns a response with `Status` set to `Failure`.
-func (c *client) CallExtension(ctx context.Context, hook runtimecatalog.Hook, forObject metav1.Object, name string, request runtime.Object, response runtimehooksv1.ResponseObject) error {
+func (c *client) CallExtension(ctx context.Context, hook runtimecatalog.Hook, forObject metav1.Object, name string, request runtimehooksv1.RequestObject, response runtimehooksv1.ResponseObject) error {
 	log := ctrl.LoggerFrom(ctx).WithValues("extensionHandler", name, "hook", runtimecatalog.HookName(hook))
 	ctx = ctrl.LoggerInto(ctx, log)
 	hookGVH, err := c.catalog.GroupVersionHook(hook)
@@ -340,6 +323,10 @@ func (c *client) CallExtension(ctx context.Context, hook runtimecatalog.Hook, fo
 	if registration.TimeoutSeconds != nil {
 		timeoutDuration = time.Duration(*registration.TimeoutSeconds) * time.Second
 	}
+
+	// Prepare the request by merging the settings in the registration with the settings in the request.
+	request = cloneAndAddSettings(request, registration.Settings)
+
 	opts := &httpCallOptions{
 		catalog:         c.catalog,
 		config:          registration.ClientConfig,
@@ -380,6 +367,23 @@ func (c *client) CallExtension(ctx context.Context, hook runtimecatalog.Hook, fo
 	// Received a successful response from the extension handler. The `response` object
 	// has been populated with the result. Return no error.
 	return nil
+}
+
+// cloneAndAddSettings creates a new request object and adds settings to it.
+func cloneAndAddSettings(request runtimehooksv1.RequestObject, registrationSettings map[string]string) runtimehooksv1.RequestObject {
+	// Merge the settings from registration with the settings in the request.
+	// The values in request take precedence over the values in the registration.
+	// Create a deepcopy object to avoid side-effects on the request object.
+	request = request.DeepCopyObject().(runtimehooksv1.RequestObject)
+	settings := map[string]string{}
+	for k, v := range registrationSettings {
+		settings[k] = v
+	}
+	for k, v := range request.GetSettings() {
+		settings[k] = v
+	}
+	request.SetSettings(settings)
+	return request
 }
 
 type httpCallOptions struct {
@@ -484,8 +488,12 @@ func httpCall(ctx context.Context, request, response runtime.Object, opts *httpC
 	})
 
 	resp, err := client.Do(httpRequest)
+
 	// Create http request metric.
-	runtimemetrics.RequestsTotal.Observe(httpRequest, resp, opts.hookGVH, err)
+	defer func() {
+		runtimemetrics.RequestsTotal.Observe(httpRequest, resp, opts.hookGVH, err, response)
+	}()
+
 	if err != nil {
 		return errCallingExtensionHandler(
 			errors.Wrapf(err, "http call failed"),
@@ -578,8 +586,8 @@ func defaultAndValidateDiscoveryResponse(cat *runtimecatalog.Catalog, discovery 
 		}
 		names[handler.Name] = true
 
-		// Name should match Kubernetes naming conventions - validated based on Kubernetes DNS1123 Subdomain rules.
-		if errStrings := validation.IsDNS1123Subdomain(handler.Name); len(errStrings) > 0 {
+		// Name should match Kubernetes naming conventions - validated based on DNS1123 label rules.
+		if errStrings := validation.IsDNS1123Label(handler.Name); len(errStrings) > 0 {
 			errs = append(errs, errors.Errorf("handler name %s is not valid: %s", handler.Name, errStrings))
 		}
 

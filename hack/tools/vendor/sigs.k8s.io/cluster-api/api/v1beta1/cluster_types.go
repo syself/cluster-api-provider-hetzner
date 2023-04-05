@@ -81,6 +81,7 @@ type Topology struct {
 	// RolloutAfter performs a rollout of the entire cluster one component at a time,
 	// control plane first and then machine deployments.
 	// +optional
+	// Deprecated: This field has no function and is going to be removed in the next apiVersion.
 	RolloutAfter *metav1.Time `json:"rolloutAfter,omitempty"`
 
 	// ControlPlane describes the cluster control plane.
@@ -101,11 +102,10 @@ type Topology struct {
 
 // ControlPlaneTopology specifies the parameters for the control plane nodes in the cluster.
 type ControlPlaneTopology struct {
-	// Metadata is the metadata applied to the machines of the ControlPlane.
+	// Metadata is the metadata applied to the ControlPlane and the Machines of the ControlPlane
+	// if the ControlPlaneTemplate referenced by the ClusterClass is machine based. If not, it
+	// is applied only to the ControlPlane.
 	// At runtime this metadata is merged with the corresponding metadata from the ClusterClass.
-	//
-	// This field is supported if and only if the control plane provider template
-	// referenced in the ClusterClass is Machine based.
 	// +optional
 	Metadata ObjectMeta `json:"metadata,omitempty"`
 
@@ -149,7 +149,7 @@ type WorkersTopology struct {
 // MachineDeploymentTopology specifies the different parameters for a set of worker nodes in the topology.
 // This set of nodes is managed by a MachineDeployment object whose lifecycle is managed by the Cluster controller.
 type MachineDeploymentTopology struct {
-	// Metadata is the metadata applied to the machines of the MachineDeployment.
+	// Metadata is the metadata applied to the MachineDeployment and the machines of the MachineDeployment.
 	// At runtime this metadata is merged with the corresponding metadata from the ClusterClass.
 	// +optional
 	Metadata ObjectMeta `json:"metadata,omitempty"`
@@ -171,7 +171,7 @@ type MachineDeploymentTopology struct {
 	FailureDomain *string `json:"failureDomain,omitempty"`
 
 	// Replicas is the number of worker nodes belonging to this set.
-	// If the value is nil, the MachineDeployment is created without the number of Replicas (defaulting to zero)
+	// If the value is nil, the MachineDeployment is created without the number of Replicas (defaulting to 1)
 	// and it's assumed that an external entity (like cluster autoscaler) is responsible for the management
 	// of this value.
 	// +optional
@@ -235,12 +235,18 @@ type MachineHealthCheckTopology struct {
 	MachineHealthCheckClass `json:",inline"`
 }
 
-// ClusterVariable can be used to customize the Cluster through
-// patches. It must comply to the corresponding
-// ClusterClassVariable defined in the ClusterClass.
+// ClusterVariable can be used to customize the Cluster through patches. Each ClusterVariable is associated with a
+// Variable definition in the ClusterClass `status` variables.
 type ClusterVariable struct {
 	// Name of the variable.
 	Name string `json:"name"`
+
+	// DefinitionFrom specifies where the definition of this Variable is from. DefinitionFrom is `inline` when the
+	// definition is from the ClusterClass `.spec.variables` or the name of a patch defined in the ClusterClass
+	// `.spec.patches` where the patch is external and provides external variables.
+	// This field is mandatory if the variable has `DefinitionsConflict: true` in ClusterClass `status.variables[]`
+	// +optional
+	DefinitionFrom string `json:"definitionFrom,omitempty"`
 
 	// Value of the variable.
 	// Note: the value will be validated against the schema of the corresponding ClusterClassVariable

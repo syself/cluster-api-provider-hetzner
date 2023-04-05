@@ -37,6 +37,7 @@ import (
 )
 
 const clusterTopologyNameKey = "cluster.spec.topology.class"
+const clusterResourceSetBindingClusterNameKey = "clusterresourcesetbinding.spec.clustername"
 
 type empty struct{}
 
@@ -146,6 +147,17 @@ func (n *node) captureAdditionalInformation(obj *unstructured.Unstructured) erro
 		}
 	}
 
+	// If the node is a ClusterResourceSetBinding capture the name of the cluster it is referencing to.
+	if n.identity.GroupVersionKind().GroupKind() == addonsv1.GroupVersion.WithKind("ClusterResourceSetBinding").GroupKind() {
+		binding := &addonsv1.ClusterResourceSetBinding{}
+		if err := localScheme.Convert(obj, binding, nil); err != nil {
+			return errors.Wrapf(err, "failed to convert object %s to ClusterResourceSetBinding", n.identityStr())
+		}
+		if n.additionalInfo == nil {
+			n.additionalInfo = map[string]interface{}{}
+		}
+		n.additionalInfo[clusterResourceSetBindingClusterNameKey] = binding.Spec.ClusterName
+	}
 	return nil
 }
 
@@ -286,10 +298,10 @@ func (o *objectGraph) objInfoToNode(obj *unstructured.Unstructured, n *node) err
 
 func (o *objectGraph) objMetaToNode(obj *unstructured.Unstructured, n *node) {
 	n.identity.Namespace = obj.GetNamespace()
-	if _, ok := obj.GetLabels()[clusterctlv1.ClusterctlMoveLabelName]; ok {
+	if _, ok := obj.GetLabels()[clusterctlv1.ClusterctlMoveLabel]; ok {
 		n.forceMove = true
 	}
-	if _, ok := obj.GetLabels()[clusterctlv1.ClusterctlMoveHierarchyLabelName]; ok {
+	if _, ok := obj.GetLabels()[clusterctlv1.ClusterctlMoveHierarchyLabel]; ok {
 		n.forceMoveHierarchy = true
 	}
 
@@ -341,14 +353,14 @@ func (o *objectGraph) getDiscoveryTypes() error {
 			if crd.Spec.Group == addonsv1.GroupVersion.Group && crd.Spec.Names.Kind == "ClusterResourceSet" {
 				forceMoveHierarchy = true
 			}
-			if _, ok := crd.Labels[clusterctlv1.ClusterctlMoveHierarchyLabelName]; ok {
+			if _, ok := crd.Labels[clusterctlv1.ClusterctlMoveHierarchyLabel]; ok {
 				forceMoveHierarchy = true
 			}
 
 			// If a CRD is with as force move, keep track of this so all the objects of this type could be moved.
 			// NOTE: if a kind is set for force move-hierarchy, it is also automatically force moved.
 			forceMove := forceMoveHierarchy
-			if _, ok := crd.Labels[clusterctlv1.ClusterctlMoveLabelName]; ok {
+			if _, ok := crd.Labels[clusterctlv1.ClusterctlMoveLabel]; ok {
 				forceMove = true
 			}
 
@@ -391,7 +403,7 @@ func getCRDList(proxy Proxy, crdList *apiextensionsv1.CustomResourceDefinitionLi
 		return err
 	}
 
-	if err := c.List(ctx, crdList, client.HasLabels{clusterctlv1.ClusterctlLabelName}); err != nil {
+	if err := c.List(ctx, crdList, client.HasLabels{clusterctlv1.ClusterctlLabel}); err != nil {
 		return errors.Wrap(err, "failed to get the list of CRDs required for the move discovery phase")
 	}
 	return nil
@@ -504,6 +516,17 @@ func (o *objectGraph) getClusterClasses() []*node {
 	return clusterClasses
 }
 
+// getClusterResourceSetBinding returns the list of ClusterResourceSetBinding existing in the object graph.
+func (o *objectGraph) getClusterResourceSetBinding() []*node {
+	crs := []*node{}
+	for _, node := range o.uidToNode {
+		if node.identity.GroupVersionKind().GroupKind() == addonsv1.GroupVersion.WithKind("ClusterResourceSetBinding").GroupKind() {
+			crs = append(crs, node)
+		}
+	}
+	return crs
+}
+
 // getClusters returns the list of Secrets existing in the object graph.
 func (o *objectGraph) getSecrets() []*node {
 	secrets := []*node{}
@@ -588,12 +611,27 @@ func (o *objectGraph) setSoftOwnership() {
 	// Cluster that uses a ClusterClass are soft owned by that ClusterClass.
 	for _, clusterClass := range clusterClasses {
 		for _, cluster := range clusters {
-			// if the cluster uses a managed topoloy and uses the clusterclass
+			// if the cluster uses a managed topology and uses the clusterclass
 			// set the clusterclass as a soft owner of the cluster.
 			if className, ok := cluster.additionalInfo[clusterTopologyNameKey]; ok {
 				if className == clusterClass.identity.Name && clusterClass.identity.Namespace == cluster.identity.Namespace {
 					cluster.addSoftOwner(clusterClass)
 				}
+			}
+		}
+	}
+
+	crsBindings := o.getClusterResourceSetBinding()
+	// ClusterResourceSetBinding that refers to a Cluster are soft owned by that Cluster.
+	for _, binding := range crsBindings {
+		clusterName, ok := binding.additionalInfo[clusterResourceSetBindingClusterNameKey]
+		if !ok {
+			continue
+		}
+
+		for _, cluster := range clusters {
+			if clusterName == cluster.identity.Name && binding.identity.Namespace == cluster.identity.Namespace {
+				binding.addSoftOwner(cluster)
 			}
 		}
 	}

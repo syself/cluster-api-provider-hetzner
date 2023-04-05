@@ -183,7 +183,10 @@ func SelfHostedSpec(ctx context.Context, inputGetter func() SelfHostedSpecInput)
 		})
 
 		By("Initializing the workload cluster")
-		clusterctl.InitManagementClusterAndWatchControllerLogs(ctx, clusterctl.InitManagementClusterAndWatchControllerLogsInput{
+		// watchesCtx is used in log streaming to be able to get canceld via cancelWatches after ending the test suite.
+		watchesCtx, cancelWatches := context.WithCancel(ctx)
+		defer cancelWatches()
+		clusterctl.InitManagementClusterAndWatchControllerLogs(watchesCtx, clusterctl.InitManagementClusterAndWatchControllerLogsInput{
 			ClusterProxy:              selfHostedClusterProxy,
 			ClusterctlConfigPath:      input.ClusterctlConfigPath,
 			InfrastructureProviders:   input.E2EConfig.InfrastructureProviders(),
@@ -213,7 +216,7 @@ func SelfHostedSpec(ctx context.Context, inputGetter func() SelfHostedSpecInput)
 			ctx,
 			preMoveMachineList,
 			client.InNamespace(namespace.Name),
-			client.MatchingLabels{clusterv1.ClusterLabelName: workloadClusterName},
+			client.MatchingLabels{clusterv1.ClusterNameLabel: workloadClusterName},
 		)
 		Expect(err).NotTo(HaveOccurred(), "Failed to list machines before move")
 
@@ -269,7 +272,7 @@ func SelfHostedSpec(ctx context.Context, inputGetter func() SelfHostedSpecInput)
 				ctx,
 				postMoveMachineList,
 				client.InNamespace(namespace.Name),
-				client.MatchingLabels{clusterv1.ClusterLabelName: workloadClusterName},
+				client.MatchingLabels{clusterv1.ClusterNameLabel: workloadClusterName},
 			)
 			Expect(err).NotTo(HaveOccurred(), "Failed to list machines after move")
 			return matchUnstructuredLists(preMoveMachineList, postMoveMachineList)

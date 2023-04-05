@@ -98,7 +98,7 @@ type ClusterctlUpgradeSpecInput struct {
 	ControlPlaneWaiters clusterctl.ControlPlaneWaiters
 	PreInit             func(managementClusterProxy framework.ClusterProxy)
 	PreUpgrade          func(managementClusterProxy framework.ClusterProxy)
-	PostUpgrade         func(managementClusterProxy framework.ClusterProxy)
+	PostUpgrade         func(managementClusterProxy framework.ClusterProxy, clusterNamespace, clusterName string)
 	// PreCleanupManagementCluster hook can be used for extra steps that might be required from providers, for example, remove conflicting service (such as DHCP) running on
 	// the target management cluster and run it on bootstrap (before the latter resumes LCM) if both clusters share the same LAN
 	PreCleanupManagementCluster func(managementClusterProxy framework.ClusterProxy)
@@ -367,7 +367,7 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 		Eventually(func() (int64, error) {
 			var n int64
 			machineList := &clusterv1alpha3.MachineList{}
-			if err := managementClusterProxy.GetClient().List(ctx, machineList, client.InNamespace(testNamespace.Name), client.MatchingLabels{clusterv1.ClusterLabelName: workLoadClusterName}); err == nil {
+			if err := managementClusterProxy.GetClient().List(ctx, machineList, client.InNamespace(testNamespace.Name), client.MatchingLabels{clusterv1.ClusterNameLabel: workLoadClusterName}); err == nil {
 				for _, machine := range machineList.Items {
 					if machine.Status.NodeRef != nil {
 						n++
@@ -392,7 +392,7 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 			ctx,
 			preUpgradeMachineList,
 			client.InNamespace(testNamespace.Name),
-			client.MatchingLabels{clusterv1.ClusterLabelName: workLoadClusterName},
+			client.MatchingLabels{clusterv1.ClusterNameLabel: workLoadClusterName},
 		)
 		Expect(err).NotTo(HaveOccurred())
 		// Check if the user want a custom upgrade
@@ -432,7 +432,7 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 
 		if input.PostUpgrade != nil {
 			By("Running Post-upgrade steps against the management cluster")
-			input.PostUpgrade(managementClusterProxy)
+			input.PostUpgrade(managementClusterProxy, testNamespace.Name, managementClusterName)
 		}
 
 		// After the upgrade check that there were no unexpected rollouts.
@@ -444,7 +444,7 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 				ctx,
 				postUpgradeMachineList,
 				client.InNamespace(testNamespace.Name),
-				client.MatchingLabels{clusterv1.ClusterLabelName: workLoadClusterName},
+				client.MatchingLabels{clusterv1.ClusterNameLabel: workLoadClusterName},
 			)
 			Expect(err).NotTo(HaveOccurred())
 			return matchUnstructuredLists(preUpgradeMachineList, postUpgradeMachineList)
@@ -452,12 +452,12 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 
 		// After upgrading we are sure the version is the latest version of the API,
 		// so it is possible to use the standard helpers
-
 		workloadCluster := framework.GetClusterByName(ctx, framework.GetClusterByNameInput{
 			Getter:    managementClusterProxy.GetClient(),
 			Namespace: testNamespace.Name,
 			Name:      workLoadClusterName,
 		})
+
 		if workloadCluster.Spec.Topology != nil {
 			// Cluster is using ClusterClass, scale up via topology.
 			framework.ScaleAndWaitMachineDeploymentTopology(ctx, framework.ScaleAndWaitMachineDeploymentTopologyInput{
@@ -723,11 +723,11 @@ func matchUnstructuredLists(l1 *unstructured.UnstructuredList, l2 *unstructured.
 	if len(l1.Items) != len(l2.Items) {
 		return false
 	}
-	s1 := sets.NewString()
+	s1 := sets.Set[string]{}
 	for _, i := range l1.Items {
 		s1.Insert(types.NamespacedName{Namespace: i.GetNamespace(), Name: i.GetName()}.String())
 	}
-	s2 := sets.NewString()
+	s2 := sets.Set[string]{}
 	for _, i := range l2.Items {
 		s2.Insert(types.NamespacedName{Namespace: i.GetNamespace(), Name: i.GetName()}.String())
 	}

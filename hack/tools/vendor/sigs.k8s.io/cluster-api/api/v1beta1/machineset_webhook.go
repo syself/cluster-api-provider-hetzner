@@ -49,7 +49,7 @@ func (m *MachineSet) Default() {
 	if m.Labels == nil {
 		m.Labels = make(map[string]string)
 	}
-	m.Labels[ClusterLabelName] = m.Spec.ClusterName
+	m.Labels[ClusterNameLabel] = m.Spec.ClusterName
 
 	if m.Spec.DeletePolicy == "" {
 		randomPolicy := string(RandomMachineSetDeletePolicy)
@@ -66,8 +66,8 @@ func (m *MachineSet) Default() {
 
 	if len(m.Spec.Selector.MatchLabels) == 0 && len(m.Spec.Selector.MatchExpressions) == 0 {
 		// Note: MustFormatValue is used here as the value of this label will be a hash if the MachineSet name is longer than 63 characters.
-		m.Spec.Selector.MatchLabels[MachineSetLabelName] = capilabels.MustFormatValue(m.Name)
-		m.Spec.Template.Labels[MachineSetLabelName] = capilabels.MustFormatValue(m.Name)
+		m.Spec.Selector.MatchLabels[MachineSetNameLabel] = capilabels.MustFormatValue(m.Name)
+		m.Spec.Template.Labels[MachineSetNameLabel] = capilabels.MustFormatValue(m.Name)
 	}
 
 	if m.Spec.Template.Spec.Version != nil && !strings.HasPrefix(*m.Spec.Template.Spec.Version, "v") {

@@ -258,7 +258,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 					Namespace:    testNs.Name,
 					Finalizers:   []string{clusterv1.MachineFinalizer},
 					Labels: map[string]string{
-						clusterv1.ClusterLabelName: capiCluster.Name,
+						clusterv1.ClusterNameLabel: capiCluster.Name,
 					},
 				},
 				Spec: clusterv1.MachineSpec{
@@ -281,7 +281,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 					Name:      bmMachineName,
 					Namespace: testNs.Name,
 					Labels: map[string]string{
-						clusterv1.ClusterLabelName: capiCluster.Name,
+						clusterv1.ClusterNameLabel: capiCluster.Name,
 					},
 					OwnerReferences: []metav1.OwnerReference{
 						{
@@ -464,7 +464,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 					Namespace:    testNs.Name,
 					Finalizers:   []string{clusterv1.MachineFinalizer},
 					Labels: map[string]string{
-						clusterv1.ClusterLabelName: capiCluster.Name,
+						clusterv1.ClusterNameLabel: capiCluster.Name,
 					},
 				},
 				Spec: clusterv1.MachineSpec{
@@ -487,7 +487,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 					Name:      bmMachineName,
 					Namespace: testNs.Name,
 					Labels: map[string]string{
-						clusterv1.ClusterLabelName: capiCluster.Name,
+						clusterv1.ClusterNameLabel: capiCluster.Name,
 					},
 					OwnerReferences: []metav1.OwnerReference{
 						{
@@ -628,7 +628,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 				Namespace:    testNs.Name,
 				Finalizers:   []string{clusterv1.MachineFinalizer},
 				Labels: map[string]string{
-					clusterv1.ClusterLabelName: capiCluster.Name,
+					clusterv1.ClusterNameLabel: capiCluster.Name,
 				},
 			},
 			Spec: clusterv1.MachineSpec{
@@ -651,7 +651,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 				Name:      bmMachineName,
 				Namespace: testNs.Name,
 				Labels: map[string]string{
-					clusterv1.ClusterLabelName: capiCluster.Name,
+					clusterv1.ClusterNameLabel: capiCluster.Name,
 				},
 				OwnerReferences: []metav1.OwnerReference{
 					{

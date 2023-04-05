@@ -36,7 +36,6 @@ import (
 
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	logf "sigs.k8s.io/cluster-api/cmd/clusterctl/log"
-	"sigs.k8s.io/cluster-api/util/annotations"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/yaml"
@@ -52,16 +51,6 @@ type ObjectMover interface {
 
 	// FromDirectory reads all the Cluster API objects existing in a configured directory to a target management cluster.
 	FromDirectory(toCluster Client, directory string) error
-
-	// Backup saves all the Cluster API objects existing in a namespace (or from all the namespaces if empty) to a target directory.
-	//
-	// Deprecated: This will be dropped in a future release. Please use ToDirectory.
-	Backup(namespace string, directory string) error
-
-	// Restore restores all the Cluster API objects existing in a configured directory to a target management cluster.
-	//
-	// Deprecated: This will be dropped in a future release. Please use FromDirectory.
-	Restore(toCluster Client, directory string) error
 }
 
 // objectMover implements the ObjectMover interface.
@@ -105,12 +94,6 @@ func (o *objectMover) Move(namespace string, toCluster Client, dryRun bool) erro
 	return o.move(objectGraph, proxy)
 }
 
-func (o *objectMover) Backup(namespace string, directory string) error {
-	log := logf.Log
-	log.V(5).Info("Deprecated: This function will be dropped in a future release. Please use ToDirectory instead of Backup.")
-	return o.ToDirectory(namespace, directory)
-}
-
 func (o *objectMover) ToDirectory(namespace string, directory string) error {
 	log := logf.Log
 	log.Info("Moving to directory...")
@@ -121,12 +104,6 @@ func (o *objectMover) ToDirectory(namespace string, directory string) error {
 	}
 
 	return o.toDirectory(objectGraph, directory)
-}
-
-func (o *objectMover) Restore(toCluster Client, directory string) error {
-	log := logf.Log
-	log.V(5).Info("Deprecated: This function will be dropped in a future release. Please use FromDirectory instead of Restore.")
-	return o.FromDirectory(toCluster, directory)
 }
 
 func (o *objectMover) FromDirectory(toCluster Client, directory string) error {
@@ -661,7 +638,7 @@ func pauseClusterClass(proxy Proxy, n *node, pause bool) error {
 	// Update the annotation to the desired state
 	ccAnnotations := clusterClass.GetAnnotations()
 	if ccAnnotations == nil {
-		ccAnnotations = make(map[string]string)
+		ccAnnotations = map[string]string{}
 	}
 	if pause {
 		// Set the pause annotation.
@@ -671,12 +648,8 @@ func pauseClusterClass(proxy Proxy, n *node, pause bool) error {
 		delete(ccAnnotations, clusterv1.PausedAnnotation)
 	}
 
-	// If the ClusterClass is already at desired state return early.
-	if !annotations.AddAnnotations(clusterClass, ccAnnotations) {
-		return nil
-	}
-
-	// Update the cluster class with the new annotations.
+	// Update the ClusterClass with the new annotations.
+	clusterClass.SetAnnotations(ccAnnotations)
 	if err := patchHelper.Patch(ctx, clusterClass); err != nil {
 		return errors.Wrapf(err, "error patching ClusterClass %s/%s", n.identity.Namespace, n.identity.Name)
 	}
@@ -691,7 +664,7 @@ func (o *objectMover) ensureNamespaces(graph *objectGraph, toProxy Proxy) error 
 	}
 
 	ensureNamespaceBackoff := newWriteBackoff()
-	namespaces := sets.NewString()
+	namespaces := sets.Set[string]{}
 	for _, node := range graph.getMoveNodes() {
 		// ignore global/cluster-wide objects
 		if node.isGlobal {

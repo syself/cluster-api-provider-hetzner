@@ -190,13 +190,10 @@ func (k *proxy) CheckClusterAvailable() error {
 	}
 
 	connectBackoff := newShortConnectBackoff()
-	if err := retryWithExponentialBackoff(connectBackoff, func() error {
+	return retryWithExponentialBackoff(connectBackoff, func() error {
 		_, err := client.New(config, client.Options{Scheme: localScheme})
 		return err
-	}); err != nil {
-		return err
-	}
-	return nil
+	})
 }
 
 // ListResources lists namespaced and cluster-wide resources for a component matching the labels. Namespaced resources are only listed
@@ -235,7 +232,7 @@ func (k *proxy) ListResources(labels map[string]string, namespaces ...string) ([
 
 	// Exclude from discovery the objects from the cert-manager/provider's CRDs.
 	// Those objects are not part of the components, and they will eventually be removed when removing the CRD definition.
-	crdsToExclude := sets.String{}
+	crdsToExclude := sets.Set[string]{}
 
 	crdList := &apiextensionsv1.CustomResourceDefinitionList{}
 	if err := retryWithExponentialBackoff(newReadBackoff(), func() error {
@@ -244,8 +241,8 @@ func (k *proxy) ListResources(labels map[string]string, namespaces ...string) ([
 		return nil, errors.Wrap(err, "failed to list CRDs")
 	}
 	for _, crd := range crdList.Items {
-		component, isCoreComponent := labels[clusterctlv1.ClusterctlCoreLabelName]
-		_, isProviderResource := crd.Labels[clusterv1.ProviderLabelName]
+		component, isCoreComponent := labels[clusterctlv1.ClusterctlCoreLabel]
+		_, isProviderResource := crd.Labels[clusterv1.ProviderNameLabel]
 		if (isCoreComponent && component == clusterctlv1.ClusterctlCoreLabelCertManagerValue) || isProviderResource {
 			for _, version := range crd.Spec.Versions {
 				crdsToExclude.Insert(metav1.GroupVersionKind{

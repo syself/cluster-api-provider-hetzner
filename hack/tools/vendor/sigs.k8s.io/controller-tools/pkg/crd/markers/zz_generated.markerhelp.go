@@ -68,6 +68,22 @@ func (Enum) Help() *markers.DefinitionHelp {
 	}
 }
 
+func (Example) Help() *markers.DefinitionHelp {
+	return &markers.DefinitionHelp{
+		Category: "CRD validation",
+		DetailedHelp: markers.DetailedHelp{
+			Summary: "sets the example value for this field. ",
+			Details: "An example value will be accepted as any value valid for the field. Formatting for common types include: boolean: `true`, string: `Cluster`, numerical: `1.24`, array: `{1,2}`, object: `{policy: \"delete\"}`). Examples should be defined in pruned form, and only best-effort validation will be performed. Full validation of an example requires submission of the containing CRD to an apiserver.",
+		},
+		FieldHelp: map[string]markers.DetailedHelp{
+			"Value": {
+				Summary: "",
+				Details: "",
+			},
+		},
+	}
+}
+
 func (ExclusiveMaximum) Help() *markers.DefinitionHelp {
 	return &markers.DefinitionHelp{
 		Category: "CRD validation",
@@ -175,6 +191,26 @@ func (Maximum) Help() *markers.DefinitionHelp {
 			Details: "",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{},
+	}
+}
+
+func (Metadata) Help() *markers.DefinitionHelp {
+	return &markers.DefinitionHelp{
+		Category: "CRD",
+		DetailedHelp: markers.DetailedHelp{
+			Summary: "configures the additional annotations or labels for this CRD. For example adding annotation \"api-approved.kubernetes.io\" for a CRD with Kubernetes groups, or annotation \"cert-manager.io/inject-ca-from-secret\" for a CRD that needs CA injection.",
+			Details: "",
+		},
+		FieldHelp: map[string]markers.DetailedHelp{
+			"Annotations": {
+				Summary: "will be added into the annotations of this CRD.",
+				Details: "",
+			},
+			"Labels": {
+				Summary: "will be added into the labels of this CRD.",
+				Details: "",
+			},
+		},
 	}
 }
 

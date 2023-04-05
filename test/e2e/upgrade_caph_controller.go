@@ -121,7 +121,7 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 		clusterctlBinaryURL = clusterctlBinaryURLReplacer.Replace(clusterctlBinaryURLTemplate)
 		gomega.Expect(input.E2EConfig.Variables).To(gomega.HaveKey(initWithKubernetesVersion))
 		gomega.Expect(input.E2EConfig.Variables).To(gomega.HaveKey(KubernetesVersion))
-		gomega.Expect(os.MkdirAll(input.ArtifactFolder, 0750)).To(gomega.Succeed(), "Invalid argument. input.ArtifactFolder can't be created for %s spec", specName)
+		gomega.Expect(os.MkdirAll(input.ArtifactFolder, 0o750)).To(gomega.Succeed(), "Invalid argument. input.ArtifactFolder can't be created for %s spec", specName)
 
 		// Setup a Namespace where to host objects for this spec and create a watcher for the namespace events.
 		managementClusterNamespace, managementClusterCancelWatches = setupSpecNamespace(ctx, specName, input.BootstrapClusterProxy, input.ArtifactFolder)
@@ -176,7 +176,7 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 		clusterctlBinaryPath := downloadToTmpFile(ctx, clusterctlBinaryURL)
 		defer os.Remove(clusterctlBinaryPath) // clean up
 
-		err := os.Chmod(clusterctlBinaryPath, 0744) //nolint:gosec
+		err := os.Chmod(clusterctlBinaryPath, 0o744) //nolint:gosec
 		gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to chmod temporary file")
 
 		ginkgo.By("Initializing the workload cluster with older versions of providers")
@@ -259,7 +259,7 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 		gomega.Eventually(func() (int64, error) {
 			var n int64
 			machineList := &clusterv1alpha3.MachineList{}
-			if err := managementClusterProxy.GetClient().List(ctx, machineList, c.InNamespace(testNamespace.Name), c.MatchingLabels{clusterv1.ClusterLabelName: workLoadClusterName}); err == nil {
+			if err := managementClusterProxy.GetClient().List(ctx, machineList, c.InNamespace(testNamespace.Name), c.MatchingLabels{clusterv1.ClusterNameLabel: workLoadClusterName}); err == nil {
 				for _, machine := range machineList.Items {
 					if machine.Status.NodeRef != nil {
 						n++

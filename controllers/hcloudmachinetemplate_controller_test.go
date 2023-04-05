@@ -93,7 +93,7 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 				GenerateName: "hcloud-machine-template-",
 				Namespace:    testNs.Name,
 				Labels: map[string]string{
-					clusterv1.ClusterLabelName: capiCluster.Name,
+					clusterv1.ClusterNameLabel: capiCluster.Name,
 				},
 			},
 			Spec: infrav1.HCloudMachineTemplateSpec{
