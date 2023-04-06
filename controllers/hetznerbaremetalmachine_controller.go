@@ -146,7 +146,6 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 }
 
 func (r *HetznerBareMetalMachineReconciler) reconcileDelete(ctx context.Context, machineScope *scope.BareMetalMachineScope) (reconcile.Result, error) {
-	machineScope.Info("Reconciling HetznerBareMetalMachine delete")
 	// delete servers
 	result, err := baremetal.NewService(machineScope).Delete(ctx)
 	if err != nil {
@@ -244,11 +243,10 @@ func (r *HetznerBareMetalMachineReconciler) HetznerClusterToBareMetalMachines(ct
 			return nil
 		}
 
-		log = log.WithValues("objectMapper", "hetznerClusterToBareMetalMachine", "namespace", c.Namespace, "hetznerCluster", c.Name)
+		log := log.WithValues("objectMapper", "hetznerClusterToBareMetalMachine", "namespace", c.Namespace, "hetznerCluster", c.Name)
 
 		// Don't handle deleted HetznerCluster
 		if !c.ObjectMeta.DeletionTimestamp.IsZero() {
-			log.V(1).Info("HetznerCluster has a deletion timestamp, skipping mapping")
 			return nil
 		}
 
@@ -269,9 +267,7 @@ func (r *HetznerBareMetalMachineReconciler) HetznerClusterToBareMetalMachines(ct
 			return nil
 		}
 		for _, m := range machineList.Items {
-			log = log.WithValues("machine", m.Name)
 			if m.Spec.InfrastructureRef.GroupVersionKind().Kind != "HetznerBareMetalMachine" {
-				log.V(1).Info("Machine has an InfrastructureRef for a different type, will not add to reconciliation request")
 				continue
 			}
 			if m.Spec.InfrastructureRef.Name == "" {
@@ -279,8 +275,6 @@ func (r *HetznerBareMetalMachineReconciler) HetznerClusterToBareMetalMachines(ct
 			}
 
 			name := client.ObjectKey{Namespace: m.Namespace, Name: m.Spec.InfrastructureRef.Name}
-
-			log.V(1).Info("Adding BareMetalMachine to reconciliation request", "bareMetalMachine", name.Name)
 
 			result = append(result, reconcile.Request{NamespacedName: name})
 		}

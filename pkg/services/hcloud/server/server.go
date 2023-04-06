@@ -426,6 +426,10 @@ func (s *Service) handleServerStatusOff(ctx context.Context, server *hcloud.Serv
 			// Not yet timed out, try again to power on
 			if _, err := s.scope.HCloudClient.PowerOnServer(ctx, server); err != nil {
 				hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "PowerOnServer")
+				if hcloud.IsError(err, hcloud.ErrorCodeLocked) {
+					// if server is locked, we just retry again
+					return reconcile.Result{Requeue: true}, nil
+				}
 				return res, fmt.Errorf("failed to power on server: %w", err)
 			}
 		} else {
@@ -437,6 +441,10 @@ func (s *Service) handleServerStatusOff(ctx context.Context, server *hcloud.Serv
 		// No condition set yet. Try to power server on.
 		if _, err := s.scope.HCloudClient.PowerOnServer(ctx, server); err != nil {
 			hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "PowerOnServer")
+			if hcloud.IsError(err, hcloud.ErrorCodeLocked) {
+				// if server is locked, we just retry again
+				return reconcile.Result{Requeue: true}, nil
+			}
 			return res, fmt.Errorf("failed to power on server: %w", err)
 		}
 		conditions.MarkFalse(

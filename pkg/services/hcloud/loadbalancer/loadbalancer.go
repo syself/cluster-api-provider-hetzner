@@ -51,8 +51,6 @@ func (s *Service) Reconcile(ctx context.Context) error {
 
 	log := s.scope.Logger.WithValues("reconciler", "load balancer")
 
-	log.V(1).Info("Start reconciling")
-
 	// find load balancer
 	lb, err := s.findLoadBalancer(ctx)
 	if err != nil {
