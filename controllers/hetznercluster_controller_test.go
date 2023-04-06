@@ -194,7 +194,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 			Eventually(func() error {
 				loadBalancers, err := hcloudClient.ListLoadBalancers(ctx, hcloud.LoadBalancerListOpts{
 					ListOpts: hcloud.ListOpts{
-						LabelSelector: utils.LabelsToLabelSelector(map[string]string{infrav1.ClusterTagKey(instance.Name): "owned"}),
+						LabelSelector: utils.LabelsToLabelSelector(map[string]string{instance.ClusterTagKey(): "owned"}),
 					},
 				})
 				if err != nil {
@@ -233,7 +233,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 			Eventually(func() int {
 				loadBalancers, err := hcloudClient.ListLoadBalancers(ctx, hcloud.LoadBalancerListOpts{
 					ListOpts: hcloud.ListOpts{
-						LabelSelector: utils.LabelsToLabelSelector(map[string]string{infrav1.ClusterTagKey(instance.Name): "owned"}),
+						LabelSelector: utils.LabelsToLabelSelector(map[string]string{instance.ClusterTagKey(): "owned"}),
 					},
 				})
 				if err != nil {
@@ -267,7 +267,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 			Eventually(func() int {
 				loadBalancers, err := hcloudClient.ListLoadBalancers(ctx, hcloud.LoadBalancerListOpts{
 					ListOpts: hcloud.ListOpts{
-						LabelSelector: utils.LabelsToLabelSelector(map[string]string{infrav1.ClusterTagKey(instance.Name): "owned"}),
+						LabelSelector: utils.LabelsToLabelSelector(map[string]string{instance.ClusterTagKey(): "owned"}),
 					},
 				})
 				if err != nil {
@@ -295,7 +295,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 			Eventually(func() int {
 				loadBalancers, err := hcloudClient.ListLoadBalancers(ctx, hcloud.LoadBalancerListOpts{
 					ListOpts: hcloud.ListOpts{
-						LabelSelector: utils.LabelsToLabelSelector(map[string]string{infrav1.ClusterTagKey(instance.Name): "owned"}),
+						LabelSelector: utils.LabelsToLabelSelector(map[string]string{instance.ClusterTagKey(): "owned"}),
 					},
 				})
 				if err != nil {
@@ -389,7 +389,6 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 
 			It("should not create load balancer and cluster should be ready", func() {
 				key := client.ObjectKey{Namespace: instance.Namespace, Name: instance.Name}
-				fmt.Println("------------------------------------------------------------------------------------------", key)
 				Eventually(func() bool {
 					if err := testEnv.Get(ctx, key, instance); err != nil {
 						fmt.Println("Did not find instance")
@@ -496,7 +495,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 			Eventually(func() int {
 				servers, err := hcloudClient.ListServers(ctx, hcloud.ServerListOpts{
 					ListOpts: hcloud.ListOpts{
-						LabelSelector: utils.LabelsToLabelSelector(map[string]string{infrav1.ClusterTagKey(instance.Name): "owned"}),
+						LabelSelector: utils.LabelsToLabelSelector(map[string]string{instance.ClusterTagKey(): "owned"}),
 					},
 				})
 				if err != nil {
@@ -577,7 +576,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 		DescribeTable("create and delete placement groups without error",
 			func(placementGroups []infrav1.HCloudPlacementGroupSpec) {
 				// Create the HetznerCluster object
-				instance.Spec.HCloudPlacementGroup = placementGroups
+				instance.Spec.HCloudPlacementGroups = placementGroups
 				Expect(testEnv.Create(ctx, instance)).To(Succeed())
 				defer func() {
 					Expect(testEnv.Cleanup(ctx, instance)).To(Succeed())
@@ -597,7 +596,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 				Eventually(func() int {
 					pgs, err := hcloudClient.ListPlacementGroups(ctx, hcloud.PlacementGroupListOpts{
 						ListOpts: hcloud.ListOpts{
-							LabelSelector: utils.LabelsToLabelSelector(map[string]string{infrav1.ClusterTagKey(instance.Name): "owned"}),
+							LabelSelector: utils.LabelsToLabelSelector(map[string]string{instance.ClusterTagKey(): "owned"}),
 						},
 					})
 					if err != nil {
@@ -631,13 +630,13 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 				func(newPlacementGroupSpec []infrav1.HCloudPlacementGroupSpec) {
 					ph, err := patch.NewHelper(instance, testEnv)
 					Expect(err).ShouldNot(HaveOccurred())
-					instance.Spec.HCloudPlacementGroup = newPlacementGroupSpec
+					instance.Spec.HCloudPlacementGroups = newPlacementGroupSpec
 					Expect(ph.Patch(ctx, instance, patch.WithStatusObservedGeneration{})).To(Succeed())
 
 					Eventually(func() int {
 						pgs, err := hcloudClient.ListPlacementGroups(ctx, hcloud.PlacementGroupListOpts{
 							ListOpts: hcloud.ListOpts{
-								LabelSelector: utils.LabelsToLabelSelector(map[string]string{infrav1.ClusterTagKey(instance.Name): "owned"}),
+								LabelSelector: utils.LabelsToLabelSelector(map[string]string{instance.ClusterTagKey(): "owned"}),
 							},
 						})
 						if err != nil {
@@ -959,12 +958,12 @@ var _ = Describe("HetznerCluster validation", func() {
 		})
 
 		It("should fail with an empty placementGroup name", func() {
-			hetznerCluster.Spec.HCloudPlacementGroup = append(hetznerCluster.Spec.HCloudPlacementGroup, infrav1.HCloudPlacementGroupSpec{})
+			hetznerCluster.Spec.HCloudPlacementGroups = append(hetznerCluster.Spec.HCloudPlacementGroups, infrav1.HCloudPlacementGroupSpec{})
 			Expect(testEnv.Create(ctx, hetznerCluster)).ToNot(Succeed())
 		})
 
 		It("should fail with a wrong placementGroup type", func() {
-			hetznerCluster.Spec.HCloudPlacementGroup = append(hetznerCluster.Spec.HCloudPlacementGroup, infrav1.HCloudPlacementGroupSpec{
+			hetznerCluster.Spec.HCloudPlacementGroups = append(hetznerCluster.Spec.HCloudPlacementGroups, infrav1.HCloudPlacementGroupSpec{
 				Name: "newName",
 				Type: "wrong-type",
 			})

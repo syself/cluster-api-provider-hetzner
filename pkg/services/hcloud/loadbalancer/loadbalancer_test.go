@@ -97,7 +97,6 @@ var _ = Describe("createOptsFromSpec", func() {
 		hetznerCluster.Name = "hetzner-cluster"
 
 		publicInterface := true
-		clusterTagKey := infrav1.ClusterTagKey(hetznerCluster.Name)
 		proxyprotocol := false
 
 		wantCreateOpts = hcloud.LoadBalancerCreateOpts{
@@ -106,7 +105,7 @@ var _ = Describe("createOptsFromSpec", func() {
 			Algorithm:        &hcloud.LoadBalancerAlgorithm{Type: hcloud.LoadBalancerAlgorithmTypeLeastConnections},
 			Location:         &hcloud.Location{Name: lbRegion},
 			Network:          &hcloud.Network{ID: networkID},
-			Labels:           map[string]string{clusterTagKey: string(infrav1.ResourceLifecycleOwned)},
+			Labels:           map[string]string{hetznerCluster.ClusterTagKey(): string(infrav1.ResourceLifecycleOwned)},
 			PublicInterface:  &publicInterface,
 			Services: []hcloud.LoadBalancerCreateOptsService{
 				{

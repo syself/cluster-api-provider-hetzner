@@ -173,7 +173,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 			Eventually(func() bool {
 				servers, err := hcloudClient.ListServers(ctx, hcloud.ServerListOpts{
 					ListOpts: hcloud.ListOpts{
-						LabelSelector: utils.LabelsToLabelSelector(map[string]string{infrav1.ClusterTagKey(infraCluster.Name): "owned"}),
+						LabelSelector: utils.LabelsToLabelSelector(map[string]string{infraCluster.ClusterTagKey(): "owned"}),
 					},
 				})
 				if err != nil {
@@ -213,7 +213,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 			Eventually(func() int {
 				servers, err := hcloudClient.ListServers(ctx, hcloud.ServerListOpts{
 					ListOpts: hcloud.ListOpts{
-						LabelSelector: utils.LabelsToLabelSelector(map[string]string{infrav1.ClusterTagKey(infraCluster.Name): "owned"}),
+						LabelSelector: utils.LabelsToLabelSelector(map[string]string{infraCluster.ClusterTagKey(): "owned"}),
 					},
 				})
 				if err != nil {
@@ -302,7 +302,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				Eventually(func() int {
 					servers, err := hcloudClient.ListServers(ctx, hcloud.ServerListOpts{
 						ListOpts: hcloud.ListOpts{
-							LabelSelector: utils.LabelsToLabelSelector(map[string]string{infrav1.ClusterTagKey(infraCluster.Name): "owned"}),
+							LabelSelector: utils.LabelsToLabelSelector(map[string]string{infraCluster.ClusterTagKey(): "owned"}),
 						},
 					})
 					if err != nil {
@@ -315,7 +315,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 
 		Context("without placement groups", func() {
 			BeforeEach(func() {
-				infraCluster.Spec.HCloudPlacementGroup = nil
+				infraCluster.Spec.HCloudPlacementGroups = nil
 				Expect(testEnv.Create(ctx, infraCluster)).To(Succeed())
 				infraMachine.Spec.PlacementGroupName = nil
 				Expect(testEnv.Create(ctx, infraMachine)).To(Succeed())
@@ -325,7 +325,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				Eventually(func() int {
 					servers, err := hcloudClient.ListServers(ctx, hcloud.ServerListOpts{
 						ListOpts: hcloud.ListOpts{
-							LabelSelector: utils.LabelsToLabelSelector(map[string]string{infrav1.ClusterTagKey(infraCluster.Name): "owned"}),
+							LabelSelector: utils.LabelsToLabelSelector(map[string]string{infraCluster.ClusterTagKey(): "owned"}),
 						},
 					})
 					if err != nil {
@@ -338,7 +338,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 
 		Context("without placement groups, but with placement group in hcloudMachine spec", func() {
 			BeforeEach(func() {
-				infraCluster.Spec.HCloudPlacementGroup = nil
+				infraCluster.Spec.HCloudPlacementGroups = nil
 				Expect(testEnv.Create(ctx, infraCluster)).To(Succeed())
 				Expect(testEnv.Create(ctx, infraMachine)).To(Succeed())
 			})
@@ -367,7 +367,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				Eventually(func() int {
 					servers, err := hcloudClient.ListServers(ctx, hcloud.ServerListOpts{
 						ListOpts: hcloud.ListOpts{
-							LabelSelector: utils.LabelsToLabelSelector(map[string]string{infrav1.ClusterTagKey(infraCluster.Name): "owned"}),
+							LabelSelector: utils.LabelsToLabelSelector(map[string]string{infraCluster.ClusterTagKey(): "owned"}),
 						},
 					})
 					if err != nil {

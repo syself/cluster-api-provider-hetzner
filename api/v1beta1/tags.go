@@ -51,11 +51,6 @@ const (
 	MachineNameTagKey = "machine." + NameHetznerProviderPrefix + "name"
 )
 
-// ClusterTagKey generates the key for resources associated with a cluster.
-func ClusterTagKey(name string) string {
-	return fmt.Sprintf("%s%s", NameHetznerProviderOwned, name)
-}
-
 // ClusterHetznerCloudProviderTagKey generates the key for resources associated a cluster's HCloud cloud provider.
 func ClusterHetznerCloudProviderTagKey(name string) string {
 	return fmt.Sprintf("%s%s", NameKubernetesHetznerCloudProviderPrefix, name)

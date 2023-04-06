@@ -293,7 +293,7 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 	// set placement group if necessary
 	if s.scope.HCloudMachine.Spec.PlacementGroupName != nil {
 		var foundPlacementGroupInStatus bool
-		for _, pgSts := range s.scope.HetznerCluster.Status.HCloudPlacementGroup {
+		for _, pgSts := range s.scope.HetznerCluster.Status.HCloudPlacementGroups {
 			if *s.scope.HCloudMachine.Spec.PlacementGroupName == pgSts.Name {
 				foundPlacementGroupInStatus = true
 				opts.PlacementGroup = &hcloud.PlacementGroup{
@@ -615,9 +615,9 @@ func createLabels(hcloudClusterName, hcloudMachineName string, isControlPlane bo
 	}
 
 	return map[string]string{
-		infrav1.ClusterTagKey(hcloudClusterName): string(infrav1.ResourceLifecycleOwned),
-		infrav1.MachineNameTagKey:                hcloudMachineName,
-		"machine_type":                           machineType,
+		infrav1.NameHetznerProviderOwned + hcloudClusterName: string(infrav1.ResourceLifecycleOwned),
+		infrav1.MachineNameTagKey:                            hcloudMachineName,
+		"machine_type":                                       machineType,
 	}
 }
 

@@ -1260,8 +1260,8 @@ func (in *HetznerClusterSpec) DeepCopyInto(out *HetznerClusterSpec) {
 		**out = **in
 	}
 	in.ControlPlaneLoadBalancer.DeepCopyInto(&out.ControlPlaneLoadBalancer)
-	if in.HCloudPlacementGroup != nil {
-		in, out := &in.HCloudPlacementGroup, &out.HCloudPlacementGroup
+	if in.HCloudPlacementGroups != nil {
+		in, out := &in.HCloudPlacementGroups, &out.HCloudPlacementGroups
 		*out = make([]HCloudPlacementGroupSpec, len(*in))
 		copy(*out, *in)
 	}
@@ -1291,8 +1291,8 @@ func (in *HetznerClusterStatus) DeepCopyInto(out *HetznerClusterStatus) {
 		*out = new(LoadBalancerStatus)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.HCloudPlacementGroup != nil {
-		in, out := &in.HCloudPlacementGroup, &out.HCloudPlacementGroup
+	if in.HCloudPlacementGroups != nil {
+		in, out := &in.HCloudPlacementGroups, &out.HCloudPlacementGroups
 		*out = make([]HCloudPlacementGroupStatus, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])

@@ -22,10 +22,10 @@ import (
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
 
-var _ = Describe("apiToStatus", func() {
+var _ = Describe("statusFromHCloudPlacementGroups", func() {
 	var sts []infrav1.HCloudPlacementGroupStatus
 	BeforeEach(func() {
-		sts = apiToStatus(placementGroups, "cluster-name")
+		sts = statusFromHCloudPlacementGroups(placementGroups, "cluster-name")
 	})
 	It("should have three placement groups", func() {
 		Expect(len(sts)).To(Equal(3))
