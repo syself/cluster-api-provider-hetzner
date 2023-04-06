@@ -24,7 +24,7 @@ import (
 
 var _ = Describe("buildAutoSetup", func() {
 	DescribeTable("buildAutoSetup",
-		func(installImageSpec infrav1.InstallImage, autoSetupInput autoSetupInput, expectedOutput string) {
+		func(installImageSpec *infrav1.InstallImage, autoSetupInput autoSetupInput, expectedOutput string) {
 			Expect(buildAutoSetup(installImageSpec, autoSetupInput)).Should(Equal(expectedOutput))
 		},
 		Entry(
@@ -223,7 +223,6 @@ IMAGE my-image`),
 var _ = Describe("validJSONFromSSHOutput", func() {
 	DescribeTable("validJSONFromSSHOutput",
 		func(input string, expectedOutput string) {
-
 			Expect(validJSONFromSSHOutput(input)).Should(Equal(expectedOutput))
 		},
 		Entry(

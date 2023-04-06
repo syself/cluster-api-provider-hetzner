@@ -50,15 +50,25 @@ const (
 	rescuePort           int           = 22
 )
 
+var (
+	errActionFailure        = fmt.Errorf("action failure")
+	errNilSSHKey            = fmt.Errorf("ssh secret is nil")
+	errSSHConnectionRefused = fmt.Errorf("ssh connection refused")
+	errUnexpectedErrorType  = fmt.Errorf("unexpected error type")
+	errSSHGetHostname       = fmt.Errorf("failed to get hostname via ssh")
+	errEmptyHostName        = fmt.Errorf("hostname is empty")
+	errMissingStorageDevice = fmt.Errorf("missing storage device")
+)
+
 // Service defines struct with machine scope to reconcile HetznerBareMetalHosts.
 type Service struct {
 	scope *scope.BareMetalHostScope
 }
 
 // NewService outs a new service with machine scope.
-func NewService(scope *scope.BareMetalHostScope) *Service {
+func NewService(s *scope.BareMetalHostScope) *Service {
 	return &Service{
-		scope: scope,
+		scope: s,
 	}
 }
 
@@ -87,16 +97,16 @@ func (s *Service) Reconcile(ctx context.Context) (result reconcile.Result, err e
 
 func (s *Service) recordActionFailure(errorType infrav1.ErrorType, errorMessage string) actionFailed {
 	s.scope.HetznerBareMetalHost.SetError(errorType, errorMessage)
-	s.scope.Error(fmt.Errorf("action failure"), errorMessage, "errorType", errorType)
+	s.scope.Error(errActionFailure, errorMessage, "errorType", errorType)
 	return actionFailed{ErrorType: errorType, errorCount: s.scope.HetznerBareMetalHost.Spec.Status.ErrorCount}
 }
 
 // SaveHostAndReturn saves host object, updates LastUpdated in host status and returns the reconcile Result.
-func SaveHostAndReturn(ctx context.Context, client client.Client, host *infrav1.HetznerBareMetalHost) (res reconcile.Result, err error) {
+func SaveHostAndReturn(ctx context.Context, cl client.Client, host *infrav1.HetznerBareMetalHost) (res reconcile.Result, err error) {
 	t := metav1.Now()
 	host.Spec.Status.LastUpdated = &t
 
-	if err := client.Update(ctx, host); err != nil {
+	if err := cl.Update(ctx, host); err != nil {
 		if apierrors.IsConflict(err) {
 			return reconcile.Result{Requeue: true}, nil
 		}
@@ -132,34 +142,24 @@ func (s *Service) actionPreparing() actionResult {
 			s.handleRateLimitExceeded(err, "GetReboot")
 			return actionError{err: fmt.Errorf("failed to get reboot: %w", err)}
 		}
-		var rebootTypes []infrav1.RebootType
-		b, err := json.Marshal(reboot.Type)
+
+		rebootTypes, err := rebootTypesFromStringList(reboot.Type)
 		if err != nil {
-			return actionError{err: fmt.Errorf("failed to marshal: %w", err)}
-		}
-		if err := json.Unmarshal(b, &rebootTypes); err != nil {
 			return actionError{err: fmt.Errorf("failed to unmarshal: %w", err)}
 		}
 		s.scope.HetznerBareMetalHost.Spec.Status.RebootTypes = rebootTypes
 	}
 
-	// Start rescue mode and reboot server if necessary
+	// if there is no rescue system, we cannot provision the server
 	if !server.Rescue {
-		return s.recordActionFailure(infrav1.RegistrationError, "rescue system not available for server")
+		errMsg := fmt.Sprintf("bm server %v has no rescue system", server.ServerNumber)
+		record.Warnf(s.scope.HetznerBareMetalHost, "NoRescueSystemAvailable", errMsg)
+		s.scope.HetznerBareMetalHost.SetError(infrav1.FatalError, errMsg)
+		return s.recordActionFailure(infrav1.RegistrationError, errMsg)
 	}
 
-	// Delete old rescue activations if exist, as the ssh key might have changed in between
-	if _, err := s.scope.RobotClient.DeleteBootRescue(s.scope.HetznerBareMetalHost.Spec.ServerID); err != nil {
-		s.handleRateLimitExceeded(err, "DeleteBootRescue")
-		return actionError{err: fmt.Errorf("failed to delete boot rescue: %w", err)}
-	}
-
-	if _, err := s.scope.RobotClient.SetBootRescue(
-		s.scope.HetznerBareMetalHost.Spec.ServerID,
-		s.scope.HetznerBareMetalHost.Spec.Status.SSHStatus.RescueKey.Fingerprint,
-	); err != nil {
-		s.handleRateLimitExceeded(err, "SetBootRescue")
-		return actionError{err: fmt.Errorf("failed to set boot rescue: %w", err)}
+	if err := s.enforceRescueMode(); err != nil {
+		return actionError{err: fmt.Errorf("failed to enforce rescue mode: %w", err)}
 	}
 
 	// Check if software reboot is available. If it is not, choose hardware reboot.
@@ -177,9 +177,38 @@ func (s *Service) actionPreparing() actionResult {
 	return actionComplete{}
 }
 
+func (s *Service) enforceRescueMode() error {
+	// delete old rescue activations if exist, as the ssh key might have changed in between
+	if _, err := s.scope.RobotClient.DeleteBootRescue(s.scope.HetznerBareMetalHost.Spec.ServerID); err != nil {
+		s.handleRateLimitExceeded(err, "DeleteBootRescue")
+		return fmt.Errorf("failed to delete boot rescue: %w", err)
+	}
+	// Rescue system is still not active - activate again
+	if _, err := s.scope.RobotClient.SetBootRescue(
+		s.scope.HetznerBareMetalHost.Spec.ServerID,
+		s.scope.HetznerBareMetalHost.Spec.Status.SSHStatus.RescueKey.Fingerprint,
+	); err != nil {
+		s.handleRateLimitExceeded(err, "SetBootRescue")
+		return fmt.Errorf("failed to set boot rescue: %w", err)
+	}
+	return nil
+}
+
+func rebootTypesFromStringList(rebootTypeStringList []string) ([]infrav1.RebootType, error) {
+	var rebootTypes []infrav1.RebootType
+	b, err := json.Marshal(rebootTypeStringList)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal: %w", err)
+	}
+	if err := json.Unmarshal(b, &rebootTypes); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal: %w", err)
+	}
+	return rebootTypes, nil
+}
+
 func (s *Service) ensureSSHKey(sshSecretRef infrav1.SSHSecretRef, sshSecret *corev1.Secret) (infrav1.SSHKey, actionResult) {
 	if sshSecret == nil {
-		return infrav1.SSHKey{}, actionError{err: fmt.Errorf("ssh secret is nil")}
+		return infrav1.SSHKey{}, actionError{err: errNilSSHKey}
 	}
 	hetznerSSHKeys, err := s.scope.RobotClient.ListSSHKeys()
 	if err != nil {
@@ -226,7 +255,7 @@ func (s *Service) ensureSSHKey(sshSecretRef infrav1.SSHSecretRef, sshSecret *cor
 	return sshKey, actionComplete{}
 }
 
-func (s *Service) handleIncompleteBoot(isRebootIntoRescue bool, isTimeout bool, isConnectionRefused bool) error {
+func (s *Service) handleIncompleteBoot(isRebootIntoRescue, isTimeout, isConnectionRefused bool) error {
 	// Connection refused error might be a sign that the ssh port is wrong - but might also come
 	// right after a reboot and is expected then. Therefore, we wait for some time and if the
 	// error keeps coming, we give an error.
@@ -236,7 +265,7 @@ func (s *Service) handleIncompleteBoot(isRebootIntoRescue bool, isTimeout bool, 
 			if hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated, time.Minute) {
 				record.Warnf(s.scope.HetznerBareMetalHost, "SSHConnectionError",
 					"Connection error when targeting server with ssh that might be due to a wrong ssh port. Please check.")
-				return fmt.Errorf("connection refused error of ssh. Might be due to wrong port")
+				return fmt.Errorf("%w - might be due to wrong port", errSSHConnectionRefused)
 			}
 		} else {
 			// set error in host status to check for a timeout next time
@@ -275,12 +304,12 @@ func (s *Service) handleIncompleteBoot(isRebootIntoRescue bool, isTimeout bool, 
 
 	case infrav1.ErrorTypeHardwareRebootTriggered:
 		return s.handleErrorTypeHardwareRebootFailed(isTimeout, isRebootIntoRescue)
+	default:
+		return fmt.Errorf("%w: %s", errUnexpectedErrorType, s.scope.HetznerBareMetalHost.Spec.Status.ErrorType)
 	}
-
-	return nil
 }
 
-func (s *Service) handleErrorTypeSSHRebootFailed(isSSHTimeoutError bool, wantsRescue bool) error {
+func (s *Service) handleErrorTypeSSHRebootFailed(isSSHTimeoutError, wantsRescue bool) error {
 	// If it is not a timeout error, then the ssh command (get hostname) worked, but didn't give us the
 	// right hostname. This means that the server has not been rebooted and we need to escalate.
 	// If we got a timeout error from ssh, it means that the server has not yet finished rebooting.
@@ -324,7 +353,7 @@ func rebootAndErrorTypeAfterTimeout(host *infrav1.HetznerBareMetalHost) (infrav1
 	return rebootType, errorType
 }
 
-func (s *Service) handleErrorTypeSoftwareRebootFailed(isSSHTimeoutError bool, wantsRescue bool) error {
+func (s *Service) handleErrorTypeSoftwareRebootFailed(isSSHTimeoutError, wantsRescue bool) error {
 	// If it is not a timeout error, then the ssh command (get hostname) worked, but didn't give us the
 	// right hostname. This means that the server has not been rebooted and we need to escalate.
 	// If we got a timeout error from ssh, it means that the server has not yet finished rebooting.
@@ -349,7 +378,7 @@ func (s *Service) handleErrorTypeSoftwareRebootFailed(isSSHTimeoutError bool, wa
 	return nil
 }
 
-func (s *Service) handleErrorTypeHardwareRebootFailed(isSSHTimeoutError bool, wantsRescue bool) error {
+func (s *Service) handleErrorTypeHardwareRebootFailed(isSSHTimeoutError, wantsRescue bool) error {
 	// If it is not a timeout error, then the ssh command (get hostname) worked, but didn't give us the
 	// right hostname. This means that the server has not been rebooted and we need to escalate.
 	// If we got a timeout error from ssh, it means that the server has not yet finished rebooting.
@@ -423,110 +452,129 @@ func (s *Service) actionRegistering() actionResult {
 	}
 
 	if s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails == nil {
-		var hardwareDetails infrav1.HardwareDetails
-
-		mebiBytes, err := s.obtainHardwareDetailsRAM(sshClient)
+		hardwareDetails, err := s.getHardwareDetails(sshClient)
 		if err != nil {
-			return actionError{err: err}
+			return actionError{err: fmt.Errorf("failed to get hardware details: %w", err)}
 		}
-		hardwareDetails.RAMGB = mebiBytes / 1000
-
-		nics, err := s.obtainHardwareDetailsNics(sshClient)
-		if err != nil {
-			return actionError{err: err}
-		}
-		hardwareDetails.NIC = nics
-
-		storage, err := s.obtainHardwareDetailsStorage(sshClient)
-		if err != nil {
-			return actionError{err: err}
-		}
-		hardwareDetails.Storage = storage
-
-		cpu, err := s.obtainHardwareDetailsCPU(sshClient)
-		if err != nil {
-			return actionError{err: err}
-		}
-		hardwareDetails.CPU = cpu
-
 		s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails = &hardwareDetails
 	}
+
 	if s.scope.HetznerBareMetalHost.Spec.RootDeviceHints == nil ||
 		!s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.IsValid() {
 		return s.recordActionFailure(infrav1.RegistrationError, infrav1.ErrorMessageMissingRootDeviceHints)
 	}
 
-	for _, wwn := range s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.ListOfWWN() {
-		foundWWN := false
-		for _, st := range s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails.Storage {
-			if wwn == st.WWN {
-				foundWWN = true
-				continue
-			}
-		}
-		if !foundWWN {
-			return s.recordActionFailure(infrav1.RegistrationError, fmt.Sprintf("no storage device found with root device hint %s", wwn))
-		}
+	if err := validateRootDevices(s.scope.HetznerBareMetalHost.Spec.RootDeviceHints, s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails.Storage); err != nil {
+		return s.recordActionFailure(infrav1.RegistrationError, err.Error())
 	}
 
 	s.scope.HetznerBareMetalHost.ClearError()
 	return actionComplete{}
 }
 
-func (s *Service) analyzeSSHOutputRegistering(out sshclient.Output) (isSSHTimeoutError bool, isConnectionRefused bool, reterr error) {
-	if out.Err != nil {
-		switch {
-		case os.IsTimeout(out.Err) || sshclient.IsTimeoutError(out.Err):
-			isSSHTimeoutError = true
-		case sshclient.IsAuthenticationFailedError(out.Err):
-			// Check if the reboot did not trigger.
-			rescue, err := s.scope.RobotClient.GetBootRescue(s.scope.HetznerBareMetalHost.Spec.ServerID)
-			if err != nil {
-				s.handleRateLimitExceeded(err, "GetBootRescue")
-				reterr = fmt.Errorf("failed to get boot rescue: %w", err)
-				return
+func validateRootDevices(rootDeviceHints *infrav1.RootDeviceHints, storageDevices []infrav1.Storage) error {
+	for _, wwn := range rootDeviceHints.ListOfWWN() {
+		foundWWN := false
+		for _, st := range storageDevices {
+			if wwn == st.WWN {
+				foundWWN = true
+				continue
 			}
-			if rescue.Active {
-				// Reboot did not trigger
-				return
-			}
-			reterr = fmt.Errorf("wrong ssh key: %w", out.Err)
-		case sshclient.IsConnectionRefusedError(out.Err):
-			// Check if the reboot did not trigger.
-			rescue, err := s.scope.RobotClient.GetBootRescue(s.scope.HetznerBareMetalHost.Spec.ServerID)
-			if err != nil {
-				s.handleRateLimitExceeded(err, "GetBootRescue")
-				reterr = fmt.Errorf("failed to get boot rescue: %w", err)
-				return
-			}
-			if rescue.Active {
-				// Reboot did not trigger
-				return
-			}
-			isConnectionRefused = true
-
-		default:
-			reterr = fmt.Errorf("unhandled ssh error while getting hostname: %w", out.Err)
 		}
-		return
+		if !foundWWN {
+			return fmt.Errorf("%w for root device hint %s", errMissingStorageDevice, wwn)
+		}
+	}
+	return nil
+}
+
+func (s *Service) getHardwareDetails(sshClient sshclient.Client) (infrav1.HardwareDetails, error) {
+	mebiBytes, err := obtainHardwareDetailsRAM(sshClient)
+	if err != nil {
+		return infrav1.HardwareDetails{}, fmt.Errorf("failed to obtain hardware details RAM: %w", err)
+	}
+
+	nics, err := obtainHardwareDetailsNics(sshClient)
+	if err != nil {
+		return infrav1.HardwareDetails{}, fmt.Errorf("failed to obtain hardware details Nics: %w", err)
+	}
+
+	storage, err := s.obtainHardwareDetailsStorage(sshClient)
+	if err != nil {
+		return infrav1.HardwareDetails{}, fmt.Errorf("failed to obtain hardware details storage: %w", err)
+	}
+
+	cpu, err := s.obtainHardwareDetailsCPU(sshClient)
+	if err != nil {
+		return infrav1.HardwareDetails{}, fmt.Errorf("failed to obtain hardware details CPU: %w", err)
+	}
+
+	return infrav1.HardwareDetails{
+		RAMGB:   mebiBytes / 1000,
+		NIC:     nics,
+		Storage: storage,
+		CPU:     cpu,
+	}, nil
+}
+
+func (s *Service) analyzeSSHOutputRegistering(out sshclient.Output) (isSSHTimeoutError, isConnectionRefused bool, reterr error) {
+	if out.Err != nil {
+		return s.analyzeSSHErrorRegistering(out.Err)
 	}
 
 	// check stderr
 	if out.StdErr != "" {
 		// This is an unexpected error
-		reterr = fmt.Errorf("failed to get host name via ssh. StdErr: %s", out.StdErr)
-		return
+		return false, false, fmt.Errorf("%w. StdErr: %s", errSSHGetHostname, out.StdErr)
 	}
 
-	// check stdout
 	if trimLineBreak(out.StdOut) == "" {
 		// Hostname should not be empty. This is unexpected.
-		reterr = fmt.Errorf("error empty hostname")
+		return false, false, errEmptyHostName
+	}
+
+	// wrong hostname
+	return false, false, nil
+}
+
+func (s *Service) analyzeSSHErrorRegistering(sshErr error) (isSSHTimeoutError, isConnectionRefused bool, reterr error) {
+	// check if the reboot triggered
+	rebootTriggered, err := s.rebootTriggered()
+	if err != nil {
+		return false, false, fmt.Errorf("failed to check whether reboot triggered: %w", err)
+	}
+
+	switch {
+	case os.IsTimeout(sshErr) || sshclient.IsTimeoutError(sshErr):
+		isSSHTimeoutError = true
+	case sshclient.IsAuthenticationFailedError(sshErr):
+		if !rebootTriggered {
+			return false, false, nil
+		}
+		reterr = fmt.Errorf("wrong ssh key: %w", sshErr)
+	case sshclient.IsConnectionRefusedError(sshErr):
+		if !rebootTriggered {
+			// Reboot did not trigger
+			return false, false, nil
+		}
+		isConnectionRefused = true
+
+	default:
+		reterr = fmt.Errorf("unhandled ssh error while getting hostname: %w", sshErr)
 	}
 	return isSSHTimeoutError, isConnectionRefused, reterr
 }
 
-func (s *Service) obtainHardwareDetailsRAM(sshClient sshclient.Client) (int, error) {
+func (s *Service) rebootTriggered() (bool, error) {
+	rescue, err := s.scope.RobotClient.GetBootRescue(s.scope.HetznerBareMetalHost.Spec.ServerID)
+	if err != nil {
+		s.handleRateLimitExceeded(err, "GetBootRescue")
+		return false, fmt.Errorf("failed to get boot rescue: %w", err)
+	}
+	return !rescue.Active, nil
+}
+
+func obtainHardwareDetailsRAM(sshClient sshclient.Client) (int, error) {
 	out := sshClient.GetHardwareDetailsRAM()
 	if err := handleSSHError(out); err != nil {
 		return 0, err
@@ -545,7 +593,7 @@ func (s *Service) obtainHardwareDetailsRAM(sshClient sshclient.Client) (int, err
 	return mebiBytes, nil
 }
 
-func (s *Service) obtainHardwareDetailsNics(sshClient sshclient.Client) ([]infrav1.NIC, error) {
+func obtainHardwareDetailsNics(sshClient sshclient.Client) ([]infrav1.NIC, error) {
 	type originalNic struct {
 		Name      string `json:"name,omitempty"`
 		Model     string `json:"model,omitempty"`
@@ -783,7 +831,7 @@ func (s *Service) actionImageInstalling() actionResult {
 		image:     imagePath,
 	}
 
-	autoSetup := buildAutoSetup(*s.scope.HetznerBareMetalHost.Spec.Status.InstallImage, autoSetupInput)
+	autoSetup := buildAutoSetup(s.scope.HetznerBareMetalHost.Spec.Status.InstallImage, autoSetupInput)
 
 	if err := handleSSHError(sshClient.CreateAutoSetup(autoSetup)); err != nil {
 		return actionError{err: fmt.Errorf("failed to create autosetup %s: %w", autoSetup, err)}

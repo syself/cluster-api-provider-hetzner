@@ -99,19 +99,7 @@ var _ = Describe("obtainHardwareDetailsNics", func() {
 			sshMock := &sshmock.Client{}
 			sshMock.On("GetHardwareDetailsNics").Return(sshclient.Output{StdOut: stdout})
 
-			host := helpers.BareMetalHost("test-host", "default",
-				helpers.WithRebootTypes([]infrav1.RebootType{
-					infrav1.RebootTypeSoftware,
-					infrav1.RebootTypeHardware,
-					infrav1.RebootTypePower,
-				}),
-				helpers.WithSSHSpec(),
-				helpers.WithSSHStatus(),
-			)
-
-			service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
-
-			Expect(service.obtainHardwareDetailsNics(sshMock)).Should(Equal(expectedOutput))
+			Expect(obtainHardwareDetailsNics(sshMock)).Should(Equal(expectedOutput))
 		},
 		Entry(
 			"proper response",
