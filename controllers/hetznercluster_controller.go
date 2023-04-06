@@ -657,22 +657,17 @@ func (r *HetznerClusterReconciler) SetupWithManager(ctx context.Context, mgr ctr
 				panic(fmt.Sprintf("Expected a Cluster but got a %T", o))
 			}
 
-			log := log.WithValues("objectMapper", "clusterToHetznerCluster", "namespace", c.Namespace, "cluster", c.Name)
-
 			// Don't handle deleted clusters
 			if !c.ObjectMeta.DeletionTimestamp.IsZero() {
-				log.V(1).Info("Cluster has a deletion timestamp, skipping mapping.")
 				return nil
 			}
 
 			// Make sure the ref is set
 			if c.Spec.InfrastructureRef == nil {
-				log.V(1).Info("Cluster does not have an InfrastructureRef, skipping mapping.")
 				return nil
 			}
 
 			if c.Spec.InfrastructureRef.GroupVersionKind().Kind != "HetznerCluster" {
-				log.V(1).Info("Cluster has an InfrastructureRef for a different type, skipping mapping.")
 				return nil
 			}
 
@@ -684,11 +679,9 @@ func (r *HetznerClusterReconciler) SetupWithManager(ctx context.Context, mgr ctr
 			}
 
 			if annotations.IsExternallyManaged(hetznerCluster) {
-				log.V(1).Info("HetznerCluster is externally managed, skipping mapping.")
 				return nil
 			}
 
-			log.V(1).Info("Adding request.", "hetznerCluster", c.Spec.InfrastructureRef.Name)
 			return []ctrl.Request{
 				{
 					NamespacedName: client.ObjectKey{Namespace: c.Namespace, Name: c.Spec.InfrastructureRef.Name},
