@@ -13,7 +13,7 @@ require (
 	github.com/nikolaydubina/go-cover-treemap v1.3.0
 	github.com/onsi/ginkgo/v2 v2.9.2
 	github.com/tilt-dev/ctlptl v0.8.18
-	gotest.tools/gotestsum v1.9.0
+	gotest.tools/gotestsum v1.10.0
 	k8s.io/code-generator v0.26.1
 	sigs.k8s.io/cluster-api v1.4.1
 	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20230403212152-53057ba616d1
