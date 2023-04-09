@@ -71,6 +71,9 @@ func setupFlags(name string) (*pflag.FlagSet, *options) {
 	flags.StringVar(&opts.jsonFile, "jsonfile",
 		lookEnvWithDefault("GOTESTSUM_JSONFILE", ""),
 		"write all TestEvents to file")
+	flags.StringVar(&opts.jsonFileTimingEvents, "jsonfile-timing-events",
+		lookEnvWithDefault("GOTESTSUM_JSONFILE_TIMING_EVENTS", ""),
+		"write only the pass, skip, and fail TestEvents to the file")
 	flags.BoolVar(&opts.noColor, "no-color", defaultNoColor, "disable color output")
 
 	flags.Var(opts.hideSummary, "no-summary",
@@ -160,6 +163,7 @@ type options struct {
 	rawCommand                   bool
 	ignoreNonJSONOutputLines     bool
 	jsonFile                     string
+	jsonFileTimingEvents         string
 	junitFile                    string
 	postRunHookCmd               *commandValue
 	noColor                      bool
@@ -236,9 +240,11 @@ func run(opts *options) error {
 		IgnoreNonJSONOutputLines: opts.ignoreNonJSONOutputLines,
 	}
 	exec, err := testjson.ScanTestOutput(cfg)
+	handler.Flush()
 	if err != nil {
 		return finishRun(opts, exec, err)
 	}
+
 	exitErr := goTestProc.cmd.Wait()
 	if signum := atomic.LoadInt32(&goTestProc.signal); signum != 0 {
 		return finishRun(opts, exec, exitError{num: signalExitCode + int(signum)})
@@ -260,6 +266,7 @@ func run(opts *options) error {
 
 	cfg = testjson.ScanConfig{Execution: exec, Handler: handler}
 	exitErr = rerunFailed(ctx, opts, cfg)
+	handler.Flush()
 	if err := writeRerunFailsReport(opts, exec); err != nil {
 		return err
 	}

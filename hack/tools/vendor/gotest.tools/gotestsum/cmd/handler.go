@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"os"
@@ -13,23 +14,33 @@ import (
 )
 
 type eventHandler struct {
-	formatter testjson.EventFormatter
-	err       io.Writer
-	jsonFile  io.WriteCloser
-	maxFails  int
+	formatter            testjson.EventFormatter
+	err                  *bufio.Writer
+	jsonFile             writeSyncer
+	jsonFileTimingEvents writeSyncer
+	maxFails             int
 }
 
+type writeSyncer interface {
+	io.WriteCloser
+	Sync() error
+}
+
+// nolint:errcheck
 func (h *eventHandler) Err(text string) error {
-	_, _ = h.err.Write([]byte(text + "\n"))
+	h.err.WriteString(text)
+	h.err.WriteRune('\n')
+	h.err.Flush()
 	// always return nil, no need to stop scanning if the stderr write fails
 	return nil
 }
 
 func (h *eventHandler) Event(event testjson.TestEvent, execution *testjson.Execution) error {
-	// ignore artificial events with no raw Bytes()
-	if h.jsonFile != nil && len(event.Bytes()) > 0 {
-		_, err := h.jsonFile.Write(append(event.Bytes(), '\n'))
-		if err != nil {
+	if err := writeWithNewline(h.jsonFile, event.Bytes()); err != nil {
+		return fmt.Errorf("failed to write JSON file: %w", err)
+	}
+	if event.Action.IsTerminal() {
+		if err := writeWithNewline(h.jsonFileTimingEvents, event.Bytes()); err != nil {
 			return fmt.Errorf("failed to write JSON file: %w", err)
 		}
 	}
@@ -45,9 +56,39 @@ func (h *eventHandler) Event(event testjson.TestEvent, execution *testjson.Execu
 	return nil
 }
 
+func writeWithNewline(out io.Writer, b []byte) error {
+	// ignore artificial events that have len(b) == 0
+	if out == nil || len(b) == 0 {
+		return nil
+	}
+	if _, err := out.Write(b); err != nil {
+		return err
+	}
+	_, err := out.Write([]byte{'\n'})
+	return err
+}
+
+func (h *eventHandler) Flush() {
+	if h.jsonFile != nil {
+		if err := h.jsonFile.Sync(); err != nil {
+			log.Errorf("Failed to sync JSON file: %v", err)
+		}
+	}
+	if h.jsonFileTimingEvents != nil {
+		if err := h.jsonFileTimingEvents.Sync(); err != nil {
+			log.Errorf("Failed to sync JSON file: %v", err)
+		}
+	}
+}
+
 func (h *eventHandler) Close() error {
 	if h.jsonFile != nil {
 		if err := h.jsonFile.Close(); err != nil {
+			log.Errorf("Failed to close JSON file: %v", err)
+		}
+	}
+	if h.jsonFileTimingEvents != nil {
+		if err := h.jsonFileTimingEvents.Close(); err != nil {
 			log.Errorf("Failed to close JSON file: %v", err)
 		}
 	}
@@ -63,7 +104,7 @@ func newEventHandler(opts *options) (*eventHandler, error) {
 	}
 	handler := &eventHandler{
 		formatter: formatter,
-		err:       opts.stderr,
+		err:       bufio.NewWriter(opts.stderr),
 		maxFails:  opts.maxFails,
 	}
 	var err error
@@ -71,7 +112,14 @@ func newEventHandler(opts *options) (*eventHandler, error) {
 		_ = os.MkdirAll(filepath.Dir(opts.jsonFile), 0o755)
 		handler.jsonFile, err = os.Create(opts.jsonFile)
 		if err != nil {
-			return handler, fmt.Errorf("failed to open JSON file: %w", err)
+			return handler, fmt.Errorf("failed to create file: %w", err)
+		}
+	}
+	if opts.jsonFileTimingEvents != "" {
+		_ = os.MkdirAll(filepath.Dir(opts.jsonFileTimingEvents), 0o755)
+		handler.jsonFileTimingEvents, err = os.Create(opts.jsonFileTimingEvents)
+		if err != nil {
+			return handler, fmt.Errorf("failed to create file: %w", err)
 		}
 	}
 	return handler, nil
@@ -112,12 +160,12 @@ func postRunHook(opts *options, execution *testjson.Execution) error {
 	cmd.Env = append(
 		os.Environ(),
 		"GOTESTSUM_JSONFILE="+opts.jsonFile,
+		"GOTESTSUM_JSONFILE_TIMING_EVENTS="+opts.jsonFileTimingEvents,
 		"GOTESTSUM_JUNITFILE="+opts.junitFile,
 		fmt.Sprintf("TESTS_TOTAL=%d", execution.Total()),
 		fmt.Sprintf("TESTS_FAILED=%d", len(execution.Failed())),
 		fmt.Sprintf("TESTS_SKIPPED=%d", len(execution.Skipped())),
 		fmt.Sprintf("TESTS_ERRORS=%d", len(execution.Errors())),
 	)
-	// TODO: send a more detailed report to stdin?
 	return cmd.Run()
 }
