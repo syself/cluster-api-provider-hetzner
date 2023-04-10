@@ -54,16 +54,16 @@ CRUN=1.6        # https://github.com/containers/crun/releases
 CONTAINERD=1.6.8  # https://github.com/containerd/containerd/releases
 
 # Install containerd
-wget https://github.com/containerd/containerd/releases/download/v${CONTAINERD}/cri-containerd-cni-${CONTAINERD}-linux-amd64.tar.gz
-wget https://github.com/containerd/containerd/releases/download/v${CONTAINERD}/cri-containerd-cni-${CONTAINERD}-linux-amd64.tar.gz.sha256sum
-sha256sum --check cri-containerd-cni-${CONTAINERD}-linux-amd64.tar.gz.sha256sum
-tar --no-overwrite-dir -C / -xzf cri-containerd-cni-${CONTAINERD}-linux-amd64.tar.gz
+wget https://github.com/containerd/containerd/releases/download/v${CONTAINERD}/cri-containerd-cni-${CONTAINERD}-linux-${PACKER_ARCH}.tar.gz
+wget https://github.com/containerd/containerd/releases/download/v${CONTAINERD}/cri-containerd-cni-${CONTAINERD}-linux-${PACKER_ARCH}.tar.gz.sha256sum
+sha256sum --check cri-containerd-cni-${CONTAINERD}-linux-${PACKER_ARCH}.tar.gz.sha256sum
+tar --no-overwrite-dir -C / -xzf cri-containerd-cni-${CONTAINERD}-linux-${PACKER_ARCH}.tar.gz
 
 # Cleanup 
-rm -f cri-containerd-cni-${CONTAINERD}-linux-amd64.tar.gz cri-containerd-cni-${CONTAINERD}-linux-amd64.tar.gz.sha256sum
+rm -f cri-containerd-cni-${CONTAINERD}-linux-${PACKER_ARCH}.tar.gz cri-containerd-cni-${CONTAINERD}-linux-${PACKER_ARCH}.tar.gz.sha256sum
 
 # Install crun
-wget https://github.com/containers/crun/releases/download/$CRUN/crun-$CRUN-linux-amd64 -O /usr/local/sbin/crun && chmod +x /usr/local/sbin/crun
+wget https://github.com/containers/crun/releases/download/$CRUN/crun-$CRUN-linux-${PACKER_ARCH} -O /usr/local/sbin/crun && chmod +x /usr/local/sbin/crun
 
 mkdir -p /etc/containerd
 

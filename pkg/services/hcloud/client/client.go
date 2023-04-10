@@ -48,6 +48,7 @@ type Client interface {
 	GetServer(context.Context, int) (*hcloud.Server, error)
 	DeleteServer(context.Context, *hcloud.Server) error
 	ListServerTypes(context.Context) ([]*hcloud.ServerType, error)
+	GetServerType(context.Context, string) (*hcloud.ServerType, error)
 	PowerOnServer(context.Context, *hcloud.Server) (*hcloud.Action, error)
 	ShutdownServer(context.Context, *hcloud.Server) (*hcloud.Action, error)
 	RebootServer(context.Context, *hcloud.Server) (*hcloud.Action, error)
@@ -180,6 +181,11 @@ func (c *realClient) GetServer(ctx context.Context, id int) (*hcloud.Server, err
 
 func (c *realClient) ListServerTypes(ctx context.Context) ([]*hcloud.ServerType, error) {
 	return c.client.ServerType.All(ctx)
+}
+
+func (c *realClient) GetServerType(ctx context.Context, name string) (*hcloud.ServerType, error) {
+	res, _, err := c.client.ServerType.GetByName(ctx, name)
+	return res, err
 }
 
 func (c *realClient) ShutdownServer(ctx context.Context, server *hcloud.Server) (*hcloud.Action, error) {

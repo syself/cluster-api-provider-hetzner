@@ -133,6 +133,10 @@ spec:
                 - ccx51
                 - ccx52
                 - ccx62
+                - cax11
+                - cax21
+                - cax31
+                - cax41
                 type: string
             required:
             - imageName
