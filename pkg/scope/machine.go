@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"hash/crc32"
 	"sort"
+	"time"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
@@ -29,6 +30,7 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	capierrors "sigs.k8s.io/cluster-api/errors"
 	"sigs.k8s.io/cluster-api/util"
+	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 )
 
@@ -38,6 +40,8 @@ type MachineScopeParams struct {
 	Machine       *clusterv1.Machine
 	HCloudMachine *infrav1.HCloudMachine
 }
+
+const maxShutDownTime = 2 * time.Minute
 
 // ErrBootstrapDataNotReady return an error if no bootstrap data is ready.
 var ErrBootstrapDataNotReady = errors.New("error retrieving bootstrap data: linked Machine's bootstrap.dataSecretName is nil")
@@ -118,13 +122,30 @@ func (m *MachineScope) SetRegion(region string) {
 }
 
 // SetProviderID sets the providerID field on the machine.
-func (m *MachineScope) SetProviderID(providerID string) {
+func (m *MachineScope) SetProviderID(serverID int) {
+	providerID := fmt.Sprintf("hcloud://%d", serverID)
 	m.HCloudMachine.Spec.ProviderID = &providerID
 }
 
 // SetReady sets the ready field on the machine.
 func (m *MachineScope) SetReady(ready bool) {
 	m.HCloudMachine.Status.Ready = ready
+}
+
+// HasInstanceReadyCondition checks whether InstanceReady condition is set on true.
+func (m *MachineScope) HasInstanceReadyCondition() bool {
+	return conditions.IsTrue(m.HCloudMachine, infrav1.InstanceReadyCondition)
+}
+
+// HasInstanceTerminatedCondition checks the whether InstanceReady condition is false with reason "terminated".
+func (m *MachineScope) HasInstanceTerminatedCondition() bool {
+	return conditions.IsFalse(m.HCloudMachine, infrav1.InstanceReadyCondition) &&
+		conditions.GetReason(m.HCloudMachine, infrav1.InstanceReadyCondition) == infrav1.InstanceTerminatedReason
+}
+
+// HasShutdownTimedOut checks the whether the HCloud server is terminated.
+func (m *MachineScope) HasShutdownTimedOut() bool {
+	return time.Now().After(conditions.GetLastTransitionTime(m.HCloudMachine, infrav1.InstanceReadyCondition).Time.Add(maxShutDownTime))
 }
 
 // IsBootstrapDataReady checks the readiness of a capi machine's bootstrap data.

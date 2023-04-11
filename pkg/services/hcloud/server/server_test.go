@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	fakeclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/fake"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
@@ -32,10 +33,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-var _ = Describe("statusFromAPI", func() {
+var _ = Describe("statusFromHCloudServer", func() {
 	var sts infrav1.HCloudMachineStatus
 	BeforeEach(func() {
-		sts = statusFromAPI(server)
+		sts = statusFromHCloudServer(server)
 	})
 	It("should have the right instance state", func() {
 		Expect(*sts.InstanceState).To(Equal(instanceState))
@@ -56,8 +57,31 @@ var _ = Describe("statusFromAPI", func() {
 })
 
 var _ = DescribeTable("createLabels",
-	func(hcloudClusterName, hcloudMachineName string, isControlPlane bool, expectedOutput map[string]string) {
-		Expect(createLabels(hcloudClusterName, hcloudMachineName, isControlPlane)).To(Equal(expectedOutput))
+	func(hetznerClusterName, hcloudMachineName string, isControlPlane bool, expectedOutput map[string]string) {
+		hcloudMachine := infrav1.HCloudMachine{}
+		hcloudMachine.Name = hcloudMachineName
+
+		hetznerCluster := infrav1.HetznerCluster{}
+		hetznerCluster.Name = hetznerClusterName
+
+		capiMachine := clusterv1.Machine{}
+
+		if isControlPlane {
+			// set label on capi machine to mark it as control plane
+			capiMachine.Labels = make(map[string]string)
+			capiMachine.Labels[clusterv1.MachineControlPlaneLabel] = "control-plane"
+		}
+
+		service := Service{
+			scope: &scope.MachineScope{
+				HCloudMachine: &hcloudMachine,
+				Machine:       &capiMachine,
+				ClusterScope: scope.ClusterScope{
+					HetznerCluster: &hetznerCluster,
+				},
+			},
+		}
+		Expect(service.createLabels()).To(Equal(expectedOutput))
 	},
 	Entry("is_controlplane", "hcloudCluster", "hcloudMachine", true, map[string]string{
 		"caph-cluster-hcloudCluster": string(infrav1.ResourceLifecycleOwned),
@@ -69,14 +93,6 @@ var _ = DescribeTable("createLabels",
 		infrav1.MachineNameTagKey:    "hcloudMachine",
 		"machine_type":               "worker",
 	}),
-)
-
-var _ = DescribeTable("providerIDFromServerID",
-	func(serverID int, expectedOutput string) {
-		Expect(providerIDFromServerID(serverID)).To(Equal(expectedOutput))
-	},
-	Entry("first_server_id", 42, "hcloud://42"),
-	Entry("second_server_id", 1, "hcloud://1"),
 )
 
 var _ = Describe("filterHCloudSSHKeys", func() {

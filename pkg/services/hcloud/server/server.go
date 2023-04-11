@@ -37,11 +37,10 @@ import (
 )
 
 const (
-	maxShutDownTime  = 2 * time.Minute
 	serverOffTimeout = 10 * time.Minute
 )
 
-// Service defines struct with machine scope to reconcile HCloud machines.
+// Service defines struct with machine scope to reconcile HCloudMachines.
 type Service struct {
 	scope *scope.MachineScope
 }
@@ -53,7 +52,7 @@ func NewService(scope *scope.MachineScope) *Service {
 	}
 }
 
-// Reconcile implements reconcilement of HCloud machines.
+// Reconcile implements reconcilement of HCloudMachines.
 func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err error) {
 	// detect failure domain
 	failureDomain, err := s.scope.GetFailureDomain()
@@ -61,7 +60,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 		return res, fmt.Errorf("failed to get failure domain: %w", err)
 	}
 
-	// set in status of machine
+	// set region in status of machine
 	s.scope.SetRegion(failureDomain)
 
 	// waiting for bootstrap data to be ready
@@ -90,15 +89,15 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 		if err != nil {
 			return res, fmt.Errorf("failed to create server: %w", err)
 		}
-
-		record.Eventf(s.scope.HCloudMachine, "SuccessfulCreate", "Created new server with id %d", server.ID)
 	}
 
+	// update HCloudMachineStatus
 	c := s.scope.HCloudMachine.Status.Conditions.DeepCopy()
-	s.scope.HCloudMachine.Status = statusFromAPI(server)
+	s.scope.HCloudMachine.Status = statusFromHCloudServer(server)
 	s.scope.SetRegion(failureDomain)
 	s.scope.HCloudMachine.Status.Conditions = c
 
+	// analyze status of server
 	switch server.Status {
 	case hcloud.ServerStatusOff:
 		return s.handleServerStatusOff(ctx, server)
@@ -108,8 +107,9 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 		// case. However, if the server is stuck and does not power on, we should not mark the
 		// condition InstanceReady as true to be able to remediate the server after a timeout.
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
-	case hcloud.ServerStatusRunning: // Do nothing
+	case hcloud.ServerStatusRunning: // do nothing
 	default:
+		// some temporary status
 		s.scope.SetReady(false)
 		return reconcile.Result{RequeueAfter: 2 * time.Second}, nil
 	}
@@ -119,10 +119,9 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 		return res, fmt.Errorf("failed to reconcile network attachement: %w", err)
 	}
 
-	providerID := providerIDFromServerID(server.ID)
-
+	// nothing to do any more for worker nodes
 	if !s.scope.IsControlPlane() {
-		s.scope.SetProviderID(providerID)
+		s.scope.SetProviderID(server.ID)
 		s.scope.SetReady(true)
 		conditions.MarkTrue(s.scope.HCloudMachine, infrav1.InstanceReadyCondition)
 		return res, nil
@@ -133,7 +132,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 		return res, fmt.Errorf("failed to reconcile load balancer attachement: %w", err)
 	}
 
-	s.scope.SetProviderID(providerID)
+	s.scope.SetProviderID(server.ID)
 	s.scope.SetReady(true)
 	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.InstanceReadyCondition)
 
@@ -142,7 +141,6 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 
 // Delete implements delete method of server.
 func (s *Service) Delete(ctx context.Context) (res reconcile.Result, err error) {
-	// find current server
 	server, err := s.findServer(ctx)
 	if err != nil {
 		return res, fmt.Errorf("failed to find server: %w", err)
@@ -150,11 +148,13 @@ func (s *Service) Delete(ctx context.Context) (res reconcile.Result, err error) 
 
 	// if no server has been found, then nothing can be deleted
 	if server == nil {
-		s.scope.V(1).Info("Unable to locate HCloud server by ID or tags")
-		record.Warnf(s.scope.HCloudMachine, "NoInstanceFound", "Unable to find matching HCloud server for %s", s.scope.Name())
+		msg := fmt.Sprintf("Unable to delete HCloud server. Could not find matching server for %s", s.scope.Name())
+		s.scope.V(1).Info(msg)
+		record.Warnf(s.scope.HCloudMachine, "NoInstanceFound", msg)
 		return res, nil
 	}
 
+	// control planes have to be deleted as targets of server
 	if s.scope.IsControlPlane() && s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
 		if err := s.deleteServerOfLoadBalancer(ctx, server); err != nil {
 			return res, fmt.Errorf("failed to delete attached server of loadbalancer: %w", err)
@@ -162,7 +162,7 @@ func (s *Service) Delete(ctx context.Context) (res reconcile.Result, err error) 
 	}
 
 	// first shut the server down, then delete it
-	switch status := server.Status; status {
+	switch server.Status {
 	case hcloud.ServerStatusRunning:
 		return s.handleDeleteServerStatusRunning(ctx, server)
 	case hcloud.ServerStatusOff:
@@ -273,7 +273,7 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 	startAfterCreate := true
 	opts := hcloud.ServerCreateOpts{
 		Name:   s.scope.Name(),
-		Labels: createLabels(s.scope.HetznerCluster.Name, s.scope.Name(), s.scope.IsControlPlane()),
+		Labels: s.createLabels(),
 		Image:  image,
 		Location: &hcloud.Location{
 			Name: string(s.scope.HCloudMachine.Status.Region),
@@ -360,6 +360,7 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 		return nil, fmt.Errorf("failed to create HCloud server %s: %w", s.scope.HCloudMachine.Name, err)
 	}
 
+	record.Eventf(s.scope.HCloudMachine, "SuccessfulCreate", "Created new server with id %d", res.Server.ID)
 	return res.Server, nil
 }
 
@@ -461,98 +462,87 @@ func (s *Service) handleServerStatusOff(ctx context.Context, server *hcloud.Serv
 }
 
 func (s *Service) handleDeleteServerStatusRunning(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
-	// Check if the server has been tried to shut down already and if so,
-	// whether the time of the last condition change + maxWaitTime is already in the past.
-	// With one of these two conditions true, delete server immediately. Otherwise, shut it down and requeue.
-	if conditions.IsTrue(s.scope.HCloudMachine, infrav1.InstanceReadyCondition) ||
-		conditions.IsFalse(s.scope.HCloudMachine, infrav1.InstanceReadyCondition) &&
-			conditions.GetReason(s.scope.HCloudMachine, infrav1.InstanceReadyCondition) == infrav1.InstanceTerminatedReason &&
-			time.Now().Before(conditions.GetLastTransitionTime(s.scope.HCloudMachine, infrav1.InstanceReadyCondition).Time.Add(maxShutDownTime)) {
+	// Shut down the server if one of the two conditions apply:
+	// 1. The server has not yet been tried to shut down and still is marked as "ready".
+	// 2. The server has been tried to shut down without an effect and the timeout is not reached yet.
+
+	if s.scope.HasInstanceReadyCondition() || (s.scope.HasInstanceTerminatedCondition() && !s.scope.HasShutdownTimedOut()) {
 		if _, err := s.scope.HCloudClient.ShutdownServer(ctx, server); err != nil {
 			hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "ShutdownServer")
 			return res, fmt.Errorf("failed to shutdown server: %w", err)
 		}
+
 		conditions.MarkFalse(s.scope.HCloudMachine,
 			infrav1.InstanceReadyCondition,
 			infrav1.InstanceTerminatedReason,
 			clusterv1.ConditionSeverityInfo,
-			"Instance has been shut down")
+			"Instance has been shut down",
+		)
+
 		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 	}
+
+	// timeout for shutdown has been reached - delete server
 	if err := s.scope.HCloudClient.DeleteServer(ctx, server); err != nil {
 		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "DeleteServer")
 		record.Warnf(s.scope.HCloudMachine, "FailedDeleteHCloudServer", "Failed to delete HCloud server %s", s.scope.Name())
 		return res, fmt.Errorf("failed to delete server: %w", err)
 	}
 
-	record.Eventf(
-		s.scope.HCloudMachine,
-		"HCloudServerDeleted",
-		"HCloud server %s deleted",
-		s.scope.Name(),
-	)
+	record.Eventf(s.scope.HCloudMachine, "HCloudServerDeleted", "HCloud server %s deleted", s.scope.Name())
 	return res, nil
 }
 
 func (s *Service) handleDeleteServerStatusOff(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
+	// server is off and can be deleted
 	if err := s.scope.HCloudClient.DeleteServer(ctx, server); err != nil {
 		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "DeleteServer")
 		record.Warnf(s.scope.HCloudMachine, "FailedDeleteHCloudServer", "Failed to delete HCloud server %s", s.scope.Name())
 		return res, fmt.Errorf("failed to delete server: %w", err)
 	}
 
-	record.Eventf(
-		s.scope.HCloudMachine,
-		"HCloudServerDeleted",
-		"HCloud server %s deleted",
-		s.scope.Name(),
-	)
+	record.Eventf(s.scope.HCloudMachine, "HCloudServerDeleted", "HCloud server %s deleted", s.scope.Name())
 	return res, nil
 }
 
 func (s *Service) deleteServerOfLoadBalancer(ctx context.Context, server *hcloud.Server) error {
-	if _, err := s.scope.HCloudClient.DeleteTargetServerOfLoadBalancer(
-		ctx,
-		&hcloud.LoadBalancer{ID: s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID},
-		server,
-	); err != nil {
+	lb := &hcloud.LoadBalancer{ID: s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID}
+
+	if _, err := s.scope.HCloudClient.DeleteTargetServerOfLoadBalancer(ctx, lb, server); err != nil {
 		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "DeleteTargetServerOfLoadBalancer")
+		// do not return an error in case the target was not found
 		if strings.Contains(err.Error(), "load_balancer_target_not_found") {
 			return nil
 		}
-		return fmt.Errorf("failed to delete server %v as target of load balancer %v: %w",
-			server.ID, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID, err)
+		return fmt.Errorf("failed to delete server %v as target of load balancer %v: %w", server.ID, lb.ID, err)
 	}
 	record.Eventf(
 		s.scope.HetznerCluster,
 		"DeletedTargetOfLoadBalancer",
 		"Deleted new server with id %d of the loadbalancer %v",
-		server.ID, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID,
+		server.ID, lb.ID,
 	)
 
 	return nil
 }
 
-// We write the server name in the labels, so that all labels are or should be unique.
 func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
+	// find the server based on its labels
 	opts := hcloud.ServerListOpts{}
 
-	labels := createLabels(s.scope.HetznerCluster.Name, s.scope.Name(), s.scope.IsControlPlane())
+	labels := s.createLabels()
 	opts.LabelSelector = utils.LabelsToLabelSelector(labels)
 
 	servers, err := s.scope.HCloudClient.ListServers(ctx, opts)
 	if err != nil {
 		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "ListServers")
-		return nil, err
+		return nil, fmt.Errorf("failed to list servers: %w", err)
 	}
 
 	if len(servers) > 1 {
-		record.Warnf(s.scope.HCloudMachine,
-			"MultipleInstances",
-			"Found %v servers of name %s",
-			len(servers), s.scope.Name(),
-		)
-		return nil, fmt.Errorf("found %v servers with name %s", len(servers), s.scope.Name())
+		err := fmt.Errorf("found %v servers with name %s", len(servers), s.scope.Name())
+		record.Warnf(s.scope.HCloudMachine, "MultipleInstances", err.Error())
+		return nil, err
 	}
 
 	if len(servers) == 0 {
@@ -562,7 +552,7 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 	return servers[0], nil
 }
 
-func statusFromAPI(server *hcloud.Server) infrav1.HCloudMachineStatus {
+func statusFromHCloudServer(server *hcloud.Server) infrav1.HCloudMachineStatus {
 	// set instance state
 	instanceState := server.Status
 
@@ -606,18 +596,18 @@ func statusFromAPI(server *hcloud.Server) infrav1.HCloudMachineStatus {
 	}
 }
 
-func createLabels(hcloudClusterName, hcloudMachineName string, isControlPlane bool) map[string]string {
+func (s *Service) createLabels() map[string]string {
 	var machineType string
-	if isControlPlane {
+	if s.scope.IsControlPlane() {
 		machineType = "control_plane"
 	} else {
 		machineType = "worker"
 	}
 
 	return map[string]string{
-		infrav1.NameHetznerProviderOwned + hcloudClusterName: string(infrav1.ResourceLifecycleOwned),
-		infrav1.MachineNameTagKey:                            hcloudMachineName,
-		"machine_type":                                       machineType,
+		infrav1.NameHetznerProviderOwned + s.scope.HetznerCluster.Name: string(infrav1.ResourceLifecycleOwned),
+		infrav1.MachineNameTagKey:                                      s.scope.Name(),
+		"machine_type":                                                 machineType,
 	}
 }
 
@@ -636,8 +626,4 @@ func filterHCloudSSHKeys(sshKeysAPI []*hcloud.SSHKey, sshKeysSpec []infrav1.SSHK
 		sshKeys[i] = sshKey
 	}
 	return sshKeys, nil
-}
-
-func providerIDFromServerID(serverID int) string {
-	return fmt.Sprintf("hcloud://%d", serverID)
 }
