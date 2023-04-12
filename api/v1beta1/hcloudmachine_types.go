@@ -37,7 +37,7 @@ type HCloudMachineSpec struct {
 	ProviderID *string `json:"providerID,omitempty"`
 
 	// Type is the HCloud Machine Type for this machine.
-	// +kubebuilder:validation:Enum=cpx11;cx21;cpx21;cx31;cpx31;cx41;cpx41;cx51;cpx51;ccx11;ccx12;ccx21;ccx22;ccx31;ccx32;ccx41;ccx42;ccx51;ccx52;ccx62;cax11;cax21;cax31;cax41
+	// +kubebuilder:validation:Enum=cpx11;cax11;cx21;cpx21;cax21;cx31;cpx31;cax31;cx41;cpx41;cax41;cx51;cpx51;ccx11;ccx12;ccx21;ccx22;ccx31;ccx32;ccx41;ccx42;ccx51;ccx52;ccx62;cax11;cax21;cax31;cax41
 	Type HCloudMachineType `json:"type"`
 
 	// ImageName is the reference to the Machine Image from which to create the machine instance.

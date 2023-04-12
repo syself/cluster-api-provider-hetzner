@@ -125,12 +125,16 @@ spec:
                         description: Type is the HCloud Machine Type for this machine.
                         enum:
                         - cpx11
+                        - cax11
                         - cx21
                         - cpx21
+                        - cax21
                         - cx31
                         - cpx31
+                        - cax31
                         - cx41
                         - cpx41
+                        - cax41
                         - cx51
                         - cpx51
                         - ccx11
