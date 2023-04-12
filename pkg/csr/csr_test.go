@@ -32,7 +32,6 @@ var _ = Describe("Validate Kubelet CSR", func() {
 	var name string
 	var addresses []clusterv1.MachineAddress
 	BeforeEach(func() {
-
 		name = "hcloud-testing-control-plane-vgnlc"
 		addresses = []clusterv1.MachineAddress{
 			{
@@ -48,6 +47,6 @@ var _ = Describe("Validate Kubelet CSR", func() {
 	})
 
 	It("should not fail", func() {
-		Expect(csr.ValidateKubeletCSR(cr, name, true, addresses)).To(Succeed())
+		Expect(csr.ValidateKubeletCSR(cr, name, addresses)).To(Succeed())
 	})
 })

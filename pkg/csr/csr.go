@@ -21,61 +21,53 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	kerrors "k8s.io/apimachinery/pkg/util/errors"
 )
 
-// NodesPrefix defines the prefix name for a node.
-const NodesPrefix = "system:node:"
+// nodesPrefix defines the prefix name for a node.
+const nodesPrefix = "system:node:"
 
-// NodesGroup defines the group name for a node.
-const NodesGroup = "system:nodes"
+// nodesGroup defines the group name for a node.
+const nodesGroup = "system:nodes"
 
 // ValidateKubeletCSR validates a CSR.
-func ValidateKubeletCSR(csr *x509.CertificateRequest, machineName string, isHCloudMachine bool, addresses []clusterv1.MachineAddress) error {
+func ValidateKubeletCSR(csr *x509.CertificateRequest, machineName string, addresses []clusterv1.MachineAddress) error {
 	// check signature and exist quickly
 	if err := csr.CheckSignature(); err != nil {
-		return err
+		return fmt.Errorf("failed to check signature of x509 certificate: %w", err)
 	}
 
-	var hostNamePrefix string
-	if !isHCloudMachine {
-		hostNamePrefix = infrav1.BareMetalHostNamePrefix
-	}
-
-	var errs []error
+	var multierr error
 
 	// validate subject
-	username := fmt.Sprintf("%s%s", NodesPrefix+hostNamePrefix, machineName)
+	username := nodesPrefix + machineName
+
 	subjectExpected := pkix.Name{
 		CommonName:   username,
-		Organization: []string{NodesGroup},
+		Organization: []string{nodesGroup},
 		Names: []pkix.AttributeTypeAndValue{
-			{Type: asn1.ObjectIdentifier{2, 5, 4, 10}, Value: NodesGroup},
+			{Type: asn1.ObjectIdentifier{2, 5, 4, 10}, Value: nodesGroup},
 			{Type: asn1.ObjectIdentifier{2, 5, 4, 3}, Value: username},
 		},
 	}
 	if !reflect.DeepEqual(subjectExpected, csr.Subject) {
-		errs = append(errs, fmt.Errorf("unexpected subject actual=%+#v, expected=%+#v", csr.Subject, subjectExpected))
+		multierr = errors.Join(fmt.Errorf("unexpected subject actual=%+#v, expected=%+#v", csr.Subject, subjectExpected))
 	}
 
 	// check for DNS Names
 	if len(csr.EmailAddresses) > 0 {
-		errs = append(errs, fmt.Errorf("email addresses are not allow on the request: %v", csr.EmailAddresses))
+		multierr = errors.Join(fmt.Errorf("email addresses are not allow on the request: %v", csr.EmailAddresses))
 	}
 
 	// allow only certain DNS names
-	allowedDNSNames := map[string]struct{}{
-		hostNamePrefix + machineName: {},
-	}
 	for _, name := range csr.DNSNames {
-		if _, ok := allowedDNSNames[name]; !ok {
-			errs = append(errs, fmt.Errorf("the DNS name '%s' is not allowed", name))
+		if name != machineName {
+			multierr = errors.Join(fmt.Errorf("the DNS name %q is not allowed", name))
 		}
 	}
 
@@ -87,10 +79,12 @@ func ValidateKubeletCSR(csr *x509.CertificateRequest, machineName string, isHClo
 			allowedIPAddresses[strings.Split(address.Address, "/")[0]] = struct{}{}
 		}
 	}
+
 	for _, ip := range csr.IPAddresses {
 		if _, ok := allowedIPAddresses[ip.String()]; !ok {
-			errs = append(errs, fmt.Errorf("the IP address '%s' is not allowed", ip.String()))
+			multierr = errors.Join(fmt.Errorf("the IP address %q is not allowed", ip.String()))
 		}
 	}
-	return kerrors.NewAggregate(errs)
+
+	return multierr
 }

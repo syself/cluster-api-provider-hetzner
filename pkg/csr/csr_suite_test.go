@@ -25,5 +25,5 @@ import (
 
 func TestCsr(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Csr Suite")
+	RunSpecs(t, "CSR Suite")
 }
