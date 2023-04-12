@@ -367,12 +367,23 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 func (s *Service) getServerImage(ctx context.Context) (*hcloud.Image, error) {
 	key := fmt.Sprintf("%s%s", infrav1.NameHetznerProviderPrefix, "image-name")
 
+	// Get server type so we can filter for images with correct architecture
+	serverType, err := s.scope.HCloudClient.GetServerType(ctx, string(s.scope.HCloudMachine.Spec.Type))
+	if err != nil {
+		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "GetServerType")
+		return nil, fmt.Errorf("failed to get server type in HCloud: %w", err)
+	}
+	if serverType == nil {
+		return nil, fmt.Errorf("server type '%s' was not found in the API", s.scope.HCloudMachine.Spec.Type)
+	}
+
 	// query for an existing image by label
 	// this is needed because snapshots don't have a name, only descriptions and labels
 	listOpts := hcloud.ImageListOpts{
 		ListOpts: hcloud.ListOpts{
 			LabelSelector: fmt.Sprintf("%s==%s", key, s.scope.HCloudMachine.Spec.ImageName),
 		},
+		Architecture: []hcloud.Architecture{serverType.Architecture},
 	}
 
 	images, err := s.scope.HCloudClient.ListImages(ctx, listOpts)
@@ -383,7 +394,8 @@ func (s *Service) getServerImage(ctx context.Context) (*hcloud.Image, error) {
 
 	// query for an existing image by name.
 	listOpts = hcloud.ImageListOpts{
-		Name: s.scope.HCloudMachine.Spec.ImageName,
+		Name:         s.scope.HCloudMachine.Spec.ImageName,
+		Architecture: []hcloud.Architecture{serverType.Architecture},
 	}
 	imagesByName, err := s.scope.HCloudClient.ListImages(ctx, listOpts)
 	if err != nil {

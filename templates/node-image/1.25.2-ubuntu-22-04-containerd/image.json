@@ -3,6 +3,7 @@
     "hcloud_token": "{{env `HCLOUD_TOKEN`}}",
     "scripts": "{{template_dir}}/scripts",
     "os": "ubuntu-22.04",
+    "arch": "amd64",
     "image-name": "1.25.2-ubuntu-22.04-containerd",
     "version": "{{isotime \"2006-01-02-1504\"}}"
   },
@@ -25,7 +26,8 @@
     {
       "type": "shell",
       "environment_vars": [
-        "PACKER_OS_IMAGE={{user `os`}}"
+        "PACKER_OS_IMAGE={{user `os`}}",
+        "PACKER_ARCH={{user `arch`}}"
       ],
       "scripts": [
         "{{user `scripts`}}/base.sh",

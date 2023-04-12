@@ -568,22 +568,25 @@ var _ = Describe("Server", func() {
 		Expect(err).To(Succeed())
 		Expect(serverTypes).To(Equal([]*hcloud.ServerType{
 			{
-				ID:     1,
-				Name:   "cpx11",
-				Cores:  fake.DefaultCPUCores,
-				Memory: fake.DefaultMemoryInGB,
+				ID:           1,
+				Name:         "cpx11",
+				Cores:        fake.DefaultCPUCores,
+				Memory:       fake.DefaultMemoryInGB,
+				Architecture: fake.DefaultArchitecture,
 			},
 			{
-				ID:     2,
-				Name:   "cpx21",
-				Cores:  fake.DefaultCPUCores,
-				Memory: fake.DefaultMemoryInGB,
+				ID:           2,
+				Name:         "cpx21",
+				Cores:        fake.DefaultCPUCores,
+				Memory:       fake.DefaultMemoryInGB,
+				Architecture: fake.DefaultArchitecture,
 			},
 			{
-				ID:     3,
-				Name:   "cpx31",
-				Cores:  fake.DefaultCPUCores,
-				Memory: fake.DefaultMemoryInGB,
+				ID:           3,
+				Name:         "cpx31",
+				Cores:        fake.DefaultCPUCores,
+				Memory:       fake.DefaultMemoryInGB,
+				Architecture: fake.DefaultArchitecture,
 			},
 		}))
 	})

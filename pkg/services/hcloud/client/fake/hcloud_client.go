@@ -33,6 +33,9 @@ const DefaultCPUCores = 1
 // DefaultMemoryInGB defines the default memory in GB for HCloud machines' capacities.
 const DefaultMemoryInGB = float32(4)
 
+// DefaultArchitecture defines the default cpu architecture for HCloud server types.
+const DefaultArchitecture = hcloud.ArchitectureX86
+
 type cacheHCloudClient struct {
 	serverCache         serverCache
 	placementGroupCache placementGroupCache
@@ -500,24 +503,50 @@ func (c *cacheHCloudClient) DeleteServer(ctx context.Context, server *hcloud.Ser
 func (c *cacheHCloudClient) ListServerTypes(ctx context.Context) ([]*hcloud.ServerType, error) {
 	return []*hcloud.ServerType{
 		{
-			ID:     1,
-			Name:   "cpx11",
-			Cores:  DefaultCPUCores,
-			Memory: DefaultMemoryInGB,
+			ID:           1,
+			Name:         "cpx11",
+			Cores:        DefaultCPUCores,
+			Memory:       DefaultMemoryInGB,
+			Architecture: DefaultArchitecture,
 		},
 		{
-			ID:     2,
-			Name:   "cpx21",
-			Cores:  DefaultCPUCores,
-			Memory: DefaultMemoryInGB,
+			ID:           2,
+			Name:         "cpx21",
+			Cores:        DefaultCPUCores,
+			Memory:       DefaultMemoryInGB,
+			Architecture: DefaultArchitecture,
 		},
 		{
-			ID:     3,
-			Name:   "cpx31",
-			Cores:  DefaultCPUCores,
-			Memory: DefaultMemoryInGB,
+			ID:           3,
+			Name:         "cpx31",
+			Cores:        DefaultCPUCores,
+			Memory:       DefaultMemoryInGB,
+			Architecture: DefaultArchitecture,
 		},
 	}, nil
+}
+
+func (c *cacheHCloudClient) GetServerType(ctx context.Context, name string) (*hcloud.ServerType, error) {
+	serverType := &hcloud.ServerType{
+		Cores:        DefaultCPUCores,
+		Memory:       DefaultMemoryInGB,
+		Architecture: DefaultArchitecture,
+	}
+	switch name {
+	case "cpx11":
+		serverType.ID = 1
+		serverType.Name = "cpx11"
+	case "cpx21":
+		serverType.ID = 2
+		serverType.Name = "cpx21"
+	case "cpx31":
+		serverType.ID = 3
+		serverType.Name = "cpx31"
+	default:
+		return nil, nil
+	}
+
+	return serverType, nil
 }
 
 func (c *cacheHCloudClient) CreateNetwork(ctx context.Context, opts hcloud.NetworkCreateOpts) (*hcloud.Network, error) {
