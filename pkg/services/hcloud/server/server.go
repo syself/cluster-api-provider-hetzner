@@ -40,6 +40,11 @@ const (
 	serverOffTimeout = 10 * time.Minute
 )
 
+var (
+	errWrongLabel   = fmt.Errorf("label is wrong")
+	errMissingLabel = fmt.Errorf("label is missing")
+)
+
 // Service defines struct with machine scope to reconcile HCloudMachines.
 type Service struct {
 	scope *scope.MachineScope
@@ -91,11 +96,20 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 		}
 	}
 
+	s.scope.SetProviderID(server.ID)
+
 	// update HCloudMachineStatus
 	c := s.scope.HCloudMachine.Status.Conditions.DeepCopy()
 	s.scope.HCloudMachine.Status = statusFromHCloudServer(server)
 	s.scope.SetRegion(failureDomain)
 	s.scope.HCloudMachine.Status.Conditions = c
+
+	// validate labels
+	if err := validateLabels(server, s.createLabels()); err != nil {
+		err := fmt.Errorf("could not validate labels of HCloud server: %w", err)
+		s.scope.SetError(err.Error(), capierrors.CreateMachineError)
+		return res, nil
+	}
 
 	// analyze status of server
 	switch server.Status {
@@ -121,7 +135,6 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 
 	// nothing to do any more for worker nodes
 	if !s.scope.IsControlPlane() {
-		s.scope.SetProviderID(server.ID)
 		s.scope.SetReady(true)
 		conditions.MarkTrue(s.scope.HCloudMachine, infrav1.InstanceReadyCondition)
 		return res, nil
@@ -132,7 +145,6 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 		return res, fmt.Errorf("failed to reconcile load balancer attachement: %w", err)
 	}
 
-	s.scope.SetProviderID(server.ID)
 	s.scope.SetReady(true)
 	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.InstanceReadyCondition)
 
@@ -539,11 +551,27 @@ func (s *Service) deleteServerOfLoadBalancer(ctx context.Context, server *hcloud
 }
 
 func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
-	// find the server based on its labels
+	var server *hcloud.Server
+
+	// try to find the server based on its id
+	serverID, err := s.scope.ServerIDFromProviderID()
+	if err == nil {
+		server, err = s.scope.HCloudClient.GetServer(ctx, serverID)
+		if err != nil {
+			hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "GetServer")
+			return nil, fmt.Errorf("failed to get server %d: %w", serverID, err)
+		}
+
+		// if server has been found, return it
+		if server != nil {
+			return server, nil
+		}
+	}
+
+	// server has not been found via id - try to find the server based on its labels
 	opts := hcloud.ServerListOpts{}
 
-	labels := s.createLabels()
-	opts.LabelSelector = utils.LabelsToLabelSelector(labels)
+	opts.LabelSelector = utils.LabelsToLabelSelector(s.createLabels())
 
 	servers, err := s.scope.HCloudClient.ListServers(ctx, opts)
 	if err != nil {
@@ -562,6 +590,19 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 	}
 
 	return servers[0], nil
+}
+
+func validateLabels(server *hcloud.Server, labels map[string]string) error {
+	for key, val := range labels {
+		wantVal, found := server.Labels[key]
+		if !found {
+			return fmt.Errorf("did not find label with key %q: %w", key, errMissingLabel)
+		}
+		if wantVal != val {
+			return fmt.Errorf("got %q, want %q: %w", val, wantVal, errWrongLabel)
+		}
+	}
+	return nil
 }
 
 func statusFromHCloudServer(server *hcloud.Server) infrav1.HCloudMachineStatus {

@@ -258,3 +258,43 @@ var _ = Describe("handleServerStatusOff", func() {
 		Expect(server.Status).To(Equal(hcloud.ServerStatusRunning))
 	})
 })
+
+var _ = Describe("Test ValidateLabels", func() {
+	type testCaseValidateLabels struct {
+		gotLabels   map[string]string
+		wantLabels  map[string]string
+		expectError error
+	}
+
+	DescribeTable("Test ValidateLabels",
+		func(tc testCaseValidateLabels) {
+			err := validateLabels(&hcloud.Server{Labels: tc.gotLabels}, tc.wantLabels)
+
+			if tc.expectError != nil {
+				Expect(err).To(MatchError(tc.expectError))
+			} else {
+				Expect(err).To(BeNil())
+			}
+		},
+		Entry("exact equality", testCaseValidateLabels{
+			gotLabels:   map[string]string{"key1": "val1", "key2": "val2"},
+			wantLabels:  map[string]string{"key1": "val1", "key2": "val2"},
+			expectError: nil,
+		}),
+		Entry("subset of labels", testCaseValidateLabels{
+			gotLabels:   map[string]string{"key1": "val1", "otherkey": "otherval", "key2": "val2"},
+			wantLabels:  map[string]string{"key1": "val1", "key2": "val2"},
+			expectError: nil,
+		}),
+		Entry("wrong value", testCaseValidateLabels{
+			gotLabels:   map[string]string{"key1": "val1", "otherkey": "otherval", "key2": "otherval"},
+			wantLabels:  map[string]string{"key1": "val1", "key2": "val2"},
+			expectError: errWrongLabel,
+		}),
+		Entry("missing key", testCaseValidateLabels{
+			gotLabels:   map[string]string{"key1": "val1", "otherkey": "otherval"},
+			wantLabels:  map[string]string{"key1": "val1", "key2": "val2"},
+			expectError: errMissingLabel,
+		}),
+	)
+})
