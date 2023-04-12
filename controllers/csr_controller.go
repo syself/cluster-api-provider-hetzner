@@ -125,7 +125,9 @@ func (r *GuestCSRReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		LastUpdateTime: metav1.Time{Time: time.Now()},
 	}
 
-	if err := csr.ValidateKubeletCSR(csrRequest, machineName, isHCloudMachine, machineAddresses); err != nil {
+	nameWithPrefix := machineNameWithPrefix(machineName, isHCloudMachine)
+
+	if err := csr.ValidateKubeletCSR(csrRequest, nameWithPrefix, machineAddresses); err != nil {
 		condition.Type = certificatesv1.CertificateDenied
 		condition.Reason = "CSRValidationFailed"
 		condition.Status = "True"
@@ -175,6 +177,14 @@ func machineNameFromCSR(certificateSigningRequest *certificatesv1.CertificateSig
 		return hcloudMachineNameFromCSR(certificateSigningRequest)
 	}
 	return bmMachineNameFromCSR(certificateSigningRequest)
+}
+
+func machineNameWithPrefix(machineName string, isHCloudMachine bool) string {
+	var hostNamePrefix string
+	if !isHCloudMachine {
+		hostNamePrefix = infrav1.BareMetalHostNamePrefix
+	}
+	return hostNamePrefix + machineName
 }
 
 func (r *GuestCSRReconciler) getMachineAddresses(
