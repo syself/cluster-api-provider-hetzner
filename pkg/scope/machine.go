@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"hash/crc32"
 	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -43,11 +45,18 @@ type MachineScopeParams struct {
 
 const maxShutDownTime = 2 * time.Minute
 
-// ErrBootstrapDataNotReady return an error if no bootstrap data is ready.
-var ErrBootstrapDataNotReady = errors.New("error retrieving bootstrap data: linked Machine's bootstrap.dataSecretName is nil")
-
-// ErrFailureDomainNotFound returns an error if no region is found.
-var ErrFailureDomainNotFound = errors.New("error no failure domain available")
+var (
+	// ErrBootstrapDataNotReady return an error if no bootstrap data is ready.
+	ErrBootstrapDataNotReady = errors.New("error retrieving bootstrap data: linked Machine's bootstrap.dataSecretName is nil")
+	// ErrFailureDomainNotFound returns an error if no region is found.
+	ErrFailureDomainNotFound = errors.New("error no failure domain available")
+	// ErrEmptyProviderID indicates an empty providerID.
+	ErrEmptyProviderID = fmt.Errorf("providerID is empty")
+	// ErrInvalidProviderID indicates an invalid providerID.
+	ErrInvalidProviderID = fmt.Errorf("providerID is invalid")
+	// ErrInvalidServerID indicates an invalid serverID.
+	ErrInvalidServerID = fmt.Errorf("serverID is invalid")
+)
 
 // NewMachineScope creates a new Scope from the supplied parameters.
 // This is meant to be called for each reconcile iteration.
@@ -125,6 +134,23 @@ func (m *MachineScope) SetRegion(region string) {
 func (m *MachineScope) SetProviderID(serverID int) {
 	providerID := fmt.Sprintf("hcloud://%d", serverID)
 	m.HCloudMachine.Spec.ProviderID = &providerID
+}
+
+// ServerIDFromProviderID converts the ProviderID (hcloud://NNNN) to the ServerID.
+func (m *MachineScope) ServerIDFromProviderID() (int, error) {
+	if m.HCloudMachine.Spec.ProviderID == nil || m.HCloudMachine.Spec.ProviderID != nil && *m.HCloudMachine.Spec.ProviderID == "" {
+		return 0, ErrEmptyProviderID
+	}
+	prefix := "hcloud://"
+	if !strings.HasPrefix(*m.HCloudMachine.Spec.ProviderID, prefix) {
+		return 0, ErrInvalidProviderID
+	}
+
+	serverID, err := strconv.Atoi(strings.TrimPrefix(*m.HCloudMachine.Spec.ProviderID, prefix))
+	if err != nil {
+		return 0, ErrInvalidServerID
+	}
+	return serverID, nil
 }
 
 // SetReady sets the ready field on the machine.
