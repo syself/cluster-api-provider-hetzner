@@ -299,7 +299,7 @@ move-to-workload-cluster: $(CLUSTERCTL)
 delete-workload-cluster: ## Deletes the example workload Kubernetes cluster
 	@test $${CLUSTER_NAME?Please set environment variable}
 	@echo 'Your Hetzner resources will now be deleted, this can take up to 20 minutes'
-	kubectl patch cluster $(CLUSTER_NAME) --type=merge -p '{"spec":{"paused": "false"}}' || true
+	kubectl patch cluster $(CLUSTER_NAME) --type=merge -p '{"spec":{"paused": false}}'
 	kubectl delete cluster $(CLUSTER_NAME)
 	${TIMEOUT} 15m bash -c "while kubectl get cluster | grep $(NAME); do sleep 1; done"
 	@echo 'Cluster deleted'
