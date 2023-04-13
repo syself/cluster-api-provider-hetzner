@@ -743,3 +743,7 @@ test: test-unit ## Runs all unit and integration tests.
 .PHONY: tilt-up
 tilt-up: $(ENVSUBST) $(KUSTOMIZE) $(TILT) cluster  ## Start a mgt-cluster & Tilt. Installs the CRDs and deploys the controllers
 	EXP_CLUSTER_RESOURCE_SET=true $(TILT) up
+
+.PHONY: watch
+watch:
+	watch -c "kubectl get cluster; echo; kubectl get machine; echo; kubectl get hcloudmachine; echo; echo Events; kubectl get events --sort-by=metadata.creationTimestamp | tail -8"
