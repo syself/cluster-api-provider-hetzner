@@ -21,242 +21,235 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/cache"
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/conditions"
-	"sigs.k8s.io/cluster-api/util/patch"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-// Service defines struct with machine scope to reconcile Hetzner bare metal remediation.
+// Service defines struct with BareMetalRemediationScope to reconcile HetznerBareMetalRemediations.
 type Service struct {
 	scope *scope.BareMetalRemediationScope
 }
 
-// NewService outs a new service with machine scope.
+// NewService outs a new service with BareMetalRemediationScope.
 func NewService(scope *scope.BareMetalRemediationScope) *Service {
 	return &Service{
 		scope: scope,
 	}
 }
 
-// Reconcile implements reconcilement of Hetzner bare metal remediation.
-func (s *Service) Reconcile(ctx context.Context) (res ctrl.Result, err error) {
-	log := ctrl.LoggerFrom(ctx)
-
-	log.Info("Reconciling baremetal remediation", "name", s.scope.BareMetalRemediation.Name)
-
-	// If host is gone, exit early
-	host, helper, err := s.getUnhealthyHost(ctx)
+// Reconcile implements reconcilement of HetznerBareMetalRemediations.
+func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err error) {
+	host, err := s.getHost(ctx)
 	if err != nil {
-		s.scope.Error(err, "unable to find a host for unhealthy machine")
-		return res, fmt.Errorf("unable to find a host for unhealthy machine: %w", err)
+		err := fmt.Errorf("failed to find the unhealthy host: %w", err)
+		record.Warn(s.scope.BareMetalRemediation, "FailedToFindHost", err.Error())
+		return res, err
 	}
 
-	// If host is not in state provisioned, then remediate immediately
+	// if host is not provisioned, then we do not try to reboot server
 	if host.Spec.Status.ProvisioningState != infrav1.StateProvisioned {
-		log.Info("Deleting host without remediation", "provisioningState", host.Spec.Status.ProvisioningState)
+		s.scope.Info("Deleting host without remediation", "provisioningState", host.Spec.Status.ProvisioningState)
+
 		if err := s.setOwnerRemediatedConditionNew(ctx); err != nil {
-			s.scope.Error(err, "error setting cluster api conditions")
-			return res, fmt.Errorf("error setting cluster api conditions: %w", err)
+			err := fmt.Errorf("failed to set remediated condition on capi machine: %w", err)
+			record.Warn(s.scope.BareMetalRemediation, "FailedSettingConditionOnMachine", err.Error())
+			return res, err
 		}
 	}
 
-	remediationType := s.scope.BareMetalRemediation.Spec.Strategy.Type
-
-	if remediationType != infrav1.RemediationTypeReboot {
-		s.scope.Info("unsupported remediation strategy")
+	if s.scope.BareMetalRemediation.Spec.Strategy.Type != infrav1.RemediationTypeReboot {
+		record.Warn(s.scope.BareMetalRemediation, "UnsupportedRemediationStrategy", "unsupported remediation strategy")
 		return res, nil
 	}
 
-	if remediationType == infrav1.RemediationTypeReboot {
-		// If no phase set, default to running
-		if s.scope.BareMetalRemediation.Status.Phase == "" {
-			s.scope.BareMetalRemediation.Status.Phase = infrav1.PhaseRunning
-		}
-
-		switch s.scope.BareMetalRemediation.Status.Phase {
-		case infrav1.PhaseRunning:
-			return s.handlePhaseRunning(ctx, host, helper)
-		case infrav1.PhaseWaiting:
-			return s.handlePhaseWaiting(ctx)
-		default:
-		}
+	// If no phase set, default to running
+	if s.scope.BareMetalRemediation.Status.Phase == "" {
+		s.scope.BareMetalRemediation.Status.Phase = infrav1.PhaseRunning
 	}
+
+	switch s.scope.BareMetalRemediation.Status.Phase {
+	case infrav1.PhaseRunning:
+		return s.handlePhaseRunning(ctx, host)
+	case infrav1.PhaseWaiting:
+		return s.handlePhaseWaiting(ctx)
+	}
+
 	return res, nil
 }
 
-func (s *Service) handlePhaseRunning(ctx context.Context, host *infrav1.HetznerBareMetalHost, helper *patch.Helper) (res ctrl.Result, err error) {
-	// host is not rebooted yet
+func (s *Service) handlePhaseRunning(ctx context.Context, host infrav1.HetznerBareMetalHost) (res reconcile.Result, err error) {
+	// if host has not been remediated yet, do that now
 	if s.scope.BareMetalRemediation.Status.LastRemediated == nil {
-		err := s.setRebootAnnotation(ctx, host, helper)
-		if err != nil {
-			return res, fmt.Errorf("error setting reboot annotation: %w", err)
+		if err := s.remediate(ctx, host); err != nil {
+			return res, fmt.Errorf("failed remediate host: %w", err)
 		}
-		now := metav1.Now()
-		s.scope.BareMetalRemediation.Status.LastRemediated = &now
-		s.scope.BareMetalRemediation.Status.RetryCount++
 	}
 
-	if s.scope.BareMetalRemediation.Spec.Strategy.RetryLimit > 0 &&
-		s.scope.BareMetalRemediation.Spec.Strategy.RetryLimit > s.scope.BareMetalRemediation.Status.RetryCount {
-		okToRemediate, nextRemediation := s.timeToRemediate(s.scope.BareMetalRemediation.Spec.Strategy.Timeout.Duration)
-
-		if okToRemediate {
-			err := s.setRebootAnnotation(ctx, host, helper)
-			if err != nil {
-				s.scope.Error(err, "error setting reboot annotation")
-				return res, fmt.Errorf("error setting reboot annotation: %w", err)
-			}
-			now := metav1.Now()
-			s.scope.BareMetalRemediation.Status.LastRemediated = &now
-			s.scope.BareMetalRemediation.Status.RetryCount++
-		}
-
-		if nextRemediation > 0 {
-			// Not yet time to remediate, requeue
-			return ctrl.Result{RequeueAfter: nextRemediation}, nil
-		}
-	} else {
+	// if no retries are left, then change to phase waiting and return
+	if !s.scope.HasRetriesLeft() {
 		s.scope.BareMetalRemediation.Status.Phase = infrav1.PhaseWaiting
+		return
 	}
+
+	nextRemediation := s.timeUntilNextRemediation(time.Now())
+
+	if nextRemediation > 0 {
+		// requeue until it is time for the remediation
+		return reconcile.Result{RequeueAfter: nextRemediation}, nil
+	}
+
+	// remediate now
+	if err := s.remediate(ctx, host); err != nil {
+		return res, fmt.Errorf("failed remediate host: %w", err)
+	}
+
 	return res, nil
 }
 
-func (s *Service) handlePhaseWaiting(ctx context.Context) (res ctrl.Result, err error) {
-	okToStop, nextCheck := s.timeToRemediate(s.scope.BareMetalRemediation.Spec.Strategy.Timeout.Duration)
+func (s *Service) remediate(ctx context.Context, host infrav1.HetznerBareMetalHost) error {
+	var err error
 
-	if okToStop {
-		s.scope.BareMetalRemediation.Status.Phase = infrav1.PhaseDeleting
-		// When machine is still unhealthy after remediation, setting of OwnerRemediatedCondition
-		// moves control to CAPI machine controller. The owning controller will do
-		// preflight checks and handles the Machine deletion
-
-		err := s.setOwnerRemediatedConditionNew(ctx)
-		if err != nil {
-			s.scope.Error(err, "error setting cluster api conditions")
-			return res, fmt.Errorf("error setting cluster api conditions: %w", err)
-		}
+	// add annotation to host so that it reboots
+	host.Annotations, err = addRebootAnnotation(host.Annotations)
+	if err != nil {
+		return fmt.Errorf("failed to add reboot annotation: %w", err)
 	}
+
+	if err := s.scope.PatchHost(ctx, &host); err != nil {
+		return fmt.Errorf("failed to patch host: %w", err)
+	}
+
+	// update status of BareMetalRemediation object
+	now := metav1.Now()
+	s.scope.BareMetalRemediation.Status.LastRemediated = &now
+	s.scope.BareMetalRemediation.Status.RetryCount++
+
+	return nil
+}
+
+func (s *Service) handlePhaseWaiting(ctx context.Context) (res reconcile.Result, err error) {
+	nextCheck := s.timeUntilNextRemediation(time.Now())
 
 	if nextCheck > 0 {
 		// Not yet time to stop remediation, requeue
-		return ctrl.Result{RequeueAfter: nextCheck}, nil
+		return reconcile.Result{RequeueAfter: nextCheck}, nil
 	}
+
+	// When machine is still unhealthy after remediation, setting of OwnerRemediatedCondition
+	// moves control to CAPI machine controller. The owning controller will do
+	// preflight checks and handles the Machine deletion
+	s.scope.BareMetalRemediation.Status.Phase = infrav1.PhaseDeleting
+
+	if err := s.setOwnerRemediatedConditionNew(ctx); err != nil {
+		err := fmt.Errorf("failed to set remediated condition on capi machine: %w", err)
+		record.Warn(s.scope.BareMetalRemediation, "FailedSettingConditionOnMachine", err.Error())
+		return res, err
+	}
+
 	return res, nil
 }
 
-func (s *Service) getUnhealthyHost(ctx context.Context) (*infrav1.HetznerBareMetalHost, *patch.Helper, error) {
-	host, err := s.getHost(ctx)
-	if err != nil || host == nil {
-		return host, nil, err
-	}
-	helper, err := patch.NewHelper(host, s.scope.Client)
-	return host, helper, err
-}
-
-func (s *Service) getHost(ctx context.Context) (*infrav1.HetznerBareMetalHost, error) {
-	annotations := s.scope.BareMetalMachine.ObjectMeta.GetAnnotations()
-	if annotations == nil {
-		err := fmt.Errorf("unable to get %s annotations", s.scope.BareMetalMachine.Name)
-		return nil, err
-	}
-	hostKey, ok := annotations[infrav1.HostAnnotation]
-	if !ok {
-		err := fmt.Errorf("unable to get %s HostAnnotation", s.scope.BareMetalMachine.Name)
-		return nil, err
-	}
-	hostNamespace, hostName, err := cache.SplitMetaNamespaceKey(hostKey)
+func (s *Service) getHost(ctx context.Context) (host infrav1.HetznerBareMetalHost, err error) {
+	key, err := objectKeyFromAnnotations(s.scope.BareMetalMachine.ObjectMeta.GetAnnotations())
 	if err != nil {
-		s.scope.Error(err, "Error parsing annotation value", "annotation key", hostKey)
-		return nil, err
+		return host, fmt.Errorf("failed to get object key from annotations of bm machine %q: %w", s.scope.BareMetalMachine.Name, err)
 	}
 
-	host := infrav1.HetznerBareMetalHost{}
-	key := client.ObjectKey{
-		Name:      hostName,
-		Namespace: hostNamespace,
+	if err := s.scope.Client.Get(ctx, key, &host); err != nil {
+		return host, fmt.Errorf("failed to get host %+v: %w", key, err)
 	}
-	err = s.scope.Client.Get(ctx, key, &host)
-	if apierrors.IsNotFound(err) {
-		s.scope.Info("Annotated host not found", "host", hostKey)
-		return nil, err
-	} else if err != nil {
-		return nil, err
-	}
-	return &host, nil
+
+	return host, nil
 }
 
-// setRebootAnnotation sets reboot annotation on unhealthy host.
-func (s *Service) setRebootAnnotation(ctx context.Context, host *infrav1.HetznerBareMetalHost, helper *patch.Helper) error {
-	reboot := infrav1.RebootAnnotationArguments{}
-	reboot.Type = infrav1.RebootTypeHardware
-
-	marshalledMode, err := json.Marshal(reboot)
-	if err != nil {
-		return err
-	}
-
-	if host.Annotations == nil {
-		host.Annotations = make(map[string]string)
-	}
-
-	host.Annotations[infrav1.RebootAnnotation] = string(marshalledMode)
-	return helper.Patch(ctx, host)
-}
-
-// timeToRemediate checks if it is time to execute a next remediation step
+// timeUntilNextRemediation checks if it is time to execute a next remediation step
 // and returns seconds to next remediation time.
-func (s *Service) timeToRemediate(timeout time.Duration) (bool, time.Duration) {
-	now := time.Now()
-
+func (s *Service) timeUntilNextRemediation(now time.Time) time.Duration {
+	timeout := s.scope.BareMetalRemediation.Spec.Strategy.Timeout.Duration
 	// status is not updated yet
 	if s.scope.BareMetalRemediation.Status.LastRemediated == nil {
-		return false, timeout
+		return timeout
 	}
 
 	if s.scope.BareMetalRemediation.Status.LastRemediated.Add(timeout).Before(now) {
-		return true, time.Duration(0)
+		return time.Duration(0)
 	}
 
 	lastRemediated := now.Sub(s.scope.BareMetalRemediation.Status.LastRemediated.Time)
 	nextRemediation := timeout - lastRemediated + time.Second
-	return false, nextRemediation
+	return nextRemediation
 }
 
 // setOwnerRemediatedConditionNew sets MachineOwnerRemediatedCondition on CAPI machine object
 // that have failed a healthcheck.
 func (s *Service) setOwnerRemediatedConditionNew(ctx context.Context) error {
-	capiMachine, err := s.getCapiMachine(ctx)
+	capiMachine, err := util.GetOwnerMachine(ctx, s.scope.Client, s.scope.BareMetalRemediation.ObjectMeta)
 	if err != nil {
 		return fmt.Errorf("failed to get capi machine: %w", err)
 	}
 
-	machineHelper, err := patch.NewHelper(capiMachine, s.scope.Client)
-	if err != nil {
-		return fmt.Errorf("failed to create patch helper: %w", err)
-	}
-	conditions.MarkFalse(capiMachine, capi.MachineOwnerRemediatedCondition, capi.WaitingForRemediationReason, capi.ConditionSeverityWarning, "")
-	err = machineHelper.Patch(ctx, capiMachine)
-	if err != nil {
+	conditions.MarkFalse(
+		capiMachine,
+		capi.MachineOwnerRemediatedCondition,
+		capi.WaitingForRemediationReason,
+		capi.ConditionSeverityWarning,
+		"remediation through reboot failed",
+	)
+
+	if err := s.scope.PatchMachine(ctx, capiMachine); err != nil {
 		return fmt.Errorf("failed to patch capi machine: %w", err)
 	}
 	return nil
 }
 
-// getCapiMachine returns CAPI machine object owning the current resource.
-func (s *Service) getCapiMachine(ctx context.Context) (*capi.Machine, error) {
-	capiMachine, err := util.GetOwnerMachine(ctx, s.scope.Client, s.scope.BareMetalRemediation.ObjectMeta)
-	if err != nil {
-		return nil, fmt.Errorf("owner mMachine could not be retrieved: %w", err)
+func objectKeyFromAnnotations(annotations map[string]string) (client.ObjectKey, error) {
+	if annotations == nil {
+		return client.ObjectKey{}, fmt.Errorf("unable to get annotations")
 	}
-	return capiMachine, nil
+	hostKey, ok := annotations[infrav1.HostAnnotation]
+	if !ok {
+		return client.ObjectKey{}, fmt.Errorf("unable to get HostAnnotation")
+	}
+
+	hostNamespace, hostName, err := splitHostKey(hostKey)
+	if err != nil {
+		return client.ObjectKey{}, fmt.Errorf("failed to parse host key %q: %w", hostKey, err)
+	}
+
+	return client.ObjectKey{Name: hostName, Namespace: hostNamespace}, nil
+}
+
+// addRebootAnnotation sets reboot annotation on unhealthy host.
+func addRebootAnnotation(annotations map[string]string) (map[string]string, error) {
+	rebootAnnotationArguments := infrav1.RebootAnnotationArguments{Type: infrav1.RebootTypeHardware}
+
+	b, err := json.Marshal(rebootAnnotationArguments)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal reboot annotation arguments %+v: %w", rebootAnnotationArguments, err)
+	}
+
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+
+	annotations[infrav1.RebootAnnotation] = string(b)
+	return annotations, nil
+}
+
+func splitHostKey(key string) (namespace, name string, err error) {
+	parts := strings.Split(key, "/")
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("unexpected host key")
+	}
+	return parts[0], parts[1], nil
 }
