@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package fake implements fakes for important interfaces like the HCloud api.
+// Package fake implements fakes for important interfaces like the HCloud API.
 package fake
 
 import (
@@ -27,13 +27,13 @@ import (
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
-// DefaultCPUCores defines the default cpu cores for HCloud machines' capacities.
+// DefaultCPUCores defines the default CPU cores for HCloud machines' capacities.
 const DefaultCPUCores = 1
 
 // DefaultMemoryInGB defines the default memory in GB for HCloud machines' capacities.
 const DefaultMemoryInGB = float32(4)
 
-// DefaultArchitecture defines the default cpu architecture for HCloud server types.
+// DefaultArchitecture defines the default CPU architecture for HCloud server types.
 const DefaultArchitecture = hcloud.ArchitectureX86
 
 type cacheHCloudClient struct {
@@ -132,10 +132,10 @@ var defaultImage = hcloud.Image{
 	Name: "myimage",
 }
 
-func (c *cacheHCloudClient) CreateLoadBalancer(ctx context.Context, opts hcloud.LoadBalancerCreateOpts) (hcloud.LoadBalancerCreateResult, error) {
+func (c *cacheHCloudClient) CreateLoadBalancer(ctx context.Context, opts hcloud.LoadBalancerCreateOpts) (*hcloud.LoadBalancer, error) {
 	// cannot have two load balancers with the same name
 	if _, found := c.loadBalancerCache.nameMap[opts.Name]; found {
-		return hcloud.LoadBalancerCreateResult{}, fmt.Errorf("failed to create lb: already exists")
+		return nil, fmt.Errorf("failed to create lb: already exists")
 	}
 
 	lb := &hcloud.LoadBalancer{
@@ -163,10 +163,7 @@ func (c *cacheHCloudClient) CreateLoadBalancer(ctx context.Context, opts hcloud.
 	// Add load balancer to cache
 	c.loadBalancerCache.idMap[lb.ID] = lb
 	c.loadBalancerCache.nameMap[lb.Name] = struct{}{}
-	return hcloud.LoadBalancerCreateResult{
-		LoadBalancer: lb,
-		Action:       &hcloud.Action{},
-	}, nil
+	return lb, nil
 }
 
 func (c *cacheHCloudClient) DeleteLoadBalancer(ctx context.Context, id int) error {
@@ -202,22 +199,22 @@ func (c *cacheHCloudClient) ListLoadBalancers(ctx context.Context, opts hcloud.L
 	return lbs, nil
 }
 
-func (c *cacheHCloudClient) AttachLoadBalancerToNetwork(ctx context.Context, lb *hcloud.LoadBalancer, opts hcloud.LoadBalancerAttachToNetworkOpts) (*hcloud.Action, error) {
+func (c *cacheHCloudClient) AttachLoadBalancerToNetwork(ctx context.Context, lb *hcloud.LoadBalancer, opts hcloud.LoadBalancerAttachToNetworkOpts) error {
 	// Check if loadBalancer exists
 	if _, found := c.loadBalancerCache.idMap[lb.ID]; !found {
-		return nil, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+		return hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
 	}
 
 	// Check if network exists
 	network, found := c.networkCache.idMap[opts.Network.ID]
 	if !found {
-		return nil, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+		return hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
 	}
 
 	// check if already exists
 	for _, s := range c.loadBalancerCache.idMap[lb.ID].PrivateNet {
 		if s.IP.Equal(network.IPRange.IP) {
-			return nil, fmt.Errorf("already added")
+			return fmt.Errorf("already added")
 		}
 	}
 
@@ -226,29 +223,29 @@ func (c *cacheHCloudClient) AttachLoadBalancerToNetwork(ctx context.Context, lb 
 		c.loadBalancerCache.idMap[lb.ID].PrivateNet,
 		hcloud.LoadBalancerPrivateNet{IP: network.IPRange.IP},
 	)
-	return &hcloud.Action{}, nil
+	return nil
 }
 
-func (c *cacheHCloudClient) ChangeLoadBalancerType(ctx context.Context, lb *hcloud.LoadBalancer, opts hcloud.LoadBalancerChangeTypeOpts) (*hcloud.Action, error) {
+func (c *cacheHCloudClient) ChangeLoadBalancerType(ctx context.Context, lb *hcloud.LoadBalancer, opts hcloud.LoadBalancerChangeTypeOpts) error {
 	// Check if loadBalancer exists
 	if _, found := c.loadBalancerCache.idMap[lb.ID]; !found {
-		return nil, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+		return hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
 	}
 
 	// Update it
 	c.loadBalancerCache.idMap[lb.ID].LoadBalancerType = opts.LoadBalancerType
-	return &hcloud.Action{}, nil
+	return nil
 }
 
-func (c *cacheHCloudClient) ChangeLoadBalancerAlgorithm(ctx context.Context, lb *hcloud.LoadBalancer, opts hcloud.LoadBalancerChangeAlgorithmOpts) (*hcloud.Action, error) {
+func (c *cacheHCloudClient) ChangeLoadBalancerAlgorithm(ctx context.Context, lb *hcloud.LoadBalancer, opts hcloud.LoadBalancerChangeAlgorithmOpts) error {
 	// Check if loadBalancer exists
 	if _, found := c.loadBalancerCache.idMap[lb.ID]; !found {
-		return nil, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+		return hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
 	}
 
 	// Update it
 	c.loadBalancerCache.idMap[lb.ID].Algorithm.Type = opts.Type
-	return &hcloud.Action{}, nil
+	return nil
 }
 
 func (c *cacheHCloudClient) UpdateLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, opts hcloud.LoadBalancerUpdateOpts) (*hcloud.LoadBalancer, error) {
@@ -262,16 +259,16 @@ func (c *cacheHCloudClient) UpdateLoadBalancer(ctx context.Context, lb *hcloud.L
 	return c.loadBalancerCache.idMap[lb.ID], nil
 }
 
-func (c *cacheHCloudClient) AddTargetServerToLoadBalancer(ctx context.Context, opts hcloud.LoadBalancerAddServerTargetOpts, lb *hcloud.LoadBalancer) (*hcloud.Action, error) {
+func (c *cacheHCloudClient) AddTargetServerToLoadBalancer(ctx context.Context, opts hcloud.LoadBalancerAddServerTargetOpts, lb *hcloud.LoadBalancer) error {
 	// Check if loadBalancer exists
 	if _, found := c.loadBalancerCache.idMap[lb.ID]; !found {
-		return nil, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+		return hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
 	}
 
 	// check if already exists
 	for _, s := range c.loadBalancerCache.idMap[lb.ID].Targets {
 		if s.Type == hcloud.LoadBalancerTargetTypeServer && s.Server.Server.ID == opts.Server.ID {
-			return nil, hcloud.Error{Code: hcloud.ErrorCodeServerAlreadyAdded, Message: "already added"}
+			return hcloud.Error{Code: hcloud.ErrorCodeServerAlreadyAdded, Message: "already added"}
 		}
 	}
 
@@ -283,13 +280,13 @@ func (c *cacheHCloudClient) AddTargetServerToLoadBalancer(ctx context.Context, o
 			Server: &hcloud.LoadBalancerTargetServer{Server: opts.Server},
 		},
 	)
-	return &hcloud.Action{}, nil
+	return nil
 }
 
-func (c *cacheHCloudClient) DeleteTargetServerOfLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, server *hcloud.Server) (*hcloud.Action, error) {
+func (c *cacheHCloudClient) DeleteTargetServerOfLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, server *hcloud.Server) error {
 	// Check if loadBalancer exists
 	if _, found := c.loadBalancerCache.idMap[lb.ID]; !found {
-		return nil, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+		return hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
 	}
 
 	// delete it if it exists
@@ -298,22 +295,22 @@ func (c *cacheHCloudClient) DeleteTargetServerOfLoadBalancer(ctx context.Context
 			// Truncate the slice
 			c.loadBalancerCache.idMap[lb.ID].Targets[i] = c.loadBalancerCache.idMap[lb.ID].Targets[len(c.loadBalancerCache.idMap[lb.ID].Targets)-1]
 			c.loadBalancerCache.idMap[lb.ID].Targets = c.loadBalancerCache.idMap[lb.ID].Targets[:len(c.loadBalancerCache.idMap[lb.ID].Targets)-1]
-			return &hcloud.Action{}, nil
+			return nil
 		}
 	}
-	return nil, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+	return hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
 }
 
-func (c *cacheHCloudClient) AddIPTargetToLoadBalancer(ctx context.Context, opts hcloud.LoadBalancerAddIPTargetOpts, lb *hcloud.LoadBalancer) (*hcloud.Action, error) {
+func (c *cacheHCloudClient) AddIPTargetToLoadBalancer(ctx context.Context, opts hcloud.LoadBalancerAddIPTargetOpts, lb *hcloud.LoadBalancer) error {
 	// Check if loadBalancer exists
 	if _, found := c.loadBalancerCache.idMap[lb.ID]; !found {
-		return nil, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+		return hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
 	}
 
 	// check if already exists
 	for _, s := range c.loadBalancerCache.idMap[lb.ID].Targets {
 		if s.Type == hcloud.LoadBalancerTargetTypeIP && s.IP.IP == opts.IP.String() {
-			return nil, hcloud.Error{Code: hcloud.ErrorCodeServerAlreadyAdded, Message: "already added"}
+			return hcloud.Error{Code: hcloud.ErrorCodeServerAlreadyAdded, Message: "already added"}
 		}
 	}
 
@@ -325,13 +322,13 @@ func (c *cacheHCloudClient) AddIPTargetToLoadBalancer(ctx context.Context, opts 
 			IP:   &hcloud.LoadBalancerTargetIP{IP: opts.IP.String()},
 		},
 	)
-	return &hcloud.Action{}, nil
+	return nil
 }
 
-func (c *cacheHCloudClient) DeleteIPTargetOfLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, ip net.IP) (*hcloud.Action, error) {
+func (c *cacheHCloudClient) DeleteIPTargetOfLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, ip net.IP) error {
 	// Check if loadBalancer exists
 	if _, found := c.loadBalancerCache.idMap[lb.ID]; !found {
-		return nil, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+		return hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
 	}
 
 	// delete it if it exists
@@ -340,37 +337,37 @@ func (c *cacheHCloudClient) DeleteIPTargetOfLoadBalancer(ctx context.Context, lb
 			// Truncate the slice
 			c.loadBalancerCache.idMap[lb.ID].Targets[i] = c.loadBalancerCache.idMap[lb.ID].Targets[len(c.loadBalancerCache.idMap[lb.ID].Targets)-1]
 			c.loadBalancerCache.idMap[lb.ID].Targets = c.loadBalancerCache.idMap[lb.ID].Targets[:len(c.loadBalancerCache.idMap[lb.ID].Targets)-1]
-			return &hcloud.Action{}, nil
+			return nil
 		}
 	}
-	return nil, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+	return hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
 }
 
-func (c *cacheHCloudClient) AddServiceToLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, opts hcloud.LoadBalancerAddServiceOpts) (*hcloud.Action, error) {
+func (c *cacheHCloudClient) AddServiceToLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, opts hcloud.LoadBalancerAddServiceOpts) error {
 	// Check if loadBalancer exists
 	if _, found := c.loadBalancerCache.idMap[lb.ID]; !found {
-		return nil, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+		return hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
 	}
 	if *opts.ListenPort == 0 {
-		return nil, fmt.Errorf("cannot add service with listenPort 0")
+		return fmt.Errorf("cannot add service with listenPort 0")
 	}
 	// check if already exists
 	for _, s := range c.loadBalancerCache.idMap[lb.ID].Services {
 		if s.ListenPort == *opts.ListenPort {
-			return nil, fmt.Errorf("already added")
+			return fmt.Errorf("already added")
 		}
 	}
 
 	// Add it
 	c.loadBalancerCache.idMap[lb.ID].Services = append(
 		c.loadBalancerCache.idMap[lb.ID].Services, hcloud.LoadBalancerService{ListenPort: *opts.ListenPort, DestinationPort: *opts.DestinationPort})
-	return &hcloud.Action{}, nil
+	return nil
 }
 
-func (c *cacheHCloudClient) DeleteServiceFromLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, listenPort int) (*hcloud.Action, error) {
+func (c *cacheHCloudClient) DeleteServiceFromLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, listenPort int) error {
 	// Check if loadBalancer exists
 	if _, found := c.loadBalancerCache.idMap[lb.ID]; !found {
-		return nil, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+		return hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
 	}
 
 	// delete if it exists
@@ -378,11 +375,11 @@ func (c *cacheHCloudClient) DeleteServiceFromLoadBalancer(ctx context.Context, l
 		if s.ListenPort == listenPort {
 			c.loadBalancerCache.idMap[lb.ID].Services[i] = c.loadBalancerCache.idMap[lb.ID].Services[len(c.loadBalancerCache.idMap[lb.ID].Services)-1]
 			c.loadBalancerCache.idMap[lb.ID].Services = c.loadBalancerCache.idMap[lb.ID].Services[:len(c.loadBalancerCache.idMap[lb.ID].Services)-1]
-			return &hcloud.Action{}, nil
+			return nil
 		}
 	}
 
-	return nil, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+	return hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
 }
 
 func (c *cacheHCloudClient) ListImages(ctx context.Context, opts hcloud.ImageListOpts) ([]*hcloud.Image, error) {
@@ -392,9 +389,9 @@ func (c *cacheHCloudClient) ListImages(ctx context.Context, opts hcloud.ImageLis
 	return []*hcloud.Image{&defaultImage}, nil
 }
 
-func (c *cacheHCloudClient) CreateServer(ctx context.Context, opts hcloud.ServerCreateOpts) (hcloud.ServerCreateResult, error) {
+func (c *cacheHCloudClient) CreateServer(ctx context.Context, opts hcloud.ServerCreateOpts) (*hcloud.Server, error) {
 	if _, found := c.serverCache.nameMap[opts.Name]; found {
-		return hcloud.ServerCreateResult{}, fmt.Errorf("already exists")
+		return nil, fmt.Errorf("already exists")
 	}
 
 	server := &hcloud.Server{
@@ -414,33 +411,30 @@ func (c *cacheHCloudClient) CreateServer(ctx context.Context, opts hcloud.Server
 	// Add server to cache
 	c.serverCache.idMap[server.ID] = server
 	c.serverCache.nameMap[server.Name] = struct{}{}
-	return hcloud.ServerCreateResult{
-		Server: server,
-		Action: &hcloud.Action{},
-	}, nil
+	return server, nil
 }
 
-func (c *cacheHCloudClient) AttachServerToNetwork(ctx context.Context, server *hcloud.Server, opts hcloud.ServerAttachToNetworkOpts) (*hcloud.Action, error) {
+func (c *cacheHCloudClient) AttachServerToNetwork(ctx context.Context, server *hcloud.Server, opts hcloud.ServerAttachToNetworkOpts) error {
 	// Check if network exists
 	if _, found := c.networkCache.idMap[opts.Network.ID]; !found {
-		return nil, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+		return hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
 	}
 
 	// Check if server exists
 	if _, found := c.serverCache.idMap[server.ID]; !found {
-		return nil, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+		return hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
 	}
 
 	// check if already exists
 	for _, s := range c.networkCache.idMap[opts.Network.ID].Servers {
 		if s.ID == server.ID {
-			return nil, hcloud.Error{Code: hcloud.ErrorCodeServerAlreadyAdded, Message: "already added"}
+			return hcloud.Error{Code: hcloud.ErrorCodeServerAlreadyAdded, Message: "already added"}
 		}
 	}
 
 	// Add it
 	c.networkCache.idMap[opts.Network.ID].Servers = append(c.networkCache.idMap[opts.Network.ID].Servers, server)
-	return &hcloud.Action{}, nil
+	return nil
 }
 
 func (c *cacheHCloudClient) ListServers(ctx context.Context, opts hcloud.ServerListOpts) ([]*hcloud.Server, error) {
@@ -470,24 +464,24 @@ func (c *cacheHCloudClient) GetServer(ctx context.Context, id int) (*hcloud.Serv
 	return c.serverCache.idMap[id], nil
 }
 
-func (c *cacheHCloudClient) ShutdownServer(ctx context.Context, server *hcloud.Server) (*hcloud.Action, error) {
+func (c *cacheHCloudClient) ShutdownServer(ctx context.Context, server *hcloud.Server) error {
 	if _, found := c.serverCache.idMap[server.ID]; !found {
-		return nil, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+		return hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
 	}
 	c.serverCache.idMap[server.ID].Status = hcloud.ServerStatusOff
-	return &hcloud.Action{}, nil
+	return nil
 }
 
-func (c *cacheHCloudClient) RebootServer(ctx context.Context, server *hcloud.Server) (*hcloud.Action, error) {
-	return nil, nil
+func (c *cacheHCloudClient) RebootServer(ctx context.Context, server *hcloud.Server) error {
+	return nil
 }
 
-func (c *cacheHCloudClient) PowerOnServer(ctx context.Context, server *hcloud.Server) (*hcloud.Action, error) {
+func (c *cacheHCloudClient) PowerOnServer(ctx context.Context, server *hcloud.Server) error {
 	if _, found := c.serverCache.idMap[server.ID]; !found {
-		return nil, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+		return hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
 	}
 	c.serverCache.idMap[server.ID].Status = hcloud.ServerStatusRunning
-	return &hcloud.Action{}, nil
+	return nil
 }
 
 func (c *cacheHCloudClient) DeleteServer(ctx context.Context, server *hcloud.Server) error {
@@ -606,9 +600,9 @@ func (c *cacheHCloudClient) ListSSHKeys(ctx context.Context, opts hcloud.SSHKeyL
 	return []*hcloud.SSHKey{&defaultSSHKey}, nil
 }
 
-func (c *cacheHCloudClient) CreatePlacementGroup(ctx context.Context, opts hcloud.PlacementGroupCreateOpts) (hcloud.PlacementGroupCreateResult, error) {
+func (c *cacheHCloudClient) CreatePlacementGroup(ctx context.Context, opts hcloud.PlacementGroupCreateOpts) (*hcloud.PlacementGroup, error) {
 	if _, found := c.placementGroupCache.nameMap[opts.Name]; found {
-		return hcloud.PlacementGroupCreateResult{}, fmt.Errorf("already exists")
+		return nil, fmt.Errorf("already exists")
 	}
 
 	placementGroup := &hcloud.PlacementGroup{
@@ -622,10 +616,7 @@ func (c *cacheHCloudClient) CreatePlacementGroup(ctx context.Context, opts hclou
 	c.placementGroupCache.idMap[placementGroup.ID] = placementGroup
 	c.placementGroupCache.nameMap[placementGroup.Name] = struct{}{}
 
-	return hcloud.PlacementGroupCreateResult{
-		PlacementGroup: placementGroup,
-		Action:         &hcloud.Action{},
-	}, nil
+	return placementGroup, nil
 }
 
 func (c *cacheHCloudClient) DeletePlacementGroup(ctx context.Context, id int) error {
@@ -662,25 +653,25 @@ func (c *cacheHCloudClient) ListPlacementGroups(ctx context.Context, opts hcloud
 	return placementGroups, nil
 }
 
-func (c *cacheHCloudClient) AddServerToPlacementGroup(ctx context.Context, server *hcloud.Server, pg *hcloud.PlacementGroup) (*hcloud.Action, error) {
+func (c *cacheHCloudClient) AddServerToPlacementGroup(ctx context.Context, server *hcloud.Server, pg *hcloud.PlacementGroup) error {
 	// Check if placement group exists
 	if _, found := c.placementGroupCache.idMap[pg.ID]; !found {
-		return nil, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+		return hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
 	}
 
 	// Check if server exists
 	if _, found := c.serverCache.idMap[server.ID]; !found {
-		return nil, hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
+		return hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
 	}
 
 	// check if already exists
 	if isIntInList(c.placementGroupCache.idMap[pg.ID].Servers, server.ID) {
-		return nil, hcloud.Error{Code: hcloud.ErrorCodeServerAlreadyAdded, Message: "already added"}
+		return hcloud.Error{Code: hcloud.ErrorCodeServerAlreadyAdded, Message: "already added"}
 	}
 
 	// Add it
 	c.placementGroupCache.idMap[pg.ID].Servers = append(c.placementGroupCache.idMap[pg.ID].Servers, server.ID)
-	return &hcloud.Action{}, nil
+	return nil
 }
 
 func isIntInList(list []int, str int) bool {

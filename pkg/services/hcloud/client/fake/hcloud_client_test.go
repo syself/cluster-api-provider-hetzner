@@ -19,6 +19,7 @@ package fake_test
 import (
 	"context"
 	"net"
+	"testing"
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
 	. "github.com/onsi/ginkgo/v2"
@@ -32,6 +33,11 @@ var (
 	factory = fake.NewHCloudClientFactory()
 	ctx     = context.Background()
 )
+
+func TestFake(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Fake Suite")
+}
 
 var _ = Describe("Load balancer", func() {
 	opts := hcloud.LoadBalancerCreateOpts{
@@ -113,7 +119,7 @@ var _ = Describe("Load balancer", func() {
 
 	It("changes the load balancer type successfully", func() {
 		Expect(lb.LoadBalancerType.Name).To(Equal("lb11"))
-		_, err := client.ChangeLoadBalancerType(ctx, lb, hcloud.LoadBalancerChangeTypeOpts{
+		err := client.ChangeLoadBalancerType(ctx, lb, hcloud.LoadBalancerChangeTypeOpts{
 			LoadBalancerType: &hcloud.LoadBalancerType{
 				Name: "lb21",
 			},
@@ -126,7 +132,7 @@ var _ = Describe("Load balancer", func() {
 	})
 
 	It("gives a NotFound error when a non-existing load balancer's type is updated", func() {
-		_, err := client.ChangeLoadBalancerType(ctx, &hcloud.LoadBalancer{ID: 999}, hcloud.LoadBalancerChangeTypeOpts{
+		err := client.ChangeLoadBalancerType(ctx, &hcloud.LoadBalancer{ID: 999}, hcloud.LoadBalancerChangeTypeOpts{
 			LoadBalancerType: &hcloud.LoadBalancerType{
 				Name: "lb21",
 			},
@@ -137,7 +143,7 @@ var _ = Describe("Load balancer", func() {
 
 	It("changes the load balancer algorithm successfully", func() {
 		Expect(lb.Algorithm.Type).To(Equal(hcloud.LoadBalancerAlgorithmTypeRoundRobin))
-		_, err := client.ChangeLoadBalancerAlgorithm(ctx, lb, hcloud.LoadBalancerChangeAlgorithmOpts{
+		err := client.ChangeLoadBalancerAlgorithm(ctx, lb, hcloud.LoadBalancerChangeAlgorithmOpts{
 			Type: hcloud.LoadBalancerAlgorithmTypeLeastConnections,
 		})
 		Expect(err).To(Succeed())
@@ -148,7 +154,7 @@ var _ = Describe("Load balancer", func() {
 	})
 
 	It("gives a NotFound error when a non-existing load balancer's algorithm is updated", func() {
-		_, err := client.ChangeLoadBalancerAlgorithm(ctx, &hcloud.LoadBalancer{ID: 999}, hcloud.LoadBalancerChangeAlgorithmOpts{
+		err := client.ChangeLoadBalancerAlgorithm(ctx, &hcloud.LoadBalancer{ID: 999}, hcloud.LoadBalancerChangeAlgorithmOpts{
 			Type: hcloud.LoadBalancerAlgorithmTypeLeastConnections,
 		})
 		Expect(err).ToNot(BeNil())
@@ -172,7 +178,7 @@ var _ = Describe("Load balancer", func() {
 
 	It("adds a server target to load balancer successfully", func() {
 		Expect(len(lb.Targets)).To(Equal(0))
-		_, err := client.AddTargetServerToLoadBalancer(ctx, hcloud.LoadBalancerAddServerTargetOpts{
+		err := client.AddTargetServerToLoadBalancer(ctx, hcloud.LoadBalancerAddServerTargetOpts{
 			Server: &hcloud.Server{
 				ID: 42,
 			},
@@ -187,7 +193,7 @@ var _ = Describe("Load balancer", func() {
 
 	It("adds an IP target to load balancer successfully", func() {
 		Expect(len(lb.Targets)).To(Equal(0))
-		_, err := client.AddIPTargetToLoadBalancer(ctx, hcloud.LoadBalancerAddIPTargetOpts{
+		err := client.AddIPTargetToLoadBalancer(ctx, hcloud.LoadBalancerAddIPTargetOpts{
 			IP: net.ParseIP("1.2.3.4"),
 		}, lb)
 		Expect(err).To(Succeed())
@@ -199,13 +205,13 @@ var _ = Describe("Load balancer", func() {
 	})
 
 	It("gives a AlreadyAdded error when a server target is added twice", func() {
-		_, err := client.AddTargetServerToLoadBalancer(ctx, hcloud.LoadBalancerAddServerTargetOpts{
+		err := client.AddTargetServerToLoadBalancer(ctx, hcloud.LoadBalancerAddServerTargetOpts{
 			Server: &hcloud.Server{
 				ID: 42,
 			},
 		}, lb)
 		Expect(err).To(BeNil())
-		_, err = client.AddTargetServerToLoadBalancer(ctx, hcloud.LoadBalancerAddServerTargetOpts{
+		err = client.AddTargetServerToLoadBalancer(ctx, hcloud.LoadBalancerAddServerTargetOpts{
 			Server: &hcloud.Server{
 				ID: 42,
 			},
@@ -215,11 +221,11 @@ var _ = Describe("Load balancer", func() {
 	})
 
 	It("gives a AlreadyAdded error when an IP target is added twice", func() {
-		_, err := client.AddIPTargetToLoadBalancer(ctx, hcloud.LoadBalancerAddIPTargetOpts{
+		err := client.AddIPTargetToLoadBalancer(ctx, hcloud.LoadBalancerAddIPTargetOpts{
 			IP: net.ParseIP("1.2.3.4"),
 		}, lb)
 		Expect(err).To(BeNil())
-		_, err = client.AddIPTargetToLoadBalancer(ctx, hcloud.LoadBalancerAddIPTargetOpts{
+		err = client.AddIPTargetToLoadBalancer(ctx, hcloud.LoadBalancerAddIPTargetOpts{
 			IP: net.ParseIP("1.2.3.4"),
 		}, lb)
 		Expect(err).ToNot(BeNil())
@@ -227,7 +233,7 @@ var _ = Describe("Load balancer", func() {
 	})
 
 	It("gives a NotFound error when a target is added to a non-existing load balancer", func() {
-		_, err := client.AddTargetServerToLoadBalancer(ctx, hcloud.LoadBalancerAddServerTargetOpts{
+		err := client.AddTargetServerToLoadBalancer(ctx, hcloud.LoadBalancerAddServerTargetOpts{
 			Server: &hcloud.Server{
 				ID: 42,
 			},
@@ -240,7 +246,7 @@ var _ = Describe("Load balancer", func() {
 		server := &hcloud.Server{
 			ID: 42,
 		}
-		_, err := client.AddTargetServerToLoadBalancer(ctx, hcloud.LoadBalancerAddServerTargetOpts{
+		err := client.AddTargetServerToLoadBalancer(ctx, hcloud.LoadBalancerAddServerTargetOpts{
 			Server: server,
 		}, lb)
 		Expect(err).To(Succeed())
@@ -248,7 +254,7 @@ var _ = Describe("Load balancer", func() {
 		Expect(err).To(BeNil())
 		Expect(len(resp)).To(Equal(1))
 		Expect(len(resp[0].Targets)).To(Equal(1))
-		_, err = client.DeleteTargetServerOfLoadBalancer(ctx, lb, server)
+		err = client.DeleteTargetServerOfLoadBalancer(ctx, lb, server)
 		Expect(err).To(Succeed())
 		resp2, err := client.ListLoadBalancers(ctx, listOpts)
 		Expect(err).To(BeNil())
@@ -257,7 +263,7 @@ var _ = Describe("Load balancer", func() {
 	})
 
 	It("adds and deletes an IP target of load balancer successfully", func() {
-		_, err := client.AddIPTargetToLoadBalancer(ctx, hcloud.LoadBalancerAddIPTargetOpts{
+		err := client.AddIPTargetToLoadBalancer(ctx, hcloud.LoadBalancerAddIPTargetOpts{
 			IP: net.ParseIP("1.2.3.4"),
 		}, lb)
 		Expect(err).To(Succeed())
@@ -265,7 +271,7 @@ var _ = Describe("Load balancer", func() {
 		Expect(err).To(BeNil())
 		Expect(len(resp)).To(Equal(1))
 		Expect(len(resp[0].Targets)).To(Equal(1))
-		_, err = client.DeleteIPTargetOfLoadBalancer(ctx, lb, net.ParseIP("1.2.3.4"))
+		err = client.DeleteIPTargetOfLoadBalancer(ctx, lb, net.ParseIP("1.2.3.4"))
 		Expect(err).To(Succeed())
 		resp2, err := client.ListLoadBalancers(ctx, listOpts)
 		Expect(err).To(BeNil())
@@ -274,20 +280,20 @@ var _ = Describe("Load balancer", func() {
 	})
 
 	It("gives a NotFound error if a non-existing target is deleted from a load balancer", func() {
-		_, err := client.DeleteTargetServerOfLoadBalancer(ctx, lb, &hcloud.Server{ID: 42})
+		err := client.DeleteTargetServerOfLoadBalancer(ctx, lb, &hcloud.Server{ID: 42})
 		Expect(err).ToNot(BeNil())
 		Expect(hcloud.IsError(err, hcloud.ErrorCodeNotFound)).To(BeTrue())
 	})
 
 	It("gives a NotFound error when a target is deleted to a non-existing load balancer", func() {
-		_, err := client.DeleteTargetServerOfLoadBalancer(ctx, &hcloud.LoadBalancer{ID: 999}, &hcloud.Server{ID: 42})
+		err := client.DeleteTargetServerOfLoadBalancer(ctx, &hcloud.LoadBalancer{ID: 999}, &hcloud.Server{ID: 42})
 		Expect(err).ToNot(BeNil())
 		Expect(hcloud.IsError(err, hcloud.ErrorCodeNotFound)).To(BeTrue())
 	})
 
 	It("adds the load balancer successfully to a network", func() {
 		Expect(len(lb.PrivateNet)).To(Equal(1))
-		_, err := client.AttachLoadBalancerToNetwork(ctx, lb, hcloud.LoadBalancerAttachToNetworkOpts{Network: network})
+		err := client.AttachLoadBalancerToNetwork(ctx, lb, hcloud.LoadBalancerAttachToNetworkOpts{Network: network})
 		Expect(err).To(Succeed())
 		resp, err := client.ListLoadBalancers(ctx, listOpts)
 		Expect(err).To(BeNil())
@@ -297,7 +303,7 @@ var _ = Describe("Load balancer", func() {
 	})
 
 	It("gives a NotFound error when a non-existing load balancer is added to a network", func() {
-		_, err := client.AttachLoadBalancerToNetwork(ctx, &hcloud.LoadBalancer{ID: 999}, hcloud.LoadBalancerAttachToNetworkOpts{
+		err := client.AttachLoadBalancerToNetwork(ctx, &hcloud.LoadBalancer{ID: 999}, hcloud.LoadBalancerAttachToNetworkOpts{
 			Network: network,
 		})
 		Expect(err).ToNot(BeNil())
@@ -305,7 +311,7 @@ var _ = Describe("Load balancer", func() {
 	})
 
 	It("gives a NotFound error when a load balancer is added to a non-existing network", func() {
-		_, err := client.AttachLoadBalancerToNetwork(ctx, lb, hcloud.LoadBalancerAttachToNetworkOpts{
+		err := client.AttachLoadBalancerToNetwork(ctx, lb, hcloud.LoadBalancerAttachToNetworkOpts{
 			Network: &hcloud.Network{ID: 2},
 		})
 		Expect(err).ToNot(BeNil())
@@ -313,12 +319,12 @@ var _ = Describe("Load balancer", func() {
 	})
 
 	It("gives an error when a load balancer is added twice to a network", func() {
-		_, err := client.AttachLoadBalancerToNetwork(ctx, lb, hcloud.LoadBalancerAttachToNetworkOpts{
+		err := client.AttachLoadBalancerToNetwork(ctx, lb, hcloud.LoadBalancerAttachToNetworkOpts{
 			Network: network,
 		})
 		Expect(err).To(Succeed())
 
-		_, err = client.AttachLoadBalancerToNetwork(ctx, lb, hcloud.LoadBalancerAttachToNetworkOpts{
+		err = client.AttachLoadBalancerToNetwork(ctx, lb, hcloud.LoadBalancerAttachToNetworkOpts{
 			Network: network,
 		})
 		Expect(err).ToNot(Succeed())
@@ -328,7 +334,7 @@ var _ = Describe("Load balancer", func() {
 		Expect(len(lb.Services)).To(Equal(0))
 		listenPort := 443
 		destinationPort := 443
-		_, err := client.AddServiceToLoadBalancer(ctx, lb, hcloud.LoadBalancerAddServiceOpts{
+		err := client.AddServiceToLoadBalancer(ctx, lb, hcloud.LoadBalancerAddServiceOpts{
 			ListenPort:      &listenPort,
 			DestinationPort: &destinationPort,
 		})
@@ -344,7 +350,7 @@ var _ = Describe("Load balancer", func() {
 	It("gives a NotFound error when a service is added to a non-existing load balancer", func() {
 		listenPort := 443
 		destinationPort := 443
-		_, err := client.AddServiceToLoadBalancer(ctx, &hcloud.LoadBalancer{ID: 999}, hcloud.LoadBalancerAddServiceOpts{
+		err := client.AddServiceToLoadBalancer(ctx, &hcloud.LoadBalancer{ID: 999}, hcloud.LoadBalancerAddServiceOpts{
 			ListenPort:      &listenPort,
 			DestinationPort: &destinationPort,
 		})
@@ -355,12 +361,12 @@ var _ = Describe("Load balancer", func() {
 	It("gives an error when a service is added twice to a load balancer", func() {
 		listenPort := 443
 		destinationPort := 443
-		_, err := client.AddServiceToLoadBalancer(ctx, lb, hcloud.LoadBalancerAddServiceOpts{
+		err := client.AddServiceToLoadBalancer(ctx, lb, hcloud.LoadBalancerAddServiceOpts{
 			ListenPort:      &listenPort,
 			DestinationPort: &destinationPort,
 		})
 		Expect(err).To(BeNil())
-		_, err = client.AddServiceToLoadBalancer(ctx, lb, hcloud.LoadBalancerAddServiceOpts{
+		err = client.AddServiceToLoadBalancer(ctx, lb, hcloud.LoadBalancerAddServiceOpts{
 			ListenPort:      &listenPort,
 			DestinationPort: &destinationPort,
 		})
@@ -370,7 +376,7 @@ var _ = Describe("Load balancer", func() {
 	It("gives an error when a service with listenPort 0 is added to a load balancer", func() {
 		listenPort := 0
 		destinationPort := 443
-		_, err := client.AddServiceToLoadBalancer(ctx, lb, hcloud.LoadBalancerAddServiceOpts{
+		err := client.AddServiceToLoadBalancer(ctx, lb, hcloud.LoadBalancerAddServiceOpts{
 			ListenPort:      &listenPort,
 			DestinationPort: &destinationPort,
 		})
@@ -381,7 +387,7 @@ var _ = Describe("Load balancer", func() {
 		Expect(len(lb.Services)).To(Equal(0))
 		listenPort := 443
 		destinationPort := 443
-		_, err := client.AddServiceToLoadBalancer(ctx, lb, hcloud.LoadBalancerAddServiceOpts{
+		err := client.AddServiceToLoadBalancer(ctx, lb, hcloud.LoadBalancerAddServiceOpts{
 			ListenPort:      &listenPort,
 			DestinationPort: &destinationPort,
 		})
@@ -390,7 +396,7 @@ var _ = Describe("Load balancer", func() {
 		Expect(err).To(BeNil())
 		Expect(len(resp)).To(Equal(1))
 		Expect(len(resp[0].Services)).To(Equal(1))
-		_, err = client.DeleteServiceFromLoadBalancer(ctx, lb, listenPort)
+		err = client.DeleteServiceFromLoadBalancer(ctx, lb, listenPort)
 		Expect(err).To(Succeed())
 		resp2, err := client.ListLoadBalancers(ctx, listOpts)
 		Expect(err).To(BeNil())
@@ -399,13 +405,13 @@ var _ = Describe("Load balancer", func() {
 	})
 
 	It("gives a NotFound error when a service is deleted of a non-existing load balancer", func() {
-		_, err := client.DeleteServiceFromLoadBalancer(ctx, &hcloud.LoadBalancer{ID: 999}, 443)
+		err := client.DeleteServiceFromLoadBalancer(ctx, &hcloud.LoadBalancer{ID: 999}, 443)
 		Expect(err).ToNot(BeNil())
 		Expect(hcloud.IsError(err, hcloud.ErrorCodeNotFound)).To(BeTrue())
 	})
 
 	It("gives an error when a non-existing service is deleted from a load balancer", func() {
-		_, err := client.DeleteServiceFromLoadBalancer(ctx, lb, 999)
+		err := client.DeleteServiceFromLoadBalancer(ctx, lb, 999)
 		Expect(err).ToNot(Succeed())
 	})
 
@@ -450,9 +456,9 @@ var _ = Describe("Server", func() {
 	var network *hcloud.Network
 
 	BeforeEach(func() {
-		resp, err := client.CreateServer(ctx, opts)
+		var err error
+		server, err = client.CreateServer(ctx, opts)
 		Expect(err).To(Succeed())
-		server = resp.Server
 
 		network, err = client.CreateNetwork(ctx, hcloud.NetworkCreateOpts{
 			Name: "network-name",
@@ -479,21 +485,21 @@ var _ = Describe("Server", func() {
 	})
 
 	It("adds a server to a network", func() {
-		_, err := client.AttachServerToNetwork(ctx, server, hcloud.ServerAttachToNetworkOpts{
+		err := client.AttachServerToNetwork(ctx, server, hcloud.ServerAttachToNetworkOpts{
 			Network: network,
 		})
 		Expect(err).To(Succeed())
 	})
 
 	It("gives an error when a server is added to a non-existing network", func() {
-		_, err := client.AttachServerToNetwork(ctx, server, hcloud.ServerAttachToNetworkOpts{
+		err := client.AttachServerToNetwork(ctx, server, hcloud.ServerAttachToNetworkOpts{
 			Network: &hcloud.Network{ID: 2},
 		})
 		Expect(err).ToNot(Succeed())
 	})
 
 	It("gives an error when a non-existing server is added to a network", func() {
-		_, err := client.AttachServerToNetwork(ctx, &hcloud.Server{ID: 2}, hcloud.ServerAttachToNetworkOpts{
+		err := client.AttachServerToNetwork(ctx, &hcloud.Server{ID: 2}, hcloud.ServerAttachToNetworkOpts{
 			Network: network,
 		})
 		Expect(err).ToNot(Succeed())
@@ -515,7 +521,7 @@ var _ = Describe("Server", func() {
 
 	It("shuts a server down", func() {
 		Expect(server.Status).To(Equal(hcloud.ServerStatusRunning))
-		_, err := client.ShutdownServer(ctx, server)
+		err := client.ShutdownServer(ctx, server)
 		Expect(err).To(Succeed())
 		resp, err := client.ListServers(ctx, listOpts)
 		Expect(err).To(Succeed())
@@ -524,19 +530,19 @@ var _ = Describe("Server", func() {
 	})
 
 	It("gives an error when a non-existing server is shut down", func() {
-		_, err := client.ShutdownServer(ctx, &hcloud.Server{ID: 2})
+		err := client.ShutdownServer(ctx, &hcloud.Server{ID: 2})
 		Expect(err).ToNot(Succeed())
 		Expect(hcloud.IsError(err, hcloud.ErrorCodeNotFound)).To(BeTrue())
 	})
 
 	It("powers a server on", func() {
-		_, err := client.ShutdownServer(ctx, server)
+		err := client.ShutdownServer(ctx, server)
 		Expect(err).To(Succeed())
 		resp, err := client.ListServers(ctx, listOpts)
 		Expect(err).To(Succeed())
 		Expect(len(resp)).To(Equal(1))
 		Expect(resp[0].Status).To(Equal(hcloud.ServerStatusOff))
-		_, err = client.PowerOnServer(ctx, server)
+		err = client.PowerOnServer(ctx, server)
 		Expect(err).To(Succeed())
 		resp2, err := client.ListServers(ctx, listOpts)
 		Expect(err).To(Succeed())
@@ -545,7 +551,7 @@ var _ = Describe("Server", func() {
 	})
 
 	It("gives an error when a non-existing server is powered on", func() {
-		_, err := client.PowerOnServer(ctx, &hcloud.Server{ID: 2})
+		err := client.PowerOnServer(ctx, &hcloud.Server{ID: 2})
 		Expect(err).ToNot(Succeed())
 		Expect(hcloud.IsError(err, hcloud.ErrorCodeNotFound)).To(BeTrue())
 	})
@@ -668,7 +674,8 @@ var _ = Describe("Placement groups", func() {
 	var placementGroup *hcloud.PlacementGroup
 
 	BeforeEach(func() {
-		resp, err := client.CreateServer(ctx, hcloud.ServerCreateOpts{
+		var err error
+		server, err = client.CreateServer(ctx, hcloud.ServerCreateOpts{
 			Name: "test-server",
 			Labels: map[string]string{
 				"key1": "val1",
@@ -685,11 +692,9 @@ var _ = Describe("Placement groups", func() {
 			},
 		})
 		Expect(err).To(Succeed())
-		server = resp.Server
 
-		res, err := client.CreatePlacementGroup(ctx, opts)
+		placementGroup, err = client.CreatePlacementGroup(ctx, opts)
 		Expect(err).To(Succeed())
-		placementGroup = res.PlacementGroup
 	})
 	AfterEach(func() {
 		client.Close()
@@ -713,7 +718,7 @@ var _ = Describe("Placement groups", func() {
 
 	It("adds a server to a placement group", func() {
 		Expect(len(placementGroup.Servers)).To(Equal(0))
-		_, err := client.AddServerToPlacementGroup(ctx, server, placementGroup)
+		err := client.AddServerToPlacementGroup(ctx, server, placementGroup)
 		Expect(err).To(Succeed())
 		resp, err := client.ListPlacementGroups(ctx, listOpts)
 		Expect(err).To(Succeed())
@@ -723,21 +728,21 @@ var _ = Describe("Placement groups", func() {
 	})
 
 	It("gives an error when a server is added to a non-existing placement group", func() {
-		_, err := client.AddServerToPlacementGroup(ctx, server, &hcloud.PlacementGroup{ID: 2})
+		err := client.AddServerToPlacementGroup(ctx, server, &hcloud.PlacementGroup{ID: 2})
 		Expect(err).ToNot(Succeed())
 		Expect(hcloud.IsError(err, hcloud.ErrorCodeNotFound)).To(BeTrue())
 	})
 
 	It("gives an error when a non-existing server is added to a placement group", func() {
-		_, err := client.AddServerToPlacementGroup(ctx, &hcloud.Server{ID: 2}, placementGroup)
+		err := client.AddServerToPlacementGroup(ctx, &hcloud.Server{ID: 2}, placementGroup)
 		Expect(err).ToNot(Succeed())
 		Expect(hcloud.IsError(err, hcloud.ErrorCodeNotFound)).To(BeTrue())
 	})
 
 	It("gives an error when a server is added twice to a placement group", func() {
-		_, err := client.AddServerToPlacementGroup(ctx, server, placementGroup)
+		err := client.AddServerToPlacementGroup(ctx, server, placementGroup)
 		Expect(err).To(Succeed())
-		_, err = client.AddServerToPlacementGroup(ctx, server, placementGroup)
+		err = client.AddServerToPlacementGroup(ctx, server, placementGroup)
 		Expect(err).ToNot(Succeed())
 		Expect(hcloud.IsError(err, hcloud.ErrorCodeServerAlreadyAdded)).To(BeTrue())
 	})

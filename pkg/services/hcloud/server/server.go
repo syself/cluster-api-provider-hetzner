@@ -198,7 +198,7 @@ func (s *Service) reconcileNetworkAttachment(ctx context.Context, server *hcloud
 	}
 
 	// attach server to network
-	if _, err := s.scope.HCloudClient.AttachServerToNetwork(ctx, server, hcloud.ServerAttachToNetworkOpts{
+	if err := s.scope.HCloudClient.AttachServerToNetwork(ctx, server, hcloud.ServerAttachToNetworkOpts{
 		Network: &hcloud.Network{
 			ID: s.scope.HetznerCluster.Status.Network.ID,
 		},
@@ -247,7 +247,7 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 			ID: s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID,
 		}
 
-		if _, err := s.scope.HCloudClient.AddTargetServerToLoadBalancer(ctx, opts, loadBalancer); err != nil {
+		if err := s.scope.HCloudClient.AddTargetServerToLoadBalancer(ctx, opts, loadBalancer); err != nil {
 			hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "AddTargetServerToLoadBalancer")
 			if hcloud.IsError(err, hcloud.ErrorCodeTargetAlreadyDefined) {
 				return nil
@@ -360,7 +360,7 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 	}
 
 	// Create the server
-	res, err := s.scope.HCloudClient.CreateServer(ctx, opts)
+	server, err := s.scope.HCloudClient.CreateServer(ctx, opts)
 	if err != nil {
 		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "CreateServer")
 		record.Warnf(s.scope.HCloudMachine,
@@ -372,8 +372,8 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 		return nil, fmt.Errorf("failed to create HCloud server %s: %w", s.scope.HCloudMachine.Name, err)
 	}
 
-	record.Eventf(s.scope.HCloudMachine, "SuccessfulCreate", "Created new server with id %d", res.Server.ID)
-	return res.Server, nil
+	record.Eventf(s.scope.HCloudMachine, "SuccessfulCreate", "Created new server with id %d", server.ID)
+	return server, nil
 }
 
 func (s *Service) getServerImage(ctx context.Context) (*hcloud.Image, error) {
@@ -449,7 +449,7 @@ func (s *Service) handleServerStatusOff(ctx context.Context, server *hcloud.Serv
 		instanceReadyCondition.Reason == infrav1.ServerOffReason {
 		if time.Now().Before(instanceReadyCondition.LastTransitionTime.Time.Add(serverOffTimeout)) {
 			// Not yet timed out, try again to power on
-			if _, err := s.scope.HCloudClient.PowerOnServer(ctx, server); err != nil {
+			if err := s.scope.HCloudClient.PowerOnServer(ctx, server); err != nil {
 				hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "PowerOnServer")
 				if hcloud.IsError(err, hcloud.ErrorCodeLocked) {
 					// if server is locked, we just retry again
@@ -464,7 +464,7 @@ func (s *Service) handleServerStatusOff(ctx context.Context, server *hcloud.Serv
 		}
 	} else {
 		// No condition set yet. Try to power server on.
-		if _, err := s.scope.HCloudClient.PowerOnServer(ctx, server); err != nil {
+		if err := s.scope.HCloudClient.PowerOnServer(ctx, server); err != nil {
 			hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "PowerOnServer")
 			if hcloud.IsError(err, hcloud.ErrorCodeLocked) {
 				// if server is locked, we just retry again
@@ -491,7 +491,7 @@ func (s *Service) handleDeleteServerStatusRunning(ctx context.Context, server *h
 	// 2. The server has been tried to shut down without an effect and the timeout is not reached yet.
 
 	if s.scope.HasInstanceReadyCondition() || (s.scope.HasInstanceTerminatedCondition() && !s.scope.HasShutdownTimedOut()) {
-		if _, err := s.scope.HCloudClient.ShutdownServer(ctx, server); err != nil {
+		if err := s.scope.HCloudClient.ShutdownServer(ctx, server); err != nil {
 			hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "ShutdownServer")
 			return res, fmt.Errorf("failed to shutdown server: %w", err)
 		}
@@ -532,7 +532,7 @@ func (s *Service) handleDeleteServerStatusOff(ctx context.Context, server *hclou
 func (s *Service) deleteServerOfLoadBalancer(ctx context.Context, server *hcloud.Server) error {
 	lb := &hcloud.LoadBalancer{ID: s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID}
 
-	if _, err := s.scope.HCloudClient.DeleteTargetServerOfLoadBalancer(ctx, lb, server); err != nil {
+	if err := s.scope.HCloudClient.DeleteTargetServerOfLoadBalancer(ctx, lb, server); err != nil {
 		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "DeleteTargetServerOfLoadBalancer")
 		// do not return an error in case the target was not found
 		if strings.Contains(err.Error(), "load_balancer_target_not_found") {

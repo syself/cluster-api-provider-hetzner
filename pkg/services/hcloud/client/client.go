@@ -28,38 +28,38 @@ import (
 type Client interface {
 	Close()
 
-	CreateLoadBalancer(context.Context, hcloud.LoadBalancerCreateOpts) (hcloud.LoadBalancerCreateResult, error)
+	CreateLoadBalancer(context.Context, hcloud.LoadBalancerCreateOpts) (*hcloud.LoadBalancer, error)
 	DeleteLoadBalancer(context.Context, int) error
 	ListLoadBalancers(context.Context, hcloud.LoadBalancerListOpts) ([]*hcloud.LoadBalancer, error)
-	AttachLoadBalancerToNetwork(context.Context, *hcloud.LoadBalancer, hcloud.LoadBalancerAttachToNetworkOpts) (*hcloud.Action, error)
-	ChangeLoadBalancerType(context.Context, *hcloud.LoadBalancer, hcloud.LoadBalancerChangeTypeOpts) (*hcloud.Action, error)
-	ChangeLoadBalancerAlgorithm(context.Context, *hcloud.LoadBalancer, hcloud.LoadBalancerChangeAlgorithmOpts) (*hcloud.Action, error)
+	AttachLoadBalancerToNetwork(context.Context, *hcloud.LoadBalancer, hcloud.LoadBalancerAttachToNetworkOpts) error
+	ChangeLoadBalancerType(context.Context, *hcloud.LoadBalancer, hcloud.LoadBalancerChangeTypeOpts) error
+	ChangeLoadBalancerAlgorithm(context.Context, *hcloud.LoadBalancer, hcloud.LoadBalancerChangeAlgorithmOpts) error
 	UpdateLoadBalancer(context.Context, *hcloud.LoadBalancer, hcloud.LoadBalancerUpdateOpts) (*hcloud.LoadBalancer, error)
-	AddTargetServerToLoadBalancer(context.Context, hcloud.LoadBalancerAddServerTargetOpts, *hcloud.LoadBalancer) (*hcloud.Action, error)
-	DeleteTargetServerOfLoadBalancer(context.Context, *hcloud.LoadBalancer, *hcloud.Server) (*hcloud.Action, error)
-	AddIPTargetToLoadBalancer(context.Context, hcloud.LoadBalancerAddIPTargetOpts, *hcloud.LoadBalancer) (*hcloud.Action, error)
-	DeleteIPTargetOfLoadBalancer(context.Context, *hcloud.LoadBalancer, net.IP) (*hcloud.Action, error)
-	AddServiceToLoadBalancer(context.Context, *hcloud.LoadBalancer, hcloud.LoadBalancerAddServiceOpts) (*hcloud.Action, error)
-	DeleteServiceFromLoadBalancer(context.Context, *hcloud.LoadBalancer, int) (*hcloud.Action, error)
+	AddTargetServerToLoadBalancer(context.Context, hcloud.LoadBalancerAddServerTargetOpts, *hcloud.LoadBalancer) error
+	DeleteTargetServerOfLoadBalancer(context.Context, *hcloud.LoadBalancer, *hcloud.Server) error
+	AddIPTargetToLoadBalancer(context.Context, hcloud.LoadBalancerAddIPTargetOpts, *hcloud.LoadBalancer) error
+	DeleteIPTargetOfLoadBalancer(context.Context, *hcloud.LoadBalancer, net.IP) error
+	AddServiceToLoadBalancer(context.Context, *hcloud.LoadBalancer, hcloud.LoadBalancerAddServiceOpts) error
+	DeleteServiceFromLoadBalancer(context.Context, *hcloud.LoadBalancer, int) error
 	ListImages(context.Context, hcloud.ImageListOpts) ([]*hcloud.Image, error)
-	CreateServer(context.Context, hcloud.ServerCreateOpts) (hcloud.ServerCreateResult, error)
-	AttachServerToNetwork(context.Context, *hcloud.Server, hcloud.ServerAttachToNetworkOpts) (*hcloud.Action, error)
+	CreateServer(context.Context, hcloud.ServerCreateOpts) (*hcloud.Server, error)
+	AttachServerToNetwork(context.Context, *hcloud.Server, hcloud.ServerAttachToNetworkOpts) error
 	ListServers(context.Context, hcloud.ServerListOpts) ([]*hcloud.Server, error)
 	GetServer(context.Context, int) (*hcloud.Server, error)
 	DeleteServer(context.Context, *hcloud.Server) error
 	ListServerTypes(context.Context) ([]*hcloud.ServerType, error)
 	GetServerType(context.Context, string) (*hcloud.ServerType, error)
-	PowerOnServer(context.Context, *hcloud.Server) (*hcloud.Action, error)
-	ShutdownServer(context.Context, *hcloud.Server) (*hcloud.Action, error)
-	RebootServer(context.Context, *hcloud.Server) (*hcloud.Action, error)
+	PowerOnServer(context.Context, *hcloud.Server) error
+	ShutdownServer(context.Context, *hcloud.Server) error
+	RebootServer(context.Context, *hcloud.Server) error
 	CreateNetwork(context.Context, hcloud.NetworkCreateOpts) (*hcloud.Network, error)
 	ListNetworks(context.Context, hcloud.NetworkListOpts) ([]*hcloud.Network, error)
 	DeleteNetwork(context.Context, *hcloud.Network) error
 	ListSSHKeys(ctx context.Context, opts hcloud.SSHKeyListOpts) ([]*hcloud.SSHKey, error)
-	CreatePlacementGroup(context.Context, hcloud.PlacementGroupCreateOpts) (hcloud.PlacementGroupCreateResult, error)
+	CreatePlacementGroup(context.Context, hcloud.PlacementGroupCreateOpts) (*hcloud.PlacementGroup, error)
 	DeletePlacementGroup(context.Context, int) error
 	ListPlacementGroups(context.Context, hcloud.PlacementGroupListOpts) ([]*hcloud.PlacementGroup, error)
-	AddServerToPlacementGroup(context.Context, *hcloud.Server, *hcloud.PlacementGroup) (*hcloud.Action, error)
+	AddServerToPlacementGroup(context.Context, *hcloud.Server, *hcloud.PlacementGroup) error
 }
 
 // Factory is the interface for creating new Client objects.
@@ -90,15 +90,13 @@ type realClient struct {
 // Close implements the Close method of the HCloudClient interface.
 func (c *realClient) Close() {}
 
-func (c *realClient) CreateLoadBalancer(ctx context.Context, opts hcloud.LoadBalancerCreateOpts) (hcloud.LoadBalancerCreateResult, error) {
+func (c *realClient) CreateLoadBalancer(ctx context.Context, opts hcloud.LoadBalancerCreateOpts) (*hcloud.LoadBalancer, error) {
 	res, _, err := c.client.LoadBalancer.Create(ctx, opts)
-	return res, err
+	return res.LoadBalancer, err
 }
 
 func (c *realClient) DeleteLoadBalancer(ctx context.Context, id int) error {
-	_, err := c.client.LoadBalancer.Delete(ctx, &hcloud.LoadBalancer{
-		ID: id,
-	})
+	_, err := c.client.LoadBalancer.Delete(ctx, &hcloud.LoadBalancer{ID: id})
 	return err
 }
 
@@ -106,19 +104,19 @@ func (c *realClient) ListLoadBalancers(ctx context.Context, opts hcloud.LoadBala
 	return c.client.LoadBalancer.AllWithOpts(ctx, opts)
 }
 
-func (c *realClient) AttachLoadBalancerToNetwork(ctx context.Context, lb *hcloud.LoadBalancer, opts hcloud.LoadBalancerAttachToNetworkOpts) (*hcloud.Action, error) {
-	res, _, err := c.client.LoadBalancer.AttachToNetwork(ctx, lb, opts)
-	return res, err
+func (c *realClient) AttachLoadBalancerToNetwork(ctx context.Context, lb *hcloud.LoadBalancer, opts hcloud.LoadBalancerAttachToNetworkOpts) error {
+	_, _, err := c.client.LoadBalancer.AttachToNetwork(ctx, lb, opts)
+	return err
 }
 
-func (c *realClient) ChangeLoadBalancerType(ctx context.Context, lb *hcloud.LoadBalancer, opts hcloud.LoadBalancerChangeTypeOpts) (*hcloud.Action, error) {
-	res, _, err := c.client.LoadBalancer.ChangeType(ctx, lb, opts)
-	return res, err
+func (c *realClient) ChangeLoadBalancerType(ctx context.Context, lb *hcloud.LoadBalancer, opts hcloud.LoadBalancerChangeTypeOpts) error {
+	_, _, err := c.client.LoadBalancer.ChangeType(ctx, lb, opts)
+	return err
 }
 
-func (c *realClient) ChangeLoadBalancerAlgorithm(ctx context.Context, lb *hcloud.LoadBalancer, opts hcloud.LoadBalancerChangeAlgorithmOpts) (*hcloud.Action, error) {
-	res, _, err := c.client.LoadBalancer.ChangeAlgorithm(ctx, lb, opts)
-	return res, err
+func (c *realClient) ChangeLoadBalancerAlgorithm(ctx context.Context, lb *hcloud.LoadBalancer, opts hcloud.LoadBalancerChangeAlgorithmOpts) error {
+	_, _, err := c.client.LoadBalancer.ChangeAlgorithm(ctx, lb, opts)
+	return err
 }
 
 func (c *realClient) UpdateLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, opts hcloud.LoadBalancerUpdateOpts) (*hcloud.LoadBalancer, error) {
@@ -126,48 +124,48 @@ func (c *realClient) UpdateLoadBalancer(ctx context.Context, lb *hcloud.LoadBala
 	return res, err
 }
 
-func (c *realClient) AddTargetServerToLoadBalancer(ctx context.Context, opts hcloud.LoadBalancerAddServerTargetOpts, lb *hcloud.LoadBalancer) (*hcloud.Action, error) {
-	res, _, err := c.client.LoadBalancer.AddServerTarget(ctx, lb, opts)
-	return res, err
+func (c *realClient) AddTargetServerToLoadBalancer(ctx context.Context, opts hcloud.LoadBalancerAddServerTargetOpts, lb *hcloud.LoadBalancer) error {
+	_, _, err := c.client.LoadBalancer.AddServerTarget(ctx, lb, opts)
+	return err
 }
 
-func (c *realClient) AddIPTargetToLoadBalancer(ctx context.Context, opts hcloud.LoadBalancerAddIPTargetOpts, lb *hcloud.LoadBalancer) (*hcloud.Action, error) {
-	res, _, err := c.client.LoadBalancer.AddIPTarget(ctx, lb, opts)
-	return res, err
+func (c *realClient) AddIPTargetToLoadBalancer(ctx context.Context, opts hcloud.LoadBalancerAddIPTargetOpts, lb *hcloud.LoadBalancer) error {
+	_, _, err := c.client.LoadBalancer.AddIPTarget(ctx, lb, opts)
+	return err
 }
 
-func (c *realClient) DeleteTargetServerOfLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, server *hcloud.Server) (*hcloud.Action, error) {
-	res, _, err := c.client.LoadBalancer.RemoveServerTarget(ctx, lb, server)
-	return res, err
+func (c *realClient) DeleteTargetServerOfLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, server *hcloud.Server) error {
+	_, _, err := c.client.LoadBalancer.RemoveServerTarget(ctx, lb, server)
+	return err
 }
 
-func (c *realClient) DeleteIPTargetOfLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, ip net.IP) (*hcloud.Action, error) {
-	res, _, err := c.client.LoadBalancer.RemoveIPTarget(ctx, lb, ip)
-	return res, err
+func (c *realClient) DeleteIPTargetOfLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, ip net.IP) error {
+	_, _, err := c.client.LoadBalancer.RemoveIPTarget(ctx, lb, ip)
+	return err
 }
 
-func (c *realClient) AddServiceToLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, opts hcloud.LoadBalancerAddServiceOpts) (*hcloud.Action, error) {
-	res, _, err := c.client.LoadBalancer.AddService(ctx, lb, opts)
-	return res, err
+func (c *realClient) AddServiceToLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, opts hcloud.LoadBalancerAddServiceOpts) error {
+	_, _, err := c.client.LoadBalancer.AddService(ctx, lb, opts)
+	return err
 }
 
-func (c *realClient) DeleteServiceFromLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, listenPort int) (*hcloud.Action, error) {
-	res, _, err := c.client.LoadBalancer.DeleteService(ctx, lb, listenPort)
-	return res, err
+func (c *realClient) DeleteServiceFromLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, listenPort int) error {
+	_, _, err := c.client.LoadBalancer.DeleteService(ctx, lb, listenPort)
+	return err
 }
 
 func (c *realClient) ListImages(ctx context.Context, opts hcloud.ImageListOpts) ([]*hcloud.Image, error) {
 	return c.client.Image.AllWithOpts(ctx, opts)
 }
 
-func (c *realClient) CreateServer(ctx context.Context, opts hcloud.ServerCreateOpts) (hcloud.ServerCreateResult, error) {
+func (c *realClient) CreateServer(ctx context.Context, opts hcloud.ServerCreateOpts) (*hcloud.Server, error) {
 	res, _, err := c.client.Server.Create(ctx, opts)
-	return res, err
+	return res.Server, err
 }
 
-func (c *realClient) AttachServerToNetwork(ctx context.Context, server *hcloud.Server, opts hcloud.ServerAttachToNetworkOpts) (*hcloud.Action, error) {
-	res, _, err := c.client.Server.AttachToNetwork(ctx, server, opts)
-	return res, err
+func (c *realClient) AttachServerToNetwork(ctx context.Context, server *hcloud.Server, opts hcloud.ServerAttachToNetworkOpts) error {
+	_, _, err := c.client.Server.AttachToNetwork(ctx, server, opts)
+	return err
 }
 
 func (c *realClient) ListServers(ctx context.Context, opts hcloud.ServerListOpts) ([]*hcloud.Server, error) {
@@ -188,19 +186,19 @@ func (c *realClient) GetServerType(ctx context.Context, name string) (*hcloud.Se
 	return res, err
 }
 
-func (c *realClient) ShutdownServer(ctx context.Context, server *hcloud.Server) (*hcloud.Action, error) {
-	res, _, err := c.client.Server.Shutdown(ctx, server)
-	return res, err
+func (c *realClient) ShutdownServer(ctx context.Context, server *hcloud.Server) error {
+	_, _, err := c.client.Server.Shutdown(ctx, server)
+	return err
 }
 
-func (c *realClient) RebootServer(ctx context.Context, server *hcloud.Server) (*hcloud.Action, error) {
-	res, _, err := c.client.Server.Reboot(ctx, server)
-	return res, err
+func (c *realClient) RebootServer(ctx context.Context, server *hcloud.Server) error {
+	_, _, err := c.client.Server.Reboot(ctx, server)
+	return err
 }
 
-func (c *realClient) PowerOnServer(ctx context.Context, server *hcloud.Server) (*hcloud.Action, error) {
-	res, _, err := c.client.Server.Poweron(ctx, server)
-	return res, err
+func (c *realClient) PowerOnServer(ctx context.Context, server *hcloud.Server) error {
+	_, _, err := c.client.Server.Poweron(ctx, server)
+	return err
 }
 
 func (c *realClient) DeleteServer(ctx context.Context, server *hcloud.Server) error {
@@ -227,9 +225,9 @@ func (c *realClient) ListSSHKeys(ctx context.Context, opts hcloud.SSHKeyListOpts
 	return res, err
 }
 
-func (c *realClient) CreatePlacementGroup(ctx context.Context, opts hcloud.PlacementGroupCreateOpts) (hcloud.PlacementGroupCreateResult, error) {
+func (c *realClient) CreatePlacementGroup(ctx context.Context, opts hcloud.PlacementGroupCreateOpts) (*hcloud.PlacementGroup, error) {
 	res, _, err := c.client.PlacementGroup.Create(ctx, opts)
-	return res, err
+	return res.PlacementGroup, err
 }
 
 func (c *realClient) DeletePlacementGroup(ctx context.Context, id int) error {
@@ -241,7 +239,7 @@ func (c *realClient) ListPlacementGroups(ctx context.Context, opts hcloud.Placem
 	return c.client.PlacementGroup.AllWithOpts(ctx, opts)
 }
 
-func (c *realClient) AddServerToPlacementGroup(ctx context.Context, server *hcloud.Server, pg *hcloud.PlacementGroup) (*hcloud.Action, error) {
-	res, _, err := c.client.Server.AddToPlacementGroup(ctx, server, pg)
-	return res, err
+func (c *realClient) AddServerToPlacementGroup(ctx context.Context, server *hcloud.Server, pg *hcloud.PlacementGroup) error {
+	_, _, err := c.client.Server.AddToPlacementGroup(ctx, server, pg)
+	return err
 }

@@ -436,7 +436,7 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 			IP: net.ParseIP(ip),
 		}
 
-		if _, err := s.scope.HCloudClient.AddIPTargetToLoadBalancer(ctx, opts, lb); err != nil {
+		if err := s.scope.HCloudClient.AddIPTargetToLoadBalancer(ctx, opts, lb); err != nil {
 			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "AddIPTargetToLoadBalancer")
 			if hcloud.IsError(err, hcloud.ErrorCodeTargetAlreadyDefined) {
 				return nil
@@ -460,7 +460,7 @@ func (s *Service) removeAttachedServerOfLoadBalancer(ctx context.Context, host *
 
 	// remove host IPv4 as target
 	if host.Spec.Status.IPv4 != "" {
-		if _, err := s.scope.HCloudClient.DeleteIPTargetOfLoadBalancer(ctx, lb, net.ParseIP(host.Spec.Status.IPv4)); err != nil {
+		if err := s.scope.HCloudClient.DeleteIPTargetOfLoadBalancer(ctx, lb, net.ParseIP(host.Spec.Status.IPv4)); err != nil {
 			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "DeleteIPTargetOfLoadBalancer")
 			// ignore not found errors
 			if !strings.Contains(err.Error(), "load_balancer_target_not_found") {
@@ -471,7 +471,7 @@ func (s *Service) removeAttachedServerOfLoadBalancer(ctx context.Context, host *
 
 	// remove host IPv6 as target
 	if host.Spec.Status.IPv6 != "" {
-		if _, err := s.scope.HCloudClient.DeleteIPTargetOfLoadBalancer(ctx, lb, net.ParseIP(host.Spec.Status.IPv6)); err != nil {
+		if err := s.scope.HCloudClient.DeleteIPTargetOfLoadBalancer(ctx, lb, net.ParseIP(host.Spec.Status.IPv6)); err != nil {
 			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "DeleteIPTargetOfLoadBalancer")
 			// ignore not found errors
 			if !strings.Contains(err.Error(), "load_balancer_target_not_found") {
