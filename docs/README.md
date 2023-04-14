@@ -11,6 +11,7 @@
 - [Node Images](topics/node-image.md)
 - [Production Environment](topics/production-environment.md)
 - [Advanced CAPH](topics/advanced-caph.md)
+- [Upgrading CAPH](topics/upgrade.md)
 
 ## Reference
 - [General](reference/README.md)
