@@ -16,7 +16,7 @@ require (
 	gotest.tools/gotestsum v1.10.0
 	k8s.io/code-generator v0.26.1
 	sigs.k8s.io/cluster-api v1.4.1
-	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20230403212152-53057ba616d1
+	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20230412185432-fbd6b944a634
 	sigs.k8s.io/controller-tools v0.11.3
 	sigs.k8s.io/kind v0.18.0
 	sigs.k8s.io/kustomize/kustomize/v4 v4.5.7
