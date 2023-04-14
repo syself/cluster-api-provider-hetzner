@@ -21,7 +21,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -356,7 +355,7 @@ func (c *sshClient) runSSH(command string) Output {
 
 	// Connect to the remote server and perform the SSH handshake.
 
-	client, err := ssh.Dial("tcp", c.ip+":"+strconv.Itoa(c.port), config)
+	client, err := ssh.Dial("tcp", fmt.Sprintf("%s:%v", c.ip, c.port), config)
 	if err != nil {
 		return Output{Err: fmt.Errorf("failed to dial ssh. Error message: %s. DialErr: %w", err.Error(), errSSHDialFailed)}
 	}

@@ -18,7 +18,7 @@ package robotclient
 
 import "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client"
 
-// Credentials holds the information for authenticating with the Hetzner robot api.
+// Credentials holds the information for authenticating with the Hetzner Robot API.
 type Credentials struct {
 	Username string
 	Password string
