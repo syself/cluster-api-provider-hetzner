@@ -58,6 +58,7 @@ var (
 	errSSHGetHostname       = fmt.Errorf("failed to get hostname via ssh")
 	errEmptyHostName        = fmt.Errorf("hostname is empty")
 	errMissingStorageDevice = fmt.Errorf("missing storage device")
+	errUnknownRota          = fmt.Errorf("unknown rota")
 )
 
 // Service defines struct with machine scope to reconcile HetznerBareMetalHosts.
@@ -499,12 +500,12 @@ func (s *Service) getHardwareDetails(sshClient sshclient.Client) (infrav1.Hardwa
 		return infrav1.HardwareDetails{}, fmt.Errorf("failed to obtain hardware details Nics: %w", err)
 	}
 
-	storage, err := s.obtainHardwareDetailsStorage(sshClient)
+	storage, err := obtainHardwareDetailsStorage(sshClient)
 	if err != nil {
 		return infrav1.HardwareDetails{}, fmt.Errorf("failed to obtain hardware details storage: %w", err)
 	}
 
-	cpu, err := s.obtainHardwareDetailsCPU(sshClient)
+	cpu, err := obtainHardwareDetailsCPU(sshClient)
 	if err != nil {
 		return infrav1.HardwareDetails{}, fmt.Errorf("failed to obtain hardware details CPU: %w", err)
 	}
@@ -637,7 +638,7 @@ func obtainHardwareDetailsNics(sshClient sshclient.Client) ([]infrav1.NIC, error
 	return nicsArray, nil
 }
 
-func (s *Service) obtainHardwareDetailsStorage(sshClient sshclient.Client) ([]infrav1.Storage, error) {
+func obtainHardwareDetailsStorage(sshClient sshclient.Client) ([]infrav1.Storage, error) {
 	type originalStorage struct {
 		Name         string `json:"name,omitempty"`
 		Type         string `json:"type,omitempty"`
@@ -683,7 +684,7 @@ func (s *Service) obtainHardwareDetailsStorage(sshClient sshclient.Client) ([]in
 		case "0":
 			rota = false
 		default:
-			return nil, fmt.Errorf("unknown ROTA %s. Expect either 1 or 0", storage.Rota)
+			return nil, fmt.Errorf("%w: Got %s. Expect either 1 or 0", errUnknownRota, storage.Rota)
 		}
 
 		sizeGB := sizeBytes / 1000000000
@@ -707,67 +708,78 @@ func (s *Service) obtainHardwareDetailsStorage(sshClient sshclient.Client) ([]in
 	return storageArray, nil
 }
 
-func (s *Service) obtainHardwareDetailsCPU(sshClient sshclient.Client) (cpu infrav1.CPU, err error) {
-	out := sshClient.GetHardwareDetailsCPUArch()
-	if err := handleSSHError(out); err != nil {
-		return infrav1.CPU{}, err
-	}
-	stdOut := trimLineBreak(out.StdOut)
-	if stdOut == "" {
-		return infrav1.CPU{}, sshclient.ErrEmptyStdOut
-	}
+func obtainHardwareDetailsCPU(sshClient sshclient.Client) (cpu infrav1.CPU, err error) {
+	{
+		out := sshClient.GetHardwareDetailsCPUArch()
+		if err := handleSSHError(out); err != nil {
+			return infrav1.CPU{}, err
+		}
 
-	cpu.Arch = stdOut
+		stdOut, err := validateStdOut(out.StdOut)
+		if err != nil {
+			return infrav1.CPU{}, fmt.Errorf("invalid output in stdOut: %w", err)
+		}
 
-	out = sshClient.GetHardwareDetailsCPUModel()
-	stdOut = trimLineBreak(out.StdOut)
-	if err := handleSSHError(out); err != nil {
-		return infrav1.CPU{}, err
+		cpu.Arch = stdOut
 	}
-	if stdOut == "" {
-		return infrav1.CPU{}, sshclient.ErrEmptyStdOut
-	}
+	{
+		out := sshClient.GetHardwareDetailsCPUModel()
+		if err := handleSSHError(out); err != nil {
+			return infrav1.CPU{}, err
+		}
 
-	cpu.Model = stdOut
+		stdOut, err := validateStdOut(out.StdOut)
+		if err != nil {
+			return infrav1.CPU{}, fmt.Errorf("invalid output in stdOut: %w", err)
+		}
 
-	out = sshClient.GetHardwareDetailsCPUClockGigahertz()
-	stdOut = trimLineBreak(out.StdOut)
-	if err := handleSSHError(out); err != nil {
-		return infrav1.CPU{}, err
+		cpu.Model = stdOut
 	}
-	if stdOut == "" {
-		return infrav1.CPU{}, sshclient.ErrEmptyStdOut
-	}
+	{
+		out := sshClient.GetHardwareDetailsCPUClockGigahertz()
+		if err := handleSSHError(out); err != nil {
+			return infrav1.CPU{}, err
+		}
 
-	cpu.ClockGigahertz = infrav1.ClockSpeed(stdOut)
+		stdOut, err := validateStdOut(out.StdOut)
+		if err != nil {
+			return infrav1.CPU{}, fmt.Errorf("invalid output in stdOut: %w", err)
+		}
 
-	out = sshClient.GetHardwareDetailsCPUThreads()
-	stdOut = trimLineBreak(out.StdOut)
-	if err := handleSSHError(out); err != nil {
-		return infrav1.CPU{}, err
+		cpu.ClockGigahertz = infrav1.ClockSpeed(stdOut)
 	}
-	if stdOut == "" {
-		return infrav1.CPU{}, sshclient.ErrEmptyStdOut
-	}
+	{
+		out := sshClient.GetHardwareDetailsCPUThreads()
+		if err := handleSSHError(out); err != nil {
+			return infrav1.CPU{}, err
+		}
 
-	threads, err := strconv.Atoi(stdOut)
-	if err != nil {
-		return infrav1.CPU{}, fmt.Errorf("failed to parse string to int. Stdout %s: %w", stdOut, err)
-	}
-	cpu.Threads = threads
+		stdOut, err := validateStdOut(out.StdOut)
+		if err != nil {
+			return infrav1.CPU{}, fmt.Errorf("invalid output in stdOut: %w", err)
+		}
 
-	out = sshClient.GetHardwareDetailsCPUFlags()
-	if err := handleSSHError(out); err != nil {
-		return infrav1.CPU{}, err
+		threads, err := strconv.Atoi(stdOut)
+		if err != nil {
+			return infrav1.CPU{}, fmt.Errorf("failed to parse string to int. Stdout %s: %w", stdOut, err)
+		}
+		cpu.Threads = threads
 	}
-	if stdOut == "" {
-		return infrav1.CPU{}, sshclient.ErrEmptyStdOut
+	{
+		out := sshClient.GetHardwareDetailsCPUFlags()
+		if err := handleSSHError(out); err != nil {
+			return infrav1.CPU{}, err
+		}
+
+		stdOut, err := validateStdOut(out.StdOut)
+		if err != nil {
+			return infrav1.CPU{}, fmt.Errorf("invalid output in stdOut: %w", err)
+		}
+
+		flags := strings.Split(stdOut, " ")
+		cpu.Flags = flags
 	}
-
-	flags := strings.Split(stdOut, " ")
-	cpu.Flags = flags
-
-	return cpu, err
+	return cpu, nil
 }
 
 func handleSSHError(out sshclient.Output) error {
@@ -778,6 +790,14 @@ func handleSSHError(out sshclient.Output) error {
 		return fmt.Errorf("error occurred during ssh command. StdErr: %s", out.StdErr)
 	}
 	return nil
+}
+
+func validateStdOut(stdOut string) (string, error) {
+	stdOut = trimLineBreak(stdOut)
+	if stdOut == "" {
+		return "", sshclient.ErrEmptyStdOut
+	}
+	return stdOut, nil
 }
 
 func (s *Service) actionImageInstalling() actionResult {
@@ -810,7 +830,7 @@ func (s *Service) actionImageInstalling() actionResult {
 	}
 
 	// get device names from storage device
-	storageDevices, err := s.obtainHardwareDetailsStorage(sshClient)
+	storageDevices, err := obtainHardwareDetailsStorage(sshClient)
 	if err != nil {
 		return actionError{err: fmt.Errorf("failed to obtain storage devices: %w", err)}
 	}

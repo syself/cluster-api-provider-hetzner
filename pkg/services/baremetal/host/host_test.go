@@ -129,19 +129,7 @@ var _ = Describe("obtainHardwareDetailsStorage", func() {
 			sshMock := &sshmock.Client{}
 			sshMock.On("GetHardwareDetailsStorage").Return(sshclient.Output{StdOut: stdout})
 
-			host := helpers.BareMetalHost("test-host", "default",
-				helpers.WithRebootTypes([]infrav1.RebootType{
-					infrav1.RebootTypeSoftware,
-					infrav1.RebootTypeHardware,
-					infrav1.RebootTypePower,
-				}),
-				helpers.WithSSHSpec(),
-				helpers.WithSSHStatus(),
-			)
-
-			service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
-
-			storageDevices, err := service.obtainHardwareDetailsStorage(sshMock)
+			storageDevices, err := obtainHardwareDetailsStorage(sshMock)
 			Expect(storageDevices).Should(Equal(expectedOutput))
 			if expectedErrorMessage != nil {
 				Expect(err.Error()).Should(ContainSubstring(*expectedErrorMessage))
