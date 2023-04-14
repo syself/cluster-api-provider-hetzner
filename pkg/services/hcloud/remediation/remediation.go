@@ -152,7 +152,7 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 }
 
 func (s *Service) rebootServer(ctx context.Context, server *hcloud.Server) error {
-	if _, err := s.scope.HCloudClient.RebootServer(ctx, server); err != nil {
+	if err := s.scope.HCloudClient.RebootServer(ctx, server); err != nil {
 		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "RebootServer")
 		return fmt.Errorf("failed to reboot server %v: %w", server.ID, err)
 	}

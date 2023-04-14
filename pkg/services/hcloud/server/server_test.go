@@ -192,9 +192,8 @@ var _ = Describe("handleServerStatusOff", func() {
 	var hcloudMachine *infrav1.HCloudMachine
 	client := fakeclient.NewHCloudClientFactory().NewClient("")
 
-	res, err := client.CreateServer(context.Background(), hcloud.ServerCreateOpts{Name: "serverName"})
+	server, err := client.CreateServer(context.Background(), hcloud.ServerCreateOpts{Name: "serverName"})
 	Expect(err).To(Succeed())
-	server := res.Server
 
 	BeforeEach(func() {
 		hcloudMachine = &infrav1.HCloudMachine{
