@@ -14,7 +14,6 @@ linters:
     - errchkjson
     - errname
     - errorlint
-    - exhaustive
     - exportloopref
     - forcetypeassert
     - gci
@@ -127,7 +126,7 @@ linters-settings:
         arguments:
           - maxLitCount: "3"
             allowStrs: '""'
-            allowInts: "0,1,2,3,42,100"
+            allowInts: "0,1,2,3,5,10,42,100"
 
       # https://github.com/mgechev/revive/blob/master/RULES_DESCRIPTIONS.md#argument-limit
       - name: argument-limit
@@ -179,7 +178,6 @@ linters-settings:
         arguments:
           - "crypto/md5"
           - "crypto/sha1"
-          - "reflect"
       # https://github.com/mgechev/revive/blob/master/RULES_DESCRIPTIONS.md#line-length-limit
       - name: line-length-limit
         severity: warning
