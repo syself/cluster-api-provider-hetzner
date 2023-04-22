@@ -17,8 +17,10 @@ limitations under the License.
 package host
 
 import (
+	"crypto/rand"
+	"fmt"
 	"math"
-	"math/rand"
+	"math/big"
 	"time"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -28,10 +30,6 @@ import (
 // This is an upper limit for the ErrorCount, so that the max backoff
 // timeout will not exceed (roughly) 8 hours.
 const maxBackOffCount = 9
-
-func init() {
-	rand.Seed(time.Now().UTC().UnixNano())
-}
 
 // actionResult is an interface that encapsulates the result of a Reconcile
 // call, as returned by the action corresponding to the current state.
@@ -50,28 +48,25 @@ func (r actionContinue) Result() (result reconcile.Result, err error) {
 	result.RequeueAfter = r.delay
 	// Set Requeue true as well as RequeueAfter in case the delay is 0.
 	result.Requeue = true
-	return
+	return result, nil
 }
 
 // actionComplete is a result indicating that the current action has completed,
 // and that the resource should transition to the next state.
-type actionComplete struct {
-}
+type actionComplete struct{}
 
-func (r actionComplete) Result() (result reconcile.Result, err error) {
+func (actionComplete) Result() (result reconcile.Result, err error) {
 	result.Requeue = true
-	return
+	return result, nil
 }
 
 // deleteComplete is a result indicating that the deletion action has
 // completed, and that the resource has now been deleted.
-type deleteComplete struct {
-	actionComplete //nolint:unused
-}
+type deleteComplete struct{}
 
-func (r deleteComplete) Result() (result reconcile.Result, err error) {
+func (deleteComplete) Result() (result reconcile.Result, err error) {
 	// Don't requeue, since the CR has been successfully deleted
-	return
+	return result, nil
 }
 
 // actionError is a result indicating that an error occurred while attempting
@@ -81,8 +76,7 @@ type actionError struct {
 }
 
 func (r actionError) Result() (result reconcile.Result, err error) {
-	err = r.err
-	return
+	return result, r.err
 }
 
 // actionFailed is a result indicating that the current action has failed,
@@ -103,18 +97,23 @@ type actionFailed struct {
 // 7  [1h4m, 2h8m]
 // 8  [2h8m, 4h16m]
 // 9  [4h16m, 8h32m].
-func CalculateBackoff(errorCount int) time.Duration {
+func CalculateBackoff(errorCount int) (time.Duration, error) {
 	if errorCount > maxBackOffCount {
 		errorCount = maxBackOffCount
 	}
 
 	base := math.Exp2(float64(errorCount))
-	backOff := base - (rand.Float64() * base * 0.5) // #nosec
+	randInt, err := rand.Int(rand.Reader, big.NewInt(1<<53))
+	if err != nil {
+		return 0, fmt.Errorf("failed to create random number: %w", err)
+	}
+	randFloat := float64(randInt.Int64()) / (1 << 53)
+	backOff := base - (randFloat * base * 0.5)
 	backOffDuration := time.Duration(float64(time.Minute) * backOff)
-	return backOffDuration
+	return backOffDuration, nil
 }
 
 func (r actionFailed) Result() (result reconcile.Result, err error) {
-	result.RequeueAfter = CalculateBackoff(r.errorCount)
-	return
+	result.RequeueAfter, err = CalculateBackoff(r.errorCount)
+	return result, err
 }

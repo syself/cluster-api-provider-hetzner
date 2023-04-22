@@ -221,10 +221,9 @@ IMAGE my-image`),
 })
 
 var _ = Describe("validJSONFromSSHOutput", func() {
-	DescribeTable("validJSONFromSSHOutput",
-		func(input string, expectedOutput string) {
-			Expect(validJSONFromSSHOutput(input)).Should(Equal(expectedOutput))
-		},
+	DescribeTable("validJSONFromSSHOutput", func(input, expectedOutput string) {
+		Expect(validJSONFromSSHOutput(input)).Should(Equal(expectedOutput))
+	},
 		Entry(
 			"working example",
 			`key1="string1" key2="string2" key3="string3"`,

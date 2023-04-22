@@ -17,7 +17,7 @@ limitations under the License.
 package host
 
 import (
-	"errors"
+	"fmt"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -45,11 +45,11 @@ type timeoutError struct {
 	error
 }
 
-func (e timeoutError) Timeout() bool {
+func (timeoutError) Timeout() bool {
 	return true
 }
 
-func (e timeoutError) Error() string {
+func (timeoutError) Error() string {
 	return "timeout"
 }
 
@@ -59,8 +59,9 @@ func TestHost(t *testing.T) {
 }
 
 var (
-	log     = klogr.New()
-	timeout = timeoutError{errors.New("timeout")}
+	log        = klogr.New()
+	errTimeout = fmt.Errorf("timeout")
+	timeout    = timeoutError{errTimeout}
 )
 
 func newTestHostStateMachine(host *infrav1.HetznerBareMetalHost, service *Service) *hostStateMachine {

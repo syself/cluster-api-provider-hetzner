@@ -17,7 +17,7 @@ limitations under the License.
 package host
 
 import (
-	"errors"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -33,6 +33,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 )
+
+var errTest = fmt.Errorf("test error")
 
 var _ = Describe("SetErrorMessage", func() {
 	DescribeTable("SetErrorMessage",
@@ -692,7 +694,7 @@ var _ = Describe("analyzeSSHOutputInstallImage", func() {
 		) {
 			var err error
 			if !hasNilErr {
-				err = errors.New("unknown error")
+				err = errTest
 			}
 
 			out := sshclient.Output{
@@ -753,18 +755,18 @@ var _ = Describe("analyzeSSHOutputInstallImage", func() {
 	DescribeTable("analyzeSSHOutputInstallImage - out.Err",
 		func(
 			err error,
-			getHostNameErrNil bool,
+			errFromGetHostNameNil bool,
 			port int,
 			expectedIsTimeout bool,
 			expectedIsConnectionRefused bool,
 			expectedErrMessage string,
 		) {
 			sshMock := &sshmock.Client{}
-			var getHostNameErr error
-			if !getHostNameErrNil {
-				getHostNameErr = errors.New("non-nil error")
+			var errFromGetHostName error
+			if !errFromGetHostNameNil {
+				errFromGetHostName = errTest
 			}
-			sshMock.On("GetHostName").Return(sshclient.Output{Err: getHostNameErr})
+			sshMock.On("GetHostName").Return(sshclient.Output{Err: errFromGetHostName})
 
 			isTimeout, isConnectionRefused, err := analyzeSSHOutputInstallImage(sshclient.Output{Err: err}, sshMock, port)
 			Expect(isTimeout).To(Equal(expectedIsTimeout))
@@ -779,7 +781,7 @@ var _ = Describe("analyzeSSHOutputInstallImage", func() {
 		Entry(
 			"timeout error",
 			timeout, // err error
-			true,    // getHostNameErrNil bool
+			true,    // errFromGetHostNameNil bool
 			22,      // port int
 			true,    // expectedIsTimeout bool
 			false,   // expectedIsConnectionRefused bool
@@ -788,7 +790,7 @@ var _ = Describe("analyzeSSHOutputInstallImage", func() {
 		Entry(
 			"authenticationFailed error, port 22, no hostName error",
 			sshclient.ErrAuthenticationFailed, // err error
-			true,                              // getHostNameErrNil bool
+			true,                              // errFromGetHostNameNil bool
 			22,                                // port int
 			false,                             // expectedIsTimeout bool
 			false,                             // expectedIsConnectionRefused bool
@@ -797,7 +799,7 @@ var _ = Describe("analyzeSSHOutputInstallImage", func() {
 		Entry(
 			"authenticationFailed error, port 22, hostName error",
 			sshclient.ErrAuthenticationFailed, // err error
-			false,                             // getHostNameErrNil bool
+			false,                             // errFromGetHostNameNil bool
 			22,                                // port int
 			false,                             // expectedIsTimeout bool
 			false,                             // expectedIsConnectionRefused bool
@@ -806,7 +808,7 @@ var _ = Describe("analyzeSSHOutputInstallImage", func() {
 		Entry(
 			"authenticationFailed error, port != 22",
 			sshclient.ErrAuthenticationFailed, // err error
-			true,                              // getHostNameErrNil bool
+			true,                              // errFromGetHostNameNil bool
 			23,                                // port int
 			false,                             // expectedIsTimeout bool
 			false,                             // expectedIsConnectionRefused bool
@@ -815,7 +817,7 @@ var _ = Describe("analyzeSSHOutputInstallImage", func() {
 		Entry(
 			"connectionRefused error, port 22",
 			sshclient.ErrConnectionRefused, // err error
-			true,                           // getHostNameErrNil bool
+			true,                           // errFromGetHostNameNil bool
 			22,                             // port int
 			false,                          // expectedIsTimeout bool
 			true,                           // expectedIsConnectionRefused bool
@@ -824,7 +826,7 @@ var _ = Describe("analyzeSSHOutputInstallImage", func() {
 		Entry(
 			"connectionRefused error, port != 22, hostname error",
 			sshclient.ErrConnectionRefused, // err error
-			false,                          // getHostNameErrNil bool
+			false,                          // errFromGetHostNameNil bool
 			23,                             // port int
 			false,                          // expectedIsTimeout bool
 			true,                           // expectedIsConnectionRefused bool
@@ -833,7 +835,7 @@ var _ = Describe("analyzeSSHOutputInstallImage", func() {
 		Entry(
 			"connectionRefused error, port != 22, no hostname error",
 			sshclient.ErrConnectionRefused, // err error
-			true,                           // getHostNameErrNil bool
+			true,                           // errFromGetHostNameNil bool
 			23,                             // port int
 			false,                          // expectedIsTimeout bool
 			false,                          // expectedIsConnectionRefused bool
@@ -850,7 +852,7 @@ var _ = Describe("analyzeSSHOutputInstallImage", func() {
 		) {
 			var err error
 			if !hasNilErr {
-				err = errors.New("unknown error")
+				err = errTest
 			}
 			hostName := "rescue"
 			if hasWrongHostName {
@@ -904,7 +906,7 @@ var _ = Describe("analyzeSSHOutputInstallImage", func() {
 		) {
 			var err error
 			if !hasNilErr {
-				err = errors.New("unknown error")
+				err = errTest
 			}
 
 			out := sshclient.Output{
