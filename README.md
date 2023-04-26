@@ -22,15 +22,19 @@
 The Kubernetes Cluster API Provider Hetzner enables declarative provisioning of multiple Kubernetes clusters on [Hetzner infrastructure](https://hetzner.cloud).
 High-available Kubernetes clusters on bare metal and on cloud instances are supported. The Cluster API simplifies the creation, updates, and operation of production-ready clusters. Self-managed Kubernetes clusters can, therefore, be easily operated even at a large scale.
 
-> Disclaimer: This is no official Hetzner project! It is maintained by the folks of the cloud-native start-up Syself.
+> Disclaimer: This is no official Hetzner project! It is maintained by the folks of the cloud-native start-up [Syself](https://syself.com).
 > If you have questions or are interested in running production-ready Kubernetes clusters on Hetzner, then please contact us via e-mail: [info@syself.com](mailto:info@syself.com?subject=cluster-api-provider-hetzner).
 
 ## :newspaper: What is the Cluster API Provider Hetzner?
-The [Cluster API][cluster_api] orchestrates infrastructure similar to the way Kubernetes manages containers. It implements a declarative API like Kubernetes does and extends the resources of the Kubernetes API server via CRDs.
-The Cluster API consist of the CAPI controller, the control-plane provider, the bootstrap provider, and a provider integration that implements the necessary controllers to enable stable and highly available Kubernetes clusters on the infrastructure of a certain cloud provider.
-The controllers ensure that the desired state of the infrastructure is achieved - just as Kubernetes ensures the desired state of containers. This concept is called Infrastructure as Software and has significant advantages over Infrastructure as Code (IaC) solutions because it can react automatically to changes and problems. The best example of this is the MachineHealthCheck, which replaces unhealthy nodes automatically.
 
-Using the Hetzner Provider unites the benefits of declarative infrastructure, cost-effectiveness, and (GDPR-compliant) European cloud.
+The [Cluster API][cluster_api] orchestrates infrastructure similar to the way Kubernetes manages containers. It implements a declarative API like Kubernetes does and extends the resources of the Kubernetes API server via CRDs.
+
+The Cluster API consist of the CAPI controller, the control-plane provider, the bootstrap provider, and a provider integration that implements the necessary controllers to enable stable and highly available Kubernetes clusters.
+
+The controllers ensure that the desired state of the infrastructure is achieved - just as Kubernetes ensures the desired state of containers. The concept of
+[Kubernetes Controller](https://kubernetes.io/docs/concepts/architecture/controller/) has significant advantages over Infrastructure as Code (IaC) solutions because it can react automatically to changes and problems. The best example of this is the MachineHealthCheck, which replaces unhealthy nodes automatically.
+
+Using the Cluster API Provider Hetzner (CAPH) unites the benefits of declarative infrastructure, cost-effectiveness, and (GDPR-compliant) European cloud.
 
 
 ## :sparkles: Features
