@@ -31,9 +31,9 @@ jobs:
 
       - uses: actions/setup-node@64ed1c7eab4cce3362f8c340dee64e5eaeef8f7c # v3
         with:
-          node-version: "16"
+          node-version: "18"
       - name: Install renovate
-        run: npm i -g renovate
+        run: npm i -g renovate@35.54.0 # TODO update this via renovatebot
       - name: Validate config
         run: renovate-config-validator
         env:
