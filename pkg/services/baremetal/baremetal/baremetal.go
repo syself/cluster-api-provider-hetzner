@@ -32,12 +32,12 @@ import (
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/utils/pointer"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -594,7 +594,7 @@ func (s *Service) setOwnerRef(refList []metav1.OwnerReference) []metav1.OwnerRef
 // setOwnerRefInList adds an owner reference of a Kubernetes object.
 func setOwnerRefInList(refList []metav1.OwnerReference, objType metav1.TypeMeta, objMeta metav1.ObjectMeta) []metav1.OwnerReference {
 	isController := true
-	index, found := findOwnerRefFromList(refList, objType, objMeta)
+	index, found := utils.FindOwnerRefFromList(refList, objMeta.Name, objType.Kind, objType.APIVersion)
 	if !found {
 		// set new owner ref
 		refList = append(refList, metav1.OwnerReference{
@@ -615,60 +615,10 @@ func setOwnerRefInList(refList []metav1.OwnerReference, objType metav1.TypeMeta,
 
 // removeOwnerRef removes the owner reference of this BareMetalMachine.
 func (s *Service) removeOwnerRef(refList []metav1.OwnerReference) []metav1.OwnerReference {
-	return removeOwnerRefFromList(refList, s.scope.BareMetalMachine.TypeMeta, s.scope.BareMetalMachine.ObjectMeta)
-}
-
-// removeOwnerRefFromList removes the owner reference of a Kubernetes object.
-func removeOwnerRefFromList(
-	refList []metav1.OwnerReference,
-	objType metav1.TypeMeta,
-	objMeta metav1.ObjectMeta,
-) []metav1.OwnerReference {
-	if len(refList) == 0 {
-		return refList
-	}
-	index, found := findOwnerRefFromList(refList, objType, objMeta)
-	// if owner ref is not found, return
-	if !found {
-		return refList
-	}
-
-	// if it is the only owner ref, we can return an empty slice
-	if len(refList) == 1 {
-		return []metav1.OwnerReference{}
-	}
-
-	// remove owner ref from slice
-	refListLen := len(refList) - 1
-	refList[index] = refList[refListLen]
-	refList = refList[:refListLen]
-
-	return removeOwnerRefFromList(refList, objType, objMeta)
-}
-
-// findOwnerRefFromList finds the owner ref of a Kubernetes object in a list of owner refs.
-func findOwnerRefFromList(refList []metav1.OwnerReference, objType metav1.TypeMeta, objMeta metav1.ObjectMeta) (ref int, found bool) {
-	bGV, err := schema.ParseGroupVersion(objType.APIVersion)
-	if err != nil {
-		panic("object has invalid group version")
-	}
-
-	for i, curOwnerRef := range refList {
-		aGV, err := schema.ParseGroupVersion(curOwnerRef.APIVersion)
-		if err != nil {
-			// ignore owner ref if it has invalid group version
-			continue
-		}
-
-		// not matching on UID since when pivoting it might change
-		// Not matching on API version as this might change
-		if curOwnerRef.Name == objMeta.Name &&
-			curOwnerRef.Kind == objType.Kind &&
-			aGV.Group == bGV.Group {
-			return i, true
-		}
-	}
-	return 0, false
+	name := s.scope.BareMetalMachine.Name
+	kind := s.scope.BareMetalMachine.Kind
+	apiVersion := s.scope.BareMetalMachine.APIVersion
+	return utils.RemoveOwnerRefFromList(refList, name, kind, apiVersion)
 }
 
 // ensureMachineAnnotation makes sure the machine has an annotation that references the

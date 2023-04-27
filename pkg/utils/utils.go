@@ -27,6 +27,8 @@ import (
 	"github.com/go-logr/zapr"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/storage/names"
 )
 
@@ -58,6 +60,55 @@ func LabelSelectorToLabels(str string) (map[string]string, error) {
 		return nil, fmt.Errorf("failed to unmarshal: %w", err)
 	}
 	return labels, nil
+}
+
+// RemoveOwnerRefFromList removes the owner reference of a Kubernetes object.
+func RemoveOwnerRefFromList(refList []metav1.OwnerReference, name, kind, apiVersion string) []metav1.OwnerReference {
+	if len(refList) == 0 {
+		return refList
+	}
+	index, found := FindOwnerRefFromList(refList, name, kind, apiVersion)
+	// if owner ref is not found, return
+	if !found {
+		return refList
+	}
+
+	// if it is the only owner ref, we can return an empty slice
+	if len(refList) == 1 {
+		return []metav1.OwnerReference{}
+	}
+
+	// remove owner ref from slice
+	refListLen := len(refList) - 1
+	refList[index] = refList[refListLen]
+	refList = refList[:refListLen]
+
+	return RemoveOwnerRefFromList(refList, name, kind, apiVersion)
+}
+
+// FindOwnerRefFromList finds the owner ref of a Kubernetes object in a list of owner refs.
+func FindOwnerRefFromList(refList []metav1.OwnerReference, name, kind, apiVersion string) (ref int, found bool) {
+	bGV, err := schema.ParseGroupVersion(apiVersion)
+	if err != nil {
+		panic("object has invalid group version")
+	}
+
+	for i, curOwnerRef := range refList {
+		aGV, err := schema.ParseGroupVersion(curOwnerRef.APIVersion)
+		if err != nil {
+			// ignore owner ref if it has invalid group version
+			continue
+		}
+
+		// not matching on UID since when pivoting it might change
+		// Not matching on API version as this might change
+		if curOwnerRef.Name == name &&
+			curOwnerRef.Kind == kind &&
+			aGV.Group == bGV.Group {
+			return i, true
+		}
+	}
+	return 0, false
 }
 
 // DifferenceOfStringSlices returns the elements in `a` that aren't in `b` as well as elements of `a` not in `b`.

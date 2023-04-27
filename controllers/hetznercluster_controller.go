@@ -260,7 +260,7 @@ func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterS
 
 	secretManager := secretutil.NewSecretManager(clusterScope.Logger, r.Client, r.APIReader)
 	// Remove finalizer of secret
-	if err := secretManager.ReleaseSecret(ctx, clusterScope.HetznerSecret()); err != nil {
+	if err := secretManager.ReleaseSecret(ctx, clusterScope.HetznerSecret(), clusterScope.HetznerCluster); err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to release Hetzner secret: %w", err)
 	}
 
@@ -274,7 +274,7 @@ func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterS
 			}
 		}
 		if rescueSSHSecret != nil {
-			if err := secretManager.ReleaseSecret(ctx, rescueSSHSecret); err != nil {
+			if err := secretManager.ReleaseSecret(ctx, rescueSSHSecret, clusterScope.HetznerCluster); err != nil {
 				if !apierrors.IsNotFound(err) {
 					return reconcile.Result{}, fmt.Errorf("failed to release Rescue SSH secret: %w", err)
 				}
