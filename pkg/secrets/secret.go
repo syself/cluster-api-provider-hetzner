@@ -159,15 +159,31 @@ func (sm *SecretManager) AcquireSecret(ctx context.Context, key types.Namespaced
 }
 
 // ReleaseSecret removes secrets manager finalizer from specified secret when needed.
-func (sm *SecretManager) ReleaseSecret(ctx context.Context, secret *corev1.Secret) error {
-	if !utils.StringInList(secret.Finalizers, SecretFinalizer) {
+func (sm *SecretManager) ReleaseSecret(ctx context.Context, secret *corev1.Secret, owner client.Object) error {
+	apiVersion, kind := owner.GetObjectKind().GroupVersionKind().ToAPIVersionAndKind()
+	newOwnerRefs := utils.RemoveOwnerRefFromList(secret.OwnerReferences, owner.GetName(), kind, apiVersion)
+
+	// return if nothing changed
+	if len(secret.OwnerReferences) == len(newOwnerRefs) && !utils.StringInList(secret.Finalizers, SecretFinalizer) {
 		return nil
 	}
 
-	// Remove finalizer from secret to allow deletion
-	secret.Finalizers = utils.FilterStringFromList(
-		secret.Finalizers, SecretFinalizer)
+	// check whether there are other HetznerCluster objects owning the secret
+	foundOtherHetznerClusterOwner := false
+	for _, ownerRef := range newOwnerRefs {
+		if ownerRef.Kind == "HetznerCluster" {
+			foundOtherHetznerClusterOwner = true
+			break
+		}
+	}
 
+	// remove finalizer from secret to allow deletion if no other owner exists
+	if !foundOtherHetznerClusterOwner {
+		secret.Finalizers = utils.FilterStringFromList(
+			secret.Finalizers, SecretFinalizer)
+	}
+
+	secret.OwnerReferences = newOwnerRefs
 	if err := sm.client.Update(ctx, secret); err != nil {
 		return fmt.Errorf("failed to remove finalizer from secret %s in namespace %s: %w",
 			secret.ObjectMeta.Name, secret.ObjectMeta.Namespace, err)
