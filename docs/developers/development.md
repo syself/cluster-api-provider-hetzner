@@ -73,10 +73,10 @@ To tear down the workload cluster press the "Delete Workload Cluster" button. Af
 To tear down the kind cluster, use:
 
 ```shell
-$ make delete-cluster
+$ make delete-mgt-cluster
 ```
 
-To delete the registry, use: `make delete-registry` or `make delete-cluster-registry`.
+To delete the registry, use: `make delete-registry` or `make delete-mgt-cluster-registry`.
 
 If you have any trouble finding the right command, then you can use `make help` to get a list of all available make targets. 
 
