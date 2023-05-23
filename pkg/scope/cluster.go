@@ -223,7 +223,7 @@ func (s *ClusterScope) ListMachines(ctx context.Context) ([]*clusterv1.Machine, 
 	return machineList, hcloudMachineList, nil
 }
 
-// IsControlPlaneReady returns if a machine is a control-plane.
+// IsControlPlaneReady returns nil if the control plane is ready.
 func IsControlPlaneReady(ctx context.Context, c clientcmd.ClientConfig) error {
 	restConfig, err := c.ClientConfig()
 	if err != nil {
