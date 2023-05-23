@@ -313,16 +313,16 @@ create-mgt-cluster: $(CLUSTERCTL) cluster ## Start a mgt-cluster with the latest
 cluster: $(CTLPTL) ## Creates kind-dev Cluster
 	./hack/kind-dev.sh
 
-.PHONY: delete-cluster
-delete-cluster: $(CTLPTL) ## Deletes Kind-dev Cluster (default)
+.PHONY: delete-mgt-cluster
+delete-mgt-cluster: $(CTLPTL) ## Deletes Kind-dev Cluster (default)
 	$(CTLPTL) delete cluster kind-caph
 
 .PHONY: delete-registry
 delete-registry: $(CTLPTL) ## Deletes Kind-dev Cluster and the local registry
 	$(CTLPTL) delete registry caph-registry
 
-.PHONY: delete-cluster-registry
-delete-cluster-registry: $(CTLPTL) ## Deletes Kind-dev Cluster and the local registry
+.PHONY: delete-mgt-cluster-registry
+delete-mgt-cluster-registry: $(CTLPTL) ## Deletes Kind-dev Cluster and the local registry
 	$(CTLPTL) delete cluster kind-caph
 	$(CTLPTL) delete registry caph-registry
 
@@ -745,5 +745,5 @@ tilt-up: $(ENVSUBST) $(KUSTOMIZE) $(TILT) cluster  ## Start a mgt-cluster & Tilt
 	EXP_CLUSTER_RESOURCE_SET=true $(TILT) up
 
 .PHONY: watch
-watch:
-	watch -c "kubectl get cluster; echo; kubectl get machine; echo; kubectl get hcloudmachine; echo; echo Events; kubectl get events --sort-by=metadata.creationTimestamp | tail -8"
+watch: ## Watch CRDs cluster, machines and Events.
+	watch -c -n 2 hack/output-for-watch.sh

@@ -41,6 +41,8 @@ baremetalhosts.yaml
 ./kind.kubeconfig
 ./kubeconfig
 ./.kubeconfig
+.workload-cluster-kubeconfig.yaml
+.mgt-cluster-kubeconfig.yaml
 
 # Common editor / temporary files
 *~
@@ -70,3 +72,4 @@ __pycache__/
 *$py.class
 /_output
 tmp_*
+
