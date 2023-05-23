@@ -433,7 +433,7 @@ func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope
 		return fmt.Errorf("failed to get client set: %w", err)
 	}
 
-	if _, err := clientSet.CoreV1().Secrets("kube-system").Get(
+	if _, err := clientSet.CoreV1().Secrets(metav1.NamespaceSystem).Get(
 		ctx,
 		clusterScope.HetznerCluster.Spec.HetznerSecret.Name,
 		metav1.GetOptions{},
@@ -489,12 +489,12 @@ func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope
 			TypeMeta:  metav1.TypeMeta{},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      clusterScope.HetznerCluster.Spec.HetznerSecret.Name,
-				Namespace: "kube-system",
+				Namespace: metav1.NamespaceSystem,
 			},
 		}
 
 		// create secret in cluster
-		if _, err := clientSet.CoreV1().Secrets("kube-system").Create(ctx, &newSecret, metav1.CreateOptions{}); err != nil {
+		if _, err := clientSet.CoreV1().Secrets(metav1.NamespaceSystem).Create(ctx, &newSecret, metav1.CreateOptions{}); err != nil {
 			return fmt.Errorf("failed to create secret: %w", err)
 		}
 	}
