@@ -7,7 +7,7 @@ replace github.com/syself/cluster-api-provider-hetzner => ../../
 require (
 	github.com/drone/envsubst/v2 v2.0.0-20210730161058-179042472c46
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572
-	github.com/google/pprof v0.0.0-20230406165453-00490a63f317
+	github.com/google/pprof v0.0.0-20230510103437-eeec1cb781c3
 	github.com/joelanford/go-apidiff v0.6.0
 	github.com/nikolaydubina/go-binsize-treemap v0.2.0
 	github.com/nikolaydubina/go-cover-treemap v1.3.0
@@ -16,9 +16,9 @@ require (
 	gotest.tools/gotestsum v1.10.0
 	k8s.io/code-generator v0.26.1
 	sigs.k8s.io/cluster-api v1.4.1
-	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20230412185432-fbd6b944a634
+	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20230524200249-30eae58f1b98
 	sigs.k8s.io/controller-tools v0.11.4
-	sigs.k8s.io/kind v0.18.0
+	sigs.k8s.io/kind v0.19.0
 	sigs.k8s.io/kustomize/kustomize/v4 v4.5.7
 )
 
