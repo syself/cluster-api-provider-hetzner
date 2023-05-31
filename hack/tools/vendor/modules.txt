@@ -70,11 +70,6 @@ github.com/cespare/xxhash/v2
 # github.com/chzyer/readline v1.5.1
 ## explicit; go 1.15
 github.com/chzyer/readline
-# github.com/containerd/containerd v1.6.18
-## explicit; go 1.17
-github.com/containerd/containerd/errdefs
-github.com/containerd/containerd/log
-github.com/containerd/containerd/platforms
 # github.com/coredns/caddy v1.1.0
 ## explicit; go 1.13
 github.com/coredns/caddy/caddyfile
@@ -116,7 +111,7 @@ github.com/docker/cli/cli/streams
 github.com/docker/cli/cli/trust
 github.com/docker/cli/cli/version
 github.com/docker/cli/opts
-# github.com/docker/distribution v2.8.1+incompatible
+# github.com/docker/distribution v2.8.2+incompatible
 ## explicit
 github.com/docker/distribution
 github.com/docker/distribution/digestset
@@ -134,7 +129,7 @@ github.com/docker/distribution/registry/client/transport
 github.com/docker/distribution/registry/storage/cache
 github.com/docker/distribution/registry/storage/cache/memory
 github.com/docker/distribution/uuid
-# github.com/docker/docker v20.10.14+incompatible
+# github.com/docker/docker v20.10.24+incompatible
 ## explicit
 github.com/docker/docker/api
 github.com/docker/docker/api/types
@@ -528,7 +523,7 @@ github.com/nikolaydubina/treemap/render
 # github.com/olekukonko/tablewriter v0.0.5
 ## explicit; go 1.12
 github.com/olekukonko/tablewriter
-# github.com/onsi/ginkgo/v2 v2.9.5
+# github.com/onsi/ginkgo/v2 v2.9.7
 ## explicit; go 1.18
 github.com/onsi/ginkgo/v2/config
 github.com/onsi/ginkgo/v2/formatter
@@ -546,7 +541,7 @@ github.com/onsi/ginkgo/v2/internal/interrupt_handler
 github.com/onsi/ginkgo/v2/internal/parallel_support
 github.com/onsi/ginkgo/v2/reporters
 github.com/onsi/ginkgo/v2/types
-# github.com/onsi/gomega v1.27.6
+# github.com/onsi/gomega v1.27.7
 ## explicit; go 1.18
 github.com/onsi/gomega
 github.com/onsi/gomega/format
@@ -685,7 +680,7 @@ github.com/theupdateframework/notary/tuf/validation
 # github.com/tilt-dev/clusterid v0.1.4
 ## explicit; go 1.18
 github.com/tilt-dev/clusterid
-# github.com/tilt-dev/ctlptl v0.8.18
+# github.com/tilt-dev/ctlptl v0.8.19
 ## explicit; go 1.20
 github.com/tilt-dev/ctlptl/cmd/ctlptl
 github.com/tilt-dev/ctlptl/internal/dctr
@@ -879,11 +874,6 @@ google.golang.org/appengine/urlfetch
 ## explicit; go 1.19
 google.golang.org/genproto/googleapis/api/expr/v1alpha1
 google.golang.org/genproto/googleapis/rpc/status
-# google.golang.org/grpc v1.52.0
-## explicit; go 1.17
-google.golang.org/grpc/codes
-google.golang.org/grpc/internal/status
-google.golang.org/grpc/status
 # google.golang.org/protobuf v1.28.1
 ## explicit; go 1.11
 google.golang.org/protobuf/encoding/protojson
