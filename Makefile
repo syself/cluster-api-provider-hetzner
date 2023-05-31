@@ -217,6 +217,7 @@ add-ssh-pub-key-to-hcloud:
 
 create-workload-cluster-hcloud: $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
+	@test $${HCLOUD_TOKEN?Please set environment variable}
 	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD_TOKEN) --save-config --dry-run=client -o yaml | kubectl apply -f -
 	$(KUSTOMIZE) build templates/cluster-templates/hcloud --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud.yaml
 	cat templates/cluster-templates/cluster-template-hcloud.yaml | $(ENVSUBST) - | kubectl apply -f -

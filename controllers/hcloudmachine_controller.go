@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
 	"sigs.k8s.io/cluster-api/util/predicates"
+	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -155,7 +156,15 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return r.reconcileDelete(ctx, machineScope)
 	}
 
-	return r.reconcileNormal(ctx, machineScope)
+	result, err := r.reconcileNormal(ctx, machineScope)
+	if err != nil {
+		record.Warn(
+			hcloudMachine,
+			"FailedReconcileMachine",
+			err.Error(),
+		)
+	}
+	return result, err
 }
 
 func (r *HCloudMachineReconciler) reconcileDelete(ctx context.Context, machineScope *scope.MachineScope) (reconcile.Result, error) {
