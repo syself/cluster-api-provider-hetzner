@@ -7,7 +7,7 @@ replace github.com/syself/cluster-api-provider-hetzner => ../../
 require (
 	github.com/drone/envsubst/v2 v2.0.0-20210730161058-179042472c46
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572
-	github.com/google/pprof v0.0.0-20230510103437-eeec1cb781c3
+	github.com/google/pprof v0.0.0-20230602150820-91b7bce49751
 	github.com/joelanford/go-apidiff v0.6.0
 	github.com/nikolaydubina/go-binsize-treemap v0.2.0
 	github.com/nikolaydubina/go-cover-treemap v1.3.0
@@ -16,7 +16,7 @@ require (
 	gotest.tools/gotestsum v1.10.0
 	k8s.io/code-generator v0.26.1
 	sigs.k8s.io/cluster-api v1.4.1
-	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20230524200249-30eae58f1b98
+	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20230602114852-30dea34848b0
 	sigs.k8s.io/controller-tools v0.11.4
 	sigs.k8s.io/kind v0.19.0
 	sigs.k8s.io/kustomize/kustomize/v4 v4.5.7
@@ -91,7 +91,7 @@ require (
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/huandu/xstrings v1.3.3 // indirect
-	github.com/ianlancetaylor/demangle v0.0.0-20220517205856-0058ec4f073c // indirect
+	github.com/ianlancetaylor/demangle v0.0.0-20230524184225-eabc099b10ab // indirect
 	github.com/imdario/mergo v0.3.13 // indirect
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
