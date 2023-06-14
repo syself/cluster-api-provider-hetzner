@@ -84,7 +84,7 @@ jobs:
             "2000": "XXL"
             }
       - name: Generate Labels
-        uses: actions/labeler@0776a679364a9a16110aac8d0f40f5e11009e327 # v4
+        uses: actions/labeler@9fcb2c2f5584144ca754f8bfe8c6f81e77753375 # v4
         with:
           configuration-path: .github/labeler.yaml
           repo-token: ${{ steps.generate-token.outputs.token }}
