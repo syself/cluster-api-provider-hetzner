@@ -11,14 +11,14 @@ require (
 	github.com/joelanford/go-apidiff v0.6.0
 	github.com/nikolaydubina/go-binsize-treemap v0.2.0
 	github.com/nikolaydubina/go-cover-treemap v1.3.0
-	github.com/onsi/ginkgo/v2 v2.9.7
+	github.com/onsi/ginkgo/v2 v2.10.0
 	github.com/tilt-dev/ctlptl v0.8.19
 	gotest.tools/gotestsum v1.10.0
 	k8s.io/code-generator v0.26.1
 	sigs.k8s.io/cluster-api v1.4.1
-	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20230602114852-30dea34848b0
+	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20230612231157-451530c09937
 	sigs.k8s.io/controller-tools v0.11.4
-	sigs.k8s.io/kind v0.19.0
+	sigs.k8s.io/kind v0.20.0
 	sigs.k8s.io/kustomize/kustomize/v4 v4.5.7
 )
 
@@ -175,7 +175,7 @@ require (
 	golang.org/x/term v0.8.0 // indirect
 	golang.org/x/text v0.9.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
-	golang.org/x/tools v0.9.1 // indirect
+	golang.org/x/tools v0.9.3 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20221227171554-f9683d7f8bef // indirect
