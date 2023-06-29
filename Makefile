@@ -67,6 +67,7 @@ BIN_DIR := bin
 TOOLS_DIR := hack/tools
 TOOLS_BIN_DIR := $(TOOLS_DIR)/$(BIN_DIR)
 export PATH := $(abspath $(TOOLS_BIN_DIR)):$(PATH)
+export GOBIN := $(abspath $(TOOLS_BIN_DIR))
 # Default path for Kubeconfig File.
 CAPH_WORKER_CLUSTER_KUBECONFIG ?= "/tmp/workload-kubeconfig"
 
@@ -90,59 +91,63 @@ export KUBEBUILDER_CONTROLPLANE_STOP_TIMEOUT ?= 60s
 ############
 CONTROLLER_GEN := $(abspath $(TOOLS_BIN_DIR)/controller-gen)
 controller-gen: $(CONTROLLER_GEN) ## Build a local copy of controller-gen
-$(CONTROLLER_GEN): $(TOOLS_DIR)/go.mod # Build controller-gen from tools folder.
-	cd $(TOOLS_DIR); go build -mod=vendor -tags=tools -o $(BIN_DIR)/controller-gen sigs.k8s.io/controller-tools/cmd/controller-gen
+$(CONTROLLER_GEN): # Build controller-gen from tools folder.
+	go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.12.0
 
 KUSTOMIZE := $(abspath $(TOOLS_BIN_DIR)/kustomize)
 kustomize: $(KUSTOMIZE) ## Build a local copy of kustomize
 $(KUSTOMIZE): # Build kustomize from tools folder.
-	cd $(TOOLS_DIR) && go build -mod=vendor -tags=tools -o $(KUSTOMIZE) sigs.k8s.io/kustomize/kustomize/v4
+	go install sigs.k8s.io/kustomize/kustomize/v4@v4.5.7
 
 TILT := $(abspath $(TOOLS_BIN_DIR)/tilt)
 tilt: $(TILT) ## Build a local copy of tilt
-$(TILT):  
+$(TILT):
 	@mkdir -p $(TOOLS_BIN_DIR)
 	MINIMUM_TILT_VERSION=0.31.2 hack/ensure-tilt.sh
 
 ENVSUBST := $(abspath $(TOOLS_BIN_DIR)/envsubst)
 envsubst: $(ENVSUBST) ## Build a local copy of envsubst
-$(ENVSUBST): $(TOOLS_DIR)/go.mod # Build envsubst from tools folder.
-	cd $(TOOLS_DIR) && go build -mod=vendor -tags=tools -o $(ENVSUBST) github.com/drone/envsubst/v2/cmd/envsubst
+$(ENVSUBST): # Build envsubst from tools folder.
+	go install github.com/drone/envsubst/v2/cmd/envsubst@latest
 
 SETUP_ENVTEST := $(abspath $(TOOLS_BIN_DIR)/setup-envtest)
 setup-envtest: $(SETUP_ENVTEST) ## Build a local copy of setup-envtest
-$(SETUP_ENVTEST): $(TOOLS_DIR)/go.mod # Build setup-envtest from tools folder.
-	cd $(TOOLS_DIR); go build -mod=vendor -tags=tools -o $(BIN_DIR)/setup-envtest sigs.k8s.io/controller-runtime/tools/setup-envtest
+$(SETUP_ENVTEST): # Build setup-envtest from tools folder.
+	go install sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.0.0-20230620070423-a784ee78d04b
 
 CTLPTL := $(abspath $(TOOLS_BIN_DIR)/ctlptl)
 ctlptl: $(CTLPTL) ## Build a local copy of ctlptl
-$(CTLPTL): 
-	cd $(TOOLS_DIR) && go build -mod=vendor -tags=tools -o $(CTLPTL) github.com/tilt-dev/ctlptl/cmd/ctlptl
+$(CTLPTL):
+	go install github.com/tilt-dev/ctlptl/cmd/ctlptl@v0.8.20
 
 CLUSTERCTL := $(abspath $(TOOLS_BIN_DIR)/clusterctl)
 clusterctl: $(CLUSTERCTL) ## Build a local copy of clusterctl
-$(CLUSTERCTL): $(TOOLS_DIR)/go.mod 
-	cd $(TOOLS_DIR) && go build -mod=vendor -tags=tools -o $(CLUSTERCTL) sigs.k8s.io/cluster-api/cmd/clusterctl
+$(CLUSTERCTL):
+	curl -sSLf https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.4.3/clusterctl-$$(go env GOOS)-$$(go env GOARCH) -o $(CLUSTERCTL)
+	chmod a+rx $(CLUSTERCTL)
 
 KIND := $(abspath $(TOOLS_BIN_DIR)/kind)
 kind: $(KIND) ## Build a local copy of kind
-$(KIND): $(TOOLS_DIR)/go.mod
-	cd $(TOOLS_DIR) && go build -mod=vendor -tags=tools -o $(KIND) sigs.k8s.io/kind
+$(KIND):
+	go install sigs.k8s.io/kind@v0.20.0
 
 go-binsize-treemap := $(abspath $(TOOLS_BIN_DIR)/go-binsize-treemap)
 go-binsize-treemap: $(go-binsize-treemap) # Build go-binsize-treemap from tools folder.
-$(go-binsize-treemap): 
-	cd $(TOOLS_DIR); go build -mod=vendor -tags=tools -o $(BIN_DIR)/go-binsize-treemap github.com/nikolaydubina/go-binsize-treemap
+$(go-binsize-treemap):
+	go install github.com/nikolaydubina/go-binsize-treemap@v0.2.0
 
 go-cover-treemap := $(abspath $(TOOLS_BIN_DIR)/go-cover-treemap)
 go-cover-treemap: $(go-cover-treemap) # Build go-cover-treemap from tools folder.
-$(go-cover-treemap): 
-	cd $(TOOLS_DIR); go build -mod=vendor -tags=tools -o $(BIN_DIR)/go-cover-treemap github.com/nikolaydubina/go-cover-treemap
+$(go-cover-treemap):
+	go install github.com/nikolaydubina/go-cover-treemap@v1.3.0
 
 GOTESTSUM := $(abspath $(TOOLS_BIN_DIR)/gotestsum)
 gotestsum: $(GOTESTSUM) # Build gotestsum from tools folder.
-$(GOTESTSUM): 
-	cd $(TOOLS_DIR); go build -mod=vendor -tags=tools -o $(BIN_DIR)/gotestsum gotest.tools/gotestsum
+$(GOTESTSUM):
+	go install gotest.tools/gotestsum@v1.10.0
+
+all-tools: $(GOTESTSUM) $(go-cover-treemap) $(go-binsize-treemap) $(KIND) $(CLUSTERCTL) $(CTLPTL) $(SETUP_ENVTEST) $(ENVSUBST) $(KUSTOMIZE) $(CONTROLLER_GEN)
+	echo 'done'
 
 ##@ Development
 ###############
@@ -306,7 +311,7 @@ delete-workload-cluster: ## Deletes the example workload Kubernetes cluster
 
 create-mgt-cluster: $(CLUSTERCTL) cluster ## Start a mgt-cluster with the latest version of all capi components and the hetzner provider. Usage: MAKE create-mgt-cluster HCLOUD=<hcloud-token>
 	$(CLUSTERCTL) init --core cluster-api --bootstrap kubeadm --control-plane kubeadm --infrastructure hetzner
-	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD_TOKEN) 
+	kubectl create secret generic hetzner --from-literal=hcloud=$(HCLOUD_TOKEN)
 	kubectl patch secret hetzner -p '{"metadata":{"labels":{"clusterctl.cluster.x-k8s.io/move":""}}}'
 
 .PHONY: cluster
@@ -418,7 +423,7 @@ builder-image-promote-latest:
 # Binary #
 ##########
 caph: ## Build Caph binary.
-	go build -mod=vendor -o bin/manager main.go 
+	go build -mod=vendor -o bin/manager main.go
 
 run: ## Run a controller from your host.
 	go run ./main.go
@@ -641,7 +646,7 @@ ifeq ($(BUILD_IN_CONTAINER),true)
 else
 	go version
 	golangci-lint version
-	GO111MODULE=on golangci-lint run -v 
+	GO111MODULE=on golangci-lint run -v
 endif
 
 .PHONY: lint-golang-ci
@@ -728,10 +733,10 @@ verify: generate lint $(addprefix verify-,$(ALL_VERIFY_CHECKS)) ## Verify all
 	fi
 
 .PHONY: modules
-modules: generate-modules ## Update go.mod & go.sum 
+modules: generate-modules ## Update go.mod & go.sum
 
 .PHONY: boilerplate
-boilerplate: generate-boilerplate ## Ensure that your files have a boilerplate header 
+boilerplate: generate-boilerplate ## Ensure that your files have a boilerplate header
 
 .PHONY: builder-image-push
 builder-image-push: ## Build caph-builder to a new version. For more information see README.
