@@ -127,7 +127,7 @@ linters-settings:
           - maxLitCount: "3"
             allowStrs: '""'
             allowInts: "0,1,2,3,5,10,42,53,100"
-            allowFloats: 0.5
+            allowFloats: "0.5"
 
       # https://github.com/mgechev/revive/blob/master/RULES_DESCRIPTIONS.md#argument-limit
       - name: argument-limit
