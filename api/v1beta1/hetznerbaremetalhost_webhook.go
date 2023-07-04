@@ -47,7 +47,7 @@ func (host *HetznerBareMetalHost) ValidateCreate() error {
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
-func (host *HetznerBareMetalHost) ValidateUpdate(old runtime.Object) error {
+func (host *HetznerBareMetalHost) ValidateUpdate(runtime.Object) error {
 	return nil
 }
 

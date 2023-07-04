@@ -60,7 +60,6 @@ var (
 	metricsAddr                        string
 	enableLeaderElection               bool
 	leaderElectionNamespace            string
-	verbose                            bool
 	probeAddr                          string
 	watchFilterValue                   string
 	watchNamespace                     string

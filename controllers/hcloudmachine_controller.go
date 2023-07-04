@@ -122,7 +122,7 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 
 	hcc := r.HCloudClientFactory.NewClient(hcloudToken)
 
-	machineScope, err := scope.NewMachineScope(ctx, scope.MachineScopeParams{
+	machineScope, err := scope.NewMachineScope(scope.MachineScopeParams{
 		ClusterScopeParams: scope.ClusterScopeParams{
 			Client:         r.Client,
 			Logger:         log,

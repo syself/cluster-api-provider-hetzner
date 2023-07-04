@@ -121,7 +121,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		return res, err
 	}
 	// Create the scope.
-	hostScope, err := scope.NewBareMetalHostScope(ctx, scope.BareMetalHostScopeParams{
+	hostScope, err := scope.NewBareMetalHostScope(scope.BareMetalHostScopeParams{
 		Logger:               log,
 		Client:               r.Client,
 		HetznerCluster:       hetznerCluster,

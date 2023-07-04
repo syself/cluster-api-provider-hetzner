@@ -132,7 +132,7 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 
 	hcc := r.HCloudClientFactory.NewClient(hcloudToken)
 
-	remediationScope, err := scope.NewHCloudRemediationScope(ctx, scope.HCloudRemediationScopeParams{
+	remediationScope, err := scope.NewHCloudRemediationScope(scope.HCloudRemediationScopeParams{
 		Client:            r.Client,
 		Logger:            log,
 		Machine:           machine,
@@ -187,6 +187,7 @@ func (r *HCloudRemediationReconciler) reconcileNormal(ctx context.Context, remed
 func (r *HCloudRemediationReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, options controller.Options) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&infrav1.HCloudRemediation{}).
+		WithOptions(options).
 		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(ctrl.LoggerFrom(ctx), r.WatchFilterValue)).
 		Complete(r)
 }

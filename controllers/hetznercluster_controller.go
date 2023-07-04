@@ -128,7 +128,7 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	hcloudClient := r.HCloudClientFactory.NewClient(hcloudToken)
 
-	clusterScope, err := scope.NewClusterScope(ctx, scope.ClusterScopeParams{
+	clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
 		Client:         r.Client,
 		APIReader:      r.APIReader,
 		Logger:         log,

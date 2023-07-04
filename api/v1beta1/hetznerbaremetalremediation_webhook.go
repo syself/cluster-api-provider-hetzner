@@ -47,7 +47,7 @@ func (r *HetznerBareMetalRemediation) ValidateCreate() error {
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
-func (r *HetznerBareMetalRemediation) ValidateUpdate(old runtime.Object) error {
+func (r *HetznerBareMetalRemediation) ValidateUpdate(runtime.Object) error {
 	return nil
 }
 

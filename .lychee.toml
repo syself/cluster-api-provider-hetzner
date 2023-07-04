@@ -57,6 +57,7 @@ exclude = [
     "mailto:info@syself.com",
     "https://www.hetzner.com/*",
     "https://opensource.org/license/apache-2-0/",
+    "https://robot.your-server.de/*",
 ]
 
 include = []

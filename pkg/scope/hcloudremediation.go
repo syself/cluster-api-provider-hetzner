@@ -43,7 +43,7 @@ type HCloudRemediationScopeParams struct {
 
 // NewHCloudRemediationScope creates a new Scope from the supplied parameters.
 // This is meant to be called for each reconcile iteration.
-func NewHCloudRemediationScope(ctx context.Context, params HCloudRemediationScopeParams) (*HCloudRemediationScope, error) {
+func NewHCloudRemediationScope(params HCloudRemediationScopeParams) (*HCloudRemediationScope, error) {
 	if params.HCloudRemediation == nil {
 		return nil, errors.New("failed to generate new scope from nil HCloudRemediation")
 	}

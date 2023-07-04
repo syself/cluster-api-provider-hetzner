@@ -40,7 +40,7 @@ type BareMetalRemediationScopeParams struct {
 
 // NewBareMetalRemediationScope creates a new Scope from the supplied parameters.
 // This is meant to be called for each reconcile iteration.
-func NewBareMetalRemediationScope(ctx context.Context, params BareMetalRemediationScopeParams) (*BareMetalRemediationScope, error) {
+func NewBareMetalRemediationScope(params BareMetalRemediationScopeParams) (*BareMetalRemediationScope, error) {
 	if params.BareMetalRemediation == nil {
 		return nil, errors.New("failed to generate new scope from nil BareMetalRemediation")
 	}

@@ -40,7 +40,7 @@ type HCloudMachineTemplateScopeParams struct {
 
 // NewHCloudMachineTemplateScope creates a new Scope from the supplied parameters.
 // This is meant to be called for each reconcile iteration.
-func NewHCloudMachineTemplateScope(ctx context.Context, params HCloudMachineTemplateScopeParams) (*HCloudMachineTemplateScope, error) {
+func NewHCloudMachineTemplateScope(params HCloudMachineTemplateScopeParams) (*HCloudMachineTemplateScope, error) {
 	if params.HCloudClient == nil {
 		return nil, errors.New("failed to generate new scope from nil HCloudClient")
 	}

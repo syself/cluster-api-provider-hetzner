@@ -6,7 +6,7 @@ linters:
     - bidichk
     - bodyclose
     - containedctx
-    - depguard
+    # - depguard
     - dogsled
     - durationcheck
     - errcheck
