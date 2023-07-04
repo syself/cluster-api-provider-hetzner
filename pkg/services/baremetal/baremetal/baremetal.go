@@ -78,7 +78,7 @@ func NewService(scope *scope.BareMetalMachineScope) *Service {
 func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err error) {
 	// Make sure bootstrap data is available and populated. If not, return, we
 	// will get an event from the machine update when the flag is set to true.
-	if !s.scope.IsBootstrapReady(ctx) {
+	if !s.scope.IsBootstrapReady() {
 		conditions.MarkFalse(
 			s.scope.BareMetalMachine,
 			infrav1.InstanceBootstrapReadyCondition,

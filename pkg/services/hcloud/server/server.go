@@ -69,7 +69,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	s.scope.SetRegion(failureDomain)
 
 	// waiting for bootstrap data to be ready
-	if !s.scope.IsBootstrapDataReady(ctx) {
+	if !s.scope.IsBootstrapDataReady() {
 		conditions.MarkFalse(
 			s.scope.HCloudMachine,
 			infrav1.InstanceBootstrapReadyCondition,

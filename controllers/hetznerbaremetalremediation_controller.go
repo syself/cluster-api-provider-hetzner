@@ -120,7 +120,7 @@ func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, r
 	ctx = ctrl.LoggerInto(ctx, log)
 
 	// Create the scope.
-	remediationScope, err := scope.NewBareMetalRemediationScope(ctx, scope.BareMetalRemediationScopeParams{
+	remediationScope, err := scope.NewBareMetalRemediationScope(scope.BareMetalRemediationScopeParams{
 		Client:               r.Client,
 		Logger:               &log,
 		Machine:              machine,
@@ -169,6 +169,7 @@ func (r *HetznerBareMetalRemediationReconciler) reconcileNormal(ctx context.Cont
 func (r *HetznerBareMetalRemediationReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, options controller.Options) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&infrav1.HetznerBareMetalRemediation{}).
+		WithOptions(options).
 		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(ctrl.LoggerFrom(ctx), r.WatchFilterValue)).
 		Complete(r)
 }

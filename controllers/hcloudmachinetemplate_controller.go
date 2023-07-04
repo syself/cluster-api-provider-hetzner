@@ -96,7 +96,7 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 
 	hcc := r.HCloudClientFactory.NewClient(hcloudToken)
 
-	machineTemplateScope, err := scope.NewHCloudMachineTemplateScope(ctx, scope.HCloudMachineTemplateScopeParams{
+	machineTemplateScope, err := scope.NewHCloudMachineTemplateScope(scope.HCloudMachineTemplateScopeParams{
 		Client:                r.Client,
 		Logger:                &log,
 		HCloudMachineTemplate: machineTemplate,
@@ -118,10 +118,10 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
-	return r.reconcile(ctx, machineTemplateScope)
+	return reconcile.Result{}, r.reconcile(ctx, machineTemplateScope)
 }
 
-func (r *HCloudMachineTemplateReconciler) reconcile(ctx context.Context, machineTemplateScope *scope.HCloudMachineTemplateScope) (reconcile.Result, error) {
+func (r *HCloudMachineTemplateReconciler) reconcile(ctx context.Context, machineTemplateScope *scope.HCloudMachineTemplateScope) error {
 	hcloudMachineTemplate := machineTemplateScope.HCloudMachineTemplate
 
 	// If the HCloudMachineTemplate doesn't have our finalizer, add it.
@@ -129,16 +129,16 @@ func (r *HCloudMachineTemplateReconciler) reconcile(ctx context.Context, machine
 
 	// Register the finalizer immediately to avoid orphaning HCloud resources on delete
 	if err := machineTemplateScope.PatchObject(ctx); err != nil {
-		return reconcile.Result{}, err
+		return err
 	}
 
 	// reconcile machine template
 	if err := machinetemplate.NewService(machineTemplateScope).Reconcile(ctx); err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to reconcile machine template for HCloudMachineTemplate %s/%s: %w",
+		return fmt.Errorf("failed to reconcile machine template for HCloudMachineTemplate %s/%s: %w",
 			hcloudMachineTemplate.Namespace, hcloudMachineTemplate.Name, err)
 	}
 
-	return reconcile.Result{}, nil
+	return nil
 }
 
 func (r *HCloudMachineTemplateReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, options controller.Options) error {

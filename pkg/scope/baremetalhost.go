@@ -47,7 +47,7 @@ type BareMetalHostScopeParams struct {
 
 // NewBareMetalHostScope creates a new Scope from the supplied parameters.
 // This is meant to be called for each reconcile iteration.
-func NewBareMetalHostScope(ctx context.Context, params BareMetalHostScopeParams) (*BareMetalHostScope, error) {
+func NewBareMetalHostScope(params BareMetalHostScopeParams) (*BareMetalHostScope, error) {
 	if params.Client == nil {
 		return nil, errors.New("cannot create baremetal host scope without client")
 	}

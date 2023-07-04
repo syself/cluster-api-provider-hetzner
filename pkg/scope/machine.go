@@ -60,7 +60,7 @@ var (
 
 // NewMachineScope creates a new Scope from the supplied parameters.
 // This is meant to be called for each reconcile iteration.
-func NewMachineScope(ctx context.Context, params MachineScopeParams) (*MachineScope, error) {
+func NewMachineScope(params MachineScopeParams) (*MachineScope, error) {
 	if params.Machine == nil {
 		return nil, errors.New("failed to generate new scope from nil Machine")
 	}
@@ -68,7 +68,7 @@ func NewMachineScope(ctx context.Context, params MachineScopeParams) (*MachineSc
 		return nil, errors.New("failed to generate new scope from nil HCloudMachine")
 	}
 
-	cs, err := NewClusterScope(ctx, params.ClusterScopeParams)
+	cs, err := NewClusterScope(params.ClusterScopeParams)
 	if err != nil {
 		return nil, fmt.Errorf("failed create new cluster scope: %w", err)
 	}
@@ -175,7 +175,7 @@ func (m *MachineScope) HasShutdownTimedOut() bool {
 }
 
 // IsBootstrapDataReady checks the readiness of a capi machine's bootstrap data.
-func (m *MachineScope) IsBootstrapDataReady(ctx context.Context) bool {
+func (m *MachineScope) IsBootstrapDataReady() bool {
 	return m.Machine.Spec.Bootstrap.DataSecretName != nil
 }
 

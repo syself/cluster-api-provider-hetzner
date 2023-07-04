@@ -55,7 +55,7 @@ type Client interface {
 	CreateNetwork(context.Context, hcloud.NetworkCreateOpts) (*hcloud.Network, error)
 	ListNetworks(context.Context, hcloud.NetworkListOpts) ([]*hcloud.Network, error)
 	DeleteNetwork(context.Context, *hcloud.Network) error
-	ListSSHKeys(ctx context.Context, opts hcloud.SSHKeyListOpts) ([]*hcloud.SSHKey, error)
+	ListSSHKeys(context.Context, hcloud.SSHKeyListOpts) ([]*hcloud.SSHKey, error)
 	CreatePlacementGroup(context.Context, hcloud.PlacementGroupCreateOpts) (*hcloud.PlacementGroup, error)
 	DeletePlacementGroup(context.Context, int) error
 	ListPlacementGroups(context.Context, hcloud.PlacementGroupListOpts) ([]*hcloud.PlacementGroup, error)
@@ -202,7 +202,7 @@ func (c *realClient) PowerOnServer(ctx context.Context, server *hcloud.Server) e
 }
 
 func (c *realClient) DeleteServer(ctx context.Context, server *hcloud.Server) error {
-	_, err := c.client.Server.Delete(ctx, server)
+	_, _, err := c.client.Server.DeleteWithResult(ctx, server)
 	return err
 }
 

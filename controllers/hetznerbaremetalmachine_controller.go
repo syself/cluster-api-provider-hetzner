@@ -119,7 +119,7 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 	hcc := r.HCloudClientFactory.NewClient(hcloudToken)
 
 	// Create the scope.
-	machineScope, err := scope.NewBareMetalMachineScope(ctx, scope.BareMetalMachineScopeParams{
+	machineScope, err := scope.NewBareMetalMachineScope(scope.BareMetalMachineScopeParams{
 		Client:           r.Client,
 		Logger:           log,
 		Machine:          machine,

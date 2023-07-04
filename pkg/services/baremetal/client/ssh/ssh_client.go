@@ -36,7 +36,7 @@ var (
 	// ErrCommandExitedWithoutExitSignal means the ssh command exited unplanned.
 	ErrCommandExitedWithoutExitSignal = errors.New("wait: remote command exited without exit status or exit signal")
 	// ErrCommandExitedWithStatusOne means the ssh command exited with sttatus 1.
-	ErrCommandExitedWithStatusOne = errors.New("Process exited with status 1")
+	ErrCommandExitedWithStatusOne = errors.New("Process exited with status 1") //nolint:stylecheck // this is used to check ssh errors
 
 	// ErrConnectionRefused means the ssh connection was refused.
 	ErrConnectionRefused = errors.New("connect: connection refused")

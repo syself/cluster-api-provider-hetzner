@@ -41,7 +41,7 @@ type BareMetalMachineScopeParams struct {
 
 // NewBareMetalMachineScope creates a new Scope from the supplied parameters.
 // This is meant to be called for each reconcile iteration.
-func NewBareMetalMachineScope(ctx context.Context, params BareMetalMachineScopeParams) (*BareMetalMachineScope, error) {
+func NewBareMetalMachineScope(params BareMetalMachineScopeParams) (*BareMetalMachineScope, error) {
 	if params.Client == nil {
 		return nil, fmt.Errorf("cannot create baremetal host scope without client")
 	}
@@ -117,6 +117,6 @@ func (m *BareMetalMachineScope) IsControlPlane() bool {
 }
 
 // IsBootstrapReady checks the readiness of a capi machine's bootstrap data.
-func (m *BareMetalMachineScope) IsBootstrapReady(ctx context.Context) bool {
+func (m *BareMetalMachineScope) IsBootstrapReady() bool {
 	return m.Machine.Spec.Bootstrap.DataSecretName != nil
 }

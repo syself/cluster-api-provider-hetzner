@@ -72,6 +72,6 @@ func NewRobotFactory(client *robotmock.Client) robotclient.Factory {
 var _ = robotclient.Factory(&robotFactory{})
 
 // NewClient implements the NewClient function of the RobotFactory interface.
-func (f *robotFactory) NewClient(creds robotclient.Credentials) robotclient.Client {
+func (f *robotFactory) NewClient(_ robotclient.Credentials) robotclient.Client {
 	return f.client
 }
