@@ -1,5 +1,3 @@
-# These linters are enforced via CI
-# See .golangci-suggestions.yaml for optional checks.
 linters:
   disable-all: true
   enable:
@@ -8,21 +6,17 @@ linters:
     - bidichk
     - bodyclose
     - containedctx
-    - contextcheck
     - depguard
+    - dogsled
     - durationcheck
+    - errcheck
     - errchkjson
-    - errname
-    - errorlint
     - exportloopref
-    - forcetypeassert
     - gci
     - goconst
     - gocritic
     - godot
-    - goerr113
     - gofmt
-    - gofumpt
     - goimports
     - goprintffuncname
     - gosec
@@ -31,64 +25,52 @@ linters:
     - importas
     - ineffassign
     - loggercheck
-    - makezero
     - misspell
     - nakedret
     - nilerr
-    - nilnil
     - noctx
     - nolintlint
-    - nosprintfhostport
     - prealloc
     - predeclared
-    - reassign
     - revive
     - rowserrcheck
     - staticcheck
     - stylecheck
-    - tagliatelle
     - thelper
-    - tparallel
     - typecheck
     - unconvert
-    - usestdlibvars
+    - unparam
     - unused
-    - wastedassign
-    - wrapcheck
+    - whitespace
 
 linters-settings:
-  decorder:
-    # Required order of `type`, `const`, `var` and `func` declarations inside a file.
-    # Default: types before constants before variables before functions.
-    dec-order:
-      - type
-      - const
-      - var
-      - func
-    # If true, order of declarations is not checked at all.
-    # Default: true (disabled)
-    disable-dec-order-check: false
-    # If true, `init` func can be anywhere in file
-    # (does not have to be declared before all other functions).
-    # Default: true (disabled)
-    disable-init-func-first-check: false
-    # If true, multiple global `type`, `const` and `var` declarations are allowed.
-    # Default: true (disabled)
-    disable-dec-num-check: true
-
   godot:
     #   declarations - for top level declaration comments (default);
     #   toplevel     - for top level comments;
     #   all          - for all comments.
     scope: toplevel
+    exclude:
+      - '^ \+.*'
+      - "^ ANCHOR.*"
   importas:
     no-unaliased: true
     alias:
       # Kubernetes
       - pkg: k8s.io/api/core/v1
         alias: corev1
-  gofumpt:
-    extra-rules: true
+      - pkg: k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1
+        alias: apiextensionsv1
+      - pkg: k8s.io/apimachinery/pkg/apis/meta/v1
+        alias: metav1
+      - pkg: k8s.io/apimachinery/pkg/api/errors
+        alias: apierrors
+      - pkg: k8s.io/apimachinery/pkg/util/errors
+        alias: kerrors
+      - pkg: k8s.io/component-base/logs/api/v1
+        alias: logsv1
+      # Controller Runtime
+      - pkg: sigs.k8s.io/controller-runtime
+        alias: ctrl
   nolintlint:
     allow-unused: false
     allow-leading-space: false
@@ -97,187 +79,125 @@ linters-settings:
     go: "1.20"
   stylecheck:
     go: "1.20"
+  gosec:
+    excludes:
+      - G307 # Deferring unsafe method "Close" on type "\*os.File"
+      - G108 # Profiling endpoint is automatically exposed on /debug/pprof
+      - G106 # Allowing for insecure ssh
   gocritic:
     enabled-tags:
       - diagnostic
-      - style
-      - performance
       - experimental
-      - opinionated
-  promlinter:
-    # Promlinter cannot infer all metrics name in static analysis.
-    # Enable strict mode will also include the errors caused by
-    # failing to parse the args.
-    # Default: false
-    strict: true
-  reassign:
-    # Patterns for global variable names that are checked for reassignment.
-    # See https://github.com/curioswitch/go-reassign#usage
-    # Default: ["EOF", "Err.*"]
-    patterns:
-      - ".*"
-  revive:
-    enable-all-rules: true
-    rules:
-      # https://github.com/mgechev/revive/blob/master/RULES_DESCRIPTIONS.md#add-constant
-      - name: add-constant
-        severity: warning
-        disabled: false
-        arguments:
-          - maxLitCount: "3"
-            allowStrs: '""'
-            allowInts: "0,1,2,3,5,10,42,53,100"
-            allowFloats: "0.5"
-
-      # https://github.com/mgechev/revive/blob/master/RULES_DESCRIPTIONS.md#argument-limit
-      - name: argument-limit
-        severity: warning
-        disabled: true
-        arguments: [3]
-      # https://github.com/mgechev/revive/blob/master/RULES_DESCRIPTIONS.md#banned-characters
-      - name: banned-characters
-        disabled: true
-      # https://github.com/mgechev/revive/blob/master/RULES_DESCRIPTIONS.md#cognitive-complexity
-      - name: cognitive-complexity
-        severity: warning
-        disabled: true
-      # https://github.com/mgechev/revive/blob/master/RULES_DESCRIPTIONS.md#cyclomatic
-      - name: cyclomatic
-        severity: warning
-        disabled: false
-        arguments: [10]
-      # https://github.com/mgechev/revive/blob/master/RULES_DESCRIPTIONS.md#defer
-      - name: defer
-        severity: warning
-        disabled: false
-        arguments:
-          - ["call-chain", "loop", "method-call", "recover", "immediate-recover", "return"] # yamllint disable-line rule:line-length
-      # https://github.com/mgechev/revive/blob/master/RULES_DESCRIPTIONS.md#exported
-      - name: exported
-        severity: warning
-        disabled: false
-      # https://github.com/mgechev/revive/blob/master/RULES_DESCRIPTIONS.md#file-header
-      - name: file-header
-        disabled: true
-      # https://github.com/mgechev/revive/blob/master/RULES_DESCRIPTIONS.md#flag-parameter
-      - name: flag-parameter
-        disabled: true
-      # https://github.com/mgechev/revive/blob/master/RULES_DESCRIPTIONS.md#function-result-limit
-      - name: function-result-limit
-        severity: warning
-        disabled: false
-        arguments: [3]
-      # https://github.com/mgechev/revive/blob/master/RULES_DESCRIPTIONS.md#function-length
-      - name: function-length
-        severity: warning
-        disabled: true
-        arguments: [15, 0]
-      # https://github.com/mgechev/revive/blob/master/RULES_DESCRIPTIONS.md#imports-blacklist
-      - name: imports-blacklist
-        severity: warning
-        disabled: false
-        arguments:
-          - "crypto/md5"
-          - "crypto/sha1"
-      # https://github.com/mgechev/revive/blob/master/RULES_DESCRIPTIONS.md#line-length-limit
-      - name: line-length-limit
-        severity: warning
-        disabled: true
-        arguments: [120]
-      # https://github.com/mgechev/revive/blob/master/RULES_DESCRIPTIONS.md#max-public-structs
-      - name: max-public-structs
-        severity: warning
-        disabled: true
-        arguments: [3]
-      # https://github.com/mgechev/revive/blob/master/RULES_DESCRIPTIONS.md#string-format
-      - name: string-format
-        severity: warning
-        disabled: false
-        arguments:
-          - - "core.WriteError[1].Message"
-            - "/^([^A-Z]|$)/"
-            - must not start with a capital letter
-          - - "fmt.Errorf[0]"
-            - '/(^|[^\.!?])$/'
-            - must not end in punctuation
-          - - panic
-            - '/^[^\n]*$/'
-            - must not contain line breaks
-      # https://github.com/mgechev/revive/blob/master/RULES_DESCRIPTIONS.md#unhandled-error
-      - name: unhandled-error
-        severity: warning
-        disabled: false
-        arguments:
-          - "fmt.Printf"
-          - "fmt.Println" # allow these ones
-      # https://github.com/mgechev/revive/blob/master/RULES_DESCRIPTIONS.md#var-naming
-      - name: var-naming
-        severity: warning
-        disabled: false
-        arguments:
-          - ["ID"] # AllowList
-          - ["VM"] # DenyList
+      - performance
+    disabled-checks:
+      - appendAssign
+      - dupImport # https://github.com/go-critic/go-critic/issues/845
+      - evalOrder
+      - ifElseChain
+      - octalLiteral
+      - regexpSimplify
+      - sloppyReassign
+      - truncateCmp
+      - typeDefFirst
+      - unnamedResult
+      - unnecessaryDefer
+      - whyNoLint
+      - wrapperFunc
+      - rangeValCopy
+      - hugeParam
   unused:
     go: "1.20"
-  usestdlibvars:
-    # Suggest the use of http.MethodXX.
-    # Default: true
-    http-method: true
-    # Suggest the use of http.StatusXX.
-    # Default: true
-    http-status-code: true
-    # Suggest the use of time.Weekday.String().
-    # Default: true
-    time-weekday: true
-    # Suggest the use of time.Month.String().
-    # Default: false
-    time-month: true
-    # Suggest the use of time.Layout.
-    # Default: false
-    time-layout: true
-    # Suggest the use of crypto.Hash.String().
-    # Default: false
-    crypto-hash: true
-    # Suggest the use of rpc.DefaultXXPath.
-    # Default: false
-    default-rpc-path: true
-    # Suggest the use of os.DevNull.
-    # Default: false
-    os-dev-null: true
-    # Suggest the use of sql.LevelXX.String().
-    # Default: false
-    sql-isolation-level: true
-    # Suggest the use of tls.SignatureScheme.String().
-    # Default: false
-    tls-signature-scheme: true
-    # Suggest the use of constant.Kind.String().
-    # Default: false
-    constant-kind: true
-    # Suggest the use of syslog.Priority.
-    # Default: false
-    syslog-priority: true
-  wrapcheck:
-    ignoreSigs:
-      - status.Error(
-      - .Errorf(
-      - errors.New(
-      - errors.Unwrap(
-      - .Wrap(
-      - .Wrapf(
-      - .WithMessage(
-      - .WithMessagef(
-      - .WithStack(
 issues:
   max-same-issues: 0
   max-issues-per-linter: 0
-  # We are disabling default golangci exclusions
-  # because we want to help reviewers to focus on reviewing the most relevant
+  # We are disabling default golangci exclusions because we want to help reviewers to focus on reviewing the most relevant
   # changes in PRs and avoid nitpicking.
   exclude-use-default: false
+  exclude-rules:
+    - linters:
+        - revive
+      text: "exported: exported method .*\\.(Reconcile|SetupWithManager|SetupWebhookWithManager) should have comment or be unexported"
+    - linters:
+        - errcheck
+      text: Error return value of .((os\.)?std(out|err)\..*|.*Close|.*Flush|os\.Remove(All)?|.*print(f|ln)?|os\.(Un)?Setenv). is not checked
+    # Exclude some packages or code to require comments, for example test code, or fake clients.
+    - linters:
+        - revive
+      text: exported (method|function|type|const) (.+) should have comment or be unexported
+      source: (func|type).*Fake.*
+    - linters:
+        - revive
+      text: exported (method|function|type|const) (.+) should have comment or be unexported
+      path: fake_\.go
+    - linters:
+        - revive
+      text: exported (method|function|type|const) (.+) should have comment or be unexported
+      path: "(framework|e2e)/.*.go"
+    - linters:
+        - revive
+      text: exported (method|function|type|const) (.+) should have comment or be unexported
+      path: "(e2e|infrastructure/hetzner)/.*.go"
+    # Disable unparam "always receives" which might not be really
+    # useful when building libraries.
+    - linters:
+        - unparam
+      text: always receives
+    # Dot imports for gomega or ginkgo are allowed
+    # within test files.
+    - path: _test\.go
+      text: should not use dot imports
+    - path: (framework|e2e)/.*.go
+      text: should not use dot imports
+    - path: _test\.go
+      text: cyclomatic complexity
+    # Append should be able to assign to a different var/slice.
+    - linters:
+        - gocritic
+      text: "appendAssign: append result not assigned to the same slice"
+    # Disable linters for conversion
+    - linters:
+        - staticcheck
+      text: "SA1019: in.(.+) is deprecated"
+      path: .*(api|types)\/.*\/conversion.*\.go$
+    - linters:
+        - revive
+      text: exported (method|function|type|const) (.+) should have comment or be unexported
+      path: .*(api|types|test)\/.*\/conversion.*\.go$
+    - linters:
+        - revive
+      text: "var-naming: don't use underscores in Go names;"
+      path: .*(api|types|test)\/.*\/conversion.*\.go$
+    - linters:
+        - revive
+      text: "receiver-naming: receiver name"
+      path: .*(api|types)\/.*\/conversion.*\.go$
+    - linters:
+        - stylecheck
+      text: "ST1003: should not use underscores in Go names;"
+      path: .*(api|types|test)\/.*\/conversion.*\.go$
+    - linters:
+        - stylecheck
+      text: "ST1016: methods on the same type should have the same receiver name"
+      path: .*(api|types)\/.*\/conversion.*\.go$
+    # hack/tools
+    - linters:
+        - typecheck
+      text: import (".+") is a program, not an importable package
+      path: ^tools\.go$
+    # We don't care about defer in for loops in test files.
+    - linters:
+        - gocritic
+      text: "deferInLoop: Possible resource leak, 'defer' is called in the 'for' loop"
+      path: _test\.go
 run:
   timeout: 10m
-  go: "1.20"
-  allow-parallel-runners: true
-  modules-download-mode: vendor
+  skip-files:
+    - "zz_generated.*\\.go$"
+    - ".*conversion.*\\.go$"
+    - "test/e2e/*\\.go$"
   skip-dirs:
-    - vendor$
+    - "third_party"
+    - "tilt_modules"
+    - "test"
+  allow-parallel-runners: true
+  modules-download-mode: readonly

@@ -29,7 +29,7 @@ var _ = Describe("buildAutoSetup", func() {
 		},
 		Entry(
 			"multiple entries",
-			infrav1.InstallImage{
+			&infrav1.InstallImage{
 				Partitions: []infrav1.Partition{
 					{
 						Mount:      "/boot",
@@ -95,7 +95,7 @@ SUBVOL btrfs.1 @/usr /usr
 IMAGE my-image`),
 		Entry(
 			"single entries",
-			infrav1.InstallImage{
+			&infrav1.InstallImage{
 				Partitions: []infrav1.Partition{
 					{
 						Mount:      "/boot",
@@ -142,7 +142,7 @@ SUBVOL btrfs.1 @ /
 IMAGE my-image`),
 		Entry(
 			"multiple drives",
-			infrav1.InstallImage{
+			&infrav1.InstallImage{
 				Partitions: []infrav1.Partition{
 					{
 						Mount:      "/boot",
@@ -189,7 +189,7 @@ SUBVOL btrfs.1 @ /
 IMAGE my-image`),
 		Entry(
 			"proper response",
-			infrav1.InstallImage{
+			&infrav1.InstallImage{
 				Partitions: []infrav1.Partition{
 					{
 						Mount:      "/boot",

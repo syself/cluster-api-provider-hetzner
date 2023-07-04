@@ -537,7 +537,7 @@ func (s *Service) analyzeSSHOutputRegistering(out sshclient.Output) (isSSHTimeou
 	// check stderr
 	if out.StdErr != "" {
 		// This is an unexpected error
-		return false, false, fmt.Errorf("%w. StdErr: %s", errSSHGetHostname, out.StdErr)
+		return false, false, fmt.Errorf("%w: StdErr: %s", errSSHGetHostname, out.StdErr)
 	}
 
 	if trimLineBreak(out.StdOut) == "" {

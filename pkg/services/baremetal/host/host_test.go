@@ -176,7 +176,7 @@ NAME="nvme1n1" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJQ-00000" VENDOR="" 
 	NAME="nvme2n1" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVL22T0HBLB-00B00" VENDOR="" SERIAL="S677NF0R402742" SIZE="2048408248320" WWN="eui.002538b411b2cee8" ROTA="0"
 	NAME="nvme1n1" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJQ-00000" VENDOR="" SERIAL="S3W8NX0N811178" SIZE="512110190592" WWN="eui.0025388801b4dff2" ROTA="0"`,
 			nil,
-			pointer.String("unknown ROTA"),
+			pointer.String("unknown rota"),
 		),
 	)
 })
@@ -708,7 +708,10 @@ var _ = Describe("analyzeSSHOutputInstallImage", func() {
 				"default",
 			)
 
-			service := newTestService(host, nil, nil, nil, nil)
+			robotMock := robotmock.Client{}
+			robotMock.On("GetBootRescue", bareMetalHostID).Return(&models.Rescue{Active: true}, nil)
+
+			service := newTestService(host, &robotMock, nil, nil, nil)
 
 			isTimeout, isConnectionRefused, err := service.analyzeSSHOutputRegistering(out)
 			Expect(isTimeout).To(Equal(false))
@@ -725,7 +728,7 @@ var _ = Describe("analyzeSSHOutputInstallImage", func() {
 			true,             // hasNilErr bool
 			"command failed", // stdErr string
 			"hostName",       // hostName string
-			"failed to get host name via ssh. StdErr:", // expectedErrMessage string
+			"failed to get hostname via ssh: StdErr:", // expectedErrMessage string
 		),
 		Entry(
 			"stderr not empty - err != nil",
@@ -739,14 +742,14 @@ var _ = Describe("analyzeSSHOutputInstallImage", func() {
 			true,             // hasNilErr bool
 			"command failed", // stdErr string
 			"",               // hostName string
-			"failed to get host name via ssh. StdErr:", // expectedErrMessage string
+			"failed to get hostname via ssh: StdErr:", // expectedErrMessage string
 		),
 		Entry(
 			"stderr empty - wrong hostName",
-			true,                   // hasNilErr bool
-			"",                     // stdErr string
-			"",                     // hostName string
-			"error empty hostname", // expectedErrMessage string
+			true,                // hasNilErr bool
+			"",                  // stdErr string
+			"",                  // hostName string
+			"hostname is empty", // expectedErrMessage string
 		),
 	)
 })
@@ -879,7 +882,7 @@ var _ = Describe("analyzeSSHOutputInstallImage", func() {
 			true,             // hasNilErr bool
 			"command failed", // stdErr string
 			false,            // hasWrongHostName bool
-			"failed to get host name via ssh. StdErr:", // expectedErrMessage string
+			"failed to get hostname via ssh: StdErr:", // expectedErrMessage string
 		),
 		Entry(
 			"stderr not empty - err != nil",
@@ -893,7 +896,7 @@ var _ = Describe("analyzeSSHOutputInstallImage", func() {
 			true,             // hasNilErr bool
 			"command failed", // stdErr string
 			true,             // hasWrongHostName bool
-			"failed to get host name via ssh. StdErr:", // expectedErrMessage string
+			"failed to get hostname via ssh: StdErr:", // expectedErrMessage string
 		),
 	)
 
@@ -926,10 +929,10 @@ var _ = Describe("analyzeSSHOutputInstallImage", func() {
 		},
 		Entry(
 			"empty hostname",
-			true,                   // hasNilErr bool
-			"",                     // stdErr string
-			"",                     // 	hostName string
-			"error empty hostname", // expectedErrMessage string
+			true,                // hasNilErr bool
+			"",                  // stdErr string
+			"",                  // 	hostName string
+			"hostname is empty", // expectedErrMessage string
 		),
 		Entry(
 			"empty hostname - err not empty",
@@ -943,7 +946,7 @@ var _ = Describe("analyzeSSHOutputInstallImage", func() {
 			true,             // hasNilErr bool
 			"command failed", // stdErr string
 			"",               // 	hostName string
-			"failed to get host name via ssh. StdErr:", // expectedErrMessage string
+			"failed to get hostname via ssh: StdErr:", // expectedErrMessage string
 		),
 		Entry(
 			"hostname == rescue",
@@ -998,14 +1001,14 @@ var _ = Describe("analyzeSSHOutputProvisioned", func() {
 			sshclient.Output{StdErr: "some error"}, // out sshclient.Output
 			false,                                  // expectedIsTimeout bool
 			false,                                  // expectedIsConnectionRefused bool
-			pointer.String("failed to get host name via ssh. StdErr: some error"), // expectedErrMessage *string
+			pointer.String("failed to get hostname via ssh: StdErr: some error"), // expectedErrMessage *string
 		),
 		Entry(
 			"incorrect boot - empty hostname",
-			sshclient.Output{StdOut: ""},     // out sshclient.Output
-			false,                            // expectedIsTimeout bool
-			false,                            // expectedIsConnectionRefused bool
-			pointer.String("empty hostname"), // expectedErrMessage *string
+			sshclient.Output{StdOut: ""},        // out sshclient.Output
+			false,                               // expectedIsTimeout bool
+			false,                               // expectedIsConnectionRefused bool
+			pointer.String("hostname is empty"), // expectedErrMessage *string
 		),
 		Entry(
 			"unable to authenticate",
@@ -1112,7 +1115,7 @@ var _ = Describe("actionRegistering", func() {
 			true,
 			false,
 			actionFailed{},
-			pointer.String("no storage device found with root device hint eui.002538b411b2cee8"),
+			pointer.String("missing storage device for root device hint eui.002538b411b2cee8"),
 		),
 		Entry(
 			"no root device hints",
