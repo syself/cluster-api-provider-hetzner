@@ -24,12 +24,12 @@ import (
 
 var _ = Describe("buildAutoSetup", func() {
 	DescribeTable("buildAutoSetup",
-		func(installImageSpec infrav1.InstallImage, autoSetupInput autoSetupInput, expectedOutput string) {
+		func(installImageSpec *infrav1.InstallImage, autoSetupInput autoSetupInput, expectedOutput string) {
 			Expect(buildAutoSetup(installImageSpec, autoSetupInput)).Should(Equal(expectedOutput))
 		},
 		Entry(
 			"multiple entries",
-			infrav1.InstallImage{
+			&infrav1.InstallImage{
 				Partitions: []infrav1.Partition{
 					{
 						Mount:      "/boot",
@@ -95,7 +95,7 @@ SUBVOL btrfs.1 @/usr /usr
 IMAGE my-image`),
 		Entry(
 			"single entries",
-			infrav1.InstallImage{
+			&infrav1.InstallImage{
 				Partitions: []infrav1.Partition{
 					{
 						Mount:      "/boot",
@@ -142,7 +142,7 @@ SUBVOL btrfs.1 @ /
 IMAGE my-image`),
 		Entry(
 			"multiple drives",
-			infrav1.InstallImage{
+			&infrav1.InstallImage{
 				Partitions: []infrav1.Partition{
 					{
 						Mount:      "/boot",
@@ -189,7 +189,7 @@ SUBVOL btrfs.1 @ /
 IMAGE my-image`),
 		Entry(
 			"proper response",
-			infrav1.InstallImage{
+			&infrav1.InstallImage{
 				Partitions: []infrav1.Partition{
 					{
 						Mount:      "/boot",
@@ -221,11 +221,9 @@ IMAGE my-image`),
 })
 
 var _ = Describe("validJSONFromSSHOutput", func() {
-	DescribeTable("validJSONFromSSHOutput",
-		func(input string, expectedOutput string) {
-
-			Expect(validJSONFromSSHOutput(input)).Should(Equal(expectedOutput))
-		},
+	DescribeTable("validJSONFromSSHOutput", func(input, expectedOutput string) {
+		Expect(validJSONFromSSHOutput(input)).Should(Equal(expectedOutput))
+	},
 		Entry(
 			"working example",
 			`key1="string1" key2="string2" key3="string3"`,

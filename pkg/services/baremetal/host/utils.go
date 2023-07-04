@@ -29,7 +29,7 @@ type autoSetupInput struct {
 	image     string
 }
 
-func buildAutoSetup(installImageSpec infrav1.InstallImage, autoSetupInput autoSetupInput) string {
+func buildAutoSetup(installImageSpec *infrav1.InstallImage, autoSetupInput autoSetupInput) string {
 	var drives string
 	for i, osDevice := range autoSetupInput.osDevices {
 		if i > 0 {

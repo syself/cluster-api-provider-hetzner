@@ -17,7 +17,6 @@ limitations under the License.
 package host
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -37,6 +36,8 @@ type hostStateMachine struct {
 	nextState  infrav1.ProvisioningState
 	log        logr.Logger
 }
+
+var errNoHandlerFound = fmt.Errorf("no handler found")
 
 func newHostStateMachine(host *infrav1.HetznerBareMetalHost, reconciler *Service, log logr.Logger) *hostStateMachine {
 	currentState := host.Spec.Status.ProvisioningState
@@ -64,7 +65,7 @@ func (hsm *hostStateMachine) handlers() map[infrav1.ProvisioningState]stateHandl
 	}
 }
 
-func (hsm *hostStateMachine) ReconcileState(ctx context.Context) (actionRes actionResult) {
+func (hsm *hostStateMachine) ReconcileState() (actionRes actionResult) {
 	initialState := hsm.host.Spec.Status.ProvisioningState
 	defer func() {
 		if hsm.nextState != initialState {
@@ -89,7 +90,7 @@ func (hsm *hostStateMachine) ReconcileState(ctx context.Context) (actionRes acti
 		return stateHandler()
 	}
 
-	return actionError{fmt.Errorf("no handler found for state \"%s\"", initialState)}
+	return actionError{fmt.Errorf("%w: state %q", errNoHandlerFound, initialState)}
 }
 
 func (hsm *hostStateMachine) checkInitiateDelete() bool {
@@ -122,65 +123,79 @@ func (hsm *hostStateMachine) updateSSHKey() actionResult {
 
 	// Check whether os secret has been updated if it exists already
 	if osSSHSecret != nil {
-		// if status is not set yet, then update it
-		if hsm.host.Spec.Status.SSHStatus.CurrentOS == nil {
-			if err := hsm.host.UpdateOSSSHStatus(*osSSHSecret); err != nil {
-				return actionError{err: fmt.Errorf("failed to update OS SSH secret status: %w", err)}
-			}
-		}
-
-		if !hsm.host.Spec.Status.SSHStatus.CurrentOS.Match(*osSSHSecret) {
-			// Take action depending on state
-			switch hsm.nextState {
-			case infrav1.StateProvisioning, infrav1.StateEnsureProvisioned:
-				// Go back to StateImageInstalling as we need to provision again
-				hsm.nextState = infrav1.StateImageInstalling
-			case infrav1.StateProvisioned:
-				errMessage := "secret has been modified although a provisioned machine uses it"
-				record.Event(hsm.host, "SSHSecretUnexpectedlyModified", errMessage)
-				return hsm.reconciler.recordActionFailure(infrav1.RegistrationError, errMessage)
-			}
-			if err := hsm.host.UpdateOSSSHStatus(*osSSHSecret); err != nil {
-				return actionError{err: fmt.Errorf("failed to update status of OS SSH secret: %w", err)}
-			}
-		}
-		if err := validateSSHKey(osSSHSecret, hsm.host.Spec.Status.SSHSpec.SecretRef); err != nil {
-			msg := fmt.Sprintf("ssh credentials are invalid: %s", err.Error())
-			conditions.MarkFalse(hsm.host, infrav1.HetznerBareMetalHostReady, infrav1.SSHCredentialsInSecretInvalid, clusterv1.ConditionSeverityError, msg)
-			record.Warnf(hsm.host, infrav1.SSHKeyAlreadyExists, msg)
-			return hsm.reconciler.recordActionFailure(infrav1.PreparationError, infrav1.ErrorMessageMissingOrInvalidSecretData)
+		if actResult := hsm.updateOSSSHStatusAndValidateKey(osSSHSecret); actResult != nil {
+			return actResult
 		}
 	}
 
 	// Check whether rescue secret has been updated if it exists already
 	if rescueSSHSecret != nil {
-		// if status is not set yet, then update it
-		if hsm.host.Spec.Status.SSHStatus.CurrentRescue == nil {
-			if err := hsm.host.UpdateRescueSSHStatus(*rescueSSHSecret); err != nil {
-				return actionError{err: fmt.Errorf("failed to update rescue SSH secret status: %w", err)}
-			}
-		}
-
-		if !hsm.host.Spec.Status.SSHStatus.CurrentRescue.Match(*rescueSSHSecret) {
-			// Take action depending on state
-			switch hsm.nextState {
-			case infrav1.StatePreparing, infrav1.StateRegistering, infrav1.StateImageInstalling:
-				msg := "stopped provisioning host as rescue ssh secret was updated"
-				record.Warn(hsm.host, "HostProvisioningStopped", msg)
-				hsm.log.V(1).Info(msg, "state", hsm.nextState)
-				hsm.nextState = infrav1.StateNone
-			}
-			if err := hsm.host.UpdateRescueSSHStatus(*rescueSSHSecret); err != nil {
-				return actionError{err: fmt.Errorf("failed to update status of rescue SSH secret: %w", err)}
-			}
-		}
-		if err := validateSSHKey(rescueSSHSecret, hsm.reconciler.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef); err != nil {
-			msg := fmt.Sprintf("ssh credentials for rescue system are invalid: %s", err.Error())
-			conditions.MarkFalse(hsm.host, infrav1.HetznerBareMetalHostReady, infrav1.SSHCredentialsInSecretInvalid, clusterv1.ConditionSeverityError, msg)
-			return hsm.reconciler.recordActionFailure(infrav1.PreparationError, infrav1.ErrorMessageMissingOrInvalidSecretData)
+		if actResult := hsm.updateRescueSSHStatusAndValidateKey(rescueSSHSecret); actResult != nil {
+			return actResult
 		}
 	}
 	return actionComplete{}
+}
+
+func (hsm *hostStateMachine) updateOSSSHStatusAndValidateKey(osSSHSecret *corev1.Secret) actionResult {
+	// if status is not set yet, then update it
+	if hsm.host.Spec.Status.SSHStatus.CurrentOS == nil {
+		if err := hsm.host.UpdateOSSSHStatus(*osSSHSecret); err != nil {
+			return actionError{err: fmt.Errorf("failed to update OS SSH secret status: %w", err)}
+		}
+	}
+
+	if !hsm.host.Spec.Status.SSHStatus.CurrentOS.Match(*osSSHSecret) {
+		// Take action depending on state
+		switch hsm.nextState {
+		case infrav1.StateProvisioning, infrav1.StateEnsureProvisioned:
+			// Go back to StateImageInstalling as we need to provision again
+			hsm.nextState = infrav1.StateImageInstalling
+		case infrav1.StateProvisioned:
+			errMessage := "secret has been modified although a provisioned machine uses it"
+			record.Event(hsm.host, "SSHSecretUnexpectedlyModified", errMessage)
+			return hsm.reconciler.recordActionFailure(infrav1.RegistrationError, errMessage)
+		}
+		if err := hsm.host.UpdateOSSSHStatus(*osSSHSecret); err != nil {
+			return actionError{err: fmt.Errorf("failed to update status of OS SSH secret: %w", err)}
+		}
+	}
+	if err := validateSSHKey(osSSHSecret, hsm.host.Spec.Status.SSHSpec.SecretRef); err != nil {
+		msg := fmt.Sprintf("ssh credentials are invalid: %s", err.Error())
+		conditions.MarkFalse(hsm.host, infrav1.HetznerBareMetalHostReady, infrav1.SSHCredentialsInSecretInvalid, clusterv1.ConditionSeverityError, msg)
+		record.Warnf(hsm.host, infrav1.SSHKeyAlreadyExists, msg)
+		return hsm.reconciler.recordActionFailure(infrav1.PreparationError, infrav1.ErrorMessageMissingOrInvalidSecretData)
+	}
+	return nil
+}
+
+func (hsm *hostStateMachine) updateRescueSSHStatusAndValidateKey(rescueSSHSecret *corev1.Secret) actionResult {
+	// if status is not set yet, then update it
+	if hsm.host.Spec.Status.SSHStatus.CurrentRescue == nil {
+		if err := hsm.host.UpdateRescueSSHStatus(*rescueSSHSecret); err != nil {
+			return actionError{err: fmt.Errorf("failed to update rescue SSH secret status: %w", err)}
+		}
+	}
+
+	if !hsm.host.Spec.Status.SSHStatus.CurrentRescue.Match(*rescueSSHSecret) {
+		// Take action depending on state
+		switch hsm.nextState {
+		case infrav1.StatePreparing, infrav1.StateRegistering, infrav1.StateImageInstalling:
+			msg := "stopped provisioning host as rescue ssh secret was updated"
+			record.Warn(hsm.host, "HostProvisioningStopped", msg)
+			hsm.log.V(1).Info(msg, "state", hsm.nextState)
+			hsm.nextState = infrav1.StateNone
+		}
+		if err := hsm.host.UpdateRescueSSHStatus(*rescueSSHSecret); err != nil {
+			return actionError{err: fmt.Errorf("failed to update status of rescue SSH secret: %w", err)}
+		}
+	}
+	if err := validateSSHKey(rescueSSHSecret, hsm.reconciler.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef); err != nil {
+		msg := fmt.Sprintf("ssh credentials for rescue system are invalid: %s", err.Error())
+		conditions.MarkFalse(hsm.host, infrav1.HetznerBareMetalHostReady, infrav1.SSHCredentialsInSecretInvalid, clusterv1.ConditionSeverityError, msg)
+		return hsm.reconciler.recordActionFailure(infrav1.PreparationError, infrav1.ErrorMessageMissingOrInvalidSecretData)
+	}
+	return nil
 }
 
 func validateSSHKey(sshSecret *corev1.Secret, secretRef infrav1.SSHSecretRef) error {
