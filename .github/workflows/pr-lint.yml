@@ -1,11 +1,11 @@
 name: "Lint Pull Request"
 on: # yamllint disable-line rule:truthy
-  pull_request_target:
-    types: [opened, synchronize, reopened, ready_for_review]
+  pull_request:
     branches:
       - main
       - "releases/**"
     paths:
+      - ".github/workflows/pr-lint.yml"
       - "!**/vendor/**"
 # yamllint disable rule:line-length
 jobs:
@@ -28,8 +28,12 @@ jobs:
         # https://github.com/actions/checkout/issues/766
         shell: bash
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
       - name: Verify Golang Modules
         run: make BUILD_IN_CONTAINER=false generate-modules-ci
+
+      - name: Lint Golang Code
+        run: make BUILD_IN_CONTAINER=false lint-golang-ci
 
       - name: Link Checker
         env:
@@ -41,6 +45,3 @@ jobs:
 
       - name: Lint Dockerfile
         run: make BUILD_IN_CONTAINER=false lint-dockerfile
-
-      - name: Lint Golang Code
-        run: make BUILD_IN_CONTAINER=false lint-golang-ci
