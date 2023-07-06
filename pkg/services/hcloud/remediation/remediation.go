@@ -30,7 +30,7 @@ import (
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/record"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 // Service defines struct with machine scope to reconcile HCloudRemediation.
@@ -46,7 +46,7 @@ func NewService(scope *scope.HCloudRemediationScope) *Service {
 }
 
 // Reconcile implements reconcilement of HCloudRemediation.
-func (s *Service) Reconcile(ctx context.Context) (res ctrl.Result, err error) {
+func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err error) {
 	server, err := s.findServer(ctx)
 	if err != nil {
 		return res, fmt.Errorf("failed to find the server of unhealthy machine: %w", err)
@@ -60,31 +60,31 @@ func (s *Service) Reconcile(ctx context.Context) (res ctrl.Result, err error) {
 		return res, nil
 	}
 
-	if remediationType == infrav1.RemediationTypeReboot {
-		// If no phase set, default to running
-		if s.scope.HCloudRemediation.Status.Phase == "" {
-			s.scope.HCloudRemediation.Status.Phase = infrav1.PhaseRunning
-		}
-
-		switch s.scope.HCloudRemediation.Status.Phase {
-		case infrav1.PhaseRunning:
-			return s.handlePhaseRunning(ctx, server)
-		case infrav1.PhaseWaiting:
-			return s.handlePhaseWaiting(ctx)
-		default:
-		}
+	// If no phase set, default to running
+	if s.scope.HCloudRemediation.Status.Phase == "" {
+		s.scope.HCloudRemediation.Status.Phase = infrav1.PhaseRunning
 	}
+
+	switch s.scope.HCloudRemediation.Status.Phase {
+	case infrav1.PhaseRunning:
+		return s.handlePhaseRunning(ctx, server)
+	case infrav1.PhaseWaiting:
+		return s.handlePhaseWaiting(ctx)
+	}
+
 	return res, nil
 }
 
-func (s *Service) handlePhaseRunning(ctx context.Context, server *hcloud.Server) (res ctrl.Result, err error) {
-	// server is not rebooted yet
+func (s *Service) handlePhaseRunning(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
+	now := metav1.Now()
+
+	// if server has never been remediated, then do that now
 	if s.scope.HCloudRemediation.Status.LastRemediated == nil {
-		if err := s.rebootServer(ctx, server); err != nil {
-			return res, fmt.Errorf("failed to reboot server: %w", err)
+		if err := s.scope.HCloudClient.RebootServer(ctx, server); err != nil {
+			hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "RebootServer")
+			return res, fmt.Errorf("failed to reboot server %v: %w", server.ID, err)
 		}
 
-		now := metav1.Now()
 		s.scope.HCloudRemediation.Status.LastRemediated = &now
 		s.scope.HCloudRemediation.Status.RetryCount++
 	}
@@ -92,47 +92,49 @@ func (s *Service) handlePhaseRunning(ctx context.Context, server *hcloud.Server)
 	retryLimit := s.scope.HCloudRemediation.Spec.Strategy.RetryLimit
 	retryCount := s.scope.HCloudRemediation.Status.RetryCount
 
-	if retryLimit > 0 && retryLimit > retryCount {
-		okToRemediate, nextRemediation := s.timeToRemediate()
-
-		if okToRemediate {
-			if err := s.rebootServer(ctx, server); err != nil {
-				return res, fmt.Errorf("failed to reboot server: %w", err)
-			}
-
-			now := metav1.Now()
-			s.scope.HCloudRemediation.Status.LastRemediated = &now
-			s.scope.HCloudRemediation.Status.RetryCount++
-		}
-
-		if nextRemediation > 0 {
-			// Not yet time to remediate, requeue
-			return ctrl.Result{RequeueAfter: nextRemediation}, nil
-		}
-	} else {
+	// check whether retry limit has been reached
+	if retryLimit == 0 || retryCount >= retryLimit {
 		s.scope.HCloudRemediation.Status.Phase = infrav1.PhaseWaiting
 	}
+
+	// check when next remediation should be scheduled
+	nextRemediation := s.timeUntilNextRemediation(now.Time)
+
+	if nextRemediation > 0 {
+		// Not yet time to remediate, requeue
+		return reconcile.Result{RequeueAfter: nextRemediation}, nil
+	}
+
+	// remediate now
+	if err := s.scope.HCloudClient.RebootServer(ctx, server); err != nil {
+		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "RebootServer")
+		return res, fmt.Errorf("failed to reboot server %v: %w", server.ID, err)
+	}
+
+	s.scope.HCloudRemediation.Status.LastRemediated = &now
+	s.scope.HCloudRemediation.Status.RetryCount++
+
 	return res, nil
 }
 
-func (s *Service) handlePhaseWaiting(ctx context.Context) (res ctrl.Result, err error) {
-	okToStop, nextCheck := s.timeToRemediate()
-
-	if okToStop {
-		s.scope.HCloudRemediation.Status.Phase = infrav1.PhaseDeleting
-		// When machine is still unhealthy after remediation, setting of OwnerRemediatedCondition
-		// moves control to CAPI machine controller. The owning controller will do
-		// preflight checks and handles the Machine deletion
-
-		if err := s.setOwnerRemediatedCondition(ctx); err != nil {
-			return res, fmt.Errorf("failed to set conditions on CAPI machine: %w", err)
-		}
-	}
+func (s *Service) handlePhaseWaiting(ctx context.Context) (res reconcile.Result, err error) {
+	nextCheck := s.timeUntilNextRemediation(time.Now())
 
 	if nextCheck > 0 {
 		// Not yet time to stop remediation, requeue
-		return ctrl.Result{RequeueAfter: nextCheck}, nil
+		return reconcile.Result{RequeueAfter: nextCheck}, nil
 	}
+
+	// When machine is still unhealthy after remediation, setting of OwnerRemediatedCondition
+	// moves control to CAPI machine controller. The owning controller will do
+	// preflight checks and handles the Machine deletion
+
+	s.scope.HCloudRemediation.Status.Phase = infrav1.PhaseDeleting
+
+	if err := s.setOwnerRemediatedCondition(ctx); err != nil {
+		return res, fmt.Errorf("failed to set conditions on CAPI machine: %w", err)
+	}
+
 	return res, nil
 }
 
@@ -151,35 +153,6 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 	return server, nil
 }
 
-func (s *Service) rebootServer(ctx context.Context, server *hcloud.Server) error {
-	if err := s.scope.HCloudClient.RebootServer(ctx, server); err != nil {
-		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "RebootServer")
-		return fmt.Errorf("failed to reboot server %v: %w", server.ID, err)
-	}
-	return nil
-}
-
-// timeToRemediate checks if it is time to execute a next remediation step
-// and returns seconds to next remediation time.
-func (s *Service) timeToRemediate() (bool, time.Duration) {
-	now := time.Now()
-	timeout := s.scope.HCloudRemediation.Spec.Strategy.Timeout.Duration
-	lastRemediated := s.scope.HCloudRemediation.Status.LastRemediated
-
-	// status is not updated yet
-	if lastRemediated == nil {
-		return false, timeout
-	}
-
-	if lastRemediated.Add(timeout).Before(now) {
-		return true, time.Duration(0)
-	}
-
-	timeElapsedSinceLastRemediation := now.Sub(lastRemediated.Time)
-	nextRemediation := timeout - timeElapsedSinceLastRemediation + time.Second
-	return false, nextRemediation
-}
-
 // setOwnerRemediatedCondition sets MachineOwnerRemediatedCondition on CAPI machine object
 // that have failed a healthcheck.
 func (s *Service) setOwnerRemediatedCondition(ctx context.Context) error {
@@ -194,4 +167,22 @@ func (s *Service) setOwnerRemediatedCondition(ctx context.Context) error {
 		return fmt.Errorf("failed to patch machine: %w", err)
 	}
 	return nil
+}
+
+// timeUntilNextRemediation checks if it is time to execute a next remediation step
+// and returns seconds to next remediation time.
+func (s *Service) timeUntilNextRemediation(now time.Time) time.Duration {
+	timeout := s.scope.HCloudRemediation.Spec.Strategy.Timeout.Duration
+	// status is not updated yet
+	if s.scope.HCloudRemediation.Status.LastRemediated == nil {
+		return timeout
+	}
+
+	if s.scope.HCloudRemediation.Status.LastRemediated.Add(timeout).Before(now) {
+		return time.Duration(0)
+	}
+
+	lastRemediated := now.Sub(s.scope.HCloudRemediation.Status.LastRemediated.Time)
+	nextRemediation := timeout - lastRemediated + time.Second
+	return nextRemediation
 }
