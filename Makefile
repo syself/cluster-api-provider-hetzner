@@ -18,6 +18,7 @@ INFRA_PROVIDER = hetzner
 
 STAGING_IMAGE = $(INFRA_SHORT)-staging
 BUILDER_IMAGE = $(IMAGE_PREFIX)/$(INFRA_SHORT)-builder
+BUILDER_IMAGE_VERSION = $(shell cat .builder-image-version.txt)
 
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
