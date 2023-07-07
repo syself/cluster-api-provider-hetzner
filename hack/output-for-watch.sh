@@ -42,7 +42,7 @@ kubectl get events -A --sort-by=metadata.creationTimestamp | tail -8
 
 print_heading logs:
 
-./hack/tail-caph-controller-logs.sh
+./hack/tail-controller-logs.sh
 
 echo
 

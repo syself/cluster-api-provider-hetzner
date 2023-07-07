@@ -102,7 +102,7 @@ You can, of course, also install an alternative CNI, e.g. calico.
 
 This make command will install the CCM in your workload cluster.
 
-`make install-manifests-ccm-hcloud PRIVATE_NETWORK=false`
+`make install-ccm-in-wl-cluster PRIVATE_NETWORK=false`
 
 ```shell
 # For a cluster without private network:
