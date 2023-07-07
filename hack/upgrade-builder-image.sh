@@ -25,33 +25,41 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+if [ -z "$BUILDER_IMAGE" ]; then
+  echo "Please provide BUILDER_IMAGE as env var"
+  exit 1
+fi
+
+
 REPO_ROOT=$(realpath $(dirname "${BASH_SOURCE[0]}")/..)
 cd "${REPO_ROOT}" || exit 1
 
 source "${REPO_ROOT}/hack/semver-upgrade.sh"
 
 if git diff --exit-code images/builder/Dockerfile images/builder/build.sh > /dev/null; then
-exit 0
+  echo "nothing seems to have changed."
+  exit 0
 fi
 
 if [ "${CI:-false}" = true ] ; then
-echo $BUILD_IMAGE_TOKEN | docker login ghcr.io -u $BUILD_IMAGE_USER --password-stdin
+  echo "$BUILD_IMAGE_TOKEN" | docker login ghcr.io -u "$BUILD_IMAGE_USER" --password-stdin
 fi
 
-export VERSION=$(git fetch --quiet origin main && git show origin/main:Makefile | grep "BUILDER_IMAGE_VERSION :=" | sed 's/.*BUILDER_IMAGE_VERSION := //' | sed 's/\s.*$//' )
-export NEW_VERSION=$(semver_upgrade patch ${VERSION})
-
-if docker manifest inspect ghcr.io/syself/caph-builder:${VERSION} > /dev/null ; echo $?; then
-  
-  sed -i -e "/^BUILDER_IMAGE_VERSION /s/:=.*$/:= ${NEW_VERSION}/" Makefile
-  for FILE in ${REPO_ROOT}/.github/workflows/*; do
-    if grep "image: ghcr.io/syself/caph-builder" $FILE
-    then
-      sed -i -e "/image: ghcr\.io\/syself\/caph-builder:/s/:.*$/: ghcr\.io\/syself\/caph-builder:${NEW_VERSION}/" $FILE
-    fi
-  done
-  docker build -t ghcr.io/syself/caph-builder:${NEW_VERSION}  ./images/builder
-  docker push ghcr.io/syself/caph-builder:${NEW_VERSION}
-else
+VERSION=$(git fetch --quiet origin main && git show origin/main:.builder-image-version.txt)
+if [ -z "$VERSION" ]; then
+  echo "failed to find BUILDER_IMAGE_VERSION in Makefile of origin/main branch"
   exit 1
 fi
+export VERSION
+
+NEW_VERSION=$(semver_upgrade patch "$VERSION")
+export NEW_VERSION
+
+if ! docker manifest inspect "$BUILDER_IMAGE:$VERSION" > /dev/null; then
+  echo "could not find image $BUILDER_IMAGE:$VERSION"
+  exit 1
+fi
+echo "$NEW_VERSION" > .builder-image-version.txt
+echo "Wrote new version $NEW_VERSION to .builder-image-version.txt"
+docker build -t "$BUILDER_IMAGE:$NEW_VERSION" ./images/builder
+docker push "$BUILDER_IMAGE:$NEW_VERSION"

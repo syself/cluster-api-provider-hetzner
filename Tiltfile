@@ -368,7 +368,7 @@ cmd_button(
 
 cmd_button(
     "Add SSH Key to HCloud",
-    argv=["make", "add-ssh-pub-key-to-hcloud"],
+    argv=["make", "add-ssh-pub-key"],
     location=location.NAV,
     icon_name="trending_up",
     text="Add SSH Key to HCloud",
