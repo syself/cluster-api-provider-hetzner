@@ -126,6 +126,12 @@ kind: $(KIND) ## Build a local copy of kind
 $(KIND):
 	go install sigs.k8s.io/kind@v0.20.0
 
+KUBECTL := $(abspath $(TOOLS_BIN_DIR)/kubectl)
+kubectl: $(KUBECTL) ## Build a local copy of kubectl
+$(KUBECTL):
+	curl -fsSL "https://dl.k8s.io/release/v1.27.3/bin/$$(go env GOOS)/$$(go env GOARCH)/kubectl" -o $(KUBECTL)
+	chmod a+rx $(KUBECTL)
+
 go-binsize-treemap := $(abspath $(TOOLS_BIN_DIR)/go-binsize-treemap)
 go-binsize-treemap: $(go-binsize-treemap) # Build go-binsize-treemap from tools folder.
 $(go-binsize-treemap):
@@ -141,7 +147,7 @@ gotestsum: $(GOTESTSUM) # Build gotestsum from tools folder.
 $(GOTESTSUM):
 	go install gotest.tools/gotestsum@v1.10.0
 
-all-tools: $(GOTESTSUM) $(go-cover-treemap) $(go-binsize-treemap) $(KIND) $(CLUSTERCTL) $(CTLPTL) $(SETUP_ENVTEST) $(ENVSUBST) $(KUSTOMIZE) $(CONTROLLER_GEN)
+all-tools: $(GOTESTSUM) $(go-cover-treemap) $(go-binsize-treemap) $(KIND) $(KUBECTL) $(CLUSTERCTL) $(CTLPTL) $(SETUP_ENVTEST) $(ENVSUBST) $(KUSTOMIZE) $(CONTROLLER_GEN)
 	echo 'done'
 
 ##@ Development
@@ -292,13 +298,13 @@ delete-workload-cluster: ## Deletes the example workload Kubernetes cluster
 	${TIMEOUT} 15m bash -c "while $(KUBECTL) get cluster | grep $(NAME); do sleep 1; done"
 	@echo 'Cluster deleted'
 
-create-mgt-cluster: $(CLUSTERCTL) cluster ## Start a mgt-cluster with the latest version of all capi components and the infra provider.
+create-mgt-cluster: $(CLUSTERCTL) $(KUBECTL) cluster ## Start a mgt-cluster with the latest version of all capi components and the infra provider.
 	$(CLUSTERCTL) init --core cluster-api --bootstrap kubeadm --control-plane kubeadm --infrastructure $(INFRA_PROVIDER)
 	$(KUBECTL) create secret generic $(INFRA_PROVIDER) --from-literal=hcloud=$(HCLOUD_TOKEN)
 	$(KUBECTL) patch secret $(INFRA_PROVIDER) -p '{"metadata":{"labels":{"clusterctl.cluster.x-k8s.io/move":""}}}'
 
 .PHONY: cluster
-cluster: $(CTLPTL) ## Creates kind-dev Cluster
+cluster: $(CTLPTL) $(KUBECTL) ## Creates kind-dev Cluster
 	./hack/kind-dev.sh
 
 .PHONY: delete-mgt-cluster
@@ -759,7 +765,7 @@ builder-image-push: ## Build $(INFRA_SHORT)-builder to a new version. For more i
 test: test-unit ## Runs all unit and integration tests.
 
 .PHONY: tilt-up
-tilt-up: $(ENVSUBST) $(KUSTOMIZE) $(TILT) cluster  ## Start a mgt-cluster & Tilt. Installs the CRDs and deploys the controllers
+tilt-up: $(ENVSUBST) $(KUBECTL) $(KUSTOMIZE) $(TILT) cluster  ## Start a mgt-cluster & Tilt. Installs the CRDs and deploys the controllers
 	EXP_CLUSTER_RESOURCE_SET=true $(TILT) up
 
 .PHONY: watch
