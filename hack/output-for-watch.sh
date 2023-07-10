@@ -65,11 +65,11 @@ echo
 
 ./hack/get-kubeconfig-of-workload-cluster.sh
 
-kubeconfig=".workload-cluster-kubeconfig.yaml"
+kubeconfig_wl=".workload-cluster-kubeconfig.yaml"
 
 
-echo "KUBECONFIG=$kubeconfig kubectl cluster-info"
-if KUBECONFIG=$kubeconfig kubectl cluster-info >/dev/null 2>&1; then
+echo "KUBECONFIG=$kubeconfig_wl kubectl cluster-info"
+if KUBECONFIG=$kubeconfig_wl kubectl cluster-info >/dev/null 2>&1; then
     echo "👌 cluster is reachable"
 else
     echo "❌ cluster is not reachable"
@@ -78,10 +78,20 @@ fi
 
 echo
 
-deployment=$(KUBECONFIG=$kubeconfig kubectl get -n kube-system deployment | grep -P 'ccm-(hetzner|hcloud)' | cut -d' ' -f1)
+deployment=$(KUBECONFIG=$kubeconfig_wl kubectl get -n kube-system deployment | grep -P 'ccm-(hetzner|hcloud)' | cut -d' ' -f1)
 if [ -z "$deployment" ]; then
     echo "❌ ccm not installed?"
 else
     echo  "👌 ccm installed:"
-    KUBECONFIG=$kubeconfig kubectl get -n kube-system deployment $deployment
+    KUBECONFIG=$kubeconfig_wl kubectl get -n kube-system deployment $deployment
+fi
+
+print_heading "workload-cluster nodes"
+
+KUBECONFIG=$kubeconfig_wl kubectl get nodes -o 'custom-columns=NAME:.metadata.name,STATUS:.status.phase,ROLES:.metadata.labels.kubernetes\.io/role,creationTimestamp:.metadata.creationTimestamp,VERSION:.status.nodeInfo.kubeletVersion,IP:.status.addresses[?(@.type=="ExternalIP")].address'
+
+if [ "$(kubectl get machine | wc -l)" -ne "$(KUBECONFIG="$kubeconfig_wl" kubectl get nodes | wc -l)" ]; then
+    echo "❌ Number of nodes in wl-cluster does not match number of machines in mgt-cluster"
+else
+    echo "👌 number of nodes in wl-cluster is equal to number of machines in mgt-cluster"
 fi
