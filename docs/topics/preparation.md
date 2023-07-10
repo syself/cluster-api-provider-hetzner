@@ -117,7 +117,7 @@ export HCLOUD_TOKEN="<YOUR-TOKEN>" \
 export HETZNER_ROBOT_USER="<YOUR-ROBOT-USER>" \
 export HETZNER_ROBOT_PASSWORD="<YOUR-ROBOT-PASSWORD>" \
 export HETZNER_SSH_PUB_PATH="<YOUR-SSH-PUBLIC-PATH>" \
-export HETZNER_SSH_PRIV_PATH="<YOUR-SSH-PRIVATE-PATH>" \
+export HETZNER_SSH_PRIV_PATH="<YOUR-SSH-PRIVATE-PATH>"
 ```
 
 - HCLOUD_TOKEN: The project where your cluster will be placed to. You have to get a token from your HCloud Project.
