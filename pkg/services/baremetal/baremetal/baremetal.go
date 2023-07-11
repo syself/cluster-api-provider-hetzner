@@ -157,6 +157,11 @@ func (s *Service) Delete(ctx context.Context) (res reconcile.Result, err error) 
 			return reconcile.Result{RequeueAfter: requeueAfter}, nil
 		}
 
+		// remove ssh spec - this was needed for the host to fully deprovision
+		if host.Spec.Status.SSHSpec != nil {
+			host.Spec.Status.SSHSpec = nil
+		}
+
 		// deprovisiong is done - remove all references of host
 		host.Spec.ConsumerRef = nil
 		host.Spec.Status.HetznerClusterRef = ""
@@ -652,10 +657,6 @@ func removeMachineSpecsFromHost(host *infrav1.HetznerBareMetalHost) (updatedHost
 	}
 	if host.Spec.Status.UserData != nil {
 		host.Spec.Status.UserData = nil
-		updatedHost = true
-	}
-	if host.Spec.Status.SSHSpec != nil {
-		host.Spec.Status.SSHSpec = nil
 		updatedHost = true
 	}
 	emptySSHStatus := infrav1.SSHStatus{}

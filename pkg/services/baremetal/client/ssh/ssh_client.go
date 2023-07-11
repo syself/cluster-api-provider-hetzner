@@ -313,7 +313,7 @@ func (c *sshClient) CleanCloudInitInstances() Output {
 
 // ResetKubeadm implements the ResetKubeadm method of the SSHClient interface.
 func (c *sshClient) ResetKubeadm() Output {
-	return c.runSSH(`kubeadm reset -f`)
+	return c.runSSH(`kubeadm reset -f 2>&1 || true`)
 }
 
 // IsConnectionRefusedError checks whether the ssh error is a connection refused error.
