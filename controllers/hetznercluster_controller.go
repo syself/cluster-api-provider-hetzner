@@ -199,7 +199,9 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 		return reconcile.Result{}, fmt.Errorf("failed to reconcile placement groups for HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
 	}
 
-	if hetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
+	if !hetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled && (hetznerCluster.Spec.ControlPlaneEndpoint == nil || hetznerCluster.Spec.ControlPlaneEndpoint.Host == "") {
+		clusterScope.Logger.Info("disabled LoadBalancer and not yet provided ControlPlane endpoint")
+	} else if hetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
 		if hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4 != "<nil>" {
 			defaultHost := hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4
 			defaultPort := int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port)

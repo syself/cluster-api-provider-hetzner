@@ -73,7 +73,7 @@ func (r *HetznerCluster) ValidateCreate() (admission.Warnings, error) {
 	hetznerclusterlog.V(1).Info("validate create", "name", r.Name)
 	var allErrs field.ErrorList
 
-	if len(r.Spec.ControlPlaneRegions) == 0 {
+	if r.Spec.ControlPlaneLoadBalancer.Enabled && len(r.Spec.ControlPlaneRegions) == 0 {
 		allErrs = append(allErrs, field.Invalid(
 			field.NewPath("spec", "controlPlaneRegions"),
 			r.Spec.ControlPlaneRegions,
@@ -105,21 +105,6 @@ func (r *HetznerCluster) ValidateCreate() (admission.Warnings, error) {
 	if !r.Spec.HCloudNetwork.Enabled {
 		if err := isNetworkZoneSameForAllRegions(r.Spec.ControlPlaneRegions, nil); err != nil {
 			allErrs = append(allErrs, err)
-		}
-	}
-
-	// Check whether controlPlaneEndpoint is specified if controlPlaneLoadBalancer is not enabled
-	if !r.Spec.ControlPlaneLoadBalancer.Enabled {
-		if r.Spec.ControlPlaneEndpoint == nil ||
-			r.Spec.ControlPlaneEndpoint.Host == "" ||
-			r.Spec.ControlPlaneEndpoint.Port == 0 {
-			allErrs = append(allErrs,
-				field.Invalid(
-					field.NewPath("spec", "controlPlaneEndpoint"),
-					r.Spec.ControlPlaneEndpoint,
-					"controlPlaneEndpoint has to be specified if controlPlaneLoadBalancer is not enabled",
-				),
-			)
 		}
 	}
 
