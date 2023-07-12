@@ -95,24 +95,6 @@ func (m *BareMetalRemediationScope) Namespace() string {
 	return m.BareMetalRemediation.Namespace
 }
 
-// PatchHost persists the host's spec and status.
-func (m *BareMetalRemediationScope) PatchHost(ctx context.Context, host *infrav1.HetznerBareMetalHost) error {
-	patchHelper, err := patch.NewHelper(host, m.Client)
-	if err != nil {
-		return fmt.Errorf("failed to init patch helper: %w", err)
-	}
-	return patchHelper.Patch(ctx, host)
-}
-
-// PatchMachine persists the capi machine's spec and status.
-func (m *BareMetalRemediationScope) PatchMachine(ctx context.Context, machine *clusterv1.Machine) error {
-	patchHelper, err := patch.NewHelper(machine, m.Client)
-	if err != nil {
-		return fmt.Errorf("failed to init patch helper: %w", err)
-	}
-	return patchHelper.Patch(ctx, machine)
-}
-
 // HasRetriesLeft returns true if the retry limit is greater than retry count.
 func (m *BareMetalRemediationScope) HasRetriesLeft() bool {
 	return m.BareMetalRemediation.Spec.Strategy.RetryLimit > 0 &&

@@ -14,9 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cluster_name=$(jq -r .kustomize_substitutions.CLUSTER_NAME tilt-settings.json)
+if [ -z "$CLUSTER_NAME" ]; then
+    echo "env var CLUSTER_NAME is missing. Failed to get kubeconfig of workload cluster"
+    exit 1
+fi
 kubeconfig=".workload-cluster-kubeconfig.yaml"
-kubectl get secrets "$cluster_name-kubeconfig" -ojsonpath='{.data.value}' | base64 -d > "$kubeconfig"
+kubectl get secrets "${CLUSTER_NAME}-kubeconfig" -ojsonpath='{.data.value}' | base64 -d > "$kubeconfig"
 
 if [ ! -s "$kubeconfig" ]; then
     echo "failed to get kubeconfig of workload cluster"

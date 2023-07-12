@@ -288,8 +288,17 @@ func getAndValidateRobotCredentials(
 	}
 
 	// Validate token
-	if err := creds.Validate(); err != nil {
-		return robotclient.Credentials{}, err
+	if creds.Username == "" {
+		return robotclient.Credentials{}, &bmclient.CredentialsValidationError{
+			Message: fmt.Sprintf("secret %s/%s: Missing Hetzner robot api connection detail '%s' in credentials",
+				namespace, hetznerCluster.Spec.HetznerSecret.Name, hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser),
+		}
+	}
+	if creds.Password == "" {
+		return robotclient.Credentials{}, &bmclient.CredentialsValidationError{
+			Message: fmt.Sprintf("secret %s/%s: Missing Hetzner robot api connection detail '%s' in credentials",
+				namespace, hetznerCluster.Spec.HetznerSecret.Name, hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword),
+		}
 	}
 
 	return creds, nil
@@ -301,11 +310,11 @@ func hetznerSecretErrorResult(
 	bmHost *infrav1.HetznerBareMetalHost,
 	client client.Client,
 ) (res ctrl.Result, reterr error) {
-	switch err.(type) {
-	// In the event that the reference to the secret is defined, but we cannot find it
-	// we requeue the host as we will not know if they create the secret
-	// at some point in the future.
-	case *secretutil.ResolveSecretRefError:
+	resolveErr := &secretutil.ResolveSecretRefError{}
+	if errors.As(err, &resolveErr) {
+		// In the event that the reference to the secret is defined, but we cannot find it
+		// we requeue the host as we will not know if they create the secret
+		// at some point in the future.
 		conditions.MarkFalse(
 			bmHost,
 			infrav1.HetznerBareMetalHostReady,
@@ -314,7 +323,7 @@ func hetznerSecretErrorResult(
 			infrav1.ErrorMessageMissingHetznerSecret,
 		)
 
-		record.Warnf(bmHost, infrav1.HetznerSecretUnreachableReason, infrav1.ErrorMessageMissingHetznerSecret)
+		record.Warnf(bmHost, infrav1.HetznerSecretUnreachableReason, fmt.Sprintf("%s: %s", infrav1.ErrorMessageMissingHetznerSecret, err.Error()))
 
 		result, err := host.SaveHostAndReturn(ctx, client, bmHost)
 		emptyResult := reconcile.Result{}
@@ -322,9 +331,12 @@ func hetznerSecretErrorResult(
 			return result, err
 		}
 
-		res = ctrl.Result{Requeue: true}
 		// No need to reconcile again, as it will be triggered as soon as the secret is updated.
-	case *bmclient.CredentialsValidationError:
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	credValidationErr := &bmclient.CredentialsValidationError{}
+	if errors.As(err, &credValidationErr) {
 		conditions.MarkFalse(
 			bmHost,
 			infrav1.HetznerBareMetalHostReady,
@@ -332,15 +344,11 @@ func hetznerSecretErrorResult(
 			clusterv1.ConditionSeverityError,
 			infrav1.ErrorMessageMissingOrInvalidSecretData,
 		)
-		record.Warnf(bmHost, infrav1.SSHKeyAlreadyExists, infrav1.ErrorMessageMissingOrInvalidSecretData)
+		record.Warnf(bmHost, infrav1.SSHCredentialsInSecretInvalid, err.Error())
 
-		res, err = host.SaveHostAndReturn(ctx, client, bmHost)
-
-	default:
-		return ctrl.Result{}, fmt.Errorf("an unhandled failure occurred: %w", err)
+		return host.SaveHostAndReturn(ctx, client, bmHost)
 	}
-
-	return res, err
+	return ctrl.Result{}, fmt.Errorf("hetznerSecretErrorResult: an unhandled failure occurred: %T %w", err, err)
 }
 
 func hostHasFinalizer(host *infrav1.HetznerBareMetalHost) bool {

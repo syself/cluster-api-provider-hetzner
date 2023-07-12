@@ -41,8 +41,6 @@ settings = {
     "talos-bootstrap": "false",
 }
 
-keys = ["HCLOUD_TOKEN", "HCLOUD_SSH_KEY"]
-
 # global settings
 settings.update(read_json(
     "tilt-settings.json",
@@ -122,12 +120,6 @@ def append_arg_for_container_in_deployment(yaml_stream, name, namespace, contain
 def fixup_yaml_empty_arrays(yaml_str):
     yaml_str = yaml_str.replace("conditions: null", "conditions: []")
     return yaml_str.replace("storedVersions: null", "storedVersions: []")
-
-def validate_needed_keys():
-    substitutions = settings.get("kustomize_substitutions", {})
-    missing = [k for k in keys if k not in substitutions]
-    if missing:
-        fail("missing kustomize_substitutions keys {} in tilt-setting.json".format(missing))
 
 def set_env_variables():
     substitutions = settings.get("kustomize_substitutions", {})
@@ -274,8 +266,6 @@ ensure_envsubst()
 ensure_kustomize()
 
 include_user_tilt_files()
-
-validate_needed_keys()
 
 load("ext://cert_manager", "deploy_cert_manager")
 

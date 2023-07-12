@@ -28,6 +28,7 @@ import (
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/conditions"
+	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -120,14 +121,19 @@ func (s *Service) handlePhaseRunning(ctx context.Context, host infrav1.HetznerBa
 func (s *Service) remediate(ctx context.Context, host infrav1.HetznerBareMetalHost) error {
 	var err error
 
+	patchHelper, err := patch.NewHelper(&host, s.scope.Client)
+	if err != nil {
+		return fmt.Errorf("failed to init patch helper: %s %s/%s %w", host.Kind, host.Namespace, host.Name, err)
+	}
+
 	// add annotation to host so that it reboots
 	host.Annotations, err = addRebootAnnotation(host.Annotations)
 	if err != nil {
 		return fmt.Errorf("failed to add reboot annotation: %w", err)
 	}
 
-	if err := s.scope.PatchHost(ctx, &host); err != nil {
-		return fmt.Errorf("failed to patch host: %w", err)
+	if err := patchHelper.Patch(ctx, &host); err != nil {
+		return fmt.Errorf("failed to patch: %s %s/%s %w", host.Kind, host.Namespace, host.Name, err)
 	}
 
 	// update status of BareMetalRemediation object
@@ -199,6 +205,11 @@ func (s *Service) setOwnerRemediatedConditionNew(ctx context.Context) error {
 		return fmt.Errorf("failed to get capi machine: %w", err)
 	}
 
+	patchHelper, err := patch.NewHelper(capiMachine, s.scope.Client)
+	if err != nil {
+		return fmt.Errorf("failed to init patch helper: %s %s/%s %w", capiMachine.Kind, capiMachine.Namespace, capiMachine.Name, err)
+	}
+
 	conditions.MarkFalse(
 		capiMachine,
 		capi.MachineOwnerRemediatedCondition,
@@ -207,8 +218,8 @@ func (s *Service) setOwnerRemediatedConditionNew(ctx context.Context) error {
 		"remediation through reboot failed",
 	)
 
-	if err := s.scope.PatchMachine(ctx, capiMachine); err != nil {
-		return fmt.Errorf("failed to patch capi machine: %w", err)
+	if err := patchHelper.Patch(ctx, capiMachine); err != nil {
+		return fmt.Errorf("failed to patch: %s %s/%s %w", capiMachine.Kind, capiMachine.Namespace, capiMachine.Name, err)
 	}
 	return nil
 }
