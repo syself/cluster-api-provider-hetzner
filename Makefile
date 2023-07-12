@@ -766,7 +766,7 @@ test: test-unit ## Runs all unit and integration tests.
 
 .PHONY: tilt-up
 tilt-up: $(ENVSUBST) $(KUBECTL) $(KUSTOMIZE) $(TILT) cluster  ## Start a mgt-cluster & Tilt. Installs the CRDs and deploys the controllers
-	EXP_CLUSTER_RESOURCE_SET=true $(TILT) up
+	EXP_CLUSTER_RESOURCE_SET=true $(TILT) up --port=10351
 
 .PHONY: watch
 watch: ## Watch CRDs cluster, machines and Events.
