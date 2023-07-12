@@ -19,9 +19,10 @@ package utils_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
+
+	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
 var _ = DescribeTable("LabelsToLabelSelector",

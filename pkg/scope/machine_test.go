@@ -19,6 +19,7 @@ package scope
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
 

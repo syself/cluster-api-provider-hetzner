@@ -25,10 +25,11 @@ import (
 	"github.com/hetznercloud/hcloud-go/hcloud/schema"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 )
 
 const serverJSON = `
