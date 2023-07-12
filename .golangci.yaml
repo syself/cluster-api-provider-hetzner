@@ -44,6 +44,11 @@ linters:
     - whitespace
 
 linters-settings:
+  gci:
+    sections:
+      - standard
+      - default
+      - prefix(github.com/syself/cluster-api-provider-hetzner)
   godot:
     #   declarations - for top level declaration comments (default);
     #   toplevel     - for top level comments;
