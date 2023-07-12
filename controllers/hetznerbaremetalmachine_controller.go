@@ -22,11 +22,6 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
-	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/baremetal"
-	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
@@ -41,6 +36,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
+	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/baremetal"
+	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 )
 
 // HetznerBareMetalMachineReconciler reconciles a HetznerBareMetalMachine object.

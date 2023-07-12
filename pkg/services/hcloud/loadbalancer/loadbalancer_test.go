@@ -21,8 +21,9 @@ import (
 	"github.com/hetznercloud/hcloud-go/hcloud"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
 
 var _ = Describe("Loadbalancer", func() {

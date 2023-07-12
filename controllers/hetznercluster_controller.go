@@ -26,13 +26,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
-	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
-	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/loadbalancer"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/network"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/placementgroup"
 	certificatesv1 "k8s.io/api/certificates/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -56,6 +49,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
+	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
+	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/loadbalancer"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/network"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/placementgroup"
 )
 
 const (

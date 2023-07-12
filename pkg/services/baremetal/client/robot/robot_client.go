@@ -18,9 +18,10 @@ limitations under the License.
 package robotclient
 
 import (
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	hrobot "github.com/syself/hrobot-go"
 	"github.com/syself/hrobot-go/models"
+
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
 
 // Client collects all methods used by the controller in the robot API.

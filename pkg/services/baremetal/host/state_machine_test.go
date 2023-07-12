@@ -21,9 +21,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
-	corev1 "k8s.io/api/core/v1"
 )
 
 var _ = Describe("updateSSHKey", func() {

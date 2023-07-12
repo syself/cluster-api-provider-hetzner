@@ -23,10 +23,11 @@ import (
 	"strings"
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/record"
+
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
 
 const providerIDPrefix = "hcloud://"

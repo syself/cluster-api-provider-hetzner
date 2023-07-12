@@ -21,9 +21,10 @@ import (
 	"context"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
-	corev1 "k8s.io/api/core/v1"
 )
 
 // Service defines struct with HCloudMachineTemplate scope to reconcile HCloud machine templates.

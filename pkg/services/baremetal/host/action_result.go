@@ -23,8 +23,9 @@ import (
 	"math/big"
 	"time"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
 
 // This is an upper limit for the ErrorCount, so that the max backoff
