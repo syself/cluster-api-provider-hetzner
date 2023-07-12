@@ -557,6 +557,11 @@ verify-starlark: ## Verify Starlark Code
 verify-container-images: ## Verify container images
 	trivy image -q --exit-code 1 --ignore-unfixed --severity MEDIUM,HIGH,CRITICAL $(IMAGE_PREFIX)/$(INFRA_SHORT):latest
 
+.PHONY: verify-manifests
+verify-manifests: generate-manifests ## Verify generate manifests
+	./hack/verify-manifests.sh
+
+
 ##@ Generate
 ############
 # Generate #
