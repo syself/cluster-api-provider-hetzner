@@ -38,7 +38,7 @@ kubectl get hetznerbaremetalmachine -A
 
 print_heading events:
 
-kubectl get events -A --sort-by=metadata.creationTimestamp | tail -8
+kubectl get events -A --sort-by=lastTimestamp | tail -8
 
 print_heading logs:
 
@@ -46,19 +46,27 @@ print_heading logs:
 
 echo
 
-ip=$(kubectl get machine -l cluster.x-k8s.io/control-plane  -o  jsonpath='{.items[0].status.addresses[?(@.type=="ExternalIP")].address}' |  grep -oP '[0-9.]{8,}')
-if [ -z "$ip" ]; then
-    echo "❌ Could not get IP of control-plane"
+if [ $(kubectl get machine -l cluster.x-k8s.io/control-plane 2>/dev/null | wc -l) -eq 0 ]; then
+    echo "❌ no control-plane machine exists."
     exit 1
 fi
 
+ip=$(kubectl get machine -l cluster.x-k8s.io/control-plane  -o  jsonpath='{.items[0].status.addresses[?(@.type=="ExternalIP")].address}' | grep -oP '[0-9.]{8,}')
+if [ -z "$ip" ]; then
+    ip=$(kubectl get machine -l cluster.x-k8s.io/control-plane  -o  jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}' | grep -oP '[0-9.]{8,}')
+    if [ -z "$ip" ]; then
+        echo "❌ Could not get IP of control-plane"
+    fi
+fi
 
-SSH_PORT=22
-if netcat -w 2 -z "$ip" $SSH_PORT; then
-    echo "👌 $ip ssh port $SSH_PORT is reachable"
-else
-    echo "❌ ssh port $SSH_PORT for $ip is not reachable"
-    exit
+if [ -n "$ip" ]; then
+    SSH_PORT=22
+    if netcat -w 2 -z "$ip" $SSH_PORT; then
+        echo "👌 $ip ssh port $SSH_PORT is reachable"
+    else
+        echo "❌ ssh port $SSH_PORT for $ip is not reachable"
+        exit
+    fi
 fi
 
 echo
@@ -83,7 +91,11 @@ if [ -z "$deployment" ]; then
     echo "❌ ccm not installed?"
 else
     echo  "👌 ccm installed:"
-    KUBECONFIG=$kubeconfig_wl kubectl get -n kube-system deployment $deployment
+    KUBECONFIG=$kubeconfig_wl kubectl get -n kube-system deployment "$deployment"
+    yaml=$(KUBECONFIG=$kubeconfig_wl kubectl get -n kube-system deployment "$deployment" -o yaml)
+    if [[ $yaml =~ "unavailableReplicas:" ]]; then
+        echo "❌ ccm has unavailableReplicas"
+    fi
 fi
 
 print_heading "workload-cluster nodes"
@@ -94,4 +106,16 @@ if [ "$(kubectl get machine | wc -l)" -ne "$(KUBECONFIG="$kubeconfig_wl" kubectl
     echo "❌ Number of nodes in wl-cluster does not match number of machines in mgt-cluster"
 else
     echo "👌 number of nodes in wl-cluster is equal to number of machines in mgt-cluster"
+fi
+
+rows=$(kubectl get hcloudremediation -A 2>/dev/null)
+if [ -n "$rows" ]; then
+    echo "❌ hcloudremediation exist"
+    echo "$rows"
+fi
+
+rows=$(kubectl get hetznerbaremetalremediation -A 2>/dev/null)
+if [ -n "$rows" ]; then
+    echo "❌ hetznerbaremetalremediation exist"
+    echo "$rows"
 fi

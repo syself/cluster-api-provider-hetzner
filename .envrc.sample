@@ -1,3 +1,17 @@
 export TTS_TOKEN=...
 export CLUSTER_NAME=testing
 export KUBECONFIG=$PWD/.mgt-cluster-kubeconfig.yaml
+export HCLOUD_TOKEN=...
+export HCLOUD_SSH_KEY=test
+export HCLOUD_REGION=fsn1
+export CONTROL_PLANE_MACHINE_COUNT=1
+export WORKER_MACHINE_COUNT=1
+export KUBERNETES_VERSION=v1.25.2
+export HCLOUD_IMAGE_NAME=1.23.4-ubuntu-20.04-containerd
+export HCLOUD_CONTROL_PLANE_MACHINE_TYPE=cpx31
+export HCLOUD_WORKER_MACHINE_TYPE=cpx31
+export SSH_KEY=$HOME/.ssh/id_rsa.pub
+export HETZNER_SSH_PUB_PATH=$HOME/.ssh/id_rsa.pub
+export HETZNER_SSH_PRIV_PATH=$HOME/.ssh/id_rsa
+export HETZNER_ROBOT_USER=
+export HETZNER_ROBOT_PASSWORD=

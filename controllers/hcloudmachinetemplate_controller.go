@@ -63,7 +63,8 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 	// Fetch the Cluster.
 	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, machineTemplate.ObjectMeta)
 	if err != nil {
-		log.Info("Machine is missing cluster label or cluster does not exist")
+		log.Info(fmt.Sprintf("%s is missing cluster label or cluster does not exist %s/%s",
+			machineTemplate.Kind, machineTemplate.Namespace, machineTemplate.Name))
 		return reconcile.Result{}, nil
 	}
 
