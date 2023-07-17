@@ -20,37 +20,72 @@
 
 
 The Kubernetes Cluster API Provider Hetzner enables declarative provisioning of multiple Kubernetes clusters on [Hetzner infrastructure](https://hetzner.cloud).
-High-available Kubernetes clusters on bare metal and on cloud instances are supported. The Cluster API simplifies the creation, updates, and operation of production-ready clusters. Self-managed Kubernetes clusters can, therefore, be easily operated even at a large scale.
 
-> Disclaimer: This is no official Hetzner project! It is maintained by the folks of the cloud-native start-up [Syself](https://syself.com).
+High-available Kubernetes clusters on bare metal and cloud instances are supported.
+
+The Cluster API simplifies the creation, updates, and operation of production-ready clusters.
+Self-managed Kubernetes clusters can, therefore, be easily operated even at a large scale.
+
+> Disclaimer: This is not an official Hetzner project! It is maintained by [Syself](https://syself.com).
 > If you have questions or are interested in running production-ready Kubernetes clusters on Hetzner, then please contact us via e-mail: [info@syself.com](mailto:info@syself.com?subject=cluster-api-provider-hetzner).
 
 ## :newspaper: What is the Cluster API Provider Hetzner?
 
 The [Cluster API][cluster_api] orchestrates infrastructure similar to the way Kubernetes manages containers. It implements a declarative API like Kubernetes does and extends the resources of the Kubernetes API server via CRDs.
 
-The Cluster API consist of the CAPI controller, the control-plane provider, the bootstrap provider, and a provider integration that implements the necessary controllers to enable stable and highly available Kubernetes clusters.
+The Cluster API consists of the CAPI controller, the control-plane provider, the bootstrap provider,
+and an infrastructure provider.
 
 The controllers ensure that the desired state of the infrastructure is achieved - just as Kubernetes ensures the desired state of containers. The concept of
 [Kubernetes Controller](https://kubernetes.io/docs/concepts/architecture/controller/) has significant advantages over Infrastructure as Code (IaC) solutions because it can react automatically to changes and problems. The best example of this is the MachineHealthCheck, which replaces unhealthy nodes automatically.
 
 Using the Cluster API Provider Hetzner (CAPH) unites the benefits of declarative infrastructure, cost-effectiveness, and (GDPR-compliant) European cloud.
 
+## :telephone_receiver: Support
 
-## :sparkles: Features
+Supporting your Kubernetes journey is our priority at Syself.
+
+If you require expert assistance in managing production-ready clusters with CAPH, connect with the seasoned experts at Syself.
+
+Contact us via [info@syself.com](mailto:info@syself.com?subject=autopilot) for top-notch support on your Kubernetes adventure.
+
+## :sparkles: Features of CAPH
 
 * Native Kubernetes manifests and API
 * Choice of Linux distribution
 * Support for single and multi-node control plane clusters (HA Kubernetes)
-* Support for Hetzner Cloud placement groups, network and load balancer
+* Support for Hetzner Cloud placement groups, network, and load balancer
 * Complete day 2 operations - updating Kubernetes and nodes, scaling up and down, self-healing
 * Custom CSR approver for approving [kubelet-serving certificate signing requests](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-certs/#kubelet-serving-certs)
-* Hetzner dedicated servers / bare metal
+* Hetzner dedicated servers / bare metal (and GPUs)
+
+## :eyes: Clarifying Scope
+
+If you are new to Kubernetes, we want you to know that managing a production-grade Kubernetes system requires a **dedicated team of experts**.
+
+The Cluster API Provider Hetzner (CAPH) deals with the lifecycle management of machines and infrastructure.
+
+Here are several aspects that CAPH will not handle for you:
+
+- production-ready node images
+- secured kubeadm configuration
+- incorporation of cluster add-ons, such as CNI (e.g. cilium), metrics-server, konnectivity-service, etc.
+- testing & update procedures of Kubernetes version, configuration
+- backup procedures
+- monitoring strategies
+- alerting systems
+- identity and Access Management (IAM)
 
 
+If you don't have a dedicated team for managing Kubernetes, you can use **Syself Autopilot** and enjoy a multitude of benefits including:
+
+- Consistent, regular updates that allow you to access the latest features.
+- Reduction in workload for your DevOps team as Syself takes over the responsibility of maintaining the system, ensuring seamless updates, and creating new clusters quickly and efficiently.
+- Expertise in dealing with the Cluster API and Hetzner, enabling quicker resolution of issues.
 
 
 ## :rocket: Get Started
+
 If you're looking to jump straight into it, go ahead:
 
 * [**Cluster API Provider Hetzner 15 Minute Tutorial**](docs/topics/quickstart.md): Set up a bootstrap cluster using Kind and deploy a Kubernetes cluster on Hetzner
@@ -58,6 +93,7 @@ If you're looking to jump straight into it, go ahead:
 * [**Develop and test own node-images**](docs/topics/node-image.md): How to use your own machine images for production systems.
 
 In addition to the pure creation and operation of Kubernetes clusters, this provider can also validate and approve certificate signing requests. This increases security as the kubelets of the nodes can be operated with signed certificates. This enables the metrics-server to run securely. [Click here](docs/topics/advanced-caph.md#csr-controller) to read more about the CSR controller.
+
 ## :fire: Compatibility with Cluster API and Kubernetes Versions
 
 This provider's versions are compatible with the following versions of Cluster API:
@@ -90,6 +126,7 @@ Each version of Cluster API for Hetzner will attempt to support at least two Kub
 
 
 ## :white_square_button: Operating System Images
+
 **Note**: Cluster API Provider Hetzner relies on a few prerequisites, which have to be already installed in the used operating system images, e.g. a container runtime, kubelet, and Kubeadm. Reference images can be found in kubernetes-sigs/image-builder and [templates/node-image](templates/node-image). If it isn't possible to pre-install these prerequisites in the image, you can always deploy and execute some custom scripts through the Kubeadm config. [Read more...](docs/topics/node-image.md)
 
 ---
@@ -107,7 +144,7 @@ To set up your environment, try out the development guide.
 
 In the interest of getting more new people involved, we tag issues with
 [`good first issue`][good_first_issue].
-These are typically issues that have a smaller scope, but are good to get acquainted with the codebase.
+These are typically issues that have a smaller scope but are good to get acquainted with the codebase.
 
 We also encourage ALL active community participants to act as if they are
 maintainers, even if you don't have "official" write permissions. This is a
@@ -145,7 +182,7 @@ We also use the issue tracker to track features. If you have an idea for a featu
 - Some of our larger features will require some design. If you would like to
   include a technical design for your feature, please include it in the issue.
 - After the new feature is well understood and the design is agreed upon, we can
-  start coding the feature. We would love if you code it. So please open
+  start coding the feature. We would love it if you code it. So please open
   up a **WIP** *(work in progress)* pull request. Happy coding!
 
 <!-- References -->

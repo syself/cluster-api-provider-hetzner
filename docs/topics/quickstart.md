@@ -16,6 +16,7 @@ To create a workload cluster we need to do some preparation:
 For more information about this step, please see [here](./preparation.md)
 
 ## Generate your cluster.yaml
+> Please note that ready-to-use Kubernetes configurations, production-ready node images, kubeadm configuration, cluster add-ons like CNI and similar services need to be separately prepared or acquired to ensure a comprehensive and secure Kubernetes deployment. This is where **Syself Autopilot** comes into play, taking on these challenges to offer you a seamless, worry-free Kubernetes experience. Feel free to contact us via e-mail: info@syself.com.
 
 The clusterctl generate cluster command returns a YAML template for creating a workload cluster.
 It generates a YAML file named `my-cluster.yaml` with a predefined list of Cluster API objects (`Cluster`, `Machines`, `MachineDeployments`, etc.) to be deployed in the current namespace. With the `--target-namespace` flag, you can specify a different target namespace.
