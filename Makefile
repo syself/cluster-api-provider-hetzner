@@ -645,7 +645,7 @@ ifeq ($(BUILD_IN_CONTAINER),true)
 else
 	go version
 	golangci-lint version
-	GO111MODULE=on golangci-lint run -v --fix
+	golangci-lint run -v --fix
 endif
 
 .PHONY: format-starlark
@@ -678,7 +678,7 @@ ifeq ($(BUILD_IN_CONTAINER),true)
 else
 	go version
 	golangci-lint version
-	GO111MODULE=on golangci-lint run -v
+	golangci-lint run -v
 endif
 
 .PHONY: lint-golang-ci
@@ -691,7 +691,7 @@ ifeq ($(BUILD_IN_CONTAINER),true)
 else
 	go version
 	golangci-lint version
-	GO111MODULE=on golangci-lint run -v --out-format=github-actions
+	golangci-lint run -v --out-format=github-actions
 endif
 
 .PHONY: lint-yaml

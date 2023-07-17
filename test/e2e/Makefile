@@ -16,15 +16,7 @@
 # If you update this file, please follow:
 # https://suva.sh/posts/well-documented-makefiles/
 
-# Use GOPROXY environment variable if set
-
 .DEFAULT_GOAL:=help
-
-GOPROXY := $(shell go env GOPROXY)
-ifeq ($(GOPROXY),)
-GOPROXY := https://proxy.golang.org
-endif
-export GOPROXY
 
 REPO_ROOT := $(shell git rev-parse --show-toplevel)
 

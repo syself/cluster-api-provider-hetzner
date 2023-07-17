@@ -15,6 +15,7 @@ on:
       - ".github/workflows/pr-*"
       - "images/caph/**"
       - "!**/vendor/**"
+      - "test/e2e/**"
 env:
   IMAGE_NAME: caph-staging
   REGISTRY: ghcr.io/syself
