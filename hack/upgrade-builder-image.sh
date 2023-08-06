@@ -25,7 +25,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-if [ -z "$BUILDER_IMAGE" ]; then
+if [ -z "${BUILDER_IMAGE:-}" ]; then
   echo "Please provide BUILDER_IMAGE as env var"
   exit 1
 fi
@@ -36,7 +36,7 @@ cd "${REPO_ROOT}" || exit 1
 
 source "${REPO_ROOT}/hack/semver-upgrade.sh"
 
-if git diff --exit-code images/builder/Dockerfile images/builder/build.sh > /dev/null; then
+if git diff --exit-code .builder-image-version.txt images/builder/Dockerfile images/builder/build.sh > /dev/null; then
   echo "nothing seems to have changed."
   exit 0
 fi
@@ -61,5 +61,13 @@ if ! docker manifest inspect "$BUILDER_IMAGE:$VERSION" > /dev/null; then
 fi
 echo "$NEW_VERSION" > .builder-image-version.txt
 echo "Wrote new version $NEW_VERSION to .builder-image-version.txt"
-docker build -t "$BUILDER_IMAGE:$NEW_VERSION" ./images/builder
-docker push "$BUILDER_IMAGE:$NEW_VERSION"
+
+if docker manifest inspect ghcr.io/syself/caph-builder:${NEW_VERSION} > /dev/null ; echo $?; then
+  
+  sed -i -e "/^BUILDER_IMAGE_VERSION /s/:=.*$/:= ${NEW_VERSION}/" Makefile
+  grep -r -E 'ghcr.io/syself/caph-builder:[0-9].*.*' -l | xargs sed -i -e "s/ghcr.io\/syself\/caph-builder:${VERSION}/ghcr.io\/syself\/caph-builder:${NEW_VERSION}/g"
+  docker build -t ghcr.io/syself/caph-builder:${NEW_VERSION}  ./images/builder
+  docker push ghcr.io/syself/caph-builder:${NEW_VERSION}
+else
+  exit 1
+fi
