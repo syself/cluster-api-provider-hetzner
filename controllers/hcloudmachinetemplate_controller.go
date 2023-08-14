@@ -120,6 +120,10 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
+	if !machineTemplate.DeletionTimestamp.IsZero() {
+		return reconcile.Result{}, r.reconcileDelete(machineTemplateScope)
+	}
+
 	return reconcile.Result{}, r.reconcile(ctx, machineTemplateScope)
 }
 
@@ -140,6 +144,11 @@ func (r *HCloudMachineTemplateReconciler) reconcile(ctx context.Context, machine
 			hcloudMachineTemplate.Namespace, hcloudMachineTemplate.Name, err)
 	}
 
+	return nil
+}
+
+func (r *HCloudMachineTemplateReconciler) reconcileDelete(machineTemplateScope *scope.HCloudMachineTemplateScope) error {
+	controllerutil.RemoveFinalizer(machineTemplateScope.HCloudMachineTemplate, infrav1.MachineFinalizer)
 	return nil
 }
 
