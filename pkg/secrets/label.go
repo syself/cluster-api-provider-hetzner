@@ -20,6 +20,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -32,19 +33,15 @@ const (
 // AddSecretSelector adds a selector to a cache.SelectorsByObject that filters
 // Secrets so that only those labelled as part of the environment get
 // cached. The input may be nil.
-func AddSecretSelector(selectors cache.SelectorsByObject) cache.SelectorsByObject {
+func AddSecretSelector() map[client.Object]cache.ByObject {
 	secret := &corev1.Secret{}
-	newSelectors := cache.SelectorsByObject{
-		secret: {
-			Label: labels.SelectorFromSet(
-				labels.Set{
-					LabelEnvironmentName: LabelEnvironmentValue,
-				}),
-		},
+	byObject := cache.ByObject{
+		Label: labels.SelectorFromSet(
+			labels.Set{
+				LabelEnvironmentName: LabelEnvironmentValue,
+			}),
 	}
-	if selectors == nil {
-		return newSelectors
-	}
-	selectors[secret] = newSelectors[secret]
-	return selectors
+	m := make(map[client.Object]cache.ByObject)
+	m[secret] = byObject
+	return m
 }

@@ -121,7 +121,7 @@ func CreateRepository(ctx context.Context, input CreateRepositoryInput) string {
 			Type: provider.Type,
 		}
 		providers = append(providers, p)
-		if !(clusterctlv1.ProviderType(provider.Type) == clusterctlv1.IPAMProviderType || clusterctlv1.ProviderType(provider.Type) == clusterctlv1.RuntimeExtensionProviderType) {
+		if !(clusterctlv1.ProviderType(provider.Type) == clusterctlv1.IPAMProviderType || clusterctlv1.ProviderType(provider.Type) == clusterctlv1.RuntimeExtensionProviderType || clusterctlv1.ProviderType(provider.Type) == clusterctlv1.AddonProviderType) {
 			providersV1_2 = append(providersV1_2, p)
 		}
 	}
@@ -274,6 +274,9 @@ func getComponentSourceFromURL(ctx context.Context, source ProviderVersionSource
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to get %s", source.Value)
+		}
+		if resp.StatusCode != http.StatusOK {
+			return nil, errors.Errorf("failed to get %s: got status code %d", source.Value, resp.StatusCode)
 		}
 		defer resp.Body.Close()
 		buf, err = io.ReadAll(resp.Body)

@@ -73,7 +73,7 @@ type LoadBalancerTypeListOpts struct {
 }
 
 func (l LoadBalancerTypeListOpts) values() url.Values {
-	vals := l.ListOpts.values()
+	vals := l.ListOpts.Values()
 	if l.Name != "" {
 		vals.Add("name", l.Name)
 	}
@@ -113,7 +113,7 @@ func (c *LoadBalancerTypeClient) All(ctx context.Context) ([]*LoadBalancerType, 
 
 // AllWithOpts returns all Load Balancer types for the given options.
 func (c *LoadBalancerTypeClient) AllWithOpts(ctx context.Context, opts LoadBalancerTypeListOpts) ([]*LoadBalancerType, error) {
-	var allLoadBalancerTypes []*LoadBalancerType
+	allLoadBalancerTypes := []*LoadBalancerType{}
 
 	err := c.client.all(func(page int) (*Response, error) {
 		opts.Page = page

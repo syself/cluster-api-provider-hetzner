@@ -32,12 +32,12 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/discovery"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 
 	clusterv1alpha3 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	clusterv1alpha4 "sigs.k8s.io/cluster-api/api/v1alpha4"
@@ -89,9 +89,19 @@ type ClusterctlUpgradeSpecInput struct {
 	// InitWithRuntimeExtensionProviders specifies the runtime extension provider versions to add to the secondary management cluster, e.g. `test:v0.0.1`.
 	// If not set, the runtime extension provider version is calculated based on the contract.
 	InitWithRuntimeExtensionProviders []string
+	// InitWithAddonProviders specifies the add-on provider versions to add to the secondary management cluster, e.g. `helm:v0.0.1`.
+	// If not set, the add-on provider version is calculated based on the contract.
+	InitWithAddonProviders []string
 	// UpgradeClusterctlVariables can be used to set additional variables for clusterctl upgrade.
 	UpgradeClusterctlVariables map[string]string
 	SkipCleanup                bool
+
+	// InfrastructureProviders specifies the infrastructure to use for clusterctl
+	// operations (Example: get cluster templates).
+	// Note: In most cases this need not be specified. It only needs to be specified when
+	// multiple infrastructure providers (ex: CAPD + in-memory) are installed on the cluster as clusterctl will not be
+	// able to identify the default.
+	InfrastructureProvider *string
 	// PreWaitForCluster is a function that can be used as a hook to apply extra resources (that cannot be part of the template) in the generated namespace hosting the cluster
 	// This function is called after applying the cluster template and before waiting for the cluster resources.
 	PreWaitForCluster   func(managementClusterProxy framework.ClusterProxy, workloadClusterNamespace string, workloadClusterName string)
@@ -105,6 +115,8 @@ type ClusterctlUpgradeSpecInput struct {
 	MgmtFlavor                  string
 	CNIManifestPath             string
 	WorkloadFlavor              string
+	// WorkloadKubernetesVersion is Kubernetes version used to create the workload cluster, e.g. `v1.25.0`
+	WorkloadKubernetesVersion string
 	// Custom providers can be specified to upgrade to a pre-release or a custom version instead of upgrading to the latest using contact
 	CoreProvider              string
 	BootstrapProviders        []string
@@ -112,6 +124,7 @@ type ClusterctlUpgradeSpecInput struct {
 	InfrastructureProviders   []string
 	IPAMProviders             []string
 	RuntimeExtensionProviders []string
+	AddonProviders            []string
 }
 
 // ClusterctlUpgradeSpec implements a test that verifies clusterctl upgrade of a management cluster.
@@ -210,6 +223,10 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 		By("Creating a workload cluster to be used as a new management cluster")
 		// NOTE: given that the bootstrap cluster could be shared by several tests, it is not practical to use it for testing clusterctl upgrades.
 		// So we are creating a workload cluster that will be used as a new management cluster where to install older version of providers
+		infrastructureProvider := clusterctl.DefaultInfrastructureProvider
+		if input.InfrastructureProvider != nil {
+			infrastructureProvider = *input.InfrastructureProvider
+		}
 		managementClusterName = fmt.Sprintf("%s-%s", specName, util.RandomString(6))
 		clusterctl.ApplyClusterTemplateAndWait(ctx, clusterctl.ApplyClusterTemplateAndWaitInput{
 			ClusterProxy: input.BootstrapClusterProxy,
@@ -217,7 +234,7 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 				LogFolder:                filepath.Join(input.ArtifactFolder, "clusters", input.BootstrapClusterProxy.GetName()),
 				ClusterctlConfigPath:     input.ClusterctlConfigPath,
 				KubeconfigPath:           input.BootstrapClusterProxy.GetKubeconfigPath(),
-				InfrastructureProvider:   clusterctl.DefaultInfrastructureProvider,
+				InfrastructureProvider:   infrastructureProvider,
 				Flavor:                   input.MgmtFlavor,
 				Namespace:                managementClusterNamespace.Name,
 				ClusterName:              managementClusterName,
@@ -280,6 +297,7 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 			infrastructureProviders   []string
 			ipamProviders             []string
 			runtimeExtensionProviders []string
+			addonProviders            []string
 		)
 
 		coreProvider = input.E2EConfig.GetProviderLatestVersionsByContract(initContract, config.ClusterAPIProviderName)[0]
@@ -297,6 +315,8 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 			input.E2EConfig.GetProviderLatestVersionsByContract(initContract, input.E2EConfig.IPAMProviders()...))
 		runtimeExtensionProviders = getValueOrFallback(input.InitWithRuntimeExtensionProviders,
 			input.E2EConfig.GetProviderLatestVersionsByContract(initContract, input.E2EConfig.RuntimeExtensionProviders()...))
+		addonProviders = getValueOrFallback(input.InitWithAddonProviders,
+			input.E2EConfig.GetProviderLatestVersionsByContract(initContract, input.E2EConfig.AddonProviders()...))
 
 		clusterctl.InitManagementClusterAndWatchControllerLogs(ctx, clusterctl.InitManagementClusterAndWatchControllerLogsInput{
 			ClusterctlBinaryPath:      clusterctlBinaryPath, // use older version of clusterctl to init the management cluster
@@ -308,6 +328,7 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 			InfrastructureProviders:   infrastructureProviders,
 			IPAMProviders:             ipamProviders,
 			RuntimeExtensionProviders: runtimeExtensionProviders,
+			AddonProviders:            addonProviders,
 			LogFolder:                 filepath.Join(input.ArtifactFolder, "clusters", cluster.Name),
 		}, input.E2EConfig.GetIntervals(specName, "wait-controllers")...)
 
@@ -328,7 +349,10 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 		// so we are getting a template using the downloaded version of clusterctl, applying it, and wait for machines to be provisioned.
 
 		workLoadClusterName = fmt.Sprintf("%s-%s", specName, util.RandomString(6))
-		kubernetesVersion := input.E2EConfig.GetVariable(KubernetesVersion)
+		kubernetesVersion := input.WorkloadKubernetesVersion
+		if kubernetesVersion == "" {
+			kubernetesVersion = input.E2EConfig.GetVariable(KubernetesVersion)
+		}
 		controlPlaneMachineCount := pointer.Int64(1)
 		workerMachineCount := pointer.Int64(1)
 
@@ -349,7 +373,7 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 			KubernetesVersion:        kubernetesVersion,
 			ControlPlaneMachineCount: controlPlaneMachineCount,
 			WorkerMachineCount:       workerMachineCount,
-			InfrastructureProvider:   clusterctl.DefaultInfrastructureProvider,
+			InfrastructureProvider:   infrastructureProvider,
 			// setup clusterctl logs folder
 			LogFolder: filepath.Join(input.ArtifactFolder, "clusters", managementClusterProxy.GetName()),
 		})
@@ -363,7 +387,7 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 			input.PreWaitForCluster(managementClusterProxy, testNamespace.Name, workLoadClusterName)
 		}
 
-		By("Waiting for the machines to exists")
+		By("Waiting for the machines to exist")
 		Eventually(func() (int64, error) {
 			var n int64
 			machineList := &clusterv1alpha3.MachineList{}
@@ -394,14 +418,15 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 			client.InNamespace(testNamespace.Name),
 			client.MatchingLabels{clusterv1.ClusterNameLabel: workLoadClusterName},
 		)
-		Expect(err).NotTo(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred())
 		// Check if the user want a custom upgrade
 		isCustomUpgrade := input.CoreProvider != "" ||
 			len(input.BootstrapProviders) > 0 ||
 			len(input.ControlPlaneProviders) > 0 ||
 			len(input.InfrastructureProviders) > 0 ||
 			len(input.IPAMProviders) > 0 ||
-			len(input.RuntimeExtensionProviders) > 0
+			len(input.RuntimeExtensionProviders) > 0 ||
+			len(input.AddonProviders) > 0
 
 		if isCustomUpgrade {
 			By("Upgrading providers to custom versions")
@@ -415,6 +440,7 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 				InfrastructureProviders:   input.InfrastructureProviders,
 				IPAMProviders:             input.IPAMProviders,
 				RuntimeExtensionProviders: input.RuntimeExtensionProviders,
+				AddonProviders:            input.AddonProviders,
 				LogFolder:                 filepath.Join(input.ArtifactFolder, "clusters", cluster.Name),
 			}, input.E2EConfig.GetIntervals(specName, "wait-controllers")...)
 		} else {
@@ -446,8 +472,8 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 				client.InNamespace(testNamespace.Name),
 				client.MatchingLabels{clusterv1.ClusterNameLabel: workLoadClusterName},
 			)
-			Expect(err).NotTo(HaveOccurred())
-			return matchUnstructuredLists(preUpgradeMachineList, postUpgradeMachineList)
+			Expect(err).ToNot(HaveOccurred())
+			return validateMachineRollout(preUpgradeMachineList, postUpgradeMachineList)
 		}, "3m", "30s").Should(BeTrue(), "Machines should remain the same after the upgrade")
 
 		// After upgrading we are sure the version is the latest version of the API,
@@ -713,25 +739,56 @@ func waitForClusterDeletedV1alpha4(ctx context.Context, input waitForClusterDele
 	}, intervals...).Should(BeTrue())
 }
 
-func matchUnstructuredLists(l1 *unstructured.UnstructuredList, l2 *unstructured.UnstructuredList) bool {
-	if l1 == nil && l2 == nil {
+// validateMachineRollout compares preMachineList and postMachineList to detect a rollout.
+// Note: we are using unstructured lists because the Machines have different apiVersions.
+func validateMachineRollout(preMachineList, postMachineList *unstructured.UnstructuredList) bool {
+	if preMachineList == nil && postMachineList == nil {
 		return true
 	}
-	if l1 == nil || l2 == nil {
+	if preMachineList == nil || postMachineList == nil {
 		return false
 	}
-	if len(l1.Items) != len(l2.Items) {
-		return false
+
+	if names(preMachineList).Equal(names(postMachineList)) {
+		return true
 	}
-	s1 := sets.Set[string]{}
-	for _, i := range l1.Items {
-		s1.Insert(types.NamespacedName{Namespace: i.GetNamespace(), Name: i.GetName()}.String())
+
+	log.Logf("Rollout detected")
+	newMachines := names(postMachineList).Difference(names(preMachineList))
+	deletedMachines := names(preMachineList).Difference(names(postMachineList))
+
+	if len(newMachines) > 0 {
+		log.Logf("Detected new Machines")
+		for _, obj := range postMachineList.Items {
+			obj := obj
+			if newMachines.Has(obj.GetName()) {
+				resourceYAML, err := yaml.Marshal(obj)
+				Expect(err).ToNot(HaveOccurred())
+				log.Logf("New Machine %s:\n%s", klog.KObj(&obj), resourceYAML)
+			}
+		}
 	}
-	s2 := sets.Set[string]{}
-	for _, i := range l2.Items {
-		s2.Insert(types.NamespacedName{Namespace: i.GetNamespace(), Name: i.GetName()}.String())
+
+	if len(deletedMachines) > 0 {
+		log.Logf("Detected deleted Machines")
+		for _, obj := range preMachineList.Items {
+			obj := obj
+			if deletedMachines.Has(obj.GetName()) {
+				resourceYAML, err := yaml.Marshal(obj)
+				Expect(err).ToNot(HaveOccurred())
+				log.Logf("Deleted Machine %s:\n%s", klog.KObj(&obj), resourceYAML)
+			}
+		}
 	}
-	return s1.Equal(s2)
+	return false
+}
+
+func names(objs *unstructured.UnstructuredList) sets.Set[string] {
+	ret := sets.Set[string]{}
+	for _, obj := range objs.Items {
+		ret.Insert(obj.GetName())
+	}
+	return ret
 }
 
 // getValueOrFallback returns the input value unless it is empty, then it returns the fallback input.

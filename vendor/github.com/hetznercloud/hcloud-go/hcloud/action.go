@@ -102,7 +102,7 @@ type ActionListOpts struct {
 }
 
 func (l ActionListOpts) values() url.Values {
-	vals := l.ListOpts.values()
+	vals := l.ListOpts.Values()
 	for _, id := range l.ID {
 		vals.Add("id", fmt.Sprintf("%d", id))
 	}
@@ -145,7 +145,7 @@ func (c *ActionClient) All(ctx context.Context) ([]*Action, error) {
 
 // AllWithOpts returns all actions for the given options.
 func (c *ActionClient) AllWithOpts(ctx context.Context, opts ActionListOpts) ([]*Action, error) {
-	var allActions []*Action
+	allActions := []*Action{}
 
 	err := c.client.all(func(page int) (*Response, error) {
 		opts.Page = page
@@ -189,13 +189,15 @@ func (c *ActionClient) WatchOverallProgress(ctx context.Context, actions []*Acti
 		defer close(errCh)
 		defer close(progressCh)
 
-		successIDs := make([]int, 0, len(actions))
+		completedIDs := make([]int, 0, len(actions))
 		watchIDs := make(map[int]struct{}, len(actions))
+
 		for _, action := range actions {
 			watchIDs[action.ID] = struct{}{}
 		}
 
 		retries := 0
+		previousProgress := 0
 
 		for {
 			select {
@@ -216,19 +218,33 @@ func (c *ActionClient) WatchOverallProgress(ctx context.Context, actions []*Acti
 				errCh <- err
 				return
 			}
+			if len(as) == 0 {
+				// No actions returned for the provided IDs, they do not exist in the API.
+				// We need to catch and fail early for this, otherwise the loop will continue
+				// indefinitely.
+				errCh <- fmt.Errorf("failed to wait for actions: remaining actions (%v) are not returned from API", opts.ID)
+				return
+			}
 
+			progress := 0
 			for _, a := range as {
 				switch a.Status {
 				case ActionStatusRunning:
-					continue
+					progress += a.Progress
 				case ActionStatusSuccess:
 					delete(watchIDs, a.ID)
-					successIDs := append(successIDs, a.ID)
-					sendProgress(progressCh, int(float64(len(actions)-len(successIDs))/float64(len(actions))*100))
+					completedIDs = append(completedIDs, a.ID)
 				case ActionStatusError:
 					delete(watchIDs, a.ID)
+					completedIDs = append(completedIDs, a.ID)
 					errCh <- fmt.Errorf("action %d failed: %w", a.ID, a.Error())
 				}
+			}
+
+			progress += (len(completedIDs) * 100)
+			if progress != 0 && progress != previousProgress {
+				sendProgress(progressCh, int(progress/len(actions)))
+				previousProgress = progress
 			}
 
 			if len(watchIDs) == 0 {
@@ -280,6 +296,10 @@ func (c *ActionClient) WatchProgress(ctx context.Context, action *Action) (<-cha
 			a, _, err := c.GetByID(ctx, action.ID)
 			if err != nil {
 				errCh <- err
+				return
+			}
+			if a == nil {
+				errCh <- fmt.Errorf("failed to wait for action %d: action not returned from API", action.ID)
 				return
 			}
 

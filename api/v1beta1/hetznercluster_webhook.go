@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
@@ -68,7 +69,7 @@ func (r *HetznerCluster) Default() {}
 var _ webhook.Validator = &HetznerCluster{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
-func (r *HetznerCluster) ValidateCreate() error {
+func (r *HetznerCluster) ValidateCreate() (admission.Warnings, error) {
 	hetznerclusterlog.V(1).Info("validate create", "name", r.Name)
 	var allErrs field.ErrorList
 
@@ -126,7 +127,7 @@ func (r *HetznerCluster) ValidateCreate() error {
 		allErrs = append(allErrs, err)
 	}
 
-	return aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
+	return nil, aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
 }
 
 func isNetworkZoneSameForAllRegions(regions []Region, defaultNetworkZone *string) *field.Error {
@@ -147,13 +148,13 @@ func isNetworkZoneSameForAllRegions(regions []Region, defaultNetworkZone *string
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
-func (r *HetznerCluster) ValidateUpdate(old runtime.Object) error {
+func (r *HetznerCluster) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 	hetznerclusterlog.V(1).Info("validate update", "name", r.Name)
 	var allErrs field.ErrorList
 
 	oldC, ok := old.(*HetznerCluster)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected an HetznerCluster but got a %T", old))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected an HetznerCluster but got a %T", old))
 	}
 
 	// Network settings are immutable
@@ -199,7 +200,7 @@ func (r *HetznerCluster) ValidateUpdate(old runtime.Object) error {
 		allErrs = append(allErrs, err)
 	}
 
-	return aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
+	return nil, aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
 }
 
 func (r *HetznerCluster) validateHetznerSecretKey() *field.Error {
@@ -216,7 +217,7 @@ func (r *HetznerCluster) validateHetznerSecretKey() *field.Error {
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
-func (r *HetznerCluster) ValidateDelete() error {
+func (r *HetznerCluster) ValidateDelete() (admission.Warnings, error) {
 	hetznerclusterlog.V(1).Info("validate delete", "name", r.Name)
-	return nil
+	return nil, nil
 }

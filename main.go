@@ -99,9 +99,9 @@ func main() {
 		LeaderElectionResourceLock:    "leases",
 		LeaderElectionReleaseOnCancel: true,
 		Namespace:                     watchNamespace,
-		NewCache: cache.BuilderWithOptions(cache.Options{
-			SelectorsByObject: secretutil.AddSecretSelector(nil),
-		}),
+		Cache: cache.Options{
+			ByObject: secretutil.AddSecretSelector(),
+		},
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")

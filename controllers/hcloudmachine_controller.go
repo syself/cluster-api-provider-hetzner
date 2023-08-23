@@ -206,11 +206,11 @@ func (r *HCloudMachineReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 		For(&infrav1.HCloudMachine{}).
 		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(log, r.WatchFilterValue)).
 		Watches(
-			&source.Kind{Type: &clusterv1.Machine{}},
+			&clusterv1.Machine{},
 			handler.EnqueueRequestsFromMapFunc(util.MachineToInfrastructureMapFunc(infrav1.GroupVersion.WithKind("HCloudMachine"))),
 		).
 		Watches(
-			&source.Kind{Type: &infrav1.HetznerCluster{}},
+			&infrav1.HetznerCluster{},
 			handler.EnqueueRequestsFromMapFunc(r.HetznerClusterToHCloudMachines(ctx)),
 		).
 		Build(r)
@@ -225,7 +225,7 @@ func (r *HCloudMachineReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 
 	// Add a watch on clusterv1.Cluster object for unpause & ready notifications.
 	if err := c.Watch(
-		&source.Kind{Type: &clusterv1.Cluster{}},
+		source.Kind(mgr.GetCache(), &clusterv1.Cluster{}),
 		handler.EnqueueRequestsFromMapFunc(clusterToObjectFunc),
 		predicates.ClusterUnpausedAndInfrastructureReady(log),
 	); err != nil {
@@ -237,8 +237,8 @@ func (r *HCloudMachineReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 
 // HetznerClusterToHCloudMachines is a handler.ToRequestsFunc to be used to enqeue requests for reconciliation
 // of HCloudMachines.
-func (r *HCloudMachineReconciler) HetznerClusterToHCloudMachines(ctx context.Context) handler.MapFunc {
-	return func(o client.Object) []reconcile.Request {
+func (r *HCloudMachineReconciler) HetznerClusterToHCloudMachines(_ context.Context) handler.MapFunc {
+	return func(ctx context.Context, o client.Object) []reconcile.Request {
 		result := []reconcile.Request{}
 
 		log := log.FromContext(ctx)

@@ -59,6 +59,9 @@ type InitOptions struct {
 	// RuntimeExtensionProviders and versions (e.g. test:v0.0.1) to add to the management cluster.
 	RuntimeExtensionProviders []string
 
+	// AddonProviders and versions (e.g. helm:v0.1.0) to add to the management cluster.
+	AddonProviders []string
+
 	// TargetNamespace defines the namespace where the providers should be deployed. If unspecified, each provider
 	// will be installed in a provider's default namespace.
 	TargetNamespace string
@@ -88,6 +91,12 @@ type InitOptions struct {
 // Init initializes a management cluster by adding the requested list of providers.
 func (c *clusterctlClient) Init(options InitOptions) ([]Components, error) {
 	log := logf.Log
+
+	// Default WaitProviderTimeout as we cannot rely on defaulting in the CLI
+	// when clusterctl is used as a library.
+	if options.WaitProviderTimeout.Nanoseconds() == 0 {
+		options.WaitProviderTimeout = time.Duration(5*60) * time.Second
+	}
 
 	// gets access to the management cluster
 	clusterClient, err := c.clusterClientFactory(ClusterClientFactoryInput{Kubeconfig: options.Kubeconfig})
@@ -252,6 +261,10 @@ func (c *clusterctlClient) setupInstaller(cluster cluster.Client, options InitOp
 	}
 
 	if err := c.addToInstaller(addOptions, clusterctlv1.RuntimeExtensionProviderType, options.RuntimeExtensionProviders...); err != nil {
+		return nil, err
+	}
+
+	if err := c.addToInstaller(addOptions, clusterctlv1.AddonProviderType, options.AddonProviders...); err != nil {
 		return nil, err
 	}
 

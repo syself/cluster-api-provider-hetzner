@@ -84,7 +84,7 @@ type PlacementGroupListOpts struct {
 }
 
 func (l PlacementGroupListOpts) values() url.Values {
-	vals := l.ListOpts.values()
+	vals := l.ListOpts.Values()
 	if l.Name != "" {
 		vals.Add("name", l.Name)
 	}
@@ -133,7 +133,7 @@ func (c *PlacementGroupClient) All(ctx context.Context) ([]*PlacementGroup, erro
 
 // AllWithOpts returns all PlacementGroups for the given options.
 func (c *PlacementGroupClient) AllWithOpts(ctx context.Context, opts PlacementGroupListOpts) ([]*PlacementGroup, error) {
-	var allPlacementGroups []*PlacementGroup
+	allPlacementGroups := []*PlacementGroup{}
 
 	err := c.client.all(func(page int) (*Response, error) {
 		opts.Page = page

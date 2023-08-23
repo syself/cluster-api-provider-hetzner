@@ -71,6 +71,9 @@ func CreateKindBootstrapClusterAndLoadImages(ctx context.Context, input CreateKi
 	if input.IPFamily == "IPv6" {
 		options = append(options, WithIPv6Family())
 	}
+	if input.IPFamily == "dual" {
+		options = append(options, WithDualStackFamily())
+	}
 	if input.LogFolder != "" {
 		options = append(options, LogFolder(input.LogFolder))
 	}
@@ -89,7 +92,7 @@ func CreateKindBootstrapClusterAndLoadImages(ctx context.Context, input CreateKi
 	})
 	if err != nil {
 		clusterProvider.Dispose(ctx)
-		Expect(err).NotTo(HaveOccurred()) // re-surface the error to fail the test
+		Expect(err).ToNot(HaveOccurred()) // re-surface the error to fail the test
 	}
 
 	return clusterProvider

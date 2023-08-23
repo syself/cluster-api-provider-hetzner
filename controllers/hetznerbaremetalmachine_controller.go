@@ -194,19 +194,19 @@ func (r *HetznerBareMetalMachineReconciler) SetupWithManager(ctx context.Context
 		For(&infrav1.HetznerBareMetalMachine{}).
 		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(log, r.WatchFilterValue)).
 		Watches(
-			&source.Kind{Type: &clusterv1.Machine{}},
+			&clusterv1.Machine{},
 			handler.EnqueueRequestsFromMapFunc(util.MachineToInfrastructureMapFunc(infrav1.GroupVersion.WithKind("HetznerBareMetalMachine"))),
 		).
 		Watches(
-			&source.Kind{Type: &infrav1.HetznerCluster{}},
+			&infrav1.HetznerCluster{},
 			handler.EnqueueRequestsFromMapFunc(r.HetznerClusterToBareMetalMachines(ctx, log)),
 		).
 		Watches(
-			&source.Kind{Type: &clusterv1.Cluster{}},
+			&clusterv1.Cluster{},
 			handler.EnqueueRequestsFromMapFunc(r.ClusterToBareMetalMachines(ctx, log)),
 		).
 		Watches(
-			&source.Kind{Type: &infrav1.HetznerBareMetalHost{}},
+			&infrav1.HetznerBareMetalHost{},
 			handler.EnqueueRequestsFromMapFunc(r.BareMetalHostToBareMetalMachines(log)),
 		).
 		Build(r)
@@ -221,7 +221,7 @@ func (r *HetznerBareMetalMachineReconciler) SetupWithManager(ctx context.Context
 
 	// Add a watch on clusterv1.Cluster object for unpause & ready notifications.
 	if err := c.Watch(
-		&source.Kind{Type: &clusterv1.Cluster{}},
+		source.Kind(mgr.GetCache(), &clusterv1.Cluster{}),
 		handler.EnqueueRequestsFromMapFunc(clusterToObjectFunc),
 		predicates.ClusterUnpausedAndInfrastructureReady(log),
 	); err != nil {
@@ -234,7 +234,7 @@ func (r *HetznerBareMetalMachineReconciler) SetupWithManager(ctx context.Context
 // HetznerClusterToBareMetalMachines is a handler.ToRequestsFunc to be used to enqeue requests for reconciliation
 // of BareMetalMachines.
 func (r *HetznerBareMetalMachineReconciler) HetznerClusterToBareMetalMachines(ctx context.Context, log logr.Logger) handler.MapFunc {
-	return func(o client.Object) []reconcile.Request {
+	return func(_ context.Context, o client.Object) []reconcile.Request {
 		result := []reconcile.Request{}
 
 		c, ok := o.(*infrav1.HetznerCluster)
@@ -287,7 +287,7 @@ func (r *HetznerBareMetalMachineReconciler) HetznerClusterToBareMetalMachines(ct
 // ClusterToBareMetalMachines is a handler.ToRequestsFunc to be used to enqeue
 // requests for reconciliation of BareMetalMachines.
 func (r *HetznerBareMetalMachineReconciler) ClusterToBareMetalMachines(ctx context.Context, log logr.Logger) handler.MapFunc {
-	return func(obj client.Object) []reconcile.Request {
+	return func(_ context.Context, obj client.Object) []reconcile.Request {
 		result := []reconcile.Request{}
 		c, ok := obj.(*clusterv1.Cluster)
 
@@ -323,7 +323,7 @@ func (r *HetznerBareMetalMachineReconciler) ClusterToBareMetalMachines(ctx conte
 // BareMetalHostToBareMetalMachines will return a reconcile request for a BareMetalMachine if the event is for a
 // BareMetalHost and that BareMetalHost references a BareMetalMachine.
 func (r *HetznerBareMetalMachineReconciler) BareMetalHostToBareMetalMachines(log logr.Logger) handler.MapFunc {
-	return func(obj client.Object) []reconcile.Request {
+	return func(_ context.Context, obj client.Object) []reconcile.Request {
 		if host, ok := obj.(*infrav1.HetznerBareMetalHost); ok {
 			if host.Spec.ConsumerRef != nil &&
 				host.Spec.ConsumerRef.Kind == "HetznerBareMetalMachine" &&

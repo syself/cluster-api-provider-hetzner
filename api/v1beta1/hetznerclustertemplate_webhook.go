@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
@@ -51,27 +52,27 @@ func (r *HetznerClusterTemplate) Default() {
 var _ webhook.Validator = &HetznerClusterTemplate{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
-func (r *HetznerClusterTemplate) ValidateCreate() error {
+func (r *HetznerClusterTemplate) ValidateCreate() (admission.Warnings, error) {
 	hetznerclustertemplatelog.V(1).Info("validate create", "name", r.Name)
-	return nil
+	return nil, nil
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
-func (r *HetznerClusterTemplate) ValidateUpdate(oldRaw runtime.Object) error {
+func (r *HetznerClusterTemplate) ValidateUpdate(oldRaw runtime.Object) (admission.Warnings, error) {
 	hetznerclustertemplatelog.V(1).Info("validate update", "name", r.Name)
 	old, ok := oldRaw.(*HetznerClusterTemplate)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected an HetznerClusterTemplate but got a %T", oldRaw))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected an HetznerClusterTemplate but got a %T", oldRaw))
 	}
 
 	if !reflect.DeepEqual(r.Spec, old.Spec) {
-		return apierrors.NewBadRequest("HetznerClusterTemplate.Spec is immutable")
+		return nil, apierrors.NewBadRequest("HetznerClusterTemplate.Spec is immutable")
 	}
-	return nil
+	return nil, nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
-func (r *HetznerClusterTemplate) ValidateDelete() error {
+func (r *HetznerClusterTemplate) ValidateDelete() (admission.Warnings, error) {
 	hetznerclustertemplatelog.V(1).Info("validate delete", "name", r.Name)
-	return nil
+	return nil, nil
 }

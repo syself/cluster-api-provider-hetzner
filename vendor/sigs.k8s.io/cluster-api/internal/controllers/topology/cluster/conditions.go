@@ -43,6 +43,20 @@ func (r *Reconciler) reconcileConditions(s *scope.Scope, cluster *clusterv1.Clus
 //     In such a case, since some of the component's spec would be adrift from the topology the
 //     topology cannot be considered fully reconciled.
 func (r *Reconciler) reconcileTopologyReconciledCondition(s *scope.Scope, cluster *clusterv1.Cluster, reconcileErr error) error {
+	// Mark TopologyReconciled as false due to cluster deletion.
+	if !cluster.ObjectMeta.DeletionTimestamp.IsZero() {
+		conditions.Set(
+			cluster,
+			conditions.FalseCondition(
+				clusterv1.TopologyReconciledCondition,
+				clusterv1.DeletedReason,
+				clusterv1.ConditionSeverityInfo,
+				"",
+			),
+		)
+		return nil
+	}
+
 	// If an error occurred during reconciliation set the TopologyReconciled condition to false.
 	// Add the error message from the reconcile function to the message of the condition.
 	if reconcileErr != nil {
@@ -95,27 +109,39 @@ func (r *Reconciler) reconcileTopologyReconciledCondition(s *scope.Scope, cluste
 	// * either the Control Plane or any of the MachineDeployments are still pending to pick up the new version
 	//  (generally happens when upgrading the cluster)
 	// * when there are MachineDeployments for which the upgrade has been deferred
-	if s.UpgradeTracker.ControlPlane.PendingUpgrade ||
-		s.UpgradeTracker.MachineDeployments.PendingUpgrade() ||
+	// * when new MachineDeployments are pending to be created
+	//  (generally happens when upgrading the cluster)
+	if s.UpgradeTracker.ControlPlane.IsPendingUpgrade ||
+		s.UpgradeTracker.MachineDeployments.IsAnyPendingCreate() ||
+		s.UpgradeTracker.MachineDeployments.IsAnyPendingUpgrade() ||
 		s.UpgradeTracker.MachineDeployments.DeferredUpgrade() {
 		msgBuilder := &strings.Builder{}
 		var reason string
 
+		// TODO(ykakarap): Evaluate potential improvements to building the condition. Multiple causes can trigger the
+		// condition to be false at the same time (Example: ControlPlane.IsPendingUpgrade and MachineDeployments.IsAnyPendingCreate can
+		// occur at the same time). Find better wording and `Reason` for the condition so that the condition can be rich
+		// with all the relevant information.
 		switch {
-		case s.UpgradeTracker.ControlPlane.PendingUpgrade:
-			msgBuilder.WriteString(fmt.Sprintf("Control plane upgrade to %s on hold.", s.Blueprint.Topology.Version))
+		case s.UpgradeTracker.ControlPlane.IsPendingUpgrade:
+			fmt.Fprintf(msgBuilder, "Control plane rollout and upgrade to version %s on hold.", s.Blueprint.Topology.Version)
 			reason = clusterv1.TopologyReconciledControlPlaneUpgradePendingReason
-		case s.UpgradeTracker.MachineDeployments.PendingUpgrade():
-			msgBuilder.WriteString(fmt.Sprintf("MachineDeployment(s) %s upgrade to version %s on hold.",
-				computeMachineDeploymentNameList(s.UpgradeTracker.MachineDeployments.PendingUpgradeNames()),
+		case s.UpgradeTracker.MachineDeployments.IsAnyPendingUpgrade():
+			fmt.Fprintf(msgBuilder, "MachineDeployment(s) %s rollout and upgrade to version %s on hold.",
+				computeNameList(s.UpgradeTracker.MachineDeployments.PendingUpgradeNames()),
 				s.Blueprint.Topology.Version,
-			))
+			)
 			reason = clusterv1.TopologyReconciledMachineDeploymentsUpgradePendingReason
+		case s.UpgradeTracker.MachineDeployments.IsAnyPendingCreate():
+			fmt.Fprintf(msgBuilder, "MachineDeployment(s) for Topologies %s creation on hold.",
+				computeNameList(s.UpgradeTracker.MachineDeployments.PendingCreateTopologyNames()),
+			)
+			reason = clusterv1.TopologyReconciledMachineDeploymentsCreatePendingReason
 		case s.UpgradeTracker.MachineDeployments.DeferredUpgrade():
-			msgBuilder.WriteString(fmt.Sprintf("MachineDeployment(s) %s upgrade to version %s deferred.",
-				computeMachineDeploymentNameList(s.UpgradeTracker.MachineDeployments.DeferredUpgradeNames()),
+			fmt.Fprintf(msgBuilder, "MachineDeployment(s) %s rollout and upgrade to version %s deferred.",
+				computeNameList(s.UpgradeTracker.MachineDeployments.DeferredUpgradeNames()),
 				s.Blueprint.Topology.Version,
-			))
+			)
 			reason = clusterv1.TopologyReconciledMachineDeploymentsUpgradeDeferredReason
 		}
 
@@ -128,15 +154,15 @@ func (r *Reconciler) reconcileTopologyReconciledCondition(s *scope.Scope, cluste
 			if err != nil {
 				return errors.Wrap(err, "failed to get control plane spec version")
 			}
-			msgBuilder.WriteString(fmt.Sprintf(" Control plane is upgrading to version %s", *cpVersion))
+			fmt.Fprintf(msgBuilder, " Control plane is upgrading to version %s", *cpVersion)
 
 		case s.UpgradeTracker.ControlPlane.IsScaling:
 			msgBuilder.WriteString(" Control plane is reconciling desired replicas")
 
-		case s.Current.MachineDeployments.IsAnyRollingOut():
-			msgBuilder.WriteString(fmt.Sprintf(" MachineDeployment(s) %s are rolling out",
-				computeMachineDeploymentNameList(s.UpgradeTracker.MachineDeployments.RolloutNames()),
-			))
+		case len(s.UpgradeTracker.MachineDeployments.UpgradingNames()) > 0:
+			fmt.Fprintf(msgBuilder, " MachineDeployment(s) %s are upgrading",
+				computeNameList(s.UpgradeTracker.MachineDeployments.UpgradingNames()),
+			)
 		}
 
 		conditions.Set(
@@ -162,12 +188,13 @@ func (r *Reconciler) reconcileTopologyReconciledCondition(s *scope.Scope, cluste
 	return nil
 }
 
-// computeMachineDeploymentNameList computes the MD name list to be shown in conditions.
-// It shortens the list to at most 5 MachineDeployment names.
-func computeMachineDeploymentNameList(mdList []string) any {
-	if len(mdList) > 5 {
-		mdList = append(mdList[:5], "...")
+// computeNameList computes list of names form the given list to be shown in conditions.
+// It shortens the list to at most 5 names and adds an ellipsis at the end if the list
+// has more than 5 elements.
+func computeNameList(list []string) any {
+	if len(list) > 5 {
+		list = append(list[:5], "...")
 	}
 
-	return strings.Join(mdList, ", ")
+	return strings.Join(list, ", ")
 }

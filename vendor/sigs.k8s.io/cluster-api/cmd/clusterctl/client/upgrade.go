@@ -121,6 +121,9 @@ type ApplyUpgradeOptions struct {
 	// RuntimeExtensionProviders instance and versions (e.g. runtime-extension-system/test:v0.0.1) to upgrade to. This field can be used as alternative to Contract.
 	RuntimeExtensionProviders []string
 
+	// AddonProviders instance and versions (e.g. caaph-system/helm:v0.1.0) to upgrade to. This field can be used as alternative to Contract.
+	AddonProviders []string
+
 	// WaitProviders instructs the upgrade apply command to wait till the providers are successfully upgraded.
 	WaitProviders bool
 
@@ -131,6 +134,12 @@ type ApplyUpgradeOptions struct {
 func (c *clusterctlClient) ApplyUpgrade(options ApplyUpgradeOptions) error {
 	if options.Contract != "" && options.Contract != clusterv1.GroupVersion.Version {
 		return errors.Errorf("current version of clusterctl could only upgrade to %s contract, requested %s", clusterv1.GroupVersion.Version, options.Contract)
+	}
+
+	// Default WaitProviderTimeout as we cannot rely on defaulting in the CLI
+	// when clusterctl is used as a library.
+	if options.WaitProviderTimeout.Nanoseconds() == 0 {
+		options.WaitProviderTimeout = time.Duration(5*60) * time.Second
 	}
 
 	// Get the client for interacting with the management cluster.
@@ -169,7 +178,8 @@ func (c *clusterctlClient) ApplyUpgrade(options ApplyUpgradeOptions) error {
 		len(options.ControlPlaneProviders) > 0 ||
 		len(options.InfrastructureProviders) > 0 ||
 		len(options.IPAMProviders) > 0 ||
-		len(options.RuntimeExtensionProviders) > 0
+		len(options.RuntimeExtensionProviders) > 0 ||
+		len(options.AddonProviders) > 0
 
 	opts := cluster.UpgradeOptions{
 		WaitProviders:       options.WaitProviders,
@@ -204,6 +214,10 @@ func (c *clusterctlClient) ApplyUpgrade(options ApplyUpgradeOptions) error {
 			return err
 		}
 		upgradeItems, err = addUpgradeItems(clusterClient, upgradeItems, clusterctlv1.RuntimeExtensionProviderType, options.RuntimeExtensionProviders...)
+		if err != nil {
+			return err
+		}
+		upgradeItems, err = addUpgradeItems(clusterClient, upgradeItems, clusterctlv1.AddonProviderType, options.AddonProviders...)
 		if err != nil {
 			return err
 		}

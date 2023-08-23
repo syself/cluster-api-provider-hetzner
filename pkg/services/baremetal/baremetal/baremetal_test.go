@@ -105,6 +105,7 @@ var _ = Describe("chooseHost", func() {
 			Name:              "hostWithDeletionTimeStamp",
 			Namespace:         defaultNamespace,
 			DeletionTimestamp: &now,
+			Finalizers:        []string{"finalizer"},
 		},
 		Spec: infrav1.HetznerBareMetalHostSpec{
 			Status: infrav1.ControllerGeneratedStatus{

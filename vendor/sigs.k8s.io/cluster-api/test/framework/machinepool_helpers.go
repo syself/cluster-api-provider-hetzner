@@ -19,9 +19,8 @@ package framework
 import (
 	"context"
 	"fmt"
-	"strings"
+	"time"
 
-	"github.com/blang/semver"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/pkg/errors"
@@ -150,23 +149,6 @@ func UpgradeMachinePoolAndWait(ctx context.Context, input UpgradeMachinePoolAndW
 		// Upgrade to new Version.
 		mp.Spec.Template.Spec.Version = &input.UpgradeVersion
 
-		// Drop "-cgroupfs" suffix from BootstrapConfig ref name, i.e. we switch from a
-		// BootstrapConfig with pinned cgroupfs cgroupDriver to the regular BootstrapConfig.
-		// This is a workaround for CAPD, because kind and CAPD only support:
-		// * cgroupDriver cgroupfs for Kubernetes < v1.24
-		// * cgroupDriver systemd for Kubernetes >= v1.24.
-		// We can remove this as soon as we don't test upgrades from Kubernetes < v1.24 anymore with CAPD
-		// or MachinePools are supported in ClusterClass.
-		if mp.Spec.Template.Spec.InfrastructureRef.Kind == "DockerMachinePool" {
-			version, err := semver.ParseTolerant(input.UpgradeVersion)
-			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Failed to parse UpgradeVersion %q", input.UpgradeVersion))
-			if version.GTE(semver.MustParse("1.24.0")) && strings.HasSuffix(mp.Spec.Template.Spec.Bootstrap.ConfigRef.Name, "-cgroupfs") {
-				mp.Spec.Template.Spec.Bootstrap.ConfigRef.Name = strings.TrimSuffix(mp.Spec.Template.Spec.Bootstrap.ConfigRef.Name, "-cgroupfs")
-				// We have to set DataSecretName to nil, so the secret of the new bootstrap ConfigRef gets picked up.
-				mp.Spec.Template.Spec.Bootstrap.DataSecretName = nil
-			}
-		}
-
 		Eventually(func() error {
 			return patchHelper.Patch(ctx, mp)
 		}, retryableOperationTimeout, retryableOperationInterval).Should(Succeed(), "Failed to patch the new Kubernetes version to Machine Pool %s", klog.KObj(mp))
@@ -240,11 +222,11 @@ func WaitForMachinePoolInstancesToBeUpgraded(ctx context.Context, input WaitForM
 
 	log.Logf("Ensuring all MachinePool Instances have upgraded kubernetes version %s", input.KubernetesUpgradeVersion)
 	Eventually(func() (int, error) {
-		nn := client.ObjectKey{
+		mpKey := client.ObjectKey{
 			Namespace: input.MachinePool.Namespace,
 			Name:      input.MachinePool.Name,
 		}
-		if err := input.Getter.Get(ctx, nn, input.MachinePool); err != nil {
+		if err := input.Getter.Get(ctx, mpKey, input.MachinePool); err != nil {
 			return 0, err
 		}
 		versions := getMachinePoolInstanceVersions(ctx, GetMachinesPoolInstancesInput{
@@ -261,7 +243,7 @@ func WaitForMachinePoolInstancesToBeUpgraded(ctx context.Context, input WaitForM
 		}
 
 		if matches != len(versions) {
-			return 0, errors.New("old version instances remain")
+			return 0, errors.Errorf("old version instances remain. Expected %d instances at version %v. Got version list: %v", len(versions), input.KubernetesUpgradeVersion, versions)
 		}
 
 		return matches, nil
@@ -286,15 +268,20 @@ func getMachinePoolInstanceVersions(ctx context.Context, input GetMachinesPoolIn
 	versions := make([]string, len(instances))
 	for i, instance := range instances {
 		node := &corev1.Node{}
-		err := wait.PollImmediate(retryableOperationInterval, retryableOperationTimeout, func() (bool, error) {
-			err := input.WorkloadClusterGetter.Get(ctx, client.ObjectKey{Name: instance.Name}, node)
-			if err != nil {
+		var nodeGetError error
+		err := wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, 10*time.Second, true, func(ctx context.Context) (bool, error) {
+			nodeGetError = input.WorkloadClusterGetter.Get(ctx, client.ObjectKey{Name: instance.Name}, node)
+			if nodeGetError != nil {
 				return false, nil //nolint:nilerr
 			}
 			return true, nil
 		})
 		if err != nil {
 			versions[i] = "unknown"
+			if nodeGetError != nil {
+				// Dump the instance name and error here so that we can log it as part of the version array later on.
+				versions[i] = fmt.Sprintf("%s error: %s", instance.Name, errors.Wrap(err, nodeGetError.Error()))
+			}
 		} else {
 			versions[i] = node.Status.NodeInfo.KubeletVersion
 		}
