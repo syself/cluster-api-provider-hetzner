@@ -135,15 +135,21 @@ spec:
                         - cpx51
                         - ccx11
                         - ccx12
+                        - ccx13
                         - ccx21
                         - ccx22
+                        - ccx23
                         - ccx31
                         - ccx32
+                        - ccx33
                         - ccx41
                         - ccx42
+                        - ccx43
                         - ccx51
                         - ccx52
+                        - ccx53
                         - ccx62
+                        - ccx63
                         - cax11
                         - cax21
                         - cax31
