@@ -53,6 +53,16 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 		return res, fmt.Errorf("failed to find the server of unhealthy machine: %w", err)
 	}
 
+	// stop remediation if server does not exist
+	if server == nil {
+		s.scope.HCloudRemediation.Status.Phase = infrav1.PhaseDeleting
+
+		if err := s.setOwnerRemediatedCondition(ctx); err != nil {
+			return res, fmt.Errorf("failed to set conditions on CAPI machine: %w", err)
+		}
+		return res, nil
+	}
+
 	remediationType := s.scope.HCloudRemediation.Spec.Strategy.Type
 
 	if remediationType != infrav1.RemediationTypeReboot {
