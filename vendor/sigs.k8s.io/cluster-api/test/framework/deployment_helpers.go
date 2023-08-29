@@ -193,12 +193,12 @@ func watchPodLogs(ctx context.Context, input watchPodLogsInput) {
 	Expect(err).ToNot(HaveOccurred(), "Failed to create controller-runtime informer from cache")
 
 	selector, err := metav1.LabelSelectorAsSelector(input.LabelSelector)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 
 	eventHandler := newWatchPodLogsEventHandler(ctx, input, selector)
 
 	handlerRegistration, err := podInformer.AddEventHandler(eventHandler)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 
 	go func() {
 		defer GinkgoRecover()
@@ -224,7 +224,7 @@ func newWatchPodLogsEventHandler(ctx context.Context, input watchPodLogsInput, s
 	}
 }
 
-func (eh *watchPodLogsEventHandler) OnAdd(obj interface{}) {
+func (eh *watchPodLogsEventHandler) OnAdd(obj interface{}, _ bool) {
 	pod := obj.(*corev1.Pod)
 	eh.streamPodLogs(pod)
 }
@@ -267,7 +267,7 @@ func (eh *watchPodLogsEventHandler) streamPodLogs(pod *corev1.Pod) {
 			Stream:    "stderr",
 		}
 		metadataBytes, err := json.Marshal(&metadata)
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 		Expect(os.WriteFile(logMetadataFile, metadataBytes, 0600)).To(Succeed())
 
 		// Watch each container's logs in a goroutine so we can stream them all concurrently.
@@ -278,7 +278,7 @@ func (eh *watchPodLogsEventHandler) streamPodLogs(pod *corev1.Pod) {
 			Expect(os.MkdirAll(filepath.Dir(logFile), 0750)).To(Succeed())
 
 			f, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred())
 			defer f.Close()
 
 			opts := &corev1.PodLogOptions{
@@ -287,7 +287,7 @@ func (eh *watchPodLogsEventHandler) streamPodLogs(pod *corev1.Pod) {
 			}
 
 			// Retry streaming the logs of the pods unless ctx.Done() or if the pod does not exist anymore.
-			err = wait.PollInfiniteWithContext(eh.ctx, 2*time.Second, func(ctx context.Context) (done bool, err error) {
+			err = wait.PollUntilContextCancel(eh.ctx, 2*time.Second, false, func(ctx context.Context) (done bool, err error) {
 				// Wait for pod to be in running state
 				actual, err := eh.input.ClientSet.CoreV1().Pods(pod.Namespace).Get(ctx, pod.Name, metav1.GetOptions{})
 				if err != nil {

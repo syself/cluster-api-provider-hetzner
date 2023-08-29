@@ -26,12 +26,15 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
@@ -49,7 +52,7 @@ type GetCAPIResourcesInput struct {
 // This list includes all the types belonging to CAPI providers.
 func GetCAPIResources(ctx context.Context, input GetCAPIResourcesInput) []*unstructured.Unstructured {
 	Expect(ctx).NotTo(BeNil(), "ctx is required for GetCAPIResources")
-	Expect(input.Lister).NotTo(BeNil(), "input.Deleter is required for GetCAPIResources")
+	Expect(input.Lister).NotTo(BeNil(), "input.Lister is required for GetCAPIResources")
 	Expect(input.Namespace).NotTo(BeEmpty(), "input.Namespace is required for GetCAPIResources")
 
 	types := getClusterAPITypes(ctx, input.Lister)
@@ -115,7 +118,7 @@ type DumpAllResourcesInput struct {
 // This dump includes all the types belonging to CAPI providers.
 func DumpAllResources(ctx context.Context, input DumpAllResourcesInput) {
 	Expect(ctx).NotTo(BeNil(), "ctx is required for DumpAllResources")
-	Expect(input.Lister).NotTo(BeNil(), "input.Deleter is required for DumpAllResources")
+	Expect(input.Lister).NotTo(BeNil(), "input.Lister is required for DumpAllResources")
 	Expect(input.Namespace).NotTo(BeEmpty(), "input.Namespace is required for DumpAllResources")
 
 	resources := GetCAPIResources(ctx, GetCAPIResourcesInput{
@@ -126,6 +129,41 @@ func DumpAllResources(ctx context.Context, input DumpAllResourcesInput) {
 	for i := range resources {
 		r := resources[i]
 		dumpObject(r, input.LogPath)
+	}
+}
+
+// DumpKubeSystemPodsForClusterInput is the input for DumpKubeSystemPodsForCluster.
+type DumpKubeSystemPodsForClusterInput struct {
+	Lister  Lister
+	LogPath string
+	Cluster *clusterv1.Cluster
+}
+
+// DumpKubeSystemPodsForCluster dumps kube-system Pods to YAML.
+func DumpKubeSystemPodsForCluster(ctx context.Context, input DumpKubeSystemPodsForClusterInput) {
+	Expect(ctx).NotTo(BeNil(), "ctx is required for DumpAllResources")
+	Expect(input.Lister).NotTo(BeNil(), "input.Lister is required for DumpAllResources")
+	Expect(input.Cluster).NotTo(BeNil(), "input.Cluster is required for DumpAllResources")
+
+	// Note: We intentionally retrieve Pods as Unstructured because we need the Pods as Unstructured for dumpObject.
+	podList := new(unstructured.UnstructuredList)
+	podList.SetAPIVersion(corev1.SchemeGroupVersion.String())
+	podList.SetKind("Pod")
+	var listErr error
+	_ = wait.PollUntilContextTimeout(ctx, retryableOperationInterval, retryableOperationTimeout, true, func(ctx context.Context) (bool, error) {
+		if listErr = input.Lister.List(ctx, podList, client.InNamespace(metav1.NamespaceSystem)); listErr != nil {
+			return false, nil //nolint:nilerr
+		}
+		return true, nil
+	})
+	if listErr != nil {
+		// NB. we are treating failures in collecting kube-system pods as a non-blocking operation (best effort)
+		fmt.Printf("Failed to list Pods in kube-system for Cluster %s: %v\n", klog.KObj(input.Cluster), listErr)
+		return
+	}
+
+	for i := range podList.Items {
+		dumpObject(&podList.Items[i], input.LogPath)
 	}
 }
 

@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -39,6 +40,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	"sigs.k8s.io/cluster-api/test/infrastructure/kind"
 )
 
 const (
@@ -331,8 +333,13 @@ func (d *dockerRuntime) ContainerDebugInfo(ctx context.Context, containerName st
 		return errors.Wrapf(err, "failed to inspect container %q", containerName)
 	}
 
+	rawJSON, err := json.Marshal(containerInfo)
+	if err != nil {
+		return errors.Wrapf(err, "failed to marshal container info to json")
+	}
+
 	fmt.Fprintln(w, "Inspected the container:")
-	fmt.Fprintf(w, "%+v\n", containerInfo)
+	fmt.Fprintf(w, "%s\n", rawJSON)
 
 	options := types.ContainerLogsOptions{
 		ShowStdout: true,
@@ -384,6 +391,8 @@ func (d *dockerRuntime) RunContainer(ctx context.Context, runConfig *RunContaine
 		restartMaximumRetryCount = 1
 	}
 
+	// TODO: check if we can simplify the following code for the CAPD load balancer, which now always has runConfig.KindMode == kind.ModeNone
+
 	hostConfig := dockercontainer.HostConfig{
 		// Running containers in a container requires privileges.
 		// NOTE: we could try to replicate this with --cap-add, and use less
@@ -400,7 +409,12 @@ func (d *dockerRuntime) RunContainer(ctx context.Context, runConfig *RunContaine
 	}
 	networkConfig := network.NetworkingConfig{}
 
-	if runConfig.IPFamily == clusterv1.IPv6IPFamily {
+	// NOTE: starting from Kind 0.20 kind requires CgroupnsMode to be set to private.
+	if runConfig.KindMode != kind.ModeNone && runConfig.KindMode != kind.Mode0_19 {
+		hostConfig.CgroupnsMode = "private"
+	}
+
+	if runConfig.IPFamily == clusterv1.IPv6IPFamily || runConfig.IPFamily == clusterv1.DualStackIPFamily {
 		hostConfig.Sysctls = map[string]string{
 			"net.ipv6.conf.all.disable_ipv6": "0",
 			"net.ipv6.conf.all.forwarding":   "1",

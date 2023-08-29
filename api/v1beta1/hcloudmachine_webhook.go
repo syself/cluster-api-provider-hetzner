@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
@@ -65,20 +66,20 @@ func (r *HCloudMachine) Default() {
 var _ webhook.Validator = &HCloudMachine{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
-func (r *HCloudMachine) ValidateCreate() error {
+func (r *HCloudMachine) ValidateCreate() (admission.Warnings, error) {
 	hcloudmachinelog.V(1).Info("validate create", "name", r.Name)
 	var allErrs field.ErrorList
 
-	return aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
+	return nil, aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
-func (r *HCloudMachine) ValidateUpdate(old runtime.Object) error {
+func (r *HCloudMachine) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 	hcloudmachinelog.V(1).Info("validate update", "name", r.Name)
 
 	oldM, ok := old.(*HCloudMachine)
 	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("expected an HCloudMachine but got a %T", old))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected an HCloudMachine but got a %T", old))
 	}
 
 	var allErrs field.ErrorList
@@ -111,11 +112,11 @@ func (r *HCloudMachine) ValidateUpdate(old runtime.Object) error {
 		)
 	}
 
-	return aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
+	return nil, aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
-func (r *HCloudMachine) ValidateDelete() error {
+func (r *HCloudMachine) ValidateDelete() (admission.Warnings, error) {
 	hcloudmachinelog.V(1).Info("validate delete", "name", r.Name)
-	return nil
+	return nil, nil
 }

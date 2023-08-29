@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 // SetupWebhookWithManager initializes webhook manager for HetznerBareMetalMachine.
@@ -48,7 +49,7 @@ func (bmMachine *HetznerBareMetalMachine) Default() {}
 var _ webhook.Validator = &HetznerBareMetalMachine{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
-func (bmMachine *HetznerBareMetalMachine) ValidateCreate() error {
+func (bmMachine *HetznerBareMetalMachine) ValidateCreate() (admission.Warnings, error) {
 	var allErrs field.ErrorList
 
 	if bmMachine.Spec.SSHSpec.PortAfterCloudInit == 0 {
@@ -91,11 +92,11 @@ func (bmMachine *HetznerBareMetalMachine) ValidateCreate() error {
 		}
 	}
 
-	return aggregateObjErrors(bmMachine.GroupVersionKind().GroupKind(), bmMachine.Name, allErrs)
+	return nil, aggregateObjErrors(bmMachine.GroupVersionKind().GroupKind(), bmMachine.Name, allErrs)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
-func (bmMachine *HetznerBareMetalMachine) ValidateUpdate(old runtime.Object) error {
+func (bmMachine *HetznerBareMetalMachine) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 	var allErrs field.ErrorList
 
 	oldHetznerBareMetalMachine := old.(*HetznerBareMetalMachine)
@@ -114,10 +115,10 @@ func (bmMachine *HetznerBareMetalMachine) ValidateUpdate(old runtime.Object) err
 			field.Invalid(field.NewPath("spec", "hostSelector"), bmMachine.Spec.HostSelector, "hostSelector immutable"),
 		)
 	}
-	return aggregateObjErrors(bmMachine.GroupVersionKind().GroupKind(), bmMachine.Name, allErrs)
+	return nil, aggregateObjErrors(bmMachine.GroupVersionKind().GroupKind(), bmMachine.Name, allErrs)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
-func (bmMachine *HetznerBareMetalMachine) ValidateDelete() error {
-	return nil
+func (bmMachine *HetznerBareMetalMachine) ValidateDelete() (admission.Warnings, error) {
+	return nil, nil
 }

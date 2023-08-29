@@ -40,7 +40,12 @@ const (
 type logCollector struct{}
 
 // CollectMachinePoolLog implements the CollectMachinePoolLog method of the LogCollector interface.
-func (collector logCollector) CollectMachinePoolLog(ctx context.Context, managementClusterClient client.Client, m *expv1.MachinePool, outputPath string) error {
+func (collector logCollector) CollectMachinePoolLog(_ context.Context, _ client.Client, _ *expv1.MachinePool, _ string) error {
+	return nil
+}
+
+// CollectInfrastructureLogs implements the CollectInfrastructureLog method of the LogCollector interface.
+func (collector logCollector) CollectInfrastructureLogs(_ context.Context, _ client.Client, _ *clusterv1.Cluster, _ string) error {
 	return nil
 }
 
@@ -183,7 +188,7 @@ func newSSHConfig() (*ssh.ClientConfig, error) {
 
 func readPrivateKey() ([]byte, error) {
 	privateKeyFilePath := os.Getenv(hetznerPrivateKeyFilePath)
-	if len(privateKeyFilePath) == 0 {
+	if privateKeyFilePath == "" {
 		return nil, fmt.Errorf("private key information missing. Please set %s environment variable", hetznerPrivateKeyFilePath)
 	}
 

@@ -26,6 +26,7 @@ import (
 	"github.com/onsi/gomega/types"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/test/framework"
@@ -77,6 +78,16 @@ func dumpSpecResourcesAndCleanup(ctx context.Context, specName string, clusterPr
 		Namespace: namespace.Name,
 		LogPath:   filepath.Join(artifactFolder, "clusters", clusterProxy.GetName(), "resources"),
 	})
+
+	// If the cluster still exists, dump kube-system pods of the workload cluster before deleting the cluster.
+	if err := clusterProxy.GetClient().Get(ctx, client.ObjectKeyFromObject(cluster), &clusterv1.Cluster{}); err == nil {
+		Byf("Dumping kube-system Pods of Cluster %s", klog.KObj(cluster))
+		framework.DumpKubeSystemPodsForCluster(ctx, framework.DumpKubeSystemPodsForClusterInput{
+			Lister:  clusterProxy.GetWorkloadCluster(ctx, cluster.Namespace, cluster.Name).GetClient(),
+			Cluster: cluster,
+			LogPath: filepath.Join(artifactFolder, "clusters", cluster.Name, "resources"),
+		})
+	}
 
 	if !skipCleanup {
 		Byf("Deleting cluster %s", klog.KObj(cluster))

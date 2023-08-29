@@ -198,7 +198,7 @@ func ObjectKey(object metav1.Object) client.ObjectKey {
 // Cluster events and returns reconciliation requests for an infrastructure provider object.
 func ClusterToInfrastructureMapFunc(ctx context.Context, gvk schema.GroupVersionKind, c client.Client, providerCluster client.Object) handler.MapFunc {
 	log := ctrl.LoggerFrom(ctx)
-	return func(o client.Object) []reconcile.Request {
+	return func(ctx context.Context, o client.Object) []reconcile.Request {
 		cluster, ok := o.(*clusterv1.Cluster)
 		if !ok {
 			return nil
@@ -265,7 +265,7 @@ func GetMachineByName(ctx context.Context, c client.Client, namespace, name stri
 // MachineToInfrastructureMapFunc returns a handler.ToRequestsFunc that watches for
 // Machine events and returns reconciliation requests for an infrastructure provider object.
 func MachineToInfrastructureMapFunc(gvk schema.GroupVersionKind) handler.MapFunc {
-	return func(o client.Object) []reconcile.Request {
+	return func(_ context.Context, o client.Object) []reconcile.Request {
 		m, ok := o.(*clusterv1.Machine)
 		if !ok {
 			return nil
@@ -470,6 +470,10 @@ func (k KubeAwareAPIVersions) Less(i, j int) bool {
 // ClusterToObjectsMapper returns a mapper function that gets a cluster and lists all objects for the object passed in
 // and returns a list of requests.
 // NB: The objects are required to have `clusterv1.ClusterNameLabel` applied.
+//
+// Deprecated: This function is deprecated and will be removed in a future release, use ClusterToTypedObjectsMapper instead.
+// The problem with this function is that it uses UnstructuredList to retrieve objects, with the default client configuration
+// this will lead to uncached List calls, which is a major performance issue.
 func ClusterToObjectsMapper(c client.Client, ro client.ObjectList, scheme *runtime.Scheme) (handler.MapFunc, error) {
 	gvk, err := apiutil.GVKForObject(ro, scheme)
 	if err != nil {
@@ -481,7 +485,7 @@ func ClusterToObjectsMapper(c client.Client, ro client.ObjectList, scheme *runti
 		return nil, err
 	}
 
-	return func(o client.Object) []ctrl.Request {
+	return func(ctx context.Context, o client.Object) []ctrl.Request {
 		cluster, ok := o.(*clusterv1.Cluster)
 		if !ok {
 			return nil
@@ -499,7 +503,7 @@ func ClusterToObjectsMapper(c client.Client, ro client.ObjectList, scheme *runti
 
 		list := &unstructured.UnstructuredList{}
 		list.SetGroupVersionKind(gvk)
-		if err := c.List(context.TODO(), list, listOpts...); err != nil {
+		if err := c.List(ctx, list, listOpts...); err != nil {
 			return nil
 		}
 
@@ -507,6 +511,72 @@ func ClusterToObjectsMapper(c client.Client, ro client.ObjectList, scheme *runti
 		for _, obj := range list.Items {
 			results = append(results, ctrl.Request{
 				NamespacedName: client.ObjectKey{Namespace: obj.GetNamespace(), Name: obj.GetName()},
+			})
+		}
+		return results
+	}, nil
+}
+
+// ClusterToTypedObjectsMapper returns a mapper function that gets a cluster and lists all objects for the object passed in
+// and returns a list of requests.
+// Note: This function uses the passed in typed ObjectList and thus with the default client configuration all list calls
+// will be cached.
+// NB: The objects are required to have `clusterv1.ClusterNameLabel` applied.
+func ClusterToTypedObjectsMapper(c client.Client, ro client.ObjectList, scheme *runtime.Scheme) (handler.MapFunc, error) {
+	gvk, err := apiutil.GVKForObject(ro, scheme)
+	if err != nil {
+		return nil, err
+	}
+
+	// Note: we create the typed ObjectList once here, so we don't have to use
+	// reflection in every execution of the actual event handler.
+	obj, err := scheme.New(gvk)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to construct object of type %s", gvk)
+	}
+	objectList, ok := obj.(client.ObjectList)
+	if !ok {
+		return nil, errors.Errorf("expected objject to be a client.ObjectList, is actually %T", obj)
+	}
+
+	isNamespaced, err := isAPINamespaced(gvk, c.RESTMapper())
+	if err != nil {
+		return nil, err
+	}
+
+	return func(ctx context.Context, o client.Object) []ctrl.Request {
+		cluster, ok := o.(*clusterv1.Cluster)
+		if !ok {
+			return nil
+		}
+
+		listOpts := []client.ListOption{
+			client.MatchingLabels{
+				clusterv1.ClusterNameLabel: cluster.Name,
+			},
+		}
+
+		if isNamespaced {
+			listOpts = append(listOpts, client.InNamespace(cluster.Namespace))
+		}
+
+		objectList = objectList.DeepCopyObject().(client.ObjectList)
+		if err := c.List(ctx, objectList, listOpts...); err != nil {
+			return nil
+		}
+
+		objects, err := meta.ExtractList(objectList)
+		if err != nil {
+			return nil
+		}
+
+		results := []ctrl.Request{}
+		for _, obj := range objects {
+			// Note: We don't check if the type cast succeeds as all items in an client.ObjectList
+			// are client.Objects.
+			o := obj.(client.Object)
+			results = append(results, ctrl.Request{
+				NamespacedName: client.ObjectKey{Namespace: o.GetNamespace(), Name: o.GetName()},
 			})
 		}
 		return results
@@ -594,4 +664,23 @@ func IsNil(i interface{}) bool {
 		return reflect.ValueOf(i).IsValid() && reflect.ValueOf(i).IsNil()
 	}
 	return false
+}
+
+// MergeMap merges maps.
+// NOTE: In case a key exists in multiple maps, the value of the first map is preserved.
+func MergeMap(maps ...map[string]string) map[string]string {
+	m := make(map[string]string)
+	for i := len(maps) - 1; i >= 0; i-- {
+		for k, v := range maps[i] {
+			m[k] = v
+		}
+	}
+
+	// Nil the result if the map is empty, thus avoiding triggering infinite reconcile
+	// given that at json level label: {} or annotation: {} is different from no field, which is the
+	// corresponding value stored in etcd given that those fields are defined as omitempty.
+	if len(m) == 0 {
+		return nil
+	}
+	return m
 }

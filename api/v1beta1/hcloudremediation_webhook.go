@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 // SetupWebhookWithManager initializes webhook manager for HCloudRemediation.
@@ -42,16 +43,16 @@ func (r *HCloudRemediation) Default() {
 var _ webhook.Validator = &HCloudRemediation{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
-func (r *HCloudRemediation) ValidateCreate() error {
-	return nil
+func (r *HCloudRemediation) ValidateCreate() (admission.Warnings, error) {
+	return nil, nil
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
-func (r *HCloudRemediation) ValidateUpdate(runtime.Object) error {
-	return nil
+func (r *HCloudRemediation) ValidateUpdate(runtime.Object) (admission.Warnings, error) {
+	return nil, nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
-func (r *HCloudRemediation) ValidateDelete() error {
-	return nil
+func (r *HCloudRemediation) ValidateDelete() (admission.Warnings, error) {
+	return nil, nil
 }

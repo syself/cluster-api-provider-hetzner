@@ -47,6 +47,7 @@ const (
 	HetznerProviderName        = "hetzner"
 	OutscaleProviderName       = "outscale"
 	IBMCloudProviderName       = "ibmcloud"
+	InMemoryProviderName       = "in-memory"
 	Metal3ProviderName         = "metal3"
 	NestedProviderName         = "nested"
 	NutanixProviderName        = "nutanix"
@@ -66,19 +67,26 @@ const (
 
 // Bootstrap providers.
 const (
-	KubeadmBootstrapProviderName    = "kubeadm"
-	TalosBootstrapProviderName      = "talos"
-	MicroK8sBootstrapProviderName   = "microk8s"
-	KubeKeyK3sBootstrapProviderName = "kubekey-k3s"
+	KubeadmBootstrapProviderName           = "kubeadm"
+	TalosBootstrapProviderName             = "talos"
+	MicroK8sBootstrapProviderName          = "microk8s"
+	OracleCloudNativeBootstrapProviderName = "ocne"
+	KubeKeyK3sBootstrapProviderName        = "kubekey-k3s"
 )
 
 // ControlPlane providers.
 const (
-	KubeadmControlPlaneProviderName    = "kubeadm"
-	TalosControlPlaneProviderName      = "talos"
-	MicroK8sControlPlaneProviderName   = "microk8s"
-	NestedControlPlaneProviderName     = "nested"
-	KubeKeyK3sControlPlaneProviderName = "kubekey-k3s"
+	KubeadmControlPlaneProviderName           = "kubeadm"
+	TalosControlPlaneProviderName             = "talos"
+	MicroK8sControlPlaneProviderName          = "microk8s"
+	NestedControlPlaneProviderName            = "nested"
+	OracleCloudNativeControlPlaneProviderName = "ocne"
+	KubeKeyK3sControlPlaneProviderName        = "kubekey-k3s"
+)
+
+// Add-on providers.
+const (
+	HelmAddonProviderName = "helm"
 )
 
 // Other.
@@ -230,6 +238,11 @@ func (p *providersClient) defaults() []Provider {
 			providerType: clusterctlv1.InfrastructureProviderType,
 		},
 		&provider{
+			name:         InMemoryProviderName,
+			url:          "https://github.com/kubernetes-sigs/cluster-api/releases/latest/infrastructure-components-in-memory-development.yaml",
+			providerType: clusterctlv1.InfrastructureProviderType,
+		},
+		&provider{
 			name:         NutanixProviderName,
 			url:          "https://github.com/nutanix-cloud-native/cluster-api-provider-nutanix/releases/latest/infrastructure-components.yaml",
 			providerType: clusterctlv1.InfrastructureProviderType,
@@ -276,6 +289,12 @@ func (p *providersClient) defaults() []Provider {
 			url:          "https://github.com/canonical/cluster-api-bootstrap-provider-microk8s/releases/latest/bootstrap-components.yaml",
 			providerType: clusterctlv1.BootstrapProviderType,
 		},
+		&provider{
+			name:         OracleCloudNativeBootstrapProviderName,
+			url:          "https://github.com/verrazzano/cluster-api-provider-ocne/releases/latest/bootstrap-components.yaml",
+			providerType: clusterctlv1.BootstrapProviderType,
+		},
+
 		// ControlPlane providers
 		&provider{
 			name:         KubeadmControlPlaneProviderName,
@@ -301,6 +320,18 @@ func (p *providersClient) defaults() []Provider {
 			name:         NestedControlPlaneProviderName,
 			url:          "https://github.com/kubernetes-sigs/cluster-api-provider-nested/releases/latest/control-plane-components.yaml",
 			providerType: clusterctlv1.ControlPlaneProviderType,
+		},
+		&provider{
+			name:         OracleCloudNativeControlPlaneProviderName,
+			url:          "https://github.com/verrazzano/cluster-api-provider-ocne/releases/latest/control-plane-components.yaml",
+			providerType: clusterctlv1.ControlPlaneProviderType,
+		},
+
+		// Add-on providers
+		&provider{
+			name:         HelmAddonProviderName,
+			url:          "https://github.com/kubernetes-sigs/cluster-api-addon-provider-helm/releases/latest/addon-components.yaml",
+			providerType: clusterctlv1.AddonProviderType,
 		},
 	}
 
@@ -401,16 +432,18 @@ func validateProvider(r Provider) error {
 		clusterctlv1.InfrastructureProviderType,
 		clusterctlv1.ControlPlaneProviderType,
 		clusterctlv1.IPAMProviderType,
-		clusterctlv1.RuntimeExtensionProviderType:
+		clusterctlv1.RuntimeExtensionProviderType,
+		clusterctlv1.AddonProviderType:
 		break
 	default:
-		return errors.Errorf("invalid provider type. Allowed values are [%s, %s, %s, %s, %s, %s]",
+		return errors.Errorf("invalid provider type. Allowed values are [%s, %s, %s, %s, %s, %s, %s]",
 			clusterctlv1.CoreProviderType,
 			clusterctlv1.BootstrapProviderType,
 			clusterctlv1.InfrastructureProviderType,
 			clusterctlv1.ControlPlaneProviderType,
 			clusterctlv1.IPAMProviderType,
-			clusterctlv1.RuntimeExtensionProviderType)
+			clusterctlv1.RuntimeExtensionProviderType,
+			clusterctlv1.AddonProviderType)
 	}
 	return nil
 }

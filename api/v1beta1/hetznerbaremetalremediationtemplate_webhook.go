@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 // SetupWebhookWithManager initializes webhook manager for HetznerBareMetalRemediationTemplate.
@@ -42,16 +43,16 @@ func (r *HetznerBareMetalRemediationTemplate) Default() {
 var _ webhook.Validator = &HetznerBareMetalRemediationTemplate{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
-func (r *HetznerBareMetalRemediationTemplate) ValidateCreate() error {
-	return nil
+func (r *HetznerBareMetalRemediationTemplate) ValidateCreate() (admission.Warnings, error) {
+	return nil, nil
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
-func (r *HetznerBareMetalRemediationTemplate) ValidateUpdate(runtime.Object) error {
-	return nil
+func (r *HetznerBareMetalRemediationTemplate) ValidateUpdate(runtime.Object) (admission.Warnings, error) {
+	return nil, nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
-func (r *HetznerBareMetalRemediationTemplate) ValidateDelete() error {
-	return nil
+func (r *HetznerBareMetalRemediationTemplate) ValidateDelete() (admission.Warnings, error) {
+	return nil, nil
 }

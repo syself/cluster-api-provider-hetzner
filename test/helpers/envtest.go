@@ -133,9 +133,9 @@ func NewTestEnvironment() *TestEnvironment {
 		Port:               env.WebhookInstallOptions.LocalServingPort,
 		CertDir:            env.WebhookInstallOptions.LocalServingCertDir,
 		MetricsBindAddress: "0",
-		NewCache: cache.BuilderWithOptions(cache.Options{
-			SelectorsByObject: secretutil.AddSecretSelector(nil),
-		}),
+		Cache: cache.Options{
+			ByObject: secretutil.AddSecretSelector(),
+		},
 	})
 	if err != nil {
 		klog.Fatalf("unable to create manager: %s", err)
