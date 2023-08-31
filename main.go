@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -69,6 +70,7 @@ var (
 	hetznerBareMetalMachineConcurrency int
 	hetznerBareMetalHostConcurrency    int
 	logLevel                           string
+	syncPeriod                         time.Duration
 )
 
 func main() {
@@ -83,7 +85,7 @@ func main() {
 	flag.IntVar(&hetznerBareMetalMachineConcurrency, "hetznerbaremetalmachine-concurrency", 1, "Number of HetznerBareMetalMachines to process simultaneously")
 	flag.IntVar(&hetznerBareMetalHostConcurrency, "hetznerbaremetalhost-concurrency", 1, "Number of HetznerBareMetalHosts to process simultaneously")
 	flag.StringVar(&logLevel, "log-level", "debug", "Specifies log level. Options are 'debug', 'info' and 'error'")
-
+	flag.DurationVar(&syncPeriod, "sync-period", time.Duration(3*time.Minute), "The minimum interval at which watched resources are reconciled (e.g. 3m)")
 	flag.Parse()
 
 	ctrl.SetLogger(utils.GetDefaultLogger(logLevel))
@@ -100,7 +102,8 @@ func main() {
 		LeaderElectionReleaseOnCancel: true,
 		Namespace:                     watchNamespace,
 		Cache: cache.Options{
-			ByObject: secretutil.AddSecretSelector(),
+			ByObject:   secretutil.AddSecretSelector(),
+			SyncPeriod: &syncPeriod,
 		},
 	})
 	if err != nil {
