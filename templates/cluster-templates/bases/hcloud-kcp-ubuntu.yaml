@@ -190,6 +190,8 @@ spec:
       - export CRUN=1.8.5 # update: datasource=github-tags depName=containers/crun versioning=semver-coerced
       - export CONTAINERD=1.7.2 # update: datasource=github-tags depName=containerd/containerd extractVersion=^v(?<version>.*)$ versioning=semver
       - export KUBERNETES_VERSION=$(echo ${KUBERNETES_VERSION} | sed 's/^v//')
+      - ARCH=amd64
+      - if [ "$(uname -m)" = "aarch64" ]; then ARCH=arm64; fi
       - localectl set-locale LANG=en_US.UTF-8
       - localectl set-locale LANGUAGE=en_US.UTF-8
       - apt-get update -y
@@ -197,12 +199,12 @@ spec:
       - sed -i '/swap/d' /etc/fstab
       - swapoff -a
       - modprobe overlay && modprobe br_netfilter && sysctl --system
-      - wget https://github.com/containerd/containerd/releases/download/v$CONTAINERD/cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz
-      - wget https://github.com/containerd/containerd/releases/download/v$CONTAINERD/cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
-      - sha256sum --check cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
-      - tar --no-overwrite-dir -C / -xzf cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz
-      - rm -f cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
-      - wget https://github.com/containers/crun/releases/download/$CRUN/crun-$CRUN-linux-amd64 -O /usr/local/sbin/crun && chmod +x /usr/local/sbin/crun
+      - wget https://github.com/containerd/containerd/releases/download/v$CONTAINERD/cri-containerd-cni-$CONTAINERD-linux-$ARCH.tar.gz
+      - wget https://github.com/containerd/containerd/releases/download/v$CONTAINERD/cri-containerd-cni-$CONTAINERD-linux-$ARCH.tar.gz.sha256sum
+      - sha256sum --check cri-containerd-cni-$CONTAINERD-linux-$ARCH.tar.gz.sha256sum
+      - tar --no-overwrite-dir -C / -xzf cri-containerd-cni-$CONTAINERD-linux-$ARCH.tar.gz
+      - rm -f cri-containerd-cni-$CONTAINERD-linux-$ARCH.tar.gz cri-containerd-cni-$CONTAINERD-linux-$ARCH.tar.gz.sha256sum
+      - wget https://github.com/containers/crun/releases/download/$CRUN/crun-$CRUN-linux-$ARCH -O /usr/local/sbin/crun && chmod +x /usr/local/sbin/crun
       - rm -f /etc/cni/net.d/10-containerd-net.conflist
       - chmod -R 644 /etc/cni && chown -R root:root /etc/cni
       - systemctl daemon-reload && systemctl enable containerd && systemctl start containerd
