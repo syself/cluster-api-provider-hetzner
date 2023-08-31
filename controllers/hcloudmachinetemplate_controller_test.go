@@ -91,11 +91,9 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 
 		machineTemplate = &infrav1.HCloudMachineTemplate{
 			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "hcloud-machine-template-",
-				Namespace:    testNs.Name,
-				Labels: map[string]string{
-					clusterv1.ClusterNameLabel: capiCluster.Name,
-				},
+				GenerateName:    "hcloud-machine-template-",
+				Namespace:       testNs.Name,
+				OwnerReferences: infraCluster.OwnerReferences,
 			},
 			Spec: infrav1.HCloudMachineTemplateSpec{
 				Template: infrav1.HCloudMachineTemplateResource{

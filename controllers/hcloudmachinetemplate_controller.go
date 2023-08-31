@@ -61,11 +61,11 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 	log = log.WithValues("HCloudMachineTemplate", klog.KObj(machineTemplate))
 
 	// Fetch the Cluster.
-	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, machineTemplate.ObjectMeta)
-	if err != nil {
-		log.Info(fmt.Sprintf("%s is missing cluster label or cluster does not exist %s/%s",
+	cluster, err := util.GetOwnerCluster(ctx, r.Client, machineTemplate.ObjectMeta)
+	if err != nil || cluster == nil {
+		log.Info(fmt.Sprintf("%s is missing ownerRef to cluster or cluster does not exist %s/%s",
 			machineTemplate.Kind, machineTemplate.Namespace, machineTemplate.Name))
-		return reconcile.Result{}, nil
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	log = log.WithValues("Cluster", klog.KObj(cluster))
