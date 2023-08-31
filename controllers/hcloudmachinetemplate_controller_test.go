@@ -121,7 +121,7 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 	})
 
 	Context("Basic test", func() {
-		It("sets the capacity in status", func() {
+		FIt("sets the capacity in status", func() {
 			Eventually(func() bool {
 				if err := testEnv.Get(ctx, key, machineTemplate); err != nil {
 					fmt.Printf("Did not find machine template: %s\n", err)

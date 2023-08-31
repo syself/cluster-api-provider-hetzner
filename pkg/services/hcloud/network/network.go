@@ -51,7 +51,7 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 		conditions.MarkFalse(
 			s.scope.HetznerCluster,
 			infrav1.NetworkAttached,
-			infrav1.NetworkDisabledReason,
+			infrav1.NetworkDisabledReason, // TODO: No need to set the status. Less is more. This could confuse users.
 			clusterv1.ConditionSeverityInfo,
 			"network disabled",
 		)

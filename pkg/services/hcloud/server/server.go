@@ -75,7 +75,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 			s.scope.HCloudMachine,
 			infrav1.InstanceBootstrapReadyCondition,
 			infrav1.InstanceBootstrapNotReadyReason,
-			clusterv1.ConditionSeverityInfo,
+			clusterv1.ConditionSeverityInfo, // TODO: timeout to switch to Warning would be nice.
 			"bootstrap not ready yet",
 		)
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
@@ -321,7 +321,7 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 				infrav1.InstanceReadyCondition,
 				infrav1.InstanceHasNonExistingPlacementGroupReason,
 				clusterv1.ConditionSeverityError,
-				"Placement group %q does not exist in cluster",
+				"Placement group %q does not exist in cluster", // TODO: is "in cluster" the matching term? Placement group exist in hcloud projects.
 				*s.scope.HCloudMachine.Spec.PlacementGroupName,
 			)
 			return nil, fmt.Errorf("failed to find placement group of server")

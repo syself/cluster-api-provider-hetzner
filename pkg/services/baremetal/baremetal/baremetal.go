@@ -84,7 +84,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 			s.scope.BareMetalMachine,
 			infrav1.InstanceBootstrapReadyCondition,
 			infrav1.InstanceBootstrapNotReadyReason,
-			clusterv1.ConditionSeverityInfo,
+			clusterv1.ConditionSeverityInfo, // TODO: timeout to switch to Warning would be nice.
 			"bootstrap not ready yet",
 		)
 		return res, nil

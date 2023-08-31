@@ -91,7 +91,7 @@ func (s *Service) reconcileNetworkAttachement(ctx context.Context, lb *hcloud.Lo
 	}
 
 	// attach load balancer to network
-	if s.scope.HetznerCluster.Status.Network == nil {
+	if s.scope.HetznerCluster.Status.Network == nil { // TODO: controller should not read his own status.
 		conditions.MarkFalse(
 			s.scope.HetznerCluster,
 			infrav1.LoadBalancerAttachedToNetworkCondition,

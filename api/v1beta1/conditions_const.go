@@ -20,9 +20,9 @@ import clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 
 const (
 	// LoadBalancerAttached reports on whether the load balancer is attached.
-	LoadBalancerAttached clusterv1.ConditionType = "LoadBalancerAttached"
+	LoadBalancerAttached clusterv1.ConditionType = "LoadBalancerAttached" // rename to: LoadBalancerCondition clusterv1.ConditionType = "LoadBalancer"
 	// LoadBalancerUnreachableReason is used when load balancer is unreachable.
-	LoadBalancerUnreachableReason = "LoadBalancerUnreachable"
+	LoadBalancerUnreachableReason = "LoadBalancerUnreachable" // unreachable is just a guess. It could be a different err, too. Rename to: LoadBalancerErrorReason = "LoadBalancerError"
 )
 
 const (
@@ -44,7 +44,7 @@ const (
 	// ServerOffReason instance is off.
 	ServerOffReason = "ServerOff"
 	// InstanceAsControlPlaneUnreachableReason control plane is (not yet) reachable.
-	InstanceAsControlPlaneUnreachableReason = "InstanceAsControlPlaneUnreachable"
+	InstanceAsControlPlaneUnreachableReason = "InstanceAsControlPlaneUnreachable" // TOOD: not used anywhere. Can get removed.
 )
 
 const (
@@ -60,7 +60,7 @@ const (
 	// NetworkDisabledReason indicates that network is disabled.
 	NetworkDisabledReason = "NetworkDisabled"
 	// NetworkUnreachableReason indicates that network is unreachable.
-	NetworkUnreachableReason = "NetworkUnreachable"
+	NetworkUnreachableReason = "NetworkUnreachable" // two adjectives: unreachable and attached. I think it would be better to have one. Maybe "Failed"?
 )
 
 const (
@@ -111,6 +111,6 @@ const (
 )
 
 const (
-	// AssociateBMHCondition reports on whether the Hetzner cluster is in ready state.
-	AssociateBMHCondition clusterv1.ConditionType = "AssociateBMHCondition"
+	// AssociateBMHCondition reports on whether the Hetzner cluster is in ready state. // TODO: comment is too general.
+	AssociateBMHCondition clusterv1.ConditionType = "AssociateBMHCondition" // TODO: Suffix is not in the list of cluster-api proposal. Use Succeeded? The Type is only used once, and set to True. If this is never set to "False", why set it at all?
 )

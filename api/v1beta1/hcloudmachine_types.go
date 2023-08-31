@@ -76,7 +76,7 @@ type HCloudMachineStatus struct {
 	// reconciling the Machine and will contain a succinct value suitable
 	// for machine interpretation.
 	// +optional
-	FailureReason *errors.MachineStatusError `json:"failureReason,omitempty"`
+	FailureReason *errors.MachineStatusError `json:"failureReason,omitempty"` // TODO: use conditions instead? Benefit: lastTransitionTime
 
 	// FailureMessage will be set in the event that there is a terminal problem
 	// reconciling the Machine and will contain a more verbose string suitable
