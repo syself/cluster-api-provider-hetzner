@@ -57,8 +57,6 @@ const (
 const (
 	// NetworkAttached reports on whether there is a network attached to the cluster.
 	NetworkAttached clusterv1.ConditionType = "NetworkAttached"
-	// NetworkDisabledReason indicates that network is disabled.
-	NetworkDisabledReason = "NetworkDisabled"
 	// NetworkUnreachableReason indicates that network is unreachable.
 	NetworkUnreachableReason = "NetworkUnreachable"
 )
