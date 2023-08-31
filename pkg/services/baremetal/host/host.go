@@ -1364,7 +1364,14 @@ func (s *Service) actionDeleting() actionResult {
 
 func (s *Service) handleRateLimitExceeded(err error, functionName string) {
 	if models.IsError(err, models.ErrorCodeRateLimitExceeded) {
-		conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.RateLimitExceeded)
-		record.Warnf(s.scope.HetznerBareMetalHost, "RateLimitExceeded", "exceeded rate limit with calling function %q", functionName)
+		msg := fmt.Sprintf("exceeded rate limit with calling function %q", functionName)
+		conditions.MarkFalse(
+			s.scope.HetznerBareMetalHost,
+			infrav1.HetznerAPIReachableCondition,
+			infrav1.RateLimitExceededReason,
+			clusterv1.ConditionSeverityWarning,
+			msg,
+		)
+		record.Warnf(s.scope.HetznerBareMetalHost, "RateLimitExceeded", msg)
 	}
 }
