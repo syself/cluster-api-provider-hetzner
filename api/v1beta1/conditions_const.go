@@ -19,10 +19,10 @@ package v1beta1
 import clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 
 const (
-	// LoadBalancerAttached reports on whether the load balancer is attached.
-	LoadBalancerAttached clusterv1.ConditionType = "LoadBalancerAttached"
-	// LoadBalancerUnreachableReason is used when load balancer is unreachable.
-	LoadBalancerUnreachableReason = "LoadBalancerUnreachable"
+	// LoadBalancerReadyCondition reports on whether a control plane load balancer was successfully reconciled.
+	LoadBalancerReadyCondition clusterv1.ConditionType = "LoadBalancerReady"
+	// LoadBalancerFailedReason used when an error occurs during load balancer reconciliation.
+	LoadBalancerFailedReason = "LoadBalancerFailed"
 )
 
 const (

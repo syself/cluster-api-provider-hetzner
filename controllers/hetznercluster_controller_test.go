@@ -170,7 +170,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 				if err := testEnv.Get(ctx, key, instance); err != nil {
 					return false
 				}
-				return isPresentAndTrue(key, instance, infrav1.LoadBalancerAttached)
+				return isPresentAndTrue(key, instance, infrav1.LoadBalancerReadyCondition)
 			}, timeout).Should(BeTrue())
 
 			By("updating load balancer specs")
