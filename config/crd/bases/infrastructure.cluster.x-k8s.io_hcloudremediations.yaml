@@ -42,6 +42,12 @@ spec:
       jsonPath: .spec.strategy.retryLimit
       name: Retry limit
       type: string
+    - jsonPath: .status.conditions[?(@.type=='Ready')].reason
+      name: Reason
+      type: string
+    - jsonPath: .status.conditions[?(@.type=='Ready')].message
+      name: Message
+      type: string
     name: v1beta1
     schema:
       openAPIV3Schema:

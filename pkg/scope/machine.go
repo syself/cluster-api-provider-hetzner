@@ -95,6 +95,7 @@ type MachineScope struct {
 
 // Close closes the current scope persisting the cluster configuration and status.
 func (m *MachineScope) Close(ctx context.Context) error {
+	conditions.SetSummary(m.HCloudMachine)
 	return m.patchHelper.Patch(ctx, m.HCloudMachine)
 }
 

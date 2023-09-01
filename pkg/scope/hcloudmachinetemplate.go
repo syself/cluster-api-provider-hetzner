@@ -24,6 +24,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"k8s.io/klog/v2/klogr"
+	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -87,6 +88,7 @@ func (s *HCloudMachineTemplateScope) Namespace() string {
 
 // Close closes the current scope persisting the cluster configuration and status.
 func (s *HCloudMachineTemplateScope) Close(ctx context.Context) error {
+	conditions.SetSummary(s.HCloudMachineTemplate)
 	return s.patchHelper.Patch(ctx, s.HCloudMachineTemplate)
 }
 
