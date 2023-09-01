@@ -214,13 +214,13 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 			if apierrors.IsNotFound(err) {
 				conditions.MarkFalse(
 					bmHost,
-					infrav1.HetznerBareMetalHostReady,
-					infrav1.OSSSHSecretMissing,
+					infrav1.HetznerBareMetalHostReadyCondition,
+					infrav1.OSSSHSecretMissingReason,
 					clusterv1.ConditionSeverityError,
 					infrav1.ErrorMessageMissingOSSSHSecret,
 				)
 
-				record.Warnf(bmHost, infrav1.OSSSHSecretMissing, infrav1.ErrorMessageMissingOSSSHSecret)
+				record.Warnf(bmHost, infrav1.OSSSHSecretMissingReason, infrav1.ErrorMessageMissingOSSSHSecret)
 
 				result, err := host.SaveHostAndReturn(ctx, r.Client, bmHost)
 				if result != emptyResult || err != nil {
@@ -238,13 +238,13 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 			if apierrors.IsNotFound(err) {
 				conditions.MarkFalse(
 					bmHost,
-					infrav1.HetznerBareMetalHostReady,
-					infrav1.RescueSSHSecretMissing,
+					infrav1.HetznerBareMetalHostReadyCondition,
+					infrav1.RescueSSHSecretMissingReason,
 					clusterv1.ConditionSeverityError,
 					infrav1.ErrorMessageMissingRescueSSHSecret,
 				)
 
-				record.Warnf(bmHost, infrav1.RescueSSHSecretMissing, infrav1.ErrorMessageMissingRescueSSHSecret)
+				record.Warnf(bmHost, infrav1.RescueSSHSecretMissingReason, infrav1.ErrorMessageMissingRescueSSHSecret)
 
 				result, err := host.SaveHostAndReturn(ctx, r.Client, bmHost)
 				if result != emptyResult || err != nil {
@@ -317,7 +317,7 @@ func hetznerSecretErrorResult(
 		// at some point in the future.
 		conditions.MarkFalse(
 			bmHost,
-			infrav1.HetznerBareMetalHostReady,
+			infrav1.HetznerBareMetalHostReadyCondition,
 			infrav1.HetznerSecretUnreachableReason,
 			clusterv1.ConditionSeverityError,
 			infrav1.ErrorMessageMissingHetznerSecret,
@@ -339,12 +339,12 @@ func hetznerSecretErrorResult(
 	if errors.As(err, &credValidationErr) {
 		conditions.MarkFalse(
 			bmHost,
-			infrav1.HetznerBareMetalHostReady,
+			infrav1.HetznerBareMetalHostReadyCondition,
 			infrav1.RobotCredentialsInvalidReason,
 			clusterv1.ConditionSeverityError,
 			infrav1.ErrorMessageMissingOrInvalidSecretData,
 		)
-		record.Warnf(bmHost, infrav1.SSHCredentialsInSecretInvalid, err.Error())
+		record.Warnf(bmHost, infrav1.SSHCredentialsInSecretInvalidReason, err.Error())
 
 		return host.SaveHostAndReturn(ctx, client, bmHost)
 	}

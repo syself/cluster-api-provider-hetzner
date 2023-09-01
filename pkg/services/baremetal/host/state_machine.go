@@ -85,7 +85,7 @@ func (hsm *hostStateMachine) ReconcileState() (actionRes actionResult) {
 	}
 
 	// Set host ready now. This can be changed while the state is handled.
-	conditions.MarkTrue(hsm.host, infrav1.HetznerBareMetalHostReady)
+	conditions.MarkTrue(hsm.host, infrav1.HetznerBareMetalHostReadyCondition)
 
 	if stateHandler, found := hsm.handlers()[initialState]; found {
 		return stateHandler()
@@ -163,8 +163,8 @@ func (hsm *hostStateMachine) updateOSSSHStatusAndValidateKey(osSSHSecret *corev1
 	}
 	if err := validateSSHKey(osSSHSecret, hsm.host.Spec.Status.SSHSpec.SecretRef); err != nil {
 		msg := fmt.Sprintf("ssh credentials are invalid: %s", err.Error())
-		conditions.MarkFalse(hsm.host, infrav1.HetznerBareMetalHostReady, infrav1.SSHCredentialsInSecretInvalid, clusterv1.ConditionSeverityError, msg)
-		record.Warnf(hsm.host, infrav1.SSHKeyAlreadyExists, msg)
+		conditions.MarkFalse(hsm.host, infrav1.HetznerBareMetalHostReadyCondition, infrav1.SSHCredentialsInSecretInvalidReason, clusterv1.ConditionSeverityError, msg)
+		record.Warnf(hsm.host, infrav1.SSHKeyAlreadyExistsReason, msg)
 		return hsm.reconciler.recordActionFailure(infrav1.PreparationError, infrav1.ErrorMessageMissingOrInvalidSecretData)
 	}
 	return nil
@@ -193,7 +193,7 @@ func (hsm *hostStateMachine) updateRescueSSHStatusAndValidateKey(rescueSSHSecret
 	}
 	if err := validateSSHKey(rescueSSHSecret, hsm.reconciler.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef); err != nil {
 		msg := fmt.Sprintf("ssh credentials for rescue system are invalid: %s", err.Error())
-		conditions.MarkFalse(hsm.host, infrav1.HetznerBareMetalHostReady, infrav1.SSHCredentialsInSecretInvalid, clusterv1.ConditionSeverityError, msg)
+		conditions.MarkFalse(hsm.host, infrav1.HetznerBareMetalHostReadyCondition, infrav1.SSHCredentialsInSecretInvalidReason, clusterv1.ConditionSeverityError, msg)
 		return hsm.reconciler.recordActionFailure(infrav1.PreparationError, infrav1.ErrorMessageMissingOrInvalidSecretData)
 	}
 	return nil

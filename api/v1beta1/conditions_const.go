@@ -55,22 +55,22 @@ const (
 )
 
 const (
-	// NetworkAttached reports on whether there is a network attached to the cluster.
-	NetworkAttached clusterv1.ConditionType = "NetworkAttached"
+	// NetworkAttachedCondition reports on whether there is a network attached to the cluster.
+	NetworkAttachedCondition clusterv1.ConditionType = "NetworkAttached"
 	// NetworkUnreachableReason indicates that network is unreachable.
 	NetworkUnreachableReason = "NetworkUnreachable"
 )
 
 const (
-	// PlacementGroupsSynced reports on whether the placement groups are successfully synced.
-	PlacementGroupsSynced clusterv1.ConditionType = "PlacementGroupsSynced"
+	// PlacementGroupsSyncedCondition reports on whether the placement groups are successfully synced.
+	PlacementGroupsSyncedCondition clusterv1.ConditionType = "PlacementGroupsSynced"
 	// PlacementGroupsUnreachableReason indicates that network is disabled.
 	PlacementGroupsUnreachableReason = "PlacementGroupsUnreachable"
 )
 
 const (
-	// HetznerClusterReady reports on whether the Hetzner cluster is in ready state.
-	HetznerClusterReady clusterv1.ConditionType = "HetznerClusterReady"
+	// HetznerClusterReadyCondition reports on whether the Hetzner cluster is in ready state.
+	HetznerClusterReadyCondition clusterv1.ConditionType = "HetznerClusterReady"
 	// HetznerSecretUnreachableReason indicates that Hetzner secret is unreachable.
 	HetznerSecretUnreachableReason = "HetznerSecretUnreachable" // #nosec
 	// HCloudCredentialsInvalidReason indicates that credentials for HCloud are invalid.
@@ -78,12 +78,12 @@ const (
 )
 
 const (
-	// HetznerClusterTargetClusterReady reports on whether the kubeconfig in the target cluster is ready.
-	HetznerClusterTargetClusterReady clusterv1.ConditionType = "HetznerClusterTargetClusterReady"
-	// KubeConfigNotFound indicates that the Kubeconfig could not be found.
-	KubeConfigNotFound = "KubeConfigNotFound"
-	// KubeAPIServerNotResponding indicates that the api server cannot be reached.
-	KubeAPIServerNotResponding = "KubeAPIServerNotResponding"
+	// HetznerClusterTargetClusterReadyCondition reports on whether the kubeconfig in the target cluster is ready.
+	HetznerClusterTargetClusterReadyCondition clusterv1.ConditionType = "HetznerClusterTargetClusterReady"
+	// KubeConfigNotFoundReason indicates that the Kubeconfig could not be found.
+	KubeConfigNotFoundReason = "KubeConfigNotFound"
+	// KubeAPIServerNotRespondingReason indicates that the api server cannot be reached.
+	KubeAPIServerNotRespondingReason = "KubeAPIServerNotResponding"
 )
 
 const (
@@ -94,18 +94,18 @@ const (
 )
 
 const (
-	// HetznerBareMetalHostReady reports on whether the Hetzner cluster is in ready state.
-	HetznerBareMetalHostReady clusterv1.ConditionType = "HetznerBareMetalHostReady"
+	// HetznerBareMetalHostReadyCondition reports on whether the Hetzner cluster is in ready state.
+	HetznerBareMetalHostReadyCondition clusterv1.ConditionType = "HetznerBareMetalHostReady"
 	// RobotCredentialsInvalidReason indicates that credentials for Robot are invalid.
 	RobotCredentialsInvalidReason = "RobotCredentialsInvalid" // #nosec
-	// SSHCredentialsInSecretInvalid indicates that ssh credentials are invalid.
-	SSHCredentialsInSecretInvalid = "SSHCredentialsInSecretInvalid" // #nosec
-	// SSHKeyAlreadyExists indicates that the ssh key which is specified in the host spec exists already under a different name in Hetzner robot.
-	SSHKeyAlreadyExists = "SSHKeyAlreadyExists"
-	// OSSSHSecretMissing indicates that secret with the os ssh key is missing.
-	OSSSHSecretMissing = "OSSSHSecretMissing"
-	// RescueSSHSecretMissing indicates that secret with the rescue ssh key is missing.
-	RescueSSHSecretMissing = "RescueSSHSecretMissing"
+	// SSHCredentialsInSecretInvalidReason indicates that ssh credentials are invalid.
+	SSHCredentialsInSecretInvalidReason = "SSHCredentialsInSecretInvalid" // #nosec
+	// SSHKeyAlreadyExistsReason indicates that the ssh key which is specified in the host spec exists already under a different name in Hetzner robot.
+	SSHKeyAlreadyExistsReason = "SSHKeyAlreadyExists"
+	// OSSSHSecretMissingReason indicates that secret with the os ssh key is missing.
+	OSSSHSecretMissingReason = "OSSSHSecretMissing"
+	// RescueSSHSecretMissingReason indicates that secret with the rescue ssh key is missing.
+	RescueSSHSecretMissingReason = "RescueSSHSecretMissing"
 )
 
 const (
