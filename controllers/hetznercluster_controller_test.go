@@ -589,7 +589,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 					if err := testEnv.Get(ctx, key, instance); err != nil {
 						return false
 					}
-					return isPresentAndTrue(key, instance, infrav1.PlacementGroupsSynced)
+					return isPresentAndTrue(key, instance, infrav1.PlacementGroupsSyncedCondition)
 				}, timeout).Should(BeTrue())
 
 				By("checking for presence of HCloudPlacementGroup objects")
@@ -740,9 +740,9 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 						return false
 					}
 					if expectedConditionState {
-						return isPresentAndTrue(key, instance, infrav1.NetworkAttached)
+						return isPresentAndTrue(key, instance, infrav1.NetworkAttachedCondition)
 					}
-					return isPresentAndFalseWithReason(key, instance, infrav1.NetworkAttached, expectedReason)
+					return isPresentAndFalseWithReason(key, instance, infrav1.NetworkAttachedCondition, expectedReason)
 				}, timeout).Should(BeTrue())
 			},
 			Entry("with network", getDefaultHetznerClusterSpec(), true, ""),
@@ -883,7 +883,7 @@ var _ = Describe("Hetzner secret", func() {
 				if err := testEnv.Get(ctx, key, hetznerCluster); err != nil {
 					return false
 				}
-				return isPresentAndFalseWithReason(key, hetznerCluster, infrav1.HetznerClusterReady, expectedReason)
+				return isPresentAndFalseWithReason(key, hetznerCluster, infrav1.HetznerClusterReadyCondition, expectedReason)
 			}, timeout, time.Second).Should(BeTrue())
 		},
 		Entry("no Hetzner secret/wrong reference", corev1.Secret{

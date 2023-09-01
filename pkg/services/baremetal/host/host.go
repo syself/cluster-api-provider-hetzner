@@ -251,12 +251,12 @@ func (s *Service) ensureSSHKey(sshSecretRef infrav1.SSHSecretRef, sshSecret *cor
 				msg := fmt.Sprintf("cannot upload ssh key %s - exists already under a different name", string(sshSecret.Data[sshSecretRef.Key.Name]))
 				conditions.MarkFalse(
 					s.scope.HetznerBareMetalHost,
-					infrav1.HetznerBareMetalHostReady,
-					infrav1.SSHKeyAlreadyExists,
+					infrav1.HetznerBareMetalHostReadyCondition,
+					infrav1.SSHKeyAlreadyExistsReason,
 					clusterv1.ConditionSeverityError,
 					msg,
 				)
-				record.Warnf(s.scope.HetznerBareMetalHost, infrav1.SSHKeyAlreadyExists, msg)
+				record.Warnf(s.scope.HetznerBareMetalHost, infrav1.SSHKeyAlreadyExistsReason, msg)
 				return infrav1.SSHKey{}, s.recordActionFailure(infrav1.FatalError, msg)
 			}
 			return infrav1.SSHKey{}, actionError{err: fmt.Errorf("failed to set ssh key: %w", err)}

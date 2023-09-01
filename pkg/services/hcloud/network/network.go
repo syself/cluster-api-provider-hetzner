@@ -62,7 +62,7 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 		}
 	}
 
-	conditions.MarkTrue(s.scope.HetznerCluster, infrav1.NetworkAttached)
+	conditions.MarkTrue(s.scope.HetznerCluster, infrav1.NetworkAttachedCondition)
 	s.scope.HetznerCluster.Status.Network = statusFromHCloudNetwork(network)
 	return nil
 }
