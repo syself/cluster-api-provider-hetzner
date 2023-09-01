@@ -25,6 +25,7 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
+	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -128,8 +129,10 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 	secretManager := secretutil.NewSecretManager(log, r.Client, r.APIReader)
 	hcloudToken, _, err := getAndValidateHCloudToken(ctx, req.Namespace, hetznerCluster, secretManager)
 	if err != nil {
-		return hcloudTokenErrorResult(ctx, err, hcloudMachine, infrav1.InstanceReadyCondition, r.Client)
+		return hcloudTokenErrorResult(ctx, err, hcloudMachine, infrav1.HCloudTokenAvailableCondition, r.Client)
 	}
+
+	conditions.MarkTrue(hcloudMachine, infrav1.HCloudTokenAvailableCondition)
 
 	hcc := r.HCloudClientFactory.NewClient(hcloudToken)
 

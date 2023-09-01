@@ -69,8 +69,8 @@ const (
 )
 
 const (
-	// HetznerClusterReadyCondition reports on whether the Hetzner cluster is in ready state.
-	HetznerClusterReadyCondition clusterv1.ConditionType = "HetznerClusterReady"
+	// HCloudTokenAvailableCondition reports on whether the HCloud Token is available.
+	HCloudTokenAvailableCondition clusterv1.ConditionType = "HCloudTokenAvailable"
 	// HetznerSecretUnreachableReason indicates that Hetzner secret is unreachable.
 	HetznerSecretUnreachableReason = "HetznerSecretUnreachable" // #nosec
 	// HCloudCredentialsInvalidReason indicates that credentials for HCloud are invalid.
