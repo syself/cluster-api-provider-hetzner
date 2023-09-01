@@ -122,8 +122,6 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return hcloudTokenErrorResult(ctx, err, hcloudMachine, infrav1.HCloudTokenAvailableCondition, r.Client)
 	}
 
-	conditions.MarkTrue(hcloudMachine, infrav1.HCloudTokenAvailableCondition)
-
 	hcc := r.HCloudClientFactory.NewClient(hcloudToken)
 
 	machineScope, err := scope.NewMachineScope(scope.MachineScopeParams{
@@ -142,6 +140,8 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %+v", err)
 	}
+
+	conditions.MarkTrue(hcloudMachine, infrav1.HCloudTokenAvailableCondition)
 
 	// Always close the scope when exiting this function so we can persist any HCloudMachine changes.
 	defer func() {

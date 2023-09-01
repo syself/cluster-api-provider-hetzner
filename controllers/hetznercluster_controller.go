@@ -127,7 +127,6 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	if err != nil {
 		return hcloudTokenErrorResult(ctx, err, hetznerCluster, infrav1.HCloudTokenAvailableCondition, r.Client)
 	}
-	conditions.MarkTrue(hetznerCluster, infrav1.HCloudTokenAvailableCondition)
 	hcloudClient := r.HCloudClientFactory.NewClient(hcloudToken)
 
 	clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
@@ -142,6 +141,8 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %w", err)
 	}
+
+	conditions.MarkTrue(hetznerCluster, infrav1.HCloudTokenAvailableCondition)
 
 	// Always close the scope when exiting this function so we can persist any HetznerCluster changes.
 	defer func() {
