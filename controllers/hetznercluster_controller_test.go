@@ -883,7 +883,7 @@ var _ = Describe("Hetzner secret", func() {
 				if err := testEnv.Get(ctx, key, hetznerCluster); err != nil {
 					return false
 				}
-				return isPresentAndFalseWithReason(key, hetznerCluster, infrav1.HetznerClusterReadyCondition, expectedReason)
+				return isPresentAndFalseWithReason(key, hetznerCluster, infrav1.HCloudTokenAvailableCondition, expectedReason)
 			}, timeout, time.Second).Should(BeTrue())
 		},
 		Entry("no Hetzner secret/wrong reference", corev1.Secret{

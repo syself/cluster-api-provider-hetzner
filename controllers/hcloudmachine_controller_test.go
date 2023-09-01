@@ -516,7 +516,7 @@ var _ = Describe("Hetzner secret", func() {
 				if err := testEnv.Get(ctx, key, hcloudMachine); err != nil {
 					return false
 				}
-				return isPresentAndFalseWithReason(key, hcloudMachine, infrav1.InstanceReadyCondition, expectedReason)
+				return isPresentAndFalseWithReason(key, hcloudMachine, infrav1.HCloudTokenAvailableCondition, expectedReason)
 			}, timeout, time.Second).Should(BeTrue())
 		},
 		Entry("no Hetzner secret/wrong reference", corev1.Secret{

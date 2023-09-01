@@ -125,9 +125,9 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	secretManager := secretutil.NewSecretManager(log, r.Client, r.APIReader)
 	hcloudToken, hetznerSecret, err := getAndValidateHCloudToken(ctx, req.Namespace, hetznerCluster, secretManager)
 	if err != nil {
-		return hcloudTokenErrorResult(ctx, err, hetznerCluster, infrav1.HetznerClusterReadyCondition, r.Client)
+		return hcloudTokenErrorResult(ctx, err, hetznerCluster, infrav1.HCloudTokenAvailableCondition, r.Client)
 	}
-
+	conditions.MarkTrue(hetznerCluster, infrav1.HCloudTokenAvailableCondition)
 	hcloudClient := r.HCloudClientFactory.NewClient(hcloudToken)
 
 	clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
@@ -393,6 +393,12 @@ func hcloudTokenErrorResult(
 		)
 
 	default:
+		conditions.MarkFalse(setter,
+			conditionType,
+			infrav1.HCloudCredentialsInvalidReason,
+			clusterv1.ConditionSeverityError,
+			err.Error(),
+		)
 		return ctrl.Result{}, fmt.Errorf("an unhandled failure occurred with the Hetzner secret: %w", err)
 	}
 	conditions.SetSummary(setter)
