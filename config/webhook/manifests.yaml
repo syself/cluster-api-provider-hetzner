@@ -2,48 +2,9 @@
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
+  creationTimestamp: null
   name: mutating-webhook-configuration
 webhooks:
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
-      path: /mutate-infrastructure-cluster-x-k8s-io-v1beta1-hcloudremediationtemplate
-  failurePolicy: Fail
-  name: mhcloudremediationtemplate.kb.io
-  rules:
-  - apiGroups:
-    - infrastructure.cluster.x-k8s.io
-    apiVersions:
-    - v1beta1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - hcloudremediationtemplates
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
-      path: /mutate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalremediationtemplate
-  failurePolicy: Fail
-  name: mhetznerbaremetalremediationtemplate.kb.io
-  rules:
-  - apiGroups:
-    - infrastructure.cluster.x-k8s.io
-    apiVersions:
-    - v1beta1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - hetznerbaremetalremediationtemplates
-  sideEffects: None
 - admissionReviewVersions:
   - v1
   - v1beta1
@@ -85,6 +46,26 @@ webhooks:
     - UPDATE
     resources:
     - hcloudremediations
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-infrastructure-cluster-x-k8s-io-v1beta1-hcloudremediationtemplate
+  failurePolicy: Fail
+  name: mhcloudremediationtemplate.kb.io
+  rules:
+  - apiGroups:
+    - infrastructure.cluster.x-k8s.io
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - hcloudremediationtemplates
   sideEffects: None
 - admissionReviewVersions:
   - v1
@@ -151,6 +132,26 @@ webhooks:
   sideEffects: None
 - admissionReviewVersions:
   - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalremediationtemplate
+  failurePolicy: Fail
+  name: mhetznerbaremetalremediationtemplate.kb.io
+  rules:
+  - apiGroups:
+    - infrastructure.cluster.x-k8s.io
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - hetznerbaremetalremediationtemplates
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
   - v1beta1
   clientConfig:
     service:
@@ -174,6 +175,7 @@ webhooks:
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
+  creationTimestamp: null
   name: validating-webhook-configuration
 webhooks:
 - admissionReviewVersions:
@@ -238,6 +240,26 @@ webhooks:
     - UPDATE
     resources:
     - hcloudremediations
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-infrastructure-cluster-x-k8s-io-v1beta1-hcloudremediationtemplate
+  failurePolicy: Fail
+  name: vhcloudremediationtemplate.kb.io
+  rules:
+  - apiGroups:
+    - infrastructure.cluster.x-k8s.io
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - hcloudremediationtemplates
   sideEffects: None
 - admissionReviewVersions:
   - v1
@@ -325,6 +347,26 @@ webhooks:
   sideEffects: None
 - admissionReviewVersions:
   - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalremediationtemplate
+  failurePolicy: Fail
+  name: vhetznerbaremetalremediationtemplate.kb.io
+  rules:
+  - apiGroups:
+    - infrastructure.cluster.x-k8s.io
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - hetznerbaremetalremediationtemplates
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
   - v1beta1
   clientConfig:
     service:
@@ -364,44 +406,4 @@ webhooks:
     - UPDATE
     resources:
     - hetznerclustertemplates
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
-      path: /validate-infrastructure-cluster-x-k8s-io-v1beta1-hcloudremediationtemplate
-  failurePolicy: Fail
-  name: vhcloudremediationtemplate.kb.io
-  rules:
-  - apiGroups:
-    - infrastructure.cluster.x-k8s.io
-    apiVersions:
-    - v1beta1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - hcloudremediationtemplates
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
-      path: /validate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalremediationtemplate
-  failurePolicy: Fail
-  name: vhetznerbaremetalremediationtemplate.kb.io
-  rules:
-  - apiGroups:
-    - infrastructure.cluster.x-k8s.io
-    apiVersions:
-    - v1beta1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - hetznerbaremetalremediationtemplates
   sideEffects: None
