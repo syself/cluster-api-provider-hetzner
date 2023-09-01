@@ -745,8 +745,6 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 					return isPresentAndFalseWithReason(key, instance, infrav1.NetworkAttached, expectedReason)
 				}, timeout).Should(BeTrue())
 			},
-			Entry("with disabled network", hetznerClusterSpecWithDisabledNetwork, false, infrav1.NetworkDisabledReason),
-			Entry("without network", hetznerClusterSpecWithoutNetwork, false, infrav1.NetworkDisabledReason),
 			Entry("with network", getDefaultHetznerClusterSpec(), true, ""),
 		)
 	})

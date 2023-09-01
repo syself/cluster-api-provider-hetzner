@@ -90,6 +90,11 @@ func (s *Service) reconcileNetworkAttachement(ctx context.Context, lb *hcloud.Lo
 		return nil
 	}
 
+	// nothing to do if no network is specified
+	if !s.scope.HetznerCluster.Spec.HCloudNetwork.Enabled {
+		return nil
+	}
+
 	// attach load balancer to network
 	if s.scope.HetznerCluster.Status.Network == nil {
 		conditions.MarkFalse(
