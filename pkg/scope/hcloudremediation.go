@@ -23,6 +23,7 @@ import (
 
 	"github.com/go-logr/logr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -102,6 +103,7 @@ type HCloudRemediationScope struct {
 
 // Close closes the current scope persisting the cluster configuration and status.
 func (m *HCloudRemediationScope) Close(ctx context.Context, opts ...patch.Option) error {
+	conditions.SetSummary(m.HCloudRemediation)
 	return m.patchHelper.Patch(ctx, m.HCloudRemediation, opts...)
 }
 

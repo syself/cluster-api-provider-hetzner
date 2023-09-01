@@ -401,7 +401,7 @@ func hcloudTokenErrorResult(
 		)
 		return ctrl.Result{}, fmt.Errorf("an unhandled failure occurred with the Hetzner secret: %w", err)
 	}
-
+	conditions.SetSummary(setter)
 	if err := client.Status().Update(ctx, setter); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to update: %w", err)
 	}
