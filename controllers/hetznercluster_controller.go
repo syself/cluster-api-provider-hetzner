@@ -321,8 +321,8 @@ func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterS
 // reconcileRateLimit checks whether a rate limit has been reached and returns whether
 // the controller should wait a bit more.
 func reconcileRateLimit(setter conditions.Setter) bool {
-	condition := conditions.Get(setter, infrav1.RateLimitExceeded)
-	if condition != nil && condition.Status == corev1.ConditionTrue {
+	condition := conditions.Get(setter, infrav1.HetznerAPIReachableCondition)
+	if condition != nil && condition.Status == corev1.ConditionFalse {
 		if time.Now().Before(condition.LastTransitionTime.Time.Add(rateLimitWaitTime)) {
 			// Not yet timed out, reconcile again after timeout
 			// Don't give a more precise requeueAfter value to not reconcile too many
@@ -330,13 +330,7 @@ func reconcileRateLimit(setter conditions.Setter) bool {
 			return true
 		}
 		// Wait time is over, we continue
-		conditions.MarkFalse(
-			setter,
-			infrav1.RateLimitExceeded,
-			infrav1.RateLimitNotReachedReason,
-			clusterv1.ConditionSeverityInfo,
-			"wait time is over. Try reconciling again",
-		)
+		conditions.MarkTrue(setter, infrav1.HetznerAPIReachableCondition)
 	}
 	return false
 }

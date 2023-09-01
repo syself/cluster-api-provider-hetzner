@@ -89,10 +89,10 @@ const (
 )
 
 const (
-	// RateLimitExceeded reports whether the rate limit has been reached.
-	RateLimitExceeded clusterv1.ConditionType = "RateLimitExceeded"
-	// RateLimitNotReachedReason indicates that the rate limit is not reached yet.
-	RateLimitNotReachedReason = "RateLimitNotReached"
+	// HetznerAPIReachableCondition reports whether the Hetzner APIs are reachable.
+	HetznerAPIReachableCondition clusterv1.ConditionType = "HetznerAPIReachable"
+	// RateLimitExceededReason indicates that a rate limit has been exceeded.
+	RateLimitExceededReason = "RateLimitExceeded"
 )
 
 const (
