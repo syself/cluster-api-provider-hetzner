@@ -23,6 +23,10 @@ const (
 	LoadBalancerReadyCondition clusterv1.ConditionType = "LoadBalancerReady"
 	// LoadBalancerFailedReason used when an error occurs during load balancer reconciliation.
 	LoadBalancerFailedReason = "LoadBalancerFailed"
+	// LoadBalancerNotFoundReason used when a load balancer could not be found.
+	LoadBalancerNotFoundReason = "LoadBalancerNotFound"
+	// LoadBalancerFailedToOwnReason used when no owned label could be set on a load balancer.
+	LoadBalancerFailedToOwnReason = "LoadBalancerFailedToOwn"
 )
 
 const (

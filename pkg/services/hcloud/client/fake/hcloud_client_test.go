@@ -100,6 +100,12 @@ var _ = Describe("Load balancer", func() {
 		Expect(lb.ID).ToNot(Equal(0))
 	})
 
+	It("lists a load balancer by name", func() {
+		resp, err := client.ListLoadBalancers(ctx, hcloud.LoadBalancerListOpts{Name: lb.Name})
+		Expect(err).To(BeNil())
+		Expect(resp).To(HaveLen(1))
+	})
+
 	It("gives an error when load balancer is created twice", func() {
 		_, err := client.CreateLoadBalancer(ctx, opts)
 		Expect(err).ToNot(Succeed())

@@ -119,8 +119,6 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return reconcile.Result{}, nil
 	}
 
-	log = log.WithValues("cluster", cluster.Name)
-
 	// Create the scope.
 	secretManager := secretutil.NewSecretManager(log, r.Client, r.APIReader)
 	hcloudToken, hetznerSecret, err := getAndValidateHCloudToken(ctx, req.Namespace, hetznerCluster, secretManager)
@@ -183,11 +181,17 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 		return reconcile.Result{}, fmt.Errorf("failed to reconcile network for HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
 	}
 
+	emptyResult := reconcile.Result{}
+
 	// reconcile the load balancers
-	if err := loadbalancer.NewService(clusterScope).Reconcile(ctx); err != nil {
-		conditions.MarkFalse(hetznerCluster, infrav1.LoadBalancerReadyCondition, infrav1.LoadBalancerFailedReason, clusterv1.ConditionSeverityError, err.Error())
+	res, err := loadbalancer.NewService(clusterScope).Reconcile(ctx)
+	if res != emptyResult {
+		return res, nil
+	}
+	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to reconcile load balancers for HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
 	}
+
 	conditions.MarkTrue(hetznerCluster, infrav1.LoadBalancerReadyCondition)
 
 	// reconcile the placement groups
@@ -226,8 +230,6 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to reconcile target cluster manager: %w", err)
 	}
-
-	emptyResult := reconcile.Result{}
 	if result != emptyResult {
 		return result, nil
 	}

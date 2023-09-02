@@ -21,12 +21,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/hetznercloud/hcloud-go/hcloud"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/record"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
@@ -44,10 +47,13 @@ func NewService(scope *scope.ClusterScope) *Service {
 	return &Service{scope: scope}
 }
 
+// ErrNoLoadBalancerAvailable indicates that no available load balancer could be fond.
+var ErrNoLoadBalancerAvailable = fmt.Errorf("no available load balancer")
+
 // Reconcile implements the life cycle of HCloud load balancers.
-func (s *Service) Reconcile(ctx context.Context) error {
+func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 	if !s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
-		return nil
+		return reconcile.Result{}, nil
 	}
 
 	log := s.scope.Logger.WithValues("reconciler", "load balancer")
@@ -55,14 +61,24 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	// find load balancer
 	lb, err := s.findLoadBalancer(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to find load balancer: %w", err)
+		return reconcile.Result{}, fmt.Errorf("failed to find load balancer: %w", err)
 	}
 
 	if lb == nil {
-		log.V(1).Info("Create a new loadbalancer", "algorithm type", s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Algorithm)
-		lb, err = s.createLoadBalancer(ctx)
+		// fixed name is set - we expect a load balancer with this name to exist
+
+		if s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Name != nil {
+			lb, err = s.ownExistingLoadBalancer(ctx)
+
+			// if load balancer is not found even though we expect it to exist, wait and reconcile until user creates it
+			if errors.Is(err, ErrNoLoadBalancerAvailable) {
+				return reconcile.Result{RequeueAfter: 1 * time.Minute}, nil
+			}
+		} else {
+			lb, err = s.createLoadBalancer(ctx)
+		}
 		if err != nil {
-			return fmt.Errorf("failed to create load balancer: %w", err)
+			return reconcile.Result{}, fmt.Errorf("failed to own/create load balancer: %w", err)
 		}
 	}
 
@@ -70,18 +86,18 @@ func (s *Service) Reconcile(ctx context.Context) error {
 
 	// check whether load balancer name, algorithm or type has been changed
 	if err := s.reconcileLBProperties(ctx, lb); err != nil {
-		return fmt.Errorf("failed to reconcile load balancer properties: %w", err)
+		return reconcile.Result{}, fmt.Errorf("failed to reconcile load balancer properties: %w", err)
 	}
 
 	if err := s.reconcileNetworkAttachement(ctx, lb); err != nil {
-		return fmt.Errorf("failed to reconcile network attachement: %w", err)
+		return reconcile.Result{}, fmt.Errorf("failed to reconcile network attachement: %w", err)
 	}
 
 	if err := s.reconcileServices(ctx, lb); err != nil {
-		return fmt.Errorf("failed to reconcile services: %w", err)
+		return reconcile.Result{}, fmt.Errorf("failed to reconcile services: %w", err)
 	}
 
-	return nil
+	return reconcile.Result{}, nil
 }
 
 func (s *Service) reconcileNetworkAttachement(ctx context.Context, lb *hcloud.LoadBalancer) error {
@@ -251,6 +267,8 @@ func (s *Service) createLoadBalancer(ctx context.Context) (*hcloud.LoadBalancer,
 		hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "CreateLoadBalancer")
 		err = fmt.Errorf("failed to create load balancer: %w", err)
 		record.Warnf(s.scope.HetznerCluster, "FailedCreateLoadBalancer", err.Error())
+		conditions.MarkFalse(s.scope.HetznerCluster, infrav1.LoadBalancerReadyCondition, infrav1.LoadBalancerFailedReason, clusterv1.ConditionSeverityError, err.Error())
+
 		return nil, err
 	}
 
@@ -263,7 +281,7 @@ func createOptsFromSpec(hc *infrav1.HetznerCluster) hcloud.LoadBalancerCreateOpt
 	algorithmType := hc.Spec.ControlPlaneLoadBalancer.Algorithm.HCloudAlgorithmType()
 
 	// Set name
-	name := utils.GenerateName(hc.Spec.ControlPlaneLoadBalancer.Name, fmt.Sprintf("%s-kube-apiserver-", hc.Name))
+	name := utils.GenerateName(nil, fmt.Sprintf("%s-kube-apiserver-", hc.Name))
 
 	proxyprotocol := false
 
@@ -344,6 +362,60 @@ func (s *Service) findLoadBalancer(ctx context.Context) (*hcloud.LoadBalancer, e
 	}
 
 	return loadBalancers[0], nil
+}
+
+func (s *Service) ownExistingLoadBalancer(ctx context.Context) (*hcloud.LoadBalancer, error) {
+	name := *s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Name
+	loadBalancers, err := s.scope.HCloudClient.ListLoadBalancers(ctx, hcloud.LoadBalancerListOpts{Name: name})
+	if err != nil {
+		hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "ListLoadBalancers")
+		return nil, fmt.Errorf("failed to list load balancers: %w", err)
+	}
+
+	if len(loadBalancers) > 1 {
+		return nil, fmt.Errorf("found %v load balancers in HCloud with name %q", len(loadBalancers), name)
+	}
+
+	if len(loadBalancers) == 0 {
+		conditions.MarkFalse(
+			s.scope.HetznerCluster,
+			infrav1.LoadBalancerReadyCondition,
+			infrav1.LoadBalancerNotFoundReason,
+			clusterv1.ConditionSeverityError,
+			fmt.Sprintf("load balancer %q not found", name),
+		)
+		return nil, ErrNoLoadBalancerAvailable
+	}
+
+	lb := loadBalancers[0]
+
+	for label := range lb.Labels {
+		if strings.HasPrefix(label, infrav1.NameHetznerProviderOwned) {
+			conditions.MarkFalse(
+				s.scope.HetznerCluster,
+				infrav1.LoadBalancerReadyCondition,
+				infrav1.LoadBalancerFailedToOwnReason,
+				clusterv1.ConditionSeverityError,
+				fmt.Sprintf("load balancer %q owned with label %q", name, label),
+			)
+			return nil, ErrNoLoadBalancerAvailable
+		}
+	}
+
+	if lb.Labels == nil {
+		lb.Labels = make(map[string]string)
+	}
+	lb.Labels[s.scope.HetznerCluster.ClusterTagKey()] = string(infrav1.ResourceLifecycleOwned)
+
+	lb, err = s.scope.HCloudClient.UpdateLoadBalancer(ctx, lb, hcloud.LoadBalancerUpdateOpts{Labels: lb.Labels})
+	if err != nil {
+		hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "UpdateLoadBalancer")
+		err = fmt.Errorf("failed to update load balancer: %w", err)
+		record.Warnf(s.scope.HetznerCluster, "FailedUpdateLoadBalancer", err.Error())
+		return nil, err
+	}
+
+	return lb, nil
 }
 
 // statusFromHCloudLB gets the information of the Hetzner load balancer and returns it in the status object.

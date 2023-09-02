@@ -185,7 +185,13 @@ func (c *cacheHCloudClient) ListLoadBalancers(_ context.Context, opts hcloud.Loa
 		return nil, fmt.Errorf("failed to convert label selector to labels: %w", err)
 	}
 
-	for _, lb := range c.loadBalancerCache.idMap {
+	for key, lb := range c.loadBalancerCache.idMap {
+		// if name is set and is not correct, continue
+		if opts.Name != "" && lb.Name != opts.Name {
+			continue
+		}
+
+		// check for labels
 		allLabelsFound := true
 		for key, label := range labels {
 			if val, found := lb.Labels[key]; !found || val != label {
@@ -193,8 +199,9 @@ func (c *cacheHCloudClient) ListLoadBalancers(_ context.Context, opts hcloud.Loa
 				break
 			}
 		}
+
 		if allLabelsFound {
-			lbs = append(lbs, lb)
+			lbs = append(lbs, c.loadBalancerCache.idMap[key])
 		}
 	}
 	return lbs, nil
