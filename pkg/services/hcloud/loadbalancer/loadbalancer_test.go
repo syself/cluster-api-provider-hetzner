@@ -73,7 +73,6 @@ var _ = Describe("createOptsFromSpec", func() {
 	var hetznerCluster *infrav1.HetznerCluster
 	var wantCreateOpts hcloud.LoadBalancerCreateOpts
 	BeforeEach(func() {
-		lbName := "lb-name"
 		lbType := "lb11"
 		lbRegion := "fsn1"
 		controlPlaneEndpointPort := 22
@@ -83,7 +82,7 @@ var _ = Describe("createOptsFromSpec", func() {
 		hetznerCluster = &infrav1.HetznerCluster{
 			Spec: infrav1.HetznerClusterSpec{
 				ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
-					Name:      &lbName,
+					Name:      nil,
 					Algorithm: infrav1.LoadBalancerAlgorithmTypeLeastConnections,
 					Type:      lbType,
 					Region:    infrav1.Region(lbRegion),
@@ -102,7 +101,7 @@ var _ = Describe("createOptsFromSpec", func() {
 
 		wantCreateOpts = hcloud.LoadBalancerCreateOpts{
 			LoadBalancerType: &hcloud.LoadBalancerType{Name: lbType},
-			Name:             lbName,
+			Name:             "",
 			Algorithm:        &hcloud.LoadBalancerAlgorithm{Type: hcloud.LoadBalancerAlgorithmTypeLeastConnections},
 			Location:         &hcloud.Location{Name: lbRegion},
 			Network:          &hcloud.Network{ID: networkID},
@@ -123,11 +122,21 @@ var _ = Describe("createOptsFromSpec", func() {
 		hetznerCluster.Status.Network = nil
 		wantCreateOpts.Network = nil
 
-		Expect(createOptsFromSpec(hetznerCluster)).To(Equal(wantCreateOpts))
+		createOpts := createOptsFromSpec(hetznerCluster)
+
+		// ignore random name
+		createOpts.Name = ""
+
+		Expect(createOpts).To(Equal(wantCreateOpts))
 	})
 
 	It("creates specs for cluster with network", func() {
-		Expect(createOptsFromSpec(hetznerCluster)).To(Equal(wantCreateOpts))
+		createOpts := createOptsFromSpec(hetznerCluster)
+
+		// ignore random name
+		createOpts.Name = ""
+
+		Expect(createOpts).To(Equal(wantCreateOpts))
 	})
 
 	It("creates specs for cluster without load balancer name set", func() {
