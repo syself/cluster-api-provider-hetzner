@@ -133,10 +133,14 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %w", err)
 	}
 
-	conditions.MarkTrue(hbmMachine, infrav1.HCloudTokenAvailableCondition)
-
 	// Always close the scope when exiting this function so we can persist any HetznerBareMetalMachine changes.
 	defer func() {
+		if reterr != nil && errors.Is(reterr, hcloudclient.ErrUnauthorized) {
+			conditions.MarkFalse(hbmMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason, clusterv1.ConditionSeverityError, "wrong hcloud token")
+		} else {
+			conditions.MarkTrue(hbmMachine, infrav1.HCloudTokenAvailableCondition)
+		}
+
 		if err := machineScope.Close(ctx); err != nil && reterr == nil {
 			reterr = err
 		}

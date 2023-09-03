@@ -49,6 +49,8 @@ const (
 	ServerOffReason = "ServerOff"
 	// InstanceAsControlPlaneUnreachableReason control plane is (not yet) reachable.
 	InstanceAsControlPlaneUnreachableReason = "InstanceAsControlPlaneUnreachable"
+	// SSHKeyNotFoundReason indicates that ssh key could not be found.
+	SSHKeyNotFoundReason = "SSHKeyNotFound"
 )
 
 const (

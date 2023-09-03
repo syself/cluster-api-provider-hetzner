@@ -345,6 +345,7 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 	// find matching keys and store them
 	opts.SSHKeys, err = filterHCloudSSHKeys(sshKeysAPI, sshKeySpecs)
 	if err != nil {
+		conditions.MarkFalse(s.scope.HCloudMachine, infrav1.InstanceReadyCondition, infrav1.SSHKeyNotFoundReason, clusterv1.ConditionSeverityError, err.Error())
 		return nil, fmt.Errorf("error with ssh keys: %w", err)
 	}
 
