@@ -18,10 +18,12 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"k8s.io/klog/v2"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/predicates"
@@ -109,10 +111,14 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %w", err)
 	}
 
-	conditions.MarkTrue(machineTemplate, infrav1.HCloudTokenAvailableCondition)
-
 	// Always close the scope when exiting this function so we can persist any HCloudMachine changes.
 	defer func() {
+		if reterr != nil && errors.Is(reterr, hcloudclient.ErrUnauthorized) {
+			conditions.MarkFalse(machineTemplate, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason, clusterv1.ConditionSeverityError, "wrong hcloud token")
+		} else {
+			conditions.MarkTrue(machineTemplate, infrav1.HCloudTokenAvailableCondition)
+		}
+
 		if err := machineTemplateScope.Close(ctx); err != nil && reterr == nil {
 			reterr = err
 		}

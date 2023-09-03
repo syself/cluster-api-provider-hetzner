@@ -19,10 +19,17 @@ package hcloudclient
 
 import (
 	"context"
+	"fmt"
 	"net"
+	"strings"
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
 )
+
+const errStringUnauthorized = "(unauthorized)"
+
+// ErrUnauthorized means that the API call is unauthorized.
+var ErrUnauthorized = fmt.Errorf("unauthorized")
 
 // Client collects all methods used by the controller in the hcloud cloud API.
 type Client interface {
@@ -101,7 +108,11 @@ func (c *realClient) DeleteLoadBalancer(ctx context.Context, id int) error {
 }
 
 func (c *realClient) ListLoadBalancers(ctx context.Context, opts hcloud.LoadBalancerListOpts) ([]*hcloud.LoadBalancer, error) {
-	return c.client.LoadBalancer.AllWithOpts(ctx, opts)
+	resp, err := c.client.LoadBalancer.AllWithOpts(ctx, opts)
+	if err != nil && strings.Contains(err.Error(), errStringUnauthorized) {
+		return resp, fmt.Errorf("%w: %w", ErrUnauthorized, err)
+	}
+	return resp, err
 }
 
 func (c *realClient) AttachLoadBalancerToNetwork(ctx context.Context, lb *hcloud.LoadBalancer, opts hcloud.LoadBalancerAttachToNetworkOpts) error {
@@ -169,11 +180,18 @@ func (c *realClient) AttachServerToNetwork(ctx context.Context, server *hcloud.S
 }
 
 func (c *realClient) ListServers(ctx context.Context, opts hcloud.ServerListOpts) ([]*hcloud.Server, error) {
-	return c.client.Server.AllWithOpts(ctx, opts)
+	resp, err := c.client.Server.AllWithOpts(ctx, opts)
+	if err != nil && strings.Contains(err.Error(), errStringUnauthorized) {
+		return resp, fmt.Errorf("%w: %w", ErrUnauthorized, err)
+	}
+	return resp, err
 }
 
 func (c *realClient) GetServer(ctx context.Context, id int) (*hcloud.Server, error) {
 	res, _, err := c.client.Server.GetByID(ctx, id)
+	if err != nil && strings.Contains(err.Error(), errStringUnauthorized) {
+		return res, fmt.Errorf("%w: %w", ErrUnauthorized, err)
+	}
 	return res, err
 }
 
@@ -212,7 +230,11 @@ func (c *realClient) CreateNetwork(ctx context.Context, opts hcloud.NetworkCreat
 }
 
 func (c *realClient) ListNetworks(ctx context.Context, opts hcloud.NetworkListOpts) ([]*hcloud.Network, error) {
-	return c.client.Network.AllWithOpts(ctx, opts)
+	resp, err := c.client.Network.AllWithOpts(ctx, opts)
+	if err != nil && strings.Contains(err.Error(), errStringUnauthorized) {
+		return resp, fmt.Errorf("%w: %w", ErrUnauthorized, err)
+	}
+	return resp, err
 }
 
 func (c *realClient) DeleteNetwork(ctx context.Context, network *hcloud.Network) error {

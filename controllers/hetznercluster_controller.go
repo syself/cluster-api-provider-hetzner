@@ -19,6 +19,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -142,10 +143,14 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %w", err)
 	}
 
-	conditions.MarkTrue(hetznerCluster, infrav1.HCloudTokenAvailableCondition)
-
 	// Always close the scope when exiting this function so we can persist any HetznerCluster changes.
 	defer func() {
+		if reterr != nil && errors.Is(reterr, hcloudclient.ErrUnauthorized) {
+			conditions.MarkFalse(hetznerCluster, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason, clusterv1.ConditionSeverityError, "wrong hcloud token")
+		} else {
+			conditions.MarkTrue(hetznerCluster, infrav1.HCloudTokenAvailableCondition)
+		}
+
 		if err := clusterScope.Close(ctx); err != nil && reterr == nil {
 			reterr = err
 		}

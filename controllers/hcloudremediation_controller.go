@@ -18,11 +18,13 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
 	"sigs.k8s.io/cluster-api/util/conditions"
@@ -151,6 +153,12 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 
 	// Always close the scope when exiting this function so we can persist any HCloudRemediation changes.
 	defer func() {
+		if reterr != nil && errors.Is(reterr, hcloudclient.ErrUnauthorized) {
+			conditions.MarkFalse(hcloudRemediation, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason, clusterv1.ConditionSeverityError, "wrong hcloud token")
+		} else {
+			conditions.MarkTrue(hcloudRemediation, infrav1.HCloudTokenAvailableCondition)
+		}
+
 		// Always attempt to Patch the Remediation object and status after each reconciliation.
 		// Patch ObservedGeneration only if the reconciliation completed successfully
 		patchOpts := []patch.Option{}

@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -141,10 +142,14 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %+v", err)
 	}
 
-	conditions.MarkTrue(hcloudMachine, infrav1.HCloudTokenAvailableCondition)
-
 	// Always close the scope when exiting this function so we can persist any HCloudMachine changes.
 	defer func() {
+		if reterr != nil && errors.Is(reterr, hcloudclient.ErrUnauthorized) {
+			conditions.MarkFalse(hcloudMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason, clusterv1.ConditionSeverityError, "wrong hcloud token")
+		} else {
+			conditions.MarkTrue(hcloudMachine, infrav1.HCloudTokenAvailableCondition)
+		}
+
 		if err := machineScope.Close(ctx); err != nil && reterr == nil {
 			reterr = err
 		}
