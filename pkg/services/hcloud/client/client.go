@@ -142,16 +142,25 @@ func (c *realClient) AddTargetServerToLoadBalancer(ctx context.Context, opts hcl
 
 func (c *realClient) AddIPTargetToLoadBalancer(ctx context.Context, opts hcloud.LoadBalancerAddIPTargetOpts, lb *hcloud.LoadBalancer) error {
 	_, _, err := c.client.LoadBalancer.AddIPTarget(ctx, lb, opts)
+	if err != nil && strings.Contains(err.Error(), errStringUnauthorized) {
+		return fmt.Errorf("%w: %w", ErrUnauthorized, err)
+	}
 	return err
 }
 
 func (c *realClient) DeleteTargetServerOfLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, server *hcloud.Server) error {
 	_, _, err := c.client.LoadBalancer.RemoveServerTarget(ctx, lb, server)
+	if err != nil && strings.Contains(err.Error(), errStringUnauthorized) {
+		return fmt.Errorf("%w: %w", ErrUnauthorized, err)
+	}
 	return err
 }
 
 func (c *realClient) DeleteIPTargetOfLoadBalancer(ctx context.Context, lb *hcloud.LoadBalancer, ip net.IP) error {
 	_, _, err := c.client.LoadBalancer.RemoveIPTarget(ctx, lb, ip)
+	if err != nil && strings.Contains(err.Error(), errStringUnauthorized) {
+		return fmt.Errorf("%w: %w", ErrUnauthorized, err)
+	}
 	return err
 }
 
@@ -196,7 +205,11 @@ func (c *realClient) GetServer(ctx context.Context, id int) (*hcloud.Server, err
 }
 
 func (c *realClient) ListServerTypes(ctx context.Context) ([]*hcloud.ServerType, error) {
-	return c.client.ServerType.All(ctx)
+	resp, err := c.client.ServerType.All(ctx)
+	if err != nil && strings.Contains(err.Error(), errStringUnauthorized) {
+		return resp, fmt.Errorf("%w: %w", ErrUnauthorized, err)
+	}
+	return resp, err
 }
 
 func (c *realClient) GetServerType(ctx context.Context, name string) (*hcloud.ServerType, error) {
