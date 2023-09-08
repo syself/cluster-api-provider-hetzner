@@ -32,6 +32,9 @@ jobs:
     name: Test Hcloud Basic Packer Image
     concurrency: ci-${{ github.ref }}-e2e-basic-packer
     runs-on: ubuntu-latest
+    permissions:
+      # Required for hcloud TPS
+      id-token: write
     needs:
       - manager-image
       - test-release
@@ -44,5 +47,4 @@ jobs:
         with:
           e2e_name: hcloud-basic-packer
           e2e_make_target: test-e2e-feature-packer
-          e2e_tts_token: ${{ secrets.TTS_TOKEN }}
           e2e_hcloud_token: ${{ secrets.HCLOUD_TOKEN }}

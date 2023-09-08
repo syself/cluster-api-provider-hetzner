@@ -32,6 +32,9 @@ jobs:
     name: Test Hcloud Basic
     concurrency: ci-${{ github.ref }}-e2e-basic-periodic
     runs-on: ubuntu-latest
+    permissions:
+      # Required for hcloud TPS
+      id-token: write
     needs:
       - manager-image
       - test-release
@@ -44,13 +47,15 @@ jobs:
         with:
           e2e_name: hcloud-basic
           e2e_make_target: test-e2e
-          e2e_tts_token: ${{ secrets.TTS_TOKEN }}
           e2e_hcloud_token: ${{ secrets.HCLOUD_TOKEN }}
 
   e2e-hcloud-feature:
     name: Test Hcloud Features
     concurrency: ci-${{ github.ref }}-e2e-feature
     runs-on: ubuntu-latest
+    permissions:
+      # Required for hcloud TPS
+      id-token: write
     needs:
       - manager-image
       - test-release
@@ -63,13 +68,15 @@ jobs:
         with:
           e2e_name: hcloud-feature
           e2e_make_target: test-e2e-feature
-          e2e_tts_token: ${{ secrets.TTS_TOKEN }}
           e2e_hcloud_token: ${{ secrets.HCLOUD_TOKEN }}
 
   e2e-hcloud-feature-packer:
     name: Test Hcloud Feature Packer Image
     concurrency: ci-${{ github.ref }}-e2e-feature-packer
     runs-on: ubuntu-latest
+    permissions:
+      # Required for hcloud TPS
+      id-token: write
     needs:
       - manager-image
       - test-release
@@ -82,13 +89,15 @@ jobs:
         with:
           e2e_name: hcloud-feature-packer
           e2e_make_target: test-e2e-feature-packer
-          e2e_tts_token: ${{ secrets.TTS_TOKEN }}
           e2e_hcloud_token: ${{ secrets.HCLOUD_TOKEN }}
 
   e2e-hcloud-lifecycle:
     name: Test Hcloud Lifecycle
     concurrency: ci-${{ github.ref }}-e2e-lifecycle
     runs-on: ubuntu-latest
+    permissions:
+      # Required for hcloud TPS
+      id-token: write
     needs:
       - manager-image
       - test-release
@@ -101,13 +110,15 @@ jobs:
         with:
           e2e_name: hcloud-lifecycle
           e2e_make_target: test-e2e-lifecycle
-          e2e_tts_token: ${{ secrets.TTS_TOKEN }}
           e2e_hcloud_token: ${{ secrets.HCLOUD_TOKEN }}
 
   e2e-hcloud-conformance:
     name: Test Hcloud Conformance
     concurrency: ci-${{ github.ref }}-e2e-conformance
     runs-on: ubuntu-latest
+    permissions:
+      # Required for hcloud TPS
+      id-token: write
     needs:
       - manager-image
       - test-release
@@ -120,5 +131,4 @@ jobs:
         with:
           e2e_name: hcloud-conformance
           e2e_make_target: test-e2e-conformance
-          e2e_tts_token: ${{ secrets.TTS_TOKEN }}
           e2e_hcloud_token: ${{ secrets.HCLOUD_TOKEN }}

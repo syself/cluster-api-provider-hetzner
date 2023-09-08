@@ -7,9 +7,6 @@ inputs:
   e2e_make_target:
     description: "e2e_make_target"
     required: true
-  e2e_tts_token:
-    description: "e2e_tts_token"
-    required: false
   e2e_hcloud_token:
     description: "e2e_hcloud_token"
     required: false
@@ -61,22 +58,9 @@ runs:
         TAG: ${{ steps.meta.outputs.version }}
 
     - name: HCLOUD_TOKEN
-      env:
-        TTS_TOKEN: ${{ inputs.e2e_tts_token }}
-        HCLOUD_TOKEN: ${{ inputs.e2e_hcloud_token }}
-      shell: bash
-      run: |
-        set -ueo pipefail
-        if [[ "${HCLOUD_TOKEN:-}" != "" ]]; then
-          echo "HCLOUD_TOKEN=$HCLOUD_TOKEN" >> "$GITHUB_ENV"
-        elif [[ "${TTS_TOKEN:-}" != "" ]]; then
-                  token="$(./hack/ci-e2e-get-token.sh)"
-                  echo "::add-mask::$token"
-                  echo "HCLOUD_TOKEN=$token" >> "$GITHUB_ENV"
-        else
-          echo "::error ::Couldn't determine HCLOUD_TOKEN. Check that repository secrets are setup correctly."
-          exit 1
-        fi
+      uses: hetznercloud/tps-action@8a445ac40beed1e27ce8ef016fb0314342ff8d64 # main
+      with:
+        token: ${{ inputs.e2e_hcloud_token }}
 
     - name: "e2e-${{ inputs.e2e_name }}"
       shell: bash
@@ -101,16 +85,3 @@ runs:
       with:
         name: e2e-${{ inputs.e2e_name }}
         path: _artifacts
-
-    - name: Clean Up
-      if: always()
-      shell: bash
-      env:
-        TTS_TOKEN: ${{ inputs.e2e_tts_token }}
-        HCLOUD_TOKEN: ${{ env.HCLOUD_TOKEN }}
-        HETZNER_ROBOT_USER: ${{ inputs.e2e_robot_user }}
-        HETZNER_ROBOT_PASSWORD: ${{ inputs.e2e_robot_password }}
-        HETZNER_SSH_PUB: ${{ inputs.e2e_ssh_pub }}
-        HETZNER_SSH_PRIV: ${{ inputs.e2e_ssh_priv }}
-      run: |
-        ./hack/ci-e2e-delete-token.sh $HCLOUD_TOKEN $HETZNER_ROBOT_USER $HETZNER_ROBOT_PASSWORD $HETZNER_SSH_PUB $HETZNER_SSH_PRIV
