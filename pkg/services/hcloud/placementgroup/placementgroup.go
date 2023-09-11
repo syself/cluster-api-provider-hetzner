@@ -24,6 +24,8 @@ import (
 	"strings"
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/record"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -46,6 +48,18 @@ func NewService(scope *scope.ClusterScope) *Service {
 
 // Reconcile implements life cycle of placement groups.
 func (s *Service) Reconcile(ctx context.Context) (err error) {
+	defer func() {
+		if err != nil {
+			conditions.MarkFalse(
+				s.scope.HetznerCluster,
+				infrav1.PlacementGroupsSyncedCondition,
+				infrav1.PlacementGroupsSyncFailedReason,
+				clusterv1.ConditionSeverityWarning,
+				err.Error(),
+			)
+		}
+	}()
+
 	// find placement groups
 	placementGroups, err := s.findPlacementGroups(ctx)
 	if err != nil {
@@ -112,6 +126,8 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 	}
 
 	s.scope.HetznerCluster.Status.HCloudPlacementGroups = statusFromHCloudPlacementGroups(placementGroups, s.scope.HetznerCluster.Name)
+	conditions.MarkTrue(s.scope.HetznerCluster, infrav1.PlacementGroupsSyncedCondition)
+
 	return nil
 }
 
