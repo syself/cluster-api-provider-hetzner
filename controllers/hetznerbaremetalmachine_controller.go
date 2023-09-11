@@ -141,6 +141,8 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 			conditions.MarkTrue(hbmMachine, infrav1.HCloudTokenAvailableCondition)
 		}
 
+		conditions.SetSummary(hbmMachine)
+
 		if err := machineScope.Close(ctx); err != nil && reterr == nil {
 			reterr = err
 		}

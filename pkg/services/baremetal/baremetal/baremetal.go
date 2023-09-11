@@ -77,23 +77,25 @@ func NewService(scope *scope.BareMetalMachineScope) *Service {
 
 // Reconcile implements reconcilement of HetznerBareMetalMachines.
 func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err error) {
+	// delete the deprecated condition from existing machine objects
+	conditions.Delete(s.scope.BareMetalMachine, infrav1.InstanceReadyCondition)
+	conditions.Delete(s.scope.BareMetalMachine, infrav1.InstanceBootstrapReadyCondition)
+	conditions.Delete(s.scope.BareMetalMachine, infrav1.AssociateBMHCondition)
+
 	// Make sure bootstrap data is available and populated. If not, return, we
 	// will get an event from the machine update when the flag is set to true.
 	if !s.scope.IsBootstrapReady() {
 		conditions.MarkFalse(
 			s.scope.BareMetalMachine,
-			infrav1.InstanceBootstrapReadyCondition,
-			infrav1.InstanceBootstrapNotReadyReason,
+			infrav1.BootstrapReadyCondition,
+			infrav1.BootstrapNotReadyReason,
 			clusterv1.ConditionSeverityInfo,
 			"bootstrap not ready yet",
 		)
 		return res, nil
 	}
 
-	conditions.MarkTrue(
-		s.scope.BareMetalMachine,
-		infrav1.InstanceBootstrapReadyCondition,
-	)
+	conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.BootstrapReadyCondition)
 
 	// Check if the bareMetalmachine is associated with a host already. If not, associate a new host.
 	if !s.scope.BareMetalMachine.HasHostAnnotation() {
@@ -102,6 +104,8 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 			return checkForRequeueError(err, "failed to associate machine to a host")
 		}
 	}
+
+	conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.HostAssociateSucceededCondition)
 
 	// update the machine
 	if err := s.update(ctx); err != nil {
@@ -115,7 +119,6 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 
 	// set machine ready
 	s.scope.BareMetalMachine.Status.Ready = true
-	conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.InstanceReadyCondition)
 
 	return res, nil
 }
@@ -240,7 +243,7 @@ func (s *Service) update(ctx context.Context) error {
 	// if machine is a control plane, the host should be set as target of load balancer
 	if s.scope.IsControlPlane() {
 		if err := s.reconcileLoadBalancerAttachment(ctx, host); err != nil {
-			return fmt.Errorf("failed to reconcile load balancer attachement: %w", err)
+			return fmt.Errorf("failed to reconcile load balancer attachment: %w", err)
 		}
 	}
 
@@ -271,6 +274,13 @@ func (s *Service) associate(ctx context.Context) error {
 	}
 	if host == nil {
 		s.scope.V(1).Info("No available host found. Requeuing.")
+		conditions.MarkFalse(
+			s.scope.BareMetalMachine,
+			infrav1.HostAssociateSucceededCondition,
+			infrav1.NoAvailableHostReason,
+			clusterv1.ConditionSeverityWarning,
+			"no available host",
+		)
 		return &scope.RequeueAfterError{RequeueAfter: requeueAfter}
 	}
 
@@ -284,7 +294,15 @@ func (s *Service) associate(ctx context.Context) error {
 	s.setHostSpec(host)
 
 	if err := analyzePatchError(helper.Patch(ctx, host), false); err != nil {
-		return fmt.Errorf("failed to patch host: %w", err)
+		reterr := fmt.Errorf("failed to patch host: %w", err)
+		conditions.MarkFalse(
+			s.scope.BareMetalMachine,
+			infrav1.HostAssociateSucceededCondition,
+			infrav1.HostAssociateFailedReason,
+			clusterv1.ConditionSeverityWarning,
+			reterr.Error(),
+		)
+		return reterr
 	}
 
 	s.ensureMachineAnnotation(host)
@@ -534,6 +552,13 @@ func (s *Service) setProviderID(ctx context.Context) error {
 	}
 
 	if host.Spec.Status.ProvisioningState != infrav1.StateProvisioned {
+		conditions.MarkFalse(
+			s.scope.BareMetalMachine,
+			infrav1.HostProvisionSucceededCondition,
+			infrav1.StillProvisioningReason,
+			clusterv1.ConditionSeverityInfo,
+			"still provisioning - current state %q", host.Spec.Status.ProvisioningState,
+		)
 		// no need for requeue error since host update will trigger a reconciliation
 		return nil
 	}
@@ -541,6 +566,8 @@ func (s *Service) setProviderID(ctx context.Context) error {
 	// set providerID
 	providerID := providerIDFromServerID(host.Spec.ServerID)
 	s.scope.BareMetalMachine.Spec.ProviderID = &providerID
+	conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.HostProvisionSucceededCondition)
+
 	return nil
 }
 
@@ -583,7 +610,6 @@ func (s *Service) updateMachineAddresses(host *infrav1.HetznerBareMetalHost) {
 	bareMetalMachineOld := s.scope.BareMetalMachine.DeepCopy()
 
 	s.scope.BareMetalMachine.Status.Addresses = addrs
-	conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.AssociateBMHCondition)
 
 	// Update lastUpdated when status changed
 	if !equality.Semantic.DeepEqual(s.scope.BareMetalMachine.Status, bareMetalMachineOld.Status) {

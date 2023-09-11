@@ -17,7 +17,6 @@ limitations under the License.
 package controllers
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
@@ -188,7 +187,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				if err := testEnv.Get(ctx, key, infraMachine); err != nil {
 					return false
 				}
-				return isPresentAndFalseWithReason(key, infraMachine, infrav1.InstanceBootstrapReadyCondition, infrav1.InstanceBootstrapNotReadyReason)
+				return isPresentAndFalseWithReason(key, infraMachine, infrav1.BootstrapReadyCondition, infrav1.BootstrapNotReadyReason)
 			}, timeout, time.Second).Should(BeTrue())
 
 			By("setting the bootstrap data")
@@ -201,15 +200,16 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				return ph.Patch(ctx, capiMachine, patch.WithStatusObservedGeneration{})
 			}, timeout, time.Second).Should(BeNil())
 
-			// Check whether bootstrap condition is ready
+			By("checking whether bootstrap condition is ready")
+
 			Eventually(func() bool {
 				if err := testEnv.Get(ctx, key, infraMachine); err != nil {
 					return false
 				}
-				objectCondition := conditions.Get(infraMachine, infrav1.InstanceBootstrapReadyCondition)
-				fmt.Println(objectCondition)
-				return isPresentAndTrue(key, infraMachine, infrav1.InstanceBootstrapReadyCondition)
+				return isPresentAndTrue(key, infraMachine, infrav1.BootstrapReadyCondition)
 			}, timeout, time.Second).Should(BeTrue())
+
+			By("listing hcloud servers")
 
 			Eventually(func() int {
 				servers, err := hcloudClient.ListServers(ctx, hcloud.ServerListOpts{
@@ -222,6 +222,24 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				}
 				return len(servers)
 			}, timeout, time.Second).Should(BeNumerically(">", 0))
+
+			By("checking if server created condition is set")
+
+			Eventually(func() bool {
+				if err := testEnv.Get(ctx, key, infraMachine); err != nil {
+					return false
+				}
+				return isPresentAndTrue(key, infraMachine, infrav1.ServerCreateSucceededCondition)
+			}, timeout, time.Second).Should(BeTrue())
+
+			By("checking if server available condition is set")
+
+			Eventually(func() bool {
+				if err := testEnv.Get(ctx, key, infraMachine); err != nil {
+					return false
+				}
+				return isPresentAndTrue(key, infraMachine, infrav1.ServerAvailableCondition)
+			}, timeout, time.Second).Should(BeTrue())
 		})
 	})
 
@@ -349,7 +367,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 					if err := testEnv.Get(ctx, key, infraMachine); err != nil {
 						return false
 					}
-					return isPresentAndFalseWithReason(key, infraMachine, infrav1.InstanceReadyCondition, infrav1.InstanceHasNonExistingPlacementGroupReason)
+					return isPresentAndFalseWithReason(key, infraMachine, infrav1.ServerCreateSucceededCondition, infrav1.InstanceHasNonExistingPlacementGroupReason)
 				}, timeout).Should(BeTrue())
 			})
 		})
