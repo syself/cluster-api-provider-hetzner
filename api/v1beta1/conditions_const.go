@@ -109,8 +109,8 @@ const (
 )
 
 const (
-	// HetznerBareMetalHostReadyCondition reports on whether the Hetzner cluster is in ready state.
-	HetznerBareMetalHostReadyCondition clusterv1.ConditionType = "HetznerBareMetalHostReady"
+	// CredentialsAvailableCondition reports on whether the Hetzner cluster is in ready state.
+	CredentialsAvailableCondition clusterv1.ConditionType = "CredentialsAvailable"
 	// RobotCredentialsInvalidReason indicates that credentials for Robot are invalid.
 	RobotCredentialsInvalidReason = "RobotCredentialsInvalid" // #nosec
 	// SSHCredentialsInSecretInvalidReason indicates that ssh credentials are invalid.
@@ -121,6 +121,17 @@ const (
 	OSSSHSecretMissingReason = "OSSSHSecretMissing"
 	// RescueSSHSecretMissingReason indicates that secret with the rescue ssh key is missing.
 	RescueSSHSecretMissingReason = "RescueSSHSecretMissing"
+)
+
+const (
+	// ProvisionSucceededCondition indicates that a host has been provisioned.
+	ProvisionSucceededCondition clusterv1.ConditionType = "ProvisionSucceeded"
+	// StillProvisioningReason indicates that the server is still provisioning.
+	StillProvisioningReason = "StillProvisioning"
+	// SSHConnectionRefusedReason indicates that the server cannot be reached via SSH.
+	SSHConnectionRefusedReason = "SSHConnectionRefused"
+	// RescueSystemUnavailableReason indicates that the server has no rescue system.
+	RescueSystemUnavailableReason = "RescueSystemUnavailable"
 )
 
 const (
@@ -135,27 +146,17 @@ const (
 const (
 	// HostProvisionSucceededCondition indicates that a host has been provisioned.
 	HostProvisionSucceededCondition clusterv1.ConditionType = "HostProvisionSucceeded"
-	// StillProvisioningReason indicates that asssociating a host is still provisioning.
-	StillProvisioningReason = "StillProvisioning"
-)
-
-// deprecated .
-
-const (
-	// InstanceReadyCondition reports on current status of the instance. Ready indicates the instance is in a Running state.
-	InstanceReadyCondition clusterv1.ConditionType = "InstanceReady"
-	// InstanceBootstrapReadyCondition reports on current status of the instance. BootstrapReady indicates the bootstrap is ready.
-	InstanceBootstrapReadyCondition clusterv1.ConditionType = "InstanceBootstrapReady"
-)
-
-const (
-	// AssociateBMHCondition reports on whether the Hetzner cluster is in ready state.
-	AssociateBMHCondition clusterv1.ConditionType = "AssociateBMHCondition"
 )
 
 // deprecated conditions.
 
 const (
+	// InstanceReadyCondition reports on current status of the instance. Ready indicates the instance is in a Running state.
+	InstanceReadyCondition clusterv1.ConditionType = "InstanceReady"
+
+	// InstanceBootstrapReadyCondition reports on current status of the instance. BootstrapReady indicates the bootstrap is ready.
+	InstanceBootstrapReadyCondition clusterv1.ConditionType = "InstanceBootstrapReady"
+
 	// HetznerClusterTargetClusterReadyCondition reports on whether the kubeconfig in the target cluster is ready.
 	HetznerClusterTargetClusterReadyCondition clusterv1.ConditionType = "HetznerClusterTargetClusterReady"
 
@@ -164,4 +165,10 @@ const (
 
 	// LoadBalancerAttachedToNetworkCondition reports on whether the load balancer is attached to a network.
 	LoadBalancerAttachedToNetworkCondition clusterv1.ConditionType = "LoadBalancerAttachedToNetwork"
+
+	// HetznerBareMetalHostReadyCondition reports on whether the Hetzner cluster is in ready state.
+	HetznerBareMetalHostReadyCondition clusterv1.ConditionType = "HetznerBareMetalHostReady"
+
+	// AssociateBMHCondition reports on whether the Hetzner cluster is in ready state.
+	AssociateBMHCondition clusterv1.ConditionType = "AssociateBMHCondition"
 )

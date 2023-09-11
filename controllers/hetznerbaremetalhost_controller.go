@@ -214,7 +214,7 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 			if apierrors.IsNotFound(err) {
 				conditions.MarkFalse(
 					bmHost,
-					infrav1.HetznerBareMetalHostReadyCondition,
+					infrav1.CredentialsAvailableCondition,
 					infrav1.OSSSHSecretMissingReason,
 					clusterv1.ConditionSeverityError,
 					infrav1.ErrorMessageMissingOSSSHSecret,
@@ -238,7 +238,7 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 			if apierrors.IsNotFound(err) {
 				conditions.MarkFalse(
 					bmHost,
-					infrav1.HetznerBareMetalHostReadyCondition,
+					infrav1.CredentialsAvailableCondition,
 					infrav1.RescueSSHSecretMissingReason,
 					clusterv1.ConditionSeverityError,
 					infrav1.ErrorMessageMissingRescueSSHSecret,
@@ -317,7 +317,7 @@ func hetznerSecretErrorResult(
 		// at some point in the future.
 		conditions.MarkFalse(
 			bmHost,
-			infrav1.HetznerBareMetalHostReadyCondition,
+			infrav1.CredentialsAvailableCondition,
 			infrav1.HetznerSecretUnreachableReason,
 			clusterv1.ConditionSeverityError,
 			infrav1.ErrorMessageMissingHetznerSecret,
@@ -339,7 +339,7 @@ func hetznerSecretErrorResult(
 	if errors.As(err, &credValidationErr) {
 		conditions.MarkFalse(
 			bmHost,
-			infrav1.HetznerBareMetalHostReadyCondition,
+			infrav1.CredentialsAvailableCondition,
 			infrav1.RobotCredentialsInvalidReason,
 			clusterv1.ConditionSeverityError,
 			infrav1.ErrorMessageMissingOrInvalidSecretData,

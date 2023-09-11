@@ -100,6 +100,11 @@ func (s *Service) Reconcile(ctx context.Context) (result reconcile.Result, err e
 		return reconcile.Result{Requeue: true}, fmt.Errorf("action %q failed: %w", initialState, err)
 	}
 
+	// remove deprecated conditions
+	conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.HetznerBareMetalHostReadyCondition)
+
+	conditions.SetSummary(s.scope.HetznerBareMetalHost)
+
 	// save host if it changed during reconciliation
 	if !reflect.DeepEqual(oldHost, *s.scope.HetznerBareMetalHost) {
 		return SaveHostAndReturn(ctx, s.scope.Client, s.scope.HetznerBareMetalHost)
@@ -166,6 +171,13 @@ func (s *Service) actionPreparing() actionResult {
 	// if there is no rescue system, we cannot provision the server
 	if !server.Rescue {
 		errMsg := fmt.Sprintf("bm server %v has no rescue system", server.ServerNumber)
+		conditions.MarkFalse(
+			s.scope.HetznerBareMetalHost,
+			infrav1.ProvisionSucceededCondition,
+			infrav1.RescueSystemUnavailableReason,
+			clusterv1.ConditionSeverityError,
+			errMsg,
+		)
 		record.Warnf(s.scope.HetznerBareMetalHost, "NoRescueSystemAvailable", errMsg)
 		s.scope.HetznerBareMetalHost.SetError(infrav1.FatalError, errMsg)
 		return s.recordActionFailure(infrav1.RegistrationError, errMsg)
@@ -251,7 +263,7 @@ func (s *Service) ensureSSHKey(sshSecretRef infrav1.SSHSecretRef, sshSecret *cor
 				msg := fmt.Sprintf("cannot upload ssh key %s - exists already under a different name", string(sshSecret.Data[sshSecretRef.Key.Name]))
 				conditions.MarkFalse(
 					s.scope.HetznerBareMetalHost,
-					infrav1.HetznerBareMetalHostReadyCondition,
+					infrav1.CredentialsAvailableCondition,
 					infrav1.SSHKeyAlreadyExistsReason,
 					clusterv1.ConditionSeverityError,
 					msg,
@@ -276,8 +288,15 @@ func (s *Service) handleIncompleteBoot(isRebootIntoRescue, isTimeout, isConnecti
 		if s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeConnectionError {
 			// if error has occurred before, check the timeout
 			if hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated, time.Minute) {
-				record.Warnf(s.scope.HetznerBareMetalHost, "SSHConnectionError",
-					"Connection error when targeting server with ssh that might be due to a wrong ssh port. Please check.")
+				msg := "Connection error when targeting server with ssh that miht be due to a wrong ssh port. Please check."
+				conditions.MarkFalse(
+					s.scope.HetznerBareMetalHost,
+					infrav1.ProvisionSucceededCondition,
+					infrav1.SSHConnectionRefusedReason,
+					clusterv1.ConditionSeverityError,
+					msg,
+				)
+				record.Warnf(s.scope.HetznerBareMetalHost, "SSHConnectionError", msg)
 				return fmt.Errorf("%w - might be due to wrong port", errSSHConnectionRefused)
 			}
 		} else {
@@ -983,6 +1002,8 @@ func (s *Service) actionProvisioning() actionResult {
 	}
 
 	host.ClearError()
+	conditions.MarkTrue(host, infrav1.ProvisionSucceededCondition)
+
 	return actionComplete{}
 }
 
@@ -1273,6 +1294,9 @@ func analyzeSSHOutputProvisioned(out sshclient.Output) (isTimeout, isConnectionR
 }
 
 func (s *Service) actionProvisioned() actionResult {
+	// set host to provisioned
+	conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
+
 	rebootDesired := s.scope.HetznerBareMetalHost.HasRebootAnnotation()
 	isRebooted := s.scope.HetznerBareMetalHost.Spec.Status.Rebooted
 	creds := sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.SecretRef)
