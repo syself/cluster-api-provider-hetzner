@@ -23,7 +23,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -495,25 +494,6 @@ var _ = Describe("Hetzner secret", func() {
 
 	AfterEach(func() {
 		Expect(testEnv.Cleanup(ctx, hetznerCluster, capiCluster, hcloudMachine, capiMachine, hetznerSecret)).To(Succeed())
-
-		Eventually(func() bool {
-			if err := testEnv.Get(ctx, client.ObjectKey{Namespace: hetznerSecret.Namespace, Name: hetznerSecret.Name}, hetznerSecret); err != nil && apierrors.IsNotFound(err) {
-				return true
-			} else if err != nil {
-				return false
-			}
-			// Secret still there, so the finalizers have not been removed. Patch to remove them.
-			ph, err := patch.NewHelper(hetznerSecret, testEnv)
-			Expect(err).ShouldNot(HaveOccurred())
-			hetznerSecret.Finalizers = nil
-			Expect(ph.Patch(ctx, hetznerSecret, patch.WithStatusObservedGeneration{})).To(Succeed())
-			// Should delete secret
-			if err := testEnv.Delete(ctx, hetznerSecret); err != nil && apierrors.IsNotFound(err) {
-				// Has been deleted already
-				return true
-			}
-			return false
-		}, time.Second, time.Second).Should(BeTrue())
 	})
 
 	DescribeTable("test different hetzner secret",
