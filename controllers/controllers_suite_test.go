@@ -43,11 +43,6 @@ const (
 	timeout             = time.Second * 5
 )
 
-func TestControllers(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Controller Suite")
-}
-
 var (
 	testEnv      *helpers.TestEnvironment
 	hcloudClient hcloudclient.Client
@@ -57,6 +52,11 @@ var (
 	defaultPlacementGroupName = "caph-placement-group"
 	defaultFailureDomain      = "fsn1"
 )
+
+func TestControllers(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Controller Suite")
+}
 
 var _ = BeforeSuite(func() {
 	utilruntime.Must(infrav1.AddToScheme(scheme.Scheme))
@@ -71,7 +71,6 @@ var _ = BeforeSuite(func() {
 		Client:                         testEnv.Manager.GetClient(),
 		APIReader:                      testEnv.Manager.GetAPIReader(),
 		HCloudClientFactory:            testEnv.HCloudClientFactory,
-		WatchFilterValue:               "",
 		TargetClusterManagersWaitGroup: &wg,
 	}).SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
 
@@ -79,14 +78,12 @@ var _ = BeforeSuite(func() {
 		Client:              testEnv.Manager.GetClient(),
 		APIReader:           testEnv.Manager.GetAPIReader(),
 		HCloudClientFactory: testEnv.HCloudClientFactory,
-		WatchFilterValue:    "",
 	}).SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
 
 	Expect((&HCloudMachineTemplateReconciler{
 		Client:              testEnv.Manager.GetClient(),
 		APIReader:           testEnv.Manager.GetAPIReader(),
 		HCloudClientFactory: testEnv.HCloudClientFactory,
-		WatchFilterValue:    "",
 	}).SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
 
 	Expect((&HetznerBareMetalHostReconciler{
@@ -94,14 +91,12 @@ var _ = BeforeSuite(func() {
 		APIReader:          testEnv.Manager.GetAPIReader(),
 		RobotClientFactory: testEnv.RobotClientFactory,
 		SSHClientFactory:   testEnv.SSHClientFactory,
-		WatchFilterValue:   "",
 	}).SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
 
 	Expect((&HetznerBareMetalMachineReconciler{
 		Client:              testEnv.Manager.GetClient(),
 		APIReader:           testEnv.Manager.GetAPIReader(),
 		HCloudClientFactory: testEnv.HCloudClientFactory,
-		WatchFilterValue:    "",
 	}).SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
 
 	go func() {
