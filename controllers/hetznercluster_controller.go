@@ -26,7 +26,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-logr/logr"
 	certificatesv1 "k8s.io/api/certificates/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -71,11 +70,10 @@ type HetznerClusterReconciler struct {
 	client.Client
 	APIReader                      client.Reader
 	HCloudClientFactory            hcloudclient.Factory
-	Log                            logr.Logger
-	WatchFilterValue               string
 	targetClusterManagersStopCh    map[types.NamespacedName]chan struct{}
 	targetClusterManagersLock      sync.Mutex
 	TargetClusterManagersWaitGroup *sync.WaitGroup
+	WatchFilterValue               string
 }
 
 //+kubebuilder:rbac:groups=cluster.x-k8s.io,resources=clusters;clusters/status,verbs=get;list;watch

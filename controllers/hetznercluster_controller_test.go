@@ -362,8 +362,6 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 				Expect(testEnv.Delete(ctx, bootstrapSecret)).To(Succeed())
 			}()
 
-			hcloudClient := testEnv.HCloudClientFactory.NewClient("")
-
 			By("creating load balancer manually")
 
 			opts := hcloud.LoadBalancerCreateOpts{
@@ -409,8 +407,6 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 			defer func() {
 				Expect(testEnv.Delete(ctx, bootstrapSecret)).To(Succeed())
 			}()
-
-			hcloudClient := testEnv.HCloudClientFactory.NewClient("")
 
 			By("creating load balancer manually")
 			labelsOwnedByOtherCluster := map[string]string{instance.ClusterTagKey() + "s": string(infrav1.ResourceLifecycleOwned)}
