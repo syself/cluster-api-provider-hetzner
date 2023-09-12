@@ -84,8 +84,17 @@ func (hsm *hostStateMachine) ReconcileState() (actionRes actionResult) {
 		return actResult
 	}
 
-	// Set host ready now. This can be changed while the state is handled.
-	conditions.MarkTrue(hsm.host, infrav1.HetznerBareMetalHostReadyCondition)
+	// Assume credentials are ready for now. This can be changed while the state is handled.
+	conditions.MarkTrue(hsm.host, infrav1.CredentialsAvailableCondition)
+
+	// Set condition on false. It will be set on true if host is provisioned during reconcilement
+	conditions.MarkFalse(
+		hsm.host,
+		infrav1.ProvisionSucceededCondition,
+		infrav1.StillProvisioningReason,
+		clusterv1.ConditionSeverityInfo,
+		"host is provisioning - current state: %q", hsm.host.Spec.Status.ProvisioningState,
+	)
 
 	if stateHandler, found := hsm.handlers()[initialState]; found {
 		return stateHandler()
@@ -163,7 +172,7 @@ func (hsm *hostStateMachine) updateOSSSHStatusAndValidateKey(osSSHSecret *corev1
 	}
 	if err := validateSSHKey(osSSHSecret, hsm.host.Spec.Status.SSHSpec.SecretRef); err != nil {
 		msg := fmt.Sprintf("ssh credentials are invalid: %s", err.Error())
-		conditions.MarkFalse(hsm.host, infrav1.HetznerBareMetalHostReadyCondition, infrav1.SSHCredentialsInSecretInvalidReason, clusterv1.ConditionSeverityError, msg)
+		conditions.MarkFalse(hsm.host, infrav1.CredentialsAvailableCondition, infrav1.SSHCredentialsInSecretInvalidReason, clusterv1.ConditionSeverityError, msg)
 		record.Warnf(hsm.host, infrav1.SSHKeyAlreadyExistsReason, msg)
 		return hsm.reconciler.recordActionFailure(infrav1.PreparationError, infrav1.ErrorMessageMissingOrInvalidSecretData)
 	}
@@ -193,7 +202,7 @@ func (hsm *hostStateMachine) updateRescueSSHStatusAndValidateKey(rescueSSHSecret
 	}
 	if err := validateSSHKey(rescueSSHSecret, hsm.reconciler.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef); err != nil {
 		msg := fmt.Sprintf("ssh credentials for rescue system are invalid: %s", err.Error())
-		conditions.MarkFalse(hsm.host, infrav1.HetznerBareMetalHostReadyCondition, infrav1.SSHCredentialsInSecretInvalidReason, clusterv1.ConditionSeverityError, msg)
+		conditions.MarkFalse(hsm.host, infrav1.CredentialsAvailableCondition, infrav1.SSHCredentialsInSecretInvalidReason, clusterv1.ConditionSeverityError, msg)
 		return hsm.reconciler.recordActionFailure(infrav1.PreparationError, infrav1.ErrorMessageMissingOrInvalidSecretData)
 	}
 	return nil

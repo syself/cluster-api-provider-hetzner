@@ -376,10 +376,11 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 					if err := testEnv.Get(ctx, key, host); err != nil {
 						return false
 					}
-					if host.Spec.Status.ProvisioningState == infrav1.StateProvisioned {
-						return true
+					if host.Spec.Status.ProvisioningState != infrav1.StateProvisioned {
+						return false
 					}
-					return false
+
+					return isPresentAndTrue(key, host, infrav1.ProvisionSucceededCondition)
 				}, timeout).Should(BeTrue())
 			})
 		})
@@ -724,7 +725,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 				if err := testEnv.Get(ctx, key, host); err != nil {
 					return false
 				}
-				return isPresentAndFalseWithReason(key, host, infrav1.HetznerBareMetalHostReadyCondition, infrav1.RescueSSHSecretMissingReason)
+				return isPresentAndFalseWithReason(key, host, infrav1.CredentialsAvailableCondition, infrav1.RescueSSHSecretMissingReason)
 			}, timeout).Should(BeTrue())
 		})
 
@@ -749,7 +750,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 				if err := testEnv.Get(ctx, key, host); err != nil {
 					return false
 				}
-				return isPresentAndFalseWithReason(key, host, infrav1.HetznerBareMetalHostReadyCondition, infrav1.SSHCredentialsInSecretInvalidReason)
+				return isPresentAndFalseWithReason(key, host, infrav1.CredentialsAvailableCondition, infrav1.SSHCredentialsInSecretInvalidReason)
 			}, timeout).Should(BeTrue())
 		})
 	})
@@ -782,7 +783,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 				if err := testEnv.Get(ctx, key, host); err != nil {
 					return false
 				}
-				return isPresentAndFalseWithReason(key, host, infrav1.HetznerBareMetalHostReadyCondition, infrav1.OSSSHSecretMissingReason)
+				return isPresentAndFalseWithReason(key, host, infrav1.CredentialsAvailableCondition, infrav1.OSSSHSecretMissingReason)
 			}, timeout).Should(BeTrue())
 		})
 
@@ -807,7 +808,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 				if err := testEnv.Get(ctx, key, host); err != nil {
 					return false
 				}
-				return isPresentAndFalseWithReason(key, host, infrav1.HetznerBareMetalHostReadyCondition, infrav1.SSHCredentialsInSecretInvalidReason)
+				return isPresentAndFalseWithReason(key, host, infrav1.CredentialsAvailableCondition, infrav1.SSHCredentialsInSecretInvalidReason)
 			}, timeout).Should(BeTrue())
 		})
 	})
