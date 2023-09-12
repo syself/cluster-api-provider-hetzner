@@ -60,6 +60,10 @@ func NewService(scope *scope.MachineScope) *Service {
 
 // Reconcile implements reconcilement of HCloudMachines.
 func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err error) {
+	// delete the deprecated condition from existing machine objects
+	conditions.Delete(s.scope.HCloudMachine, infrav1.InstanceReadyCondition)
+	conditions.Delete(s.scope.HCloudMachine, infrav1.InstanceBootstrapReadyCondition)
+
 	// detect failure domain
 	failureDomain, err := s.scope.GetFailureDomain()
 	if err != nil {
@@ -73,15 +77,15 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	if !s.scope.IsBootstrapDataReady() {
 		conditions.MarkFalse(
 			s.scope.HCloudMachine,
-			infrav1.InstanceBootstrapReadyCondition,
-			infrav1.InstanceBootstrapNotReadyReason,
+			infrav1.BootstrapReadyCondition,
+			infrav1.BootstrapNotReadyReason,
 			clusterv1.ConditionSeverityInfo,
 			"bootstrap not ready yet",
 		)
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
-	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.InstanceBootstrapReadyCondition)
+	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.BootstrapReadyCondition)
 
 	// try to find an existing server
 	server, err := s.findServer(ctx)
@@ -118,9 +122,16 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 		return s.handleServerStatusOff(ctx, server)
 	case hcloud.ServerStatusStarting:
 		// Requeue here so that server does not switch back and forth between off and starting.
-		// If we don't return here, the condition InstanceReady would get marked as true in this
+		// If we don't return here, the condition ServerAvailable would get marked as true in this
 		// case. However, if the server is stuck and does not power on, we should not mark the
-		// condition InstanceReady as true to be able to remediate the server after a timeout.
+		// condition ServerAvailable as true to be able to remediate the server after a timeout.
+		conditions.MarkFalse(
+			s.scope.HCloudMachine,
+			infrav1.ServerAvailableCondition,
+			infrav1.ServerStartingReason,
+			clusterv1.ConditionSeverityInfo,
+			"server is starting",
+		)
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 	case hcloud.ServerStatusRunning: // do nothing
 	default:
@@ -131,23 +142,39 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 
 	// check whether server is attached to the network
 	if err := s.reconcileNetworkAttachment(ctx, server); err != nil {
-		return res, fmt.Errorf("failed to reconcile network attachement: %w", err)
+		reterr := fmt.Errorf("failed to reconcile network attachment: %w", err)
+		conditions.MarkFalse(
+			s.scope.HCloudMachine,
+			infrav1.ServerAvailableCondition,
+			infrav1.NetworkAttachFailedReason,
+			clusterv1.ConditionSeverityError,
+			reterr.Error(),
+		)
+		return res, reterr
 	}
 
 	// nothing to do any more for worker nodes
 	if !s.scope.IsControlPlane() {
+		conditions.MarkTrue(s.scope.HCloudMachine, infrav1.ServerAvailableCondition)
 		s.scope.SetReady(true)
-		conditions.MarkTrue(s.scope.HCloudMachine, infrav1.InstanceReadyCondition)
 		return res, nil
 	}
 
 	// all control planes have to be attached to the load balancer if it exists
 	if err := s.reconcileLoadBalancerAttachment(ctx, server); err != nil {
-		return res, fmt.Errorf("failed to reconcile load balancer attachement: %w", err)
+		reterr := fmt.Errorf("failed to reconcile load balancer attachment: %w", err)
+		conditions.MarkFalse(
+			s.scope.HCloudMachine,
+			infrav1.ServerAvailableCondition,
+			infrav1.LoadBalancerAttachFailedReason,
+			clusterv1.ConditionSeverityError,
+			reterr.Error(),
+		)
+		return res, reterr
 	}
 
 	s.scope.SetReady(true)
-	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.InstanceReadyCondition)
+	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.ServerAvailableCondition)
 
 	return res, nil
 }
@@ -318,7 +345,7 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 		}
 		if !foundPlacementGroupInStatus {
 			conditions.MarkFalse(s.scope.HCloudMachine,
-				infrav1.InstanceReadyCondition,
+				infrav1.ServerCreateSucceededCondition,
 				infrav1.InstanceHasNonExistingPlacementGroupReason,
 				clusterv1.ConditionSeverityError,
 				"Placement group %q does not exist in cluster",
@@ -345,7 +372,7 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 	// find matching keys and store them
 	opts.SSHKeys, err = filterHCloudSSHKeys(sshKeysAPI, sshKeySpecs)
 	if err != nil {
-		conditions.MarkFalse(s.scope.HCloudMachine, infrav1.InstanceReadyCondition, infrav1.SSHKeyNotFoundReason, clusterv1.ConditionSeverityError, err.Error())
+		conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerCreateSucceededCondition, infrav1.SSHKeyNotFoundReason, clusterv1.ConditionSeverityError, err.Error())
 		return nil, fmt.Errorf("error with ssh keys: %w", err)
 	}
 
@@ -374,6 +401,7 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 		return nil, fmt.Errorf("failed to create HCloud server %s: %w", s.scope.HCloudMachine.Name, err)
 	}
 
+	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.ServerCreateSucceededCondition)
 	record.Eventf(s.scope.HCloudMachine, "SuccessfulCreate", "Created new server with id %d", server.ID)
 	return server, nil
 }
@@ -445,11 +473,11 @@ func (s *Service) handleServerStatusOff(ctx context.Context, server *hcloud.Serv
 	// Check if server is in ServerStatusOff and turn it on. This is to avoid a bug of Hetzner where
 	// sometimes machines are created and not turned on
 
-	instanceReadyCondition := conditions.Get(s.scope.HCloudMachine, infrav1.InstanceReadyCondition)
-	if instanceReadyCondition != nil &&
-		instanceReadyCondition.Status == corev1.ConditionFalse &&
-		instanceReadyCondition.Reason == infrav1.ServerOffReason {
-		if time.Now().Before(instanceReadyCondition.LastTransitionTime.Time.Add(serverOffTimeout)) {
+	serverAvailableCondition := conditions.Get(s.scope.HCloudMachine, infrav1.ServerAvailableCondition)
+	if serverAvailableCondition != nil &&
+		serverAvailableCondition.Status == corev1.ConditionFalse &&
+		serverAvailableCondition.Reason == infrav1.ServerOffReason {
+		if time.Now().Before(serverAvailableCondition.LastTransitionTime.Time.Add(serverOffTimeout)) {
 			// Not yet timed out, try again to power on
 			if err := s.scope.HCloudClient.PowerOnServer(ctx, server); err != nil {
 				hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "PowerOnServer")
@@ -476,7 +504,7 @@ func (s *Service) handleServerStatusOff(ctx context.Context, server *hcloud.Serv
 		}
 		conditions.MarkFalse(
 			s.scope.HCloudMachine,
-			infrav1.InstanceReadyCondition,
+			infrav1.ServerAvailableCondition,
 			infrav1.ServerOffReason,
 			clusterv1.ConditionSeverityInfo,
 			"server is switched off",
@@ -492,15 +520,15 @@ func (s *Service) handleDeleteServerStatusRunning(ctx context.Context, server *h
 	// 1. The server has not yet been tried to shut down and still is marked as "ready".
 	// 2. The server has been tried to shut down without an effect and the timeout is not reached yet.
 
-	if s.scope.HasInstanceReadyCondition() || (s.scope.HasInstanceTerminatedCondition() && !s.scope.HasShutdownTimedOut()) {
+	if s.scope.HasServerAvailableCondition() || (s.scope.HasServerTerminatedCondition() && !s.scope.HasShutdownTimedOut()) {
 		if err := s.scope.HCloudClient.ShutdownServer(ctx, server); err != nil {
 			hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "ShutdownServer")
 			return res, fmt.Errorf("failed to shutdown server: %w", err)
 		}
 
 		conditions.MarkFalse(s.scope.HCloudMachine,
-			infrav1.InstanceReadyCondition,
-			infrav1.InstanceTerminatedReason,
+			infrav1.ServerAvailableCondition,
+			infrav1.ServerTerminatingReason,
 			clusterv1.ConditionSeverityInfo,
 			"Instance has been shut down",
 		)

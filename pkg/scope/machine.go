@@ -160,20 +160,20 @@ func (m *MachineScope) SetReady(ready bool) {
 	m.HCloudMachine.Status.Ready = ready
 }
 
-// HasInstanceReadyCondition checks whether InstanceReady condition is set on true.
-func (m *MachineScope) HasInstanceReadyCondition() bool {
-	return conditions.IsTrue(m.HCloudMachine, infrav1.InstanceReadyCondition)
+// HasServerAvailableCondition checks whether ServerAvailable condition is set on true.
+func (m *MachineScope) HasServerAvailableCondition() bool {
+	return conditions.IsTrue(m.HCloudMachine, infrav1.ServerAvailableCondition)
 }
 
-// HasInstanceTerminatedCondition checks the whether InstanceReady condition is false with reason "terminated".
-func (m *MachineScope) HasInstanceTerminatedCondition() bool {
-	return conditions.IsFalse(m.HCloudMachine, infrav1.InstanceReadyCondition) &&
-		conditions.GetReason(m.HCloudMachine, infrav1.InstanceReadyCondition) == infrav1.InstanceTerminatedReason
+// HasServerTerminatedCondition checks the whether ServerAvailable condition is false with reason "terminated".
+func (m *MachineScope) HasServerTerminatedCondition() bool {
+	return conditions.IsFalse(m.HCloudMachine, infrav1.ServerAvailableCondition) &&
+		conditions.GetReason(m.HCloudMachine, infrav1.ServerAvailableCondition) == infrav1.ServerTerminatingReason
 }
 
 // HasShutdownTimedOut checks the whether the HCloud server is terminated.
 func (m *MachineScope) HasShutdownTimedOut() bool {
-	return time.Now().After(conditions.GetLastTransitionTime(m.HCloudMachine, infrav1.InstanceReadyCondition).Time.Add(maxShutDownTime))
+	return time.Now().After(conditions.GetLastTransitionTime(m.HCloudMachine, infrav1.ServerAvailableCondition).Time.Add(maxShutDownTime))
 }
 
 // IsBootstrapDataReady checks the readiness of a capi machine's bootstrap data.

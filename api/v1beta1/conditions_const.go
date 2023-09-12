@@ -32,32 +32,39 @@ const (
 const (
 	// LoadBalancerAttachedToNetworkCondition reports on whether the load balancer is attached to a network.
 	LoadBalancerAttachedToNetworkCondition clusterv1.ConditionType = "LoadBalancerAttachedToNetwork"
-	// LoadBalancerAttachFailedReason is used when load balancer could not be attached to network.
-	LoadBalancerAttachFailedReason = "LoadBalancerAttachFailed"
 	// LoadBalancerNoNetworkFoundReason is used when no network could be found.
 	LoadBalancerNoNetworkFoundReason = "LoadBalancerNoNetworkFound"
 )
 
 const (
-	// InstanceReadyCondition reports on current status of the instance. Ready indicates the instance is in a Running state.
-	InstanceReadyCondition clusterv1.ConditionType = "InstanceReady"
-	// InstanceTerminatedReason instance is in a terminated state.
-	InstanceTerminatedReason = "InstanceTerminated"
+	// ServerCreateSucceededCondition reports on current status of the instance. Ready indicates the instance is in a Running state.
+	ServerCreateSucceededCondition clusterv1.ConditionType = "ServerCreateSucceeded"
 	// InstanceHasNonExistingPlacementGroupReason instance has a placement group name that does not exist.
 	InstanceHasNonExistingPlacementGroupReason = "InstanceHasNonExistingPlacementGroup"
-	// ServerOffReason instance is off.
-	ServerOffReason = "ServerOff"
-	// InstanceAsControlPlaneUnreachableReason control plane is (not yet) reachable.
-	InstanceAsControlPlaneUnreachableReason = "InstanceAsControlPlaneUnreachable"
 	// SSHKeyNotFoundReason indicates that ssh key could not be found.
 	SSHKeyNotFoundReason = "SSHKeyNotFound"
 )
 
 const (
-	// InstanceBootstrapReadyCondition reports on current status of the instance. BootstrapReady indicates the bootstrap is ready.
-	InstanceBootstrapReadyCondition clusterv1.ConditionType = "InstanceBootstrapReady"
-	// InstanceBootstrapNotReadyReason bootstrap not ready yet.
-	InstanceBootstrapNotReadyReason = "InstanceBootstrapNotReady"
+	// ServerAvailableCondition indicates the instance is in a Running state.
+	ServerAvailableCondition clusterv1.ConditionType = "ServerAvailable"
+	// ServerTerminatingReason instance is in a terminated state.
+	ServerTerminatingReason = "InstanceTerminated"
+	// ServerStartingReason instance is in a terminated state.
+	ServerStartingReason = "ServerStarting"
+	// ServerOffReason instance is off.
+	ServerOffReason = "ServerOff"
+	// NetworkAttachFailedReason is used when server could not be attached to network.
+	NetworkAttachFailedReason = "NetworkAttachFailed"
+	// LoadBalancerAttachFailedReason is used when server could not be attached to network.
+	LoadBalancerAttachFailedReason = "LoadBalancerAttachFailed"
+)
+
+const (
+	// BootstrapReadyCondition  indicates that bootstrap is ready.
+	BootstrapReadyCondition clusterv1.ConditionType = "BootstrapReady"
+	// BootstrapNotReadyReason bootstrap not ready yet.
+	BootstrapNotReadyReason = "BootstrapNotReady"
 )
 
 const (
@@ -112,6 +119,31 @@ const (
 	OSSSHSecretMissingReason = "OSSSHSecretMissing"
 	// RescueSSHSecretMissingReason indicates that secret with the rescue ssh key is missing.
 	RescueSSHSecretMissingReason = "RescueSSHSecretMissing"
+)
+
+const (
+	// HostAssociateSucceededCondition indicates that a host has been associated.
+	HostAssociateSucceededCondition clusterv1.ConditionType = "HostAssociateSucceeded"
+	// NoAvailableHostReason indicates that there is no available host.
+	NoAvailableHostReason = "NoAvailableHost"
+	// HostAssociateFailedReason indicates that asssociating a host failed.
+	HostAssociateFailedReason = "HostAssociateFailed"
+)
+
+const (
+	// HostProvisionSucceededCondition indicates that a host has been provisioned.
+	HostProvisionSucceededCondition clusterv1.ConditionType = "HostProvisionSucceeded"
+	// StillProvisioningReason indicates that asssociating a host is still provisioning.
+	StillProvisioningReason = "StillProvisioning"
+)
+
+// deprecated .
+
+const (
+	// InstanceReadyCondition reports on current status of the instance. Ready indicates the instance is in a Running state.
+	InstanceReadyCondition clusterv1.ConditionType = "InstanceReady"
+	// InstanceBootstrapReadyCondition reports on current status of the instance. BootstrapReady indicates the bootstrap is ready.
+	InstanceBootstrapReadyCondition clusterv1.ConditionType = "InstanceBootstrapReady"
 )
 
 const (

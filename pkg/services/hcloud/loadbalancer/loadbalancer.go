@@ -90,7 +90,7 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 	}
 
 	if err := s.reconcileNetworkAttachement(ctx, lb); err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to reconcile network attachement: %w", err)
+		return reconcile.Result{}, fmt.Errorf("failed to reconcile network attachment: %w", err)
 	}
 
 	if err := s.reconcileServices(ctx, lb); err != nil {

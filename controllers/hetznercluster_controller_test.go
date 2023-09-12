@@ -124,7 +124,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 			lbName string
 		)
 		BeforeEach(func() {
-			testNs, err = testEnv.CreateNamespace(ctx, "lb-attachement")
+			testNs, err = testEnv.CreateNamespace(ctx, "lb-attachment")
 			Expect(err).NotTo(HaveOccurred())
 			namespace = testNs.Name
 
