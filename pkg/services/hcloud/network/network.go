@@ -23,6 +23,7 @@ import (
 	"net"
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/record"
 
@@ -46,9 +47,24 @@ func NewService(scope *scope.ClusterScope) *Service {
 
 // Reconcile implements life cycle of networks.
 func (s *Service) Reconcile(ctx context.Context) (err error) {
+	// delete the deprecated condition from existing cluster objects
+	conditions.Delete(s.scope.HetznerCluster, infrav1.NetworkAttachedCondition)
+
 	if !s.scope.HetznerCluster.Spec.HCloudNetwork.Enabled {
 		return nil
 	}
+
+	defer func() {
+		if err != nil {
+			conditions.MarkFalse(
+				s.scope.HetznerCluster,
+				infrav1.NetworkReadyCondition,
+				infrav1.NetworkReconcileFailedReason,
+				clusterv1.ConditionSeverityWarning,
+				err.Error(),
+			)
+		}
+	}()
 
 	network, err := s.findNetwork(ctx)
 	if err != nil {
@@ -62,8 +78,9 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 		}
 	}
 
-	conditions.MarkTrue(s.scope.HetznerCluster, infrav1.NetworkAttachedCondition)
+	conditions.MarkTrue(s.scope.HetznerCluster, infrav1.NetworkReadyCondition)
 	s.scope.HetznerCluster.Status.Network = statusFromHCloudNetwork(network)
+
 	return nil
 }
 

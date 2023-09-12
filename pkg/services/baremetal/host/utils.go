@@ -54,6 +54,9 @@ SWRAIDLEVEL %v`, hostName, installImageSpec.SwraidLevel)
 PART %s %s %s`, partitions, partition.Mount, partition.FileSystem, partition.Size)
 	}
 
+	// e.g. PART / ext4 all
+	// e.g. PART /boot ext4 1024M
+
 	var lvmDefinitions string
 	for _, lvm := range installImageSpec.LVMDefinitions {
 		lvmDefinitions = fmt.Sprintf(`%s

@@ -463,7 +463,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 					return false
 				}
 
-				return isPresentAndFalseWithReason(key, instance, infrav1.LoadBalancerReadyCondition, infrav1.LoadBalancerNotFoundReason)
+				return isPresentAndFalseWithReason(key, instance, infrav1.LoadBalancerReadyCondition, infrav1.LoadBalancerFailedToOwnReason)
 			}, timeout, time.Second).Should(BeTrue())
 		})
 	})
@@ -803,9 +803,9 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 						return false
 					}
 					if expectedConditionState {
-						return isPresentAndTrue(key, instance, infrav1.NetworkAttachedCondition)
+						return isPresentAndTrue(key, instance, infrav1.NetworkReadyCondition)
 					}
-					return isPresentAndFalseWithReason(key, instance, infrav1.NetworkAttachedCondition, expectedReason)
+					return isPresentAndFalseWithReason(key, instance, infrav1.NetworkReadyCondition, expectedReason)
 				}, timeout).Should(BeTrue())
 			},
 			Entry("with network", getDefaultHetznerClusterSpec(), true, ""),

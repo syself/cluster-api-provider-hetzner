@@ -182,7 +182,6 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 
 	// reconcile the network
 	if err := network.NewService(clusterScope).Reconcile(ctx); err != nil {
-		conditions.MarkFalse(hetznerCluster, infrav1.NetworkAttachedCondition, infrav1.NetworkUnreachableReason, clusterv1.ConditionSeverityError, err.Error())
 		return reconcile.Result{}, fmt.Errorf("failed to reconcile network for HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
 	}
 
@@ -197,14 +196,10 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 		return reconcile.Result{}, fmt.Errorf("failed to reconcile load balancers for HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
 	}
 
-	conditions.MarkTrue(hetznerCluster, infrav1.LoadBalancerReadyCondition)
-
 	// reconcile the placement groups
 	if err := placementgroup.NewService(clusterScope).Reconcile(ctx); err != nil {
-		conditions.MarkFalse(hetznerCluster, infrav1.PlacementGroupsSyncedCondition, infrav1.PlacementGroupsUnreachableReason, clusterv1.ConditionSeverityError, err.Error())
 		return reconcile.Result{}, fmt.Errorf("failed to reconcile placement groups for HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
 	}
-	conditions.MarkTrue(hetznerCluster, infrav1.PlacementGroupsSyncedCondition)
 
 	if hetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
 		if hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4 != "<nil>" {
@@ -231,6 +226,9 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 		hetznerCluster.Status.Ready = true
 	}
 
+	// delete deprecated conditions of old clusters
+	conditions.Delete(clusterScope.HetznerCluster, infrav1.HetznerClusterTargetClusterReadyCondition)
+
 	result, err := r.reconcileTargetClusterManager(ctx, clusterScope)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to reconcile target cluster manager: %w", err)
@@ -240,8 +238,19 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 	}
 
 	if err := reconcileTargetSecret(ctx, clusterScope); err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to reconcile target secret: %w", err)
+		reterr := fmt.Errorf("failed to reconcile target secret: %w", err)
+		conditions.MarkFalse(
+			clusterScope.HetznerCluster,
+			infrav1.TargetClusterReadyCondition,
+			infrav1.TargetSecretSyncFailedReason,
+			clusterv1.ConditionSeverityError,
+			reterr.Error(),
+		)
+		return reconcile.Result{}, reterr
 	}
+
+	// target cluster is ready
+	conditions.MarkTrue(hetznerCluster, infrav1.TargetClusterReadyCondition)
 
 	return reconcile.Result{}, nil
 }
@@ -522,6 +531,14 @@ func (r *HetznerClusterReconciler) reconcileTargetClusterManager(ctx context.Con
 		// create a new cluster manager
 		m, err := r.newTargetClusterManager(ctx, clusterScope)
 		if err != nil {
+			conditions.MarkFalse(
+				clusterScope.HetznerCluster,
+				infrav1.TargetClusterReadyCondition,
+				infrav1.TargetClusterCreateFailedReason,
+				clusterv1.ConditionSeverityError,
+				err.Error(),
+			)
+
 			return res, fmt.Errorf("failed to create a clusterManager for HetznerCluster %s/%s: %w",
 				clusterScope.HetznerCluster.Namespace,
 				clusterScope.HetznerCluster.Name,
@@ -546,6 +563,13 @@ func (r *HetznerClusterReconciler) reconcileTargetClusterManager(ctx context.Con
 
 			if err := m.Start(ctx); err != nil {
 				clusterScope.Error(err, "failed to start a targetClusterManager")
+				conditions.MarkFalse(
+					clusterScope.HetznerCluster,
+					infrav1.TargetClusterReadyCondition,
+					infrav1.TargetClusterCreateFailedReason,
+					clusterv1.ConditionSeverityError,
+					"failed to start a targetClusterManager: %s", err.Error(),
+				)
 			} else {
 				clusterScope.Info("stop targetClusterManager")
 			}
@@ -580,7 +604,13 @@ func (r *HetznerClusterReconciler) newTargetClusterManager(ctx context.Context, 
 	clientConfig, err := clusterScope.ClientConfig(ctx)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			conditions.MarkFalse(hetznerCluster, infrav1.HetznerClusterTargetClusterReadyCondition, infrav1.KubeConfigNotFoundReason, clusterv1.ConditionSeverityInfo, "kubeconfig not found (yet)")
+			conditions.MarkFalse(
+				hetznerCluster,
+				infrav1.TargetClusterReadyCondition,
+				infrav1.KubeConfigNotFoundReason,
+				clusterv1.ConditionSeverityInfo,
+				"kubeconfig not found (yet)",
+			)
 			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to get a clientConfig for the API of HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
@@ -607,12 +637,15 @@ func (r *HetznerClusterReconciler) newTargetClusterManager(ctx context.Context, 
 
 	// Check whether kubeapi server responds
 	if _, err := apiutil.NewDynamicRESTMapper(restConfig, httpClient); err != nil {
-		conditions.MarkFalse(hetznerCluster, infrav1.HetznerClusterTargetClusterReadyCondition, infrav1.KubeAPIServerNotRespondingReason, clusterv1.ConditionSeverityInfo, "kubeapi server not responding (yet)")
+		conditions.MarkFalse(
+			hetznerCluster,
+			infrav1.TargetClusterReadyCondition,
+			infrav1.KubeAPIServerNotRespondingReason,
+			clusterv1.ConditionSeverityInfo,
+			"kubeapi server not responding (yet)",
+		)
 		return nil, nil //nolint:nilerr
 	}
-
-	// target cluster is ready
-	conditions.MarkTrue(hetznerCluster, infrav1.HetznerClusterTargetClusterReadyCondition)
 
 	clusterMgr, err := ctrl.NewManager(
 		restConfig,

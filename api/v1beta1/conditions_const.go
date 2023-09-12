@@ -21,19 +21,14 @@ import clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 const (
 	// LoadBalancerReadyCondition reports on whether a control plane load balancer was successfully reconciled.
 	LoadBalancerReadyCondition clusterv1.ConditionType = "LoadBalancerReady"
-	// LoadBalancerFailedReason used when an error occurs during load balancer reconciliation.
-	LoadBalancerFailedReason = "LoadBalancerFailed"
-	// LoadBalancerNotFoundReason used when a load balancer could not be found.
-	LoadBalancerNotFoundReason = "LoadBalancerNotFound"
+	// LoadBalancerCreateFailedReason used when an error occurs during load balancer create.
+	LoadBalancerCreateFailedReason = "LoadBalancerCreateFailed"
+	// LoadBalancerUpdateFailedReason used when an error occurs during load balancer update.
+	LoadBalancerUpdateFailedReason = "LoadBalancerUpdateFailed"
+	// LoadBalancerServiceSyncFailedReason used when an error occurs while syncing services of load balancer.
+	LoadBalancerServiceSyncFailedReason = "LoadBalancerServiceSyncFailed"
 	// LoadBalancerFailedToOwnReason used when no owned label could be set on a load balancer.
 	LoadBalancerFailedToOwnReason = "LoadBalancerFailedToOwn"
-)
-
-const (
-	// LoadBalancerAttachedToNetworkCondition reports on whether the load balancer is attached to a network.
-	LoadBalancerAttachedToNetworkCondition clusterv1.ConditionType = "LoadBalancerAttachedToNetwork"
-	// LoadBalancerNoNetworkFoundReason is used when no network could be found.
-	LoadBalancerNoNetworkFoundReason = "LoadBalancerNoNetworkFound"
 )
 
 const (
@@ -54,6 +49,9 @@ const (
 	ServerStartingReason = "ServerStarting"
 	// ServerOffReason instance is off.
 	ServerOffReason = "ServerOff"
+)
+
+const (
 	// NetworkAttachFailedReason is used when server could not be attached to network.
 	NetworkAttachFailedReason = "NetworkAttachFailed"
 	// LoadBalancerAttachFailedReason is used when server could not be attached to network.
@@ -68,17 +66,17 @@ const (
 )
 
 const (
-	// NetworkAttachedCondition reports on whether there is a network attached to the cluster.
-	NetworkAttachedCondition clusterv1.ConditionType = "NetworkAttached"
-	// NetworkUnreachableReason indicates that network is unreachable.
-	NetworkUnreachableReason = "NetworkUnreachable"
+	// NetworkReadyCondition reports on whether the network is ready.
+	NetworkReadyCondition clusterv1.ConditionType = "NetworkReady"
+	// NetworkReconcileFailedReason indicates that reconciling the network failed.
+	NetworkReconcileFailedReason = "NetworkReconcileFailed"
 )
 
 const (
 	// PlacementGroupsSyncedCondition reports on whether the placement groups are successfully synced.
 	PlacementGroupsSyncedCondition clusterv1.ConditionType = "PlacementGroupsSynced"
-	// PlacementGroupsUnreachableReason indicates that network is disabled.
-	PlacementGroupsUnreachableReason = "PlacementGroupsUnreachable"
+	// PlacementGroupsSyncFailedReason indicates that syncing the placement groups failed.
+	PlacementGroupsSyncFailedReason = "PlacementGroupsSyncFailed"
 )
 
 const (
@@ -91,12 +89,16 @@ const (
 )
 
 const (
-	// HetznerClusterTargetClusterReadyCondition reports on whether the kubeconfig in the target cluster is ready.
-	HetznerClusterTargetClusterReadyCondition clusterv1.ConditionType = "HetznerClusterTargetClusterReady"
+	// TargetClusterReadyCondition reports on whether the kubeconfig in the target cluster is ready.
+	TargetClusterReadyCondition clusterv1.ConditionType = "TargetClusterReady"
 	// KubeConfigNotFoundReason indicates that the Kubeconfig could not be found.
 	KubeConfigNotFoundReason = "KubeConfigNotFound"
 	// KubeAPIServerNotRespondingReason indicates that the api server cannot be reached.
 	KubeAPIServerNotRespondingReason = "KubeAPIServerNotResponding"
+	// TargetClusterCreateFailedReason indicates that the target cluster could not be created.
+	TargetClusterCreateFailedReason = "TargetClusterCreateFailed"
+	// TargetSecretSyncFailedReason indicates that the target secret could not be synced.
+	TargetSecretSyncFailedReason = "TargetSecretSyncFailed"
 )
 
 const (
@@ -149,4 +151,17 @@ const (
 const (
 	// AssociateBMHCondition reports on whether the Hetzner cluster is in ready state.
 	AssociateBMHCondition clusterv1.ConditionType = "AssociateBMHCondition"
+)
+
+// deprecated conditions.
+
+const (
+	// HetznerClusterTargetClusterReadyCondition reports on whether the kubeconfig in the target cluster is ready.
+	HetznerClusterTargetClusterReadyCondition clusterv1.ConditionType = "HetznerClusterTargetClusterReady"
+
+	// NetworkAttachedCondition reports on whether there is a network attached to the cluster.
+	NetworkAttachedCondition clusterv1.ConditionType = "NetworkAttached"
+
+	// LoadBalancerAttachedToNetworkCondition reports on whether the load balancer is attached to a network.
+	LoadBalancerAttachedToNetworkCondition clusterv1.ConditionType = "LoadBalancerAttachedToNetwork"
 )

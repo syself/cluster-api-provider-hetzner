@@ -52,6 +52,9 @@ var ErrNoLoadBalancerAvailable = fmt.Errorf("no available load balancer")
 
 // Reconcile implements the life cycle of HCloud load balancers.
 func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
+	// delete the deprecated condition from existing cluster objects
+	conditions.Delete(s.scope.HetznerCluster, infrav1.LoadBalancerAttachedToNetworkCondition)
+
 	if !s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
 		return reconcile.Result{}, nil
 	}
@@ -86,6 +89,13 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 
 	// check whether load balancer name, algorithm or type has been changed
 	if err := s.reconcileLBProperties(ctx, lb); err != nil {
+		conditions.MarkFalse(
+			s.scope.HetznerCluster,
+			infrav1.LoadBalancerReadyCondition,
+			infrav1.LoadBalancerUpdateFailedReason,
+			clusterv1.ConditionSeverityWarning,
+			err.Error(),
+		)
 		return reconcile.Result{}, fmt.Errorf("failed to reconcile load balancer properties: %w", err)
 	}
 
@@ -94,9 +104,17 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 	}
 
 	if err := s.reconcileServices(ctx, lb); err != nil {
+		conditions.MarkFalse(
+			s.scope.HetznerCluster,
+			infrav1.LoadBalancerReadyCondition,
+			infrav1.LoadBalancerServiceSyncFailedReason,
+			clusterv1.ConditionSeverityWarning,
+			err.Error(),
+		)
 		return reconcile.Result{}, fmt.Errorf("failed to reconcile services: %w", err)
 	}
 
+	conditions.MarkTrue(s.scope.HetznerCluster, infrav1.LoadBalancerReadyCondition)
 	return reconcile.Result{}, nil
 }
 
@@ -113,14 +131,15 @@ func (s *Service) reconcileNetworkAttachement(ctx context.Context, lb *hcloud.Lo
 
 	// attach load balancer to network
 	if s.scope.HetznerCluster.Status.Network == nil {
+		err := fmt.Errorf("no network found in object status")
 		conditions.MarkFalse(
 			s.scope.HetznerCluster,
-			infrav1.LoadBalancerAttachedToNetworkCondition,
-			infrav1.LoadBalancerNoNetworkFoundReason,
-			clusterv1.ConditionSeverityInfo,
-			"no network found",
+			infrav1.LoadBalancerReadyCondition,
+			infrav1.NetworkAttachFailedReason,
+			clusterv1.ConditionSeverityWarning,
+			err.Error(),
 		)
-		return nil
+		return err
 	}
 
 	opts := hcloud.LoadBalancerAttachToNetworkOpts{
@@ -140,15 +159,14 @@ func (s *Service) reconcileNetworkAttachement(ctx context.Context, lb *hcloud.Lo
 		record.Warnf(s.scope.HetznerCluster, "FailedAttachLoadBalancer", err.Error())
 		conditions.MarkFalse(
 			s.scope.HetznerCluster,
-			infrav1.LoadBalancerAttachedToNetworkCondition,
-			infrav1.LoadBalancerAttachFailedReason,
+			infrav1.LoadBalancerReadyCondition,
+			infrav1.NetworkAttachFailedReason,
 			clusterv1.ConditionSeverityError,
 			err.Error(),
 		)
 		return err
 	}
 
-	conditions.MarkTrue(s.scope.HetznerCluster, infrav1.LoadBalancerAttachedToNetworkCondition)
 	return nil
 }
 
@@ -264,10 +282,16 @@ func (s *Service) createLoadBalancer(ctx context.Context) (*hcloud.LoadBalancer,
 	opts := createOptsFromSpec(s.scope.HetznerCluster)
 	lb, err := s.scope.HCloudClient.CreateLoadBalancer(ctx, opts)
 	if err != nil {
-		hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "CreateLoadBalancer")
 		err = fmt.Errorf("failed to create load balancer: %w", err)
+		hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "CreateLoadBalancer")
+		conditions.MarkFalse(
+			s.scope.HetznerCluster,
+			infrav1.LoadBalancerReadyCondition,
+			infrav1.LoadBalancerCreateFailedReason,
+			clusterv1.ConditionSeverityError,
+			err.Error(),
+		)
 		record.Warnf(s.scope.HetznerCluster, "FailedCreateLoadBalancer", err.Error())
-		conditions.MarkFalse(s.scope.HetznerCluster, infrav1.LoadBalancerReadyCondition, infrav1.LoadBalancerFailedReason, clusterv1.ConditionSeverityError, err.Error())
 
 		return nil, err
 	}
@@ -380,7 +404,7 @@ func (s *Service) ownExistingLoadBalancer(ctx context.Context) (*hcloud.LoadBala
 		conditions.MarkFalse(
 			s.scope.HetznerCluster,
 			infrav1.LoadBalancerReadyCondition,
-			infrav1.LoadBalancerNotFoundReason,
+			infrav1.LoadBalancerFailedToOwnReason,
 			clusterv1.ConditionSeverityError,
 			fmt.Sprintf("load balancer %q not found", name),
 		)
@@ -396,7 +420,7 @@ func (s *Service) ownExistingLoadBalancer(ctx context.Context) (*hcloud.LoadBala
 				infrav1.LoadBalancerReadyCondition,
 				infrav1.LoadBalancerFailedToOwnReason,
 				clusterv1.ConditionSeverityError,
-				fmt.Sprintf("load balancer %q owned with label %q", name, label),
+				fmt.Sprintf("load balancer %q already owned with label %q", name, label),
 			)
 			return nil, ErrNoLoadBalancerAvailable
 		}
@@ -412,6 +436,13 @@ func (s *Service) ownExistingLoadBalancer(ctx context.Context) (*hcloud.LoadBala
 		hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "UpdateLoadBalancer")
 		err = fmt.Errorf("failed to update load balancer: %w", err)
 		record.Warnf(s.scope.HetznerCluster, "FailedUpdateLoadBalancer", err.Error())
+		conditions.MarkFalse(
+			s.scope.HetznerCluster,
+			infrav1.LoadBalancerReadyCondition,
+			infrav1.LoadBalancerFailedToOwnReason,
+			clusterv1.ConditionSeverityError,
+			err.Error(),
+		)
 		return nil, err
 	}
 
