@@ -51,6 +51,7 @@ type Factory interface {
 	NewClient(Credentials) Client
 }
 
+// LoggingTransport is a struct for creating new logger for robot API.
 type LoggingTransport struct {
 	roundTripper http.RoundTripper
 	log          logr.Logger
@@ -58,8 +59,8 @@ type LoggingTransport struct {
 
 var replaceHex = regexp.MustCompile(`0x[0123456789abcdef]+`)
 
+// RoundTrip is used for logging api calls to robot API.
 func (lt *LoggingTransport) RoundTrip(req *http.Request) (resp *http.Response, err error) {
-
 	stack := replaceHex.ReplaceAllString(string(debug.Stack()), "0xX")
 
 	resp, err = lt.roundTripper.RoundTrip(req)
@@ -71,7 +72,7 @@ func (lt *LoggingTransport) RoundTrip(req *http.Request) (resp *http.Response, e
 	return resp, nil
 }
 
-// NewClient creates new HCloud clients.
+// NewClient creates new robot clients.
 func (f *factory) NewClient(creds Credentials) Client {
 	client := &http.Client{
 		Transport: &LoggingTransport{

@@ -31,7 +31,7 @@ RUN apk add --no-cache curl && \
 FROM docker.io/library/alpine:3.17.3@sha256:b6ca290b6b4cdcca5b3db3ffa338ee0285c11744b4a6abaa9627746ee3291d8d as golangci
 # update: datasource=github-tags depName=golangci/golangci-lint versioning=semver
 ENV GOLANGCI_VERSION="v1.52.2"
-WORKDIR / 
+WORKDIR /
 # hadolint ignore=DL3018,DL4006
 RUN apk add --no-cache curl && \
     curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s ${GOLANGCI_VERSION}
@@ -45,7 +45,7 @@ FROM docker.io/aquasec/trivy:0.39.0@sha256:ab281f43ee11b8ea5443ca8897641441f04f1
 ############################
 # Caph Build Image Base #
 ############################
-FROM docker.io/library/golang:1.20.2-bullseye@sha256:2101aa981e68ab1e06e3d4ac35ae75ed122f0380e5331e3ae4ba7e811bf9d256
+FROM docker.io/library/golang:1.21.1-bullseye@sha256:357be9f9e594a338ba16f54c4df16481e7e82533a6571cecaf22dca833622f91
 
 # update: datasource=repology depName=debian_11/skopeo versioning=loose
 ENV SKOPEO_VERSION="1.2.2+dfsg1-1+b6"
@@ -65,7 +65,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
     pip install --no-cache-dir \
     yamllint==${YAMLLINT_VERSION} \
-    yamlfixer-opt-nc==${YAMLFIXER_VERSION} 
+    yamlfixer-opt-nc==${YAMLFIXER_VERSION}
 
 COPY --from=lychee /usr/bin/lychee /usr/bin/lychee
 COPY --from=golangci /bin/golangci-lint /usr/local/bin

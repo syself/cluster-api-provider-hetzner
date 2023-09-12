@@ -26,5 +26,5 @@ for DIR in ${DIRS}; do
 	cd ${REPO_ROOT}/${DIR} && go mod download
 	cd ${REPO_ROOT}/${DIR} && go mod verify
 	cd ${REPO_ROOT}/${DIR} && go mod tidy
-	cd ${REPO_ROOT}/${DIR} && go mod vendor 
+	cd ${REPO_ROOT}/${DIR} && go mod vendor
 done

@@ -279,13 +279,6 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 	return multierr
 }
 
-func max(x, y int) int {
-	if x > y {
-		return x
-	}
-	return y
-}
-
 func (s *Service) createLoadBalancer(ctx context.Context) (*hcloud.LoadBalancer, error) {
 	opts := createOptsFromSpec(s.scope.HetznerCluster)
 	lb, err := s.scope.HCloudClient.CreateLoadBalancer(ctx, opts)

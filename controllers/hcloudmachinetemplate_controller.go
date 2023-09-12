@@ -22,11 +22,6 @@ import (
 	"fmt"
 	"time"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
-	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
-	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/machinetemplate"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/klog/v2"
@@ -40,6 +35,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
+	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
+	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/machinetemplate"
 )
 
 // HCloudMachineTemplateReconciler reconciles a HCloudMachineTemplate object.
