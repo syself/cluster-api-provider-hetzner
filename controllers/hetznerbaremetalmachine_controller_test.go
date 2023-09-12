@@ -17,7 +17,6 @@ limitations under the License.
 package controllers
 
 import (
-	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -25,6 +24,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/syself/hrobot-go/models"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -44,8 +44,8 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 	var (
 		bmMachine      *infrav1.HetznerBareMetalMachine
 		hetznerCluster *infrav1.HetznerCluster
-		capiCluster    *clusterv1.Cluster
-		capiMachine    *clusterv1.Machine
+
+		capiCluster *clusterv1.Cluster
 
 		hetznerClusterName string
 
@@ -173,6 +173,8 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 		var (
 			host    *infrav1.HetznerBareMetalHost
 			hostKey client.ObjectKey
+
+			capiMachine *clusterv1.Machine
 		)
 
 		BeforeEach(func() {
@@ -183,6 +185,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				helpers.WithHetznerClusterRef(hetznerClusterName),
 			)
 			Expect(testEnv.Create(ctx, host)).To(Succeed())
+
 			hostKey = client.ObjectKey{Namespace: testNs.Name, Name: hostName}
 		})
 
@@ -190,13 +193,14 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			Expect(testEnv.Cleanup(ctx, host)).To(Succeed())
 		})
 
-		Context("Basic test", func() {
+		Context("Test bootstrap", func() {
 			BeforeEach(func() {
+				capiMachineName := utils.GenerateName(nil, "capimachine-name-")
 				capiMachine = &clusterv1.Machine{
 					ObjectMeta: metav1.ObjectMeta{
-						GenerateName: "capi-machine-",
-						Namespace:    testNs.Name,
-						Finalizers:   []string{clusterv1.MachineFinalizer},
+						Name:       capiMachineName,
+						Namespace:  testNs.Name,
+						Finalizers: []string{clusterv1.MachineFinalizer},
 						Labels: map[string]string{
 							clusterv1.ClusterNameLabel: capiCluster.Name,
 						},
@@ -211,6 +215,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 						FailureDomain: &defaultFailureDomain,
 					},
 				}
+
 				Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
 
 				bmMachine = &infrav1.HetznerBareMetalMachine{
@@ -236,51 +241,34 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				key = client.ObjectKey{Namespace: testNs.Name, Name: bmMachineName}
 			})
 
-			It("creates the bare metal machine and provisions host", func() {
-				// Check whether bootstrap condition is not ready
+			AfterEach(func() {
+				Expect(testEnv.Cleanup(ctx, capiMachine, bmMachine)).To(Succeed())
+			})
+
+			It("sets bootstrap condition on false if no bootstrap available", func() {
 				Eventually(func() bool {
-					if err := testEnv.Get(ctx, key, bmMachine); err != nil {
-						return false
-					}
 					return isPresentAndFalseWithReason(key, bmMachine, infrav1.BootstrapReadyCondition, infrav1.BootstrapNotReadyReason)
 				}, timeout, time.Second).Should(BeTrue())
+			})
 
+			It("sets bootstrap condition on true if bootstrap available", func() {
+				By("setting bootstrap information in capi machine")
+
+				ph, err := patch.NewHelper(capiMachine, testEnv)
+				Expect(err).ShouldNot(HaveOccurred())
+
+				capiMachine.Spec.Bootstrap = clusterv1.Bootstrap{
+					DataSecretName: pointer.String("bootstrap-secret"),
+				}
 				Eventually(func() error {
-					ph, err := patch.NewHelper(capiMachine, testEnv)
-					Expect(err).ShouldNot(HaveOccurred())
-					capiMachine.Spec.Bootstrap = clusterv1.Bootstrap{
-						DataSecretName: pointer.String("bootstrap-secret"),
-					}
 					return ph.Patch(ctx, capiMachine, patch.WithStatusObservedGeneration{})
 				}, timeout, time.Second).Should(BeNil())
 
-				// Check whether bootstrap condition is ready
+				By("checking that bootstrap condition is set on true")
+
 				Eventually(func() bool {
-					if err := testEnv.Get(ctx, key, bmMachine); err != nil {
-						return false
-					}
 					return isPresentAndTrue(key, bmMachine, infrav1.BootstrapReadyCondition)
 				}, timeout, time.Second).Should(BeTrue())
-
-				defer func() {
-					Expect(testEnv.Delete(ctx, bmMachine)).To(Succeed())
-				}()
-				Eventually(func() bool {
-					if err := testEnv.Get(ctx, hostKey, host); err != nil {
-						return false
-					}
-					if host.Spec.Status.ProvisioningState == infrav1.StateProvisioned {
-						return true
-					}
-					return false
-				}, timeout).Should(BeTrue())
-
-				Eventually(func() bool {
-					if err := testEnv.Get(ctx, key, bmMachine); err != nil {
-						return false
-					}
-					return bmMachine.Status.Ready
-				}, timeout).Should(BeTrue())
 			})
 		})
 
@@ -333,22 +321,17 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				key = client.ObjectKey{Namespace: testNs.Name, Name: bmMachineName}
 			})
 
+			AfterEach(func() {
+				Expect(testEnv.Cleanup(ctx, capiMachine, bmMachine)).To(Succeed())
+			})
+
 			It("creates the bare metal machine", func() {
-				defer func() {
-					Expect(testEnv.Delete(ctx, bmMachine)).To(Succeed())
-				}()
-				Eventually(func() bool {
-					if err := testEnv.Get(ctx, key, bmMachine); err != nil {
-						return false
-					}
-					return true
-				}, timeout).Should(BeTrue())
+				Eventually(func() error {
+					return testEnv.Get(ctx, key, bmMachine)
+				}, timeout).Should(BeNil())
 			})
 
 			It("sets the finalizer", func() {
-				defer func() {
-					Expect(testEnv.Delete(ctx, bmMachine)).To(Succeed())
-				}()
 				Eventually(func() bool {
 					if err := testEnv.Get(ctx, key, bmMachine); err != nil {
 						return false
@@ -363,9 +346,6 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			})
 
 			It("reaches state ready and provisions the host", func() {
-				defer func() {
-					Expect(testEnv.Delete(ctx, bmMachine)).To(Succeed())
-				}()
 				Eventually(func() bool {
 					if err := testEnv.Get(ctx, hostKey, host); err != nil {
 						return false
@@ -385,10 +365,6 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			})
 
 			It("sets the appropriate conditions that a host is associated and later provisioned", func() {
-				defer func() {
-					Expect(testEnv.Delete(ctx, bmMachine)).To(Succeed())
-				}()
-
 				By("checking that the host is associated")
 				Eventually(func() bool {
 					return isPresentAndTrue(key, bmMachine, infrav1.HostAssociateSucceededCondition)
@@ -406,18 +382,19 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			})
 
 			It("deletes successfully", func() {
-				// Delete the bmMachine object
+				By("deleting bm machine")
+
 				Expect(testEnv.Delete(ctx, bmMachine)).To(Succeed())
 
-				// Make sure the it has been deleted
 				Eventually(func() bool {
-					if err := testEnv.Get(ctx, key, bmMachine); err != nil {
+					if err := testEnv.Get(ctx, key, bmMachine); apierrors.IsNotFound(err) {
 						return true
 					}
 					return false
 				}, timeout, time.Second).Should(BeTrue())
 
-				// Make sure the host has been deprovisioned.
+				By("making sure the host has been deprovisioned")
+
 				Eventually(func() bool {
 					if err := testEnv.Get(ctx, hostKey, host); err != nil {
 						return false
@@ -427,27 +404,27 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			})
 
 			It("sets a failure reason when maintenance mode is set on the host", func() {
-				defer func() {
-					Expect(testEnv.Delete(ctx, bmMachine)).To(Succeed())
-				}()
+				By("making sure that machine is ready")
 
 				Eventually(func() bool {
 					if err := testEnv.Get(ctx, key, bmMachine); err != nil {
-						fmt.Println("failed to get bm machine. ", err)
 						return false
 					}
 					return bmMachine.Status.Ready
 				}, timeout, time.Second).Should(BeTrue())
 
-				By("setting maintenance mode")
+				By("setting maintenance mode on host")
 
 				ph, err := patch.NewHelper(host, testEnv)
 				Expect(err).ShouldNot(HaveOccurred())
+
 				maintenanceMode := true
 				host.Spec.MaintenanceMode = &maintenanceMode
+
 				Expect(ph.Patch(ctx, host, patch.WithStatusObservedGeneration{})).To(Succeed())
 
-				// It sets a failure reason
+				By("checking that failure message is set on machine")
+
 				Eventually(func() bool {
 					if err := testEnv.Get(ctx, key, bmMachine); err != nil {
 						return false
@@ -459,6 +436,8 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 	})
 
 	Context("Tests without host", func() {
+		var capiMachine *clusterv1.Machine
+
 		BeforeEach(func() {
 			capiMachine = &clusterv1.Machine{
 				ObjectMeta: metav1.ObjectMeta{
@@ -477,6 +456,9 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 						Name:       bmMachineName,
 					},
 					FailureDomain: &defaultFailureDomain,
+					Bootstrap: clusterv1.Bootstrap{
+						DataSecretName: pointer.String("bootstrap-secret"),
+					},
 				},
 			}
 			Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
@@ -505,37 +487,6 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 		})
 
 		It("creates the bare metal machine and sets condition that no host is available", func() {
-			// Check whether bootstrap condition is not ready
-			Eventually(func() bool {
-				if err := testEnv.Get(ctx, key, bmMachine); err != nil {
-					return false
-				}
-				return isPresentAndFalseWithReason(key, bmMachine, infrav1.BootstrapReadyCondition, infrav1.BootstrapNotReadyReason)
-			}, timeout, time.Second).Should(BeTrue())
-
-			Eventually(func() error {
-				ph, err := patch.NewHelper(capiMachine, testEnv)
-				Expect(err).ShouldNot(HaveOccurred())
-				capiMachine.Spec.Bootstrap = clusterv1.Bootstrap{
-					DataSecretName: pointer.String("bootstrap-secret"),
-				}
-				return ph.Patch(ctx, capiMachine, patch.WithStatusObservedGeneration{})
-			}, timeout, time.Second).Should(BeNil())
-
-			// Check whether bootstrap condition is ready
-			Eventually(func() bool {
-				if err := testEnv.Get(ctx, key, bmMachine); err != nil {
-					return false
-				}
-				return isPresentAndTrue(key, bmMachine, infrav1.BootstrapReadyCondition)
-			}, timeout, time.Second).Should(BeTrue())
-
-			defer func() {
-				Expect(testEnv.Delete(ctx, bmMachine)).To(Succeed())
-			}()
-
-			By("checking that the bare metal machine has set the appropriate condition")
-
 			Eventually(func() bool {
 				return isPresentAndFalseWithReason(key, bmMachine, infrav1.HostAssociateSucceededCondition, infrav1.NoAvailableHostReason)
 			}, timeout).Should(BeTrue())
