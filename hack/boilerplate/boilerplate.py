@@ -256,7 +256,7 @@ def ensure_boilerplate_file(file_name, refs, regexs, not_generated_files_to_skip
         content_without_specials, special_header = replace_specials(
             file_content, extension, regexs)
 
-        # new content, to be writen to the file
+        # new content, to be written to the file
         new_content = ''
 
         # shebang and such
