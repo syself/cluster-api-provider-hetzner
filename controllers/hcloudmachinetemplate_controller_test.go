@@ -17,7 +17,6 @@ limitations under the License.
 package controllers
 
 import (
-	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -34,9 +33,9 @@ import (
 
 var _ = Describe("HCloudMachineTemplateReconciler", func() {
 	var (
-		capiCluster  *clusterv1.Cluster
-		infraCluster *infrav1.HetznerCluster
+		capiCluster *clusterv1.Cluster
 
+		hetznerCluster  *infrav1.HetznerCluster
 		machineTemplate *infrav1.HCloudMachineTemplate
 
 		testNs *corev1.Namespace
@@ -53,7 +52,7 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 
 		capiCluster = &clusterv1.Cluster{
 			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "test1-",
+				GenerateName: "test-",
 				Namespace:    testNs.Name,
 				Finalizers:   []string{clusterv1.ClusterFinalizer},
 			},
@@ -61,19 +60,17 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 				InfrastructureRef: &corev1.ObjectReference{
 					APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
 					Kind:       "HetznerCluster",
-					Name:       "hetzner-test1",
+					Name:       "hetzner-test",
 					Namespace:  testNs.Name,
 				},
 			},
-			Status: clusterv1.ClusterStatus{
-				InfrastructureReady: true,
-			},
 		}
+
 		Expect(testEnv.Create(ctx, capiCluster)).To(Succeed())
 
-		infraCluster = &infrav1.HetznerCluster{
+		hetznerCluster = &infrav1.HetznerCluster{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "hetzner-test1",
+				Name:      "hetzner-test",
 				Namespace: testNs.Name,
 				OwnerReferences: []metav1.OwnerReference{
 					{
@@ -87,13 +84,13 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 			Spec: getDefaultHetznerClusterSpec(),
 		}
 
-		Expect(testEnv.Create(ctx, infraCluster)).To(Succeed())
+		Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
 
 		machineTemplate = &infrav1.HCloudMachineTemplate{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName:    "hcloud-machine-template-",
 				Namespace:       testNs.Name,
-				OwnerReferences: infraCluster.OwnerReferences,
+				OwnerReferences: hetznerCluster.OwnerReferences,
 			},
 			Spec: infrav1.HCloudMachineTemplateSpec{
 				Template: infrav1.HCloudMachineTemplateResource{
@@ -114,7 +111,7 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 	})
 
 	AfterEach(func() {
-		Expect(testEnv.Cleanup(ctx, testNs, capiCluster, infraCluster,
+		Expect(testEnv.Cleanup(ctx, testNs, capiCluster, hetznerCluster,
 			machineTemplate, hetznerSecret)).To(Succeed())
 	})
 
@@ -122,35 +119,36 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 		It("sets the capacity in status", func() {
 			Eventually(func() bool {
 				if err := testEnv.Get(ctx, key, machineTemplate); err != nil {
-					fmt.Printf("Did not find machine template: %s\n", err)
+					testEnv.GetLogger().Error(err, "did not find machine template")
 					return false
 				}
-
-				fmt.Printf("Capacity: %v\n", machineTemplate.Status.Capacity)
 
 				// If capacity is not set (yet), there is nothing to compare
 				if machineTemplate.Status.Capacity.Cpu() == nil || machineTemplate.Status.Capacity.Memory() == nil {
-					fmt.Printf("Capacity not set: %v\n", machineTemplate.Status.Capacity)
+					testEnv.GetLogger().Info("capacity not set", "capacity", machineTemplate.Status.Capacity)
 					return false
 				}
 
-				// Compare CPU
+				// compare CPU
 				expectedCPU, err := machinetemplate.GetCPUQuantityFromInt(fake.DefaultCPUCores)
 				Expect(err).To(Succeed())
+
 				if !expectedCPU.Equal(*machineTemplate.Status.Capacity.Cpu()) {
-					fmt.Printf("CPU did not equal: Expected: %v. Actual: %v\n", expectedCPU, machineTemplate.Status.Capacity.Cpu())
+					testEnv.GetLogger().Info("cpu did not equal", "expected", expectedCPU, "actual", machineTemplate.Status.Capacity.Cpu())
 					return false
 				}
 
-				// Compare memory
+				// compare memory
 				expectedMemory, err := machinetemplate.GetMemoryQuantityFromFloat32(fake.DefaultMemoryInGB)
 				Expect(err).To(Succeed())
+
 				if !expectedMemory.Equal(*machineTemplate.Status.Capacity.Memory()) {
-					fmt.Printf("Memory did not equal: Expected: %v. Actual: %v\n", expectedMemory, machineTemplate.Status.Capacity.Memory())
+					testEnv.GetLogger().Info("memory did not equal", "expected", expectedMemory, "actual", machineTemplate.Status.Capacity.Memory())
 					return false
 				}
-				return expectedMemory.Equal(*machineTemplate.Status.Capacity.Memory())
-			}, 10*time.Second, time.Second).Should(BeTrue())
+
+				return true
+			}, timeout, time.Second).Should(BeTrue())
 		})
 	})
 })

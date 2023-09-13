@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/syself/hrobot-go/models"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
@@ -59,8 +60,9 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 		host           *infrav1.HetznerBareMetalHost
 		bmMachine      *infrav1.HetznerBareMetalMachine
 		hetznerCluster *infrav1.HetznerCluster
-		capiCluster    *clusterv1.Cluster
-		capiMachine    *clusterv1.Machine
+
+		capiCluster *clusterv1.Cluster
+		capiMachine *clusterv1.Machine
 
 		hetznerClusterName string
 
@@ -98,15 +100,6 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 					Kind:       "HetznerCluster",
 					Name:       hetznerClusterName,
 					Namespace:  testNs.Name,
-				},
-			},
-			Status: clusterv1.ClusterStatus{
-				InfrastructureReady: true,
-				Conditions: clusterv1.Conditions{
-					{
-						Reason:  "reason",
-						Message: "message",
-					},
 				},
 			},
 		}
@@ -164,6 +157,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 		robotClient.On("DeleteBootRescue", 1).Return(&models.Rescue{Active: false}, nil)
 		robotClient.On("RebootBMServer", mock.Anything, mock.Anything).Return(&models.ResetPost{}, nil)
 		robotClient.On("SetBMServerName", 1, mock.Anything).Return(nil, nil)
+
 		configureRescueSSHClient(rescueSSHClient)
 
 		osSSHClientAfterInstallImage.On("Reboot").Return(sshclient.Output{})
@@ -209,21 +203,17 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 		})
 
 		It("creates the host machine", func() {
-			defer func() {
-				Expect(testEnv.Delete(ctx, host)).To(Succeed())
-			}()
 			Eventually(func() bool {
 				if err := testEnv.Get(ctx, key, host); err != nil {
 					return false
 				}
 				return true
 			}, timeout).Should(BeTrue())
+
+			Expect(testEnv.Delete(ctx, host)).To(Succeed())
 		})
 
 		It("sets the finalizer", func() {
-			defer func() {
-				Expect(testEnv.Delete(ctx, host)).To(Succeed())
-			}()
 			Eventually(func() bool {
 				if err := testEnv.Get(ctx, key, host); err != nil {
 					return false
@@ -235,18 +225,17 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 				}
 				return false
 			}, timeout).Should(BeTrue())
+
+			Expect(testEnv.Delete(ctx, host)).To(Succeed())
 		})
 
 		It("deletes successfully", func() {
-			// Delete the host object
+			By("deleting the host object")
 			Expect(testEnv.Delete(ctx, host)).To(Succeed())
 
-			// Make sure the it has been deleted
+			By("making sure the it has been deleted")
 			Eventually(func() bool {
-				if err := testEnv.Get(ctx, key, host); err != nil {
-					return true
-				}
-				return false
+				return apierrors.IsNotFound(testEnv.Get(ctx, key, host))
 			}, timeout, time.Second).Should(BeTrue())
 		})
 	})
@@ -330,10 +319,14 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 			It("reaches the state image installing", func() {
 				ph, err := patch.NewHelper(host, testEnv)
 				Expect(err).ShouldNot(HaveOccurred())
+
 				host.Spec.RootDeviceHints = &infrav1.RootDeviceHints{
 					WWN: helpers.DefaultWWN,
 				}
-				Expect(ph.Patch(ctx, host, patch.WithStatusObservedGeneration{})).To(Succeed())
+
+				Eventually(func() error {
+					return ph.Patch(ctx, host, patch.WithStatusObservedGeneration{})
+				}, timeout, time.Second).Should(BeNil())
 
 				Eventually(func() bool {
 					if err := testEnv.Get(ctx, key, host); err != nil {
@@ -365,13 +358,6 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 			})
 
 			It("gets selected from a bm machine and provisions", func() {
-				defer func() {
-					Expect(testEnv.Delete(ctx, bmMachine))
-				}()
-
-				var machine clusterv1.Machine
-				Expect(testEnv.Get(ctx, client.ObjectKey{Namespace: testNs.Name, Name: capiMachine.Name}, &machine)).To(Succeed())
-
 				Eventually(func() bool {
 					if err := testEnv.Get(ctx, key, host); err != nil {
 						return false
@@ -403,13 +389,6 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 			})
 
 			It("gets selected from a bm machine and provisions", func() {
-				defer func() {
-					Expect(testEnv.Delete(ctx, bmMachine))
-				}()
-
-				var machine clusterv1.Machine
-				Expect(testEnv.Get(ctx, client.ObjectKey{Namespace: testNs.Name, Name: capiMachine.Name}, &machine)).To(Succeed())
-
 				Eventually(func() bool {
 					if err := testEnv.Get(ctx, key, host); err != nil {
 						return false
@@ -530,13 +509,6 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 			})
 
 			It("gets selected from a bm machine and provisions", func() {
-				defer func() {
-					Expect(testEnv.Delete(ctx, bmMachine))
-				}()
-
-				var machine clusterv1.Machine
-				Expect(testEnv.Get(ctx, client.ObjectKey{Namespace: testNs.Name, Name: capiMachine.Name}, &machine)).To(Succeed())
-
 				Eventually(func() bool {
 					if err := testEnv.Get(ctx, key, host); err != nil {
 						return false
@@ -593,15 +565,6 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 					Kind:       "HetznerCluster",
 					Name:       hetznerClusterName,
 					Namespace:  testNs.Name,
-				},
-			},
-			Status: clusterv1.ClusterStatus{
-				InfrastructureReady: true,
-				Conditions: clusterv1.Conditions{
-					{
-						Reason:  "reason",
-						Message: "message",
-					},
 				},
 			},
 		}
@@ -722,9 +685,6 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 
 		It("gives an error", func() {
 			Eventually(func() bool {
-				if err := testEnv.Get(ctx, key, host); err != nil {
-					return false
-				}
 				return isPresentAndFalseWithReason(key, host, infrav1.CredentialsAvailableCondition, infrav1.RescueSSHSecretMissingReason)
 			}, timeout).Should(BeTrue())
 		})
@@ -747,9 +707,6 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 			}()
 
 			Eventually(func() bool {
-				if err := testEnv.Get(ctx, key, host); err != nil {
-					return false
-				}
 				return isPresentAndFalseWithReason(key, host, infrav1.CredentialsAvailableCondition, infrav1.SSHCredentialsInSecretInvalidReason)
 			}, timeout).Should(BeTrue())
 		})
@@ -780,9 +737,6 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 
 		It("gives the right error if secret is missing", func() {
 			Eventually(func() bool {
-				if err := testEnv.Get(ctx, key, host); err != nil {
-					return false
-				}
 				return isPresentAndFalseWithReason(key, host, infrav1.CredentialsAvailableCondition, infrav1.OSSSHSecretMissingReason)
 			}, timeout).Should(BeTrue())
 		})
@@ -805,9 +759,6 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 			}()
 
 			Eventually(func() bool {
-				if err := testEnv.Get(ctx, key, host); err != nil {
-					return false
-				}
 				return isPresentAndFalseWithReason(key, host, infrav1.CredentialsAvailableCondition, infrav1.SSHCredentialsInSecretInvalidReason)
 			}, timeout).Should(BeTrue())
 		})

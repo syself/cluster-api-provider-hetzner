@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"sync"
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
 
@@ -38,10 +39,15 @@ const DefaultMemoryInGB = float32(4)
 const DefaultArchitecture = hcloud.ArchitectureX86
 
 type cacheHCloudClient struct {
-	serverCache         serverCache
-	placementGroupCache placementGroupCache
-	loadBalancerCache   loadBalancerCache
-	networkCache        networkCache
+	serverCache             serverCache
+	placementGroupCache     placementGroupCache
+	loadBalancerCache       loadBalancerCache
+	networkCache            networkCache
+	counterMutex            sync.Mutex
+	serverIDCounter         int
+	placementGroupIDCounter int
+	loadBalancerIDCounter   int
+	networkIDCounter        int
 }
 
 // NewClient gives reference to the fake client using cache for HCloud API.
@@ -51,6 +57,9 @@ func (f *cacheHCloudClientFactory) NewClient(string) hcloudclient.Client {
 
 // Close implements Close method of hcloud client interface.
 func (c *cacheHCloudClient) Close() {
+	c.counterMutex.Lock()
+	defer c.counterMutex.Unlock()
+
 	cacheHCloudClientInstance.serverCache = serverCache{}
 	cacheHCloudClientInstance.networkCache = networkCache{}
 	cacheHCloudClientInstance.loadBalancerCache = loadBalancerCache{}
@@ -72,6 +81,11 @@ func (c *cacheHCloudClient) Close() {
 		idMap:   make(map[int]*hcloud.Network),
 		nameMap: make(map[string]struct{}),
 	}
+
+	cacheHCloudClientInstance.serverIDCounter = 0
+	cacheHCloudClientInstance.placementGroupIDCounter = 0
+	cacheHCloudClientInstance.loadBalancerIDCounter = 0
+	cacheHCloudClientInstance.networkIDCounter = 0
 }
 
 type cacheHCloudClientFactory struct{}
@@ -134,13 +148,17 @@ var defaultImage = hcloud.Image{
 }
 
 func (c *cacheHCloudClient) CreateLoadBalancer(_ context.Context, opts hcloud.LoadBalancerCreateOpts) (*hcloud.LoadBalancer, error) {
+	c.counterMutex.Lock()
+	defer c.counterMutex.Unlock()
+
 	// cannot have two load balancers with the same name
 	if _, found := c.loadBalancerCache.nameMap[opts.Name]; found {
 		return nil, fmt.Errorf("failed to create lb: already exists")
 	}
 
+	c.loadBalancerIDCounter++
 	lb := &hcloud.LoadBalancer{
-		ID:               len(c.loadBalancerCache.idMap) + 1,
+		ID:               c.loadBalancerIDCounter,
 		Name:             opts.Name,
 		Labels:           opts.Labels,
 		Algorithm:        *opts.Algorithm,
@@ -398,12 +416,16 @@ func (c *cacheHCloudClient) ListImages(_ context.Context, opts hcloud.ImageListO
 }
 
 func (c *cacheHCloudClient) CreateServer(_ context.Context, opts hcloud.ServerCreateOpts) (*hcloud.Server, error) {
+	c.counterMutex.Lock()
+	defer c.counterMutex.Unlock()
+
 	if _, found := c.serverCache.nameMap[opts.Name]; found {
 		return nil, fmt.Errorf("already exists")
 	}
 
+	c.serverIDCounter++
 	server := &hcloud.Server{
-		ID:             len(c.serverCache.idMap) + 1,
+		ID:             c.serverIDCounter,
 		Name:           opts.Name,
 		Labels:         opts.Labels,
 		Image:          opts.Image,
@@ -436,7 +458,7 @@ func (c *cacheHCloudClient) AttachServerToNetwork(_ context.Context, server *hcl
 	// check if already exists
 	for _, s := range c.networkCache.idMap[opts.Network.ID].Servers {
 		if s.ID == server.ID {
-			return hcloud.Error{Code: hcloud.ErrorCodeServerAlreadyAdded, Message: "already added"}
+			return hcloud.Error{Code: hcloud.ErrorCodeServerAlreadyAttached, Message: "already attached"}
 		}
 	}
 
@@ -552,12 +574,16 @@ func (c *cacheHCloudClient) GetServerType(_ context.Context, name string) (*hclo
 }
 
 func (c *cacheHCloudClient) CreateNetwork(_ context.Context, opts hcloud.NetworkCreateOpts) (*hcloud.Network, error) {
+	c.counterMutex.Lock()
+	defer c.counterMutex.Unlock()
+
 	if _, found := c.networkCache.nameMap[opts.Name]; found {
 		return nil, fmt.Errorf("already exists")
 	}
 
+	c.networkIDCounter++
 	network := &hcloud.Network{
-		ID:      len(c.networkCache.idMap) + 1,
+		ID:      c.networkIDCounter,
 		Name:    opts.Name,
 		Labels:  opts.Labels,
 		IPRange: opts.IPRange,
@@ -609,12 +635,16 @@ func (c *cacheHCloudClient) ListSSHKeys(_ context.Context, _ hcloud.SSHKeyListOp
 }
 
 func (c *cacheHCloudClient) CreatePlacementGroup(_ context.Context, opts hcloud.PlacementGroupCreateOpts) (*hcloud.PlacementGroup, error) {
+	c.counterMutex.Lock()
+	defer c.counterMutex.Unlock()
+
 	if _, found := c.placementGroupCache.nameMap[opts.Name]; found {
 		return nil, fmt.Errorf("already exists")
 	}
 
+	c.placementGroupIDCounter++
 	placementGroup := &hcloud.PlacementGroup{
-		ID:     len(c.placementGroupCache.idMap) + 1,
+		ID:     c.placementGroupIDCounter,
 		Name:   opts.Name,
 		Labels: opts.Labels,
 		Type:   opts.Type,
@@ -623,7 +653,6 @@ func (c *cacheHCloudClient) CreatePlacementGroup(_ context.Context, opts hcloud.
 	// Add placementGroup to cache
 	c.placementGroupCache.idMap[placementGroup.ID] = placementGroup
 	c.placementGroupCache.nameMap[placementGroup.Name] = struct{}{}
-
 	return placementGroup, nil
 }
 
@@ -631,7 +660,9 @@ func (c *cacheHCloudClient) DeletePlacementGroup(_ context.Context, id int) erro
 	if _, found := c.placementGroupCache.idMap[id]; !found {
 		return hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
 	}
+
 	n := c.placementGroupCache.idMap[id]
+
 	delete(c.placementGroupCache.nameMap, n.Name)
 	delete(c.placementGroupCache.idMap, id)
 	return nil
