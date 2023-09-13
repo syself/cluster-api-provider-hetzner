@@ -207,7 +207,7 @@ spec:
     preKubeadmCommands:
       - set -x
       - export CRUN=1.8.5 # update: datasource=github-tags depName=containers/crun versioning=semver-coerced
-      - export CONTAINERD=1.7.2 # update: datasource=github-tags depName=containerd/containerd extractVersion=^v(?<version>.*)$ versioning=semver
+      - export CONTAINERD=1.7.6 # update: datasource=github-tags depName=containerd/containerd extractVersion=^v(?<version>.*)$ versioning=semver
       - export KUBERNETES_VERSION=$(echo ${KUBERNETES_VERSION} | sed 's/^v//')
       - localectl set-locale LANG=en_US.UTF-8
       - localectl set-locale LANGUAGE=en_US.UTF-8
