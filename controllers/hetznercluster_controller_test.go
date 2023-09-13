@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
@@ -54,7 +53,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 			hetznerClusterName string
 		)
 		BeforeEach(func() {
-			testNs, err = testEnv.CreateNamespace(ctx, "lb-attachment")
+			testNs, err = testEnv.CreateNamespace(ctx, "cluster-tests")
 			Expect(err).NotTo(HaveOccurred())
 			namespace = testNs.Name
 
@@ -124,9 +123,10 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 					return isPresentAndTrue(key, instance, infrav1.LoadBalancerReadyCondition)
 				}, timeout, time.Second).Should(BeTrue())
 
-				By("updating load balancer specs")
 				newLBName := "new-lb-name"
 				newLBType := "lb31"
+
+				By("updating load balancer type")
 
 				ph, err := patch.NewHelper(instance, testEnv)
 				Expect(err).ShouldNot(HaveOccurred())
@@ -137,6 +137,8 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 					return ph.Patch(ctx, instance, patch.WithStatusObservedGeneration{})
 				}, timeout).Should(BeNil())
 
+				By("updating load balancer name")
+
 				ph, err = patch.NewHelper(instance, testEnv)
 				Expect(err).ShouldNot(HaveOccurred())
 
@@ -146,32 +148,41 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 					return ph.Patch(ctx, instance, patch.WithStatusObservedGeneration{})
 				}, timeout).Should(BeNil())
 
+				By("listing load balancers and checking spec")
+
 				// Check in hetzner API
-				Eventually(func() error {
+				Eventually(func() bool {
 					loadBalancers, err := hcloudClient.ListLoadBalancers(ctx, hcloud.LoadBalancerListOpts{
 						ListOpts: hcloud.ListOpts{
 							LabelSelector: utils.LabelsToLabelSelector(map[string]string{instance.ClusterTagKey(): "owned"}),
 						},
 					})
 					if err != nil {
-						return fmt.Errorf("failed to list load balancers: %w", err)
+						testEnv.GetLogger().Info("failed to list load balancers", "err", err)
+						return false
 					}
 					if len(loadBalancers) > 1 {
-						return fmt.Errorf("there are multiple load balancers found: %v", loadBalancers)
+						testEnv.GetLogger().Info("there are multiple load balancers found", "number of load balancers", loadBalancers)
+						return false
 					}
 					if len(loadBalancers) == 0 {
-						return fmt.Errorf("no load balancer found")
+						testEnv.GetLogger().Info("no load balancer found")
+						return false
 					}
+
 					lb := loadBalancers[0]
 
 					if lb.Name != newLBName {
-						return fmt.Errorf("wrong name. Want %s, got %s", newLBName, lb.Name)
+						testEnv.GetLogger().Info("wrong name", "want", newLBName, "got", lb.Name)
+						return false
 					}
 					if lb.LoadBalancerType.Name != newLBType {
-						return fmt.Errorf("wrong name. Want %s, got %s", newLBType, lb.LoadBalancerType.Name)
+						testEnv.GetLogger().Info("wrong type", "want", newLBType, "got", lb.LoadBalancerType.Name)
+						return false
 					}
-					return nil
-				}, timeout).Should(BeNil())
+
+					return true
+				}, timeout, 1*time.Second).Should(BeTrue())
 			})
 
 			It("should update extra targets", func() {
@@ -185,6 +196,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 
 				ph, err := patch.NewHelper(instance, testEnv)
 				Expect(err).ShouldNot(HaveOccurred())
+
 				instance.Spec.ControlPlaneLoadBalancer.ExtraServices = append(instance.Spec.ControlPlaneLoadBalancer.ExtraServices,
 					infrav1.LoadBalancerServiceSpec{
 						DestinationPort: 8134,
@@ -486,7 +498,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 								return -1
 							}
 							return len(pgs)
-						}, timeout).Should(Equal(len(newPlacementGroupSpec)))
+						}, timeout, time.Second).Should(Equal(len(newPlacementGroupSpec)))
 					},
 					Entry("one pg", []infrav1.HCloudPlacementGroupSpec{{Name: "md-0", Type: "spread"}}),
 					Entry("no pgs", []infrav1.HCloudPlacementGroupSpec{}),
