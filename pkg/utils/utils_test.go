@@ -25,96 +25,179 @@ import (
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
+type testCaseLabelsToLabelSelector struct {
+	labels                map[string]string
+	expectedOutput        string
+	expectedOutputInverse string
+}
+
 var _ = DescribeTable("LabelsToLabelSelector",
-	func(labels map[string]string, expectedOutput, expectedOutputInverse string) {
-		Expect(utils.LabelsToLabelSelector(labels)).To(Or(Equal(expectedOutput), Equal(expectedOutputInverse)))
+	func(tc testCaseLabelsToLabelSelector) {
+		Expect(utils.LabelsToLabelSelector(tc.labels)).To(Or(Equal(tc.expectedOutput), Equal(tc.expectedOutputInverse)))
 	},
-	Entry("existing keys", map[string]string{
-		"key1": "label1",
-		"key2": "label2",
-	}, "key2==label2,key1==label1", "key1==label1,key2==label2"),
-	Entry("no keys", map[string]string{}, "", ""),
+	Entry("existing keys", testCaseLabelsToLabelSelector{
+		labels: map[string]string{
+			"key1": "label1",
+			"key2": "label2",
+		},
+		expectedOutput:        "key2==label2,key1==label1",
+		expectedOutputInverse: "key1==label1,key2==label2",
+	}),
+	Entry("no keys", testCaseLabelsToLabelSelector{
+		labels:                map[string]string{},
+		expectedOutput:        "",
+		expectedOutputInverse: "",
+	}),
 )
 
+type testCaseLabelSelectorToLabels struct {
+	str            string
+	expectedOutput map[string]string
+}
+
 var _ = DescribeTable("LabelSelectorToLabels",
-	func(str string, expectedOutput map[string]string) {
-		Expect(utils.LabelSelectorToLabels(str)).To(Equal(expectedOutput))
+	func(tc testCaseLabelSelectorToLabels) {
+		Expect(utils.LabelSelectorToLabels(tc.str)).To(Equal(tc.expectedOutput))
 	},
-	Entry("existing keys", "key2==label2,key1==label1", map[string]string{
-		"key1": "label1",
-		"key2": "label2",
+	Entry("existing keys", testCaseLabelSelectorToLabels{
+		str: "key2==label2,key1==label1",
+		expectedOutput: map[string]string{
+			"key1": "label1",
+			"key2": "label2",
+		},
 	}),
-	Entry("no keys", "", map[string]string{}),
+	Entry("no keys", testCaseLabelSelectorToLabels{
+		str:            "",
+		expectedOutput: map[string]string{},
+	}),
 )
 
 var _ = Describe("DifferenceOfStringSlices", func() {
+	type testCaseDifferenceOfStringSlices struct {
+		a       []string
+		b       []string
+		onlyInA []string
+		onlyInB []string
+	}
+
 	DescribeTable("Computing differences",
-		func(a, b, onlyInA, onlyInB []string) {
-			outA, outB := utils.DifferenceOfStringSlices(a, b)
-			Expect(outA).To(Equal(onlyInA))
-			Expect(outB).To(Equal(onlyInB))
+		func(tc testCaseDifferenceOfStringSlices) {
+			outA, outB := utils.DifferenceOfStringSlices(tc.a, tc.b)
+			Expect(outA).To(Equal(tc.onlyInA))
+			Expect(outB).To(Equal(tc.onlyInB))
 		},
-		Entry(
-			"entry1",
-			[]string{"string1", "string2", "string3", "string4"},
-			[]string{"string1", "string2"},
-			[]string{"string3", "string4"},
-			nil,
-		),
-		Entry(
-			"entry2",
-			[]string{"string1", "string2"},
-			[]string{"string1", "string2", "string3", "string4"},
-			nil,
-			[]string{"string3", "string4"},
-		),
-		Entry(
-			"entry3",
-			[]string{"string1", "string2"},
-			nil,
-			[]string{"string1", "string2"},
-			nil),
-		Entry(
-			"entry4",
-			nil,
-			[]string{"string1", "string2"},
-			nil,
-			[]string{"string1", "string2"},
-		),
+		Entry("entry1", testCaseDifferenceOfStringSlices{
+			a:       []string{"string1", "string2", "string3", "string4"},
+			b:       []string{"string1", "string2"},
+			onlyInA: []string{"string3", "string4"},
+			onlyInB: nil,
+		}),
+		Entry("entry2", testCaseDifferenceOfStringSlices{
+			a:       []string{"string1", "string2"},
+			b:       []string{"string1", "string2", "string3", "string4"},
+			onlyInA: nil,
+			onlyInB: []string{"string3", "string4"},
+		}),
+		Entry("entry3", testCaseDifferenceOfStringSlices{
+			a:       []string{"string1", "string2"},
+			b:       nil,
+			onlyInA: []string{"string1", "string2"},
+			onlyInB: nil,
+		}),
+		Entry("entry4", testCaseDifferenceOfStringSlices{
+			a:       nil,
+			b:       []string{"string1", "string2"},
+			onlyInA: nil,
+			onlyInB: []string{"string1", "string2"},
+		}),
 	)
 })
 
 var _ = Describe("DifferenceOfIntSlices", func() {
+	type testCaseDifferenceOfIntSlices struct {
+		a       []int
+		b       []int
+		onlyInA []int
+		onlyInB []int
+	}
+
 	DescribeTable("Computing differences",
-		func(a, b, onlyInA, onlyInB []int) {
-			outA, outB := utils.DifferenceOfIntSlices(a, b)
-			Expect(outA).To(Equal(onlyInA))
-			Expect(outB).To(Equal(onlyInB))
+		func(tc testCaseDifferenceOfIntSlices) {
+			outA, outB := utils.DifferenceOfIntSlices(tc.a, tc.b)
+			Expect(outA).To(Equal(tc.onlyInA))
+			Expect(outB).To(Equal(tc.onlyInB))
 		},
-		Entry("entry1", []int{1, 2, 3, 4}, []int{1, 2}, []int{3, 4}, nil),
-		Entry("entry2", []int{1, 2}, []int{1, 2, 3, 4}, nil, []int{3, 4}),
-		Entry("entry3", []int{1, 2}, nil, []int{1, 2}, nil),
-		Entry("entry4", nil, []int{1, 2}, nil, []int{1, 2}))
+		Entry("entry1", testCaseDifferenceOfIntSlices{
+			a:       []int{1, 2, 3, 4},
+			b:       []int{1, 2},
+			onlyInA: []int{3, 4},
+			onlyInB: nil,
+		}),
+		Entry("entry2", testCaseDifferenceOfIntSlices{
+			a:       []int{1, 2},
+			b:       []int{1, 2, 3, 4},
+			onlyInA: nil,
+			onlyInB: []int{3, 4},
+		}),
+		Entry("entry3", testCaseDifferenceOfIntSlices{
+			a:       []int{1, 2},
+			b:       nil,
+			onlyInA: []int{1, 2},
+			onlyInB: nil,
+		}),
+		Entry("entry4", testCaseDifferenceOfIntSlices{
+			a:       nil,
+			b:       []int{1, 2},
+			onlyInA: nil,
+			onlyInB: []int{1, 2},
+		}))
 })
 
 var _ = Describe("StringInList", func() {
+	type testCaseStringInList struct {
+		list            []string
+		str             string
+		expectedOutcome bool
+	}
+
 	DescribeTable("Test string in list",
-		func(list []string, str string, expectedOutcome bool) {
-			out := utils.StringInList(list, str)
-			Expect(out).To(Equal(expectedOutcome))
+		func(tc testCaseStringInList) {
+			out := utils.StringInList(tc.list, tc.str)
+			Expect(out).To(Equal(tc.expectedOutcome))
 		},
-		Entry("entry1", []string{"a", "b", "c"}, "a", true),
-		Entry("entry2", []string{"a", "b", "c"}, "d", false))
+		Entry("entry1", testCaseStringInList{
+			list:            []string{"a", "b", "c"},
+			str:             "a",
+			expectedOutcome: true,
+		}),
+		Entry("entry2", testCaseStringInList{
+			list:            []string{"a", "b", "c"},
+			str:             "d",
+			expectedOutcome: false,
+		}))
 })
 
 var _ = Describe("FilterStringFromList", func() {
+	type testCaseFilterStringFromList struct {
+		list            []string
+		str             string
+		expectedOutcome []string
+	}
 	DescribeTable("Test filter string from list",
-		func(list []string, str string, expectedOutcome []string) {
-			out := utils.FilterStringFromList(list, str)
-			Expect(out).To(Equal(expectedOutcome))
+		func(tc testCaseFilterStringFromList) {
+			out := utils.FilterStringFromList(tc.list, tc.str)
+			Expect(out).To(Equal(tc.expectedOutcome))
 		},
-		Entry("entry1", []string{"a", "b", "c"}, "a", []string{"b", "c"}),
-		Entry("entry2", []string{"a", "b", "c"}, "d", []string{"a", "b", "c"}))
+		Entry("entry1", testCaseFilterStringFromList{
+			list:            []string{"a", "b", "c"},
+			str:             "a",
+			expectedOutcome: []string{"b", "c"},
+		}),
+		Entry("entry2", testCaseFilterStringFromList{
+			list:            []string{"a", "b", "c"},
+			str:             "d",
+			expectedOutcome: []string{"a", "b", "c"},
+		}))
 })
 
 var _ = Describe("Test removeOwnerRefFromList", func() {

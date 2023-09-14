@@ -24,13 +24,17 @@ import (
 )
 
 var _ = Describe("buildAutoSetup", func() {
+	type testCaseBuildAutoSetup struct {
+		installImageSpec *infrav1.InstallImage
+		autoSetupInput   autoSetupInput
+		expectedOutput   string
+	}
 	DescribeTable("buildAutoSetup",
-		func(installImageSpec *infrav1.InstallImage, autoSetupInput autoSetupInput, expectedOutput string) {
-			Expect(buildAutoSetup(installImageSpec, autoSetupInput)).Should(Equal(expectedOutput))
+		func(tc testCaseBuildAutoSetup) {
+			Expect(buildAutoSetup(tc.installImageSpec, tc.autoSetupInput)).Should(Equal(tc.expectedOutput))
 		},
-		Entry(
-			"multiple entries",
-			&infrav1.InstallImage{
+		Entry("multiple entries", testCaseBuildAutoSetup{
+			installImageSpec: &infrav1.InstallImage{
 				Partitions: []infrav1.Partition{
 					{
 						Mount:      "/boot",
@@ -74,12 +78,12 @@ var _ = Describe("buildAutoSetup", func() {
 				Swraid:      0,
 				SwraidLevel: 1,
 			},
-			autoSetupInput{
+			autoSetupInput: autoSetupInput{
 				image:     "my-image",
 				osDevices: []string{"device"},
 				hostName:  "my-host",
 			},
-			`DRIVE1 /dev/device
+			expectedOutput: `DRIVE1 /dev/device
 
 HOSTNAME my-host
 SWRAID 0
@@ -93,10 +97,10 @@ LV vg0 swap swap swap 5G
 SUBVOL btrfs.1 @ /
 SUBVOL btrfs.1 @/usr /usr
 
-IMAGE my-image`),
-		Entry(
-			"single entries",
-			&infrav1.InstallImage{
+IMAGE my-image`,
+		}),
+		Entry("single entries", testCaseBuildAutoSetup{
+			installImageSpec: &infrav1.InstallImage{
 				Partitions: []infrav1.Partition{
 					{
 						Mount:      "/boot",
@@ -123,12 +127,12 @@ IMAGE my-image`),
 				Swraid:      1,
 				SwraidLevel: 1,
 			},
-			autoSetupInput{
+			autoSetupInput: autoSetupInput{
 				image:     "my-image",
 				osDevices: []string{"device"},
 				hostName:  "my-host",
 			},
-			`DRIVE1 /dev/device
+			expectedOutput: `DRIVE1 /dev/device
 
 HOSTNAME my-host
 SWRAID 1
@@ -140,10 +144,10 @@ LV vg0 root / ext4 10G
 
 SUBVOL btrfs.1 @ /
 
-IMAGE my-image`),
-		Entry(
-			"multiple drives",
-			&infrav1.InstallImage{
+IMAGE my-image`,
+		}),
+		Entry("multiple drives", testCaseBuildAutoSetup{
+			installImageSpec: &infrav1.InstallImage{
 				Partitions: []infrav1.Partition{
 					{
 						Mount:      "/boot",
@@ -170,12 +174,12 @@ IMAGE my-image`),
 				Swraid:      0,
 				SwraidLevel: 1,
 			},
-			autoSetupInput{
+			autoSetupInput: autoSetupInput{
 				image:     "my-image",
 				osDevices: []string{"device1", "device2"},
 				hostName:  "my-host",
 			},
-			`DRIVE1 /dev/device1
+			expectedOutput: `DRIVE1 /dev/device1
 DRIVE2 /dev/device2
 
 HOSTNAME my-host
@@ -187,10 +191,10 @@ LV vg0 root / ext4 10G
 
 SUBVOL btrfs.1 @ /
 
-IMAGE my-image`),
-		Entry(
-			"proper response",
-			&infrav1.InstallImage{
+IMAGE my-image`,
+		}),
+		Entry("proper response", testCaseBuildAutoSetup{
+			installImageSpec: &infrav1.InstallImage{
 				Partitions: []infrav1.Partition{
 					{
 						Mount:      "/boot",
@@ -203,12 +207,12 @@ IMAGE my-image`),
 				Swraid:           0,
 				SwraidLevel:      1,
 			},
-			autoSetupInput{
+			autoSetupInput: autoSetupInput{
 				image:     "my-image",
 				osDevices: []string{"device"},
 				hostName:  "my-host",
 			},
-			`DRIVE1 /dev/device
+			expectedOutput: `DRIVE1 /dev/device
 
 HOSTNAME my-host
 SWRAID 0
@@ -217,28 +221,30 @@ PART /boot ext2 512M
 
 
 
-IMAGE my-image`),
+IMAGE my-image`,
+		}),
 	)
 })
 
 var _ = Describe("validJSONFromSSHOutput", func() {
-	DescribeTable("validJSONFromSSHOutput", func(input, expectedOutput string) {
-		Expect(validJSONFromSSHOutput(input)).Should(Equal(expectedOutput))
+	type testCaseValidJSONFromSSHOutput struct {
+		input          string
+		expectedOutput string
+	}
+	DescribeTable("validJSONFromSSHOutput", func(tc testCaseValidJSONFromSSHOutput) {
+		Expect(validJSONFromSSHOutput(tc.input)).Should(Equal(tc.expectedOutput))
 	},
-		Entry(
-			"working example",
-			`key1="string1" key2="string2" key3="string3"`,
-			`{"key1":"string1","key2":"string2","key3":"string3"}`,
-		),
-		Entry(
-			"working example2",
-			`key1="string1"`,
-			`{"key1":"string1"}`,
-		),
-		Entry(
-			"empty string",
-			``,
-			`{}`,
-		),
+		Entry("working example", testCaseValidJSONFromSSHOutput{
+			input:          `key1="string1" key2="string2" key3="string3"`,
+			expectedOutput: `{"key1":"string1","key2":"string2","key3":"string3"}`,
+		}),
+		Entry("working example2", testCaseValidJSONFromSSHOutput{
+			input:          `key1="string1"`,
+			expectedOutput: `{"key1":"string1"}`,
+		}),
+		Entry("empty string", testCaseValidJSONFromSSHOutput{
+			input:          ``,
+			expectedOutput: `{}`,
+		}),
 	)
 })
