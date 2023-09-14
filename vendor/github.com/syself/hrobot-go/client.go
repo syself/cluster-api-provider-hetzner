@@ -93,10 +93,31 @@ func (c *Client) doPostFormRequest(url string, formData url.Values) ([]byte, err
 	return bytes, nil
 }
 
+// NewLoggingClient returns a new http.Client that logs all requests.
+func NewLoggingClient() *http.Client {
+	return &http.Client{
+		Transport: &loggingTransport{
+			transport: http.DefaultTransport,
+		},
+	}
+}
+
+// loggingTransport is a custom http.RoundTripper that logs requests.
+type loggingTransport struct {
+	transport http.RoundTripper
+}
+
+func (t *loggingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	// Dump the request for logging purposes
+	fmt.Printf("http callllll %s %s %s\n", req.Method, req.RequestURI, req.URL.String())
+	// Call the wrapped transport's RoundTrip method to actually send the request
+	return t.transport.RoundTrip(req)
+}
+
 func (c *Client) doRequest(req *http.Request) ([]byte, error) {
 	req.Header.Set("User-Agent", c.userAgent)
 	req.SetBasicAuth(c.Username, c.Password)
-	client := &http.Client{}
+	client := NewLoggingClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
