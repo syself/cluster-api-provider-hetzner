@@ -91,54 +91,62 @@ func (r *GuestCSRReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		return reconcile.Result{}, nil
 	}
 
-	// get machine addresses from corresponding machine
-	machineAddresses, isHCloudMachine, err := r.getMachineAddresses(ctx, certificateSigningRequest)
-	if err != nil {
-		log.Error(err, "could not find an associated bm machine or hcloud machine",
-			"userName", certificateSigningRequest.Spec.Username)
-		return reconcile.Result{RequeueAfter: 20 * time.Second}, nil
-	}
-
-	machineName := machineNameFromCSR(certificateSigningRequest, isHCloudMachine)
-	machineRef := klog.KRef(r.mCluster.Namespace(), machineName)
-
-	if isHCloudMachine {
-		log = log.WithValues("HCloudMachine", machineRef)
-	} else {
-		log = log.WithValues("HetznerBareMetalMachine", machineRef)
-	}
-
-	ctx = ctrl.LoggerInto(ctx, log)
-
-	csrRequest, err := getx509CSR(certificateSigningRequest)
-	if err != nil {
-		record.Warnf(
-			certificateSigningRequest,
-			"CSRParsingError",
-			"Error parsing CertificateSigningRequest %s: %s",
-			req.Name,
-			err,
-		)
-		return reconcile.Result{}, err
-	}
-
 	condition := certificatesv1.CertificateSigningRequestCondition{
 		LastUpdateTime: metav1.Time{Time: time.Now()},
 	}
 
-	nameWithPrefix := machineNameWithPrefix(machineName, isHCloudMachine)
-
-	if err := csr.ValidateKubeletCSR(csrRequest, nameWithPrefix, machineAddresses); err != nil {
+	isTooOld := certificateSigningRequest.CreationTimestamp.Before(&metav1.Time{Time: time.Now().Add(-1 * time.Hour)})
+	if isTooOld {
 		condition.Type = certificatesv1.CertificateDenied
-		condition.Reason = "CSRValidationFailed"
+		condition.Reason = "CSRTooOld"
 		condition.Status = "True"
-		condition.Message = fmt.Sprintf("Validation by cluster-api-provider-hetzner failed: %s", err)
-		record.Warnf(certificateSigningRequest, condition.Reason, "failed to validate kubelet csr: %s", err.Error())
+		condition.Message = "csr ist too old"
 	} else {
-		condition.Type = certificatesv1.CertificateApproved
-		condition.Reason = "CSRValidationSucceed"
-		condition.Status = "True"
-		condition.Message = "Validation by cluster-api-provider-hetzner was successful"
+		// get machine addresses from corresponding machine
+		machineAddresses, isHCloudMachine, err := r.getMachineAddresses(ctx, certificateSigningRequest)
+		if err != nil {
+			log.Error(err, "could not find an associated bm machine or hcloud machine",
+				"userName", certificateSigningRequest.Spec.Username)
+			return reconcile.Result{RequeueAfter: 20 * time.Second}, nil
+		}
+
+		machineName := machineNameFromCSR(certificateSigningRequest, isHCloudMachine)
+		machineRef := klog.KRef(r.mCluster.Namespace(), machineName)
+
+		if isHCloudMachine {
+			log = log.WithValues("HCloudMachine", machineRef)
+		} else {
+			log = log.WithValues("HetznerBareMetalMachine", machineRef)
+		}
+
+		ctx = ctrl.LoggerInto(ctx, log)
+
+		csrRequest, err := getx509CSR(certificateSigningRequest)
+		if err != nil {
+			record.Warnf(
+				certificateSigningRequest,
+				"CSRParsingError",
+				"Error parsing CertificateSigningRequest %s: %s",
+				req.Name,
+				err,
+			)
+			return reconcile.Result{}, err
+		}
+
+		nameWithPrefix := machineNameWithPrefix(machineName, isHCloudMachine)
+
+		if err := csr.ValidateKubeletCSR(csrRequest, nameWithPrefix, machineAddresses); err != nil {
+			condition.Type = certificatesv1.CertificateDenied
+			condition.Reason = "CSRValidationFailed"
+			condition.Status = "True"
+			condition.Message = fmt.Sprintf("Validation by cluster-api-provider-hetzner failed: %s", err)
+			record.Warnf(certificateSigningRequest, condition.Reason, "failed to validate kubelet csr: %s", err.Error())
+		} else {
+			condition.Type = certificatesv1.CertificateApproved
+			condition.Reason = "CSRValidationSucceed"
+			condition.Status = "True"
+			condition.Message = "Validation by cluster-api-provider-hetzner was successful"
+		}
 	}
 
 	certificateSigningRequest.Status.Conditions = append(
