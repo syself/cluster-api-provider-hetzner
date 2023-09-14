@@ -40,6 +40,7 @@ var _ = Describe("Test ServerIDFromProviderID", func() {
 		Expect(err).ToNot(BeNil())
 		Expect(err).To(MatchError(ErrNilProviderID))
 	})
+
 	type testCaseServerIDFromProviderID struct {
 		providerID     string
 		expectServerID int
@@ -50,6 +51,7 @@ var _ = Describe("Test ServerIDFromProviderID", func() {
 		func(tc testCaseServerIDFromProviderID) {
 			serverID, err := ServerIDFromProviderID(&tc.providerID)
 			Expect(serverID).Should(Equal(tc.expectServerID))
+
 			if tc.expectError != nil {
 				Expect(err).ToNot(BeNil())
 				Expect(err).Should(MatchError(tc.expectError))

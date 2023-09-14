@@ -57,17 +57,22 @@ var _ = Describe("statusFromHCloudServer", func() {
 	})
 })
 
+type testCaseStatusFromHCloudServer struct {
+	isControlPlane bool
+	expectedOutput map[string]string
+}
+
 var _ = DescribeTable("createLabels",
-	func(hetznerClusterName, hcloudMachineName string, isControlPlane bool, expectedOutput map[string]string) {
+	func(tc testCaseStatusFromHCloudServer) {
 		hcloudMachine := infrav1.HCloudMachine{}
-		hcloudMachine.Name = hcloudMachineName
+		hcloudMachine.Name = "hcloudMachine"
 
 		hetznerCluster := infrav1.HetznerCluster{}
-		hetznerCluster.Name = hetznerClusterName
+		hetznerCluster.Name = "hcloudCluster"
 
 		capiMachine := clusterv1.Machine{}
 
-		if isControlPlane {
+		if tc.isControlPlane {
 			// set label on capi machine to mark it as control plane
 			capiMachine.Labels = make(map[string]string)
 			capiMachine.Labels[clusterv1.MachineControlPlaneLabel] = "control-plane"
@@ -82,21 +87,32 @@ var _ = DescribeTable("createLabels",
 				},
 			},
 		}
-		Expect(service.createLabels()).To(Equal(expectedOutput))
+		Expect(service.createLabels()).To(Equal(tc.expectedOutput))
 	},
-	Entry("is_controlplane", "hcloudCluster", "hcloudMachine", true, map[string]string{
-		"caph-cluster-hcloudCluster": string(infrav1.ResourceLifecycleOwned),
-		infrav1.MachineNameTagKey:    "hcloudMachine",
-		"machine_type":               "control_plane",
+	Entry("is_controlplane", testCaseStatusFromHCloudServer{
+		isControlPlane: true,
+		expectedOutput: map[string]string{
+			"caph-cluster-hcloudCluster": string(infrav1.ResourceLifecycleOwned),
+			infrav1.MachineNameTagKey:    "hcloudMachine",
+			"machine_type":               "control_plane",
+		},
 	}),
-	Entry("is_worker", "hcloudCluster", "hcloudMachine", false, map[string]string{
-		"caph-cluster-hcloudCluster": string(infrav1.ResourceLifecycleOwned),
-		infrav1.MachineNameTagKey:    "hcloudMachine",
-		"machine_type":               "worker",
+	Entry("is_worker", testCaseStatusFromHCloudServer{
+		isControlPlane: false,
+		expectedOutput: map[string]string{
+			"caph-cluster-hcloudCluster": string(infrav1.ResourceLifecycleOwned),
+			infrav1.MachineNameTagKey:    "hcloudMachine",
+			"machine_type":               "worker",
+		},
 	}),
 )
 
 var _ = Describe("filterHCloudSSHKeys", func() {
+	type testCaseFilterHCloudSSHKeys struct {
+		sshKeysSpec    []infrav1.SSHKey
+		expectedOutput []*hcloud.SSHKey
+	}
+
 	var sshKeysAPI []*hcloud.SSHKey
 	BeforeEach(func() {
 		sshKeysAPI = []*hcloud.SSHKey{
@@ -118,58 +134,64 @@ var _ = Describe("filterHCloudSSHKeys", func() {
 		}
 	})
 	_ = DescribeTable("no_error",
-		func(sshKeysSpec []infrav1.SSHKey, expectedOutput []*hcloud.SSHKey) {
-			Expect(filterHCloudSSHKeys(sshKeysAPI, sshKeysSpec)).Should(Equal(expectedOutput))
+		func(tc testCaseFilterHCloudSSHKeys) {
+			Expect(filterHCloudSSHKeys(sshKeysAPI, tc.sshKeysSpec)).Should(Equal(tc.expectedOutput))
 		},
-		Entry("no_error_same_length", []infrav1.SSHKey{
-			{
-				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:2f",
-				Name:        "sshkey1",
+		Entry("no_error_same_length", testCaseFilterHCloudSSHKeys{
+			sshKeysSpec: []infrav1.SSHKey{
+				{
+					Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:2f",
+					Name:        "sshkey1",
+				},
+				{
+					Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:3g",
+					Name:        "sshkey2",
+				},
+				{
+					Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:4f",
+					Name:        "sshkey3",
+				},
 			},
-			{
-				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:3g",
-				Name:        "sshkey2",
-			},
-			{
-				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:4f",
-				Name:        "sshkey3",
-			},
-		}, []*hcloud.SSHKey{
-			{
-				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:2f",
-				Name:        "sshkey1",
-				ID:          42,
-			},
-			{
-				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:3g",
-				Name:        "sshkey2",
-				ID:          43,
-			},
-			{
-				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:4h",
-				Name:        "sshkey3",
-				ID:          44,
+			expectedOutput: []*hcloud.SSHKey{
+				{
+					Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:2f",
+					Name:        "sshkey1",
+					ID:          42,
+				},
+				{
+					Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:3g",
+					Name:        "sshkey2",
+					ID:          43,
+				},
+				{
+					Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:4h",
+					Name:        "sshkey3",
+					ID:          44,
+				},
 			},
 		}),
-		Entry("no_error_different_length", []infrav1.SSHKey{
-			{
-				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:2f",
-				Name:        "sshkey1",
+		Entry("no_error_different_length", testCaseFilterHCloudSSHKeys{
+			sshKeysSpec: []infrav1.SSHKey{
+				{
+					Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:2f",
+					Name:        "sshkey1",
+				},
+				{
+					Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:4f",
+					Name:        "sshkey3",
+				},
 			},
-			{
-				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:4f",
-				Name:        "sshkey3",
-			},
-		}, []*hcloud.SSHKey{
-			{
-				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:2f",
-				Name:        "sshkey1",
-				ID:          42,
-			},
-			{
-				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:4h",
-				Name:        "sshkey3",
-				ID:          44,
+			expectedOutput: []*hcloud.SSHKey{
+				{
+					Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:2f",
+					Name:        "sshkey1",
+					ID:          42,
+				},
+				{
+					Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:4h",
+					Name:        "sshkey3",
+					ID:          44,
+				},
 			},
 		}),
 	)
@@ -213,25 +235,35 @@ var _ = Describe("handleServerStatusOff", func() {
 
 	It("sets a condition if none is previously set", func() {
 		service := newTestService(hcloudMachine, client)
+
 		res, err := service.handleServerStatusOff(context.Background(), server)
 		Expect(err).To(Succeed())
+
 		Expect(res).Should(Equal(reconcile.Result{RequeueAfter: 30 * time.Second}))
+
 		Expect(conditions.GetReason(hcloudMachine, infrav1.ServerAvailableCondition)).To(Equal(infrav1.ServerOffReason))
+
 		Expect(server.Status).To(Equal(hcloud.ServerStatusRunning))
 	})
 
 	It("tries to power on server again if it is not timed out", func() {
 		conditions.MarkFalse(hcloudMachine, infrav1.ServerAvailableCondition, infrav1.ServerOffReason, clusterv1.ConditionSeverityInfo, "")
+
 		service := newTestService(hcloudMachine, client)
+
 		res, err := service.handleServerStatusOff(context.Background(), server)
 		Expect(err).To(Succeed())
+
 		Expect(res).Should(Equal(reconcile.Result{RequeueAfter: 30 * time.Second}))
+
 		Expect(server.Status).To(Equal(hcloud.ServerStatusRunning))
+
 		Expect(conditions.GetReason(hcloudMachine, infrav1.ServerAvailableCondition)).To(Equal(infrav1.ServerOffReason))
 	})
 
 	It("sets a failure message if it timed out", func() {
 		conditions.MarkFalse(hcloudMachine, infrav1.ServerAvailableCondition, infrav1.ServerOffReason, clusterv1.ConditionSeverityInfo, "")
+
 		// manipulate lastTransitionTime
 		conditionsList := hcloudMachine.GetConditions()
 		for i, c := range conditionsList {
@@ -239,22 +271,31 @@ var _ = Describe("handleServerStatusOff", func() {
 				conditionsList[i].LastTransitionTime = metav1.NewTime(time.Now().Add(-time.Hour))
 			}
 		}
+
 		service := newTestService(hcloudMachine, client)
+
 		res, err := service.handleServerStatusOff(context.Background(), server)
 		Expect(err).To(Succeed())
+
 		var emptyResult reconcile.Result
 		Expect(res).Should(Equal(emptyResult))
+
 		Expect(server.Status).To(Equal(hcloud.ServerStatusOff))
 		Expect(hcloudMachine.Status.FailureMessage).Should(Equal(pointer.String("reached timeout of waiting for machines that are switched off")))
 	})
 
 	It("tries to power on server and sets new condition if different one is set", func() {
 		conditions.MarkTrue(hcloudMachine, infrav1.ServerAvailableCondition)
+
 		service := newTestService(hcloudMachine, client)
+
 		res, err := service.handleServerStatusOff(context.Background(), server)
 		Expect(err).To(Succeed())
+
 		Expect(res).Should(Equal(reconcile.Result{RequeueAfter: 30 * time.Second}))
+
 		Expect(conditions.GetReason(hcloudMachine, infrav1.ServerAvailableCondition)).To(Equal(infrav1.ServerOffReason))
+
 		Expect(server.Status).To(Equal(hcloud.ServerStatusRunning))
 	})
 })

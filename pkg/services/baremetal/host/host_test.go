@@ -38,17 +38,19 @@ import (
 var errTest = fmt.Errorf("test error")
 
 var _ = Describe("SetErrorMessage", func() {
+	type testCaseSetErrorMessage struct {
+		errorType            infrav1.ErrorType
+		errorMessage         string
+		hasErrorInStatus     bool
+		expectedErrorCount   int
+		expectedErrorType    infrav1.ErrorType
+		expectedErrorMessage string
+	}
+
 	DescribeTable("SetErrorMessage",
-		func(
-			errorType infrav1.ErrorType,
-			errorMessage string,
-			hasErrorInStatus bool,
-			expectedErrorCount int,
-			expectedErrorType infrav1.ErrorType,
-			expectedErrorMessage string,
-		) {
+		func(tc testCaseSetErrorMessage) {
 			var host *infrav1.HetznerBareMetalHost
-			if hasErrorInStatus {
+			if tc.hasErrorInStatus {
 				host = helpers.BareMetalHost(
 					"test-host",
 					"default",
@@ -61,54 +63,54 @@ var _ = Describe("SetErrorMessage", func() {
 				)
 			}
 
-			host.SetError(errorType, errorMessage)
-			Expect(host.Spec.Status.ErrorCount).To(Equal(expectedErrorCount))
-			Expect(host.Spec.Status.ErrorMessage).To(Equal(expectedErrorMessage))
-			Expect(host.Spec.Status.ErrorType).To(Equal(expectedErrorType))
+			host.SetError(tc.errorType, tc.errorMessage)
+			Expect(host.Spec.Status.ErrorCount).To(Equal(tc.expectedErrorCount))
+			Expect(host.Spec.Status.ErrorMessage).To(Equal(tc.expectedErrorMessage))
+			Expect(host.Spec.Status.ErrorType).To(Equal(tc.expectedErrorType))
 		},
-		Entry(
-			"new error with existing one",
-			infrav1.RegistrationError, // errorType infrav1.ErrorType
-			"new message",             // errorMessage string
-			true,                      // hasErrorInStatus bool
-			1,                         // expectedErrorCount int
-			infrav1.RegistrationError, //	expectedErrorType
-			"new message",             // expectedErrorMessage
-		),
-		Entry(
-			"old error with existing one",
-			infrav1.PreparationError, // errorType infrav1.ErrorType
-			"first message",          // errorMessage string
-			true,                     // hasErrorInStatus bool
-			3,                        // expectedErrorCount int
-			infrav1.PreparationError, // expectedErrorType
-			"first message",          // expectedErrorMessage
-		),
-		Entry(
-			"new error without existing one",
-			infrav1.RegistrationError, // errorType infrav1.ErrorType
-			"new message",             // errorMessage string
-			true,                      // hasErrorInStatus bool
-			1,                         // expectedErrorCount int
-			infrav1.RegistrationError, //	expectedErrorType
-			"new message",             // expectedErrorMessage
-		),
+		Entry("new error with existing one", testCaseSetErrorMessage{
+			errorType:            infrav1.RegistrationError, // errorType infrav1.ErrorType
+			errorMessage:         "new message",             // errorMessage string
+			hasErrorInStatus:     true,                      // hasErrorInStatus bool
+			expectedErrorCount:   1,                         // expectedErrorCount int
+			expectedErrorType:    infrav1.RegistrationError, //	expectedErrorType
+			expectedErrorMessage: "new message",             // expectedErrorMessage
+		}),
+		Entry("old error with existing one", testCaseSetErrorMessage{
+			errorType:            infrav1.PreparationError, // errorType infrav1.ErrorType
+			errorMessage:         "first message",          // errorMessage string
+			hasErrorInStatus:     true,                     // hasErrorInStatus bool
+			expectedErrorCount:   3,                        // expectedErrorCount int
+			expectedErrorType:    infrav1.PreparationError, // expectedErrorType
+			expectedErrorMessage: "first message",          // expectedErrorMessage
+		}),
+		Entry("new error without existing one", testCaseSetErrorMessage{
+			errorType:            infrav1.RegistrationError, // errorType infrav1.ErrorType
+			errorMessage:         "new message",             // errorMessage string
+			hasErrorInStatus:     true,                      // hasErrorInStatus bool
+			expectedErrorCount:   1,                         // expectedErrorCount int
+			expectedErrorType:    infrav1.RegistrationError, //	expectedErrorType
+			expectedErrorMessage: "new message",             // expectedErrorMessage
+		}),
 	)
 })
 
 var _ = Describe("obtainHardwareDetailsNics", func() {
+	type testCaseObtainHardwareDetailsNics struct {
+		stdout         string
+		expectedOutput []infrav1.NIC
+	}
 	DescribeTable("Complete successfully",
-		func(stdout string, expectedOutput []infrav1.NIC) {
+		func(tc testCaseObtainHardwareDetailsNics) {
 			sshMock := &sshmock.Client{}
-			sshMock.On("GetHardwareDetailsNics").Return(sshclient.Output{StdOut: stdout})
+			sshMock.On("GetHardwareDetailsNics").Return(sshclient.Output{StdOut: tc.stdout})
 
-			Expect(obtainHardwareDetailsNics(sshMock)).Should(Equal(expectedOutput))
+			Expect(obtainHardwareDetailsNics(sshMock)).Should(Equal(tc.expectedOutput))
 		},
-		Entry(
-			"proper response",
-			`name="eth0" model="Realtek Semiconductor Co." mac="a8:a1:59:94:19:42" ip="23.88.6.239/26" speedMbps="1000"
+		Entry("proper response", testCaseObtainHardwareDetailsNics{
+			stdout: `name="eth0" model="Realtek Semiconductor Co." mac="a8:a1:59:94:19:42" ip="23.88.6.239/26" speedMbps="1000"
 	name="eth0" model="Realtek Semiconductor Co." mac="a8:a1:59:94:19:42" ip="2a01:4f8:272:3e0f::2/64" speedMbps="1000"`,
-			[]infrav1.NIC{
+			expectedOutput: []infrav1.NIC{
 				{
 					Name:      "eth0",
 					Model:     "Realtek Semiconductor Co.",
@@ -122,30 +124,35 @@ var _ = Describe("obtainHardwareDetailsNics", func() {
 					IP:        "2a01:4f8:272:3e0f::2/64",
 					SpeedMbps: 1000,
 				},
-			}),
+			},
+		}),
 	)
 })
 
 var _ = Describe("obtainHardwareDetailsStorage", func() {
+	type testCaseObtainHardwareDetailsStorage struct {
+		stdout               string
+		expectedOutput       []infrav1.Storage
+		expectedErrorMessage *string
+	}
 	DescribeTable("Complete successfully",
-		func(stdout string, expectedOutput []infrav1.Storage, expectedErrorMessage *string) {
+		func(tc testCaseObtainHardwareDetailsStorage) {
 			sshMock := &sshmock.Client{}
-			sshMock.On("GetHardwareDetailsStorage").Return(sshclient.Output{StdOut: stdout})
+			sshMock.On("GetHardwareDetailsStorage").Return(sshclient.Output{StdOut: tc.stdout})
 
 			storageDevices, err := obtainHardwareDetailsStorage(sshMock)
-			Expect(storageDevices).Should(Equal(expectedOutput))
-			if expectedErrorMessage != nil {
-				Expect(err.Error()).Should(ContainSubstring(*expectedErrorMessage))
+			Expect(storageDevices).Should(Equal(tc.expectedOutput))
+			if tc.expectedErrorMessage != nil {
+				Expect(err.Error()).Should(ContainSubstring(*tc.expectedErrorMessage))
 			} else {
 				Expect(err).To(Succeed())
 			}
 		},
-		Entry(
-			"proper response",
-			`NAME="loop0" TYPE="loop" HCTL="" MODEL="" VENDOR="" SERIAL="" SIZE="3068773888" WWN="" ROTA="0"
+		Entry("proper response", testCaseObtainHardwareDetailsStorage{
+			stdout: `NAME="loop0" TYPE="loop" HCTL="" MODEL="" VENDOR="" SERIAL="" SIZE="3068773888" WWN="" ROTA="0"
 NAME="nvme2n1" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVL22T0HBLB-00B00" VENDOR="" SERIAL="S677NF0R402742" SIZE="2048408248320" WWN="eui.002538b411b2cee8" ROTA="0"
 NAME="nvme1n1" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJQ-00000" VENDOR="" SERIAL="S3W8NX0N811178" SIZE="512110190592" WWN="eui.0025388801b4dff2" ROTA="0"`,
-			[]infrav1.Storage{
+			expectedOutput: []infrav1.Storage{
 				{
 					Name:         "nvme2n1",
 					HCTL:         "",
@@ -169,30 +176,30 @@ NAME="nvme1n1" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJQ-00000" VENDOR="" 
 					Rota:         false,
 				},
 			},
-			nil,
-		),
-		Entry(
-			"wrong rota",
-			`NAME="loop0" TYPE="loop" HCTL="" MODEL="" VENDOR="" SERIAL="" SIZE="3068773888" WWN="" ROTA="2"
+			expectedErrorMessage: nil,
+		}),
+		Entry("wrong rota", testCaseObtainHardwareDetailsStorage{
+			stdout: `NAME="loop0" TYPE="loop" HCTL="" MODEL="" VENDOR="" SERIAL="" SIZE="3068773888" WWN="" ROTA="2"
 	NAME="nvme2n1" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVL22T0HBLB-00B00" VENDOR="" SERIAL="S677NF0R402742" SIZE="2048408248320" WWN="eui.002538b411b2cee8" ROTA="0"
 	NAME="nvme1n1" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJQ-00000" VENDOR="" SERIAL="S3W8NX0N811178" SIZE="512110190592" WWN="eui.0025388801b4dff2" ROTA="0"`,
-			nil,
-			pointer.String("unknown rota"),
-		),
+			expectedOutput:       nil,
+			expectedErrorMessage: pointer.String("unknown rota"),
+		}),
 	)
 })
 
 var _ = Describe("handleIncompleteBoot", func() {
 	Context("correct hostname == rescue", func() {
+		type testCaseHandleIncompleteBootCorrectHostname struct {
+			isRebootIntoRescue    bool
+			isTimeOut             bool
+			isConnectionRefused   bool
+			hostErrorType         infrav1.ErrorType
+			expectedReturnError   error
+			expectedHostErrorType infrav1.ErrorType
+		}
 		DescribeTable("hostName = rescue, varying error type and ssh client response - robot client giving all positive results, no timeouts",
-			func(
-				isRebootIntoRescue bool,
-				isTimeOut bool,
-				isConnectionRefused bool,
-				hostErrorType infrav1.ErrorType,
-				expectedReturnError error,
-				expectedHostErrorType infrav1.ErrorType,
-			) {
+			func(tc testCaseHandleIncompleteBootCorrectHostname) {
 				robotMock := robotmock.Client{}
 				robotMock.On("SetBootRescue", bareMetalHostID, sshFingerprint).Return(nil, nil)
 				robotMock.On("GetBootRescue", bareMetalHostID).Return(&models.Rescue{Active: true}, nil)
@@ -206,86 +213,87 @@ var _ = Describe("handleIncompleteBoot", func() {
 					}),
 					helpers.WithSSHSpec(),
 					helpers.WithSSHStatus(),
-					helpers.WithError(hostErrorType, "", 1, metav1.Now()),
+					helpers.WithError(tc.hostErrorType, "", 1, metav1.Now()),
 				)
 				service := newTestService(host, &robotMock, nil, nil, nil)
 
-				if expectedReturnError == nil {
-					Expect(service.handleIncompleteBoot(isRebootIntoRescue, isTimeOut, isConnectionRefused)).To(Succeed())
+				if tc.expectedReturnError == nil {
+					Expect(service.handleIncompleteBoot(tc.isRebootIntoRescue, tc.isTimeOut, tc.isConnectionRefused)).To(Succeed())
 				} else {
-					Expect(service.handleIncompleteBoot(isRebootIntoRescue, isTimeOut, isConnectionRefused)).Should(Equal(expectedReturnError))
+					Expect(service.handleIncompleteBoot(tc.isRebootIntoRescue, tc.isTimeOut, tc.isConnectionRefused)).Should(Equal(tc.expectedReturnError))
 				}
 
-				Expect(host.Spec.Status.ErrorType).To(Equal(expectedHostErrorType))
+				Expect(host.Spec.Status.ErrorType).To(Equal(tc.expectedHostErrorType))
 			},
-			Entry("timeout, no errorType",
-				true,                                // isRebootIntoRescue bool
-				true,                                // isTimeOut bool
-				false,                               // isConnectionRefused bool
-				infrav1.ErrorType(""),               // hostErrorType infrav1.ErrorType
-				nil,                                 //	expectedReturnError error
-				infrav1.ErrorTypeSSHRebootTriggered, // expectedHostErrorType infrav1.ErrorType
-			),
-			Entry("timeout,ErrorType == ErrorTypeSoftwareRebootTriggered",
-				true,                                     // isRebootIntoRescue bool
-				true,                                     // isTimeOut bool
-				false,                                    // isConnectionRefused bool
-				infrav1.ErrorTypeSoftwareRebootTriggered, // hostErrorType infrav1.ErrorType
-				nil,                                      //	expectedReturnError error
-				infrav1.ErrorTypeSoftwareRebootTriggered, // expectedHostErrorType infrav1.ErrorType
-			),
-			Entry("timeout,ErrorType == ErrorTypeHardwareRebootTriggered",
-				true,                                     // isRebootIntoRescue bool
-				true,                                     // isTimeOut bool
-				false,                                    // isConnectionRefused bool
-				infrav1.ErrorTypeHardwareRebootTriggered, // hostErrorType infrav1.ErrorType
-				nil,                                      //	expectedReturnError error
-				infrav1.ErrorTypeHardwareRebootTriggered, // expectedHostErrorType infrav1.ErrorType
-			),
-			Entry("timeout,ErrorType == ErrorTypeSoftwareRebootTriggered",
-				true,                                     // isRebootIntoRescue bool
-				true,                                     // isTimeOut bool
-				false,                                    // isConnectionRefused bool
-				infrav1.ErrorTypeSoftwareRebootTriggered, // hostErrorType infrav1.ErrorType
-				nil,                                      //	expectedReturnError error
-				infrav1.ErrorTypeSoftwareRebootTriggered, // expectedHostErrorType infrav1.ErrorType
-			),
-			Entry("timeout,ErrorType == ErrorTypeHardwareRebootTriggered",
-				true,                                     // isRebootIntoRescue bool
-				true,                                     // isTimeOut bool
-				false,                                    // isConnectionRefused bool
-				infrav1.ErrorTypeHardwareRebootTriggered, // hostErrorType infrav1.ErrorType
-				nil,                                      //	expectedReturnError error
-				infrav1.ErrorTypeHardwareRebootTriggered, // expectedHostErrorType infrav1.ErrorType
-			),
-			Entry("timeout,ErrorType == ErrorTypeSSHRebootTriggered",
-				true,                                     // isRebootIntoRescue bool
-				false,                                    // isTimeOut bool
-				false,                                    // isConnectionRefused bool
-				infrav1.ErrorTypeSSHRebootTriggered,      // hostErrorType infrav1.ErrorType
-				nil,                                      //	expectedReturnError error
-				infrav1.ErrorTypeSoftwareRebootTriggered, // expectedHostErrorType infrav1.ErrorType
-			),
-			Entry("wrong boot",
-				false,                                    // isRebootIntoRescue bool
-				false,                                    // isTimeOut bool
-				false,                                    // isConnectionRefused bool
-				infrav1.ErrorType(""),                    // hostErrorType infrav1.ErrorType
-				nil,                                      //	expectedReturnError error
-				infrav1.ErrorTypeSoftwareRebootTriggered, // expectedHostErrorType infrav1.ErrorType
-			),
+			Entry("timeout, no errorType", testCaseHandleIncompleteBootCorrectHostname{
+				isRebootIntoRescue:    true,
+				isTimeOut:             true,
+				isConnectionRefused:   false,
+				hostErrorType:         infrav1.ErrorType(""),
+				expectedReturnError:   nil,
+				expectedHostErrorType: infrav1.ErrorTypeSSHRebootTriggered,
+			}),
+			Entry("timeout,ErrorType == ErrorTypeSoftwareRebootTriggered", testCaseHandleIncompleteBootCorrectHostname{
+				isRebootIntoRescue:    true,
+				isTimeOut:             true,
+				isConnectionRefused:   false,
+				hostErrorType:         infrav1.ErrorTypeSoftwareRebootTriggered,
+				expectedReturnError:   nil,
+				expectedHostErrorType: infrav1.ErrorTypeSoftwareRebootTriggered,
+			}),
+			Entry("timeout,ErrorType == ErrorTypeHardwareRebootTriggered", testCaseHandleIncompleteBootCorrectHostname{
+				isRebootIntoRescue:    true,
+				isTimeOut:             true,
+				isConnectionRefused:   false,
+				hostErrorType:         infrav1.ErrorTypeHardwareRebootTriggered,
+				expectedReturnError:   nil,
+				expectedHostErrorType: infrav1.ErrorTypeHardwareRebootTriggered,
+			}),
+			Entry("timeout,ErrorType == ErrorTypeSoftwareRebootTriggered", testCaseHandleIncompleteBootCorrectHostname{
+				isRebootIntoRescue:    true,
+				isTimeOut:             true,
+				isConnectionRefused:   false,
+				hostErrorType:         infrav1.ErrorTypeSoftwareRebootTriggered,
+				expectedReturnError:   nil,
+				expectedHostErrorType: infrav1.ErrorTypeSoftwareRebootTriggered,
+			}),
+			Entry("timeout,ErrorType == ErrorTypeHardwareRebootTriggered", testCaseHandleIncompleteBootCorrectHostname{
+				isRebootIntoRescue:    true,
+				isTimeOut:             true,
+				isConnectionRefused:   false,
+				hostErrorType:         infrav1.ErrorTypeHardwareRebootTriggered,
+				expectedReturnError:   nil,
+				expectedHostErrorType: infrav1.ErrorTypeHardwareRebootTriggered,
+			}),
+			Entry("timeout,ErrorType == ErrorTypeSSHRebootTriggered", testCaseHandleIncompleteBootCorrectHostname{
+				isRebootIntoRescue:    true,
+				isTimeOut:             false,
+				isConnectionRefused:   false,
+				hostErrorType:         infrav1.ErrorTypeSSHRebootTriggered,
+				expectedReturnError:   nil,
+				expectedHostErrorType: infrav1.ErrorTypeSoftwareRebootTriggered,
+			}),
+			Entry("wrong boot", testCaseHandleIncompleteBootCorrectHostname{
+				isRebootIntoRescue:    false,
+				isTimeOut:             false,
+				isConnectionRefused:   false,
+				hostErrorType:         infrav1.ErrorType(""),
+				expectedReturnError:   nil,
+				expectedHostErrorType: infrav1.ErrorTypeSoftwareRebootTriggered,
+			}),
 		)
 
+		type testCaseHandleIncompleteBootDifferentResetTypes struct {
+			isTimeOut             bool
+			isConnectionRefused   bool
+			rebootTypes           []infrav1.RebootType
+			hostErrorType         infrav1.ErrorType
+			expectedHostErrorType infrav1.ErrorType
+			expectedRebootType    infrav1.RebootType
+		}
 		// Test with different reset type only software on machine
 		DescribeTable("Different reset types",
-			func(
-				isTimeOut bool,
-				isConnectionRefused bool,
-				rebootTypes []infrav1.RebootType,
-				hostErrorType infrav1.ErrorType,
-				expectedHostErrorType infrav1.ErrorType,
-				expectedRebootType infrav1.RebootType,
-			) {
+			func(tc testCaseHandleIncompleteBootDifferentResetTypes) {
 				robotMock := robotmock.Client{}
 				robotMock.On("SetBootRescue", bareMetalHostID, sshFingerprint).Return(nil, nil)
 				robotMock.On("GetBootRescue", bareMetalHostID).Return(&models.Rescue{Active: true}, nil)
@@ -295,77 +303,79 @@ var _ = Describe("handleIncompleteBoot", func() {
 					helpers.WithSSHSpec(),
 					helpers.WithSSHStatus(),
 					// Make sure that timeouts are exceeded to trigger escalation step
-					helpers.WithError(hostErrorType, "", 1, metav1.NewTime(time.Now().Add(-time.Hour))),
-					helpers.WithRebootTypes(rebootTypes),
+					helpers.WithError(tc.hostErrorType, "", 1, metav1.NewTime(time.Now().Add(-time.Hour))),
+					helpers.WithRebootTypes(tc.rebootTypes),
 				)
 				service := newTestService(host, &robotMock, nil, nil, nil)
 
-				Expect(service.handleIncompleteBoot(true, isTimeOut, isConnectionRefused)).To(Succeed())
-				Expect(host.Spec.Status.ErrorType).To(Equal(expectedHostErrorType))
-				if expectedRebootType != infrav1.RebootType("") {
-					Expect(robotMock.AssertCalled(GinkgoT(), "RebootBMServer", bareMetalHostID, expectedRebootType)).To(BeTrue())
+				Expect(service.handleIncompleteBoot(true, tc.isTimeOut, tc.isConnectionRefused)).To(Succeed())
+				Expect(host.Spec.Status.ErrorType).To(Equal(tc.expectedHostErrorType))
+				if tc.expectedRebootType != infrav1.RebootType("") {
+					Expect(robotMock.AssertCalled(GinkgoT(), "RebootBMServer", bareMetalHostID, tc.expectedRebootType)).To(BeTrue())
 				} else {
 					Expect(robotMock.AssertNotCalled(GinkgoT(), "RebootBMServer", bareMetalHostID, mock.Anything)).To(BeTrue())
 				}
 			},
-			Entry("timeout, no errorType, only hw reset",
-				true,  // isTimeOut bool
-				false, // isConnectionRefused bool
-				[]infrav1.RebootType{infrav1.RebootTypeHardware}, // rebootTypes []infrav1.RebootType
-				infrav1.ErrorTypeSSHRebootTriggered,              // hostErrorType infrav1.ErrorType
-				infrav1.ErrorTypeHardwareRebootTriggered,         // expectedHostErrorType infrav1.ErrorType
-				infrav1.RebootTypeHardware,                       // expectedRebootType infrav1.RebootType
-			),
-			Entry("wrong boot, only hw reset",
-				false, // isTimeOut bool
-				false, // isConnectionRefused bool
-				[]infrav1.RebootType{infrav1.RebootTypeHardware}, // rebootTypes []infrav1.RebootType
-				infrav1.ErrorType(""),                            // hostErrorType infrav1.ErrorType
-				infrav1.ErrorTypeHardwareRebootTriggered,         // expectedHostErrorType infrav1.ErrorType
-				infrav1.RebootTypeHardware,                       // expectedRebootType infrav1.RebootType
-			),
-			Entry("wrong boot, only hw reset, errorType =ErrorTypeSSHRebootTriggered",
-				false, // isTimeOut bool
-				false, // isConnectionRefused bool
-				[]infrav1.RebootType{infrav1.RebootTypeHardware}, // rebootTypes []infrav1.RebootType
-				infrav1.ErrorTypeSSHRebootTriggered,              // hostErrorType infrav1.ErrorType
-				infrav1.ErrorTypeHardwareRebootTriggered,         // expectedHostErrorType infrav1.ErrorType
-				infrav1.RebootTypeHardware,                       // expectedRebootType infrav1.RebootType
-			),
-			Entry("wrong boot, errorType =ErrorTypeSSHRebootTriggered",
-				false, // isTimeOut bool
-				false, // isConnectionRefused bool
-				[]infrav1.RebootType{infrav1.RebootTypeSoftware, infrav1.RebootTypeHardware}, // rebootTypes []infrav1.RebootType
-				infrav1.ErrorTypeSSHRebootTriggered,                                          // hostErrorType infrav1.ErrorType
-				infrav1.ErrorTypeSoftwareRebootTriggered,                                     // expectedHostErrorType infrav1.ErrorType
-				infrav1.RebootTypeSoftware,                                                   // expectedRebootType infrav1.RebootType
-			),
-			Entry("wrong boot,  errorType =ErrorTypeSoftwareRebootTriggered",
-				false, // isTimeOut bool
-				false, // isConnectionRefused bool
-				[]infrav1.RebootType{infrav1.RebootTypeSoftware, infrav1.RebootTypeHardware}, // rebootTypes []infrav1.RebootType
-				infrav1.ErrorTypeSoftwareRebootTriggered,                                     // hostErrorType infrav1.ErrorType
-				infrav1.ErrorTypeHardwareRebootTriggered,                                     // expectedHostErrorType infrav1.ErrorType
-				infrav1.RebootTypeHardware,                                                   // expectedRebootType infrav1.RebootType
-			),
-			Entry("wrong boot,  errorType =ErrorTypeHardwareRebootTriggered",
-				false, // isTimeOut bool
-				false, // isConnectionRefused bool
-				[]infrav1.RebootType{infrav1.RebootTypeSoftware, infrav1.RebootTypeHardware}, // rebootTypes []infrav1.RebootType
-				infrav1.ErrorTypeHardwareRebootTriggered,                                     // hostErrorType infrav1.ErrorType
-				infrav1.ErrorTypeHardwareRebootTriggered,                                     // expectedHostErrorType infrav1.ErrorType
-				infrav1.RebootTypeHardware,                                                   // expectedRebootType infrav1.RebootType
-			),
+			Entry("timeout, no errorType, only hw reset", testCaseHandleIncompleteBootDifferentResetTypes{
+				isTimeOut:             true,
+				isConnectionRefused:   false,
+				rebootTypes:           []infrav1.RebootType{infrav1.RebootTypeHardware},
+				hostErrorType:         infrav1.ErrorTypeSSHRebootTriggered,
+				expectedHostErrorType: infrav1.ErrorTypeHardwareRebootTriggered,
+				expectedRebootType:    infrav1.RebootTypeHardware,
+			}),
+			Entry("wrong boot, only hw reset", testCaseHandleIncompleteBootDifferentResetTypes{
+				isTimeOut:             false,
+				isConnectionRefused:   false,
+				rebootTypes:           []infrav1.RebootType{infrav1.RebootTypeHardware},
+				hostErrorType:         infrav1.ErrorType(""),
+				expectedHostErrorType: infrav1.ErrorTypeHardwareRebootTriggered,
+				expectedRebootType:    infrav1.RebootTypeHardware,
+			}),
+			Entry("wrong boot, only hw reset, errorType =ErrorTypeSSHRebootTriggered", testCaseHandleIncompleteBootDifferentResetTypes{
+				isTimeOut:             false,
+				isConnectionRefused:   false,
+				rebootTypes:           []infrav1.RebootType{infrav1.RebootTypeHardware},
+				hostErrorType:         infrav1.ErrorTypeSSHRebootTriggered,
+				expectedHostErrorType: infrav1.ErrorTypeHardwareRebootTriggered,
+				expectedRebootType:    infrav1.RebootTypeHardware,
+			}),
+			Entry("wrong boot, errorType =ErrorTypeSSHRebootTriggered", testCaseHandleIncompleteBootDifferentResetTypes{
+				isTimeOut:             false,
+				isConnectionRefused:   false,
+				rebootTypes:           []infrav1.RebootType{infrav1.RebootTypeSoftware, infrav1.RebootTypeHardware},
+				hostErrorType:         infrav1.ErrorTypeSSHRebootTriggered,
+				expectedHostErrorType: infrav1.ErrorTypeSoftwareRebootTriggered,
+				expectedRebootType:    infrav1.RebootTypeSoftware,
+			}),
+			Entry("wrong boot,  errorType =ErrorTypeSoftwareRebootTriggered", testCaseHandleIncompleteBootDifferentResetTypes{
+				isTimeOut:             false,
+				isConnectionRefused:   false,
+				rebootTypes:           []infrav1.RebootType{infrav1.RebootTypeSoftware, infrav1.RebootTypeHardware},
+				hostErrorType:         infrav1.ErrorTypeSoftwareRebootTriggered,
+				expectedHostErrorType: infrav1.ErrorTypeHardwareRebootTriggered,
+				expectedRebootType:    infrav1.RebootTypeHardware,
+			}),
+			Entry("wrong boot,  errorType =ErrorTypeHardwareRebootTriggered", testCaseHandleIncompleteBootDifferentResetTypes{
+				isTimeOut:             false,
+				isConnectionRefused:   false,
+				rebootTypes:           []infrav1.RebootType{infrav1.RebootTypeSoftware, infrav1.RebootTypeHardware},
+				hostErrorType:         infrav1.ErrorTypeHardwareRebootTriggered,
+				expectedHostErrorType: infrav1.ErrorTypeHardwareRebootTriggered,
+				expectedRebootType:    infrav1.RebootTypeHardware,
+			}),
 		)
+
+		type testCaseHandleIncompleteBootDifferentTimeouts struct {
+			hostErrorType         infrav1.ErrorType
+			lastUpdated           time.Time
+			expectedHostErrorType infrav1.ErrorType
+			expectedRebootType    infrav1.RebootType
+		}
 
 		// Test with reached timeouts
 		DescribeTable("Different timeouts",
-			func(
-				hostErrorType infrav1.ErrorType,
-				lastUpdated time.Time,
-				expectedHostErrorType infrav1.ErrorType,
-				expectedRebootType infrav1.RebootType,
-			) {
+			func(tc testCaseHandleIncompleteBootDifferentTimeouts) {
 				robotMock := robotmock.Client{}
 				robotMock.On("SetBootRescue", bareMetalHostID, sshFingerprint).Return(nil, nil)
 				robotMock.On("GetBootRescue", bareMetalHostID).Return(&models.Rescue{Active: true}, nil)
@@ -379,58 +389,56 @@ var _ = Describe("handleIncompleteBoot", func() {
 					}),
 					helpers.WithSSHSpec(),
 					helpers.WithSSHStatus(),
-					helpers.WithError(hostErrorType, "", 1, metav1.Time{Time: lastUpdated}),
+					helpers.WithError(tc.hostErrorType, "", 1, metav1.Time{Time: tc.lastUpdated}),
 				)
 				service := newTestService(host, &robotMock, nil, nil, nil)
 
 				Expect(service.handleIncompleteBoot(true, true, false)).To(Succeed())
-				Expect(host.Spec.Status.ErrorType).To(Equal(expectedHostErrorType))
-				if expectedRebootType != infrav1.RebootType("") {
-					Expect(robotMock.AssertCalled(GinkgoT(), "RebootBMServer", bareMetalHostID, expectedRebootType)).To(BeTrue())
+				Expect(host.Spec.Status.ErrorType).To(Equal(tc.expectedHostErrorType))
+				if tc.expectedRebootType != infrav1.RebootType("") {
+					Expect(robotMock.AssertCalled(GinkgoT(), "RebootBMServer", bareMetalHostID, tc.expectedRebootType)).To(BeTrue())
 				} else {
 					Expect(robotMock.AssertNotCalled(GinkgoT(), "RebootBMServer", bareMetalHostID, mock.Anything)).To(BeTrue())
 				}
 			},
-			Entry(
-				"timed out hw reset",                     // hostErrorType infrav1.ErrorType
-				infrav1.ErrorTypeHardwareRebootTriggered, // hostErrorType infrav1.ErrorType
-				time.Now().Add(-time.Hour),               // lastUpdated time.Time
-				infrav1.ErrorTypeHardwareRebootTriggered, // expectedHostErrorType infrav1.ErrorType
-				infrav1.RebootTypeHardware,               // expectedRebootType infrav1.RebootType
-			),
-			Entry(
-				"timed out sw reset",                     // hostErrorType infrav1.ErrorType
-				infrav1.ErrorTypeSoftwareRebootTriggered, // hostErrorType infrav1.ErrorType
-				time.Now().Add(-5*time.Minute),           // lastUpdated time.Time
-				infrav1.ErrorTypeHardwareRebootTriggered, // expectedHostErrorType infrav1.ErrorType
-				infrav1.RebootTypeHardware,               // expectedRebootType infrav1.RebootType
-			),
-			Entry(
-				"not timed out hw reset",                 // hostErrorType infrav1.ErrorType
-				infrav1.ErrorTypeHardwareRebootTriggered, // hostErrorType infrav1.ErrorType
-				time.Now().Add(-30*time.Minute),          // lastUpdated time.Time
-				infrav1.ErrorTypeHardwareRebootTriggered, // expectedHostErrorType infrav1.ErrorType
-				infrav1.RebootType(""),                   // expectedRebootType infrav1.RebootType
-			),
-			Entry(
-				"not timed out sw reset",
-				infrav1.ErrorTypeSoftwareRebootTriggered, // hostErrorType infrav1.ErrorType
-				time.Now().Add(-3*time.Minute),           // lastUpdated time.Time
-				infrav1.ErrorTypeSoftwareRebootTriggered, // expectedHostErrorType infrav1.ErrorType
-				infrav1.RebootType(""),                   // expectedRebootType infrav1.RebootType
-			),
+			Entry("timed out hw reset", testCaseHandleIncompleteBootDifferentTimeouts{
+				hostErrorType:         infrav1.ErrorTypeHardwareRebootTriggered,
+				lastUpdated:           time.Now().Add(-time.Hour),
+				expectedHostErrorType: infrav1.ErrorTypeHardwareRebootTriggered,
+				expectedRebootType:    infrav1.RebootTypeHardware,
+			}),
+			Entry("timed out sw reset", testCaseHandleIncompleteBootDifferentTimeouts{
+				hostErrorType:         infrav1.ErrorTypeSoftwareRebootTriggered,
+				lastUpdated:           time.Now().Add(-5 * time.Minute),
+				expectedHostErrorType: infrav1.ErrorTypeHardwareRebootTriggered,
+				expectedRebootType:    infrav1.RebootTypeHardware,
+			}),
+			Entry("not timed out hw reset", testCaseHandleIncompleteBootDifferentTimeouts{
+				hostErrorType:         infrav1.ErrorTypeHardwareRebootTriggered,
+				lastUpdated:           time.Now().Add(-30 * time.Minute),
+				expectedHostErrorType: infrav1.ErrorTypeHardwareRebootTriggered,
+				expectedRebootType:    infrav1.RebootType(""),
+			}),
+			Entry("not timed out sw reset", testCaseHandleIncompleteBootDifferentTimeouts{
+				hostErrorType:         infrav1.ErrorTypeSoftwareRebootTriggered,
+				lastUpdated:           time.Now().Add(-3 * time.Minute),
+				expectedHostErrorType: infrav1.ErrorTypeSoftwareRebootTriggered,
+				expectedRebootType:    infrav1.RebootType(""),
+			}),
 		)
 	})
 
 	Context("hostname rescue vs machinename", func() {
+		type testCaseHandleIncompleteBoot struct {
+			isRebootIntoRescue    bool
+			hostErrorType         infrav1.ErrorType
+			expectedReturnError   error
+			expectedHostErrorType infrav1.ErrorType
+			expectsRescueCall     bool
+		}
+
 		DescribeTable("vary hostname and see whether rescue gets triggered",
-			func(
-				isRebootIntoRescue bool,
-				hostErrorType infrav1.ErrorType,
-				expectedReturnError error,
-				expectedHostErrorType infrav1.ErrorType,
-				expectsRescueCall bool,
-			) {
+			func(tc testCaseHandleIncompleteBoot) {
 				robotMock := robotmock.Client{}
 				robotMock.On("SetBootRescue", bareMetalHostID, sshFingerprint).Return(nil, nil)
 				robotMock.On("GetBootRescue", bareMetalHostID).Return(&models.Rescue{Active: true}, nil)
@@ -444,50 +452,50 @@ var _ = Describe("handleIncompleteBoot", func() {
 					}),
 					helpers.WithSSHSpec(),
 					helpers.WithSSHStatus(),
-					helpers.WithError(hostErrorType, "", 1, metav1.Now()),
+					helpers.WithError(tc.hostErrorType, "", 1, metav1.Now()),
 				)
 				service := newTestService(host, &robotMock, nil, nil, nil)
 
-				if expectedReturnError == nil {
-					Expect(service.handleIncompleteBoot(isRebootIntoRescue, false, false)).To(Succeed())
+				if tc.expectedReturnError == nil {
+					Expect(service.handleIncompleteBoot(tc.isRebootIntoRescue, false, false)).To(Succeed())
 				} else {
-					Expect(service.handleIncompleteBoot(isRebootIntoRescue, false, false)).Should(Equal(expectedReturnError))
+					Expect(service.handleIncompleteBoot(tc.isRebootIntoRescue, false, false)).Should(Equal(tc.expectedReturnError))
 				}
-				Expect(host.Spec.Status.ErrorType).To(Equal(expectedHostErrorType))
-				if expectsRescueCall {
+				Expect(host.Spec.Status.ErrorType).To(Equal(tc.expectedHostErrorType))
+				if tc.expectsRescueCall {
 					Expect(robotMock.AssertCalled(GinkgoT(), "GetBootRescue", bareMetalHostID)).To(BeTrue())
 				} else {
 					Expect(robotMock.AssertNotCalled(GinkgoT(), "GetBootRescue", bareMetalHostID)).To(BeTrue())
 				}
 			},
-			Entry("hostname == rescue",
-				true,                                     // isRebootIntoRescue bool
-				infrav1.ErrorType(""),                    // hostErrorType infrav1.ErrorType
-				nil,                                      // expectedReturnError error
-				infrav1.ErrorTypeSoftwareRebootTriggered, // expectedHostErrorType infrav1.ErrorType
-				true,                                     // expectsRescueCall bool
-			),
-			Entry("hostname != rescue",
-				false,                                    // isRebootIntoRescue bool
-				infrav1.ErrorType(""),                    // hostErrorType infrav1.ErrorType
-				nil,                                      // expectedReturnError error
-				infrav1.ErrorTypeSoftwareRebootTriggered, // expectedHostErrorType infrav1.ErrorType
-				false,                                    // expectsRescueCall bool
-			),
-			Entry("hostname == rescue, ErrType == ErrorTypeSSHRebootTriggered",
-				true,                                     // isRebootIntoRescue bool
-				infrav1.ErrorTypeSSHRebootTriggered,      // hostErrorType infrav1.ErrorType
-				nil,                                      // expectedReturnError error
-				infrav1.ErrorTypeSoftwareRebootTriggered, // expectedHostErrorType infrav1.ErrorType
-				true,                                     // expectsRescueCall bool
-			),
-			Entry("hostname != rescue, ErrType == ErrorTypeSSHRebootTriggered",
-				false,                                    // isRebootIntoRescue bool
-				infrav1.ErrorTypeSSHRebootTriggered,      // hostErrorType infrav1.ErrorType
-				nil,                                      // expectedReturnError error
-				infrav1.ErrorTypeSoftwareRebootTriggered, // expectedHostErrorType infrav1.ErrorType
-				false,                                    // expectsRescueCall bool
-			),
+			Entry("hostname == rescue", testCaseHandleIncompleteBoot{
+				isRebootIntoRescue:    true,
+				hostErrorType:         infrav1.ErrorType(""),
+				expectedReturnError:   nil,
+				expectedHostErrorType: infrav1.ErrorTypeSoftwareRebootTriggered,
+				expectsRescueCall:     true,
+			}),
+			Entry("hostname != rescue", testCaseHandleIncompleteBoot{
+				isRebootIntoRescue:    false,
+				hostErrorType:         infrav1.ErrorType(""),
+				expectedReturnError:   nil,
+				expectedHostErrorType: infrav1.ErrorTypeSoftwareRebootTriggered,
+				expectsRescueCall:     false,
+			}),
+			Entry("hostname == rescue, ErrType == ErrorTypeSSHRebootTriggered", testCaseHandleIncompleteBoot{
+				isRebootIntoRescue:    true,
+				hostErrorType:         infrav1.ErrorTypeSSHRebootTriggered,
+				expectedReturnError:   nil,
+				expectedHostErrorType: infrav1.ErrorTypeSoftwareRebootTriggered,
+				expectsRescueCall:     true,
+			}),
+			Entry("hostname != rescue, ErrType == ErrorTypeSSHRebootTriggered", testCaseHandleIncompleteBoot{
+				isRebootIntoRescue:    false,
+				hostErrorType:         infrav1.ErrorTypeSSHRebootTriggered,
+				expectedReturnError:   nil,
+				expectedHostErrorType: infrav1.ErrorTypeSoftwareRebootTriggered,
+				expectsRescueCall:     false,
+			}),
 		)
 	})
 })
@@ -532,19 +540,22 @@ var _ = Describe("ensureSSHKey", func() {
 		Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.FatalError))
 	})
 
+	type testCaseEnsureSSHKey struct {
+		hetznerSSHKeys       []models.Key
+		sshSecretKeyRef      infrav1.SSHSecretKeyRef
+		expectedFingerprint  string
+		expectedActionResult actionResult
+		expectSetSSHKey      bool
+	}
+
 	DescribeTable("ensureSSHKey",
-		func(hetznerSSHKeys []models.Key,
-			sshSecretKeyRef infrav1.SSHSecretKeyRef,
-			expectedFingerprint string,
-			expectedActionResult actionResult,
-			expectSetSSHKey bool,
-		) {
+		func(tc testCaseEnsureSSHKey) {
 			secret := helpers.GetDefaultSSHSecret("ssh-secret", "default")
 			robotMock := robotmock.Client{}
-			robotMock.On("SetSSHKey", string(secret.Data[sshSecretKeyRef.Name]), mock.Anything).Return(
-				&models.Key{Name: sshSecretKeyRef.Name, Fingerprint: defaultFingerPrint}, nil,
+			robotMock.On("SetSSHKey", string(secret.Data[tc.sshSecretKeyRef.Name]), mock.Anything).Return(
+				&models.Key{Name: tc.sshSecretKeyRef.Name, Fingerprint: defaultFingerPrint}, nil,
 			)
-			robotMock.On("ListSSHKeys").Return(hetznerSSHKeys, nil)
+			robotMock.On("ListSSHKeys").Return(tc.hetznerSSHKeys, nil)
 
 			host := helpers.BareMetalHost("test-host", "default")
 
@@ -552,155 +563,153 @@ var _ = Describe("ensureSSHKey", func() {
 
 			sshKey, actResult := service.ensureSSHKey(infrav1.SSHSecretRef{
 				Name: "secret-name",
-				Key:  sshSecretKeyRef,
+				Key:  tc.sshSecretKeyRef,
 			}, secret)
 
-			Expect(sshKey.Fingerprint).To(Equal(expectedFingerprint))
-			Expect(actResult).Should(BeAssignableToTypeOf(expectedActionResult))
-			if expectSetSSHKey {
-				Expect(robotMock.AssertCalled(GinkgoT(), "SetSSHKey", string(secret.Data[sshSecretKeyRef.Name]), mock.Anything)).To(BeTrue())
+			Expect(sshKey.Fingerprint).To(Equal(tc.expectedFingerprint))
+			Expect(actResult).Should(BeAssignableToTypeOf(tc.expectedActionResult))
+			if tc.expectSetSSHKey {
+				Expect(robotMock.AssertCalled(GinkgoT(), "SetSSHKey", string(secret.Data[tc.sshSecretKeyRef.Name]), mock.Anything)).To(BeTrue())
 			} else {
-				Expect(robotMock.AssertNotCalled(GinkgoT(), "SetSSHKey", string(secret.Data[sshSecretKeyRef.Name]), mock.Anything)).To(BeTrue())
+				Expect(robotMock.AssertNotCalled(GinkgoT(), "SetSSHKey", string(secret.Data[tc.sshSecretKeyRef.Name]), mock.Anything)).To(BeTrue())
 			}
 		},
-		Entry(
-			"empty list",
-			nil,
-			infrav1.SSHSecretKeyRef{
+		Entry("empty list", testCaseEnsureSSHKey{
+			hetznerSSHKeys: nil,
+			sshSecretKeyRef: infrav1.SSHSecretKeyRef{
 				Name:       "sshkey-name",
 				PublicKey:  "public-key",
 				PrivateKey: "private-key",
 			},
-			defaultFingerPrint,
-			actionComplete{},
-			true,
-		),
-		Entry("secret in list",
-			[]models.Key{
+			expectedFingerprint:  defaultFingerPrint,
+			expectedActionResult: actionComplete{},
+			expectSetSSHKey:      true,
+		}),
+		Entry("secret in list", testCaseEnsureSSHKey{
+			hetznerSSHKeys: []models.Key{
 				{
 					Name:        "my-name",
 					Fingerprint: "my-fingerprint",
 				},
 			},
-			infrav1.SSHSecretKeyRef{
+			sshSecretKeyRef: infrav1.SSHSecretKeyRef{
 				Name:       "sshkey-name",
 				PublicKey:  "public-key",
 				PrivateKey: "private-key",
 			},
-			"my-fingerprint",
-			actionComplete{},
-			false,
-		),
+			expectedFingerprint:  "my-fingerprint",
+			expectedActionResult: actionComplete{},
+			expectSetSSHKey:      false,
+		}),
 		Entry(
-			"secret not in list",
-			[]models.Key{
-				{
-					Name:        "secret2",
-					Fingerprint: "my fingerprint",
+			"secret not in list", testCaseEnsureSSHKey{
+				hetznerSSHKeys: []models.Key{
+					{
+						Name:        "secret2",
+						Fingerprint: "my fingerprint",
+					},
+					{
+						Name:        "secret3",
+						Fingerprint: "my fingerprint",
+					},
 				},
-				{
-					Name:        "secret3",
-					Fingerprint: "my fingerprint",
+				sshSecretKeyRef: infrav1.SSHSecretKeyRef{
+					Name:       "sshkey-name",
+					PublicKey:  "public-key",
+					PrivateKey: "private-key",
 				},
-			},
-			infrav1.SSHSecretKeyRef{
-				Name:       "sshkey-name",
-				PublicKey:  "public-key",
-				PrivateKey: "private-key",
-			},
-			defaultFingerPrint,
-			actionComplete{},
-			true,
-		),
+				expectedFingerprint:  defaultFingerPrint,
+				expectedActionResult: actionComplete{},
+				expectSetSSHKey:      true,
+			}),
 	)
 })
 
 var _ = Describe("analyzeSSHOutputInstallImage", func() {
+	type testCaseAnalyzeSSHOutputInstallImageOutErr struct {
+		err                         error
+		rescueActive                bool
+		expectedIsTimeout           bool
+		expectedIsConnectionRefused bool
+		expectedErrMessage          string
+	}
+
 	DescribeTable("analyzeSSHOutputInstallImage - out.Err",
-		func(
-			err error,
-			rescueActive bool,
-			expectedIsTimeout bool,
-			expectedIsConnectionRefused bool,
-			expectedErrMessage string,
-		) {
+		func(tc testCaseAnalyzeSSHOutputInstallImageOutErr) {
 			host := helpers.BareMetalHost(
 				"test-host",
 				"default",
 			)
 
 			robotMock := robotmock.Client{}
-			robotMock.On("GetBootRescue", bareMetalHostID).Return(&models.Rescue{Active: rescueActive}, nil)
+			robotMock.On("GetBootRescue", bareMetalHostID).Return(&models.Rescue{Active: tc.rescueActive}, nil)
 
 			service := newTestService(host, &robotMock, nil, nil, nil)
 
-			isTimeout, isConnectionRefused, err := service.analyzeSSHOutputRegistering(sshclient.Output{Err: err})
-			Expect(isTimeout).To(Equal(expectedIsTimeout))
-			Expect(isConnectionRefused).To(Equal(expectedIsConnectionRefused))
-			if expectedErrMessage != "" {
+			isTimeout, isConnectionRefused, err := service.analyzeSSHOutputRegistering(sshclient.Output{Err: tc.err})
+			Expect(isTimeout).To(Equal(tc.expectedIsTimeout))
+			Expect(isConnectionRefused).To(Equal(tc.expectedIsConnectionRefused))
+			if tc.expectedErrMessage != "" {
 				Expect(err).To(Not(BeNil()))
-				Expect(err.Error()).To(ContainSubstring(expectedErrMessage))
+				Expect(err.Error()).To(ContainSubstring(tc.expectedErrMessage))
 			} else {
 				Expect(err).To(BeNil())
 			}
 		},
-		Entry(
-			"timeout error",
-			timeout, // err error
-			true,    // rescueActive bool
-			true,    // expectedIsTimeout bool
-			false,   // expectedIsConnectionRefused bool
-			"",      // expectedErrMessage string
-		),
-		Entry(
-			"authenticationFailed error, rescue active",
-			sshclient.ErrAuthenticationFailed, // err error
-			true,                              // rescueActive bool
-			false,                             // expectedIsTimeout bool
-			false,                             // expectedIsConnectionRefused bool
-			"",                                // expectedErrMessage string
-		),
-		Entry(
-			"authenticationFailed error, rescue not active",
-			sshclient.ErrAuthenticationFailed, // err error
-			false,                             // rescueActive bool
-			false,                             // expectedIsTimeout bool
-			false,                             // expectedIsConnectionRefused bool
-			"wrong ssh key",                   // expectedErrMessage string
-		),
-		Entry(
-			"connectionRefused error, rescue active",
-			sshclient.ErrConnectionRefused, // err error
-			true,                           // rescueActive bool
-			false,                          // expectedIsTimeout bool
-			false,                          // expectedIsConnectionRefused bool
-			"",                             // expectedErrMessage string
-		),
-		Entry(
-			"connectionRefused error, rescue not active",
-			sshclient.ErrConnectionRefused, // err error
-			false,                          // rescueActive bool
-			false,                          // expectedIsTimeout bool
-			true,                           // expectedIsConnectionRefused bool
-			"",                             // expectedErrMessage string
-		),
+		Entry("timeout error", testCaseAnalyzeSSHOutputInstallImageOutErr{
+			err:                         timeout,
+			rescueActive:                true,
+			expectedIsTimeout:           true,
+			expectedIsConnectionRefused: false,
+			expectedErrMessage:          "",
+		}),
+		Entry("authenticationFailed error, rescue active", testCaseAnalyzeSSHOutputInstallImageOutErr{
+			err:                         sshclient.ErrAuthenticationFailed,
+			rescueActive:                true,
+			expectedIsTimeout:           false,
+			expectedIsConnectionRefused: false,
+			expectedErrMessage:          "",
+		}),
+		Entry("authenticationFailed error, rescue not active", testCaseAnalyzeSSHOutputInstallImageOutErr{
+			err:                         sshclient.ErrAuthenticationFailed,
+			rescueActive:                false,
+			expectedIsTimeout:           false,
+			expectedIsConnectionRefused: false,
+			expectedErrMessage:          "wrong ssh key",
+		}),
+		Entry("connectionRefused error, rescue active", testCaseAnalyzeSSHOutputInstallImageOutErr{
+			err:                         sshclient.ErrConnectionRefused,
+			rescueActive:                true,
+			expectedIsTimeout:           false,
+			expectedIsConnectionRefused: false,
+			expectedErrMessage:          "",
+		}),
+		Entry("connectionRefused error, rescue not active", testCaseAnalyzeSSHOutputInstallImageOutErr{
+			err:                         sshclient.ErrConnectionRefused,
+			rescueActive:                false,
+			expectedIsTimeout:           false,
+			expectedIsConnectionRefused: true,
+			expectedErrMessage:          "",
+		}),
 	)
 
+	type testCaseAnalyzeSSHOutputInstallImageStdErr struct {
+		hasNilErr          bool
+		stdErr             string
+		hostName           string
+		expectedErrMessage string
+	}
+
 	DescribeTable("analyzeSSHOutputRegistering - toggle stdErr and hostName",
-		func(
-			hasNilErr bool,
-			stdErr string,
-			hostName string,
-			expectedErrMessage string,
-		) {
+		func(tc testCaseAnalyzeSSHOutputInstallImageStdErr) {
 			var err error
-			if !hasNilErr {
+			if !tc.hasNilErr {
 				err = errTest
 			}
 
 			out := sshclient.Output{
-				StdOut: hostName,
-				StdErr: stdErr,
+				StdOut: tc.hostName,
+				StdErr: tc.stdErr,
 				Err:    err,
 			}
 
@@ -717,328 +726,314 @@ var _ = Describe("analyzeSSHOutputInstallImage", func() {
 			isTimeout, isConnectionRefused, err := service.analyzeSSHOutputRegistering(out)
 			Expect(isTimeout).To(Equal(false))
 			Expect(isConnectionRefused).To(Equal(false))
-			if expectedErrMessage != "" {
+			if tc.expectedErrMessage != "" {
 				Expect(err).To(Not(BeNil()))
-				Expect(err.Error()).To(ContainSubstring(expectedErrMessage))
+				Expect(err.Error()).To(ContainSubstring(tc.expectedErrMessage))
 			} else {
 				Expect(err).To(BeNil())
 			}
 		},
-		Entry(
-			"stderr not empty",
-			true,             // hasNilErr bool
-			"command failed", // stdErr string
-			"hostName",       // hostName string
-			"failed to get hostname via ssh: StdErr:", // expectedErrMessage string
-		),
-		Entry(
-			"stderr not empty - err != nil",
-			false,            // hasNilErr bool
-			"command failed", // stdErr string
-			"",               // hostName string
-			"unhandled ssh error while getting hostname", // expectedErrMessage string
-		),
-		Entry(
-			"stderr not empty - wrong hostName",
-			true,             // hasNilErr bool
-			"command failed", // stdErr string
-			"",               // hostName string
-			"failed to get hostname via ssh: StdErr:", // expectedErrMessage string
-		),
-		Entry(
-			"stderr empty - wrong hostName",
-			true,                // hasNilErr bool
-			"",                  // stdErr string
-			"",                  // hostName string
-			"hostname is empty", // expectedErrMessage string
-		),
+		Entry("stderr not empty", testCaseAnalyzeSSHOutputInstallImageStdErr{
+			hasNilErr:          true,
+			stdErr:             "command failed",
+			hostName:           "hostName",
+			expectedErrMessage: "failed to get hostname via ssh: StdErr:",
+		}),
+		Entry("stderr not empty - err != nil", testCaseAnalyzeSSHOutputInstallImageStdErr{
+			hasNilErr:          false,
+			stdErr:             "command failed",
+			hostName:           "",
+			expectedErrMessage: "unhandled ssh error while getting hostname",
+		}),
+		Entry("stderr not empty - wrong hostName", testCaseAnalyzeSSHOutputInstallImageStdErr{
+			hasNilErr:          true,
+			stdErr:             "command failed",
+			hostName:           "",
+			expectedErrMessage: "failed to get hostname via ssh: StdErr:",
+		}),
+		Entry("stderr empty - wrong hostName", testCaseAnalyzeSSHOutputInstallImageStdErr{
+			hasNilErr:          true,
+			stdErr:             "",
+			hostName:           "",
+			expectedErrMessage: "hostname is empty",
+		}),
 	)
 })
 
 var _ = Describe("analyzeSSHOutputInstallImage", func() {
+	type testCaseAnalyzeSSHOutputInstallImageOutErr struct {
+		err                         error
+		errFromGetHostNameNil       bool
+		port                        int
+		expectedIsTimeout           bool
+		expectedIsConnectionRefused bool
+		expectedErrMessage          string
+	}
+
 	DescribeTable("analyzeSSHOutputInstallImage - out.Err",
-		func(
-			err error,
-			errFromGetHostNameNil bool,
-			port int,
-			expectedIsTimeout bool,
-			expectedIsConnectionRefused bool,
-			expectedErrMessage string,
-		) {
+		func(tc testCaseAnalyzeSSHOutputInstallImageOutErr) {
 			sshMock := &sshmock.Client{}
 			var errFromGetHostName error
-			if !errFromGetHostNameNil {
+			if !tc.errFromGetHostNameNil {
 				errFromGetHostName = errTest
 			}
 			sshMock.On("GetHostName").Return(sshclient.Output{Err: errFromGetHostName})
 
-			isTimeout, isConnectionRefused, err := analyzeSSHOutputInstallImage(sshclient.Output{Err: err}, sshMock, port)
-			Expect(isTimeout).To(Equal(expectedIsTimeout))
-			Expect(isConnectionRefused).To(Equal(expectedIsConnectionRefused))
-			if expectedErrMessage != "" {
+			isTimeout, isConnectionRefused, err := analyzeSSHOutputInstallImage(sshclient.Output{Err: tc.err}, sshMock, tc.port)
+			Expect(isTimeout).To(Equal(tc.expectedIsTimeout))
+			Expect(isConnectionRefused).To(Equal(tc.expectedIsConnectionRefused))
+			if tc.expectedErrMessage != "" {
 				Expect(err).To(Not(BeNil()))
-				Expect(err.Error()).To(ContainSubstring(expectedErrMessage))
+				Expect(err.Error()).To(ContainSubstring(tc.expectedErrMessage))
 			} else {
 				Expect(err).To(BeNil())
 			}
 		},
-		Entry(
-			"timeout error",
-			timeout, // err error
-			true,    // errFromGetHostNameNil bool
-			22,      // port int
-			true,    // expectedIsTimeout bool
-			false,   // expectedIsConnectionRefused bool
-			"",      // expectedErrMessage string
-		),
-		Entry(
-			"authenticationFailed error, port 22, no hostName error",
-			sshclient.ErrAuthenticationFailed, // err error
-			true,                              // errFromGetHostNameNil bool
-			22,                                // port int
-			false,                             // expectedIsTimeout bool
-			false,                             // expectedIsConnectionRefused bool
-			"",                                // expectedErrMessage string
-		),
-		Entry(
-			"authenticationFailed error, port 22, hostName error",
-			sshclient.ErrAuthenticationFailed, // err error
-			false,                             // errFromGetHostNameNil bool
-			22,                                // port int
-			false,                             // expectedIsTimeout bool
-			false,                             // expectedIsConnectionRefused bool
-			"wrong ssh key",                   // expectedErrMessage string
-		),
-		Entry(
-			"authenticationFailed error, port != 22",
-			sshclient.ErrAuthenticationFailed, // err error
-			true,                              // errFromGetHostNameNil bool
-			23,                                // port int
-			false,                             // expectedIsTimeout bool
-			false,                             // expectedIsConnectionRefused bool
-			"wrong ssh key",                   // expectedErrMessage string
-		),
-		Entry(
-			"connectionRefused error, port 22",
-			sshclient.ErrConnectionRefused, // err error
-			true,                           // errFromGetHostNameNil bool
-			22,                             // port int
-			false,                          // expectedIsTimeout bool
-			true,                           // expectedIsConnectionRefused bool
-			"",                             // expectedErrMessage string
-		),
-		Entry(
-			"connectionRefused error, port != 22, hostname error",
-			sshclient.ErrConnectionRefused, // err error
-			false,                          // errFromGetHostNameNil bool
-			23,                             // port int
-			false,                          // expectedIsTimeout bool
-			true,                           // expectedIsConnectionRefused bool
-			"",                             // expectedErrMessage string
-		),
-		Entry(
-			"connectionRefused error, port != 22, no hostname error",
-			sshclient.ErrConnectionRefused, // err error
-			true,                           // errFromGetHostNameNil bool
-			23,                             // port int
-			false,                          // expectedIsTimeout bool
-			false,                          // expectedIsConnectionRefused bool
-			"",                             // expectedErrMessage string
-		),
+		Entry("timeout error", testCaseAnalyzeSSHOutputInstallImageOutErr{
+			err:                         timeout,
+			errFromGetHostNameNil:       true,
+			port:                        22,
+			expectedIsTimeout:           true,
+			expectedIsConnectionRefused: false,
+			expectedErrMessage:          "",
+		}),
+		Entry("authenticationFailed error, port 22, no hostName error", testCaseAnalyzeSSHOutputInstallImageOutErr{
+			err:                         sshclient.ErrAuthenticationFailed,
+			errFromGetHostNameNil:       true,
+			port:                        22,
+			expectedIsTimeout:           false,
+			expectedIsConnectionRefused: false,
+			expectedErrMessage:          "",
+		}),
+		Entry("authenticationFailed error, port 22, hostName error", testCaseAnalyzeSSHOutputInstallImageOutErr{
+			err:                         sshclient.ErrAuthenticationFailed,
+			errFromGetHostNameNil:       false,
+			port:                        22,
+			expectedIsTimeout:           false,
+			expectedIsConnectionRefused: false,
+			expectedErrMessage:          "wrong ssh key",
+		}),
+		Entry("authenticationFailed error, port != 22", testCaseAnalyzeSSHOutputInstallImageOutErr{
+			err:                         sshclient.ErrAuthenticationFailed,
+			errFromGetHostNameNil:       true,
+			port:                        23,
+			expectedIsTimeout:           false,
+			expectedIsConnectionRefused: false,
+			expectedErrMessage:          "wrong ssh key",
+		}),
+		Entry("connectionRefused error, port 22", testCaseAnalyzeSSHOutputInstallImageOutErr{
+			err:                         sshclient.ErrConnectionRefused,
+			errFromGetHostNameNil:       true,
+			port:                        22,
+			expectedIsTimeout:           false,
+			expectedIsConnectionRefused: true,
+			expectedErrMessage:          "",
+		}),
+		Entry("connectionRefused error, port != 22, hostname error", testCaseAnalyzeSSHOutputInstallImageOutErr{
+			err:                         sshclient.ErrConnectionRefused,
+			errFromGetHostNameNil:       false,
+			port:                        23,
+			expectedIsTimeout:           false,
+			expectedIsConnectionRefused: true,
+			expectedErrMessage:          "",
+		}),
+		Entry("connectionRefused error, port != 22, no hostname error", testCaseAnalyzeSSHOutputInstallImageOutErr{
+			err:                         sshclient.ErrConnectionRefused,
+			errFromGetHostNameNil:       true,
+			port:                        23,
+			expectedIsTimeout:           false,
+			expectedIsConnectionRefused: false,
+			expectedErrMessage:          "",
+		}),
 	)
 
+	type testCaseAnalyzeSSHOutputInstallImageStdErr struct {
+		hasNilErr          bool
+		stdErr             string
+		hasWrongHostName   bool
+		expectedErrMessage string
+	}
+
 	DescribeTable("analyzeSSHOutputInstallImage - StdErr not empty",
-		func(
-			hasNilErr bool,
-			stdErr string,
-			hasWrongHostName bool,
-			expectedErrMessage string,
-		) {
+		func(tc testCaseAnalyzeSSHOutputInstallImageStdErr) {
 			var err error
-			if !hasNilErr {
+			if !tc.hasNilErr {
 				err = errTest
 			}
 			hostName := "rescue"
-			if hasWrongHostName {
+			if tc.hasWrongHostName {
 				hostName = "wrongHostName"
 			}
 
 			out := sshclient.Output{
 				StdOut: hostName,
-				StdErr: stdErr,
+				StdErr: tc.stdErr,
 				Err:    err,
 			}
 			isTimeout, isConnectionRefused, err := analyzeSSHOutputInstallImage(out, nil, 22)
 			Expect(isTimeout).To(Equal(false))
 			Expect(isConnectionRefused).To(Equal(false))
-			if expectedErrMessage != "" {
+			if tc.expectedErrMessage != "" {
 				Expect(err).To(Not(BeNil()))
-				Expect(err.Error()).To(ContainSubstring(expectedErrMessage))
+				Expect(err.Error()).To(ContainSubstring(tc.expectedErrMessage))
 			} else {
 				Expect(err).To(BeNil())
 			}
 		},
-		Entry(
-			"stderr not empty",
-			true,             // hasNilErr bool
-			"command failed", // stdErr string
-			false,            // hasWrongHostName bool
-			"failed to get hostname via ssh: StdErr:", // expectedErrMessage string
-		),
-		Entry(
-			"stderr not empty - err != nil",
-			false,            // hasNilErr bool
-			"command failed", // stdErr string
-			false,            // hasWrongHostName bool
-			"unhandled ssh error while getting hostname", // expectedErrMessage string
-		),
-		Entry(
-			"stderr not empty - wrong hostName",
-			true,             // hasNilErr bool
-			"command failed", // stdErr string
-			true,             // hasWrongHostName bool
-			"failed to get hostname via ssh: StdErr:", // expectedErrMessage string
-		),
+		Entry("stderr not empty", testCaseAnalyzeSSHOutputInstallImageStdErr{
+			hasNilErr:          true,
+			stdErr:             "command failed",
+			hasWrongHostName:   false,
+			expectedErrMessage: "failed to get hostname via ssh: StdErr:",
+		}),
+		Entry("stderr not empty - err != nil", testCaseAnalyzeSSHOutputInstallImageStdErr{
+			hasNilErr:          false,
+			stdErr:             "command failed",
+			hasWrongHostName:   false,
+			expectedErrMessage: "unhandled ssh error while getting hostname",
+		}),
+		Entry("stderr not empty - wrong hostName", testCaseAnalyzeSSHOutputInstallImageStdErr{
+			hasNilErr:          true,
+			stdErr:             "command failed",
+			hasWrongHostName:   true,
+			expectedErrMessage: "failed to get hostname via ssh: StdErr:",
+		}),
 	)
 
+	type testCaseAnalyzeSSHOutputInstallImageWrongHostname struct {
+		hasNilErr          bool
+		stdErr             string
+		hostName           string
+		expectedErrMessage string
+	}
+
 	DescribeTable("analyzeSSHOutputInstallImage - wrong hostName",
-		func(
-			hasNilErr bool,
-			stdErr string,
-			hostName string,
-			expectedErrMessage string,
-		) {
+		func(tc testCaseAnalyzeSSHOutputInstallImageWrongHostname) {
 			var err error
-			if !hasNilErr {
+			if !tc.hasNilErr {
 				err = errTest
 			}
 
 			out := sshclient.Output{
-				StdOut: hostName,
-				StdErr: stdErr,
+				StdOut: tc.hostName,
+				StdErr: tc.stdErr,
 				Err:    err,
 			}
 			isTimeout, isConnectionRefused, err := analyzeSSHOutputInstallImage(out, nil, 22)
 			Expect(isTimeout).To(Equal(false))
 			Expect(isConnectionRefused).To(Equal(false))
-			if expectedErrMessage != "" {
+			if tc.expectedErrMessage != "" {
 				Expect(err).To(Not(BeNil()))
-				Expect(err.Error()).To(ContainSubstring(expectedErrMessage))
+				Expect(err.Error()).To(ContainSubstring(tc.expectedErrMessage))
 			} else {
 				Expect(err).To(BeNil())
 			}
 		},
-		Entry(
-			"empty hostname",
-			true,                // hasNilErr bool
-			"",                  // stdErr string
-			"",                  // 	hostName string
-			"hostname is empty", // expectedErrMessage string
-		),
-		Entry(
-			"empty hostname - err not empty",
-			false, // hasNilErr bool
-			"",    // stdErr string
-			"",    // 	hostName string
-			"unhandled ssh error while getting hostname", // expectedErrMessage string
-		),
-		Entry(
-			"empty hostname stderr not empty",
-			true,             // hasNilErr bool
-			"command failed", // stdErr string
-			"",               // 	hostName string
-			"failed to get hostname via ssh: StdErr:", // expectedErrMessage string
-		),
-		Entry(
-			"hostname == rescue",
-			true,     // hasNilErr bool
-			"",       // stdErr string
-			"rescue", // 	hostName string
-			"",       // expectedErrMessage string
-		),
-		Entry(
-			"hostname == otherHostName",
-			true,                  // hasNilErr bool
-			"",                    // stdErr string
-			"otherHostName",       // 	hostName string
-			"unexpected hostname", // expectedErrMessage string
-		),
+		Entry("empty hostname", testCaseAnalyzeSSHOutputInstallImageWrongHostname{
+			hasNilErr:          true,
+			stdErr:             "",
+			hostName:           "",
+			expectedErrMessage: "hostname is empty",
+		}),
+		Entry("empty hostname - err not empty", testCaseAnalyzeSSHOutputInstallImageWrongHostname{
+			hasNilErr:          false,
+			stdErr:             "",
+			hostName:           "",
+			expectedErrMessage: "unhandled ssh error while getting hostname",
+		}),
+		Entry("empty hostname stderr not empty", testCaseAnalyzeSSHOutputInstallImageWrongHostname{
+			hasNilErr:          true,
+			stdErr:             "command failed",
+			hostName:           "",
+			expectedErrMessage: "failed to get hostname via ssh: StdErr:",
+		}),
+		Entry("hostname == rescue", testCaseAnalyzeSSHOutputInstallImageWrongHostname{
+			hasNilErr:          true,
+			stdErr:             "",
+			hostName:           "rescue",
+			expectedErrMessage: "",
+		}),
+		Entry("hostname == otherHostName", testCaseAnalyzeSSHOutputInstallImageWrongHostname{
+			hasNilErr:          true,
+			stdErr:             "",
+			hostName:           "otherHostName",
+			expectedErrMessage: "unexpected hostname",
+		}),
 	)
 })
 
 var _ = Describe("analyzeSSHOutputProvisioned", func() {
+	type testCaseAnalyzeSSHOutputProvisioned struct {
+		out                         sshclient.Output
+		expectedIsTimeout           bool
+		expectedIsConnectionRefused bool
+		expectedErrMessage          *string
+	}
+
 	DescribeTable("analyzeSSHOutputProvisioned",
-		func(out sshclient.Output,
-			expectedIsTimeout bool,
-			expectedIsConnectionRefused bool,
-			expectedErrMessage *string,
-		) {
-			isTimeout, isConnectionRefused, err := analyzeSSHOutputProvisioned(out)
-			Expect(isTimeout).To(Equal(expectedIsTimeout))
-			Expect(isConnectionRefused).To(Equal(expectedIsConnectionRefused))
-			if expectedErrMessage != nil {
+		func(tc testCaseAnalyzeSSHOutputProvisioned) {
+			isTimeout, isConnectionRefused, err := analyzeSSHOutputProvisioned(tc.out)
+			Expect(isTimeout).To(Equal(tc.expectedIsTimeout))
+			Expect(isConnectionRefused).To(Equal(tc.expectedIsConnectionRefused))
+			if tc.expectedErrMessage != nil {
 				Expect(err).To(Not(BeNil()))
-				Expect(err.Error()).To(ContainSubstring(*expectedErrMessage))
+				Expect(err.Error()).To(ContainSubstring(*tc.expectedErrMessage))
 			} else {
 				Expect(err).To(BeNil())
 			}
 		},
-		Entry(
-			"incorrect boot",
-			sshclient.Output{StdOut: "wrong_hostname"}, // out sshclient.Output
-			false,                                 // expectedIsTimeout bool
-			false,                                 // expectedIsConnectionRefused bool
-			pointer.String("unexpected hostname"), // expectedErrMessage *string
-		),
-		Entry(
-			"timeout error",
-			sshclient.Output{Err: timeout}, // out sshclient.Output
-			true,                           // expectedIsTimeout bool
-			false,                          // expectedIsConnectionRefused bool
-			nil,                            // expectedErrMessage *string
-		),
-		Entry(
-			"stdErr non-empty",
-			sshclient.Output{StdErr: "some error"}, // out sshclient.Output
-			false,                                  // expectedIsTimeout bool
-			false,                                  // expectedIsConnectionRefused bool
-			pointer.String("failed to get hostname via ssh: StdErr: some error"), // expectedErrMessage *string
-		),
-		Entry(
-			"incorrect boot - empty hostname",
-			sshclient.Output{StdOut: ""},        // out sshclient.Output
-			false,                               // expectedIsTimeout bool
-			false,                               // expectedIsConnectionRefused bool
-			pointer.String("hostname is empty"), // expectedErrMessage *string
-		),
-		Entry(
-			"unable to authenticate",
-			sshclient.Output{Err: sshclient.ErrAuthenticationFailed}, // out sshclient.Output
-			false,                           // expectedIsTimeout bool
-			false,                           // expectedIsConnectionRefused bool
-			pointer.String("wrong ssh key"), // expectedErrMessage *string
-		),
-		Entry(
-			"connection refused",
-			sshclient.Output{Err: sshclient.ErrConnectionRefused}, // out sshclient.Output
-			false, // expectedIsTimeout bool
-			true,  // expectedIsConnectionRefused bool
-			nil,   // expectedErrMessage *string
-		),
+		Entry("incorrect boot", testCaseAnalyzeSSHOutputProvisioned{
+			out:                         sshclient.Output{StdOut: "wrong_hostname"},
+			expectedIsTimeout:           false,
+			expectedIsConnectionRefused: false,
+			expectedErrMessage:          pointer.String("unexpected hostname"),
+		}),
+		Entry("timeout error", testCaseAnalyzeSSHOutputProvisioned{
+			out:                         sshclient.Output{Err: timeout},
+			expectedIsTimeout:           true,
+			expectedIsConnectionRefused: false,
+			expectedErrMessage:          nil,
+		}),
+		Entry("stdErr non-empty", testCaseAnalyzeSSHOutputProvisioned{
+			out:                         sshclient.Output{StdErr: "some error"},
+			expectedIsTimeout:           false,
+			expectedIsConnectionRefused: false,
+			expectedErrMessage:          pointer.String("failed to get hostname via ssh: StdErr: some error"),
+		}),
+		Entry("incorrect boot - empty hostname", testCaseAnalyzeSSHOutputProvisioned{
+			out:                         sshclient.Output{StdOut: ""},
+			expectedIsTimeout:           false,
+			expectedIsConnectionRefused: false,
+			expectedErrMessage:          pointer.String("hostname is empty"),
+		}),
+		Entry("unable to authenticate", testCaseAnalyzeSSHOutputProvisioned{
+			out:                         sshclient.Output{Err: sshclient.ErrAuthenticationFailed},
+			expectedIsTimeout:           false,
+			expectedIsConnectionRefused: false,
+			expectedErrMessage:          pointer.String("wrong ssh key"),
+		}),
+		Entry("connection refused", testCaseAnalyzeSSHOutputProvisioned{
+			out:                         sshclient.Output{Err: sshclient.ErrConnectionRefused},
+			expectedIsTimeout:           false,
+			expectedIsConnectionRefused: true,
+			expectedErrMessage:          nil,
+		}),
 	)
 })
 
 var _ = Describe("actionRegistering", func() {
+	type testCaseActionRegistering struct {
+		storageStdOut             string
+		includeRootDeviceHintWWN  bool
+		includeRootDeviceHintRaid bool
+		expectedActionResult      actionResult
+		expectedErrorMessage      *string
+	}
+
 	DescribeTable("actionRegistering",
-		func(
-			storageStdOut string,
-			includeRootDeviceHintWWN bool,
-			includeRootDeviceHintRaid bool,
-			expectedActionResult actionResult,
-			expectedErrorMessage *string,
-		) {
+		func(tc testCaseActionRegistering) {
 			var host *infrav1.HetznerBareMetalHost
-			if includeRootDeviceHintWWN {
+			if tc.includeRootDeviceHintWWN {
 				host = helpers.BareMetalHost(
 					"test-host",
 					"default",
@@ -1046,7 +1041,7 @@ var _ = Describe("actionRegistering", func() {
 					helpers.WithIPv4(),
 					helpers.WithConsumerRef(),
 				)
-			} else if includeRootDeviceHintRaid {
+			} else if tc.includeRootDeviceHintRaid {
 				host = helpers.BareMetalHost(
 					"test-host",
 					"default",
@@ -1066,7 +1061,7 @@ var _ = Describe("actionRegistering", func() {
 			sshMock.On("GetHostName").Return(sshclient.Output{StdOut: "rescue"})
 			sshMock.On("GetHardwareDetailsRAM").Return(sshclient.Output{StdOut: "10000"})
 			sshMock.On("GetHardwareDetailsStorage").Return(sshclient.Output{
-				StdOut: storageStdOut,
+				StdOut: tc.storageStdOut,
 			})
 			sshMock.On("GetHardwareDetailsNics").Return(sshclient.Output{
 				StdOut: `name="eth0" model="Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller (rev 15)" mac="a8:a1:59:94:19:42" ipv4="23.88.6.239/26" speedMbps="1000"
@@ -1082,59 +1077,57 @@ var _ = Describe("actionRegistering", func() {
 			service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 
 			actResult := service.actionRegistering()
-			Expect(actResult).Should(BeAssignableToTypeOf(expectedActionResult))
+			Expect(actResult).Should(BeAssignableToTypeOf(tc.expectedActionResult))
 			Expect(host.Spec.Status.HardwareDetails).ToNot(BeNil())
-			if expectedErrorMessage != nil {
-				Expect(host.Spec.Status.ErrorMessage).To(Equal(*expectedErrorMessage))
+			if tc.expectedErrorMessage != nil {
+				Expect(host.Spec.Status.ErrorMessage).To(Equal(*tc.expectedErrorMessage))
 			}
 		},
-		Entry(
-			"working example",
-			`NAME="loop0" LABEL="" FSTYPE="ext2" TYPE="loop" HCTL="" MODEL="" VENDOR="" SERIAL="" SIZE="3068773888" WWN="" ROTA="0"
+		Entry("working example", testCaseActionRegistering{
+			storageStdOut: `NAME="loop0" LABEL="" FSTYPE="ext2" TYPE="loop" HCTL="" MODEL="" VENDOR="" SERIAL="" SIZE="3068773888" WWN="" ROTA="0"
 		NAME="nvme2n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVL22T0HBLB-00B00" VENDOR="" SERIAL="S677NF0R402742" SIZE="2048408248320" WWN="eui.002538b411b2cee8" ROTA="0"
 		NAME="nvme1n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJQ-00000" VENDOR="" SERIAL="S3W8NX0N811178" SIZE="512110190592" WWN="eui.0025388801b4dff2" ROTA="0"`,
-			true,
-			false,
-			actionComplete{},
-			nil,
-		),
-		Entry(
-			"working example - rootDeviceHints raid",
-			`NAME="loop0" LABEL="" FSTYPE="ext2" TYPE="loop" HCTL="" MODEL="" VENDOR="" SERIAL="" SIZE="3068773888" WWN="" ROTA="0"
+			includeRootDeviceHintWWN:  true,
+			includeRootDeviceHintRaid: false,
+			expectedActionResult:      actionComplete{},
+			expectedErrorMessage:      nil,
+		}),
+		Entry("working example - rootDeviceHints raid", testCaseActionRegistering{
+			storageStdOut: `NAME="loop0" LABEL="" FSTYPE="ext2" TYPE="loop" HCTL="" MODEL="" VENDOR="" SERIAL="" SIZE="3068773888" WWN="" ROTA="0"
 		NAME="nvme2n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVL22T0HBLB-00B00" VENDOR="" SERIAL="S677NF0R402742" SIZE="2048408248320" WWN="eui.002538b411b2cee8" ROTA="0"
 		NAME="nvme1n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJQ-00000" VENDOR="" SERIAL="S3W8NX0N811178" SIZE="512110190592" WWN="eui.0025388801b4dff2" ROTA="0"`,
-			false,
-			true,
-			actionComplete{},
-			nil,
-		),
-		Entry(
-			"wwn does not fit to storage devices",
-			`NAME="loop0" LABEL="" FSTYPE="ext2" TYPE="loop" HCTL="" MODEL="" VENDOR="" SERIAL="" SIZE="3068773888" WWN="" ROTA="0"
+			includeRootDeviceHintWWN:  false,
+			includeRootDeviceHintRaid: true,
+			expectedActionResult:      actionComplete{},
+			expectedErrorMessage:      nil,
+		}),
+		Entry("wwn does not fit to storage devices", testCaseActionRegistering{
+			storageStdOut: `NAME="loop0" LABEL="" FSTYPE="ext2" TYPE="loop" HCTL="" MODEL="" VENDOR="" SERIAL="" SIZE="3068773888" WWN="" ROTA="0"
 			NAME="nvme2n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVL22T0HBLB-00B00" VENDOR="" SERIAL="S677NF0R402742" SIZE="2048408248320" WWN="eui.002538b411b2cee2" ROTA="0"
 			NAME="nvme1n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJQ-00000" VENDOR="" SERIAL="S3W8NX0N811178" SIZE="512110190592" WWN="eui.0025388801b4dff2" ROTA="0"`,
-			true,
-			false,
-			actionFailed{},
-			pointer.String("missing storage device for root device hint eui.002538b411b2cee8"),
-		),
-		Entry(
-			"no root device hints",
-			`NAME="loop0" LABEL="" FSTYPE="ext2" TYPE="loop" HCTL="" MODEL="" VENDOR="" SERIAL="" SIZE="3068773888" WWN="" ROTA="0"
+			includeRootDeviceHintWWN:  true,
+			includeRootDeviceHintRaid: false,
+			expectedActionResult:      actionFailed{},
+			expectedErrorMessage:      pointer.String("missing storage device for root device hint eui.002538b411b2cee8"),
+		}),
+		Entry("no root device hints", testCaseActionRegistering{
+			storageStdOut: `NAME="loop0" LABEL="" FSTYPE="ext2" TYPE="loop" HCTL="" MODEL="" VENDOR="" SERIAL="" SIZE="3068773888" WWN="" ROTA="0"
 			NAME="nvme2n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVL22T0HBLB-00B00" VENDOR="" SERIAL="S677NF0R402742" SIZE="2048408248320" WWN="eui.002538b411b2cee2" ROTA="0"
 			NAME="nvme1n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJQ-00000" VENDOR="" SERIAL="S3W8NX0N811178" SIZE="512110190592" WWN="eui.0025388801b4dff2" ROTA="0"`,
-			false,
-			false,
-			actionFailed{},
-			pointer.String(infrav1.ErrorMessageMissingRootDeviceHints),
-		),
+			includeRootDeviceHintWWN:  false,
+			includeRootDeviceHintRaid: false,
+			expectedActionResult:      actionFailed{},
+			expectedErrorMessage:      pointer.String(infrav1.ErrorMessageMissingRootDeviceHints),
+		}),
 	)
 
+	type testCaseActionRegisteringIncompleteBoot struct {
+		getHostNameOutput sshclient.Output
+		expectedErrorType infrav1.ErrorType
+	}
+
 	DescribeTable("actionRegistering - incomplete reboot",
-		func(
-			getHostNameOutput sshclient.Output,
-			expectedErrorType infrav1.ErrorType,
-		) {
+		func(tc testCaseActionRegisteringIncompleteBoot) {
 			host := helpers.BareMetalHost(
 				"test-host",
 				"default",
@@ -1145,7 +1138,7 @@ var _ = Describe("actionRegistering", func() {
 			)
 
 			sshMock := &sshmock.Client{}
-			sshMock.On("GetHostName").Return(getHostNameOutput)
+			sshMock.On("GetHostName").Return(tc.getHostNameOutput)
 
 			robotMock := robotmock.Client{}
 			robotMock.On("GetBootRescue", bareMetalHostID).Return(&models.Rescue{Active: false}, nil)
@@ -1154,95 +1147,91 @@ var _ = Describe("actionRegistering", func() {
 
 			actResult := service.actionRegistering()
 			Expect(actResult).Should(BeAssignableToTypeOf(actionContinue{}))
-			if expectedErrorType != infrav1.ErrorType("") {
-				Expect(host.Spec.Status.ErrorType).To(Equal(expectedErrorType))
+			if tc.expectedErrorType != infrav1.ErrorType("") {
+				Expect(host.Spec.Status.ErrorType).To(Equal(tc.expectedErrorType))
 			}
 		},
-		Entry(
-			"timeout",
-			sshclient.Output{Err: timeout},      // getHostNameOutput sshclient.Output
-			infrav1.ErrorTypeSSHRebootTriggered, // expectedErrorType string
-		),
-		Entry(
-			"connectionRefused",
-			sshclient.Output{Err: sshclient.ErrConnectionRefused}, // getHostNameOutput sshclient.Output
-			infrav1.ErrorTypeConnectionError,                      // expectedErrorType string
-		),
+		Entry("timeout", testCaseActionRegisteringIncompleteBoot{
+			getHostNameOutput: sshclient.Output{Err: timeout},
+			expectedErrorType: infrav1.ErrorTypeSSHRebootTriggered,
+		}),
+		Entry("connectionRefused", testCaseActionRegisteringIncompleteBoot{
+			getHostNameOutput: sshclient.Output{Err: sshclient.ErrConnectionRefused},
+			expectedErrorType: infrav1.ErrorTypeConnectionError,
+		}),
 	)
 })
 
 var _ = Describe("getImageDetails", func() {
+	type testCaseGetImageDetails struct {
+		image                 infrav1.Image
+		expectedImagePath     string
+		expectedNeedsDownload bool
+		expectedErrorMessage  string
+	}
+
 	DescribeTable("getImageDetails",
-		func(image infrav1.Image,
-			expectedImagePath string,
-			expectedNeedsDownload bool,
-			expectedErrorMessage string,
-		) {
-			imagePath, needsDownload, errorMessage := image.GetDetails()
-			Expect(imagePath).To(Equal(expectedImagePath))
-			Expect(needsDownload).To(Equal(expectedNeedsDownload))
-			Expect(errorMessage).To(Equal(expectedErrorMessage))
+		func(tc testCaseGetImageDetails) {
+			imagePath, needsDownload, errorMessage := tc.image.GetDetails()
+			Expect(imagePath).To(Equal(tc.expectedImagePath))
+			Expect(needsDownload).To(Equal(tc.expectedNeedsDownload))
+			Expect(errorMessage).To(Equal(tc.expectedErrorMessage))
 		},
-		Entry(
-			"name and url specified, tar.gz suffix",
-			infrav1.Image{
+		Entry("name and url specified, tar.gz suffix", testCaseGetImageDetails{
+			image: infrav1.Image{
 				Name: "imageName",
 				URL:  "https://mytargz.tar.gz",
 				Path: "",
-			}, // image infrav1.Image
-			"/root/imageName.tar.gz", // expectedImagePath string
-			true,                     // expectedNeedsDownload bool
-			"",                       // expectedErrorMessage string
-		),
-		Entry(
-			"name and url specified, tgz suffix",
-			infrav1.Image{
+			},
+			expectedImagePath:     "/root/imageName.tar.gz",
+			expectedNeedsDownload: true,
+			expectedErrorMessage:  "",
+		}),
+		Entry("name and url specified, tgz suffix", testCaseGetImageDetails{
+			image: infrav1.Image{
 				Name: "imageName",
 				URL:  "https://mytargz.tgz",
 				Path: "",
-			}, // image infrav1.Image
-			"/root/imageName.tgz", // expectedImagePath string
-			true,                  // expectedNeedsDownload bool
-			"",                    // expectedErrorMessage string
-		),
-		Entry(
-			"name and url specified, wrong suffix",
-			infrav1.Image{
+			},
+			expectedImagePath:     "/root/imageName.tgz",
+			expectedNeedsDownload: true,
+			expectedErrorMessage:  "",
+		}),
+		Entry("name and url specified, wrong suffix", testCaseGetImageDetails{
+			image: infrav1.Image{
 				Name: "imageName",
 				URL:  "https://mytargz.tgx",
 				Path: "",
-			}, // image infrav1.Image
-			"",                       // expectedImagePath string
-			false,                    // expectedNeedsDownload bool
-			"wrong image url suffix", // expectedErrorMessage string
-		),
-		Entry(
-			"path specified",
-			infrav1.Image{
+			},
+			expectedImagePath:     "",
+			expectedNeedsDownload: false,
+			expectedErrorMessage:  "wrong image url suffix",
+		}),
+		Entry("path specified", testCaseGetImageDetails{
+			image: infrav1.Image{
 				Name: "",
 				URL:  "",
 				Path: "imagePath",
-			}, // image infrav1.Image
-			"imagePath", // expectedImagePath string
-			false,       // expectedNeedsDownload bool
-			"",          // expectedErrorMessage string
-		),
-		Entry(
-			"neither specified",
-			infrav1.Image{
+			},
+			expectedImagePath:     "imagePath",
+			expectedNeedsDownload: false,
+			expectedErrorMessage:  "",
+		}),
+		Entry("neither specified", testCaseGetImageDetails{
+			image: infrav1.Image{
 				Name: "imageName",
 				URL:  "",
 				Path: "",
-			}, // image infrav1.Image
-			"",    // expectedImagePath string
-			false, // expectedNeedsDownload bool
-			"invalid image - need to specify either name and url or path", // expectedErrorMessage string
-		),
+			},
+			expectedImagePath:     "",
+			expectedNeedsDownload: false,
+			expectedErrorMessage:  "invalid image - need to specify either name and url or path",
+		}),
 	)
 })
 
 var _ = Describe("actionEnsureProvisioned", func() {
-	type ensureProvisionedInputs struct {
+	type testCaseActionEnsureProvisioned struct {
 		outSSHClientGetHostName                sshclient.Output
 		outSSHClientCloudInitStatus            sshclient.Output
 		outSSHClientCheckSigterm               sshclient.Output
@@ -1258,8 +1247,9 @@ var _ = Describe("actionEnsureProvisioned", func() {
 		expectsOldSSHClientCallCheckSigterm    bool
 		expectsOldSSHClientCallReboot          bool
 	}
+
 	DescribeTable("actionEnsureProvisioned",
-		func(in ensureProvisionedInputs) {
+		func(in testCaseActionEnsureProvisioned) {
 			var (
 				portAfterCloudInit    = 24
 				portAfterInstallImage = 23
@@ -1332,9 +1322,8 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				Expect(oldSSHMock.AssertNotCalled(GinkgoT(), "Reboot")).To(BeTrue())
 			}
 		},
-		Entry(
-			"correct hostname, cloud init running",
-			ensureProvisionedInputs{
+		Entry("correct hostname, cloud init running",
+			testCaseActionEnsureProvisioned{
 				outSSHClientGetHostName:                sshclient.Output{StdOut: infrav1.BareMetalHostNamePrefix + "bm-machine"},
 				outSSHClientCloudInitStatus:            sshclient.Output{StdOut: "status: running"},
 				outSSHClientCheckSigterm:               sshclient.Output{},
@@ -1351,9 +1340,8 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				expectsOldSSHClientCallReboot:          false,
 			},
 		),
-		Entry(
-			"correct hostname, cloud init done, no SIGTERM",
-			ensureProvisionedInputs{
+		Entry("correct hostname, cloud init done, no SIGTERM",
+			testCaseActionEnsureProvisioned{
 				outSSHClientGetHostName:                sshclient.Output{StdOut: infrav1.BareMetalHostNamePrefix + "bm-machine"},
 				outSSHClientCloudInitStatus:            sshclient.Output{StdOut: "status: done"},
 				outSSHClientCheckSigterm:               sshclient.Output{StdOut: ""},
@@ -1370,9 +1358,8 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				expectsOldSSHClientCallReboot:          false,
 			},
 		),
-		Entry(
-			"correct hostname, cloud init done, SIGTERM",
-			ensureProvisionedInputs{
+		Entry("correct hostname, cloud init done, SIGTERM",
+			testCaseActionEnsureProvisioned{
 				outSSHClientGetHostName:                sshclient.Output{StdOut: infrav1.BareMetalHostNamePrefix + "bm-machine"},
 				outSSHClientCloudInitStatus:            sshclient.Output{StdOut: "status: done"},
 				outSSHClientCheckSigterm:               sshclient.Output{StdOut: "found SIGTERM in cloud init output logs"},
@@ -1389,9 +1376,8 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				expectsOldSSHClientCallReboot:          false,
 			},
 		),
-		Entry(
-			"correct hostname, cloud init error",
-			ensureProvisionedInputs{
+		Entry("correct hostname, cloud init error",
+			testCaseActionEnsureProvisioned{
 				outSSHClientGetHostName:                sshclient.Output{StdOut: infrav1.BareMetalHostNamePrefix + "bm-machine"},
 				outSSHClientCloudInitStatus:            sshclient.Output{StdOut: "status: error"},
 				outSSHClientCheckSigterm:               sshclient.Output{},
@@ -1408,9 +1394,8 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				expectsOldSSHClientCallReboot:          false,
 			},
 		),
-		Entry(
-			"correct hostname, cloud init disabled",
-			ensureProvisionedInputs{
+		Entry("correct hostname, cloud init disabled",
+			testCaseActionEnsureProvisioned{
 				outSSHClientGetHostName:                sshclient.Output{StdOut: infrav1.BareMetalHostNamePrefix + "bm-machine"},
 				outSSHClientCloudInitStatus:            sshclient.Output{StdOut: "status: disabled"},
 				outSSHClientCheckSigterm:               sshclient.Output{},
@@ -1427,9 +1412,8 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				expectsOldSSHClientCallReboot:          false,
 			},
 		),
-		Entry(
-			"connectionFailed, same ports",
-			ensureProvisionedInputs{
+		Entry("connectionFailed, same ports",
+			testCaseActionEnsureProvisioned{
 				outSSHClientGetHostName:                sshclient.Output{Err: sshclient.ErrConnectionRefused},
 				outSSHClientCloudInitStatus:            sshclient.Output{},
 				outSSHClientCheckSigterm:               sshclient.Output{},
@@ -1446,9 +1430,8 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				expectsOldSSHClientCallReboot:          false,
 			},
 		),
-		Entry(
-			"connectionFailed, different ports, connectionFailed of oldSSHClient",
-			ensureProvisionedInputs{
+		Entry("connectionFailed, different ports, connectionFailed of oldSSHClient",
+			testCaseActionEnsureProvisioned{
 				outSSHClientGetHostName:                sshclient.Output{Err: sshclient.ErrConnectionRefused},
 				outSSHClientCloudInitStatus:            sshclient.Output{},
 				outSSHClientCheckSigterm:               sshclient.Output{},
@@ -1465,9 +1448,8 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				expectsOldSSHClientCallReboot:          false,
 			},
 		),
-		Entry(
-			"connectionFailed, different ports, status running of oldSSHClient",
-			ensureProvisionedInputs{
+		Entry("connectionFailed, different ports, status running of oldSSHClient",
+			testCaseActionEnsureProvisioned{
 				outSSHClientGetHostName:                sshclient.Output{Err: sshclient.ErrConnectionRefused},
 				outSSHClientCloudInitStatus:            sshclient.Output{},
 				outSSHClientCheckSigterm:               sshclient.Output{},
@@ -1484,9 +1466,8 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				expectsOldSSHClientCallReboot:          false,
 			},
 		),
-		Entry(
-			"connectionFailed, different ports, status error of oldSSHClient",
-			ensureProvisionedInputs{
+		Entry("connectionFailed, different ports, status error of oldSSHClient",
+			testCaseActionEnsureProvisioned{
 				outSSHClientGetHostName:                sshclient.Output{Err: sshclient.ErrConnectionRefused},
 				outSSHClientCloudInitStatus:            sshclient.Output{},
 				outSSHClientCheckSigterm:               sshclient.Output{},
@@ -1503,9 +1484,8 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				expectsOldSSHClientCallReboot:          false,
 			},
 		),
-		Entry(
-			"connectionFailed, different ports, status disabled of oldSSHClient",
-			ensureProvisionedInputs{
+		Entry("connectionFailed, different ports, status disabled of oldSSHClient",
+			testCaseActionEnsureProvisioned{
 				outSSHClientGetHostName:                sshclient.Output{Err: sshclient.ErrConnectionRefused},
 				outSSHClientCloudInitStatus:            sshclient.Output{},
 				outSSHClientCheckSigterm:               sshclient.Output{},
@@ -1522,9 +1502,8 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				expectsOldSSHClientCallReboot:          true,
 			},
 		),
-		Entry(
-			"connectionFailed, different ports, status done of oldSSHClient, SIGTERM of oldSSHClient",
-			ensureProvisionedInputs{
+		Entry("connectionFailed, different ports, status done of oldSSHClient, SIGTERM of oldSSHClient",
+			testCaseActionEnsureProvisioned{
 				outSSHClientGetHostName:                sshclient.Output{Err: sshclient.ErrConnectionRefused},
 				outSSHClientCloudInitStatus:            sshclient.Output{},
 				outSSHClientCheckSigterm:               sshclient.Output{},
@@ -1541,9 +1520,8 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				expectsOldSSHClientCallReboot:          true,
 			},
 		),
-		Entry(
-			"connectionFailed, different ports, status done of oldSSHClient, no SIGTERM of oldSSHClient",
-			ensureProvisionedInputs{
+		Entry("connectionFailed, different ports, status done of oldSSHClient, no SIGTERM of oldSSHClient",
+			testCaseActionEnsureProvisioned{
 				outSSHClientGetHostName:                sshclient.Output{Err: sshclient.ErrConnectionRefused},
 				outSSHClientCloudInitStatus:            sshclient.Output{},
 				outSSHClientCheckSigterm:               sshclient.Output{},
@@ -1560,9 +1538,8 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				expectsOldSSHClientCallReboot:          false,
 			},
 		),
-		Entry(
-			"connectionFailed, different ports, timeout of oldSSHClient",
-			ensureProvisionedInputs{
+		Entry("connectionFailed, different ports, timeout of oldSSHClient",
+			testCaseActionEnsureProvisioned{
 				outSSHClientGetHostName:                sshclient.Output{Err: sshclient.ErrConnectionRefused},
 				outSSHClientCloudInitStatus:            sshclient.Output{},
 				outSSHClientCheckSigterm:               sshclient.Output{},
@@ -1579,9 +1556,8 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				expectsOldSSHClientCallReboot:          false,
 			},
 		),
-		Entry(
-			"correct hostname, cloud init done, no SIGTERM, ports different",
-			ensureProvisionedInputs{
+		Entry("correct hostname, cloud init done, no SIGTERM, ports different",
+			testCaseActionEnsureProvisioned{
 				outSSHClientGetHostName:                sshclient.Output{StdOut: infrav1.BareMetalHostNamePrefix + "bm-machine"},
 				outSSHClientCloudInitStatus:            sshclient.Output{StdOut: "status: done"},
 				outSSHClientCheckSigterm:               sshclient.Output{StdOut: ""},
@@ -1598,9 +1574,8 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				expectsOldSSHClientCallReboot:          false,
 			},
 		),
-		Entry(
-			"timeout of sshclient",
-			ensureProvisionedInputs{
+		Entry("timeout of sshclient",
+			testCaseActionEnsureProvisioned{
 				outSSHClientGetHostName:                sshclient.Output{Err: timeout},
 				outSSHClientCloudInitStatus:            sshclient.Output{},
 				outSSHClientCheckSigterm:               sshclient.Output{},
@@ -1621,15 +1596,17 @@ var _ = Describe("actionEnsureProvisioned", func() {
 })
 
 var _ = Describe("actionProvisioned", func() {
+	type testCaseActionProvisioned struct {
+		shouldHaveRebootAnnotation bool
+		rebooted                   bool
+		rebootFinished             bool
+		expectedActionResult       actionResult
+		expectRebootAnnotation     bool
+		expectRebootInStatus       bool
+	}
+
 	DescribeTable("actionProvisioned",
-		func(
-			shouldHaveRebootAnnotation bool,
-			rebooted bool,
-			rebootFinished bool,
-			expectedActionResult actionResult,
-			expectRebootAnnotation bool,
-			expectRebootInStatus bool,
-		) {
+		func(tc testCaseActionProvisioned) {
 			host := helpers.BareMetalHost(
 				"test-host",
 				"default",
@@ -1638,15 +1615,15 @@ var _ = Describe("actionProvisioned", func() {
 				helpers.WithConsumerRef(),
 			)
 
-			if shouldHaveRebootAnnotation {
+			if tc.shouldHaveRebootAnnotation {
 				host.SetAnnotations(map[string]string{infrav1.RebootAnnotation: "reboot"})
 			}
 
-			host.Spec.Status.Rebooted = rebooted
+			host.Spec.Status.Rebooted = tc.rebooted
 
 			sshMock := &sshmock.Client{}
 			var hostNameOutput sshclient.Output
-			if rebootFinished {
+			if tc.rebootFinished {
 				hostNameOutput = sshclient.Output{StdOut: infrav1.BareMetalHostNamePrefix + host.Spec.ConsumerRef.Name}
 			} else {
 				hostNameOutput = sshclient.Output{Err: timeout}
@@ -1657,51 +1634,47 @@ var _ = Describe("actionProvisioned", func() {
 			service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 
 			actResult := service.actionProvisioned()
-			Expect(actResult).Should(BeAssignableToTypeOf(expectedActionResult))
-			Expect(host.Spec.Status.Rebooted).To(Equal(expectRebootInStatus))
-			Expect(host.HasRebootAnnotation()).To(Equal(expectRebootAnnotation))
+			Expect(actResult).Should(BeAssignableToTypeOf(tc.expectedActionResult))
+			Expect(host.Spec.Status.Rebooted).To(Equal(tc.expectRebootInStatus))
+			Expect(host.HasRebootAnnotation()).To(Equal(tc.expectRebootAnnotation))
 
-			if shouldHaveRebootAnnotation && !rebooted {
+			if tc.shouldHaveRebootAnnotation && !tc.rebooted {
 				Expect(sshMock.AssertCalled(GinkgoT(), "Reboot")).To(BeTrue())
 			} else {
 				Expect(sshMock.AssertNotCalled(GinkgoT(), "Reboot")).To(BeTrue())
 			}
 		},
-		Entry(
-			"reboot desired, but not performed yet",
-			true,             // shouldHaveRebootAnnotation bool
-			false,            // rebooted bool
-			false,            // rebootFinished bool
-			actionContinue{}, // expectedActionResult actionResult
-			true,             // expectRebootAnnotation bool
-			true,             // expectRebootInStatus bool,
-		),
-		Entry(
-			"reboot desired, and already performed, not finished",
-			true,             // shouldHaveRebootAnnotation bool
-			true,             // rebooted bool
-			false,            // rebootFinished bool
-			actionContinue{}, // expectedActionResult actionResult
-			true,             // expectRebootAnnotation bool
-			true,             // expectRebootInStatus bool,
-		),
-		Entry(
-			"reboot desired, and already performed, finished",
-			true,             // shouldHaveRebootAnnotation bool
-			true,             // rebooted bool
-			true,             // rebootFinished bool
-			actionComplete{}, // expectedActionResult actionResult
-			false,            // expectRebootAnnotation bool
-			false,            // expectRebootInStatus bool,
-		),
-		Entry(
-			"no reboot desired",
-			false,            // shouldHaveRebootAnnotation bool
-			false,            // rebooted bool
-			false,            // rebootFinished bool
-			actionComplete{}, // expectedActionResult actionResult
-			false,            // expectRebootAnnotation bool
-			false,            // expectRebootInStatus bool,
-		),
+		Entry("reboot desired, but not performed yet", testCaseActionProvisioned{
+			shouldHaveRebootAnnotation: true,
+			rebooted:                   false,
+			rebootFinished:             false,
+			expectedActionResult:       actionContinue{},
+			expectRebootAnnotation:     true,
+			expectRebootInStatus:       true,
+		}),
+		Entry("reboot desired, and already performed, not finished", testCaseActionProvisioned{
+			shouldHaveRebootAnnotation: true,
+			rebooted:                   true,
+			rebootFinished:             false,
+			expectedActionResult:       actionContinue{},
+			expectRebootAnnotation:     true,
+			expectRebootInStatus:       true,
+		}),
+		Entry("reboot desired, and already performed, finished", testCaseActionProvisioned{
+			shouldHaveRebootAnnotation: true,
+			rebooted:                   true,
+			rebootFinished:             true,
+			expectedActionResult:       actionComplete{},
+			expectRebootAnnotation:     false,
+			expectRebootInStatus:       false,
+		}),
+		Entry("no reboot desired", testCaseActionProvisioned{
+			shouldHaveRebootAnnotation: false,
+			rebooted:                   false,
+			rebootFinished:             false,
+			expectedActionResult:       actionComplete{},
+			expectRebootAnnotation:     false,
+			expectRebootInStatus:       false,
+		}),
 	)
 })
