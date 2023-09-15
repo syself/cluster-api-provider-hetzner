@@ -138,7 +138,7 @@ func (s *Service) actionPreparing() actionResult {
 	if err != nil {
 		s.handleRateLimitExceeded(err, "GetBMServer")
 		if models.IsError(err, models.ErrorCodeServerNotFound) {
-			return s.recordActionFailure(infrav1.RegistrationError, fmt.Sprintf("bare metal host with id %v not found", server.ServerNumber))
+			return s.recordActionFailure(infrav1.RegistrationError, fmt.Sprintf("bare metal host with id %d not found", s.scope.HetznerBareMetalHost.Spec.ServerID))
 		}
 		return actionError{err: fmt.Errorf("failed to get bare metal server: %w", err)}
 	}
