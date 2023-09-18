@@ -22,15 +22,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/mock"
-	"github.com/syself/hrobot-go/models"
-	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	"sigs.k8s.io/cluster-api/util/patch"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/baremetal"
 	robotmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/robot"
@@ -38,6 +29,15 @@ import (
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
+	"github.com/syself/hrobot-go/models"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/selection"
+	"k8s.io/utils/pointer"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	"sigs.k8s.io/cluster-api/util/patch"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("HetznerBareMetalMachineReconciler", func() {
@@ -215,7 +215,6 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 						FailureDomain: &defaultFailureDomain,
 					},
 				}
-
 				Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
 
 				bmMachine = &infrav1.HetznerBareMetalMachine{
@@ -490,6 +489,134 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			Eventually(func() bool {
 				return isPresentAndFalseWithReason(key, bmMachine, infrav1.HostAssociateSucceededCondition, infrav1.NoAvailableHostReason)
 			}, timeout).Should(BeTrue())
+		})
+	})
+
+	Context("hetznerBareMetalMachine validation", func() {
+		var (
+			capiMachine *clusterv1.Machine
+		)
+
+		BeforeEach(func() {
+			capiMachine = &clusterv1.Machine{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "capi-machine-",
+					Namespace:    testNs.Name,
+					Finalizers:   []string{clusterv1.MachineFinalizer},
+					Labels: map[string]string{
+						clusterv1.ClusterNameLabel: capiCluster.Name,
+					},
+				},
+				Spec: clusterv1.MachineSpec{
+					ClusterName: capiCluster.Name,
+					InfrastructureRef: corev1.ObjectReference{
+						APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
+						Kind:       "HetznerBareMetalMachine",
+						Name:       bmMachineName,
+					},
+					FailureDomain: &defaultFailureDomain,
+					Bootstrap: clusterv1.Bootstrap{
+						DataSecretName: pointer.String("bootstrap-secret"),
+					},
+				},
+			}
+			Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
+
+			bmMachine = &infrav1.HetznerBareMetalMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      bmMachineName,
+					Namespace: testNs.Name,
+					Labels: map[string]string{
+						clusterv1.ClusterNameLabel: capiCluster.Name,
+					},
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: "cluster.x-k8s.io/v1beta1",
+							Kind:       "Machine",
+							Name:       capiMachine.Name,
+							UID:        capiMachine.UID,
+						},
+					},
+				},
+				Spec: getDefaultHetznerBareMetalMachineSpec(),
+			}
+			bmMachine.Spec.HostSelector.MatchLabels = map[string]string{
+				"hcloud": "baremetalmachine-test",
+			}
+
+			key = client.ObjectKey{Namespace: testNs.Name, Name: bmMachineName}
+		})
+
+		AfterEach(func() {
+			Expect(testEnv.Cleanup(ctx, capiMachine, bmMachine)).To(Succeed())
+		})
+
+		Context("validate create", func() {
+			It("should create the hetznerBareMetalMachine", func() {
+				Expect(testEnv.Create(ctx, bmMachine)).To(Succeed())
+			})
+
+			It("should fail with a empty image name and path", func() {
+				bmMachine.Spec.InstallImage.Image.Name = ""
+				bmMachine.Spec.InstallImage.Image.Path = ""
+				Expect(testEnv.Create(ctx, bmMachine)).NotTo(Succeed())
+			})
+
+			It("should fail with a empty image url and path", func() {
+				bmMachine.Spec.InstallImage.Image.URL = ""
+				bmMachine.Spec.InstallImage.Image.Path = ""
+				Expect(testEnv.Create(ctx, bmMachine)).NotTo(Succeed())
+			})
+
+			It("should fail if image url has no suffix", func() {
+				bmMachine.Spec.InstallImage.Image.URL = "https://hcloud.com/image/1111"
+				Expect(testEnv.Create(ctx, bmMachine)).NotTo(Succeed())
+			})
+
+			It("should fail with a wrong host selector label", func() {
+				bmMachine.Spec.HostSelector.MatchLabels = map[string]string{
+					"cluster": "!test",
+				}
+				Expect(testEnv.Create(ctx, bmMachine)).NotTo(Succeed())
+			})
+
+			It("should fail with a wrong host selector label", func() {
+				bmMachine.Spec.HostSelector.MatchExpressions = []infrav1.HostSelectorRequirement{
+					{
+						Key:      "Cluster",
+						Operator: selection.Operator("WrongOperator"), // Invalid operator, should be one of In, NotIn, Exists, DoesNotExist
+						Values:   []string{"test"},
+					},
+				}
+				Expect(testEnv.Create(ctx, bmMachine)).NotTo(Succeed())
+			})
+		})
+
+		Context("validate update", func() {
+			BeforeEach(func() {
+				Expect(testEnv.Create(ctx, bmMachine)).To(Succeed())
+
+				Eventually(func() error {
+					return testEnv.Get(ctx, key, bmMachine)
+				}, timeout).Should(BeNil())
+			})
+
+			It("should fail updating installImage", func() {
+				bmMachine.Spec.InstallImage.Image.Name = "ubuntu-2204"
+				Expect(testEnv.Update(ctx, bmMachine)).NotTo(Succeed())
+			})
+
+			It("should fail updating ssh spec", func() {
+				bmMachine.Spec.SSHSpec.SecretRef.Name = "test-secret-ref-2"
+				Expect(testEnv.Update(ctx, bmMachine)).NotTo(Succeed())
+			})
+
+			It("should fail updating matchLabels", func() {
+				bmMachine.Spec.HostSelector.MatchLabels = map[string]string{
+					"hcloud": "baremetalmachine-test-update",
+				}
+				Expect(testEnv.Update(ctx, bmMachine)).NotTo(Succeed())
+			})
 		})
 	})
 })
