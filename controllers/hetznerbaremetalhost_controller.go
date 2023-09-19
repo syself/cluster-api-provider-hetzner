@@ -51,6 +51,7 @@ import (
 // HetznerBareMetalHostReconciler reconciles a HetznerBareMetalHost object.
 type HetznerBareMetalHostReconciler struct {
 	client.Client
+	RateLimitWaitTime  time.Duration
 	APIReader          client.Reader
 	RobotClientFactory robotclient.Factory
 	SSHClientFactory   sshclient.Factory
@@ -138,7 +139,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 
 	// check whether rate limit has been reached and if so, then wait.
-	if wait := reconcileRateLimit(bmHost); wait {
+	if wait := reconcileRateLimit(bmHost, r.RateLimitWaitTime); wait {
 		log.Info("Rate limit exceeded - requeue in 30 seconds")
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}

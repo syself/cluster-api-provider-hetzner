@@ -71,6 +71,7 @@ var (
 	hetznerBareMetalHostConcurrency    int
 	logLevel                           string
 	syncPeriod                         time.Duration
+	rateLimitWaitTime                  time.Duration
 )
 
 func main() {
@@ -85,7 +86,8 @@ func main() {
 	flag.IntVar(&hetznerBareMetalMachineConcurrency, "hetznerbaremetalmachine-concurrency", 1, "Number of HetznerBareMetalMachines to process simultaneously")
 	flag.IntVar(&hetznerBareMetalHostConcurrency, "hetznerbaremetalhost-concurrency", 1, "Number of HetznerBareMetalHosts to process simultaneously")
 	flag.StringVar(&logLevel, "log-level", "debug", "Specifies log level. Options are 'debug', 'info' and 'error'")
-	flag.DurationVar(&syncPeriod, "sync-period", time.Duration(3*time.Minute), "The minimum interval at which watched resources are reconciled (e.g. 3m)")
+	flag.DurationVar(&syncPeriod, "sync-period", 3*time.Minute, "The minimum interval at which watched resources are reconciled (e.g. 3m)")
+	flag.DurationVar(&rateLimitWaitTime, "rate-limit", 5*time.Minute, "The rate limiting for HCloud controller (e.g. 5m)")
 	flag.Parse()
 
 	ctrl.SetLogger(utils.GetDefaultLogger(logLevel))
@@ -125,6 +127,7 @@ func main() {
 	if err = (&controllers.HetznerClusterReconciler{
 		Client:                         mgr.GetClient(),
 		APIReader:                      mgr.GetAPIReader(),
+		RateLimitWaitTime:              rateLimitWaitTime,
 		HCloudClientFactory:            hcloudClientFactory,
 		WatchFilterValue:               watchFilterValue,
 		TargetClusterManagersWaitGroup: &wg,

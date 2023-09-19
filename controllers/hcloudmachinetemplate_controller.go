@@ -43,6 +43,7 @@ import (
 // HCloudMachineTemplateReconciler reconciles a HCloudMachineTemplate object.
 type HCloudMachineTemplateReconciler struct {
 	client.Client
+	RateLimitWaitTime   time.Duration
 	APIReader           client.Reader
 	HCloudClientFactory hcloudclient.Factory
 	WatchFilterValue    string
@@ -125,7 +126,7 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 	}()
 
 	// check whether rate limit has been reached and if so, then wait.
-	if wait := reconcileRateLimit(machineTemplate); wait {
+	if wait := reconcileRateLimit(machineTemplate, r.RateLimitWaitTime); wait {
 		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 

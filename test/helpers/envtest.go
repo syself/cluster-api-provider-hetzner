@@ -25,6 +25,7 @@ import (
 	"path"
 	"path/filepath"
 	goruntime "runtime"
+	"time"
 
 	g "github.com/onsi/ginkgo/v2"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -114,6 +115,7 @@ type (
 		OSSSHClientAfterCloudInit    *sshmock.Client
 		RobotClient                  *robotmock.Client
 		cancel                       context.CancelFunc
+		RateLimitWaitTime            time.Duration
 	}
 )
 
@@ -194,6 +196,7 @@ func NewTestEnvironment() *TestEnvironment {
 		OSSSHClientAfterCloudInit:    osSSHClientAfterCloudInit,
 		RobotClientFactory:           mocks.NewRobotFactory(robotClient),
 		RobotClient:                  robotClient,
+		RateLimitWaitTime:            5 * time.Minute,
 	}
 }
 

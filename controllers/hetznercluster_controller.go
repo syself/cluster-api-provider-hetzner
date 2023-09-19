@@ -62,12 +62,12 @@ import (
 
 const (
 	secretErrorRetryDelay = time.Second * 10
-	rateLimitWaitTime     = 5 * time.Minute
 )
 
 // HetznerClusterReconciler reconciles a HetznerCluster object.
 type HetznerClusterReconciler struct {
 	client.Client
+	RateLimitWaitTime              time.Duration
 	APIReader                      client.Reader
 	HCloudClientFactory            hcloudclient.Factory
 	targetClusterManagersStopCh    map[types.NamespacedName]chan struct{}
@@ -153,7 +153,7 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}()
 
 	// check whether rate limit has been reached and if so, then wait.
-	if wait := reconcileRateLimit(hetznerCluster); wait {
+	if wait := reconcileRateLimit(hetznerCluster, r.RateLimitWaitTime); wait {
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
@@ -335,7 +335,7 @@ func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterS
 
 // reconcileRateLimit checks whether a rate limit has been reached and returns whether
 // the controller should wait a bit more.
-func reconcileRateLimit(setter conditions.Setter) bool {
+func reconcileRateLimit(setter conditions.Setter, rateLimitWaitTime time.Duration) bool {
 	condition := conditions.Get(setter, infrav1.HetznerAPIReachableCondition)
 	if condition != nil && condition.Status == corev1.ConditionFalse {
 		if time.Now().Before(condition.LastTransitionTime.Time.Add(rateLimitWaitTime)) {
