@@ -43,7 +43,7 @@ var _ = Describe("Test ServerIDFromProviderID", func() {
 
 	type testCaseServerIDFromProviderID struct {
 		providerID     string
-		expectServerID int
+		expectServerID int64
 		expectError    error
 	}
 

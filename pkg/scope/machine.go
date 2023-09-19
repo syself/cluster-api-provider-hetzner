@@ -133,13 +133,13 @@ func (m *MachineScope) SetRegion(region string) {
 }
 
 // SetProviderID sets the providerID field on the machine.
-func (m *MachineScope) SetProviderID(serverID int) {
+func (m *MachineScope) SetProviderID(serverID int64) {
 	providerID := fmt.Sprintf("hcloud://%d", serverID)
 	m.HCloudMachine.Spec.ProviderID = &providerID
 }
 
 // ServerIDFromProviderID converts the ProviderID (hcloud://NNNN) to the ServerID.
-func (m *MachineScope) ServerIDFromProviderID() (int, error) {
+func (m *MachineScope) ServerIDFromProviderID() (int64, error) {
 	if m.HCloudMachine.Spec.ProviderID == nil || m.HCloudMachine.Spec.ProviderID != nil && *m.HCloudMachine.Spec.ProviderID == "" {
 		return 0, ErrEmptyProviderID
 	}
@@ -148,7 +148,7 @@ func (m *MachineScope) ServerIDFromProviderID() (int, error) {
 		return 0, ErrInvalidProviderID
 	}
 
-	serverID, err := strconv.Atoi(strings.TrimPrefix(*m.HCloudMachine.Spec.ProviderID, prefix))
+	serverID, err := strconv.ParseInt(strings.TrimPrefix(*m.HCloudMachine.Spec.ProviderID, prefix), 10, 64)
 	if err != nil {
 		return 0, ErrInvalidServerID
 	}

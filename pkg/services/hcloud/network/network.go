@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/hetznercloud/hcloud-go/hcloud"
+	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/record"
@@ -178,7 +178,7 @@ func (s *Service) findNetwork(ctx context.Context) (*hcloud.Network, error) {
 }
 
 func statusFromHCloudNetwork(network *hcloud.Network) *infrav1.NetworkStatus {
-	attachedServerIDs := make([]int, 0, len(network.Servers))
+	attachedServerIDs := make([]int64, 0, len(network.Servers))
 	for _, s := range network.Servers {
 		attachedServerIDs = append(attachedServerIDs, s.ID)
 	}

@@ -118,7 +118,7 @@ func (m *HCloudRemediationScope) Namespace() string {
 }
 
 // ServerIDFromProviderID returns the namespace name.
-func (m *HCloudRemediationScope) ServerIDFromProviderID() (int, error) {
+func (m *HCloudRemediationScope) ServerIDFromProviderID() (int64, error) {
 	return hcloudutil.ServerIDFromProviderID(m.HCloudMachine.Spec.ProviderID)
 }
 

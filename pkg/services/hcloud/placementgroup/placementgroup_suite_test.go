@@ -21,8 +21,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/hetznercloud/hcloud-go/hcloud"
-	"github.com/hetznercloud/hcloud-go/hcloud/schema"
+	"github.com/hetznercloud/hcloud-go/v2/hcloud"
+	"github.com/hetznercloud/hcloud-go/v2/hcloud/schema"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -70,13 +70,13 @@ const pgJSON = `{
   ]
 }`
 
-var ids = []int{897, 898, 899}
+var ids = []int64{897, 898, 899}
 
 var names = []string{"my Placement Group1", "my Placement Group2", "my Placement Group3"}
 
 const pgtype = "spread"
 
-var pgServerMap = map[int][]int{
+var pgServerMap = map[int64][]int64{
 	897: {4711, 4712},
 	898: {4713},
 	899: {},

@@ -21,7 +21,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/hetznercloud/hcloud-go/hcloud"
+	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -195,7 +195,7 @@ var _ = Describe("Load balancer", func() {
 		Expect(err).To(BeNil())
 		Expect(len(resp)).To(Equal(1))
 		Expect(len(resp[0].Targets)).To(Equal(1))
-		Expect(resp[0].Targets[0].Server.Server.ID).To(Equal(42))
+		Expect(resp[0].Targets[0].Server.Server.ID).To(Equal(int64(42)))
 	})
 
 	It("adds an IP target to load balancer successfully", func() {

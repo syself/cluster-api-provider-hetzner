@@ -344,6 +344,7 @@ spec:
                   control plane loadbalancer.
                 properties:
                   id:
+                    format: int64
                     type: integer
                   internalIP:
                     type: string
@@ -361,6 +362,7 @@ spec:
                         ip:
                           type: string
                         serverID:
+                          format: int64
                           type: integer
                         type:
                           description: LoadBalancerTargetType defines the target type.
@@ -398,11 +400,13 @@ spec:
                     Placementgroup.
                   properties:
                     id:
+                      format: int64
                       type: integer
                     name:
                       type: string
                     servers:
                       items:
+                        format: int64
                         type: integer
                       type: array
                     type:
@@ -415,9 +419,11 @@ spec:
                 properties:
                   attachedServers:
                     items:
+                      format: int64
                       type: integer
                     type: array
                   id:
+                    format: int64
                     type: integer
                 type: object
               ready:

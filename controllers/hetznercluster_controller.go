@@ -492,7 +492,7 @@ func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope
 
 		// Save network ID in secret
 		if clusterScope.HetznerCluster.Spec.HCloudNetwork.Enabled {
-			data["network"] = []byte(strconv.Itoa(clusterScope.HetznerCluster.Status.Network.ID))
+			data["network"] = []byte(strconv.FormatInt(clusterScope.HetznerCluster.Status.Network.ID, 10))
 		}
 		// Save api server information
 		data["apiserver-host"] = []byte(clusterScope.HetznerCluster.Spec.ControlPlaneEndpoint.Host)

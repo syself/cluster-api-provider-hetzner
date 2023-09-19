@@ -22,7 +22,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/hetznercloud/hcloud-go/hcloud"
+	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -45,7 +45,7 @@ func ProviderIDFromServerID(serverID int) string {
 }
 
 // ServerIDFromProviderID returns the serverID from a providerID.
-func ServerIDFromProviderID(providerID *string) (int, error) {
+func ServerIDFromProviderID(providerID *string) (int64, error) {
 	if providerID == nil {
 		return 0, ErrNilProviderID
 	}
@@ -54,7 +54,7 @@ func ServerIDFromProviderID(providerID *string) (int, error) {
 		return 0, ErrInvalidProviderID
 	}
 	idString := stringParts[1]
-	id, err := strconv.Atoi(idString)
+	id, err := strconv.ParseInt(idString, 10, 64)
 	if err != nil {
 		return 0, fmt.Errorf("failed to convert serverID to int - %w: %w", ErrInvalidProviderID, err)
 	}

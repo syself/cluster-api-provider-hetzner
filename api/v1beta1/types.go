@@ -17,7 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
-	"github.com/hetznercloud/hcloud-go/hcloud"
+	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 )
 
 // LoadBalancerAlgorithmType defines the Algorithm type.
@@ -91,10 +91,10 @@ type HCloudPlacementGroupSpec struct {
 
 // HCloudPlacementGroupStatus returns the status of a Placementgroup.
 type HCloudPlacementGroupStatus struct {
-	ID     int    `json:"id,omitempty"`
-	Server []int  `json:"servers,omitempty"`
-	Name   string `json:"name,omitempty"`
-	Type   string `json:"type,omitempty"`
+	ID     int64   `json:"id,omitempty"`
+	Server []int64 `json:"servers,omitempty"`
+	Name   string  `json:"name,omitempty"`
+	Type   string  `json:"type,omitempty"`
 }
 
 // HetznerSecretRef defines all the name of the secret and the relevant keys needed to access Hetzner API.
@@ -179,7 +179,7 @@ type LoadBalancerServiceSpec struct {
 
 // LoadBalancerStatus defines the obeserved state of the control plane loadbalancer.
 type LoadBalancerStatus struct {
-	ID         int                  `json:"id,omitempty"`
+	ID         int64                `json:"id,omitempty"`
 	IPv4       string               `json:"ipv4,omitempty"`
 	IPv6       string               `json:"ipv6,omitempty"`
 	InternalIP string               `json:"internalIP,omitempty"`
@@ -190,7 +190,7 @@ type LoadBalancerStatus struct {
 // LoadBalancerTarget defines the target of a load balancer.
 type LoadBalancerTarget struct {
 	Type     LoadBalancerTargetType `json:"type"`
-	ServerID int                    `json:"serverID,omitempty"`
+	ServerID int64                  `json:"serverID,omitempty"`
 	IP       string                 `json:"ip,omitempty"`
 }
 
@@ -218,9 +218,9 @@ type HCloudNetworkSpec struct {
 
 // NetworkStatus defines the observed state of the HCloud Private Network.
 type NetworkStatus struct {
-	ID              int               `json:"id,omitempty"`
+	ID              int64             `json:"id,omitempty"`
 	Labels          map[string]string `json:"-"`
-	AttachedServers []int             `json:"attachedServers,omitempty"`
+	AttachedServers []int64           `json:"attachedServers,omitempty"`
 }
 
 // Region is a Hetzner Location
