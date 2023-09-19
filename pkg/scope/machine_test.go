@@ -31,12 +31,12 @@ var _ = Describe("Test ServerIDFromProviderID", func() {
 		serverID, err := machineScope.ServerIDFromProviderID()
 		Expect(err).ToNot(BeNil())
 		Expect(err).To(MatchError(ErrEmptyProviderID))
-		Expect(serverID).To(Equal(0))
+		Expect(serverID).To(Equal(int64(0)))
 	})
 
 	type testCaseServerIDFromProviderID struct {
 		providerID     string
-		expectServerID int
+		expectServerID int64
 		expectError    error
 	}
 

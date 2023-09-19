@@ -18,7 +18,7 @@ package loadbalancer
 
 import (
 	"github.com/go-logr/logr"
-	"github.com/hetznercloud/hcloud-go/hcloud"
+	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -77,7 +77,7 @@ var _ = Describe("createOptsFromSpec", func() {
 		lbRegion := "fsn1"
 		controlPlaneEndpointPort := 22
 		lbPort := 6443
-		networkID := 42
+		var networkID int64 = 42
 
 		hetznerCluster = &infrav1.HetznerCluster{
 			Spec: infrav1.HetznerClusterSpec{

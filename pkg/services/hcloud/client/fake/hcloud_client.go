@@ -23,7 +23,7 @@ import (
 	"net"
 	"sync"
 
-	"github.com/hetznercloud/hcloud-go/hcloud"
+	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
@@ -44,10 +44,10 @@ type cacheHCloudClient struct {
 	loadBalancerCache       loadBalancerCache
 	networkCache            networkCache
 	counterMutex            sync.Mutex
-	serverIDCounter         int
-	placementGroupIDCounter int
-	loadBalancerIDCounter   int
-	networkIDCounter        int
+	serverIDCounter         int64
+	placementGroupIDCounter int64
+	loadBalancerIDCounter   int64
+	networkIDCounter        int64
 }
 
 // NewClient gives reference to the fake client using cache for HCloud API.
@@ -66,19 +66,19 @@ func (c *cacheHCloudClient) Close() {
 	cacheHCloudClientInstance.placementGroupCache = placementGroupCache{}
 
 	cacheHCloudClientInstance.serverCache = serverCache{
-		idMap:   make(map[int]*hcloud.Server),
+		idMap:   make(map[int64]*hcloud.Server),
 		nameMap: make(map[string]struct{}),
 	}
 	cacheHCloudClientInstance.placementGroupCache = placementGroupCache{
-		idMap:   make(map[int]*hcloud.PlacementGroup),
+		idMap:   make(map[int64]*hcloud.PlacementGroup),
 		nameMap: make(map[string]struct{}),
 	}
 	cacheHCloudClientInstance.loadBalancerCache = loadBalancerCache{
-		idMap:   make(map[int]*hcloud.LoadBalancer),
+		idMap:   make(map[int64]*hcloud.LoadBalancer),
 		nameMap: make(map[string]struct{}),
 	}
 	cacheHCloudClientInstance.networkCache = networkCache{
-		idMap:   make(map[int]*hcloud.Network),
+		idMap:   make(map[int64]*hcloud.Network),
 		nameMap: make(map[string]struct{}),
 	}
 
@@ -92,19 +92,19 @@ type cacheHCloudClientFactory struct{}
 
 var cacheHCloudClientInstance = &cacheHCloudClient{
 	serverCache: serverCache{
-		idMap:   make(map[int]*hcloud.Server),
+		idMap:   make(map[int64]*hcloud.Server),
 		nameMap: make(map[string]struct{}),
 	},
 	placementGroupCache: placementGroupCache{
-		idMap:   make(map[int]*hcloud.PlacementGroup),
+		idMap:   make(map[int64]*hcloud.PlacementGroup),
 		nameMap: make(map[string]struct{}),
 	},
 	loadBalancerCache: loadBalancerCache{
-		idMap:   make(map[int]*hcloud.LoadBalancer),
+		idMap:   make(map[int64]*hcloud.LoadBalancer),
 		nameMap: make(map[string]struct{}),
 	},
 	networkCache: networkCache{
-		idMap:   make(map[int]*hcloud.Network),
+		idMap:   make(map[int64]*hcloud.Network),
 		nameMap: make(map[string]struct{}),
 	},
 }
@@ -117,22 +117,22 @@ func NewHCloudClientFactory() hcloudclient.Factory {
 var _ = hcloudclient.Factory(&cacheHCloudClientFactory{})
 
 type serverCache struct {
-	idMap   map[int]*hcloud.Server
+	idMap   map[int64]*hcloud.Server
 	nameMap map[string]struct{}
 }
 
 type loadBalancerCache struct {
-	idMap   map[int]*hcloud.LoadBalancer
+	idMap   map[int64]*hcloud.LoadBalancer
 	nameMap map[string]struct{}
 }
 
 type networkCache struct {
-	idMap   map[int]*hcloud.Network
+	idMap   map[int64]*hcloud.Network
 	nameMap map[string]struct{}
 }
 
 type placementGroupCache struct {
-	idMap   map[int]*hcloud.PlacementGroup
+	idMap   map[int64]*hcloud.PlacementGroup
 	nameMap map[string]struct{}
 }
 
@@ -185,7 +185,7 @@ func (c *cacheHCloudClient) CreateLoadBalancer(_ context.Context, opts hcloud.Lo
 	return lb, nil
 }
 
-func (c *cacheHCloudClient) DeleteLoadBalancer(_ context.Context, id int) error {
+func (c *cacheHCloudClient) DeleteLoadBalancer(_ context.Context, id int64) error {
 	if _, found := c.loadBalancerCache.idMap[id]; !found {
 		return hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
 	}
@@ -490,7 +490,7 @@ func (c *cacheHCloudClient) ListServers(_ context.Context, opts hcloud.ServerLis
 	return servers, nil
 }
 
-func (c *cacheHCloudClient) GetServer(_ context.Context, id int) (*hcloud.Server, error) {
+func (c *cacheHCloudClient) GetServer(_ context.Context, id int64) (*hcloud.Server, error) {
 	return c.serverCache.idMap[id], nil
 }
 
@@ -656,7 +656,7 @@ func (c *cacheHCloudClient) CreatePlacementGroup(_ context.Context, opts hcloud.
 	return placementGroup, nil
 }
 
-func (c *cacheHCloudClient) DeletePlacementGroup(_ context.Context, id int) error {
+func (c *cacheHCloudClient) DeletePlacementGroup(_ context.Context, id int64) error {
 	if _, found := c.placementGroupCache.idMap[id]; !found {
 		return hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
 	}
@@ -713,7 +713,7 @@ func (c *cacheHCloudClient) AddServerToPlacementGroup(_ context.Context, server 
 	return nil
 }
 
-func isIntInList(list []int, str int) bool {
+func isIntInList(list []int64, str int64) bool {
 	for _, s := range list {
 		if s == str {
 			return true

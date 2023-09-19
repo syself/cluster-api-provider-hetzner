@@ -22,7 +22,7 @@ limitations under the License.
 package v1beta1
 
 import (
-	"github.com/hetznercloud/hcloud-go/hcloud"
+	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -409,7 +409,7 @@ func (in *HCloudPlacementGroupStatus) DeepCopyInto(out *HCloudPlacementGroupStat
 	*out = *in
 	if in.Server != nil {
 		in, out := &in.Server, &out.Server
-		*out = make([]int, len(*in))
+		*out = make([]int64, len(*in))
 		copy(*out, *in)
 	}
 }
@@ -1679,7 +1679,7 @@ func (in *NetworkStatus) DeepCopyInto(out *NetworkStatus) {
 	}
 	if in.AttachedServers != nil {
 		in, out := &in.AttachedServers, &out.AttachedServers
-		*out = make([]int, len(*in))
+		*out = make([]int64, len(*in))
 		copy(*out, *in)
 	}
 }

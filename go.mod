@@ -8,7 +8,7 @@ require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/go-logr/logr v1.2.4
 	github.com/go-logr/zapr v1.2.4
-	github.com/hetznercloud/hcloud-go v1.49.1
+	github.com/hetznercloud/hcloud-go/v2 v2.2.0
 	github.com/onsi/ginkgo/v2 v2.11.0
 	github.com/onsi/gomega v1.27.8
 	github.com/stretchr/testify v1.8.4
@@ -23,7 +23,7 @@ require (
 	k8s.io/klog/v2 v2.100.1
 	k8s.io/kubectl v0.27.2
 	k8s.io/utils v0.0.0-20230505201702-9f6742963106
-	sigs.k8s.io/cluster-api v1.5.0
+	sigs.k8s.io/cluster-api v1.5.1
 	sigs.k8s.io/cluster-api/test v1.5.0
 	sigs.k8s.io/controller-runtime v0.15.1
 	sigs.k8s.io/kind v0.20.0

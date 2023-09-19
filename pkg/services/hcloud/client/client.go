@@ -23,7 +23,7 @@ import (
 	"net"
 	"strings"
 
-	"github.com/hetznercloud/hcloud-go/hcloud"
+	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 )
 
 const errStringUnauthorized = "(unauthorized)"
@@ -36,7 +36,7 @@ type Client interface {
 	Close()
 
 	CreateLoadBalancer(context.Context, hcloud.LoadBalancerCreateOpts) (*hcloud.LoadBalancer, error)
-	DeleteLoadBalancer(context.Context, int) error
+	DeleteLoadBalancer(context.Context, int64) error
 	ListLoadBalancers(context.Context, hcloud.LoadBalancerListOpts) ([]*hcloud.LoadBalancer, error)
 	AttachLoadBalancerToNetwork(context.Context, *hcloud.LoadBalancer, hcloud.LoadBalancerAttachToNetworkOpts) error
 	ChangeLoadBalancerType(context.Context, *hcloud.LoadBalancer, hcloud.LoadBalancerChangeTypeOpts) error
@@ -52,7 +52,7 @@ type Client interface {
 	CreateServer(context.Context, hcloud.ServerCreateOpts) (*hcloud.Server, error)
 	AttachServerToNetwork(context.Context, *hcloud.Server, hcloud.ServerAttachToNetworkOpts) error
 	ListServers(context.Context, hcloud.ServerListOpts) ([]*hcloud.Server, error)
-	GetServer(context.Context, int) (*hcloud.Server, error)
+	GetServer(context.Context, int64) (*hcloud.Server, error)
 	DeleteServer(context.Context, *hcloud.Server) error
 	ListServerTypes(context.Context) ([]*hcloud.ServerType, error)
 	GetServerType(context.Context, string) (*hcloud.ServerType, error)
@@ -64,7 +64,7 @@ type Client interface {
 	DeleteNetwork(context.Context, *hcloud.Network) error
 	ListSSHKeys(context.Context, hcloud.SSHKeyListOpts) ([]*hcloud.SSHKey, error)
 	CreatePlacementGroup(context.Context, hcloud.PlacementGroupCreateOpts) (*hcloud.PlacementGroup, error)
-	DeletePlacementGroup(context.Context, int) error
+	DeletePlacementGroup(context.Context, int64) error
 	ListPlacementGroups(context.Context, hcloud.PlacementGroupListOpts) ([]*hcloud.PlacementGroup, error)
 	AddServerToPlacementGroup(context.Context, *hcloud.Server, *hcloud.PlacementGroup) error
 }
@@ -102,7 +102,7 @@ func (c *realClient) CreateLoadBalancer(ctx context.Context, opts hcloud.LoadBal
 	return res.LoadBalancer, err
 }
 
-func (c *realClient) DeleteLoadBalancer(ctx context.Context, id int) error {
+func (c *realClient) DeleteLoadBalancer(ctx context.Context, id int64) error {
 	_, err := c.client.LoadBalancer.Delete(ctx, &hcloud.LoadBalancer{ID: id})
 	return err
 }
@@ -196,7 +196,7 @@ func (c *realClient) ListServers(ctx context.Context, opts hcloud.ServerListOpts
 	return resp, err
 }
 
-func (c *realClient) GetServer(ctx context.Context, id int) (*hcloud.Server, error) {
+func (c *realClient) GetServer(ctx context.Context, id int64) (*hcloud.Server, error) {
 	res, _, err := c.client.Server.GetByID(ctx, id)
 	if err != nil && strings.Contains(err.Error(), errStringUnauthorized) {
 		return res, fmt.Errorf("%w: %w", ErrUnauthorized, err)
@@ -265,7 +265,7 @@ func (c *realClient) CreatePlacementGroup(ctx context.Context, opts hcloud.Place
 	return res.PlacementGroup, err
 }
 
-func (c *realClient) DeletePlacementGroup(ctx context.Context, id int) error {
+func (c *realClient) DeletePlacementGroup(ctx context.Context, id int64) error {
 	_, err := c.client.PlacementGroup.Delete(ctx, &hcloud.PlacementGroup{ID: id})
 	return err
 }
