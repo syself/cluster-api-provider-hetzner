@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
@@ -53,6 +54,15 @@ func NewService(scope *scope.BareMetalRemediationScope) *Service {
 func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err error) {
 	host, err := s.getHost(ctx)
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			err = fmt.Errorf("HetzerBareMetalMachine not found")
+			if err := s.setOwnerRemediatedConditionNew(ctx); err != nil {
+				err = fmt.Errorf("failed to set remediated condition on capi machine: %w", err)
+				record.Warn(s.scope.BareMetalRemediation, "FailedSettingConditionOnMachine", err.Error())
+				return res, err
+			}
+			return res, nil
+		}
 		err := fmt.Errorf("failed to find the unhealthy host: %w", err)
 		record.Warn(s.scope.BareMetalRemediation, "FailedToFindHost", err.Error())
 		return res, err
@@ -67,6 +77,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 			record.Warn(s.scope.BareMetalRemediation, "FailedSettingConditionOnMachine", err.Error())
 			return res, err
 		}
+		return res, nil
 	}
 
 	if s.scope.BareMetalRemediation.Spec.Strategy.Type != infrav1.RemediationTypeReboot {
