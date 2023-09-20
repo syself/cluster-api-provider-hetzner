@@ -20,8 +20,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
+	"strings"
 	"time"
 
+	"github.com/go-logr/logr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -30,11 +33,14 @@ import (
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
@@ -221,6 +227,7 @@ func (r *HCloudMachineReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 		Watches(
 			&infrav1.HetznerCluster{},
 			handler.EnqueueRequestsFromMapFunc(r.HetznerClusterToHCloudMachines(ctx)),
+			builder.WithPredicates(IgnoreHetznerClusterConditionUpdates(log)),
 		).
 		Build(r)
 	if err != nil {
@@ -244,7 +251,7 @@ func (r *HCloudMachineReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 	return nil
 }
 
-// HetznerClusterToHCloudMachines is a handler.ToRequestsFunc to be used to enqeue requests for reconciliation
+// HetznerClusterToHCloudMachines is a handler.ToRequestsFunc to be used to enqueue requests for reconciliation
 // of HCloudMachines.
 func (r *HCloudMachineReconciler) HetznerClusterToHCloudMachines(_ context.Context) handler.MapFunc {
 	return func(ctx context.Context, o client.Object) []reconcile.Request {
@@ -293,5 +300,59 @@ func (r *HCloudMachineReconciler) HetznerClusterToHCloudMachines(_ context.Conte
 		}
 
 		return result
+	}
+}
+
+func IgnoreHetznerClusterConditionUpdates(logger logr.Logger) predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			log := logger.WithValues(
+				"predicate", "IgnoreHetznerClusterConditionUpdates",
+				"type", "update",
+				"namespace", e.ObjectNew.GetNamespace(),
+				"kind", strings.ToLower(e.ObjectNew.GetObjectKind().GroupVersionKind().Kind),
+				"name", e.ObjectNew.GetName(),
+			)
+
+			var oldCluster, newCluster *infrav1.HetznerCluster
+			var ok bool
+			// This predicate only looks at HetznerCluster objects
+			if oldCluster, ok = e.ObjectOld.(*infrav1.HetznerCluster); !ok {
+				return true
+			}
+			if newCluster, ok = e.ObjectNew.(*infrav1.HetznerCluster); !ok {
+				// Something weird happened, and we received two different kinds of objects
+				return true
+			}
+
+			// We should not modify the original objects, this causes issues with code that relies on the original object.
+			oldCluster = oldCluster.DeepCopy()
+			newCluster = newCluster.DeepCopy()
+
+			// Set fields we do not care about to nil
+
+			oldCluster.ManagedFields = nil
+			newCluster.ManagedFields = nil
+
+			oldCluster.ResourceVersion = ""
+			newCluster.ResourceVersion = ""
+
+			oldCluster.Status.Conditions = nil
+			newCluster.Status.Conditions = nil
+
+			if reflect.DeepEqual(oldCluster, newCluster) {
+				// Only insignificant fields changed, no need to reconcile
+				log.V(1).Info("Update to resource only changes insignificant fields, will not enqueue event")
+				return false
+
+			}
+			// There is a noteworthy diff, so we should reconcile
+			log.V(1).Info("Update to resource changes significant fields, will enqueue event")
+			return true
+		},
+		// We only care about Update events, anything else should be reconciled
+		CreateFunc:  func(e event.CreateEvent) bool { return true },
+		DeleteFunc:  func(e event.DeleteEvent) bool { return true },
+		GenericFunc: func(e event.GenericEvent) bool { return true },
 	}
 }
