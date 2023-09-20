@@ -32,6 +32,9 @@ jobs:
     name: Test Hetzner Baremetal Features
     concurrency: ci-${{ github.ref }}-e2e-baremetal-hetzner
     runs-on: ubuntu-latest
+    permissions:
+      # Required for hcloud TPS
+      id-token: write
     needs:
       - manager-image
       - test-release
@@ -44,7 +47,6 @@ jobs:
         with:
           e2e_name: hetzner-baremetal-feature
           e2e_make_target: test-e2e-baremetal-feature
-          e2e_tts_token: ${{ secrets.TTS_TOKEN }}
           e2e_hcloud_token: ${{ secrets.HCLOUD_TOKEN }}
           e2e_robot_user: ${{ secrets.HETZNER_ROBOT_USER }}
           e2e_robot_password: ${{ secrets.HETZNER_ROBOT_PASSWORD }}
