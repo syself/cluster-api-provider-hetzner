@@ -17,7 +17,10 @@ limitations under the License.
 package v1beta1
 
 import (
+	"reflect"
+
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -48,8 +51,17 @@ func (host *HetznerBareMetalHost) ValidateCreate() (admission.Warnings, error) {
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
-func (host *HetznerBareMetalHost) ValidateUpdate(runtime.Object) (admission.Warnings, error) {
-	return nil, nil
+func (host *HetznerBareMetalHost) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
+	var allErrs field.ErrorList
+
+	oldHetznerBareMetalHost := old.(*HetznerBareMetalHost)
+	if !reflect.DeepEqual(host.Spec.ServerID, oldHetznerBareMetalHost.Spec.ServerID) {
+		allErrs = append(allErrs,
+			field.Invalid(field.NewPath("spec", "serverID"), host.Spec.ServerID, "ServerID is immutable"),
+		)
+	}
+
+	return nil, aggregateObjErrors(host.GroupVersionKind().GroupKind(), host.Name, allErrs)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
