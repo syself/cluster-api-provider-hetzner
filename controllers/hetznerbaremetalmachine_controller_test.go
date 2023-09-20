@@ -128,7 +128,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 		rescueSSHClient = testEnv.RescueSSHClient
 		osSSHClient = testEnv.OSSSHClientAfterInstallImage
 
-		robotClient.On("GetBMServer", 1).Return(&models.Server{
+		robotClient.On("GetBMServer", mock.Anything).Return(&models.Server{
 			ServerNumber: 1,
 			ServerIP:     "1.2.3.4",
 			Rescue:       true,
@@ -140,12 +140,12 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				Data:        "my-public-key",
 			},
 		}, nil)
-		robotClient.On("GetReboot", 1).Return(&models.Reset{Type: []string{"hw", "sw"}}, nil)
+		robotClient.On("GetReboot", mock.Anything).Return(&models.Reset{Type: []string{"hw", "sw"}}, nil)
 		robotClient.On("GetBootRescue", 1).Return(&models.Rescue{Active: true}, nil)
-		robotClient.On("SetBootRescue", 1, mock.Anything).Return(&models.Rescue{Active: true}, nil)
-		robotClient.On("DeleteBootRescue", 1).Return(&models.Rescue{Active: false}, nil)
+		robotClient.On("SetBootRescue", mock.Anything, mock.Anything).Return(&models.Rescue{Active: true}, nil)
+		robotClient.On("DeleteBootRescue", mock.Anything).Return(&models.Rescue{Active: false}, nil)
 		robotClient.On("RebootBMServer", mock.Anything, mock.Anything).Return(&models.ResetPost{}, nil)
-		robotClient.On("SetBMServerName", 1, mock.Anything).Return(nil, nil)
+		robotClient.On("SetBMServerName", mock.Anything, mock.Anything).Return(nil, nil)
 
 		configureRescueSSHClient(rescueSSHClient)
 

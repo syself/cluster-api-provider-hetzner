@@ -36,7 +36,6 @@ import (
 )
 
 const (
-	bareMetalHostID  = 1
 	sshFingerprint   = "my-fingerprint"
 	osSSHKeyName     = "os-sshkey"
 	rescueSSHKeyName = "rescue-sshkey"

@@ -22,6 +22,7 @@ import (
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kuberand "k8s.io/apimachinery/pkg/util/rand"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 )
 
@@ -47,7 +48,7 @@ func BareMetalHost(name, namespace string, opts ...HostOpts) *infrav1.HetznerBar
 			Namespace: namespace,
 		},
 		Spec: infrav1.HetznerBareMetalHostSpec{
-			ServerID: bareMetalHostID,
+			ServerID: kuberand.Intn(1000),
 		},
 	}
 	for _, o := range opts {
