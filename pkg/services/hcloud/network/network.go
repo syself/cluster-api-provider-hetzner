@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"slices"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -182,6 +183,9 @@ func statusFromHCloudNetwork(network *hcloud.Network) *infrav1.NetworkStatus {
 	for _, s := range network.Servers {
 		attachedServerIDs = append(attachedServerIDs, s.ID)
 	}
+	// The server IDs are not sorted by the API, but we want to have a
+	// deterministic order to avoid unnecessary updates to the HetznerCluster resource.
+	slices.Sort(attachedServerIDs)
 
 	return &infrav1.NetworkStatus{
 		ID:              network.ID,
