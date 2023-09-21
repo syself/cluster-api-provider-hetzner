@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - "releases/**"
+      - test-pr-e2e
     paths:
       - "**.go"
       - "**go.mod"
