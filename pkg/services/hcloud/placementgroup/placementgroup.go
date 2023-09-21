@@ -120,7 +120,10 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 	}
 
 	// Update status
-	placementGroups, err = s.findPlacementGroups(ctx)
+	if len(toCreate) > 0 || len(toDelete) > 0 {
+		// No need to update status if nothing changed
+		placementGroups, err = s.findPlacementGroups(ctx)
+	}
 	if err != nil {
 		return fmt.Errorf("failed to find placement groups: %w", err)
 	}
