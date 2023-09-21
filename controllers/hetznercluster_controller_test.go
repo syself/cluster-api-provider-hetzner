@@ -762,22 +762,22 @@ var _ = Describe("reconcileRateLimit", func() {
 
 	It("returns wait==true if rate limit exceeded is set and time is not over", func() {
 		conditions.MarkFalse(hetznerCluster, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason, clusterv1.ConditionSeverityWarning, "")
-		Expect(reconcileRateLimit(hetznerCluster)).To(BeTrue())
+		Expect(reconcileRateLimit(hetznerCluster, testEnv.RateLimitWaitTime)).To(BeTrue())
 	})
 
 	It("returns wait==false if rate limit exceeded is set and time is over", func() {
 		conditions.MarkFalse(hetznerCluster, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason, clusterv1.ConditionSeverityWarning, "")
 		conditionList := hetznerCluster.GetConditions()
 		conditionList[0].LastTransitionTime = metav1.NewTime(time.Now().Add(-time.Hour))
-		Expect(reconcileRateLimit(hetznerCluster)).To(BeFalse())
+		Expect(reconcileRateLimit(hetznerCluster, testEnv.RateLimitWaitTime)).To(BeFalse())
 	})
 
 	It("returns wait==false if rate limit condition is set to true", func() {
 		conditions.MarkTrue(hetznerCluster, infrav1.HetznerAPIReachableCondition)
-		Expect(reconcileRateLimit(hetznerCluster)).To(BeFalse())
+		Expect(reconcileRateLimit(hetznerCluster, testEnv.RateLimitWaitTime)).To(BeFalse())
 	})
 
 	It("returns wait==false if rate limit condition is not set", func() {
-		Expect(reconcileRateLimit(hetznerCluster)).To(BeFalse())
+		Expect(reconcileRateLimit(hetznerCluster, testEnv.RateLimitWaitTime)).To(BeFalse())
 	})
 })

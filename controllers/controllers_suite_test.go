@@ -70,6 +70,7 @@ var _ = BeforeSuite(func() {
 	Expect((&HetznerClusterReconciler{
 		Client:                         testEnv.Manager.GetClient(),
 		APIReader:                      testEnv.Manager.GetAPIReader(),
+		RateLimitWaitTime:              5 * time.Minute,
 		HCloudClientFactory:            testEnv.HCloudClientFactory,
 		TargetClusterManagersWaitGroup: &wg,
 	}).SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())

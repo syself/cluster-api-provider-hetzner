@@ -45,6 +45,7 @@ import (
 // HCloudRemediationReconciler reconciles a HCloudRemediation object.
 type HCloudRemediationReconciler struct {
 	client.Client
+	RateLimitWaitTime   time.Duration
 	APIReader           client.Reader
 	HCloudClientFactory hcloudclient.Factory
 	WatchFilterValue    string
@@ -170,7 +171,7 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 	}()
 
 	// Check whether rate limit has been reached and if so, then wait.
-	if wait := reconcileRateLimit(hcloudRemediation); wait {
+	if wait := reconcileRateLimit(hcloudRemediation, r.RateLimitWaitTime); wait {
 		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
