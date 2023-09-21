@@ -38,6 +38,10 @@ const (
 	InstanceHasNonExistingPlacementGroupReason = "InstanceHasNonExistingPlacementGroup"
 	// SSHKeyNotFoundReason indicates that ssh key could not be found.
 	SSHKeyNotFoundReason = "SSHKeyNotFound"
+	// ImageNotFoundReason indicates that the image could not be found.
+	ImageNotFoundReason = "ImageNotFound"
+	// ImageAmbiguousReason indicates that there are multiple images with the required properties.
+	ImageAmbiguousReason = "ImageAmbiguous"
 )
 
 const (

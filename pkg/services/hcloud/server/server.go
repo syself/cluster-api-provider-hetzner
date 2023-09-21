@@ -448,22 +448,26 @@ func (s *Service) getServerImage(ctx context.Context) (*hcloud.Image, error) {
 	images = append(images, imagesByName...)
 
 	if len(images) > 1 {
-		record.Warnf(s.scope.HCloudMachine,
-			"ImageNameAmbiguous",
-			"%v images have name %s",
-			len(images),
-			s.scope.HCloudMachine.Spec.ImageName,
+		err := fmt.Errorf("image is ambiguous - %v images have name %s", len(images), s.scope.HCloudMachine.Spec.ImageName)
+		record.Warnf(s.scope.HCloudMachine, "ImageNameAmbiguous", err.Error())
+		conditions.MarkFalse(s.scope.HCloudMachine,
+			infrav1.ServerCreateSucceededCondition,
+			infrav1.ImageAmbiguousReason,
+			clusterv1.ConditionSeverityError,
+			err.Error(),
 		)
-		return nil, fmt.Errorf("image name is ambiguous. %v images have name %s",
-			len(images), s.scope.HCloudMachine.Spec.ImageName)
+		return nil, err
 	}
 	if len(images) == 0 {
-		record.Warnf(s.scope.HCloudMachine,
-			"ImageNotFound",
-			"No image found with name %s",
-			s.scope.HCloudMachine.Spec.ImageName,
+		err := fmt.Errorf("no image found with name %s", s.scope.HCloudMachine.Spec.ImageName)
+		record.Warnf(s.scope.HCloudMachine, "ImageNotFound", err.Error())
+		conditions.MarkFalse(s.scope.HCloudMachine,
+			infrav1.ServerCreateSucceededCondition,
+			infrav1.ImageNotFoundReason,
+			clusterv1.ConditionSeverityError,
+			err.Error(),
 		)
-		return nil, fmt.Errorf("no image found with name %s", s.scope.HCloudMachine.Spec.ImageName)
+		return nil, err
 	}
 
 	return images[0], nil
