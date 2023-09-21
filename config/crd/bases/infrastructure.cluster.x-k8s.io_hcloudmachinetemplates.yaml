@@ -230,6 +230,9 @@ spec:
                   - type
                   type: object
                 type: array
+              ownerType:
+                description: OwnerType is the type of object that owns the HCloudMachineTemplate.
+                type: string
             type: object
         type: object
     served: true

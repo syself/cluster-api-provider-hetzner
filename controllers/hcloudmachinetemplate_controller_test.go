@@ -33,16 +33,10 @@ import (
 
 var _ = Describe("HCloudMachineTemplateReconciler", func() {
 	var (
-		capiCluster *clusterv1.Cluster
-
-		hetznerCluster  *infrav1.HetznerCluster
 		machineTemplate *infrav1.HCloudMachineTemplate
-
-		testNs *corev1.Namespace
-
-		hetznerSecret *corev1.Secret
-
-		key client.ObjectKey
+		testNs          *corev1.Namespace
+		hetznerSecret   *corev1.Secret
+		key             client.ObjectKey
 	)
 
 	BeforeEach(func() {
@@ -50,105 +44,208 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 		testNs, err = testEnv.CreateNamespace(ctx, "hcloudmachinetemplate-reconciler")
 		Expect(err).NotTo(HaveOccurred())
 
-		capiCluster = &clusterv1.Cluster{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "test-",
-				Namespace:    testNs.Name,
-				Finalizers:   []string{clusterv1.ClusterFinalizer},
-			},
-			Spec: clusterv1.ClusterSpec{
-				InfrastructureRef: &corev1.ObjectReference{
-					APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
-					Kind:       "HetznerCluster",
-					Name:       "hetzner-test",
-					Namespace:  testNs.Name,
-				},
-			},
-		}
-
-		Expect(testEnv.Create(ctx, capiCluster)).To(Succeed())
-
-		hetznerCluster = &infrav1.HetznerCluster{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "hetzner-test",
-				Namespace: testNs.Name,
-				OwnerReferences: []metav1.OwnerReference{
-					{
-						APIVersion: "cluster.x-k8s.io/v1beta1",
-						Kind:       "Cluster",
-						Name:       capiCluster.Name,
-						UID:        capiCluster.UID,
-					},
-				},
-			},
-			Spec: getDefaultHetznerClusterSpec(),
-		}
-
-		Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
-
-		machineTemplate = &infrav1.HCloudMachineTemplate{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName:    "hcloud-machine-template-",
-				Namespace:       testNs.Name,
-				OwnerReferences: hetznerCluster.OwnerReferences,
-			},
-			Spec: infrav1.HCloudMachineTemplateSpec{
-				Template: infrav1.HCloudMachineTemplateResource{
-					Spec: infrav1.HCloudMachineSpec{
-						ImageName:          "fedora-control-plane",
-						Type:               "cpx31",
-						PlacementGroupName: &defaultPlacementGroupName,
-					},
-				},
-			},
-		}
-		Expect(testEnv.Create(ctx, machineTemplate)).To(Succeed())
-
 		hetznerSecret = getDefaultHetznerSecret(testNs.Name)
 		Expect(testEnv.Create(ctx, hetznerSecret)).To(Succeed())
 
-		key = client.ObjectKey{Namespace: testNs.Name, Name: machineTemplate.Name}
+		key = client.ObjectKey{Namespace: testNs.Name, Name: "hcloud-machine-template"}
 	})
 
 	AfterEach(func() {
-		Expect(testEnv.Cleanup(ctx, testNs, capiCluster, hetznerCluster,
-			machineTemplate, hetznerSecret)).To(Succeed())
+		Expect(testEnv.Cleanup(ctx, testNs, hetznerSecret)).To(Succeed())
 	})
 
 	Context("Basic test", func() {
-		It("sets the capacity in status", func() {
-			Eventually(func() bool {
-				if err := testEnv.Get(ctx, key, machineTemplate); err != nil {
-					testEnv.GetLogger().Error(err, "did not find machine template")
-					return false
+		Context("ClusterClass test", func() {
+			var (
+				capiClusterClass *clusterv1.ClusterClass
+			)
+
+			BeforeEach(func() {
+				capiClusterClass = &clusterv1.ClusterClass{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-cluster-class",
+						Namespace: testNs.Name,
+					},
+					Spec: clusterv1.ClusterClassSpec{
+						ControlPlane: clusterv1.ControlPlaneClass{
+							MachineInfrastructure: &clusterv1.LocalObjectTemplate{
+								Ref: &corev1.ObjectReference{
+									APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
+									Kind:       "HCloudMachineTemplate",
+									Name:       "hcloud-machine-template",
+									Namespace:  testNs.Name,
+								},
+							},
+							LocalObjectTemplate: clusterv1.LocalObjectTemplate{
+								Ref: &corev1.ObjectReference{
+									APIVersion: "controlplane.cluster.x-k8s.io/v1beta1",
+									Kind:       "KubeadmControlPlaneTemplate",
+									Name:       "quick-start-control-plane",
+									Namespace:  testNs.Name,
+								},
+							},
+						},
+						Infrastructure: clusterv1.LocalObjectTemplate{
+							Ref: &corev1.ObjectReference{
+								APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
+								Kind:       "HetznerClusterTemplate",
+								Name:       "hcloud-cluster-template",
+								Namespace:  testNs.Name,
+							},
+						},
+					},
 				}
+				Expect(testEnv.Create(ctx, capiClusterClass)).To(Succeed())
 
-				// If capacity is not set (yet), there is nothing to compare
-				if machineTemplate.Status.Capacity.Cpu() == nil || machineTemplate.Status.Capacity.Memory() == nil {
-					testEnv.GetLogger().Info("capacity not set", "capacity", machineTemplate.Status.Capacity)
-					return false
+				machineTemplate = &infrav1.HCloudMachineTemplate{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "hcloud-machine-template",
+						Namespace: testNs.Name,
+						OwnerReferences: []metav1.OwnerReference{
+							{
+								APIVersion: "cluster.x-k8s.io/v1beta1",
+								Kind:       "ClusterClass",
+								Name:       capiClusterClass.Name,
+								UID:        capiClusterClass.UID,
+							},
+						},
+					},
+					Spec: infrav1.HCloudMachineTemplateSpec{
+						Template: infrav1.HCloudMachineTemplateResource{
+							Spec: infrav1.HCloudMachineSpec{
+								ImageName:          "fedora-control-plane",
+								Type:               "cpx31",
+								PlacementGroupName: &defaultPlacementGroupName,
+							},
+						},
+					},
 				}
+				Expect(testEnv.Create(ctx, machineTemplate)).To(Succeed())
+			})
 
-				// compare CPU
-				expectedCPU, err := machinetemplate.GetCPUQuantityFromInt(fake.DefaultCPUCores)
-				Expect(err).To(Succeed())
+			AfterEach(func() {
+				Expect(testEnv.Cleanup(ctx, capiClusterClass, machineTemplate)).To(Succeed())
+			})
 
-				if !expectedCPU.Equal(*machineTemplate.Status.Capacity.Cpu()) {
-					testEnv.GetLogger().Info("cpu did not equal", "expected", expectedCPU, "actual", machineTemplate.Status.Capacity.Cpu())
-					return false
+			It("checks clusterClass ownership", func() {
+				Eventually(func() bool {
+					if err := testEnv.Get(ctx, key, machineTemplate); err != nil {
+						testEnv.GetLogger().Error(err, "did not find machine template")
+						return false
+					}
+
+					testEnv.GetLogger().Info("found the machine template", "OwnerType", machineTemplate.Status.OwnerType)
+					return machineTemplate.Status.OwnerType == "ClusterClass"
+				}, timeout).Should(BeTrue())
+			})
+		})
+
+		Context("Cluster test", func() {
+			var (
+				capiCluster    *clusterv1.Cluster
+				hetznerCluster *infrav1.HetznerCluster
+			)
+
+			BeforeEach(func() {
+				capiCluster = &clusterv1.Cluster{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "test-",
+						Namespace:    testNs.Name,
+						Finalizers:   []string{clusterv1.ClusterFinalizer},
+					},
+					Spec: clusterv1.ClusterSpec{
+						InfrastructureRef: &corev1.ObjectReference{
+							APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
+							Kind:       "HetznerCluster",
+							Name:       "hetzner-test",
+							Namespace:  testNs.Name,
+						},
+					},
 				}
+				Expect(testEnv.Create(ctx, capiCluster)).To(Succeed())
 
-				// compare memory
-				expectedMemory, err := machinetemplate.GetMemoryQuantityFromFloat32(fake.DefaultMemoryInGB)
-				Expect(err).To(Succeed())
-
-				if !expectedMemory.Equal(*machineTemplate.Status.Capacity.Memory()) {
-					testEnv.GetLogger().Info("memory did not equal", "expected", expectedMemory, "actual", machineTemplate.Status.Capacity.Memory())
-					return false
+				hetznerCluster = &infrav1.HetznerCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "hetzner-test",
+						Namespace: testNs.Name,
+						OwnerReferences: []metav1.OwnerReference{
+							{
+								APIVersion: "cluster.x-k8s.io/v1beta1",
+								Kind:       "Cluster",
+								Name:       capiCluster.Name,
+								UID:        capiCluster.UID,
+							},
+						},
+					},
+					Spec: getDefaultHetznerClusterSpec(),
 				}
+				Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
 
-				return true
-			}, timeout, time.Second).Should(BeTrue())
+				machineTemplate = &infrav1.HCloudMachineTemplate{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:            "hcloud-machine-template",
+						Namespace:       testNs.Name,
+						OwnerReferences: hetznerCluster.OwnerReferences,
+					},
+					Spec: infrav1.HCloudMachineTemplateSpec{
+						Template: infrav1.HCloudMachineTemplateResource{
+							Spec: infrav1.HCloudMachineSpec{
+								ImageName:          "fedora-control-plane",
+								Type:               "cpx31",
+								PlacementGroupName: &defaultPlacementGroupName,
+							},
+						},
+					},
+				}
+				Expect(testEnv.Create(ctx, machineTemplate)).To(Succeed())
+			})
+
+			It("checks the Cluster ownership", func() {
+				Eventually(func() bool {
+					if err := testEnv.Get(ctx, key, machineTemplate); err != nil {
+						testEnv.GetLogger().Error(err, "did not find machine template")
+						return false
+					}
+
+					testEnv.GetLogger().Info("found the machine template", "OwnerType", machineTemplate.Status.OwnerType)
+					return machineTemplate.Status.OwnerType == "Cluster"
+				}, timeout).Should(BeTrue())
+			})
+
+			It("sets the capacity in status", func() {
+				Eventually(func() bool {
+					if err := testEnv.Get(ctx, key, machineTemplate); err != nil {
+						testEnv.GetLogger().Error(err, "did not find machine template")
+						return false
+					}
+
+					// If capacity is not set (yet), there is nothing to compare
+					if machineTemplate.Status.Capacity.Cpu() == nil || machineTemplate.Status.Capacity.Memory() == nil {
+						testEnv.GetLogger().Info("capacity not set", "capacity", machineTemplate.Status.Capacity)
+						return false
+					}
+
+					// compare CPU
+					expectedCPU, err := machinetemplate.GetCPUQuantityFromInt(fake.DefaultCPUCores)
+					Expect(err).To(Succeed())
+
+					if !expectedCPU.Equal(*machineTemplate.Status.Capacity.Cpu()) {
+						testEnv.GetLogger().Info("cpu did not equal", "expected", expectedCPU, "actual", machineTemplate.Status.Capacity.Cpu())
+						return false
+					}
+
+					// compare memory
+					expectedMemory, err := machinetemplate.GetMemoryQuantityFromFloat32(fake.DefaultMemoryInGB)
+					Expect(err).To(Succeed())
+
+					if !expectedMemory.Equal(*machineTemplate.Status.Capacity.Memory()) {
+						testEnv.GetLogger().Info("memory did not equal", "expected", expectedMemory, "actual", machineTemplate.Status.Capacity.Memory())
+						return false
+					}
+
+					return true
+				}, timeout, time.Second).Should(BeTrue())
+			})
 		})
 	})
 })

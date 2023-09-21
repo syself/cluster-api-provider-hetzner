@@ -22,22 +22,24 @@ import (
 	"fmt"
 	"time"
 
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
+	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
+	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/machinetemplate"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/klog/v2"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/conditions"
+	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
-	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
-	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/machinetemplate"
 )
 
 // HCloudMachineTemplateReconciler reconciles a HCloudMachineTemplate object.
@@ -64,13 +66,32 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 
 	log = log.WithValues("HCloudMachineTemplate", klog.KObj(machineTemplate))
 
+	patchHelper, err := patch.NewHelper(machineTemplate, r.Client)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to get patch helper: %w", err)
+	}
+
+	defer func() {
+		if err := patchHelper.Patch(ctx, machineTemplate); err != nil {
+			log.Error(err, "failed to patch HCloudMachineTemplate")
+		}
+	}()
+
 	// Fetch the Cluster.
-	cluster, err := util.GetOwnerCluster(ctx, r.Client, machineTemplate.ObjectMeta)
+	var cluster *clusterv1.Cluster
+	clusterClass, err := getOwnerClusterClass(ctx, r.Client, machineTemplate.ObjectMeta)
+	// nothing to do if a ClusterClass is the owner
+	if err == nil && clusterClass != nil {
+		machineTemplate.Status.OwnerType = clusterClass.Kind
+		return reconcile.Result{}, nil
+	}
+	cluster, err = util.GetOwnerCluster(ctx, r.Client, machineTemplate.ObjectMeta)
 	if err != nil || cluster == nil {
 		log.Info(fmt.Sprintf("%s is missing ownerRef to cluster or cluster does not exist %s/%s",
 			machineTemplate.Kind, machineTemplate.Namespace, machineTemplate.Name))
 		return reconcile.Result{Requeue: true}, nil
 	}
+	machineTemplate.Status.OwnerType = cluster.Kind
 
 	log = log.WithValues("Cluster", klog.KObj(cluster))
 
@@ -119,10 +140,6 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 		} else {
 			conditions.MarkTrue(machineTemplate, infrav1.HCloudTokenAvailableCondition)
 		}
-
-		if err := machineTemplateScope.Close(ctx); err != nil && reterr == nil {
-			reterr = err
-		}
 	}()
 
 	// check whether rate limit has been reached and if so, then wait.
@@ -168,4 +185,36 @@ func (r *HCloudMachineTemplateReconciler) SetupWithManager(ctx context.Context, 
 		For(&infrav1.HCloudMachineTemplate{}).
 		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(ctrl.LoggerFrom(ctx), r.WatchFilterValue)).
 		Complete(r)
+}
+
+// getOwnerClusterClass returns the ClusterClass object owning the current resource.
+func getOwnerClusterClass(ctx context.Context, c client.Client, obj metav1.ObjectMeta) (*clusterv1.ClusterClass, error) {
+	for _, ref := range obj.GetOwnerReferences() {
+		if ref.Kind != "ClusterClass" {
+			continue
+		}
+		gv, err := schema.ParseGroupVersion(ref.APIVersion)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse GroupVersion: %w", err)
+		}
+		if gv.Group == clusterv1.GroupVersion.Group {
+			return getClusterClassByName(ctx, c, obj.Namespace, ref.Name)
+		}
+	}
+	return nil, nil
+}
+
+// getClusterClassByName finds and return a Cluster object using the specified params.
+func getClusterClassByName(ctx context.Context, c client.Client, namespace, name string) (*clusterv1.ClusterClass, error) {
+	clusterClass := &clusterv1.ClusterClass{}
+	key := client.ObjectKey{
+		Namespace: namespace,
+		Name:      name,
+	}
+
+	if err := c.Get(ctx, key, clusterClass); err != nil {
+		return nil, fmt.Errorf("failed to get ClusterClass/%s: %w", name, err)
+	}
+
+	return clusterClass, nil
 }
