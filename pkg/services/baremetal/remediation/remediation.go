@@ -55,7 +55,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	host, err := s.getHost(ctx)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			err = fmt.Errorf("HetzerBareMetalMachine not found")
+			err = fmt.Errorf("HetznerBareMetalHost not found")
 			if err := s.setOwnerRemediatedConditionNew(ctx); err != nil {
 				err = fmt.Errorf("failed to set remediated condition on capi machine: %w", err)
 				record.Warn(s.scope.BareMetalRemediation, "FailedSettingConditionOnMachine", err.Error())
