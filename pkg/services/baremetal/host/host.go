@@ -1387,8 +1387,8 @@ func (s *Service) actionDeleting() actionResult {
 }
 
 func (s *Service) handleRateLimitExceeded(err error, functionName string) {
-	if models.IsError(err, models.ErrorCodeRateLimitExceeded) {
-		msg := fmt.Sprintf("exceeded rate limit with calling function %q", functionName)
+	if models.IsError(err, models.ErrorCodeRateLimitExceeded) || strings.Contains(err.Error(), "server responded with status code 403") {
+		msg := fmt.Sprintf("exceeded rate limit with calling function %q: %s", functionName, err.Error())
 		conditions.MarkFalse(
 			s.scope.HetznerBareMetalHost,
 			infrav1.HetznerAPIReachableCondition,
