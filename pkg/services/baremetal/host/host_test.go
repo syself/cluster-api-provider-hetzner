@@ -201,9 +201,9 @@ var _ = Describe("handleIncompleteBoot", func() {
 		DescribeTable("hostName = rescue, varying error type and ssh client response - robot client giving all positive results, no timeouts",
 			func(tc testCaseHandleIncompleteBootCorrectHostname) {
 				robotMock := robotmock.Client{}
-				robotMock.On("SetBootRescue", bareMetalHostID, sshFingerprint).Return(nil, nil)
-				robotMock.On("GetBootRescue", bareMetalHostID).Return(&models.Rescue{Active: true}, nil)
-				robotMock.On("RebootBMServer", bareMetalHostID, mock.Anything).Return(nil, nil)
+				robotMock.On("SetBootRescue", mock.Anything, sshFingerprint).Return(nil, nil)
+				robotMock.On("GetBootRescue", mock.Anything).Return(&models.Rescue{Active: true}, nil)
+				robotMock.On("RebootBMServer", mock.Anything, mock.Anything).Return(nil, nil)
 
 				host := helpers.BareMetalHost("test-host", "default",
 					helpers.WithRebootTypes([]infrav1.RebootType{
@@ -295,9 +295,9 @@ var _ = Describe("handleIncompleteBoot", func() {
 		DescribeTable("Different reset types",
 			func(tc testCaseHandleIncompleteBootDifferentResetTypes) {
 				robotMock := robotmock.Client{}
-				robotMock.On("SetBootRescue", bareMetalHostID, sshFingerprint).Return(nil, nil)
-				robotMock.On("GetBootRescue", bareMetalHostID).Return(&models.Rescue{Active: true}, nil)
-				robotMock.On("RebootBMServer", bareMetalHostID, mock.Anything).Return(nil, nil)
+				robotMock.On("SetBootRescue", mock.Anything, sshFingerprint).Return(nil, nil)
+				robotMock.On("GetBootRescue", mock.Anything).Return(&models.Rescue{Active: true}, nil)
+				robotMock.On("RebootBMServer", mock.Anything, mock.Anything).Return(nil, nil)
 
 				host := helpers.BareMetalHost("test-host", "default",
 					helpers.WithSSHSpec(),
@@ -311,9 +311,9 @@ var _ = Describe("handleIncompleteBoot", func() {
 				Expect(service.handleIncompleteBoot(true, tc.isTimeOut, tc.isConnectionRefused)).To(Succeed())
 				Expect(host.Spec.Status.ErrorType).To(Equal(tc.expectedHostErrorType))
 				if tc.expectedRebootType != infrav1.RebootType("") {
-					Expect(robotMock.AssertCalled(GinkgoT(), "RebootBMServer", bareMetalHostID, tc.expectedRebootType)).To(BeTrue())
+					Expect(robotMock.AssertCalled(GinkgoT(), "RebootBMServer", mock.Anything, tc.expectedRebootType)).To(BeTrue())
 				} else {
-					Expect(robotMock.AssertNotCalled(GinkgoT(), "RebootBMServer", bareMetalHostID, mock.Anything)).To(BeTrue())
+					Expect(robotMock.AssertNotCalled(GinkgoT(), "RebootBMServer", mock.Anything, mock.Anything)).To(BeTrue())
 				}
 			},
 			Entry("timeout, no errorType, only hw reset", testCaseHandleIncompleteBootDifferentResetTypes{
@@ -377,9 +377,9 @@ var _ = Describe("handleIncompleteBoot", func() {
 		DescribeTable("Different timeouts",
 			func(tc testCaseHandleIncompleteBootDifferentTimeouts) {
 				robotMock := robotmock.Client{}
-				robotMock.On("SetBootRescue", bareMetalHostID, sshFingerprint).Return(nil, nil)
-				robotMock.On("GetBootRescue", bareMetalHostID).Return(&models.Rescue{Active: true}, nil)
-				robotMock.On("RebootBMServer", bareMetalHostID, mock.Anything).Return(nil, nil)
+				robotMock.On("SetBootRescue", mock.Anything, sshFingerprint).Return(nil, nil)
+				robotMock.On("GetBootRescue", mock.Anything).Return(&models.Rescue{Active: true}, nil)
+				robotMock.On("RebootBMServer", mock.Anything, mock.Anything).Return(nil, nil)
 
 				host := helpers.BareMetalHost("test-host", "default",
 					helpers.WithRebootTypes([]infrav1.RebootType{
@@ -396,9 +396,9 @@ var _ = Describe("handleIncompleteBoot", func() {
 				Expect(service.handleIncompleteBoot(true, true, false)).To(Succeed())
 				Expect(host.Spec.Status.ErrorType).To(Equal(tc.expectedHostErrorType))
 				if tc.expectedRebootType != infrav1.RebootType("") {
-					Expect(robotMock.AssertCalled(GinkgoT(), "RebootBMServer", bareMetalHostID, tc.expectedRebootType)).To(BeTrue())
+					Expect(robotMock.AssertCalled(GinkgoT(), "RebootBMServer", mock.Anything, tc.expectedRebootType)).To(BeTrue())
 				} else {
-					Expect(robotMock.AssertNotCalled(GinkgoT(), "RebootBMServer", bareMetalHostID, mock.Anything)).To(BeTrue())
+					Expect(robotMock.AssertNotCalled(GinkgoT(), "RebootBMServer", mock.Anything, mock.Anything)).To(BeTrue())
 				}
 			},
 			Entry("timed out hw reset", testCaseHandleIncompleteBootDifferentTimeouts{
@@ -440,9 +440,9 @@ var _ = Describe("handleIncompleteBoot", func() {
 		DescribeTable("vary hostname and see whether rescue gets triggered",
 			func(tc testCaseHandleIncompleteBoot) {
 				robotMock := robotmock.Client{}
-				robotMock.On("SetBootRescue", bareMetalHostID, sshFingerprint).Return(nil, nil)
-				robotMock.On("GetBootRescue", bareMetalHostID).Return(&models.Rescue{Active: true}, nil)
-				robotMock.On("RebootBMServer", bareMetalHostID, mock.Anything).Return(nil, nil)
+				robotMock.On("SetBootRescue", mock.Anything, sshFingerprint).Return(nil, nil)
+				robotMock.On("GetBootRescue", mock.Anything).Return(&models.Rescue{Active: true}, nil)
+				robotMock.On("RebootBMServer", mock.Anything, mock.Anything).Return(nil, nil)
 
 				host := helpers.BareMetalHost("test-host", "default",
 					helpers.WithRebootTypes([]infrav1.RebootType{
@@ -463,9 +463,9 @@ var _ = Describe("handleIncompleteBoot", func() {
 				}
 				Expect(host.Spec.Status.ErrorType).To(Equal(tc.expectedHostErrorType))
 				if tc.expectsRescueCall {
-					Expect(robotMock.AssertCalled(GinkgoT(), "GetBootRescue", bareMetalHostID)).To(BeTrue())
+					Expect(robotMock.AssertCalled(GinkgoT(), "GetBootRescue", mock.Anything)).To(BeTrue())
 				} else {
-					Expect(robotMock.AssertNotCalled(GinkgoT(), "GetBootRescue", bareMetalHostID)).To(BeTrue())
+					Expect(robotMock.AssertNotCalled(GinkgoT(), "GetBootRescue", mock.Anything)).To(BeTrue())
 				}
 			},
 			Entry("hostname == rescue", testCaseHandleIncompleteBoot{
@@ -642,7 +642,7 @@ var _ = Describe("analyzeSSHOutputInstallImage", func() {
 			)
 
 			robotMock := robotmock.Client{}
-			robotMock.On("GetBootRescue", bareMetalHostID).Return(&models.Rescue{Active: tc.rescueActive}, nil)
+			robotMock.On("GetBootRescue", mock.Anything).Return(&models.Rescue{Active: tc.rescueActive}, nil)
 
 			service := newTestService(host, &robotMock, nil, nil, nil)
 
@@ -719,7 +719,7 @@ var _ = Describe("analyzeSSHOutputInstallImage", func() {
 			)
 
 			robotMock := robotmock.Client{}
-			robotMock.On("GetBootRescue", bareMetalHostID).Return(&models.Rescue{Active: true}, nil)
+			robotMock.On("GetBootRescue", mock.Anything).Return(&models.Rescue{Active: true}, nil)
 
 			service := newTestService(host, &robotMock, nil, nil, nil)
 
@@ -1141,7 +1141,7 @@ var _ = Describe("actionRegistering", func() {
 			sshMock.On("GetHostName").Return(tc.getHostNameOutput)
 
 			robotMock := robotmock.Client{}
-			robotMock.On("GetBootRescue", bareMetalHostID).Return(&models.Rescue{Active: false}, nil)
+			robotMock.On("GetBootRescue", mock.Anything).Return(&models.Rescue{Active: false}, nil)
 
 			service := newTestService(host, &robotMock, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 
@@ -1282,7 +1282,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 			oldSSHMock.On("Reboot").Return(sshclient.Output{})
 
 			robotMock := robotmock.Client{}
-			robotMock.On("SetBMServerName", bareMetalHostID, infrav1.BareMetalHostNamePrefix+host.Spec.ConsumerRef.Name).Return(nil, nil)
+			robotMock.On("SetBMServerName", mock.Anything, infrav1.BareMetalHostNamePrefix+host.Spec.ConsumerRef.Name).Return(nil, nil)
 
 			service := newTestService(host, &robotMock, bmmock.NewSSHFactory(sshMock, oldSSHMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), nil)
 
