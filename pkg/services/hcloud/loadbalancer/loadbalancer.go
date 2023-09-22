@@ -214,21 +214,29 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 	extraServicesSpec := s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.ExtraServices
 
 	// build slices and maps to make diffs
-	haveServiceListenPorts := make([]int, 0, max(len(lb.Services)-1, 0))
-	wantServiceListenPorts := make([]int, len(extraServicesSpec))
-	wantServiceListenPortsMap := make(map[int]infrav1.LoadBalancerServiceSpec, len(extraServicesSpec))
+	haveServiceListenPorts := make([]int, 0, len(lb.Services))
+	wantServiceListenPorts := make([]int, 0, len(extraServicesSpec)+1)
+	wantServiceListenPortsMap := make(map[int]infrav1.LoadBalancerServiceSpec, len(extraServicesSpec)+1)
 
 	// filter kubeAPI service out
 	for _, service := range lb.Services {
-		if service.ListenPort == int(s.scope.HetznerCluster.Spec.ControlPlaneEndpoint.Port) {
-			continue
-		}
 		haveServiceListenPorts = append(haveServiceListenPorts, service.ListenPort)
 	}
 
-	for i, serviceInSpec := range extraServicesSpec {
-		wantServiceListenPorts[i] = serviceInSpec.ListenPort
+	for _, serviceInSpec := range extraServicesSpec {
+		wantServiceListenPorts = append(wantServiceListenPorts, serviceInSpec.ListenPort)
 		wantServiceListenPortsMap[serviceInSpec.ListenPort] = serviceInSpec
+	}
+
+	// add kubeAPI service if exists
+	if s.scope.HetznerCluster.Spec.ControlPlaneEndpoint != nil && s.scope.HetznerCluster.Spec.ControlPlaneEndpoint.Port != 0 {
+		kubeAPIServicePort := int(s.scope.HetznerCluster.Spec.ControlPlaneEndpoint.Port)
+		wantServiceListenPorts = append(wantServiceListenPorts, kubeAPIServicePort)
+		wantServiceListenPortsMap[kubeAPIServicePort] = infrav1.LoadBalancerServiceSpec{
+			Protocol:        "tcp",
+			ListenPort:      kubeAPIServicePort,
+			DestinationPort: s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Port,
+		}
 	}
 
 	toCreate, toDelete := utils.DifferenceOfIntSlices(wantServiceListenPorts, haveServiceListenPorts)
