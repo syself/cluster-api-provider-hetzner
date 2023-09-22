@@ -44,6 +44,7 @@ import (
 )
 
 const (
+	rebootWaitTime       time.Duration = 5 * time.Second
 	sshResetTimeout      time.Duration = 5 * time.Minute
 	softwareResetTimeout time.Duration = 5 * time.Minute
 	hardwareResetTimeout time.Duration = 60 * time.Minute
@@ -199,8 +200,6 @@ func (s *Service) actionPreparing() actionResult {
 
 	// we immediately set an error message in the host status to track the reboot we just performed
 	s.scope.HetznerBareMetalHost.SetError(errorType, "software/hardware reboot triggered")
-
-	s.scope.HetznerBareMetalHost.ClearError()
 	return actionComplete{}
 }
 
@@ -474,6 +473,11 @@ func (s *Service) actionRegistering() actionResult {
 	// Check hostname with sshClient
 	out := sshClient.GetHostName()
 	if trimLineBreak(out.StdOut) != rescue {
+		// give the reboot some time until it takes effect
+		if s.hasJustRebooted() {
+			return actionContinue{delay: 2 * time.Second}
+		}
+
 		isSSHTimeoutError, isSSHConnectionRefusedError, err := s.analyzeSSHOutputRegistering(out)
 		if err != nil {
 			return actionError{err: fmt.Errorf("failed to handle incomplete boot - registering: %w", err)}
@@ -981,6 +985,11 @@ func (s *Service) actionProvisioning() actionResult {
 
 	out := sshClient.GetHostName()
 	if trimLineBreak(out.StdOut) != wantHostName {
+		// give the reboot some time until it takes effect
+		if s.hasJustRebooted() {
+			return actionContinue{delay: 2 * time.Second}
+		}
+
 		privateKeyRescue := sshclient.CredentialsFromSecret(s.scope.RescueSSHSecret, s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef).PrivateKey
 		rescueSSHClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
 			PrivateKey: privateKeyRescue,
@@ -1118,6 +1127,11 @@ func (s *Service) actionEnsureProvisioned() actionResult {
 
 	out := sshClient.GetHostName()
 	if trimLineBreak(out.StdOut) != wantHostName {
+		// give the reboot some time until it takes effect
+		if s.hasJustRebooted() {
+			return actionContinue{delay: 2 * time.Second}
+		}
+
 		isTimeout, isSSHConnectionRefusedError, err := analyzeSSHOutputProvisioned(out)
 		if err != nil {
 			return actionError{err: fmt.Errorf("failed to handle incomplete boot - provisioning: %w", err)}
@@ -1400,4 +1414,11 @@ func (s *Service) handleRateLimitExceeded(err error, functionName string) {
 		)
 		record.Warnf(s.scope.HetznerBareMetalHost, "RateLimitExceeded", msg)
 	}
+}
+
+func (s *Service) hasJustRebooted() bool {
+	return (s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeSSHRebootTriggered ||
+		s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeSoftwareRebootTriggered ||
+		s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeHardwareRebootTriggered) &&
+		!hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated, rebootWaitTime)
 }
