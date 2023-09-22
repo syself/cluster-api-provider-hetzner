@@ -24,6 +24,8 @@ import (
 	"strings"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
+	"github.com/prometheus/client_golang/prometheus"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
 const errStringUnauthorized = "(unauthorized)"
@@ -76,7 +78,17 @@ type Factory interface {
 
 // NewClient creates new HCloud clients.
 func (f *factory) NewClient(hcloudToken string) Client {
-	return &realClient{client: hcloud.NewClient(hcloud.WithToken(hcloudToken))}
+	opts := []hcloud.ClientOption{
+		hcloud.WithToken(hcloudToken),
+	}
+
+	// controller-runtime hides their default prometheus registry it uses (and exposes via HTTP) behind a custom
+	// interface. hcloud-go wants the actual registry struct, so we need to get it from the controller-runtime package.
+	if registry, ok := metrics.Registry.(*prometheus.Registry); ok {
+		opts = append(opts, hcloud.WithInstrumentation(registry))
+	}
+
+	return &realClient{client: hcloud.NewClient(opts...)}
 }
 
 type factory struct{}
