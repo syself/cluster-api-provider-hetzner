@@ -93,21 +93,23 @@ func (s *Service) Reconcile(ctx context.Context) (result reconcile.Result, err e
 
 	hostStateMachine := newHostStateMachine(s.scope.HetznerBareMetalHost, s, s.scope.Logger)
 
+	defer func() {
+		// remove deprecated conditions
+		conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.HetznerBareMetalHostReadyCondition)
+
+		conditions.SetSummary(s.scope.HetznerBareMetalHost)
+
+		// save host if it changed during reconciliation
+		if !reflect.DeepEqual(oldHost, *s.scope.HetznerBareMetalHost) {
+			result, err = SaveHostAndReturn(ctx, s.scope.Client, s.scope.HetznerBareMetalHost)
+		}
+	}()
+
 	// reconcile state
 	actResult := hostStateMachine.ReconcileState()
 	result, err = actResult.Result()
 	if err != nil {
 		return reconcile.Result{Requeue: true}, fmt.Errorf("action %q failed: %w", initialState, err)
-	}
-
-	// remove deprecated conditions
-	conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.HetznerBareMetalHostReadyCondition)
-
-	conditions.SetSummary(s.scope.HetznerBareMetalHost)
-
-	// save host if it changed during reconciliation
-	if !reflect.DeepEqual(oldHost, *s.scope.HetznerBareMetalHost) {
-		return SaveHostAndReturn(ctx, s.scope.Client, s.scope.HetznerBareMetalHost)
 	}
 
 	return result, nil
