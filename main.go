@@ -139,6 +139,7 @@ func main() {
 	if err = (&controllers.HCloudMachineReconciler{
 		Client:              mgr.GetClient(),
 		APIReader:           mgr.GetAPIReader(),
+		RateLimitWaitTime:   rateLimitWaitTime,
 		HCloudClientFactory: hcloudClientFactory,
 		WatchFilterValue:    watchFilterValue,
 	}).SetupWithManager(ctx, mgr, controller.Options{MaxConcurrentReconciles: hcloudMachineConcurrency}); err != nil {
@@ -149,6 +150,7 @@ func main() {
 	if err = (&controllers.HCloudMachineTemplateReconciler{
 		Client:              mgr.GetClient(),
 		APIReader:           mgr.GetAPIReader(),
+		RateLimitWaitTime:   rateLimitWaitTime,
 		HCloudClientFactory: hcloudClientFactory,
 		WatchFilterValue:    watchFilterValue,
 	}).SetupWithManager(ctx, mgr, controller.Options{}); err != nil {
@@ -161,6 +163,7 @@ func main() {
 		RobotClientFactory: robotclient.NewFactory(),
 		SSHClientFactory:   sshclient.NewFactory(),
 		APIReader:          mgr.GetAPIReader(),
+		RateLimitWaitTime:  rateLimitWaitTime,
 		WatchFilterValue:   watchFilterValue,
 	}).SetupWithManager(ctx, mgr, controller.Options{MaxConcurrentReconciles: hetznerBareMetalHostConcurrency}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HetznerBareMetalHost")
@@ -170,6 +173,7 @@ func main() {
 	if err = (&controllers.HetznerBareMetalMachineReconciler{
 		Client:              mgr.GetClient(),
 		APIReader:           mgr.GetAPIReader(),
+		RateLimitWaitTime:   rateLimitWaitTime,
 		HCloudClientFactory: hcloudClientFactory,
 		WatchFilterValue:    watchFilterValue,
 	}).SetupWithManager(ctx, mgr, controller.Options{MaxConcurrentReconciles: hetznerBareMetalMachineConcurrency}); err != nil {
@@ -188,6 +192,7 @@ func main() {
 	if err = (&controllers.HCloudRemediationReconciler{
 		Client:              mgr.GetClient(),
 		APIReader:           mgr.GetAPIReader(),
+		RateLimitWaitTime:   rateLimitWaitTime,
 		HCloudClientFactory: hcloudClientFactory,
 		WatchFilterValue:    watchFilterValue,
 	}).SetupWithManager(ctx, mgr, controller.Options{}); err != nil {

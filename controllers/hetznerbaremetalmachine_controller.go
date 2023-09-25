@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -49,6 +50,7 @@ import (
 type HetznerBareMetalMachineReconciler struct {
 	client.Client
 	APIReader           client.Reader
+	RateLimitWaitTime   time.Duration
 	HCloudClientFactory hcloudclient.Factory
 	WatchFilterValue    string
 }
@@ -147,6 +149,11 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 			reterr = err
 		}
 	}()
+
+	// check whether rate limit has been reached and if so, then wait.
+	if wait := reconcileRateLimit(hbmMachine, r.RateLimitWaitTime); wait {
+		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+	}
 
 	if !hbmMachine.ObjectMeta.DeletionTimestamp.IsZero() {
 		return r.reconcileDelete(ctx, machineScope)

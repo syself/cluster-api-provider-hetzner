@@ -3,7 +3,7 @@ package client
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -12,22 +12,34 @@ import (
 )
 
 const baseURL string = "https://robot-ws.your-server.de"
-const version = "0.2.4"
+const version = "0.2.5"
 const userAgent = "hrobot-client/" + version
 
 type Client struct {
-	Username  string
-	Password  string
-	baseURL   string
-	userAgent string
+	Username   string
+	Password   string
+	baseURL    string
+	userAgent  string
+	httpClient *http.Client
 }
 
 func NewBasicAuthClient(username, password string) RobotClient {
 	return &Client{
-		Username:  username,
-		Password:  password,
-		baseURL:   baseURL,
-		userAgent: userAgent,
+		Username:   username,
+		Password:   password,
+		baseURL:    baseURL,
+		userAgent:  userAgent,
+		httpClient: &http.Client{},
+	}
+}
+
+func NewBasicAuthClientWithCustomHttpClient(username, password string, httpClient *http.Client) RobotClient {
+	return &Client{
+		Username:   username,
+		Password:   password,
+		baseURL:    baseURL,
+		userAgent:  userAgent,
+		httpClient: httpClient,
 	}
 }
 
@@ -96,13 +108,12 @@ func (c *Client) doPostFormRequest(url string, formData url.Values) ([]byte, err
 func (c *Client) doRequest(req *http.Request) ([]byte, error) {
 	req.Header.Set("User-Agent", c.userAgent)
 	req.SetBasicAuth(c.Username, c.Password)
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}

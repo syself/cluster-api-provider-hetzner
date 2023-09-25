@@ -379,7 +379,7 @@ github.com/stretchr/testify/mock
 # github.com/subosito/gotenv v1.4.2
 ## explicit; go 1.18
 github.com/subosito/gotenv
-# github.com/syself/hrobot-go v0.2.4
+# github.com/syself/hrobot-go v0.2.5
 ## explicit; go 1.17
 github.com/syself/hrobot-go
 github.com/syself/hrobot-go/models

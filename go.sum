@@ -459,8 +459,8 @@ github.com/stretchr/testify v1.8.4/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXl
 github.com/subosito/gotenv v1.2.0/go.mod h1:N0PQaV/YGNqwC0u51sEeR/aUtSLEXKX9iv69rRypqCw=
 github.com/subosito/gotenv v1.4.2 h1:X1TuBLAMDFbaTAChgCBLu3DU3UPyELpnF2jjJ2cz/S8=
 github.com/subosito/gotenv v1.4.2/go.mod h1:ayKnFf/c6rvx/2iiLrJUk1e6plDbT3edrFNGqEflhK0=
-github.com/syself/hrobot-go v0.2.4 h1:/XjtE7UjXPfp4NCM3NNjfKrex0biKBUVgHRNPp7kmXg=
-github.com/syself/hrobot-go v0.2.4/go.mod h1:Oy47yZs+fJKcSh38S3OiNJdY34MXb0pkk796UnpYBnc=
+github.com/syself/hrobot-go v0.2.5 h1:Zs7GDFRd6fDn4YHYE9e5CGtRm6KYmMZwMMnm7OC/09g=
+github.com/syself/hrobot-go v0.2.5/go.mod h1:Oy47yZs+fJKcSh38S3OiNJdY34MXb0pkk796UnpYBnc=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
 github.com/valyala/fastjson v1.6.4 h1:uAUNq9Z6ymTgGhcm0UynUAB6tlbakBrz6CQFax3BXVQ=
 github.com/valyala/fastjson v1.6.4/go.mod h1:CLCAqky6SMuOcxStkYQvblddUtoRxhYMGLrsQns1aXY=

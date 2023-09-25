@@ -18,10 +18,16 @@ limitations under the License.
 package robotclient
 
 import (
+	"net/http"
+	"regexp"
+	"runtime/debug"
+
+	"github.com/go-logr/logr"
 	hrobot "github.com/syself/hrobot-go"
 	"github.com/syself/hrobot-go/models"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
 // Client collects all methods used by the controller in the robot API.
@@ -45,10 +51,36 @@ type Factory interface {
 	NewClient(Credentials) Client
 }
 
+type LoggingTransport struct {
+	roundTripper http.RoundTripper
+	log          logr.Logger
+}
+
+var replaceHex = regexp.MustCompile(`0x[0123456789abcdef]+`)
+
+func (lt *LoggingTransport) RoundTrip(req *http.Request) (resp *http.Response, err error) {
+
+	stack := replaceHex.ReplaceAllString(string(debug.Stack()), "0xX")
+
+	resp, err = lt.roundTripper.RoundTrip(req)
+	if err != nil {
+		lt.log.Info("hetzner robot API. Error.", "err", err, "method", req.Method, "url", req.URL, "stack", stack)
+		return resp, err
+	}
+	lt.log.Info("hetzner robot API called.", "statusCode", resp.StatusCode, "method", req.Method, "url", req.URL, "stack", stack)
+	return resp, nil
+}
+
 // NewClient creates new HCloud clients.
 func (f *factory) NewClient(creds Credentials) Client {
+	client := &http.Client{
+		Transport: &LoggingTransport{
+			roundTripper: http.DefaultTransport,
+			log:          utils.GetDefaultLogger("debug"),
+		},
+	}
 	return &realHetznerRobotClient{
-		client: hrobot.NewBasicAuthClient(creds.Username, creds.Password),
+		client: hrobot.NewBasicAuthClientWithCustomHttpClient(creds.Username, creds.Password, client),
 	}
 }
 
