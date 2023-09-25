@@ -392,6 +392,16 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 	server, err := s.scope.HCloudClient.CreateServer(ctx, opts)
 	if err != nil {
 		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "CreateServer")
+		if hcloud.IsError(err, hcloud.ErrorCodeResourceLimitExceeded) {
+			conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerCreateSucceededCondition, infrav1.ServerLimitExceededReason, clusterv1.ConditionSeverityError, err.Error())
+			record.Warnf(s.scope.HCloudMachine,
+				"FailedCreateHCloudServer",
+				"Failed to create HCloud server %s: %s",
+				s.scope.Name(),
+				err,
+			)
+			return nil, nil
+		}
 		record.Warnf(s.scope.HCloudMachine,
 			"FailedCreateHCloudServer",
 			"Failed to create HCloud server %s: %s",
