@@ -13,7 +13,7 @@ require (
 	github.com/onsi/gomega v1.27.8
 	github.com/prometheus/client_golang v1.16.0
 	github.com/stretchr/testify v1.8.4
-	github.com/syself/hrobot-go v0.2.4
+	github.com/syself/hrobot-go v0.2.5
 	go.uber.org/zap v1.24.0
 	golang.org/x/crypto v0.11.0
 	golang.org/x/mod v0.11.0

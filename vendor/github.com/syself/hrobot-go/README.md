@@ -10,6 +10,7 @@ the public API documentation is available at [robot.your-server.de](https://robo
 This fork is based on the repo of nl2go. The original repo implemented the important parts of Hetzner Robot API, but has not been updated since 2019. This work has the goal to keep up with API changes on Hetzner side and to implement additional functions that Hetzner Robot offers. 
 
 Contributions and feature requests are very welcome!
+
 ## Example
 
 ```go
@@ -33,3 +34,6 @@ func main() {
     fmt.Println(servers)
 }
 ```
+
+If you want to add instrumentation (for example to debug why you hit rate-limits of the Hetzner API) 
+you can use `NewBasicAuthClientWithCustomHttpClient()` to use your own httpClient.
