@@ -132,7 +132,13 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %w", err)
 	}
+	// Fetch the Host instance
+	hbmHost := &infrav1.HetznerBareMetalHostSpec
 
+	// Delete the machine instance if MaintenanceMode is true
+	if hbmHost.MaintenanceMode {
+		return r.reconcileDelete(ctx, machine)
+	}
 	// Always close the scope when exiting this function so we can persist any HetznerBareMetalMachine changes.
 	defer func() {
 		if reterr != nil && errors.Is(reterr, hcloudclient.ErrUnauthorized) {
@@ -295,7 +301,7 @@ func (r *HetznerBareMetalMachineReconciler) HetznerClusterToBareMetalMachines(ct
 
 // ClusterToBareMetalMachines is a handler.ToRequestsFunc to be used to enqeue
 // requests for reconciliation of BareMetalMachines.
-func (r *HetznerBareMetalMachineReconciler) ClusterToBareMetalMachines(ctx context.Context, log logr.Logger) handler.MapFunc {
+func (r *HetznerBareMetalMachineReconciler) ClusterTocBareMetalMachines(ctx context.Context, log logr.Logger) handler.MapFunc {
 	return func(_ context.Context, obj client.Object) []reconcile.Request {
 		result := []reconcile.Request{}
 		c, ok := obj.(*clusterv1.Cluster)
