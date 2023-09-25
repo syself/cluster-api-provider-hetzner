@@ -140,7 +140,7 @@ func (s *Service) actionPreparing() actionResult {
 	if err != nil {
 		s.handleRateLimitExceeded(err, "GetBMServer")
 		if models.IsError(err, models.ErrorCodeServerNotFound) {
-			return s.recordActionFailure(infrav1.FatalError, fmt.Sprintf("bare metal host with id %d not found", s.scope.HetznerBareMetalHost.Spec.ServerID))
+			return s.recordActionFailure(infrav1.PermanentError, fmt.Sprintf("bare metal host with id %d not found", s.scope.HetznerBareMetalHost.Spec.ServerID))
 		}
 		return actionError{err: fmt.Errorf("failed to get bare metal server: %w", err)}
 	}
@@ -181,8 +181,7 @@ func (s *Service) actionPreparing() actionResult {
 			errMsg,
 		)
 		record.Warnf(s.scope.HetznerBareMetalHost, "NoRescueSystemAvailable", errMsg)
-		s.scope.HetznerBareMetalHost.SetError(infrav1.FatalError, errMsg)
-		return s.recordActionFailure(infrav1.RegistrationError, errMsg)
+		return s.recordActionFailure(infrav1.PermanentError, errMsg)
 	}
 
 	if err := s.enforceRescueMode(); err != nil {
@@ -271,7 +270,7 @@ func (s *Service) ensureSSHKey(sshSecretRef infrav1.SSHSecretRef, sshSecret *cor
 					msg,
 				)
 				record.Warnf(s.scope.HetznerBareMetalHost, infrav1.SSHKeyAlreadyExistsReason, msg)
-				return infrav1.SSHKey{}, s.recordActionFailure(infrav1.FatalError, msg)
+				return infrav1.SSHKey{}, s.recordActionFailure(infrav1.PreparationError, msg)
 			}
 			return infrav1.SSHKey{}, actionError{err: fmt.Errorf("failed to set ssh key: %w", err)}
 		}
@@ -923,6 +922,13 @@ func (s *Service) createAutoSetupInput(sshClient sshclient.Client) (autoSetupInp
 	image := s.scope.HetznerBareMetalHost.Spec.Status.InstallImage.Image
 	imagePath, needsDownload, errorMessage := image.GetDetails()
 	if errorMessage != "" {
+		conditions.MarkFalse(
+			s.scope.HetznerBareMetalHost,
+			infrav1.ProvisionSucceededCondition,
+			infrav1.ImageSpecInvalidReason,
+			clusterv1.ConditionSeverityError,
+			errorMessage,
+		)
 		return autoSetupInput{}, s.recordActionFailure(infrav1.ProvisioningError, errorMessage)
 	}
 	if needsDownload {
@@ -942,7 +948,15 @@ func (s *Service) createAutoSetupInput(sshClient sshclient.Client) (autoSetupInp
 
 	// we need at least one storage device
 	if len(deviceNames) == 0 {
-		return autoSetupInput{}, s.recordActionFailure(infrav1.ProvisioningError, "no suitable storage device found")
+		msg := "no suitable storage device found"
+		conditions.MarkFalse(
+			s.scope.HetznerBareMetalHost,
+			infrav1.ProvisionSucceededCondition,
+			infrav1.NoStorageDeviceFoundReason,
+			clusterv1.ConditionSeverityError,
+			msg,
+		)
+		return autoSetupInput{}, s.recordActionFailure(infrav1.ProvisioningError, msg)
 	}
 
 	hostName := infrav1.BareMetalHostNamePrefix + s.scope.HetznerBareMetalHost.Spec.ConsumerRef.Name
@@ -1017,7 +1031,15 @@ func (s *Service) provision(sshClient sshclient.Client, machineName string) acti
 		}
 
 		if trimLineBreak(out.StdOut) == "" {
-			return s.recordActionFailure(infrav1.ProvisioningError, "cloud init not installed")
+			msg := "cloud init not installed"
+			conditions.MarkFalse(
+				s.scope.HetznerBareMetalHost,
+				infrav1.ProvisionSucceededCondition,
+				infrav1.CloudInitNotInstalledReason,
+				clusterv1.ConditionSeverityError,
+				msg,
+			)
+			return s.recordActionFailure(infrav1.ProvisioningError, msg)
 		}
 	}
 
@@ -1212,11 +1234,7 @@ func (s *Service) checkCloudInitStatus(sshClient sshclient.Client) (actionResult
 
 		s.scope.HetznerBareMetalHost.ClearError()
 	case strings.Contains(stdOut, "status: error"):
-		record.Event(
-			s.scope.HetznerBareMetalHost,
-			"FatalError",
-			"cloud init returned status error",
-		)
+		record.Warn(s.scope.HetznerBareMetalHost, "CloudInitFailed", "cloud init returned status error")
 		return s.recordActionFailure(infrav1.FatalError, "cloud init returned status error"), nil
 	default:
 		// Errors are handled after stdOut in this case, as status: error returns an exited with status 1 error
@@ -1370,21 +1388,17 @@ func (s *Service) actionDeprovisioning() actionResult {
 		s.scope.Info("OS SSH Secret is empty - cannot reset kubeadm")
 	}
 
-	s.scope.HetznerBareMetalHost.ClearError()
+	// Only keep permanent errors on the host object after deprovisioning.
+	// Permanent errors are those ones that do not get solved with de- or re-provisioning.
+	if s.scope.HetznerBareMetalHost.Spec.Status.ErrorType != infrav1.PermanentError {
+		s.scope.HetznerBareMetalHost.ClearError()
+	}
 
 	return actionComplete{}
 }
 
 func (s *Service) actionDeleting() actionResult {
-	if !utils.StringInList(s.scope.HetznerBareMetalHost.Finalizers, infrav1.BareMetalHostFinalizer) {
-		return deleteComplete{}
-	}
-
 	s.scope.HetznerBareMetalHost.Finalizers = utils.FilterStringFromList(s.scope.HetznerBareMetalHost.Finalizers, infrav1.BareMetalHostFinalizer)
-	if err := s.scope.Client.Update(context.Background(), s.scope.HetznerBareMetalHost); err != nil {
-		return actionError{fmt.Errorf("failed to remove finalizer: %w", err)}
-	}
-
 	return deleteComplete{}
 }
 
