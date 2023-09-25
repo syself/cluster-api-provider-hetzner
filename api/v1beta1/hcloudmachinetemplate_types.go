@@ -38,6 +38,10 @@ type HCloudMachineTemplateStatus struct {
 	// Conditions defines current service state of the HCloudMachineTemplate.
 	// +optional
 	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
+
+	// OwnerType is the type of object that owns the HCloudMachineTemplate.
+	// +optional
+	OwnerType string `json:"ownerType,omitempty"`
 }
 
 // +kubebuilder:subresource:status
