@@ -31,7 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/selection"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -454,7 +454,7 @@ var _ = Describe("Test setOwnerRefInList", func() {
 					Name:       "bm-machine",
 					Kind:       "HetznerBareMetalMachine",
 					APIVersion: "v1beta1",
-					Controller: pointer.Bool(true),
+					Controller: ptr.To(true),
 				},
 			},
 		}),
@@ -471,7 +471,7 @@ var _ = Describe("Test setOwnerRefInList", func() {
 					Name:       "bm-machine",
 					Kind:       "HetznerBareMetalMachine",
 					APIVersion: "v1beta1",
-					Controller: pointer.Bool(true),
+					Controller: ptr.To(true),
 				},
 			},
 		}),
@@ -503,7 +503,7 @@ var _ = Describe("Test setOwnerRefInList", func() {
 					Name:       "bm-machine",
 					Kind:       "HetznerBareMetalMachine",
 					APIVersion: "v1beta1",
-					Controller: pointer.Bool(true),
+					Controller: ptr.To(true),
 				},
 			},
 		}),

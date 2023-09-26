@@ -25,8 +25,9 @@ import (
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	"github.com/prometheus/client_golang/prometheus"
-	caphversion "github.com/syself/cluster-api-provider-hetzner/pkg/version"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
+
+	caphversion "github.com/syself/cluster-api-provider-hetzner/pkg/version"
 )
 
 const errStringUnauthorized = "(unauthorized)"
