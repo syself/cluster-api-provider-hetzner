@@ -90,7 +90,7 @@ func NewService(s *scope.BareMetalHostScope) *Service {
 func (s *Service) Reconcile(ctx context.Context) (result reconcile.Result, err error) {
 	initialState := s.scope.HetznerBareMetalHost.Spec.Status.ProvisioningState
 
-	oldHost := *s.scope.HetznerBareMetalHost
+	oldHost := s.scope.HetznerBareMetalHost.DeepCopy()
 
 	hostStateMachine := newHostStateMachine(s.scope.HetznerBareMetalHost, s, s.scope.Logger)
 
@@ -144,7 +144,7 @@ func SaveHostAndReturn(ctx context.Context, cl client.Client, host *infrav1.Hetz
 func (s *Service) actionPreparing() actionResult {
 	server, err := s.scope.RobotClient.GetBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID)
 	if err != nil {
-		s.handleRateLimitExceeded(err, "GetBMServer")
+		s.handleRobotRateLimitExceeded(err, "GetBMServer")
 		if models.IsError(err, models.ErrorCodeServerNotFound) {
 			msg := "bare metal host not found"
 			conditions.MarkFalse(
@@ -174,7 +174,7 @@ func (s *Service) actionPreparing() actionResult {
 	if len(s.scope.HetznerBareMetalHost.Spec.Status.RebootTypes) == 0 {
 		reboot, err := s.scope.RobotClient.GetReboot(s.scope.HetznerBareMetalHost.Spec.ServerID)
 		if err != nil {
-			s.handleRateLimitExceeded(err, "GetReboot")
+			s.handleRobotRateLimitExceeded(err, "GetReboot")
 			return actionError{err: fmt.Errorf("failed to get reboot: %w", err)}
 		}
 
@@ -208,7 +208,7 @@ func (s *Service) actionPreparing() actionResult {
 	rebootType, errorType := rebootAndErrorTypeAfterTimeout(s.scope.HetznerBareMetalHost)
 
 	if _, err := s.scope.RobotClient.RebootBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID, rebootType); err != nil {
-		s.handleRateLimitExceeded(err, rebootServerStr)
+		s.handleRobotRateLimitExceeded(err, rebootServerStr)
 		return actionError{err: fmt.Errorf(errMsgFailedReboot, err)}
 	}
 
@@ -220,7 +220,7 @@ func (s *Service) actionPreparing() actionResult {
 func (s *Service) enforceRescueMode() error {
 	// delete old rescue activations if exist, as the ssh key might have changed in between
 	if _, err := s.scope.RobotClient.DeleteBootRescue(s.scope.HetznerBareMetalHost.Spec.ServerID); err != nil {
-		s.handleRateLimitExceeded(err, "DeleteBootRescue")
+		s.handleRobotRateLimitExceeded(err, "DeleteBootRescue")
 		return fmt.Errorf("failed to delete boot rescue: %w", err)
 	}
 	// Rescue system is still not active - activate again
@@ -228,7 +228,7 @@ func (s *Service) enforceRescueMode() error {
 		s.scope.HetznerBareMetalHost.Spec.ServerID,
 		s.scope.HetznerBareMetalHost.Spec.Status.SSHStatus.RescueKey.Fingerprint,
 	); err != nil {
-		s.handleRateLimitExceeded(err, "SetBootRescue")
+		s.handleRobotRateLimitExceeded(err, "SetBootRescue")
 		return fmt.Errorf("failed to set boot rescue: %w", err)
 	}
 	return nil
@@ -252,7 +252,7 @@ func (s *Service) ensureSSHKey(sshSecretRef infrav1.SSHSecretRef, sshSecret *cor
 	}
 	hetznerSSHKeys, err := s.scope.RobotClient.ListSSHKeys()
 	if err != nil {
-		s.handleRateLimitExceeded(err, "ListSSHKeys")
+		s.handleRobotRateLimitExceeded(err, "ListSSHKeys")
 		if !models.IsError(err, models.ErrorCodeNotFound) {
 			return infrav1.SSHKey{}, actionError{err: fmt.Errorf("failed to list ssh heys: %w", err)}
 		}
@@ -273,9 +273,10 @@ func (s *Service) ensureSSHKey(sshSecretRef infrav1.SSHSecretRef, sshSecret *cor
 		publicKey := string(sshSecret.Data[sshSecretRef.Key.PublicKey])
 		hetznerSSHKey, err := s.scope.RobotClient.SetSSHKey(string(sshSecret.Data[sshSecretRef.Key.Name]), publicKey)
 		if err != nil {
-			s.handleRateLimitExceeded(err, "SetSSHKey")
+			s.handleRobotRateLimitExceeded(err, "SetSSHKey")
 			if models.IsError(err, models.ErrorCodeKeyAlreadyExists) {
-				msg := fmt.Sprintf("cannot upload ssh key %s - exists already under a different name", string(sshSecret.Data[sshSecretRef.Key.Name]))
+				msg := fmt.Sprintf("cannot upload ssh key %q (from secret %q) - exists already under a different name: %s",
+					string(sshSecret.Data[sshSecretRef.Key.Name]), sshSecretRef.Name, err.Error())
 				conditions.MarkFalse(
 					s.scope.HetznerBareMetalHost,
 					infrav1.CredentialsAvailableCondition,
@@ -373,7 +374,7 @@ func (s *Service) handleErrorTypeSSHRebootFailed(isSSHTimeoutError, wantsRescue 
 		rebootType, errorType := rebootAndErrorTypeAfterTimeout(s.scope.HetznerBareMetalHost)
 
 		if _, err := s.scope.RobotClient.RebootBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID, rebootType); err != nil {
-			s.handleRateLimitExceeded(err, rebootServerStr)
+			s.handleRobotRateLimitExceeded(err, rebootServerStr)
 			return fmt.Errorf(errMsgFailedReboot, err)
 		}
 
@@ -414,7 +415,7 @@ func (s *Service) handleErrorTypeSoftwareRebootFailed(isSSHTimeoutError, wantsRe
 		}
 		// Perform hardware reboot
 		if _, err := s.scope.RobotClient.RebootBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID, infrav1.RebootTypeHardware); err != nil {
-			s.handleRateLimitExceeded(err, rebootServerStr)
+			s.handleRobotRateLimitExceeded(err, rebootServerStr)
 			return fmt.Errorf(errMsgFailedReboot, err)
 		}
 
@@ -444,7 +445,7 @@ func (s *Service) handleErrorTypeHardwareRebootFailed(isSSHTimeoutError, wantsRe
 
 		// we immediately set an error message in the host status to track the reboot we just performed
 		if _, err := s.scope.RobotClient.RebootBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID, infrav1.RebootTypeHardware); err != nil {
-			s.handleRateLimitExceeded(err, rebootServerStr)
+			s.handleRobotRateLimitExceeded(err, rebootServerStr)
 			return fmt.Errorf(errMsgFailedReboot, err)
 		}
 	}
@@ -459,7 +460,7 @@ func hasTimedOut(lastUpdated *metav1.Time, timeout time.Duration) bool {
 func (s *Service) ensureRescueMode() error {
 	rescue, err := s.scope.RobotClient.GetBootRescue(s.scope.HetznerBareMetalHost.Spec.ServerID)
 	if err != nil {
-		s.handleRateLimitExceeded(err, "GetBootRescue")
+		s.handleRobotRateLimitExceeded(err, "GetBootRescue")
 		return fmt.Errorf("failed to get boot rescue: %w", err)
 	}
 	if !rescue.Active {
@@ -468,7 +469,7 @@ func (s *Service) ensureRescueMode() error {
 			s.scope.HetznerBareMetalHost.Spec.ServerID,
 			s.scope.HetznerBareMetalHost.Spec.Status.SSHStatus.RescueKey.Fingerprint,
 		); err != nil {
-			s.handleRateLimitExceeded(err, "SetBootRescue")
+			s.handleRobotRateLimitExceeded(err, "SetBootRescue")
 			return fmt.Errorf("failed to set boot rescue: %w", err)
 		}
 	}
@@ -620,7 +621,7 @@ func (s *Service) analyzeSSHErrorRegistering(sshErr error) (isSSHTimeoutError, i
 func (s *Service) rebootTriggered() (bool, error) {
 	rescue, err := s.scope.RobotClient.GetBootRescue(s.scope.HetznerBareMetalHost.Spec.ServerID)
 	if err != nil {
-		s.handleRateLimitExceeded(err, "GetBootRescue")
+		s.handleRobotRateLimitExceeded(err, "GetBootRescue")
 		return false, fmt.Errorf("failed to get boot rescue: %w", err)
 	}
 	return !rescue.Active, nil
@@ -924,7 +925,7 @@ func (s *Service) actionImageInstalling() actionResult {
 
 	// Update name in robot API
 	if _, err := s.scope.RobotClient.SetBMServerName(s.scope.HetznerBareMetalHost.Spec.ServerID, autoSetupInput.hostName); err != nil {
-		s.handleRateLimitExceeded(err, "SetBMServerName")
+		s.handleRobotRateLimitExceeded(err, "SetBMServerName")
 		return actionError{err: fmt.Errorf("failed to update name of host in robot API: %w", err)}
 	}
 
@@ -1397,7 +1398,7 @@ func (s *Service) actionDeprovisioning() actionResult {
 		s.scope.HetznerBareMetalHost.Spec.ServerID,
 		s.scope.HetznerBareMetalHost.Spec.ConsumerRef.Name,
 	); err != nil {
-		s.handleRateLimitExceeded(err, "SetBMServerName")
+		s.handleRobotRateLimitExceeded(err, "SetBMServerName")
 		return actionError{err: fmt.Errorf("failed to update name of host in robot API: %w", err)}
 	}
 
@@ -1431,9 +1432,9 @@ func (s *Service) actionDeleting() actionResult {
 	return deleteComplete{}
 }
 
-func (s *Service) handleRateLimitExceeded(err error, functionName string) {
+func (s *Service) handleRobotRateLimitExceeded(err error, functionName string) {
 	if models.IsError(err, models.ErrorCodeRateLimitExceeded) || strings.Contains(err.Error(), "server responded with status code 403") {
-		msg := fmt.Sprintf("exceeded rate limit with calling function %q: %s", functionName, err.Error())
+		msg := fmt.Sprintf("exceeded robot rate limit with calling function %q: %s", functionName, err.Error())
 		conditions.MarkFalse(
 			s.scope.HetznerBareMetalHost,
 			infrav1.HetznerAPIReachableCondition,
