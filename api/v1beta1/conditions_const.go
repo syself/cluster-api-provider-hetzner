@@ -42,6 +42,8 @@ const (
 	ImageNotFoundReason = "ImageNotFound"
 	// ImageAmbiguousReason indicates that there are multiple images with the required properties.
 	ImageAmbiguousReason = "ImageAmbiguous"
+	// ServerLimitExceededReason indicates that server resource rate limit is hit.
+	ServerLimitExceededReason = "ServerLimitExceeded"
 )
 
 const (
