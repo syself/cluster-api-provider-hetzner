@@ -9,21 +9,21 @@ require (
 	github.com/go-logr/logr v1.2.4
 	github.com/go-logr/zapr v1.2.4
 	github.com/hetznercloud/hcloud-go/v2 v2.2.0
-	github.com/onsi/ginkgo/v2 v2.11.0
-	github.com/onsi/gomega v1.27.8
+	github.com/onsi/ginkgo/v2 v2.12.1
+	github.com/onsi/gomega v1.27.10
 	github.com/prometheus/client_golang v1.16.0
 	github.com/stretchr/testify v1.8.4
 	github.com/syself/hrobot-go v0.2.5
-	go.uber.org/zap v1.24.0
-	golang.org/x/crypto v0.11.0
-	golang.org/x/mod v0.11.0
+	go.uber.org/zap v1.26.0
+	golang.org/x/crypto v0.13.0
+	golang.org/x/mod v0.12.0
 	k8s.io/api v0.27.2
 	k8s.io/apimachinery v0.27.2
 	k8s.io/apiserver v0.27.2
 	k8s.io/client-go v0.27.2
 	k8s.io/klog/v2 v2.100.1
 	k8s.io/kubectl v0.27.2
-	k8s.io/utils v0.0.0-20230505201702-9f6742963106
+	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 	sigs.k8s.io/cluster-api v1.5.1
 	sigs.k8s.io/cluster-api/test v1.5.0
 	sigs.k8s.io/controller-runtime v0.15.1
@@ -109,15 +109,14 @@ require (
 	github.com/stretchr/objx v0.5.0 // indirect
 	github.com/subosito/gotenv v1.4.2 // indirect
 	github.com/valyala/fastjson v1.6.4 // indirect
-	go.uber.org/atomic v1.9.0 // indirect
-	go.uber.org/multierr v1.8.0 // indirect
-	golang.org/x/net v0.12.0 // indirect
+	go.uber.org/multierr v1.10.0 // indirect
+	golang.org/x/net v0.14.0 // indirect
 	golang.org/x/oauth2 v0.10.0 // indirect
-	golang.org/x/sys v0.10.0 // indirect
-	golang.org/x/term v0.10.0 // indirect
-	golang.org/x/text v0.11.0 // indirect
+	golang.org/x/sys v0.12.0 // indirect
+	golang.org/x/term v0.12.0 // indirect
+	golang.org/x/text v0.13.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
-	golang.org/x/tools v0.9.3 // indirect
+	golang.org/x/tools v0.12.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.3.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1 // indirect
