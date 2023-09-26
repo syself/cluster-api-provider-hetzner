@@ -226,7 +226,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 					lb := loadBalancers[0]
 
 					return len(lb.Services)
-				}, timeout).Should(Equal(len(instance.Spec.ControlPlaneLoadBalancer.ExtraServices)))
+				}, timeout).Should(Equal(len(instance.Spec.ControlPlaneLoadBalancer.ExtraServices) + 1))
 
 				By("reducing extra targets")
 
@@ -262,7 +262,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 					lb := loadBalancers[0]
 
 					return len(lb.Services)
-				}, timeout).Should(Equal(len(instance.Spec.ControlPlaneLoadBalancer.ExtraServices)))
+				}, timeout).Should(Equal(len(instance.Spec.ControlPlaneLoadBalancer.ExtraServices) + 1))
 
 				By("removing extra targets")
 
@@ -292,7 +292,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 					lb := loadBalancers[0]
 
 					return len(lb.Services)
-				}, timeout).Should(Equal(len(instance.Spec.ControlPlaneLoadBalancer.ExtraServices)))
+				}, timeout).Should(Equal(len(instance.Spec.ControlPlaneLoadBalancer.ExtraServices) + 1))
 			})
 
 			It("should not create load balancer if disabled and the cluster should get ready", func() {
@@ -344,6 +344,43 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 				value, found := loadBalancers[0].Labels[instance.ClusterTagKey()]
 				Expect(found).To(BeTrue())
 				Expect(value).To(Equal(string(infrav1.ResourceLifecycleOwned)))
+
+				By("checking that kubeapi service is set on load balancer")
+
+				var foundHetznerCluster infrav1.HetznerCluster
+
+				Eventually(func() bool {
+					if err := testEnv.Get(ctx, key, &foundHetznerCluster); err != nil {
+						testEnv.GetLogger().Error(err, "failed to fetch HetznerCluster")
+						return false
+					}
+
+					// fetch load balancer again as reconcilement of additional services happens after the load balancer has been created
+					loadBalancers, err := hcloudClient.ListLoadBalancers(ctx, hcloud.LoadBalancerListOpts{Name: lbName})
+					if err != nil {
+						testEnv.GetLogger().Error(err, "failed to list load balancers")
+						return false
+					}
+
+					if len(loadBalancers) != 1 {
+						testEnv.GetLogger().Info("expect 1 load balancer - but did not get it", "got", len(loadBalancers))
+						return false
+					}
+
+					lb := loadBalancers[0]
+					for _, service := range lb.Services {
+						if service.ListenPort == int(foundHetznerCluster.Spec.ControlPlaneEndpoint.Port) {
+							return true
+						}
+					}
+
+					testEnv.GetLogger().Info(
+						"Could not find listenPort of kubeapiserver in load balancer services",
+						"load balancer services", lb.Services,
+						"listenPort of kubeAPI service", foundHetznerCluster.Spec.ControlPlaneEndpoint.Port,
+					)
+					return false
+				}, timeout, time.Second).Should(BeTrue())
 			})
 
 			It("should set the appropriate condition if a named load balancer is taken by another cluster", func() {
