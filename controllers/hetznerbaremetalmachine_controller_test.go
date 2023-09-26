@@ -54,7 +54,6 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 		hetznerSecret   *corev1.Secret
 		rescueSSHSecret *corev1.Secret
-		osSSHSecret     *corev1.Secret
 		bootstrapSecret *corev1.Secret
 
 		key client.ObjectKey
@@ -119,9 +118,6 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 		rescueSSHSecret = helpers.GetDefaultSSHSecret("rescue-ssh-secret", testNs.Name)
 		Expect(testEnv.Create(ctx, rescueSSHSecret)).To(Succeed())
 
-		osSSHSecret = helpers.GetDefaultSSHSecret("os-ssh-secret", testNs.Name)
-		Expect(testEnv.Create(ctx, osSSHSecret)).To(Succeed())
-
 		bootstrapSecret = getDefaultBootstrapSecret(testNs.Name)
 		Expect(testEnv.Create(ctx, bootstrapSecret)).To(Succeed())
 
@@ -167,7 +163,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 	AfterEach(func() {
 		Expect(testEnv.Cleanup(ctx, testNs, capiCluster, hetznerCluster,
-			hetznerSecret, rescueSSHSecret, osSSHSecret, bootstrapSecret)).To(Succeed())
+			hetznerSecret, rescueSSHSecret, bootstrapSecret)).To(Succeed())
 	})
 
 	Context("Tests with host", func() {
@@ -273,6 +269,8 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 		})
 
 		Context("Basic test", func() {
+			var osSSHSecret *corev1.Secret
+
 			BeforeEach(func() {
 				capiMachine = &clusterv1.Machine{
 					ObjectMeta: metav1.ObjectMeta{
@@ -318,11 +316,14 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				}
 				Expect(testEnv.Create(ctx, bmMachine)).To(Succeed())
 
+				osSSHSecret = helpers.GetDefaultSSHSecret("os-ssh-secret", testNs.Name)
+				Expect(testEnv.Create(ctx, osSSHSecret)).To(Succeed())
+
 				key = client.ObjectKey{Namespace: testNs.Name, Name: bmMachineName}
 			})
 
 			AfterEach(func() {
-				Expect(testEnv.Cleanup(ctx, capiMachine, bmMachine)).To(Succeed())
+				Expect(testEnv.Cleanup(ctx, capiMachine, bmMachine, osSSHSecret)).To(Succeed())
 			})
 
 			It("creates the bare metal machine", func() {
@@ -370,9 +371,9 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					return isPresentAndTrue(key, bmMachine, infrav1.HostAssociateSucceededCondition)
 				}, timeout).Should(BeTrue())
 
-				By("checking that the host is provisioned")
+				By("checking that the host is ready")
 				Eventually(func() bool {
-					return isPresentAndTrue(key, bmMachine, infrav1.HostProvisionSucceededCondition)
+					return isPresentAndTrue(key, bmMachine, infrav1.HostReadyCondition)
 				}, timeout).Should(BeTrue())
 
 				By("checking that the bare metal machine is ready")
@@ -442,6 +443,72 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 					testEnv.GetLogger().Info("status of host and hetznerBareMetalMachine", "hetznerBareMetalMachine phase", bmMachine.Status.Phase, "host state", host.Spec.Status.ProvisioningState)
 					return bmMachine.Status.Phase == clusterv1.MachinePhaseRunning
+				}, timeout, time.Second).Should(BeTrue())
+			})
+
+			It("checks that HostReady condition is True for hetznerBareMetalMachine", func() {
+				Eventually(func() bool {
+					return isPresentAndTrue(key, bmMachine, infrav1.HostReadyCondition)
+				}, timeout, time.Second).Should(BeTrue())
+			})
+		})
+
+		Context("Test wrong Host", func() {
+			BeforeEach(func() {
+				capiMachine = &clusterv1.Machine{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "capi-machine-",
+						Namespace:    testNs.Name,
+						Finalizers:   []string{clusterv1.MachineFinalizer},
+						Labels: map[string]string{
+							clusterv1.ClusterNameLabel: capiCluster.Name,
+						},
+					},
+					Spec: clusterv1.MachineSpec{
+						ClusterName: capiCluster.Name,
+						InfrastructureRef: corev1.ObjectReference{
+							APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
+							Kind:       "HetznerBareMetalMachine",
+							Name:       bmMachineName,
+						},
+						FailureDomain: &defaultFailureDomain,
+						Bootstrap: clusterv1.Bootstrap{
+							DataSecretName: ptr.To("bootstrap-secret"),
+						},
+					},
+				}
+				Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
+
+				bmMachine = &infrav1.HetznerBareMetalMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      bmMachineName,
+						Namespace: testNs.Name,
+						Labels: map[string]string{
+							clusterv1.ClusterNameLabel: capiCluster.Name,
+						},
+						OwnerReferences: []metav1.OwnerReference{
+							{
+								APIVersion: "cluster.x-k8s.io/v1beta1",
+								Kind:       "Machine",
+								Name:       capiMachine.Name,
+								UID:        capiMachine.UID,
+							},
+						},
+					},
+					Spec: getDefaultHetznerBareMetalMachineSpec(),
+				}
+				Expect(testEnv.Create(ctx, bmMachine)).To(Succeed())
+
+				key = client.ObjectKey{Namespace: testNs.Name, Name: bmMachineName}
+			})
+
+			AfterEach(func() {
+				Expect(testEnv.Cleanup(ctx, capiMachine, bmMachine)).To(Succeed())
+			})
+
+			It("checks for HostReadyCondition False for hetznerBareMetalMachine with HetznerSecretUnreachableReason", func() {
+				Eventually(func() bool {
+					return isPresentAndFalseWithReason(key, bmMachine, infrav1.HostReadyCondition, infrav1.OSSSHSecretMissingReason)
 				}, timeout, time.Second).Should(BeTrue())
 			})
 		})
