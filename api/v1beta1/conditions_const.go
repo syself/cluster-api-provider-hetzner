@@ -136,6 +136,12 @@ const (
 	SSHConnectionRefusedReason = "SSHConnectionRefused"
 	// RescueSystemUnavailableReason indicates that the server has no rescue system.
 	RescueSystemUnavailableReason = "RescueSystemUnavailable"
+	// ImageSpecInvalidReason indicates that the information specified about the image of the host are invalid.
+	ImageSpecInvalidReason = "ImageSpecInvalid"
+	// NoStorageDeviceFoundReason indicates that no suitable storage device could be found.
+	NoStorageDeviceFoundReason = "NoStorageDeviceFound"
+	// CloudInitNotInstalledReason indicates that cloud init is not installed.
+	CloudInitNotInstalledReason = "CloudInitNotInstalled"
 )
 
 const (

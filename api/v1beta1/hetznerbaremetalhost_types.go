@@ -100,6 +100,9 @@ const (
 
 	// FatalError is a fatal error that triggers a failureMessage in the bm machine.
 	FatalError ErrorType = "fatal error"
+
+	// PermanentError is like fatal error but stays on host machine.
+	PermanentError ErrorType = "permanent error"
 )
 
 const (

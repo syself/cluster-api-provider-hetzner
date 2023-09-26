@@ -503,7 +503,7 @@ var _ = Describe("handleIncompleteBoot", func() {
 var _ = Describe("ensureSSHKey", func() {
 	defaultFingerPrint := "my-fingerprint"
 
-	It("sets a fatal error if a key that exists under another name is uploaded", func() {
+	It("sets an error error if a key that exists under another name is uploaded", func() {
 		secret := helpers.GetDefaultSSHSecret("ssh-secret", "default")
 		robotMock := robotmock.Client{}
 		sshSecretKeyRef := infrav1.SSHSecretKeyRef{
@@ -537,7 +537,7 @@ var _ = Describe("ensureSSHKey", func() {
 		emptySSHKey := infrav1.SSHKey{}
 		Expect(sshKey).To(Equal(emptySSHKey))
 		Expect(actResult).To(BeAssignableToTypeOf(actionFailed{}))
-		Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.FatalError))
+		Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.PreparationError))
 	})
 
 	type testCaseEnsureSSHKey struct {

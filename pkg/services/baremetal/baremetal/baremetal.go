@@ -215,7 +215,8 @@ func (s *Service) update(ctx context.Context) error {
 	}
 
 	// if host has a fatal error, then it should be set on the machine object as well
-	if host.Spec.Status.ErrorType == infrav1.FatalError && s.scope.BareMetalMachine.Status.FailureReason == nil {
+	if (host.Spec.Status.ErrorType == infrav1.FatalError || host.Spec.Status.ErrorType == infrav1.PermanentError) &&
+		s.scope.BareMetalMachine.Status.FailureReason == nil {
 		s.scope.BareMetalMachine.SetFailure(capierrors.UpdateMachineError, host.Spec.Status.ErrorMessage)
 		record.Eventf(s.scope.BareMetalMachine, "BareMetalMachineSetFailure", host.Spec.Status.ErrorMessage)
 		return nil
