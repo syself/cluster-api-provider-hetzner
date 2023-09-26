@@ -55,7 +55,6 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	host, err := s.getHost(ctx)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			err = fmt.Errorf("HetznerBareMetalHost not found")
 			if err := s.setOwnerRemediatedConditionNew(ctx); err != nil {
 				err = fmt.Errorf("failed to set remediated condition on capi machine: %w", err)
 				record.Warn(s.scope.BareMetalRemediation, "FailedSettingConditionOnMachine", err.Error())
@@ -68,9 +67,10 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 		return res, err
 	}
 
-	// if host is not provisioned, then we do not try to reboot server
-	if host.Spec.Status.ProvisioningState != infrav1.StateProvisioned {
-		s.scope.Info("Deleting host without remediation", "provisioningState", host.Spec.Status.ProvisioningState)
+	// if host is not provisioned or in maintenance mode, then we do not try to reboot server
+	if host.Spec.Status.ProvisioningState != infrav1.StateProvisioned ||
+		host.Spec.MaintenanceMode != nil && *host.Spec.MaintenanceMode {
+		s.scope.Info("Deleting host without remediation", "provisioningState", host.Spec.Status.ProvisioningState, "maintenanceMode", host.Spec.MaintenanceMode)
 
 		if err := s.setOwnerRemediatedConditionNew(ctx); err != nil {
 			err := fmt.Errorf("failed to set remediated condition on capi machine: %w", err)
