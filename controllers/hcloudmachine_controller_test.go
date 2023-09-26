@@ -24,10 +24,14 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/klog/v2"
 	"k8s.io/utils/pointer"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
@@ -576,5 +580,78 @@ var _ = Describe("HCloudMachine validation", func() {
 	It("should fail without imageName", func() {
 		hcloudMachine.Spec.ImageName = ""
 		Expect(testEnv.Create(ctx, hcloudMachine)).ToNot(Succeed())
+	})
+})
+
+var _ = Describe("IgnoreHetznerClusterConditionUpdates Predicate", func() {
+	var (
+		predicate predicate.Predicate
+
+		oldCluster *infrav1.HetznerCluster
+		newCluster *infrav1.HetznerCluster
+	)
+
+	BeforeEach(func() {
+		predicate = IgnoreHetznerClusterConditionUpdates(klog.Background())
+
+		oldCluster = &infrav1.HetznerCluster{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-predicate", ResourceVersion: "1"},
+			Spec:       getDefaultHetznerClusterSpec(),
+			Status: infrav1.HetznerClusterStatus{
+				Conditions: []clusterv1.Condition{},
+			},
+		}
+		conditions.MarkTrue(oldCluster, infrav1.CredentialsAvailableCondition)
+
+		newCluster = oldCluster.DeepCopy()
+	})
+
+	It("should skip updates to the HetznerCluster conditions", func() {
+		// Make change to conditions & other fields that get changed on every update
+		conditions.MarkFalse(newCluster, infrav1.CredentialsAvailableCondition, infrav1.HCloudCredentialsInvalidReason, clusterv1.ConditionSeverityError, "")
+		newCluster.ObjectMeta.ResourceVersion = "2"
+		newCluster.ObjectMeta.SetManagedFields([]metav1.ManagedFieldsEntry{{
+			Manager:   "test",
+			Operation: "update",
+		}})
+
+		Expect(predicate.Update(event.UpdateEvent{
+			ObjectOld: oldCluster,
+			ObjectNew: newCluster,
+		})).To(BeFalse())
+	})
+
+	It("should process updates to other fields", func() {
+		newCluster.Spec.ControlPlaneRegions = []infrav1.Region{"fsn1", "nbg1", "hel1"}
+
+		Expect(predicate.Update(event.UpdateEvent{
+			ObjectOld: oldCluster,
+			ObjectNew: newCluster,
+		})).To(BeTrue())
+	})
+
+	It("should process updates to other resources", func() {
+		Expect(predicate.Update(event.UpdateEvent{
+			ObjectOld: &infrav1.HCloudMachine{},
+			ObjectNew: &infrav1.HCloudMachine{},
+		})).To(BeTrue())
+	})
+
+	It("should process create events", func() {
+		Expect(predicate.Create(event.CreateEvent{
+			Object: newCluster,
+		})).To(BeTrue())
+	})
+
+	It("should process delete events", func() {
+		Expect(predicate.Delete(event.DeleteEvent{
+			Object: newCluster,
+		})).To(BeTrue())
+	})
+
+	It("should process generic events", func() {
+		Expect(predicate.Generic(event.GenericEvent{
+			Object: newCluster,
+		})).To(BeTrue())
 	})
 })
