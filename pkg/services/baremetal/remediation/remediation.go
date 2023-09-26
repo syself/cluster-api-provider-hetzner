@@ -137,7 +137,7 @@ func (s *Service) remediate(ctx context.Context, host infrav1.HetznerBareMetalHo
 		return fmt.Errorf("failed to init patch helper: %s %s/%s %w", host.Kind, host.Namespace, host.Name, err)
 	}
 
-	// check if host is in maintenance mode
+	// check if host is not in maintenance mode
 	if !*host.Spec.MaintenanceMode {
 		// add annotation to host so that it reboots
 		host.Annotations, err = addRebootAnnotation(host.Annotations)
