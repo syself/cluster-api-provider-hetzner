@@ -137,10 +137,13 @@ func (s *Service) remediate(ctx context.Context, host infrav1.HetznerBareMetalHo
 		return fmt.Errorf("failed to init patch helper: %s %s/%s %w", host.Kind, host.Namespace, host.Name, err)
 	}
 
-	// add annotation to host so that it reboots
-	host.Annotations, err = addRebootAnnotation(host.Annotations)
-	if err != nil {
-		return fmt.Errorf("failed to add reboot annotation: %w", err)
+	// check if host is in maintenance mode
+	if !*host.Spec.MaintenanceMode {
+		// add annotation to host so that it reboots
+		host.Annotations, err = addRebootAnnotation(host.Annotations)
+		if err != nil {
+			return fmt.Errorf("failed to add reboot annotation: %w", err)
+		}
 	}
 
 	if err := patchHelper.Patch(ctx, &host); err != nil {
