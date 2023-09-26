@@ -234,7 +234,7 @@ func (r *HCloudMachineReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 		return fmt.Errorf("error creating controller: %w", err)
 	}
 
-	clusterToObjectFunc, err := util.ClusterToObjectsMapper(r.Client, &infrav1.HCloudMachineList{}, mgr.GetScheme())
+	clusterToObjectFunc, err := util.ClusterToTypedObjectsMapper(r.Client, &infrav1.HCloudMachineList{}, mgr.GetScheme())
 	if err != nil {
 		return fmt.Errorf("failed to create mapper for Cluster to HCloudMachines: %w", err)
 	}
@@ -303,6 +303,7 @@ func (r *HCloudMachineReconciler) HetznerClusterToHCloudMachines(_ context.Conte
 	}
 }
 
+// IgnoreHetznerClusterConditionUpdates is a predicate used for ignoring HetznerCluster condition updates.
 func IgnoreHetznerClusterConditionUpdates(logger logr.Logger) predicate.Funcs {
 	return predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
@@ -344,7 +345,6 @@ func IgnoreHetznerClusterConditionUpdates(logger logr.Logger) predicate.Funcs {
 				// Only insignificant fields changed, no need to reconcile
 				log.V(1).Info("Update to resource only changes insignificant fields, will not enqueue event")
 				return false
-
 			}
 			// There is a noteworthy diff, so we should reconcile
 			log.V(1).Info("Update to resource changes significant fields, will enqueue event")

@@ -81,7 +81,7 @@ jobs:
 
       # Import GitHub's cache build to docker cache
       - name: Copy Caph Golang cache to docker cache
-        uses: docker/build-push-action@2eb1c1961a95fc15694676618e422e8ba1d63825 # v4.1.1
+        uses: docker/build-push-action@0565240e2d4ab88bba5387d719585280857ece09 # v5.0.0
         with:
           provenance: false
           context: /tmp/.cache/caph
@@ -91,7 +91,7 @@ jobs:
           target: import-cache
 
       - name: Build and push manager image
-        uses: docker/build-push-action@2eb1c1961a95fc15694676618e422e8ba1d63825 # v4
+        uses: docker/build-push-action@0565240e2d4ab88bba5387d719585280857ece09 # v5
         id: docker_build_release
         with:
           provenance: false
@@ -127,7 +127,7 @@ jobs:
       # Store docker's golang's cache build locally only on the main branch
       - name: Store Caph Golang cache build locally
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
-        uses: docker/build-push-action@2eb1c1961a95fc15694676618e422e8ba1d63825 # v4.1.1
+        uses: docker/build-push-action@0565240e2d4ab88bba5387d719585280857ece09 # v5.0.0
         with:
           provenance: false
           context: .

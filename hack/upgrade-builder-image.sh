@@ -25,11 +25,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-if [ -z "${BUILDER_IMAGE:-}" ]; then
-  echo "Please provide BUILDER_IMAGE as env var"
-  exit 1
-fi
-
+export BUILDER_IMAGE=ghcr.io/syself/caph-builder
 
 REPO_ROOT=$(realpath $(dirname "${BASH_SOURCE[0]}")/..)
 cd "${REPO_ROOT}" || exit 1
