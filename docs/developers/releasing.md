@@ -3,13 +3,14 @@
 ## Create a tag
 
 1. Create an annotated tag
+   - `git switch main`
    - Have a look at the current (old) version: [Github Releases](https://github.com/syself/cluster-api-provider-hetzner/releases) 
    - `export RELEASE_TAG=<the tag of the release to be cut>` (eg. `export RELEASE_TAG=v1.0.1`)
    - `git tag -a ${RELEASE_TAG} -m ${RELEASE_TAG}`
 2. Push the tag to the GitHub repository.
    > NOTE: `origin` should be the name of the remote pointing to `github.com/syself/cluster-api-provider-hetzner`
    - `git push origin ${RELEASE_TAG}`
-   - This will automatically trigger a [Github Action](https://github.com/kubernetes-sigs/cluster-api/actions) to create a draft release (this will take roughly 6 minutes).
+   - This will automatically trigger a [Github Action](https://github.com/syself/cluster-api-provider-hetzner/actions) to create a draft release (this will take roughly 6 minutes).
 
 ## Release in GitHub
 

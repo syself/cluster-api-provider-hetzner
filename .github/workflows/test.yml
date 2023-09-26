@@ -51,7 +51,7 @@ jobs:
       - name: Install go modules for test
         shell: bash
         run: |
-          cd test && GO111MODULE=on GOPROXY=https://proxy.golang.org go mod download
+          cd test && go mod download
 
       - name: Running tests
         run: make test-unit
