@@ -350,8 +350,48 @@ func (s *Service) Delete(ctx context.Context) (err error) {
 		return nil
 	}
 
-	if s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Protected {
-		record.Eventf(s.scope.HetznerCluster, "LoadBalancerProtectedFromDeletion", "cannot delete protected load balancer")
+	// do not delete a protected load balancer or one that has not been created by this controller
+	if s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Protected || s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Name != nil {
+		name := *s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Name
+
+		loadBalancers, err := s.scope.HCloudClient.ListLoadBalancers(ctx, hcloud.LoadBalancerListOpts{Name: name})
+		if err != nil {
+			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "ListLoadBalancers")
+			return fmt.Errorf("failed to list load balancers: %w", err)
+		}
+
+		if len(loadBalancers) > 1 {
+			return fmt.Errorf("found %v load balancers in HCloud with name %q", len(loadBalancers), name)
+		}
+
+		// nothing to do if load balancer is not found
+		if len(loadBalancers) == 0 {
+			return nil
+		}
+
+		lb := loadBalancers[0]
+
+		// remove owned label and update
+		delete(lb.Labels, s.scope.HetznerCluster.ClusterTagKey())
+
+		if _, err := s.scope.HCloudClient.UpdateLoadBalancer(ctx, lb, hcloud.LoadBalancerUpdateOpts{Labels: lb.Labels}); err != nil {
+			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "UpdateLoadBalancer")
+			err = fmt.Errorf("failed to update load balancer to remove the cluster label: %w", err)
+			record.Warnf(s.scope.HetznerCluster, "FailedUpdateLoadBalancer", err.Error())
+			conditions.MarkFalse(
+				s.scope.HetznerCluster,
+				infrav1.LoadBalancerReadyCondition,
+				infrav1.LoadBalancerUpdateFailedReason,
+				clusterv1.ConditionSeverityWarning,
+				err.Error(),
+			)
+			return err
+		}
+
+		// Delete lb information from cluster status
+		s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer = nil
+
+		record.Eventf(s.scope.HetznerCluster, "LoadBalancerOwnedLabelRemoved", "removed owned label of load balancer")
 		return nil
 	}
 
@@ -361,7 +401,14 @@ func (s *Service) Delete(ctx context.Context) (err error) {
 			return nil
 		}
 		err = fmt.Errorf("failed to delete load balancer: %w", err)
-		record.Eventf(s.scope.HetznerCluster, "FailedLoadBalancerDelete", err.Error())
+		record.Warnf(s.scope.HetznerCluster, "FailedLoadBalancerDelete", err.Error())
+		conditions.MarkFalse(
+			s.scope.HetznerCluster,
+			infrav1.LoadBalancerReadyCondition,
+			infrav1.LoadBalancerDeleteFailedReason,
+			clusterv1.ConditionSeverityWarning,
+			err.Error(),
+		)
 		return err
 	}
 
@@ -434,12 +481,14 @@ func (s *Service) ownExistingLoadBalancer(ctx context.Context) (*hcloud.LoadBala
 		}
 	}
 
-	if lb.Labels == nil {
-		lb.Labels = make(map[string]string)
+	newLabels := make(map[string]string)
+	for key, val := range lb.Labels {
+		newLabels[key] = val
 	}
-	lb.Labels[s.scope.HetznerCluster.ClusterTagKey()] = string(infrav1.ResourceLifecycleOwned)
 
-	lb, err = s.scope.HCloudClient.UpdateLoadBalancer(ctx, lb, hcloud.LoadBalancerUpdateOpts{Labels: lb.Labels})
+	newLabels[s.scope.HetznerCluster.ClusterTagKey()] = string(infrav1.ResourceLifecycleOwned)
+
+	lb, err = s.scope.HCloudClient.UpdateLoadBalancer(ctx, lb, hcloud.LoadBalancerUpdateOpts{Labels: newLabels})
 	if err != nil {
 		hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "UpdateLoadBalancer")
 		err = fmt.Errorf("failed to update load balancer: %w", err)
