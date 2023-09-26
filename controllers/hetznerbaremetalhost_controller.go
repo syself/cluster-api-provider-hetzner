@@ -381,7 +381,7 @@ func (r *HetznerBareMetalHostReconciler) SetupWithManager(ctx context.Context, m
 					}
 
 					// If install image changes, then we want to reconcile, as this is important when working with bm machines
-					if objectOld.Spec.Status.InstallImage != objectNew.Spec.Status.InstallImage {
+					if !reflect.DeepEqual(objectOld.Spec.Status.InstallImage, objectNew.Spec.Status.InstallImage) {
 						return true
 					}
 

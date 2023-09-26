@@ -142,6 +142,8 @@ const (
 	NoStorageDeviceFoundReason = "NoStorageDeviceFound"
 	// CloudInitNotInstalledReason indicates that cloud init is not installed.
 	CloudInitNotInstalledReason = "CloudInitNotInstalled"
+	// ServerNotFoundReason indicates that a bare metal server could not be found.
+	ServerNotFoundReason = "ServerNotFound"
 )
 
 const (
