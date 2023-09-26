@@ -102,7 +102,12 @@ func (s *Service) Reconcile(ctx context.Context) (result reconcile.Result, err e
 
 		// save host if it changed during reconciliation
 		if !reflect.DeepEqual(oldHost, *s.scope.HetznerBareMetalHost) {
-			result, err = SaveHostAndReturn(ctx, s.scope.Client, s.scope.HetznerBareMetalHost)
+			saveResult, saveErr := SaveHostAndReturn(ctx, s.scope.Client, s.scope.HetznerBareMetalHost)
+			emptyResult := reconcile.Result{}
+			if result == emptyResult && err == nil {
+				result = saveResult
+				err = saveErr
+			}
 		}
 	}()
 
@@ -141,7 +146,16 @@ func (s *Service) actionPreparing() actionResult {
 	if err != nil {
 		s.handleRateLimitExceeded(err, "GetBMServer")
 		if models.IsError(err, models.ErrorCodeServerNotFound) {
-			return s.recordActionFailure(infrav1.PermanentError, fmt.Sprintf("bare metal host with id %d not found", s.scope.HetznerBareMetalHost.Spec.ServerID))
+			msg := "bare metal host not found"
+			conditions.MarkFalse(
+				s.scope.HetznerBareMetalHost,
+				infrav1.ProvisionSucceededCondition,
+				infrav1.ServerNotFoundReason,
+				clusterv1.ConditionSeverityError,
+				msg,
+			)
+			s.scope.HetznerBareMetalHost.SetError(infrav1.PermanentError, msg)
+			return actionStop{}
 		}
 		return actionError{err: fmt.Errorf("failed to get bare metal server: %w", err)}
 	}
@@ -182,7 +196,8 @@ func (s *Service) actionPreparing() actionResult {
 			errMsg,
 		)
 		record.Warnf(s.scope.HetznerBareMetalHost, "NoRescueSystemAvailable", errMsg)
-		return s.recordActionFailure(infrav1.PermanentError, errMsg)
+		s.scope.HetznerBareMetalHost.SetError(infrav1.PermanentError, errMsg)
+		return actionStop{}
 	}
 
 	if err := s.enforceRescueMode(); err != nil {

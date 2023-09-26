@@ -80,6 +80,13 @@ func (r actionError) Result() (result reconcile.Result, err error) {
 	return result, r.err
 }
 
+// actionStop is a result indicating that there is a permanent error and we have to stop reconcilement.
+type actionStop struct{}
+
+func (r actionStop) Result() (result reconcile.Result, err error) {
+	return result, err
+}
+
 // actionFailed is a result indicating that the current action has failed,
 // and that the resource should be marked as in error.
 type actionFailed struct {
