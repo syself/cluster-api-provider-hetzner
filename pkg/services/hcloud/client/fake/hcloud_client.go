@@ -281,7 +281,15 @@ func (c *cacheHCloudClient) UpdateLoadBalancer(_ context.Context, lb *hcloud.Loa
 	}
 
 	// Update it
-	c.loadBalancerCache.idMap[lb.ID].Name = opts.Name
+	if opts.Name != "" {
+		c.loadBalancerCache.idMap[lb.ID].Name = opts.Name
+	}
+
+	// Update it
+	if opts.Labels != nil {
+		c.loadBalancerCache.idMap[lb.ID].Labels = opts.Labels
+	}
+
 	return c.loadBalancerCache.idMap[lb.ID], nil
 }
 

@@ -324,6 +324,14 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 				_, err := hcloudClient.CreateLoadBalancer(ctx, opts)
 				Expect(err).To(BeNil())
 
+				By("making sure that there is no label set")
+				loadBalancers, err := hcloudClient.ListLoadBalancers(ctx, hcloud.LoadBalancerListOpts{Name: lbName})
+				Expect(err).To(BeNil())
+				Expect(loadBalancers).To(HaveLen(1))
+
+				_, found := loadBalancers[0].Labels[instance.ClusterTagKey()]
+				Expect(found).To(BeFalse())
+
 				By("creating cluster object")
 
 				instance.Spec.ControlPlaneLoadBalancer.Name = &lbName
@@ -337,7 +345,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 
 				By("checking that load balancer has label set")
 
-				loadBalancers, err := hcloudClient.ListLoadBalancers(ctx, hcloud.LoadBalancerListOpts{Name: lbName})
+				loadBalancers, err = hcloudClient.ListLoadBalancers(ctx, hcloud.LoadBalancerListOpts{Name: lbName})
 				Expect(err).To(BeNil())
 				Expect(loadBalancers).To(HaveLen(1))
 
@@ -381,6 +389,20 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 					)
 					return false
 				}, timeout, time.Second).Should(BeTrue())
+
+				By("deleting the cluster and load balancer and testing that owned label is gone")
+
+				Expect(testEnv.Delete(ctx, instance))
+
+				Eventually(func() bool {
+					loadBalancers, err := hcloudClient.ListLoadBalancers(ctx, hcloud.LoadBalancerListOpts{Name: lbName})
+					// there should always be one load balancer, if not, then this is a problem where we can immediately return
+					Expect(err).To(BeNil())
+					Expect(loadBalancers).To(HaveLen(1))
+
+					_, found := loadBalancers[0].Labels[instance.ClusterTagKey()]
+					return found
+				}, timeout, time.Second).Should(BeFalse())
 			})
 
 			It("should set the appropriate condition if a named load balancer is taken by another cluster", func() {

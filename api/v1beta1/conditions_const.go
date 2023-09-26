@@ -25,6 +25,8 @@ const (
 	LoadBalancerCreateFailedReason = "LoadBalancerCreateFailed"
 	// LoadBalancerUpdateFailedReason used when an error occurs during load balancer update.
 	LoadBalancerUpdateFailedReason = "LoadBalancerUpdateFailed"
+	// LoadBalancerDeleteFailedReason used when an error occurs during load balancer delete.
+	LoadBalancerDeleteFailedReason = "LoadBalancerDeleteFailed"
 	// LoadBalancerServiceSyncFailedReason used when an error occurs while syncing services of load balancer.
 	LoadBalancerServiceSyncFailedReason = "LoadBalancerServiceSyncFailed"
 	// LoadBalancerFailedToOwnReason used when no owned label could be set on a load balancer.
