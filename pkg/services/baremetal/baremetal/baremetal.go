@@ -85,6 +85,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	// Make sure bootstrap data is available and populated. If not, return, we
 	// will get an event from the machine update when the flag is set to true.
 	if !s.scope.IsBootstrapReady() {
+		s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhasePending
 		conditions.MarkFalse(
 			s.scope.BareMetalMachine,
 			infrav1.BootstrapReadyCondition,
@@ -132,6 +133,8 @@ func (s *Service) Delete(ctx context.Context) (res reconcile.Result, err error) 
 	}
 
 	if host != nil && host.Spec.ConsumerRef != nil {
+		s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhaseDeleting
+
 		// remove control plane as load balancer target
 		if s.scope.IsControlPlane() && s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
 			if err := s.removeAttachedServerOfLoadBalancer(ctx, host); err != nil {
@@ -189,6 +192,8 @@ func (s *Service) Delete(ctx context.Context) (res reconcile.Result, err error) 
 		"HetznerBareMetalMachine with name %s deleted",
 		s.scope.Name(),
 	)
+	s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhaseDeleted
+
 	return res, nil
 }
 
@@ -273,6 +278,7 @@ func (s *Service) associate(ctx context.Context) error {
 		return fmt.Errorf("failed to choose host: %w", err)
 	}
 	if host == nil {
+		s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhasePending
 		s.scope.V(1).Info("No available host found. Requeuing.")
 		conditions.MarkFalse(
 			s.scope.BareMetalMachine,
@@ -306,6 +312,7 @@ func (s *Service) associate(ctx context.Context) error {
 	}
 
 	s.ensureMachineAnnotation(host)
+
 	return nil
 }
 
@@ -537,6 +544,8 @@ func (s *Service) getLabelSelector() labels.Selector {
 func (s *Service) setProviderID(ctx context.Context) error {
 	// nothing to do if providerID is set
 	if s.scope.BareMetalMachine.Spec.ProviderID != nil {
+		conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.HostProvisionSucceededCondition)
+		s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhaseRunning
 		return nil
 	}
 
@@ -552,6 +561,7 @@ func (s *Service) setProviderID(ctx context.Context) error {
 	}
 
 	if host.Spec.Status.ProvisioningState != infrav1.StateProvisioned {
+		s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhaseProvisioning
 		conditions.MarkFalse(
 			s.scope.BareMetalMachine,
 			infrav1.HostProvisionSucceededCondition,
@@ -567,6 +577,7 @@ func (s *Service) setProviderID(ctx context.Context) error {
 	providerID := providerIDFromServerID(host.Spec.ServerID)
 	s.scope.BareMetalMachine.Spec.ProviderID = &providerID
 	conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.HostProvisionSucceededCondition)
+	s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhaseRunning
 
 	return nil
 }

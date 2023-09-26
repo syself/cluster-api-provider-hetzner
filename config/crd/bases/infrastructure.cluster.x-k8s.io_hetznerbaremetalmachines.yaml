@@ -39,6 +39,11 @@ spec:
       jsonPath: .metadata.labels.cluster\.x-k8s\.io/cluster-name
       name: Cluster
       type: string
+    - description: HetznerBareMetalMachine status such as Pending/Provisioning/Running
+        etc
+      jsonPath: .status.phase
+      name: Phase
+      type: string
     - jsonPath: .status.conditions[?(@.type=='Ready')].reason
       name: Reason
       type: string
@@ -359,6 +364,10 @@ spec:
               lastUpdated:
                 description: LastUpdated identifies when this status was last observed.
                 format: date-time
+                type: string
+              phase:
+                description: Phase represents the current phase of HetznerBareMetalMachineStatus
+                  actuation. E.g. Pending, Running, Terminating, Failed etc.
                 type: string
               ready:
                 description: Ready is the state of the hetznerbaremetalmachine.
