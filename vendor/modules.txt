@@ -1091,7 +1091,7 @@ sigs.k8s.io/cluster-api/test/framework/internal/log
 sigs.k8s.io/cluster-api/test/framework/kubetest
 sigs.k8s.io/cluster-api/test/infrastructure/container
 sigs.k8s.io/cluster-api/test/infrastructure/kind
-# sigs.k8s.io/controller-runtime v0.15.1
+# sigs.k8s.io/controller-runtime v0.15.2
 ## explicit; go 1.20
 sigs.k8s.io/controller-runtime
 sigs.k8s.io/controller-runtime/pkg/builder
