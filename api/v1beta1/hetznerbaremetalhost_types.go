@@ -408,11 +408,13 @@ type HetznerBareMetalHostStatus struct{}
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=".spec.status.provisioningState",description="Provisioning status"
 // +kubebuilder:printcolumn:name="IPv4",type="string",JSONPath=".spec.status.ipv4",description="IPv4 of the host"
 // +kubebuilder:printcolumn:name="IPv6",type="string",JSONPath=".spec.status.ipv6",description="IPv6 of the host"
-// +kubebuilder:printcolumn:name="Threads",type="string",JSONPath=".spec.status.hardwareDetails.cpu.threads",description="CPU threads"
-// +kubebuilder:printcolumn:name="Clock speed",type="string",JSONPath=".spec.status.hardwareDetails.cpu.clockGigahertz",description="CPU clock speed"
-// +kubebuilder:printcolumn:name="RAM in GB",type="string",JSONPath=".spec.status.hardwareDetails.ramGB",description="RAM in GB"
+// +kubebuilder:printcolumn:name="Maintenance",type="boolean",JSONPath=".spec.maintenanceMode",description="Maintenance Mode"
+// +kubebuilder:printcolumn:name="CPU",type="string",JSONPath=".spec.status.hardwareDetails.cpu.threads",description="CPU threads"
+// +kubebuilder:printcolumn:name="RAM",type="string",JSONPath=".spec.status.hardwareDetails.ramGB",description="RAM in GB"
 // +kubebuilder:printcolumn:name="Consumer",type="string",JSONPath=".spec.consumerRef.name",description="Consumer using this host"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time duration since creation of BaremetalHost"
+// +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".spec.status.conditions[?(@.type=='Ready')].reason"
+// +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".spec.status.conditions[?(@.type=='Ready')].message"
 // +k8s:defaulter-gen=true
 
 // HetznerBareMetalHost is the Schema for the hetznerbaremetalhosts API.

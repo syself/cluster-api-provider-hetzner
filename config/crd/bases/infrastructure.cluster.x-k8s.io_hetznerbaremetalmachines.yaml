@@ -23,27 +23,27 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - description: Time duration since creation of hetznerbaremetalmachine
-      jsonPath: .metadata.creationTimestamp
-      name: Age
-      type: date
-    - description: Provider ID
-      jsonPath: .spec.providerID
-      name: ProviderID
-      type: string
-    - description: hetznerbaremetalmachine is Ready
-      jsonPath: .status.ready
-      name: Ready
-      type: string
-    - description: Cluster to which this M3Machine belongs
+    - description: Cluster to which this HetznerBareMetalMachine belongs
       jsonPath: .metadata.labels.cluster\.x-k8s\.io/cluster-name
       name: Cluster
+      type: string
+    - description: HetznerBareMetalHost
+      jsonPath: .metadata.annotations.infrastructure\.cluster\.x-k8s\.io/HetznerBareMetalHost
+      name: Host
+      type: string
+    - description: Machine object which owns with this HetznerBareMetalMachine
+      jsonPath: .metadata.ownerReferences[?(@.kind=="Machine")].name
+      name: Machine
       type: string
     - description: HetznerBareMetalMachine status such as Pending/Provisioning/Running
         etc
       jsonPath: .status.phase
       name: Phase
       type: string
+    - description: Time duration since creation of HetznerBareMetalMachine
+      jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
     - jsonPath: .status.conditions[?(@.type=='Ready')].reason
       name: Reason
       type: string

@@ -23,34 +23,18 @@ spec:
       jsonPath: .metadata.labels.cluster\.x-k8s\.io/cluster-name
       name: Cluster
       type: string
-    - description: Image name
-      jsonPath: .spec.imageName
-      name: Image
-      type: string
-    - description: Placement group name
-      jsonPath: .spec.placementGroupName
-      name: Placement group
-      type: string
-    - description: Server type
-      jsonPath: .spec.type
-      name: Type
+    - description: Machine object which owns with this HCloudMachine
+      jsonPath: .metadata.ownerReferences[?(@.kind=="Machine")].name
+      name: Machine
       type: string
     - description: HCloud instance state
       jsonPath: .status.instanceState
       name: State
       type: string
-    - description: Machine ready status
-      jsonPath: .status.ready
-      name: Ready
-      type: string
-    - description: HCloud instance ID
-      jsonPath: .spec.providerID
-      name: InstanceID
-      type: string
-    - description: Machine object which owns with this HCloudMachine
-      jsonPath: .metadata.ownerReferences[?(@.kind=="Machine")].name
-      name: Machine
-      type: string
+    - description: Time duration since creation of hcloudmachine
+      jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
     - jsonPath: .status.conditions[?(@.type=='Ready')].reason
       name: Reason
       type: string
