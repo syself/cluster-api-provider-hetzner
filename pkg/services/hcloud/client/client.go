@@ -25,6 +25,7 @@ import (
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	"github.com/prometheus/client_golang/prometheus"
+	caphversion "github.com/syself/cluster-api-provider-hetzner/pkg/version"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
@@ -80,7 +81,7 @@ type Factory interface {
 func (f *factory) NewClient(hcloudToken string) Client {
 	opts := []hcloud.ClientOption{
 		hcloud.WithToken(hcloudToken),
-		hcloud.WithApplication("cluster-api-provider-hetzner", ""),
+		hcloud.WithApplication("cluster-api-provider-hetzner", caphversion.Get().String()),
 	}
 
 	// controller-runtime hides their default prometheus registry it uses (and exposes via HTTP) behind a custom

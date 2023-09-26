@@ -77,7 +77,7 @@ version::ldflags() {
         local key=${1}
         local val=${2}
         ldflags+=(
-            "-X 'github.com/syself/cluster-api-provider-hetzner/version.${key}=${val}'"
+            "-X 'github.com/syself/cluster-api-provider-hetzner/pkg/version.${key}=${val}'"
         )
     }
 
