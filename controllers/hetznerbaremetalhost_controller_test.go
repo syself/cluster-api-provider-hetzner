@@ -27,7 +27,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -264,7 +264,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 					},
 					FailureDomain: &defaultFailureDomain,
 					Bootstrap: clusterv1.Bootstrap{
-						DataSecretName: pointer.String("bootstrap-secret"),
+						DataSecretName: ptr.To("bootstrap-secret"),
 					},
 				},
 			}
@@ -461,7 +461,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 					},
 					FailureDomain: &defaultFailureDomain,
 					Bootstrap: clusterv1.Bootstrap{
-						DataSecretName: pointer.String("bootstrap-secret"),
+						DataSecretName: ptr.To("bootstrap-secret"),
 					},
 				},
 			}
@@ -609,7 +609,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 				},
 				FailureDomain: &defaultFailureDomain,
 				Bootstrap: clusterv1.Bootstrap{
-					DataSecretName: pointer.String("bootstrap-secret"),
+					DataSecretName: ptr.To("bootstrap-secret"),
 				},
 			},
 		}

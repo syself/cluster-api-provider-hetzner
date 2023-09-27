@@ -24,7 +24,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -281,7 +281,7 @@ var _ = Describe("handleServerStatusOff", func() {
 		Expect(res).Should(Equal(emptyResult))
 
 		Expect(server.Status).To(Equal(hcloud.ServerStatusOff))
-		Expect(hcloudMachine.Status.FailureMessage).Should(Equal(pointer.String("reached timeout of waiting for machines that are switched off")))
+		Expect(hcloudMachine.Status.FailureMessage).Should(Equal(ptr.To("reached timeout of waiting for machines that are switched off")))
 	})
 
 	It("tries to power on server and sets new condition if different one is set", func() {

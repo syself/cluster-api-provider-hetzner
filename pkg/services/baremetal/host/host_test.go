@@ -25,7 +25,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/syself/hrobot-go/models"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	bmmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks"
@@ -183,7 +183,7 @@ NAME="nvme1n1" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJQ-00000" VENDOR="" 
 	NAME="nvme2n1" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVL22T0HBLB-00B00" VENDOR="" SERIAL="S677NF0R402742" SIZE="2048408248320" WWN="eui.002538b411b2cee8" ROTA="0"
 	NAME="nvme1n1" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJQ-00000" VENDOR="" SERIAL="S3W8NX0N811178" SIZE="512110190592" WWN="eui.0025388801b4dff2" ROTA="0"`,
 			expectedOutput:       nil,
-			expectedErrorMessage: pointer.String("unknown rota"),
+			expectedErrorMessage: ptr.To("unknown rota"),
 		}),
 	)
 })
@@ -986,7 +986,7 @@ var _ = Describe("analyzeSSHOutputProvisioned", func() {
 			out:                         sshclient.Output{StdOut: "wrong_hostname"},
 			expectedIsTimeout:           false,
 			expectedIsConnectionRefused: false,
-			expectedErrMessage:          pointer.String("unexpected hostname"),
+			expectedErrMessage:          ptr.To("unexpected hostname"),
 		}),
 		Entry("timeout error", testCaseAnalyzeSSHOutputProvisioned{
 			out:                         sshclient.Output{Err: timeout},
@@ -998,19 +998,19 @@ var _ = Describe("analyzeSSHOutputProvisioned", func() {
 			out:                         sshclient.Output{StdErr: "some error"},
 			expectedIsTimeout:           false,
 			expectedIsConnectionRefused: false,
-			expectedErrMessage:          pointer.String("failed to get hostname via ssh: StdErr: some error"),
+			expectedErrMessage:          ptr.To("failed to get hostname via ssh: StdErr: some error"),
 		}),
 		Entry("incorrect boot - empty hostname", testCaseAnalyzeSSHOutputProvisioned{
 			out:                         sshclient.Output{StdOut: ""},
 			expectedIsTimeout:           false,
 			expectedIsConnectionRefused: false,
-			expectedErrMessage:          pointer.String("hostname is empty"),
+			expectedErrMessage:          ptr.To("hostname is empty"),
 		}),
 		Entry("unable to authenticate", testCaseAnalyzeSSHOutputProvisioned{
 			out:                         sshclient.Output{Err: sshclient.ErrAuthenticationFailed},
 			expectedIsTimeout:           false,
 			expectedIsConnectionRefused: false,
-			expectedErrMessage:          pointer.String("wrong ssh key"),
+			expectedErrMessage:          ptr.To("wrong ssh key"),
 		}),
 		Entry("connection refused", testCaseAnalyzeSSHOutputProvisioned{
 			out:                         sshclient.Output{Err: sshclient.ErrConnectionRefused},
@@ -1108,7 +1108,7 @@ var _ = Describe("actionRegistering", func() {
 			includeRootDeviceHintWWN:  true,
 			includeRootDeviceHintRaid: false,
 			expectedActionResult:      actionFailed{},
-			expectedErrorMessage:      pointer.String("missing storage device for root device hint eui.002538b411b2cee8"),
+			expectedErrorMessage:      ptr.To("missing storage device for root device hint eui.002538b411b2cee8"),
 		}),
 		Entry("no root device hints", testCaseActionRegistering{
 			storageStdOut: `NAME="loop0" LABEL="" FSTYPE="ext2" TYPE="loop" HCTL="" MODEL="" VENDOR="" SERIAL="" SIZE="3068773888" WWN="" ROTA="0"
@@ -1117,7 +1117,7 @@ var _ = Describe("actionRegistering", func() {
 			includeRootDeviceHintWWN:  false,
 			includeRootDeviceHintRaid: false,
 			expectedActionResult:      actionFailed{},
-			expectedErrorMessage:      pointer.String(infrav1.ErrorMessageMissingRootDeviceHints),
+			expectedErrorMessage:      ptr.To(infrav1.ErrorMessageMissingRootDeviceHints),
 		}),
 	)
 

@@ -20,7 +20,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
@@ -295,7 +295,7 @@ var _ = Describe("Test FindOwnerRefFromList", func() {
 					APIVersion: "v1beta1",
 				},
 			},
-			ExpectedPosition: pointer.Int(0),
+			ExpectedPosition: ptr.To(0),
 		}),
 		Entry("Matching consumer position 1", testCaseFindOwnerRefFromList{
 			RefList: []metav1.OwnerReference{
@@ -310,7 +310,7 @@ var _ = Describe("Test FindOwnerRefFromList", func() {
 					APIVersion: "v1beta1",
 				},
 			},
-			ExpectedPosition: pointer.Int(1),
+			ExpectedPosition: ptr.To(1),
 		}),
 		Entry("Matching consumer position 1a", testCaseFindOwnerRefFromList{
 			RefList: []metav1.OwnerReference{
@@ -325,7 +325,7 @@ var _ = Describe("Test FindOwnerRefFromList", func() {
 					APIVersion: "v1beta1",
 				},
 			},
-			ExpectedPosition: pointer.Int(1),
+			ExpectedPosition: ptr.To(1),
 		}),
 		Entry("Matching consumer position 1b", testCaseFindOwnerRefFromList{
 			RefList: []metav1.OwnerReference{
@@ -340,7 +340,7 @@ var _ = Describe("Test FindOwnerRefFromList", func() {
 					APIVersion: "v1beta1",
 				},
 			},
-			ExpectedPosition: pointer.Int(1),
+			ExpectedPosition: ptr.To(1),
 		}),
 	)
 })

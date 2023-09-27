@@ -35,7 +35,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	capierrors "sigs.k8s.io/cluster-api/errors"
 	"sigs.k8s.io/cluster-api/util/conditions"
@@ -635,13 +635,13 @@ func setOwnerRefInList(refList []metav1.OwnerReference, objType metav1.TypeMeta,
 			Kind:       objType.Kind,
 			Name:       objMeta.Name,
 			UID:        objMeta.UID,
-			Controller: pointer.Bool(isController),
+			Controller: ptr.To(isController),
 		})
 	} else {
 		// update existing owner ref because the UID and the APIVersion might change due to move or version upgrade
 		refList[index].APIVersion = objType.APIVersion
 		refList[index].UID = objMeta.UID
-		refList[index].Controller = pointer.Bool(isController)
+		refList[index].Controller = ptr.To(isController)
 	}
 	return refList
 }

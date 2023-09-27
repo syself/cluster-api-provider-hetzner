@@ -25,7 +25,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
@@ -614,7 +614,7 @@ func createCapiAndHcloudMachines(ctx context.Context, env *helpers.TestEnvironme
 			},
 			FailureDomain: &defaultFailureDomain,
 			Bootstrap: clusterv1.Bootstrap{
-				DataSecretName: pointer.String("bootstrap-secret"),
+				DataSecretName: ptr.To("bootstrap-secret"),
 			},
 		},
 	}
