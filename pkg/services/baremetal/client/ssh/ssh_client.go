@@ -247,6 +247,15 @@ EOF`, cmd))
 	if out.Err != nil {
 		return out
 	}
+
+	if out.StdErr != "" {
+		return out
+	}
+
+	out = c.runSSH(`cat /root/debug.txt`)
+	if out.Err != nil {
+		return out
+	}
 	// Ignore StdErr in this command
 	return Output{StdOut: out.StdOut}
 }
@@ -254,6 +263,7 @@ EOF`, cmd))
 // Reboot implements the Reboot method of the SSHClient interface.
 func (c *sshClient) Reboot() Output {
 	out := c.runSSH(`reboot`)
+	fmt.Println("reboot", "out", out.StdOut, "stderr", out.StdErr, "err", out.Err)
 	if out.Err != nil && strings.Contains(out.Err.Error(), ErrCommandExitedWithoutExitSignal.Error()) {
 		return Output{}
 	}

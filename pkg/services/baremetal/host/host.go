@@ -44,7 +44,7 @@ import (
 )
 
 const (
-	rebootWaitTime       time.Duration = 5 * time.Second
+	rebootWaitTime       time.Duration = 15 * time.Second
 	sshResetTimeout      time.Duration = 5 * time.Minute
 	softwareResetTimeout time.Duration = 5 * time.Minute
 	hardwareResetTimeout time.Duration = 60 * time.Minute
@@ -206,7 +206,7 @@ func (s *Service) actionPreparing() actionResult {
 
 	// Check if software reboot is available. If it is not, choose hardware reboot.
 	rebootType, errorType := rebootAndErrorTypeAfterTimeout(s.scope.HetznerBareMetalHost)
-
+	s.scope.Info("reboot server with api ", "rebootType", rebootType, "errorType", errorType)
 	if _, err := s.scope.RobotClient.RebootBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID, rebootType); err != nil {
 		s.handleRobotRateLimitExceeded(err, rebootServerStr)
 		return actionError{err: fmt.Errorf(errMsgFailedReboot, err)}
@@ -490,14 +490,16 @@ func (s *Service) actionRegistering() actionResult {
 	if trimLineBreak(out.StdOut) != rescue {
 		// give the reboot some time until it takes effect
 		if s.hasJustRebooted() {
+			s.scope.Info("has just rebooted", "errType", s.scope.HetznerBareMetalHost.Spec.Status.ErrorType)
 			return actionContinue{delay: 2 * time.Second}
 		}
+		s.scope.Info("has not just rebooted", "errType", s.scope.HetznerBareMetalHost.Spec.Status.ErrorType)
 
 		isSSHTimeoutError, isSSHConnectionRefusedError, err := s.analyzeSSHOutputRegistering(out)
 		if err != nil {
 			return actionError{err: fmt.Errorf("failed to handle incomplete boot - registering: %w", err)}
 		}
-
+		s.scope.Info("handleIncompleteBoot registering", "hostName", trimLineBreak(out.StdOut), "isSSHTimeoutError", isSSHTimeoutError, "isSSHConnectionRefusedError", isSSHConnectionRefusedError)
 		failed, err := s.handleIncompleteBoot(true, isSSHTimeoutError, isSSHConnectionRefusedError)
 		if failed {
 			return s.recordActionFailure(infrav1.ProvisioningError, err.Error())
@@ -904,9 +906,12 @@ func (s *Service) actionImageInstalling() actionResult {
 
 	autoSetupInput, actionRes := s.createAutoSetupInput(sshClient)
 	if actionRes != nil {
+		res, err := actionRes.Result()
+		s.scope.Info("mydebug createAutoSetupInput actionRes != nil", "actionRes", res, "err", err)
 		return actionRes
 	}
 
+	s.scope.Info("mydebug Autosetup input", "hostname", autoSetupInput.hostName, "image", autoSetupInput.image, "osdevices", autoSetupInput.osDevices, "actionRes", actionRes)
 	autoSetup := buildAutoSetup(s.scope.HetznerBareMetalHost.Spec.Status.InstallImage, autoSetupInput)
 
 	if err := handleSSHError(sshClient.CreateAutoSetup(autoSetup)); err != nil {
@@ -915,7 +920,7 @@ func (s *Service) actionImageInstalling() actionResult {
 
 	// create post install script
 	postInstallScript := s.scope.HetznerBareMetalHost.Spec.Status.InstallImage.PostInstallScript
-
+	s.scope.Info("mydebug postinstall script", "script", postInstallScript)
 	if postInstallScript != "" {
 		if err := handleSSHError(sshClient.CreatePostInstallScript(postInstallScript)); err != nil {
 			return actionError{err: fmt.Errorf("failed to create post install script %s: %w", postInstallScript, err)}
@@ -923,9 +928,15 @@ func (s *Service) actionImageInstalling() actionResult {
 	}
 
 	// Execute install image
-	if err := handleSSHError(sshClient.ExecuteInstallImage(postInstallScript != "")); err != nil {
-		return actionError{err: fmt.Errorf("failed to execute installimage: %w", err)}
+	out := sshClient.ExecuteInstallImage(postInstallScript != "")
+	s.scope.Info("mydebug execute install image", "stdout", out.StdOut, "stderr", out.StdErr, "err", out.Err)
+	if out.Err != nil {
+		s.scope.Info("mydebug failed to execute install image")
+		// return actionContinue{10 * time.Minute}
+		return actionError{err: fmt.Errorf("failed to execute installimage: %w", out.Err)}
 	}
+
+	s.scope.Info("mydebug Output of installimage - debug.txt", "output", out.StdOut)
 
 	// Update name in robot API
 	if _, err := s.scope.RobotClient.SetBMServerName(s.scope.HetznerBareMetalHost.Spec.ServerID, autoSetupInput.hostName); err != nil {
@@ -945,6 +956,7 @@ func (s *Service) actionImageInstalling() actionResult {
 func (s *Service) createAutoSetupInput(sshClient sshclient.Client) (autoSetupInput, actionResult) {
 	image := s.scope.HetznerBareMetalHost.Spec.Status.InstallImage.Image
 	imagePath, needsDownload, errorMessage := image.GetDetails()
+	s.scope.Info("mydebug createAutoSetupInput", "imagePath", imagePath, "needsDownload", needsDownload, "errorMessage", errorMessage)
 	if errorMessage != "" {
 		conditions.MarkFalse(
 			s.scope.HetznerBareMetalHost,
@@ -967,9 +979,10 @@ func (s *Service) createAutoSetupInput(sshClient sshclient.Client) (autoSetupInp
 	if err != nil {
 		return autoSetupInput{}, actionError{err: fmt.Errorf("failed to obtain storage devices: %w", err)}
 	}
+	s.scope.Info("mydebug createAutoSetupInput storageDevices", "storageDevices", storageDevices)
 
 	deviceNames := getDeviceNames(s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.ListOfWWN(), storageDevices)
-
+	s.scope.Info("mydebug createAutoSetupInput deviceNames", "deviceNames", deviceNames)
 	// we need at least one storage device
 	if len(deviceNames) == 0 {
 		msg := "no suitable storage device found"
@@ -984,13 +997,15 @@ func (s *Service) createAutoSetupInput(sshClient sshclient.Client) (autoSetupInp
 	}
 
 	hostName := infrav1.BareMetalHostNamePrefix + s.scope.HetznerBareMetalHost.Spec.ConsumerRef.Name
-
+	s.scope.Info("mydebug createAutoSetupInput hostName", "hostName", hostName)
 	// Create autosetup file
-	return autoSetupInput{
+	str := autoSetupInput{
 		osDevices: deviceNames,
 		hostName:  hostName,
 		image:     imagePath,
-	}, nil
+	}
+	s.scope.Info("mydebug createAutoSetupInput struct", "str.osDevices", str.osDevices, "str.hostName", str.hostName, "str.image", str.image)
+	return str, nil
 }
 
 func getDeviceNames(wwn []string, storageDevices []infrav1.Storage) []string {
