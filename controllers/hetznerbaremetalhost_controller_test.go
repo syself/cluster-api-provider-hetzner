@@ -173,7 +173,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 			StdErr: "",
 			Err:    nil,
 		})
-
+		osSSHClientAfterCloudInit.On("Reboot").Return(sshclient.Output{})
 		osSSHClientAfterCloudInit.On("GetHostName").Return(sshclient.Output{
 			StdOut: infrav1.BareMetalHostNamePrefix + bmMachineName,
 			StdErr: "",
