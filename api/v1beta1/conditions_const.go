@@ -109,6 +109,8 @@ const (
 	TargetClusterCreateFailedReason = "TargetClusterCreateFailed"
 	// TargetSecretSyncFailedReason indicates that the target secret could not be synced.
 	TargetSecretSyncFailedReason = "TargetSecretSyncFailed"
+	// TargetClusterControlPlaneNotReadyReason indicates that the target cluster's control plane is not ready yet.
+	TargetClusterControlPlaneNotReadyReason = "TargetClusterControlPlaneNotReady"
 )
 
 const (

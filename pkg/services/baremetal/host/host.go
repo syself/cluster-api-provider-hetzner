@@ -44,7 +44,7 @@ import (
 )
 
 const (
-	rebootWaitTime       time.Duration = 5 * time.Second
+	rebootWaitTime       time.Duration = 15 * time.Second
 	sshResetTimeout      time.Duration = 5 * time.Minute
 	softwareResetTimeout time.Duration = 5 * time.Minute
 	hardwareResetTimeout time.Duration = 60 * time.Minute
@@ -202,6 +202,25 @@ func (s *Service) actionPreparing() actionResult {
 
 	if err := s.enforceRescueMode(); err != nil {
 		return actionError{err: fmt.Errorf("failed to enforce rescue mode: %w", err)}
+	}
+
+	sshClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
+		PrivateKey: sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.SecretRef).PrivateKey,
+		Port:       s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterCloudInit,
+		IP:         s.scope.HetznerBareMetalHost.Spec.Status.GetIPAddress(),
+	})
+
+	// Check hostname with sshClient
+	out := sshClient.GetHostName()
+	if trimLineBreak(out.StdOut) != "" {
+		// we managed access with ssh - we can do an ssh reboot
+		if err := handleSSHError(sshClient.Reboot()); err != nil {
+			return actionError{err: fmt.Errorf("failed to reboot server via ssh: %w", err)}
+		}
+
+		// we immediately set an error message in the host status to track the reboot we just performed
+		s.scope.HetznerBareMetalHost.SetError(infrav1.ErrorTypeSSHRebootTriggered, "ssh reboot triggered")
+		return actionComplete{}
 	}
 
 	// Check if software reboot is available. If it is not, choose hardware reboot.

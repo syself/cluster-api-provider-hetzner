@@ -475,15 +475,14 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 			}
 			return fmt.Errorf("failed to add IP %q as target to load balancer: %w", ip, err)
 		}
+		record.Eventf(
+			s.scope.HetznerCluster,
+			"AddedIPAsTargetToLoadBalancer",
+			"Added IP %q of server %d as targets to the loadbalancer %v",
+			ip, host.Spec.ServerID, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID,
+		)
+
 	}
-
-	record.Eventf(
-		s.scope.HetznerCluster,
-		"AddedAsTargetToLoadBalancer",
-		"Added IPs of server %d as targets to the loadbalancer %v",
-		host.Spec.ServerID, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID,
-	)
-
 	return nil
 }
 
@@ -499,6 +498,12 @@ func (s *Service) removeAttachedServerOfLoadBalancer(ctx context.Context, host *
 				return fmt.Errorf("failed to remove IPv4 %v as target of load balancer: %w", host.Spec.Status.IPv4, err)
 			}
 		}
+		record.Eventf(
+			s.scope.HetznerCluster,
+			"DeletedIPTargetOfLoadBalancer",
+			"Deleted IPv4 %q of server %d as targets of the loadbalancer %v",
+			host.Spec.Status.IPv4, host.Spec.ServerID, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID,
+		)
 	}
 
 	// remove host IPv6 as target
@@ -510,14 +515,13 @@ func (s *Service) removeAttachedServerOfLoadBalancer(ctx context.Context, host *
 				return fmt.Errorf("failed to remove IPv6 %v as target of load balancer: %w", host.Spec.Status.IPv6, err)
 			}
 		}
+		record.Eventf(
+			s.scope.HetznerCluster,
+			"DeletedTargetOfLoadBalancer",
+			"Deleted IPv6 %q of server %d as targets of the loadbalancer %v",
+			host.Spec.Status.IPv6, host.Spec.ServerID, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID,
+		)
 	}
-
-	record.Eventf(
-		s.scope.HetznerCluster,
-		"DeletedTargetOfLoadBalancer",
-		"Deleted IPs of server %d as targets of the loadbalancer %v",
-		host.Spec.ServerID, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID,
-	)
 	return nil
 }
 
