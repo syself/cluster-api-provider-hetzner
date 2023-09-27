@@ -96,7 +96,7 @@ func (s *Service) Reconcile(ctx context.Context) (result reconcile.Result, err e
 
 	defer func() {
 		// remove deprecated conditions
-		conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.HetznerBareMetalHostReadyCondition)
+		conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.DeprecatedHetznerBareMetalHostReadyCondition)
 
 		conditions.SetSummary(s.scope.HetznerBareMetalHost)
 

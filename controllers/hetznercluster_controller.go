@@ -225,7 +225,7 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 	}
 
 	// delete deprecated conditions of old clusters
-	conditions.Delete(clusterScope.HetznerCluster, infrav1.HetznerClusterTargetClusterReadyCondition)
+	conditions.Delete(clusterScope.HetznerCluster, infrav1.DeprecatedHetznerClusterTargetClusterReadyCondition)
 
 	result, err := r.reconcileTargetClusterManager(ctx, clusterScope)
 	if err != nil {
