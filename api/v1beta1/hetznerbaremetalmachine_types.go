@@ -265,6 +265,11 @@ type HetznerBareMetalMachineStatus struct {
 	// +optional
 	Ready bool `json:"ready"`
 
+	// Phase represents the current phase of HetznerBareMetalMachineStatus actuation.
+	// E.g. Pending, Running, Terminating, Failed etc.
+	// +optional
+	Phase clusterv1.MachinePhase `json:"phase,omitempty"`
+
 	// Conditions defines current service state of the HetznerBareMetalMachine.
 	// +optional
 	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
@@ -279,6 +284,7 @@ type HetznerBareMetalMachineStatus struct {
 // +kubebuilder:printcolumn:name="ProviderID",type="string",JSONPath=".spec.providerID",description="Provider ID"
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.ready",description="hetznerbaremetalmachine is Ready"
 // +kubebuilder:printcolumn:name="Cluster",type="string",JSONPath=".metadata.labels.cluster\\.x-k8s\\.io/cluster-name",description="Cluster to which this M3Machine belongs"
+// +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="HetznerBareMetalMachine status such as Pending/Provisioning/Running etc"
 // +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].reason"
 // +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].message"
 

@@ -432,6 +432,18 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					return bmMachine.Status.FailureMessage != nil && *bmMachine.Status.FailureMessage == baremetal.FailureMessageMaintenanceMode
 				}, timeout).Should(BeTrue())
 			})
+
+			It("checks the hetznerBareMetalMachine status running phase", func() {
+				By("making sure that machine is in running state")
+				Eventually(func() bool {
+					if err := testEnv.Get(ctx, key, bmMachine); err != nil {
+						return false
+					}
+
+					testEnv.GetLogger().Info("status of host and hetznerBareMetalMachine", "hetznerBareMetalMachine phase", bmMachine.Status.Phase, "host state", host.Spec.Status.ProvisioningState)
+					return bmMachine.Status.Phase == clusterv1.MachinePhaseRunning
+				}, timeout, time.Second).Should(BeTrue())
+			})
 		})
 	})
 
@@ -490,6 +502,17 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			Eventually(func() bool {
 				return isPresentAndFalseWithReason(key, bmMachine, infrav1.HostAssociateSucceededCondition, infrav1.NoAvailableHostReason)
 			}, timeout).Should(BeTrue())
+		})
+
+		It("checks the hetznerBareMetalMachine status pending phase", func() {
+			Eventually(func() bool {
+				if err := testEnv.Get(ctx, key, bmMachine); err != nil {
+					return false
+				}
+
+				testEnv.GetLogger().Info("phase of hetznerBareMetalMachine", "phase", bmMachine.Status.Phase)
+				return bmMachine.Status.Phase == clusterv1.MachinePhasePending
+			}, timeout, time.Second).Should(BeTrue())
 		})
 	})
 
