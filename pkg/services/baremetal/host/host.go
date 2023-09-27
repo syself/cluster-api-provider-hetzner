@@ -1426,9 +1426,11 @@ func (s *Service) actionDeprovisioning() actionResult {
 			IP:         s.scope.HetznerBareMetalHost.Spec.Status.GetIPAddress(),
 		})
 		out := sshClient.ResetKubeadm()
-		if err := handleSSHError(out); err != nil {
-			record.Warnf(s.scope.HetznerBareMetalHost, "FailedResetKubeAdm", "failed to reset kubeadm: %s", err.Error())
-			s.scope.Error(err, "failed to reset kubeadm")
+		s.scope.V(1).Info("Output of ResetKubeadm", "stdout", out.StdOut, "stderr", out.StdErr, "err", out.Err)
+		if out.Err != nil {
+			record.Warnf(s.scope.HetznerBareMetalHost, "FailedResetKubeAdm", "failed to reset kubeadm: %s", out.Err.Error())
+		} else {
+			record.Event(s.scope.HetznerBareMetalHost, "SuccessfulResetKubeAdm", "Reset was successful.")
 		}
 	} else {
 		s.scope.Info("OS SSH Secret is empty - cannot reset kubeadm")
