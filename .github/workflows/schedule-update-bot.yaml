@@ -53,3 +53,4 @@ jobs:
         with:
           configurationFile: ${{ env.RENOVATE_CONFIG_FILE }}
           token: "x-access-token:${{ steps.generate-token.outputs.token }}"
+          mount-docker-socket: "true"
