@@ -313,7 +313,22 @@ func (c *sshClient) CleanCloudInitInstances() Output {
 
 // ResetKubeadm implements the ResetKubeadm method of the SSHClient interface.
 func (c *sshClient) ResetKubeadm() Output {
-	return c.runSSH(`kubeadm reset -f 2>&1 || true`)
+	// if `kubeadm reset` fails, we disable all pods and related services explicitly.
+	output := c.runSSH(`kubeadm reset -f 2>&1
+	echo
+	echo ========= stopping all pods =========
+	crictl pods -q | while read -r podid; do
+      crictl stopp "$podid"
+    done
+	echo
+	echo ========= disabling kubelet =========
+	systemctl disable --now kubelet
+	echo
+	echo ========= deleting directories =========
+	rm -rf /etc/kubernetes /var/run/kubeadm /var/lib/etcd
+	echo ========= done =========
+`)
+	return output
 }
 
 // IsConnectionRefusedError checks whether the ssh error is a connection refused error.
