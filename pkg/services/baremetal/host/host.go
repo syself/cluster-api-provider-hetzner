@@ -296,7 +296,7 @@ func (s *Service) ensureSSHKey(sshSecretRef infrav1.SSHSecretRef, sshSecret *cor
 	return sshKey, actionComplete{}
 }
 
-func (s *Service) handleIncompleteBoot(isRebootIntoRescue, isTimeout, isConnectionRefused bool) error {
+func (s *Service) handleIncompleteBoot(isRebootIntoRescue, isTimeout, isConnectionRefused bool) (failed bool, err error) {
 	// Connection refused error might be a sign that the ssh port is wrong - but might also come
 	// right after a reboot and is expected then. Therefore, we wait for some time and if the
 	// error keeps coming, we give an error.
@@ -304,7 +304,7 @@ func (s *Service) handleIncompleteBoot(isRebootIntoRescue, isTimeout, isConnecti
 		if s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeConnectionError {
 			// if error has occurred before, check the timeout
 			if hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated, time.Minute) {
-				msg := "Connection error when targeting server with ssh that miht be due to a wrong ssh port. Please check."
+				msg := "Connection error when targeting server with ssh that might be due to a wrong ssh port. Please check."
 				conditions.MarkFalse(
 					s.scope.HetznerBareMetalHost,
 					infrav1.ProvisionSucceededCondition,
@@ -313,13 +313,13 @@ func (s *Service) handleIncompleteBoot(isRebootIntoRescue, isTimeout, isConnecti
 					msg,
 				)
 				record.Warnf(s.scope.HetznerBareMetalHost, "SSHConnectionError", msg)
-				return fmt.Errorf("%w - might be due to wrong port", errSSHConnectionRefused)
+				return true, fmt.Errorf("%w - might be due to wrong port", errSSHConnectionRefused)
 			}
 		} else {
 			// set error in host status to check for a timeout next time
 			s.scope.HetznerBareMetalHost.SetError(infrav1.ErrorTypeConnectionError, "ssh gave connection error")
 		}
-		return nil
+		return false, nil
 	}
 
 	// ssh gave no connection refused error but it is still saved in host status - we can remove it
@@ -337,24 +337,24 @@ func (s *Service) handleIncompleteBoot(isRebootIntoRescue, isTimeout, isConnecti
 			// A timeout error from SSH indicates that the server did not yet finish rebooting.
 			// As the sevrer has no error set yet, set error message and return.
 			s.scope.HetznerBareMetalHost.SetError(infrav1.ErrorTypeSSHRebootTriggered, "ssh timeout error - server has not restarted yet")
-			return nil
+			return false, nil
 		}
 
 		// We did not get an error with ssh - but also not the expected hostname. Therefore,
 		// the (ssh) reboot did not start. We trigger an API reboot instead.
-		return s.handleErrorTypeSSHRebootFailed(isTimeout, isRebootIntoRescue)
+		return false, s.handleErrorTypeSSHRebootFailed(isTimeout, isRebootIntoRescue)
 
 	case infrav1.ErrorTypeSSHRebootTriggered:
-		return s.handleErrorTypeSSHRebootFailed(isTimeout, isRebootIntoRescue)
+		return false, s.handleErrorTypeSSHRebootFailed(isTimeout, isRebootIntoRescue)
 
 	case infrav1.ErrorTypeSoftwareRebootTriggered:
-		return s.handleErrorTypeSoftwareRebootFailed(isTimeout, isRebootIntoRescue)
+		return false, s.handleErrorTypeSoftwareRebootFailed(isTimeout, isRebootIntoRescue)
 
 	case infrav1.ErrorTypeHardwareRebootTriggered:
-		return s.handleErrorTypeHardwareRebootFailed(isTimeout, isRebootIntoRescue)
+		return false, s.handleErrorTypeHardwareRebootFailed(isTimeout, isRebootIntoRescue)
 	}
 
-	return fmt.Errorf("%w: %s", errUnexpectedErrorType, s.scope.HetznerBareMetalHost.Spec.Status.ErrorType)
+	return false, fmt.Errorf("%w: %s", errUnexpectedErrorType, s.scope.HetznerBareMetalHost.Spec.Status.ErrorType)
 }
 
 func (s *Service) handleErrorTypeSSHRebootFailed(isSSHTimeoutError, wantsRescue bool) error {
@@ -498,7 +498,11 @@ func (s *Service) actionRegistering() actionResult {
 			return actionError{err: fmt.Errorf("failed to handle incomplete boot - registering: %w", err)}
 		}
 
-		if err := s.handleIncompleteBoot(true, isSSHTimeoutError, isSSHConnectionRefusedError); err != nil {
+		failed, err := s.handleIncompleteBoot(true, isSSHTimeoutError, isSSHConnectionRefusedError)
+		if failed {
+			return s.recordActionFailure(infrav1.ProvisioningError, err.Error())
+		}
+		if err != nil {
 			return actionError{err: fmt.Errorf(errMsgFailedHandlingIncompleteBoot, err)}
 		}
 		return actionContinue{delay: 10 * time.Second}
@@ -1031,7 +1035,11 @@ func (s *Service) actionProvisioning() actionResult {
 		if err != nil {
 			return actionError{err: fmt.Errorf("failed to handle incomplete boot - installImage: %w", err)}
 		}
-		if err := s.handleIncompleteBoot(false, isSSHTimeoutError, isSSHConnectionRefusedError); err != nil {
+		failed, err := s.handleIncompleteBoot(false, isSSHTimeoutError, isSSHConnectionRefusedError)
+		if failed {
+			return s.recordActionFailure(infrav1.ProvisioningError, err.Error())
+		}
+		if err != nil {
 			return actionError{err: fmt.Errorf(errMsgFailedHandlingIncompleteBoot, err)}
 		}
 		return actionContinue{delay: 10 * time.Second}
@@ -1181,7 +1189,11 @@ func (s *Service) actionEnsureProvisioned() actionResult {
 			}
 		}
 
-		if err := s.handleIncompleteBoot(false, isTimeout, isSSHConnectionRefusedError); err != nil {
+		failed, err := s.handleIncompleteBoot(false, isTimeout, isSSHConnectionRefusedError)
+		if failed {
+			return s.recordActionFailure(infrav1.ProvisioningError, err.Error())
+		}
+		if err != nil {
 			return actionError{err: fmt.Errorf(errMsgFailedHandlingIncompleteBoot, err)}
 		}
 		return actionContinue{delay: 10 * time.Second}
@@ -1375,7 +1387,11 @@ func (s *Service) actionProvisioned() actionResult {
 			if err != nil {
 				return actionError{err: fmt.Errorf("failed to handle incomplete boot - provisioning: %w", err)}
 			}
-			if err := s.handleIncompleteBoot(false, isTimeout, isSSHConnectionRefusedError); err != nil {
+			failed, err := s.handleIncompleteBoot(false, isTimeout, isSSHConnectionRefusedError)
+			if failed {
+				return s.recordActionFailure(infrav1.ProvisioningError, err.Error())
+			}
+			if err != nil {
 				return actionError{err: fmt.Errorf(errMsgFailedHandlingIncompleteBoot, err)}
 			}
 			return actionContinue{delay: 10 * time.Second}

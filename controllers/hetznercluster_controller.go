@@ -396,7 +396,7 @@ func hcloudTokenErrorResult(
 			clusterv1.ConditionSeverityError,
 			"could not find HetznerSecret",
 		)
-		res = ctrl.Result{Requeue: true, RequeueAfter: secretErrorRetryDelay}
+		res = ctrl.Result{RequeueAfter: secretErrorRetryDelay}
 
 	// No need to reconcile again, as it will be triggered as soon as the secret is updated.
 	case *secretutil.HCloudTokenValidationError:

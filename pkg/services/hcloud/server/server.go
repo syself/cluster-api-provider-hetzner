@@ -19,6 +19,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -42,8 +43,9 @@ const (
 )
 
 var (
-	errWrongLabel   = fmt.Errorf("label is wrong")
-	errMissingLabel = fmt.Errorf("label is missing")
+	errWrongLabel              = fmt.Errorf("label is wrong")
+	errMissingLabel            = fmt.Errorf("label is missing")
+	errServerCreateNotPossible = fmt.Errorf("server create not possible - need action")
 )
 
 // Service defines struct with machine scope to reconcile HCloudMachines.
@@ -97,6 +99,9 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	if server == nil {
 		server, err = s.createServer(ctx)
 		if err != nil {
+			if errors.Is(err, errServerCreateNotPossible) {
+				return reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
+			}
 			return res, fmt.Errorf("failed to create server: %w", err)
 		}
 	}
@@ -351,7 +356,7 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 				"Placement group %q does not exist in cluster",
 				*s.scope.HCloudMachine.Spec.PlacementGroupName,
 			)
-			return nil, fmt.Errorf("failed to find placement group of server")
+			return nil, errServerCreateNotPossible
 		}
 	}
 
@@ -372,8 +377,14 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 	// find matching keys and store them
 	opts.SSHKeys, err = filterHCloudSSHKeys(sshKeysAPI, sshKeySpecs)
 	if err != nil {
-		conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerCreateSucceededCondition, infrav1.SSHKeyNotFoundReason, clusterv1.ConditionSeverityError, err.Error())
-		return nil, fmt.Errorf("error with ssh keys: %w", err)
+		conditions.MarkFalse(
+			s.scope.HCloudMachine,
+			infrav1.ServerCreateSucceededCondition,
+			infrav1.SSHKeyNotFoundReason,
+			clusterv1.ConditionSeverityError,
+			err.Error(),
+		)
+		return nil, errServerCreateNotPossible
 	}
 
 	// set up network if available
@@ -393,14 +404,20 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 	if err != nil {
 		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "CreateServer")
 		if hcloud.IsError(err, hcloud.ErrorCodeResourceLimitExceeded) {
-			conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerCreateSucceededCondition, infrav1.ServerLimitExceededReason, clusterv1.ConditionSeverityError, err.Error())
+			conditions.MarkFalse(
+				s.scope.HCloudMachine,
+				infrav1.ServerCreateSucceededCondition,
+				infrav1.ServerLimitExceededReason,
+				clusterv1.ConditionSeverityError,
+				err.Error(),
+			)
 			record.Warnf(s.scope.HCloudMachine,
 				"FailedCreateHCloudServer",
 				"Failed to create HCloud server %s: %s",
 				s.scope.Name(),
 				err,
 			)
-			return nil, nil
+			return nil, errServerCreateNotPossible
 		}
 		record.Warnf(s.scope.HCloudMachine,
 			"FailedCreateHCloudServer",
@@ -426,7 +443,14 @@ func (s *Service) getServerImage(ctx context.Context) (*hcloud.Image, error) {
 		return nil, fmt.Errorf("failed to get server type in HCloud: %w", err)
 	}
 	if serverType == nil {
-		return nil, fmt.Errorf("server type '%s' was not found in the API", s.scope.HCloudMachine.Spec.Type)
+		conditions.MarkFalse(
+			s.scope.HCloudMachine,
+			infrav1.ServerCreateSucceededCondition,
+			infrav1.ServerTypeNotFoundReason,
+			clusterv1.ConditionSeverityError,
+			err.Error(),
+		)
+		return nil, errServerCreateNotPossible
 	}
 
 	// query for an existing image by label
@@ -466,7 +490,7 @@ func (s *Service) getServerImage(ctx context.Context) (*hcloud.Image, error) {
 			clusterv1.ConditionSeverityError,
 			err.Error(),
 		)
-		return nil, err
+		return nil, errServerCreateNotPossible
 	}
 	if len(images) == 0 {
 		err := fmt.Errorf("no image found with name %s", s.scope.HCloudMachine.Spec.ImageName)
@@ -477,7 +501,7 @@ func (s *Service) getServerImage(ctx context.Context) (*hcloud.Image, error) {
 			clusterv1.ConditionSeverityError,
 			err.Error(),
 		)
-		return nil, err
+		return nil, errServerCreateNotPossible
 	}
 
 	return images[0], nil

@@ -218,9 +218,11 @@ var _ = Describe("handleIncompleteBoot", func() {
 				service := newTestService(host, &robotMock, nil, nil, nil)
 
 				if tc.expectedReturnError == nil {
-					Expect(service.handleIncompleteBoot(tc.isRebootIntoRescue, tc.isTimeOut, tc.isConnectionRefused)).To(Succeed())
+					_, err := service.handleIncompleteBoot(tc.isRebootIntoRescue, tc.isTimeOut, tc.isConnectionRefused)
+					Expect(err).To(Succeed())
 				} else {
-					Expect(service.handleIncompleteBoot(tc.isRebootIntoRescue, tc.isTimeOut, tc.isConnectionRefused)).Should(Equal(tc.expectedReturnError))
+					_, err := service.handleIncompleteBoot(tc.isRebootIntoRescue, tc.isTimeOut, tc.isConnectionRefused)
+					Expect(err).Should(Equal(tc.expectedReturnError))
 				}
 
 				Expect(host.Spec.Status.ErrorType).To(Equal(tc.expectedHostErrorType))
@@ -308,7 +310,8 @@ var _ = Describe("handleIncompleteBoot", func() {
 				)
 				service := newTestService(host, &robotMock, nil, nil, nil)
 
-				Expect(service.handleIncompleteBoot(true, tc.isTimeOut, tc.isConnectionRefused)).To(Succeed())
+				_, err := service.handleIncompleteBoot(true, tc.isTimeOut, tc.isConnectionRefused)
+				Expect(err).To(Succeed())
 				Expect(host.Spec.Status.ErrorType).To(Equal(tc.expectedHostErrorType))
 				if tc.expectedRebootType != infrav1.RebootType("") {
 					Expect(robotMock.AssertCalled(GinkgoT(), "RebootBMServer", mock.Anything, tc.expectedRebootType)).To(BeTrue())
@@ -393,7 +396,8 @@ var _ = Describe("handleIncompleteBoot", func() {
 				)
 				service := newTestService(host, &robotMock, nil, nil, nil)
 
-				Expect(service.handleIncompleteBoot(true, true, false)).To(Succeed())
+				_, err := service.handleIncompleteBoot(true, true, false)
+				Expect(err).To(Succeed())
 				Expect(host.Spec.Status.ErrorType).To(Equal(tc.expectedHostErrorType))
 				if tc.expectedRebootType != infrav1.RebootType("") {
 					Expect(robotMock.AssertCalled(GinkgoT(), "RebootBMServer", mock.Anything, tc.expectedRebootType)).To(BeTrue())
@@ -426,6 +430,30 @@ var _ = Describe("handleIncompleteBoot", func() {
 				expectedRebootType:    infrav1.RebootType(""),
 			}),
 		)
+		It("returns failed if connection error and timed out", func() {
+			robotMock := robotmock.Client{}
+			robotMock.On("SetBootRescue", mock.Anything, sshFingerprint).Return(nil, nil)
+			robotMock.On("GetBootRescue", mock.Anything).Return(&models.Rescue{Active: true}, nil)
+			robotMock.On("RebootBMServer", mock.Anything, mock.Anything).Return(nil, nil)
+
+			host := helpers.BareMetalHost("test-host", "default",
+				helpers.WithRebootTypes([]infrav1.RebootType{
+					infrav1.RebootTypeSoftware,
+					infrav1.RebootTypeHardware,
+					infrav1.RebootTypePower,
+				}),
+				helpers.WithSSHSpec(),
+				helpers.WithSSHStatus(),
+				helpers.WithError(infrav1.ErrorTypeConnectionError, "", 1, metav1.Time{Time: time.Now().Add(-30 * time.Minute)}),
+			)
+			service := newTestService(host, &robotMock, nil, nil, nil)
+
+			failed, err := service.handleIncompleteBoot(true, false, true)
+			Expect(err).ToNot(BeNil())
+			Expect(failed).To(BeTrue())
+			Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.ErrorTypeConnectionError))
+			Expect(robotMock.AssertNotCalled(GinkgoT(), "RebootBMServer", mock.Anything, mock.Anything)).To(BeTrue())
+		})
 	})
 
 	Context("hostname rescue vs machinename", func() {
@@ -457,9 +485,11 @@ var _ = Describe("handleIncompleteBoot", func() {
 				service := newTestService(host, &robotMock, nil, nil, nil)
 
 				if tc.expectedReturnError == nil {
-					Expect(service.handleIncompleteBoot(tc.isRebootIntoRescue, false, false)).To(Succeed())
+					_, err := service.handleIncompleteBoot(tc.isRebootIntoRescue, false, false)
+					Expect(err).To(Succeed())
 				} else {
-					Expect(service.handleIncompleteBoot(tc.isRebootIntoRescue, false, false)).Should(Equal(tc.expectedReturnError))
+					_, err := service.handleIncompleteBoot(tc.isRebootIntoRescue, false, false)
+					Expect(err).Should(Equal(tc.expectedReturnError))
 				}
 				Expect(host.Spec.Status.ErrorType).To(Equal(tc.expectedHostErrorType))
 				if tc.expectsRescueCall {

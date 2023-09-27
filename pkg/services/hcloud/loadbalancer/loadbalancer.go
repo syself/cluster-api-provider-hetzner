@@ -139,7 +139,10 @@ func (s *Service) reconcileNetworkAttachement(ctx context.Context, lb *hcloud.Lo
 			clusterv1.ConditionSeverityWarning,
 			err.Error(),
 		)
-		return err
+
+		// no need to return error, as once the network is added it will be added to the status which triggers
+		// another reconcile loop
+		return nil
 	}
 
 	opts := hcloud.LoadBalancerAttachToNetworkOpts{
