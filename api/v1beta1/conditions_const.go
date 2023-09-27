@@ -99,6 +99,11 @@ const (
 )
 
 const (
+	// HostReadyCondition reports on whether the HetznerBareMetalHost is ready or not.
+	HostReadyCondition clusterv1.ConditionType = "HostReady"
+)
+
+const (
 	// TargetClusterReadyCondition reports on whether the kubeconfig in the target cluster is ready.
 	TargetClusterReadyCondition clusterv1.ConditionType = "TargetClusterReady"
 	// KubeConfigNotFoundReason indicates that the Kubeconfig could not be found.
@@ -163,14 +168,12 @@ const (
 	HostAssociateFailedReason = "HostAssociateFailed"
 )
 
-const (
-	// HostProvisionSucceededCondition indicates that a host has been provisioned.
-	HostProvisionSucceededCondition clusterv1.ConditionType = "HostProvisionSucceeded"
-)
-
 // deprecated conditions.
 
 const (
+	// DeprecatedHostProvisionSucceededCondition indicates that a host has been provisioned.
+	DeprecatedHostProvisionSucceededCondition clusterv1.ConditionType = "HostProvisionSucceeded"
+
 	// DeprecatedInstanceReadyCondition reports on current status of the instance. Ready indicates the instance is in a Running state.
 	DeprecatedInstanceReadyCondition clusterv1.ConditionType = "InstanceReady"
 

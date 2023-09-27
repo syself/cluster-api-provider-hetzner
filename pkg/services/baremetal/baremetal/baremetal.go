@@ -208,6 +208,15 @@ func (s *Service) update(ctx context.Context) error {
 		return fmt.Errorf("host not found for machine %s: %w", s.scope.Machine.Name, err)
 	}
 
+	readyCondition := conditions.Get(host, clusterv1.ReadyCondition)
+	if readyCondition != nil {
+		if readyCondition.Status == corev1.ConditionTrue {
+			conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.HostReadyCondition)
+		} else if readyCondition.Status == corev1.ConditionFalse {
+			conditions.MarkFalse(s.scope.BareMetalMachine, infrav1.HostReadyCondition, readyCondition.Reason, readyCondition.Severity, readyCondition.Message)
+		}
+	}
+
 	// maintenance mode on the host is a fatal error for the machine object
 	if host.Spec.MaintenanceMode != nil && *host.Spec.MaintenanceMode && s.scope.BareMetalMachine.Status.FailureReason == nil {
 		s.scope.BareMetalMachine.SetFailure(capierrors.UpdateMachineError, FailureMessageMaintenanceMode)
@@ -549,7 +558,6 @@ func (s *Service) getLabelSelector() labels.Selector {
 func (s *Service) setProviderID(ctx context.Context) error {
 	// nothing to do if providerID is set
 	if s.scope.BareMetalMachine.Spec.ProviderID != nil {
-		conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.HostProvisionSucceededCondition)
 		s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhaseRunning
 		return nil
 	}
@@ -567,13 +575,6 @@ func (s *Service) setProviderID(ctx context.Context) error {
 
 	if host.Spec.Status.ProvisioningState != infrav1.StateProvisioned {
 		s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhaseProvisioning
-		conditions.MarkFalse(
-			s.scope.BareMetalMachine,
-			infrav1.HostProvisionSucceededCondition,
-			infrav1.StillProvisioningReason,
-			clusterv1.ConditionSeverityInfo,
-			"still provisioning - current state %q", host.Spec.Status.ProvisioningState,
-		)
 		// no need for requeue error since host update will trigger a reconciliation
 		return nil
 	}
@@ -581,7 +582,6 @@ func (s *Service) setProviderID(ctx context.Context) error {
 	// set providerID
 	providerID := providerIDFromServerID(host.Spec.ServerID)
 	s.scope.BareMetalMachine.Spec.ProviderID = &providerID
-	conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.HostProvisionSucceededCondition)
 	s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhaseRunning
 
 	return nil

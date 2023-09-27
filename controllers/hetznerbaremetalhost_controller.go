@@ -219,15 +219,14 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 					clusterv1.ConditionSeverityError,
 					infrav1.ErrorMessageMissingOSSSHSecret,
 				)
-
 				record.Warnf(bmHost, infrav1.OSSSHSecretMissingReason, infrav1.ErrorMessageMissingOSSSHSecret)
-
+				conditions.SetSummary(bmHost)
 				result, err := host.SaveHostAndReturn(ctx, r.Client, bmHost)
 				if result != emptyResult || err != nil {
-					return nil, nil, res, err
+					return nil, nil, result, err
 				}
 
-				return nil, nil, res, nil
+				return nil, nil, reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
 			}
 			return nil, nil, res, fmt.Errorf("failed to get secret: %w", err)
 		}
@@ -245,13 +244,13 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 				)
 
 				record.Warnf(bmHost, infrav1.RescueSSHSecretMissingReason, infrav1.ErrorMessageMissingRescueSSHSecret)
-
+				conditions.SetSummary(bmHost)
 				result, err := host.SaveHostAndReturn(ctx, r.Client, bmHost)
 				if result != emptyResult || err != nil {
 					return nil, nil, result, err
 				}
 
-				return nil, nil, res, nil
+				return nil, nil, reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
 			}
 			return nil, nil, res, fmt.Errorf("failed to acquire secret: %w", err)
 		}
@@ -324,7 +323,7 @@ func hetznerSecretErrorResult(
 		)
 
 		record.Warnf(bmHost, infrav1.HetznerSecretUnreachableReason, fmt.Sprintf("%s: %s", infrav1.ErrorMessageMissingHetznerSecret, err.Error()))
-
+		conditions.SetSummary(bmHost)
 		result, err := host.SaveHostAndReturn(ctx, client, bmHost)
 		emptyResult := reconcile.Result{}
 		if result != emptyResult || err != nil {
@@ -345,7 +344,7 @@ func hetznerSecretErrorResult(
 			infrav1.ErrorMessageMissingOrInvalidSecretData,
 		)
 		record.Warnf(bmHost, infrav1.SSHCredentialsInSecretInvalidReason, err.Error())
-
+		conditions.SetSummary(bmHost)
 		return host.SaveHostAndReturn(ctx, client, bmHost)
 	}
 	return ctrl.Result{}, fmt.Errorf("hetznerSecretErrorResult: an unhandled failure occurred: %T %w", err, err)
