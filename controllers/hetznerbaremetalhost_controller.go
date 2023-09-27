@@ -227,7 +227,7 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 					return nil, nil, res, err
 				}
 
-				return nil, nil, ctrl.Result{Requeue: true}, nil
+				return nil, nil, res, nil
 			}
 			return nil, nil, res, fmt.Errorf("failed to get secret: %w", err)
 		}
@@ -251,7 +251,7 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 					return nil, nil, result, err
 				}
 
-				return nil, nil, ctrl.Result{Requeue: true}, nil
+				return nil, nil, res, nil
 			}
 			return nil, nil, res, fmt.Errorf("failed to acquire secret: %w", err)
 		}
@@ -332,7 +332,7 @@ func hetznerSecretErrorResult(
 		}
 
 		// No need to reconcile again, as it will be triggered as soon as the secret is updated.
-		return ctrl.Result{Requeue: true}, nil
+		return res, nil
 	}
 
 	credValidationErr := &bmclient.CredentialsValidationError{}

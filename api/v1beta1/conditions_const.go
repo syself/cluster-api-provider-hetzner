@@ -46,6 +46,8 @@ const (
 	ImageAmbiguousReason = "ImageAmbiguous"
 	// ServerLimitExceededReason indicates that server resource rate limit is hit.
 	ServerLimitExceededReason = "ServerLimitExceeded"
+	// ServerTypeNotFoundReason indicates that server type could not be found.
+	ServerTypeNotFoundReason = "ServerTypeNotFound"
 )
 
 const (
