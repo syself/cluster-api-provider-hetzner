@@ -30,17 +30,17 @@ spec:
       jsonPath: .spec.status.ipv6
       name: IPv6
       type: string
+    - description: Maintenance Mode
+      jsonPath: .spec.maintenanceMode
+      name: Maintenance
+      type: boolean
     - description: CPU threads
       jsonPath: .spec.status.hardwareDetails.cpu.threads
-      name: Threads
-      type: string
-    - description: CPU clock speed
-      jsonPath: .spec.status.hardwareDetails.cpu.clockGigahertz
-      name: Clock speed
+      name: CPU
       type: string
     - description: RAM in GB
       jsonPath: .spec.status.hardwareDetails.ramGB
-      name: RAM in GB
+      name: RAM
       type: string
     - description: Consumer using this host
       jsonPath: .spec.consumerRef.name
@@ -50,6 +50,12 @@ spec:
       jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    - jsonPath: .spec.status.conditions[?(@.type=='Ready')].reason
+      name: Reason
+      type: string
+    - jsonPath: .spec.status.conditions[?(@.type=='Ready')].message
+      name: Message
+      type: string
     name: v1beta1
     schema:
       openAPIV3Schema:
