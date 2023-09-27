@@ -65,10 +65,10 @@ func (lt *LoggingTransport) RoundTrip(req *http.Request) (resp *http.Response, e
 
 	resp, err = lt.roundTripper.RoundTrip(req)
 	if err != nil {
-		lt.log.Info("hetzner robot API. Error.", "err", err, "method", req.Method, "url", req.URL, "stack", stack)
+		lt.log.V(1).Info("hetzner robot API. Error.", "err", err, "method", req.Method, "url", req.URL, "stack", stack)
 		return resp, err
 	}
-	lt.log.Info("hetzner robot API called.", "statusCode", resp.StatusCode, "method", req.Method, "url", req.URL, "stack", stack)
+	lt.log.V(1).Info("hetzner robot API called.", "statusCode", resp.StatusCode, "method", req.Method, "url", req.URL, "stack", stack)
 	return resp, nil
 }
 
