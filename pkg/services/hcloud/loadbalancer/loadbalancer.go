@@ -53,7 +53,7 @@ var ErrNoLoadBalancerAvailable = fmt.Errorf("no available load balancer")
 // Reconcile implements the life cycle of HCloud load balancers.
 func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 	// delete the deprecated condition from existing cluster objects
-	conditions.Delete(s.scope.HetznerCluster, infrav1.LoadBalancerAttachedToNetworkCondition)
+	conditions.Delete(s.scope.HetznerCluster, infrav1.DeprecatedLoadBalancerAttachedToNetworkCondition)
 
 	if !s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
 		return reconcile.Result{}, nil

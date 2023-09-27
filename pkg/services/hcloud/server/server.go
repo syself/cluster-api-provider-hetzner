@@ -63,8 +63,8 @@ func NewService(scope *scope.MachineScope) *Service {
 // Reconcile implements reconcilement of HCloudMachines.
 func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err error) {
 	// delete the deprecated condition from existing machine objects
-	conditions.Delete(s.scope.HCloudMachine, infrav1.InstanceReadyCondition)
-	conditions.Delete(s.scope.HCloudMachine, infrav1.InstanceBootstrapReadyCondition)
+	conditions.Delete(s.scope.HCloudMachine, infrav1.DeprecatedInstanceReadyCondition)
+	conditions.Delete(s.scope.HCloudMachine, infrav1.DeprecatedInstanceBootstrapReadyCondition)
 
 	// detect failure domain
 	failureDomain, err := s.scope.GetFailureDomain()
@@ -266,7 +266,7 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 	}
 
 	// if load balancer has not been attached to a network, then it cannot add a server with private IP
-	if hasPrivateIP && conditions.IsFalse(s.scope.HetznerCluster, infrav1.LoadBalancerAttachedToNetworkCondition) {
+	if hasPrivateIP && conditions.IsFalse(s.scope.HetznerCluster, infrav1.LoadBalancerReadyCondition) {
 		return nil
 	}
 

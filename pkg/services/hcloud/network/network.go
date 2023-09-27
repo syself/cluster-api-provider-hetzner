@@ -49,7 +49,7 @@ func NewService(scope *scope.ClusterScope) *Service {
 // Reconcile implements life cycle of networks.
 func (s *Service) Reconcile(ctx context.Context) (err error) {
 	// delete the deprecated condition from existing cluster objects
-	conditions.Delete(s.scope.HetznerCluster, infrav1.NetworkAttachedCondition)
+	conditions.Delete(s.scope.HetznerCluster, infrav1.DeprecatedNetworkAttachedCondition)
 
 	if !s.scope.HetznerCluster.Spec.HCloudNetwork.Enabled {
 		return nil
