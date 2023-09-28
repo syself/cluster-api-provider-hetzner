@@ -78,7 +78,7 @@ spec:
             description: HetznerBareMetalHostSpec defines the desired state of HetznerBareMetalHost.
             properties:
               consumerRef:
-                description: ConsumerRef can be used to a reference to the HetznerBareMetalMachine
+                description: ConsumerRef is a reference to the HetznerBareMetalMachine
                   that is using this host. When it is not empty, the host is considered
                   "in use".
                 properties:

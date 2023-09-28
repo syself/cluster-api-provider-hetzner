@@ -29,3 +29,4 @@ ignore:
   - config/webhook/**/*.yaml
   - test/e2e/data/**/*.yaml
   - test/e2e/config/hetzner-ci-envsubst.yaml
+  - baremetalhosts.yaml
