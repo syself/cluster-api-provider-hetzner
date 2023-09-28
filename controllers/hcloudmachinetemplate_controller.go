@@ -23,7 +23,6 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/klog/v2"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
@@ -78,14 +77,13 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 		}
 	}()
 
-	// Fetch the Cluster.
-	var cluster *clusterv1.Cluster
-	clusterClass, err := getOwnerClusterClass(ctx, r.Client, machineTemplate.ObjectMeta)
-	// nothing to do if a ClusterClass is the owner
-	if err == nil && clusterClass != nil {
-		machineTemplate.Status.OwnerType = clusterClass.Kind
+	// Check whether owner is a ClusterClass. In that case there is nothing to do.
+	if hasOwnerClusterClass(machineTemplate.ObjectMeta) {
+		machineTemplate.Status.OwnerType = "ClusterClass"
 		return reconcile.Result{}, nil
 	}
+
+	var cluster *clusterv1.Cluster
 	cluster, err = util.GetOwnerCluster(ctx, r.Client, machineTemplate.ObjectMeta)
 	if err != nil || cluster == nil {
 		log.Info(fmt.Sprintf("%s is missing ownerRef to cluster or cluster does not exist %s/%s",
@@ -188,34 +186,12 @@ func (r *HCloudMachineTemplateReconciler) SetupWithManager(ctx context.Context, 
 		Complete(r)
 }
 
-// getOwnerClusterClass returns the ClusterClass object owning the current resource.
-func getOwnerClusterClass(ctx context.Context, c client.Client, obj metav1.ObjectMeta) (*clusterv1.ClusterClass, error) {
+// hasOwnerClusterClass returns whether the object has a ClusterClass as owner.
+func hasOwnerClusterClass(obj metav1.ObjectMeta) bool {
 	for _, ref := range obj.GetOwnerReferences() {
-		if ref.Kind != "ClusterClass" {
-			continue
-		}
-		gv, err := schema.ParseGroupVersion(ref.APIVersion)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse GroupVersion: %w", err)
-		}
-		if gv.Group == clusterv1.GroupVersion.Group {
-			return getClusterClassByName(ctx, c, obj.Namespace, ref.Name)
+		if ref.Kind == "ClusterClass" {
+			return true
 		}
 	}
-	return nil, nil
-}
-
-// getClusterClassByName finds and return a Cluster object using the specified params.
-func getClusterClassByName(ctx context.Context, c client.Client, namespace, name string) (*clusterv1.ClusterClass, error) {
-	clusterClass := &clusterv1.ClusterClass{}
-	key := client.ObjectKey{
-		Namespace: namespace,
-		Name:      name,
-	}
-
-	if err := c.Get(ctx, key, clusterClass); err != nil {
-		return nil, fmt.Errorf("failed to get ClusterClass/%s: %w", name, err)
-	}
-
-	return clusterClass, nil
+	return false
 }
