@@ -52,7 +52,23 @@ func NewService(scope *scope.BareMetalRemediationScope) *Service {
 
 // Reconcile implements reconcilement of HetznerBareMetalRemediations.
 func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err error) {
-	host, err := s.getHost(ctx)
+	// try to get information about host from bare metal machine annotations
+	key, err := objectKeyFromAnnotations(s.scope.BareMetalMachine.ObjectMeta.GetAnnotations())
+	if err != nil {
+		if err := s.setOwnerRemediatedConditionNew(ctx); err != nil {
+			err = fmt.Errorf("failed to set remediated condition on capi machine: %w", err)
+			record.Warn(s.scope.BareMetalRemediation, "FailedSettingConditionOnMachine", err.Error())
+			return res, err
+		}
+		record.Eventf(s.scope.BareMetalRemediation, "ExitRemediation", "exit remediation because bare metal machine has no host annotation")
+		return res, nil
+	}
+
+	// get host
+	var host infrav1.HetznerBareMetalHost
+	if err := s.scope.Client.Get(ctx, key, &host); err != nil {
+		return res, fmt.Errorf("failed to get host %+v: %w", key, err)
+	}
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			if err := s.setOwnerRemediatedConditionNew(ctx); err != nil {
@@ -60,6 +76,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 				record.Warn(s.scope.BareMetalRemediation, "FailedSettingConditionOnMachine", err.Error())
 				return res, err
 			}
+			record.Event(s.scope.BareMetalRemediation, "ExitRemediation", "host not found - exit remediation")
 			return res, nil
 		}
 		err := fmt.Errorf("failed to find the unhealthy host: %w", err)
@@ -70,13 +87,17 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	// if host is not provisioned or in maintenance mode, then we do not try to reboot server
 	if host.Spec.Status.ProvisioningState != infrav1.StateProvisioned ||
 		host.Spec.MaintenanceMode != nil && *host.Spec.MaintenanceMode {
-		s.scope.Info("Deleting host without remediation", "provisioningState", host.Spec.Status.ProvisioningState, "maintenanceMode", host.Spec.MaintenanceMode)
-
 		if err := s.setOwnerRemediatedConditionNew(ctx); err != nil {
 			err := fmt.Errorf("failed to set remediated condition on capi machine: %w", err)
 			record.Warn(s.scope.BareMetalRemediation, "FailedSettingConditionOnMachine", err.Error())
 			return res, err
 		}
+		record.Eventf(
+			s.scope.BareMetalRemediation,
+			"ExitRemediation",
+			"exit remediation because host is not provisioned or in maintenance mode. Provisioning state: %s. Maintenance mode: %v",
+			host.Spec.Status.ProvisioningState, host.Spec.MaintenanceMode != nil && *host.Spec.MaintenanceMode,
+		)
 		return res, nil
 	}
 
@@ -175,19 +196,6 @@ func (s *Service) handlePhaseWaiting(ctx context.Context) (res reconcile.Result,
 	}
 
 	return res, nil
-}
-
-func (s *Service) getHost(ctx context.Context) (host infrav1.HetznerBareMetalHost, err error) {
-	key, err := objectKeyFromAnnotations(s.scope.BareMetalMachine.ObjectMeta.GetAnnotations())
-	if err != nil {
-		return host, fmt.Errorf("failed to get object key from annotations of bm machine %q: %w", s.scope.BareMetalMachine.Name, err)
-	}
-
-	if err := s.scope.Client.Get(ctx, key, &host); err != nil {
-		return host, fmt.Errorf("failed to get host %+v: %w", key, err)
-	}
-
-	return host, nil
 }
 
 // timeUntilNextRemediation checks if it is time to execute a next remediation step
