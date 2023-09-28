@@ -405,7 +405,7 @@ type HetznerBareMetalHostStatus struct{}
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=hbmh;hbmhost
-// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".spec.status.provisioningState",description="Provisioning status"
+// +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".spec.status.provisioningState",description="Phase of provisioning"
 // +kubebuilder:printcolumn:name="IPv4",type="string",JSONPath=".spec.status.ipv4",description="IPv4 of the host"
 // +kubebuilder:printcolumn:name="IPv6",type="string",JSONPath=".spec.status.ipv6",description="IPv6 of the host"
 // +kubebuilder:printcolumn:name="Maintenance",type="boolean",JSONPath=".spec.maintenanceMode",description="Maintenance Mode"
