@@ -275,6 +275,7 @@ type HetznerBareMetalMachineStatus struct {
 	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
 }
 
+// HetznerBareMetalMachine is the Schema for the hetznerbaremetalmachines API.
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -287,7 +288,6 @@ type HetznerBareMetalMachineStatus struct {
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time duration since creation of HetznerBareMetalMachine"
 // +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].reason"
 // +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].message"
-// HetznerBareMetalMachine is the Schema for the hetznerbaremetalmachines API.
 type HetznerBareMetalMachine struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional

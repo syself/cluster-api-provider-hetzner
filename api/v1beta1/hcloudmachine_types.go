@@ -89,6 +89,7 @@ type HCloudMachineStatus struct {
 	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
 }
 
+// HCloudMachine is the Schema for the hcloudmachines API.
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=hcloudmachines,scope=Namespaced,categories=cluster-api,shortName=capihcm
 // +kubebuilder:storageversion
@@ -100,7 +101,6 @@ type HCloudMachineStatus struct {
 // +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].reason"
 // +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].message"
 // +k8s:defaulter-gen=true
-// HCloudMachine is the Schema for the hcloudmachines API.
 type HCloudMachine struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

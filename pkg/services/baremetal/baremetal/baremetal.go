@@ -490,7 +490,6 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 			"Added IP %q of server %d as targets to the loadbalancer %v",
 			ip, host.Spec.ServerID, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID,
 		)
-
 	}
 	return nil
 }

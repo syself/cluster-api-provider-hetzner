@@ -1,12 +1,21 @@
 name: "Lint Pull Request"
 on: # yamllint disable-line rule:truthy
+  workflow_dispatch:
   pull_request:
     branches:
       - main
       - "releases/**"
     paths:
-      - ".github/workflows/pr-lint.yml"
+      - "**.go"
+      - "**go.mod"
+      - "**go.sum"
+      - "<templates|test>/**/*.<yml|yaml>"
+      - ".github/actions/**/*"
+      - ".github/workflows/e2e-*"
+      - ".github/workflows/pr-*"
+      - "images/caph/**"
       - "!**/vendor/**"
+      - "test/e2e/**"
 # yamllint disable rule:line-length
 jobs:
   pr-lint:
