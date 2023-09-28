@@ -18,9 +18,9 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - description: Provisioning status
+    - description: Phase of provisioning
       jsonPath: .spec.status.provisioningState
-      name: State
+      name: Phase
       type: string
     - description: IPv4 of the host
       jsonPath: .spec.status.ipv4

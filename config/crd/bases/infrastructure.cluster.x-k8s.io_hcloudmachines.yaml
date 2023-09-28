@@ -27,9 +27,9 @@ spec:
       jsonPath: .metadata.ownerReferences[?(@.kind=="Machine")].name
       name: Machine
       type: string
-    - description: HCloud instance state
+    - description: Phase of HCloudMachine
       jsonPath: .status.instanceState
-      name: State
+      name: Phase
       type: string
     - description: Time duration since creation of hcloudmachine
       jsonPath: .metadata.creationTimestamp
