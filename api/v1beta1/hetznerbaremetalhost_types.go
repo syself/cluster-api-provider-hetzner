@@ -179,8 +179,8 @@ type HetznerBareMetalHostSpec struct {
 	// +optional
 	RootDeviceHints *RootDeviceHints `json:"rootDeviceHints,omitempty"`
 
-	// ConsumerRef can be used to store information about something
-	// that is using a host. When it is not empty, the host is considered "in use".
+	// ConsumerRef is a reference to the HetznerBareMetalMachine
+	// that is using this host. When it is not empty, the host is considered "in use".
 	// +optional
 	ConsumerRef *corev1.ObjectReference `json:"consumerRef,omitempty"`
 
@@ -411,7 +411,7 @@ type HetznerBareMetalHostStatus struct{}
 // +kubebuilder:printcolumn:name="Maintenance",type="boolean",JSONPath=".spec.maintenanceMode",description="Maintenance Mode"
 // +kubebuilder:printcolumn:name="CPU",type="string",JSONPath=".spec.status.hardwareDetails.cpu.threads",description="CPU threads"
 // +kubebuilder:printcolumn:name="RAM",type="string",JSONPath=".spec.status.hardwareDetails.ramGB",description="RAM in GB"
-// +kubebuilder:printcolumn:name="Consumer",type="string",JSONPath=".spec.consumerRef.name",description="Consumer using this host"
+// +kubebuilder:printcolumn:name="HetznerBareMetalMachine",type="string",JSONPath=".spec.consumerRef.name",description="HetznerBareMetalMachine using this host"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time duration since creation of BaremetalHost"
 // +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".spec.status.conditions[?(@.type=='Ready')].reason"
 // +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".spec.status.conditions[?(@.type=='Ready')].message"

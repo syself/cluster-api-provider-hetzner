@@ -15,6 +15,7 @@ spec:
     plural: hetznerbaremetalmachines
     shortNames:
     - hbm
+    - hbmm
     - hbmachine
     - hbmachines
     - hetznerbaremetalm
