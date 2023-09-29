@@ -235,20 +235,27 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 		return result, nil
 	}
 
-	if err := reconcileTargetSecret(ctx, clusterScope); err != nil {
+	// target cluster is ready
+	conditions.MarkTrue(hetznerCluster, infrav1.TargetClusterReadyCondition)
+
+	result, err = reconcileTargetSecret(ctx, clusterScope)
+	if err != nil {
 		reterr := fmt.Errorf("failed to reconcile target secret: %w", err)
 		conditions.MarkFalse(
 			clusterScope.HetznerCluster,
-			infrav1.TargetClusterReadyCondition,
+			infrav1.TargetClusterSecretReadyCondition,
 			infrav1.TargetSecretSyncFailedReason,
 			clusterv1.ConditionSeverityError,
 			reterr.Error(),
 		)
 		return reconcile.Result{}, reterr
 	}
+	if result != emptyResult {
+		return result, nil
+	}
 
-	// target cluster is ready
-	conditions.MarkTrue(hetznerCluster, infrav1.TargetClusterReadyCondition)
+	// target cluster secret is ready
+	conditions.MarkTrue(hetznerCluster, infrav1.TargetClusterSecretReadyCondition)
 
 	return reconcile.Result{}, nil
 }
@@ -424,17 +431,23 @@ func hcloudTokenErrorResult(
 	return res, err
 }
 
-func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope) error {
+func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope) (res reconcile.Result, reterr error) {
 	// Checking if control plane is ready
 	clientConfig, err := clusterScope.ClientConfig(ctx)
 	if err != nil {
 		clusterScope.V(1).Info("failed to get clientconfig with api endpoint")
-		return err
+		return res, err
 	}
 
 	if err := scope.IsControlPlaneReady(ctx, clientConfig); err != nil {
-		clusterScope.V(1).Info("Control plane not ready - reconcile target secret again")
-		return err
+		conditions.MarkFalse(
+			clusterScope.HetznerCluster,
+			infrav1.TargetClusterSecretReadyCondition,
+			infrav1.TargetClusterControlPlaneNotReadyReason,
+			clusterv1.ConditionSeverityInfo,
+			"target cluster not ready",
+		)
+		return reconcile.Result{Requeue: true}, nil //nolint:nilerr
 	}
 
 	// Control plane ready, so we can check if the secret exists already
@@ -442,12 +455,12 @@ func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope
 	// getting client set
 	restConfig, err := clientConfig.ClientConfig()
 	if err != nil {
-		return fmt.Errorf("failed to get rest config: %w", err)
+		return res, fmt.Errorf("failed to get rest config: %w", err)
 	}
 
 	clientSet, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
-		return fmt.Errorf("failed to get client set: %w", err)
+		return res, fmt.Errorf("failed to get client set: %w", err)
 	}
 
 	if _, err := clientSet.CoreV1().Secrets(metav1.NamespaceSystem).Get(
@@ -457,7 +470,7 @@ func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope
 	); err != nil {
 		// Set new secret only when no secret was found
 		if !strings.HasSuffix(err.Error(), "not found") {
-			return fmt.Errorf("failed to get secret: %w", err)
+			return res, fmt.Errorf("failed to get secret: %w", err)
 		}
 
 		tokenSecretName := types.NamespacedName{
@@ -467,12 +480,12 @@ func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope
 		secretManager := secretutil.NewSecretManager(clusterScope.Logger, clusterScope.Client, clusterScope.APIReader)
 		tokenSecret, err := secretManager.AcquireSecret(ctx, tokenSecretName, clusterScope.HetznerCluster, false, clusterScope.HetznerCluster.DeletionTimestamp.IsZero())
 		if err != nil {
-			return fmt.Errorf("failed to acquire secret: %w", err)
+			return res, fmt.Errorf("failed to acquire secret: %w", err)
 		}
 
 		hetznerToken, keyExists := tokenSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken]
 		if !keyExists {
-			return fmt.Errorf(
+			return res, fmt.Errorf(
 				"error key %s does not exist in secret/%s: %w",
 				clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken,
 				tokenSecretName,
@@ -510,10 +523,10 @@ func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope
 
 		// create secret in cluster
 		if _, err := clientSet.CoreV1().Secrets(metav1.NamespaceSystem).Create(ctx, &newSecret, metav1.CreateOptions{}); err != nil {
-			return fmt.Errorf("failed to create secret: %w", err)
+			return res, fmt.Errorf("failed to create secret: %w", err)
 		}
 	}
-	return nil
+	return res, nil
 }
 
 func (r *HetznerClusterReconciler) reconcileTargetClusterManager(ctx context.Context, clusterScope *scope.ClusterScope) (res reconcile.Result, err error) {
@@ -612,6 +625,17 @@ func (r *HetznerClusterReconciler) newTargetClusterManager(ctx context.Context, 
 			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to get a clientConfig for the API of HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
+	}
+
+	if err := scope.IsControlPlaneReady(ctx, clientConfig); err != nil {
+		conditions.MarkFalse(
+			clusterScope.HetznerCluster,
+			infrav1.TargetClusterReadyCondition,
+			infrav1.TargetClusterControlPlaneNotReadyReason,
+			clusterv1.ConditionSeverityInfo,
+			"target cluster not ready",
+		)
+		return nil, nil //nolint:nilerr
 	}
 
 	restConfig, err := clientConfig.ClientConfig()
