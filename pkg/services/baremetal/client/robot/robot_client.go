@@ -25,9 +25,9 @@ import (
 	"github.com/go-logr/logr"
 	hrobot "github.com/syself/hrobot-go"
 	"github.com/syself/hrobot-go/models"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
 // Client collects all methods used by the controller in the robot API.
@@ -77,7 +77,7 @@ func (f *factory) NewClient(creds Credentials) Client {
 	client := &http.Client{
 		Transport: &LoggingTransport{
 			roundTripper: http.DefaultTransport,
-			log:          utils.GetDefaultLogger("debug"),
+			log:          ctrl.Log.WithName("robot-api"),
 		},
 	}
 	return &realHetznerRobotClient{
