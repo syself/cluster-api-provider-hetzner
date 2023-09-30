@@ -27,8 +27,8 @@ spec:
       containers:
         - command:
             - /manager
+          args:
             - "--leader-elect=true"
-            - "--log-level=info"
           image: controller:latest
           name: manager
           ports:

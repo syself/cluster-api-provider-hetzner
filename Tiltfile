@@ -24,6 +24,11 @@ settings = {
     "cabpt_version": "v0.5.6",
     "cacppt_version": "v0.4.11",
     "cert_manager_version": "v1.11.0",
+    "extra_args": {
+        "hetzner": [
+            "--log-level=debug",
+        ],
+    },
     "kustomize_substitutions": {
         "HCLOUD_REGION": "fsn1",
         "CONTROL_PLANE_MACHINE_COUNT": "3",
