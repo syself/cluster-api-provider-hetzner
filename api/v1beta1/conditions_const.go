@@ -112,10 +112,15 @@ const (
 	KubeAPIServerNotRespondingReason = "KubeAPIServerNotResponding"
 	// TargetClusterCreateFailedReason indicates that the target cluster could not be created.
 	TargetClusterCreateFailedReason = "TargetClusterCreateFailed"
-	// TargetSecretSyncFailedReason indicates that the target secret could not be synced.
-	TargetSecretSyncFailedReason = "TargetSecretSyncFailed"
 	// TargetClusterControlPlaneNotReadyReason indicates that the target cluster's control plane is not ready yet.
 	TargetClusterControlPlaneNotReadyReason = "TargetClusterControlPlaneNotReady"
+)
+
+const (
+	// TargetClusterSecretReadyCondition reports on whether the hetzner secret in the target cluster is ready.
+	TargetClusterSecretReadyCondition clusterv1.ConditionType = "TargetClusterSecretReady"
+	// TargetSecretSyncFailedReason indicates that the target secret could not be synced.
+	TargetSecretSyncFailedReason = "TargetSecretSyncFailed"
 )
 
 const (

@@ -77,6 +77,9 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 		}
 	}()
 
+	// removing finalizer that was set in previous versions but is not needed
+	controllerutil.RemoveFinalizer(machineTemplate, infrav1.MachineFinalizer)
+
 	// Check whether owner is a ClusterClass. In that case there is nothing to do.
 	if hasOwnerClusterClass(machineTemplate.ObjectMeta) {
 		machineTemplate.Status.OwnerType = "ClusterClass"
@@ -146,24 +149,11 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
-	if !machineTemplate.DeletionTimestamp.IsZero() {
-		r.reconcileDelete(machineTemplateScope)
-		return reconcile.Result{}, nil
-	}
-
 	return reconcile.Result{}, r.reconcile(ctx, machineTemplateScope)
 }
 
 func (r *HCloudMachineTemplateReconciler) reconcile(ctx context.Context, machineTemplateScope *scope.HCloudMachineTemplateScope) error {
 	hcloudMachineTemplate := machineTemplateScope.HCloudMachineTemplate
-
-	// If the HCloudMachineTemplate doesn't have our finalizer, add it.
-	controllerutil.AddFinalizer(machineTemplateScope.HCloudMachineTemplate, infrav1.MachineFinalizer)
-
-	// Register the finalizer immediately to avoid orphaning HCloud resources on delete
-	if err := machineTemplateScope.PatchObject(ctx); err != nil {
-		return err
-	}
 
 	// reconcile machine template
 	if err := machinetemplate.NewService(machineTemplateScope).Reconcile(ctx); err != nil {
@@ -172,10 +162,6 @@ func (r *HCloudMachineTemplateReconciler) reconcile(ctx context.Context, machine
 	}
 
 	return nil
-}
-
-func (r *HCloudMachineTemplateReconciler) reconcileDelete(machineTemplateScope *scope.HCloudMachineTemplateScope) {
-	controllerutil.RemoveFinalizer(machineTemplateScope.HCloudMachineTemplate, infrav1.MachineFinalizer)
 }
 
 func (r *HCloudMachineTemplateReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, options controller.Options) error {
