@@ -1462,6 +1462,8 @@ func (s *Service) actionDeprovisioning() actionResult {
 		s.scope.HetznerBareMetalHost.ClearError()
 	}
 
+	conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
+
 	return actionComplete{}
 }
 
