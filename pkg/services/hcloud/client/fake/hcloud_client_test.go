@@ -426,7 +426,7 @@ var _ = Describe("Load balancer", func() {
 		var listOpts hcloud.ImageListOpts
 		client := factory.NewClient("")
 		BeforeEach(func() {
-			listOpts.LabelSelector = labelSelector
+			listOpts.LabelSelector = "caph-image-name==fedora-control-plane"
 		})
 		It("lists at least one image", func() {
 			resp, err := client.ListImages(ctx, listOpts)
