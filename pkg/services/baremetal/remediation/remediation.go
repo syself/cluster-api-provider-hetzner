@@ -67,9 +67,6 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	// get host
 	var host infrav1.HetznerBareMetalHost
 	if err := s.scope.Client.Get(ctx, key, &host); err != nil {
-		return res, fmt.Errorf("failed to get host %+v: %w", key, err)
-	}
-	if err != nil {
 		if apierrors.IsNotFound(err) {
 			if err := s.setOwnerRemediatedConditionNew(ctx); err != nil {
 				err = fmt.Errorf("failed to set remediated condition on capi machine: %w", err)

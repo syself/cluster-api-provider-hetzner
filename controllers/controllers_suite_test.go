@@ -100,6 +100,17 @@ var _ = BeforeSuite(func() {
 		HCloudClientFactory: testEnv.HCloudClientFactory,
 	}).SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
 
+	Expect((&HCloudRemediationReconciler{
+		Client:              testEnv.Manager.GetClient(),
+		APIReader:           testEnv.Manager.GetAPIReader(),
+		RateLimitWaitTime:   5 * time.Minute,
+		HCloudClientFactory: testEnv.HCloudClientFactory,
+	}).SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
+
+	Expect((&HetznerBareMetalRemediationReconciler{
+		Client: testEnv.Manager.GetClient(),
+	}).SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
+
 	go func() {
 		defer GinkgoRecover()
 		Expect(testEnv.StartManager(ctx)).To(Succeed())

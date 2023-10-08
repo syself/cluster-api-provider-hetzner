@@ -149,7 +149,6 @@ func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, r
 		// Nothing to do
 		return reconcile.Result{}, nil
 	}
-
 	return r.reconcileNormal(ctx, remediationScope)
 }
 
