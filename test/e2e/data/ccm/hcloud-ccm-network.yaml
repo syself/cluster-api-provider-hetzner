@@ -110,16 +110,6 @@ spec:
                 secretKeyRef:
                   name: hetzner
                   key: hcloud
-            - name: ROBOT_USER_NAME
-              valueFrom:
-                secretKeyRef:
-                  name: hetzner
-                  key: robot-user
-            - name: ROBOT_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: hetzner
-                  key: robot-password
             - name: HCLOUD_DEBUG
               value: "false"
             - name: HCLOUD_LOAD_BALANCERS_ENABLED
