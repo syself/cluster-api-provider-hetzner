@@ -20,6 +20,7 @@ package host
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"reflect"
@@ -943,9 +944,12 @@ func (s *Service) actionImageInstalling() actionResult {
 	}
 
 	// Execute install image
-	if err := handleSSHError(sshClient.ExecuteInstallImage(postInstallScript != "")); err != nil {
-		return actionError{err: fmt.Errorf("failed to execute installimage: %w", err)}
+	out := sshClient.ExecuteInstallImage(postInstallScript != "")
+	if out.Err != nil {
+		record.Warnf(s.scope.HetznerBareMetalHost, "ExecuteInstallImageFailed", out.StdOut)
+		return actionError{err: fmt.Errorf("failed to execute installimage: %w", out.Err)}
 	}
+	record.Eventf(s.scope.HetznerBareMetalHost, "ExecuteInstallImageSucceeded", out.StdOut)
 
 	// Update name in robot API
 	if _, err := s.scope.RobotClient.SetBMServerName(s.scope.HetznerBareMetalHost.Spec.ServerID, autoSetupInput.hostName); err != nil {
@@ -1053,6 +1057,10 @@ func (s *Service) actionProvisioning() actionResult {
 
 		isSSHTimeoutError, isSSHConnectionRefusedError, err := analyzeSSHOutputInstallImage(out, rescueSSHClient, portAfterInstallImage)
 		if err != nil {
+			if errors.Is(err, errUnexpectedHostName) {
+				// One possible reason: The machine gets used by a second wl-cluster
+				record.Warn(host, "UnexpectedHostName", err.Error())
+			}
 			return actionError{err: fmt.Errorf("failed to handle incomplete boot - installImage: %w", err)}
 		}
 		failed, err := s.handleIncompleteBoot(false, isSSHTimeoutError, isSSHConnectionRefusedError)
@@ -1181,13 +1189,42 @@ func verifyConnectionRefused(sshClient sshclient.Client, port int) bool {
 	return true
 }
 
-func (s *Service) actionEnsureProvisioned() actionResult {
+func (s *Service) actionEnsureProvisioned() (ar actionResult) {
 	sshClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
 		PrivateKey: sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.SecretRef).PrivateKey,
 		Port:       s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterCloudInit,
 		IP:         s.scope.HetznerBareMetalHost.Spec.Status.GetIPAddress(),
 	})
 
+	defer func() {
+		// Create an Event which contains the content of /var/log/cloud-init-output.log
+
+		if _, ok := ar.(actionContinue); ok {
+			// don't create an event
+			return
+		}
+		out := sshClient.GetCloudInitOutput()
+		if out.Err != nil || out.StdErr != "" {
+			record.Warnf(s.scope.HetznerBareMetalHost, "GetCloudInitOutputFailed",
+				fmt.Sprintf("GetCloudInitOutput failed to get /var/log/cloud-init-output.log: stdout %q, stderr %q, err %q",
+					out.StdOut, out.StdErr, out.Err.Error()))
+			return
+		}
+		_, ok := ar.(actionComplete)
+		if ok {
+			record.Eventf(s.scope.HetznerBareMetalHost, "CloudInitOutput",
+				"/var/log/cloud-init-output.log: "+out.StdOut)
+		} else {
+			_, err := ar.Result()
+			errString := ""
+			if err != nil {
+				errString = err.Error()
+			}
+			record.Warnf(s.scope.HetznerBareMetalHost, "CloudInitOutput", fmt.Sprintf("cloud init output (%s):\n%s",
+				errString,
+				out.StdOut))
+		}
+	}()
 	// Check hostname with sshClient
 	wantHostName := infrav1.BareMetalHostNamePrefix + s.scope.HetznerBareMetalHost.Spec.ConsumerRef.Name
 
@@ -1200,6 +1237,10 @@ func (s *Service) actionEnsureProvisioned() actionResult {
 
 		isTimeout, isSSHConnectionRefusedError, err := analyzeSSHOutputProvisioned(out)
 		if err != nil {
+			if errors.Is(err, errUnexpectedHostName) {
+				// One possible reason: The machine gets used by a second wl-cluster
+				record.Warn(s.scope.HetznerBareMetalHost, "UnexpectedHostName", err.Error())
+			}
 			return actionError{err: fmt.Errorf("failed to handle incomplete boot - provisioning: %w", err)}
 		}
 		// A connection failed error could mean that cloud init is still running (if cloudInit introduces a new port)
@@ -1405,6 +1446,10 @@ func (s *Service) actionProvisioned() actionResult {
 			// Reboot has been ongoing
 			isTimeout, isSSHConnectionRefusedError, err := analyzeSSHOutputProvisioned(out)
 			if err != nil {
+				if errors.Is(err, errUnexpectedHostName) {
+					// One possible reason: The machine gets used by a second wl-cluster
+					record.Warn(s.scope.HetznerBareMetalHost, "UnexpectedHostName", err.Error())
+				}
 				return actionError{err: fmt.Errorf("failed to handle incomplete boot - provisioning: %w", err)}
 			}
 			failed, err := s.handleIncompleteBoot(false, isTimeout, isSSHConnectionRefusedError)

@@ -137,7 +137,7 @@ const (
 	// StateProvisioning means we are sending userData to the host and boot the machine.
 	StateProvisioning ProvisioningState = "provisioning"
 
-	// StateEnsureProvisioned means we are ensuring the reboot worked and cloud init is installed.
+	// StateEnsureProvisioned means we are ensuring the reboot worked and cloud init was executed successfully.
 	StateEnsureProvisioned ProvisioningState = "ensure-provisioned"
 
 	// StateProvisioned means we have sent userData to the host and booted the machine.

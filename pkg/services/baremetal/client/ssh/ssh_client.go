@@ -18,9 +18,11 @@ limitations under the License.
 package sshclient
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -75,6 +77,7 @@ type Client interface {
 	GetHardwareDetailsCPUFlags() Output
 	GetHardwareDetailsCPUThreads() Output
 	GetHardwareDetailsCPUCores() Output
+	GetCloudInitOutput() Output
 	CreateAutoSetup(data string) Output
 	DownloadImage(path, url string) Output
 	CreatePostInstallScript(data string) Output
@@ -150,7 +153,7 @@ if test -n $IP_V4; then
 fi
 
 if test -n $IP_V6; then
-	echo "name=\""$iname\""" "model=$MODEL" "mac=$MAC" "ip=$IP_V6" "speedMbps=$SPEED"  
+	echo "name=\""$iname\""" "model=$MODEL" "mac=$MAC" "ip=$IP_V6" "speedMbps=$SPEED"
 fi
 
 done
@@ -187,6 +190,15 @@ func (c *sshClient) GetHardwareDetailsCPUFlags() Output {
 	return c.runSSH(`lscpu | grep "Flags:" |  awk '{ $1=""; print $0}' | sed "s/^[ \t]*//"`)
 }
 
+// GetCloudInitOutput implements the GetCloudInitOutput method of the SSHClient interface.
+func (c *sshClient) GetCloudInitOutput() Output {
+	out := c.runSSH(`cat /var/log/cloud-init-output.log`)
+	if out.Err == nil {
+		out.StdOut = removeUselessLinesFromCloudInitOutput(out.StdOut)
+	}
+	return out
+}
+
 // GetHardwareDetailsCPUThreads implements the GetHardwareDetailsCPUThreads method of the SSHClient interface.
 func (c *sshClient) GetHardwareDetailsCPUThreads() Output {
 	return c.runSSH(`lscpu | grep "CPU(s):" | head -1 |  awk '{ print $2}'`)
@@ -199,7 +211,7 @@ func (c *sshClient) GetHardwareDetailsCPUCores() Output {
 
 // CreateAutoSetup implements the CreateAutoSetup method of the SSHClient interface.
 func (c *sshClient) CreateAutoSetup(data string) Output {
-	return c.runSSH(fmt.Sprintf(`cat << 'EOF' > /autosetup 
+	return c.runSSH(fmt.Sprintf(`cat << 'EOF' > /autosetup
 %s
 EOF`, data))
 }
@@ -211,7 +223,7 @@ func (c *sshClient) DownloadImage(path, url string) Output {
 
 // CreatePostInstallScript implements the CreatePostInstallScript method of the SSHClient interface.
 func (c *sshClient) CreatePostInstallScript(data string) Output {
-	out := c.runSSH(fmt.Sprintf(`cat << 'EOF' > /root/post-install.sh 
+	out := c.runSSH(fmt.Sprintf(`cat << 'EOF' > /root/post-install.sh
 	%sEOF`, data))
 
 	if out.Err != nil || out.StdErr != "" {
@@ -229,10 +241,12 @@ func (c *sshClient) ExecuteInstallImage(hasPostInstallScript bool) Output {
 		cmd = `/root/.oldroot/nfs/install/installimage -a -c /autosetup`
 	}
 
-	out := c.runSSH(fmt.Sprintf(`cat << 'EOF' > /root/install-image-script.sh 
+	out := c.runSSH(fmt.Sprintf(`cat << 'EOF' > /root/install-image-script.sh
 #!/bin/bash
 export TERM=xterm
-%s
+
+# don't wait 20 seconds before starting: echo "x"
+echo "x" | %s
 EOF`, cmd))
 	if out.Err != nil || out.StdErr != "" {
 		return out
@@ -243,12 +257,32 @@ EOF`, cmd))
 		return out
 	}
 
-	out = c.runSSH(`sh /root/install-image-script.sh`)
-	if out.Err != nil {
-		return out
+	installImageOut := c.runSSH(`sh /root/install-image-script.sh`)
+
+	debugTxtOut := c.runSSH(`cat /root/debug.txt`)
+	installImageOut.StdOut = fmt.Sprintf(`debug.txt:
+%s
+%s
+######################################
+
+/root/install-image-script.sh stdout:
+%s
+######################################
+
+stderr:
+%s`,
+		debugTxtOut.StdOut, debugTxtOut.StdErr, installImageOut.StdOut, installImageOut.StdErr)
+
+	if installImageOut.Err != nil {
+		return installImageOut
 	}
+
+	if debugTxtOut.Err != nil {
+		installImageOut.StdOut += fmt.Sprintf("\nfailed to get /root/debug.txt:\n%s", debugTxtOut.Err.Error())
+	}
+
 	// Ignore StdErr in this command
-	return Output{StdOut: out.StdOut}
+	return Output{StdOut: installImageOut.StdOut}
 }
 
 // Reboot implements the Reboot method of the SSHClient interface.
@@ -394,4 +428,52 @@ func (c *sshClient) runSSH(command string) Output {
 		StdErr: stderrBuffer.String(),
 		Err:    err,
 	}
+}
+
+func removeUselessLinesFromCloudInitOutput(s string) string {
+	regexes := []string{
+		`^\s*\d+K [. ]+ \d+%.*\ds$`,                  //  10000K .......... .......... .......... .......... ..........  6%!M(MISSING) 1s
+		`^Get:\d+ https?://.* [kM]B.*`,               // Get:17 http://archive.ubuntu.com/ubuntu focal/universe Translation-en [5,124 kB[]`
+		`^Preparing to unpack \.\.\..*`,              // Preparing to unpack .../04-libx11-6_2%!a(MISSING)1.6.9-2ubuntu1.6_amd64.deb ...\r
+		`^Selecting previously unselected package.*`, // Selecting previously unselected package kubeadm.\r
+		`^Setting up .* \.\.\..*`,                    // Setting up hicolor-icon-theme (0.17-2) ...\r
+		`^Unpacking .* \.\.\..*`,                     // Unpacking libatk1.0-0:amd64 (2.35.1-1ubuntu2) ...\r
+	}
+
+	// Compile the regexes
+	compiledRegexes := make([]*regexp.Regexp, 0, len(regexes))
+	for _, re := range regexes {
+		compiled, err := regexp.Compile(re)
+		if err != nil {
+			return fmt.Sprintf("removeUselessLinesFromCloudInitOutput: Failed to compile regex %s: %v\n%s",
+				re, err, s)
+		}
+		compiledRegexes = append(compiledRegexes, compiled)
+	}
+
+	var output []string
+
+	scanner := bufio.NewScanner(strings.NewReader(s))
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		// Check if the line matches any of the regexes
+		matches := false
+		for _, re := range compiledRegexes {
+			if re.MatchString(line) {
+				matches = true
+				break
+			}
+		}
+
+		if matches {
+			continue
+		}
+		output = append(output, line)
+	}
+
+	if err := scanner.Err(); err != nil {
+		return fmt.Sprintf("Error reading string: %v\n%s", err, s)
+	}
+	return strings.Join(output, "\n")
 }

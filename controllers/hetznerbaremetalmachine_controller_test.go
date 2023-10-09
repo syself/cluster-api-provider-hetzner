@@ -159,6 +159,8 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			StdErr: "",
 			Err:    nil,
 		})
+		osSSHClient.On("GetCloudInitOutput").Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"})
+
 	})
 
 	AfterEach(func() {

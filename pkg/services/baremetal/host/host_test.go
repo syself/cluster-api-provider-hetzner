@@ -1303,6 +1303,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 			sshMock.On("CleanCloudInitLogs").Return(sshclient.Output{})
 			sshMock.On("CleanCloudInitInstances").Return(sshclient.Output{})
 			sshMock.On("Reboot").Return(sshclient.Output{})
+			sshMock.On("GetCloudInitOutput").Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"})
 
 			oldSSHMock := &sshmock.Client{}
 			oldSSHMock.On("CloudInitStatus").Return(in.outOldSSHClientCloudInitStatus)

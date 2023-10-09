@@ -191,7 +191,7 @@ install-cilium-in-wl-cluster:
 install-ccm-in-wl-cluster:
 	helm repo add syself https://charts.syself.com
 	helm repo update syself
-	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hetzner --version 1.1.8 \
+	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hetzner --version 1.1.10 \
 	--namespace kube-system \
 	--set privateNetwork.enabled=$(PRIVATE_NETWORK)
 	@echo 'run "kubectl --kubeconfig=$(WORKER_CLUSTER_KUBECONFIG) ..." to work with the new target cluster'
@@ -749,8 +749,12 @@ lint: lint-golang lint-yaml lint-dockerfile lint-links ## Lint Codebase
 .PHONY: format
 format: format-starlark format-golang format-yaml ## Format Codebase
 
+.PHONY: generate-mocks
+generate-mocks: ## Generate Mocks
+	cd pkg/services/baremetal/client; go run github.com/vektra/mockery/v2@v2.35.3
+
 .PHONY: generate
-generate: generate-manifests generate-go-deepcopy generate-boilerplate generate-modules ## Generate Files
+generate: generate-manifests generate-go-deepcopy generate-boilerplate generate-modules generate-mocks ## Generate Files
 
 ALL_VERIFY_CHECKS = boilerplate shellcheck starlark
 .PHONY: verify

@@ -173,6 +173,8 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 			StdErr: "",
 			Err:    nil,
 		})
+		osSSHClientAfterInstallImage.On("GetCloudInitOutput").Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"})
+
 		osSSHClientAfterCloudInit.On("Reboot").Return(sshclient.Output{})
 		osSSHClientAfterCloudInit.On("GetHostName").Return(sshclient.Output{
 			StdOut: infrav1.BareMetalHostNamePrefix + bmMachineName,
@@ -182,6 +184,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 		osSSHClientAfterCloudInit.On("CloudInitStatus").Return(sshclient.Output{StdOut: "status: done"})
 		osSSHClientAfterCloudInit.On("CheckCloudInitLogsForSigTerm").Return(sshclient.Output{})
 		osSSHClientAfterCloudInit.On("ResetKubeadm").Return(sshclient.Output{})
+		osSSHClientAfterCloudInit.On("GetCloudInitOutput").Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"})
 	})
 
 	AfterEach(func() {
@@ -333,6 +336,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 				}, timeout, time.Second).Should(BeNil())
 
 				Eventually(func() bool {
+					// TODO: Add logging to trace flaky unit-test.
 					if err := testEnv.Get(ctx, key, host); err != nil {
 						return false
 					}
@@ -693,7 +697,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 			}, timeout).Should(BeTrue())
 		})
 
-		It("gives the right error if secret is invalid", func() {
+		It("gives the right error if secret if rescue-ssh is invalid", func() {
 			rescueSSHSecret = &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "rescue-ssh-secret",
@@ -828,4 +832,5 @@ name="eth0" model="Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express
 	sshClient.On("CreatePostInstallScript", mock.Anything).Return(sshclient.Output{})
 	sshClient.On("ExecuteInstallImage", mock.Anything).Return(sshclient.Output{})
 	sshClient.On("Reboot").Return(sshclient.Output{})
+	sshClient.On("GetCloudInitOutput").Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"})
 }
