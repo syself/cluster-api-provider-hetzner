@@ -198,31 +198,9 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 	if err := placementgroup.NewService(clusterScope).Reconcile(ctx); err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to reconcile placement groups for HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
 	}
-
-	if hetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
-		if hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4 != "<nil>" {
-			defaultHost := hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4
-			defaultPort := int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port)
-
-			if hetznerCluster.Spec.ControlPlaneEndpoint == nil {
-				hetznerCluster.Spec.ControlPlaneEndpoint = &clusterv1.APIEndpoint{
-					Host: defaultHost,
-					Port: defaultPort,
-				}
-			} else {
-				if hetznerCluster.Spec.ControlPlaneEndpoint.Host == "" {
-					hetznerCluster.Spec.ControlPlaneEndpoint.Host = defaultHost
-				}
-				if hetznerCluster.Spec.ControlPlaneEndpoint.Port == 0 {
-					hetznerCluster.Spec.ControlPlaneEndpoint.Port = defaultPort
-				}
-			}
-
-			hetznerCluster.Status.Ready = true
-		}
-	} else if hetznerCluster.Spec.ControlPlaneEndpoint != nil {
-		hetznerCluster.Status.Ready = true
-	}
+	
+	// update control plane endpoint 
+	hetznerCluster.Status.Ready = SetControlPlaneEndpoint(hetznerCluster)
 
 	// delete deprecated conditions of old clusters
 	conditions.Delete(clusterScope.HetznerCluster, infrav1.DeprecatedHetznerClusterTargetClusterReadyCondition)
@@ -258,6 +236,33 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 	conditions.MarkTrue(hetznerCluster, infrav1.TargetClusterSecretReadyCondition)
 
 	return reconcile.Result{}, nil
+}
+
+func SetControlPlaneEndpoint(hetznerCluster *infrav1.HetznerCluster) (bool) {
+	if hetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
+		if hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4 != "<nil>" {
+			defaultHost := hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4
+			defaultPort := int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port)
+
+			if hetznerCluster.Spec.ControlPlaneEndpoint == nil {
+				hetznerCluster.Spec.ControlPlaneEndpoint = &clusterv1.APIEndpoint{
+					Host: defaultHost,
+					Port: defaultPort,
+				}
+			} else {
+				if hetznerCluster.Spec.ControlPlaneEndpoint.Host == "" {
+					hetznerCluster.Spec.ControlPlaneEndpoint.Host = defaultHost
+				}
+				if hetznerCluster.Spec.ControlPlaneEndpoint.Port == 0 {
+					hetznerCluster.Spec.ControlPlaneEndpoint.Port = defaultPort
+				}
+			}
+			return true
+		}
+	} else if hetznerCluster.Spec.ControlPlaneEndpoint != nil {
+		return true
+	}
+	return false
 }
 
 func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterScope *scope.ClusterScope) (reconcile.Result, error) {
