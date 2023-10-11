@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # Build the manager binary
-FROM --platform=${BUILDPLATFORM} docker.io/library/golang:1.21.1-bullseye@sha256:ca9ceec0316fe0f1f3f067721ed59637f2f823dc21ed4c9e47ffa527a9d3d026 as build
+FROM --platform=${BUILDPLATFORM} docker.io/library/golang:1.21.3-bullseye@sha256:3633196d3361008a56ed070a33879f5d563e77436031446981796c584629198b as build
 ARG TARGETOS TARGETARCH
 
 COPY . /src/cluster-api-provider-hetzner
