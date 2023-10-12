@@ -18,11 +18,13 @@ package controllers
 
 import (
 	"context"
+	"testing"
 	"time"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -840,3 +842,31 @@ var _ = Describe("reconcileRateLimit", func() {
 		Expect(reconcileRateLimit(hetznerCluster, testEnv.RateLimitWaitTime)).To(BeFalse())
 	})
 })
+
+func TestSetControlPlaneEndpoint(t *testing.T) {
+	type args struct {
+		hetznerCluster *infrav1.HetznerCluster
+	}
+	tests := []struct{
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "should return true",
+			args: args{hetznerCluster: new(infrav1.HetznerCluster)},
+			want: true,
+		},
+		{
+			name: "should return false",
+			args: args{hetznerCluster: new(infrav1.HetznerCluster)},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T){
+			got := SetControlPlaneEndpoint(tt.args.hetznerCluster)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
