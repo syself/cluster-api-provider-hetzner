@@ -18,11 +18,11 @@ package helpers
 
 import (
 	"fmt"
+	"sync/atomic"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kuberand "k8s.io/apimachinery/pkg/util/rand"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 )
 
@@ -40,15 +40,18 @@ const (
 
 var defaultPlacementGroupName = "caph-placement-group"
 
+var globalServerIdCounter int32
+
 // BareMetalHost returns a bare metal host given options.
 func BareMetalHost(name, namespace string, opts ...HostOpts) *infrav1.HetznerBareMetalHost {
+	serverID := atomic.AddInt32(&globalServerIdCounter, 1)
 	host := &infrav1.HetznerBareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
 		Spec: infrav1.HetznerBareMetalHostSpec{
-			ServerID: kuberand.Intn(1000),
+			ServerID: int(serverID),
 		},
 	}
 	for _, o := range opts {

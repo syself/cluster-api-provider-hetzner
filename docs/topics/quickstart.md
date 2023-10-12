@@ -127,7 +127,7 @@ KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install ccm syself/ccm
 helm repo add syself https://charts.syself.com
 helm repo update syself
 
-KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install ccm syself/ccm-hetzner --version 1.1.8 \
+KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install ccm syself/ccm-hetzner --version 1.1.10 \
 --namespace kube-system \
 --set privateNetwork.enabled=false
 ```

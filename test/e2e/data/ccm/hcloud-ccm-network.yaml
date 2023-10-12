@@ -6,11 +6,11 @@ metadata:
   name: ccm-ccm-hcloud
   namespace: kube-system
   labels:
-    helm.sh/chart: ccm-hetzner-1.1.8
+    helm.sh/chart: ccm-hetzner-1.1.10
     app: ccm
     app.kubernetes.io/name: ccm-hcloud
     app.kubernetes.io/instance: ccm
-    app.kubernetes.io/version: "v1.18.0-0.0.4"
+    app.kubernetes.io/version: "v1.18.0-0.0.5"
     app.kubernetes.io/managed-by: Helm
 ---
 # Source: ccm-hcloud/templates/serviceaccount.yaml
@@ -20,11 +20,11 @@ metadata:
   name: ccm-ccm-hcloud
   namespace: kube-system
   labels:
-    helm.sh/chart: ccm-hetzner-1.1.8
+    helm.sh/chart: ccm-hetzner-1.1.10
     app: ccm
     app.kubernetes.io/name: ccm-hcloud
     app.kubernetes.io/instance: ccm
-    app.kubernetes.io/version: "v1.18.0-0.0.4"
+    app.kubernetes.io/version: "v1.18.0-0.0.5"
     app.kubernetes.io/managed-by: Helm
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -42,11 +42,11 @@ metadata:
   name: ccm-ccm-hcloud
   namespace: kube-system
   labels:
-    helm.sh/chart: ccm-hetzner-1.1.8
+    helm.sh/chart: ccm-hetzner-1.1.10
     app: ccm
     app.kubernetes.io/name: ccm-hcloud
     app.kubernetes.io/instance: ccm
-    app.kubernetes.io/version: "v1.18.0-0.0.4"
+    app.kubernetes.io/version: "v1.18.0-0.0.5"
     app.kubernetes.io/managed-by: Helm
 spec:
   replicas: 1
@@ -63,8 +63,7 @@ spec:
     spec:
       dnsPolicy: Default
       serviceAccountName: ccm-ccm-hcloud
-      securityContext:
-        {}
+      securityContext: {}
       tolerations:
         # this taint is set by all kubelets running `--cloud-provider=external`
         # so we should tolerate it to schedule the cloud controller manager
@@ -85,12 +84,11 @@ spec:
       hostNetwork: true
       containers:
         - name: ccm-hcloud
-          securityContext:
-            {}
-          image: "ghcr.io/syself/hetzner-cloud-controller-manager:v1.18.0-0.0.4"
+          securityContext: {}
+          image: "ghcr.io/syself/hetzner-cloud-controller-manager:v1.18.0-0.0.5"
           imagePullPolicy: Always
           command:
-            - "/bin/hcloud-cloud-controller-manager"
+            - "/bin/hetzner-cloud-controller-manager"
             - "--cloud-provider=hcloud"
             - "--leader-elect=true"
             - "--allow-untagged-cloud"

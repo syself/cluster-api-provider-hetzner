@@ -73,3 +73,5 @@ __pycache__/
 /_output
 tmp_*
 
+# baremetal hosts
+baremetalhosts*yaml

@@ -742,7 +742,7 @@ func filterHCloudSSHKeys(sshKeysAPI []*hcloud.SSHKey, sshKeysSpec []infrav1.SSHK
 	for i, sshKeySpec := range sshKeysSpec {
 		sshKey, ok := sshKeysAPIMap[sshKeySpec.Name]
 		if !ok {
-			return nil, fmt.Errorf("ssh key not found. SSH key name: %s", sshKeySpec.Name)
+			return nil, fmt.Errorf("ssh key not found in HCloud. SSH key name: %s", sshKeySpec.Name)
 		}
 		sshKeys[i] = sshKey
 	}
