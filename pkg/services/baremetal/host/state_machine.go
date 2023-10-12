@@ -87,15 +87,6 @@ func (hsm *hostStateMachine) ReconcileState() (actionRes actionResult) {
 	// Assume credentials are ready for now. This can be changed while the state is handled.
 	conditions.MarkTrue(hsm.host, infrav1.CredentialsAvailableCondition)
 
-	// Set condition on false. It will be set on true if host is provisioned during reconcilement
-	conditions.MarkFalse(
-		hsm.host,
-		infrav1.ProvisionSucceededCondition,
-		infrav1.StillProvisioningReason,
-		clusterv1.ConditionSeverityInfo,
-		"host is provisioning - current state: %q", hsm.host.Spec.Status.ProvisioningState,
-	)
-
 	if stateHandler, found := hsm.handlers()[initialState]; found {
 		return stateHandler()
 	}
