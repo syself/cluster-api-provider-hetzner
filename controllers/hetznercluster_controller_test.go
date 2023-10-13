@@ -844,28 +844,36 @@ var _ = Describe("reconcileRateLimit", func() {
 })
 
 func TestSetControlPlaneEndpoint(t *testing.T) {
-	type args struct {
-		hetznerCluster *infrav1.HetznerCluster
-	}
 	tests := []struct{
 		name string
-		args args
+		hetznerCluster *infrav1.HetznerCluster
 		want bool
 	}{
 		{
-			name: "should return true",
-			args: args{hetznerCluster: new(infrav1.HetznerCluster)},
+			name: "the function should return true if Loadbalancer is enabled, IPV4 does not include a <nil> string and the ControlPlaneEndpoint is set to nil",
+			hetznerCluster: &infrav1.HetznerCluster{Spec: infrav1.HetznerClusterSpec{ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{Enabled: true}, ControlPlaneEndpoint: nil}, Status: infrav1.HetznerClusterStatus{ControlPlaneLoadBalancer: &infrav1.LoadBalancerStatus{IPv4: "xyz"}}},
 			want: true,
 		},
 		{
-			name: "should return false",
-			args: args{hetznerCluster: new(infrav1.HetznerCluster)},
+			name: "the function should return true if Loadbalancer is enabled, IPV4 does not include a <nil> string and the ControlPlaneEndpoint is NOT set to nil",
+			hetznerCluster: &infrav1.HetznerCluster{Spec: infrav1.HetznerClusterSpec{ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{Enabled: true}, ControlPlaneEndpoint: &clusterv1.APIEndpoint{Host: "", Port: 0}}, Status: infrav1.HetznerClusterStatus{ControlPlaneLoadBalancer: &infrav1.LoadBalancerStatus{IPv4: "xyz"}}},
+			want: true,
+		},
+		{
+			name: "the function should return true if Loadbalancer is enabled, IPV4 does not include a <nil> string and the ControlPlaneEndpoint contains preset values in its Host and Port component",
+			hetznerCluster: &infrav1.HetznerCluster{Spec: infrav1.HetznerClusterSpec{ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{Enabled: true}, ControlPlaneEndpoint: &clusterv1.APIEndpoint{Host: "xyz", Port: 1}}, Status: infrav1.HetznerClusterStatus{ControlPlaneLoadBalancer: &infrav1.LoadBalancerStatus{IPv4: "xyz"}}},
+			want: true,
+		},
+		{
+			name: "the function should return false if Loadbalancer is not enabled and the ControlPlaneEndpoint is nil",
+			hetznerCluster: &infrav1.HetznerCluster{Spec: infrav1.HetznerClusterSpec{ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{Enabled: false}, ControlPlaneEndpoint: nil}},
 			want: false,
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T){
-			got := SetControlPlaneEndpoint(tt.args.hetznerCluster)
+			got := SetControlPlaneEndpoint(tt.hetznerCluster)
 			assert.Equal(t, tt.want, got)
 		})
 	}

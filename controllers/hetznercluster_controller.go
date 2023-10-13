@@ -249,6 +249,7 @@ func SetControlPlaneEndpoint(hetznerCluster *infrav1.HetznerCluster) (bool) {
 					Host: defaultHost,
 					Port: defaultPort,
 				}
+				return true
 			} else {
 				if hetznerCluster.Spec.ControlPlaneEndpoint.Host == "" {
 					hetznerCluster.Spec.ControlPlaneEndpoint.Host = defaultHost
@@ -256,8 +257,8 @@ func SetControlPlaneEndpoint(hetznerCluster *infrav1.HetznerCluster) (bool) {
 				if hetznerCluster.Spec.ControlPlaneEndpoint.Port == 0 {
 					hetznerCluster.Spec.ControlPlaneEndpoint.Port = defaultPort
 				}
+				return true
 			}
-			return true
 		}
 	} else if hetznerCluster.Spec.ControlPlaneEndpoint != nil {
 		return true
