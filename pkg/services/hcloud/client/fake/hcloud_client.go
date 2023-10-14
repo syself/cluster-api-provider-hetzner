@@ -143,8 +143,11 @@ var defaultSSHKey = hcloud.SSHKey{
 }
 
 var defaultImage = hcloud.Image{
-	ID:   42,
-	Name: "myimage",
+	ID: 42,
+	Labels: map[string]string{
+		"caph-image-name": "fedora-control-plane",
+	},
+	Name: "fedora-control-plane",
 }
 
 func (c *cacheHCloudClient) CreateLoadBalancer(_ context.Context, opts hcloud.LoadBalancerCreateOpts) (*hcloud.LoadBalancer, error) {
@@ -420,7 +423,24 @@ func (c *cacheHCloudClient) ListImages(_ context.Context, opts hcloud.ImageListO
 	if opts.Name != "" {
 		return nil, nil
 	}
-	return []*hcloud.Image{&defaultImage}, nil
+
+	labels, err := utils.LabelSelectorToLabels(opts.LabelSelector)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert label selector to labels: %w", err)
+	}
+
+	allLabelsFound := true
+	for key, label := range labels {
+		if val, found := defaultImage.Labels[key]; !found || val != label {
+			allLabelsFound = false
+			break
+		}
+	}
+	if allLabelsFound {
+		return []*hcloud.Image{&defaultImage}, nil
+	}
+
+	return nil, nil
 }
 
 func (c *cacheHCloudClient) CreateServer(_ context.Context, opts hcloud.ServerCreateOpts) (*hcloud.Server, error) {

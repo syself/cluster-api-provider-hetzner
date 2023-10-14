@@ -133,118 +133,162 @@ var _ = Describe("HCloudMachineReconciler", func() {
 	})
 
 	Context("Basic test", func() {
-		BeforeEach(func() {
-			// remove bootstrap infos
-			capiMachine.Spec.Bootstrap = clusterv1.Bootstrap{}
-			Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
+		Context("correct server", func() {
+			BeforeEach(func() {
+				// remove bootstrap infos
+				capiMachine.Spec.Bootstrap = clusterv1.Bootstrap{}
+				Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
 
-			hcloudMachine = &infrav1.HCloudMachine{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      hcloudMachineName,
-					Namespace: testNs.Name,
-					Labels: map[string]string{
-						clusterv1.ClusterNameLabel:             capiCluster.Name,
-						clusterv1.MachineControlPlaneNameLabel: "",
-					},
-					OwnerReferences: []metav1.OwnerReference{
-						{
-							APIVersion: clusterv1.GroupVersion.String(),
-							Kind:       "Machine",
-							Name:       capiMachine.Name,
-							UID:        capiMachine.UID,
+				hcloudMachine = &infrav1.HCloudMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      hcloudMachineName,
+						Namespace: testNs.Name,
+						Labels: map[string]string{
+							clusterv1.ClusterNameLabel:             capiCluster.Name,
+							clusterv1.MachineControlPlaneNameLabel: "",
+						},
+						OwnerReferences: []metav1.OwnerReference{
+							{
+								APIVersion: clusterv1.GroupVersion.String(),
+								Kind:       "Machine",
+								Name:       capiMachine.Name,
+								UID:        capiMachine.UID,
+							},
 						},
 					},
-				},
-				Spec: infrav1.HCloudMachineSpec{
-					ImageName:          "fedora-control-plane",
-					Type:               "cpx31",
-					PlacementGroupName: &defaultPlacementGroupName,
-				},
-			}
-
-			Expect(testEnv.Create(ctx, hcloudMachine)).To(Succeed())
-			Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
-		})
-
-		AfterEach(func() {
-			Expect(testEnv.Cleanup(ctx, capiMachine, hcloudMachine, hetznerCluster)).To(Succeed())
-		})
-
-		It("creates the infra machine", func() {
-			Eventually(func() bool {
-				if err := testEnv.Get(ctx, key, hcloudMachine); err != nil {
-					return false
-				}
-				return true
-			}, timeout).Should(BeTrue())
-		})
-
-		It("creates the HCloud machine in Hetzner", func() {
-			By("checking that no servers exist")
-
-			Eventually(func() bool {
-				servers, err := hcloudClient.ListServers(ctx, hcloud.ServerListOpts{
-					ListOpts: hcloud.ListOpts{
-						LabelSelector: utils.LabelsToLabelSelector(map[string]string{hetznerCluster.ClusterTagKey(): "owned"}),
+					Spec: infrav1.HCloudMachineSpec{
+						ImageName:          "fedora-control-plane",
+						Type:               "cpx31",
+						PlacementGroupName: &defaultPlacementGroupName,
 					},
-				})
-				if err != nil {
-					return false
+				}
+				Expect(testEnv.Create(ctx, hcloudMachine)).To(Succeed())
+				Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
+			})
+
+			AfterEach(func() {
+				Expect(testEnv.Cleanup(ctx, capiMachine, hcloudMachine, hetznerCluster)).To(Succeed())
+			})
+
+			It("creates the infra machine", func() {
+				Eventually(func() bool {
+					if err := testEnv.Get(ctx, key, hcloudMachine); err != nil {
+						return false
+					}
+					return true
+				}, timeout).Should(BeTrue())
+			})
+
+			It("creates the HCloud machine in Hetzner", func() {
+				By("checking that no servers exist")
+
+				Eventually(func() bool {
+					servers, err := hcloudClient.ListServers(ctx, hcloud.ServerListOpts{
+						ListOpts: hcloud.ListOpts{
+							LabelSelector: utils.LabelsToLabelSelector(map[string]string{hetznerCluster.ClusterTagKey(): "owned"}),
+						},
+					})
+					if err != nil {
+						return false
+					}
+
+					return len(servers) == 0
+				}, timeout, time.Second).Should(BeTrue())
+
+				By("checking that bootstrap condition is not ready")
+
+				Eventually(func() bool {
+					return isPresentAndFalseWithReason(key, hcloudMachine, infrav1.BootstrapReadyCondition, infrav1.BootstrapNotReadyReason)
+				}, timeout, time.Second).Should(BeTrue())
+
+				By("setting the bootstrap data")
+
+				ph, err := patch.NewHelper(capiMachine, testEnv)
+				Expect(err).ShouldNot(HaveOccurred())
+
+				capiMachine.Spec.Bootstrap = clusterv1.Bootstrap{
+					DataSecretName: ptr.To("bootstrap-secret"),
 				}
 
-				return len(servers) == 0
-			}, timeout, time.Second).Should(BeTrue())
+				Eventually(func() error {
+					return ph.Patch(ctx, capiMachine, patch.WithStatusObservedGeneration{})
+				}, timeout, time.Second).Should(BeNil())
 
-			By("checking that bootstrap condition is not ready")
+				By("checking that bootstrap condition is ready")
 
-			Eventually(func() bool {
-				return isPresentAndFalseWithReason(key, hcloudMachine, infrav1.BootstrapReadyCondition, infrav1.BootstrapNotReadyReason)
-			}, timeout, time.Second).Should(BeTrue())
+				Eventually(func() bool {
+					return isPresentAndTrue(key, hcloudMachine, infrav1.BootstrapReadyCondition)
+				}, timeout, time.Second).Should(BeTrue())
 
-			By("setting the bootstrap data")
+				By("listing hcloud servers")
 
-			ph, err := patch.NewHelper(capiMachine, testEnv)
-			Expect(err).ShouldNot(HaveOccurred())
+				Eventually(func() int {
+					servers, err := hcloudClient.ListServers(ctx, hcloud.ServerListOpts{
+						ListOpts: hcloud.ListOpts{
+							LabelSelector: utils.LabelsToLabelSelector(map[string]string{hetznerCluster.ClusterTagKey(): "owned"}),
+						},
+					})
+					if err != nil {
+						return 0
+					}
+					return len(servers)
+				}, timeout, time.Second).Should(BeNumerically(">", 0))
 
-			capiMachine.Spec.Bootstrap = clusterv1.Bootstrap{
-				DataSecretName: ptr.To("bootstrap-secret"),
-			}
+				By("checking if server created condition is set")
 
-			Eventually(func() error {
-				return ph.Patch(ctx, capiMachine, patch.WithStatusObservedGeneration{})
-			}, timeout, time.Second).Should(BeNil())
+				Eventually(func() bool {
+					return isPresentAndTrue(key, hcloudMachine, infrav1.ServerCreateSucceededCondition)
+				}, timeout, time.Second).Should(BeTrue())
 
-			By("checking that bootstrap condition is ready")
+				By("checking if server available condition is set")
 
-			Eventually(func() bool {
-				return isPresentAndTrue(key, hcloudMachine, infrav1.BootstrapReadyCondition)
-			}, timeout, time.Second).Should(BeTrue())
+				Eventually(func() bool {
+					return isPresentAndTrue(key, hcloudMachine, infrav1.ServerAvailableCondition)
+				}, timeout, time.Second).Should(BeTrue())
+			})
+		})
 
-			By("listing hcloud servers")
+		Context("wrong server", func() {
+			BeforeEach(func() {
+				Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
 
-			Eventually(func() int {
-				servers, err := hcloudClient.ListServers(ctx, hcloud.ServerListOpts{
-					ListOpts: hcloud.ListOpts{
-						LabelSelector: utils.LabelsToLabelSelector(map[string]string{hetznerCluster.ClusterTagKey(): "owned"}),
+				hcloudMachine = &infrav1.HCloudMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      hcloudMachineName,
+						Namespace: testNs.Name,
+						Labels: map[string]string{
+							clusterv1.ClusterNameLabel:             capiCluster.Name,
+							clusterv1.MachineControlPlaneNameLabel: "",
+						},
+						OwnerReferences: []metav1.OwnerReference{
+							{
+								APIVersion: clusterv1.GroupVersion.String(),
+								Kind:       "Machine",
+								Name:       capiMachine.Name,
+								UID:        capiMachine.UID,
+							},
+						},
 					},
-				})
-				if err != nil {
-					return 0
+					Spec: infrav1.HCloudMachineSpec{
+						ImageName:          "fedora-control-plane-2",
+						Type:               "cpx31",
+						PlacementGroupName: &defaultPlacementGroupName,
+					},
 				}
-				return len(servers)
-			}, timeout, time.Second).Should(BeNumerically(">", 0))
+				Expect(testEnv.Create(ctx, hcloudMachine)).To(Succeed())
 
-			By("checking if server created condition is set")
+				Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
+			})
 
-			Eventually(func() bool {
-				return isPresentAndTrue(key, hcloudMachine, infrav1.ServerCreateSucceededCondition)
-			}, timeout, time.Second).Should(BeTrue())
+			AfterEach(func() {
+				Expect(testEnv.Cleanup(ctx, hcloudMachine, hetznerCluster)).To(Succeed())
+			})
 
-			By("checking if server available condition is set")
-
-			Eventually(func() bool {
-				return isPresentAndTrue(key, hcloudMachine, infrav1.ServerAvailableCondition)
-			}, timeout, time.Second).Should(BeTrue())
+			It("checks that ImageNotFound is visible in conditions if image does not exist", func() {
+				Eventually(func() bool {
+					return isPresentAndFalseWithReason(key, hcloudMachine, infrav1.ServerCreateSucceededCondition, infrav1.ImageNotFoundReason)
+				}, timeout, time.Second).Should(BeTrue())
+			})
 		})
 	})
 
