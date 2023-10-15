@@ -132,7 +132,7 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 	secretManager := secretutil.NewSecretManager(log, r.Client, r.APIReader)
 	hcloudToken, _, err := getAndValidateHCloudToken(ctx, req.Namespace, hetznerCluster, secretManager)
 	if err != nil {
-		return hcloudTokenErrorResult(ctx, err, hcloudMachine, infrav1.HCloudTokenAvailableCondition, r.Client)
+		return hcloudTokenErrorResult(ctx, err, hcloudRemediation, infrav1.HCloudTokenAvailableCondition, r.Client)
 	}
 
 	hcc := r.HCloudClientFactory.NewClient(hcloudToken)
@@ -150,7 +150,7 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %w", err)
 	}
 
-	conditions.MarkTrue(hcloudMachine, infrav1.HCloudTokenAvailableCondition)
+	conditions.MarkTrue(hcloudRemediation, infrav1.HCloudTokenAvailableCondition)
 
 	// Always close the scope when exiting this function so we can persist any HCloudRemediation changes.
 	defer func() {
