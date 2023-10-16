@@ -875,6 +875,12 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T){
 			got := SetControlPlaneEndpoint(tt.hetznerCluster)
 			assert.Equal(t, tt.want, got)
+			if tt.hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4 != "<nil>" {
+				// check the Host
+				assert.Equal(t, tt.hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4, tt.hetznerCluster.Spec.ControlPlaneEndpoint.Host)
+				// check the Port
+				assert.Equal(t, tt.hetznerCluster.Spec.ControlPlaneLoadBalancer.Port, tt.hetznerCluster.Spec.ControlPlaneEndpoint.Port)
+			}
 		})
 	}
 }
