@@ -850,12 +850,12 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 		want bool
 	}{
 		{
-			name: "the function should return true if Loadbalancer is enabled, IPV4 does not include a <nil> string and the ControlPlaneEndpoint is set to nil",
+			name: "the function should return true if Loadbalancer is enabled, IPV4 does not include a <nil> string and the ControlPlaneEndpoint is set to nil. This will enable changes to the ControlPlaneEndpoint's host and port",
 			hetznerCluster: &infrav1.HetznerCluster{Spec: infrav1.HetznerClusterSpec{ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{Enabled: true}, ControlPlaneEndpoint: nil}, Status: infrav1.HetznerClusterStatus{ControlPlaneLoadBalancer: &infrav1.LoadBalancerStatus{IPv4: "xyz"}}},
 			want: true,
 		},
 		{
-			name: "the function should return true if Loadbalancer is enabled, IPV4 does not include a <nil> string and the ControlPlaneEndpoint is NOT set to nil",
+			name: "the function should return true if Loadbalancer is enabled, IPV4 does not include a <nil> string and the ControlPlaneEndpoint is NOT set to nil. This testcase will enable changes to the ControlPlaneEndpoint's host and port",
 			hetznerCluster: &infrav1.HetznerCluster{Spec: infrav1.HetznerClusterSpec{ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{Enabled: true}, ControlPlaneEndpoint: &clusterv1.APIEndpoint{Host: "", Port: 0}}, Status: infrav1.HetznerClusterStatus{ControlPlaneLoadBalancer: &infrav1.LoadBalancerStatus{IPv4: "xyz"}}},
 			want: true,
 		},
