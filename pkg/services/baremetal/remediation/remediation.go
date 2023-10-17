@@ -60,7 +60,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 			record.Warn(s.scope.BareMetalRemediation, "FailedSettingConditionOnMachine", err.Error())
 			return res, err
 		}
-		record.Eventf(s.scope.BareMetalRemediation, "ExitRemediation", "exit remediation because bare metal machine has no host annotation")
+		record.Event(s.scope.BareMetalRemediation, "ExitRemediation", "exit remediation because bare metal machine has no host annotation")
 		return res, nil
 	}
 
@@ -158,12 +158,15 @@ func (s *Service) remediate(ctx context.Context, host infrav1.HetznerBareMetalHo
 	// add annotation to host so that it reboots
 	host.Annotations, err = addRebootAnnotation(host.Annotations)
 	if err != nil {
+		record.Warn(s.scope.BareMetalRemediation, "FailedAddingRebootAnnotation", err.Error())
 		return fmt.Errorf("failed to add reboot annotation: %w", err)
 	}
 
 	if err := patchHelper.Patch(ctx, &host); err != nil {
 		return fmt.Errorf("failed to patch: %s %s/%s %w", host.Kind, host.Namespace, host.Name, err)
 	}
+
+	record.Event(s.scope.BareMetalRemediation, "AnnotationAdded", "Reboot annotation is added to the BareMetalHost")
 
 	// update status of BareMetalRemediation object
 	now := metav1.Now()
@@ -191,6 +194,7 @@ func (s *Service) handlePhaseWaiting(ctx context.Context) (res reconcile.Result,
 		record.Warn(s.scope.BareMetalRemediation, "FailedSettingConditionOnMachine", err.Error())
 		return res, err
 	}
+	record.Event(s.scope.BareMetalRemediation, "SetOwnerRemediatedCondition", "because retryLimit is reached and reboot timed out")
 
 	return res, nil
 }
