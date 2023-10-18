@@ -752,6 +752,7 @@ format: format-starlark format-golang format-yaml ## Format Codebase
 .PHONY: generate-mocks
 generate-mocks: ## Generate Mocks
 	cd pkg/services/baremetal/client; go run github.com/vektra/mockery/v2@v2.35.3
+	cd pkg/services/hcloud/client; go run github.com/vektra/mockery/v2@v2.35.3 --all
 
 .PHONY: generate
 generate: generate-manifests generate-go-deepcopy generate-boilerplate generate-modules generate-mocks ## Generate Files
