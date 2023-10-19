@@ -18,11 +18,14 @@ package controllers
 
 import (
 	"context"
+	"fmt"
+	"net"
 	"time"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/mock"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -32,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	hcloudmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/mocks"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
 )
@@ -48,7 +52,10 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 
 			hetznerSecret *corev1.Secret
 
-			key                client.ObjectKey
+			hcloudClient *hcloudmock.Client
+
+			key client.ObjectKey
+
 			lbName             string
 			hetznerClusterName string
 		)
@@ -98,6 +105,43 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 			Expect(testEnv.Create(ctx, hetznerSecret)).To(Succeed())
 
 			key = client.ObjectKey{Namespace: namespace, Name: hetznerClusterName}
+
+			_, subnet, err := net.ParseCIDR(instance.Spec.HCloudNetwork.SubnetCIDRBlock)
+			Expect(err).NotTo(HaveOccurred())
+
+			hcloudClient = testEnv.HcloudClient
+
+			hcloudClient.On("ListNetworks", mock.Anything, hcloud.NetworkListOpts{
+				ListOpts: hcloud.ListOpts{
+					LabelSelector: fmt.Sprintf("caph-cluster-%s==owned", hetznerClusterName),
+				},
+			}).Return([]*hcloud.Network{}, nil)
+			hcloudClient.On("CreateNetwork", mock.Anything, hcloud.NetworkCreateOpts{
+				Name: hetznerClusterName,
+				Subnets: []hcloud.NetworkSubnet{
+					{
+						Type:        "server",
+						NetworkZone: "eu-central",
+						IPRange:     subnet,
+					},
+				},
+				Labels: map[string]string{
+					fmt.Sprintf("caph-cluster-%s", hetznerClusterName): "owned",
+				},
+			}).Return(&hcloud.Network{}, nil)
+			hcloudClient.On("ListServers", mock.Anything, hcloud.ServerListOpts{
+				ListOpts: hcloud.ListOpts{
+					LabelSelector: "",
+				},
+			}).Return([]*hcloud.Server{}, nil)
+			hcloudClient.On("ListServerTypes", mock.Anything).Return([]*hcloud.ServerType{}, nil)
+			hcloudClient.On("GetServerType", mock.Anything, "cpx31").Return(&hcloud.ServerType{}, nil)
+			hcloudClient.On("GetServerType", mock.Anything, "cpx31").Return(&hcloud.ServerType{}, nil)
+			hcloudClient.On("ListImages", mock.Anything, hcloud.ImageListOpts{
+				ListOpts: hcloud.ListOpts{
+					LabelSelector: "caph-image-name==fedora-control-plane",
+				},
+			}).Return([]*hcloud.Image{}, nil)
 		})
 
 		AfterEach(func() {
@@ -652,7 +696,10 @@ var _ = Describe("Hetzner secret", func() {
 
 		hetznerSecret *corev1.Secret
 
-		key                client.ObjectKey
+		hcloudClient *hcloudmock.Client
+
+		key client.ObjectKey
+
 		hetznerClusterName string
 	)
 
@@ -697,6 +744,42 @@ var _ = Describe("Hetzner secret", func() {
 		Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
 
 		key = client.ObjectKey{Namespace: hetznerCluster.Namespace, Name: hetznerCluster.Name}
+
+		_, subnet, err := net.ParseCIDR(hetznerCluster.Spec.HCloudNetwork.SubnetCIDRBlock)
+		Expect(err).NotTo(HaveOccurred())
+
+		hcloudClient = testEnv.HcloudClient
+
+		hcloudClient.On("ListNetworks", mock.Anything, hcloud.NetworkListOpts{
+			ListOpts: hcloud.ListOpts{
+				LabelSelector: fmt.Sprintf("caph-cluster-%s==owned", hetznerClusterName),
+			},
+		}).Return([]*hcloud.Network{}, nil)
+		hcloudClient.On("CreateNetwork", mock.Anything, hcloud.NetworkCreateOpts{
+			Name: hetznerClusterName,
+			Subnets: []hcloud.NetworkSubnet{
+				{
+					Type:        "server",
+					NetworkZone: "eu-central",
+					IPRange:     subnet,
+				},
+			},
+			Labels: map[string]string{
+				fmt.Sprintf("caph-cluster-%s", hetznerClusterName): "owned",
+			},
+		}).Return(&hcloud.Network{}, nil)
+		hcloudClient.On("ListServers", mock.Anything, hcloud.ServerListOpts{
+			ListOpts: hcloud.ListOpts{
+				LabelSelector: "",
+			},
+		}).Return([]*hcloud.Server{}, nil)
+		hcloudClient.On("ListServerTypes", mock.Anything).Return([]*hcloud.ServerType{}, nil)
+		hcloudClient.On("GetServerType", mock.Anything, "cpx31").Return(&hcloud.ServerType{}, nil)
+		hcloudClient.On("ListImages", mock.Anything, hcloud.ImageListOpts{
+			ListOpts: hcloud.ListOpts{
+				LabelSelector: "caph-image-name==fedora-control-plane",
+			},
+		}).Return([]*hcloud.Image{}, nil)
 	})
 
 	AfterEach(func() {
