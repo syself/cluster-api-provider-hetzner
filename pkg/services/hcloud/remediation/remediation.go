@@ -58,8 +58,10 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 		s.scope.HCloudRemediation.Status.Phase = infrav1.PhaseDeleting
 
 		if err := s.setOwnerRemediatedCondition(ctx); err != nil {
+			record.Warn(s.scope.HCloudRemediation, "FailedSettingConditionOnMachine", err.Error())
 			return res, fmt.Errorf("failed to set conditions on CAPI machine: %w", err)
 		}
+		record.Warn(s.scope.HCloudRemediation, "ExitRemediation", "exit remediation because bare metal server does not exist")
 		return res, nil
 	}
 
@@ -93,8 +95,10 @@ func (s *Service) handlePhaseRunning(ctx context.Context, server *hcloud.Server)
 	if s.scope.HCloudRemediation.Status.LastRemediated == nil {
 		if err := s.scope.HCloudClient.RebootServer(ctx, server); err != nil {
 			hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "RebootServer")
+			record.Warn(s.scope.HCloudRemediation, "FailedRebootServer", err.Error())
 			return res, fmt.Errorf("failed to reboot server %v: %w", server.ID, err)
 		}
+		record.Event(s.scope.HCloudRemediation, "ServerRebooted", "Server has been rebooted")
 
 		s.scope.HCloudRemediation.Status.LastRemediated = &now
 		s.scope.HCloudRemediation.Status.RetryCount++
@@ -119,8 +123,10 @@ func (s *Service) handlePhaseRunning(ctx context.Context, server *hcloud.Server)
 	// remediate now
 	if err := s.scope.HCloudClient.RebootServer(ctx, server); err != nil {
 		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "RebootServer")
+		record.Warn(s.scope.HCloudRemediation, "FailedRebootServer", err.Error())
 		return res, fmt.Errorf("failed to reboot server %v: %w", server.ID, err)
 	}
+	record.Event(s.scope.HCloudRemediation, "ServerRebooted", "Server has been rebooted")
 
 	s.scope.HCloudRemediation.Status.LastRemediated = &now
 	s.scope.HCloudRemediation.Status.RetryCount++
@@ -143,8 +149,10 @@ func (s *Service) handlePhaseWaiting(ctx context.Context) (res reconcile.Result,
 	s.scope.HCloudRemediation.Status.Phase = infrav1.PhaseDeleting
 
 	if err := s.setOwnerRemediatedCondition(ctx); err != nil {
+		record.Warn(s.scope.HCloudRemediation, "FailedSettingConditionOnMachine", err.Error())
 		return res, fmt.Errorf("failed to set conditions on CAPI machine: %w", err)
 	}
+	record.Event(s.scope.HCloudRemediation, "SetOwnerRemediatedCondition", "exit remediation because because retryLimit is reached and reboot timed out")
 
 	return res, nil
 }
