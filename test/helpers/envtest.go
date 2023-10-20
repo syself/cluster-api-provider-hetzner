@@ -30,13 +30,13 @@ import (
 	g "github.com/onsi/ginkgo/v2"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks"
+	baremetalmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks"
 	robotmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/robot"
 	sshmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/ssh"
 	robotclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/robot"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
-	fakeclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/fake"
+	hcloudmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/mocks"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -114,6 +114,7 @@ type (
 		OSSSHClientAfterInstallImage *sshmock.Client
 		OSSSHClientAfterCloudInit    *sshmock.Client
 		RobotClient                  *robotmock.Client
+		HcloudClient                 *hcloudmock.Client
 		cancel                       context.CancelFunc
 		RateLimitWaitTime            time.Duration
 	}
@@ -176,25 +177,24 @@ func NewTestEnvironment() *TestEnvironment {
 	if err := (&infrav1.HCloudRemediationTemplate{}).SetupWebhookWithManager(mgr); err != nil {
 		klog.Fatalf("failed to set up webhook with manager for HCloudRemediationTemplate: %s", err)
 	}
-	// Create a fake HCloudClientFactory
-	hcloudClientFactory := fakeclient.NewHCloudClientFactory()
 
 	rescueSSHClient := &sshmock.Client{}
 	osSSHClientAfterInstallImage := &sshmock.Client{}
 	osSSHClientAfterCloudInit := &sshmock.Client{}
-
+	hcloudClient := &hcloudmock.Client{}
 	robotClient := &robotmock.Client{}
 
 	return &TestEnvironment{
 		Manager:                      mgr,
 		Client:                       mgr.GetClient(),
 		Config:                       mgr.GetConfig(),
-		HCloudClientFactory:          hcloudClientFactory,
-		SSHClientFactory:             mocks.NewSSHFactory(rescueSSHClient, osSSHClientAfterInstallImage, osSSHClientAfterCloudInit),
+		HCloudClientFactory:          hcloudmock.NewHcloudFactory(hcloudClient),
+		SSHClientFactory:             baremetalmock.NewSSHFactory(rescueSSHClient, osSSHClientAfterInstallImage, osSSHClientAfterCloudInit),
 		RescueSSHClient:              rescueSSHClient,
 		OSSSHClientAfterInstallImage: osSSHClientAfterInstallImage,
 		OSSSHClientAfterCloudInit:    osSSHClientAfterCloudInit,
-		RobotClientFactory:           mocks.NewRobotFactory(robotClient),
+		RobotClientFactory:           baremetalmock.NewRobotFactory(robotClient),
+		HcloudClient:                 hcloudClient,
 		RobotClient:                  robotClient,
 		RateLimitWaitTime:            5 * time.Minute,
 	}

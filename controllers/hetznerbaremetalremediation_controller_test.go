@@ -19,8 +19,10 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"time"
 
+	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/mock"
@@ -36,6 +38,7 @@ import (
 	robotmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/robot"
 	sshmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/ssh"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
+	hcloudmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/mocks"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
 )
@@ -65,6 +68,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 		rescueSSHClient              *sshmock.Client
 		osSSHClientAfterInstallImage *sshmock.Client
 		osSSHClientAfterCloudInit    *sshmock.Client
+		hcloudClient                 *hcloudmock.Client
 	)
 
 	BeforeEach(func() {
@@ -179,10 +183,14 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 
 		hetznerBaremetalRemediationkey = client.ObjectKey{Namespace: testNs.Name, Name: "hetzner-baremetal-remediation"}
 
+		_, subnet, err := net.ParseCIDR(hetznerCluster.Spec.HCloudNetwork.SubnetCIDRBlock)
+		Expect(err).NotTo(HaveOccurred())
+
 		robotClient = testEnv.RobotClient
 		rescueSSHClient = testEnv.RescueSSHClient
 		osSSHClientAfterInstallImage = testEnv.OSSSHClientAfterInstallImage
 		osSSHClientAfterCloudInit = testEnv.OSSSHClientAfterCloudInit
+		hcloudClient = testEnv.HcloudClient
 
 		robotClient.On("GetBMServer", mock.Anything).Return(&models.Server{
 			ServerNumber: 1,
@@ -227,6 +235,37 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 		osSSHClientAfterCloudInit.On("CloudInitStatus").Return(sshclient.Output{StdOut: "status: done"})
 		osSSHClientAfterCloudInit.On("CheckCloudInitLogsForSigTerm").Return(sshclient.Output{})
 		osSSHClientAfterCloudInit.On("ResetKubeadm").Return(sshclient.Output{})
+
+		hcloudClient.On("ListNetworks", mock.Anything, hcloud.NetworkListOpts{
+			ListOpts: hcloud.ListOpts{
+				LabelSelector: "caph-cluster-hetzner-test1==owned",
+			},
+		}).Return([]*hcloud.Network{}, nil)
+		hcloudClient.On("CreateNetwork", mock.Anything, hcloud.NetworkCreateOpts{
+			Name: "hetzner-test1",
+			Subnets: []hcloud.NetworkSubnet{
+				{
+					Type:        "server",
+					NetworkZone: "eu-central",
+					IPRange:     subnet,
+				},
+			},
+			Labels: map[string]string{
+				"caph-cluster-hetzner-test1": "owned",
+			},
+		}).Return(&hcloud.Network{}, nil)
+		hcloudClient.On("ListServers", mock.Anything, hcloud.ServerListOpts{
+			ListOpts: hcloud.ListOpts{
+				LabelSelector: "",
+			},
+		}).Return([]*hcloud.Server{}, nil)
+		hcloudClient.On("ListServerTypes", mock.Anything).Return([]*hcloud.ServerType{}, nil)
+		hcloudClient.On("GetServerType", mock.Anything, "cpx31").Return(&hcloud.ServerType{}, nil)
+		hcloudClient.On("ListImages", mock.Anything, hcloud.ImageListOpts{
+			ListOpts: hcloud.ListOpts{
+				LabelSelector: "caph-image-name==fedora-control-plane",
+			},
+		}).Return([]*hcloud.Image{}, nil)
 	})
 
 	AfterEach(func() {

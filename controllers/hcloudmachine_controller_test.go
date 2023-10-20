@@ -22,6 +22,7 @@ import (
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/mock"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
@@ -34,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	hcloudmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/mocks"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
@@ -49,6 +51,8 @@ var _ = Describe("HCloudMachineReconciler", func() {
 
 		hetznerSecret   *corev1.Secret
 		bootstrapSecret *corev1.Secret
+
+		hcloudClient *hcloudmock.Client
 
 		key client.ObjectKey
 
@@ -126,6 +130,47 @@ var _ = Describe("HCloudMachineReconciler", func() {
 		Expect(testEnv.Create(ctx, bootstrapSecret)).To(Succeed())
 
 		key = client.ObjectKey{Namespace: testNs.Name, Name: hcloudMachineName}
+
+		hcloudClient = testEnv.HcloudClient
+
+		hcloudClient.On("ListSSHKeys", mock.Anything, mock.Anything).Return([]*hcloud.SSHKey{}, nil)
+		hcloudClient.On("ListSSHKeys", mock.Anything, mock.Anything).Return(
+			[]*hcloud.SSHKey{
+				{
+					Name: "testsshkey",
+				},
+			},
+			nil,
+		)
+		hcloudClient.On("ListNetworks", mock.Anything, mock.Anything).Return([]*hcloud.Network{}, nil)
+		hcloudClient.On("ListServers", mock.Anything, mock.Anything).Return([]*hcloud.Server{
+			{
+				ID:     9999,
+				Name:   "foo",
+				Status: hcloud.ServerStatusRunning,
+			},
+		}, nil)
+		hcloudClient.On("ListServers", mock.Anything, mock.Anything).Return([]*hcloud.Server{}, nil)
+		hcloudClient.On("DeleteServer", mock.Anything, mock.Anything).Return(nil)
+		hcloudClient.On("CreateNetwork", mock.Anything, mock.Anything).Return(&hcloud.Network{}, nil)
+		hcloudClient.On("ListServerTypes", mock.Anything).Return([]*hcloud.ServerType{}, nil)
+		hcloudClient.On("ListImages", mock.Anything, mock.Anything).Return([]*hcloud.Image{}, nil)
+		hcloudClient.On("ListLoadBalancers", mock.Anything, mock.Anything).Return([]*hcloud.LoadBalancer{
+			{
+				LoadBalancerType: &hcloud.LoadBalancerType{
+					Name: "lb11",
+				},
+				Algorithm: hcloud.LoadBalancerAlgorithm{
+					Type: "round_robin",
+				},
+			},
+		}, nil)
+		hcloudClient.On("CreateLoadBalancer", mock.Anything, mock.Anything).Return(&hcloud.LoadBalancer{}, nil)
+		hcloudClient.On("AttachLoadBalancerToNetwork", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		hcloudClient.On("AddServiceToLoadBalancer", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		hcloudClient.On("ListPlacementGroups", mock.Anything, mock.Anything).Return([]*hcloud.PlacementGroup{}, nil)
+		hcloudClient.On("CreatePlacementGroup", mock.Anything, mock.Anything).Return(&hcloud.PlacementGroup{}, nil)
+		hcloudClient.On("GetServerType", mock.Anything, mock.Anything).Return(&hcloud.ServerType{}, nil)
 	})
 
 	AfterEach(func() {
@@ -179,7 +224,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				}, timeout).Should(BeTrue())
 			})
 
-			It("creates the HCloud machine in Hetzner", func() {
+			FIt("creates the HCloud machine in Hetzner", func() {
 				By("checking that no servers exist")
 
 				Eventually(func() bool {
