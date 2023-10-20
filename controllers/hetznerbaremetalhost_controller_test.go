@@ -829,6 +829,7 @@ name="eth0" model="Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express
 	})
 	sshClient.On("DownloadImage", mock.Anything, mock.Anything).Return(sshclient.Output{})
 	sshClient.On("CreateAutoSetup", mock.Anything).Return(sshclient.Output{})
+	sshClient.On("UntarTGZ").Return(sshclient.Output{})
 	sshClient.On("CreatePostInstallScript", mock.Anything).Return(sshclient.Output{})
 	sshClient.On("ExecuteInstallImage", mock.Anything).Return(sshclient.Output{})
 	sshClient.On("Reboot").Return(sshclient.Output{})

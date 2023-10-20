@@ -38,7 +38,7 @@ kubectl get hetznerbaremetalmachine -A
 
 print_heading events:
 
-kubectl get events -A --sort-by=lastTimestamp | tail -8
+kubectl get events -A --sort-by=lastTimestamp | grep -vP 'LeaderElection' | tail -8
 
 print_heading logs:
 

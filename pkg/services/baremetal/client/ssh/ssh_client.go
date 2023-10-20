@@ -20,8 +20,10 @@ package sshclient
 import (
 	"bufio"
 	"bytes"
+	"encoding/base64"
 	"errors"
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -92,6 +94,7 @@ type Client interface {
 	CleanCloudInitLogs() Output
 	CleanCloudInitInstances() Output
 	ResetKubeadm() Output
+	UntarTGZ() Output
 }
 
 // Factory is the interface for creating new Client objects.
@@ -236,9 +239,9 @@ func (c *sshClient) CreatePostInstallScript(data string) Output {
 func (c *sshClient) ExecuteInstallImage(hasPostInstallScript bool) Output {
 	var cmd string
 	if hasPostInstallScript {
-		cmd = `/root/.oldroot/nfs/install/installimage -a -c /autosetup -x /root/post-install.sh`
+		cmd = `/root/hetzner-installimage/installimage -a -c /autosetup -x /root/post-install.sh`
 	} else {
-		cmd = `/root/.oldroot/nfs/install/installimage -a -c /autosetup`
+		cmd = `/root/hetzner-installimage/installimage -a -c /autosetup`
 	}
 
 	out := c.runSSH(fmt.Sprintf(`cat << 'EOF' > /root/install-image-script.sh
@@ -363,6 +366,17 @@ func (c *sshClient) ResetKubeadm() Output {
 	echo ========= done =========
 `)
 	return output
+}
+
+func (c *sshClient) UntarTGZ() Output {
+	fileName := "/installimage.tgz"
+	data, err := os.ReadFile(fileName)
+	if err != nil {
+		return Output{Err: fmt.Errorf("ReadInstallimageTgzFailed %s: %w", fileName, err)}
+	}
+
+	return c.runSSH(fmt.Sprintf("echo %s | base64 -d | tar -xzf-",
+		base64.StdEncoding.EncodeToString(data)))
 }
 
 // IsConnectionRefusedError checks whether the ssh error is a connection refused error.
