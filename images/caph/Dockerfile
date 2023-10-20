@@ -20,7 +20,7 @@ COPY . /src/cluster-api-provider-hetzner
 WORKDIR /src/cluster-api-provider-hetzner
 RUN --mount=type=cache,target=/root/.cache --mount=type=cache,target=/go/pkg \
     GOOS=${TARGETOS} GOARCH=${TARGETARCH} CGO_ENABLED=0 \
-    go build -mod=vendor -ldflags "${LDFLAGS} -extldflags '-static'" \
+    go build -mod=vendor -trimpath -ldflags "-s -w ${LDFLAGS} -extldflags '-static'" \
     -o manager main.go
 
 FROM --platform=${BUILDPLATFORM} gcr.io/distroless/static:nonroot
