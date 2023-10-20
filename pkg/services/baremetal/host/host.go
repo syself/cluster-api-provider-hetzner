@@ -115,6 +115,7 @@ func (s *Service) Reconcile(ctx context.Context) (result reconcile.Result, err e
 
 	// reconcile state
 	actResult := hostStateMachine.ReconcileState()
+
 	result, err = actResult.Result()
 	if err != nil {
 		return reconcile.Result{Requeue: true}, fmt.Errorf("action %q failed: %w", initialState, err)
@@ -144,6 +145,8 @@ func SaveHostAndReturn(ctx context.Context, cl client.Client, host *infrav1.Hetz
 }
 
 func (s *Service) actionPreparing() actionResult {
+	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StatePreparing)
+
 	server, err := s.scope.RobotClient.GetBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID)
 	if err != nil {
 		s.handleRobotRateLimitExceeded(err, "GetBMServer")
@@ -498,6 +501,8 @@ func (s *Service) ensureRescueMode() error {
 }
 
 func (s *Service) actionRegistering() actionResult {
+	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StateRegistering)
+
 	creds := sshclient.CredentialsFromSecret(s.scope.RescueSSHSecret, s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef)
 	in := sshclient.Input{
 		PrivateKey: creds.PrivateKey,
@@ -907,6 +912,8 @@ func validateStdOut(stdOut string) (string, error) {
 }
 
 func (s *Service) actionImageInstalling() actionResult {
+	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StateImageInstalling)
+
 	creds := sshclient.CredentialsFromSecret(s.scope.RescueSSHSecret, s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef)
 	in := sshclient.Input{
 		PrivateKey: creds.PrivateKey,
@@ -1028,6 +1035,8 @@ func getDeviceNames(wwn []string, storageDevices []infrav1.Storage) []string {
 }
 
 func (s *Service) actionProvisioning() actionResult {
+	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StateProvisioning)
+
 	host := s.scope.HetznerBareMetalHost
 
 	portAfterInstallImage := host.Spec.Status.SSHSpec.PortAfterInstallImage
@@ -1079,8 +1088,6 @@ func (s *Service) actionProvisioning() actionResult {
 	}
 
 	host.ClearError()
-	conditions.MarkTrue(host, infrav1.ProvisionSucceededCondition)
-
 	return actionComplete{}
 }
 
@@ -1190,6 +1197,7 @@ func verifyConnectionRefused(sshClient sshclient.Client, port int) bool {
 }
 
 func (s *Service) actionEnsureProvisioned() (ar actionResult) {
+	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StateEnsureProvisioned)
 	sshClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
 		PrivateKey: sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.SecretRef).PrivateKey,
 		Port:       s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterCloudInit,
@@ -1276,6 +1284,7 @@ func (s *Service) actionEnsureProvisioned() (ar actionResult) {
 		}
 	}
 
+	conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
 	s.scope.HetznerBareMetalHost.ClearError()
 	return actionComplete{}
 }
@@ -1536,4 +1545,14 @@ func (s *Service) hasJustRebooted() bool {
 		s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeSoftwareRebootTriggered ||
 		s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeHardwareRebootTriggered) &&
 		!hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated, rebootWaitTime)
+}
+
+func markProvisionPending(host *infrav1.HetznerBareMetalHost, state infrav1.ProvisioningState) {
+	conditions.MarkFalse(
+		host,
+		infrav1.ProvisionSucceededCondition,
+		infrav1.StillProvisioningReason,
+		clusterv1.ConditionSeverityInfo,
+		"host is still provisioning - state %q", state,
+	)
 }
