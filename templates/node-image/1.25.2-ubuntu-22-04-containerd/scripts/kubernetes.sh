@@ -25,7 +25,7 @@ apt-get update
 # Check actual version: https://github.com/kubernetes/kubernetes/releases
 KUBERNETES_VERSION=1.25.2 # https://kubernetes.io/releases/#release-history
 
-apt-get install -y kubelet=$KUBERNETES_VERSION-00 kubeadm=$KUBERNETES_VERSION-00 kubectl=$KUBERNETES_VERSION-00  bash-completion
+apt-get install -y kubelet=$KUBERNETES_VERSION-1.1 kubeadm=$KUBERNETES_VERSION-1.1 kubectl=$KUBERNETES_VERSION-1.1  bash-completion
 apt-mark hold kubelet kubectl kubeadm
 
 systemctl enable kubelet

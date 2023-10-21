@@ -579,8 +579,8 @@ spec:
           - curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.25/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
           - echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.25/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list
           - apt-get update
-          - apt-get install -y kubelet=$KUBERNETES_VERSION-00 kubeadm=$KUBERNETES_VERSION-00
-            kubectl=$KUBERNETES_VERSION-00  bash-completion && apt-mark hold kubelet kubectl
+          - apt-get install -y kubelet=$KUBERNETES_VERSION-1.1 kubeadm=$KUBERNETES_VERSION-1.1
+            kubectl=$KUBERNETES_VERSION-1.1  bash-completion && apt-mark hold kubelet kubectl
             kubeadm && systemctl enable kubelet
           - kubeadm config images pull --kubernetes-version $KUBERNETES_VERSION
           - echo 'source <(kubectl completion bash)' >>~/.bashrc
@@ -686,8 +686,8 @@ spec:
         - curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.25/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
         - echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.25/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list
         - apt-get update
-        - apt-get install -y kubelet=$KUBERNETES_VERSION-00 kubeadm=$KUBERNETES_VERSION-00
-          kubectl=$KUBERNETES_VERSION-00  bash-completion && apt-mark hold kubelet kubectl
+        - apt-get install -y kubelet=$KUBERNETES_VERSION-1.1 kubeadm=$KUBERNETES_VERSION-1.1
+          kubectl=$KUBERNETES_VERSION-1.1  bash-completion && apt-mark hold kubelet kubectl
           kubeadm && systemctl enable kubelet
         - kubeadm config images pull --kubernetes-version $KUBERNETES_VERSION
         - echo 'source <(kubectl completion bash)' >>~/.bashrc
@@ -839,8 +839,8 @@ spec:
         - curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.25/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
         - echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.25/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list
         - apt-get update
-        - apt-get install -y kubelet=$KUBERNETES_VERSION-00 kubeadm=$KUBERNETES_VERSION-00
-          kubectl=$KUBERNETES_VERSION-00  bash-completion && apt-mark hold kubelet kubectl
+        - apt-get install -y kubelet=$KUBERNETES_VERSION-1.1 kubeadm=$KUBERNETES_VERSION-1.1
+          kubectl=$KUBERNETES_VERSION-1.1  bash-completion && apt-mark hold kubelet kubectl
           kubeadm && systemctl enable kubelet
         - kubeadm config images pull --kubernetes-version $KUBERNETES_VERSION
         - echo 'source <(kubectl completion bash)' >>~/.bashrc
