@@ -137,6 +137,9 @@ def set_env_variables():
 tilt_dockerfile_header = """
 FROM gcr.io/distroless/base:debug as tilt
 WORKDIR /
+
+COPY installimage.tgz .
+
 COPY manager .
 """
 
@@ -153,6 +156,10 @@ def caph():
             append_arg_for_container_in_deployment(yaml_dict, "caph-controller-manager", "caph-system", "manager", hetzner_extra_args)
             yaml = str(encode_yaml_stream(yaml_dict))
             yaml = fixup_yaml_empty_arrays(yaml)
+
+    # copy things from data directory to .tiltbuild 
+    if not os.path.exists('.tiltbuild/hetzner-installimage.tgz'):
+        local("cp data/hetzner-install-image-v1.0.0.tgz .tiltbuild/installimage.tgz")
 
     # Set up a local_resource build of the provider's manager binary.
 
@@ -183,7 +190,7 @@ def caph():
         dockerfile_contents = tilt_dockerfile_header,
         target = "tilt",
         entrypoint = entrypoint,
-        only = "manager",
+        only = ["manager", "installimage.tgz"],
         live_update = [
             sync(".tiltbuild/manager", "/manager"),
         ],

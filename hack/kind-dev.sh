@@ -32,7 +32,7 @@ local CLUSTER_VERSION=$2
 cat <<EOF | ctlptl apply -f -
 apiVersion: ctlptl.dev/v1alpha1
 kind: Registry
-name: ${CLUSTER_NAME}-registry
+name: kind-registry
 port: 5000
 ---
 apiVersion: ctlptl.dev/v1alpha1

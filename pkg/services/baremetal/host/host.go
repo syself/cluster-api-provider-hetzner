@@ -950,8 +950,14 @@ func (s *Service) actionImageInstalling() actionResult {
 		}
 	}
 
+	out := sshClient.UntarTGZ()
+	if out.Err != nil {
+		record.Warnf(s.scope.HetznerBareMetalHost, "UntarInstallimageTgzFailed", "err: %s, stderr: %s", out.Err.Error(), out.StdErr)
+		return actionError{err: fmt.Errorf("UntarInstallimageTgzFailed: %w", out.Err)}
+	}
+
 	// Execute install image
-	out := sshClient.ExecuteInstallImage(postInstallScript != "")
+	out = sshClient.ExecuteInstallImage(postInstallScript != "")
 	if out.Err != nil {
 		record.Warnf(s.scope.HetznerBareMetalHost, "ExecuteInstallImageFailed", out.StdOut)
 		return actionError{err: fmt.Errorf("failed to execute installimage: %w", out.Err)}

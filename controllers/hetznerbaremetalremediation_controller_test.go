@@ -213,6 +213,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 		osSSHClientAfterInstallImage.On("CloudInitStatus").Return(sshclient.Output{StdOut: "status: done"})
 		osSSHClientAfterInstallImage.On("CheckCloudInitLogsForSigTerm").Return(sshclient.Output{})
 		osSSHClientAfterInstallImage.On("ResetKubeadm").Return(sshclient.Output{})
+		osSSHClientAfterInstallImage.On("GetCloudInitOutput").Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"})
 		osSSHClientAfterInstallImage.On("GetHostName").Return(sshclient.Output{
 			StdOut: infrav1.BareMetalHostNamePrefix + bmMachineName,
 			StdErr: "",
@@ -227,6 +228,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 		osSSHClientAfterCloudInit.On("CloudInitStatus").Return(sshclient.Output{StdOut: "status: done"})
 		osSSHClientAfterCloudInit.On("CheckCloudInitLogsForSigTerm").Return(sshclient.Output{})
 		osSSHClientAfterCloudInit.On("ResetKubeadm").Return(sshclient.Output{})
+		osSSHClientAfterCloudInit.On("GetCloudInitOutput").Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"})
 	})
 
 	AfterEach(func() {

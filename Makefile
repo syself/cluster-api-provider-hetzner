@@ -788,3 +788,9 @@ tilt-up: env-vars-for-wl-cluster $(ENVSUBST) $(KUBECTL) $(KUSTOMIZE) $(TILT) clu
 .PHONY: watch
 watch: ## Watch CRDs cluster, machines and Events.
 	watch -c -n 2 hack/output-for-watch.sh
+
+installimageurl := $(shell curl -sL https://api.github.com/repos/syself/hetzner-installimage/releases/latest | jq -r .assets[].browser_download_url)
+.PHONY: create-hetzner-installimage-tgz
+create-hetzner-installimage-tgz:
+	rm -rf data/hetzner-installimage*
+	cd data; curl -sSLO $(installimageurl)

@@ -25,6 +25,7 @@ RUN --mount=type=cache,target=/root/.cache --mount=type=cache,target=/go/pkg \
 
 FROM --platform=${BUILDPLATFORM} gcr.io/distroless/static:nonroot
 WORKDIR /
+COPY data/hetzner-install-image-v1.0.0.tgz /installimage.tgz
 COPY --from=build /src/cluster-api-provider-hetzner/manager .
 # Use uid of nonroot user (65532) because kubernetes expects numeric user when applying pod security policies
 USER 65532
