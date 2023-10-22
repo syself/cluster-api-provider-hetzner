@@ -158,7 +158,7 @@ def caph():
             yaml = fixup_yaml_empty_arrays(yaml)
 
     # copy things from data directory to .tiltbuild 
-    if not os.path.exists('.tiltbuild/hetzner-installimage.tgz'):
+    if not os.path.exists('.tiltbuild/installimage.tgz'):
         local("cp data/hetzner-install-image-v1.0.0.tgz .tiltbuild/installimage.tgz")
 
     # Set up a local_resource build of the provider's manager binary.
