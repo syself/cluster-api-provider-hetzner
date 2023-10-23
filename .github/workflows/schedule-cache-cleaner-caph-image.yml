@@ -12,6 +12,7 @@ concurrency:
 jobs:
   cache-cleaner:
     runs-on: ubuntu-22.04
+    if: github.repository == 'syself/cluster-api-provider-hetzner'
     steps:
       # Load Golang cache build from GitHub
       - name: Load Caph Golang cache build from GitHub

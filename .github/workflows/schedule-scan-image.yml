@@ -8,6 +8,7 @@ jobs:
   scan:
     name: Trivy
     runs-on: ubuntu-latest
+    if: github.repository == 'syself/cluster-api-provider-hetzner'
     container:
       image: ghcr.io/syself/caph-builder:1.0.10
       credentials:
