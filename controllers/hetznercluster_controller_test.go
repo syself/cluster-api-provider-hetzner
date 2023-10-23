@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"testing"
 	"time"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
@@ -840,3 +841,261 @@ var _ = Describe("reconcileRateLimit", func() {
 		Expect(reconcileRateLimit(hetznerCluster, testEnv.RateLimitWaitTime)).To(BeFalse())
 	})
 })
+
+func TestSetControlPlaneEndpoint(t *testing.T) {
+	t.Run("return false and don't make changes to ControlPlaneEndpoint if load balancer is not enabled and ControlPlaneEndpoint is nil", func(t *testing.T) {
+		hetznerCluster := &infrav1.HetznerCluster{
+			Spec: infrav1.HetznerClusterSpec{
+				ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
+					Enabled: false,
+				},
+				ControlPlaneEndpoint: nil,
+			},
+		}
+
+		got := setControlPlaneEndpoint(hetznerCluster)
+
+		if hetznerCluster.Spec.ControlPlaneEndpoint != nil {
+			t.Fatalf("ControlPlaneEndpoint must be nil")
+		}
+
+		if got != false {
+			t.Fatal("return value should be false")
+		}
+	})
+
+	t.Run("return true and don't make changes to ControlPlaneEndpoint if load balancer is not enabled and ControlPlaneEndpoint is not nil", func(t *testing.T) {
+		hetznerCluster := &infrav1.HetznerCluster{
+			Spec: infrav1.HetznerClusterSpec{
+				ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
+					Enabled: false,
+				},
+				ControlPlaneEndpoint: &clusterv1.APIEndpoint{
+					Host: "xyz",
+					Port: 0,
+				},
+			},
+		}
+
+		got := setControlPlaneEndpoint(hetznerCluster)
+
+		if hetznerCluster.Spec.ControlPlaneEndpoint == nil {
+			t.Fatalf("ControlPlaneEndpoint must not be nil")
+		}
+
+		if hetznerCluster.Spec.ControlPlaneEndpoint.Host != "xyz" {
+			t.Fatalf("Wrong input for host. Got: %s, Want: 'xyz'", hetznerCluster.Spec.ControlPlaneEndpoint.Host)
+		}
+
+		if hetznerCluster.Spec.ControlPlaneEndpoint.Port != 0 {
+			t.Fatalf("Value of Port should not change. Got: %d, Want: 0", hetznerCluster.Spec.ControlPlaneEndpoint.Port)
+		}
+
+		if got != true {
+			t.Fatalf("return value should be true")
+		}
+	})
+
+	t.Run("return false if load balancer is enabled and IPv4 is '<nil>'. ControlPlaneEndpoint should not change", func(t *testing.T) {
+		hetznerCluster := &infrav1.HetznerCluster{
+			Spec: infrav1.HetznerClusterSpec{
+				ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
+					Enabled: true,
+				},
+				ControlPlaneEndpoint: nil,
+			},
+			Status: infrav1.HetznerClusterStatus{
+				ControlPlaneLoadBalancer: &infrav1.LoadBalancerStatus{
+					IPv4: "<nil>",
+				},
+			},
+		}
+
+		got := setControlPlaneEndpoint(hetznerCluster)
+
+		if hetznerCluster.Spec.ControlPlaneEndpoint != nil {
+			t.Fatalf("ControlPlaneEndpoint should not change. It should remain nil")
+		}
+
+		if got != false {
+			t.Fatalf("return value should be false")
+		}
+	})
+
+	t.Run("return true if load balancer is enabled, IPv4 is not nil, and ControlPlaneEndpoint is nil. Values of ControlPlaneEndpoint.Host and ControlPlaneEndpoint.Port will get updated", func(t *testing.T) {
+		hetznerCluster := &infrav1.HetznerCluster{
+			Spec: infrav1.HetznerClusterSpec{
+				ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
+					Enabled: true,
+					Port:    11,
+				},
+				ControlPlaneEndpoint: nil,
+			},
+			Status: infrav1.HetznerClusterStatus{
+				ControlPlaneLoadBalancer: &infrav1.LoadBalancerStatus{
+					IPv4: "xyz",
+				},
+			},
+		}
+
+		got := setControlPlaneEndpoint(hetznerCluster)
+
+		if hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4 != "xyz" {
+			t.Fatalf("Wrong input for hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4. Got: %s, Want: 'xyz'", hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4)
+		}
+
+		if hetznerCluster.Spec.ControlPlaneEndpoint == nil {
+			t.Fatal("Value of ControlPlaneEndpoint should have been changed. It should not remain nil")
+		}
+
+		// Values of hetznerCluster.Spec.ControlPlaneEndpoint.Host and hetznerCluster.Spec.ControlPlaneEndpoint.Port should change after execution of the function SetControlPlaneEndpoint()
+		// They should be the same as hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4 for Host (Spec.ControlPlaneEndpoint.Host) and hetznerCluster.Spec.ControlPlaneLoadBalancer.Port for Port (Spec.ControlPlaneEndpoint.Port)
+		if hetznerCluster.Spec.ControlPlaneEndpoint.Host != hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4 {
+			t.Fatalf("Wrong value for Host set. Got: %s, Want: %s", hetznerCluster.Spec.ControlPlaneEndpoint.Host, hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4)
+		}
+
+		if hetznerCluster.Spec.ControlPlaneEndpoint.Port != int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port) {
+			t.Fatalf("Wrong value for Port set. Got: %d, Want: %d", hetznerCluster.Spec.ControlPlaneEndpoint.Port, int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port))
+		}
+
+		if got != true {
+			t.Fatalf("return value should be true")
+		}
+	})
+
+	t.Run("return true if load balancer is enabled and IPv4 is not nil, ControlPlaneEndpoint.Host is an empty string and ControlPlaneEndpoint.Port is 0. Values of ControlPlaneEndpoint.Host and ControlPlaneEndpoint.Port should update", func(t *testing.T) {
+		hetznerCluster := &infrav1.HetznerCluster{
+			Spec: infrav1.HetznerClusterSpec{
+				ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
+					Enabled: true,
+					Port:    21,
+				},
+				ControlPlaneEndpoint: &clusterv1.APIEndpoint{
+					Host: "",
+					Port: 0,
+				},
+			},
+			Status: infrav1.HetznerClusterStatus{
+				ControlPlaneLoadBalancer: &infrav1.LoadBalancerStatus{
+					IPv4: "xyz",
+				},
+			},
+		}
+
+		got := setControlPlaneEndpoint(hetznerCluster)
+
+		if hetznerCluster.Spec.ControlPlaneEndpoint.Host != hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4 {
+			t.Fatalf("Wrong value for Host set. Got: %s, Want: %s", hetznerCluster.Spec.ControlPlaneEndpoint.Host, hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4)
+		}
+
+		if hetznerCluster.Spec.ControlPlaneEndpoint.Port != int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port) {
+			t.Fatalf("Wrong value for Port set. Got: %d, Want: %d", hetznerCluster.Spec.ControlPlaneEndpoint.Port, int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port))
+		}
+
+		if got != true {
+			t.Fatalf("return value should be true")
+		}
+	})
+
+	t.Run("return true if load balancer is enabled and IPv4 is not nil, ControlPlaneEndpoint.Host is 'xyz' and ControlPlaneEndpoint.Port is 0. Value of ControlPlaneEndpoint.Host will not change and ControlPlaneEndpoint.Port should update", func(t *testing.T) {
+		hetznerCluster := &infrav1.HetznerCluster{
+			Spec: infrav1.HetznerClusterSpec{
+				ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
+					Enabled: true,
+					Port:    21,
+				},
+				ControlPlaneEndpoint: &clusterv1.APIEndpoint{
+					Host: "xyz",
+					Port: 0,
+				},
+			},
+			Status: infrav1.HetznerClusterStatus{
+				ControlPlaneLoadBalancer: &infrav1.LoadBalancerStatus{
+					IPv4: "xyz",
+				},
+			},
+		}
+
+		got := setControlPlaneEndpoint(hetznerCluster)
+
+		if hetznerCluster.Spec.ControlPlaneEndpoint.Host != "xyz" {
+			t.Fatalf("Wrong value for Host set. Got: %s, Want: 'xyz'", hetznerCluster.Spec.ControlPlaneEndpoint.Host)
+		}
+
+		if hetznerCluster.Spec.ControlPlaneEndpoint.Port != int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port) {
+			t.Fatalf("Wrong value for Port set. Got: %d, Want: %d", hetznerCluster.Spec.ControlPlaneEndpoint.Port, int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port))
+		}
+
+		if got != true {
+			t.Fatalf("return value should be true")
+		}
+	})
+
+	t.Run("return true if load balancer is enabled and IPv4 is not nil, ControlPlaneEndpoint.Host is an empty string and ControlPlaneEndpoint.Port is 21. Value of ControlPlaneEndpoint.Host will change and ControlPlaneEndpoint.Port should remain same", func(t *testing.T) {
+		hetznerCluster := &infrav1.HetznerCluster{
+			Spec: infrav1.HetznerClusterSpec{
+				ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
+					Enabled: true,
+					Port:    21,
+				},
+				ControlPlaneEndpoint: &clusterv1.APIEndpoint{
+					Host: "",
+					Port: 21,
+				},
+			},
+			Status: infrav1.HetznerClusterStatus{
+				ControlPlaneLoadBalancer: &infrav1.LoadBalancerStatus{
+					IPv4: "xyz",
+				},
+			},
+		}
+
+		got := setControlPlaneEndpoint(hetznerCluster)
+
+		if hetznerCluster.Spec.ControlPlaneEndpoint.Host != hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4 {
+			t.Fatalf("Wrong value for Host set. Got: %s, Want: %s", hetznerCluster.Spec.ControlPlaneEndpoint.Host, hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4)
+		}
+
+		if hetznerCluster.Spec.ControlPlaneEndpoint.Port != 21 {
+			t.Fatalf("Wrong value for Port set. Got: %d, Want: 21", hetznerCluster.Spec.ControlPlaneEndpoint.Port)
+		}
+
+		if got != true {
+			t.Fatalf("return value should be true")
+		}
+	})
+
+	t.Run("return true if load balancer is enabled and IPv4 is not nil, ControlPlaneEndpoint.Host is 'xyz' and ControlPlaneEndpoint.Port is 21. Value of ControlPlaneEndpoint.Host and ControlPlaneEndpoint.Port should remain unchanged", func(t *testing.T) {
+		hetznerCluster := &infrav1.HetznerCluster{
+			Spec: infrav1.HetznerClusterSpec{
+				ControlPlaneLoadBalancer: infrav1.LoadBalancerSpec{
+					Enabled: true,
+					Port:    21,
+				},
+				ControlPlaneEndpoint: &clusterv1.APIEndpoint{
+					Host: "xyz",
+					Port: 21,
+				},
+			},
+			Status: infrav1.HetznerClusterStatus{
+				ControlPlaneLoadBalancer: &infrav1.LoadBalancerStatus{
+					IPv4: "xyz",
+				},
+			},
+		}
+
+		got := setControlPlaneEndpoint(hetznerCluster)
+
+		if hetznerCluster.Spec.ControlPlaneEndpoint.Host != "xyz" {
+			t.Fatalf("Wrong value for Host set. Got: %s, Want: 'xyz'", hetznerCluster.Spec.ControlPlaneEndpoint.Host)
+		}
+
+		if hetznerCluster.Spec.ControlPlaneEndpoint.Port != 21 {
+			t.Fatalf("Wrong value for Port set. Got: %d, Want: 21", hetznerCluster.Spec.ControlPlaneEndpoint.Port)
+		}
+
+		if got != true {
+			t.Fatalf("return value should be true")
+		}
+	})
+}
