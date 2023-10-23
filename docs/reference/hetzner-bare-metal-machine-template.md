@@ -16,9 +16,9 @@ When the `HetznerBareMetalMachine` object gets deleted, it removes the informati
 
 Updating a `HetznerBareMetalMachineTemplate` is not possible. Instead, a new template should be created.
 
-## cloud-init and install-image
+## cloud-init and installimage
 
-Both in install-image and cloud-init the ports used for SSH can be changed, e.g. with the following code snippet:
+Both in installimage and cloud-init the ports used for SSH can be changed, e.g. with the following code snippet:
 
 ```
 sed -i -e '/^\(#\|\)Port/s/^.*$/Port 2223/' /etc/ssh/sshd_config

@@ -244,7 +244,7 @@ func (c *sshClient) ExecuteInstallImage(hasPostInstallScript bool) Output {
 		cmd = `/root/hetzner-installimage/installimage -a -c /autosetup`
 	}
 
-	out := c.runSSH(fmt.Sprintf(`cat << 'EOF' > /root/install-image-script.sh
+	out := c.runSSH(fmt.Sprintf(`cat << 'EOF' > /root/installimage-wrapper.sh
 #!/bin/bash
 export TERM=xterm
 
@@ -255,12 +255,12 @@ EOF`, cmd))
 		return out
 	}
 
-	out = c.runSSH(`chmod +x /root/install-image-script.sh . `)
+	out = c.runSSH(`chmod +x /root/installimage-wrapper.sh . `)
 	if out.Err != nil || out.StdErr != "" {
 		return out
 	}
 
-	installImageOut := c.runSSH(`sh /root/install-image-script.sh`)
+	installImageOut := c.runSSH(`sh /root/installimage-wrapper.sh`)
 
 	debugTxtOut := c.runSSH(`cat /root/debug.txt`)
 	installImageOut.StdOut = fmt.Sprintf(`debug.txt:
@@ -268,7 +268,7 @@ EOF`, cmd))
 %s
 ######################################
 
-/root/install-image-script.sh stdout:
+/root/installimage-wrapper.sh stdout:
 %s
 ######################################
 
