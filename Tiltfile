@@ -33,7 +33,7 @@ settings = {
         "HCLOUD_REGION": "fsn1",
         "CONTROL_PLANE_MACHINE_COUNT": "3",
         "WORKER_MACHINE_COUNT": "3",
-        "KUBERNETES_VERSION": "v1.25.2",
+        "KUBERNETES_VERSION": "v1.27.3",
         "HCLOUD_IMAGE_NAME": "test-image",
         "HCLOUD_CONTROL_PLANE_MACHINE_TYPE": "cpx31",
         "HCLOUD_WORKER_MACHINE_TYPE": "cpx31",
