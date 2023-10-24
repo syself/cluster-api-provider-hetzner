@@ -58,7 +58,7 @@ runs:
         TAG: ${{ steps.meta.outputs.version }}
 
     - name: HCLOUD_TOKEN
-      uses: hetznercloud/tps-action@8a445ac40beed1e27ce8ef016fb0314342ff8d64 # main
+      uses: hetznercloud/tps-action@fcdf98940dd0150ef5dfc2583adf8c2d76663823 # main
       with:
         token: ${{ inputs.e2e_hcloud_token }}
 
