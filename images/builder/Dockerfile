@@ -17,7 +17,7 @@
 # If you make changes to this Dockerfile run `make builder-image-push`.
 
 # Install Lychee
-FROM docker.io/library/alpine:3.18.3@sha256:c5c5fda71656f28e49ac9c5416b3643eaa6a108a8093151d6d1afc9463be8e33 as lychee
+FROM docker.io/library/alpine:3.18.4@sha256:48d9183eb12a05c99bcc0bf44a003607b8e941e1d4f41f9ad12bdcc4b5672f86 as lychee
 # update: datasource=github-tags depName=lycheeverse/lychee versioning=semver
 ENV LYCHEE_VERSION="v0.13.0"
 # hadolint ignore=DL3018
@@ -28,9 +28,9 @@ RUN apk add --no-cache curl && \
     rm -rf /tmp/linux-amd64 /tmp/lychee-${LYCHEE_VERSION}.tgz
 
 # Install Golang CI Lint
-FROM docker.io/library/alpine:3.18.3@sha256:c5c5fda71656f28e49ac9c5416b3643eaa6a108a8093151d6d1afc9463be8e33 as golangci
+FROM docker.io/library/alpine:3.18.4@sha256:48d9183eb12a05c99bcc0bf44a003607b8e941e1d4f41f9ad12bdcc4b5672f86 as golangci
 # update: datasource=github-tags depName=golangci/golangci-lint versioning=semver
-ENV GOLANGCI_VERSION="v1.54.2"
+ENV GOLANGCI_VERSION="v1.55.0"
 WORKDIR /
 # hadolint ignore=DL3018,DL4006
 RUN apk add --no-cache curl && \
@@ -40,12 +40,12 @@ RUN apk add --no-cache curl && \
 FROM docker.io/hadolint/hadolint:v2.12.0-alpine@sha256:7dba9a9f1a0350f6d021fb2f6f88900998a4fb0aaf8e4330aa8c38544f04db42 as hadolint
 
 # Install Trivy
-FROM docker.io/aquasec/trivy:0.45.1@sha256:88ee0d68a0265099d36895b9fef4de0415f7a7b6ea6cc23038e23eba93780960 as trivy
+FROM docker.io/aquasec/trivy:0.46.0@sha256:ec67e198797b4978b90bba75debbcb1d9d6986cd05b860d170d551878c9b3822 as trivy
 
 ############################
 # Caph Build Image Base #
 ############################
-FROM docker.io/library/golang:1.21.1-bullseye@sha256:ca9ceec0316fe0f1f3f067721ed59637f2f823dc21ed4c9e47ffa527a9d3d026
+FROM docker.io/library/golang:1.21.3-bullseye@sha256:27b021393d0e0dfffc6cd6cca5e7836ac59f5ac98724c5d6b3b0a82199d275c5
 
 # update: datasource=repology depName=debian_11/skopeo versioning=loose
 ENV SKOPEO_VERSION="1.2.2+dfsg1-1+b6"
