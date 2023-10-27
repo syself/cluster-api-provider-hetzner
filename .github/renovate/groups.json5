@@ -9,6 +9,7 @@
       separateMajorMinor: false,
       separateMultipleMajor: false,
       separateMinorPatch: false,
+      schedule: ["on the first day of the month"],
     },
     {
       description: "Update Caph Image",
@@ -20,6 +21,7 @@
       matchPaths: ["images/caph/**"],
       commitMessageTopic: "Caph Image group",
       groupSlug: "caph-manager-image",
+      schedule: ["on monday"],
     },
     {
       description: "Update Makefile",
@@ -40,7 +42,7 @@
       pinDigests: true,
       commitMessageTopic: "Github Actions group",
       groupSlug: "github-actions",
-      schedule: ["on friday"],
+      schedule: ["on monday"],
     },
     {
       description: "Update Bot Schedule",
