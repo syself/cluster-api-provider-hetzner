@@ -263,7 +263,7 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 	return reconcile.Result{}, nil
 }
 
-// setControlPlaneEndpoint updates hetznerCluster.Spec.ControlPlaneEndpoint and returns whether the hetznerCluster is ready or not
+// setControlPlaneEndpoint updates hetznerCluster.Spec.ControlPlaneEndpoint and returns whether the hetznerCluster is ready or not.
 func setControlPlaneEndpoint(hetznerCluster *infrav1.HetznerCluster) bool {
 	if hetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
 		if hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4 != "<nil>" {
