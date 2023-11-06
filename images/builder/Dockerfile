@@ -30,7 +30,7 @@ RUN apk add --no-cache curl && \
 # Install Golang CI Lint
 FROM docker.io/library/alpine:3.18.4@sha256:48d9183eb12a05c99bcc0bf44a003607b8e941e1d4f41f9ad12bdcc4b5672f86 as golangci
 # update: datasource=github-tags depName=golangci/golangci-lint versioning=semver
-ENV GOLANGCI_VERSION="v1.55.0"
+ENV GOLANGCI_VERSION="v1.55.2"
 WORKDIR /
 # hadolint ignore=DL3018,DL4006
 RUN apk add --no-cache curl && \
@@ -40,12 +40,12 @@ RUN apk add --no-cache curl && \
 FROM docker.io/hadolint/hadolint:v2.12.0-alpine@sha256:7dba9a9f1a0350f6d021fb2f6f88900998a4fb0aaf8e4330aa8c38544f04db42 as hadolint
 
 # Install Trivy
-FROM docker.io/aquasec/trivy:0.46.0@sha256:ec67e198797b4978b90bba75debbcb1d9d6986cd05b860d170d551878c9b3822 as trivy
+FROM docker.io/aquasec/trivy:0.47.0@sha256:163b935486680eefe46e38534eaeabd95e36e0e6b7b3fa5d08fb1e05c6ad9f20 as trivy
 
 ############################
 # Caph Build Image Base #
 ############################
-FROM docker.io/library/golang:1.21.3-bullseye@sha256:27b021393d0e0dfffc6cd6cca5e7836ac59f5ac98724c5d6b3b0a82199d275c5
+FROM docker.io/library/golang:1.21.3-bullseye@sha256:bea700cb2a4b3df3add033cea317d5e1dd7a59412d1b6fe25ceb257bcfdc6a1d
 
 # update: datasource=repology depName=debian_11/skopeo versioning=loose
 ENV SKOPEO_VERSION="1.2.2+dfsg1-1+b6"
