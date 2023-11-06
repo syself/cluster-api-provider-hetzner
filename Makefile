@@ -571,6 +571,10 @@ verify-shellcheck: ## Verify shell files
 verify-starlark: ## Verify Starlark Code
 	./hack/verify-starlark.sh
 
+.PHONY: verify-manifests ## Verify Manifests
+verify-manifests:
+	./hack/verify-manifests.sh
+
 .PHONY: verify-container-images
 verify-container-images: ## Verify container images
 	trivy image -q --exit-code 1 --ignore-unfixed --severity MEDIUM,HIGH,CRITICAL $(IMAGE_PREFIX)/$(INFRA_SHORT):latest
@@ -763,16 +767,9 @@ generate-mocks: ## Generate Mocks
 .PHONY: generate
 generate: generate-manifests generate-go-deepcopy generate-boilerplate generate-modules generate-mocks ## Generate Files
 
-ALL_VERIFY_CHECKS = boilerplate shellcheck starlark
+ALL_VERIFY_CHECKS = boilerplate shellcheck starlark manifests
 .PHONY: verify
 verify: generate lint $(addprefix verify-,$(ALL_VERIFY_CHECKS)) ## Verify all
-	@if ! (git diff --exit-code ); then \
-		echo "\nChanges found in generated files"; \
-		echo "Please check the generated files and stage or commit the changes to fix this error."; \
-		echo "If you are actively developing these files you can ignore this error"; \
-		echo "(Don't forget to check in the generated files when finished)\n"; \
-		exit 1; \
-	fi
 
 .PHONY: modules
 modules: generate-modules ## Update go.mod & go.sum
