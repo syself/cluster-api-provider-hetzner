@@ -21,14 +21,14 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/klog/v2/klogr"
+	"k8s.io/klog/v2/textlogger"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 )
 
-var log = klogr.New()
+var log = textlogger.NewLogger(textlogger.NewConfig())
 
 func TestBaremetal(t *testing.T) {
 	RegisterFailHandler(Fail)
