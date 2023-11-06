@@ -23,7 +23,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	"k8s.io/klog/v2/klogr"
+	"k8s.io/klog/v2/textlogger"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -48,7 +48,7 @@ func NewHCloudMachineTemplateScope(params HCloudMachineTemplateScopeParams) (*HC
 	}
 
 	if params.Logger == nil {
-		logger := klogr.New()
+		logger := textlogger.NewLogger(textlogger.NewConfig())
 		params.Logger = &logger
 	}
 

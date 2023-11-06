@@ -25,7 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/klog/v2/klogr"
+	"k8s.io/klog/v2/textlogger"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -59,7 +59,7 @@ func TestHost(t *testing.T) {
 }
 
 var (
-	log        = klogr.New()
+	log        = textlogger.NewLogger(textlogger.NewConfig())
 	errTimeout = fmt.Errorf("timeout")
 	timeout    = timeoutError{errTimeout}
 )
