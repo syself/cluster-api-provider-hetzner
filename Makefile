@@ -78,7 +78,7 @@ WORKER_CLUSTER_KUBECONFIG ?= ".workload-cluster-kubeconfig.yaml"
 MGT_CLUSTER_KUBECONFIG ?= ".mgt-cluster-kubeconfig.yaml"
 
 # Kubebuilder.
-export KUBEBUILDER_ENVTEST_KUBERNETES_VERSION ?= 1.25.0
+export KUBEBUILDER_ENVTEST_KUBERNETES_VERSION ?= 1.28.0
 
 ##@ Binaries
 ############
@@ -87,7 +87,7 @@ export KUBEBUILDER_ENVTEST_KUBERNETES_VERSION ?= 1.25.0
 CONTROLLER_GEN := $(abspath $(TOOLS_BIN_DIR)/controller-gen)
 controller-gen: $(CONTROLLER_GEN) ## Build a local copy of controller-gen
 $(CONTROLLER_GEN): # Build controller-gen from tools folder.
-	go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.12.0
+	go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.13.0
 
 KUSTOMIZE := $(abspath $(TOOLS_BIN_DIR)/kustomize)
 kustomize: $(KUSTOMIZE) ## Build a local copy of kustomize
@@ -98,7 +98,7 @@ TILT := $(abspath $(TOOLS_BIN_DIR)/tilt)
 tilt: $(TILT) ## Build a local copy of tilt
 $(TILT):
 	@mkdir -p $(TOOLS_BIN_DIR)
-	MINIMUM_TILT_VERSION=0.32.4 hack/ensure-tilt.sh
+	MINIMUM_TILT_VERSION=0.33.3 hack/ensure-tilt.sh
 
 ENVSUBST := $(abspath $(TOOLS_BIN_DIR)/envsubst)
 envsubst: $(ENVSUBST) ## Build a local copy of envsubst
@@ -118,7 +118,7 @@ $(CTLPTL):
 CLUSTERCTL := $(abspath $(TOOLS_BIN_DIR)/clusterctl)
 clusterctl: $(CLUSTERCTL) ## Build a local copy of clusterctl
 $(CLUSTERCTL):
-	curl -sSLf https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.5.2/clusterctl-$$(go env GOOS)-$$(go env GOARCH) -o $(CLUSTERCTL)
+	curl -sSLf https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.5.3/clusterctl-$$(go env GOOS)-$$(go env GOARCH) -o $(CLUSTERCTL)
 	chmod a+rx $(CLUSTERCTL)
 
 HELM := $(abspath $(TOOLS_BIN_DIR)/helm)
@@ -337,6 +337,10 @@ delete-registry: $(CTLPTL) ## Deletes Kind-dev Cluster and the local registry
 delete-mgt-cluster-registry: $(CTLPTL) ## Deletes Kind-dev Cluster and the local registry
 	$(CTLPTL) delete cluster kind-$(INFRA_SHORT)
 	$(CTLPTL) delete registry $(INFRA_SHORT)-registry
+
+generate-hcloud-token:
+	./hack/ensure-env-variables.sh TPS_TOKEN
+	./hack/ci-e2e-get-token.sh
 
 ##@ Clean
 #########
