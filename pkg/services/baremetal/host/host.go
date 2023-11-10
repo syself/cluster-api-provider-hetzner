@@ -1290,6 +1290,7 @@ func (s *Service) actionEnsureProvisioned() (ar actionResult) {
 		}
 	}
 
+	record.Event(s.scope.HetznerBareMetalHost, "ServerProvisioned", "server successfully provisioned")
 	conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
 	s.scope.HetznerBareMetalHost.ClearError()
 	return actionComplete{}
