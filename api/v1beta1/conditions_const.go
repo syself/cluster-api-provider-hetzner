@@ -199,4 +199,7 @@ const (
 
 	// DeprecatedAssociateBMHCondition reports on whether the Hetzner cluster is in ready state.
 	DeprecatedAssociateBMHCondition clusterv1.ConditionType = "AssociateBMHCondition"
+
+	// DeprecatedRateLimitExceededCondition reports whether the rate limit has been reached.
+	DeprecatedRateLimitExceededCondition clusterv1.ConditionType = "RateLimitExceeded"
 )
