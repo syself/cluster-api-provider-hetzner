@@ -104,6 +104,15 @@ const (
 )
 
 const (
+	// RootDeviceHintsValidatedCondition reports on whether the root device hints could be validated.
+	RootDeviceHintsValidatedCondition clusterv1.ConditionType = "RootDeviceHintsValidated"
+	// ValidationFailedReason indicates that the specified root device hints could not be successfully validated.
+	ValidationFailedReason = "ValidationFailed"
+	// StorageDeviceNotFoundReason indicates that the storage device specified in the root device hints could not be found.
+	StorageDeviceNotFoundReason = "StorageDeviceNotFound"
+)
+
+const (
 	// TargetClusterReadyCondition reports on whether the kubeconfig in the target cluster is ready.
 	TargetClusterReadyCondition clusterv1.ConditionType = "TargetClusterReady"
 	// KubeConfigNotFoundReason indicates that the Kubeconfig could not be found.

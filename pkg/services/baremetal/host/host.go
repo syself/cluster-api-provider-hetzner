@@ -544,13 +544,28 @@ func (s *Service) actionRegistering() actionResult {
 
 	if s.scope.HetznerBareMetalHost.Spec.RootDeviceHints == nil ||
 		!s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.IsValid() {
+		conditions.MarkFalse(
+			s.scope.HetznerBareMetalHost,
+			infrav1.RootDeviceHintsValidatedCondition,
+			infrav1.ValidationFailedReason,
+			clusterv1.ConditionSeverityError,
+			"validation failed - check specified rootDeviceHints",
+		)
 		return s.recordActionFailure(infrav1.RegistrationError, infrav1.ErrorMessageMissingRootDeviceHints)
 	}
 
 	if err := validateRootDevices(s.scope.HetznerBareMetalHost.Spec.RootDeviceHints, s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails.Storage); err != nil {
+		conditions.MarkFalse(
+			s.scope.HetznerBareMetalHost,
+			infrav1.RootDeviceHintsValidatedCondition,
+			infrav1.StorageDeviceNotFoundReason,
+			clusterv1.ConditionSeverityError,
+			err.Error(),
+		)
 		return s.recordActionFailure(infrav1.RegistrationError, err.Error())
 	}
 
+	conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.RootDeviceHintsValidatedCondition)
 	s.scope.HetznerBareMetalHost.ClearError()
 	return actionComplete{}
 }
@@ -1000,12 +1015,7 @@ func (s *Service) createAutoSetupInput(sshClient sshclient.Client) (autoSetupInp
 	}
 
 	// get device names from storage device
-	storageDevices, err := obtainHardwareDetailsStorage(sshClient)
-	if err != nil {
-		return autoSetupInput{}, actionError{err: fmt.Errorf("failed to obtain storage devices: %w", err)}
-	}
-
-	deviceNames := getDeviceNames(s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.ListOfWWN(), storageDevices)
+	deviceNames := getDeviceNames(s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.ListOfWWN(), s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails.Storage)
 
 	// we need at least one storage device
 	if len(deviceNames) == 0 {
