@@ -2,7 +2,7 @@ module github.com/syself/cluster-api-provider-hetzner
 
 go 1.21
 
-replace sigs.k8s.io/cluster-api => sigs.k8s.io/cluster-api v1.5.0
+replace sigs.k8s.io/cluster-api => sigs.k8s.io/cluster-api v1.5.3
 
 require (
 	github.com/blang/semver/v4 v4.0.0
@@ -23,9 +23,9 @@ require (
 	k8s.io/apiserver v0.27.7
 	k8s.io/client-go v0.27.7
 	k8s.io/klog/v2 v2.110.1
-	k8s.io/kubectl v0.27.2
+	k8s.io/kubectl v0.27.7
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
-	sigs.k8s.io/cluster-api v1.5.1
+	sigs.k8s.io/cluster-api v1.5.3
 	sigs.k8s.io/cluster-api/test v1.5.0
 	sigs.k8s.io/controller-runtime v0.15.3
 	sigs.k8s.io/kind v0.20.0
@@ -46,7 +46,7 @@ require (
 	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/coredns/caddy v1.1.0 // indirect
-	github.com/coredns/corefile-migration v1.0.20 // indirect
+	github.com/coredns/corefile-migration v1.0.21 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/docker/distribution v2.8.2+incompatible // indirect
 	github.com/docker/docker v24.0.7+incompatible // indirect
