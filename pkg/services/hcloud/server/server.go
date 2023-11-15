@@ -65,6 +65,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	// delete the deprecated condition from existing machine objects
 	conditions.Delete(s.scope.HCloudMachine, infrav1.DeprecatedInstanceReadyCondition)
 	conditions.Delete(s.scope.HCloudMachine, infrav1.DeprecatedInstanceBootstrapReadyCondition)
+	conditions.Delete(s.scope.HCloudMachine, infrav1.DeprecatedRateLimitExceededCondition)
 
 	// detect failure domain
 	failureDomain, err := s.scope.GetFailureDomain()

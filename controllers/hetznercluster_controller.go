@@ -152,6 +152,9 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 	}()
 
+	// delete the deprecated condition from existing cluster objects
+	conditions.Delete(hetznerCluster, infrav1.DeprecatedRateLimitExceededCondition)
+
 	// check whether rate limit has been reached and if so, then wait.
 	if wait := reconcileRateLimit(hetznerCluster, r.RateLimitWaitTime); wait {
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
