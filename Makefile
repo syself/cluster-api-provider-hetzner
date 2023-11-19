@@ -236,16 +236,6 @@ create-workload-cluster-hcloud-packer: env-vars-for-wl-cluster $(KUSTOMIZE) $(EN
 	$(MAKE) install-cilium-in-wl-cluster
 	$(MAKE) install-ccm-in-wl-cluster PRIVATE_NETWORK=false
 
-create-workload-cluster-hcloud-talos-packer: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
-	# Create workload Cluster.
-	./hack/ensure-env-variables.sh HCLOUD_TOKEN
-	$(KUBECTL) create secret generic $(INFRA_PROVIDER) --from-literal=hcloud=$(HCLOUD_TOKEN) --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
-	$(KUSTOMIZE) build templates/cluster-templates/hcloud-talos-packer --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-talos-packer.yaml
-	cat templates/cluster-templates/cluster-template-hcloud-talos-packer.yaml | $(ENVSUBST) - | $(KUBECTL) apply -f -
-	$(MAKE) wait-and-get-secret
-	$(MAKE) install-cilium-in-wl-cluster
-	$(MAKE) install-ccm-in-wl-cluster PRIVATE_NETWORK=false
-
 create-workload-cluster-hcloud-network: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN
@@ -506,10 +496,6 @@ test-e2e-feature: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFA
 test-e2e-feature-packer: $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
 	GINKGO_FOKUS="'\[Feature Packer\]'" GINKGO_NODES=1 PACKER_IMAGE_NAME=templates/node-image/1.25.2-ubuntu-22-04-containerd ./hack/ci-e2e-capi.sh
 
-.PHONY: test-e2e-feature-talos
-test-e2e-feature-talos: $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKGO_FOKUS="'\[Feature Talos\]'" GINKGO_NODES=1 PACKER_TALOS=templates/node-image/talos-image ./hack/ci-e2e-capi.sh
-
 .PHONY: test-e2e-lifecycle
 test-e2e-lifecycle: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
 	GINKGO_FOKUS="'\[Lifecycle\]'" GINKGO_NODES=3 ./hack/ci-e2e-capi.sh
@@ -637,7 +623,6 @@ cluster-templates: $(KUSTOMIZE)
 	$(KUSTOMIZE) build templates/cluster-templates/hcloud --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template.yaml
 	$(KUSTOMIZE) build templates/cluster-templates/hcloud --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud.yaml
 	$(KUSTOMIZE) build templates/cluster-templates/hcloud-packer --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-packer.yaml
-	$(KUSTOMIZE) build templates/cluster-templates/hcloud-talos-packer --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-talos-packer.yaml
 	$(KUSTOMIZE) build templates/cluster-templates/hcloud-network --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-network.yaml
 	$(KUSTOMIZE) build templates/cluster-templates/hcloud-network-packer --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-network-packer.yaml
 	$(KUSTOMIZE) build templates/cluster-templates/hetzner-hcloud-control-planes --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hetzner-hcloud-control-planes.yaml
