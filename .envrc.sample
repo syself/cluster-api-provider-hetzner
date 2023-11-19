@@ -1,5 +1,5 @@
 export TTS_TOKEN=...
-export CLUSTER_NAME=testing
+export CLUSTER_NAME=test
 export KUBECONFIG=$PWD/.mgt-cluster-kubeconfig.yaml
 export HCLOUD_TOKEN=...
 export HCLOUD_SSH_KEY=test
