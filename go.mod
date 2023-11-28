@@ -16,7 +16,7 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/syself/hrobot-go v0.2.5
 	go.uber.org/zap v1.26.0
-	golang.org/x/crypto v0.15.0
+	golang.org/x/crypto v0.16.0
 	golang.org/x/mod v0.14.0
 	k8s.io/api v0.27.7
 	k8s.io/apimachinery v0.27.7
@@ -24,7 +24,7 @@ require (
 	k8s.io/client-go v0.27.7
 	k8s.io/klog/v2 v2.110.1
 	k8s.io/kubectl v0.27.7
-	k8s.io/utils v0.0.0-20231121161247-cf03d44ff3cf
+	k8s.io/utils v0.0.0-20231127182322-b307cd553661
 	sigs.k8s.io/cluster-api v1.5.3
 	sigs.k8s.io/cluster-api/test v1.5.0
 	sigs.k8s.io/controller-runtime v0.15.3
@@ -112,8 +112,8 @@ require (
 	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/oauth2 v0.10.0 // indirect
-	golang.org/x/sys v0.14.0 // indirect
-	golang.org/x/term v0.14.0 // indirect
+	golang.org/x/sys v0.15.0 // indirect
+	golang.org/x/term v0.15.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.14.0 // indirect
