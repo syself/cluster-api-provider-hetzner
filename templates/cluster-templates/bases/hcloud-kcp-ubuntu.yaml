@@ -70,7 +70,6 @@ spec:
           bind-address: "0.0.0.0"
           secure-port: "10257"
           allocate-node-cidrs: "true"
-          pod-eviction-timeout: 2m
       scheduler:
         extraArgs:
           profiling: "false"
