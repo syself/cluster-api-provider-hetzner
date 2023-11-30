@@ -188,7 +188,7 @@ spec:
     preKubeadmCommands:
       - set -x
       - export CRUN=1.12 # update: datasource=github-tags depName=containers/crun versioning=semver-coerced
-      - export CONTAINERD=1.7.9 # update: datasource=github-tags depName=containerd/containerd extractVersion=^v(?<version>.*)$ versioning=semver
+      - export CONTAINERD=1.7.10 # update: datasource=github-tags depName=containerd/containerd extractVersion=^v(?<version>.*)$ versioning=semver
       - export KUBERNETES_VERSION=$(echo ${KUBERNETES_VERSION} | sed 's/^v//')
       - ARCH=amd64
       - if [ "$(uname -m)" = "aarch64" ]; then ARCH=arm64; fi
