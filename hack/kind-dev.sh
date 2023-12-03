@@ -18,7 +18,7 @@ set -o errexit
 set -o pipefail
 set -x
 
-K8S_VERSION=v1.25.2
+K8S_VERSION=v1.27.2
 
 REPO_ROOT=$(git rev-parse --show-toplevel)
 cd "${REPO_ROOT}" || exit 1
@@ -53,12 +53,38 @@ EOF
 # Make sure the tools binaries are on the path.
 export PATH="${REPO_ROOT}/hack/tools/bin:${PATH}"
 
-echo ""
-echo "Cluster initialising... Please hold on"
-echo ""
+printf ""
+printf "Cluster initialising... Please hold on"
+printf ""
 ctlptl_kind-cluster-with-registry caph ${K8S_VERSION}
 
-echo ""
-echo ""
-echo ""
-echo "Cluster is ready - you can now tilt up!"
+# loading cert-manager into kind node
+CMVERSION=v1.13.2
+IMAGES=(
+ "quay.io/jetstack/cert-manager-cainjector:$CMVERSION"
+ "quay.io/jetstack/cert-manager-controller:$CMVERSION"
+ "quay.io/jetstack/cert-manager-webhook:$CMVERSION"
+)
+
+for IMAGE in "${IMAGES[@]}"
+do
+    if docker images --format "{{.Repository}}:{{.Tag}}" | grep -q "$IMAGE"; then
+        echo "Image $IMAGE already exists locally. Skipping pull."
+    else
+        echo "Pulling $IMAGE"
+        docker pull "$IMAGE"
+    fi
+done
+
+TAR_FILE="cert-manager-images-$CMVERSION.tar"
+# https://stackoverflow.com/questions/47367985/expanding-a-bash-array-only-gives-the-first-element
+docker save -o "$TAR_FILE" "${IMAGES[@]}"
+
+echo "Tar file created: $TAR_FILE"
+
+kind load image-archive $TAR_FILE --name caph
+
+printf ""
+printf ""
+printf ""
+printf "Cluster is ready - you can now tilt up!"

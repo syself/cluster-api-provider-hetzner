@@ -23,7 +23,7 @@ settings = {
     "capi_version": "v1.5.2",
     "cabpt_version": "v0.5.6",
     "cacppt_version": "v0.4.11",
-    "cert_manager_version": "v1.11.0",
+    "cert_manager_version": "v1.13.2",
     "extra_args": {
         "hetzner": [
             "--log-level=debug",
@@ -290,7 +290,7 @@ include_user_tilt_files()
 load("ext://cert_manager", "deploy_cert_manager")
 
 if settings.get("deploy_cert_manager"):
-    deploy_cert_manager()
+    deploy_cert_manager(load_to_kind=True,kind_cluster_name="caph",version="v1.13.2")
 
 if settings.get("deploy_observability"):
     deploy_observability()
