@@ -18,7 +18,7 @@ Updating a `HetznerBareMetalMachineTemplate` is not possible. Instead, a new tem
 
 ## cloud-init and installimage
 
-Both in installimage and cloud-init the ports used for SSH can be changed, e.g. with the following code snippet:
+Both in [installimage](https://docs.hetzner.com/robot/dedicated-server/operating-systems/installimage/) and cloud-init the ports used for SSH can be changed, e.g. with the following code snippet:
 
 ```
 sed -i -e '/^\(#\|\)Port/s/^.*$/Port 2223/' /etc/ssh/sshd_config
@@ -39,7 +39,7 @@ Via MatchLabels you can specify a certain label (key and value) that identifies 
 | -------------------------------------------------------------- | ------------------- | ----------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | template.spec.providerID                                       | string              |                         | no       | Provider ID set by controller                                                                                                                      |
 | template.spec.installImage                                     | object              |                         | yes      | Configuration used in autosetup                                                                                                                    |
-| template.spec.installImage.image                               | object              |                         | yes      | Defines image for bm machine. Must specify either name and url, or a (local) path                                                                  |
+| template.spec.installImage.image                               | object              |                         | yes      | Defines image for bm machine. See below for details.                                                                 |
 | template.spec.installImage.image.url                           | string              |                         | no       | Remote URL of image. Can be tar, tar.gz, tar.bz, tar.bz2, tar.xz, tgz, tbz, txz                                                                    |
 | template.spec.installImage.image.name                          | string              |                         | no       | Name of the image                                                                                                                                  |
 | template.spec.installImage.image.path                          | string              |                         | no       | Local path of a pre-installed image                                                                                                                |
@@ -75,3 +75,68 @@ Via MatchLabels you can specify a certain label (key and value) that identifies 
 | template.spec.sshSpec.secretRef.key.privateKey                 | string              |                         | yes      | PrivateKey is the key in the secret's data where the SSH key's private key is stored                                                               |
 | template.spec.sshSpec.portAfterInstallImage                    | int                 | 22                      | no       | PortAfterInstallImage specifies the port that can be used to reach the server via SSH after install image completed successfully                   |
 | template.spec.sshSpec.portAfterCloudInit                       | int                 | 22 (install image port) | no       | PortAfterCloudInit specifies the port that can be used to reach the server via SSH after cloud init completed successfully                         |
+
+### installImage.image
+
+You must specify either name and url, or a local path.
+
+Example of an image provided by Hetzner via NFS:
+
+```
+image:
+  path: /root/.oldroot/nfs//images/Ubuntu-2204-jammy-amd64-base.tar.gz
+```
+
+Example of an image provided by you via https. The script installimage of Hetzner parses the name to detect the version. It is
+recommended to follow their naming pattern.
+
+```
+image:
+  name: Ubuntu-2204-jammy-amd64-custom
+  url: https://user:pwd@example.com/images/Ubuntu-2204-jammy-amd64-custom.tar.gz
+
+```
+
+Example of pulling an image from an oci-registry:
+
+```
+image:
+  name: Ubuntu-2204-jammy-amd64-custom
+  url: oci://ghcr.io/myorg/images/Ubuntu-2204-jammy-amd64-custom:1.0.0-beta.2
+```
+
+If you need credentials to pull the image, then provide the environment variable `OCI_REGISTRY_AUTH_TOKEN` to the controller.
+
+You can provide the variable via a secret of the deployment `caph-controller-manager`:
+
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  # ... 
+spec:
+  # ... 
+  template:
+    spec:
+      containers:
+      - command:
+        - /manager
+        image: ghcr.io/syself/caph:vXXX
+        env:
+          - name: OCI_REGISTRY_AUTH_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: my-oci-registry-secret    # The name of the secret
+                key: OCI_REGISTRY_AUTH_TOKEN    # The key in the secret to use
+      # ... other container specs
+```
+
+You can push an image to a oci-registry with a tool like [oras](https://oras.land):
+
+```
+oras push ghcr.io/myorg/images/Ubuntu-2204-jammy-amd64-custom:1.0.0-beta.2 \
+    --artifact-type application/vnd.myorg.machine-image.v1 Ubuntu-2204-jammy-amd64-custom.tar.gz
+```
+
+
+

@@ -104,7 +104,7 @@ func (s *Service) Reconcile(ctx context.Context) (result reconcile.Result, err e
 		conditions.SetSummary(s.scope.HetznerBareMetalHost)
 
 		// save host if it changed during reconciliation
-		if !reflect.DeepEqual(oldHost, *s.scope.HetznerBareMetalHost) {
+		if !reflect.DeepEqual(oldHost, s.scope.HetznerBareMetalHost) {
 			saveResult, saveErr := SaveHostAndReturn(ctx, s.scope.Client, s.scope.HetznerBareMetalHost)
 			emptyResult := reconcile.Result{}
 			if result == emptyResult && err == nil {
@@ -978,17 +978,22 @@ func (s *Service) actionImageInstalling() actionResult {
 		record.Warnf(s.scope.HetznerBareMetalHost, "ExecuteInstallImageFailed", out.StdOut)
 		return actionError{err: fmt.Errorf("failed to execute installimage: %w", out.Err)}
 	}
+
 	record.Eventf(s.scope.HetznerBareMetalHost, "ExecuteInstallImageSucceeded", out.StdOut)
+	s.scope.Logger.Info("ExecuteInstallImageSucceeded", "stdout", out.StdOut, "stderr", out.StdErr)
 
 	// Update name in robot API
 	if _, err := s.scope.RobotClient.SetBMServerName(s.scope.HetznerBareMetalHost.Spec.ServerID, autoSetupInput.hostName); err != nil {
+		record.Warn(s.scope.HetznerBareMetalHost, "SetBMServerNameFailed", err.Error())
 		s.handleRobotRateLimitExceeded(err, "SetBMServerName")
 		return actionError{err: fmt.Errorf("failed to update name of host in robot API: %w", err)}
 	}
 
 	if err := handleSSHError(sshClient.Reboot()); err != nil {
+		record.Warn(s.scope.HetznerBareMetalHost, "RebootFailed", err.Error())
 		return actionError{err: fmt.Errorf("failed to reboot server: %w", err)}
 	}
+	s.scope.Logger.Info("RebootAfterInstallimageSucceeded", "stdout", out.StdOut, "stderr", out.StdErr)
 
 	// clear potential errors - all done
 	s.scope.HetznerBareMetalHost.ClearError()
@@ -1011,7 +1016,7 @@ func (s *Service) createAutoSetupInput(sshClient sshclient.Client) (autoSetupInp
 	if needsDownload {
 		out := sshClient.DownloadImage(imagePath, image.URL)
 		if err := handleSSHError(out); err != nil {
-			return autoSetupInput{}, actionError{err: fmt.Errorf("failed to download image: %w", err)}
+			return autoSetupInput{}, actionError{err: fmt.Errorf("failed to download image: %s %s %w", out.StdOut, out.StdErr, err)}
 		}
 	}
 
@@ -1068,9 +1073,30 @@ func (s *Service) actionProvisioning() actionResult {
 	wantHostName := infrav1.BareMetalHostNamePrefix + host.Spec.ConsumerRef.Name
 
 	out := sshClient.GetHostName()
+
+	if out.Err != nil {
+		msg := fmt.Sprintf("ssh to port %d failed: %s (%s): %v", portAfterInstallImage, out.StdOut, out.StdErr, out.Err)
+		conditions.MarkFalse(host,
+			infrav1.SSHAfterInstallImageSucceededCondition,
+			infrav1.SSHAfterInstallImageFailedReason,
+			clusterv1.ConditionSeverityWarning, msg)
+
+		if time.Now().After(conditions.GetLastTransitionTime(
+			s.scope.HetznerBareMetalHost,
+			infrav1.SSHAfterInstallImageSucceededCondition).Add(7 * time.Minute)) {
+			// We waited some minutes. Still no connection. There seems to something wrong.
+			record.Warn(host, infrav1.SSHAfterInstallImageFailedReason, msg)
+		}
+	} else {
+		conditions.MarkTrue(s.scope.HetznerBareMetalHost,
+			infrav1.SSHAfterInstallImageSucceededCondition)
+	}
+
 	if trimLineBreak(out.StdOut) != wantHostName {
-		// give the reboot some time until it takes effect
+		// Give the reboot some time until it takes effect. Otherwise the ssh connection gets done too fast,
+		// and it will connect to the machine before it gets rebooted.
 		if s.hasJustRebooted() {
+			s.scope.Logger.Info("hasJustRebooted is true", "LastUpdated", host.Spec.Status.LastUpdated)
 			return actionContinue{delay: 2 * time.Second}
 		}
 
@@ -1558,6 +1584,10 @@ func (s *Service) handleRobotRateLimitExceeded(err error, functionName string) {
 	}
 }
 
+// hasJustRebooted returns true if a reboot was done during the last seconds.
+// The method gets used to let the controller wait until the reboot was actually done.
+// Imagine the controller triggers a reboot, and reconciles immediately. This would
+// mean the controller would do the same reboot immediately again.
 func (s *Service) hasJustRebooted() bool {
 	return (s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeSSHRebootTriggered ||
 		s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeSoftwareRebootTriggered ||
