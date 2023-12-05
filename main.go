@@ -99,15 +99,12 @@ func main() {
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                        scheme,
-		MetricsBindAddress:            metricsAddr,
-		Port:                          9443,
 		HealthProbeBindAddress:        probeAddr,
 		LeaderElection:                enableLeaderElection,
 		LeaderElectionID:              "hetzner.cluster.x-k8s.io",
 		LeaderElectionNamespace:       leaderElectionNamespace,
 		LeaderElectionResourceLock:    "leases",
 		LeaderElectionReleaseOnCancel: true,
-		Namespace:                     watchNamespace,
 		Cache: cache.Options{
 			ByObject:   secretutil.AddSecretSelector(),
 			SyncPeriod: &syncPeriod,

@@ -75,3 +75,6 @@ tmp_*
 
 # baremetal hosts
 baremetalhosts*yaml
+
+# binary
+cluster-api-provider-hetzner

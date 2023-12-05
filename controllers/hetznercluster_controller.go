@@ -708,9 +708,9 @@ func (r *HetznerClusterReconciler) newTargetClusterManager(ctx context.Context, 
 	clusterMgr, err := ctrl.NewManager(
 		restConfig,
 		ctrl.Options{
-			Scheme:             scheme,
-			MetricsBindAddress: "0",
-			LeaderElection:     false,
+			Scheme: scheme,
+			// MetricsBindAddress: "0",
+			LeaderElection: false,
 		},
 	)
 	if err != nil {

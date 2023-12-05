@@ -34,7 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/version"
 	"k8s.io/client-go/discovery"
 	"k8s.io/utils/pointer"
-	clusterv1alpha3 "sigs.k8s.io/cluster-api/api/v1alpha3"
+	clusterv1alpha4 "sigs.k8s.io/cluster-api/api/v1alpha4"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/cmd/clusterctl/client/config"
 	"sigs.k8s.io/cluster-api/test/framework"
@@ -258,7 +258,7 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 		ginkgo.By("Waiting for the machines to exists")
 		gomega.Eventually(func() (int64, error) {
 			var n int64
-			machineList := &clusterv1alpha3.MachineList{}
+			machineList := &clusterv1alpha4.MachineList{}
 			if err := managementClusterProxy.GetClient().List(ctx, machineList, c.InNamespace(testNamespace.Name), c.MatchingLabels{clusterv1.ClusterNameLabel: workLoadClusterName}); err == nil {
 				for _, machine := range machineList.Items {
 					if machine.Status.NodeRef != nil {

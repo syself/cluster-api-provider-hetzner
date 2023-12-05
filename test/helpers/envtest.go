@@ -131,10 +131,7 @@ func NewTestEnvironment() *TestEnvironment {
 
 	// Build the controller manager.
 	mgr, err := ctrl.NewManager(env.Config, ctrl.Options{
-		Scheme:             scheme,
-		Port:               env.WebhookInstallOptions.LocalServingPort,
-		CertDir:            env.WebhookInstallOptions.LocalServingCertDir,
-		MetricsBindAddress: "0",
+		Scheme: scheme,
 		Cache: cache.Options{
 			ByObject: secretutil.AddSecretSelector(),
 		},
