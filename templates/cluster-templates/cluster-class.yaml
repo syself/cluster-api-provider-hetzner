@@ -434,7 +434,6 @@ spec:
               cluster-signing-duration: 6h0m0s
               cluster-signing-key-file: /etc/kubernetes/pki/ca.key
               kubeconfig: /etc/kubernetes/controller-manager.conf
-              pod-eviction-timeout: 2m
               profiling: "false"
               requestheader-client-ca-file: /etc/kubernetes/pki/front-proxy-ca.crt
               root-ca-file: /etc/kubernetes/pki/ca.crt
