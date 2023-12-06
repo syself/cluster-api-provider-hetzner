@@ -316,6 +316,9 @@ func (bmMachine *HetznerBareMetalMachine) SetFailure(reason capierrors.MachineSt
 
 // GetImageSuffix tests whether the suffix is known and outputs it if yes. Otherwise it returns an error.
 func GetImageSuffix(url string) (string, error) {
+	if strings.HasPrefix(url, "oci://") {
+		return "tar.gz", nil
+	}
 	for _, suffix := range []ImageType{
 		ImageTypeTar,
 		ImageTypeTarGz,

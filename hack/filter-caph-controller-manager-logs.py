@@ -27,6 +27,8 @@ keys_to_skip = ['controller', 'controllerGroup', 'controllerKind', 'reconcileID'
 rows_to_skip = [
     'controller-runtime.webhook', 'certwatcher/certwatcher', 'Registering a validating webhook',
     'Registering a mutating webhook', 'Starting EventSource',
+    'Starting Controller',
+    '"Starting workers" controller/controller',
     '"Reconciling finished"',
     '"Creating cluster scope"',
     '"Starting reconciling cluster"',
