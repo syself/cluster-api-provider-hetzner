@@ -243,7 +243,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 			By("making sure the it has been deleted")
 			Eventually(func() bool {
 				return apierrors.IsNotFound(testEnv.Get(ctx, key, host))
-			}, timeout, time.Second).Should(BeTrue())
+			}, 10*time.Second, time.Second).Should(BeTrue())
 		})
 	})
 
@@ -336,13 +336,16 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 				}, timeout, time.Second).Should(BeNil())
 
 				Eventually(func() bool {
-					// TODO: Add logging to trace flaky unit-test.
 					if err := testEnv.Get(ctx, key, host); err != nil {
+						testEnv.GetLogger().Info("......... reaches the state image installing. Get failed", "err", err)
 						return false
 					}
 					if host.Spec.Status.ProvisioningState == infrav1.StateImageInstalling {
 						return true
 					}
+					testEnv.GetLogger().Info("......... reaches the state image installing. State",
+						"is-state", host.Spec.Status.ProvisioningState,
+						"should-state", infrav1.StateImageInstalling)
 					return false
 				}, 10*time.Second).Should(BeTrue())
 			})

@@ -14,16 +14,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+set -euo pipefail
+
 if [ -z "$CLUSTER_NAME" ]; then
     echo "env var CLUSTER_NAME is missing. Failed to get kubeconfig of workload cluster"
     exit 1
 fi
 kubeconfig=".workload-cluster-kubeconfig.yaml"
-kubectl get secrets "${CLUSTER_NAME}-kubeconfig" -ojsonpath='{.data.value}' | base64 -d > "$kubeconfig"
+new_content="$(kubectl get secrets "${CLUSTER_NAME}-kubeconfig" -ojsonpath='{.data.value}' | base64 -d)"
 
-if [ ! -s "$kubeconfig" ]; then
+if [ -z "$new_content" ]; then
     echo "failed to get kubeconfig of workload cluster"
     exit 1
 fi
 
+# If we create this fail again and again (via `make watch`), then there is a race-condition
+# This can lead to makefile targets fail, because the file is empty for a fraction of a second.
+if [ -s "$kubeconfig" ]; then
+    old_content="$(cat $kubeconfig)"
+    if [ "$new_content" == "$old_content" ]; then
+        # Correct kubeconfig already exits, nothing to do.
+        exit 0
+    fi
+fi
+echo "$new_content" >"$kubeconfig"
 chmod a=,u=rw $kubeconfig

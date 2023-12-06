@@ -70,7 +70,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	// detect failure domain
 	failureDomain, err := s.scope.GetFailureDomain()
 	if err != nil {
-		return res, fmt.Errorf("failed to get failure domain: %w", err)
+		return reconcile.Result{}, fmt.Errorf("failed to get failure domain: %w", err)
 	}
 
 	// set region in status of machine
@@ -93,7 +93,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	// try to find an existing server
 	server, err := s.findServer(ctx)
 	if err != nil {
-		return res, fmt.Errorf("failed to get server: %w", err)
+		return reconcile.Result{}, fmt.Errorf("failed to get server: %w", err)
 	}
 
 	// if no server is found we have to create one
@@ -103,7 +103,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 			if errors.Is(err, errServerCreateNotPossible) {
 				return reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
 			}
-			return res, fmt.Errorf("failed to create server: %w", err)
+			return reconcile.Result{}, fmt.Errorf("failed to create server: %w", err)
 		}
 	}
 
@@ -189,7 +189,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 func (s *Service) Delete(ctx context.Context) (res reconcile.Result, err error) {
 	server, err := s.findServer(ctx)
 	if err != nil {
-		return res, fmt.Errorf("failed to find server: %w", err)
+		return reconcile.Result{}, fmt.Errorf("failed to find server: %w", err)
 	}
 
 	// if no server has been found, then nothing can be deleted
@@ -203,7 +203,7 @@ func (s *Service) Delete(ctx context.Context) (res reconcile.Result, err error) 
 	// control planes have to be deleted as targets of server
 	if s.scope.IsControlPlane() && s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
 		if err := s.deleteServerOfLoadBalancer(ctx, server); err != nil {
-			return res, fmt.Errorf("failed to delete attached server of loadbalancer: %w", err)
+			return reconcile.Result{}, fmt.Errorf("failed to delete attached server of loadbalancer: %w", err)
 		}
 	}
 
@@ -524,7 +524,7 @@ func (s *Service) handleServerStatusOff(ctx context.Context, server *hcloud.Serv
 					// if server is locked, we just retry again
 					return reconcile.Result{Requeue: true}, nil
 				}
-				return res, fmt.Errorf("failed to power on server: %w", err)
+				return reconcile.Result{}, fmt.Errorf("failed to power on server: %w", err)
 			}
 		} else {
 			// Timed out. Set failure reason
@@ -539,7 +539,7 @@ func (s *Service) handleServerStatusOff(ctx context.Context, server *hcloud.Serv
 				// if server is locked, we just retry again
 				return reconcile.Result{Requeue: true}, nil
 			}
-			return res, fmt.Errorf("failed to power on server: %w", err)
+			return reconcile.Result{}, fmt.Errorf("failed to power on server: %w", err)
 		}
 		conditions.MarkFalse(
 			s.scope.HCloudMachine,
@@ -562,7 +562,7 @@ func (s *Service) handleDeleteServerStatusRunning(ctx context.Context, server *h
 	if s.scope.HasServerAvailableCondition() || (s.scope.HasServerTerminatedCondition() && !s.scope.HasShutdownTimedOut()) {
 		if err := s.scope.HCloudClient.ShutdownServer(ctx, server); err != nil {
 			hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "ShutdownServer")
-			return res, fmt.Errorf("failed to shutdown server: %w", err)
+			return reconcile.Result{}, fmt.Errorf("failed to shutdown server: %w", err)
 		}
 
 		conditions.MarkFalse(s.scope.HCloudMachine,
@@ -579,7 +579,7 @@ func (s *Service) handleDeleteServerStatusRunning(ctx context.Context, server *h
 	if err := s.scope.HCloudClient.DeleteServer(ctx, server); err != nil {
 		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "DeleteServer")
 		record.Warnf(s.scope.HCloudMachine, "FailedDeleteHCloudServer", "Failed to delete HCloud server %s", s.scope.Name())
-		return res, fmt.Errorf("failed to delete server: %w", err)
+		return reconcile.Result{}, fmt.Errorf("failed to delete server: %w", err)
 	}
 
 	record.Eventf(s.scope.HCloudMachine, "HCloudServerDeleted", "HCloud server %s deleted", s.scope.Name())
@@ -591,7 +591,7 @@ func (s *Service) handleDeleteServerStatusOff(ctx context.Context, server *hclou
 	if err := s.scope.HCloudClient.DeleteServer(ctx, server); err != nil {
 		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "DeleteServer")
 		record.Warnf(s.scope.HCloudMachine, "FailedDeleteHCloudServer", "Failed to delete HCloud server %s", s.scope.Name())
-		return res, fmt.Errorf("failed to delete server: %w", err)
+		return reconcile.Result{}, fmt.Errorf("failed to delete server: %w", err)
 	}
 
 	record.Eventf(s.scope.HCloudMachine, "HCloudServerDeleted", "HCloud server %s deleted", s.scope.Name())

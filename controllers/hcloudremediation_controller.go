@@ -189,7 +189,7 @@ func (r *HCloudRemediationReconciler) reconcileNormal(ctx context.Context, remed
 	// reconcile hcloud remediation
 	result, err := hcloudremediation.NewService(remediationScope).Reconcile(ctx)
 	if err != nil {
-		return result, fmt.Errorf("failed to reconcile server for HCloudRemediation %s/%s: %w",
+		return reconcile.Result{}, fmt.Errorf("failed to reconcile server for HCloudRemediation %s/%s: %w",
 			hcloudRemediation.Namespace, hcloudRemediation.Name, err)
 	}
 

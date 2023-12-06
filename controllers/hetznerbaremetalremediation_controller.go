@@ -158,7 +158,7 @@ func (r *HetznerBareMetalRemediationReconciler) reconcileNormal(ctx context.Cont
 	// reconcile bare metal remediation
 	result, err := remediation.NewService(remediationScope).Reconcile(ctx)
 	if err != nil {
-		return result, fmt.Errorf("failed to reconcile server for BareMetalRemediation %s/%s: %w",
+		return reconcile.Result{}, fmt.Errorf("failed to reconcile server for BareMetalRemediation %s/%s: %w",
 			bareMetalRemediation.Namespace, bareMetalRemediation.Name, err)
 	}
 

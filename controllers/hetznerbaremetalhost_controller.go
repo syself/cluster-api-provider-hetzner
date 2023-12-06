@@ -71,9 +71,9 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	err := r.Get(ctx, req.NamespacedName, bmHost)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			return ctrl.Result{}, nil
+			return reconcile.Result{}, nil
 		}
-		return ctrl.Result{}, err
+		return reconcile.Result{}, err
 	}
 
 	log = log.WithValues("HetznerBareMetalHost", klog.KObj(bmHost))
@@ -84,7 +84,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 			infrav1.BareMetalHostFinalizer)
 		err := r.Update(ctx, bmHost)
 		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to add finalizer: %w", err)
+			return reconcile.Result{}, fmt.Errorf("failed to add finalizer: %w", err)
 		}
 		return ctrl.Result{Requeue: true}, nil
 	}
@@ -92,9 +92,12 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	// Certain cases need to be handled here and not later in the host state machine.
 	// If res != nil, then we should return, otherwise not.
 	res, err = r.reconcileSelectedStates(ctx, bmHost)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
 	emptyResult := reconcile.Result{}
-	if res != emptyResult || err != nil {
-		return res, err
+	if res != emptyResult {
+		return res, nil
 	}
 
 	hetznerCluster := &infrav1.HetznerCluster{}
@@ -104,7 +107,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		Name:      bmHost.Spec.Status.HetznerClusterRef,
 	}
 	if err := r.Client.Get(ctx, hetznerClusterName, hetznerCluster); err != nil {
-		return ctrl.Result{}, errors.New("HetznerCluster not found")
+		return reconcile.Result{}, errors.New("HetznerCluster not found")
 	}
 
 	log = log.WithValues("HetznerCluster", klog.KObj(hetznerCluster))
@@ -119,8 +122,11 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 
 	// Get secrets. Return when result != nil.
 	osSSHSecret, rescueSSHSecret, res, err := r.getSecrets(ctx, *secretManager, bmHost, hetznerCluster)
-	if err != nil || res != emptyResult {
-		return res, err
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if res != emptyResult {
+		return res, nil
 	}
 	// Create the scope.
 	hostScope, err := scope.NewBareMetalHostScope(scope.BareMetalHostScopeParams{
@@ -173,7 +179,7 @@ func (r *HetznerBareMetalHostReconciler) reconcileSelectedStates(ctx context.Con
 		if needsUpdate {
 			err := r.Update(ctx, bmHost)
 			if err != nil {
-				return res, fmt.Errorf("failed to add finalizer: %w", err)
+				return reconcile.Result{}, fmt.Errorf("failed to add finalizer: %w", err)
 			}
 		}
 
@@ -187,7 +193,7 @@ func (r *HetznerBareMetalHostReconciler) reconcileSelectedStates(ctx context.Con
 
 		bmHost.Finalizers = utils.FilterStringFromList(bmHost.Finalizers, infrav1.BareMetalHostFinalizer)
 		if err := r.Update(context.Background(), bmHost); err != nil {
-			return res, fmt.Errorf("failed to remove finalizer: %w", err)
+			return reconcile.Result{}, fmt.Errorf("failed to remove finalizer: %w", err)
 		}
 		return res, nil
 	}
@@ -325,9 +331,12 @@ func hetznerSecretErrorResult(
 		record.Warnf(bmHost, infrav1.HetznerSecretUnreachableReason, fmt.Sprintf("%s: %s", infrav1.ErrorMessageMissingHetznerSecret, err.Error()))
 		conditions.SetSummary(bmHost)
 		result, err := host.SaveHostAndReturn(ctx, client, bmHost)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 		emptyResult := reconcile.Result{}
-		if result != emptyResult || err != nil {
-			return result, err
+		if result != emptyResult {
+			return result, nil
 		}
 
 		// No need to reconcile again, as it will be triggered as soon as the secret is updated.
@@ -347,7 +356,7 @@ func hetznerSecretErrorResult(
 		conditions.SetSummary(bmHost)
 		return host.SaveHostAndReturn(ctx, client, bmHost)
 	}
-	return ctrl.Result{}, fmt.Errorf("hetznerSecretErrorResult: an unhandled failure occurred: %T %w", err, err)
+	return reconcile.Result{}, fmt.Errorf("hetznerSecretErrorResult: an unhandled failure occurred: %T %w", err, err)
 }
 
 func hostHasFinalizer(host *infrav1.HetznerBareMetalHost) bool {

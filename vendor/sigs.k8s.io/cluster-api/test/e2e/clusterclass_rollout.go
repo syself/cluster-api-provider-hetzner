@@ -40,12 +40,14 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/controllers/external"
 	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
+	expv1 "sigs.k8s.io/cluster-api/exp/api/v1beta1"
 	"sigs.k8s.io/cluster-api/internal/contract"
 	"sigs.k8s.io/cluster-api/internal/controllers/topology/machineset"
 	"sigs.k8s.io/cluster-api/test/e2e/internal/log"
 	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/cluster-api/test/framework/clusterctl"
 	"sigs.k8s.io/cluster-api/util"
+	"sigs.k8s.io/cluster-api/util/labels"
 	"sigs.k8s.io/cluster-api/util/patch"
 )
 
@@ -134,10 +136,11 @@ func ClusterClassRolloutSpec(ctx context.Context, inputGetter func() ClusterClas
 			WaitForClusterIntervals:      input.E2EConfig.GetIntervals(specName, "wait-cluster"),
 			WaitForControlPlaneIntervals: input.E2EConfig.GetIntervals(specName, "wait-control-plane"),
 			WaitForMachineDeployments:    input.E2EConfig.GetIntervals(specName, "wait-worker-nodes"),
+			WaitForMachinePools:          input.E2EConfig.GetIntervals(specName, "wait-machine-pool-nodes"),
 		}, clusterResources)
 		assertClusterObjects(ctx, input.BootstrapClusterProxy, clusterResources.Cluster, clusterResources.ClusterClass)
 
-		By("Rolling out changes to control plane and MachineDeployments (in-place)")
+		By("Rolling out changes to control plane, MachineDeployments, and MachinePools (in-place)")
 		machinesBeforeUpgrade := getMachinesByCluster(ctx, input.BootstrapClusterProxy.GetClient(), clusterResources.Cluster)
 		By("Modifying the control plane configuration via Cluster topology and wait for changes to be applied to the control plane object (in-place)")
 		modifyControlPlaneViaClusterAndWait(ctx, modifyControlPlaneViaClusterAndWaitInput{
@@ -184,6 +187,25 @@ func ClusterClassRolloutSpec(ctx context.Context, inputGetter func() ClusterClas
 			},
 			WaitForMachineDeployments: input.E2EConfig.GetIntervals(specName, "wait-worker-nodes"),
 		})
+		By("Modifying the MachinePool configuration via Cluster topology and wait for changes to be applied to the MachinePools (in-place)")
+		modifyMachinePoolViaClusterAndWait(ctx, modifyMachinePoolViaClusterAndWaitInput{
+			ClusterProxy: input.BootstrapClusterProxy,
+			Cluster:      clusterResources.Cluster,
+			ModifyMachinePoolTopology: func(topology *clusterv1.MachinePoolTopology) {
+				// Drop existing labels and annotations and set new ones.
+				topology.Metadata.Labels = map[string]string{
+					"Cluster.topology.machinePool.newLabel": "Cluster.topology.machinePool.newLabelValue",
+				}
+				topology.Metadata.Annotations = map[string]string{
+					"Cluster.topology.machinePool.newAnnotation": "Cluster.topology.machinePool.newAnnotationValue",
+				}
+				topology.NodeDrainTimeout = &metav1.Duration{Duration: time.Duration(rand.Intn(20)) * time.Second}        //nolint:gosec
+				topology.NodeDeletionTimeout = &metav1.Duration{Duration: time.Duration(rand.Intn(20)) * time.Second}     //nolint:gosec
+				topology.NodeVolumeDetachTimeout = &metav1.Duration{Duration: time.Duration(rand.Intn(20)) * time.Second} //nolint:gosec
+				topology.MinReadySeconds = pointer.Int32(rand.Int31n(20))                                                 //nolint:gosec
+			},
+			WaitForMachinePools: input.E2EConfig.GetIntervals(specName, "wait-machine-pool-nodes"),
+		})
 		By("Verifying there are no unexpected rollouts through in-place rollout")
 		Consistently(func(g Gomega) {
 			machinesAfterUpgrade := getMachinesByCluster(ctx, input.BootstrapClusterProxy.GetClient(), clusterResources.Cluster)
@@ -191,7 +213,7 @@ func ClusterClassRolloutSpec(ctx context.Context, inputGetter func() ClusterClas
 		}, 30*time.Second, 1*time.Second).Should(Succeed())
 		assertClusterObjects(ctx, input.BootstrapClusterProxy, clusterResources.Cluster, clusterResources.ClusterClass)
 
-		By("Rolling out changes to control plane and MachineDeployments (rollout)")
+		By("Rolling out changes to control plane, MachineDeployments, and MachinePools (rollout)")
 		machinesBeforeUpgrade = getMachinesByCluster(ctx, input.BootstrapClusterProxy.GetClient(), clusterResources.Cluster)
 		By("Modifying the control plane configuration via ClusterClass and wait for changes to be applied to the control plane object (rollout)")
 		modifyControlPlaneViaClusterClassAndWait(ctx, modifyClusterClassControlPlaneAndWaitInput{
@@ -213,8 +235,20 @@ func ClusterClassRolloutSpec(ctx context.Context, inputGetter func() ClusterClas
 			},
 			WaitForMachineDeployments: input.E2EConfig.GetIntervals(specName, "wait-worker-nodes"),
 		})
+		By("Modifying the MachinePool configuration via ClusterClass and wait for changes to be applied to the MachinePools (rollout)")
+		modifyMachinePoolViaClusterClassAndWait(ctx, modifyMachinePoolViaClusterClassAndWaitInput{
+			ClusterProxy: input.BootstrapClusterProxy,
+			ClusterClass: clusterResources.ClusterClass,
+			Cluster:      clusterResources.Cluster,
+			ModifyBootstrapConfigTemplateFields: map[string]interface{}{
+				"spec.template.spec.verbosity": int64(4),
+			},
+			WaitForMachinePools: input.E2EConfig.GetIntervals(specName, "wait-machine-pool-nodes"),
+		})
 		By("Verifying all Machines are replaced through rollout")
 		Eventually(func(g Gomega) {
+			// Note: This excludes MachinePool Machines as they are not replaced by rollout yet.
+			// This is tracked by https://github.com/kubernetes-sigs/cluster-api/issues/8858.
 			machinesAfterUpgrade := getMachinesByCluster(ctx, input.BootstrapClusterProxy.GetClient(), clusterResources.Cluster)
 			g.Expect(machinesAfterUpgrade.HasAny(machinesBeforeUpgrade.UnsortedList()...)).To(BeFalse(), "All Machines must be replaced through rollout")
 		}, input.E2EConfig.GetIntervals(specName, "wait-control-plane")...).Should(Succeed())
@@ -277,6 +311,9 @@ func assertClusterObjects(ctx context.Context, clusterProxy framework.ClusterPro
 		assertMachineDeployments(g, clusterClassObjects, clusterObjects, cluster, clusterClass)
 		assertMachineSets(g, clusterObjects, cluster)
 		assertMachineSetsMachines(g, clusterObjects, cluster)
+
+		// MachinePools
+		assertMachinePools(g, clusterClassObjects, clusterObjects, cluster, clusterClass)
 
 		By("All cluster objects have the right labels, annotations and selectors")
 	}, 30*time.Second, 1*time.Second).Should(Succeed())
@@ -590,6 +627,103 @@ func assertMachineDeployments(g Gomega, clusterClassObjects clusterClassObjects,
 	}
 }
 
+func assertMachinePools(g Gomega, clusterClassObjects clusterClassObjects, clusterObjects clusterObjects, cluster *clusterv1.Cluster, clusterClass *clusterv1.ClusterClass) {
+	for _, machinePool := range clusterObjects.MachinePools {
+		mpTopology := getMPTopology(cluster, machinePool)
+		mpClass := getMPClass(cluster, clusterClass, machinePool)
+
+		// MachinePool.metadata
+		g.Expect(machinePool.Labels).To(BeEquivalentTo(
+			union(
+				map[string]string{
+					clusterv1.ClusterNameLabel:                    cluster.Name,
+					clusterv1.ClusterTopologyOwnedLabel:           "",
+					clusterv1.ClusterTopologyMachinePoolNameLabel: mpTopology.Name,
+				},
+				mpTopology.Metadata.Labels,
+				mpClass.Template.Metadata.Labels,
+			),
+		))
+		g.Expect(
+			union(
+				machinePool.Annotations,
+			),
+		).To(BeEquivalentTo(
+			union(
+				mpTopology.Metadata.Annotations,
+				mpClass.Template.Metadata.Annotations,
+			),
+		))
+
+		// MachinePool.spec.template.metadata
+		g.Expect(machinePool.Spec.Template.Labels).To(BeEquivalentTo(
+			union(
+				map[string]string{
+					clusterv1.ClusterNameLabel:                    cluster.Name,
+					clusterv1.ClusterTopologyOwnedLabel:           "",
+					clusterv1.ClusterTopologyMachinePoolNameLabel: mpTopology.Name,
+				},
+				mpTopology.Metadata.Labels,
+				mpClass.Template.Metadata.Labels,
+			),
+		))
+		g.Expect(machinePool.Spec.Template.Annotations).To(BeEquivalentTo(
+			union(
+				mpTopology.Metadata.Annotations,
+				mpClass.Template.Metadata.Annotations,
+			),
+		))
+
+		// MachinePool InfrastructureMachinePool.metadata
+		ccInfrastructureMachinePoolTemplate := clusterClassObjects.InfrastructureMachinePoolTemplateByMachinePoolClass[mpClass.Class]
+		ccInfrastructureMachinePoolTemplateTemplateMetadata := mustMetadata(contract.InfrastructureMachinePoolTemplate().Template().Metadata().Get(ccInfrastructureMachinePoolTemplate))
+		infrastructureMachinePool := clusterObjects.InfrastructureMachinePoolByMachinePool[machinePool.Name]
+		g.Expect(infrastructureMachinePool.GetLabels()).To(BeEquivalentTo(
+			union(
+				map[string]string{
+					clusterv1.ClusterNameLabel:                    cluster.Name,
+					clusterv1.ClusterTopologyOwnedLabel:           "",
+					clusterv1.ClusterTopologyMachinePoolNameLabel: mpTopology.Name,
+				},
+				ccInfrastructureMachinePoolTemplateTemplateMetadata.Labels,
+			),
+		))
+		g.Expect(infrastructureMachinePool.GetAnnotations()).To(BeEquivalentTo(
+			union(
+				map[string]string{
+					clusterv1.TemplateClonedFromGroupKindAnnotation: groupKind(mpClass.Template.Infrastructure.Ref),
+					clusterv1.TemplateClonedFromNameAnnotation:      mpClass.Template.Infrastructure.Ref.Name,
+				},
+				ccInfrastructureMachinePoolTemplateTemplateMetadata.Annotations,
+			),
+		))
+
+		// MachinePool BootstrapConfig.metadata
+		ccBootstrapConfigTemplate := clusterClassObjects.BootstrapConfigTemplateByMachinePoolClass[mpClass.Class]
+		ccBootstrapConfigTemplateTemplateMetadata := mustMetadata(contract.BootstrapConfigTemplate().Template().Metadata().Get(ccBootstrapConfigTemplate))
+		bootstrapConfig := clusterObjects.BootstrapConfigByMachinePool[machinePool.Name]
+		g.Expect(bootstrapConfig.GetLabels()).To(BeEquivalentTo(
+			union(
+				map[string]string{
+					clusterv1.ClusterNameLabel:                    cluster.Name,
+					clusterv1.ClusterTopologyOwnedLabel:           "",
+					clusterv1.ClusterTopologyMachinePoolNameLabel: mpTopology.Name,
+				},
+				ccBootstrapConfigTemplateTemplateMetadata.Labels,
+			),
+		))
+		g.Expect(bootstrapConfig.GetAnnotations()).To(BeEquivalentTo(
+			union(
+				map[string]string{
+					clusterv1.TemplateClonedFromGroupKindAnnotation: groupKind(mpClass.Template.Bootstrap.Ref),
+					clusterv1.TemplateClonedFromNameAnnotation:      mpClass.Template.Bootstrap.Ref.Name,
+				},
+				ccBootstrapConfigTemplateTemplateMetadata.Annotations,
+			),
+		))
+	}
+}
+
 func assertMachineSets(g Gomega, clusterObjects clusterObjects, cluster *clusterv1.Cluster) {
 	for _, machineDeployment := range clusterObjects.MachineDeployments {
 		mdTopology := getMDTopology(cluster, machineDeployment)
@@ -751,6 +885,7 @@ func mustMetadata(metadata *clusterv1.ObjectMeta, err error) *clusterv1.ObjectMe
 }
 
 // getMachinesByCluster gets the Machines of a Cluster and returns them as a Set of Machine names.
+// Note: This excludes MachinePool Machines as they are not replaced by rollout yet.
 func getMachinesByCluster(ctx context.Context, client client.Client, cluster *clusterv1.Cluster) sets.Set[string] {
 	machines := sets.Set[string]{}
 	machinesByCluster := framework.GetMachinesByCluster(ctx, framework.GetMachinesByClusterInput{
@@ -758,8 +893,11 @@ func getMachinesByCluster(ctx context.Context, client client.Client, cluster *cl
 		ClusterName: cluster.Name,
 		Namespace:   cluster.Namespace,
 	})
-	for _, m := range machinesByCluster {
-		machines.Insert(m.Name)
+	for i := range machinesByCluster {
+		m := machinesByCluster[i]
+		if !labels.IsMachinePoolOwned(&m) {
+			machines.Insert(m.Name)
+		}
 	}
 	return machines
 }
@@ -785,6 +923,30 @@ func getMDTopology(cluster *clusterv1.Cluster, md *clusterv1.MachineDeployment) 
 		}
 	}
 	Fail(fmt.Sprintf("could not find MachineDeployment topology %q", md.Labels[clusterv1.ClusterTopologyMachineDeploymentNameLabel]))
+	return nil
+}
+
+// getMPClass looks up the MachinePoolClass for a MachinePool in the ClusterClass.
+func getMPClass(cluster *clusterv1.Cluster, clusterClass *clusterv1.ClusterClass, mp *expv1.MachinePool) *clusterv1.MachinePoolClass {
+	mpTopology := getMPTopology(cluster, mp)
+
+	for _, mdClass := range clusterClass.Spec.Workers.MachinePools {
+		if mdClass.Class == mpTopology.Class {
+			return &mdClass
+		}
+	}
+	Fail(fmt.Sprintf("could not find MachinePool class %q", mpTopology.Class))
+	return nil
+}
+
+// getMPTopology looks up the MachinePoolTopology for a mp in the Cluster.
+func getMPTopology(cluster *clusterv1.Cluster, mp *expv1.MachinePool) *clusterv1.MachinePoolTopology {
+	for _, mpTopology := range cluster.Spec.Topology.Workers.MachinePools {
+		if mpTopology.Name == mp.Labels[clusterv1.ClusterTopologyMachinePoolNameLabel] {
+			return &mpTopology
+		}
+	}
+	Fail(fmt.Sprintf("could not find MachinePool topology %q", mp.Labels[clusterv1.ClusterTopologyMachinePoolNameLabel]))
 	return nil
 }
 
@@ -857,6 +1019,9 @@ type clusterClassObjects struct {
 
 	InfrastructureMachineTemplateByMachineDeploymentClass map[string]*unstructured.Unstructured
 	BootstrapConfigTemplateByMachineDeploymentClass       map[string]*unstructured.Unstructured
+
+	InfrastructureMachinePoolTemplateByMachinePoolClass map[string]*unstructured.Unstructured
+	BootstrapConfigTemplateByMachinePoolClass           map[string]*unstructured.Unstructured
 }
 
 // getClusterClassObjects retrieves objects from the ClusterClass.
@@ -866,6 +1031,8 @@ func getClusterClassObjects(ctx context.Context, g Gomega, clusterProxy framewor
 	res := clusterClassObjects{
 		InfrastructureMachineTemplateByMachineDeploymentClass: map[string]*unstructured.Unstructured{},
 		BootstrapConfigTemplateByMachineDeploymentClass:       map[string]*unstructured.Unstructured{},
+		InfrastructureMachinePoolTemplateByMachinePoolClass:   map[string]*unstructured.Unstructured{},
+		BootstrapConfigTemplateByMachinePoolClass:             map[string]*unstructured.Unstructured{},
 	}
 	var err error
 
@@ -888,6 +1055,16 @@ func getClusterClassObjects(ctx context.Context, g Gomega, clusterProxy framewor
 		res.BootstrapConfigTemplateByMachineDeploymentClass[mdClass.Class] = bootstrapConfigTemplate
 	}
 
+	for _, mpClass := range clusterClass.Spec.Workers.MachinePools {
+		infrastructureMachinePoolTemplate, err := external.Get(ctx, mgmtClient, mpClass.Template.Infrastructure.Ref, clusterClass.Namespace)
+		g.Expect(err).ToNot(HaveOccurred())
+		res.InfrastructureMachinePoolTemplateByMachinePoolClass[mpClass.Class] = infrastructureMachinePoolTemplate
+
+		bootstrapConfigTemplate, err := external.Get(ctx, mgmtClient, mpClass.Template.Bootstrap.Ref, clusterClass.Namespace)
+		g.Expect(err).ToNot(HaveOccurred())
+		res.BootstrapConfigTemplateByMachinePoolClass[mpClass.Class] = bootstrapConfigTemplate
+	}
+
 	return res
 }
 
@@ -903,8 +1080,13 @@ type clusterObjects struct {
 	MachinesByMachineSet           map[string][]*clusterv1.Machine
 	NodesByMachine                 map[string]*corev1.Node
 
+	MachinePools []*expv1.MachinePool
+
 	InfrastructureMachineTemplateByMachineDeployment map[string]*unstructured.Unstructured
 	BootstrapConfigTemplateByMachineDeployment       map[string]*unstructured.Unstructured
+
+	InfrastructureMachinePoolByMachinePool map[string]*unstructured.Unstructured
+	BootstrapConfigByMachinePool           map[string]*unstructured.Unstructured
 
 	InfrastructureMachineByMachine map[string]*unstructured.Unstructured
 	BootstrapConfigByMachine       map[string]*unstructured.Unstructured
@@ -923,6 +1105,8 @@ func getClusterObjects(ctx context.Context, g Gomega, clusterProxy framework.Clu
 		InfrastructureMachineTemplateByMachineDeployment: map[string]*unstructured.Unstructured{},
 		BootstrapConfigByMachine:                         map[string]*unstructured.Unstructured{},
 		InfrastructureMachineByMachine:                   map[string]*unstructured.Unstructured{},
+		BootstrapConfigByMachinePool:                     map[string]*unstructured.Unstructured{},
+		InfrastructureMachinePoolByMachinePool:           map[string]*unstructured.Unstructured{},
 	}
 	var err error
 
@@ -989,6 +1173,26 @@ func getClusterObjects(ctx context.Context, g Gomega, clusterProxy framework.Clu
 				res.MachinesByMachineSet[machine.Labels[clusterv1.MachineSetNameLabel]], &machine)
 			addMachineObjects(ctx, mgmtClient, workloadClient, g, res, cluster, &machine)
 		}
+	}
+
+	// MachinePools.
+	for _, mpTopology := range cluster.Spec.Topology.Workers.MachinePools {
+		// Get MachinePool for the current MachinePoolTopology.
+		mpList := &expv1.MachinePoolList{}
+		g.Expect(mgmtClient.List(ctx, mpList, client.InNamespace(cluster.Namespace), client.MatchingLabels{
+			clusterv1.ClusterTopologyMachinePoolNameLabel: mpTopology.Name,
+		})).To(Succeed())
+		g.Expect(mpList.Items).To(HaveLen(1), fmt.Sprintf("expected one MachinePool for topology %q, but got %d", mpTopology.Name, len(mpList.Items)))
+		mp := mpList.Items[0]
+		res.MachinePools = append(res.MachinePools, &mp)
+
+		bootstrapConfig, err := external.Get(ctx, mgmtClient, mp.Spec.Template.Spec.Bootstrap.ConfigRef, cluster.Namespace)
+		g.Expect(err).ToNot(HaveOccurred())
+		res.BootstrapConfigByMachinePool[mp.Name] = bootstrapConfig
+
+		infrastructureMachinePool, err := external.Get(ctx, mgmtClient, &mp.Spec.Template.Spec.InfrastructureRef, cluster.Namespace)
+		g.Expect(err).ToNot(HaveOccurred())
+		res.InfrastructureMachinePoolByMachinePool[mp.Name] = infrastructureMachinePool
 	}
 
 	return res
@@ -1092,6 +1296,52 @@ func modifyMachineDeploymentViaClusterAndWait(ctx context.Context, input modifyM
 				// Verify that the fields from Cluster topology are set on the MachineDeployment.
 				assertMachineDeploymentTopologyFields(g, md, mdTopology)
 			}, input.WaitForMachineDeployments...).Should(BeNil())
+		}
+	}
+}
+
+// modifyMachinePoolViaClusterAndWaitInput is the input type for modifyMachinePoolViaClusterAndWait.
+type modifyMachinePoolViaClusterAndWaitInput struct {
+	ClusterProxy              framework.ClusterProxy
+	Cluster                   *clusterv1.Cluster
+	ModifyMachinePoolTopology func(topology *clusterv1.MachinePoolTopology)
+	WaitForMachinePools       []interface{}
+}
+
+// modifyMachinePoolViaClusterAndWait modifies the MachinePoolTopology of a Cluster topology via ModifyMachinePoolTopology.
+// It then waits until the changes are rolled out to the MachinePools of the Cluster.
+// NOTE: This helper is really specific to this test, so we are keeping this private vs. adding it to the framework.
+func modifyMachinePoolViaClusterAndWait(ctx context.Context, input modifyMachinePoolViaClusterAndWaitInput) {
+	Expect(ctx).NotTo(BeNil(), "ctx is required for modifyMachinePoolViaClusterAndWait")
+	Expect(input.ClusterProxy).ToNot(BeNil(), "Invalid argument. input.ClusterProxy can't be nil when calling modifyMachinePoolViaClusterAndWait")
+	Expect(input.Cluster).ToNot(BeNil(), "Invalid argument. input.Cluster can't be nil when calling modifyMachinePoolViaClusterAndWait")
+
+	mgmtClient := input.ClusterProxy.GetClient()
+
+	for i, mpTopology := range input.Cluster.Spec.Topology.Workers.MachinePools {
+		log.Logf("Modifying the MachinePool topology %q of ClusterClass %s", mpTopology.Name, klog.KObj(input.Cluster))
+
+		// Patch the MachinePool topology in the Cluster.
+		patchHelper, err := patch.NewHelper(input.Cluster, mgmtClient)
+		Expect(err).ToNot(HaveOccurred())
+		input.ModifyMachinePoolTopology(&input.Cluster.Spec.Topology.Workers.MachinePools[i])
+		Expect(patchHelper.Patch(ctx, input.Cluster)).To(Succeed())
+
+		for _, mpTopology := range input.Cluster.Spec.Topology.Workers.MachinePools {
+			// NOTE: We only wait until the change is rolled out to the MachinePools and not to the worker machines.
+			log.Logf("Waiting for MachinePool rollout for MachinePoolTopology %q to complete.", mpTopology.Name)
+			Eventually(func(g Gomega) {
+				// Get MachinePool for the current MachinePoolTopology.
+				mpList := &expv1.MachinePoolList{}
+				g.Expect(mgmtClient.List(ctx, mpList, client.InNamespace(input.Cluster.Namespace), client.MatchingLabels{
+					clusterv1.ClusterTopologyMachinePoolNameLabel: mpTopology.Name,
+				})).To(Succeed())
+				g.Expect(mpList.Items).To(HaveLen(1), fmt.Sprintf("expected one MachinePool for topology %q, but got %d", mpTopology.Name, len(mpList.Items)))
+				mp := mpList.Items[0]
+
+				// Verify that the fields from Cluster topology are set on the MachinePool.
+				assertMachinePoolTopologyFields(g, mp, mpTopology)
+			}, input.WaitForMachinePools...).Should(BeNil())
 		}
 	}
 }

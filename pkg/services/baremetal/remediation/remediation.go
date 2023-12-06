@@ -122,7 +122,7 @@ func (s *Service) handlePhaseRunning(ctx context.Context, host infrav1.HetznerBa
 	// if host has not been remediated yet, do that now
 	if s.scope.BareMetalRemediation.Status.LastRemediated == nil {
 		if err := s.remediate(ctx, host); err != nil {
-			return res, fmt.Errorf("failed remediate host: %w", err)
+			return reconcile.Result{}, fmt.Errorf("failed remediate host: %w", err)
 		}
 	}
 
@@ -141,7 +141,7 @@ func (s *Service) handlePhaseRunning(ctx context.Context, host infrav1.HetznerBa
 
 	// remediate now
 	if err := s.remediate(ctx, host); err != nil {
-		return res, fmt.Errorf("failed remediate host: %w", err)
+		return reconcile.Result{}, fmt.Errorf("failed remediate host: %w", err)
 	}
 
 	return res, nil

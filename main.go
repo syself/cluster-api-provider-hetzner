@@ -35,6 +35,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	// +kubebuilder:scaffold:imports
 	infrastructurev1beta1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -66,7 +68,6 @@ var (
 	leaderElectionNamespace            string
 	probeAddr                          string
 	watchFilterValue                   string
-	watchNamespace                     string
 	hetznerClusterConcurrency          int
 	hcloudMachineConcurrency           int
 	hetznerBareMetalMachineConcurrency int
@@ -83,7 +84,6 @@ func main() {
 	fs.BoolVar(&enableLeaderElection, "leader-elect", true, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
 	fs.StringVar(&leaderElectionNamespace, "leader-elect-namespace", "", "Namespace that the controller performs leader election in. If unspecified, the controller will discover which namespace it is running in.")
 	fs.StringVar(&watchFilterValue, "watch-filter", "", fmt.Sprintf("Label value that the controller watches to reconcile cluster-api objects. Label key is always %s. If unspecified, the controller watches for all cluster-api objects.", clusterv1.WatchLabel))
-	fs.StringVar(&watchNamespace, "namespace", "", "Namespace that the controller watches to reconcile cluster-api objects. If unspecified, the controller watches for cluster-api objects across all namespaces.")
 	fs.IntVar(&hetznerClusterConcurrency, "hetznercluster-concurrency", 1, "Number of HetznerClusters to process simultaneously")
 	fs.IntVar(&hcloudMachineConcurrency, "hcloudmachine-concurrency", 1, "Number of HcloudMachines to process simultaneously")
 	fs.IntVar(&hetznerBareMetalMachineConcurrency, "hetznerbaremetalmachine-concurrency", 1, "Number of HetznerBareMetalMachines to process simultaneously")
@@ -98,16 +98,17 @@ func main() {
 	ctrl.SetLogger(utils.GetDefaultLogger(logLevel))
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                        scheme,
-		MetricsBindAddress:            metricsAddr,
-		Port:                          9443,
-		HealthProbeBindAddress:        probeAddr,
+		Scheme:                 scheme,
+		Metrics:                metricsserver.Options{BindAddress: metricsAddr},
+		HealthProbeBindAddress: probeAddr,
+		WebhookServer: webhook.NewServer(webhook.Options{
+			Port: 9443,
+		}),
 		LeaderElection:                enableLeaderElection,
 		LeaderElectionID:              "hetzner.cluster.x-k8s.io",
 		LeaderElectionNamespace:       leaderElectionNamespace,
 		LeaderElectionResourceLock:    "leases",
 		LeaderElectionReleaseOnCancel: true,
-		Namespace:                     watchNamespace,
 		Cache: cache.Options{
 			ByObject:   secretutil.AddSecretSelector(),
 			SyncPeriod: &syncPeriod,

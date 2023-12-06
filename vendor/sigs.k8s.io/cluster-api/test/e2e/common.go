@@ -21,10 +21,11 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/blang/semver"
+	"github.com/blang/semver/v4"
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega/types"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -64,30 +65,51 @@ func setupSpecNamespace(ctx context.Context, specName string, clusterProxy frame
 	return namespace, cancelWatches
 }
 
-func dumpSpecResourcesAndCleanup(ctx context.Context, specName string, clusterProxy framework.ClusterProxy, artifactFolder string, namespace *corev1.Namespace, cancelWatches context.CancelFunc, cluster *clusterv1.Cluster, intervalsGetter func(spec, key string) []interface{}, skipCleanup bool) {
+// dumpAllResources dumps all the resources in the spec namespace and the workload cluster.
+func dumpAllResources(ctx context.Context, clusterProxy framework.ClusterProxy, artifactFolder string, namespace *corev1.Namespace, cluster *clusterv1.Cluster) {
 	Byf("Dumping logs from the %q workload cluster", cluster.Name)
 
-	// Dump all the logs from the workload cluster before deleting them.
+	// Dump all the logs from the workload cluster.
 	clusterProxy.CollectWorkloadClusterLogs(ctx, cluster.Namespace, cluster.Name, filepath.Join(artifactFolder, "clusters", cluster.Name))
 
 	Byf("Dumping all the Cluster API resources in the %q namespace", namespace.Name)
 
-	// Dump all Cluster API related resources to artifacts before deleting them.
+	// Dump all Cluster API related resources to artifacts.
 	framework.DumpAllResources(ctx, framework.DumpAllResourcesInput{
 		Lister:    clusterProxy.GetClient(),
 		Namespace: namespace.Name,
 		LogPath:   filepath.Join(artifactFolder, "clusters", clusterProxy.GetName(), "resources"),
 	})
 
-	// If the cluster still exists, dump kube-system pods of the workload cluster before deleting the cluster.
+	// If the cluster still exists, dump pods and nodes of the workload cluster.
 	if err := clusterProxy.GetClient().Get(ctx, client.ObjectKeyFromObject(cluster), &clusterv1.Cluster{}); err == nil {
-		Byf("Dumping kube-system Pods of Cluster %s", klog.KObj(cluster))
-		framework.DumpKubeSystemPodsForCluster(ctx, framework.DumpKubeSystemPodsForClusterInput{
+		Byf("Dumping Pods and Nodes of Cluster %s", klog.KObj(cluster))
+		framework.DumpResourcesForCluster(ctx, framework.DumpResourcesForClusterInput{
 			Lister:  clusterProxy.GetWorkloadCluster(ctx, cluster.Namespace, cluster.Name).GetClient(),
 			Cluster: cluster,
 			LogPath: filepath.Join(artifactFolder, "clusters", cluster.Name, "resources"),
+			Resources: []framework.DumpNamespaceAndGVK{
+				{
+					GVK: schema.GroupVersionKind{
+						Version: corev1.SchemeGroupVersion.Version,
+						Kind:    "Pod",
+					},
+				},
+				{
+					GVK: schema.GroupVersionKind{
+						Version: corev1.SchemeGroupVersion.Version,
+						Kind:    "Node",
+					},
+				},
+			},
 		})
 	}
+}
+
+// dumpSpecResourcesAndCleanup dumps all the resources in the spec namespace and cleans up the spec namespace.
+func dumpSpecResourcesAndCleanup(ctx context.Context, specName string, clusterProxy framework.ClusterProxy, artifactFolder string, namespace *corev1.Namespace, cancelWatches context.CancelFunc, cluster *clusterv1.Cluster, intervalsGetter func(spec, key string) []interface{}, skipCleanup bool) {
+	// Dump all the resources in the spec namespace and the workload cluster.
+	dumpAllResources(ctx, clusterProxy, artifactFolder, namespace, cluster)
 
 	if !skipCleanup {
 		Byf("Deleting cluster %s", klog.KObj(cluster))

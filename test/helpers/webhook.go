@@ -17,6 +17,7 @@ limitations under the License.
 package helpers
 
 import (
+	"fmt"
 	"net"
 	"os"
 	"path"
@@ -96,6 +97,8 @@ func initializeWebhookInEnvironment() {
 	}
 
 	env.WebhookInstallOptions = envtest.WebhookInstallOptions{
+		LocalServingPort:   9443,
+		LocalServingHost:   "localhost",
 		MaxTime:            20 * time.Second,
 		PollInterval:       time.Second,
 		ValidatingWebhooks: validatingWebhooks,
@@ -111,6 +114,7 @@ func (t *TestEnvironment) WaitForWebhooks() {
 	timeout := 1 * time.Second
 	for {
 		time.Sleep(1 * time.Second)
+		fmt.Printf("checking port .................... %v\n", port)
 		conn, err := net.DialTimeout("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)), timeout)
 		if err != nil {
 			klog.V(2).Infof("Webhook port is not ready, will retry in %v: %s", timeout, err)
