@@ -344,7 +344,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 						return true
 					}
 					return false
-				}, timeout).Should(BeTrue())
+				}, 10*time.Second).Should(BeTrue())
 			})
 		})
 

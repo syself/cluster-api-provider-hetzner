@@ -471,7 +471,7 @@ E2E_CONF_FILE ?= $(E2E_DIR)/config/$(INFRA_PROVIDER)-ci-envsubst.yaml
 .PHONY: test-unit
 test-unit: $(SETUP_ENVTEST) $(GOTESTSUM) ## Run unit and integration tests
 	@mkdir -p $(shell pwd)/.coverage
-	KUBEBUILDER_ASSETS="$(KUBEBUILDER_ASSETS)" $(GOTESTSUM) --junitfile=.coverage/junit.xml --format testname -- -covermode=atomic -coverprofile=.coverage/cover.out -p=4 ./controllers/... ./pkg/... ./api/...
+	KUBEBUILDER_ASSETS="$(KUBEBUILDER_ASSETS)" $(GOTESTSUM) --junitfile=.coverage/junit.xml --format testname -- -covermode=atomic -coverprofile=.coverage/cover.out -p=4 -timeout 5m ./controllers/... ./pkg/... ./api/...
 
 .PHONY: e2e-image
 e2e-image: ## Build the e2e manager image
