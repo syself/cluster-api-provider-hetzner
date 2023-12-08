@@ -43,7 +43,6 @@ settings = {
         "HETZNER_ROBOT_USER": "test",
         "HETZNER_ROBOT_PASSWORD": "pw",
     },
-    "talos-bootstrap": "false",
 }
 
 # global settings
@@ -78,21 +77,7 @@ def deploy_capi():
             kb_extra_args = extra_args.get("kubeadm-bootstrap")
             if kb_extra_args:
                 patch_args_with_extra_args("capi-kubeadm-bootstrap-system", "capi-kubeadm-bootstrap-controller-manager", kb_extra_args)
-    if settings.get("talos-bootstrap") == "true":
-        deploy_talos_bootstrap()
-        deploy_talos_controlplane()
 
-def deploy_talos_bootstrap():
-    version = settings.get("cabpt_version")
-    cabpt_uri = "https://github.com/siderolabs/cluster-api-bootstrap-provider-talos/releases/download/{}/bootstrap-components.yaml".format(version)
-    cmd = "curl -sSL {} | {} | kubectl apply -f -".format(cabpt_uri, envsubst_cmd)
-    local(cmd, quiet = True)
-
-def deploy_talos_controlplane():
-    version = settings.get("cacppt_version")
-    cacppt_uri = "https://github.com/siderolabs/cluster-api-control-plane-provider-talos/releases/download/{}/control-plane-components.yaml".format(version)
-    cmd = "curl -sSL {} | {} | kubectl apply -f -".format(cacppt_uri, envsubst_cmd)
-    local(cmd, quiet = True)
 
 def patch_args_with_extra_args(namespace, name, extra_args):
     args_str = str(local("kubectl get deployments {} -n {} -o jsonpath='{{.spec.template.spec.containers[0].args}}'".format(name, namespace)))
@@ -317,14 +302,6 @@ cmd_button(
     location = location.NAV,
     icon_name = "cloud_upload",
     text = "Create Hcloud Cluster - with Packer",
-)
-
-cmd_button(
-    "Create Hcloud Cluster - Talos with Packer",
-    argv = ["make", "create-workload-cluster-hcloud-talos-packer"],
-    location = location.NAV,
-    icon_name = "change_history_outlined",
-    text = "Create Hcloud Cluster - Talos with Packer",
 )
 
 cmd_button(

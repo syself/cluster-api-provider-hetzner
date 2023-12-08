@@ -45,7 +45,6 @@ You need to create a ```tilt-settings.json``` file and specify the values you ne
       "HETZNER_ROBOT_USER": "<robot-user>",
       "HETZNER_ROBOT_PASSWORD": "<robot-password>"
   },
-  "talos-bootstrap": "false"
 }
 ```
 

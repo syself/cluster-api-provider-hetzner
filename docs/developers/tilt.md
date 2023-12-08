@@ -25,7 +25,6 @@
         "HETZNER_ROBOT_USER": "test",
         "HETZNER_ROBOT_PASSWORD": "pw"
     },
-    "talos-bootstrap": "false",
 | Key | Type | Default | Required | Description |
 |-----|-----|------|---------|-------------|
 | allowed_contexts | []string | ["kind-caph"] | no | A list of kubeconfig contexts Tilt is allowed to use. See the Tilt documentation on
@@ -35,8 +34,6 @@
 | preload_images_for_kind | bool | true | no | If set to true, uses `kind load docker-image` to preload images into a kind cluster |
 | kind_cluster_name | []object | "caph" | no | The name of the kind cluster to use when preloading images |
 | capi_version | string | "v1.5.0" | no | Version of CAPI |
-| cabpt_version | string | "v0.5.6" | no | Version of Cluster API Bootstrap Provider Talos |
-| cacppt_version | string | "v0.4.11" | no | Version of Cluster API Control Plane Provider Talos |
 | cert_manager_version | string | "v1.11.0" | no | Version of cert manager |
 | kustomize_substitutions | map[string]string | {
         "HCLOUD_REGION": "fsn1",
