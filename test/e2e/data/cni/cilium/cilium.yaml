@@ -1597,8 +1597,3 @@ spec:
           name: hubble-ui-nginx-conf
         - emptyDir: {}
           name: tmp-dir
----
-# Source: cilium/templates/cilium-secrets-namespace.yaml
-# Only create the namespace if it's different from Ingress secret namespace or Ingress is not enabled.
-
-# Only create the namespace if it's different from Ingress and Gateway API secret namespaces (if enabled).

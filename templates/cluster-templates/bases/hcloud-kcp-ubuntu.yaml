@@ -143,9 +143,6 @@ spec:
         content: |
           overlay
           br_netfilter
-      - path: /etc/containerd/config.toml
-        owner: "root:root"
-        permissions: "0744"
       - path: /etc/sysctl.d/99-kubernetes-cri.conf
         owner: "root:root"
         permissions: "0744"
