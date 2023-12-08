@@ -65,6 +65,10 @@ rm -f cri-containerd-cni-${CONTAINERD}-linux-${PACKER_ARCH}.tar.gz cri-container
 chmod -R 644 /etc/cni
 chown -R root:root /etc/cni
 
+mkdir -p /etc/containerd
+containerd config default >/etc/containerd/config.toml
+sed -i "s/SystemdCgroup = false/SystemdCgroup = true/" /etc/containerd/config.toml
+
 # enable systemd service after next boot
 systemctl daemon-reload
 systemctl enable containerd
