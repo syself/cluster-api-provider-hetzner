@@ -191,7 +191,7 @@ install-cilium-in-wl-cluster: $(HELM)
 	# Deploy cilium
 	$(HELM) repo add cilium https://helm.cilium.io/
 	$(HELM) repo update cilium
-	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) $(HELM) upgrade --install cilium cilium/cilium --version 1.12.2 \
+	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) $(HELM) upgrade --install cilium cilium/cilium --version 1.14.4 \
   		--namespace kube-system \
 		-f templates/cilium/cilium.yaml
 

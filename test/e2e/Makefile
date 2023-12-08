@@ -51,7 +51,7 @@ HETZNER_TEMPLATES := $(REPO_ROOT)/test/e2e/data/infrastructure-hetzner
 e2e-cilium-templates:
 	helm repo add cilium https://helm.cilium.io/
 	helm repo update cilium
-	helm template cilium cilium/cilium --version 1.12.2 \
+	helm template cilium cilium/cilium --version 1.14.4 \
   	--namespace kube-system \
 	-f $(REPO_ROOT)/templates/cilium/cilium.yaml > $(REPO_ROOT)/test/e2e/data/cni/cilium/cilium.yaml
 	sed -i 's/$${BIN_PATH}/$$BIN_PATH/' $(REPO_ROOT)/test/e2e/data/cni/cilium/cilium.yaml

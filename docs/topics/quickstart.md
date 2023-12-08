@@ -88,7 +88,7 @@ clusterctl get kubeconfig my-cluster > $CAPH_WORKER_CLUSTER_KUBECONFIG
 ```shell
 helm repo add cilium https://helm.cilium.io/
 
-KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install cilium cilium/cilium --version 1.12.2 \
+KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install cilium cilium/cilium --version 1.14.4 \
 --namespace kube-system \
 -f templates/cilium/cilium.yaml
 ```

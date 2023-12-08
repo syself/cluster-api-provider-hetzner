@@ -487,26 +487,6 @@ spec:
             path: /etc/modules-load.d/crio.conf
             permissions: "0744"
           - content: |
-              version = 2
-              [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
-                runtime_type = "io.containerd.runc.v2"
-              [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
-                SystemdCgroup = true
-              [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.crun]
-                runtime_type = "io.containerd.runc.v2"
-              [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.crun.options]
-                BinaryName = "crun"
-                Root = "/usr/local/sbin"
-                SystemdCgroup = true
-              [plugins."io.containerd.grpc.v1.cri".containerd]
-                default_runtime_name = "crun"
-              [plugins."io.containerd.runtime.v1.linux"]
-                runtime = "crun"
-                runtime_root = "/usr/local/sbin"
-            owner: root:root
-            path: /etc/containerd/config.toml
-            permissions: "0744"
-          - content: |
               net.bridge.bridge-nf-call-iptables  = 1
               net.bridge.bridge-nf-call-ip6tables = 1
               net.ipv4.ip_forward                 = 1
@@ -557,8 +537,7 @@ spec:
               tls-cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
         preKubeadmCommands:
           - grep VERSION= /etc/os-release; uname -a
-          - export CRUN=1.6
-          - export CONTAINERD=1.6.8
+          - export CONTAINERD=1.7.10
           - export KUBERNETES_VERSION=1.28.4
           - export TRIMMED_KUBERNETES_VERSION=$(echo ${KUBERNETES_VERSION} | sed 's/^v//' | awk -F . '{print $1 "." $2}')
           - localectl set-locale LANG=en_US.UTF-8
@@ -573,9 +552,6 @@ spec:
           - sha256sum --check cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
           - tar --no-overwrite-dir -C / -xzf cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz
           - rm -f cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
-          - wget https://github.com/containers/crun/releases/download/$CRUN/crun-$CRUN-linux-amd64
-            -O /usr/local/sbin/crun && chmod +x /usr/local/sbin/crun
-          - rm -f /etc/cni/net.d/10-containerd-net.conflist
           - chmod -R 644 /etc/cni && chown -R root:root /etc/cni
           - systemctl daemon-reload && systemctl enable containerd && systemctl start containerd
           - mkdir -p /etc/apt/keyrings/
@@ -608,26 +584,6 @@ spec:
             br_netfilter
           owner: root:root
           path: /etc/modules-load.d/crio.conf
-          permissions: "0744"
-        - content: |
-            version = 2
-            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
-              runtime_type = "io.containerd.runc.v2"
-            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
-              SystemdCgroup = true
-            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.crun]
-              runtime_type = "io.containerd.runc.v2"
-            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.crun.options]
-              BinaryName = "crun"
-              Root = "/usr/local/sbin"
-              SystemdCgroup = true
-            [plugins."io.containerd.grpc.v1.cri".containerd]
-              default_runtime_name = "crun"
-            [plugins."io.containerd.runtime.v1.linux"]
-              runtime = "crun"
-              runtime_root = "/usr/local/sbin"
-          owner: root:root
-          path: /etc/containerd/config.toml
           permissions: "0744"
         - content: |
             net.bridge.bridge-nf-call-iptables  = 1
@@ -666,8 +622,7 @@ spec:
             tls-cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
       preKubeadmCommands:
         - grep VERSION= /etc/os-release; uname -a
-        - export CRUN=1.7.2
-        - export CONTAINERD=1.6.10
+        - export CONTAINERD=1.7.10
         - export KUBERNETES_VERSION=1.28.4
         - localectl set-locale LANG=en_US.UTF-8
         - localectl set-locale LANGUAGE=en_US.UTF-8
@@ -681,9 +636,6 @@ spec:
         - sha256sum --check cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
         - tar --no-overwrite-dir -C / -xzf cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz
         - rm -f cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
-        - wget https://github.com/containers/crun/releases/download/$CRUN/crun-$CRUN-linux-amd64
-          -O /usr/local/sbin/crun && chmod +x /usr/local/sbin/crun
-        - rm -f /etc/cni/net.d/10-containerd-net.conflist
         - chmod -R 644 /etc/cni && chown -R root:root /etc/cni
         - systemctl daemon-reload && systemctl enable containerd && systemctl start
           containerd
@@ -765,26 +717,6 @@ spec:
           path: /etc/modules-load.d/crio.conf
           permissions: "0744"
         - content: |
-            version = 2
-            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
-              runtime_type = "io.containerd.runc.v2"
-            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
-              SystemdCgroup = true
-            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.crun]
-              runtime_type = "io.containerd.runc.v2"
-            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.crun.options]
-              BinaryName = "crun"
-              Root = "/usr/local/sbin"
-              SystemdCgroup = true
-            [plugins."io.containerd.grpc.v1.cri".containerd]
-              default_runtime_name = "crun"
-            [plugins."io.containerd.runtime.v1.linux"]
-              runtime = "crun"
-              runtime_root = "/usr/local/sbin"
-          owner: root:root
-          path: /etc/containerd/config.toml
-          permissions: "0744"
-        - content: |
             net.bridge.bridge-nf-call-iptables  = 1
             net.bridge.bridge-nf-call-ip6tables = 1
             net.ipv4.ip_forward                 = 1
@@ -821,8 +753,7 @@ spec:
             tls-cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
       preKubeadmCommands:
         - grep VERSION= /etc/os-release; uname -a
-        - export CRUN=1.7.2
-        - export CONTAINERD=1.6.10
+        - export CONTAINERD=1.7.10
         - export KUBERNETES_VERSION=1.28.4
         - localectl set-locale LANG=en_US.UTF-8
         - localectl set-locale LANGUAGE=en_US.UTF-8
@@ -836,9 +767,6 @@ spec:
         - sha256sum --check cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
         - tar --no-overwrite-dir -C / -xzf cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz
         - rm -f cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
-        - wget https://github.com/containers/crun/releases/download/$CRUN/crun-$CRUN-linux-amd64
-          -O /usr/local/sbin/crun && chmod +x /usr/local/sbin/crun
-        - rm -f /etc/cni/net.d/10-containerd-net.conflist
         - chmod -R 644 /etc/cni && chown -R root:root /etc/cni
         - systemctl daemon-reload && systemctl enable containerd && systemctl start
           containerd

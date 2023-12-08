@@ -34,14 +34,14 @@ echo fs.inotify.max_user_instances=8192 | sudo tee -a /etc/sysctl.conf
 echo vm.max_map_count=524288 | sudo tee -a /etc/sysctl.conf
 
 # Set up required sysctl params, these persist across reboots.
-cat > /etc/sysctl.d/99-kubernetes-cri.conf <<'EOF'
+cat >/etc/sysctl.d/99-kubernetes-cri.conf <<'EOF'
 net.bridge.bridge-nf-call-iptables  = 1
 net.bridge.bridge-nf-call-ip6tables = 1
 net.ipv4.ip_forward                 = 1
 EOF
 
 # Required by protectedKernelDefaults=true
-cat > /etc/sysctl.d/99-kubelet.conf <<'EOF'
+cat >/etc/sysctl.d/99-kubelet.conf <<'EOF'
 vm.overcommit_memory=1
 kernel.panic=10
 kernel.panic_on_oops=1
@@ -50,8 +50,7 @@ EOF
 # Apply sysctl params without reboot
 sysctl --system
 
-CRUN=1.6        # https://github.com/containers/crun/releases
-CONTAINERD=1.6.8  # https://github.com/containerd/containerd/releases
+CONTAINERD=1.7.10 # https://github.com/containerd/containerd/releases
 
 # Install containerd
 wget https://github.com/containerd/containerd/releases/download/v${CONTAINERD}/cri-containerd-cni-${CONTAINERD}-linux-${PACKER_ARCH}.tar.gz
@@ -59,38 +58,14 @@ wget https://github.com/containerd/containerd/releases/download/v${CONTAINERD}/c
 sha256sum --check cri-containerd-cni-${CONTAINERD}-linux-${PACKER_ARCH}.tar.gz.sha256sum
 tar --no-overwrite-dir -C / -xzf cri-containerd-cni-${CONTAINERD}-linux-${PACKER_ARCH}.tar.gz
 
-# Cleanup 
+# Cleanup
 rm -f cri-containerd-cni-${CONTAINERD}-linux-${PACKER_ARCH}.tar.gz cri-containerd-cni-${CONTAINERD}-linux-${PACKER_ARCH}.tar.gz.sha256sum
-
-# Install crun
-wget https://github.com/containers/crun/releases/download/$CRUN/crun-$CRUN-linux-${PACKER_ARCH} -O /usr/local/sbin/crun && chmod +x /usr/local/sbin/crun
 
 mkdir -p /etc/containerd
 
-cat <<'EOF' | sudo tee /etc/containerd/config.toml
-version = 2
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
-  runtime_type = "io.containerd.runc.v2"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
-  SystemdCgroup = true
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.crun]
-  runtime_type = "io.containerd.runc.v2"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.crun.options]
-  BinaryName = "crun"
-  Root = "/usr/local/sbin"
-  SystemdCgroup = true
-[plugins."io.containerd.grpc.v1.cri".containerd]
-  default_runtime_name = "crun"
-[plugins."io.containerd.runtime.v1.linux"]
-  runtime = "crun"
-  runtime_root = "/usr/local/sbin"
-EOF
-
-rm -f /etc/cni/net.d/10-containerd-net.conflist
-
 # Sets permission accordingly to CIS Benchmark
 chmod -R 644 /etc/cni
-chown -R root:root /etc/cni 
+chown -R root:root /etc/cni
 
 # enable systemd service after next boot
 systemctl daemon-reload
