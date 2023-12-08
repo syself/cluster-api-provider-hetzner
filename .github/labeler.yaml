@@ -1,16 +1,22 @@
 ---
 area/code:
-  - "controllers/**/*"
-  - "pkg/**/*"
+  - changed-files:
+    - any-glob-to-any-file: "controllers/**/*"
+    - any-glob-to-any-file: "pkg/**/*"
 area/api:
-  - "api/**/*"
-  - "config/crd/**/*"
+  - changed-files:
+    - any-glob-to-any-file: "api/**/*"
+    - any-glob-to-any-file: "config/crd/**/*"
 area/github:
-  - ".github/**/*"
+  - changed-files:
+    - any-glob-to-any-file: ".github/**/*"
 area/hack:
-  - "hack/**/*"
-  - "Makefile"
+  - changed-files:
+    - any-glob-to-any-file: "hack/**/*"
+    - any-glob-to-any-file: "Makefile"
 area/test:
-  - "test/**/*"
+  - changed-files:
+    - any-glob-to-any-file: "test/**/*"
 area/templates:
-  - "templates/**/*"
+  - changed-files:
+    - any-glob-to-any-file: "templates/**/*"
