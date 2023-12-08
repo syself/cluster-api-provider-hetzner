@@ -49,12 +49,18 @@ $(KUSTOMIZE): # Build kustomize from tools folder.
 HETZNER_TEMPLATES := $(REPO_ROOT)/test/e2e/data/infrastructure-hetzner
 
 e2e-cilium-templates:
+	# The `sed` call is needed to avoid:
+	#   yamlprocessor.errMissingVariables
+	#   value for variables [BIN_PATH] is not set.
+	#   Please set the value using os environment variables or the clusterctl config file
+	#   Missing: ["BIN_PATH"]
 	helm repo add cilium https://helm.cilium.io/
 	helm repo update cilium
 	helm template cilium cilium/cilium --version 1.14.4 \
   	--namespace kube-system \
 	-f $(REPO_ROOT)/templates/cilium/cilium.yaml > $(REPO_ROOT)/test/e2e/data/cni/cilium/cilium.yaml
 	sed -i 's/$${BIN_PATH}/$$BIN_PATH/' $(REPO_ROOT)/test/e2e/data/cni/cilium/cilium.yaml
+	sed -i '1s/^/# Created by `make e2e-cilium-templates`\n/' $(REPO_ROOT)/test/e2e/data/cni/cilium/cilium.yaml
 
 e2e-ccm-templates:
 	helm repo add syself https://charts.syself.com
