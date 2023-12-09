@@ -1297,8 +1297,8 @@ func (s *Service) actionEnsureProvisioned() (ar actionResult) {
 		if err != nil {
 			if errors.Is(err, errUnexpectedHostName) {
 				// One possible reason: The machine gets used by a second wl-cluster
-				record.Warn(s.scope.HetznerBareMetalHost, "UnexpectedHostName",
-					fmt.Sprintf("EnsureProvision: wanted %q. %s", wantHostName, err.Error()))
+				record.Warnf(s.scope.HetznerBareMetalHost, "UnexpectedHostName",
+					"EnsureProvision: wanted %q. %s", wantHostName, err.Error())
 			}
 			return actionError{err: fmt.Errorf("failed to handle incomplete boot - provisioning: %w", err)}
 		}
@@ -1511,8 +1511,8 @@ func (s *Service) actionProvisioned() actionResult {
 			if err != nil {
 				if errors.Is(err, errUnexpectedHostName) {
 					// One possible reason: The machine gets used by a second wl-cluster
-					record.Warn(s.scope.HetznerBareMetalHost, "UnexpectedHostName",
-						fmt.Sprintf("Provisioned: wanted %q. %s", wantHostName, err.Error()))
+					record.Warnf(s.scope.HetznerBareMetalHost, "UnexpectedHostName",
+						"Provisioned: wanted %q. %s", wantHostName, err.Error())
 				}
 				return actionError{err: fmt.Errorf("failed to handle incomplete boot - provisioning: %w", err)}
 			}
