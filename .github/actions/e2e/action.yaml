@@ -41,7 +41,7 @@ runs:
     - name: Install hcloud
       shell: bash
       env:
-        hcloudctl_version: 1.31.1
+        hcloudctl_version: 1.40.0
       run: curl -fsSL https://github.com/hetznercloud/cli/releases/download/v${{ env.hcloudctl_version }}/hcloud-linux-amd64.tar.gz | tar -xzv hcloud ; mv hcloud hack/tools/bin/hcloud
 
     - name: Generate metadata
@@ -77,7 +77,7 @@ runs:
         HETZNER_SSH_PUB: ${{ inputs.e2e_ssh_pub }}
         HETZNER_SSH_PRIV: ${{ inputs.e2e_ssh_priv }}
         SKIP_IMAGE_BUILD: "1"
-        CAPH_LATEST_VERSION: "v1.0.0-beta.22"
+        CAPH_LATEST_VERSION: "v1.0.0-beta.26"
       run: make ${{ inputs.e2e_make_target }}
     - name: Upload artifact
       uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3
