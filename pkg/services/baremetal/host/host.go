@@ -45,7 +45,7 @@ import (
 )
 
 const (
-	rebootWaitTime       time.Duration = 30 * time.Second
+	rebootWaitTime       time.Duration = 15 * time.Second
 	sshResetTimeout      time.Duration = 5 * time.Minute
 	softwareResetTimeout time.Duration = 5 * time.Minute
 	hardwareResetTimeout time.Duration = 60 * time.Minute

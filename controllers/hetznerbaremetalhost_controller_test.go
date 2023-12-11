@@ -243,7 +243,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 			By("making sure the it has been deleted")
 			Eventually(func() bool {
 				return apierrors.IsNotFound(testEnv.Get(ctx, key, host))
-			}, 10*time.Second, time.Second).Should(BeTrue())
+			}, timeout, time.Second).Should(BeTrue())
 		})
 	})
 
