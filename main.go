@@ -68,6 +68,7 @@ var (
 	leaderElectionNamespace            string
 	probeAddr                          string
 	watchFilterValue                   string
+	watchNamespace                     string
 	hetznerClusterConcurrency          int
 	hcloudMachineConcurrency           int
 	hetznerBareMetalMachineConcurrency int
@@ -84,6 +85,7 @@ func main() {
 	fs.BoolVar(&enableLeaderElection, "leader-elect", true, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
 	fs.StringVar(&leaderElectionNamespace, "leader-elect-namespace", "", "Namespace that the controller performs leader election in. If unspecified, the controller will discover which namespace it is running in.")
 	fs.StringVar(&watchFilterValue, "watch-filter", "", fmt.Sprintf("Label value that the controller watches to reconcile cluster-api objects. Label key is always %s. If unspecified, the controller watches for all cluster-api objects.", clusterv1.WatchLabel))
+	fs.StringVar(&watchNamespace, "namespace", "", "Namespace that the controller watches to reconcile cluster-api objects. If unspecified, the controller watches for cluster-api objects across all namespaces.")
 	fs.IntVar(&hetznerClusterConcurrency, "hetznercluster-concurrency", 1, "Number of HetznerClusters to process simultaneously")
 	fs.IntVar(&hcloudMachineConcurrency, "hcloudmachine-concurrency", 1, "Number of HcloudMachines to process simultaneously")
 	fs.IntVar(&hetznerBareMetalMachineConcurrency, "hetznerbaremetalmachine-concurrency", 1, "Number of HetznerBareMetalMachines to process simultaneously")
@@ -96,6 +98,13 @@ func main() {
 	pflag.Parse()
 
 	ctrl.SetLogger(utils.GetDefaultLogger(logLevel))
+
+	var watchNamespaces map[string]cache.Config
+	if watchNamespace != "" {
+		watchNamespaces = map[string]cache.Config{
+			watchNamespace: {},
+		}
+	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
@@ -110,8 +119,9 @@ func main() {
 		LeaderElectionResourceLock:    "leases",
 		LeaderElectionReleaseOnCancel: true,
 		Cache: cache.Options{
-			ByObject:   secretutil.AddSecretSelector(),
-			SyncPeriod: &syncPeriod,
+			ByObject:          secretutil.AddSecretSelector(),
+			SyncPeriod:        &syncPeriod,
+			DefaultNamespaces: watchNamespaces,
 		},
 	})
 	if err != nil {
