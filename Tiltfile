@@ -20,7 +20,7 @@ settings = {
     "deploy_observability": False,
     "preload_images_for_kind": True,
     "kind_cluster_name": "caph",
-    "capi_version": "v1.5.2",
+    "capi_version": "v1.6.0",
     "cabpt_version": "v0.5.6",
     "cacppt_version": "v0.4.11",
     "cert_manager_version": "v1.11.0",
@@ -33,7 +33,7 @@ settings = {
         "HCLOUD_REGION": "fsn1",
         "CONTROL_PLANE_MACHINE_COUNT": "3",
         "WORKER_MACHINE_COUNT": "3",
-        "KUBERNETES_VERSION": "v1.25.2",
+        "KUBERNETES_VERSION": "v1.27.3",
         "HCLOUD_IMAGE_NAME": "test-image",
         "HCLOUD_CONTROL_PLANE_MACHINE_TYPE": "cpx31",
         "HCLOUD_WORKER_MACHINE_TYPE": "cpx31",
@@ -43,7 +43,6 @@ settings = {
         "HETZNER_ROBOT_USER": "test",
         "HETZNER_ROBOT_PASSWORD": "pw",
     },
-    "talos-bootstrap": "false",
 }
 
 # global settings
@@ -78,21 +77,7 @@ def deploy_capi():
             kb_extra_args = extra_args.get("kubeadm-bootstrap")
             if kb_extra_args:
                 patch_args_with_extra_args("capi-kubeadm-bootstrap-system", "capi-kubeadm-bootstrap-controller-manager", kb_extra_args)
-    if settings.get("talos-bootstrap") == "true":
-        deploy_talos_bootstrap()
-        deploy_talos_controlplane()
 
-def deploy_talos_bootstrap():
-    version = settings.get("cabpt_version")
-    cabpt_uri = "https://github.com/siderolabs/cluster-api-bootstrap-provider-talos/releases/download/{}/bootstrap-components.yaml".format(version)
-    cmd = "curl -sSL {} | {} | kubectl apply -f -".format(cabpt_uri, envsubst_cmd)
-    local(cmd, quiet = True)
-
-def deploy_talos_controlplane():
-    version = settings.get("cacppt_version")
-    cacppt_uri = "https://github.com/siderolabs/cluster-api-control-plane-provider-talos/releases/download/{}/control-plane-components.yaml".format(version)
-    cmd = "curl -sSL {} | {} | kubectl apply -f -".format(cacppt_uri, envsubst_cmd)
-    local(cmd, quiet = True)
 
 def patch_args_with_extra_args(namespace, name, extra_args):
     args_str = str(local("kubectl get deployments {} -n {} -o jsonpath='{{.spec.template.spec.containers[0].args}}'".format(name, namespace)))
@@ -317,14 +302,6 @@ cmd_button(
     location = location.NAV,
     icon_name = "cloud_upload",
     text = "Create Hcloud Cluster - with Packer",
-)
-
-cmd_button(
-    "Create Hcloud Cluster - Talos with Packer",
-    argv = ["make", "create-workload-cluster-hcloud-talos-packer"],
-    location = location.NAV,
-    icon_name = "change_history_outlined",
-    text = "Create Hcloud Cluster - Talos with Packer",
 )
 
 cmd_button(

@@ -63,6 +63,7 @@ const (
 	VclusterProviderName       = "vcluster"
 	VirtinkProviderName        = "virtink"
 	CoxEdgeProviderName        = "coxedge"
+	ProxmoxProviderName        = "proxmox"
 )
 
 // Bootstrap providers.
@@ -72,6 +73,7 @@ const (
 	MicroK8sBootstrapProviderName          = "microk8s"
 	OracleCloudNativeBootstrapProviderName = "ocne"
 	KubeKeyK3sBootstrapProviderName        = "kubekey-k3s"
+	RKE2BootstrapProviderName              = "rke2"
 )
 
 // ControlPlane providers.
@@ -82,6 +84,8 @@ const (
 	NestedControlPlaneProviderName            = "nested"
 	OracleCloudNativeControlPlaneProviderName = "ocne"
 	KubeKeyK3sControlPlaneProviderName        = "kubekey-k3s"
+	KamajiControlPlaneProviderName            = "kamaji"
+	RKE2ControlPlaneProviderName              = "rke2"
 )
 
 // Add-on providers.
@@ -267,6 +271,11 @@ func (p *providersClient) defaults() []Provider {
 			url:          "https://github.com/smartxworks/cluster-api-provider-virtink/releases/latest/infrastructure-components.yaml",
 			providerType: clusterctlv1.InfrastructureProviderType,
 		},
+		&provider{
+			name:         ProxmoxProviderName,
+			url:          "https://github.com/ionos-cloud/cluster-api-provider-proxmox/releases/latest/infrastructure-components.yaml",
+			providerType: clusterctlv1.InfrastructureProviderType,
+		},
 
 		// Bootstrap providers
 		&provider{
@@ -292,6 +301,11 @@ func (p *providersClient) defaults() []Provider {
 		&provider{
 			name:         OracleCloudNativeBootstrapProviderName,
 			url:          "https://github.com/verrazzano/cluster-api-provider-ocne/releases/latest/bootstrap-components.yaml",
+			providerType: clusterctlv1.BootstrapProviderType,
+		},
+		&provider{
+			name:         RKE2BootstrapProviderName,
+			url:          "https://github.com/rancher-sandbox/cluster-api-provider-rke2/releases/latest/bootstrap-components.yaml",
 			providerType: clusterctlv1.BootstrapProviderType,
 		},
 
@@ -324,6 +338,16 @@ func (p *providersClient) defaults() []Provider {
 		&provider{
 			name:         OracleCloudNativeControlPlaneProviderName,
 			url:          "https://github.com/verrazzano/cluster-api-provider-ocne/releases/latest/control-plane-components.yaml",
+			providerType: clusterctlv1.ControlPlaneProviderType,
+		},
+		&provider{
+			name:         KamajiControlPlaneProviderName,
+			url:          "https://github.com/clastix/cluster-api-control-plane-provider-kamaji/releases/latest/control-plane-components.yaml",
+			providerType: clusterctlv1.ControlPlaneProviderType,
+		},
+		&provider{
+			name:         RKE2ControlPlaneProviderName,
+			url:          "https://github.com/rancher-sandbox/cluster-api-provider-rke2/releases/latest/control-plane-components.yaml",
 			providerType: clusterctlv1.ControlPlaneProviderType,
 		},
 

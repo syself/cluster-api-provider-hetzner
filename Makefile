@@ -108,23 +108,23 @@ $(ENVSUBST): # Build envsubst from tools folder.
 SETUP_ENVTEST := $(abspath $(TOOLS_BIN_DIR)/setup-envtest)
 setup-envtest: $(SETUP_ENVTEST) ## Build a local copy of setup-envtest
 $(SETUP_ENVTEST): # Build setup-envtest from tools folder.
-	go install sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.0.0-20230620070423-a784ee78d04b
+	go install sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.0.0-20231206145619-1ea2be573f78
 
 CTLPTL := $(abspath $(TOOLS_BIN_DIR)/ctlptl)
 ctlptl: $(CTLPTL) ## Build a local copy of ctlptl
 $(CTLPTL):
-	go install github.com/tilt-dev/ctlptl/cmd/ctlptl@v0.8.20
+	go install github.com/tilt-dev/ctlptl/cmd/ctlptl@v0.8.25
 
 CLUSTERCTL := $(abspath $(TOOLS_BIN_DIR)/clusterctl)
 clusterctl: $(CLUSTERCTL) ## Build a local copy of clusterctl
 $(CLUSTERCTL):
-	curl -sSLf https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.5.3/clusterctl-$$(go env GOOS)-$$(go env GOARCH) -o $(CLUSTERCTL)
+	curl -sSLf https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.6.0/clusterctl-$$(go env GOOS)-$$(go env GOARCH) -o $(CLUSTERCTL)
 	chmod a+rx $(CLUSTERCTL)
 
 HELM := $(abspath $(TOOLS_BIN_DIR)/helm)
 helm: $(HELM) ## Build a local copy of helm
 $(HELM):
-	curl -sSL https://get.helm.sh/helm-v3.13.1-linux-amd64.tar.gz | tar xz -C $(TOOLS_BIN_DIR) --strip-components=1 linux-amd64/helm
+	curl -sSL https://get.helm.sh/helm-v3.13.2-linux-amd64.tar.gz | tar xz -C $(TOOLS_BIN_DIR) --strip-components=1 linux-amd64/helm
 	chmod a+rx $(HELM)
 
 KIND := $(abspath $(TOOLS_BIN_DIR)/kind)
@@ -135,7 +135,7 @@ $(KIND):
 KUBECTL := $(abspath $(TOOLS_BIN_DIR)/kubectl)
 kubectl: $(KUBECTL) ## Build a local copy of kubectl
 $(KUBECTL):
-	curl -fsSL "https://dl.k8s.io/release/v1.27.3/bin/$$(go env GOOS)/$$(go env GOARCH)/kubectl" -o $(KUBECTL)
+	curl -fsSL "https://dl.k8s.io/release/v1.28.4/bin/$$(go env GOOS)/$$(go env GOARCH)/kubectl" -o $(KUBECTL)
 	chmod a+rx $(KUBECTL)
 
 go-binsize-treemap := $(abspath $(TOOLS_BIN_DIR)/go-binsize-treemap)
@@ -151,7 +151,7 @@ $(go-cover-treemap):
 GOTESTSUM := $(abspath $(TOOLS_BIN_DIR)/gotestsum)
 gotestsum: $(GOTESTSUM) # Build gotestsum from tools folder.
 $(GOTESTSUM):
-	go install gotest.tools/gotestsum@v1.10.0
+	go install gotest.tools/gotestsum@v1.11.0
 
 all-tools: $(GOTESTSUM) $(go-cover-treemap) $(go-binsize-treemap) $(KIND) $(KUBECTL) $(CLUSTERCTL) $(CTLPTL) $(SETUP_ENVTEST) $(ENVSUBST) $(KUSTOMIZE) $(CONTROLLER_GEN) $(HELM)
 	echo 'done'
@@ -181,18 +181,19 @@ install-essentials: ## This gets the secret and installs a CNI and the CCM. Usag
 
 wait-and-get-secret:
 	# Wait for the kubeconfig to become available.
-	${TIMEOUT} 5m bash -c "while ! $(KUBECTL) get secrets | grep $(CLUSTER_NAME)-kubeconfig; do sleep 1; done"
+	rm -f $(WORKER_CLUSTER_KUBECONFIG)
+	${TIMEOUT} --foreground 5m bash -c "while ! $(KUBECTL) get secrets | grep $(CLUSTER_NAME)-kubeconfig; do sleep 1; done"
 	# Get kubeconfig and store it locally.
-	$(KUBECTL) get secrets $(CLUSTER_NAME)-kubeconfig -o json | jq -r .data.value | base64 --decode > $(WORKER_CLUSTER_KUBECONFIG)
-	${TIMEOUT} 15m bash -c "while ! $(KUBECTL) --kubeconfig=$(WORKER_CLUSTER_KUBECONFIG) get nodes | grep control-plane; do sleep 1; done"
+	./hack/get-kubeconfig-of-workload-cluster.sh
+	${TIMEOUT} --foreground 15m bash -c "while ! $(KUBECTL) --kubeconfig=$(WORKER_CLUSTER_KUBECONFIG) get nodes | grep control-plane; do sleep 1; done"
 
 install-cilium-in-wl-cluster: $(HELM)
 	# Deploy cilium
 	$(HELM) repo add cilium https://helm.cilium.io/
 	$(HELM) repo update cilium
-	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) $(HELM) upgrade --install cilium cilium/cilium --version 1.12.2 \
-  	--namespace kube-system \
-	-f templates/cilium/cilium.yaml
+	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) $(HELM) upgrade --install cilium cilium/cilium --version 1.14.4 \
+  		--namespace kube-system \
+		-f templates/cilium/cilium.yaml
 
 install-ccm-in-wl-cluster:
 	$(HELM) repo add syself https://charts.syself.com
@@ -300,7 +301,7 @@ delete-workload-cluster: ## Deletes the example workload Kubernetes cluster
 	@echo 'Your workload cluster will now be deleted, this can take up to 20 minutes'
 	$(KUBECTL) patch cluster $(CLUSTER_NAME) --type=merge -p '{"spec":{"paused": false}}'
 	$(KUBECTL) delete cluster $(CLUSTER_NAME)
-	${TIMEOUT} 15m bash -c "while $(KUBECTL) get cluster | grep $(NAME); do sleep 1; done"
+	${TIMEOUT} --foreground 15m bash -c "while $(KUBECTL) get cluster | grep $(NAME); do sleep 1; done"
 	@echo 'Cluster deleted'
 
 create-mgt-cluster: $(CLUSTERCTL) $(KUBECTL) cluster ## Start a mgt-cluster with the latest version of all capi components and the infra provider.
@@ -494,7 +495,7 @@ test-e2e-feature: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFA
 
 .PHONY: test-e2e-feature-packer
 test-e2e-feature-packer: $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKGO_FOKUS="'\[Feature Packer\]'" GINKGO_NODES=1 PACKER_IMAGE_NAME=templates/node-image/1.25.2-ubuntu-22-04-containerd ./hack/ci-e2e-capi.sh
+	GINKGO_FOKUS="'\[Feature Packer\]'" GINKGO_NODES=1 PACKER_IMAGE_NAME=templates/node-image/1.28.4-ubuntu-22-04-containerd ./hack/ci-e2e-capi.sh
 
 .PHONY: test-e2e-lifecycle
 test-e2e-lifecycle: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
@@ -506,7 +507,7 @@ test-e2e-upgrade-$(INFRA_SHORT): $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-
 
 .PHONY: test-e2e-upgrade-kubernetes
 test-e2e-upgrade-kubernetes: $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKGO_FOKUS="'\[Upgrade Kubernetes\]'" GINKGO_NODES=2 PACKER_KUBERNETES_UPGRADE_FROM=templates/node-image/1.24.1-ubuntu-20-04-containerd PACKER_KUBERNETES_UPGRADE_TO=templates/node-image/1.25.2-ubuntu-22-04-containerd ./hack/ci-e2e-capi.sh
+	GINKGO_FOKUS="'\[Upgrade Kubernetes\]'" GINKGO_NODES=2 PACKER_KUBERNETES_UPGRADE_FROM=templates/node-image/1.27.8-ubuntu-22-04-containerd PACKER_KUBERNETES_UPGRADE_TO=templates/node-image/1.28.4-ubuntu-22-04-containerd ./hack/ci-e2e-capi.sh
 
 .PHONY: test-e2e-conformance
 test-e2e-conformance: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
@@ -689,7 +690,7 @@ ifeq ($(BUILD_IN_CONTAINER),true)
 else
 	go version
 	golangci-lint version
-	golangci-lint run -v --out-format=github-actions
+	golangci-lint run --out-format=github-actions
 endif
 
 .PHONY: lint-yaml

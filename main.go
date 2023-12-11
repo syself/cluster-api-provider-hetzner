@@ -35,6 +35,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	// +kubebuilder:scaffold:imports
 	infrastructurev1beta1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -97,20 +99,29 @@ func main() {
 
 	ctrl.SetLogger(utils.GetDefaultLogger(logLevel))
 
+	var watchNamespaces map[string]cache.Config
+	if watchNamespace != "" {
+		watchNamespaces = map[string]cache.Config{
+			watchNamespace: {},
+		}
+	}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                        scheme,
-		MetricsBindAddress:            metricsAddr,
-		Port:                          9443,
-		HealthProbeBindAddress:        probeAddr,
+		Scheme:                 scheme,
+		Metrics:                metricsserver.Options{BindAddress: metricsAddr},
+		HealthProbeBindAddress: probeAddr,
+		WebhookServer: webhook.NewServer(webhook.Options{
+			Port: 9443,
+		}),
 		LeaderElection:                enableLeaderElection,
 		LeaderElectionID:              "hetzner.cluster.x-k8s.io",
 		LeaderElectionNamespace:       leaderElectionNamespace,
 		LeaderElectionResourceLock:    "leases",
 		LeaderElectionReleaseOnCancel: true,
-		Namespace:                     watchNamespace,
 		Cache: cache.Options{
-			ByObject:   secretutil.AddSecretSelector(),
-			SyncPeriod: &syncPeriod,
+			ByObject:          secretutil.AddSecretSelector(),
+			SyncPeriod:        &syncPeriod,
+			DefaultNamespaces: watchNamespaces,
 		},
 	})
 	if err != nil {

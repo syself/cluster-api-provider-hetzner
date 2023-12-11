@@ -53,7 +53,7 @@ spec:
       #   value: ubuntu-22.04
       - name: hcloudControlPlanePlacementGroupName
         value: control-plane
-    version: v1.25.3
+    version: v1.28.4
     workers:
       machineDeployments:
         - class: hcloud-worker

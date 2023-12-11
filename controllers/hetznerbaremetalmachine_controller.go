@@ -170,7 +170,7 @@ func (r *HetznerBareMetalMachineReconciler) reconcileDelete(ctx context.Context,
 		if ok := errors.As(err, &requeueError); ok {
 			return reconcile.Result{Requeue: true, RequeueAfter: requeueError.GetRequeueAfter()}, nil
 		}
-		return result, fmt.Errorf("failed to delete servers for HetznerBareMetalMachine %s/%s: %w",
+		return reconcile.Result{}, fmt.Errorf("failed to delete servers for HetznerBareMetalMachine %s/%s: %w",
 			machineScope.BareMetalMachine.Namespace, machineScope.BareMetalMachine.Name, err)
 	}
 	emptyResult := reconcile.Result{}
@@ -195,7 +195,7 @@ func (r *HetznerBareMetalMachineReconciler) reconcileNormal(ctx context.Context,
 	// reconcile server
 	result, err := baremetal.NewService(machineScope).Reconcile(ctx)
 	if err != nil {
-		return result, fmt.Errorf("failed to reconcile server for HetznerBareMetalMachine %s/%s: %w",
+		return reconcile.Result{}, fmt.Errorf("failed to reconcile server for HetznerBareMetalMachine %s/%s: %w",
 			machineScope.BareMetalMachine.Namespace, machineScope.BareMetalMachine.Name, err)
 	}
 

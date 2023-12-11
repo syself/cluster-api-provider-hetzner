@@ -35,8 +35,8 @@ You need to create a ```tilt-settings.json``` file and specify the values you ne
       "HCLOUD_REGION": "fsn1",
       "CONTROL_PLANE_MACHINE_COUNT": "3",
       "WORKER_MACHINE_COUNT": "3",
-      "KUBERNETES_VERSION": "v1.25.2",
-      "HCLOUD_IMAGE_NAME": "1.25.2-ubuntu-20.04-containerd",
+      "KUBERNETES_VERSION": "v1.28.4",
+      "HCLOUD_IMAGE_NAME": "1.28.4-ubuntu-22-04-containerd",
       "HCLOUD_CONTROL_PLANE_MACHINE_TYPE": "cpx31",
       "HCLOUD_WORKER_MACHINE_TYPE": "cpx31",
       "CLUSTER_NAME": "testing",
@@ -45,7 +45,6 @@ You need to create a ```tilt-settings.json``` file and specify the values you ne
       "HETZNER_ROBOT_USER": "<robot-user>",
       "HETZNER_ROBOT_PASSWORD": "<robot-password>"
   },
-  "talos-bootstrap": "false"
 }
 ```
 

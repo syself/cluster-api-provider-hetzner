@@ -115,7 +115,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 
 	// set providerID if necessary
 	if err := s.setProviderID(ctx); err != nil {
-		return res, fmt.Errorf("failed to set providerID: %w", err)
+		return reconcile.Result{}, fmt.Errorf("failed to set providerID: %w", err)
 	}
 
 	// set machine ready
@@ -129,7 +129,7 @@ func (s *Service) Delete(ctx context.Context) (res reconcile.Result, err error) 
 	// get host - ignore if not found
 	host, helper, err := s.getAssociatedHost(ctx)
 	if err != nil && !apierrors.IsNotFound(err) {
-		return res, fmt.Errorf("failed to get associated host: %w", err)
+		return reconcile.Result{}, fmt.Errorf("failed to get associated host: %w", err)
 	}
 
 	if host != nil && host.Spec.ConsumerRef != nil {
@@ -138,7 +138,7 @@ func (s *Service) Delete(ctx context.Context) (res reconcile.Result, err error) 
 		// remove control plane as load balancer target
 		if s.scope.IsControlPlane() && s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
 			if err := s.removeAttachedServerOfLoadBalancer(ctx, host); err != nil {
-				return res, fmt.Errorf("failed to delete attached server of load balancer: %w", err)
+				return reconcile.Result{}, fmt.Errorf("failed to delete attached server of load balancer: %w", err)
 			}
 		}
 
@@ -788,7 +788,7 @@ func checkForRequeueError(err error, errMessage string) (res reconcile.Result, r
 		return reconcile.Result{Requeue: true, RequeueAfter: requeueError.GetRequeueAfter()}, nil
 	}
 
-	return res, fmt.Errorf("%s: %w", errMessage, err)
+	return reconcile.Result{}, fmt.Errorf("%s: %w", errMessage, err)
 }
 
 func providerIDFromServerID(serverID int) string {

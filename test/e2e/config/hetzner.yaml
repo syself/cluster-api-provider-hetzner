@@ -13,8 +13,8 @@ providers:
   - name: cluster-api
     type: CoreProvider
     versions:
-      - name: v1.5.2
-        value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.5.2/core-components.yaml"
+      - name: v1.6.0
+        value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.6.0/core-components.yaml"
         type: "url"
         contract: v1beta1
         files:
@@ -30,8 +30,8 @@ providers:
   - name: kubeadm
     type: BootstrapProvider
     versions:
-      - name: v1.5.2
-        value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.5.2/bootstrap-components.yaml"
+      - name: v1.6.0
+        value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.6.0/bootstrap-components.yaml"
         type: "url"
         contract: "v1beta1"
         files:
@@ -47,8 +47,8 @@ providers:
   - name: kubeadm
     type: ControlPlaneProvider
     versions:
-      - name: v1.5.2
-        value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.5.2/control-plane-components.yaml"
+      - name: v1.6.0
+        value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.6.0/control-plane-components.yaml"
         type: "url"
         files:
           - sourcePath: "../data/shared/v1beta1/metadata.yaml"
@@ -76,7 +76,6 @@ providers:
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-csr-off.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-load-balancer-extra-services.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-placement-groups.yaml"
-          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-talos.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-loadbalancer-off.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-network.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-node-drain.yaml"
@@ -103,7 +102,6 @@ providers:
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-csr-off.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-load-balancer-extra-services.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-placement-groups.yaml"
-          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-talos.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-loadbalancer-off.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-network.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-node-drain.yaml"
@@ -114,10 +112,10 @@ providers:
 
 variables:
   # Upgrade Test
-  KUBERNETES_VERSION_MANAGEMENT: "v1.25.2"
-  KUBERNETES_VERSION: "${KUBERNETES_VERSION:-v1.25.2}"
-  KUBERNETES_VERSION_UPGRADE_FROM: "v1.24.1"
-  KUBERNETES_VERSION_UPGRADE_TO: "v1.25.2"
+  KUBERNETES_VERSION_MANAGEMENT: "v1.27.3"
+  KUBERNETES_VERSION: "${KUBERNETES_VERSION:-v1.27.3}"
+  KUBERNETES_VERSION_UPGRADE_FROM: "v1.26.0"
+  KUBERNETES_VERSION_UPGRADE_TO: "v1.27.3"
   CONTROL_PLANE_MACHINE_TEMPLATE_UPGRADE_TO: "k8s-upgrade-control-plane"
   WORKERS_MACHINE_TEMPLATE_UPGRADE_TO: "k8s-upgrade-worker"
   KUBERNETES_IMAGE_UPGRADE_FROM: ${KUBERNETES_IMAGE_UPGRADE_FROM:-}
@@ -130,7 +128,7 @@ variables:
   # the management cluster to be upgraded.
   INIT_WITH_BINARY: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.1.4/clusterctl-linux-amd64"
   INIT_WITH_PROVIDERS_CONTRACT: "v1beta1"
-  INIT_WITH_KUBERNETES_VERSION: "v1.25.2"
+  INIT_WITH_KUBERNETES_VERSION: "v1.28.4"
   INIT_WITH_INFRASTRUCTURE_PROVIDER_VERSION: ${CAPH_LATEST_VERSION:-}
 
   # Cluster Addons

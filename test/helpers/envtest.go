@@ -55,6 +55,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 func init() {
@@ -131,13 +132,17 @@ func NewTestEnvironment() *TestEnvironment {
 
 	// Build the controller manager.
 	mgr, err := ctrl.NewManager(env.Config, ctrl.Options{
-		Scheme:             scheme,
-		Port:               env.WebhookInstallOptions.LocalServingPort,
-		CertDir:            env.WebhookInstallOptions.LocalServingCertDir,
-		MetricsBindAddress: "0",
+		Scheme: scheme,
 		Cache: cache.Options{
 			ByObject: secretutil.AddSecretSelector(),
 		},
+		WebhookServer: webhook.NewServer(
+			webhook.Options{
+				Port:    env.WebhookInstallOptions.LocalServingPort,
+				CertDir: env.WebhookInstallOptions.LocalServingCertDir,
+				Host:    "localhost",
+			},
+		),
 	})
 	if err != nil {
 		klog.Fatalf("unable to create manager: %s", err)

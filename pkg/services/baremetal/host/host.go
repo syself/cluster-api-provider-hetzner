@@ -119,7 +119,7 @@ func (s *Service) Reconcile(ctx context.Context) (result reconcile.Result, err e
 
 	result, err = actResult.Result()
 	if err != nil {
-		return reconcile.Result{Requeue: true}, fmt.Errorf("action %q failed: %w", initialState, err)
+		return reconcile.Result{}, fmt.Errorf("action %q failed: %w", initialState, err)
 	}
 
 	return result, nil
@@ -140,7 +140,7 @@ func SaveHostAndReturn(ctx context.Context, cl client.Client, host *infrav1.Hetz
 		if apierrors.IsConflict(err) {
 			return reconcile.Result{Requeue: true}, nil
 		}
-		return res, fmt.Errorf("failed to update host object: %w", err)
+		return reconcile.Result{}, fmt.Errorf("failed to update host object: %w", err)
 	}
 	return res, nil
 }
@@ -953,8 +953,13 @@ func (s *Service) actionImageInstalling() actionResult {
 
 	autoSetup := buildAutoSetup(s.scope.HetznerBareMetalHost.Spec.Status.InstallImage, autoSetupInput)
 
-	if err := handleSSHError(sshClient.CreateAutoSetup(autoSetup)); err != nil {
-		return actionError{err: fmt.Errorf("failed to create autosetup %s: %w", autoSetup, err)}
+	out := sshClient.CreateAutoSetup(autoSetup)
+	if out.Err != nil {
+		return actionError{err: fmt.Errorf("failed to create autosetup: %q %q %w", out.StdOut, out.StdErr, out.Err)}
+	}
+
+	if out.StdErr != "" {
+		return actionError{err: fmt.Errorf("failed to create autosetup: %q %q %w. Content: %s", out.StdOut, out.StdErr, out.Err, autoSetup)}
 	}
 
 	// create post install script
@@ -966,7 +971,7 @@ func (s *Service) actionImageInstalling() actionResult {
 		}
 	}
 
-	out := sshClient.UntarTGZ()
+	out = sshClient.UntarTGZ()
 	if out.Err != nil {
 		record.Warnf(s.scope.HetznerBareMetalHost, "UntarInstallimageTgzFailed", "err: %s, stderr: %s", out.Err.Error(), out.StdErr)
 		return actionError{err: fmt.Errorf("UntarInstallimageTgzFailed: %w", out.Err)}
@@ -1111,7 +1116,8 @@ func (s *Service) actionProvisioning() actionResult {
 		if err != nil {
 			if errors.Is(err, errUnexpectedHostName) {
 				// One possible reason: The machine gets used by a second wl-cluster
-				record.Warn(host, "UnexpectedHostName", err.Error())
+				record.Warn(host, "UnexpectedHostName",
+					fmt.Sprintf("Provisioning: wanted %q. %s", wantHostName, err.Error()))
 			}
 			return actionError{err: fmt.Errorf("failed to handle incomplete boot - installImage: %w", err)}
 		}
@@ -1203,7 +1209,8 @@ func analyzeSSHOutputInstallImage(out sshclient.Output, sshClient sshclient.Clie
 	}
 
 	// check stdout
-	switch trimLineBreak(out.StdOut) {
+	hostname := trimLineBreak(out.StdOut)
+	switch hostname {
 	case "":
 		// Hostname should not be empty. This is unexpected.
 		return false, false, errEmptyHostName
@@ -1213,7 +1220,7 @@ func analyzeSSHOutputInstallImage(out sshclient.Output, sshClient sshclient.Clie
 
 	// We are in the case that hostName != rescue && StdOut != hostName
 	// This is unexpected
-	return false, false, fmt.Errorf("%w: %s", errUnexpectedHostName, trimLineBreak(out.StdOut))
+	return false, false, fmt.Errorf("%w: %s", errUnexpectedHostName, hostname)
 }
 
 func handleAuthenticationFailed(sshClient sshclient.Client, port int) error {
@@ -1290,7 +1297,8 @@ func (s *Service) actionEnsureProvisioned() (ar actionResult) {
 		if err != nil {
 			if errors.Is(err, errUnexpectedHostName) {
 				// One possible reason: The machine gets used by a second wl-cluster
-				record.Warn(s.scope.HetznerBareMetalHost, "UnexpectedHostName", err.Error())
+				record.Warnf(s.scope.HetznerBareMetalHost, "UnexpectedHostName",
+					"EnsureProvision: wanted %q. %s", wantHostName, err.Error())
 			}
 			return actionError{err: fmt.Errorf("failed to handle incomplete boot - provisioning: %w", err)}
 		}
@@ -1488,7 +1496,9 @@ func (s *Service) actionProvisioned() actionResult {
 			// Reboot has been done already. Check whether it has been successful
 			// Check hostname with sshClient
 			out := sshClient.GetHostName()
-			if trimLineBreak(out.StdOut) == infrav1.BareMetalHostNamePrefix+s.scope.HetznerBareMetalHost.Spec.ConsumerRef.Name {
+
+			wantHostName := infrav1.BareMetalHostNamePrefix + s.scope.HetznerBareMetalHost.Spec.ConsumerRef.Name
+			if trimLineBreak(out.StdOut) == wantHostName {
 				// Reboot has been successful
 				s.scope.HetznerBareMetalHost.Spec.Status.Rebooted = false
 				s.scope.HetznerBareMetalHost.ClearRebootAnnotations()
@@ -1501,7 +1511,8 @@ func (s *Service) actionProvisioned() actionResult {
 			if err != nil {
 				if errors.Is(err, errUnexpectedHostName) {
 					// One possible reason: The machine gets used by a second wl-cluster
-					record.Warn(s.scope.HetznerBareMetalHost, "UnexpectedHostName", err.Error())
+					record.Warnf(s.scope.HetznerBareMetalHost, "UnexpectedHostName",
+						"Provisioned: wanted %q. %s", wantHostName, err.Error())
 				}
 				return actionError{err: fmt.Errorf("failed to handle incomplete boot - provisioning: %w", err)}
 			}

@@ -180,7 +180,7 @@ func (r *HCloudMachineReconciler) reconcileDelete(ctx context.Context, machineSc
 	// Delete servers.
 	result, err := server.NewService(machineScope).Delete(ctx)
 	if err != nil {
-		return result, fmt.Errorf("failed to delete servers for HCloudMachine %s/%s: %w", hcloudMachine.Namespace, hcloudMachine.Name, err)
+		return reconcile.Result{}, fmt.Errorf("failed to delete servers for HCloudMachine %s/%s: %w", hcloudMachine.Namespace, hcloudMachine.Name, err)
 	}
 	emptyResult := reconcile.Result{}
 	if result != emptyResult {
@@ -206,7 +206,7 @@ func (r *HCloudMachineReconciler) reconcileNormal(ctx context.Context, machineSc
 	// reconcile server
 	result, err := server.NewService(machineScope).Reconcile(ctx)
 	if err != nil {
-		return result, fmt.Errorf("failed to reconcile server for HCloudMachine %s/%s: %w",
+		return reconcile.Result{}, fmt.Errorf("failed to reconcile server for HCloudMachine %s/%s: %w",
 			hcloudMachine.Namespace, hcloudMachine.Name, err)
 	}
 

@@ -162,26 +162,6 @@ spec:
         content: |
           overlay
           br_netfilter
-      - path: /etc/containerd/config.toml
-        owner: "root:root"
-        permissions: "0744"
-        content: |
-          version = 2
-          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
-            runtime_type = "io.containerd.runc.v2"
-          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
-            SystemdCgroup = true
-          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.crun]
-            runtime_type = "io.containerd.runc.v2"
-          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.crun.options]
-            BinaryName = "crun"
-            Root = "/usr/local/sbin"
-            SystemdCgroup = true
-          [plugins."io.containerd.grpc.v1.cri".containerd]
-            default_runtime_name = "crun"
-          [plugins."io.containerd.runtime.v1.linux"]
-            runtime = "crun"
-            runtime_root = "/usr/local/sbin"
       - path: /etc/sysctl.d/99-kubernetes-cri.conf
         owner: "root:root"
         permissions: "0744"
@@ -205,9 +185,9 @@ spec:
           nameserver 2606:4700:4700::1111
     preKubeadmCommands:
       - set -x
-      - export CRUN=1.12 # update: datasource=github-tags depName=containers/crun versioning=semver-coerced
       - export CONTAINERD=1.7.11 # update: datasource=github-tags depName=containerd/containerd extractVersion=^v(?<version>.*)$ versioning=semver
       - export KUBERNETES_VERSION=$(echo ${KUBERNETES_VERSION} | sed 's/^v//')
+      - export TRIMMED_KUBERNETES_VERSION=$(echo ${KUBERNETES_VERSION} | sed 's/^v//' | awk -F . '{print $1 "." $2}')
       - localectl set-locale LANG=en_US.UTF-8
       - localectl set-locale LANGUAGE=en_US.UTF-8
       - apt-get update -y
@@ -220,14 +200,16 @@ spec:
       - sha256sum --check cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
       - tar --no-overwrite-dir -C / -xzf cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz
       - rm -f cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
-      - wget https://github.com/containers/crun/releases/download/$CRUN/crun-$CRUN-linux-amd64 -O /usr/local/sbin/crun && chmod +x /usr/local/sbin/crun
-      - rm -f /etc/cni/net.d/10-containerd-net.conflist
       - chmod -R 644 /etc/cni && chown -R root:root /etc/cni
+      - mkdir -p /etc/containerd
+      - containerd config default > /etc/containerd/config.toml
+      - sed -i  "s/SystemdCgroup = false/SystemdCgroup = true/" /etc/containerd/config.toml
       - systemctl daemon-reload && systemctl enable containerd && systemctl start containerd
-      - curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
-      - echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee -a /etc/apt/sources.list.d/kubernetes.list
+      - mkdir -p /etc/apt/keyrings/
+      - curl -fsSL https://pkgs.k8s.io/core:/stable:/v$TRIMMED_KUBERNETES_VERSION/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+      - echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v$TRIMMED_KUBERNETES_VERSION/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list
       - apt-get update
-      - apt-get install -y kubelet=$KUBERNETES_VERSION-00 kubeadm=$KUBERNETES_VERSION-00 kubectl=$KUBERNETES_VERSION-00  bash-completion && apt-mark hold kubelet kubectl kubeadm && systemctl enable kubelet
+      - apt-get install -y kubelet=$KUBERNETES_VERSION-1.1 kubeadm=$KUBERNETES_VERSION-1.1 kubectl=$KUBERNETES_VERSION-1.1  bash-completion && apt-mark hold kubelet kubectl kubeadm && systemctl enable kubelet
       - kubeadm config images pull --kubernetes-version $KUBERNETES_VERSION
       - echo 'source <(kubectl completion bash)' >>~/.bashrc
       - echo 'export KUBECONFIG=/etc/kubernetes/admin.conf' >>~/.bashrc
