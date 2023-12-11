@@ -114,13 +114,13 @@ variables:
   WORKERS_MACHINE_TEMPLATE_UPGRADE_TO: "k8s-upgrade-worker"
   KUBERNETES_IMAGE_UPGRADE_FROM: ${KUBERNETES_IMAGE_UPGRADE_FROM:-}
   KUBERNETES_IMAGE_UPGRADE_TO: ${KUBERNETES_IMAGE_UPGRADE_TO:-}
-  ETCD_VERSION_UPGRADE_TO: "3.5.3-0"
-  COREDNS_VERSION_UPGRADE_TO: "v1.8.6"
+  ETCD_VERSION_UPGRADE_TO: "3.5.9-0"
+  COREDNS_VERSION_UPGRADE_TO: "v1.10.1"
   IP_FAMILY: "IPv4"
 
   # NOTE: INIT_WITH_BINARY and INIT_WITH_KUBERNETES_VERSION are only used by the clusterctl upgrade test to initialize
   # the management cluster to be upgraded.
-  INIT_WITH_BINARY: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.1.4/clusterctl-linux-amd64"
+  INIT_WITH_BINARY: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.6.0/clusterctl-linux-amd64"
   INIT_WITH_PROVIDERS_CONTRACT: "v1beta1"
   INIT_WITH_KUBERNETES_VERSION: "v1.28.4"
   INIT_WITH_INFRASTRUCTURE_PROVIDER_VERSION: ${CAPH_LATEST_VERSION:-}
