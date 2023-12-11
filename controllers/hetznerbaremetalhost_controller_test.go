@@ -337,13 +337,13 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 
 				Eventually(func() bool {
 					if err := testEnv.Get(ctx, key, host); err != nil {
-						testEnv.GetLogger().Info("......... reaches the state image installing. Get failed", "err", err)
+						testEnv.GetLogger().Info("reaches the state image installing. Get failed", "err", err)
 						return false
 					}
 					if host.Spec.Status.ProvisioningState == infrav1.StateImageInstalling {
 						return true
 					}
-					testEnv.GetLogger().Info("......... reaches the state image installing. State",
+					testEnv.GetLogger().Info("reaches the state image installing. State",
 						"is-state", host.Spec.Status.ProvisioningState,
 						"should-state", infrav1.StateImageInstalling)
 					return false
