@@ -165,3 +165,4 @@ intervals:
   default/wait-control-plane: ["20m", "10s"] ## wait until first control plane is ready
   default/wait-worker-nodes: ["20m", "10s"] ## wait until all workers are ready from the moment when the control plane is ready
   default/wait-delete-cluster: ["20m", "10s"] ## wait until cluster is deleted
+  default/wait-deployment-available: ["20s", "1s"] ## wait until deployment with unevictable pods is available (upgrade test)
