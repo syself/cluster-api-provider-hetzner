@@ -68,5 +68,5 @@ type HetznerBareMetalRemediationTemplateList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&HetznerBareMetalRemediationTemplate{}, &HetznerBareMetalRemediationTemplateList{})
+	objectTypes = append(objectTypes, &HetznerBareMetalRemediationTemplate{}, &HetznerBareMetalRemediationTemplateList{})
 }
