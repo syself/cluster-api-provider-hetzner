@@ -571,5 +571,5 @@ type HetznerBareMetalHostList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&HetznerBareMetalHost{}, &HetznerBareMetalHostList{})
+	objectTypes = append(objectTypes, &HetznerBareMetalHost{}, &HetznerBareMetalHostList{})
 }

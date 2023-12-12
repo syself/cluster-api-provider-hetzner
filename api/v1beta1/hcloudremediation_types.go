@@ -102,5 +102,5 @@ type HCloudRemediationList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&HCloudRemediation{}, &HCloudRemediationList{})
+	objectTypes = append(objectTypes, &HCloudRemediation{}, &HCloudRemediationList{})
 }

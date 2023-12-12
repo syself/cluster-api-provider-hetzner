@@ -358,5 +358,5 @@ type HetznerBareMetalMachineList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&HetznerBareMetalMachine{}, &HetznerBareMetalMachineList{})
+	objectTypes = append(objectTypes, &HetznerBareMetalMachine{}, &HetznerBareMetalMachineList{})
 }

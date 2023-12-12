@@ -134,5 +134,5 @@ type HCloudMachineList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&HCloudMachine{}, &HCloudMachineList{})
+	objectTypes = append(objectTypes, &HCloudMachine{}, &HCloudMachineList{})
 }

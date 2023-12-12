@@ -49,7 +49,7 @@ type HetznerClusterTemplateList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&HetznerClusterTemplate{}, &HetznerClusterTemplateList{})
+	objectTypes = append(objectTypes, &HetznerClusterTemplate{}, &HetznerClusterTemplateList{})
 }
 
 // HetznerClusterTemplateResource contains spec for HetznerClusterSpec.

@@ -118,5 +118,5 @@ func (r *HetznerCluster) ClusterTagKey() string {
 }
 
 func init() {
-	SchemeBuilder.Register(&HetznerCluster{}, &HetznerClusterList{})
+	objectTypes = append(objectTypes, &HetznerCluster{}, &HetznerClusterList{})
 }
