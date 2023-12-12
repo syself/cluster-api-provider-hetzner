@@ -161,8 +161,22 @@ variables:
   REDACT_LOG_SCRIPT: "../../hack/log/redact.sh"
 
 intervals:
-  default/wait-cluster: ["5m", "10s"] ## wait until Infrastructure == ready and ControlPlaneEndpoint is valid
-  default/wait-control-plane: ["20m", "10s"] ## wait until first control plane is ready
-  default/wait-worker-nodes: ["20m", "10s"] ## wait until all workers are ready from the moment when the control plane is ready
-  default/wait-delete-cluster: ["20m", "10s"] ## wait until cluster is deleted
-  default/wait-deployment-available: ["20s", "1s"] ## wait until deployment with unevictable pods is available (upgrade test)
+  # See cluster-api/test/e2e/config/docker.yaml
+  # Syntax: [WAIT_TIME, POLL_INTERVAL]
+  default/wait-controllers: ["3m", "2s"]
+  default/wait-cluster: ["5m", "2s"] ## wait until Infrastructure == ready and ControlPlaneEndpoint is valid
+  default/wait-control-plane: ["20m", "2s"] ## wait until first control plane is ready
+  default/wait-worker-nodes: ["20m", "2s"] ## wait until all workers are ready from the moment when the control plane is ready
+  default/wait-machine-pool-nodes: ["5m", "2s"]
+  default/wait-delete-cluster: ["20m", "2s"] ## wait until cluster is deleted
+  default/wait-machine-upgrade: ["20m", "2s"]
+  default/wait-machine-pool-upgrade: ["5m", "2s"]
+  default/wait-nodes-ready: ["10m", "2s"]
+  default/wait-machine-remediation: ["5m", "2s"]
+  default/wait-autoscaler: ["5m", "2s"]
+  node-drain/wait-deployment-available: ["3m", "2s"]
+  node-drain/wait-control-plane: ["15m", "2s"]
+  node-drain/wait-machine-deleted: ["2m", "2s"]
+  kcp-remediation/wait-machines: ["5m", "2s"]
+  kcp-remediation/check-machines-stable: ["30s", "5s"]
+  kcp-remediation/wait-machine-provisioned: ["5m", "2s"]
