@@ -218,14 +218,15 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 		osSSHSecret, err = secretManager.ObtainSecret(ctx, osSSHSecretNamespacedName)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
+				msg := fmt.Sprintf("%s: %s", infrav1.ErrorMessageMissingOSSSHSecret, err.Error())
 				conditions.MarkFalse(
 					bmHost,
 					infrav1.CredentialsAvailableCondition,
 					infrav1.OSSSHSecretMissingReason,
 					clusterv1.ConditionSeverityError,
-					infrav1.ErrorMessageMissingOSSSHSecret,
+					msg,
 				)
-				record.Warnf(bmHost, infrav1.OSSSHSecretMissingReason, infrav1.ErrorMessageMissingOSSSHSecret)
+				record.Warnf(bmHost, infrav1.OSSSHSecretMissingReason, msg)
 				conditions.SetSummary(bmHost)
 				result, err := host.SaveHostAndReturn(ctx, r.Client, bmHost)
 				if result != emptyResult || err != nil {

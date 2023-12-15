@@ -4,6 +4,7 @@
 
 1. Create an annotated tag
    - `git switch main`
+   - `git pull`
    - Have a look at the current (old) version: [Github Releases](https://github.com/syself/cluster-api-provider-hetzner/releases) 
    - `export RELEASE_TAG=<the tag of the release to be cut>` (eg. `export RELEASE_TAG=v1.0.1`)
    - `git tag -a ${RELEASE_TAG} -m ${RELEASE_TAG}`
@@ -18,6 +19,7 @@
 1. If it is pre-release, activate the corresponding check at the bottom of the page. And add `:rotating_light: This is a RELEASE CANDIDATE. If you find any bugs, file an [issue](https://github.com/syself/cluster-api-provider-hetzner/issues/new).` at the top of the release notes.
 1. Before publishing you can check the [Recent tagged image versions](https://github.com/syself/cluster-api-provider-hetzner/pkgs/container/caph): "latest" should be some seconds old and the new version number.
 1. Publish the release
+1. Write to the corresponding channels: "FYI: .... was released, (add hyperlink). A big "thank you" to all contributors!"
 
 Done 🥳
 
