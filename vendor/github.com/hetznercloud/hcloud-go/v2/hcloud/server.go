@@ -38,6 +38,7 @@ type Server struct {
 	Volumes         []*Volume
 	PrimaryDiskSize int
 	PlacementGroup  *PlacementGroup
+	LoadBalancers   []*LoadBalancer
 }
 
 // ServerProtection represents the protection level of a server.

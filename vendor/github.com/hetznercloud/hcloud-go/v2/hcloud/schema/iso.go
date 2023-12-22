@@ -4,12 +4,12 @@ import "time"
 
 // ISO defines the schema of an ISO image.
 type ISO struct {
-	ID           int64     `json:"id"`
-	Name         string    `json:"name"`
-	Description  string    `json:"description"`
-	Type         string    `json:"type"`
-	Architecture *string   `json:"architecture"`
-	Deprecated   time.Time `json:"deprecated"`
+	ID           int64      `json:"id"`
+	Name         string     `json:"name"`
+	Description  string     `json:"description"`
+	Type         string     `json:"type"`
+	Architecture *string    `json:"architecture"`
+	Deprecated   *time.Time `json:"deprecated"`
 	DeprecatableResource
 }
 
