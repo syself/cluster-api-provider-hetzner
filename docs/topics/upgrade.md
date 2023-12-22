@@ -6,7 +6,7 @@ This guide explains how to upgrade Cluster API Provider Hetzner (aka CAPH).
 
 Connect `kubectl` to the management cluster.
 
-I use `.envrc` files with [direnv](https://direnv.net/),
+We use `.envrc` files with [direnv](https://direnv.net/),
 but this is optional.
 
 ```
@@ -97,7 +97,7 @@ Great, cluster-API was upgraded.
 
 # Upgrade CAPH
 
-You find the latest version of CAPH here:
+You can find the latest version of CAPH here:
 
 https://github.com/syself/cluster-api-provider-hetzner/tags
 
