@@ -94,11 +94,17 @@ spec:
                           as the name of an image or as the label of an image.'
                         minLength: 1
                         type: string
+                        x-kubernetes-validations:
+                        - message: HcloudMachine.Spec.ImageName is immutable.
+                          rule: self == oldSelf
                       placementGroupName:
                         description: PlacementGroupName defines the placement group
                           of the machine in HCloud API that must reference an existing
                           placement group.
                         type: string
+                        x-kubernetes-validations:
+                        - message: HcloudMachine.Spec.PlacementGroupName is immutable.
+                          rule: self == oldSelf
                       providerID:
                         description: ProviderID is the unique identifier as specified
                           by the cloud provider.
@@ -133,6 +139,9 @@ spec:
                           - name
                           type: object
                         type: array
+                        x-kubernetes-validations:
+                        - message: HcloudMachine.Spec.SSHKeys is immutable.
+                          rule: self == oldSelf
                       type:
                         description: 'Type is the HCloud Machine Type for this machine.
                           It defines the desired server type of server in Hetzner''s
@@ -169,6 +178,9 @@ spec:
                         - cax31
                         - cax41
                         type: string
+                        x-kubernetes-validations:
+                        - message: HcloudMachine.Spec.Type is immutable.
+                          rule: self == oldSelf
                     required:
                     - imageName
                     - type

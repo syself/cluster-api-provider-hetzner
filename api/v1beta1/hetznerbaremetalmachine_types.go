@@ -68,15 +68,18 @@ type HetznerBareMetalMachineSpec struct {
 	ProviderID *string `json:"providerID,omitempty"`
 
 	// InstallImage is the configuration which is used for the autosetup configuration for installing an OS via InstallImage.
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="HetznerBareMetalMachine.Spec.InstallImage is immutable."
 	InstallImage InstallImage `json:"installImage"`
 
 	// HostSelector specifies matching criteria for labels on HetznerBareMetalHosts.
 	// This is used to limit the set of HetznerBareMetalHost objects considered for
 	// claiming for a HetznerBareMetalMachine.
 	// +optional
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="HetznerBareMetalMachine.Spec.HostSelector is immutable."
 	HostSelector HostSelector `json:"hostSelector,omitempty"`
 
 	// SSHSpec gives a reference on the secret where SSH details are specified as well as ports for ssh.
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="HetznerBareMetalMachine.Spec.SSHSpec is immutable."
 	SSHSpec SSHSpec `json:"sshSpec,omitempty"`
 }
 

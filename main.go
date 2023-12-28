@@ -246,16 +246,8 @@ func setUpWebhookWithManager(mgr ctrl.Manager) {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerCluster")
 		os.Exit(1)
 	}
-	if err := (&infrastructurev1beta1.HetznerClusterTemplate{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerClusterTemplate")
-		os.Exit(1)
-	}
 	if err := (&infrastructurev1beta1.HCloudMachine{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HCloudMachine")
-		os.Exit(1)
-	}
-	if err := (&infrastructurev1beta1.HCloudMachineTemplateWebhook{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "HCloudMachineTemplate")
 		os.Exit(1)
 	}
 	if err := (&infrastructurev1beta1.HetznerBareMetalHostWebhook{}).SetupWebhookWithManager(mgr); err != nil {
@@ -264,26 +256,6 @@ func setUpWebhookWithManager(mgr ctrl.Manager) {
 	}
 	if err := (&infrastructurev1beta1.HetznerBareMetalMachine{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalMachine")
-		os.Exit(1)
-	}
-	if err := (&infrastructurev1beta1.HetznerBareMetalMachineTemplateWebhook{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalMachineTemplate")
-		os.Exit(1)
-	}
-	if err := (&infrastructurev1beta1.HetznerBareMetalRemediation{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalRemediation")
-		os.Exit(1)
-	}
-	if err := (&infrastructurev1beta1.HetznerBareMetalRemediationTemplate{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalRemediationTemplate")
-		os.Exit(1)
-	}
-	if err := (&infrastructurev1beta1.HCloudRemediation{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "HCloudRemediation")
-		os.Exit(1)
-	}
-	if err := (&infrastructurev1beta1.HCloudRemediationTemplate{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "HCloudRemediationTemplate")
 		os.Exit(1)
 	}
 }

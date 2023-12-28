@@ -151,35 +151,14 @@ func NewTestEnvironment() *TestEnvironment {
 	if err := (&infrav1.HetznerCluster{}).SetupWebhookWithManager(mgr); err != nil {
 		klog.Fatalf("failed to set up webhook with manager for HetznerCluster: %s", err)
 	}
-	if err := (&infrav1.HetznerClusterTemplate{}).SetupWebhookWithManager(mgr); err != nil {
-		klog.Fatalf("failed to set up webhook with manager for HetznerClusterTemplate: %s", err)
-	}
 	if err := (&infrav1.HCloudMachine{}).SetupWebhookWithManager(mgr); err != nil {
 		klog.Fatalf("failed to set up webhook with manager for HCloudMachine: %s", err)
-	}
-	if err := (&infrav1.HCloudMachineTemplateWebhook{}).SetupWebhookWithManager(mgr); err != nil {
-		klog.Fatalf("failed to set up webhook with manager for HCloudMachineTemplate: %s", err)
 	}
 	if err := (&infrav1.HetznerBareMetalMachine{}).SetupWebhookWithManager(mgr); err != nil {
 		klog.Fatalf("failed to set up webhook with manager for HetznerBareMetalMachine: %s", err)
 	}
-	if err := (&infrav1.HetznerBareMetalMachineTemplateWebhook{}).SetupWebhookWithManager(mgr); err != nil {
-		klog.Fatalf("failed to set up webhook with manager for HetznerBareMetalMachineTemplate: %s", err)
-	}
 	if err := (&infrav1.HetznerBareMetalHostWebhook{}).SetupWebhookWithManager(mgr); err != nil {
 		klog.Fatalf("failed to set up webhook with manager for HetznerBareMetalHost: %s", err)
-	}
-	if err := (&infrav1.HetznerBareMetalRemediation{}).SetupWebhookWithManager(mgr); err != nil {
-		klog.Fatalf("failed to set up webhook with manager for HetznerBareMetalRemediation: %s", err)
-	}
-	if err := (&infrav1.HetznerBareMetalRemediationTemplate{}).SetupWebhookWithManager(mgr); err != nil {
-		klog.Fatalf("failed to set up webhook with manager for HetznerBareMetalRemediationTemplate: %s", err)
-	}
-	if err := (&infrav1.HCloudRemediation{}).SetupWebhookWithManager(mgr); err != nil {
-		klog.Fatalf("failed to set up webhook with manager for HCloudRemediation: %s", err)
-	}
-	if err := (&infrav1.HCloudRemediationTemplate{}).SetupWebhookWithManager(mgr); err != nil {
-		klog.Fatalf("failed to set up webhook with manager for HCloudRemediationTemplate: %s", err)
 	}
 	// Create a fake HCloudClientFactory
 	hcloudClientFactory := fakeclient.NewHCloudClientFactory()

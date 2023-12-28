@@ -22,6 +22,7 @@ import (
 )
 
 // HetznerClusterTemplateSpec defines the desired state of HetznerClusterTemplate.
+// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="HetznerClusterTemplate.Spec is immutable."
 type HetznerClusterTemplateSpec struct {
 	Template HetznerClusterTemplateResource `json:"template"`
 }

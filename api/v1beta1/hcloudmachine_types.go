@@ -38,19 +38,23 @@ type HCloudMachineSpec struct {
 
 	// Type is the HCloud Machine Type for this machine. It defines the desired server type of server in Hetzner's Cloud API. Example: cpx11.
 	// +kubebuilder:validation:Enum=cpx11;cx21;cpx21;cx31;cpx31;cx41;cpx41;cx51;cpx51;ccx11;ccx12;ccx13;ccx21;ccx22;ccx23;ccx31;ccx32;ccx33;ccx41;ccx42;ccx43;ccx51;ccx52;ccx53;ccx62;ccx63;cax11;cax21;cax31;cax41
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="HcloudMachine.Spec.Type is immutable."
 	Type HCloudMachineType `json:"type"`
 
 	// ImageName is the reference to the Machine Image from which to create the machine instance.
 	// It can reference an image uploaded to Hetzner API in two ways: either directly as the name of an image or as the label of an image.
 	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="HcloudMachine.Spec.ImageName is immutable."
 	ImageName string `json:"imageName"`
 
 	// SSHKeys define machine-specific SSH keys and override cluster-wide SSH keys.
 	// +optional
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="HcloudMachine.Spec.SSHKeys is immutable."
 	SSHKeys []SSHKey `json:"sshKeys,omitempty"`
 
 	// PlacementGroupName defines the placement group of the machine in HCloud API that must reference an existing placement group.
 	// +optional
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="HcloudMachine.Spec.PlacementGroupName is immutable."
 	PlacementGroupName *string `json:"placementGroupName,omitempty"`
 
 	// PublicNetwork specifies information for public networks. It defines the specs about

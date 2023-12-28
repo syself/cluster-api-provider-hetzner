@@ -109,6 +109,9 @@ spec:
                       BareMetalHost
                     type: object
                 type: object
+                x-kubernetes-validations:
+                - message: HetznerBareMetalMachine.Spec.HostSelector is immutable.
+                  rule: self == oldSelf
               installImage:
                 description: InstallImage is the configuration which is used for the
                   autosetup configuration for installing an OS via InstallImage.
@@ -240,6 +243,9 @@ spec:
                 - image
                 - partitions
                 type: object
+                x-kubernetes-validations:
+                - message: HetznerBareMetalMachine.Spec.InstallImage is immutable.
+                  rule: self == oldSelf
               providerID:
                 description: ProviderID will be the hetznerbaremetalmachine in ProviderID
                   format (hcloud://<server-id>)
@@ -283,6 +289,9 @@ spec:
                 required:
                 - secretRef
                 type: object
+                x-kubernetes-validations:
+                - message: HetznerBareMetalMachine.Spec.SSHSpec is immutable.
+                  rule: self == oldSelf
             required:
             - installImage
             type: object
