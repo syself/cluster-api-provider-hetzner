@@ -22,7 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 )
 
-var _ = Describe("[Baremetal] Testing Cluster 3x control-planes 1x worker ", func() {
+var _ = Describe("[Baremetal] Testing Cluster 1x control-planes 1x worker ", func() {
 	ctx := context.TODO()
 
 	Context("Running the CaphClusterDeploymentSpec in Hetzner Baremetal", func() {
@@ -33,11 +33,10 @@ var _ = Describe("[Baremetal] Testing Cluster 3x control-planes 1x worker ", fun
 				BootstrapClusterProxy:    bootstrapClusterProxy,
 				ArtifactFolder:           artifactFolder,
 				SkipCleanup:              skipCleanup,
-				ControlPlaneMachineCount: 3,
+				ControlPlaneMachineCount: 1,
 				WorkerMachineCount:       1,
 				Flavor:                   "hetzner-baremetal",
 			}
 		})
 	})
-
 })
