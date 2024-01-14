@@ -65,7 +65,14 @@ function usage {
     echo "  image: for example ghcr.io/foo/bar/my-machine-image:v9"
     echo "  outfile: Created file. Usually with file extensions '.tgz'"
     echo "  If the oci registry needs a token, then the script uses OCI_REGISTRY_AUTH_TOKEN (if set)"
+<<<<<<< Updated upstream
     echo "  Example of OCI_REGISTRY_AUTH_TOKEN: github:ghp_SN51...."
+||||||| constructed merge base
+    echo "  Example of OCI_REGISTRY_AUTH_TOKEN: mygithubuser:ghp_SN51...."
+=======
+    echo "  Example 1: of OCI_REGISTRY_AUTH_TOKEN: mygithubuser:mypassword"
+    echo "  Example 2: of OCI_REGISTRY_AUTH_TOKEN: ghp_SN51...."
+>>>>>>> Stashed changes
     echo
 }
 if [ -z "$outfile" ]; then
@@ -94,18 +101,17 @@ fi
 function download_with_token {
     echo "download with token (OCI_REGISTRY_AUTH_TOKEN set)"
     if [[ "$OCI_REGISTRY_AUTH_TOKEN" != *:* ]]; then
-        echo "OCI_REGISTRY_AUTH_TOKEN needs to contain a ':' (user:token)"
-        exit 1
+        echo "Using OCI_REGISTRY_AUTH_TOKEN directly (no colon in token)"
+        token=$(echo "$OCI_REGISTRY_AUTH_TOKEN" | base64)
+    else
+        echo "OCI_REGISTRY_AUTH_TOKEN contains colon. Doing login first"
+        token=$(curl -fsSL -u "$OCI_REGISTRY_AUTH_TOKEN" "https://${registry}/token?scope=repository:$scope:pull" | jq -r '.token')
+        if [ -z "$token" ]; then
+            echo "Failed to get token for container registry"
+            exit 1
+        fi
+        echo "Login to $registry was successful"
     fi
-
-    token=$(curl -fsSL -u "$OCI_REGISTRY_AUTH_TOKEN" "https://${registry}/token?scope=repository:$scope:pull" | jq -r '.token')
-    if [ -z "$token" ]; then
-        echo "Failed to get token for container registry"
-        exit 1
-    fi
-
-    echo "Login to $registry was successful"
-
     digest=$(curl -sSL -H "Authorization: Bearer $token" -H "Accept: application/vnd.oci.image.manifest.v1+json" \
         "https://${registry}/v2/${scope}/manifests/${tag}" | jq -r '.layers[0].digest')
 
