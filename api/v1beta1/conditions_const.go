@@ -165,6 +165,8 @@ const (
 	RescueSystemUnavailableReason = "RescueSystemUnavailable"
 	// ImageSpecInvalidReason indicates that the information specified about the image of the host are invalid.
 	ImageSpecInvalidReason = "ImageSpecInvalid"
+	// ImageDownloadFailedReason indicates that downloading the machine image (http or OCI) failed.
+	ImageDownloadFailedReason = "ImageDownloadFailed"
 	// NoStorageDeviceFoundReason indicates that no suitable storage device could be found.
 	NoStorageDeviceFoundReason = "NoStorageDeviceFound"
 	// CloudInitNotInstalledReason indicates that cloud init is not installed.
@@ -180,6 +182,7 @@ const (
 	// SSHAfterInstallImageFailedReason indicates that the host was not reachable via ssh.
 	SSHAfterInstallImageFailedReason = "SSHAfterInstallImageFailed"
 )
+
 const (
 	// HostAssociateSucceededCondition indicates that a host has been associated.
 	HostAssociateSucceededCondition clusterv1.ConditionType = "HostAssociateSucceeded"
