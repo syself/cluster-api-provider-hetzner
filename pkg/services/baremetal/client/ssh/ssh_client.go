@@ -65,14 +65,8 @@ function usage {
     echo "  image: for example ghcr.io/foo/bar/my-machine-image:v9"
     echo "  outfile: Created file. Usually with file extensions '.tgz'"
     echo "  If the oci registry needs a token, then the script uses OCI_REGISTRY_AUTH_TOKEN (if set)"
-<<<<<<< Updated upstream
-    echo "  Example of OCI_REGISTRY_AUTH_TOKEN: github:ghp_SN51...."
-||||||| constructed merge base
-    echo "  Example of OCI_REGISTRY_AUTH_TOKEN: mygithubuser:ghp_SN51...."
-=======
     echo "  Example 1: of OCI_REGISTRY_AUTH_TOKEN: mygithubuser:mypassword"
     echo "  Example 2: of OCI_REGISTRY_AUTH_TOKEN: ghp_SN51...."
->>>>>>> Stashed changes
     echo
 }
 if [ -z "$outfile" ]; then

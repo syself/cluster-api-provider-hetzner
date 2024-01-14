@@ -77,3 +77,7 @@ exclude_loopback = true
 
 # Exclude all mail addresses from checking
 exclude_mail = false
+
+# Avoid https://docs.hetzner.com/... | Failed: Network error: Connection reset by peer (os error 104)
+max_concurrency = 3
+retry_wait_time = 3
