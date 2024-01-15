@@ -1021,7 +1021,15 @@ func (s *Service) createAutoSetupInput(sshClient sshclient.Client) (autoSetupInp
 	if needsDownload {
 		out := sshClient.DownloadImage(imagePath, image.URL)
 		if err := handleSSHError(out); err != nil {
-			return autoSetupInput{}, actionError{err: fmt.Errorf("failed to download image: %s %s %w", out.StdOut, out.StdErr, err)}
+			err := fmt.Errorf("failed to download image: %s %s %w", out.StdOut, out.StdErr, err)
+			conditions.MarkFalse(
+				s.scope.HetznerBareMetalHost,
+				infrav1.ProvisionSucceededCondition,
+				infrav1.ImageDownloadFailedReason,
+				clusterv1.ConditionSeverityError,
+				err.Error(),
+			)
+			return autoSetupInput{}, actionError{err: err}
 		}
 	}
 

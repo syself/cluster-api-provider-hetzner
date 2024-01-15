@@ -219,6 +219,9 @@ func (hsm *hostStateMachine) handlePreparing() actionResult {
 		hsm.nextState = infrav1.StateDeprovisioning
 		return actionComplete{}
 	}
+
+	record.Eventf(hsm.host, "PreparingForProvisioning", "ServerID %d %s", hsm.host.Spec.ServerID, hsm.host.Spec.Description)
+
 	actResult := hsm.reconciler.actionPreparing()
 	if _, ok := actResult.(actionComplete); ok {
 		hsm.nextState = infrav1.StateRegistering
