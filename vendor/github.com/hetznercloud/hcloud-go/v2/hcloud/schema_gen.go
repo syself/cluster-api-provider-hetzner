@@ -9,7 +9,7 @@ import (
 	"github.com/hetznercloud/hcloud-go/v2/hcloud/schema"
 )
 
-//go:generate sh ../script/generate_schema.sh
+//go:generate go run github.com/jmattheis/goverter/cmd/goverter gen ./...
 
 /*
 This file generates conversions methods between the schema and the hcloud package.
@@ -106,6 +106,12 @@ type converter interface {
 	SchemaFromPrimaryIP(*PrimaryIP) schema.PrimaryIP
 
 	ISOFromSchema(schema.ISO) *ISO
+
+	// We cannot use goverter settings when mapping a struct to a struct pointer
+	// See [converter.ISOFromSchema]
+	// See https://github.com/jmattheis/goverter/issues/114
+	// goverter:map DeprecatableResource.Deprecation.UnavailableAfter Deprecated
+	intISOFromSchema(schema.ISO) ISO
 
 	SchemaFromISO(*ISO) schema.ISO
 
@@ -235,11 +241,9 @@ type converter interface {
 	SchemaFromPagination(Pagination) schema.MetaPagination
 
 	// goverter:ignore response
-	// goverter:ignore DetailsRaw
 	// goverter:map Details | errorDetailsFromSchema
 	ErrorFromSchema(schema.Error) Error
 
-	// goverter:ignore response
 	// goverter:map Details | schemaFromErrorDetails
 	// goverter:map Details DetailsRaw | rawSchemaFromErrorDetails
 	SchemaFromError(Error) schema.Error

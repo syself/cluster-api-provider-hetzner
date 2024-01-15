@@ -7,7 +7,7 @@ import (
 // This file provides converter functions to convert models in the
 // schema package to models in the hcloud package and vice versa.
 
-var c converter = &converterImpl{}
+var c converter
 
 // ActionFromSchema converts a schema.Action to an Action.
 func ActionFromSchema(s schema.Action) *Action {
