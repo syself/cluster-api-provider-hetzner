@@ -127,7 +127,7 @@ spec:
             valueFrom:
               secretKeyRef:
                 name: my-oci-registry-secret    # The name of the secret
-                key: OCI_REGISTRY_AUTH_TOKEN    # The key in the secret to use
+                key: OCI_REGISTRY_AUTH_TOKEN    # The key in the secret. Format: "user:pwd" or just "token"
       # ... other container specs
 ```
 
