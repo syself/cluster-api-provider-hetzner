@@ -37,7 +37,7 @@ export GOBIN := $(abspath $(TOOLS_BIN_DIR))
 
 ginkgo: $(GINKGO)
 $(GINKGO): # Build ginkgo from tools folder.
-	go install github.com/onsi/ginkgo/v2/ginkgo@v2.11.0
+	go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo
 
 $(KUSTOMIZE): # Build kustomize from tools folder.
 	KUSTOMIZE_VERSION=4.5.7	$(REPO_ROOT)/hack/ensure-kustomize.sh
