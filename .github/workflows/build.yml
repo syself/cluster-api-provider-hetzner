@@ -54,6 +54,13 @@ jobs:
       - name: Install Cosign
         uses: sigstore/cosign-installer@9614fae9e5c5eddabb09f90a270fcb487c9f7149 # v3.3.0
 
+      - name: Install Bom
+        shell: bash
+        run: |
+          curl -L https://github.com/kubernetes-sigs/bom/releases/download/v0.6.0/bom-amd64-linux -o bom
+          sudo mv ./bom /usr/local/bin/bom
+          sudo chmod +x /usr/local/bin/bom
+
       - name: Setup Env
         run: |
           DOCKER_BUILD_LDFLAGS="$(hack/version.sh)"
@@ -105,10 +112,26 @@ jobs:
           platforms: linux/amd64,linux/arm64
 
       - name: Sign Container Images
-        env:
-          COSIGN_EXPERIMENTAL: "true"
         run: |
           cosign sign --yes ghcr.io/syself/caph-staging@${{ steps.docker_build_release.outputs.digest }}
+
+      - name: Generate SBOM
+        shell: bash
+        # To-Do: generate SBOM from source after https://github.com/kubernetes-sigs/bom/issues/202 is fixed
+        run: |
+          bom generate --format=json -o sbom_caph_staging_${{ steps.meta.outputs.version }}-spdx.json \
+          --image=ghcr.io/syself/caph-staging:${{ steps.meta.outputs.version }}
+
+      - name: Attach SBOM to Container Images
+        run: |
+          cosign attest --yes --type=spdxjson --predicate sbom_caph_staging_${{ steps.meta.outputs.version }}-spdx.json ghcr.io/syself/caph-staging@${{ steps.docker_build_release.outputs.digest }}
+
+      - name: Sign SBOM Images
+        run: |
+          docker_build_release_digest="${{ steps.docker_build_release.outputs.digest }}"
+          image_name="ghcr.io/syself/caph-staging:${docker_build_release_digest/:/-}.sbom"
+          docker_build_release_sbom_digest="sha256:$(docker buildx imagetools inspect --raw ${image_name} | sha256sum | head -c 64)"
+          cosign sign --yes "ghcr.io/syself/caph-staging@${docker_build_release_sbom_digest}"
 
       - name: Image Releases digests
         shell: bash
