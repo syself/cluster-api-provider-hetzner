@@ -351,8 +351,8 @@ func IgnoreHetznerClusterConditionUpdates(logger logr.Logger) predicate.Funcs {
 			return true
 		},
 		// We only care about Update events, anything else should be reconciled
-		CreateFunc:  func(e event.CreateEvent) bool { return true },
-		DeleteFunc:  func(e event.DeleteEvent) bool { return true },
-		GenericFunc: func(e event.GenericEvent) bool { return true },
+		CreateFunc:  func(_ event.CreateEvent) bool { return true },
+		DeleteFunc:  func(_ event.DeleteEvent) bool { return true },
+		GenericFunc: func(_ event.GenericEvent) bool { return true },
 	}
 }

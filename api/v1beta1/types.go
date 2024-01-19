@@ -232,10 +232,10 @@ type HCloudNetworkZone string
 
 // IsZero returns true if a private Network is set.
 func (s *HCloudNetworkSpec) IsZero() bool {
-	if len(s.CIDRBlock) > 0 {
+	if s.CIDRBlock != "" {
 		return false
 	}
-	if len(s.SubnetCIDRBlock) > 0 {
+	if s.SubnetCIDRBlock != "" {
 		return false
 	}
 	return true
