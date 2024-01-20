@@ -48,7 +48,7 @@ jobs:
       - name: Install Bom
         shell: bash
         run: |
-          curl -L https://github.com/kubernetes-sigs/bom/releases/download/v0.4.1/bom-linux-amd64 -o bom
+          curl -L https://github.com/kubernetes-sigs/bom/releases/download/v0.6.0/bom-amd64-linux -o bom
           sudo mv ./bom /usr/local/bin/bom
           sudo chmod +x /usr/local/bin/bom
 
@@ -76,22 +76,19 @@ jobs:
           cache-to: type=gha, mode=max, scope=${{ github.workflow }}
 
       - name: Sign Container Images
-        env:
-          COSIGN_EXPERIMENTAL: "true"
         run: |
           cosign sign --yes ghcr.io/syself/caph@${{ steps.docker_build_release.outputs.digest }}
 
       - name: Generate SBOM
         shell: bash
         # To-Do: generate SBOM from source after https://github.com/kubernetes-sigs/bom/issues/202 is fixed
-        # To-Do: format SBOM output to json after cosign v2.0 is released with https://github.com/sigstore/cosign/pull/2479
         run: |
-          bom generate -o sbom_ci_main_caph_${{ steps.meta.outputs.version }}.spdx \
+          bom generate --format=json -o sbom_ci_main_caph_${{ steps.meta.outputs.version }}-spdx.json \
           --image=ghcr.io/syself/caph:${{ steps.meta.outputs.version }}
 
       - name: Attach SBOM to Container Images
         run: |
-          cosign attach sbom --sbom sbom_ci_main_caph_${{ steps.meta.outputs.version }}.spdx ghcr.io/syself/caph@${{ steps.docker_build_release.outputs.digest }}
+          cosign attest --yes --type=spdxjson --predicate sbom_ci_main_caph_${{ steps.meta.outputs.version }}-spdx.json ghcr.io/syself/caph@${{ steps.docker_build_release.outputs.digest }}
 
       - name: Sign SBOM Images
         env:
