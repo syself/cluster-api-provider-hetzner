@@ -1,12 +1,12 @@
 # Quickstart Guide
 
-This guide goes through all necessary steps to create a cluster on Hetzner infrastructure (on HCloud & on Hetzner Dedicated).
+This guide goes through all the necessary steps to create a cluster on Hetzner infrastructure (on HCloud & Hetzner Dedicated).
 
 ## Preparing Hetzner
 
-You have the two options of either creating a pure HCloud cluster or a hybrid cluster with Hetzner dedicated (bare metal) servers. For a full list of flavors please check out the [release page](https://github.com/syself/cluster-api-provider-hetzner/releases).
+You have two options: either create a pure HCloud cluster or a hybrid cluster with Hetzner dedicated (bare metal) servers. For a full list of flavors, please check out the [release page](https://github.com/syself/cluster-api-provider-hetzner/releases).
 
-To create a workload cluster we need to do some preparation:
+To create a workload cluster, we need to do some preparation:
 
 - Set up the projects and credentials in HCloud.
 - Create the management/bootstrap cluster.
@@ -16,7 +16,7 @@ To create a workload cluster we need to do some preparation:
 For more information about this step, please see [here](./preparation.md)
 
 ## Generate your cluster.yaml
-> Please note that ready-to-use Kubernetes configurations, production-ready node images, kubeadm configuration, cluster add-ons like CNI and similar services need to be separately prepared or acquired to ensure a comprehensive and secure Kubernetes deployment. This is where **Syself Autopilot** comes into play, taking on these challenges to offer you a seamless, worry-free Kubernetes experience. Feel free to contact us via e-mail: info@syself.com.
+> Please note that ready-to-use Kubernetes configurations, production-ready node images, kubeadm configuration, cluster add-ons like CNI, and similar services need to be separately prepared or acquired to ensure a comprehensive and secure Kubernetes deployment. This is where **Syself Autopilot** comes into play, taking on these challenges to offer you a seamless, worry-free Kubernetes experience. Feel free to contact us via e-mail: info@syself.com.
 
 The clusterctl generate cluster command returns a YAML template for creating a workload cluster.
 It generates a YAML file named `my-cluster.yaml` with a predefined list of Cluster API objects (`Cluster`, `Machines`, `MachineDeployments`, etc.) to be deployed in the current namespace. With the `--target-namespace` flag, you can specify a different target namespace.
@@ -26,7 +26,7 @@ See also `clusterctl generate cluster --help`.
 clusterctl generate cluster my-cluster --kubernetes-version v1.28.4 --control-plane-machine-count=3 --worker-machine-count=3  > my-cluster.yaml
 ```
 
-You can also use different flavors, e.g. to create a cluster with private network:
+You can also use different flavors, e.g., to create a cluster with the private network:
 
 ```shell
 clusterctl generate cluster my-cluster --kubernetes-version v1.28.4 --control-plane-machine-count=3 --worker-machine-count=3  --flavor hcloud-network > my-cluster.yaml
@@ -36,7 +36,7 @@ All pre-configured flavors can be found on the [release page](https://github.com
 
 ## Hetzner Dedicated / Bare Metal Server
 
-If you want to create a cluster with bare metal servers, you need to additionally set up the robot credentials in the preparation step. As described in the [reference](/docs/reference/hetzner-bare-metal-machine-template.md), you need to manually buy bare metal servers before-hand. To use bare metal servers for your deployment, you should choose one of the following flavors:
+If you want to create a cluster with bare metal servers, you will also need to set up the robot credentials in the preparation step. As described in the [reference](/docs/reference/hetzner-bare-metal-machine-template.md), you need to buy bare metal servers beforehand manually. To use bare metal servers for your deployment, you should choose one of the following flavors:
 
 | Flavor                                       | What it does                                                                                                                                 |
 | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -44,9 +44,9 @@ If you want to create a cluster with bare metal servers, you need to additionall
 | hetzner-baremetal-control-planes             | Uses bare metal servers for the control plane nodes - with normal remediation (unprovision/recreate machines) |
 | hetzner-hcloud-control-planes                | Uses the hcloud servers for the control plane nodes and the bare metal servers for the worker nodes                                          |
 
-Then you need to create a `HetznerBareMetalHost` object for each bare metal server that you bought and specify its server ID in the specs. See an [example](/docs/reference/hetzner-bare-metal-host.md). Add the created objects to your my-cluster.yaml file. If you already know the WWN of the storage device you want to choose for booting, then specify it in `rootDeviceHints` of the object. If not, you can apply the workload cluster and start the provisioning without specifying the WWN and then wait for the bare metal hosts to show an error.
+Next, you need to create a `HetznerBareMetalHost` object for each bare metal server that you bought and specify its server ID in the specs. Refer to an example [here](/docs/reference/hetzner-bare-metal-host.md). Add the created objects to your `my-cluster.yaml` file. If you already know the WWN of the storage device you want to choose for booting, specify it in the `rootDeviceHints` of the object. If not, you can apply the workload cluster, start the provisioning without specifying the WWN, and then wait for the bare metal hosts to show an error.
 
-Then have a look at the status of `HetznerBareMetalHost` by running `kubectl describe hetznerbaremetalhost` in your management cluster. There you will find `hardwareDetails` of all of your bare metal hosts, in which you can see a list of all the relevant storage devices as well as their properties. You can just copy+paste the WWN:s of your desired storage device into the `rootDeviceHints` of your `HetznerBareMetalHost` objects.
+After that, look at the status of `HetznerBareMetalHost` by running `kubectl describe hetznerbaremetalhost` in your management cluster. There you will find `hardwareDetails` of all of your bare metal hosts, in which you can see a list of all the relevant storage devices as well as their properties. You can copy+paste the WWN:s of your desired storage device into the `rootDeviceHints` of your `HetznerBareMetalHost` objects.
 
 ## Apply the workload cluster
 
@@ -62,7 +62,7 @@ The cluster will now start provisioning. You can check status with:
 kubectl get cluster
 ```
 
-You can also view cluster and its resources at a glance by running:
+You can also view the cluster and its resources at a glance by running:
 
 ```shell
 clusterctl describe cluster my-cluster
@@ -93,20 +93,20 @@ KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install cilium cilium/
 -f templates/cilium/cilium.yaml
 ```
 
-You can, of course, also install an alternative CNI, e.g. calico.
+You can, of course, also install an alternative CNI, e.g., calico.
 
-> There is a bug in ubuntu that requires the older version of cilium for this quickstart guide.
+> There is a bug in Ubuntu that requires the older version of Cilium for this quickstart guide.
 
 ## Deploy the CCM
 
 ### Deploy HCloud Cloud Controller Manager - _hcloud only_
 
-This make command will install the CCM in your workload cluster.
+This `make` command will install the CCM in your workload cluster.
 
 `make install-ccm-in-wl-cluster PRIVATE_NETWORK=false`
 
 ```shell
-# For a cluster without private network:
+# For a cluster without a private network:
 helm repo add syself https://charts.syself.com
 helm repo update syself
 
@@ -172,16 +172,16 @@ export KUBECONFIG=/tmp/workload-kubeconfig
 
 ### Moving components
 
-To move the cluster-api objects from your bootstrap cluster to the new management cluster, you need first to install the Cluster API controllers. To install the components with the latest version, please run:
+To move the Cluster API objects from your bootstrap cluster to the new management cluster, you need first to install the Cluster API controllers. To install the components with the latest version, please run:
 
 ```shell
 clusterctl init --core cluster-api --bootstrap kubeadm --control-plane kubeadm --infrastructure hetzner
 
 ```
 
-If you want a specific version, then use the flag `--infrastructure hetzner:vX.X.X`.
+If you want a specific version, use the flag `--infrastructure hetzner:vX.X.X`.
 
-Now you can switch back to the management cluster, for example with
+Now you can switch back to the management cluster, for example, with
 
 ```shell
 export KUBECONFIG=~/.kube/config
@@ -199,6 +199,6 @@ Clusterctl Flags:
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | _--namespace_             | The namespace where the workload cluster is hosted. If unspecified, the current context's namespace is used.                  |
 | _--kubeconfig_            | Path to the kubeconfig file for the source management cluster. If unspecified, default discovery rules apply.                 |
-| _--kubeconfig-context_    | Context to be used within the kubeconfig file for the source management cluster. If empty, current context will be used.      |
+| _--kubeconfig-context_    | Context to be used within the kubeconfig file for the source management cluster. If empty, the current context will be used.      |
 | _--to-kubeconfig_         | Path to the kubeconfig file to use for the destination management cluster.                                                    |
-| _--to-kubeconfig-context_ | Context to be used within the kubeconfig file for the destination management cluster. If empty, current context will be used. |
+| _--to-kubeconfig-context_ | Context to be used within the kubeconfig file for the destination management cluster. If empty, the current context will be used. |
