@@ -143,11 +143,11 @@ Are you interested in contributing to Cluster API Provider Hetzner? We, the
 maintainers and community, would love your suggestions, contributions, and help!
 If you want to learn more about how to get involved, you can contact the maintainers at any time.
 
-To set up your environment, try out the development guide.
+To set up your environment, try out the [development guide](docs/developers/development.md).
 
 In the interest of getting more new people involved, we tag issues with
 [`good first issue`][good_first_issue].
-These are typically issues that have a smaller scope but are good to get acquainted with the codebase.
+These are typically issues that have a smaller scope but are good for getting acquainted with the codebase.
 
 We also encourage ALL active community participants to act as if they are
 maintainers, even if you don't have "official" write permissions. This is a
