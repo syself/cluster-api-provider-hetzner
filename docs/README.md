@@ -1,9 +1,11 @@
 # Documentation Index
 
+This is the official documentation of Cluster API Provider Hetzner. Before starting with this documentation, you should have a basic understanding of Cluster API. Cluster API is a Kubernetes sub-project focused on providing a declarative API to manage Kubernetes clusters. Refer to the Cluster API quick start guide from their [official documentation](https://cluster-api.sigs.k8s.io/user/quick-start.html). 
+
 ## Quick start
 
 - [Preparation](topics/preparation.md)
-- [Getting started](topics/quickstart.md )
+- [Getting started](topics/quickstart.md)
 
 ## Topics
 
