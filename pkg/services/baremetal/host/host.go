@@ -603,6 +603,11 @@ func getHardwareDetails(sshClient sshclient.Client) (infrav1.HardwareDetails, er
 		return infrav1.HardwareDetails{}, fmt.Errorf("failed to obtain hardware details storage: %w", err)
 	}
 
+	// remove names of storage devices because they might change
+	for _, device := range storage {
+		device.Name = ""
+	}
+
 	cpu, err := obtainHardwareDetailsCPU(sshClient)
 	if err != nil {
 		return infrav1.HardwareDetails{}, fmt.Errorf("failed to obtain hardware details CPU: %w", err)
@@ -1033,8 +1038,14 @@ func (s *Service) createAutoSetupInput(sshClient sshclient.Client) (autoSetupInp
 		}
 	}
 
+	// get the information about storage devices again to have the latest names which are then taken for installimage
+	storage, err := obtainHardwareDetailsStorage(sshClient)
+	if err != nil {
+		return autoSetupInput{}, actionError{err: fmt.Errorf("failed to obtain hardware details storage: %w", err)}
+	}
+
 	// get device names from storage device
-	deviceNames := getDeviceNames(s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.ListOfWWN(), s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails.Storage)
+	deviceNames := getDeviceNames(s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.ListOfWWN(), storage)
 
 	// we need at least one storage device
 	if len(deviceNames) == 0 {
