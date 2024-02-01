@@ -776,6 +776,7 @@ test: test-unit ## Runs all unit and integration tests.
 
 .PHONY: tilt-up
 tilt-up: env-vars-for-wl-cluster $(ENVSUBST) $(KUBECTL) $(KUSTOMIZE) $(TILT) cluster  ## Start a mgt-cluster & Tilt. Installs the CRDs and deploys the controllers
+	@mkdir -p .tiltbuild
 	EXP_CLUSTER_RESOURCE_SET=true $(TILT) up --port=10351
 
 .PHONY: watch
