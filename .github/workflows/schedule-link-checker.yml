@@ -39,7 +39,7 @@ jobs:
             link-checker
 
       - name: Update Issue
-        uses: peter-evans/create-issue-from-file@433e51abf769039ee20ba1293a088ca19d573b7f # v4
+        uses: peter-evans/create-issue-from-file@24452a72d85239eacf1468b0f1982a9f3fec4c94 # v5
         with:
           title: Link Checker Dashboard
           issue-number: "${{ steps.link-checker-issue.outputs.issue_number }}"
