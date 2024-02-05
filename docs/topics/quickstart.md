@@ -4,7 +4,11 @@ This guide goes through all the necessary steps to create a cluster on Hetzner i
 
 ## Prerequisites
 
-There are certain prerequisites that you need to 
+There are certain prerequisites that you need to comply with before getting started with this guide.
+
+### Installing Helm
+
+Helm is a package manager that faciliates the installation and management of applications in a Kubernetes cluster. Refer to the [official docs](https://helm.sh/docs/intro/install/) for installation.
 
 ### Preparing Hetzner
 
