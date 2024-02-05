@@ -94,6 +94,8 @@ clusterctl get kubeconfig my-cluster > $CAPH_WORKER_CLUSTER_KUBECONFIG
 
 ## Deploy a CNI solution
 
+Cilium is used as a CNI solution in this guide. The following command deploys it to your cluster:
+
 ```shell
 helm repo add cilium https://helm.cilium.io/
 
@@ -110,7 +112,7 @@ You can, of course, also install an alternative CNI, e.g., calico.
 
 ### Deploy HCloud Cloud Controller Manager - _hcloud only_
 
-This `make` command will install the CCM in your workload cluster.
+The `make` command will install the CCM in your workload cluster.
 
 `make install-ccm-in-wl-cluster PRIVATE_NETWORK=false`
 
