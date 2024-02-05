@@ -10,6 +10,10 @@ There are certain prerequisites that you need to comply with before getting star
 
 Helm is a package manager that faciliates the installation and management of applications in a Kubernetes cluster. Refer to the [official docs](https://helm.sh/docs/intro/install/) for installation.
 
+### Understanding ClusterAPI and Clusterctl
+
+It is essential to understand ClusterAPI before getting started with the cluster creation on Hetzner infrastructure. It is a subproject of Kubernetes focused on providing declarative APIs and tooling to simplify provisioning, upgrading, and operating multiple Kubernetes clusters. Know more about ClusterAPI from its [official documentation](https://cluster-api.sigs.k8s.io/introduction).
+
 ### Preparing Hetzner
 
 You have two options: either create a pure HCloud cluster or a hybrid cluster with Hetzner dedicated (bare metal) servers. For a full list of flavors, please check out the [release page](https://github.com/syself/cluster-api-provider-hetzner/releases).
