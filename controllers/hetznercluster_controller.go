@@ -203,33 +203,7 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 		return reconcile.Result{}, fmt.Errorf("failed to reconcile placement groups for HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
 	}
 
-	if hetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
-		if hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4 != "<nil>" {
-			defaultHost := hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4
-			defaultPort := int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port)
-
-			if hetznerCluster.Spec.ControlPlaneEndpoint == nil {
-				hetznerCluster.Spec.ControlPlaneEndpoint = &clusterv1.APIEndpoint{
-					Host: defaultHost,
-					Port: defaultPort,
-				}
-			} else {
-				if hetznerCluster.Spec.ControlPlaneEndpoint.Host == "" {
-					hetznerCluster.Spec.ControlPlaneEndpoint.Host = defaultHost
-				}
-				if hetznerCluster.Spec.ControlPlaneEndpoint.Port == 0 {
-					hetznerCluster.Spec.ControlPlaneEndpoint.Port = defaultPort
-				}
-			}
-
-			hetznerCluster.Status.Ready = true
-		}
-	} else if hetznerCluster.Spec.ControlPlaneEndpoint != nil {
-		hetznerCluster.Status.Ready = true
-	}
-
-	// update control plane endpoint
-	hetznerCluster.Status.Ready = setControlPlaneEndpoint(hetznerCluster)
+	processControlPlaneEndpoint(hetznerCluster)
 
 	// delete deprecated conditions of old clusters
 	conditions.Delete(clusterScope.HetznerCluster, infrav1.DeprecatedHetznerClusterTargetClusterReadyCondition)
@@ -267,8 +241,7 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 	return reconcile.Result{}, nil
 }
 
-// setControlPlaneEndpoint updates hetznerCluster.Spec.ControlPlaneEndpoint and returns whether the hetznerCluster is ready or not.
-func setControlPlaneEndpoint(hetznerCluster *infrav1.HetznerCluster) bool {
+func processControlPlaneEndpoint(hetznerCluster *infrav1.HetznerCluster) {
 	if hetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
 		if hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4 != "<nil>" {
 			defaultHost := hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4
@@ -287,12 +260,31 @@ func setControlPlaneEndpoint(hetznerCluster *infrav1.HetznerCluster) bool {
 					hetznerCluster.Spec.ControlPlaneEndpoint.Port = defaultPort
 				}
 			}
-			return true
+			conditions.MarkTrue(hetznerCluster, infrav1.ControlPlaneEndpointSetCondition)
+			hetznerCluster.Status.Ready = true
+		} else {
+			msg := "enabled LoadBalancer but load balancer not ready yet"
+			conditions.MarkFalse(hetznerCluster,
+				infrav1.ControlPlaneEndpointSetCondition,
+				infrav1.ControlPlaneEndpointNotSetReason,
+				clusterv1.ConditionSeverityWarning,
+				msg)
+			hetznerCluster.Status.Ready = false
 		}
-	} else if hetznerCluster.Spec.ControlPlaneEndpoint != nil {
-		return true
+	} else {
+		if hetznerCluster.Spec.ControlPlaneEndpoint != nil && hetznerCluster.Spec.ControlPlaneEndpoint.Host != "" && hetznerCluster.Spec.ControlPlaneEndpoint.Port != 0 {
+			conditions.MarkTrue(hetznerCluster, infrav1.ControlPlaneEndpointSetCondition)
+			hetznerCluster.Status.Ready = true
+		} else {
+			msg := "disabled LoadBalancer and not yet provided ControlPlane endpoint"
+			conditions.MarkFalse(hetznerCluster,
+				infrav1.ControlPlaneEndpointSetCondition,
+				infrav1.ControlPlaneEndpointNotSetReason,
+				clusterv1.ConditionSeverityWarning,
+				msg)
+			hetznerCluster.Status.Ready = false
+		}
 	}
-	return false
 }
 
 func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterScope *scope.ClusterScope) (reconcile.Result, error) {

@@ -73,7 +73,12 @@ func (r *HetznerCluster) ValidateCreate() (admission.Warnings, error) {
 	hetznerclusterlog.V(1).Info("validate create", "name", r.Name)
 	var allErrs field.ErrorList
 
-	if len(r.Spec.ControlPlaneRegions) == 0 {
+	allowEmptyControlPlaneAddress := false
+	if r.Annotations != nil {
+		allowEmptyControlPlaneAddress = r.Annotations[AllowEmptyControlPlaneAddressAnnotation] == "true"
+	}
+
+	if !allowEmptyControlPlaneAddress && len(r.Spec.ControlPlaneRegions) == 0 {
 		allErrs = append(allErrs, field.Invalid(
 			field.NewPath("spec", "controlPlaneRegions"),
 			r.Spec.ControlPlaneRegions,
@@ -108,8 +113,9 @@ func (r *HetznerCluster) ValidateCreate() (admission.Warnings, error) {
 		}
 	}
 
-	// Check whether controlPlaneEndpoint is specified if controlPlaneLoadBalancer is not enabled
-	if !r.Spec.ControlPlaneLoadBalancer.Enabled {
+	// Check whether controlPlaneEndpoint is specified if allow empty is not set or false
+
+	if !allowEmptyControlPlaneAddress && !r.Spec.ControlPlaneLoadBalancer.Enabled {
 		if r.Spec.ControlPlaneEndpoint == nil ||
 			r.Spec.ControlPlaneEndpoint.Host == "" ||
 			r.Spec.ControlPlaneEndpoint.Port == 0 {
