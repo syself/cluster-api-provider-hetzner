@@ -2,7 +2,11 @@
 
 This guide goes through all the necessary steps to create a cluster on Hetzner infrastructure (on HCloud & Hetzner Dedicated).
 
-## Preparing Hetzner
+## Prerequisites
+
+There are certain prerequisites that you need to 
+
+### Preparing Hetzner
 
 You have two options: either create a pure HCloud cluster or a hybrid cluster with Hetzner dedicated (bare metal) servers. For a full list of flavors, please check out the [release page](https://github.com/syself/cluster-api-provider-hetzner/releases).
 
