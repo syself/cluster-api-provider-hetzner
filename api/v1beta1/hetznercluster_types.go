@@ -26,6 +26,9 @@ const (
 	// resources associated with HetznerCluster before removing it from the
 	// apiserver.
 	ClusterFinalizer = "hetznercluster.infrastructure.cluster.x-k8s.io"
+	// AllowEmptyControlPlaneAddressAnnotation allows HetznerCluster Webhook
+	// to skip some validation steps for external managed controle planes.
+	AllowEmptyControlPlaneAddressAnnotation = "capi.syself.com/allow-empty-control-plane-address"
 )
 
 // HetznerClusterSpec defines the desired state of HetznerCluster.
@@ -43,7 +46,7 @@ type HetznerClusterSpec struct {
 	SSHKeys HetznerSSHKeys `json:"sshKeys"`
 	// ControlPlaneEndpoint represents the endpoint used to communicate with the control plane.
 	// +optional
-	ControlPlaneEndpoint *clusterv1.APIEndpoint `json:"controlPlaneEndpoint"`
+	ControlPlaneEndpoint *clusterv1.APIEndpoint `json:"controlPlaneEndpoint,omitempty"`
 
 	// ControlPlaneLoadBalancer is optional configuration for customizing control plane behavior. Naming convention is from upstream cluster-api project.
 	ControlPlaneLoadBalancer LoadBalancerSpec `json:"controlPlaneLoadBalancer,omitempty"`

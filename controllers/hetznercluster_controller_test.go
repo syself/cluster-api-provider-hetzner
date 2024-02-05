@@ -443,6 +443,78 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 					return isPresentAndFalseWithReason(key, instance, infrav1.LoadBalancerReadyCondition, infrav1.LoadBalancerFailedToOwnReason)
 				}, timeout, time.Second).Should(BeTrue())
 			})
+
+			It("should work with capi.syself.com/allow-empty-control-plane-address annotation error condition", func() {
+				instance.Annotations = make(map[string]string)
+				instance.Annotations[infrav1.AllowEmptyControlPlaneAddressAnnotation] = "true"
+				instance.Spec.ControlPlaneLoadBalancer.Enabled = false
+				instance.Spec.ControlPlaneEndpoint = nil
+				Expect(testEnv.Create(ctx, instance)).To(Succeed())
+
+				Eventually(func() bool {
+					if err := testEnv.Get(ctx, key, instance); err != nil {
+						return false
+					}
+
+					return isPresentAndFalseWithReason(key, instance, infrav1.ControlPlaneEndpointSetCondition, infrav1.ControlPlaneEndpointNotSetReason)
+				}, timeout, time.Second).Should(BeTrue())
+			})
+
+			It("should work with capi.syself.com/allow-empty-control-plane-address annotation error condition custom port", func() {
+				instance.Annotations = make(map[string]string)
+				instance.Annotations[infrav1.AllowEmptyControlPlaneAddressAnnotation] = "true"
+				instance.Spec.ControlPlaneLoadBalancer.Enabled = false
+				instance.Spec.ControlPlaneEndpoint = &clusterv1.APIEndpoint{
+					Host: "",
+					Port: 1234,
+				}
+				Expect(testEnv.Create(ctx, instance)).To(Succeed())
+
+				Eventually(func() bool {
+					if err := testEnv.Get(ctx, key, instance); err != nil {
+						return false
+					}
+
+					return isPresentAndFalseWithReason(key, instance, infrav1.ControlPlaneEndpointSetCondition, infrav1.ControlPlaneEndpointNotSetReason)
+				}, timeout, time.Second).Should(BeTrue())
+			})
+
+			It("should work with capi.syself.com/allow-empty-control-plane-address annotation success condition", func() {
+				instance.Annotations = make(map[string]string)
+				instance.Annotations[infrav1.AllowEmptyControlPlaneAddressAnnotation] = "true"
+				instance.Spec.ControlPlaneLoadBalancer.Enabled = false
+				instance.Spec.ControlPlaneEndpoint = &clusterv1.APIEndpoint{
+					Host: "localhost",
+					Port: 6443,
+				}
+				Expect(testEnv.Create(ctx, instance)).To(Succeed())
+
+				Eventually(func() bool {
+					if err := testEnv.Get(ctx, key, instance); err != nil {
+						return false
+					}
+
+					return isPresentAndTrue(key, instance, infrav1.ControlPlaneEndpointSetCondition)
+				}, timeout, time.Second).Should(BeTrue())
+			})
+
+			It("should work with enabled load balancer success", func() {
+				instance.Annotations = make(map[string]string)
+				instance.Spec.ControlPlaneLoadBalancer.Enabled = true
+				instance.Spec.ControlPlaneEndpoint = &clusterv1.APIEndpoint{
+					Host: "localhost",
+					Port: 6443,
+				}
+				Expect(testEnv.Create(ctx, instance)).To(Succeed())
+
+				Eventually(func() bool {
+					if err := testEnv.Get(ctx, key, instance); err != nil {
+						return false
+					}
+
+					return isPresentAndTrue(key, instance, infrav1.ControlPlaneEndpointSetCondition)
+				}, timeout, time.Second).Should(BeTrue())
+			})
 		})
 
 		Context("HetznerMachines belonging to the cluster", func() {
@@ -778,6 +850,35 @@ var _ = Describe("HetznerCluster validation", func() {
 			Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
 		})
 
+		It("should succeed with capi.syself.com/allow-empty-control-plane-address annotation", func() {
+			hetznerCluster.Annotations = make(map[string]string)
+			hetznerCluster.Annotations[infrav1.AllowEmptyControlPlaneAddressAnnotation] = "true"
+			hetznerCluster.Spec.ControlPlaneRegions = []infrav1.Region{}
+			hetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled = false
+			hetznerCluster.Spec.ControlPlaneEndpoint.Port = 443
+			hetznerCluster.Spec.ControlPlaneEndpoint.Host = "localhost"
+			Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
+		})
+
+		It("should succeed with capi.syself.com/allow-empty-control-plane-address annotation empty host", func() {
+			hetznerCluster.Annotations = make(map[string]string)
+			hetznerCluster.Annotations[infrav1.AllowEmptyControlPlaneAddressAnnotation] = "true"
+			hetznerCluster.Spec.ControlPlaneRegions = []infrav1.Region{}
+			hetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled = false
+			hetznerCluster.Spec.ControlPlaneEndpoint.Port = 443
+			hetznerCluster.Spec.ControlPlaneEndpoint.Host = ""
+			Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
+		})
+
+		It("should succeed with capi.syself.com/allow-empty-control-plane-address annotation empty ControlPlaneEndpoint", func() {
+			hetznerCluster.Annotations = make(map[string]string)
+			hetznerCluster.Annotations[infrav1.AllowEmptyControlPlaneAddressAnnotation] = "true"
+			hetznerCluster.Spec.ControlPlaneRegions = []infrav1.Region{}
+			hetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled = false
+			hetznerCluster.Spec.ControlPlaneEndpoint = nil
+			Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
+		})
+
 		It("should fail without a wrong controlPlaneRegion name", func() {
 			hetznerCluster.Spec.ControlPlaneRegions = append(hetznerCluster.Spec.ControlPlaneRegions, infrav1.Region("wrong-region"))
 			Expect(testEnv.Create(ctx, hetznerCluster)).ToNot(Succeed())
@@ -853,13 +954,13 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 			},
 		}
 
-		got := setControlPlaneEndpoint(hetznerCluster)
+		processControlPlaneEndpoint(hetznerCluster)
 
 		if hetznerCluster.Spec.ControlPlaneEndpoint != nil {
 			t.Fatalf("ControlPlaneEndpoint must be nil")
 		}
 
-		if got != false {
+		if hetznerCluster.Status.Ready != false {
 			t.Fatal("return value should be false")
 		}
 	})
@@ -872,12 +973,12 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 				},
 				ControlPlaneEndpoint: &clusterv1.APIEndpoint{
 					Host: "xyz",
-					Port: 0,
+					Port: 1234,
 				},
 			},
 		}
 
-		got := setControlPlaneEndpoint(hetznerCluster)
+		processControlPlaneEndpoint(hetznerCluster)
 
 		if hetznerCluster.Spec.ControlPlaneEndpoint == nil {
 			t.Fatalf("ControlPlaneEndpoint must not be nil")
@@ -887,11 +988,11 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 			t.Fatalf("Wrong input for host. Got: %s, Want: 'xyz'", hetznerCluster.Spec.ControlPlaneEndpoint.Host)
 		}
 
-		if hetznerCluster.Spec.ControlPlaneEndpoint.Port != 0 {
-			t.Fatalf("Value of Port should not change. Got: %d, Want: 0", hetznerCluster.Spec.ControlPlaneEndpoint.Port)
+		if hetznerCluster.Spec.ControlPlaneEndpoint.Port != 1234 {
+			t.Fatalf("Value of Port should not change. Got: %d, Want: 1234", hetznerCluster.Spec.ControlPlaneEndpoint.Port)
 		}
 
-		if got != true {
+		if hetznerCluster.Status.Ready != true {
 			t.Fatalf("return value should be true")
 		}
 	})
@@ -911,14 +1012,23 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 			},
 		}
 
-		got := setControlPlaneEndpoint(hetznerCluster)
+		processControlPlaneEndpoint(hetznerCluster)
 
 		if hetznerCluster.Spec.ControlPlaneEndpoint != nil {
 			t.Fatalf("ControlPlaneEndpoint should not change. It should remain nil")
 		}
 
-		if got != false {
+		if hetznerCluster.Status.Ready != false {
 			t.Fatalf("return value should be false")
+		}
+
+		if !conditions.Has(hetznerCluster, infrav1.ControlPlaneEndpointSetCondition) {
+			t.Fatalf("ControlPlaneEndpointSetCondition should exist")
+		}
+
+		condition := conditions.Get(hetznerCluster, infrav1.ControlPlaneEndpointSetCondition)
+		if condition.Status != corev1.ConditionFalse {
+			t.Fatalf("condition status should be false")
 		}
 	})
 
@@ -938,7 +1048,7 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 			},
 		}
 
-		got := setControlPlaneEndpoint(hetznerCluster)
+		processControlPlaneEndpoint(hetznerCluster)
 
 		if hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4 != "xyz" {
 			t.Fatalf("Wrong input for hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4. Got: %s, Want: 'xyz'", hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4)
@@ -958,7 +1068,7 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 			t.Fatalf("Wrong value for Port set. Got: %d, Want: %d", hetznerCluster.Spec.ControlPlaneEndpoint.Port, int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port))
 		}
 
-		if got != true {
+		if hetznerCluster.Status.Ready != true {
 			t.Fatalf("return value should be true")
 		}
 	})
@@ -982,7 +1092,7 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 			},
 		}
 
-		got := setControlPlaneEndpoint(hetznerCluster)
+		processControlPlaneEndpoint(hetznerCluster)
 
 		if hetznerCluster.Spec.ControlPlaneEndpoint.Host != hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4 {
 			t.Fatalf("Wrong value for Host set. Got: %s, Want: %s", hetznerCluster.Spec.ControlPlaneEndpoint.Host, hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4)
@@ -992,7 +1102,7 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 			t.Fatalf("Wrong value for Port set. Got: %d, Want: %d", hetznerCluster.Spec.ControlPlaneEndpoint.Port, int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port))
 		}
 
-		if got != true {
+		if hetznerCluster.Status.Ready != true {
 			t.Fatalf("return value should be true")
 		}
 	})
@@ -1016,7 +1126,7 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 			},
 		}
 
-		got := setControlPlaneEndpoint(hetznerCluster)
+		processControlPlaneEndpoint(hetznerCluster)
 
 		if hetznerCluster.Spec.ControlPlaneEndpoint.Host != "xyz" {
 			t.Fatalf("Wrong value for Host set. Got: %s, Want: 'xyz'", hetznerCluster.Spec.ControlPlaneEndpoint.Host)
@@ -1026,7 +1136,7 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 			t.Fatalf("Wrong value for Port set. Got: %d, Want: %d", hetznerCluster.Spec.ControlPlaneEndpoint.Port, int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port))
 		}
 
-		if got != true {
+		if hetznerCluster.Status.Ready != true {
 			t.Fatalf("return value should be true")
 		}
 	})
@@ -1050,7 +1160,7 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 			},
 		}
 
-		got := setControlPlaneEndpoint(hetznerCluster)
+		processControlPlaneEndpoint(hetznerCluster)
 
 		if hetznerCluster.Spec.ControlPlaneEndpoint.Host != hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4 {
 			t.Fatalf("Wrong value for Host set. Got: %s, Want: %s", hetznerCluster.Spec.ControlPlaneEndpoint.Host, hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4)
@@ -1060,7 +1170,7 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 			t.Fatalf("Wrong value for Port set. Got: %d, Want: 21", hetznerCluster.Spec.ControlPlaneEndpoint.Port)
 		}
 
-		if got != true {
+		if hetznerCluster.Status.Ready != true {
 			t.Fatalf("return value should be true")
 		}
 	})
@@ -1084,7 +1194,7 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 			},
 		}
 
-		got := setControlPlaneEndpoint(hetznerCluster)
+		processControlPlaneEndpoint(hetznerCluster)
 
 		if hetznerCluster.Spec.ControlPlaneEndpoint.Host != "xyz" {
 			t.Fatalf("Wrong value for Host set. Got: %s, Want: 'xyz'", hetznerCluster.Spec.ControlPlaneEndpoint.Host)
@@ -1094,7 +1204,7 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 			t.Fatalf("Wrong value for Port set. Got: %d, Want: 21", hetznerCluster.Spec.ControlPlaneEndpoint.Port)
 		}
 
-		if got != true {
+		if hetznerCluster.Status.Ready != true {
 			t.Fatalf("return value should be true")
 		}
 	})

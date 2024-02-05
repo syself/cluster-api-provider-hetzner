@@ -123,6 +123,8 @@ const (
 	TargetClusterCreateFailedReason = "TargetClusterCreateFailed"
 	// TargetClusterControlPlaneNotReadyReason indicates that the target cluster's control plane is not ready yet.
 	TargetClusterControlPlaneNotReadyReason = "TargetClusterControlPlaneNotReady"
+	// ControlPlaneEndpointSetCondition indicates that the control plane is set.
+	ControlPlaneEndpointSetCondition = "ControlPlaneEndpointSet"
 )
 
 const (
@@ -130,6 +132,8 @@ const (
 	TargetClusterSecretReadyCondition clusterv1.ConditionType = "TargetClusterSecretReady"
 	// TargetSecretSyncFailedReason indicates that the target secret could not be synced.
 	TargetSecretSyncFailedReason = "TargetSecretSyncFailed"
+	// ControlPlaneEndpointNotSetReason indicates that the control plane endpoint is not set.
+	ControlPlaneEndpointNotSetReason = "ControlPlaneEndpointNotSet"
 )
 
 const (
