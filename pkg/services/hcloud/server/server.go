@@ -253,6 +253,14 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 		return nil
 	}
 
+	// remove server from load balancer if it's being deleted
+	if conditions.Has(s.scope.Machine, clusterv1.PreDrainDeleteHookSucceededCondition) {
+		if err := s.deleteServerOfLoadBalancer(ctx, server); err != nil {
+			return fmt.Errorf("failed to delete server %d from loadbalancer: %w", server.ID, err)
+		}
+		return nil
+	}
+
 	// if already attached do nothing
 	for _, target := range s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target {
 		if target.Type == infrav1.LoadBalancerTargetTypeServer && target.ServerID == server.ID {
@@ -295,6 +303,7 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 			"Added new server with id %d to the loadbalancer %v",
 			server.ID, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID)
 	}
+
 	return nil
 }
 
