@@ -2,6 +2,8 @@
 
 This guide goes through all the necessary steps to create a cluster on Hetzner infrastructure (on HCloud & Hetzner Dedicated).
 
+>Note: The 
+
 ## Prerequisites
 
 There are certain prerequisites that you need to comply with before getting started with this guide.
