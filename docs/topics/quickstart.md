@@ -2,7 +2,7 @@
 
 This guide goes through all the necessary steps to create a cluster on Hetzner infrastructure (on HCloud & Hetzner Dedicated).
 
->Note: The 
+>Note: The cluster templates used in the repository and in this guide for creating clusters are for development purpose only. These templates are not advised to be used in the production environment. However, the software is production-ready and users use it in their production environment. Make your clusters production-ready with the help of Syself Autopilot. For more information, contact <info@syself.com>. 
 
 ## Prerequisites
 
@@ -14,7 +14,7 @@ Helm is a package manager that faciliates the installation and management of app
 
 ### Understanding ClusterAPI and Clusterctl
 
-It is essential to understand ClusterAPI before getting started with the cluster creation on Hetzner infrastructure. It is a subproject of Kubernetes focused on providing declarative APIs and tooling to simplify provisioning, upgrading, and operating multiple Kubernetes clusters. Know more about ClusterAPI from its [official documentation](https://cluster-api.sigs.k8s.io/introduction).
+Cluster API Provider Hetzner uses Cluster API to create clusters in provider Hetzner. So, it is essential to understand ClusterAPI before getting started with the cluster creation on Hetzner infrastructure. It is a subproject of Kubernetes focused on providing declarative APIs and tooling to simplify provisioning, upgrading, and operating multiple Kubernetes clusters. Know more about ClusterAPI from its [official documentation](https://cluster-api.sigs.k8s.io/introduction).
 
 ### Preparing Hetzner
 
