@@ -27,6 +27,7 @@ import (
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	corev1 "k8s.io/api/core/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
 	capierrors "sigs.k8s.io/cluster-api/errors"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/record"
@@ -167,7 +168,8 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	}
 
 	// all control planes have to be attached to the load balancer if it exists
-	if err := s.reconcileLoadBalancerAttachment(ctx, server); err != nil {
+	res, err = s.reconcileLoadBalancerAttachment(ctx, server)
+	if err != nil {
 		reterr := fmt.Errorf("failed to reconcile load balancer attachment: %w", err)
 		conditions.MarkFalse(
 			s.scope.HCloudMachine,
@@ -253,23 +255,23 @@ func (s *Service) reconcileNetworkAttachment(ctx context.Context, server *hcloud
 	return nil
 }
 
-func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *hcloud.Server) error {
+func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *hcloud.Server) (reconcile.Result, error) {
 	if s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer == nil {
-		return nil
+		return reconcile.Result{}, nil
 	}
 
 	// remove server from load balancer if it's being deleted
 	if conditions.Has(s.scope.Machine, clusterv1.PreDrainDeleteHookSucceededCondition) {
 		if err := s.deleteServerOfLoadBalancer(ctx, server); err != nil {
-			return fmt.Errorf("failed to delete server %d from loadbalancer: %w", server.ID, err)
+			return reconcile.Result{}, fmt.Errorf("failed to delete server %d from loadbalancer: %w", server.ID, err)
 		}
-		return nil
+		return reconcile.Result{}, nil
 	}
 
 	// if already attached do nothing
 	for _, target := range s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target {
 		if target.Type == infrav1.LoadBalancerTargetTypeServer && target.ServerID == server.ID {
-			return nil
+			return reconcile.Result{}, nil
 		}
 	}
 
@@ -281,35 +283,43 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 
 	// if load balancer has not been attached to a network, then it cannot add a server with private IP
 	if hasPrivateIP && conditions.IsFalse(s.scope.HetznerCluster, infrav1.LoadBalancerReadyCondition) {
-		return nil
+		return reconcile.Result{}, nil
 	}
 
 	// attach only if server has private IP or public IPv4, otherwise Hetzner cannot handle it
-	if server.PublicNet.IPv4.IP != nil || hasPrivateIP {
-		opts := hcloud.LoadBalancerAddServerTargetOpts{
-			Server:       server,
-			UsePrivateIP: &hasPrivateIP,
-		}
-		loadBalancer := &hcloud.LoadBalancer{
-			ID: s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID,
-		}
-
-		if err := s.scope.HCloudClient.AddTargetServerToLoadBalancer(ctx, opts, loadBalancer); err != nil {
-			hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "AddTargetServerToLoadBalancer")
-			if hcloud.IsError(err, hcloud.ErrorCodeTargetAlreadyDefined) {
-				return nil
-			}
-			return fmt.Errorf("failed to add server %d as target to load balancer: %w", server.ID, err)
-		}
-
-		record.Eventf(
-			s.scope.HetznerCluster,
-			"AddedAsTargetToLoadBalancer",
-			"Added new server with id %d to the loadbalancer %v",
-			server.ID, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID)
+	if server.PublicNet.IPv4.IP == nil && !hasPrivateIP {
+		return reconcile.Result{}, nil
 	}
 
-	return nil
+	// we attach only nodes with kube-apiserver pod healthy to avoid downtime, skipped for the first node
+	if len(s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target) > 0 &&
+		!conditions.IsTrue(s.scope.Machine, controlplanev1.MachineAPIServerPodHealthyCondition) {
+		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+
+	opts := hcloud.LoadBalancerAddServerTargetOpts{
+		Server:       server,
+		UsePrivateIP: &hasPrivateIP,
+	}
+	loadBalancer := &hcloud.LoadBalancer{
+		ID: s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID,
+	}
+
+	if err := s.scope.HCloudClient.AddTargetServerToLoadBalancer(ctx, opts, loadBalancer); err != nil {
+		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "AddTargetServerToLoadBalancer")
+		if hcloud.IsError(err, hcloud.ErrorCodeTargetAlreadyDefined) {
+			return reconcile.Result{}, nil
+		}
+		return reconcile.Result{}, fmt.Errorf("failed to add server %d as target to load balancer: %w", server.ID, err)
+	}
+
+	record.Eventf(
+		s.scope.HetznerCluster,
+		"AddedAsTargetToLoadBalancer",
+		"Added new server with id %d to the loadbalancer %v",
+		server.ID, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID)
+
+	return reconcile.Result{}, nil
 }
 
 func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
