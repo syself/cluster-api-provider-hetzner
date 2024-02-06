@@ -202,8 +202,13 @@ func (s *Service) Delete(ctx context.Context) (res reconcile.Result, err error) 
 
 	// control planes have to be deleted as targets of server
 	if s.scope.IsControlPlane() && s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
-		if err := s.deleteServerOfLoadBalancer(ctx, server); err != nil {
-			return reconcile.Result{}, fmt.Errorf("failed to delete attached server of loadbalancer: %w", err)
+		for _, target := range s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target {
+			if target.Type == infrav1.LoadBalancerTargetTypeServer && target.ServerID == server.ID {
+				if err := s.deleteServerOfLoadBalancer(ctx, server); err != nil {
+					return reconcile.Result{}, fmt.Errorf("failed to delete attached server of loadbalancer: %w", err)
+				}
+				break
+			}
 		}
 	}
 
