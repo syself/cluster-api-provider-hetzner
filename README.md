@@ -127,7 +127,6 @@ Each version of Cluster API for Hetzner will attempt to support at least two Kub
 ---
 
 
-
 ## :white_square_button: Operating System Images
 
 **Note**: Cluster API Provider Hetzner relies on a few prerequisites, which have to be already installed in the used operating system images, e.g. a container runtime, kubelet, and Kubeadm. Reference images can be found in kubernetes-sigs/image-builder and [templates/node-image](templates/node-image). If it isn't possible to pre-install these prerequisites in the image, you can always deploy and execute some custom scripts through the Kubeadm config. [Read more...](docs/topics/node-image.md)
