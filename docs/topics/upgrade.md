@@ -65,7 +65,7 @@ clusterctl upgrade apply --contract v1beta1
 
 Docs: [clusterctl upgrade plan](https://cluster-api.sigs.k8s.io/clusterctl/commands/upgrade.html)
 
-You might be surprised that for `infrastructure-hetzner` you see "Already up to date".
+You might be surprised that for `infrastructure-hetzner`, you see the "Already up to date" message below "NEXT VERSION".
 
 `clusterctl upgrade plan` does not display pre-release versions by default.
 
