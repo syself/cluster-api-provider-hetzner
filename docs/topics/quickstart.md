@@ -14,7 +14,9 @@ Helm is a package manager that faciliates the installation and management of app
 
 ### Understanding ClusterAPI and Clusterctl
 
-Cluster API Provider Hetzner uses Cluster API to create clusters in provider Hetzner. So, it is essential to understand ClusterAPI before getting started with the cluster creation on Hetzner infrastructure. It is a subproject of Kubernetes focused on providing declarative APIs and tooling to simplify provisioning, upgrading, and operating multiple Kubernetes clusters. Know more about ClusterAPI from its [official documentation](https://cluster-api.sigs.k8s.io/introduction).
+Cluster API Provider Hetzner uses Cluster API to create clusters in provider Hetzner. So, it is essential to understand Cluster API before getting started with the cluster creation on Hetzner infrastructure. It is a subproject of Kubernetes focused on providing declarative APIs and tooling to simplify provisioning, upgrading, and operating multiple Kubernetes clusters. Know more about Cluster API from its [official documentation](https://cluster-api.sigs.k8s.io/introduction).
+
+Clusterctl is the command-line-tool used for managing the lifecycle of a Cluster API management cluster.
 
 ### Preparing Hetzner
 
