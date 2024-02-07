@@ -12,11 +12,11 @@ There are certain prerequisites that you need to comply with before getting star
 
 Helm is a package manager that faciliates the installation and management of applications in a Kubernetes cluster. Refer to the [official docs](https://helm.sh/docs/intro/install/) for installation.
 
-### Understanding ClusterAPI and Clusterctl
+### Understanding Cluster API and clusterctl
 
 Cluster API Provider Hetzner uses Cluster API to create clusters in provider Hetzner. So, it is essential to understand Cluster API before getting started with the cluster creation on Hetzner infrastructure. It is a subproject of Kubernetes focused on providing declarative APIs and tooling to simplify provisioning, upgrading, and operating multiple Kubernetes clusters. Know more about Cluster API from its [official documentation](https://cluster-api.sigs.k8s.io/introduction).
 
-Clusterctl is the command-line-tool used for managing the lifecycle of a Cluster API management cluster.
+`clusterctl` is the command-line-tool used for managing the lifecycle of a Cluster API management cluster. Learn more about `clusterctl`, its installation, and commands from the official documentation of Cluster API [here](https://cluster-api.sigs.k8s.io/clusterctl/overview).
 
 ### Preparing Hetzner
 
