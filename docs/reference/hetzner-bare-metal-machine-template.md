@@ -4,13 +4,13 @@ In `HetznerBareMetalMachineTemplate` you can define all important properties for
 
 ### Lifecycle of a HetznerBareMetalMachine
 
-#### Creating of a HetznerBareMetalMachine
+#### Creating a HetznerBareMetalMachine
 
 Simply put, the specs of a `HetznerBareMetalMachine` consist of two parts. First, there is information about how the bare metal server is supposed to be provisioned. Second, there are properties where you can specify which host to select. If these selectors correspond to a host that is not consumed yet, then the `HetznerBareMetalMachine` transfers important information to the host object. This information is used to provision the host according to what you specified in the specs of `HetznerBareMetalMachineTemplate`. If a host has provisioned successfully, then the `HetznerBareMetalMachine` is considered to be ready.
 
 #### Deleting of a HetznerBareMetalMachine
 
-When the `HetznerBareMetalMachine` object gets deleted, it removes the information from the host that the latter used for provisioning. The host then triggers the deprovisioning. As soon as this has completed, the `HetznerBareMetalMachineController` removes the owner and consumer reference of the host and deletes the finalizer of the machine, so that it can be finally deleted.
+When the `HetznerBareMetalMachine` object gets deleted, it removes the information from the host that the latter used for provisioning. The host then triggers the deprovisioning. As soon as this has been completed, the `HetznerBareMetalMachineController` removes the owner and consumer reference of the host and deletes the finalizer of the machine, so that it can be finally deleted.
 
 #### Updating a HetznerBareMetalMachine
 
@@ -43,7 +43,7 @@ Via MatchLabels you can specify a certain label (key and value) that identifies 
 | template.spec.installImage.image.url                           | string              |                         | no       | Remote URL of image. Can be tar, tar.gz, tar.bz, tar.bz2, tar.xz, tgz, tbz, txz                                                                    |
 | template.spec.installImage.image.name                          | string              |                         | no       | Name of the image                                                                                                                                  |
 | template.spec.installImage.image.path                          | string              |                         | no       | Local path of a pre-installed image                                                                                                                |
-| template.spec.installImage.postInstallScript                   | string              |                         | no       | PostInstallScript that is used for commands that will be executed after install image                                                              |
+| template.spec.installImage.postInstallScript                   | string              |                         | no       | PostInstallScript that is used for commands that will be executed after installing image                                                              |
 | template.spec.installImage.swraid                              | int                 | 0                       | no       | Enables or disables raid. Set 1 to enable                                                                                                          |
 | template.spec.installImage.swraidLevel                         | int                 | 1                       | no       | Defines the software raid levels. Only relevant if raid is enabled. Pick one of 0,1,5,6,10                                                                                           |
 | template.spec.installImage.partitions                          | []object            |                         | yes      | Partitions that should be created in installimage                                                                                                  |
@@ -131,7 +131,7 @@ spec:
       # ... other container specs
 ```
 
-You can push an image to a oci-registry with a tool like [oras](https://oras.land):
+You can push an image to an oci-registry with a tool like [oras](https://oras.land):
 
 ```
 oras push ghcr.io/myorg/images/Ubuntu-2204-jammy-amd64-custom:1.0.0-beta.2 \
