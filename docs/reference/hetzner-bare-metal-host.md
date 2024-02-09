@@ -2,7 +2,7 @@
 
 The `HetznerBareMetalHost` object has a one-to-one relationship to a Hetzner dedicated server. Its ID is specified in the specs. The host object does not belong to a certain `HetznerCluster`, but can be used by multiple clusters. This is useful, as one host object per server is enough and you can easily see whether a host is used by one of your clusters or not.
 
-There are not many properties that are relevant for the host object. The WWN of the storage device that should be used for provisioning has to be specified in `rootDeviceHints` - but not right from the start. This property can be updated after the host started the provisioning phase and wrote all `hardwareDetails` in the host's status. From there, you can copy the WWN of the storage device that suits your needs and add it to your `HetznerBareMetalHost` object.
+There are not many properties that are relevant to the host object. The WWN of the storage device that should be used for provisioning has to be specified in `rootDeviceHints` - but not right from the start. This property can be updated after the host starts the provisioning phase and writes all `hardwareDetails` in the host's status. From there, you can copy the WWN of the storage device that suits your needs and add it to your `HetznerBareMetalHost` object.
 
 #### Find the WWN
 
@@ -29,10 +29,10 @@ Maintenance mode means that the host will not be consumed by any `HetznerBareMet
 | Key                      | Type      | Default | Required | Description                                                                                                                                                                                                                                                                            |
 | ------------------------ | --------- | ------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | serverID                 | int       |         | yes      | Server ID of the Hetzner dedicated server, you can find it on your Hetzner robot dashboard                                                                                                                                                                                             |
-| rootDeviceHints          | object    |         | no       | Important to find the correct root device. If none are specified, the host will stop provisioning in between to wait for the details to be specified. HardwareDetails in the host's status can be used to find the correct device. Currently, you can specify one disk or a raid setup |
+| rootDeviceHints          | object    |         | no       | It is important to find the correct root device. If none are specified, the host will stop provisioning in between to wait for the details to be specified. HardwareDetails in the host's status can be used to find the correct device. Currently, you can specify one disk or a raid setup |
 | rootDeviceHints.wwn      | string    |         | no       | Unique storage identifier for non raid setups                                                                                                                                                                                                                                          |
 | rootDeviceHints.raid     | object    |         | no       | Used to provide the controller with information on which disks a raid can be established                                                                                                                                                                                               |
-| rootDeviceHints.raid.wwn | []string |         | no       | Defines a list of Unique storage identifier used for raid setups                                                                                                                                                                                                                       |
+| rootDeviceHints.raid.wwn | []string |         | no       | Defines a list of Unique storage identifiers used for raid setups                                                                                                                                                                                                                       |
 | consumerRef              | object    |         | no       | Used by the controller and references the bare metal machine that consumes this host                                                                                                                                                                                                   |
 | maintenanceMode          | bool      |         | no       | If set to true, the host deprovisions and will not be consumed by any bare metal machine                                                                                                                                                                                               |
 | description              | string    |         | no       | Description can be used to store some valuable information about this host                                                                                                                                                                                                             |
@@ -54,7 +54,7 @@ spec:
   maintenanceMode: false
   description: Test Machine 0 #example
 ```
-If you want to create an object which will be used in a raid setup, the following can serve as an example.
+If you want to create an object that will be used in a raid setup, the following can serve as an example.
 
 ```yaml
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
