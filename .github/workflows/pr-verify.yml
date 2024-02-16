@@ -42,11 +42,11 @@ jobs:
           done
 
       - name: Generate Token
-        uses: tibdex/github-app-token@3beb63f4bd073e61482598c45c71c1019b59b73a # v2
+        uses: actions/create-github-app-token@f4c6bf6752984b3a29fcc135a5e70eb792c40c6b # v1
         id: generate-token
         with:
-          app_id: ${{ secrets.SYSELF_APP_ID }}
-          private_key: ${{ secrets.SYSELF_APP_PRIVATE_KEY }}
+          app-id: ${{ secrets.SYSELF_APP_ID }}
+          private-key: ${{ secrets.SYSELF_APP_PRIVATE_KEY }}
       - name: Generate Size
         uses: pascalgn/size-label-action@37a5ad4ae20ea8032abf169d953bcd661fd82cd3 # v0.5.0
         env:
