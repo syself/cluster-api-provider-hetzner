@@ -62,18 +62,26 @@ spec:
             description: HCloudMachineSpec defines the desired state of HCloudMachine.
             properties:
               imageName:
-                description: ImageName is the reference to the Machine Image from
-                  which to create the machine instance.
+                description: 'ImageName is the reference to the Machine Image from
+                  which to create the machine instance. It can reference an image
+                  uploaded to Hetzner API in two ways: either directly as the name
+                  of an image or as the label of an image.'
                 minLength: 1
                 type: string
               placementGroupName:
+                description: PlacementGroupName defines the placement group of the
+                  machine in HCloud API that must reference an existing placement
+                  group.
                 type: string
               providerID:
                 description: ProviderID is the unique identifier as specified by the
                   cloud provider.
                 type: string
               publicNetwork:
-                description: PublicNetwork specifies information for public networks
+                description: PublicNetwork specifies information for public networks.
+                  It defines the specs about the primary IP address of the server.
+                  If both IPv4 and IPv6 are disabled, then the private network has
+                  to be enabled.
                 properties:
                   enableIPv4:
                     default: true
@@ -83,8 +91,8 @@ spec:
                     type: boolean
                 type: object
               sshKeys:
-                description: define Machine specific SSH keys, overrides cluster wide
-                  SSH keys
+                description: SSHKeys define machine-specific SSH keys and override
+                  cluster-wide SSH keys.
                 items:
                   description: SSHKey defines the SSHKey for HCloud.
                   properties:
@@ -100,7 +108,9 @@ spec:
                   type: object
                 type: array
               type:
-                description: Type is the HCloud Machine Type for this machine.
+                description: 'Type is the HCloud Machine Type for this machine. It
+                  defines the desired server type of server in Hetzner''s Cloud API.
+                  Example: cpx11.'
                 enum:
                 - cpx11
                 - cx21
@@ -141,7 +151,7 @@ spec:
             description: HCloudMachineStatus defines the observed state of HCloudMachine.
             properties:
               addresses:
-                description: Addresses contains the server's associated addresses.
+                description: Addresses contain the server's associated addresses.
                 items:
                   description: MachineAddress contains information for the node's
                     address.
@@ -159,7 +169,7 @@ spec:
                   type: object
                 type: array
               conditions:
-                description: Conditions defines current service state of the HCloudMachine.
+                description: Conditions define the current service state of the HCloudMachine.
                 items:
                   description: Condition defines an observation of a Cluster API resource
                     operational state.

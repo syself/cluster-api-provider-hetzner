@@ -118,7 +118,8 @@ spec:
                 x-kubernetes-map-type: atomic
               description:
                 description: Description is a human-entered text used to help identify
-                  the host
+                  the host. It can be used to store some valuable information about
+                  the host.
                 type: string
               maintenanceMode:
                 description: MaintenanceMode indicates that a machine is supposed
@@ -145,9 +146,13 @@ spec:
                 type: object
               serverID:
                 description: ServerID defines the ID of the server provided by Hetzner.
+                  Find it on your Hetzner robot dashboard.
                 type: integer
               status:
-                description: Status contains all status information. DO NOT EDIT!!!
+                description: Status contains all status information. The controller
+                  writes this status. As some cannot be regenerated during any reconcilement,
+                  the status is in the specs of the object - not the actual status.
+                  DO NOT EDIT!!!
                 properties:
                   conditions:
                     description: Conditions defines current service state of the HetznerBareMetalHost.
