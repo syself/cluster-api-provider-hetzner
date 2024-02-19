@@ -261,16 +261,23 @@ spec:
                     type: array
                   robotRescueSecretRef:
                     description: SSHSecretRef defines the secret containing all information
-                      of the SSH key used for Hetzner robot.
+                      of the SSH key used for the Hetzner robot.
                     properties:
                       key:
-                        description: SSHSecretKeyRef defines the key name of the SSHSecret.
+                        description: Key contains details about the keys used in the
+                          data of the secret.
                         properties:
                           name:
+                            description: Name is the key in the secret's data where
+                              the SSH key's name is stored.
                             type: string
                           privateKey:
+                            description: PrivateKey is the key in the secret's data
+                              where the SSH key's private key is stored.
                             type: string
                           publicKey:
+                            description: PublicKey is the key in the secret's data
+                              where the SSH key's public key is stored.
                             type: string
                         required:
                         - name
@@ -278,6 +285,7 @@ spec:
                         - publicKey
                         type: object
                       name:
+                        description: Name is the name of the secret.
                         type: string
                     required:
                     - key
