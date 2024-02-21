@@ -27,18 +27,18 @@ const (
 	// apiserver.
 	ClusterFinalizer = "hetznercluster.infrastructure.cluster.x-k8s.io"
 	// AllowEmptyControlPlaneAddressAnnotation allows HetznerCluster Webhook
-	// to skip some validation steps for external managed controle planes.
+	// to skip some validation steps for externally managed control planes.
 	AllowEmptyControlPlaneAddressAnnotation = "capi.syself.com/allow-empty-control-plane-address"
 )
 
 // HetznerClusterSpec defines the desired state of HetznerCluster.
 type HetznerClusterSpec struct {
-	// HCloudNetworkSpec defines the Network for Hetzner Cloud. If left empty no private Network is configured.
+	// HCloudNetwork defines details about the private Network for Hetzner Cloud. If left empty, no private Network is configured.
 	// +optional
 	HCloudNetwork HCloudNetworkSpec `json:"hcloudNetwork"`
 
 	// ControlPlaneRegion consists of a list of HCloud Regions (fsn, nbg, hel). Because HCloud Networks
-	// have a very low latency we could assume in some use-cases that a region is behaving like a zone
+	// have a very low latency we could assume in some use cases that a region is behaving like a zone.
 	// https://kubernetes.io/docs/reference/labels-annotations-taints/#topologykubernetesiozone
 	ControlPlaneRegions []Region `json:"controlPlaneRegions"`
 
@@ -48,7 +48,7 @@ type HetznerClusterSpec struct {
 	// +optional
 	ControlPlaneEndpoint *clusterv1.APIEndpoint `json:"controlPlaneEndpoint,omitempty"`
 
-	// ControlPlaneLoadBalancer is optional configuration for customizing control plane behavior. Naming convention is from upstream cluster-api project.
+	// ControlPlaneLoadBalancer is an optional configuration for customizing control plane behavior.
 	ControlPlaneLoadBalancer LoadBalancerSpec `json:"controlPlaneLoadBalancer,omitempty"`
 
 	// +optional

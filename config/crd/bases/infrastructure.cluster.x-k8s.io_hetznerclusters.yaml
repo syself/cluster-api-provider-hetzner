@@ -82,9 +82,8 @@ spec:
                 - port
                 type: object
               controlPlaneLoadBalancer:
-                description: ControlPlaneLoadBalancer is optional configuration for
-                  customizing control plane behavior. Naming convention is from upstream
-                  cluster-api project.
+                description: ControlPlaneLoadBalancer is an optional configuration
+                  for customizing control plane behavior.
                 properties:
                   algorithm:
                     allOf:
@@ -160,8 +159,8 @@ spec:
               controlPlaneRegions:
                 description: ControlPlaneRegion consists of a list of HCloud Regions
                   (fsn, nbg, hel). Because HCloud Networks have a very low latency
-                  we could assume in some use-cases that a region is behaving like
-                  a zone https://kubernetes.io/docs/reference/labels-annotations-taints/#topologykubernetesiozone
+                  we could assume in some use cases that a region is behaving like
+                  a zone. https://kubernetes.io/docs/reference/labels-annotations-taints/#topologykubernetesiozone
                 items:
                   description: Region is a Hetzner Location
                   enum:
@@ -173,8 +172,8 @@ spec:
                   type: string
                 type: array
               hcloudNetwork:
-                description: HCloudNetworkSpec defines the Network for Hetzner Cloud.
-                  If left empty no private Network is configured.
+                description: HCloudNetwork defines details about the private Network
+                  for Hetzner Cloud. If left empty, no private Network is configured.
                 properties:
                   cidrBlock:
                     default: 10.0.0.0/16
