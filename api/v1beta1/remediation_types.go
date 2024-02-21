@@ -39,15 +39,15 @@ const (
 
 // RemediationStrategy describes how to remediate machines.
 type RemediationStrategy struct {
-	// Type of remediation.
+	// Type represents the type of the remediation strategy. At the moment, only "Reboot" is supported.
 	// +kubebuilder:default=Reboot
 	// +optional
 	Type RemediationType `json:"type,omitempty"`
 
-	// Sets maximum number of remediation retries.
+	// RetryLimit sets the maximum number of remediation retries. Zero retries if not set.
 	// +optional
 	RetryLimit int `json:"retryLimit,omitempty"`
 
-	// Sets the timeout between remediation retries.
+	// Timeout sets the timeout between remediation retries. It should be of the form "10m", or "40s".
 	Timeout *metav1.Duration `json:"timeout"`
 }
