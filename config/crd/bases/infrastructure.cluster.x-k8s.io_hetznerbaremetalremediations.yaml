@@ -69,7 +69,8 @@ spec:
               of HetznerBareMetalRemediation.
             properties:
               strategy:
-                description: Strategy field defines remediation strategy.
+                description: Strategy field defines the remediation strategy to be
+                  applied.
                 properties:
                   retryLimit:
                     description: Sets maximum number of remediation retries.

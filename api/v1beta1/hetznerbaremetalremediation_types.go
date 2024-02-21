@@ -31,7 +31,7 @@ const (
 
 // HetznerBareMetalRemediationSpec defines the desired state of HetznerBareMetalRemediation.
 type HetznerBareMetalRemediationSpec struct {
-	// Strategy field defines remediation strategy.
+	// Strategy field defines the remediation strategy to be applied.
 	Strategy *RemediationStrategy `json:"strategy,omitempty"`
 }
 
