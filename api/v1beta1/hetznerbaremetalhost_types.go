@@ -41,7 +41,10 @@ const (
 
 // RootDeviceHints holds the hints for specifying the storage location
 // for the root filesystem for the image. Need to specify either WWN or raid
-// to provision host machine successfully.
+// to provision the host machine successfully. It is important to find the correct root device. 
+// If none are specified, the host will stop provisioning in between to wait for 
+// the details to be specified. HardwareDetails in the host's status can be used to find the correct device. 
+// Currently, you can specify one disk or a raid setup.
 type RootDeviceHints struct {
 	// Unique storage identifier. The hint must match the actual value
 	// exactly.
@@ -172,6 +175,7 @@ type RebootAnnotationArguments struct {
 // HetznerBareMetalHostSpec defines the desired state of HetznerBareMetalHost.
 type HetznerBareMetalHostSpec struct {
 	// ServerID defines the ID of the server provided by Hetzner.
+	// Find it on your Hetzner robot dashboard.
 	ServerID int `json:"serverID"`
 
 	// Provide guidance about how to choose the device for the image
@@ -188,11 +192,14 @@ type HetznerBareMetalHostSpec struct {
 	// and won't be selected by any Hetzner bare metal machine.
 	MaintenanceMode *bool `json:"maintenanceMode,omitempty"`
 
-	// Description is a human-entered text used to help identify the host
+	// Description is a human-entered text used to help identify the host.
+	// It can be used to store some valuable information about the host.
 	// +optional
 	Description string `json:"description,omitempty"`
 
-	// Status contains all status information. DO NOT EDIT!!!
+	// Status contains all status information. The controller writes this status. 
+	// As some cannot be regenerated during any reconcilement, the status 
+	// is in the specs of the object - not the actual status. DO NOT EDIT!!!
 	// +optional
 	Status ControllerGeneratedStatus `json:"status,omitempty"`
 }
