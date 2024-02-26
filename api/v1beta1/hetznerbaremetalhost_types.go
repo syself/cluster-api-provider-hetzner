@@ -41,9 +41,9 @@ const (
 
 // RootDeviceHints holds the hints for specifying the storage location
 // for the root filesystem for the image. Need to specify either WWN or raid
-// to provision the host machine successfully. It is important to find the correct root device. 
-// If none are specified, the host will stop provisioning in between to wait for 
-// the details to be specified. HardwareDetails in the host's status can be used to find the correct device. 
+// to provision the host machine successfully. It is important to find the correct root device.
+// If none are specified, the host will stop provisioning in between to wait for
+// the details to be specified. HardwareDetails in the host's status can be used to find the correct device.
 // Currently, you can specify one disk or a raid setup.
 type RootDeviceHints struct {
 	// Unique storage identifier. The hint must match the actual value
@@ -197,8 +197,8 @@ type HetznerBareMetalHostSpec struct {
 	// +optional
 	Description string `json:"description,omitempty"`
 
-	// Status contains all status information. The controller writes this status. 
-	// As some cannot be regenerated during any reconcilement, the status 
+	// Status contains all status information. The controller writes this status.
+	// As some cannot be regenerated during any reconcilement, the status
 	// is in the specs of the object - not the actual status. DO NOT EDIT!!!
 	// +optional
 	Status ControllerGeneratedStatus `json:"status,omitempty"`
