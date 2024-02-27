@@ -36,22 +36,25 @@ type HCloudMachineSpec struct {
 	// +optional
 	ProviderID *string `json:"providerID,omitempty"`
 
-	// Type is the HCloud Machine Type for this machine.
+	// Type is the HCloud Machine Type for this machine. It defines the desired server type of server in Hetzner's Cloud API. Example: cpx11.
 	// +kubebuilder:validation:Enum=cpx11;cx21;cpx21;cx31;cpx31;cx41;cpx41;cx51;cpx51;ccx11;ccx12;ccx13;ccx21;ccx22;ccx23;ccx31;ccx32;ccx33;ccx41;ccx42;ccx43;ccx51;ccx52;ccx53;ccx62;ccx63;cax11;cax21;cax31;cax41
 	Type HCloudMachineType `json:"type"`
 
 	// ImageName is the reference to the Machine Image from which to create the machine instance.
+	// It can reference an image uploaded to Hetzner API in two ways: either directly as the name of an image or as the label of an image.
 	// +kubebuilder:validation:MinLength=1
 	ImageName string `json:"imageName"`
 
-	// define Machine specific SSH keys, overrides cluster wide SSH keys
+	// SSHKeys define machine-specific SSH keys and override cluster-wide SSH keys.
 	// +optional
 	SSHKeys []SSHKey `json:"sshKeys,omitempty"`
 
+	// PlacementGroupName defines the placement group of the machine in HCloud API that must reference an existing placement group.
 	// +optional
 	PlacementGroupName *string `json:"placementGroupName,omitempty"`
 
-	// PublicNetwork specifies information for public networks
+	// PublicNetwork specifies information for public networks. It defines the specs about
+	// the primary IP address of the server. If both IPv4 and IPv6 are disabled, then the private network has to be enabled.
 	// +optional
 	PublicNetwork *PublicNetworkSpec `json:"publicNetwork,omitempty"`
 }
@@ -62,7 +65,7 @@ type HCloudMachineStatus struct {
 	// +optional
 	Ready bool `json:"ready"`
 
-	// Addresses contains the server's associated addresses.
+	// Addresses contain the server's associated addresses.
 	Addresses []clusterv1.MachineAddress `json:"addresses,omitempty"`
 
 	// Region contains the name of the HCloud location the server is running.
@@ -84,7 +87,7 @@ type HCloudMachineStatus struct {
 	// +optional
 	FailureMessage *string `json:"failureMessage,omitempty"`
 
-	// Conditions defines current service state of the HCloudMachine.
+	// Conditions define the current service state of the HCloudMachine.
 	// +optional
 	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
 }
