@@ -7,14 +7,14 @@ require (
 	github.com/go-logr/logr v1.4.1
 	github.com/go-logr/zapr v1.3.0
 	github.com/hetznercloud/hcloud-go/v2 v2.6.0
-	github.com/onsi/ginkgo/v2 v2.13.2
-	github.com/onsi/gomega v1.30.0
+	github.com/onsi/ginkgo/v2 v2.15.0
+	github.com/onsi/gomega v1.31.1
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.4
 	github.com/syself/hrobot-go v0.2.5
-	go.uber.org/zap v1.26.0
-	golang.org/x/crypto v0.18.0
-	golang.org/x/mod v0.14.0
+	go.uber.org/zap v1.27.0
+	golang.org/x/crypto v0.20.0
+	golang.org/x/mod v0.15.0
 	k8s.io/api v0.28.4
 	k8s.io/apimachinery v0.28.4
 	k8s.io/apiserver v0.28.4
@@ -25,7 +25,7 @@ require (
 	sigs.k8s.io/cluster-api v1.6.0
 	sigs.k8s.io/cluster-api/test v1.6.0
 	sigs.k8s.io/controller-runtime v0.16.3
-	sigs.k8s.io/kind v0.20.0
+	sigs.k8s.io/kind v0.22.0
 )
 
 require (
@@ -111,11 +111,11 @@ require (
 	github.com/valyala/fastjson v1.6.4 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/exp v0.0.0-20230905200255-921286631fa9 // indirect
-	golang.org/x/net v0.20.0 // indirect
+	golang.org/x/net v0.21.0 // indirect
 	golang.org/x/oauth2 v0.14.0 // indirect
 	golang.org/x/sync v0.5.0 // indirect
-	golang.org/x/sys v0.16.0 // indirect
-	golang.org/x/term v0.16.0 // indirect
+	golang.org/x/sys v0.17.0 // indirect
+	golang.org/x/term v0.17.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.16.1 // indirect
