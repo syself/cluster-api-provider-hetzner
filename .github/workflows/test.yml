@@ -60,12 +60,12 @@ jobs:
         run: make report-cover-html report-cover-treemap
 
       - name: Test Summary
-        uses: test-summary/action@fee35d7df20790255fe6aa92cf0f6d28092ecf2f # v2.2
+        uses: test-summary/action@032c8a9cec6aaa3c20228112cae6ca10a3b29336 # v2.3
         with:
           paths: ".coverage/junit.xml"
 
       - name: Upload Report
-        uses: actions/upload-artifact@c7d193f32edcb7bfad88892161225aeda64e9392 # v4.0.0
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
           name: reports-${{ steps.name.outputs.name }}
           path: .reports
