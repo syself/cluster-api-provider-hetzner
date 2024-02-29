@@ -368,7 +368,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 				Expect(testEnv.Cleanup(ctx, host)).To(Succeed())
 			})
 
-			It("gets selected from a bm machine and provisions", func() {
+			It("gets selected from a bm machine and provisions (context 'provision host')", func() {
 				Eventually(func() bool {
 					if err := testEnv.Get(ctx, key, host); err != nil {
 						return false
@@ -378,36 +378,6 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 					}
 
 					return isPresentAndTrue(key, host, infrav1.ProvisionSucceededCondition)
-				}, timeout).Should(BeTrue())
-			})
-		})
-
-		Context("provision host with rootDeviceHints raid", func() {
-			BeforeEach(func() {
-				host = helpers.BareMetalHost(
-					hostName,
-					testNs.Name,
-					helpers.WithRootDeviceHintRaid(),
-					helpers.WithHetznerClusterRef(hetznerClusterName),
-				)
-				Expect(testEnv.Create(ctx, host)).To(Succeed())
-
-				key = client.ObjectKey{Namespace: testNs.Name, Name: host.Name}
-			})
-
-			AfterEach(func() {
-				Expect(testEnv.Cleanup(ctx, host)).To(Succeed())
-			})
-
-			It("gets selected from a bm machine and provisions", func() {
-				Eventually(func() bool {
-					if err := testEnv.Get(ctx, key, host); err != nil {
-						return false
-					}
-					if host.Spec.Status.ProvisioningState == infrav1.StateProvisioned {
-						return true
-					}
-					return false
 				}, timeout).Should(BeTrue())
 			})
 		})
@@ -444,6 +414,90 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 
 					return false
 				}, timeout, time.Second).Should(BeTrue())
+			})
+		})
+	})
+
+	Context("Tests with bm machine (with RAID)", func() {
+		BeforeEach(func() {
+			capiMachine = &clusterv1.Machine{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "capi-machine-",
+					Namespace:    testNs.Name,
+					Finalizers:   []string{clusterv1.MachineFinalizer},
+					Labels: map[string]string{
+						clusterv1.ClusterNameLabel: capiCluster.Name,
+					},
+				},
+				Spec: clusterv1.MachineSpec{
+					ClusterName: capiCluster.Name,
+					InfrastructureRef: corev1.ObjectReference{
+						APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
+						Kind:       "HetznerBareMetalMachine",
+						Name:       bmMachineName,
+					},
+					FailureDomain: &defaultFailureDomain,
+					Bootstrap: clusterv1.Bootstrap{
+						DataSecretName: ptr.To("bootstrap-secret"),
+					},
+				},
+			}
+			Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
+
+			bmMachine = &infrav1.HetznerBareMetalMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      bmMachineName,
+					Namespace: testNs.Name,
+					Labels: map[string]string{
+						clusterv1.ClusterNameLabel: capiCluster.Name,
+					},
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: "cluster.x-k8s.io/v1beta1",
+							Kind:       "Machine",
+							Name:       capiMachine.Name,
+							UID:        capiMachine.UID,
+						},
+					},
+				},
+				Spec: getDefaultHetznerBareMetalMachineSpec(),
+			}
+			bmMachine.Spec.InstallImage.Swraid = 1
+			Expect(testEnv.Create(ctx, bmMachine)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			Expect(testEnv.Cleanup(ctx, capiMachine, bmMachine)).To(Succeed())
+		})
+
+		Context("provision host with rootDeviceHints RAID", func() {
+			BeforeEach(func() {
+				host = helpers.BareMetalHost(
+					hostName,
+					testNs.Name,
+					helpers.WithRootDeviceHintRaid(),
+					helpers.WithHetznerClusterRef(hetznerClusterName),
+				)
+				Expect(testEnv.Create(ctx, host)).To(Succeed())
+
+				key = client.ObjectKey{Namespace: testNs.Name, Name: host.Name}
+			})
+
+			AfterEach(func() {
+				Expect(testEnv.Cleanup(ctx, host)).To(Succeed())
+			})
+
+			It("gets selected from a bm machine and provisions (rootDeviceHints RAID)", func() {
+				Expect(len(host.Spec.RootDeviceHints.Raid.WWN)).To(Equal(2))
+				Eventually(func() bool {
+					if err := testEnv.Get(ctx, key, host); err != nil {
+						return false
+					}
+					if host.Spec.Status.ProvisioningState == infrav1.StateProvisioned {
+						return true
+					}
+					return false
+				}, timeout).Should(BeTrue())
 			})
 		})
 	})
@@ -519,7 +573,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 				Expect(testEnv.Cleanup(ctx, host)).To(Succeed())
 			})
 
-			It("gets selected from a bm machine and provisions", func() {
+			It("gets selected from a bm machine and provisions (different ports after installImage)", func() {
 				Eventually(func() bool {
 					if err := testEnv.Get(ctx, key, host); err != nil {
 						return false

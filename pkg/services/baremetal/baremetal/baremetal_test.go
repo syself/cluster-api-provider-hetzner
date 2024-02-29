@@ -177,6 +177,32 @@ var _ = Describe("chooseHost", func() {
 		},
 	}
 
+	hostWithRaidWwnConfig := infrav1.HetznerBareMetalHost{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "hostWithRaidWwnConfig",
+			Namespace: defaultNamespace,
+		},
+		Spec: infrav1.HetznerBareMetalHostSpec{
+			RootDeviceHints: &infrav1.RootDeviceHints{
+				WWN: "",
+				Raid: infrav1.Raid{
+					WWN: []string{"wwnRaid1", "wwnRaid2"},
+				},
+			},
+		},
+	}
+	hostWithNonRaidWwnConfig := infrav1.HetznerBareMetalHost{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "hostWithNonRaidWwnConfig",
+			Namespace: defaultNamespace,
+		},
+		Spec: infrav1.HetznerBareMetalHostSpec{
+			RootDeviceHints: &infrav1.RootDeviceHints{
+				WWN: "wwnNoRaid",
+			},
+		},
+	}
+
 	hostWithLabel := infrav1.HetznerBareMetalHost{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "hostWithLabel",
@@ -208,6 +234,7 @@ var _ = Describe("chooseHost", func() {
 		Hosts            []client.Object
 		HostSelector     infrav1.HostSelector
 		ExpectedHostName string
+		RootDeviceHints  infrav1.RootDeviceHints
 	}
 	DescribeTable("chooseHost",
 		func(tc testCaseChooseHost) {
@@ -217,8 +244,9 @@ var _ = Describe("chooseHost", func() {
 			bmMachine.Spec.HostSelector = tc.HostSelector
 			service := newTestService(bmMachine, c)
 
-			host, _, err := service.chooseHost(context.TODO())
+			host, _, expectedReason, err := service.chooseHost(context.TODO())
 			Expect(err).To(Succeed())
+			Expect(expectedReason).To(Equal(""))
 			if tc.ExpectedHostName == "" {
 				Expect(host).To(BeNil())
 			} else {
@@ -274,6 +302,50 @@ var _ = Describe("chooseHost", func() {
 					{Key: "key", Operator: selection.In, Values: []string{"value", "value2"}},
 				}},
 				ExpectedHostName: "hostWithLabel",
+			}),
+	)
+
+	type testCaseChooseHostWithReason struct {
+		hosts            []client.Object
+		expectedHostName string
+		expectedReason   string
+		swraid           int
+	}
+
+	DescribeTable("chooseHost(): Test with reason, because RAID config does not match.",
+		func(tc testCaseChooseHostWithReason) {
+			scheme := runtime.NewScheme()
+			utilruntime.Must(infrav1.AddToScheme(scheme))
+			c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(tc.hosts...).Build()
+			bmMachine := &infrav1.HetznerBareMetalMachine{
+				TypeMeta:   metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{Name: "bmMachine", Namespace: defaultNamespace},
+				Spec: infrav1.HetznerBareMetalMachineSpec{
+					InstallImage: infrav1.InstallImage{
+						Swraid: tc.swraid,
+					},
+				},
+			}
+			service := newTestService(bmMachine, c)
+
+			host, _, reason, err := service.chooseHost(context.TODO())
+			Expect(err).To(Succeed())
+			Expect(reason).To(Equal(tc.expectedReason))
+			Expect(host).To(BeNil())
+		},
+		Entry("No host, because invalid RAID config (want RAID)",
+			testCaseChooseHostWithReason{
+				hosts:            []client.Object{&hostWithNonRaidWwnConfig},
+				expectedHostName: "",
+				expectedReason:   "No available host of 1 found: machine-should-use-swraid-but-only-0-RAID-WWN-in-hbmh: 1",
+				swraid:           1,
+			}),
+		Entry("No host, because invalid RAID config (want no RAID)",
+			testCaseChooseHostWithReason{
+				hosts:            []client.Object{&hostWithRaidWwnConfig},
+				expectedHostName: "",
+				expectedReason:   "No available host of 1 found: machine-should-use-no-swraid-and-no-non-raid-WWN-in-hbmh: 1",
+				swraid:           0,
 			}),
 	)
 })
