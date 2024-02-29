@@ -127,21 +127,25 @@ spec:
                   machine.
                 type: boolean
               rootDeviceHints:
-                description: Provide guidance about how to choose the device for the
-                  image being provisioned. They need to be specified to provision
-                  the host.
+                description: RootDeviceHints provides guidance about how to choose
+                  the device for the image being provisioned. They need to be specified
+                  to provision the host.
                 properties:
                   raid:
-                    description: To specify multiple storage devices.
+                    description: Raid is used to specify multiple storage devices.
+                      It provides the controller with information on which disks a
+                      raid can be established.
                     properties:
                       wwn:
+                        description: WWN defines a list of unique storage identifiers
+                          used for raid setups.
                         items:
                           type: string
                         type: array
                     type: object
                   wwn:
-                    description: Unique storage identifier. The hint must match the
-                      actual value exactly.
+                    description: WWN is a unique storage identifier used for non-raid
+                      setups. The hint must match the actual value exactly.
                     type: string
                 type: object
               serverID:
@@ -155,7 +159,8 @@ spec:
                   DO NOT EDIT!!!
                 properties:
                   conditions:
-                    description: Conditions defines current service state of the HetznerBareMetalHost.
+                    description: Conditions define the current service state of the
+                      HetznerBareMetalHost.
                     items:
                       description: Condition defines an observation of a Cluster API
                         resource operational state.
@@ -202,7 +207,7 @@ spec:
                     type: array
                   errorCount:
                     default: 0
-                    description: ErrorCount records how many times the host has encoutered
+                    description: ErrorCount records how many times the host has encountered
                       an error since the last successful operation.
                     type: integer
                   errorMessage:
@@ -211,7 +216,7 @@ spec:
                     type: string
                   errorType:
                     description: ErrorType indicates the type of failure encountered
-                      when the OperationalStatus is OperationalStatusError
+                      when the OperationalStatus is OperationalStatusError.
                     type: string
                   hardwareDetails:
                     description: StatusHardwareDetails are automatically gathered
@@ -275,10 +280,10 @@ spec:
                             SSD, etc.) on the host.
                           properties:
                             hctl:
-                              description: The SCSI location of the device
+                              description: HCTL defines the SCSI location of the device.
                               type: string
                             model:
-                              description: Hardware model
+                              description: Model represents the Hardware model.
                               type: string
                             name:
                               description: The Linux device name of the disk, e.g.
@@ -286,24 +291,26 @@ spec:
                                 reboots.
                               type: string
                             rota:
-                              description: Rota defines if its a HDD device or not.
+                              description: Rota defines if it's an HDD device or not.
                               type: boolean
                             serialNumber:
-                              description: The serial number of the device
+                              description: SerialNumber denotes the serial number
+                                of the device.
                               type: string
                             sizeBytes:
-                              description: The size of the disk in Bytes
+                              description: SizeBytes is the size of the disk in Bytes.
                               format: int64
                               type: integer
                             sizeGB:
-                              description: The size of the disk in GB
+                              description: SizeGB is the size of the disk in GB.
                               format: int64
                               type: integer
                             vendor:
-                              description: The name of the vendor of the device
+                              description: Vendor is the name of the vendor of the
+                                device.
                               type: string
                             wwn:
-                              description: The WWN of the device
+                              description: WWN defines the WWN of the device.
                               type: string
                           type: object
                         type: array
@@ -311,10 +318,10 @@ spec:
                   hetznerClusterRef:
                     description: HetznerClusterRef is the name of the HetznerCluster
                       object which is needed as some necessary information is stored
-                      there, e.g. the hrobot password
+                      there, e.g. the hrobot password.
                     type: string
                   installImage:
-                    description: InstallImage is the configuration which is used for
+                    description: InstallImage is the configuration that is used for
                       the autosetup configuration for installing an OS via InstallImage.
                     properties:
                       btrfsDefinitions:
@@ -461,7 +468,7 @@ spec:
                     type: string
                   rebootTypes:
                     description: RebootTypes is a list of all available reboot types
-                      for API reboots
+                      for API reboots.
                     items:
                       description: RebootType defines the reboot type of servers via
                         Hetzner robot API.
@@ -511,8 +518,8 @@ spec:
                     - secretRef
                     type: object
                   sshStatus:
-                    description: HetznerRobotSSHKey contains name and fingerprint
-                      of the in HetznerCluster spec specified SSH key.
+                    description: HetznerRobotSSHKey contains the name and fingerprint
+                      of the HetznerCluster spec specified SSH key.
                     properties:
                       currentOS:
                         description: CurrentOS gives information about the secret
