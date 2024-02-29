@@ -246,15 +246,15 @@ func (r *GuestCSRReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Mana
 		For(&certificatesv1.CertificateSigningRequest{}).
 		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(ctrl.LoggerFrom(ctx), r.WatchFilterValue)).
 		WithEventFilter(predicate.Funcs{
-			DeleteFunc: func(e event.DeleteEvent) bool {
+			DeleteFunc: func(_ event.DeleteEvent) bool {
 				// We don't want to listen to delete events, as CSRs are deleted frequently without us having to do something
 				return false
 			},
-			GenericFunc: func(e event.GenericEvent) bool {
+			GenericFunc: func(_ event.GenericEvent) bool {
 				// We don't want to listen to generic events, as CSRs are genericd frequently without us having to do something
 				return false
 			},
-			UpdateFunc: func(e event.UpdateEvent) bool {
+			UpdateFunc: func(_ event.UpdateEvent) bool {
 				// We don't want to listen to Update events, as CSRs are Updated frequently without us having to do something
 				return false
 			},
