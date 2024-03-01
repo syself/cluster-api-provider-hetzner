@@ -47,8 +47,17 @@ type HCloudMachineTemplateWebhook struct{}
 var _ webhook.CustomValidator = &HCloudMachineTemplateWebhook{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
-func (r *HCloudMachineTemplateWebhook) ValidateCreate(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
-	return nil, nil
+func (r *HCloudMachineTemplateWebhook) ValidateCreate(_ context.Context, robj runtime.Object) (admission.Warnings, error) {
+	var allErrs field.ErrorList
+
+	obj, ok := robj.(*HCloudMachineTemplate)
+	if !ok {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a HcloudMachineTemplate but got a %T", robj))
+	}
+
+	allErrs = append(allErrs, obj.validateSSHKeysName()...)
+
+	return nil, aggregateObjErrors(obj.GroupVersionKind().GroupKind(), obj.Name, allErrs)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
@@ -79,4 +88,12 @@ func (r *HCloudMachineTemplateWebhook) ValidateUpdate(ctx context.Context, oldRa
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
 func (r *HCloudMachineTemplateWebhook) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
 	return nil, nil
+}
+
+func (r *HCloudMachineTemplate) validateSSHKeysName() field.ErrorList {
+	var fe field.ErrorList
+	for _, keys := range r.Spec.Template.Spec.SSHKeys {
+		fe = validateSSHKeyName(&keys.Name)
+	}
+	return fe
 }

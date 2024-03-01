@@ -70,6 +70,8 @@ func (r *HCloudMachine) ValidateCreate() (admission.Warnings, error) {
 	hcloudmachinelog.V(1).Info("validate create", "name", r.Name)
 	var allErrs field.ErrorList
 
+	allErrs = append(allErrs, r.validateSSHKeysName()...)
+
 	return nil, aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
 }
 
@@ -119,4 +121,24 @@ func (r *HCloudMachine) ValidateUpdate(old runtime.Object) (admission.Warnings, 
 func (r *HCloudMachine) ValidateDelete() (admission.Warnings, error) {
 	hcloudmachinelog.V(1).Info("validate delete", "name", r.Name)
 	return nil, nil
+}
+
+func validateSSHKeyName(sshKeyName *string) field.ErrorList {
+	var allErrs field.ErrorList
+	switch {
+	case sshKeyName == nil:
+	case sshKeyName != nil && *sshKeyName == "":
+		allErrs = append(allErrs, field.Invalid(field.NewPath("sshKeyName"), sshKeyName, "Name is invalid."))
+	}
+	return allErrs
+}
+
+func (r *HCloudMachine) validateSSHKeysName() (fe field.ErrorList) {
+	for _, keys := range r.Spec.SSHKeys {
+		err := validateSSHKeyName(&keys.Name)
+		if err != nil {
+			fe = append(fe, err...)
+		}
+	}
+	return fe
 }
