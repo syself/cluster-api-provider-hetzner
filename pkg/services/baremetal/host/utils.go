@@ -48,7 +48,11 @@ SWRAID %v`, autoSetupInput.hostName, installImageSpec.Swraid)
 SWRAIDLEVEL %v`, hostName, installImageSpec.SwraidLevel)
 	}
 
-	var partitions string
+	// We always create the UEFI partition, even for legacy BIOS.
+	// This makes the setup easier, if the partition table type should
+	// get changed later.
+	partitions := "PART /boot/efi esp 512\n"
+
 	for _, partition := range installImageSpec.Partitions {
 		partitions = fmt.Sprintf(`%s
 PART %s %s %s`, partitions, partition.Mount, partition.FileSystem, partition.Size)
