@@ -29,6 +29,8 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
+	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -283,19 +285,19 @@ func (s *Service) associate(ctx context.Context) error {
 	}
 
 	// choose new host
-	host, helper, err := s.chooseHost(ctx)
+	host, helper, reason, err := s.chooseHost(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to choose host: %w", err)
 	}
 	if host == nil {
 		s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhasePending
-		s.scope.V(1).Info("No available host found. Requeuing.")
+		s.scope.Info("No available host found. Requeuing.", "reason", reason)
 		conditions.MarkFalse(
 			s.scope.BareMetalMachine,
 			infrav1.HostAssociateSucceededCondition,
 			infrav1.NoAvailableHostReason,
 			clusterv1.ConditionSeverityWarning,
-			"no available host",
+			fmt.Sprintf("no available host (%s)", reason),
 		)
 		return &scope.RequeueAfterError{RequeueAfter: requeueAfter}
 	}
@@ -363,7 +365,12 @@ func (s *Service) getAssociatedHost(ctx context.Context) (*infrav1.HetznerBareMe
 	return &host, helper, nil
 }
 
-func (s *Service) chooseHost(ctx context.Context) (*infrav1.HetznerBareMetalHost, *patch.Helper, error) {
+// chooseHost tries to find a free hbmh.
+// If no hbmh was found, then hbmh and err are nil, and the string
+// "reason" contains human readable details.
+func (s *Service) chooseHost(ctx context.Context) (
+	hbmh *infrav1.HetznerBareMetalHost, patchHelper *patch.Helper, reason string, err error,
+) {
 	// get list of hosts scoped to namespace of machine
 	hosts := infrav1.HetznerBareMetalHostList{}
 	opts := &client.ListOptions{
@@ -371,63 +378,132 @@ func (s *Service) chooseHost(ctx context.Context) (*infrav1.HetznerBareMetalHost
 	}
 
 	if err := s.scope.Client.List(ctx, &hosts, opts); err != nil {
-		return nil, nil, fmt.Errorf("failed to list hosts: %w", err)
+		return nil, nil, "", fmt.Errorf("failed to list hosts: %w", err)
 	}
 
 	labelSelector := s.getLabelSelector()
 
+	// count all hosts that are not in use already
+	unusedHostsCounter := 0
+
+	// hosts are "available" if they are not in use already by some Kubernetes cluster and do not have
+	// another reason to not be chosen (labels that don't match the selector, maintenance mode, error state, etc.)
 	availableHosts := make([]*infrav1.HetznerBareMetalHost, 0, len(hosts.Items))
+
+	mapOfSkipReasons := make(map[string]int)
 
 	for i, host := range hosts.Items {
 		if host.Spec.ConsumerRef != nil && consumerRefMatches(host.Spec.ConsumerRef, s.scope.BareMetalMachine) {
 			helper, err := patch.NewHelper(&hosts.Items[i], s.scope.Client)
 			if err != nil {
-				return nil, nil, fmt.Errorf("failed to create patch helper: %w", err)
+				return nil, nil, "", fmt.Errorf("failed to create patch helper: %w", err)
 			}
-			return &hosts.Items[i], helper, nil
+			return &hosts.Items[i], helper, "", nil
 		}
 		if host.Spec.ConsumerRef != nil {
 			continue
 		}
-		if host.Spec.MaintenanceMode != nil && *host.Spec.MaintenanceMode {
-			continue
-		}
-		if host.GetDeletionTimestamp() != nil {
-			continue
-		}
-		if host.Spec.Status.ErrorMessage != "" {
+
+		// from now on each "continue" should add an entry
+		// to mapOfSkipReasons.
+		unusedHostsCounter++
+
+		// This comes first, because we should not look too deep into machines
+		// which are not in our scope.
+		if !labelSelector.Matches(labels.Set(host.ObjectMeta.Labels)) {
+			mapOfSkipReasons["label-selector-does-not-match"]++
 			continue
 		}
 
-		if !labelSelector.Matches(labels.Set(host.ObjectMeta.Labels)) {
+		if host.GetDeletionTimestamp() != nil {
+			mapOfSkipReasons["hbmh-has-deletion-timestamp"]++
+			continue
+		}
+
+		if host.Spec.MaintenanceMode != nil && *host.Spec.MaintenanceMode {
+			mapOfSkipReasons["hbmh-in-maintenance-mode"]++
+			continue
+		}
+		if host.Spec.Status.ErrorMessage != "" {
+			mapOfSkipReasons["hbmh-has-error-message-in-status"]++
 			continue
 		}
 
 		if host.Spec.Status.ProvisioningState != infrav1.StateNone {
+			mapOfSkipReasons["hbmh-in-wrong-provisioning-state"]++
 			continue
+		}
+
+		// This comes last, because now we would choose the machine, but we check
+		// if the config is correct.
+		if host.Spec.RootDeviceHints != nil &&
+			host.Spec.RootDeviceHints.IsValid() {
+			// Even if there are no rootDeviceHints specified, the host should be picked.
+			// After the phase registering, the process to provision the server stops and
+			// waits for the user to specify the rootDeviceHints.
+			// Here (RootDeviceHints exists and is valid) we want to check whether
+			// the specified rootDeviceHints fit with the InstallImage configuration
+			// of the HetznerBareMetalMachine. If not, it is not valid.
+			// Doing that without first choosing the hbmh would be nice, there is a feature request:
+			// https://github.com/syself/cluster-api-provider-hetzner/issues/1166
+			if s.scope.BareMetalMachine.Spec.InstallImage.Swraid == 1 {
+				// Machine should have RAID. Skip machines which have less than two WWNs
+				lenOfWwnSlice := len(host.Spec.RootDeviceHints.Raid.WWN)
+				if lenOfWwnSlice < 2 {
+					mapOfSkipReasons[fmt.Sprintf("machine-should-use-swraid-but-only-%d-RAID-WWN-in-hbmh", lenOfWwnSlice)]++
+					continue
+				}
+			} else { //nolint:gocritic
+				// Machine should have no RAID.
+				if host.Spec.RootDeviceHints.WWN == "" {
+					mapOfSkipReasons["machine-should-use-no-swraid-and-no-non-raid-WWN-in-hbmh"]++
+					continue
+				}
+			}
 		}
 
 		availableHosts = append(availableHosts, &hosts.Items[i])
 	}
 
-	if len(availableHosts) == 0 {
-		return nil, nil, nil
+	// return if all hosts are in use with a specific message
+	if unusedHostsCounter == 0 {
+		return nil, nil, fmt.Sprintf("all hosts are in use - found %d hosts",
+			len(hosts.Items)), nil
 	}
 
-	// choose a host
+	// found hosts that are not in use, but all of them had some reason to not be chosen
+	if len(availableHosts) == 0 {
+		return nil, nil, reasonString(mapOfSkipReasons, unusedHostsCounter), nil
+	}
+
+	// we found available hosts - choose one
 	randomNumber, err := rand.Int(rand.Reader, big.NewInt(int64(len(availableHosts))))
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create random number: %w", err)
+		return nil, nil, "", fmt.Errorf("failed to create random number: %w", err)
 	}
 
 	chosenHost := availableHosts[randomNumber.Int64()]
 
 	helper, err := patch.NewHelper(chosenHost, s.scope.Client)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create patch helper: %w", err)
+		return nil, nil, "", fmt.Errorf("failed to create patch helper: %w", err)
 	}
 
-	return chosenHost, helper, nil
+	return chosenHost, helper, "", nil
+}
+
+func reasonString(mapOfSkipReasons map[string]int, unusedHostsCounter int) string {
+	reasons := make([]string, 0, len(mapOfSkipReasons))
+	keys := maps.Keys(mapOfSkipReasons)
+	slices.Sort(keys)
+	for _, key := range keys {
+		value := mapOfSkipReasons[key]
+		if value == 0 {
+			continue
+		}
+		reasons = append(reasons, fmt.Sprintf("%s: %d", key, value))
+	}
+	return fmt.Sprintf("No available host of %d found: %s", unusedHostsCounter, strings.Join(reasons, ", "))
 }
 
 func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *infrav1.HetznerBareMetalHost) error {
