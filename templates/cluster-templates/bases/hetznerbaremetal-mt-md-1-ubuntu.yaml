@@ -9,6 +9,9 @@ spec:
         image:
           path: /root/.oldroot/nfs/install/../images/Ubuntu-2004-focal-64-minimal-hwe.tar.gz
         partitions:
+          - fileSystem: esp
+            mount: /boot/efi
+            size: 512M
           - mount: /boot
             fileSystem: ext4
             size: 1024M
