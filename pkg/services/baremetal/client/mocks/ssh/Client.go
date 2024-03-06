@@ -393,6 +393,48 @@ func (_c *Client_CreateUserData_Call) RunAndReturn(run func(string) sshclient.Ou
 	return _c
 }
 
+// DetectLinuxOnAnotherDisk provides a mock function with given fields: sliceOfWwns
+func (_m *Client) DetectLinuxOnAnotherDisk(sliceOfWwns []string) sshclient.Output {
+	ret := _m.Called(sliceOfWwns)
+
+	var r0 sshclient.Output
+	if rf, ok := ret.Get(0).(func([]string) sshclient.Output); ok {
+		r0 = rf(sliceOfWwns)
+	} else {
+		r0 = ret.Get(0).(sshclient.Output)
+	}
+
+	return r0
+}
+
+// Client_DetectLinuxOnAnotherDisk_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DetectLinuxOnAnotherDisk'
+type Client_DetectLinuxOnAnotherDisk_Call struct {
+	*mock.Call
+}
+
+// DetectLinuxOnAnotherDisk is a helper method to define mock.On call
+//   - sliceOfWwns []string
+func (_e *Client_Expecter) DetectLinuxOnAnotherDisk(sliceOfWwns interface{}) *Client_DetectLinuxOnAnotherDisk_Call {
+	return &Client_DetectLinuxOnAnotherDisk_Call{Call: _e.mock.On("DetectLinuxOnAnotherDisk", sliceOfWwns)}
+}
+
+func (_c *Client_DetectLinuxOnAnotherDisk_Call) Run(run func(sliceOfWwns []string)) *Client_DetectLinuxOnAnotherDisk_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].([]string))
+	})
+	return _c
+}
+
+func (_c *Client_DetectLinuxOnAnotherDisk_Call) Return(_a0 sshclient.Output) *Client_DetectLinuxOnAnotherDisk_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Client_DetectLinuxOnAnotherDisk_Call) RunAndReturn(run func([]string) sshclient.Output) *Client_DetectLinuxOnAnotherDisk_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // DownloadImage provides a mock function with given fields: path, url
 func (_m *Client) DownloadImage(path string, url string) sshclient.Output {
 	ret := _m.Called(path, url)

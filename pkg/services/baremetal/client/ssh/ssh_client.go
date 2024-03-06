@@ -20,6 +20,7 @@ package sshclient
 import (
 	"bufio"
 	"bytes"
+	_ "embed"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -34,6 +35,9 @@ import (
 const (
 	sshTimeOut time.Duration = 5 * time.Second
 )
+
+//go:embed detect-linux-on-another-disk.sh
+var detectLinuxOnAnotherDiskShellScript string
 
 var downloadFromOciShellScript = `#!/bin/bash
 
@@ -200,6 +204,7 @@ type Client interface {
 	CleanCloudInitInstances() Output
 	ResetKubeadm() Output
 	UntarTGZ() Output
+	DetectLinuxOnAnotherDisk(sliceOfWwns []string) Output
 }
 
 // Factory is the interface for creating new Client objects.
@@ -480,6 +485,13 @@ func (c *sshClient) ResetKubeadm() Output {
 	echo ========= done =========
 `)
 	return output
+}
+
+func (c *sshClient) DetectLinuxOnAnotherDisk(sliceOfWwns []string) Output {
+	return c.runSSH(fmt.Sprintf(`cat <<'EOF' | bash -s -- %s
+%s
+EOF
+`, strings.Join(sliceOfWwns, " "), detectLinuxOnAnotherDiskShellScript))
 }
 
 func (c *sshClient) UntarTGZ() Output {

@@ -891,4 +891,5 @@ name="eth0" model="Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express
 	sshClient.On("ExecuteInstallImage", mock.Anything).Return(sshclient.Output{})
 	sshClient.On("Reboot").Return(sshclient.Output{})
 	sshClient.On("GetCloudInitOutput").Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"})
+	sshClient.On("DetectLinuxOnAnotherDisk", mock.Anything).Return(sshclient.Output{})
 }
