@@ -476,6 +476,18 @@ func (s *Service) chooseHost(ctx context.Context) (
 		return nil, nil, reasonString(mapOfSkipReasons, unusedHostsCounter), nil
 	}
 
+	// Choose HetznerBareMetalHosts with RootDeviceHints set over those ones without
+	hostsWithRootDeviceHints := make([]*infrav1.HetznerBareMetalHost, 0, len(availableHosts))
+	for _, host := range availableHosts {
+		if host.Spec.RootDeviceHints == nil {
+			continue
+		}
+		hostsWithRootDeviceHints = append(hostsWithRootDeviceHints, host)
+	}
+	if len(hostsWithRootDeviceHints) > 0 {
+		availableHosts = hostsWithRootDeviceHints
+	}
+
 	// we found available hosts - choose one
 	randomNumber, err := rand.Int(rand.Reader, big.NewInt(int64(len(availableHosts))))
 	if err != nil {
