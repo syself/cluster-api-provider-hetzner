@@ -26,17 +26,17 @@ func Test_removeUselessLinesFromCloudInitOutput(t *testing.T) {
 		want string
 	}{
 		{
-			name: "ignore: 10000K .......... .......... .......... .......... ..........  6%!M(MISSING) 1s",
+			name: "ignore: 10000K ...",
 			s:    "foo\n 10000K .......... .......... .......... .......... ..........  6%!M(MISSING) 1s\nbar",
 			want: "foo\nbar",
 		},
 		{
-			name: "ignore: ^10000K .......... .......... .......... .......... ..........  6%!M(MISSING) 1s",
+			name: "ignore: ^10000K ...2",
 			s:    "foo\n10000K .......... .......... .......... .......... ..........  6%!M(MISSING) 1s\nbar",
 			want: "foo\nbar",
 		},
 		{
-			name: "ignore: Get:17 http://archive.ubuntu.com/ubuntu focal/universe Translation-en [5,124 kB[]",
+			name: "ignore: Get:17 http://...",
 			s:    "foo\nGet:17 http://archive.ubuntu.com/ubuntu focal/universe Translation-en [5,124 kB[]\nbar",
 			want: "foo\nbar",
 		},

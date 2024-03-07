@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/syself/hrobot-go/models"
+	"golang.org/x/crypto/ssh"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -514,7 +515,8 @@ func (s *Service) actionRegistering() actionResult {
 
 	// Check hostname with sshClient
 	out := sshClient.GetHostName()
-	if trimLineBreak(out.StdOut) != rescue {
+	hostName := trimLineBreak(out.StdOut)
+	if hostName != rescue {
 		// give the reboot some time until it takes effect
 		if s.hasJustRebooted() {
 			return actionContinue{delay: 2 * time.Second}
@@ -951,6 +953,45 @@ func (s *Service) actionImageInstalling() actionResult {
 
 	s.scope.HetznerBareMetalHost.Spec.Status.SSHStatus.OSKey = &sshKey
 
+	// If there is a Linux OS on an other disk, then the reboot after the provisioning
+	// will likely fail, because the machine boots into the other operating system.
+	// We want detect that early, and not start the provisioning process.
+	out := sshClient.DetectLinuxOnAnotherDisk(s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.ListOfWWN())
+	if out.Err != nil {
+		var exitErr *ssh.ExitError
+		if errors.As(out.Err, &exitErr) && exitErr.ExitStatus() > 0 {
+			// The script detected Linux on an other disk. This is a permanent error.
+			msg := fmt.Sprintf("DetectLinuxOnAnotherDisk failed (permanent error): %s. StdErr: %s (%s)",
+				out.StdOut, out.StdErr, out.Err.Error())
+			conditions.MarkFalse(
+				s.scope.HetznerBareMetalHost,
+				infrav1.ProvisionSucceededCondition,
+				infrav1.LinuxOnOtherDiskFoundReason,
+				clusterv1.ConditionSeverityError,
+				msg,
+			)
+			record.Warn(s.scope.HetznerBareMetalHost, infrav1.LinuxOnOtherDiskFoundReason, msg)
+			s.scope.HetznerBareMetalHost.SetError(infrav1.PermanentError, msg)
+			return actionStop{}
+		}
+
+		// Some other error like connection timeout. Retry again later.
+		// This often during provisioning.
+		msg := fmt.Sprintf("DetectLinuxOnAnotherDisk failed (will retry): %s. StdErr: %s (%s)",
+			out.StdOut, out.StdErr, out.Err.Error())
+		conditions.MarkFalse(
+			s.scope.HetznerBareMetalHost,
+			infrav1.ProvisionSucceededCondition,
+			infrav1.SSHToRescueSystemFailedReason,
+			clusterv1.ConditionSeverityInfo,
+			msg,
+		)
+		record.Event(s.scope.HetznerBareMetalHost, infrav1.SSHToRescueSystemFailedReason, msg)
+		return actionContinue{
+			delay: 10 * time.Second,
+		}
+	}
+
 	autoSetupInput, actionRes := s.createAutoSetupInput(sshClient)
 	if actionRes != nil {
 		return actionRes
@@ -958,7 +999,7 @@ func (s *Service) actionImageInstalling() actionResult {
 
 	autoSetup := buildAutoSetup(s.scope.HetznerBareMetalHost.Spec.Status.InstallImage, autoSetupInput)
 
-	out := sshClient.CreateAutoSetup(autoSetup)
+	out = sshClient.CreateAutoSetup(autoSetup)
 	if out.Err != nil {
 		return actionError{err: fmt.Errorf("failed to create autosetup: %q %q %w", out.StdOut, out.StdErr, out.Err)}
 	}

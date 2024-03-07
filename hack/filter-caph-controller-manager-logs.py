@@ -20,7 +20,9 @@ import json
 
 keys_to_skip = ['controller', 'controllerGroup', 'controllerKind', 'reconcileID',
                 'HetznerCluster', 'Cluster',
-                'namespace', 'name', 'Machine', 'stack', 'stacktrace']
+                'namespace', 'name', 'Machine', 'stack', 'stacktrace',
+                'logger',
+                ]
 
 rows_to_skip = [
     'controller-runtime.webhook', 'certwatcher/certwatcher', 'Registering a validating webhook',

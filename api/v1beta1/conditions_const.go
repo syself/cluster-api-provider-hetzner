@@ -177,6 +177,10 @@ const (
 	CloudInitNotInstalledReason = "CloudInitNotInstalled"
 	// ServerNotFoundReason indicates that a bare metal server could not be found.
 	ServerNotFoundReason = "ServerNotFound"
+	// LinuxOnOtherDiskFoundReason indicates that the server can't be provisioned on the given WWN, since the reboot would fail.
+	LinuxOnOtherDiskFoundReason = "LinuxOnOtherDiskFound"
+	// SSHToRescueSystemFailedReason indicates that the rescue system can't be reached via ssh.
+	SSHToRescueSystemFailedReason = "SSHToRescueSystemFailed"
 )
 
 const (
