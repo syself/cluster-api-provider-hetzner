@@ -18,9 +18,11 @@ package v1beta1
 
 import (
 	"errors"
+	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
 	capierrors "sigs.k8s.io/cluster-api/errors"
 )
 
@@ -235,3 +237,51 @@ var _ = Describe("Test HasHostAnnotation", func() {
 		}),
 	)
 })
+
+func Test_Image_String(t *testing.T) {
+	for _, row := range []struct {
+		image    Image
+		expected string
+	}{
+		{
+			Image{
+				URL:  "",
+				Name: "",
+				Path: "",
+			},
+			"",
+		},
+		{
+			Image{
+				URL:  "https://user:pwd@example.com/images/Ubuntu-2204-jammy-amd64-custom.tar.gz",
+				Name: "Ubuntu-2204",
+				Path: "",
+			},
+			"Ubuntu-2204 (https://user:xxxxx@example.com/images/Ubuntu-2204-jammy-amd64-custom.tar.gz)",
+		},
+		{
+			Image{
+				URL:  "https://example.com/foo.tgz",
+				Name: "foo",
+				Path: "",
+			},
+			"foo (https://example.com/foo.tgz)",
+		},
+		{
+			Image{
+				URL:  "https://example.com/nameless.tgz",
+				Path: "",
+			},
+			"https://example.com/nameless.tgz",
+		},
+		{
+			Image{
+				Name: "nfs",
+				Path: "/root/.oldroot/nfs/install/../images/Ubuntu-2004-focal-64-minimal-hwe.tar.gz",
+			},
+			"nfs (/root/.oldroot/nfs/install/../images/Ubuntu-2004-focal-64-minimal-hwe.tar.gz)",
+		},
+	} {
+		require.Equal(t, row.expected, row.image.String())
+	}
+}

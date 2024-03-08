@@ -107,7 +107,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		Name:      bmHost.Spec.Status.HetznerClusterRef,
 	}
 	if err := r.Client.Get(ctx, hetznerClusterName, hetznerCluster); err != nil {
-		return reconcile.Result{}, errors.New("HetznerCluster not found")
+		return reconcile.Result{}, fmt.Errorf("failed to get HetznerCluster: %w", err)
 	}
 
 	log = log.WithValues("HetznerCluster", klog.KObj(hetznerCluster))

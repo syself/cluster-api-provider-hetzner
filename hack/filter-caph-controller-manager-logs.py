@@ -34,6 +34,9 @@ rows_to_skip = [
     '"Starting reconciling cluster"',
     '"Completed function"',
     '"Adding request."',
+    'Update to resource only changes insignificant fields',
+    '"approved csr"',
+    '"Registering webhook"',
 ]
 
 def main():
@@ -66,9 +69,17 @@ def handle_line(line):
     t = data.pop('time', '')
     t = re.sub(r'^.*T(.+)*\..+$', r'\1', t) # '2023-04-17T12:12:53.423Z
 
+    # skip too long entries
+    for key, value in list(data.items()):
+        if not isinstance(value, str):
+            continue
+        if len(value) > 1_000:
+            data[key] = value[:1_000] + "...cut..."
+
     level = data.pop('level', '').ljust(5)
     file = data.pop('file', '')
     message = data.pop('message', '')
+
     if not data:
         data=''
 

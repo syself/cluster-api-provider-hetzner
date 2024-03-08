@@ -545,16 +545,26 @@ func (s *Service) actionRegistering() actionResult {
 		s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails = &hardwareDetails
 	}
 
-	if s.scope.HetznerBareMetalHost.Spec.RootDeviceHints == nil ||
-		!s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.IsValid() {
+	if s.scope.HetznerBareMetalHost.Spec.RootDeviceHints == nil {
 		conditions.MarkFalse(
 			s.scope.HetznerBareMetalHost,
 			infrav1.RootDeviceHintsValidatedCondition,
 			infrav1.ValidationFailedReason,
 			clusterv1.ConditionSeverityError,
-			"validation failed - check specified rootDeviceHints",
+			infrav1.ErrorMessageMissingRootDeviceHints,
 		)
 		return s.recordActionFailure(infrav1.RegistrationError, infrav1.ErrorMessageMissingRootDeviceHints)
+	}
+	errMsg := s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.IsValidWithMessage()
+	if errMsg != "" {
+		conditions.MarkFalse(
+			s.scope.HetznerBareMetalHost,
+			infrav1.RootDeviceHintsValidatedCondition,
+			infrav1.ValidationFailedReason,
+			clusterv1.ConditionSeverityError,
+			errMsg,
+		)
+		return s.recordActionFailure(infrav1.RegistrationError, errMsg)
 	}
 
 	if err := validateRootDevices(s.scope.HetznerBareMetalHost.Spec.RootDeviceHints, s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails.Storage); err != nil {
@@ -992,6 +1002,8 @@ func (s *Service) actionImageInstalling() actionResult {
 		}
 	}
 
+	record.Event(s.scope.HetznerBareMetalHost, "InstallImagePreflightCheckSuccessful", "Rescue system reachable, disks look good.")
+
 	autoSetupInput, actionRes := s.createAutoSetupInput(sshClient)
 	if actionRes != nil {
 		return actionRes
@@ -1017,11 +1029,16 @@ func (s *Service) actionImageInstalling() actionResult {
 		}
 	}
 
+	record.Event(s.scope.HetznerBareMetalHost, "InstallingMachineImageStarted",
+		s.scope.HetznerBareMetalHost.Spec.Status.InstallImage.Image.String())
+
 	out = sshClient.UntarTGZ()
 	if out.Err != nil {
 		record.Warnf(s.scope.HetznerBareMetalHost, "UntarInstallimageTgzFailed", "err: %s, stderr: %s", out.Err.Error(), out.StdErr)
 		return actionError{err: fmt.Errorf("UntarInstallimageTgzFailed: %w", out.Err)}
 	}
+	record.Event(s.scope.HetznerBareMetalHost, "ExecuteInstallImageStarted",
+		s.scope.HetznerBareMetalHost.Spec.Status.InstallImage.Image.String())
 
 	// Execute install image
 	out = sshClient.ExecuteInstallImage(postInstallScript != "")
