@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# lsblk from util-linux 2.34 (Ubuntu 20.04) does not know column PARTTYPENAME
+
 set -euo pipefail
 
 trap 'echo "Warning: A command has failed. Exiting the script. Line was ($0:$LINENO): $(sed -n "${LINENO}p" "$0")"; exit 3' ERR
@@ -20,7 +22,7 @@ trap 'echo "Warning: A command has failed. Exiting the script. Line was ($0:$LIN
 function usage() {
     echo "$0 wwn1 [wwn2 ...]"
     echo "    Check if there is a Linux partition, but skip all WWNs given as arguments"
-    echo "    Background: If we provision a disk, then there must not be a Linux OS on an other partition"
+    echo "    Background: If we provision a disk, then there must not be a Linux OS on another partition"
     echo "    otherwise it is likely that the old OS gets booted, and not the new OS."
     echo "    Exit 0: If there is no Linux installation found."
     echo "    Exit 1: There is a Linux on a different disk.".
@@ -46,25 +48,29 @@ for wwn in "$@"; do
     fi
 done
 fail=0
-while read name wwn type parttype; do
+
+lines=$(lsblk -r -oNAME,WWN,TYPE)
+
+while read name wwn type; do
     if [[ " $* " == *" $wwn "* ]]; then
         #echo "ok: skipping $name $wwn, since it was an argument to the script."
         continue
     fi
     root_directory_content=$(grub-fstest /dev/$name ls / 2>/dev/null || true | tr ' ' '\n' | sort | tr '\n' ' ')
     if [[ $root_directory_content =~ .*boot/.*etc/.* ]]; then
-        echo "FAIL: $name $wwn partitionType=$parttype looks like a Linux root partition on another disk."
+        echo "FAIL: $name $wwn looks like a Linux root partition on another disk."
         fail=1
         continue
     fi
     if [[ $root_directory_content =~ .*initrd.*vmlinuz.* ]]; then
-        echo "FAIL: $name $wwn partitionType=$parttype looks like a Linux /boot partition on another disk."
+        echo "FAIL: $name $wwn looks like a Linux /boot partition on another disk."
         fail=1
         continue
     fi
     #echo "ok: $name $wwn $parttype, does not look like root Linux partition."
-done < <(lsblk -r -oNAME,WWN,TYPE,PARTTYPENAME | grep -v NAME | grep -i part)
+done < <(echo "$lines" | grep -v NAME | grep -i part)
 if [ $fail -eq 1 ]; then
     exit 1
 fi
-echo "Looks good. No Linux root partition on other devices"
+echo "Looks good. No Linux root partition on another devices"
+

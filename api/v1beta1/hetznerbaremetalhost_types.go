@@ -57,11 +57,19 @@ type RootDeviceHints struct {
 
 // IsValid checks whether rootDeviceHint is valid.
 func (rdh *RootDeviceHints) IsValid() bool {
-	if rdh.WWN == "" && len(rdh.Raid.WWN) == 0 ||
-		rdh.WWN != "" && len(rdh.Raid.WWN) > 0 {
-		return false
+	return rdh.IsValidWithMessage() == ""
+}
+
+// IsValidWithMessage checks whether rootDeviceHint is valid.
+// If valid, an empty string gets returned.
+func (rdh *RootDeviceHints) IsValidWithMessage() string {
+	if rdh.WWN == "" && len(rdh.Raid.WWN) == 0 {
+		return "rootDeviceHint.wwn and rootDeviceHint.raid.wwn are empty. Please specify one or the other."
 	}
-	return true
+	if rdh.WWN != "" && len(rdh.Raid.WWN) > 0 {
+		return "WWN specified twice (rootDeviceHint.wwn and rootDeviceHint.raid.wwn). Please specify only one or the other."
+	}
+	return ""
 }
 
 // ListOfWWN gives the list of WWNs - no matter if it's in WWN or Raid.
@@ -111,6 +119,8 @@ const (
 const (
 	// ErrorMessageMissingRootDeviceHints specifies the error message when no root device hints are specified.
 	ErrorMessageMissingRootDeviceHints string = "no root device hints specified"
+	// ErrorMessageInvalidRootDeviceHints specifies the error message when invalid root device hints are specified.
+	ErrorMessageInvalidRootDeviceHints string = "invalid root device hints specified"
 	// ErrorMessageMissingHetznerSecret specifies the error message when no Hetzner secret was found.
 	ErrorMessageMissingHetznerSecret string = "could not find HetznerSecret"
 	// ErrorMessageMissingRescueSSHSecret specifies the error message when no RescueSSH secret was found.

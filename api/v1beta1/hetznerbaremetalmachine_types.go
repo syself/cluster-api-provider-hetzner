@@ -19,6 +19,7 @@ package v1beta1
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -192,6 +193,26 @@ func (image Image) GetDetails() (imagePath string, needsDownload bool, errorMess
 		errorMessage = "invalid image - need to specify either name and url or path"
 	}
 	return imagePath, needsDownload, errorMessage
+}
+
+// String returns a string representation. The password gets redacted from the URL.
+func (image Image) String() string {
+	cleanURL := ""
+	if image.URL != "" {
+		u, err := url.Parse(image.URL)
+		if err != nil {
+			cleanURL = err.Error()
+		} else {
+			cleanURL = u.Redacted()
+		}
+	}
+	if cleanURL == "" {
+		cleanURL = image.Path
+	}
+	if image.Name == "" {
+		return cleanURL
+	}
+	return fmt.Sprintf("%s (%s)", image.Name, cleanURL)
 }
 
 // Partition defines the additional Partitions to be created.
