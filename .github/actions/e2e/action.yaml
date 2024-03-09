@@ -26,7 +26,7 @@ runs:
   using: "composite"
   steps:
     - uses: ./.github/actions/setup-go
-    - uses: actions/cache@13aacd865c20de90d75de3b17ebe84f7a17d57d2 # v4
+    - uses: actions/cache@ab5e6d0c87105b4c9c2047343972218f562e4319 # v4
       with:
         path: hack/tools/bin
         key: ${{ runner.os }}-tools-bin-e2e-${{ hashFiles('Makefile') }}
@@ -34,7 +34,7 @@ runs:
           ${{ runner.os }}-tools-bin-e2e-
           ${{ runner.os }}-tools-bin-
     - name: Download artifact
-      uses: actions/download-artifact@87c55149d96e628cc2ef7e6fc2aab372015aec85 # v4
+      uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4
       with:
         name: test-release
         path: out
