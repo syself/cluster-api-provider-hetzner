@@ -84,8 +84,6 @@ func UpgradeClusterTopologyAndWaitForUpgrade(ctx context.Context, input UpgradeC
 	Expect(input.ClusterProxy).ToNot(BeNil(), "Invalid argument. input.ClusterProxy can't be nil when calling UpgradeClusterTopologyAndWaitForUpgrade")
 	Expect(input.Cluster).ToNot(BeNil(), "Invalid argument. input.Cluster can't be nil when calling UpgradeClusterTopologyAndWaitForUpgrade")
 	Expect(input.ControlPlane).ToNot(BeNil(), "Invalid argument. input.ControlPlane can't be nil when calling UpgradeClusterTopologyAndWaitForUpgrade")
-	Expect(input.MachineDeployments).ToNot(BeEmpty(), "Invalid argument. input.MachineDeployments can't be empty when calling UpgradeClusterTopologyAndWaitForUpgrade")
-	Expect(input.MachinePools).ToNot(BeEmpty(), "Invalid argument. input.MachinePools can't be empty when calling UpgradeClusterTopologyAndWaitForUpgrade")
 	Expect(input.KubernetesUpgradeVersion).ToNot(BeNil(), "Invalid argument. input.KubernetesUpgradeVersion can't be empty when calling UpgradeClusterTopologyAndWaitForUpgrade")
 
 	mgmtClient := input.ClusterProxy.GetClient()
@@ -96,11 +94,11 @@ func UpgradeClusterTopologyAndWaitForUpgrade(ctx context.Context, input UpgradeC
 
 	input.Cluster.Spec.Topology.Version = input.KubernetesUpgradeVersion
 	for i, variable := range input.Cluster.Spec.Topology.Variables {
-		if variable.Name == "etcdImageTag" {
+		if input.EtcdImageTag != "" && variable.Name == "etcdImageTag" {
 			// NOTE: strconv.Quote is used to produce a valid JSON string.
 			input.Cluster.Spec.Topology.Variables[i].Value = apiextensionsv1.JSON{Raw: []byte(strconv.Quote(input.EtcdImageTag))}
 		}
-		if variable.Name == "coreDNSImageTag" {
+		if input.DNSImageTag != "" && variable.Name == "coreDNSImageTag" {
 			// NOTE: strconv.Quote is used to produce a valid JSON string.
 			input.Cluster.Spec.Topology.Variables[i].Value = apiextensionsv1.JSON{Raw: []byte(strconv.Quote(input.DNSImageTag))}
 		}
