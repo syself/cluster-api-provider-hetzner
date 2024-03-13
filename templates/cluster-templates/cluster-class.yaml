@@ -565,8 +565,8 @@ spec:
             kubectl=$KUBERNETES_VERSION-1.1  bash-completion && apt-mark hold kubelet kubectl
             kubeadm && systemctl enable kubelet
           - kubeadm config images pull --kubernetes-version $KUBERNETES_VERSION
-          - echo 'source <(kubectl completion bash)' >>~/.bashrc
-          - echo 'export KUBECONFIG=/etc/kubernetes/admin.conf' >>~/.bashrc
+          - echo 'source <(kubectl completion bash)' >>/root/.bashrc
+          - echo 'export KUBECONFIG=/etc/kubernetes/admin.conf' >>/root/.bashrc
           - apt-get -y autoremove && apt-get -y clean all
 ---
 apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
@@ -652,8 +652,8 @@ spec:
           kubectl=$KUBERNETES_VERSION-1.1  bash-completion && apt-mark hold kubelet kubectl
           kubeadm && systemctl enable kubelet
         - kubeadm config images pull --kubernetes-version $KUBERNETES_VERSION
-        - echo 'source <(kubectl completion bash)' >>~/.bashrc
-        - echo 'export KUBECONFIG=/etc/kubernetes/admin.conf' >>~/.bashrc
+        - echo 'source <(kubectl completion bash)' >>/root/.bashrc
+        - echo 'export KUBECONFIG=/etc/kubernetes/admin.conf' >>/root/.bashrc
         - apt-get -y autoremove && apt-get -y clean all
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
@@ -679,7 +679,7 @@ spec:
         swraid: 0
         swraidLevel: 1
         image:
-          path: /root/.oldroot/nfs/install/../images/Ubuntu-2004-focal-64-minimal-hwe.tar.gz
+          path: /root/.oldroot/nfs/images/Ubuntu-2204-jammy-amd64-base.tar.gz
         partitions:
           - fileSystem: esp
             mount: /boot/efi
@@ -695,6 +695,7 @@ spec:
           mkdir -p /etc/cloud/cloud.cfg.d && touch /etc/cloud/cloud.cfg.d/99-custom-networking.cfg
           echo "network: { config: disabled }" > /etc/cloud/cloud.cfg.d/99-custom-networking.cfg
           apt-get update && apt-get install -y cloud-init apparmor apparmor-utils
+          cloud-init clean --logs
       sshSpec:
         portAfterCloudInit: 22
         portAfterInstallImage: 22
@@ -788,6 +789,6 @@ spec:
           kubectl=$KUBERNETES_VERSION-1.1  bash-completion && apt-mark hold kubelet kubectl
           kubeadm && systemctl enable kubelet
         - kubeadm config images pull --kubernetes-version $KUBERNETES_VERSION
-        - echo 'source <(kubectl completion bash)' >>~/.bashrc
-        - echo 'export KUBECONFIG=/etc/kubernetes/admin.conf' >>~/.bashrc
+        - echo 'source <(kubectl completion bash)' >>/root/.bashrc
+        - echo 'export KUBECONFIG=/etc/kubernetes/admin.conf' >>/root/.bashrc
         - apt-get -y autoremove && apt-get -y clean all

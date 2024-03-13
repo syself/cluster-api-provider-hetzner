@@ -129,8 +129,8 @@ spec:
         - dnf install --setopt=obsoletes=0 -y kubelet-0:1.23.4-0 kubeadm-0:1.23.4-0 kubectl-0:1.23.4-0 python3-dnf-plugin-versionlock bash-completion --disableexcludes=kubernetes && dnf versionlock kubelet kubectl kubeadm && systemctl enable kubelet && systemctl start crio && kubeadm config images pull --kubernetes-version 1.23.4
         - dnf install -y policycoreutils-python-utils
         - semanage fcontext -a -t container_file_t /var/lib/etcd && mkdir -p /var/lib/etcd && restorecon -rv /var /etc
-        - echo 'source <(kubectl completion bash)' >>~/.bashrc
-        - echo 'export KUBECONFIG=/etc/kubernetes/admin.conf' >>~/.bashrc
+        - echo 'source <(kubectl completion bash)' >>/root/.bashrc
+        - echo 'export KUBECONFIG=/etc/kubernetes/admin.conf' >>/root/.bashrc
         - setenforce 0 && sed -i -e '/^\(#\|\)SELINUX/s/^.*$/SELINUX=disabled/' /etc/selinux/config
         - dnf -y remove firewalld
         - dnf -y autoremove && dnf -y clean all

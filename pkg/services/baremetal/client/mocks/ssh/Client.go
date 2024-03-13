@@ -848,6 +848,47 @@ func (_c *Client_GetHardwareDetailsCPUThreads_Call) RunAndReturn(run func() sshc
 	return _c
 }
 
+// GetHardwareDetailsDebug provides a mock function with given fields:
+func (_m *Client) GetHardwareDetailsDebug() sshclient.Output {
+	ret := _m.Called()
+
+	var r0 sshclient.Output
+	if rf, ok := ret.Get(0).(func() sshclient.Output); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(sshclient.Output)
+	}
+
+	return r0
+}
+
+// Client_GetHardwareDetailsDebug_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetHardwareDetailsDebug'
+type Client_GetHardwareDetailsDebug_Call struct {
+	*mock.Call
+}
+
+// GetHardwareDetailsDebug is a helper method to define mock.On call
+func (_e *Client_Expecter) GetHardwareDetailsDebug() *Client_GetHardwareDetailsDebug_Call {
+	return &Client_GetHardwareDetailsDebug_Call{Call: _e.mock.On("GetHardwareDetailsDebug")}
+}
+
+func (_c *Client_GetHardwareDetailsDebug_Call) Run(run func()) *Client_GetHardwareDetailsDebug_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Client_GetHardwareDetailsDebug_Call) Return(_a0 sshclient.Output) *Client_GetHardwareDetailsDebug_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Client_GetHardwareDetailsDebug_Call) RunAndReturn(run func() sshclient.Output) *Client_GetHardwareDetailsDebug_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetHardwareDetailsNics provides a mock function with given fields:
 func (_m *Client) GetHardwareDetailsNics() sshclient.Output {
 	ret := _m.Called()
@@ -1008,6 +1049,47 @@ func (_c *Client_GetHostName_Call) Return(_a0 sshclient.Output) *Client_GetHostN
 }
 
 func (_c *Client_GetHostName_Call) RunAndReturn(run func() sshclient.Output) *Client_GetHostName_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetRunningInstallImageProcesses provides a mock function with given fields:
+func (_m *Client) GetRunningInstallImageProcesses() sshclient.Output {
+	ret := _m.Called()
+
+	var r0 sshclient.Output
+	if rf, ok := ret.Get(0).(func() sshclient.Output); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(sshclient.Output)
+	}
+
+	return r0
+}
+
+// Client_GetRunningInstallImageProcesses_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetRunningInstallImageProcesses'
+type Client_GetRunningInstallImageProcesses_Call struct {
+	*mock.Call
+}
+
+// GetRunningInstallImageProcesses is a helper method to define mock.On call
+func (_e *Client_Expecter) GetRunningInstallImageProcesses() *Client_GetRunningInstallImageProcesses_Call {
+	return &Client_GetRunningInstallImageProcesses_Call{Call: _e.mock.On("GetRunningInstallImageProcesses")}
+}
+
+func (_c *Client_GetRunningInstallImageProcesses_Call) Run(run func()) *Client_GetRunningInstallImageProcesses_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Client_GetRunningInstallImageProcesses_Call) Return(_a0 sshclient.Output) *Client_GetRunningInstallImageProcesses_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Client_GetRunningInstallImageProcesses_Call) RunAndReturn(run func() sshclient.Output) *Client_GetRunningInstallImageProcesses_Call {
 	_c.Call.Return(run)
 	return _c
 }

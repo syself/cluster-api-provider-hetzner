@@ -188,6 +188,8 @@ type Client interface {
 	GetHardwareDetailsCPUFlags() Output
 	GetHardwareDetailsCPUThreads() Output
 	GetHardwareDetailsCPUCores() Output
+	GetHardwareDetailsDebug() Output
+	GetRunningInstallImageProcesses() Output
 	GetCloudInitOutput() Output
 	CreateAutoSetup(data string) Output
 	DownloadImage(path, url string) Output
@@ -250,7 +252,7 @@ func (c *sshClient) GetHardwareDetailsRAM() Output {
 
 // GetHardwareDetailsNics implements the GetHardwareDetailsNics method of the SSHClient interface.
 func (c *sshClient) GetHardwareDetailsNics() Output {
-	out := c.runSSH(`cat << 'EOF' > nic-info.sh
+	out := c.runSSH(`cat << 'EOF_VIA_SSH' > nic-info.sh
 #!/bin/sh
 for iname in $(ip a |awk '/state UP/{print $2}' | sed 's/://')
 do
@@ -270,7 +272,7 @@ if test -n $IP_V6; then
 fi
 
 done
-EOF`)
+EOF_VIA_SSH`)
 	if out.Err != nil || out.StdErr != "" {
 		return out
 	}
@@ -322,11 +324,19 @@ func (c *sshClient) GetHardwareDetailsCPUCores() Output {
 	return c.runSSH(`grep 'cpu cores' /proc/cpuinfo | uniq | awk '{print $4}'`)
 }
 
+// GetHardwareDetailsDebug implements the GetHardwareDetailsDebug method of the SSHClient interface.
+func (c *sshClient) GetHardwareDetailsDebug() Output {
+	return c.runSSH(`ip a; echo ==========----------==========; 
+	ethtool "*"; echo ==========----------==========;
+	lspci; echo ==========----------==========;
+	`)
+}
+
 // CreateAutoSetup implements the CreateAutoSetup method of the SSHClient interface.
 func (c *sshClient) CreateAutoSetup(data string) Output {
-	return c.runSSH(fmt.Sprintf(`cat << 'EOF' > /autosetup
+	return c.runSSH(fmt.Sprintf(`cat << 'EOF_VIA_SSH' > /autosetup
 %s
-EOF`, data))
+EOF_VIA_SSH`, data))
 }
 
 // DownloadImage implements the DownloadImage method of the SSHClient interface.
@@ -345,13 +355,19 @@ OCI_REGISTRY_AUTH_TOKEN=%s /root/download-from-oci.sh %s %s`, downloadFromOciShe
 
 // CreatePostInstallScript implements the CreatePostInstallScript method of the SSHClient interface.
 func (c *sshClient) CreatePostInstallScript(data string) Output {
-	out := c.runSSH(fmt.Sprintf(`cat << 'EOF' > /root/post-install.sh
-	%sEOF`, data))
+	out := c.runSSH(fmt.Sprintf(`cat << 'EOF_VIA_SSH' > /root/post-install.sh
+%s
+EOF_VIA_SSH`, data))
 
 	if out.Err != nil || out.StdErr != "" {
 		return out
 	}
 	return c.runSSH(`chmod +x /root/post-install.sh . `)
+}
+
+// GetRunningInstallImageProcesses returns the running installimage processes. Output.StdOut is empty if no processes are running.
+func (c *sshClient) GetRunningInstallImageProcesses() Output {
+	return c.runSSH(`ps aux| grep installimage | grep -v grep; true`)
 }
 
 // ExecuteInstallImage implements the ExecuteInstallImage method of the SSHClient interface.
@@ -363,13 +379,13 @@ func (c *sshClient) ExecuteInstallImage(hasPostInstallScript bool) Output {
 		cmd = `/root/hetzner-installimage/installimage -a -c /autosetup`
 	}
 
-	out := c.runSSH(fmt.Sprintf(`cat << 'EOF' > /root/installimage-wrapper.sh
+	out := c.runSSH(fmt.Sprintf(`cat << 'EOF_VIA_SSH' > /root/installimage-wrapper.sh
 #!/bin/bash
 export TERM=xterm
 
 # don't wait 20 seconds before starting: echo "x"
 echo "x" | %s
-EOF`, cmd))
+EOF_VIA_SSH`, cmd))
 	if out.Err != nil || out.StdErr != "" {
 		return out
 	}
@@ -428,15 +444,16 @@ func (c *sshClient) CreateNoCloudDirectory() Output {
 
 // CreateMetaData implements the CreateMetaData method of the SSHClient interface.
 func (c *sshClient) CreateMetaData(hostName string) Output {
-	return c.runSSH(fmt.Sprintf(`cat << 'EOF' > /var/lib/cloud/seed/nocloud-net/meta-data
+	return c.runSSH(fmt.Sprintf(`cat << 'EOF_VIA_SSH' > /var/lib/cloud/seed/nocloud-net/meta-data
 local-hostname: %s
-EOF`, hostName))
+EOF_VIA_SSH`, hostName))
 }
 
 // CreateUserData implements the CreateUserData method of the SSHClient interface.
 func (c *sshClient) CreateUserData(userData string) Output {
-	return c.runSSH(fmt.Sprintf(`cat << 'EOF' > /var/lib/cloud/seed/nocloud-net/user-data
-%sEOF`, userData))
+	return c.runSSH(fmt.Sprintf(`cat << 'EOF_VIA_SSH' > /var/lib/cloud/seed/nocloud-net/user-data
+%s
+EOF_VIA_SSH`, userData))
 }
 
 // CloudInitStatus implements the CloudInitStatus method of the SSHClient interface.
@@ -488,9 +505,9 @@ func (c *sshClient) ResetKubeadm() Output {
 }
 
 func (c *sshClient) DetectLinuxOnAnotherDisk(sliceOfWwns []string) Output {
-	return c.runSSH(fmt.Sprintf(`cat <<'EOF' | bash -s -- %s
+	return c.runSSH(fmt.Sprintf(`cat <<'EOF_VIA_SSH' | bash -s -- %s
 %s
-EOF
+EOF_VIA_SSH
 `, strings.Join(sliceOfWwns, " "), detectLinuxOnAnotherDiskShellScript))
 }
 

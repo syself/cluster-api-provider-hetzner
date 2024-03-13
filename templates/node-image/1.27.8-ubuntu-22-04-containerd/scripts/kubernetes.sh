@@ -35,7 +35,7 @@ systemctl enable kubelet
 kubeadm config images pull --kubernetes-version $KUBERNETES_VERSION
 
 # enable completion
-echo 'source <(kubectl completion bash)' >>~/.bashrc
+echo 'source <(kubectl completion bash)' >>/root/.bashrc
 
 # set the kubeadm default path for kubeconfig
-echo 'export KUBECONFIG=/etc/kubernetes/admin.conf' >>~/.bashrc
+echo 'export KUBECONFIG=/etc/kubernetes/admin.conf' >>/root/.bashrc
