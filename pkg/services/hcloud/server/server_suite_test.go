@@ -79,14 +79,14 @@ const serverJSON = `
 		},
 		"deleted": null,
 		"deprecated": "2018-02-28T00:00:00+00:00",
-		"description": "Ubuntu 20.04 Standard 64 bit",
+		"description": "Ubuntu 22.04 Standard 64 bit",
 		"disk_size": 10,
 		"id": 42,
 		"image_size": 2.3,
 		"labels": {},
-		"name": "ubuntu-20.04",
+		"name": "ubuntu-22.04",
 		"os_flavor": "ubuntu",
-		"os_version": "20.04",
+		"os_version": "22.04",
 		"protection": {
 			"delete": false
 		},

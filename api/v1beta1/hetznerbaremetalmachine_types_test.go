@@ -277,9 +277,9 @@ func Test_Image_String(t *testing.T) {
 		{
 			Image{
 				Name: "nfs",
-				Path: "/root/.oldroot/nfs/install/../images/Ubuntu-2004-focal-64-minimal-hwe.tar.gz",
+				Path: "/root/.oldroot/nfs/images/Ubuntu-2204-jammy-amd64-base.tar.gz",
 			},
-			"nfs (/root/.oldroot/nfs/install/../images/Ubuntu-2004-focal-64-minimal-hwe.tar.gz)",
+			"nfs (/root/.oldroot/nfs/images/Ubuntu-2204-jammy-amd64-base.tar.gz)",
 		},
 	} {
 		require.Equal(t, row.expected, row.image.String())

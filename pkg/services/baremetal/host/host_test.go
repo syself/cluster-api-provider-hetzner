@@ -1103,7 +1103,7 @@ var _ = Describe("actionRegistering", func() {
 			sshMock.On("GetHardwareDetailsCPUFlags").Return(sshclient.Output{StdOut: "flag1 flag2 flag3"})
 			sshMock.On("GetHardwareDetailsCPUThreads").Return(sshclient.Output{StdOut: "123"})
 			sshMock.On("GetHardwareDetailsCPUCores").Return(sshclient.Output{StdOut: "12"})
-
+			sshMock.On("GetHardwareDetailsDebug").Return(sshclient.Output{StdOut: "Dummy outupt"})
 			service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 
 			actResult := service.actionRegistering()

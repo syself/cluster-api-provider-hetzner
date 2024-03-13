@@ -537,6 +537,12 @@ func (s *Service) actionRegistering() actionResult {
 		return actionContinue{delay: 10 * time.Second}
 	}
 
+	output := sshClient.GetHardwareDetailsDebug()
+	if output.Err != nil {
+		return actionError{err: fmt.Errorf("failed to obtain hardware for debugging: %w", output.Err)}
+	}
+	record.Eventf(s.scope.HetznerBareMetalHost, "GetHardwareDetails", "%s\n\nstderr:\n%s", output.StdOut, out.StdErr)
+
 	if s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails == nil {
 		hardwareDetails, err := getHardwareDetails(sshClient)
 		if err != nil {
@@ -928,7 +934,7 @@ func getCPUFlags(sshClient sshclient.Client) ([]string, error) {
 
 func handleSSHError(out sshclient.Output) error {
 	if out.Err != nil {
-		return fmt.Errorf("failed to perform ssh command: %w", out.Err)
+		return fmt.Errorf("failed to perform ssh command: stdout %q. stderr %q. %w", out.StdOut, out.StdErr, out.Err)
 	}
 	if out.StdErr != "" {
 		return fmt.Errorf("%w: StdErr: %s", errSSHStderr, out.StdErr)
@@ -987,7 +993,7 @@ func (s *Service) actionImageInstalling() actionResult {
 
 		// Some other error like connection timeout. Retry again later.
 		// This often during provisioning.
-		msg := fmt.Sprintf("DetectLinuxOnAnotherDisk failed (will retry): %s. StdErr: %s (%s)",
+		msg := fmt.Sprintf("will retry: %s. StdErr: %s (%s)",
 			out.StdOut, out.StdErr, out.Err.Error())
 		conditions.MarkFalse(
 			s.scope.HetznerBareMetalHost,
@@ -997,6 +1003,20 @@ func (s *Service) actionImageInstalling() actionResult {
 			msg,
 		)
 		record.Event(s.scope.HetznerBareMetalHost, infrav1.SSHToRescueSystemFailedReason, msg)
+		return actionContinue{
+			delay: 10 * time.Second,
+		}
+	}
+
+	// if the previous reconcile was stopped, then wait until the first
+	// run of installimage was finished.
+	out = sshClient.GetRunningInstallImageProcesses()
+	if out.Err != nil {
+		return actionError{err: fmt.Errorf("failed to get running installimage processes: %q %q %w", out.StdOut, out.StdErr, out.Err)}
+	}
+	if out.StdOut != "" {
+		record.Warnf(s.scope.HetznerBareMetalHost, "InstallImageAlreadyRunning",
+			"installimage is already running:\n%s", out.StdOut)
 		return actionContinue{
 			delay: 10 * time.Second,
 		}

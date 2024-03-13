@@ -83,6 +83,6 @@ spec:
         - apt-get update
         - apt-get install -y kubelet=$KUBERNETES_VERSION-1.1 kubeadm=$KUBERNETES_VERSION-1.1 kubectl=$KUBERNETES_VERSION-1.1  bash-completion && apt-mark hold kubelet kubectl kubeadm && systemctl enable kubelet
         - kubeadm config images pull --kubernetes-version $KUBERNETES_VERSION
-        - echo 'source <(kubectl completion bash)' >>~/.bashrc
-        - echo 'export KUBECONFIG=/etc/kubernetes/admin.conf' >>~/.bashrc
+        - echo 'source <(kubectl completion bash)' >>/root/.bashrc
+        - echo 'export KUBECONFIG=/etc/kubernetes/admin.conf' >>/root/.bashrc
         - apt-get -y autoremove && apt-get -y clean all
