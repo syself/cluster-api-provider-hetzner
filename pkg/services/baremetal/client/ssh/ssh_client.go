@@ -257,7 +257,7 @@ do
 
 MAC=\""$(ip a | grep -A2 $iname | awk '/link/{print $2}')\""
 SPEED=\""$(ethtool eth0 |grep "Speed:" | awk '{print $2}' | sed 's/[^0-9]//g')\""
-MODEL=\""$( lspci | grep net | awk '{$1=$2=$3=""; print $0}' | sed "s/^[ \t]*//")\""
+MODEL=\""$( lspci | grep net | head -1 | awk '{$1=$2=$3=""; print $0}' | sed "s/^[ \t]*//")\""
 IP_V4=\""$(ip a | grep -A2 eth0 | sed -n '/\binet\b/p' | awk '{print $2}')\""
 IP_V6=\""$(ip a | grep -A2 eth0 | sed -n '/\binet6\b/p' | awk '{print $2}')\""
 
