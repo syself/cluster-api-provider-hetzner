@@ -15,11 +15,15 @@
 
 ## Release in GitHub
 
-1. Review the draft release on GitHub. Pay close attention to the `## :question: Sort these by hand` section, as it contains items that need to be manually sorted.
+1. Open the draft release on GitHub.
+1. Press "Generate Release Notes".
+1. Pay close attention to the `## :question: Sort these by hand` section, as it contains items that need to be manually sorted.
 1. If it is pre-release, activate the corresponding check at the bottom of the page. And add `:rotating_light: This is a RELEASE CANDIDATE. If you find any bugs, file an [issue](https://github.com/syself/cluster-api-provider-hetzner/issues/new).` at the top of the release notes.
 1. Before publishing you can check the [Recent tagged image versions](https://github.com/syself/cluster-api-provider-hetzner/pkgs/container/caph): "latest" should be some seconds old and the new version number.
 1. Publish the release
-1. Write to the corresponding channels: "FYI: .... was released, (add hyperlink). A big "thank you" to all contributors!"
+1. If the release contained non trivial changes, then we should create a blog post.
+1. Write to the corresponding channels: "FYI: .... was released, (add hyperlink). A big "thank you" to all contributors!". If there will be a blog post about the release, then wait for the blog post to be published, then spread the good news with a link to the blog post.
+
 
 Done 🥳
 
