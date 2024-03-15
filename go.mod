@@ -14,7 +14,7 @@ require (
 	github.com/syself/hrobot-go v0.2.5
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.21.0
-	golang.org/x/exp v0.0.0-20240222234643-814bf88cf225
+	golang.org/x/exp v0.0.0-20240314144324-c7f7c6466f7f
 	golang.org/x/mod v0.16.0
 	k8s.io/api v0.28.4
 	k8s.io/apimachinery v0.28.4
