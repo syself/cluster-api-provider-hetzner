@@ -541,7 +541,11 @@ func (s *Service) actionRegistering() actionResult {
 	if output.Err != nil {
 		return actionError{err: fmt.Errorf("failed to obtain hardware for debugging: %w", output.Err)}
 	}
-	record.Eventf(s.scope.HetznerBareMetalHost, "GetHardwareDetails", "%s\n\nstderr:\n%s", output.StdOut, out.StdErr)
+	msg := fmt.Sprintf("%s\n\n", output.StdOut)
+	if out.StdErr != "" {
+		msg += fmt.Sprintf("stderr:\n%s\n\n", out.StdErr)
+	}
+	record.Eventf(s.scope.HetznerBareMetalHost, "GetHardwareDetails", msg)
 
 	if s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails == nil {
 		hardwareDetails, err := getHardwareDetails(sshClient)
@@ -1007,6 +1011,7 @@ func (s *Service) actionImageInstalling() actionResult {
 			delay: 10 * time.Second,
 		}
 	}
+	record.Eventf(s.scope.HetznerBareMetalHost, "NoLinuxOnAnotherDisk", "OK, no Linux on another disk:\n%s\n\n%s", out.StdOut, out.StdErr)
 
 	// if the previous reconcile was stopped, then wait until the first
 	// run of installimage was finished.
