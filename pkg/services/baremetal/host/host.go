@@ -123,7 +123,47 @@ func (s *Service) Reconcile(ctx context.Context) (result reconcile.Result, err e
 		return reconcile.Result{}, fmt.Errorf("action %q failed: %w", initialState, err)
 	}
 
+	if err := s.checkHealth(); err != nil {
+		return reconcile.Result{}, fmt.Errorf("checkHealth failed: %w", err)
+	}
+
 	return result, nil
+}
+
+// checkHealth checks if the host is healthy.
+// If unhealthy an Event+Condition get created, and err is nevertheless nil.
+func (s *Service) checkHealth() error {
+	conditions.MarkTrue(s.scope.HetznerBareMetalHost,
+		infrav1.HealthCheckSucceededCondition)
+
+	sshClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
+		PrivateKey: sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.SecretRef).PrivateKey,
+		Port:       s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterCloudInit,
+		IP:         s.scope.HetznerBareMetalHost.Spec.Status.GetIPAddress(),
+	})
+	out := sshClient.CheckDegradedRaid()
+	if out.Err == nil {
+		return nil
+	}
+	var exitErr *ssh.ExitError
+	if errors.As(out.Err, &exitErr) && exitErr.ExitStatus() > 0 {
+		// Script was called, and degraded mdraid was found.
+		msg := out.StdOut
+		if out.StdErr != "" {
+			msg += fmt.Sprintf(" stderr: %s", out.StdErr)
+		}
+		conditions.MarkFalse(
+			s.scope.HetznerBareMetalHost,
+			infrav1.HealthCheckSucceededCondition,
+			infrav1.RaidDegradedReasons,
+			clusterv1.ConditionSeverityError,
+			msg,
+		)
+		record.Warnf(s.scope.HetznerBareMetalHost, infrav1.RaidDegradedReasons, msg)
+		return nil
+	}
+	// some other error. Like "host not reachable"
+	return out.Err
 }
 
 func (s *Service) recordActionFailure(errorType infrav1.ErrorType, errorMessage string) actionFailed {
@@ -541,7 +581,7 @@ func (s *Service) actionRegistering() actionResult {
 	if output.Err != nil {
 		return actionError{err: fmt.Errorf("failed to obtain hardware for debugging: %w", output.Err)}
 	}
-	msg := fmt.Sprintf("%s\n\n", output.StdOut)
+	msg := fmt.Sprintf("Successfully fetched hardware details. Rever to event for details.\n%s\n\n", output.StdOut)
 	if out.StdErr != "" {
 		msg += fmt.Sprintf("stderr:\n%s\n\n", out.StdErr)
 	}

@@ -61,6 +61,47 @@ func (_c *Client_CheckCloudInitLogsForSigTerm_Call) RunAndReturn(run func() sshc
 	return _c
 }
 
+// CheckDegradedRaid provides a mock function with given fields:
+func (_m *Client) CheckDegradedRaid() sshclient.Output {
+	ret := _m.Called()
+
+	var r0 sshclient.Output
+	if rf, ok := ret.Get(0).(func() sshclient.Output); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(sshclient.Output)
+	}
+
+	return r0
+}
+
+// Client_CheckDegradedRaid_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CheckDegradedRaid'
+type Client_CheckDegradedRaid_Call struct {
+	*mock.Call
+}
+
+// CheckDegradedRaid is a helper method to define mock.On call
+func (_e *Client_Expecter) CheckDegradedRaid() *Client_CheckDegradedRaid_Call {
+	return &Client_CheckDegradedRaid_Call{Call: _e.mock.On("CheckDegradedRaid")}
+}
+
+func (_c *Client_CheckDegradedRaid_Call) Run(run func()) *Client_CheckDegradedRaid_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Client_CheckDegradedRaid_Call) Return(_a0 sshclient.Output) *Client_CheckDegradedRaid_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Client_CheckDegradedRaid_Call) RunAndReturn(run func() sshclient.Output) *Client_CheckDegradedRaid_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CleanCloudInitInstances provides a mock function with given fields:
 func (_m *Client) CleanCloudInitInstances() sshclient.Output {
 	ret := _m.Called()

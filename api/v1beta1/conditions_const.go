@@ -184,6 +184,13 @@ const (
 )
 
 const (
+	// HealthCheckSucceededCondition indicates that a host is healthy.
+	HealthCheckSucceededCondition clusterv1.ConditionType = "HealthCheckSucceeded"
+	// RaidDegradedReasons indicates that the mdraid is degraded.
+	RaidDegradedReasons = "RaidDegraded"
+)
+
+const (
 	// SSHAfterInstallImageSucceededCondition indicates that the host is reachable via ssh after installImage.
 	SSHAfterInstallImageSucceededCondition clusterv1.ConditionType = "SSHAfterInstallImageSucceeded"
 

@@ -39,6 +39,9 @@ const (
 //go:embed detect-linux-on-another-disk.sh
 var detectLinuxOnAnotherDiskShellScript string
 
+//go:embed detect-degraded-raid.sh
+var detectDegradedRaidScript string
+
 var downloadFromOciShellScript = `#!/bin/bash
 
 # Copyright 2023 The Kubernetes Authors.
@@ -207,6 +210,7 @@ type Client interface {
 	ResetKubeadm() Output
 	UntarTGZ() Output
 	DetectLinuxOnAnotherDisk(sliceOfWwns []string) Output
+	CheckDegradedRaid() Output
 }
 
 // Factory is the interface for creating new Client objects.
@@ -312,6 +316,14 @@ func (c *sshClient) GetCloudInitOutput() Output {
 		out.StdOut = removeUselessLinesFromCloudInitOutput(out.StdOut)
 	}
 	return out
+}
+
+// CheckDegradedRaid implements the CheckDegradedRaid method of the SSHClient interface.
+func (c *sshClient) CheckDegradedRaid() Output {
+	return c.runSSH(fmt.Sprintf(`cat <<'EOF_VIA_SSH' | bash -s
+	%s
+	EOF_VIA_SSH
+	`, detectDegradedRaidScript))
 }
 
 // GetHardwareDetailsCPUThreads implements the GetHardwareDetailsCPUThreads method of the SSHClient interface.
