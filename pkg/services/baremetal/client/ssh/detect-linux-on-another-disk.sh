@@ -67,10 +67,14 @@ while read name wwn type; do
         fail=1
         continue
     fi
+    if echo "$root_directory_content" | grep -Pqi '.*\bEFI\b.*'; then # -i is needed, because grub-fstest prints "efi", but mounted it is "EFI".
+        echo "FAIL: $name $wwn looks like a Linux /boot/efi partition on another disk."
+        fail=1
+        continue
+    fi
     #echo "ok: $name $wwn $parttype, does not look like root Linux partition."
 done < <(echo "$lines" | grep -v NAME | grep -i part)
 if [ $fail -eq 1 ]; then
     exit 1
 fi
 echo "Looks good. No Linux root partition on another devices"
-
