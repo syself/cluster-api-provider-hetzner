@@ -321,9 +321,9 @@ func (c *sshClient) GetCloudInitOutput() Output {
 // CheckDegradedRaid implements the CheckDegradedRaid method of the SSHClient interface.
 func (c *sshClient) CheckDegradedRaid() Output {
 	return c.runSSH(fmt.Sprintf(`cat <<'EOF_VIA_SSH' | bash -s
-	%s
-	EOF_VIA_SSH
-	`, detectDegradedRaidScript))
+%s
+EOF_VIA_SSH
+`, detectDegradedRaidScript))
 }
 
 // GetHardwareDetailsCPUThreads implements the GetHardwareDetailsCPUThreads method of the SSHClient interface.
