@@ -155,6 +155,13 @@ spec:
                     - lb21
                     - lb31
                     type: string
+                  useIPv6Endpoint:
+                    default: false
+                    description: UseIPv6Endpoint defines whether to use the LoadBalancer's
+                      IPv6 address as the cluster endpoint instead of IPv4. This is
+                      useful if nodes are provisioned without IPv4 address. Defaults
+                      to 'false'.
+                    type: boolean
                 type: object
               controlPlaneRegions:
                 description: ControlPlaneRegion consists of a list of HCloud Regions
