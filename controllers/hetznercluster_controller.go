@@ -267,8 +267,13 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 
 func processControlPlaneEndpoint(hetznerCluster *infrav1.HetznerCluster) {
 	if hetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
-		if hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4 != "<nil>" {
-			defaultHost := hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4
+		ip := hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4
+		if hetznerCluster.Spec.ControlPlaneLoadBalancer.UseIPv6Endpoint {
+			ip = hetznerCluster.Status.ControlPlaneLoadBalancer.IPv6
+		}
+
+		if ip != "<nil>" {
+			defaultHost := ip
 			defaultPort := int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port)
 
 			if hetznerCluster.Spec.ControlPlaneEndpoint == nil {

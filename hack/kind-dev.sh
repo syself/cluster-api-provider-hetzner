@@ -45,8 +45,9 @@ kindV1Alpha4Cluster:
   - role: control-plane
     image: ghcr.io/fluxcd/kindest/node:${CLUSTER_VERSION}-amd64
   networking:
-    podSubnet: "10.244.0.0/16"
-    serviceSubnet: "10.96.0.0/12"
+    podSubnet: "10.244.0.0/16,fd00:10:244::/56"
+    serviceSubnet: "10.96.0.0/12,fd00:10:96::/112"
+    ipFamily: dual
 EOF
 }
 
