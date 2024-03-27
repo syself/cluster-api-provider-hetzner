@@ -711,7 +711,7 @@ var _ = Describe("analyzeSSHOutputInstallImage", func() {
 			err:                         sshclient.ErrConnectionRefused,
 			rescueActive:                true,
 			expectedIsTimeout:           false,
-			expectedIsConnectionRefused: false,
+			expectedIsConnectionRefused: true,
 			expectedErrMessage:          "",
 		}),
 		Entry("connectionRefused error, rescue not active", testCaseAnalyzeSSHOutputInstallImageOutErr{

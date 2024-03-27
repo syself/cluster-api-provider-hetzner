@@ -232,33 +232,6 @@ var _ = Describe("Test HasHardwareReboot", func() {
 	)
 })
 
-var _ = Describe("Test HasPowerReboot", func() {
-	type testCaseHasPowerReboot struct {
-		rebootTypes []RebootType
-		expectBool  bool
-	}
-
-	DescribeTable("Test HasPowerReboot",
-		func(tc testCaseHasPowerReboot) {
-			host := HetznerBareMetalHost{}
-			host.Spec.Status.RebootTypes = tc.rebootTypes
-			Expect(host.HasPowerReboot()).Should(Equal(tc.expectBool))
-		},
-		Entry("has power reboot - single reboot type", testCaseHasPowerReboot{
-			rebootTypes: []RebootType{RebootTypePower},
-			expectBool:  true,
-		}),
-		Entry("has power reboot - multiple reboot types", testCaseHasPowerReboot{
-			rebootTypes: []RebootType{RebootTypeSoftware, RebootTypePower},
-			expectBool:  true,
-		}),
-		Entry("has no power reboot", testCaseHasPowerReboot{
-			rebootTypes: []RebootType{RebootTypeSoftware, RebootTypeManual},
-			expectBool:  false,
-		}),
-	)
-})
-
 var _ = Describe("Test NeedsProvisioning", func() {
 	type testCaseNeedsProvisioning struct {
 		installImage *InstallImage
