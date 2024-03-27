@@ -46,11 +46,12 @@ const (
 // the details to be specified. HardwareDetails in the host's status can be used to find the correct device.
 // Currently, you can specify one disk or a raid setup.
 type RootDeviceHints struct {
-	// Unique storage identifier. The hint must match the actual value
-	// exactly.
+	// WWN is a unique storage identifier used for non-raid setups. The hint
+	// must match the actual value exactly.
 	// +optional
 	WWN string `json:"wwn,omitempty"`
-	// To specify multiple storage devices.
+	// Raid is used to specify multiple storage devices. It provides the controller with information
+	// on which disks a raid can be established.
 	// +optional
 	Raid Raid `json:"raid,omitempty"`
 }
@@ -82,6 +83,7 @@ func (rdh *RootDeviceHints) ListOfWWN() []string {
 
 // Raid can be used instead of WWN to point to multiple storage devices.
 type Raid struct {
+	// WWN defines a list of unique storage identifiers used for raid setups.
 	WWN []string `json:"wwn,omitempty"`
 }
 
@@ -90,18 +92,18 @@ type Raid struct {
 type ErrorType string
 
 const (
-	// ErrorTypeSSHRebootTriggered is an error condition that the ssh reboot is triggered.
+	// ErrorTypeSSHRebootTriggered is an error condition that triggers the SSH reboot.
 	ErrorTypeSSHRebootTriggered ErrorType = "ssh reboot triggered"
-	// ErrorTypeSoftwareRebootTriggered is an error condition that the software reboot is triggered.
+	// ErrorTypeSoftwareRebootTriggered is an error condition that triggers the software reboot.
 	ErrorTypeSoftwareRebootTriggered ErrorType = "software reboot triggered"
-	// ErrorTypeHardwareRebootTriggered is an error condition that the hardware reboot is triggered.
+	// ErrorTypeHardwareRebootTriggered is an error condition that triggers the hardware reboot.
 	ErrorTypeHardwareRebootTriggered ErrorType = "hardware reboot triggered"
 
-	// ErrorTypeConnectionError ErrorType is an error condition indicating that ssh command returned a connection refused error.
+	// ErrorTypeConnectionError ErrorType is an error condition indicating that the SSH command returned a connection refused error.
 	ErrorTypeConnectionError ErrorType = "connection refused error of SSH command"
 
 	// RegistrationError is an error condition occurring when the
-	// controller is unable to retrieve information of a specific server via robot.
+	// controller is unable to retrieve information on a specific server via robot.
 	RegistrationError ErrorType = "registration error"
 	// PreparationError is an error condition occurring when something fails while preparing host reconciliation.
 	PreparationError ErrorType = "preparation error"
@@ -112,7 +114,7 @@ const (
 	// FatalError is a fatal error that triggers a failureMessage in the bm machine.
 	FatalError ErrorType = "fatal error"
 
-	// PermanentError is like fatal error but stays on host machine.
+	// PermanentError is like a fatal error but stays on the host machine.
 	PermanentError ErrorType = "permanent error"
 )
 
@@ -121,24 +123,24 @@ const (
 	ErrorMessageMissingRootDeviceHints string = "no root device hints specified"
 	// ErrorMessageInvalidRootDeviceHints specifies the error message when invalid root device hints are specified.
 	ErrorMessageInvalidRootDeviceHints string = "invalid root device hints specified"
-	// ErrorMessageMissingHetznerSecret specifies the error message when no Hetzner secret was found.
+	// ErrorMessageMissingHetznerSecret specifies the error message when no Hetzner secret is found.
 	ErrorMessageMissingHetznerSecret string = "could not find HetznerSecret"
-	// ErrorMessageMissingRescueSSHSecret specifies the error message when no RescueSSH secret was found.
+	// ErrorMessageMissingRescueSSHSecret specifies the error message when no RescueSSH secret is found.
 	ErrorMessageMissingRescueSSHSecret string = "could not find RescueSSHSecret"
-	// ErrorMessageMissingOSSSHSecret specifies the error message when no OSSSH secret was found.
+	// ErrorMessageMissingOSSSHSecret specifies the error message when no OSSSH secret is found.
 	ErrorMessageMissingOSSSHSecret string = "could not find OSSSHSecret"
 	// ErrorMessageMissingOrInvalidSecretData specifies the error message when no data in secret is missing or invalid.
 	ErrorMessageMissingOrInvalidSecretData string = "invalid or not specified information in secret"
 )
 
-// ProvisioningState defines the states the provisioner will report the host has having.
+// ProvisioningState defines the states the provisioner will report the host was having.
 type ProvisioningState string
 
 const (
 	// StateNone means the state is unknown.
 	StateNone ProvisioningState = ""
 
-	// StatePreparing means we are checking if server exists and prepare it.
+	// StatePreparing means we are checking if the server exists and preparing it.
 	StatePreparing ProvisioningState = "preparing"
 
 	// StateRegistering means we are getting hardware details.
@@ -147,16 +149,16 @@ const (
 	// StateImageInstalling means we install a new image.
 	StateImageInstalling ProvisioningState = "image-installing"
 
-	// StateProvisioning means we are sending userData to the host and boot the machine.
+	// StateProvisioning means we are sending userData to the host and booting the machine.
 	StateProvisioning ProvisioningState = "provisioning"
 
-	// StateEnsureProvisioned means we are ensuring the reboot worked and cloud init was executed successfully.
+	// StateEnsureProvisioned means we are ensuring the reboot worked and cloud-init was executed successfully.
 	StateEnsureProvisioned ProvisioningState = "ensure-provisioned"
 
 	// StateProvisioned means we have sent userData to the host and booted the machine.
 	StateProvisioned ProvisioningState = "provisioned"
 
-	// StateDeprovisioning means we are removing all machine-specific information from host.
+	// StateDeprovisioning means we are removing all machine-specific information from the host.
 	StateDeprovisioning ProvisioningState = "deprovisioning"
 
 	// StateDeleting means we are deleting the host.
@@ -188,7 +190,7 @@ type HetznerBareMetalHostSpec struct {
 	// Find it on your Hetzner robot dashboard.
 	ServerID int `json:"serverID"`
 
-	// Provide guidance about how to choose the device for the image
+	// RootDeviceHints provides guidance about how to choose the device for the image
 	// being provisioned. They need to be specified to provision the host.
 	// +optional
 	RootDeviceHints *RootDeviceHints `json:"rootDeviceHints,omitempty"`
@@ -217,7 +219,7 @@ type HetznerBareMetalHostSpec struct {
 // ControllerGeneratedStatus contains all status information which is important to persist.
 type ControllerGeneratedStatus struct {
 	// HetznerClusterRef is the name of the HetznerCluster object which is
-	// needed as some necessary information is stored there, e.g. the hrobot password
+	// needed as some necessary information is stored there, e.g. the hrobot password.
 	HetznerClusterRef string `json:"hetznerClusterRef"`
 
 	// UserData holds the reference to the Secret containing the user
@@ -225,7 +227,7 @@ type ControllerGeneratedStatus struct {
 	// +optional
 	UserData *corev1.SecretReference `json:"userData,omitempty"`
 
-	// InstallImage is the configuration which is used for the autosetup configuration for installing an OS via InstallImage.
+	// InstallImage is the configuration that is used for the autosetup configuration for installing an OS via InstallImage.
 	// +optional
 	InstallImage *InstallImage `json:"installImage,omitempty"`
 
@@ -241,23 +243,23 @@ type ControllerGeneratedStatus struct {
 	// +optional
 	IPv6 string `json:"ipv6"`
 
-	// RebootTypes is a list of all available reboot types for API reboots
+	// RebootTypes is a list of all available reboot types for API reboots.
 	// +optional
 	RebootTypes []RebootType `json:"rebootTypes,omitempty"`
 
 	// SSHSpec defines specs for SSH.
 	SSHSpec *SSHSpec `json:"sshSpec,omitempty"`
 
-	// HetznerRobotSSHKey contains name and fingerprint of the in HetznerCluster spec specified SSH key.
+	// HetznerRobotSSHKey contains the name and fingerprint of the HetznerCluster spec specified SSH key.
 	// +optional
 	SSHStatus SSHStatus `json:"sshStatus,omitempty"`
 
 	// ErrorType indicates the type of failure encountered when the
-	// OperationalStatus is OperationalStatusError
+	// OperationalStatus is OperationalStatusError.
 	// +optional
 	ErrorType ErrorType `json:"errorType,omitempty"`
 
-	// ErrorCount records how many times the host has encoutered an error since the last successful operation.
+	// ErrorCount records how many times the host has encountered an error since the last successful operation.
 	// +kubebuilder:default:=0
 	ErrorCount int `json:"errorCount"`
 
@@ -276,7 +278,7 @@ type ControllerGeneratedStatus struct {
 	// Rebooted shows whether the server is currently being rebooted.
 	Rebooted bool `json:"rebooted,omitempty"`
 
-	// Conditions defines current service state of the HetznerBareMetalHost.
+	// Conditions define the current service state of the HetznerBareMetalHost.
 	// +optional
 	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
 }
@@ -361,28 +363,28 @@ type Storage struct {
 	// may not be stable across reboots.
 	Name string `json:"name,omitempty"`
 
-	// The size of the disk in Bytes
+	// SizeBytes is the size of the disk in Bytes.
 	SizeBytes Capacity `json:"sizeBytes,omitempty"`
 
-	// The size of the disk in GB
+	// SizeGB is the size of the disk in GB.
 	SizeGB Capacity `json:"sizeGB,omitempty"`
 
-	// The name of the vendor of the device
+	// Vendor is the name of the vendor of the device.
 	Vendor string `json:"vendor,omitempty"`
 
-	// Hardware model
+	// Model represents the Hardware model.
 	Model string `json:"model,omitempty"`
 
-	// The serial number of the device
+	// SerialNumber denotes the serial number of the device.
 	SerialNumber string `json:"serialNumber,omitempty"`
 
-	// The WWN of the device
+	// WWN defines the WWN of the device.
 	WWN string `json:"wwn,omitempty"`
 
-	// The SCSI location of the device
+	// HCTL defines the SCSI location of the device.
 	HCTL string `json:"hctl,omitempty"`
 
-	// Rota defines if its a HDD device or not.
+	// Rota defines if it's an HDD device or not.
 	Rota bool `json:"rota,omitempty"`
 }
 
@@ -503,7 +505,7 @@ func (host *HetznerBareMetalHost) HasSoftwareReboot() bool {
 	return false
 }
 
-// HasHardwareReboot returns a boolean indicating whether hardware reboot exists for server.
+// HasHardwareReboot returns a boolean indicating whether hardware reboot exists for the server.
 func (host *HetznerBareMetalHost) HasHardwareReboot() bool {
 	for _, rt := range host.Spec.Status.RebootTypes {
 		if rt == RebootTypeHardware {
@@ -513,7 +515,7 @@ func (host *HetznerBareMetalHost) HasHardwareReboot() bool {
 	return false
 }
 
-// HasPowerReboot returns a boolean indicating whether power reboot exists for server.
+// HasPowerReboot returns a boolean indicating whether power reboot exists for the server.
 func (host *HetznerBareMetalHost) HasPowerReboot() bool {
 	for _, rt := range host.Spec.Status.RebootTypes {
 		if rt == RebootTypePower {
@@ -555,7 +557,7 @@ func (host *HetznerBareMetalHost) ClearError() {
 	host.Spec.Status.ErrorCount = 0
 }
 
-// HasRebootAnnotation checks for existence of reboot annotations and returns true if at least one exist.
+// HasRebootAnnotation checks for the existence of reboot annotations and returns true if at least one exists.
 func (host *HetznerBareMetalHost) HasRebootAnnotation() bool {
 	for annotation := range host.GetAnnotations() {
 		if isRebootAnnotation(annotation) {
