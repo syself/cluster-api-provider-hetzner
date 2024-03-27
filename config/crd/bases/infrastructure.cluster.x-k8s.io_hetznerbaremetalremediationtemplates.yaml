@@ -70,14 +70,17 @@ spec:
                         description: Strategy field defines remediation strategy.
                         properties:
                           retryLimit:
-                            description: Sets maximum number of remediation retries.
+                            description: RetryLimit sets the maximum number of remediation
+                              retries. Zero retries if not set.
                             type: integer
                           timeout:
-                            description: Sets the timeout between remediation retries.
+                            description: Timeout sets the timeout between remediation
+                              retries. It should be of the form "10m", or "40s".
                             type: string
                           type:
                             default: Reboot
-                            description: Type of remediation.
+                            description: Type represents the type of the remediation
+                              strategy. At the moment, only "Reboot" is supported.
                             type: string
                         required:
                         - timeout
