@@ -479,27 +479,26 @@ func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope
 
 	// Control plane ready, so we can check if the secret exists already
 
-	// getting client set
+	// getting client
 	restConfig, err := clientConfig.ClientConfig()
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to get rest config: %w", err)
 	}
 
-	clientSet, err := kubernetes.NewForConfig(restConfig)
+	client, err := client.New(restConfig, client.Options{})
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to get client set: %w", err)
+		return reconcile.Result{}, fmt.Errorf("failed to get client: %w", err)
 	}
 
-	if _, err := clientSet.CoreV1().Secrets(metav1.NamespaceSystem).Get(
-		ctx,
-		clusterScope.HetznerCluster.Spec.HetznerSecret.Name,
-		metav1.GetOptions{},
-	); err != nil {
-		// Set new secret only when no secret was found
-		if !strings.HasSuffix(err.Error(), "not found") {
-			return reconcile.Result{}, fmt.Errorf("failed to get secret: %w", err)
-		}
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      clusterScope.HetznerCluster.Spec.HetznerSecret.Name,
+			Namespace: metav1.NamespaceSystem,
+		},
+	}
 
+	// Make sure secret exists and has the expected values
+	_, err = controllerutil.CreateOrUpdate(ctx, client, secret, func() error {
 		tokenSecretName := types.NamespacedName{
 			Namespace: clusterScope.HetznerCluster.Namespace,
 			Name:      clusterScope.HetznerCluster.Spec.HetznerSecret.Name,
@@ -507,53 +506,46 @@ func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope
 		secretManager := secretutil.NewSecretManager(clusterScope.Logger, clusterScope.Client, clusterScope.APIReader)
 		tokenSecret, err := secretManager.AcquireSecret(ctx, tokenSecretName, clusterScope.HetznerCluster, false, clusterScope.HetznerCluster.DeletionTimestamp.IsZero())
 		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("failed to acquire secret: %w", err)
+			return fmt.Errorf("failed to acquire secret: %w", err)
 		}
 
 		hetznerToken, keyExists := tokenSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken]
 		if !keyExists {
-			return reconcile.Result{}, fmt.Errorf("error key %s does not exist in secret/%s: %w",
+			return fmt.Errorf("error key %s does not exist in secret/%s: %w",
 				clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken,
 				tokenSecretName,
 				err,
 			)
 		}
 
-		var immutable bool
-		data := make(map[string][]byte)
-		data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken] = hetznerToken
+		if secret.Data == nil {
+			secret.Data = make(map[string][]byte)
+		}
+
+		secret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken] = hetznerToken
 
 		// Save robot credentials if available
 		if clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser != "" {
 			robotUserName := tokenSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser]
-			data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser] = robotUserName
+			secret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser] = robotUserName
 			robotPassword := tokenSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword]
-			data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword] = robotPassword
+			secret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword] = robotPassword
 		}
 
 		// Save network ID in secret
 		if clusterScope.HetznerCluster.Spec.HCloudNetwork.Enabled {
-			data["network"] = []byte(strconv.FormatInt(clusterScope.HetznerCluster.Status.Network.ID, 10))
+			secret.Data["network"] = []byte(strconv.FormatInt(clusterScope.HetznerCluster.Status.Network.ID, 10))
 		}
 		// Save api server information
-		data["apiserver-host"] = []byte(clusterScope.HetznerCluster.Spec.ControlPlaneEndpoint.Host)
-		data["apiserver-port"] = []byte(strconv.Itoa(int(clusterScope.HetznerCluster.Spec.ControlPlaneEndpoint.Port)))
+		secret.Data["apiserver-host"] = []byte(clusterScope.HetznerCluster.Spec.ControlPlaneEndpoint.Host)
+		secret.Data["apiserver-port"] = []byte(strconv.Itoa(int(clusterScope.HetznerCluster.Spec.ControlPlaneEndpoint.Port)))
 
-		newSecret := corev1.Secret{
-			Immutable: &immutable,
-			Data:      data,
-			TypeMeta:  metav1.TypeMeta{},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      clusterScope.HetznerCluster.Spec.HetznerSecret.Name,
-				Namespace: metav1.NamespaceSystem,
-			},
-		}
-
-		// create secret in cluster
-		if _, err := clientSet.CoreV1().Secrets(metav1.NamespaceSystem).Create(ctx, &newSecret, metav1.CreateOptions{}); err != nil {
-			return reconcile.Result{}, fmt.Errorf("failed to create secret: %w", err)
-		}
+		return nil
+	})
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to create or update secret: %w", err)
 	}
+
 	return res, nil
 }
 
