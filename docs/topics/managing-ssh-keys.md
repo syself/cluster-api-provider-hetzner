@@ -1,5 +1,15 @@
 ## Managing SSH keys
 
+This section provides details about SSH keys and its importance with regards to CAPH.
+
+### What are SSH keys?
+
+SSH keys are a crucial component of secured network communication. They provide a secure and convenient method for authenticating to and communicating with remote servers over unsecured networks. They are used as an access credential in the SSH (Secure Shell) protocol, which is used for logging in remotely from one system to another. SSH keys come in pairs with a public and a private key and its strong encryption is used for executing remote commands and remotely managing vital system components.
+
+### SSH keys in CAPH
+
+In CAPH, SSH keys help in establishing secure communication remotely with Kubernetes nodes running on Hetzner cloud. They help you get complete access to the underlying Kubernetes nodes that are machines provisioned in Hetzner cloud and retrieve required information related to the system. With the help of these keys, you can SSH into the nodes in case of troubleshooting. 
+
 ### In Hetzner Cloud
 In pure HCloud clusters, without bare metal servers, there is no need for SSH keys. All keys that exist in HCloud API and are specified in ```HetznerCluster``` properties are included when provisioning machines. Therefore, they can be used to access those machines via SSH. Note that you have to upload those keys via Hetzner UI or API beforehand. 
 

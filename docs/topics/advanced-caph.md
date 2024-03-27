@@ -16,10 +16,6 @@ For more information, see:
 * https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-certs/
 * https://kubernetes.io/docs/reference/access-authn-authz/kubelet-tls-bootstrapping/#client-and-serving-certificates
 
-## Rate Limits
-
-Hetzner Cloud and Hetzner Robot both implement rate limits. As a brute-force method, we implemented some logic that prevents the controller from reconciling a specific object for some defined time period if a rate limit was hit during reconcilement of that object. We set the condition on true, that a rate limit was hit. Of course, this only affects one object so that another `HCloudMachine` still reconciles normally, even though one hits the rate limit. There is a chance that it will also hit the rate limit (which is defined per function so that it does not necessarily need to happen). In that case, the controller also stops reconciling this object for some time.
-
 ## Multi-tenancy
 
 We support multi-tenancy. You can start multiple clusters in one Hetzner project at the same time. As the resources all have a label with the cluster name, the controller is able to handle them perfectly.
