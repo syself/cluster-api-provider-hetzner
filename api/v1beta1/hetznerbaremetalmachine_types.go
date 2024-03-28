@@ -63,12 +63,12 @@ const (
 
 // HetznerBareMetalMachineSpec defines the desired state of HetznerBareMetalMachine.
 type HetznerBareMetalMachineSpec struct {
-	// ProviderID will be the hetznerbaremetalmachine in ProviderID format
-	// (hcloud://<server-id>)
+	// ProviderID will be the hetznerbaremetalmachine which is set by the controller
+	// in the `hcloud://bm-<server-id>` format.
 	// +optional
 	ProviderID *string `json:"providerID,omitempty"`
 
-	// InstallImage is the configuration which is used for the autosetup configuration for installing an OS via InstallImage.
+	// InstallImage is the configuration that is used for the autosetup configuration for installing an OS via InstallImage.
 	InstallImage InstallImage `json:"installImage"`
 
 	// HostSelector specifies matching criteria for labels on HetznerBareMetalHosts.
@@ -77,7 +77,7 @@ type HetznerBareMetalMachineSpec struct {
 	// +optional
 	HostSelector HostSelector `json:"hostSelector,omitempty"`
 
-	// SSHSpec gives a reference on the secret where SSH details are specified as well as ports for ssh.
+	// SSHSpec gives a reference on the secret where SSH details are specified as well as ports for SSH.
 	SSHSpec SSHSpec `json:"sshSpec,omitempty"`
 }
 
@@ -85,77 +85,93 @@ type HetznerBareMetalMachineSpec struct {
 // This is used to limit the set of BareMetalHost objects considered for
 // claiming for a Machine.
 type HostSelector struct {
-	// Key/value pairs of labels that must exist on a chosen BareMetalHost
+	// MatchLabels defines the key/value pairs of labels that must exist on a chosen BareMetalHost.
 	// +optional
 	MatchLabels map[string]string `json:"matchLabels,omitempty"`
 
-	// Label match expressions that must be true on a chosen BareMetalHost
+	// MatchExpressions defines the label match expressions that must be true on a chosen BareMetalHost.
 	// +optional
 	MatchExpressions []HostSelectorRequirement `json:"matchExpressions,omitempty"`
 }
 
 // HostSelectorRequirement defines a requirement used for MatchExpressions to select host machines.
 type HostSelectorRequirement struct {
-	Key      string             `json:"key"`
+	// Key defines the key of the label that should be matched in the host object.
+	Key string `json:"key"`
+
+	// Operator defines the selection operator.
 	Operator selection.Operator `json:"operator"`
-	Values   []string           `json:"values"`
+
+	// Values define the values whose relation to the label value in the host machine is defined by the selection operator.
+	Values []string `json:"values"`
 }
 
 // SSHSpec defines specs for SSH.
 type SSHSpec struct {
-	// SecretRef gives reference to the secret.
+	// SecretRef gives reference to the secret where the SSH key is stored.
 	SecretRef SSHSecretRef `json:"secretRef"`
 
-	// PortAfterInstallImage specifies the port that has to be used to connect to the machine after install image.
+	// PortAfterInstallImage specifies the port that has to be used to connect to the machine
+	// by reaching the server via SSH after installing the image successfully.
 	// +kubebuilder:default=22
 	// +optional
 	PortAfterInstallImage int `json:"portAfterInstallImage"`
 
-	// PortAfterCloudInit specifies the port that has to be used to connect to the machine after cloud init.
+	// PortAfterCloudInit specifies the port that has to be used to connect to the machine
+	// by reaching the server via SSH after the successful completion of cloud init.
 	// +optional
 	PortAfterCloudInit int `json:"portAfterCloudInit"`
 }
 
-// SSHSecretRef defines the secret containing all information of the SSH key used for Hetzner robot.
+// SSHSecretRef defines the secret containing all information of the SSH key used for the Hetzner robot.
 type SSHSecretRef struct {
-	Name string          `json:"name"`
-	Key  SSHSecretKeyRef `json:"key"`
+	// Name is the name of the secret.
+	Name string `json:"name"`
+
+	// Key contains details about the keys used in the data of the secret.
+	Key SSHSecretKeyRef `json:"key"`
 }
 
 // SSHSecretKeyRef defines the key name of the SSHSecret.
 type SSHSecretKeyRef struct {
-	Name       string `json:"name"`
-	PublicKey  string `json:"publicKey"`
+	// Name is the key in the secret's data where the SSH key's name is stored.
+	Name string `json:"name"`
+
+	// PublicKey is the key in the secret's data where the SSH key's public key is stored.
+	PublicKey string `json:"publicKey"`
+
+	// PrivateKey is the key in the secret's data where the SSH key's private key is stored.
 	PrivateKey string `json:"privateKey"`
 }
 
 // InstallImage defines the configuration for InstallImage.
 type InstallImage struct {
-	// Image is the image to be provisioned.
+	// Image is the image to be provisioned. It defines the image for baremetal machine.
 	Image Image `json:"image"`
 
-	// PostInstallScript is used for configuring commands which should be executed after installimage.
+	// PostInstallScript is used for configuring commands that should be executed after installimage.
 	// It is passed along with the installimage command.
 	PostInstallScript string `json:"postInstallScript,omitempty"`
 
-	// Partitions defines the additional Partitions to be created.
+	// Partitions define the additional Partitions to be created in installimage.
 	Partitions []Partition `json:"partitions"`
 
 	// LVMDefinitions defines the logical volume definitions to be created.
 	// +optional
 	LVMDefinitions []LVMDefinition `json:"logicalVolumeDefinitions,omitempty"`
 
-	// BTRFSDefinitions defines the btrfs subvolume definitions to be created.
+	// BTRFSDefinitions define the btrfs subvolume definitions to be created.
 	// +optional
 	BTRFSDefinitions []BTRFSDefinition `json:"btrfsDefinitions,omitempty"`
 
-	// Swraid defines the SWRAID in InstallImage.
+	// Swraid defines the SWRAID in InstallImage. It enables or disables raids. Set 1 to enable.
 	// +optional
 	// +kubebuilder:default=0
 	// +kubebuilder:validation:Enum=0;1;
 	Swraid int `json:"swraid"`
 
-	// SwraidLevel defines the SWRAIDLEVEL in InstallImage. Ignored if Swraid=0.
+	// SwraidLevel defines the SWRAIDLEVEL in InstallImage. Only relevant if the raid is enabled.
+	// Pick one of 0,1,5,6,10. Ignored if Swraid=0.
 	// +optional
 	// +kubebuilder:default=1
 	// +kubebuilder:validation:Enum=0;1;5;6;10;
@@ -218,10 +234,10 @@ func (image Image) String() string {
 // Partition defines the additional Partitions to be created.
 type Partition struct {
 	// Mount defines the mount path for this filesystem.
-	// or keyword 'lvm' to use this PART as volume group (VG) for LVM
-	// identifier 'btrfs.X' to use this PART as volume for
+	// Keyword 'lvm' to use this PART as volume group (VG) for LVM.
+	// Identifier 'btrfs.X' to use this PART as volume for
 	// btrfs subvolumes. X can be replaced with a unique
-	// alphanumeric keyword. NOTE: no support btrfs multi-device volumes
+	// alphanumeric keyword. NOTE: no support for btrfs multi-device volumes.
 	Mount string `json:"mount"`
 
 	// FileSystem can be ext2, ext3, ext4, btrfs, reiserfs, xfs, swap
@@ -229,7 +245,7 @@ type Partition struct {
 	FileSystem string `json:"fileSystem"`
 
 	// Size can use the keyword 'all' to assign all the remaining space of the drive to the last partition.
-	// can use M/G/T for unit specification in MiB/GiB/TiB
+	// You can use M/G/T for unit specification in MiB/GiB/TiB.
 	Size string `json:"size"`
 }
 
@@ -287,11 +303,11 @@ type HetznerBareMetalMachineStatus struct {
 	Ready bool `json:"ready"`
 
 	// Phase represents the current phase of HetznerBareMetalMachineStatus actuation.
-	// E.g. Pending, Running, Terminating, Failed etc.
+	// E.g. Pending, Running, Terminating, Failed, etc.
 	// +optional
 	Phase clusterv1.MachinePhase `json:"phase,omitempty"`
 
-	// Conditions defines current service state of the HetznerBareMetalMachine.
+	// Conditions define the current service state of the HetznerBareMetalMachine.
 	// +optional
 	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
 }

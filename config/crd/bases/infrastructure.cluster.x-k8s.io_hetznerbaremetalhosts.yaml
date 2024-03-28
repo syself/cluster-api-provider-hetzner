@@ -325,8 +325,8 @@ spec:
                       the autosetup configuration for installing an OS via InstallImage.
                     properties:
                       btrfsDefinitions:
-                        description: BTRFSDefinitions defines the btrfs subvolume
-                          definitions to be created.
+                        description: BTRFSDefinitions define the btrfs subvolume definitions
+                          to be created.
                         items:
                           description: BTRFSDefinition defines the btrfs subvolume
                             definitions to be created.
@@ -347,7 +347,8 @@ spec:
                           type: object
                         type: array
                       image:
-                        description: Image is the image to be provisioned.
+                        description: Image is the image to be provisioned. It defines
+                          the image for baremetal machine.
                         properties:
                           name:
                             description: Name defines the archive name after download.
@@ -395,8 +396,8 @@ spec:
                           type: object
                         type: array
                       partitions:
-                        description: Partitions defines the additional Partitions
-                          to be created.
+                        description: Partitions define the additional Partitions to
+                          be created in installimage.
                         items:
                           description: Partition defines the additional Partitions
                             to be created.
@@ -408,16 +409,16 @@ spec:
                               type: string
                             mount:
                               description: 'Mount defines the mount path for this
-                                filesystem. or keyword ''lvm'' to use this PART as
-                                volume group (VG) for LVM identifier ''btrfs.X'' to
-                                use this PART as volume for btrfs subvolumes. X can
-                                be replaced with a unique alphanumeric keyword. NOTE:
-                                no support btrfs multi-device volumes'
+                                filesystem. Keyword ''lvm'' to use this PART as volume
+                                group (VG) for LVM. Identifier ''btrfs.X'' to use
+                                this PART as volume for btrfs subvolumes. X can be
+                                replaced with a unique alphanumeric keyword. NOTE:
+                                no support for btrfs multi-device volumes.'
                               type: string
                             size:
                               description: Size can use the keyword 'all' to assign
                                 all the remaining space of the drive to the last partition.
-                                can use M/G/T for unit specification in MiB/GiB/TiB
+                                You can use M/G/T for unit specification in MiB/GiB/TiB.
                               type: string
                           required:
                           - fileSystem
@@ -427,12 +428,13 @@ spec:
                         type: array
                       postInstallScript:
                         description: PostInstallScript is used for configuring commands
-                          which should be executed after installimage. It is passed
+                          that should be executed after installimage. It is passed
                           along with the installimage command.
                         type: string
                       swraid:
                         default: 0
-                        description: Swraid defines the SWRAID in InstallImage.
+                        description: Swraid defines the SWRAID in InstallImage. It
+                          enables or disables raids. Set 1 to enable.
                         enum:
                         - 0
                         - 1
@@ -440,6 +442,7 @@ spec:
                       swraidLevel:
                         default: 1
                         description: SwraidLevel defines the SWRAIDLEVEL in InstallImage.
+                          Only relevant if the raid is enabled. Pick one of 0,1,5,6,10.
                           Ignored if Swraid=0.
                         enum:
                         - 0
@@ -483,25 +486,34 @@ spec:
                     properties:
                       portAfterCloudInit:
                         description: PortAfterCloudInit specifies the port that has
-                          to be used to connect to the machine after cloud init.
+                          to be used to connect to the machine by reaching the server
+                          via SSH after the successful completion of cloud init.
                         type: integer
                       portAfterInstallImage:
                         default: 22
                         description: PortAfterInstallImage specifies the port that
-                          has to be used to connect to the machine after install image.
+                          has to be used to connect to the machine by reaching the
+                          server via SSH after installing the image successfully.
                         type: integer
                       secretRef:
-                        description: SecretRef gives reference to the secret.
+                        description: SecretRef gives reference to the secret where
+                          the SSH key is stored.
                         properties:
                           key:
-                            description: SSHSecretKeyRef defines the key name of the
-                              SSHSecret.
+                            description: Key contains details about the keys used
+                              in the data of the secret.
                             properties:
                               name:
+                                description: Name is the key in the secret's data
+                                  where the SSH key's name is stored.
                                 type: string
                               privateKey:
+                                description: PrivateKey is the key in the secret's
+                                  data where the SSH key's private key is stored.
                                 type: string
                               publicKey:
+                                description: PublicKey is the key in the secret's
+                                  data where the SSH key's public key is stored.
                                 type: string
                             required:
                             - name
@@ -509,6 +521,7 @@ spec:
                             - publicKey
                             type: object
                           name:
+                            description: Name is the name of the secret.
                             type: string
                         required:
                         - key
