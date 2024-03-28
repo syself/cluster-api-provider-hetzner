@@ -133,7 +133,7 @@ const (
 	ErrorMessageMissingOrInvalidSecretData string = "invalid or not specified information in secret"
 )
 
-// ProvisioningState defines the states the provisioner will report the host was having.
+// ProvisioningState defines the states of provisioning of the host.
 type ProvisioningState string
 
 const (
