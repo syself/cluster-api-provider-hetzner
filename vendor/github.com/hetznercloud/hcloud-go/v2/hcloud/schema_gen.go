@@ -78,6 +78,8 @@ You can find a documentation of goverter here: https://goverter.jmattheis.de/
 // goverter:extend schemaFromLoadBalancerCreateOptsTargetServer
 // goverter:extend schemaFromLoadBalancerCreateOptsTargetIP
 // goverter:extend stringMapToStringMapPtr
+// goverter:extend int64SlicePtrFromCertificatePtrSlice
+// goverter:extend stringSlicePtrFromStringSlice
 type converter interface {
 
 	// goverter:map Error.Code ErrorCode
@@ -103,6 +105,7 @@ type converter interface {
 	PrimaryIPFromSchema(schema.PrimaryIP) *PrimaryIP
 
 	// goverter:map . IP | primaryIPToIPString
+	// goverter:map AssigneeID | mapZeroInt64ToNil
 	SchemaFromPrimaryIP(*PrimaryIP) schema.PrimaryIP
 
 	ISOFromSchema(schema.ISO) *ISO
@@ -872,6 +875,13 @@ func stringPtrFromNetworkZone(z NetworkZone) *string {
 	return mapEmptyStringToNil(string(z))
 }
 
+func mapZeroInt64ToNil(i int64) *int64 {
+	if i == 0 {
+		return nil
+	}
+	return &i
+}
+
 func mapZeroUint64ToNil(i uint64) *uint64 {
 	if i == 0 {
 		return nil
@@ -925,4 +935,23 @@ func mapZeroFloat32ToNil(f float32) *float32 {
 
 func isDeprecationNotNil(d *DeprecationInfo) bool {
 	return d != nil
+}
+
+// int64SlicePtrFromCertificatePtrSlice is needed so that a nil slice is mapped to nil instead of &nil.
+func int64SlicePtrFromCertificatePtrSlice(s []*Certificate) *[]int64 {
+	if s == nil {
+		return nil
+	}
+	var ids = make([]int64, len(s))
+	for i, cert := range s {
+		ids[i] = cert.ID
+	}
+	return &ids
+}
+
+func stringSlicePtrFromStringSlice(s []string) *[]string {
+	if s == nil {
+		return nil
+	}
+	return &s
 }
