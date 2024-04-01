@@ -35,17 +35,3 @@
 | kind_cluster_name | []object | "caph" | no | The name of the kind cluster to use when preloading images |
 | capi_version | string | "v1.6.3" | no | Version of CAPI |
 | cert_manager_version | string | "v1.11.0" | no | Version of cert manager |
-| kustomize_substitutions | map[string]string | {
-        "HCLOUD_REGION": "fsn1",
-        "CONTROL_PLANE_MACHINE_COUNT": "3",
-        "WORKER_MACHINE_COUNT": "3",
-        "KUBERNETES_VERSION": "v1.28.4",
-        "HCLOUD_IMAGE_NAME": "test-image",
-        "HCLOUD_CONTROL_PLANE_MACHINE_TYPE": "cpx31",
-        "HCLOUD_WORKER_MACHINE_TYPE": "cpx31",
-        "CLUSTER_NAME": "test",
-        "HETZNER_SSH_PUB_PATH": "~/.ssh/test",
-        "HETZNER_SSH_PRIV_PATH": "~/.ssh/test",
-        "HETZNER_ROBOT_USER": "test",
-        "HETZNER_ROBOT_PASSWORD": "pw"
-    }, | no | An optional map of substitutions for `${}`-style placeholders in the provider's yaml |

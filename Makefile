@@ -127,6 +127,12 @@ $(HELM):
 	curl -sSL https://get.helm.sh/helm-v3.13.2-linux-amd64.tar.gz | tar xz -C $(TOOLS_BIN_DIR) --strip-components=1 linux-amd64/helm
 	chmod a+rx $(HELM)
 
+HCLOUD := $(abspath $(TOOLS_BIN_DIR)/hcloud)
+hcloud: $(HCLOUD) ## Build a local copy of hcloud
+$(HCLOUD):
+	curl -sSL https://github.com/hetznercloud/cli/releases/download/v1.42.0/hcloud-linux-amd64.tar.gz | tar xz -C $(TOOLS_BIN_DIR) hcloud
+	chmod a+rx $(HCLOUD)
+
 KIND := $(abspath $(TOOLS_BIN_DIR)/kind)
 kind: $(KIND) ## Build a local copy of kind
 $(KIND):
@@ -153,7 +159,7 @@ gotestsum: $(GOTESTSUM) # Build gotestsum from tools folder.
 $(GOTESTSUM):
 	go install gotest.tools/gotestsum@v1.11.0
 
-all-tools: $(GOTESTSUM) $(go-cover-treemap) $(go-binsize-treemap) $(KIND) $(KUBECTL) $(CLUSTERCTL) $(CTLPTL) $(SETUP_ENVTEST) $(ENVSUBST) $(KUSTOMIZE) $(CONTROLLER_GEN) $(HELM)
+all-tools: $(GOTESTSUM) $(go-cover-treemap) $(go-binsize-treemap) $(KIND) $(KUBECTL) $(CLUSTERCTL) $(CTLPTL) $(SETUP_ENVTEST) $(ENVSUBST) $(KUSTOMIZE) $(CONTROLLER_GEN) $(HELM) ## Install all tools required for development
 	echo 'done'
 
 ##@ Development

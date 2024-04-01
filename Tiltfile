@@ -30,24 +30,12 @@ settings = {
         ],
     },
     "kustomize_substitutions": {
-        "HCLOUD_REGION": "fsn1",
-        "CONTROL_PLANE_MACHINE_COUNT": "3",
-        "WORKER_MACHINE_COUNT": "3",
-        "KUBERNETES_VERSION": "v1.27.3",
-        "HCLOUD_IMAGE_NAME": "test-image",
-        "HCLOUD_CONTROL_PLANE_MACHINE_TYPE": "cpx31",
-        "HCLOUD_WORKER_MACHINE_TYPE": "cpx31",
-        "CLUSTER_NAME": "test",
-        "HETZNER_SSH_PUB_PATH": "~/.ssh/test",
-        "HETZNER_SSH_PRIV_PATH": "~/.ssh/test",
-        "HETZNER_ROBOT_USER": "test",
-        "HETZNER_ROBOT_PASSWORD": "pw",
     },
 }
 
 # global settings
-settings.update(read_json(
-    "tilt-settings.json",
+settings.update(read_yaml(
+    "tilt-settings.yaml",
     default = {},
 ))
 
