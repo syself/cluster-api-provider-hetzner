@@ -114,18 +114,18 @@ func HaveValidVersion(version string) types.GomegaMatcher {
 
 type validVersionMatcher struct{ version string }
 
-func (m *validVersionMatcher) Match(actual interface{}) (success bool, err error) {
+func (m *validVersionMatcher) Match(_ interface{}) (success bool, err error) {
 	if _, err := semver.ParseTolerant(m.version); err != nil {
 		return false, err
 	}
 	return true, nil
 }
 
-func (m *validVersionMatcher) FailureMessage(actual interface{}) (message string) {
+func (m *validVersionMatcher) FailureMessage(_ interface{}) (message string) {
 	return fmt.Sprintf("Expected\n%s\n%s", m.version, " to be a valid version ")
 }
 
-func (m *validVersionMatcher) NegatedFailureMessage(actual interface{}) (message string) {
+func (m *validVersionMatcher) NegatedFailureMessage(_ interface{}) (message string) {
 	return fmt.Sprintf("Expected\n%s\n%s", m.version, " not to be a valid version ")
 }
 
@@ -133,5 +133,5 @@ func redactLogs(variableGetter func(string) string) {
 	ginkgo.By("Redacting sensitive information from the logs")
 	gomega.Expect(variableGetter(RedactLogScriptPath)).To(gomega.BeAnExistingFile(), "Missing redact log script")
 	cmd := exec.Command(variableGetter(RedactLogScriptPath)) //#nosec
-	cmd.Run()                                                //#nosec
+	_ = cmd.Run()                                            //#nosec
 }

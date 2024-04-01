@@ -24,7 +24,6 @@ import (
 	"path/filepath"
 	goruntime "runtime"
 	"strconv"
-	"strings"
 	"time"
 
 	v1 "k8s.io/api/admissionregistration/v1"
@@ -56,7 +55,7 @@ func appendWebhookConfiguration(configyamlFile []byte, tag string) ([]*v1.Mutati
 			// update the name in metadata
 			if o.GetName() == mutatingwebhook {
 				var m v1.MutatingWebhookConfiguration
-				o.SetName(strings.Join([]string{mutatingwebhook, "-", tag}, ""))
+				o.SetName(mutatingwebhook + "-" + tag)
 				if err := scheme.Convert(&o, &m, nil); err != nil {
 					return nil, nil, err
 				}
@@ -67,7 +66,7 @@ func appendWebhookConfiguration(configyamlFile []byte, tag string) ([]*v1.Mutati
 			// update the name in metadata
 			if o.GetName() == validatingwebhook {
 				var v v1.ValidatingWebhookConfiguration
-				o.SetName(strings.Join([]string{validatingwebhook, "-", tag}, ""))
+				o.SetName(validatingwebhook + "-" + tag)
 				if err := scheme.Convert(&o, &v, nil); err != nil {
 					return nil, nil, err
 				}

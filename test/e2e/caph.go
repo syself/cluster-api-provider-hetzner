@@ -25,7 +25,7 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/cluster-api/test/framework/clusterctl"
 	"sigs.k8s.io/cluster-api/util"
@@ -84,8 +84,8 @@ func CaphClusterDeploymentSpec(ctx context.Context, inputGetter func() CaphClust
 				Namespace:                namespace.Name,
 				ClusterName:              clusterName,
 				KubernetesVersion:        input.E2EConfig.GetVariable(KubernetesVersion),
-				ControlPlaneMachineCount: pointer.Int64Ptr(input.ControlPlaneMachineCount),
-				WorkerMachineCount:       pointer.Int64Ptr(input.WorkerMachineCount),
+				ControlPlaneMachineCount: ptr.To(input.ControlPlaneMachineCount),
+				WorkerMachineCount:       ptr.To(input.WorkerMachineCount),
 			},
 			WaitForClusterIntervals:      input.E2EConfig.GetIntervals(specName, "wait-cluster"),
 			WaitForControlPlaneIntervals: input.E2EConfig.GetIntervals(specName, "wait-control-plane"),

@@ -79,10 +79,6 @@ linters-settings:
     allow-unused: false
     allow-leading-space: false
     require-specific: true
-  staticcheck:
-    go: "1.21"
-  stylecheck:
-    go: "1.21"
   gosec:
     excludes:
       - G307 # Deferring unsafe method "Close" on type "\*os.File"
@@ -195,13 +191,14 @@ issues:
       path: _test\.go
 run:
   timeout: 10m
-  skip-files:
+  issues.exclude-files:
     - "zz_generated.*\\.go$"
     - ".*conversion.*\\.go$"
     - "test/e2e/*\\.go$"
-  skip-dirs:
+  issues.exclude-dirs:
     - "third_party"
     - "tilt_modules"
     - "test"
   allow-parallel-runners: true
   modules-download-mode: readonly
+  go: '1.21'
