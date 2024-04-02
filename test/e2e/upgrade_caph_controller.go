@@ -33,8 +33,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/version"
 	"k8s.io/client-go/discovery"
-	"k8s.io/utils/pointer"
-	clusterv1alpha4 "sigs.k8s.io/cluster-api/api/v1alpha4"
+	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/cmd/clusterctl/client/config"
 	"sigs.k8s.io/cluster-api/test/framework"
@@ -144,8 +143,8 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 				Namespace:                managementClusterNamespace.Name,
 				ClusterName:              managementClusterName,
 				KubernetesVersion:        input.E2EConfig.GetVariable(initWithKubernetesVersion),
-				ControlPlaneMachineCount: pointer.Int64Ptr(1),
-				WorkerMachineCount:       pointer.Int64Ptr(1),
+				ControlPlaneMachineCount: ptr.To[int64](1),
+				WorkerMachineCount:       ptr.To[int64](1),
 			},
 			WaitForClusterIntervals:      input.E2EConfig.GetIntervals(specName, "wait-cluster"),
 			WaitForControlPlaneIntervals: input.E2EConfig.GetIntervals(specName, "wait-control-plane"),
@@ -226,8 +225,8 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 
 		workLoadClusterName = fmt.Sprintf("%s-%s", specName, util.RandomString(6))
 		kubernetesVersion := input.E2EConfig.GetVariable(KubernetesVersion)
-		controlPlaneMachineCount := pointer.Int64Ptr(1)
-		workerMachineCount := pointer.Int64Ptr(1)
+		controlPlaneMachineCount := ptr.To[int64](1)
+		workerMachineCount := ptr.To[int64](1)
 
 		fmt.Fprintf(ginkgo.GinkgoWriter, "Creating the workload cluster with name %q using the %q template (Kubernetes %s, %d control-plane machines, %d worker machines)",
 			workLoadClusterName, "(default)", kubernetesVersion, *controlPlaneMachineCount, *workerMachineCount)
@@ -258,7 +257,7 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 		ginkgo.By("Waiting for the machines to exists")
 		gomega.Eventually(func() (int64, error) {
 			var n int64
-			machineList := &clusterv1alpha4.MachineList{}
+			machineList := &clusterv1.MachineList{}
 			if err := managementClusterProxy.GetClient().List(ctx, machineList, c.InNamespace(testNamespace.Name), c.MatchingLabels{clusterv1.ClusterNameLabel: workLoadClusterName}); err == nil {
 				for _, machine := range machineList.Items {
 					if machine.Status.NodeRef != nil {
@@ -369,7 +368,7 @@ func downloadToTmpFile(ctx context.Context, url string) string {
 	defer tmpFile.Close()
 
 	// Get the data
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to create new http request")
 
 	resp, err := http.DefaultClient.Do(req)
