@@ -263,7 +263,7 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 	// remove server from load balancer if it's being deleted
 	if conditions.Has(s.scope.Machine, clusterv1.PreDrainDeleteHookSucceededCondition) {
 		if err := s.deleteServerOfLoadBalancer(ctx, server); err != nil {
-			return reconcile.Result{}, fmt.Errorf("failed to delete server %d from loadbalancer: %w", server.ID, err)
+			return reconcile.Result{}, fmt.Errorf("failed to delete server %s with ID %d from loadbalancer: %w", server.Name, server.ID, err)
 		}
 		return reconcile.Result{}, nil
 	}
@@ -310,14 +310,14 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 		if hcloud.IsError(err, hcloud.ErrorCodeTargetAlreadyDefined) {
 			return reconcile.Result{}, nil
 		}
-		return reconcile.Result{}, fmt.Errorf("failed to add server %d as target to load balancer: %w", server.ID, err)
+		return reconcile.Result{}, fmt.Errorf("failed to add server %s with ID %d as target to load balancer: %w", server.Name, server.ID, err)
 	}
 
 	record.Eventf(
 		s.scope.HetznerCluster,
 		"AddedAsTargetToLoadBalancer",
-		"Added new server with id %d to the loadbalancer %v",
-		server.ID, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID)
+		"Added new server %s with ID %d to the loadbalancer %s with ID %d",
+		server.Name, server.ID, s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Name, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID)
 
 	return reconcile.Result{}, nil
 }
@@ -454,7 +454,7 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 	}
 
 	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.ServerCreateSucceededCondition)
-	record.Eventf(s.scope.HCloudMachine, "SuccessfulCreate", "Created new server with id %d", server.ID)
+	record.Eventf(s.scope.HCloudMachine, "SuccessfulCreate", "Created new server %s with ID %d", server.Name, server.ID)
 	return server, nil
 }
 
@@ -507,7 +507,7 @@ func (s *Service) getServerImage(ctx context.Context) (*hcloud.Image, error) {
 	images = append(images, imagesByName...)
 
 	if len(images) > 1 {
-		err := fmt.Errorf("image is ambiguous - %v images have name %s", len(images), s.scope.HCloudMachine.Spec.ImageName)
+		err := fmt.Errorf("image is ambiguous - %d images have name %s", len(images), s.scope.HCloudMachine.Spec.ImageName)
 		record.Warnf(s.scope.HCloudMachine, "ImageNameAmbiguous", err.Error())
 		conditions.MarkFalse(s.scope.HCloudMachine,
 			infrav1.ServerCreateSucceededCondition,
@@ -631,13 +631,13 @@ func (s *Service) deleteServerOfLoadBalancer(ctx context.Context, server *hcloud
 		if strings.Contains(err.Error(), "load_balancer_target_not_found") {
 			return nil
 		}
-		return fmt.Errorf("failed to delete server %v as target of load balancer %v: %w", server.ID, lb.ID, err)
+		return fmt.Errorf("failed to delete server %s with ID %d as target of load balancer %s with ID %d: %w", server.Name, server.ID, lb.Name, lb.ID, err)
 	}
 	record.Eventf(
 		s.scope.HetznerCluster,
 		"DeletedTargetOfLoadBalancer",
-		"Deleted new server with id %d of the loadbalancer %v",
-		server.ID, lb.ID,
+		"Deleted new server %s with ID %d of the loadbalancer %s with ID %d",
+		server.Name, server.ID, lb.Name, lb.ID,
 	)
 
 	return nil
@@ -673,7 +673,7 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 	}
 
 	if len(servers) > 1 {
-		err := fmt.Errorf("found %v servers with name %s", len(servers), s.scope.Name())
+		err := fmt.Errorf("found %d servers with name %s", len(servers), s.scope.Name())
 		record.Warnf(s.scope.HCloudMachine, "MultipleInstances", err.Error())
 		return nil, err
 	}
