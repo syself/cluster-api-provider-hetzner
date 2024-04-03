@@ -14,6 +14,7 @@ on: # yamllint disable-line rule:truthy
       - "images/caph/**"
       - "!**/vendor/**"
       - "test/e2e/**"
+      - "docs/**"
 # yamllint disable rule:line-length
 jobs:
   pr-lint:

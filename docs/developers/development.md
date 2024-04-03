@@ -2,7 +2,7 @@
 
 Developing our provider is quite easy. Please follow the steps mentioned below: 
 1. You need to install some base requirements. 
-2. You need to follow the [preparation document](docs/topics/preparation.md) to set up everything related to Hetzner. 
+2. You need to follow the [preparation document](/docs/topics/preparation.md) to set up everything related to Hetzner. 
 
 ## Install Base requirements
 
