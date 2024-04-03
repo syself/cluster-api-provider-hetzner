@@ -12,7 +12,7 @@ There are several tasks that have to be completed before a workload cluster can 
 
 ### Preparing Hetzner Robot
 
-1. Create a new web service user. [Here](https://robot.your-server.de/preferences/index), you can define a password and copy your user name.
+1. Create a new web service user. [Here](https://robot.hetzner.com/preferences/index), you can define a password and copy your user name.
 1. Generate an SSH key. You can either upload it via Hetzner Robot UI or just rely on the controller to upload a key that it does not find in the robot API. This is possible, as you have to store the public and private key together with the SSH key's name in a secret that the controller reads.
 
 ---
@@ -20,8 +20,8 @@ There are several tasks that have to be completed before a workload cluster can 
 
 ### Common Prerequisites
 
-- Install and setup kubectl in your local environment
-- Install Kind and Docker
+- Install and set kubectl up in your local environment
+- Install [Kind](https://kind.sigs.k8s.io/docs/user/quick-start/#installation) and [Docker](https://docs.docker.com/engine/install/)
 
 ### Install and configure a Kubernetes cluster
 
@@ -33,7 +33,7 @@ It is a common practice to create a temporary, local bootstrap cluster, which is
 
 #### 1. Existing Management Cluster.
 
-For production use, a “real” Kubernetes cluster should be used with appropriate backup and DR policies and procedures in place. The Kubernetes cluster must be at least a [supported version](../../README.md#fire-compatibility-with-cluster-api-and-kubernetes-versions).
+For production use, a “real” Kubernetes cluster should be used with appropriate backup and Disaster Recovery policies and procedures in place. The Kubernetes cluster must be at least a [supported version](../../README.md#fire-compatibility-with-cluster-api-and-kubernetes-versions).
 
 #### 2. Kind.
 
@@ -44,7 +44,7 @@ For production use, a “real” Kubernetes cluster should be used with appropri
 
 ### Install Clusterctl
 Please use the instructions here: https://cluster-api.sigs.k8s.io/user/quick-start.html#install-clusterctl
-or use: `make install-clusterctl`
+or use: `make clusterctl`
 
 ### Initialize the management cluster
 Now that we’ve got clusterctl installed and all the prerequisites are in place, we can transform the Kubernetes cluster into a management cluster by using the `clusterctl init` command. More information about clusterctl can be found [here](https://cluster-api.sigs.k8s.io/clusterctl/commands/commands.html).
@@ -56,7 +56,7 @@ clusterctl init --core cluster-api --bootstrap kubeadm --control-plane kubeadm -
 
 ```
 
-or for a specific version: `--infrastructure hetzner:vX.X.X`
+or for a specific [version](https://github.com/syself/cluster-api-provider-hetzner/releases): `--infrastructure hetzner:vX.X.X`
 
 ---
 ## Variable Preparation to generate a cluster-template.
@@ -77,9 +77,10 @@ export HCLOUD_WORKER_MACHINE_TYPE=cpx31
 * HCLOUD_IMAGE_NAME: The Image name of your operating system.
 * HCLOUD_X_MACHINE_TYPE: https://www.hetzner.com/cloud#pricing
 
-For a list of all variables needed for generating a cluster manifest (from the cluster-template.yaml), use `clusterctl generate cluster my-cluster --list-variables`:
+For a list of all variables needed for generating a cluster manifest (from the cluster-template.yaml), use `clusterctl generate cluster --infrastructure hetzner:<caph-version> --list-variables hetzner-cluster`:
 
 ```
+$ clusterctl generate cluster --infrastructure hetzner:<caph-version> --list-variables hetzner-cluster
 Required Variables:
   - HCLOUD_CONTROL_PLANE_MACHINE_TYPE
   - HCLOUD_REGION
@@ -87,9 +88,10 @@ Required Variables:
   - HCLOUD_WORKER_MACHINE_TYPE
 
 Optional Variables:
-  - CLUSTER_NAME                 (defaults to my-cluster)
-  - CONTROL_PLANE_MACHINE_COUNT  (defaults to 1)
-  - WORKER_MACHINE_COUNT         (defaults to 0)
+  - CLUSTER_NAME                 (defaults to hetzner-cluster)
+  - CONTROL_PLANE_MACHINE_COUNT  (defaults to 3)
+  - KUBERNETES_VERSION           (defaults to 1.27.7)
+  - WORKER_MACHINE_COUNT         (defaults to 3)
 ```
 
 ### Create a secret for hcloud only
@@ -121,8 +123,8 @@ export HETZNER_SSH_PRIV_PATH="<YOUR-SSH-PRIVATE-PATH>"
 ```
 
 - HCLOUD_TOKEN: The project where your cluster will be placed. You have to get a token from your HCloud Project.
-- HETZNER_ROBOT_USER: The User you have defined in Robot under settings/web.
-- HETZNER_ROBOT_PASSWORD: The Robot Password you have set in Robot under settings/web.
+- HETZNER_ROBOT_USER: The User you have defined in Robot under settings/Webservice and app settings.
+- HETZNER_ROBOT_PASSWORD: The Robot Password you have set in Robot under settings/Webservice and app settings.
 - HETZNER_SSH_PUB_PATH: The Path to your generated Public SSH Key.
 - HETZNER_SSH_PRIV_PATH: The Path to your generated Private SSH Key. This is needed because CAPH uses this key to provision the node in Hetzner Dedicated.
 

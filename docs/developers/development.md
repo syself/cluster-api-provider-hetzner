@@ -1,9 +1,12 @@
 # Developing Cluster API Provider Hetzner
 
-Developing our provider is quite easy. First, you need to install some base requirements. Second, you need to follow the quickstart documents to set up everything related to Hetzner. Third, you need to configure your tilt set-up. After having done those three steps, you can start developing with the local Kind cluster and the Tilt UI to create one of the different workload clusters that are already pre-configured. 
+Developing our provider is quite easy. Please follow the steps mentioned below: 
+1. You need to install some base requirements. 
+2. You need to follow the [preparation document](docs/topics/preparation.md) to set up everything related to Hetzner. 
+
 ## Install Base requirements
 
-In order to develop with Tilt, there are a few requirements. You can use the following command to check whether the versions of the tools are up-to-date and to install ones that are missing (for both Mac & Linux): `make install-dev-prerequisites`
+To develop with Tilt, there are a few requirements. You can use the command `make all-tools` to check whether the versions of the tools are up to date and to install the ones that are missing.
 
 This ensures the following:
 - clusterctl
@@ -17,36 +20,13 @@ This ensures the following:
 - tilt (required)
 - hcloud
 
-Some of them like helmfile or packer are not needed for developing the controller, but very helpful if you are developing images or stuff for production use.
-
 ## Preparing Hetzner project
 
 For more information, please see [here](/docs/topics/preparation.md).
 
 ## Setting Tilt up
 
-You need to create a ```tilt-settings.json``` file and specify the values you need. Here is an example:
-
-```json
-{
-  "kustomize_substitutions": {
-      "HCLOUD_TOKEN": "<hcloud-token>",
-      "HCLOUD_SSH_KEY": "test",
-      "HCLOUD_REGION": "fsn1",
-      "CONTROL_PLANE_MACHINE_COUNT": "3",
-      "WORKER_MACHINE_COUNT": "3",
-      "KUBERNETES_VERSION": "v1.28.4",
-      "HCLOUD_IMAGE_NAME": "1.28.4-ubuntu-22-04-containerd",
-      "HCLOUD_CONTROL_PLANE_MACHINE_TYPE": "cpx31",
-      "HCLOUD_WORKER_MACHINE_TYPE": "cpx31",
-      "CLUSTER_NAME": "testing",
-      "HETZNER_SSH_PUB_PATH": "<path-to-public-ssh-key>",
-      "HETZNER_SSH_PRIV_PATH": "<path-to-private-ssh-key>",
-      "HETZNER_ROBOT_USER": "<robot-user>",
-      "HETZNER_ROBOT_PASSWORD": "<robot-password>"
-  },
-}
-```
+You need to create a `.envrc` file and specify the values you need. After the `.envrc` is loaded, invoke `direnv allow` to load the environment variables in your current shell session.
 
 The complete reference can be found [here](/docs/developers/tilt.md).
 ## Developing with Tilt
@@ -60,10 +40,10 @@ Provider Integration development requires a lot of iteration, and the “build, 
 ```shell
 make tilt-up
 ```
-> To access the Tilt UI, please go to: `http://localhost:10350`
+> To access the Tilt UI, please go to: `http://localhost:10351`
 
 
-Once your kind management cluster is up and running, you can deploy a workload cluster. This could be done through the Tilt UI by pressing one of the buttons in the top right corner, e.g., **"Create Workload Cluster - without Packer"**. This triggers the `make create-workload-cluster` command, which uses the environment variables (we defined in the tilt-settings.json) and the cluster-template. Additionally, it installs cilium as CNI.
+Once your kind management cluster is up and running, you can deploy a workload cluster. This could be done through the Tilt UI by pressing one of the buttons in the top right corner, e.g., **"Create Workload Cluster - without Packer"**. This triggers the `make create-workload-cluster` command, which uses the environment variables (we defined in the .envrc) and the cluster-template. Additionally, it installs cilium as CNI.
 
 If you update the API in some way, you need to run `make generate` to generate everything related to kubebuilder and the CRDs.
 
@@ -75,7 +55,7 @@ To tear down the kind cluster, use:
 $ make delete-mgt-cluster
 ```
 
-To delete the registry, use: `make delete-registry` or `make delete-mgt-cluster-registry`.
+To delete the registry, use `make delete-registry`. Use `make delete-mgt-cluster-registry` to delete both management cluster and associated registry.
 
 If you have any trouble finding the right command, you can run the `make help` command to get a list of all available make targets. 
 
@@ -107,3 +87,8 @@ For the SSH public and private keys, you should use the following command to enc
 ```
 export HETZNER_SSH_PRIV=$(cat ~/.ssh/cluster | base64 -w0)
 ```
+
+### Creating new user in Robot 
+To create new user in Robot, click on the `Create User` button in the Hetzner Robot console. Once you create the new user, a user ID will be provided to you via email from Hetzner Robot. The password will be the same that you used while creating the user.
+
+![robot user](../pics/robot_user.png)
