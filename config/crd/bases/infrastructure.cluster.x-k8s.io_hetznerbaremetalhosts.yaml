@@ -589,10 +589,11 @@ spec:
                           HetznerBareMetalMachine spec specified SSH key.
                         properties:
                           fingerprint:
-                            description: Fingerprint of SSH key - added by controller
+                            description: Fingerprint defines the fingerprint of the
+                              SSH key - added by the controller.
                             type: string
                           name:
-                            description: Name of SSH key
+                            description: Name defines the name of the SSH key.
                             minLength: 1
                             type: string
                         required:
@@ -603,10 +604,11 @@ spec:
                           in HetznerCluster spec specified SSH key.
                         properties:
                           fingerprint:
-                            description: Fingerprint of SSH key - added by controller
+                            description: Fingerprint defines the fingerprint of the
+                              SSH key - added by the controller.
                             type: string
                           name:
-                            description: Name of SSH key
+                            description: Name defines the name of the SSH key.
                             minLength: 1
                             type: string
                         required:

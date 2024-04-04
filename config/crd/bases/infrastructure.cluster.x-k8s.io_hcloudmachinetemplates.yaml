@@ -111,9 +111,15 @@ spec:
                         properties:
                           enableIPv4:
                             default: true
+                            description: EnableIPv4 defines whether server has IPv4
+                              address enabled. As Hetzner load balancers require an
+                              IPv4 address, this setting will be ignored and set to
+                              true if there is no private net.
                             type: boolean
                           enableIPv6:
                             default: true
+                            description: EnableIPv6 defines whether server has IPv6
+                              addresses enabled.
                             type: boolean
                         type: object
                       sshKeys:
@@ -123,10 +129,11 @@ spec:
                           description: SSHKey defines the SSHKey for HCloud.
                           properties:
                             fingerprint:
-                              description: Fingerprint of SSH key - added by controller
+                              description: Fingerprint defines the fingerprint of
+                                the SSH key - added by the controller.
                               type: string
                             name:
-                              description: Name of SSH key
+                              description: Name defines the name of the SSH key.
                               minLength: 1
                               type: string
                           required:

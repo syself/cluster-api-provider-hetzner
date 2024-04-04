@@ -94,33 +94,37 @@ spec:
                       - round_robin
                       - least_connections
                     default: round_robin
-                    description: Could be round_robin or least_connection. The default
-                      value is "round_robin".
+                    description: Algorithm defines the type of load balancer algorithm.
+                      It could be round_robin or least_connection. The default value
+                      is "round_robin".
                     type: string
                   enabled:
                     default: true
+                    description: Enabled specifies if a load balancer should be created.
                     type: boolean
                   extraServices:
-                    description: Defines how traffic will be routed from the Load
-                      Balancer to your target server.
+                    description: ExtraServices defines how traffic will be routed
+                      from the load balancer to your target server.
                     items:
-                      description: LoadBalancerServiceSpec defines a Loadbalancer
+                      description: LoadBalancerServiceSpec defines a load balancer
                         Target.
                       properties:
                         destinationPort:
                           description: DestinationPort defines the port on the server.
+                            It must be a valid port range (1-65535).
                           maximum: 65535
                           minimum: 1
                           type: integer
                         listenPort:
                           description: ListenPort, i.e. source port, defines the incoming
-                            port open on the loadbalancer.
+                            port open on the load balancer. It must be a valid port
+                            range (1-65535).
                           maximum: 65535
                           minimum: 1
                           type: integer
                         protocol:
-                          description: Protocol specifies the supported Loadbalancer
-                            Protocol.
+                          description: Protocol specifies the supported load balancer
+                            Protocol. It could be one of the https, http, or tcp.
                           enum:
                           - http
                           - https
@@ -129,17 +133,19 @@ spec:
                       type: object
                     type: array
                   name:
+                    description: Name defines the name of the load balancer. It can
+                      be specified in order to use an existing load balancer.
                     type: string
                   port:
                     default: 6443
-                    description: API Server port. It must be valid ports range (1-65535).
-                      If omitted, default value is 6443.
+                    description: Port defines the API Server port. It must be a valid
+                      port range (1-65535). If omitted, the default value is 6443.
                     maximum: 65535
                     minimum: 1
                     type: integer
                   region:
-                    description: Region contains the name of the HCloud location the
-                      load balancer is running.
+                    description: Region contains the name of the HCloud location where
+                      the load balancer is running.
                     enum:
                     - fsn1
                     - hel1
@@ -149,7 +155,8 @@ spec:
                     type: string
                   type:
                     default: lb11
-                    description: Loadbalancer type
+                    description: Type defines the type of load balancer. It could
+                      be one of lb11, lb21, or lb31.
                     enum:
                     - lb11
                     - lb21
@@ -162,7 +169,7 @@ spec:
                   we could assume in some use cases that a region is behaving like
                   a zone. https://kubernetes.io/docs/reference/labels-annotations-taints/#topologykubernetesiozone
                 items:
-                  description: Region is a Hetzner Location
+                  description: Region is a Hetzner Location.
                   enum:
                   - fsn1
                   - hel1
@@ -178,16 +185,17 @@ spec:
                   cidrBlock:
                     default: 10.0.0.0/16
                     description: CIDRBlock defines the cidrBlock of the HCloud Network.
-                      A Subnet is required.
+                      If omitted, default "10.0.0.0/16" will be used.
                     type: string
                   enabled:
                     description: Enabled defines whether the network should be enabled
-                      or not
+                      or not.
                     type: boolean
                   networkZone:
                     default: eu-central
                     description: NetworkZone specifies the HCloud network zone of
-                      the private network.
+                      the private network. The zones must be one of eu-central, us-east,
+                      or us-west. The default is eu-central.
                     enum:
                     - eu-central
                     - us-east
@@ -195,8 +203,8 @@ spec:
                     type: string
                   subnetCidrBlock:
                     default: 10.0.0.0/24
-                    description: SubnetCIDRBlock defines the cidrBlock for the subnet
-                      of the HCloud Network.
+                    description: 'SubnetCIDRBlock defines the cidrBlock for the subnet
+                      of the HCloud Network. Note: A subnet is required.'
                     type: string
                 required:
                 - enabled
@@ -223,18 +231,25 @@ spec:
                   section under API TOKENS. Read & write is necessary.
                 properties:
                   key:
-                    description: HetznerSecretKeyRef defines the key name of the HetznerSecret.
+                    description: Key defines the keys that are used in the secret.
                       Need to specify either HCloudToken or both HetznerRobotUser
                       and HetznerRobotPassword.
                     properties:
                       hcloudToken:
+                        description: HCloudToken defines the name of the key where
+                          the token for the Hetzner Cloud API is stored.
                         type: string
                       hetznerRobotPassword:
+                        description: HetznerRobotPassword defines the name of the
+                          key where the password for the Hetzner Robot API is stored.
                         type: string
                       hetznerRobotUser:
+                        description: HetznerRobotUser defines the name of the key
+                          where the username for the Hetzner Robot API is stored.
                         type: string
                     type: object
                   name:
+                    description: Name defines the name of the secret.
                     type: string
                 required:
                 - key
@@ -245,14 +260,16 @@ spec:
                   key name.
                 properties:
                   hcloud:
+                    description: Hcloud defines the SSH keys used for hcloud.
                     items:
                       description: SSHKey defines the SSHKey for HCloud.
                       properties:
                         fingerprint:
-                          description: Fingerprint of SSH key - added by controller
+                          description: Fingerprint defines the fingerprint of the
+                            SSH key - added by the controller.
                           type: string
                         name:
-                          description: Name of SSH key
+                          description: Name defines the name of the SSH key.
                           minLength: 1
                           type: string
                       required:
@@ -260,8 +277,8 @@ spec:
                       type: object
                     type: array
                   robotRescueSecretRef:
-                    description: SSHSecretRef defines the secret containing all information
-                      of the SSH key used for the Hetzner robot.
+                    description: RobotRescueSecretRef defines the reference to the
+                      secret where the SSH key for the rescue system is stored.
                     properties:
                       key:
                         description: Key contains details about the keys used in the
@@ -347,8 +364,8 @@ spec:
                   type: object
                 type: array
               controlPlaneLoadBalancer:
-                description: LoadBalancerStatus defines the obeserved state of the
-                  control plane loadbalancer.
+                description: LoadBalancerStatus defines the observed state of the
+                  control plane load balancer.
                 properties:
                   id:
                     format: int64
