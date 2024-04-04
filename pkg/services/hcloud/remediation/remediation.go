@@ -24,7 +24,7 @@ import (
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	capi "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -177,9 +177,9 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 func (s *Service) setOwnerRemediatedCondition(ctx context.Context) error {
 	conditions.MarkFalse(
 		s.scope.Machine,
-		capi.MachineOwnerRemediatedCondition,
-		capi.WaitingForRemediationReason,
-		capi.ConditionSeverityWarning,
+		clusterv1.MachineOwnerRemediatedCondition,
+		clusterv1.WaitingForRemediationReason,
+		clusterv1.ConditionSeverityWarning,
 		"",
 	)
 	if err := s.scope.PatchMachine(ctx); err != nil {
