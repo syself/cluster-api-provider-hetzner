@@ -75,6 +75,18 @@ linters-settings:
       # Controller Runtime
       - pkg: sigs.k8s.io/controller-runtime
         alias: ctrl
+      - pkg: k8s.io/apimachinery/pkg/util/runtime
+        alias: utilruntime
+      - pkg: sigs.k8s.io/cluster-api/api/v1beta1
+        alias: clusterv1
+      - pkg: sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1
+        alias: bootstrapv1
+      - pkg: sigs.k8s.io/controller-runtime/pkg/metrics/server
+        alias: metricsserver        
+      - pkg: sigs.k8s.io/cluster-api/errors
+        alias: capierrors    
+      - pkg: sigs.k8s.io/controller-runtime/pkg/client/fake
+        alias: fakeclient           
   nolintlint:
     allow-unused: false
     allow-leading-space: false
