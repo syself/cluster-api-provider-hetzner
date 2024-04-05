@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.13.0
+    controller-gen.kubebuilder.io/version: v0.14.0
   name: hetznerclustertemplates.infrastructure.cluster.x-k8s.io
 spec:
   group: infrastructure.cluster.x-k8s.io
@@ -25,14 +25,19 @@ spec:
           API.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -43,45 +48,50 @@ spec:
                 description: HetznerClusterTemplateResource contains spec for HetznerClusterSpec.
                 properties:
                   metadata:
-                    description: "ObjectMeta is metadata that all persisted resources
-                      must have, which includes all objects users must create. This
-                      is a copy of customizable fields from metav1.ObjectMeta. \n
-                      ObjectMeta is embedded in `Machine.Spec`, `MachineDeployment.Template`
-                      and `MachineSet.Template`, which are not top-level Kubernetes
-                      objects. Given that metav1.ObjectMeta has lots of special cases
-                      and read-only fields which end up in the generated CRD validation,
-                      having it as a subset simplifies the API and some issues that
-                      can impact user experience. \n During the [upgrade to controller-tools@v2](https://github.com/kubernetes-sigs/cluster-api/pull/1054)
-                      for v1alpha2, we noticed a failure would occur running Cluster
-                      API test suite against the new CRDs, specifically `spec.metadata.creationTimestamp
-                      in body must be of type string: \"null\"`. The investigation
-                      showed that `controller-tools@v2` behaves differently than its
-                      previous version when handling types from [metav1](k8s.io/apimachinery/pkg/apis/meta/v1)
-                      package. \n In more details, we found that embedded (non-top
-                      level) types that embedded `metav1.ObjectMeta` had validation
-                      properties, including for `creationTimestamp` (metav1.Time).
-                      The `metav1.Time` type specifies a custom json marshaller that,
-                      when IsZero() is true, returns `null` which breaks validation
-                      because the field isn't marked as nullable. \n In future versions,
-                      controller-tools@v2 might allow overriding the type and validation
-                      for embedded types. When that happens, this hack should be revisited."
+                    description: |-
+                      ObjectMeta is metadata that all persisted resources must have, which includes all objects
+                      users must create. This is a copy of customizable fields from metav1.ObjectMeta.
+
+
+                      ObjectMeta is embedded in `Machine.Spec`, `MachineDeployment.Template` and `MachineSet.Template`,
+                      which are not top-level Kubernetes objects. Given that metav1.ObjectMeta has lots of special cases
+                      and read-only fields which end up in the generated CRD validation, having it as a subset simplifies
+                      the API and some issues that can impact user experience.
+
+
+                      During the [upgrade to controller-tools@v2](https://github.com/kubernetes-sigs/cluster-api/pull/1054)
+                      for v1alpha2, we noticed a failure would occur running Cluster API test suite against the new CRDs,
+                      specifically `spec.metadata.creationTimestamp in body must be of type string: "null"`.
+                      The investigation showed that `controller-tools@v2` behaves differently than its previous version
+                      when handling types from [metav1](k8s.io/apimachinery/pkg/apis/meta/v1) package.
+
+
+                      In more details, we found that embedded (non-top level) types that embedded `metav1.ObjectMeta`
+                      had validation properties, including for `creationTimestamp` (metav1.Time).
+                      The `metav1.Time` type specifies a custom json marshaller that, when IsZero() is true, returns `null`
+                      which breaks validation because the field isn't marked as nullable.
+
+
+                      In future versions, controller-tools@v2 might allow overriding the type and validation for embedded
+                      types. When that happens, this hack should be revisited.
                     properties:
                       annotations:
                         additionalProperties:
                           type: string
-                        description: 'Annotations is an unstructured key value map
-                          stored with a resource that may be set by external tools
-                          to store and retrieve arbitrary metadata. They are not queryable
-                          and should be preserved when modifying objects. More info:
-                          http://kubernetes.io/docs/user-guide/annotations'
+                        description: |-
+                          Annotations is an unstructured key value map stored with a resource that may be
+                          set by external tools to store and retrieve arbitrary metadata. They are not
+                          queryable and should be preserved when modifying objects.
+                          More info: http://kubernetes.io/docs/user-guide/annotations
                         type: object
                       labels:
                         additionalProperties:
                           type: string
-                        description: 'Map of string keys and values that can be used
-                          to organize and categorize (scope and select) objects. May
-                          match selectors of replication controllers and services.
-                          More info: http://kubernetes.io/docs/user-guide/labels'
+                        description: |-
+                          Map of string keys and values that can be used to organize and categorize
+                          (scope and select) objects. May match selectors of replication controllers
+                          and services.
+                          More info: http://kubernetes.io/docs/user-guide/labels
                         type: object
                     type: object
                   spec:
@@ -189,10 +199,10 @@ spec:
                             type: string
                         type: object
                       controlPlaneRegions:
-                        description: ControlPlaneRegion consists of a list of HCloud
-                          Regions (fsn, nbg, hel). Because HCloud Networks have a
-                          very low latency we could assume in some use cases that
-                          a region is behaving like a zone. https://kubernetes.io/docs/reference/labels-annotations-taints/#topologykubernetesiozone
+                        description: |-
+                          ControlPlaneRegion consists of a list of HCloud Regions (fsn, nbg, hel). Because HCloud Networks
+                          have a very low latency we could assume in some use cases that a region is behaving like a zone.
+                          https://kubernetes.io/docs/reference/labels-annotations-taints/#topologykubernetesiozone
                         items:
                           description: Region is a Hetzner Location.
                           enum:
@@ -219,9 +229,9 @@ spec:
                             type: boolean
                           networkZone:
                             default: eu-central
-                            description: NetworkZone specifies the HCloud network
-                              zone of the private network. The zones must be one of
-                              eu-central, us-east, or us-west. The default is eu-central.
+                            description: |-
+                              NetworkZone specifies the HCloud network zone of the private network.
+                              The zones must be one of eu-central, us-east, or us-west. The default is eu-central.
                             enum:
                             - eu-central
                             - us-east
@@ -229,9 +239,9 @@ spec:
                             type: string
                           subnetCidrBlock:
                             default: 10.0.0.0/24
-                            description: 'SubnetCIDRBlock defines the cidrBlock for
-                              the subnet of the HCloud Network. Note: A subnet is
-                              required.'
+                            description: |-
+                              SubnetCIDRBlock defines the cidrBlock for the subnet of the HCloud Network.
+                              Note: A subnet is required.
                             type: string
                         required:
                         - enabled
@@ -253,15 +263,14 @@ spec:
                           type: object
                         type: array
                       hetznerSecretRef:
-                        description: HetznerSecretRef is a reference to a token to
-                          be used when reconciling this cluster. This is generated
-                          in the security section under API TOKENS. Read & write is
-                          necessary.
+                        description: |-
+                          HetznerSecretRef is a reference to a token to be used when reconciling this cluster.
+                          This is generated in the security section under API TOKENS. Read & write is necessary.
                         properties:
                           key:
-                            description: Key defines the keys that are used in the
-                              secret. Need to specify either HCloudToken or both HetznerRobotUser
-                              and HetznerRobotPassword.
+                            description: |-
+                              Key defines the keys that are used in the secret.
+                              Need to specify either HCloudToken or both HetznerRobotUser and HetznerRobotPassword.
                             properties:
                               hcloudToken:
                                 description: HCloudToken defines the name of the key

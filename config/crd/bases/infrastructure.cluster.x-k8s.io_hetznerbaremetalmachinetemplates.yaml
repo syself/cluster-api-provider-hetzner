@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.13.0
+    controller-gen.kubebuilder.io/version: v0.14.0
   name: hetznerbaremetalmachinetemplates.infrastructure.cluster.x-k8s.io
 spec:
   group: infrastructure.cluster.x-k8s.io
@@ -33,14 +33,19 @@ spec:
           API.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -57,10 +62,10 @@ spec:
                       of the machine.
                     properties:
                       hostSelector:
-                        description: HostSelector specifies matching criteria for
-                          labels on HetznerBareMetalHosts. This is used to limit the
-                          set of HetznerBareMetalHost objects considered for claiming
-                          for a HetznerBareMetalMachine.
+                        description: |-
+                          HostSelector specifies matching criteria for labels on HetznerBareMetalHosts.
+                          This is used to limit the set of HetznerBareMetalHost objects considered for
+                          claiming for a HetznerBareMetalMachine.
                         properties:
                           matchExpressions:
                             description: MatchExpressions defines the label match
@@ -180,23 +185,22 @@ spec:
                                 to be created.
                               properties:
                                 fileSystem:
-                                  description: FileSystem can be ext2, ext3, ext4,
-                                    btrfs, reiserfs, xfs, swap or name of the LVM
-                                    volume group (VG), if this PART is a VG.
+                                  description: |-
+                                    FileSystem can be ext2, ext3, ext4, btrfs, reiserfs, xfs, swap
+                                    or name of the LVM volume group (VG), if this PART is a VG.
                                   type: string
                                 mount:
-                                  description: 'Mount defines the mount path for this
-                                    filesystem. Keyword ''lvm'' to use this PART as
-                                    volume group (VG) for LVM. Identifier ''btrfs.X''
-                                    to use this PART as volume for btrfs subvolumes.
-                                    X can be replaced with a unique alphanumeric keyword.
-                                    NOTE: no support for btrfs multi-device volumes.'
+                                  description: |-
+                                    Mount defines the mount path for this filesystem.
+                                    Keyword 'lvm' to use this PART as volume group (VG) for LVM.
+                                    Identifier 'btrfs.X' to use this PART as volume for
+                                    btrfs subvolumes. X can be replaced with a unique
+                                    alphanumeric keyword. NOTE: no support for btrfs multi-device volumes.
                                   type: string
                                 size:
-                                  description: Size can use the keyword 'all' to assign
-                                    all the remaining space of the drive to the last
-                                    partition. You can use M/G/T for unit specification
-                                    in MiB/GiB/TiB.
+                                  description: |-
+                                    Size can use the keyword 'all' to assign all the remaining space of the drive to the last partition.
+                                    You can use M/G/T for unit specification in MiB/GiB/TiB.
                                   type: string
                               required:
                               - fileSystem
@@ -205,8 +209,8 @@ spec:
                               type: object
                             type: array
                           postInstallScript:
-                            description: PostInstallScript is used for configuring
-                              commands that should be executed after installimage.
+                            description: |-
+                              PostInstallScript is used for configuring commands that should be executed after installimage.
                               It is passed along with the installimage command.
                             type: string
                           swraid:
@@ -219,9 +223,9 @@ spec:
                             type: integer
                           swraidLevel:
                             default: 1
-                            description: SwraidLevel defines the SWRAIDLEVEL in InstallImage.
-                              Only relevant if the raid is enabled. Pick one of 0,1,5,6,10.
-                              Ignored if Swraid=0.
+                            description: |-
+                              SwraidLevel defines the SWRAIDLEVEL in InstallImage. Only relevant if the raid is enabled.
+                              Pick one of 0,1,5,6,10. Ignored if Swraid=0.
                             enum:
                             - 0
                             - 1
@@ -234,25 +238,24 @@ spec:
                         - partitions
                         type: object
                       providerID:
-                        description: ProviderID will be the hetznerbaremetalmachine
-                          which is set by the controller in the `hcloud://bm-<server-id>`
-                          format.
+                        description: |-
+                          ProviderID will be the hetznerbaremetalmachine which is set by the controller
+                          in the `hcloud://bm-<server-id>` format.
                         type: string
                       sshSpec:
                         description: SSHSpec gives a reference on the secret where
                           SSH details are specified as well as ports for SSH.
                         properties:
                           portAfterCloudInit:
-                            description: PortAfterCloudInit specifies the port that
-                              has to be used to connect to the machine by reaching
-                              the server via SSH after the successful completion of
-                              cloud init.
+                            description: |-
+                              PortAfterCloudInit specifies the port that has to be used to connect to the machine
+                              by reaching the server via SSH after the successful completion of cloud init.
                             type: integer
                           portAfterInstallImage:
                             default: 22
-                            description: PortAfterInstallImage specifies the port
-                              that has to be used to connect to the machine by reaching
-                              the server via SSH after installing the image successfully.
+                            description: |-
+                              PortAfterInstallImage specifies the port that has to be used to connect to the machine
+                              by reaching the server via SSH after installing the image successfully.
                             type: integer
                           secretRef:
                             description: SecretRef gives reference to the secret where
