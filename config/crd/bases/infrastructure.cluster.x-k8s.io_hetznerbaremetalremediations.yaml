@@ -15,7 +15,6 @@ spec:
     plural: hetznerbaremetalremediations
     shortNames:
     - hbr
-    - hbremediation
     singular: hetznerbaremetalremediation
   scope: Namespaced
   versions:

@@ -15,10 +15,6 @@ spec:
     plural: hetznerbaremetalremediationtemplates
     shortNames:
     - hbrt
-    - hbremediationtemplate
-    - hbremediationtemplates
-    - hetznerbaremetalrt
-    - hetznerbaremetalremediationtemplate
     singular: hetznerbaremetalremediationtemplate
   scope: Namespaced
   versions:

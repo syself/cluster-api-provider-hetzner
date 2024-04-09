@@ -38,7 +38,7 @@ type HCloudRemediationTemplateStatus struct {
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:resource:path=hcloudremediationtemplates,scope=Namespaced,categories=cluster-api,shortName=hcrt;hcremediationtemplate;hcremediationtemplates;hcloudrt;hcloudremediationtemplate
+// +kubebuilder:resource:path=hcloudremediationtemplates,scope=Namespaced,categories=cluster-api,shortName=hcrt
 // +kubebuilder:subresource:status
 // +kubebuilder:object:root=true
 // +kubebuilder:storageversion

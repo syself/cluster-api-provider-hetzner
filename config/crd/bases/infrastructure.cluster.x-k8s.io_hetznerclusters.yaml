@@ -14,7 +14,7 @@ spec:
     listKind: HetznerClusterList
     plural: hetznerclusters
     shortNames:
-    - capihc
+    - hccl
     singular: hetznercluster
   scope: Namespaced
   versions:

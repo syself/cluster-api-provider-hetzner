@@ -14,10 +14,7 @@ spec:
     listKind: HetznerBareMetalMachineTemplateList
     plural: hetznerbaremetalmachinetemplates
     shortNames:
-    - hbmt
-    - hbmmtemplate
-    - hetznerbaremetalmachinetemplates
-    - hetznerbaremetalmachinetemplate
+    - hbmmt
     singular: hetznerbaremetalmachinetemplate
   scope: Namespaced
   versions:

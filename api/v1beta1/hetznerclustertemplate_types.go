@@ -28,7 +28,7 @@ type HetznerClusterTemplateSpec struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:storageversion
-// +kubebuilder:resource:path=hetznerclustertemplates,scope=Namespaced,categories=cluster-api,shortName=capihct
+// +kubebuilder:resource:path=hetznerclustertemplates,scope=Namespaced,categories=cluster-api,shortName=hcclt
 // +k8s:defaulter-gen=true
 
 // HetznerClusterTemplate is the Schema for the hetznerclustertemplates API.
