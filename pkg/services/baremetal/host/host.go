@@ -577,15 +577,38 @@ func (s *Service) actionRegistering() actionResult {
 		return s.recordActionFailure(infrav1.RegistrationError, errMsg)
 	}
 
-	if err := validateRootDevices(s.scope.HetznerBareMetalHost.Spec.RootDeviceHints, s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails.Storage); err != nil {
+	if err := validateRootDeviceWwnsAreSubsetOfExistingWwns(s.scope.HetznerBareMetalHost.Spec.RootDeviceHints,
+		s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails.Storage); err != nil {
 		conditions.MarkFalse(
 			s.scope.HetznerBareMetalHost,
 			infrav1.RootDeviceHintsValidatedCondition,
-			infrav1.StorageDeviceNotFoundReason,
+			infrav1.ValidationFailedReason,
 			clusterv1.ConditionSeverityError,
 			err.Error(),
 		)
-		return s.recordActionFailure(infrav1.RegistrationError, err.Error())
+		return s.recordActionFailure(infrav1.FatalError, err.Error())
+	}
+
+	// Check RAID for the second time.
+	// See "tworaidchecks" for the other place.
+	msg = ""
+	if s.scope.HetznerBareMetalHost.Spec.Status.InstallImage.Swraid != 0 &&
+		len(s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.Raid.WWN) < 2 {
+		msg = "Invalid HetznerBareMetalHost: spec.status.installImage.swraid is active. Use at least two WWNS in spec.rootDevideHints.raid.wwn."
+	} else if s.scope.HetznerBareMetalHost.Spec.Status.InstallImage.Swraid == 0 &&
+		s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.WWN == "" {
+		msg = "Invalid HetznerBareMetalHost: spec.status.installImage.swraid is not active. Use spec.rootDevideHints.wwn and leave raid.wwn empty."
+	}
+	if msg != "" {
+		s.scope.Logger.Info(msg)
+		conditions.MarkFalse(
+			s.scope.HetznerBareMetalHost,
+			infrav1.RootDeviceHintsValidatedCondition,
+			infrav1.ValidationFailedReason,
+			clusterv1.ConditionSeverityError,
+			msg,
+		)
+		return s.recordActionFailure(infrav1.FatalError, msg)
 	}
 
 	conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.RootDeviceHintsValidatedCondition)
@@ -593,7 +616,7 @@ func (s *Service) actionRegistering() actionResult {
 	return actionComplete{}
 }
 
-func validateRootDevices(rootDeviceHints *infrav1.RootDeviceHints, storageDevices []infrav1.Storage) error {
+func validateRootDeviceWwnsAreSubsetOfExistingWwns(rootDeviceHints *infrav1.RootDeviceHints, storageDevices []infrav1.Storage) error {
 	for _, wwn := range rootDeviceHints.ListOfWWN() {
 		foundWWN := false
 		for _, st := range storageDevices {

@@ -885,7 +885,7 @@ name="eth0" model="Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express
 		Err:    nil,
 	})
 	sshClient.On("GetHardwareDetailsDebug").Return(sshclient.Output{
-		StdOut: "Dummy outupt",
+		StdOut: "Dummy output",
 		StdErr: "",
 		Err:    nil,
 	})
