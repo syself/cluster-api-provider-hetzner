@@ -343,7 +343,6 @@ func IgnoreHetznerClusterConditionUpdates(logger logr.Logger) predicate.Funcs {
 
 			if reflect.DeepEqual(oldCluster, newCluster) {
 				// Only insignificant fields changed, no need to reconcile
-				log.V(1).Info("Update to resource only changes insignificant fields, will not enqueue event")
 				return false
 			}
 			// There is a noteworthy diff, so we should reconcile

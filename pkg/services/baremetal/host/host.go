@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -524,6 +525,8 @@ func (s *Service) actionRegistering() actionResult {
 
 		isSSHTimeoutError, isSSHConnectionRefusedError, err := s.analyzeSSHOutputRegistering(out)
 		if err != nil {
+			// This can happen if the bare-metal server was taken by another mgt-cluster.
+			// Check in https://robot.hetzner.com/server for the "History" of the server.
 			return actionError{err: fmt.Errorf("failed to handle incomplete boot - registering: %w", err)}
 		}
 
@@ -577,15 +580,42 @@ func (s *Service) actionRegistering() actionResult {
 		return s.recordActionFailure(infrav1.RegistrationError, errMsg)
 	}
 
-	if err := validateRootDevices(s.scope.HetznerBareMetalHost.Spec.RootDeviceHints, s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails.Storage); err != nil {
+	if err := validateRootDeviceWwnsAreSubsetOfExistingWwns(s.scope.HetznerBareMetalHost.Spec.RootDeviceHints,
+		s.scope.HetznerBareMetalHost.Spec.Status.HardwareDetails.Storage); err != nil {
 		conditions.MarkFalse(
 			s.scope.HetznerBareMetalHost,
 			infrav1.RootDeviceHintsValidatedCondition,
-			infrav1.StorageDeviceNotFoundReason,
+			infrav1.ValidationFailedReason,
 			clusterv1.ConditionSeverityError,
 			err.Error(),
 		)
 		return s.recordActionFailure(infrav1.RegistrationError, err.Error())
+	}
+
+	// Check RAID for the second time.
+	// See "tworaidchecks" for the other place.
+	msg = ""
+	if s.scope.HetznerBareMetalHost.Spec.Status.InstallImage.Swraid != 0 &&
+		len(s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.Raid.WWN) < 2 {
+		msg = "Invalid HetznerBareMetalHost: spec.status.installImage.swraid is active. Use at least two WWNs in spec.rootDevideHints.raid.wwn."
+	} else if s.scope.HetznerBareMetalHost.Spec.Status.InstallImage.Swraid == 0 &&
+		s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.WWN == "" {
+		msg = "Invalid HetznerBareMetalHost: spec.status.installImage.swraid is not active. Use spec.rootDevideHints.wwn and leave raid.wwn empty."
+	}
+	if msg != "" {
+		// This triggers a FailureMessage on the HetznerBareMetalMachine
+		// and CAPI machine and will lead to this Machine to be deleted.
+		// Another machine (with same swraid setting) will not take the same host anymore,
+		// because the rootDeviceHints don't fit.
+		s.scope.Logger.Info(msg)
+		conditions.MarkFalse(
+			s.scope.HetznerBareMetalHost,
+			infrav1.RootDeviceHintsValidatedCondition,
+			infrav1.ValidationFailedReason,
+			clusterv1.ConditionSeverityError,
+			msg,
+		)
+		return s.recordActionFailure(infrav1.FatalError, msg)
 	}
 
 	conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.RootDeviceHintsValidatedCondition)
@@ -593,18 +623,17 @@ func (s *Service) actionRegistering() actionResult {
 	return actionComplete{}
 }
 
-func validateRootDevices(rootDeviceHints *infrav1.RootDeviceHints, storageDevices []infrav1.Storage) error {
+func validateRootDeviceWwnsAreSubsetOfExistingWwns(rootDeviceHints *infrav1.RootDeviceHints, storageDevices []infrav1.Storage) error {
+	knownWWNs := make([]string, 0, len(storageDevices))
+	for _, sd := range storageDevices {
+		knownWWNs = append(knownWWNs, sd.WWN)
+	}
+
 	for _, wwn := range rootDeviceHints.ListOfWWN() {
-		foundWWN := false
-		for _, st := range storageDevices {
-			if wwn == st.WWN {
-				foundWWN = true
-				continue
-			}
+		if slices.Contains(knownWWNs, wwn) {
+			continue
 		}
-		if !foundWWN {
-			return fmt.Errorf("%w for root device hint %s", errMissingStorageDevice, wwn)
-		}
+		return fmt.Errorf("%w for root device hint %q. Known WWNs: %v", errMissingStorageDevice, wwn, knownWWNs)
 	}
 	return nil
 }

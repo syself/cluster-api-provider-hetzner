@@ -298,7 +298,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 					host = helpers.BareMetalHost(
 						hostName,
 						testNs.Name,
-						helpers.WithRootDeviceHintRaid(),
+						helpers.WithRootDeviceHintWWN(),
 						helpers.WithHetznerClusterRef(hetznerCluster.Name),
 					)
 					Expect(testEnv.Create(ctx, host)).To(Succeed())

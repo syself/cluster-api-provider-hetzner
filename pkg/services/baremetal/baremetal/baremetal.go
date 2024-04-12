@@ -407,59 +407,8 @@ func (s *Service) chooseHost(ctx context.Context) (
 		// from now on each "continue" should add an entry
 		// to mapOfSkipReasons.
 		unusedHostsCounter++
-
-		// This comes first, because we should not look too deep into machines
-		// which are not in our scope.
-		if !labelSelector.Matches(labels.Set(host.ObjectMeta.Labels)) {
-			mapOfSkipReasons["label-selector-does-not-match"]++
+		if s.skipHost(labelSelector, host, mapOfSkipReasons) {
 			continue
-		}
-
-		if host.GetDeletionTimestamp() != nil {
-			mapOfSkipReasons["hbmh-has-deletion-timestamp"]++
-			continue
-		}
-
-		if host.Spec.MaintenanceMode != nil && *host.Spec.MaintenanceMode {
-			mapOfSkipReasons["hbmh-in-maintenance-mode"]++
-			continue
-		}
-		if host.Spec.Status.ErrorMessage != "" {
-			mapOfSkipReasons["hbmh-has-error-message-in-status"]++
-			continue
-		}
-
-		if host.Spec.Status.ProvisioningState != infrav1.StateNone {
-			mapOfSkipReasons["hbmh-in-wrong-provisioning-state"]++
-			continue
-		}
-
-		// This comes last, because now we would choose the machine, but we check
-		// if the config is correct.
-		if host.Spec.RootDeviceHints != nil &&
-			host.Spec.RootDeviceHints.IsValid() {
-			// Even if there are no rootDeviceHints specified, the host should be picked.
-			// After the phase registering, the process to provision the server stops and
-			// waits for the user to specify the rootDeviceHints.
-			// Here (RootDeviceHints exists and is valid) we want to check whether
-			// the specified rootDeviceHints fit with the InstallImage configuration
-			// of the HetznerBareMetalMachine. If not, it is not valid.
-			// Doing that without first choosing the hbmh would be nice, there is a feature request:
-			// https://github.com/syself/cluster-api-provider-hetzner/issues/1166
-			if s.scope.BareMetalMachine.Spec.InstallImage.Swraid == 1 {
-				// Machine should have RAID. Skip machines which have less than two WWNs
-				lenOfWwnSlice := len(host.Spec.RootDeviceHints.Raid.WWN)
-				if lenOfWwnSlice < 2 {
-					mapOfSkipReasons[fmt.Sprintf("machine-should-use-swraid-but-only-%d-RAID-WWN-in-hbmh", lenOfWwnSlice)]++
-					continue
-				}
-			} else { //nolint:gocritic
-				// Machine should have no RAID.
-				if host.Spec.RootDeviceHints.WWN == "" {
-					mapOfSkipReasons["machine-should-use-no-swraid-and-no-non-raid-WWN-in-hbmh"]++
-					continue
-				}
-			}
 		}
 
 		availableHosts = append(availableHosts, &hosts.Items[i])
@@ -502,6 +451,70 @@ func (s *Service) chooseHost(ctx context.Context) (
 	}
 
 	return chosenHost, helper, "", nil
+}
+
+func (s *Service) skipHost(labelSelector labels.Selector, host infrav1.HetznerBareMetalHost, mapOfSkipReasons map[string]int) bool {
+	// This comes first, because we should not look too deep into machines
+	// which are not in our scope.
+	if !labelSelector.Matches(labels.Set(host.ObjectMeta.Labels)) {
+		mapOfSkipReasons["label-selector-does-not-match"]++
+		return true
+	}
+
+	if host.GetDeletionTimestamp() != nil {
+		mapOfSkipReasons["hbmh-has-deletion-timestamp"]++
+		return true
+	}
+
+	if host.Spec.MaintenanceMode != nil && *host.Spec.MaintenanceMode {
+		mapOfSkipReasons["hbmh-in-maintenance-mode"]++
+		return true
+	}
+	if host.Spec.Status.ErrorMessage != "" {
+		mapOfSkipReasons["hbmh-has-error-message-in-status"]++
+		return true
+	}
+
+	if host.Spec.Status.ProvisioningState != infrav1.StateNone {
+		mapOfSkipReasons["hbmh-in-wrong-provisioning-state"]++
+		return true
+	}
+
+	if host.Spec.RootDeviceHints == nil ||
+		(host.Spec.RootDeviceHints.WWN == "" && len(host.Spec.RootDeviceHints.Raid.WWN) == 0) {
+		// Even if there are no rootDeviceHints specified, the host should be picked.
+		// After the phase registering, the process to provision the server stops and
+		// waits for the user to specify the rootDeviceHints.
+		// Here (RootDeviceHints exists and is valid) we want to check whether
+		// the specified rootDeviceHints fit with the InstallImage configuration
+		// of the HetznerBareMetalMachine. If not, it is not valid.
+		// Doing that without first choosing the hbmh would be nice, there is a feature request:
+		// https://github.com/syself/cluster-api-provider-hetzner/issues/1166
+		// See "tworaidchecks" for the other place.
+		return false
+	}
+
+	// IsValid returns false if rootDeviceHints are empty, but this case was handled before
+	if !host.Spec.RootDeviceHints.IsValid() {
+		mapOfSkipReasons["hbmh-has-invalid-rootDeviceHints"]++
+		return true
+	}
+
+	if s.scope.BareMetalMachine.Spec.InstallImage.Swraid == 1 {
+		// Machine should have RAID. Skip machines which have less than two WWNs
+		lenOfWwnSlice := len(host.Spec.RootDeviceHints.Raid.WWN)
+		if lenOfWwnSlice < 2 {
+			mapOfSkipReasons[fmt.Sprintf("machine-should-use-swraid-but-only-%d-RAID-WWN-in-hbmh", lenOfWwnSlice)]++
+			return true
+		}
+		return false
+	}
+	// Machine should have no RAID.
+	if host.Spec.RootDeviceHints.WWN == "" {
+		mapOfSkipReasons["machine-should-use-no-swraid-and-no-non-raid-WWN-in-hbmh"]++
+		return true
+	}
+	return false
 }
 
 func reasonString(mapOfSkipReasons map[string]int, unusedHostsCounter int) string {
