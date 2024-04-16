@@ -1,6 +1,6 @@
 # Upgrading the Kubernetes Cluster API Provider Hetzner
 
-This guide explains how to upgrade Cluster API and Cluster API Provider Hetzner (aka CAPH).
+This guide explains how to upgrade Cluster API and Cluster API Provider Hetzner (aka CAPH). Additionally, it also references [upgrading your kubernetes version](#external-cluster-api-reference) as part of this guide.
 
 ## Set matching kubeconfig
 
@@ -122,4 +122,16 @@ NOTE: Please note that `clusterctl` doesn't support pre-release of GitHub by def
 
 Check the health of your workload cluster with your preferred tools and ensure that all components are healthy especially apiserver and etcd pods.
 
-After upgrading cluster API, you might be intersted in updating the Kubernetes version of your controlplane and worker nodes. Those details can be found in the [Cluster API documentation](https://cluster-api.sigs.k8s.io/tasks/upgrading-clusters).
+## External Cluster API Reference
+
+After upgrading cluster API, you may want to update the Kubernetes version of your controlplane and worker nodes. Those details can be found in the [Cluster API documentation](https://cluster-api.sigs.k8s.io/tasks/upgrading-clusters). 
+
+NOTE: The update can be done on either management cluster or workload cluster separately as well.
+
+You should upgrade your kubernetes version after considering the following:
+
+````markdown
+A Cluster API minor release supports (when it’s initially created):
+  - 4 Kubernetes minor releases for the management cluster (N - N-3)
+  - 6 Kubernetes minor releases for the workload cluster (N - N-5)
+````
