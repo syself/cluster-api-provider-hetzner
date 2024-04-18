@@ -1134,7 +1134,7 @@ var _ = Describe("actionRegistering", func() {
 			includeRootDeviceHintWWN:  true,
 			includeRootDeviceHintRaid: false,
 			expectedActionResult:      actionFailed{},
-			expectedErrorMessage:      ptr.To("missing storage device for root device hint eui.002538b411b2cee8"),
+			expectedErrorMessage:      ptr.To("missing storage device for root device hint eui.002538b411b2cee8. Known WWNs: [eui.002538b411b2cee2 eui.0025388801b4dff2]"),
 		}),
 		Entry("no root device hints", testCaseActionRegistering{
 			storageStdOut: `NAME="loop0" LABEL="" FSTYPE="ext2" TYPE="loop" HCTL="" MODEL="" VENDOR="" SERIAL="" SIZE="3068773888" WWN="" ROTA="0"

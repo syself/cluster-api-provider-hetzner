@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -617,17 +618,16 @@ func (s *Service) actionRegistering() actionResult {
 }
 
 func validateRootDeviceWwnsAreSubsetOfExistingWwns(rootDeviceHints *infrav1.RootDeviceHints, storageDevices []infrav1.Storage) error {
+	knownWWNs := make([]string, 0, len(storageDevices))
+	for _, sd := range storageDevices {
+		knownWWNs = append(knownWWNs, sd.WWN)
+	}
+
 	for _, wwn := range rootDeviceHints.ListOfWWN() {
-		foundWWN := false
-		for _, st := range storageDevices {
-			if wwn == st.WWN {
-				foundWWN = true
-				continue
-			}
+		if slices.Contains(knownWWNs, wwn) {
+			continue
 		}
-		if !foundWWN {
-			return fmt.Errorf("%w for root device hint %s", errMissingStorageDevice, wwn)
-		}
+		return fmt.Errorf("%w for root device hint %s. Known WWNs: %v", errMissingStorageDevice, wwn, knownWWNs)
 	}
 	return nil
 }
