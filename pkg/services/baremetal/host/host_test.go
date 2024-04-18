@@ -18,6 +18,7 @@ package host
 
 import (
 	"fmt"
+	"testing"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -1759,3 +1760,40 @@ var _ = Describe("actionProvisioned", func() {
 		}),
 	)
 })
+
+// Benchmark_validateRootDeviceWwnsAreSubsetOfExistingWwns-16    	 2619891	       434.6 ns/op	     184 B/op	       6 allocs/op
+func Benchmark_validateRootDeviceWwnsAreSubsetOfExistingWwns(b *testing.B) {
+	rdh := infrav1.RootDeviceHints{
+		WWN: "",
+		Raid: infrav1.Raid{
+			WWN: []string{"foo", "bar"},
+		},
+	}
+	storages := []infrav1.Storage{
+		{
+			WWN: "foo",
+		},
+	}
+	for n := 0; n < b.N; n++ {
+		_ = validateRootDeviceWwnsAreSubsetOfExistingWwns(&rdh, storages)
+	}
+}
+
+// Benchmark_validateRootDeviceWwnsAreSubsetOfExistingWwnsMap-16    	 1674976	       817.1 ns/op	     432 B/op	       9 allocs/op
+
+func Benchmark_validateRootDeviceWwnsAreSubsetOfExistingWwnsMap(b *testing.B) {
+	rdh := infrav1.RootDeviceHints{
+		WWN: "",
+		Raid: infrav1.Raid{
+			WWN: []string{"foo", "bar"},
+		},
+	}
+	storages := []infrav1.Storage{
+		{
+			WWN: "foo",
+		},
+	}
+	for n := 0; n < b.N; n++ {
+		_ = validateRootDeviceWwnsAreSubsetOfExistingWwnsMap(&rdh, storages)
+	}
+}

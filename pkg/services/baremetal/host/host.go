@@ -632,6 +632,22 @@ func validateRootDeviceWwnsAreSubsetOfExistingWwns(rootDeviceHints *infrav1.Root
 	return nil
 }
 
+func validateRootDeviceWwnsAreSubsetOfExistingWwnsMap(rootDeviceHints *infrav1.RootDeviceHints, storageDevices []infrav1.Storage) error {
+	knownWWNs := make(map[string]struct{}, len(storageDevices))
+	for _, sd := range storageDevices {
+		knownWWNs[sd.WWN] = struct{}{}
+	}
+
+	for _, wwn := range rootDeviceHints.ListOfWWN() {
+		_, exists := knownWWNs[wwn]
+		if exists {
+			continue
+		}
+		return fmt.Errorf("%w for root device hint %s. Known WWNs: %v", errMissingStorageDevice, wwn, knownWWNs)
+	}
+	return nil
+}
+
 func getHardwareDetails(sshClient sshclient.Client) (infrav1.HardwareDetails, error) {
 	mebiBytes, err := obtainHardwareDetailsRAM(sshClient)
 	if err != nil {
