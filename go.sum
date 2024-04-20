@@ -224,8 +224,8 @@ github.com/hashicorp/golang-lru v0.5.0/go.mod h1:/m3WP610KZHVQ1SGc6re/UDhFvYD7pJ
 github.com/hashicorp/golang-lru v0.5.1/go.mod h1:/m3WP610KZHVQ1SGc6re/UDhFvYD7pJ4Ao+sR/qLZy8=
 github.com/hashicorp/hcl v1.0.0 h1:0Anlzjpi4vEasTeNFn2mLJgTSwt0+6sfsiTG8qcWGx4=
 github.com/hashicorp/hcl v1.0.0/go.mod h1:E5yfLk+7swimpb2L/Alb/PJmXilQ/rhwaUYs4T20WEQ=
-github.com/hetznercloud/hcloud-go/v2 v2.7.0 h1:I+KpXC+Q2MIlOQYeQt3f02vhePPzboqmfAGhJRaF9c4=
-github.com/hetznercloud/hcloud-go/v2 v2.7.0/go.mod h1:wkQHjFTzGBesBWaTSQ3BZCHd/st9J4X4JDuPokpjJlM=
+github.com/hetznercloud/hcloud-go/v2 v2.7.2 h1:UlE7n1GQZacCfyjv9tDVUN7HZfOXErPIfM/M039u9A0=
+github.com/hetznercloud/hcloud-go/v2 v2.7.2/go.mod h1:49tIV+pXRJTUC7fbFZ03s45LKqSQdOPP5y91eOnJo/k=
 github.com/huandu/xstrings v1.3.3 h1:/Gcsuc1x8JVbJ9/rlye4xZnVAbEkGauT8lbebqcQws4=
 github.com/huandu/xstrings v1.3.3/go.mod h1:y5/lhBue+AyNmUVz9RLU9xbLR0o4KIIExikq4ovT0aE=
 github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
