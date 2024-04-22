@@ -6,15 +6,15 @@ require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/go-logr/logr v1.4.1
 	github.com/go-logr/zapr v1.3.0
-	github.com/hetznercloud/hcloud-go/v2 v2.7.0
+	github.com/hetznercloud/hcloud-go/v2 v2.7.2
 	github.com/onsi/ginkgo/v2 v2.17.1
-	github.com/onsi/gomega v1.32.0
+	github.com/onsi/gomega v1.33.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.9.0
 	github.com/syself/hrobot-go v0.2.5
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.22.0
-	golang.org/x/exp v0.0.0-20240409090435-93d18d7e34b8
+	golang.org/x/exp v0.0.0-20240416160154-fe59bbe5cc7f
 	golang.org/x/mod v0.17.0
 	k8s.io/api v0.28.4
 	k8s.io/apimachinery v0.28.4
