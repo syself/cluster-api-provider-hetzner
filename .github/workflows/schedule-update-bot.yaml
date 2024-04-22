@@ -44,7 +44,7 @@ jobs:
           echo "LOG_LEVEL=${{ github.event.inputs.logLevel || env.LOG_LEVEL }}" >> "$GITHUB_ENV"
 
       - name: Renovate
-        uses: renovatebot/github-action@7d358366277001f3316d7fa54ff49a81c0158948 # v40.1.7
+        uses: renovatebot/github-action@2e021d24483d81e77e0e902d0809adfbfff276fc # v40.1.10
         env:
           RENOVATE_HOST_RULES: '[{"hostType": "docker", "matchHost": "ghcr.io", "username": "${{ github.actor }}", "password": "${{ secrets.GITHUB_TOKEN }}" }]'
           RENOVATE_ALLOWED_POST_UPGRADE_COMMANDS: '[".*"]'
