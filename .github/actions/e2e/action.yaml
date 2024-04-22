@@ -34,7 +34,7 @@ runs:
           ${{ runner.os }}-tools-bin-e2e-
           ${{ runner.os }}-tools-bin-
     - name: Download artifact
-      uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4
+      uses: actions/download-artifact@8caf195ad4b1dee92908e23f56eeb0696f1dd42d # v4
       with:
         name: test-release
         path: out
@@ -80,7 +80,7 @@ runs:
         CAPH_LATEST_VERSION: "v1.0.0-beta.26"
       run: make ${{ inputs.e2e_make_target }}
     - name: Upload artifact
-      uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4
+      uses: actions/upload-artifact@1746f4ab65b179e0ea60a494b83293b640dd5bba # v4
       if: ${{ always() }}
       with:
         name: e2e-${{ inputs.e2e_name }}
