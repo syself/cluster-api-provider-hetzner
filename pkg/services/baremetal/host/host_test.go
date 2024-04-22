@@ -95,6 +95,48 @@ var _ = Describe("SetErrorMessage", func() {
 	)
 })
 
+var _ = Describe("test validateRootDeviceWwnsAreSubsetOfExistingWwns", func() {
+    It("should return error when storageDevices is empty", func() {
+        rootDeviceHints := &infrav1.RootDeviceHints{WWN: "wwn1"}
+        storageDevices := []infrav1.Storage{}
+
+        err := validateRootDeviceWwnsAreSubsetOfExistingWwns(rootDeviceHints, storageDevices)
+        Expect(err).ToNot(BeNil())
+		expectedError := fmt.Errorf("%w for root device hint wwn1. Known WWNs: []", errMissingStorageDevice)
+        Expect(err).To(Equal(expectedError))
+    })
+    It("should return nil when both rootDeviceHints and storageDevices are empty", func() {
+        rootDeviceHints := &infrav1.RootDeviceHints{}
+        storageDevices := []infrav1.Storage{}
+
+        err := validateRootDeviceWwnsAreSubsetOfExistingWwns(rootDeviceHints, storageDevices)
+        Expect(err).To(BeNil())
+    })
+    It("should return an error when rootDeviceHints contains WWNs not present in storageDevices", func() {
+        rootDeviceHints := &infrav1.RootDeviceHints{WWN: "wwn3"}
+        storageDevices := []infrav1.Storage{
+            {WWN: "wwn1"},
+            {WWN: "wwn2"},
+        }
+
+        err := validateRootDeviceWwnsAreSubsetOfExistingWwns(rootDeviceHints, storageDevices)
+        Expect(err).NotTo(BeNil())
+        expectedError := fmt.Errorf("%w for root device hint wwn3. Known WWNs: [wwn1 wwn2]", errMissingStorageDevice)
+        Expect(err).To(Equal(expectedError))
+    })
+    It("should return nil when rootDeviceHints contains WWNs present in storageDevices", func() {
+        rootDeviceHints := &infrav1.RootDeviceHints{WWN: "wwn2"}
+        storageDevices := []infrav1.Storage{
+            {WWN: "wwn1"},
+            {WWN: "wwn2"},
+            {WWN: "wwn3"},
+        }
+
+        err := validateRootDeviceWwnsAreSubsetOfExistingWwns(rootDeviceHints, storageDevices)
+        Expect(err).To(BeNil())
+    })
+})
+
 var _ = Describe("obtainHardwareDetailsNics", func() {
 	type testCaseObtainHardwareDetailsNics struct {
 		stdout         string
