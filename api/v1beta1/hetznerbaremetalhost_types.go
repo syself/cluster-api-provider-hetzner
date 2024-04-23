@@ -67,6 +67,9 @@ func (rdh *RootDeviceHints) IsValidWithMessage() string {
 	if rdh.WWN == "" && len(rdh.Raid.WWN) == 0 {
 		return "rootDeviceHint.wwn and rootDeviceHint.raid.wwn are empty. Please specify one or the other."
 	}
+	if rdh.WWN == "" && len(rdh.Raid.WWN) == 1 {
+		return "rootDeviceHint.raid.wwn contains only one entry. At least two entries are needed."
+	}
 	if rdh.WWN != "" && len(rdh.Raid.WWN) > 0 {
 		return "WWN specified twice (rootDeviceHint.wwn and rootDeviceHint.raid.wwn). Please specify only one or the other."
 	}

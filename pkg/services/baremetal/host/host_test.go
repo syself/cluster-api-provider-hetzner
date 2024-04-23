@@ -95,6 +95,48 @@ var _ = Describe("SetErrorMessage", func() {
 	)
 })
 
+var _ = Describe("test validateRootDeviceWwnsAreSubsetOfExistingWwns", func() {
+	It("should return error when storageDevices is empty", func() {
+		rootDeviceHints := &infrav1.RootDeviceHints{WWN: "wwn1"}
+		storageDevices := []infrav1.Storage{}
+
+		err := validateRootDeviceWwnsAreSubsetOfExistingWwns(rootDeviceHints, storageDevices)
+		Expect(err).ToNot(BeNil())
+		expectedError := fmt.Errorf(`%w for root device hint "wwn1". Known WWNs: []`, errMissingStorageDevice)
+		Expect(err).To(Equal(expectedError))
+	})
+	It("should return nil when both rootDeviceHints and storageDevices are empty", func() {
+		rootDeviceHints := &infrav1.RootDeviceHints{}
+		storageDevices := []infrav1.Storage{}
+
+		err := validateRootDeviceWwnsAreSubsetOfExistingWwns(rootDeviceHints, storageDevices)
+		Expect(err).To(BeNil())
+	})
+	It("should return an error when rootDeviceHints contains WWNs not present in storageDevices", func() {
+		rootDeviceHints := &infrav1.RootDeviceHints{WWN: "wwn3"}
+		storageDevices := []infrav1.Storage{
+			{WWN: "wwn1"},
+			{WWN: "wwn2"},
+		}
+
+		err := validateRootDeviceWwnsAreSubsetOfExistingWwns(rootDeviceHints, storageDevices)
+		Expect(err).NotTo(BeNil())
+		expectedError := fmt.Errorf(`%w for root device hint "wwn3". Known WWNs: [wwn1 wwn2]`, errMissingStorageDevice)
+		Expect(err).To(Equal(expectedError))
+	})
+	It("should return nil when rootDeviceHints contains WWNs present in storageDevices", func() {
+		rootDeviceHints := &infrav1.RootDeviceHints{WWN: "wwn2"}
+		storageDevices := []infrav1.Storage{
+			{WWN: "wwn1"},
+			{WWN: "wwn2"},
+			{WWN: "wwn3"},
+		}
+
+		err := validateRootDeviceWwnsAreSubsetOfExistingWwns(rootDeviceHints, storageDevices)
+		Expect(err).To(BeNil())
+	})
+})
+
 var _ = Describe("obtainHardwareDetailsNics", func() {
 	type testCaseObtainHardwareDetailsNics struct {
 		stdout         string
@@ -1058,6 +1100,7 @@ var _ = Describe("actionRegistering", func() {
 		includeRootDeviceHintRaid bool
 		expectedActionResult      actionResult
 		expectedErrorMessage      *string
+		swRaid                    bool
 	}
 
 	DescribeTable("actionRegistering",
@@ -1087,31 +1130,25 @@ var _ = Describe("actionRegistering", func() {
 					helpers.WithConsumerRef(),
 				)
 			}
-			sshMock := &sshmock.Client{}
-			sshMock.On("GetHostName").Return(sshclient.Output{StdOut: "rescue"})
-			sshMock.On("GetHardwareDetailsRAM").Return(sshclient.Output{StdOut: "10000"})
-			sshMock.On("GetHardwareDetailsStorage").Return(sshclient.Output{
-				StdOut: tc.storageStdOut,
-			})
-			sshMock.On("GetHardwareDetailsNics").Return(sshclient.Output{
-				StdOut: `name="eth0" model="Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller (rev 15)" mac="a8:a1:59:94:19:42" ipv4="23.88.6.239/26" speedMbps="1000"
-		name="eth0" model="Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller (rev 15)" mac="a8:a1:59:94:19:42" ipv6="2a01:4f8:272:3e0f::2/64" speedMbps="1000"`,
-			})
-			sshMock.On("GetHardwareDetailsCPUArch").Return(sshclient.Output{StdOut: "myarch"})
-			sshMock.On("GetHardwareDetailsCPUModel").Return(sshclient.Output{StdOut: "mymodel"})
-			sshMock.On("GetHardwareDetailsCPUClockGigahertz").Return(sshclient.Output{StdOut: "42654"})
-			sshMock.On("GetHardwareDetailsCPUFlags").Return(sshclient.Output{StdOut: "flag1 flag2 flag3"})
-			sshMock.On("GetHardwareDetailsCPUThreads").Return(sshclient.Output{StdOut: "123"})
-			sshMock.On("GetHardwareDetailsCPUCores").Return(sshclient.Output{StdOut: "12"})
-			sshMock.On("GetHardwareDetailsDebug").Return(sshclient.Output{StdOut: "Dummy outupt"})
+			host.Spec.Status.InstallImage = &infrav1.InstallImage{}
+			if tc.swRaid {
+				host.Spec.Status.InstallImage.Swraid = 1
+			}
+			sshMock := registeringSSHMock(tc.storageStdOut)
 			service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 
 			actResult := service.actionRegistering()
-			Expect(actResult).Should(BeAssignableToTypeOf(tc.expectedActionResult))
 			Expect(host.Spec.Status.HardwareDetails).ToNot(BeNil())
 			if tc.expectedErrorMessage != nil {
 				Expect(host.Spec.Status.ErrorMessage).To(Equal(*tc.expectedErrorMessage))
 			}
+			switch tc.expectedActionResult.(type) {
+			case actionComplete:
+				Expect(host.Spec.Status.ErrorMessage).To(Equal(""))
+			case *actionContinue:
+				Expect(host.Spec.Status.ErrorMessage).To(Equal(""))
+			}
+			Expect(actResult).Should(BeAssignableToTypeOf(tc.expectedActionResult))
 		},
 		Entry("working example", testCaseActionRegistering{
 			storageStdOut: `NAME="loop0" LABEL="" FSTYPE="ext2" TYPE="loop" HCTL="" MODEL="" VENDOR="" SERIAL="" SIZE="3068773888" WWN="" ROTA="0"
@@ -1130,6 +1167,7 @@ var _ = Describe("actionRegistering", func() {
 			includeRootDeviceHintRaid: true,
 			expectedActionResult:      actionComplete{},
 			expectedErrorMessage:      nil,
+			swRaid:                    true,
 		}),
 		Entry("wwn does not fit to storage devices", testCaseActionRegistering{
 			storageStdOut: `NAME="loop0" LABEL="" FSTYPE="ext2" TYPE="loop" HCTL="" MODEL="" VENDOR="" SERIAL="" SIZE="3068773888" WWN="" ROTA="0"
@@ -1138,7 +1176,7 @@ var _ = Describe("actionRegistering", func() {
 			includeRootDeviceHintWWN:  true,
 			includeRootDeviceHintRaid: false,
 			expectedActionResult:      actionFailed{},
-			expectedErrorMessage:      ptr.To("missing storage device for root device hint eui.002538b411b2cee8"),
+			expectedErrorMessage:      ptr.To(`missing storage device for root device hint "eui.002538b411b2cee8". Known WWNs: [eui.002538b411b2cee2 eui.0025388801b4dff2]`),
 		}),
 		Entry("no root device hints", testCaseActionRegistering{
 			storageStdOut: `NAME="loop0" LABEL="" FSTYPE="ext2" TYPE="loop" HCTL="" MODEL="" VENDOR="" SERIAL="" SIZE="3068773888" WWN="" ROTA="0"
@@ -1190,6 +1228,60 @@ var _ = Describe("actionRegistering", func() {
 			expectedErrorType: infrav1.ErrorTypeConnectionError,
 		}),
 	)
+})
+
+func registeringSSHMock(storageStdOut string) *sshmock.Client {
+	sshMock := &sshmock.Client{}
+	sshMock.On("GetHostName").Return(sshclient.Output{StdOut: "rescue"})
+	sshMock.On("GetHardwareDetailsRAM").Return(sshclient.Output{StdOut: "10000"})
+	sshMock.On("GetHardwareDetailsStorage").Return(sshclient.Output{
+		StdOut: storageStdOut,
+	})
+	sshMock.On("GetHardwareDetailsNics").Return(sshclient.Output{
+		StdOut: `name="eth0" model="Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller (rev 15)" mac="a8:a1:59:94:19:42" ipv4="23.88.6.239/26" speedMbps="1000"
+name="eth0" model="Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller (rev 15)" mac="a8:a1:59:94:19:42" ipv6="2a01:4f8:272:3e0f::2/64" speedMbps="1000"`,
+	})
+	sshMock.On("GetHardwareDetailsCPUArch").Return(sshclient.Output{StdOut: "myarch"})
+	sshMock.On("GetHardwareDetailsCPUModel").Return(sshclient.Output{StdOut: "mymodel"})
+	sshMock.On("GetHardwareDetailsCPUClockGigahertz").Return(sshclient.Output{StdOut: "42654"})
+	sshMock.On("GetHardwareDetailsCPUFlags").Return(sshclient.Output{StdOut: "flag1 flag2 flag3"})
+	sshMock.On("GetHardwareDetailsCPUThreads").Return(sshclient.Output{StdOut: "123"})
+	sshMock.On("GetHardwareDetailsCPUCores").Return(sshclient.Output{StdOut: "12"})
+	sshMock.On("GetHardwareDetailsDebug").Return(sshclient.Output{StdOut: "Dummy output"})
+	return sshMock
+}
+
+var _ = Describe("actionRegistering check RAID", func() {
+	It("check RAID", func() {
+		sshMock := registeringSSHMock(`NAME="nvme2n1" TYPE="disk" MODEL="mymode." VENDOR="" SIZE="3068773888" WWN="wwn1" ROTA="0"
+		NAME="nvme2n2" TYPE="disk" MODEL="mymodel" VENDOR="" SIZE="3068773888" WWN="wwn2" ROTA="0"`)
+		host := helpers.BareMetalHost(
+			"test-host",
+			"default",
+			helpers.WithRootDeviceHintWWN(),
+			helpers.WithConsumerRef(),
+		)
+		host.Spec.RootDeviceHints.WWN = "wwn1"
+		host.Spec.Status.InstallImage = &infrav1.InstallImage{
+			Swraid: 1,
+		}
+		service := newTestService(host, nil, bmmock.NewSSHFactory(
+			sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+		actResult := service.actionRegistering()
+
+		_, err := actResult.Result()
+		Expect(err).Should(BeNil())
+		Expect(host.Spec.Status.ErrorMessage).Should(Equal("Invalid HetznerBareMetalHost: spec.status.installImage.swraid is active. Use at least two WWNs in spec.rootDevideHints.raid.wwn."))
+
+		host.Spec.Status.InstallImage.Swraid = 0
+		host.Spec.RootDeviceHints.WWN = ""
+		host.Spec.RootDeviceHints.Raid.WWN = []string{"wwn1", "wwn2"}
+		actResult = service.actionRegistering()
+
+		_, err = actResult.Result()
+		Expect(err).Should(BeNil())
+		Expect(host.Spec.Status.ErrorMessage).Should(Equal("Invalid HetznerBareMetalHost: spec.status.installImage.swraid is not active. Use spec.rootDevideHints.wwn and leave raid.wwn empty."))
+	})
 })
 
 var _ = Describe("getImageDetails", func() {
