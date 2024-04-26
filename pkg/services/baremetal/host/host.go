@@ -849,7 +849,7 @@ func obtainHardwareDetailsStorage(sshClient sshclient.Client) ([]infrav1.Storage
 				Name:         storage.Name,
 				SizeBytes:    infrav1.Capacity(sizeBytes),
 				SizeGB:       capacityGB,
-				Vendor:       storage.Vendor,
+				Vendor:       strings.TrimSpace(storage.Vendor),
 				Model:        storage.Model,
 				SerialNumber: storage.SerialNumber,
 				WWN:          storage.WWN,
