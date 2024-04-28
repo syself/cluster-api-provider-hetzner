@@ -537,8 +537,8 @@ spec:
               tls-cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
         preKubeadmCommands:
           - grep VERSION= /etc/os-release; uname -a
-          - export CONTAINERD=1.7.10
-          - export KUBERNETES_VERSION=1.28.4
+          - export CONTAINERD=1.7.16
+          - export KUBERNETES_VERSION=1.29.4
           - export TRIMMED_KUBERNETES_VERSION=$(echo ${KUBERNETES_VERSION} | sed 's/^v//' | awk -F . '{print $1 "." $2}')
           - localectl set-locale LANG=en_US.UTF-8
           - localectl set-locale LANGUAGE=en_US.UTF-8
@@ -561,9 +561,7 @@ spec:
           - curl -fsSL https://pkgs.k8s.io/core:/stable:/v$TRIMMED_KUBERNETES_VERSION/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
           - echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v$TRIMMED_KUBERNETES_VERSION/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list
           - apt-get update
-          - apt-get install -y kubelet=$KUBERNETES_VERSION-1.1 kubeadm=$KUBERNETES_VERSION-1.1
-            kubectl=$KUBERNETES_VERSION-1.1  bash-completion && apt-mark hold kubelet kubectl
-            kubeadm && systemctl enable kubelet
+          - apt-get install -y kubelet="$KUBERNETES_VERSION-*" kubeadm="$KUBERNETES_VERSION-*" kubectl="$KUBERNETES_VERSION-*" bash-completion && apt-mark hold kubelet kubectl kubeadm && systemctl enable kubelet
           - kubeadm config images pull --kubernetes-version $KUBERNETES_VERSION
           - echo 'source <(kubectl completion bash)' >>/root/.bashrc
           - echo 'export KUBECONFIG=/etc/kubernetes/admin.conf' >>/root/.bashrc
@@ -625,8 +623,8 @@ spec:
             tls-cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
       preKubeadmCommands:
         - grep VERSION= /etc/os-release; uname -a
-        - export CONTAINERD=1.7.10
-        - export KUBERNETES_VERSION=1.28.4
+        - export CONTAINERD=1.7.16
+        - export KUBERNETES_VERSION=1.29.4
         - localectl set-locale LANG=en_US.UTF-8
         - localectl set-locale LANGUAGE=en_US.UTF-8
         - apt-get update -y
@@ -645,12 +643,10 @@ spec:
         - sed -i  "s/SystemdCgroup = false/SystemdCgroup = true/" /etc/containerd/config.toml
         - systemctl daemon-reload && systemctl enable containerd && systemctl start containerd
         - mkdir -p /etc/apt/keyrings/
-        - curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-        - echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.28/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+        - curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+        - echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.29/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list
         - apt-get update
-        - apt-get install -y kubelet=$KUBERNETES_VERSION-1.1 kubeadm=$KUBERNETES_VERSION-1.1
-          kubectl=$KUBERNETES_VERSION-1.1  bash-completion && apt-mark hold kubelet kubectl
-          kubeadm && systemctl enable kubelet
+        - apt-get install -y kubelet="$KUBERNETES_VERSION-*" kubeadm="$KUBERNETES_VERSION-*" kubectl="$KUBERNETES_VERSION-*" bash-completion && apt-mark hold kubelet kubectl kubeadm && systemctl enable kubelet
         - kubeadm config images pull --kubernetes-version $KUBERNETES_VERSION
         - echo 'source <(kubectl completion bash)' >>/root/.bashrc
         - echo 'export KUBECONFIG=/etc/kubernetes/admin.conf' >>/root/.bashrc
@@ -762,8 +758,8 @@ spec:
             tls-cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
       preKubeadmCommands:
         - grep VERSION= /etc/os-release; uname -a
-        - export CONTAINERD=1.7.10
-        - export KUBERNETES_VERSION=1.28.4
+        - export CONTAINERD=1.7.16
+        - export KUBERNETES_VERSION=1.29.4
         - localectl set-locale LANG=en_US.UTF-8
         - localectl set-locale LANGUAGE=en_US.UTF-8
         - apt-get update -y
@@ -782,12 +778,10 @@ spec:
         - sed -i  "s/SystemdCgroup = false/SystemdCgroup = true/" /etc/containerd/config.toml
         - systemctl daemon-reload && systemctl enable containerd && systemctl start containerd
         - mkdir -p /etc/apt/keyrings/
-        - curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-        - echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.28/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+        - curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+        - echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.29/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list
         - apt-get update
-        - apt-get install -y kubelet=$KUBERNETES_VERSION-1.1 kubeadm=$KUBERNETES_VERSION-1.1
-          kubectl=$KUBERNETES_VERSION-1.1  bash-completion && apt-mark hold kubelet kubectl
-          kubeadm && systemctl enable kubelet
+        - apt-get install -y kubelet="$KUBERNETES_VERSION-*" kubeadm="$KUBERNETES_VERSION-*" kubectl="$KUBERNETES_VERSION-*" bash-completion && apt-mark hold kubelet kubectl kubeadm && systemctl enable kubelet
         - kubeadm config images pull --kubernetes-version $KUBERNETES_VERSION
         - echo 'source <(kubectl completion bash)' >>/root/.bashrc
         - echo 'export KUBECONFIG=/etc/kubernetes/admin.conf' >>/root/.bashrc

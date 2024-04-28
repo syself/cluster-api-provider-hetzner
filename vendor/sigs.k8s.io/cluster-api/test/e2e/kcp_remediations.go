@@ -31,7 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -81,6 +81,10 @@ type KCPRemediationSpecInput struct {
 	// 	     timeout: 10s
 	// If not specified, "kcp-remediation" is used.
 	Flavor *string
+
+	// Allows to inject a function to be run after test namespace is created.
+	// If not specified, this is a no-op.
+	PostNamespaceCreated func(managementClusterProxy framework.ClusterProxy, workloadClusterNamespace string)
 }
 
 // KCPRemediationSpec implements a test that verifies that Machines are remediated by MHC during unhealthy conditions.
@@ -103,7 +107,7 @@ func KCPRemediationSpec(ctx context.Context, inputGetter func() KCPRemediationSp
 		Expect(input.E2EConfig.Variables).To(HaveKey(KubernetesVersion))
 
 		// Setup a Namespace where to host objects for this spec and create a watcher for the namespace events.
-		namespace, cancelWatches = setupSpecNamespace(ctx, specName, input.BootstrapClusterProxy, input.ArtifactFolder)
+		namespace, cancelWatches = framework.SetupSpecNamespace(ctx, specName, input.BootstrapClusterProxy, input.ArtifactFolder, input.PostNamespaceCreated)
 	})
 
 	It("Should replace unhealthy machines", func() {
@@ -121,7 +125,7 @@ func KCPRemediationSpec(ctx context.Context, inputGetter func() KCPRemediationSp
 			Proxy:                  input.BootstrapClusterProxy,
 			ArtifactFolder:         input.ArtifactFolder,
 			SpecName:               specName,
-			Flavor:                 pointer.StringDeref(input.Flavor, "kcp-remediation"),
+			Flavor:                 ptr.Deref(input.Flavor, "kcp-remediation"),
 			InfrastructureProvider: input.InfrastructureProvider,
 
 			// values to be injected in the template
@@ -414,7 +418,7 @@ func KCPRemediationSpec(ctx context.Context, inputGetter func() KCPRemediationSp
 
 	AfterEach(func() {
 		// Dumps all the resources in the spec namespace, then cleanups the cluster object and the spec namespace itself.
-		dumpSpecResourcesAndCleanup(ctx, specName, input.BootstrapClusterProxy, input.ArtifactFolder, namespace, cancelWatches, clusterResources.Cluster, input.E2EConfig.GetIntervals, input.SkipCleanup)
+		framework.DumpSpecResourcesAndCleanup(ctx, specName, input.BootstrapClusterProxy, input.ArtifactFolder, namespace, cancelWatches, clusterResources.Cluster, input.E2EConfig.GetIntervals, input.SkipCleanup)
 	})
 }
 
@@ -470,8 +474,8 @@ func createWorkloadClusterAndWait(ctx context.Context, input createWorkloadClust
 		Namespace:                input.Namespace,
 		ClusterName:              clusterName,
 		KubernetesVersion:        input.E2EConfig.GetVariable(KubernetesVersion),
-		ControlPlaneMachineCount: pointer.Int64(3),
-		WorkerMachineCount:       pointer.Int64(0),
+		ControlPlaneMachineCount: ptr.To[int64](3),
+		WorkerMachineCount:       ptr.To[int64](0),
 		InfrastructureProvider:   infrastructureProvider,
 		// setup clusterctl logs folder
 		LogFolder: filepath.Join(input.ArtifactFolder, "clusters", input.Proxy.GetName()),
@@ -690,7 +694,7 @@ func getAuthenticationToken(ctx context.Context, managementClusterProxy framewor
 
 	tokenRequest := &authenticationv1.TokenRequest{
 		Spec: authenticationv1.TokenRequestSpec{
-			ExpirationSeconds: pointer.Int64(2 * 60 * 60), // 2 hours.
+			ExpirationSeconds: ptr.To[int64](2 * 60 * 60), // 2 hours.
 		},
 	}
 	tokenRequest, err := managementClusterProxy.GetClientSet().CoreV1().ServiceAccounts(namespace).CreateToken(ctx, "mhc-test", tokenRequest, metav1.CreateOptions{})

@@ -64,7 +64,7 @@ Required Variables:
 Optional Variables:
   - CLUSTER_NAME                 (defaults to my-cluster)
   - CONTROL_PLANE_MACHINE_COUNT  (defaults to 3)
-  - KUBERNETES_VERSION           (defaults to v1.27.7)
+  - KUBERNETES_VERSION           (defaults to v1.29.4)
   - WORKER_MACHINE_COUNT         (defaults to 3)
 ```
 
@@ -79,9 +79,9 @@ clusterctl init --infrastructure hetzner
 Fetching providers
 Installing cert-manager Version="v1.14.2"
 Waiting for cert-manager to be available...
-Installing Provider="cluster-api" Version="v1.6.3" TargetNamespace="capi-system"
-Installing Provider="bootstrap-kubeadm" Version="v1.6.3" TargetNamespace="capi-kubeadm-bootstrap-system"
-Installing Provider="control-plane-kubeadm" Version="v1.6.3" TargetNamespace="capi-kubeadm-control-plane-system"
+Installing Provider="cluster-api" Version="v1.7.1" TargetNamespace="capi-system"
+Installing Provider="bootstrap-kubeadm" Version="v1.7.1" TargetNamespace="capi-kubeadm-bootstrap-system"
+Installing Provider="control-plane-kubeadm" Version="v1.7.1" TargetNamespace="capi-kubeadm-control-plane-system"
 Installing Provider="infrastructure-hetzner" Version="v1.0.0-beta.33" TargetNamespace="caph-system"
 
 Your management cluster has been initialized successfully!
@@ -372,14 +372,14 @@ NAMESPACE   NAME         CLUSTERCLASS   PHASE         AGE   VERSION
 default     my-cluster                  Provisioned   10h
 $ kubectl get machines -A
 NAMESPACE   NAME                             CLUSTER      NODENAME                         PROVIDERID            PHASE          AGE   VERSION
-default     my-cluster-control-plane-6m6zf   my-cluster   my-cluster-control-plane-84hsn   hcloud://45443706     Running        10h   v1.27.7
-default     my-cluster-control-plane-m6frm   my-cluster   my-cluster-control-plane-hvl5d   hcloud://45443651     Running        10h   v1.27.7
-default     my-cluster-control-plane-qwsq6   my-cluster   my-cluster-control-plane-ss9kc   hcloud://45443746     Running        10h   v1.27.7
-default     my-cluster-md-0-2xgj5-c5bhc      my-cluster   my-cluster-md-0-6xttr            hcloud://45443694     Running        10h   v1.27.7
-default     my-cluster-md-0-2xgj5-rbnbw      my-cluster   my-cluster-md-0-fdq9l            hcloud://45443693     Running        10h   v1.27.7
-default     my-cluster-md-0-2xgj5-tl2jr      my-cluster   my-cluster-md-0-59cgw            hcloud://45443692     Running        10h   v1.27.7
-default     my-cluster-md-1-cp2fd-7nld7      my-cluster   bm-my-cluster-md-1-d7526         hcloud://bm-2317525   Running        9h    v1.27.7
-default     my-cluster-md-1-cp2fd-n74sm      my-cluster   bm-my-cluster-md-1-l5dnr         hcloud://bm-2105469   Running        10h   v1.27.7
+default     my-cluster-control-plane-6m6zf   my-cluster   my-cluster-control-plane-84hsn   hcloud://45443706     Running        10h   v1.29.4
+default     my-cluster-control-plane-m6frm   my-cluster   my-cluster-control-plane-hvl5d   hcloud://45443651     Running        10h   v1.29.4
+default     my-cluster-control-plane-qwsq6   my-cluster   my-cluster-control-plane-ss9kc   hcloud://45443746     Running        10h   v1.29.4
+default     my-cluster-md-0-2xgj5-c5bhc      my-cluster   my-cluster-md-0-6xttr            hcloud://45443694     Running        10h   v1.29.4
+default     my-cluster-md-0-2xgj5-rbnbw      my-cluster   my-cluster-md-0-fdq9l            hcloud://45443693     Running        10h   v1.29.4
+default     my-cluster-md-0-2xgj5-tl2jr      my-cluster   my-cluster-md-0-59cgw            hcloud://45443692     Running        10h   v1.29.4
+default     my-cluster-md-1-cp2fd-7nld7      my-cluster   bm-my-cluster-md-1-d7526         hcloud://bm-2317525   Running        9h    v1.29.4
+default     my-cluster-md-1-cp2fd-n74sm      my-cluster   bm-my-cluster-md-1-l5dnr         hcloud://bm-2105469   Running        10h   v1.29.4
 ```
 Please note that hcloud servers are prefixed with `hcloud://` and baremetal servers are prefixed with `hcloud://bm-`.
 

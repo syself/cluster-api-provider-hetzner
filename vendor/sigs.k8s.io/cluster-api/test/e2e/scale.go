@@ -37,10 +37,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
 	"sigs.k8s.io/cluster-api/test/e2e/internal/log"
 	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/cluster-api/test/framework/clusterctl"
@@ -114,6 +115,10 @@ type scaleSpecInput struct {
 	// be MachineDeploymentCount*WorkerMachineCount (CAPI_SCALE_MACHINE_DEPLOYMENT_COUNT*CAPI_SCALE_WORKER_MACHINE_COUNT).
 	MachineDeploymentCount *int64
 
+	// Allows to inject a function to be run after test namespace is created.
+	// If not specified, this is a no-op.
+	PostNamespaceCreated func(managementClusterProxy framework.ClusterProxy, workloadClusterNamespace string)
+
 	// FailFast if set to true will return immediately after the first cluster operation fails.
 	// If set to false, the test suite will not exit immediately after the first cluster operation fails.
 	// Example: When creating clusters from c1 to c20 consider c6 fails creation. If FailFast is set to true
@@ -122,6 +127,9 @@ type scaleSpecInput struct {
 	// Note: Please note that the test suit will still fail since c6 creation failed. FailFast will determine
 	// if the test suit should fail as soon as c6 fails or if it should fail after all cluster creations are done.
 	FailFast bool
+
+	// SkipUpgrade if set to true will skip upgrading the workload clusters.
+	SkipUpgrade bool
 
 	// SkipCleanup if set to true will skip deleting the workload clusters.
 	SkipCleanup bool
@@ -133,7 +141,7 @@ type scaleSpecInput struct {
 	SkipWaitForCreation bool
 }
 
-// scaleSpec implements a scale test.
+// scaleSpec implements a scale test for clusters with MachineDeployments.
 func scaleSpec(ctx context.Context, inputGetter func() scaleSpecInput) {
 	var (
 		specName      = "scale"
@@ -164,6 +172,11 @@ func scaleSpec(ctx context.Context, inputGetter func() scaleSpecInput) {
 			LogFolder:           filepath.Join(input.ArtifactFolder, "clusters", input.BootstrapClusterProxy.GetName()),
 			IgnoreAlreadyExists: true,
 		})
+
+		if input.PostNamespaceCreated != nil {
+			log.Logf("Calling postNamespaceCreated for namespace %s", namespace.Name)
+			input.PostNamespaceCreated(input.BootstrapClusterProxy, namespace.Name)
+		}
 	})
 
 	It("Should create and delete workload clusters", func() {
@@ -177,7 +190,7 @@ func scaleSpec(ctx context.Context, inputGetter func() scaleSpecInput) {
 			flavor = *input.Flavor
 		}
 
-		controlPlaneMachineCount := pointer.Int64(1)
+		controlPlaneMachineCount := ptr.To[int64](1)
 		if input.ControlPlaneMachineCount != nil {
 			controlPlaneMachineCount = input.ControlPlaneMachineCount
 		}
@@ -186,10 +199,10 @@ func scaleSpec(ctx context.Context, inputGetter func() scaleSpecInput) {
 			controlPlaneMachineCountStr := input.E2EConfig.GetVariable(scaleControlPlaneMachineCount)
 			controlPlaneMachineCountInt, err := strconv.Atoi(controlPlaneMachineCountStr)
 			Expect(err).ToNot(HaveOccurred())
-			controlPlaneMachineCount = pointer.Int64(int64(controlPlaneMachineCountInt))
+			controlPlaneMachineCount = ptr.To[int64](int64(controlPlaneMachineCountInt))
 		}
 
-		workerMachineCount := pointer.Int64(1)
+		workerMachineCount := ptr.To[int64](1)
 		if input.WorkerMachineCount != nil {
 			workerMachineCount = input.WorkerMachineCount
 		}
@@ -198,10 +211,10 @@ func scaleSpec(ctx context.Context, inputGetter func() scaleSpecInput) {
 			workerMachineCountStr := input.E2EConfig.GetVariable(scaleWorkerMachineCount)
 			workerMachineCountInt, err := strconv.Atoi(workerMachineCountStr)
 			Expect(err).ToNot(HaveOccurred())
-			workerMachineCount = pointer.Int64(int64(workerMachineCountInt))
+			workerMachineCount = ptr.To[int64](int64(workerMachineCountInt))
 		}
 
-		machineDeploymentCount := pointer.Int64(1)
+		machineDeploymentCount := ptr.To[int64](1)
 		if input.MachineDeploymentCount != nil {
 			machineDeploymentCount = input.MachineDeploymentCount
 		}
@@ -210,7 +223,7 @@ func scaleSpec(ctx context.Context, inputGetter func() scaleSpecInput) {
 			machineDeploymentCountStr := input.E2EConfig.GetVariable(scaleMachineDeploymentCount)
 			machineDeploymentCountInt, err := strconv.Atoi(machineDeploymentCountStr)
 			Expect(err).ToNot(HaveOccurred())
-			machineDeploymentCount = pointer.Int64(int64(machineDeploymentCountInt))
+			machineDeploymentCount = ptr.To[int64](int64(machineDeploymentCountInt))
 		}
 
 		clusterCount := int64(10)
@@ -253,7 +266,7 @@ func scaleSpec(ctx context.Context, inputGetter func() scaleSpecInput) {
 			Flavor:                   flavor,
 			Namespace:                scaleClusterNamespacePlaceholder,
 			ClusterName:              scaleClusterNamePlaceholder,
-			KubernetesVersion:        input.E2EConfig.GetVariable(KubernetesVersion),
+			KubernetesVersion:        input.E2EConfig.GetVariable(KubernetesVersionUpgradeFrom),
 			ControlPlaneMachineCount: controlPlaneMachineCount,
 			WorkerMachineCount:       workerMachineCount,
 		})
@@ -331,6 +344,47 @@ func scaleSpec(ctx context.Context, inputGetter func() scaleSpecInput) {
 			// TODO(ykakarap): Follow-up: Explore options for improved error reporting.
 			log.Logf("Failed to create clusters. Error: %s", err.Error())
 			Fail("")
+		}
+
+		if !input.SkipUpgrade {
+			By("Upgrade the workload clusters concurrently")
+			// Get the upgrade function for upgrading the workload clusters.
+			upgrader := getClusterUpgradeAndWaitFn(framework.UpgradeClusterTopologyAndWaitForUpgradeInput{
+				ClusterProxy:                input.BootstrapClusterProxy,
+				KubernetesUpgradeVersion:    input.E2EConfig.GetVariable(KubernetesVersionUpgradeTo),
+				EtcdImageTag:                input.E2EConfig.GetVariable(EtcdVersionUpgradeTo),
+				DNSImageTag:                 input.E2EConfig.GetVariable(CoreDNSVersionUpgradeTo),
+				WaitForMachinesToBeUpgraded: input.E2EConfig.GetIntervals(specName, "wait-machine-upgrade"),
+				WaitForKubeProxyUpgrade:     input.E2EConfig.GetIntervals(specName, "wait-machine-upgrade"),
+				WaitForDNSUpgrade:           input.E2EConfig.GetIntervals(specName, "wait-machine-upgrade"),
+				WaitForEtcdUpgrade:          input.E2EConfig.GetIntervals(specName, "wait-machine-upgrade"),
+			})
+
+			clusterNamesToUpgrade := []string{}
+			for _, result := range clusterCreateResults {
+				clusterNamesToUpgrade = append(clusterNamesToUpgrade, result.clusterName)
+			}
+
+			// Upgrade all the workload clusters.
+			_, err = workConcurrentlyAndWait(ctx, workConcurrentlyAndWaitInput{
+				ClusterNames: clusterNamesToUpgrade,
+				Concurrency:  concurrency,
+				FailFast:     input.FailFast,
+				WorkerFunc: func(ctx context.Context, inputChan chan string, resultChan chan workResult, wg *sync.WaitGroup) {
+					upgradeClusterAndWaitWorker(ctx, inputChan, resultChan, wg, namespace.Name, input.DeployClusterInSeparateNamespaces, baseClusterTemplateYAML, upgrader)
+				},
+			})
+			if err != nil {
+				// Call Fail to notify ginkgo that the suit has failed.
+				// Ginkgo will print the first observed error failure in this case.
+				// Example: If cluster c1, c2 and c3 failed then ginkgo will only print the first
+				// observed failure among the these 3 clusters.
+				// Since ginkgo only captures one failure, to help with this we are logging the error
+				// that will contain the full stack trace of failure for each cluster to help with debugging.
+				// TODO(ykakarap): Follow-up: Explore options for improved error reporting.
+				log.Logf("Failed to upgrade clusters. Error: %s", err.Error())
+				Fail("")
+			}
 		}
 
 		// TODO(ykakarap): Follow-up: Dump resources for the failed clusters (creation).
@@ -494,11 +548,9 @@ func getClusterCreateAndWaitFn(input clusterctl.ApplyCustomClusterTemplateAndWai
 			CustomTemplateYAML:           clusterTemplateYAML,
 			ClusterName:                  clusterName,
 			Namespace:                    namespace,
-			CNIManifestPath:              input.CNIManifestPath,
 			WaitForClusterIntervals:      input.WaitForClusterIntervals,
 			WaitForControlPlaneIntervals: input.WaitForControlPlaneIntervals,
 			WaitForMachineDeployments:    input.WaitForMachineDeployments,
-			WaitForMachinePools:          input.WaitForMachinePools,
 			Args:                         input.Args,
 			PreWaitForCluster:            input.PreWaitForCluster,
 			PostMachinesProvisioned:      input.PostMachinesProvisioned,
@@ -594,7 +646,7 @@ func deleteClusterAndWaitWorker(ctx context.Context, inputChan <-chan string, re
 				return true
 			case clusterName, open := <-inputChan:
 				// Read the cluster name from the channel.
-				// If the channel is closed it implies there is not more work to be done. Return.
+				// If the channel is closed it implies there is no more work to be done. Return.
 				if !open {
 					return true
 				}
@@ -645,6 +697,111 @@ func deleteClusterAndWaitWorker(ctx context.Context, inputChan <-chan string, re
 		if done {
 			break
 		}
+	}
+}
+
+type clusterUpgrader func(ctx context.Context, namespace, clusterName string, clusterTemplateYAML []byte)
+
+func getClusterUpgradeAndWaitFn(input framework.UpgradeClusterTopologyAndWaitForUpgradeInput) clusterUpgrader {
+	return func(ctx context.Context, namespace, clusterName string, _ []byte) {
+		resources := getClusterResourcesForUpgrade(ctx, input.ClusterProxy.GetClient(), namespace, clusterName)
+		// Nb. We cannot directly modify and use `input` in this closure function because this function
+		// will be called multiple times and this closure will keep modifying the same `input` multiple
+		// times. It is safer to pass the values explicitly into `UpgradeClusterTopologyAndWaitForUpgradeInput`.
+		framework.UpgradeClusterTopologyAndWaitForUpgrade(ctx, framework.UpgradeClusterTopologyAndWaitForUpgradeInput{
+			ClusterProxy:                input.ClusterProxy,
+			Cluster:                     resources.cluster,
+			ControlPlane:                resources.controlPlane,
+			MachineDeployments:          resources.machineDeployments,
+			KubernetesUpgradeVersion:    input.KubernetesUpgradeVersion,
+			WaitForMachinesToBeUpgraded: input.WaitForMachinesToBeUpgraded,
+			WaitForKubeProxyUpgrade:     input.WaitForKubeProxyUpgrade,
+			WaitForDNSUpgrade:           input.WaitForDNSUpgrade,
+			WaitForEtcdUpgrade:          input.WaitForEtcdUpgrade,
+			// TODO: (killianmuldoon) Checking the kube-proxy, etcd and DNS version doesn't work as we can't access the control plane endpoint for the workload cluster
+			// from the host. Need to figure out a way to route the calls to the workload Cluster correctly.
+			EtcdImageTag:       "",
+			DNSImageTag:        "",
+			SkipKubeProxyCheck: true,
+		})
+	}
+}
+
+func upgradeClusterAndWaitWorker(ctx context.Context, inputChan <-chan string, resultChan chan<- workResult, wg *sync.WaitGroup, defaultNamespace string, deployClusterInSeparateNamespaces bool, clusterTemplateYAML []byte, upgrade clusterUpgrader) {
+	defer wg.Done()
+
+	for {
+		done := func() bool {
+			select {
+			case <-ctx.Done():
+				// If the context is cancelled, return and shutdown the worker.
+				return true
+			case clusterName, open := <-inputChan:
+				// Read the cluster name from the channel.
+				// If the channel is closed it implies there is no more work to be done. Return.
+				if !open {
+					return true
+				}
+				log.Logf("Upgrading cluster %s", clusterName)
+
+				// This defer will catch ginkgo failures and record them.
+				// The recorded panics are then handled by the parent goroutine.
+				defer func() {
+					e := recover()
+					resultChan <- workResult{
+						clusterName: clusterName,
+						err:         e,
+					}
+				}()
+
+				// Calculate namespace.
+				namespaceName := defaultNamespace
+				if deployClusterInSeparateNamespaces {
+					namespaceName = clusterName
+				}
+				upgrade(ctx, namespaceName, clusterName, clusterTemplateYAML)
+				return false
+			}
+		}()
+		if done {
+			break
+		}
+	}
+}
+
+type clusterResources struct {
+	cluster            *clusterv1.Cluster
+	machineDeployments []*clusterv1.MachineDeployment
+	controlPlane       *controlplanev1.KubeadmControlPlane
+}
+
+func getClusterResourcesForUpgrade(ctx context.Context, c client.Client, namespace, clusterName string) clusterResources {
+	cluster := &clusterv1.Cluster{}
+	err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: clusterName}, cluster)
+	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("error getting Cluster %s: %s", klog.KRef(namespace, clusterName), err))
+
+	controlPlane := &controlplanev1.KubeadmControlPlane{}
+	err = c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: cluster.Spec.ControlPlaneRef.Name}, controlPlane)
+	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("error getting ControlPlane for Cluster %s: %s,", klog.KObj(cluster), err))
+
+	mds := []*clusterv1.MachineDeployment{}
+	machineDeployments := &clusterv1.MachineDeploymentList{}
+	err = c.List(ctx, machineDeployments,
+		client.MatchingLabels{
+			clusterv1.ClusterNameLabel:          cluster.Name,
+			clusterv1.ClusterTopologyOwnedLabel: "",
+		},
+		client.InNamespace(cluster.Namespace),
+	)
+	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("error getting MachineDeployments for Cluster %s: %s", klog.KObj(cluster), err))
+	for _, md := range machineDeployments.Items {
+		mds = append(mds, md.DeepCopy())
+	}
+
+	return clusterResources{
+		cluster:            cluster,
+		machineDeployments: mds,
+		controlPlane:       controlPlane,
 	}
 }
 

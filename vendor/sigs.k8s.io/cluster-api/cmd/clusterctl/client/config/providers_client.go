@@ -92,6 +92,11 @@ const (
 	K0smotronControlPlaneProviderName         = "k0sproject-k0smotron"
 )
 
+// IPAM providers.
+const (
+	InClusterIPAMProviderName = "in-cluster"
+)
+
 // Add-on providers.
 const (
 	HelmAddonProviderName = "helm"
@@ -373,6 +378,13 @@ func (p *providersClient) defaults() []Provider {
 			name:         K0smotronControlPlaneProviderName,
 			url:          "https://github.com/k0sproject/k0smotron/releases/latest/control-plane-components.yaml",
 			providerType: clusterctlv1.ControlPlaneProviderType,
+		},
+
+		// IPAM providers
+		&provider{
+			name:         InClusterIPAMProviderName,
+			url:          "https://github.com/kubernetes-sigs/cluster-api-ipam-provider-in-cluster/releases/latest/ipam-components.yaml",
+			providerType: clusterctlv1.IPAMProviderType,
 		},
 
 		// Add-on providers

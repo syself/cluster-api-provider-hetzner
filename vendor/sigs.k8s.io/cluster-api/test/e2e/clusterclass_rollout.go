@@ -34,7 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -71,6 +71,10 @@ type ClusterClassRolloutSpecInput struct {
 	// NOTE: The template must be using ClusterClass, KCP and CABPK as this test is specifically
 	// testing ClusterClass and KCP rollout behavior.
 	Flavor string
+
+	// Allows to inject a function to be run after test namespace is created.
+	// If not specified, this is a no-op.
+	PostNamespaceCreated func(managementClusterProxy framework.ClusterProxy, workloadClusterNamespace string)
 }
 
 // ClusterClassRolloutSpec implements a test that verifies the ClusterClass rollout behavior.
@@ -108,7 +112,7 @@ func ClusterClassRolloutSpec(ctx context.Context, inputGetter func() ClusterClas
 		Expect(input.E2EConfig.Variables).To(HaveValidVersion(input.E2EConfig.GetVariable(KubernetesVersion)))
 
 		// Set up a Namespace where to host objects for this spec and create a watcher for the namespace events.
-		namespace, cancelWatches = setupSpecNamespace(ctx, specName, input.BootstrapClusterProxy, input.ArtifactFolder)
+		namespace, cancelWatches = framework.SetupSpecNamespace(ctx, specName, input.BootstrapClusterProxy, input.ArtifactFolder, input.PostNamespaceCreated)
 		clusterResources = new(clusterctl.ApplyClusterTemplateAndWaitResult)
 	})
 
@@ -129,8 +133,8 @@ func ClusterClassRolloutSpec(ctx context.Context, inputGetter func() ClusterClas
 				Namespace:                namespace.Name,
 				ClusterName:              fmt.Sprintf("%s-%s", specName, util.RandomString(6)),
 				KubernetesVersion:        input.E2EConfig.GetVariable(KubernetesVersion),
-				ControlPlaneMachineCount: pointer.Int64(1),
-				WorkerMachineCount:       pointer.Int64(1),
+				ControlPlaneMachineCount: ptr.To[int64](1),
+				WorkerMachineCount:       ptr.To[int64](1),
 			},
 			ControlPlaneWaiters:          input.ControlPlaneWaiters,
 			WaitForClusterIntervals:      input.E2EConfig.GetIntervals(specName, "wait-cluster"),
@@ -175,13 +179,13 @@ func ClusterClassRolloutSpec(ctx context.Context, inputGetter func() ClusterClas
 				topology.NodeDrainTimeout = &metav1.Duration{Duration: time.Duration(rand.Intn(20)) * time.Second}        //nolint:gosec
 				topology.NodeDeletionTimeout = &metav1.Duration{Duration: time.Duration(rand.Intn(20)) * time.Second}     //nolint:gosec
 				topology.NodeVolumeDetachTimeout = &metav1.Duration{Duration: time.Duration(rand.Intn(20)) * time.Second} //nolint:gosec
-				topology.MinReadySeconds = pointer.Int32(rand.Int31n(20))                                                 //nolint:gosec
+				topology.MinReadySeconds = ptr.To[int32](rand.Int31n(20))                                                 //nolint:gosec
 				topology.Strategy = &clusterv1.MachineDeploymentStrategy{
 					Type: clusterv1.RollingUpdateMachineDeploymentStrategyType,
 					RollingUpdate: &clusterv1.MachineRollingUpdateDeployment{
 						MaxUnavailable: &intstr.IntOrString{Type: intstr.Int, IntVal: 0},
 						MaxSurge:       &intstr.IntOrString{Type: intstr.Int, IntVal: 5 + rand.Int31n(20)}, //nolint:gosec
-						DeletePolicy:   pointer.String(string(clusterv1.NewestMachineSetDeletePolicy)),
+						DeletePolicy:   ptr.To(string(clusterv1.NewestMachineSetDeletePolicy)),
 					},
 				}
 			},
@@ -202,7 +206,7 @@ func ClusterClassRolloutSpec(ctx context.Context, inputGetter func() ClusterClas
 				topology.NodeDrainTimeout = &metav1.Duration{Duration: time.Duration(rand.Intn(20)) * time.Second}        //nolint:gosec
 				topology.NodeDeletionTimeout = &metav1.Duration{Duration: time.Duration(rand.Intn(20)) * time.Second}     //nolint:gosec
 				topology.NodeVolumeDetachTimeout = &metav1.Duration{Duration: time.Duration(rand.Intn(20)) * time.Second} //nolint:gosec
-				topology.MinReadySeconds = pointer.Int32(rand.Int31n(20))                                                 //nolint:gosec
+				topology.MinReadySeconds = ptr.To[int32](rand.Int31n(20))                                                 //nolint:gosec
 			},
 			WaitForMachinePools: input.E2EConfig.GetIntervals(specName, "wait-machine-pool-nodes"),
 		})
@@ -287,7 +291,7 @@ func ClusterClassRolloutSpec(ctx context.Context, inputGetter func() ClusterClas
 
 	AfterEach(func() {
 		// Dumps all the resources in the spec namespace, then cleanups the cluster object and the spec namespace itself.
-		dumpSpecResourcesAndCleanup(ctx, specName, input.BootstrapClusterProxy, input.ArtifactFolder, namespace, cancelWatches, clusterResources.Cluster, input.E2EConfig.GetIntervals, input.SkipCleanup)
+		framework.DumpSpecResourcesAndCleanup(ctx, specName, input.BootstrapClusterProxy, input.ArtifactFolder, namespace, cancelWatches, clusterResources.Cluster, input.E2EConfig.GetIntervals, input.SkipCleanup)
 	})
 }
 

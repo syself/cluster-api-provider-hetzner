@@ -89,7 +89,7 @@ export CLUSTER_NAME="my-cluster" \
 export HCLOUD_REGION="fsn1" \
 export CONTROL_PLANE_MACHINE_COUNT=3 \
 export WORKER_MACHINE_COUNT=3 \
-export KUBERNETES_VERSION=1.28.4 \
+export KUBERNETES_VERSION=1.29.4 \
 export HCLOUD_CONTROL_PLANE_MACHINE_TYPE=cpx31 \
 export HCLOUD_WORKER_MACHINE_TYPE=cpx31
 ```
@@ -147,7 +147,7 @@ The `clusterctl generate cluster` command returns a YAML template for creating a
 It generates a YAML file named `my-cluster.yaml` with a predefined list of Cluster API objects (`Cluster`, `Machines`, `MachineDeployments`, etc.) to be deployed in the current namespace. 
 
 ```shell
-clusterctl generate cluster my-cluster --kubernetes-version v1.28.4 --control-plane-machine-count=3 --worker-machine-count=3  > my-cluster.yaml
+clusterctl generate cluster my-cluster --kubernetes-version v1.29.4 --control-plane-machine-count=3 --worker-machine-count=3  > my-cluster.yaml
 ```
 >Note: With the `--target-namespace` flag, you can specify a different target namespace.
 Run the `clusterctl generate cluster --help` command for more information.
