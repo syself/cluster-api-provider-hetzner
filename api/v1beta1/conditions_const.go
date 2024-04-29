@@ -200,6 +200,11 @@ const (
 	HostAssociateFailedReason = "HostAssociateFailed"
 )
 
+const (
+	// DeletionInProgressReason indicates that a host is being deleted.
+	DeletionInProgressReason = "DeletionInProgress"
+)
+
 // deprecated conditions.
 
 const (

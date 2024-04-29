@@ -97,6 +97,16 @@ func (s *Service) Reconcile(ctx context.Context) (result reconcile.Result, err e
 
 	oldHost := s.scope.HetznerBareMetalHost.DeepCopy()
 
+	if !s.scope.HetznerBareMetalHost.DeletionTimestamp.IsZero() {
+		conditions.MarkFalse(
+			s.scope.HetznerBareMetalHost,
+			infrav1.HostReadyCondition,
+			infrav1.DeletionInProgressReason,
+			clusterv1.ConditionSeverityWarning,
+			"Host is not ready because it is being deleted",
+		)
+	}
+
 	hostStateMachine := newHostStateMachine(s.scope.HetznerBareMetalHost, s, s.scope.Logger)
 
 	defer func() {
@@ -104,7 +114,6 @@ func (s *Service) Reconcile(ctx context.Context) (result reconcile.Result, err e
 		conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.DeprecatedHetznerBareMetalHostReadyCondition)
 		conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.DeprecatedHostProvisionSucceededCondition)
 		conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.DeprecatedRateLimitExceededCondition)
-
 		conditions.SetSummary(s.scope.HetznerBareMetalHost)
 
 		// save host if it changed during reconciliation
