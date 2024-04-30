@@ -1172,12 +1172,10 @@ func (s *Service) createAutoSetupInput(sshClient sshclient.Client) (autoSetupInp
 		return autoSetupInput{}, s.recordActionFailure(infrav1.ProvisioningError, msg)
 	}
 
-	hostName := infrav1.BareMetalHostNamePrefix + s.scope.HetznerBareMetalHost.Spec.ConsumerRef.Name
-
 	// Create autosetup file
 	return autoSetupInput{
 		osDevices: deviceNames,
-		hostName:  hostName,
+		hostName:  s.scope.Hostname(),
 		image:     imagePath,
 	}, nil
 }
@@ -1206,7 +1204,7 @@ func (s *Service) actionProvisioning() actionResult {
 	})
 
 	// check hostname with sshClient
-	wantHostName := infrav1.BareMetalHostNamePrefix + host.Spec.ConsumerRef.Name
+	wantHostName := s.scope.Hostname()
 
 	out := sshClient.GetHostName()
 
@@ -1263,7 +1261,7 @@ func (s *Service) actionProvisioning() actionResult {
 	}
 
 	// we are in correct boot and can start provisioning
-	if failedAction := s.provision(sshClient, host.Spec.ConsumerRef.Name); failedAction != nil {
+	if failedAction := s.provision(sshClient); failedAction != nil {
 		return failedAction
 	}
 
@@ -1271,7 +1269,7 @@ func (s *Service) actionProvisioning() actionResult {
 	return actionComplete{}
 }
 
-func (s *Service) provision(sshClient sshclient.Client, machineName string) actionResult {
+func (s *Service) provision(sshClient sshclient.Client) actionResult {
 	{
 		out := sshClient.EnsureCloudInit()
 		if err := handleSSHError(out); err != nil {
@@ -1295,7 +1293,7 @@ func (s *Service) provision(sshClient sshclient.Client, machineName string) acti
 		return actionError{err: fmt.Errorf("failed to create no cloud directory: %w", err)}
 	}
 
-	if err := handleSSHError(sshClient.CreateMetaData(infrav1.BareMetalHostNamePrefix + machineName)); err != nil {
+	if err := handleSSHError(sshClient.CreateMetaData(s.scope.Hostname())); err != nil {
 		return actionError{err: fmt.Errorf("failed to create meta data: %w", err)}
 	}
 
@@ -1415,7 +1413,7 @@ func (s *Service) actionEnsureProvisioned() (ar actionResult) {
 		}
 	}()
 	// Check hostname with sshClient
-	wantHostName := infrav1.BareMetalHostNamePrefix + s.scope.HetznerBareMetalHost.Spec.ConsumerRef.Name
+	wantHostName := s.scope.Hostname()
 
 	out := sshClient.GetHostName()
 	if trimLineBreak(out.StdOut) != wantHostName {
@@ -1628,7 +1626,8 @@ func (s *Service) actionProvisioned() actionResult {
 			// Check hostname with sshClient
 			out := sshClient.GetHostName()
 
-			wantHostName := infrav1.BareMetalHostNamePrefix + s.scope.HetznerBareMetalHost.Spec.ConsumerRef.Name
+			wantHostName := s.scope.Hostname()
+
 			if trimLineBreak(out.StdOut) == wantHostName {
 				// Reboot has been successful
 				s.scope.HetznerBareMetalHost.Spec.Status.Rebooted = false

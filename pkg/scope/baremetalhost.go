@@ -25,6 +25,7 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -39,6 +40,7 @@ type BareMetalHostScopeParams struct {
 	Logger               logr.Logger
 	HetznerBareMetalHost *infrav1.HetznerBareMetalHost
 	HetznerCluster       *infrav1.HetznerCluster
+	Cluster              *clusterv1.Cluster
 	RobotClient          robotclient.Client
 	SSHClientFactory     sshclient.Factory
 	OSSSHSecret          *corev1.Secret
@@ -57,6 +59,9 @@ func NewBareMetalHostScope(params BareMetalHostScopeParams) (*BareMetalHostScope
 	}
 	if params.HetznerCluster == nil {
 		return nil, errors.New("cannot create baremetal host scope without Hetzner cluster")
+	}
+	if params.Cluster == nil {
+		return nil, errors.New("cannot create baremetal host scope without cluster")
 	}
 	if params.RobotClient == nil {
 		return nil, errors.New("cannot create baremetal host scope without robot client")
@@ -79,6 +84,7 @@ func NewBareMetalHostScope(params BareMetalHostScopeParams) (*BareMetalHostScope
 		RobotClient:          params.RobotClient,
 		SSHClientFactory:     params.SSHClientFactory,
 		HetznerCluster:       params.HetznerCluster,
+		Cluster:              params.Cluster,
 		HetznerBareMetalHost: params.HetznerBareMetalHost,
 		OSSSHSecret:          params.OSSSHSecret,
 		RescueSSHSecret:      params.RescueSSHSecret,
@@ -95,6 +101,7 @@ type BareMetalHostScope struct {
 	SSHClientFactory     sshclient.Factory
 	HetznerBareMetalHost *infrav1.HetznerBareMetalHost
 	HetznerCluster       *infrav1.HetznerCluster
+	Cluster              *clusterv1.Cluster
 	OSSSHSecret          *corev1.Secret
 	RescueSSHSecret      *corev1.Secret
 }
@@ -127,4 +134,22 @@ func (s *BareMetalHostScope) GetRawBootstrapData(ctx context.Context) ([]byte, e
 	}
 
 	return value, nil
+}
+
+// Hostname returns the desired host name.
+func (s *BareMetalHostScope) Hostname() (hostname string) {
+	if s.hasConstantHostname() {
+		hostname = fmt.Sprintf("%s%s-%v", infrav1.BareMetalHostNamePrefix, s.Cluster.Name, s.HetznerBareMetalHost.Spec.ServerID)
+	} else {
+		hostname = infrav1.BareMetalHostNamePrefix + s.HetznerBareMetalHost.Spec.ConsumerRef.Name
+	}
+
+	return hostname
+}
+
+func (s *BareMetalHostScope) hasConstantHostname() bool {
+	if s.Cluster.Annotations != nil {
+		return s.Cluster.Annotations[infrav1.ConstantBareMetalHostnameAnnotation] == "true"
+	}
+	return false
 }
