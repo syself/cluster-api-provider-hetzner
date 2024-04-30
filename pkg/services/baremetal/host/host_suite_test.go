@@ -23,9 +23,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/klog/v2/textlogger"
+	"sigs.k8s.io/cluster-api/api/v1beta1"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -88,6 +90,8 @@ func newTestService(
 			HetznerCluster: &infrav1.HetznerCluster{
 				Spec: helpers.GetDefaultHetznerClusterSpec(),
 			},
+			// Attention: this doesn't make sense if we test with constant node names
+			Cluster:         &v1beta1.Cluster{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}},
 			OSSSHSecret:     osSSHSecret,
 			RescueSSHSecret: rescueSSHSecret,
 		},

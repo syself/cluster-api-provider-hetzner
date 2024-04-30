@@ -117,6 +117,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 						UID:        capiCluster.UID,
 					},
 				},
+				Labels: map[string]string{clusterv1.ClusterNameLabel: capiCluster.Name},
 			},
 			Spec: helpers.GetDefaultHetznerClusterSpec(),
 		}
@@ -647,6 +648,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 						UID:        capiCluster.UID,
 					},
 				},
+				Labels: map[string]string{clusterv1.ClusterNameLabel: capiCluster.Name},
 			},
 			Spec: helpers.GetDefaultHetznerClusterSpec(),
 		}
