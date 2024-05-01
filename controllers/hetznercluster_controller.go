@@ -173,6 +173,30 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterScope *scope.ClusterScope) (ctrl.Result, error) {
 	hetznerCluster := clusterScope.HetznerCluster
 
+	// write ssh key name from secret to spec of HetznerCluster if it is specified
+	sshKeyName := clusterScope.HetznerSecret().Data[hetznerCluster.Spec.HetznerSecret.Key.SSHKey]
+	if len(sshKeyName) > 0 {
+		// Check if the SSH key name already exists
+		keyExists := false
+		for _, key := range hetznerCluster.Spec.SSHKeys.HCloud {
+			if string(sshKeyName) == key.Name {
+				keyExists = true
+				break
+			}
+		}
+
+		// If the SSH key name doesn't exist, append it
+		if !keyExists {
+			hetznerCluster.Spec.SSHKeys.HCloud = append(hetznerCluster.Spec.SSHKeys.HCloud, infrav1.SSHKey{Name: string(sshKeyName)})
+			record.Eventf(
+				hetznerCluster,
+				"SSHKeyNameAddedFromHetznerSecret", "added the ssh key %q from the hetzner secret specified under key %q",
+				string(sshKeyName),
+				hetznerCluster.Spec.HetznerSecret.Key.SSHKey,
+			)
+		}
+	}
+
 	// If the HetznerCluster doesn't have our finalizer, add it.
 	controllerutil.AddFinalizer(hetznerCluster, infrav1.ClusterFinalizer)
 	if err := clusterScope.PatchObject(ctx); err != nil {
