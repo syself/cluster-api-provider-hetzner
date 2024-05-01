@@ -148,8 +148,5 @@ func (s *BareMetalHostScope) Hostname() (hostname string) {
 }
 
 func (s *BareMetalHostScope) hasConstantHostname() bool {
-	if s.Cluster.Annotations != nil {
-		return s.Cluster.Annotations[infrav1.ConstantBareMetalHostnameAnnotation] == "true"
-	}
-	return false
+	return s.Cluster.GetAnnotations()[infrav1.ConstantBareMetalHostnameAnnotation] == "true"
 }
