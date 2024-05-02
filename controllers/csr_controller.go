@@ -218,7 +218,10 @@ func (r *GuestCSRReconciler) getMachineAddresses(
 		}
 
 		if err := r.mCluster.Get(ctx, bmMachineName, &bmMachine); err != nil {
-			return nil, false, fmt.Errorf("failed to get hcloud and bare metal machine")
+			return nil, false, fmt.Errorf("failed to get hcloud (%s) or bare metal machine (%s): %w",
+				hcloudMachineName.Name,
+				bmMachineName.Name,
+				err)
 		}
 
 		return bmMachine.Status.Addresses, false, nil
