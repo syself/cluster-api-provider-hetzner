@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	"sigs.k8s.io/cluster-api/util/record"
@@ -111,6 +112,15 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 
 	log = log.WithValues("HetznerCluster", klog.KObj(hetznerCluster))
+
+	// Fetch the Cluster.
+	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, hetznerCluster.ObjectMeta)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to get Cluster: %w", err)
+	}
+
+	log = log.WithValues("Cluster", klog.KObj(cluster))
+
 	ctx = ctrl.LoggerInto(ctx, log)
 
 	// Get Hetzner robot api credentials
@@ -128,11 +138,13 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	if res != emptyResult {
 		return res, nil
 	}
+
 	// Create the scope.
 	hostScope, err := scope.NewBareMetalHostScope(scope.BareMetalHostScopeParams{
 		Logger:               log,
 		Client:               r.Client,
 		HetznerCluster:       hetznerCluster,
+		Cluster:              cluster,
 		HetznerBareMetalHost: bmHost,
 		RobotClient:          r.RobotClientFactory.NewClient(robotCreds),
 		SSHClientFactory:     r.SSHClientFactory,

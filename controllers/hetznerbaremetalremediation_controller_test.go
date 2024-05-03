@@ -130,6 +130,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 						UID:        capiCluster.UID,
 					},
 				},
+				Labels: map[string]string{clusterv1.ClusterNameLabel: capiCluster.Name},
 			},
 			Spec: getDefaultHetznerClusterSpec(),
 		}

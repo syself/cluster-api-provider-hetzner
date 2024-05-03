@@ -107,6 +107,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 						UID:        capiCluster.UID,
 					},
 				},
+				Labels: map[string]string{clusterv1.ClusterNameLabel: capiCluster.Name},
 			},
 			Spec: helpers.GetDefaultHetznerClusterSpec(),
 		}
@@ -160,7 +161,6 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			Err:    nil,
 		})
 		osSSHClient.On("GetCloudInitOutput").Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"})
-
 	})
 
 	AfterEach(func() {
