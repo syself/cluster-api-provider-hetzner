@@ -236,6 +236,8 @@ func (c *Client) NewRequest(ctx context.Context, method, path string, body io.Re
 }
 
 // Do performs an HTTP request against the API.
+// v can be nil, an io.Writer to write the response body to or a pointer to
+// a struct to json.Unmarshal the response to.
 func (c *Client) Do(r *http.Request, v interface{}) (*Response, error) {
 	var retries int
 	var body []byte
@@ -377,6 +379,10 @@ func errorFromResponse(resp *Response, body []byte) error {
 	return hcErr
 }
 
+const (
+	headerCorrelationID = "X-Correlation-Id"
+)
+
 // Response represents a response from the API. It embeds http.Response.
 type Response struct {
 	*http.Response
@@ -408,6 +414,12 @@ func (r *Response) readMeta(body []byte) error {
 	}
 
 	return nil
+}
+
+// internalCorrelationID returns the unique ID of the request as set by the API. This ID can help with support requests,
+// as it allows the people working on identify this request in particular.
+func (r *Response) internalCorrelationID() string {
+	return r.Header.Get(headerCorrelationID)
 }
 
 // Meta represents meta information included in an API response.
