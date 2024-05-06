@@ -37,6 +37,8 @@ type IActionClient interface {
 	//
 	// WatchOverallProgress uses the [WithPollBackoffFunc] of the [Client] to wait
 	// until sending the next request.
+	//
+	// Deprecated: WatchOverallProgress is deprecated, use [WaitForFunc] instead.
 	WatchOverallProgress(ctx context.Context, actions []*Action) (<-chan int, <-chan error)
 	// WatchProgress watches one action's progress until it completes with success
 	// or error. This watching happens in a goroutine and updates are provided
@@ -56,5 +58,22 @@ type IActionClient interface {
 	//
 	// WatchProgress uses the [WithPollBackoffFunc] of the [Client] to wait until
 	// sending the next request.
+	//
+	// Deprecated: WatchProgress is deprecated, use [WaitForFunc] instead.
 	WatchProgress(ctx context.Context, action *Action) (<-chan int, <-chan error)
+	// WaitForFunc waits until all actions are completed by polling the API at the interval
+	// defined by [WithPollBackoffFunc]. An action is considered as complete when its status is
+	// either [ActionStatusSuccess] or [ActionStatusError].
+	//
+	// The handleUpdate callback is called every time an action is updated.
+	WaitForFunc(ctx context.Context, handleUpdate func(update *Action) error, actions ...*Action) error
+	// WaitFor waits until all actions succeed by polling the API at the interval defined by
+	// [WithPollBackoffFunc]. An action is considered as succeeded when its status is either
+	// [ActionStatusSuccess].
+	//
+	// If a single action fails, the function will stop waiting and the error set in the
+	// action will be returned as an [ActionError].
+	//
+	// For more flexibility, see the [ActionClient.WaitForFunc] function.
+	WaitFor(ctx context.Context, actions ...*Action) error
 }

@@ -1,6 +1,6 @@
 package hcloud
 
-//go:generate go run github.com/vburenin/ifacemaker -f action.go -s ActionClient -i IActionClient -p hcloud -o zz_action_client_iface.go
+//go:generate go run github.com/vburenin/ifacemaker -f action.go -f action_watch.go -f action_waiter.go -s ActionClient -i IActionClient -p hcloud -o zz_action_client_iface.go
 //go:generate go run github.com/vburenin/ifacemaker -f action.go -s ResourceActionClient -i IResourceActionClient -p hcloud -o zz_resource_action_client_iface.go
 //go:generate go run github.com/vburenin/ifacemaker -f datacenter.go -s DatacenterClient -i IDatacenterClient -p hcloud -o zz_datacenter_client_iface.go
 //go:generate go run github.com/vburenin/ifacemaker -f floating_ip.go -s FloatingIPClient -i IFloatingIPClient -p hcloud -o zz_floating_ip_client_iface.go

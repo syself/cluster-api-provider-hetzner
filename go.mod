@@ -6,7 +6,7 @@ require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/go-logr/logr v1.4.1
 	github.com/go-logr/zapr v1.3.0
-	github.com/hetznercloud/hcloud-go/v2 v2.7.2
+	github.com/hetznercloud/hcloud-go/v2 v2.8.0
 	github.com/onsi/ginkgo/v2 v2.17.2
 	github.com/onsi/gomega v1.33.1
 	github.com/spf13/pflag v1.0.5
