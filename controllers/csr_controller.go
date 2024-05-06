@@ -232,11 +232,10 @@ func (r *GuestCSRReconciler) getMachineAddresses(
 			providerID := "hcloud://bm-" + matches[2]
 			hList := &infrav1.HetznerBareMetalMachineList{}
 			selector := labels.NewSelector()
-			key := "cluster.x-k8s.io/cluster-name"
-			req, err := labels.NewRequirement(key, selection.Equals, []string{clusterName})
+			req, err := labels.NewRequirement(clusterv1.ClusterNameLabel, selection.Equals, []string{clusterName})
 			if err != nil {
 				return nil, false, fmt.Errorf("failed to create selector %s=%s. %w",
-					key, clusterName, err)
+					clusterv1.ClusterNameLabel, clusterName, err)
 			}
 			selector.Add(*req)
 			if err := r.mCluster.List(ctx, hList, &client.ListOptions{
