@@ -20,12 +20,10 @@ package e2e
 import (
 	"context"
 	"fmt"
-	"os/exec"
 	"path/filepath"
 
 	"github.com/blang/semver/v4"
 	ginkgo "github.com/onsi/ginkgo/v2"
-	gomega "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	corev1 "k8s.io/api/core/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -127,11 +125,4 @@ func (m *validVersionMatcher) FailureMessage(_ interface{}) (message string) {
 
 func (m *validVersionMatcher) NegatedFailureMessage(_ interface{}) (message string) {
 	return fmt.Sprintf("Expected\n%s\n%s", m.version, " not to be a valid version ")
-}
-
-func redactLogs(variableGetter func(string) string) {
-	ginkgo.By("Redacting sensitive information from the logs")
-	gomega.Expect(variableGetter(RedactLogScriptPath)).To(gomega.BeAnExistingFile(), "Missing redact log script")
-	cmd := exec.Command(variableGetter(RedactLogScriptPath)) //#nosec
-	_ = cmd.Run()                                            //#nosec
 }
