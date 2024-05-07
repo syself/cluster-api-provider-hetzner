@@ -63,7 +63,7 @@ fail=0
 
 lines=$(lsblk -r -oNAME,WWN,TYPE)
 
-while read -r name wwn; do
+while read -r name wwn _; do
     if [[ " $* " == *" $wwn "* ]]; then
         #echo "ok: skipping $name $wwn, since it was an argument to the script."
         continue
