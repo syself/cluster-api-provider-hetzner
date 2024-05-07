@@ -95,7 +95,7 @@ fi
 # Write all WWNs which will contain the new OS into a file.
 wwn_file=$(mktemp)
 for wwn in "$@"; do
-    echo $wwn >>"$wwn_file"
+    echo "$wwn" >>"$wwn_file"
 done
 sort --unique -o "$wwn_file" "$wwn_file"
 
@@ -105,7 +105,7 @@ for mdraid in /dev/md?*; do
     rm -f "$md_file"
     device=$(basename "$mdraid")
     for dev_of_mdraid in /sys/block/"$device"/md/dev-*; do
-        dev_of_mdraid=$(echo $dev_of_mdraid | cut -d- -f2)
+        dev_of_mdraid=$(echo "$dev_of_mdraid" | cut -d- -f2)
         wwn=$(udevadm info --query=property "--name=$dev_of_mdraid" | grep ID_WWN | cut -d= -f2)
         if [ -z "$wwn" ]; then
             echo "<<<<<<<<<<<<<<<<<<<<"
