@@ -67,7 +67,7 @@ export CLUSTER_NAME="my-cluster" \
 export HCLOUD_REGION="fsn1" \
 export CONTROL_PLANE_MACHINE_COUNT=3 \
 export WORKER_MACHINE_COUNT=3 \
-export KUBERNETES_VERSION=1.28.4 \
+export KUBERNETES_VERSION=1.29.4 \
 export HCLOUD_CONTROL_PLANE_MACHINE_TYPE=cpx31 \
 export HCLOUD_WORKER_MACHINE_TYPE=cpx31
 ```
@@ -90,7 +90,7 @@ Required Variables:
 Optional Variables:
   - CLUSTER_NAME                 (defaults to hetzner-cluster)
   - CONTROL_PLANE_MACHINE_COUNT  (defaults to 3)
-  - KUBERNETES_VERSION           (defaults to 1.27.7)
+  - KUBERNETES_VERSION           (defaults to 1.29.4)
   - WORKER_MACHINE_COUNT         (defaults to 3)
 ```
 

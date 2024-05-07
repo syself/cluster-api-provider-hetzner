@@ -27,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -393,13 +393,6 @@ func UpgradeControlPlaneAndWaitForUpgrade(ctx context.Context, input UpgradeCont
 	}
 }
 
-// controlPlaneMachineOptions returns a set of ListOptions that allows to get all machine objects belonging to control plane.
-func controlPlaneMachineOptions() []client.ListOption {
-	return []client.ListOption{
-		client.HasLabels{clusterv1.MachineControlPlaneLabel},
-	}
-}
-
 type ScaleAndWaitControlPlaneInput struct {
 	ClusterProxy        ClusterProxy
 	Cluster             *clusterv1.Cluster
@@ -416,8 +409,8 @@ func ScaleAndWaitControlPlane(ctx context.Context, input ScaleAndWaitControlPlan
 
 	patchHelper, err := patch.NewHelper(input.ControlPlane, input.ClusterProxy.GetClient())
 	Expect(err).ToNot(HaveOccurred())
-	scaleBefore := pointer.Int32Deref(input.ControlPlane.Spec.Replicas, 0)
-	input.ControlPlane.Spec.Replicas = pointer.Int32(input.Replicas)
+	scaleBefore := ptr.Deref(input.ControlPlane.Spec.Replicas, 0)
+	input.ControlPlane.Spec.Replicas = ptr.To[int32](input.Replicas)
 	log.Logf("Scaling controlplane %s from %v to %v replicas", klog.KObj(input.ControlPlane), scaleBefore, input.Replicas)
 	Eventually(func() error {
 		return patchHelper.Patch(ctx, input.ControlPlane)

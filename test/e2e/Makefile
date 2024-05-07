@@ -56,7 +56,7 @@ e2e-cilium-templates:
 	#   Missing: ["BIN_PATH"]
 	helm repo add cilium https://helm.cilium.io/
 	helm repo update cilium
-	helm template cilium cilium/cilium --version 1.14.4 \
+	helm template cilium cilium/cilium --version 1.15.4 \
   	--namespace kube-system \
 	-f $(REPO_ROOT)/templates/cilium/cilium.yaml > $(REPO_ROOT)/test/e2e/data/cni/cilium/cilium.yaml
 	sed -i 's/$${BIN_PATH}/$$BIN_PATH/' $(REPO_ROOT)/test/e2e/data/cni/cilium/cilium.yaml
@@ -130,7 +130,7 @@ run: $(GINKGO)  cluster-templates  ## Run the end-to-end tests
 		--output-dir="$(ARTIFACTS)" \
 		--junit-report="junit.e2e_suite.1.xml" \
 		--focus=$(GINKGO_FOCUS) --skip=$(GINKGO_SKIP) \
-		--nodes=$(GINKGO_NODES) --no-color=$(GINKGO_NOCOLOR) \
+		--no-color=$(GINKGO_NOCOLOR) \
 		--flake-attempts=$(GINKGO_FLAKE_ATTEMPTS) ./ -- \
 		-e2e.artifacts-folder="$(ARTIFACTS)" \
 		-e2e.config="$(E2E_CONF_FILE)" \

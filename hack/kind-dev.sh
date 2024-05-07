@@ -18,7 +18,7 @@ set -o errexit
 set -o pipefail
 set -x
 
-K8S_VERSION=v1.27.3
+K8S_VERSION=v1.29.4
 
 REPO_ROOT=$(git rev-parse --show-toplevel)
 cd "${REPO_ROOT}" || exit 1
@@ -43,7 +43,7 @@ kindV1Alpha4Cluster:
   name: ${CLUSTER_NAME}
   nodes:
   - role: control-plane
-    image: kindest/node:${CLUSTER_VERSION}
+    image: ghcr.io/fluxcd/kindest/node:${CLUSTER_VERSION}-amd64
   networking:
     podSubnet: "10.244.0.0/16"
     serviceSubnet: "10.96.0.0/12"
