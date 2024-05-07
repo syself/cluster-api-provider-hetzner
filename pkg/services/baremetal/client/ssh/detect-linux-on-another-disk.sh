@@ -46,6 +46,19 @@ for wwn in "$@"; do
         usage
         exit 3
     fi
+    device=$(lsblk -oNAME,WWN,TYPE | grep disk | grep "$wwn" | cut -d' ' -f1)
+    if [ -z "$device" ]; then
+        echo "Failed to find device for WWN $wwn"
+        exit 3
+    fi
+    pv=$(pvs | grep -F "$device" || true)
+    if [ -z "$pv" ]; then
+        continue
+    fi
+    echo "fail: There is a physical volume on $wwn ($device)"
+    echo "To ensure no data gets deleted, provisioning on disks containing physical volumes is not supported".
+    echo "Please use different rootDeviceHints or clean the disk (for example with 'wipefs')"
+    exit 1
 done
 fail=0
 
