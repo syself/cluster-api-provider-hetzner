@@ -100,6 +100,7 @@ done
 sort --unique -o "$wwn_file" "$wwn_file"
 
 md_file=$(mktemp)
+shopt -s nullglob
 for mdraid in /dev/md?*; do
     rm -f "$md_file"
     device=$(basename "$mdraid")
