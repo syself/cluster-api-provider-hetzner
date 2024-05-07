@@ -15,9 +15,8 @@
 
 # lsblk from util-linux 2.34 (Ubuntu 20.04) does not know column PARTTYPENAME
 
-set -euo pipefail
-
-trap 'echo "Warning: A command has failed. Exiting the script. Line was ($0:$LINENO): $(sed -n "${LINENO}p" "$0")"; exit 3' ERR
+trap 'echo "ERROR: A command has failed. Exiting the script. Line was ($0:$LINENO): $(sed -n "${LINENO}p" "$0")"; exit 3' ERR
+set -Eeuo pipefail
 
 function usage() {
     echo "$0 wwn1 [wwn2 ...]"
@@ -40,7 +39,7 @@ fi
 
 # Iterate over all input arguments
 for wwn in "$@"; do
-    if ! lsblk -l -oWWN | grep -qP '^'${wwn}'$'; then
+    if ! lsblk -l -oWWN | grep -qFx "${wwn}"; then
         echo "$wwn is not a WWN of this machine"
         echo
         usage
@@ -64,12 +63,12 @@ fail=0
 
 lines=$(lsblk -r -oNAME,WWN,TYPE)
 
-while read name wwn type; do
+while read -r name wwn; do
     if [[ " $* " == *" $wwn "* ]]; then
         #echo "ok: skipping $name $wwn, since it was an argument to the script."
         continue
     fi
-    root_directory_content=$(grub-fstest /dev/$name ls / 2>/dev/null || true | tr ' ' '\n' | sort | tr '\n' ' ')
+    root_directory_content=$(grub-fstest "/dev/$name" ls / 2>/dev/null || true | tr ' ' '\n' | sort | tr '\n' ' ')
     if [[ $root_directory_content =~ .*boot/.*etc/.* ]]; then
         echo "FAIL: $name $wwn looks like a Linux root partition on another disk."
         fail=1
@@ -85,9 +84,67 @@ while read name wwn type; do
         fail=1
         continue
     fi
-    #echo "ok: $name $wwn $parttype, does not look like root Linux partition."
+    ## echo "ok: $name $wwn $parttype, does not look like root Linux partition."
 done < <(echo "$lines" | grep -v NAME | grep -i part)
 if [ $fail -eq 1 ]; then
     exit 1
 fi
+
+# Check mdraids: If an existing mdraid spans the root-devices and non-root-devices, then fail.
+
+# Write all WWNs which will contain the new OS into a file.
+wwn_file=$(mktemp)
+for wwn in "$@"; do
+    echo $wwn >>"$wwn_file"
+done
+sort --unique -o "$wwn_file" "$wwn_file"
+
+md_file=$(mktemp)
+for mdraid in /dev/md?*; do
+    rm -f "$md_file"
+    device=$(basename "$mdraid")
+    for dev_of_mdraid in /sys/block/"$device"/md/dev-*; do
+        dev_of_mdraid=$(echo $dev_of_mdraid | cut -d- -f2)
+        wwn=$(udevadm info --query=property "--name=$dev_of_mdraid" | grep ID_WWN | cut -d= -f2)
+        if [ -z "$wwn" ]; then
+            echo "<<<<<<<<<<<<<<<<<<<<"
+            udevadm info --query=property "--name=$dev_of_mdraid"
+            echo ">>>>>>>>>>>>>>>>>>>>"
+            echo "failed to get WWN of $dev_of_mdraid"
+            exit 1
+        fi
+        echo "$wwn" >>"$md_file"
+    done
+    if [ ! -s "$md_file" ]; then
+        echo "failed to find devices of $mdraid"
+        exit 1
+    fi
+    sort --unique -o "$md_file" "$md_file"
+    if cmp --silent "$md_file" "$wwn_file"; then
+        echo "mdraid $mdraid is ok. It will contain the new operating system."
+        continue
+    fi
+
+    # Print only lines present in both files.
+    intersection=$(comm -12 <(sort "$md_file") <(sort "$wwn_file"))
+    if [ -z "$intersection" ]; then
+        echo "mdraid $mdraid is ok. It contains no devices which will be used for the operation system."
+        continue
+    fi
+    echo "fail: mdraid $mdraid contains devices which should be used for the new operating system."
+    echo "      And $mdraid contains devices which will not be used for the new operating system."
+    echo "      Cluster API Provider Hetzner won't provision the machine like this, since"
+    echo "      after running 'installimage' the old raid could be started instead of the new OS."
+    echo "--- Content of /proc/mdstat:"
+    cat /proc/mdstat
+    echo "-------"
+    echo "The new OS should be installed on these WWNs: $*"
+    lsblk -oNAME,WWN | grep -vi loop || true
+    echo "-------"
+    echo "failed."
+    exit 1
+done
+
+rm -f "$md_file" "$wwn_file"
+
 echo "Looks good. No Linux root partition on another devices"

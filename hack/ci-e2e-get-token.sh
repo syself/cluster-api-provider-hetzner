@@ -6,8 +6,8 @@ newtoken=$(curl --fail-with-body --retry 2 --silent -A "github.com/syself/cluste
 
 if [ -e .envrc ]; then
     echo "Updating .envrc"
-    sed -i "s/HCLOUD_TOKEN=.*/HCLOUD_TOKEN=$newtoken/" .envrc
-    if type -P direnv > /dev/null; then
+    sed -i "s/^export HCLOUD_TOKEN=.*/export HCLOUD_TOKEN=$newtoken/" .envrc
+    if type -P direnv >/dev/null; then
         direnv allow
     fi
 fi
