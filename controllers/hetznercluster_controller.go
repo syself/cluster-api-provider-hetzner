@@ -701,14 +701,18 @@ func (r *HetznerClusterReconciler) newTargetClusterManager(ctx context.Context, 
 		return nil, fmt.Errorf("failed to setup guest cluster manager: %w", err)
 	}
 
+	hasConstantBareMetalHostname := clusterScope.Cluster.Annotations[infrav1.ConstantBareMetalHostnameAnnotation] == "true"
+
 	gr := &GuestCSRReconciler{
 		Client: clusterMgr.GetClient(),
 		mCluster: &managementCluster{
 			Client:         r.Client,
 			hetznerCluster: hetznerCluster,
 		},
-		WatchFilterValue: r.WatchFilterValue,
-		clientSet:        clientSet,
+		WatchFilterValue:             r.WatchFilterValue,
+		clientSet:                    clientSet,
+		clusterName:                  clusterScope.Cluster.Name,
+		hasConstantBareMetalHostname: hasConstantBareMetalHostname,
 	}
 
 	if err := gr.SetupWithManager(ctx, clusterMgr, controller.Options{}); err != nil {
