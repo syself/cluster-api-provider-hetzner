@@ -112,13 +112,13 @@ for mdraid in /dev/md?*; do
             udevadm info --query=property "--name=$dev_of_mdraid"
             echo ">>>>>>>>>>>>>>>>>>>>"
             echo "failed to get WWN of $dev_of_mdraid"
-            exit 1
+            exit 3
         fi
         echo "$wwn" >>"$md_file"
     done
     if [ ! -s "$md_file" ]; then
         echo "failed to find devices of $mdraid"
-        exit 1
+        exit 3
     fi
     sort --unique -o "$md_file" "$md_file"
     if cmp --silent "$md_file" "$wwn_file"; then
