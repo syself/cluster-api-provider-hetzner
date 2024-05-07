@@ -148,4 +148,4 @@ done
 
 rm -f "$md_file" "$wwn_file"
 
-echo "Looks good. No Linux root partition on another devices"
+echo "Looks good. No Linux root partition on another devices."
