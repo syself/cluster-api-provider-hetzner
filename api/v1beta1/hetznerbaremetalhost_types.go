@@ -172,13 +172,13 @@ const (
 type RebootType string
 
 const (
-	// RebootTypeHardware defines the hardware reboot.
-	RebootTypeHardware RebootType = "hw"
-	// RebootTypePower defines the power reboot.
+	// RebootTypePower defines the power reboot. "Press power button of server".
 	RebootTypePower RebootType = "power"
-	// RebootTypeSoftware defines the software reboot.
+	// RebootTypeSoftware defines the software reboot. "Send CTRL+ALT+DEL to the server".
 	RebootTypeSoftware RebootType = "sw"
-	// RebootTypeManual defines the manual reboot.
+	// RebootTypeHardware defines the hardware reboot. "Execute an automatic hardware reset".
+	RebootTypeHardware RebootType = "hw"
+	// RebootTypeManual defines the manual reboot. "Order a manual power cycle".
 	RebootTypeManual RebootType = "man"
 )
 
@@ -512,16 +512,6 @@ func (host *HetznerBareMetalHost) HasSoftwareReboot() bool {
 func (host *HetznerBareMetalHost) HasHardwareReboot() bool {
 	for _, rt := range host.Spec.Status.RebootTypes {
 		if rt == RebootTypeHardware {
-			return true
-		}
-	}
-	return false
-}
-
-// HasPowerReboot returns a boolean indicating whether power reboot exists for the server.
-func (host *HetznerBareMetalHost) HasPowerReboot() bool {
-	for _, rt := range host.Spec.Status.RebootTypes {
-		if rt == RebootTypePower {
 			return true
 		}
 	}

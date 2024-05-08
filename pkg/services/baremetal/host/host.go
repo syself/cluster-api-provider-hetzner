@@ -225,9 +225,11 @@ func (s *Service) actionPreparing() actionResult {
 		if err := handleSSHError(sshClient.Reboot()); err != nil {
 			return actionError{err: fmt.Errorf("failed to reboot server via ssh: %w", err)}
 		}
-
+		msg := fmt.Sprintf("Phase %s: Rebooting via ssh into rescue mode.",
+			s.scope.HetznerBareMetalHost.Spec.Status.ProvisioningState)
+		record.Eventf(s.scope.HetznerBareMetalHost, "RebootBMServer", msg)
 		// we immediately set an error message in the host status to track the reboot we just performed
-		s.scope.HetznerBareMetalHost.SetError(infrav1.ErrorTypeSSHRebootTriggered, "ssh reboot triggered")
+		s.scope.HetznerBareMetalHost.SetError(infrav1.ErrorTypeSSHRebootTriggered, msg)
 		return actionComplete{}
 	}
 
@@ -239,8 +241,11 @@ func (s *Service) actionPreparing() actionResult {
 		return actionError{err: fmt.Errorf(errMsgFailedReboot, err)}
 	}
 
+	msg := fmt.Sprintf("Phase %s: Reboot into rescue system via rebootType %q.",
+		s.scope.HetznerBareMetalHost.Spec.Status.ProvisioningState, rebootType)
+	record.Eventf(s.scope.HetznerBareMetalHost, "RebootBMServer", msg)
 	// we immediately set an error message in the host status to track the reboot we just performed
-	s.scope.HetznerBareMetalHost.SetError(errorType, "software/hardware reboot triggered")
+	s.scope.HetznerBareMetalHost.SetError(errorType, msg)
 	return actionComplete{}
 }
 
@@ -332,6 +337,9 @@ func (s *Service) handleIncompleteBoot(isRebootIntoRescue, isTimeout, isConnecti
 			// if error has occurred before, check the timeout
 			if hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated, time.Minute) {
 				msg := "Connection error when targeting server with ssh that might be due to a wrong ssh port. Please check."
+				if isRebootIntoRescue {
+					msg = "Connection error. Can't reach rescue system via ssh."
+				}
 				conditions.MarkFalse(
 					s.scope.HetznerBareMetalHost,
 					infrav1.ProvisionSucceededCondition,
@@ -389,6 +397,10 @@ func (s *Service) handleErrorTypeSSHRebootFailed(isSSHTimeoutError, wantsRescue 
 	// right hostname. This means that the server has not been rebooted and we need to escalate.
 	// If we got a timeout error from ssh, it means that the server has not yet finished rebooting.
 	// If the timeout for ssh reboots has been reached, then escalate.
+	rebootInto := "node"
+	if wantsRescue {
+		rebootInto = "rescue mode"
+	}
 	if !isSSHTimeoutError || hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated, sshResetTimeout) {
 		if wantsRescue {
 			// make sure hat we boot into rescue mode if that is necessary
@@ -404,9 +416,11 @@ func (s *Service) handleErrorTypeSSHRebootFailed(isSSHTimeoutError, wantsRescue 
 			s.handleRobotRateLimitExceeded(err, rebootServerStr)
 			return fmt.Errorf(errMsgFailedReboot, err)
 		}
-
+		msg := fmt.Sprintf("Phase %s: Reboot via ssh into %s failed. Now using rebootType %q.",
+			s.scope.HetznerBareMetalHost.Spec.Status.ProvisioningState, rebootInto, rebootType)
+		record.Eventf(s.scope.HetznerBareMetalHost, "RebootBMServer", msg)
 		// we immediately set an error message in the host status to track the reboot we just performed
-		s.scope.HetznerBareMetalHost.SetError(errorType, "ssh reboot timed out")
+		s.scope.HetznerBareMetalHost.SetError(errorType, msg)
 	}
 	return nil
 }
@@ -429,6 +443,10 @@ func rebootAndErrorTypeAfterTimeout(host *infrav1.HetznerBareMetalHost) (infrav1
 }
 
 func (s *Service) handleErrorTypeSoftwareRebootFailed(isSSHTimeoutError, wantsRescue bool) error {
+	rebootInto := "node"
+	if wantsRescue {
+		rebootInto = "rescue mode"
+	}
 	// If it is not a timeout error, then the ssh command (get hostname) worked, but didn't give us the
 	// right hostname. This means that the server has not been rebooted and we need to escalate.
 	// If we got a timeout error from ssh, it means that the server has not yet finished rebooting.
@@ -445,15 +463,21 @@ func (s *Service) handleErrorTypeSoftwareRebootFailed(isSSHTimeoutError, wantsRe
 			s.handleRobotRateLimitExceeded(err, rebootServerStr)
 			return fmt.Errorf(errMsgFailedReboot, err)
 		}
-
+		msg := fmt.Sprintf("Phase %s: Reboot via type 'software' into %s failed. Now using rebootType %q.",
+			s.scope.HetznerBareMetalHost.Spec.Status.ProvisioningState, rebootInto, infrav1.RebootTypeHardware)
+		record.Eventf(s.scope.HetznerBareMetalHost, "RebootBMServer", msg)
 		// we immediately set an error message in the host status to track the reboot we just performed
-		s.scope.HetznerBareMetalHost.SetError(infrav1.ErrorTypeHardwareRebootTriggered, "software reboot timed out")
+		s.scope.HetznerBareMetalHost.SetError(infrav1.ErrorTypeHardwareRebootTriggered, msg)
 	}
 
 	return nil
 }
 
 func (s *Service) handleErrorTypeHardwareRebootFailed(isSSHTimeoutError, wantsRescue bool) error {
+	rebootInto := "node"
+	if wantsRescue {
+		rebootInto = "rescue mode"
+	}
 	// If it is not a timeout error, then the ssh command (get hostname) worked, but didn't give us the
 	// right hostname. This means that the server has not been rebooted and we need to escalate.
 	// If we got a timeout error from ssh, it means that the server has not yet finished rebooting.
@@ -475,6 +499,9 @@ func (s *Service) handleErrorTypeHardwareRebootFailed(isSSHTimeoutError, wantsRe
 			s.handleRobotRateLimitExceeded(err, rebootServerStr)
 			return fmt.Errorf(errMsgFailedReboot, err)
 		}
+		msg := fmt.Sprintf("Phase %s: Reboot via ssh into %s failed. Now using rebootType %q.",
+			s.scope.HetznerBareMetalHost.Spec.Status.ProvisioningState, rebootInto, infrav1.RebootTypeHardware)
+		record.Eventf(s.scope.HetznerBareMetalHost, "RebootBMServer", msg)
 	}
 	return nil
 }
@@ -537,6 +564,12 @@ func (s *Service) actionRegistering() actionResult {
 		if err != nil {
 			return actionError{err: fmt.Errorf(errMsgFailedHandlingIncompleteBoot, err)}
 		}
+		timeSinceReboot := "unknown"
+		if s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated != nil {
+			timeSinceReboot = time.Since(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated.Time).String()
+		}
+		s.scope.Logger.Info("Could not reach rescue system. Will retry some seconds later.", "stdout", out.StdOut, "stderr", out.StdErr, "err", out.Err.Error(),
+			"isSSHTimeoutError", isSSHTimeoutError, "isSSHConnectionRefusedError", isSSHConnectionRefusedError, "timeSinceReboot", timeSinceReboot)
 		return actionContinue{delay: 10 * time.Second}
 	}
 
@@ -708,7 +741,7 @@ func (s *Service) analyzeSSHErrorRegistering(sshErr error) (isSSHTimeoutError, i
 		}
 		reterr = fmt.Errorf("wrong ssh key: %w", sshErr)
 	case sshclient.IsConnectionRefusedError(sshErr):
-		if !rebootTriggered {
+		if !rebootTriggered && s.scope.HetznerBareMetalHost.Spec.Status.ErrorType != infrav1.ErrorTypeHardwareRebootTriggered {
 			// Reboot did not trigger
 			return false, false, nil
 		}
@@ -1115,6 +1148,9 @@ func (s *Service) actionImageInstalling() actionResult {
 		record.Warn(s.scope.HetznerBareMetalHost, "RebootFailed", err.Error())
 		return actionError{err: fmt.Errorf("failed to reboot server: %w", err)}
 	}
+	record.Eventf(s.scope.HetznerBareMetalHost, "RebootBMServer", "Phase %s: reboot via ssh into node (after machine image was installed)",
+		s.scope.HetznerBareMetalHost.Spec.Status.ProvisioningState)
+
 	s.scope.Logger.Info("RebootAfterInstallimageSucceeded", "stdout", out.StdOut, "stderr", out.StdErr)
 
 	// clear potential errors - all done
@@ -1660,6 +1696,9 @@ func (s *Service) actionProvisioned() actionResult {
 		if err := handleSSHError(out); err != nil {
 			return actionError{err: err}
 		}
+
+		record.Eventf(s.scope.HetznerBareMetalHost, "RebootBMServer", "Phase %s: rebooting via type ssh (because reboot annotation was set).",
+			s.scope.HetznerBareMetalHost.Spec.Status.ProvisioningState)
 		s.scope.HetznerBareMetalHost.Spec.Status.Rebooted = true
 		return actionContinue{delay: 10 * time.Second}
 	}

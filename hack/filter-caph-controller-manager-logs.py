@@ -37,6 +37,7 @@ rows_to_skip = [
     'Update to resource only changes insignificant fields',
     '"approved csr"',
     '"Registering webhook"',
+    "'statusCode': 200, 'method': 'GET', 'url': 'https://robot-ws.your-server.de",
 ]
 
 def main():
