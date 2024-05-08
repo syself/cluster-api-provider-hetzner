@@ -6,11 +6,11 @@ metadata:
   name: ccm-ccm-hetzner
   namespace: kube-system
   labels:
-    helm.sh/chart: ccm-hetzner-1.1.10
+    helm.sh/chart: ccm-hetzner-1.1.13
     app: ccm
     app.kubernetes.io/name: ccm-hetzner
     app.kubernetes.io/instance: ccm
-    app.kubernetes.io/version: "v1.18.0-0.0.5"
+    app.kubernetes.io/version: "v1.18.0-0.0.7"
     app.kubernetes.io/managed-by: Helm
 ---
 # Source: ccm-hetzner/templates/serviceaccount.yaml
@@ -20,11 +20,11 @@ metadata:
   name: ccm-ccm-hetzner
   namespace: kube-system
   labels:
-    helm.sh/chart: ccm-hetzner-1.1.10
+    helm.sh/chart: ccm-hetzner-1.1.13
     app: ccm
     app.kubernetes.io/name: ccm-hetzner
     app.kubernetes.io/instance: ccm
-    app.kubernetes.io/version: "v1.18.0-0.0.5"
+    app.kubernetes.io/version: "v1.18.0-0.0.7"
     app.kubernetes.io/managed-by: Helm
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -42,11 +42,11 @@ metadata:
   name: ccm-ccm-hetzner
   namespace: kube-system
   labels:
-    helm.sh/chart: ccm-hetzner-1.1.10
+    helm.sh/chart: ccm-hetzner-1.1.13
     app: ccm
     app.kubernetes.io/name: ccm-hetzner
     app.kubernetes.io/instance: ccm
-    app.kubernetes.io/version: "v1.18.0-0.0.5"
+    app.kubernetes.io/version: "v1.18.0-0.0.7"
     app.kubernetes.io/managed-by: Helm
 spec:
   replicas: 1
@@ -63,7 +63,8 @@ spec:
     spec:
       dnsPolicy: Default
       serviceAccountName: ccm-ccm-hetzner
-      securityContext: {}
+      securityContext:
+        {}
       tolerations:
         # Introduced with CAPI v1.4, more info: https://cluster-api.sigs.k8s.io/developer/providers/bootstrap.html#taint-nodes-at-creation
         - key: "node.cluster.x-k8s.io/uninitialized"
@@ -85,8 +86,9 @@ spec:
           effect: "NoSchedule"
       containers:
         - name: ccm-hetzner
-          securityContext: {}
-          image: "ghcr.io/syself/hetzner-cloud-controller-manager:v1.18.0-0.0.5"
+          securityContext:
+            {}
+          image: "ghcr.io/syself/hetzner-cloud-controller-manager:v1.18.0-0.0.7"
           imagePullPolicy: Always
           command:
             - "/bin/hetzner-cloud-controller-manager"

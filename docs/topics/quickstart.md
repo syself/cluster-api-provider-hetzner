@@ -198,7 +198,7 @@ Cilium is used as a CNI solution in this guide. The following command deploys it
 ```shell
 helm repo add cilium https://helm.cilium.io/
 
-KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install cilium cilium/cilium --version 1.14.4 \
+KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install cilium cilium/cilium --version 1.15.4 \
 --namespace kube-system \
 -f templates/cilium/cilium.yaml
 ```

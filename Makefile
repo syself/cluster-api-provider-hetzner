@@ -199,14 +199,14 @@ install-cilium-in-wl-cluster: $(HELM)
 	# Deploy cilium
 	$(HELM) repo add cilium https://helm.cilium.io/
 	$(HELM) repo update cilium
-	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) $(HELM) upgrade --install cilium cilium/cilium --version 1.14.4 \
+	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) $(HELM) upgrade --install cilium cilium/cilium --version 1.15.4 \
   		--namespace kube-system \
 		-f templates/cilium/cilium.yaml
 
 install-ccm-in-wl-cluster:
 	$(HELM) repo add syself https://charts.syself.com
 	$(HELM) repo update syself
-	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) $(HELM) upgrade --install ccm syself/ccm-hetzner --version 1.1.10 \
+	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) $(HELM) upgrade --install ccm syself/ccm-hetzner --version 1.1.13 \
 	--namespace kube-system \
 	--set privateNetwork.enabled=$(PRIVATE_NETWORK)
 	@echo 'run "kubectl --kubeconfig=$(WORKER_CLUSTER_KUBECONFIG) ..." to work with the new target cluster'

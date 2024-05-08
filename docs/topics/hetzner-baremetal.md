@@ -333,7 +333,7 @@ Let's deploy the hetzner CCM helm chart.
 helm repo add syself https://charts.syself.com
 helm repo update syself
 
-$ helm upgrade --install ccm syself/ccm-hetzner --version 1.1.10 \
+$ helm upgrade --install ccm syself/ccm-hetzner --version 1.1.13 \
               --namespace kube-system \
               --set privateNetwork.enabled=false \
               --kubeconfig workload-kubeconfig
@@ -349,7 +349,7 @@ TEST SUITE: None
 #### Installing CNI 
 For CNI, let's deploy cilium in the workload cluster that will facilitate the networking in the cluster.
 ```bash
-$ helm install cilium cilium/cilium --version 1.15.3 --kubeconfig workload-kubeconfig
+$ helm install cilium cilium/cilium --version 1.15.4 --kubeconfig workload-kubeconfig
 NAME: cilium
 LAST DEPLOYED: Thu Apr  4 21:11:13 2024
 NAMESPACE: default
@@ -359,7 +359,7 @@ TEST SUITE: None
 NOTES:
 You have successfully installed Cilium with Hubble.
 
-Your release version is 1.15.3.
+Your release version is 1.15.4.
 
 For any further help, visit https://docs.cilium.io/en/v1.15/gettinghelp
 ```
