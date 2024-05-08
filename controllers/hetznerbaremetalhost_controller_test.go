@@ -341,7 +341,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 						testEnv.GetLogger().Info("reaches the state image installing. Get failed", "err", err)
 						return false
 					}
-					if host.Spec.Status.ProvisioningState == infrav1.StateImageInstalling {
+					if host.Spec.Status.ProvisioningState == infrav1.StateImageInstalling || host.Spec.Status.ProvisioningState == infrav1.StateProvisioned {
 						return true
 					}
 					testEnv.GetLogger().Info("reaches the state image installing. State",
