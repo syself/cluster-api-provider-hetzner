@@ -102,6 +102,7 @@ type HCloudPlacementGroupStatus struct {
 // HetznerSecretRef defines all the names of the secret and the relevant keys needed to access Hetzner API.
 type HetznerSecretRef struct {
 	// Name defines the name of the secret.
+	// +kubebuilder:default=hetzner
 	Name string `json:"name"`
 	// Key defines the keys that are used in the secret.
 	// Need to specify either HCloudToken or both HetznerRobotUser and HetznerRobotPassword.
@@ -113,13 +114,20 @@ type HetznerSecretRef struct {
 type HetznerSecretKeyRef struct {
 	// HCloudToken defines the name of the key where the token for the Hetzner Cloud API is stored.
 	// +optional
+	// +kubebuilder:default=hcloud-token
 	HCloudToken string `json:"hcloudToken"`
 	// HetznerRobotUser defines the name of the key where the username for the Hetzner Robot API is stored.
 	// +optional
+	// +kubebuilder:default=hetzner-robot-user
 	HetznerRobotUser string `json:"hetznerRobotUser"`
 	// HetznerRobotPassword defines the name of the key where the password for the Hetzner Robot API is stored.
 	// +optional
+	// +kubebuilder:default=hetzner-robot-password
 	HetznerRobotPassword string `json:"hetznerRobotPassword"`
+	// SSHKey defines the name of the ssh key.
+	// +optional
+	// +kubebuilder:default=ssh-key
+	SSHKey string `json:"sshKey"`
 }
 
 // PublicNetworkSpec contains specs about the public network spec of an HCloud server.

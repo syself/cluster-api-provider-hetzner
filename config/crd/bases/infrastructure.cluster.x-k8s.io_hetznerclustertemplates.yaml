@@ -273,21 +273,29 @@ spec:
                               Need to specify either HCloudToken or both HetznerRobotUser and HetznerRobotPassword.
                             properties:
                               hcloudToken:
+                                default: hcloud-token
                                 description: HCloudToken defines the name of the key
                                   where the token for the Hetzner Cloud API is stored.
                                 type: string
                               hetznerRobotPassword:
+                                default: hetzner-robot-password
                                 description: HetznerRobotPassword defines the name
                                   of the key where the password for the Hetzner Robot
                                   API is stored.
                                 type: string
                               hetznerRobotUser:
+                                default: hetzner-robot-user
                                 description: HetznerRobotUser defines the name of
                                   the key where the username for the Hetzner Robot
                                   API is stored.
                                 type: string
+                              sshKey:
+                                default: ssh-key
+                                description: SSHKey defines the name of the ssh key.
+                                type: string
                             type: object
                           name:
+                            default: hetzner
                             description: Name defines the name of the secret.
                             type: string
                         required:
