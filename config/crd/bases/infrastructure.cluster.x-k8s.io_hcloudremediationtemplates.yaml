@@ -15,10 +15,6 @@ spec:
     plural: hcloudremediationtemplates
     shortNames:
     - hcrt
-    - hcremediationtemplate
-    - hcremediationtemplates
-    - hcloudrt
-    - hcloudremediationtemplate
     singular: hcloudremediationtemplate
   scope: Namespaced
   versions:

@@ -14,12 +14,7 @@ spec:
     listKind: HetznerBareMetalMachineList
     plural: hetznerbaremetalmachines
     shortNames:
-    - hbm
     - hbmm
-    - hbmachine
-    - hbmachines
-    - hetznerbaremetalm
-    - hetznerbaremetalmachine
     singular: hetznerbaremetalmachine
   scope: Namespaced
   versions:

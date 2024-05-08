@@ -14,7 +14,7 @@ spec:
     listKind: HCloudMachineList
     plural: hcloudmachines
     shortNames:
-    - capihcm
+    - hcma
     singular: hcloudmachine
   scope: Namespaced
   versions:

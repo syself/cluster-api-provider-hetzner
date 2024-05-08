@@ -14,7 +14,7 @@ spec:
     listKind: HetznerClusterTemplateList
     plural: hetznerclustertemplates
     shortNames:
-    - capihct
+    - hcclt
     singular: hetznerclustertemplate
   scope: Namespaced
   versions:

@@ -13,7 +13,6 @@ spec:
     plural: hetznerbaremetalhosts
     shortNames:
     - hbmh
-    - hbmhost
     singular: hetznerbaremetalhost
   scope: Namespaced
   versions:

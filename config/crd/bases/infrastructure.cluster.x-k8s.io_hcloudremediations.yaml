@@ -15,7 +15,6 @@ spec:
     plural: hcloudremediations
     shortNames:
     - hcr
-    - hcloudremediation
     singular: hcloudremediation
   scope: Namespaced
   versions:

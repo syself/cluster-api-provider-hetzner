@@ -94,7 +94,7 @@ type HCloudMachineStatus struct {
 
 // HCloudMachine is the Schema for the hcloudmachines API.
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:path=hcloudmachines,scope=Namespaced,categories=cluster-api,shortName=capihcm
+// +kubebuilder:resource:path=hcloudmachines,scope=Namespaced,categories=cluster-api,shortName=hcma
 // +kubebuilder:storageversion
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Cluster",type="string",JSONPath=".metadata.labels.cluster\\.x-k8s\\.io/cluster-name",description="Cluster to which this HCloudMachine belongs"

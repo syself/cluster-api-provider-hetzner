@@ -29,7 +29,7 @@ type HetznerBareMetalMachineTemplateSpec struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time duration since creation of HetznerBareMetalMachineTemplate"
-// +kubebuilder:resource:path=hetznerbaremetalmachinetemplates,scope=Namespaced,categories=cluster-api,shortName=hbmt;hbmmtemplate;hetznerbaremetalmachinetemplates;hetznerbaremetalmachinetemplate
+// +kubebuilder:resource:path=hetznerbaremetalmachinetemplates,scope=Namespaced,categories=cluster-api,shortName=hbmmt
 // +kubebuilder:storageversion
 type HetznerBareMetalMachineTemplate struct {
 	metav1.TypeMeta `json:",inline"`

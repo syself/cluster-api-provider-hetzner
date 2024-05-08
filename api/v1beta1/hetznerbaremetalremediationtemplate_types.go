@@ -38,7 +38,7 @@ type HetznerBareMetalRemediationTemplateStatus struct {
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:resource:path=hetznerbaremetalremediationtemplates,scope=Namespaced,categories=cluster-api,shortName=hbrt;hbremediationtemplate;hbremediationtemplates;hetznerbaremetalrt;hetznerbaremetalremediationtemplate
+// +kubebuilder:resource:path=hetznerbaremetalremediationtemplates,scope=Namespaced,categories=cluster-api,shortName=hbrt
 // +kubebuilder:subresource:status
 // +kubebuilder:object:root=true
 // +kubebuilder:storageversion
