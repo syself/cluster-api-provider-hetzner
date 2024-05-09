@@ -19,7 +19,7 @@
 # Install Lychee
 FROM docker.io/library/alpine:3.19.1@sha256:6457d53fb065d6f250e1504b9bc42d5b6c65941d57532c072d929dd0628977d0 as lychee
 # update: datasource=github-tags depName=lycheeverse/lychee versioning=semver
-ENV LYCHEE_VERSION="v0.14.3"
+ENV LYCHEE_VERSION="v0.15.1"
 # hadolint ignore=DL3018
 RUN apk add --no-cache curl && \
     curl -L -o /tmp/lychee-${LYCHEE_VERSION}.tgz https://github.com/lycheeverse/lychee/releases/download/${LYCHEE_VERSION}/lychee-${LYCHEE_VERSION}-x86_64-unknown-linux-gnu.tar.gz && \
@@ -30,7 +30,7 @@ RUN apk add --no-cache curl && \
 # Install Golang CI Lint
 FROM docker.io/library/alpine:3.19.1@sha256:6457d53fb065d6f250e1504b9bc42d5b6c65941d57532c072d929dd0628977d0 as golangci
 # update: datasource=github-tags depName=golangci/golangci-lint versioning=semver
-ENV GOLANGCI_VERSION="v1.57.2"
+ENV GOLANGCI_VERSION="v1.58.1"
 WORKDIR /
 # hadolint ignore=DL3018,DL4006
 RUN apk add --no-cache curl && \
@@ -40,7 +40,7 @@ RUN apk add --no-cache curl && \
 FROM docker.io/hadolint/hadolint:v2.12.0-alpine@sha256:7dba9a9f1a0350f6d021fb2f6f88900998a4fb0aaf8e4330aa8c38544f04db42 as hadolint
 
 # Install Trivy
-FROM docker.io/aquasec/trivy:0.50.1@sha256:0aff831cd122c9cc8dbd25fc75974c21cd49ca7c72d522ce11978373f695f55d as trivy
+FROM docker.io/aquasec/trivy:0.51.1@sha256:b5617ed4b09b3b64b9d24bb01083509cf836243ca74e51adb7557de79efdeb46 as trivy
 
 ############################
 # Caph Build Image Base #
