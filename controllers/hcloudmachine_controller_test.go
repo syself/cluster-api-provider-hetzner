@@ -166,6 +166,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 			},
 		}, nil)
 		hcloudClient.On("CreateLoadBalancer", mock.Anything, mock.Anything).Return(&hcloud.LoadBalancer{}, nil)
+		hcloudClient.On("DeleteLoadBalancer", mock.Anything, mock.Anything).Return(nil)
 		hcloudClient.On("AttachLoadBalancerToNetwork", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		hcloudClient.On("AddServiceToLoadBalancer", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		hcloudClient.On("ListPlacementGroups", mock.Anything, mock.Anything).Return([]*hcloud.PlacementGroup{}, nil)
@@ -236,6 +237,8 @@ var _ = Describe("HCloudMachineReconciler", func() {
 					if err != nil {
 						return false
 					}
+
+					testEnv.GetLogger().Info("servers exists", "servers", servers)
 
 					return len(servers) == 0
 				}, timeout, time.Second).Should(BeTrue())
