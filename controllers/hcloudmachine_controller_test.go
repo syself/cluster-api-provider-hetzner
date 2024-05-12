@@ -134,15 +134,16 @@ var _ = Describe("HCloudMachineReconciler", func() {
 		hcloudClient = testEnv.HcloudClient
 
 		hcloudClient.On("ListSSHKeys", mock.Anything, mock.Anything).Return([]*hcloud.SSHKey{}, nil)
-		hcloudClient.On("ListSSHKeys", mock.Anything, mock.Anything).Return(
-			[]*hcloud.SSHKey{
-				{
-					Name: "testsshkey",
-				},
-			},
-			nil,
-		)
+		// hcloudClient.On("ListSSHKeys", mock.Anything, mock.Anything).Return(
+		// 	[]*hcloud.SSHKey{
+		// 		{
+		// 			Name: "testsshkey",
+		// 		},
+		// 	},
+		// 	nil,
+		// )
 		hcloudClient.On("ListNetworks", mock.Anything, mock.Anything).Return([]*hcloud.Network{}, nil)
+		hcloudClient.On("ListServers", mock.Anything, mock.Anything).Return(nil, nil)
 		hcloudClient.On("ListServers", mock.Anything, mock.Anything).Return([]*hcloud.Server{
 			{
 				ID:     9999,
@@ -172,6 +173,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 		hcloudClient.On("ListPlacementGroups", mock.Anything, mock.Anything).Return([]*hcloud.PlacementGroup{}, nil)
 		hcloudClient.On("CreatePlacementGroup", mock.Anything, mock.Anything).Return(&hcloud.PlacementGroup{}, nil)
 		hcloudClient.On("GetServerType", mock.Anything, mock.Anything).Return(&hcloud.ServerType{}, nil)
+		hcloudClient.On("GetServer", mock.Anything, mock.Anything).Return(nil, nil)
 	})
 
 	AfterEach(func() {
@@ -292,6 +294,44 @@ var _ = Describe("HCloudMachineReconciler", func() {
 
 				Eventually(func() bool {
 					return isPresentAndTrue(key, hcloudMachine, infrav1.ServerAvailableCondition)
+				}, timeout, time.Second).Should(BeTrue())
+			})
+
+			FIt("checks that SSHKeyNotFoundReason is visible in conditions if SSH keys doesn't exist", func() {
+				By("checking that bootstrap condition is not ready")
+
+				Eventually(func() bool {
+					return isPresentAndFalseWithReason(key, hcloudMachine, infrav1.BootstrapReadyCondition, infrav1.BootstrapNotReadyReason)
+				}, timeout, time.Second).Should(BeTrue())
+
+				By("setting the bootstrap data")
+
+				ph, err := patch.NewHelper(capiMachine, testEnv)
+				Expect(err).ShouldNot(HaveOccurred())
+
+				capiMachine.Spec.Bootstrap = clusterv1.Bootstrap{
+					DataSecretName: ptr.To("bootstrap-secret"),
+				}
+
+				Eventually(func() error {
+					return ph.Patch(ctx, capiMachine, patch.WithStatusObservedGeneration{})
+				}, timeout, time.Second).Should(BeNil())
+
+				By("checking that bootstrap condition is ready")
+
+				Eventually(func() bool {
+					return isPresentAndTrue(key, hcloudMachine, infrav1.BootstrapReadyCondition)
+				}, timeout, time.Second).Should(BeTrue())
+
+				By("checking if ServerCreateSucceededCondition condition with SSHKeyNotFoundReason exist")
+				Eventually(func() bool {
+					if err := testEnv.Get(ctx, key, hcloudMachine); err != nil {
+						testEnv.GetLogger().Error(err, "failed to get the hcloud machine")
+						return false
+					}
+					testEnv.GetLogger().Info("condition of the hcloudMachine", "condition", hcloudMachine.Status.Conditions)
+
+					return isPresentAndFalseWithReason(key, hcloudMachine, infrav1.ServerCreateSucceededCondition, infrav1.SSHKeyNotFoundReason)
 				}, timeout, time.Second).Should(BeTrue())
 			})
 		})
