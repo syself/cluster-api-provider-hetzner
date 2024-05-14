@@ -1,4 +1,3 @@
-
 # Binaries for programs and plugins
 *.exe
 *.exe~
@@ -33,7 +32,6 @@ test/e2e/data/infrastructure-hetzner/v1beta1/env*
 # Tilt files.
 .tiltbuild
 /tilt.d
-tilt-settings.json
 tilt_config.json
 baremetalhosts.yaml
 
