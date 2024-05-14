@@ -225,9 +225,9 @@ env-vars-for-wl-cluster:
 	@./hack/ensure-env-variables.sh CLUSTER_NAME CONTROL_PLANE_MACHINE_COUNT HCLOUD_CONTROL_PLANE_MACHINE_TYPE \
 	HCLOUD_REGION HCLOUD_SSH_KEY HCLOUD_WORKER_MACHINE_TYPE KUBERNETES_VERSION WORKER_MACHINE_COUNT
 
-create-workload-cluster-hcloud: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST) install-crds ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
+create-workload-cluster-hcloud: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST) install-crds ## Creates a workload-cluster.
 	# Create workload Cluster.
-	./hack/ensure-env-variables.sh HCLOUD_TOKEN 
+	./hack/ensure-env-variables.sh HCLOUD_TOKEN
 	$(KUBECTL) create secret generic $(INFRA_PROVIDER) --from-literal=hcloud=$(HCLOUD_TOKEN) --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
 	$(KUSTOMIZE) build templates/cluster-templates/hcloud --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud.yaml
 	cat templates/cluster-templates/cluster-template-hcloud.yaml | $(ENVSUBST) - | $(KUBECTL) apply -f -
@@ -235,7 +235,7 @@ create-workload-cluster-hcloud: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST)
 	$(MAKE) install-cilium-in-wl-cluster
 	$(MAKE) install-ccm-in-wl-cluster PRIVATE_NETWORK=false
 
-create-workload-cluster-hcloud-packer: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
+create-workload-cluster-hcloud-packer: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster.
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN
 	$(KUBECTL) create secret generic $(INFRA_PROVIDER) --from-literal=hcloud=$(HCLOUD_TOKEN) --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
@@ -245,7 +245,7 @@ create-workload-cluster-hcloud-packer: env-vars-for-wl-cluster $(KUSTOMIZE) $(EN
 	$(MAKE) install-cilium-in-wl-cluster
 	$(MAKE) install-ccm-in-wl-cluster PRIVATE_NETWORK=false
 
-create-workload-cluster-hcloud-network: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
+create-workload-cluster-hcloud-network: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster.
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN
 	$(KUBECTL) create secret generic $(INFRA_PROVIDER) --from-literal=hcloud=$(HCLOUD_TOKEN) --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
@@ -255,7 +255,7 @@ create-workload-cluster-hcloud-network: env-vars-for-wl-cluster $(KUSTOMIZE) $(E
 	$(MAKE) install-cilium-in-wl-cluster
 	$(MAKE) install-ccm-in-wl-cluster PRIVATE_NETWORK=true
 
-create-workload-cluster-hcloud-network-packer: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
+create-workload-cluster-hcloud-network-packer: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster.
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN
 	$(KUBECTL) create secret generic $(INFRA_PROVIDER) --from-literal=hcloud=$(HCLOUD_TOKEN) --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
@@ -265,7 +265,7 @@ create-workload-cluster-hcloud-network-packer: env-vars-for-wl-cluster $(KUSTOMI
 	$(MAKE) install-cilium-in-wl-cluster
 	$(MAKE) install-ccm-in-wl-cluster PRIVATE_NETWORK=true
 
-create-workload-cluster-hetzner-hcloud-control-plane: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
+create-workload-cluster-hetzner-hcloud-control-plane: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster.
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN HETZNER_ROBOT_USER HETZNER_ROBOT_PASSWORD HETZNER_SSH_PRIV_PATH HETZNER_SSH_PUB_PATH
 	$(KUBECTL) create secret generic $(INFRA_PROVIDER) --from-literal=hcloud=$(HCLOUD_TOKEN) --from-literal=robot-user=$(HETZNER_ROBOT_USER) --from-literal=robot-password=$(HETZNER_ROBOT_PASSWORD) --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
@@ -276,7 +276,7 @@ create-workload-cluster-hetzner-hcloud-control-plane: env-vars-for-wl-cluster $(
 	$(MAKE) install-cilium-in-wl-cluster
 	$(MAKE) install-ccm-in-wl-cluster PRIVATE_NETWORK=false
 
-create-workload-cluster-hetzner-baremetal-control-plane: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
+create-workload-cluster-hetzner-baremetal-control-plane: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster.
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN HETZNER_ROBOT_USER HETZNER_ROBOT_PASSWORD HETZNER_SSH_PRIV_PATH HETZNER_SSH_PUB_PATH
 	$(KUBECTL) create secret generic $(INFRA_PROVIDER) --from-literal=hcloud=$(HCLOUD_TOKEN) --from-literal=robot-user=$(HETZNER_ROBOT_USER) --from-literal=robot-password=$(HETZNER_ROBOT_PASSWORD) --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
@@ -287,7 +287,7 @@ create-workload-cluster-hetzner-baremetal-control-plane: env-vars-for-wl-cluster
 	$(MAKE) install-cilium-in-wl-cluster
 	$(MAKE) install-ccm-in-wl-cluster PRIVATE_NETWORK=false
 
-create-workload-cluster-hetzner-baremetal-control-plane-remediation: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster. ENV Variables need to be exported or defined in the tilt-settings.json
+create-workload-cluster-hetzner-baremetal-control-plane-remediation: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster.
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN HETZNER_ROBOT_USER HETZNER_ROBOT_PASSWORD HETZNER_SSH_PRIV_PATH HETZNER_SSH_PUB_PATH
 	$(KUBECTL) create secret generic $(INFRA_PROVIDER) --from-literal=hcloud=$(HCLOUD_TOKEN) --from-literal=robot-user=$(HETZNER_ROBOT_USER) --from-literal=robot-password=$(HETZNER_ROBOT_PASSWORD) --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
@@ -802,4 +802,3 @@ create-hetzner-installimage-tgz:
 	   echo "tgz must contain only one directory. And it must be 'hetzner-installimage'."; \
 	   exit 1; \
 	fi
-
