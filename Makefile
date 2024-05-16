@@ -120,7 +120,7 @@ $(CTLPTL):
 CLUSTERCTL := $(abspath $(TOOLS_BIN_DIR)/clusterctl)
 clusterctl: $(CLUSTERCTL) ## Build a local copy of clusterctl
 $(CLUSTERCTL):
-	curl -sSLf https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.7.1/clusterctl-$$(go env GOOS)-$$(go env GOARCH) -o $(CLUSTERCTL)
+	curl -sSLf https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.7.2/clusterctl-$$(go env GOOS)-$$(go env GOARCH) -o $(CLUSTERCTL)
 	chmod a+rx $(CLUSTERCTL)
 
 HELM := $(abspath $(TOOLS_BIN_DIR)/helm)
@@ -132,13 +132,13 @@ $(HELM):
 HCLOUD := $(abspath $(TOOLS_BIN_DIR)/hcloud)
 hcloud: $(HCLOUD) ## Build a local copy of hcloud
 $(HCLOUD):
-	curl -sSL https://github.com/hetznercloud/cli/releases/download/v1.42.0/hcloud-linux-amd64.tar.gz | tar xz -C $(TOOLS_BIN_DIR) hcloud
+	curl -sSL https://github.com/hetznercloud/cli/releases/download/v1.43.1/hcloud-linux-amd64.tar.gz | tar xz -C $(TOOLS_BIN_DIR) hcloud
 	chmod a+rx $(HCLOUD)
 
 KIND := $(abspath $(TOOLS_BIN_DIR)/kind)
 kind: $(KIND) ## Build a local copy of kind
 $(KIND):
-	go install sigs.k8s.io/kind@v0.22.0
+	go install sigs.k8s.io/kind@v0.23.0
 
 KUBECTL := $(abspath $(TOOLS_BIN_DIR)/kubectl)
 kubectl: $(KUBECTL) ## Build a local copy of kubectl
