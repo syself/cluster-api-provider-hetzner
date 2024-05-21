@@ -218,6 +218,11 @@ func (in *HCloudMachineStatus) DeepCopyInto(out *HCloudMachineStatus) {
 		*out = make([]apiv1beta1.MachineAddress, len(*in))
 		copy(*out, *in)
 	}
+	if in.SSHKeys != nil {
+		in, out := &in.SSHKeys, &out.SSHKeys
+		*out = make([]SSHKey, len(*in))
+		copy(*out, *in)
+	}
 	if in.InstanceState != nil {
 		in, out := &in.InstanceState, &out.InstanceState
 		*out = new(hcloud.ServerStatus)

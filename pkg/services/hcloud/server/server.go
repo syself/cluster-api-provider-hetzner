@@ -112,9 +112,11 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 
 	// update HCloudMachineStatus
 	c := s.scope.HCloudMachine.Status.Conditions.DeepCopy()
+	sshKeys := s.scope.HCloudMachine.Status.SSHKeys
 	s.scope.HCloudMachine.Status = statusFromHCloudServer(server)
 	s.scope.SetRegion(failureDomain)
 	s.scope.HCloudMachine.Status.Conditions = c
+	s.scope.HCloudMachine.Status.SSHKeys = sshKeys
 
 	// validate labels
 	if err := validateLabels(server, s.createLabels()); err != nil {
@@ -392,6 +394,27 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 		sshKeySpecs = s.scope.HetznerCluster.Spec.SSHKeys.HCloud
 	}
 
+	// always add ssh key from secret if one is found
+
+	// this code is redundant with a similar one on cluster level but is necessary if ClusterClass is used
+	// as in ClusterClass we cannot store anything in HetznerCluster object
+	sshKeyName := s.scope.HetznerSecret().Data[s.scope.HetznerCluster.Spec.HetznerSecret.Key.SSHKey]
+	if len(sshKeyName) > 0 {
+		// Check if the SSH key name already exists
+		keyExists := false
+		for _, key := range sshKeySpecs {
+			if string(sshKeyName) == key.Name {
+				keyExists = true
+				break
+			}
+		}
+
+		// If the SSH key name doesn't exist, append it
+		if !keyExists {
+			sshKeySpecs = append(sshKeySpecs, infrav1.SSHKey{Name: string(sshKeyName)})
+		}
+	}
+
 	// get all ssh keys that are stored in HCloud API
 	sshKeysAPI, err := s.scope.HCloudClient.ListSSHKeys(ctx, hcloud.SSHKeyListOpts{})
 	if err != nil {
@@ -452,6 +475,9 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 		)
 		return nil, fmt.Errorf("failed to create HCloud server %s: %w", s.scope.HCloudMachine.Name, err)
 	}
+
+	// set ssh keys to status
+	s.scope.HCloudMachine.Status.SSHKeys = sshKeySpecs
 
 	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.ServerCreateSucceededCondition)
 	record.Eventf(s.scope.HCloudMachine, "SuccessfulCreate", "Created new server %s with ID %d", server.Name, server.ID)
