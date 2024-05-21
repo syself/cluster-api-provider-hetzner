@@ -476,6 +476,8 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 
 	// set ssh keys to status
 	s.scope.HCloudMachine.Status.SSHKeys = sshKeySpecs
+	s.scope.HCloudMachine.Spec.SSHKeys = sshKeySpecs
+	s.scope.Info("sshkeys", "sshkeys in status", s.scope.HCloudMachine.Status.SSHKeys)
 
 	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.ServerCreateSucceededCondition)
 	record.Eventf(s.scope.HCloudMachine, "SuccessfulCreate", "Created new server %s with ID %d", server.Name, server.ID)
