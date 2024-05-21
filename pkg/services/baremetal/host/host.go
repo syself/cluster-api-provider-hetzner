@@ -1147,7 +1147,7 @@ func (s *Service) actionImageInstalling() actionResult {
 		record.Warn(s.scope.HetznerBareMetalHost, "RebootFailed", err.Error())
 		return actionError{err: fmt.Errorf("failed to reboot server: %w", err)}
 	}
-	createSSHRebootEvent(s.scope.HetznerBareMetalHost, "machine image was installed.")
+	createSSHRebootEvent(s.scope.HetznerBareMetalHost, "machine image was installed")
 
 	s.scope.Logger.Info("RebootAfterInstallimageSucceeded", "stdout", out.StdOut, "stderr", out.StdErr)
 
@@ -1557,7 +1557,7 @@ func (s *Service) checkCloudInitStatus(sshClient sshclient.Client) (actionResult
 			return actionError{err: fmt.Errorf("failed to reboot: %w", err)}, nil
 		}
 		s.scope.HetznerBareMetalHost.SetError(infrav1.ErrorTypeSSHRebootTriggered, "ssh reboot just triggered")
-		createSSHRebootEvent(s.scope.HetznerBareMetalHost, "cloud-init status was 'disabled'")
+		record.Event(s.scope.HetznerBareMetalHost, "SSHRebootAfterCloudInitStatusDisabled", "cloud-init status was 'disabled'")
 		return actionContinue{delay: 5 * time.Second}, nil
 	case strings.Contains(stdOut, "status: done"):
 
@@ -1600,7 +1600,8 @@ func (s *Service) handleCloudInitNotStarted() actionResult {
 		if err := handleSSHError(out); err != nil {
 			return actionError{err: fmt.Errorf("failed to reboot: %w", err)}
 		}
-		createSSHRebootEvent(s.scope.HetznerBareMetalHost, "CheckCloudInitLogsForSigTerm failed")
+		record.Eventf(s.scope.HetznerBareMetalHost,
+			"SSHRebootAfterCloudInitSigTermFound", "rebooted via ssh after cloud init logs contained sigterm: %s", trimLineBreak(out.StdOut))
 		return actionContinue{delay: 10 * time.Second}
 	}
 
@@ -1698,7 +1699,7 @@ func (s *Service) actionProvisioned() actionResult {
 			return actionError{err: err}
 		}
 
-		createSSHRebootEvent(s.scope.HetznerBareMetalHost, "annotation was set")
+		createSSHRebootEvent(s.scope.HetznerBareMetalHost, "reboot annotation was set")
 		s.scope.HetznerBareMetalHost.Spec.Status.Rebooted = true
 		return actionContinue{delay: 10 * time.Second}
 	}
