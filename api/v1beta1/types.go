@@ -126,7 +126,7 @@ type HetznerSecretKeyRef struct {
 	HetznerRobotPassword string `json:"hetznerRobotPassword"`
 	// SSHKey defines the name of the ssh key.
 	// +optional
-	// +kubebuilder:default=ssh-key
+	// +kubebuilder:default=hcloudsshkeyname
 	SSHKey string `json:"sshKey"`
 }
 
