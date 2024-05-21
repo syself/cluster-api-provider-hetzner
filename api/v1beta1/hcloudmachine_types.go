@@ -71,6 +71,9 @@ type HCloudMachineStatus struct {
 	// Region contains the name of the HCloud location the server is running.
 	Region Region `json:"region,omitempty"`
 
+	// SSHKeys specifies the ssh keys that were used for provisioning the server.
+	SSHKeys []SSHKey `json:"sshKeys,omitempty"`
+
 	// InstanceState is the state of the server for this machine.
 	// +optional
 	InstanceState *hcloud.ServerStatus `json:"instanceState,omitempty"`

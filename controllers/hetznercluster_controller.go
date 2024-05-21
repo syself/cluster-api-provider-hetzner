@@ -173,6 +173,12 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterScope *scope.ClusterScope) (ctrl.Result, error) {
 	hetznerCluster := clusterScope.HetznerCluster
 
+	// If the HetznerCluster doesn't have our finalizer, add it.
+	controllerutil.AddFinalizer(hetznerCluster, infrav1.ClusterFinalizer)
+	if err := clusterScope.PatchObject(ctx); err != nil {
+		return reconcile.Result{}, err
+	}
+
 	// write ssh key name from secret to spec of HetznerCluster if it is specified
 	sshKeyName := clusterScope.HetznerSecret().Data[hetznerCluster.Spec.HetznerSecret.Key.SSHKey]
 	if len(sshKeyName) > 0 {
@@ -188,19 +194,16 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 		// If the SSH key name doesn't exist, append it
 		if !keyExists {
 			hetznerCluster.Spec.SSHKeys.HCloud = append(hetznerCluster.Spec.SSHKeys.HCloud, infrav1.SSHKey{Name: string(sshKeyName)})
-			record.Eventf(
-				hetznerCluster,
-				"SSHKeyNameAddedFromHetznerSecret", "added the ssh key %q from the hetzner secret specified under key %q",
-				string(sshKeyName),
-				hetznerCluster.Spec.HetznerSecret.Key.SSHKey,
-			)
+			// in case of a clusterclass we cannot overwrite it and just store it for this reconcile loop. Therefore no event.
+			if clusterScope.Cluster.Spec.Topology == nil {
+				record.Eventf(
+					hetznerCluster,
+					"SSHKeyNameAddedFromHetznerSecret", "added the ssh key %q from the hetzner secret specified under key %q",
+					string(sshKeyName),
+					hetznerCluster.Spec.HetznerSecret.Key.SSHKey,
+				)
+			}
 		}
-	}
-
-	// If the HetznerCluster doesn't have our finalizer, add it.
-	controllerutil.AddFinalizer(hetznerCluster, infrav1.ClusterFinalizer)
-	if err := clusterScope.PatchObject(ctx); err != nil {
-		return reconcile.Result{}, err
 	}
 
 	// set failure domains in status using information in spec

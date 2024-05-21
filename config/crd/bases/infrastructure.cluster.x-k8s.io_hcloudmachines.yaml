@@ -250,6 +250,24 @@ spec:
                 - ash
                 - hil
                 type: string
+              sshKeys:
+                description: SSHKeys specifies the ssh keys that were used for provisioning
+                  the server.
+                items:
+                  description: SSHKey defines the SSHKey for HCloud.
+                  properties:
+                    fingerprint:
+                      description: Fingerprint defines the fingerprint of the SSH
+                        key - added by the controller.
+                      type: string
+                    name:
+                      description: Name defines the name of the SSH key.
+                      minLength: 1
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
             type: object
         type: object
     served: true

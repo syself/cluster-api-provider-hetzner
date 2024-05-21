@@ -453,6 +453,9 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 		return nil, fmt.Errorf("failed to create HCloud server %s: %w", s.scope.HCloudMachine.Name, err)
 	}
 
+	// set ssh keys to status
+	s.scope.HCloudMachine.Status.SSHKeys = sshKeySpecs
+
 	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.ServerCreateSucceededCondition)
 	record.Eventf(s.scope.HCloudMachine, "SuccessfulCreate", "Created new server %s with ID %d", server.Name, server.ID)
 	return server, nil
