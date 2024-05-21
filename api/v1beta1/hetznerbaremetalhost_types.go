@@ -180,7 +180,21 @@ const (
 	RebootTypeHardware RebootType = "hw"
 	// RebootTypeManual defines the manual reboot. "Order a manual power cycle".
 	RebootTypeManual RebootType = "man"
+	// RebootTypeSSH defines the ssh reboot. This is done via caph, not via the robot-API.
+	RebootTypeSSH RebootType = "ssh"
 )
+
+// VerboseRebootType returns the verbose namem of a reboot Type.
+// The string is CamelCase.
+func VerboseRebootType(rebootType RebootType) string {
+	return map[RebootType]string{
+		RebootTypePower:    "Power",
+		RebootTypeSoftware: "Software",
+		RebootTypeHardware: "Hardware",
+		RebootTypeManual:   "Manual",
+		RebootTypeSSH:      "SSH",
+	}[rebootType]
+}
 
 // RebootAnnotationArguments defines the arguments of the RebootAnnotation type.
 type RebootAnnotationArguments struct {
