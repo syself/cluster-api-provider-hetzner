@@ -29,6 +29,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/stoewer/go-strcase"
 	"github.com/syself/hrobot-go/models"
 	"golang.org/x/crypto/ssh"
 	corev1 "k8s.io/api/core/v1"
@@ -225,11 +226,11 @@ func (s *Service) actionPreparing() actionResult {
 		if err := handleSSHError(sshClient.Reboot()); err != nil {
 			return actionError{err: fmt.Errorf("failed to reboot server via ssh: %w", err)}
 		}
-		msg := fmt.Sprintf("Phase %s: Rebooting via ssh into rescue mode.",
-			s.scope.HetznerBareMetalHost.Spec.Status.ProvisioningState)
-		record.Eventf(s.scope.HetznerBareMetalHost, "RebootBMServer", msg)
+		msg := "Rebooting into rescue mode."
+		createSSHRebootEvent(s.scope.HetznerBareMetalHost, msg)
 		// we immediately set an error message in the host status to track the reboot we just performed
-		s.scope.HetznerBareMetalHost.SetError(infrav1.ErrorTypeSSHRebootTriggered, msg)
+		s.scope.HetznerBareMetalHost.SetError(infrav1.ErrorTypeSSHRebootTriggered, fmt.Sprintf("Phase %s, reboot via ssh: %s",
+			s.scope.HetznerBareMetalHost.Spec.Status.ProvisioningState, msg))
 		return actionComplete{}
 	}
 
@@ -241,9 +242,7 @@ func (s *Service) actionPreparing() actionResult {
 		return actionError{err: fmt.Errorf(errMsgFailedReboot, err)}
 	}
 
-	msg := fmt.Sprintf("Phase %s: Reboot into rescue system via rebootType %q.",
-		s.scope.HetznerBareMetalHost.Spec.Status.ProvisioningState, rebootType)
-	record.Eventf(s.scope.HetznerBareMetalHost, "RebootBMServer", msg)
+	msg := createRebootEvent(s.scope.HetznerBareMetalHost, rebootType, "Reboot into rescue system.")
 	// we immediately set an error message in the host status to track the reboot we just performed
 	s.scope.HetznerBareMetalHost.SetError(errorType, msg)
 	return actionComplete{}
@@ -416,9 +415,9 @@ func (s *Service) handleErrorTypeSSHRebootFailed(isSSHTimeoutError, wantsRescue 
 			s.handleRobotRateLimitExceeded(err, rebootServerStr)
 			return fmt.Errorf(errMsgFailedReboot, err)
 		}
-		msg := fmt.Sprintf("Phase %s: Reboot via ssh into %s failed. Now using rebootType %q.",
-			s.scope.HetznerBareMetalHost.Spec.Status.ProvisioningState, rebootInto, rebootType)
-		record.Eventf(s.scope.HetznerBareMetalHost, "RebootBMServer", msg)
+		msg := fmt.Sprintf("Reboot via ssh into %s failed. Now using rebootType %q.",
+			rebootInto, rebootType)
+		msg = createRebootEvent(s.scope.HetznerBareMetalHost, rebootType, msg)
 		// we immediately set an error message in the host status to track the reboot we just performed
 		s.scope.HetznerBareMetalHost.SetError(errorType, msg)
 	}
@@ -463,9 +462,9 @@ func (s *Service) handleErrorTypeSoftwareRebootFailed(isSSHTimeoutError, wantsRe
 			s.handleRobotRateLimitExceeded(err, rebootServerStr)
 			return fmt.Errorf(errMsgFailedReboot, err)
 		}
-		msg := fmt.Sprintf("Phase %s: Reboot via type 'software' into %s failed. Now using rebootType %q.",
-			s.scope.HetznerBareMetalHost.Spec.Status.ProvisioningState, rebootInto, infrav1.RebootTypeHardware)
-		record.Eventf(s.scope.HetznerBareMetalHost, "RebootBMServer", msg)
+		msg := fmt.Sprintf("Reboot via type 'software' into %s failed. Now using rebootType %q.",
+			rebootInto, infrav1.RebootTypeHardware)
+		msg = createRebootEvent(s.scope.HetznerBareMetalHost, infrav1.RebootTypeHardware, msg)
 		// we immediately set an error message in the host status to track the reboot we just performed
 		s.scope.HetznerBareMetalHost.SetError(infrav1.ErrorTypeHardwareRebootTriggered, msg)
 	}
@@ -499,9 +498,9 @@ func (s *Service) handleErrorTypeHardwareRebootFailed(isSSHTimeoutError, wantsRe
 			s.handleRobotRateLimitExceeded(err, rebootServerStr)
 			return fmt.Errorf(errMsgFailedReboot, err)
 		}
-		msg := fmt.Sprintf("Phase %s: Reboot via ssh into %s failed. Now using rebootType %q.",
-			s.scope.HetznerBareMetalHost.Spec.Status.ProvisioningState, rebootInto, infrav1.RebootTypeHardware)
-		record.Eventf(s.scope.HetznerBareMetalHost, "RebootBMServer", msg)
+		msg := fmt.Sprintf("Reboot via ssh into %s failed. Now using rebootType %q.",
+			rebootInto, infrav1.RebootTypeHardware)
+		createRebootEvent(s.scope.HetznerBareMetalHost, infrav1.RebootTypeHardware, msg)
 	}
 	return nil
 }
@@ -1148,8 +1147,7 @@ func (s *Service) actionImageInstalling() actionResult {
 		record.Warn(s.scope.HetznerBareMetalHost, "RebootFailed", err.Error())
 		return actionError{err: fmt.Errorf("failed to reboot server: %w", err)}
 	}
-	record.Eventf(s.scope.HetznerBareMetalHost, "RebootBMServer", "Phase %s: reboot via ssh into node (after machine image was installed)",
-		s.scope.HetznerBareMetalHost.Spec.Status.ProvisioningState)
+	createSSHRebootEvent(s.scope.HetznerBareMetalHost, "machine image was installed.")
 
 	s.scope.Logger.Info("RebootAfterInstallimageSucceeded", "stdout", out.StdOut, "stderr", out.StdErr)
 
@@ -1345,6 +1343,7 @@ func (s *Service) provision(sshClient sshclient.Client) actionResult {
 	if err := handleSSHError(sshClient.Reboot()); err != nil {
 		return actionError{err: fmt.Errorf("failed to reboot: %w", err)}
 	}
+	createSSHRebootEvent(s.scope.HetznerBareMetalHost, "UserData of cloud-init was created")
 	return nil
 }
 
@@ -1558,6 +1557,7 @@ func (s *Service) checkCloudInitStatus(sshClient sshclient.Client) (actionResult
 			return actionError{err: fmt.Errorf("failed to reboot: %w", err)}, nil
 		}
 		s.scope.HetznerBareMetalHost.SetError(infrav1.ErrorTypeSSHRebootTriggered, "ssh reboot just triggered")
+		createSSHRebootEvent(s.scope.HetznerBareMetalHost, "cloud-init status was 'disabled'")
 		return actionContinue{delay: 5 * time.Second}, nil
 	case strings.Contains(stdOut, "status: done"):
 
@@ -1600,6 +1600,7 @@ func (s *Service) handleCloudInitNotStarted() actionResult {
 		if err := handleSSHError(out); err != nil {
 			return actionError{err: fmt.Errorf("failed to reboot: %w", err)}
 		}
+		createSSHRebootEvent(s.scope.HetznerBareMetalHost, "CheckCloudInitLogsForSigTerm failed")
 		return actionContinue{delay: 10 * time.Second}
 	}
 
@@ -1697,8 +1698,7 @@ func (s *Service) actionProvisioned() actionResult {
 			return actionError{err: err}
 		}
 
-		record.Eventf(s.scope.HetznerBareMetalHost, "RebootBMServer", "Phase %s: rebooting via type ssh (because reboot annotation was set).",
-			s.scope.HetznerBareMetalHost.Spec.Status.ProvisioningState)
+		createSSHRebootEvent(s.scope.HetznerBareMetalHost, "annotation was set")
 		s.scope.HetznerBareMetalHost.Spec.Status.Rebooted = true
 		return actionContinue{delay: 10 * time.Second}
 	}
@@ -1783,4 +1783,18 @@ func markProvisionPending(host *infrav1.HetznerBareMetalHost, state infrav1.Prov
 		clusterv1.ConditionSeverityInfo,
 		"host is still provisioning - state %q", state,
 	)
+}
+
+func createSSHRebootEvent(host *infrav1.HetznerBareMetalHost, msg string) {
+	createRebootEvent(host, infrav1.RebootTypeSSH, msg)
+}
+
+func createRebootEvent(host *infrav1.HetznerBareMetalHost, rebootType infrav1.RebootType, msg string) string {
+	verboseRebootType := infrav1.VerboseRebootType(rebootType)
+	reason := fmt.Sprintf("RebootBMServerVia%sProvisioningState%s",
+		verboseRebootType,
+		strcase.UpperCamelCase(string(host.Spec.Status.ProvisioningState)))
+	msg = fmt.Sprintf("Phase %s, reboot via %s: %s", host.Spec.Status.ProvisioningState, verboseRebootType, msg)
+	record.Eventf(host, reason, msg)
+	return msg
 }
