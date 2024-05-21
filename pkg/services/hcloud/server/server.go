@@ -392,6 +392,27 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 		sshKeySpecs = s.scope.HetznerCluster.Spec.SSHKeys.HCloud
 	}
 
+	// always add ssh key from secret if one is found
+
+	// this code is redundant with a similar one on cluster level but is necessary if ClusterClass is used
+	// as in ClusterClass we cannot store anything in HetznerCluster object
+	sshKeyName := s.scope.HetznerSecret().Data[s.scope.HetznerCluster.Spec.HetznerSecret.Key.SSHKey]
+	if len(sshKeyName) > 0 {
+		// Check if the SSH key name already exists
+		keyExists := false
+		for _, key := range sshKeySpecs {
+			if string(sshKeyName) == key.Name {
+				keyExists = true
+				break
+			}
+		}
+
+		// If the SSH key name doesn't exist, append it
+		if !keyExists {
+			sshKeySpecs = append(sshKeySpecs, infrav1.SSHKey{Name: string(sshKeyName)})
+		}
+	}
+
 	// get all ssh keys that are stored in HCloud API
 	sshKeysAPI, err := s.scope.HCloudClient.ListSSHKeys(ctx, hcloud.SSHKeyListOpts{})
 	if err != nil {

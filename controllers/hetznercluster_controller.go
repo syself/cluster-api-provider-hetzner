@@ -179,33 +179,6 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 		return reconcile.Result{}, err
 	}
 
-	// write ssh key name from secret to spec of HetznerCluster if it is specified
-	sshKeyName := clusterScope.HetznerSecret().Data[hetznerCluster.Spec.HetznerSecret.Key.SSHKey]
-	if len(sshKeyName) > 0 {
-		// Check if the SSH key name already exists
-		keyExists := false
-		for _, key := range hetznerCluster.Spec.SSHKeys.HCloud {
-			if string(sshKeyName) == key.Name {
-				keyExists = true
-				break
-			}
-		}
-
-		// If the SSH key name doesn't exist, append it
-		if !keyExists {
-			hetznerCluster.Spec.SSHKeys.HCloud = append(hetznerCluster.Spec.SSHKeys.HCloud, infrav1.SSHKey{Name: string(sshKeyName)})
-			// in case of a clusterclass we cannot overwrite it and just store it for this reconcile loop. Therefore no event.
-			if clusterScope.Cluster.Spec.Topology == nil {
-				record.Eventf(
-					hetznerCluster,
-					"SSHKeyNameAddedFromHetznerSecret", "added the ssh key %q from the hetzner secret specified under key %q",
-					string(sshKeyName),
-					hetznerCluster.Spec.HetznerSecret.Key.SSHKey,
-				)
-			}
-		}
-	}
-
 	// set failure domains in status using information in spec
 	clusterScope.SetStatusFailureDomain(clusterScope.GetSpecRegion())
 
