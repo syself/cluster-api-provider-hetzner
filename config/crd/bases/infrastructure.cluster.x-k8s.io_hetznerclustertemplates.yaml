@@ -290,7 +290,7 @@ spec:
                                   API is stored.
                                 type: string
                               sshKey:
-                                default: ssh-key
+                                default: hcloud-ssh-key-name
                                 description: SSHKey defines the name of the ssh key.
                                 type: string
                             type: object
