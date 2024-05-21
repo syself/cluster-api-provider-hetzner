@@ -112,9 +112,11 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 
 	// update HCloudMachineStatus
 	c := s.scope.HCloudMachine.Status.Conditions.DeepCopy()
+	sshKeys := s.scope.HCloudMachine.Status.SSHKeys
 	s.scope.HCloudMachine.Status = statusFromHCloudServer(server)
 	s.scope.SetRegion(failureDomain)
 	s.scope.HCloudMachine.Status.Conditions = c
+	s.scope.HCloudMachine.Status.SSHKeys = sshKeys
 
 	// validate labels
 	if err := validateLabels(server, s.createLabels()); err != nil {
@@ -476,8 +478,6 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 
 	// set ssh keys to status
 	s.scope.HCloudMachine.Status.SSHKeys = sshKeySpecs
-	s.scope.HCloudMachine.Spec.SSHKeys = sshKeySpecs
-	s.scope.Info("sshkeys", "sshkeys in status", s.scope.HCloudMachine.Status.SSHKeys)
 
 	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.ServerCreateSucceededCondition)
 	record.Eventf(s.scope.HCloudMachine, "SuccessfulCreate", "Created new server %s with ID %d", server.Name, server.ID)
