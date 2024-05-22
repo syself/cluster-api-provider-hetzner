@@ -110,7 +110,7 @@ func (s *Service) Reconcile(ctx context.Context) (result reconcile.Result, err e
 		// save host if it changed during reconciliation
 		if !reflect.DeepEqual(oldHost, s.scope.HetznerBareMetalHost) {
 			saveResult, saveErr := SaveHostAndReturn(ctx, s.scope.Client, s.scope.HetznerBareMetalHost)
-			err := errors.Join(err, saveErr)
+			err = errors.Join(err, saveErr)
 			if err != nil {
 				result = reconcile.Result{}
 			} else if saveResult.Requeue {
