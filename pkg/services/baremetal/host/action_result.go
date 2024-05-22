@@ -57,6 +57,7 @@ func (r actionContinue) Result() (result reconcile.Result, err error) {
 type actionComplete struct{}
 
 func (actionComplete) Result() (result reconcile.Result, err error) {
+	// One phase is done. Go to the next phase in the next reconcile.
 	result.Requeue = true
 	return result, nil
 }
