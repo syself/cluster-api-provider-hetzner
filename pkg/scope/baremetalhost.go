@@ -36,16 +36,17 @@ import (
 
 // BareMetalHostScopeParams defines the input parameters used to create a new scope.
 type BareMetalHostScopeParams struct {
-	Client               client.Client
-	Logger               logr.Logger
-	HetznerBareMetalHost *infrav1.HetznerBareMetalHost
-	HetznerCluster       *infrav1.HetznerCluster
-	Cluster              *clusterv1.Cluster
-	RobotClient          robotclient.Client
-	SSHClientFactory     sshclient.Factory
-	OSSSHSecret          *corev1.Secret
-	RescueSSHSecret      *corev1.Secret
-	SecretManager        *secretutil.SecretManager
+	Client                  client.Client
+	Logger                  logr.Logger
+	HetznerBareMetalHost    *infrav1.HetznerBareMetalHost
+	HetznerBareMetalMachine *infrav1.HetznerBareMetalMachine
+	HetznerCluster          *infrav1.HetznerCluster
+	Cluster                 *clusterv1.Cluster
+	RobotClient             robotclient.Client
+	SSHClientFactory        sshclient.Factory
+	OSSSHSecret             *corev1.Secret
+	RescueSSHSecret         *corev1.Secret
+	SecretManager           *secretutil.SecretManager
 }
 
 // NewBareMetalHostScope creates a new Scope from the supplied parameters.
@@ -79,31 +80,33 @@ func NewBareMetalHostScope(params BareMetalHostScopeParams) (*BareMetalHostScope
 	}
 
 	return &BareMetalHostScope{
-		Logger:               params.Logger,
-		Client:               params.Client,
-		RobotClient:          params.RobotClient,
-		SSHClientFactory:     params.SSHClientFactory,
-		HetznerCluster:       params.HetznerCluster,
-		Cluster:              params.Cluster,
-		HetznerBareMetalHost: params.HetznerBareMetalHost,
-		OSSSHSecret:          params.OSSSHSecret,
-		RescueSSHSecret:      params.RescueSSHSecret,
-		SecretManager:        params.SecretManager,
+		Logger:                  params.Logger,
+		Client:                  params.Client,
+		RobotClient:             params.RobotClient,
+		SSHClientFactory:        params.SSHClientFactory,
+		HetznerCluster:          params.HetznerCluster,
+		Cluster:                 params.Cluster,
+		HetznerBareMetalHost:    params.HetznerBareMetalHost,
+		HetznerBareMetalMachine: params.HetznerBareMetalMachine,
+		OSSSHSecret:             params.OSSSHSecret,
+		RescueSSHSecret:         params.RescueSSHSecret,
+		SecretManager:           params.SecretManager,
 	}, nil
 }
 
 // BareMetalHostScope defines the basic context for an actuator to operate upon.
 type BareMetalHostScope struct {
 	logr.Logger
-	Client               client.Client
-	SecretManager        *secretutil.SecretManager
-	RobotClient          robotclient.Client
-	SSHClientFactory     sshclient.Factory
-	HetznerBareMetalHost *infrav1.HetznerBareMetalHost
-	HetznerCluster       *infrav1.HetznerCluster
-	Cluster              *clusterv1.Cluster
-	OSSSHSecret          *corev1.Secret
-	RescueSSHSecret      *corev1.Secret
+	Client                  client.Client
+	SecretManager           *secretutil.SecretManager
+	RobotClient             robotclient.Client
+	SSHClientFactory        sshclient.Factory
+	HetznerBareMetalHost    *infrav1.HetznerBareMetalHost
+	HetznerBareMetalMachine *infrav1.HetznerBareMetalMachine
+	HetznerCluster          *infrav1.HetznerCluster
+	Cluster                 *clusterv1.Cluster
+	OSSSHSecret             *corev1.Secret
+	RescueSSHSecret         *corev1.Secret
 }
 
 // Name returns the HetznerCluster name.
@@ -148,5 +151,6 @@ func (s *BareMetalHostScope) Hostname() (hostname string) {
 }
 
 func (s *BareMetalHostScope) hasConstantHostname() bool {
-	return s.Cluster.GetAnnotations()[infrav1.ConstantBareMetalHostnameAnnotation] == "true"
+	return s.Cluster.GetAnnotations()[infrav1.ConstantBareMetalHostnameAnnotation] == "true" ||
+		s.HetznerBareMetalMachine != nil && s.HetznerBareMetalMachine.GetAnnotations()[infrav1.ConstantBareMetalHostnameAnnotation] == "true"
 }

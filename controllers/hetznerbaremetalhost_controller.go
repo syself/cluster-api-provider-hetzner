@@ -121,6 +121,21 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 
 	log = log.WithValues("Cluster", klog.KObj(cluster))
 
+	hetznerBareMetalMachine := &infrav1.HetznerBareMetalMachine{}
+
+	if bmHost.Spec.ConsumerRef != nil {
+		name := client.ObjectKey{
+			Namespace: bmHost.Spec.ConsumerRef.Namespace,
+			Name:      bmHost.Spec.ConsumerRef.Name,
+		}
+
+		if err := r.Client.Get(ctx, name, hetznerBareMetalMachine); err != nil {
+			return reconcile.Result{}, fmt.Errorf("failed to get HetznerBareMetalMachine: %w", err)
+		}
+	}
+
+	log = log.WithValues("HetznerBareMetalMachine", klog.KObj(hetznerBareMetalMachine))
+
 	ctx = ctrl.LoggerInto(ctx, log)
 
 	// Get Hetzner robot api credentials
@@ -141,16 +156,17 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 
 	// Create the scope.
 	hostScope, err := scope.NewBareMetalHostScope(scope.BareMetalHostScopeParams{
-		Logger:               log,
-		Client:               r.Client,
-		HetznerCluster:       hetznerCluster,
-		Cluster:              cluster,
-		HetznerBareMetalHost: bmHost,
-		RobotClient:          r.RobotClientFactory.NewClient(robotCreds),
-		SSHClientFactory:     r.SSHClientFactory,
-		OSSSHSecret:          osSSHSecret,
-		RescueSSHSecret:      rescueSSHSecret,
-		SecretManager:        secretManager,
+		Logger:                  log,
+		Client:                  r.Client,
+		HetznerCluster:          hetznerCluster,
+		Cluster:                 cluster,
+		HetznerBareMetalHost:    bmHost,
+		HetznerBareMetalMachine: hetznerBareMetalMachine,
+		RobotClient:             r.RobotClientFactory.NewClient(robotCreds),
+		SSHClientFactory:        r.SSHClientFactory,
+		OSSSHSecret:             osSSHSecret,
+		RescueSSHSecret:         rescueSSHSecret,
+		SecretManager:           secretManager,
 	})
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %w", err)
