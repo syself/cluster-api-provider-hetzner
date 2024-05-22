@@ -709,5 +709,168 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				Expect(testEnv.Update(ctx, bmMachine)).NotTo(Succeed())
 			})
 		})
+
+		Context("validate create", func() {
+			var (
+				hbmmt  *infrav1.HetznerBareMetalMachineTemplate
+				testNs *corev1.Namespace
+			)
+			BeforeEach(func() {
+				var err error
+				testNs, err = testEnv.CreateNamespace(ctx, "hcloudmachine-validation")
+				Expect(err).NotTo(HaveOccurred())
+
+				hbmmt = &infrav1.HetznerBareMetalMachineTemplate{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      bmMachineName,
+						Namespace: testNs.Name,
+						Labels: map[string]string{
+							clusterv1.ClusterNameLabel: capiCluster.Name,
+						},
+					},
+					Spec: infrav1.HetznerBareMetalMachineTemplateSpec{
+						Template: infrav1.HetznerBareMetalMachineTemplateResource{
+							Spec: getDefaultHetznerBareMetalMachineSpec(),
+						},
+					},
+				}
+
+			})
+
+			AfterEach(func() {
+				Expect(testEnv.Cleanup(ctx, testNs, hbmmt)).To(Succeed())
+			})
+
+			It("should allow creation of hbmmt", func() {
+				Expect(testEnv.Create(ctx, hbmmt)).To(Succeed())
+			})
+
+		})
+
+		Context("validate update", func() {
+			var (
+				hbmmt  *infrav1.HetznerBareMetalMachineTemplate
+				testNs *corev1.Namespace
+			)
+			BeforeEach(func() {
+				var err error
+				testNs, err = testEnv.CreateNamespace(ctx, "hcloudmachine-validation")
+				Expect(err).NotTo(HaveOccurred())
+
+				hbmmt = &infrav1.HetznerBareMetalMachineTemplate{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      bmMachineName,
+						Namespace: testNs.Name,
+						Labels: map[string]string{
+							clusterv1.ClusterNameLabel: capiCluster.Name,
+						},
+					},
+					Spec: infrav1.HetznerBareMetalMachineTemplateSpec{
+						Template: infrav1.HetznerBareMetalMachineTemplateResource{
+							Spec: getDefaultHetznerBareMetalMachineSpec(),
+						},
+					},
+				}
+				Expect(testEnv.Client.Create(ctx, hbmmt)).To(Succeed())
+
+				key = client.ObjectKey{Namespace: testNs.Name, Name: hbmmt.Name}
+				Eventually(func() error {
+					return testEnv.Client.Get(ctx, key, hbmmt)
+				}, timeout, time.Second).Should(BeNil())
+
+			})
+
+			AfterEach(func() {
+				Expect(testEnv.Cleanup(ctx, testNs, hbmmt)).To(Succeed())
+			})
+
+			It("should not allow update of InstallImage", func() {
+				Expect(testEnv.Get(ctx, key, hbmmt)).To(Succeed())
+
+				hbmmt.Spec = infrav1.HetznerBareMetalMachineTemplateSpec{
+					Template: infrav1.HetznerBareMetalMachineTemplateResource{
+						Spec: infrav1.HetznerBareMetalMachineSpec{
+							InstallImage: infrav1.InstallImage{
+								Image: infrav1.Image{
+									Name: "ubuntu-20.04",
+									URL:  "https://example.com/ubuntu-20.04.tar.gz",
+								},
+								Partitions: []infrav1.Partition{
+									{
+										Mount:      "/",
+										FileSystem: "ext4",
+										Size:       "10GiB",
+									},
+								},
+							},
+						},
+					},
+				}
+				Expect(testEnv.Client.Update(ctx, hbmmt)).ToNot(Succeed())
+
+			})
+
+			It("should not allow update of SSHSpec", func() {
+				Expect(testEnv.Get(ctx, key, hbmmt)).To(Succeed())
+
+				hbmmt.Spec = infrav1.HetznerBareMetalMachineTemplateSpec{
+					Template: infrav1.HetznerBareMetalMachineTemplateResource{
+						Spec: infrav1.HetznerBareMetalMachineSpec{
+							SSHSpec: infrav1.SSHSpec{
+								SecretRef: infrav1.SSHSecretRef{
+									Name: "ssh-secret-new",
+									Key: infrav1.SSHSecretKeyRef{
+										Name:       "ssh-key-name-new",
+										PublicKey:  "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC",
+										PrivateKey: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC",
+									},
+								},
+								PortAfterInstallImage: 2222,
+								PortAfterCloudInit:    2222,
+							},
+						},
+					},
+				}
+				Expect(testEnv.Client.Update(ctx, hbmmt)).ToNot(Succeed())
+
+			})
+
+			It("should not allow update of Host Selectors", func() {
+				Expect(testEnv.Get(ctx, key, hbmmt)).To(Succeed())
+
+				hbmmt.Spec = infrav1.HetznerBareMetalMachineTemplateSpec{
+					Template: infrav1.HetznerBareMetalMachineTemplateResource{
+						Spec: infrav1.HetznerBareMetalMachineSpec{
+							HostSelector: infrav1.HostSelector{
+								MatchLabels: map[string]string{
+									"key3": "value3",
+								},
+								MatchExpressions: []infrav1.HostSelectorRequirement{
+									{
+										Key:      "key4",
+										Operator: selection.In,
+										Values:   []string{"value4"},
+									},
+								},
+							},
+						},
+					},
+				}
+				Expect(testEnv.Client.Update(ctx, hbmmt)).ToNot(Succeed())
+
+			})
+
+			It("should allow update of mutable fields", func() {
+				Expect(testEnv.Get(ctx, key, hbmmt)).To(Succeed())
+
+				if hbmmt.ObjectMeta.Annotations == nil {
+					hbmmt.ObjectMeta.Annotations = make(map[string]string)
+				}
+				hbmmt.ObjectMeta.Annotations["test"] = "should_succeed"
+				Expect(testEnv.Client.Update(ctx, hbmmt)).To(Succeed())
+
+			})
+
+		})
 	})
 })
