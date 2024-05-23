@@ -30,17 +30,18 @@ spec:
     wwn: "0x500a075111968d25"
   maintenanceMode: false
   description: Test Machine 3
----
-apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
-kind: HetznerBareMetalHost
-metadata:
-  name: "bm-4"
-spec:
-  serverID: 1731561
-  rootDeviceHints:
-    wwn: "0x500a075119615dc2"
-  maintenanceMode: false
-  description: Test Machine 4
+# --- We deactived bm-4 since it can't reach the rescue system.
+#     We enable it again, if we solved the issue.
+# apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+# kind: HetznerBareMetalHost
+# metadata:
+#   name: "bm-4"
+# spec:
+#   serverID: 1731561
+#   rootDeviceHints:
+#     wwn: "0x500a075119615dc2"
+#   maintenanceMode: false
+#   description: Test Machine 4
 # ---
 # apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 # kind: HetznerBareMetalHost

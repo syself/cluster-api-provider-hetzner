@@ -38,6 +38,7 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/record"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -109,10 +110,11 @@ func (s *Service) Reconcile(ctx context.Context) (result reconcile.Result, err e
 		// save host if it changed during reconciliation
 		if !reflect.DeepEqual(oldHost, s.scope.HetznerBareMetalHost) {
 			saveResult, saveErr := SaveHostAndReturn(ctx, s.scope.Client, s.scope.HetznerBareMetalHost)
-			emptyResult := reconcile.Result{}
-			if result == emptyResult && err == nil {
+			err = errors.Join(err, saveErr)
+			if err != nil {
+				result = reconcile.Result{}
+			} else if saveResult.Requeue {
 				result = saveResult
-				err = saveErr
 			}
 		}
 	}()
@@ -141,6 +143,8 @@ func SaveHostAndReturn(ctx context.Context, cl client.Client, host *infrav1.Hetz
 
 	if err := cl.Update(ctx, host); err != nil {
 		if apierrors.IsConflict(err) {
+			log := ctrl.LoggerFrom(ctx)
+			log.V(1).Info("conflict error. Retrying", "err", err)
 			return reconcile.Result{Requeue: true}, nil
 		}
 		return reconcile.Result{}, fmt.Errorf("failed to update host object: %w", err)
