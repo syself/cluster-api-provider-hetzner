@@ -52,7 +52,7 @@ const (
 	rebootWaitTime       time.Duration = 15 * time.Second
 	sshResetTimeout      time.Duration = 5 * time.Minute
 	softwareResetTimeout time.Duration = 5 * time.Minute
-	hardwareResetTimeout time.Duration = 60 * time.Minute
+	hardwareResetTimeout time.Duration = 5 * time.Minute
 	rescue               string        = "rescue"
 	rescuePort           int           = 22
 	gbToMebiBytes        int           = 1000
@@ -398,7 +398,7 @@ func (s *Service) handleIncompleteBoot(isRebootIntoRescue, isTimeout, isConnecti
 		return false, s.handleErrorTypeSoftwareRebootFailed(isTimeout, isRebootIntoRescue)
 
 	case infrav1.ErrorTypeHardwareRebootTriggered:
-		return false, s.handleErrorTypeHardwareRebootFailed(isTimeout, isRebootIntoRescue)
+		return s.handleErrorTypeHardwareRebootFailed(isTimeout, isRebootIntoRescue)
 	}
 
 	return false, fmt.Errorf("%w: %s", errUnexpectedErrorType, s.scope.HetznerBareMetalHost.Spec.Status.ErrorType)
@@ -485,7 +485,8 @@ func (s *Service) handleErrorTypeSoftwareRebootFailed(isSSHTimeoutError, wantsRe
 	return nil
 }
 
-func (s *Service) handleErrorTypeHardwareRebootFailed(isSSHTimeoutError, wantsRescue bool) error {
+// handleErrorTypeHardwareRebootFailed deals with hardware reboot failed cases and returns whether we should fail the process.
+func (s *Service) handleErrorTypeHardwareRebootFailed(isSSHTimeoutError, wantsRescue bool) (bool, error) {
 	rebootInto := "node"
 	if wantsRescue {
 		rebootInto = "rescue mode"
@@ -494,11 +495,11 @@ func (s *Service) handleErrorTypeHardwareRebootFailed(isSSHTimeoutError, wantsRe
 	// right hostname. This means that the server has not been rebooted and we need to escalate.
 	// If we got a timeout error from ssh, it means that the server has not yet finished rebooting.
 	// If the timeout for hardware reboots has been reached, then escalate.
-	if !isSSHTimeoutError || hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated, hardwareResetTimeout) {
+	if !isSSHTimeoutError {
 		if wantsRescue {
 			// make sure hat we boot into rescue mode if that is necessary
 			if err := s.ensureRescueMode(); err != nil {
-				return fmt.Errorf("failed to ensure rescue mode: %w", err)
+				return false, fmt.Errorf("failed to ensure rescue mode: %w", err)
 			}
 		}
 
@@ -509,13 +510,33 @@ func (s *Service) handleErrorTypeHardwareRebootFailed(isSSHTimeoutError, wantsRe
 		// we immediately set an error message in the host status to track the reboot we just performed
 		if _, err := s.scope.RobotClient.RebootBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID, infrav1.RebootTypeHardware); err != nil {
 			s.handleRobotRateLimitExceeded(err, rebootServerStr)
-			return fmt.Errorf(errMsgFailedReboot, err)
+			return false, fmt.Errorf(errMsgFailedReboot, err)
 		}
 		msg := fmt.Sprintf("Reboot via ssh into %s failed. Now using rebootType %q.",
 			rebootInto, infrav1.RebootTypeHardware)
 		createRebootEvent(s.scope.HetznerBareMetalHost, infrav1.RebootTypeHardware, msg)
 	}
-	return nil
+
+	// if hardware reboots time out, we should fail
+	if hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated, hardwareResetTimeout) {
+		msg := "reboot timed out - please check if server is working properly"
+		if wantsRescue {
+			msg = "The rescue system could not be reached. Please ensure that the machine tries to boot from network before booting from disk. This setting needs to be enabled permanently in the BIOS."
+		}
+		conditions.MarkFalse(
+			s.scope.HetznerBareMetalHost,
+			infrav1.ProvisionSucceededCondition,
+			infrav1.RebootTimedOutReason,
+			clusterv1.ConditionSeverityError,
+			msg,
+		)
+
+		record.Warn(s.scope.HetznerBareMetalHost, "HardwareRebootTimedOut", msg)
+
+		return true, fmt.Errorf("hardware reboot timed out")
+	}
+
+	return false, nil
 }
 
 func hasTimedOut(lastUpdated *metav1.Time, timeout time.Duration) bool {
@@ -571,7 +592,7 @@ func (s *Service) actionRegistering() actionResult {
 
 		failed, err := s.handleIncompleteBoot(true, isSSHTimeoutError, isSSHConnectionRefusedError)
 		if failed {
-			return s.recordActionFailure(infrav1.ProvisioningError, err.Error())
+			return s.recordActionFailure(infrav1.PermanentError, err.Error())
 		}
 		if err != nil {
 			return actionError{err: fmt.Errorf(errMsgFailedHandlingIncompleteBoot, err)}
@@ -738,25 +759,21 @@ func (s *Service) analyzeSSHOutputRegistering(out sshclient.Output) (isSSHTimeou
 }
 
 func (s *Service) analyzeSSHErrorRegistering(sshErr error) (isSSHTimeoutError, isConnectionRefused bool, reterr error) {
-	// check if the reboot triggered
-	rebootTriggered, err := s.rebootTriggered()
-	if err != nil {
-		return false, false, fmt.Errorf("failed to check whether reboot triggered: %w", err)
-	}
-
 	switch {
 	case os.IsTimeout(sshErr) || sshclient.IsTimeoutError(sshErr):
 		isSSHTimeoutError = true
 	case sshclient.IsAuthenticationFailedError(sshErr):
+		// check if the reboot triggered
+		rebootTriggered, err := s.rebootTriggered()
+		if err != nil {
+			return false, false, fmt.Errorf("failed to check whether reboot triggered: %w", err)
+		}
+
 		if !rebootTriggered {
 			return false, false, nil
 		}
 		reterr = fmt.Errorf("wrong ssh key: %w", sshErr)
 	case sshclient.IsConnectionRefusedError(sshErr):
-		if !rebootTriggered && s.scope.HetznerBareMetalHost.Spec.Status.ErrorType != infrav1.ErrorTypeHardwareRebootTriggered {
-			// Reboot did not trigger
-			return false, false, nil
-		}
 		isConnectionRefused = true
 
 	default:
@@ -1299,7 +1316,7 @@ func (s *Service) actionProvisioning() actionResult {
 		}
 		failed, err := s.handleIncompleteBoot(false, isSSHTimeoutError, isSSHConnectionRefusedError)
 		if failed {
-			return s.recordActionFailure(infrav1.ProvisioningError, err.Error())
+			return s.recordActionFailure(infrav1.PermanentError, err.Error())
 		}
 		if err != nil {
 			return actionError{err: fmt.Errorf(errMsgFailedHandlingIncompleteBoot, err)}
@@ -1488,7 +1505,7 @@ func (s *Service) actionEnsureProvisioned() (ar actionResult) {
 
 		failed, err := s.handleIncompleteBoot(false, isTimeout, isSSHConnectionRefusedError)
 		if failed {
-			return s.recordActionFailure(infrav1.ProvisioningError, err.Error())
+			return s.recordActionFailure(infrav1.PermanentError, err.Error())
 		}
 		if err != nil {
 			return actionError{err: fmt.Errorf(errMsgFailedHandlingIncompleteBoot, err)}
@@ -1699,7 +1716,7 @@ func (s *Service) actionProvisioned() actionResult {
 			}
 			failed, err := s.handleIncompleteBoot(false, isTimeout, isSSHConnectionRefusedError)
 			if failed {
-				return s.recordActionFailure(infrav1.ProvisioningError, err.Error())
+				return s.recordActionFailure(infrav1.PermanentError, err.Error())
 			}
 			if err != nil {
 				return actionError{err: fmt.Errorf(errMsgFailedHandlingIncompleteBoot, err)}
@@ -1752,9 +1769,8 @@ func (s *Service) actionDeprovisioning() actionResult {
 	// Permanent errors are those ones that do not get solved with de- or re-provisioning.
 	if s.scope.HetznerBareMetalHost.Spec.Status.ErrorType != infrav1.PermanentError {
 		s.scope.HetznerBareMetalHost.ClearError()
+		conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
 	}
-
-	conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
 
 	return actionComplete{}
 }

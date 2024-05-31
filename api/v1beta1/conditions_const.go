@@ -181,6 +181,8 @@ const (
 	LinuxOnOtherDiskFoundReason = "LinuxOnOtherDiskFound"
 	// SSHToRescueSystemFailedReason indicates that the rescue system can't be reached via ssh.
 	SSHToRescueSystemFailedReason = "SSHToRescueSystemFailed"
+	// RebootTimedOutReason indicates that the reboot timed out.
+	RebootTimedOutReason = "RebootTimedOut"
 )
 
 const (
