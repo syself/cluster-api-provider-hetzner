@@ -21,9 +21,14 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
+	"regexp"
+	"runtime/debug"
 	"strings"
 
+	"github.com/go-logr/logr"
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	caphversion "github.com/syself/cluster-api-provider-hetzner/pkg/version"
@@ -77,12 +82,46 @@ type Factory interface {
 	NewClient(hcloudToken string) Client
 }
 
+// LoggingTransport is a struct for creating new logger for hcloud API.
+type LoggingTransport struct {
+	roundTripper http.RoundTripper
+	log          logr.Logger
+}
+
+var replaceHex = regexp.MustCompile(`0x[0123456789abcdef]+`)
+
+// RoundTrip is used for logging api calls to hcloud API.
+func (lt *LoggingTransport) RoundTrip(req *http.Request) (resp *http.Response, err error) {
+	stack := replaceHex.ReplaceAllString(string(debug.Stack()), "0xX")
+
+	resp, err = lt.roundTripper.RoundTrip(req)
+	if err != nil {
+		lt.log.V(1).Info("hcloud API. Error.", "err", err, "method", req.Method, "url", req.URL, "stack", stack)
+		return resp, err
+	}
+	lt.log.V(1).Info("hcloud API called.", "statusCode", resp.StatusCode, "method", req.Method, "url", req.URL, "stack", stack)
+	return resp, nil
+}
+
+// DebugAPICalls loggs all hcloud API calls if true.
+var DebugAPICalls bool
+
 // NewClient creates new HCloud clients.
 func (f *factory) NewClient(hcloudToken string) Client {
+	httpClient := &http.Client{}
+	if DebugAPICalls {
+		httpClient = &http.Client{
+			Transport: &LoggingTransport{
+				roundTripper: http.DefaultTransport,
+				log:          ctrl.Log.WithName("hcloud-api"),
+			},
+		}
+	}
 	return &realClient{client: hcloud.NewClient(
 		hcloud.WithToken(hcloudToken),
 		hcloud.WithApplication("cluster-api-provider-hetzner", caphversion.Get().String()),
 		hcloud.WithInstrumentation(metrics.Registry),
+		hcloud.WithHTTPClient(httpClient),
 	)}
 }
 
