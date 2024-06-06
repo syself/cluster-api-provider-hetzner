@@ -29,7 +29,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	caphversion "github.com/syself/cluster-api-provider-hetzner/pkg/version"
 )
@@ -99,7 +98,7 @@ func (lt *LoggingTransport) RoundTrip(req *http.Request) (resp *http.Response, e
 		lt.log.V(1).Info("hcloud API. Error.", "err", err, "method", req.Method, "url", req.URL, "stack", stack)
 		return resp, err
 	}
-	lt.log.V(1).Info("hcloud API called.", "statusCode", resp.StatusCode, "method", req.Method, "url", req.URL, "stack", stack)
+	lt.log.Info("hcloud API called", "statusCode", resp.StatusCode, "method", req.Method, "url", req.URL, "stack", stack)
 	return resp, nil
 }
 
@@ -120,7 +119,7 @@ func (f *factory) NewClient(hcloudToken string) Client {
 	return &realClient{client: hcloud.NewClient(
 		hcloud.WithToken(hcloudToken),
 		hcloud.WithApplication("cluster-api-provider-hetzner", caphversion.Get().String()),
-		hcloud.WithInstrumentation(metrics.Registry),
+		// hcloud.WithInstrumentation(metrics.Registry),
 		hcloud.WithHTTPClient(httpClient),
 	)}
 }
