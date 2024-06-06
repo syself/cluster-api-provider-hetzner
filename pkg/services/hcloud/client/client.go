@@ -85,6 +85,7 @@ type Factory interface {
 type LoggingTransport struct {
 	roundTripper http.RoundTripper
 	log          logr.Logger
+	hcloudToken  string
 }
 
 var replaceHex = regexp.MustCompile(`0x[0123456789abcdef]+`)
@@ -92,13 +93,13 @@ var replaceHex = regexp.MustCompile(`0x[0123456789abcdef]+`)
 // RoundTrip is used for logging api calls to hcloud API.
 func (lt *LoggingTransport) RoundTrip(req *http.Request) (resp *http.Response, err error) {
 	stack := replaceHex.ReplaceAllString(string(debug.Stack()), "0xX")
-
 	resp, err = lt.roundTripper.RoundTrip(req)
+	token := lt.hcloudToken[:5] + "..."
 	if err != nil {
-		lt.log.V(1).Info("hcloud API. Error.", "err", err, "method", req.Method, "url", req.URL, "stack", stack)
+		lt.log.V(1).Info("hcloud API. Error.", "err", err, "method", req.Method, "url", req.URL, "hcloud_token", token, "stack", stack)
 		return resp, err
 	}
-	lt.log.Info("hcloud API called", "statusCode", resp.StatusCode, "method", req.Method, "url", req.URL, "stack", stack)
+	lt.log.Info("hcloud API called", "statusCode", resp.StatusCode, "method", req.Method, "url", req.URL, "hcloud_token", token, "stack", stack)
 	return resp, nil
 }
 
@@ -113,6 +114,7 @@ func (f *factory) NewClient(hcloudToken string) Client {
 			Transport: &LoggingTransport{
 				roundTripper: http.DefaultTransport,
 				log:          ctrl.Log.WithName("hcloud-api"),
+				hcloudToken:  hcloudToken,
 			},
 		}
 	}
