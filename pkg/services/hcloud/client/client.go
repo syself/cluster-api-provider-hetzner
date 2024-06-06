@@ -26,7 +26,6 @@ import (
 	"runtime/debug"
 	"strings"
 
-	"github.com/go-logr/logr"
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	ctrl "sigs.k8s.io/controller-runtime"
 
@@ -84,7 +83,6 @@ type Factory interface {
 // LoggingTransport is a struct for creating new logger for hcloud API.
 type LoggingTransport struct {
 	roundTripper http.RoundTripper
-	log          logr.Logger
 	hcloudToken  string
 }
 
@@ -95,11 +93,13 @@ func (lt *LoggingTransport) RoundTrip(req *http.Request) (resp *http.Response, e
 	stack := replaceHex.ReplaceAllString(string(debug.Stack()), "0xX")
 	resp, err = lt.roundTripper.RoundTrip(req)
 	token := lt.hcloudToken[:5] + "..."
+	logger := ctrl.LoggerFrom(req.Context()).WithName("hcloud-api")
+	req.Context()
 	if err != nil {
-		lt.log.V(1).Info("hcloud API. Error.", "err", err, "method", req.Method, "url", req.URL, "hcloud_token", token, "stack", stack)
+		logger.Info("hcloud API. Error.", "err", err, "method", req.Method, "url", req.URL, "hcloud_token", token, "stack", stack)
 		return resp, err
 	}
-	lt.log.Info("hcloud API called", "statusCode", resp.StatusCode, "method", req.Method, "url", req.URL, "hcloud_token", token, "stack", stack)
+	logger.Info("hcloud API called", "statusCode", resp.StatusCode, "method", req.Method, "url", req.URL, "hcloud_token", token, "stack", stack)
 	return resp, nil
 }
 
@@ -113,7 +113,6 @@ func (f *factory) NewClient(hcloudToken string) Client {
 		httpClient = &http.Client{
 			Transport: &LoggingTransport{
 				roundTripper: http.DefaultTransport,
-				log:          ctrl.Log.WithName("hcloud-api"),
 				hcloudToken:  hcloudToken,
 			},
 		}
