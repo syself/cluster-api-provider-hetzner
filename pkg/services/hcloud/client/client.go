@@ -21,9 +21,13 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
+	"regexp"
+	"runtime/debug"
 	"strings"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	caphversion "github.com/syself/cluster-api-provider-hetzner/pkg/version"
@@ -77,13 +81,49 @@ type Factory interface {
 	NewClient(hcloudToken string) Client
 }
 
+// LoggingTransport is a struct for creating new logger for hcloud API.
+type LoggingTransport struct {
+	roundTripper http.RoundTripper
+	hcloudToken  string
+}
+
+var replaceHex = regexp.MustCompile(`0x[0123456789abcdef]+`)
+
+// RoundTrip is used for logging api calls to hcloud API.
+func (lt *LoggingTransport) RoundTrip(req *http.Request) (resp *http.Response, err error) {
+	stack := replaceHex.ReplaceAllString(string(debug.Stack()), "0xX")
+	resp, err = lt.roundTripper.RoundTrip(req)
+	token := lt.hcloudToken[:5] + "..."
+	logger := ctrl.LoggerFrom(req.Context()).WithName("hcloud-api")
+	req.Context()
+	if err != nil {
+		logger.Info("hcloud API. Error.", "err", err, "method", req.Method, "url", req.URL, "hcloud_token", token, "stack", stack)
+		return resp, err
+	}
+	logger.Info("hcloud API called", "statusCode", resp.StatusCode, "method", req.Method, "url", req.URL, "hcloud_token", token, "stack", stack)
+	return resp, nil
+}
+
+// DebugAPICalls loggs all hcloud API calls if true.
+var DebugAPICalls bool
+
 // NewClient creates new HCloud clients.
 func (f *factory) NewClient(hcloudToken string) Client {
-	return &realClient{client: hcloud.NewClient(
+	httpClient := &http.Client{}
+
+	hcloudClient := realClient{client: hcloud.NewClient(
 		hcloud.WithToken(hcloudToken),
 		hcloud.WithApplication("cluster-api-provider-hetzner", caphversion.Get().String()),
 		hcloud.WithInstrumentation(metrics.Registry),
+		hcloud.WithHTTPClient(httpClient),
 	)}
+	if DebugAPICalls {
+		httpClient.Transport = &LoggingTransport{
+			roundTripper: httpClient.Transport,
+			hcloudToken:  hcloudToken,
+		}
+	}
+	return &hcloudClient
 }
 
 type factory struct{}
