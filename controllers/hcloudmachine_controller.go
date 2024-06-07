@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/google/go-cmp/cmp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -228,6 +229,27 @@ func (r *HCloudMachineReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 			&infrav1.HetznerCluster{},
 			handler.EnqueueRequestsFromMapFunc(r.HetznerClusterToHCloudMachines(ctx)),
 			builder.WithPredicates(IgnoreHetznerClusterConditionUpdates(log)),
+		).
+		WithEventFilter(
+			predicate.Funcs{
+				// Avoid reconciling if the event triggering the reconciliation is related to incremental status updates
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					if e.ObjectOld.GetObjectKind().GroupVersionKind().Kind != "HCloudMachine" {
+						return true
+					}
+
+					oldMachine := e.ObjectOld.(*infrav1.HCloudMachine).DeepCopy()
+					newMachine := e.ObjectNew.(*infrav1.HCloudMachine).DeepCopy()
+
+					oldMachine.Status = infrav1.HCloudMachineStatus{}
+					newMachine.Status = infrav1.HCloudMachineStatus{}
+
+					oldMachine.ObjectMeta.ResourceVersion = ""
+					newMachine.ObjectMeta.ResourceVersion = ""
+
+					return !cmp.Equal(oldMachine, newMachine)
+				},
+			},
 		).
 		Build(r)
 	if err != nil {
