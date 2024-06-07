@@ -46,9 +46,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
@@ -736,6 +738,19 @@ func (r *HetznerClusterReconciler) SetupWithManager(ctx context.Context, mgr ctr
 		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(log, r.WatchFilterValue)).
 		WithEventFilter(predicates.ResourceIsNotExternallyManaged(log)).
 		Owns(&corev1.Secret{}).
+		WithEventFilter(
+			predicate.Funcs{
+				// Avoid reconciling if the event triggering the reconciliation is related to incremental status updates
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					if e.ObjectOld.GetObjectKind().GroupVersionKind().Kind != "Secret" {
+						return true
+					}
+
+					log.Info("Secret event - requeue cluster", "secret name", e.ObjectOld.GetName())
+					return true
+				},
+			},
+		).
 		Build(r)
 	if err != nil {
 		return fmt.Errorf("error creating controller: %w", err)
@@ -743,6 +758,7 @@ func (r *HetznerClusterReconciler) SetupWithManager(ctx context.Context, mgr ctr
 
 	return controller.Watch(
 		source.Kind(mgr.GetCache(), &clusterv1.Cluster{}),
+
 		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
 			c, ok := o.(*clusterv1.Cluster)
 			if !ok {
@@ -773,7 +789,7 @@ func (r *HetznerClusterReconciler) SetupWithManager(ctx context.Context, mgr ctr
 			if annotations.IsExternallyManaged(hetznerCluster) {
 				return nil
 			}
-
+			log.Info("Cluster event - reconciling HetznerCluster")
 			return []ctrl.Request{
 				{
 					NamespacedName: client.ObjectKey{Namespace: c.Namespace, Name: c.Spec.InfrastructureRef.Name},

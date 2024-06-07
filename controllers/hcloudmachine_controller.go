@@ -225,6 +225,19 @@ func (r *HCloudMachineReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 			&clusterv1.Machine{},
 			handler.EnqueueRequestsFromMapFunc(util.MachineToInfrastructureMapFunc(infrav1.GroupVersion.WithKind("HCloudMachine"))),
 		).
+		WithEventFilter(
+			predicate.Funcs{
+				// Avoid reconciling if the event triggering the reconciliation is related to incremental status updates
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					if e.ObjectOld.GetObjectKind().GroupVersionKind().Kind != "Machine" {
+						return true
+					}
+
+					log.Info("Machine event - requeue HcloudMachine", "secret name", e.ObjectOld.GetName())
+					return true
+				},
+			},
+		).
 		Watches(
 			&infrav1.HetznerCluster{},
 			handler.EnqueueRequestsFromMapFunc(r.HetznerClusterToHCloudMachines(ctx)),
@@ -247,7 +260,11 @@ func (r *HCloudMachineReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 					oldMachine.ObjectMeta.ResourceVersion = ""
 					newMachine.ObjectMeta.ResourceVersion = ""
 
-					return !cmp.Equal(oldMachine, newMachine)
+					shouldReconcile := !cmp.Equal(oldMachine, newMachine)
+					if shouldReconcile {
+						log.Info("HCloudMachine event: reconcile HCloudMachine")
+					}
+					return shouldReconcile
 				},
 			},
 		).
@@ -308,6 +325,9 @@ func (r *HCloudMachineReconciler) HetznerClusterToHCloudMachines(_ context.Conte
 			log.Error(err, "failed to list Machines, skipping mapping")
 			return nil
 		}
+
+		log.Info("HetznerCluster event: reconcile HCloudMachines")
+
 		for _, m := range machineList.Items {
 			log = log.WithValues("machine", m.Name)
 			if m.Spec.InfrastructureRef.GroupVersionKind().Kind != "HCloudMachine" {
