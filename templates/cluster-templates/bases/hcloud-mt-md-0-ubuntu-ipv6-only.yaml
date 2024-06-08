@@ -7,3 +7,6 @@ spec:
     spec:
       type: "${HCLOUD_WORKER_MACHINE_TYPE}"
       imageName: "ubuntu-22.04"
+      publicNetwork:
+        enableIPv4: false
+        enableIPv6: true
