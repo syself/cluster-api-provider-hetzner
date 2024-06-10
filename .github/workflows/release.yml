@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4
         with:
           fetch-depth: 0
       - uses: ./.github/actions/setup-go
@@ -36,7 +36,7 @@ jobs:
           metadata_tags: ${{ env.metadata_tags }}
 
       - name: Login to ghcr.io for CI
-        uses: docker/login-action@e92390c5fb421da1463c202d546fed0ec5c39f20 # v3.1.0
+        uses: docker/login-action@0d4c9c5ea7693da7b068278f7b52bda2a190a446 # v3.2.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -60,7 +60,7 @@ jobs:
           echo 'EOF' >> $GITHUB_ENV
 
       - name: Build and push manager image
-        uses: docker/build-push-action@2cdde995de11925a030ce8070c3d77a52ffcf1c0 # v5
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
         id: docker_build_release
         with:
           provenance: false
@@ -128,7 +128,7 @@ jobs:
       - name: Set env
         run: echo "RELEASE_TAG=${GITHUB_REF:10}" >> $GITHUB_ENV
       - name: checkout code
-        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4
         with:
           fetch-depth: 0
       - name: Install go

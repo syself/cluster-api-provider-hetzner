@@ -42,7 +42,7 @@ jobs:
           done
 
       - name: Generate Token
-        uses: actions/create-github-app-token@a0de6af83968303c8c955486bf9739a57d23c7f1 # v1
+        uses: actions/create-github-app-token@c8f55efbd427e7465d6da1106e7979bc8aaee856 # v1
         id: generate-token
         with:
           app-id: ${{ secrets.SYSELF_APP_ID }}
