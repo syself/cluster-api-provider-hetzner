@@ -178,6 +178,10 @@ spec:
                         - cax21
                         - cax31
                         - cax41
+                        - cx22
+                        - cx32
+                        - cx42
+                        - cx52
                         type: string
                     required:
                     - imageName
