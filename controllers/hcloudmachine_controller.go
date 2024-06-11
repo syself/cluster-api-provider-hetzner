@@ -326,8 +326,6 @@ func (r *HCloudMachineReconciler) HetznerClusterToHCloudMachines(_ context.Conte
 			return nil
 		}
 
-		log.Info("HetznerCluster event: reconcile HCloudMachines")
-
 		for _, m := range machineList.Items {
 			log = log.WithValues("machine", m.Name)
 			if m.Spec.InfrastructureRef.GroupVersionKind().Kind != "HCloudMachine" {
@@ -388,7 +386,7 @@ func IgnoreHetznerClusterConditionUpdates(logger logr.Logger) predicate.Funcs {
 				return false
 			}
 			// There is a noteworthy diff, so we should reconcile
-			log.V(1).Info("Update to resource changes significant fields, will enqueue event")
+			log.Info("HetznerCluster event: reconcile HCloudMachines")
 			return true
 		},
 		// We only care about Update events, anything else should be reconciled
