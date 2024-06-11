@@ -386,7 +386,8 @@ func IgnoreHetznerClusterConditionUpdates(logger logr.Logger) predicate.Funcs {
 				return false
 			}
 			// There is a noteworthy diff, so we should reconcile
-			log.Info("HetznerCluster event: reconcile HCloudMachines")
+			log.Info("HetznerCluster event: reconcile HCloudMachines", "diff", cmp.Diff(oldCluster, newCluster))
+
 			return true
 		},
 		// We only care about Update events, anything else should be reconciled
