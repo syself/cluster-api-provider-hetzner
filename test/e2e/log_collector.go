@@ -89,7 +89,7 @@ func (collector logCollector) CollectMachineLog(_ context.Context, _ client.Clie
 				return fmt.Errorf("failed to tar dir %s: %w", pathToDir, err)
 			}
 
-			err = os.MkdirAll(outputDir, os.ModePerm)
+			err = os.MkdirAll(outputDir, os.ModePerm) //nolint:gosec //nolint:ignore
 			if err != nil {
 				return err
 			}
@@ -122,7 +122,7 @@ func (collector logCollector) CollectMachineLog(_ context.Context, _ client.Clie
 }
 
 func createOutputFile(path string) (*os.File, error) {
-	if err := os.MkdirAll(filepath.Dir(path), os.ModePerm); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), os.ModePerm); err != nil { //nolint:gosec //nolint:ignore
 		return nil, err
 	}
 	return os.Create(path) // #nosec
