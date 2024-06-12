@@ -87,10 +87,10 @@ In addition to the pure creation and operation of Kubernetes clusters, this prov
 
 This provider's versions are compatible with the following versions of Cluster API:
 
-|                                   | Cluster API `v1beta1` (`v1.5.x`) | Cluster API `v1beta1` (`v1.6.x`) |
+|                                   | Cluster API `v1beta1` (`v1.6.x`) | Cluster API `v1beta1` (`v1.7.x`) |
 | --------------------------------- | -------------------------------- | -------------------------------- |
-| Hetzner Provider `v1.0.0-beta.26` | ✅                              | ❌                               |
-| Hetzner Provider `v1.0.0-beta.27` | ❌                              | ✅                               |
+| Hetzner Provider `v1.0.0-beta.33` | ✅                              | ❌                               |
+| Hetzner Provider `v1.0.0-beta.34-35` | ❌                              | ✅                               |
 
 This provider's versions can install and manage the following versions of Kubernetes:
 
