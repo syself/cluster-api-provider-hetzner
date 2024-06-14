@@ -56,11 +56,10 @@ type ManagementCluster interface {
 // GuestCSRReconciler reconciles a CSR object.
 type GuestCSRReconciler struct {
 	client.Client
-	WatchFilterValue             string
-	clientSet                    *kubernetes.Clientset
-	mCluster                     ManagementCluster
-	clusterName                  string
-	hasConstantBareMetalHostname bool
+	WatchFilterValue string
+	clientSet        *kubernetes.Clientset
+	mCluster         ManagementCluster
+	clusterName      string
 }
 
 const nodePrefix = "system:node:"
@@ -209,7 +208,6 @@ func (r *GuestCSRReconciler) getMachineAddresses(
 ) (machineAddresses []clusterv1.MachineAddress, isHCloudMachine bool, err error) {
 	// try to find matching HCloudMachine object
 	var hcloudMachine infrav1.HCloudMachine
-	log := ctrl.LoggerFrom(ctx)
 
 	hcloudMachineName := types.NamespacedName{
 		Namespace: r.mCluster.Namespace(),
@@ -219,53 +217,17 @@ func (r *GuestCSRReconciler) getMachineAddresses(
 	if err != nil {
 		// Could not find HCloud machine. Try to find bare metal machine.
 
-		if r.hasConstantBareMetalHostname {
-			matches := constantBareMetalHostnameRegex.FindStringSubmatch(strings.TrimPrefix(certificateSigningRequest.Spec.Username, nodePrefix))
-			if len(matches) != 3 {
-				return nil, false, fmt.Errorf("CSR %q is no hcloud or bm-machine", certificateSigningRequest.Spec.Username)
-			}
-			clusterName := matches[1]
-			if clusterName != r.clusterName {
-				return nil, false, fmt.Errorf("CSR expected cluster to be %q, but is %q",
-					r.clusterName, clusterName)
-			}
-			providerID := "hcloud://bm-" + matches[2]
-			hList := &infrav1.HetznerBareMetalMachineList{}
-			selector := labels.NewSelector()
-			req, err := labels.NewRequirement(clusterv1.ClusterNameLabel, selection.Equals, []string{clusterName})
-			if err != nil {
-				return nil, false, fmt.Errorf("failed to create selector %s=%s. %w",
-					clusterv1.ClusterNameLabel, clusterName, err)
-			}
-			selector.Add(*req)
-			if err := r.mCluster.List(ctx, hList, &client.ListOptions{
-				LabelSelector: selector,
-				Namespace:     r.mCluster.Namespace(),
-			}); err != nil {
-				return nil, false, fmt.Errorf("failed to get HetznerBareMetalMachineList: %w", err)
-			}
-
-			var bmMachine *infrav1.HetznerBareMetalMachine
-			for i := range hList.Items {
-				if hList.Items[i].Spec.ProviderID == nil {
-					continue
-				}
-				if *hList.Items[i].Spec.ProviderID == providerID {
-					bmMachine = &hList.Items[i]
-					break
-				}
-			}
-			if bmMachine == nil {
-				return nil, false, fmt.Errorf("failed to find HetznerBareMetalMachine with ProviderID %q", providerID)
-			}
-			log.Info("Found HetznerBareMetalMachine (hasConstantBareMetalHostname)",
-				"csr-username", certificateSigningRequest.Spec.Username,
-				"hetznerBareMetalMachine", bmMachine.Name,
-			)
-			return bmMachine.Status.Addresses, false, nil
+		// We don't know whether the HetznerBareMetalMachine uses a constant hostname or not. If it does, we'll find it with getHbmmWithConstantHostname.
+		// If we don't find it, then it does not use a constant hostname and we'll find it in another way.
+		hbmm, err := getHbmmWithConstantHostname(ctx, certificateSigningRequest.Spec.Username, r.clusterName, r.mCluster)
+		if err != nil {
+			return nil, false, fmt.Errorf("getHbmmWithConstantHostname(%q) failed: %w", certificateSigningRequest.Spec.Username, err)
+		}
+		if hbmm != nil {
+			return hbmm.Status.Addresses, false, nil
 		}
 
-		// hasConstantBareMetalHostname is false
+		// HetznerBareMetalMachine does not have a constant hostname - use the following method to find it
 
 		var bmMachine infrav1.HetznerBareMetalMachine
 		bmMachineName := types.NamespacedName{
@@ -319,4 +281,58 @@ func (r *GuestCSRReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Mana
 			},
 		}).
 		Complete(r)
+}
+
+func getHbmmWithConstantHostname(ctx context.Context, csrUsername string, clusterName string, mCluster ManagementCluster) (*infrav1.HetznerBareMetalMachine, error) {
+	log := ctrl.LoggerFrom(ctx)
+
+	// example csrUsername: system:node:bm-my-cluster-1234567
+	matches := constantBareMetalHostnameRegex.FindStringSubmatch(strings.TrimPrefix(csrUsername, nodePrefix))
+	if len(matches) != 3 {
+		log.V(1).Info("No constant baremetal hostname - regex does not match CSR username",
+			"regex", constantBareMetalHostnameRegex.String(), "csrUserName", csrUsername)
+		return nil, nil
+	}
+
+	clusterFromCSR := matches[1]
+	if clusterFromCSR != clusterName {
+		log.V(1).Info("No constant baremetal hostname - mismatch of cluster found in csrUserName", "got", clusterFromCSR, "want", clusterName)
+		return nil, nil
+	}
+
+	providerID := "hcloud://bm-" + matches[2]
+	hList := &infrav1.HetznerBareMetalMachineList{}
+	selector := labels.NewSelector()
+	req, err := labels.NewRequirement(clusterv1.ClusterNameLabel, selection.Equals, []string{clusterFromCSR})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create selector %s=%s. %w",
+			clusterv1.ClusterNameLabel, clusterFromCSR, err)
+	}
+
+	selector.Add(*req)
+
+	if err := mCluster.List(ctx, hList, &client.ListOptions{
+		LabelSelector: selector,
+		Namespace:     mCluster.Namespace(),
+	}); err != nil {
+		return nil, fmt.Errorf("failed to get HetznerBareMetalMachineList: %w", err)
+	}
+
+	var hbmm *infrav1.HetznerBareMetalMachine
+	for i := range hList.Items {
+		if hList.Items[i].Spec.ProviderID == nil {
+			continue
+		}
+		if *hList.Items[i].Spec.ProviderID == providerID {
+			hbmm = &hList.Items[i]
+			break
+		}
+	}
+	if hbmm == nil {
+		log.V(1).Info("no constant baremetal hostname - did not find HetznerBareMetalMachine by ProviderID", "providerID", providerID)
+		return nil, nil
+	}
+
+	log.Info("Found HetznerBareMetalMachine with constant hostname", "csr-username", csrUsername, "hetznerBareMetalMachine", hbmm.Name)
+	return hbmm, nil
 }
