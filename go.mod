@@ -15,13 +15,13 @@ require (
 	github.com/syself/hrobot-go v0.2.5
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.24.0
-	golang.org/x/exp v0.0.0-20240604190554-fc45aab8b7f8
+	golang.org/x/exp v0.0.0-20240613232115-7f521ea00fb8
 	golang.org/x/mod v0.18.0
 	k8s.io/api v0.29.3
 	k8s.io/apimachinery v0.29.3
 	k8s.io/apiserver v0.29.3
 	k8s.io/client-go v0.29.3
-	k8s.io/klog/v2 v2.120.1
+	k8s.io/klog/v2 v2.130.0
 	k8s.io/kubectl v0.29.3
 	k8s.io/utils v0.0.0-20240502163921-fe8a2dddb1d0
 	sigs.k8s.io/cluster-api v1.7.3
