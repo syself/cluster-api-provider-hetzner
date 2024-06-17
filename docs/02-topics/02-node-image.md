@@ -1,4 +1,6 @@
-# Node Images
+---
+title: Node Images
+---
 
 ## What are node-images?
 

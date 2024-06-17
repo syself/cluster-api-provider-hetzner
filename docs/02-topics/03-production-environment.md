@@ -1,4 +1,6 @@
-# Production Environment Best Practices
+---
+title: Production Environment Best Practices
+---
 
 ## HA Cluster API Components
 

@@ -1,4 +1,6 @@
-# Preparation
+---
+title: Preparation
+---
 
 ## Preparation of the Hetzner Project and Credentials
 

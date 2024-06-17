@@ -1,4 +1,6 @@
-# Quickstart Guide
+---
+title: Quickstart Guide
+---
 
 This guide goes through all the necessary steps to create a cluster on Hetzner infrastructure (on HCloud).
 

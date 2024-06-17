@@ -1,4 +1,6 @@
-# Developing Cluster API Provider Hetzner
+---
+title: Developing Cluster API Provider Hetzner
+---
 
 Developing our provider is quite easy. Please follow the steps mentioned below:
 

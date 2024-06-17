@@ -1,4 +1,6 @@
-# Advanced CAPH
+---
+title: Advanced CAPH
+---
 
 ## CSR Controller
 

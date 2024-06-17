@@ -1,4 +1,6 @@
-# Updating Kubernetes Version
+---
+title: Updating Kubernetes Version
+---
 
 Please check the kubernetes version in the following files:
 

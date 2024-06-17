@@ -1,4 +1,6 @@
-# Hetzner Baremetal
+---
+title: Hetzner Baremetal
+---
 
 Hetzner have two offerings primarily:
 

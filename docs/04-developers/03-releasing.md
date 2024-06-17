@@ -1,4 +1,6 @@
-# Release Process
+---
+title: Release Process
+---
 
 ## Create a tag
 
@@ -33,7 +35,7 @@ This is only needed if you want to manually release images.
 
 ## Versioning
 
-See the [versioning documentation](./../../CONTRIBUTING.md#versioning) for more information.
+See the [versioning documentation](https://github.com/syself/cluster-api-provider-hetzner/blob/main/CONTRIBUTING.md#versioning) for more information.
 
 ## Permissions
 
