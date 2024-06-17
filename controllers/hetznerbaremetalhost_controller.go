@@ -107,6 +107,10 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		Namespace: bmHost.Namespace,
 		Name:      bmHost.Spec.Status.HetznerClusterRef,
 	}
+	if bmHost.Spec.Status.HetznerClusterRef == "" {
+		log.Info("bmHost.Spec.Status.HetznerClusterRef is empty. Looks like a stale cache read")
+		return reconcile.Result{Requeue: true}, nil
+	}
 	if err := r.Client.Get(ctx, hetznerClusterName, hetznerCluster); err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to get HetznerCluster: %w", err)
 	}
@@ -216,14 +220,14 @@ func (r *HetznerBareMetalHostReconciler) reconcileSelectedStates(ctx context.Con
 		// Handle StateDeleting
 	case infrav1.StateDeleting:
 		if !utils.StringInList(bmHost.Finalizers, infrav1.BareMetalHostFinalizer) {
-			return res, nil
+			return reconcile.Result{Requeue: true}, nil
 		}
 
 		bmHost.Finalizers = utils.FilterStringFromList(bmHost.Finalizers, infrav1.BareMetalHostFinalizer)
-		if err := r.Update(context.Background(), bmHost); err != nil {
+		if err := r.Update(ctx, bmHost); err != nil {
 			return reconcile.Result{}, fmt.Errorf("failed to remove finalizer: %w", err)
 		}
-		return res, nil
+		return reconcile.Result{Requeue: true}, nil
 	}
 	return res, nil
 }
