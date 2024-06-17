@@ -16,7 +16,7 @@ tls-private-key-file: "/var/lib/kubelet/pki/kubelet-client-current.pem"
 For more information, see:
 
 - https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-certs/
-- https://kubernetes.io/docs/03-reference/access-authn-authz/kubelet-tls-bootstrapping/#client-and-serving-certificates
+- https://kubernetes.io/docs/reference/access-authn-authz/kubelet-tls-bootstrapping/#client-and-serving-certificates
 
 ## Rate Limits
 

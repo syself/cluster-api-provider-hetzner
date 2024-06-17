@@ -4,26 +4,26 @@ This is the official documentation of Cluster API Provider Hetzner. Before start
 
 ## Getting Started
 
-- [Preparation](01-getting-started/01-preparation.md)
-- [Quickstart](01-getting-started/02-quickstart.md)
+- [Preparation](/docs/01-getting-started/01-preparation.md)
+- [Quickstart](/docs/01-getting-started/02-quickstart.md)
 
 ## Topics
 
-- [Managing SSH Keys](02-topics/01-managing-ssh-keys.md)
-- [Node Images](02-topics/02-node-image.md)
-- [Production Environment](02-topics/03-production-environment.md)
-- [Advanced CAPH](02-topics/04-advanced-caph.md)
-- [Upgrading CAPH](02-topics/05-upgrading-caph.md)
-- [Hetzner Baremetal](02-topics/06-hetzner-baremetal.md)
+- [Managing SSH Keys](/docs/02-topics/01-managing-ssh-keys.md)
+- [Node Images](/docs/02-topics/02-node-image.md)
+- [Production Environment](/docs/02-topics/03-production-environment.md)
+- [Advanced CAPH](/docs/02-topics/04-advanced-caph.md)
+- [Upgrading CAPH](/docs/02-topics/05-upgrading-caph.md)
+- [Hetzner Baremetal](/docs/02-topics/06-hetzner-baremetal.md)
 
 ## Reference
 
-- [General](03-reference/01-introduction.md)
-- [HetznerCluster](03-reference/02-hetzner-cluster.md)
-- [HCloudMachineTemplate](03-reference/03-hcloud-machine-template.md)
-- [HetznerBareMetalHost](03-reference/04-hetzner-bare-metal-host.md)
-- [HetznerBareMetalMachineTemplate](03-reference/05-hetzner-bare-metal-machine-template.md)
-- [HetznerBareMetalRemediationTemplate](03-reference/06-hetzner-bare-metal-remediation-template.md)
+- [General](/docs/03-reference/01-introduction.md)
+- [HetznerCluster](/docs/03-reference/02-hetzner-cluster.md)
+- [HCloudMachineTemplate](/docs/03-reference/03-hcloud-machine-template.md)
+- [HetznerBareMetalHost](/docs/03-reference/04-hetzner-bare-metal-host.md)
+- [HetznerBareMetalMachineTemplate](/docs/03-reference/05-hetzner-bare-metal-machine-template.md)
+- [HetznerBareMetalRemediationTemplate](/docs/03-reference/06-hetzner-bare-metal-remediation-template.md)
 
 ## Development
 

@@ -8,7 +8,7 @@ There are several tasks that have to be completed before a workload cluster can 
 
 1. Create a new [HCloud project](https://console.hetzner.cloud/projects).
 2. Generate an API token with read and write access. You'll find this if you click on the project and go to "security".
-3. If you want to use it, generate an SSH key, upload the public key to HCloud (also via "security"), and give it a name. Read more about [Managing SSH Keys](managing-ssh-keys.md).
+3. If you want to use it, generate an SSH key, upload the public key to HCloud (also via "security"), and give it a name. Read more about [Managing SSH Keys](/docs/02-topics/01-managing-ssh-keys.md).
 
 ### Preparing Hetzner Robot
 
@@ -101,7 +101,7 @@ Optional Variables:
 
 ### Create a secret for hcloud only
 
-In order for the provider integration hetzner to communicate with the Hetzner API ([HCloud API](https://docs.hetzner.cloud/), we need to create a secret with the access data. The secret must be in the same namespace as the other CRs.
+In order for the provider integration hetzner to communicate with the Hetzner API ([HCloud API](https://docs.hetzner.cloud/)), we need to create a secret with the access data. The secret must be in the same namespace as the other CRs.
 
 `export HCLOUD_TOKEN="<YOUR-TOKEN>" `
 
