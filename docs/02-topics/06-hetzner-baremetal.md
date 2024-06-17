@@ -33,11 +33,11 @@ In this guide, we will focus on creating a bootstrap cluster which is basically 
 
 To create a bootstrap cluster, you can use the following command:
 
-```bash
+```shell
 kind create cluster
 ```
 
-```bash
+```shell
 Creating cluster "kind" ...
  ✓ Ensuring node image (kindest/node:v1.29.2) 🖼
  ✓ Preparing nodes 📦
@@ -55,7 +55,7 @@ Have a question, bug, or feature request? Let us know! https://kind.sigs.k8s.io/
 
 After creating the bootstrap cluster, it is also required to have some variables exported and the name of the variables that needs to be exported can be known by running the following command:
 
-```bash
+```shell
 $ clusterctl generate cluster my-cluster --list-variables --flavor hetzner-hcloud-control-planes
 Required Variables:
   - HCLOUD_CONTROL_PLANE_MACHINE_TYPE
@@ -74,11 +74,11 @@ These variables are used during the deployment of Hetzner infrastructure provide
 
 Installing the Hetzner provider can be done using the following command:
 
-```bash
+```shell
 clusterctl init --infrastructure hetzner
 ```
 
-```bash
+```shell
 Fetching providers
 Installing cert-manager Version="v1.14.2"
 Waiting for cert-manager to be available...
@@ -98,7 +98,7 @@ You can now create your first workload cluster by running the following:
 
 Once the infrastructure provider is ready, we can create a workload cluster manifest using `clusterctl generate`
 
-```bash
+```shell
 clusterctl generate cluster my-cluster --flavor hetzner-hcloud-control-planes > my-cluster.yaml
 ```
 
@@ -123,7 +123,7 @@ This is a required for following the next step.
 
 First you need to create a ssh-key locally and you can `ssh-keygen` command for creation.
 
-```bash
+```shell
 ssh-keygen -t ed25519 -f ~/.ssh/caph
 ```
 
@@ -223,7 +223,7 @@ In the above server, we have not specified the WWN of the server and we have app
 
 After a while, you will see that there is an error in provisioning of `HetznerBareMetalHost` object that you just applied above. The error will look the following:
 
-```bash
+```shell
 $ kubectl get hetznerbaremetalhost -A
 default     my-cluster-md-1-tgvl5   my-cluster   default/test-bm-gpu    my-cluster-md-1-t9znj-694hs   Provisioning   23m   ValidationFailed   no root device hints specified
 ```
@@ -252,7 +252,7 @@ storage:
 
 In the output above, we can see that on this baremetal servers we have two disk with their respective `Wwn`. We can also verify it by making an ssh connection to the rescue system and executing the following command:
 
-```bash
+```shell
 # lsblk --nodeps --output name,type,wwn
 NAME TYPE WWN
 sda  disk 0x500a07511bb48992
@@ -279,7 +279,7 @@ To summarize, if you don't know the WWN of your server then there are two ways t
 
 NOTE: There might be cases where you've more than one disk.
 
-```bash
+```shell
 lsblk -d -o name,type,wwn,size
 NAME TYPE WWN                  SIZE
 sda  disk <wwn>                238.5G
@@ -296,11 +296,11 @@ NOTE: Secrets as of now are hardcoded given we are using a flavor which is essen
 
 Since we have already created secret in hetzner robot, hcloud and ssh-keys as secret in management cluster, we can now apply the cluster.
 
-```bash
+```shell
 kubectl apply -f my-cluster.yaml
 ```
 
-```bash
+```shell
 $ kubectl apply -f my-cluster.yaml
 kubeadmconfigtemplate.bootstrap.cluster.x-k8s.io/my-cluster-md-0 created
 kubeadmconfigtemplate.bootstrap.cluster.x-k8s.io/my-cluster-md-1 created
@@ -325,7 +325,7 @@ After a while, our first controlplane should be up and running. You can verify i
 
 Once it's up and running, you can get the kubeconfig of the workload cluster using the following command:
 
-```bash
+```shell
 clusterctl get kubeconfig my-cluster > workload-kubeconfig
 chmod go-r workload-kubeconfig # required to avoid helm warning
 ```
@@ -362,7 +362,7 @@ TEST SUITE: None
 
 For CNI, let's deploy cilium in the workload cluster that will facilitate the networking in the cluster.
 
-```bash
+```shell
 $ helm install cilium cilium/cilium --version 1.15.3 --kubeconfig workload-kubeconfig
 NAME: cilium
 LAST DEPLOYED: Thu Apr  4 21:11:13 2024
@@ -382,7 +382,7 @@ For any further help, visit https://docs.cilium.io/en/v1.15/gettinghelp
 
 Now, the cluster should be up and you can verify it by running the following commands:
 
-```bash
+```shell
 $ kubectl get clusters -A
 NAMESPACE   NAME         CLUSTERCLASS   PHASE         AGE   VERSION
 default     my-cluster                  Provisioned   10h

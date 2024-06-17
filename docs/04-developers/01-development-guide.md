@@ -76,7 +76,7 @@ With `make generate`, new CRDs are generated. This is necessary if you change th
 
 If you are interested in running the E2E tests locally, then you can use the following commands:
 
-```
+```shell
 export HCLOUD_TOKEN=<your-hcloud-token>
 export CAPH_LATEST_VERSION=<latest-version>
 export HETZNER_ROBOT_USER=<your robot user>
@@ -88,7 +88,7 @@ make test-e2e
 
 For the SSH public and private keys, you should use the following command to encode the keys. Note that the E2E test will not work if the ssh key is in any other format!
 
-```
+```shell
 export HETZNER_SSH_PRIV=$(cat ~/.ssh/cluster | base64 -w0)
 ```
 

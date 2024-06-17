@@ -15,7 +15,7 @@ In CAPH, SSH keys help in establishing secure communication remotely with Kubern
 NOTE: You are responsible for uploading your public ssh key to hetzner cloud. This can be done using `hcloud` CLI or hetznercloud console.
 All keys that exist in Hetzner Cloud and are specified in `HetznerCluster` spec are included when provisioning machines. Therefore, they can be used to access those machines via SSH.
 
-```bash
+```shell
 hcloud ssh-key create --name caph --public-key-from-file ~/.ssh/hetzner-cluster.pub
 ```
 

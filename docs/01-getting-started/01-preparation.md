@@ -84,7 +84,7 @@ export HCLOUD_WORKER_MACHINE_TYPE=cpx31
 
 For a list of all variables needed for generating a cluster manifest (from the cluster-template.yaml), use `clusterctl generate cluster --infrastructure hetzner:<caph-version> --list-variables hetzner-cluster`:
 
-```
+```shell
 $ clusterctl generate cluster --infrastructure hetzner:<caph-version> --list-variables hetzner-cluster
 Required Variables:
   - HCLOUD_CONTROL_PLANE_MACHINE_TYPE

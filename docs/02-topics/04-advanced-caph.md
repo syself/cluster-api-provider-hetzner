@@ -8,7 +8,7 @@ These CSRs are not approved by default for security reasons. As described in the
 
 For error-free operation, the following kubelet flags should not be set:
 
-```
+```shell
 tls-cert-file: "/var/lib/kubelet/pki/kubelet-client-current.pem"
 tls-private-key-file: "/var/lib/kubelet/pki/kubelet-client-current.pem"
 ```

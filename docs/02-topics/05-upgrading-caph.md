@@ -8,7 +8,7 @@ Connect `kubectl` to the management cluster.
 
 Check, that you are connected to the correct cluster:
 
-```
+```shell
 ❯ k config current-context
 mgm-cluster-admin@mgm-cluster
 ```
@@ -19,7 +19,7 @@ OK, looks good.
 
 Is clusterctl still up to date?
 
-```
+```shell
 $ clusterctl version -oyaml
 clusterctl:
   buildDate: "2024-04-09T17:23:12Z"
@@ -43,7 +43,7 @@ If your clusterctl is outdated, then upgrade it. See the above URL for details.
 
 Have a look at what could get upgraded:
 
-```
+```shell
 $ clusterctl upgrade plan
 Checking cert-manager version...
 Cert-Manager is already up to date
@@ -74,7 +74,7 @@ NOTE: `clusterctl upgrade plan` does not display pre-release versions by default
 We will upgrade cluster API core components to v1.6.3 version.
 Use the command, which you saw in the plan:
 
-```bash
+```shell
 $ clusterctl upgrade apply --contract v1beta1
 Checking cert-manager version...
 Cert-manager is already up to date
@@ -100,7 +100,7 @@ You can find the latest version of CAPH here:
 
 https://github.com/syself/cluster-api-provider-hetzner/tags
 
-```bash
+```shell
 $ clusterctl upgrade apply --infrastructure=hetzner:v1.0.0-beta.33
 Checking cert-manager version...
 Cert-manager is already up to date
@@ -112,7 +112,7 @@ Installing Provider="infrastructure-hetzner" Version="v1.0.0-beta.33" TargetName
 
 After the upgrade, you'll notice the new pod spinning up the `caph-system` namespace.
 
-```bash
+```shell
 $ kubectl get pods -n caph-system
 NAME                                       READY   STATUS    RESTARTS   AGE
 caph-controller-manager-85fcb6ffcb-4sj6d   1/1     Running   0          79s

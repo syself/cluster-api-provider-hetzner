@@ -20,7 +20,7 @@ Updating a `HetznerBareMetalMachineTemplate` is not possible. Instead, a new tem
 
 Both in [installimage](https://docs.hetzner.com/robot/dedicated-server/operating-systems/installimage/) and cloud-init the ports used for SSH can be changed, e.g. with the following code snippet:
 
-```
+```shell
 sed -i -e '/^\(#\|\)Port/s/^.*$/Port 2223/' /etc/ssh/sshd_config
 ```
 
@@ -82,7 +82,7 @@ You must specify either name and url, or a local path.
 
 Example of an image provided by Hetzner via NFS:
 
-```
+```yaml
 image:
   path: /root/.oldroot/nfs//images/Ubuntu-2204-jammy-amd64-base.tar.gz
 ```
@@ -90,16 +90,15 @@ image:
 Example of an image provided by you via https. The script installimage of Hetzner parses the name to detect the version. It is
 recommended to follow their naming pattern.
 
-```
+```yaml
 image:
   name: Ubuntu-2204-jammy-amd64-custom
   url: https://user:pwd@example.com/images/Ubuntu-2204-jammy-amd64-custom.tar.gz
-
 ```
 
 Example of pulling an image from an oci-registry:
 
-```
+```yaml
 image:
   name: Ubuntu-2204-jammy-amd64-custom
   url: oci://ghcr.io/myorg/images/Ubuntu-2204-jammy-amd64-custom:1.0.0-beta.2
@@ -109,7 +108,7 @@ If you need credentials to pull the image, then provide the environment variable
 
 You can provide the variable via a secret of the deployment `caph-controller-manager`:
 
-```
+```yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -133,7 +132,7 @@ spec:
 
 You can push an image to an oci-registry with a tool like [oras](https://oras.land):
 
-```
+```shell
 oras push ghcr.io/myorg/images/Ubuntu-2204-jammy-amd64-custom:1.0.0-beta.2 \
     --artifact-type application/vnd.myorg.machine-image.v1 Ubuntu-2204-jammy-amd64-custom.tar.gz
 ```
