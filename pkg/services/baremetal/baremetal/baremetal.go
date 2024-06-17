@@ -673,17 +673,27 @@ func (s *Service) setProviderID(ctx context.Context) error {
 		return fmt.Errorf("host not found for machine %s: %w", s.scope.Machine.Name, err)
 	}
 
-	if host.Spec.Status.ProvisioningState != infrav1.StateProvisioned {
+	// set providerID in phase "ensure-provisioned" and "provisioned" as from this point on the node might join the cluster
+	switch host.Spec.Status.ProvisioningState {
+	case infrav1.StateProvisioned:
+		providerID := providerIDFromServerID(host.Spec.ServerID)
+		s.scope.BareMetalMachine.Spec.ProviderID = &providerID
+
+		// set machine on running
+		s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhaseRunning
+
+	case infrav1.StateEnsureProvisioned:
+		providerID := providerIDFromServerID(host.Spec.ServerID)
+		s.scope.BareMetalMachine.Spec.ProviderID = &providerID
+
+		// set machine on provisioning
 		s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhaseProvisioning
-		// no need for requeue error since host update will trigger a reconciliation
-		return nil
+
+	default:
+		s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhaseProvisioning
 	}
 
-	// set providerID
-	providerID := providerIDFromServerID(host.Spec.ServerID)
-	s.scope.BareMetalMachine.Spec.ProviderID = &providerID
-	s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhaseRunning
-
+	// no need for requeue error since host update will trigger a reconciliation
 	return nil
 }
 
