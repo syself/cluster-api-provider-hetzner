@@ -1,4 +1,4 @@
-## HCloudMachineTemplate
+# HCloudMachineTemplate
 
 In `HCloudMachineTemplate` you can define all important properties for `HCloudMachines`. `HCloudMachines` are reconciled by the `HCloudMachineController`, which creates and deletes servers in Hetzner Cloud.
 

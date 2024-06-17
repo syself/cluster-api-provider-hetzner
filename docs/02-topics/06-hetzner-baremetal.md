@@ -1,4 +1,4 @@
-### Hetzner Baremetal
+# Hetzner Baremetal
 
 Hetzner have two offerings primarily:
 
@@ -7,7 +7,7 @@ Hetzner have two offerings primarily:
 
 In this guide, we will focus on creating a cluster from baremetal servers.
 
-### Flavors of Hetzner Baremetal
+## Flavors of Hetzner Baremetal
 
 Now, there are different ways you can use baremetal servers, you can use them as controlplanes or as worker nodes or both. Based on that we have created some templates and those templates are released as flavors in GitHub releases.
 
@@ -23,11 +23,11 @@ To use bare metal servers for your deployment, you can choose one of the followi
 
 NOTE: These flavors are only for demonstration purposes and should not be used in production.
 
-### Purchasing Bare Metal Servers
+## Purchasing Bare Metal Servers
 
 If you want to create a cluster with bare metal servers, you will also need to set up the robot credentials. For setting robot credentials, as described in the [reference](/docs/03-reference/06-hetzner-bare-metal-machine-template.md), you need to purchase bare metal servers beforehand manually.
 
-### Creating a bootstrap cluster
+## Creating a bootstrap cluster
 
 In this guide, we will focus on creating a bootstrap cluster which is basically a local management cluster created using [kind](https://kind.sigs.k8s.io).
 
@@ -94,7 +94,7 @@ You can now create your first workload cluster by running the following:
   clusterctl generate cluster [name] --kubernetes-version [version] | kubectl apply -f -
 ```
 
-### Generating Workload Cluster Manifest
+## Generating Workload Cluster Manifest
 
 Once the infrastructure provider is ready, we can create a workload cluster manifest using `clusterctl generate`
 
@@ -104,14 +104,14 @@ clusterctl generate cluster my-cluster --flavor hetzner-hcloud-control-planes > 
 
 As of now, our cluster manifest lives in `my-cluster.yaml` file and we will apply this at a later stage after preparing secrets and ssh-keys.
 
-### Preparing Hetzner Robot
+## Preparing Hetzner Robot
 
 1. Create a new web service user. [Here](https://robot.your-server.de/preferences/index), you can define a password and copy your user name.
 2. Generate an SSH key. You can either upload it via Hetzner Robot UI or just rely on the controller to upload a key that it does not find in the robot API. You have to store the public and private key together with the SSH key's name in a secret that the controller reads.
 
 For this tutorial, we will let the controller upload keys to hetzner robot.
 
-#### Creating new user in Robot
+### Creating new user in Robot
 
 To create new user in Robot, click on the `Create User` button in the Hetzner Robot console. Once you create the new user, a user ID will be provided to you via email from Hetzner Robot. The password will be the same that you used while creating the user.
 
@@ -119,7 +119,7 @@ To create new user in Robot, click on the `Create User` button in the Hetzner Ro
 
 This is a required for following the next step.
 
-### creating and verify ssh-key in hcloud
+## Creating and verify ssh-key in hcloud
 
 First you need to create a ssh-key locally and you can `ssh-keygen` command for creation.
 
@@ -147,7 +147,7 @@ sshKeys:
 
 NOTE: If you want to use some other name then you can modify it accordingly.
 
-### Create Secrets In Management Cluster (Hcloud + Robot)
+## Create Secrets In Management Cluster (Hcloud + Robot)
 
 In order for the provider integration hetzner to communicate with the Hetzner API ([HCloud API](https://docs.hetzner.cloud/) + [Robot API](https://robot.your-server.de/doc/webservice/en.html#preface)), we need to create secrets with the access data. The secret must be in the same namespace as the other CRs.
 
@@ -185,7 +185,7 @@ kubectl patch secret robot-ssh -p '{"metadata":{"labels":{"clusterctl.cluster.x-
 
 The secret name and the tokens can also be customized in the cluster template.
 
-### Creating Host Object In Management Cluster
+## Creating Host Object In Management Cluster
 
 For using baremetal servers as nodes, you need to create a `HetznerBareMetalHost` object for each bare metal server that you bought and specify its server ID in the specs. Below is a sample manifest for HetznerBareMetalHost object.
 
@@ -290,7 +290,7 @@ sdd  disk <wwn>                  1.8T
 
 In the above case, you can use any of the four disks available to you on a baremetal server.
 
-### Creating Workload Cluster
+## Creating Workload Cluster
 
 NOTE: Secrets as of now are hardcoded given we are using a flavor which is essentially a template. If you want to use your own naming convention for secrets then you'll have to update the templates. Please make sure that you pay attention to the sshkey name.
 
@@ -319,7 +319,7 @@ hetznerbaremetalmachinetemplate.infrastructure.cluster.x-k8s.io/my-cluster-md-1 
 hetznercluster.infrastructure.cluster.x-k8s.io/my-cluster created
 ```
 
-### Getting the kubeconfig of workload cluster
+## Getting the kubeconfig of workload cluster
 
 After a while, our first controlplane should be up and running. You can verify it using the output of `kubectl get kcp` followed by `kubectl get machines`
 
@@ -330,11 +330,11 @@ clusterctl get kubeconfig my-cluster > workload-kubeconfig
 chmod go-r workload-kubeconfig # required to avoid helm warning
 ```
 
-### Deploy Cluster Addons
+## Deploy Cluster Addons
 
 NOTE: This is important for the functioning of the cluster otherwise the cluster won't work.
 
-#### Deploying the Hetzner Cloud Controller Manager
+### Deploying the Hetzner Cloud Controller Manager
 
 > This requires a secret containing access credentials to both Hetzner Robot and HCloud.
 
@@ -358,7 +358,7 @@ REVISION: 1
 TEST SUITE: None
 ```
 
-#### Installing CNI
+### Installing CNI
 
 For CNI, let's deploy cilium in the workload cluster that will facilitate the networking in the cluster.
 
@@ -378,7 +378,7 @@ Your release version is 1.15.3.
 For any further help, visit https://docs.cilium.io/en/v1.15/gettinghelp
 ```
 
-### verifying the cluster
+### Verifying the cluster
 
 Now, the cluster should be up and you can verify it by running the following commands:
 

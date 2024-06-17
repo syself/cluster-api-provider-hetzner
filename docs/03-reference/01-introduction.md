@@ -1,4 +1,4 @@
-## Object Reference
+# Object Reference
 
 In this object reference, we introduce all objects that are specific for this provider integration. The naming of objects, servers, machines, etc. can be confusing. Without claiming to be consistent throughout these docs, we would like to give an overview of how we name things here.
 

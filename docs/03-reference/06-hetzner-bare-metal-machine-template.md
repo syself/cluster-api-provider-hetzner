@@ -1,18 +1,18 @@
-## HetznerBareMetalMachineTemplate
+# HetznerBareMetalMachineTemplate
 
 In `HetznerBareMetalMachineTemplate` you can define all important properties for the `HetznerBareMetalMachines`. `HetznerBareMetalMachines` are reconciled by the `HetznerBareMetalMachineController`, which DOES NOT create or delete Hetzner dedicated machines. Instead, it uses the inventory of `HetznerBareMetalHosts`. These hosts correspond to already existing bare metal servers, which get provisioned when selected by a `HetznerBareMetalMachine`.
 
-### Lifecycle of a HetznerBareMetalMachine
+## Lifecycle of a HetznerBareMetalMachine
 
-#### Creating a HetznerBareMetalMachine
+### Creating a HetznerBareMetalMachine
 
 Simply put, the specs of a `HetznerBareMetalMachine` consist of two parts. First, there is information about how the bare metal server is supposed to be provisioned. Second, there are properties where you can specify which host to select. If these selectors correspond to a host that is not consumed yet, then the `HetznerBareMetalMachine` transfers important information to the host object. This information is used to provision the host according to what you specified in the specs of `HetznerBareMetalMachineTemplate`. If a host has provisioned successfully, then the `HetznerBareMetalMachine` is considered to be ready.
 
-#### Deleting of a HetznerBareMetalMachine
+### Deleting of a HetznerBareMetalMachine
 
 When the `HetznerBareMetalMachine` object gets deleted, it removes the information from the host that the latter used for provisioning. The host then triggers the deprovisioning. As soon as this has been completed, the `HetznerBareMetalMachineController` removes the owner and consumer reference of the host and deletes the finalizer of the machine, so that it can be finally deleted.
 
-#### Updating a HetznerBareMetalMachine
+### Updating a HetznerBareMetalMachine
 
 Updating a `HetznerBareMetalMachineTemplate` is not possible. Instead, a new template should be created.
 
@@ -33,7 +33,7 @@ When the port is changed in cloud-init, then we additionally need to use the fol
 
 Via MatchLabels you can specify a certain label (key and value) that identifies the host. You get more flexibility with MatchExpressions. This allows decisions like "take any host that has the key "mykey" and let this key have either one of the values "val1", "val2", and "val3".
 
-### Overview of HetznerBareMetalMachineTemplate.Spec
+## Overview of HetznerBareMetalMachineTemplate.Spec
 
 | Key                                                            | Type                | Default                 | Required | Description                                                                                                                                        |
 | -------------------------------------------------------------- | ------------------- | ----------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -76,7 +76,7 @@ Via MatchLabels you can specify a certain label (key and value) that identifies 
 | template.spec.sshSpec.portAfterInstallImage                    | int                 | 22                      | no       | PortAfterInstallImage specifies the port that can be used to reach the server via SSH after install image completed successfully                   |
 | template.spec.sshSpec.portAfterCloudInit                       | int                 | 22 (install image port) | no       | PortAfterCloudInit specifies the port that can be used to reach the server via SSH after cloud init completed successfully                         |
 
-### installImage.image
+## installImage.image
 
 You must specify either name and url, or a local path.
 
