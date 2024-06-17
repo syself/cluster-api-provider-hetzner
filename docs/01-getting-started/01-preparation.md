@@ -16,6 +16,7 @@ There are several tasks that have to be completed before a workload cluster can 
 2. Generate an SSH key. You can either upload it via Hetzner Robot UI or just rely on the controller to upload a key that it does not find in the robot API. This is possible, as you have to store the public and private key together with the SSH key's name in a secret that the controller reads.
 
 ---
+
 ## Bootstrap or Management Cluster Installation
 
 ### Common Prerequisites
@@ -33,20 +34,23 @@ It is a common practice to create a temporary, local bootstrap cluster, which is
 
 #### 1. Existing Management Cluster.
 
-For production use, a “real” Kubernetes cluster should be used with appropriate backup and Disaster Recovery policies and procedures in place. The Kubernetes cluster must be at least a [supported version](../../README.md#fire-compatibility-with-cluster-api-and-kubernetes-versions).
+For production use, a “real” Kubernetes cluster should be used with appropriate backup and Disaster Recovery policies and procedures in place. The Kubernetes cluster must be at least a [supported version](https://github.com/syself/cluster-api-provider-hetzner/blob/main/README.md#%EF%B8%8F-compatibility-with-cluster-api-and-kubernetes-versions).
 
 #### 2. Kind.
 
 [kind](https://kind.sigs.k8s.io/) can be used for creating a local Kubernetes cluster for development environments or for the creation of a temporary bootstrap cluster used to provision a target management cluster on the selected infrastructure provider.
 
 ---
+
 ## Install Clusterctl and initialize Management Cluster
 
 ### Install Clusterctl
+
 Please use the instructions here: https://cluster-api.sigs.k8s.io/user/quick-start.html#install-clusterctl
 or use: `make clusterctl`
 
 ### Initialize the management cluster
+
 Now that we’ve got clusterctl installed and all the prerequisites are in place, we can transform the Kubernetes cluster into a management cluster by using the `clusterctl init` command. More information about clusterctl can be found [here](https://cluster-api.sigs.k8s.io/clusterctl/commands/commands.html).
 
 For the latest version:
@@ -59,6 +63,7 @@ clusterctl init --core cluster-api --bootstrap kubeadm --control-plane kubeadm -
 or for a specific [version](https://github.com/syself/cluster-api-provider-hetzner/releases): `--infrastructure hetzner:vX.X.X`
 
 ---
+
 ## Variable Preparation to generate a cluster-template.
 
 ```shell
@@ -72,10 +77,10 @@ export HCLOUD_CONTROL_PLANE_MACHINE_TYPE=cpx31 \
 export HCLOUD_WORKER_MACHINE_TYPE=cpx31
 ```
 
-* HCLOUD_SSH_KEY: The SSH Key name you loaded in HCloud.
-* HCLOUD_REGION: https://docs.hetzner.com/cloud/general/locations/
-* HCLOUD_IMAGE_NAME: The Image name of your operating system.
-* HCLOUD_X_MACHINE_TYPE: https://www.hetzner.com/cloud#pricing
+- HCLOUD_SSH_KEY: The SSH Key name you loaded in HCloud.
+- HCLOUD_REGION: https://docs.hetzner.com/cloud/general/locations/
+- HCLOUD_IMAGE_NAME: The Image name of your operating system.
+- HCLOUD_X_MACHINE_TYPE: https://www.hetzner.com/cloud#pricing
 
 For a list of all variables needed for generating a cluster manifest (from the cluster-template.yaml), use `clusterctl generate cluster --infrastructure hetzner:<caph-version> --list-variables hetzner-cluster`:
 
@@ -99,6 +104,7 @@ Optional Variables:
 In order for the provider integration hetzner to communicate with the Hetzner API ([HCloud API](https://docs.hetzner.cloud/), we need to create a secret with the access data. The secret must be in the same namespace as the other CRs.
 
 `export HCLOUD_TOKEN="<YOUR-TOKEN>" `
+
 - HCLOUD_TOKEN: The project where your cluster will be placed. You have to get a token from your HCloud Project.
 
 ```shell
@@ -140,4 +146,4 @@ kubectl patch secret robot-ssh -p '{"metadata":{"labels":{"clusterctl.cluster.x-
 
 The secret name and the tokens can also be customized in the cluster template.
 
-See [node-image](./node-image.md) for more information.
+See [node-image](/docs/02-topics/02-node-image.md) for more information.

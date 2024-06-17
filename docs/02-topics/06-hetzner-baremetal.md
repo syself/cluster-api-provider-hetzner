@@ -1,38 +1,40 @@
+### Hetzner Baremetal
 
-### Hetzner Baremetal 
 Hetzner have two offerings primarily:
+
 1. Hetzner Cloud/ Hcloud -> for virtualized servers
 2. Hetzner Dedicated/ Robot -> for bare metal servers
 
-In this guide, we will focus on creating a cluster from baremetal servers. 
+In this guide, we will focus on creating a cluster from baremetal servers.
 
 ### Flavors of Hetzner Baremetal
-Now, there are different ways you can use baremetal servers, you can use them as controlplanes or as worker nodes or both. Based on that we have created some templates and those templates are released as flavors in GitHub releases. 
+
+Now, there are different ways you can use baremetal servers, you can use them as controlplanes or as worker nodes or both. Based on that we have created some templates and those templates are released as flavors in GitHub releases.
 
 These flavors can be consumed using [clusterctl](https://main.cluster-api.sigs.k8s.io/user/quick-start.html#install-clusterctl) tool:
 
- To use bare metal servers for your deployment, you can choose one of the following flavors:
+To use bare metal servers for your deployment, you can choose one of the following flavors:
 
-| Flavor                                       | What it does                                                                                                                                 |
-| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Flavor                                       | What it does                                                                                                  |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | hetzner-baremetal-control-planes-remediation | Uses bare metal servers for the control plane nodes - with custom remediation (try to reboot machines first)  |
 | hetzner-baremetal-control-planes             | Uses bare metal servers for the control plane nodes - with normal remediation (unprovision/recreate machines) |
-| hetzner-hcloud-control-planes                | Uses the hcloud servers for the control plane nodes and the bare metal servers for the worker nodes                                          |
-
+| hetzner-hcloud-control-planes                | Uses the hcloud servers for the control plane nodes and the bare metal servers for the worker nodes           |
 
 NOTE: These flavors are only for demonstration purposes and should not be used in production.
 
 ### Purchasing Bare Metal Servers
 
-If you want to create a cluster with bare metal servers, you will also need to set up the robot credentials. For setting robot credentials, as described in the [reference](/docs/reference/hetzner-bare-metal-machine-template.md), you need to purchase bare metal servers beforehand manually.
+If you want to create a cluster with bare metal servers, you will also need to set up the robot credentials. For setting robot credentials, as described in the [reference](/docs/03-reference/06-hetzner-bare-metal-machine-template.md), you need to purchase bare metal servers beforehand manually.
 
-### Creating a bootstrap cluster 
+### Creating a bootstrap cluster
+
 In this guide, we will focus on creating a bootstrap cluster which is basically a local management cluster created using [kind](https://kind.sigs.k8s.io).
 
-To create a bootstrap cluster, you can use the following command: 
+To create a bootstrap cluster, you can use the following command:
 
 ```bash
-kind create cluster 
+kind create cluster
 ```
 
 ```bash
@@ -51,7 +53,7 @@ kubectl cluster-info --context kind-kind
 Have a question, bug, or feature request? Let us know! https://kind.sigs.k8s.io/#community 🙂
 ```
 
-After creating the bootstrap cluster, it is also required to have some variables exported and the name of the variables that needs to be exported can be known by running the following command: 
+After creating the bootstrap cluster, it is also required to have some variables exported and the name of the variables that needs to be exported can be known by running the following command:
 
 ```bash
 $ clusterctl generate cluster my-cluster --list-variables --flavor hetzner-hcloud-control-planes
@@ -70,10 +72,11 @@ Optional Variables:
 
 These variables are used during the deployment of Hetzner infrastructure provider in the cluster.
 
-Installing the Hetzner provider can be done using the following command: 
+Installing the Hetzner provider can be done using the following command:
+
 ```bash
 clusterctl init --infrastructure hetzner
-````
+```
 
 ```bash
 Fetching providers
@@ -108,32 +111,37 @@ As of now, our cluster manifest lives in `my-cluster.yaml` file and we will appl
 
 For this tutorial, we will let the controller upload keys to hetzner robot.
 
-#### Creating new user in Robot 
+#### Creating new user in Robot
+
 To create new user in Robot, click on the `Create User` button in the Hetzner Robot console. Once you create the new user, a user ID will be provided to you via email from Hetzner Robot. The password will be the same that you used while creating the user.
 
-![robot user](../pics/robot_user.png)
+![robot user](https://syself.com/images/robot-user.png)
 
 This is a required for following the next step.
 
-### creating and verify ssh-key in hcloud 
-First you need to create a ssh-key locally and you can `ssh-keygen` command for creation. 
+### creating and verify ssh-key in hcloud
+
+First you need to create a ssh-key locally and you can `ssh-keygen` command for creation.
+
 ```bash
 ssh-keygen -t ed25519 -f ~/.ssh/caph
 ```
+
 Above command will create a public and private key in your `~/.ssh` directory.
 
 You can use the public key `~/.ssh/caph.pub` and upload it to your hcloud project. Go to your project and under `Security` -> `SSH Keys` click on `Add SSH key` and add your public key there and in the `Name` of ssh key you'll use the name `test`.
 
 NOTE: There is also a helper CLI called [hcloud](https://github.com/hetznercloud/cli) that can be used for the purpose of uploading the SSH key.
 
-In the above step, the name of the ssh-key that is recognized by hcloud is `test`. This is important because we will reference the name of the ssh-key later. 
+In the above step, the name of the ssh-key that is recognized by hcloud is `test`. This is important because we will reference the name of the ssh-key later.
 
 This is an important step because the same ssh key is used to access the servers. Make sure you are using the correct ssh key name.
 
-The `test` is the name of the ssh key that we have created above. It is because the generated manifest references `test` as the ssh key name. 
+The `test` is the name of the ssh key that we have created above. It is because the generated manifest references `test` as the ssh key name.
+
 ```yaml
-  sshKeys:
-    hcloud:
+sshKeys:
+  hcloud:
     - name: test
 ```
 
@@ -177,9 +185,7 @@ kubectl patch secret robot-ssh -p '{"metadata":{"labels":{"clusterctl.cluster.x-
 
 The secret name and the tokens can also be customized in the cluster template.
 
-
 ### Creating Host Object In Management Cluster
-
 
 For using baremetal servers as nodes, you need to create a `HetznerBareMetalHost` object for each bare metal server that you bought and specify its server ID in the specs. Below is a sample manifest for HetznerBareMetalHost object.
 
@@ -197,7 +203,7 @@ spec:
   maintenanceMode: false
 ```
 
-If you already know the WWN of the storage device you want to choose for booting, specify it in the `rootDeviceHints` of the object. If not, you can proceed. During the provisioning process, the controller will fetch information about all available storage devices and store it in the status of the object. 
+If you already know the WWN of the storage device you want to choose for booting, specify it in the `rootDeviceHints` of the object. If not, you can proceed. During the provisioning process, the controller will fetch information about all available storage devices and store it in the status of the object.
 
 For example, let's consider a `HetznerBareMetalHost` object without specify it's WWN.
 
@@ -212,9 +218,11 @@ spec:
   serverID: <ID-of-your-server> # please check robot console
   maintenanceMode: false
 ```
+
 In the above server, we have not specified the WWN of the server and we have applied it in the cluster.
 
-After a while, you will see that there is an error in provisioning of `HetznerBareMetalHost` object that you just applied above. The error will look the following: 
+After a while, you will see that there is an error in provisioning of `HetznerBareMetalHost` object that you just applied above. The error will look the following:
+
 ```bash
 $ kubectl get hetznerbaremetalhost -A
 default     my-cluster-md-1-tgvl5   my-cluster   default/test-bm-gpu    my-cluster-md-1-t9znj-694hs   Provisioning   23m   ValidationFailed   no root device hints specified
@@ -224,25 +232,26 @@ After you see the error, get the YAML output of the `HetznerBareMetalHost` objec
 
 ```yaml
 storage:
-- hctl: "2:0:0:0"
-  model: Micron_1100_MTFDDAK512TBN
-  name: sda
-  serialNumber: 18081BB48B25
-  sizeBytes: 512110190592
-  sizeGB: 512
-  vendor: 'ATA     '
-  wwn: "0x500a07511bb48b25"
-- hctl: "1:0:0:0"
-  model: Micron_1100_MTFDDAK512TBN
-  name: sdb
-  serialNumber: 18081BB48992
-  sizeBytes: 512110190592
-  sizeGB: 512
-  vendor: 'ATA     '
-  wwn: "0x500a07511bb48992"
+  - hctl: "2:0:0:0"
+    model: Micron_1100_MTFDDAK512TBN
+    name: sda
+    serialNumber: 18081BB48B25
+    sizeBytes: 512110190592
+    sizeGB: 512
+    vendor: "ATA     "
+    wwn: "0x500a07511bb48b25"
+  - hctl: "1:0:0:0"
+    model: Micron_1100_MTFDDAK512TBN
+    name: sdb
+    serialNumber: 18081BB48992
+    sizeBytes: 512110190592
+    sizeGB: 512
+    vendor: "ATA     "
+    wwn: "0x500a07511bb48992"
 ```
 
-In the output above, we can see that on this baremetal servers we have two disk with their respective `Wwn`. We can also verify it by making an ssh connection to the rescue system and executing the following command: 
+In the output above, we can see that on this baremetal servers we have two disk with their respective `Wwn`. We can also verify it by making an ssh connection to the rescue system and executing the following command:
+
 ```bash
 # lsblk --nodeps --output name,type,wwn
 NAME TYPE WWN
@@ -263,11 +272,13 @@ NOTE: If you've more than one disk then it's recommended to use smaller disk for
 
 We will apply this file in the cluster and the provisioning of the machine will be successful.
 
-To summarize, if you don't know the WWN of your server then there are two ways to find it out: 
+To summarize, if you don't know the WWN of your server then there are two ways to find it out:
+
 1. Create the HetznerBareMetalHost without WWN and wait for the controller to fetch all information about the available storage devices. Afterwards, look at status of `HetznerBareMetalHost` by running `kubectl get hetznerbaremetalhost <name-of-hetzner-baremetalhost> -o yaml` in your management cluster. There you will find `hardwareDetails` of all of your bare metal hosts, in which you can see a list of all the relevant storage devices as well as their properties. You can copy+paste the WWN of your desired storage device into the `rootDeviceHints` of your `HetznerBareMetalHost` objects.
 2. SSH into the rescue system of the server and use `lsblk --nodeps --output name,type,wwn`
 
 NOTE: There might be cases where you've more than one disk.
+
 ```bash
 lsblk -d -o name,type,wwn,size
 NAME TYPE WWN                  SIZE
@@ -277,14 +288,14 @@ sdc  disk <wwn>                  1.8T
 sdd  disk <wwn>                  1.8T
 ```
 
-In the above case, you can use any of the four disks available to you on a baremetal server. 
+In the above case, you can use any of the four disks available to you on a baremetal server.
 
+### Creating Workload Cluster
 
-### Creating Workload Cluster 
-
-NOTE: Secrets as of now are hardcoded given we are using a flavor which is essentially a template. If you want to use your own naming convention for secrets then you'll have to update the templates. Please make sure that you pay attention to the sshkey name. 
+NOTE: Secrets as of now are hardcoded given we are using a flavor which is essentially a template. If you want to use your own naming convention for secrets then you'll have to update the templates. Please make sure that you pay attention to the sshkey name.
 
 Since we have already created secret in hetzner robot, hcloud and ssh-keys as secret in management cluster, we can now apply the cluster.
+
 ```bash
 kubectl apply -f my-cluster.yaml
 ```
@@ -308,10 +319,11 @@ hetznerbaremetalmachinetemplate.infrastructure.cluster.x-k8s.io/my-cluster-md-1 
 hetznercluster.infrastructure.cluster.x-k8s.io/my-cluster created
 ```
 
-### Getting the kubeconfig of workload cluster 
-After a while, our first controlplane should be up and running. You can verify it using the output of `kubectl get kcp` followed by `kubectl get machines` 
+### Getting the kubeconfig of workload cluster
 
-Once it's up and running, you can get the kubeconfig of the workload cluster using the following command: 
+After a while, our first controlplane should be up and running. You can verify it using the output of `kubectl get kcp` followed by `kubectl get machines`
+
+Once it's up and running, you can get the kubeconfig of the workload cluster using the following command:
 
 ```bash
 clusterctl get kubeconfig my-cluster > workload-kubeconfig
@@ -346,8 +358,10 @@ REVISION: 1
 TEST SUITE: None
 ```
 
-#### Installing CNI 
+#### Installing CNI
+
 For CNI, let's deploy cilium in the workload cluster that will facilitate the networking in the cluster.
+
 ```bash
 $ helm install cilium cilium/cilium --version 1.15.3 --kubeconfig workload-kubeconfig
 NAME: cilium
@@ -365,7 +379,9 @@ For any further help, visit https://docs.cilium.io/en/v1.15/gettinghelp
 ```
 
 ### verifying the cluster
+
 Now, the cluster should be up and you can verify it by running the following commands:
+
 ```bash
 $ kubectl get clusters -A
 NAMESPACE   NAME         CLUSTERCLASS   PHASE         AGE   VERSION
@@ -381,16 +397,17 @@ default     my-cluster-md-0-2xgj5-tl2jr      my-cluster   my-cluster-md-0-59cgw 
 default     my-cluster-md-1-cp2fd-7nld7      my-cluster   bm-my-cluster-md-1-d7526         hcloud://bm-2317525   Running        9h    v1.29.4
 default     my-cluster-md-1-cp2fd-n74sm      my-cluster   bm-my-cluster-md-1-l5dnr         hcloud://bm-2105469   Running        10h   v1.29.4
 ```
+
 Please note that hcloud servers are prefixed with `hcloud://` and baremetal servers are prefixed with `hcloud://bm-`.
 
 ## Advanced
 
 ### Constant hostnames for bare metal servers
 
-In some cases it has advantages to fix the hostname and with it the names of nodes in your clusters. For cloud servers not so much as for bare metal servers, where there are storage integrations that allow you to use the storage of the bare metal servers and that work with fixed node names. 
+In some cases it has advantages to fix the hostname and with it the names of nodes in your clusters. For cloud servers not so much as for bare metal servers, where there are storage integrations that allow you to use the storage of the bare metal servers and that work with fixed node names.
 
 Therefore, there is the possibility to create a cluster that uses fixed node names for bare metal servers. Please note: this only applies to the bare metal servers and not to Hetzner Cloud servers.
 
-You can trigger this feature by creating a `Cluster` or `HetznerBareMetalMachine` (you can choose) with the annotation `"capi.syself.com/constant-bare-metal-hostname": "true"`. Of course, `HetznerBareMetalMachines` are not created by the user. However, if you use the `ClusterClass`, then you can add the annotation to a `MachineDeployment`, so that all machines are created with this annotation. 
+You can trigger this feature by creating a `Cluster` or `HetznerBareMetalMachine` (you can choose) with the annotation `"capi.syself.com/constant-bare-metal-hostname": "true"`. Of course, `HetznerBareMetalMachines` are not created by the user. However, if you use the `ClusterClass`, then you can add the annotation to a `MachineDeployment`, so that all machines are created with this annotation.
 
 This is still an experimental feature but it should be safe to use and to also update existing clusters with this annotation. All new machines will be created with this constant hostname.

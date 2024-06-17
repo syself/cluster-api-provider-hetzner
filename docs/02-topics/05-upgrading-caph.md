@@ -9,7 +9,7 @@ Connect `kubectl` to the management cluster.
 Check, that you are connected to the correct cluster:
 
 ```
-❯ k config current-context 
+❯ k config current-context
 mgm-cluster-admin@mgm-cluster
 ```
 
@@ -89,7 +89,8 @@ Installing Provider="bootstrap-kubeadm" Version="v1.6.3" TargetNamespace="capi-k
 Deleting Provider="control-plane-kubeadm" Version="v1.6.0" Namespace="capi-kubeadm-control-plane-system"
 Installing Provider="control-plane-kubeadm" Version="v1.6.3" TargetNamespace="capi-kubeadm-control-plane-system"
 ```
-Great, cluster-API was upgraded. 
+
+Great, cluster-API was upgraded.
 
 NOTE: If you want to update only one components or update components one by one then there are flags for that under `clusterctl upgrade apply` subcommand like `--bootstrap`, `--control-plane` and `--core`.
 
@@ -110,6 +111,7 @@ Installing Provider="infrastructure-hetzner" Version="v1.0.0-beta.33" TargetName
 ```
 
 After the upgrade, you'll notice the new pod spinning up the `caph-system` namespace.
+
 ```bash
 $ kubectl get pods -n caph-system
 NAME                                       READY   STATUS    RESTARTS   AGE
@@ -124,14 +126,15 @@ Check the health of your workload cluster with your preferred tools and ensure t
 
 ## External Cluster API Reference
 
-After upgrading cluster API, you may want to update the Kubernetes version of your controlplane and worker nodes. Those details can be found in the [Cluster API documentation](https://cluster-api.sigs.k8s.io/tasks/upgrading-clusters). 
+After upgrading cluster API, you may want to update the Kubernetes version of your controlplane and worker nodes. Those details can be found in the [Cluster API documentation](https://cluster-api.sigs.k8s.io/tasks/upgrading-clusters).
 
 NOTE: The update can be done on either management cluster or workload cluster separately as well.
 
 You should upgrade your kubernetes version after considering the following:
 
-````markdown
+```markdown
 A Cluster API minor release supports (when it’s initially created):
-  - 4 Kubernetes minor releases for the management cluster (N - N-3)
-  - 6 Kubernetes minor releases for the workload cluster (N - N-5)
-````
+
+- 4 Kubernetes minor releases for the management cluster (N - N-3)
+- 6 Kubernetes minor releases for the workload cluster (N - N-5)
+```

@@ -39,13 +39,13 @@ Via MatchLabels you can specify a certain label (key and value) that identifies 
 | -------------------------------------------------------------- | ------------------- | ----------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | template.spec.providerID                                       | string              |                         | no       | Provider ID set by controller                                                                                                                      |
 | template.spec.installImage                                     | object              |                         | yes      | Configuration used in autosetup                                                                                                                    |
-| template.spec.installImage.image                               | object              |                         | yes      | Defines image for bm machine. See below for details.                                                                 |
+| template.spec.installImage.image                               | object              |                         | yes      | Defines image for bm machine. See below for details.                                                                                               |
 | template.spec.installImage.image.url                           | string              |                         | no       | Remote URL of image. Can be tar, tar.gz, tar.bz, tar.bz2, tar.xz, tgz, tbz, txz                                                                    |
 | template.spec.installImage.image.name                          | string              |                         | no       | Name of the image                                                                                                                                  |
 | template.spec.installImage.image.path                          | string              |                         | no       | Local path of a pre-installed image                                                                                                                |
-| template.spec.installImage.postInstallScript                   | string              |                         | no       | PostInstallScript that is used for commands that will be executed after installing image                                                              |
+| template.spec.installImage.postInstallScript                   | string              |                         | no       | PostInstallScript that is used for commands that will be executed after installing image                                                           |
 | template.spec.installImage.swraid                              | int                 | 0                       | no       | Enables or disables raid. Set 1 to enable                                                                                                          |
-| template.spec.installImage.swraidLevel                         | int                 | 1                       | no       | Defines the software raid levels. Only relevant if raid is enabled. Pick one of 0,1,5,6,10                                                                                           |
+| template.spec.installImage.swraidLevel                         | int                 | 1                       | no       | Defines the software raid levels. Only relevant if raid is enabled. Pick one of 0,1,5,6,10                                                         |
 | template.spec.installImage.partitions                          | []object            |                         | yes      | Partitions that should be created in installimage                                                                                                  |
 | template.spec.installImage.partitions.mount                    | string              |                         | yes      | Mount defines the mount path of the filesystem                                                                                                     |
 | template.spec.installImage.partitions.fileSystem               | string              |                         | yes      | Filesystem that should be used. Can be ext2, ext3, ext4, btrfs, reiserfs, xfs, swap, or the name of the LVM volume group, if the partition is a VG |
@@ -71,7 +71,7 @@ Via MatchLabels you can specify a certain label (key and value) that identifies 
 | template.spec.sshSpec.secretRef.name                           | string              |                         | yes      | Name of the secret                                                                                                                                 |
 | template.spec.sshSpec.secretRef.key                            | object              |                         | yes      | Details about the keys used in the data of the secret                                                                                              |
 | template.spec.sshSpec.secretRef.key.name                       | string              |                         | yes      | Name is the key in the secret's data where the SSH key's name is stored                                                                            |
-| template.spec.sshSpec.secretRef.key.publicKey    | string              |                         | yes      | PublicKey is the key in the secret's data where the SSH key's public key is stored                                                                 |
+| template.spec.sshSpec.secretRef.key.publicKey                  | string              |                         | yes      | PublicKey is the key in the secret's data where the SSH key's public key is stored                                                                 |
 | template.spec.sshSpec.secretRef.key.privateKey                 | string              |                         | yes      | PrivateKey is the key in the secret's data where the SSH key's private key is stored                                                               |
 | template.spec.sshSpec.portAfterInstallImage                    | int                 | 22                      | no       | PortAfterInstallImage specifies the port that can be used to reach the server via SSH after install image completed successfully                   |
 | template.spec.sshSpec.portAfterCloudInit                       | int                 | 22 (install image port) | no       | PortAfterCloudInit specifies the port that can be used to reach the server via SSH after cloud init completed successfully                         |
@@ -113,9 +113,9 @@ You can provide the variable via a secret of the deployment `caph-controller-man
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  # ... 
+  # ...
 spec:
-  # ... 
+  # ...
   template:
     spec:
       containers:
@@ -137,6 +137,3 @@ You can push an image to an oci-registry with a tool like [oras](https://oras.la
 oras push ghcr.io/myorg/images/Ubuntu-2204-jammy-amd64-custom:1.0.0-beta.2 \
     --artifact-type application/vnd.myorg.machine-image.v1 Ubuntu-2204-jammy-amd64-custom.tar.gz
 ```
-
-
-

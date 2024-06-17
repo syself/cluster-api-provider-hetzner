@@ -31,11 +31,11 @@ This is only needed if you want to manually release images.
 2. Do:
    - `make release-image`
 
-### Versioning
+## Versioning
 
 See the [versioning documentation](./../../CONTRIBUTING.md#versioning) for more information.
 
-### Permissions
+## Permissions
 
 Releasing requires a particular set of permissions.
 
