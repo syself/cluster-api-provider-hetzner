@@ -5,7 +5,7 @@ title: Developing Cluster API Provider Hetzner
 Developing our provider is quite easy. Please follow the steps mentioned below:
 
 1. You need to install some base requirements.
-2. You need to follow the [preparation document](/docs/01-getting-started/01-preparation) to set up everything related to Hetzner.
+2. You need to follow the [preparation document](/docs/caph/01-getting-started/01-preparation) to set up everything related to Hetzner.
 
 ## Install Base requirements
 
@@ -26,7 +26,7 @@ This ensures the following:
 
 ## Preparing Hetzner project
 
-For more information, please see [here](/docs/01-getting-started/01-preparation).
+For more information, please see [here](/docs/caph/01-getting-started/01-preparation).
 
 ## Setting Tilt up
 
