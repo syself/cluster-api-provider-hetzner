@@ -5,7 +5,7 @@ title: Developing Cluster API Provider Hetzner
 Developing our provider is quite easy. Please follow the steps mentioned below:
 
 1. You need to install some base requirements.
-2. You need to follow the [preparation document](/docs/01-getting-started/01-preparation.md) to set up everything related to Hetzner.
+2. You need to follow the [preparation document](/docs/01-getting-started/01-preparation) to set up everything related to Hetzner.
 
 ## Install Base requirements
 
@@ -26,13 +26,13 @@ This ensures the following:
 
 ## Preparing Hetzner project
 
-For more information, please see [here](/docs/01-getting-started/01-preparation.md).
+For more information, please see [here](/docs/01-getting-started/01-preparation).
 
 ## Setting Tilt up
 
 You need to create a `.envrc` file and specify the values you need. After the `.envrc` is loaded, invoke `direnv allow` to load the environment variables in your current shell session.
 
-The complete reference can be found [here](/docs/developers/tilt.md).
+The complete reference can be found [here](/docs/developers/tilt).
 
 ## Developing with Tilt
 
@@ -64,7 +64,7 @@ If you have any trouble finding the right command, you can run the `make help` c
 
 ## Submitting PRs and testing
 
-Pull requests and issues are highly encouraged! For more information, please have a look at the [Contribution Guidelines](https://github.com/syself/cluster-api-provider-hetzner/blob/main/CONTRIBUTING.md)
+Pull requests and issues are highly encouraged! For more information, please have a look at the [Contribution Guidelines](https://github.com/syself/cluster-api-provider-hetzner/blob/main/CONTRIBUTING)
 
 There are two important commands that you should make use of before creating the PR.
 
