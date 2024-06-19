@@ -46,12 +46,14 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	// delete the deprecated condition from existing machinetemplate objects
 	conditions.Delete(s.scope.HCloudMachineTemplate, infrav1.DeprecatedRateLimitExceededCondition)
 
-	capacity, err := s.getCapacity(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get capacity: %w", err)
-	}
+	if s.scope.HCloudMachineTemplate.Status.Capacity == nil {
+		capacity, err := s.getCapacity(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get capacity: %w", err)
+		}
 
-	s.scope.HCloudMachineTemplate.Status.Capacity = capacity
+		s.scope.HCloudMachineTemplate.Status.Capacity = capacity
+	}
 	return nil
 }
 
