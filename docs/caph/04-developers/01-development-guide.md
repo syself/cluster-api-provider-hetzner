@@ -32,7 +32,7 @@ For more information, please see [here](/docs/caph/01-getting-started/01-prepara
 
 You need to create a `.envrc` file and specify the values you need. After the `.envrc` is loaded, invoke `direnv allow` to load the environment variables in your current shell session.
 
-The complete reference can be found [here](/docs/developers/tilt).
+The complete reference can be found [here](/docs/caph/04-developers/02-tilt).
 
 ## Developing with Tilt
 
