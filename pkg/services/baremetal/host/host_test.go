@@ -447,12 +447,6 @@ var _ = Describe("handleIncompleteBoot", func() {
 					Expect(robotMock.AssertNotCalled(GinkgoT(), "RebootBMServer", mock.Anything, mock.Anything)).To(BeTrue())
 				}
 			},
-			Entry("timed out hw reset", testCaseHandleIncompleteBootDifferentTimeouts{
-				hostErrorType:         infrav1.ErrorTypeHardwareRebootTriggered,
-				lastUpdated:           time.Now().Add(-time.Hour),
-				expectedHostErrorType: infrav1.ErrorTypeHardwareRebootTriggered,
-				expectedRebootType:    infrav1.RebootTypeHardware,
-			}),
 			Entry("timed out sw reset", testCaseHandleIncompleteBootDifferentTimeouts{
 				hostErrorType:         infrav1.ErrorTypeSoftwareRebootTriggered,
 				lastUpdated:           time.Now().Add(-5 * time.Minute),
@@ -461,7 +455,7 @@ var _ = Describe("handleIncompleteBoot", func() {
 			}),
 			Entry("not timed out hw reset", testCaseHandleIncompleteBootDifferentTimeouts{
 				hostErrorType:         infrav1.ErrorTypeHardwareRebootTriggered,
-				lastUpdated:           time.Now().Add(-30 * time.Minute),
+				lastUpdated:           time.Now().Add(-2 * time.Minute),
 				expectedHostErrorType: infrav1.ErrorTypeHardwareRebootTriggered,
 				expectedRebootType:    infrav1.RebootType(""),
 			}),
@@ -494,6 +488,30 @@ var _ = Describe("handleIncompleteBoot", func() {
 			Expect(err).ToNot(BeNil())
 			Expect(failed).To(BeTrue())
 			Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.ErrorTypeConnectionError))
+			Expect(robotMock.AssertNotCalled(GinkgoT(), "RebootBMServer", mock.Anything, mock.Anything)).To(BeTrue())
+		})
+
+		It("fails if hardware reboot times out", func() {
+			robotMock := robotmock.Client{}
+			robotMock.On("SetBootRescue", mock.Anything, sshFingerprint).Return(nil, nil)
+			robotMock.On("GetBootRescue", mock.Anything).Return(&models.Rescue{Active: true}, nil)
+			robotMock.On("RebootBMServer", mock.Anything, mock.Anything).Return(nil, nil)
+
+			host := helpers.BareMetalHost("test-host", "default",
+				helpers.WithRebootTypes([]infrav1.RebootType{
+					infrav1.RebootTypeSoftware,
+					infrav1.RebootTypeHardware,
+					infrav1.RebootTypePower,
+				}),
+				helpers.WithSSHSpec(),
+				helpers.WithSSHStatus(),
+				helpers.WithError(infrav1.ErrorTypeHardwareRebootTriggered, "", 1, metav1.Time{Time: time.Now().Add(-time.Hour)}),
+			)
+			service := newTestService(host, &robotMock, nil, nil, nil)
+
+			_, err := service.handleIncompleteBoot(true, true, false)
+			Expect(err).ToNot(Succeed())
+			Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.ErrorTypeHardwareRebootTriggered))
 			Expect(robotMock.AssertNotCalled(GinkgoT(), "RebootBMServer", mock.Anything, mock.Anything)).To(BeTrue())
 		})
 	})
@@ -753,7 +771,7 @@ var _ = Describe("analyzeSSHOutputInstallImage", func() {
 			err:                         sshclient.ErrConnectionRefused,
 			rescueActive:                true,
 			expectedIsTimeout:           false,
-			expectedIsConnectionRefused: false,
+			expectedIsConnectionRefused: true,
 			expectedErrMessage:          "",
 		}),
 		Entry("connectionRefused error, rescue not active", testCaseAnalyzeSSHOutputInstallImageOutErr{
