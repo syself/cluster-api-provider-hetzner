@@ -97,10 +97,10 @@ func (lt *LoggingTransport) RoundTrip(req *http.Request) (resp *http.Response, e
 	logger := ctrl.LoggerFrom(req.Context()).WithName("hcloud-api")
 	req.Context()
 	if err != nil {
-		logger.Info("hcloud API. Error.", "err", err, "method", req.Method, "url", req.URL, "hcloud_token", token, "stack", stack)
+		logger.V(1).Info("hcloud API called. Error.", "err", err, "method", req.Method, "url", req.URL, "hcloud_token", token, "stack", stack)
 		return resp, err
 	}
-	logger.Info("hcloud API called", "statusCode", resp.StatusCode, "method", req.Method, "url", req.URL, "hcloud_token", token, "stack", stack)
+	logger.V(1).Info("hcloud API called", "statusCode", resp.StatusCode, "method", req.Method, "url", req.URL, "hcloud_token", token, "stack", stack)
 	return resp, nil
 }
 
