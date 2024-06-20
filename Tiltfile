@@ -27,7 +27,6 @@ settings = {
     "extra_args": {
         "hetzner": [
             "--log-level=debug",
-            "--debug-hcloud-api-calls=true"
         ],
     },
     "kustomize_substitutions": {
