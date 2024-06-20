@@ -1,4 +1,4 @@
-<img align="center" src="https://cdn.syself.com/caph.png" alt="Kubernetes Cluster API Provider Hetzner">
+[![Kubernetes Cluster API Provider Hetzner](https://cdn.syself.com/caph.png)](https://syself.com)
 
 <br>
 
