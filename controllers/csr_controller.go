@@ -117,7 +117,7 @@ func (r *GuestCSRReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		if err != nil {
 			log.Error(err, "could not find an associated bm machine or hcloud machine",
 				"userName", certificateSigningRequest.Spec.Username)
-			return reconcile.Result{RequeueAfter: 20 * time.Second}, nil
+			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 		}
 
 		machineName := machineNameFromCSR(certificateSigningRequest, isHCloudMachine)
