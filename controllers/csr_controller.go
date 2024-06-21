@@ -215,8 +215,9 @@ func (r *GuestCSRReconciler) getMachineAddresses(
 	ctx context.Context,
 	certificateSigningRequest *certificatesv1.CertificateSigningRequest,
 ) (machineAddresses []clusterv1.MachineAddress, isHCloudMachine bool, err error) {
-	_, serverID := getServerIDFromConstantHostname(ctx, certificateSigningRequest.Spec.Username, r.clusterName)
+	log := ctrl.LoggerFrom(ctx)
 
+	_, serverID := getServerIDFromConstantHostname(ctx, certificateSigningRequest.Spec.Username, r.clusterName)
 	if serverID != "" {
 		// According the the regex this is BM server with ConstantHostname. Handle that fist,
 		// no need to check for a HCloud server.
@@ -231,6 +232,7 @@ func (r *GuestCSRReconciler) getMachineAddresses(
 			return nil, false, fmt.Errorf("getHbmmWithConstantHostname(%q) failed: %w", certificateSigningRequest.Spec.Username, err)
 		}
 		if hbmm != nil {
+			log.Info(fmt.Sprintf("found hbmm for %s (ConstantHostname)", certificateSigningRequest.Spec.Username))
 			return hbmm.Status.Addresses, false, nil
 		}
 		return nil, false, fmt.Errorf("getHbmmWithConstantHostname(%q) failed to get hbmm (should not happen)", certificateSigningRequest.Spec.Username)
@@ -261,10 +263,10 @@ func (r *GuestCSRReconciler) getMachineAddresses(
 				bmMachineName.Name,
 				err)
 		}
-
+		log.Info(fmt.Sprintf("found hbmm for %s (no ConstantHostname)", certificateSigningRequest.Spec.Username))
 		return bmMachine.Status.Addresses, false, nil
 	}
-
+	log.Info(fmt.Sprintf("found hcloudmachine for %s", certificateSigningRequest.Spec.Username))
 	return hcloudMachine.Status.Addresses, true, nil
 }
 
