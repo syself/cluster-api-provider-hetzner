@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -108,6 +109,11 @@ func (r *GuestCSRReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 	} else {
 		// get machine addresses from corresponding machine
 		machineAddresses, isHCloudMachine, err := r.getMachineAddresses(ctx, certificateSigningRequest)
+		if errors.Is(err, errNoHetznerBareMetalMachineByProviderIDFound) {
+			log.Info(fmt.Sprintf("ProviderID not set yet. The hbmm seems to be in 'ensure-provision'. Retrying. %s",
+				err.Error()))
+			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+		}
 		if err != nil {
 			log.Error(err, "could not find an associated bm machine or hcloud machine",
 				"userName", certificateSigningRequest.Spec.Username)
@@ -200,13 +206,41 @@ func machineNameWithPrefix(machineName string, isHCloudMachine bool) string {
 	return hostNamePrefix + machineName
 }
 
-var constantBareMetalHostnameRegex = regexp.MustCompile(`^bm-(\S*)-(\d+)$`)
+var (
+	constantBareMetalHostnameRegex                = regexp.MustCompile(`^bm-(\S*)-(\d+)$`)
+	errNoHetznerBareMetalMachineByProviderIDFound = fmt.Errorf("no HetznerBaremetalMachine by ProviderID found")
+)
 
 func (r *GuestCSRReconciler) getMachineAddresses(
 	ctx context.Context,
 	certificateSigningRequest *certificatesv1.CertificateSigningRequest,
 ) (machineAddresses []clusterv1.MachineAddress, isHCloudMachine bool, err error) {
-	// try to find matching HCloudMachine object
+	log := ctrl.LoggerFrom(ctx)
+
+	_, serverID := getServerIDFromConstantHostname(ctx, certificateSigningRequest.Spec.Username, r.clusterName)
+	if serverID != "" {
+		// According the the regex this is BM server with ConstantHostname. Handle that fist,
+		// no need to check for a HCloud server.
+
+		hbmm, err := getHbmmWithConstantHostname(ctx, certificateSigningRequest.Spec.Username, r.clusterName, r.mCluster)
+		if errors.Is(err, errNoHetznerBareMetalMachineByProviderIDFound) {
+			// No machine found yet. Likely: Cloud-init has run, the kubelet has started. But machine is still in ensure-provisioned.
+			// The providerID will be set soon.
+			return nil, false, err
+		}
+		if err != nil {
+			return nil, false, fmt.Errorf("getHbmmWithConstantHostname(%q) failed: %w", certificateSigningRequest.Spec.Username, err)
+		}
+		if hbmm != nil {
+			log.Info(fmt.Sprintf("found hbmm for %s (ConstantHostname)", certificateSigningRequest.Spec.Username))
+			return hbmm.Status.Addresses, false, nil
+		}
+		return nil, false, fmt.Errorf("getHbmmWithConstantHostname(%q) failed to get hbmm (should not happen)", certificateSigningRequest.Spec.Username)
+	}
+
+	// It could be both: A hcloud machine or a bm-machine without ConstantHostname.
+
+	// Try to find matching HCloudMachine object
 	var hcloudMachine infrav1.HCloudMachine
 
 	hcloudMachineName := types.NamespacedName{
@@ -215,19 +249,7 @@ func (r *GuestCSRReconciler) getMachineAddresses(
 	}
 	err = r.mCluster.Get(ctx, hcloudMachineName, &hcloudMachine)
 	if err != nil {
-		// Could not find HCloud machine. Try to find bare metal machine.
-
-		// We don't know whether the HetznerBareMetalMachine uses a constant hostname or not. If it does, we'll find it with getHbmmWithConstantHostname.
-		// If we don't find it, then it does not use a constant hostname and we'll find it in another way.
-		hbmm, err := getHbmmWithConstantHostname(ctx, certificateSigningRequest.Spec.Username, r.clusterName, r.mCluster)
-		if err != nil {
-			return nil, false, fmt.Errorf("getHbmmWithConstantHostname(%q) failed: %w", certificateSigningRequest.Spec.Username, err)
-		}
-		if hbmm != nil {
-			return hbmm.Status.Addresses, false, nil
-		}
-
-		// HetznerBareMetalMachine does not have a constant hostname - use the following method to find it
+		// Could not find HCloud machine. Try to find bare metal machine without ConstantHostname.
 
 		var bmMachine infrav1.HetznerBareMetalMachine
 		bmMachineName := types.NamespacedName{
@@ -241,10 +263,10 @@ func (r *GuestCSRReconciler) getMachineAddresses(
 				bmMachineName.Name,
 				err)
 		}
-
+		log.Info(fmt.Sprintf("found hbmm for %s (no ConstantHostname)", certificateSigningRequest.Spec.Username))
 		return bmMachine.Status.Addresses, false, nil
 	}
-
+	log.Info(fmt.Sprintf("found hcloudmachine for %s", certificateSigningRequest.Spec.Username))
 	return hcloudMachine.Status.Addresses, true, nil
 }
 
@@ -283,24 +305,29 @@ func (r *GuestCSRReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Mana
 		Complete(r)
 }
 
-func getHbmmWithConstantHostname(ctx context.Context, csrUsername string, clusterName string, mCluster ManagementCluster) (*infrav1.HetznerBareMetalMachine, error) {
+func getServerIDFromConstantHostname(ctx context.Context, csrUsername string, clusterName string) (clusterFromCSR string, serverID string) {
 	log := ctrl.LoggerFrom(ctx)
-
 	// example csrUsername: system:node:bm-my-cluster-1234567
 	matches := constantBareMetalHostnameRegex.FindStringSubmatch(strings.TrimPrefix(csrUsername, nodePrefix))
 	if len(matches) != 3 {
 		log.V(1).Info("No constant baremetal hostname - regex does not match CSR username",
 			"regex", constantBareMetalHostnameRegex.String(), "csrUserName", csrUsername)
-		return nil, nil
+		return "", ""
 	}
 
-	clusterFromCSR := matches[1]
+	clusterFromCSR = matches[1]
 	if clusterFromCSR != clusterName {
 		log.V(1).Info("No constant baremetal hostname - mismatch of cluster found in csrUserName", "got", clusterFromCSR, "want", clusterName)
-		return nil, nil
+		return "", ""
 	}
+	return clusterFromCSR, matches[2]
+}
 
-	providerID := "hcloud://bm-" + matches[2]
+func getHbmmWithConstantHostname(ctx context.Context, csrUsername string, clusterName string, mCluster ManagementCluster) (*infrav1.HetznerBareMetalMachine, error) {
+	log := ctrl.LoggerFrom(ctx)
+
+	clusterFromCSR, serverID := getServerIDFromConstantHostname(ctx, csrUsername, clusterName)
+	providerID := "hcloud://bm-" + serverID
 	hList := &infrav1.HetznerBareMetalMachineList{}
 	selector := labels.NewSelector()
 	req, err := labels.NewRequirement(clusterv1.ClusterNameLabel, selection.Equals, []string{clusterFromCSR})
@@ -329,8 +356,7 @@ func getHbmmWithConstantHostname(ctx context.Context, csrUsername string, cluste
 		}
 	}
 	if hbmm == nil {
-		log.V(1).Info("no constant baremetal hostname - did not find HetznerBareMetalMachine by ProviderID", "providerID", providerID)
-		return nil, nil
+		return nil, fmt.Errorf("ProviderID: %q %w", providerID, errNoHetznerBareMetalMachineByProviderIDFound)
 	}
 
 	log.Info("Found HetznerBareMetalMachine with constant hostname", "csr-username", csrUsername, "hetznerBareMetalMachine", hbmm.Name)
