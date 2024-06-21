@@ -627,7 +627,7 @@ var _ = Describe("HCloudMachine validation", func() {
 	})
 })
 
-var _ = Describe("IgnoreHetznerClusterConditionUpdates Predicate", func() {
+var _ = Describe("IgnoreInsignificantHetznerClusterUpdates Predicate", func() {
 	var (
 		predicate predicate.Predicate
 
@@ -636,7 +636,7 @@ var _ = Describe("IgnoreHetznerClusterConditionUpdates Predicate", func() {
 	)
 
 	BeforeEach(func() {
-		predicate = IgnoreHetznerClusterConditionUpdates(klog.Background())
+		predicate = IgnoreInsignificantHetznerClusterUpdates(klog.Background())
 
 		oldCluster = &infrav1.HetznerCluster{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-predicate", ResourceVersion: "1"},
