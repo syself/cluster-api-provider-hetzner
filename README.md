@@ -3,7 +3,7 @@
 <br>
 
 <div align="center">
-<a href="/docs/caph/01-getting-started/02-quickstart.md">Quickstart</a> |
+<a href="/docs/caph/01-getting-started/03-quickstart.md">Quickstart</a> |
 <a href="/docs/README.md">Docs</a> |
 <a href="/docs/caph/04-developers/01-development-guide.md">Contribution Guide</a><br><br>
 <a href="https://cluster-api.sigs.k8s.io/">Cluster API Book</a>
@@ -77,7 +77,7 @@ If you don't have a dedicated team for managing Kubernetes, you can use [Syself 
 
 Ready to dive in? Here are some resources to get you started:
 
-- [**Cluster API Provider Hetzner 15 Minute Tutorial**](/docs/caph/01-getting-started/02-quickstart.md): Set up a bootstrap cluster using Kind and deploy a Kubernetes cluster on Hetzner.
+- [**Cluster API Provider Hetzner 15 Minute Tutorial**](/docs/caph/01-getting-started/03-quickstart.md): Set up a bootstrap cluster using Kind and deploy a Kubernetes cluster on Hetzner.
 - [**Develop and test Kubernetes clusters with Tilt**](/docs/caph/04-developers/01-development-guide.md): Start using Tilt for rapid testing of various cluster flavors, like with/without a private network or bare metal.
 - [**Develop and test your own node-images**](/docs/caph/02-topics/02-node-image.md): Learn how to use your own machine images for production systems.
 

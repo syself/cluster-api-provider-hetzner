@@ -4,8 +4,9 @@ This is the official documentation of Cluster API Provider Hetzner. Before start
 
 ## Getting Started
 
-- [Preparation](/docs/caph/01-getting-started/01-preparation)
-- [Quickstart](/docs/caph/01-getting-started/02-quickstart)
+- [Introduction](/docs/caph/01-getting-started/01-introduction.md)
+- [Preparation](/docs/caph/01-getting-started/02-preparation)
+- [Quickstart](/docs/caph/01-getting-started/03-quickstart)
 
 ## Topics
 
