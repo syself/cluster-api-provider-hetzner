@@ -750,10 +750,8 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 		Context("validate update", func() {
 			var (
-				hbmmt        *infrav1.HetznerBareMetalMachineTemplate
-				oldhbmmt     *infrav1.HetznerBareMetalMachineTemplate
-				testNs       *corev1.Namespace
-				hbmmtwebhook *infrav1.HetznerBareMetalMachineTemplateWebhook
+				hbmmt  *infrav1.HetznerBareMetalMachineTemplate
+				testNs *corev1.Namespace
 			)
 			BeforeEach(func() {
 				var err error
@@ -761,7 +759,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				Expect(err).NotTo(HaveOccurred())
 				hbmmt = &infrav1.HetznerBareMetalMachineTemplate{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      bmMachineName,
+						Name:      "test-machine",
 						Namespace: testNs.Name,
 						Labels: map[string]string{
 							clusterv1.ClusterNameLabel: capiCluster.Name,
@@ -773,17 +771,73 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 						},
 					},
 				}
-				hbmmtwebhook = &infrav1.HetznerBareMetalMachineTemplateWebhook{}
+				Expect(testEnv.Client.Create(ctx, hbmmt)).To(Succeed())
+				key = client.ObjectKey{Namespace: testNs.Name, Name: hbmmt.Name}
+				Eventually(func() error {
+					return testEnv.Client.Get(ctx, key, hbmmt)
+				}, timeout, time.Second).Should(BeNil())
 
 			})
 			AfterEach(func() {
 				Expect(testEnv.Cleanup(ctx, testNs, hbmmt)).To(Succeed())
 			})
 			It("should validate update", func() {
-				newhbmmt := hbmmt.DeepCopy()
-				warnings, err := hbmmtwebhook.ValidateUpdate(ctx, oldhbmmt, newhbmmt)
-				Expect(warnings).To(BeNil())
-				Expect(err).To(HaveOccurred())
+				Expect(testEnv.Get(ctx, key, hbmmt)).To(Succeed())
+				hbmmt.Spec = infrav1.HetznerBareMetalMachineTemplateSpec{
+					Template: infrav1.HetznerBareMetalMachineTemplateResource{
+						Spec: infrav1.HetznerBareMetalMachineSpec{
+							InstallImage: infrav1.InstallImage{
+								Image: infrav1.Image{
+									Name: "ubuntu-20.04",
+									URL:  "https://example.com/ubuntu-20.04.tar.gz",
+								},
+							},
+						},
+					},
+				}
+				Expect(testEnv.Client.Update(ctx, hbmmt)).ToNot(Succeed())
+
+				Expect(testEnv.Get(ctx, key, hbmmt)).To(Succeed())
+				hbmmt.Spec = infrav1.HetznerBareMetalMachineTemplateSpec{
+					Template: infrav1.HetznerBareMetalMachineTemplateResource{
+						Spec: infrav1.HetznerBareMetalMachineSpec{
+							SSHSpec: infrav1.SSHSpec{
+								SecretRef: infrav1.SSHSecretRef{
+									Name: "ssh-secret-new",
+									Key: infrav1.SSHSecretKeyRef{
+										Name:       "ssh-key-name-new",
+										PublicKey:  "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC",
+										PrivateKey: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC",
+									},
+								},
+								PortAfterInstallImage: 2222,
+								PortAfterCloudInit:    2222,
+							},
+						},
+					},
+				}
+				Expect(testEnv.Client.Update(ctx, hbmmt)).ToNot(Succeed())
+
+				Expect(testEnv.Get(ctx, key, hbmmt)).To(Succeed())
+				hbmmt.Spec = infrav1.HetznerBareMetalMachineTemplateSpec{
+					Template: infrav1.HetznerBareMetalMachineTemplateResource{
+						Spec: infrav1.HetznerBareMetalMachineSpec{
+							HostSelector: infrav1.HostSelector{
+								MatchLabels: map[string]string{
+									"key3": "value3",
+								},
+								MatchExpressions: []infrav1.HostSelectorRequirement{
+									{
+										Key:      "key4",
+										Operator: selection.In,
+										Values:   []string{"value4"},
+									},
+								},
+							},
+						},
+					},
+				}
+				Expect(testEnv.Client.Update(ctx, hbmmt)).ToNot(Succeed())
 			})
 
 		})

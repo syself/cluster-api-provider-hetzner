@@ -249,10 +249,8 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 		})
 		Context("HCloudMachineTemplate Webhook Validation", func() {
 			var (
-				hcloudMachineTemplate     *infrav1.HCloudMachineTemplate
-				oldHCloudMachineTemplate  *infrav1.HCloudMachineTemplate
-				testNs                    *corev1.Namespace
-				hcloudMachineTemplateHook *infrav1.HCloudMachineTemplateWebhook
+				hcloudMachineTemplate *infrav1.HCloudMachineTemplate
+				testNs                *corev1.Namespace
 			)
 			BeforeEach(func() {
 				var err error
@@ -272,32 +270,37 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 						},
 					},
 				}
-				oldHCloudMachineTemplate = hcloudMachineTemplate.DeepCopy()
-				hcloudMachineTemplateHook = &infrav1.HCloudMachineTemplateWebhook{}
+				Expect(testEnv.Client.Create(ctx, hcloudMachineTemplate)).To(Succeed())
+				key = client.ObjectKey{Namespace: testNs.Name, Name: "hcloud-validation-machine"}
+				Eventually(func() error {
+					return testEnv.Client.Get(ctx, key, hcloudMachineTemplate)
+				}, timeout, time.Second).Should(BeNil())
 			})
 			AfterEach(func() {
 				Expect(testEnv.Cleanup(ctx, testNs, hcloudMachineTemplate)).To(Succeed())
 			})
-			It("should allow valid HCloudMachineTemplate creation", func() {
-				warnings, err := hcloudMachineTemplateHook.ValidateCreate(ctx, hcloudMachineTemplate)
-				Expect(warnings).To(BeNil())
-				Expect(err).To(BeNil())
-			})
 
 			It("should prevent updating immutable fields", func() {
-				newHCloudMachineTemplate := hcloudMachineTemplate.DeepCopy()
-				newHCloudMachineTemplate.Spec.Template.Spec.Type = "cpx32"
-				newHCloudMachineTemplate.Spec.Template.Spec.ImageName = "fedora-control-plane"
+				Expect(testEnv.Get(ctx, key, machineTemplate)).To(Succeed())
 
-				warnings, err := hcloudMachineTemplateHook.ValidateUpdate(ctx, oldHCloudMachineTemplate, newHCloudMachineTemplate)
-				Expect(warnings).To(BeNil())
-				Expect(err).To(HaveOccurred())
-			})
+				hcloudMachineTemplate.Spec = infrav1.HCloudMachineTemplateSpec{
+					Template: infrav1.HCloudMachineTemplateResource{
+						Spec: infrav1.HCloudMachineSpec{
+							Type: "cpx32",
+						},
+					},
+				}
+				Expect(testEnv.Client.Update(ctx, hcloudMachineTemplate)).ToNot(Succeed())
 
-			It("should allow valid HCloudMachineTemplate deletion", func() {
-				warnings, err := hcloudMachineTemplateHook.ValidateDelete(ctx, hcloudMachineTemplate)
-				Expect(warnings).To(BeNil())
-				Expect(err).To(BeNil())
+				hcloudMachineTemplate.Spec = infrav1.HCloudMachineTemplateSpec{
+					Template: infrav1.HCloudMachineTemplateResource{
+						Spec: infrav1.HCloudMachineSpec{
+							ImageName: "fedora-control-plane",
+						},
+					},
+				}
+				Expect(testEnv.Client.Update(ctx, hcloudMachineTemplate)).ToNot(Succeed())
+
 			})
 		})
 
