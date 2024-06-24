@@ -141,12 +141,12 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 			clusterv1.ConditionSeverityInfo,
 			"server is starting",
 		)
-		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+		return reconcile.Result{RequeueAfter: 1 * time.Minute}, nil
 	case hcloud.ServerStatusRunning: // do nothing
 	default:
 		// some temporary status
 		s.scope.SetReady(false)
-		return reconcile.Result{RequeueAfter: 2 * time.Second}, nil
+		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
 	// check whether server is attached to the network
@@ -296,7 +296,7 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 	// we attach only nodes with kube-apiserver pod healthy to avoid downtime, skipped for the first node
 	if len(s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target) > 0 &&
 		!conditions.IsTrue(s.scope.Machine, controlplanev1.MachineAPIServerPodHealthyCondition) {
-		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
 	opts := hcloud.LoadBalancerAddServerTargetOpts{
@@ -318,8 +318,8 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 	record.Eventf(
 		s.scope.HetznerCluster,
 		"AddedAsTargetToLoadBalancer",
-		"Added new server %s with ID %d to the loadbalancer %s with ID %d",
-		server.Name, server.ID, s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Name, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID)
+		"Added new server %s with ID %d to the loadbalancer with ID %d",
+		server.Name, server.ID, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID)
 
 	return reconcile.Result{}, nil
 }
@@ -499,7 +499,7 @@ func (s *Service) getServerImage(ctx context.Context) (*hcloud.Image, error) {
 			infrav1.ServerCreateSucceededCondition,
 			infrav1.ServerTypeNotFoundReason,
 			clusterv1.ConditionSeverityError,
-			err.Error(),
+			"failed to get server type - nil type",
 		)
 		return nil, errServerCreateNotPossible
 	}
@@ -566,13 +566,14 @@ func (s *Service) handleServerStatusOff(ctx context.Context, server *hcloud.Serv
 	if serverAvailableCondition != nil &&
 		serverAvailableCondition.Status == corev1.ConditionFalse &&
 		serverAvailableCondition.Reason == infrav1.ServerOffReason {
+		s.scope.Info("Trigger power on again")
 		if time.Now().Before(serverAvailableCondition.LastTransitionTime.Time.Add(serverOffTimeout)) {
 			// Not yet timed out, try again to power on
 			if err := s.scope.HCloudClient.PowerOnServer(ctx, server); err != nil {
 				hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "PowerOnServer")
 				if hcloud.IsError(err, hcloud.ErrorCodeLocked) {
 					// if server is locked, we just retry again
-					return reconcile.Result{Requeue: true}, nil
+					return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 				}
 				return reconcile.Result{}, fmt.Errorf("failed to power on server: %w", err)
 			}
@@ -587,7 +588,7 @@ func (s *Service) handleServerStatusOff(ctx context.Context, server *hcloud.Serv
 			hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "PowerOnServer")
 			if hcloud.IsError(err, hcloud.ErrorCodeLocked) {
 				// if server is locked, we just retry again
-				return reconcile.Result{Requeue: true}, nil
+				return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 			}
 			return reconcile.Result{}, fmt.Errorf("failed to power on server: %w", err)
 		}
@@ -609,7 +610,7 @@ func (s *Service) handleDeleteServerStatusRunning(ctx context.Context, server *h
 	// 1. The server has not yet been tried to shut down and still is marked as "ready".
 	// 2. The server has been tried to shut down without an effect and the timeout is not reached yet.
 
-	if s.scope.HasServerAvailableCondition() || (s.scope.HasServerTerminatedCondition() && !s.scope.HasShutdownTimedOut()) {
+	if s.scope.HasServerAvailableCondition() {
 		if err := s.scope.HCloudClient.ShutdownServer(ctx, server); err != nil {
 			hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "ShutdownServer")
 			return reconcile.Result{}, fmt.Errorf("failed to shutdown server: %w", err)

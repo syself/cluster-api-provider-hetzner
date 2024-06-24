@@ -21,11 +21,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/go-logr/logr"
 	certificatesv1 "k8s.io/api/certificates/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -46,9 +48,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
@@ -732,6 +736,7 @@ func (r *HetznerClusterReconciler) SetupWithManager(ctx context.Context, mgr ctr
 		For(&infrav1.HetznerCluster{}).
 		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(log, r.WatchFilterValue)).
 		WithEventFilter(predicates.ResourceIsNotExternallyManaged(log)).
+		WithEventFilter(IgnoreInsignificantHetznerClusterStatusUpdates(log)).
 		Owns(&corev1.Secret{}).
 		Build(r)
 	if err != nil {
@@ -777,5 +782,116 @@ func (r *HetznerClusterReconciler) SetupWithManager(ctx context.Context, mgr ctr
 				},
 			}
 		}),
+		IgnoreInsignificantClusterStatusUpdates(log),
 	)
+}
+
+// IgnoreInsignificantClusterStatusUpdates is a predicate used for ignoring insignificant HetznerCluster.Status updates.
+func IgnoreInsignificantClusterStatusUpdates(logger logr.Logger) predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			log := logger.WithValues(
+				"predicate", "IgnoreInsignificantClusterStatusUpdates",
+				"type", "update",
+				"namespace", e.ObjectNew.GetNamespace(),
+				"kind", strings.ToLower(e.ObjectNew.GetObjectKind().GroupVersionKind().Kind),
+				"name", e.ObjectNew.GetName(),
+			)
+
+			var oldCluster, newCluster *clusterv1.Cluster
+			var ok bool
+			// This predicate only looks at Cluster objects
+			if oldCluster, ok = e.ObjectOld.(*clusterv1.Cluster); !ok {
+				return true
+			}
+			if newCluster, ok = e.ObjectNew.(*clusterv1.Cluster); !ok {
+				// Something weird happened, and we received two different kinds of objects
+				return true
+			}
+
+			// We should not modify the original objects, this causes issues with code that relies on the original object.
+			oldCluster = oldCluster.DeepCopy()
+			newCluster = newCluster.DeepCopy()
+
+			// Set fields we do not care about to nil
+
+			oldCluster.ManagedFields = nil
+			newCluster.ManagedFields = nil
+
+			oldCluster.ResourceVersion = ""
+			newCluster.ResourceVersion = ""
+
+			oldCluster.Status = clusterv1.ClusterStatus{}
+			newCluster.Status = clusterv1.ClusterStatus{}
+
+			if reflect.DeepEqual(oldCluster, newCluster) {
+				// Only insignificant fields changed, no need to reconcile
+				return false
+			}
+			// There is a noteworthy diff, so we should reconcile
+			log.V(1).Info("Cluster -> HetznerCluster")
+			return true
+		},
+		CreateFunc:  func(_ event.CreateEvent) bool { return true },
+		DeleteFunc:  func(_ event.DeleteEvent) bool { return true },
+		GenericFunc: func(_ event.GenericEvent) bool { return true },
+	}
+}
+
+// IgnoreInsignificantHetznerClusterStatusUpdates is a predicate used for ignoring insignificant HetznerHetznerCluster.Status updates.
+func IgnoreInsignificantHetznerClusterStatusUpdates(logger logr.Logger) predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			log := logger.WithValues(
+				"predicate", "IgnoreInsignificantHetznerClusterStatusUpdates",
+				"namespace", e.ObjectNew.GetNamespace(),
+				"kind", strings.ToLower(e.ObjectNew.GetObjectKind().GroupVersionKind().Kind),
+				"name", e.ObjectNew.GetName(),
+			)
+
+			var oldHetznerCluster, newHetznerCluster *infrav1.HetznerCluster
+			var ok bool
+			// This predicate only looks at HetznerCluster objects
+			if oldHetznerCluster, ok = e.ObjectOld.(*infrav1.HetznerCluster); !ok {
+				return true
+			}
+			if newHetznerCluster, ok = e.ObjectNew.(*infrav1.HetznerCluster); !ok {
+				// Something weird happened, and we received two different kinds of objects
+				return true
+			}
+
+			// We should not modify the original objects, this causes issues with code that relies on the original object.
+			oldHetznerCluster = oldHetznerCluster.DeepCopy()
+			newHetznerCluster = newHetznerCluster.DeepCopy()
+
+			// check if status is empty - if so, it should be restored
+			emptyStatus := infrav1.HetznerClusterStatus{}
+			if reflect.DeepEqual(newHetznerCluster.Status, emptyStatus) {
+				return true
+			}
+
+			// Set fields we do not care about to nil
+
+			oldHetznerCluster.ManagedFields = nil
+			newHetznerCluster.ManagedFields = nil
+
+			oldHetznerCluster.ResourceVersion = ""
+			newHetznerCluster.ResourceVersion = ""
+
+			oldHetznerCluster.Status = infrav1.HetznerClusterStatus{}
+			newHetznerCluster.Status = infrav1.HetznerClusterStatus{}
+
+			if reflect.DeepEqual(oldHetznerCluster, newHetznerCluster) {
+				// Only insignificant fields changed, no need to reconcile
+				return false
+			}
+			// There is a noteworthy diff, so we should reconcile
+			log.V(1).Info("HetznerCluster Update")
+			return true
+		},
+		// We only care about Update events, anything else should be reconciled
+		CreateFunc:  func(_ event.CreateEvent) bool { return true },
+		DeleteFunc:  func(_ event.DeleteEvent) bool { return true },
+		GenericFunc: func(_ event.GenericEvent) bool { return true },
+	}
 }

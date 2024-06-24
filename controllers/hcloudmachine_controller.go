@@ -220,14 +220,16 @@ func (r *HCloudMachineReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 		WithOptions(options).
 		For(&infrav1.HCloudMachine{}).
 		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(log, r.WatchFilterValue)).
+		WithEventFilter(IgnoreInsignificantHCloudMachineStatusUpdates(log)).
 		Watches(
 			&clusterv1.Machine{},
 			handler.EnqueueRequestsFromMapFunc(util.MachineToInfrastructureMapFunc(infrav1.GroupVersion.WithKind("HCloudMachine"))),
+			builder.WithPredicates(IgnoreInsignificantMachineStatusUpdates(log)),
 		).
 		Watches(
 			&infrav1.HetznerCluster{},
 			handler.EnqueueRequestsFromMapFunc(r.HetznerClusterToHCloudMachines(ctx)),
-			builder.WithPredicates(IgnoreHetznerClusterConditionUpdates(log)),
+			builder.WithPredicates(IgnoreInsignificantHetznerClusterUpdates(log)),
 		).
 		Build(r)
 	if err != nil {
@@ -303,8 +305,8 @@ func (r *HCloudMachineReconciler) HetznerClusterToHCloudMachines(_ context.Conte
 	}
 }
 
-// IgnoreHetznerClusterConditionUpdates is a predicate used for ignoring HetznerCluster condition updates.
-func IgnoreHetznerClusterConditionUpdates(logger logr.Logger) predicate.Funcs {
+// IgnoreInsignificantHetznerClusterUpdates is a predicate used for ignoring insignificant HetznerCluster.Status updates.
+func IgnoreInsignificantHetznerClusterUpdates(logger logr.Logger) predicate.Funcs {
 	return predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			log := logger.WithValues(
@@ -341,6 +343,23 @@ func IgnoreHetznerClusterConditionUpdates(logger logr.Logger) predicate.Funcs {
 			oldCluster.Status.Conditions = nil
 			newCluster.Status.Conditions = nil
 
+			if oldCluster.Status.ControlPlaneLoadBalancer != nil {
+				oldCluster.Status.ControlPlaneLoadBalancer.Target = nil
+			}
+			if newCluster.Status.ControlPlaneLoadBalancer != nil {
+				newCluster.Status.ControlPlaneLoadBalancer.Target = nil
+			}
+
+			oldCluster.Status.HCloudPlacementGroups = nil
+			newCluster.Status.HCloudPlacementGroups = nil
+
+			if oldCluster.Status.Network != nil {
+				oldCluster.Status.Network.AttachedServers = nil
+			}
+			if newCluster.Status.Network != nil {
+				newCluster.Status.Network.AttachedServers = nil
+			}
+
 			if reflect.DeepEqual(oldCluster, newCluster) {
 				// Only insignificant fields changed, no need to reconcile
 				return false
@@ -350,6 +369,112 @@ func IgnoreHetznerClusterConditionUpdates(logger logr.Logger) predicate.Funcs {
 			return true
 		},
 		// We only care about Update events, anything else should be reconciled
+		CreateFunc:  func(_ event.CreateEvent) bool { return true },
+		DeleteFunc:  func(_ event.DeleteEvent) bool { return true },
+		GenericFunc: func(_ event.GenericEvent) bool { return true },
+	}
+}
+
+// IgnoreInsignificantMachineStatusUpdates is a predicate used for ignoring insignificant Machine.Status updates.
+func IgnoreInsignificantMachineStatusUpdates(logger logr.Logger) predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			log := logger.WithValues(
+				"predicate", "IgnoreInsignificantMachineStatusUpdates",
+				"type", "update",
+				"namespace", e.ObjectNew.GetNamespace(),
+				"kind", strings.ToLower(e.ObjectNew.GetObjectKind().GroupVersionKind().Kind),
+				"name", e.ObjectNew.GetName(),
+			)
+
+			var oldMachine, newMachine *clusterv1.Machine
+			var ok bool
+			// This predicate only looks at Machine objects
+			if oldMachine, ok = e.ObjectOld.(*clusterv1.Machine); !ok {
+				return true
+			}
+			if newMachine, ok = e.ObjectNew.(*clusterv1.Machine); !ok {
+				// Something weird happened, and we received two different kinds of objects
+				return true
+			}
+
+			// We should not modify the original objects, this causes issues with code that relies on the original object.
+			oldMachine = oldMachine.DeepCopy()
+			newMachine = newMachine.DeepCopy()
+
+			oldMachine.ManagedFields = nil
+			newMachine.ManagedFields = nil
+
+			oldMachine.ResourceVersion = ""
+			newMachine.ResourceVersion = ""
+
+			oldMachine.Status = clusterv1.MachineStatus{}
+			newMachine.Status = clusterv1.MachineStatus{}
+
+			if reflect.DeepEqual(oldMachine, newMachine) {
+				// Only insignificant fields changed, no need to reconcile
+				return false
+			}
+
+			log.V(1).Info("Machine -> HCloudMachine event")
+			return true
+		},
+		CreateFunc:  func(_ event.CreateEvent) bool { return true },
+		DeleteFunc:  func(_ event.DeleteEvent) bool { return true },
+		GenericFunc: func(_ event.GenericEvent) bool { return true },
+	}
+}
+
+// IgnoreInsignificantHCloudMachineStatusUpdates is a predicate used for ignoring insignificant HCloudMachine.Status updates.
+func IgnoreInsignificantHCloudMachineStatusUpdates(logger logr.Logger) predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			log := logger.WithValues(
+				"predicate", "IgnoreInsignificantHCloudMachineStatusUpdates",
+				"type", "update",
+				"namespace", e.ObjectNew.GetNamespace(),
+				"kind", strings.ToLower(e.ObjectNew.GetObjectKind().GroupVersionKind().Kind),
+				"name", e.ObjectNew.GetName(),
+			)
+
+			var oldHCloudMachine, newHCloudMachine *infrav1.HCloudMachine
+			var ok bool
+			// This predicate only looks at HCloudMachine objects
+			if oldHCloudMachine, ok = e.ObjectOld.(*infrav1.HCloudMachine); !ok {
+				return true
+			}
+			if newHCloudMachine, ok = e.ObjectNew.(*infrav1.HCloudMachine); !ok {
+				// Something weird happened, and we received two different kinds of objects
+				return true
+			}
+
+			// We should not modify the original objects, this causes issues with code that relies on the original object.
+			oldHCloudMachine = oldHCloudMachine.DeepCopy()
+			newHCloudMachine = newHCloudMachine.DeepCopy()
+
+			// check if status is empty - if so, it should be restored
+			emptyStatus := infrav1.HCloudMachineStatus{}
+			if reflect.DeepEqual(newHCloudMachine.Status, emptyStatus) {
+				return true
+			}
+
+			oldHCloudMachine.ManagedFields = nil
+			newHCloudMachine.ManagedFields = nil
+
+			oldHCloudMachine.ResourceVersion = ""
+			newHCloudMachine.ResourceVersion = ""
+
+			oldHCloudMachine.Status = infrav1.HCloudMachineStatus{}
+			newHCloudMachine.Status = infrav1.HCloudMachineStatus{}
+
+			if reflect.DeepEqual(oldHCloudMachine, newHCloudMachine) {
+				// Only insignificant fields changed, no need to reconcile
+				return false
+			}
+
+			log.V(1).Info("HCloudMachine event")
+			return true
+		},
 		CreateFunc:  func(_ event.CreateEvent) bool { return true },
 		DeleteFunc:  func(_ event.DeleteEvent) bool { return true },
 		GenericFunc: func(_ event.GenericEvent) bool { return true },
