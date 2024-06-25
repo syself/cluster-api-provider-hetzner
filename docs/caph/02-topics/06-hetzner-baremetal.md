@@ -4,8 +4,8 @@ title: Hetzner Baremetal
 
 Hetzner have two offerings primarily:
 
-1. Hetzner Cloud/ Hcloud -> for virtualized servers
-2. Hetzner Dedicated/ Robot -> for bare metal servers
+1. `Hetzner Cloud`/`Hcloud` for virtualized servers
+2. `Hetzner Dedicated`/`Robot` for bare metal servers
 
 In this guide, we will focus on creating a cluster from baremetal servers.
 
@@ -17,11 +17,11 @@ These flavors can be consumed using [clusterctl](https://main.cluster-api.sigs.k
 
 To use bare metal servers for your deployment, you can choose one of the following flavors:
 
-| Flavor                                       | What it does                                                                                                  |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| hetzner-baremetal-control-planes-remediation | Uses bare metal servers for the control plane nodes - with custom remediation (try to reboot machines first)  |
-| hetzner-baremetal-control-planes             | Uses bare metal servers for the control plane nodes - with normal remediation (unprovision/recreate machines) |
-| hetzner-hcloud-control-planes                | Uses the hcloud servers for the control plane nodes and the bare metal servers for the worker nodes           |
+| Flavor                                         | What it does                                                                                                  |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `hetzner-baremetal-control-planes-remediation` | Uses bare metal servers for the control plane nodes - with custom remediation (try to reboot machines first)  |
+| `hetzner-baremetal-control-planes`             | Uses bare metal servers for the control plane nodes - with normal remediation (unprovision/recreate machines) |
+| `hetzner-hcloud-control-planes`                | Uses the hcloud servers for the control plane nodes and the bare metal servers for the worker nodes           |
 
 {% callout %}
 
@@ -176,11 +176,11 @@ export HETZNER_SSH_PUB_PATH="<YOUR-SSH-PUBLIC-PATH>" \
 export HETZNER_SSH_PRIV_PATH="<YOUR-SSH-PRIVATE-PATH>"
 ```
 
-- HCLOUD_TOKEN: The project where your cluster will be placed. You have to get a token from your HCloud Project.
-- HETZNER_ROBOT_USER: The User you have defined in Robot under settings/web.
-- HETZNER_ROBOT_PASSWORD: The Robot Password you have set in Robot under settings/web.
-- HETZNER_SSH_PUB_PATH: The Path to your generated Public SSH Key.
-- HETZNER_SSH_PRIV_PATH: The Path to your generated Private SSH Key. This is needed because CAPH uses this key to provision the node in Hetzner Dedicated.
+- `HCLOUD_TOKEN`: The project where your cluster will be placed. You have to get a token from your HCloud Project.
+- `HETZNER_ROBOT_USER`: The User you have defined in Robot under settings/web.
+- `HETZNER_ROBOT_PASSWORD`: The Robot Password you have set in Robot under settings/web.
+- `HETZNER_SSH_PUB_PATH`: The Path to your generated Public SSH Key.
+- `HETZNER_SSH_PRIV_PATH`: The Path to your generated Private SSH Key. This is needed because CAPH uses this key to provision the node in Hetzner Dedicated.
 
 ```shell
 kubectl create secret generic hetzner --from-literal=hcloud=$HCLOUD_TOKEN --from-literal=robot-user=$HETZNER_ROBOT_USER --from-literal=robot-password=$HETZNER_ROBOT_PASSWORD
@@ -374,7 +374,11 @@ This is important for the functioning of the cluster otherwise the cluster won't
 
 ### Deploying the Hetzner Cloud Controller Manager
 
-> This requires a secret containing access credentials to both Hetzner Robot and HCloud.
+{% callout %}
+
+This requires a secret containing access credentials to both Hetzner Robot and HCloud.
+
+{% /callout %}
 
 If you have configured your secret correctly in the previous step then you already have the secret in your cluster.
 Let's deploy the hetzner CCM helm chart.

@@ -37,7 +37,7 @@ clusterctl:
 
 You can see the current version here:
 
-https://cluster-api.sigs.k8s.io/user/quick-start.html#install-clusterctl
+[https://cluster-api.sigs.k8s.io/user/quick-start.html#install-clusterctl](https://cluster-api.sigs.k8s.io/user/quick-start.html#install-clusterctl)
 
 If your clusterctl is outdated, then upgrade it. See the above URL for details.
 
@@ -148,11 +148,7 @@ The update can be done on either management cluster or workload cluster separate
 
 {% /callout %}
 
-You should upgrade your kubernetes version after considering the following:
-
-```markdown
-A Cluster API minor release supports (when it’s initially created):
+You should upgrade your kubernetes version after considering that a Cluster API minor release supports (when it’s initially created):
 
 - 4 Kubernetes minor releases for the management cluster (N - N-3)
 - 6 Kubernetes minor releases for the workload cluster (N - N-5)
-```

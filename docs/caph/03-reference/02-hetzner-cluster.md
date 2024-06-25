@@ -4,13 +4,27 @@ title: HetznerCluster
 
 In HetznerCluster you can define everything related to the general components of the cluster as well as those properties, which are valid cluster-wide.
 
-There are two different modes for the cluster. A pure HCloud cluster and a cluster that uses Hetzner dedicated (bare metal) servers, either as control planes or as workers. The HCloud cluster works with Kubeadm and supports private networks. In a cluster that includes bare metal servers there are no private networks, as this feature has not yet been integrated in cluster-api-provider-hetzner. Apart from SSH, the node image has to support cloud-init, which we use to provision the bare metal machines. In cluster with bare metal servers, you need to use [this CCM](https://github.com/syself/hetzner-cloud-controller-manager), as the official one does not support bare metal.
+There are two different modes for the cluster. A pure HCloud cluster and a cluster that uses Hetzner dedicated (bare metal) servers, either as control planes or as workers.
+
+The HCloud cluster works with Kubeadm and supports private networks.
+
+In a cluster that includes bare metal servers there are no private networks, as this feature has not yet been integrated in cluster-api-provider-hetzner. Apart from SSH, the node image has to support cloud-init, which we use to provision the bare metal machines.
+
+{% callout %}
+
+In clusters with bare metal servers, you need to use [this CCM](https://github.com/syself/hetzner-cloud-controller-manager), as the official one does not support bare metal.
+
+{% /callout %}
 
 [Here](/docs/caph/02-topics/01-managing-ssh-keys) you can find more information regarding the handling of SSH keys. Some of them are specified in `HetznerCluster` to have them cluster-wide, others are machine-scoped.
 
 ## Usage without HCloud Load Balancer
 
-It is also possible not to use the cloud load balancer from Hetzner. This is useful for setups with only one control plane, or if you have your own cloud load balancer. Using `controlPlaneLoadBalancer.enabled=false` prevents the creation of a hcloud load balancer. Then you need to configure `controlPlaneEndpoint.port=6443` & `controlPlaneEndpoint.host`, which should be a domain that has A records configured pointing to the control plane IP for example. If you are using your own load balancer, you need to point towards it and configure the load balancer to target the control planes of the cluster.
+It is also possible not to use the cloud load balancer from Hetzner. This is useful for setups with only one control plane, or if you have your own cloud load balancer.
+
+Using `controlPlaneLoadBalancer.enabled=false` prevents the creation of a hcloud load balancer. Then you need to configure `controlPlaneEndpoint.port=6443` & `controlPlaneEndpoint.host`, which should be a domain that has A records configured pointing to the control plane IP for example.
+
+If you are using your own load balancer, you need to point towards it and configure the load balancer to target the control planes of the cluster.
 
 ## Overview of HetznerCluster.Spec
 

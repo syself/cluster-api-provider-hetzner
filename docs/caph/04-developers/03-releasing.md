@@ -34,8 +34,7 @@ Done 🥳
 This is only needed if you want to manually release images.
 
 1. Login to ghcr
-2. Do:
-   - `make release-image`
+2. Execute `make release-image`
 
 ## Versioning
 

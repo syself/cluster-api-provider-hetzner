@@ -44,7 +44,11 @@ Provider Integration development requires a lot of iteration, and the “build, 
 make tilt-up
 ```
 
-> To access the Tilt UI, please go to: `http://localhost:10351`
+{% callout %}
+
+To access the Tilt UI, please go to: `http://localhost:10351`
+
+{% /callout %}
 
 Once your kind management cluster is up and running, you can deploy a workload cluster. This could be done through the Tilt UI by pressing one of the buttons in the top right corner, e.g., **"Create Workload Cluster - without Packer"**. This triggers the `make create-workload-cluster` command, which uses the environment variables (we defined in the .envrc) and the cluster-template. Additionally, it installs cilium as CNI.
 
