@@ -4,7 +4,11 @@ title: Quickstart Guide
 
 This guide goes through all the necessary steps to create a cluster on Hetzner infrastructure (on HCloud).
 
-> Note: The cluster templates used in the repository and in this guide for creating clusters are for development purposes only. These templates are not advised to be used in the production environment. However, the software is production-ready and users use it in their production environment. Make your clusters production-ready with the help of Syself Autopilot. For more information, contact <info@syself.com>.
+{% callout %}
+
+The cluster templates used in the repository and in this guide for creating clusters are for development purposes only. These templates are not advised to be used in the production environment. However, the software is production-ready and users use it in their production environment. Make your clusters production-ready with the help of Syself Autopilot. For more information, contact <info@syself.com>.
+
+{% /callout %}
 
 ## Prerequisites
 
@@ -83,7 +87,11 @@ For the latest version:
 clusterctl init --core cluster-api --bootstrap kubeadm --control-plane kubeadm --infrastructure hetzner
 ```
 
-> Note: For a specific version, use the `--infrastructure hetzner:vX.X.X` flag with the above command.
+{% callout %}
+
+For a specific version, use the `--infrastructure hetzner:vX.X.X` flag with the above command.
+
+{% /callout %}
 
 ---
 
@@ -157,10 +165,19 @@ It generates a YAML file named `my-cluster.yaml` with a predefined list of Clust
 clusterctl generate cluster my-cluster --kubernetes-version v1.29.4 --control-plane-machine-count=3 --worker-machine-count=3  > my-cluster.yaml
 ```
 
-> Note: With the `--target-namespace` flag, you can specify a different target namespace.
-> Run the `clusterctl generate cluster --help` command for more information.
+{% callout %}
 
-> **Note**: Please note that ready-to-use Kubernetes configurations, production-ready node images, kubeadm configuration, cluster add-ons like CNI, and similar services need to be separately prepared or acquired to ensure a comprehensive and secure Kubernetes deployment. This is where **Syself Autopilot** comes into play, taking on these challenges to offer you a seamless, worry-free Kubernetes experience. Feel free to contact us via e-mail: <info@syself.com>.
+With the `--target-namespace` flag, you can specify a different target namespace.
+
+Run the `clusterctl generate cluster --help` command for more information.
+
+{% /callout %}
+
+{% callout %}
+
+Please note that ready-to-use Kubernetes configurations, production-ready node images, kubeadm configuration, cluster add-ons like CNI, and similar services need to be separately prepared or acquired to ensure a comprehensive and secure Kubernetes deployment. This is where **Syself Autopilot** comes into play, taking on these challenges to offer you a seamless, worry-free Kubernetes experience. Feel free to contact us via e-mail: <info@syself.com>.
+
+{% /callout %}
 
 ## Applying the workload cluster
 
@@ -190,7 +207,11 @@ To verify the first control plane is up, use the following command:
 kubectl get kubeadmcontrolplane
 ```
 
-> Note: The control plane won’t be `ready` until we install a CNI in the next step.
+{% callout %}
+
+The control plane won’t be `ready` until we install a CNI in the next step.
+
+{% /callout %}
 
 After the first control plane node is up and running, we can retrieve the kubeconfig of the workload cluster with:
 
@@ -213,7 +234,11 @@ KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install cilium cilium/
 
 You can, of course, also install an alternative CNI, e.g., calico.
 
-> Note: There is a bug in Ubuntu that requires the older version of Cilium for this quickstart guide.
+{% callout %}
+
+There is a bug in Ubuntu that requires the older version of Cilium for this quickstart guide.
+
+{% /callout %}
 
 ## Deploy the CCM
 
@@ -284,7 +309,11 @@ To move the Cluster API objects from your bootstrap cluster to the new managemen
 clusterctl init --core cluster-api --bootstrap kubeadm --control-plane kubeadm --infrastructure hetzner
 ```
 
-> Note: For a specific version, use the flag `--infrastructure hetzner:vX.X.X` with the above command.
+{% callout %}
+
+For a specific version, use the flag `--infrastructure hetzner:vX.X.X` with the above command.
+
+{% /callout %}
 
 You can switch back to the management cluster with the following command:
 

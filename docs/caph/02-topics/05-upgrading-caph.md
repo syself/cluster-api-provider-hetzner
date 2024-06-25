@@ -69,7 +69,11 @@ Docs: [clusterctl upgrade plan](https://cluster-api.sigs.k8s.io/clusterctl/comma
 
 You might be surprised that for `infrastructure-hetzner`, you see the "Already up to date" message below "NEXT VERSION".
 
-NOTE: `clusterctl upgrade plan` does not display pre-release versions by default.
+{% callout %}
+
+`clusterctl upgrade plan` does not display pre-release versions by default.
+
+{% /callout %}
 
 ## Upgrade cluster-API
 
@@ -94,7 +98,11 @@ Installing Provider="control-plane-kubeadm" Version="v1.6.3" TargetNamespace="ca
 
 Great, cluster-API was upgraded.
 
-NOTE: If you want to update only one components or update components one by one then there are flags for that under `clusterctl upgrade apply` subcommand like `--bootstrap`, `--control-plane` and `--core`.
+{% callout %}
+
+If you want to update only one components or update components one by one then there are flags for that under `clusterctl upgrade apply` subcommand like `--bootstrap`, `--control-plane` and `--core`.
+
+{% /callout %}
 
 ## Upgrade CAPH
 
@@ -120,7 +128,11 @@ NAME                                       READY   STATUS    RESTARTS   AGE
 caph-controller-manager-85fcb6ffcb-4sj6d   1/1     Running   0          79s
 ```
 
-NOTE: Please note that `clusterctl` doesn't support pre-release of GitHub by default so if you want to use a pre-release, you'll have to specify the version such as `hetzner:v1.0.0-beta.33`
+{% callout %}
+
+Please note that `clusterctl` doesn't support pre-release of GitHub by default so if you want to use a pre-release, you'll have to specify the version such as `hetzner:v1.0.0-beta.33`
+
+{% /callout %}
 
 ## Check your cluster
 
@@ -130,7 +142,11 @@ Check the health of your workload cluster with your preferred tools and ensure t
 
 After upgrading cluster API, you may want to update the Kubernetes version of your controlplane and worker nodes. Those details can be found in the [Cluster API documentation](https://cluster-api.sigs.k8s.io/tasks/upgrading-clusters).
 
-NOTE: The update can be done on either management cluster or workload cluster separately as well.
+{% callout %}
+
+The update can be done on either management cluster or workload cluster separately as well.
+
+{% /callout %}
 
 You should upgrade your kubernetes version after considering the following:
 

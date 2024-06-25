@@ -23,7 +23,11 @@ To use bare metal servers for your deployment, you can choose one of the followi
 | hetzner-baremetal-control-planes             | Uses bare metal servers for the control plane nodes - with normal remediation (unprovision/recreate machines) |
 | hetzner-hcloud-control-planes                | Uses the hcloud servers for the control plane nodes and the bare metal servers for the worker nodes           |
 
-NOTE: These flavors are only for demonstration purposes and should not be used in production.
+{% callout %}
+
+These flavors are only for demonstration purposes and should not be used in production.
+
+{% /callout %}
 
 ## Purchasing Bare Metal Servers
 
@@ -133,7 +137,11 @@ Above command will create a public and private key in your `~/.ssh` directory.
 
 You can use the public key `~/.ssh/caph.pub` and upload it to your hcloud project. Go to your project and under `Security` -> `SSH Keys` click on `Add SSH key` and add your public key there and in the `Name` of ssh key you'll use the name `test`.
 
-NOTE: There is also a helper CLI called [hcloud](https://github.com/hetznercloud/cli) that can be used for the purpose of uploading the SSH key.
+{% callout %}
+
+There is also a helper CLI called [hcloud](https://github.com/hetznercloud/cli) that can be used for the purpose of uploading the SSH key.
+
+{% /callout %}
 
 In the above step, the name of the ssh-key that is recognized by hcloud is `test`. This is important because we will reference the name of the ssh-key later.
 
@@ -147,7 +155,11 @@ sshKeys:
     - name: test
 ```
 
-NOTE: If you want to use some other name then you can modify it accordingly.
+{% callout %}
+
+If you want to use some other name then you can modify it accordingly.
+
+{% /callout %}
 
 ## Create Secrets In Management Cluster (Hcloud + Robot)
 
@@ -176,7 +188,11 @@ kubectl create secret generic hetzner --from-literal=hcloud=$HCLOUD_TOKEN --from
 kubectl create secret generic robot-ssh --from-literal=sshkey-name=test --from-file=ssh-privatekey=$HETZNER_SSH_PRIV_PATH --from-file=ssh-publickey=$HETZNER_SSH_PUB_PATH
 ```
 
-> NOTE: sshkey-name should must match the name that is present in hetzner otherwise the controller will not know how to reach the machine.
+{% callout %}
+
+`sshkey-name` should must match the name that is present in hetzner otherwise the controller will not know how to reach the machine.
+
+{% /callout %}
 
 Patch the created secrets so that they get automatically moved to the target cluster later. The following command helps you do that:
 
@@ -263,14 +279,22 @@ sdb  disk 0x500a07511bb48b25
 
 Since, we are now confirmed about wwn of the two disks, we can use either of them. We will use `kubectl edit` and update the following information in the `HetznerBareMetalHost` object.
 
-NOTE: Defining `rootDeviceHints` on your baremetal server is important otherwise the baremetal server will not be able join the cluster.
+{% callout %}
+
+Defining `rootDeviceHints` on your baremetal server is important otherwise the baremetal server will not be able join the cluster.
+
+{% /callout %}
 
 ```yaml
 rootDeviceHints:
   wwn: "0x500a07511bb48992"
 ```
 
-NOTE: If you've more than one disk then it's recommended to use smaller disk for OS installation so that we can retain the data in between provisioning of machine.
+{% callout %}
+
+If you've more than one disk then it's recommended to use smaller disk for OS installation so that we can retain the data in between provisioning of machine.
+
+{% /callout %}
 
 We will apply this file in the cluster and the provisioning of the machine will be successful.
 
@@ -279,7 +303,11 @@ To summarize, if you don't know the WWN of your server then there are two ways t
 1. Create the HetznerBareMetalHost without WWN and wait for the controller to fetch all information about the available storage devices. Afterwards, look at status of `HetznerBareMetalHost` by running `kubectl get hetznerbaremetalhost <name-of-hetzner-baremetalhost> -o yaml` in your management cluster. There you will find `hardwareDetails` of all of your bare metal hosts, in which you can see a list of all the relevant storage devices as well as their properties. You can copy+paste the WWN of your desired storage device into the `rootDeviceHints` of your `HetznerBareMetalHost` objects.
 2. SSH into the rescue system of the server and use `lsblk --nodeps --output name,type,wwn`
 
-NOTE: There might be cases where you've more than one disk.
+{% callout %}
+
+There might be cases where you've more than one disk.
+
+{% /callout %}
 
 ```shell
 lsblk -d -o name,type,wwn,size
@@ -294,7 +322,11 @@ In the above case, you can use any of the four disks available to you on a barem
 
 ## Creating Workload Cluster
 
-NOTE: Secrets as of now are hardcoded given we are using a flavor which is essentially a template. If you want to use your own naming convention for secrets then you'll have to update the templates. Please make sure that you pay attention to the sshkey name.
+{% callout %}
+
+Secrets as of now are hardcoded given we are using a flavor which is essentially a template. If you want to use your own naming convention for secrets then you'll have to update the templates. Please make sure that you pay attention to the sshkey name.
+
+{% /callout %}
 
 Since we have already created secret in hetzner robot, hcloud and ssh-keys as secret in management cluster, we can now apply the cluster.
 
@@ -334,7 +366,11 @@ chmod go-r workload-kubeconfig # required to avoid helm warning
 
 ## Deploy Cluster Addons
 
-NOTE: This is important for the functioning of the cluster otherwise the cluster won't work.
+{% callout %}
+
+This is important for the functioning of the cluster otherwise the cluster won't work.
+
+{% /callout %}
 
 ### Deploying the Hetzner Cloud Controller Manager
 

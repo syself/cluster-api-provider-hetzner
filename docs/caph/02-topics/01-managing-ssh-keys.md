@@ -14,7 +14,12 @@ In CAPH, SSH keys help in establishing secure communication remotely with Kubern
 
 ## In Hetzner Cloud
 
-NOTE: You are responsible for uploading your public ssh key to hetzner cloud. This can be done using `hcloud` CLI or hetznercloud console.
+{% callout %}
+
+You are responsible for uploading your public ssh key to hetzner cloud. This can be done using `hcloud` CLI or hetznercloud console.
+
+{% /callout %}
+
 All keys that exist in Hetzner Cloud and are specified in `HetznerCluster` spec are included when provisioning machines. Therefore, they can be used to access those machines via SSH.
 
 ```shell
