@@ -64,7 +64,7 @@ If you have any trouble finding the right command, you can run the `make help` c
 
 ## Submitting PRs and testing
 
-Pull requests and issues are highly encouraged! For more information, please have a look at the [Contribution Guidelines](https://github.com/syself/cluster-api-provider-hetzner/blob/main/CONTRIBUTING)
+Pull requests and issues are highly encouraged! For more information, please have a look at the [Contribution Guidelines](https://github.com/syself/cluster-api-provider-hetzner/blob/main/CONTRIBUTING.md)
 
 There are two important commands that you should make use of before creating the PR.
 
