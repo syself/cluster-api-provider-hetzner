@@ -39,4 +39,8 @@ Test status:
 
 Each version of Cluster API for Hetzner will attempt to support at least two Kubernetes versions.
 
-**NOTE:** As the versioning for this project is tied to the versioning of Cluster API, future modifications to this policy may be made to more closely align with other providers in the Cluster API ecosystem.
+{% callout %}
+
+As the versioning for this project is tied to the versioning of Cluster API, future modifications to this policy may be made to more closely align with other providers in the Cluster API ecosystem.
+
+{% /callout %}
