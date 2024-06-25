@@ -1,10 +1,14 @@
-# Production Environment Best Practices
+---
+title: Production Environment Best Practices
+---
 
 ## HA Cluster API Components
+
 The clusterctl CLI will create all four needed components, such as Cluster API (CAPI), cluster-api-bootstrap-provider-kubeadm (CAPBK), cluster-api-control-plane-kubeadm (KCP), and cluster-api-provider-hetzner (CAPH).
-It uses the respective *-components.yaml from the releases. However, these are not highly available. By scaling the components, we can at least reduce the probability of failure. If this is not enough, add anti-affinity rules and PDBs.
+It uses the respective \*-components.yaml from the releases. However, these are not highly available. By scaling the components, we can at least reduce the probability of failure. If this is not enough, add anti-affinity rules and PDBs.
 
 Scale up the deployments
+
 ```shell
 kubectl -n capi-system scale deployment capi-controller-manager --replicas=2
 

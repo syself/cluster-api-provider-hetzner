@@ -1,4 +1,6 @@
-# Release Process
+---
+title: Release Process
+---
 
 ## Create a tag
 
@@ -9,7 +11,11 @@
    - `export RELEASE_TAG=<the tag of the release to be cut>` (eg. `export RELEASE_TAG=v1.0.1`)
    - `git tag -a ${RELEASE_TAG} -m ${RELEASE_TAG}`
 2. Push the tag to the GitHub repository.
-   > NOTE: `origin` should be the name of the remote pointing to `github.com/syself/cluster-api-provider-hetzner`
+   {% callout %}
+
+   `origin` should be the name of the remote pointing to `github.com/syself/cluster-api-provider-hetzner`
+
+   {% /callout %}
    - `git push origin ${RELEASE_TAG}`
    - This will automatically trigger a [Github Action](https://github.com/syself/cluster-api-provider-hetzner/actions) to create a draft release (this will take roughly 6 minutes).
 
@@ -28,14 +34,13 @@ Done 🥳
 This is only needed if you want to manually release images.
 
 1. Login to ghcr
-2. Do:
-   - `make release-image`
+2. Execute `make release-image`
 
-### Versioning
+## Versioning
 
-See the [versioning documentation](./../../CONTRIBUTING.md#versioning) for more information.
+See the [versioning documentation](https://github.com/syself/cluster-api-provider-hetzner/blob/main/CONTRIBUTING.md#versioning) for more information.
 
-### Permissions
+## Permissions
 
 Releasing requires a particular set of permissions.
 

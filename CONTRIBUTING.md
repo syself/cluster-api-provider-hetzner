@@ -23,7 +23,7 @@ Help and contributions are very welcome in the form of code contributions but al
 
 1. If working on an issue, signal other contributors that you are actively working on it by commenting on it. Wait for approval in form of someone assigning you to the issue.
 2. Fork the desired repo, develop and test your code changes.
-    1. See the [Development Guide](docs/developers/development.md) for more instructions on setting up your environment and testing changes locally.
+    1. See the [Development Guide](/docs/caph/04-developers/01-development-guide.md) for more instructions on setting up your environment and testing changes locally.
 3. Submit a pull request.
     1. All code PR must be created in "draft mode". This helps other contributors by not blocking E2E tests, which cannot run in parallel. After your PR is approved, you can mark it "ready for review".
     1.  All code PR must be have a title starting with one of
@@ -41,4 +41,4 @@ Help and contributions are very welcome in the form of code contributions but al
 
 All changes must be code reviewed. Coding conventions and standards are explained in the official [developer docs](https://github.com/kubernetes/community/tree/master/contributors/devel). Expect reviewers to request that you avoid common [go style mistakes](https://github.com/golang/go/wiki/CodeReviewComments) in your PRs.
 
-In case you want to run our E2E tests locally, please refer to [Testing](docs/developers/development.md#submitting-prs-and-testing) guide. 
+In case you want to run our E2E tests locally, please refer to [Testing](/docs/caph/04-developers/01-development-guide.md#submitting-prs-and-testing) guide. 
