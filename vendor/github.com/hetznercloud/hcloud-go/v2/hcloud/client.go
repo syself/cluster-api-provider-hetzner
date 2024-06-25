@@ -3,13 +3,11 @@ package hcloud
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"math"
 	"net/http"
-	"net/http/httputil"
 	"net/url"
 	"strconv"
 	"strings"
@@ -19,7 +17,6 @@ import (
 	"golang.org/x/net/http/httpguts"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud/internal/instrumentation"
-	"github.com/hetznercloud/hcloud-go/v2/hcloud/schema"
 )
 
 // Endpoint is the base URL of the API.
@@ -66,6 +63,7 @@ type Client struct {
 	userAgent               string
 	debugWriter             io.Writer
 	instrumentationRegistry prometheus.Registerer
+	handler                 handler
 
 	Action           ActionClient
 	Certificate      CertificateClient
@@ -189,6 +187,8 @@ func NewClient(options ...ClientOption) *Client {
 		client.httpClient.Transport = i.InstrumentedRoundTripper()
 	}
 
+	client.handler = assembleHandlerChain(client)
+
 	client.Action = ActionClient{action: &ResourceActionClient{client: client}}
 	client.Datacenter = DatacenterClient{client: client}
 	client.FloatingIP = FloatingIPClient{client: client, Action: &ResourceActionClient{client: client, resource: "floating_ips"}}
@@ -238,81 +238,8 @@ func (c *Client) NewRequest(ctx context.Context, method, path string, body io.Re
 // Do performs an HTTP request against the API.
 // v can be nil, an io.Writer to write the response body to or a pointer to
 // a struct to json.Unmarshal the response to.
-func (c *Client) Do(r *http.Request, v interface{}) (*Response, error) {
-	var retries int
-	var body []byte
-	var err error
-	if r.ContentLength > 0 {
-		body, err = io.ReadAll(r.Body)
-		if err != nil {
-			r.Body.Close()
-			return nil, err
-		}
-		r.Body.Close()
-	}
-	for {
-		if r.ContentLength > 0 {
-			r.Body = io.NopCloser(bytes.NewReader(body))
-		}
-
-		if c.debugWriter != nil {
-			dumpReq, err := dumpRequest(r)
-			if err != nil {
-				return nil, err
-			}
-			fmt.Fprintf(c.debugWriter, "--- Request:\n%s\n\n", dumpReq)
-		}
-
-		resp, err := c.httpClient.Do(r)
-		if err != nil {
-			return nil, err
-		}
-		response := &Response{Response: resp}
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			resp.Body.Close()
-			return response, err
-		}
-		resp.Body.Close()
-		resp.Body = io.NopCloser(bytes.NewReader(body))
-
-		if c.debugWriter != nil {
-			dumpResp, err := httputil.DumpResponse(resp, true)
-			if err != nil {
-				return nil, err
-			}
-			fmt.Fprintf(c.debugWriter, "--- Response:\n%s\n\n", dumpResp)
-		}
-
-		if err = response.readMeta(body); err != nil {
-			return response, fmt.Errorf("hcloud: error reading response meta data: %s", err)
-		}
-
-		if response.StatusCode >= 400 && response.StatusCode <= 599 {
-			err = errorFromResponse(response, body)
-			if err == nil {
-				err = fmt.Errorf("hcloud: server responded with status code %d", resp.StatusCode)
-			} else if IsError(err, ErrorCodeConflict) {
-				c.backoff(retries)
-				retries++
-				continue
-			}
-			return response, err
-		}
-		if v != nil {
-			if w, ok := v.(io.Writer); ok {
-				_, err = io.Copy(w, bytes.NewReader(body))
-			} else {
-				err = json.Unmarshal(body, v)
-			}
-		}
-
-		return response, err
-	}
-}
-
-func (c *Client) backoff(retries int) {
-	time.Sleep(c.backoffFunc(retries))
+func (c *Client) Do(req *http.Request, v any) (*Response, error) {
+	return c.handler.Do(req, v)
 }
 
 func (c *Client) all(f func(int) (*Response, error)) error {
@@ -342,43 +269,6 @@ func (c *Client) buildUserAgent() {
 	}
 }
 
-func dumpRequest(r *http.Request) ([]byte, error) {
-	// Duplicate the request, so we can redact the auth header
-	rDuplicate := r.Clone(context.Background())
-	rDuplicate.Header.Set("Authorization", "REDACTED")
-
-	// To get the request body we need to read it before the request was actually sent.
-	// See https://github.com/golang/go/issues/29792
-	dumpReq, err := httputil.DumpRequestOut(rDuplicate, true)
-	if err != nil {
-		return nil, err
-	}
-
-	// Set original request body to the duplicate created by DumpRequestOut. The request body is not duplicated
-	// by .Clone() and instead just referenced, so it would be completely read otherwise.
-	r.Body = rDuplicate.Body
-
-	return dumpReq, nil
-}
-
-func errorFromResponse(resp *Response, body []byte) error {
-	if !strings.HasPrefix(resp.Header.Get("Content-Type"), "application/json") {
-		return nil
-	}
-
-	var respBody schema.ErrorResponse
-	if err := json.Unmarshal(body, &respBody); err != nil {
-		return nil
-	}
-	if respBody.Error.Code == "" && respBody.Error.Message == "" {
-		return nil
-	}
-
-	hcErr := ErrorFromSchema(respBody.Error)
-	hcErr.response = resp
-	return hcErr
-}
-
 const (
 	headerCorrelationID = "X-Correlation-Id"
 )
@@ -387,33 +277,32 @@ const (
 type Response struct {
 	*http.Response
 	Meta Meta
+
+	// body holds a copy of the http.Response body that must be used within the handler
+	// chain. The http.Response.Body is reserved for external users.
+	body []byte
 }
 
-func (r *Response) readMeta(body []byte) error {
-	if h := r.Header.Get("RateLimit-Limit"); h != "" {
-		r.Meta.Ratelimit.Limit, _ = strconv.Atoi(h)
+// populateBody copies the original [http.Response] body into the internal [Response] body
+// property, and restore the original [http.Response] body as if it was untouched.
+func (r *Response) populateBody() error {
+	// Read full response body and save it for later use
+	body, err := io.ReadAll(r.Body)
+	r.Body.Close()
+	if err != nil {
+		return err
 	}
-	if h := r.Header.Get("RateLimit-Remaining"); h != "" {
-		r.Meta.Ratelimit.Remaining, _ = strconv.Atoi(h)
-	}
-	if h := r.Header.Get("RateLimit-Reset"); h != "" {
-		if ts, err := strconv.ParseInt(h, 10, 64); err == nil {
-			r.Meta.Ratelimit.Reset = time.Unix(ts, 0)
-		}
-	}
+	r.body = body
 
-	if strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
-		var s schema.MetaResponse
-		if err := json.Unmarshal(body, &s); err != nil {
-			return err
-		}
-		if s.Meta.Pagination != nil {
-			p := PaginationFromSchema(*s.Meta.Pagination)
-			r.Meta.Pagination = &p
-		}
-	}
+	// Restore the body as if it was untouched, as it might be read by external users
+	r.Body = io.NopCloser(bytes.NewReader(body))
 
 	return nil
+}
+
+// hasJSONBody returns whether the response has a JSON body.
+func (r *Response) hasJSONBody() bool {
+	return len(r.body) > 0 && strings.HasPrefix(r.Header.Get("Content-Type"), "application/json")
 }
 
 // internalCorrelationID returns the unique ID of the request as set by the API. This ID can help with support requests,

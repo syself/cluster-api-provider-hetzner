@@ -129,8 +129,8 @@ github.com/grpc-ecosystem/grpc-gateway/v2 v2.16.0 h1:YBftPWNWd4WwGqtY2yeZL2ef8rH
 github.com/grpc-ecosystem/grpc-gateway/v2 v2.16.0/go.mod h1:YN5jB8ie0yfIUg6VvR9Kz84aCaG7AsGZnLjhHbUqwPg=
 github.com/hashicorp/hcl v1.0.0 h1:0Anlzjpi4vEasTeNFn2mLJgTSwt0+6sfsiTG8qcWGx4=
 github.com/hashicorp/hcl v1.0.0/go.mod h1:E5yfLk+7swimpb2L/Alb/PJmXilQ/rhwaUYs4T20WEQ=
-github.com/hetznercloud/hcloud-go/v2 v2.9.0 h1:s0N6R7Zoi2DPfMtUF5o9VeUBzTtHVY6MIkHOQnfu/AY=
-github.com/hetznercloud/hcloud-go/v2 v2.9.0/go.mod h1:qtW/TuU7Bs16ibXl/ktJarWqU2LwHr7eGlwoilHxtgg=
+github.com/hetznercloud/hcloud-go/v2 v2.10.0 h1:yszJ36r27ct4ETLP4gMoB2tfjVZ3ULRlsFtldOdqOvg=
+github.com/hetznercloud/hcloud-go/v2 v2.10.0/go.mod h1:xQ+8KhIS62W0D78Dpi57jsufWh844gUw1az5OUvaeq8=
 github.com/huandu/xstrings v1.3.3 h1:/Gcsuc1x8JVbJ9/rlye4xZnVAbEkGauT8lbebqcQws4=
 github.com/huandu/xstrings v1.3.3/go.mod h1:y5/lhBue+AyNmUVz9RLU9xbLR0o4KIIExikq4ovT0aE=
 github.com/imdario/mergo v0.3.11/go.mod h1:jmQim1M+e3UYxmgPu/WyfjB3N3VflVyUjjjwH0dnCYA=
