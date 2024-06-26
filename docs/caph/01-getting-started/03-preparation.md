@@ -36,7 +36,7 @@ It is a common practice to create a temporary, local bootstrap cluster, which is
 
 #### 1. Existing Management Cluster
 
-For production use, a “real” Kubernetes cluster should be used with appropriate backup and Disaster Recovery policies and procedures in place. The Kubernetes cluster must be of a [supported version](/docs/caph/01-introduction).
+For production use, a “real” Kubernetes cluster should be used with appropriate backup and Disaster Recovery policies and procedures in place. The Kubernetes cluster must be of a [supported version](/docs/caph/01-getting-started/01-introduction).
 
 #### 2. Kind
 
@@ -48,7 +48,7 @@ For production use, a “real” Kubernetes cluster should be used with appropri
 
 ### Install Clusterctl
 
-Please use the instructions in the official [Cluster API docs](https://cluster-api.sigs.k8s.io/user/quick-start.html#install-clusterctl) or use this command: `make clusterctl`
+Please use the instructions in the official [Cluster API docs](https://cluster-api.sigs.k8s.io/user/quick-start.html#install-clusterctl), or use this command: `make clusterctl`
 
 ### Initialize the management cluster
 
