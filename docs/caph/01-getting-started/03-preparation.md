@@ -14,7 +14,7 @@ There are several tasks that have to be completed before a workload cluster can 
 
 ### Preparing Hetzner Robot
 
-1. Create a new web service user. [Here](https://robot.your-server.de/doc/webservice/en.html#preface), you can define a password and copy your user name
+1. Create a new web service user. [Here](https://robot.your-server.de/doc/webservice/en.html#preface) you can define a password and copy your user name
 2. Generate an SSH key. You can either upload it via Hetzner Robot UI or just rely on the controller to upload a key that it does not find in the robot API. This is possible, as you have to store the public and private key together with the SSH key's name in a secret that the controller reads.
 
 ---
@@ -34,11 +34,11 @@ It is a common practice to create a temporary, local bootstrap cluster, which is
 
 ### Choose one of the options below:
 
-#### 1. Existing Management Cluster.
+#### 1. Existing Management Cluster
 
-For production use, a “real” Kubernetes cluster should be used with appropriate backup and Disaster Recovery policies and procedures in place. The Kubernetes cluster must be at least a [supported version](https://github.com/syself/cluster-api-provider-hetzner/blob/main/README.md#%EF%B8%8F-compatibility-with-cluster-api-and-kubernetes-versions).
+For production use, a “real” Kubernetes cluster should be used with appropriate backup and Disaster Recovery policies and procedures in place. The Kubernetes cluster must be of a [supported version](/docs/caph/01-introduction).
 
-#### 2. Kind.
+#### 2. Kind
 
 [kind](https://kind.sigs.k8s.io/) can be used for creating a local Kubernetes cluster for development environments or for the creation of a temporary bootstrap cluster used to provision a target management cluster on the selected infrastructure provider.
 
@@ -48,8 +48,7 @@ For production use, a “real” Kubernetes cluster should be used with appropri
 
 ### Install Clusterctl
 
-Please use the instructions here: https://cluster-api.sigs.k8s.io/user/quick-start.html#install-clusterctl
-or use: `make clusterctl`
+Please use the instructions in the official [Cluster API docs](https://cluster-api.sigs.k8s.io/user/quick-start.html#install-clusterctl) or use this command: `make clusterctl`
 
 ### Initialize the management cluster
 
@@ -62,7 +61,7 @@ clusterctl init --core cluster-api --bootstrap kubeadm --control-plane kubeadm -
 
 ```
 
-or for a specific [version](https://github.com/syself/cluster-api-provider-hetzner/releases): `--infrastructure hetzner:vX.X.X`
+Or for a specific [version](https://github.com/syself/cluster-api-provider-hetzner/releases): `--infrastructure hetzner:vX.X.X`
 
 ---
 
