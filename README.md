@@ -3,9 +3,9 @@
 <br>
 
 <div align="center">
-<a href="/docs/caph/01-getting-started/03-quickstart.md">Quickstart</a> |
-<a href="/docs/README.md">Docs</a> |
-<a href="/docs/caph/04-developers/01-development-guide.md">Contribution Guide</a><br><br>
+<a href="https://syself.com/docs/caph/getting-started/quickstart">Quickstart</a> |
+<a href="https://syself.com/docs/caph/getting-started/introduction">Docs</a> |
+<a href="https://syself.com/docs/caph/developers/development-guide">Contribution Guide</a><br><br>
 <a href="https://cluster-api.sigs.k8s.io/">Cluster API Book</a>
 </div>
 
@@ -77,11 +77,11 @@ If you don't have a dedicated team for managing Kubernetes, you can use [Syself 
 
 Ready to dive in? Here are some resources to get you started:
 
-- [**Cluster API Provider Hetzner 15 Minute Tutorial**](/docs/caph/01-getting-started/03-quickstart.md): Set up a bootstrap cluster using Kind and deploy a Kubernetes cluster on Hetzner.
-- [**Develop and test Kubernetes clusters with Tilt**](/docs/caph/04-developers/01-development-guide.md): Start using Tilt for rapid testing of various cluster flavors, like with/without a private network or bare metal.
-- [**Develop and test your own node-images**](/docs/caph/02-topics/02-node-image.md): Learn how to use your own machine images for production systems.
+- [**Cluster API Provider Hetzner 15 Minute Tutorial**](https://syself.com/docs/caph/getting-started/quickstart): Set up a bootstrap cluster using Kind and deploy a Kubernetes cluster on Hetzner.
+- [**Develop and test Kubernetes clusters with Tilt**](https://syself.com/docs/caph/developers/development-guide): Start using Tilt for rapid testing of various cluster flavors, like with/without a private network or bare metal.
+- [**Develop and test your own node-images**](https://syself.com/docs/caph/topics/node-image): Learn how to use your own machine images for production systems.
 
-In addition to the pure creation and operation of Kubernetes clusters, this provider can also validate and approve certificate signing requests. This increases security as the kubelets of the nodes can be operated with signed certificates, and enables the metrics-server to run securely. [Click here](/docs/caph/02-topics/03-advanced-caph.md#csr-controller) to read more about the CSR controller.
+In addition to the pure creation and operation of Kubernetes clusters, this provider can also validate and approve certificate signing requests. This increases security as the kubelets of the nodes can be operated with signed certificates, and enables the metrics-server to run securely. [Click here](https://syself.com/docs/caph/topics/advanced-caph#csr-controller) to read more about the CSR controller.
 
 ## 🖇️ Compatibility with Cluster API and Kubernetes Versions
 
@@ -129,13 +129,13 @@ Each version of Cluster API for Hetzner will attempt to support at least two Kub
 
 ## 📖 Documentation
 
-Documentation can be found in the `/docs` directory. [Here](/docs/README.md) is an overview of our documentation.
+Documentation can be found at: [https://syself.com/docs/caph](https://syself.com/docs/caph)
 
 ## 👥 Getting Involved and Contributing
 
 We, maintainers and the community, welcome any contributions to Cluster API Provider Hetzner. For suggestions, contributions, and assistance, contact the maintainers anytime.
 
-To set up your environment, refer to the [development guide](/docs/caph/04-developers/01-development-guide.md).
+To set up your environment, refer to the [development guide](https://syself.com/docs/caph/developers/development-guide).
 
 For new contributors, check out issues tagged as [`good first issue`][good_first_issue]. These are typically smaller in scope and great for getting familiar with the codebase.
 
