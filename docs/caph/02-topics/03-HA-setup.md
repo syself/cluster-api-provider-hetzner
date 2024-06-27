@@ -1,5 +1,5 @@
 ---
-title: Production Environment Best Practices
+title: High availability setup
 ---
 
 ## HA Cluster API Components

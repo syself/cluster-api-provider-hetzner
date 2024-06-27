@@ -1,5 +1,5 @@
 ---
-title: Managing SSH keys
+title: SSH key management
 ---
 
 This section provides details about SSH keys and its importance with regards to CAPH.
