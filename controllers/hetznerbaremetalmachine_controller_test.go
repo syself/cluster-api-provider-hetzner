@@ -858,7 +858,3 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 		})
 	})
 })
-
-func str(s string) *string {
-	return &s
-}
