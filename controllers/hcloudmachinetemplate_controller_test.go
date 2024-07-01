@@ -264,8 +264,8 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 					Spec: infrav1.HCloudMachineTemplateSpec{
 						Template: infrav1.HCloudMachineTemplateResource{
 							Spec: infrav1.HCloudMachineSpec{
-								Type:      "cpx21",
-								ImageName: "ubuntu-18.04",
+								Type:      "cx41",
+								ImageName: "fedora",
 							},
 						},
 					},
@@ -301,6 +301,20 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 				}
 				Expect(testEnv.Client.Update(ctx, hcloudMachineTemplate)).ToNot(Succeed())
 
+			})
+			It("should succeed for mutable fields", func() {
+
+				Expect(testEnv.Get(ctx, key, machineTemplate)).To(Succeed())
+
+				hcloudMachineTemplate.Status.Conditions = clusterv1.Conditions{
+					{
+						Type:    "TestSuccessful",
+						Status:  corev1.ConditionTrue,
+						Reason:  "TestPassed",
+						Message: "The test was successful",
+					},
+				}
+				Expect(testEnv.Client.Update(ctx, hcloudMachineTemplate)).To(Succeed())
 			})
 		})
 
