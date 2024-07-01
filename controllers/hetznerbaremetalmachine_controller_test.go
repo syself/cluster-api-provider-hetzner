@@ -759,7 +759,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				Expect(err).NotTo(HaveOccurred())
 				hbmmt = &infrav1.HetznerBareMetalMachineTemplate{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "test-machine",
+						Name:      bmMachineName,
 						Namespace: testNs.Name,
 						Labels: map[string]string{
 							clusterv1.ClusterNameLabel: capiCluster.Name,
@@ -790,6 +790,13 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 								Image: infrav1.Image{
 									Name: "ubuntu-20.04",
 									URL:  "https://example.com/ubuntu-20.04.tar.gz",
+								},
+								Partitions: []infrav1.Partition{
+									{
+										Mount:      "/",
+										FileSystem: "ext4",
+										Size:       "10GiB",
+									},
 								},
 							},
 						},
@@ -838,8 +845,20 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					},
 				}
 				Expect(testEnv.Client.Update(ctx, hbmmt)).ToNot(Succeed())
+
+				Expect(testEnv.Get(ctx, key, hbmmt)).To(Succeed())
+				if hbmmt.ObjectMeta.Annotations == nil {
+					hbmmt.ObjectMeta.Annotations = make(map[string]string)
+				}
+				hbmmt.ObjectMeta.Annotations["test"] = "should_succeed"
+				Expect(testEnv.Client.Update(ctx, hbmmt)).To(Succeed())
+
 			})
 
 		})
 	})
 })
+
+func str(s string) *string {
+	return &s
+}
