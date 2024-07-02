@@ -18,7 +18,6 @@ package v1beta1
 
 import (
 	"fmt"
-	"reflect"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -82,35 +81,7 @@ func (r *HCloudMachine) ValidateUpdate(old runtime.Object) (admission.Warnings, 
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected an HCloudMachine but got a %T", old))
 	}
 
-	var allErrs field.ErrorList
-
-	// Type is immutable
-	if !reflect.DeepEqual(oldM.Spec.Type, r.Spec.Type) {
-		allErrs = append(allErrs,
-			field.Invalid(field.NewPath("spec", "type"), r.Spec.Type, "field is immutable"),
-		)
-	}
-
-	// ImageName is immutable
-	if !reflect.DeepEqual(oldM.Spec.ImageName, r.Spec.ImageName) {
-		allErrs = append(allErrs,
-			field.Invalid(field.NewPath("spec", "imageName"), r.Spec.ImageName, "field is immutable"),
-		)
-	}
-
-	// SSHKeys is immutable
-	if !reflect.DeepEqual(oldM.Spec.SSHKeys, r.Spec.SSHKeys) {
-		allErrs = append(allErrs,
-			field.Invalid(field.NewPath("spec", "sshKeys"), r.Spec.SSHKeys, "field is immutable"),
-		)
-	}
-
-	// Placement group name is immutable
-	if !reflect.DeepEqual(oldM.Spec.PlacementGroupName, r.Spec.PlacementGroupName) {
-		allErrs = append(allErrs,
-			field.Invalid(field.NewPath("spec", "placementGroupName"), r.Spec.PlacementGroupName, "field is immutable"),
-		)
-	}
+	allErrs := validateHCloudMachineSpec(oldM.Spec, r.Spec)
 
 	return nil, aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
 }

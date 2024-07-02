@@ -47,8 +47,19 @@ type HetznerBareMetalMachineTemplateWebhook struct{}
 var _ webhook.CustomValidator = &HetznerBareMetalMachineTemplateWebhook{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
-func (r *HetznerBareMetalMachineTemplateWebhook) ValidateCreate(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
-	return nil, nil
+func (r *HetznerBareMetalMachineTemplateWebhook) ValidateCreate(_ context.Context, raw runtime.Object) (admission.Warnings, error) {
+	hbmmt, ok := raw.(*HetznerBareMetalMachineTemplate)
+	if !ok {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a HetznerBareMetalMachineTemplate but got a %T", raw))
+	}
+
+	if hbmmt.Spec.Template.Spec.SSHSpec.PortAfterCloudInit == 0 {
+		hbmmt.Spec.Template.Spec.SSHSpec.PortAfterCloudInit = hbmmt.Spec.Template.Spec.SSHSpec.PortAfterInstallImage
+	}
+
+	allErrs := validateHetznerBareMetalMachineSpecCreate(hbmmt.Spec.Template.Spec)
+
+	return nil, aggregateObjErrors(hbmmt.GroupVersionKind().GroupKind(), hbmmt.Name, allErrs)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
@@ -67,7 +78,7 @@ func (r *HetznerBareMetalMachineTemplateWebhook) ValidateUpdate(ctx context.Cont
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a admission.Request inside context: %v", err))
 	}
 
-	var allErrs field.ErrorList
+	allErrs := validateHetznerBareMetalMachineSpecUpdate(oldHetznerBareMetalMachineTemplate.Spec.Template.Spec, newHetznerBareMetalMachineTemplate.Spec.Template.Spec)
 
 	if !topology.ShouldSkipImmutabilityChecks(req, newHetznerBareMetalMachineTemplate) && !reflect.DeepEqual(newHetznerBareMetalMachineTemplate.Spec, oldHetznerBareMetalMachineTemplate.Spec) {
 		allErrs = append(allErrs, field.Invalid(field.NewPath("spec"), newHetznerBareMetalMachineTemplate, "HetznerBareMetalMachineTemplate.Spec is immutable"))

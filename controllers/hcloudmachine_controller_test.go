@@ -591,8 +591,9 @@ var _ = Describe("Hetzner secret", func() {
 
 var _ = Describe("HCloudMachine validation", func() {
 	var (
-		hcloudMachine *infrav1.HCloudMachine
-		testNs        *corev1.Namespace
+		hcloudMachine    *infrav1.HCloudMachine
+		oldHCloudMachine *infrav1.HCloudMachine
+		testNs           *corev1.Namespace
 	)
 
 	BeforeEach(func() {
@@ -610,6 +611,9 @@ var _ = Describe("HCloudMachine validation", func() {
 				Type:      "cpx31",
 			},
 		}
+		oldHCloudMachine = hcloudMachine.DeepCopy()
+		oldHCloudMachine.Spec.Type = "cpx21"
+		oldHCloudMachine.Spec.ImageName = "fedora-control-plane-old"
 	})
 
 	AfterEach(func() {
@@ -624,6 +628,17 @@ var _ = Describe("HCloudMachine validation", func() {
 	It("should fail without imageName", func() {
 		hcloudMachine.Spec.ImageName = ""
 		Expect(testEnv.Create(ctx, hcloudMachine)).ToNot(Succeed())
+	})
+	It("should allow valid HCloudMachine creation", func() {
+		Expect(testEnv.Create(ctx, hcloudMachine)).To(Succeed())
+	})
+	It("should prevent updating immutable fields", func() {
+		Expect(testEnv.Create(ctx, hcloudMachine)).To(Succeed())
+		key := client.ObjectKey{Namespace: testNs.Name, Name: hcloudMachine.Name}
+		Expect(testEnv.Get(ctx, key, hcloudMachine)).To(Succeed())
+		hcloudMachine.Spec.Type = "cpx32"
+		hcloudMachine.Spec.ImageName = "fedora-control-plane"
+		Expect(testEnv.Update(ctx, hcloudMachine)).ToNot(Succeed())
 	})
 })
 

@@ -247,5 +247,76 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 				}, timeout, time.Second).Should(BeTrue())
 			})
 		})
+		Context("HCloudMachineTemplate Webhook Validation", func() {
+			var (
+				hcloudMachineTemplate *infrav1.HCloudMachineTemplate
+				testNs                *corev1.Namespace
+			)
+			BeforeEach(func() {
+				var err error
+				testNs, err = testEnv.CreateNamespace(ctx, "hcloudmachine-validation")
+				Expect(err).NotTo(HaveOccurred())
+				hcloudMachineTemplate = &infrav1.HCloudMachineTemplate{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "hcloud-validation-machine",
+						Namespace: testNs.Name,
+					},
+					Spec: infrav1.HCloudMachineTemplateSpec{
+						Template: infrav1.HCloudMachineTemplateResource{
+							Spec: infrav1.HCloudMachineSpec{
+								Type:      "cx41",
+								ImageName: "fedora",
+							},
+						},
+					},
+				}
+				Expect(testEnv.Client.Create(ctx, hcloudMachineTemplate)).To(Succeed())
+				key = client.ObjectKey{Namespace: testNs.Name, Name: "hcloud-validation-machine"}
+				Eventually(func() error {
+					return testEnv.Client.Get(ctx, key, hcloudMachineTemplate)
+				}, timeout, time.Second).Should(BeNil())
+			})
+			AfterEach(func() {
+				Expect(testEnv.Cleanup(ctx, testNs, hcloudMachineTemplate)).To(Succeed())
+			})
+
+			It("should prevent updating immutable fields", func() {
+				Expect(testEnv.Get(ctx, key, machineTemplate)).To(Succeed())
+
+				hcloudMachineTemplate.Spec = infrav1.HCloudMachineTemplateSpec{
+					Template: infrav1.HCloudMachineTemplateResource{
+						Spec: infrav1.HCloudMachineSpec{
+							Type: "cpx32",
+						},
+					},
+				}
+				Expect(testEnv.Client.Update(ctx, hcloudMachineTemplate)).ToNot(Succeed())
+
+				hcloudMachineTemplate.Spec = infrav1.HCloudMachineTemplateSpec{
+					Template: infrav1.HCloudMachineTemplateResource{
+						Spec: infrav1.HCloudMachineSpec{
+							ImageName: "fedora-control-plane",
+						},
+					},
+				}
+				Expect(testEnv.Client.Update(ctx, hcloudMachineTemplate)).ToNot(Succeed())
+
+			})
+			It("should succeed for mutable fields", func() {
+
+				Expect(testEnv.Get(ctx, key, machineTemplate)).To(Succeed())
+
+				hcloudMachineTemplate.Status.Conditions = clusterv1.Conditions{
+					{
+						Type:    "TestSuccessful",
+						Status:  corev1.ConditionTrue,
+						Reason:  "TestPassed",
+						Message: "The test was successful",
+					},
+				}
+				Expect(testEnv.Client.Update(ctx, hcloudMachineTemplate)).To(Succeed())
+			})
+		})
+
 	})
 })
