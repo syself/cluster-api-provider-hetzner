@@ -17,6 +17,7 @@ limitations under the License.
 package controllers
 
 import (
+	"testing"
 	"time"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
@@ -36,6 +37,188 @@ import (
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
+
+func TestIgnoreInsignificantHCloudMachineStatusUpdates(t *testing.T) {
+	logger := klog.Background()
+	predicate := IgnoreInsignificantHCloudMachineStatusUpdates(logger)
+
+	testCases := []struct {
+		name     string
+		oldObj   *infrav1.HCloudMachine
+		newObj   *infrav1.HCloudMachine
+		expected bool
+	}{
+		{
+			name: "No significant changes",
+			oldObj: &infrav1.HCloudMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-machine",
+					Namespace: "default",
+				},
+				Status: infrav1.HCloudMachineStatus{
+					Ready: true,
+				},
+			},
+			newObj: &infrav1.HCloudMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "test-machine",
+					Namespace:       "default",
+					ResourceVersion: "2",
+				},
+				Status: infrav1.HCloudMachineStatus{
+					Ready: true,
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "Significant changes in spec",
+			oldObj: &infrav1.HCloudMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-machine",
+					Namespace: "default",
+				},
+				Spec: infrav1.HCloudMachineSpec{
+					Type: "cx11",
+				},
+			},
+			newObj: &infrav1.HCloudMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-machine",
+					Namespace: "default",
+				},
+				Spec: infrav1.HCloudMachineSpec{
+					Type: "cx21",
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "Empty status in new object",
+			oldObj: &infrav1.HCloudMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-machine",
+					Namespace: "default",
+				},
+				Status: infrav1.HCloudMachineStatus{
+					InstanceState: stPtr(hcloud.ServerStatusRunning),
+				},
+			},
+			newObj: &infrav1.HCloudMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-machine",
+					Namespace: "default",
+				},
+				Status: infrav1.HCloudMachineStatus{},
+			},
+			expected: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			updateEvent := event.UpdateEvent{
+				ObjectOld: tc.oldObj,
+				ObjectNew: tc.newObj,
+			}
+			result := predicate.Update(updateEvent)
+			if result != tc.expected {
+				t.Errorf("Expected %v, but got %v", tc.expected, result)
+			}
+		})
+	}
+}
+func stPtr(h hcloud.ServerStatus) *hcloud.ServerStatus {
+	return &h
+}
+func TestIgnoreInsignificantMachineStatusUpdates(t *testing.T) {
+	logger := klog.Background()
+	predicate := IgnoreInsignificantMachineStatusUpdates(logger)
+
+	testCases := []struct {
+		name     string
+		oldObj   *clusterv1.Machine
+		newObj   *clusterv1.Machine
+		expected bool
+	}{
+		{
+			name: "No significant changes",
+			oldObj: &clusterv1.Machine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-machine",
+					Namespace: "default",
+				},
+				Status: clusterv1.MachineStatus{},
+			},
+			newObj: &clusterv1.Machine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "test-machine",
+					Namespace:       "default",
+					ResourceVersion: "2",
+				},
+				Status: clusterv1.MachineStatus{},
+			},
+			expected: false,
+		},
+		{
+			name: "Significant changes in spec",
+			oldObj: &clusterv1.Machine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-machine",
+					Namespace: "default",
+				},
+				Spec: clusterv1.MachineSpec{
+					ClusterName: "old-cluster",
+				},
+			},
+			newObj: &clusterv1.Machine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-machine",
+					Namespace: "default",
+				},
+				Spec: clusterv1.MachineSpec{
+					ClusterName: "new-cluster",
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "Changes only in status",
+			oldObj: &clusterv1.Machine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-machine",
+					Namespace: "default",
+				},
+				Status: clusterv1.MachineStatus{
+					Phase: "Pending",
+				},
+			},
+			newObj: &clusterv1.Machine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-machine",
+					Namespace: "default",
+				},
+				Status: clusterv1.MachineStatus{
+					Phase: "Running",
+				},
+			},
+			expected: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			updateEvent := event.UpdateEvent{
+				ObjectOld: tc.oldObj,
+				ObjectNew: tc.newObj,
+			}
+			result := predicate.Update(updateEvent)
+			if result != tc.expected {
+				t.Errorf("Expected %v, but got %v", tc.expected, result)
+			}
+		})
+	}
+}
 
 var _ = Describe("HCloudMachineReconciler", func() {
 	var (
