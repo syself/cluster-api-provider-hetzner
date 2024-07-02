@@ -712,9 +712,8 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 		Context("validate create", func() {
 			var (
-				hbmmt        *infrav1.HetznerBareMetalMachineTemplate
-				testNs       *corev1.Namespace
-				hbmmtwebhook *infrav1.HetznerBareMetalMachineTemplateWebhook
+				hbmmt  *infrav1.HetznerBareMetalMachineTemplate
+				testNs *corev1.Namespace
 			)
 			BeforeEach(func() {
 				var err error
@@ -734,16 +733,13 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 						},
 					},
 				}
-				hbmmtwebhook = &infrav1.HetznerBareMetalMachineTemplateWebhook{}
 
 			})
 			AfterEach(func() {
 				Expect(testEnv.Cleanup(ctx, testNs, hbmmt)).To(Succeed())
 			})
 			It("should validate create", func() {
-				warnings, err := hbmmtwebhook.ValidateCreate(ctx, hbmmt)
-				Expect(warnings).To(BeNil())
-				Expect(err).To(BeNil())
+				Expect(testEnv.Create(ctx, hbmmt)).To(Succeed())
 			})
 
 		})

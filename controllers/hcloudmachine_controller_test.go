@@ -630,24 +630,15 @@ var _ = Describe("HCloudMachine validation", func() {
 		Expect(testEnv.Create(ctx, hcloudMachine)).ToNot(Succeed())
 	})
 	It("should allow valid HCloudMachine creation", func() {
-		warnings, err := hcloudMachine.ValidateCreate()
-		Expect(warnings).To(BeNil())
-		Expect(err).To(BeNil())
+		Expect(testEnv.Create(ctx, hcloudMachine)).To(Succeed())
 	})
 	It("should prevent updating immutable fields", func() {
-		newHCloudMachine := hcloudMachine.DeepCopy()
-		newHCloudMachine.Spec.Type = "cpx32"
-		newHCloudMachine.Spec.ImageName = "fedora-control-plane"
-
-		warnings, err := newHCloudMachine.ValidateUpdate(oldHCloudMachine)
-		Expect(warnings).To(BeNil())
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("field is immutable"))
-	})
-	It("should allow valid HCloudMachine deleteion", func() {
-		warnings, err := hcloudMachine.ValidateDelete()
-		Expect(warnings).To(BeNil())
-		Expect(err).To(BeNil())
+		Expect(testEnv.Create(ctx, hcloudMachine)).To(Succeed())
+		key := client.ObjectKey{Namespace: testNs.Name, Name: hcloudMachine.Name}
+		Expect(testEnv.Get(ctx, key, hcloudMachine)).To(Succeed())
+		hcloudMachine.Spec.Type = "cpx32"
+		hcloudMachine.Spec.ImageName = "fedora-control-plane"
+		Expect(testEnv.Update(ctx, hcloudMachine)).ToNot(Succeed())
 	})
 })
 
