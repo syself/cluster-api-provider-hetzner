@@ -26,16 +26,232 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
 )
+
+func TestIgnoreInsignificantClusterStatusUpdates(t *testing.T) {
+	logger := klog.Background()
+	predicate := IgnoreInsignificantClusterStatusUpdates(logger)
+
+	testCases := []struct {
+		name     string
+		oldObj   *clusterv1.Cluster
+		newObj   *clusterv1.Cluster
+		expected bool
+	}{
+		{
+			name: "No significant changes",
+			oldObj: &clusterv1.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-cluster",
+					Namespace: "default",
+				},
+				Status: clusterv1.ClusterStatus{
+					Phase: "Provisioned",
+				},
+			},
+			newObj: &clusterv1.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "test-cluster",
+					Namespace:       "default",
+					ResourceVersion: "2",
+				},
+				Status: clusterv1.ClusterStatus{
+					Phase: "Provisioned",
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "Significant changes in spec",
+			oldObj: &clusterv1.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-cluster",
+					Namespace: "default",
+				},
+				Spec: clusterv1.ClusterSpec{
+					ClusterNetwork: &clusterv1.ClusterNetwork{
+						Pods: &clusterv1.NetworkRanges{
+							CIDRBlocks: []string{"192.168.0.0/16"},
+						},
+					},
+				},
+			},
+			newObj: &clusterv1.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-cluster",
+					Namespace: "default",
+				},
+				Spec: clusterv1.ClusterSpec{
+					ClusterNetwork: &clusterv1.ClusterNetwork{
+						Pods: &clusterv1.NetworkRanges{
+							CIDRBlocks: []string{"10.0.0.0/16"},
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "Changes only in status",
+			oldObj: &clusterv1.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-cluster",
+					Namespace: "default",
+				},
+				Status: clusterv1.ClusterStatus{
+					Phase: "Provisioning",
+				},
+			},
+			newObj: &clusterv1.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-cluster",
+					Namespace: "default",
+				},
+				Status: clusterv1.ClusterStatus{
+					Phase: "Provisioned",
+				},
+			},
+			expected: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			updateEvent := event.UpdateEvent{
+				ObjectOld: tc.oldObj,
+				ObjectNew: tc.newObj,
+			}
+			result := predicate.Update(updateEvent)
+			if result != tc.expected {
+				t.Errorf("Expected %v, but got %v", tc.expected, result)
+			}
+		})
+	}
+}
+
+func TestIgnoreInsignificantHetznerClusterStatusUpdates(t *testing.T) {
+	logger := klog.Background()
+	predicate := IgnoreInsignificantHetznerClusterStatusUpdates(logger)
+
+	testCases := []struct {
+		name     string
+		oldObj   *infrav1.HetznerCluster
+		newObj   *infrav1.HetznerCluster
+		expected bool
+	}{
+		{
+			name: "No significant changes",
+			oldObj: &infrav1.HetznerCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-hetzner-cluster",
+					Namespace: "default",
+				},
+				Status: infrav1.HetznerClusterStatus{
+					Ready: true,
+				},
+			},
+			newObj: &infrav1.HetznerCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "test-hetzner-cluster",
+					Namespace:       "default",
+					ResourceVersion: "2",
+				},
+				Status: infrav1.HetznerClusterStatus{
+					Ready: true,
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "Significant changes in spec",
+			oldObj: &infrav1.HetznerCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-hetzner-cluster",
+					Namespace: "default",
+				},
+				Spec: infrav1.HetznerClusterSpec{
+					ControlPlaneRegions: []infrav1.Region{"fsn1"},
+				},
+			},
+			newObj: &infrav1.HetznerCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-hetzner-cluster",
+					Namespace: "default",
+				},
+				Spec: infrav1.HetznerClusterSpec{
+					ControlPlaneRegions: []infrav1.Region{"nbg1"},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "Empty status in new object",
+			oldObj: &infrav1.HetznerCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-hetzner-cluster",
+					Namespace: "default",
+				},
+				Status: infrav1.HetznerClusterStatus{
+					Ready: true,
+				},
+			},
+			newObj: &infrav1.HetznerCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-hetzner-cluster",
+					Namespace: "default",
+				},
+				Status: infrav1.HetznerClusterStatus{},
+			},
+			expected: true,
+		},
+		{
+			name: "Changes only in status",
+			oldObj: &infrav1.HetznerCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-hetzner-cluster",
+					Namespace: "default",
+				},
+				Status: infrav1.HetznerClusterStatus{
+					Ready: false,
+				},
+			},
+			newObj: &infrav1.HetznerCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-hetzner-cluster",
+					Namespace: "default",
+				},
+				Status: infrav1.HetznerClusterStatus{
+					Ready: true,
+				},
+			},
+			expected: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			updateEvent := event.UpdateEvent{
+				ObjectOld: tc.oldObj,
+				ObjectNew: tc.newObj,
+			}
+			result := predicate.Update(updateEvent)
+			if result != tc.expected {
+				t.Errorf("Expected %v, but got %v", tc.expected, result)
+			}
+		})
+	}
+}
 
 var _ = Describe("Hetzner ClusterReconciler", func() {
 	Context("cluster tests", func() {
