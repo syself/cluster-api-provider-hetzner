@@ -32,4 +32,4 @@ This is the official documentation of Cluster API Provider Hetzner. Before start
 - [Development guide](/docs/caph/04-developers/01-development-guide)
 - [Tilt](/docs/caph/04-developers/02-tilt)
 - [Releasing](/docs/caph/04-developers/03-releasing)
-- [Updating Kubernetes version](/docs/caph/04-developers/04-updating-kubernetes-version)
+- [Updating kubernetes version](/docs/caph/04-developers/04-updating-kubernetes-version)
