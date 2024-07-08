@@ -81,7 +81,7 @@ Ready to dive in? Here are some resources to get you started:
 - [**Develop and test Kubernetes clusters with Tilt**](https://syself.com/docs/caph/developers/development-guide): Start using Tilt for rapid testing of various cluster flavors, like with/without a private network or bare metal.
 - [**Develop and test your own node-images**](https://syself.com/docs/caph/topics/node-image): Learn how to use your own machine images for production systems.
 
-In addition to the pure creation and operation of Kubernetes clusters, this provider can also validate and approve certificate signing requests. This increases security as the kubelets of the nodes can be operated with signed certificates, and enables the metrics-server to run securely. [Click here](https://syself.com/docs/caph/topics/advanced-caph#csr-controller) to read more about the CSR controller.
+In addition to the pure creation and operation of Kubernetes clusters, this provider can also validate and approve certificate signing requests. This increases security as the kubelets of the nodes can be operated with signed certificates, and enables the metrics-server to run securely. [Click here](https://syself.com/docs/caph/topics/advanced/csr-controller) to read more about the CSR controller.
 
 ## 🖇️ Compatibility with Cluster API and Kubernetes Versions
 
