@@ -6,7 +6,7 @@ title: Preparation
 
 There are several tasks that have to be completed before a workload cluster can be created.
 
-### Preparing Hetzner Cloud
+### Preparing Hetzner Clod
 
 1. Create a new [HCloud project](https://console.hetzner.cloud/projects).
 2. Generate an API token with read and write access. You'll find this if you click on the project and go to "security".
