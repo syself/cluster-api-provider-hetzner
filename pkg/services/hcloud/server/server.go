@@ -191,13 +191,13 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 
 // implments setting rate limit  on hcloudmachine
 func handleRateLimit(hm *infrav1.HCloudMachine, err error, functionName string, errMsg string) error {
-	// set the rate limit error if the machine is not running
+	// check for a rate limit exceeded error if the machine is not running
 	if !hm.Status.Ready {
 		hcloudutil.HandleRateLimitExceeded(hm, err, functionName)
 		return fmt.Errorf("%s: %w", errMsg, err)
 	}
 
-	// returns nil for a rate limit error
+	// returns nil for a rate limit exceeded error
 	if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
 		return nil
 	}
