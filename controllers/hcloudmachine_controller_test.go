@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"testing"
-	"time"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	. "github.com/onsi/ginkgo/v2"
@@ -376,13 +375,13 @@ var _ = Describe("HCloudMachineReconciler", func() {
 					}
 
 					return len(servers) == 0
-				}, timeout, time.Second).Should(BeTrue())
+				}, timeout, interval).Should(BeTrue())
 
 				By("checking that bootstrap condition is not ready")
 
 				Eventually(func() bool {
 					return isPresentAndFalseWithReason(key, hcloudMachine, infrav1.BootstrapReadyCondition, infrav1.BootstrapNotReadyReason)
-				}, timeout, time.Second).Should(BeTrue())
+				}, timeout, interval).Should(BeTrue())
 
 				By("setting the bootstrap data")
 
@@ -395,13 +394,13 @@ var _ = Describe("HCloudMachineReconciler", func() {
 
 				Eventually(func() error {
 					return ph.Patch(ctx, capiMachine, patch.WithStatusObservedGeneration{})
-				}, timeout, time.Second).Should(BeNil())
+				}, timeout, interval).Should(BeNil())
 
 				By("checking that bootstrap condition is ready")
 
 				Eventually(func() bool {
 					return isPresentAndTrue(key, hcloudMachine, infrav1.BootstrapReadyCondition)
-				}, timeout, time.Second).Should(BeTrue())
+				}, timeout, interval).Should(BeTrue())
 
 				By("listing hcloud servers")
 
@@ -415,19 +414,19 @@ var _ = Describe("HCloudMachineReconciler", func() {
 						return 0
 					}
 					return len(servers)
-				}, timeout, time.Second).Should(BeNumerically(">", 0))
+				}, timeout, interval).Should(BeNumerically(">", 0))
 
 				By("checking if server created condition is set")
 
 				Eventually(func() bool {
 					return isPresentAndTrue(key, hcloudMachine, infrav1.ServerCreateSucceededCondition)
-				}, timeout, time.Second).Should(BeTrue())
+				}, timeout, interval).Should(BeTrue())
 
 				By("checking if server available condition is set")
 
 				Eventually(func() bool {
 					return isPresentAndTrue(key, hcloudMachine, infrav1.ServerAvailableCondition)
-				}, timeout, time.Second).Should(BeTrue())
+				}, timeout, interval).Should(BeTrue())
 			})
 		})
 
@@ -470,7 +469,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 			It("checks that ImageNotFound is visible in conditions if image does not exist", func() {
 				Eventually(func() bool {
 					return isPresentAndFalseWithReason(key, hcloudMachine, infrav1.ServerCreateSucceededCondition, infrav1.ImageNotFoundReason)
-				}, timeout, time.Second).Should(BeTrue())
+				}, timeout, interval).Should(BeTrue())
 			})
 		})
 	})
@@ -530,7 +529,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 						return 0
 					}
 					return len(servers)
-				}, timeout, time.Second).Should(BeNumerically(">", 0))
+				}, timeout, interval).Should(BeNumerically(">", 0))
 			})
 		})
 
@@ -559,7 +558,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 					}
 
 					return len(servers)
-				}, timeout, time.Second).Should(BeNumerically(">", 0))
+				}, timeout, interval).Should(BeNumerically(">", 0))
 			})
 		})
 
@@ -607,7 +606,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 					}
 
 					return len(servers)
-				}, timeout, time.Second).Should(BeNumerically(">", 0))
+				}, timeout, interval).Should(BeNumerically(">", 0))
 			})
 		})
 	})
@@ -734,7 +733,7 @@ var _ = Describe("Hetzner secret", func() {
 
 			Eventually(func() bool {
 				return isPresentAndFalseWithReason(key, hcloudMachine, infrav1.HCloudTokenAvailableCondition, expectedReason)
-			}, timeout, time.Second).Should(BeTrue())
+			}, timeout, interval).Should(BeTrue())
 		},
 		Entry("no Hetzner secret/wrong reference", func() *corev1.Secret {
 			return &corev1.Secret{
@@ -807,6 +806,23 @@ var _ = Describe("HCloudMachine validation", func() {
 	It("should fail without imageName", func() {
 		hcloudMachine.Spec.ImageName = ""
 		Expect(testEnv.Create(ctx, hcloudMachine)).ToNot(Succeed())
+	})
+
+	It("should allow valid HCloudMachine creation", func() {
+		Expect(testEnv.Create(ctx, hcloudMachine)).To(Succeed())
+	})
+
+	It("should prevent updating immutable fields", func() {
+		Expect(testEnv.Create(ctx, hcloudMachine)).To(Succeed())
+
+		Eventually(func() error {
+			key := client.ObjectKey{Namespace: testNs.Name, Name: hcloudMachine.Name}
+			return testEnv.Client.Get(ctx, key, hcloudMachine)
+		}, timeout, interval).Should(BeNil())
+
+		hcloudMachine.Spec.Type = "cpx32"
+		hcloudMachine.Spec.ImageName = "fedora-control-plane"
+		Expect(testEnv.Update(ctx, hcloudMachine)).ToNot(Succeed())
 	})
 })
 

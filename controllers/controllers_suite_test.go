@@ -41,6 +41,7 @@ import (
 const (
 	defaultPodNamespace = "caph-system"
 	timeout             = time.Second * 5
+	interval            = time.Millisecond * 100
 )
 
 var (
