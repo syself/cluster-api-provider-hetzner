@@ -433,7 +433,7 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 	// get all ssh keys that are stored in HCloud API
 	sshKeysAPI, err := s.scope.HCloudClient.ListSSHKeys(ctx, hcloud.SSHKeyListOpts{})
 	if err != nil {
-		return nil, handleRateLimit(s.scope.HCloudMachine, err, "ListSSHKeys", "failed listing ssh heys from hcloud")
+		return nil, handleRateLimit(s.scope.HCloudMachine, err, "ListSSHKeys", "failed listing ssh keys from hcloud")
 	}
 
 	// find matching keys and store them
