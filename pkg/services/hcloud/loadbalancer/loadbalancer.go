@@ -348,24 +348,15 @@ func (s *Service) Delete(ctx context.Context) (err error) {
 
 	// do not delete a protected load balancer or one that has not been created by this controller
 	if s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Protected || s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Name != nil {
-		name := *s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Name
-
-		loadBalancers, err := s.scope.HCloudClient.ListLoadBalancers(ctx, hcloud.LoadBalancerListOpts{Name: name})
+		lb, err := s.findLoadBalancer(ctx)
 		if err != nil {
-			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "ListLoadBalancers")
-			return fmt.Errorf("failed to list load balancers: %w", err)
-		}
-
-		if len(loadBalancers) > 1 {
-			return fmt.Errorf("found %v load balancers in HCloud with name %q", len(loadBalancers), name)
+			return fmt.Errorf("failed to find load balancer: %w", err)
 		}
 
 		// nothing to do if load balancer is not found
-		if len(loadBalancers) == 0 {
+		if lb == nil {
 			return nil
 		}
-
-		lb := loadBalancers[0]
 
 		// remove owned label and update
 		delete(lb.Labels, s.scope.HetznerCluster.ClusterTagKey())
