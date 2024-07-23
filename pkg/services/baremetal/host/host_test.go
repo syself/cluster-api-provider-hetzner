@@ -449,7 +449,7 @@ var _ = Describe("handleIncompleteBoot", func() {
 			},
 			Entry("timed out sw reset", testCaseHandleIncompleteBootDifferentTimeouts{
 				hostErrorType:         infrav1.ErrorTypeSoftwareRebootTriggered,
-				lastUpdated:           time.Now().Add(-5 * time.Minute),
+				lastUpdated:           time.Now().Add(-15 * time.Minute),
 				expectedHostErrorType: infrav1.ErrorTypeHardwareRebootTriggered,
 				expectedRebootType:    infrav1.RebootTypeHardware,
 			}),
