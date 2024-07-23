@@ -49,15 +49,16 @@ import (
 )
 
 const (
-	rebootWaitTime       time.Duration = 15 * time.Second
-	sshResetTimeout      time.Duration = 5 * time.Minute
-	softwareResetTimeout time.Duration = 5 * time.Minute
-	hardwareResetTimeout time.Duration = 5 * time.Minute
-	rescue               string        = "rescue"
-	rescuePort           int           = 22
-	gbToMebiBytes        int           = 1000
-	gbToBytes            int           = 1000000 * gbToMebiBytes
-	kikiToMebiBytes      int           = 1024
+	rebootWaitTime           time.Duration = 15 * time.Second
+	sshResetTimeout          time.Duration = 5 * time.Minute
+	softwareResetTimeout     time.Duration = 10 * time.Minute
+	hardwareResetTimeout     time.Duration = 10 * time.Minute
+	connectionRefusedTimeout time.Duration = 10 * time.Minute
+	rescue                   string        = "rescue"
+	rescuePort               int           = 22
+	gbToMebiBytes            int           = 1000
+	gbToBytes                int           = 1000000 * gbToMebiBytes
+	kikiToMebiBytes          int           = 1024
 
 	errMsgFailedReboot                 = "failed to reboot bare metal server: %w"
 	errMsgInvalidSSHStdOut             = "invalid output in stdOut: %w"
@@ -347,7 +348,7 @@ func (s *Service) handleIncompleteBoot(isRebootIntoRescue, isTimeout, isConnecti
 	if isConnectionRefused {
 		if s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeConnectionError {
 			// if error has occurred before, check the timeout
-			if hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated, time.Minute) {
+			if hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated, connectionRefusedTimeout) {
 				msg := "Connection error when targeting server with ssh that might be due to a wrong ssh port. Please check."
 				if isRebootIntoRescue {
 					msg = "Connection error. Can't reach rescue system via ssh."
