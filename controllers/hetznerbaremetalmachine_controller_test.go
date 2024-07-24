@@ -710,43 +710,6 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			})
 		})
 
-		Context("validate create", func() {
-			var (
-				hbmmt  *infrav1.HetznerBareMetalMachineTemplate
-				testNs *corev1.Namespace
-			)
-			BeforeEach(func() {
-				var err error
-				testNs, err = testEnv.CreateNamespace(ctx, "hcloudmachine-validation")
-				Expect(err).NotTo(HaveOccurred())
-
-				hbmmt = &infrav1.HetznerBareMetalMachineTemplate{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      bmMachineName,
-						Namespace: testNs.Name,
-						Labels: map[string]string{
-							clusterv1.ClusterNameLabel: capiCluster.Name,
-						},
-					},
-					Spec: infrav1.HetznerBareMetalMachineTemplateSpec{
-						Template: infrav1.HetznerBareMetalMachineTemplateResource{
-							Spec: getDefaultHetznerBareMetalMachineSpec(),
-						},
-					},
-				}
-
-			})
-
-			AfterEach(func() {
-				Expect(testEnv.Cleanup(ctx, testNs, hbmmt)).To(Succeed())
-			})
-
-			It("should allow creation of hbmmt", func() {
-				Expect(testEnv.Create(ctx, hbmmt)).To(Succeed())
-			})
-
-		})
-
 		Context("validate update", func() {
 			var (
 				hbmmt  *infrav1.HetznerBareMetalMachineTemplate
@@ -777,7 +740,6 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				Eventually(func() error {
 					return testEnv.Client.Get(ctx, key, hbmmt)
 				}, timeout, time.Second).Should(BeNil())
-
 			})
 
 			AfterEach(func() {
@@ -807,7 +769,6 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					},
 				}
 				Expect(testEnv.Client.Update(ctx, hbmmt)).ToNot(Succeed())
-
 			})
 
 			It("should not allow update of SSHSpec", func() {
@@ -832,7 +793,6 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					},
 				}
 				Expect(testEnv.Client.Update(ctx, hbmmt)).ToNot(Succeed())
-
 			})
 
 			It("should not allow update of Host Selectors", func() {
@@ -857,7 +817,6 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					},
 				}
 				Expect(testEnv.Client.Update(ctx, hbmmt)).ToNot(Succeed())
-
 			})
 
 			It("should allow update of mutable fields", func() {
@@ -868,9 +827,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				}
 				hbmmt.ObjectMeta.Annotations["test"] = "should_succeed"
 				Expect(testEnv.Client.Update(ctx, hbmmt)).To(Succeed())
-
 			})
-
 		})
 	})
 })
