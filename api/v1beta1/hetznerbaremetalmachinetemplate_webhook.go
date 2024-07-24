@@ -57,9 +57,9 @@ func (r *HetznerBareMetalMachineTemplateWebhook) ValidateCreate(_ context.Contex
 		hbmmt.Spec.Template.Spec.SSHSpec.PortAfterCloudInit = hbmmt.Spec.Template.Spec.SSHSpec.PortAfterInstallImage
 	}
 
-	allErrs := validateHetznerBareMetalMachineSpecCreate(hbmmt.Spec.Template.Spec)
-
-	return nil, aggregateObjErrors(hbmmt.GroupVersionKind().GroupKind(), hbmmt.Name, allErrs)
+	// TODO: Cannot validate it because ClusterClass applies empty template objects
+	// allErrs := validateHetznerBareMetalMachineSpecCreate(hbmmt.Spec.Template.Spec)
+	return nil, nil
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
