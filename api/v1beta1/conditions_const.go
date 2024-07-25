@@ -48,6 +48,10 @@ const (
 	ServerLimitExceededReason = "ServerLimitExceeded"
 	// ServerTypeNotFoundReason indicates that server type could not be found.
 	ServerTypeNotFoundReason = "ServerTypeNotFound"
+	// ServerResourceUnavailableReason indicates that server resource is unavailable.
+	ServerResourceUnavailableReason = "ServerResourceUnavailable"
+	// ServerPlacementErrorReason indicates placement error while creating server.
+	ServerPlacementErrorReason = "ServerPlacementError"
 )
 
 const (
