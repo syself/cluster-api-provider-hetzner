@@ -709,7 +709,6 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				Expect(testEnv.Update(ctx, bmMachine)).NotTo(Succeed())
 			})
 		})
-
 		Context("validate update", func() {
 			var (
 				hbmmt  *infrav1.HetznerBareMetalMachineTemplate

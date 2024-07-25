@@ -83,8 +83,6 @@ func (r *HetznerBareMetalMachineTemplateWebhook) ValidateUpdate(ctx context.Cont
 		allErrs = append(allErrs, field.Invalid(field.NewPath("spec"), newHetznerBareMetalMachineTemplate, "HetznerBareMetalMachineTemplate.Spec is immutable"))
 	}
 
-	allErrs = append(allErrs, validateHetznerBareMetalMachineSpecUpdate(oldHetznerBareMetalMachineTemplate.Spec.Template.Spec, newHetznerBareMetalMachineTemplate.Spec.Template.Spec)...)
-
 	return nil, aggregateObjErrors(newHetznerBareMetalMachineTemplate.GroupVersionKind().GroupKind(), newHetznerBareMetalMachineTemplate.Name, allErrs)
 }
 
