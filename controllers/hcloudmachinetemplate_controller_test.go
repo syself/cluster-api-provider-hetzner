@@ -54,9 +54,7 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 
 	Context("Basic test", func() {
 		Context("ClusterClass test", func() {
-			var (
-				capiClusterClass *clusterv1.ClusterClass
-			)
+			var capiClusterClass *clusterv1.ClusterClass
 
 			BeforeEach(func() {
 				capiClusterClass = &clusterv1.ClusterClass{
@@ -292,7 +290,6 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 
 				hcloudMachineTemplate.Spec.Template.Spec.ImageName = "fedora-control-plane"
 				Expect(testEnv.Client.Update(ctx, hcloudMachineTemplate)).ToNot(Succeed())
-
 			})
 
 			It("should prevent updating SSHKey", func() {
@@ -300,7 +297,6 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 
 				hcloudMachineTemplate.Spec.Template.Spec.SSHKeys = []infrav1.SSHKey{{Name: "ssh-key-1"}}
 				Expect(testEnv.Client.Update(ctx, hcloudMachineTemplate)).ToNot(Succeed())
-
 			})
 
 			It("should prevent updating PlacementGroups", func() {
@@ -308,7 +304,6 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 
 				hcloudMachineTemplate.Spec.Template.Spec.PlacementGroupName = createPlacementGroupName("placement-group-1")
 				Expect(testEnv.Client.Update(ctx, hcloudMachineTemplate)).ToNot(Succeed())
-
 			})
 
 			It("should succeed for mutable fields", func() {
@@ -325,7 +320,6 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 				Expect(testEnv.Client.Update(ctx, hcloudMachineTemplate)).To(Succeed())
 			})
 		})
-
 	})
 })
 
