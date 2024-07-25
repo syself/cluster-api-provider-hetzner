@@ -173,11 +173,6 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		SecretManager:           secretManager,
 	})
 	if err != nil {
-		bmHost.Spec.Status.ProvisioningState = infrav1.StateError
-		if err := r.Update(ctx, bmHost); err != nil {
-			return reconcile.Result{}, fmt.Errorf("failed to update Status: %w", err)
-		}
-
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %w", err)
 	}
 
@@ -273,9 +268,20 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 				return nil, nil, reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
 			}
 
-			bmHost.Spec.Status.ProvisioningState = infrav1.StateError
-			if err := r.Update(ctx, bmHost); err != nil {
-				return nil, nil, reconcile.Result{}, fmt.Errorf("failed to update status: %w", err)
+			msg := fmt.Sprintf("failed to get os ssh secret: %s", err.Error())
+			conditions.MarkFalse(
+				bmHost,
+				infrav1.CredentialsAvailableCondition,
+				infrav1.OSSSHSecretFailedToFetchReason,
+				clusterv1.ConditionSeverityError,
+				msg,
+			)
+
+			record.Warnf(bmHost, infrav1.OSSSHSecretFailedToFetchReason, msg)
+			conditions.SetSummary(bmHost)
+			result, err := host.SaveHostAndReturn(ctx, r.Client, bmHost)
+			if result != emptyResult || err != nil {
+				return nil, nil, result, err
 			}
 
 			return nil, nil, res, fmt.Errorf("failed to get secret: %w", err)
@@ -303,9 +309,20 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 				return nil, nil, reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
 			}
 
-			bmHost.Spec.Status.ProvisioningState = infrav1.StateError
-			if err := r.Update(ctx, bmHost); err != nil {
-				return nil, nil, reconcile.Result{}, fmt.Errorf("failed to update status: %w", err)
+			msg := fmt.Sprintf("failed to fetch rescue SSH: %s", err.Error())
+			conditions.MarkFalse(
+				bmHost,
+				infrav1.CredentialsAvailableCondition,
+				infrav1.RescueSSHSecretFailedToFetchReason,
+				clusterv1.ConditionSeverityError,
+				msg,
+			)
+
+			record.Warnf(bmHost, infrav1.RescueSSHSecretFailedToFetchReason, msg)
+			conditions.SetSummary(bmHost)
+			result, err := host.SaveHostAndReturn(ctx, r.Client, bmHost)
+			if result != emptyResult || err != nil {
+				return nil, nil, result, err
 			}
 
 			return nil, nil, res, fmt.Errorf("failed to acquire secret: %w", err)
@@ -407,9 +424,20 @@ func hetznerSecretErrorResult(
 		return host.SaveHostAndReturn(ctx, client, bmHost)
 	}
 
-	bmHost.Spec.Status.ProvisioningState = infrav1.StateError
-	if err := client.Update(ctx, bmHost); err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to update status: %w", err)
+	msg := fmt.Sprintf("failed to resolve secret reference: %s", err.Error())
+	conditions.MarkFalse(
+		bmHost,
+		infrav1.CredentialsAvailableCondition,
+		infrav1.RobotCredentialsFailedToResolveReason,
+		clusterv1.ConditionSeverityError,
+		msg,
+	)
+	emptyResult := reconcile.Result{}
+	record.Warnf(bmHost, infrav1.RobotCredentialsFailedToResolveReason, err.Error())
+	conditions.SetSummary(bmHost)
+	result, err := host.SaveHostAndReturn(ctx, client, bmHost)
+	if result != emptyResult || err != nil {
+		return result, err
 	}
 
 	return reconcile.Result{}, fmt.Errorf("hetznerSecretErrorResult: an unhandled failure occurred: %T %w", err, err)

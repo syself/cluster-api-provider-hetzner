@@ -166,9 +166,6 @@ const (
 
 	// StateDeleting means we are deleting the host.
 	StateDeleting ProvisioningState = "deleting"
-
-	// StateError means host has encountered some error.
-	StateError ProvisioningState = "error"
 )
 
 // RebootType defines the reboot type of servers via Hetzner robot API.

@@ -148,14 +148,20 @@ const (
 	CredentialsAvailableCondition clusterv1.ConditionType = "CredentialsAvailable"
 	// RobotCredentialsInvalidReason indicates that credentials for Robot are invalid.
 	RobotCredentialsInvalidReason = "RobotCredentialsInvalid" // #nosec
+	// RobotCredentialsFailedToResolveReason indidcates failure to resolve robot credentials.
+	RobotCredentialsFailedToResolveReason = "FailedToResolveRobotCredentials"
 	// SSHCredentialsInSecretInvalidReason indicates that ssh credentials are invalid.
 	SSHCredentialsInSecretInvalidReason = "SSHCredentialsInSecretInvalid" // #nosec
 	// SSHKeyAlreadyExistsReason indicates that the ssh key which is specified in the host spec exists already under a different name in Hetzner robot.
 	SSHKeyAlreadyExistsReason = "SSHKeyAlreadyExists"
 	// OSSSHSecretMissingReason indicates that secret with the os ssh key is missing.
 	OSSSHSecretMissingReason = "OSSSHSecretMissing"
+	// OSSSHSecretFailedToFetchReason indicates failure to fetch os ssh key.
+	OSSSHSecretFailedToFetchReason = "FailedToFetchOSSSHSecret"
 	// RescueSSHSecretMissingReason indicates that secret with the rescue ssh key is missing.
 	RescueSSHSecretMissingReason = "RescueSSHSecretMissing"
+	// RescueSSHSecretFailedToFetchReason indicates failure to fetch rescue ssh key.
+	RescueSSHSecretFailedToFetchReason = "FailedToFetchRescueSSHSecret"
 )
 
 const (
