@@ -1317,7 +1317,7 @@ func (s *Service) actionProvisioning() actionResult {
 		}
 		failed, err := s.handleIncompleteBoot(false, isSSHTimeoutError, isSSHConnectionRefusedError)
 		if failed {
-			return s.recordActionFailure(infrav1.PermanentError, err.Error())
+			return s.recordActionFailure(infrav1.ProvisioningError, err.Error())
 		}
 		if err != nil {
 			return actionError{err: fmt.Errorf(errMsgFailedHandlingIncompleteBoot, err)}
@@ -1506,7 +1506,7 @@ func (s *Service) actionEnsureProvisioned() (ar actionResult) {
 
 		failed, err := s.handleIncompleteBoot(false, isTimeout, isSSHConnectionRefusedError)
 		if failed {
-			return s.recordActionFailure(infrav1.PermanentError, err.Error())
+			return s.recordActionFailure(infrav1.ProvisioningError, err.Error())
 		}
 		if err != nil {
 			return actionError{err: fmt.Errorf(errMsgFailedHandlingIncompleteBoot, err)}
