@@ -173,6 +173,11 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		SecretManager:           secretManager,
 	})
 	if err != nil {
+		bmHost.Spec.Status.ProvisioningState = infrav1.StateError
+		if err := r.Update(ctx, bmHost); err != nil {
+			return reconcile.Result{}, fmt.Errorf("failed to update Status: %w", err)
+		}
+
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %w", err)
 	}
 
@@ -267,6 +272,12 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 
 				return nil, nil, reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
 			}
+
+			bmHost.Spec.Status.ProvisioningState = infrav1.StateError
+			if err := r.Update(ctx, bmHost); err != nil {
+				return nil, nil, reconcile.Result{}, fmt.Errorf("failed to update status: %w", err)
+			}
+
 			return nil, nil, res, fmt.Errorf("failed to get secret: %w", err)
 		}
 
@@ -291,6 +302,12 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 
 				return nil, nil, reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
 			}
+
+			bmHost.Spec.Status.ProvisioningState = infrav1.StateError
+			if err := r.Update(ctx, bmHost); err != nil {
+				return nil, nil, reconcile.Result{}, fmt.Errorf("failed to update status: %w", err)
+			}
+
 			return nil, nil, res, fmt.Errorf("failed to acquire secret: %w", err)
 		}
 	}
@@ -389,6 +406,12 @@ func hetznerSecretErrorResult(
 		conditions.SetSummary(bmHost)
 		return host.SaveHostAndReturn(ctx, client, bmHost)
 	}
+
+	bmHost.Spec.Status.ProvisioningState = infrav1.StateError
+	if err := client.Update(ctx, bmHost); err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to update status: %w", err)
+	}
+
 	return reconcile.Result{}, fmt.Errorf("hetznerSecretErrorResult: an unhandled failure occurred: %T %w", err, err)
 }
 
