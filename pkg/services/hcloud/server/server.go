@@ -459,14 +459,34 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 				clusterv1.ConditionSeverityError,
 				err.Error(),
 			)
-			record.Warnf(s.scope.HCloudMachine,
-				"FailedCreateHCloudServer",
-				"Failed to create HCloud server %s: %s",
-				s.scope.Name(),
-				err,
-			)
-			return nil, errServerCreateNotPossible
+
+			err = errors.Join(errServerCreateNotPossible, err)
 		}
+
+		if hcloud.IsError(err, hcloud.ErrorCodeResourceUnavailable) {
+			conditions.MarkFalse(
+				s.scope.HCloudMachine,
+				infrav1.ServerCreateSucceededCondition,
+				infrav1.ServerResourceUnavailableReason,
+				clusterv1.ConditionSeverityWarning,
+				err.Error(),
+			)
+
+			err = errors.Join(errServerCreateNotPossible, err)
+		}
+
+		if hcloud.IsError(err, hcloud.ErrorCodePlacementError) {
+			conditions.MarkFalse(
+				s.scope.HCloudMachine,
+				infrav1.ServerCreateSucceededCondition,
+				infrav1.ServerPlacementErrorReason,
+				clusterv1.ConditionSeverityWarning,
+				err.Error(),
+			)
+
+			err = errors.Join(errServerCreateNotPossible, err)
+		}
+
 		record.Warnf(s.scope.HCloudMachine,
 			"FailedCreateHCloudServer",
 			"Failed to create HCloud server %s: %s",
