@@ -292,24 +292,6 @@ func (_c *Client_CreateMetaData_Call) RunAndReturn(run func(string) sshclient.Ou
 	return _c
 }
 
-// CreateNoCloudDirectory provides a mock function with given fields:
-func (_m *Client) CreateNoCloudDirectory() sshclient.Output {
-	ret := _m.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for CreateNoCloudDirectory")
-	}
-
-	var r0 sshclient.Output
-	if rf, ok := ret.Get(0).(func() sshclient.Output); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(sshclient.Output)
-	}
-
-	return r0
-}
-
 // Client_CreateNoCloudDirectory_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateNoCloudDirectory'
 type Client_CreateNoCloudDirectory_Call struct {
 	*mock.Call

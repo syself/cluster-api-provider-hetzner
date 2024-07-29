@@ -162,10 +162,6 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 		configureRescueSSHClient(rescueSSHClient)
 
 		osSSHClientAfterInstallImage.On("Reboot").Return(sshclient.Output{})
-		osSSHClientAfterInstallImage.On("CreateNoCloudDirectory").Return(sshclient.Output{})
-		osSSHClientAfterInstallImage.On("CreateMetaData", mock.Anything).Return(sshclient.Output{})
-		osSSHClientAfterInstallImage.On("CreateUserData", mock.Anything).Return(sshclient.Output{})
-		osSSHClientAfterInstallImage.On("EnsureCloudInit").Return(sshclient.Output{StdOut: "cloud-init"})
 		osSSHClientAfterInstallImage.On("CloudInitStatus").Return(sshclient.Output{StdOut: "status: done"})
 		osSSHClientAfterInstallImage.On("CheckCloudInitLogsForSigTerm").Return(sshclient.Output{})
 		osSSHClientAfterInstallImage.On("ResetKubeadm").Return(sshclient.Output{})
