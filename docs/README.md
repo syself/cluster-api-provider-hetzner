@@ -4,18 +4,19 @@ This is the official documentation of Cluster API Provider Hetzner. Before start
 
 ## Getting Started
 
-- [Introduction](/docs/caph/01-getting-started/01-introduction.md)
-- [Preparation](/docs/caph/01-getting-started/02-preparation)
-- [Quickstart](/docs/caph/01-getting-started/03-quickstart)
+- [Introduction](/docs/caph/01-getting-started/01-introduction)
+- [Quickstart](/docs/caph/01-getting-started/02-quickstart)
+- [Preparation](/docs/caph/01-getting-started/03-preparation)
 
 ## Topics
 
-- [Managing SSH Keys](/docs/caph/02-topics/01-managing-ssh-keys)
-- [Node Images](/docs/caph/02-topics/02-node-image)
-- [Production Environment](/docs/caph/02-topics/03-production-environment)
-- [Advanced CAPH](/docs/caph/02-topics/04-advanced-caph)
+- [Preparation](/docs/caph/02-topics/01-preparation)
+- [Managing SSH Keys](/docs/caph/02-topics/02-managing-ssh-keys)
+- [High Availability Setup](/docs/caph/02-topics/03-HA-setup)
+- [Node Image](/docs/caph/02-topics/04-node-image)
 - [Upgrading CAPH](/docs/caph/02-topics/05-upgrading-caph)
-- [Hetzner Baremetal](/docs/caph/02-topics/06-hetzner-baremetal)
+- [Hetzner Baremetal](/docs/caph/02-topics/06-baremetal)
+- [Advanced CAPH](/docs/caph/02-topics/07-advanced)
 
 ## Reference
 
