@@ -34,13 +34,13 @@ Cluster API requires an existing Kubernetes cluster accessible via kubectl. Duri
 
 It is a common practice to create a temporary, local bootstrap cluster, which is then used to provision a target management cluster on the selected infrastructure provider.
 
-## Choose one of the options below:
+## Choose one of the options below
 
-### 1. Existing Management Cluster.
+### 1. Existing Management Cluster
 
 For production use, a “real” Kubernetes cluster should be used with appropriate backup and DR policies and procedures in place. The Kubernetes cluster must be at least a [supported version](https://github.com/syself/cluster-api-provider-hetzner/blob/main/README.md#%EF%B8%8F-compatibility-with-cluster-api-and-kubernetes-versions).
 
-### 2. Kind.
+### 2. Kind
 
 [kind](https://kind.sigs.k8s.io/) can be used for creating a local Kubernetes cluster for development environments or for the creation of a temporary bootstrap cluster used to provision a target management cluster on the selected infrastructure provider.
 
@@ -74,7 +74,7 @@ For a specific version, use the `--infrastructure hetzner:vX.X.X` flag with the 
 ## Variable Preparation to generate a cluster-template
 
 ```shell
-export HCLOUD_SSH_KEY="<ssh-key-name>" \
+export SSH_KEY_NAME="<ssh-key-name>" \
 export CLUSTER_NAME="my-cluster" \
 export HCLOUD_REGION="fsn1" \
 export CONTROL_PLANE_MACHINE_COUNT=3 \
@@ -84,7 +84,7 @@ export HCLOUD_CONTROL_PLANE_MACHINE_TYPE=cpx31 \
 export HCLOUD_WORKER_MACHINE_TYPE=cpx31
 ```
 
-- **HCLOUD_SSH_KEY**: The SSH Key name you loaded in HCloud.
+- **SSH_KEY_NAME**: The SSH Key name you loaded in HCloud.
 - **HCLOUD_REGION**: The region of the Hcloud cluster. Find the full list of regions [here](https://docs.hetzner.com/cloud/general/locations/).
 - **HCLOUD_IMAGE_NAME**: The Image name of the operating system.
 - **HCLOUD_X_MACHINE_TYPE**: The type of the Hetzner cloud server. Find more information [here](https://www.hetzner.com/cloud#pricing).
@@ -101,7 +101,7 @@ Running the above command will give you an output in the following manner:
 Required Variables:
   - HCLOUD_CONTROL_PLANE_MACHINE_TYPE
   - HCLOUD_REGION
-  - HCLOUD_SSH_KEY
+  - SSH_KEY_NAME
   - HCLOUD_WORKER_MACHINE_TYPE
 
 Optional Variables:
@@ -114,7 +114,7 @@ Optional Variables:
 
 In order for the provider integration hetzner to communicate with the Hetzner API ([HCloud API](https://docs.hetzner.cloud/)), we need to create a secret with the access data. The secret must be in the same namespace as the other CRs.
 
-`export HCLOUD_TOKEN="<YOUR-TOKEN>" `
+`export HCLOUD_TOKEN="<YOUR-TOKEN>"`
 
 - HCLOUD_TOKEN: The project where your cluster will be placed. You have to get a token from your HCloud Project.
 

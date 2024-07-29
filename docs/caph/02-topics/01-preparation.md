@@ -30,7 +30,7 @@ Cluster API requires an existing Kubernetes cluster accessible via kubectl. Duri
 
 It is a common practice to create a temporary, local bootstrap cluster, which is then used to provision a target management cluster on the selected infrastructure provider.
 
-### Choose one of the options below:
+### Choose one of the options below
 
 #### 1. Existing Management Cluster
 
@@ -63,10 +63,10 @@ Or for a specific [version](https://github.com/syself/cluster-api-provider-hetzn
 
 ---
 
-## Variable Preparation to generate a cluster-template.
+## Variable Preparation to generate a cluster-template
 
 ```shell
-export HCLOUD_SSH_KEY="<ssh-key-name>" \
+export SSH_KEY_NAME="<ssh-key-name>" \
 export CLUSTER_NAME="my-cluster" \
 export HCLOUD_REGION="fsn1" \
 export CONTROL_PLANE_MACHINE_COUNT=3 \
@@ -76,10 +76,10 @@ export HCLOUD_CONTROL_PLANE_MACHINE_TYPE=cpx31 \
 export HCLOUD_WORKER_MACHINE_TYPE=cpx31
 ```
 
-- HCLOUD_SSH_KEY: The SSH Key name you loaded in HCloud.
-- HCLOUD_REGION: https://docs.hetzner.com/cloud/general/locations/
+- SSH_KEY_NAME: The SSH Key name you loaded in HCloud.
+- HCLOUD_REGION: <https://docs.hetzner.com/cloud/general/locations/>
 - HCLOUD_IMAGE_NAME: The Image name of your operating system.
-- HCLOUD_X_MACHINE_TYPE: https://www.hetzner.com/cloud#pricing
+- HCLOUD_X_MACHINE_TYPE: <https://www.hetzner.com/cloud#pricing>
 
 For a list of all variables needed for generating a cluster manifest (from the cluster-template.yaml), use `clusterctl generate cluster --infrastructure hetzner:<caph-version> --list-variables hetzner-cluster`
 
@@ -88,7 +88,7 @@ $ clusterctl generate cluster --infrastructure hetzner:<caph-version> --list-var
 Required Variables:
   - HCLOUD_CONTROL_PLANE_MACHINE_TYPE
   - HCLOUD_REGION
-  - HCLOUD_SSH_KEY
+  - SSH_KEY_NAME
   - HCLOUD_WORKER_MACHINE_TYPE
 
 Optional Variables:
@@ -102,7 +102,7 @@ Optional Variables:
 
 In order for the provider integration hetzner to communicate with the Hetzner API ([HCloud API](https://docs.hetzner.cloud/)), we need to create a secret with the access data. The secret must be in the same namespace as the other CRs.
 
-`export HCLOUD_TOKEN="<YOUR-TOKEN>" `
+`export HCLOUD_TOKEN="<YOUR-TOKEN>"`
 
 - HCLOUD_TOKEN: The project where your cluster will be placed. You have to get a token from your HCloud Project.
 

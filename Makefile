@@ -212,18 +212,18 @@ install-ccm-in-wl-cluster:
 	@echo 'run "kubectl --kubeconfig=$(WORKER_CLUSTER_KUBECONFIG) ..." to work with the new target cluster'
 
 add-ssh-pub-key:
-	./hack/ensure-env-variables.sh HCLOUD_TOKEN SSH_KEY HCLOUD_SSH_KEY
+	./hack/ensure-env-variables.sh HCLOUD_TOKEN SSH_KEY SSH_KEY_NAME
 	SSH_KEY_CONTENT=$$(cat $(SSH_KEY)) ; \
 	curl -sS \
 		-X POST \
 		-H "Authorization: Bearer $${HCLOUD_TOKEN}" \
 		-H "Content-Type: application/json" \
-		-d '{"labels":{},"name":"${HCLOUD_SSH_KEY}","public_key":"'"$${SSH_KEY_CONTENT}"'"}' \
+		-d '{"labels":{},"name":"${SSH_KEY_NAME}","public_key":"'"$${SSH_KEY_CONTENT}"'"}' \
 		'https://api.hetzner.cloud/v1/ssh_keys'
 
 env-vars-for-wl-cluster:
 	@./hack/ensure-env-variables.sh CLUSTER_NAME CONTROL_PLANE_MACHINE_COUNT HCLOUD_CONTROL_PLANE_MACHINE_TYPE \
-	HCLOUD_REGION HCLOUD_SSH_KEY HCLOUD_WORKER_MACHINE_TYPE KUBERNETES_VERSION WORKER_MACHINE_COUNT
+	HCLOUD_REGION SSH_KEY_NAME HCLOUD_WORKER_MACHINE_TYPE KUBERNETES_VERSION WORKER_MACHINE_COUNT
 
 create-workload-cluster-hcloud: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST) install-crds ## Creates a workload-cluster.
 	# Create workload Cluster.
@@ -267,9 +267,9 @@ create-workload-cluster-hcloud-network-packer: env-vars-for-wl-cluster $(KUSTOMI
 
 create-workload-cluster-hetzner-hcloud-control-plane: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster.
 	# Create workload Cluster.
-	./hack/ensure-env-variables.sh HCLOUD_TOKEN HETZNER_ROBOT_USER HETZNER_ROBOT_PASSWORD HETZNER_SSH_PRIV_PATH HETZNER_SSH_PUB_PATH
+	./hack/ensure-env-variables.sh HCLOUD_TOKEN HETZNER_ROBOT_USER HETZNER_ROBOT_PASSWORD HETZNER_SSH_PRIV_PATH HETZNER_SSH_PUB_PATH SSH_KEY_NAME
 	$(KUBECTL) create secret generic $(INFRA_PROVIDER) --from-literal=hcloud=$(HCLOUD_TOKEN) --from-literal=robot-user=$(HETZNER_ROBOT_USER) --from-literal=robot-password=$(HETZNER_ROBOT_PASSWORD) --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
-	$(KUBECTL) create secret generic robot-ssh --from-literal=sshkey-name=test --from-file=ssh-privatekey=${HETZNER_SSH_PRIV_PATH} --from-file=ssh-publickey=${HETZNER_SSH_PUB_PATH} --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
+	$(KUBECTL) create secret generic robot-ssh --from-literal=sshkey-name=$(SSH_KEY_NAME) --from-file=ssh-privatekey=${HETZNER_SSH_PRIV_PATH} --from-file=ssh-publickey=${HETZNER_SSH_PUB_PATH} --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
 	$(KUSTOMIZE) build templates/cluster-templates/$(INFRA_PROVIDER)-hcloud-control-planes --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-$(INFRA_PROVIDER)-hcloud-control-planes.yaml
 	cat templates/cluster-templates/cluster-template-$(INFRA_PROVIDER)-hcloud-control-planes.yaml | $(ENVSUBST) - | $(KUBECTL) apply -f -
 	$(MAKE) wait-and-get-secret
@@ -278,9 +278,9 @@ create-workload-cluster-hetzner-hcloud-control-plane: env-vars-for-wl-cluster $(
 
 create-workload-cluster-hetzner-baremetal-control-plane: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster.
 	# Create workload Cluster.
-	./hack/ensure-env-variables.sh HCLOUD_TOKEN HETZNER_ROBOT_USER HETZNER_ROBOT_PASSWORD HETZNER_SSH_PRIV_PATH HETZNER_SSH_PUB_PATH
+	./hack/ensure-env-variables.sh HCLOUD_TOKEN HETZNER_ROBOT_USER HETZNER_ROBOT_PASSWORD HETZNER_SSH_PRIV_PATH HETZNER_SSH_PUB_PATH SSH_KEY_NAME
 	$(KUBECTL) create secret generic $(INFRA_PROVIDER) --from-literal=hcloud=$(HCLOUD_TOKEN) --from-literal=robot-user=$(HETZNER_ROBOT_USER) --from-literal=robot-password=$(HETZNER_ROBOT_PASSWORD) --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
-	$(KUBECTL) create secret generic robot-ssh --from-literal=sshkey-name=test --from-file=ssh-privatekey=${HETZNER_SSH_PRIV_PATH} --from-file=ssh-publickey=${HETZNER_SSH_PUB_PATH} --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
+	$(KUBECTL) create secret generic robot-ssh --from-literal=sshkey-name=$(SSH_KEY_NAME) --from-file=ssh-privatekey=${HETZNER_SSH_PRIV_PATH} --from-file=ssh-publickey=${HETZNER_SSH_PUB_PATH} --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
 	$(KUSTOMIZE) build templates/cluster-templates/$(INFRA_PROVIDER)-baremetal-control-planes --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-$(INFRA_PROVIDER)-baremetal-control-planes.yaml
 	cat templates/cluster-templates/cluster-template-$(INFRA_PROVIDER)-baremetal-control-planes.yaml | $(ENVSUBST) - | $(KUBECTL) apply -f -
 	$(MAKE) wait-and-get-secret
@@ -289,9 +289,9 @@ create-workload-cluster-hetzner-baremetal-control-plane: env-vars-for-wl-cluster
 
 create-workload-cluster-hetzner-baremetal-control-plane-remediation: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster.
 	# Create workload Cluster.
-	./hack/ensure-env-variables.sh HCLOUD_TOKEN HETZNER_ROBOT_USER HETZNER_ROBOT_PASSWORD HETZNER_SSH_PRIV_PATH HETZNER_SSH_PUB_PATH
+	./hack/ensure-env-variables.sh HCLOUD_TOKEN HETZNER_ROBOT_USER HETZNER_ROBOT_PASSWORD HETZNER_SSH_PRIV_PATH HETZNER_SSH_PUB_PATH SSH_KEY_NAME
 	$(KUBECTL) create secret generic $(INFRA_PROVIDER) --from-literal=hcloud=$(HCLOUD_TOKEN) --from-literal=robot-user=$(HETZNER_ROBOT_USER) --from-literal=robot-password=$(HETZNER_ROBOT_PASSWORD) --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
-	$(KUBECTL) create secret generic robot-ssh --from-literal=sshkey-name=test --from-file=ssh-privatekey=${HETZNER_SSH_PRIV_PATH} --from-file=ssh-publickey=${HETZNER_SSH_PUB_PATH} --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
+	$(KUBECTL) create secret generic robot-ssh --from-literal=sshkey-name=$(SSH_KEY_NAME) --from-file=ssh-privatekey=${HETZNER_SSH_PRIV_PATH} --from-file=ssh-publickey=${HETZNER_SSH_PUB_PATH} --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
 	$(KUSTOMIZE) build templates/cluster-templates/$(INFRA_PROVIDER)-baremetal-control-planes-remediation --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-$(INFRA_PROVIDER)-baremetal-control-planes-remediation.yaml
 	cat templates/cluster-templates/cluster-template-$(INFRA_PROVIDER)-baremetal-control-planes-remediation.yaml | $(ENVSUBST) - | $(KUBECTL) apply -f -
 	$(MAKE) wait-and-get-secret

@@ -35,7 +35,7 @@ $ clusterctl generate cluster my-cluster --list-variables --flavor hetzner-hclou
 Required Variables:
   - HCLOUD_CONTROL_PLANE_MACHINE_TYPE
   - HCLOUD_REGION
-  - HCLOUD_SSH_KEY
+  - SSH_KEY_NAME
   - HCLOUD_WORKER_MACHINE_TYPE
 
 Optional Variables:
@@ -94,7 +94,7 @@ ssh-keygen -t ed25519 -f ~/.ssh/caph
 
 Above command will create a public and private key in your `~/.ssh` directory.
 
-You can use the public key `~/.ssh/caph.pub` and upload it to your hcloud project. Go to your project and under `Security` -> `SSH Keys` click on `Add SSH key` and add your public key there and in the `Name` of ssh key you'll use the name `test`.
+You can use the public key `~/.ssh/caph.pub` and upload it to your hcloud project. Go to your project and under `Security` -> `SSH Keys` click on `Add SSH key` and add your public key there and in the `Name` of ssh key you'll use the name `my-caph-ssh-key`.
 
 {% callout %}
 
@@ -102,16 +102,16 @@ There is also a helper CLI called [hcloud](https://github.com/hetznercloud/cli) 
 
 {% /callout %}
 
-In the above step, the name of the ssh-key that is recognized by hcloud is `test`. This is important because we will reference the name of the ssh-key later.
+In the above step, the name of the ssh-key that is recognized by hcloud is `my-caph-ssh-key`. This is important because we will reference the name of the ssh-key later.
 
 This is an important step because the same ssh key is used to access the servers. Make sure you are using the correct ssh key name.
 
-The `test` is the name of the ssh key that we have created above. It is because the generated manifest references `test` as the ssh key name.
+The `my-caph-ssh-key` is the name of the ssh key that we have created above. It is because the generated manifest references `my-caph-ssh-key` as the ssh key name.
 
 ```yaml
 sshKeys:
   hcloud:
-    - name: test
+    - name: my-caph-ssh-key
 ```
 
 {% callout %}
@@ -131,6 +131,7 @@ The `hetzner` secret contains API token for hcloud token. It also contains usern
 export HCLOUD_TOKEN="<YOUR-TOKEN>" \
 export HETZNER_ROBOT_USER="<YOUR-ROBOT-USER>" \
 export HETZNER_ROBOT_PASSWORD="<YOUR-ROBOT-PASSWORD>" \
+export SSH_KEY_NAME="<YOUR-SSH-KEY-NAME>" \
 export HETZNER_SSH_PUB_PATH="<YOUR-SSH-PUBLIC-PATH>" \
 export HETZNER_SSH_PRIV_PATH="<YOUR-SSH-PRIVATE-PATH>"
 ```
@@ -138,18 +139,21 @@ export HETZNER_SSH_PRIV_PATH="<YOUR-SSH-PRIVATE-PATH>"
 - `HCLOUD_TOKEN`: The project where your cluster will be placed. You have to get a token from your HCloud Project.
 - `HETZNER_ROBOT_USER`: The User you have defined in Robot under settings/web.
 - `HETZNER_ROBOT_PASSWORD`: The Robot Password you have set in Robot under settings/web.
+- `SSH_KEY_NAME`: The name of the SSH key you want to use.
 - `HETZNER_SSH_PUB_PATH`: The Path to your generated Public SSH Key.
 - `HETZNER_SSH_PRIV_PATH`: The Path to your generated Private SSH Key. This is needed because CAPH uses this key to provision the node in Hetzner Dedicated.
 
 ```shell
 kubectl create secret generic hetzner --from-literal=hcloud=$HCLOUD_TOKEN --from-literal=robot-user=$HETZNER_ROBOT_USER --from-literal=robot-password=$HETZNER_ROBOT_PASSWORD
 
-kubectl create secret generic robot-ssh --from-literal=sshkey-name=test --from-file=ssh-privatekey=$HETZNER_SSH_PRIV_PATH --from-file=ssh-publickey=$HETZNER_SSH_PUB_PATH
+kubectl create secret generic robot-ssh --from-literal=sshkey-name=$SSH_KEY_NAME \
+        --from-file=ssh-privatekey=$HETZNER_SSH_PRIV_PATH \
+        --from-file=ssh-publickey=$HETZNER_SSH_PUB_PATH
 ```
 
 {% callout %}
 
-`sshkey-name` should must match the name that is present in hetzner otherwise the controller will not know how to reach the machine.
+`sshkey-name` (from SSH_KEY_NAME) should must match the name that is present in Hetzner otherwise the controller will not know how to reach the machine. You can upload ssh-keys via the Roboto UI (Server / Key Management).
 
 {% /callout %}
 
