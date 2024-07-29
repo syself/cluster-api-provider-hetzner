@@ -1140,6 +1140,10 @@ func (s *Service) actionImageInstalling() actionResult {
 	// create post install script
 	postInstallScript := s.scope.HetznerBareMetalHost.Spec.Status.InstallImage.PostInstallScript
 
+	if postInstallScript == "" {
+		postInstallScript = "#!/bin/bash\n"
+	}
+
 	cloudInitData, err := s.scope.GetRawBootstrapData(context.TODO())
 	if err != nil {
 		return actionError{err: fmt.Errorf("failed to get user data: %w", err)}
