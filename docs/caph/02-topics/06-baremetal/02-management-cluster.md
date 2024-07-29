@@ -153,7 +153,7 @@ kubectl create secret generic robot-ssh --from-literal=sshkey-name=$SSH_KEY_NAME
 
 {% callout %}
 
-`sshkey-name` (from SSH_KEY_NAME) should must match the name that is present in Hetzner otherwise the controller will not know how to reach the machine. You can upload ssh-keys via the Roboto UI (Server / Key Management).
+`sshkey-name` (from SSH_KEY_NAME) should must match the name that is present in Hetzner otherwise the controller will not know how to reach the machine. You can upload ssh-keys via the Robot UI (Server / Key Management).
 
 {% /callout %}
 
