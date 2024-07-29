@@ -14,7 +14,7 @@ spec:
     region: "${HCLOUD_REGION}"
   sshKeys:
     hcloud:
-      - name: "${HCLOUD_SSH_KEY}"
+      - name: "${SSH_KEY_NAME}"
   hetznerSecretRef:
     name: hetzner
     key:

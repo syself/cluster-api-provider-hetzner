@@ -33,7 +33,7 @@ SSH_KEY_NAME=caph-e2e-$(
     echo ''
 )
 export SSH_KEY_PATH=/tmp/${SSH_KEY_NAME}
-export HCLOUD_SSH_KEY=${SSH_KEY_NAME}
+export SSH_KEY_NAME=${SSH_KEY_NAME}
 create_ssh_key ${SSH_KEY_NAME} ${SSH_KEY_PATH}
 trap 'remove_ssh_key ${SSH_KEY_NAME}' EXIT
 
