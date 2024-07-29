@@ -1148,12 +1148,20 @@ func (s *Service) actionImageInstalling() actionResult {
 	postInstallScript = fmt.Sprintf(`%s
 
 # install cloud-init data
+
 mkdir -p /var/lib/cloud/seed/nocloud-net
+
+cat << 'EOF_POST_INSTALL_SCRIPT' > /var/lib/cloud/seed/nocloud-net/meta-data
+local-hostname: %s
+EOF_POST_INSTALL_SCRIPT
+
 cat << 'EOF_POST_INSTALL_SCRIPT' > /var/lib/cloud/seed/nocloud-net/user-data
 %s
 EOF_POST_INSTALL_SCRIPT
+
+
 # end of install cloud-init-data
-`, postInstallScript, cloudInitData)
+`, postInstallScript, s.scope.Hostname(), cloudInitData)
 
 	if err := handleSSHError(sshClient.CreatePostInstallScript(postInstallScript)); err != nil {
 		return actionError{err: fmt.Errorf("failed to create post install script %s: %w", postInstallScript, err)}
