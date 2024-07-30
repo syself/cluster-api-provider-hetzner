@@ -17,6 +17,7 @@ limitations under the License.
 package host
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -51,7 +52,7 @@ func newHostStateMachine(host *infrav1.HetznerBareMetalHost, reconciler *Service
 	return &r
 }
 
-type stateHandler func() actionResult
+type stateHandler func(ctx context.Context) actionResult
 
 func (hsm *hostStateMachine) handlers() map[infrav1.ProvisioningState]stateHandler {
 	return map[infrav1.ProvisioningState]stateHandler{
@@ -65,7 +66,7 @@ func (hsm *hostStateMachine) handlers() map[infrav1.ProvisioningState]stateHandl
 	}
 }
 
-func (hsm *hostStateMachine) ReconcileState() (actionRes actionResult) {
+func (hsm *hostStateMachine) ReconcileState(ctx context.Context) (actionRes actionResult) {
 	initialState := hsm.host.Spec.Status.ProvisioningState
 	defer func() {
 		if hsm.nextState != initialState {
@@ -96,7 +97,7 @@ func (hsm *hostStateMachine) ReconcileState() (actionRes actionResult) {
 	}
 
 	if stateHandler, found := hsm.handlers()[initialState]; found {
-		return stateHandler()
+		return stateHandler(ctx)
 	}
 
 	return actionError{fmt.Errorf("%w: state %q", errNoHandlerFound, initialState)}
@@ -222,7 +223,7 @@ func validateSSHKey(sshSecret *corev1.Secret, secretRef infrav1.SSHSecretRef) er
 	return nil
 }
 
-func (hsm *hostStateMachine) handlePreparing() actionResult {
+func (hsm *hostStateMachine) handlePreparing(ctx context.Context) actionResult {
 	if hsm.provisioningCancelled() {
 		hsm.nextState = infrav1.StateDeprovisioning
 		return actionComplete{}
@@ -230,62 +231,62 @@ func (hsm *hostStateMachine) handlePreparing() actionResult {
 
 	record.Eventf(hsm.host, "PreparingForProvisioning", "ServerID %d %s", hsm.host.Spec.ServerID, hsm.host.Spec.Description)
 
-	actResult := hsm.reconciler.actionPreparing()
+	actResult := hsm.reconciler.actionPreparing(ctx)
 	if _, ok := actResult.(actionComplete); ok {
 		hsm.nextState = infrav1.StateRegistering
 	}
 	return actResult
 }
 
-func (hsm *hostStateMachine) handleRegistering() actionResult {
+func (hsm *hostStateMachine) handleRegistering(ctx context.Context) actionResult {
 	if hsm.provisioningCancelled() {
 		hsm.nextState = infrav1.StateDeprovisioning
 		return actionComplete{}
 	}
 
-	actResult := hsm.reconciler.actionRegistering()
+	actResult := hsm.reconciler.actionRegistering(ctx)
 	if _, ok := actResult.(actionComplete); ok {
 		hsm.nextState = infrav1.StateImageInstalling
 	}
 	return actResult
 }
 
-func (hsm *hostStateMachine) handleImageInstalling() actionResult {
+func (hsm *hostStateMachine) handleImageInstalling(ctx context.Context) actionResult {
 	if hsm.provisioningCancelled() {
 		hsm.nextState = infrav1.StateDeprovisioning
 		return actionComplete{}
 	}
 
-	actResult := hsm.reconciler.actionImageInstalling()
+	actResult := hsm.reconciler.actionImageInstalling(ctx)
 	if _, ok := actResult.(actionComplete); ok {
 		hsm.nextState = infrav1.StateEnsureProvisioned
 	}
 	return actResult
 }
 
-func (hsm *hostStateMachine) handleEnsureProvisioned() actionResult {
+func (hsm *hostStateMachine) handleEnsureProvisioned(ctx context.Context) actionResult {
 	if hsm.provisioningCancelled() {
 		hsm.nextState = infrav1.StateDeprovisioning
 		return actionComplete{}
 	}
 
-	actResult := hsm.reconciler.actionEnsureProvisioned()
+	actResult := hsm.reconciler.actionEnsureProvisioned(ctx)
 	if _, ok := actResult.(actionComplete); ok {
 		hsm.nextState = infrav1.StateProvisioned
 	}
 	return actResult
 }
 
-func (hsm *hostStateMachine) handleProvisioned() actionResult {
+func (hsm *hostStateMachine) handleProvisioned(ctx context.Context) actionResult {
 	if hsm.provisioningCancelled() {
 		hsm.nextState = infrav1.StateDeprovisioning
 		return actionComplete{}
 	}
-	return hsm.reconciler.actionProvisioned()
+	return hsm.reconciler.actionProvisioned(ctx)
 }
 
-func (hsm *hostStateMachine) handleDeprovisioning() actionResult {
-	actResult := hsm.reconciler.actionDeprovisioning()
+func (hsm *hostStateMachine) handleDeprovisioning(ctx context.Context) actionResult {
+	actResult := hsm.reconciler.actionDeprovisioning(ctx)
 	if _, ok := actResult.(actionComplete); ok {
 		hsm.nextState = infrav1.StateNone
 		return actionComplete{}
@@ -293,8 +294,8 @@ func (hsm *hostStateMachine) handleDeprovisioning() actionResult {
 	return actResult
 }
 
-func (hsm *hostStateMachine) handleDeleting() actionResult {
-	return hsm.reconciler.actionDeleting()
+func (hsm *hostStateMachine) handleDeleting(ctx context.Context) actionResult {
+	return hsm.reconciler.actionDeleting(ctx)
 }
 
 func (hsm *hostStateMachine) provisioningCancelled() bool {

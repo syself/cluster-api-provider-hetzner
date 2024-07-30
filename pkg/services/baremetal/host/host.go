@@ -130,7 +130,7 @@ func (s *Service) Reconcile(ctx context.Context) (result reconcile.Result, err e
 	}()
 
 	// reconcile state
-	actResult := hostStateMachine.ReconcileState()
+	actResult := hostStateMachine.ReconcileState(ctx)
 
 	result, err = actResult.Result()
 	if err != nil {
@@ -162,7 +162,7 @@ func SaveHostAndReturn(ctx context.Context, cl client.Client, host *infrav1.Hetz
 	return res, nil
 }
 
-func (s *Service) actionPreparing() actionResult {
+func (s *Service) actionPreparing(_ context.Context) actionResult {
 	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StatePreparing)
 
 	server, err := s.scope.RobotClient.GetBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID)
@@ -564,7 +564,7 @@ func (s *Service) ensureRescueMode() error {
 	return nil
 }
 
-func (s *Service) actionRegistering() actionResult {
+func (s *Service) actionRegistering(_ context.Context) actionResult {
 	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StateRegistering)
 
 	creds := sshclient.CredentialsFromSecret(s.scope.RescueSSHSecret, s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef)
@@ -722,8 +722,8 @@ func getHardwareDetails(sshClient sshclient.Client) (infrav1.HardwareDetails, er
 	}
 
 	// remove names of storage devices because they might change
-	for _, device := range storage {
-		device.Name = ""
+	for i := range storage {
+		storage[i].Name = ""
 	}
 
 	cpu, err := obtainHardwareDetailsCPU(sshClient)
@@ -1046,7 +1046,7 @@ func validateStdOut(stdOut string) (string, error) {
 	return stdOut, nil
 }
 
-func (s *Service) actionImageInstalling() actionResult {
+func (s *Service) actionImageInstalling(ctx context.Context) actionResult {
 	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StateImageInstalling)
 
 	creds := sshclient.CredentialsFromSecret(s.scope.RescueSSHSecret, s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef)
@@ -1144,7 +1144,7 @@ func (s *Service) actionImageInstalling() actionResult {
 		postInstallScript = "#!/bin/bash\n"
 	}
 
-	cloudInitData, err := s.scope.GetRawBootstrapData(context.TODO())
+	cloudInitData, err := s.scope.GetRawBootstrapData(ctx)
 	if err != nil {
 		return actionError{err: fmt.Errorf("failed to get user data: %w", err)}
 	}
@@ -1345,7 +1345,7 @@ func verifyConnectionRefused(sshClient sshclient.Client, port int) bool {
 	return true
 }
 
-func (s *Service) actionEnsureProvisioned() (ar actionResult) {
+func (s *Service) actionEnsureProvisioned(_ context.Context) (ar actionResult) {
 	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StateEnsureProvisioned)
 	sshClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
 		PrivateKey: sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.SecretRef).PrivateKey,
@@ -1579,7 +1579,7 @@ func analyzeSSHOutputProvisioned(out sshclient.Output) (isTimeout, isConnectionR
 	return false, false, fmt.Errorf("%w: %s", errUnexpectedHostName, trimLineBreak(out.StdOut))
 }
 
-func (s *Service) actionProvisioned() actionResult {
+func (s *Service) actionProvisioned(_ context.Context) actionResult {
 	// set host to provisioned
 	conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
 
@@ -1642,7 +1642,7 @@ func (s *Service) actionProvisioned() actionResult {
 	return actionComplete{}
 }
 
-func (s *Service) actionDeprovisioning() actionResult {
+func (s *Service) actionDeprovisioning(_ context.Context) actionResult {
 	// Update name in robot API
 	if _, err := s.scope.RobotClient.SetBMServerName(
 		s.scope.HetznerBareMetalHost.Spec.ServerID,
@@ -1676,11 +1676,10 @@ func (s *Service) actionDeprovisioning() actionResult {
 		s.scope.HetznerBareMetalHost.ClearError()
 		conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
 	}
-
 	return actionComplete{}
 }
 
-func (s *Service) actionDeleting() actionResult {
+func (s *Service) actionDeleting(_ context.Context) actionResult {
 	s.scope.HetznerBareMetalHost.Finalizers = utils.FilterStringFromList(s.scope.HetznerBareMetalHost.Finalizers, infrav1.BareMetalHostFinalizer)
 	return deleteComplete{}
 }
