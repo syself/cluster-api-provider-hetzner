@@ -65,7 +65,7 @@ const (
 	errMsgFailedHandlingIncompleteBoot = "failed to handle incomplete boot: %w"
 	rebootServerStr                    = "RebootBMServer"
 
-	postInstallScriptFinished = "POST_INSTALL_SCRIPT_FINISHED"
+	PostInstallScriptFinished = "POST_INSTALL_SCRIPT_FINISHED"
 )
 
 var (
@@ -1176,7 +1176,7 @@ EOF_POST_INSTALL_SCRIPT
 
 echo %q
 # end of install cloud-init data
-`, postInstallScript, s.scope.Hostname(), cloudInitData, postInstallScriptFinished)
+`, postInstallScript, s.scope.Hostname(), cloudInitData, PostInstallScriptFinished)
 
 	if err := handleSSHError(sshClient.CreatePostInstallScript(postInstallScript)); err != nil {
 		return actionError{err: fmt.Errorf("failed to create post install script %s: %w", postInstallScript, err)}
@@ -1199,10 +1199,10 @@ echo %q
 		record.Warnf(s.scope.HetznerBareMetalHost, "ExecuteInstallImageFailed", out.StdOut)
 		return actionError{err: fmt.Errorf("failed to execute installimage: %w", out.Err)}
 	}
-	if !strings.Contains(out.StdOut, postInstallScriptFinished) {
+	if !strings.Contains(out.StdOut, PostInstallScriptFinished) {
 		record.Warnf(s.scope.HetznerBareMetalHost, "ExecuteInstallImageFailed", out.StdOut)
 		return actionError{err: fmt.Errorf("did not find marker %q in stdout. Failed to execute installimage: %w",
-			postInstallScriptFinished,
+			PostInstallScriptFinished,
 			out.Err)}
 	}
 	record.Eventf(s.scope.HetznerBareMetalHost, "ExecuteInstallImageSucceeded", out.StdOut)
