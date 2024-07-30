@@ -65,6 +65,8 @@ const (
 	errMsgFailedHandlingIncompleteBoot = "failed to handle incomplete boot: %w"
 	rebootServerStr                    = "RebootBMServer"
 
+	// PostInstallScriptFinished is a marker in the output of installimage. If it is not present,
+	// then install-image failed.
 	PostInstallScriptFinished = "POST_INSTALL_SCRIPT_FINISHED"
 )
 
@@ -1120,9 +1122,9 @@ func (s *Service) actionImageInstalling(ctx context.Context) actionResult {
 		return actionError{err: fmt.Errorf("failed to get running installimage processes: %q %q %w", out.StdOut, out.StdErr, out.Err)}
 	}
 	if out.StdOut != "" {
-		record.Warnf(s.scope.HetznerBareMetalHost, "InstallImageAlreadyRunning",
-			"installimage is already running:\n%s", out.StdOut)
-		return actionError{err: fmt.Errorf("installimage is already running.")}
+		record.Warn(s.scope.HetznerBareMetalHost, "InstallImageAlreadyRunning",
+			"installimage is already running.")
+		return actionError{err: fmt.Errorf("installimage is already running")}
 	}
 
 	record.Event(s.scope.HetznerBareMetalHost, "InstallImagePreflightCheckSuccessful", "Rescue system reachable, disks look good.")
