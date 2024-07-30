@@ -258,9 +258,19 @@ func (hsm *hostStateMachine) handleImageInstalling(ctx context.Context) actionRe
 	}
 
 	actResult := hsm.reconciler.actionImageInstalling(ctx)
-	if _, ok := actResult.(actionComplete); ok {
+	switch actResult.(type) {
+	case actionComplete:
 		hsm.nextState = infrav1.StateEnsureProvisioned
+	case actionError:
+		// re-enable rescue system. If installimage failed, then it is likely, that
+		// the next run (without reboot) fails with this error:
+		// ERROR unmounting device(s):
+		// umount: /: target is busy.
+		// Cannot continue, device(s) seem to be in use.
+		// Please unmount used devices manually or reboot the rescuesystem and retry.
+		hsm.nextState = infrav1.StatePreparing
 	}
+
 	return actResult
 }
 

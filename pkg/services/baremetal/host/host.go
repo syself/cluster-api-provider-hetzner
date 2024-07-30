@@ -1122,9 +1122,7 @@ func (s *Service) actionImageInstalling(ctx context.Context) actionResult {
 	if out.StdOut != "" {
 		record.Warnf(s.scope.HetznerBareMetalHost, "InstallImageAlreadyRunning",
 			"installimage is already running:\n%s", out.StdOut)
-		return actionContinue{
-			delay: 10 * time.Second,
-		}
+		return actionError{err: fmt.Errorf("installimage is already running.")}
 	}
 
 	record.Event(s.scope.HetznerBareMetalHost, "InstallImagePreflightCheckSuccessful", "Rescue system reachable, disks look good.")
@@ -1196,14 +1194,13 @@ echo %q
 	// Execute install image
 	out = sshClient.ExecuteInstallImage(postInstallScript != "")
 	if out.Err != nil {
-		record.Warnf(s.scope.HetznerBareMetalHost, "ExecuteInstallImageFailed", out.StdOut)
+		record.Warnf(s.scope.HetznerBareMetalHost, "ExecuteInstallImageFailed", fmt.Sprintf("Error: %s. %s", out.Err.Error(), out.StdOut))
 		return actionError{err: fmt.Errorf("failed to execute installimage: %w", out.Err)}
 	}
 	if !strings.Contains(out.StdOut, PostInstallScriptFinished) {
-		record.Warnf(s.scope.HetznerBareMetalHost, "ExecuteInstallImageFailed", out.StdOut)
-		return actionError{err: fmt.Errorf("did not find marker %q in stdout. Failed to execute installimage: %w",
-			PostInstallScriptFinished,
-			out.Err)}
+		record.Warnf(s.scope.HetznerBareMetalHost, "ExecuteInstallImageDidNotFinish", out.StdOut)
+		return actionError{err: fmt.Errorf("did not find marker %q in stdout. Failed to execute installimage",
+			PostInstallScriptFinished)}
 	}
 	record.Eventf(s.scope.HetznerBareMetalHost, "ExecuteInstallImageSucceeded", out.StdOut)
 	s.scope.Logger.Info("ExecuteInstallImageSucceeded", "stdout", out.StdOut, "stderr", out.StdErr)
@@ -1402,9 +1399,11 @@ func (s *Service) actionEnsureProvisioned(_ context.Context) (ar actionResult) {
 	wantHostName := s.scope.Hostname()
 
 	out := sshClient.GetHostName()
-	if trimLineBreak(out.StdOut) != wantHostName {
+	hostname := trimLineBreak(out.StdOut)
+	if hostname != wantHostName {
 		// give the reboot some time until it takes effect
 		if s.hasJustRebooted() {
+			s.scope.Logger.Info("ensureProvisioned: hasJustRebooted. Retrying...", "hostname", hostname)
 			return actionContinue{delay: 2 * time.Second}
 		}
 
@@ -1420,6 +1419,7 @@ func (s *Service) actionEnsureProvisioned(_ context.Context) (ar actionResult) {
 		// A connection failed error could mean that cloud init is still running (if cloudInit introduces a new port)
 		if isSSHConnectionRefusedError {
 			if actionRes := s.handleConnectionRefused(); actionRes != nil {
+				s.scope.Logger.Info("ensureProvisioned: ConnectionRefused", "actionResult", actionRes)
 				return actionRes
 			}
 		}
@@ -1431,21 +1431,27 @@ func (s *Service) actionEnsureProvisioned(_ context.Context) (ar actionResult) {
 		if err != nil {
 			return actionError{err: fmt.Errorf(errMsgFailedHandlingIncompleteBoot, err)}
 		}
+		// Often: err: 'failed to dial ssh. Error message: dial tcp 94.130.206.211:22: i/o timeout. DialErr: failed to dial ssh'
+		// This happens for some seconds until the ssh port is reachable.
+		s.scope.Logger.Info("ensureProvisioned: Unexpected hostname. Retrying...", "hostname", hostname, "stderr", out.StdErr,
+			"err", out.Err)
 		return actionContinue{delay: 10 * time.Second}
 	}
 
 	// Check the status of cloud init
-	actResult, _ := s.checkCloudInitStatus(sshClient)
+	actResult, msg, _ := s.checkCloudInitStatus(sshClient)
 	if _, complete := actResult.(actionComplete); !complete {
+		record.Event(s.scope.HetznerBareMetalHost, "CloudInitStillRunning", msg)
 		return actResult
 	}
-
+	s.scope.Logger.Info("ensureProvisioned: completed.", "msg", msg)
 	// Check whether cloud init did not run successfully even though it shows "done"
 	// Check this only when the port did not change. Because if it did, then we can already confirm at this point
 	// that the change worked and the new port is usable. This is a strong enough indication for us to assume cloud init worked.
 	if s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterInstallImage == s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterCloudInit {
 		actResult = s.handleCloudInitNotStarted()
 		if _, complete := actResult.(actionComplete); !complete {
+			s.scope.Logger.Info("ensureProvisioned: handleCloudInitNotStarted", "actResult", actResult)
 			return actResult
 		}
 	}
@@ -1468,10 +1474,11 @@ func (s *Service) handleConnectionRefused() actionResult {
 		Port:       s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterInstallImage,
 		IP:         s.scope.HetznerBareMetalHost.Spec.Status.GetIPAddress(),
 	})
-	actResult, err := s.checkCloudInitStatus(oldSSHClient)
+	actResult, msg, err := s.checkCloudInitStatus(oldSSHClient)
 	// If this ssh client also gives an error, then we go back to analyzing the error of the first ssh call
 	// This happens in the statement below this one.
 	if err == nil {
+		s.scope.Logger.Info("handleConnectionRefused", "msg", msg, "err", err)
 		// If cloud-init status == "done" and cloud init was successful,
 		// then we will soon reboot and be able to access the server via the new port
 		if _, complete := actResult.(actionComplete); complete {
@@ -1489,41 +1496,42 @@ func (s *Service) handleConnectionRefused() actionResult {
 	return nil
 }
 
-func (s *Service) checkCloudInitStatus(sshClient sshclient.Client) (actionResult, error) {
+func (s *Service) checkCloudInitStatus(sshClient sshclient.Client) (actionResult, string, error) {
 	out := sshClient.CloudInitStatus()
 	// This error is interesting for further logic and might happen because of the fact that the sshClient has the wrong port
 	if out.Err != nil {
-		return actionError{err: fmt.Errorf("failed to get cloud init status: %w", out.Err)}, out.Err
+		return actionError{err: fmt.Errorf("failed to get cloud init status: %w", out.Err)}, "", out.Err
 	}
 
 	stdOut := trimLineBreak(out.StdOut)
 	switch {
 	case strings.Contains(stdOut, "status: running"):
 		// Cloud init is still running
-		return actionContinue{delay: 5 * time.Second}, nil
+		return actionContinue{delay: 5 * time.Second}, "cloud-init still running", nil
 	case strings.Contains(stdOut, "status: disabled"):
 		// Reboot needs to be triggered again - did not start yet
 		out = sshClient.Reboot()
 		msg := "cloud-init-status was 'disabled'"
 		if err := handleSSHError(out); err != nil {
-			return actionError{err: fmt.Errorf("failed to reboot (%s): %w", msg, err)}, nil
+			return actionError{err: fmt.Errorf("failed to reboot (%s): %w", msg, err)}, "", nil
 		}
 		createSSHRebootEvent(s.scope.HetznerBareMetalHost, msg)
 		s.scope.HetznerBareMetalHost.SetError(infrav1.ErrorTypeSSHRebootTriggered, "ssh reboot just triggered")
 		record.Warn(s.scope.HetznerBareMetalHost, "SSHRebootAfterCloudInitStatusDisabled", msg)
-		return actionContinue{delay: 5 * time.Second}, nil
+		return actionContinue{delay: 5 * time.Second}, "cloud-init was disabled. Triggered a reboot again", nil
 	case strings.Contains(stdOut, "status: done"):
 		s.scope.HetznerBareMetalHost.ClearError()
+		return actionComplete{}, "cloud-init is done", nil
 	case strings.Contains(stdOut, "status: error"):
 		record.Warn(s.scope.HetznerBareMetalHost, "CloudInitFailed", "cloud init returned status error")
-		return s.recordActionFailure(infrav1.FatalError, "cloud init returned status error"), nil
+		return s.recordActionFailure(infrav1.FatalError, "cloud init returned status error"), "", nil
 	default:
 		// Errors are handled after stdOut in this case, as status: error returns an exited with status 1 error
 		if err := handleSSHError(out); err != nil {
-			return actionError{err: fmt.Errorf("failed to get cloud init status: %w", err)}, nil
+			return actionError{err: fmt.Errorf("failed to get cloud init status: %w", err)}, "", nil
 		}
+		return actionContinue{delay: 5 * time.Second}, fmt.Sprintf("cloud-init unknown output: %s. %s", out.StdOut, out.StdErr), nil
 	}
-	return actionComplete{}, nil
 }
 
 func (s *Service) handleCloudInitNotStarted() actionResult {
