@@ -504,7 +504,7 @@ func (s *Service) skipHost(labelSelector labels.Selector, host infrav1.HetznerBa
 		// Machine should have RAID. Skip machines which have less than two WWNs
 		lenOfWwnSlice := len(host.Spec.RootDeviceHints.Raid.WWN)
 		if lenOfWwnSlice < 2 {
-			mapOfSkipReasons[fmt.Sprintf("machine-should-use-swraid-but-only-%d-RAID-WWN-in-hbmh", lenOfWwnSlice)]++
+			mapOfSkipReasons["machine-should-use-swraid-but-not-enough-RAID-WWNs-in-hbmh"]++
 			return true
 		}
 		return false
