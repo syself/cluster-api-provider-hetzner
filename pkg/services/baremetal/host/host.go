@@ -1282,9 +1282,6 @@ func getDeviceNames(wwn []string, storageDevices []infrav1.Storage) []string {
 	return deviceNames
 }
 
-// Machine is still in rescue-mode. InstallImage was already executed.
-// Now we mount the root disk and install the cloud-init data.
-// After that we reboot.
 func (s *Service) actionProvisioning() actionResult {
 	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StateProvisioning)
 	return actionComplete{}
