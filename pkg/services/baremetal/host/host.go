@@ -1142,8 +1142,8 @@ func (s *Service) actionImageInstalling(ctx context.Context) actionResult {
 	// create post install script
 	postInstallScript := s.scope.HetznerBareMetalHost.Spec.Status.InstallImage.PostInstallScript
 
-	if postInstallScript == "" {
-		postInstallScript = "#!/bin/bash\n"
+	if !strings.HasPrefix(postInstallScript, "#!/bin/bash") {
+		postInstallScript = fmt.Sprintf("#!/bin/bash\n%s", postInstallScript)
 	}
 
 	cloudInitData, err := s.scope.GetRawBootstrapData(ctx)
