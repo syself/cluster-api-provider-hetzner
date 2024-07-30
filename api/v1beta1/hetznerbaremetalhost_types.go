@@ -152,9 +152,6 @@ const (
 	// StateImageInstalling means we install a new image.
 	StateImageInstalling ProvisioningState = "image-installing"
 
-	// StateProvisioning means we are sending userData to the host and booting the machine.
-	StateProvisioning ProvisioningState = "provisioning"
-
 	// StateEnsureProvisioned means we are ensuring the reboot worked and cloud-init was executed successfully.
 	StateEnsureProvisioned ProvisioningState = "ensure-provisioned"
 

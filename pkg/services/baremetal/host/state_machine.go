@@ -58,7 +58,6 @@ func (hsm *hostStateMachine) handlers() map[infrav1.ProvisioningState]stateHandl
 		infrav1.StatePreparing:         hsm.handlePreparing,
 		infrav1.StateRegistering:       hsm.handleRegistering,
 		infrav1.StateImageInstalling:   hsm.handleImageInstalling,
-		infrav1.StateProvisioning:      hsm.handleProvisioning,
 		infrav1.StateEnsureProvisioned: hsm.handleEnsureProvisioned,
 		infrav1.StateProvisioned:       hsm.handleProvisioned,
 		infrav1.StateDeprovisioning:    hsm.handleDeprovisioning,
@@ -87,6 +86,15 @@ func (hsm *hostStateMachine) ReconcileState() (actionRes actionResult) {
 	// Assume credentials are ready for now. This can be changed while the state is handled.
 	conditions.MarkTrue(hsm.host, infrav1.CredentialsAvailableCondition)
 
+	// This state was removed. We have to handle the edge-case where
+	// the controller got updated and a machine
+	// is in this state. Installing the image again should solve that.
+	if initialState == "provisioning" {
+		hsm.log.Info("edge-case was hit: New code meets machine in removed state 'provisioning'. Re-setting",
+			"new-state", infrav1.StateImageInstalling)
+		initialState = infrav1.StateImageInstalling
+	}
+
 	if stateHandler, found := hsm.handlers()[initialState]; found {
 		return stateHandler()
 	}
@@ -103,7 +111,7 @@ func (hsm *hostStateMachine) checkInitiateDelete() bool {
 	switch hsm.nextState {
 	default:
 		hsm.nextState = infrav1.StateDeleting
-	case infrav1.StateRegistering, infrav1.StateImageInstalling, infrav1.StateProvisioning,
+	case infrav1.StateRegistering, infrav1.StateImageInstalling,
 		infrav1.StateEnsureProvisioned, infrav1.StateProvisioned:
 		hsm.nextState = infrav1.StateDeprovisioning
 	case infrav1.StateDeprovisioning:
@@ -149,7 +157,7 @@ func (hsm *hostStateMachine) updateOSSSHStatusAndValidateKey(osSSHSecret *corev1
 	if !hsm.host.Spec.Status.SSHStatus.CurrentOS.Match(*osSSHSecret) {
 		// Take action depending on state
 		switch hsm.nextState {
-		case infrav1.StateProvisioning, infrav1.StateEnsureProvisioned:
+		case infrav1.StateEnsureProvisioned:
 			// Go back to StateImageInstalling as we need to provision again
 			hsm.nextState = infrav1.StateImageInstalling
 		case infrav1.StateProvisioned:
@@ -249,19 +257,6 @@ func (hsm *hostStateMachine) handleImageInstalling() actionResult {
 	}
 
 	actResult := hsm.reconciler.actionImageInstalling()
-	if _, ok := actResult.(actionComplete); ok {
-		hsm.nextState = infrav1.StateProvisioning
-	}
-	return actResult
-}
-
-func (hsm *hostStateMachine) handleProvisioning() actionResult {
-	if hsm.provisioningCancelled() {
-		hsm.nextState = infrav1.StateDeprovisioning
-		return actionComplete{}
-	}
-
-	actResult := hsm.reconciler.actionProvisioning()
 	if _, ok := actResult.(actionComplete); ok {
 		hsm.nextState = infrav1.StateEnsureProvisioned
 	}

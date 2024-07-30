@@ -127,9 +127,11 @@ func TestIgnoreInsignificantHCloudMachineStatusUpdates(t *testing.T) {
 		})
 	}
 }
+
 func stPtr(h hcloud.ServerStatus) *hcloud.ServerStatus {
 	return &h
 }
+
 func TestIgnoreInsignificantMachineStatusUpdates(t *testing.T) {
 	logger := klog.Background()
 	predicate := IgnoreInsignificantMachineStatusUpdates(logger)
@@ -361,7 +363,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				}, timeout).Should(BeTrue())
 			})
 
-			It("creates the HCloud machine in Hetzner", func() {
+			It("creates the HCloud machine in Hetzner 1", func() {
 				By("checking that no servers exist")
 
 				Eventually(func() bool {
@@ -518,7 +520,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				Expect(testEnv.Cleanup(ctx, hetznerCluster, hcloudMachine)).To(Succeed())
 			})
 
-			It("creates the HCloud machine in Hetzner", func() {
+			It("creates the HCloud machine in Hetzner 2", func() {
 				Eventually(func() int {
 					servers, err := hcloudClient.ListServers(ctx, hcloud.ServerListOpts{
 						ListOpts: hcloud.ListOpts{
@@ -546,7 +548,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				Expect(testEnv.Cleanup(ctx, hetznerCluster, hcloudMachine)).To(Succeed())
 			})
 
-			It("creates the HCloud machine in Hetzner", func() {
+			It("creates the HCloud machine in Hetzner 3", func() {
 				Eventually(func() int {
 					servers, err := hcloudClient.ListServers(ctx, hcloud.ServerListOpts{
 						ListOpts: hcloud.ListOpts{
@@ -594,7 +596,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				Expect(testEnv.Cleanup(ctx, hetznerCluster, hcloudMachine)).To(Succeed())
 			})
 
-			It("creates the HCloud machine in Hetzner", func() {
+			It("creates the HCloud machine in Hetzner 4", func() {
 				Eventually(func() int {
 					servers, err := hcloudClient.ListServers(ctx, hcloud.ServerListOpts{
 						ListOpts: hcloud.ListOpts{

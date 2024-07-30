@@ -1211,7 +1211,7 @@ EOF_POST_INSTALL_SCRIPT
 
 	// clear potential errors - all done
 	s.scope.HetznerBareMetalHost.ClearError()
-	return actionComplete{} // Next: actionProvisioning
+	return actionComplete{} // next: ensure-provisioned
 }
 
 func (s *Service) createAutoSetupInput(sshClient sshclient.Client) (autoSetupInput, actionResult) {
@@ -1280,11 +1280,6 @@ func getDeviceNames(wwn []string, storageDevices []infrav1.Storage) []string {
 		}
 	}
 	return deviceNames
-}
-
-func (s *Service) actionProvisioning() actionResult {
-	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StateProvisioning)
-	return actionComplete{}
 }
 
 func analyzeSSHOutputInstallImage(out sshclient.Output, sshClient sshclient.Client, port int) (isTimeout, isConnectionRefused bool, reterr error) {
