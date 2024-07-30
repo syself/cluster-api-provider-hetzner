@@ -149,7 +149,7 @@ type InstallImage struct {
 	// Image is the image to be provisioned. It defines the image for baremetal machine.
 	Image Image `json:"image"`
 
-	// PostInstallScript is used for configuring commands that should be executed after installimage.
+	// PostInstallScript (Bash) is used for configuring commands that should be executed after installimage.
 	// It is passed along with the installimage command.
 	PostInstallScript string `json:"postInstallScript,omitempty"`
 
