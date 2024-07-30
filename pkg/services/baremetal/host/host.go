@@ -164,6 +164,8 @@ func SaveHostAndReturn(ctx context.Context, cl client.Client, host *infrav1.Hetz
 	return res, nil
 }
 
+// previous: None
+// next: Registering
 func (s *Service) actionPreparing(_ context.Context) actionResult {
 	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StatePreparing)
 
@@ -247,7 +249,7 @@ func (s *Service) actionPreparing(_ context.Context) actionResult {
 		// we immediately set an error message in the host status to track the reboot we just performed
 		s.scope.HetznerBareMetalHost.SetError(infrav1.ErrorTypeSSHRebootTriggered, fmt.Sprintf("Phase %s, reboot via ssh: %s",
 			s.scope.HetznerBareMetalHost.Spec.Status.ProvisioningState, msg))
-		return actionComplete{}
+		return actionComplete{} // next: Registering
 	}
 
 	// Check if software reboot is available. If it is not, choose hardware reboot.
@@ -261,7 +263,7 @@ func (s *Service) actionPreparing(_ context.Context) actionResult {
 	msg := createRebootEvent(s.scope.HetznerBareMetalHost, rebootType, "Reboot into rescue system.")
 	// we immediately set an error message in the host status to track the reboot we just performed
 	s.scope.HetznerBareMetalHost.SetError(errorType, msg)
-	return actionComplete{}
+	return actionComplete{} // next: Registering
 }
 
 func (s *Service) enforceRescueMode() error {
@@ -566,6 +568,8 @@ func (s *Service) ensureRescueMode() error {
 	return nil
 }
 
+// previous: Preparing
+// next: ImageInstalling
 func (s *Service) actionRegistering(_ context.Context) actionResult {
 	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StateRegistering)
 
@@ -689,7 +693,7 @@ func (s *Service) actionRegistering(_ context.Context) actionResult {
 
 	conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.RootDeviceHintsValidatedCondition)
 	s.scope.HetznerBareMetalHost.ClearError()
-	return actionComplete{}
+	return actionComplete{} // next: ImageInstalling
 }
 
 func validateRootDeviceWwnsAreSubsetOfExistingWwns(rootDeviceHints *infrav1.RootDeviceHints, storageDevices []infrav1.Storage) error {
@@ -1048,6 +1052,8 @@ func validateStdOut(stdOut string) (string, error) {
 	return stdOut, nil
 }
 
+// previous: Registering
+// next: EnsureProvisioned
 func (s *Service) actionImageInstalling(ctx context.Context) actionResult {
 	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StateImageInstalling)
 
@@ -1447,7 +1453,7 @@ func (s *Service) actionEnsureProvisioned(_ context.Context) (ar actionResult) {
 	record.Event(s.scope.HetznerBareMetalHost, "ServerProvisioned", "server successfully provisioned")
 	conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
 	s.scope.HetznerBareMetalHost.ClearError()
-	return actionComplete{}
+	return actionComplete{} // next: EnsureProvisioned
 }
 
 // handleConnectionRefused checks cloud init status via ssh to the old ssh port if the new ssh port
@@ -1591,6 +1597,8 @@ func analyzeSSHOutputProvisioned(out sshclient.Output) (isTimeout, isConnectionR
 	return false, false, fmt.Errorf("%w: %s", errUnexpectedHostName, trimLineBreak(out.StdOut))
 }
 
+// previous: EnsureProvisioned
+// next: Stays in Provisioned (final state)
 func (s *Service) actionProvisioned(_ context.Context) actionResult {
 	// set host to provisioned
 	conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
@@ -1651,9 +1659,10 @@ func (s *Service) actionProvisioned(_ context.Context) actionResult {
 		return actionContinue{delay: 10 * time.Second}
 	}
 
-	return actionComplete{}
+	return actionComplete{} // Stays in Provisioned (final state)
 }
 
+// next: None
 func (s *Service) actionDeprovisioning(_ context.Context) actionResult {
 	// Update name in robot API
 	if _, err := s.scope.RobotClient.SetBMServerName(
@@ -1688,7 +1697,7 @@ func (s *Service) actionDeprovisioning(_ context.Context) actionResult {
 		s.scope.HetznerBareMetalHost.ClearError()
 		conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
 	}
-	return actionComplete{}
+	return actionComplete{} // next: None
 }
 
 func (s *Service) actionDeleting(_ context.Context) actionResult {
