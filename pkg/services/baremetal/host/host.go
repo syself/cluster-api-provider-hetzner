@@ -1122,6 +1122,7 @@ func (s *Service) actionImageInstalling(ctx context.Context) actionResult {
 		return actionError{err: fmt.Errorf("failed to get running installimage processes: %q %q %w", out.StdOut, out.StdErr, out.Err)}
 	}
 	if out.StdOut != "" {
+		// This can happen if the controller was restarted.
 		record.Warn(s.scope.HetznerBareMetalHost, "InstallImageAlreadyRunning",
 			"installimage is already running.")
 		return actionError{err: fmt.Errorf("installimage is already running")}
