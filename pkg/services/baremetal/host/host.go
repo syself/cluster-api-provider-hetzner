@@ -1433,10 +1433,6 @@ func (s *Service) actionEnsureProvisioned(_ context.Context) (ar actionResult) {
 		if err != nil {
 			return actionError{err: fmt.Errorf(errMsgFailedHandlingIncompleteBoot, err)}
 		}
-		// Often: err: 'failed to dial ssh. Error message: dial tcp 94.130.206.211:22: i/o timeout. DialErr: failed to dial ssh'
-		// This happens for some seconds until the ssh port is reachable.
-		s.scope.Logger.Info("ensureProvisioned: Unexpected hostname. Retrying...", "hostname", hostname, "stderr", out.StdErr,
-			"err", out.Err)
 		return actionContinue{delay: 10 * time.Second}
 	}
 
@@ -1446,7 +1442,7 @@ func (s *Service) actionEnsureProvisioned(_ context.Context) (ar actionResult) {
 		record.Event(s.scope.HetznerBareMetalHost, "CloudInitStillRunning", msg)
 		return actResult
 	}
-	s.scope.Logger.Info("ensureProvisioned: completed.", "msg", msg)
+
 	// Check whether cloud init did not run successfully even though it shows "done"
 	// Check this only when the port did not change. Because if it did, then we can already confirm at this point
 	// that the change worked and the new port is usable. This is a strong enough indication for us to assume cloud init worked.
@@ -1476,11 +1472,10 @@ func (s *Service) handleConnectionRefused() actionResult {
 		Port:       s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterInstallImage,
 		IP:         s.scope.HetznerBareMetalHost.Spec.Status.GetIPAddress(),
 	})
-	actResult, msg, err := s.checkCloudInitStatus(oldSSHClient)
+	actResult, _, err := s.checkCloudInitStatus(oldSSHClient)
 	// If this ssh client also gives an error, then we go back to analyzing the error of the first ssh call
 	// This happens in the statement below this one.
 	if err == nil {
-		s.scope.Logger.Info("handleConnectionRefused", "msg", msg, "err", err)
 		// If cloud-init status == "done" and cloud init was successful,
 		// then we will soon reboot and be able to access the server via the new port
 		if _, complete := actResult.(actionComplete); complete {
