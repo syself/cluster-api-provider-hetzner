@@ -77,11 +77,16 @@ If you don't have a dedicated team for managing Kubernetes, you can use [Syself 
 
 Ready to dive in? Here are some resources to get you started:
 
+- [**Managing Kubernetes on Hetzner with Cluster API**](https://community.hetzner.com/tutorials/kubernetes-on-hetzner-with-cluster-api): Guide for setting up your first cluster on Hetzner with CAPH
 - [**Cluster API Provider Hetzner 15 Minute Tutorial**](https://syself.com/docs/caph/getting-started/quickstart): Set up a bootstrap cluster using Kind and deploy a Kubernetes cluster on Hetzner.
 - [**Develop and test Kubernetes clusters with Tilt**](https://syself.com/docs/caph/developers/development-guide): Start using Tilt for rapid testing of various cluster flavors, like with/without a private network or bare metal.
 - [**Develop and test your own node-images**](https://syself.com/docs/caph/topics/node-image): Learn how to use your own machine images for production systems.
 
 In addition to the pure creation and operation of Kubernetes clusters, this provider can also validate and approve certificate signing requests. This increases security as the kubelets of the nodes can be operated with signed certificates, and enables the metrics-server to run securely. [Click here](https://syself.com/docs/caph/topics/advanced/csr-controller) to read more about the CSR controller.
+
+## 📖 Documentation
+
+Documentation can be found at: [https://syself.com/docs/caph](https://syself.com/docs/caph)
 
 ## 🖇️ Compatibility with Cluster API and Kubernetes Versions
 
@@ -126,10 +131,6 @@ Each version of Cluster API for Hetzner will attempt to support at least two Kub
 > If pre-installation of these prerequisites isn't possible, [custom scripts can be deployed](/docs/caph/02-topics/02-node-image) through the Kubeadm config.
 
 ---
-
-## 📖 Documentation
-
-Documentation can be found at: [https://syself.com/docs/caph](https://syself.com/docs/caph)
 
 ## 👥 Getting Involved and Contributing
 
