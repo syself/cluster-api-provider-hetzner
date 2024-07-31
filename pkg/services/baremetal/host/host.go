@@ -1196,7 +1196,7 @@ echo %q
 	// Execute install image
 	out = sshClient.ExecuteInstallImage(postInstallScript != "")
 	if out.Err != nil {
-		record.Warnf(s.scope.HetznerBareMetalHost, "ExecuteInstallImageFailed", fmt.Sprintf("Error: %s. %s", out.Err.Error(), out.StdOut))
+		record.Warnf(s.scope.HetznerBareMetalHost, "ExecuteInstallImageFailed", out.String())
 		return actionError{err: fmt.Errorf("failed to execute installimage: %w", out.Err)}
 	}
 	if !strings.Contains(out.StdOut, PostInstallScriptFinished) {

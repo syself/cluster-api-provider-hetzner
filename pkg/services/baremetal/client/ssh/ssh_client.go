@@ -176,6 +176,30 @@ type Output struct {
 	Err    error
 }
 
+func (o Output) String() string {
+	s := make([]string, 0, 3)
+	stdout := strings.TrimSpace(o.StdOut)
+	if stdout != "" {
+		s = append(s, stdout)
+	}
+	stderr := strings.TrimSpace(o.StdErr)
+	if stderr != "" {
+		if len(s) > 0 {
+			stderr = "Stderr: " + stderr
+		}
+		s = append(s, stderr)
+	}
+	if o.Err != nil {
+		e := o.Err.Error()
+		e = strings.TrimSpace(e)
+		if len(s) > 0 {
+			e = "Err: " + e
+		}
+		s = append(s, e)
+	}
+	return strings.Join(s, ". ")
+}
+
 // Client is the interface defining all functions necessary to talk to a bare metal server via SSH.
 type Client interface {
 	GetHostName() Output
