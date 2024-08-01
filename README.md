@@ -7,9 +7,11 @@
 <a href="https://syself.com/docs/caph/getting-started/introduction">Docs</a> |
 <a href="https://syself.com/docs/caph/developers/development-guide">Contribution Guide</a><br><br>
 <a href="https://cluster-api.sigs.k8s.io/">Cluster API Book</a>
+<br>
+<p>⭐ Consider leaving a star — it motivates us a lot!</p>
 </div>
 
-⭐ Consider leaving a star — it motivates us a lot!
+
 
 ---
 
