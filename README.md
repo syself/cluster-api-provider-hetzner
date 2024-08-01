@@ -5,9 +5,11 @@
 <div align="center">
 <a href="https://syself.com/docs/caph/getting-started/quickstart">Quickstart</a> |
 <a href="https://syself.com/docs/caph/getting-started/introduction">Docs</a> |
-<a href="https://syself.com/docs/caph/developers/development-guide">Contribution Guide</a><br><br>
-<a href="https://cluster-api.sigs.k8s.io/">Cluster API Book</a>
+<a href="https://cluster-api.sigs.k8s.io/">Cluster API Book</a><br><br>
+<p>⭐ Consider leaving a star — it motivates us a lot! ⭐</p>
 </div>
+
+
 
 ---
 
@@ -22,66 +24,50 @@
 
 <br>
 
-The Kubernetes Cluster API Provider Hetzner (CAPH) enables declarative provisioning of multiple Kubernetes clusters on [Hetzner infrastructure](https://hetzner.cloud).
+## Table of Contents
+- [What is CAPH](#-what-is-the-cluster-api-provider-hetzner)
+- [Documentation](#-documentation)
+- [Getting Started](#-getting-started)
+- [Version Compatibility](#%EF%B8%8F-compatibility-with-cluster-api-and-kubernetes-versions)
+- [Node Images](#-operating-system-images)
+- [Contributing](#-getting-involved-and-contributing)
+- [Contact](#-contact)
 
-With CAPH, you can manage highly-available Kubernetes clusters on both bare metal and cloud instances, leveraging the Cluster API to handle creation, updates, and operations of production-ready, self-managed Kubernetes clusters at any scale.
+## 📰 What is the Cluster API Provider Hetzner?
 
 > [!NOTE]
 > The Cluster API Provider Hetzner is independently maintained by [Syself](https://syself.com) and the community. It is not an official Hetzner project.
 >
 > If you have any questions about this project, please start a conversation in the [Discussions](https://github.com/syself/cluster-api-provider-hetzner/discussions) tab or contact us at [contact@syself.com](mailto:contact@syself.com?subject=cluster-api-provider-hetzner).
 
-## 📰 What is the Cluster API Provider Hetzner?
+The Cluster API Provider Hetzner (CAPH) provides a way to declaratively create and manage infrastructure on Hetzner, in a Kubernetes-native way. It extends the Kubernetes API with Custom Resource Definitions (CRDs) allowing you to interact with clusters in the same fashion you interact with workload.
 
-The [Cluster API][cluster_api] orchestrates infrastructure similarly to how Kubernetes manages containers. It implements a declarative API like Kubernetes does and extends the resources of the Kubernetes API server via CRDs.
+Key benefits include:
 
-The Cluster API consists of the CAPI controller, the control-plane provider, the bootstrap provider, and an infrastructure provider like CAPH, that translates resources in Hetzner to objects in the Kubernetes API.
+- **Self-healing**: CAPH and CAPI controllers react to every change in your infrastructure, identifying and resolving issues without human intervention
+- **Declarative**: Specify the desired state of your infrastructure and let the operators do the rest, ensuring repeatability and idempotency
+- **Kubernetes native**: Everything is a Kubernetes resource, meaning you can use tools you're already familiar with while working with CAPH
 
-The controllers ensure that the desired state of the infrastructure is achieved - just as Kubernetes ensures the desired state of containers. The concept of [Kubernetes Controller](https://kubernetes.io/docs/concepts/architecture/controller/) has significant advantages over traditional Infrastructure as Code (IaC) solutions because it can react automatically to changes and problems. The best example of this is the MachineHealthCheck, which replaces unhealthy nodes automatically.
+CAPH enables you to have DIY Kubernetes on Hetzner at any scale, with full control over your infrastructure and clusters configuration.
 
-Using CAPH unites the benefits of declarative infrastructure, cost-effectiveness, and GDPR-compliant European cloud, ensuring that your clusters can automatically adapt to changes and problems.
+If you want a batteries-included solution instead, you can try [Syself](https://syself.com) free for 14 days.
 
-## ✨ Features of CAPH
+## 📖 Documentation
 
-- Native Kubernetes resources and API
-- Works with your choice of Linux distribution
-- Support for single and multi-node control plane clusters (HA Kubernetes)
-- Support for Hetzner Cloud placement groups, network, and load balancer
-- Complete day 2 operations - updating Kubernetes and nodes, scaling up and down, self-healing
-- Custom CSR approver for approving [kubelet-serving certificate signing requests](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-certs/#kubelet-serving-certs)
-- Hetzner dedicated servers / bare metal (and GPUs)
+Documentation can be found at [caph.syself.com](https://caph.syself.com). You can contribute to it by modifying the contents of the `/docs` directory.
 
-## 👀 Clarifying Scope
+## 🚀 Getting Started
 
-Managing a production-grade Kubernetes system requires a **dedicated team of experts**.
+The best way to get started with CAPH is to spin up a cluster. For that you can follow our [**Managing Kubernetes on Hetzner with Cluster API**](https://community.hetzner.com/tutorials/kubernetes-on-hetzner-with-cluster-api) article featured in the Hetzner Community Tutorials.
 
-The Cluster API Provider Hetzner (CAPH) handles the lifecycle management of machines and infrastructure, but certain aspects need to be managed separately:
-
-- ❌ Production-ready node images
-- ❌ Secured kubeadm configuration
-- ❌ Incorporation of cluster add-ons, such as CNI (e.g. cilium), metrics-server, konnectivity-service, etc.
-- ❌ Testing & update procedures of Kubernetes version, configuration
-- ❌ Backup procedures
-- ❌ Monitoring strategies
-- ❌ Alerting systems
-- ❌ Identity and Access Management (IAM)
-
-If you don't have a dedicated team for managing Kubernetes, you can use [Syself Autopilot](https://syself.com) and enjoy a wide range of benefits, including:
-
-- ✅ Consistent, regular updates that provide you with the latest features and improvements.
-- ✅ Highly optimized defaults, reducing costs by up to 80% without performance impacts.
-- ✅ Production-ready clusters working out of the box.
-- ✅ Specialized expertise in Cluster API and Hetzner for quick issue resolution and 24/7 support.
-
-## 🚀 Get Started
-
-Ready to dive in? Here are some resources to get you started:
+Additional resources from the documentation:
 
 - [**Cluster API Provider Hetzner 15 Minute Tutorial**](https://syself.com/docs/caph/getting-started/quickstart): Set up a bootstrap cluster using Kind and deploy a Kubernetes cluster on Hetzner.
 - [**Develop and test Kubernetes clusters with Tilt**](https://syself.com/docs/caph/developers/development-guide): Start using Tilt for rapid testing of various cluster flavors, like with/without a private network or bare metal.
 - [**Develop and test your own node-images**](https://syself.com/docs/caph/topics/node-image): Learn how to use your own machine images for production systems.
 
 In addition to the pure creation and operation of Kubernetes clusters, this provider can also validate and approve certificate signing requests. This increases security as the kubelets of the nodes can be operated with signed certificates, and enables the metrics-server to run securely. [Click here](https://syself.com/docs/caph/topics/advanced/csr-controller) to read more about the CSR controller.
+
 
 ## 🖇️ Compatibility with Cluster API and Kubernetes Versions
 
@@ -90,7 +76,7 @@ This provider's versions are compatible with the following versions of Cluster A
 |                                   | Cluster API `v1beta1` (`v1.6.x`) | Cluster API `v1beta1` (`v1.7.x`) |
 | --------------------------------- | -------------------------------- | -------------------------------- |
 | Hetzner Provider `v1.0.0-beta.33` | ✅                              | ❌                               |
-| Hetzner Provider `v1.0.0-beta.34-35` | ❌                              | ✅                               |
+| Hetzner Provider `v1.0.0-beta.34-40` | ❌                              | ✅                               |
 
 This provider's versions can install and manage the following versions of Kubernetes:
 
@@ -114,45 +100,37 @@ Each version of Cluster API for Hetzner will attempt to support at least two Kub
 
 **NOTE:** As the versioning for this project is tied to the versioning of Cluster API, future modifications to this policy may be made to more closely align with other providers in the Cluster API ecosystem.
 
----
-
 ## 💿 Operating System Images
 
-> [!NOTE]
-> Cluster API Provider Hetzner relies on a few prerequisites that must be already installed in the operating system images, such as a container runtime, kubelet, and Kubeadm.
->
-> Reference images are available in kubernetes-sigs/image-builder and [templates/node-image](/templates/node-image).
->
-> If pre-installation of these prerequisites isn't possible, [custom scripts can be deployed](/docs/caph/02-topics/02-node-image) through the Kubeadm config.
+Cluster API Provider Hetzner relies on a few prerequisites that must be already installed in the operating system images, such as a container runtime, kubelet, and kubeadm.
 
----
+Reference images are available in kubernetes-sigs/image-builder and [templates/node-image](/templates/node-image).
 
-## 📖 Documentation
+If it's not possible to pre-install these prerequisites, [custom scripts can be deployed](/docs/caph/02-topics/02-node-image) through the kubeadm config.
 
-Documentation can be found at: [https://syself.com/docs/caph](https://syself.com/docs/caph)
+In case you want a solution with managed node images, [Syself](https://syself.com) might be interesting for you.
 
-## 👥 Getting Involved and Contributing
+## 🤝 Getting Involved and Contributing
 
-We, maintainers and the community, welcome any contributions to Cluster API Provider Hetzner. For suggestions, contributions, and assistance, contact the maintainers anytime.
+We, the maintainers and the community, welcome any contributions to Cluster API Provider Hetzner. Feel free to contact the maintainers for suggestions, contributions and help.
 
 To set up your environment, refer to the [development guide](https://syself.com/docs/caph/developers/development-guide).
 
 For new contributors, check out issues tagged as [`good first issue`][good_first_issue]. These are typically smaller in scope and great for getting familiar with the codebase.
 
-We encourage **all** active community participants to act as if they were maintainers, even without "official" write permissions. This is a community effort serving the Kubernetes community.
+We encourage **all** active community members to act as if they were maintainers, even without "official" write permissions. This is a collaborative effort serving the Kubernetes community.
 
 If you have an active interest and you want to get involved, you have real power! Don't assume that the only people who can get things done around here are the "maintainers".
 
-We would also love to add more "official" maintainers, so show us what you can
-do!
+We would also love to add more "official" maintainers, so show us what you can do!
 
-## ⚖️ Code of Conduct
+### ⚖️ Code of Conduct
 
 Participation in the Kubernetes community is governed by the [Kubernetes Code of Conduct](/code-of-conduct.md).
 
-## :shipit: GitHub Issues
+### :shipit: GitHub Issues
 
-### 🐛 Bugs
+#### 🐛 Bugs
 
 If you think you have found a bug, please follow these steps:
 
@@ -162,7 +140,7 @@ If you think you have found a bug, please follow these steps:
 - Give it a meaningful title to help others who might be searching for your issue in the future.
 - For questions, reach out to the Cluster API community on the [Kubernetes Slack channel][slack_info].
 
-### 🌟 Tracking New Features
+#### 🌟 Tracking New Features
 
 We also use the issue tracker to track features. If you have an idea for a feature or think that you can help Cluster API Provider Hetzner become even more awesome, then follow these steps:
 
@@ -172,9 +150,14 @@ We also use the issue tracker to track features. If you have an idea for a featu
 - Some of our larger features will require some design. If you would like to include a technical design for your feature, please include it in the issue.
 - Once the new feature is well understood and the design is agreed upon, we can start coding. We would love for you to take part in this process, so we encourage you to take the lead and start coding it yourself. Please open a **WIP** _(work in progress)_ pull request. Happy coding!
 
-## 📃 License
+## 💬 Contact
 
-Published under the [Apache](https://github.com/syself/cluster-api-provider-hetzner/blob/main/LICENSE) license.
+For more information about Syself, our platform, or any generall information about the Cluster API Provider Hetzner, feel free to reach out to us. Below are some ways to contact our team:
+
+- **Email**: Send us questions at contact@syself.com
+- **Website**: Visit [our website](https://syself.com) for more information about Syself
+- **LinkedIn**: Follow us on [LinkedIn](https://www.linkedin.com/company/syself/) for announcements
+- **Newsletter**: Consider subscribing to [our LinkedIn newsletter](https://www.linkedin.com/newsletters/the-syselfer-7223788357485543424/) for regular news about CAPH
 
 <!-- References -->
 
