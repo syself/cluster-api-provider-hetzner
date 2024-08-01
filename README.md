@@ -27,11 +27,11 @@
 ## Table of Contents
 - [What is CAPH](#-what-is-the-cluster-api-provider-hetzner)
 - [Documentation](#-documentation)
-- [Contact](#-contact)
 - [Getting Started](#-getting-started)
 - [Version Compatibility](#%EF%B8%8F-compatibility-with-cluster-api-and-kubernetes-versions)
 - [Node Images](#-operating-system-images)
 - [Contributing](#-getting-involved-and-contributing)
+- [Contact](#-contact)
 
 ## 📰 What is the Cluster API Provider Hetzner?
 
@@ -48,18 +48,13 @@ The core benefits include:
 - **Declarative**: Specify the desired state of your infrastructure and let the operators do the rest, ensuring repeatability and idempotency
 - **Kubernetes native**: Everything is a Kubernetes resource, meaning you can use tools you are already familiar with while working with CAPH
 
+CAPH enables you to have DIY Kubernetes on Hetzner at any scale, with full control over your infrastructure and clusters configuration.
+
+If you want a batteries-included solution instead, you can try [Syself](https://syself.com) 14 days for free.
+
 ## 📖 Documentation
 
 Documentation can be found at [caph.syself.com](https://caph.syself.com). You can contribute to it by changing the content at the `/docs` directory.
-
-## 💬 Contact
-
-For more information about Syself, our platform, or any generall information about the Cluster API Provider Hetzner, feel free to reach out to us. Below are some ways to contact our team:
-
-- **Email**: Send us questions at contact@syself.com
-- **Website**: Visit [our website](https://syself.com) for more information about Syself
-- **LinkedIn**: Follow us on [LinkedIn](https://www.linkedin.com/company/syself/) for announcements
-- **Newsletter**: Consider subscribing to [our LinkedIn newsletter](https://www.linkedin.com/newsletters/the-syselfer-7223788357485543424/) for regular news about CAPH
 
 ## 🚀 Getting Started
 
@@ -127,8 +122,7 @@ We encourage **all** active community participants to act as if they were mainta
 
 If you have an active interest and you want to get involved, you have real power! Don't assume that the only people who can get things done around here are the "maintainers".
 
-We would also love to add more "official" maintainers, so show us what you can
-do!
+We would also love to add more "official" maintainers, so show us what you can do!
 
 ### ⚖️ Code of Conduct
 
@@ -156,7 +150,14 @@ We also use the issue tracker to track features. If you have an idea for a featu
 - Some of our larger features will require some design. If you would like to include a technical design for your feature, please include it in the issue.
 - Once the new feature is well understood and the design is agreed upon, we can start coding. We would love for you to take part in this process, so we encourage you to take the lead and start coding it yourself. Please open a **WIP** _(work in progress)_ pull request. Happy coding!
 
+## 💬 Contact
 
+For more information about Syself, our platform, or any generall information about the Cluster API Provider Hetzner, feel free to reach out to us. Below are some ways to contact our team:
+
+- **Email**: Send us questions at contact@syself.com
+- **Website**: Visit [our website](https://syself.com) for more information about Syself
+- **LinkedIn**: Follow us on [LinkedIn](https://www.linkedin.com/company/syself/) for announcements
+- **Newsletter**: Consider subscribing to [our LinkedIn newsletter](https://www.linkedin.com/newsletters/the-syselfer-7223788357485543424/) for regular news about CAPH
 
 <!-- References -->
 
