@@ -9,7 +9,7 @@
 <a href="https://cluster-api.sigs.k8s.io/">Cluster API Book</a>
 </div>
 
-⭐ Consider leaving us a star — it motivates us a lot!
+⭐ Consider leaving a star — it motivates us a lot!
 
 ---
 
@@ -27,12 +27,11 @@
 ## Table of Contents
 - [What is CAPH](#-what-is-the-cluster-api-provider-hetzner)
 - [Documentation](#-documentation)
+- [Contact](#-contact)
 - [Getting Started](#-getting-started)
 - [Version Compatibility](#%EF%B8%8F-compatibility-with-cluster-api-and-kubernetes-versions)
 - [Node Images](#-operating-system-images)
 - [Contributing](#-getting-involved-and-contributing)
-- [License](#-contact)
-- [License](#-license)
 
 ## 📰 What is the Cluster API Provider Hetzner?
 
@@ -51,7 +50,16 @@ The core benefits include:
 
 ## 📖 Documentation
 
-Documentation can be found at [https://syself.com/docs/caph](https://syself.com/docs/caph). If you don't want to access an external website, you can refer to the docs in markdown format at the [/docs](/docs) directory.
+Documentation can be found at [caph.syself.com](https://caph.syself.com). You can contribute to it by changing the content at the `/docs` directory.
+
+## 💬 Contact
+
+For more information about Syself, our platform, or any generall information about the Cluster API Provider Hetzner, feel free to reach out to us. Below are some ways to contact our team:
+
+- **Email**: Send us questions at contact@syself.com
+- **Website**: Visit [our website](https://syself.com) for more information about Syself
+- **LinkedIn**: Follow us on [LinkedIn](https://www.linkedin.com/company/syself/) for announcements
+- **Newsletter**: Consider subscribing to [our LinkedIn newsletter](https://www.linkedin.com/newsletters/the-syselfer-7223788357485543424/) for regular news about CAPH
 
 ## 🚀 Getting Started
 
@@ -66,7 +74,6 @@ Additional resources from the docs:
 In addition to the pure creation and operation of Kubernetes clusters, this provider can also validate and approve certificate signing requests. This increases security as the kubelets of the nodes can be operated with signed certificates, and enables the metrics-server to run securely. [Click here](https://syself.com/docs/caph/topics/advanced/csr-controller) to read more about the CSR controller.
 
 
-
 ## 🖇️ Compatibility with Cluster API and Kubernetes Versions
 
 This provider's versions are compatible with the following versions of Cluster API:
@@ -74,7 +81,7 @@ This provider's versions are compatible with the following versions of Cluster A
 |                                   | Cluster API `v1beta1` (`v1.6.x`) | Cluster API `v1beta1` (`v1.7.x`) |
 | --------------------------------- | -------------------------------- | -------------------------------- |
 | Hetzner Provider `v1.0.0-beta.33` | ✅                              | ❌                               |
-| Hetzner Provider `v1.0.0-beta.34-35` | ❌                              | ✅                               |
+| Hetzner Provider `v1.0.0-beta.34-40` | ❌                              | ✅                               |
 
 This provider's versions can install and manage the following versions of Kubernetes:
 
@@ -98,19 +105,15 @@ Each version of Cluster API for Hetzner will attempt to support at least two Kub
 
 **NOTE:** As the versioning for this project is tied to the versioning of Cluster API, future modifications to this policy may be made to more closely align with other providers in the Cluster API ecosystem.
 
----
-
 ## 💿 Operating System Images
 
-Cluster API Provider Hetzner relies on a few prerequisites that must be already installed in the operating system images, such as a container runtime, kubelet, and Kubeadm.
+Cluster API Provider Hetzner relies on a few prerequisites that must be already installed in the operating system images, such as a container runtime, kubelet, and kubeadm.
 
 Reference images are available in kubernetes-sigs/image-builder and [templates/node-image](/templates/node-image).
 
 If pre-installation of these prerequisites isn't possible, [custom scripts can be deployed](/docs/caph/02-topics/02-node-image) through the Kubeadm config.
 
 In case you want a solution with managed node images, [Syself](https://syself.com) might be interesting for you.
-
----
 
 ## 🤝 Getting Involved and Contributing
 
@@ -153,18 +156,7 @@ We also use the issue tracker to track features. If you have an idea for a featu
 - Some of our larger features will require some design. If you would like to include a technical design for your feature, please include it in the issue.
 - Once the new feature is well understood and the design is agreed upon, we can start coding. We would love for you to take part in this process, so we encourage you to take the lead and start coding it yourself. Please open a **WIP** _(work in progress)_ pull request. Happy coding!
 
-## 💬 Contact
 
-For more information about Syself, our platform, or any generall information about the Cluster API Provider Hetzner, feel free to reach out to us. Below are some ways to contact our team:
-
-- **Email**: Send us questions at contact@syself.com
-- **Website**: Visit [our website](https://syself.com) for more information about Syself
-- **LinkedIn**: Follow us on [LinkedIn](https://www.linkedin.com/company/syself/) for announcements
-- **Newsletter**: Consider subscribing to [our LinkedIn newsletter](https://www.linkedin.com/newsletters/the-syselfer-7223788357485543424/) for regular news and updates
-
-## 📃 License
-
-Published under the [Apache](https://github.com/syself/cluster-api-provider-hetzner/blob/main/LICENSE) license.
 
 <!-- References -->
 
