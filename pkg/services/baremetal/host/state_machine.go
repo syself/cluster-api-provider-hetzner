@@ -17,6 +17,7 @@ limitations under the License.
 package host
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -51,14 +52,13 @@ func newHostStateMachine(host *infrav1.HetznerBareMetalHost, reconciler *Service
 	return &r
 }
 
-type stateHandler func() actionResult
+type stateHandler func(ctx context.Context) actionResult
 
 func (hsm *hostStateMachine) handlers() map[infrav1.ProvisioningState]stateHandler {
 	return map[infrav1.ProvisioningState]stateHandler{
 		infrav1.StatePreparing:         hsm.handlePreparing,
 		infrav1.StateRegistering:       hsm.handleRegistering,
 		infrav1.StateImageInstalling:   hsm.handleImageInstalling,
-		infrav1.StateProvisioning:      hsm.handleProvisioning,
 		infrav1.StateEnsureProvisioned: hsm.handleEnsureProvisioned,
 		infrav1.StateProvisioned:       hsm.handleProvisioned,
 		infrav1.StateDeprovisioning:    hsm.handleDeprovisioning,
@@ -66,7 +66,7 @@ func (hsm *hostStateMachine) handlers() map[infrav1.ProvisioningState]stateHandl
 	}
 }
 
-func (hsm *hostStateMachine) ReconcileState() (actionRes actionResult) {
+func (hsm *hostStateMachine) ReconcileState(ctx context.Context) (actionRes actionResult) {
 	initialState := hsm.host.Spec.Status.ProvisioningState
 	defer func() {
 		if hsm.nextState != initialState {
@@ -87,8 +87,17 @@ func (hsm *hostStateMachine) ReconcileState() (actionRes actionResult) {
 	// Assume credentials are ready for now. This can be changed while the state is handled.
 	conditions.MarkTrue(hsm.host, infrav1.CredentialsAvailableCondition)
 
+	// This state was removed. We have to handle the edge-case where
+	// the controller got updated and a machine
+	// is in this state. Installing the image again should solve that.
+	if initialState == "provisioning" {
+		hsm.log.Info("edge-case was hit: New code meets machine in removed state 'provisioning'. Re-setting",
+			"new-state", infrav1.StateImageInstalling)
+		initialState = infrav1.StateImageInstalling
+	}
+
 	if stateHandler, found := hsm.handlers()[initialState]; found {
-		return stateHandler()
+		return stateHandler(ctx)
 	}
 
 	return actionError{fmt.Errorf("%w: state %q", errNoHandlerFound, initialState)}
@@ -103,7 +112,7 @@ func (hsm *hostStateMachine) checkInitiateDelete() bool {
 	switch hsm.nextState {
 	default:
 		hsm.nextState = infrav1.StateDeleting
-	case infrav1.StateRegistering, infrav1.StateImageInstalling, infrav1.StateProvisioning,
+	case infrav1.StateRegistering, infrav1.StateImageInstalling,
 		infrav1.StateEnsureProvisioned, infrav1.StateProvisioned:
 		hsm.nextState = infrav1.StateDeprovisioning
 	case infrav1.StateDeprovisioning:
@@ -149,7 +158,7 @@ func (hsm *hostStateMachine) updateOSSSHStatusAndValidateKey(osSSHSecret *corev1
 	if !hsm.host.Spec.Status.SSHStatus.CurrentOS.Match(*osSSHSecret) {
 		// Take action depending on state
 		switch hsm.nextState {
-		case infrav1.StateProvisioning, infrav1.StateEnsureProvisioned:
+		case infrav1.StateEnsureProvisioned:
 			// Go back to StateImageInstalling as we need to provision again
 			hsm.nextState = infrav1.StateImageInstalling
 		case infrav1.StateProvisioned:
@@ -214,7 +223,7 @@ func validateSSHKey(sshSecret *corev1.Secret, secretRef infrav1.SSHSecretRef) er
 	return nil
 }
 
-func (hsm *hostStateMachine) handlePreparing() actionResult {
+func (hsm *hostStateMachine) handlePreparing(ctx context.Context) actionResult {
 	if hsm.provisioningCancelled() {
 		hsm.nextState = infrav1.StateDeprovisioning
 		return actionComplete{}
@@ -222,75 +231,72 @@ func (hsm *hostStateMachine) handlePreparing() actionResult {
 
 	record.Eventf(hsm.host, "PreparingForProvisioning", "ServerID %d %s", hsm.host.Spec.ServerID, hsm.host.Spec.Description)
 
-	actResult := hsm.reconciler.actionPreparing()
+	actResult := hsm.reconciler.actionPreparing(ctx)
 	if _, ok := actResult.(actionComplete); ok {
 		hsm.nextState = infrav1.StateRegistering
 	}
 	return actResult
 }
 
-func (hsm *hostStateMachine) handleRegistering() actionResult {
+func (hsm *hostStateMachine) handleRegistering(ctx context.Context) actionResult {
 	if hsm.provisioningCancelled() {
 		hsm.nextState = infrav1.StateDeprovisioning
 		return actionComplete{}
 	}
 
-	actResult := hsm.reconciler.actionRegistering()
+	actResult := hsm.reconciler.actionRegistering(ctx)
 	if _, ok := actResult.(actionComplete); ok {
 		hsm.nextState = infrav1.StateImageInstalling
 	}
 	return actResult
 }
 
-func (hsm *hostStateMachine) handleImageInstalling() actionResult {
+func (hsm *hostStateMachine) handleImageInstalling(ctx context.Context) actionResult {
 	if hsm.provisioningCancelled() {
 		hsm.nextState = infrav1.StateDeprovisioning
 		return actionComplete{}
 	}
 
-	actResult := hsm.reconciler.actionImageInstalling()
-	if _, ok := actResult.(actionComplete); ok {
-		hsm.nextState = infrav1.StateProvisioning
-	}
-	return actResult
-}
-
-func (hsm *hostStateMachine) handleProvisioning() actionResult {
-	if hsm.provisioningCancelled() {
-		hsm.nextState = infrav1.StateDeprovisioning
-		return actionComplete{}
-	}
-
-	actResult := hsm.reconciler.actionProvisioning()
-	if _, ok := actResult.(actionComplete); ok {
+	actResult := hsm.reconciler.actionImageInstalling(ctx)
+	switch actResult.(type) {
+	case actionComplete:
 		hsm.nextState = infrav1.StateEnsureProvisioned
+	case actionError:
+		// re-enable rescue system. If installimage failed, then it is likely, that
+		// the next run (without reboot) fails with this error:
+		// ERROR unmounting device(s):
+		// umount: /: target is busy.
+		// Cannot continue, device(s) seem to be in use.
+		// Please unmount used devices manually or reboot the rescuesystem and retry.
+		hsm.nextState = infrav1.StatePreparing
 	}
+
 	return actResult
 }
 
-func (hsm *hostStateMachine) handleEnsureProvisioned() actionResult {
+func (hsm *hostStateMachine) handleEnsureProvisioned(ctx context.Context) actionResult {
 	if hsm.provisioningCancelled() {
 		hsm.nextState = infrav1.StateDeprovisioning
 		return actionComplete{}
 	}
 
-	actResult := hsm.reconciler.actionEnsureProvisioned()
+	actResult := hsm.reconciler.actionEnsureProvisioned(ctx)
 	if _, ok := actResult.(actionComplete); ok {
 		hsm.nextState = infrav1.StateProvisioned
 	}
 	return actResult
 }
 
-func (hsm *hostStateMachine) handleProvisioned() actionResult {
+func (hsm *hostStateMachine) handleProvisioned(ctx context.Context) actionResult {
 	if hsm.provisioningCancelled() {
 		hsm.nextState = infrav1.StateDeprovisioning
 		return actionComplete{}
 	}
-	return hsm.reconciler.actionProvisioned()
+	return hsm.reconciler.actionProvisioned(ctx)
 }
 
-func (hsm *hostStateMachine) handleDeprovisioning() actionResult {
-	actResult := hsm.reconciler.actionDeprovisioning()
+func (hsm *hostStateMachine) handleDeprovisioning(ctx context.Context) actionResult {
+	actResult := hsm.reconciler.actionDeprovisioning(ctx)
 	if _, ok := actResult.(actionComplete); ok {
 		hsm.nextState = infrav1.StateNone
 		return actionComplete{}
@@ -298,8 +304,8 @@ func (hsm *hostStateMachine) handleDeprovisioning() actionResult {
 	return actResult
 }
 
-func (hsm *hostStateMachine) handleDeleting() actionResult {
-	return hsm.reconciler.actionDeleting()
+func (hsm *hostStateMachine) handleDeleting(ctx context.Context) actionResult {
+	return hsm.reconciler.actionDeleting(ctx)
 }
 
 func (hsm *hostStateMachine) provisioningCancelled() bool {

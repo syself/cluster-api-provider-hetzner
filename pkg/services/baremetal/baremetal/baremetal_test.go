@@ -337,7 +337,7 @@ var _ = Describe("chooseHost", func() {
 			testCaseChooseHostWithReason{
 				hosts:            []client.Object{&hostWithNonRaidWwnConfig},
 				expectedHostName: "",
-				expectedReason:   "No available host of 1 found: machine-should-use-swraid-but-only-0-RAID-WWN-in-hbmh: 1",
+				expectedReason:   "No available host of 1 found: machine-should-use-swraid-but-not-enough-RAID-WWNs-in-hbmh: 1",
 				swraid:           1,
 			}),
 		Entry("No host, because invalid RAID config (want no RAID)",

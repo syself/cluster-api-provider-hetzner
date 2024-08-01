@@ -64,6 +64,10 @@ const (
 	errMsgInvalidSSHStdOut             = "invalid output in stdOut: %w"
 	errMsgFailedHandlingIncompleteBoot = "failed to handle incomplete boot: %w"
 	rebootServerStr                    = "RebootBMServer"
+
+	// PostInstallScriptFinished is a marker in the output of installimage. If it is not present,
+	// then install-image failed.
+	PostInstallScriptFinished = "POST_INSTALL_SCRIPT_FINISHED"
 )
 
 var (
@@ -130,7 +134,7 @@ func (s *Service) Reconcile(ctx context.Context) (result reconcile.Result, err e
 	}()
 
 	// reconcile state
-	actResult := hostStateMachine.ReconcileState()
+	actResult := hostStateMachine.ReconcileState(ctx)
 
 	result, err = actResult.Result()
 	if err != nil {
@@ -162,7 +166,9 @@ func SaveHostAndReturn(ctx context.Context, cl client.Client, host *infrav1.Hetz
 	return res, nil
 }
 
-func (s *Service) actionPreparing() actionResult {
+// previous: None
+// next: Registering
+func (s *Service) actionPreparing(_ context.Context) actionResult {
 	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StatePreparing)
 
 	server, err := s.scope.RobotClient.GetBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID)
@@ -238,14 +244,14 @@ func (s *Service) actionPreparing() actionResult {
 	if trimLineBreak(out.StdOut) != "" {
 		// we managed access with ssh - we can do an ssh reboot
 		if err := handleSSHError(sshClient.Reboot()); err != nil {
-			return actionError{err: fmt.Errorf("failed to reboot server via ssh: %w", err)}
+			return actionError{err: fmt.Errorf("failed to reboot server via ssh (actionPreparing): %w", err)}
 		}
 		msg := "Rebooting into rescue mode."
 		createSSHRebootEvent(s.scope.HetznerBareMetalHost, msg)
 		// we immediately set an error message in the host status to track the reboot we just performed
 		s.scope.HetznerBareMetalHost.SetError(infrav1.ErrorTypeSSHRebootTriggered, fmt.Sprintf("Phase %s, reboot via ssh: %s",
 			s.scope.HetznerBareMetalHost.Spec.Status.ProvisioningState, msg))
-		return actionComplete{}
+		return actionComplete{} // next: Registering
 	}
 
 	// Check if software reboot is available. If it is not, choose hardware reboot.
@@ -259,7 +265,7 @@ func (s *Service) actionPreparing() actionResult {
 	msg := createRebootEvent(s.scope.HetznerBareMetalHost, rebootType, "Reboot into rescue system.")
 	// we immediately set an error message in the host status to track the reboot we just performed
 	s.scope.HetznerBareMetalHost.SetError(errorType, msg)
-	return actionComplete{}
+	return actionComplete{} // next: Registering
 }
 
 func (s *Service) enforceRescueMode() error {
@@ -564,7 +570,9 @@ func (s *Service) ensureRescueMode() error {
 	return nil
 }
 
-func (s *Service) actionRegistering() actionResult {
+// previous: Preparing
+// next: ImageInstalling
+func (s *Service) actionRegistering(_ context.Context) actionResult {
 	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StateRegistering)
 
 	creds := sshclient.CredentialsFromSecret(s.scope.RescueSSHSecret, s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef)
@@ -687,7 +695,7 @@ func (s *Service) actionRegistering() actionResult {
 
 	conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.RootDeviceHintsValidatedCondition)
 	s.scope.HetznerBareMetalHost.ClearError()
-	return actionComplete{}
+	return actionComplete{} // next: ImageInstalling
 }
 
 func validateRootDeviceWwnsAreSubsetOfExistingWwns(rootDeviceHints *infrav1.RootDeviceHints, storageDevices []infrav1.Storage) error {
@@ -722,8 +730,8 @@ func getHardwareDetails(sshClient sshclient.Client) (infrav1.HardwareDetails, er
 	}
 
 	// remove names of storage devices because they might change
-	for _, device := range storage {
-		device.Name = ""
+	for i := range storage {
+		storage[i].Name = ""
 	}
 
 	cpu, err := obtainHardwareDetailsCPU(sshClient)
@@ -1046,7 +1054,9 @@ func validateStdOut(stdOut string) (string, error) {
 	return stdOut, nil
 }
 
-func (s *Service) actionImageInstalling() actionResult {
+// previous: Registering
+// next: EnsureProvisioned
+func (s *Service) actionImageInstalling(ctx context.Context) actionResult {
 	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StateImageInstalling)
 
 	creds := sshclient.CredentialsFromSecret(s.scope.RescueSSHSecret, s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef)
@@ -1112,11 +1122,10 @@ func (s *Service) actionImageInstalling() actionResult {
 		return actionError{err: fmt.Errorf("failed to get running installimage processes: %q %q %w", out.StdOut, out.StdErr, out.Err)}
 	}
 	if out.StdOut != "" {
-		record.Warnf(s.scope.HetznerBareMetalHost, "InstallImageAlreadyRunning",
-			"installimage is already running:\n%s", out.StdOut)
-		return actionContinue{
-			delay: 10 * time.Second,
-		}
+		// This can happen if the controller was restarted.
+		record.Warn(s.scope.HetznerBareMetalHost, "InstallImageAlreadyRunning",
+			"installimage is already running.")
+		return actionError{err: fmt.Errorf("installimage is already running")}
 	}
 
 	record.Event(s.scope.HetznerBareMetalHost, "InstallImagePreflightCheckSuccessful", "Rescue system reachable, disks look good.")
@@ -1140,10 +1149,38 @@ func (s *Service) actionImageInstalling() actionResult {
 	// create post install script
 	postInstallScript := s.scope.HetznerBareMetalHost.Spec.Status.InstallImage.PostInstallScript
 
-	if postInstallScript != "" {
-		if err := handleSSHError(sshClient.CreatePostInstallScript(postInstallScript)); err != nil {
-			return actionError{err: fmt.Errorf("failed to create post install script %s: %w", postInstallScript, err)}
-		}
+	if !strings.HasPrefix(postInstallScript, "#!/bin/bash") {
+		postInstallScript = fmt.Sprintf("#!/bin/bash\n%s", postInstallScript)
+	}
+
+	cloudInitData, err := s.scope.GetRawBootstrapData(ctx)
+	if err != nil {
+		return actionError{err: fmt.Errorf("failed to get user data: %w", err)}
+	}
+
+	postInstallScript = fmt.Sprintf(`%s
+
+# install cloud-init data
+
+trap 'echo "ERROR: A command has failed. Exiting the script. Line was ($0:$LINENO): $(sed -n "${LINENO}p" "$0")"; exit 3' ERR
+set -Eeuo pipefail
+
+mkdir -p /var/lib/cloud/seed/nocloud-net
+
+cat << 'EOF_POST_INSTALL_SCRIPT' > /var/lib/cloud/seed/nocloud-net/meta-data
+local-hostname: %s
+EOF_POST_INSTALL_SCRIPT
+
+cat << 'EOF_POST_INSTALL_SCRIPT' > /var/lib/cloud/seed/nocloud-net/user-data
+%s
+EOF_POST_INSTALL_SCRIPT
+
+echo %q
+# end of install cloud-init data
+`, postInstallScript, s.scope.Hostname(), cloudInitData, PostInstallScriptFinished)
+
+	if err := handleSSHError(sshClient.CreatePostInstallScript(postInstallScript)); err != nil {
+		return actionError{err: fmt.Errorf("failed to create post install script %s: %w", postInstallScript, err)}
 	}
 
 	record.Event(s.scope.HetznerBareMetalHost, "InstallingMachineImageStarted",
@@ -1160,10 +1197,14 @@ func (s *Service) actionImageInstalling() actionResult {
 	// Execute install image
 	out = sshClient.ExecuteInstallImage(postInstallScript != "")
 	if out.Err != nil {
-		record.Warnf(s.scope.HetznerBareMetalHost, "ExecuteInstallImageFailed", out.StdOut)
+		record.Warnf(s.scope.HetznerBareMetalHost, "ExecuteInstallImageFailed", out.String())
 		return actionError{err: fmt.Errorf("failed to execute installimage: %w", out.Err)}
 	}
-
+	if !strings.Contains(out.StdOut, PostInstallScriptFinished) {
+		record.Warnf(s.scope.HetznerBareMetalHost, "ExecuteInstallImageDidNotFinish", out.StdOut)
+		return actionError{err: fmt.Errorf("did not find marker %q in stdout. Failed to execute installimage",
+			PostInstallScriptFinished)}
+	}
 	record.Eventf(s.scope.HetznerBareMetalHost, "ExecuteInstallImageSucceeded", out.StdOut)
 	s.scope.Logger.Info("ExecuteInstallImageSucceeded", "stdout", out.StdOut, "stderr", out.StdErr)
 
@@ -1174,17 +1215,19 @@ func (s *Service) actionImageInstalling() actionResult {
 		return actionError{err: fmt.Errorf("failed to update name of host in robot API: %w", err)}
 	}
 
-	if err := handleSSHError(sshClient.Reboot()); err != nil {
+	out = sshClient.Reboot()
+	if err := handleSSHError(out); err != nil {
+		err = fmt.Errorf("failed to reboot server (after install-image): %w", err)
 		record.Warn(s.scope.HetznerBareMetalHost, "RebootFailed", err.Error())
-		return actionError{err: fmt.Errorf("failed to reboot server: %w", err)}
+		return actionError{err: err}
 	}
-	createSSHRebootEvent(s.scope.HetznerBareMetalHost, "machine image was installed")
+	createSSHRebootEvent(s.scope.HetznerBareMetalHost, "machine image and cloud-init data got installed")
 
 	s.scope.Logger.Info("RebootAfterInstallimageSucceeded", "stdout", out.StdOut, "stderr", out.StdErr)
 
 	// clear potential errors - all done
 	s.scope.HetznerBareMetalHost.ClearError()
-	return actionComplete{}
+	return actionComplete{} // next: ensure-provisioned
 }
 
 func (s *Service) createAutoSetupInput(sshClient sshclient.Client) (autoSetupInput, actionResult) {
@@ -1255,129 +1298,6 @@ func getDeviceNames(wwn []string, storageDevices []infrav1.Storage) []string {
 	return deviceNames
 }
 
-func (s *Service) actionProvisioning() actionResult {
-	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StateProvisioning)
-
-	host := s.scope.HetznerBareMetalHost
-
-	portAfterInstallImage := host.Spec.Status.SSHSpec.PortAfterInstallImage
-	privateKey := sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, host.Spec.Status.SSHSpec.SecretRef).PrivateKey
-	sshClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
-		PrivateKey: privateKey,
-		Port:       portAfterInstallImage,
-		IP:         host.Spec.Status.GetIPAddress(),
-	})
-
-	// check hostname with sshClient
-	wantHostName := s.scope.Hostname()
-
-	out := sshClient.GetHostName()
-
-	if out.Err != nil {
-		msg := fmt.Sprintf("ssh to port %d failed: %s (%s): %v", portAfterInstallImage, out.StdOut, out.StdErr, out.Err)
-		conditions.MarkFalse(host,
-			infrav1.SSHAfterInstallImageSucceededCondition,
-			infrav1.SSHAfterInstallImageFailedReason,
-			clusterv1.ConditionSeverityWarning, msg)
-
-		if time.Now().After(conditions.GetLastTransitionTime(
-			s.scope.HetznerBareMetalHost,
-			infrav1.SSHAfterInstallImageSucceededCondition).Add(7 * time.Minute)) {
-			// We waited some minutes. Still no connection. There seems to something wrong.
-			record.Warn(host, infrav1.SSHAfterInstallImageFailedReason, msg)
-		}
-	} else {
-		conditions.MarkTrue(s.scope.HetznerBareMetalHost,
-			infrav1.SSHAfterInstallImageSucceededCondition)
-	}
-
-	if trimLineBreak(out.StdOut) != wantHostName {
-		// Give the reboot some time until it takes effect. Otherwise the ssh connection gets done too fast,
-		// and it will connect to the machine before it gets rebooted.
-		if s.hasJustRebooted() {
-			s.scope.Logger.Info("hasJustRebooted is true", "LastUpdated", host.Spec.Status.LastUpdated)
-			return actionContinue{delay: 2 * time.Second}
-		}
-
-		privateKeyRescue := sshclient.CredentialsFromSecret(s.scope.RescueSSHSecret, s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef).PrivateKey
-		rescueSSHClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
-			PrivateKey: privateKeyRescue,
-			Port:       rescuePort,
-			IP:         host.Spec.Status.GetIPAddress(),
-		})
-
-		isSSHTimeoutError, isSSHConnectionRefusedError, err := analyzeSSHOutputInstallImage(out, rescueSSHClient, portAfterInstallImage)
-		if err != nil {
-			if errors.Is(err, errUnexpectedHostName) {
-				// One possible reason: The machine gets used by a second wl-cluster
-				record.Warn(host, "UnexpectedHostName",
-					fmt.Sprintf("Provisioning: wanted %q. %s", wantHostName, err.Error()))
-			}
-			return actionError{err: fmt.Errorf("failed to handle incomplete boot - installImage: %w", err)}
-		}
-		failed, err := s.handleIncompleteBoot(false, isSSHTimeoutError, isSSHConnectionRefusedError)
-		if failed {
-			return s.recordActionFailure(infrav1.ProvisioningError, err.Error())
-		}
-		if err != nil {
-			return actionError{err: fmt.Errorf(errMsgFailedHandlingIncompleteBoot, err)}
-		}
-		return actionContinue{delay: 10 * time.Second}
-	}
-
-	// we are in correct boot and can start provisioning
-	if failedAction := s.provision(sshClient); failedAction != nil {
-		return failedAction
-	}
-
-	host.ClearError()
-	return actionComplete{}
-}
-
-func (s *Service) provision(sshClient sshclient.Client) actionResult {
-	{
-		out := sshClient.EnsureCloudInit()
-		if err := handleSSHError(out); err != nil {
-			return actionError{err: fmt.Errorf("failed to ensure cloud init: %w", err)}
-		}
-
-		if trimLineBreak(out.StdOut) == "" {
-			msg := "cloud init not installed"
-			conditions.MarkFalse(
-				s.scope.HetznerBareMetalHost,
-				infrav1.ProvisionSucceededCondition,
-				infrav1.CloudInitNotInstalledReason,
-				clusterv1.ConditionSeverityError,
-				msg,
-			)
-			return s.recordActionFailure(infrav1.ProvisioningError, msg)
-		}
-	}
-
-	if err := handleSSHError(sshClient.CreateNoCloudDirectory()); err != nil {
-		return actionError{err: fmt.Errorf("failed to create no cloud directory: %w", err)}
-	}
-
-	if err := handleSSHError(sshClient.CreateMetaData(s.scope.Hostname())); err != nil {
-		return actionError{err: fmt.Errorf("failed to create meta data: %w", err)}
-	}
-
-	userData, err := s.scope.GetRawBootstrapData(context.TODO())
-	if err != nil {
-		return actionError{err: fmt.Errorf("failed to get user data: %w", err)}
-	}
-
-	if err := handleSSHError(sshClient.CreateUserData(string(userData))); err != nil {
-		return actionError{err: fmt.Errorf("failed to create user data: %w", err)}
-	}
-
-	if err := handleSSHError(sshClient.Reboot()); err != nil {
-		return actionError{err: fmt.Errorf("failed to reboot: %w", err)}
-	}
-	createSSHRebootEvent(s.scope.HetznerBareMetalHost, "UserData of cloud-init was created")
-	return nil
-}
-
 func analyzeSSHOutputInstallImage(out sshclient.Output, sshClient sshclient.Client, port int) (isTimeout, isConnectionRefused bool, reterr error) {
 	// check err
 	if out.Err != nil {
@@ -1441,7 +1361,7 @@ func verifyConnectionRefused(sshClient sshclient.Client, port int) bool {
 	return true
 }
 
-func (s *Service) actionEnsureProvisioned() (ar actionResult) {
+func (s *Service) actionEnsureProvisioned(_ context.Context) (ar actionResult) {
 	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StateEnsureProvisioned)
 	sshClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
 		PrivateKey: sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.SecretRef).PrivateKey,
@@ -1482,9 +1402,11 @@ func (s *Service) actionEnsureProvisioned() (ar actionResult) {
 	wantHostName := s.scope.Hostname()
 
 	out := sshClient.GetHostName()
-	if trimLineBreak(out.StdOut) != wantHostName {
+	hostname := trimLineBreak(out.StdOut)
+	if hostname != wantHostName {
 		// give the reboot some time until it takes effect
 		if s.hasJustRebooted() {
+			s.scope.Logger.Info("ensureProvisioned: hasJustRebooted. Retrying...", "hostname", hostname)
 			return actionContinue{delay: 2 * time.Second}
 		}
 
@@ -1500,6 +1422,7 @@ func (s *Service) actionEnsureProvisioned() (ar actionResult) {
 		// A connection failed error could mean that cloud init is still running (if cloudInit introduces a new port)
 		if isSSHConnectionRefusedError {
 			if actionRes := s.handleConnectionRefused(); actionRes != nil {
+				s.scope.Logger.Info("ensureProvisioned: ConnectionRefused", "actionResult", actionRes)
 				return actionRes
 			}
 		}
@@ -1515,8 +1438,9 @@ func (s *Service) actionEnsureProvisioned() (ar actionResult) {
 	}
 
 	// Check the status of cloud init
-	actResult, _ := s.checkCloudInitStatus(sshClient)
+	actResult, msg, _ := s.checkCloudInitStatus(sshClient)
 	if _, complete := actResult.(actionComplete); !complete {
+		record.Event(s.scope.HetznerBareMetalHost, "CloudInitStillRunning", msg)
 		return actResult
 	}
 
@@ -1526,6 +1450,7 @@ func (s *Service) actionEnsureProvisioned() (ar actionResult) {
 	if s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterInstallImage == s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterCloudInit {
 		actResult = s.handleCloudInitNotStarted()
 		if _, complete := actResult.(actionComplete); !complete {
+			s.scope.Logger.Info("ensureProvisioned: handleCloudInitNotStarted", "actResult", actResult)
 			return actResult
 		}
 	}
@@ -1533,7 +1458,7 @@ func (s *Service) actionEnsureProvisioned() (ar actionResult) {
 	record.Event(s.scope.HetznerBareMetalHost, "ServerProvisioned", "server successfully provisioned")
 	conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
 	s.scope.HetznerBareMetalHost.ClearError()
-	return actionComplete{}
+	return actionComplete{} // next: EnsureProvisioned
 }
 
 // handleConnectionRefused checks cloud init status via ssh to the old ssh port if the new ssh port
@@ -1548,7 +1473,7 @@ func (s *Service) handleConnectionRefused() actionResult {
 		Port:       s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterInstallImage,
 		IP:         s.scope.HetznerBareMetalHost.Spec.Status.GetIPAddress(),
 	})
-	actResult, err := s.checkCloudInitStatus(oldSSHClient)
+	actResult, _, err := s.checkCloudInitStatus(oldSSHClient)
 	// If this ssh client also gives an error, then we go back to analyzing the error of the first ssh call
 	// This happens in the statement below this one.
 	if err == nil {
@@ -1569,40 +1494,42 @@ func (s *Service) handleConnectionRefused() actionResult {
 	return nil
 }
 
-func (s *Service) checkCloudInitStatus(sshClient sshclient.Client) (actionResult, error) {
+func (s *Service) checkCloudInitStatus(sshClient sshclient.Client) (actionResult, string, error) {
 	out := sshClient.CloudInitStatus()
 	// This error is interesting for further logic and might happen because of the fact that the sshClient has the wrong port
 	if out.Err != nil {
-		return actionError{err: fmt.Errorf("failed to get cloud init status: %w", out.Err)}, out.Err
+		return actionError{err: fmt.Errorf("failed to get cloud init status: %w", out.Err)}, "", out.Err
 	}
 
 	stdOut := trimLineBreak(out.StdOut)
 	switch {
 	case strings.Contains(stdOut, "status: running"):
 		// Cloud init is still running
-		return actionContinue{delay: 5 * time.Second}, nil
+		return actionContinue{delay: 5 * time.Second}, "cloud-init still running", nil
 	case strings.Contains(stdOut, "status: disabled"):
 		// Reboot needs to be triggered again - did not start yet
 		out = sshClient.Reboot()
+		msg := "cloud-init-status was 'disabled'"
 		if err := handleSSHError(out); err != nil {
-			return actionError{err: fmt.Errorf("failed to reboot: %w", err)}, nil
+			return actionError{err: fmt.Errorf("failed to reboot (%s): %w", msg, err)}, "", nil
 		}
+		createSSHRebootEvent(s.scope.HetznerBareMetalHost, msg)
 		s.scope.HetznerBareMetalHost.SetError(infrav1.ErrorTypeSSHRebootTriggered, "ssh reboot just triggered")
-		record.Event(s.scope.HetznerBareMetalHost, "SSHRebootAfterCloudInitStatusDisabled", "cloud-init status was 'disabled'")
-		return actionContinue{delay: 5 * time.Second}, nil
+		record.Warn(s.scope.HetznerBareMetalHost, "SSHRebootAfterCloudInitStatusDisabled", msg)
+		return actionContinue{delay: 5 * time.Second}, "cloud-init was disabled. Triggered a reboot again", nil
 	case strings.Contains(stdOut, "status: done"):
-
 		s.scope.HetznerBareMetalHost.ClearError()
+		return actionComplete{}, "cloud-init is done", nil
 	case strings.Contains(stdOut, "status: error"):
 		record.Warn(s.scope.HetznerBareMetalHost, "CloudInitFailed", "cloud init returned status error")
-		return s.recordActionFailure(infrav1.FatalError, "cloud init returned status error"), nil
+		return s.recordActionFailure(infrav1.FatalError, "cloud init returned status error"), "", nil
 	default:
 		// Errors are handled after stdOut in this case, as status: error returns an exited with status 1 error
 		if err := handleSSHError(out); err != nil {
-			return actionError{err: fmt.Errorf("failed to get cloud init status: %w", err)}, nil
+			return actionError{err: fmt.Errorf("failed to get cloud init status: %w", err)}, "", nil
 		}
+		return actionContinue{delay: 5 * time.Second}, fmt.Sprintf("cloud-init unknown output: %s. %s", out.StdOut, out.StdErr), nil
 	}
-	return actionComplete{}, nil
 }
 
 func (s *Service) handleCloudInitNotStarted() actionResult {
@@ -1629,8 +1556,9 @@ func (s *Service) handleCloudInitNotStarted() actionResult {
 		}
 		out = oldSSHClient.Reboot()
 		if err := handleSSHError(out); err != nil {
-			return actionError{err: fmt.Errorf("failed to reboot: %w", err)}
+			return actionError{err: fmt.Errorf("failed to reboot (handleCloudInitNotStarted): %w", err)}
 		}
+		createSSHRebootEvent(s.scope.HetznerBareMetalHost, "machine image and cloud-init data got installed")
 		record.Eventf(s.scope.HetznerBareMetalHost,
 			"SSHRebootAfterCloudInitSigTermFound", "rebooted via ssh after cloud init logs contained sigterm: %s", trimLineBreak(out.StdOut))
 		return actionContinue{delay: 10 * time.Second}
@@ -1675,7 +1603,9 @@ func analyzeSSHOutputProvisioned(out sshclient.Output) (isTimeout, isConnectionR
 	return false, false, fmt.Errorf("%w: %s", errUnexpectedHostName, trimLineBreak(out.StdOut))
 }
 
-func (s *Service) actionProvisioned() actionResult {
+// previous: EnsureProvisioned
+// next: Stays in Provisioned (final state)
+func (s *Service) actionProvisioned(_ context.Context) actionResult {
 	// set host to provisioned
 	conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
 
@@ -1730,15 +1660,16 @@ func (s *Service) actionProvisioned() actionResult {
 			return actionError{err: err}
 		}
 
-		createSSHRebootEvent(s.scope.HetznerBareMetalHost, "reboot annotation was set")
+		createSSHRebootEvent(s.scope.HetznerBareMetalHost, "Rebooting because annotation was set")
 		s.scope.HetznerBareMetalHost.Spec.Status.Rebooted = true
 		return actionContinue{delay: 10 * time.Second}
 	}
 
-	return actionComplete{}
+	return actionComplete{} // Stays in Provisioned (final state)
 }
 
-func (s *Service) actionDeprovisioning() actionResult {
+// next: None
+func (s *Service) actionDeprovisioning(_ context.Context) actionResult {
 	// Update name in robot API
 	if _, err := s.scope.RobotClient.SetBMServerName(
 		s.scope.HetznerBareMetalHost.Spec.ServerID,
@@ -1772,11 +1703,10 @@ func (s *Service) actionDeprovisioning() actionResult {
 		s.scope.HetznerBareMetalHost.ClearError()
 		conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
 	}
-
-	return actionComplete{}
+	return actionComplete{} // next: None
 }
 
-func (s *Service) actionDeleting() actionResult {
+func (s *Service) actionDeleting(_ context.Context) actionResult {
 	s.scope.HetznerBareMetalHost.Finalizers = utils.FilterStringFromList(s.scope.HetznerBareMetalHost.Finalizers, infrav1.BareMetalHostFinalizer)
 	return deleteComplete{}
 }

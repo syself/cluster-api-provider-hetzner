@@ -220,7 +220,7 @@ spec:
                     type: array
                   postInstallScript:
                     description: |-
-                      PostInstallScript is used for configuring commands that should be executed after installimage.
+                      PostInstallScript (Bash) is used for configuring commands that should be executed after installimage.
                       It is passed along with the installimage command.
                     type: string
                   swraid:

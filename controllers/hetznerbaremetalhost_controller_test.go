@@ -36,6 +36,7 @@ import (
 	robotmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/robot"
 	sshmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/ssh"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
+	hostpkg "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/host"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
 )
@@ -162,10 +163,6 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 		configureRescueSSHClient(rescueSSHClient)
 
 		osSSHClientAfterInstallImage.On("Reboot").Return(sshclient.Output{})
-		osSSHClientAfterInstallImage.On("CreateNoCloudDirectory").Return(sshclient.Output{})
-		osSSHClientAfterInstallImage.On("CreateMetaData", mock.Anything).Return(sshclient.Output{})
-		osSSHClientAfterInstallImage.On("CreateUserData", mock.Anything).Return(sshclient.Output{})
-		osSSHClientAfterInstallImage.On("EnsureCloudInit").Return(sshclient.Output{StdOut: "cloud-init"})
 		osSSHClientAfterInstallImage.On("CloudInitStatus").Return(sshclient.Output{StdOut: "status: done"})
 		osSSHClientAfterInstallImage.On("CheckCloudInitLogsForSigTerm").Return(sshclient.Output{})
 		osSSHClientAfterInstallImage.On("ResetKubeadm").Return(sshclient.Output{})
@@ -895,7 +892,7 @@ name="eth0" model="Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express
 	sshClient.On("CreateAutoSetup", mock.Anything).Return(sshclient.Output{})
 	sshClient.On("UntarTGZ").Return(sshclient.Output{})
 	sshClient.On("CreatePostInstallScript", mock.Anything).Return(sshclient.Output{})
-	sshClient.On("ExecuteInstallImage", mock.Anything).Return(sshclient.Output{})
+	sshClient.On("ExecuteInstallImage", mock.Anything).Return(sshclient.Output{StdOut: hostpkg.PostInstallScriptFinished})
 	sshClient.On("Reboot").Return(sshclient.Output{})
 	sshClient.On("GetCloudInitOutput").Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"})
 	sshClient.On("DetectLinuxOnAnotherDisk", mock.Anything).Return(sshclient.Output{})

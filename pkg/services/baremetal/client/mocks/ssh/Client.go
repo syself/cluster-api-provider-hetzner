@@ -246,97 +246,6 @@ func (_c *Client_CreateAutoSetup_Call) RunAndReturn(run func(string) sshclient.O
 	return _c
 }
 
-// CreateMetaData provides a mock function with given fields: hostName
-func (_m *Client) CreateMetaData(hostName string) sshclient.Output {
-	ret := _m.Called(hostName)
-
-	if len(ret) == 0 {
-		panic("no return value specified for CreateMetaData")
-	}
-
-	var r0 sshclient.Output
-	if rf, ok := ret.Get(0).(func(string) sshclient.Output); ok {
-		r0 = rf(hostName)
-	} else {
-		r0 = ret.Get(0).(sshclient.Output)
-	}
-
-	return r0
-}
-
-// Client_CreateMetaData_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateMetaData'
-type Client_CreateMetaData_Call struct {
-	*mock.Call
-}
-
-// CreateMetaData is a helper method to define mock.On call
-//   - hostName string
-func (_e *Client_Expecter) CreateMetaData(hostName interface{}) *Client_CreateMetaData_Call {
-	return &Client_CreateMetaData_Call{Call: _e.mock.On("CreateMetaData", hostName)}
-}
-
-func (_c *Client_CreateMetaData_Call) Run(run func(hostName string)) *Client_CreateMetaData_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(string))
-	})
-	return _c
-}
-
-func (_c *Client_CreateMetaData_Call) Return(_a0 sshclient.Output) *Client_CreateMetaData_Call {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *Client_CreateMetaData_Call) RunAndReturn(run func(string) sshclient.Output) *Client_CreateMetaData_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// CreateNoCloudDirectory provides a mock function with given fields:
-func (_m *Client) CreateNoCloudDirectory() sshclient.Output {
-	ret := _m.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for CreateNoCloudDirectory")
-	}
-
-	var r0 sshclient.Output
-	if rf, ok := ret.Get(0).(func() sshclient.Output); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(sshclient.Output)
-	}
-
-	return r0
-}
-
-// Client_CreateNoCloudDirectory_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateNoCloudDirectory'
-type Client_CreateNoCloudDirectory_Call struct {
-	*mock.Call
-}
-
-// CreateNoCloudDirectory is a helper method to define mock.On call
-func (_e *Client_Expecter) CreateNoCloudDirectory() *Client_CreateNoCloudDirectory_Call {
-	return &Client_CreateNoCloudDirectory_Call{Call: _e.mock.On("CreateNoCloudDirectory")}
-}
-
-func (_c *Client_CreateNoCloudDirectory_Call) Run(run func()) *Client_CreateNoCloudDirectory_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run()
-	})
-	return _c
-}
-
-func (_c *Client_CreateNoCloudDirectory_Call) Return(_a0 sshclient.Output) *Client_CreateNoCloudDirectory_Call {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *Client_CreateNoCloudDirectory_Call) RunAndReturn(run func() sshclient.Output) *Client_CreateNoCloudDirectory_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // CreatePostInstallScript provides a mock function with given fields: data
 func (_m *Client) CreatePostInstallScript(data string) sshclient.Output {
 	ret := _m.Called(data)
@@ -379,52 +288,6 @@ func (_c *Client_CreatePostInstallScript_Call) Return(_a0 sshclient.Output) *Cli
 }
 
 func (_c *Client_CreatePostInstallScript_Call) RunAndReturn(run func(string) sshclient.Output) *Client_CreatePostInstallScript_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// CreateUserData provides a mock function with given fields: userData
-func (_m *Client) CreateUserData(userData string) sshclient.Output {
-	ret := _m.Called(userData)
-
-	if len(ret) == 0 {
-		panic("no return value specified for CreateUserData")
-	}
-
-	var r0 sshclient.Output
-	if rf, ok := ret.Get(0).(func(string) sshclient.Output); ok {
-		r0 = rf(userData)
-	} else {
-		r0 = ret.Get(0).(sshclient.Output)
-	}
-
-	return r0
-}
-
-// Client_CreateUserData_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateUserData'
-type Client_CreateUserData_Call struct {
-	*mock.Call
-}
-
-// CreateUserData is a helper method to define mock.On call
-//   - userData string
-func (_e *Client_Expecter) CreateUserData(userData interface{}) *Client_CreateUserData_Call {
-	return &Client_CreateUserData_Call{Call: _e.mock.On("CreateUserData", userData)}
-}
-
-func (_c *Client_CreateUserData_Call) Run(run func(userData string)) *Client_CreateUserData_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(string))
-	})
-	return _c
-}
-
-func (_c *Client_CreateUserData_Call) Return(_a0 sshclient.Output) *Client_CreateUserData_Call {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *Client_CreateUserData_Call) RunAndReturn(run func(string) sshclient.Output) *Client_CreateUserData_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -518,51 +381,6 @@ func (_c *Client_DownloadImage_Call) Return(_a0 sshclient.Output) *Client_Downlo
 }
 
 func (_c *Client_DownloadImage_Call) RunAndReturn(run func(string, string) sshclient.Output) *Client_DownloadImage_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// EnsureCloudInit provides a mock function with given fields:
-func (_m *Client) EnsureCloudInit() sshclient.Output {
-	ret := _m.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for EnsureCloudInit")
-	}
-
-	var r0 sshclient.Output
-	if rf, ok := ret.Get(0).(func() sshclient.Output); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(sshclient.Output)
-	}
-
-	return r0
-}
-
-// Client_EnsureCloudInit_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'EnsureCloudInit'
-type Client_EnsureCloudInit_Call struct {
-	*mock.Call
-}
-
-// EnsureCloudInit is a helper method to define mock.On call
-func (_e *Client_Expecter) EnsureCloudInit() *Client_EnsureCloudInit_Call {
-	return &Client_EnsureCloudInit_Call{Call: _e.mock.On("EnsureCloudInit")}
-}
-
-func (_c *Client_EnsureCloudInit_Call) Run(run func()) *Client_EnsureCloudInit_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run()
-	})
-	return _c
-}
-
-func (_c *Client_EnsureCloudInit_Call) Return(_a0 sshclient.Output) *Client_EnsureCloudInit_Call {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *Client_EnsureCloudInit_Call) RunAndReturn(run func() sshclient.Output) *Client_EnsureCloudInit_Call {
 	_c.Call.Return(run)
 	return _c
 }

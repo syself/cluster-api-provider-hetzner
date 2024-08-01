@@ -176,6 +176,30 @@ type Output struct {
 	Err    error
 }
 
+func (o Output) String() string {
+	s := make([]string, 0, 3)
+	stdout := strings.TrimSpace(o.StdOut)
+	if stdout != "" {
+		s = append(s, stdout)
+	}
+	stderr := strings.TrimSpace(o.StdErr)
+	if stderr != "" {
+		if len(s) > 0 {
+			stderr = "Stderr: " + stderr
+		}
+		s = append(s, stderr)
+	}
+	if o.Err != nil {
+		e := o.Err.Error()
+		e = strings.TrimSpace(e)
+		if len(s) > 0 {
+			e = "Err: " + e
+		}
+		s = append(s, e)
+	}
+	return strings.Join(s, ". ")
+}
+
 // Client is the interface defining all functions necessary to talk to a bare metal server via SSH.
 type Client interface {
 	GetHostName() Output
@@ -196,10 +220,6 @@ type Client interface {
 	CreatePostInstallScript(data string) Output
 	ExecuteInstallImage(hasPostInstallScript bool) Output
 	Reboot() Output
-	EnsureCloudInit() Output
-	CreateNoCloudDirectory() Output
-	CreateMetaData(hostName string) Output
-	CreateUserData(userData string) Output
 	CloudInitStatus() Output
 	CheckCloudInitLogsForSigTerm() Output
 	CleanCloudInitLogs() Output
@@ -326,7 +346,7 @@ func (c *sshClient) GetHardwareDetailsCPUCores() Output {
 
 // GetHardwareDetailsDebug implements the GetHardwareDetailsDebug method of the SSHClient interface.
 func (c *sshClient) GetHardwareDetailsDebug() Output {
-	return c.runSSH(`ip a; echo ==========----------==========; 
+	return c.runSSH(`ip a; echo ==========----------==========;
 	ethtool "*"; echo ==========----------==========;
 	lspci; echo ==========----------==========;
 	`)
@@ -362,7 +382,7 @@ EOF_VIA_SSH`, data))
 	if out.Err != nil || out.StdErr != "" {
 		return out
 	}
-	return c.runSSH(`chmod +x /root/post-install.sh . `)
+	return c.runSSH(`chmod +x /root/post-install.sh`)
 }
 
 // GetRunningInstallImageProcesses returns the running installimage processes. Output.StdOut is empty if no processes are running.
@@ -430,30 +450,6 @@ func (c *sshClient) Reboot() Output {
 		return Output{}
 	}
 	return out
-}
-
-// EnsureCloudInit implements the EnsureCloudInit method of the SSHClient interface.
-func (c *sshClient) EnsureCloudInit() Output {
-	return c.runSSH(`command -v cloud-init`)
-}
-
-// CreateNoCloudDirectory implements the CreateNoCloudDirectory method of the SSHClient interface.
-func (c *sshClient) CreateNoCloudDirectory() Output {
-	return c.runSSH(`mkdir -p /var/lib/cloud/seed/nocloud-net`)
-}
-
-// CreateMetaData implements the CreateMetaData method of the SSHClient interface.
-func (c *sshClient) CreateMetaData(hostName string) Output {
-	return c.runSSH(fmt.Sprintf(`cat << 'EOF_VIA_SSH' > /var/lib/cloud/seed/nocloud-net/meta-data
-local-hostname: %s
-EOF_VIA_SSH`, hostName))
-}
-
-// CreateUserData implements the CreateUserData method of the SSHClient interface.
-func (c *sshClient) CreateUserData(userData string) Output {
-	return c.runSSH(fmt.Sprintf(`cat << 'EOF_VIA_SSH' > /var/lib/cloud/seed/nocloud-net/user-data
-%s
-EOF_VIA_SSH`, userData))
 }
 
 // CloudInitStatus implements the CloudInitStatus method of the SSHClient interface.
