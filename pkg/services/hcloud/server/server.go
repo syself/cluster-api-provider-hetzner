@@ -189,10 +189,10 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	return res, nil
 }
 
-// implments setting rate limit  on hcloudmachine
+// implments setting rate limit  on hcloudmachine.
 func handleRateLimit(hm *infrav1.HCloudMachine, err error, functionName string, errMsg string) error {
-	// check for a rate limit exceeded error if the machine is not running
-	if !hm.Status.Ready {
+	// check for a rate limit exceeded error if the machine is not running or if machine has a deletion timestamp
+	if !hm.Status.Ready || !hm.DeletionTimestamp.IsZero() {
 		hcloudutil.HandleRateLimitExceeded(hm, err, functionName)
 		return fmt.Errorf("%s: %w", errMsg, err)
 	}
@@ -586,7 +586,6 @@ func (s *Service) handleServerStatusOff(ctx context.Context, server *hcloud.Serv
 					return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 				}
 				return reconcile.Result{}, handleRateLimit(s.scope.HCloudMachine, err, "PowerOnServer", "failed to power on server")
-
 			}
 		} else {
 			// Timed out. Set failure reason
