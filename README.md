@@ -42,25 +42,25 @@
 
 The Cluster API Provider Hetzner (CAPH) provides a way to declaratively create and manage infrastructure on Hetzner, in a Kubernetes-native way. It extends the Kubernetes API with Custom Resource Definitions (CRDs) allowing you to interact with clusters in the same fashion you interact with workload.
 
-The core benefits include:
+Key benefits include:
 
-- **Self-healing**: CAPH and CAPI controllers react to every change in your infrastructure, identifying and solving issues without human intervention
+- **Self-healing**: CAPH and CAPI controllers react to every change in your infrastructure, identifying and resolving issues without human intervention
 - **Declarative**: Specify the desired state of your infrastructure and let the operators do the rest, ensuring repeatability and idempotency
-- **Kubernetes native**: Everything is a Kubernetes resource, meaning you can use tools you are already familiar with while working with CAPH
+- **Kubernetes native**: Everything is a Kubernetes resource, meaning you can use tools you're already familiar with while working with CAPH
 
 CAPH enables you to have DIY Kubernetes on Hetzner at any scale, with full control over your infrastructure and clusters configuration.
 
-If you want a batteries-included solution instead, you can try [Syself](https://syself.com) 14 days for free.
+If you want a batteries-included solution instead, you can try [Syself](https://syself.com) free for 14 days.
 
 ## 📖 Documentation
 
-Documentation can be found at [caph.syself.com](https://caph.syself.com). You can contribute to it by changing the content at the `/docs` directory.
+Documentation can be found at [caph.syself.com](https://caph.syself.com). You can contribute to it by modifying the contents of the `/docs` directory.
 
 ## 🚀 Getting Started
 
-The best way to get started with CAPH is spinning up a cluster. For that you can follow our [**Managing Kubernetes on Hetzner with Cluster API**](https://community.hetzner.com/tutorials/kubernetes-on-hetzner-with-cluster-api) article featured in the Hetzner Community Tutorials.
+The best way to get started with CAPH is to spin up a cluster. For that you can follow our [**Managing Kubernetes on Hetzner with Cluster API**](https://community.hetzner.com/tutorials/kubernetes-on-hetzner-with-cluster-api) article featured in the Hetzner Community Tutorials.
 
-Additional resources from the docs:
+Additional resources from the documentation:
 
 - [**Cluster API Provider Hetzner 15 Minute Tutorial**](https://syself.com/docs/caph/getting-started/quickstart): Set up a bootstrap cluster using Kind and deploy a Kubernetes cluster on Hetzner.
 - [**Develop and test Kubernetes clusters with Tilt**](https://syself.com/docs/caph/developers/development-guide): Start using Tilt for rapid testing of various cluster flavors, like with/without a private network or bare metal.
@@ -106,19 +106,19 @@ Cluster API Provider Hetzner relies on a few prerequisites that must be already 
 
 Reference images are available in kubernetes-sigs/image-builder and [templates/node-image](/templates/node-image).
 
-If pre-installation of these prerequisites isn't possible, [custom scripts can be deployed](/docs/caph/02-topics/02-node-image) through the Kubeadm config.
+If it's not possible to pre-install these prerequisites, [custom scripts can be deployed](/docs/caph/02-topics/02-node-image) through the kubeadm config.
 
 In case you want a solution with managed node images, [Syself](https://syself.com) might be interesting for you.
 
 ## 🤝 Getting Involved and Contributing
 
-We, maintainers and the community, welcome any contributions to Cluster API Provider Hetzner. For suggestions, contributions, and assistance, contact the maintainers anytime.
+We, the maintainers and the community, welcome any contributions to Cluster API Provider Hetzner. Feel free to contact the maintainers for suggestions, contributions and help.
 
 To set up your environment, refer to the [development guide](https://syself.com/docs/caph/developers/development-guide).
 
 For new contributors, check out issues tagged as [`good first issue`][good_first_issue]. These are typically smaller in scope and great for getting familiar with the codebase.
 
-We encourage **all** active community participants to act as if they were maintainers, even without "official" write permissions. This is a community effort serving the Kubernetes community.
+We encourage **all** active community members to act as if they were maintainers, even without "official" write permissions. This is a collaborative effort serving the Kubernetes community.
 
 If you have an active interest and you want to get involved, you have real power! Don't assume that the only people who can get things done around here are the "maintainers".
 
