@@ -9,6 +9,8 @@
 <a href="https://cluster-api.sigs.k8s.io/">Cluster API Book</a>
 </div>
 
+⭐ Consider leaving us a star — it motivates us a lot!
+
 ---
 
 <div align="center">
@@ -22,20 +24,30 @@
 
 <br>
 
-The Kubernetes Cluster API Provider Hetzner (CAPH) enables declarative provisioning Kubernetes clusters at any scale on [Hetzner infrastructure](https://hetzner.cloud).
+## Table of Contents
+- [What is CAPH](#-what-is-the-cluster-api-provider-hetzner)
+- [Documentation](#-documentation)
+- [Getting Started](#-getting-started)
+- [Version Compatibility](#%EF%B8%8F-compatibility-with-cluster-api-and-kubernetes-versions)
+- [Node Images](#-operating-system-images)
+- [Contributing](#-getting-involved-and-contributing)
+- [License](#-contact)
+- [License](#-license)
 
-With CAPH, you can manage highly-available Kubernetes clusters on both bare metal and cloud instances, leveraging the Cluster API to handle creation, updates, and operations of production-ready, self-managed Kubernetes clusters at any scale.
+## 📰 What is the Cluster API Provider Hetzner?
 
 > [!NOTE]
 > The Cluster API Provider Hetzner is independently maintained by [Syself](https://syself.com) and the community. It is not an official Hetzner project.
 >
 > If you have any questions about this project, please start a conversation in the [Discussions](https://github.com/syself/cluster-api-provider-hetzner/discussions) tab or contact us at [contact@syself.com](mailto:contact@syself.com?subject=cluster-api-provider-hetzner).
 
-## 📰 What is the Cluster API Provider Hetzner?
+The Cluster API Provider Hetzner (CAPH) provides a way to declaratively create and manage infrastructure on Hetzner, in a Kubernetes-native way. It extends the Kubernetes API with Custom Resource Definitions (CRDs) allowing you to interact with clusters in the same fashion you interact with workload.
 
-The [Cluster API][cluster_api] orchestrates infrastructure similarly to how Kubernetes manages containers. It enables declarative creation, configuration and management of clusters, in a Kubernetes-native way.
+The core benefits include:
 
-CAPH is the layer allowing these features to be used on Hetzner, uniting the benefits of declarative infrastructure, cost-effectiveness, and GDPR-compliant European cloud, ensuring that your clusters can automatically adapt to changes and problems.
+- **Self-healing**: CAPH and CAPI controllers react to every change in your infrastructure, identifying and solving issues without human intervention
+- **Declarative**: Specify the desired state of your infrastructure and let the operators do the rest, ensuring repeatability and idempotency
+- **Kubernetes native**: Everything is a Kubernetes resource, meaning you can use tools you are already familiar with while working with CAPH
 
 ## 📖 Documentation
 
@@ -43,9 +55,9 @@ Documentation can be found at [https://syself.com/docs/caph](https://syself.com/
 
 ## 🚀 Getting Started
 
-The best way to get started with CAPH is spinning up a cluster. For that you can follow our [**Managing Kubernetes on Hetzner with Cluster API**](https://community.hetzner.com/tutorials/kubernetes-on-hetzner-with-cluster-api) featured in the Hetzner Community Tutorials.
+The best way to get started with CAPH is spinning up a cluster. For that you can follow our [**Managing Kubernetes on Hetzner with Cluster API**](https://community.hetzner.com/tutorials/kubernetes-on-hetzner-with-cluster-api) article featured in the Hetzner Community Tutorials.
 
-Additional resources:
+Additional resources from the docs:
 
 - [**Cluster API Provider Hetzner 15 Minute Tutorial**](https://syself.com/docs/caph/getting-started/quickstart): Set up a bootstrap cluster using Kind and deploy a Kubernetes cluster on Hetzner.
 - [**Develop and test Kubernetes clusters with Tilt**](https://syself.com/docs/caph/developers/development-guide): Start using Tilt for rapid testing of various cluster flavors, like with/without a private network or bare metal.
@@ -100,7 +112,7 @@ In case you want a solution with managed node images, [Syself](https://syself.co
 
 ---
 
-## 👥 Getting Involved and Contributing
+## 🤝 Getting Involved and Contributing
 
 We, maintainers and the community, welcome any contributions to Cluster API Provider Hetzner. For suggestions, contributions, and assistance, contact the maintainers anytime.
 
@@ -115,13 +127,13 @@ If you have an active interest and you want to get involved, you have real power
 We would also love to add more "official" maintainers, so show us what you can
 do!
 
-## ⚖️ Code of Conduct
+### ⚖️ Code of Conduct
 
 Participation in the Kubernetes community is governed by the [Kubernetes Code of Conduct](/code-of-conduct.md).
 
-## :shipit: GitHub Issues
+### :shipit: GitHub Issues
 
-### 🐛 Bugs
+#### 🐛 Bugs
 
 If you think you have found a bug, please follow these steps:
 
@@ -131,7 +143,7 @@ If you think you have found a bug, please follow these steps:
 - Give it a meaningful title to help others who might be searching for your issue in the future.
 - For questions, reach out to the Cluster API community on the [Kubernetes Slack channel][slack_info].
 
-### 🌟 Tracking New Features
+#### 🌟 Tracking New Features
 
 We also use the issue tracker to track features. If you have an idea for a feature or think that you can help Cluster API Provider Hetzner become even more awesome, then follow these steps:
 
@@ -140,6 +152,15 @@ We also use the issue tracker to track features. If you have an idea for a featu
 - Clearly define the use case with concrete examples, e.g. "I type `this` and Cluster API Provider Hetzner does `that`".
 - Some of our larger features will require some design. If you would like to include a technical design for your feature, please include it in the issue.
 - Once the new feature is well understood and the design is agreed upon, we can start coding. We would love for you to take part in this process, so we encourage you to take the lead and start coding it yourself. Please open a **WIP** _(work in progress)_ pull request. Happy coding!
+
+## 💬 Contact
+
+For more information about Syself, our platform, or any generall information about the Cluster API Provider Hetzner, feel free to reach out to us. Below are some ways to contact our team:
+
+- **Email**: Send us questions at contact@syself.com
+- **Website**: Visit [our website](https://syself.com) for more information about Syself
+- **LinkedIn**: Follow us on [LinkedIn](https://www.linkedin.com/company/syself/) for announcements
+- **Newsletter**: Consider subscribing to [our LinkedIn newsletter](https://www.linkedin.com/newsletters/the-syselfer-7223788357485543424/) for regular news and updates
 
 ## 📃 License
 
