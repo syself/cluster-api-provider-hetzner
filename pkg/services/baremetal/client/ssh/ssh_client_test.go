@@ -17,7 +17,13 @@ limitations under the License.
 // Package sshclient contains the interface to speak to bare metal servers with ssh.
 package sshclient
 
-import "testing"
+import (
+	_ "embed"
+	"fmt"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
 
 func Test_removeUselessLinesFromCloudInitOutput(t *testing.T) {
 	tests := []struct {
@@ -48,4 +54,51 @@ func Test_removeUselessLinesFromCloudInitOutput(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestOutput_String(t *testing.T) {
+	f := func(o Output, wantString string) {
+		require.Equal(t, wantString, o.String())
+	}
+	f(Output{
+		StdOut: "",
+		StdErr: "",
+		Err:    nil,
+	}, "")
+
+	f(Output{
+		StdOut: " mystdout ",
+		StdErr: "",
+		Err:    nil,
+	}, "mystdout")
+
+	f(Output{
+		StdOut: "",
+		StdErr: " mystderr ",
+		Err:    nil,
+	}, "mystderr")
+
+	f(Output{
+		StdOut: "",
+		StdErr: "",
+		Err:    fmt.Errorf(" some err "),
+	}, "some err")
+
+	f(Output{
+		StdOut: "mystdout",
+		StdErr: "",
+		Err:    fmt.Errorf("some err"),
+	}, "mystdout. Err: some err")
+
+	f(Output{
+		StdOut: "",
+		StdErr: "mystderr",
+		Err:    fmt.Errorf("some err"),
+	}, "mystderr. Err: some err")
+
+	f(Output{
+		StdOut: "mystdout",
+		StdErr: "mystderr",
+		Err:    fmt.Errorf("some err"),
+	}, "mystdout. Stderr: mystderr. Err: some err")
 }

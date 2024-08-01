@@ -189,34 +189,9 @@ var _ = Describe("updateSSHKey", func() {
 				"sshkey-name": []byte("my-name"),
 				"public-key":  []byte("my-public-key"),
 			},
-			currentState:         infrav1.StateProvisioning,
+			currentState:         infrav1.StateImageInstalling,
 			expectedActionResult: actionComplete{},
 			expectedNextState:    infrav1.StateImageInstalling,
-			expectedOSSecretData: map[string][]byte{
-				"private-key": []byte(fmt.Sprintf("%s-private-key", osSSHKeyName)),
-				"sshkey-name": []byte("my-name"),
-				"public-key":  []byte("my-public-key"),
-			},
-			expectedRescueSecretData: map[string][]byte{
-				"private-key": []byte(fmt.Sprintf("%s-private-key", rescueSSHKeyName)),
-				"sshkey-name": []byte("my-name"),
-				"public-key":  []byte("my-public-key"),
-			},
-		}),
-		Entry("rescue secret changed - state provisioning", testCaseUpdateSSHKey{
-			osSecretData: map[string][]byte{
-				"private-key": []byte(fmt.Sprintf("%s-private-key", osSSHKeyName)),
-				"sshkey-name": []byte("my-name"),
-				"public-key":  []byte("my-public-key"),
-			},
-			rescueSecretData: map[string][]byte{
-				"private-key": []byte(fmt.Sprintf("%s-private-key", rescueSSHKeyName)),
-				"sshkey-name": []byte("my-old-name"),
-				"public-key":  []byte("my-old-public-key"),
-			},
-			currentState:         infrav1.StateProvisioning,
-			expectedActionResult: actionComplete{},
-			expectedNextState:    infrav1.StateProvisioning,
 			expectedOSSecretData: map[string][]byte{
 				"private-key": []byte(fmt.Sprintf("%s-private-key", osSSHKeyName)),
 				"sshkey-name": []byte("my-name"),

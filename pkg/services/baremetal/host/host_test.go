@@ -17,6 +17,7 @@ limitations under the License.
 package host
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -1120,7 +1121,7 @@ var _ = Describe("actionRegistering", func() {
 		expectedErrorMessage      *string
 		swRaid                    bool
 	}
-
+	ctx := context.Background()
 	DescribeTable("actionRegistering",
 		func(tc testCaseActionRegistering) {
 			var host *infrav1.HetznerBareMetalHost
@@ -1155,7 +1156,7 @@ var _ = Describe("actionRegistering", func() {
 			sshMock := registeringSSHMock(tc.storageStdOut)
 			service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 
-			actResult := service.actionRegistering()
+			actResult := service.actionRegistering(ctx)
 			Expect(host.Spec.Status.HardwareDetails).ToNot(BeNil())
 			if tc.expectedErrorMessage != nil {
 				Expect(host.Spec.Status.ErrorMessage).To(Equal(*tc.expectedErrorMessage))
@@ -1231,7 +1232,7 @@ var _ = Describe("actionRegistering", func() {
 
 			service := newTestService(host, &robotMock, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 
-			actResult := service.actionRegistering()
+			actResult := service.actionRegistering(ctx)
 			Expect(actResult).Should(BeAssignableToTypeOf(actionContinue{}))
 			if tc.expectedErrorType != infrav1.ErrorType("") {
 				Expect(host.Spec.Status.ErrorType).To(Equal(tc.expectedErrorType))
@@ -1270,6 +1271,7 @@ name="eth0" model="Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express
 }
 
 var _ = Describe("actionRegistering check RAID", func() {
+	ctx := context.Background()
 	It("check RAID", func() {
 		sshMock := registeringSSHMock(`NAME="nvme2n1" TYPE="disk" MODEL="mymode." VENDOR="" SIZE="3068773888" WWN="wwn1" ROTA="0"
 		NAME="nvme2n2" TYPE="disk" MODEL="mymodel" VENDOR="" SIZE="3068773888" WWN="wwn2" ROTA="0"`)
@@ -1285,7 +1287,7 @@ var _ = Describe("actionRegistering check RAID", func() {
 		}
 		service := newTestService(host, nil, bmmock.NewSSHFactory(
 			sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
-		actResult := service.actionRegistering()
+		actResult := service.actionRegistering(ctx)
 
 		_, err := actResult.Result()
 		Expect(err).Should(BeNil())
@@ -1294,7 +1296,7 @@ var _ = Describe("actionRegistering check RAID", func() {
 		host.Spec.Status.InstallImage.Swraid = 0
 		host.Spec.RootDeviceHints.WWN = ""
 		host.Spec.RootDeviceHints.Raid.WWN = []string{"wwn1", "wwn2"}
-		actResult = service.actionRegistering()
+		actResult = service.actionRegistering(ctx)
 
 		_, err = actResult.Result()
 		Expect(err).Should(BeNil())
@@ -1390,6 +1392,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 
 	DescribeTable("actionEnsureProvisioned",
 		func(in testCaseActionEnsureProvisioned) {
+			ctx := context.Background()
 			var (
 				portAfterCloudInit    = 24
 				portAfterInstallImage = 23
@@ -1427,7 +1430,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 
 			service := newTestService(host, &robotMock, bmmock.NewSSHFactory(sshMock, oldSSHMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), nil)
 
-			actResult := service.actionEnsureProvisioned()
+			actResult := service.actionEnsureProvisioned(ctx)
 			Expect(actResult).Should(BeAssignableToTypeOf(in.expectedActionResult))
 			if in.expectedErrorType != infrav1.ErrorType("") {
 				Expect(host.Spec.Status.ErrorType).To(Equal(in.expectedErrorType))
@@ -1748,6 +1751,7 @@ var _ = Describe("actionProvisioned", func() {
 
 	DescribeTable("actionProvisioned",
 		func(tc testCaseActionProvisioned) {
+			ctx := context.Background()
 			host := helpers.BareMetalHost(
 				"test-host",
 				"default",
@@ -1774,7 +1778,7 @@ var _ = Describe("actionProvisioned", func() {
 
 			service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 
-			actResult := service.actionProvisioned()
+			actResult := service.actionProvisioned(ctx)
 			Expect(actResult).Should(BeAssignableToTypeOf(tc.expectedActionResult))
 			Expect(host.Spec.Status.Rebooted).To(Equal(tc.expectRebootInStatus))
 			Expect(host.HasRebootAnnotation()).To(Equal(tc.expectRebootAnnotation))

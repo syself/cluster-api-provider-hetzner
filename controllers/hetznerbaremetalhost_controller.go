@@ -77,8 +77,6 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		return reconcile.Result{}, err
 	}
 
-	log = log.WithValues("HetznerBareMetalHost", klog.KObj(bmHost))
-
 	// Add a finalizer to newly created objects.
 	if bmHost.DeletionTimestamp.IsZero() && !hostHasFinalizer(bmHost) {
 		bmHost.Finalizers = append(bmHost.Finalizers,
