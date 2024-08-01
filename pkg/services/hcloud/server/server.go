@@ -435,6 +435,10 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 		return nil, errServerCreateNotPossible
 	}
 
+	if err := s.checkRemainingSSHKeys(ctx); err != nil {
+		return nil, fmt.Errorf("failed to check remaining ssh keys: %w", err)
+	}
+
 	// set up network if available
 	if net := s.scope.HetznerCluster.Status.Network; net != nil {
 		opts.Networks = []*hcloud.Network{{
@@ -502,6 +506,71 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.ServerCreateSucceededCondition)
 	record.Eventf(s.scope.HCloudMachine, "SuccessfulCreate", "Created new server %s with ID %d", server.Name, server.ID)
 	return server, nil
+}
+
+func (s *Service) checkRemainingSSHKeys(ctx context.Context) error {
+	sshKeySpecs := s.scope.HCloudMachine.Spec.SSHKeys
+
+	// If no SSH keys are specified on the machine, take the ones from the cluster
+	if len(sshKeySpecs) == 0 {
+		sshKeySpecs = s.scope.HetznerCluster.Spec.SSHKeys.HCloud
+	}
+
+	// Always add SSH key from secret if one is found
+	sshKeyName := s.scope.HetznerSecret().Data[s.scope.HetznerCluster.Spec.HetznerSecret.Key.SSHKey]
+	if len(sshKeyName) > 0 {
+		// Check if the SSH key name already exists
+		keyExists := false
+		for _, key := range sshKeySpecs {
+			if string(sshKeyName) == key.Name {
+				keyExists = true
+				break
+			}
+		}
+
+		// If the SSH key name doesn't exist, append it
+		if !keyExists {
+			sshKeySpecs = append(sshKeySpecs, infrav1.SSHKey{Name: string(sshKeyName)})
+		}
+	}
+
+	if len(sshKeySpecs) == 0 {
+		conditions.MarkFalse(
+			s.scope.HCloudMachine,
+			infrav1.ServerCreateSucceededCondition,
+			"NoSSHKeyFound",
+			clusterv1.ConditionSeverityError,
+			"No SSH key configured for the server. Please add an SSH key ",
+		)
+		return fmt.Errorf("SSHKeySpec is empty")
+	}
+
+	// Get all SSH keys that are stored in HCloud API
+	sshKeysAPI, err := s.scope.HCloudClient.ListSSHKeys(ctx, hcloud.SSHKeyListOpts{})
+	if err != nil {
+		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "ListSSHKeys")
+		return fmt.Errorf("failed listing ssh keys from hcloud: %w", err)
+	}
+
+	// Find matching keys and store them
+	matchingKeys, err := filterHCloudSSHKeys(sshKeysAPI, sshKeySpecs)
+	if err != nil {
+		conditions.MarkFalse(
+			s.scope.HCloudMachine,
+			infrav1.ServerCreateSucceededCondition,
+			infrav1.SSHKeyNotFoundReason,
+			clusterv1.ConditionSeverityError,
+			err.Error(),
+		)
+		return err
+	}
+
+	// Check if there are any matching keys after all checks
+	if len(matchingKeys) == 0 {
+		return fmt.Errorf("no matching SSH keys found")
+	}
+
+	return nil
 }
 
 func (s *Service) getServerImage(ctx context.Context) (*hcloud.Image, error) {
