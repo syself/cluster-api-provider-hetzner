@@ -71,17 +71,18 @@ const (
 )
 
 var (
-	errActionFailure        = fmt.Errorf("action failure")
-	errNilSSHSecret         = fmt.Errorf("ssh secret is nil")
-	errWrongSSHKey          = fmt.Errorf("wrong ssh key")
-	errSSHConnectionRefused = fmt.Errorf("ssh connection refused")
-	errUnexpectedErrorType  = fmt.Errorf("unexpected error type")
-	errSSHGetHostname       = fmt.Errorf("failed to get hostname via ssh")
-	errEmptyHostName        = fmt.Errorf("hostname is empty")
-	errUnexpectedHostName   = fmt.Errorf("unexpected hostname")
-	errMissingStorageDevice = fmt.Errorf("missing storage device")
-	errUnknownRota          = fmt.Errorf("unknown rota")
-	errSSHStderr            = fmt.Errorf("ssh cmd returned non-empty StdErr")
+	errActionFailure          = fmt.Errorf("action failure")
+	errNilSSHSecret           = fmt.Errorf("ssh secret is nil")
+	errWrongSSHKey            = fmt.Errorf("wrong ssh key")
+	errSSHConnectionRefused   = fmt.Errorf("ssh connection refused")
+	errUnexpectedErrorType    = fmt.Errorf("unexpected error type")
+	errSSHGetHostname         = fmt.Errorf("failed to get hostname via ssh")
+	errEmptyHostName          = fmt.Errorf("hostname is empty")
+	errUnexpectedHostName     = fmt.Errorf("unexpected hostname")
+	errMissingStorageDevice   = fmt.Errorf("missing storage device")
+	errUnknownRota            = fmt.Errorf("unknown rota")
+	errSSHStderr              = fmt.Errorf("ssh cmd returned non-empty StdErr")
+	errGettingCloudInitOutput = fmt.Errorf("failed to get cloud init output")
 )
 
 // Service defines struct with machine scope to reconcile HetznerBareMetalHosts.
@@ -1369,47 +1370,12 @@ func (s *Service) actionEnsureProvisioned(_ context.Context) (ar actionResult) {
 		IP:         s.scope.HetznerBareMetalHost.Spec.Status.GetIPAddress(),
 	})
 
-	defer func() {
-		// Create an Event which contains the content of /var/log/cloud-init-output.log
-
-		if _, ok := ar.(actionContinue); ok {
-			// don't create an event
-			return
-		}
-		out := sshClient.GetCloudInitOutput()
-		if out.Err != nil || out.StdErr != "" {
-			record.Warnf(s.scope.HetznerBareMetalHost, "GetCloudInitOutputFailed",
-				fmt.Sprintf("GetCloudInitOutput failed to get /var/log/cloud-init-output.log: stdout %q, stderr %q, err %q",
-					out.StdOut, out.StdErr, out.Err.Error()))
-			return
-		}
-		_, ok := ar.(actionComplete)
-		if ok {
-			record.Eventf(s.scope.HetznerBareMetalHost, "CloudInitOutput",
-				"/var/log/cloud-init-output.log: "+out.StdOut)
-		} else {
-			_, err := ar.Result()
-			errString := ""
-			if err != nil {
-				errString = err.Error()
-			}
-			record.Warnf(s.scope.HetznerBareMetalHost, "CloudInitOutput", fmt.Sprintf("cloud init output (%s):\n%s",
-				errString,
-				out.StdOut))
-		}
-	}()
 	// Check hostname with sshClient
 	wantHostName := s.scope.Hostname()
 
 	out := sshClient.GetHostName()
 	hostname := trimLineBreak(out.StdOut)
 	if hostname != wantHostName {
-		// give the reboot some time until it takes effect
-		if s.hasJustRebooted() {
-			s.scope.Logger.Info("ensureProvisioned: hasJustRebooted. Retrying...", "hostname", hostname)
-			return actionContinue{delay: 2 * time.Second}
-		}
-
 		isTimeout, isSSHConnectionRefusedError, err := analyzeSSHOutputProvisioned(out)
 		if err != nil {
 			if errors.Is(err, errUnexpectedHostName) {
@@ -1437,6 +1403,26 @@ func (s *Service) actionEnsureProvisioned(_ context.Context) (ar actionResult) {
 		return actionContinue{delay: 10 * time.Second}
 	}
 
+	defer func() {
+		// Try to create an Event which contains the cloud-init-output.
+		errMsg := ""
+		switch v := ar.(type) {
+		case actionComplete:
+			return
+		case actionContinue:
+			return
+		case actionError:
+			if errors.Is(v.err, errGettingCloudInitOutput) {
+				return
+			}
+			errMsg = v.err.Error()
+		}
+		out := sshClient.GetCloudInitOutput()
+		record.Warnf(s.scope.HetznerBareMetalHost, "CloudInitOutput", "cloud init output (%s):\n%s",
+			errMsg,
+			out.StdOut)
+	}()
+
 	// Check the status of cloud init
 	actResult, msg, _ := s.checkCloudInitStatus(sshClient)
 	if _, complete := actResult.(actionComplete); !complete {
@@ -1454,6 +1440,17 @@ func (s *Service) actionEnsureProvisioned(_ context.Context) (ar actionResult) {
 			return actResult
 		}
 	}
+
+	// Create an Event which contains the content of /var/log/cloud-init-output.log
+	out = sshClient.GetCloudInitOutput()
+	if out.Err != nil || out.StdErr != "" {
+		record.Warnf(s.scope.HetznerBareMetalHost, "GetCloudInitOutputFailed",
+			"GetCloudInitOutput failed to get /var/log/cloud-init-output.log: stdout %q, stderr %q, err %q",
+			out.StdOut, out.StdErr, out.Err.Error())
+		return actionError{err: fmt.Errorf("%w. %w", errGettingCloudInitOutput, out.Err)}
+	}
+	record.Event(s.scope.HetznerBareMetalHost, "CloudInitOutput",
+		"/var/log/cloud-init-output.log: "+out.StdOut)
 
 	record.Event(s.scope.HetznerBareMetalHost, "ServerProvisioned", "server successfully provisioned")
 	conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
