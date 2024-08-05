@@ -1376,6 +1376,11 @@ func (s *Service) actionEnsureProvisioned(_ context.Context) (ar actionResult) {
 	out := sshClient.GetHostName()
 	hostname := trimLineBreak(out.StdOut)
 	if hostname != wantHostName {
+		// give the reboot some time until it takes effect
+		if s.hasJustRebooted() {
+			s.scope.Logger.Info("ensureProvisioned: hasJustRebooted. Retrying...", "hostname", hostname)
+			return actionContinue{delay: 2 * time.Second}
+		}
 		isTimeout, isSSHConnectionRefusedError, err := analyzeSSHOutputProvisioned(out)
 		if err != nil {
 			if errors.Is(err, errUnexpectedHostName) {
