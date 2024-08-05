@@ -10,7 +10,7 @@ There are several tasks that have to be completed before a workload cluster can 
 
 1. Create a new [HCloud project](https://console.hetzner.cloud/projects).
 2. Generate an API token with read and write access. You'll find this if you click on the project and go to "security".
-3. If you want to use it, generate an SSH key, upload the public key to HCloud (also via "security"), and give it a name. Read more about [Managing SSH Keys](/docs/caph/02-topics/01-managing-ssh-keys).
+3. If you want to use it, generate an SSH key, upload the public key to HCloud (also via "security"), and give it a name. Read more about [Managing SSH Keys](/docs/caph/02-topics/02-managing-ssh-keys.md).
 
 ### Preparing Hetzner Robot
 
@@ -36,7 +36,7 @@ It is a common practice to create a temporary, local bootstrap cluster, which is
 
 #### 1. Existing Management Cluster
 
-For production use, a “real” Kubernetes cluster should be used with appropriate backup and Disaster Recovery policies and procedures in place. The Kubernetes cluster must be of a [supported version](/docs/caph/01-getting-started/01-introduction).
+For production use, a “real” Kubernetes cluster should be used with appropriate backup and Disaster Recovery policies and procedures in place. The Kubernetes cluster must be of a [supported version](/docs/caph/01-getting-started/01-introduction.md).
 
 #### 2. Kind
 
@@ -147,4 +147,4 @@ kubectl patch secret robot-ssh -p '{"metadata":{"labels":{"clusterctl.cluster.x-
 
 The secret name and the tokens can also be customized in the cluster template.
 
-See [node-image](/docs/caph/02-topics/02-node-image) for more information.
+See [node-image](/docs/caph/02-topics/04-node-image.md) for more information.
