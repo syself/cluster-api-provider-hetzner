@@ -473,7 +473,7 @@ func (c *sshClient) GetResultOfInstallImage() (string, error) {
 
 ######################################
 
-/root/installimage-wrapper.sh stdout:
+/root/installimage-wrapper.sh stdout+stderr:
 
 %s
 `,

@@ -1214,13 +1214,13 @@ func (s *Service) actionImageInstallingFinished(_ context.Context, sshClient ssh
 		}
 	}
 	if !strings.Contains(output, PostInstallScriptFinished) {
-		record.Warnf(s.scope.HetznerBareMetalHost, "ExecuteInstallImageDidNotFinish", output)
-		return actionError{err: fmt.Errorf("did not find marker %q in stdout. Failed to execute installimage",
-			PostInstallScriptFinished)}
+		record.Warn(s.scope.HetznerBareMetalHost, "InstallImageNotSuccessful", output)
+		return actionError{err: fmt.Errorf("did not find marker %q in stdout. Installimage was not successful: %s",
+			PostInstallScriptFinished, output)}
 	}
 
-	record.Eventf(s.scope.HetznerBareMetalHost, "ExecuteInstallImageSucceeded", output)
-	s.scope.Logger.Info("ExecuteInstallImageSucceeded", "output", output)
+	record.Event(s.scope.HetznerBareMetalHost, "InstallImageOutput", output)
+	s.scope.Logger.Info("InstallImageOutput", "output", output)
 
 	// Update name in robot API
 	if _, err := s.scope.RobotClient.SetBMServerName(s.scope.HetznerBareMetalHost.Spec.ServerID, s.scope.Hostname()); err != nil {
@@ -1402,7 +1402,7 @@ func (s *Service) actionEnsureProvisioned(_ context.Context) (ar actionResult) {
 		}
 		_, ok := ar.(actionComplete)
 		if ok {
-			record.Eventf(s.scope.HetznerBareMetalHost, "CloudInitOutput",
+			record.Event(s.scope.HetznerBareMetalHost, "CloudInitOutput",
 				"/var/log/cloud-init-output.log: "+out.StdOut)
 		} else {
 			_, err := ar.Result()
@@ -1410,9 +1410,9 @@ func (s *Service) actionEnsureProvisioned(_ context.Context) (ar actionResult) {
 			if err != nil {
 				errString = err.Error()
 			}
-			record.Warnf(s.scope.HetznerBareMetalHost, "CloudInitOutput", fmt.Sprintf("cloud init output (%s):\n%s",
+			record.Warnf(s.scope.HetznerBareMetalHost, "CloudInitOutput", "cloud init output (%s):\n%s",
 				errString,
-				out.StdOut))
+				out.StdOut)
 		}
 	}()
 	// Check hostname with sshClient
