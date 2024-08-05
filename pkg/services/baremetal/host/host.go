@@ -49,16 +49,17 @@ import (
 )
 
 const (
-	rebootWaitTime           time.Duration = 15 * time.Second
-	sshResetTimeout          time.Duration = 5 * time.Minute
-	softwareResetTimeout     time.Duration = 10 * time.Minute
-	hardwareResetTimeout     time.Duration = 10 * time.Minute
-	connectionRefusedTimeout time.Duration = 10 * time.Minute
-	rescue                   string        = "rescue"
-	rescuePort               int           = 22
-	gbToMebiBytes            int           = 1000
-	gbToBytes                int           = 1000000 * gbToMebiBytes
-	kikiToMebiBytes          int           = 1024
+	rebootToRescueSystemWaitTime   time.Duration = 15 * time.Second
+	rebootToAfterCloudInitWaitTime time.Duration = 40 * time.Second
+	sshResetTimeout                time.Duration = 5 * time.Minute
+	softwareResetTimeout           time.Duration = 10 * time.Minute
+	hardwareResetTimeout           time.Duration = 10 * time.Minute
+	connectionRefusedTimeout       time.Duration = 10 * time.Minute
+	rescue                         string        = "rescue"
+	rescuePort                     int           = 22
+	gbToMebiBytes                  int           = 1000
+	gbToBytes                      int           = 1000000 * gbToMebiBytes
+	kikiToMebiBytes                int           = 1024
 
 	errMsgFailedReboot                 = "failed to reboot bare metal server: %w"
 	errMsgInvalidSSHStdOut             = "invalid output in stdOut: %w"
@@ -588,7 +589,7 @@ func (s *Service) actionRegistering(_ context.Context) actionResult {
 	hostName := trimLineBreak(out.StdOut)
 	if hostName != rescue {
 		// give the reboot some time until it takes effect
-		if s.hasJustRebooted() {
+		if s.hasJustRebooted(rebootToRescueSystemWaitTime) {
 			return actionContinue{delay: 2 * time.Second}
 		}
 
@@ -1383,7 +1384,7 @@ func (s *Service) actionEnsureProvisioned(_ context.Context) (ar actionResult) {
 		IP:         s.scope.HetznerBareMetalHost.Spec.Status.GetIPAddress(),
 	})
 
-	if s.hasJustRebooted() {
+	if s.hasJustRebooted(rebootToAfterCloudInitWaitTime) {
 		s.scope.Logger.Info("ensureProvisioned: hasJustRebooted. Retrying...")
 		return actionContinue{delay: 5 * time.Second}
 	}
@@ -1737,15 +1738,16 @@ func (s *Service) handleRobotRateLimitExceeded(err error, functionName string) {
 	}
 }
 
-// hasJustRebooted returns true if a reboot was done during the last seconds.
+// hasJustRebooted returns true if a reboot was done during the given duration.
 // The method gets used to let the controller wait until the reboot was actually done.
 // Imagine the controller triggers a reboot, and reconciles immediately. This would
 // mean the controller would do the same reboot immediately again.
-func (s *Service) hasJustRebooted() bool {
+// TODO: Record the time of the last reboot and avoid Spec.Status.LastUpdated.
+func (s *Service) hasJustRebooted(d time.Duration) bool {
 	return (s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeSSHRebootTriggered ||
 		s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeSoftwareRebootTriggered ||
 		s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeHardwareRebootTriggered) &&
-		!hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated, rebootWaitTime)
+		!hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated, d)
 }
 
 func markProvisionPending(host *infrav1.HetznerBareMetalHost, state infrav1.ProvisioningState) {
