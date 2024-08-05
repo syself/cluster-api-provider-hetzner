@@ -26,12 +26,12 @@ import (
 var _ = Describe("buildAutoSetup", func() {
 	type testCaseBuildAutoSetup struct {
 		installImageSpec *infrav1.InstallImage
-		autoSetupInput   autoSetupInput
+		asi              autoSetupInput
 		expectedOutput   string
 	}
 	DescribeTable("buildAutoSetup",
 		func(tc testCaseBuildAutoSetup) {
-			Expect(buildAutoSetup(tc.installImageSpec, tc.autoSetupInput)).Should(Equal(tc.expectedOutput))
+			Expect(buildAutoSetup(tc.installImageSpec, tc.asi)).Should(Equal(tc.expectedOutput))
 		},
 		Entry("multiple entries", testCaseBuildAutoSetup{
 			installImageSpec: &infrav1.InstallImage{
@@ -78,7 +78,7 @@ var _ = Describe("buildAutoSetup", func() {
 				Swraid:      0,
 				SwraidLevel: 1,
 			},
-			autoSetupInput: autoSetupInput{
+			asi: autoSetupInput{
 				image:     "my-image",
 				osDevices: []string{"device"},
 				hostName:  "my-host",
@@ -127,7 +127,7 @@ IMAGE my-image`,
 				Swraid:      1,
 				SwraidLevel: 1,
 			},
-			autoSetupInput: autoSetupInput{
+			asi: autoSetupInput{
 				image:     "my-image",
 				osDevices: []string{"device"},
 				hostName:  "my-host",
@@ -174,7 +174,7 @@ IMAGE my-image`,
 				Swraid:      0,
 				SwraidLevel: 1,
 			},
-			autoSetupInput: autoSetupInput{
+			asi: autoSetupInput{
 				image:     "my-image",
 				osDevices: []string{"device1", "device2"},
 				hostName:  "my-host",
@@ -207,7 +207,7 @@ IMAGE my-image`,
 				Swraid:           0,
 				SwraidLevel:      1,
 			},
-			autoSetupInput: autoSetupInput{
+			asi: autoSetupInput{
 				image:     "my-image",
 				osDevices: []string{"device"},
 				hostName:  "my-host",

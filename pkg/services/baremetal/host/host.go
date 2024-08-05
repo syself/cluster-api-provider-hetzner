@@ -1115,29 +1115,32 @@ func (s *Service) actionImageInstalling(ctx context.Context) actionResult {
 	}
 	record.Eventf(s.scope.HetznerBareMetalHost, "NoLinuxOnAnotherDisk", "OK, no Linux on another disk:\n%s\n\n%s", out.StdOut, out.StdErr)
 
-	// if the previous reconcile was stopped, then wait until the first
-	// run of installimage was finished.
-	out = sshClient.GetRunningInstallImageProcesses()
-	if out.Err != nil {
-		return actionError{err: fmt.Errorf("failed to get running installimage processes: %q %q %w", out.StdOut, out.StdErr, out.Err)}
+	running, finished, err := sshClient.GetInstallImageState()
+	if err != nil {
+		return actionError{err: fmt.Errorf("failed to state of installimage processes: %w", err)}
 	}
-	if out.StdOut != "" {
-		// This can happen if the controller was restarted.
-		record.Warn(s.scope.HetznerBareMetalHost, "InstallImageAlreadyRunning",
-			"installimage is already running.")
-		return actionError{err: fmt.Errorf("installimage is already running")}
+	if running {
+		s.scope.Logger.Info("installimage is still running. Checking again in some seconds.")
+		return actionContinue{delay: 10 * time.Second}
 	}
+	if finished {
+		s.scope.Logger.Info("installimage is finished.")
+		return s.actionImageInstallingFinished(ctx, sshClient)
+	}
+	return s.actionImageInstallingStartBackgroundProcess(ctx, sshClient)
+}
 
+func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Context, sshClient sshclient.Client) actionResult {
 	record.Event(s.scope.HetznerBareMetalHost, "InstallImagePreflightCheckSuccessful", "Rescue system reachable, disks look good.")
 
-	autoSetupInput, actionRes := s.createAutoSetupInput(sshClient)
+	asi, actionRes := s.createAutoSetupInput(sshClient)
 	if actionRes != nil {
 		return actionRes
 	}
 
-	autoSetup := buildAutoSetup(s.scope.HetznerBareMetalHost.Spec.Status.InstallImage, autoSetupInput)
+	autoSetup := buildAutoSetup(s.scope.HetznerBareMetalHost.Spec.Status.InstallImage, asi)
 
-	out = sshClient.CreateAutoSetup(autoSetup)
+	out := sshClient.CreateAutoSetup(autoSetup)
 	if out.Err != nil {
 		return actionError{err: fmt.Errorf("failed to create autosetup: %q %q %w", out.StdOut, out.StdErr, out.Err)}
 	}
@@ -1200,22 +1203,33 @@ echo %q
 		record.Warnf(s.scope.HetznerBareMetalHost, "ExecuteInstallImageFailed", out.String())
 		return actionError{err: fmt.Errorf("failed to execute installimage: %w", out.Err)}
 	}
-	if !strings.Contains(out.StdOut, PostInstallScriptFinished) {
-		record.Warnf(s.scope.HetznerBareMetalHost, "ExecuteInstallImageDidNotFinish", out.StdOut)
+	return actionContinue{delay: 10 * time.Second}
+}
+
+func (s *Service) actionImageInstallingFinished(_ context.Context, sshClient sshclient.Client) actionResult {
+	output, err := sshClient.GetResultOfInstallImage()
+	if err != nil {
+		return actionError{
+			err: fmt.Errorf("GetResultOfInstallImage failed: %w", err),
+		}
+	}
+	if !strings.Contains(output, PostInstallScriptFinished) {
+		record.Warnf(s.scope.HetznerBareMetalHost, "ExecuteInstallImageDidNotFinish", output)
 		return actionError{err: fmt.Errorf("did not find marker %q in stdout. Failed to execute installimage",
 			PostInstallScriptFinished)}
 	}
-	record.Eventf(s.scope.HetznerBareMetalHost, "ExecuteInstallImageSucceeded", out.StdOut)
-	s.scope.Logger.Info("ExecuteInstallImageSucceeded", "stdout", out.StdOut, "stderr", out.StdErr)
+
+	record.Eventf(s.scope.HetznerBareMetalHost, "ExecuteInstallImageSucceeded", output)
+	s.scope.Logger.Info("ExecuteInstallImageSucceeded", "output", output)
 
 	// Update name in robot API
-	if _, err := s.scope.RobotClient.SetBMServerName(s.scope.HetznerBareMetalHost.Spec.ServerID, autoSetupInput.hostName); err != nil {
+	if _, err := s.scope.RobotClient.SetBMServerName(s.scope.HetznerBareMetalHost.Spec.ServerID, s.scope.Hostname()); err != nil {
 		record.Warn(s.scope.HetznerBareMetalHost, "SetBMServerNameFailed", err.Error())
 		s.handleRobotRateLimitExceeded(err, "SetBMServerName")
 		return actionError{err: fmt.Errorf("failed to update name of host in robot API: %w", err)}
 	}
 
-	out = sshClient.Reboot()
+	out := sshClient.Reboot()
 	if err := handleSSHError(out); err != nil {
 		err = fmt.Errorf("failed to reboot server (after install-image): %w", err)
 		record.Warn(s.scope.HetznerBareMetalHost, "RebootFailed", err.Error())
