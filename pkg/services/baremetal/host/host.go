@@ -1383,50 +1383,34 @@ func (s *Service) actionEnsureProvisioned(_ context.Context) (ar actionResult) {
 		IP:         s.scope.HetznerBareMetalHost.Spec.Status.GetIPAddress(),
 	})
 
-	defer func() {
-		// Create an Event which contains the content of /var/log/cloud-init-output.log
+	if s.hasJustRebooted() {
+		s.scope.Logger.Info("ensureProvisioned: hasJustRebooted. Retrying...")
+		return actionContinue{delay: 5 * time.Second}
+	}
 
-		if _, ok := ar.(actionContinue); ok {
-			// don't create an event
+	defer func() {
+		// Try to create an Event which contains the cloud-init-output.
+		errMsg := ""
+		switch v := ar.(type) {
+		case actionComplete:
 			return
+		case actionContinue:
+			return
+		case actionError:
+			errMsg = v.err.Error()
 		}
 		out := sshClient.GetCloudInitOutput()
-		if out.Err != nil || out.StdErr != "" {
-			// TODO: It would be nice to have a reliable "duration since last reboot".
-			//       Then we could create a warning event only if the duration
-			//       is longer than N seconds.
-			record.Warnf(s.scope.HetznerBareMetalHost, "GetCloudInitOutputFailed",
-				fmt.Sprintf("GetCloudInitOutput failed to get /var/log/cloud-init-output.log: stdout %q, stderr %q, err %q",
-					out.StdOut, out.StdErr, out.Err.Error()))
-			return
-		}
-		_, ok := ar.(actionComplete)
-		if ok {
-			record.Event(s.scope.HetznerBareMetalHost, "CloudInitOutput",
-				"/var/log/cloud-init-output.log: "+out.StdOut)
-		} else {
-			_, err := ar.Result()
-			errString := ""
-			if err != nil {
-				errString = err.Error()
-			}
-			record.Warnf(s.scope.HetznerBareMetalHost, "CloudInitOutput", "cloud init output (%s):\n%s",
-				errString,
-				out.StdOut)
-		}
+		record.Warnf(s.scope.HetznerBareMetalHost, "CloudInitOutput", "cloud init output (%s):\n%s",
+			errMsg,
+			out.StdOut)
 	}()
+
 	// Check hostname with sshClient
 	wantHostName := s.scope.Hostname()
 
 	out := sshClient.GetHostName()
 	hostname := trimLineBreak(out.StdOut)
 	if hostname != wantHostName {
-		// give the reboot some time until it takes effect
-		if s.hasJustRebooted() {
-			s.scope.Logger.Info("ensureProvisioned: hasJustRebooted. Retrying...", "hostname", hostname)
-			return actionContinue{delay: 2 * time.Second}
-		}
-
 		isTimeout, isSSHConnectionRefusedError, err := analyzeSSHOutputProvisioned(out)
 		if err != nil {
 			if errors.Is(err, errUnexpectedHostName) {
@@ -1471,6 +1455,17 @@ func (s *Service) actionEnsureProvisioned(_ context.Context) (ar actionResult) {
 			return actResult
 		}
 	}
+
+	// Create an Event which contains the content of /var/log/cloud-init-output.log
+	out = sshClient.GetCloudInitOutput()
+	if out.Err != nil || out.StdErr != "" {
+		record.Warnf(s.scope.HetznerBareMetalHost, "GetCloudInitOutputFailed",
+			"GetCloudInitOutput failed to get /var/log/cloud-init-output.log: stdout %q, stderr %q, err %q",
+			out.StdOut, out.StdErr, out.Err.Error())
+		return actionError{err: fmt.Errorf("failed to get cloud init output: %w", out.Err)}
+	}
+	record.Event(s.scope.HetznerBareMetalHost, "CloudInitOutput",
+		"/var/log/cloud-init-output.log: "+out.StdOut)
 
 	record.Event(s.scope.HetznerBareMetalHost, "ServerProvisioned", "server successfully provisioned")
 	conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
