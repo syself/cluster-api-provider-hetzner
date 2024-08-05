@@ -261,9 +261,6 @@ func (hsm *hostStateMachine) handleImageInstalling(ctx context.Context) actionRe
 	switch actResult.(type) {
 	case actionComplete:
 		hsm.nextState = infrav1.StateEnsureProvisioned
-		// give cloud-init some time to run, and avoid
-		// warnings about GetCloudInitOutputFailed because ssh failed.
-		actResult = actionContinue{delay: rebootToAfterCloudInitWaitTime}
 	case actionError:
 		// re-enable rescue system. If installimage failed, then it is likely, that
 		// the next run (without reboot) fails with this error:

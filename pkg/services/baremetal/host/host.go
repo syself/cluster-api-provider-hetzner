@@ -49,17 +49,16 @@ import (
 )
 
 const (
-	rebootToRescueSystemWaitTime   time.Duration = 15 * time.Second
-	rebootToAfterCloudInitWaitTime time.Duration = 40 * time.Second
-	sshResetTimeout                time.Duration = 5 * time.Minute
-	softwareResetTimeout           time.Duration = 10 * time.Minute
-	hardwareResetTimeout           time.Duration = 10 * time.Minute
-	connectionRefusedTimeout       time.Duration = 10 * time.Minute
-	rescue                         string        = "rescue"
-	rescuePort                     int           = 22
-	gbToMebiBytes                  int           = 1000
-	gbToBytes                      int           = 1000000 * gbToMebiBytes
-	kikiToMebiBytes                int           = 1024
+	rebootWaitTime           time.Duration = 15 * time.Second
+	sshResetTimeout          time.Duration = 5 * time.Minute
+	softwareResetTimeout     time.Duration = 10 * time.Minute
+	hardwareResetTimeout     time.Duration = 10 * time.Minute
+	connectionRefusedTimeout time.Duration = 10 * time.Minute
+	rescue                   string        = "rescue"
+	rescuePort               int           = 22
+	gbToMebiBytes            int           = 1000
+	gbToBytes                int           = 1000000 * gbToMebiBytes
+	kikiToMebiBytes          int           = 1024
 
 	errMsgFailedReboot                 = "failed to reboot bare metal server: %w"
 	errMsgInvalidSSHStdOut             = "invalid output in stdOut: %w"
@@ -589,7 +588,7 @@ func (s *Service) actionRegistering(_ context.Context) actionResult {
 	hostName := trimLineBreak(out.StdOut)
 	if hostName != rescue {
 		// give the reboot some time until it takes effect
-		if s.hasJustRebooted(rebootToRescueSystemWaitTime) {
+		if s.hasJustRebooted() {
 			return actionContinue{delay: 2 * time.Second}
 		}
 
@@ -1384,34 +1383,47 @@ func (s *Service) actionEnsureProvisioned(_ context.Context) (ar actionResult) {
 		IP:         s.scope.HetznerBareMetalHost.Spec.Status.GetIPAddress(),
 	})
 
-	if s.hasJustRebooted(rebootToAfterCloudInitWaitTime) {
-		s.scope.Logger.Info("ensureProvisioned: hasJustRebooted. Retrying...")
-		return actionContinue{delay: 5 * time.Second}
-	}
-
 	defer func() {
-		// Try to create an Event which contains the cloud-init-output.
-		errMsg := ""
-		switch v := ar.(type) {
-		case actionComplete:
+		// Create an Event which contains the content of /var/log/cloud-init-output.log
+
+		if _, ok := ar.(actionContinue); ok {
+			// don't create an event
 			return
-		case actionContinue:
-			return
-		case actionError:
-			errMsg = v.err.Error()
 		}
 		out := sshClient.GetCloudInitOutput()
-		record.Warnf(s.scope.HetznerBareMetalHost, "CloudInitOutput", "cloud init output (%s):\n%s",
-			errMsg,
-			out.StdOut)
+		if out.Err != nil || out.StdErr != "" {
+			record.Warnf(s.scope.HetznerBareMetalHost, "GetCloudInitOutputFailed",
+				fmt.Sprintf("GetCloudInitOutput failed to get /var/log/cloud-init-output.log: stdout %q, stderr %q, err %q",
+					out.StdOut, out.StdErr, out.Err.Error()))
+			return
+		}
+		_, ok := ar.(actionComplete)
+		if ok {
+			record.Eventf(s.scope.HetznerBareMetalHost, "CloudInitOutput",
+				"/var/log/cloud-init-output.log: "+out.StdOut)
+		} else {
+			_, err := ar.Result()
+			errString := ""
+			if err != nil {
+				errString = err.Error()
+			}
+			record.Warnf(s.scope.HetznerBareMetalHost, "CloudInitOutput", fmt.Sprintf("cloud init output (%s):\n%s",
+				errString,
+				out.StdOut))
+		}
 	}()
-
 	// Check hostname with sshClient
 	wantHostName := s.scope.Hostname()
 
 	out := sshClient.GetHostName()
 	hostname := trimLineBreak(out.StdOut)
 	if hostname != wantHostName {
+		// give the reboot some time until it takes effect
+		if s.hasJustRebooted() {
+			s.scope.Logger.Info("ensureProvisioned: hasJustRebooted. Retrying...", "hostname", hostname)
+			return actionContinue{delay: 2 * time.Second}
+		}
+
 		isTimeout, isSSHConnectionRefusedError, err := analyzeSSHOutputProvisioned(out)
 		if err != nil {
 			if errors.Is(err, errUnexpectedHostName) {
@@ -1456,17 +1468,6 @@ func (s *Service) actionEnsureProvisioned(_ context.Context) (ar actionResult) {
 			return actResult
 		}
 	}
-
-	// Create an Event which contains the content of /var/log/cloud-init-output.log
-	out = sshClient.GetCloudInitOutput()
-	if out.Err != nil || out.StdErr != "" {
-		record.Warnf(s.scope.HetznerBareMetalHost, "GetCloudInitOutputFailed",
-			"GetCloudInitOutput failed to get /var/log/cloud-init-output.log: stdout %q, stderr %q, err %q",
-			out.StdOut, out.StdErr, out.Err.Error())
-		return actionError{err: fmt.Errorf("failed to get cloud init output: %w", out.Err)}
-	}
-	record.Event(s.scope.HetznerBareMetalHost, "CloudInitOutput",
-		"/var/log/cloud-init-output.log: "+out.StdOut)
 
 	record.Event(s.scope.HetznerBareMetalHost, "ServerProvisioned", "server successfully provisioned")
 	conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
@@ -1742,12 +1743,11 @@ func (s *Service) handleRobotRateLimitExceeded(err error, functionName string) {
 // The method gets used to let the controller wait until the reboot was actually done.
 // Imagine the controller triggers a reboot, and reconciles immediately. This would
 // mean the controller would do the same reboot immediately again.
-// TODO: Record the time of the last reboot and avoid Spec.Status.LastUpdated.
-func (s *Service) hasJustRebooted(d time.Duration) bool {
+func (s *Service) hasJustRebooted() bool {
 	return (s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeSSHRebootTriggered ||
 		s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeSoftwareRebootTriggered ||
 		s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeHardwareRebootTriggered) &&
-		!hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated, d)
+		!hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated, rebootWaitTime)
 }
 
 func markProvisionPending(host *infrav1.HetznerBareMetalHost, state infrav1.ProvisioningState) {
