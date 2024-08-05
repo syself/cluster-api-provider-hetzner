@@ -1086,6 +1086,7 @@ func (s *Service) actionImageInstalling(ctx context.Context) actionResult {
 		s.scope.Logger.Info("installimage is finished.")
 		return s.actionImageInstallingFinished(ctx, sshClient)
 	}
+	// install-image not started yet. Start it now.
 	return s.actionImageInstallingStartBackgroundProcess(ctx, sshClient)
 }
 
