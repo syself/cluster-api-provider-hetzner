@@ -1739,7 +1739,7 @@ func (s *Service) handleRobotRateLimitExceeded(err error, functionName string) {
 	}
 }
 
-// hasJustRebooted returns true if a reboot was done during the given duration.
+// hasJustRebooted returns true if a reboot was done during the last seconds.
 // The method gets used to let the controller wait until the reboot was actually done.
 // Imagine the controller triggers a reboot, and reconciles immediately. This would
 // mean the controller would do the same reboot immediately again.
