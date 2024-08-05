@@ -1391,6 +1391,9 @@ func (s *Service) actionEnsureProvisioned(_ context.Context) (ar actionResult) {
 		}
 		out := sshClient.GetCloudInitOutput()
 		if out.Err != nil || out.StdErr != "" {
+			// TODO: It would be nice to have a reliable "duration since last reboot".
+			//       Then we could create a warning event only if the duration
+			//       is longer than N seconds.
 			record.Warnf(s.scope.HetznerBareMetalHost, "GetCloudInitOutputFailed",
 				fmt.Sprintf("GetCloudInitOutput failed to get /var/log/cloud-init-output.log: stdout %q, stderr %q, err %q",
 					out.StdOut, out.StdErr, out.Err.Error()))

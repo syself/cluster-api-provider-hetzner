@@ -19,6 +19,7 @@ package host
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -261,6 +262,9 @@ func (hsm *hostStateMachine) handleImageInstalling(ctx context.Context) actionRe
 	switch actResult.(type) {
 	case actionComplete:
 		hsm.nextState = infrav1.StateEnsureProvisioned
+		// give cloud-init some time to run, and avoid
+		// warnings about GetCloudInitOutputFailed because ssh failed.
+		actResult = actionContinue{delay: 30 * time.Second}
 	case actionError:
 		// re-enable rescue system. If installimage failed, then it is likely, that
 		// the next run (without reboot) fails with this error:
