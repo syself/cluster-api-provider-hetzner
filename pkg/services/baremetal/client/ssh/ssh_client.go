@@ -406,7 +406,7 @@ func (c *sshClient) GetInstallImageState() (running bool, finished bool, err err
 		return false, false, fmt.Errorf("failed to run `ps aux` to get running installimage process: %w", out.Err)
 	}
 	if out.StdOut != "" {
-		// installimage is not running
+		// installimage is running
 		return true, false, nil
 	}
 
