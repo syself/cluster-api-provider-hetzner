@@ -5,7 +5,7 @@ title: Developing Cluster API Provider Hetzner
 Developing our provider is quite easy. Please follow the steps mentioned below:
 
 1. You need to install some base requirements.
-2. You need to follow the [preparation document](/docs/caph/02-topics/01-preparation.md) to set up everything related to Hetzner.
+2. You need to follow the [preparation document](/docs/caph/02-topics/01-preparation) to set up everything related to Hetzner.
 
 ## Install Base requirements
 
@@ -26,13 +26,13 @@ This ensures the following:
 
 ## Preparing Hetzner project
 
-For more information, please see [here](/docs/caph/02-topics/01-preparation.md).
+For more information, please see [here](/docs/caph/02-topics/01-preparation).
 
 ## Setting Tilt up
 
 You need to create a `.envrc` file and specify the values you need. After the `.envrc` is loaded, invoke `direnv allow` to load the environment variables in your current shell session.
 
-The complete reference can be found [here](/docs/caph/04-developers/02-tilt.md).
+The complete reference can be found [here](/docs/caph/04-developers/02-tilt).
 
 ## Developing with Tilt
 

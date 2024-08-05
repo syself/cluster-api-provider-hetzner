@@ -5,32 +5,31 @@ This is the official documentation of Cluster API Provider Hetzner. Before start
 ## Getting Started
 
 - [Introduction](/docs/caph/01-getting-started/01-introduction.md)
-- [Quickstart](/docs/caph/01-getting-started/02-quickstart)
-- [Preparation](/docs/caph/01-getting-started/03-preparation.md)
+- [Preparation](/docs/caph/01-getting-started/02-preparation)
+- [Quickstart](/docs/caph/01-getting-started/03-quickstart)
 
 ## Topics
 
-- [Preparation](/docs/caph/02-topics/01-preparation.md)
-- [Managing SSH Keys](/docs/caph/02-topics/02-managing-ssh-keys.md)
-- [High Availability Setup](/docs/caph/02-topics/03-HA-setup.md)
-- [Node Image](/docs/caph/02-topics/04-node-image.md)
-- [Upgrading CAPH](/docs/caph/02-topics/05-upgrading-caph.md)
-- [Hetzner Baremetal](/docs/caph/02-topics/06-baremetal)
-- [Advanced CAPH](/docs/caph/02-topics/07-advanced)
+- [Managing SSH Keys](/docs/caph/02-topics/01-managing-ssh-keys)
+- [Node Images](/docs/caph/02-topics/02-node-image)
+- [Production Environment](/docs/caph/02-topics/03-production-environment)
+- [Advanced CAPH](/docs/caph/02-topics/04-advanced-caph)
+- [Upgrading CAPH](/docs/caph/02-topics/05-upgrading-caph)
+- [Hetzner Baremetal](/docs/caph/02-topics/06-hetzner-baremetal)
 
 ## Reference
 
-- [General](/docs/caph/03-reference/01-introduction.md)
-- [HetznerCluster](/docs/caph/03-reference/02-hetzner-cluster.md)
-- [HCloudMachineTemplate](/docs/caph/03-reference/03-hcloud-machine-template.md)
-- [HCloudMachineTemplate](/docs/caph/03-reference/04-hcloud-remediation-template.md)
-- [HetznerBareMetalHost](/docs/caph/03-reference/05-hetzner-bare-metal-host.md)
-- [HetznerBareMetalMachineTemplate](/docs/caph/03-reference/06-hetzner-bare-metal-machine-template.md)
-- [HetznerBareMetalRemediationTemplate](/docs/caph/03-reference/07-hetzner-bare-metal-remediation-template.md)
+- [General](/docs/caph/03-reference/01-introduction)
+- [HetznerCluster](/docs/caph/03-reference/02-hetzner-cluster)
+- [HCloudMachineTemplate](/docs/caph/03-reference/03-hcloud-machine-template)
+- [HCloudMachineTemplate](/docs/caph/03-reference/04-hcloud-remediation-template)
+- [HetznerBareMetalHost](/docs/caph/03-reference/05-hetzner-bare-metal-host)
+- [HetznerBareMetalMachineTemplate](/docs/caph/03-reference/06-hetzner-bare-metal-machine-template)
+- [HetznerBareMetalRemediationTemplate](/docs/caph/03-reference/07-hetzner-bare-metal-remediation-template)
 
 ## Development
 
-- [Development guide](/docs/caph/04-developers/01-development-guide.md)
-- [Tilt](/docs/caph/04-developers/02-tilt.md)
-- [Releasing](/docs/caph/04-developers/03-releasing.md)
-- [Updating Kubernetes version](/docs/caph/04-developers/04-updating-kubernetes-version.md)
+- [Development guide](/docs/caph/04-developers/01-development-guide)
+- [Tilt](/docs/caph/04-developers/02-tilt)
+- [Releasing](/docs/caph/04-developers/03-releasing)
+- [Updating Kubernetes version](/docs/caph/04-developers/04-updating-kubernetes-version)

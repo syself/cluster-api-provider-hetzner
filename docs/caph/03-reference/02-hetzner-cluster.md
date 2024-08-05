@@ -16,7 +16,7 @@ In clusters with bare metal servers, you need to use [this CCM](https://github.c
 
 {% /callout %}
 
-[Here](/docs/caph/02-topics/02-managing-ssh-keys.md) you can find more information regarding the handling of SSH keys. Some of them are specified in `HetznerCluster` to have them cluster-wide, others are machine-scoped.
+[Here](/docs/caph/02-topics/02-managing-ssh-keys) you can find more information regarding the handling of SSH keys. Some of them are specified in `HetznerCluster` to have them cluster-wide, others are machine-scoped.
 
 ## Usage without HCloud Load Balancer
 
