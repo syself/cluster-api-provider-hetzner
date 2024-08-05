@@ -1133,12 +1133,12 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 
 	record.Event(s.scope.HetznerBareMetalHost, "InstallImagePreflightCheckSuccessful", "Rescue system reachable, disks look good.")
 
-	asi, actionRes := s.createAutoSetupInput(sshClient)
+	autoSetupInput, actionRes := s.createAutoSetupInput(sshClient)
 	if actionRes != nil {
 		return actionRes
 	}
 
-	autoSetup := buildAutoSetup(s.scope.HetznerBareMetalHost.Spec.Status.InstallImage, asi)
+	autoSetup := buildAutoSetup(s.scope.HetznerBareMetalHost.Spec.Status.InstallImage, autoSetupInput)
 
 	out = sshClient.CreateAutoSetup(autoSetup)
 	if out.Err != nil {
