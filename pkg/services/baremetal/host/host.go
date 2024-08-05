@@ -1381,6 +1381,7 @@ func (s *Service) actionEnsureProvisioned(_ context.Context) (ar actionResult) {
 			s.scope.Logger.Info("ensureProvisioned: hasJustRebooted. Retrying...", "hostname", hostname)
 			return actionContinue{delay: 2 * time.Second}
 		}
+
 		isTimeout, isSSHConnectionRefusedError, err := analyzeSSHOutputProvisioned(out)
 		if err != nil {
 			if errors.Is(err, errUnexpectedHostName) {
