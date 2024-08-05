@@ -66,6 +66,17 @@ type HetznerBareMetalHostReconciler struct {
 // Reconcile implements the reconcilement of HetznerBareMetalHost objects.
 func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res ctrl.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
+
+	start := time.Now()
+	defer func() {
+		// check duration of reconcile. Warn if it took too long.
+		duration := time.Since(start)
+		if duration < 15*time.Second {
+			return
+		}
+		log.Info("Reconcile took too long", "duration", duration, "res", res, "reterr", reterr)
+	}()
+
 	// Fetch the Hetzner bare metal host instance.
 	bmHost := &infrav1.HetznerBareMetalHost{}
 	err := r.Get(ctx, req.NamespacedName, bmHost)
