@@ -1074,7 +1074,22 @@ func (s *Service) actionImageInstalling(ctx context.Context) actionResult {
 	}
 
 	s.scope.HetznerBareMetalHost.Spec.Status.SSHStatus.OSKey = &sshKey
+	running, finished, err := sshClient.GetInstallImageState()
+	if err != nil {
+		return actionError{err: fmt.Errorf("failed to get state of installimage processes: %w", err)}
+	}
+	if running {
+		s.scope.Logger.Info("installimage is still running. Checking again in some seconds.")
+		return actionContinue{delay: 10 * time.Second}
+	}
+	if finished {
+		s.scope.Logger.Info("installimage is finished.")
+		return s.actionImageInstallingFinished(ctx, sshClient)
+	}
+	return s.actionImageInstallingStartBackgroundProcess(ctx, sshClient)
+}
 
+func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Context, sshClient sshclient.Client) actionResult {
 	// If there is a Linux OS on an other disk, then the reboot after the provisioning
 	// will likely fail, because the machine boots into the other operating system.
 	// We want detect that early, and not start the provisioning process.
@@ -1115,22 +1130,6 @@ func (s *Service) actionImageInstalling(ctx context.Context) actionResult {
 	}
 	record.Eventf(s.scope.HetznerBareMetalHost, "NoLinuxOnAnotherDisk", "OK, no Linux on another disk:\n%s\n\n%s", out.StdOut, out.StdErr)
 
-	running, finished, err := sshClient.GetInstallImageState()
-	if err != nil {
-		return actionError{err: fmt.Errorf("failed to state of installimage processes: %w", err)}
-	}
-	if running {
-		s.scope.Logger.Info("installimage is still running. Checking again in some seconds.")
-		return actionContinue{delay: 10 * time.Second}
-	}
-	if finished {
-		s.scope.Logger.Info("installimage is finished.")
-		return s.actionImageInstallingFinished(ctx, sshClient)
-	}
-	return s.actionImageInstallingStartBackgroundProcess(ctx, sshClient)
-}
-
-func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Context, sshClient sshclient.Client) actionResult {
 	record.Event(s.scope.HetznerBareMetalHost, "InstallImagePreflightCheckSuccessful", "Rescue system reachable, disks look good.")
 
 	asi, actionRes := s.createAutoSetupInput(sshClient)
@@ -1140,7 +1139,7 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 
 	autoSetup := buildAutoSetup(s.scope.HetznerBareMetalHost.Spec.Status.InstallImage, asi)
 
-	out := sshClient.CreateAutoSetup(autoSetup)
+	out = sshClient.CreateAutoSetup(autoSetup)
 	if out.Err != nil {
 		return actionError{err: fmt.Errorf("failed to create autosetup: %q %q %w", out.StdOut, out.StdErr, out.Err)}
 	}

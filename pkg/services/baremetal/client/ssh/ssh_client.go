@@ -204,7 +204,7 @@ func (o Output) String() string {
 // There are three case:
 // First case: Remote command finished with exit 0: 0, nil.
 // Second case: Remote command finished with non zero: N, nil.
-// Third case: Remote command was not called successfully: 0, err.
+// Third case: Remote command was not called successfully (like host not reachable): 0, err.
 func (o Output) ExitStatus() (int, error) {
 	var exitError *ssh.ExitError
 	if errors.As(o.Err, &exitError) {
@@ -227,6 +227,7 @@ type Client interface {
 	GetHardwareDetailsCPUCores() Output
 	GetHardwareDetailsDebug() Output
 	GetInstallImageState() (running bool, finished bool, err error)
+	GetResultOfInstallImage() (string, error)
 	GetCloudInitOutput() Output
 	CreateAutoSetup(data string) Output
 	DownloadImage(path, url string) Output
@@ -240,7 +241,6 @@ type Client interface {
 	ResetKubeadm() Output
 	UntarTGZ() Output
 	DetectLinuxOnAnotherDisk(sliceOfWwns []string) Output
-	GetResultOfInstallImage() (string, error)
 }
 
 // Factory is the interface for creating new Client objects.
@@ -406,6 +406,7 @@ func (c *sshClient) GetInstallImageState() (running bool, finished bool, err err
 		return false, false, fmt.Errorf("failed to run `ps aux` to get running installimage process: %w", out.Err)
 	}
 	if out.StdOut != "" {
+		// installimage is not running
 		return true, false, nil
 	}
 
