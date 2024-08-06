@@ -10,13 +10,12 @@ This is the official documentation of Cluster API Provider Hetzner. Before start
 
 ## Topics
 
-- [Preparation](/docs/caph/02-topics/01-preparation.md)
-- [Managing SSH Keys](/docs/caph/02-topics/02-managing-ssh-keys.md)
-- [High Availability Setup](/docs/caph/02-topics/03-HA-setup.md)
-- [Node Image](/docs/caph/02-topics/04-node-image.md)
-- [Upgrading CAPH](/docs/caph/02-topics/05-upgrading-caph.md)
-- [Hetzner Baremetal](/docs/caph/02-topics/06-baremetal)
-- [Advanced CAPH](/docs/caph/02-topics/07-advanced)
+- [Managing SSH Keys](/docs/caph/02-topics/01-managing-ssh-keys.md)
+- [High Availability Setup](/docs/caph/02-topics/02-HA-setup.md)
+- [Node Image](/docs/caph/02-topics/03-node-image.md)
+- [Upgrading CAPH](/docs/caph/02-topics/04-upgrading-caph.md)
+- [Hetzner Baremetal](/docs/caph/02-topics/05-baremetal)
+- [Advanced CAPH](/docs/caph/02-topics/06-advanced)
 
 ## Reference
 
