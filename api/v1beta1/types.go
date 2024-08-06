@@ -233,7 +233,7 @@ type HCloudNetworkSpec struct {
 
 	// NetworkZone specifies the HCloud network zone of the private network.
 	// The zones must be one of eu-central, us-east, or us-west. The default is eu-central.
-	// +kubebuilder:validation:Enum=eu-central;us-east;us-west
+	// +kubebuilder:validation:Enum=eu-central;us-east;us-west;ap-southeast
 	// +kubebuilder:default=eu-central
 	// +optional
 	NetworkZone HCloudNetworkZone `json:"networkZone,omitempty"`
@@ -247,7 +247,7 @@ type NetworkStatus struct {
 }
 
 // Region is a Hetzner Location.
-// +kubebuilder:validation:Enum=fsn1;hel1;nbg1;ash;hil
+// +kubebuilder:validation:Enum=fsn1;hel1;nbg1;ash;hil;sin
 type Region string
 
 // HCloudNetworkZone describes the Network zone.
