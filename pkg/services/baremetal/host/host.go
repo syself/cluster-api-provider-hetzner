@@ -1450,7 +1450,7 @@ func (s *Service) actionEnsureProvisioned(_ context.Context) (ar actionResult) {
 	// Create an Event which contains the content of /var/log/cloud-init-output.log
 	out = sshClient.GetCloudInitOutput()
 	if out.Err != nil || out.StdErr != "" {
-		record.Warnf(s.scope.HetznerBareMetalHost, "GetCloudInitOutputFailed",
+		record.Eventf(s.scope.HetznerBareMetalHost, "GetCloudInitOutputFailed",
 			"GetCloudInitOutput failed to get /var/log/cloud-init-output.log: stdout %q, stderr %q, err %q",
 			out.StdOut, out.StdErr, out.Err.Error())
 		return actionError{err: fmt.Errorf("%w. %w", errGettingCloudInitOutput, out.Err)}
