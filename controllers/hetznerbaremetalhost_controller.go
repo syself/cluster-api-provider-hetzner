@@ -71,10 +71,9 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	defer func() {
 		// check duration of reconcile. Warn if it took too long.
 		duration := time.Since(start)
-		if duration < 15*time.Second {
-			return
+		if duration > 15*time.Second {
+			log.Info("Reconcile took too long", "duration", duration, "res", res, "reterr", reterr)
 		}
-		log.Info("Reconcile took too long", "duration", duration, "res", res, "reterr", reterr)
 	}()
 
 	// Fetch the Hetzner bare metal host instance.
