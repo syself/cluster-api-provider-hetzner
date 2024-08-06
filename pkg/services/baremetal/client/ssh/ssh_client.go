@@ -176,7 +176,7 @@ type Output struct {
 	Err    error
 }
 
-// InstallImageState defines three states of the process
+// InstallImageState defines three states of the process.
 type InstallImageState string
 
 const (
