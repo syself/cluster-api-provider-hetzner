@@ -1074,20 +1074,24 @@ func (s *Service) actionImageInstalling(ctx context.Context) actionResult {
 	}
 
 	s.scope.HetznerBareMetalHost.Spec.Status.SSHStatus.OSKey = &sshKey
-	running, finished, err := sshClient.GetInstallImageState()
+	state, err := sshClient.GetInstallImageState()
 	if err != nil {
 		return actionError{err: fmt.Errorf("failed to get state of installimage processes: %w", err)}
 	}
-	if running {
+	switch state {
+	case sshclient.InstallImageStateRunning:
 		s.scope.Logger.Info("installimage is still running. Checking again in some seconds.")
 		return actionContinue{delay: 10 * time.Second}
-	}
-	if finished {
+
+	case sshclient.InstallImageStateFinished:
 		s.scope.Logger.Info("installimage is finished.")
 		return s.actionImageInstallingFinished(ctx, sshClient)
+	case sshclient.InstallImageStateNotStartedYet:
+		// install-image not started yet. Start it now.
+		return s.actionImageInstallingStartBackgroundProcess(ctx, sshClient)
+	default:
+		panic(fmt.Sprintf("Unknown InstallImageState %+v", state))
 	}
-	// install-image not started yet. Start it now.
-	return s.actionImageInstallingStartBackgroundProcess(ctx, sshClient)
 }
 
 func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Context, sshClient sshclient.Client) actionResult {

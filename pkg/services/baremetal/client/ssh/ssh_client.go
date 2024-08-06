@@ -176,6 +176,18 @@ type Output struct {
 	Err    error
 }
 
+// InstallImageState defines three states of the process
+type InstallImageState string
+
+const (
+	// InstallImageStateNotStartedYet means the process has not started yet.
+	InstallImageStateNotStartedYet InstallImageState = "not-started-yet"
+	// InstallImageStateRunning means the process is still running.
+	InstallImageStateRunning InstallImageState = "running"
+	// InstallImageStateFinished has finished.
+	InstallImageStateFinished InstallImageState = "finished"
+)
+
 func (o Output) String() string {
 	s := make([]string, 0, 3)
 	stdout := strings.TrimSpace(o.StdOut)
@@ -226,7 +238,7 @@ type Client interface {
 	GetHardwareDetailsCPUThreads() Output
 	GetHardwareDetailsCPUCores() Output
 	GetHardwareDetailsDebug() Output
-	GetInstallImageState() (running bool, finished bool, err error)
+	GetInstallImageState() (InstallImageState, error)
 	GetResultOfInstallImage() (string, error)
 	GetCloudInitOutput() Output
 	CreateAutoSetup(data string) Output
@@ -407,22 +419,25 @@ EOF_VIA_SSH`, data))
 //	false, true,  nil --> install-image has finished.
 //	true,  true,  nil --> this should not happen.
 //	*,     *,     err --> ssh to machine failed.
-func (c *sshClient) GetInstallImageState() (running bool, finished bool, err error) {
+func (c *sshClient) GetInstallImageState() (InstallImageState, error) {
 	out := c.runSSH(`ps aux| grep installimage | grep -v grep; true`)
 	if out.Err != nil {
-		return false, false, fmt.Errorf("failed to run `ps aux` to get running installimage process: %w", out.Err)
+		return "", fmt.Errorf("failed to run `ps aux` to get running installimage process: %w", out.Err)
 	}
 	if out.StdOut != "" {
 		// installimage is running
-		return true, false, nil
+		return InstallImageStateRunning, nil
 	}
 
 	out = c.runSSH(`[ -e /root/installimage-wrapper.sh.log ]`)
 	exists, err := out.ExitStatus()
 	if err != nil {
-		return false, false, fmt.Errorf("failed to check if installimage-wrapper.sh.log exists: %w", err)
+		return "", fmt.Errorf("failed to check if installimage-wrapper.sh.log exists: %w", err)
 	}
-	return false, exists == 0, nil
+	if exists == 0 {
+		return InstallImageStateFinished, nil
+	}
+	return InstallImageStateNotStartedYet, nil
 }
 
 // ExecuteInstallImage implements the ExecuteInstallImage method of the SSHClient interface.

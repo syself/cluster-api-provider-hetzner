@@ -972,38 +972,31 @@ func (_c *Client_GetHostName_Call) RunAndReturn(run func() sshclient.Output) *Cl
 }
 
 // GetInstallImageState provides a mock function with given fields:
-func (_m *Client) GetInstallImageState() (bool, bool, error) {
+func (_m *Client) GetInstallImageState() (sshclient.InstallImageState, error) {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetInstallImageState")
 	}
 
-	var r0 bool
-	var r1 bool
-	var r2 error
-	if rf, ok := ret.Get(0).(func() (bool, bool, error)); ok {
+	var r0 sshclient.InstallImageState
+	var r1 error
+	if rf, ok := ret.Get(0).(func() (sshclient.InstallImageState, error)); ok {
 		return rf()
 	}
-	if rf, ok := ret.Get(0).(func() bool); ok {
+	if rf, ok := ret.Get(0).(func() sshclient.InstallImageState); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(bool)
+		r0 = ret.Get(0).(sshclient.InstallImageState)
 	}
 
-	if rf, ok := ret.Get(1).(func() bool); ok {
+	if rf, ok := ret.Get(1).(func() error); ok {
 		r1 = rf()
 	} else {
-		r1 = ret.Get(1).(bool)
+		r1 = ret.Error(1)
 	}
 
-	if rf, ok := ret.Get(2).(func() error); ok {
-		r2 = rf()
-	} else {
-		r2 = ret.Error(2)
-	}
-
-	return r0, r1, r2
+	return r0, r1
 }
 
 // Client_GetInstallImageState_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetInstallImageState'
@@ -1023,12 +1016,12 @@ func (_c *Client_GetInstallImageState_Call) Run(run func()) *Client_GetInstallIm
 	return _c
 }
 
-func (_c *Client_GetInstallImageState_Call) Return(running bool, finished bool, err error) *Client_GetInstallImageState_Call {
-	_c.Call.Return(running, finished, err)
+func (_c *Client_GetInstallImageState_Call) Return(_a0 sshclient.InstallImageState, _a1 error) *Client_GetInstallImageState_Call {
+	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *Client_GetInstallImageState_Call) RunAndReturn(run func() (bool, bool, error)) *Client_GetInstallImageState_Call {
+func (_c *Client_GetInstallImageState_Call) RunAndReturn(run func() (sshclient.InstallImageState, error)) *Client_GetInstallImageState_Call {
 	_c.Call.Return(run)
 	return _c
 }
