@@ -411,14 +411,7 @@ EOF_VIA_SSH`, data))
 	return c.runSSH(`chmod +x /root/post-install.sh`)
 }
 
-// GetInstallImageState returns the running installimage processes. Output.StdOut is empty if no processes are running.
-// Explanation of return values:
-//
-//	false, false, nil --> install-image has not started yet.
-//	true,  false, nil --> install-image is still running
-//	false, true,  nil --> install-image has finished.
-//	true,  true,  nil --> this should not happen.
-//	*,     *,     err --> ssh to machine failed.
+// GetInstallImageState returns the running installimage processes.
 func (c *sshClient) GetInstallImageState() (InstallImageState, error) {
 	out := c.runSSH(`ps aux| grep installimage | grep -v grep; true`)
 	if out.Err != nil {
