@@ -744,6 +744,7 @@ ifeq ($(BUILD_IN_CONTAINER),true)
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
 else
+	@lychee --version
 	lychee --config .lychee.toml ./*.md  ./docs/**/*.md
 endif
 
