@@ -745,7 +745,7 @@ ifeq ($(BUILD_IN_CONTAINER),true)
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
 else
 	@lychee --version
-	lychee --config .lychee.toml ./*.md  ./docs/**/*.md
+	lychee --verbose --config .lychee.toml ./*.md  ./docs/**/*.md 2>&1 | grep -vP '\[(200|EXCLUDED)\]'
 endif
 
 ##@ Main Targets
