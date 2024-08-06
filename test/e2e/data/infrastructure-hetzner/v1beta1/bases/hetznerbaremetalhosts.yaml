@@ -16,7 +16,7 @@ metadata:
 spec:
   serverID: 1716772
   rootDeviceHints:
-    wwn: "0x500a07510fe0ce34"
+    wwn: "0x5000cca22de4ef84"
   maintenanceMode: false
   description: Test Machine 1716772
 ---
