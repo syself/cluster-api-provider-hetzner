@@ -39,6 +39,7 @@ var regionNetworkZoneMap = map[string]string{
 	"hel1": "eu-central",
 	"ash":  "us-east",
 	"hil":  "us-west",
+	"sin":  "ap-southeast",
 }
 
 // SetupWebhookWithManager initializes webhook manager for HetznerCluster.
@@ -91,7 +92,7 @@ func (r *HetznerCluster) ValidateCreate() (admission.Warnings, error) {
 			allErrs = append(allErrs, field.Invalid(
 				field.NewPath("spec", "controlPlaneRegions"),
 				r.Spec.ControlPlaneRegions,
-				"wrong control plane region. Should be fsn1, nbg1, hel1, or ash",
+				"wrong control plane region. Should be fsn1, nbg1, hel1, ash, hil or sin",
 			))
 		}
 	}
