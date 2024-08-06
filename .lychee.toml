@@ -58,6 +58,7 @@ exclude = [
     "https://www.hetzner.com/*",
     "https://opensource.org/license/apache-2-0/",
     "https://robot.your-server.de/*",
+    "https://www.linkedin.com/company/syself/",
 ]
 
 include = []
