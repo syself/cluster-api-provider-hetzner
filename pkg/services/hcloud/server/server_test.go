@@ -18,6 +18,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
@@ -336,6 +337,93 @@ var _ = Describe("Test ValidateLabels", func() {
 			gotLabels:   map[string]string{"key1": "val1", "otherkey": "otherval"},
 			wantLabels:  map[string]string{"key1": "val1", "key2": "val2"},
 			expectError: errMissingLabel,
+		}),
+	)
+})
+
+var _ = Describe("Test handleRateLimit", func() {
+	type testCaseHandleRateLimit struct {
+		hm           *infrav1.HCloudMachine
+		err          error
+		functionName string
+		errMsg       string
+		expectError  error
+	}
+
+	DescribeTable("Test handleRateLimit",
+		func(tc testCaseHandleRateLimit) {
+			err := handleRateLimit(tc.hm, tc.err, tc.functionName, tc.errMsg)
+
+			if tc.expectError != nil && hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
+				Expect(err).To(MatchError(tc.expectError))
+				Expect(conditions.GetReason(tc.hm, infrav1.HetznerAPIReachableCondition)).To(Equal(infrav1.RateLimitExceededReason))
+			}
+			if tc.expectError != nil {
+				Expect(err).To(MatchError(tc.expectError))
+			}
+			if tc.expectError == nil {
+				Expect(err).To(BeNil())
+			}
+		},
+		Entry("machine not ready, rate limit exceeded error", testCaseHandleRateLimit{
+			hm: &infrav1.HCloudMachine{
+				Status: infrav1.HCloudMachineStatus{Ready: false},
+			},
+			err:          hcloud.Error{Code: hcloud.ErrorCodeRateLimitExceeded},
+			functionName: "TestFunction",
+			errMsg:       "Test error message",
+			expectError:  fmt.Errorf("Test error message: %w", hcloud.Error{Code: hcloud.ErrorCodeRateLimitExceeded}),
+		}),
+		Entry("machine has deletion timestamp, rate limit exceeded error", testCaseHandleRateLimit{
+			hm: &infrav1.HCloudMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					DeletionTimestamp: &metav1.Time{Time: time.Now()},
+				},
+				Status: infrav1.HCloudMachineStatus{Ready: true},
+			},
+			err:          hcloud.Error{Code: hcloud.ErrorCodeRateLimitExceeded},
+			functionName: "TestFunction",
+			errMsg:       "Test error message",
+			expectError:  fmt.Errorf("Test error message: %w", hcloud.Error{Code: hcloud.ErrorCodeRateLimitExceeded}),
+		}),
+		Entry("machine not ready, has deletion timestamp, rate limit exceeded error", testCaseHandleRateLimit{
+			hm: &infrav1.HCloudMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					DeletionTimestamp: &metav1.Time{Time: time.Now()},
+				},
+				Status: infrav1.HCloudMachineStatus{Ready: false},
+			},
+			err:          hcloud.Error{Code: hcloud.ErrorCodeRateLimitExceeded},
+			functionName: "TestFunction",
+			errMsg:       "Test error message",
+			expectError:  fmt.Errorf("Test error message: %w", hcloud.Error{Code: hcloud.ErrorCodeRateLimitExceeded}),
+		}),
+		Entry("machine ready, rate limit exceeded error", testCaseHandleRateLimit{
+			hm: &infrav1.HCloudMachine{
+				Status: infrav1.HCloudMachineStatus{Ready: true},
+			},
+			err:          hcloud.Error{Code: hcloud.ErrorCodeRateLimitExceeded},
+			functionName: "TestFunction",
+			errMsg:       "Test error message",
+			expectError:  nil,
+		}),
+		Entry("machine ready, other error", testCaseHandleRateLimit{
+			hm: &infrav1.HCloudMachine{
+				Status: infrav1.HCloudMachineStatus{Ready: true},
+			},
+			err:          hcloud.Error{Code: hcloud.ErrorCodeResourceUnavailable},
+			functionName: "TestFunction",
+			errMsg:       "Test error message",
+			expectError:  fmt.Errorf("Test error message: %w", hcloud.Error{Code: hcloud.ErrorCodeResourceUnavailable}),
+		}),
+		Entry("machine not ready, other error", testCaseHandleRateLimit{
+			hm: &infrav1.HCloudMachine{
+				Status: infrav1.HCloudMachineStatus{Ready: false},
+			},
+			err:          hcloud.Error{Code: hcloud.ErrorCodeConflict},
+			functionName: "TestFunction",
+			errMsg:       "Test conflict error message",
+			expectError:  fmt.Errorf("Test conflict error message: %w", hcloud.Error{Code: hcloud.ErrorCodeConflict}),
 		}),
 	)
 })
