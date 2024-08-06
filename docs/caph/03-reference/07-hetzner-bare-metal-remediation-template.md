@@ -2,7 +2,7 @@
 title: HetznerBareMetalRemediationTemplate
 ---
 
-In `HetznerBareMetalRemediationTemplate` you can define all important properties for `HetznerBareMetalRemediations`. With this remediation, you can define a custom method for the manner of how Machine Health Checks treat the unhealthy `object`s - `HetznerBareMetalMachines` in this case. For more information about how to use remediations, see [Advanced CAPH](/docs/caph/02-topics/07-advanced/04-custom-templates-mhc). `HetznerBareMetalRemediations` are reconciled by the `HetznerBareMetalRemediationController`, which reconciles the remediatons and triggers the requested type of remediation on the relevant `HetznerBareMetalMachine`.
+In `HetznerBareMetalRemediationTemplate` you can define all important properties for `HetznerBareMetalRemediations`. With this remediation, you can define a custom method for the manner of how Machine Health Checks treat the unhealthy `object`s - `HetznerBareMetalMachines` in this case. For more information about how to use remediations, see [Advanced CAPH](/docs/caph/02-topics/06-advanced/04-custom-templates-mhc.md). `HetznerBareMetalRemediations` are reconciled by the `HetznerBareMetalRemediationController`, which reconciles the remediatons and triggers the requested type of remediation on the relevant `HetznerBareMetalMachine`.
 
 ## Overview of HetznerBareMetalRemediationTemplate.Spec
 

@@ -253,6 +253,7 @@ spec:
                 - nbg1
                 - ash
                 - hil
+                - sin
                 type: string
               sshKeys:
                 description: SSHKeys specifies the ssh keys that were used for provisioning

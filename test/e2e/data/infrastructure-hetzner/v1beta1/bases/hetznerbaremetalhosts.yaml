@@ -9,17 +9,17 @@ spec:
   maintenanceMode: false
   description: Test Machine 1670788
 ---
-apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
-kind: HetznerBareMetalHost
-metadata:
-  name: "bm-e2e-1716772"
-spec:
-  serverID: 1716772
-  rootDeviceHints:
-    wwn: "0x500a07510fe0ce34"
-  maintenanceMode: false
-  description: Test Machine 1716772
----
+# apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+# kind: HetznerBareMetalHost
+# metadata:
+#   name: "bm-e2e-1716772"
+# spec:
+#   serverID: 1716772
+#   rootDeviceHints:
+#     wwn: "0x5000cca22de4ef84"
+#   maintenanceMode: false
+#   description: Test Machine 1716772
+# ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: HetznerBareMetalHost
 metadata:
