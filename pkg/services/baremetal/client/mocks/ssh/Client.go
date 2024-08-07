@@ -971,47 +971,112 @@ func (_c *Client_GetHostName_Call) RunAndReturn(run func() sshclient.Output) *Cl
 	return _c
 }
 
-// GetRunningInstallImageProcesses provides a mock function with given fields:
-func (_m *Client) GetRunningInstallImageProcesses() sshclient.Output {
+// GetInstallImageState provides a mock function with given fields:
+func (_m *Client) GetInstallImageState() (sshclient.InstallImageState, error) {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
-		panic("no return value specified for GetRunningInstallImageProcesses")
+		panic("no return value specified for GetInstallImageState")
 	}
 
-	var r0 sshclient.Output
-	if rf, ok := ret.Get(0).(func() sshclient.Output); ok {
+	var r0 sshclient.InstallImageState
+	var r1 error
+	if rf, ok := ret.Get(0).(func() (sshclient.InstallImageState, error)); ok {
+		return rf()
+	}
+	if rf, ok := ret.Get(0).(func() sshclient.InstallImageState); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(sshclient.Output)
+		r0 = ret.Get(0).(sshclient.InstallImageState)
 	}
 
-	return r0
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
-// Client_GetRunningInstallImageProcesses_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetRunningInstallImageProcesses'
-type Client_GetRunningInstallImageProcesses_Call struct {
+// Client_GetInstallImageState_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetInstallImageState'
+type Client_GetInstallImageState_Call struct {
 	*mock.Call
 }
 
-// GetRunningInstallImageProcesses is a helper method to define mock.On call
-func (_e *Client_Expecter) GetRunningInstallImageProcesses() *Client_GetRunningInstallImageProcesses_Call {
-	return &Client_GetRunningInstallImageProcesses_Call{Call: _e.mock.On("GetRunningInstallImageProcesses")}
+// GetInstallImageState is a helper method to define mock.On call
+func (_e *Client_Expecter) GetInstallImageState() *Client_GetInstallImageState_Call {
+	return &Client_GetInstallImageState_Call{Call: _e.mock.On("GetInstallImageState")}
 }
 
-func (_c *Client_GetRunningInstallImageProcesses_Call) Run(run func()) *Client_GetRunningInstallImageProcesses_Call {
+func (_c *Client_GetInstallImageState_Call) Run(run func()) *Client_GetInstallImageState_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run()
 	})
 	return _c
 }
 
-func (_c *Client_GetRunningInstallImageProcesses_Call) Return(_a0 sshclient.Output) *Client_GetRunningInstallImageProcesses_Call {
-	_c.Call.Return(_a0)
+func (_c *Client_GetInstallImageState_Call) Return(_a0 sshclient.InstallImageState, _a1 error) *Client_GetInstallImageState_Call {
+	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *Client_GetRunningInstallImageProcesses_Call) RunAndReturn(run func() sshclient.Output) *Client_GetRunningInstallImageProcesses_Call {
+func (_c *Client_GetInstallImageState_Call) RunAndReturn(run func() (sshclient.InstallImageState, error)) *Client_GetInstallImageState_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetResultOfInstallImage provides a mock function with given fields:
+func (_m *Client) GetResultOfInstallImage() (string, error) {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetResultOfInstallImage")
+	}
+
+	var r0 string
+	var r1 error
+	if rf, ok := ret.Get(0).(func() (string, error)); ok {
+		return rf()
+	}
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// Client_GetResultOfInstallImage_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetResultOfInstallImage'
+type Client_GetResultOfInstallImage_Call struct {
+	*mock.Call
+}
+
+// GetResultOfInstallImage is a helper method to define mock.On call
+func (_e *Client_Expecter) GetResultOfInstallImage() *Client_GetResultOfInstallImage_Call {
+	return &Client_GetResultOfInstallImage_Call{Call: _e.mock.On("GetResultOfInstallImage")}
+}
+
+func (_c *Client_GetResultOfInstallImage_Call) Run(run func()) *Client_GetResultOfInstallImage_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Client_GetResultOfInstallImage_Call) Return(_a0 string, _a1 error) *Client_GetResultOfInstallImage_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Client_GetResultOfInstallImage_Call) RunAndReturn(run func() (string, error)) *Client_GetResultOfInstallImage_Call {
 	_c.Call.Return(run)
 	return _c
 }

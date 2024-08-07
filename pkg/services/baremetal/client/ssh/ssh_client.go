@@ -176,6 +176,18 @@ type Output struct {
 	Err    error
 }
 
+// InstallImageState defines three states of the process.
+type InstallImageState string
+
+const (
+	// InstallImageStateNotStartedYet means the process has not started yet.
+	InstallImageStateNotStartedYet InstallImageState = "not-started-yet"
+	// InstallImageStateRunning means the process is still running.
+	InstallImageStateRunning InstallImageState = "running"
+	// InstallImageStateFinished has finished.
+	InstallImageStateFinished InstallImageState = "finished"
+)
+
 func (o Output) String() string {
 	s := make([]string, 0, 3)
 	stdout := strings.TrimSpace(o.StdOut)
@@ -200,6 +212,19 @@ func (o Output) String() string {
 	return strings.Join(s, ". ")
 }
 
+// ExitStatus returns the exit status of the remote shell command.
+// There are three case:
+// First case: Remote command finished with exit 0: 0, nil.
+// Second case: Remote command finished with non zero: N, nil.
+// Third case: Remote command was not called successfully (like host not reachable): 0, err.
+func (o Output) ExitStatus() (int, error) {
+	var exitError *ssh.ExitError
+	if errors.As(o.Err, &exitError) {
+		return exitError.ExitStatus(), nil
+	}
+	return 0, o.Err
+}
+
 // Client is the interface defining all functions necessary to talk to a bare metal server via SSH.
 type Client interface {
 	GetHostName() Output
@@ -213,7 +238,8 @@ type Client interface {
 	GetHardwareDetailsCPUThreads() Output
 	GetHardwareDetailsCPUCores() Output
 	GetHardwareDetailsDebug() Output
-	GetRunningInstallImageProcesses() Output
+	GetInstallImageState() (InstallImageState, error)
+	GetResultOfInstallImage() (string, error)
 	GetCloudInitOutput() Output
 	CreateAutoSetup(data string) Output
 	DownloadImage(path, url string) Output
@@ -385,9 +411,26 @@ EOF_VIA_SSH`, data))
 	return c.runSSH(`chmod +x /root/post-install.sh`)
 }
 
-// GetRunningInstallImageProcesses returns the running installimage processes. Output.StdOut is empty if no processes are running.
-func (c *sshClient) GetRunningInstallImageProcesses() Output {
-	return c.runSSH(`ps aux| grep installimage | grep -v grep; true`)
+// GetInstallImageState returns the running installimage processes.
+func (c *sshClient) GetInstallImageState() (InstallImageState, error) {
+	out := c.runSSH(`ps aux| grep installimage | grep -v grep; true`)
+	if out.Err != nil {
+		return "", fmt.Errorf("failed to run `ps aux` to get running installimage process: %w", out.Err)
+	}
+	if out.StdOut != "" {
+		// installimage is running
+		return InstallImageStateRunning, nil
+	}
+
+	out = c.runSSH(`[ -e /root/installimage-wrapper.sh.log ]`)
+	exists, err := out.ExitStatus()
+	if err != nil {
+		return "", fmt.Errorf("failed to check if installimage-wrapper.sh.log exists: %w", err)
+	}
+	if exists == 0 {
+		return InstallImageStateFinished, nil
+	}
+	return InstallImageStateNotStartedYet, nil
 }
 
 // ExecuteInstallImage implements the ExecuteInstallImage method of the SSHClient interface.
@@ -415,32 +458,34 @@ EOF_VIA_SSH`, cmd))
 		return out
 	}
 
-	installImageOut := c.runSSH(`sh /root/installimage-wrapper.sh`)
+	return c.runSSH(`nohup /root/installimage-wrapper.sh >/root/installimage-wrapper.sh.log 2>&1 </dev/null &`)
+}
 
-	debugTxtOut := c.runSSH(`cat /root/debug.txt`)
-	installImageOut.StdOut = fmt.Sprintf(`debug.txt:
+// GetResultOfInstallImage returns the logs of install-image.
+// Before calling this method be sure that installimage is already terminated.
+func (c *sshClient) GetResultOfInstallImage() (string, error) {
+	out := c.runSSH(`cat /root/debug.txt`)
+	if out.Err != nil {
+		return "", fmt.Errorf("failed to get debug.txt: %w", out.Err)
+	}
+	debugTxt := out.StdOut
+
+	out = c.runSSH(`cat /root/installimage-wrapper.sh.log`)
+	if out.Err != nil {
+		return "", fmt.Errorf("failed to get installimage-wrapper.sh.log: %w", out.Err)
+	}
+	wrapperLog := out.StdOut
+
+	return fmt.Sprintf(`debug.txt:
 %s
-%s
+
 ######################################
 
-/root/installimage-wrapper.sh stdout:
+/root/installimage-wrapper.sh stdout+stderr:
+
 %s
-######################################
-
-stderr:
-%s`,
-		debugTxtOut.StdOut, debugTxtOut.StdErr, installImageOut.StdOut, installImageOut.StdErr)
-
-	if installImageOut.Err != nil {
-		return installImageOut
-	}
-
-	if debugTxtOut.Err != nil {
-		installImageOut.StdOut += fmt.Sprintf("\nfailed to get /root/debug.txt:\n%s", debugTxtOut.Err.Error())
-	}
-
-	// Ignore StdErr in this command
-	return Output{StdOut: installImageOut.StdOut}
+`,
+		debugTxt, wrapperLog), nil
 }
 
 // Reboot implements the Reboot method of the SSHClient interface.
@@ -508,12 +553,14 @@ EOF_VIA_SSH
 }
 
 func (c *sshClient) UntarTGZ() Output {
+	// read tgz from container image.
 	fileName := "/installimage.tgz"
 	data, err := os.ReadFile(fileName)
 	if err != nil {
 		return Output{Err: fmt.Errorf("ReadInstallimageTgzFailed %s: %w", fileName, err)}
 	}
 
+	// send base64 encoded binary to machine via ssh.
 	return c.runSSH(fmt.Sprintf("echo %s | base64 -d | tar -xzf-",
 		base64.StdEncoding.EncodeToString(data)))
 }

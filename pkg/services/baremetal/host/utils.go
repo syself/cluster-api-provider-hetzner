@@ -29,9 +29,9 @@ type autoSetupInput struct {
 	image     string
 }
 
-func buildAutoSetup(installImageSpec *infrav1.InstallImage, autoSetupInput autoSetupInput) string {
+func buildAutoSetup(installImageSpec *infrav1.InstallImage, asi autoSetupInput) string {
 	var drives string
-	for i, osDevice := range autoSetupInput.osDevices {
+	for i, osDevice := range asi.osDevices {
 		if i > 0 {
 			drives = fmt.Sprintf(`%s
 DRIVE%v /dev/%s`, drives, i+1, osDevice)
@@ -42,7 +42,7 @@ DRIVE%v /dev/%s`, drives, i+1, osDevice)
 
 	hostName := fmt.Sprintf(`
 HOSTNAME %s
-SWRAID %v`, autoSetupInput.hostName, installImageSpec.Swraid)
+SWRAID %v`, asi.hostName, installImageSpec.Swraid)
 	if installImageSpec.Swraid == 1 {
 		hostName = fmt.Sprintf(`%s
 SWRAIDLEVEL %v`, hostName, installImageSpec.SwraidLevel)
@@ -70,7 +70,7 @@ SUBVOL %s %s %s`, btrfsDefinitions, btrfs.Volume, btrfs.SubVolume, btrfs.Mount)
 	}
 
 	image := fmt.Sprintf(`
-IMAGE %s`, autoSetupInput.image)
+IMAGE %s`, asi.image)
 
 	output := fmt.Sprintf(`%s
 %s
