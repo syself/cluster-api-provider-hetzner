@@ -207,10 +207,12 @@ type converter interface {
 
 	// goverter:map PriceHourly Hourly
 	// goverter:map PriceMonthly Monthly
+	// goverter:map PricePerTBTraffic PerTBTraffic
 	LoadBalancerTypeLocationPricingFromSchema(schema.PricingLoadBalancerTypePrice) LoadBalancerTypeLocationPricing
 
 	// goverter:map Hourly PriceHourly
 	// goverter:map Monthly PriceMonthly
+	// goverter:map PerTBTraffic PricePerTBTraffic
 	SchemaFromLoadBalancerTypeLocationPricing(LoadBalancerTypeLocationPricing) schema.PricingLoadBalancerTypePrice
 
 	LoadBalancerServiceFromSchema(schema.LoadBalancerService) LoadBalancerService
@@ -263,6 +265,7 @@ type converter interface {
 
 	// goverter:map PriceHourly Hourly
 	// goverter:map PriceMonthly Monthly
+	// goverter:map PricePerTBTraffic PerTBTraffic
 	serverTypePricingFromSchema(schema.PricingServerTypePrice) ServerTypeLocationPricing
 
 	// goverter:map Image.PerGBMonth.Currency Currency
@@ -306,6 +309,7 @@ type converter interface {
 
 	// goverter:map Monthly PriceMonthly
 	// goverter:map Hourly PriceHourly
+	// goverter:map PerTBTraffic PricePerTBTraffic
 	schemaFromServerTypeLocationPricing(ServerTypeLocationPricing) schema.PricingServerTypePrice
 
 	FirewallFromSchema(schema.Firewall) *Firewall
@@ -707,8 +711,8 @@ func primaryIPPricingFromSchema(s schema.Pricing) []PrimaryIPPricing {
 func trafficPricingFromSchema(s schema.Pricing) TrafficPricing {
 	return TrafficPricing{
 		PerTB: Price{
-			Net:      s.Traffic.PricePerTB.Net,
-			Gross:    s.Traffic.PricePerTB.Gross,
+			Net:      s.Traffic.PricePerTB.Net,   // nolint:staticcheck // Field is deprecated, but we still need to map it as long as it is available
+			Gross:    s.Traffic.PricePerTB.Gross, // nolint:staticcheck // Field is deprecated, but we still need to map it as long as it is available
 			Currency: s.Currency,
 			VATRate:  s.VATRate,
 		},
@@ -733,6 +737,13 @@ func serverTypePricingFromSchema(s schema.Pricing) []ServerTypePricing {
 					VATRate:  s.VATRate,
 					Net:      price.PriceMonthly.Net,
 					Gross:    price.PriceMonthly.Gross,
+				},
+				IncludedTraffic: price.IncludedTraffic,
+				PerTBTraffic: Price{
+					Currency: s.Currency,
+					VATRate:  s.VATRate,
+					Net:      price.PricePerTBTraffic.Net,
+					Gross:    price.PricePerTBTraffic.Gross,
 				},
 			}
 		}
@@ -765,6 +776,13 @@ func loadBalancerTypePricingFromSchema(s schema.Pricing) []LoadBalancerTypePrici
 					VATRate:  s.VATRate,
 					Net:      price.PriceMonthly.Net,
 					Gross:    price.PriceMonthly.Gross,
+				},
+				IncludedTraffic: price.IncludedTraffic,
+				PerTBTraffic: Price{
+					Currency: s.Currency,
+					VATRate:  s.VATRate,
+					Net:      price.PricePerTBTraffic.Net,
+					Gross:    price.PricePerTBTraffic.Gross,
 				},
 			}
 		}
