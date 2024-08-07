@@ -97,10 +97,10 @@ The following `make` command will install the CCM in your workload cluster:
 For a cluster without a private network, use the following command:
 
 ```shell
-helm repo add syself https://charts.syself.com
-helm repo update syself
+helm repo add hcloud https://charts.hetzner.cloud
+helm repo update hcloud
 
-KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install ccm syself/ccm-hcloud --version 1.0.11 \
+KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install hccm hcloud/hcloud-cloud-controller-manager --version 1.20.0 \
 	--namespace kube-system \
 	--set secret.name=hetzner \
 	--set secret.tokenKeyName=hcloud \
