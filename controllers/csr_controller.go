@@ -175,7 +175,7 @@ func (r *GuestCSRReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 			certificateSigningRequest.Spec.Username, err)
 	}
 
-	record.Event(certificateSigningRequest, "CSRApproved", "approved csr")
+	record.Eventf(certificateSigningRequest, "CSRApproved", "approved csr for %q", certificateSigningRequest.Spec.Username)
 	return reconcile.Result{}, nil
 }
 
