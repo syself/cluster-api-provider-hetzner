@@ -918,8 +918,8 @@ func Test_removePermanentErrorIfAnnotationIsGone(t *testing.T) {
 			},
 		},
 	}
-	requeue := removePermanentErrorIfAnnotationIsGone(&bmHost)
-	require.False(t, requeue)
+	removed := removePermanentErrorIfAnnotationIsGone(&bmHost)
+	require.False(t, removed)
 	require.NotEmpty(t, bmHost.Spec.Status.ErrorType)
 	require.NotEmpty(t, bmHost.Spec.Status.ErrorCount)
 	require.NotEmpty(t, bmHost.Spec.Status.ErrorMessage)
@@ -940,8 +940,8 @@ func Test_removePermanentErrorIfAnnotationIsGone(t *testing.T) {
 			},
 		},
 	}
-	requeue = removePermanentErrorIfAnnotationIsGone(&bmHost)
-	require.True(t, requeue)
+	removed = removePermanentErrorIfAnnotationIsGone(&bmHost)
+	require.True(t, removed)
 	require.Empty(t, bmHost.Spec.Status.ErrorType)
 	require.Empty(t, bmHost.Spec.Status.ErrorCount)
 	require.Empty(t, bmHost.Spec.Status.ErrorMessage)
@@ -961,8 +961,8 @@ func Test_removePermanentErrorIfAnnotationIsGone(t *testing.T) {
 			},
 		},
 	}
-	requeue = removePermanentErrorIfAnnotationIsGone(&bmHost)
-	require.False(t, requeue)
+	removed = removePermanentErrorIfAnnotationIsGone(&bmHost)
+	require.False(t, removed)
 	require.NotEmpty(t, bmHost.Spec.Status.ErrorType)
 	require.NotEmpty(t, bmHost.Spec.Status.ErrorCount)
 	require.NotEmpty(t, bmHost.Spec.Status.ErrorMessage)

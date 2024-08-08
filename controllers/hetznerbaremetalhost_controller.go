@@ -98,8 +98,8 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 
 	// Remove permanent error, if the corresponding annotation was removed by the user.
-	requeue := removePermanentErrorIfAnnotationIsGone(bmHost)
-	if requeue {
+	removed := removePermanentErrorIfAnnotationIsGone(bmHost)
+	if removed {
 		// The permanent error was removed from Spec.Status.
 		// Save the changes, and then reconcile again.
 		err := r.Update(ctx, bmHost)
@@ -465,7 +465,7 @@ func (r *HetznerBareMetalHostReconciler) SetupWithManager(ctx context.Context, m
 }
 
 func removePermanentErrorIfAnnotationIsGone(bmHost *infrav1.HetznerBareMetalHost,
-) (requeue bool) {
+) (removed bool) {
 	if bmHost.Spec.Status.ErrorType != infrav1.PermanentError {
 		// PermanentError not set. Do nothing.
 		return false
