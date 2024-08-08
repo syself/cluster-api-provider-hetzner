@@ -550,6 +550,9 @@ func (host *HetznerBareMetalHost) SetError(errType ErrorType, errMessage string)
 	host.Spec.Status.ErrorType = errType
 	host.Spec.Status.ErrorMessage = errMessage
 	if errType == PermanentError {
+		if host.Annotations == nil {
+			host.Annotations = make(map[string]string, 1)
+		}
 		host.Annotations[PermanentErrorAnnotation] = time.Now().Format(time.RFC3339)
 		record.Warnf(host, "PermanentErrorSet", "Remove annotation %q, if you want the controller to use the hbmh again.",
 			PermanentErrorAnnotation)
