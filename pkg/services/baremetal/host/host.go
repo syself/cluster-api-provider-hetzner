@@ -183,6 +183,7 @@ func (s *Service) actionPreparing(_ context.Context) actionResult {
 				clusterv1.ConditionSeverityError,
 				msg,
 			)
+			record.Warnf(s.scope.HetznerBareMetalHost, infrav1.ServerNotFoundReason, msg)
 			s.scope.HetznerBareMetalHost.SetError(infrav1.PermanentError, msg)
 			return actionStop{}
 		}
@@ -263,7 +264,8 @@ func (s *Service) actionPreparing(_ context.Context) actionResult {
 	}
 
 	msg := createRebootEvent(s.scope.HetznerBareMetalHost, rebootType, "Reboot into rescue system.")
-	// we immediately set an error message in the host status to track the reboot we just performed
+	// we immediately set an error message in the host status to track the reboot we just performed.
+	// This is not a real error. Sooner or later we should track the reboots differently.
 	s.scope.HetznerBareMetalHost.SetError(errorType, msg)
 	return actionComplete{} // next: Registering
 }
