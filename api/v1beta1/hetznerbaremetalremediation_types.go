@@ -27,6 +27,11 @@ const (
 
 	// RebootAnnotation indicates that a bare metal host object should be rebooted.
 	RebootAnnotation = "reboot.hetznerbaremetalhost.infrastructure.cluster.x-k8s.io"
+
+	// PermanentErrorAnnotation indicates that the bare metal host has an error which needs to be resolved manually.
+	// After the permanent error the annotation got removed (usually by a human), the controller removes
+	// ErrorType, ErrorCount and ErrorMessages, so that the hbmh will be usable again.
+	PermanentErrorAnnotation = "permanenterror.hetznerbaremetalhost.infrastructure.cluster.x-k8s.io"
 )
 
 // HetznerBareMetalRemediationSpec defines the desired state of HetznerBareMetalRemediation.

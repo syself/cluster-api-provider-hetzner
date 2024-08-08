@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -547,6 +548,9 @@ func (host *HetznerBareMetalHost) SetError(errType ErrorType, errMessage string)
 	}
 	host.Spec.Status.ErrorType = errType
 	host.Spec.Status.ErrorMessage = errMessage
+	if errType == PermanentError {
+		host.Annotations[PermanentErrorAnnotation] = time.Now().Format(time.RFC3339)
+	}
 }
 
 // ClearError removes the error on the host and resets the error count to 0.
