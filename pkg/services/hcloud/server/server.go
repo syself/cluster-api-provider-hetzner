@@ -450,61 +450,25 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 	// Create the server
 	server, err := s.scope.HCloudClient.CreateServer(ctx, opts)
 	if err != nil {
-		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "CreateServer")
-		if hcloud.IsError(err, hcloud.ErrorCodeResourceLimitExceeded) {
-			conditions.MarkFalse(
-				s.scope.HCloudMachine,
-				infrav1.ServerCreateSucceededCondition,
-				infrav1.ServerLimitExceededReason,
-				clusterv1.ConditionSeverityError,
-				err.Error(),
-			)
-
-			err = errors.Join(errServerCreateNotPossible, err)
+		if hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "CreateServer") {
+			// RateLimit was reached. Condition and Event got already created.
+			return nil, fmt.Errorf("failed to create HCloud server %s: %w", s.scope.HCloudMachine.Name, err)
 		}
-
-		if hcloud.IsError(err, hcloud.ErrorCodeResourceUnavailable) {
-			conditions.MarkFalse(
-				s.scope.HCloudMachine,
-				infrav1.ServerCreateSucceededCondition,
-				infrav1.ServerResourceUnavailableReason,
-				clusterv1.ConditionSeverityWarning,
-				err.Error(),
-			)
-
-			err = errors.Join(errServerCreateNotPossible, err)
-		}
-
-		if hcloud.IsError(err, hcloud.ErrorCodePlacementError) {
-			conditions.MarkFalse(
-				s.scope.HCloudMachine,
-				infrav1.ServerCreateSucceededCondition,
-				infrav1.ServerPlacementErrorReason,
-				clusterv1.ConditionSeverityWarning,
-				err.Error(),
-			)
-
-			err = errors.Join(errServerCreateNotPossible, err)
-		}
-
-		if !conditions.IsFalse(s.scope.HCloudMachine, infrav1.ServerCreateSucceededCondition) &&
-			!conditions.IsFalse(s.scope.HCloudMachine, infrav1.HetznerAPIReachableCondition) {
-			// No condition was set yet. Set a general condition to false
-			conditions.MarkFalse(
-				s.scope.HCloudMachine,
-				infrav1.ServerCreateSucceededCondition,
-				"CreateServerSuccesfull",
-				clusterv1.ConditionSeverityWarning,
-				err.Error(),
-			)
-		}
-
+		// No condition was set yet. Set a general condition to false.
+		conditions.MarkFalse(
+			s.scope.HCloudMachine,
+			infrav1.ServerCreateSucceededCondition,
+			infrav1.ServerCreateFailedReason,
+			clusterv1.ConditionSeverityWarning,
+			err.Error(),
+		)
 		record.Warnf(s.scope.HCloudMachine,
 			"FailedCreateHCloudServer",
 			"Failed to create HCloud server %s: %s",
 			s.scope.Name(),
 			err,
 		)
+		err = errors.Join(errServerCreateNotPossible, err)
 		return nil, fmt.Errorf("failed to create HCloud server %s: %w", s.scope.HCloudMachine.Name, err)
 	}
 
