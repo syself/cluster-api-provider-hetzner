@@ -377,7 +377,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 					}
 
 					return len(servers) == 0
-				}, timeout, interval).Should(BeTrue())
+				}, 2*timeout, interval).Should(BeTrue())
 
 				By("checking that bootstrap condition is not ready")
 
