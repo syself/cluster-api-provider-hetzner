@@ -45,5 +45,6 @@ for wwn in "$@"; do
         echo "Failed to find device for WWN $wwn"
         exit 3
     fi
+    echo "INFO: Calling wipfs for $wwn (/dev/$device)"
     wipefs -af "/dev/$device"
 done
