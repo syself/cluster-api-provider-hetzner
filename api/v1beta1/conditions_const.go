@@ -44,14 +44,10 @@ const (
 	ImageNotFoundReason = "ImageNotFound"
 	// ImageAmbiguousReason indicates that there are multiple images with the required properties.
 	ImageAmbiguousReason = "ImageAmbiguous"
-	// ServerLimitExceededReason indicates that server resource rate limit is hit.
-	ServerLimitExceededReason = "ServerLimitExceeded"
 	// ServerTypeNotFoundReason indicates that server type could not be found.
 	ServerTypeNotFoundReason = "ServerTypeNotFound"
-	// ServerResourceUnavailableReason indicates that server resource is unavailable.
-	ServerResourceUnavailableReason = "ServerResourceUnavailable"
-	// ServerPlacementErrorReason indicates placement error while creating server.
-	ServerPlacementErrorReason = "ServerPlacementError"
+	// ServerCreateFailedReason indicates that server could not get created.
+	ServerCreateFailedReason = "ServerCreateFailedReason"
 )
 
 const (
