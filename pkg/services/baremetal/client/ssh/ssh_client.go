@@ -20,16 +20,19 @@ package sshclient
 import (
 	"bufio"
 	"bytes"
+	"context"
 	_ "embed"
 	"encoding/base64"
 	"errors"
 	"fmt"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
 	"golang.org/x/crypto/ssh"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 const (
@@ -38,6 +41,9 @@ const (
 
 //go:embed detect-linux-on-another-disk.sh
 var detectLinuxOnAnotherDiskShellScript string
+
+//go:embed wipe-disk.sh
+var wipeDiskShellScript string
 
 var downloadFromOciShellScript = `#!/bin/bash
 
@@ -253,6 +259,10 @@ type Client interface {
 	ResetKubeadm() Output
 	UntarTGZ() Output
 	DetectLinuxOnAnotherDisk(sliceOfWwns []string) Output
+
+	// Erase filesystem, raid and partition-table signatures.
+	// String "all" will wipe all disks.
+	WipeDisk(ctx context.Context, sliceOfWwns []string) (string, error)
 }
 
 // Factory is the interface for creating new Client objects.
@@ -546,10 +556,54 @@ func (c *sshClient) ResetKubeadm() Output {
 }
 
 func (c *sshClient) DetectLinuxOnAnotherDisk(sliceOfWwns []string) Output {
-	return c.runSSH(fmt.Sprintf(`cat <<'EOF_VIA_SSH' | bash -s -- %s
+	return c.runSSH(fmt.Sprintf(`cat >/root/detect-linux-on-another-disk.sh <<'EOF_VIA_SSH'
 %s
 EOF_VIA_SSH
-`, strings.Join(sliceOfWwns, " "), detectLinuxOnAnotherDiskShellScript))
+chmod a+rx /root/detect-linux-on-another-disk.sh
+/root/detect-linux-on-another-disk.sh %s
+`, detectLinuxOnAnotherDiskShellScript, strings.Join(sliceOfWwns, " ")))
+}
+
+var (
+	// I found no details about the format. I found these examples
+	// 10:00:00:05:1e:7a:7a:00 eui.00253885910c8cec 0x500a07511bb48b25
+	isValidWWNRegex = regexp.MustCompile(`^[0-9a-zA-Z.:-]{5,64}$`)
+
+	// ErrInvalidWWN indicates that a WWN has an invalid syntax.
+	ErrInvalidWWN = fmt.Errorf("WWN does not match regex %q", isValidWWNRegex.String())
+)
+
+func (c *sshClient) WipeDisk(ctx context.Context, sliceOfWwns []string) (string, error) {
+	log := ctrl.LoggerFrom(ctx)
+	if len(sliceOfWwns) == 0 {
+		return "", nil
+	}
+	if slices.Contains(sliceOfWwns, "all") {
+		out := c.runSSH("lsblk --nodeps --noheadings -o WWN | sort -u")
+		if out.Err != nil {
+			return "", fmt.Errorf("failed to find WWNs of all disks: %w", out.Err)
+		}
+		log.Info("WipeDisk: 'all' was given. Found these WWNs", "WWNs", sliceOfWwns)
+		sliceOfWwns = strings.Fields(out.StdOut)
+	} else {
+		for _, wwn := range sliceOfWwns {
+			// validate WWN.
+			// It is unlikely, but someone could use this wwn: `"; do-nasty-things-here`
+			if !isValidWWNRegex.MatchString(wwn) {
+				return "", fmt.Errorf("WWN %q is invalid. %w", wwn, ErrInvalidWWN)
+			}
+		}
+	}
+	out := c.runSSH(fmt.Sprintf(`cat >/root/wipe-disk.sh <<'EOF_VIA_SSH'
+%s
+EOF_VIA_SSH
+chmod a+rx /root/wipe-disk.sh
+/root/wipe-disk.sh %s
+`, wipeDiskShellScript, strings.Join(sliceOfWwns, " ")))
+	if out.Err != nil {
+		return "", fmt.Errorf("WipeDisk for %+v failed: %s. %s: %w", sliceOfWwns, out.StdOut, out.StdErr, out.Err)
+	}
+	return out.String(), nil
 }
 
 func (c *sshClient) UntarTGZ() Output {

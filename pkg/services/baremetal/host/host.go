@@ -1097,6 +1097,48 @@ func (s *Service) actionImageInstalling(ctx context.Context) actionResult {
 }
 
 func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Context, sshClient sshclient.Client) actionResult {
+	// Call WipeDisk if the corresponding annotation is set.
+	sliceOfWwns := strings.Fields(s.scope.HetznerBareMetalHost.Annotations[infrav1.WipeDiskAnnotation])
+	if len(sliceOfWwns) > 0 {
+		output, err := sshClient.WipeDisk(ctx, sliceOfWwns)
+		if err != nil {
+			var exitErr *ssh.ExitError
+			if errors.As(err, &exitErr) || errors.Is(err, sshclient.ErrInvalidWWN) {
+				// The script was executed, but an error occurred.
+				// Do not retry. This needs manual intervention.
+				msg := fmt.Sprintf("WipeDisk failed (permanent error): %s",
+					err.Error())
+				conditions.MarkFalse(
+					s.scope.HetznerBareMetalHost,
+					infrav1.ProvisionSucceededCondition,
+					infrav1.WipeDiskFailedReason,
+					clusterv1.ConditionSeverityError,
+					msg,
+				)
+				record.Warn(s.scope.HetznerBareMetalHost, infrav1.WipeDiskFailedReason, msg)
+				s.scope.HetznerBareMetalHost.SetError(infrav1.PermanentError, msg)
+				return actionStop{}
+			}
+			// some other error happened. It is likely that the ssh connection failed.
+			msg := fmt.Sprintf("WipeDisk failed (Will retry): %s",
+				err.Error())
+			conditions.MarkFalse(
+				s.scope.HetznerBareMetalHost,
+				infrav1.ProvisionSucceededCondition,
+				infrav1.WipeDiskFailedReason,
+				clusterv1.ConditionSeverityWarning,
+				msg,
+			)
+			record.Warn(s.scope.HetznerBareMetalHost, infrav1.WipeDiskFailedReason, msg)
+			return actionContinue{
+				delay: 10 * time.Second,
+			}
+		}
+		delete(s.scope.HetznerBareMetalHost.Annotations, infrav1.WipeDiskAnnotation)
+		record.Eventf(s.scope.HetznerBareMetalHost, "WipeDiskDone", "WipeDisk %v was done. Annotation %q was removed.\n%s",
+			sliceOfWwns, infrav1.WipeDiskAnnotation, output)
+	}
+
 	// If there is a Linux OS on an other disk, then the reboot after the provisioning
 	// will likely fail, because the machine boots into the other operating system.
 	// We want detect that early, and not start the provisioning process.

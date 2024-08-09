@@ -183,6 +183,8 @@ const (
 	ServerNotFoundReason = "ServerNotFound"
 	// LinuxOnOtherDiskFoundReason indicates that the server can't be provisioned on the given WWN, since the reboot would fail.
 	LinuxOnOtherDiskFoundReason = "LinuxOnOtherDiskFound"
+	// WipeDiskFailedReason indicates that erasing the disks before provisioning failed.
+	WipeDiskFailedReason = "WipeDiskFailed"
 	// SSHToRescueSystemFailedReason indicates that the rescue system can't be reached via ssh.
 	SSHToRescueSystemFailedReason = "SSHToRescueSystemFailed"
 	// RebootTimedOutReason indicates that the reboot timed out.
