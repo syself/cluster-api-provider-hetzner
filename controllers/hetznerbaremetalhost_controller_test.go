@@ -17,11 +17,13 @@ limitations under the License.
 package controllers
 
 import (
+	"testing"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"github.com/syself/hrobot-go/models"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -898,4 +900,71 @@ name="eth0" model="Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express
 	sshClient.On("DetectLinuxOnAnotherDisk", mock.Anything).Return(sshclient.Output{})
 	sshClient.On("GetInstallImageState").Return(sshclient.InstallImageStateFinished, nil)
 	sshClient.On("GetResultOfInstallImage").Return(hostpkg.PostInstallScriptFinished, nil)
+}
+
+func Test_removePermanentErrorIfAnnotationIsGone(t *testing.T) {
+	// PermanentError with annotation --> Error should not get removed
+	bmHost := infrav1.HetznerBareMetalHost{
+		TypeMeta: metav1.TypeMeta{},
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				infrav1.PermanentErrorAnnotation: "",
+			},
+		},
+		Spec: infrav1.HetznerBareMetalHostSpec{
+			Status: infrav1.ControllerGeneratedStatus{
+				ErrorType:    infrav1.PermanentError,
+				ErrorCount:   1,
+				ErrorMessage: "my err",
+			},
+		},
+	}
+	removed := removePermanentErrorIfAnnotationIsGone(&bmHost)
+	require.False(t, removed)
+	require.NotEmpty(t, bmHost.Spec.Status.ErrorType)
+	require.NotEmpty(t, bmHost.Spec.Status.ErrorCount)
+	require.NotEmpty(t, bmHost.Spec.Status.ErrorMessage)
+
+	// PermanentError without annotation --> Error should get removed
+	bmHost = infrav1.HetznerBareMetalHost{
+		TypeMeta: metav1.TypeMeta{},
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				"other-annotation": "some value",
+			},
+		},
+		Spec: infrav1.HetznerBareMetalHostSpec{
+			Status: infrav1.ControllerGeneratedStatus{
+				ErrorType:    infrav1.PermanentError,
+				ErrorCount:   1,
+				ErrorMessage: "my err",
+			},
+		},
+	}
+	removed = removePermanentErrorIfAnnotationIsGone(&bmHost)
+	require.True(t, removed)
+	require.Empty(t, bmHost.Spec.Status.ErrorType)
+	require.Empty(t, bmHost.Spec.Status.ErrorCount)
+	require.Empty(t, bmHost.Spec.Status.ErrorMessage)
+	require.Equal(t, map[string]string{"other-annotation": "some value"}, bmHost.Annotations)
+
+	// Other Error without annotation --> Error should not get removed
+	bmHost = infrav1.HetznerBareMetalHost{
+		TypeMeta: metav1.TypeMeta{},
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{},
+		},
+		Spec: infrav1.HetznerBareMetalHostSpec{
+			Status: infrav1.ControllerGeneratedStatus{
+				ErrorType:    infrav1.ProvisioningError,
+				ErrorCount:   1,
+				ErrorMessage: "my err",
+			},
+		},
+	}
+	removed = removePermanentErrorIfAnnotationIsGone(&bmHost)
+	require.False(t, removed)
+	require.NotEmpty(t, bmHost.Spec.Status.ErrorType)
+	require.NotEmpty(t, bmHost.Spec.Status.ErrorCount)
+	require.NotEmpty(t, bmHost.Spec.Status.ErrorMessage)
 }

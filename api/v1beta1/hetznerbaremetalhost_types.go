@@ -22,10 +22,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	"sigs.k8s.io/cluster-api/util/record"
 )
 
 const (
@@ -547,6 +549,14 @@ func (host *HetznerBareMetalHost) SetError(errType ErrorType, errMessage string)
 	}
 	host.Spec.Status.ErrorType = errType
 	host.Spec.Status.ErrorMessage = errMessage
+	if errType == PermanentError {
+		if host.Annotations == nil {
+			host.Annotations = make(map[string]string, 1)
+		}
+		host.Annotations[PermanentErrorAnnotation] = time.Now().Format(time.RFC3339)
+		record.Warnf(host, "PermanentErrorSet", "Remove annotation %q, if you want the controller to use the hbmh again.",
+			PermanentErrorAnnotation)
+	}
 }
 
 // ClearError removes the error on the host and resets the error count to 0.

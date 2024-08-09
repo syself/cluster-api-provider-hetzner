@@ -17,9 +17,15 @@ limitations under the License.
 package v1beta1
 
 import (
+	"cmp"
+	"slices"
+	"testing"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("Test update secret status", func() {
@@ -458,3 +464,36 @@ var _ = Describe("Test ClearRebootAnnotations", func() {
 		}),
 	)
 })
+
+func mapKeys[K cmp.Ordered, V any](m map[K]V) []K {
+	ret := make([]K, 0, len(m))
+	for k := range m {
+		ret = append(ret, k)
+	}
+	slices.Sort(ret)
+	return ret
+}
+
+func TestHetznerBareMetalHost_SetError(t *testing.T) {
+	// A PermanentError should add the PermanentErrorAnnotation
+	host := HetznerBareMetalHost{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				"other-annotation": "some value",
+			},
+		},
+	}
+	host.SetError(PermanentError, "some error")
+	require.Equal(t, []string{PermanentErrorAnnotation, "other-annotation"}, mapKeys(host.Annotations))
+
+	// Other errors should not add the PermanentErrorAnnotation
+	host = HetznerBareMetalHost{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				"other-annotation": "some value",
+			},
+		},
+	}
+	host.SetError(ProvisioningError, "some error")
+	require.Equal(t, []string{"other-annotation"}, mapKeys(host.Annotations))
+}

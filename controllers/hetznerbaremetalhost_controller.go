@@ -97,6 +97,18 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		return ctrl.Result{Requeue: true}, nil
 	}
 
+	// Remove permanent error, if the corresponding annotation was removed by the user.
+	removed := removePermanentErrorIfAnnotationIsGone(bmHost)
+	if removed {
+		// The permanent error was removed from Spec.Status.
+		// Save the changes, and then reconcile again.
+		err := r.Update(ctx, bmHost)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("failed to update (after removePermanentErrorIfAnnotationIsGone): %w", err)
+		}
+		return reconcile.Result{Requeue: true}, nil
+	}
+
 	// Certain cases need to be handled here and not later in the host state machine.
 	// If res != nil, then we should return, otherwise not.
 	res, err = r.reconcileSelectedStates(ctx, bmHost)
@@ -450,4 +462,24 @@ func (r *HetznerBareMetalHostReconciler) SetupWithManager(ctx context.Context, m
 			}).
 		Owns(&corev1.Secret{}).
 		Complete(r)
+}
+
+func removePermanentErrorIfAnnotationIsGone(bmHost *infrav1.HetznerBareMetalHost,
+) (removed bool) {
+	if bmHost.Spec.Status.ErrorType != infrav1.PermanentError {
+		// PermanentError not set. Do nothing.
+		return false
+	}
+	for k := range bmHost.GetAnnotations() {
+		if k == infrav1.PermanentErrorAnnotation {
+			// Annotation was not removed by user. Do nothing.
+			return false
+		}
+	}
+	bmHost.Spec.Status.ErrorType = ""
+	bmHost.Spec.Status.ErrorMessage = ""
+	bmHost.Spec.Status.ErrorCount = 0
+	record.Eventf(bmHost, "PermanentErrorWasRemoved", "The permanent error was removed, because the annotation %q was removed",
+		infrav1.PermanentErrorAnnotation)
+	return true
 }
