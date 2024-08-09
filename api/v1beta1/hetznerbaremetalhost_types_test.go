@@ -484,7 +484,7 @@ func TestHetznerBareMetalHost_SetError(t *testing.T) {
 		},
 	}
 	host.SetError(PermanentError, "some error")
-	require.Equal(t, []string{"other-annotation", PermanentErrorAnnotation}, mapKeys(host.Annotations))
+	require.Equal(t, []string{PermanentErrorAnnotation, "other-annotation"}, mapKeys(host.Annotations))
 
 	// Other errors should not add the PermanentErrorAnnotation
 	host = HetznerBareMetalHost{
