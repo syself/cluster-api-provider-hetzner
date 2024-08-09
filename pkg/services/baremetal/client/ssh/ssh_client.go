@@ -556,9 +556,11 @@ func (c *sshClient) ResetKubeadm() Output {
 }
 
 func (c *sshClient) DetectLinuxOnAnotherDisk(sliceOfWwns []string) Output {
-	return c.runSSH(fmt.Sprintf(`cat <<'EOF_VIA_SSH' | bash -s -- %s
+	return c.runSSH(fmt.Sprintf(`cat >/root/detect-linux-on-another-disk.sh <<'EOF_VIA_SSH'
 %s
 EOF_VIA_SSH
+chmod a+rx /root/detect-linux-on-another-disk.sh
+/root/detect-linux-on-another-disk.sh %s
 `, strings.Join(sliceOfWwns, " "), detectLinuxOnAnotherDiskShellScript))
 }
 
@@ -589,9 +591,11 @@ func (c *sshClient) WipeDisk(ctx context.Context, sliceOfWwns []string) (string,
 			}
 		}
 	}
-	out := c.runSSH(fmt.Sprintf(`cat <<'EOF_VIA_SSH' | bash -s -- %s
+	out := c.runSSH(fmt.Sprintf(`cat >/root/wipe-disk.sh <<'EOF_VIA_SSH'
 %s
 EOF_VIA_SSH
+chmod a+rx /root/wipe-disk.sh
+/root/wipe-disk.sh %s
 `, strings.Join(sliceOfWwns, " "), wipeDiskShellScript))
 	if out.Err != nil {
 		return "", fmt.Errorf("WipeDisk for %+v failed: %s. %s: %w", sliceOfWwns, out.StdOut, out.StdErr, out.Err)
