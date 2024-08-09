@@ -46,7 +46,7 @@ type CaphClusterDeploymentSpecInput struct {
 // CaphClusterDeploymentSpec implements a test that verifies that MachineDeployment rolling updates are successful.
 func CaphClusterDeploymentSpec(ctx context.Context, inputGetter func() CaphClusterDeploymentSpecInput) {
 	var (
-		specName         = "caph"
+		specName         = "ci" + os.Getenv("GITHUB_RUN_ID")
 		input            CaphClusterDeploymentSpecInput
 		namespace        *corev1.Namespace
 		cancelWatches    context.CancelFunc
@@ -60,7 +60,7 @@ func CaphClusterDeploymentSpec(ctx context.Context, inputGetter func() CaphClust
 		gomega.Expect(input.E2EConfig).ToNot(gomega.BeNil(), "Invalid argument. input.E2EConfig can't be nil when calling %s spec", specName)
 		gomega.Expect(input.ClusterctlConfigPath).To(gomega.BeAnExistingFile(), "Invalid argument. input.ClusterctlConfigPath must be an existing file when calling %s spec", specName)
 		gomega.Expect(input.BootstrapClusterProxy).ToNot(gomega.BeNil(), "Invalid argument. input.BootstrapClusterProxy can't be nil when calling %s spec", specName)
-		gomega.Expect(os.MkdirAll(input.ArtifactFolder, 0750)).To(gomega.Succeed(), "Invalid argument. input.ArtifactFolder can't be created for %s spec", specName)
+		gomega.Expect(os.MkdirAll(input.ArtifactFolder, 0o750)).To(gomega.Succeed(), "Invalid argument. input.ArtifactFolder can't be created for %s spec", specName)
 		gomega.Expect(input.E2EConfig.Variables).To(gomega.HaveKey(KubernetesVersion))
 		gomega.Expect(input.E2EConfig.Variables).To(HaveValidVersion(input.E2EConfig.GetVariable(KubernetesVersion)))
 
