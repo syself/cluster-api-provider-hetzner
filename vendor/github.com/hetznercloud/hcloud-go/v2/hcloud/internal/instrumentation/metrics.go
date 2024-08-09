@@ -102,12 +102,13 @@ func registerOrReuse[C prometheus.Collector](registry prometheus.Registerer, col
 	return collector
 }
 
+var pathLabelRegexp = regexp.MustCompile("[^a-z/_]+")
+
 func preparePathForLabel(path string) string {
 	path = strings.ToLower(path)
 
 	// replace all numbers and chars that are not a-z, / or _
-	reg := regexp.MustCompile("[^a-z/_]+")
-	path = reg.ReplaceAllString(path, "")
+	path = pathLabelRegexp.ReplaceAllString(path, "")
 
 	// replace all artifacts of number replacement (//)
 	path = strings.ReplaceAll(path, "//", "/")
