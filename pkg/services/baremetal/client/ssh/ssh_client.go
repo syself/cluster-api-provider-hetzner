@@ -579,7 +579,7 @@ func (c *sshClient) WipeDisk(ctx context.Context, sliceOfWwns []string) (string,
 	if slices.Contains(sliceOfWwns, "all") {
 		out := c.runSSH("lsblk --nodeps --noheadings -o WWN | sort -u")
 		if out.Err != nil {
-			return "", fmt.Errorf("failed to WWN of all disks: %w", out.Err)
+			return "", fmt.Errorf("failed to find WWNs of all disks: %w", out.Err)
 		}
 		log.Info("WipeDisk: 'all' was given. Found these WWNs", "WWNs", sliceOfWwns)
 		sliceOfWwns = strings.Fields(out.StdOut)
