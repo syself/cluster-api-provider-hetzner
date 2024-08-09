@@ -561,7 +561,7 @@ func (c *sshClient) DetectLinuxOnAnotherDisk(sliceOfWwns []string) Output {
 EOF_VIA_SSH
 chmod a+rx /root/detect-linux-on-another-disk.sh
 /root/detect-linux-on-another-disk.sh %s
-`, strings.Join(sliceOfWwns, " "), detectLinuxOnAnotherDiskShellScript))
+`, detectLinuxOnAnotherDiskShellScript, strings.Join(sliceOfWwns, " ")))
 }
 
 // I found no details about the format.
@@ -596,7 +596,7 @@ func (c *sshClient) WipeDisk(ctx context.Context, sliceOfWwns []string) (string,
 EOF_VIA_SSH
 chmod a+rx /root/wipe-disk.sh
 /root/wipe-disk.sh %s
-`, strings.Join(sliceOfWwns, " "), wipeDiskShellScript))
+`, wipeDiskShellScript, strings.Join(sliceOfWwns, " ")))
 	if out.Err != nil {
 		return "", fmt.Errorf("WipeDisk for %+v failed: %s. %s: %w", sliceOfWwns, out.StdOut, out.StdErr, out.Err)
 	}
