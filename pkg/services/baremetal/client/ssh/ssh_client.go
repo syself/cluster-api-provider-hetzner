@@ -586,7 +586,7 @@ func (c *sshClient) WipeDisk(ctx context.Context, sliceOfWwns []string) (string,
 	} else {
 		for _, wwn := range sliceOfWwns {
 			// validate WWN.
-			// It is unlikely, but somehow could use this wwn: `"; do-nasty-things-here`
+			// It is unlikely, but someone could use this wwn: `"; do-nasty-things-here`
 			if !isValidWWNRegex.MatchString(wwn) {
 				return "", fmt.Errorf("WWN %q is invalid. %w", wwn, ErrInvalidWWN)
 			}
