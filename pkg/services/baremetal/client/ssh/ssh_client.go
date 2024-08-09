@@ -564,9 +564,10 @@ chmod a+rx /root/detect-linux-on-another-disk.sh
 `, detectLinuxOnAnotherDiskShellScript, strings.Join(sliceOfWwns, " ")))
 }
 
-// I found no details about the format.
 var (
-	isValidWWNRegex = regexp.MustCompile(`^[0-9a-zA-Z.-]{5,64}$`)
+	// I found no details about the format. I found these examples
+	// 10:00:00:05:1e:7a:7a:00 eui.00253885910c8cec 0x500a07511bb48b25
+	isValidWWNRegex = regexp.MustCompile(`^[0-9a-zA-Z.:-]{5,64}$`)
 	ErrInvalidWWN   = fmt.Errorf("WWN does not match regex %q", isValidWWNRegex.String())
 )
 
