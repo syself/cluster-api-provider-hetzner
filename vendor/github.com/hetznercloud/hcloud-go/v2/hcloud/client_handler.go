@@ -33,7 +33,7 @@ func assembleHandlerChain(client *Client) handler {
 	h = wrapErrorHandler(h)
 
 	// Retry request if condition are met
-	h = wrapRetryHandler(h, client.backoffFunc)
+	h = wrapRetryHandler(h, client.retryBackoffFunc, client.retryMaxRetries)
 
 	// Finally parse the response body into the provided schema
 	h = wrapParseHandler(h)
