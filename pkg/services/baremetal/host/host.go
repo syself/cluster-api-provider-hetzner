@@ -1095,16 +1095,16 @@ func (s *Service) actionImageInstalling(ctx context.Context) actionResult {
 }
 
 func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Context, sshClient sshclient.Client) actionResult {
-	// Call WipeDisks if the corresponding annotation is set.
+	// Call WipeDisk if the corresponding annotation is set.
 	sliceOfWwns := strings.Fields(s.scope.HetznerBareMetalHost.Annotations[infrav1.WipeDiskAnnotation])
 	if len(sliceOfWwns) > 0 {
-		err := sshClient.WipeDisks(ctx, sliceOfWwns)
+		err := sshClient.WipeDisk(ctx, sliceOfWwns)
 		if err != nil {
 			var exitErr *ssh.ExitError
 			if errors.As(err, &exitErr) && exitErr.ExitStatus() > 0 {
 				// The script was executed, but an error occurred.
 				// Do not retry. This needs manual intervention.
-				msg := fmt.Sprintf("WipeDisks failed (permanent error): %s",
+				msg := fmt.Sprintf("WipeDisk failed (permanent error): %s",
 					err.Error())
 				conditions.MarkFalse(
 					s.scope.HetznerBareMetalHost,
@@ -1118,7 +1118,7 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 				return actionStop{}
 			}
 			// some other error happened. It is likely that the ssh connection failed.
-			msg := fmt.Sprintf("WipeDisks failed (Will retry): %s",
+			msg := fmt.Sprintf("WipeDisk failed (Will retry): %s",
 				err.Error())
 			conditions.MarkFalse(
 				s.scope.HetznerBareMetalHost,
@@ -1133,7 +1133,7 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 			}
 		}
 		delete(s.scope.HetznerBareMetalHost.Annotations, infrav1.WipeDiskAnnotation)
-		record.Eventf(s.scope.HetznerBareMetalHost, "WipeDiskDone", "WipeDisks (%v) was done. Annotation %q was removed",
+		record.Eventf(s.scope.HetznerBareMetalHost, "WipeDiskDone", "WipeDisk (%v) was done. Annotation %q was removed",
 			sliceOfWwns, infrav1.WipeDiskAnnotation)
 	}
 

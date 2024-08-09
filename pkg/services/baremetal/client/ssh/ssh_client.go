@@ -21,6 +21,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	_ "embed"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -30,11 +31,8 @@ import (
 	"strings"
 	"time"
 
-	ctrl "sigs.k8s.io/controller-runtime"
-
-	_ "embed"
-
 	"golang.org/x/crypto/ssh"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 const (
@@ -44,8 +42,8 @@ const (
 //go:embed detect-linux-on-another-disk.sh
 var detectLinuxOnAnotherDiskShellScript string
 
-//go:embed wipe-disks.sh
-var wipeDisksShellScript string
+//go:embed wipe-disk.sh
+var wipeDiskShellScript string
 
 var downloadFromOciShellScript = `#!/bin/bash
 
@@ -264,7 +262,7 @@ type Client interface {
 
 	// Erase filesystem, raid and partition-table signatures.
 	// String "all" will wipe all disks.
-	WipeDisks(ctx context.Context, sliceOfWwns []string) error
+	WipeDisk(ctx context.Context, sliceOfWwns []string) error
 }
 
 // Factory is the interface for creating new Client objects.
@@ -564,7 +562,7 @@ EOF_VIA_SSH
 `, strings.Join(sliceOfWwns, " "), detectLinuxOnAnotherDiskShellScript))
 }
 
-func (c *sshClient) WipeDisks(ctx context.Context, sliceOfWwns []string) error {
+func (c *sshClient) WipeDisk(ctx context.Context, sliceOfWwns []string) error {
 	log := ctrl.LoggerFrom(ctx)
 	if len(sliceOfWwns) == 0 {
 		return nil
@@ -574,15 +572,15 @@ func (c *sshClient) WipeDisks(ctx context.Context, sliceOfWwns []string) error {
 		if out.Err != nil {
 			return fmt.Errorf("failed to WWN of all disks: %w", out.Err)
 		}
-		log.Info("WipeDisks: 'all' was given. Found these WWNs", "WWNs", sliceOfWwns)
+		log.Info("WipeDisk: 'all' was given. Found these WWNs", "WWNs", sliceOfWwns)
 		sliceOfWwns = strings.Fields(out.StdOut)
 	}
 	out := c.runSSH(fmt.Sprintf(`cat <<'EOF_VIA_SSH' | bash -s -- %s
 %s
 EOF_VIA_SSH
-`, strings.Join(sliceOfWwns, " "), wipeDisksShellScript))
+`, strings.Join(sliceOfWwns, " "), wipeDiskShellScript))
 	if out.Err != nil {
-		return fmt.Errorf("WipeDisks for %+v failed: %s. %s: %w", sliceOfWwns, out.StdOut, out.StdErr, out.Err)
+		return fmt.Errorf("WipeDisk for %+v failed: %s. %s: %w", sliceOfWwns, out.StdOut, out.StdErr, out.Err)
 	}
 	return nil
 }

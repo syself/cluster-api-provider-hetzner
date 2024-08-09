@@ -1218,12 +1218,12 @@ func (_c *Client_UntarTGZ_Call) RunAndReturn(run func() sshclient.Output) *Clien
 	return _c
 }
 
-// WipeDisks provides a mock function with given fields: ctx, sliceOfWwns
-func (_m *Client) WipeDisks(ctx context.Context, sliceOfWwns []string) error {
+// WipeDisk provides a mock function with given fields: ctx, sliceOfWwns
+func (_m *Client) WipeDisk(ctx context.Context, sliceOfWwns []string) error {
 	ret := _m.Called(ctx, sliceOfWwns)
 
 	if len(ret) == 0 {
-		panic("no return value specified for WipeDisks")
+		panic("no return value specified for WipeDisk")
 	}
 
 	var r0 error
@@ -1236,31 +1236,31 @@ func (_m *Client) WipeDisks(ctx context.Context, sliceOfWwns []string) error {
 	return r0
 }
 
-// Client_WipeDisks_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WipeDisks'
-type Client_WipeDisks_Call struct {
+// Client_WipeDisk_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WipeDisk'
+type Client_WipeDisk_Call struct {
 	*mock.Call
 }
 
-// WipeDisks is a helper method to define mock.On call
+// WipeDisk is a helper method to define mock.On call
 //   - ctx context.Context
 //   - sliceOfWwns []string
-func (_e *Client_Expecter) WipeDisks(ctx interface{}, sliceOfWwns interface{}) *Client_WipeDisks_Call {
-	return &Client_WipeDisks_Call{Call: _e.mock.On("WipeDisks", ctx, sliceOfWwns)}
+func (_e *Client_Expecter) WipeDisk(ctx interface{}, sliceOfWwns interface{}) *Client_WipeDisk_Call {
+	return &Client_WipeDisk_Call{Call: _e.mock.On("WipeDisk", ctx, sliceOfWwns)}
 }
 
-func (_c *Client_WipeDisks_Call) Run(run func(ctx context.Context, sliceOfWwns []string)) *Client_WipeDisks_Call {
+func (_c *Client_WipeDisk_Call) Run(run func(ctx context.Context, sliceOfWwns []string)) *Client_WipeDisk_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].([]string))
 	})
 	return _c
 }
 
-func (_c *Client_WipeDisks_Call) Return(_a0 error) *Client_WipeDisks_Call {
+func (_c *Client_WipeDisk_Call) Return(_a0 error) *Client_WipeDisk_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *Client_WipeDisks_Call) RunAndReturn(run func(context.Context, []string) error) *Client_WipeDisks_Call {
+func (_c *Client_WipeDisk_Call) RunAndReturn(run func(context.Context, []string) error) *Client_WipeDisk_Call {
 	_c.Call.Return(run)
 	return _c
 }
