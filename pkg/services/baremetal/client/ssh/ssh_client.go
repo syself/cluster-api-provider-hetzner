@@ -262,7 +262,7 @@ type Client interface {
 
 	// Erase filesystem, raid and partition-table signatures.
 	// String "all" will wipe all disks.
-	WipeDisk(ctx context.Context, sliceOfWwns []string) error
+	WipeDisk(ctx context.Context, sliceOfWwns []string) (string, error)
 }
 
 // Factory is the interface for creating new Client objects.
@@ -562,15 +562,15 @@ EOF_VIA_SSH
 `, strings.Join(sliceOfWwns, " "), detectLinuxOnAnotherDiskShellScript))
 }
 
-func (c *sshClient) WipeDisk(ctx context.Context, sliceOfWwns []string) error {
+func (c *sshClient) WipeDisk(ctx context.Context, sliceOfWwns []string) (string, error) {
 	log := ctrl.LoggerFrom(ctx)
 	if len(sliceOfWwns) == 0 {
-		return nil
+		return "", nil
 	}
 	if slices.Contains(sliceOfWwns, "all") {
 		out := c.runSSH("lsblk --nodeps --noheadings -o WWN | sort -u")
 		if out.Err != nil {
-			return fmt.Errorf("failed to WWN of all disks: %w", out.Err)
+			return "", fmt.Errorf("failed to WWN of all disks: %w", out.Err)
 		}
 		log.Info("WipeDisk: 'all' was given. Found these WWNs", "WWNs", sliceOfWwns)
 		sliceOfWwns = strings.Fields(out.StdOut)
@@ -580,9 +580,9 @@ func (c *sshClient) WipeDisk(ctx context.Context, sliceOfWwns []string) error {
 EOF_VIA_SSH
 `, strings.Join(sliceOfWwns, " "), wipeDiskShellScript))
 	if out.Err != nil {
-		return fmt.Errorf("WipeDisk for %+v failed: %s. %s: %w", sliceOfWwns, out.StdOut, out.StdErr, out.Err)
+		return "", fmt.Errorf("WipeDisk for %+v failed: %s. %s: %w", sliceOfWwns, out.StdOut, out.StdErr, out.Err)
 	}
-	return nil
+	return out.String(), nil
 }
 
 func (c *sshClient) UntarTGZ() Output {

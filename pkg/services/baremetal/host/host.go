@@ -1098,7 +1098,7 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 	// Call WipeDisk if the corresponding annotation is set.
 	sliceOfWwns := strings.Fields(s.scope.HetznerBareMetalHost.Annotations[infrav1.WipeDiskAnnotation])
 	if len(sliceOfWwns) > 0 {
-		err := sshClient.WipeDisk(ctx, sliceOfWwns)
+		output, err := sshClient.WipeDisk(ctx, sliceOfWwns)
 		if err != nil {
 			var exitErr *ssh.ExitError
 			if errors.As(err, &exitErr) && exitErr.ExitStatus() > 0 {
@@ -1133,8 +1133,8 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 			}
 		}
 		delete(s.scope.HetznerBareMetalHost.Annotations, infrav1.WipeDiskAnnotation)
-		record.Eventf(s.scope.HetznerBareMetalHost, "WipeDiskDone", "WipeDisk (%v) was done. Annotation %q was removed",
-			sliceOfWwns, infrav1.WipeDiskAnnotation)
+		record.Eventf(s.scope.HetznerBareMetalHost, "WipeDiskDone", "WipeDisk (%v) was done. Annotation %q was removed.\n%s",
+			sliceOfWwns, infrav1.WipeDiskAnnotation, output)
 	}
 
 	// If there is a Linux OS on an other disk, then the reboot after the provisioning

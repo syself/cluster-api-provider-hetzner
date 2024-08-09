@@ -1219,21 +1219,31 @@ func (_c *Client_UntarTGZ_Call) RunAndReturn(run func() sshclient.Output) *Clien
 }
 
 // WipeDisk provides a mock function with given fields: ctx, sliceOfWwns
-func (_m *Client) WipeDisk(ctx context.Context, sliceOfWwns []string) error {
+func (_m *Client) WipeDisk(ctx context.Context, sliceOfWwns []string) (string, error) {
 	ret := _m.Called(ctx, sliceOfWwns)
 
 	if len(ret) == 0 {
 		panic("no return value specified for WipeDisk")
 	}
 
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, []string) error); ok {
+	var r0 string
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, []string) (string, error)); ok {
+		return rf(ctx, sliceOfWwns)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, []string) string); ok {
 		r0 = rf(ctx, sliceOfWwns)
 	} else {
-		r0 = ret.Error(0)
+		r0 = ret.Get(0).(string)
 	}
 
-	return r0
+	if rf, ok := ret.Get(1).(func(context.Context, []string) error); ok {
+		r1 = rf(ctx, sliceOfWwns)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // Client_WipeDisk_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WipeDisk'
@@ -1255,12 +1265,12 @@ func (_c *Client_WipeDisk_Call) Run(run func(ctx context.Context, sliceOfWwns []
 	return _c
 }
 
-func (_c *Client_WipeDisk_Call) Return(_a0 error) *Client_WipeDisk_Call {
-	_c.Call.Return(_a0)
+func (_c *Client_WipeDisk_Call) Return(_a0 string, _a1 error) *Client_WipeDisk_Call {
+	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *Client_WipeDisk_Call) RunAndReturn(run func(context.Context, []string) error) *Client_WipeDisk_Call {
+func (_c *Client_WipeDisk_Call) RunAndReturn(run func(context.Context, []string) (string, error)) *Client_WipeDisk_Call {
 	_c.Call.Return(run)
 	return _c
 }
