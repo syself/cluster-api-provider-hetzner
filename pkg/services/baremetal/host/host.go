@@ -1100,8 +1100,7 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 	if len(sliceOfWwns) > 0 {
 		output, err := sshClient.WipeDisk(ctx, sliceOfWwns)
 		if err != nil {
-			var exitErr *ssh.ExitError
-			if errors.As(err, &exitErr) && exitErr.ExitStatus() > 0 {
+			if errors.Is(err, &ssh.ExitError{}) {
 				// The script was executed, but an error occurred.
 				// Do not retry. This needs manual intervention.
 				msg := fmt.Sprintf("WipeDisk failed (permanent error): %s",
@@ -1133,7 +1132,7 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 			}
 		}
 		delete(s.scope.HetznerBareMetalHost.Annotations, infrav1.WipeDiskAnnotation)
-		record.Eventf(s.scope.HetznerBareMetalHost, "WipeDiskDone", "WipeDisk (%v) was done. Annotation %q was removed.\n%s",
+		record.Eventf(s.scope.HetznerBareMetalHost, "WipeDiskDone", "WipeDisk %v was done. Annotation %q was removed.\n%s",
 			sliceOfWwns, infrav1.WipeDiskAnnotation, output)
 	}
 

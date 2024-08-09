@@ -562,6 +562,9 @@ EOF_VIA_SSH
 `, strings.Join(sliceOfWwns, " "), detectLinuxOnAnotherDiskShellScript))
 }
 
+// I found no details about the format.
+var isValidWWNRegex = regexp.MustCompile(`^[0-9a-zA-Z.-]{5,64}$`)
+
 func (c *sshClient) WipeDisk(ctx context.Context, sliceOfWwns []string) (string, error) {
 	log := ctrl.LoggerFrom(ctx)
 	if len(sliceOfWwns) == 0 {
@@ -574,6 +577,14 @@ func (c *sshClient) WipeDisk(ctx context.Context, sliceOfWwns []string) (string,
 		}
 		log.Info("WipeDisk: 'all' was given. Found these WWNs", "WWNs", sliceOfWwns)
 		sliceOfWwns = strings.Fields(out.StdOut)
+	} else {
+		for _, wwn := range sliceOfWwns {
+			// validate WWN.
+			// It is unlikely, but somehow could use this wwn: `"; do-nasty-things-here`
+			if !isValidWWNRegex.MatchString(wwn) {
+				return "", fmt.Errorf("WWN %q does not match regex %q", wwn, isValidWWNRegex.String())
+			}
+		}
 	}
 	out := c.runSSH(fmt.Sprintf(`cat <<'EOF_VIA_SSH' | bash -s -- %s
 %s
