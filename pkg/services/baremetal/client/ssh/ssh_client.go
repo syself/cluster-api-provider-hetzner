@@ -563,7 +563,10 @@ EOF_VIA_SSH
 }
 
 // I found no details about the format.
-var isValidWWNRegex = regexp.MustCompile(`^[0-9a-zA-Z.-]{5,64}$`)
+var (
+	isValidWWNRegex = regexp.MustCompile(`^[0-9a-zA-Z.-]{5,64}$`)
+	ErrInvalidWWN   = fmt.Errorf("WWN does not match regex %q", isValidWWNRegex.String())
+)
 
 func (c *sshClient) WipeDisk(ctx context.Context, sliceOfWwns []string) (string, error) {
 	log := ctrl.LoggerFrom(ctx)
@@ -582,7 +585,7 @@ func (c *sshClient) WipeDisk(ctx context.Context, sliceOfWwns []string) (string,
 			// validate WWN.
 			// It is unlikely, but somehow could use this wwn: `"; do-nasty-things-here`
 			if !isValidWWNRegex.MatchString(wwn) {
-				return "", fmt.Errorf("WWN %q does not match regex %q", wwn, isValidWWNRegex.String())
+				return "", fmt.Errorf("WWN %q is invalid. %w", wwn, ErrInvalidWWN)
 			}
 		}
 	}

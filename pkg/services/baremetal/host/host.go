@@ -1100,7 +1100,7 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 	if len(sliceOfWwns) > 0 {
 		output, err := sshClient.WipeDisk(ctx, sliceOfWwns)
 		if err != nil {
-			if errors.Is(err, &ssh.ExitError{}) {
+			if errors.Is(err, &ssh.ExitError{}) || errors.Is(err, sshclient.ErrInvalidWWN) {
 				// The script was executed, but an error occurred.
 				// Do not retry. This needs manual intervention.
 				msg := fmt.Sprintf("WipeDisk failed (permanent error): %s",
