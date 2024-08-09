@@ -29,7 +29,7 @@ jobs:
       - name: Verify Starlark
         run: make verify-starlark
 
-      - uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4
+      - uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4
         with:
           node-version: "18"
       - name: Install renovate
@@ -42,7 +42,7 @@ jobs:
           done
 
       - name: Generate Token
-        uses: actions/create-github-app-token@c8f55efbd427e7465d6da1106e7979bc8aaee856 # v1
+        uses: actions/create-github-app-token@31c86eb3b33c9b601a1f60f98dcbfd1d70f379b4 # v1
         id: generate-token
         with:
           app-id: ${{ secrets.SYSELF_APP_ID }}
