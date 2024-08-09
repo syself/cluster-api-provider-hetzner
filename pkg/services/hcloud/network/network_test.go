@@ -62,7 +62,7 @@ var _ = Describe("Test createOpts", func() {
 				{
 					IPRange:     subnet,
 					NetworkZone: hcloud.NetworkZoneEUCentral,
-					Type:        hcloud.NetworkSubnetTypeServer,
+					Type:        hcloud.NetworkSubnetTypeCloud,
 				},
 			},
 		}

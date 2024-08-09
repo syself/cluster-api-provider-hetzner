@@ -123,7 +123,7 @@ func (s *Service) createOpts() (hcloud.NetworkCreateOpts, error) {
 			{
 				IPRange:     subnet,
 				NetworkZone: hcloud.NetworkZone(spec.NetworkZone),
-				Type:        hcloud.NetworkSubnetTypeServer,
+				Type:        hcloud.NetworkSubnetTypeCloud,
 			},
 		},
 	}, nil

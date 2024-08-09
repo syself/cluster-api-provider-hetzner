@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"slices"
 )
 
 // ErrorCode represents an error code returned from the API.
@@ -126,11 +127,11 @@ type ErrorDetailsInvalidInputField struct {
 	Messages []string
 }
 
-// IsError returns whether err is an API error with the given error code.
-func IsError(err error, code ErrorCode) bool {
+// IsError returns whether err is an API error with one of the given error codes.
+func IsError(err error, code ...ErrorCode) bool {
 	var apiErr Error
 	ok := errors.As(err, &apiErr)
-	return ok && apiErr.Code == code
+	return ok && slices.Index(code, apiErr.Code) > -1
 }
 
 type InvalidIPError struct {

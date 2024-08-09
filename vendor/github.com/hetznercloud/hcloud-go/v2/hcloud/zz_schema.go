@@ -315,6 +315,8 @@ func (c *converterImpl) LoadBalancerTypeLocationPricingFromSchema(source schema.
 	hcloudLoadBalancerTypeLocationPricing.Location = &hcloudLocation
 	hcloudLoadBalancerTypeLocationPricing.Hourly = c.PriceFromSchema(source.PriceHourly)
 	hcloudLoadBalancerTypeLocationPricing.Monthly = c.PriceFromSchema(source.PriceMonthly)
+	hcloudLoadBalancerTypeLocationPricing.IncludedTraffic = source.IncludedTraffic
+	hcloudLoadBalancerTypeLocationPricing.PerTBTraffic = c.PriceFromSchema(source.PricePerTBTraffic)
 	return hcloudLoadBalancerTypeLocationPricing
 }
 func (c *converterImpl) LocationFromSchema(source schema.Location) *Location {
@@ -799,6 +801,8 @@ func (c *converterImpl) SchemaFromLoadBalancerTypeLocationPricing(source LoadBal
 	schemaPricingLoadBalancerTypePrice.Location = c.pHcloudLocationToString(source.Location)
 	schemaPricingLoadBalancerTypePrice.PriceHourly = c.hcloudPriceToSchemaPrice(source.Hourly)
 	schemaPricingLoadBalancerTypePrice.PriceMonthly = c.hcloudPriceToSchemaPrice(source.Monthly)
+	schemaPricingLoadBalancerTypePrice.IncludedTraffic = source.IncludedTraffic
+	schemaPricingLoadBalancerTypePrice.PricePerTBTraffic = c.hcloudPriceToSchemaPrice(source.PerTBTraffic)
 	return schemaPricingLoadBalancerTypePrice
 }
 func (c *converterImpl) SchemaFromLoadBalancerUpdateServiceOpts(source LoadBalancerUpdateServiceOpts) schema.LoadBalancerActionUpdateServiceRequest {
@@ -2165,6 +2169,8 @@ func (c *converterImpl) schemaFromServerTypeLocationPricing(source ServerTypeLoc
 	schemaPricingServerTypePrice.Location = c.pHcloudLocationToString(source.Location)
 	schemaPricingServerTypePrice.PriceHourly = c.hcloudPriceToSchemaPrice(source.Hourly)
 	schemaPricingServerTypePrice.PriceMonthly = c.hcloudPriceToSchemaPrice(source.Monthly)
+	schemaPricingServerTypePrice.IncludedTraffic = source.IncludedTraffic
+	schemaPricingServerTypePrice.PricePerTBTraffic = c.hcloudPriceToSchemaPrice(source.PerTBTraffic)
 	return schemaPricingServerTypePrice
 }
 func (c *converterImpl) schemaFromServerTypePricing(source ServerTypePricing) schema.PricingServerType {
@@ -2274,6 +2280,8 @@ func (c *converterImpl) serverTypePricingFromSchema(source schema.PricingServerT
 	hcloudServerTypeLocationPricing.Location = &hcloudLocation
 	hcloudServerTypeLocationPricing.Hourly = c.PriceFromSchema(source.PriceHourly)
 	hcloudServerTypeLocationPricing.Monthly = c.PriceFromSchema(source.PriceMonthly)
+	hcloudServerTypeLocationPricing.IncludedTraffic = source.IncludedTraffic
+	hcloudServerTypeLocationPricing.PerTBTraffic = c.PriceFromSchema(source.PricePerTBTraffic)
 	return hcloudServerTypeLocationPricing
 }
 func (c *converterImpl) timeTimeToTimeTime(source time.Time) time.Time {
