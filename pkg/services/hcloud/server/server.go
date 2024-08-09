@@ -487,6 +487,18 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 			err = errors.Join(errServerCreateNotPossible, err)
 		}
 
+		if !conditions.IsFalse(s.scope.HCloudMachine, infrav1.ServerCreateSucceededCondition) &&
+			!conditions.IsFalse(s.scope.HCloudMachine, infrav1.HetznerAPIReachableCondition) {
+			// No condition was set yet. Set a general condition to false
+			conditions.MarkFalse(
+				s.scope.HCloudMachine,
+				infrav1.ServerCreateSucceededCondition,
+				"CreateServerSuccesfull",
+				clusterv1.ConditionSeverityWarning,
+				err.Error(),
+			)
+		}
+
 		record.Warnf(s.scope.HCloudMachine,
 			"FailedCreateHCloudServer",
 			"Failed to create HCloud server %s: %s",
