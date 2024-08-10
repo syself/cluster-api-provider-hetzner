@@ -39,6 +39,10 @@ const (
 	// HostAnnotation is the key for an annotation that should go on a HetznerBareMetalMachine to
 	// reference what HetznerBareMetalHost it corresponds to.
 	HostAnnotation = "infrastructure.cluster.x-k8s.io/HetznerBareMetalHost"
+
+	// WipeDiskAnnotation indicates which Disks (WWNs) to erase before provisioning
+	// The value is a list of WWNS or "all".
+	WipeDiskAnnotation = "wipedisk.hetznerbaremetalhost.infrastructure.cluster.x-k8s.io"
 )
 
 // RootDeviceHints holds the hints for specifying the storage location

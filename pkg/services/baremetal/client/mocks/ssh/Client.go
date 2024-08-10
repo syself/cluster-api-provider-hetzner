@@ -3,6 +3,8 @@
 package mocks
 
 import (
+	context "context"
+
 	mock "github.com/stretchr/testify/mock"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 )
@@ -1212,6 +1214,63 @@ func (_c *Client_UntarTGZ_Call) Return(_a0 sshclient.Output) *Client_UntarTGZ_Ca
 }
 
 func (_c *Client_UntarTGZ_Call) RunAndReturn(run func() sshclient.Output) *Client_UntarTGZ_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// WipeDisk provides a mock function with given fields: ctx, sliceOfWwns
+func (_m *Client) WipeDisk(ctx context.Context, sliceOfWwns []string) (string, error) {
+	ret := _m.Called(ctx, sliceOfWwns)
+
+	if len(ret) == 0 {
+		panic("no return value specified for WipeDisk")
+	}
+
+	var r0 string
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, []string) (string, error)); ok {
+		return rf(ctx, sliceOfWwns)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, []string) string); ok {
+		r0 = rf(ctx, sliceOfWwns)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, []string) error); ok {
+		r1 = rf(ctx, sliceOfWwns)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// Client_WipeDisk_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WipeDisk'
+type Client_WipeDisk_Call struct {
+	*mock.Call
+}
+
+// WipeDisk is a helper method to define mock.On call
+//   - ctx context.Context
+//   - sliceOfWwns []string
+func (_e *Client_Expecter) WipeDisk(ctx interface{}, sliceOfWwns interface{}) *Client_WipeDisk_Call {
+	return &Client_WipeDisk_Call{Call: _e.mock.On("WipeDisk", ctx, sliceOfWwns)}
+}
+
+func (_c *Client_WipeDisk_Call) Run(run func(ctx context.Context, sliceOfWwns []string)) *Client_WipeDisk_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].([]string))
+	})
+	return _c
+}
+
+func (_c *Client_WipeDisk_Call) Return(_a0 string, _a1 error) *Client_WipeDisk_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Client_WipeDisk_Call) RunAndReturn(run func(context.Context, []string) (string, error)) *Client_WipeDisk_Call {
 	_c.Call.Return(run)
 	return _c
 }
