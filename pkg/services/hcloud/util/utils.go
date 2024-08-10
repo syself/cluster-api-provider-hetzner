@@ -69,7 +69,8 @@ type runtimeObjectWithConditions interface {
 }
 
 // HandleRateLimitExceeded handles rate limit exceeded errors.
-func HandleRateLimitExceeded(obj runtimeObjectWithConditions, err error, functionName string) {
+// Returns true if RateLimit is reached.
+func HandleRateLimitExceeded(obj runtimeObjectWithConditions, err error, functionName string) bool {
 	if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
 		msg := fmt.Sprintf("exceeded hcloud rate limit with calling function %q", functionName)
 		conditions.MarkFalse(
@@ -80,5 +81,7 @@ func HandleRateLimitExceeded(obj runtimeObjectWithConditions, err error, functio
 			msg,
 		)
 		record.Warnf(obj, "RateLimitExceeded", msg)
+		return true
 	}
+	return false
 }
