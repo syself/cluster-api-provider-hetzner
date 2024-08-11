@@ -246,7 +246,7 @@ github.com/hashicorp/hcl/hcl/token
 github.com/hashicorp/hcl/json/parser
 github.com/hashicorp/hcl/json/scanner
 github.com/hashicorp/hcl/json/token
-# github.com/hetznercloud/hcloud-go/v2 v2.13.0
+# github.com/hetznercloud/hcloud-go/v2 v2.13.1
 ## explicit; go 1.21
 github.com/hetznercloud/hcloud-go/v2/hcloud
 github.com/hetznercloud/hcloud-go/v2/hcloud/internal/instrumentation
