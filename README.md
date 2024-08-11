@@ -159,6 +159,8 @@ For more information about Syself, our platform, or any generall information abo
 - **LinkedIn**: Follow us on [LinkedIn](https://www.linkedin.com/company/syself/) for announcements
 - **Newsletter**: Consider subscribing to [our LinkedIn newsletter](https://www.linkedin.com/newsletters/the-syselfer-7223788357485543424/) for regular news about CAPH
 
+[![Kubernetes Cluster API Provider Hetzner](https://cdn.syself.com/caph-alt.png)](https://syself.com/demo)
+
 <!-- References -->
 
 [good_first_issue]: https://github.com/syself/cluster-api-provider-hetzner/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3A%22good+first+issue%22
