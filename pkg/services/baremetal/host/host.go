@@ -1100,10 +1100,10 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 	// CheckDisk before accessing the disk
 	info, err := sshClient.CheckDisk(ctx, s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.ListOfWWN())
 	if err != nil {
-		record.Warnf(s.scope.HetznerBareMetalHost, "CheckDisk failed. Beta Feature, please provide feedback! "+
+		record.Warnf(s.scope.HetznerBareMetalHost, "DiskUnhealthy", "CheckDisk failed. Beta Feature, please provide feedback! "+
 			"We continue, to not break your flow. Is your disk really broken? Please tell us. %s", err.Error())
 	} else {
-		record.Eventf(s.scope.HetznerBareMetalHost, "Disks look good: %s", info)
+		record.Eventf(s.scope.HetznerBareMetalHost, "DiskHealthy", "Disk looks healthy: %s", info)
 	}
 
 	// Call WipeDisk if the corresponding annotation is set.
