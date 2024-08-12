@@ -1097,6 +1097,15 @@ func (s *Service) actionImageInstalling(ctx context.Context) actionResult {
 }
 
 func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Context, sshClient sshclient.Client) actionResult {
+	// CheckDisk before accessing the disk
+	info, err := sshClient.CheckDisk(ctx, s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.ListOfWWN())
+	if err != nil {
+		record.Warnf(s.scope.HetznerBareMetalHost, "CheckDisk failed. Beta Feature, please provide feedback! "+
+			"We continue, to not break your flow. Is your disk really broken? Please tell us. %s", err.Error())
+	} else {
+		record.Eventf(s.scope.HetznerBareMetalHost, "Disks look good: %s", info)
+	}
+
 	// Call WipeDisk if the corresponding annotation is set.
 	sliceOfWwns := strings.Fields(s.scope.HetznerBareMetalHost.Annotations[infrav1.WipeDiskAnnotation])
 	if len(sliceOfWwns) > 0 {
