@@ -632,7 +632,7 @@ chmod a+rx /root/check-disk.sh
 	}
 	if exitStatus == 1 {
 		// Script detected a broken disk.
-		return "", fmt.Errorf("CheckDisk for %+v failed: %w %w", sliceOfWwns, out.Err, ErrCheckDiskBrokenDisk)
+		return "", fmt.Errorf("CheckDisk for %+v failed: %s. %s. %w %w", sliceOfWwns, out.StdOut, out.StdErr, out.Err, ErrCheckDiskBrokenDisk)
 	}
 	if exitStatus == 0 {
 		// Everything was fine.

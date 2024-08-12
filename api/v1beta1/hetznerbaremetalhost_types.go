@@ -43,6 +43,9 @@ const (
 	// WipeDiskAnnotation indicates which Disks (WWNs) to erase before provisioning
 	// The value is a list of WWNS or "all".
 	WipeDiskAnnotation = "wipedisk.hetznerbaremetalhost.infrastructure.cluster.x-k8s.io"
+
+	// IgnoreCheckDiskAnnotation indicates that the machine should get provisioned, even if CheckDisk fails.
+	IgnoreCheckDiskAnnotation = "ignore-cd.hetznerbaremetalhost.infrastructure.cluster.x-k8s.io" // max length is 63 chars.
 )
 
 // RootDeviceHints holds the hints for specifying the storage location
