@@ -9,8 +9,6 @@
 <p>⭐ Consider leaving a star — it motivates us a lot! ⭐</p>
 </div>
 
-
-
 ---
 
 <div align="center">
@@ -25,6 +23,7 @@
 <br>
 
 ## Table of Contents
+
 - [What is CAPH](#-what-is-the-cluster-api-provider-hetzner)
 - [Documentation](#-documentation)
 - [Getting Started](#-getting-started)
@@ -67,7 +66,6 @@ Additional resources from the documentation:
 - [**Develop and test your own node-images**](https://syself.com/docs/caph/topics/node-image): Learn how to use your own machine images for production systems.
 
 In addition to the pure creation and operation of Kubernetes clusters, this provider can also validate and approve certificate signing requests. This increases security as the kubelets of the nodes can be operated with signed certificates, and enables the metrics-server to run securely. [Click here](https://syself.com/docs/caph/topics/advanced/csr-controller) to read more about the CSR controller.
-
 
 ## 🖇️ Compatibility with Cluster API and Kubernetes Versions
 
@@ -154,7 +152,7 @@ We also use the issue tracker to track features. If you have an idea for a featu
 
 For more information about Syself, our platform, or any generall information about the Cluster API Provider Hetzner, feel free to reach out to us. Below are some ways to contact our team:
 
-- **Email**: Send us questions at contact@syself.com
+- **Email**: Send us questions at <contact@syself.com>
 - **Website**: Visit [our website](https://syself.com) for more information about Syself
 - **LinkedIn**: Follow us on [LinkedIn](https://www.linkedin.com/company/syself/) for announcements
 - **Newsletter**: Consider subscribing to [our LinkedIn newsletter](https://www.linkedin.com/newsletters/the-syselfer-7223788357485543424/) for regular news about CAPH
@@ -167,5 +165,3 @@ For more information about Syself, our platform, or any generall information abo
 [bug_report]: https://github.com/syself/cluster-api-provider-hetzner/issues/new?template=bug_report.md
 [feature_request]: https://github.com/syself/cluster-api-provider-hetzner/issues/new?template=feature_request.md
 [slack_info]: https://github.com/kubernetes/community/tree/master/communication#slack
-[cluster_api]: https://github.com/kubernetes-sigs/cluster-api
-[quickstart]: https://cluster-api.sigs.k8s.io/user/quick-start.html
