@@ -1097,6 +1097,35 @@ func (s *Service) actionImageInstalling(ctx context.Context) actionResult {
 }
 
 func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Context, sshClient sshclient.Client) actionResult {
+	// CheckDisk before accessing the disk
+	info, err := sshClient.CheckDisk(ctx, s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.ListOfWWN())
+	if err != nil {
+		_, ok := s.scope.HetznerBareMetalHost.Annotations[infrav1.IgnoreCheckDiskAnnotation]
+		if !ok {
+			// The annotation is not set. This is a permanent error.
+			msg := fmt.Sprintf(
+				"CheckDisk failed (permanent error): %s (set annotation %q on hbmh to continue anyway)",
+				err.Error(), infrav1.IgnoreCheckDiskAnnotation)
+			conditions.MarkFalse(
+				s.scope.HetznerBareMetalHost,
+				infrav1.ProvisionSucceededCondition,
+				infrav1.CheckDiskFailedReason,
+				clusterv1.ConditionSeverityError,
+				msg,
+			)
+			record.Warn(s.scope.HetznerBareMetalHost, infrav1.CheckDiskFailedReason, msg)
+			s.scope.HetznerBareMetalHost.SetError(infrav1.PermanentError, msg)
+			return actionStop{}
+		}
+		// The annotation was set. Just create a warning and move on.
+		record.Warnf(s.scope.HetznerBareMetalHost, infrav1.CheckDiskFailedReason,
+			"CheckDisk failed. Continue anyway because %q is set: %s",
+			infrav1.IgnoreCheckDiskAnnotation,
+			err.Error())
+	} else {
+		record.Eventf(s.scope.HetznerBareMetalHost, "DiskHealthy", "Disk looks healthy: %s", info)
+	}
+
 	// Call WipeDisk if the corresponding annotation is set.
 	sliceOfWwns := strings.Fields(s.scope.HetznerBareMetalHost.Annotations[infrav1.WipeDiskAnnotation])
 	if len(sliceOfWwns) > 0 {

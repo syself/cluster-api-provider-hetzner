@@ -182,12 +182,13 @@ deploy-controller: generate-manifests $(KUSTOMIZE) ## Deploy controller to the K
 undeploy-controller: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/default | $(KUBECTL) delete -f -
 
-install-essentials: ## This gets the secret and installs a CNI and the CCM. Usage: MAKE install-essentials NAME=<cluster-name>
-	$(MAKE) wait-and-get-secret CLUSTER_NAME=$(NAME)
+install-essentials: ## This gets the secret and installs a CNI and the CCM. Usage: MAKE install-essentials CLUSTER_NAME=<cluster-name>
+	$(MAKE) wait-and-get-secret CLUSTER_NAME=$(CLUSTER_NAME)
 	$(MAKE) install-cilium-in-wl-cluster
 	$(MAKE) install-ccm-in-wl-cluster
 
 wait-and-get-secret:
+	./hack/ensure-env-variables.sh CLUSTER_NAME
 	# Wait for the kubeconfig to become available.
 	rm -f $(WORKER_CLUSTER_KUBECONFIG)
 	${TIMEOUT} --foreground 5m bash -c "while ! $(KUBECTL) get secrets | grep $(CLUSTER_NAME)-kubeconfig; do sleep 1; done"

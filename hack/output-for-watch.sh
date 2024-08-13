@@ -44,9 +44,21 @@ print_heading events:
 
 kubectl get events -A --sort-by=lastTimestamp | grep -vP 'LeaderElection' | tail -8
 
-print_heading logs:
+print_heading caph:
 
 ./hack/tail-controller-logs.sh
+
+regex='^I\d\d\d\d|\
+.*it may have already been deleted|\
+.*WARNING: ignoring DaemonSet-managed Pods|\
+.*failed to retrieve Spec.ProviderID|\
+.*failed to patch Machine default
+'
+capi_logs=$(kubectl logs -n capi-system deployments/capi-controller-manager --since 7m | grep -vP "$(echo "$regex" | tr -d '\n')" | tail -5)
+if [ -n "$capi_logs" ]; then
+    print_heading capi
+    echo "$capi_logs"
+fi
 
 echo
 

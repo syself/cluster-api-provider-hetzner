@@ -45,6 +45,9 @@ var detectLinuxOnAnotherDiskShellScript string
 //go:embed wipe-disk.sh
 var wipeDiskShellScript string
 
+//go:embed check-disk.sh
+var checkDiskShellScript string
+
 var downloadFromOciShellScript = `#!/bin/bash
 
 # Copyright 2023 The Kubernetes Authors.
@@ -164,8 +167,9 @@ var (
 	ErrEmptyStdOut = errors.New("unexpected empty output in stdout")
 	// ErrTimeout means that there is a timeout error.
 	ErrTimeout = errors.New("i/o timeout")
-
-	errSSHDialFailed = errors.New("failed to dial ssh")
+	// ErrCheckDiskBrokenDisk means that a disk seams broken.
+	ErrCheckDiskBrokenDisk = errors.New("CheckDisk failed")
+	errSSHDialFailed       = errors.New("failed to dial ssh")
 )
 
 // Input defines an SSH input.
@@ -263,6 +267,10 @@ type Client interface {
 	// Erase filesystem, raid and partition-table signatures.
 	// String "all" will wipe all disks.
 	WipeDisk(ctx context.Context, sliceOfWwns []string) (string, error)
+
+	// CheckDisk checks the given disks via smartctl.
+	// ErrCheckDiskBrokenDisk gets returned, if a disk is broken.
+	CheckDisk(ctx context.Context, sliceOfWwns []string) (info string, err error)
 }
 
 // Factory is the interface for creating new Client objects.
@@ -604,6 +612,34 @@ chmod a+rx /root/wipe-disk.sh
 		return "", fmt.Errorf("WipeDisk for %+v failed: %s. %s: %w", sliceOfWwns, out.StdOut, out.StdErr, out.Err)
 	}
 	return out.String(), nil
+}
+
+func (c *sshClient) CheckDisk(_ context.Context, sliceOfWwns []string) (info string, err error) {
+	if len(sliceOfWwns) == 0 {
+		return "", nil
+	}
+
+	out := c.runSSH(fmt.Sprintf(`cat >/root/check-disk.sh <<'EOF_VIA_SSH'
+%s
+EOF_VIA_SSH
+chmod a+rx /root/check-disk.sh
+/root/check-disk.sh %s
+`, checkDiskShellScript, strings.Join(sliceOfWwns, " ")))
+	exitStatus, err := out.ExitStatus()
+	if err != nil {
+		// Network error or similar. Script was not called.
+		return "", fmt.Errorf("CheckDisk for %+v failed: %w", sliceOfWwns, err)
+	}
+	if exitStatus == 1 {
+		// Script detected a broken disk.
+		return "", fmt.Errorf("CheckDisk for %+v failed: %s. %s. %w %w", sliceOfWwns, out.StdOut, out.StdErr, out.Err, ErrCheckDiskBrokenDisk)
+	}
+	if exitStatus == 0 {
+		// Everything was fine.
+		return out.String(), nil
+	}
+	// Some other strange error like "unknown WWN"
+	return "", fmt.Errorf("CheckDisk for %+v failed: %s. %s: %w", sliceOfWwns, out.StdOut, out.StdErr, out.Err)
 }
 
 func (c *sshClient) UntarTGZ() Output {
