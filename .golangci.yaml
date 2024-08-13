@@ -118,7 +118,7 @@ linters-settings:
       - rangeValCopy
       - hugeParam
   unused:
-    go: "1.21"
+    go: "1.22"
 issues:
   max-same-issues: 0
   max-issues-per-linter: 0
@@ -213,4 +213,4 @@ run:
     - "test"
   allow-parallel-runners: true
   modules-download-mode: readonly
-  go: '1.21'
+  go: "1.22"
