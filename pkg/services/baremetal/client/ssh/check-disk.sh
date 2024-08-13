@@ -63,6 +63,9 @@ install_smartmontools() {
         exit 1
     fi
 }
+
+# In the rescue system smartctl is always available. This is just needed if the
+# script gets executed by hand (outside caph)
 if ! type smartctl >/dev/null 2>&1; then
     echo "INFO: smartctl not installed yet. If possible, please provide smartmontools in your machine image."
     install_smartmontools
