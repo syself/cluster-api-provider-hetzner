@@ -14,17 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -o errexit
-set -o nounset
-set -o pipefail
+trap 'echo "ERROR: A command has failed. Exiting the script. Line was ($0:$LINENO): $(sed -n "${LINENO}p" "$0")"; exit 3' ERR
+set -Eeuo pipefail
 
-REPO_ROOT=$(realpath $(dirname "${BASH_SOURCE[0]}")/..)
+REPO_ROOT=$(realpath "$(dirname "${BASH_SOURCE[0]}")/..")
 cd "${REPO_ROOT}" || exit 1
 
 DIRS="./ ./hack/tools"
 for DIR in ${DIRS}; do
-	cd ${REPO_ROOT}/${DIR} && go mod download
-	cd ${REPO_ROOT}/${DIR} && go mod verify
-	cd ${REPO_ROOT}/${DIR} && go mod tidy
-	cd ${REPO_ROOT}/${DIR} && go mod vendor
+	cd "${REPO_ROOT}/${DIR}" && go mod download
+	cd "${REPO_ROOT}/${DIR}" && go mod verify
+	cd "${REPO_ROOT}/${DIR}" && go mod tidy
+	cd "${REPO_ROOT}/${DIR}" && go mod vendor
 done
