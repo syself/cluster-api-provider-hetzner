@@ -84,7 +84,7 @@ for wwn in "$@"; do
         echo "Failed to find device for WWN $wwn"
         exit 3
     fi
-    smartctl -H "/dev/$device" | { grep -vP '^(smartctl \d+\.\d+.*|Copyright|=+ START OF SMART DATA SECTION.*)' || true; } |
+    smartctl -H "/dev/$device" | { grep -vP '^(smartctl \d+\.\d+.*|Copyright|=+ START OF)' || true; } |
         { grep -v '^$' || true; } |
         sed "s#^#$wwn (/dev/$device): #" >>"$result"
 done
