@@ -310,8 +310,6 @@ func getServerIDFromConstantHostname(ctx context.Context, csrUsername string, cl
 	// example csrUsername: system:node:bm-my-cluster-1234567
 	matches := constantBareMetalHostnameRegex.FindStringSubmatch(strings.TrimPrefix(csrUsername, nodePrefix))
 	if len(matches) != 3 {
-		log.V(1).Info("No constant baremetal hostname - regex does not match CSR username",
-			"regex", constantBareMetalHostnameRegex.String(), "csrUserName", csrUsername)
 		return "", ""
 	}
 

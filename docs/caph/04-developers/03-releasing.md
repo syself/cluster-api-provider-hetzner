@@ -22,6 +22,7 @@ title: Release Process
 ## Release in GitHub
 
 1. Review the draft release on GitHub: [Releases](https://github.com/syself/cluster-api-provider-hetzner/releases). Use the pencil-icon to edit the draft release. Then use the button "Generate release notes". Pay close attention to the `## :question: Sort these by hand` section, as it contains items that need to be manually sorted. Feel free to move less important PRs, like version upgrades (from renovate bot), to the bottom.
+1. Double checkt that the assets got created. There should be one zip file, one tgz file, and 12 yaml files.
 1. If it is pre-release, activate the corresponding check at the bottom of the page. And add `:rotating_light: This is a RELEASE CANDIDATE. If you find any bugs, file an [issue](https://github.com/syself/cluster-api-provider-hetzner/issues/new).` at the top of the release notes.
 1. Before publishing you can check the [Recent tagged image versions](https://github.com/syself/cluster-api-provider-hetzner/pkgs/container/caph): "latest" should be some seconds old and the new version number.
 1. Publish the release
