@@ -17,7 +17,9 @@ limitations under the License.
 package controllers
 
 import (
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	. "github.com/onsi/ginkgo/v2"
@@ -366,18 +368,23 @@ var _ = Describe("HCloudMachineReconciler", func() {
 			It("creates the HCloud machine in Hetzner 1 (flaky)", func() {
 				By("checking that no servers exist")
 
-				Eventually(func() bool {
+				Eventually(func(start time.Time) bool {
 					servers, err := hcloudClient.ListServers(ctx, hcloud.ServerListOpts{
 						ListOpts: hcloud.ListOpts{
 							LabelSelector: utils.LabelsToLabelSelector(map[string]string{hetznerCluster.ClusterTagKey(): "owned"}),
 						},
 					})
 					if err != nil {
+						fmt.Printf("flaky test. ListServers failed: %s\n", err.Error())
 						return false
 					}
-
-					return len(servers) == 0
-				}, 2*timeout, interval).Should(BeTrue())
+					if len(servers) != 0 {
+						fmt.Printf("flaky test. There are still servers: %+v\n", servers)
+						return false
+					}
+					fmt.Printf("flaky test. OK after %s\n", time.Since(start).String())
+					return true
+				}, 2*timeout, interval).WithArguments(time.Now()).Should(BeTrue())
 
 				By("checking that bootstrap condition is not ready")
 
