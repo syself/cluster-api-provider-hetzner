@@ -804,3 +804,7 @@ create-hetzner-installimage-tgz:
 	   echo "tgz must contain only one directory. And it must be 'hetzner-installimage'."; \
 	   exit 1; \
 	fi
+	@echo
+	@echo "============= ↓↓↓↓↓ Now update the version number here ↓↓↓↓↓ ============="
+	@git ls-files | xargs grep -P 'hetzner-installimage.*v\d+\.\d+' || true
+	@echo "↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑"
