@@ -27,7 +27,7 @@ function usage() {
     echo "    Exit 1: There is a Linux on a different disk.".
     echo "    Exit 3: Unexpected error."
     echo "Existing WWNs:"
-    lsblk -oNAME,WWN | grep -vi loop || true
+    lsblk -oNAME,WWN,SIZE,MOUNTPOINTS | grep -vi loop || true
 }
 
 if [ $# -eq 0 ]; then
