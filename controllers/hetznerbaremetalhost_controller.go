@@ -66,7 +66,7 @@ type HetznerBareMetalHostReconciler struct {
 // Reconcile implements the reconcilement of HetznerBareMetalHost objects.
 func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res ctrl.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
-
+	// dummy
 	start := time.Now()
 	defer func() {
 		// check duration of reconcile. Warn if it took too long.
