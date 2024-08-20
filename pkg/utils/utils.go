@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"slices"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -30,6 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/storage/names"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // LabelsToLabelSelector is converting a map of labels to HCloud label
@@ -231,4 +233,29 @@ func GetDefaultLogger(logLevel string) logr.Logger {
 	}
 
 	return zapr.NewLogger(zapLog)
+}
+
+// UpdateFinalizer updates obj. If a change was make, `true` gets returned.
+func UpdateFinalizer(obj client.Object, oldString string, newString string) bool {
+	found := false
+	finalizers := obj.GetFinalizers()
+	f2 := make([]string, 0, len(finalizers))
+	for _, item := range finalizers {
+		if item == oldString {
+			item = newString
+			found = true
+		}
+		f2 = append(f2, item)
+	}
+
+	if !found {
+		return false
+	}
+
+	// remove duplicate entries
+	slices.Sort(f2)
+	f2 = slices.Compact(f2)
+
+	obj.SetFinalizers(f2)
+	return true
 }
