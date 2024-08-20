@@ -83,11 +83,12 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 	}
 
 	log = log.WithValues("HCloudMachine", klog.KObj(hcloudMachine))
+
 	if utils.UpdateFinalizer(hcloudMachine, infrav1.DeprecatedMachineFinalizer, infrav1.MachineFinalizer) {
 		// Finalizers got updated. Write new object to api-server and reconcile again
 		err = r.Update(ctx, hcloudMachine)
 		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("Update after UpdateFinalizer failed")
+			return reconcile.Result{}, fmt.Errorf("update after UpdateFinalizer failed: %w", err)
 		}
 		log.Info("the finalizer was updated.",
 			"old", infrav1.DeprecatedMachineFinalizer,

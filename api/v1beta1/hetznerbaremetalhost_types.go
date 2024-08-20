@@ -34,7 +34,11 @@ const (
 	// BareMetalHostFinalizer is the name of the finalizer added to
 	// hosts to block delete operations until the physical host can be
 	// deprovisioned.
-	BareMetalHostFinalizer string = "hetznerbaremetalhost.infrastructure.cluster.x-k8s.io"
+	BareMetalHostFinalizer string = "infrastructure.cluster.x-k8s.io/hetznerbaremetalhost"
+
+	// DeprecatedBareMetalHostFinalizer contains the old string.
+	// The controller will automatically update to the new string.
+	DeprecatedBareMetalHostFinalizer string = "hetznerbaremetalhost.infrastructure.cluster.x-k8s.io"
 
 	// HostAnnotation is the key for an annotation that should go on a HetznerBareMetalMachine to
 	// reference what HetznerBareMetalHost it corresponds to.

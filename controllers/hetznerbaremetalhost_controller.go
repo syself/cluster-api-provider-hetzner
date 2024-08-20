@@ -86,6 +86,17 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		return reconcile.Result{}, err
 	}
 
+	if utils.UpdateFinalizer(bmHost, infrav1.DeprecatedBareMetalHostFinalizer, infrav1.BareMetalHostFinalizer) {
+		// Finalizers got updated. Write new object to api-server and reconcile again
+		err = r.Update(ctx, bmHost)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("update after UpdateFinalizer failed: %w", err)
+		}
+		log.Info("the finalizer was updated.",
+			"old", infrav1.DeprecatedBareMetalHostFinalizer,
+			"new", infrav1.BareMetalHostFinalizer)
+		return reconcile.Result{Requeue: true}, err
+	}
 	// Add a finalizer to newly created objects.
 	if bmHost.DeletionTimestamp.IsZero() && !hostHasFinalizer(bmHost) {
 		bmHost.Finalizers = append(bmHost.Finalizers,
