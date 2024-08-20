@@ -63,7 +63,6 @@ import (
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/loadbalancer"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/network"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/placementgroup"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
 const (
@@ -102,18 +101,6 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	log = log.WithValues("HetznerCluster", klog.KObj(hetznerCluster))
-
-	if utils.UpdateFinalizer(hetznerCluster, infrav1.DeprecatedHetznerClusterFinalizer, infrav1.HetznerClusterFinalizer) {
-		// Finalizers got updated. Write new object to api-server and reconcile again
-		err = r.Update(ctx, hetznerCluster)
-		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("update after UpdateFinalizer failed: %w", err)
-		}
-		log.Info("the finalizer was updated.",
-			"old", infrav1.DeprecatedHetznerClusterFinalizer,
-			"new", infrav1.HetznerClusterFinalizer)
-		return reconcile.Result{Requeue: true}, err
-	}
 
 	// Fetch the Cluster.
 	cluster, err := util.GetOwnerCluster(ctx, r.Client, hetznerCluster.ObjectMeta)
@@ -192,6 +179,7 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 
 	// If the HetznerCluster doesn't have our finalizer, add it.
 	controllerutil.AddFinalizer(hetznerCluster, infrav1.HetznerClusterFinalizer)
+	controllerutil.RemoveFinalizer(hetznerCluster, infrav1.DeprecatedHetznerClusterFinalizer)
 	if err := clusterScope.PatchObject(ctx); err != nil {
 		return reconcile.Result{}, err
 	}
@@ -380,6 +368,7 @@ func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterS
 
 	// Cluster is deleted so remove the finalizer.
 	controllerutil.RemoveFinalizer(clusterScope.HetznerCluster, infrav1.HetznerClusterFinalizer)
+	controllerutil.RemoveFinalizer(clusterScope.HetznerCluster, infrav1.DeprecatedHetznerClusterFinalizer)
 
 	return reconcile.Result{}, nil
 }

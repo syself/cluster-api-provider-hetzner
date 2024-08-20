@@ -64,13 +64,7 @@ func NewSecretManager(log logr.Logger, cacheClient client.Client, apiReader clie
 // present in the cache (and that we can watch for changes), and optionally
 // that it has a particular owner reference.
 func (sm *SecretManager) claimSecret(ctx context.Context, secret *corev1.Secret, owner client.Object, ownerIsController, addFinalizer bool) error {
-	needsUpdate := utils.UpdateFinalizer(secret, DeprecatedSecretFinalizer, SecretFinalizer)
-	if needsUpdate {
-		sm.log.Info("the finalizer of the secrete was updated.",
-			"old", DeprecatedSecretFinalizer,
-			"new", SecretFinalizer,
-			"secret", secret.Name)
-	}
+	needsUpdate := false
 	if !metav1.HasLabel(secret.ObjectMeta, LabelEnvironmentName) {
 		metav1.SetMetaDataLabel(&secret.ObjectMeta, LabelEnvironmentName, LabelEnvironmentValue)
 		needsUpdate = true
@@ -101,8 +95,8 @@ func (sm *SecretManager) claimSecret(ctx context.Context, secret *corev1.Secret,
 		}
 	}
 
-	if addFinalizer && !utils.StringInList(secret.Finalizers, SecretFinalizer) {
-		secret.Finalizers = append(secret.Finalizers, SecretFinalizer)
+	if addFinalizer && (controllerutil.AddFinalizer(secret, SecretFinalizer) ||
+		controllerutil.RemoveFinalizer(secret, DeprecatedSecretFinalizer)) {
 		needsUpdate = true
 	}
 
@@ -190,8 +184,8 @@ func (sm *SecretManager) ReleaseSecret(ctx context.Context, secret *corev1.Secre
 
 	// remove finalizer from secret to allow deletion if no other owner exists
 	if !foundOtherHetznerClusterOwner {
-		secret.Finalizers = utils.FilterStringFromList(
-			secret.Finalizers, SecretFinalizer)
+		controllerutil.RemoveFinalizer(secret, SecretFinalizer)
+		controllerutil.RemoveFinalizer(secret, DeprecatedSecretFinalizer)
 	}
 
 	secret.OwnerReferences = newOwnerRefs

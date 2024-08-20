@@ -44,7 +44,6 @@ import (
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/baremetal"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
 // HetznerBareMetalMachineReconciler reconciles a HetznerBareMetalMachine object.
@@ -72,18 +71,6 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 	}
 
 	log = log.WithValues("HetznerBareMetalMachine", klog.KObj(hbmMachine))
-
-	if utils.UpdateFinalizer(hbmMachine, infrav1.DeprecatedBareMetalMachineFinalizer, infrav1.BareMetalMachineFinalizer) {
-		// Finalizers got updated. Write new object to api-server and reconcile again
-		err = r.Update(ctx, hbmMachine)
-		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("update after UpdateFinalizer failed: %w", err)
-		}
-		log.Info("the finalizer was updated.",
-			"old", infrav1.DeprecatedBareMetalMachineFinalizer,
-			"new", infrav1.BareMetalMachineFinalizer)
-		return reconcile.Result{Requeue: true}, err
-	}
 
 	// Fetch the Machine.
 	machine, err := util.GetOwnerMachine(ctx, r.Client, hbmMachine.ObjectMeta)
@@ -192,6 +179,7 @@ func (r *HetznerBareMetalMachineReconciler) reconcileDelete(ctx context.Context,
 	}
 	// Machine is deleted so remove the finalizer.
 	controllerutil.RemoveFinalizer(machineScope.BareMetalMachine, infrav1.BareMetalMachineFinalizer)
+	controllerutil.RemoveFinalizer(machineScope.BareMetalMachine, infrav1.DeprecatedBareMetalMachineFinalizer)
 
 	return result, nil
 }
@@ -199,7 +187,7 @@ func (r *HetznerBareMetalMachineReconciler) reconcileDelete(ctx context.Context,
 func (r *HetznerBareMetalMachineReconciler) reconcileNormal(ctx context.Context, machineScope *scope.BareMetalMachineScope) (reconcile.Result, error) {
 	// If the HetznerBareMetalMachine doesn't have our finalizer, add it.
 	controllerutil.AddFinalizer(machineScope.BareMetalMachine, infrav1.BareMetalMachineFinalizer)
-
+	controllerutil.RemoveFinalizer(machineScope.BareMetalMachine, infrav1.DeprecatedBareMetalMachineFinalizer)
 	// Register the finalizer immediately to avoid orphaning HetznerBareMetal resources on delete
 	if err := machineScope.PatchObject(ctx); err != nil {
 		return reconcile.Result{}, err

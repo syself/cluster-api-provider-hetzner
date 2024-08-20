@@ -49,7 +49,6 @@ import (
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/server"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
 // HCloudMachineReconciler reconciles a HCloudMachine object.
@@ -83,18 +82,6 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 	}
 
 	log = log.WithValues("HCloudMachine", klog.KObj(hcloudMachine))
-
-	if utils.UpdateFinalizer(hcloudMachine, infrav1.DeprecatedHCloudMachineFinalizer, infrav1.HCloudMachineFinalizer) {
-		// Finalizers got updated. Write new object to api-server and reconcile again
-		err = r.Update(ctx, hcloudMachine)
-		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("update after UpdateFinalizer failed: %w", err)
-		}
-		log.Info("the finalizer was updated.",
-			"old", infrav1.DeprecatedHCloudMachineFinalizer,
-			"new", infrav1.HCloudMachineFinalizer)
-		return reconcile.Result{Requeue: true}, err
-	}
 
 	// Fetch the Machine.
 	machine, err := util.GetOwnerMachine(ctx, r.Client, hcloudMachine.ObjectMeta)
@@ -201,6 +188,7 @@ func (r *HCloudMachineReconciler) reconcileDelete(ctx context.Context, machineSc
 	}
 	// Machine is deleted so remove the finalizer.
 	controllerutil.RemoveFinalizer(machineScope.HCloudMachine, infrav1.HCloudMachineFinalizer)
+	controllerutil.RemoveFinalizer(machineScope.HCloudMachine, infrav1.DeprecatedHCloudMachineFinalizer)
 
 	return reconcile.Result{}, nil
 }
@@ -210,6 +198,7 @@ func (r *HCloudMachineReconciler) reconcileNormal(ctx context.Context, machineSc
 
 	// If the HCloudMachine doesn't have our finalizer, add it.
 	controllerutil.AddFinalizer(machineScope.HCloudMachine, infrav1.HCloudMachineFinalizer)
+	controllerutil.RemoveFinalizer(machineScope.HCloudMachine, infrav1.DeprecatedHCloudMachineFinalizer)
 
 	// Register the finalizer immediately to avoid orphaning HCloud resources on delete.
 	if err := machineScope.PatchObject(ctx); err != nil {

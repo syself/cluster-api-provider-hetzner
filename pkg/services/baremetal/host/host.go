@@ -40,6 +40,7 @@ import (
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -1803,7 +1804,8 @@ func (s *Service) actionDeprovisioning(_ context.Context) actionResult {
 }
 
 func (s *Service) actionDeleting(_ context.Context) actionResult {
-	s.scope.HetznerBareMetalHost.Finalizers = utils.FilterStringFromList(s.scope.HetznerBareMetalHost.Finalizers, infrav1.BareMetalHostFinalizer)
+	controllerutil.RemoveFinalizer(s.scope.HetznerBareMetalHost, infrav1.BareMetalHostFinalizer)
+	controllerutil.RemoveFinalizer(s.scope.HetznerBareMetalHost, infrav1.DeprecatedBareMetalHostFinalizer)
 	return deleteComplete{}
 }
 
