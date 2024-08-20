@@ -44,6 +44,7 @@ import (
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/baremetal"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
 // HetznerBareMetalMachineReconciler reconciles a HetznerBareMetalMachine object.
@@ -71,6 +72,18 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 	}
 
 	log = log.WithValues("HetznerBareMetalMachine", klog.KObj(hbmMachine))
+
+	if utils.UpdateFinalizer(hbmMachine, infrav1.DeprecatedBareMetalMachineFinalizer, infrav1.BareMetalMachineFinalizer) {
+		// Finalizers got updated. Write new object to api-server and reconcile again
+		err = r.Update(ctx, hbmMachine)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("update after UpdateFinalizer failed: %w", err)
+		}
+		log.Info("the finalizer was updated.",
+			"old", infrav1.DeprecatedBareMetalMachineFinalizer,
+			"new", infrav1.BareMetalMachineFinalizer)
+		return reconcile.Result{Requeue: true}, err
+	}
 
 	// Fetch the Machine.
 	machine, err := util.GetOwnerMachine(ctx, r.Client, hbmMachine.ObjectMeta)
