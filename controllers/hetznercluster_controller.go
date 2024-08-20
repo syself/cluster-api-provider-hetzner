@@ -103,15 +103,15 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	log = log.WithValues("HetznerCluster", klog.KObj(hetznerCluster))
 
-	if utils.UpdateFinalizer(hetznerCluster, infrav1.DeprecatedClusterFinalizer, infrav1.ClusterFinalizer) {
+	if utils.UpdateFinalizer(hetznerCluster, infrav1.DeprecatedHetznerClusterFinalizer, infrav1.HetznerClusterFinalizer) {
 		// Finalizers got updated. Write new object to api-server and reconcile again
 		err = r.Update(ctx, hetznerCluster)
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("update after UpdateFinalizer failed: %w", err)
 		}
 		log.Info("the finalizer was updated.",
-			"old", infrav1.DeprecatedClusterFinalizer,
-			"new", infrav1.ClusterFinalizer)
+			"old", infrav1.DeprecatedHetznerClusterFinalizer,
+			"new", infrav1.HetznerClusterFinalizer)
 		return reconcile.Result{Requeue: true}, err
 	}
 
@@ -191,7 +191,7 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 	hetznerCluster := clusterScope.HetznerCluster
 
 	// If the HetznerCluster doesn't have our finalizer, add it.
-	controllerutil.AddFinalizer(hetznerCluster, infrav1.ClusterFinalizer)
+	controllerutil.AddFinalizer(hetznerCluster, infrav1.HetznerClusterFinalizer)
 	if err := clusterScope.PatchObject(ctx); err != nil {
 		return reconcile.Result{}, err
 	}
@@ -379,7 +379,7 @@ func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterS
 	}
 
 	// Cluster is deleted so remove the finalizer.
-	controllerutil.RemoveFinalizer(clusterScope.HetznerCluster, infrav1.ClusterFinalizer)
+	controllerutil.RemoveFinalizer(clusterScope.HetznerCluster, infrav1.HetznerClusterFinalizer)
 
 	return reconcile.Result{}, nil
 }

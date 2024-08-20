@@ -22,14 +22,14 @@ import (
 )
 
 const (
-	// ClusterFinalizer allows ReconcileHetznerCluster to clean up HCloud
+	// HetznerClusterFinalizer allows ReconcileHetznerCluster to clean up HCloud
 	// resources associated with HetznerCluster before removing it from the
 	// apiserver.
-	ClusterFinalizer = "infrastructure.cluster.x-k8s.io/hetznercluster"
+	HetznerClusterFinalizer = "infrastructure.cluster.x-k8s.io/hetznercluster"
 
-	// DeprecatedClusterFinalizer contains the old string.
+	// DeprecatedHetznerClusterFinalizer contains the old string.
 	// The controller will automatically update to the new string.
-	DeprecatedClusterFinalizer = "hetznercluster.infrastructure.cluster.x-k8s.io"
+	DeprecatedHetznerClusterFinalizer = "hetznercluster.infrastructure.cluster.x-k8s.io"
 
 	// AllowEmptyControlPlaneAddressAnnotation allows HetznerCluster Webhook
 	// to skip some validation steps for externally managed control planes.

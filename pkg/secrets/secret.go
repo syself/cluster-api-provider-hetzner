@@ -35,7 +35,7 @@ import (
 
 const (
 	// SecretFinalizer is the finalizer for secrets.
-	SecretFinalizer = infrav1.ClusterFinalizer + "/secret"
+	SecretFinalizer = infrav1.HetznerClusterFinalizer + "/secret"
 )
 
 // SecretManager is a type for fetching Secrets whether or not they are in the
