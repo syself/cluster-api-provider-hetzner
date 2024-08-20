@@ -35,7 +35,11 @@ import (
 
 const (
 	// SecretFinalizer is the finalizer for secrets.
-	SecretFinalizer = infrav1.HetznerClusterFinalizer + "/secret"
+	SecretFinalizer = "infrastructure.cluster.x-k8s.io/caph-secret"
+
+	// DeprecatedSecretFinalizer contains the old string.
+	// The controller will automatically update to the new string.
+	DeprecatedSecretFinalizer = infrav1.DeprecatedHetznerClusterFinalizer + "/secret"
 )
 
 // SecretManager is a type for fetching Secrets whether or not they are in the
@@ -60,7 +64,13 @@ func NewSecretManager(log logr.Logger, cacheClient client.Client, apiReader clie
 // present in the cache (and that we can watch for changes), and optionally
 // that it has a particular owner reference.
 func (sm *SecretManager) claimSecret(ctx context.Context, secret *corev1.Secret, owner client.Object, ownerIsController, addFinalizer bool) error {
-	needsUpdate := false
+	needsUpdate := utils.UpdateFinalizer(secret, DeprecatedSecretFinalizer, SecretFinalizer)
+	if needsUpdate {
+		sm.log.Info("the finalizer of the secrete was updated.",
+			"old", DeprecatedSecretFinalizer,
+			"new", SecretFinalizer,
+			"secret", secret.Name)
+	}
 	if !metav1.HasLabel(secret.ObjectMeta, LabelEnvironmentName) {
 		metav1.SetMetaDataLabel(&secret.ObjectMeta, LabelEnvironmentName, LabelEnvironmentValue)
 		needsUpdate = true
