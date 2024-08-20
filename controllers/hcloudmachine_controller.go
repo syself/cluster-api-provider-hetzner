@@ -84,15 +84,15 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 
 	log = log.WithValues("HCloudMachine", klog.KObj(hcloudMachine))
 
-	if utils.UpdateFinalizer(hcloudMachine, infrav1.DeprecatedMachineFinalizer, infrav1.MachineFinalizer) {
+	if utils.UpdateFinalizer(hcloudMachine, infrav1.DeprecatedHCloudMachineFinalizer, infrav1.HCloudMachineFinalizer) {
 		// Finalizers got updated. Write new object to api-server and reconcile again
 		err = r.Update(ctx, hcloudMachine)
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("update after UpdateFinalizer failed: %w", err)
 		}
 		log.Info("the finalizer was updated.",
-			"old", infrav1.DeprecatedMachineFinalizer,
-			"new", infrav1.MachineFinalizer)
+			"old", infrav1.DeprecatedHCloudMachineFinalizer,
+			"new", infrav1.HCloudMachineFinalizer)
 		return reconcile.Result{Requeue: true}, err
 	}
 
@@ -200,7 +200,7 @@ func (r *HCloudMachineReconciler) reconcileDelete(ctx context.Context, machineSc
 		return result, nil
 	}
 	// Machine is deleted so remove the finalizer.
-	controllerutil.RemoveFinalizer(machineScope.HCloudMachine, infrav1.MachineFinalizer)
+	controllerutil.RemoveFinalizer(machineScope.HCloudMachine, infrav1.HCloudMachineFinalizer)
 
 	return reconcile.Result{}, nil
 }
@@ -209,7 +209,7 @@ func (r *HCloudMachineReconciler) reconcileNormal(ctx context.Context, machineSc
 	hcloudMachine := machineScope.HCloudMachine
 
 	// If the HCloudMachine doesn't have our finalizer, add it.
-	controllerutil.AddFinalizer(machineScope.HCloudMachine, infrav1.MachineFinalizer)
+	controllerutil.AddFinalizer(machineScope.HCloudMachine, infrav1.HCloudMachineFinalizer)
 
 	// Register the finalizer immediately to avoid orphaning HCloud resources on delete.
 	if err := machineScope.PatchObject(ctx); err != nil {
