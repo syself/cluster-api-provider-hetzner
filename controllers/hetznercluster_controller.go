@@ -63,6 +63,7 @@ import (
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/loadbalancer"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/network"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/placementgroup"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
 const (
@@ -101,6 +102,18 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	log = log.WithValues("HetznerCluster", klog.KObj(hetznerCluster))
+
+	if utils.UpdateFinalizer(hetznerCluster, infrav1.DeprecatedClusterFinalizer, infrav1.ClusterFinalizer) {
+		// Finalizers got updated. Write new object to api-server and reconcile again
+		err = r.Update(ctx, hetznerCluster)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("update after UpdateFinalizer failed: %w", err)
+		}
+		log.Info("the finalizer was updated.",
+			"old", infrav1.DeprecatedClusterFinalizer,
+			"new", infrav1.ClusterFinalizer)
+		return reconcile.Result{Requeue: true}, err
+	}
 
 	// Fetch the Cluster.
 	cluster, err := util.GetOwnerCluster(ctx, r.Client, hetznerCluster.ObjectMeta)
