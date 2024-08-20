@@ -86,6 +86,17 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		return reconcile.Result{}, err
 	}
 
+	// Add a finalizer to newly created objects.
+	if bmHost.DeletionTimestamp.IsZero() &&
+		(controllerutil.AddFinalizer(bmHost, infrav1.BareMetalHostFinalizer) ||
+			controllerutil.RemoveFinalizer(bmHost, infrav1.DeprecatedBareMetalHostFinalizer)) {
+		err := r.Update(ctx, bmHost)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("failed to update finalizer: %w", err)
+		}
+		return ctrl.Result{Requeue: true}, nil
+	}
+
 	// Remove permanent error, if the corresponding annotation was removed by the user.
 	removed := removePermanentErrorIfAnnotationIsGone(bmHost)
 	if removed {
