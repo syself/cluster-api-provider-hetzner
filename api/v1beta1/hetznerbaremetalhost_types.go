@@ -31,10 +31,10 @@ import (
 )
 
 const (
-	// BareMetalHostFinalizer is the name of the finalizer added to
+	// HetznerBareMetalHostFinalizer is the name of the finalizer added to
 	// hosts to block delete operations until the physical host can be
 	// deprovisioned.
-	BareMetalHostFinalizer = "infrastructure.cluster.x-k8s.io/hetznerbaremetalhost"
+	HetznerBareMetalHostFinalizer = "infrastructure.cluster.x-k8s.io/hetznerbaremetalhost"
 
 	// DeprecatedBareMetalHostFinalizer contains the old string.
 	// The controller will automatically update to the new string.

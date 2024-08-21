@@ -1804,7 +1804,7 @@ func (s *Service) actionDeprovisioning(_ context.Context) actionResult {
 }
 
 func (s *Service) actionDeleting(_ context.Context) actionResult {
-	controllerutil.RemoveFinalizer(s.scope.HetznerBareMetalHost, infrav1.BareMetalHostFinalizer)
+	controllerutil.RemoveFinalizer(s.scope.HetznerBareMetalHost, infrav1.HetznerBareMetalHostFinalizer)
 	controllerutil.RemoveFinalizer(s.scope.HetznerBareMetalHost, infrav1.DeprecatedBareMetalHostFinalizer)
 	return deleteComplete{}
 }
