@@ -180,6 +180,7 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 	// If the HetznerCluster doesn't have our finalizer, add it.
 	controllerutil.AddFinalizer(hetznerCluster, infrav1.HetznerClusterFinalizer)
 	controllerutil.RemoveFinalizer(hetznerCluster, infrav1.DeprecatedHetznerClusterFinalizer)
+
 	if err := clusterScope.PatchObject(ctx); err != nil {
 		return reconcile.Result{}, err
 	}

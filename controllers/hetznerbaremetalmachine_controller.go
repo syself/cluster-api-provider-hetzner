@@ -188,6 +188,7 @@ func (r *HetznerBareMetalMachineReconciler) reconcileNormal(ctx context.Context,
 	// If the HetznerBareMetalMachine doesn't have our finalizer, add it.
 	controllerutil.AddFinalizer(machineScope.BareMetalMachine, infrav1.HetznerBareMetalMachineFinalizer)
 	controllerutil.RemoveFinalizer(machineScope.BareMetalMachine, infrav1.DeprecatedBareMetalMachineFinalizer)
+
 	// Register the finalizer immediately to avoid orphaning HetznerBareMetal resources on delete
 	if err := machineScope.PatchObject(ctx); err != nil {
 		return reconcile.Result{}, err
