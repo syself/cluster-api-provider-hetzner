@@ -41,7 +41,7 @@ const (
 
 	// WipeDiskAnnotation indicates which Disks (WWNs) to erase before provisioning
 	// The value is a list of WWNS or "all".
-	WipeDiskAnnotation = "capi.syself.com/wipedisk"
+	WipeDiskAnnotation = "capi.syself.com/wipe-disk"
 
 	// IgnoreCheckDiskAnnotation indicates that the machine should get provisioned, even if CheckDisk fails.
 	IgnoreCheckDiskAnnotation = "capi.syself.com/ignore-check-disk"

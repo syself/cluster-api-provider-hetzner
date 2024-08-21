@@ -8,7 +8,7 @@ You can set [Kubernetes Annotations](https://kubernetes.io/docs/concepts/overvie
 
 ## Overview of Annotations
 
-### capi.syself.com/wipedisk
+### capi.syself.com/wipe-disk
 
 | **Resource**    | [HetznerBareMetalHost](/docs/caph/03-reference/05-hetzner-bare-metal-host.md)                                                                                                                                                                                                                                       |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
