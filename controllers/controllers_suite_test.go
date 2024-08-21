@@ -34,7 +34,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
-	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
 )
 
@@ -45,10 +44,9 @@ const (
 )
 
 var (
-	testEnv      *helpers.TestEnvironment
-	hcloudClient hcloudclient.Client
-	ctx          = ctrl.SetupSignalHandler()
-	wg           sync.WaitGroup
+	testEnv *helpers.TestEnvironment
+	ctx     = ctrl.SetupSignalHandler()
+	wg      sync.WaitGroup
 
 	defaultPlacementGroupName = "caph-placement-group"
 	defaultFailureDomain      = "fsn1"
@@ -64,7 +62,6 @@ var _ = BeforeSuite(func() {
 	utilruntime.Must(clusterv1.AddToScheme(scheme.Scheme))
 
 	testEnv = helpers.NewTestEnvironment()
-	hcloudClient = testEnv.HCloudClientFactory.NewClient("")
 
 	wg.Add(1)
 

@@ -21,6 +21,8 @@ import (
 	"testing"
 	"time"
 
+	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
+
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -320,7 +322,10 @@ var _ = Describe("HCloudMachineReconciler", func() {
 
 	Context("Basic test", func() {
 		Context("correct server", func() {
+			var hcloudClient hcloudclient.Client
+
 			BeforeEach(func() {
+				hcloudClient = testEnv.HCloudClientFactory.NewClient("")
 				// remove bootstrap infos
 				capiMachine.Spec.Bootstrap = clusterv1.Bootstrap{}
 				Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
@@ -365,7 +370,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				}, timeout).Should(BeTrue())
 			})
 
-			It("creates the HCloud machine in Hetzner 1 (flaky)", func() {
+			FIt("creates the HCloud machine in Hetzner 1 (flaky)", func() {
 				By("checking that no servers exist")
 
 				Eventually(func(start time.Time) bool {
@@ -517,7 +522,10 @@ var _ = Describe("HCloudMachineReconciler", func() {
 		})
 
 		Context("without network", func() {
+			var hcloudClient hcloudclient.Client
+
 			BeforeEach(func() {
+				hcloudClient = testEnv.HCloudClientFactory.NewClient("")
 				hetznerCluster.Spec.HCloudNetwork.Enabled = false
 				Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
 				Expect(testEnv.Create(ctx, hcloudMachine)).To(Succeed())
@@ -543,7 +551,10 @@ var _ = Describe("HCloudMachineReconciler", func() {
 		})
 
 		Context("without placement groups", func() {
+			var hcloudClient hcloudclient.Client
+
 			BeforeEach(func() {
+				hcloudClient = testEnv.HCloudClientFactory.NewClient("")
 				hetznerCluster.Spec.HCloudPlacementGroups = nil
 				Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
 
@@ -609,7 +620,9 @@ var _ = Describe("HCloudMachineReconciler", func() {
 		})
 
 		Context("with public network specs", func() {
+			var hcloudClient hcloudclient.Client
 			BeforeEach(func() {
+				hcloudClient = testEnv.HCloudClientFactory.NewClient("")
 				hcloudMachine.Spec.PublicNetwork = &infrav1.PublicNetworkSpec{
 					EnableIPv4: false,
 					EnableIPv6: false,

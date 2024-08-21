@@ -35,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
 )
@@ -333,6 +334,12 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 		})
 
 		Context("load balancer", func() {
+			var hcloudClient hcloudclient.Client
+
+			BeforeEach(func() {
+				hcloudClient = testEnv.HCloudClientFactory.NewClient("")
+			})
+
 			It("should create load balancer and update it accordingly", func() {
 				Expect(testEnv.Create(ctx, instance)).To(Succeed())
 
@@ -735,8 +742,10 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 
 		Context("HetznerMachines belonging to the cluster", func() {
 			var bootstrapSecret *corev1.Secret
+			var hcloudClient hcloudclient.Client
 
 			BeforeEach(func() {
+				hcloudClient = testEnv.HCloudClientFactory.NewClient("")
 				bootstrapSecret = getDefaultBootstrapSecret(namespace)
 				Expect(testEnv.Create(ctx, bootstrapSecret)).To(Succeed())
 			})
@@ -773,8 +782,10 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 
 		Context("Placement groups", func() {
 			var bootstrapSecret *corev1.Secret
+			var hcloudClient hcloudclient.Client
 
 			BeforeEach(func() {
+				hcloudClient = testEnv.HCloudClientFactory.NewClient("")
 				// Create the bootstrap secret
 				bootstrapSecret = getDefaultBootstrapSecret(namespace)
 				Expect(testEnv.Create(ctx, bootstrapSecret)).To(Succeed())
