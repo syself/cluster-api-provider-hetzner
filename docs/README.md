@@ -26,7 +26,7 @@ This is the official documentation of Cluster API Provider Hetzner. Before start
 - [HetznerBareMetalHost](/docs/caph/03-reference/05-hetzner-bare-metal-host.md)
 - [HetznerBareMetalMachineTemplate](/docs/caph/03-reference/06-hetzner-bare-metal-machine-template.md)
 - [HetznerBareMetalRemediationTemplate](/docs/caph/03-reference/07-hetzner-bare-metal-remediation-template.md)
-- [Annotations](/docs/caph/03-reference/08-annotations.md))
+- [Annotations](/docs/caph/03-reference/08-annotations.md)
 
 ## Development
 
