@@ -26,12 +26,12 @@ const (
 	RemediationFinalizer = "hetznerbaremetalremediation.infrastructure.cluster.x-k8s.io"
 
 	// RebootAnnotation indicates that a bare metal host object should be rebooted.
-	RebootAnnotation = "reboot.hetznerbaremetalhost.infrastructure.cluster.x-k8s.io"
+	RebootAnnotation = "capi.syself.com/reboot"
 
 	// PermanentErrorAnnotation indicates that the bare metal host has an error which needs to be resolved manually.
 	// After the permanent error the annotation got removed (usually by a human), the controller removes
 	// ErrorType, ErrorCount and ErrorMessages, so that the hbmh will be usable again.
-	PermanentErrorAnnotation = "error.hetznerbaremetalhost.infrastructure.cluster.x-k8s.io"
+	PermanentErrorAnnotation = "capi.syself.com/permanent-error"
 )
 
 // HetznerBareMetalRemediationSpec defines the desired state of HetznerBareMetalRemediation.

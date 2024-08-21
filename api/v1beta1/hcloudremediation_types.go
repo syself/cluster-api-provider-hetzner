@@ -25,9 +25,6 @@ const (
 	// HCloudRemediationFinalizer allows HCloudRemediationReconciler to clean up resources associated with HCloudRemediation before
 	// removing it from the apiserver.
 	HCloudRemediationFinalizer = "hcloudremediation.infrastructure.cluster.x-k8s.io"
-
-	// HCloudRebootAnnotation indicates that a bare metal host object should be rebooted.
-	HCloudRebootAnnotation = "reboot.hcloud.infrastructure.cluster.x-k8s.io"
 )
 
 // HCloudRemediationSpec defines the desired state of HCloudRemediation.
