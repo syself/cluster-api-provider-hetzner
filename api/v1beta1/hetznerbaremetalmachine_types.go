@@ -29,9 +29,9 @@ import (
 )
 
 const (
-	// BareMetalMachineFinalizer allows Reconcilehetznerbaremetalmachine to clean up resources associated with hetznerbaremetalmachine before
+	// HetznerBareMetalMachineFinalizer allows Reconcilehetznerbaremetalmachine to clean up resources associated with hetznerbaremetalmachine before
 	// removing it from the apiserver.
-	BareMetalMachineFinalizer = "infrastructure.cluster.x-k8s.io/hetznerbaremetalmachine"
+	HetznerBareMetalMachineFinalizer = "infrastructure.cluster.x-k8s.io/hetznerbaremetalmachine"
 
 	// DeprecatedBareMetalMachineFinalizer contains the old string.
 	// The controller will automatically update to the new string.

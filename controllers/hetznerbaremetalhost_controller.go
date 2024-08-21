@@ -230,7 +230,7 @@ func (r *HetznerBareMetalHostReconciler) reconcileSelectedStates(ctx context.Con
 		if needsUpdate {
 			err := r.Update(ctx, bmHost)
 			if err != nil {
-				return reconcile.Result{}, fmt.Errorf("UPdate() failed after setting ProvisioningState: %w", err)
+				return reconcile.Result{}, fmt.Errorf("Update() failed after setting ProvisioningState: %w", err)
 			}
 		}
 
