@@ -17,7 +17,6 @@ limitations under the License.
 package controllers
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -370,7 +369,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				}, timeout).Should(BeTrue())
 			})
 
-			FIt("creates the HCloud machine in Hetzner 1 (flaky)", func() {
+			It("creates the HCloud machine in Hetzner 1", func() {
 				By("checking that no servers exist")
 
 				Eventually(func(start time.Time) bool {
@@ -380,16 +379,13 @@ var _ = Describe("HCloudMachineReconciler", func() {
 						},
 					})
 					if err != nil {
-						fmt.Printf("flaky test. ListServers failed: %s\n", err.Error())
 						return false
 					}
 					if len(servers) != 0 {
-						fmt.Printf("flaky test. There are still servers: %+v\n", servers)
 						return false
 					}
-					fmt.Printf("flaky test. OK after %s\n", time.Since(start).String())
 					return true
-				}, 2*timeout, interval).WithArguments(time.Now()).Should(BeTrue())
+				}, timeout, interval).WithArguments(time.Now()).Should(BeTrue())
 
 				By("checking that bootstrap condition is not ready")
 

@@ -257,7 +257,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 					Expect(testEnv.Cleanup(ctx, hetznerBareMetalRemediation, hetznerBaremetalMachine)).To(Succeed())
 				})
 
-				It("should not remediate if no annotations is present in the hetznerBaremetalMachine (flaky)", func() {
+				It("should not remediate if no annotations is present in the hetznerBaremetalMachine", func() {
 					Expect(testEnv.Create(ctx, hetznerBaremetalMachine)).To(Succeed())
 					Expect(testEnv.Create(ctx, hetznerBareMetalRemediation)).To(Succeed())
 
