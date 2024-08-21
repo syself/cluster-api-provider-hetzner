@@ -18,9 +18,6 @@ package controllers
 
 import (
 	"testing"
-	"time"
-
-	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	. "github.com/onsi/ginkgo/v2"
@@ -37,6 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
@@ -372,7 +370,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 			It("creates the HCloud machine in Hetzner 1", func() {
 				By("checking that no servers exist")
 
-				Eventually(func(start time.Time) bool {
+				Eventually(func() bool {
 					servers, err := hcloudClient.ListServers(ctx, hcloud.ServerListOpts{
 						ListOpts: hcloud.ListOpts{
 							LabelSelector: utils.LabelsToLabelSelector(map[string]string{hetznerCluster.ClusterTagKey(): "owned"}),
@@ -385,7 +383,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 						return false
 					}
 					return true
-				}, timeout, interval).WithArguments(time.Now()).Should(BeTrue())
+				}, timeout, interval).Should(BeTrue())
 
 				By("checking that bootstrap condition is not ready")
 
