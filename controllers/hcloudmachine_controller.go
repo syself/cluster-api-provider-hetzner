@@ -188,6 +188,7 @@ func (r *HCloudMachineReconciler) reconcileDelete(ctx context.Context, machineSc
 	}
 	// Machine is deleted so remove the finalizer.
 	controllerutil.RemoveFinalizer(machineScope.HCloudMachine, infrav1.MachineFinalizer)
+
 	return reconcile.Result{}, nil
 }
 
