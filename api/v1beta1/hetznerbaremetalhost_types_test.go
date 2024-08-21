@@ -406,8 +406,6 @@ var _ = Describe("Test ClearRebootAnnotations", func() {
 		expectAnnotations  map[string]string
 	}
 
-	secondRebootAnnotation := RebootAnnotation + "/"
-
 	DescribeTable("Test ClearRebootAnnotations",
 		func(tc testCaseClearRebootAnnotations) {
 			host := HetznerBareMetalHost{}
@@ -417,10 +415,6 @@ var _ = Describe("Test ClearRebootAnnotations", func() {
 
 			Expect(host.Annotations).Should(Equal(tc.expectAnnotations))
 		},
-		Entry("has reboot annotation - one annotation in list", testCaseClearRebootAnnotations{
-			currentAnnotations: map[string]string{secondRebootAnnotation: "reboot", RebootAnnotation: "reboot"},
-			expectAnnotations:  map[string]string{},
-		}),
 		Entry("has multiple reboot annotations - no other annotation in list", testCaseClearRebootAnnotations{
 			currentAnnotations: map[string]string{RebootAnnotation: "reboot"},
 			expectAnnotations:  map[string]string{},
@@ -430,7 +424,7 @@ var _ = Describe("Test ClearRebootAnnotations", func() {
 			expectAnnotations:  map[string]string{"other": "annotation"},
 		}),
 		Entry("has multiple reboot annotations - multiple annotations in list", testCaseClearRebootAnnotations{
-			currentAnnotations: map[string]string{secondRebootAnnotation: "reboot", "other": "annotation", RebootAnnotation: "reboot"},
+			currentAnnotations: map[string]string{"other": "annotation", RebootAnnotation: "reboot"},
 			expectAnnotations:  map[string]string{"other": "annotation"},
 		}),
 		Entry("has no reboot annotation", testCaseClearRebootAnnotations{
@@ -456,7 +450,7 @@ var _ = Describe("Test ClearRebootAnnotations", func() {
 		}),
 		Entry("reboot prefix", testCaseClearRebootAnnotations{
 			annotation: RebootAnnotation + "/" + "suffix",
-			expectBool: true,
+			expectBool: false,
 		}),
 		Entry("other annotation", testCaseClearRebootAnnotations{
 			annotation: "different/annotation",
