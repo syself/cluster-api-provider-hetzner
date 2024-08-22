@@ -161,11 +161,6 @@ func (_m *Client) ChangeLoadBalancerType(_a0 context.Context, _a1 *hcloud.LoadBa
 	return r0
 }
 
-// Close provides a mock function with given fields:
-func (_m *Client) Close() {
-	_m.Called()
-}
-
 // CreateLoadBalancer provides a mock function with given fields: _a0, _a1
 func (_m *Client) CreateLoadBalancer(_a0 context.Context, _a1 hcloud.LoadBalancerCreateOpts) (*hcloud.LoadBalancer, error) {
 	ret := _m.Called(_a0, _a1)
@@ -716,6 +711,11 @@ func (_m *Client) RebootServer(_a0 context.Context, _a1 *hcloud.Server) error {
 	}
 
 	return r0
+}
+
+// Reset provides a mock function with given fields:
+func (_m *Client) Reset() {
+	_m.Called()
 }
 
 // ShutdownServer provides a mock function with given fields: _a0, _a1
