@@ -258,7 +258,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 			}, timeout).Should(BeTrue())
 		})
 
-		It("should delete machine if retry limit reached and reboot timed out", func() {
+		It("should delete machine if retry limit reached and reboot timed out (hcloud)", func() {
 			By("creating hcloudRemediation")
 			Expect(testEnv.Create(ctx, hcloudRemediation)).To(Succeed())
 

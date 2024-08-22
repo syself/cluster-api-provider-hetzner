@@ -21,10 +21,6 @@ import (
 )
 
 const (
-	// RemediationFinalizer allows HetznerBareMetalRemediationReconciler to clean up resources associated with HetznerBareMetalRemediation before
-	// removing it from the apiserver.
-	RemediationFinalizer = "hetznerbaremetalremediation.infrastructure.cluster.x-k8s.io"
-
 	// RebootAnnotation indicates that a bare metal host object should be rebooted.
 	RebootAnnotation = "capi.syself.com/reboot"
 

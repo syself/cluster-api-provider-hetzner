@@ -21,12 +21,6 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 )
 
-const (
-	// HCloudRemediationFinalizer allows HCloudRemediationReconciler to clean up resources associated with HCloudRemediation before
-	// removing it from the apiserver.
-	HCloudRemediationFinalizer = "hcloudremediation.infrastructure.cluster.x-k8s.io"
-)
-
 // HCloudRemediationSpec defines the desired state of HCloudRemediation.
 type HCloudRemediationSpec struct {
 	// Strategy field defines remediation strategy.
