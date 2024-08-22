@@ -177,29 +177,6 @@ var _ = Describe("StringInList", func() {
 		}))
 })
 
-var _ = Describe("FilterStringFromList", func() {
-	type testCaseFilterStringFromList struct {
-		list            []string
-		str             string
-		expectedOutcome []string
-	}
-	DescribeTable("Test filter string from list",
-		func(tc testCaseFilterStringFromList) {
-			out := utils.FilterStringFromList(tc.list, tc.str)
-			Expect(out).To(Equal(tc.expectedOutcome))
-		},
-		Entry("entry1", testCaseFilterStringFromList{
-			list:            []string{"a", "b", "c"},
-			str:             "a",
-			expectedOutcome: []string{"b", "c"},
-		}),
-		Entry("entry2", testCaseFilterStringFromList{
-			list:            []string{"a", "b", "c"},
-			str:             "d",
-			expectedOutcome: []string{"a", "b", "c"},
-		}))
-})
-
 var _ = Describe("Test removeOwnerRefFromList", func() {
 	type testCaseRemoveOwnerRefFromList struct {
 		RefList         []metav1.OwnerReference

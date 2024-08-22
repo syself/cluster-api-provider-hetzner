@@ -29,9 +29,13 @@ import (
 )
 
 const (
-	// BareMetalMachineFinalizer allows Reconcilehetznerbaremetalmachine to clean up resources associated with hetznerbaremetalmachine before
+	// HetznerBareMetalMachineFinalizer allows Reconcilehetznerbaremetalmachine to clean up resources associated with hetznerbaremetalmachine before
 	// removing it from the apiserver.
-	BareMetalMachineFinalizer = "hetznerbaremetalmachine.infrastructure.cluster.x-k8s.io"
+	HetznerBareMetalMachineFinalizer = "infrastructure.cluster.x-k8s.io/hetznerbaremetalmachine"
+
+	// DeprecatedBareMetalMachineFinalizer contains the old string.
+	// The controller will automatically update to the new string.
+	DeprecatedBareMetalMachineFinalizer = "hetznerbaremetalmachine.infrastructure.cluster.x-k8s.io"
 
 	// BareMetalHostNamePrefix is a prefix for all hostNames of bare metal servers.
 	BareMetalHostNamePrefix = "bm-"

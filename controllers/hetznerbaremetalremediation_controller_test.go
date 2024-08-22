@@ -358,7 +358,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 					}, timeout).Should(BeTrue())
 				})
 
-				It("should delete machine if retry limit reached and reboot timed out", func() {
+				It("should delete machine if retry limit reached and reboot timed out (bm)", func() {
 					By("creating hetznerBareMetalRemediation object")
 					Expect(testEnv.Create(ctx, hetznerBareMetalRemediation)).To(Succeed())
 

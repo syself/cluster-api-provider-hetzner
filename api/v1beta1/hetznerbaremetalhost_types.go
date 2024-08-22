@@ -31,10 +31,14 @@ import (
 )
 
 const (
-	// BareMetalHostFinalizer is the name of the finalizer added to
+	// HetznerBareMetalHostFinalizer is the name of the finalizer added to
 	// hosts to block delete operations until the physical host can be
 	// deprovisioned.
-	BareMetalHostFinalizer string = "hetznerbaremetalhost.infrastructure.cluster.x-k8s.io"
+	HetznerBareMetalHostFinalizer = "infrastructure.cluster.x-k8s.io/hetznerbaremetalhost"
+
+	// DeprecatedBareMetalHostFinalizer contains the old string.
+	// The controller will automatically update to the new string.
+	DeprecatedBareMetalHostFinalizer = "hetznerbaremetalhost.infrastructure.cluster.x-k8s.io"
 
 	// HostAnnotation is the key for an annotation that should go on a HetznerBareMetalMachine to
 	// reference what HetznerBareMetalHost it corresponds to.
@@ -132,17 +136,17 @@ const (
 
 const (
 	// ErrorMessageMissingRootDeviceHints specifies the error message when no root device hints are specified.
-	ErrorMessageMissingRootDeviceHints string = "no root device hints specified"
+	ErrorMessageMissingRootDeviceHints = "no root device hints specified"
 	// ErrorMessageInvalidRootDeviceHints specifies the error message when invalid root device hints are specified.
-	ErrorMessageInvalidRootDeviceHints string = "invalid root device hints specified"
+	ErrorMessageInvalidRootDeviceHints = "invalid root device hints specified"
 	// ErrorMessageMissingHetznerSecret specifies the error message when no Hetzner secret is found.
-	ErrorMessageMissingHetznerSecret string = "could not find HetznerSecret"
+	ErrorMessageMissingHetznerSecret = "could not find HetznerSecret"
 	// ErrorMessageMissingRescueSSHSecret specifies the error message when no RescueSSH secret is found.
-	ErrorMessageMissingRescueSSHSecret string = "could not find RescueSSHSecret"
+	ErrorMessageMissingRescueSSHSecret = "could not find RescueSSHSecret"
 	// ErrorMessageMissingOSSSHSecret specifies the error message when no OSSSH secret is found.
-	ErrorMessageMissingOSSSHSecret string = "could not find OSSSHSecret"
+	ErrorMessageMissingOSSSHSecret = "could not find OSSSHSecret"
 	// ErrorMessageMissingOrInvalidSecretData specifies the error message when no data in secret is missing or invalid.
-	ErrorMessageMissingOrInvalidSecretData string = "invalid or not specified information in secret"
+	ErrorMessageMissingOrInvalidSecretData = "invalid or not specified information in secret"
 )
 
 // ProvisioningState defines the states of provisioning of the host.

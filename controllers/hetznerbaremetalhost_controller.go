@@ -35,6 +35,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -46,7 +47,6 @@ import (
 	robotclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/robot"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/host"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
 // HetznerBareMetalHostReconciler reconciles a HetznerBareMetalHost object.
@@ -87,12 +87,12 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 
 	// Add a finalizer to newly created objects.
-	if bmHost.DeletionTimestamp.IsZero() && !hostHasFinalizer(bmHost) {
-		bmHost.Finalizers = append(bmHost.Finalizers,
-			infrav1.BareMetalHostFinalizer)
+	if bmHost.DeletionTimestamp.IsZero() &&
+		(controllerutil.AddFinalizer(bmHost, infrav1.HetznerBareMetalHostFinalizer) ||
+			controllerutil.RemoveFinalizer(bmHost, infrav1.DeprecatedBareMetalHostFinalizer)) {
 		err := r.Update(ctx, bmHost)
 		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("failed to add finalizer: %w", err)
+			return reconcile.Result{}, fmt.Errorf("failed to update finalizer: %w", err)
 		}
 		return ctrl.Result{Requeue: true}, nil
 	}
@@ -230,7 +230,7 @@ func (r *HetznerBareMetalHostReconciler) reconcileSelectedStates(ctx context.Con
 		if needsUpdate {
 			err := r.Update(ctx, bmHost)
 			if err != nil {
-				return reconcile.Result{}, fmt.Errorf("failed to add finalizer: %w", err)
+				return reconcile.Result{}, fmt.Errorf("Update() failed after setting ProvisioningState: %w", err)
 			}
 		}
 
@@ -238,13 +238,12 @@ func (r *HetznerBareMetalHostReconciler) reconcileSelectedStates(ctx context.Con
 
 		// Handle StateDeleting
 	case infrav1.StateDeleting:
-		if !utils.StringInList(bmHost.Finalizers, infrav1.BareMetalHostFinalizer) {
-			return reconcile.Result{Requeue: true}, nil
-		}
-
-		bmHost.Finalizers = utils.FilterStringFromList(bmHost.Finalizers, infrav1.BareMetalHostFinalizer)
-		if err := r.Update(ctx, bmHost); err != nil {
-			return reconcile.Result{}, fmt.Errorf("failed to remove finalizer: %w", err)
+		if controllerutil.RemoveFinalizer(bmHost, infrav1.HetznerBareMetalHostFinalizer) ||
+			controllerutil.RemoveFinalizer(bmHost, infrav1.DeprecatedBareMetalHostFinalizer) {
+			// at least one finalizer was removed.
+			if err := r.Update(ctx, bmHost); err != nil {
+				return reconcile.Result{}, fmt.Errorf("failed to remove finalizer: %w", err)
+			}
 		}
 		return reconcile.Result{Requeue: true}, nil
 	}
@@ -409,10 +408,6 @@ func hetznerSecretErrorResult(
 		return host.SaveHostAndReturn(ctx, client, bmHost)
 	}
 	return reconcile.Result{}, fmt.Errorf("hetznerSecretErrorResult: an unhandled failure occurred: %T %w", err, err)
-}
-
-func hostHasFinalizer(host *infrav1.HetznerBareMetalHost) bool {
-	return utils.StringInList(host.Finalizers, infrav1.BareMetalHostFinalizer)
 }
 
 // SetupWithManager sets up the controller with the Manager.

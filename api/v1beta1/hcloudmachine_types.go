@@ -24,10 +24,13 @@ import (
 )
 
 const (
-	// MachineFinalizer allows ReconcileHCloudMachine to clean up HCloud
+	// HCloudMachineFinalizer allows ReconcileHCloudMachine to clean up HCloud
 	// resources associated with HCloudMachine before removing it from the
 	// apiserver.
-	MachineFinalizer = "hcloudmachine.infrastructure.cluster.x-k8s.io"
+	HCloudMachineFinalizer = "infrastructure.cluster.x-k8s.io/hcloudmachine"
+	// DeprecatedHCloudMachineFinalizer contains the old string.
+	// The controller will automatically update to the new string.
+	DeprecatedHCloudMachineFinalizer = "hcloudmachine.infrastructure.cluster.x-k8s.io"
 )
 
 // HCloudMachineSpec defines the desired state of HCloudMachine.
