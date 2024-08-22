@@ -226,7 +226,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 					return false
 				}
 				for _, finalizer := range host.GetFinalizers() {
-					if finalizer == infrav1.BareMetalHostFinalizer {
+					if finalizer == infrav1.HetznerBareMetalHostFinalizer {
 						return true
 					}
 				}

@@ -336,7 +336,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 						return false
 					}
 					for _, finalizer := range bmMachine.GetFinalizers() {
-						if finalizer == infrav1.BareMetalMachineFinalizer {
+						if finalizer == infrav1.HetznerBareMetalMachineFinalizer {
 							return true
 						}
 					}

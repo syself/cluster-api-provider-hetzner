@@ -78,7 +78,8 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 	}()
 
 	// removing finalizer that was set in previous versions but is not needed
-	controllerutil.RemoveFinalizer(machineTemplate, infrav1.MachineFinalizer)
+	// We can remove that code in 2025.
+	controllerutil.RemoveFinalizer(machineTemplate, infrav1.DeprecatedHCloudMachineFinalizer)
 
 	// Check whether owner is a ClusterClass. In that case there is nothing to do.
 	if hasOwnerClusterClass(machineTemplate.ObjectMeta) {
