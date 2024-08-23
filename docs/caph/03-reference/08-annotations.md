@@ -28,7 +28,7 @@ You can set [Kubernetes Annotations](https://kubernetes.io/docs/concepts/overvie
 
 | **Resource**    | [HetznerCluster](/docs/caph/03-reference/02-hetzner-cluster.md)                                                            |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| **Description** | This annotation allows the Syself CAPH Controller to create HetznerCluster resources with an empty `controlPlaneEndpoint`. |
+| **Description** | This annotation allows the Syself CAPH Controller to create HetznerCluster resources with an empty `controlPlaneEndpoint`. This is useful to support externally managed control planes ([PR 1106](https://github.com/syself/cluster-api-provider-hetzner/pull/1106)) |
 | **Value**       | `"true"` enables this feature. All other strings are considered `"false"`.                                                 |
 | **Auto-Remove** | Disabled: The annotation remains on the resource.                                                                          |
 
