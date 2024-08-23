@@ -189,7 +189,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 	Context("Basic test", func() {
 		var hcloudClient hcloudclient.Client
 		BeforeEach(func() {
-			hcloudClient = testEnv.ResetAndGetHCloudClient()
+			hcloudClient = testEnv.ResetAndGetGlobalHCloudClient()
 		})
 
 		It("creates the hcloudRemediation successfully", func() {

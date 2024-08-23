@@ -257,8 +257,8 @@ func (t *TestEnvironment) CreateKubeconfigSecret(ctx context.Context, cluster *c
 	return t.Create(ctx, kubeconfig.GenerateSecret(cluster, kubeconfig.FromEnvTestConfig(t.Config, cluster)))
 }
 
-// ResetAndGetHCloudClient resets the cache of the fake Client and returns it.
-func (t *TestEnvironment) ResetAndGetHCloudClient() hcloudclient.Client {
+// ResetAndGetGlobalHCloudClient resets the cache of the fake Client and returns it.
+func (t *TestEnvironment) ResetAndGetGlobalHCloudClient() hcloudclient.Client {
 	return t.HCloudClientFactory.NewClient("").Reset()
 }
 

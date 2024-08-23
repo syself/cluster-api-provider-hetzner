@@ -79,6 +79,7 @@ type Client interface {
 
 // Factory is the interface for creating new Client objects.
 type Factory interface {
+	// NewClient returns a new Client in the real implementation, and the shared global Client in the fake implementation.
 	NewClient(hcloudToken string) Client
 }
 

@@ -337,7 +337,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 			var hcloudClient hcloudclient.Client
 
 			BeforeEach(func() {
-				hcloudClient = testEnv.ResetAndGetHCloudClient()
+				hcloudClient = testEnv.ResetAndGetGlobalHCloudClient()
 			})
 
 			It("should create load balancer and update it accordingly", func() {
@@ -745,7 +745,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 			var hcloudClient hcloudclient.Client
 
 			BeforeEach(func() {
-				hcloudClient = testEnv.ResetAndGetHCloudClient()
+				hcloudClient = testEnv.ResetAndGetGlobalHCloudClient()
 				bootstrapSecret = getDefaultBootstrapSecret(namespace)
 				Expect(testEnv.Create(ctx, bootstrapSecret)).To(Succeed())
 			})
@@ -785,7 +785,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 			var hcloudClient hcloudclient.Client
 
 			BeforeEach(func() {
-				hcloudClient = testEnv.ResetAndGetHCloudClient()
+				hcloudClient = testEnv.ResetAndGetGlobalHCloudClient()
 				// Create the bootstrap secret
 				bootstrapSecret = getDefaultBootstrapSecret(namespace)
 				Expect(testEnv.Create(ctx, bootstrapSecret)).To(Succeed())

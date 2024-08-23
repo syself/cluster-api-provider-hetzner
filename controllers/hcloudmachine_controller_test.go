@@ -322,7 +322,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 			var hcloudClient hcloudclient.Client
 
 			BeforeEach(func() {
-				hcloudClient = testEnv.ResetAndGetHCloudClient()
+				hcloudClient = testEnv.ResetAndGetGlobalHCloudClient()
 				// remove bootstrap infos
 				capiMachine.Spec.Bootstrap = clusterv1.Bootstrap{}
 				Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
@@ -519,7 +519,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 			var hcloudClient hcloudclient.Client
 
 			BeforeEach(func() {
-				hcloudClient = testEnv.ResetAndGetHCloudClient()
+				hcloudClient = testEnv.ResetAndGetGlobalHCloudClient()
 				hetznerCluster.Spec.HCloudNetwork.Enabled = false
 				Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
 				Expect(testEnv.Create(ctx, hcloudMachine)).To(Succeed())
@@ -548,7 +548,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 			var hcloudClient hcloudclient.Client
 
 			BeforeEach(func() {
-				hcloudClient = testEnv.ResetAndGetHCloudClient()
+				hcloudClient = testEnv.ResetAndGetGlobalHCloudClient()
 				hetznerCluster.Spec.HCloudPlacementGroups = nil
 				Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
 
@@ -616,7 +616,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 		Context("with public network specs", func() {
 			var hcloudClient hcloudclient.Client
 			BeforeEach(func() {
-				hcloudClient = testEnv.ResetAndGetHCloudClient()
+				hcloudClient = testEnv.ResetAndGetGlobalHCloudClient()
 				hcloudMachine.Spec.PublicNetwork = &infrav1.PublicNetworkSpec{
 					EnableIPv4: false,
 					EnableIPv6: false,
