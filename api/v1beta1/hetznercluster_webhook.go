@@ -74,10 +74,7 @@ func (r *HetznerCluster) ValidateCreate() (admission.Warnings, error) {
 	hetznerclusterlog.V(1).Info("validate create", "name", r.Name)
 	var allErrs field.ErrorList
 
-	allowEmptyControlPlaneAddress := false
-	if r.Annotations != nil {
-		allowEmptyControlPlaneAddress = r.Annotations[AllowEmptyControlPlaneAddressAnnotation] == "true"
-	}
+	allowEmptyControlPlaneAddress := r.Annotations[AllowEmptyControlPlaneAddressAnnotation] == "true"
 
 	if !allowEmptyControlPlaneAddress && len(r.Spec.ControlPlaneRegions) == 0 {
 		allErrs = append(allErrs, field.Invalid(

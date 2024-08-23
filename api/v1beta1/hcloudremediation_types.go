@@ -21,11 +21,6 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 )
 
-const (
-	// HCloudRebootAnnotation indicates that a bare metal host object should be rebooted.
-	HCloudRebootAnnotation = "reboot.hcloud.infrastructure.cluster.x-k8s.io"
-)
-
 // HCloudRemediationSpec defines the desired state of HCloudRemediation.
 type HCloudRemediationSpec struct {
 	// Strategy field defines remediation strategy.

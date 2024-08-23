@@ -252,7 +252,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 				Expect(testEnv.Cleanup(ctx, testNs, hetznerSecret, osSSHSecret, rescueSSHSecret, bootstrapSecret)).To(Succeed())
 			})
 
-			Context("HetznerBaremetalHost doesn't exist", func() {
+			Context("HetznerBareMetalHost doesn't exist", func() {
 				AfterEach(func() {
 					Expect(testEnv.Cleanup(ctx, hetznerBareMetalRemediation, hetznerBaremetalMachine)).To(Succeed())
 				})
@@ -287,7 +287,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 				})
 			})
 
-			Context("HetznerBaremetalHost exist", func() {
+			Context("HetznerBareMetalHost exist", func() {
 				BeforeEach(func() {
 					hostKey = client.ObjectKey{Name: hostName, Namespace: testNs.Name}
 
