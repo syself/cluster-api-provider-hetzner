@@ -38,6 +38,7 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 	)
 
 	BeforeEach(func() {
+		hcloudClient.Reset()
 		var err error
 		testNs, err = testEnv.CreateNamespace(ctx, "hcloudmachinetemplate-reconciler")
 		Expect(err).NotTo(HaveOccurred())

@@ -41,7 +41,7 @@ var ErrUnauthorized = fmt.Errorf("unauthorized")
 // Client collects all methods used by the controller in the hcloud cloud API.
 type Client interface {
 	// Reset resets the local cache. Only implemented in the fake client.
-	Reset() Client
+	Reset()
 
 	CreateLoadBalancer(context.Context, hcloud.LoadBalancerCreateOpts) (*hcloud.LoadBalancer, error)
 	DeleteLoadBalancer(context.Context, int64) error
@@ -144,8 +144,7 @@ type realClient struct {
 }
 
 // Reset implements the Reset method of the HCloudClient interface.
-func (c *realClient) Reset() Client {
-	return c
+func (c *realClient) Reset() {
 }
 
 func (c *realClient) CreateLoadBalancer(ctx context.Context, opts hcloud.LoadBalancerCreateOpts) (*hcloud.LoadBalancer, error) {

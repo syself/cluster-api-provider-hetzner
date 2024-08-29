@@ -34,7 +34,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
-	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
@@ -241,6 +240,8 @@ var _ = Describe("HCloudMachineReconciler", func() {
 	)
 
 	BeforeEach(func() {
+		hcloudClient.Reset()
+
 		var err error
 		testNs, err = testEnv.CreateNamespace(ctx, "hcloudmachine-reconciler")
 		Expect(err).NotTo(HaveOccurred())
@@ -319,10 +320,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 
 	Context("Basic test", func() {
 		Context("correct server", func() {
-			var hcloudClient hcloudclient.Client
-
 			BeforeEach(func() {
-				hcloudClient = testEnv.ResetAndGetGlobalHCloudClient()
 				// remove bootstrap infos
 				capiMachine.Spec.Bootstrap = clusterv1.Bootstrap{}
 				Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
@@ -516,10 +514,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 		})
 
 		Context("without network", func() {
-			var hcloudClient hcloudclient.Client
-
 			BeforeEach(func() {
-				hcloudClient = testEnv.ResetAndGetGlobalHCloudClient()
 				hetznerCluster.Spec.HCloudNetwork.Enabled = false
 				Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
 				Expect(testEnv.Create(ctx, hcloudMachine)).To(Succeed())
@@ -545,10 +540,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 		})
 
 		Context("without placement groups", func() {
-			var hcloudClient hcloudclient.Client
-
 			BeforeEach(func() {
-				hcloudClient = testEnv.ResetAndGetGlobalHCloudClient()
 				hetznerCluster.Spec.HCloudPlacementGroups = nil
 				Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
 
@@ -595,9 +587,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 		})
 
 		Context("with public network specs", func() {
-			var hcloudClient hcloudclient.Client
 			BeforeEach(func() {
-				hcloudClient = testEnv.ResetAndGetGlobalHCloudClient()
 				hcloudMachine.Spec.PublicNetwork = &infrav1.PublicNetworkSpec{
 					EnableIPv4: false,
 					EnableIPv6: false,
@@ -645,6 +635,7 @@ var _ = Describe("Hetzner secret", func() {
 	)
 
 	BeforeEach(func() {
+		hcloudClient.Reset()
 		var err error
 		testNs, err = testEnv.CreateNamespace(ctx, "hcloudmachine-validation")
 		Expect(err).NotTo(HaveOccurred())
@@ -794,6 +785,8 @@ var _ = Describe("HCloudMachine validation", func() {
 	)
 
 	BeforeEach(func() {
+		hcloudClient.Reset()
+
 		var err error
 		testNs, err = testEnv.CreateNamespace(ctx, "hcloudmachine-validation")
 		Expect(err).NotTo(HaveOccurred())
@@ -851,6 +844,8 @@ var _ = Describe("IgnoreInsignificantHetznerClusterUpdates Predicate", func() {
 	)
 
 	BeforeEach(func() {
+		hcloudClient.Reset()
+
 		predicate = IgnoreInsignificantHetznerClusterUpdates(klog.Background())
 
 		oldCluster = &infrav1.HetznerCluster{

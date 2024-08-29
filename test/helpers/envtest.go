@@ -257,11 +257,6 @@ func (t *TestEnvironment) CreateKubeconfigSecret(ctx context.Context, cluster *c
 	return t.Create(ctx, kubeconfig.GenerateSecret(cluster, kubeconfig.FromEnvTestConfig(t.Config, cluster)))
 }
 
-// ResetAndGetGlobalHCloudClient resets the cache of the fake Client and returns it.
-func (t *TestEnvironment) ResetAndGetGlobalHCloudClient() hcloudclient.Client {
-	return t.HCloudClientFactory.NewClient("").Reset()
-}
-
 func getFilePathToCAPICRDs(root string) string {
 	mod, err := newMod(filepath.Join(root, "go.mod"))
 	if err != nil {
