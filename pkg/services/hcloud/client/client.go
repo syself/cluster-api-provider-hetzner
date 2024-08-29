@@ -145,7 +145,6 @@ type realClient struct {
 
 // Reset implements the Reset method of the HCloudClient interface.
 func (c *realClient) Reset() {
-	return
 }
 
 func (c *realClient) CreateLoadBalancer(ctx context.Context, opts hcloud.LoadBalancerCreateOpts) (*hcloud.LoadBalancer, error) {
