@@ -51,7 +51,6 @@ For production use, a “real” Kubernetes cluster should be used with appropri
 ### Install Clusterctl
 
 To install Clusterctl, refer to the instructions available in the official ClusterAPI documentation [here](https://cluster-api.sigs.k8s.io/user/quick-start.html#install-clusterctl).
-Alternatively, use the `make install-clusterctl` command to do the same.
 
 ### Initialize the management cluster
 
