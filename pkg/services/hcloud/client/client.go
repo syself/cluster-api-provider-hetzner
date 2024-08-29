@@ -40,7 +40,8 @@ var ErrUnauthorized = fmt.Errorf("unauthorized")
 
 // Client collects all methods used by the controller in the hcloud cloud API.
 type Client interface {
-	Close()
+	// Reset resets the local cache. Only implemented in the fake client.
+	Reset() Client
 
 	CreateLoadBalancer(context.Context, hcloud.LoadBalancerCreateOpts) (*hcloud.LoadBalancer, error)
 	DeleteLoadBalancer(context.Context, int64) error
@@ -78,6 +79,7 @@ type Client interface {
 
 // Factory is the interface for creating new Client objects.
 type Factory interface {
+	// NewClient returns a new Client in the real implementation, and the shared global Client in the fake implementation.
 	NewClient(hcloudToken string) Client
 }
 
@@ -141,8 +143,10 @@ type realClient struct {
 	client *hcloud.Client
 }
 
-// Close implements the Close method of the HCloudClient interface.
-func (c *realClient) Close() {}
+// Reset implements the Reset method of the HCloudClient interface.
+func (c *realClient) Reset() Client {
+	return c
+}
 
 func (c *realClient) CreateLoadBalancer(ctx context.Context, opts hcloud.LoadBalancerCreateOpts) (*hcloud.LoadBalancer, error) {
 	res, _, err := c.client.LoadBalancer.Create(ctx, opts)

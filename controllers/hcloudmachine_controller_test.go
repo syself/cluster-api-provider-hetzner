@@ -17,9 +17,7 @@ limitations under the License.
 package controllers
 
 import (
-	"fmt"
 	"testing"
-	"time"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	. "github.com/onsi/ginkgo/v2"
@@ -36,6 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
@@ -320,7 +319,10 @@ var _ = Describe("HCloudMachineReconciler", func() {
 
 	Context("Basic test", func() {
 		Context("correct server", func() {
+			var hcloudClient hcloudclient.Client
+
 			BeforeEach(func() {
+				hcloudClient = testEnv.ResetAndGetGlobalHCloudClient()
 				// remove bootstrap infos
 				capiMachine.Spec.Bootstrap = clusterv1.Bootstrap{}
 				Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
@@ -365,26 +367,23 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				}, timeout).Should(BeTrue())
 			})
 
-			It("creates the HCloud machine in Hetzner 1 (flaky)", func() {
+			It("creates the HCloud machine in Hetzner 1", func() {
 				By("checking that no servers exist")
 
-				Eventually(func(start time.Time) bool {
+				Eventually(func() bool {
 					servers, err := hcloudClient.ListServers(ctx, hcloud.ServerListOpts{
 						ListOpts: hcloud.ListOpts{
 							LabelSelector: utils.LabelsToLabelSelector(map[string]string{hetznerCluster.ClusterTagKey(): "owned"}),
 						},
 					})
 					if err != nil {
-						fmt.Printf("flaky test. ListServers failed: %s\n", err.Error())
 						return false
 					}
 					if len(servers) != 0 {
-						fmt.Printf("flaky test. There are still servers: %+v\n", servers)
 						return false
 					}
-					fmt.Printf("flaky test. OK after %s\n", time.Since(start).String())
 					return true
-				}, 2*timeout, interval).WithArguments(time.Now()).Should(BeTrue())
+				}, timeout, interval).Should(BeTrue())
 
 				By("checking that bootstrap condition is not ready")
 
@@ -517,7 +516,10 @@ var _ = Describe("HCloudMachineReconciler", func() {
 		})
 
 		Context("without network", func() {
+			var hcloudClient hcloudclient.Client
+
 			BeforeEach(func() {
+				hcloudClient = testEnv.ResetAndGetGlobalHCloudClient()
 				hetznerCluster.Spec.HCloudNetwork.Enabled = false
 				Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
 				Expect(testEnv.Create(ctx, hcloudMachine)).To(Succeed())
@@ -543,7 +545,10 @@ var _ = Describe("HCloudMachineReconciler", func() {
 		})
 
 		Context("without placement groups", func() {
+			var hcloudClient hcloudclient.Client
+
 			BeforeEach(func() {
+				hcloudClient = testEnv.ResetAndGetGlobalHCloudClient()
 				hetznerCluster.Spec.HCloudPlacementGroups = nil
 				Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
 
@@ -609,7 +614,9 @@ var _ = Describe("HCloudMachineReconciler", func() {
 		})
 
 		Context("with public network specs", func() {
+			var hcloudClient hcloudclient.Client
 			BeforeEach(func() {
+				hcloudClient = testEnv.ResetAndGetGlobalHCloudClient()
 				hcloudMachine.Spec.PublicNetwork = &infrav1.PublicNetworkSpec{
 					EnableIPv4: false,
 					EnableIPv6: false,

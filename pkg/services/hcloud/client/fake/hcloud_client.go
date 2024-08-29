@@ -55,8 +55,8 @@ func (f *cacheHCloudClientFactory) NewClient(string) hcloudclient.Client {
 	return cacheHCloudClientInstance
 }
 
-// Close implements Close method of hcloud client interface.
-func (c *cacheHCloudClient) Close() {
+// Reset implements Reset method of hcloud client interface.
+func (c *cacheHCloudClient) Reset() hcloudclient.Client {
 	c.counterMutex.Lock()
 	defer c.counterMutex.Unlock()
 
@@ -86,6 +86,7 @@ func (c *cacheHCloudClient) Close() {
 	cacheHCloudClientInstance.placementGroupIDCounter = 0
 	cacheHCloudClientInstance.loadBalancerIDCounter = 0
 	cacheHCloudClientInstance.networkIDCounter = 0
+	return c
 }
 
 type cacheHCloudClientFactory struct{}

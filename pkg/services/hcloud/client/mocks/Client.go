@@ -6,6 +6,7 @@ import (
 	context "context"
 
 	hcloud "github.com/hetznercloud/hcloud-go/v2/hcloud"
+	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 
 	mock "github.com/stretchr/testify/mock"
 
@@ -159,11 +160,6 @@ func (_m *Client) ChangeLoadBalancerType(_a0 context.Context, _a1 *hcloud.LoadBa
 	}
 
 	return r0
-}
-
-// Close provides a mock function with given fields:
-func (_m *Client) Close() {
-	_m.Called()
 }
 
 // CreateLoadBalancer provides a mock function with given fields: _a0, _a1
@@ -713,6 +709,26 @@ func (_m *Client) RebootServer(_a0 context.Context, _a1 *hcloud.Server) error {
 		r0 = rf(_a0, _a1)
 	} else {
 		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// Reset provides a mock function with given fields:
+func (_m *Client) Reset() hcloudclient.Client {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for Reset")
+	}
+
+	var r0 hcloudclient.Client
+	if rf, ok := ret.Get(0).(func() hcloudclient.Client); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(hcloudclient.Client)
+		}
 	}
 
 	return r0
