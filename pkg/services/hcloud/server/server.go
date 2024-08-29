@@ -431,17 +431,6 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 		}
 	}
 
-	if len(sshKeySpecs) == 0 {
-		conditions.MarkFalse(
-			s.scope.HCloudMachine,
-			infrav1.ServerCreateSucceededCondition,
-			infrav1.SSHKeyNotFoundReason,
-			clusterv1.ConditionSeverityError,
-			"No SSH key configured for the server. Please add an SSH key",
-		)
-		return nil, errServerCreateNotPossible
-	}
-
 	// get all ssh keys that are stored in HCloud API
 	sshKeysAPI, err := s.scope.HCloudClient.ListSSHKeys(ctx, hcloud.SSHKeyListOpts{})
 	if err != nil {
