@@ -30,7 +30,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
-	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
@@ -55,6 +54,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 	)
 
 	BeforeEach(func() {
+		hcloudClient.Reset()
 		var err error
 		testNs, err = testEnv.CreateNamespace(ctx, "hcloudmachinetemplate-reconciler")
 		Expect(err).NotTo(HaveOccurred())
@@ -187,11 +187,6 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 	})
 
 	Context("Basic test", func() {
-		var hcloudClient hcloudclient.Client
-		BeforeEach(func() {
-			hcloudClient = testEnv.ResetAndGetGlobalHCloudClient()
-		})
-
 		It("creates the hcloudRemediation successfully", func() {
 			Expect(testEnv.Create(ctx, hcloudRemediation)).To(Succeed())
 
