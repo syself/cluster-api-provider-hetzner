@@ -189,6 +189,23 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	return res, nil
 }
 
+// implements setting rate limit on hcloudmachine.
+func handleRateLimit(hm *infrav1.HCloudMachine, err error, functionName string, errMsg string) error {
+	// returns error if not a rate limit exceeded error
+	if !hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
+		return fmt.Errorf("%s: %w", errMsg, err)
+	}
+
+	// does not return error if machine is running and does not have a deletion timestamp
+	if hm.Status.Ready && hm.DeletionTimestamp.IsZero() {
+		return nil
+	}
+
+	// check for a rate limit exceeded error if the machine is not running or if machine has a deletion timestamp
+	hcloudutil.HandleRateLimitExceeded(hm, err, functionName)
+	return fmt.Errorf("%s: %w", errMsg, err)
+}
+
 // Delete implements delete method of server.
 func (s *Service) Delete(ctx context.Context) (res reconcile.Result, err error) {
 	server, err := s.findServer(ctx)
@@ -246,12 +263,11 @@ func (s *Service) reconcileNetworkAttachment(ctx context.Context, server *hcloud
 			ID: s.scope.HetznerCluster.Status.Network.ID,
 		},
 	}); err != nil {
-		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "AttachServerToNetwork")
 		// check if network status is old and server is in fact already attached
 		if hcloud.IsError(err, hcloud.ErrorCodeServerAlreadyAttached) {
 			return nil
 		}
-		return fmt.Errorf("failed to attach server to network: %w", err)
+		return handleRateLimit(s.scope.HCloudMachine, err, "AttachServerToNetwork", "failed to attach server to network")
 	}
 
 	return nil
@@ -308,11 +324,11 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 	}
 
 	if err := s.scope.HCloudClient.AddTargetServerToLoadBalancer(ctx, opts, loadBalancer); err != nil {
-		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "AddTargetServerToLoadBalancer")
 		if hcloud.IsError(err, hcloud.ErrorCodeTargetAlreadyDefined) {
 			return reconcile.Result{}, nil
 		}
-		return reconcile.Result{}, fmt.Errorf("failed to add server %s with ID %d as target to load balancer: %w", server.Name, server.ID, err)
+		errMsg := fmt.Sprintf("failed to add server %s with ID %d as target to load balancer", server.Name, server.ID)
+		return reconcile.Result{}, handleRateLimit(s.scope.HCloudMachine, err, "AddTargetServerToLoadBalancer", errMsg)
 	}
 
 	record.Eventf(
@@ -429,8 +445,7 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 	// get all ssh keys that are stored in HCloud API
 	sshKeysAPI, err := s.scope.HCloudClient.ListSSHKeys(ctx, hcloud.SSHKeyListOpts{})
 	if err != nil {
-		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "ListSSHKeys")
-		return nil, fmt.Errorf("failed listing ssh heys from hcloud: %w", err)
+		return nil, handleRateLimit(s.scope.HCloudMachine, err, "ListSSHKeys", "failed listing ssh keys from hcloud")
 	}
 
 	// find matching keys and store them
@@ -479,8 +494,8 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 			s.scope.Name(),
 			err,
 		)
-		err = errors.Join(errServerCreateNotPossible, err)
-		return nil, fmt.Errorf("failed to create HCloud server %s: %w", s.scope.HCloudMachine.Name, err)
+		errMsg := fmt.Sprintf("failed to create HCloud server %s", s.scope.HCloudMachine.Name)
+		return nil, handleRateLimit(s.scope.HCloudMachine, err, "CreateServer", errMsg)
 	}
 
 	// set ssh keys to status
@@ -497,8 +512,7 @@ func (s *Service) getServerImage(ctx context.Context) (*hcloud.Image, error) {
 	// Get server type so we can filter for images with correct architecture
 	serverType, err := s.scope.HCloudClient.GetServerType(ctx, string(s.scope.HCloudMachine.Spec.Type))
 	if err != nil {
-		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "GetServerType")
-		return nil, fmt.Errorf("failed to get server type in HCloud: %w", err)
+		return nil, handleRateLimit(s.scope.HCloudMachine, err, "GetServerType", "failed to get server type in HCloud")
 	}
 	if serverType == nil {
 		conditions.MarkFalse(
@@ -522,8 +536,7 @@ func (s *Service) getServerImage(ctx context.Context) (*hcloud.Image, error) {
 
 	images, err := s.scope.HCloudClient.ListImages(ctx, listOpts)
 	if err != nil {
-		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "ListImages")
-		return nil, fmt.Errorf("failed to list images by label in HCloud: %w", err)
+		return nil, handleRateLimit(s.scope.HCloudMachine, err, "ListImages", "failed to list images by label in HCloud")
 	}
 
 	// query for an existing image by name.
@@ -533,8 +546,7 @@ func (s *Service) getServerImage(ctx context.Context) (*hcloud.Image, error) {
 	}
 	imagesByName, err := s.scope.HCloudClient.ListImages(ctx, listOpts)
 	if err != nil {
-		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "ListImages")
-		return nil, fmt.Errorf("failed to list images by name in HCloud: %w", err)
+		return nil, handleRateLimit(s.scope.HCloudMachine, err, "ListImages", "failed to list images by name in HCloud")
 	}
 
 	images = append(images, imagesByName...)
@@ -577,12 +589,11 @@ func (s *Service) handleServerStatusOff(ctx context.Context, server *hcloud.Serv
 		if time.Now().Before(serverAvailableCondition.LastTransitionTime.Time.Add(serverOffTimeout)) {
 			// Not yet timed out, try again to power on
 			if err := s.scope.HCloudClient.PowerOnServer(ctx, server); err != nil {
-				hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "PowerOnServer")
 				if hcloud.IsError(err, hcloud.ErrorCodeLocked) {
 					// if server is locked, we just retry again
 					return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 				}
-				return reconcile.Result{}, fmt.Errorf("failed to power on server: %w", err)
+				return reconcile.Result{}, handleRateLimit(s.scope.HCloudMachine, err, "PowerOnServer", "failed to power on server")
 			}
 		} else {
 			// Timed out. Set failure reason
@@ -592,12 +603,11 @@ func (s *Service) handleServerStatusOff(ctx context.Context, server *hcloud.Serv
 	} else {
 		// No condition set yet. Try to power server on.
 		if err := s.scope.HCloudClient.PowerOnServer(ctx, server); err != nil {
-			hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "PowerOnServer")
 			if hcloud.IsError(err, hcloud.ErrorCodeLocked) {
 				// if server is locked, we just retry again
 				return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 			}
-			return reconcile.Result{}, fmt.Errorf("failed to power on server: %w", err)
+			return reconcile.Result{}, handleRateLimit(s.scope.HCloudMachine, err, "PowerOnServer", "failed to power on server")
 		}
 		conditions.MarkFalse(
 			s.scope.HCloudMachine,
@@ -619,8 +629,7 @@ func (s *Service) handleDeleteServerStatusRunning(ctx context.Context, server *h
 
 	if s.scope.HasServerAvailableCondition() {
 		if err := s.scope.HCloudClient.ShutdownServer(ctx, server); err != nil {
-			hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "ShutdownServer")
-			return reconcile.Result{}, fmt.Errorf("failed to shutdown server: %w", err)
+			return reconcile.Result{}, handleRateLimit(s.scope.HCloudMachine, err, "ShutdownServer", "failed to shutdown server")
 		}
 
 		conditions.MarkFalse(s.scope.HCloudMachine,
@@ -635,9 +644,8 @@ func (s *Service) handleDeleteServerStatusRunning(ctx context.Context, server *h
 
 	// timeout for shutdown has been reached - delete server
 	if err := s.scope.HCloudClient.DeleteServer(ctx, server); err != nil {
-		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "DeleteServer")
 		record.Warnf(s.scope.HCloudMachine, "FailedDeleteHCloudServer", "Failed to delete HCloud server %s", s.scope.Name())
-		return reconcile.Result{}, fmt.Errorf("failed to delete server: %w", err)
+		return reconcile.Result{}, handleRateLimit(s.scope.HCloudMachine, err, "DeleteServer", "failed to delete server")
 	}
 
 	record.Eventf(s.scope.HCloudMachine, "HCloudServerDeleted", "HCloud server %s deleted", s.scope.Name())
@@ -647,9 +655,8 @@ func (s *Service) handleDeleteServerStatusRunning(ctx context.Context, server *h
 func (s *Service) handleDeleteServerStatusOff(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
 	// server is off and can be deleted
 	if err := s.scope.HCloudClient.DeleteServer(ctx, server); err != nil {
-		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "DeleteServer")
 		record.Warnf(s.scope.HCloudMachine, "FailedDeleteHCloudServer", "Failed to delete HCloud server %s", s.scope.Name())
-		return reconcile.Result{}, fmt.Errorf("failed to delete server: %w", err)
+		return reconcile.Result{}, handleRateLimit(s.scope.HCloudMachine, err, "DeleteServer", "failed to delete server")
 	}
 
 	record.Eventf(s.scope.HCloudMachine, "HCloudServerDeleted", "HCloud server %s deleted", s.scope.Name())
@@ -660,12 +667,12 @@ func (s *Service) deleteServerOfLoadBalancer(ctx context.Context, server *hcloud
 	lb := &hcloud.LoadBalancer{ID: s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID}
 
 	if err := s.scope.HCloudClient.DeleteTargetServerOfLoadBalancer(ctx, lb, server); err != nil {
-		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "DeleteTargetServerOfLoadBalancer")
 		// do not return an error in case the target was not found
 		if strings.Contains(err.Error(), "load_balancer_target_not_found") {
 			return nil
 		}
-		return fmt.Errorf("failed to delete server %s with ID %d as target of load balancer %s with ID %d: %w", server.Name, server.ID, lb.Name, lb.ID, err)
+		errMsg := fmt.Sprintf("failed to delete server %s with ID %d as target of load balancer %s with ID %d", server.Name, server.ID, lb.Name, lb.ID)
+		return handleRateLimit(s.scope.HCloudMachine, err, "DeleteTargetServerOfLoadBalancer", errMsg)
 	}
 	record.Eventf(
 		s.scope.HetznerCluster,
@@ -685,8 +692,8 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 	if err == nil {
 		server, err = s.scope.HCloudClient.GetServer(ctx, serverID)
 		if err != nil {
-			hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "GetServer")
-			return nil, fmt.Errorf("failed to get server %d: %w", serverID, err)
+			errMsg := fmt.Sprintf("failed to get server %d", serverID)
+			return nil, handleRateLimit(s.scope.HCloudMachine, err, "GetServer", errMsg)
 		}
 
 		// if server has been found, return it
@@ -702,8 +709,7 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 
 	servers, err := s.scope.HCloudClient.ListServers(ctx, opts)
 	if err != nil {
-		hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "ListServers")
-		return nil, fmt.Errorf("failed to list servers: %w", err)
+		return nil, handleRateLimit(s.scope.HCloudMachine, err, "ListServers", "failed to list servers")
 	}
 
 	if len(servers) > 1 {

@@ -21,7 +21,6 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -46,10 +45,10 @@ const (
 
 	// WipeDiskAnnotation indicates which Disks (WWNs) to erase before provisioning
 	// The value is a list of WWNS or "all".
-	WipeDiskAnnotation = "wipedisk.hetznerbaremetalhost.infrastructure.cluster.x-k8s.io"
+	WipeDiskAnnotation = "capi.syself.com/wipe-disk"
 
 	// IgnoreCheckDiskAnnotation indicates that the machine should get provisioned, even if CheckDisk fails.
-	IgnoreCheckDiskAnnotation = "ignore-cd.hetznerbaremetalhost.infrastructure.cluster.x-k8s.io" // max length is 63 chars.
+	IgnoreCheckDiskAnnotation = "capi.syself.com/ignore-check-disk"
 )
 
 // RootDeviceHints holds the hints for specifying the storage location
@@ -602,7 +601,7 @@ func (host *HetznerBareMetalHost) ClearRebootAnnotations() {
 }
 
 func isRebootAnnotation(annotation string) bool {
-	return strings.HasPrefix(annotation, RebootAnnotation+"/") || annotation == RebootAnnotation
+	return annotation == RebootAnnotation
 }
 
 //+kubebuilder:object:root=true

@@ -18,11 +18,13 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -339,3 +341,105 @@ var _ = Describe("Test ValidateLabels", func() {
 		}),
 	)
 })
+
+var _ = Describe("Test handleRateLimit", func() {
+	type testCaseHandleRateLimit struct {
+		hm              *infrav1.HCloudMachine
+		err             error
+		functionName    string
+		errMsg          string
+		expectError     error
+		expectCondition bool
+	}
+
+	DescribeTable("Test handleRateLimit",
+		func(tc testCaseHandleRateLimit) {
+			err := handleRateLimit(tc.hm, tc.err, tc.functionName, tc.errMsg)
+			if tc.expectError != nil {
+				Expect(err).To(MatchError(tc.expectError))
+			} else {
+				Expect(err).To(BeNil())
+			}
+			if tc.expectCondition {
+				Expect(isPresentAndFalseWithReason(tc.hm, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason)).To(BeTrue())
+			} else {
+				Expect(conditions.Get(tc.hm, infrav1.HetznerAPIReachableCondition)).To(BeNil())
+			}
+		},
+		Entry("machine not ready, rate limit exceeded error", testCaseHandleRateLimit{
+			hm: &infrav1.HCloudMachine{
+				Status: infrav1.HCloudMachineStatus{Ready: false},
+			},
+			err:             hcloud.Error{Code: hcloud.ErrorCodeRateLimitExceeded},
+			functionName:    "TestFunction",
+			errMsg:          "Test error message",
+			expectError:     fmt.Errorf("Test error message: %w", hcloud.Error{Code: hcloud.ErrorCodeRateLimitExceeded}),
+			expectCondition: true,
+		}),
+		Entry("machine has deletion timestamp, rate limit exceeded error", testCaseHandleRateLimit{
+			hm: &infrav1.HCloudMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					DeletionTimestamp: &metav1.Time{Time: time.Now()},
+				},
+				Status: infrav1.HCloudMachineStatus{Ready: true},
+			},
+			err:             hcloud.Error{Code: hcloud.ErrorCodeRateLimitExceeded},
+			functionName:    "TestFunction",
+			errMsg:          "Test error message",
+			expectError:     fmt.Errorf("Test error message: %w", hcloud.Error{Code: hcloud.ErrorCodeRateLimitExceeded}),
+			expectCondition: true,
+		}),
+		Entry("machine not ready, has deletion timestamp, rate limit exceeded error", testCaseHandleRateLimit{
+			hm: &infrav1.HCloudMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					DeletionTimestamp: &metav1.Time{Time: time.Now()},
+				},
+				Status: infrav1.HCloudMachineStatus{Ready: false},
+			},
+			err:             hcloud.Error{Code: hcloud.ErrorCodeRateLimitExceeded},
+			functionName:    "TestFunction",
+			errMsg:          "Test error message",
+			expectError:     fmt.Errorf("Test error message: %w", hcloud.Error{Code: hcloud.ErrorCodeRateLimitExceeded}),
+			expectCondition: true,
+		}),
+		Entry("machine ready, rate limit exceeded error", testCaseHandleRateLimit{
+			hm: &infrav1.HCloudMachine{
+				Status: infrav1.HCloudMachineStatus{Ready: true},
+			},
+			err:             hcloud.Error{Code: hcloud.ErrorCodeRateLimitExceeded},
+			functionName:    "TestFunction",
+			errMsg:          "Test error message",
+			expectError:     nil,
+			expectCondition: false,
+		}),
+		Entry("machine ready, other error", testCaseHandleRateLimit{
+			hm: &infrav1.HCloudMachine{
+				Status: infrav1.HCloudMachineStatus{Ready: true},
+			},
+			err:             hcloud.Error{Code: hcloud.ErrorCodeResourceUnavailable},
+			functionName:    "TestFunction",
+			errMsg:          "Test error message",
+			expectError:     fmt.Errorf("Test error message: %w", hcloud.Error{Code: hcloud.ErrorCodeResourceUnavailable}),
+			expectCondition: false,
+		}),
+		Entry("machine not ready, other error", testCaseHandleRateLimit{
+			hm: &infrav1.HCloudMachine{
+				Status: infrav1.HCloudMachineStatus{Ready: false},
+			},
+			err:             hcloud.Error{Code: hcloud.ErrorCodeConflict},
+			functionName:    "TestFunction",
+			errMsg:          "Test conflict error message",
+			expectError:     fmt.Errorf("Test conflict error message: %w", hcloud.Error{Code: hcloud.ErrorCodeConflict}),
+			expectCondition: false,
+		}),
+	)
+})
+
+func isPresentAndFalseWithReason(getter conditions.Getter, condition clusterv1.ConditionType, reason string) bool {
+	if !conditions.Has(getter, condition) {
+		return false
+	}
+	objectCondition := conditions.Get(getter, condition)
+	return objectCondition.Status == corev1.ConditionFalse &&
+		objectCondition.Reason == reason
+}
