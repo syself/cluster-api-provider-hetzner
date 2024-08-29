@@ -128,11 +128,11 @@ We create two secrets named `hetzner` for Hetzner Cloud and Robot API access and
 The `hetzner` secret contains API token for hcloud token. It also contains username and password that is used to interact with robot API. `robot-ssh` secret contains the public-key, private-key and name of the ssh-key used for baremetal servers.
 
 ```shell
-export HCLOUD_TOKEN="<YOUR-TOKEN>" \
-export HETZNER_ROBOT_USER="<YOUR-ROBOT-USER>" \
-export HETZNER_ROBOT_PASSWORD="<YOUR-ROBOT-PASSWORD>" \
-export SSH_KEY_NAME="<YOUR-SSH-KEY-NAME>" \
-export HETZNER_SSH_PUB_PATH="<YOUR-SSH-PUBLIC-PATH>" \
+export HCLOUD_TOKEN="<YOUR-TOKEN>"
+export HETZNER_ROBOT_USER="<YOUR-ROBOT-USER>"
+export HETZNER_ROBOT_PASSWORD="<YOUR-ROBOT-PASSWORD>"
+export SSH_KEY_NAME="<YOUR-SSH-KEY-NAME>"
+export HETZNER_SSH_PUB_PATH="<YOUR-SSH-PUBLIC-PATH>"
 export HETZNER_SSH_PRIV_PATH="<YOUR-SSH-PRIVATE-PATH>"
 ```
 
