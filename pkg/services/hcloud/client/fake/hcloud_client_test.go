@@ -25,7 +25,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/fake"
 )
 
@@ -76,13 +75,13 @@ var _ = Describe("Load balancer", func() {
 		Subnets: []hcloud.NetworkSubnet{{IPRange: &net.IPNet{IP: net.IP("1.2.3.6")}}},
 	}
 
-	var client hcloudclient.Client
+	client := factory.NewClient("")
 
 	var lb *hcloud.LoadBalancer
 	var network *hcloud.Network
 
 	BeforeEach(func() {
-		client = factory.NewClient("").Reset()
+		client.Reset()
 		_, err := client.CreateLoadBalancer(ctx, opts)
 		Expect(err).To(Succeed())
 
@@ -424,11 +423,10 @@ var _ = Describe("Load balancer", func() {
 
 var _ = Describe("Images", func() {
 	var listOpts hcloud.ImageListOpts
-	var client hcloudclient.Client
+	client := factory.NewClient("")
 
 	BeforeEach(func() {
-		client = factory.NewClient("").Reset()
-
+		client.Reset()
 		listOpts.LabelSelector = "caph-image-name==fedora-control-plane"
 	})
 	It("lists at least one image", func() {
@@ -442,7 +440,7 @@ var _ = Describe("Server", func() {
 	var listOpts hcloud.ServerListOpts
 	listOpts.LabelSelector = labelSelector
 
-	var client hcloudclient.Client
+	client := factory.NewClient("")
 
 	opts := hcloud.ServerCreateOpts{
 		Name: "test-server",
@@ -465,9 +463,8 @@ var _ = Describe("Server", func() {
 	var network *hcloud.Network
 
 	BeforeEach(func() {
+		client.Reset()
 		var err error
-		client = factory.NewClient("").Reset()
-
 		server, err = client.CreateServer(ctx, opts)
 		Expect(err).To(Succeed())
 
@@ -610,7 +607,7 @@ var _ = Describe("Network", func() {
 	var listOpts hcloud.NetworkListOpts
 	listOpts.LabelSelector = labelSelector
 
-	var client hcloudclient.Client
+	client := factory.NewClient("")
 
 	opts := hcloud.NetworkCreateOpts{
 		Name: "test-network",
@@ -625,8 +622,8 @@ var _ = Describe("Network", func() {
 	var network *hcloud.Network
 
 	BeforeEach(func() {
+		client.Reset()
 		var err error
-		client = factory.NewClient("").Reset()
 		network, err = client.CreateNetwork(ctx, opts)
 		Expect(err).To(Succeed())
 	})
@@ -674,13 +671,13 @@ var _ = Describe("Placement groups", func() {
 		Type: "stream",
 	}
 
-	var client hcloudclient.Client
+	client := factory.NewClient("")
 	var server *hcloud.Server
 	var placementGroup *hcloud.PlacementGroup
 
 	BeforeEach(func() {
+		client.Reset()
 		var err error
-		client = factory.NewClient("").Reset()
 		server, err = client.CreateServer(ctx, hcloud.ServerCreateOpts{
 			Name: "test-server",
 			Labels: map[string]string{
