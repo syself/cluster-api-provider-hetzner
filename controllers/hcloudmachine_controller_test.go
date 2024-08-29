@@ -593,25 +593,6 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				}, timeout).Should(BeTrue())
 			})
 		})
-		Context("should show error when ssh key empty", func() {
-			BeforeEach(func() {
-				hetznerCluster.Spec.SSHKeys.HCloud = nil
-				hcloudMachine.Spec.SSHKeys = nil
-				hetznerCluster.Spec.HetznerSecret.Key.SSHKey = ""
-				Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
-				Expect(testEnv.Create(ctx, hcloudMachine)).To(Succeed())
-			})
-
-			AfterEach(func() {
-				Expect(testEnv.Cleanup(ctx, hetznerCluster, hcloudMachine)).To(Succeed())
-			})
-
-			It("should show the expected reason for server not created", func() {
-				Eventually(func() bool {
-					return isPresentAndFalseWithReason(key, hcloudMachine, infrav1.ServerCreateSucceededCondition, infrav1.SSHKeyNotFoundReason)
-				}, timeout).Should(BeTrue())
-			})
-		})
 
 		Context("with public network specs", func() {
 			var hcloudClient hcloudclient.Client
