@@ -66,13 +66,13 @@ Or for a specific [version](https://github.com/syself/cluster-api-provider-hetzn
 ## Variable Preparation to generate a cluster-template
 
 ```shell
-export SSH_KEY_NAME="<ssh-key-name>" \
-export CLUSTER_NAME="my-cluster" \
-export HCLOUD_REGION="fsn1" \
-export CONTROL_PLANE_MACHINE_COUNT=3 \
-export WORKER_MACHINE_COUNT=3 \
-export KUBERNETES_VERSION=1.29.4 \
-export HCLOUD_CONTROL_PLANE_MACHINE_TYPE=cpx31 \
+export SSH_KEY_NAME="<ssh-key-name>"
+export CLUSTER_NAME="my-cluster"
+export HCLOUD_REGION="fsn1"
+export CONTROL_PLANE_MACHINE_COUNT=3
+export WORKER_MACHINE_COUNT=3
+export KUBERNETES_VERSION=1.29.4
+export HCLOUD_CONTROL_PLANE_MACHINE_TYPE=cpx31
 export HCLOUD_WORKER_MACHINE_TYPE=cpx31
 ```
 
@@ -120,10 +120,10 @@ The secret name and the tokens can also be customized in the cluster template.
 In order for the provider integration hetzner to communicate with the Hetzner API ([HCloud API](https://docs.hetzner.cloud/) + [Robot API](https://robot.your-server.de/doc/webservice/en.html#preface)), we need to create a secret with the access data. The secret must be in the same namespace as the other CRs.
 
 ```shell
-export HCLOUD_TOKEN="<YOUR-TOKEN>" \
-export HETZNER_ROBOT_USER="<YOUR-ROBOT-USER>" \
-export HETZNER_ROBOT_PASSWORD="<YOUR-ROBOT-PASSWORD>" \
-export HETZNER_SSH_PUB_PATH="<YOUR-SSH-PUBLIC-PATH>" \
+export HCLOUD_TOKEN="<YOUR-TOKEN>"
+export HETZNER_ROBOT_USER="<YOUR-ROBOT-USER>"
+export HETZNER_ROBOT_PASSWORD="<YOUR-ROBOT-PASSWORD>"
+export HETZNER_SSH_PUB_PATH="<YOUR-SSH-PUBLIC-PATH>"
 export HETZNER_SSH_PRIV_PATH="<YOUR-SSH-PRIVATE-PATH>"
 ```
 

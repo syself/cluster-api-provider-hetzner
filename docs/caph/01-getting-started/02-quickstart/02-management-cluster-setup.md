@@ -51,7 +51,6 @@ For production use, a “real” Kubernetes cluster should be used with appropri
 ### Install Clusterctl
 
 To install Clusterctl, refer to the instructions available in the official ClusterAPI documentation [here](https://cluster-api.sigs.k8s.io/user/quick-start.html#install-clusterctl).
-Alternatively, use the `make install-clusterctl` command to do the same.
 
 ### Initialize the management cluster
 
@@ -74,13 +73,9 @@ For a specific version, use the `--infrastructure hetzner:vX.X.X` flag with the 
 ## Variable Preparation to generate a cluster-template
 
 ```shell
-export SSH_KEY_NAME="<ssh-key-name>" \
-export CLUSTER_NAME="my-cluster" \
-export HCLOUD_REGION="fsn1" \
-export CONTROL_PLANE_MACHINE_COUNT=3 \
-export WORKER_MACHINE_COUNT=3 \
-export KUBERNETES_VERSION=1.29.4 \
-export HCLOUD_CONTROL_PLANE_MACHINE_TYPE=cpx31 \
+export SSH_KEY_NAME="<ssh-key-name>"
+export HCLOUD_REGION="fsn1"
+export HCLOUD_CONTROL_PLANE_MACHINE_TYPE=cpx31
 export HCLOUD_WORKER_MACHINE_TYPE=cpx31
 ```
 
