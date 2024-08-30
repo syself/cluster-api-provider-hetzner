@@ -100,11 +100,11 @@ For a cluster without a private network, use the following command:
 helm repo add hcloud https://charts.hetzner.cloud
 helm repo update hcloud
 
-KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install hccm hcloud/hcloud-cloud-controller-manager --version 1.20.0 \
-	--namespace kube-system \
-	--set secret.name=hetzner \
-	--set secret.tokenKeyName=hcloud \
-	--set privateNetwork.enabled=false
+KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install hccm hcloud/hcloud-cloud-controller-manager \
+        --namespace kube-system \
+        --set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.name=hetzner \
+        --set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.key=hcloud \
+        --set privateNetwork.enabled=false
 ```
 
 ## Deploying the CSI (optional)
