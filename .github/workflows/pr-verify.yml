@@ -7,7 +7,7 @@ jobs:
   pr-verify:
     runs-on: ubuntu-latest
     name: Verify Pull Request
-    if: github.event_name != 'pull_request_target' || !github.event.pull_request.draft
+    if: github.event_name != 'pull_request_target'
     steps:
       - name: Verifier action
         id: verifier
