@@ -346,9 +346,15 @@ func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterS
 		return reconcile.Result{}, fmt.Errorf("failed to delete load balancers for HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
 	}
 
-	// delete the network
-	if err := network.NewService(clusterScope).Delete(ctx); err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to delete network for HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
+	// delete the network only if it is owned by us
+	if hetznerCluster.Status.Network != nil {
+		if hetznerCluster.Status.Network.Labels[hetznerCluster.ClusterTagKey()] == string(infrav1.ResourceLifecycleOwned) {
+			if err := network.NewService(clusterScope).Delete(ctx); err != nil {
+				return reconcile.Result{}, fmt.Errorf("failed to delete network for HetznerCluster %s/%s: %w", hetznerCluster.Namespace, hetznerCluster.Name, err)
+			}
+		} else {
+			clusterScope.V(1).Info("network is not owned by us", "id", hetznerCluster.Status.Network.ID, "labels", hetznerCluster.Status.Network.Labels)
+		}
 	}
 
 	// delete the placement groups
