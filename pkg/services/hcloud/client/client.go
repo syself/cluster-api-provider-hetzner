@@ -69,6 +69,7 @@ type Client interface {
 	RebootServer(context.Context, *hcloud.Server) error
 	CreateNetwork(context.Context, hcloud.NetworkCreateOpts) (*hcloud.Network, error)
 	ListNetworks(context.Context, hcloud.NetworkListOpts) ([]*hcloud.Network, error)
+	GetNetwork(ctx context.Context, id int64) (*hcloud.Network, error)
 	DeleteNetwork(context.Context, *hcloud.Network) error
 	ListSSHKeys(context.Context, hcloud.SSHKeyListOpts) ([]*hcloud.SSHKey, error)
 	CreatePlacementGroup(context.Context, hcloud.PlacementGroupCreateOpts) (*hcloud.PlacementGroup, error)
@@ -298,6 +299,11 @@ func (c *realClient) ListNetworks(ctx context.Context, opts hcloud.NetworkListOp
 		return resp, fmt.Errorf("%w: %w", ErrUnauthorized, err)
 	}
 	return resp, err
+}
+
+func (c *realClient) GetNetwork(ctx context.Context, id int64) (*hcloud.Network, error) {
+	res, _, err := c.client.Network.GetByID(ctx, id)
+	return res, err
 }
 
 func (c *realClient) DeleteNetwork(ctx context.Context, network *hcloud.Network) error {
