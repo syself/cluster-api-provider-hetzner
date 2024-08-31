@@ -25,6 +25,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
@@ -879,6 +880,274 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 				}, timeout).Should(BeTrue())
 			},
 			)
+
+			Describe("For an existing Network", func() {
+				It("should attach the existing unlabeled Network by ID and not create a new one", func() {
+					networkName := utils.GenerateName(nil, "network1-")
+					network, err := hcloudClient.CreateNetwork(context.Background(), hcloud.NetworkCreateOpts{Name: networkName})
+					Expect(err).To(Succeed())
+					defer func() {
+						err := hcloudClient.DeleteNetwork(context.Background(), network)
+						Expect(err).To(Succeed())
+					}()
+					networksBeforeClusterCreate, err := hcloudClient.ListNetworks(context.Background(), hcloud.NetworkListOpts{})
+					Expect(err).To(Succeed())
+
+					hetznerClusterName := utils.GenerateName(nil, "test1-")
+
+					capiCluster := &clusterv1.Cluster{
+						ObjectMeta: metav1.ObjectMeta{
+							GenerateName: "capi-test1-",
+							Namespace:    namespace,
+							Finalizers:   []string{clusterv1.ClusterFinalizer},
+						},
+						Spec: clusterv1.ClusterSpec{
+							InfrastructureRef: &corev1.ObjectReference{
+								APIVersion: infrav1.GroupVersion.String(),
+								Kind:       "HetznerCluster",
+								Name:       hetznerClusterName,
+								Namespace:  namespace,
+							},
+						},
+					}
+					Expect(testEnv.Create(ctx, capiCluster)).To(Succeed())
+					defer func() {
+						Expect(testEnv.Cleanup(ctx, capiCluster)).To(Succeed())
+					}()
+
+					instance := &infrav1.HetznerCluster{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      hetznerClusterName,
+							Namespace: namespace,
+							OwnerReferences: []metav1.OwnerReference{
+								{
+									APIVersion: "cluster.x-k8s.io/v1beta1",
+									Kind:       "Cluster",
+									Name:       capiCluster.Name,
+									UID:        capiCluster.UID,
+								},
+							},
+						},
+						Spec: getDefaultHetznerClusterSpec(),
+					}
+					// the creation of a HetznerCluster should not lead to the creation of a network when the ID of an
+					// existing network was given.
+					instance.Spec.HCloudNetwork.ID = ptr.To(network.ID)
+					Expect(testEnv.Create(ctx, instance)).To(Succeed())
+					defer func() {
+						Expect(testEnv.Cleanup(ctx, instance)).To(Succeed())
+					}()
+
+					key := client.ObjectKey{Namespace: instance.Namespace, Name: instance.Name}
+
+					Eventually(func() bool {
+						if err := testEnv.Get(ctx, key, instance); err != nil {
+							return false
+						}
+						if isPresentAndTrue(key, instance, infrav1.NetworkReadyCondition) && instance.Status.Network != nil {
+							return true
+						}
+						return false
+					}, timeout).Should(BeTrue())
+
+					networksAfterClusterCreate, err := hcloudClient.ListNetworks(ctx, hcloud.NetworkListOpts{})
+					Expect(err).To(Succeed())
+
+					Expect(len(networksAfterClusterCreate)).To(Equal(len(networksBeforeClusterCreate)))
+
+					var found bool
+					for _, n := range networksAfterClusterCreate {
+						if n.ID == instance.Status.Network.ID {
+							found = true
+							break
+						}
+					}
+					Expect(found).To(Equal(true))
+				})
+				It("should not delete the existing unlabeled Network when deleting the Cluster", func() {
+					networkName := utils.GenerateName(nil, "network2-")
+					network, err := hcloudClient.CreateNetwork(context.Background(), hcloud.NetworkCreateOpts{Name: networkName})
+					Expect(err).To(Succeed())
+					defer func() {
+						err := hcloudClient.DeleteNetwork(context.Background(), network)
+						Expect(err).To(Succeed())
+					}()
+					networksBeforeClusterDelete, err := hcloudClient.ListNetworks(context.Background(), hcloud.NetworkListOpts{})
+					Expect(err).To(Succeed())
+
+					hetznerClusterName := utils.GenerateName(nil, "test1-")
+
+					capiCluster := &clusterv1.Cluster{
+						ObjectMeta: metav1.ObjectMeta{
+							GenerateName: "capi-test1-",
+							Namespace:    namespace,
+							Finalizers:   []string{clusterv1.ClusterFinalizer},
+						},
+						Spec: clusterv1.ClusterSpec{
+							InfrastructureRef: &corev1.ObjectReference{
+								APIVersion: infrav1.GroupVersion.String(),
+								Kind:       "HetznerCluster",
+								Name:       hetznerClusterName,
+								Namespace:  namespace,
+							},
+						},
+					}
+					Expect(testEnv.Create(ctx, capiCluster)).To(Succeed())
+
+					instance := &infrav1.HetznerCluster{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      hetznerClusterName,
+							Namespace: namespace,
+							OwnerReferences: []metav1.OwnerReference{
+								{
+									APIVersion: "cluster.x-k8s.io/v1beta1",
+									Kind:       "Cluster",
+									Name:       capiCluster.Name,
+									UID:        capiCluster.UID,
+								},
+							},
+						},
+						Spec: getDefaultHetznerClusterSpec(),
+					}
+					instance.Spec.HCloudNetwork.ID = ptr.To(network.ID)
+					Expect(testEnv.Create(ctx, instance)).To(Succeed())
+
+					key := client.ObjectKey{Namespace: instance.Namespace, Name: instance.Name}
+
+					var networkID *int64
+					Eventually(func() bool {
+						if err := testEnv.Get(ctx, key, instance); err != nil {
+							return false
+						}
+						if isPresentAndTrue(key, instance, infrav1.NetworkReadyCondition) && instance.Status.Network != nil {
+							networkID = &instance.Status.Network.ID
+							return true
+						}
+						return false
+					}, timeout).Should(BeTrue())
+
+					Expect(networkID).ToNot(BeNil())
+
+					// the deletion of a HetznerCluster should not lead to the deletion of an existing network
+					// when the network misses the `owned` label.
+					Expect(testEnv.Cleanup(ctx, instance, capiCluster)).To(Succeed())
+
+					Eventually(func() bool {
+						if err := testEnv.Get(ctx, client.ObjectKey{Namespace: instance.Namespace, Name: instance.Name}, instance); err != nil && apierrors.IsNotFound(err) {
+							return true
+						} else if err != nil {
+							return false
+						}
+						return false
+					}, timeout).Should(BeTrue())
+
+					networksAfterClusterDelete, err := hcloudClient.ListNetworks(ctx, hcloud.NetworkListOpts{})
+					Expect(err).To(Succeed())
+
+					Expect(len(networksAfterClusterDelete)).To(Equal(len(networksBeforeClusterDelete)))
+
+					var found bool
+					for _, n := range networksAfterClusterDelete {
+						if n.ID == *networkID {
+							found = true
+							break
+						}
+					}
+					Expect(found).To(Equal(true))
+				})
+				It(`should delete the existing "owned" labeled Network when deleting the Cluster`, func() {
+					hetznerClusterName := utils.GenerateName(nil, "test1-")
+
+					capiCluster := &clusterv1.Cluster{
+						ObjectMeta: metav1.ObjectMeta{
+							GenerateName: "capi-test1-",
+							Namespace:    namespace,
+							Finalizers:   []string{clusterv1.ClusterFinalizer},
+						},
+						Spec: clusterv1.ClusterSpec{
+							InfrastructureRef: &corev1.ObjectReference{
+								APIVersion: infrav1.GroupVersion.String(),
+								Kind:       "HetznerCluster",
+								Name:       hetznerClusterName,
+								Namespace:  namespace,
+							},
+						},
+					}
+					Expect(testEnv.Create(ctx, capiCluster)).To(Succeed())
+
+					instance := &infrav1.HetznerCluster{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      hetznerClusterName,
+							Namespace: namespace,
+							OwnerReferences: []metav1.OwnerReference{
+								{
+									APIVersion: "cluster.x-k8s.io/v1beta1",
+									Kind:       "Cluster",
+									Name:       capiCluster.Name,
+									UID:        capiCluster.UID,
+								},
+							},
+						},
+						Spec: getDefaultHetznerClusterSpec(),
+					}
+
+					networkName := utils.GenerateName(nil, "network3-")
+					network, err := hcloudClient.CreateNetwork(context.Background(), hcloud.NetworkCreateOpts{
+						Name:   networkName,
+						Labels: map[string]string{instance.ClusterTagKey(): "owned"},
+					})
+					Expect(err).To(Succeed())
+
+					networksBeforeClusterDelete, err := hcloudClient.ListNetworks(context.Background(), hcloud.NetworkListOpts{})
+					Expect(err).To(Succeed())
+
+					instance.Spec.HCloudNetwork.ID = ptr.To(network.ID)
+					Expect(testEnv.Create(ctx, instance)).To(Succeed())
+
+					key := client.ObjectKey{Namespace: instance.Namespace, Name: instance.Name}
+
+					var networkID *int64
+					Eventually(func() bool {
+						if err := testEnv.Get(ctx, key, instance); err != nil {
+							return false
+						}
+						if isPresentAndTrue(key, instance, infrav1.NetworkReadyCondition) && instance.Status.Network != nil {
+							networkID = &instance.Status.Network.ID
+							return true
+						}
+						return false
+					}, timeout).Should(BeTrue())
+
+					Expect(networkID).ToNot(BeNil())
+
+					// As the network has the `owned` label, the deletion of a HetznerCluster will also lead to the
+					// deletion of the network.
+					Expect(testEnv.Cleanup(ctx, instance, capiCluster)).To(Succeed())
+
+					Eventually(func() bool {
+						if err := testEnv.Get(ctx, client.ObjectKey{Namespace: instance.Namespace, Name: instance.Name}, instance); err != nil && apierrors.IsNotFound(err) {
+							return true
+						} else if err != nil {
+							return false
+						}
+						return false
+					}, timeout).Should(BeTrue())
+
+					networksAfterClusterDelete, err := hcloudClient.ListNetworks(ctx, hcloud.NetworkListOpts{})
+					Expect(err).To(Succeed())
+
+					Expect(len(networksAfterClusterDelete)).To(Equal(len(networksBeforeClusterDelete) - 1))
+
+					var found bool
+					for _, n := range networksAfterClusterDelete {
+						if n.ID == *networkID {
+							found = true
+							break
+						}
+					}
+					Expect(found).To(Not(Equal(true)))
+				})
+			})
 		})
 	})
 })
