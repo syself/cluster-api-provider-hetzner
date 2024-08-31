@@ -19,6 +19,7 @@ package network
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"slices"
@@ -106,14 +107,18 @@ func (s *Service) createNetwork(ctx context.Context) (*hcloud.Network, error) {
 func (s *Service) createOpts() (hcloud.NetworkCreateOpts, error) {
 	spec := s.scope.HetznerCluster.Spec.HCloudNetwork
 
-	_, network, err := net.ParseCIDR(spec.CIDRBlock)
-	if err != nil {
-		return hcloud.NetworkCreateOpts{}, fmt.Errorf("invalid network %q: %w", spec.CIDRBlock, err)
+	if spec.CIDRBlock == nil || spec.SubnetCIDRBlock == nil || spec.NetworkZone == nil {
+		return hcloud.NetworkCreateOpts{}, errors.New("nil CIDRs or NetworkZone given")
 	}
 
-	_, subnet, err := net.ParseCIDR(spec.SubnetCIDRBlock)
+	_, network, err := net.ParseCIDR(*spec.CIDRBlock)
 	if err != nil {
-		return hcloud.NetworkCreateOpts{}, fmt.Errorf("invalid network %q: %w", spec.SubnetCIDRBlock, err)
+		return hcloud.NetworkCreateOpts{}, fmt.Errorf("invalid network %q: %w", *spec.CIDRBlock, err)
+	}
+
+	_, subnet, err := net.ParseCIDR(*spec.SubnetCIDRBlock)
+	if err != nil {
+		return hcloud.NetworkCreateOpts{}, fmt.Errorf("invalid network %q: %w", *spec.SubnetCIDRBlock, err)
 	}
 
 	return hcloud.NetworkCreateOpts{
@@ -123,7 +128,7 @@ func (s *Service) createOpts() (hcloud.NetworkCreateOpts, error) {
 		Subnets: []hcloud.NetworkSubnet{
 			{
 				IPRange:     subnet,
-				NetworkZone: hcloud.NetworkZone(spec.NetworkZone),
+				NetworkZone: hcloud.NetworkZone(*spec.NetworkZone),
 				Type:        hcloud.NetworkSubnetTypeCloud,
 			},
 		},
@@ -155,6 +160,24 @@ func (s *Service) Delete(ctx context.Context) error {
 }
 
 func (s *Service) findNetwork(ctx context.Context) (*hcloud.Network, error) {
+	// if an ID was provided we want to use the existing Network.
+	id := s.scope.HetznerCluster.Spec.HCloudNetwork.ID
+	if id != nil {
+		network, err := s.scope.HCloudClient.GetNetwork(ctx, *id)
+		if err != nil {
+			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "GetNetwork")
+			return nil, fmt.Errorf("failed to get network %d: %w", *id, err)
+		}
+
+		if network != nil {
+			if len(network.Subnets) > 1 {
+				return nil, fmt.Errorf("multiple subnets not allowed")
+			}
+			s.scope.V(1).Info("found network", "id", network.ID, "name", network.Name, "labels", network.Labels)
+			return network, nil
+		}
+	}
+
 	opts := hcloud.NetworkListOpts{}
 	opts.LabelSelector = utils.LabelsToLabelSelector(s.labels())
 
