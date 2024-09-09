@@ -79,6 +79,7 @@ type HetznerClusterReconciler struct {
 	targetClusterManagersLock      sync.Mutex
 	TargetClusterManagersWaitGroup *sync.WaitGroup
 	WatchFilterValue               string
+	DisableCSRApproval             bool
 }
 
 //+kubebuilder:rbac:groups=cluster.x-k8s.io,resources=clusters;clusters/status,verbs=get;list;watch
@@ -708,19 +709,21 @@ func (r *HetznerClusterReconciler) newTargetClusterManager(ctx context.Context, 
 		return nil, fmt.Errorf("failed to setup guest cluster manager: %w", err)
 	}
 
-	gr := &GuestCSRReconciler{
-		Client: clusterMgr.GetClient(),
-		mCluster: &managementCluster{
-			Client:         r.Client,
-			hetznerCluster: hetznerCluster,
-		},
-		WatchFilterValue: r.WatchFilterValue,
-		clientSet:        clientSet,
-		clusterName:      clusterScope.Cluster.Name,
-	}
+	if !r.DisableCSRApproval {
+		gr := &GuestCSRReconciler{
+			Client: clusterMgr.GetClient(),
+			mCluster: &managementCluster{
+				Client:         r.Client,
+				hetznerCluster: hetznerCluster,
+			},
+			WatchFilterValue: r.WatchFilterValue,
+			clientSet:        clientSet,
+			clusterName:      clusterScope.Cluster.Name,
+		}
 
-	if err := gr.SetupWithManager(ctx, clusterMgr, controller.Options{}); err != nil {
-		return nil, fmt.Errorf("failed to setup CSR controller: %w", err)
+		if err := gr.SetupWithManager(ctx, clusterMgr, controller.Options{}); err != nil {
+			return nil, fmt.Errorf("failed to setup CSR controller: %w", err)
+		}
 	}
 
 	return clusterMgr, nil
