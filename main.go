@@ -65,6 +65,7 @@ func init() {
 var (
 	metricsAddr                        string
 	enableLeaderElection               bool
+	disableCSRApproval                 bool
 	leaderElectionNamespace            string
 	probeAddr                          string
 	watchFilterValue                   string
@@ -83,6 +84,7 @@ func main() {
 	fs.StringVar(&metricsAddr, "metrics-bind-address", "localhost:8080", "The address the metric endpoint binds to.")
 	fs.StringVar(&probeAddr, "health-probe-bind-address", ":9440", "The address the probe endpoint binds to.")
 	fs.BoolVar(&enableLeaderElection, "leader-elect", true, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
+	fs.BoolVar(&disableCSRApproval, "disable-csr-approval", false, "Disables builtin workload cluster CSR validation and approval.")
 	fs.StringVar(&leaderElectionNamespace, "leader-elect-namespace", "", "Namespace that the controller performs leader election in. If unspecified, the controller will discover which namespace it is running in.")
 	fs.StringVar(&watchFilterValue, "watch-filter", "", fmt.Sprintf("Label value that the controller watches to reconcile cluster-api objects. Label key is always %s. If unspecified, the controller watches for all cluster-api objects.", clusterv1.WatchLabel))
 	fs.StringVar(&watchNamespace, "namespace", "", "Namespace that the controller watches to reconcile cluster-api objects. If unspecified, the controller watches for cluster-api objects across all namespaces.")
@@ -147,6 +149,7 @@ func main() {
 		RateLimitWaitTime:              rateLimitWaitTime,
 		HCloudClientFactory:            hcloudClientFactory,
 		WatchFilterValue:               watchFilterValue,
+		DisableCSRApproval:             disableCSRApproval,
 		TargetClusterManagersWaitGroup: &wg,
 	}).SetupWithManager(ctx, mgr, controller.Options{MaxConcurrentReconciles: hetznerClusterConcurrency}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HetznerCluster")
