@@ -179,6 +179,13 @@ type LoadBalancerSpec struct {
 
 	// Region contains the name of the HCloud location where the load balancer is running.
 	Region Region `json:"region,omitempty"`
+
+	// UseIPv6Endpoint defines whether to use the LoadBalancer's IPv6 address as
+	// the cluster endpoint instead of IPv4. This is useful if nodes are provisioned
+	// without IPv4 address. Defaults to 'false'.
+	// +optional
+	// +kubebuilder:default=false
+	UseIPv6Endpoint bool `json:"useIPv6Endpoint,omitempty"`
 }
 
 // LoadBalancerServiceSpec defines a load balancer Target.
