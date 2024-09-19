@@ -16,6 +16,6 @@
 
 	echo -n $HETZNER_SSH_PUB > tmp_ssh_pub
 	echo -n $HETZNER_SSH_PRIV > tmp_ssh_priv
-	base64 -d tmp_ssh_priv > tmp_ssh_priv_enc
-	base64 -d tmp_ssh_pub > tmp_ssh_pub_enc
+	base64 -d < tmp_ssh_priv > tmp_ssh_priv_enc
+	base64 -d < tmp_ssh_pub > tmp_ssh_pub_enc
 	kubectl create secret generic robot-ssh --from-literal=sshkey-name=ci --from-file=ssh-privatekey=tmp_ssh_priv_enc --from-file=ssh-publickey=tmp_ssh_pub_enc --dry-run=client -o yaml > data/infrastructure-hetzner/v1beta1/cluster-template-hetzner-secret.yaml

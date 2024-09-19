@@ -29,7 +29,7 @@ source "${REPO_ROOT}/hack/ci-e2e-sshkeys.sh"
 
 # We need to export the HCLOUD_TOKEN as a environment variable
 SSH_KEY_NAME=caph-e2e-$(
-    head /dev/urandom | tr -dc A-Za-z0-9 | head -c 12
+    LC_CTYPE=C dd if=/dev/urandom bs=1 count=100 2>/dev/null | base64 | tr -dc 'A-Za-z0-9' | head -c 12
     echo ''
 )
 export SSH_KEY_PATH=/tmp/${SSH_KEY_NAME}
