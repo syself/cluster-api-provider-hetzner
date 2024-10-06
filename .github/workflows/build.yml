@@ -35,7 +35,7 @@ jobs:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@49b3bc8e6bdd4a60e6116a5414239cba5943d3cf # v3
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@988b5a0280414f521da01fcc63a27aeeb4b104db # v3
+        uses: docker/setup-buildx-action@c47758b77c9736f4b2ef4073d4d51994fabfe349 # v3
 
       - name: Generate metadata
         id: meta
@@ -52,7 +52,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@4959ce089c160fddf62f7b42464195ba1a56d382 # v3.6.0
+        uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da # v3.7.0
 
       - name: Install Bom
         shell: bash
@@ -70,7 +70,7 @@ jobs:
 
       # Load Golang cache build from GitHub
       - name: Load Caph Golang cache build from GitHub
-        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+        uses: actions/cache@2cdf405574d6ef1f33a1d12acccd3ae82f47b3f2 # v4.1.0
         id: cache
         with:
           path: /tmp/.cache/caph
@@ -88,7 +88,7 @@ jobs:
 
       # Import GitHub's cache build to docker cache
       - name: Copy Caph Golang cache to docker cache
-        uses: docker/build-push-action@5cd11c3a4ced054e52742c5fd54dca954e0edd85 # v6.7.0
+        uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75 # v6.9.0
         with:
           provenance: false
           context: /tmp/.cache/caph
@@ -98,7 +98,7 @@ jobs:
           target: import-cache
 
       - name: Build and push manager image
-        uses: docker/build-push-action@5cd11c3a4ced054e52742c5fd54dca954e0edd85 # v6
+        uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75 # v6
         id: docker_build_release
         with:
           provenance: false
@@ -141,7 +141,7 @@ jobs:
 
       # Upload artifact digests
       - name: Upload artifact digests
-        uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a # v4.3.6
+        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
         with:
           name: image-digest caph
           path: image-digest
@@ -150,7 +150,7 @@ jobs:
       # Store docker's golang's cache build locally only on the main branch
       - name: Store Caph Golang cache build locally
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
-        uses: docker/build-push-action@5cd11c3a4ced054e52742c5fd54dca954e0edd85 # v6.7.0
+        uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75 # v6.9.0
         with:
           provenance: false
           context: .

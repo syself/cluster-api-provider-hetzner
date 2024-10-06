@@ -30,10 +30,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
 
       - name: Generate Token
-        uses: actions/create-github-app-token@31c86eb3b33c9b601a1f60f98dcbfd1d70f379b4 # v1
+        uses: actions/create-github-app-token@5d869da34e18e7287c1daad50e0b8ea0f506ce69 # v1
         id: generate-token
         with:
           app-id: ${{ secrets.SYSELF_APP_ID }}
@@ -44,7 +44,7 @@ jobs:
           echo "LOG_LEVEL=${{ github.event.inputs.logLevel || env.LOG_LEVEL }}" >> "$GITHUB_ENV"
 
       - name: Renovate
-        uses: renovatebot/github-action@718692a6e1205fb03bed8a101596ef5755b5f35d # v40.2.11
+        uses: renovatebot/github-action@a1ed1d0adddfdf138192d1fbe3150a80094dee6a # v40.3.1
         env:
           RENOVATE_HOST_RULES: '[{"hostType": "docker", "matchHost": "ghcr.io", "username": "${{ github.actor }}", "password": "${{ secrets.GITHUB_TOKEN }}" }]'
           RENOVATE_ALLOWED_POST_UPGRADE_COMMANDS: '[".*"]'
