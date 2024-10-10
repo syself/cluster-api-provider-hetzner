@@ -407,6 +407,36 @@ func (_m *Client) DeleteTargetServerOfLoadBalancer(_a0 context.Context, _a1 *hcl
 	return r0
 }
 
+// GetNetwork provides a mock function with given fields: ctx, id
+func (_m *Client) GetNetwork(ctx context.Context, id int64) (*hcloud.Network, error) {
+	ret := _m.Called(ctx, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetNetwork")
+	}
+
+	var r0 *hcloud.Network
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, int64) (*hcloud.Network, error)); ok {
+		return rf(ctx, id)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, int64) *hcloud.Network); ok {
+		r0 = rf(ctx, id)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*hcloud.Network)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, int64) error); ok {
+		r1 = rf(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetServer provides a mock function with given fields: _a0, _a1
 func (_m *Client) GetServer(_a0 context.Context, _a1 int64) (*hcloud.Server, error) {
 	ret := _m.Called(_a0, _a1)
