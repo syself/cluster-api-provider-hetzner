@@ -746,7 +746,7 @@ func (r *HetznerClusterReconciler) SetupWithManager(ctx context.Context, mgr ctr
 		Owns(&corev1.Secret{}).
 		Watches(
 			&clusterv1.Cluster{},
-			handler.EnqueueRequestsFromMapFunc(r.eventHandler),
+			handler.EnqueueRequestsFromMapFunc(r.clusterToHetznerCluster),
 			builder.WithPredicates(IgnoreInsignificantClusterStatusUpdates(log)),
 		).
 		Complete(r)
@@ -757,8 +757,7 @@ func (r *HetznerClusterReconciler) SetupWithManager(ctx context.Context, mgr ctr
 	return nil
 }
 
-// SetupWithManager sets up the controller with the Manager.
-func (r *HetznerClusterReconciler) eventHandler(ctx context.Context, o client.Object) []reconcile.Request {
+func (r *HetznerClusterReconciler) clusterToHetznerCluster(ctx context.Context, o client.Object) []reconcile.Request {
 	c, ok := o.(*clusterv1.Cluster)
 	if !ok {
 		panic(fmt.Sprintf("Expected a Cluster but got a %T", o))
