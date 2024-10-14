@@ -32,6 +32,7 @@ import (
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	dockerfilters "github.com/docker/docker/api/types/filters"
+	dockerimage "github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
 	dockersystem "github.com/docker/docker/api/types/system"
 	"github.com/docker/docker/client"
@@ -118,7 +119,7 @@ func (d *dockerRuntime) PullContainerImageIfNotExists(ctx context.Context, image
 
 // PullContainerImage triggers the Docker engine to pull an image.
 func (d *dockerRuntime) PullContainerImage(ctx context.Context, image string) error {
-	pullResp, err := d.dockerClient.ImagePull(ctx, image, types.ImagePullOptions{})
+	pullResp, err := d.dockerClient.ImagePull(ctx, image, dockerimage.PullOptions{})
 	if err != nil {
 		return fmt.Errorf("failure pulling container image: %v", err)
 	}
@@ -137,7 +138,7 @@ func (d *dockerRuntime) PullContainerImage(ctx context.Context, image string) er
 func (d *dockerRuntime) ImageExistsLocally(ctx context.Context, image string) (bool, error) {
 	filters := dockerfilters.NewArgs()
 	filters.Add("reference", image)
-	images, err := d.dockerClient.ImageList(ctx, types.ImageListOptions{
+	images, err := d.dockerClient.ImageList(ctx, dockerimage.ListOptions{
 		Filters: filters,
 	})
 	if err != nil {
@@ -171,7 +172,7 @@ func (d *dockerRuntime) GetHostPort(ctx context.Context, containerName, portAndP
 
 // ExecContainer executes a command in a running container and writes any output to the provided writer.
 func (d *dockerRuntime) ExecContainer(ctx context.Context, containerName string, config *ExecContainerInput, command string, args ...string) error {
-	execConfig := types.ExecConfig{
+	execConfig := dockercontainer.ExecOptions{
 		// Run with privileges so we can remount etc..
 		// This might not make sense in the most general sense, but it is
 		// important to many kind commands.
@@ -193,7 +194,7 @@ func (d *dockerRuntime) ExecContainer(ctx context.Context, containerName string,
 		return errors.Wrap(err, "exec ID empty")
 	}
 
-	resp, err := d.dockerClient.ContainerExecAttach(ctx, execID, types.ExecStartCheck{})
+	resp, err := d.dockerClient.ContainerExecAttach(ctx, execID, dockercontainer.ExecStartOptions{})
 	if err != nil {
 		return errors.Wrap(err, "error attaching to container exec")
 	}
@@ -613,7 +614,7 @@ func configureVolumes(crc *RunContainerInput, config *dockercontainer.Config, ho
 // getSubnets returns a slice of subnets for a specified network.
 func (d *dockerRuntime) getSubnets(ctx context.Context, networkName string) ([]string, error) {
 	subnets := []string{}
-	networkInfo, err := d.dockerClient.NetworkInspect(ctx, networkName, types.NetworkInspectOptions{})
+	networkInfo, err := d.dockerClient.NetworkInspect(ctx, networkName, network.InspectOptions{})
 	if err != nil {
 		return subnets, errors.Wrapf(err, "failed to inspect network %q", networkName)
 	}
@@ -726,7 +727,6 @@ func configurePortMappings(portMappings []PortMapping, config *dockercontainer.C
 		}
 		hostConfig.PortBindings[port] = append(hostConfig.PortBindings[port], mapping)
 		exposedPorts[port] = struct{}{}
-		exposedPorts[nat.Port(fmt.Sprintf("%d/tcp", pm.HostPort))] = struct{}{}
 	}
 
 	config.ExposedPorts = exposedPorts

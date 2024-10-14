@@ -55,12 +55,6 @@ import (
 	"sigs.k8s.io/cluster-api/util"
 )
 
-const (
-	initWithBinaryVariableName = "INIT_WITH_BINARY"
-	initWithProvidersContract  = "INIT_WITH_PROVIDERS_CONTRACT"
-	initWithKubernetesVersion  = "INIT_WITH_KUBERNETES_VERSION"
-)
-
 // ClusterctlUpgradeSpecInput is the input for ClusterctlUpgradeSpec.
 type ClusterctlUpgradeSpecInput struct {
 	E2EConfig             *clusterctl.E2EConfig
@@ -72,15 +66,16 @@ type ClusterctlUpgradeSpecInput struct {
 	// NOTE: given that the bootstrap cluster could be shared by several tests, it is not practical to use it for testing clusterctl upgrades.
 	// So we are creating a new management cluster where to install older version of providers
 	UseKindForManagementCluster bool
+	// KindManagementClusterNewClusterProxyFunc is used to create the ClusterProxy used in the test after creating the kind based management cluster.
+	// This allows to use a custom ClusterProxy implementation or create a ClusterProxy with a custom scheme and options.
+	KindManagementClusterNewClusterProxyFunc func(name string, kubeconfigPath string) framework.ClusterProxy
 
-	// InitWithBinary can be used to override the INIT_WITH_BINARY e2e config variable with the URL of the clusterctl binary of the old version of Cluster API. The spec will interpolate the
+	// InitWithBinary must be used to specify the URL of the clusterctl binary of the old version of Cluster API. The spec will interpolate the
 	// strings `{OS}` and `{ARCH}` to `runtime.GOOS` and `runtime.GOARCH` respectively, e.g. https://github.com/kubernetes-sigs/cluster-api/releases/download/v0.3.23/clusterctl-{OS}-{ARCH}
 	InitWithBinary string
-	// InitWithProvidersContract can be used to override the INIT_WITH_PROVIDERS_CONTRACT e2e config variable with a specific
-	// provider contract to use to initialise the secondary management cluster, e.g. `v1alpha3`
+	// InitWithProvidersContract can be used to set the contract used to initialise the secondary management cluster, e.g. `v1alpha3`
 	InitWithProvidersContract string
-	// InitWithKubernetesVersion can be used to override the INIT_WITH_KUBERNETES_VERSION e2e config variable with a specific
-	// Kubernetes version to use to create the secondary management cluster, e.g. `v1.25.0`
+	// InitWithKubernetesVersion must be used to set a Kubernetes version to use to create the secondary management cluster, e.g. `v1.25.0`
 	InitWithKubernetesVersion string
 	// InitWithCoreProvider specifies the core provider version to use when initializing the secondary management cluster, e.g. `cluster-api:v1.3.0`.
 	// If not set, the core provider version is calculated based on the contract.
@@ -170,7 +165,7 @@ type ClusterctlUpgradeSpecInputUpgrade struct {
 // then run clusterctl upgrade to the latest version of Cluster API and ensure correct operation by
 // scaling a MachineDeployment.
 //
-// To use this spec the variables INIT_WITH_BINARY and INIT_WITH_PROVIDERS_CONTRACT must be set or specified directly
+// To use this spec the fields InitWithBinary and InitWithKubernetesVersion must be specified
 // in the spec input. See ClusterctlUpgradeSpecInput for further information.
 //
 // In order to get this to work, infrastructure providers need to implement a mechanism to stage
@@ -209,47 +204,37 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 		initKubernetesVersion   string
 
 		workloadClusterName string
-
-		scheme *apiruntime.Scheme
 	)
 
 	BeforeEach(func() {
-		scheme = apiruntime.NewScheme()
-		framework.TryAddDefaultSchemes(scheme)
-
 		Expect(ctx).NotTo(BeNil(), "ctx is required for %s spec", specName)
 		input = inputGetter()
 		Expect(input.E2EConfig).ToNot(BeNil(), "Invalid argument. input.E2EConfig can't be nil when calling %s spec", specName)
 		Expect(input.ClusterctlConfigPath).To(BeAnExistingFile(), "Invalid argument. input.ClusterctlConfigPath must be an existing file when calling %s spec", specName)
 		Expect(input.BootstrapClusterProxy).ToNot(BeNil(), "Invalid argument. input.BootstrapClusterProxy can't be nil when calling %s spec", specName)
+		Expect(input.InitWithBinary).ToNot(BeEmpty(), "Invalid argument. input.InitWithBinary can't be empty when calling %s spec", specName)
+		Expect(input.InitWithKubernetesVersion).ToNot(BeEmpty(), "Invalid argument. input.InitWithKubernetesVersion can't be empty when calling %s spec", specName)
+		if input.KindManagementClusterNewClusterProxyFunc == nil {
+			input.KindManagementClusterNewClusterProxyFunc = func(name string, kubeconfigPath string) framework.ClusterProxy {
+				scheme := apiruntime.NewScheme()
+				framework.TryAddDefaultSchemes(scheme)
+				return framework.NewClusterProxy(name, kubeconfigPath, scheme)
+			}
+		}
 
 		clusterctlBinaryURLTemplate := input.InitWithBinary
-		if clusterctlBinaryURLTemplate == "" {
-			Expect(input.E2EConfig.ResolveReleases(ctx)).To(Succeed(), "Failed to resolve release markers in e2e test config file")
-			Expect(input.E2EConfig.Variables).To(HaveKey(initWithBinaryVariableName), "Invalid argument. %s variable must be defined when calling %s spec", initWithBinaryVariableName, specName)
-			Expect(input.E2EConfig.Variables[initWithBinaryVariableName]).ToNot(BeEmpty(), "Invalid argument. %s variable can't be empty when calling %s spec", initWithBinaryVariableName, specName)
-			clusterctlBinaryURLTemplate = input.E2EConfig.GetVariable(initWithBinaryVariableName)
-		}
 		clusterctlBinaryURLReplacer := strings.NewReplacer("{OS}", runtime.GOOS, "{ARCH}", runtime.GOARCH)
 		initClusterctlBinaryURL = clusterctlBinaryURLReplacer.Replace(clusterctlBinaryURLTemplate)
 
 		// NOTE: by default we are considering all the providers, no matter of the contract.
-		// However, given that we want to test both v1alpha3 --> v1beta1 and v1alpha4 --> v1beta1, the INIT_WITH_PROVIDERS_CONTRACT
-		// variable can be used to select versions with a specific contract.
+		// However, given that we want to test both v1alpha3 --> v1beta1 and v1alpha4 --> v1beta1,
+		// InitWithProvidersContract can be used to select versions with a specific contract.
 		initContract = "*"
-		if input.E2EConfig.HasVariable(initWithProvidersContract) {
-			initContract = input.E2EConfig.GetVariable(initWithProvidersContract)
-		}
 		if input.InitWithProvidersContract != "" {
 			initContract = input.InitWithProvidersContract
 		}
 
 		initKubernetesVersion = input.InitWithKubernetesVersion
-		if initKubernetesVersion == "" {
-			Expect(input.E2EConfig.Variables).To(HaveKey(initWithKubernetesVersion), "Invalid argument. %s variable must be defined when calling %s spec", initWithKubernetesVersion, specName)
-			Expect(input.E2EConfig.Variables[initWithKubernetesVersion]).ToNot(BeEmpty(), "Invalid argument. %s variable can't be empty when calling %s spec", initWithKubernetesVersion, specName)
-			initKubernetesVersion = input.E2EConfig.GetVariable(initWithKubernetesVersion)
-		}
 
 		if len(input.Upgrades) == 0 {
 			// Upgrade once to v1beta1 if no upgrades are specified.
@@ -296,7 +281,7 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 			kubeconfigPath := managementClusterProvider.GetKubeconfigPath()
 			Expect(kubeconfigPath).To(BeAnExistingFile(), "Failed to get the kubeconfig file for the kind cluster")
 
-			managementClusterProxy = framework.NewClusterProxy(managementClusterName, kubeconfigPath, scheme)
+			managementClusterProxy = input.KindManagementClusterNewClusterProxyFunc(managementClusterName, kubeconfigPath)
 			Expect(managementClusterProxy).ToNot(BeNil(), "Failed to get a kind cluster proxy")
 
 			managementClusterResources.Cluster = &clusterv1.Cluster{
@@ -463,7 +448,7 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 		Expect(workloadClusterTemplate).ToNot(BeNil(), "Failed to get the cluster template")
 
 		log.Logf("Applying the cluster template yaml to the cluster")
-		Expect(managementClusterProxy.Apply(ctx, workloadClusterTemplate)).To(Succeed())
+		Expect(managementClusterProxy.CreateOrUpdate(ctx, workloadClusterTemplate)).To(Succeed())
 
 		if input.PreWaitForCluster != nil {
 			By("Running PreWaitForCluster steps against the management cluster")
@@ -759,8 +744,10 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 
 		// Dumps all the resources in the spec namespace, then cleanups the cluster object and the spec namespace itself.
 		if input.UseKindForManagementCluster {
-			managementClusterProxy.Dispose(ctx)
-			managementClusterProvider.Dispose(ctx)
+			if !input.SkipCleanup {
+				managementClusterProxy.Dispose(ctx)
+				managementClusterProvider.Dispose(ctx)
+			}
 		} else {
 			framework.DumpSpecResourcesAndCleanup(ctx, specName, input.BootstrapClusterProxy, input.ArtifactFolder, managementClusterNamespace, managementClusterCancelWatches, managementClusterResources.Cluster, input.E2EConfig.GetIntervals, input.SkipCleanup)
 		}
@@ -845,7 +832,7 @@ func discoveryAndWaitForCluster(ctx context.Context, input discoveryAndWaitForCl
 		clusterPhase, ok, err := unstructured.NestedString(cluster.Object, "status", "phase")
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(ok).To(BeTrue(), "could not get status.phase field")
-		g.Expect(clusterPhase).To(Equal(string(clusterv1.ClusterPhaseProvisioned)), "Timed out waiting for Cluster %s to provision")
+		g.Expect(clusterPhase).To(Equal(string(clusterv1.ClusterPhaseProvisioned)), "Timed out waiting for Cluster %s to provision", klog.KObj(cluster))
 	}, intervals...).Should(Succeed(), "Failed to get Cluster object %s", klog.KRef(input.Namespace, input.Name))
 
 	return cluster
@@ -910,7 +897,6 @@ func calculateExpectedMachinePoolMachineCount(ctx context.Context, c client.Clie
 		client.MatchingLabels{clusterv1.ClusterNameLabel: workloadClusterName},
 	); err == nil {
 		for _, mp := range machinePoolList.Items {
-			mp := mp
 			infraMachinePool, err := external.Get(ctx, c, &mp.Spec.Template.Spec.InfrastructureRef, workloadClusterNamespace)
 			if err != nil {
 				return 0, err
@@ -1058,7 +1044,6 @@ func validateMachineRollout(preMachineList, postMachineList *unstructured.Unstru
 	if len(newMachines) > 0 {
 		log.Logf("Detected new Machines")
 		for _, obj := range postMachineList.Items {
-			obj := obj
 			if newMachines.Has(obj.GetName()) {
 				resourceYAML, err := yaml.Marshal(obj)
 				Expect(err).ToNot(HaveOccurred())
@@ -1070,7 +1055,6 @@ func validateMachineRollout(preMachineList, postMachineList *unstructured.Unstru
 	if len(deletedMachines) > 0 {
 		log.Logf("Detected deleted Machines")
 		for _, obj := range preMachineList.Items {
-			obj := obj
 			if deletedMachines.Has(obj.GetName()) {
 				resourceYAML, err := yaml.Marshal(obj)
 				Expect(err).ToNot(HaveOccurred())

@@ -44,6 +44,7 @@ import (
 	"sigs.k8s.io/cluster-api/util/predicates"
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -54,7 +55,6 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
@@ -737,59 +737,62 @@ func (r *HetznerClusterReconciler) SetupWithManager(ctx context.Context, mgr ctr
 		r.targetClusterManagersStopCh = make(map[types.NamespacedName]chan struct{})
 	}
 
-	controller, err := ctrl.NewControllerManagedBy(mgr).
+	err := ctrl.NewControllerManagedBy(mgr).
 		WithOptions(options).
 		For(&infrav1.HetznerCluster{}).
 		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(log, r.WatchFilterValue)).
 		WithEventFilter(predicates.ResourceIsNotExternallyManaged(log)).
 		WithEventFilter(IgnoreInsignificantHetznerClusterStatusUpdates(log)).
 		Owns(&corev1.Secret{}).
-		Build(r)
+		Watches(
+			&clusterv1.Cluster{},
+			handler.EnqueueRequestsFromMapFunc(r.clusterToHetznerCluster),
+			builder.WithPredicates(IgnoreInsignificantClusterStatusUpdates(log)),
+		).
+		Complete(r)
 	if err != nil {
 		return fmt.Errorf("error creating controller: %w", err)
 	}
 
-	return controller.Watch(
-		source.Kind(mgr.GetCache(), &clusterv1.Cluster{}),
-		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
-			c, ok := o.(*clusterv1.Cluster)
-			if !ok {
-				panic(fmt.Sprintf("Expected a Cluster but got a %T", o))
-			}
+	return nil
+}
 
-			// Don't handle deleted clusters
-			if !c.ObjectMeta.DeletionTimestamp.IsZero() {
-				return nil
-			}
+func (r *HetznerClusterReconciler) clusterToHetznerCluster(ctx context.Context, o client.Object) []reconcile.Request {
+	c, ok := o.(*clusterv1.Cluster)
+	if !ok {
+		panic(fmt.Sprintf("Expected a Cluster but got a %T", o))
+	}
 
-			// Make sure the ref is set
-			if c.Spec.InfrastructureRef == nil {
-				return nil
-			}
+	// Don't handle deleted clusters
+	if !c.ObjectMeta.DeletionTimestamp.IsZero() {
+		return nil
+	}
 
-			if c.Spec.InfrastructureRef.GroupVersionKind().Kind != "HetznerCluster" {
-				return nil
-			}
+	// Make sure the ref is set
+	if c.Spec.InfrastructureRef == nil {
+		return nil
+	}
 
-			hetznerCluster := &infrav1.HetznerCluster{}
-			key := types.NamespacedName{Namespace: c.Spec.InfrastructureRef.Namespace, Name: c.Spec.InfrastructureRef.Name}
+	if c.Spec.InfrastructureRef.GroupVersionKind().Kind != "HetznerCluster" {
+		return nil
+	}
 
-			if err := r.Get(ctx, key, hetznerCluster); err != nil {
-				return nil
-			}
+	hetznerCluster := &infrav1.HetznerCluster{}
+	key := types.NamespacedName{Namespace: c.Spec.InfrastructureRef.Namespace, Name: c.Spec.InfrastructureRef.Name}
 
-			if annotations.IsExternallyManaged(hetznerCluster) {
-				return nil
-			}
+	if err := r.Get(ctx, key, hetznerCluster); err != nil {
+		return nil
+	}
 
-			return []ctrl.Request{
-				{
-					NamespacedName: client.ObjectKey{Namespace: c.Namespace, Name: c.Spec.InfrastructureRef.Name},
-				},
-			}
-		}),
-		IgnoreInsignificantClusterStatusUpdates(log),
-	)
+	if annotations.IsExternallyManaged(hetznerCluster) {
+		return nil
+	}
+
+	return []ctrl.Request{
+		{
+			NamespacedName: client.ObjectKey{Namespace: c.Namespace, Name: c.Spec.InfrastructureRef.Name},
+		},
+	}
 }
 
 // IgnoreInsignificantClusterStatusUpdates is a predicate used for ignoring insignificant HetznerCluster.Status updates.
