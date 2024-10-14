@@ -32,12 +32,12 @@ import (
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
@@ -207,7 +207,12 @@ func (r *HetznerBareMetalMachineReconciler) reconcileNormal(ctx context.Context,
 // SetupWithManager sets up the controller with the Manager.
 func (r *HetznerBareMetalMachineReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, options controller.Options) error {
 	log := ctrl.LoggerFrom(ctx)
-	c, err := ctrl.NewControllerManagedBy(mgr).
+
+	clusterToObjectFunc, err := util.ClusterToTypedObjectsMapper(r.Client, &infrav1.HetznerBareMetalMachineList{}, mgr.GetScheme())
+	if err != nil {
+		return fmt.Errorf("failed to create mapper for Cluster to BareMetalMachines: %w", err)
+	}
+	err = ctrl.NewControllerManagedBy(mgr).
 		WithOptions(options).
 		For(&infrav1.HetznerBareMetalMachine{}).
 		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(log, r.WatchFilterValue)).
@@ -227,23 +232,14 @@ func (r *HetznerBareMetalMachineReconciler) SetupWithManager(ctx context.Context
 			&infrav1.HetznerBareMetalHost{},
 			handler.EnqueueRequestsFromMapFunc(r.BareMetalHostToBareMetalMachines(log)),
 		).
-		Build(r)
+		Watches(
+			&clusterv1.Cluster{},
+			handler.EnqueueRequestsFromMapFunc(clusterToObjectFunc),
+			builder.WithPredicates(predicates.ClusterUnpausedAndInfrastructureReady(log)),
+		).
+		Complete(r)
 	if err != nil {
 		return fmt.Errorf("error creating controller: %w", err)
-	}
-
-	clusterToObjectFunc, err := util.ClusterToTypedObjectsMapper(r.Client, &infrav1.HetznerBareMetalMachineList{}, mgr.GetScheme())
-	if err != nil {
-		return fmt.Errorf("failed to create mapper for Cluster to BareMetalMachines: %w", err)
-	}
-
-	// Add a watch on clusterv1.Cluster object for unpause & ready notifications.
-	if err := c.Watch(
-		source.Kind(mgr.GetCache(), &clusterv1.Cluster{}),
-		handler.EnqueueRequestsFromMapFunc(clusterToObjectFunc),
-		predicates.ClusterUnpausedAndInfrastructureReady(log),
-	); err != nil {
-		return fmt.Errorf("failed adding a watch for ready clusters: %w", err)
 	}
 
 	return nil
