@@ -252,7 +252,7 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 		gomega.Expect(workloadClusterTemplate).ToNot(gomega.BeNil(), "Failed to get the cluster template")
 
 		fmt.Fprintf(ginkgo.GinkgoWriter, "Applying the cluster template yaml to the cluster")
-		gomega.Expect(managementClusterProxy.Apply(ctx, workloadClusterTemplate)).To(gomega.Succeed())
+		gomega.Expect(managementClusterProxy.CreateOrUpdate(ctx, workloadClusterTemplate)).To(gomega.Succeed())
 
 		ginkgo.By("Waiting for the machines to exists")
 		gomega.Eventually(func() (int64, error) {
