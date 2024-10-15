@@ -103,7 +103,7 @@ Example of pulling an image from an oci-registry:
 ```yaml
 image:
   name: Ubuntu-2204-jammy-amd64-custom
-  url: oci://ghcr.io/myorg/images/Ubuntu-2204-jammy-amd64-custom:1.0.0-beta.2
+  url: oci://ghcr.io/myorg/images/Ubuntu-2204-jammy-amd64-custom:1.0.1
 ```
 
 If you need credentials to pull the image, then provide the environment variable `OCI_REGISTRY_AUTH_TOKEN` to the controller.
@@ -135,6 +135,6 @@ spec:
 You can push an image to an oci-registry with a tool like [oras](https://oras.land):
 
 ```shell
-oras push ghcr.io/myorg/images/Ubuntu-2204-jammy-amd64-custom:1.0.0-beta.2 \
+oras push ghcr.io/myorg/images/Ubuntu-2204-jammy-amd64-custom:1.0.1 \
     --artifact-type application/vnd.myorg.machine-image.v1 Ubuntu-2204-jammy-amd64-custom.tar.gz
 ```
