@@ -160,10 +160,7 @@ func getDefaultHetznerClusterSpec() infrav1.HetznerClusterSpec {
 		ControlPlaneEndpoint: &clusterv1.APIEndpoint{},
 		ControlPlaneRegions:  []infrav1.Region{"fsn1"},
 		HCloudNetwork: infrav1.HCloudNetworkSpec{
-			CIDRBlock:       "10.0.0.0/16",
-			Enabled:         true,
-			NetworkZone:     "eu-central",
-			SubnetCIDRBlock: "10.0.0.0/24",
+			Enabled: true,
 		},
 		HCloudPlacementGroups: []infrav1.HCloudPlacementGroupSpec{
 			{

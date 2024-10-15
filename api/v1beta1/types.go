@@ -217,32 +217,39 @@ type LoadBalancerTarget struct {
 
 // HCloudNetworkSpec defines the desired state of the HCloud Private Network.
 type HCloudNetworkSpec struct {
+	// ID is the id of the Network to adopt.
+	// Mutually exclusive with CIDRBlock, SubnetCIDRBlock and NetworkZone.
+	// +optional
+	ID *int64 `json:"id,omitempty"`
+
 	// Enabled defines whether the network should be enabled or not.
 	Enabled bool `json:"enabled"`
 
-	// CIDRBlock defines the cidrBlock of the HCloud Network. If omitted, default "10.0.0.0/16" will be used.
-	// +kubebuilder:default="10.0.0.0/16"
+	// CIDRBlock defines the cidrBlock of the HCloud Network.
+	// Defaults to "10.0.0.0/16".
+	// Mutually exclusive with ID.
 	// +optional
-	CIDRBlock string `json:"cidrBlock,omitempty"`
+	CIDRBlock *string `json:"cidrBlock,omitempty"`
 
 	// SubnetCIDRBlock defines the cidrBlock for the subnet of the HCloud Network.
+	// Defaults to "10.0.0.0/24".
+	// Mutually exclusive with ID.
 	// Note: A subnet is required.
-	// +kubebuilder:default="10.0.0.0/24"
 	// +optional
-	SubnetCIDRBlock string `json:"subnetCidrBlock,omitempty"`
+	SubnetCIDRBlock *string `json:"subnetCidrBlock,omitempty"`
 
 	// NetworkZone specifies the HCloud network zone of the private network.
-	// The zones must be one of eu-central, us-east, or us-west. The default is eu-central.
-	// +kubebuilder:validation:Enum=eu-central;us-east;us-west;ap-southeast
-	// +kubebuilder:default=eu-central
+	// The zones must be one of eu-central, us-east, or us-west.
+	// Defaults to "eu-central".
+	// Mutually exclusive with ID.
 	// +optional
-	NetworkZone HCloudNetworkZone `json:"networkZone,omitempty"`
+	NetworkZone *HCloudNetworkZone `json:"networkZone,omitempty"`
 }
 
 // NetworkStatus defines the observed state of the HCloud Private Network.
 type NetworkStatus struct {
 	ID              int64             `json:"id,omitempty"`
-	Labels          map[string]string `json:"-"`
+	Labels          map[string]string `json:"labels,omitempty"`
 	AttachedServers []int64           `json:"attachedServers,omitempty"`
 }
 
@@ -255,10 +262,10 @@ type HCloudNetworkZone string
 
 // IsZero returns true if a private Network is set.
 func (s *HCloudNetworkSpec) IsZero() bool {
-	if s.CIDRBlock != "" {
+	if s.CIDRBlock != nil {
 		return false
 	}
-	if s.SubnetCIDRBlock != "" {
+	if s.SubnetCIDRBlock != nil {
 		return false
 	}
 	return true

@@ -190,29 +190,33 @@ spec:
                   for Hetzner Cloud. If left empty, no private Network is configured.
                 properties:
                   cidrBlock:
-                    default: 10.0.0.0/16
-                    description: CIDRBlock defines the cidrBlock of the HCloud Network.
-                      If omitted, default "10.0.0.0/16" will be used.
+                    description: |-
+                      CIDRBlock defines the cidrBlock of the HCloud Network.
+                      Defaults to "10.0.0.0/16".
+                      Mutually exclusive with ID.
                     type: string
                   enabled:
                     description: Enabled defines whether the network should be enabled
                       or not.
                     type: boolean
+                  id:
+                    description: |-
+                      ID is the id of the Network to adopt.
+                      Mutually exclusive with CIDRBlock, SubnetCIDRBlock and NetworkZone.
+                    format: int64
+                    type: integer
                   networkZone:
-                    default: eu-central
                     description: |-
                       NetworkZone specifies the HCloud network zone of the private network.
-                      The zones must be one of eu-central, us-east, or us-west. The default is eu-central.
-                    enum:
-                    - eu-central
-                    - us-east
-                    - us-west
-                    - ap-southeast
+                      The zones must be one of eu-central, us-east, or us-west.
+                      Defaults to "eu-central".
+                      Mutually exclusive with ID.
                     type: string
                   subnetCidrBlock:
-                    default: 10.0.0.0/24
                     description: |-
                       SubnetCIDRBlock defines the cidrBlock for the subnet of the HCloud Network.
+                      Defaults to "10.0.0.0/24".
+                      Mutually exclusive with ID.
                       Note: A subnet is required.
                     type: string
                 required:
@@ -466,6 +470,10 @@ spec:
                   id:
                     format: int64
                     type: integer
+                  labels:
+                    additionalProperties:
+                      type: string
+                    type: object
                 type: object
               ready:
                 default: false
