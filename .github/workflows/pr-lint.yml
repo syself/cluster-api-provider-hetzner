@@ -20,7 +20,6 @@ on: # yamllint disable-line rule:truthy
 jobs:
   pr-lint:
     name: "Lint Pull Request"
-    if: github.event_name != 'pull_request_target'
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/syself/caph-builder:1.0.20
