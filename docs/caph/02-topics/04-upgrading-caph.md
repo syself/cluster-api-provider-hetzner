@@ -55,10 +55,10 @@ Checking new release availability...
 Latest release available for the v1beta1 API Version of Cluster API (contract):
 
 NAME                     NAMESPACE                           TYPE                     CURRENT VERSION   NEXT VERSION
-bootstrap-kubeadm        capi-kubeadm-bootstrap-system       BootstrapProvider        v1.6.0            v1.6.3
-control-plane-kubeadm    capi-kubeadm-control-plane-system   ControlPlaneProvider     v1.6.0            v1.6.3
-cluster-api              capi-system                         CoreProvider             v1.6.0            v1.6.3
-infrastructure-hetzner   caph-system                         InfrastructureProvider   v1.0.0-beta.30    Already up to date
+bootstrap-kubeadm        capi-kubeadm-bootstrap-system       BootstrapProvider        v1.8.0            v1.8.4
+control-plane-kubeadm    capi-kubeadm-control-plane-system   ControlPlaneProvider     v1.8.0            v1.8.4
+cluster-api              capi-system                         CoreProvider             v1.8.0            v1.8.4
+infrastructure-hetzner   caph-system                         InfrastructureProvider   v1.0.0            Already up to date
 
 You can now apply the upgrade by executing the following command:
 
@@ -77,7 +77,7 @@ You might be surprised that for `infrastructure-hetzner`, you see the "Already u
 
 ## Upgrade cluster-API
 
-We will upgrade cluster API core components to v1.6.3 version.
+We will upgrade cluster API core components to v1.8.4 version.
 Use the command, which you saw in the plan:
 
 ```shell
@@ -85,15 +85,15 @@ $ clusterctl upgrade apply --contract v1beta1
 Checking cert-manager version...
 Cert-manager is already up to date
 Performing upgrade...
-Scaling down Provider="cluster-api" Version="v1.6.0" Namespace="capi-system"
-Scaling down Provider="bootstrap-kubeadm" Version="v1.6.0" Namespace="capi-kubeadm-bootstrap-system"
-Scaling down Provider="control-plane-kubeadm" Version="v1.6.0" Namespace="capi-kubeadm-control-plane-system"
-Deleting Provider="cluster-api" Version="v1.6.0" Namespace="capi-system"
-Installing Provider="cluster-api" Version="v1.6.3" TargetNamespace="capi-system"
-Deleting Provider="bootstrap-kubeadm" Version="v1.6.0" Namespace="capi-kubeadm-bootstrap-system"
-Installing Provider="bootstrap-kubeadm" Version="v1.6.3" TargetNamespace="capi-kubeadm-bootstrap-system"
-Deleting Provider="control-plane-kubeadm" Version="v1.6.0" Namespace="capi-kubeadm-control-plane-system"
-Installing Provider="control-plane-kubeadm" Version="v1.6.3" TargetNamespace="capi-kubeadm-control-plane-system"
+Scaling down Provider="cluster-api" Version="v1.8.0" Namespace="capi-system"
+Scaling down Provider="bootstrap-kubeadm" Version="v1.8.0" Namespace="capi-kubeadm-bootstrap-system"
+Scaling down Provider="control-plane-kubeadm" Version="v1.8.0" Namespace="capi-kubeadm-control-plane-system"
+Deleting Provider="cluster-api" Version="v1.8.0" Namespace="capi-system"
+Installing Provider="cluster-api" Version="v1.8.4" TargetNamespace="capi-system"
+Deleting Provider="bootstrap-kubeadm" Version="v1.8.0" Namespace="capi-kubeadm-bootstrap-system"
+Installing Provider="bootstrap-kubeadm" Version="v1.8.4" TargetNamespace="capi-kubeadm-bootstrap-system"
+Deleting Provider="control-plane-kubeadm" Version="v1.8.0" Namespace="capi-kubeadm-control-plane-system"
+Installing Provider="control-plane-kubeadm" Version="v1.8.4" TargetNamespace="capi-kubeadm-control-plane-system"
 ```
 
 Great, cluster-API was upgraded.
@@ -108,16 +108,16 @@ If you want to update only one components or update components one by one then t
 
 You can find the latest version of CAPH here:
 
-https://github.com/syself/cluster-api-provider-hetzner/tags
+<https://github.com/syself/cluster-api-provider-hetzner/tags>
 
 ```shell
-$ clusterctl upgrade apply --infrastructure=hetzner:v1.0.0-beta.33
+$ clusterctl upgrade apply --infrastructure=hetzner:v1.0.0
 Checking cert-manager version...
 Cert-manager is already up to date
 Performing upgrade...
 Scaling down Provider="infrastructure-hetzner" Version="" Namespace="caph-system"
 Deleting Provider="infrastructure-hetzner" Version="" Namespace="caph-system"
-Installing Provider="infrastructure-hetzner" Version="v1.0.0-beta.33" TargetNamespace="caph-system"
+Installing Provider="infrastructure-hetzner" Version="v1.0.0" TargetNamespace="caph-system"
 ```
 
 After the upgrade, you'll notice the new pod spinning up the `caph-system` namespace.
@@ -130,7 +130,7 @@ caph-controller-manager-85fcb6ffcb-4sj6d   1/1     Running   0          79s
 
 {% callout %}
 
-Please note that `clusterctl` doesn't support pre-release of GitHub by default so if you want to use a pre-release, you'll have to specify the version such as `hetzner:v1.0.0-beta.33`
+Please note that `clusterctl` doesn't support pre-release of GitHub by default so if you want to use a pre-release, you'll have to specify the version such as `hetzner:v1.0.0`
 
 {% /callout %}
 

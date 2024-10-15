@@ -60,7 +60,7 @@ Waiting for cert-manager to be available...
 Installing Provider="cluster-api" Version="v1.7.1" TargetNamespace="capi-system"
 Installing Provider="bootstrap-kubeadm" Version="v1.7.1" TargetNamespace="capi-kubeadm-bootstrap-system"
 Installing Provider="control-plane-kubeadm" Version="v1.7.1" TargetNamespace="capi-kubeadm-control-plane-system"
-Installing Provider="infrastructure-hetzner" Version="v1.0.0-beta.33" TargetNamespace="caph-system"
+Installing Provider="infrastructure-hetzner" Version="v1.0.0" TargetNamespace="caph-system"
 
 Your management cluster has been initialized successfully!
 
