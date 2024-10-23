@@ -1,5 +1,7 @@
 ---
 title: High availability setup
+metatitle: Setting Up High Availability Cluster Configuration with Cluster API for Hetzner
+sidebar: High availability setup
 description: Implement high availability setup for HA Cluster API Components with clusterctl CLI for enhanced reliability and scalability in Kubernetes.
 ---
 

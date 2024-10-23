@@ -1,5 +1,7 @@
 ---
 title: Updating Kubernetes Version
+metatitle: Check Kubernetes Version in Node Image for Update
+sidebar: Updating Kubernetes Version
 description: Verify Kubernetes version in node-image dependencies and key files to keep your cluster up-to-date and running smoothly. Keep your setup current!
 ---
 

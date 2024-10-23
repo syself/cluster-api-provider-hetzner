@@ -1,5 +1,7 @@
 ---
 title: HetznerBareMetalMachineTemplate
+metatitle: Hetzner Bare Metal Machine Configuration Template for Cluster API
+sidebar: HetznerBareMetalMachineTemplate
 description: Effortlessly define SSH specs, select hosts, and customize images with HetznerBareMetalMachineController to create custom Hetzner Bare Metal machine templates.
 ---
 

@@ -1,5 +1,7 @@
 ---
 title: CSR controller
+metatitle: Managing CSR Controller in Kubernetes Clusters
+sidebar: CSR controller
 description: Explore advanced Certificate Signing Request (CSR) controller topics for efficient management insights.
 ---
 

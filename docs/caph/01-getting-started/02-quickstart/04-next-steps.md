@@ -1,5 +1,7 @@
 ---
 title: Next steps
+metatitle: "Managing CAPH Cluster Components: Installation Steps"
+sidebar: Next steps
 description: Install components with the latest version using clusterctl command, then switch back to the management cluster and move objects into the new cluster easily.
 ---
 

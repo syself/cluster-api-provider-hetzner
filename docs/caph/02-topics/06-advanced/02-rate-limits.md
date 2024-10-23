@@ -1,5 +1,7 @@
 ---
 title: Rate limits
+metatitle: Rate Limits for HCloudMachine Reconciliation Controller
+sidebar: Rate limits
 description: Prevent reconciliation of a specific object for a set time after hitting rate limits during reconciliation to ensure seamless operations for other objects.
 ---
 

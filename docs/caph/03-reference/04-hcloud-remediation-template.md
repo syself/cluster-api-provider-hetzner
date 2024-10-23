@@ -1,5 +1,7 @@
 ---
 title: HCloudRemediationTemplate
+metatitle: "Remediation Strategy Types: Specification and Categories"
+sidebar: HCloudRemediationTemplate
 description: Discover various remediation strategies and learn about different types to enhance your security posture. Explore how to handle security incidents effectively.
 ---
 

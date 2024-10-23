@@ -1,5 +1,7 @@
 ---
 title: Object Reference
+metatitle: Naming Conventions for Servers and Machines
+sidebar: Object Reference
 description: "Automated server controllers: HCloudMachineController creates HCloud servers; HetznerBareMetalMachineController uses Hetzner bare metal hosts for deployments."
 ---
 

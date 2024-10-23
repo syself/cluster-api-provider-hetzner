@@ -1,5 +1,7 @@
 ---
 title: Creating the workload cluster
+metatitle: Configuring Kubernetes Workload Clusters with CAPH Management
+sidebar: Creating the workload cluster
 description: Generate a Kubernetes workload cluster with essential components for a secure deployment, including CNI, CCM, and optional CSI integration.
 ---
 

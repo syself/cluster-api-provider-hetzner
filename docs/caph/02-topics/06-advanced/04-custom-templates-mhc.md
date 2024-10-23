@@ -1,5 +1,7 @@
 ---
 title: Machine Health Checks with Custom Remediation Template
+metatitle: Custom Remediation Template for Machine Health Checks
+sidebar: Machine Health Checks with Custom Remediation Template
 description: Learn how to configure Machine Health Checks and Bare Metal Server Remediation Templates for optimal server performance in your Kubernetes cluster.
 ---
 

@@ -1,5 +1,7 @@
 ---
 title: Introduction
+metatitle: "Cluster API for Hetzner: Compatibility and Quickstart Guide"
+sidebar: Introduction
 description: Hetzner's Cluster API makes setting up Kubernetes clusters easy on cloud or bare-metal. Compatible with CAPI v1.7.x, v1.8.x, and various Kubernetes versions.
 ---
 

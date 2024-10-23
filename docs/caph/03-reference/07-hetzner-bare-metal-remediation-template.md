@@ -1,5 +1,7 @@
 ---
 title: HetznerBareMetalRemediationTemplate
+metatitle: Custom Remediation Methods for Hetzner Bare Metal Machines
+sidebar: HetznerBareMetalRemediationTemplate
 description: Customize the way Hetzner Bare Metal Machines are handled with the remediation template. Define method, retry limit, and more. No URLs in meta description.
 ---
 

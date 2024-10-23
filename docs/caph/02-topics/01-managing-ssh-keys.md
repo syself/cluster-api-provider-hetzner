@@ -1,5 +1,7 @@
 ---
 title: SSH key management
+metatitle: Secure SSH Key Management for Remote Access in Hetzner with Cluster API
+sidebar: SSH key management
 description: Securely access Kubernetes nodes on Hetzner cloud by managing SSH keys in CAPH. Create keys, troubleshoot, and ensure remote communication with ease.
 ---
 

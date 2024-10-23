@@ -1,5 +1,7 @@
 ---
 title: HetznerCluster
+metatitle: "HetznerCluster: Cloud-init & CCM Configurations"
+sidebar: HetznerCluster
 description: Efficiently provision bare metal machines with HetznerCluster using cloud-init, SSH keys, and custom control plane endpoints for seamless cluster management.
 ---
 

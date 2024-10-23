@@ -1,5 +1,7 @@
 ---
 title: Release Process
+metatitle: Efficient CAPH Release Process Steps for Version Tagging
+sidebar: Release Process
 description: Learn how to efficiently manage the release process for Cluster API Provider Hetzner. Follow step-by-step instructions to create and publish tags on GitHub.
 ---
 

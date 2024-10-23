@@ -1,5 +1,7 @@
 ---
 title: Management cluster setup
+metatitle: Cluster API Management Cluster Setup for Hetzner
+sidebar: Management cluster setup
 description: Set up a management cluster with HCloud or Hetzner servers, including projects, credentials, SSH keys, and Kubernetes cluster API components for deployment.
 ---
 

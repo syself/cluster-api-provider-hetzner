@@ -1,5 +1,7 @@
 ---
 title: Creating a workload cluster with baremetal servers
+metatitle: Building Kubernetes Workload Cluster with Bare Metal Servers
+sidebar: Creating a workload cluster with baremetal servers
 description: Effortlessly generate and apply Kubernetes clusters on Hetzner cloud and verify the setup for an efficient workload cluster deployment.
 ---
 

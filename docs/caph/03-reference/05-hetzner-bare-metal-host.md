@@ -1,5 +1,7 @@
 ---
 title: HetznerBareMetalHost
+metatitle: Managing Hetzner Servers Across Multiple Clusters
+sidebar: HetznerBareMetalHost
 description: Explore the versatility of HetznerBareMetalHost object for managing multiple clusters efficiently with unique storage identifiers and maintenance mode options.
 ---
 

@@ -1,5 +1,7 @@
 ---
 title: Annotations
+metatitle: Constant Hostname Configuration in Cluster API Provider Hetzner
+sidebar: Annotations
 description: Optimize resource cluster management with constant bare-metal hostname annotations in Cluster-API and HetznerBareMetalMachine. Elevate configuration efficiency!
 ---
 

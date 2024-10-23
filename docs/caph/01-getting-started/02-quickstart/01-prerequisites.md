@@ -1,5 +1,7 @@
 ---
 title: Prerequisites
+metatitle: Understanding the Cluster API for Hetzner Cluster Creation
+sidebar: Prerequisites
 description: Simplify provisioning, upgrading, and operating Kubernetes clusters on Hetzner infrastructure with Cluster API for a production-ready setup.
 ---
 

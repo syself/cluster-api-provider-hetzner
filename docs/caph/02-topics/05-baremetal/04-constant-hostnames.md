@@ -1,5 +1,7 @@
 ---
 title: Using constant hostnames
+metatitle: Enable Fixed Hostnames for Bare Metal Servers in Hetzner Clusters
+sidebar: Using constant hostnames
 description: Utilize fixed node names for bare metal servers with storage integrations in your cloud server cluster configuration for seamless operations.
 ---
 

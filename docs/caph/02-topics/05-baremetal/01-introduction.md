@@ -1,5 +1,7 @@
 ---
 title: Hetzner baremetal
+metatitle: "Using Bare Metal Servers with Hetzner: Cluster API Configuration"
+sidebar: Hetzner baremetal
 description: Explore creating a Hetzner bare metal cluster with custom remediation options for control planes and worker nodes.
 ---
 

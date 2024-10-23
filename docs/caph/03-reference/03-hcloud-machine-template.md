@@ -1,5 +1,7 @@
 ---
 title: HCloudMachineTemplate
+metatitle: HCloudMachineController for Hetzner Cloud Servers Setup
+sidebar: HCloudMachineTemplate
 description: Effortlessly manage HCloudMachines with HCloudMachineController. Set SSH keys, specify placement group, and configure IPv4/IPv6 settings seamlessly.
 ---
 

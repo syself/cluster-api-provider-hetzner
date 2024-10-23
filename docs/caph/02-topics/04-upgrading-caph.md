@@ -1,5 +1,7 @@
 ---
 title: Upgrading the Kubernetes Cluster API Provider Hetzner
+metatitle: Upgrade Process for Kubernetes in Hetzner with CAPH
+sidebar: Upgrading the Kubernetes Cluster API Provider Hetzner
 description: Upgrade CAPH smoothly with clusterctl. Check, apply upgrade, monitor pods post-upgrade for seamless operati
 ---
 
