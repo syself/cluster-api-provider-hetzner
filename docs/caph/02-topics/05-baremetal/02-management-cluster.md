@@ -1,5 +1,6 @@
 ---
 title: Management cluster setup for baremetal
+description: Learn how to manage a Hetzner BareMetal server in your Kubernetes cluster efficiently without compromising control over the physical infrastructure.
 ---
 
 ## Creating a bootstrap cluster

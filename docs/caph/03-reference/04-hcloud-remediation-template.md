@@ -1,5 +1,6 @@
 ---
 title: HCloudRemediationTemplate
+description: Discover various remediation strategies and learn about different types to enhance your security posture. Explore how to handle security incidents effectively.
 ---
 
 ### Overview of HCloudMachineTemplate.Spec

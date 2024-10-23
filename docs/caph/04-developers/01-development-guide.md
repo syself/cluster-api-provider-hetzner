@@ -1,5 +1,6 @@
 ---
 title: Developing Cluster API Provider Hetzner
+description: Learn how to streamline Hetzner project development with clusterctl, helm, and kind. Use Tilt for a faster workflow and manage resources efficiently.
 ---
 
 Developing our provider is quite easy. Please follow the steps mentioned below:

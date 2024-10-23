@@ -1,5 +1,6 @@
 ---
 title: SSH key management
+description: Securely access Kubernetes nodes on Hetzner cloud by managing SSH keys in CAPH. Create keys, troubleshoot, and ensure remote communication with ease.
 ---
 
 This section provides details about SSH keys and its importance with regards to CAPH.

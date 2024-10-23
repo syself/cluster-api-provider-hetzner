@@ -1,5 +1,6 @@
 ---
 title: HetznerBareMetalHost
+description: Explore the versatility of HetznerBareMetalHost object for managing multiple clusters efficiently with unique storage identifiers and maintenance mode options.
 ---
 
 The `HetznerBareMetalHost` object has a one-to-one relationship to a Hetzner dedicated server. Its ID is specified in the specs. The host object does not belong to a certain `HetznerCluster`, but can be used by multiple clusters. This is useful, as one host object per server is enough and you can easily see whether a host is used by one of your clusters or not.

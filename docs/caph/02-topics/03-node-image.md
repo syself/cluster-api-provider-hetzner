@@ -1,5 +1,6 @@
 ---
 title: Node Images
+description: Build custom Node Images for CAPH using Packer on Hetzner Cloud. Create, configure, and snapshot servers with all necessary components for Kubernetes.
 ---
 
 ## What are node-images?

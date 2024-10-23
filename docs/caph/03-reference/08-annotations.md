@@ -1,7 +1,6 @@
 ---
-
 title: Annotations
-
+description: Optimize resource cluster management with constant bare-metal hostname annotations in Cluster-API and HetznerBareMetalMachine. Elevate configuration efficiency!
 ---
 
 You can set [Kubernetes Annotations](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/) to instruct the Syself CAPH Controller to modify its behavior.

@@ -1,5 +1,6 @@
 ---
 title: Reference of Tilt
+description: Manage CAPI clusters efficiently with Tilt. Boost productivity with Hetzner integration. Develop seamlessly.
 ---
 
 ```

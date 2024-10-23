@@ -1,5 +1,6 @@
 ---
 title: HetznerCluster
+description: Efficiently provision bare metal machines with HetznerCluster using cloud-init, SSH keys, and custom control plane endpoints for seamless cluster management.
 ---
 
 In HetznerCluster you can define everything related to the general components of the cluster as well as those properties, which are valid cluster-wide.

@@ -1,5 +1,6 @@
 ---
 title: CSR controller
+description: Explore advanced Certificate Signing Request (CSR) controller topics for efficient management insights.
 ---
 
 For the secure operation of Kubernetes, it is necessary to sign the kubelet serving certificates. By default, these are self-signed by kubeadm. By using the kubelet flag `rotate-server-certificates: "true"`, which can be found in initConfiguration/joinConfiguration.nodeRegistration.kubeletExtraArgs, the kubelet will do a certificate signing request (CSR) to the certificates API of Kubernetes.

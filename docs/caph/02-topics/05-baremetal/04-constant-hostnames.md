@@ -1,5 +1,6 @@
 ---
 title: Using constant hostnames
+description: Utilize fixed node names for bare metal servers with storage integrations in your cloud server cluster configuration for seamless operations.
 ---
 
 ## Constant hostnames for baremetal servers

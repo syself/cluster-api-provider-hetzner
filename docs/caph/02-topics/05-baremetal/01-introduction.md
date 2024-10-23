@@ -1,5 +1,6 @@
 ---
 title: Hetzner baremetal
+description: Explore creating a Hetzner bare metal cluster with custom remediation options for control planes and worker nodes.
 ---
 
 Hetzner have two offerings primarily:

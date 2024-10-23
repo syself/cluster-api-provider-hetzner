@@ -1,5 +1,6 @@
 ---
 title: Management cluster setup
+description: Set up a management cluster with HCloud or Hetzner servers, including projects, credentials, SSH keys, and Kubernetes cluster API components for deployment.
 ---
 
 You have two options: either create a pure HCloud cluster or a hybrid cluster with Hetzner dedicated (bare metal) servers. For a full list of flavors, please check out the [release page](https://github.com/syself/cluster-api-provider-hetzner/releases). In the quickstart guide, we will go with the cluster creation on a pure Hetzner Cloud server.
