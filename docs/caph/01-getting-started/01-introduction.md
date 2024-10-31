@@ -1,8 +1,8 @@
 ---
 title: Introduction
-metatitle: "Cluster API for Hetzner: Compatibility and Quickstart Guide"
+metatitle: "What is the Cluster API Provider Hetzner and Compatible Versions"
 sidebar: Introduction
-description: Hetzner's Cluster API makes setting up Kubernetes clusters easy on cloud or bare-metal. Compatible with CAPI v1.7.x, v1.8.x, and various Kubernetes versions.
+description: Cluster API Provider Hetzner automates the lifecycle and provisioning of Kubernetes clusters on cloud or bare metal.
 ---
 
 Welcome to the official documentation for the Cluster API Provider Hetzner (CAPH). If you are new to it, you can keep reading the Getting Started section, the Quickstart guide will walk you through your first cluster setup.

@@ -1,8 +1,8 @@
 ---
 title: Updating Kubernetes Version
-metatitle: Check Kubernetes Version in Node Image for Update
+metatitle: Checklist For Kubernetes Version Update in CAPH Development
 sidebar: Updating Kubernetes Version
-description: Verify Kubernetes version in node-image dependencies and key files to keep your cluster up-to-date and running smoothly. Keep your setup current!
+description: All the steps needed when adding a new supported Kubernetes version to CAPH.
 ---
 
 Please check the kubernetes version in the following files:

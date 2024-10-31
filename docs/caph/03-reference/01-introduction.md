@@ -1,8 +1,8 @@
 ---
 title: Object Reference
-metatitle: Naming Conventions for Servers and Machines
+metatitle: Naming Conventions for Custom Resources
 sidebar: Object Reference
-description: "Automated server controllers: HCloudMachineController creates HCloud servers; HetznerBareMetalMachineController uses Hetzner bare metal hosts for deployments."
+description: "Overview of the naming conventions of objects specific to the CAPH integration."
 ---
 
 In this object reference, we introduce all objects that are specific for this provider integration. The naming of objects, servers, machines, etc. can be confusing. Without claiming to be consistent throughout these docs, we would like to give an overview of how we name things here.

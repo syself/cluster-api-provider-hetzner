@@ -1,8 +1,8 @@
 ---
 title: Hetzner baremetal
-metatitle: "Using Bare Metal Servers with Hetzner: Cluster API Configuration"
-sidebar: Hetzner baremetal
-description: Explore creating a Hetzner bare metal cluster with custom remediation options for control planes and worker nodes.
+metatitle: "Introduction to Using Hetzner Bare Metal Servers as Nodes with CAPH"
+sidebar: Hetzner bare metal
+description: Explanation of the Hetzner offerings, and the available cluster flavors with bare metal servers.
 ---
 
 Hetzner have two offerings primarily:
@@ -12,7 +12,7 @@ Hetzner have two offerings primarily:
 
 In this guide, we will focus on creating a cluster from baremetal servers.
 
-## Flavors of Hetzner Baremetal
+## Flavors of Hetzner Bare Metal
 
 Now, there are different ways you can use baremetal servers, you can use them as controlplanes or as worker nodes or both. Based on that we have created some templates and those templates are released as flavors in GitHub releases.
 

@@ -1,8 +1,8 @@
 ---
 title: Creating the workload cluster
-metatitle: Configuring Kubernetes Workload Clusters with CAPH Management
+metatitle: Creating Workload Clusters on Hetzner
 sidebar: Creating the workload cluster
-description: Generate a Kubernetes workload cluster with essential components for a secure deployment, including CNI, CCM, and optional CSI integration.
+description: Provision a Kubernetes workload cluster with essential components for a secure deployment, including CNI, CCM, and optional CSI integration.
 ---
 
 ## Generating the cluster.yaml

@@ -1,8 +1,8 @@
 ---
-title: Management cluster setup for baremetal
-metatitle: Baremetal Cluster Setup Using Cluster API Management Infrastructure for Hetzner
+title: Management cluster setup for bare metal
+metatitle: Configure Your Management Cluster for Handling Hetzner Bare Metal Servers
 sidebar: Management cluster setup for baremetal
-description: Learn how to manage a Hetzner BareMetal server in your Kubernetes cluster efficiently without compromising control over the physical infrastructure.
+description: Learn how to provision a management cluster ready to manage bare metal servers.
 ---
 
 ## Creating a bootstrap cluster

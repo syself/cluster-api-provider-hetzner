@@ -1,8 +1,8 @@
 ---
-title: Creating a workload cluster with baremetal servers
-metatitle: Building Kubernetes Workload Cluster with Bare Metal Servers
-sidebar: Creating a workload cluster with baremetal servers
-description: Effortlessly generate and apply Kubernetes clusters on Hetzner cloud and verify the setup for an efficient workload cluster deployment.
+title: Creating a workload cluster with bare metal servers
+metatitle: Provisioning a Kubernetes Workload Cluster with Bare Metal Servers
+sidebar: Creating a workload cluster with bare metal servers
+description: Create workload clusters on Hetzner using bare metal servers as nodes in an automated way, using CAPI custom resources.
 ---
 
 ## Creating Workload Cluster

@@ -1,8 +1,8 @@
 ---
 title: HetznerBareMetalMachineTemplate
-metatitle: Hetzner Bare Metal Machine Configuration Template for Cluster API
+metatitle: HetznerBareMetalMachineTemplate Object Reference
 sidebar: HetznerBareMetalMachineTemplate
-description: Effortlessly define SSH specs, select hosts, and customize images with HetznerBareMetalMachineController to create custom Hetzner Bare Metal machine templates.
+description: In HetznerBareMetalMachineTemplate you can define all important properties for the HetznerBareMetalMachines.
 ---
 
 In `HetznerBareMetalMachineTemplate` you can define all important properties for the `HetznerBareMetalMachines`. `HetznerBareMetalMachines` are reconciled by the `HetznerBareMetalMachineController`, which DOES NOT create or delete Hetzner dedicated machines. Instead, it uses the inventory of `HetznerBareMetalHosts`. These hosts correspond to already existing bare metal servers, which get provisioned when selected by a `HetznerBareMetalMachine`.

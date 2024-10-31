@@ -1,8 +1,8 @@
 ---
 title: HCloudMachineTemplate
-metatitle: HCloudMachineController for Hetzner Cloud Servers Setup
+metatitle: HCloudMachineController Object Reference
 sidebar: HCloudMachineTemplate
-description: Effortlessly manage HCloudMachines with HCloudMachineController. Set SSH keys, specify placement group, and configure IPv4/IPv6 settings seamlessly.
+description: In HCloudMachineTemplate you can define all important properties for HCloudMachines, which are reconciled by the `HCloudMachineController`, responsible for creating and deleting servers in Hetzner Cloud.
 ---
 
 In `HCloudMachineTemplate` you can define all important properties for `HCloudMachines`. `HCloudMachines` are reconciled by the `HCloudMachineController`, which creates and deletes servers in Hetzner Cloud.

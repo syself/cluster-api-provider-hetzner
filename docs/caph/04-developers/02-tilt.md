@@ -1,8 +1,8 @@
 ---
 title: Reference of Tilt
-metatitle: "CAPH Integration: Tilt Configurations and Setup Reference"
+metatitle: "Reference For Available Tilt Configuration Options"
 sidebar: Reference of Tilt
-description: Manage CAPI clusters efficiently with Tilt. Boost productivity with Hetzner integration. Develop seamlessly.
+description: Full list of available Tilt configuration values and their description.
 ---
 
 ```

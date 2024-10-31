@@ -1,8 +1,8 @@
 ---
 title: HCloudRemediationTemplate
-metatitle: "Remediation Strategy Types: Specification and Categories"
+metatitle: "RemediationStrategyTypes Object Reference"
 sidebar: HCloudRemediationTemplate
-description: Discover various remediation strategies and learn about different types to enhance your security posture. Explore how to handle security incidents effectively.
+description: RemediationStrategyTypes define remediation strategy, timeouts and retries.
 ---
 
 ### Overview of HCloudMachineTemplate.Spec
