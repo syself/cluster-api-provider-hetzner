@@ -9,9 +9,9 @@ In `HetznerBareMetalRemediationTemplate` you can define all important properties
 
 ## Overview of HetznerBareMetalRemediationTemplate.Spec
 
-| Key                                 | Type     | Default   | Required | Description                                                                 |
-| ----------------------------------- | -------- | --------- | -------- | --------------------------------------------------------------------------- |
-| `template.spec.strategy`            | `object` |           | yes      | Remediation strategy to be applied                                          |
-| `template.spec.strategy.type`       | `string` | `Reboot`  | no       | Type of the remediation strategy. At the moment, only "Reboot" is supported |
-| `template.spec.strategy.retryLimit` | `int`    | `0`       | no       | Set maximum of remediation retries. Zero retries if not set.                |
-| `template.spec.strategy.timeout`    | `string` |           | yes      | Timeout of one remediation try. Should be of the form "10m", or "40s"       |
+| Key                                 | Type     | Default  | Required | Description                                                                 |
+| ----------------------------------- | -------- | -------- | -------- | --------------------------------------------------------------------------- |
+| `template.spec.strategy`            | `object` |          | yes      | Remediation strategy to be applied                                          |
+| `template.spec.strategy.type`       | `string` | `Reboot` | no       | Type of the remediation strategy. At the moment, only "Reboot" is supported |
+| `template.spec.strategy.retryLimit` | `int`    | `0`      | no       | Set maximum of remediation retries. Zero retries if not set.                |
+| `template.spec.strategy.timeout`    | `string` |          | yes      | Timeout of one remediation try. Should be of the form "10m", or "40s"       |

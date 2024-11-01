@@ -1,6 +1,6 @@
 ---
-title: Hetzner baremetal
-metatitle: "Introduction to Using Hetzner Bare Metal Servers as Nodes with CAPH"
+title: Hetzner bare metal
+metatitle: Introduction to Using Hetzner Bare Metal Servers as Nodes with CAPH
 sidebar: Hetzner bare metal
 description: Explanation of the Hetzner offerings, and the available cluster flavors with bare metal servers.
 ---

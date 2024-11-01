@@ -123,15 +123,15 @@ spec:
   template:
     spec:
       containers:
-      - command:
-        - /manager
-        image: ghcr.io/syself/caph:vXXX
-        env:
-          - name: OCI_REGISTRY_AUTH_TOKEN
-            valueFrom:
-              secretKeyRef:
-                name: my-oci-registry-secret    # The name of the secret
-                key: OCI_REGISTRY_AUTH_TOKEN    # The key in the secret. Format: "user:pwd" or just "token"
+        - command:
+            - /manager
+          image: ghcr.io/syself/caph:vXXX
+          env:
+            - name: OCI_REGISTRY_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: my-oci-registry-secret # The name of the secret
+                  key: OCI_REGISTRY_AUTH_TOKEN # The key in the secret. Format: "user:pwd" or just "token"
       # ... other container specs
 ```
 

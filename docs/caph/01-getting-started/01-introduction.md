@@ -1,6 +1,6 @@
 ---
 title: Introduction
-metatitle: "What is the Cluster API Provider Hetzner and Compatible Versions"
+metatitle: What is the Cluster API Provider Hetzner and Compatible Versions
 sidebar: Introduction
 description: Cluster API Provider Hetzner automates the lifecycle and provisioning of Kubernetes clusters on cloud or bare metal.
 ---
@@ -26,14 +26,14 @@ This provider's versions can install and manage the following versions of Kubern
 
 |                   | Hetzner Provider `v1.0.x` |
 | ----------------- | ------------------------- |
-| Kubernetes 1.23.x | ✅                       |
-| Kubernetes 1.24.x | ✅                       |
-| Kubernetes 1.25.x | ✅                       |
-| Kubernetes 1.26.x | ✅                       |
-| Kubernetes 1.27.x | ✅                       |
-| Kubernetes 1.28.x | ✅                       |
-| Kubernetes 1.29.x | ✅                       |
-| Kubernetes 1.30.x | ✅                       |
+| Kubernetes 1.23.x | ✅                        |
+| Kubernetes 1.24.x | ✅                        |
+| Kubernetes 1.25.x | ✅                        |
+| Kubernetes 1.26.x | ✅                        |
+| Kubernetes 1.27.x | ✅                        |
+| Kubernetes 1.28.x | ✅                        |
+| Kubernetes 1.29.x | ✅                        |
+| Kubernetes 1.30.x | ✅                        |
 
 Test status:
 

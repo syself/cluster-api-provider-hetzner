@@ -1,7 +1,7 @@
 ---
 title: Management cluster setup for bare metal
 metatitle: Configure Your Management Cluster for Handling Hetzner Bare Metal Servers
-sidebar: Management cluster setup for baremetal
+sidebar: Management cluster setup for bare metal
 description: Learn how to provision a management cluster ready to manage bare metal servers.
 ---
 
