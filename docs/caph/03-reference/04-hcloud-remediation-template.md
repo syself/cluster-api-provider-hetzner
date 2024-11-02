@@ -5,7 +5,7 @@ sidebar: HCloudRemediationTemplate
 description: RemediationStrategyTypes define remediation strategy, timeouts and retries.
 ---
 
-### Overview of HCloudMachineTemplate.Spec
+## Overview of HCloudMachineTemplate.Spec
 
 | Key                                 | Type      | Default | Required | Description                                                                                     |
 | ----------------------------------- | --------- | ------- | -------- | ----------------------------------------------------------------------------------------------- |

@@ -7,7 +7,7 @@ description: In HCloudMachineTemplate you can define all important properties fo
 
 In `HCloudMachineTemplate` you can define all important properties for `HCloudMachines`. `HCloudMachines` are reconciled by the `HCloudMachineController`, which creates and deletes servers in Hetzner Cloud.
 
-### Overview of HCloudMachineTemplate.Spec
+## Overview of HCloudMachineTemplate.Spec
 
 | Key                                        | Type       | Default                                 | Required | Description                                                                                                                                                                                                                                |
 | ------------------------------------------ | ---------- | --------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
