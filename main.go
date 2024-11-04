@@ -15,6 +15,7 @@ limitations under the License.
 */
 
 // Package main contains main function to start CAPH.
+// dummy comment to test the linter.
 package main
 
 import (
