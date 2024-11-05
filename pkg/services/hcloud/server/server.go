@@ -157,6 +157,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 			infrav1.ServerAvailableCondition,
 			infrav1.NetworkAttachFailedReason,
 			clusterv1.ConditionSeverityError,
+			"%s",
 			reterr.Error(),
 		)
 		return res, reterr
@@ -178,6 +179,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 			infrav1.ServerAvailableCondition,
 			infrav1.LoadBalancerAttachFailedReason,
 			clusterv1.ConditionSeverityError,
+			"%s",
 			reterr.Error(),
 		)
 		return res, reterr
@@ -445,6 +447,7 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 			infrav1.ServerCreateSucceededCondition,
 			infrav1.SSHKeyNotFoundReason,
 			clusterv1.ConditionSeverityError,
+			"%s",
 			err.Error(),
 		)
 		return nil, errServerCreateNotPossible
@@ -475,6 +478,7 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 			infrav1.ServerCreateSucceededCondition,
 			infrav1.ServerCreateFailedReason,
 			clusterv1.ConditionSeverityWarning,
+			"%s",
 			err.Error(),
 		)
 		record.Warnf(s.scope.HCloudMachine,
@@ -547,6 +551,7 @@ func (s *Service) getServerImage(ctx context.Context) (*hcloud.Image, error) {
 			infrav1.ServerCreateSucceededCondition,
 			infrav1.ImageAmbiguousReason,
 			clusterv1.ConditionSeverityError,
+			"%s",
 			err.Error(),
 		)
 		return nil, errServerCreateNotPossible
@@ -558,6 +563,7 @@ func (s *Service) getServerImage(ctx context.Context) (*hcloud.Image, error) {
 			infrav1.ServerCreateSucceededCondition,
 			infrav1.ImageNotFoundReason,
 			clusterv1.ConditionSeverityError,
+			"%s",
 			err.Error(),
 		)
 		return nil, errServerCreateNotPossible

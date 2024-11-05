@@ -172,7 +172,15 @@ func (hsm *hostStateMachine) updateOSSSHStatusAndValidateKey(osSSHSecret *corev1
 	}
 	if err := validateSSHKey(osSSHSecret, hsm.host.Spec.Status.SSHSpec.SecretRef); err != nil {
 		msg := fmt.Sprintf("ssh credentials are invalid: %s", err.Error())
-		conditions.MarkFalse(hsm.host, infrav1.CredentialsAvailableCondition, infrav1.SSHCredentialsInSecretInvalidReason, clusterv1.ConditionSeverityError, msg)
+		conditions.MarkFalse(
+			hsm.host,
+			infrav1.CredentialsAvailableCondition,
+			infrav1.SSHCredentialsInSecretInvalidReason,
+			clusterv1.ConditionSeverityError,
+			"%s",
+			msg,
+		)
+
 		record.Warnf(hsm.host, infrav1.SSHKeyAlreadyExistsReason, msg)
 		return hsm.reconciler.recordActionFailure(infrav1.PreparationError, infrav1.ErrorMessageMissingOrInvalidSecretData)
 	}
@@ -202,7 +210,14 @@ func (hsm *hostStateMachine) updateRescueSSHStatusAndValidateKey(rescueSSHSecret
 	}
 	if err := validateSSHKey(rescueSSHSecret, hsm.reconciler.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef); err != nil {
 		msg := fmt.Sprintf("ssh credentials for rescue system are invalid: %s", err.Error())
-		conditions.MarkFalse(hsm.host, infrav1.CredentialsAvailableCondition, infrav1.SSHCredentialsInSecretInvalidReason, clusterv1.ConditionSeverityError, msg)
+		conditions.MarkFalse(
+			hsm.host,
+			infrav1.CredentialsAvailableCondition,
+			infrav1.SSHCredentialsInSecretInvalidReason,
+			clusterv1.ConditionSeverityError,
+			"%s",
+			msg,
+		)
 		return hsm.reconciler.recordActionFailure(infrav1.PreparationError, infrav1.ErrorMessageMissingOrInvalidSecretData)
 	}
 	return nil

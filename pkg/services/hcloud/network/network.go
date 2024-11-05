@@ -62,6 +62,7 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 				infrav1.NetworkReadyCondition,
 				infrav1.NetworkReconcileFailedReason,
 				clusterv1.ConditionSeverityWarning,
+				"%s",
 				err.Error(),
 			)
 		}

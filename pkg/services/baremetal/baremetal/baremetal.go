@@ -215,7 +215,14 @@ func (s *Service) update(ctx context.Context) error {
 		if readyCondition.Status == corev1.ConditionTrue {
 			conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.HostReadyCondition)
 		} else if readyCondition.Status == corev1.ConditionFalse {
-			conditions.MarkFalse(s.scope.BareMetalMachine, infrav1.HostReadyCondition, readyCondition.Reason, readyCondition.Severity, readyCondition.Message)
+			conditions.MarkFalse(
+				s.scope.BareMetalMachine,
+				infrav1.HostReadyCondition,
+				readyCondition.Reason,
+				readyCondition.Severity,
+				"%s",
+				readyCondition.Message,
+			)
 		}
 	}
 
@@ -297,6 +304,7 @@ func (s *Service) associate(ctx context.Context) error {
 			infrav1.HostAssociateSucceededCondition,
 			infrav1.NoAvailableHostReason,
 			clusterv1.ConditionSeverityWarning,
+			"%s",
 			fmt.Sprintf("no available host (%s)", reason),
 		)
 		return &scope.RequeueAfterError{RequeueAfter: requeueAfter}
@@ -318,6 +326,7 @@ func (s *Service) associate(ctx context.Context) error {
 			infrav1.HostAssociateSucceededCondition,
 			infrav1.HostAssociateFailedReason,
 			clusterv1.ConditionSeverityWarning,
+			"%s",
 			reterr.Error(),
 		)
 		return reterr

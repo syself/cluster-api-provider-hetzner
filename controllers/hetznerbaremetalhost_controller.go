@@ -274,6 +274,7 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 					infrav1.CredentialsAvailableCondition,
 					infrav1.OSSSHSecretMissingReason,
 					clusterv1.ConditionSeverityError,
+					"%s",
 					msg,
 				)
 				record.Warnf(bmHost, infrav1.OSSSHSecretMissingReason, msg)

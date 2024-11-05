@@ -1283,8 +1283,8 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 			t.Fatalf("Wrong value for Host set. Got: %s, Want: %s", hetznerCluster.Spec.ControlPlaneEndpoint.Host, hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4)
 		}
 
-		if hetznerCluster.Spec.ControlPlaneEndpoint.Port != int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port) {
-			t.Fatalf("Wrong value for Port set. Got: %d, Want: %d", hetznerCluster.Spec.ControlPlaneEndpoint.Port, int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port))
+		if hetznerCluster.Spec.ControlPlaneEndpoint.Port != int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port) { //nolint:gosec // Validation for the port range (1 to 65535) is already done via kubebuilder.
+			t.Fatalf("Wrong value for Port set. Got: %d, Want: %d", hetznerCluster.Spec.ControlPlaneEndpoint.Port, int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port)) //nolint:gosec // Validation for the port range (1 to 65535) is already done via kubebuilder.
 		}
 
 		if hetznerCluster.Status.Ready != true {
@@ -1317,8 +1317,8 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 			t.Fatalf("Wrong value for Host set. Got: %s, Want: %s", hetznerCluster.Spec.ControlPlaneEndpoint.Host, hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4)
 		}
 
-		if hetznerCluster.Spec.ControlPlaneEndpoint.Port != int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port) {
-			t.Fatalf("Wrong value for Port set. Got: %d, Want: %d", hetznerCluster.Spec.ControlPlaneEndpoint.Port, int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port))
+		if hetznerCluster.Spec.ControlPlaneEndpoint.Port != int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port) { //nolint:gosec // Validation for the port range (1 to 65535) is already done via kubebuilder.
+			t.Fatalf("Wrong value for Port set. Got: %d, Want: %d", hetznerCluster.Spec.ControlPlaneEndpoint.Port, int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port)) //nolint:gosec // Validation for the port range (1 to 65535) is already done via kubebuilder.
 		}
 
 		if hetznerCluster.Status.Ready != true {
@@ -1351,8 +1351,8 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 			t.Fatalf("Wrong value for Host set. Got: %s, Want: 'xyz'", hetznerCluster.Spec.ControlPlaneEndpoint.Host)
 		}
 
-		if hetznerCluster.Spec.ControlPlaneEndpoint.Port != int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port) {
-			t.Fatalf("Wrong value for Port set. Got: %d, Want: %d", hetznerCluster.Spec.ControlPlaneEndpoint.Port, int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port))
+		if hetznerCluster.Spec.ControlPlaneEndpoint.Port != int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port) { //nolint:gosec // Validation for the port range (1 to 65535) is already done via kubebuilder.
+			t.Fatalf("Wrong value for Port set. Got: %d, Want: %d", hetznerCluster.Spec.ControlPlaneEndpoint.Port, int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port)) //nolint:gosec // Validation for the port range (1 to 65535) is already done via kubebuilder.
 		}
 
 		if hetznerCluster.Status.Ready != true {
