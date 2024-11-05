@@ -78,6 +78,7 @@ func HandleRateLimitExceeded(obj runtimeObjectWithConditions, err error, functio
 			infrav1.HetznerAPIReachableCondition,
 			infrav1.RateLimitExceededReason,
 			clusterv1.ConditionSeverityWarning,
+			"%s",
 			msg,
 		)
 		record.Warnf(obj, "RateLimitExceeded", msg)

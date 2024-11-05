@@ -94,6 +94,7 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 			infrav1.LoadBalancerReadyCondition,
 			infrav1.LoadBalancerUpdateFailedReason,
 			clusterv1.ConditionSeverityWarning,
+			"%s",
 			err.Error(),
 		)
 		return reconcile.Result{}, fmt.Errorf("failed to reconcile load balancer properties: %w", err)
@@ -109,6 +110,7 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 			infrav1.LoadBalancerReadyCondition,
 			infrav1.LoadBalancerServiceSyncFailedReason,
 			clusterv1.ConditionSeverityWarning,
+			"%s",
 			err.Error(),
 		)
 		return reconcile.Result{}, fmt.Errorf("failed to reconcile services: %w", err)
@@ -137,6 +139,7 @@ func (s *Service) reconcileNetworkAttachement(ctx context.Context, lb *hcloud.Lo
 			infrav1.LoadBalancerReadyCondition,
 			infrav1.NetworkAttachFailedReason,
 			clusterv1.ConditionSeverityWarning,
+			"%s",
 			err.Error(),
 		)
 
@@ -165,6 +168,7 @@ func (s *Service) reconcileNetworkAttachement(ctx context.Context, lb *hcloud.Lo
 			infrav1.LoadBalancerReadyCondition,
 			infrav1.NetworkAttachFailedReason,
 			clusterv1.ConditionSeverityError,
+			"%s",
 			err.Error(),
 		)
 		return err
@@ -293,6 +297,7 @@ func (s *Service) createLoadBalancer(ctx context.Context) (*hcloud.LoadBalancer,
 			infrav1.LoadBalancerReadyCondition,
 			infrav1.LoadBalancerCreateFailedReason,
 			clusterv1.ConditionSeverityError,
+			"%s",
 			err.Error(),
 		)
 		record.Warnf(s.scope.HetznerCluster, "FailedCreateLoadBalancer", err.Error())
@@ -370,6 +375,7 @@ func (s *Service) Delete(ctx context.Context) (err error) {
 				infrav1.LoadBalancerReadyCondition,
 				infrav1.LoadBalancerUpdateFailedReason,
 				clusterv1.ConditionSeverityWarning,
+				"%s",
 				err.Error(),
 			)
 			return err
@@ -394,6 +400,7 @@ func (s *Service) Delete(ctx context.Context) (err error) {
 			infrav1.LoadBalancerReadyCondition,
 			infrav1.LoadBalancerDeleteFailedReason,
 			clusterv1.ConditionSeverityWarning,
+			"%s",
 			err.Error(),
 		)
 		return err
@@ -448,6 +455,7 @@ func (s *Service) ownExistingLoadBalancer(ctx context.Context) (*hcloud.LoadBala
 			infrav1.LoadBalancerReadyCondition,
 			infrav1.LoadBalancerFailedToOwnReason,
 			clusterv1.ConditionSeverityError,
+			"%s",
 			fmt.Sprintf("load balancer %q not found", name),
 		)
 		return nil, ErrNoLoadBalancerAvailable
@@ -462,6 +470,7 @@ func (s *Service) ownExistingLoadBalancer(ctx context.Context) (*hcloud.LoadBala
 				infrav1.LoadBalancerReadyCondition,
 				infrav1.LoadBalancerFailedToOwnReason,
 				clusterv1.ConditionSeverityError,
+				"%s",
 				fmt.Sprintf("load balancer %q already owned with label %q", name, label),
 			)
 			return nil, ErrNoLoadBalancerAvailable
@@ -485,6 +494,7 @@ func (s *Service) ownExistingLoadBalancer(ctx context.Context) (*hcloud.LoadBala
 			infrav1.LoadBalancerReadyCondition,
 			infrav1.LoadBalancerFailedToOwnReason,
 			clusterv1.ConditionSeverityError,
+			"%s",
 			err.Error(),
 		)
 		return nil, err

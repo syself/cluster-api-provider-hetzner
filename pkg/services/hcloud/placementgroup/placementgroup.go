@@ -55,6 +55,7 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 				infrav1.PlacementGroupsSyncedCondition,
 				infrav1.PlacementGroupsSyncFailedReason,
 				clusterv1.ConditionSeverityWarning,
+				"%s",
 				err.Error(),
 			)
 		}

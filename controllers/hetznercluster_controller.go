@@ -234,6 +234,7 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 			infrav1.TargetClusterSecretReadyCondition,
 			infrav1.TargetSecretSyncFailedReason,
 			clusterv1.ConditionSeverityError,
+			"%s",
 			reterr.Error(),
 		)
 		return reconcile.Result{}, reterr
@@ -252,7 +253,7 @@ func processControlPlaneEndpoint(hetznerCluster *infrav1.HetznerCluster) {
 	if hetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
 		if hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4 != "<nil>" {
 			defaultHost := hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4
-			defaultPort := int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port)
+			defaultPort := int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port) //nolint:gosec // Validation for the port range (1 to 65535) is already done via kubebuilder.
 
 			if hetznerCluster.Spec.ControlPlaneEndpoint == nil {
 				hetznerCluster.Spec.ControlPlaneEndpoint = &clusterv1.APIEndpoint{
@@ -270,7 +271,7 @@ func processControlPlaneEndpoint(hetznerCluster *infrav1.HetznerCluster) {
 			conditions.MarkTrue(hetznerCluster, infrav1.ControlPlaneEndpointSetCondition)
 			hetznerCluster.Status.Ready = true
 		} else {
-			msg := "enabled LoadBalancer but load balancer not ready yet"
+			const msg = "enabled LoadBalancer but load balancer not ready yet"
 			conditions.MarkFalse(hetznerCluster,
 				infrav1.ControlPlaneEndpointSetCondition,
 				infrav1.ControlPlaneEndpointNotSetReason,
@@ -283,7 +284,7 @@ func processControlPlaneEndpoint(hetznerCluster *infrav1.HetznerCluster) {
 			conditions.MarkTrue(hetznerCluster, infrav1.ControlPlaneEndpointSetCondition)
 			hetznerCluster.Status.Ready = true
 		} else {
-			msg := "disabled LoadBalancer and not yet provided ControlPlane endpoint"
+			const msg = "disabled LoadBalancer and not yet provided ControlPlane endpoint"
 			conditions.MarkFalse(hetznerCluster,
 				infrav1.ControlPlaneEndpointSetCondition,
 				infrav1.ControlPlaneEndpointNotSetReason,
@@ -454,6 +455,7 @@ func hcloudTokenErrorResult(
 			conditionType,
 			infrav1.HCloudCredentialsInvalidReason,
 			clusterv1.ConditionSeverityError,
+			"%s",
 			err.Error(),
 		)
 		return reconcile.Result{}, fmt.Errorf("an unhandled failure occurred with the Hetzner secret: %w", err)
@@ -575,6 +577,7 @@ func (r *HetznerClusterReconciler) reconcileTargetClusterManager(ctx context.Con
 				infrav1.TargetClusterReadyCondition,
 				infrav1.TargetClusterCreateFailedReason,
 				clusterv1.ConditionSeverityError,
+				"%s",
 				err.Error(),
 			)
 

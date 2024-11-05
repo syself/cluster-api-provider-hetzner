@@ -182,6 +182,7 @@ func (s *Service) actionPreparing(_ context.Context) actionResult {
 				infrav1.ProvisionSucceededCondition,
 				infrav1.ServerNotFoundReason,
 				clusterv1.ConditionSeverityError,
+				"%s",
 				msg,
 			)
 			record.Warnf(s.scope.HetznerBareMetalHost, infrav1.ServerNotFoundReason, msg)
@@ -224,6 +225,7 @@ func (s *Service) actionPreparing(_ context.Context) actionResult {
 			infrav1.ProvisionSucceededCondition,
 			infrav1.RescueSystemUnavailableReason,
 			clusterv1.ConditionSeverityError,
+			"%s",
 			errMsg,
 		)
 		record.Warnf(s.scope.HetznerBareMetalHost, "NoRescueSystemAvailable", errMsg)
@@ -336,6 +338,7 @@ func (s *Service) ensureSSHKey(sshSecretRef infrav1.SSHSecretRef, sshSecret *cor
 					infrav1.CredentialsAvailableCondition,
 					infrav1.SSHKeyAlreadyExistsReason,
 					clusterv1.ConditionSeverityError,
+					"%s",
 					msg,
 				)
 				record.Warnf(s.scope.HetznerBareMetalHost, infrav1.SSHKeyAlreadyExistsReason, msg)
@@ -367,6 +370,7 @@ func (s *Service) handleIncompleteBoot(isRebootIntoRescue, isTimeout, isConnecti
 					infrav1.ProvisionSucceededCondition,
 					infrav1.SSHConnectionRefusedReason,
 					clusterv1.ConditionSeverityError,
+					"%s",
 					msg,
 				)
 				record.Warnf(s.scope.HetznerBareMetalHost, "SSHConnectionError", msg)
@@ -538,6 +542,7 @@ func (s *Service) handleErrorTypeHardwareRebootFailed(isSSHTimeoutError, wantsRe
 			infrav1.ProvisionSucceededCondition,
 			infrav1.RebootTimedOutReason,
 			clusterv1.ConditionSeverityError,
+			"%s",
 			msg,
 		)
 
@@ -653,6 +658,7 @@ func (s *Service) actionRegistering(_ context.Context) actionResult {
 			infrav1.RootDeviceHintsValidatedCondition,
 			infrav1.ValidationFailedReason,
 			clusterv1.ConditionSeverityError,
+			"%s",
 			errMsg,
 		)
 		return s.recordActionFailure(infrav1.RegistrationError, errMsg)
@@ -665,6 +671,7 @@ func (s *Service) actionRegistering(_ context.Context) actionResult {
 			infrav1.RootDeviceHintsValidatedCondition,
 			infrav1.ValidationFailedReason,
 			clusterv1.ConditionSeverityError,
+			"%s",
 			err.Error(),
 		)
 		return s.recordActionFailure(infrav1.RegistrationError, err.Error())
@@ -691,6 +698,7 @@ func (s *Service) actionRegistering(_ context.Context) actionResult {
 			infrav1.RootDeviceHintsValidatedCondition,
 			infrav1.ValidationFailedReason,
 			clusterv1.ConditionSeverityError,
+			"%s",
 			msg,
 		)
 		return s.recordActionFailure(infrav1.FatalError, msg)
@@ -1112,6 +1120,7 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 				infrav1.ProvisionSucceededCondition,
 				infrav1.CheckDiskFailedReason,
 				clusterv1.ConditionSeverityError,
+				"%s",
 				msg,
 			)
 			record.Warn(s.scope.HetznerBareMetalHost, infrav1.CheckDiskFailedReason, msg)
@@ -1143,6 +1152,7 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 					infrav1.ProvisionSucceededCondition,
 					infrav1.WipeDiskFailedReason,
 					clusterv1.ConditionSeverityError,
+					"%s",
 					msg,
 				)
 				record.Warn(s.scope.HetznerBareMetalHost, infrav1.WipeDiskFailedReason, msg)
@@ -1157,6 +1167,7 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 				infrav1.ProvisionSucceededCondition,
 				infrav1.WipeDiskFailedReason,
 				clusterv1.ConditionSeverityWarning,
+				"%s",
 				msg,
 			)
 			record.Warn(s.scope.HetznerBareMetalHost, infrav1.WipeDiskFailedReason, msg)
@@ -1184,6 +1195,7 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 				infrav1.ProvisionSucceededCondition,
 				infrav1.LinuxOnOtherDiskFoundReason,
 				clusterv1.ConditionSeverityError,
+				"%s",
 				msg,
 			)
 			record.Warn(s.scope.HetznerBareMetalHost, infrav1.LinuxOnOtherDiskFoundReason, msg)
@@ -1200,6 +1212,7 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 			infrav1.ProvisionSucceededCondition,
 			infrav1.SSHToRescueSystemFailedReason,
 			clusterv1.ConditionSeverityInfo,
+			"%s",
 			msg,
 		)
 		record.Event(s.scope.HetznerBareMetalHost, infrav1.SSHToRescueSystemFailedReason, msg)
@@ -1331,6 +1344,7 @@ func (s *Service) createAutoSetupInput(sshClient sshclient.Client) (autoSetupInp
 			infrav1.ProvisionSucceededCondition,
 			infrav1.ImageSpecInvalidReason,
 			clusterv1.ConditionSeverityError,
+			"%s",
 			errorMessage,
 		)
 		return autoSetupInput{}, s.recordActionFailure(infrav1.ProvisioningError, errorMessage)
@@ -1344,6 +1358,7 @@ func (s *Service) createAutoSetupInput(sshClient sshclient.Client) (autoSetupInp
 				infrav1.ProvisionSucceededCondition,
 				infrav1.ImageDownloadFailedReason,
 				clusterv1.ConditionSeverityError,
+				"%s",
 				err.Error(),
 			)
 			return autoSetupInput{}, actionError{err: err}
@@ -1367,6 +1382,7 @@ func (s *Service) createAutoSetupInput(sshClient sshclient.Client) (autoSetupInp
 			infrav1.ProvisionSucceededCondition,
 			infrav1.NoStorageDeviceFoundReason,
 			clusterv1.ConditionSeverityError,
+			"%s",
 			msg,
 		)
 		return autoSetupInput{}, s.recordActionFailure(infrav1.ProvisioningError, msg)
@@ -1817,6 +1833,7 @@ func (s *Service) handleRobotRateLimitExceeded(err error, functionName string) {
 			infrav1.HetznerAPIReachableCondition,
 			infrav1.RateLimitExceededReason,
 			clusterv1.ConditionSeverityWarning,
+			"%s",
 			msg,
 		)
 		record.Warnf(s.scope.HetznerBareMetalHost, "RateLimitExceeded", msg)

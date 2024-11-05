@@ -3,7 +3,7 @@
 <br>
 
 <div align="center">
-<a href="https://syself.com/docs/caph/getting-started/quickstart">Quickstart</a> |
+<a href="https://syself.com/docs/caph/getting-started/quickstart/prerequisites">Quickstart</a> |
 <a href="https://syself.com/docs/caph/getting-started/introduction">Docs</a> |
 <a href="https://cluster-api.sigs.k8s.io/">Cluster API Book</a><br><br>
 <p>⭐ Consider leaving a star — it motivates us a lot! ⭐</p>
@@ -62,7 +62,7 @@ The best way to get started with CAPH is to spin up a cluster. For that you can 
 
 Additional resources from the documentation:
 
-- [**Cluster API Provider Hetzner 15 Minute Tutorial**](https://syself.com/docs/caph/getting-started/quickstart): Set up a bootstrap cluster using Kind and deploy a Kubernetes cluster on Hetzner.
+- [**Cluster API Provider Hetzner 15 Minute Tutorial**](https://syself.com/docs/caph/getting-started/quickstart/prerequisites): Set up a bootstrap cluster using Kind and deploy a Kubernetes cluster on Hetzner.
 - [**Develop and test Kubernetes clusters with Tilt**](https://syself.com/docs/caph/developers/development-guide): Start using Tilt for rapid testing of various cluster flavors, like with/without a private network or bare metal.
 - [**Develop and test your own node-images**](https://syself.com/docs/caph/topics/node-image): Learn how to use your own machine images for production systems.
 
