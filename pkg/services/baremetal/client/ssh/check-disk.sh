@@ -87,6 +87,7 @@ for wwn in "$@"; do
         echo "Failed to find device for WWN $wwn"
         exit 3
     fi
+    echo "Checking WWN=$wwn device=$device"
     smartctl -H "/dev/$device" | { grep -vP '^(smartctl \d+\.\d+.*|Copyright|=+ START OF)' || true; } |
         { grep -v '^$' || true; } |
         sed "s#^#$wwn (/dev/$device): #" >>"$result"
@@ -98,5 +99,7 @@ if [ -n "$errors" ]; then
     echo "$errors"
     exit 1
 fi
+echo "check-disk passed. Provided WWNs look healthy."
+echo
 cat "$result"
 exit 0

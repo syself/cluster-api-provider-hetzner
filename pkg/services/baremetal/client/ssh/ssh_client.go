@@ -573,9 +573,10 @@ chmod a+rx /root/detect-linux-on-another-disk.sh
 }
 
 var (
-	// I found no details about the format. I found these examples
-	// 10:00:00:05:1e:7a:7a:00 eui.00253885910c8cec 0x500a07511bb48b25
-	isValidWWNRegex = regexp.MustCompile(`^[0-9a-zA-Z.:-]{5,64}$`)
+	// I found no details about the format. I found these examples:
+	// 10:00:00:05:1e:7a:7a:00 eui.00253885910c8cec 0x500a07511bb48b25 alias.CDIMS1_A3:20:54:d0:39:ea:3d:b8:74
+	// https://www.reddit.com/r/zfs/comments/1glttvl/validate_wwn/
+	isValidWWNRegex = regexp.MustCompile(`^[0-9a-zA-Z._=:-]{5,64}$`)
 
 	// ErrInvalidWWN indicates that a WWN has an invalid syntax.
 	ErrInvalidWWN = fmt.Errorf("WWN does not match regex %q", isValidWWNRegex.String())
