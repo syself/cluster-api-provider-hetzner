@@ -88,9 +88,9 @@ for wwn in "$@"; do
         exit 3
     fi
     echo "Checking WWN=$wwn device=$device"
-    smartctl -H "/dev/$device" | { grep -vP '^(smartctl \d+\.\d+.*|Copyright|=+ START OF)' || true; } |
+    { smartctl -H "/dev/$device" || true; } | { grep -vP '^(smartctl \d+\.\d+.*|Copyright|=+ START OF)' || true; } |
         { grep -v '^$' || true; } |
-        sed "s#^#$wwn (/dev/$device): #" >>"$result"
+        { sed "s#^#$wwn (/dev/$device): #" || true; } >>"$result"
 done
 errors=$(grep -v PASSED "$result" || true)
 if [ -n "$errors" ]; then
