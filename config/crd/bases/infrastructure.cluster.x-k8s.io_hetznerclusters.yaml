@@ -192,7 +192,7 @@ spec:
                   cidrBlock:
                     description: |-
                       CIDRBlock defines the cidrBlock of the HCloud Network.
-                      Defaults to "10.0.0.0/16".
+                      The webhook defaults this to "10.0.0.0/16".
                       Mutually exclusive with ID.
                     type: string
                   enabled:

@@ -226,7 +226,7 @@ type HCloudNetworkSpec struct {
 	Enabled bool `json:"enabled"`
 
 	// CIDRBlock defines the cidrBlock of the HCloud Network.
-	// Defaults to "10.0.0.0/16".
+	// The webhook defaults this to "10.0.0.0/16".
 	// Mutually exclusive with ID.
 	// +optional
 	CIDRBlock *string `json:"cidrBlock,omitempty"`

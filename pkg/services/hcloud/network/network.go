@@ -81,6 +81,17 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 		}
 	}
 
+	if len(network.Subnets) > 1 {
+		conditions.MarkFalse(
+			s.scope.HetznerCluster,
+			infrav1.NetworkReadyCondition,
+			infrav1.MultipleSubnetsExistReason,
+			clusterv1.ConditionSeverityWarning,
+			"multiple subnets not allowed",
+		)
+		return nil
+	}
+
 	conditions.MarkTrue(s.scope.HetznerCluster, infrav1.NetworkReadyCondition)
 	s.scope.HetznerCluster.Status.Network = statusFromHCloudNetwork(network)
 
@@ -137,25 +148,33 @@ func (s *Service) createOpts() (hcloud.NetworkCreateOpts, error) {
 
 // Delete implements deletion of the network.
 func (s *Service) Delete(ctx context.Context) error {
-	if s.scope.HetznerCluster.Status.Network == nil {
+	hetznerCluster := s.scope.HetznerCluster
+
+	if hetznerCluster.Status.Network == nil {
 		// nothing to delete
 		return nil
 	}
 
-	id := s.scope.HetznerCluster.Status.Network.ID
+	// only delete the network if it is owned by us
+	if hetznerCluster.Status.Network.Labels[hetznerCluster.ClusterTagKey()] != string(infrav1.ResourceLifecycleOwned) {
+		s.scope.V(1).Info("network is not owned by us", "id", hetznerCluster.Status.Network.ID, "labels", hetznerCluster.Status.Network.Labels)
+		return nil
+	}
+
+	id := hetznerCluster.Status.Network.ID
 
 	if err := s.scope.HCloudClient.DeleteNetwork(ctx, &hcloud.Network{ID: id}); err != nil {
-		hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "DeleteNetwork")
+		hcloudutil.HandleRateLimitExceeded(hetznerCluster, err, "DeleteNetwork")
 		// if resource has been deleted already then do nothing
 		if hcloud.IsError(err, hcloud.ErrorCodeNotFound) {
 			s.scope.V(1).Info("deleting network failed - not found", "id", id)
 			return nil
 		}
-		record.Warnf(s.scope.HetznerCluster, "NetworkDeleteFailed", "Failed to delete network with ID %v", id)
+		record.Warnf(hetznerCluster, "NetworkDeleteFailed", "Failed to delete network with ID %v", id)
 		return fmt.Errorf("failed to delete network: %w", err)
 	}
 
-	record.Eventf(s.scope.HetznerCluster, "NetworkDeleted", "Deleted network with ID %v", id)
+	record.Eventf(hetznerCluster, "NetworkDeleted", "Deleted network with ID %v", id)
 	return nil
 }
 
@@ -170,9 +189,6 @@ func (s *Service) findNetwork(ctx context.Context) (*hcloud.Network, error) {
 		}
 
 		if network != nil {
-			if len(network.Subnets) > 1 {
-				return nil, fmt.Errorf("multiple subnets not allowed")
-			}
 			s.scope.V(1).Info("found network", "id", network.ID, "name", network.Name, "labels", network.Labels)
 			return network, nil
 		}
