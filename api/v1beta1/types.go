@@ -232,7 +232,7 @@ type HCloudNetworkSpec struct {
 	CIDRBlock *string `json:"cidrBlock,omitempty"`
 
 	// SubnetCIDRBlock defines the cidrBlock for the subnet of the HCloud Network.
-	// Defaults to "10.0.0.0/24".
+	// The webhook defaults this to "10.0.0.0/24".
 	// Mutually exclusive with ID.
 	// Note: A subnet is required.
 	// +optional
@@ -240,7 +240,7 @@ type HCloudNetworkSpec struct {
 
 	// NetworkZone specifies the HCloud network zone of the private network.
 	// The zones must be one of eu-central, us-east, or us-west.
-	// Defaults to "eu-central".
+	// The webhook defaults this to "eu-central".
 	// Mutually exclusive with ID.
 	// +optional
 	NetworkZone *HCloudNetworkZone `json:"networkZone,omitempty"`

@@ -86,20 +86,22 @@ func (r *HetznerCluster) Default(_ context.Context, obj runtime.Object) error {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected an HetznerCluster but got a %T", obj))
 	}
 
-	if cluster.Spec.HCloudNetwork.Enabled {
-		if cluster.Spec.HCloudNetwork.ID != nil {
-			return nil
-		}
+	if !cluster.Spec.HCloudNetwork.Enabled {
+		return nil
+	}
 
-		if cluster.Spec.HCloudNetwork.CIDRBlock == nil {
-			cluster.Spec.HCloudNetwork.CIDRBlock = ptr.To(DefaultCIDRBlock)
-		}
-		if cluster.Spec.HCloudNetwork.SubnetCIDRBlock == nil {
-			cluster.Spec.HCloudNetwork.SubnetCIDRBlock = ptr.To(DefaultSubnetCIDRBlock)
-		}
-		if cluster.Spec.HCloudNetwork.NetworkZone == nil {
-			cluster.Spec.HCloudNetwork.NetworkZone = ptr.To[HCloudNetworkZone](DefaultNetworkZone)
-		}
+	if cluster.Spec.HCloudNetwork.ID != nil {
+		return nil
+	}
+
+	if cluster.Spec.HCloudNetwork.CIDRBlock == nil {
+		cluster.Spec.HCloudNetwork.CIDRBlock = ptr.To(DefaultCIDRBlock)
+	}
+	if cluster.Spec.HCloudNetwork.SubnetCIDRBlock == nil {
+		cluster.Spec.HCloudNetwork.SubnetCIDRBlock = ptr.To(DefaultSubnetCIDRBlock)
+	}
+	if cluster.Spec.HCloudNetwork.NetworkZone == nil {
+		cluster.Spec.HCloudNetwork.NetworkZone = ptr.To[HCloudNetworkZone](DefaultNetworkZone)
 	}
 
 	return nil
@@ -250,10 +252,22 @@ func (r *HetznerCluster) ValidateUpdate(old runtime.Object) (admission.Warnings,
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected an HetznerCluster but got a %T", old))
 	}
 
-	if !reflect.DeepEqual(oldC.Spec.HCloudNetwork.Enabled, r.Spec.HCloudNetwork.Enabled) {
+	if oldC.Spec.HCloudNetwork.Enabled != r.Spec.HCloudNetwork.Enabled {
 		allErrs = append(allErrs,
 			field.Invalid(field.NewPath("spec", "hcloudNetwork", "enabled"), r.Spec.HCloudNetwork.Enabled, "field is immutable"),
 		)
+	}
+
+	if !oldC.Spec.HCloudNetwork.Enabled {
+		// If the network is disabled check that all other network related fields are empty.
+		if r.Spec.HCloudNetwork.ID != nil {
+			allErrs = append(allErrs,
+				field.Invalid(field.NewPath("spec", "hcloudNetwork", "id"), oldC.Spec.HCloudNetwork.ID, "field must be empty"),
+			)
+		}
+		if errs := areCIDRsAndNetworkZoneEmpty(r.Spec.HCloudNetwork); errs != nil {
+			allErrs = append(allErrs, errs...)
+		}
 	}
 
 	if oldC.Spec.HCloudNetwork.Enabled {
@@ -265,28 +279,22 @@ func (r *HetznerCluster) ValidateUpdate(old runtime.Object) (admission.Warnings,
 			)
 		}
 
-		if r.Spec.HCloudNetwork.ID != nil {
-			if errs := areCIDRsAndNetworkZoneEmpty(r.Spec.HCloudNetwork); errs != nil {
-				allErrs = append(allErrs, errs...)
-			}
-		} else {
-			if !reflect.DeepEqual(oldC.Spec.HCloudNetwork.CIDRBlock, r.Spec.HCloudNetwork.CIDRBlock) {
-				allErrs = append(allErrs,
-					field.Invalid(field.NewPath("spec", "hcloudNetwork", "cidrBlock"), r.Spec.HCloudNetwork.CIDRBlock, "field is immutable"),
-				)
-			}
+		if !reflect.DeepEqual(oldC.Spec.HCloudNetwork.CIDRBlock, r.Spec.HCloudNetwork.CIDRBlock) {
+			allErrs = append(allErrs,
+				field.Invalid(field.NewPath("spec", "hcloudNetwork", "cidrBlock"), r.Spec.HCloudNetwork.CIDRBlock, "field is immutable"),
+			)
+		}
 
-			if !reflect.DeepEqual(oldC.Spec.HCloudNetwork.SubnetCIDRBlock, r.Spec.HCloudNetwork.SubnetCIDRBlock) {
-				allErrs = append(allErrs,
-					field.Invalid(field.NewPath("spec", "hcloudNetwork", "subnetCIDRBlock"), r.Spec.HCloudNetwork.SubnetCIDRBlock, "field is immutable"),
-				)
-			}
+		if !reflect.DeepEqual(oldC.Spec.HCloudNetwork.SubnetCIDRBlock, r.Spec.HCloudNetwork.SubnetCIDRBlock) {
+			allErrs = append(allErrs,
+				field.Invalid(field.NewPath("spec", "hcloudNetwork", "subnetCIDRBlock"), r.Spec.HCloudNetwork.SubnetCIDRBlock, "field is immutable"),
+			)
+		}
 
-			if !reflect.DeepEqual(oldC.Spec.HCloudNetwork.NetworkZone, r.Spec.HCloudNetwork.NetworkZone) {
-				allErrs = append(allErrs,
-					field.Invalid(field.NewPath("spec", "hcloudNetwork", "networkZone"), r.Spec.HCloudNetwork.NetworkZone, "field is immutable"),
-				)
-			}
+		if !reflect.DeepEqual(oldC.Spec.HCloudNetwork.NetworkZone, r.Spec.HCloudNetwork.NetworkZone) {
+			allErrs = append(allErrs,
+				field.Invalid(field.NewPath("spec", "hcloudNetwork", "networkZone"), r.Spec.HCloudNetwork.NetworkZone, "field is immutable"),
+			)
 		}
 	}
 
@@ -304,14 +312,14 @@ func (r *HetznerCluster) ValidateUpdate(old runtime.Object) (admission.Warnings,
 	}
 
 	// Load balancer enabled/disabled is immutable
-	if !reflect.DeepEqual(oldC.Spec.ControlPlaneLoadBalancer.Enabled, r.Spec.ControlPlaneLoadBalancer.Enabled) {
+	if oldC.Spec.ControlPlaneLoadBalancer.Enabled != r.Spec.ControlPlaneLoadBalancer.Enabled {
 		allErrs = append(allErrs,
 			field.Invalid(field.NewPath("spec", "controlPlaneLoadBalancer", "enabled"), r.Spec.ControlPlaneLoadBalancer.Enabled, "field is immutable"),
 		)
 	}
 
 	// Load balancer region and port are immutable
-	if !reflect.DeepEqual(oldC.Spec.ControlPlaneLoadBalancer.Port, r.Spec.ControlPlaneLoadBalancer.Port) {
+	if oldC.Spec.ControlPlaneLoadBalancer.Port != r.Spec.ControlPlaneLoadBalancer.Port {
 		allErrs = append(allErrs,
 			field.Invalid(field.NewPath("spec", "controlPlaneLoadBalancer", "port"), r.Spec.ControlPlaneLoadBalancer.Port, "field is immutable"),
 		)

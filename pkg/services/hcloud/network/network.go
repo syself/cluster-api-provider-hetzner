@@ -19,7 +19,6 @@ package network
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"slices"
@@ -119,7 +118,7 @@ func (s *Service) createOpts() (hcloud.NetworkCreateOpts, error) {
 	spec := s.scope.HetznerCluster.Spec.HCloudNetwork
 
 	if spec.CIDRBlock == nil || spec.SubnetCIDRBlock == nil || spec.NetworkZone == nil {
-		return hcloud.NetworkCreateOpts{}, errors.New("nil CIDRs or NetworkZone given")
+		return hcloud.NetworkCreateOpts{}, fmt.Errorf("nil CIDRs or NetworkZone given")
 	}
 
 	_, network, err := net.ParseCIDR(*spec.CIDRBlock)
