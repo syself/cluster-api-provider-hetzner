@@ -1,5 +1,8 @@
 ---
 title: SSH key management
+metatitle: Secure SSH Key Management for Remote Access in Hetzner with Cluster API
+sidebar: SSH key management
+description: Details about SSH keys and its importance with regards to clusters managed by CAPH.
 ---
 
 This section provides details about SSH keys and its importance with regards to CAPH.

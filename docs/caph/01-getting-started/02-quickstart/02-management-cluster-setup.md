@@ -1,5 +1,8 @@
 ---
 title: Management cluster setup
+metatitle: Cluster API Management Cluster Setup for Hetzner
+sidebar: Management cluster setup
+description: Bootstrap a cluster, install and configure all the necessary components to make it function as a Cluster API management cluster.
 ---
 
 You have two options: either create a pure HCloud cluster or a hybrid cluster with Hetzner dedicated (bare metal) servers. For a full list of flavors, please check out the [release page](https://github.com/syself/cluster-api-provider-hetzner/releases). In the quickstart guide, we will go with the cluster creation on a pure Hetzner Cloud server.

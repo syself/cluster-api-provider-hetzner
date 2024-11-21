@@ -1,5 +1,8 @@
 ---
 title: Release Process
+metatitle: Cluster API Provider Hetzner Release Process
+sidebar: Release Process
+description: Documentation on the CAPH release process, describing the necessary steps and how to version.
 ---
 
 ## Create a tag
@@ -16,6 +19,7 @@ title: Release Process
    `origin` should be the name of the remote pointing to `github.com/syself/cluster-api-provider-hetzner`
 
    {% /callout %}
+
    - `git push origin ${RELEASE_TAG}`
    - This will automatically trigger a [Github Action](https://github.com/syself/cluster-api-provider-hetzner/actions) to create a draft release (this will take roughly 6 minutes).
 

@@ -1,5 +1,8 @@
 ---
 title: Prerequisites
+metatitle: Tools Needed to Work With Cluster API Provider Hetzner
+sidebar: Prerequisites
+description: Automate provisioning, upgrading, and operating Kubernetes clusters on Hetzner infrastructure with Cluster API for a production-ready setup.
 ---
 
 This guide goes through all the necessary steps to create a cluster on Hetzner infrastructure (on HCloud).

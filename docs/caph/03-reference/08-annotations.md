@@ -1,7 +1,8 @@
 ---
-
 title: Annotations
-
+metatitle: Available Annotations For CAPH objects
+sidebar: Annotations
+description: Full list of annotation you can set to instruct the Syself CAPH Controller to modify its behavior.
 ---
 
 You can set [Kubernetes Annotations](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/) to instruct the Syself CAPH Controller to modify its behavior.
@@ -26,11 +27,11 @@ You can set [Kubernetes Annotations](https://kubernetes.io/docs/concepts/overvie
 
 ### capi.syself.com/allow-empty-control-plane-address
 
-| **Resource**    | [HetznerCluster](/docs/caph/03-reference/02-hetzner-cluster.md)                                                            |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| **Resource**    | [HetznerCluster](/docs/caph/03-reference/02-hetzner-cluster.md)                                                                                                                                                                                                      |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Description** | This annotation allows the Syself CAPH Controller to create HetznerCluster resources with an empty `controlPlaneEndpoint`. This is useful to support externally managed control planes ([PR 1106](https://github.com/syself/cluster-api-provider-hetzner/pull/1106)) |
-| **Value**       | `"true"` enables this feature. All other strings are considered `"false"`.                                                 |
-| **Auto-Remove** | Disabled: The annotation remains on the resource.                                                                          |
+| **Value**       | `"true"` enables this feature. All other strings are considered `"false"`.                                                                                                                                                                                           |
+| **Auto-Remove** | Disabled: The annotation remains on the resource.                                                                                                                                                                                                                    |
 
 ### capi.syself.com/constant-bare-metal-hostname
 

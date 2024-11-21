@@ -1,5 +1,8 @@
 ---
 title: Developing Cluster API Provider Hetzner
+metatitle: Developing Cluster API Provider Hetzner with Tilt
+sidebar: Developing Cluster API Provider Hetzner
+description: Learn how to set up an environment to develop the Cluster API Provider Hetzner, using Tilt and kind.
 ---
 
 Developing our provider is quite easy. Please follow the steps mentioned below:

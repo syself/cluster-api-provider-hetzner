@@ -1,5 +1,8 @@
 ---
 title: Upgrading the Kubernetes Cluster API Provider Hetzner
+metatitle: Upgrade Process for Kubernetes Clusters with CAPH
+sidebar: Upgrading the Kubernetes Cluster API Provider Hetzner
+description: How to upgrade Cluster API and Cluster API Provider Hetzner.
 ---
 
 This guide explains how to upgrade Cluster API and Cluster API Provider Hetzner (aka CAPH). Additionally, it also references [upgrading your kubernetes version](#external-cluster-api-reference) as part of this guide.

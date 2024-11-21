@@ -1,5 +1,8 @@
 ---
 title: HetznerBareMetalMachineTemplate
+metatitle: HetznerBareMetalMachineTemplate Object Reference
+sidebar: HetznerBareMetalMachineTemplate
+description: In HetznerBareMetalMachineTemplate you can define all important properties for the HetznerBareMetalMachines.
 ---
 
 In `HetznerBareMetalMachineTemplate` you can define all important properties for the `HetznerBareMetalMachines`. `HetznerBareMetalMachines` are reconciled by the `HetznerBareMetalMachineController`, which DOES NOT create or delete Hetzner dedicated machines. Instead, it uses the inventory of `HetznerBareMetalHosts`. These hosts correspond to already existing bare metal servers, which get provisioned when selected by a `HetznerBareMetalMachine`.
@@ -120,15 +123,15 @@ spec:
   template:
     spec:
       containers:
-      - command:
-        - /manager
-        image: ghcr.io/syself/caph:vXXX
-        env:
-          - name: OCI_REGISTRY_AUTH_TOKEN
-            valueFrom:
-              secretKeyRef:
-                name: my-oci-registry-secret    # The name of the secret
-                key: OCI_REGISTRY_AUTH_TOKEN    # The key in the secret. Format: "user:pwd" or just "token"
+        - command:
+            - /manager
+          image: ghcr.io/syself/caph:vXXX
+          env:
+            - name: OCI_REGISTRY_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: my-oci-registry-secret # The name of the secret
+                  key: OCI_REGISTRY_AUTH_TOKEN # The key in the secret. Format: "user:pwd" or just "token"
       # ... other container specs
 ```
 

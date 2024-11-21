@@ -1,5 +1,8 @@
 ---
 title: Creating the workload cluster
+metatitle: Creating Workload Clusters on Hetzner
+sidebar: Creating the workload cluster
+description: Provision a Kubernetes workload cluster with essential components for a secure deployment, including CNI, CCM, and optional CSI integration.
 ---
 
 ## Generating the cluster.yaml

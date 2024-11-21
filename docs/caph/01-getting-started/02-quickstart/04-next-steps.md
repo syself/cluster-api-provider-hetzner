@@ -1,5 +1,8 @@
 ---
 title: Next steps
+metatitle: Move Your Management Cluster to the Cloud
+sidebar: Next steps
+description: How to move the Cluster API components out of your bootstrap cluster, and into the newly created cluster on Hetzner.
 ---
 
 ## Switching to the workload cluster

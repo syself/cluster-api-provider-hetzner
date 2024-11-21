@@ -1,5 +1,8 @@
 ---
 title: HetznerBareMetalHost
+metatitle: HetznerBareMetalHost Object Reference
+sidebar: HetznerBareMetalHost
+description: The HetznerBareMetalHost has a one-to-one relationship to a Hetzner dedicated server. It's used to make bare metal servers available to your clusters.
 ---
 
 The `HetznerBareMetalHost` object has a one-to-one relationship to a Hetzner dedicated server. Its ID is specified in the specs. The host object does not belong to a certain `HetznerCluster`, but can be used by multiple clusters. This is useful, as one host object per server is enough and you can easily see whether a host is used by one of your clusters or not.

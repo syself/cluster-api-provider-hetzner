@@ -1,5 +1,8 @@
 ---
 title: Hetzner project preparation
+metatitle: Preparing Your Hetzner Cloud Project for Working With CAPH
+sidebar: Hetzner project preparation
+description: Learn how to do the necessary steps for creating your first workload cluster on Hetzner with Cluster API.
 ---
 
 There are several tasks that have to be completed before a workload cluster can be created.

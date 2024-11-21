@@ -1,5 +1,7 @@
 ---
 title: HetznerCluster
+metatitle: HetznerCluster Object Reference
+description: In HetznerCluster you can define everything related to the general components of the cluster as well as those properties, which are valid cluster-wide.
 ---
 
 In HetznerCluster you can define everything related to the general components of the cluster as well as those properties, which are valid cluster-wide.

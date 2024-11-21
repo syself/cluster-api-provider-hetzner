@@ -1,5 +1,8 @@
 ---
 title: Machine Health Checks with Custom Remediation Template
+metatitle: Custom Remediation Template for Machine Health Checks
+sidebar: Machine Health Checks with Custom Remediation Template
+description: Learn about the default Machine Health Checks and Bare Metal Server Remediation Templates, and how to configure them.
 ---
 
 Cluster API allows to [configure Machine Health Checks](https://cluster-api.sigs.k8s.io/tasks/automated-machine-management/healthchecking.html) with custom remediation strategies. This is helpful for our bare metal servers. If the health checks give an outcome that one server cannot be reached, the default strategy would be to delete it. In that case, it would need to be provisioned again. This takes, of course, longer for bare metal servers than for virtual cloud servers. Therefore, we want to try to avoid this with the help of our `HetznerBareMetalRemediationController` and `HCloudRemediationController`. Instead of deleting the object and deprovisioning it, we first try to reboot it and see whether this helps. If it solves the problem, we save a lot of time that is required for re-provisioning it.
