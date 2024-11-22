@@ -15,7 +15,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout repository
-        uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 
@@ -47,7 +47,7 @@ jobs:
           app-id: ${{ secrets.SYSELF_APP_ID }}
           private-key: ${{ secrets.SYSELF_APP_PRIVATE_KEY }}
       - name: Generate Size
-        uses: pascalgn/size-label-action@be08a2d5f857dc99c5b9426cdb5a8ea1aa7f0399 # v0.5.4
+        uses: pascalgn/size-label-action@f8edde36b3be04b4f65dcfead05dc8691b374348 # v0.5.5
         env:
           GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
         with:
