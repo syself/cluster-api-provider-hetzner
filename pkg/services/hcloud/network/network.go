@@ -178,14 +178,24 @@ func (s *Service) Delete(ctx context.Context) error {
 	return nil
 }
 
+func (s *Service) findNetworkByID(ctx context.Context, id int64) (*hcloud.Network, error) {
+	network, err := s.scope.HCloudClient.GetNetwork(ctx, id)
+	if err != nil {
+		hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "GetNetwork")
+		return nil, fmt.Errorf("failed to get network %d: %w", id, err)
+	}
+
+	return network, nil
+}
+
 func (s *Service) findNetwork(ctx context.Context) (*hcloud.Network, error) {
 	// if an ID was provided we want to use the existing Network.
 	id := s.scope.HetznerCluster.Spec.HCloudNetwork.ID
 	if id != nil {
-		network, err := s.scope.HCloudClient.GetNetwork(ctx, *id)
+		network, err := s.findNetworkByID(ctx, *id)
 		if err != nil {
 			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "GetNetwork")
-			return nil, fmt.Errorf("failed to get network %d: %w", *id, err)
+			return nil, fmt.Errorf("failed to find network with id %d: %w", *id, err)
 		}
 
 		if network != nil {

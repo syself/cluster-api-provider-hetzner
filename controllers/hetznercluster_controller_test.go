@@ -886,10 +886,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 					networkName := utils.GenerateName(nil, "network1-")
 					network, err := hcloudClient.CreateNetwork(context.Background(), hcloud.NetworkCreateOpts{Name: networkName})
 					Expect(err).To(Succeed())
-					defer func() {
-						err := hcloudClient.DeleteNetwork(context.Background(), network)
-						Expect(err).To(Succeed())
-					}()
+
 					networksBeforeClusterCreate, err := hcloudClient.ListNetworks(context.Background(), hcloud.NetworkListOpts{})
 					Expect(err).To(Succeed())
 
@@ -911,9 +908,6 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 						},
 					}
 					Expect(testEnv.Create(ctx, capiCluster)).To(Succeed())
-					defer func() {
-						Expect(testEnv.Cleanup(ctx, capiCluster)).To(Succeed())
-					}()
 
 					instance := &infrav1.HetznerCluster{
 						ObjectMeta: metav1.ObjectMeta{
@@ -934,9 +928,6 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 					// existing network was given.
 					instance.Spec.HCloudNetwork.ID = ptr.To(network.ID)
 					Expect(testEnv.Create(ctx, instance)).To(Succeed())
-					defer func() {
-						Expect(testEnv.Cleanup(ctx, instance)).To(Succeed())
-					}()
 
 					key := client.ObjectKey{Namespace: instance.Namespace, Name: instance.Name}
 
@@ -968,10 +959,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 					networkName := utils.GenerateName(nil, "network2-")
 					network, err := hcloudClient.CreateNetwork(context.Background(), hcloud.NetworkCreateOpts{Name: networkName})
 					Expect(err).To(Succeed())
-					defer func() {
-						err := hcloudClient.DeleteNetwork(context.Background(), network)
-						Expect(err).To(Succeed())
-					}()
+
 					networksBeforeClusterDelete, err := hcloudClient.ListNetworks(context.Background(), hcloud.NetworkListOpts{})
 					Expect(err).To(Succeed())
 

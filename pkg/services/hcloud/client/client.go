@@ -38,6 +38,9 @@ const errStringUnauthorized = "(unauthorized)"
 // ErrUnauthorized means that the API call is unauthorized.
 var ErrUnauthorized = fmt.Errorf("unauthorized")
 
+// ErrNotFound means that the requested resource cannot be found.
+var ErrNotFound = fmt.Errorf("not found")
+
 // Client collects all methods used by the controller in the hcloud cloud API.
 type Client interface {
 	// Reset resets the local cache. Only implemented in the fake client.
@@ -303,6 +306,9 @@ func (c *realClient) ListNetworks(ctx context.Context, opts hcloud.NetworkListOp
 
 func (c *realClient) GetNetwork(ctx context.Context, id int64) (*hcloud.Network, error) {
 	res, _, err := c.client.Network.GetByID(ctx, id)
+	if res == nil {
+		return nil, fmt.Errorf("%w: id: %d", ErrNotFound, id)
+	}
 	return res, err
 }
 

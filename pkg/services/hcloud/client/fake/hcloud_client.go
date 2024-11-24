@@ -653,7 +653,12 @@ func (c *cacheHCloudClient) ListNetworks(_ context.Context, opts hcloud.NetworkL
 	return networks, nil
 }
 func (c *cacheHCloudClient) GetNetwork(_ context.Context, id int64) (*hcloud.Network, error) {
-	return c.networkCache.idMap[id], nil
+	n, found := c.networkCache.idMap[id]
+	if !found {
+		return nil, fmt.Errorf("%w: id: %d", hcloudclient.ErrNotFound, id)
+	}
+
+	return n, nil
 }
 
 func (c *cacheHCloudClient) DeleteNetwork(_ context.Context, network *hcloud.Network) error {
