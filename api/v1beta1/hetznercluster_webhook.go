@@ -158,8 +158,14 @@ func (r *HetznerCluster) ValidateCreate() (admission.Warnings, error) {
 				allErrs = append(allErrs, errs...)
 			}
 		} else {
-			// If no ID is given check the other network settings for valid entries.
-			if r.Spec.HCloudNetwork.NetworkZone != nil {
+			if r.Spec.HCloudNetwork.NetworkZone == nil {
+				allErrs = append(allErrs, field.Invalid(
+					field.NewPath("spec", "hcloudNetwork", "networkZone"),
+					r.Spec.HCloudNetwork.NetworkZone,
+					"network zone must not be nil when hcloudNetwork is enabled"),
+				)
+				// If no ID is given check the other network settings for valid entries.
+			} else {
 				givenZone := string(*r.Spec.HCloudNetwork.NetworkZone)
 
 				var validNetworkZone bool
@@ -178,7 +184,13 @@ func (r *HetznerCluster) ValidateCreate() (admission.Warnings, error) {
 				}
 			}
 
-			if r.Spec.HCloudNetwork.CIDRBlock != nil {
+			if r.Spec.HCloudNetwork.CIDRBlock == nil {
+				allErrs = append(allErrs, field.Invalid(
+					field.NewPath("spec", "hcloudNetwork", "cidrBlock"),
+					r.Spec.HCloudNetwork.NetworkZone,
+					"cidrBlock must not be nil when hcloudNetwork is enabled"),
+				)
+			} else {
 				_, _, err := net.ParseCIDR(*r.Spec.HCloudNetwork.CIDRBlock)
 				if err != nil {
 					allErrs = append(allErrs, field.Invalid(
@@ -189,7 +201,13 @@ func (r *HetznerCluster) ValidateCreate() (admission.Warnings, error) {
 				}
 			}
 
-			if r.Spec.HCloudNetwork.SubnetCIDRBlock != nil {
+			if r.Spec.HCloudNetwork.SubnetCIDRBlock == nil {
+				allErrs = append(allErrs, field.Invalid(
+					field.NewPath("spec", "hcloudNetwork", "subnetCIDRBlock"),
+					r.Spec.HCloudNetwork.SubnetCIDRBlock,
+					"subnetCIDRBlock must not be nil when hcloudNetwork is enabled"),
+				)
+			} else {
 				_, _, err := net.ParseCIDR(*r.Spec.HCloudNetwork.SubnetCIDRBlock)
 				if err != nil {
 					allErrs = append(allErrs, field.Invalid(

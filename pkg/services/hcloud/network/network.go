@@ -86,8 +86,9 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 			infrav1.NetworkReadyCondition,
 			infrav1.MultipleSubnetsExistReason,
 			clusterv1.ConditionSeverityWarning,
-			"multiple subnets not allowed",
+			"multiple subnets exist",
 		)
+		record.Warnf(s.scope.HetznerCluster, "MultipleSubnetsExist", "Multiple subnets exist")
 		return nil
 	}
 
