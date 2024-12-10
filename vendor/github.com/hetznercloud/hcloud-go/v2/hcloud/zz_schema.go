@@ -690,7 +690,7 @@ func (c *converterImpl) SchemaFromLoadBalancerAddServiceOpts(source LoadBalancer
 func (c *converterImpl) SchemaFromLoadBalancerCreateOpts(source LoadBalancerCreateOpts) schema.LoadBalancerCreateRequest {
 	var schemaLoadBalancerCreateRequest schema.LoadBalancerCreateRequest
 	schemaLoadBalancerCreateRequest.Name = source.Name
-	schemaLoadBalancerCreateRequest.LoadBalancerType = anyFromLoadBalancerType(source.LoadBalancerType)
+	schemaLoadBalancerCreateRequest.LoadBalancerType = c.pHcloudLoadBalancerTypeToSchemaIDOrName(source.LoadBalancerType)
 	schemaLoadBalancerCreateRequest.Algorithm = c.pHcloudLoadBalancerAlgorithmToPSchemaLoadBalancerCreateRequestAlgorithm(source.Algorithm)
 	schemaLoadBalancerCreateRequest.Location = c.pHcloudLocationToPString(source.Location)
 	schemaLoadBalancerCreateRequest.NetworkZone = stringPtrFromNetworkZone(source.NetworkZone)
@@ -1731,6 +1731,16 @@ func (c *converterImpl) pHcloudLoadBalancerToInt64(source *LoadBalancer) int64 {
 		xint64 = int64FromLoadBalancer((*source))
 	}
 	return xint64
+}
+func (c *converterImpl) pHcloudLoadBalancerTypeToSchemaIDOrName(source *LoadBalancerType) schema.IDOrName {
+	var schemaIDOrName schema.IDOrName
+	if source != nil {
+		var schemaIDOrName2 schema.IDOrName
+		schemaIDOrName2.ID = (*source).ID
+		schemaIDOrName2.Name = (*source).Name
+		schemaIDOrName = schemaIDOrName2
+	}
+	return schemaIDOrName
 }
 func (c *converterImpl) pHcloudLoadBalancerUpdateServiceOptsHTTPToPSchemaLoadBalancerActionUpdateServiceRequestHTTP(source *LoadBalancerUpdateServiceOptsHTTP) *schema.LoadBalancerActionUpdateServiceRequestHTTP {
 	var pSchemaLoadBalancerActionUpdateServiceRequestHTTP *schema.LoadBalancerActionUpdateServiceRequestHTTP
