@@ -935,10 +935,8 @@ type LoadBalancerChangeTypeOpts struct {
 // ChangeType changes a Load Balancer's type.
 func (c *LoadBalancerClient) ChangeType(ctx context.Context, loadBalancer *LoadBalancer, opts LoadBalancerChangeTypeOpts) (*Action, *Response, error) {
 	reqBody := schema.LoadBalancerActionChangeTypeRequest{}
-	if opts.LoadBalancerType.ID != 0 {
-		reqBody.LoadBalancerType = opts.LoadBalancerType.ID
-	} else {
-		reqBody.LoadBalancerType = opts.LoadBalancerType.Name
+	if opts.LoadBalancerType.ID != 0 || opts.LoadBalancerType.Name != "" {
+		reqBody.LoadBalancerType = schema.IDOrName{ID: opts.LoadBalancerType.ID, Name: opts.LoadBalancerType.Name}
 	}
 	reqBodyData, err := json.Marshal(reqBody)
 	if err != nil {
