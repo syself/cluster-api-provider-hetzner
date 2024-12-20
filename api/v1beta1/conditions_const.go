@@ -71,7 +71,7 @@ const (
 const (
 	// BootstrapReadyCondition  indicates that bootstrap is ready.
 	BootstrapReadyCondition clusterv1.ConditionType = "BootstrapReady"
-	// BootstrapNotReadyReason bootstrap not ready yet.
+	// BootstrapNotReadyReason bootsftrap not ready yet.
 	BootstrapNotReadyReason = "BootstrapNotReady"
 )
 
@@ -85,7 +85,7 @@ const (
 const (
 	// PlacementGroupsSyncedCondition reports on whether the placement groups are successfully synced.
 	PlacementGroupsSyncedCondition clusterv1.ConditionType = "PlacementGroupsSynced"
-	// PlacementGroupsSyncFailedReason indicates that syncing the placement groups failed.
+	// PlacementGroupsSyncFailedReason indicates that syncing the placement groups failed.  
 	PlacementGroupsSyncFailedReason = "PlacementGroupsSyncFailed"
 )
 
