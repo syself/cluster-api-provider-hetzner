@@ -54,9 +54,21 @@ const (
 type ActionError struct {
 	Code    string
 	Message string
+
+	action *Action
+}
+
+// Action returns the [Action] that triggered the error if available.
+func (e ActionError) Action() *Action {
+	return e.action
 }
 
 func (e ActionError) Error() string {
+	action := e.Action()
+	if action != nil {
+		// For easier debugging, the error string contains the Action ID.
+		return fmt.Sprintf("%s (%s, %d)", e.Message, e.Code, action.ID)
+	}
 	return fmt.Sprintf("%s (%s)", e.Message, e.Code)
 }
 
@@ -65,6 +77,7 @@ func (a *Action) Error() error {
 		return ActionError{
 			Code:    a.ErrorCode,
 			Message: a.ErrorMessage,
+			action:  a,
 		}
 	}
 	return nil
