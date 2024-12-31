@@ -220,10 +220,8 @@ func (c *VolumeClient) Create(ctx context.Context, opts VolumeCreateOpts) (Volum
 		reqBody.Server = Ptr(opts.Server.ID)
 	}
 	if opts.Location != nil {
-		if opts.Location.ID != 0 {
-			reqBody.Location = opts.Location.ID
-		} else {
-			reqBody.Location = opts.Location.Name
+		if opts.Location.ID != 0 || opts.Location.Name != "" {
+			reqBody.Location = &schema.IDOrName{ID: opts.Location.ID, Name: opts.Location.Name}
 		}
 	}
 
