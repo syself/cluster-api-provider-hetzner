@@ -227,7 +227,6 @@ spec:
       - sha256sum --check --ignore-missing runc.sha256sum
       - install runc.$ARCH /usr/local/sbin/runc
       - rm -f runc.$ARCH runc.sha256sum
-      - chmod a+x /usr/local/sbin/runc
       - wget https://github.com/containerd/containerd/releases/download/v$CONTAINERD/containerd-$CONTAINERD-linux-$ARCH.tar.gz
       - wget https://github.com/containerd/containerd/releases/download/v$CONTAINERD/containerd-$CONTAINERD-linux-$ARCH.tar.gz.sha256sum
       - sha256sum --check containerd-$CONTAINERD-linux-$ARCH.tar.gz.sha256sum
