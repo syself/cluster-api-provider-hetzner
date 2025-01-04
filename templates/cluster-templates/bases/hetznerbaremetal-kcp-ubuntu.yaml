@@ -215,6 +215,7 @@ spec:
       - export RUNC=1.2.3
       - export KUBERNETES_VERSION=$(echo ${KUBERNETES_VERSION} | sed 's/^v//')
       - export TRIMMED_KUBERNETES_VERSION=$(echo ${KUBERNETES_VERSION} | sed 's/^v//' | awk -F . '{print $1 "." $2}')
+      - ARCH="$(dpkg --print-architecture)"
       - localectl set-locale LANG=en_US.UTF-8
       - localectl set-locale LANGUAGE=en_US.UTF-8
       - apt-get update -y
