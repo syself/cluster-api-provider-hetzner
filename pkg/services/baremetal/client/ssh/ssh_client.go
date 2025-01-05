@@ -318,23 +318,44 @@ func (c *sshClient) GetHardwareDetailsRAM() Output {
 func (c *sshClient) GetHardwareDetailsNics() Output {
 	out := c.runSSH(`cat << 'EOF_VIA_SSH' > nic-info.sh
 #!/bin/sh
-for iname in $(ip a |awk '/state UP/{print $2}' | sed 's/://')
-do
 
-MAC=\""$(ip a | grep -A2 $iname | awk '/link/{print $2}')\""
-SPEED=\""$(ethtool eth0 |grep "Speed:" | awk '{print $2}' | sed 's/[^0-9]//g')\""
-MODEL=\""$( lspci | grep net | head -1 | awk '{$1=$2=$3=""; print $0}' | sed "s/^[ \t]*//")\""
-IP_V4=\""$(ip a | grep -A2 eth0 | sed -n '/\binet\b/p' | awk '{print $2}')\""
-IP_V6=\""$(ip a | grep -A2 eth0 | sed -n '/\binet6\b/p' | awk '{print $2}')\""
+# Iterate over each interface that is "UP"
+for iname in $(ip -o link show | awk -F': ' '{print $2}' | sed 's/@.*//'); do
+    # Skip loopback or any interface that is not UP
+    [ "$iname" = "lo" ] && continue
+    if [ "$(cat /sys/class/net/$iname/operstate)" != "up" ]; then
+        continue
+    fi
 
-if test -n $IP_V4; then
-	echo "name=\""$iname\""" "model=$MODEL" "mac=$MAC" "ip=$IP_V4" "speedMbps=$SPEED"
-fi
+    # Grab MAC address
+    MAC=$(ip a show dev "$iname" | awk '/link\/ether/{print $2}')
 
-if test -n $IP_V6; then
-	echo "name=\""$iname\""" "model=$MODEL" "mac=$MAC" "ip=$IP_V6" "speedMbps=$SPEED"
-fi
+    # Grab speed (ethtool must be installed)
+    SPEED=$(ethtool "$iname" 2>/dev/null | awk '/Speed:/{print $2}' | sed 's/[^0-9]//g')
 
+    # Grab the PCI bus info via ethtool, then get the model from lspci
+    BUSINFO=$(ethtool -i "$iname" 2>/dev/null | awk '/bus-info:/{print $2}')
+    if [ -n "$BUSINFO" ]; then
+        MODEL=$(lspci -s "$BUSINFO" | cut -d ' ' -f3-)
+    else
+        MODEL="Unknown model"
+    fi
+
+    # Get IPv4/IPv6 addresses (there may be multiple, so we show them all)
+    IP_V4=$(ip -4 addr show dev "$iname" | awk '/inet /{print $2}')
+    IP_V6=$(ip -6 addr show dev "$iname" | awk '/inet6 /{print $2}')
+
+    # Print out info for each address found
+    if [ -n "$IP_V4" ]; then
+        for ipv4 in $IP_V4; do
+            echo "name=\"$iname\" model=\"$MODEL\" mac=\"$MAC\" ip=\"$ipv4\" speedMbps=\"$SPEED\""
+        done
+    fi
+    if [ -n "$IP_V6" ]; then
+        for ipv6 in $IP_V6; do
+            echo "name=\"$iname\" model=\"$MODEL\" mac=\"$MAC\" ip=\"$ipv6\" speedMbps=\"$SPEED\""
+        done
+    fi
 done
 EOF_VIA_SSH`)
 	if out.Err != nil || out.StdErr != "" {
