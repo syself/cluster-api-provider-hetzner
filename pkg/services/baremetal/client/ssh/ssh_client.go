@@ -48,6 +48,9 @@ var wipeDiskShellScript string
 //go:embed check-disk.sh
 var checkDiskShellScript string
 
+//go:embed nic-info.sh
+var nicInfoShellScript string
+
 var downloadFromOciShellScript = `#!/bin/bash
 
 # Copyright 2023 The Kubernetes Authors.
@@ -316,53 +319,12 @@ func (c *sshClient) GetHardwareDetailsRAM() Output {
 
 // GetHardwareDetailsNics implements the GetHardwareDetailsNics method of the SSHClient interface.
 func (c *sshClient) GetHardwareDetailsNics() Output {
-	out := c.runSSH(`cat << 'EOF_VIA_SSH' > nic-info.sh
-#!/bin/sh
-
-# Iterate over each interface that is "UP"
-for iname in $(ip -o link show | awk -F': ' '{print $2}' | sed 's/@.*//'); do
-    # Skip loopback or any interface that is not UP
-    [ "$iname" = "lo" ] && continue
-    if [ "$(cat /sys/class/net/$iname/operstate)" != "up" ]; then
-        continue
-    fi
-
-    # Grab MAC address
-    MAC=$(ip a show dev "$iname" | awk '/link\/ether/{print $2}')
-
-    # Grab speed (ethtool must be installed)
-    SPEED=$(ethtool "$iname" 2>/dev/null | awk '/Speed:/{print $2}' | sed 's/[^0-9]//g')
-
-    # Grab the PCI bus info via ethtool, then get the model from lspci
-    BUSINFO=$(ethtool -i "$iname" 2>/dev/null | awk '/bus-info:/{print $2}')
-    if [ -n "$BUSINFO" ]; then
-        MODEL=$(lspci -s "$BUSINFO" | cut -d ' ' -f3-)
-    else
-        MODEL="Unknown model"
-    fi
-
-    # Get IPv4/IPv6 addresses (there may be multiple, so we show them all)
-    IP_V4=$(ip -4 addr show dev "$iname" | awk '/inet /{print $2}')
-    IP_V6=$(ip -6 addr show dev "$iname" | awk '/inet6 /{print $2}')
-
-    # Print out info for each address found
-    if [ -n "$IP_V4" ]; then
-        for ipv4 in $IP_V4; do
-            echo "name=\"$iname\" model=\"$MODEL\" mac=\"$MAC\" ip=\"$ipv4\" speedMbps=\"$SPEED\""
-        done
-    fi
-    if [ -n "$IP_V6" ]; then
-        for ipv6 in $IP_V6; do
-            echo "name=\"$iname\" model=\"$MODEL\" mac=\"$MAC\" ip=\"$ipv6\" speedMbps=\"$SPEED\""
-        done
-    fi
-done
-EOF_VIA_SSH`)
-	if out.Err != nil || out.StdErr != "" {
-		return out
-	}
-
-	return c.runSSH("sh nic-info.sh")
+	return c.runSSH(fmt.Sprintf(`cat >/root/nic-info.sh <<'EOF_VIA_SSH'
+%s
+EOF_VIA_SSH
+chmod a+rx /root/nic-info.sh
+/root/nic-info.sh
+`, nicInfoShellScript))
 }
 
 // GetHardwareDetailsStorage implements the GetHardwareDetailsStorage method of the SSHClient interface.
