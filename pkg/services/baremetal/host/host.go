@@ -858,10 +858,16 @@ func obtainHardwareDetailsNics(sshClient sshclient.Client) ([]infrav1.NIC, error
 		if err := json.Unmarshal([]byte(validJSONString), &nic); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal %v. Original ssh output %s: %w", validJSONString, stdOut, err)
 		}
+
+		// speedMbps can be empty
+		if nic.SpeedMbps == "" {
+			nic.SpeedMbps = "0"
+		}
 		speedMbps, err := strconv.Atoi(nic.SpeedMbps)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse int from string %s: %w", nic.SpeedMbps, err)
 		}
+
 		nicsArray[i] = infrav1.NIC{
 			Name:      nic.Name,
 			Model:     nic.Model,
