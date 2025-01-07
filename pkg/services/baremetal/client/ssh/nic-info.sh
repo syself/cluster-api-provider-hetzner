@@ -46,6 +46,12 @@ for idir in $(echo /sys/class/net/* | sort); do
         echo "name=\"$iname\" model=\"$MODEL\" mac=\"$MAC\" ip=\"$ipv4\" speedMbps=\"$SPEED\""
     done
     for ipv6 in $(ip -6 addr show dev "$iname" | awk '/inet6 /{print $2}'); do
+        if [[ "$ipv6" == fe80:* ]]; then
+            continue
+        fi
+        if [ "$ipv6" = "ffff:fff:ffff:fff::f/64" ]; then
+            continue
+        fi
         echo "name=\"$iname\" model=\"$MODEL\" mac=\"$MAC\" ip=\"$ipv6\" speedMbps=\"$SPEED\""
     done
 done

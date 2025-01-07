@@ -849,9 +849,9 @@ func obtainHardwareDetailsNics(sshClient sshclient.Client) ([]infrav1.NIC, error
 	}
 
 	stringArray := strings.Split(stdOut, "\n")
-	nicsArray := make([]infrav1.NIC, len(stringArray))
+	nicsArray := make([]infrav1.NIC, 0, len(stringArray))
 
-	for i, str := range stringArray {
+	for _, str := range stringArray {
 		validJSONString := validJSONFromSSHOutput(str)
 
 		var nic originalNic
@@ -868,13 +868,13 @@ func obtainHardwareDetailsNics(sshClient sshclient.Client) ([]infrav1.NIC, error
 			return nil, fmt.Errorf("failed to parse int from string %s: %w", nic.SpeedMbps, err)
 		}
 
-		nicsArray[i] = infrav1.NIC{
+		nicsArray = append(nicsArray, infrav1.NIC{
 			Name:      nic.Name,
 			Model:     nic.Model,
 			MAC:       nic.MAC,
 			IP:        nic.IP,
 			SpeedMbps: speedMbps,
-		}
+		})
 	}
 
 	return nicsArray, nil
