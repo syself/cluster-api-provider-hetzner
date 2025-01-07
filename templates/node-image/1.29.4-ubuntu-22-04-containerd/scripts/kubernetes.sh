@@ -34,6 +34,10 @@ systemctl enable kubelet
 
 kubeadm config images pull --kubernetes-version $KUBERNETES_VERSION
 
+# Sets permission accordingly to CIS Benchmark
+chmod -R 644 /etc/cni
+chown -R root:root /etc/cni
+
 # enable completion
 echo 'source <(kubectl completion bash)' >>/root/.bashrc
 

@@ -47,23 +47,75 @@ kernel.panic=10
 kernel.panic_on_oops=1
 EOF
 
+# Create containerd systemd unit
+cat >/etc/systemd/system/containerd.service <<'EOF'
+# Copyright The containerd Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# https://raw.githubusercontent.com/containerd/containerd/main/containerd.service
+
+[Unit]
+Description=containerd container runtime
+Documentation=https://containerd.io
+After=network.target local-fs.target dbus.service
+
+[Service]
+ExecStartPre=-/sbin/modprobe overlay
+ExecStart=/usr/local/bin/containerd
+
+Type=notify
+Delegate=yes
+KillMode=process
+Restart=always
+RestartSec=5
+
+# Having non-zero Limit*s causes performance problems due to accounting overhead
+# in the kernel. We recommend using cgroups to do container-local accounting.
+LimitNPROC=infinity
+LimitCORE=infinity
+
+# Comment TasksMax if your systemd version does not supports it.
+# Only systemd 226 and above support this version.
+TasksMax=infinity
+OOMScoreAdjust=-999
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
 # Apply sysctl params without reboot
 sysctl --system
 
+ARCH="$(dpkg --print-architecture)"
 CONTAINERD=1.7.16 # https://github.com/containerd/containerd/releases
+RUNC=1.2.3 # https://github.com/opencontainers/runc/releases
+
+# Install runc
+wget https://github.com/opencontainers/runc/releases/download/v$RUNC/runc.$ARCH
+wget https://github.com/opencontainers/runc/releases/download/v$RUNC/runc.sha256sum
+sha256sum --check --ignore-missing runc.sha256sum
+install runc.$ARCH /usr/local/sbin/runc
 
 # Install containerd
-wget https://github.com/containerd/containerd/releases/download/v${CONTAINERD}/cri-containerd-cni-${CONTAINERD}-linux-${PACKER_ARCH}.tar.gz
-wget https://github.com/containerd/containerd/releases/download/v${CONTAINERD}/cri-containerd-cni-${CONTAINERD}-linux-${PACKER_ARCH}.tar.gz.sha256sum
-sha256sum --check cri-containerd-cni-${CONTAINERD}-linux-${PACKER_ARCH}.tar.gz.sha256sum
-tar --no-overwrite-dir -C / -xzf cri-containerd-cni-${CONTAINERD}-linux-${PACKER_ARCH}.tar.gz
+wget https://github.com/containerd/containerd/releases/download/v$CONTAINERD/containerd-$CONTAINERD-linux-$ARCH.tar.gz
+wget https://github.com/containerd/containerd/releases/download/v$CONTAINERD/containerd-$CONTAINERD-linux-$ARCH.tar.gz.sha256sum
+sha256sum --check containerd-$CONTAINERD-linux-$ARCH.tar.gz.sha256sum
+tar -zxf containerd-$CONTAINERD-linux-$ARCH.tar.gz -C /usr/local
 
 # Cleanup
-rm -f cri-containerd-cni-${CONTAINERD}-linux-${PACKER_ARCH}.tar.gz cri-containerd-cni-${CONTAINERD}-linux-${PACKER_ARCH}.tar.gz.sha256sum
-
-# Sets permission accordingly to CIS Benchmark
-chmod -R 644 /etc/cni
-chown -R root:root /etc/cni
+rm -f runc.$ARCH runc.sha256sum
+rm -f containerd-$CONTAINERD-linux-$ARCH.tar.gz containerd-$CONTAINERD-linux-$ARCH.tar.gz.sha256sum
 
 mkdir -p /etc/containerd
 containerd config default >/etc/containerd/config.toml
