@@ -18,6 +18,8 @@
 
 .DEFAULT_GOAL:=help
 
+SHELL = /usr/bin/env bash -o pipefail
+
 REPO_ROOT := $(shell git rev-parse --show-toplevel)
 
 help:  ## Display this help
