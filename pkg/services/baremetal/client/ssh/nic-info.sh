@@ -49,9 +49,6 @@ for idir in $(echo /sys/class/net/* | sort); do
         if [[ "$ipv6" == fe80:* ]]; then
             continue
         fi
-        if [ "$ipv6" = "ffff:fff:ffff:fff::f/64" ]; then
-            continue
-        fi
         echo "name=\"$iname\" model=\"$MODEL\" mac=\"$MAC\" ip=\"$ipv6\" speedMbps=\"$SPEED\""
     done
 done
