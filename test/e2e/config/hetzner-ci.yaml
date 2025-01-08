@@ -63,8 +63,8 @@ providers:
   - name: hetzner
     type: InfrastructureProvider
     versions:
-      - name: ${CAPH_LATEST_VERSION:-} # latest published release
-        value: https://github.com/syself/cluster-api-provider-hetzner/releases/download/${CAPH_LATEST_VERSION:-}/infrastructure-components.yaml
+      - name: ${CAPH_LATEST_VERSION} # latest published release
+        value: https://github.com/syself/cluster-api-provider-hetzner/releases/download/${CAPH_LATEST_VERSION}/infrastructure-components.yaml
         type: "url"
         contract: v1beta1
         files:
@@ -123,7 +123,7 @@ variables:
   INIT_WITH_BINARY: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.7.5/clusterctl-linux-amd64"
   INIT_WITH_PROVIDERS_CONTRACT: "v1beta1"
   INIT_WITH_KUBERNETES_VERSION: "v1.29.4"
-  INIT_WITH_INFRASTRUCTURE_PROVIDER_VERSION: ${CAPH_LATEST_VERSION:-}
+  INIT_WITH_INFRASTRUCTURE_PROVIDER_VERSION: ${CAPH_LATEST_VERSION}
 
   # Cluster Addons
   CILIUM: "./data/cni/cilium/cilium.yaml"
