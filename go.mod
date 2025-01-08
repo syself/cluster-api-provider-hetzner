@@ -12,7 +12,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/stoewer/go-strcase v1.3.0
 	github.com/stretchr/testify v1.9.0
-	github.com/syself/hrobot-go v0.2.5
+	github.com/syself/hrobot-go v0.2.6
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.28.0
 	golang.org/x/exp v0.0.0-20241009180824-f66d83c29e7c
@@ -26,7 +26,7 @@ require (
 	k8s.io/utils v0.0.0-20240921022957-49e7df575cb6
 	sigs.k8s.io/cluster-api v1.8.4
 	sigs.k8s.io/cluster-api/test v1.8.4
-	sigs.k8s.io/controller-runtime v0.18.5
+	sigs.k8s.io/controller-runtime v0.18.7
 	sigs.k8s.io/kind v0.24.0
 )
 
