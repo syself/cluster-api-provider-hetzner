@@ -5,17 +5,8 @@ on:
     branches:
       - main
       - "releases/**"
-    paths:
-      - "**.go"
-      - "**go.mod"
-      - "**go.sum"
-      - "<templates|test>/**/*.<yml|yaml>"
-      - ".github/actions/**/*"
-      - ".github/workflows/e2e-*"
-      - ".github/workflows/pr-*"
-      - "images/caph/**"
-      - "!**/vendor/**"
-      - "test/e2e/**"
+    paths-ignore:
+      - "**/*.md"
 env:
   IMAGE_NAME: caph-staging
   REGISTRY: ghcr.io/syself
