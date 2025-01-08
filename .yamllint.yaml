@@ -17,15 +17,17 @@ rules:
     min-spaces-from-content: 1
 
 yaml-files:
-  - '*.yaml'
-  - '*.yml'
+  - "*.yaml"
+  - "*.yml"
 
 ignore:
-  - '**/vendor/**'
-  - '.cache'
+  - "**/vendor/**"
+  - ".cache"
   - _artifacts
+  - tmp/**
   - config/crd/**/*.yaml
   - config/rbac/**/*.yaml
   - config/webhook/**/*.yaml
   - test/e2e/data/**/*.yaml
   - baremetalhosts.yaml
+  - test/e2e/config/hetzner.tmp.yaml

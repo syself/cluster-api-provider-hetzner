@@ -4,6 +4,8 @@
 # - control-plane kubeadm
 # - hetzner
 
+# yamllint disable rule:comments-indentation
+
 # For creating local dev images run make e2e-image from the main CAPH repository
 images:
   - name: ghcr.io/syself/caph-staging:${TAG:=e2e}
@@ -82,6 +84,7 @@ providers:
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-kcp-remediation.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hetzner-baremetal.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hetzner-baremetal-feature-raid-setup.yaml"
+
       ## Update and uncomment, if you want to do a caph upgrade test.
       # - name: v1.0.99 # next; use manifest from source files
       #   value: ../../../config/default
