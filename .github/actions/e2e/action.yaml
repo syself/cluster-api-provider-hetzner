@@ -69,7 +69,6 @@ runs:
         REGISTRY: ${{ env.REGISTRY }}
         IMAGE_NAME: ${{ env.IMAGE_NAME }}
         TAG: ${{ steps.meta.outputs.version }}
-        E2E_CONF_FILE_SOURCE: "${{ github.workspace }}/test/e2e/config/hetzner-ci.yaml"
         MANIFEST_PATH: "../../../out"
         HCLOUD_TOKEN: ${{ env.HCLOUD_TOKEN }}
         HETZNER_ROBOT_USER: ${{ inputs.e2e_robot_user }}

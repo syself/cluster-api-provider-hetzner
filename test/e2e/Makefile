@@ -117,7 +117,7 @@ ARTIFACTS ?= $(ROOT_DIR)/_artifacts
 SKIP_CLEANUP ?= false
 SKIP_CREATE_MGMT_CLUSTER ?= false
 E2E_DIR ?= $(REPO_ROOT)/test/e2e
-E2E_CONF_FILE ?= $(E2E_DIR)/config/hetzner-ci-envsubst.yaml
+E2E_CONF_FILE ?= $(E2E_DIR)/config/hetzner.tmp.yaml
 KUBETEST_CONF_PATH ?= $(abspath $(E2E_DIR)/data/kubetest/conformance.yaml)
 
 # # to set multiple ginkgo skip flags, if any

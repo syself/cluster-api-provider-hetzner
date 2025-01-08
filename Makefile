@@ -476,7 +476,7 @@ KUBEBUILDER_ASSETS ?= $(shell $(SETUP_ENVTEST) use --use-env --bin-dir $(abspath
 
 E2E_DIR ?= $(ROOT_DIR)/test/e2e
 E2E_CONF_FILE_SOURCE ?= $(E2E_DIR)/config/$(INFRA_PROVIDER).yaml
-E2E_CONF_FILE ?= $(E2E_DIR)/config/$(INFRA_PROVIDER)-ci-envsubst.yaml
+E2E_CONF_FILE ?= $(E2E_DIR)/config/$(INFRA_PROVIDER).tmp.yaml
 
 .PHONY: test-unit
 test-unit: $(SETUP_ENVTEST) $(GOTESTSUM) ## Run unit and integration tests
@@ -489,10 +489,9 @@ e2e-image: ## Build the e2e manager image
 
 .PHONY: e2e-conf-file
 e2e-conf-file: $(E2E_CONF_FILE)
-$(E2E_CONF_FILE): $(ENVSUBST) $(E2E_CONF_FILE_SOURCE)
-	mkdir -p $(shell dirname $(E2E_CONF_FILE))
-	./hack/ensure-env-variables.sh CAPH_LATEST_VERSION
-	$(ENVSUBST) < $(E2E_CONF_FILE_SOURCE) > $(E2E_CONF_FILE)
+$(E2E_CONF_FILE): $(ENVSUBST) $(E2E_CONF_FILE_SOURCE) ./hack/create-e2e-conf-file.sh
+	CAPH_LATEST_VERSION=$(CAPH_LATEST_VERSION) ENVSUBST=$(ENVSUBST) E2E_CONF_FILE_SOURCE=$(E2E_CONF_FILE_SOURCE) \
+		E2E_CONF_FILE=$(E2E_CONF_FILE) ./hack/create-e2e-conf-file.sh
 
 .PHONY: test-e2e
 test-e2e: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
