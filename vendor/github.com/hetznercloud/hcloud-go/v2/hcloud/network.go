@@ -44,15 +44,16 @@ const (
 
 // Network represents a network in the Hetzner Cloud.
 type Network struct {
-	ID         int64
-	Name       string
-	Created    time.Time
-	IPRange    *net.IPNet
-	Subnets    []NetworkSubnet
-	Routes     []NetworkRoute
-	Servers    []*Server
-	Protection NetworkProtection
-	Labels     map[string]string
+	ID            int64
+	Name          string
+	Created       time.Time
+	IPRange       *net.IPNet
+	Subnets       []NetworkSubnet
+	Routes        []NetworkRoute
+	Servers       []*Server
+	LoadBalancers []*LoadBalancer
+	Protection    NetworkProtection
+	Labels        map[string]string
 
 	// ExposeRoutesToVSwitch indicates if the routes from this network should be exposed to the vSwitch connection.
 	ExposeRoutesToVSwitch bool
