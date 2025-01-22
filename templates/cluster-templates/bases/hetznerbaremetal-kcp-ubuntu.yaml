@@ -232,7 +232,7 @@ spec:
         permissions: "0744"
     preKubeadmCommands:
       - set -x
-      - export CONTAINERD=1.7.24 # update: datasource=github-tags depName=containerd/containerd extractVersion=^v(?<version>.*)$ versioning=semver
+      - export CONTAINERD=1.7.25 # update: datasource=github-tags depName=containerd/containerd extractVersion=^v(?<version>.*)$ versioning=semver
       - export RUNC=1.2.3
       - export KUBERNETES_VERSION=$(echo ${KUBERNETES_VERSION} | sed 's/^v//')
       - export TRIMMED_KUBERNETES_VERSION=$(echo ${KUBERNETES_VERSION} | sed 's/^v//' | awk -F . '{print $1 "." $2}')
