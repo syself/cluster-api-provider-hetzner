@@ -48,6 +48,9 @@ var wipeDiskShellScript string
 //go:embed check-disk.sh
 var checkDiskShellScript string
 
+//go:embed nic-info.sh
+var nicInfoShellScript string
+
 var downloadFromOciShellScript = `#!/bin/bash
 
 # Copyright 2023 The Kubernetes Authors.
@@ -316,32 +319,12 @@ func (c *sshClient) GetHardwareDetailsRAM() Output {
 
 // GetHardwareDetailsNics implements the GetHardwareDetailsNics method of the SSHClient interface.
 func (c *sshClient) GetHardwareDetailsNics() Output {
-	out := c.runSSH(`cat << 'EOF_VIA_SSH' > nic-info.sh
-#!/bin/sh
-for iname in $(ip a |awk '/state UP/{print $2}' | sed 's/://')
-do
-
-MAC=\""$(ip a | grep -A2 $iname | awk '/link/{print $2}')\""
-SPEED=\""$(ethtool eth0 |grep "Speed:" | awk '{print $2}' | sed 's/[^0-9]//g')\""
-MODEL=\""$( lspci | grep net | head -1 | awk '{$1=$2=$3=""; print $0}' | sed "s/^[ \t]*//")\""
-IP_V4=\""$(ip a | grep -A2 eth0 | sed -n '/\binet\b/p' | awk '{print $2}')\""
-IP_V6=\""$(ip a | grep -A2 eth0 | sed -n '/\binet6\b/p' | awk '{print $2}')\""
-
-if test -n $IP_V4; then
-	echo "name=\""$iname\""" "model=$MODEL" "mac=$MAC" "ip=$IP_V4" "speedMbps=$SPEED"
-fi
-
-if test -n $IP_V6; then
-	echo "name=\""$iname\""" "model=$MODEL" "mac=$MAC" "ip=$IP_V6" "speedMbps=$SPEED"
-fi
-
-done
-EOF_VIA_SSH`)
-	if out.Err != nil || out.StdErr != "" {
-		return out
-	}
-
-	return c.runSSH("sh nic-info.sh")
+	return c.runSSH(fmt.Sprintf(`cat >/root/nic-info.sh <<'EOF_VIA_SSH'
+%s
+EOF_VIA_SSH
+chmod a+rx /root/nic-info.sh
+/root/nic-info.sh
+`, nicInfoShellScript))
 }
 
 // GetHardwareDetailsStorage implements the GetHardwareDetailsStorage method of the SSHClient interface.
