@@ -134,7 +134,10 @@ func (c *ImageClient) GetByNameAndArchitecture(ctx context.Context, name string,
 // Deprecated: Use [ImageClient.GetForArchitecture] instead.
 func (c *ImageClient) Get(ctx context.Context, idOrName string) (*Image, *Response, error) {
 	if id, err := strconv.ParseInt(idOrName, 10, 64); err == nil {
-		return c.GetByID(ctx, id)
+		img, res, err := c.GetByID(ctx, id)
+		if img != nil {
+			return img, res, err
+		}
 	}
 	return c.GetByName(ctx, idOrName)
 }
@@ -146,7 +149,10 @@ func (c *ImageClient) Get(ctx context.Context, idOrName string) (*Image, *Respon
 // check for this in your calling method.
 func (c *ImageClient) GetForArchitecture(ctx context.Context, idOrName string, architecture Architecture) (*Image, *Response, error) {
 	if id, err := strconv.ParseInt(idOrName, 10, 64); err == nil {
-		return c.GetByID(ctx, id)
+		img, res, err := c.GetByID(ctx, id)
+		if img != nil || err != nil {
+			return img, res, err
+		}
 	}
 	return c.GetByNameAndArchitecture(ctx, idOrName, architecture)
 }
