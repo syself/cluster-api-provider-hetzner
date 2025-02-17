@@ -52,7 +52,7 @@ config/samples
 
 # test results
 _artifacts
-test/e2e/config/hetzner-ci-envsubst.yaml
+test/e2e/config/hetzner.tmp.yaml
 resp.json
 **manifest.json
 
