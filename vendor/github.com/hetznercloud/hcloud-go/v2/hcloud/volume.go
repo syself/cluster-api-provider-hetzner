@@ -89,7 +89,10 @@ func (c *VolumeClient) GetByName(ctx context.Context, name string) (*Volume, *Re
 // retrieves a volume by its name. If the volume does not exist, nil is returned.
 func (c *VolumeClient) Get(ctx context.Context, idOrName string) (*Volume, *Response, error) {
 	if id, err := strconv.ParseInt(idOrName, 10, 64); err == nil {
-		return c.GetByID(ctx, id)
+		vol, res, err := c.GetByID(ctx, id)
+		if vol != nil || err != nil {
+			return vol, res, err
+		}
 	}
 	return c.GetByName(ctx, idOrName)
 }
@@ -220,10 +223,8 @@ func (c *VolumeClient) Create(ctx context.Context, opts VolumeCreateOpts) (Volum
 		reqBody.Server = Ptr(opts.Server.ID)
 	}
 	if opts.Location != nil {
-		if opts.Location.ID != 0 {
-			reqBody.Location = opts.Location.ID
-		} else {
-			reqBody.Location = opts.Location.Name
+		if opts.Location.ID != 0 || opts.Location.Name != "" {
+			reqBody.Location = &schema.IDOrName{ID: opts.Location.ID, Name: opts.Location.Name}
 		}
 	}
 
