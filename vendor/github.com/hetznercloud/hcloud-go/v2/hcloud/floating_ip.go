@@ -129,7 +129,10 @@ func (c *FloatingIPClient) GetByName(ctx context.Context, name string) (*Floatin
 // retrieves a Floating IP by its name. If the Floating IP does not exist, nil is returned.
 func (c *FloatingIPClient) Get(ctx context.Context, idOrName string) (*FloatingIP, *Response, error) {
 	if id, err := strconv.ParseInt(idOrName, 10, 64); err == nil {
-		return c.GetByID(ctx, id)
+		ip, res, err := c.GetByID(ctx, id)
+		if ip != nil || err != nil {
+			return ip, res, err
+		}
 	}
 	return c.GetByName(ctx, idOrName)
 }

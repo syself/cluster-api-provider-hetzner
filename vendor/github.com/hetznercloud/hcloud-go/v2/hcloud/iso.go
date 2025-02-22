@@ -71,7 +71,10 @@ func (c *ISOClient) GetByName(ctx context.Context, name string) (*ISO, *Response
 // Get retrieves an ISO by its ID if the input can be parsed as an integer, otherwise it retrieves an ISO by its name.
 func (c *ISOClient) Get(ctx context.Context, idOrName string) (*ISO, *Response, error) {
 	if id, err := strconv.ParseInt(idOrName, 10, 64); err == nil {
-		return c.GetByID(ctx, id)
+		iso, res, err := c.GetByID(ctx, id)
+		if iso != nil || err != nil {
+			return iso, res, err
+		}
 	}
 	return c.GetByName(ctx, idOrName)
 }
