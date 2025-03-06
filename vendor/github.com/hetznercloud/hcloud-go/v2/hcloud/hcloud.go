@@ -3,6 +3,10 @@ Package hcloud is a library for the Hetzner Cloud API.
 
 The Hetzner Cloud API reference is available at https://docs.hetzner.cloud.
 
+Make sure to follow our API changelog available at https://docs.hetzner.cloud/changelog
+(or the RRS feed available at https://docs.hetzner.cloud/changelog/feed.rss) to be
+notified about additions, deprecations and removals.
+
 # Retry mechanism
 
 The [Client.Do] method will retry failed requests that match certain criteria. The
@@ -27,4 +31,4 @@ breaking changes.
 package hcloud
 
 // Version is the library's version following Semantic Versioning.
-const Version = "2.13.1" // x-release-please-version
+const Version = "2.19.1" // x-release-please-version
