@@ -79,8 +79,8 @@ MGT_CLUSTER_KUBECONFIG ?= ".mgt-cluster-kubeconfig.yaml"
 
 # Kubebuilder.
 # go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
-# setup-envtest list
-export KUBEBUILDER_ENVTEST_KUBERNETES_VERSION ?= 1.31.6
+# The command `setup-envtest list` shows the available versions.
+export KUBEBUILDER_ENVTEST_KUBERNETES_VERSION ?= 1.31.0
 
 ##@ Binaries
 ############
@@ -110,7 +110,7 @@ $(ENVSUBST): # Build envsubst from tools folder.
 SETUP_ENVTEST := $(abspath $(TOOLS_BIN_DIR)/setup-envtest)
 setup-envtest: $(SETUP_ENVTEST) ## Build a local copy of setup-envtest
 $(SETUP_ENVTEST): # Build setup-envtest from tools folder.
-	go install sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.0.0-20240507051437-479b723944e3
+	go install sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.0.0-20250310021545-f80bc5dbf8f7
 
 CTLPTL := $(abspath $(TOOLS_BIN_DIR)/ctlptl)
 ctlptl: $(CTLPTL) ## Build a local copy of ctlptl
@@ -472,15 +472,20 @@ ssh-first-control-plane: ## ssh into the first control-plane
 	@hack/ssh-first-control-plane.sh
 
 
-KUBEBUILDER_ASSETS ?= $(shell $(SETUP_ENVTEST) use --use-env --bin-dir $(abspath $(TOOLS_BIN_DIR)) -p path $(KUBEBUILDER_ENVTEST_KUBERNETES_VERSION))
+KUBEBUILDER_ASSETS := $(shell $(SETUP_ENVTEST) use --use-env --bin-dir $(abspath $(TOOLS_BIN_DIR)) -p path $(KUBEBUILDER_ENVTEST_KUBERNETES_VERSION))
 
 E2E_DIR ?= $(ROOT_DIR)/test/e2e
 E2E_CONF_FILE_SOURCE ?= $(E2E_DIR)/config/$(INFRA_PROVIDER).yaml
 E2E_CONF_FILE ?= $(E2E_DIR)/config/$(INFRA_PROVIDER).tmp.yaml
 
+
 .PHONY: test-unit
 test-unit: $(SETUP_ENVTEST) $(GOTESTSUM) ## Run unit and integration tests
 	@mkdir -p $(shell pwd)/.coverage
+
+	@./hack/check-envtest.sh $(SETUP_ENVTEST) \
+		$(KUBEBUILDER_ENVTEST_KUBERNETES_VERSION)
+
 	KUBEBUILDER_ASSETS="$(KUBEBUILDER_ASSETS)" $(GOTESTSUM) --junitfile=.coverage/junit.xml --format testname -- -covermode=atomic -coverprofile=.coverage/cover.out -p=4 -timeout 5m ./controllers/... ./pkg/... ./api/...
 
 .PHONY: e2e-image
