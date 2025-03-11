@@ -423,12 +423,12 @@ func getAndValidateHCloudToken(ctx context.Context, namespace string, hetznerClu
 
 func hcloudTokenErrorResult(
 	ctx context.Context,
-	err error,
+	inerr error,
 	setter conditions.Setter,
 	conditionType clusterv1.ConditionType,
 	client client.Client,
 ) (res ctrl.Result, reterr error) {
-	switch err.(type) {
+	switch inerr.(type) {
 	// In the event that the reference to the secret is defined, but we cannot find it
 	// we requeue the host as we will not know if they create the secret
 	// at some point in the future.
@@ -456,16 +456,18 @@ func hcloudTokenErrorResult(
 			infrav1.HCloudCredentialsInvalidReason,
 			clusterv1.ConditionSeverityError,
 			"%s",
-			err.Error(),
+			inerr.Error(),
 		)
-		return reconcile.Result{}, fmt.Errorf("an unhandled failure occurred with the Hetzner secret: %w", err)
+		return reconcile.Result{}, fmt.Errorf("an unhandled failure occurred with the Hetzner secret: %w", inerr)
 	}
 	conditions.SetSummary(setter)
 	if err := client.Status().Update(ctx, setter); err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to update: %w", err)
 	}
-
-	return res, err
+	if inerr != nil {
+		return reconcile.Result{}, inerr
+	}
+	return res, nil
 }
 
 func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope) (res reconcile.Result, reterr error) {
