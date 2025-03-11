@@ -120,7 +120,7 @@ $(CTLPTL):
 CLUSTERCTL := $(abspath $(TOOLS_BIN_DIR)/clusterctl)
 clusterctl: $(CLUSTERCTL) ## Build a local copy of clusterctl
 $(CLUSTERCTL):
-	curl -sSLf https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.7.5/clusterctl-$$(go env GOOS)-$$(go env GOARCH) -o $(CLUSTERCTL)
+	curl -sSLf https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.8.10/clusterctl-$$(go env GOOS)-$$(go env GOARCH) -o $(CLUSTERCTL)
 	chmod a+rx $(CLUSTERCTL)
 
 HELM := $(abspath $(TOOLS_BIN_DIR)/helm)
