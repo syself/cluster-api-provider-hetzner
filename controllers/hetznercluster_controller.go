@@ -65,9 +65,7 @@ import (
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/placementgroup"
 )
 
-const (
-	secretErrorRetryDelay = time.Second * 10
-)
+var secretErrorRetryDelay = time.Second * 10
 
 // HetznerClusterReconciler reconciles a HetznerCluster object.
 type HetznerClusterReconciler struct {

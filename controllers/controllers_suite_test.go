@@ -54,6 +54,7 @@ var (
 )
 
 func TestControllers(t *testing.T) {
+	secretErrorRetryDelay = 1 * time.Millisecond
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Controller Suite")
 }
