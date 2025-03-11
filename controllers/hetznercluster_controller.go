@@ -427,7 +427,8 @@ func hcloudTokenErrorResult(
 	setter conditions.Setter,
 	conditionType clusterv1.ConditionType,
 	client client.Client,
-) (res ctrl.Result, reterr error) {
+) (ctrl.Result, error) {
+	res := ctrl.Result{}
 	switch inerr.(type) {
 	// In the event that the reference to the secret is defined, but we cannot find it
 	// we requeue the host as we will not know if they create the secret
@@ -440,6 +441,7 @@ func hcloudTokenErrorResult(
 			"could not find HetznerSecret",
 		)
 		res = ctrl.Result{RequeueAfter: secretErrorRetryDelay}
+		inerr = nil
 
 	// No need to reconcile again, as it will be triggered as soon as the secret is updated.
 	case *secretutil.HCloudTokenValidationError:
