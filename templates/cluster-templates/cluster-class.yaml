@@ -399,7 +399,6 @@ spec:
               default-unreachable-toleration-seconds: "45"
               enable-aggregator-routing: "true"
               enable-bootstrap-token-auth: "true"
-              encryption-provider-config: /etc/kubernetes/encryption-provider.yaml
               etcd-cafile: /etc/kubernetes/pki/etcd/ca.crt
               etcd-certfile: /etc/kubernetes/pki/etcd/server.crt
               etcd-keyfile: /etc/kubernetes/pki/etcd/server.key
@@ -419,10 +418,6 @@ spec:
               tls-cert-file: /etc/kubernetes/pki/apiserver.crt
               tls-cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
               tls-private-key-file: /etc/kubernetes/pki/apiserver.key
-            extraVolumes:
-              - hostPath: /etc/kubernetes/encryption-provider.yaml
-                mountPath: /etc/kubernetes/encryption-provider.yaml
-                name: encryption-provider
           controllerManager:
             extraArgs:
               allocate-node-cidrs: "true"
@@ -460,21 +455,6 @@ spec:
               profiling: "false"
               secure-port: "10259"
         files:
-          - content: |
-              apiVersion: apiserver.config.k8s.io/v1
-              kind: EncryptionConfiguration
-              resources:
-                - resources:
-                  - secrets
-                  providers:
-                  - aescbc:
-                      keys:
-                      - name: key1
-                        secret: 8d7iAcg3/NwN9aijhtEXj5kL2NOHIgokGFjbIBfL6X0=
-                  - identity: {}
-            owner: root:root
-            path: /etc/kubernetes/encryption-provider.yaml
-            permissions: "0600"
           - content: |
               net.ipv4.conf.lxc*.rp_filter = 0
             owner: root:root

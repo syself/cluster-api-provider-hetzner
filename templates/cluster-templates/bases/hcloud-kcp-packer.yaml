@@ -38,8 +38,6 @@ spec:
           requestheader-group-headers: X-Remote-Group
           requestheader-username-headers: X-Remote-User
           enable-aggregator-routing: "true"
-          # Etcd Secret Encrytion
-          encryption-provider-config: /etc/kubernetes/encryption-provider.yaml
           # Additional Configuration
           cloud-provider: external
           authorization-mode: "Node,RBAC"
@@ -48,10 +46,6 @@ spec:
           enable-bootstrap-token-auth: "true"
           default-not-ready-toleration-seconds: "45"
           default-unreachable-toleration-seconds: "45"
-        extraVolumes:
-          - name: encryption-provider
-            hostPath: /etc/kubernetes/encryption-provider.yaml
-            mountPath: /etc/kubernetes/encryption-provider.yaml
       controllerManager:
         extraArgs:
           cloud-provider: external
@@ -114,20 +108,4 @@ spec:
           event-qps: "5"
           rotate-server-certificates: "true"
           max-pods: "120"
-    files:
-      - path: /etc/kubernetes/encryption-provider.yaml
-        owner: "root:root"
-        permissions: "0600"
-        content: |
-          apiVersion: apiserver.config.k8s.io/v1
-          kind: EncryptionConfiguration
-          resources:
-            - resources:
-              - secrets
-              providers:
-              - aescbc:
-                  keys:
-                  - name: key1
-                    secret: 8d7iAcg3/NwN9aijhtEXj5kL2NOHIgokGFjbIBfL6X0=
-              - identity: {}
   version: "${KUBERNETES_VERSION}"
