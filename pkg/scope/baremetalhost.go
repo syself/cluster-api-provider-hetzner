@@ -47,6 +47,7 @@ type BareMetalHostScopeParams struct {
 	OSSSHSecret             *corev1.Secret
 	RescueSSHSecret         *corev1.Secret
 	SecretManager           *secretutil.SecretManager
+	PreProvisionCommand     string
 }
 
 // NewBareMetalHostScope creates a new Scope from the supplied parameters.
@@ -91,6 +92,7 @@ func NewBareMetalHostScope(params BareMetalHostScopeParams) (*BareMetalHostScope
 		OSSSHSecret:             params.OSSSHSecret,
 		RescueSSHSecret:         params.RescueSSHSecret,
 		SecretManager:           params.SecretManager,
+		PreProvisionCommand:     params.PreProvisionCommand,
 	}, nil
 }
 
@@ -107,6 +109,7 @@ type BareMetalHostScope struct {
 	Cluster                 *clusterv1.Cluster
 	OSSSHSecret             *corev1.Secret
 	RescueSSHSecret         *corev1.Secret
+	PreProvisionCommand     string
 }
 
 // Name returns the HetznerCluster name.

@@ -1072,6 +1072,46 @@ func validateStdOut(stdOut string) (string, error) {
 }
 
 // previous: Registering
+// next: ImageInstalling
+func (s *Service) actionPreProvisioning(ctx context.Context) actionResult {
+	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StateImageInstalling)
+
+	creds := sshclient.CredentialsFromSecret(s.scope.RescueSSHSecret, s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef)
+	in := sshclient.Input{
+		PrivateKey: creds.PrivateKey,
+		Port:       rescuePort,
+		IP:         s.scope.HetznerBareMetalHost.Spec.Status.GetIPAddress(),
+	}
+	sshClient := s.scope.SSHClientFactory.NewClient(in)
+
+	// Ensure os ssh secret
+	sshKey, actResult := s.ensureSSHKey(s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.SecretRef, s.scope.OSSSHSecret)
+	if _, isComplete := actResult.(actionComplete); !isComplete {
+		return actResult
+	}
+
+	s.scope.HetznerBareMetalHost.Spec.Status.SSHStatus.OSKey = &sshKey
+	state, err := sshClient.GetInstallImageState()
+	if err != nil {
+		return actionError{err: fmt.Errorf("failed to get state of installimage processes: %w", err)}
+	}
+	switch state {
+	case sshclient.InstallImageStateRunning:
+		s.scope.Logger.Info("installimage is still running. Checking again in some seconds.")
+		return actionContinue{delay: 10 * time.Second}
+
+	case sshclient.InstallImageStateFinished:
+		s.scope.Logger.Info("installimage is finished.")
+		return s.actionImageInstallingFinished(ctx, sshClient)
+	case sshclient.InstallImageStateNotStartedYet:
+		// install-image not started yet. Start it now.
+		return s.actionImageInstallingStartBackgroundProcess(ctx, sshClient)
+	default:
+		panic(fmt.Sprintf("Unknown InstallImageState %+v", state))
+	}
+}
+
+// previous: PreProvisioning
 // next: EnsureProvisioned
 func (s *Service) actionImageInstalling(ctx context.Context) actionResult {
 	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StateImageInstalling)
