@@ -1074,8 +1074,10 @@ func validateStdOut(stdOut string) (string, error) {
 // previous: Registering
 // next: ImageInstalling
 func (s *Service) actionPreProvisioning(ctx context.Context) actionResult {
-	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StateImageInstalling)
-
+	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StatePreProvisioning)
+	if s.scope.PreProvisionCommand == "" {
+		return actionComplete{}
+	}
 	creds := sshclient.CredentialsFromSecret(s.scope.RescueSSHSecret, s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef)
 	in := sshclient.Input{
 		PrivateKey: creds.PrivateKey,
@@ -1089,26 +1091,17 @@ func (s *Service) actionPreProvisioning(ctx context.Context) actionResult {
 	if _, isComplete := actResult.(actionComplete); !isComplete {
 		return actResult
 	}
-
 	s.scope.HetznerBareMetalHost.Spec.Status.SSHStatus.OSKey = &sshKey
-	state, err := sshClient.GetInstallImageState()
+	exitStatus, output, err := sshClient.ExecutePreProvisionCommand(ctx, s.scope.PreProvisionCommand)
 	if err != nil {
-		return actionError{err: fmt.Errorf("failed to get state of installimage processes: %w", err)}
+		return actionError{err: fmt.Errorf("failed to execute pre-provision command: %w", err)}
 	}
-	switch state {
-	case sshclient.InstallImageStateRunning:
-		s.scope.Logger.Info("installimage is still running. Checking again in some seconds.")
-		return actionContinue{delay: 10 * time.Second}
-
-	case sshclient.InstallImageStateFinished:
-		s.scope.Logger.Info("installimage is finished.")
-		return s.actionImageInstallingFinished(ctx, sshClient)
-	case sshclient.InstallImageStateNotStartedYet:
-		// install-image not started yet. Start it now.
-		return s.actionImageInstallingStartBackgroundProcess(ctx, sshClient)
-	default:
-		panic(fmt.Sprintf("Unknown InstallImageState %+v", state))
+	if exitStatus != 0 {
+		record.Warn(s.scope.HetznerBareMetalHost, infrav1.PreProvisionCommandFailedReason, output)
+		s.scope.HetznerBareMetalHost.SetError(infrav1.PermanentError, output)
+		return actionStop{}
 	}
+	return actionComplete{}
 }
 
 // previous: PreProvisioning

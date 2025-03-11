@@ -490,6 +490,70 @@ func (_c *Client_ExecuteInstallImage_Call) RunAndReturn(run func(bool) sshclient
 	return _c
 }
 
+// ExecutePreProvisionCommand provides a mock function with given fields: ctx, preProvisionCommand
+func (_m *Client) ExecutePreProvisionCommand(ctx context.Context, preProvisionCommand string) (int, string, error) {
+	ret := _m.Called(ctx, preProvisionCommand)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ExecutePreProvisionCommand")
+	}
+
+	var r0 int
+	var r1 string
+	var r2 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (int, string, error)); ok {
+		return rf(ctx, preProvisionCommand)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) int); ok {
+		r0 = rf(ctx, preProvisionCommand)
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) string); ok {
+		r1 = rf(ctx, preProvisionCommand)
+	} else {
+		r1 = ret.Get(1).(string)
+	}
+
+	if rf, ok := ret.Get(2).(func(context.Context, string) error); ok {
+		r2 = rf(ctx, preProvisionCommand)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
+}
+
+// Client_ExecutePreProvisionCommand_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ExecutePreProvisionCommand'
+type Client_ExecutePreProvisionCommand_Call struct {
+	*mock.Call
+}
+
+// ExecutePreProvisionCommand is a helper method to define mock.On call
+//   - ctx context.Context
+//   - preProvisionCommand string
+func (_e *Client_Expecter) ExecutePreProvisionCommand(ctx interface{}, preProvisionCommand interface{}) *Client_ExecutePreProvisionCommand_Call {
+	return &Client_ExecutePreProvisionCommand_Call{Call: _e.mock.On("ExecutePreProvisionCommand", ctx, preProvisionCommand)}
+}
+
+func (_c *Client_ExecutePreProvisionCommand_Call) Run(run func(ctx context.Context, preProvisionCommand string)) *Client_ExecutePreProvisionCommand_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *Client_ExecutePreProvisionCommand_Call) Return(exitStatus int, stdoutAndStderr string, err error) *Client_ExecutePreProvisionCommand_Call {
+	_c.Call.Return(exitStatus, stdoutAndStderr, err)
+	return _c
+}
+
+func (_c *Client_ExecutePreProvisionCommand_Call) RunAndReturn(run func(context.Context, string) (int, string, error)) *Client_ExecutePreProvisionCommand_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetCloudInitOutput provides a mock function with given fields:
 func (_m *Client) GetCloudInitOutput() sshclient.Output {
 	ret := _m.Called()

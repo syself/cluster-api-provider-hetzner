@@ -274,6 +274,10 @@ type Client interface {
 	// CheckDisk checks the given disks via smartctl.
 	// ErrCheckDiskBrokenDisk gets returned, if a disk is broken.
 	CheckDisk(ctx context.Context, sliceOfWwns []string) (info string, err error)
+
+	// ExecutePreProvisionCommand executes a command before the provision process starts.
+	// A non-zero exit status will indicate that provisioning should not start.
+	ExecutePreProvisionCommand(ctx context.Context, preProvisionCommand string) (exitStatus int, stdoutAndStderr string, err error)
 }
 
 // Factory is the interface for creating new Client objects.
@@ -750,4 +754,8 @@ func removeUselessLinesFromCloudInitOutput(s string) string {
 		return fmt.Sprintf("Error reading string: %v\n%s", err, s)
 	}
 	return strings.Join(output, "\n")
+}
+
+func (c *sshClient) ExecutePreProvisionCommand(ctx context.Context, command string) (int, string, error) {
+	return 0, "todo ööö", nil
 }
