@@ -2,9 +2,9 @@
   "variables": {
     "hcloud_token": "{{env `HCLOUD_TOKEN`}}",
     "scripts": "{{template_dir}}/scripts",
-    "os": "ubuntu-22.04",
+    "os": "ubuntu-24.04",
     "arch": "amd64",
-    "image-name": "1.29.4-ubuntu-22.04-containerd",
+    "image-name": "1.30.10-ubuntu-24.04-containerd",
     "version": "{{isotime \"2006-01-02-1504\"}}"
   },
   "sensitive-variables": [

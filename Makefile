@@ -80,7 +80,7 @@ MGT_CLUSTER_KUBECONFIG ?= ".mgt-cluster-kubeconfig.yaml"
 # Kubebuilder.
 # go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 # setup-envtest list
-export KUBEBUILDER_ENVTEST_KUBERNETES_VERSION ?= 1.29.3
+export KUBEBUILDER_ENVTEST_KUBERNETES_VERSION ?= 1.31.6
 
 ##@ Binaries
 ############
@@ -143,7 +143,7 @@ $(KIND):
 KUBECTL := $(abspath $(TOOLS_BIN_DIR)/kubectl)
 kubectl: $(KUBECTL) ## Build a local copy of kubectl
 $(KUBECTL):
-	curl -fsSL "https://dl.k8s.io/release/v1.29.4/bin/$$(go env GOOS)/$$(go env GOARCH)/kubectl" -o $(KUBECTL)
+	curl -fsSL "https://dl.k8s.io/release/v1.31.6/bin/$$(go env GOOS)/$$(go env GOARCH)/kubectl" -o $(KUBECTL)
 	chmod a+rx $(KUBECTL)
 
 go-binsize-treemap := $(abspath $(TOOLS_BIN_DIR)/go-binsize-treemap)
@@ -504,7 +504,7 @@ test-e2e-feature: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFA
 
 .PHONY: test-e2e-feature-packer
 test-e2e-feature-packer: $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKGO_FOKUS="'\[Feature Packer\]'" GINKGO_NODES=1 PACKER_IMAGE_NAME=templates/node-image/1.29.4-ubuntu-22-04-containerd ./hack/ci-e2e-capi.sh
+	GINKGO_FOKUS="'\[Feature Packer\]'" GINKGO_NODES=1 PACKER_IMAGE_NAME=templates/node-image/1.31.6-ubuntu-24-04-containerd ./hack/ci-e2e-capi.sh
 
 .PHONY: test-e2e-lifecycle
 test-e2e-lifecycle: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
@@ -516,7 +516,7 @@ test-e2e-upgrade-$(INFRA_SHORT): $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-
 
 .PHONY: test-e2e-upgrade-kubernetes
 test-e2e-upgrade-kubernetes: $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKGO_FOKUS="'\[Upgrade Kubernetes\]'" GINKGO_NODES=2 PACKER_KUBERNETES_UPGRADE_FROM=templates/node-image/1.28.9-ubuntu-22-04-containerd PACKER_KUBERNETES_UPGRADE_TO=templates/node-image/1.29.4-ubuntu-22-04-containerd ./hack/ci-e2e-capi.sh
+	GINKGO_FOKUS="'\[Upgrade Kubernetes\]'" GINKGO_NODES=2 PACKER_KUBERNETES_UPGRADE_FROM=templates/node-image/1.30.10-ubuntu-24-04-containerd PACKER_KUBERNETES_UPGRADE_TO=templates/node-image/1.31.6-ubuntu-24-04-containerd ./hack/ci-e2e-capi.sh
 
 .PHONY: test-e2e-conformance
 test-e2e-conformance: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)

@@ -99,7 +99,7 @@ sysctl --system
 
 ARCH="$(dpkg --print-architecture)"
 CONTAINERD=1.7.16 # https://github.com/containerd/containerd/releases
-RUNC=1.2.3 # https://github.com/opencontainers/runc/releases
+RUNC=1.2.5 # https://github.com/opencontainers/runc/releases
 
 # Install runc
 wget https://github.com/opencontainers/runc/releases/download/v$RUNC/runc.$ARCH

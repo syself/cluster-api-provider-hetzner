@@ -85,6 +85,7 @@ This provider's versions can install and manage the following versions of Kubern
 | Kubernetes 1.28.x | ✅                        |
 | Kubernetes 1.29.x | ✅                        |
 | Kubernetes 1.30.x | ✅                        |
+| Kubernetes 1.31.x | ✅                        |
 
 Test status:
 

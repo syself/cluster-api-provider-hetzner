@@ -17,7 +17,7 @@ kind create cluster
 
 ```shell
 Creating cluster "kind" ...
- ✓ Ensuring node image (kindest/node:v1.29.2) 🖼
+ ✓ Ensuring node image 🖼
  ✓ Preparing nodes 📦
  ✓ Writing configuration 📜
  ✓ Starting control-plane 🕹️
@@ -44,7 +44,7 @@ Required Variables:
 Optional Variables:
   - CLUSTER_NAME                 (defaults to my-cluster)
   - CONTROL_PLANE_MACHINE_COUNT  (defaults to 3)
-  - KUBERNETES_VERSION           (defaults to v1.29.4)
+  - KUBERNETES_VERSION           (defaults to v1.31.6)
   - WORKER_MACHINE_COUNT         (defaults to 3)
 ```
 
