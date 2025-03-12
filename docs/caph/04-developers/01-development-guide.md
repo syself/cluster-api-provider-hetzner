@@ -96,7 +96,7 @@ HETZNER_SSH_PUB=$(base64 -w0 "$HETZNER_SSH_PUB_PATH")
 HETZNER_SSH_PRIV=$(base64 -w0 "$HETZNER_SSH_PRIV_PATH")
 export HETZNER_SSH_PUB HETZNER_SSH_PRIV
 
-make test-e2e
+make test-e2e-hcloud
 ```
 
 For the SSH public and private keys, you should use the following command to encode the keys. Note that the E2E test will not work if the ssh key is in any other format!

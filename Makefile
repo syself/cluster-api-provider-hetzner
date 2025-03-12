@@ -491,8 +491,8 @@ $(E2E_CONF_FILE): $(ENVSUBST) $(E2E_CONF_FILE_SOURCE) ./hack/create-e2e-conf-fil
 	CAPH_LATEST_VERSION=$(CAPH_LATEST_VERSION) ENVSUBST=$(ENVSUBST) E2E_CONF_FILE_SOURCE=$(E2E_CONF_FILE_SOURCE) \
 		E2E_CONF_FILE=$(E2E_CONF_FILE) ./hack/create-e2e-conf-file.sh
 
-.PHONY: test-e2e
-test-e2e: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
+.PHONY: test-e2e-hcloud
+test-e2e-hcloud: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
 	rm -f $(WORKER_CLUSTER_KUBECONFIG)
 	GINKGO_FOKUS="'\[Basic\]'" GINKGO_NODES=2 E2E_CONF_FILE=$(E2E_CONF_FILE) ./hack/ci-e2e-capi.sh
 

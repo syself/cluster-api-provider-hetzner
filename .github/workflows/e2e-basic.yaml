@@ -46,5 +46,5 @@ jobs:
         uses: ./.github/actions/e2e
         with:
           e2e_name: hcloud-basic
-          e2e_make_target: test-e2e
+          e2e_make_target: test-e2e-hcloud
           e2e_hcloud_token: ${{ secrets.HCLOUD_TOKEN }}
