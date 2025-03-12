@@ -23,6 +23,7 @@ This provider's versions are compatible with the following versions of Cluster A
 | ------------------------------------ | ------------------------- | ------------------------- |
 | Hetzner Provider `v1.0.0-beta.34-43` | ✅                        | ❌                        |
 | Hetzner Provider `v1.0.0`            | ✅                        | ✅                        |
+| Hetzner Provider `v1.0.1`            | ✅                        | ✅                        |
 
 This provider's versions can install and manage the following versions of Kubernetes:
 

@@ -472,8 +472,6 @@ ssh-first-control-plane: ## ssh into the first control-plane
 	@hack/ssh-first-control-plane.sh
 
 
-KUBEBUILDER_ASSETS := $(shell $(SETUP_ENVTEST) use --use-env --bin-dir $(abspath $(TOOLS_BIN_DIR)) -p path $(KUBEBUILDER_ENVTEST_KUBERNETES_VERSION))
-
 E2E_DIR ?= $(ROOT_DIR)/test/e2e
 E2E_CONF_FILE_SOURCE ?= $(E2E_DIR)/config/$(INFRA_PROVIDER).yaml
 E2E_CONF_FILE ?= $(E2E_DIR)/config/$(INFRA_PROVIDER).tmp.yaml
@@ -481,12 +479,8 @@ E2E_CONF_FILE ?= $(E2E_DIR)/config/$(INFRA_PROVIDER).tmp.yaml
 
 .PHONY: test-unit
 test-unit: $(SETUP_ENVTEST) $(GOTESTSUM) ## Run unit and integration tests
-	@mkdir -p $(shell pwd)/.coverage
-
-	@./hack/check-envtest.sh $(SETUP_ENVTEST) \
-		$(KUBEBUILDER_ENVTEST_KUBERNETES_VERSION)
-
-	KUBEBUILDER_ASSETS="$(KUBEBUILDER_ASSETS)" $(GOTESTSUM) --junitfile=.coverage/junit.xml --format testname -- -covermode=atomic -coverprofile=.coverage/cover.out -p=4 -timeout 5m ./controllers/... ./pkg/... ./api/...
+	echo  $(SETUP_ENVTEST) $(GOTESTSUM)
+	./hack/test-unit.sh
 
 .PHONY: e2e-image
 e2e-image: ## Build the e2e manager image
