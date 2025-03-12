@@ -40,8 +40,8 @@ if [ -z "${HETZNER_ROBOT_USER:-}" ]; then
     HETZNER_SSH_PRIV=$(echo -n "dummy-HETZNER_SSH_PRIV" | base64 -w0)
 fi
 
-echo "HETZNER_SSH_PUB prefix is: $(echo -n "$HETZNER_SSH_PUB" | head -c 10)"
-echo "HETZNER_SSH_PRIV prefix is: $(echo -n "$HETZNER_SSH_PRIV" | head -c 10)"
+echo "HETZNER_SSH_PUB suf is: $(echo -n "$HETZNER_SSH_PUB" | tail -c 10)"
+echo "HETZNER_SSH_PRIV suf is: $(echo -n "$HETZNER_SSH_PRIV" | tail -c 10)"
 
 echo -n "$HETZNER_SSH_PUB" | base64 -d >tmp_ssh_pub_enc
 echo -n "$HETZNER_SSH_PRIV" | base64 -d >tmp_ssh_priv_enc
