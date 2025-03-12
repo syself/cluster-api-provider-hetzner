@@ -15,7 +15,7 @@
 # limitations under the License.
 
 # Bash Strict Mode: https://github.com/guettli/bash-strict-mode
-trap 'echo "Warning: A command has failed. Exiting the script. Line was ($0:$LINENO): $(sed -n "${LINENO}p" "$0")"; exit 3' ERR
+trap 'echo -e "\nWarning: A command has failed. Exiting the script. Line was ($0:$LINENO): $(sed -n "${LINENO}p" "$0")"; exit 3' ERR
 set -Eeuo pipefail
 
 if ! command -v kustomize | grep hack/tools/bin; then
@@ -24,6 +24,26 @@ if ! command -v kustomize | grep hack/tools/bin; then
 fi
 
 rm -f "$HETZNER_TEMPLATES"/v1beta1/cluster-template*.yaml
+
+if [ -z "${HETZNER_ROBOT_USER:-}" ]; then
+
+    if [ -n "${HETZNER_SSH_PUB:-}" ] ||
+        [ -n "${HETZNER_SSH_PRIV:-}" ] ||
+        [ -n "${HETZNER_ROBOT_PASSWORD:-}" ]; then
+        echo "Environment variables HETZNER_SSH_PUB HETZNER_SSH_PRIV HETZNER_ROBOT_PASSWORD should not be set."
+        exit 1
+    fi
+    echo "No HETZNER_ROBOT_USER set, setting values to dummy values"
+    HETZNER_ROBOT_USER="dummy-HETZNER_ROBOT_USER"
+    HETZNER_ROBOT_PASSWORD="dummy-HETZNER_ROBOT_PASSWORD"
+    HETZNER_SSH_PUB=$(echo -n "dummy-HETZNER_SSH_PUB" | base64 -w0)
+    HETZNER_SSH_PRIV=$(echo -n "dummy-HETZNER_SSH_PRIV" | base64 -w0)
+fi
+
+echo -n "$HETZNER_SSH_PUB" | base64 -d >tmp_ssh_pub_enc
+echo -n "$HETZNER_SSH_PRIV" | base64 -d >tmp_ssh_priv_enc
+kubectl create secret generic robot-ssh --from-literal=sshkey-name=ci --from-file=ssh-privatekey=tmp_ssh_priv_enc --from-file=ssh-publickey=tmp_ssh_pub_enc --dry-run=client -o yaml >data/infrastructure-hetzner/v1beta1/cluster-template-hetzner-secret.yaml
+rm tmp_ssh_pub_enc tmp_ssh_priv_enc
 
 kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template.yaml
 
@@ -47,26 +67,14 @@ kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-md-remediation --l
 
 kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-node-drain --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-node-drain.yaml
 
-if [ -n "${HETZNER_ROBOT_USER:-}" ]; then
-    echo -n "$HETZNER_SSH_PUB" | base64 -d >tmp_ssh_pub_enc
-    echo -n "$HETZNER_SSH_PRIV" | base64 -d >tmp_ssh_priv_enc
-    kubectl create secret generic robot-ssh --from-literal=sshkey-name=ci --from-file=ssh-privatekey=tmp_ssh_priv_enc --from-file=ssh-publickey=tmp_ssh_pub_enc --dry-run=client -o yaml >data/infrastructure-hetzner/v1beta1/cluster-template-hetzner-secret.yaml
-    rm tmp_ssh_pub_enc tmp_ssh_priv_enc
+kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-hetzner-baremetal --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-hetzner-baremetal.yaml
 
-    kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-hetzner-baremetal --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-hetzner-baremetal.yaml
+kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-hetzner-baremetal-feature-raid-setup --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-hetzner-baremetal-feature-raid-setup.yaml
 
-    kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-hetzner-baremetal-feature-raid-setup --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-hetzner-baremetal-feature-raid-setup.yaml
-
-    sed -i "s/robot-user_secret_placeholder/$(echo -n "$HETZNER_ROBOT_USER" | base64 -w0)/" "$HETZNER_TEMPLATES"/v1beta1/*.yaml
-    sed -i "s/robot-password_secret_placeholder/$(echo -n "$HETZNER_ROBOT_PASSWORD" | base64 -w0)/" "$HETZNER_TEMPLATES"/v1beta1/*.yaml
-fi
+sed -i "s/robot-user_secret_placeholder/$(echo -n "$HETZNER_ROBOT_USER" | base64 -w0)/" "$HETZNER_TEMPLATES"/v1beta1/*.yaml
+sed -i "s/robot-password_secret_placeholder/$(echo -n "$HETZNER_ROBOT_PASSWORD" | base64 -w0)/" "$HETZNER_TEMPLATES"/v1beta1/*.yaml
 
 sed -i "s/hcloud_secret_placeholder/$(echo -n "$HCLOUD_TOKEN" | base64 -w0)/" "$HETZNER_TEMPLATES"/v1beta1/*.yaml
 
 echo "Generated yaml files in $HETZNER_TEMPLATES/v1beta1/"
 echo
-
-if grep placeholder "$HETZNER_TEMPLATES"/v1beta1/*.yaml; then
-    echo "Error: Found 'placeholder' in template files."
-    exit 1
-fi

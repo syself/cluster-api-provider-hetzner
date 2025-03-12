@@ -348,6 +348,7 @@ generate-hcloud-token:
 .PHONY: clean
 clean: ## Remove all generated files
 	$(MAKE) clean-bin
+	rm -rf test/e2e/data/infrastructure-hetzner/*/cluster-template*.yaml
 
 .PHONY: clean-bin
 clean-bin: ## Remove all generated helper binaries
@@ -497,7 +498,11 @@ test-e2e: test-e2e-hcloud
 .PHONY: test-e2e-hcloud
 test-e2e-hcloud: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
 	rm -f $(WORKER_CLUSTER_KUBECONFIG)
-	GINKGO_FOKUS="'\[Basic\]'" GINKGO_NODES=2 E2E_CONF_FILE=$(E2E_CONF_FILE) ./hack/ci-e2e-capi.sh
+	HETZNER_SSH_PUB= HETZNER_SSH_PRIV= \
+	HETZNER_SSH_PUB_PATH= HETZNER_SSH_PRIV_PATH= \
+	HETZNER_ROBOT_PASSWORD= HETZNER_ROBOT_USER= \
+	GINKGO_FOKUS="'\[Basic\]'" GINKGO_NODES=2 E2E_CONF_FILE=$(E2E_CONF_FILE) \
+		./hack/ci-e2e-capi.sh
 
 .PHONY: test-e2e-feature
 test-e2e-feature: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
