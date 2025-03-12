@@ -14,8 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-	echo -n $HETZNER_SSH_PUB > tmp_ssh_pub
-	echo -n $HETZNER_SSH_PRIV > tmp_ssh_priv
-	base64 -d < tmp_ssh_priv > tmp_ssh_priv_enc
-	base64 -d < tmp_ssh_pub > tmp_ssh_pub_enc
-	kubectl create secret generic robot-ssh --from-literal=sshkey-name=ci --from-file=ssh-privatekey=tmp_ssh_priv_enc --from-file=ssh-publickey=tmp_ssh_pub_enc --dry-run=client -o yaml > data/infrastructure-hetzner/v1beta1/cluster-template-hetzner-secret.yaml
+# Bash Strict Mode: https://github.com/guettli/bash-strict-mode
+trap 'echo "Warning: A command has failed. Exiting the script. Line was ($0:$LINENO): $(sed -n "${LINENO}p" "$0")"; exit 3' ERR
+set -Eeuo pipefail
+
+echo -n "$HETZNER_SSH_PUB" | base64 -d >tmp_ssh_pub_enc
+echo -n "$HETZNER_SSH_PRIV" | base64 -d >tmp_ssh_priv_enc
+kubectl create secret generic robot-ssh --from-literal=sshkey-name=ci --from-file=ssh-privatekey=tmp_ssh_priv_enc --from-file=ssh-publickey=tmp_ssh_pub_enc --dry-run=client -o yaml >data/infrastructure-hetzner/v1beta1/cluster-template-hetzner-secret.yaml
+rm tmp_ssh_pub_enc tmp_ssh_priv_enc

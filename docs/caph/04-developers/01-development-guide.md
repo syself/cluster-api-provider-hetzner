@@ -62,7 +62,7 @@ To tear down the workload cluster, press the **"Delete Workload Cluster"** butto
 To tear down the kind cluster, use:
 
 ```shell
-$ make delete-mgt-cluster
+make delete-mgt-cluster
 ```
 
 To delete the registry, use `make delete-registry`. Use `make delete-mgt-cluster-registry` to delete both management cluster and associated registry.
@@ -90,8 +90,12 @@ export HCLOUD_TOKEN=<your-hcloud-token>
 export CAPH_LATEST_VERSION=<latest-version>
 export HETZNER_ROBOT_USER=<your robot user>
 export HETZNER_ROBOT_PASSWORD=<your robot password>
-export HETZNER_SSH_PUB=<your-ssh-pub-key>
-export HETZNER_SSH_PRIV=<your-ssh-private-key>
+export HETZNER_SSH_PUB_PATH=$HOME/.ssh/my-caph-ssh-key.pub
+export HETZNER_SSH_PRIV_PATH=$HOME/.ssh/my-caph-ssh-key
+HETZNER_SSH_PUB=$(base64 -w0 "$HETZNER_SSH_PUB_PATH")
+HETZNER_SSH_PRIV=$(base64 -w0 "$HETZNER_SSH_PRIV_PATH")
+export HETZNER_SSH_PUB HETZNER_SSH_PRIV
+
 make test-e2e
 ```
 

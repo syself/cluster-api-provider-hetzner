@@ -87,6 +87,7 @@ e2e-ccm-templates:
 cluster-templates: $(KUSTOMIZE) cluster-templates-v1beta1 ## Generate cluster templates for all versions
 
 cluster-templates-v1beta1: $(KUSTOMIZE) ## Generate cluster templates for v1beta1
+	../../hack/ensure-env-variables.sh HCLOUD_TOKEN HETZNER_SSH_PUB HETZNER_SSH_PRIV HETZNER_ROBOT_USER HETZNER_ROBOT_PASSWORD
 	$(KUSTOMIZE) build $(HETZNER_TEMPLATES)/v1beta1/cluster-template --load-restrictor LoadRestrictionsNone | sed 's/hcloud_secret_placeholder/$(shell printf "%s" $(HCLOUD_TOKEN) | base64 | tr -d '\n')/' > $(HETZNER_TEMPLATES)/v1beta1/cluster-template.yaml
 	$(KUSTOMIZE) build $(HETZNER_TEMPLATES)/v1beta1/cluster-template-k8s-upgrade --load-restrictor LoadRestrictionsNone | sed 's/hcloud_secret_placeholder/$(shell printf "%s" $(HCLOUD_TOKEN) | base64 | tr -d '\n')/' > $(HETZNER_TEMPLATES)/v1beta1/cluster-template-k8s-upgrade.yaml
 	$(KUSTOMIZE) build $(HETZNER_TEMPLATES)/v1beta1/cluster-template-k8s-upgrade-kcp-scale-in --load-restrictor LoadRestrictionsNone | sed 's/hcloud_secret_placeholder/$(shell printf "%s" $(HCLOUD_TOKEN) | base64 | tr -d '\n')/' > $(HETZNER_TEMPLATES)/v1beta1/cluster-template-k8s-upgrade-kcp-scale-in.yaml
@@ -102,6 +103,10 @@ cluster-templates-v1beta1: $(KUSTOMIZE) ## Generate cluster templates for v1beta
 	HETZNER_SSH_PUB=$(HETZNER_SSH_PUB) HETZNER_SSH_PRIV=$(HETZNER_SSH_PRIV) ../../hack/ci-hetzner-secret.sh
 	$(KUSTOMIZE) build $(HETZNER_TEMPLATES)/v1beta1/cluster-template-hetzner-baremetal --load-restrictor LoadRestrictionsNone | sed 's/hcloud_secret_placeholder/$(shell printf "%s" $(HCLOUD_TOKEN) | base64 | tr -d '\n')/' | sed 's/robot-user_secret_placeholder/$(shell echo -n "$(HETZNER_ROBOT_USER)" | base64 | tr -d '\n')/' | sed 's/robot-password_secret_placeholder/$(shell echo -n "$(HETZNER_ROBOT_PASSWORD)" | base64 | tr -d '\n')/' > $(HETZNER_TEMPLATES)/v1beta1/cluster-template-hetzner-baremetal.yaml
 	$(KUSTOMIZE) build $(HETZNER_TEMPLATES)/v1beta1/cluster-template-hetzner-baremetal-feature-raid-setup --load-restrictor LoadRestrictionsNone | sed 's/hcloud_secret_placeholder/$(shell printf "%s" $(HCLOUD_TOKEN) | base64 | tr -d '\n')/' | sed 's/robot-user_secret_placeholder/$(shell echo -n "$(HETZNER_ROBOT_USER)" | base64 | tr -d '\n')/' | sed 's/robot-password_secret_placeholder/$(shell echo -n "$(HETZNER_ROBOT_PASSWORD)" | base64 | tr -d '\n')/' > $(HETZNER_TEMPLATES)/v1beta1/cluster-template-hetzner-baremetal-feature-raid-setup.yaml
+	@if grep -q placeholder $(HETZNER_TEMPLATES)/v1beta1/*.yaml; then \
+		echo "Error: Found 'placeholder' in template files."; \
+		exit 1; \
+	fi
 
 
 ## --------------------------------------
