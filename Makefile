@@ -338,6 +338,10 @@ delete-mgt-cluster-registry: $(CTLPTL) ## Deletes Kind-dev Cluster and the local
 	$(CTLPTL) delete registry $(INFRA_SHORT)-registry
 
 generate-hcloud-token:
+	@if [ -n "$${TTS_TOKEN}" ]; then \
+		echo "Error: TTS_TOKEN is set. Please remove the deprecated variable (.envrc ?)."; \
+		exit 1; \
+	fi
 	./hack/ensure-env-variables.sh TPS_TOKEN
 	./hack/ci-e2e-get-token.sh
 
