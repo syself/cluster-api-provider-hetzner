@@ -40,12 +40,6 @@ if [ -z "${HETZNER_ROBOT_USER:-}" ]; then
     HETZNER_SSH_PRIV=$(echo -n "dummy-HETZNER_SSH_PRIV" | base64 -w0)
 fi
 
-echo "HETZNER_SSH_PUB pre is: $(echo -n "$HETZNER_SSH_PUB" | head -c 20)"
-echo "HETZNER_SSH_PRIV pre is: $(echo -n "$HETZNER_SSH_PRIV" | head -c 20)"
-
-echo "HETZNER_SSH_PUB suf is: $(echo -n "$HETZNER_SSH_PUB" | tail -c 20)"
-echo "HETZNER_SSH_PRIV suf is: $(echo -n "$HETZNER_SSH_PRIV" | tail -c 20)"
-
 echo -n "$HETZNER_SSH_PUB" | base64 -d >tmp_ssh_pub_enc
 echo -n "$HETZNER_SSH_PRIV" | base64 -d >tmp_ssh_priv_enc
 kubectl create secret generic robot-ssh --from-literal=sshkey-name=ci --from-file=ssh-privatekey=tmp_ssh_priv_enc --from-file=ssh-publickey=tmp_ssh_pub_enc --dry-run=client -o yaml >data/infrastructure-hetzner/v1beta1/cluster-template-hetzner-secret.yaml
