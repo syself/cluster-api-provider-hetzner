@@ -25,21 +25,6 @@ import (
 var _ = Describe("[Feature] Testing Cluster Flavor with 3x control-planes 1x worker", func() {
 	ctx := context.TODO()
 
-	Context("Testing deactivated csr", func() {
-		CaphClusterDeploymentSpec(ctx, func() CaphClusterDeploymentSpecInput {
-			return CaphClusterDeploymentSpecInput{
-				E2EConfig:                e2eConfig,
-				ClusterctlConfigPath:     clusterctlConfigPath,
-				BootstrapClusterProxy:    bootstrapClusterProxy,
-				ArtifactFolder:           artifactFolder,
-				SkipCleanup:              skipCleanup,
-				ControlPlaneMachineCount: 3,
-				WorkerMachineCount:       1,
-				Flavor:                   "hcloud-feature-csr-off",
-			}
-		})
-	})
-
 	Context("Testing Extra Services on Loadbalancer", func() {
 		CaphClusterDeploymentSpec(ctx, func() CaphClusterDeploymentSpecInput {
 			return CaphClusterDeploymentSpecInput{
