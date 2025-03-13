@@ -18,9 +18,12 @@ limitations under the License.
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
+	"regexp"
 	"sync"
 	"time"
 
@@ -52,6 +55,10 @@ import (
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
+
+	// We do not want filenames to start with a dot or a number.
+	// Only lowercase letters are allowed.
+	preProvisionCommandRegex = regexp.MustCompile(`^[a-z][a-z0-9_.-]+[a-z0-9]$`)
 )
 
 func init() {
@@ -101,15 +108,22 @@ func main() {
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 
+	ctrl.SetLogger(utils.GetDefaultLogger(logLevel))
+
 	if preProvisionCommand != "" {
+		baseName := filepath.Base(preProvisionCommand)
+		if !preProvisionCommandRegex.MatchString(baseName) {
+			msg := fmt.Sprintf("basename of pre-provision-command (%s) must match the regex %s", baseName, preProvisionCommandRegex.String())
+			setupLog.Error(errors.New(msg), "")
+			os.Exit(1)
+		}
+
 		_, err := os.Stat(preProvisionCommand)
 		if err != nil {
 			setupLog.Error(err, "pre-provision-command not found")
 			os.Exit(1)
 		}
 	}
-
-	ctrl.SetLogger(utils.GetDefaultLogger(logLevel))
 
 	var watchNamespaces map[string]cache.Config
 	if watchNamespace != "" {

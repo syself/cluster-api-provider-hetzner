@@ -26,11 +26,13 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
 	"time"
 
+	scp "github.com/bramvdbogaerde/go-scp"
 	"golang.org/x/crypto/ssh"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -663,11 +665,11 @@ func IsTimeoutError(err error) bool {
 	return strings.Contains(err.Error(), ErrTimeout.Error())
 }
 
-func (c *sshClient) runSSH(command string) Output {
+func (c *sshClient) getSSHClient() (*ssh.Client, error) {
 	// Create the Signer for this private key.
 	signer, err := ssh.ParsePrivateKey([]byte(c.privateSSHKey))
 	if err != nil {
-		return Output{Err: fmt.Errorf("unable to parse private key: %w", err)}
+		return nil, fmt.Errorf("unable to parse private key: %w", err)
 	}
 
 	config := &ssh.ClientConfig{
@@ -681,10 +683,18 @@ func (c *sshClient) runSSH(command string) Output {
 	}
 
 	// Connect to the remote server and perform the SSH handshake.
-
 	client, err := ssh.Dial("tcp", fmt.Sprintf("%s:%v", c.ip, c.port), config)
 	if err != nil {
-		return Output{Err: fmt.Errorf("failed to dial ssh. Error message: %s. DialErr: %w", err.Error(), errSSHDialFailed)}
+		return nil, fmt.Errorf("failed to dial ssh. Error message: %s. DialErr: %w", err.Error(), errSSHDialFailed)
+	}
+
+	return client, nil
+}
+
+func (c *sshClient) runSSH(command string) Output {
+	client, err := c.getSSHClient()
+	if err != nil {
+		return Output{Err: err}
 	}
 	defer client.Close()
 
@@ -757,5 +767,43 @@ func removeUselessLinesFromCloudInitOutput(s string) string {
 }
 
 func (c *sshClient) ExecutePreProvisionCommand(ctx context.Context, command string) (int, string, error) {
-	return 0, "todo ööö", nil
+	client, err := c.getSSHClient()
+	if err != nil {
+		return 0, "", err
+	}
+	defer client.Close()
+
+	scpClient, err := scp.NewClientBySSH(client)
+	if err != nil {
+		fmt.Println("Error creating new SSH session from existing connection", err)
+	}
+	defer scpClient.Close()
+
+	err = scpClient.Connect()
+	if err != nil {
+		return 0, "", fmt.Errorf("Couldn't establish a connection to the remote server: %w ", err)
+	}
+
+	f, err := os.Open(command)
+	if err != nil {
+		return 0, "", fmt.Errorf("Error opening file %q: %w", command, err)
+	}
+
+	baseName := filepath.Base(command)
+	dest := "/home/root/" + baseName
+	err = scpClient.CopyFromFile(ctx, *f, dest, "0700")
+	if err != nil {
+		return 0, "", fmt.Errorf("error copying file %q to %s:%d:%s %w", command, c.ip, c.port, dest, err)
+	}
+
+	out := c.runSSH(dest)
+	exitStatus, err := out.ExitStatus()
+	if err != nil {
+		return 0, "", fmt.Errorf("Error executing %q on %s:%d: %w", dest, c.ip, c.port, err)
+	}
+
+	s := out.StdOut + "\n" + out.StdErr
+	s = strings.TrimSpace(s)
+
+	return exitStatus, s, nil
 }

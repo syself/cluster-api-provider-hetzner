@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"slices"
 	"strconv"
@@ -1097,10 +1098,13 @@ func (s *Service) actionPreProvisioning(ctx context.Context) actionResult {
 		return actionError{err: fmt.Errorf("failed to execute pre-provision command: %w", err)}
 	}
 	if exitStatus != 0 {
-		record.Warn(s.scope.HetznerBareMetalHost, infrav1.PreProvisionCommandFailedReason, output)
+		record.Warnf(s.scope.HetznerBareMetalHost, infrav1.PreProvisionCommandFailedReason,
+			"%s: %s", filepath.Base(s.scope.PreProvisionCommand), output)
 		s.scope.HetznerBareMetalHost.SetError(infrav1.PermanentError, output)
 		return actionStop{}
 	}
+	record.Eventf(s.scope.HetznerBareMetalHost, infrav1.PreProvisionCommandSucceededReason,
+		"%s: %s", filepath.Base(s.scope.PreProvisionCommand), output)
 	return actionComplete{}
 }
 

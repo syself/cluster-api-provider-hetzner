@@ -4,6 +4,7 @@ go 1.22.6
 
 require (
 	github.com/blang/semver/v4 v4.0.0
+	github.com/bramvdbogaerde/go-scp v1.5.0
 	github.com/go-logr/logr v1.4.2
 	github.com/go-logr/zapr v1.3.0
 	github.com/hetznercloud/hcloud-go/v2 v2.13.1
