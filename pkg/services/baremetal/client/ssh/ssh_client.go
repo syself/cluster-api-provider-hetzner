@@ -775,7 +775,7 @@ func (c *sshClient) ExecutePreProvisionCommand(ctx context.Context, command stri
 
 	scpClient, err := scp.NewClientBySSH(client)
 	if err != nil {
-		return 0, "", fmt.Errorf("Couldn't create a new scp client: %w", err)
+		return 0, "", fmt.Errorf("couldn't create a new scp client: %w", err)
 	}
 	defer scpClient.Close()
 	scpClient.ClientConfig = clientConfig
@@ -783,12 +783,12 @@ func (c *sshClient) ExecutePreProvisionCommand(ctx context.Context, command stri
 
 	err = scpClient.Connect()
 	if err != nil {
-		return 0, "", fmt.Errorf("Couldn't establish a connection to the remote server: %w ", err)
+		return 0, "", fmt.Errorf("couldn't establish a connection to the remote server: %w ", err)
 	}
 
-	f, err := os.Open(command)
+	f, err := os.Open(command) //nolint:gosec // the variable was valided.
 	if err != nil {
-		return 0, "", fmt.Errorf("Error opening file %q: %w", command, err)
+		return 0, "", fmt.Errorf("error opening file %q: %w", command, err)
 	}
 
 	baseName := filepath.Base(command)
@@ -801,7 +801,7 @@ func (c *sshClient) ExecutePreProvisionCommand(ctx context.Context, command stri
 	out := c.runSSH(dest)
 	exitStatus, err := out.ExitStatus()
 	if err != nil {
-		return 0, "", fmt.Errorf("Error executing %q on %s:%d: %w", dest, c.ip, c.port, err)
+		return 0, "", fmt.Errorf("error executing %q on %s:%d: %w", dest, c.ip, c.port, err)
 	}
 
 	s := out.StdOut + "\n" + out.StdErr
