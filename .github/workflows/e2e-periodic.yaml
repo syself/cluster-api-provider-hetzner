@@ -69,7 +69,6 @@ jobs:
           e2e_name: hcloud-feature
           e2e_make_target: test-e2e-feature
           e2e_hcloud_token: ${{ secrets.HCLOUD_TOKEN }}
-s
   e2e-hcloud-lifecycle:
     name: Test Hcloud Lifecycle
     concurrency: ci-${{ github.ref }}-e2e-lifecycle
