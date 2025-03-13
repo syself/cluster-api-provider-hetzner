@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"runtime/debug"
 	"slices"
 	"strconv"
 	"strings"
@@ -172,6 +173,9 @@ func SaveHostAndReturn(ctx context.Context, cl client.Client, host *infrav1.Hetz
 func (s *Service) actionPreparing(_ context.Context) actionResult {
 	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StatePreparing)
 
+	defer (func() {
+		s.scope.Logger.Info("defer actionPreparing", "stack", string(debug.Stack()))
+	})()
 	server, err := s.scope.RobotClient.GetBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID)
 	if err != nil {
 		s.handleRobotRateLimitExceeded(err, "GetBMServer")
@@ -583,6 +587,9 @@ func (s *Service) ensureRescueMode() error {
 func (s *Service) actionRegistering(_ context.Context) actionResult {
 	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StateRegistering)
 
+	defer (func() {
+		s.scope.Logger.Info("defer actionRegistering", "stack", string(debug.Stack()))
+	})()
 	creds := sshclient.CredentialsFromSecret(s.scope.RescueSSHSecret, s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef)
 	in := sshclient.Input{
 		PrivateKey: creds.PrivateKey,
