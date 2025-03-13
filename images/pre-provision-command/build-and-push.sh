@@ -13,6 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# This script builds and pushed the container image for the init-container.
+# See README.md for more information.
+
 # Bash Strict Mode: https://github.com/guettli/bash-strict-mode
 trap 'echo "Warning: A command has failed. Exiting the script. Line was ($0:$LINENO): $(sed -n "${LINENO}p" "$0")"; exit 3' ERR
 set -Eeuo pipefail

@@ -1,5 +1,12 @@
 # CAPH pre-provision-command
 
+The `--pre-provision-command` for the caph controller can be used to execute a custom command
+before install-image starts.
+
+If the exit code is zero, then all is fine.
+
+If the exit code is non-zero, then provisioning of that machine will be stopped.
+
 Update the caph deployment:
 
 ```yaml
