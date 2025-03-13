@@ -1,7 +1,11 @@
 bases:
   - ../../../../../../templates/cluster-templates/bases/capi-cluster-kubeadm.yaml
   - ../../../../../../templates/cluster-templates/bases/hcloud-hetznerCluster.yaml
+  - ../../../../../../templates/cluster-templates/bases/hcloud-kcp-ubuntu.yaml
+  - ../../../../../../templates/cluster-templates/bases/hcloud-mt-control-plane-ubuntu.yaml
   - ../../../../../../templates/cluster-templates/bases/hcloud-md-0-kubeadm.yaml
+  - ../../../../../../templates/cluster-templates/bases/kct-md-0-ubuntu.yaml
+  - ../../../../../../templates/cluster-templates/bases/hcloud-mt-md-0-ubuntu.yaml
   - ../bases/hcloud-mt-control-plane-upgrade-to.yaml
   - ../bases/hcloud-mt-md-0-upgrade-to.yaml
   - ../bases/crs-cni.yaml
