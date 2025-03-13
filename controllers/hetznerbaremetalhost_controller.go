@@ -191,6 +191,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		OSSSHSecret:             osSSHSecret,
 		RescueSSHSecret:         rescueSSHSecret,
 		SecretManager:           secretManager,
+		PreProvisionCommand:     r.PreProvisionCommand,
 	})
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %w", err)
