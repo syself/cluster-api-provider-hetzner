@@ -267,7 +267,7 @@ func (hsm *hostStateMachine) handleRegistering(ctx context.Context) actionResult
 
 	actResult := hsm.reconciler.actionRegistering(ctx)
 	if _, ok := actResult.(actionComplete); ok {
-		hsm.nextState = infrav1.StateImageInstalling
+		hsm.nextState = infrav1.StatePreProvisioning
 	}
 	return actResult
 }

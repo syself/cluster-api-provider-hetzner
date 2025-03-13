@@ -580,7 +580,7 @@ func (s *Service) ensureRescueMode() error {
 }
 
 // previous: Preparing
-// next: ImageInstalling
+// next: PreProvisioning
 func (s *Service) actionRegistering(_ context.Context) actionResult {
 	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StateRegistering)
 
@@ -707,7 +707,7 @@ func (s *Service) actionRegistering(_ context.Context) actionResult {
 
 	conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.RootDeviceHintsValidatedCondition)
 	s.scope.HetznerBareMetalHost.ClearError()
-	return actionComplete{} // next: ImageInstalling
+	return actionComplete{}
 }
 
 func validateRootDeviceWwnsAreSubsetOfExistingWwns(rootDeviceHints *infrav1.RootDeviceHints, storageDevices []infrav1.Storage) error {
@@ -1375,7 +1375,7 @@ func (s *Service) actionImageInstallingFinished(_ context.Context, sshClient ssh
 
 	// clear potential errors - all done
 	s.scope.HetznerBareMetalHost.ClearError()
-	return actionComplete{} // next: ensure-provisioned
+	return actionComplete{}
 }
 
 func (s *Service) createAutoSetupInput(sshClient sshclient.Client) (autoSetupInput, actionResult) {
@@ -1614,7 +1614,7 @@ func (s *Service) actionEnsureProvisioned(_ context.Context) (ar actionResult) {
 	record.Event(s.scope.HetznerBareMetalHost, "ServerProvisioned", "server successfully provisioned")
 	conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
 	s.scope.HetznerBareMetalHost.ClearError()
-	return createEventWithCloudInitOutput(actionComplete{}) // next: actionProvisioned
+	return createEventWithCloudInitOutput(actionComplete{})
 }
 
 // handleConnectionRefused checks cloud init status via ssh to the old ssh port if the new ssh port
