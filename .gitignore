@@ -75,7 +75,7 @@ tmp_*
 baremetalhosts*yaml
 
 # https://github.com/guettli/watchall
-watchall-output/
+watchall-output*
 
 /*.kubeconfig
 /*.log
