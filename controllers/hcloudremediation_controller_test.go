@@ -147,7 +147,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				},
 			},
 			Spec: infrav1.HCloudMachineSpec{
-				ImageName:          "fedora-control-plane",
+				ImageName:          "my-control-plane",
 				Type:               "cpx31",
 				PlacementGroupName: &defaultPlacementGroupName,
 			},
