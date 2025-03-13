@@ -665,11 +665,11 @@ func IsTimeoutError(err error) bool {
 	return strings.Contains(err.Error(), ErrTimeout.Error())
 }
 
-func (c *sshClient) getSSHClient() (*ssh.Client, error) {
+func (c *sshClient) getSSHClient() (*ssh.Client, *ssh.ClientConfig, error) {
 	// Create the Signer for this private key.
 	signer, err := ssh.ParsePrivateKey([]byte(c.privateSSHKey))
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse private key: %w", err)
+		return nil, nil, fmt.Errorf("unable to parse private key: %w", err)
 	}
 
 	config := &ssh.ClientConfig{
@@ -685,14 +685,14 @@ func (c *sshClient) getSSHClient() (*ssh.Client, error) {
 	// Connect to the remote server and perform the SSH handshake.
 	client, err := ssh.Dial("tcp", fmt.Sprintf("%s:%v", c.ip, c.port), config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to dial ssh. Error message: %s. DialErr: %w", err.Error(), errSSHDialFailed)
+		return nil, nil, fmt.Errorf("failed to dial ssh. Error message: %s. DialErr: %w", err.Error(), errSSHDialFailed)
 	}
 
-	return client, nil
+	return client, config, nil
 }
 
 func (c *sshClient) runSSH(command string) Output {
-	client, err := c.getSSHClient()
+	client, _, err := c.getSSHClient()
 	if err != nil {
 		return Output{Err: err}
 	}
@@ -767,7 +767,7 @@ func removeUselessLinesFromCloudInitOutput(s string) string {
 }
 
 func (c *sshClient) ExecutePreProvisionCommand(ctx context.Context, command string) (int, string, error) {
-	client, err := c.getSSHClient()
+	client, clientConfig, err := c.getSSHClient()
 	if err != nil {
 		return 0, "", err
 	}
@@ -775,9 +775,11 @@ func (c *sshClient) ExecutePreProvisionCommand(ctx context.Context, command stri
 
 	scpClient, err := scp.NewClientBySSH(client)
 	if err != nil {
-		fmt.Println("Error creating new SSH session from existing connection", err)
+		return 0, "", fmt.Errorf("Couldn't create a new scp client: %w", err)
 	}
 	defer scpClient.Close()
+	scpClient.ClientConfig = clientConfig
+	scpClient.Host = fmt.Sprintf("%s:%d", c.ip, c.port)
 
 	err = scpClient.Connect()
 	if err != nil {
@@ -790,7 +792,7 @@ func (c *sshClient) ExecutePreProvisionCommand(ctx context.Context, command stri
 	}
 
 	baseName := filepath.Base(command)
-	dest := "/home/root/" + baseName
+	dest := "/root/" + baseName
 	err = scpClient.CopyFromFile(ctx, *f, dest, "0700")
 	if err != nil {
 		return 0, "", fmt.Errorf("error copying file %q to %s:%d:%s %w", command, c.ip, c.port, dest, err)
