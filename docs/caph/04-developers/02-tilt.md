@@ -22,7 +22,6 @@ description: Full list of available Tilt configuration values and their descript
     "CONTROL_PLANE_MACHINE_COUNT": "3",
     "WORKER_MACHINE_COUNT": "3",
     "KUBERNETES_VERSION": "v1.31.6",
-    "HCLOUD_IMAGE_NAME": "test-image",
     "HCLOUD_CONTROL_PLANE_MACHINE_TYPE": "cpx31",
     "HCLOUD_WORKER_MACHINE_TYPE": "cpx31",
     "CLUSTER_NAME": "test",

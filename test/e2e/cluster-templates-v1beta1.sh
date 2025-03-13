@@ -51,8 +51,6 @@ kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-k8s-upgrade --load
 
 kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-k8s-upgrade-kcp-scale-in --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-k8s-upgrade-kcp-scale-in.yaml
 
-kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-hcloud-feature-packer --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-hcloud-feature-packer.yaml
-
 kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-hcloud-feature-loadbalancer-off --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-hcloud-feature-loadbalancer-off.yaml
 
 kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-hcloud-feature-load-balancer-extra-services --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-hcloud-feature-load-balancer-extra-services.yaml

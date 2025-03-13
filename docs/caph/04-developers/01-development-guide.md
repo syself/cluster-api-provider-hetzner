@@ -23,7 +23,6 @@ This ensures the following:
 - helmfile
 - kind (required)
 - kubectl (required)
-- packer
 - tilt (required)
 - hcloud
 
@@ -53,7 +52,7 @@ To access the Tilt UI, please go to: `http://localhost:10351`
 
 {% /callout %}
 
-Once your kind management cluster is up and running, you can deploy a workload cluster. This could be done through the Tilt UI by pressing one of the buttons in the top right corner, e.g., **"Create Workload Cluster - without Packer"**. This triggers the `make create-workload-cluster` command, which uses the environment variables (we defined in the .envrc) and the cluster-template. Additionally, it installs cilium as CNI.
+Once your kind management cluster is up and running, you can deploy a workload cluster. This could be done through the Tilt UI by pressing one of the buttons in the top right corner, e.g., **"Create Workload Cluster"**. This triggers the `make create-workload-cluster` command, which uses the environment variables (we defined in the .envrc) and the cluster-template. Additionally, it installs cilium as CNI.
 
 If you update the API in some way, you need to run `make generate` to generate everything related to kubebuilder and the CRDs.
 

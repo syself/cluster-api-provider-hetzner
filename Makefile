@@ -235,32 +235,12 @@ create-workload-cluster-hcloud: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST)
 	$(MAKE) install-cilium-in-wl-cluster
 	$(MAKE) install-ccm-in-wl-cluster PRIVATE_NETWORK=false
 
-create-workload-cluster-hcloud-packer: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster.
-	# Create workload Cluster.
-	./hack/ensure-env-variables.sh HCLOUD_TOKEN
-	$(KUBECTL) create secret generic $(INFRA_PROVIDER) --from-literal=hcloud=$(HCLOUD_TOKEN) --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
-	$(KUSTOMIZE) build templates/cluster-templates/hcloud-packer --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-packer.yaml
-	cat templates/cluster-templates/cluster-template-hcloud-packer.yaml | $(ENVSUBST) - | $(KUBECTL) apply -f -
-	$(MAKE) wait-and-get-secret
-	$(MAKE) install-cilium-in-wl-cluster
-	$(MAKE) install-ccm-in-wl-cluster PRIVATE_NETWORK=false
-
 create-workload-cluster-hcloud-network: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster.
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN
 	$(KUBECTL) create secret generic $(INFRA_PROVIDER) --from-literal=hcloud=$(HCLOUD_TOKEN) --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
 	$(KUSTOMIZE) build templates/cluster-templates/hcloud-network --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-network.yaml
 	cat templates/cluster-templates/cluster-template-hcloud-network.yaml | $(ENVSUBST) - | $(KUBECTL) apply -f -
-	$(MAKE) wait-and-get-secret
-	$(MAKE) install-cilium-in-wl-cluster
-	$(MAKE) install-ccm-in-wl-cluster PRIVATE_NETWORK=true
-
-create-workload-cluster-hcloud-network-packer: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster.
-	# Create workload Cluster.
-	./hack/ensure-env-variables.sh HCLOUD_TOKEN
-	$(KUBECTL) create secret generic $(INFRA_PROVIDER) --from-literal=hcloud=$(HCLOUD_TOKEN) --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
-	$(KUSTOMIZE) build templates/cluster-templates/hcloud-network-packer --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-network-packer.yaml
-	cat templates/cluster-templates/cluster-template-hcloud-network-packer.yaml | $(ENVSUBST) - | $(KUBECTL) apply -f -
 	$(MAKE) wait-and-get-secret
 	$(MAKE) install-cilium-in-wl-cluster
 	$(MAKE) install-ccm-in-wl-cluster PRIVATE_NETWORK=true
@@ -512,10 +492,6 @@ test-e2e-hcloud: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFAC
 test-e2e-feature: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
 	GINKGO_FOKUS="'\[Feature\]'" GINKGO_NODES=3 ./hack/ci-e2e-capi.sh
 
-.PHONY: test-e2e-feature-packer
-test-e2e-feature-packer: $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKGO_FOKUS="'\[Feature Packer\]'" GINKGO_NODES=1 PACKER_IMAGE_NAME=templates/node-image/1.31.6-ubuntu-24-04-containerd ./hack/ci-e2e-capi.sh
-
 .PHONY: test-e2e-lifecycle
 test-e2e-lifecycle: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
 	GINKGO_FOKUS="'\[Lifecycle\]'" GINKGO_NODES=3 ./hack/ci-e2e-capi.sh
@@ -526,7 +502,7 @@ test-e2e-upgrade-$(INFRA_SHORT): $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-
 
 .PHONY: test-e2e-upgrade-kubernetes
 test-e2e-upgrade-kubernetes: $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
-	GINKGO_FOKUS="'\[Upgrade Kubernetes\]'" GINKGO_NODES=2 PACKER_KUBERNETES_UPGRADE_FROM=templates/node-image/1.30.10-ubuntu-24-04-containerd PACKER_KUBERNETES_UPGRADE_TO=templates/node-image/1.31.6-ubuntu-24-04-containerd ./hack/ci-e2e-capi.sh
+	GINKGO_FOKUS="'\[Upgrade Kubernetes\]'" GINKGO_NODES=2 ./hack/ci-e2e-capi.sh
 
 .PHONY: test-e2e-conformance
 test-e2e-conformance: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
@@ -642,9 +618,7 @@ generate-api-ci: generate-manifests generate-go-deepcopy
 cluster-templates: $(KUSTOMIZE)
 	$(KUSTOMIZE) build templates/cluster-templates/hcloud --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template.yaml
 	$(KUSTOMIZE) build templates/cluster-templates/hcloud --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud.yaml
-	$(KUSTOMIZE) build templates/cluster-templates/hcloud-packer --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-packer.yaml
 	$(KUSTOMIZE) build templates/cluster-templates/hcloud-network --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-network.yaml
-	$(KUSTOMIZE) build templates/cluster-templates/hcloud-network-packer --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-network-packer.yaml
 	$(KUSTOMIZE) build templates/cluster-templates/hetzner-hcloud-control-planes --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hetzner-hcloud-control-planes.yaml
 	$(KUSTOMIZE) build templates/cluster-templates/hetzner-baremetal-control-planes --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hetzner-baremetal-control-planes.yaml
 	$(KUSTOMIZE) build templates/cluster-templates/hetzner-baremetal-control-planes-remediation --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hetzner-baremetal-control-planes-remediation.yaml

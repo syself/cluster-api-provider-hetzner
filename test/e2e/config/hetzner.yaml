@@ -73,7 +73,6 @@ providers:
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-k8s-upgrade.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-k8s-upgrade-kcp-scale-in.yaml"
-          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-packer.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-load-balancer-extra-services.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-placement-groups.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-loadbalancer-off.yaml"
@@ -100,7 +99,6 @@ providers:
       #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template.yaml"
       #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-k8s-upgrade.yaml"
       #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-k8s-upgrade-kcp-scale-in.yaml"
-      #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-packer.yaml"
       #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-load-balancer-extra-services.yaml"
       #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-placement-groups.yaml"
       #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-loadbalancer-off.yaml"
@@ -156,7 +154,6 @@ variables:
   HETZNER_SSH_PRIV: "secret"
   SSH_KEY_NAME: "shared-2024-07-08"
   HCLOUD_REGION: "nbg1"
-  HCLOUD_IMAGE_NAME: ${HCLOUD_IMAGE_NAME:-}
   HCLOUD_CONTROL_PLANE_MACHINE_TYPE: cpx31
   HCLOUD_WORKER_MACHINE_TYPE: cpx21
   REDACT_LOG_SCRIPT: "../../hack/log/redact.sh"
