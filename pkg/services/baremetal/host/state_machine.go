@@ -73,6 +73,11 @@ func (hsm *hostStateMachine) ReconcileState(ctx context.Context) (actionRes acti
 		if hsm.nextState != initialState {
 			hsm.log.V(1).Info("changing provisioning state", "old", initialState, "new", hsm.nextState)
 			hsm.host.Spec.Status.ProvisioningState = hsm.nextState
+
+			cond := conditions.Get(hsm.host, infrav1.ProvisionSucceededCondition)
+			if cond != nil && cond.Reason == infrav1.StillProvisioningReason {
+				markProvisionPending(hsm.host, hsm.nextState)
+			}
 		}
 	}()
 
