@@ -25,6 +25,9 @@ SHELL = /usr/bin/env bash -o pipefail
 .DEFAULT_GOAL:=help
 GOTEST ?= go test
 
+# https://github.com/syself/hetzner-cloud-controller-manager#networks-support
+PRIVATE_NETWORK ?= false
+
 ##@ General
 
 
@@ -233,7 +236,7 @@ create-workload-cluster-hcloud: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST)
 	cat templates/cluster-templates/cluster-template-hcloud.yaml | $(ENVSUBST) - | $(KUBECTL) apply -f -
 	$(MAKE) wait-and-get-secret
 	$(MAKE) install-cilium-in-wl-cluster
-	$(MAKE) install-ccm-in-wl-cluster PRIVATE_NETWORK=false
+	$(MAKE) install-ccm-in-wl-cluster
 
 create-workload-cluster-hcloud-network: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster.
 	# Create workload Cluster.
@@ -254,7 +257,7 @@ create-workload-cluster-hetzner-hcloud-control-plane: env-vars-for-wl-cluster $(
 	cat templates/cluster-templates/cluster-template-$(INFRA_PROVIDER)-hcloud-control-planes.yaml | $(ENVSUBST) - | $(KUBECTL) apply -f -
 	$(MAKE) wait-and-get-secret
 	$(MAKE) install-cilium-in-wl-cluster
-	$(MAKE) install-ccm-in-wl-cluster PRIVATE_NETWORK=false
+	$(MAKE) install-ccm-in-wl-cluster
 
 create-workload-cluster-hetzner-baremetal-control-plane: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster.
 	# Create workload Cluster.
@@ -265,7 +268,7 @@ create-workload-cluster-hetzner-baremetal-control-plane: env-vars-for-wl-cluster
 	cat templates/cluster-templates/cluster-template-$(INFRA_PROVIDER)-baremetal-control-planes.yaml | $(ENVSUBST) - | $(KUBECTL) apply -f -
 	$(MAKE) wait-and-get-secret
 	$(MAKE) install-cilium-in-wl-cluster
-	$(MAKE) install-ccm-in-wl-cluster PRIVATE_NETWORK=false
+	$(MAKE) install-ccm-in-wl-cluster
 
 create-workload-cluster-hetzner-baremetal-control-plane-remediation: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster.
 	# Create workload Cluster.
@@ -276,7 +279,7 @@ create-workload-cluster-hetzner-baremetal-control-plane-remediation: env-vars-fo
 	cat templates/cluster-templates/cluster-template-$(INFRA_PROVIDER)-baremetal-control-planes-remediation.yaml | $(ENVSUBST) - | $(KUBECTL) apply -f -
 	$(MAKE) wait-and-get-secret
 	$(MAKE) install-cilium-in-wl-cluster
-	$(MAKE) install-ccm-in-wl-cluster PRIVATE_NETWORK=false
+	$(MAKE) install-ccm-in-wl-cluster
 
 move-to-workload-cluster: $(CLUSTERCTL)
 	$(CLUSTERCTL) init --kubeconfig=$(WORKER_CLUSTER_KUBECONFIG) --core cluster-api --bootstrap kubeadm --control-plane kubeadm --infrastructure $(INFRA_PROVIDER)
