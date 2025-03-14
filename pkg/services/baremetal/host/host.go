@@ -1076,9 +1076,18 @@ func validateStdOut(stdOut string) (string, error) {
 // next: ImageInstalling
 func (s *Service) actionPreProvisioning(ctx context.Context) actionResult {
 	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StatePreProvisioning)
+
+	// Ensure os ssh secret
+	sshKey, actResult := s.ensureSSHKey(s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.SecretRef, s.scope.OSSSHSecret)
+	if _, isComplete := actResult.(actionComplete); !isComplete {
+		return actResult
+	}
+	s.scope.HetznerBareMetalHost.Spec.Status.SSHStatus.OSKey = &sshKey
+
 	if s.scope.PreProvisionCommand == "" {
 		return actionComplete{}
 	}
+
 	creds := sshclient.CredentialsFromSecret(s.scope.RescueSSHSecret, s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef)
 	in := sshclient.Input{
 		PrivateKey: creds.PrivateKey,
@@ -1087,24 +1096,21 @@ func (s *Service) actionPreProvisioning(ctx context.Context) actionResult {
 	}
 	sshClient := s.scope.SSHClientFactory.NewClient(in)
 
-	// Ensure os ssh secret
-	sshKey, actResult := s.ensureSSHKey(s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.SecretRef, s.scope.OSSSHSecret)
-	if _, isComplete := actResult.(actionComplete); !isComplete {
-		return actResult
-	}
-	s.scope.HetznerBareMetalHost.Spec.Status.SSHStatus.OSKey = &sshKey
 	exitStatus, output, err := sshClient.ExecutePreProvisionCommand(ctx, s.scope.PreProvisionCommand)
 	if err != nil {
 		return actionError{err: fmt.Errorf("failed to execute pre-provision command: %w", err)}
 	}
+
 	if exitStatus != 0 {
 		record.Warnf(s.scope.HetznerBareMetalHost, "PreProvisionCommandFailed",
 			"%s: %s", filepath.Base(s.scope.PreProvisionCommand), output)
 		s.scope.HetznerBareMetalHost.SetError(infrav1.PermanentError, output)
 		return actionStop{}
 	}
+
 	record.Eventf(s.scope.HetznerBareMetalHost, "PreProvisionCommandSucceeded",
 		"%s: %s", filepath.Base(s.scope.PreProvisionCommand), output)
+
 	return actionComplete{}
 }
 
@@ -1121,17 +1127,11 @@ func (s *Service) actionImageInstalling(ctx context.Context) actionResult {
 	}
 	sshClient := s.scope.SSHClientFactory.NewClient(in)
 
-	// Ensure os ssh secret
-	sshKey, actResult := s.ensureSSHKey(s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.SecretRef, s.scope.OSSSHSecret)
-	if _, isComplete := actResult.(actionComplete); !isComplete {
-		return actResult
-	}
-
-	s.scope.HetznerBareMetalHost.Spec.Status.SSHStatus.OSKey = &sshKey
 	state, err := sshClient.GetInstallImageState()
 	if err != nil {
 		return actionError{err: fmt.Errorf("failed to get state of installimage processes: %w", err)}
 	}
+
 	switch state {
 	case sshclient.InstallImageStateRunning:
 		s.scope.Logger.Info("installimage is still running. Checking again in some seconds.")

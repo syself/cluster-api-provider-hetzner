@@ -777,7 +777,9 @@ func (c *sshClient) ExecutePreProvisionCommand(ctx context.Context, command stri
 	if err != nil {
 		return 0, "", fmt.Errorf("couldn't create a new scp client: %w", err)
 	}
+
 	defer scpClient.Close()
+
 	scpClient.ClientConfig = clientConfig
 	scpClient.Host = fmt.Sprintf("%s:%d", c.ip, c.port)
 
