@@ -1098,12 +1098,12 @@ func (s *Service) actionPreProvisioning(ctx context.Context) actionResult {
 		return actionError{err: fmt.Errorf("failed to execute pre-provision command: %w", err)}
 	}
 	if exitStatus != 0 {
-		record.Warnf(s.scope.HetznerBareMetalHost, infrav1.PreProvisionCommandFailedReason,
+		record.Warnf(s.scope.HetznerBareMetalHost, "PreProvisionCommandFailed",
 			"%s: %s", filepath.Base(s.scope.PreProvisionCommand), output)
 		s.scope.HetznerBareMetalHost.SetError(infrav1.PermanentError, output)
 		return actionStop{}
 	}
-	record.Eventf(s.scope.HetznerBareMetalHost, infrav1.PreProvisionCommandSucceededReason,
+	record.Eventf(s.scope.HetznerBareMetalHost, "PreProvisionCommandSucceeded",
 		"%s: %s", filepath.Base(s.scope.PreProvisionCommand), output)
 	return actionComplete{}
 }

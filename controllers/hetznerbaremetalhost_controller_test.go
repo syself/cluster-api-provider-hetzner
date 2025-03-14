@@ -348,6 +348,9 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 						"should-state", infrav1.StateImageInstalling)
 					return false
 				}, 10*time.Second).Should(BeTrue())
+
+				By("Checking if pre-provision-command was executed")
+				rescueSSHClient.AssertCalled(GinkgoT(), "ExecutePreProvisionCommand", mock.Anything, mock.Anything)
 			})
 		})
 
@@ -898,7 +901,7 @@ name="eth0" model="Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express
 	sshClient.On("Reboot").Return(sshclient.Output{})
 	sshClient.On("GetCloudInitOutput").Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"})
 	sshClient.On("DetectLinuxOnAnotherDisk", mock.Anything).Return(sshclient.Output{})
-	sshClient.On("ExecutePreProvisionCommand").Return(0, "", nil)
+	sshClient.On("ExecutePreProvisionCommand", mock.Anything, mock.Anything).Return(0, "", nil)
 	sshClient.On("GetInstallImageState").Return(sshclient.InstallImageStateFinished, nil)
 	sshClient.On("GetResultOfInstallImage").Return(hostpkg.PostInstallScriptFinished, nil)
 }

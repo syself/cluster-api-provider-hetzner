@@ -187,10 +187,6 @@ const (
 	RebootTimedOutReason = "RebootTimedOut"
 	// CheckDiskFailedReason indicates that checking the health of the disk was not successful.
 	CheckDiskFailedReason = "CheckDiskFailed"
-	// PreProvisionCommandSucceededReason indicates that the pre-provision command succeeded.
-	PreProvisionCommandSucceededReason = "PreProvisionCommandSucceeded"
-	// PreProvisionCommandFailedReason indicates that the pre-provision command failed.
-	PreProvisionCommandFailedReason = "PreProvisionCommandFailed"
 )
 
 const (

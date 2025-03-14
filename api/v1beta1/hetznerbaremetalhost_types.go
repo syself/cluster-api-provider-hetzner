@@ -161,7 +161,7 @@ const (
 	// StateRegistering means we are getting hardware details.
 	StateRegistering ProvisioningState = "registering"
 
-	// StatePreProvisioning means we install a new image.
+	// StatePreProvisioning means we run the pre-provisioning-command (if given).
 	StatePreProvisioning ProvisioningState = "pre-provisioning"
 
 	// StateImageInstalling means we install a new image.
