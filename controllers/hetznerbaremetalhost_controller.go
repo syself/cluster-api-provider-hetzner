@@ -138,6 +138,9 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		return reconcile.Result{Requeue: true}, nil
 	}
 	if err := r.Client.Get(ctx, hetznerClusterName, hetznerCluster); err != nil {
+		if apierrors.IsNotFound(err) {
+			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+		}
 		return reconcile.Result{}, fmt.Errorf("failed to get HetznerCluster: %w", err)
 	}
 
