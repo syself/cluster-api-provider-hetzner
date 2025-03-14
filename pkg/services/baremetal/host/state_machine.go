@@ -283,12 +283,13 @@ func (hsm *hostStateMachine) handlePreProvisioning(ctx context.Context) actionRe
 	case actionComplete:
 		hsm.nextState = infrav1.StateImageInstalling
 	case actionError:
-		// re-enable rescue system. If installimage failed, then it is likely, that
+		// re-enable rescue system. If actionPreProvisioning
+		// failed with actionError, then it is likely that
 		// the next run (without reboot) fails with this error:
 		// ERROR unmounting device(s):
 		// umount: /: target is busy.
 		// Cannot continue, device(s) seem to be in use.
-		// Please unmount used devices manually or reboot the rescuesystem and retry.
+		// Please unmount used devices manually or reboot the rescue system and retry.
 		hsm.nextState = infrav1.StatePreparing
 	}
 
@@ -311,7 +312,7 @@ func (hsm *hostStateMachine) handleImageInstalling(ctx context.Context) actionRe
 		// ERROR unmounting device(s):
 		// umount: /: target is busy.
 		// Cannot continue, device(s) seem to be in use.
-		// Please unmount used devices manually or reboot the rescuesystem and retry.
+		// Please unmount used devices manually or reboot the rescue system and retry.
 		hsm.nextState = infrav1.StatePreparing
 	}
 
