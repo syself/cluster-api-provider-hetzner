@@ -19,6 +19,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -71,6 +72,11 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 		}
 		By("BareMetalHost: " + hbmh.Name + " " + fmt.Sprint(hbmh.Spec.ServerID))
 		By("  ProvisioningState: " + string(hbmh.Spec.Status.ProvisioningState))
+		eMsg := string(hbmh.Spec.Status.ErrorType) + " " + hbmh.Spec.Status.ErrorMessage
+		eMsg = strings.TrimSpace(eMsg)
+		if eMsg != "" {
+			By("  Error: " + eMsg)
+		}
 		readyC := conditions.Get(hbmh, clusterv1.ReadyCondition)
 		msg := ""
 		reason := ""
