@@ -80,7 +80,6 @@ helm repo update syself
 
 $ helm upgrade --install ccm syself/ccm-hetzner --version 1.1.10 \
               --namespace kube-system \
-              --set privateNetwork.enabled=false \
               --kubeconfig workload-kubeconfig
 Release "ccm" does not exist. Installing it now.
 NAME: ccm
