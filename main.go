@@ -110,6 +110,7 @@ func main() {
 
 	ctrl.SetLogger(utils.GetDefaultLogger(logLevel))
 
+	// If preProvisionCommand is set, check if the file exists and validate the basename.
 	if preProvisionCommand != "" {
 		baseName := filepath.Base(preProvisionCommand)
 		if !preProvisionCommandRegex.MatchString(baseName) {
