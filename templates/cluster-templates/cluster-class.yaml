@@ -516,7 +516,7 @@ spec:
               rotate-server-certificates: "true"
               tls-cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
         preKubeadmCommands:
-          - grep VERSION= /etc/os-release; uname -a
+          - grep VERSION= /etc/os-release; uname -a # Show version info in logs.
           - export CONTAINERD=1.7.16
           - export KUBERNETES_VERSION=1.31.6
           - export TRIMMED_KUBERNETES_VERSION=$(echo ${KUBERNETES_VERSION} | sed 's/^v//' | awk -F . '{print $1 "." $2}')
@@ -602,7 +602,7 @@ spec:
             rotate-server-certificates: "true"
             tls-cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
       preKubeadmCommands:
-        - grep VERSION= /etc/os-release; uname -a
+        - grep VERSION= /etc/os-release; uname -a # Show version info in logs.
         - export CONTAINERD=1.7.16
         - export KUBERNETES_VERSION=1.31.6
         - export TRIMMED_KUBERNETES_VERSION=$(echo ${KUBERNETES_VERSION} | sed 's/^v//' | awk -F . '{print $1 "." $2}')
@@ -738,7 +738,7 @@ spec:
             rotate-server-certificates: "true"
             tls-cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
       preKubeadmCommands:
-        - grep VERSION= /etc/os-release; uname -a
+        - grep VERSION= /etc/os-release; uname -a # Show version info in logs.
         - export CONTAINERD=1.7.16
         - export KUBERNETES_VERSION=1.31.6
         - localectl set-locale LANG=en_US.UTF-8
