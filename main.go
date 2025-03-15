@@ -18,9 +18,12 @@ limitations under the License.
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
+	"regexp"
 	"sync"
 	"time"
 
@@ -52,6 +55,10 @@ import (
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
+
+	// We do not want filenames to start with a dot or a number.
+	// Only lowercase letters are allowed.
+	preProvisionCommandRegex = regexp.MustCompile(`^[a-z][a-z0-9_.-]+[a-z0-9]$`)
 )
 
 func init() {
@@ -77,6 +84,7 @@ var (
 	logLevel                           string
 	syncPeriod                         time.Duration
 	rateLimitWaitTime                  time.Duration
+	preProvisionCommand                string
 )
 
 func main() {
@@ -96,11 +104,27 @@ func main() {
 	fs.DurationVar(&syncPeriod, "sync-period", 3*time.Minute, "The minimum interval at which watched resources are reconciled (e.g. 3m)")
 	fs.DurationVar(&rateLimitWaitTime, "rate-limit", 5*time.Minute, "The rate limiting for HCloud controller (e.g. 5m)")
 	fs.BoolVar(&hcloudclient.DebugAPICalls, "debug-hcloud-api-calls", false, "Debug all calls to the hcloud API.")
-
+	fs.StringVar(&preProvisionCommand, "pre-provision-command", "", "Command to run (in rescue-system) before installing the image on bare metal servers. You can use that to check if the machine is healthy before installing the image. If the exit value is non-zero, the machine is considered unhealthy. This command must be accessible by the controller pod. You can use an initContainer to copy the command to a shared emptyDir.")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 
 	ctrl.SetLogger(utils.GetDefaultLogger(logLevel))
+
+	// If preProvisionCommand is set, check if the file exists and validate the basename.
+	if preProvisionCommand != "" {
+		baseName := filepath.Base(preProvisionCommand)
+		if !preProvisionCommandRegex.MatchString(baseName) {
+			msg := fmt.Sprintf("basename of pre-provision-command (%s) must match the regex %s", baseName, preProvisionCommandRegex.String())
+			setupLog.Error(errors.New(msg), "")
+			os.Exit(1)
+		}
+
+		_, err := os.Stat(preProvisionCommand)
+		if err != nil {
+			setupLog.Error(err, "pre-provision-command not found")
+			os.Exit(1)
+		}
+	}
 
 	var watchNamespaces map[string]cache.Config
 	if watchNamespace != "" {
@@ -179,12 +203,13 @@ func main() {
 	}
 
 	if err = (&controllers.HetznerBareMetalHostReconciler{
-		Client:             mgr.GetClient(),
-		RobotClientFactory: robotclient.NewFactory(),
-		SSHClientFactory:   sshclient.NewFactory(),
-		APIReader:          mgr.GetAPIReader(),
-		RateLimitWaitTime:  rateLimitWaitTime,
-		WatchFilterValue:   watchFilterValue,
+		Client:              mgr.GetClient(),
+		RobotClientFactory:  robotclient.NewFactory(),
+		SSHClientFactory:    sshclient.NewFactory(),
+		APIReader:           mgr.GetAPIReader(),
+		RateLimitWaitTime:   rateLimitWaitTime,
+		WatchFilterValue:    watchFilterValue,
+		PreProvisionCommand: preProvisionCommand,
 	}).SetupWithManager(ctx, mgr, controller.Options{MaxConcurrentReconciles: hetznerBareMetalHostConcurrency}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HetznerBareMetalHost")
 		os.Exit(1)

@@ -58,6 +58,9 @@ github.com/beorn7/perks/quantile
 # github.com/blang/semver/v4 v4.0.0
 ## explicit; go 1.14
 github.com/blang/semver/v4
+# github.com/bramvdbogaerde/go-scp v1.5.0
+## explicit; go 1.21
+github.com/bramvdbogaerde/go-scp
 # github.com/cenkalti/backoff/v4 v4.2.1
 ## explicit; go 1.18
 github.com/cenkalti/backoff/v4
