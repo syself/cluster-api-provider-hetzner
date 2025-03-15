@@ -190,14 +190,6 @@ const (
 )
 
 const (
-	// SSHAfterInstallImageSucceededCondition indicates that the host is reachable via ssh after installImage.
-	SSHAfterInstallImageSucceededCondition clusterv1.ConditionType = "SSHAfterInstallImageSucceeded"
-
-	// SSHAfterInstallImageFailedReason indicates that the host was not reachable via ssh.
-	SSHAfterInstallImageFailedReason = "SSHAfterInstallImageFailed"
-)
-
-const (
 	// HostAssociateSucceededCondition indicates that a host has been associated.
 	HostAssociateSucceededCondition clusterv1.ConditionType = "HostAssociateSucceeded"
 	// NoAvailableHostReason indicates that there is no available host.

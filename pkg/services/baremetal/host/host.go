@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"slices"
 	"strconv"
@@ -579,7 +580,7 @@ func (s *Service) ensureRescueMode() error {
 }
 
 // previous: Preparing
-// next: ImageInstalling
+// next: PreProvisioning
 func (s *Service) actionRegistering(_ context.Context) actionResult {
 	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StateRegistering)
 
@@ -706,7 +707,7 @@ func (s *Service) actionRegistering(_ context.Context) actionResult {
 
 	conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.RootDeviceHintsValidatedCondition)
 	s.scope.HetznerBareMetalHost.ClearError()
-	return actionComplete{} // next: ImageInstalling
+	return actionComplete{}
 }
 
 func validateRootDeviceWwnsAreSubsetOfExistingWwns(rootDeviceHints *infrav1.RootDeviceHints, storageDevices []infrav1.Storage) error {
@@ -1072,6 +1073,48 @@ func validateStdOut(stdOut string) (string, error) {
 }
 
 // previous: Registering
+// next: ImageInstalling
+func (s *Service) actionPreProvisioning(ctx context.Context) actionResult {
+	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StatePreProvisioning)
+
+	// Ensure os ssh secret
+	sshKey, actResult := s.ensureSSHKey(s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.SecretRef, s.scope.OSSSHSecret)
+	if _, isComplete := actResult.(actionComplete); !isComplete {
+		return actResult
+	}
+	s.scope.HetznerBareMetalHost.Spec.Status.SSHStatus.OSKey = &sshKey
+
+	if s.scope.PreProvisionCommand == "" {
+		return actionComplete{}
+	}
+
+	creds := sshclient.CredentialsFromSecret(s.scope.RescueSSHSecret, s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef)
+	in := sshclient.Input{
+		PrivateKey: creds.PrivateKey,
+		Port:       rescuePort,
+		IP:         s.scope.HetznerBareMetalHost.Spec.Status.GetIPAddress(),
+	}
+	sshClient := s.scope.SSHClientFactory.NewClient(in)
+
+	exitStatus, output, err := sshClient.ExecutePreProvisionCommand(ctx, s.scope.PreProvisionCommand)
+	if err != nil {
+		return actionError{err: fmt.Errorf("failed to execute pre-provision command: %w", err)}
+	}
+
+	if exitStatus != 0 {
+		record.Warnf(s.scope.HetznerBareMetalHost, "PreProvisionCommandFailed",
+			"%s: %s", filepath.Base(s.scope.PreProvisionCommand), output)
+		s.scope.HetznerBareMetalHost.SetError(infrav1.PermanentError, output)
+		return actionStop{}
+	}
+
+	record.Eventf(s.scope.HetznerBareMetalHost, "PreProvisionCommandSucceeded",
+		"%s: %s", filepath.Base(s.scope.PreProvisionCommand), output)
+
+	return actionComplete{}
+}
+
+// previous: PreProvisioning
 // next: EnsureProvisioned
 func (s *Service) actionImageInstalling(ctx context.Context) actionResult {
 	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StateImageInstalling)
@@ -1084,17 +1127,11 @@ func (s *Service) actionImageInstalling(ctx context.Context) actionResult {
 	}
 	sshClient := s.scope.SSHClientFactory.NewClient(in)
 
-	// Ensure os ssh secret
-	sshKey, actResult := s.ensureSSHKey(s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.SecretRef, s.scope.OSSSHSecret)
-	if _, isComplete := actResult.(actionComplete); !isComplete {
-		return actResult
-	}
-
-	s.scope.HetznerBareMetalHost.Spec.Status.SSHStatus.OSKey = &sshKey
 	state, err := sshClient.GetInstallImageState()
 	if err != nil {
 		return actionError{err: fmt.Errorf("failed to get state of installimage processes: %w", err)}
 	}
+
 	switch state {
 	case sshclient.InstallImageStateRunning:
 		s.scope.Logger.Info("installimage is still running. Checking again in some seconds.")
@@ -1338,7 +1375,7 @@ func (s *Service) actionImageInstallingFinished(_ context.Context, sshClient ssh
 
 	// clear potential errors - all done
 	s.scope.HetznerBareMetalHost.ClearError()
-	return actionComplete{} // next: ensure-provisioned
+	return actionComplete{}
 }
 
 func (s *Service) createAutoSetupInput(sshClient sshclient.Client) (autoSetupInput, actionResult) {
@@ -1577,7 +1614,7 @@ func (s *Service) actionEnsureProvisioned(_ context.Context) (ar actionResult) {
 	record.Event(s.scope.HetznerBareMetalHost, "ServerProvisioned", "server successfully provisioned")
 	conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
 	s.scope.HetznerBareMetalHost.ClearError()
-	return createEventWithCloudInitOutput(actionComplete{}) // next: actionProvisioned
+	return createEventWithCloudInitOutput(actionComplete{})
 }
 
 // handleConnectionRefused checks cloud init status via ssh to the old ssh port if the new ssh port

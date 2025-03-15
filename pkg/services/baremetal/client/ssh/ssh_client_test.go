@@ -18,8 +18,11 @@ limitations under the License.
 package sshclient
 
 import (
+	"context"
 	_ "embed"
 	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -101,4 +104,25 @@ func TestOutput_String(t *testing.T) {
 		StdErr: "mystderr",
 		Err:    fmt.Errorf("some err"),
 	}, "mystdout. Stderr: mystderr. Err: some err")
+}
+
+func Test_ExecutePreProvisionCommand_withRealServer(t *testing.T) {
+	// This test is disabled by default because it requires a real server to be up and running.
+	// It is useful to enable it when debugging scp issues.
+	t.SkipNow()
+
+	ctx := context.Background()
+	pk, err := os.ReadFile(filepath.Join(os.Getenv("HOME"), ".ssh", "id_rsa"))
+	require.NoError(t, err)
+
+	c := sshClient{
+		privateSSHKey: string(pk),
+		ip:            "178.63.61.147",
+		port:          22,
+	}
+
+	exitStatus, output, err := c.ExecutePreProvisionCommand(ctx, "/usr/bin/hostname")
+	require.NoError(t, err)
+	require.Equal(t, 0, exitStatus)
+	require.Equal(t, "hz1", output)
 }

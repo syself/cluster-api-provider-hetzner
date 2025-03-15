@@ -58,6 +58,7 @@ func (hsm *hostStateMachine) handlers() map[infrav1.ProvisioningState]stateHandl
 	return map[infrav1.ProvisioningState]stateHandler{
 		infrav1.StatePreparing:         hsm.handlePreparing,
 		infrav1.StateRegistering:       hsm.handleRegistering,
+		infrav1.StatePreProvisioning:   hsm.handlePreProvisioning,
 		infrav1.StateImageInstalling:   hsm.handleImageInstalling,
 		infrav1.StateEnsureProvisioned: hsm.handleEnsureProvisioned,
 		infrav1.StateProvisioned:       hsm.handleProvisioned,
@@ -266,8 +267,32 @@ func (hsm *hostStateMachine) handleRegistering(ctx context.Context) actionResult
 
 	actResult := hsm.reconciler.actionRegistering(ctx)
 	if _, ok := actResult.(actionComplete); ok {
-		hsm.nextState = infrav1.StateImageInstalling
+		hsm.nextState = infrav1.StatePreProvisioning
 	}
+	return actResult
+}
+
+func (hsm *hostStateMachine) handlePreProvisioning(ctx context.Context) actionResult {
+	if hsm.provisioningCancelled() {
+		hsm.nextState = infrav1.StateDeprovisioning
+		return actionComplete{}
+	}
+
+	actResult := hsm.reconciler.actionPreProvisioning(ctx)
+	switch actResult.(type) {
+	case actionComplete:
+		hsm.nextState = infrav1.StateImageInstalling
+	case actionError:
+		// re-enable rescue system. If actionPreProvisioning
+		// failed with actionError, then it is likely that
+		// the next run (without reboot) fails with this error:
+		// ERROR unmounting device(s):
+		// umount: /: target is busy.
+		// Cannot continue, device(s) seem to be in use.
+		// Please unmount used devices manually or reboot the rescue system and retry.
+		hsm.nextState = infrav1.StatePreparing
+	}
+
 	return actResult
 }
 
@@ -287,7 +312,7 @@ func (hsm *hostStateMachine) handleImageInstalling(ctx context.Context) actionRe
 		// ERROR unmounting device(s):
 		// umount: /: target is busy.
 		// Cannot continue, device(s) seem to be in use.
-		// Please unmount used devices manually or reboot the rescuesystem and retry.
+		// Please unmount used devices manually or reboot the rescue system and retry.
 		hsm.nextState = infrav1.StatePreparing
 	}
 

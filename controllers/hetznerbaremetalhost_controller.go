@@ -52,11 +52,12 @@ import (
 // HetznerBareMetalHostReconciler reconciles a HetznerBareMetalHost object.
 type HetznerBareMetalHostReconciler struct {
 	client.Client
-	RateLimitWaitTime  time.Duration
-	APIReader          client.Reader
-	RobotClientFactory robotclient.Factory
-	SSHClientFactory   sshclient.Factory
-	WatchFilterValue   string
+	RateLimitWaitTime   time.Duration
+	APIReader           client.Reader
+	RobotClientFactory  robotclient.Factory
+	SSHClientFactory    sshclient.Factory
+	WatchFilterValue    string
+	PreProvisionCommand string
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalhosts,verbs=get;list;watch;create;update;patch;delete
@@ -200,6 +201,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		OSSSHSecret:             osSSHSecret,
 		RescueSSHSecret:         rescueSSHSecret,
 		SecretManager:           secretManager,
+		PreProvisionCommand:     r.PreProvisionCommand,
 	})
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %w", err)
