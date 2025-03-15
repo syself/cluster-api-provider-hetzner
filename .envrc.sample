@@ -1,4 +1,3 @@
-export TTS_TOKEN=...
 export CLUSTER_NAME=caph-${USER}
 export KUBECONFIG=$PWD/.mgt-cluster-kubeconfig.yaml
 export HCLOUD_TOKEN=...
@@ -6,8 +5,7 @@ export SSH_KEY_NAME=my-caph-ssh-key
 export HCLOUD_REGION=fsn1
 export CONTROL_PLANE_MACHINE_COUNT=1
 export WORKER_MACHINE_COUNT=1
-export KUBERNETES_VERSION=v1.29.4
-export HCLOUD_IMAGE_NAME=1.29.4-ubuntu-22.04-containerd
+export KUBERNETES_VERSION=v1.31.6
 export HCLOUD_CONTROL_PLANE_MACHINE_TYPE=cpx31
 export HCLOUD_WORKER_MACHINE_TYPE=cpx31
 export SSH_KEY=$HOME/.ssh/my-caph-ssh-key.pub
@@ -15,3 +13,9 @@ export HETZNER_SSH_PUB_PATH=$HOME/.ssh/my-caph-ssh-key.pub
 export HETZNER_SSH_PRIV_PATH=$HOME/.ssh/my-caph-ssh-key
 export HETZNER_ROBOT_USER=
 export HETZNER_ROBOT_PASSWORD=
+
+HETZNER_SSH_PUB=$(base64 -w0 "$HETZNER_SSH_PUB_PATH")
+HETZNER_SSH_PRIV=$(base64 -w0 "$HETZNER_SSH_PRIV_PATH")
+export HETZNER_SSH_PUB HETZNER_SSH_PRIV
+
+export PATH="$PWD/hack/tools/bin:$PATH"

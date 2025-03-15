@@ -74,14 +74,13 @@ export CLUSTER_NAME="my-cluster"
 export HCLOUD_REGION="fsn1"
 export CONTROL_PLANE_MACHINE_COUNT=3
 export WORKER_MACHINE_COUNT=3
-export KUBERNETES_VERSION=1.29.4
+export KUBERNETES_VERSION=1.31.6
 export HCLOUD_CONTROL_PLANE_MACHINE_TYPE=cpx31
 export HCLOUD_WORKER_MACHINE_TYPE=cpx31
 ```
 
 - SSH_KEY_NAME: The SSH Key name you loaded in HCloud.
 - HCLOUD_REGION: <https://docs.hetzner.com/cloud/general/locations/>
-- HCLOUD_IMAGE_NAME: The Image name of your operating system.
 - HCLOUD_X_MACHINE_TYPE: <https://www.hetzner.com/cloud#pricing>
 
 For a list of all variables needed for generating a cluster manifest (from the cluster-template.yaml), use `clusterctl generate cluster --infrastructure hetzner:<caph-version> --list-variables hetzner-cluster`
@@ -97,7 +96,7 @@ Required Variables:
 Optional Variables:
   - CLUSTER_NAME                 (defaults to hetzner-cluster)
   - CONTROL_PLANE_MACHINE_COUNT  (defaults to 3)
-  - KUBERNETES_VERSION           (defaults to 1.29.4)
+  - KUBERNETES_VERSION           (defaults to 1.31.6)
   - WORKER_MACHINE_COUNT         (defaults to 3)
 ```
 

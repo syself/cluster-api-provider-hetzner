@@ -343,7 +343,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 						},
 					},
 					Spec: infrav1.HCloudMachineSpec{
-						ImageName:          "fedora-control-plane",
+						ImageName:          "my-control-plane",
 						Type:               "cpx31",
 						PlacementGroupName: &defaultPlacementGroupName,
 					},
@@ -458,7 +458,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 						},
 					},
 					Spec: infrav1.HCloudMachineSpec{
-						ImageName:          "fedora-control-plane-2",
+						ImageName:          "my-control-plane-2",
 						Type:               "cpx31",
 						PlacementGroupName: &defaultPlacementGroupName,
 					},
@@ -502,7 +502,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 					},
 				},
 				Spec: infrav1.HCloudMachineSpec{
-					ImageName:          "fedora-control-plane",
+					ImageName:          "my-control-plane",
 					Type:               "cpx31",
 					PlacementGroupName: &defaultPlacementGroupName,
 				},
@@ -720,7 +720,7 @@ var _ = Describe("Hetzner secret", func() {
 				},
 			},
 			Spec: infrav1.HCloudMachineSpec{
-				ImageName:          "fedora-control-plane",
+				ImageName:          "my-control-plane",
 				Type:               "cpx31",
 				PlacementGroupName: &defaultPlacementGroupName,
 			},
@@ -797,7 +797,7 @@ var _ = Describe("HCloudMachine validation", func() {
 				Namespace: testNs.Name,
 			},
 			Spec: infrav1.HCloudMachineSpec{
-				ImageName: "fedora-control-plane",
+				ImageName: "my-control-plane",
 				Type:      "cpx31",
 			},
 		}
@@ -830,7 +830,7 @@ var _ = Describe("HCloudMachine validation", func() {
 		}, timeout, interval).Should(BeNil())
 
 		hcloudMachine.Spec.Type = "cpx32"
-		hcloudMachine.Spec.ImageName = "fedora-control-plane"
+		hcloudMachine.Spec.ImageName = "my-control-plane"
 		Expect(testEnv.Update(ctx, hcloudMachine)).ToNot(Succeed())
 	})
 })

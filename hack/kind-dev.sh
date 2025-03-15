@@ -18,18 +18,18 @@ set -o errexit
 set -o pipefail
 set -x
 
-K8S_VERSION=v1.29.4
+K8S_VERSION=v1.31.6
 
 REPO_ROOT=$(git rev-parse --show-toplevel)
 cd "${REPO_ROOT}" || exit 1
 
 # Creates a kind cluster with the ctlptl tool https://github.com/tilt-dev/ctlptl
-ctlptl_kind-cluster-with-registry () {
-  
-local CLUSTER_NAME=$1
-local CLUSTER_VERSION=$2
+ctlptl_kind-cluster-with-registry() {
 
-cat <<EOF | ctlptl apply -f -
+  local CLUSTER_NAME=$1
+  local CLUSTER_VERSION=$2
+
+  cat <<EOF | ctlptl apply -f -
 apiVersion: ctlptl.dev/v1alpha1
 kind: Registry
 name: kind-registry

@@ -176,7 +176,7 @@ func (s *Service) actionPreparing(_ context.Context) actionResult {
 	if err != nil {
 		s.handleRobotRateLimitExceeded(err, "GetBMServer")
 		if models.IsError(err, models.ErrorCodeServerNotFound) {
-			msg := "bare metal host not found"
+			msg := "GetBMServer (Robot API) replied: ServerNotFound"
 			conditions.MarkFalse(
 				s.scope.HetznerBareMetalHost,
 				infrav1.ProvisionSucceededCondition,

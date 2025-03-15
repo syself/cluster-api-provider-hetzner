@@ -101,9 +101,9 @@ spec:
           permissions: "0744"
       preKubeadmCommands:
         - set -x
-        - grep VERSION= /etc/os-release; uname -a
-        - export CONTAINERD=1.7.25 # update: datasource=github-tags depName=containerd/containerd extractVersion=^v(?<version>.*)$ versioning=semver
-        - export RUNC=1.2.3
+        - grep VERSION= /etc/os-release; uname -a # Show version info in logs.
+        - export CONTAINERD=1.7.26 # update: datasource=github-tags depName=containerd/containerd extractVersion=^v(?<version>.*)$ versioning=semver
+        - export RUNC=1.2.5
         - export KUBERNETES_VERSION=$(echo ${KUBERNETES_VERSION} | sed 's/^v//')
         - export TRIMMED_KUBERNETES_VERSION=$(echo ${KUBERNETES_VERSION} | sed 's/^v//' | awk -F . '{print $1 "." $2}')
         - ARCH="$(dpkg --print-architecture)"

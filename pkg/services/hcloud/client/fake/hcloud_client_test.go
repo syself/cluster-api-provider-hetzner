@@ -427,7 +427,7 @@ var _ = Describe("Images", func() {
 
 	BeforeEach(func() {
 		client.Reset()
-		listOpts.LabelSelector = "caph-image-name==fedora-control-plane"
+		listOpts.LabelSelector = "caph-image-name==my-control-plane"
 	})
 	It("lists at least one image", func() {
 		resp, err := client.ListImages(ctx, listOpts)

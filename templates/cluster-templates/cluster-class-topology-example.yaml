@@ -50,10 +50,10 @@ spec:
       # - name: hcloudControlPlaneMachineType
       #   value: cpx31
       # - name: hcloudControlPlaneMachineImageName
-      #   value: ubuntu-22.04
+      #   value: ubuntu-24.04
       - name: hcloudControlPlanePlacementGroupName
         value: control-plane
-    version: v1.29.4
+    version: v1.31.6
     workers:
       machineDeployments:
         - class: hcloud-worker
@@ -65,7 +65,7 @@ spec:
               - name: hcloudWorkerMachineType
                 value: cx21
               # - name: hcloudWorkerMachineImageName
-              #   value: ubuntu-22.04
+              #   value: ubuntu-24.04
               - name: hcloudWorkerMachinePlacementGroupName
                 value: md-0
         - class: hcloud-worker
@@ -77,7 +77,7 @@ spec:
               - name: hcloudWorkerMachineType
                 value: cx31
               # - name: hcloudWorkerMachineImageName
-              #   value: ubuntu-22.04
+              #   value: ubuntu-24.04
               - name: hcloudWorkerMachinePlacementGroupName
                 value: md-1
         - class: baremetal-worker

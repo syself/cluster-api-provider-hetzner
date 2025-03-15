@@ -20,7 +20,7 @@ settings = {
     "deploy_observability": False,
     "preload_images_for_kind": True,
     "kind_cluster_name": "caph",
-    "capi_version": "v1.7.5",
+    "capi_version": "v1.8.10",
     "cabpt_version": "v0.5.6",
     "cacppt_version": "v0.4.11",
     "cert_manager_version": "v1.11.0",
@@ -283,27 +283,11 @@ cmd_button(
 )
 
 cmd_button(
-    "Create Hcloud Cluster - with Packer",
-    argv = ["make", "create-workload-cluster-hcloud-packer"],
-    location = location.NAV,
-    icon_name = "cloud_upload",
-    text = "Create Hcloud Cluster - with Packer",
-)
-
-cmd_button(
     "Create Hcloud Cluster Private Network",
     argv = ["make", "create-workload-cluster-hcloud-network"],
     location = location.NAV,
     icon_name = "switch_access_shortcut_add_outlined",
     text = "Create Hcloud Cluster Private Network",
-)
-
-cmd_button(
-    "Create Hcloud Cluster Private Network - with Packer",
-    argv = ["make", "create-workload-cluster-hcloud-network-packer"],
-    location = location.NAV,
-    icon_name = "lock_outlined",
-    text = "Create Hcloud Cluster Private Network - with Packer",
 )
 
 cmd_button(

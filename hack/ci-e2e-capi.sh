@@ -45,30 +45,6 @@ if [[ "${CI:-""}" == "true" ]]; then
     make set-manifest-pull-policy PULL_POLICY=IfNotPresent
 fi
 
-if [[ "${PACKER_KUBERNETES_UPGRADE_FROM:-""}" != "" ]]; then
-    (cd ${REPO_ROOT}/${PACKER_KUBERNETES_UPGRADE_FROM} && packer build image.json) &
-    (cd ${REPO_ROOT}/${PACKER_KUBERNETES_UPGRADE_TO} && packer build image.json)
-    wait < <(jobs -p)
-    export KUBERNETES_IMAGE_UPGRADE_FROM=$(jq -r '.builds[-1].custom_data.snapshot_label' ${REPO_ROOT}/${PACKER_KUBERNETES_UPGRADE_FROM}/manifest.json)
-    export KUBERNETES_IMAGE_UPGRADE_TO=$(jq -r '.builds[-1].custom_data.snapshot_label' ${REPO_ROOT}/${PACKER_KUBERNETES_UPGRADE_TO}/manifest.json)
-    trap 'remove_manifests' EXIT
-    remove_manifests() {
-        rm ${REPO_ROOT}/${PACKER_KUBERNETES_UPGRADE_FROM}/manifest.json
-        rm ${REPO_ROOT}/${PACKER_KUBERNETES_UPGRADE_TO}/manifest.json
-    }
-    make e2e-conf-file
-fi
-
-if [[ "${PACKER_IMAGE_NAME:-""}" != "" ]]; then
-    (cd ${REPO_ROOT}/${PACKER_IMAGE_NAME} && packer build image.json)
-    export HCLOUD_IMAGE_NAME=$(jq -r '.builds[-1].custom_data.snapshot_label' ${REPO_ROOT}/${PACKER_IMAGE_NAME}/manifest.json)
-    trap 'remove_manifests' EXIT
-    remove_manifests() {
-        rm ${REPO_ROOT}/${PACKER_IMAGE_NAME}/manifest.json
-    }
-    make e2e-conf-file
-fi
-
 make -C test/e2e/ run GINKGO_NODES="${GINKGO_NODES}" GINKGO_FOCUS="${GINKGO_FOKUS}"
 
 test_status="${?}"

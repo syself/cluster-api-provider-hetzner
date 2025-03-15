@@ -86,6 +86,13 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		return reconcile.Result{}, err
 	}
 
+	initialProvisioningState := bmHost.Spec.Status.ProvisioningState
+	defer func() {
+		if initialProvisioningState != bmHost.Spec.Status.ProvisioningState {
+			log.Info("Provisioning state changed", "from", initialProvisioningState, "to", bmHost.Spec.Status.ProvisioningState)
+		}
+	}()
+
 	// Add a finalizer to newly created objects.
 	if bmHost.DeletionTimestamp.IsZero() &&
 		(controllerutil.AddFinalizer(bmHost, infrav1.HetznerBareMetalHostFinalizer) ||
@@ -131,6 +138,9 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		return reconcile.Result{Requeue: true}, nil
 	}
 	if err := r.Client.Get(ctx, hetznerClusterName, hetznerCluster); err != nil {
+		if apierrors.IsNotFound(err) {
+			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+		}
 		return reconcile.Result{}, fmt.Errorf("failed to get HetznerCluster: %w", err)
 	}
 

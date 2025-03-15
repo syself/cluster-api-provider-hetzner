@@ -38,8 +38,6 @@ spec:
           requestheader-group-headers: X-Remote-Group
           requestheader-username-headers: X-Remote-User
           enable-aggregator-routing: "true"
-          # Etcd Secret Encrytion
-          encryption-provider-config: /etc/kubernetes/encryption-provider.yaml
           # Additional Configuration
           cloud-provider: external
           authorization-mode: "Node,RBAC"
@@ -48,10 +46,6 @@ spec:
           enable-bootstrap-token-auth: "true"
           default-not-ready-toleration-seconds: "45"
           default-unreachable-toleration-seconds: "45"
-        extraVolumes:
-          - name: encryption-provider
-            hostPath: /etc/kubernetes/encryption-provider.yaml
-            mountPath: /etc/kubernetes/encryption-provider.yaml
       controllerManager:
         extraArgs:
           cloud-provider: external
@@ -117,21 +111,6 @@ spec:
           max-pods: "120"
           resolv-conf: /etc/kubernetes/resolv.conf
     files:
-      - path: /etc/kubernetes/encryption-provider.yaml
-        owner: "root:root"
-        permissions: "0600"
-        content: |
-          apiVersion: apiserver.config.k8s.io/v1
-          kind: EncryptionConfiguration
-          resources:
-            - resources:
-              - secrets
-              providers:
-              - aescbc:
-                  keys:
-                  - name: key1
-                    secret: 8d7iAcg3/NwN9aijhtEXj5kL2NOHIgokGFjbIBfL6X0=
-              - identity: {}
       - path: /etc/systemd/system/sys-fs-bpf.mount
         owner: "root:root"
         permissions: "0744"
@@ -232,8 +211,8 @@ spec:
         permissions: "0744"
     preKubeadmCommands:
       - set -x
-      - export CONTAINERD=1.7.25 # update: datasource=github-tags depName=containerd/containerd extractVersion=^v(?<version>.*)$ versioning=semver
-      - export RUNC=1.2.3
+      - export CONTAINERD=1.7.26 # update: datasource=github-tags depName=containerd/containerd extractVersion=^v(?<version>.*)$ versioning=semver
+      - export RUNC=1.2.5
       - export KUBERNETES_VERSION=$(echo ${KUBERNETES_VERSION} | sed 's/^v//')
       - export TRIMMED_KUBERNETES_VERSION=$(echo ${KUBERNETES_VERSION} | sed 's/^v//' | awk -F . '{print $1 "." $2}')
       - ARCH="$(dpkg --print-architecture)"
