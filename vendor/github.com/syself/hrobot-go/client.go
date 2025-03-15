@@ -11,9 +11,11 @@ import (
 	"github.com/syself/hrobot-go/models"
 )
 
-const baseURL string = "https://robot-ws.your-server.de"
-const version = "0.2.5"
-const userAgent = "hrobot-client/" + version
+const (
+	baseURL   string = "https://robot-ws.your-server.de"
+	version          = "0.2.6"
+	userAgent        = "hrobot-client/" + version
+)
 
 type Client struct {
 	Username   string
@@ -59,6 +61,18 @@ func (c *Client) ValidateCredentials() error {
 	if _, err := c.doGetRequest(c.baseURL); err != nil {
 		return err
 	}
+	return nil
+}
+
+func (c *Client) SetCredentials(username, password string) error {
+	if username == "" {
+		return fmt.Errorf("username cannot be empty")
+	}
+	if password == "" {
+		return fmt.Errorf("password cannot be empty")
+	}
+	c.Username = username
+	c.Password = password
 	return nil
 }
 
