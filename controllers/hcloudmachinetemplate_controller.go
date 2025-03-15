@@ -60,7 +60,6 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 
 	machineTemplate := &infrav1.HCloudMachineTemplate{}
 	if err := r.Get(ctx, req.NamespacedName, machineTemplate); err != nil {
-		log.Error(err, "unable to fetch HCloudMachineTemplate")
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
@@ -110,7 +109,6 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 		Name:      cluster.Spec.InfrastructureRef.Name,
 	}
 	if err := r.Client.Get(ctx, hetznerClusterName, hetznerCluster); err != nil {
-		log.Info("HetznerCluster is not available yet")
 		return reconcile.Result{}, nil
 	}
 

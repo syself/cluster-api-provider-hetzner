@@ -1001,6 +1001,7 @@ var _ = Describe("Hetzner secret", func() {
 			Eventually(func() bool {
 				return isPresentAndFalseWithReason(key, hetznerCluster, infrav1.HCloudTokenAvailableCondition, expectedReason)
 			}, timeout, time.Second).Should(BeTrue())
+			Expect(testEnv.Cleanup(ctx, hetznerSecret)).To(Succeed())
 		},
 		Entry("no Hetzner secret/wrong reference", func() *corev1.Secret {
 			return &corev1.Secret{
