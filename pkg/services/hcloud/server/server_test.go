@@ -227,7 +227,7 @@ var _ = Describe("handleServerStatusOff", func() {
 				Namespace: "default",
 			},
 			Spec: infrav1.HCloudMachineSpec{
-				ImageName: "fedora-control-plane",
+				ImageName: "my-control-plane",
 				Type:      "cpx31",
 			},
 		}

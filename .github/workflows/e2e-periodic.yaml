@@ -46,7 +46,7 @@ jobs:
         uses: ./.github/actions/e2e
         with:
           e2e_name: hcloud-basic
-          e2e_make_target: test-e2e
+          e2e_make_target: test-e2e-hcloud
           e2e_hcloud_token: ${{ secrets.HCLOUD_TOKEN }}
 
   e2e-hcloud-feature:
@@ -69,28 +69,6 @@ jobs:
           e2e_name: hcloud-feature
           e2e_make_target: test-e2e-feature
           e2e_hcloud_token: ${{ secrets.HCLOUD_TOKEN }}
-
-  e2e-hcloud-feature-packer:
-    name: Test Hcloud Feature Packer Image
-    concurrency: ci-${{ github.ref }}-e2e-feature-packer
-    runs-on: ubuntu-latest
-    permissions:
-      # Required for hcloud TPS
-      id-token: write
-    needs:
-      - manager-image
-      - test-release
-    steps:
-      - name: checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-      - name: Run e2e Test
-        id: e2e
-        uses: ./.github/actions/e2e
-        with:
-          e2e_name: hcloud-feature-packer
-          e2e_make_target: test-e2e-feature-packer
-          e2e_hcloud_token: ${{ secrets.HCLOUD_TOKEN }}
-
   e2e-hcloud-lifecycle:
     name: Test Hcloud Lifecycle
     concurrency: ci-${{ github.ref }}-e2e-lifecycle

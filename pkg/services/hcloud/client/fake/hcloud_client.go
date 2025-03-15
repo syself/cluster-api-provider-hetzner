@@ -145,9 +145,9 @@ var defaultSSHKey = hcloud.SSHKey{
 var defaultImage = hcloud.Image{
 	ID: 42,
 	Labels: map[string]string{
-		"caph-image-name": "fedora-control-plane",
+		"caph-image-name": "my-control-plane",
 	},
-	Name: "fedora-control-plane",
+	Name: "my-control-plane",
 }
 
 func (c *cacheHCloudClient) CreateLoadBalancer(_ context.Context, opts hcloud.LoadBalancerCreateOpts) (*hcloud.LoadBalancer, error) {

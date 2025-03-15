@@ -11,7 +11,7 @@ The `clusterctl generate cluster` command returns a YAML template for creating a
 It generates a YAML file named `my-cluster.yaml` with a predefined list of Cluster API objects (`Cluster`, `Machines`, `MachineDeployments`, etc.) to be deployed in the current namespace.
 
 ```shell
-clusterctl generate cluster my-cluster --kubernetes-version v1.29.4 --control-plane-machine-count=3 --worker-machine-count=3  > my-cluster.yaml
+clusterctl generate cluster my-cluster --kubernetes-version v1.31.6 --control-plane-machine-count=3 --worker-machine-count=3  > my-cluster.yaml
 ```
 
 {% callout %}
@@ -95,7 +95,7 @@ There is a bug in Ubuntu that requires the older version of Cilium for this quic
 
 The following `make` command will install the CCM in your workload cluster:
 
-`make install-ccm-in-wl-cluster PRIVATE_NETWORK=false`
+`make install-ccm-in-wl-cluster`
 
 For a cluster without a private network, use the following command:
 
@@ -106,8 +106,7 @@ helm repo update hcloud
 KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install hccm hcloud/hcloud-cloud-controller-manager \
         --namespace kube-system \
         --set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.name=hetzner \
-        --set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.key=hcloud \
-        --set privateNetwork.enabled=false
+        --set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.key=hcloud
 ```
 
 ## Deploying the CSI (optional)

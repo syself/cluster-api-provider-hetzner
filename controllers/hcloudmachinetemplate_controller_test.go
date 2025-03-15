@@ -110,7 +110,7 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 					Spec: infrav1.HCloudMachineTemplateSpec{
 						Template: infrav1.HCloudMachineTemplateResource{
 							Spec: infrav1.HCloudMachineSpec{
-								ImageName:          "fedora-control-plane",
+								ImageName:          "my-control-plane",
 								Type:               "cpx31",
 								PlacementGroupName: &defaultPlacementGroupName,
 							},
@@ -189,7 +189,7 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 					Spec: infrav1.HCloudMachineTemplateSpec{
 						Template: infrav1.HCloudMachineTemplateResource{
 							Spec: infrav1.HCloudMachineSpec{
-								ImageName:          "fedora-control-plane",
+								ImageName:          "my-control-plane",
 								Type:               "cpx31",
 								PlacementGroupName: &defaultPlacementGroupName,
 							},
@@ -265,7 +265,7 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 						Template: infrav1.HCloudMachineTemplateResource{
 							Spec: infrav1.HCloudMachineSpec{
 								Type:      "cx41",
-								ImageName: "fedora",
+								ImageName: "my-hcloud-image",
 							},
 						},
 					},
@@ -291,7 +291,7 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 			It("should prevent updating Image name", func() {
 				Expect(testEnv.Get(ctx, key, machineTemplate)).To(Succeed())
 
-				hcloudMachineTemplate.Spec.Template.Spec.ImageName = "fedora-control-plane"
+				hcloudMachineTemplate.Spec.Template.Spec.ImageName = "my-control-plane"
 				Expect(testEnv.Client.Update(ctx, hcloudMachineTemplate)).ToNot(Succeed())
 			})
 

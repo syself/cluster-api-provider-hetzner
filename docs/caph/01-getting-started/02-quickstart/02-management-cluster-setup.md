@@ -84,7 +84,6 @@ export HCLOUD_WORKER_MACHINE_TYPE=cpx31
 
 - **SSH_KEY_NAME**: The SSH Key name you loaded in HCloud.
 - **HCLOUD_REGION**: The region of the Hcloud cluster. Find the full list of regions [here](https://docs.hetzner.com/cloud/general/locations/).
-- **HCLOUD_IMAGE_NAME**: The Image name of the operating system.
 - **HCLOUD_X_MACHINE_TYPE**: The type of the Hetzner cloud server. Find more information [here](https://www.hetzner.com/cloud#pricing).
 
 For a list of all variables needed for generating a cluster manifest (from the cluster-template.yaml), use the following command:

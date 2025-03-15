@@ -6,4 +6,4 @@ spec:
   template:
     spec:
       type: "${HCLOUD_CONTROL_PLANE_MACHINE_TYPE}"
-      imageName: "ubuntu-22.04"
+      imageName: "ubuntu-24.04"
