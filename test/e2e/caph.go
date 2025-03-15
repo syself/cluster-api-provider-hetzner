@@ -90,7 +90,16 @@ func logHCloudMachineStatus(ctx context.Context, c client.Client) error {
 		if hm.Status.InstanceState == nil || *hm.Status.InstanceState == "" {
 			continue
 		}
-		ginkgo.By("HCloudMachine: " + hm.Name + " " + fmt.Sprint(hm.Spec.ProviderID))
+		addresses := make([]string, 0)
+		for _, a := range hm.Status.Addresses {
+			addresses = append(addresses, a.Address)
+		}
+
+		id := ""
+		if *hm.Spec.ProviderID != "" {
+			id = *hm.Spec.ProviderID
+		}
+		ginkgo.By("HCloudMachine: " + hm.Name + " " + id + " " + strings.Join(addresses, " "))
 		ginkgo.By("  ProvisioningState: " + string(*hm.Status.InstanceState))
 		l := make([]string, 0)
 		if hm.Status.FailureMessage != nil {
