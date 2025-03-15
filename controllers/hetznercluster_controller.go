@@ -409,6 +409,10 @@ func getAndValidateHCloudToken(ctx context.Context, namespace string, hetznerClu
 		return "", nil, err
 	}
 
+	if !hetznerSecret.DeletionTimestamp.IsZero() {
+		return "", nil, &secretutil.ResolveSecretRefError{Message: fmt.Sprintf("The Hetzner secret %s has DeletionTimestamp", secretNamspacedName)}
+	}
+
 	hcloudToken := string(hetznerSecret.Data[hetznerCluster.Spec.HetznerSecret.Key.HCloudToken])
 
 	// Validate token
