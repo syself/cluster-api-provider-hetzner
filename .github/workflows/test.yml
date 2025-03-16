@@ -59,7 +59,7 @@ jobs:
         run: make report-cover-html report-cover-treemap
 
       - name: Report Slowest tests
-        run: gotestsum tool slowest --num 10 --jsonfile .reports/go-test-output.json > .reports/slowest-tests.txt
+        run: hack/tools/bin/gotestsum tool slowest --num 10 --jsonfile .reports/go-test-output.json > .reports/slowest-tests.txt
         if: ${{ !cancelled() }}
 
       - name: Test Summary
