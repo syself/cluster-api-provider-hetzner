@@ -24,6 +24,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -259,7 +260,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	setupLog.Info("starting manager", "version", caphversion.Get().String())
+	bInfo, _ := debug.ReadBuildInfo()
+	setupLog.Info("starting manager", "version", caphversion.Get().String(),
+		"buildInfo", bInfo.Main.Path+"@"+bInfo.Main.Version)
+
 	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
