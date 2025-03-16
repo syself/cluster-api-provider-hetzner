@@ -53,18 +53,6 @@ type CaphClusterDeploymentSpecInput struct {
 }
 
 func logHCloudMachineStatusContinously(ctx context.Context, c client.Client) {
-	caphDeployment := appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "caph-controller-manager",
-			Namespace: "caph-system",
-		},
-	}
-	err := c.Get(ctx, client.ObjectKeyFromObject(&caphDeployment), &caphDeployment)
-	if err != nil {
-		ginkgo.By(fmt.Sprintf("Error getting caph-controller-manager deployment: %v", err))
-		return
-	}
-	ginkgo.By(fmt.Sprintf("caph-controller-manager image: %v", caphDeployment.Spec.Template.Spec.Containers[0].Image))
 	for {
 		t := time.After(30 * time.Second)
 		select {
@@ -85,6 +73,25 @@ func logHCloudMachineStatus(ctx context.Context, c client.Client) error {
 	if err != nil {
 		return err
 	}
+
+	if len(hmList.Items) == 0 {
+		return nil
+	}
+
+	caphDeployment := appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "caph-controller-manager",
+			Namespace: "caph-system",
+		},
+	}
+	err = c.Get(ctx, client.ObjectKeyFromObject(&caphDeployment), &caphDeployment)
+	if err != nil {
+		return fmt.Errorf("failed to get caph-controller-manager deployment: %w", err)
+	}
+
+	ginkgo.By(fmt.Sprintf("--------------------------------------------------- HCloudMachines %s",
+		caphDeployment.Spec.Template.Spec.Containers[0].Image))
+
 	for i := range hmList.Items {
 		hm := &hmList.Items[i]
 		if hm.Status.InstanceState == nil || *hm.Status.InstanceState == "" {
@@ -122,7 +129,6 @@ func logHCloudMachineStatus(ctx context.Context, c client.Client) error {
 		}
 		ginkgo.By("  Ready Condition: " + state + " " + reason + " " + msg)
 	}
-	ginkgo.By("---------------------------------------------------")
 	return nil
 }
 
