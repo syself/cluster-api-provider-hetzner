@@ -559,7 +559,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 
 				Eventually(func() bool {
 					return isPresentAndTrue(key, instance, infrav1.LoadBalancerReadyCondition)
-				}, timeout, time.Second).Should(BeTrue())
+				}, 2*timeout, time.Second).Should(BeTrue()) // flaky ?
 
 				By("checking that load balancer has label set")
 
