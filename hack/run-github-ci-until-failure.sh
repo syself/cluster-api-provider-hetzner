@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
 
-# Run a Workflow in GitHub Actions until it fails.
-# Goal: Find flaky tests, which only fail in CI.
-
-# Copyright 2022 The Kubernetes Authors.
+# Copyright 2025 The Kubernetes Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +13,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+# Run a Workflow in GitHub Actions until it fails.
+# Goal: Find flaky tests, which only fail in CI.
 
 # Bash Strict Mode: https://github.com/guettli/bash-strict-mode
 trap 'echo "Warning: A command has failed. Exiting the script. Line was ($0:$LINENO): $(sed -n "${LINENO}p" "$0")"; exit 3' ERR
