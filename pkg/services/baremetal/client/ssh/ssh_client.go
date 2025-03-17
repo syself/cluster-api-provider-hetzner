@@ -665,11 +665,11 @@ func IsTimeoutError(err error) bool {
 	return strings.Contains(err.Error(), ErrTimeout.Error())
 }
 
-func (c *sshClient) getSSHClient() (*ssh.Client, *ssh.ClientConfig, error) {
+func (c *sshClient) getSSHClient() (*ssh.Client, error) {
 	// Create the Signer for this private key.
 	signer, err := ssh.ParsePrivateKey([]byte(c.privateSSHKey))
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to parse private key: %w", err)
+		return nil, fmt.Errorf("unable to parse private key: %w", err)
 	}
 
 	config := &ssh.ClientConfig{
@@ -685,14 +685,14 @@ func (c *sshClient) getSSHClient() (*ssh.Client, *ssh.ClientConfig, error) {
 	// Connect to the remote server and perform the SSH handshake.
 	client, err := ssh.Dial("tcp", fmt.Sprintf("%s:%v", c.ip, c.port), config)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to dial ssh. Error message: %s. DialErr: %w", err.Error(), errSSHDialFailed)
+		return nil, fmt.Errorf("failed to dial ssh. Error message: %s. DialErr: %w", err.Error(), errSSHDialFailed)
 	}
 
-	return client, config, nil
+	return client, nil
 }
 
 func (c *sshClient) runSSH(command string) Output {
-	client, _, err := c.getSSHClient()
+	client, err := c.getSSHClient()
 	if err != nil {
 		return Output{Err: err}
 	}
@@ -767,7 +767,7 @@ func removeUselessLinesFromCloudInitOutput(s string) string {
 }
 
 func (c *sshClient) ExecutePreProvisionCommand(ctx context.Context, command string) (int, string, error) {
-	client, clientConfig, err := c.getSSHClient()
+	client, err := c.getSSHClient()
 	if err != nil {
 		return 0, "", err
 	}
@@ -779,14 +779,6 @@ func (c *sshClient) ExecutePreProvisionCommand(ctx context.Context, command stri
 	}
 
 	defer scpClient.Close()
-
-	scpClient.ClientConfig = clientConfig
-	scpClient.Host = fmt.Sprintf("%s:%d", c.ip, c.port)
-
-	err = scpClient.Connect()
-	if err != nil {
-		return 0, "", fmt.Errorf("couldn't establish a connection to the remote server: %w ", err)
-	}
 
 	f, err := os.Open(command) //nolint:gosec // the variable was valided.
 	if err != nil {
