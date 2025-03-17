@@ -57,20 +57,8 @@ runs:
       env:
         TAG: ${{ steps.meta.outputs.version }}
 
-    - name: Check HCLOUD_TOKEN
-      shell: bash
-      run: |
-        if [ -z "${{ inputs.e2e_hcloud_token }}" ]; then
-          echo "HCLOUD_TOKEN is not set"
-          exit 1
-        else
-          echo "HCLOUD_TOKEN is set: ${${{ inputs.e2e_hcloud_token }}:0:5}*****"
-        fi
-
     - name: HCLOUD_TOKEN
       uses: hetznercloud/tps-action@dee5dd2546322c28ed8f74b910189066e8b6f31a # main
-      with:
-        token: ${{ inputs.e2e_hcloud_token }}
 
     - name: "e2e-${{ inputs.e2e_name }}"
       shell: bash
