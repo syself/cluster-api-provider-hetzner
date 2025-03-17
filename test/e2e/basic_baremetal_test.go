@@ -33,18 +33,6 @@ import (
 )
 
 func logBareMetalHostStatusContinously(ctx context.Context, c client.Client) {
-	caphDeployment := appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "caph-controller-manager",
-			Namespace: "caph-system",
-		},
-	}
-	err := c.Get(ctx, client.ObjectKeyFromObject(&caphDeployment), &caphDeployment)
-	if err != nil {
-		By(fmt.Sprintf("Error getting caph-controller-manager deployment: %v", err))
-		return
-	}
-	By(fmt.Sprintf("caph-controller-manager image: %v", caphDeployment.Spec.Template.Spec.Containers[0].Image))
 	for {
 		t := time.After(30 * time.Second)
 		select {
@@ -65,6 +53,25 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 	if err != nil {
 		return err
 	}
+
+	if len(hbmhList.Items) == 0 {
+		return nil
+	}
+
+	caphDeployment := appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "caph-controller-manager",
+			Namespace: "caph-system",
+		},
+	}
+	err = c.Get(ctx, client.ObjectKeyFromObject(&caphDeployment), &caphDeployment)
+	if err != nil {
+		return fmt.Errorf("failed to get caph-controller-manager deployment: %w", err)
+	}
+
+	By(fmt.Sprintf("--------------------------------------------------- BareMetalHosts %s",
+		caphDeployment.Spec.Template.Spec.Containers[0].Image))
+
 	for i := range hbmhList.Items {
 		hbmh := &hbmhList.Items[i]
 		if hbmh.Spec.Status.ProvisioningState == "" {
@@ -88,7 +95,6 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 		}
 		By("  Ready Condition: " + state + " " + reason + " " + msg)
 	}
-	By("---------------------------------------------------")
 	return nil
 }
 
