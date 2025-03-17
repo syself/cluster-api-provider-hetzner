@@ -259,10 +259,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	setupLog.Info("starting manager",
-		"version", caphversion.Get().String(),
-		"CAPH_IMAGE_NAME", os.Getenv("CAPH_IMAGE_NAME"),
-	)
+	setupLog.Info("starting manager", "version", caphversion.Get().String())
 	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)

@@ -31,11 +31,6 @@ spec:
             - "--leader-elect=true"
           image: controller:latest
           name: manager
-          env:
-            - name: CAPH_IMAGE_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: spec.containers[0].image
           ports:
             - containerPort: 9440
               name: healthz
