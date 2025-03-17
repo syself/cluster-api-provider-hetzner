@@ -49,8 +49,6 @@ echo "***************************** E2E_CONF_FILE $E2E_CONF_FILE ***************
 cat "$E2E_CONF_FILE"
 echo "***************************** E2E_CONF_FILE end *****************************"
 
-exit 1
-
 make -C test/e2e/ run GINKGO_NODES="${GINKGO_NODES}" GINKGO_FOCUS="${GINKGO_FOKUS}"
 
 test_status="${?}"

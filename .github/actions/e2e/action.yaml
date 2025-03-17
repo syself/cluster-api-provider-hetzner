@@ -69,7 +69,6 @@ runs:
         REGISTRY: ${{ env.REGISTRY }}
         IMAGE_NAME: ${{ env.IMAGE_NAME }}
         TAG: ${{ steps.meta.outputs.version }}
-        MANIFEST_PATH: "../../../out"
         HCLOUD_TOKEN: ${{ env.HCLOUD_TOKEN }}
         HETZNER_ROBOT_USER: ${{ inputs.e2e_robot_user }}
         HETZNER_ROBOT_PASSWORD: ${{ inputs.e2e_robot_password }}

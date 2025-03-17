@@ -19,11 +19,8 @@ set -Eeuo pipefail
 
 ./hack/ensure-env-variables.sh CAPH_LATEST_VERSION ENVSUBST E2E_CONF_FILE_SOURCE E2E_CONF_FILE
 
-# When called via CI, MANIFEST_PATH is already set. It points to the "out" directory
-# created with the Github action "download-artifacts".
-if [ -z "${MANIFEST_PATH:-}" ]; then
-    export MANIFEST_PATH="../../.."
-fi
+make release-manifests
+export MANIFEST_PATH="../../../out"
 
 echo "# Created from $E2E_CONF_FILE_SOURCE by $0" >"$E2E_CONF_FILE"
 $ENVSUBST <"$E2E_CONF_FILE_SOURCE" >>"$E2E_CONF_FILE"
