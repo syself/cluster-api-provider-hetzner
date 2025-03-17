@@ -8,5 +8,5 @@ spec:
     spec:
       containers:
         # Change the value of image field below to your controller image URL
-        - image: ghcr.io/syself/caph-staging:latest
+        - image: ghcr.io/syself/caph-staging:pr-1561
           name: manager

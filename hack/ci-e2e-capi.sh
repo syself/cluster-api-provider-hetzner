@@ -17,7 +17,7 @@
 trap 'echo "Warning: A command has failed. Exiting the script. Line was ($0:$LINENO): $(sed -n "${LINENO}p" "$0")"; exit 3' ERR
 set -Eeuo pipefail
 
-REPO_ROOT=$(realpath $(dirname "${BASH_SOURCE[0]}")/..)
+REPO_ROOT=$(realpath "$(dirname "${BASH_SOURCE[0]}")/..")
 cd "${REPO_ROOT}" || exit 1
 
 # Make sure the tools binaries are on the path.
@@ -40,15 +40,25 @@ trap 'remove_ssh_key ${SSH_KEY_NAME}' EXIT
 mkdir -p "$ARTIFACTS"
 echo "+ run tests!"
 
-if [[ "${CI:-""}" == "true" ]]; then
-    make set-manifest-image MANIFEST_IMG=${IMAGE_PREFIX}/caph-staging MANIFEST_TAG=${TAG}
-    make set-manifest-pull-policy PULL_POLICY=IfNotPresent
+IMAGE_PREFIX="${IMAGE_PREFIX:-ghcr.io/syself}"
+
+if [[ -z "${TAG:-}" ]]; then
+    echo
+    echo "Error: Missing TAG environment variable"
+    echo "This is the caph container image tag for the image."
+    echo "For PRs this is pr-NNNN"
+    echo "Use the following command to set the environment variable:"
+    echo "  gh pr view --json number --jq .number"
+    echo "Then: export TAG=pr-NNNN"
+    echo
+    exit 1
 fi
+
+make set-manifest-image "MANIFEST_IMG=${IMAGE_PREFIX}/caph-staging" "MANIFEST_TAG=${TAG}"
+make set-manifest-pull-policy PULL_POLICY=IfNotPresent
 
 echo "***************************** E2E_CONF_FILE $E2E_CONF_FILE *****************************"
 cat "$E2E_CONF_FILE"
 echo "***************************** E2E_CONF_FILE end *****************************"
 
 make -C test/e2e/ run GINKGO_NODES="${GINKGO_NODES}" GINKGO_FOCUS="${GINKGO_FOKUS}"
-
-test_status="${?}"

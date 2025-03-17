@@ -57,7 +57,6 @@ help: ## Display this help.
 BUILD_IN_CONTAINER ?= true
 
 # Boiler plate for building Docker containers.
-TAG ?= dev
 ARCH ?= amd64
 # Allow overriding the imagePullPolicy
 PULL_POLICY ?= Always
@@ -176,10 +175,6 @@ install-crds: generate-manifests $(KUSTOMIZE) ## Install CRDs into the K8s clust
 
 uninstall-crds: generate-manifests $(KUSTOMIZE) ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/crd | $(KUBECTL) delete -f -
-
-deploy-controller: generate-manifests $(KUSTOMIZE) ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMAGE_PREFIX}/$(STAGING_IMAGE):${TAG}
-	$(KUSTOMIZE) build config/default | $(KUBECTL) apply -f -
 
 undeploy-controller: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/default | $(KUBECTL) delete -f -
@@ -369,6 +364,8 @@ $(RELEASE_NOTES_DIR):
 
 .PHONY: test-release
 test-release:
+	@# TAG: caph container image tag. For PRs this is pr-NNNN
+	./hack/ensure-env-variables.sh TAG
 	$(MAKE) set-manifest-image MANIFEST_IMG=$(IMAGE_PREFIX)/$(STAGING_IMAGE) MANIFEST_TAG=$(TAG)
 	$(MAKE) set-manifest-pull-policy PULL_POLICY=IfNotPresent
 	$(MAKE) release-manifests
@@ -485,7 +482,6 @@ test-e2e: test-e2e-hcloud
 .PHONY: test-e2e-hcloud
 test-e2e-hcloud: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
 	rm -f $(WORKER_CLUSTER_KUBECONFIG)
-	echo IMAGE_PREFIX=$(IMAGE_PREFIX)
 	HETZNER_SSH_PUB= HETZNER_SSH_PRIV= \
 	HETZNER_SSH_PUB_PATH= HETZNER_SSH_PRIV_PATH= \
 	HETZNER_ROBOT_PASSWORD= HETZNER_ROBOT_USER= \
