@@ -28,7 +28,7 @@ There are several ways to get a Hcloud snapshot:
 * You use [Hashicorp Packer](https://github.com/hashicorp/packer)
 * A Bash script with some `curl` commands to the Hcloud API.
 
-Then set `template.spec.imageName` in HCloudMachineTemplate to the name of your Hcloud snapshot. See [HCloudMachineTemplate Reference](../03-reference/03-hcloud-machine-template.md)
+Then set `template.spec.imageName` in HCloudMachineTemplate to the name of your Hcloud snapshot. See [HCloudMachineTemplate Reference](/docs/caph/03-reference/03-hcloud-machine-template.md)
 
 Here is an example of a Packer json:
 
