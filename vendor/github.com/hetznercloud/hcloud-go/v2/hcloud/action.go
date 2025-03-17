@@ -54,9 +54,21 @@ const (
 type ActionError struct {
 	Code    string
 	Message string
+
+	action *Action
+}
+
+// Action returns the [Action] that triggered the error if available.
+func (e ActionError) Action() *Action {
+	return e.action
 }
 
 func (e ActionError) Error() string {
+	action := e.Action()
+	if action != nil {
+		// For easier debugging, the error string contains the Action ID.
+		return fmt.Sprintf("%s (%s, %d)", e.Message, e.Code, action.ID)
+	}
 	return fmt.Sprintf("%s (%s)", e.Message, e.Code)
 }
 
@@ -65,6 +77,7 @@ func (a *Action) Error() error {
 		return ActionError{
 			Code:    a.ErrorCode,
 			Message: a.ErrorMessage,
+			action:  a,
 		}
 	}
 	return nil
@@ -111,11 +124,15 @@ func (c *ActionClient) List(ctx context.Context, opts ActionListOpts) ([]*Action
 }
 
 // All returns all actions.
+//
+// Deprecated: It is required to pass in a list of IDs since 30 January 2025. Please use [ActionClient.AllWithOpts] instead.
 func (c *ActionClient) All(ctx context.Context) ([]*Action, error) {
 	return c.action.All(ctx, ActionListOpts{ListOpts: ListOpts{PerPage: 50}})
 }
 
 // AllWithOpts returns all actions for the given options.
+//
+// It is required to set [ActionListOpts.ID]. Any other fields set in the opts are ignored.
 func (c *ActionClient) AllWithOpts(ctx context.Context, opts ActionListOpts) ([]*Action, error) {
 	return c.action.All(ctx, opts)
 }

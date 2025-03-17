@@ -24,6 +24,13 @@ func (e *Error) UnmarshalJSON(data []byte) (err error) {
 		}
 		alias.Details = details
 	}
+	if e.Code == "deprecated_api_endpoint" && len(e.DetailsRaw) > 0 {
+		details := ErrorDetailsDeprecatedAPIEndpoint{}
+		if err = json.Unmarshal(e.DetailsRaw, &details); err != nil {
+			return
+		}
+		alias.Details = details
+	}
 	return
 }
 
@@ -39,4 +46,10 @@ type ErrorDetailsInvalidInput struct {
 		Name     string   `json:"name"`
 		Messages []string `json:"messages"`
 	} `json:"fields"`
+}
+
+// ErrorDetailsDeprecatedAPIEndpoint defines the schema of the Details field
+// of an error with code 'deprecated_api_endpoint'.
+type ErrorDetailsDeprecatedAPIEndpoint struct {
+	Announcement string `json:"announcement"`
 }
