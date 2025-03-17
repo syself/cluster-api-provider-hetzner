@@ -14,8 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -o errexit
-set -o pipefail
+trap 'echo "Warning: A command has failed. Exiting the script. Line was ($0:$LINENO): $(sed -n "${LINENO}p" "$0")"; exit 3' ERR
+set -Eeuo pipefail
 
 REPO_ROOT=$(realpath $(dirname "${BASH_SOURCE[0]}")/..)
 cd "${REPO_ROOT}" || exit 1
@@ -44,6 +44,12 @@ if [[ "${CI:-""}" == "true" ]]; then
     make set-manifest-image MANIFEST_IMG=${IMAGE_PREFIX}/caph-staging MANIFEST_TAG=${TAG}
     make set-manifest-pull-policy PULL_POLICY=IfNotPresent
 fi
+
+echo "***************************** E2E_CONF_FILE $E2E_CONF_FILE *****************************"
+cat "$E2E_CONF_FILE"
+echo "***************************** E2E_CONF_FILE end *****************************"
+
+exit 1
 
 make -C test/e2e/ run GINKGO_NODES="${GINKGO_NODES}" GINKGO_FOCUS="${GINKGO_FOKUS}"
 
