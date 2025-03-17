@@ -492,11 +492,18 @@ e2e-conf-file: $(E2E_CONF_FILE)
 $(E2E_CONF_FILE): $(ENVSUBST) $(E2E_CONF_FILE_SOURCE)
 	mkdir -p $(shell dirname $(E2E_CONF_FILE))
 	MANAGEMENT_CLUSTER_NAME="$(INFRA_SHORT)-e2e-$$(date +"%Y%m%d-%H%M%S")-$$USER" $(ENVSUBST) < $(E2E_CONF_FILE_SOURCE) > $(E2E_CONF_FILE)
+	echo "************************ E2E_CONF_FILE start ************************"
+	cat $(E2E_CONF_FILE)
+	echo "************************ E2E_CONF_FILE end ************************"
 
 .PHONY: test-e2e
 test-e2e: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
 	rm -f $(WORKER_CLUSTER_KUBECONFIG)
 	GINKGO_FOKUS="'\[Basic\]'" GINKGO_NODES=2 E2E_CONF_FILE=$(E2E_CONF_FILE) ./hack/ci-e2e-capi.sh
+
+.PHONY: test-e2e-hcloud
+test-e2e-hcloud: test-e2e
+
 
 .PHONY: test-e2e-feature
 test-e2e-feature: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
