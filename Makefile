@@ -474,6 +474,8 @@ e2e-image: ## Build the e2e manager image
 e2e-conf-file: $(E2E_CONF_FILE)
 $(E2E_CONF_FILE): $(ENVSUBST) $(E2E_CONF_FILE_SOURCE) ./hack/create-e2e-conf-file.sh
 	CAPH_LATEST_VERSION=$(CAPH_LATEST_VERSION) ENVSUBST=$(ENVSUBST) \
+	E2E_CONF_FILE_SOURCE=$(E2E_CONF_FILE_SOURCE) \
+	E2E_CONF_FILE=$(E2E_CONF_FILE) \
 	./hack/create-e2e-conf-file.sh
 
 .PHONY: test-e2e
