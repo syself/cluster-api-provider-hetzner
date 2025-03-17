@@ -57,8 +57,4 @@ fi
 make set-manifest-image "MANIFEST_IMG=${IMAGE_PREFIX}/caph-staging" "MANIFEST_TAG=${TAG}"
 make set-manifest-pull-policy PULL_POLICY=IfNotPresent
 
-echo "***************************** E2E_CONF_FILE $E2E_CONF_FILE *****************************"
-cat "$E2E_CONF_FILE"
-echo "***************************** E2E_CONF_FILE end *****************************"
-
 make -C test/e2e/ run GINKGO_NODES="${GINKGO_NODES}" GINKGO_FOCUS="${GINKGO_FOKUS}"

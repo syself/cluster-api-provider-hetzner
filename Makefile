@@ -473,8 +473,8 @@ e2e-image: ## Build the e2e manager image
 .PHONY: e2e-conf-file
 e2e-conf-file: $(E2E_CONF_FILE)
 $(E2E_CONF_FILE): $(ENVSUBST) $(E2E_CONF_FILE_SOURCE) ./hack/create-e2e-conf-file.sh
-	CAPH_LATEST_VERSION=$(CAPH_LATEST_VERSION) ENVSUBST=$(ENVSUBST) E2E_CONF_FILE_SOURCE=$(E2E_CONF_FILE_SOURCE) \
-		E2E_CONF_FILE=$(E2E_CONF_FILE) ./hack/create-e2e-conf-file.sh
+	CAPH_LATEST_VERSION=$(CAPH_LATEST_VERSION) ENVSUBST=$(ENVSUBST) \
+	./hack/create-e2e-conf-file.sh
 
 .PHONY: test-e2e
 test-e2e: test-e2e-hcloud
@@ -485,8 +485,8 @@ test-e2e-hcloud: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFAC
 	HETZNER_SSH_PUB= HETZNER_SSH_PRIV= \
 	HETZNER_SSH_PUB_PATH= HETZNER_SSH_PRIV_PATH= \
 	HETZNER_ROBOT_PASSWORD= HETZNER_ROBOT_USER= \
-	GINKGO_FOKUS="'\[Basic\]'" GINKGO_NODES=2 E2E_CONF_FILE=$(E2E_CONF_FILE) \
-		./hack/ci-e2e-capi.sh
+	GINKGO_FOKUS="'\[Basic\]'" GINKGO_NODES=2 \
+	./hack/ci-e2e-capi.sh
 
 .PHONY: test-e2e-feature
 test-e2e-feature: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
