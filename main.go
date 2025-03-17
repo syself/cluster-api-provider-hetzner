@@ -111,6 +111,10 @@ func main() {
 
 	ctrl.SetLogger(utils.GetDefaultLogger(logLevel))
 
+	bInfo, _ := debug.ReadBuildInfo()
+	setupLog.Info(bInfo.Main.Path, "version", caphversion.Get().String(),
+		"Main.Version", bInfo.Main.Version)
+
 	// If preProvisionCommand is set, check if the file exists and validate the basename.
 	if preProvisionCommand != "" {
 		baseName := filepath.Base(preProvisionCommand)
@@ -260,9 +264,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	bInfo, _ := debug.ReadBuildInfo()
-	setupLog.Info("starting manager", "version", caphversion.Get().String(),
-		"buildInfo", bInfo.Main.Path+"@"+bInfo.Main.Version)
+	setupLog.Info("starting manager", "version", caphversion.Get().String())
 
 	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "problem running manager")
