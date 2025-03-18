@@ -388,6 +388,8 @@ release: clean-release  ## Builds and push container images using the latest git
 	$(MAKE) set-manifest-pull-policy PULL_POLICY=IfNotPresent
 	## Build the manifests
 	$(MAKE) release-manifests clean-release-git
+	./hack/check-release-manifests.sh
+
 
 .PHONY: release-notes
 release-notes: $(RELEASE_NOTES_DIR) $(RELEASE_NOTES)

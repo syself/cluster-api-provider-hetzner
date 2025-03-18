@@ -32,6 +32,10 @@ if [[ -z "${TAG:-}" ]]; then
 fi
 
 make release-manifests
+# `make release-manifests` changes local files (caph image). Restore them,
+# so they do not get committed accidentally.
+git restore config
+
 export MANIFEST_PATH="../../../out"
 
 echo "# Created from $E2E_CONF_FILE_SOURCE by $0" >"$E2E_CONF_FILE"
