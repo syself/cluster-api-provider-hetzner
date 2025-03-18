@@ -1,8 +1,6 @@
 module github.com/syself/cluster-api-provider-hetzner
 
-go 1.23.0
-
-toolchain go1.23.7
+go 1.23.7
 
 require (
 	github.com/blang/semver/v4 v4.0.0
@@ -12,6 +10,7 @@ require (
 	github.com/hetznercloud/hcloud-go/v2 v2.19.1
 	github.com/onsi/ginkgo/v2 v2.23.0
 	github.com/onsi/gomega v1.36.2
+	github.com/prometheus/common v0.55.0
 	github.com/spf13/pflag v1.0.6
 	github.com/stoewer/go-strcase v1.3.0
 	github.com/stretchr/testify v1.10.0
@@ -104,7 +103,6 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_golang v1.20.5 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
-	github.com/prometheus/common v0.55.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect

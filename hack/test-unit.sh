@@ -32,4 +32,9 @@ export KUBEBUILDER_ASSETS
 
 mkdir -p .coverage
 
-hack/tools/bin/gotestsum --junitfile=.coverage/junit.xml --format testname -- -covermode=atomic -coverprofile=.coverage/cover.out -p=4 -timeout 5m ./controllers/... ./pkg/... ./api/...
+hack/tools/bin/gotestsum \
+    --jsonfile=.reports/go-test-output.json \
+    --junitfile=.coverage/junit.xml \
+    --format testname -- \
+    -covermode=atomic -coverprofile=.coverage/cover.out -p=4 -timeout 5m \
+    ./controllers/... ./pkg/... ./api/...
