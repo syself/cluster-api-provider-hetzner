@@ -10,6 +10,7 @@ require (
 	github.com/hetznercloud/hcloud-go/v2 v2.13.1
 	github.com/onsi/ginkgo/v2 v2.20.2
 	github.com/onsi/gomega v1.34.2
+	github.com/prometheus/common v0.48.0
 	github.com/spf13/pflag v1.0.6
 	github.com/stoewer/go-strcase v1.3.0
 	github.com/stretchr/testify v1.9.0
@@ -101,7 +102,6 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_golang v1.19.1 // indirect
 	github.com/prometheus/client_model v0.6.0 // indirect
-	github.com/prometheus/common v0.48.0 // indirect
 	github.com/prometheus/procfs v0.12.0 // indirect
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
