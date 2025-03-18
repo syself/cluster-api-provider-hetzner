@@ -87,7 +87,7 @@ providers:
         contract: v1beta1
         replacements:
           - old: ghcr.io/syself/caph-staging:latest
-            new: ghcr.io/syself/caph-staging:e2e
+            new: ghcr.io/syself/caph-staging:${TAG}
           - old: "imagePullPolicy: Always"
             new: "imagePullPolicy: IfNotPresent"
           - old: --metrics-bind-addr=localhost:8080
@@ -113,7 +113,7 @@ providers:
       #   contract: v1beta1
       #   replacements:
       #     - old: ghcr.io/syself/caph-staging:latest
-      #       new: ghcr.io/syself/caph-staging:e2e
+      #       new: ghcr.io/syself/caph-staging:${TAG}
       #     - old: "imagePullPolicy: Always"
       #       new: "imagePullPolicy: IfNotPresent"
       #     - old: --metrics-bind-addr=localhost:8080

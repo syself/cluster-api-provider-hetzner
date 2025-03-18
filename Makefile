@@ -372,7 +372,6 @@ test-release:
 
 .PHONY: release-manifests
 release-manifests: generate-manifests generate-go-deepcopy $(KUSTOMIZE) $(RELEASE_DIR) cluster-templates ## Builds the manifests to publish with a release
-	echo "++++++++++++++++++++++ make ..."
 	$(KUSTOMIZE) build config/default > $(RELEASE_DIR)/infrastructure-components.yaml
 	## Build $(INFRA_SHORT)-components (aggregate of all of the above).
 	cp metadata.yaml $(RELEASE_DIR)/metadata.yaml
@@ -471,7 +470,8 @@ test-unit: $(SETUP_ENVTEST) $(GOTESTSUM) ## Run unit and integration tests
 
 .PHONY: e2e-image
 e2e-image: ## Build the e2e manager image
-	docker build --pull --build-arg ARCH=$(ARCH) --build-arg LDFLAGS="$(LDFLAGS)" -t $(IMAGE_PREFIX)/$(STAGING_IMAGE):e2e -f images/$(INFRA_SHORT)/Dockerfile .
+	./hack/ensure-env-variables.sh TAG
+	docker build --pull --build-arg ARCH=$(ARCH) --build-arg LDFLAGS="$(LDFLAGS)" -t $(IMAGE_PREFIX)/$(STAGING_IMAGE):$(TAG) -f images/$(INFRA_SHORT)/Dockerfile .
 
 .PHONY: e2e-conf-file
 e2e-conf-file: $(E2E_CONF_FILE)
