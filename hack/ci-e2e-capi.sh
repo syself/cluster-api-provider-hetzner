@@ -54,7 +54,4 @@ if [[ -z "${TAG:-}" ]]; then
     exit 1
 fi
 
-make set-manifest-image "MANIFEST_IMG=${IMAGE_PREFIX}/caph-staging" "MANIFEST_TAG=${TAG}"
-make set-manifest-pull-policy PULL_POLICY=IfNotPresent
-
 make -C test/e2e/ run GINKGO_NODES="${GINKGO_NODES}" GINKGO_FOCUS="${GINKGO_FOKUS}"
