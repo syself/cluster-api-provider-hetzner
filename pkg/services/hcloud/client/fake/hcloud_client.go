@@ -654,10 +654,12 @@ func (c *cacheHCloudClient) ListNetworks(_ context.Context, opts hcloud.NetworkL
 }
 
 func (c *cacheHCloudClient) DeleteNetwork(_ context.Context, network *hcloud.Network) error {
-	if _, found := c.networkCache.idMap[network.ID]; !found {
+	c.counterMutex.Lock()
+	defer c.counterMutex.Unlock()
+	n, found := c.networkCache.idMap[network.ID]
+	if !found {
 		return hcloud.Error{Code: hcloud.ErrorCodeNotFound, Message: "not found"}
 	}
-	n := c.networkCache.idMap[network.ID]
 	delete(c.networkCache.nameMap, n.Name)
 	delete(c.networkCache.idMap, network.ID)
 	return nil
