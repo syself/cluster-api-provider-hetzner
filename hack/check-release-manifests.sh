@@ -18,7 +18,7 @@
 trap 'echo "Warning: A command has failed. Exiting the script. Line was ($0:$LINENO): $(sed -n "${LINENO}p" "$0")"; exit 3' ERR
 set -Eeuo pipefail
 
-if grep caph-staging out/*yaml; then
-    echo "Error: caph-staging found in out/*yaml"
+if grep :pr- out/*yaml; then
+    echo "Error: ':pr-' found in out/*yaml. This looks like a PR container image tag."
     exit 1
 fi
