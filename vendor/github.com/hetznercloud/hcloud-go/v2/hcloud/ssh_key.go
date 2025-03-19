@@ -71,7 +71,10 @@ func (c *SSHKeyClient) GetByFingerprint(ctx context.Context, fingerprint string)
 // retrieves a SSH key by its name. If the SSH key does not exist, nil is returned.
 func (c *SSHKeyClient) Get(ctx context.Context, idOrName string) (*SSHKey, *Response, error) {
 	if id, err := strconv.ParseInt(idOrName, 10, 64); err == nil {
-		return c.GetByID(ctx, id)
+		sshKey, res, err := c.GetByID(ctx, id)
+		if sshKey != nil || err != nil {
+			return sshKey, res, err
+		}
 	}
 	return c.GetByName(ctx, idOrName)
 }

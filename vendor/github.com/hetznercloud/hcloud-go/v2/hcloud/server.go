@@ -230,7 +230,10 @@ func (c *ServerClient) GetByName(ctx context.Context, name string) (*Server, *Re
 // retrieves a server by its name. If the server does not exist, nil is returned.
 func (c *ServerClient) Get(ctx context.Context, idOrName string) (*Server, *Response, error) {
 	if id, err := strconv.ParseInt(idOrName, 10, 64); err == nil {
-		return c.GetByID(ctx, id)
+		srv, res, err := c.GetByID(ctx, id)
+		if srv != nil || err != nil {
+			return srv, res, err
+		}
 	}
 	return c.GetByName(ctx, idOrName)
 }
@@ -378,15 +381,11 @@ func (c *ServerClient) Create(ctx context.Context, opts ServerCreateOpts) (Serve
 	reqBody.Name = opts.Name
 	reqBody.Automount = opts.Automount
 	reqBody.StartAfterCreate = opts.StartAfterCreate
-	if opts.ServerType.ID != 0 {
-		reqBody.ServerType = opts.ServerType.ID
-	} else if opts.ServerType.Name != "" {
-		reqBody.ServerType = opts.ServerType.Name
+	if opts.ServerType.ID != 0 || opts.ServerType.Name != "" {
+		reqBody.ServerType = schema.IDOrName{ID: opts.ServerType.ID, Name: opts.ServerType.Name}
 	}
-	if opts.Image.ID != 0 {
-		reqBody.Image = opts.Image.ID
-	} else if opts.Image.Name != "" {
-		reqBody.Image = opts.Image.Name
+	if opts.Image.ID != 0 || opts.Image.Name != "" {
+		reqBody.Image = schema.IDOrName{ID: opts.Image.ID, Name: opts.Image.Name}
 	}
 	if opts.Labels != nil {
 		reqBody.Labels = &opts.Labels
@@ -778,10 +777,8 @@ func (c *ServerClient) Rebuild(ctx context.Context, server *Server, opts ServerR
 // RebuildWithResult rebuilds a server.
 func (c *ServerClient) RebuildWithResult(ctx context.Context, server *Server, opts ServerRebuildOpts) (ServerRebuildResult, *Response, error) {
 	reqBody := schema.ServerActionRebuildRequest{}
-	if opts.Image.ID != 0 {
-		reqBody.Image = opts.Image.ID
-	} else {
-		reqBody.Image = opts.Image.Name
+	if opts.Image.ID != 0 || opts.Image.Name != "" {
+		reqBody.Image = schema.IDOrName{ID: opts.Image.ID, Name: opts.Image.Name}
 	}
 	reqBodyData, err := json.Marshal(reqBody)
 	if err != nil {
@@ -813,10 +810,8 @@ func (c *ServerClient) RebuildWithResult(ctx context.Context, server *Server, op
 // AttachISO attaches an ISO to a server.
 func (c *ServerClient) AttachISO(ctx context.Context, server *Server, iso *ISO) (*Action, *Response, error) {
 	reqBody := schema.ServerActionAttachISORequest{}
-	if iso.ID != 0 {
-		reqBody.ISO = iso.ID
-	} else {
-		reqBody.ISO = iso.Name
+	if iso.ID != 0 || iso.Name != "" {
+		reqBody.ISO = schema.IDOrName{ID: iso.ID, Name: iso.Name}
 	}
 	reqBodyData, err := json.Marshal(reqBody)
 	if err != nil {
@@ -853,21 +848,13 @@ func (c *ServerClient) DetachISO(ctx context.Context, server *Server) (*Action, 
 	return ActionFromSchema(respBody.Action), resp, nil
 }
 
-// EnableBackup enables backup for a server. Pass in an empty backup window to let the
-// API pick a window for you. See the API documentation at docs.hetzner.cloud for a list
-// of valid backup windows.
+// EnableBackup enables backup for a server.
+// The window parameter is deprecated and will be ignored.
 func (c *ServerClient) EnableBackup(ctx context.Context, server *Server, window string) (*Action, *Response, error) {
-	reqBody := schema.ServerActionEnableBackupRequest{}
-	if window != "" {
-		reqBody.BackupWindow = Ptr(window)
-	}
-	reqBodyData, err := json.Marshal(reqBody)
-	if err != nil {
-		return nil, nil, err
-	}
+	_ = window
 
 	path := fmt.Sprintf("/servers/%d/actions/enable_backup", server.ID)
-	req, err := c.client.NewRequest(ctx, "POST", path, bytes.NewReader(reqBodyData))
+	req, err := c.client.NewRequest(ctx, "POST", path, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -907,10 +894,8 @@ func (c *ServerClient) ChangeType(ctx context.Context, server *Server, opts Serv
 	reqBody := schema.ServerActionChangeTypeRequest{
 		UpgradeDisk: opts.UpgradeDisk,
 	}
-	if opts.ServerType.ID != 0 {
-		reqBody.ServerType = opts.ServerType.ID
-	} else {
-		reqBody.ServerType = opts.ServerType.Name
+	if opts.ServerType.ID != 0 || opts.ServerType.Name != "" {
+		reqBody.ServerType = schema.IDOrName{ID: opts.ServerType.ID, Name: opts.ServerType.Name}
 	}
 	reqBodyData, err := json.Marshal(reqBody)
 	if err != nil {
