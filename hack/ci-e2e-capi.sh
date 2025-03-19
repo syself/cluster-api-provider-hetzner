@@ -14,10 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -o errexit
-set -o pipefail
+trap 'echo "Warning: A command has failed. Exiting the script. Line was ($0:$LINENO): $(sed -n "${LINENO}p" "$0")"; exit 3' ERR
+set -Eeuo pipefail
 
-REPO_ROOT=$(realpath $(dirname "${BASH_SOURCE[0]}")/..)
+REPO_ROOT=$(realpath "$(dirname "${BASH_SOURCE[0]}")/..")
 cd "${REPO_ROOT}" || exit 1
 
 # Make sure the tools binaries are on the path.
@@ -40,35 +40,18 @@ trap 'remove_ssh_key ${SSH_KEY_NAME}' EXIT
 mkdir -p "$ARTIFACTS"
 echo "+ run tests!"
 
-if [[ "${CI:-""}" == "true" ]]; then
-    make set-manifest-image MANIFEST_IMG=${IMAGE_PREFIX}/caph-staging MANIFEST_TAG=${TAG}
-    make set-manifest-pull-policy PULL_POLICY=IfNotPresent
-fi
+IMAGE_PREFIX="${IMAGE_PREFIX:-ghcr.io/syself}"
 
-if [[ "${PACKER_KUBERNETES_UPGRADE_FROM:-""}" != "" ]]; then
-    (cd ${REPO_ROOT}/${PACKER_KUBERNETES_UPGRADE_FROM} && packer build image.json) &
-    (cd ${REPO_ROOT}/${PACKER_KUBERNETES_UPGRADE_TO} && packer build image.json)
-    wait < <(jobs -p)
-    export KUBERNETES_IMAGE_UPGRADE_FROM=$(jq -r '.builds[-1].custom_data.snapshot_label' ${REPO_ROOT}/${PACKER_KUBERNETES_UPGRADE_FROM}/manifest.json)
-    export KUBERNETES_IMAGE_UPGRADE_TO=$(jq -r '.builds[-1].custom_data.snapshot_label' ${REPO_ROOT}/${PACKER_KUBERNETES_UPGRADE_TO}/manifest.json)
-    trap 'remove_manifests' EXIT
-    remove_manifests() {
-        rm ${REPO_ROOT}/${PACKER_KUBERNETES_UPGRADE_FROM}/manifest.json
-        rm ${REPO_ROOT}/${PACKER_KUBERNETES_UPGRADE_TO}/manifest.json
-    }
-    make e2e-conf-file
-fi
-
-if [[ "${PACKER_IMAGE_NAME:-""}" != "" ]]; then
-    (cd ${REPO_ROOT}/${PACKER_IMAGE_NAME} && packer build image.json)
-    export HCLOUD_IMAGE_NAME=$(jq -r '.builds[-1].custom_data.snapshot_label' ${REPO_ROOT}/${PACKER_IMAGE_NAME}/manifest.json)
-    trap 'remove_manifests' EXIT
-    remove_manifests() {
-        rm ${REPO_ROOT}/${PACKER_IMAGE_NAME}/manifest.json
-    }
-    make e2e-conf-file
+if [[ -z "${TAG:-}" ]]; then
+    echo
+    echo "Error: Missing TAG environment variable"
+    echo "This is the caph container image tag for the image."
+    echo "For PRs this is pr-NNNN"
+    echo "Use the following command to set the environment variable:"
+    echo "  gh pr view --json number --jq .number"
+    echo "Then: export TAG=pr-NNNN"
+    echo
+    exit 1
 fi
 
 make -C test/e2e/ run GINKGO_NODES="${GINKGO_NODES}" GINKGO_FOCUS="${GINKGO_FOKUS}"
-
-test_status="${?}"

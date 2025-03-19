@@ -343,7 +343,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 						},
 					},
 					Spec: infrav1.HCloudMachineSpec{
-						ImageName:          "fedora-control-plane",
+						ImageName:          "my-control-plane",
 						Type:               "cpx31",
 						PlacementGroupName: &defaultPlacementGroupName,
 					},
@@ -458,7 +458,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 						},
 					},
 					Spec: infrav1.HCloudMachineSpec{
-						ImageName:          "fedora-control-plane-2",
+						ImageName:          "my-control-plane-2",
 						Type:               "cpx31",
 						PlacementGroupName: &defaultPlacementGroupName,
 					},
@@ -502,7 +502,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 					},
 				},
 				Spec: infrav1.HCloudMachineSpec{
-					ImageName:          "fedora-control-plane",
+					ImageName:          "my-control-plane",
 					Type:               "cpx31",
 					PlacementGroupName: &defaultPlacementGroupName,
 				},
@@ -720,7 +720,7 @@ var _ = Describe("Hetzner secret", func() {
 				},
 			},
 			Spec: infrav1.HCloudMachineSpec{
-				ImageName:          "fedora-control-plane",
+				ImageName:          "my-control-plane",
 				Type:               "cpx31",
 				PlacementGroupName: &defaultPlacementGroupName,
 			},
@@ -741,6 +741,7 @@ var _ = Describe("Hetzner secret", func() {
 			Eventually(func() bool {
 				return isPresentAndFalseWithReason(key, hcloudMachine, infrav1.HCloudTokenAvailableCondition, expectedReason)
 			}, timeout, interval).Should(BeTrue())
+			Expect(testEnv.Cleanup(ctx, hetznerSecret)).To(Succeed())
 		},
 		Entry("no Hetzner secret/wrong reference", func() *corev1.Secret {
 			return &corev1.Secret{
@@ -797,7 +798,7 @@ var _ = Describe("HCloudMachine validation", func() {
 				Namespace: testNs.Name,
 			},
 			Spec: infrav1.HCloudMachineSpec{
-				ImageName: "fedora-control-plane",
+				ImageName: "my-control-plane",
 				Type:      "cpx31",
 			},
 		}
@@ -830,7 +831,7 @@ var _ = Describe("HCloudMachine validation", func() {
 		}, timeout, interval).Should(BeNil())
 
 		hcloudMachine.Spec.Type = "cpx32"
-		hcloudMachine.Spec.ImageName = "fedora-control-plane"
+		hcloudMachine.Spec.ImageName = "my-control-plane"
 		Expect(testEnv.Update(ctx, hcloudMachine)).ToNot(Succeed())
 	})
 })

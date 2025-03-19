@@ -275,7 +275,10 @@ func (c *LoadBalancerClient) GetByName(ctx context.Context, name string) (*LoadB
 // retrieves a Load Balancer by its name. If the Load Balancer does not exist, nil is returned.
 func (c *LoadBalancerClient) Get(ctx context.Context, idOrName string) (*LoadBalancer, *Response, error) {
 	if id, err := strconv.ParseInt(idOrName, 10, 64); err == nil {
-		return c.GetByID(ctx, id)
+		lb, res, err := c.GetByID(ctx, id)
+		if lb != nil || err != nil {
+			return lb, res, err
+		}
 	}
 	return c.GetByName(ctx, idOrName)
 }
@@ -935,10 +938,8 @@ type LoadBalancerChangeTypeOpts struct {
 // ChangeType changes a Load Balancer's type.
 func (c *LoadBalancerClient) ChangeType(ctx context.Context, loadBalancer *LoadBalancer, opts LoadBalancerChangeTypeOpts) (*Action, *Response, error) {
 	reqBody := schema.LoadBalancerActionChangeTypeRequest{}
-	if opts.LoadBalancerType.ID != 0 {
-		reqBody.LoadBalancerType = opts.LoadBalancerType.ID
-	} else {
-		reqBody.LoadBalancerType = opts.LoadBalancerType.Name
+	if opts.LoadBalancerType.ID != 0 || opts.LoadBalancerType.Name != "" {
+		reqBody.LoadBalancerType = schema.IDOrName{ID: opts.LoadBalancerType.ID, Name: opts.LoadBalancerType.Name}
 	}
 	reqBodyData, err := json.Marshal(reqBody)
 	if err != nil {

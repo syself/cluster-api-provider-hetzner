@@ -171,9 +171,13 @@ type PollOpts struct {
 }
 
 // WithPollOpts configures a Client to use the specified options when polling from the API.
+//
+// If [PollOpts.BackoffFunc] is nil, the existing backoff function will be preserved.
 func WithPollOpts(opts PollOpts) ClientOption {
 	return func(client *Client) {
-		client.pollBackoffFunc = opts.BackoffFunc
+		if opts.BackoffFunc != nil {
+			client.pollBackoffFunc = opts.BackoffFunc
+		}
 	}
 }
 
@@ -195,9 +199,13 @@ type RetryOpts struct {
 
 // WithRetryOpts configures a Client to use the specified options when retrying API
 // requests.
+//
+// If [RetryOpts.BackoffFunc] is nil, the existing backoff function will be preserved.
 func WithRetryOpts(opts RetryOpts) ClientOption {
 	return func(client *Client) {
-		client.retryBackoffFunc = opts.BackoffFunc
+		if opts.BackoffFunc != nil {
+			client.retryBackoffFunc = opts.BackoffFunc
+		}
 		client.retryMaxRetries = opts.MaxRetries
 	}
 }

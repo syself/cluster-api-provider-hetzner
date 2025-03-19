@@ -11,7 +11,7 @@ linters:
     - durationcheck
     - errcheck
     - errchkjson
-    - exportloopref
+    - copyloopvar
     - gci
     - gocritic
     - godot

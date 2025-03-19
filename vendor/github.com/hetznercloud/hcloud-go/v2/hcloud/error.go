@@ -30,6 +30,7 @@ const (
 	ErrorCodeRobotUnavailable      ErrorCode = "robot_unavailable"       // Robot was not available. The caller may retry the operation after a short delay
 	ErrorCodeResourceLocked        ErrorCode = "resource_locked"         // The resource is locked. The caller should contact support
 	ErrorUnsupportedError          ErrorCode = "unsupported_error"       // The given resource does not support this
+	ErrorDeprecatedAPIEndpoint     ErrorCode = "deprecated_api_endpoint" // The request can not be answered because the API functionality was removed
 
 	// Server related error codes.
 
@@ -125,6 +126,11 @@ type ErrorDetailsInvalidInput struct {
 type ErrorDetailsInvalidInputField struct {
 	Name     string
 	Messages []string
+}
+
+// ErrorDetailsDeprecatedAPIEndpoint contains the details of a 'deprecated_api_endpoint' error.
+type ErrorDetailsDeprecatedAPIEndpoint struct {
+	Announcement string
 }
 
 // IsError returns whether err is an API error with one of the given error codes.

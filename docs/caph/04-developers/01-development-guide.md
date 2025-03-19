@@ -23,7 +23,6 @@ This ensures the following:
 - helmfile
 - kind (required)
 - kubectl (required)
-- packer
 - tilt (required)
 - hcloud
 
@@ -53,7 +52,7 @@ To access the Tilt UI, please go to: `http://localhost:10351`
 
 {% /callout %}
 
-Once your kind management cluster is up and running, you can deploy a workload cluster. This could be done through the Tilt UI by pressing one of the buttons in the top right corner, e.g., **"Create Workload Cluster - without Packer"**. This triggers the `make create-workload-cluster` command, which uses the environment variables (we defined in the .envrc) and the cluster-template. Additionally, it installs cilium as CNI.
+Once your kind management cluster is up and running, you can deploy a workload cluster. This could be done through the Tilt UI by pressing one of the buttons in the top right corner, e.g., **"Create Workload Cluster"**. This triggers the `make create-workload-cluster` command, which uses the environment variables (we defined in the .envrc) and the cluster-template. Additionally, it installs cilium as CNI.
 
 If you update the API in some way, you need to run `make generate` to generate everything related to kubebuilder and the CRDs.
 
@@ -62,7 +61,7 @@ To tear down the workload cluster, press the **"Delete Workload Cluster"** butto
 To tear down the kind cluster, use:
 
 ```shell
-$ make delete-mgt-cluster
+make delete-mgt-cluster
 ```
 
 To delete the registry, use `make delete-registry`. Use `make delete-mgt-cluster-registry` to delete both management cluster and associated registry.
@@ -90,9 +89,13 @@ export HCLOUD_TOKEN=<your-hcloud-token>
 export CAPH_LATEST_VERSION=<latest-version>
 export HETZNER_ROBOT_USER=<your robot user>
 export HETZNER_ROBOT_PASSWORD=<your robot password>
-export HETZNER_SSH_PUB=<your-ssh-pub-key>
-export HETZNER_SSH_PRIV=<your-ssh-private-key>
-make test-e2e
+export HETZNER_SSH_PUB_PATH=$HOME/.ssh/my-caph-ssh-key.pub
+export HETZNER_SSH_PRIV_PATH=$HOME/.ssh/my-caph-ssh-key
+HETZNER_SSH_PUB=$(base64 -w0 "$HETZNER_SSH_PUB_PATH")
+HETZNER_SSH_PRIV=$(base64 -w0 "$HETZNER_SSH_PRIV_PATH")
+export HETZNER_SSH_PUB HETZNER_SSH_PRIV
+
+make test-e2e-hcloud
 ```
 
 For the SSH public and private keys, you should use the following command to encode the keys. Note that the E2E test will not work if the ssh key is in any other format!

@@ -558,8 +558,25 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 				By("checking that cluster is ready")
 
 				Eventually(func() bool {
-					return isPresentAndTrue(key, instance, infrav1.LoadBalancerReadyCondition)
-				}, timeout, time.Second).Should(BeTrue())
+					err := testEnv.Get(ctx, client.ObjectKeyFromObject(instance), instance)
+					if err != nil {
+						return false
+					}
+					c := conditions.Get(instance, infrav1.LoadBalancerReadyCondition)
+					if c == nil {
+						GinkgoLogr.Info("LoadBalancerReadyCondition is nil")
+						return false
+					}
+					if c.Status == corev1.ConditionTrue {
+						GinkgoLogr.Info("LoadBalancerReadyCondition is True now")
+						return true
+					}
+					GinkgoLogr.Info("LoadBalancerReadyCondition is not True yet.",
+						"reason", c.Reason,
+						"message", c.Message,
+					)
+					return false
+				}, 2*timeout, time.Second).Should(BeTrue()) // flaky ?
 
 				By("checking that load balancer has label set")
 
@@ -926,7 +943,7 @@ func createCapiAndHcloudMachines(ctx context.Context, env *helpers.TestEnvironme
 			},
 		},
 		Spec: infrav1.HCloudMachineSpec{
-			ImageName: "fedora-control-plane",
+			ImageName: "my-control-plane",
 			Type:      "cpx31",
 		},
 	}
@@ -1001,6 +1018,7 @@ var _ = Describe("Hetzner secret", func() {
 			Eventually(func() bool {
 				return isPresentAndFalseWithReason(key, hetznerCluster, infrav1.HCloudTokenAvailableCondition, expectedReason)
 			}, timeout, time.Second).Should(BeTrue())
+			Expect(testEnv.Cleanup(ctx, hetznerSecret)).To(Succeed())
 		},
 		Entry("no Hetzner secret/wrong reference", func() *corev1.Secret {
 			return &corev1.Secret{

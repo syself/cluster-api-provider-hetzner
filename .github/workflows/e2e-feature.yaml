@@ -47,4 +47,3 @@ jobs:
         with:
           e2e_name: hcloud-feature
           e2e_make_target: test-e2e-feature
-          e2e_hcloud_token: ${{ secrets.HCLOUD_TOKEN }}

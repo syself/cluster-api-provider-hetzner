@@ -1,6 +1,6 @@
 name: Verify Pull Request
 on: # yamllint disable-line rule:truthy
-  pull_request_target:
+  pull_request:
     types: [opened, edited, synchronize, reopened, ready_for_review]
 # yamllint disable rule:line-length
 jobs:
@@ -16,8 +16,6 @@ jobs:
 
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Verify Boilerplate
         run: make verify-boilerplate
@@ -28,9 +26,9 @@ jobs:
       - name: Verify Starlark
         run: make verify-starlark
 
-      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4
+      - uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e # v4
         with:
-          node-version: "18"
+          node-version: "22"
       - name: Install renovate
         run: npm i -g renovate@35.54.0 # TODO update this via renovatebot
 
@@ -41,7 +39,7 @@ jobs:
           done
 
       - name: Generate Token
-        uses: actions/create-github-app-token@5d869da34e18e7287c1daad50e0b8ea0f506ce69 # v1
+        uses: actions/create-github-app-token@21cfef2b496dd8ef5b904c159339626a10ad380e # v1
         id: generate-token
         with:
           app-id: ${{ secrets.SYSELF_APP_ID }}

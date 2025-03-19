@@ -14,7 +14,6 @@ linters:
     - errchkjson
     - errname
     - errorlint
-    - exportloopref
     - forcetypeassert
     - gci
     - goconst

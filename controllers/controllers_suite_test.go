@@ -17,12 +17,15 @@ limitations under the License.
 package controllers
 
 import (
+	"fmt"
+	"os"
 	"sync"
 	"testing"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/prometheus/common/expfmt"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -32,6 +35,7 @@ import (
 	"sigs.k8s.io/cluster-api/util/conditions"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
@@ -54,6 +58,7 @@ var (
 )
 
 func TestControllers(t *testing.T) {
+	secretErrorRetryDelay = 1 * time.Millisecond
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Controller Suite")
 }
@@ -87,10 +92,11 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
 
 	Expect((&HetznerBareMetalHostReconciler{
-		Client:             testEnv.Manager.GetClient(),
-		APIReader:          testEnv.Manager.GetAPIReader(),
-		RobotClientFactory: testEnv.RobotClientFactory,
-		SSHClientFactory:   testEnv.SSHClientFactory,
+		Client:              testEnv.Manager.GetClient(),
+		APIReader:           testEnv.Manager.GetAPIReader(),
+		RobotClientFactory:  testEnv.RobotClientFactory,
+		SSHClientFactory:    testEnv.SSHClientFactory,
+		PreProvisionCommand: "dummy-pre-provision-command",
 	}).SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
 
 	Expect((&HetznerBareMetalMachineReconciler{
@@ -130,7 +136,33 @@ var _ = BeforeSuite(func() {
 	Expect(testEnv.Create(ctx, ns)).To(Succeed())
 })
 
+func dumpMetrics() error {
+	metricFamilies, err := metrics.Registry.Gather()
+	if err != nil {
+		return fmt.Errorf("failed to gather metrics: %w", err)
+	}
+
+	if err := os.MkdirAll("../.reports", 0o750); err != nil {
+		return fmt.Errorf("Error creating directory: %w", err)
+	}
+	f, err := os.Create("../.reports/controller_suite_test-metrics.txt")
+	if err != nil {
+		return fmt.Errorf("Error creating file: %w", err)
+	}
+	defer f.Close()
+
+	// Encode the metrics into text format
+	encoder := expfmt.NewEncoder(f, expfmt.NewFormat(expfmt.TypeTextPlain))
+	for _, mf := range metricFamilies {
+		if err := encoder.Encode(mf); err != nil {
+			return fmt.Errorf("error encoding metric family: %w", err)
+		}
+	}
+	return nil
+}
+
 var _ = AfterSuite(func() {
+	Expect(dumpMetrics()).To(Succeed())
 	Expect(testEnv.Stop()).To(Succeed())
 	wg.Done() // Main manager has been stopped
 	wg.Wait() // Wait for target cluster manager

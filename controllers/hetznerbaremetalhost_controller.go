@@ -52,11 +52,12 @@ import (
 // HetznerBareMetalHostReconciler reconciles a HetznerBareMetalHost object.
 type HetznerBareMetalHostReconciler struct {
 	client.Client
-	RateLimitWaitTime  time.Duration
-	APIReader          client.Reader
-	RobotClientFactory robotclient.Factory
-	SSHClientFactory   sshclient.Factory
-	WatchFilterValue   string
+	RateLimitWaitTime   time.Duration
+	APIReader           client.Reader
+	RobotClientFactory  robotclient.Factory
+	SSHClientFactory    sshclient.Factory
+	WatchFilterValue    string
+	PreProvisionCommand string
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalhosts,verbs=get;list;watch;create;update;patch;delete
@@ -85,6 +86,13 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		}
 		return reconcile.Result{}, err
 	}
+
+	initialProvisioningState := bmHost.Spec.Status.ProvisioningState
+	defer func() {
+		if initialProvisioningState != bmHost.Spec.Status.ProvisioningState {
+			log.Info("Provisioning state changed", "from", initialProvisioningState, "to", bmHost.Spec.Status.ProvisioningState)
+		}
+	}()
 
 	// Add a finalizer to newly created objects.
 	if bmHost.DeletionTimestamp.IsZero() &&
@@ -131,6 +139,9 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		return reconcile.Result{Requeue: true}, nil
 	}
 	if err := r.Client.Get(ctx, hetznerClusterName, hetznerCluster); err != nil {
+		if apierrors.IsNotFound(err) {
+			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+		}
 		return reconcile.Result{}, fmt.Errorf("failed to get HetznerCluster: %w", err)
 	}
 
@@ -190,6 +201,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		OSSSHSecret:             osSSHSecret,
 		RescueSSHSecret:         rescueSSHSecret,
 		SecretManager:           secretManager,
+		PreProvisionCommand:     r.PreProvisionCommand,
 	})
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %w", err)

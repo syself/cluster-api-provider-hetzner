@@ -26,11 +26,13 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
 	"time"
 
+	scp "github.com/bramvdbogaerde/go-scp"
 	"golang.org/x/crypto/ssh"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -274,6 +276,10 @@ type Client interface {
 	// CheckDisk checks the given disks via smartctl.
 	// ErrCheckDiskBrokenDisk gets returned, if a disk is broken.
 	CheckDisk(ctx context.Context, sliceOfWwns []string) (info string, err error)
+
+	// ExecutePreProvisionCommand executes a command before the provision process starts.
+	// A non-zero exit status will indicate that provisioning should not start.
+	ExecutePreProvisionCommand(ctx context.Context, preProvisionCommand string) (exitStatus int, stdoutAndStderr string, err error)
 }
 
 // Factory is the interface for creating new Client objects.
@@ -659,11 +665,11 @@ func IsTimeoutError(err error) bool {
 	return strings.Contains(err.Error(), ErrTimeout.Error())
 }
 
-func (c *sshClient) runSSH(command string) Output {
+func (c *sshClient) getSSHClient() (*ssh.Client, error) {
 	// Create the Signer for this private key.
 	signer, err := ssh.ParsePrivateKey([]byte(c.privateSSHKey))
 	if err != nil {
-		return Output{Err: fmt.Errorf("unable to parse private key: %w", err)}
+		return nil, fmt.Errorf("unable to parse private key: %w", err)
 	}
 
 	config := &ssh.ClientConfig{
@@ -677,10 +683,18 @@ func (c *sshClient) runSSH(command string) Output {
 	}
 
 	// Connect to the remote server and perform the SSH handshake.
-
 	client, err := ssh.Dial("tcp", fmt.Sprintf("%s:%v", c.ip, c.port), config)
 	if err != nil {
-		return Output{Err: fmt.Errorf("failed to dial ssh. Error message: %s. DialErr: %w", err.Error(), errSSHDialFailed)}
+		return nil, fmt.Errorf("failed to dial ssh. Error message: %s. DialErr: %w", err.Error(), errSSHDialFailed)
+	}
+
+	return client, nil
+}
+
+func (c *sshClient) runSSH(command string) Output {
+	client, err := c.getSSHClient()
+	if err != nil {
+		return Output{Err: err}
 	}
 	defer client.Close()
 
@@ -750,4 +764,42 @@ func removeUselessLinesFromCloudInitOutput(s string) string {
 		return fmt.Sprintf("Error reading string: %v\n%s", err, s)
 	}
 	return strings.Join(output, "\n")
+}
+
+func (c *sshClient) ExecutePreProvisionCommand(ctx context.Context, command string) (int, string, error) {
+	client, err := c.getSSHClient()
+	if err != nil {
+		return 0, "", err
+	}
+	defer client.Close()
+
+	scpClient, err := scp.NewClientBySSH(client)
+	if err != nil {
+		return 0, "", fmt.Errorf("couldn't create a new scp client: %w", err)
+	}
+
+	defer scpClient.Close()
+
+	f, err := os.Open(command) //nolint:gosec // the variable was valided.
+	if err != nil {
+		return 0, "", fmt.Errorf("error opening file %q: %w", command, err)
+	}
+
+	baseName := filepath.Base(command)
+	dest := "/root/" + baseName
+	err = scpClient.CopyFromFile(ctx, *f, dest, "0700")
+	if err != nil {
+		return 0, "", fmt.Errorf("error copying file %q to %s:%d:%s %w", command, c.ip, c.port, dest, err)
+	}
+
+	out := c.runSSH(dest)
+	exitStatus, err := out.ExitStatus()
+	if err != nil {
+		return 0, "", fmt.Errorf("error executing %q on %s:%d: %w", dest, c.ip, c.port, err)
+	}
+
+	s := out.StdOut + "\n" + out.StdErr
+	s = strings.TrimSpace(s)
+
+	return exitStatus, s, nil
 }

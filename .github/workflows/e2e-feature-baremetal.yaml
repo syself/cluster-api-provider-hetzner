@@ -47,7 +47,6 @@ jobs:
         with:
           e2e_name: hetzner-baremetal-feature
           e2e_make_target: test-e2e-baremetal-feature
-          e2e_hcloud_token: ${{ secrets.HCLOUD_TOKEN }}
           e2e_robot_user: ${{ secrets.HETZNER_ROBOT_USER }}
           e2e_robot_password: ${{ secrets.HETZNER_ROBOT_PASSWORD }}
           e2e_ssh_pub: ${{ secrets.HETZNER_SSH_PUB }}

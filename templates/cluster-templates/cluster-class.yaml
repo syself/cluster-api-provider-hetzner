@@ -166,7 +166,7 @@ spec:
       schema:
         openAPIV3Schema:
           type: string
-          default: ubuntu-22.04
+          default: ubuntu-24.04
     - name: hcloudControlPlanePlacementGroupName
       required: false
       schema:
@@ -183,7 +183,7 @@ spec:
       schema:
         openAPIV3Schema:
           type: string
-          default: ubuntu-22.04
+          default: ubuntu-24.04
     - name: hcloudWorkerMachinePlacementGroupName
       required: false
       schema:
@@ -378,7 +378,7 @@ metadata:
 spec:
   template:
     spec:
-      imageName: ubuntu-22.04
+      imageName: ubuntu-24.04
       type: cx21
 ---
 apiVersion: controlplane.cluster.x-k8s.io/v1beta1
@@ -399,7 +399,6 @@ spec:
               default-unreachable-toleration-seconds: "45"
               enable-aggregator-routing: "true"
               enable-bootstrap-token-auth: "true"
-              encryption-provider-config: /etc/kubernetes/encryption-provider.yaml
               etcd-cafile: /etc/kubernetes/pki/etcd/ca.crt
               etcd-certfile: /etc/kubernetes/pki/etcd/server.crt
               etcd-keyfile: /etc/kubernetes/pki/etcd/server.key
@@ -419,10 +418,6 @@ spec:
               tls-cert-file: /etc/kubernetes/pki/apiserver.crt
               tls-cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
               tls-private-key-file: /etc/kubernetes/pki/apiserver.key
-            extraVolumes:
-              - hostPath: /etc/kubernetes/encryption-provider.yaml
-                mountPath: /etc/kubernetes/encryption-provider.yaml
-                name: encryption-provider
           controllerManager:
             extraArgs:
               allocate-node-cidrs: "true"
@@ -460,21 +455,6 @@ spec:
               profiling: "false"
               secure-port: "10259"
         files:
-          - content: |
-              apiVersion: apiserver.config.k8s.io/v1
-              kind: EncryptionConfiguration
-              resources:
-                - resources:
-                  - secrets
-                  providers:
-                  - aescbc:
-                      keys:
-                      - name: key1
-                        secret: 8d7iAcg3/NwN9aijhtEXj5kL2NOHIgokGFjbIBfL6X0=
-                  - identity: {}
-            owner: root:root
-            path: /etc/kubernetes/encryption-provider.yaml
-            permissions: "0600"
           - content: |
               net.ipv4.conf.lxc*.rp_filter = 0
             owner: root:root
@@ -536,9 +516,9 @@ spec:
               rotate-server-certificates: "true"
               tls-cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
         preKubeadmCommands:
-          - grep VERSION= /etc/os-release; uname -a
+          - grep VERSION= /etc/os-release; uname -a # Show version info in logs.
           - export CONTAINERD=1.7.16
-          - export KUBERNETES_VERSION=1.29.4
+          - export KUBERNETES_VERSION=1.31.6
           - export TRIMMED_KUBERNETES_VERSION=$(echo ${KUBERNETES_VERSION} | sed 's/^v//' | awk -F . '{print $1 "." $2}')
           - localectl set-locale LANG=en_US.UTF-8
           - localectl set-locale LANGUAGE=en_US.UTF-8
@@ -622,9 +602,10 @@ spec:
             rotate-server-certificates: "true"
             tls-cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
       preKubeadmCommands:
-        - grep VERSION= /etc/os-release; uname -a
+        - grep VERSION= /etc/os-release; uname -a # Show version info in logs.
         - export CONTAINERD=1.7.16
-        - export KUBERNETES_VERSION=1.29.4
+        - export KUBERNETES_VERSION=1.31.6
+        - export TRIMMED_KUBERNETES_VERSION=$(echo ${KUBERNETES_VERSION} | sed 's/^v//' | awk -F . '{print $1 "." $2}')
         - localectl set-locale LANG=en_US.UTF-8
         - localectl set-locale LANGUAGE=en_US.UTF-8
         - apt-get update -y
@@ -643,8 +624,8 @@ spec:
         - sed -i  "s/SystemdCgroup = false/SystemdCgroup = true/" /etc/containerd/config.toml
         - systemctl daemon-reload && systemctl enable containerd && systemctl start containerd
         - mkdir -p /etc/apt/keyrings/
-        - curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-        - echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.29/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+        - curl -fsSL https://pkgs.k8s.io/core:/stable:/v$TRIMMED_KUBERNETES_VERSION/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+        - echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v$TRIMMED_KUBERNETES_VERSION/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list
         - apt-get update
         - apt-get install -y kubelet="$KUBERNETES_VERSION-*" kubeadm="$KUBERNETES_VERSION-*" kubectl="$KUBERNETES_VERSION-*" bash-completion && apt-mark hold kubelet kubectl kubeadm && systemctl enable kubelet
         - kubeadm config images pull --kubernetes-version $KUBERNETES_VERSION
@@ -757,9 +738,9 @@ spec:
             rotate-server-certificates: "true"
             tls-cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
       preKubeadmCommands:
-        - grep VERSION= /etc/os-release; uname -a
+        - grep VERSION= /etc/os-release; uname -a # Show version info in logs.
         - export CONTAINERD=1.7.16
-        - export KUBERNETES_VERSION=1.29.4
+        - export KUBERNETES_VERSION=1.31.6
         - localectl set-locale LANG=en_US.UTF-8
         - localectl set-locale LANGUAGE=en_US.UTF-8
         - apt-get update -y
@@ -778,8 +759,8 @@ spec:
         - sed -i  "s/SystemdCgroup = false/SystemdCgroup = true/" /etc/containerd/config.toml
         - systemctl daemon-reload && systemctl enable containerd && systemctl start containerd
         - mkdir -p /etc/apt/keyrings/
-        - curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-        - echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.29/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+        - curl -fsSL https://pkgs.k8s.io/core:/stable:/v$TRIMMED_KUBERNETES_VERSION/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+        - echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v$TRIMMED_KUBERNETES_VERSION/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list
         - apt-get update
         - apt-get install -y kubelet="$KUBERNETES_VERSION-*" kubeadm="$KUBERNETES_VERSION-*" kubectl="$KUBERNETES_VERSION-*" bash-completion && apt-mark hold kubelet kubectl kubeadm && systemctl enable kubelet
         - kubeadm config images pull --kubernetes-version $KUBERNETES_VERSION

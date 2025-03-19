@@ -113,7 +113,6 @@ func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, r
 		Name:      cluster.Spec.InfrastructureRef.Name,
 	}
 	if err := r.Client.Get(ctx, hetznerClusterName, hetznerCluster); err != nil {
-		log.Info("HetznerCluster is not available yet")
 		return reconcile.Result{}, nil
 	}
 

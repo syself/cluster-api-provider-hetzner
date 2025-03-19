@@ -19,8 +19,8 @@ set -o nounset
 set -o pipefail
 
 echo "================ REDACTING LOGS ================"
-# shellcheck disable=SC2207 
-log_files=( $(find "${ARTIFACTS:-${PWD}/_artifacts}" -type f) )
+# shellcheck disable=SC2207
+log_files=($(find "${ARTIFACTS:-${PWD}/_artifacts}" -type f))
 redact_vars=(
     "${HCLOUD_TOKEN:-}"
     "$(echo -n "${HCLOUD_TOKEN:-}" | base64 | tr -d '\n')"
@@ -29,11 +29,13 @@ redact_vars=(
     "${HETZNER_ROBOT_PASSWORD:-}"
     "$(echo -n "${HETZNER_ROBOT_PASSWORD:-}" | base64 | tr -d '\n')"
     "${HETZNER_SSH_PUB:-}"
-    "$(echo -n "${HETZNER_SSH_PUB:-}" | base64 | tr -d '\n')"
-    "$(echo -n "${HETZNER_SSH_PUB:-}" | base64 -w0 )"
+    "$(echo -n "${HETZNER_SSH_PUB:-}" | base64 -d | tr -d '\n')"
+    "$(echo -n "${HETZNER_SSH_PUB:-}" | tr -d '\n')"
+    "$(echo -n "${HETZNER_SSH_PUB:-}" | base64 -d)"
     "${HETZNER_SSH_PRIV:-}"
-    "$(echo -n "${HETZNER_SSH_PRIV:-}" | tr -d '\n' | base64 )"
-    "$(echo -n "${HETZNER_SSH_PRIV:-}" | base64 -w0 )"
+    "$(echo -n "${HETZNER_SSH_PRIV:-}" | base64 -d | tr -d '\n')"
+    "$(echo -n "${HETZNER_SSH_PRIV:-}" | tr -d '\n')"
+    "$(echo -n "${HETZNER_SSH_PRIV:-}" | base64 -d)"
 )
 
 for log_file in "${log_files[@]}"; do
@@ -41,9 +43,9 @@ for log_file in "${log_files[@]}"; do
         # LC_CTYPE=C and LANG=C will prevent "illegal byte sequence" error from sed
         if [[ "$(uname)" == "Darwin" ]]; then
             # sed on Mac OS requires an empty string for -i flag
-            LC_CTYPE=C LANG=C sed -i "" "s|${redact_var}|===REDACTED===|g" "${log_file}" &> /dev/null || true
+            LC_CTYPE=C LANG=C sed -i "" "s|${redact_var}|===REDACTED===|g" "${log_file}" &>/dev/null || true
         else
-            LC_CTYPE=C LANG=C sed -i "s|${redact_var}|===REDACTED===|g" "${log_file}" &> /dev/null || true
+            LC_CTYPE=C LANG=C sed -i "s|${redact_var}|===REDACTED===|g" "${log_file}" &>/dev/null || true
         fi
     done
 done

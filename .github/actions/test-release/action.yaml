@@ -4,7 +4,7 @@ runs:
   using: "composite"
   steps:
     - uses: ./.github/actions/setup-go
-    - uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4
+    - uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4
       with:
         path: hack/tools/bin
         key: ${{ runner.os }}-tools-bin-release-${{ hashFiles('Makefile') }}
@@ -25,7 +25,8 @@ runs:
         TAG: ${{ steps.meta.outputs.version }}
       run: make test-release
     - name: Upload artifact
-      uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4
+      uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4
+      if: ${{ !cancelled() }}
       with:
         name: test-release
         path: out

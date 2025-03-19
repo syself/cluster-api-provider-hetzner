@@ -7,9 +7,6 @@ inputs:
   e2e_make_target:
     description: "e2e_make_target"
     required: true
-  e2e_hcloud_token:
-    description: "e2e_hcloud_token"
-    required: false
   e2e_robot_user:
     description: "e2e_robot_user"
     required: false
@@ -26,7 +23,7 @@ runs:
   using: "composite"
   steps:
     - uses: ./.github/actions/setup-go
-    - uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4
+    - uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4
       with:
         path: hack/tools/bin
         key: ${{ runner.os }}-tools-bin-e2e-${{ hashFiles('Makefile') }}
@@ -34,7 +31,7 @@ runs:
           ${{ runner.os }}-tools-bin-e2e-
           ${{ runner.os }}-tools-bin-
     - name: Download artifact
-      uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4
+      uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4
       with:
         name: test-release
         path: out
@@ -57,10 +54,8 @@ runs:
       env:
         TAG: ${{ steps.meta.outputs.version }}
 
-    - name: HCLOUD_TOKEN
+    - name: Get HCLOUD_TOKEN # sets env.HCLOUD_TOKEN
       uses: hetznercloud/tps-action@dee5dd2546322c28ed8f74b910189066e8b6f31a # main
-      with:
-        token: ${{ inputs.e2e_hcloud_token }}
 
     - name: "e2e-${{ inputs.e2e_name }}"
       shell: bash
@@ -69,18 +64,17 @@ runs:
         REGISTRY: ${{ env.REGISTRY }}
         IMAGE_NAME: ${{ env.IMAGE_NAME }}
         TAG: ${{ steps.meta.outputs.version }}
-        MANIFEST_PATH: "../../../out"
         HCLOUD_TOKEN: ${{ env.HCLOUD_TOKEN }}
         HETZNER_ROBOT_USER: ${{ inputs.e2e_robot_user }}
         HETZNER_ROBOT_PASSWORD: ${{ inputs.e2e_robot_password }}
         HETZNER_SSH_PUB: ${{ inputs.e2e_ssh_pub }}
         HETZNER_SSH_PRIV: ${{ inputs.e2e_ssh_priv }}
         SKIP_IMAGE_BUILD: "1"
-        CAPH_LATEST_VERSION: "v1.0.0"
+        CAPH_LATEST_VERSION: "v1.0.1"
       run: make ${{ inputs.e2e_make_target }}
     - name: Upload artifact
-      uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4
-      if: ${{ always() }}
+      uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4
+      if: ${{ !cancelled() }}
       with:
         name: e2e-${{ inputs.e2e_name }}
         path: _artifacts

@@ -1,6 +1,6 @@
 name: E2E PR Blocking
 on:
-  pull_request_target:
+  pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches:
       - main
@@ -16,13 +16,12 @@ env:
 jobs:
   manager-image:
     name: Build and push manager image
-    if: github.event_name != 'pull_request_target' || !github.event.pull_request.draft
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
       - name: Build and push manager image
@@ -31,20 +30,18 @@ jobs:
 
   test-release:
     name: Test Release
-    if: github.event_name != 'pull_request_target' || !github.event.pull_request.draft
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     steps:
       - name: checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
       - name: Test Release
         id: manager-image
         uses: ./.github/actions/test-release
 
   e2e-hcloud-basic:
     name: Test Hcloud Basic
-    if: github.event_name != 'pull_request_target' || !github.event.pull_request.draft
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     concurrency: ci-${{ github.ref }}-e2e-basic
     runs-on: ubuntu-latest
     permissions:
@@ -56,19 +53,16 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
       - name: Run e2e Test
         id: e2e
         uses: ./.github/actions/e2e
         with:
           e2e_name: hcloud-basic
-          e2e_make_target: test-e2e
-          e2e_hcloud_token: ${{ secrets.HCLOUD_TOKEN }}
+          e2e_make_target: test-e2e-hcloud
 
   e2e-hetzner-basic:
     name: Test Hetzner Baremetal Basic
-    if: github.event_name != 'pull_request_target' || !github.event.pull_request.draft
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     concurrency: ci-${{ github.ref }}-e2e-basic-hetzner
     runs-on: ubuntu-latest
     permissions:
@@ -80,15 +74,12 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
       - name: Run e2e Test
         id: e2e-bm
         uses: ./.github/actions/e2e
         with:
           e2e_name: hetzner-basic
           e2e_make_target: test-e2e-baremetal
-          e2e_hcloud_token: ${{ secrets.HCLOUD_TOKEN }}
           e2e_robot_user: ${{ secrets.HETZNER_ROBOT_USER }}
           e2e_robot_password: ${{ secrets.HETZNER_ROBOT_PASSWORD }}
           e2e_ssh_pub: ${{ secrets.HETZNER_SSH_PUB }}

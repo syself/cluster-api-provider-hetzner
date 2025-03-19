@@ -40,7 +40,7 @@ jobs:
           echo name=${NAME} >> $GITHUB_OUTPUT
 
       - name: Install go
-        uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a # v5.2.0
+        uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5.3.0
         with:
           go-version-file: "go.mod"
 
@@ -58,14 +58,26 @@ jobs:
       - name: Create Report
         run: make report-cover-html report-cover-treemap
 
+      - name: Report Slowest tests
+        run: hack/tools/bin/gotestsum tool slowest --num 10 --jsonfile .reports/go-test-output.json > .reports/slowest-tests.txt
+        if: ${{ !cancelled() }}
+
       - name: Test Summary
         uses: test-summary/action@31493c76ec9e7aa675f1585d3ed6f1da69269a86 # v2.4
         with:
           paths: ".coverage/junit.xml"
 
+      - name: Check Release Manifests
+        shell: bash
+        run: |
+          make release-manifests
+          ./hack/check-release-manifests.sh
+
       - name: Upload Report
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        if: ${{ !cancelled() }}
         with:
           name: reports-${{ steps.name.outputs.name }}
           path: .reports
+          include-hidden-files: true
           retention-days: 30

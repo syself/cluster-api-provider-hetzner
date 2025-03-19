@@ -8,14 +8,14 @@
 
 # For creating local dev images run make e2e-image from the main CAPH repository
 images:
-  - name: ghcr.io/syself/caph-staging:${TAG:=e2e}
+  - name: ghcr.io/syself/caph-staging:${TAG}
     loadBehavior: mustLoad
 providers:
   - name: cluster-api
     type: CoreProvider
     versions:
-      - name: v1.7.5
-        value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.7.5/core-components.yaml"
+      - name: v1.8.10
+        value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.8.10/core-components.yaml"
         type: "url"
         contract: v1beta1
         files:
@@ -31,8 +31,8 @@ providers:
   - name: kubeadm
     type: BootstrapProvider
     versions:
-      - name: v1.7.5
-        value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.7.5/bootstrap-components.yaml"
+      - name: v1.8.10
+        value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.8.10/bootstrap-components.yaml"
         type: "url"
         contract: "v1beta1"
         files:
@@ -48,8 +48,8 @@ providers:
   - name: kubeadm
     type: ControlPlaneProvider
     versions:
-      - name: v1.7.5
-        value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.7.5/control-plane-components.yaml"
+      - name: v1.8.10
+        value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.8.10/control-plane-components.yaml"
         type: "url"
         files:
           - sourcePath: "../data/shared/v1beta1/metadata.yaml"
@@ -69,12 +69,34 @@ providers:
         type: "url"
         contract: v1beta1
         files:
-          - sourcePath: "${MANIFEST_PATH}/metadata.yaml"
+          - sourcePath: "../../../out/metadata.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-k8s-upgrade.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-k8s-upgrade-kcp-scale-in.yaml"
-          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-packer.yaml"
-          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-csr-off.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-load-balancer-extra-services.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-placement-groups.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-loadbalancer-off.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-network.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-node-drain.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-md-remediation.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-kcp-remediation.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hetzner-baremetal.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hetzner-baremetal-feature-raid-setup.yaml"
+      - name: v1.0.99 # next; use manifest from source files
+        value: ../../../config/default
+        contract: v1beta1
+        replacements:
+          - old: ghcr.io/syself/caph-staging:latest
+            new: ghcr.io/syself/caph-staging:${TAG}
+          - old: "imagePullPolicy: Always"
+            new: "imagePullPolicy: IfNotPresent"
+          - old: --metrics-bind-addr=localhost:8080
+            new: --metrics-bind-addr=:8080
+        files:
+          - sourcePath: "../../../metadata.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-k8s-upgrade.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-k8s-upgrade-kcp-scale-in.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-load-balancer-extra-services.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-placement-groups.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-loadbalancer-off.yaml"
@@ -91,7 +113,7 @@ providers:
       #   contract: v1beta1
       #   replacements:
       #     - old: ghcr.io/syself/caph-staging:latest
-      #       new: ghcr.io/syself/caph-staging:e2e
+      #       new: ghcr.io/syself/caph-staging:${TAG}
       #     - old: "imagePullPolicy: Always"
       #       new: "imagePullPolicy: IfNotPresent"
       #     - old: --metrics-bind-addr=localhost:8080
@@ -101,8 +123,6 @@ providers:
       #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template.yaml"
       #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-k8s-upgrade.yaml"
       #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-k8s-upgrade-kcp-scale-in.yaml"
-      #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-packer.yaml"
-      #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-csr-off.yaml"
       #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-load-balancer-extra-services.yaml"
       #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-placement-groups.yaml"
       #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-loadbalancer-off.yaml"
@@ -115,10 +135,10 @@ providers:
 
 variables:
   # Upgrade Test
-  KUBERNETES_VERSION_MANAGEMENT: "v1.29.4"
-  KUBERNETES_VERSION: "${KUBERNETES_VERSION:-v1.29.4}"
-  KUBERNETES_VERSION_UPGRADE_FROM: "v1.28.9"
-  KUBERNETES_VERSION_UPGRADE_TO: "v1.29.4"
+  KUBERNETES_VERSION_MANAGEMENT: "v1.31.6"
+  KUBERNETES_VERSION: "${KUBERNETES_VERSION:-v1.31.6}"
+  KUBERNETES_VERSION_UPGRADE_FROM: "v1.30.10"
+  KUBERNETES_VERSION_UPGRADE_TO: "v1.31.6"
   CONTROL_PLANE_MACHINE_TEMPLATE_UPGRADE_TO: "k8s-upgrade-control-plane"
   WORKERS_MACHINE_TEMPLATE_UPGRADE_TO: "k8s-upgrade-worker"
   KUBERNETES_IMAGE_UPGRADE_FROM: ${KUBERNETES_IMAGE_UPGRADE_FROM:-}
@@ -129,9 +149,9 @@ variables:
 
   # NOTE: INIT_WITH_BINARY and INIT_WITH_KUBERNETES_VERSION are only used by the clusterctl upgrade test to initialize
   # the management cluster to be upgraded.
-  INIT_WITH_BINARY: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.7.5/clusterctl-linux-amd64"
+  INIT_WITH_BINARY: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.8.10/clusterctl-linux-amd64"
   INIT_WITH_PROVIDERS_CONTRACT: "v1beta1"
-  INIT_WITH_KUBERNETES_VERSION: "v1.29.4"
+  INIT_WITH_KUBERNETES_VERSION: "v1.31.6"
   INIT_WITH_INFRASTRUCTURE_PROVIDER_VERSION: ${CAPH_LATEST_VERSION}
 
   # Cluster Addons
@@ -156,9 +176,8 @@ variables:
   HETZNER_ROBOT_PASSWORD: "secret"
   HETZNER_SSH_PUB: "secret"
   HETZNER_SSH_PRIV: "secret"
-  SSH_KEY_NAME: "test"
+  SSH_KEY_NAME: "shared-2024-07-08"
   HCLOUD_REGION: "nbg1"
-  HCLOUD_IMAGE_NAME: ${HCLOUD_IMAGE_NAME:-}
   HCLOUD_CONTROL_PLANE_MACHINE_TYPE: cpx31
   HCLOUD_WORKER_MACHINE_TYPE: cpx21
   REDACT_LOG_SCRIPT: "../../hack/log/redact.sh"
