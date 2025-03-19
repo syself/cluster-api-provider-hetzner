@@ -130,7 +130,10 @@ func (c *CertificateClient) GetByName(ctx context.Context, name string) (*Certif
 // retrieves a Certificate by its name. If the Certificate does not exist, nil is returned.
 func (c *CertificateClient) Get(ctx context.Context, idOrName string) (*Certificate, *Response, error) {
 	if id, err := strconv.ParseInt(idOrName, 10, 64); err == nil {
-		return c.GetByID(ctx, id)
+		cert, res, err := c.GetByID(ctx, id)
+		if cert != nil || err != nil {
+			return cert, res, err
+		}
 	}
 	return c.GetByName(ctx, idOrName)
 }

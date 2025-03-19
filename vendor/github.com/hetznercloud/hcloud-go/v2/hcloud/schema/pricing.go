@@ -2,9 +2,10 @@ package schema
 
 // Pricing defines the schema for pricing information.
 type Pricing struct {
-	Currency    string                  `json:"currency"`
-	VATRate     string                  `json:"vat_rate"`
-	Image       PricingImage            `json:"image"`
+	Currency string       `json:"currency"`
+	VATRate  string       `json:"vat_rate"`
+	Image    PricingImage `json:"image"`
+	// Deprecated: [Pricing.FloatingIP] is deprecated, use [Pricing.FloatingIPs] instead.
 	FloatingIP  PricingFloatingIP       `json:"floating_ip"`
 	FloatingIPs []PricingFloatingIPType `json:"floating_ips"`
 	PrimaryIPs  []PricingPrimaryIP      `json:"primary_ips"`

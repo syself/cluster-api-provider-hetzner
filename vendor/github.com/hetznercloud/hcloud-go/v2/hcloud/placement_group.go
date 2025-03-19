@@ -70,7 +70,10 @@ func (c *PlacementGroupClient) GetByName(ctx context.Context, name string) (*Pla
 // retrieves a PlacementGroup by its name. If the PlacementGroup does not exist, nil is returned.
 func (c *PlacementGroupClient) Get(ctx context.Context, idOrName string) (*PlacementGroup, *Response, error) {
 	if id, err := strconv.ParseInt(idOrName, 10, 64); err == nil {
-		return c.GetByID(ctx, id)
+		pg, res, err := c.GetByID(ctx, id)
+		if pg != nil || err != nil {
+			return pg, res, err
+		}
 	}
 	return c.GetByName(ctx, idOrName)
 }
