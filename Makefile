@@ -57,7 +57,6 @@ help: ## Display this help.
 BUILD_IN_CONTAINER ?= true
 
 # Boiler plate for building Docker containers.
-TAG ?= dev
 ARCH ?= amd64
 # Allow overriding the imagePullPolicy
 PULL_POLICY ?= Always
@@ -176,10 +175,6 @@ install-crds: generate-manifests $(KUSTOMIZE) ## Install CRDs into the K8s clust
 
 uninstall-crds: generate-manifests $(KUSTOMIZE) ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/crd | $(KUBECTL) delete -f -
-
-deploy-controller: generate-manifests $(KUSTOMIZE) ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMAGE_PREFIX}/$(STAGING_IMAGE):${TAG}
-	$(KUSTOMIZE) build config/default | $(KUBECTL) apply -f -
 
 undeploy-controller: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/default | $(KUBECTL) delete -f -
@@ -369,6 +364,8 @@ $(RELEASE_NOTES_DIR):
 
 .PHONY: test-release
 test-release:
+	@# TAG: caph container image tag. For PRs this is pr-NNNN
+	./hack/ensure-env-variables.sh TAG
 	$(MAKE) set-manifest-image MANIFEST_IMG=$(IMAGE_PREFIX)/$(STAGING_IMAGE) MANIFEST_TAG=$(TAG)
 	$(MAKE) set-manifest-pull-policy PULL_POLICY=IfNotPresent
 	$(MAKE) release-manifests
@@ -391,6 +388,8 @@ release: clean-release  ## Builds and push container images using the latest git
 	$(MAKE) set-manifest-pull-policy PULL_POLICY=IfNotPresent
 	## Build the manifests
 	$(MAKE) release-manifests clean-release-git
+	./hack/check-release-manifests.sh
+
 
 .PHONY: release-notes
 release-notes: $(RELEASE_NOTES_DIR) $(RELEASE_NOTES)
@@ -471,13 +470,16 @@ test-unit: $(SETUP_ENVTEST) $(GOTESTSUM) ## Run unit and integration tests
 
 .PHONY: e2e-image
 e2e-image: ## Build the e2e manager image
-	docker build --pull --build-arg ARCH=$(ARCH) --build-arg LDFLAGS="$(LDFLAGS)" -t $(IMAGE_PREFIX)/$(STAGING_IMAGE):e2e -f images/$(INFRA_SHORT)/Dockerfile .
+	./hack/ensure-env-variables.sh TAG
+	docker build --pull --build-arg ARCH=$(ARCH) --build-arg LDFLAGS="$(LDFLAGS)" -t $(IMAGE_PREFIX)/$(STAGING_IMAGE):$(TAG) -f images/$(INFRA_SHORT)/Dockerfile .
 
 .PHONY: e2e-conf-file
 e2e-conf-file: $(E2E_CONF_FILE)
 $(E2E_CONF_FILE): $(ENVSUBST) $(E2E_CONF_FILE_SOURCE) ./hack/create-e2e-conf-file.sh
-	CAPH_LATEST_VERSION=$(CAPH_LATEST_VERSION) ENVSUBST=$(ENVSUBST) E2E_CONF_FILE_SOURCE=$(E2E_CONF_FILE_SOURCE) \
-		E2E_CONF_FILE=$(E2E_CONF_FILE) ./hack/create-e2e-conf-file.sh
+	CAPH_LATEST_VERSION=$(CAPH_LATEST_VERSION) ENVSUBST=$(ENVSUBST) \
+	E2E_CONF_FILE_SOURCE=$(E2E_CONF_FILE_SOURCE) \
+	E2E_CONF_FILE=$(E2E_CONF_FILE) \
+	./hack/create-e2e-conf-file.sh
 
 .PHONY: test-e2e
 test-e2e: test-e2e-hcloud
@@ -488,8 +490,8 @@ test-e2e-hcloud: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFAC
 	HETZNER_SSH_PUB= HETZNER_SSH_PRIV= \
 	HETZNER_SSH_PUB_PATH= HETZNER_SSH_PRIV_PATH= \
 	HETZNER_ROBOT_PASSWORD= HETZNER_ROBOT_USER= \
-	GINKGO_FOKUS="'\[Basic\]'" GINKGO_NODES=2 E2E_CONF_FILE=$(E2E_CONF_FILE) \
-		./hack/ci-e2e-capi.sh
+	GINKGO_FOKUS="'\[Basic\]'" GINKGO_NODES=2 \
+	./hack/ci-e2e-capi.sh
 
 .PHONY: test-e2e-feature
 test-e2e-feature: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)

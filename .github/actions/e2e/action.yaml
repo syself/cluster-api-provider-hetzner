@@ -7,9 +7,6 @@ inputs:
   e2e_make_target:
     description: "e2e_make_target"
     required: true
-  e2e_hcloud_token:
-    description: "e2e_hcloud_token"
-    required: false
   e2e_robot_user:
     description: "e2e_robot_user"
     required: false
@@ -57,10 +54,8 @@ runs:
       env:
         TAG: ${{ steps.meta.outputs.version }}
 
-    - name: HCLOUD_TOKEN
+    - name: Get HCLOUD_TOKEN # sets env.HCLOUD_TOKEN
       uses: hetznercloud/tps-action@dee5dd2546322c28ed8f74b910189066e8b6f31a # main
-      with:
-        token: ${{ inputs.e2e_hcloud_token }}
 
     - name: "e2e-${{ inputs.e2e_name }}"
       shell: bash
@@ -69,7 +64,6 @@ runs:
         REGISTRY: ${{ env.REGISTRY }}
         IMAGE_NAME: ${{ env.IMAGE_NAME }}
         TAG: ${{ steps.meta.outputs.version }}
-        MANIFEST_PATH: "../../../out"
         HCLOUD_TOKEN: ${{ env.HCLOUD_TOKEN }}
         HETZNER_ROBOT_USER: ${{ inputs.e2e_robot_user }}
         HETZNER_ROBOT_PASSWORD: ${{ inputs.e2e_robot_password }}
