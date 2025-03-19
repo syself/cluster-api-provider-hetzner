@@ -558,7 +558,24 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 				By("checking that cluster is ready")
 
 				Eventually(func() bool {
-					return isPresentAndTrue(key, instance, infrav1.LoadBalancerReadyCondition)
+					err := testEnv.Get(ctx, client.ObjectKeyFromObject(instance), instance)
+					if err != nil {
+						return false
+					}
+					c := conditions.Get(instance, infrav1.LoadBalancerReadyCondition)
+					if c == nil {
+						GinkgoLogr.Info("LoadBalancerReadyCondition is nil")
+						return false
+					}
+					if c.Status == corev1.ConditionTrue {
+						GinkgoLogr.Info("LoadBalancerReadyCondition is True now")
+						return true
+					}
+					GinkgoLogr.Info("LoadBalancerReadyCondition is not True yet.",
+						"reason", c.Reason,
+						"message", c.Message,
+					)
+					return false
 				}, 2*timeout, time.Second).Should(BeTrue()) // flaky ?
 
 				By("checking that load balancer has label set")

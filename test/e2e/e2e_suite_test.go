@@ -24,9 +24,13 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/cluster-api/test/framework"
@@ -34,6 +38,7 @@ import (
 	"sigs.k8s.io/cluster-api/test/framework/clusterctl"
 	"sigs.k8s.io/cluster-api/test/framework/ginkgoextensions"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
@@ -246,7 +251,52 @@ func setupBootstrapCluster(config *clusterctl.E2EConfig, scheme *runtime.Scheme,
 	return clusterProvider, clusterProxy
 }
 
+func logCaphDeploymentContinuously(ctx context.Context, c client.Client) {
+	for {
+		t := time.After(30 * time.Second)
+		select {
+		case <-ctx.Done():
+			return
+		case <-t:
+			stop, err := logCaphDeployment(ctx, c)
+			if err != nil {
+				By(fmt.Sprintf("Error logging caph Deployment: %v", err))
+			}
+			if stop {
+				return
+			}
+		}
+	}
+}
+
+func logCaphDeployment(ctx context.Context, c client.Client) (bool, error) {
+	caphDeployment := appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "caph-controller-manager",
+			Namespace: "caph-system",
+		},
+	}
+	err := c.Get(ctx, client.ObjectKeyFromObject(&caphDeployment), &caphDeployment)
+	if err != nil {
+		return false, fmt.Errorf("failed to get caph-controller-manager deployment: %w", err)
+	}
+
+	By(fmt.Sprintf("----------------------------- Caph deployment %s",
+		caphDeployment.Spec.Template.Spec.Containers[0].Image))
+
+	for i := range caphDeployment.Status.Conditions {
+		c := caphDeployment.Status.Conditions[i]
+		By(fmt.Sprintf("  Condition: %s=%s %s %s", c.Type, c.Status, c.Reason, c.Message))
+		if c.Type == appsv1.DeploymentAvailable && c.Status == corev1.ConditionTrue {
+			By("Caph deployment is available")
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func initBootstrapCluster(ctx context.Context, bootstrapClusterProxy framework.ClusterProxy, config *clusterctl.E2EConfig, clusterctlConfig, artifactFolder string) {
+	go logCaphDeploymentContinuously(ctx, bootstrapClusterProxy.GetClient())
 	clusterctl.InitManagementClusterAndWatchControllerLogs(ctx, clusterctl.InitManagementClusterAndWatchControllerLogsInput{
 		ClusterProxy:            bootstrapClusterProxy,
 		ClusterctlConfigPath:    clusterctlConfig,
