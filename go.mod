@@ -8,8 +8,8 @@ require (
 	github.com/go-logr/logr v1.4.2
 	github.com/go-logr/zapr v1.3.0
 	github.com/hetznercloud/hcloud-go/v2 v2.19.1
-	github.com/onsi/ginkgo/v2 v2.23.0
-	github.com/onsi/gomega v1.36.2
+	github.com/onsi/ginkgo/v2 v2.23.3
+	github.com/onsi/gomega v1.36.3
 	github.com/prometheus/common v0.63.0
 	github.com/spf13/pflag v1.0.6
 	github.com/stoewer/go-strcase v1.3.0
