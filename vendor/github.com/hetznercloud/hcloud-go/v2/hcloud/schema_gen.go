@@ -107,6 +107,12 @@ type converter interface {
 	// goverter:map AssigneeID | mapZeroInt64ToNil
 	SchemaFromPrimaryIP(*PrimaryIP) schema.PrimaryIP
 
+	SchemaFromPrimaryIPCreateOpts(PrimaryIPCreateOpts) schema.PrimaryIPCreateRequest
+	SchemaFromPrimaryIPUpdateOpts(PrimaryIPUpdateOpts) schema.PrimaryIPUpdateRequest
+	SchemaFromPrimaryIPChangeDNSPtrOpts(PrimaryIPChangeDNSPtrOpts) schema.PrimaryIPActionChangeDNSPtrRequest
+	SchemaFromPrimaryIPChangeProtectionOpts(PrimaryIPChangeProtectionOpts) schema.PrimaryIPActionChangeProtectionRequest
+	SchemaFromPrimaryIPAssignOpts(PrimaryIPAssignOpts) schema.PrimaryIPActionAssignRequest
+
 	ISOFromSchema(schema.ISO) *ISO
 
 	// We cannot use goverter settings when mapping a struct to a struct pointer

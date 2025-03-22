@@ -325,22 +325,6 @@ func (c *Client) Do(req *http.Request, v any) (*Response, error) {
 	return c.handler.Do(req, v)
 }
 
-func (c *Client) all(f func(int) (*Response, error)) error {
-	var (
-		page = 1
-	)
-	for {
-		resp, err := f(page)
-		if err != nil {
-			return err
-		}
-		if resp.Meta.Pagination == nil || resp.Meta.Pagination.NextPage == 0 {
-			return nil
-		}
-		page = resp.Meta.Pagination.NextPage
-	}
-}
-
 func (c *Client) buildUserAgent() {
 	switch {
 	case c.applicationName != "" && c.applicationVersion != "":
