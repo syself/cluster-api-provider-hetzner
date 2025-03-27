@@ -95,7 +95,7 @@ TEST SUITE: None
 For CNI, let's deploy cilium in the workload cluster that will facilitate the networking in the cluster.
 
 ```shell
-$ helm install cilium cilium/cilium --version 1.15.3 --kubeconfig workload-kubeconfig
+$ helm install cilium cilium/cilium --kubeconfig workload-kubeconfig
 NAME: cilium
 LAST DEPLOYED: Thu Apr  4 21:11:13 2024
 NAMESPACE: default
@@ -104,8 +104,6 @@ REVISION: 1
 TEST SUITE: None
 NOTES:
 You have successfully installed Cilium with Hubble.
-
-Your release version is 1.15.3.
 
 For any further help, visit https://docs.cilium.io/en/v1.15/gettinghelp
 ```
