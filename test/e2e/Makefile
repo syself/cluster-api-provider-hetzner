@@ -58,7 +58,7 @@ e2e-cilium-templates:
 	#   Missing: ["BIN_PATH"]
 	helm repo add cilium https://helm.cilium.io/
 	helm repo update cilium
-	helm template cilium cilium/cilium --version 1.15.4 \
+	helm template cilium cilium/cilium --version 1.17.2 \
   	--namespace kube-system \
 	-f $(REPO_ROOT)/templates/cilium/cilium.yaml > $(REPO_ROOT)/test/e2e/data/cni/cilium/cilium.yaml
 	sed -i 's/$${BIN_PATH}/$$BIN_PATH/' $(REPO_ROOT)/test/e2e/data/cni/cilium/cilium.yaml

@@ -79,3 +79,5 @@ watchall-output*
 
 /*.kubeconfig
 /*.log
+
+/.config

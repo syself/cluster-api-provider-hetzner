@@ -19,7 +19,7 @@ hubble:
 ipam:
   mode: "kubernetes"
 
-kubeProxyReplacement: "partial"
+kubeProxyReplacement: true
 
 operator:
   rollOutPods: true
