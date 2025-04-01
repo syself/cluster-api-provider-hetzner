@@ -107,13 +107,18 @@ KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install hccm hcloud/hc
 
 ```shell
 cat << EOF > csi-values.yaml
+controller:
+  hcloudToken:
+    existingSecret:
+      name: hetzner
+      key: hcloud
 storageClasses:
 - name: hcloud-volumes
   defaultStorageClass: true
   reclaimPolicy: Retain
 EOF
 
-KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install csi syself/csi-hcloud --version 0.2.0 \
+KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install csi hcloud/hcloud-csi \
 --namespace kube-system -f csi-values.yaml
 ```
 
