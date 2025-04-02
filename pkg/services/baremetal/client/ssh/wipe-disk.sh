@@ -58,6 +58,7 @@ for wwn in "$@"; do
         while read -r md; do
             echo "INFO: Stopping mdraid $md for $wwn (/dev/$device)"
             mdadm --stop "$md"
+            mdadm --remove "$md"
         done
 
     echo "INFO: Calling wipefs for $wwn (/dev/$device)"
