@@ -19,7 +19,7 @@ set -Eeuo pipefail
 
 function usage() {
     echo "$0 wwn1 [wwn2 ...]"
-    echo "    Wipe all filesystem, raid or partition-table signaturesfrom the specified disks."
+    echo "    Wipe all filesystem, raid or partition-table signatures from the specified disks."
     echo "    ATTENTION! THIS DELETES ALL DATA ON THE GIVEN DISK!"
     echo "Existing WWNs:"
     lsblk -oNAME,WWN | grep -vi loop || true
