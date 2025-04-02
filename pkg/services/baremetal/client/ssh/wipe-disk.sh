@@ -54,10 +54,11 @@ for wwn in "$@"; do
         exit 3
     fi
 
-    lsblk --json --paths "/dev/$device" | grep -Po '/dev/md\w+' | sort -u | while read -r md; do
-        echo "INFO: Stopping mdraid $md for $wwn (/dev/$device)"
-        mdadm --stop "$md"
-    done
+    lsblk --list --noheadings "/dev/$device" -o NAME | { grep -P '^md' || true; } | sort -u |
+        while read -r md; do
+            echo "INFO: Stopping mdraid $md for $wwn (/dev/$device)"
+            mdadm --stop "$md"
+        done
 
     echo "INFO: Calling wipefs for $wwn (/dev/$device)"
     wipefs -af "/dev/$device"
