@@ -32,6 +32,14 @@ if [ $# -eq 0 ]; then
     exit 3
 fi
 
+# Show usage, if any argument starts with a dash.
+for arg in "$@"; do
+    if [[ "$arg" == -* ]]; then
+        usage
+        exit 3
+    fi
+done
+
 # Iterate over all input arguments
 for wwn in "$@"; do
     if ! lsblk -l -oWWN | grep -qFx "${wwn}"; then
@@ -45,6 +53,12 @@ for wwn in "$@"; do
         echo "Failed to find device for WWN $wwn"
         exit 3
     fi
-    echo "INFO: Calling wipfs for $wwn (/dev/$device)"
+
+    lsblk --json --paths "/dev/$device" | grep -Po '/dev/md\w+' | sort -u | while read -r md; do
+        echo "INFO: Stopping mdraid $md for $wwn (/dev/$device)"
+        mdadm --stop "$md"
+    done
+
+    echo "INFO: Calling wipefs for $wwn (/dev/$device)"
     wipefs -af "/dev/$device"
 done
