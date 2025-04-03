@@ -29,7 +29,6 @@ import (
 	"github.com/guettli/check-conditions/pkg/checkconditions"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -43,6 +42,8 @@ import (
 	"sigs.k8s.io/cluster-api/util/conditions"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
 
 // Test suite flags.
@@ -269,6 +270,8 @@ func logStatusContinuously(ctx context.Context, restConfig *restclient.Config, c
 }
 
 func logStatus(ctx context.Context, restConfig *restclient.Config, c client.Client) error {
+	By("≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡ <<< Start logging status")
+
 	if err := logCaphDeployment(ctx, c); err != nil {
 		return err
 	}
@@ -281,6 +284,8 @@ func logStatus(ctx context.Context, restConfig *restclient.Config, c client.Clie
 	if err := logConditions(ctx, restConfig); err != nil {
 		return err
 	}
+	By("≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡ End logging status >>>")
+
 	return nil
 }
 
@@ -289,6 +294,9 @@ func logConditions(ctx context.Context, restConfig *restclient.Config) error {
 	if err != nil {
 		return fmt.Errorf("failed to get check conditions: %w", err)
 	}
+	By(fmt.Sprintf("--------------------------------------------------- Unhealthy Conditions: %d",
+		len(counter.Lines)))
+
 	for _, line := range counter.Lines {
 		By(line)
 	}
@@ -372,7 +380,7 @@ func logCaphDeployment(ctx context.Context, c client.Client) error {
 		return fmt.Errorf("failed to get caph-controller-manager deployment: %w", err)
 	}
 
-	By(fmt.Sprintf("----------------------------- Caph deployment %s",
+	By(fmt.Sprintf("--------------------------------------------------- Caph deployment %s",
 		caphDeployment.Spec.Template.Spec.Containers[0].Image))
 
 	return nil
