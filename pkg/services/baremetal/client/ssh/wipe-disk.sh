@@ -58,7 +58,10 @@ for wwn in "$@"; do
         while read -r md; do
             echo "INFO: Stopping mdraid $md for $wwn (/dev/$device)"
             mdadm --stop "$md"
-            mdadm --remove "$md"
+            if grep -qP "^$md\s*:" /proc/mdstat; then
+                echo "INFO: $md is still in /proc/mdstat, attempting to remove it."
+                mdadm --remove "$md"
+            fi
         done
 
     echo "INFO: Calling wipefs for $wwn (/dev/$device)"
