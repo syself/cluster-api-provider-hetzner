@@ -416,7 +416,7 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 		if hbmh.Spec.Status.ProvisioningState == "" {
 			continue
 		}
-		log("BareMetalHost: " + hbmh.Name + " " + fmt.Slog(hbmh.Spec.ServerID))
+		log("BareMetalHost: " + hbmh.Name + " " + fmt.Sprint(hbmh.Spec.ServerID))
 		log("  ProvisioningState: " + string(hbmh.Spec.Status.ProvisioningState))
 		eMsg := string(hbmh.Spec.Status.ErrorType) + " " + hbmh.Spec.Status.ErrorMessage
 		eMsg = strings.TrimSpace(eMsg)
