@@ -26,21 +26,23 @@ import (
 	"testing"
 	"time"
 
+	"github.com/guettli/check-conditions/pkg/checkconditions"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	restclient "k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/cluster-api/test/framework/bootstrap"
 	"sigs.k8s.io/cluster-api/test/framework/clusterctl"
 	"sigs.k8s.io/cluster-api/test/framework/ginkgoextensions"
+	"sigs.k8s.io/cluster-api/util/conditions"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
 
 // Test suite flags.
@@ -251,25 +253,114 @@ func setupBootstrapCluster(config *clusterctl.E2EConfig, scheme *runtime.Scheme,
 	return clusterProvider, clusterProxy
 }
 
-func logCaphDeploymentContinuously(ctx context.Context, c client.Client) {
+func logStatusContinuously(ctx context.Context, restConfig *restclient.Config, c client.Client) {
 	for {
-		t := time.After(30 * time.Second)
 		select {
 		case <-ctx.Done():
+			By("Context canceled, stopping logStatusContinuously")
 			return
-		case <-t:
-			stop, err := logCaphDeployment(ctx, c)
+		case <-time.After(30 * time.Second):
+			err := logStatus(ctx, restConfig, c)
 			if err != nil {
 				By(fmt.Sprintf("Error logging caph Deployment: %v", err))
-			}
-			if stop {
-				return
 			}
 		}
 	}
 }
 
-func logCaphDeployment(ctx context.Context, c client.Client) (bool, error) {
+func logStatus(ctx context.Context, restConfig *restclient.Config, c client.Client) error {
+	if err := logCaphDeployment(ctx, c); err != nil {
+		return err
+	}
+	if err := logBareMetalHostStatus(ctx, c); err != nil {
+		return err
+	}
+	if err := logHCloudMachineStatus(ctx, c); err != nil {
+		return err
+	}
+	if err := logConditions(ctx, restConfig); err != nil {
+		return err
+	}
+	return nil
+}
+
+func logConditions(ctx context.Context, restConfig *restclient.Config) error {
+	counter, err := checkconditions.RunAndGetCounter(ctx, restConfig, checkconditions.Arguments{})
+	if err != nil {
+		return fmt.Errorf("failed to get check conditions: %w", err)
+	}
+	for _, line := range counter.Lines {
+		By(line)
+	}
+	return nil
+}
+
+func logHCloudMachineStatus(ctx context.Context, c client.Client) error {
+	hmList := &infrav1.HCloudMachineList{}
+	err := c.List(ctx, hmList)
+	if err != nil {
+		return err
+	}
+
+	if len(hmList.Items) == 0 {
+		return nil
+	}
+
+	caphDeployment := appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "caph-controller-manager",
+			Namespace: "caph-system",
+		},
+	}
+	err = c.Get(ctx, client.ObjectKeyFromObject(&caphDeployment), &caphDeployment)
+	if err != nil {
+		return fmt.Errorf("failed to get caph-controller-manager deployment: %w", err)
+	}
+
+	By(fmt.Sprintf("--------------------------------------------------- HCloudMachines %s",
+		caphDeployment.Spec.Template.Spec.Containers[0].Image))
+
+	for i := range hmList.Items {
+		hm := &hmList.Items[i]
+		if hm.Status.InstanceState == nil || *hm.Status.InstanceState == "" {
+			continue
+		}
+		addresses := make([]string, 0)
+		for _, a := range hm.Status.Addresses {
+			addresses = append(addresses, a.Address)
+		}
+
+		id := ""
+		if *hm.Spec.ProviderID != "" {
+			id = *hm.Spec.ProviderID
+		}
+		By("HCloudMachine: " + hm.Name + " " + id + " " + strings.Join(addresses, " "))
+		By("  ProvisioningState: " + string(*hm.Status.InstanceState))
+		l := make([]string, 0)
+		if hm.Status.FailureMessage != nil {
+			l = append(l, *hm.Status.FailureMessage)
+		}
+		if hm.Status.FailureMessage != nil {
+			l = append(l, *hm.Status.FailureMessage)
+		}
+		if len(l) > 0 {
+			By("  Error: " + strings.Join(l, ", "))
+		}
+		readyC := conditions.Get(hm, clusterv1.ReadyCondition)
+		msg := ""
+		reason := ""
+		state := "?"
+		if readyC != nil {
+			msg = readyC.Message
+			reason = readyC.Reason
+			state = string(readyC.Status)
+		}
+		By("  Ready Condition: " + state + " " + reason + " " + msg)
+	}
+	return nil
+}
+
+func logCaphDeployment(ctx context.Context, c client.Client) error {
 	caphDeployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "caph-controller-manager",
@@ -278,25 +369,68 @@ func logCaphDeployment(ctx context.Context, c client.Client) (bool, error) {
 	}
 	err := c.Get(ctx, client.ObjectKeyFromObject(&caphDeployment), &caphDeployment)
 	if err != nil {
-		return false, fmt.Errorf("failed to get caph-controller-manager deployment: %w", err)
+		return fmt.Errorf("failed to get caph-controller-manager deployment: %w", err)
 	}
 
 	By(fmt.Sprintf("----------------------------- Caph deployment %s",
 		caphDeployment.Spec.Template.Spec.Containers[0].Image))
 
-	for i := range caphDeployment.Status.Conditions {
-		c := caphDeployment.Status.Conditions[i]
-		By(fmt.Sprintf("  Condition: %s=%s %s %s", c.Type, c.Status, c.Reason, c.Message))
-		if c.Type == appsv1.DeploymentAvailable && c.Status == corev1.ConditionTrue {
-			By("Caph deployment is available")
-			return true, nil
-		}
+	return nil
+}
+
+func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
+	hbmhList := &infrav1.HetznerBareMetalHostList{}
+	err := c.List(ctx, hbmhList)
+	if err != nil {
+		return err
 	}
-	return false, nil
+
+	if len(hbmhList.Items) == 0 {
+		return nil
+	}
+
+	caphDeployment := appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "caph-controller-manager",
+			Namespace: "caph-system",
+		},
+	}
+	err = c.Get(ctx, client.ObjectKeyFromObject(&caphDeployment), &caphDeployment)
+	if err != nil {
+		return fmt.Errorf("failed to get caph-controller-manager deployment: %w", err)
+	}
+
+	By(fmt.Sprintf("--------------------------------------------------- BareMetalHosts %s",
+		caphDeployment.Spec.Template.Spec.Containers[0].Image))
+
+	for i := range hbmhList.Items {
+		hbmh := &hbmhList.Items[i]
+		if hbmh.Spec.Status.ProvisioningState == "" {
+			continue
+		}
+		By("BareMetalHost: " + hbmh.Name + " " + fmt.Sprint(hbmh.Spec.ServerID))
+		By("  ProvisioningState: " + string(hbmh.Spec.Status.ProvisioningState))
+		eMsg := string(hbmh.Spec.Status.ErrorType) + " " + hbmh.Spec.Status.ErrorMessage
+		eMsg = strings.TrimSpace(eMsg)
+		if eMsg != "" {
+			By("  Error: " + eMsg)
+		}
+		readyC := conditions.Get(hbmh, clusterv1.ReadyCondition)
+		msg := ""
+		reason := ""
+		state := "?"
+		if readyC != nil {
+			msg = readyC.Message
+			reason = readyC.Reason
+			state = string(readyC.Status)
+		}
+		By("  Ready Condition: " + state + " " + reason + " " + msg)
+	}
+	return nil
 }
 
 func initBootstrapCluster(ctx context.Context, bootstrapClusterProxy framework.ClusterProxy, config *clusterctl.E2EConfig, clusterctlConfig, artifactFolder string) {
-	go logCaphDeploymentContinuously(ctx, bootstrapClusterProxy.GetClient())
+	go logStatusContinuously(ctx, bootstrapClusterProxy.GetRESTConfig(), bootstrapClusterProxy.GetClient())
 	clusterctl.InitManagementClusterAndWatchControllerLogs(ctx, clusterctl.InitManagementClusterAndWatchControllerLogsInput{
 		ClusterProxy:            bootstrapClusterProxy,
 		ClusterctlConfigPath:    clusterctlConfig,
