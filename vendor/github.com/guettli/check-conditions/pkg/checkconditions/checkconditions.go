@@ -184,10 +184,13 @@ func RunAndGetCounter(ctx context.Context, config *restclient.Config, args Argum
 
 	createWorkers(ctx, &wg, jobs, results)
 
+	var wgCounter sync.WaitGroup
+	wgCounter.Add(1)
 	go func() {
 		for result := range results {
 			counter.add(result)
 		}
+		wgCounter.Done()
 	}()
 
 	createJobs(serverResources, jobs, args, dynClient)
@@ -195,6 +198,7 @@ func RunAndGetCounter(ctx context.Context, config *restclient.Config, args Argum
 	close(jobs)
 	wg.Wait()
 	close(results)
+	wgCounter.Wait()
 	slices.Sort(counter.Lines)
 	return counter, nil
 }
