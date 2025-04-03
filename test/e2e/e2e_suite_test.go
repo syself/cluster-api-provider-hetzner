@@ -128,21 +128,21 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	Expect(configPath).To(BeAnExistingFile(), "Invalid test suite argument. e2e.config should be an existing file.")
 	Expect(os.MkdirAll(artifactFolder, 0o755)).To(Succeed(), "Invalid test suite argument. Can't create e2e.artifacts-folder %q", artifactFolder) //nolint:gosec
 
-	By("Initializing a runtime.Scheme with all the GVK relevant for this test")
+	log("Initializing a runtime.Scheme with all the GVK relevant for this test")
 	scheme := initScheme()
 
 	Byf("Loading the e2e test configuration from %q", configPath)
 
-	By(fmt.Sprintf("Loading the e2e test configuration from %q", configPath))
+	log(fmt.Sprintf("Loading the e2e test configuration from %q", configPath))
 	e2eConfig = loadE2EConfig(ctx, configPath)
 
-	By(fmt.Sprintf("Creating a clusterctl local repository into %q", artifactFolder))
+	log(fmt.Sprintf("Creating a clusterctl local repository into %q", artifactFolder))
 	clusterctlConfigPath = createClusterctlLocalRepository(ctx, e2eConfig, filepath.Join(artifactFolder, "repository"))
 
-	By("Setting up the bootstrap cluster")
+	log("Setting up the bootstrap cluster")
 	bootstrapClusterProvider, bootstrapClusterProxy = setupBootstrapCluster(e2eConfig, scheme, useExistingCluster)
 
-	By("Initializing the bootstrap cluster")
+	log("Initializing the bootstrap cluster")
 	initBootstrapCluster(ctx, bootstrapClusterProxy, e2eConfig, clusterctlConfigPath, artifactFolder)
 	return []byte(
 		strings.Join([]string{
@@ -172,7 +172,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 // The local clusterctl repository is preserved like everything else created into the artifact folder.
 var _ = SynchronizedAfterSuite(func() {
 	// After each ParallelNode.
-	By("Tearing down the management cluster")
+	log("Tearing down the management cluster")
 	if !skipCleanup {
 		tearDown(ctx, nil, bootstrapClusterProxy)
 	}
@@ -258,19 +258,19 @@ func logStatusContinuously(ctx context.Context, restConfig *restclient.Config, c
 	for {
 		select {
 		case <-ctx.Done():
-			By("Context canceled, stopping logStatusContinuously")
+			log("Context canceled, stopping logStatusContinuously")
 			return
 		case <-time.After(30 * time.Second):
 			err := logStatus(ctx, restConfig, c)
 			if err != nil {
-				By(fmt.Sprintf("Error logging caph Deployment: %v", err))
+				log(fmt.Sprintf("Error logging caph Deployment: %v", err))
 			}
 		}
 	}
 }
 
 func logStatus(ctx context.Context, restConfig *restclient.Config, c client.Client) error {
-	By("≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡ <<< Start logging status")
+	log("≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡ <<< Start logging status")
 
 	if err := logCaphDeployment(ctx, c); err != nil {
 		return err
@@ -284,7 +284,7 @@ func logStatus(ctx context.Context, restConfig *restclient.Config, c client.Clie
 	if err := logConditions(ctx, restConfig); err != nil {
 		return err
 	}
-	By("≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡ End logging status >>>")
+	log("≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡ End logging status >>>")
 
 	return nil
 }
@@ -294,11 +294,11 @@ func logConditions(ctx context.Context, restConfig *restclient.Config) error {
 	if err != nil {
 		return fmt.Errorf("failed to get check conditions: %w", err)
 	}
-	By(fmt.Sprintf("--------------------------------------------------- Unhealthy Conditions: %d",
+	log(fmt.Sprintf("--------------------------------------------------- Unhealthy Conditions: %d",
 		len(counter.Lines)))
 
 	for _, line := range counter.Lines {
-		By(line)
+		log(line)
 	}
 	return nil
 }
@@ -325,7 +325,7 @@ func logHCloudMachineStatus(ctx context.Context, c client.Client) error {
 		return fmt.Errorf("failed to get caph-controller-manager deployment: %w", err)
 	}
 
-	By(fmt.Sprintf("--------------------------------------------------- HCloudMachines %s",
+	log(fmt.Sprintf("--------------------------------------------------- HCloudMachines %s",
 		caphDeployment.Spec.Template.Spec.Containers[0].Image))
 
 	for i := range hmList.Items {
@@ -342,8 +342,8 @@ func logHCloudMachineStatus(ctx context.Context, c client.Client) error {
 		if *hm.Spec.ProviderID != "" {
 			id = *hm.Spec.ProviderID
 		}
-		By("HCloudMachine: " + hm.Name + " " + id + " " + strings.Join(addresses, " "))
-		By("  ProvisioningState: " + string(*hm.Status.InstanceState))
+		log("HCloudMachine: " + hm.Name + " " + id + " " + strings.Join(addresses, " "))
+		log("  ProvisioningState: " + string(*hm.Status.InstanceState))
 		l := make([]string, 0)
 		if hm.Status.FailureMessage != nil {
 			l = append(l, *hm.Status.FailureMessage)
@@ -352,7 +352,7 @@ func logHCloudMachineStatus(ctx context.Context, c client.Client) error {
 			l = append(l, *hm.Status.FailureMessage)
 		}
 		if len(l) > 0 {
-			By("  Error: " + strings.Join(l, ", "))
+			log("  Error: " + strings.Join(l, ", "))
 		}
 		readyC := conditions.Get(hm, clusterv1.ReadyCondition)
 		msg := ""
@@ -363,7 +363,7 @@ func logHCloudMachineStatus(ctx context.Context, c client.Client) error {
 			reason = readyC.Reason
 			state = string(readyC.Status)
 		}
-		By("  Ready Condition: " + state + " " + reason + " " + msg)
+		log("  Ready Condition: " + state + " " + reason + " " + msg)
 	}
 	return nil
 }
@@ -380,7 +380,7 @@ func logCaphDeployment(ctx context.Context, c client.Client) error {
 		return fmt.Errorf("failed to get caph-controller-manager deployment: %w", err)
 	}
 
-	By(fmt.Sprintf("--------------------------------------------------- Caph deployment %s",
+	log(fmt.Sprintf("--------------------------------------------------- Caph deployment %s",
 		caphDeployment.Spec.Template.Spec.Containers[0].Image))
 
 	return nil
@@ -408,7 +408,7 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 		return fmt.Errorf("failed to get caph-controller-manager deployment: %w", err)
 	}
 
-	By(fmt.Sprintf("--------------------------------------------------- BareMetalHosts %s",
+	log(fmt.Sprintf("--------------------------------------------------- BareMetalHosts %s",
 		caphDeployment.Spec.Template.Spec.Containers[0].Image))
 
 	for i := range hbmhList.Items {
@@ -416,12 +416,12 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 		if hbmh.Spec.Status.ProvisioningState == "" {
 			continue
 		}
-		By("BareMetalHost: " + hbmh.Name + " " + fmt.Sprint(hbmh.Spec.ServerID))
-		By("  ProvisioningState: " + string(hbmh.Spec.Status.ProvisioningState))
+		log("BareMetalHost: " + hbmh.Name + " " + fmt.Slog(hbmh.Spec.ServerID))
+		log("  ProvisioningState: " + string(hbmh.Spec.Status.ProvisioningState))
 		eMsg := string(hbmh.Spec.Status.ErrorType) + " " + hbmh.Spec.Status.ErrorMessage
 		eMsg = strings.TrimSpace(eMsg)
 		if eMsg != "" {
-			By("  Error: " + eMsg)
+			log("  Error: " + eMsg)
 		}
 		readyC := conditions.Get(hbmh, clusterv1.ReadyCondition)
 		msg := ""
@@ -432,7 +432,7 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 			reason = readyC.Reason
 			state = string(readyC.Status)
 		}
-		By("  Ready Condition: " + state + " " + reason + " " + msg)
+		log("  Ready Condition: " + state + " " + reason + " " + msg)
 	}
 	return nil
 }
@@ -454,4 +454,8 @@ func tearDown(ctx context.Context, bootstrapClusterProvider bootstrap.ClusterPro
 	if bootstrapClusterProvider != nil {
 		bootstrapClusterProvider.Dispose(ctx)
 	}
+}
+
+func log(msg string) {
+	fmt.Fprintln(GinkgoWriter, msg)
 }
