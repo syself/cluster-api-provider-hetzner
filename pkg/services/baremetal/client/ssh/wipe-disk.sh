@@ -19,7 +19,7 @@ set -Eeuo pipefail
 
 function usage() {
     echo "$0 wwn1 [wwn2 ...]"
-    echo "    Wipe all filesystem, raid or partition-table signaturesfrom the specified disks."
+    echo "    Wipe all filesystem, raid or partition-table signatures from the specified disks."
     echo "    ATTENTION! THIS DELETES ALL DATA ON THE GIVEN DISK!"
     echo "Existing WWNs:"
     lsblk -oNAME,WWN | grep -vi loop || true
@@ -31,6 +31,14 @@ if [ $# -eq 0 ]; then
     usage
     exit 3
 fi
+
+# Show usage, if any argument starts with a dash.
+for arg in "$@"; do
+    if [[ "$arg" == -* ]]; then
+        usage
+        exit 3
+    fi
+done
 
 # Iterate over all input arguments
 for wwn in "$@"; do
@@ -45,6 +53,19 @@ for wwn in "$@"; do
         echo "Failed to find device for WWN $wwn"
         exit 3
     fi
-    echo "INFO: Calling wipfs for $wwn (/dev/$device)"
+
+    lsblk --list --noheadings "/dev/$device" -o NAME | { grep -P '^md' || true; } | sort -u |
+        while read -r md; do
+            echo "INFO: Stopping mdraid $md for $wwn (/dev/$device)"
+            mdadm --stop "$md"
+            sleep 0.1
+            if grep -qP "^$md\s*:" /proc/mdstat; then
+                echo "INFO: $md is still in /proc/mdstat, attempting to remove it."
+                mdadm --remove "$md"
+                sleep 0.1
+            fi
+        done
+
+    echo "INFO: Calling wipefs for $wwn (/dev/$device)"
     wipefs -af "/dev/$device"
 done
