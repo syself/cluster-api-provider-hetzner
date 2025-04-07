@@ -17,9 +17,9 @@ jobs:
 
       # Take from https://github.com/kubernetes-sigs/kubebuilder/blob/master/.github/workflows/verify.yml
       - name: Validate PR Title Format
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
         run: |
-          TITLE="${{ github.event.pull_request.title }}"
-
           if [[ -z "$TITLE" ]]; then
             echo "Error: PR title cannot be empty."
             exit 1
