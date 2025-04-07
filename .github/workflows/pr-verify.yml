@@ -62,8 +62,6 @@ jobs:
 
       - name: Generate Size
         uses: pascalgn/size-label-action@f8edde36b3be04b4f65dcfead05dc8691b374348 # v0.5.5
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           sizes: >
             {
