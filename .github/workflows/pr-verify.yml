@@ -5,6 +5,9 @@ on: # yamllint disable-line rule:truthy
 # yamllint disable rule:line-length
 jobs:
   pr-verify:
+    permissions:
+      contents: read
+      pull-requests: write
     runs-on: ubuntu-latest
     name: Verify Pull Request
     steps:
@@ -56,16 +59,10 @@ jobs:
             renovate-config-validator ${file}
           done
 
-      - name: Generate Token
-        uses: actions/create-github-app-token@21cfef2b496dd8ef5b904c159339626a10ad380e # v1
-        id: generate-token
-        with:
-          app-id: ${{ secrets.SYSELF_APP_ID }}
-          private-key: ${{ secrets.SYSELF_APP_PRIVATE_KEY }}
       - name: Generate Size
         uses: pascalgn/size-label-action@f8edde36b3be04b4f65dcfead05dc8691b374348 # v0.5.5
         env:
-          GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           sizes: >
             {
@@ -80,9 +77,7 @@ jobs:
         uses: actions/labeler@8558fd74291d67161a8a78ce36a881fa63b766a9 # v5
         with:
           configuration-path: .github/labeler.yaml
-          repo-token: ${{ steps.generate-token.outputs.token }}
       - name: Sync Labels
         uses: EndBug/label-sync@52074158190acb45f3077f9099fea818aa43f97a # v2
         with:
           config-file: .github/labels.yaml
-          token: ${{ steps.generate-token.outputs.token }}
