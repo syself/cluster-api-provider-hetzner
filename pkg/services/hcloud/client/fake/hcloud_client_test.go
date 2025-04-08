@@ -644,6 +644,13 @@ var _ = Describe("Network", func() {
 		Expect(resp[0].ID).To(Equal(network.ID))
 	})
 
+	It("gets a network", func() {
+		resp, err := client.GetNetwork(ctx, 1)
+		Expect(err).To(Succeed())
+		Expect(resp).ToNot(BeNil())
+		Expect(resp.ID).To(Equal(network.ID))
+	})
+
 	It("deletes a network", func() {
 		Expect(client.DeleteNetwork(ctx, network)).To(Succeed())
 		resp, err := client.ListNetworks(ctx, listOpts)
