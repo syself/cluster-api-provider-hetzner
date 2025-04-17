@@ -625,7 +625,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 					return false
 				}, timeout, time.Second).Should(BeTrue())
 
-				By("deleting the cluster and load balancer and testing that owned label is gone")
+				By("deleting the cluster and load balancer and testing that owned label is gone (flaky)")
 
 				Expect(testEnv.Delete(ctx, instance))
 
@@ -633,7 +633,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 					loadBalancers, err := hcloudClient.ListLoadBalancers(ctx, hcloud.LoadBalancerListOpts{Name: lbName})
 					// there should always be one load balancer, if not, then this is a problem where we can immediately return
 					Expect(err).To(BeNil())
-					Expect(loadBalancers).To(HaveLen(1))
+					Expect(loadBalancers).To(HaveLen(1)) // flaky
 
 					_, found := loadBalancers[0].Labels[instance.ClusterTagKey()]
 					return found

@@ -318,7 +318,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 		Expect(testEnv.Cleanup(ctx, testNs, capiCluster, hetznerSecret, bootstrapSecret)).To(Succeed())
 	})
 
-	Context("Basic test", func() {
+	Context("Basic hcloudmachine test", func() {
 		Context("correct server", func() {
 			BeforeEach(func() {
 				// remove bootstrap infos

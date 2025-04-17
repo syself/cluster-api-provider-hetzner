@@ -192,7 +192,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 			hetznerSecret, rescueSSHSecret, osSSHSecret, bootstrapSecret)).To(Succeed())
 	})
 
-	Context("Basic test", func() {
+	Context("Basic hbmh test", func() {
 		BeforeEach(func() {
 			host = helpers.BareMetalHost(
 				hostName,

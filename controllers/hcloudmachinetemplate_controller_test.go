@@ -53,7 +53,7 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 		Expect(testEnv.Cleanup(ctx, testNs, hetznerSecret)).To(Succeed())
 	})
 
-	Context("Basic test", func() {
+	Context("Basic hcloudmachinetemplate test", func() {
 		Context("ClusterClass test", func() {
 			var capiClusterClass *clusterv1.ClusterClass
 

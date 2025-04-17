@@ -60,7 +60,7 @@ type HetznerBareMetalMachineReconciler struct {
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalmachines/finalizers,verbs=update
 
 // Reconcile implements the reconcilement of HetznerBareMetalMachine objects.
-func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req reconcile.Request) (_ reconcile.Result, reterr error) {
+func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req reconcile.Request) (res reconcile.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
 
 	// Fetch the Hetzner bare metal instance.
@@ -145,6 +145,7 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 		conditions.SetSummary(hbmMachine)
 
 		if err := machineScope.Close(ctx); err != nil && reterr == nil {
+			res = reconcile.Result{}
 			reterr = err
 		}
 	}()

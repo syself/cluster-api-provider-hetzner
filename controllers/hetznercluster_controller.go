@@ -86,7 +86,7 @@ type HetznerClusterReconciler struct {
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hetznerclusters/finalizers,verbs=update
 
 // Reconcile manages the lifecycle of a HetznerCluster object.
-func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
+func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res ctrl.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
 
 	// Fetch the HetznerCluster instance
@@ -152,6 +152,7 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 
 		if err := clusterScope.Close(ctx); err != nil && reterr == nil {
+			res = reconcile.Result{}
 			reterr = err
 		}
 	}()

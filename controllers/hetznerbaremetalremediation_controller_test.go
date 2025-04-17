@@ -232,7 +232,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 		Expect(testEnv.Cleanup(ctx, testNs, capiCluster, capiMachine, hetznerCluster)).To(Succeed())
 	})
 
-	Context("Basic test", func() {
+	Context("Basic hetznerbaremetalremediation test", func() {
 		Context("HetznerBareMetalHost will get provisioned", func() {
 			BeforeEach(func() {
 				hetznerSecret = getDefaultHetznerSecret(testNs.Name)
