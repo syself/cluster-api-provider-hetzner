@@ -266,7 +266,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			})
 		})
 
-		Context("Basic test", func() {
+		Context("Basic hbmm test", func() {
 			var osSSHSecret *corev1.Secret
 
 			BeforeEach(func() {
@@ -382,6 +382,18 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 			It("deletes successfully", func() {
 				By("deleting bm machine")
+
+				// Wait for machine to be in running state
+				Eventually(func() bool {
+					err := testEnv.Get(ctx, key, bmMachine)
+					if err != nil {
+						return false
+					}
+					if bmMachine.Status.Phase != clusterv1.MachinePhaseRunning {
+						return false
+					}
+					return len(bmMachine.GetFinalizers()) > 0
+				}, timeout, interval).Should(BeTrue())
 
 				Expect(testEnv.Delete(ctx, bmMachine)).To(Succeed())
 
