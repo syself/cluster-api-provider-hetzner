@@ -61,6 +61,8 @@ const (
 	// requeueAfter gives the duration of time until the next reconciliation should be performed.
 	requeueAfter = time.Second * 30
 
+	requeueAfterNoAvailableHost = time.Minute * 3
+
 	// FailureMessageMaintenanceMode indicates that host is in maintenance mode.
 	FailureMessageMaintenanceMode = "host machine in maintenance mode"
 )
@@ -307,7 +309,7 @@ func (s *Service) associate(ctx context.Context) error {
 			"%s",
 			fmt.Sprintf("no available host (%s)", reason),
 		)
-		return &scope.RequeueAfterError{RequeueAfter: requeueAfter}
+		return &scope.RequeueAfterError{RequeueAfter: requeueAfterNoAvailableHost}
 	}
 
 	// ensure cluster label on host
