@@ -502,8 +502,12 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				Expect(testEnv.Cleanup(ctx, capiMachine, bmMachine, osSSHSecret)).To(Succeed())
 			})
 
-			It("deletes successfully when in state Registering", func() {
+			FIt("deletes successfully when in state Registering", func() {
 				By("deleting bm machine")
+				err := testEnv.Get(ctx, client.ObjectKeyFromObject(host), host)
+				Expect(err).To(Succeed())
+				Expect(host.Spec.Status.ProvisioningState).To(Equal(infrav1.StateNone))
+
 				rescueSSHClient.On("GetHostName").Unset()
 				rescueSSHClient.On("GetHostName").Return(sshclient.Output{
 					StdOut: "some error in GetHostName",
@@ -530,6 +534,47 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				}
 				Expect(testEnv.Create(ctx, bmMachine)).To(Succeed())
 
+				capiMachine2 := &clusterv1.Machine{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       "machine-2",
+						Namespace:  testNs.Name,
+						Finalizers: []string{clusterv1.MachineFinalizer},
+						Labels: map[string]string{
+							clusterv1.ClusterNameLabel: capiCluster.Name,
+						},
+					},
+					Spec: clusterv1.MachineSpec{
+						ClusterName: capiCluster.Name,
+						InfrastructureRef: corev1.ObjectReference{
+							APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
+							Kind:       "HetznerBareMetalMachine",
+							Name:       bmMachineName,
+						},
+						FailureDomain: &defaultFailureDomain,
+					},
+				}
+				Expect(testEnv.Create(ctx, capiMachine2)).To(Succeed())
+
+				bmMachine2 := &infrav1.HetznerBareMetalMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      bmMachineName + "2",
+						Namespace: testNs.Name,
+						Labels: map[string]string{
+							clusterv1.ClusterNameLabel: capiCluster.Name,
+						},
+						OwnerReferences: []metav1.OwnerReference{
+							{
+								APIVersion: "cluster.x-k8s.io/v1beta1",
+								Kind:       "Machine",
+								Name:       capiMachine2.Name,
+								UID:        capiMachine2.UID,
+							},
+						},
+					},
+					Spec: getDefaultHetznerBareMetalMachineSpec(),
+				}
+				Expect(testEnv.Create(ctx, bmMachine2)).To(Succeed())
+
 				// Wait for machine to be in running state
 				Eventually(func() bool {
 					err := testEnv.Get(ctx, key, bmMachine)
@@ -549,6 +594,8 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					return host.Spec.Status.ProvisioningState == infrav1.StateRegistering
 				}, timeout, interval).Should(BeTrue())
 
+				Expect(testEnv.Get(ctx, client.ObjectKeyFromObject(bmMachine2), bmMachine2)).To(Succeed())
+				Expect(bmMachine2.Status.Phase).To(Equal(clusterv1.MachinePhasePending))
 				Expect(testEnv.Delete(ctx, bmMachine)).To(Succeed())
 
 				Eventually(func() bool {
@@ -565,6 +612,13 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 						return false
 					}
 					return host.Spec.Status.ProvisioningState == infrav1.StateNone
+				}, timeout, time.Second).Should(BeTrue())
+				bmMachine2.ObjectMeta.Labels["foo"] = "bar"
+				err = testEnv.Update(ctx, bmMachine2)
+				Expect(err).To(Succeed())
+				Eventually(func() bool {
+					Expect(testEnv.Get(ctx, client.ObjectKeyFromObject(bmMachine2), bmMachine2)).To(Succeed())
+					return bmMachine2.Status.Phase != clusterv1.MachinePhasePending
 				}, timeout, time.Second).Should(BeTrue())
 			})
 		})
