@@ -17,7 +17,6 @@ limitations under the License.
 package controllers
 
 import (
-	"errors"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
