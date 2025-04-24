@@ -57,7 +57,7 @@ type HCloudRemediationReconciler struct {
 //+kubebuilder:rbac:groups=cluster.x-k8s.io,resources=machines;machines/status,verbs=get;update;patch
 
 // Reconcile reconciles the hetznerHCloudRemediation object.
-func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconcile.Request) (_ reconcile.Result, reterr error) {
+func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconcile.Request) (res reconcile.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
 
 	hcloudRemediation := &infrav1.HCloudRemediation{}
@@ -165,6 +165,7 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 		patchOpts = append(patchOpts, patch.WithStatusObservedGeneration{})
 
 		if err := remediationScope.Close(ctx, patchOpts...); err != nil && reterr == nil {
+			res = reconcile.Result{}
 			reterr = err
 		}
 	}()
