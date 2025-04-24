@@ -25,15 +25,15 @@ jobs:
             exit 1
           fi
 
-          if ! [[ "$TITLE" =~ ^($'\u26A0'|$'\u2728'|$'\U0001F41B'|$'\U0001F4D6'|$'\U0001F680'|$'\U0001F331') ]]; then
+          if ! [[ "$TITLE" =~ ^($'\u26A0'|:warning:|$'\u2728'|:sparkles:|$'\U0001F41B'|:bug:|$'\U0001F4D6'|:book:|$'\U0001F680'|:release:|$'\U0001F331'|:seedling:) ]]; then
             echo "Error: Invalid PR title format."
             echo "Your PR title must start with one of the following indicators:"
-            echo "- Breaking change: ⚠ (U+26A0)"
-            echo "- Non-breaking feature: ✨ (U+2728)"
-            echo "- Patch fix: 🐛 (U+1F41B)"
-            echo "- Docs: 📖 (U+1F4D6)"
-            echo "- Release: 🚀 (U+1F680)"
-            echo "- Infra/Tests/Other: 🌱 (U+1F331)"
+            echo "- Breaking change: ⚠ (U+26A0) or :warning:"
+            echo "- Non-breaking feature: ✨ (U+2728) or :sparkles:"
+            echo "- Patch fix: 🐛 (U+1F41B) or :bug:"
+            echo "- Docs: 📖 (U+1F4D6) or :book:"
+            echo "- Release: 🚀 (U+1F680) or :release:"
+            echo "- Infra/Tests/Other: 🌱 (U+1F331) or :seedling:"
             exit 1
           fi
 

@@ -266,7 +266,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			})
 		})
 
-		Context("Basic test", func() {
+		Context("Basic hbmm test", func() {
 			var osSSHSecret *corev1.Secret
 
 			BeforeEach(func() {

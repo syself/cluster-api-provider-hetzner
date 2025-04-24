@@ -186,7 +186,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 			hetznerSecret, bootstrapSecret, hetznerCluster, capiMachine, capiCluster)).To(Succeed())
 	})
 
-	Context("Basic test", func() {
+	Context("Basic hcloudremediation test", func() {
 		It("creates the hcloudRemediation successfully", func() {
 			Expect(testEnv.Create(ctx, hcloudRemediation)).To(Succeed())
 
