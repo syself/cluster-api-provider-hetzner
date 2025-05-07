@@ -1468,6 +1468,46 @@ func getDeviceNames(wwn []string, storageDevices []infrav1.Storage) []string {
 	return deviceNames
 }
 
+func analyzeSSHOutputInstallImage(out sshclient.Output, sshClient sshclient.Client, port int) (isTimeout, isConnectionRefused bool, reterr error) {
+	// check err
+	if out.Err != nil {
+		switch {
+		case os.IsTimeout(out.Err) || sshclient.IsTimeoutError(out.Err):
+			isTimeout = true
+			return isTimeout, false, nil
+		case sshclient.IsAuthenticationFailedError(out.Err):
+			if err := handleAuthenticationFailed(sshClient, port); err != nil {
+				return false, false, fmt.Errorf("original ssh error: %w. err: %w", out.Err, err)
+			}
+			return false, false, handleAuthenticationFailed(sshClient, port)
+		case sshclient.IsConnectionRefusedError(out.Err):
+			return false, verifyConnectionRefused(sshClient, port), nil
+		}
+
+		return false, false, fmt.Errorf("unhandled ssh error while getting hostname: %w", out.Err)
+	}
+
+	// check stderr
+	if out.StdErr != "" {
+		// This is an unexpected error
+		return false, false, fmt.Errorf("%w: StdErr: %s", errSSHGetHostname, out.StdErr)
+	}
+
+	// check stdout
+	hostname := trimLineBreak(out.StdOut)
+	switch hostname {
+	case "":
+		// Hostname should not be empty. This is unexpected.
+		return false, false, errEmptyHostName
+	case rescue: // We are in wrong boot, nothing has to be done to trigger reboot
+		return false, false, nil
+	}
+
+	// We are in the case that hostName != rescue && StdOut != hostName
+	// This is unexpected
+	return false, false, fmt.Errorf("%w: %s", errUnexpectedHostName, hostname)
+}
+
 func handleAuthenticationFailed(sshClient sshclient.Client, port int) error {
 	// Check whether we are in the wrong system in the case that rescue and os system might be running on the same port.
 	if port == rescuePort {
