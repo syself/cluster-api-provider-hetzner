@@ -18,7 +18,7 @@ set -o errexit
 set -o pipefail
 set -x
 
-K8S_VERSION=v1.31.6
+K8S_VERSION=v1.31.5
 
 REPO_ROOT=$(git rev-parse --show-toplevel)
 cd "${REPO_ROOT}" || exit 1
