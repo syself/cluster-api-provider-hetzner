@@ -345,9 +345,7 @@ func (r *HetznerBareMetalMachineReconciler) BareMetalHostToBareMetalMachines(log
 			return nil
 		}
 
-		if host.Spec.ConsumerRef != nil &&
-			host.Spec.ConsumerRef.Kind == "HetznerBareMetalMachine" &&
-			host.Spec.ConsumerRef.GroupVersionKind().Group == infrav1.GroupVersion.Group {
+		if host.Spec.ConsumerRef != nil {
 			return []reconcile.Request{
 				{
 					NamespacedName: types.NamespacedName{
@@ -356,12 +354,6 @@ func (r *HetznerBareMetalMachineReconciler) BareMetalHostToBareMetalMachines(log
 					},
 				},
 			}
-		}
-
-		if host.Spec.ConsumerRef != nil {
-			log.Info("unexpected hmbh.Spec.ConsumerRef: %q %q", host.Spec.ConsumerRef.Kind,
-				host.Spec.ConsumerRef.GroupVersionKind().Group)
-			return []reconcile.Request{}
 		}
 
 		if host.Spec.Status.ErrorType != "" {
@@ -375,23 +367,31 @@ func (r *HetznerBareMetalMachineReconciler) BareMetalHostToBareMetalMachines(log
 			log.Error(err, "failed to list HetznerBareMetalMachines")
 			return []reconcile.Request{}
 		}
+
+		// Search for a hbmm which would like to use this host.
 		for i := range hbmmList.Items {
 			hbmm := &hbmmList.Items[i]
+
+			// Skip if the hbmm is already in use.
 			if hbmm.HasHostAnnotation() {
 				continue
 			}
+
 			hosts := make([]infrav1.HetznerBareMetalHost, 1)
 			hosts[0] = *host
-			host, _, err := baremetal.ChooseHost(hbmm, hosts)
+			chosenHost, _, err := baremetal.ChooseHost(hbmm, hosts)
 			if err != nil {
 				log.Error(err, "failed to choose host for HetznerBareMetalMachine")
 				continue
 			}
-			if host == nil {
+
+			// this hbmm does not match the host
+			if chosenHost == nil {
 				continue
 			}
 
 			// We found a matching hbmm for the free host. Trigger Reconcile for the hbmm.
+			// Exit the loop, no need to look for more.
 			return []reconcile.Request{
 				{
 					NamespacedName: types.NamespacedName{

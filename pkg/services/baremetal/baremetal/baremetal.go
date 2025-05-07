@@ -61,7 +61,7 @@ const (
 	// requeueAfter gives the duration of time until the next reconciliation should be performed.
 	requeueAfter = time.Second * 30
 
-	requeueAfterNoAvailableHost = time.Minute * 3
+	requeueAfterNoAvailableHost = time.Minute * 7
 
 	// FailureMessageMaintenanceMode indicates that host is in maintenance mode.
 	FailureMessageMaintenanceMode = "host machine in maintenance mode"
