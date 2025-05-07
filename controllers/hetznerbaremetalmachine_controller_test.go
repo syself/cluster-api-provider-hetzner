@@ -902,7 +902,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					return false
 				}
 				return bmMachine.Status.Ready
-			}, timeout, 100*time.Millisecond).Should(BeTrue())
+			}, timeout).Should(BeTrue())
 
 			// Create a second Capi- and HetznerBareMetalMachine
 			bmMachineName2 := "hbmm2"
