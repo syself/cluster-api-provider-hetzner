@@ -825,4 +825,154 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			})
 		})
 	})
+
+	Context("Test EnqueueRequestsFromMapFunc BareMetalHostToBareMetalMachines", func() {
+		It("should enqueue the second HetznerBareMetalMachine, when the first gets deleted", func() {
+			// We test this part in BareMetalHostToBareMetalMachines:
+			// We have a free host. Trigger a matching HetznerBareMetalMachine to be reconciled.
+			// To ensure this test works, uncomment the lines below
+			// "We have a free host" in the function. Then this test should fail.
+			capiMachine := &clusterv1.Machine{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "capi-machine-",
+					Namespace:    testNs.Name,
+					Finalizers:   []string{clusterv1.MachineFinalizer},
+					Labels: map[string]string{
+						clusterv1.ClusterNameLabel: capiCluster.Name,
+					},
+				},
+				Spec: clusterv1.MachineSpec{
+					ClusterName: capiCluster.Name,
+					InfrastructureRef: corev1.ObjectReference{
+						APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
+						Kind:       "HetznerBareMetalMachine",
+						Name:       bmMachineName,
+					},
+					FailureDomain: &defaultFailureDomain,
+					Bootstrap: clusterv1.Bootstrap{
+						DataSecretName: ptr.To("bootstrap-secret"),
+					},
+				},
+			}
+			Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
+
+			bmMachine = &infrav1.HetznerBareMetalMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      bmMachineName,
+					Namespace: testNs.Name,
+					Labels: map[string]string{
+						clusterv1.ClusterNameLabel: capiCluster.Name,
+					},
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: "cluster.x-k8s.io/v1beta1",
+							Kind:       "Machine",
+							Name:       capiMachine.Name,
+							UID:        capiMachine.UID,
+						},
+					},
+				},
+				Spec: getDefaultHetznerBareMetalMachineSpec(),
+			}
+			Expect(testEnv.Create(ctx, bmMachine)).To(Succeed())
+
+			osSSHSecret := helpers.GetDefaultSSHSecret("os-ssh-secret", testNs.Name)
+			Expect(testEnv.Create(ctx, osSSHSecret)).To(Succeed())
+
+			host := helpers.BareMetalHost(
+				hostName,
+				testNs.Name,
+				helpers.WithRootDeviceHintWWN(),
+				helpers.WithHetznerClusterRef(hetznerClusterName),
+			)
+			Expect(testEnv.Create(ctx, host)).To(Succeed())
+
+			// Wait until bmMachine is provisioned.
+			Eventually(func() bool {
+				if err := testEnv.Get(ctx, client.ObjectKeyFromObject(bmMachine), bmMachine); err != nil {
+					return false
+				}
+				if err := testEnv.Get(ctx, client.ObjectKeyFromObject(host), host); err != nil {
+					return false
+				}
+				if host.Spec.Status.ProvisioningState != infrav1.StateProvisioned {
+					return false
+				}
+				if err := testEnv.Get(ctx, client.ObjectKeyFromObject(bmMachine), bmMachine); err != nil {
+					return false
+				}
+				return bmMachine.Status.Ready
+			}, timeout, 100*time.Millisecond).Should(BeTrue())
+
+			// Create a second Capi- and HetznerBareMetalMachine
+			bmMachineName2 := "hbmm2"
+			capiMachineName2 := utils.GenerateName(nil, "capimachine-name-")
+			capiMachine2 := &clusterv1.Machine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       capiMachineName2,
+					Namespace:  testNs.Name,
+					Finalizers: []string{clusterv1.MachineFinalizer},
+					Labels: map[string]string{
+						clusterv1.ClusterNameLabel: capiCluster.Name,
+					},
+				},
+				Spec: clusterv1.MachineSpec{
+					ClusterName: capiCluster.Name,
+					InfrastructureRef: corev1.ObjectReference{
+						APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
+						Kind:       "HetznerBareMetalMachine",
+						Name:       bmMachineName2,
+					},
+					Bootstrap: clusterv1.Bootstrap{
+						DataSecretName: ptr.To("bootstrap-secret"),
+					},
+					FailureDomain: &defaultFailureDomain,
+				},
+			}
+			Expect(testEnv.Create(ctx, capiMachine2)).To(Succeed())
+
+			bmMachine2 := &infrav1.HetznerBareMetalMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      bmMachineName2,
+					Namespace: testNs.Name,
+					Labels: map[string]string{
+						clusterv1.ClusterNameLabel: capiCluster.Name,
+					},
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: "cluster.x-k8s.io/v1beta1",
+							Kind:       "Machine",
+							Name:       capiMachine2.Name,
+							UID:        capiMachine2.UID,
+						},
+					},
+				},
+				Spec: getDefaultHetznerBareMetalMachineSpec(),
+			}
+			Expect(testEnv.Create(ctx, bmMachine2)).To(Succeed())
+
+			// wait until event in the queue have been processed.
+			// We want to be sure the reconcile of the hbmm got triggered
+			// by our BareMetalHostToBareMetalMachines (EnqueueRequestsFromMapFunc).
+			// Better solutions?
+			// https://kubernetes.slack.com/archives/C02MRBMN00Z/p1746604857401719
+
+			time.Sleep(time.Second)
+
+			// Ensure the second machine is not ready (waiting for a hbmh)
+			Expect(testEnv.Get(ctx, client.ObjectKeyFromObject(bmMachine2),
+				bmMachine2)).To(Succeed())
+			Expect(bmMachine2.Status.Ready).To(BeFalse())
+
+			// Delete the first machine
+			Expect(testEnv.Delete(ctx, bmMachine)).To(Succeed())
+
+			// Wait until the second machine is ready
+			Eventually(func() bool {
+				Expect(testEnv.Get(ctx, client.ObjectKeyFromObject(bmMachine2),
+					bmMachine2)).To(Succeed())
+				return bmMachine2.Status.Ready
+			}, timeout).Should(BeTrue())
+		})
+	})
 })

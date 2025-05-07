@@ -368,6 +368,7 @@ func (r *HetznerBareMetalMachineReconciler) BareMetalHostToBareMetalMachines(log
 			return []reconcile.Request{}
 		}
 
+		// We have a free host. Trigger a matching HetznerBareMetalMachine to be reconciled.
 		hbmmList := infrav1.HetznerBareMetalMachineList{}
 		err := r.Client.List(context.TODO(), &hbmmList, client.InNamespace(host.Namespace))
 		if err != nil {
