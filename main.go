@@ -267,6 +267,7 @@ func main() {
 			os.Exit(1)
 		}
 	}
+
 	setupLog.Info("starting manager", "version", caphversion.Get().String())
 	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "problem running manager")
