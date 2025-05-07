@@ -88,6 +88,7 @@ var (
 )
 
 func main() {
+	skipWebhooks := false
 	fs := pflag.CommandLine
 	fs.StringVar(&metricsAddr, "metrics-bind-address", "localhost:8080", "The address the metric endpoint binds to.")
 	fs.StringVar(&probeAddr, "health-probe-bind-address", ":9440", "The address the probe endpoint binds to.")
@@ -105,6 +106,7 @@ func main() {
 	fs.DurationVar(&rateLimitWaitTime, "rate-limit", 5*time.Minute, "The rate limiting for HCloud controller (e.g. 5m)")
 	fs.BoolVar(&hcloudclient.DebugAPICalls, "debug-hcloud-api-calls", false, "Debug all calls to the hcloud API.")
 	fs.StringVar(&preProvisionCommand, "pre-provision-command", "", "Command to run (in rescue-system) before installing the image on bare metal servers. You can use that to check if the machine is healthy before installing the image. If the exit value is non-zero, the machine is considered unhealthy. This command must be accessible by the controller pod. You can use an initContainer to copy the command to a shared emptyDir.")
+	fs.BoolVar(&skipWebhooks, "skip-webhooks", false, "Skip setting up of webhooks. Together with --leader-elect=false, you can use `go run main.go` to run CAPH in a cluster connected via KUBECONFIG. You should scale down the caph deployment to 0 before doing that. This is only for testing!")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 
@@ -133,13 +135,10 @@ func main() {
 		}
 	}
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 scheme,
-		Metrics:                metricsserver.Options{BindAddress: metricsAddr},
-		HealthProbeBindAddress: probeAddr,
-		WebhookServer: webhook.NewServer(webhook.Options{
-			Port: 9443,
-		}),
+	options := ctrl.Options{
+		Scheme:                        scheme,
+		Metrics:                       metricsserver.Options{BindAddress: metricsAddr},
+		HealthProbeBindAddress:        probeAddr,
 		LeaderElection:                enableLeaderElection,
 		LeaderElectionID:              "hetzner.cluster.x-k8s.io",
 		LeaderElectionNamespace:       leaderElectionNamespace,
@@ -150,7 +149,15 @@ func main() {
 			SyncPeriod:        &syncPeriod,
 			DefaultNamespaces: watchNamespaces,
 		},
-	})
+	}
+
+	if !skipWebhooks {
+		options.WebhookServer = webhook.NewServer(webhook.Options{
+			Port: 9443,
+		})
+	}
+
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), options)
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
@@ -245,20 +252,21 @@ func main() {
 		os.Exit(1)
 	}
 
-	setUpWebhookWithManager(mgr)
+	if !skipWebhooks {
+		setUpWebhookWithManager(mgr)
 
-	//+kubebuilder:scaffold:builder
+		//+kubebuilder:scaffold:builder
 
-	if err := mgr.AddReadyzCheck("webhook", mgr.GetWebhookServer().StartedChecker()); err != nil {
-		setupLog.Error(err, "unable to create ready check")
-		os.Exit(1)
+		if err := mgr.AddReadyzCheck("webhook", mgr.GetWebhookServer().StartedChecker()); err != nil {
+			setupLog.Error(err, "unable to create ready check")
+			os.Exit(1)
+		}
+
+		if err := mgr.AddHealthzCheck("webhook", mgr.GetWebhookServer().StartedChecker()); err != nil {
+			setupLog.Error(err, "unable to create health check")
+			os.Exit(1)
+		}
 	}
-
-	if err := mgr.AddHealthzCheck("webhook", mgr.GetWebhookServer().StartedChecker()); err != nil {
-		setupLog.Error(err, "unable to create health check")
-		os.Exit(1)
-	}
-
 	setupLog.Info("starting manager", "version", caphversion.Get().String())
 	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "problem running manager")
