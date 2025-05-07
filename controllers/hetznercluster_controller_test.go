@@ -400,7 +400,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 					}
 
 					return true
-				}, timeout, 1*time.Second).Should(BeTrue())
+				}, timeout, 5*time.Second).Should(BeTrue())
 			})
 
 			It("should update extra targets", func() {
