@@ -85,10 +85,10 @@ var (
 	syncPeriod                         time.Duration
 	rateLimitWaitTime                  time.Duration
 	preProvisionCommand                string
+	skipWebhooks                       bool
 )
 
 func main() {
-	skipWebhooks := false
 	fs := pflag.CommandLine
 	fs.StringVar(&metricsAddr, "metrics-bind-address", "localhost:8080", "The address the metric endpoint binds to.")
 	fs.StringVar(&probeAddr, "health-probe-bind-address", ":9440", "The address the probe endpoint binds to.")
