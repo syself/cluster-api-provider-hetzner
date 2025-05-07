@@ -725,66 +725,7 @@ var _ = Describe("analyzeSSHOutputInstallImage", func() {
 		expectedErrMessage          string
 	}
 
-	DescribeTable("analyzeSSHOutputInstallImage - out.Err",
-		func(tc testCaseAnalyzeSSHOutputInstallImageOutErr) {
-			host := helpers.BareMetalHost(
-				"test-host",
-				"default",
-			)
-
-			robotMock := robotmock.Client{}
-			robotMock.On("GetBootRescue", mock.Anything).Return(&models.Rescue{Active: tc.rescueActive}, nil)
-
-			service := newTestService(host, &robotMock, nil, nil, nil)
-
-			isTimeout, isConnectionRefused, err := service.analyzeSSHOutputRegistering(sshclient.Output{Err: tc.err})
-			Expect(isTimeout).To(Equal(tc.expectedIsTimeout))
-			Expect(isConnectionRefused).To(Equal(tc.expectedIsConnectionRefused))
-			if tc.expectedErrMessage != "" {
-				Expect(err).To(Not(BeNil()))
-				Expect(err.Error()).To(ContainSubstring(tc.expectedErrMessage))
-			} else {
-				Expect(err).To(BeNil())
-			}
-		},
-		Entry("timeout error", testCaseAnalyzeSSHOutputInstallImageOutErr{
-			err:                         timeout,
-			rescueActive:                true,
-			expectedIsTimeout:           true,
-			expectedIsConnectionRefused: false,
-			expectedErrMessage:          "",
-		}),
-		Entry("authenticationFailed error, rescue active", testCaseAnalyzeSSHOutputInstallImageOutErr{
-			err:                         sshclient.ErrAuthenticationFailed,
-			rescueActive:                true,
-			expectedIsTimeout:           false,
-			expectedIsConnectionRefused: false,
-			expectedErrMessage:          "",
-		}),
-		Entry("authenticationFailed error, rescue not active", testCaseAnalyzeSSHOutputInstallImageOutErr{
-			err:                         sshclient.ErrAuthenticationFailed,
-			rescueActive:                false,
-			expectedIsTimeout:           false,
-			expectedIsConnectionRefused: false,
-			expectedErrMessage:          "wrong ssh key",
-		}),
-		Entry("connectionRefused error, rescue active", testCaseAnalyzeSSHOutputInstallImageOutErr{
-			err:                         sshclient.ErrConnectionRefused,
-			rescueActive:                true,
-			expectedIsTimeout:           false,
-			expectedIsConnectionRefused: true,
-			expectedErrMessage:          "",
-		}),
-		Entry("connectionRefused error, rescue not active", testCaseAnalyzeSSHOutputInstallImageOutErr{
-			err:                         sshclient.ErrConnectionRefused,
-			rescueActive:                false,
-			expectedIsTimeout:           false,
-			expectedIsConnectionRefused: true,
-			expectedErrMessage:          "",
-		}),
-	)
-
-	type testCaseAnalyzeSSHOutputInstallImageStdErr struct {
+	type testCaseAnalyzeSSHOutputRegistering struct {
 		hasNilErr          bool
 		stdErr             string
 		hostName           string
@@ -792,7 +733,7 @@ var _ = Describe("analyzeSSHOutputInstallImage", func() {
 	}
 
 	DescribeTable("analyzeSSHOutputRegistering - toggle stdErr and hostName",
-		func(tc testCaseAnalyzeSSHOutputInstallImageStdErr) {
+		func(tc testCaseAnalyzeSSHOutputRegistering) {
 			var err error
 			if !tc.hasNilErr {
 				err = errTest
@@ -824,25 +765,25 @@ var _ = Describe("analyzeSSHOutputInstallImage", func() {
 				Expect(err).To(BeNil())
 			}
 		},
-		Entry("stderr not empty", testCaseAnalyzeSSHOutputInstallImageStdErr{
+		Entry("stderr not empty", testCaseAnalyzeSSHOutputRegistering{
 			hasNilErr:          true,
 			stdErr:             "command failed",
 			hostName:           "hostName",
 			expectedErrMessage: "failed to get hostname via ssh: StdErr:",
 		}),
-		Entry("stderr not empty - err != nil", testCaseAnalyzeSSHOutputInstallImageStdErr{
+		Entry("stderr not empty - err != nil", testCaseAnalyzeSSHOutputRegistering{
 			hasNilErr:          false,
 			stdErr:             "command failed",
 			hostName:           "",
 			expectedErrMessage: "unhandled ssh error while getting hostname",
 		}),
-		Entry("stderr not empty - wrong hostName", testCaseAnalyzeSSHOutputInstallImageStdErr{
+		Entry("stderr not empty - wrong hostName", testCaseAnalyzeSSHOutputRegistering{
 			hasNilErr:          true,
 			stdErr:             "command failed",
 			hostName:           "",
 			expectedErrMessage: "failed to get hostname via ssh: StdErr:",
 		}),
-		Entry("stderr empty - wrong hostName", testCaseAnalyzeSSHOutputInstallImageStdErr{
+		Entry("stderr empty - wrong hostName", testCaseAnalyzeSSHOutputRegistering{
 			hasNilErr:          true,
 			stdErr:             "",
 			hostName:           "",
@@ -861,83 +802,6 @@ var _ = Describe("analyzeSSHOutputInstallImage", func() {
 		expectedErrMessage          string
 	}
 
-	DescribeTable("analyzeSSHOutputInstallImage - out.Err",
-		func(tc testCaseAnalyzeSSHOutputInstallImageOutErr) {
-			sshMock := &sshmock.Client{}
-			var errFromGetHostName error
-			if !tc.errFromGetHostNameNil {
-				errFromGetHostName = errTest
-			}
-			sshMock.On("GetHostName").Return(sshclient.Output{Err: errFromGetHostName})
-
-			isTimeout, isConnectionRefused, err := analyzeSSHOutputInstallImage(sshclient.Output{Err: tc.err}, sshMock, tc.port)
-			Expect(isTimeout).To(Equal(tc.expectedIsTimeout))
-			Expect(isConnectionRefused).To(Equal(tc.expectedIsConnectionRefused))
-			if tc.expectedErrMessage != "" {
-				Expect(err).To(Not(BeNil()))
-				Expect(err.Error()).To(ContainSubstring(tc.expectedErrMessage))
-			} else {
-				Expect(err).To(BeNil())
-			}
-		},
-		Entry("timeout error", testCaseAnalyzeSSHOutputInstallImageOutErr{
-			err:                         timeout,
-			errFromGetHostNameNil:       true,
-			port:                        22,
-			expectedIsTimeout:           true,
-			expectedIsConnectionRefused: false,
-			expectedErrMessage:          "",
-		}),
-		Entry("authenticationFailed error, port 22, no hostName error", testCaseAnalyzeSSHOutputInstallImageOutErr{
-			err:                         sshclient.ErrAuthenticationFailed,
-			errFromGetHostNameNil:       true,
-			port:                        22,
-			expectedIsTimeout:           false,
-			expectedIsConnectionRefused: false,
-			expectedErrMessage:          "",
-		}),
-		Entry("authenticationFailed error, port 22, hostName error", testCaseAnalyzeSSHOutputInstallImageOutErr{
-			err:                         sshclient.ErrAuthenticationFailed,
-			errFromGetHostNameNil:       false,
-			port:                        22,
-			expectedIsTimeout:           false,
-			expectedIsConnectionRefused: false,
-			expectedErrMessage:          "wrong ssh key",
-		}),
-		Entry("authenticationFailed error, port != 22", testCaseAnalyzeSSHOutputInstallImageOutErr{
-			err:                         sshclient.ErrAuthenticationFailed,
-			errFromGetHostNameNil:       true,
-			port:                        23,
-			expectedIsTimeout:           false,
-			expectedIsConnectionRefused: false,
-			expectedErrMessage:          "wrong ssh key",
-		}),
-		Entry("connectionRefused error, port 22", testCaseAnalyzeSSHOutputInstallImageOutErr{
-			err:                         sshclient.ErrConnectionRefused,
-			errFromGetHostNameNil:       true,
-			port:                        22,
-			expectedIsTimeout:           false,
-			expectedIsConnectionRefused: true,
-			expectedErrMessage:          "",
-		}),
-		Entry("connectionRefused error, port != 22, hostname error", testCaseAnalyzeSSHOutputInstallImageOutErr{
-			err:                         sshclient.ErrConnectionRefused,
-			errFromGetHostNameNil:       false,
-			port:                        23,
-			expectedIsTimeout:           false,
-			expectedIsConnectionRefused: true,
-			expectedErrMessage:          "",
-		}),
-		Entry("connectionRefused error, port != 22, no hostname error", testCaseAnalyzeSSHOutputInstallImageOutErr{
-			err:                         sshclient.ErrConnectionRefused,
-			errFromGetHostNameNil:       true,
-			port:                        23,
-			expectedIsTimeout:           false,
-			expectedIsConnectionRefused: false,
-			expectedErrMessage:          "",
-		}),
-	)
-
 	type testCaseAnalyzeSSHOutputInstallImageStdErr struct {
 		hasNilErr          bool
 		stdErr             string
@@ -945,112 +809,12 @@ var _ = Describe("analyzeSSHOutputInstallImage", func() {
 		expectedErrMessage string
 	}
 
-	DescribeTable("analyzeSSHOutputInstallImage - StdErr not empty",
-		func(tc testCaseAnalyzeSSHOutputInstallImageStdErr) {
-			var err error
-			if !tc.hasNilErr {
-				err = errTest
-			}
-			hostName := "rescue"
-			if tc.hasWrongHostName {
-				hostName = "wrongHostName"
-			}
-
-			out := sshclient.Output{
-				StdOut: hostName,
-				StdErr: tc.stdErr,
-				Err:    err,
-			}
-			isTimeout, isConnectionRefused, err := analyzeSSHOutputInstallImage(out, nil, 22)
-			Expect(isTimeout).To(Equal(false))
-			Expect(isConnectionRefused).To(Equal(false))
-			if tc.expectedErrMessage != "" {
-				Expect(err).To(Not(BeNil()))
-				Expect(err.Error()).To(ContainSubstring(tc.expectedErrMessage))
-			} else {
-				Expect(err).To(BeNil())
-			}
-		},
-		Entry("stderr not empty", testCaseAnalyzeSSHOutputInstallImageStdErr{
-			hasNilErr:          true,
-			stdErr:             "command failed",
-			hasWrongHostName:   false,
-			expectedErrMessage: "failed to get hostname via ssh: StdErr:",
-		}),
-		Entry("stderr not empty - err != nil", testCaseAnalyzeSSHOutputInstallImageStdErr{
-			hasNilErr:          false,
-			stdErr:             "command failed",
-			hasWrongHostName:   false,
-			expectedErrMessage: "unhandled ssh error while getting hostname",
-		}),
-		Entry("stderr not empty - wrong hostName", testCaseAnalyzeSSHOutputInstallImageStdErr{
-			hasNilErr:          true,
-			stdErr:             "command failed",
-			hasWrongHostName:   true,
-			expectedErrMessage: "failed to get hostname via ssh: StdErr:",
-		}),
-	)
-
 	type testCaseAnalyzeSSHOutputInstallImageWrongHostname struct {
 		hasNilErr          bool
 		stdErr             string
 		hostName           string
 		expectedErrMessage string
 	}
-
-	DescribeTable("analyzeSSHOutputInstallImage - wrong hostName",
-		func(tc testCaseAnalyzeSSHOutputInstallImageWrongHostname) {
-			var err error
-			if !tc.hasNilErr {
-				err = errTest
-			}
-
-			out := sshclient.Output{
-				StdOut: tc.hostName,
-				StdErr: tc.stdErr,
-				Err:    err,
-			}
-			isTimeout, isConnectionRefused, err := analyzeSSHOutputInstallImage(out, nil, 22)
-			Expect(isTimeout).To(Equal(false))
-			Expect(isConnectionRefused).To(Equal(false))
-			if tc.expectedErrMessage != "" {
-				Expect(err).To(Not(BeNil()))
-				Expect(err.Error()).To(ContainSubstring(tc.expectedErrMessage))
-			} else {
-				Expect(err).To(BeNil())
-			}
-		},
-		Entry("empty hostname", testCaseAnalyzeSSHOutputInstallImageWrongHostname{
-			hasNilErr:          true,
-			stdErr:             "",
-			hostName:           "",
-			expectedErrMessage: "hostname is empty",
-		}),
-		Entry("empty hostname - err not empty", testCaseAnalyzeSSHOutputInstallImageWrongHostname{
-			hasNilErr:          false,
-			stdErr:             "",
-			hostName:           "",
-			expectedErrMessage: "unhandled ssh error while getting hostname",
-		}),
-		Entry("empty hostname stderr not empty", testCaseAnalyzeSSHOutputInstallImageWrongHostname{
-			hasNilErr:          true,
-			stdErr:             "command failed",
-			hostName:           "",
-			expectedErrMessage: "failed to get hostname via ssh: StdErr:",
-		}),
-		Entry("hostname == rescue", testCaseAnalyzeSSHOutputInstallImageWrongHostname{
-			hasNilErr:          true,
-			stdErr:             "",
-			hostName:           "rescue",
-			expectedErrMessage: "",
-		}),
-		Entry("hostname == otherHostName", testCaseAnalyzeSSHOutputInstallImageWrongHostname{
-			hasNilErr:          true,
-			stdErr:             "",
-			hostName:           "otherHostName",
-			expectedErrMessage: "unexpected hostname",
-		}),
-	)
 })
 
 var _ = Describe("analyzeSSHOutputProvisioned", func() {
