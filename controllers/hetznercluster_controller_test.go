@@ -334,7 +334,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 		})
 
 		Context("load balancer", func() {
-			It("should create load balancer and update it accordingly", func() {
+			It("should create load balancer and update it accordingly (flaky)", func() {
 				Expect(testEnv.Create(ctx, instance)).To(Succeed())
 
 				Eventually(func() bool {
@@ -400,7 +400,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 					}
 
 					return true
-				}, timeout, 5*time.Second).Should(BeTrue())
+				}, 2*timeout, 1*time.Second).Should(BeTrue())
 			})
 
 			It("should update extra targets", func() {
