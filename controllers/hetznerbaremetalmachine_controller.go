@@ -368,7 +368,8 @@ func (r *HetznerBareMetalMachineReconciler) BareMetalHostToBareMetalMachines(log
 			return []reconcile.Request{}
 		}
 
-		// Search for a hbmm which would like to use this host.
+		// Search for a machines which would like to use this host.
+		var found []reconcile.Request
 		for i := range hbmmList.Items {
 			hbmm := &hbmmList.Items[i]
 
@@ -391,16 +392,13 @@ func (r *HetznerBareMetalMachineReconciler) BareMetalHostToBareMetalMachines(log
 			}
 
 			// We found a matching hbmm for the free host. Trigger Reconcile for the hbmm.
-			// Exit the loop, no need to look for more.
-			return []reconcile.Request{
-				{
-					NamespacedName: types.NamespacedName{
-						Name:      hbmm.Name,
-						Namespace: hbmm.Namespace,
-					},
+			found = append(found, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      hbmm.Name,
+					Namespace: hbmm.Namespace,
 				},
-			}
+			})
 		}
-		return []reconcile.Request{}
+		return found
 	}
 }
