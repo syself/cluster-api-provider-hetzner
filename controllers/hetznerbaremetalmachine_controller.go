@@ -230,7 +230,7 @@ func (r *HetznerBareMetalMachineReconciler) SetupWithManager(ctx context.Context
 		).
 		Watches(
 			&infrav1.HetznerBareMetalHost{},
-			handler.EnqueueRequestsFromMapFunc(r.BareMetalHostToBareMetalMachines(log)),
+			handler.EnqueueRequestsFromMapFunc(BareMetalHostToBareMetalMachines(r.Client, log)),
 		).
 		Watches(
 			&clusterv1.Cluster{},
@@ -336,8 +336,8 @@ func (r *HetznerBareMetalMachineReconciler) ClusterToBareMetalMachines(ctx conte
 
 // BareMetalHostToBareMetalMachines will return a reconcile request for a BareMetalMachine if the event is for a
 // BareMetalHost and that BareMetalHost references a BareMetalMachine.
-func (r *HetznerBareMetalMachineReconciler) BareMetalHostToBareMetalMachines(log logr.Logger) handler.MapFunc {
-	return func(_ context.Context, obj client.Object) []reconcile.Request {
+func BareMetalHostToBareMetalMachines(c client.Client, log logr.Logger) handler.MapFunc {
+	return func(ctx context.Context, obj client.Object) []reconcile.Request {
 		host, ok := obj.(*infrav1.HetznerBareMetalHost)
 		if !ok {
 			log.Error(fmt.Errorf("expected a BareMetalHost but got a %T", obj),
@@ -362,7 +362,7 @@ func (r *HetznerBareMetalMachineReconciler) BareMetalHostToBareMetalMachines(log
 
 		// We have a free host. Trigger a matching HetznerBareMetalMachine to be reconciled.
 		hbmmList := infrav1.HetznerBareMetalMachineList{}
-		err := r.Client.List(context.TODO(), &hbmmList, client.InNamespace(host.Namespace))
+		err := c.List(ctx, &hbmmList, client.InNamespace(host.Namespace))
 		if err != nil {
 			log.Error(err, "failed to list HetznerBareMetalMachines")
 			return []reconcile.Request{}

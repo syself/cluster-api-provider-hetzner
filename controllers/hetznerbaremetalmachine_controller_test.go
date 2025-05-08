@@ -17,20 +17,28 @@ limitations under the License.
 package controllers
 
 import (
+	"context"
+	"fmt"
+	"testing"
 	"time"
 
+	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"github.com/syself/hrobot-go/models"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/selection"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/baremetal"
@@ -977,3 +985,87 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 		})
 	})
 })
+
+func Test_BareMetalHostToBareMetalMachines(t *testing.T) {
+	ctx := context.Background()
+	scheme := runtime.NewScheme()
+	utilruntime.Must(infrav1.AddToScheme(scheme))
+	host := &infrav1.HetznerBareMetalHost{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-host",
+			Namespace: "test-ns",
+		},
+	}
+	hbmm := &infrav1.HetznerBareMetalMachine{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-machine-with-label-foo",
+			Namespace: "test-ns",
+		},
+		Spec: infrav1.HetznerBareMetalMachineSpec{
+			HostSelector: infrav1.HostSelector{
+				MatchLabels: map[string]string{
+					"key": "foo",
+				},
+			},
+		},
+	}
+	hbmmWithHostAnnotation := &infrav1.HetznerBareMetalMachine{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-machine-with-host-annotation",
+			Namespace: "test-ns",
+			Annotations: map[string]string{
+				infrav1.HostAnnotation: "test-host",
+			},
+		},
+		Spec: infrav1.HetznerBareMetalMachineSpec{
+			HostSelector: infrav1.HostSelector{
+				MatchLabels: map[string]string{
+					"key": "foo",
+				},
+			},
+		},
+	}
+
+	hbmmWithoutLabel := &infrav1.HetznerBareMetalMachine{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-machine-with-label-bar",
+			Namespace: "test-ns",
+		},
+		Spec: infrav1.HetznerBareMetalMachineSpec{
+			HostSelector: infrav1.HostSelector{
+				MatchLabels: map[string]string{
+					"key": "bar",
+				},
+			},
+		},
+	}
+	hbmmOtherNS := &infrav1.HetznerBareMetalMachine{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-machine-other-namespace",
+			Namespace: "test-other-namespace",
+		},
+		Spec: infrav1.HetznerBareMetalMachineSpec{
+			HostSelector: infrav1.HostSelector{
+				MatchLabels: map[string]string{
+					"key": "foo",
+				},
+			},
+		},
+	}
+	c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(
+		host, hbmm, hbmmOtherNS, hbmmWithoutLabel, hbmmWithHostAnnotation).Build()
+
+	// host does not have a label.
+	f := BareMetalHostToBareMetalMachines(c, logr.Logger{})
+	result := f(ctx, host)
+	require.Equal(t, "[]", fmt.Sprintf("%v", result))
+	host.Labels = map[string]string{
+		"key": "foo",
+	}
+
+	// host has label "foo"
+	err := c.Update(ctx, host)
+	require.NoError(t, err)
+	result = f(ctx, host)
+	require.Equal(t, "[test-ns/test-machine-with-label-foo]", fmt.Sprintf("%v", result))
+}
