@@ -876,40 +876,11 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			}
 			Expect(testEnv.Create(ctx, bmMachine)).To(Succeed())
 
-			osSSHSecret := helpers.GetDefaultSSHSecret("os-ssh-secret", testNs.Name)
-			Expect(testEnv.Create(ctx, osSSHSecret)).To(Succeed())
-
-			host := helpers.BareMetalHost(
-				hostName,
-				testNs.Name,
-				helpers.WithRootDeviceHintWWN(),
-				helpers.WithHetznerClusterRef(hetznerClusterName),
-			)
-			Expect(testEnv.Create(ctx, host)).To(Succeed())
-
-			// Wait until bmMachine is provisioned.
-			Eventually(func() bool {
-				if err := testEnv.Get(ctx, client.ObjectKeyFromObject(bmMachine), bmMachine); err != nil {
-					return false
-				}
-				if err := testEnv.Get(ctx, client.ObjectKeyFromObject(host), host); err != nil {
-					return false
-				}
-				if host.Spec.Status.ProvisioningState != infrav1.StateProvisioned {
-					return false
-				}
-				if err := testEnv.Get(ctx, client.ObjectKeyFromObject(bmMachine), bmMachine); err != nil {
-					return false
-				}
-				return bmMachine.Status.Ready
-			}, timeout).Should(BeTrue())
-
 			// Create a second Capi- and HetznerBareMetalMachine
 			bmMachineName2 := "hbmm2"
-			capiMachineName2 := utils.GenerateName(nil, "capimachine-name-")
 			capiMachine2 := &clusterv1.Machine{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:       capiMachineName2,
+					Name:       utils.GenerateName(nil, "capimachine-name-"),
 					Namespace:  testNs.Name,
 					Finalizers: []string{clusterv1.MachineFinalizer},
 					Labels: map[string]string{
@@ -951,27 +922,57 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			}
 			Expect(testEnv.Create(ctx, bmMachine2)).To(Succeed())
 
-			// wait until event in the queue have been processed.
-			// We want to be sure the reconcile of the hbmm got triggered
-			// by our BareMetalHostToBareMetalMachines (EnqueueRequestsFromMapFunc).
-			// Better solutions?
-			// https://kubernetes.slack.com/archives/C02MRBMN00Z/p1746604857401719
+			osSSHSecret := helpers.GetDefaultSSHSecret("os-ssh-secret", testNs.Name)
+			Expect(testEnv.Create(ctx, osSSHSecret)).To(Succeed())
 
-			time.Sleep(time.Second)
+			host := helpers.BareMetalHost(
+				hostName,
+				testNs.Name,
+				helpers.WithRootDeviceHintWWN(),
+				helpers.WithHetznerClusterRef(hetznerClusterName),
+			)
+			Expect(testEnv.Create(ctx, host)).To(Succeed())
+
+			// Wait until bmMachine is provisioned.
+			var pickedMachine *infrav1.HetznerBareMetalMachine
+			var waitingMachine *infrav1.HetznerBareMetalMachine
+			Eventually(func() bool {
+				if err := testEnv.Get(ctx, client.ObjectKeyFromObject(host), host); err != nil {
+					return false
+				}
+				if host.Spec.ConsumerRef == nil {
+					return false
+				}
+
+				if host.Spec.ConsumerRef.Name == bmMachineName {
+					pickedMachine = bmMachine
+					waitingMachine = bmMachine2
+				} else {
+					pickedMachine = bmMachine2
+					waitingMachine = bmMachine
+				}
+				osSSHClient.On("GetHostName").Return(sshclient.Output{
+					StdOut: infrav1.BareMetalHostNamePrefix + pickedMachine.Name,
+					StdErr: "",
+					Err:    nil,
+				})
+
+				return host.Spec.Status.ProvisioningState != infrav1.StateProvisioned
+			}, timeout).Should(BeTrue())
 
 			// Ensure the second machine is not ready (waiting for a hbmh)
-			Expect(testEnv.Get(ctx, client.ObjectKeyFromObject(bmMachine2),
-				bmMachine2)).To(Succeed())
-			Expect(bmMachine2.Status.Ready).To(BeFalse())
+			Expect(testEnv.Get(ctx, client.ObjectKeyFromObject(waitingMachine),
+				waitingMachine)).To(Succeed())
+			Expect(waitingMachine.Status.Ready).To(BeFalse())
 
 			// Delete the first machine
-			Expect(testEnv.Delete(ctx, bmMachine)).To(Succeed())
+			Expect(testEnv.Delete(ctx, pickedMachine)).To(Succeed())
 
-			// Wait until the second machine is ready
+			// Wait until the waiting machine is ready
 			Eventually(func() bool {
-				Expect(testEnv.Get(ctx, client.ObjectKeyFromObject(bmMachine2),
-					bmMachine2)).To(Succeed())
-				return bmMachine2.Status.Ready
+				Expect(testEnv.Get(ctx, client.ObjectKeyFromObject(waitingMachine),
+					waitingMachine)).To(Succeed())
+				return waitingMachine.Status.Ready
 			}, timeout).Should(BeTrue())
 		})
 	})
