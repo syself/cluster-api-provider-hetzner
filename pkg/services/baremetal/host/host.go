@@ -354,6 +354,9 @@ func (s *Service) ensureSSHKey(sshSecretRef infrav1.SSHSecretRef, sshSecret *cor
 	return sshKey, actionComplete{}
 }
 
+// handleIncompleteBoot checks if the reboot was successful.
+// If it was not successful, it tries other reboot methods.
+// Order: SSH -> Software -> Hardware.
 func (s *Service) handleIncompleteBoot(isRebootIntoRescue, isTimeout, isConnectionRefused bool) (failed bool, err error) {
 	// Connection refused error might be a sign that the ssh port is wrong - but might also come
 	// right after a reboot and is expected then. Therefore, we wait for some time and if the
@@ -713,7 +716,10 @@ func (s *Service) validateRescueSystemIsActive(sshClient sshclient.Client) (ok b
 	if s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated != nil {
 		timeSinceReboot = time.Since(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated.Time).String()
 	}
-
+	if !isSSHTimeoutError && !isSSHConnectionRefusedError {
+		s.scope.Logger.Info("Expected the rescue system, but got different hostname", "hostName", hostName, "timeSinceReboot", timeSinceReboot)
+		return false, actionContinue{delay: 10 * time.Second}
+	}
 	s.scope.Logger.Info("Could not reach rescue system. Will retry some seconds later.", "out", out.String(), "hostName", hostName,
 		"isSSHTimeoutError", isSSHTimeoutError, "isSSHConnectionRefusedError", isSSHConnectionRefusedError, "timeSinceReboot", timeSinceReboot)
 	return false, actionContinue{delay: 10 * time.Second}
@@ -1105,9 +1111,12 @@ func (s *Service) actionPreProvisioning(ctx context.Context) actionResult {
 	}
 	sshClient := s.scope.SSHClientFactory.NewClient(in)
 
-	ok, res := s.validateRescueSystemIsActive(sshClient)
-	if !ok {
-		return res
+	out := sshClient.GetHostName()
+	hostName := trimLineBreak(out.StdOut)
+	if hostName != rescue {
+		// This is unexpected. We should be in rescue mode.
+		return actionError{err: fmt.Errorf("expected rescue system, but got %q: %s", hostName,
+			out.String())}
 	}
 
 	exitStatus, output, err := sshClient.ExecutePreProvisionCommand(ctx, s.scope.PreProvisionCommand)
@@ -1141,9 +1150,12 @@ func (s *Service) actionImageInstalling(ctx context.Context) actionResult {
 	}
 	sshClient := s.scope.SSHClientFactory.NewClient(in)
 
-	ok, res := s.validateRescueSystemIsActive(sshClient)
-	if !ok {
-		return res
+	out := sshClient.GetHostName()
+	hostName := trimLineBreak(out.StdOut)
+	if hostName != rescue {
+		// This is unexpected. We should be in rescue mode.
+		return actionError{err: fmt.Errorf("expected rescue system, but got %q: %s", hostName,
+			out.String())}
 	}
 
 	state, err := sshClient.GetInstallImageState()
