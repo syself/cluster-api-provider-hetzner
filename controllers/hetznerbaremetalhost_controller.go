@@ -72,7 +72,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	// Fetch the Hetzner bare metal host instance.
 	bmHost := &infrav1.HetznerBareMetalHost{}
 	// Use uncached APIReader to avoid cache issues.
-	err := r.APIReader.Get(ctx, req.NamespacedName, bmHost)
+	err := r.Get(ctx, req.NamespacedName, bmHost)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return reconcile.Result{}, nil
@@ -82,8 +82,6 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 
 	log = log.WithValues("state", bmHost.Spec.Status.ProvisioningState)
 	ctx = ctrl.LoggerInto(ctx, log)
-
-	log.Info("Reconciling HetznerBareMetalHost") // TODO: Remove this log line after debugging
 
 	initialProvisioningState := bmHost.Spec.Status.ProvisioningState
 	defer func() {
@@ -241,8 +239,6 @@ func (r *HetznerBareMetalHostReconciler) reconcileSelectedStates(ctx context.Con
 				return reconcile.Result{}, fmt.Errorf("Update() failed after setting ProvisioningState: %w", err)
 			}
 		}
-		log := ctrl.LoggerFrom(ctx)
-		log.Info("HetznerBareMetalHost is in StateNone. Requeueing", "needsUpdate", needsUpdate)
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 
 		// Handle StateDeleting

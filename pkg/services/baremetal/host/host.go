@@ -1115,7 +1115,6 @@ func (s *Service) actionPreProvisioning(ctx context.Context) actionResult {
 	hostName := trimLineBreak(out.StdOut)
 	if hostName != rescue {
 		// This is unexpected. We should be in rescue mode.
-		// Might happen when Reconcile reads stale data from the cache.
 		ctrl.LoggerFrom(ctx).Info("pre-provision: expected rescue system, but found different hostname", "hostname", hostName, "sshOutput", out.String())
 		return actionContinue{delay: 10 * time.Second}
 	}
@@ -1153,10 +1152,13 @@ func (s *Service) actionImageInstalling(ctx context.Context) actionResult {
 
 	out := sshClient.GetHostName()
 	hostName := trimLineBreak(out.StdOut)
-	if hostName != rescue {
-		// This is unexpected. We should be in rescue mode.
-		// Might happen when Reconcile reads stale data from the cache.
-		ctrl.LoggerFrom(ctx).Info("image-installing: expected rescue system, but found different hostname", "hostname", hostName, "sshOutput", out.String())
+	realHostName := s.scope.Hostname()
+	if hostName != rescue || hostName != realHostName {
+		// During InstallImage the hostname changes from "rescue" to the realHostName.
+		// If it is not one of these two, then this is unexpected.
+		ctrl.LoggerFrom(ctx).Info(
+			fmt.Sprintf(
+				"image-installing: expected hostname %q or %q system, but found different output", rescue, realHostName), "sshOutput", out.String())
 		return actionContinue{delay: 10 * time.Second}
 	}
 
@@ -1950,7 +1952,6 @@ func createRebootEvent(ctx context.Context, host *infrav1.HetznerBareMetalHost, 
 	msg = fmt.Sprintf("Phase %s, reboot via %s: %s", host.Spec.Status.ProvisioningState, verboseRebootType, msg)
 	record.Eventf(host, reason, msg)
 	logger := ctrl.LoggerFrom(ctx)
-	fmt.Printf("createRooooooooootEvent %q %v %v\n", msg, logger.Enabled(), logger.GetV())
-	logger.Info(msg, "host", host.Name)
+	logger.Info(msg, "reason", reason, "host", host.Name)
 	return msg
 }
