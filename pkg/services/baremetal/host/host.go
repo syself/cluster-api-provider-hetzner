@@ -1156,7 +1156,7 @@ func (s *Service) actionImageInstalling(ctx context.Context) actionResult {
 	if hostName != rescue {
 		// This is unexpected. We should be in rescue mode.
 		// Might happen when Reconcile reads stale data from the cache.
-		ctrl.LoggerFrom(ctx).Info("pre-provision: expected rescue system, but found different hostname", "hostname", hostName, "sshOutput", out.String())
+		ctrl.LoggerFrom(ctx).Info("image-installing: expected rescue system, but found different hostname", "hostname", hostName, "sshOutput", out.String())
 		return actionContinue{delay: 10 * time.Second}
 	}
 
@@ -1370,6 +1370,7 @@ echo %q
 		record.Warnf(s.scope.HetznerBareMetalHost, "ExecuteInstallImageFailed", out.String())
 		return actionError{err: fmt.Errorf("failed to execute installimage: %w", out.Err)}
 	}
+	s.scope.Logger.Info("ExecuteInstallImage started successfully", "out", out.String())
 	return actionContinue{delay: 10 * time.Second}
 }
 
