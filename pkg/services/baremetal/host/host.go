@@ -1949,6 +1949,8 @@ func createRebootEvent(ctx context.Context, host *infrav1.HetznerBareMetalHost, 
 		strcase.UpperCamelCase(string(host.Spec.Status.ProvisioningState)))
 	msg = fmt.Sprintf("Phase %s, reboot via %s: %s", host.Spec.Status.ProvisioningState, verboseRebootType, msg)
 	record.Eventf(host, reason, msg)
-	ctrl.LoggerFrom(ctx).Info(msg, "host", host.Name)
+	logger := ctrl.LoggerFrom(ctx)
+	fmt.Printf("createRooooooooootEvent %q %v %v\n", msg, logger.Enabled(), logger.GetV())
+	logger.Info(msg, "host", host.Name)
 	return msg
 }

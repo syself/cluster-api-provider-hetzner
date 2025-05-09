@@ -81,6 +81,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 
 	log = log.WithValues("state", bmHost.Spec.Status.ProvisioningState)
+	ctx = ctrl.LoggerInto(ctx, log)
 
 	log.Info("Reconciling HetznerBareMetalHost") // TODO: Remove this log line after debugging
 
@@ -166,8 +167,6 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 			return reconcile.Result{}, fmt.Errorf("failed to get HetznerBareMetalMachine: %w", err)
 		}
 	}
-
-	ctx = ctrl.LoggerInto(ctx, log)
 
 	// Get Hetzner robot api credentials
 	secretManager := secretutil.NewSecretManager(log, r.Client, r.APIReader)
