@@ -28,6 +28,7 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
@@ -41,7 +42,8 @@ func logBareMetalHostStatusContinously(ctx context.Context, c client.Client) {
 		case <-t:
 			err := logBareMetalHostStatus(ctx, c)
 			if err != nil {
-				By(fmt.Sprintf("Error logging BareMetalHost status: %v", err))
+				log := log.FromContext(ctx)
+				log.Info("Error logging BareMetalHost status", "error", err)
 			}
 		}
 	}
