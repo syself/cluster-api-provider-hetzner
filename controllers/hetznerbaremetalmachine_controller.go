@@ -345,6 +345,8 @@ func BareMetalHostToBareMetalMachines(c client.Client, log logr.Logger) handler.
 			return nil
 		}
 
+		// If this host has a consumerRef (hbmm), then it is not free,
+		// and we don't need to reconcile it.
 		if host.Spec.ConsumerRef != nil {
 			return []reconcile.Request{
 				{
@@ -378,8 +380,7 @@ func BareMetalHostToBareMetalMachines(c client.Client, log logr.Logger) handler.
 				continue
 			}
 
-			hosts := make([]infrav1.HetznerBareMetalHost, 1)
-			hosts[0] = *host
+			hosts := []infrav1.HetznerBareMetalHost{*host}
 			chosenHost, _, err := baremetal.ChooseHost(hbmm, hosts)
 			if err != nil {
 				log.Error(err, "failed to choose host for HetznerBareMetalMachine")

@@ -838,8 +838,6 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 		It("should enqueue the second HetznerBareMetalMachine, when the first gets deleted", func() {
 			// We test this part in BareMetalHostToBareMetalMachines:
 			// We have a free host. Trigger a matching HetznerBareMetalMachine to be reconciled.
-			// To ensure this test works, uncomment the lines below
-			// "We have a free host" in the function. Then this test should fail.
 			capiMachine := &clusterv1.Machine{
 				ObjectMeta: metav1.ObjectMeta{
 					GenerateName: "capi-machine-",
@@ -959,6 +957,10 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					pickedMachine = bmMachine2
 					waitingMachine = bmMachine
 				}
+
+				// We need to change the mock on-the-fly. There are two
+				// machines, and we need to adapt the mock to the one that is
+				// picked.
 				osSSHClient.On("GetHostName").Return(sshclient.Output{
 					StdOut: infrav1.BareMetalHostNamePrefix + pickedMachine.Name,
 					StdErr: "",
