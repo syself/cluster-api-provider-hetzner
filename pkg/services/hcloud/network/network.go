@@ -99,7 +99,7 @@ func (s *Service) createNetwork(ctx context.Context) (*hcloud.Network, error) {
 		return nil, fmt.Errorf("failed to create network: %w", err)
 	}
 
-	record.Eventf(s.scope.HetznerCluster, "NetworkCreated", "Created network with opts %s", opts)
+	record.Eventf(s.scope.HetznerCluster, "NetworkCreated", "Created network with opts %+v", opts)
 	return resp, nil
 }
 
