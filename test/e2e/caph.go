@@ -36,6 +36,7 @@ import (
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
@@ -61,7 +62,8 @@ func logHCloudMachineStatusContinously(ctx context.Context, c client.Client) {
 		case <-t:
 			err := logHCloudMachineStatus(ctx, c)
 			if err != nil {
-				ginkgo.By(fmt.Sprintf("Error logging HCloudMachine status: %v", err))
+				logger := log.FromContext(ctx)
+				logger.Info("Error logging HCloudMachine status", "error", err)
 			}
 		}
 	}
