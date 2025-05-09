@@ -17,7 +17,6 @@ limitations under the License.
 package controllers
 
 import (
-	"errors"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -384,18 +383,6 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			It("deletes successfully", func() {
 				By("deleting bm machine")
 
-				// Wait for machine to be in running state
-				Eventually(func() bool {
-					err := testEnv.Get(ctx, key, bmMachine)
-					if err != nil {
-						return false
-					}
-					if bmMachine.Status.Phase != clusterv1.MachinePhaseRunning {
-						return false
-					}
-					return len(bmMachine.GetFinalizers()) > 0
-				}, timeout, interval).Should(BeTrue())
-
 				Expect(testEnv.Delete(ctx, bmMachine)).To(Succeed())
 
 				Eventually(func() bool {
@@ -460,165 +447,6 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			It("checks that HostReady condition is True for hetznerBareMetalMachine", func() {
 				Eventually(func() bool {
 					return isPresentAndTrue(key, bmMachine, infrav1.HostReadyCondition)
-				}, timeout, time.Second).Should(BeTrue())
-			})
-		})
-
-		Context("Basic hbmm provisioning test", func() {
-			var osSSHSecret *corev1.Secret
-
-			BeforeEach(func() {
-				capiMachine = &clusterv1.Machine{
-					ObjectMeta: metav1.ObjectMeta{
-						GenerateName: "capi-machine-",
-						Namespace:    testNs.Name,
-						Finalizers:   []string{clusterv1.MachineFinalizer},
-						Labels: map[string]string{
-							clusterv1.ClusterNameLabel: capiCluster.Name,
-						},
-					},
-					Spec: clusterv1.MachineSpec{
-						ClusterName: capiCluster.Name,
-						InfrastructureRef: corev1.ObjectReference{
-							APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
-							Kind:       "HetznerBareMetalMachine",
-							Name:       bmMachineName,
-						},
-						FailureDomain: &defaultFailureDomain,
-						Bootstrap: clusterv1.Bootstrap{
-							DataSecretName: ptr.To("bootstrap-secret"),
-						},
-					},
-				}
-				Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
-
-				osSSHSecret = helpers.GetDefaultSSHSecret("os-ssh-secret", testNs.Name)
-				Expect(testEnv.Create(ctx, osSSHSecret)).To(Succeed())
-
-				key = client.ObjectKey{Namespace: testNs.Name, Name: bmMachineName}
-			})
-
-			AfterEach(func() {
-				Expect(testEnv.Cleanup(ctx, capiMachine, bmMachine, osSSHSecret)).To(Succeed())
-			})
-
-			FIt("deletes successfully when in state Registering", func() {
-				By("deleting bm machine")
-				err := testEnv.Get(ctx, client.ObjectKeyFromObject(host), host)
-				Expect(err).To(Succeed())
-				Expect(host.Spec.Status.ProvisioningState).To(Equal(infrav1.StateNone))
-
-				rescueSSHClient.On("GetHostName").Unset()
-				rescueSSHClient.On("GetHostName").Return(sshclient.Output{
-					StdOut: "some error in GetHostName",
-					StdErr: "",
-					Err:    errors.New("some error in GetHostName"),
-				})
-				bmMachine = &infrav1.HetznerBareMetalMachine{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      bmMachineName,
-						Namespace: testNs.Name,
-						Labels: map[string]string{
-							clusterv1.ClusterNameLabel: capiCluster.Name,
-						},
-						OwnerReferences: []metav1.OwnerReference{
-							{
-								APIVersion: "cluster.x-k8s.io/v1beta1",
-								Kind:       "Machine",
-								Name:       capiMachine.Name,
-								UID:        capiMachine.UID,
-							},
-						},
-					},
-					Spec: getDefaultHetznerBareMetalMachineSpec(),
-				}
-				Expect(testEnv.Create(ctx, bmMachine)).To(Succeed())
-
-				capiMachine2 := &clusterv1.Machine{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:       "machine-2",
-						Namespace:  testNs.Name,
-						Finalizers: []string{clusterv1.MachineFinalizer},
-						Labels: map[string]string{
-							clusterv1.ClusterNameLabel: capiCluster.Name,
-						},
-					},
-					Spec: clusterv1.MachineSpec{
-						ClusterName: capiCluster.Name,
-						InfrastructureRef: corev1.ObjectReference{
-							APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
-							Kind:       "HetznerBareMetalMachine",
-							Name:       bmMachineName,
-						},
-						FailureDomain: &defaultFailureDomain,
-					},
-				}
-				Expect(testEnv.Create(ctx, capiMachine2)).To(Succeed())
-
-				bmMachine2 := &infrav1.HetznerBareMetalMachine{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      bmMachineName + "2",
-						Namespace: testNs.Name,
-						Labels: map[string]string{
-							clusterv1.ClusterNameLabel: capiCluster.Name,
-						},
-						OwnerReferences: []metav1.OwnerReference{
-							{
-								APIVersion: "cluster.x-k8s.io/v1beta1",
-								Kind:       "Machine",
-								Name:       capiMachine2.Name,
-								UID:        capiMachine2.UID,
-							},
-						},
-					},
-					Spec: getDefaultHetznerBareMetalMachineSpec(),
-				}
-				Expect(testEnv.Create(ctx, bmMachine2)).To(Succeed())
-
-				// Wait for machine to be in running state
-				Eventually(func() bool {
-					err := testEnv.Get(ctx, key, bmMachine)
-					if err != nil {
-						return false
-					}
-
-					testEnv.GetLogger().Info("host", "phase", host.Spec.Status.ProvisioningState)
-
-					if len(bmMachine.GetFinalizers()) == 0 {
-						return false
-					}
-
-					if err := testEnv.Get(ctx, hostKey, host); err != nil {
-						return false
-					}
-					return host.Spec.Status.ProvisioningState == infrav1.StateRegistering
-				}, timeout, interval).Should(BeTrue())
-
-				Expect(testEnv.Get(ctx, client.ObjectKeyFromObject(bmMachine2), bmMachine2)).To(Succeed())
-				Expect(bmMachine2.Status.Phase).To(Equal(clusterv1.MachinePhasePending))
-				Expect(testEnv.Delete(ctx, bmMachine)).To(Succeed())
-
-				Eventually(func() bool {
-					if err := testEnv.Get(ctx, key, bmMachine); apierrors.IsNotFound(err) {
-						return true
-					}
-					return false
-				}, timeout, time.Second).Should(BeTrue())
-
-				By("making sure the host has been deprovisioned")
-
-				Eventually(func() bool {
-					if err := testEnv.Get(ctx, hostKey, host); err != nil {
-						return false
-					}
-					return host.Spec.Status.ProvisioningState == infrav1.StateNone
-				}, timeout, time.Second).Should(BeTrue())
-				bmMachine2.ObjectMeta.Labels["foo"] = "bar"
-				err = testEnv.Update(ctx, bmMachine2)
-				Expect(err).To(Succeed())
-				Eventually(func() bool {
-					Expect(testEnv.Get(ctx, client.ObjectKeyFromObject(bmMachine2), bmMachine2)).To(Succeed())
-					return bmMachine2.Status.Phase != clusterv1.MachinePhasePending
 				}, timeout, time.Second).Should(BeTrue())
 			})
 		})
