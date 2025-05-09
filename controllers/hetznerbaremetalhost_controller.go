@@ -82,6 +82,8 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 
 	log = log.WithValues("state", bmHost.Spec.Status.ProvisioningState)
 
+	log.Info("Reconciling HetznerBareMetalHost") // TODO: Remove this log line after debugging
+
 	initialProvisioningState := bmHost.Spec.Status.ProvisioningState
 	defer func() {
 		// check duration of reconcile. Warn if it took too long.
