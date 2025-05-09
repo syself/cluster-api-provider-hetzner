@@ -25,6 +25,8 @@ type Arguments struct {
 	Sleep             time.Duration
 	WhileRegex        *regexp.Regexp
 	ProgrammStartTime time.Time
+	Name              string
+	RetryCount        int16
 }
 
 var resourcesToSkip = []string{
@@ -129,15 +131,31 @@ func runWhileInner(ctx context.Context, arguments Arguments) (bool, error) {
 // Otherwise return true if there was at least one unhealthy condition.
 func RunCheckAllConditions(ctx context.Context, config *restclient.Config, args Arguments) (bool, error) {
 	// Get the list of all API resources available
-	counter, err := RunAndGetCounter(ctx, config, args)
-	if err != nil {
-		return false, err
+	var err error
+	var counter Counter
+	for i := 0; i < int(args.RetryCount); i++ {
+		counter, err = RunAndGetCounter(ctx, config, args)
+		if err == nil {
+			break
+		}
+		fmt.Printf("an error occured. Will retry %d times: %v\n",
+			args.RetryCount, err)
+		time.Sleep(1 * time.Second)
+		continue
 	}
+	if err != nil {
+		return false, fmt.Errorf("an error occured. Will retry %d times: %w", args.RetryCount, err)
+	}
+
 	for _, line := range counter.Lines {
 		fmt.Println(line)
 	}
-	fmt.Printf("Checked %d conditions of %d resources of %d types. Duration: %s\n",
-		counter.CheckedConditions, counter.CheckedResources, counter.CheckedResourceTypes, time.Since(counter.StartTime).Round(time.Millisecond))
+	name := args.Name
+	if name != "" {
+		name = " (" + name + ")"
+	}
+	fmt.Printf("Checked %d conditions of %d resources of %d types. Duration: %s%s\n",
+		counter.CheckedConditions, counter.CheckedResources, counter.CheckedResourceTypes, time.Since(counter.StartTime).Round(time.Millisecond), name)
 
 	if args.WhileRegex == nil {
 		// "all" command
@@ -320,13 +338,21 @@ func printConditions(args *Arguments, conditions []interface{}, counter *handleR
 			d := time.Since(r.conditionLastTransitionTime)
 			duration = fmt.Sprint(d.Round(time.Second))
 		}
+
 		outLine := fmt.Sprintf("  %s %s %s Condition %s=%s %s %q (%s)", obj.GetNamespace(), gvr.Resource, obj.GetName(), r.conditionType, r.conditionStatus,
 			r.conditionReason, r.conditionMessage, duration)
-		lines = append(lines, outLine)
+
+		addLine := true
 		if args.WhileRegex != nil {
+			addLine = false
 			if args.WhileRegex.MatchString(outLine) {
 				again = true
+				addLine = true
 			}
+		}
+
+		if addLine {
+			lines = append(lines, outLine)
 		}
 	}
 	return lines, again
@@ -432,7 +458,6 @@ var conditionTypesOfResourceWithNegativeMeaning = map[string][]string{
 		"NTPProblem",
 		"CperHardwareErrorFatal",
 		"DisksFailure",
-		"DisksHealthy",
 		"KubeletNeedsRestart",
 		"XfsShutdown",
 	},
@@ -443,7 +468,7 @@ var conditionTypesOfResourceWithNegativeMeaning = map[string][]string{
 
 // To create new IngoreRegex take the line you see and remove the namespace, the resource name and the time from that line.
 // Example:
-// from: longhorn-system backuptargets default Condition Unavailable=True Unavailable "backup target URL is empty" (5m21s)
+// from: longhorn-system backuptargets myname Condition Unavailable=True Unavailable "backup target URL is empty" (5m21s)
 // to: `backuptargets Unavailable=True Unavailable "backup target URL is empty"`
 var conditionLinesToIgnoreRegexs = []*regexp.Regexp{
 	regexp.MustCompile("machinesets MachinesReady=False Deleted @.*"),
@@ -460,6 +485,7 @@ var conditionLinesToIgnoreRegexs = []*regexp.Regexp{
 	regexp.MustCompile(`volumes TooManySnapshots=False`),
 	regexp.MustCompile(`volumes Scheduled=True`),
 	regexp.MustCompile(`volumes Restore=False`),
+	regexp.MustCompile(`machinesets (MachinesReady|Ready)=False NodeNotFound.*`),
 }
 
 func conditionTypeHasPositiveMeaning(resource string, ct string) bool {

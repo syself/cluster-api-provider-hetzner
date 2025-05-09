@@ -7,7 +7,7 @@ require (
 	github.com/bramvdbogaerde/go-scp v1.5.0
 	github.com/go-logr/logr v1.4.2
 	github.com/go-logr/zapr v1.3.0
-	github.com/guettli/check-conditions v0.0.3
+	github.com/guettli/check-conditions v0.0.9
 	github.com/hetznercloud/hcloud-go/v2 v2.19.1
 	github.com/onsi/ginkgo/v2 v2.23.0
 	github.com/onsi/gomega v1.36.2
