@@ -117,8 +117,8 @@ for mdraid in /dev/md?*; do
         echo "$wwn" >>"$md_file"
     done
     if [ ! -s "$md_file" ]; then
-        echo "failed to find devices of $mdraid"
-        exit 3
+        echo "mdraid without disks: $mdraid (skipping it)"
+        continue
     fi
     sort --unique -o "$md_file" "$md_file"
     if cmp --silent "$md_file" "$wwn_file"; then

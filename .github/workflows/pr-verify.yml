@@ -5,17 +5,39 @@ on: # yamllint disable-line rule:truthy
 # yamllint disable rule:line-length
 jobs:
   pr-verify:
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
     runs-on: ubuntu-latest
     name: Verify Pull Request
     steps:
-      - name: Verifier action
-        id: verifier
-        uses: kubernetes-sigs/kubebuilder-release-tools@012269a88fa4c034a0acf1ba84c26b195c0dbab4 # v0.4.3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      # Take from https://github.com/kubernetes-sigs/kubebuilder/blob/master/.github/workflows/verify.yml
+      - name: Validate PR Title Format
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          if [[ -z "$TITLE" ]]; then
+            echo "Error: PR title cannot be empty."
+            exit 1
+          fi
+
+          if ! [[ "$TITLE" =~ ^($'\u26A0'|:warning:|$'\u2728'|:sparkles:|$'\U0001F41B'|:bug:|$'\U0001F4D6'|:book:|$'\U0001F680'|:release:|$'\U0001F331'|:seedling:) ]]; then
+            echo "Error: Invalid PR title format."
+            echo "Your PR title must start with one of the following indicators:"
+            echo "- Breaking change: ⚠ (U+26A0) or :warning:"
+            echo "- Non-breaking feature: ✨ (U+2728) or :sparkles:"
+            echo "- Patch fix: 🐛 (U+1F41B) or :bug:"
+            echo "- Docs: 📖 (U+1F4D6) or :book:"
+            echo "- Release: 🚀 (U+1F680) or :release:"
+            echo "- Infra/Tests/Other: 🌱 (U+1F331) or :seedling:"
+            exit 1
+          fi
+
+          echo "PR title is valid: '$TITLE'"
 
       - name: Verify Boilerplate
         run: make verify-boilerplate
@@ -38,16 +60,11 @@ jobs:
             renovate-config-validator ${file}
           done
 
-      - name: Generate Token
-        uses: actions/create-github-app-token@21cfef2b496dd8ef5b904c159339626a10ad380e # v1
-        id: generate-token
-        with:
-          app-id: ${{ secrets.SYSELF_APP_ID }}
-          private-key: ${{ secrets.SYSELF_APP_PRIVATE_KEY }}
       - name: Generate Size
+        if: github.event.pull_request.head.repo.full_name == github.repository # Skip forked PRs
         uses: pascalgn/size-label-action@f8edde36b3be04b4f65dcfead05dc8691b374348 # v0.5.5
         env:
-          GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           sizes: >
             {
@@ -59,12 +76,12 @@ jobs:
             "2000": "XXL"
             }
       - name: Generate Labels
+        if: github.event.pull_request.head.repo.full_name == github.repository # Skip forked PRs
         uses: actions/labeler@8558fd74291d67161a8a78ce36a881fa63b766a9 # v5
         with:
           configuration-path: .github/labeler.yaml
-          repo-token: ${{ steps.generate-token.outputs.token }}
       - name: Sync Labels
+        if: github.event.pull_request.head.repo.full_name == github.repository # Skip forked PRs
         uses: EndBug/label-sync@52074158190acb45f3077f9099fea818aa43f97a # v2
         with:
           config-file: .github/labels.yaml
-          token: ${{ steps.generate-token.outputs.token }}

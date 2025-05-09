@@ -160,7 +160,7 @@ func SaveHostAndReturn(ctx context.Context, cl client.Client, host *infrav1.Hetz
 	if err := cl.Update(ctx, host); err != nil {
 		if apierrors.IsConflict(err) {
 			log := ctrl.LoggerFrom(ctx)
-			log.V(1).Info("conflict error. Retrying", "err", err)
+			log.Info("conflict error. Retrying", "err", err)
 			return reconcile.Result{Requeue: true}, nil
 		}
 		return reconcile.Result{}, fmt.Errorf("failed to update host object: %w", err)
@@ -619,7 +619,8 @@ func (s *Service) actionRegistering(_ context.Context) actionResult {
 		if s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated != nil {
 			timeSinceReboot = time.Since(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated.Time).String()
 		}
-		s.scope.Logger.Info("Could not reach rescue system. Will retry some seconds later.", "stdout", out.StdOut, "stderr", out.StdErr, "err", out.Err.Error(),
+
+		s.scope.Logger.Info("Could not reach rescue system. Will retry some seconds later.", "out", out.String(), "hostName", hostName,
 			"isSSHTimeoutError", isSSHTimeoutError, "isSSHConnectionRefusedError", isSSHConnectionRefusedError, "timeSinceReboot", timeSinceReboot)
 		return actionContinue{delay: 10 * time.Second}
 	}
