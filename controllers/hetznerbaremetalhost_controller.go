@@ -79,7 +79,8 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 
 	// Fetch the Hetzner bare metal host instance.
 	bmHost := &infrav1.HetznerBareMetalHost{}
-	err := r.Get(ctx, req.NamespacedName, bmHost)
+	// Use uncached APIReader to avoid cache issues.
+	err := r.APIReader.Get(ctx, req.NamespacedName, bmHost)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return reconcile.Result{}, nil
