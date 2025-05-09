@@ -259,12 +259,12 @@ var _ = Describe("handleIncompleteBoot", func() {
 					helpers.WithError(tc.hostErrorType, "", 1, metav1.Now()),
 				)
 				service := newTestService(host, &robotMock, nil, nil, nil)
-
+				ctx := context.Background()
 				if tc.expectedReturnError == nil {
-					_, err := service.handleIncompleteBoot(tc.isRebootIntoRescue, tc.isTimeOut, tc.isConnectionRefused)
+					_, err := service.handleIncompleteBoot(ctx, tc.isRebootIntoRescue, tc.isTimeOut, tc.isConnectionRefused)
 					Expect(err).To(Succeed())
 				} else {
-					_, err := service.handleIncompleteBoot(tc.isRebootIntoRescue, tc.isTimeOut, tc.isConnectionRefused)
+					_, err := service.handleIncompleteBoot(ctx, tc.isRebootIntoRescue, tc.isTimeOut, tc.isConnectionRefused)
 					Expect(err).Should(Equal(tc.expectedReturnError))
 				}
 
@@ -352,8 +352,8 @@ var _ = Describe("handleIncompleteBoot", func() {
 					helpers.WithRebootTypes(tc.rebootTypes),
 				)
 				service := newTestService(host, &robotMock, nil, nil, nil)
-
-				_, err := service.handleIncompleteBoot(true, tc.isTimeOut, tc.isConnectionRefused)
+				ctx := context.Background()
+				_, err := service.handleIncompleteBoot(ctx, true, tc.isTimeOut, tc.isConnectionRefused)
 				Expect(err).To(Succeed())
 				Expect(host.Spec.Status.ErrorType).To(Equal(tc.expectedHostErrorType))
 				if tc.expectedRebootType != infrav1.RebootType("") {
@@ -439,7 +439,8 @@ var _ = Describe("handleIncompleteBoot", func() {
 				)
 				service := newTestService(host, &robotMock, nil, nil, nil)
 
-				_, err := service.handleIncompleteBoot(true, true, false)
+				ctx := context.Background()
+				_, err := service.handleIncompleteBoot(ctx, true, true, false)
 				Expect(err).To(Succeed())
 				Expect(host.Spec.Status.ErrorType).To(Equal(tc.expectedHostErrorType))
 				if tc.expectedRebootType != infrav1.RebootType("") {
@@ -485,7 +486,8 @@ var _ = Describe("handleIncompleteBoot", func() {
 			)
 			service := newTestService(host, &robotMock, nil, nil, nil)
 
-			failed, err := service.handleIncompleteBoot(true, false, true)
+			ctx := context.Background()
+			failed, err := service.handleIncompleteBoot(ctx, true, false, true)
 			Expect(err).ToNot(BeNil())
 			Expect(failed).To(BeTrue())
 			Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.ErrorTypeConnectionError))
@@ -510,7 +512,8 @@ var _ = Describe("handleIncompleteBoot", func() {
 			)
 			service := newTestService(host, &robotMock, nil, nil, nil)
 
-			_, err := service.handleIncompleteBoot(true, true, false)
+			ctx := context.Background()
+			_, err := service.handleIncompleteBoot(ctx, true, true, false)
 			Expect(err).ToNot(Succeed())
 			Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.ErrorTypeHardwareRebootTriggered))
 			Expect(robotMock.AssertNotCalled(GinkgoT(), "RebootBMServer", mock.Anything, mock.Anything)).To(BeTrue())
@@ -545,11 +548,12 @@ var _ = Describe("handleIncompleteBoot", func() {
 				)
 				service := newTestService(host, &robotMock, nil, nil, nil)
 
+				ctx := context.Background()
 				if tc.expectedReturnError == nil {
-					_, err := service.handleIncompleteBoot(tc.isRebootIntoRescue, false, false)
+					_, err := service.handleIncompleteBoot(ctx, tc.isRebootIntoRescue, false, false)
 					Expect(err).To(Succeed())
 				} else {
-					_, err := service.handleIncompleteBoot(tc.isRebootIntoRescue, false, false)
+					_, err := service.handleIncompleteBoot(ctx, tc.isRebootIntoRescue, false, false)
 					Expect(err).Should(Equal(tc.expectedReturnError))
 				}
 				Expect(host.Spec.Status.ErrorType).To(Equal(tc.expectedHostErrorType))

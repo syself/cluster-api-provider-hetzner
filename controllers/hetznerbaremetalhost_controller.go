@@ -26,7 +26,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog/v2"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/conditions"
@@ -69,16 +68,10 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	log := ctrl.LoggerFrom(ctx)
 
 	start := time.Now()
-	defer func() {
-		// check duration of reconcile. Warn if it took too long.
-		duration := time.Since(start)
-		if duration > 15*time.Second {
-			log.Info("Reconcile took too long", "duration", duration, "res", res, "reterr", reterr)
-		}
-	}()
 
 	// Fetch the Hetzner bare metal host instance.
 	bmHost := &infrav1.HetznerBareMetalHost{}
+	// Use uncached APIReader to avoid cache issues.
 	err := r.Get(ctx, req.NamespacedName, bmHost)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -87,10 +80,18 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		return reconcile.Result{}, err
 	}
 
+	log = log.WithValues("state", bmHost.Spec.Status.ProvisioningState)
+	ctx = ctrl.LoggerInto(ctx, log)
+
 	initialProvisioningState := bmHost.Spec.Status.ProvisioningState
 	defer func() {
+		// check duration of reconcile. Warn if it took too long.
+		duration := time.Since(start)
+		if duration > 10*time.Second {
+			log.Info("Reconcile took too long", "duration", duration, "res", res, "reterr", reterr)
+		}
 		if initialProvisioningState != bmHost.Spec.Status.ProvisioningState {
-			log.Info("Provisioning state changed", "from", initialProvisioningState, "to", bmHost.Spec.Status.ProvisioningState)
+			log.Info("Provisioning state changed", "newState", bmHost.Spec.Status.ProvisioningState, "duration", duration)
 		}
 	}()
 
@@ -140,20 +141,17 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 	if err := r.Client.Get(ctx, hetznerClusterName, hetznerCluster); err != nil {
 		if apierrors.IsNotFound(err) {
+			log.Info("HetznerCluster not found. Requeueing")
 			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 		}
 		return reconcile.Result{}, fmt.Errorf("failed to get HetznerCluster: %w", err)
 	}
-
-	log = log.WithValues("HetznerCluster", klog.KObj(hetznerCluster))
 
 	// Fetch the Cluster.
 	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, hetznerCluster.ObjectMeta)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to get Cluster: %w", err)
 	}
-
-	log = log.WithValues("Cluster", klog.KObj(cluster))
 
 	hetznerBareMetalMachine := &infrav1.HetznerBareMetalMachine{}
 
@@ -167,10 +165,6 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 			return reconcile.Result{}, fmt.Errorf("failed to get HetznerBareMetalMachine: %w", err)
 		}
 	}
-
-	log = log.WithValues("HetznerBareMetalMachine", klog.KObj(hetznerBareMetalMachine))
-
-	ctx = ctrl.LoggerInto(ctx, log)
 
 	// Get Hetzner robot api credentials
 	secretManager := secretutil.NewSecretManager(log, r.Client, r.APIReader)
@@ -245,7 +239,6 @@ func (r *HetznerBareMetalHostReconciler) reconcileSelectedStates(ctx context.Con
 				return reconcile.Result{}, fmt.Errorf("Update() failed after setting ProvisioningState: %w", err)
 			}
 		}
-
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 
 		// Handle StateDeleting
