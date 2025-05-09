@@ -1153,7 +1153,7 @@ func (s *Service) actionImageInstalling(ctx context.Context) actionResult {
 	out := sshClient.GetHostName()
 	hostName := trimLineBreak(out.StdOut)
 	realHostName := s.scope.Hostname()
-	if hostName != rescue || hostName != realHostName {
+	if hostName != rescue && hostName != realHostName {
 		// During InstallImage the hostname changes from "rescue" to the realHostName.
 		// If it is not one of these two, then this is unexpected.
 		ctrl.LoggerFrom(ctx).Info(
