@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
@@ -33,12 +32,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/selection"
+	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/baremetal"
@@ -1070,7 +1071,7 @@ func Test_BareMetalHostToBareMetalMachines(t *testing.T) {
 	// host does not have a label.
 	f := BareMetalHostToBareMetalMachines(c, logr.Logger{})
 	result := f(ctx, host)
-	require.Equal(t, "[]", fmt.Sprintf("%v", result))
+	require.Nil(t, result)
 	host.Labels = map[string]string{
 		"key": "foo",
 	}
@@ -1079,5 +1080,12 @@ func Test_BareMetalHostToBareMetalMachines(t *testing.T) {
 	err := c.Update(ctx, host)
 	require.NoError(t, err)
 	result = f(ctx, host)
-	require.Equal(t, "[test-ns/test-machine-with-label-foo]", fmt.Sprintf("%v", result))
+	require.Equal(t, []reconcile.Request{
+		{
+			NamespacedName: types.NamespacedName{
+				Name:      "test-machine-with-label-foo",
+				Namespace: "test-ns",
+			},
+		},
+	}, result)
 }
