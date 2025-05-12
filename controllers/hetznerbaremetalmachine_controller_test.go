@@ -942,6 +942,11 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			// Wait until bmMachine is provisioned.
 			var pickedMachine *infrav1.HetznerBareMetalMachine
 			var waitingMachine *infrav1.HetznerBareMetalMachine
+
+			// The mock should wait until we know which machine is picked.
+			w := make(chan time.Time)
+			osSSHClient.On("GetHostName").WaitUntil(w)
+
 			Eventually(func() bool {
 				if err := testEnv.Get(ctx, client.ObjectKeyFromObject(host), host); err != nil {
 					return false
@@ -958,14 +963,19 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					waitingMachine = bmMachine
 				}
 
-				// We need to change the mock on-the-fly. There are two
-				// machines, and we need to adapt the mock to the one that is
-				// picked.
-				osSSHClient.On("GetHostName").Return(sshclient.Output{
-					StdOut: infrav1.BareMetalHostNamePrefix + pickedMachine.Name,
-					StdErr: "",
-					Err:    nil,
-				})
+				if w != nil {
+					// We need to change the mock on-the-fly. There are two
+					// machines, and we need to adapt the mock to the one that is
+					// picked.
+					osSSHClient.On("GetHostName").Return(sshclient.Output{
+						StdOut: infrav1.BareMetalHostNamePrefix + pickedMachine.Name,
+						StdErr: "",
+						Err:    nil,
+					})
+					// Close the channel, so that mock "GetHostName" does no longer block.
+					close(w)
+					w = nil
+				}
 
 				return host.Spec.Status.ProvisioningState != infrav1.StateProvisioned
 			}, timeout).Should(BeTrue())
