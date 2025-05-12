@@ -1512,6 +1512,8 @@ func verifyConnectionRefused(sshClient sshclient.Client, port int) bool {
 	return true
 }
 
+// prev: ImageInstalling
+// next: Provisioned
 func (s *Service) actionEnsureProvisioned(_ context.Context) (ar actionResult) {
 	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StateEnsureProvisioned)
 	sshClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{

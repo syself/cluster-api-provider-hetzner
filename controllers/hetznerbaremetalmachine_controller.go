@@ -345,8 +345,7 @@ func BareMetalHostToBareMetalMachines(c client.Client, log logr.Logger) handler.
 			return nil
 		}
 
-		// If this host has a consumerRef (hbmm), then it is not free,
-		// and we don't need to reconcile it.
+		// If this host has a consumerRef (hbmm), then reconcile the corresponding hbmm.
 		if host.Spec.ConsumerRef != nil {
 			return []reconcile.Request{
 				{
