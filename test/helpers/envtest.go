@@ -42,6 +42,7 @@ import (
 	bootstrapv1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
 	"sigs.k8s.io/cluster-api/cmd/clusterctl/log"
 	"sigs.k8s.io/cluster-api/util/kubeconfig"
+	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -61,7 +62,7 @@ import (
 
 func init() {
 	klog.InitFlags(nil)
-	logger := textlogger.NewLogger(textlogger.NewConfig())
+	logger := textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(4)))
 
 	// use klog as the internal logger for this envtest environment.
 	log.SetLogger(logger)
@@ -148,6 +149,8 @@ func NewTestEnvironment() *TestEnvironment {
 	if err != nil {
 		klog.Fatalf("unable to create manager: %s", err)
 	}
+
+	record.InitFromRecorder(mgr.GetEventRecorderFor("hetzner-controller"))
 
 	if err := (&infrav1.HetznerCluster{}).SetupWebhookWithManager(mgr); err != nil {
 		klog.Fatalf("failed to set up webhook with manager for HetznerCluster: %s", err)

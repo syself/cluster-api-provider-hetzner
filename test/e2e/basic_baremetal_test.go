@@ -18,94 +18,15 @@ package e2e
 
 import (
 	"context"
-	"fmt"
-	"strings"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
-	appsv1 "k8s.io/api/apps/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	"sigs.k8s.io/cluster-api/util/conditions"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
-
-func logBareMetalHostStatusContinously(ctx context.Context, c client.Client) {
-	for {
-		t := time.After(30 * time.Second)
-		select {
-		case <-ctx.Done():
-			return
-		case <-t:
-			err := logBareMetalHostStatus(ctx, c)
-			if err != nil {
-				log := log.FromContext(ctx)
-				log.Info("Error logging BareMetalHost status", "error", err)
-			}
-		}
-	}
-}
-
-func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
-	hbmhList := &infrav1.HetznerBareMetalHostList{}
-	err := c.List(ctx, hbmhList)
-	if err != nil {
-		return err
-	}
-
-	if len(hbmhList.Items) == 0 {
-		return nil
-	}
-
-	caphDeployment := appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "caph-controller-manager",
-			Namespace: "caph-system",
-		},
-	}
-	err = c.Get(ctx, client.ObjectKeyFromObject(&caphDeployment), &caphDeployment)
-	if err != nil {
-		return fmt.Errorf("failed to get caph-controller-manager deployment: %w", err)
-	}
-
-	By(fmt.Sprintf("--------------------------------------------------- BareMetalHosts %s",
-		caphDeployment.Spec.Template.Spec.Containers[0].Image))
-
-	for i := range hbmhList.Items {
-		hbmh := &hbmhList.Items[i]
-		if hbmh.Spec.Status.ProvisioningState == "" {
-			continue
-		}
-		By("BareMetalHost: " + hbmh.Name + " " + fmt.Sprint(hbmh.Spec.ServerID))
-		By("  ProvisioningState: " + string(hbmh.Spec.Status.ProvisioningState))
-		eMsg := string(hbmh.Spec.Status.ErrorType) + " " + hbmh.Spec.Status.ErrorMessage
-		eMsg = strings.TrimSpace(eMsg)
-		if eMsg != "" {
-			By("  Error: " + eMsg)
-		}
-		readyC := conditions.Get(hbmh, clusterv1.ReadyCondition)
-		msg := ""
-		reason := ""
-		state := "?"
-		if readyC != nil {
-			msg = readyC.Message
-			reason = readyC.Reason
-			state = string(readyC.Status)
-		}
-		By("  Ready Condition: " + state + " " + reason + " " + msg)
-	}
-	return nil
-}
 
 var _ = Describe("[Baremetal] Testing Cluster 1x control-planes 1x worker ", func() {
 	ctx := context.TODO()
 
 	Context("Running the CaphClusterDeploymentSpec in Hetzner Baremetal", func() {
 		CaphClusterDeploymentSpec(ctx, func() CaphClusterDeploymentSpecInput {
-			go logBareMetalHostStatusContinously(ctx, bootstrapClusterProxy.GetClient())
 			return CaphClusterDeploymentSpecInput{
 				E2EConfig:                e2eConfig,
 				ClusterctlConfigPath:     clusterctlConfigPath,
