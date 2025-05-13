@@ -1112,11 +1112,20 @@ func (s *Service) actionPreProvisioning(ctx context.Context) actionResult {
 	sshClient := s.scope.SSHClientFactory.NewClient(in)
 
 	out := sshClient.GetHostName()
+	if out.Err != nil || out.StdErr != "" {
+		ctrl.LoggerFrom(ctx).Info("pre-provision: rescue sytem not reachable. Will try again",
+			"sshOutput", out.String())
+		return actionContinue{delay: 10 * time.Second}
+	}
+
 	hostName := trimLineBreak(out.StdOut)
 	if hostName != rescue {
 		// This is unexpected. We should be in rescue mode.
-		ctrl.LoggerFrom(ctx).Info("pre-provision: expected rescue system, but found different hostname", "hostname", hostName, "sshOutput", out.String())
-		return actionContinue{delay: 10 * time.Second}
+		msg := fmt.Sprintf("expected rescue system, but found different hostname %q", hostName)
+		record.Warnf(s.scope.HetznerBareMetalHost, "PreProvisioningFailed", msg)
+		ctrl.LoggerFrom(ctx).Error(errors.New("PreProvisioningFailed"), msg)
+		s.scope.HetznerBareMetalHost.SetError(infrav1.PermanentError, msg)
+		return actionStop{}
 	}
 
 	exitStatus, output, err := sshClient.ExecutePreProvisionCommand(ctx, s.scope.PreProvisionCommand)
@@ -1151,15 +1160,24 @@ func (s *Service) actionImageInstalling(ctx context.Context) actionResult {
 	sshClient := s.scope.SSHClientFactory.NewClient(in)
 
 	out := sshClient.GetHostName()
+	if out.Err != nil || out.StdErr != "" {
+		ctrl.LoggerFrom(ctx).Info("image-installing: rescue sytem not reachable. Will try again",
+			"sshOutput", out.String())
+		return actionContinue{delay: 10 * time.Second}
+	}
+
 	hostName := trimLineBreak(out.StdOut)
 	realHostName := s.scope.Hostname()
 	if hostName != rescue && hostName != realHostName {
 		// During InstallImage the hostname changes from "rescue" to the realHostName.
 		// If it is not one of these two, then this is unexpected.
-		ctrl.LoggerFrom(ctx).Info(
-			fmt.Sprintf(
-				"image-installing: expected hostname %q or %q system, but found different output", rescue, realHostName), "sshOutput", out.String())
-		return actionContinue{delay: 10 * time.Second}
+		// This is unexpected. We should be in rescue mode.
+		msg := fmt.Sprintf("expected rescue system (%q or %q), but found different hostname %q",
+			rescue, realHostName, hostName)
+		record.Warnf(s.scope.HetznerBareMetalHost, "ImageInstallingFailed", msg)
+		ctrl.LoggerFrom(ctx).Error(errors.New("ImageInstallingFailed"), msg)
+		s.scope.HetznerBareMetalHost.SetError(infrav1.PermanentError, msg)
+		return actionStop{}
 	}
 
 	state, err := sshClient.GetInstallImageState()

@@ -430,13 +430,15 @@ func (c *sshClient) GetInstallImageState() (InstallImageState, error) {
 	}
 
 	out = c.runSSH(`[ -e /root/installimage-wrapper.sh.log ]`)
-	exists, err := out.ExitStatus()
+	exitStatus, err := out.ExitStatus()
 	if err != nil {
 		return "", fmt.Errorf("failed to check if installimage-wrapper.sh.log exists: %w", err)
 	}
-	if exists == 0 {
+	if exitStatus == 0 {
+		// above log file exists, but installimage is not running: finished.
 		return InstallImageStateFinished, nil
 	}
+	// installimage is not running and the log file does not exist: not started yet.
 	return InstallImageStateNotStartedYet, nil
 }
 
