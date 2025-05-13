@@ -1113,7 +1113,7 @@ func (s *Service) actionPreProvisioning(ctx context.Context) actionResult {
 
 	out := sshClient.GetHostName()
 	if out.Err != nil || out.StdErr != "" {
-		ctrl.LoggerFrom(ctx).Info("pre-provision: rescue sytem not reachable. Will try again",
+		ctrl.LoggerFrom(ctx).Info("pre-provision: rescue system not reachable. Will try again",
 			"sshOutput", out.String())
 		return actionContinue{delay: 10 * time.Second}
 	}
@@ -1161,7 +1161,7 @@ func (s *Service) actionImageInstalling(ctx context.Context) actionResult {
 
 	out := sshClient.GetHostName()
 	if out.Err != nil || out.StdErr != "" {
-		ctrl.LoggerFrom(ctx).Info("image-installing: rescue sytem not reachable. Will try again",
+		ctrl.LoggerFrom(ctx).Info("image-installing: rescue system not reachable. Will try again",
 			"sshOutput", out.String())
 		return actionContinue{delay: 10 * time.Second}
 	}
