@@ -168,6 +168,8 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		}
 	}
 
+	log = log.WithValues("HetznerBareMetalMachine", klog.KObj(hetznerBareMetalMachine))
+
 	// Get Hetzner robot api credentials
 	secretManager := secretutil.NewSecretManager(log, r.Client, r.APIReader)
 	robotCreds, err := getAndValidateRobotCredentials(ctx, req.Namespace, hetznerCluster, secretManager)
