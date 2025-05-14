@@ -17,20 +17,29 @@ limitations under the License.
 package controllers
 
 import (
+	"context"
+	"testing"
 	"time"
 
+	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"github.com/syself/hrobot-go/models"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/selection"
+	"k8s.io/apimachinery/pkg/types"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/baremetal"
@@ -825,4 +834,262 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			})
 		})
 	})
+
+	Context("Test EnqueueRequestsFromMapFunc BareMetalHostToBareMetalMachines", func() {
+		It("should enqueue the second HetznerBareMetalMachine, when the first gets deleted", func() {
+			// We test this part in BareMetalHostToBareMetalMachines:
+			// We have a free host. Trigger a matching HetznerBareMetalMachine to be reconciled.
+			capiMachine := &clusterv1.Machine{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "capi-machine-",
+					Namespace:    testNs.Name,
+					Finalizers:   []string{clusterv1.MachineFinalizer},
+					Labels: map[string]string{
+						clusterv1.ClusterNameLabel: capiCluster.Name,
+					},
+				},
+				Spec: clusterv1.MachineSpec{
+					ClusterName: capiCluster.Name,
+					InfrastructureRef: corev1.ObjectReference{
+						APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
+						Kind:       "HetznerBareMetalMachine",
+						Name:       bmMachineName,
+					},
+					FailureDomain: &defaultFailureDomain,
+					Bootstrap: clusterv1.Bootstrap{
+						DataSecretName: ptr.To("bootstrap-secret"),
+					},
+				},
+			}
+			Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
+
+			bmMachine = &infrav1.HetznerBareMetalMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      bmMachineName,
+					Namespace: testNs.Name,
+					Labels: map[string]string{
+						clusterv1.ClusterNameLabel: capiCluster.Name,
+					},
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: "cluster.x-k8s.io/v1beta1",
+							Kind:       "Machine",
+							Name:       capiMachine.Name,
+							UID:        capiMachine.UID,
+						},
+					},
+				},
+				Spec: getDefaultHetznerBareMetalMachineSpec(),
+			}
+			Expect(testEnv.Create(ctx, bmMachine)).To(Succeed())
+
+			// Create a second Capi- and HetznerBareMetalMachine
+			bmMachineName2 := "hbmm2"
+			capiMachine2 := &clusterv1.Machine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       utils.GenerateName(nil, "capimachine-name-"),
+					Namespace:  testNs.Name,
+					Finalizers: []string{clusterv1.MachineFinalizer},
+					Labels: map[string]string{
+						clusterv1.ClusterNameLabel: capiCluster.Name,
+					},
+				},
+				Spec: clusterv1.MachineSpec{
+					ClusterName: capiCluster.Name,
+					InfrastructureRef: corev1.ObjectReference{
+						APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
+						Kind:       "HetznerBareMetalMachine",
+						Name:       bmMachineName2,
+					},
+					Bootstrap: clusterv1.Bootstrap{
+						DataSecretName: ptr.To("bootstrap-secret"),
+					},
+					FailureDomain: &defaultFailureDomain,
+				},
+			}
+			Expect(testEnv.Create(ctx, capiMachine2)).To(Succeed())
+
+			bmMachine2 := &infrav1.HetznerBareMetalMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      bmMachineName2,
+					Namespace: testNs.Name,
+					Labels: map[string]string{
+						clusterv1.ClusterNameLabel: capiCluster.Name,
+					},
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: "cluster.x-k8s.io/v1beta1",
+							Kind:       "Machine",
+							Name:       capiMachine2.Name,
+							UID:        capiMachine2.UID,
+						},
+					},
+				},
+				Spec: getDefaultHetznerBareMetalMachineSpec(),
+			}
+			Expect(testEnv.Create(ctx, bmMachine2)).To(Succeed())
+
+			osSSHSecret := helpers.GetDefaultSSHSecret("os-ssh-secret", testNs.Name)
+			Expect(testEnv.Create(ctx, osSSHSecret)).To(Succeed())
+
+			host := helpers.BareMetalHost(
+				hostName,
+				testNs.Name,
+				helpers.WithRootDeviceHintWWN(),
+				helpers.WithHetznerClusterRef(hetznerClusterName),
+			)
+			Expect(testEnv.Create(ctx, host)).To(Succeed())
+
+			// Wait until bmMachine is provisioned.
+			var pickedMachine *infrav1.HetznerBareMetalMachine
+			var waitingMachine *infrav1.HetznerBareMetalMachine
+
+			// The mock should wait until we know which machine is picked.
+			w := make(chan time.Time)
+			osSSHClient.On("GetHostName").WaitUntil(w)
+
+			Eventually(func() bool {
+				if err := testEnv.Get(ctx, client.ObjectKeyFromObject(host), host); err != nil {
+					return false
+				}
+				if host.Spec.ConsumerRef == nil {
+					return false
+				}
+
+				if host.Spec.ConsumerRef.Name == bmMachineName {
+					pickedMachine = bmMachine
+					waitingMachine = bmMachine2
+				} else {
+					pickedMachine = bmMachine2
+					waitingMachine = bmMachine
+				}
+
+				if w != nil {
+					// We need to change the mock on-the-fly. There are two
+					// machines, and we need to adapt the mock to the one that is
+					// picked.
+					osSSHClient.On("GetHostName").Return(sshclient.Output{
+						StdOut: infrav1.BareMetalHostNamePrefix + pickedMachine.Name,
+						StdErr: "",
+						Err:    nil,
+					})
+					// Close the channel, so that mock "GetHostName" does no longer block.
+					close(w)
+
+					// We updated the mock, and closed the channel. Set channel to nil,
+					// so that we don't mock and close again.
+					// Closing a closed channel would panic.
+					w = nil
+				}
+
+				return host.Spec.Status.ProvisioningState != infrav1.StateProvisioned
+			}, timeout).Should(BeTrue())
+
+			// Ensure the second machine is not ready (waiting for a hbmh)
+			Expect(testEnv.Get(ctx, client.ObjectKeyFromObject(waitingMachine),
+				waitingMachine)).To(Succeed())
+			Expect(waitingMachine.Status.Ready).To(BeFalse())
+
+			// Delete the first machine
+			Expect(testEnv.Delete(ctx, pickedMachine)).To(Succeed())
+
+			// Wait until the waiting machine is ready
+			Eventually(func() bool {
+				Expect(testEnv.Get(ctx, client.ObjectKeyFromObject(waitingMachine),
+					waitingMachine)).To(Succeed())
+				return waitingMachine.Status.Ready
+			}, timeout).Should(BeTrue())
+		})
+	})
 })
+
+func Test_BareMetalHostToBareMetalMachines(t *testing.T) {
+	ctx := context.Background()
+	scheme := runtime.NewScheme()
+	utilruntime.Must(infrav1.AddToScheme(scheme))
+	host := &infrav1.HetznerBareMetalHost{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-host",
+			Namespace: "test-ns",
+		},
+	}
+	hbmm := &infrav1.HetznerBareMetalMachine{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-machine-with-label-foo",
+			Namespace: "test-ns",
+		},
+		Spec: infrav1.HetznerBareMetalMachineSpec{
+			HostSelector: infrav1.HostSelector{
+				MatchLabels: map[string]string{
+					"key": "foo",
+				},
+			},
+		},
+	}
+	hbmmWithHostAnnotation := &infrav1.HetznerBareMetalMachine{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-machine-with-host-annotation",
+			Namespace: "test-ns",
+			Annotations: map[string]string{
+				infrav1.HostAnnotation: "test-host",
+			},
+		},
+		Spec: infrav1.HetznerBareMetalMachineSpec{
+			HostSelector: infrav1.HostSelector{
+				MatchLabels: map[string]string{
+					"key": "foo",
+				},
+			},
+		},
+	}
+
+	hbmmWithoutLabel := &infrav1.HetznerBareMetalMachine{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-machine-with-label-bar",
+			Namespace: "test-ns",
+		},
+		Spec: infrav1.HetznerBareMetalMachineSpec{
+			HostSelector: infrav1.HostSelector{
+				MatchLabels: map[string]string{
+					"key": "bar",
+				},
+			},
+		},
+	}
+	hbmmOtherNS := &infrav1.HetznerBareMetalMachine{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-machine-other-namespace",
+			Namespace: "test-other-namespace",
+		},
+		Spec: infrav1.HetznerBareMetalMachineSpec{
+			HostSelector: infrav1.HostSelector{
+				MatchLabels: map[string]string{
+					"key": "foo",
+				},
+			},
+		},
+	}
+	c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(
+		host, hbmm, hbmmOtherNS, hbmmWithoutLabel, hbmmWithHostAnnotation).Build()
+
+	// host does not have a label.
+	f := BareMetalHostToBareMetalMachines(c, logr.Logger{})
+	result := f(ctx, host)
+	require.Nil(t, result)
+	host.Labels = map[string]string{
+		"key": "foo",
+	}
+
+	// host has label "foo"
+	err := c.Update(ctx, host)
+	require.NoError(t, err)
+	result = f(ctx, host)
+	require.Equal(t, []reconcile.Request{
+		{
+			NamespacedName: types.NamespacedName{
+				Name:      "test-machine-with-label-foo",
+				Namespace: "test-ns",
+			},
+		},
+	}, result)
+}

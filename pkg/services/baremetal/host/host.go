@@ -1181,12 +1181,11 @@ func (s *Service) actionImageInstalling(ctx context.Context) actionResult {
 	case sshclient.InstallImageStateRunning:
 		s.scope.Logger.Info("installimage is still running. Checking again in some seconds.")
 		return actionContinue{delay: 10 * time.Second}
-
 	case sshclient.InstallImageStateFinished:
 		s.scope.Logger.Info("installimage is finished.")
 		return s.actionImageInstallingFinished(ctx, sshClient)
 	case sshclient.InstallImageStateNotStartedYet:
-		// install-image not started yet. Start it now.
+		s.scope.Logger.Info("installimage is not started yet. Starting it now")
 		return s.actionImageInstallingStartBackgroundProcess(ctx, sshClient)
 	default:
 		panic(fmt.Sprintf("Unknown InstallImageState %+v", state))
@@ -1558,6 +1557,8 @@ func verifyConnectionRefused(sshClient sshclient.Client, port int) bool {
 	return true
 }
 
+// prev: ImageInstalling
+// next: Provisioned
 func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult) {
 	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StateEnsureProvisioned)
 	sshClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
