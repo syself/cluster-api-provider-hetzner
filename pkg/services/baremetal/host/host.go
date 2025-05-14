@@ -620,14 +620,6 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 			return actionError{err: fmt.Errorf(errMsgFailedHandlingIncompleteBoot, err)}
 		}
 
-		if !isSSHTimeoutError && !isSSHConnectionRefusedError {
-			msg := fmt.Sprintf("expected rescue system, but found different hostname %q", hostName)
-			record.Warn(s.scope.HetznerBareMetalHost, "RegisteringFailed", msg)
-			ctrl.LoggerFrom(ctx).Error(errors.New("RegisteringFailed"), msg)
-			s.scope.HetznerBareMetalHost.SetError(infrav1.PermanentError, msg)
-			return actionStop{}
-		}
-
 		timeSinceReboot := "unknown"
 		if s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated != nil {
 			timeSinceReboot = time.Since(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated.Time).String()
