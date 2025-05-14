@@ -244,9 +244,14 @@ var _ = Describe("chooseHost", func() {
 			bmMachine.Spec.HostSelector = tc.HostSelector
 			service := newTestService(bmMachine, c)
 
-			host, _, expectedReason, err := service.chooseHost(context.TODO())
+			hosts := &infrav1.HetznerBareMetalHostList{}
+			err := service.scope.Client.List(context.TODO(), hosts,
+				client.InNamespace(service.scope.BareMetalMachine.Namespace))
 			Expect(err).To(Succeed())
-			Expect(expectedReason).To(Equal(""))
+
+			host, reason, err := ChooseHost(bmMachine, hosts.Items)
+			Expect(err).To(Succeed())
+			Expect(reason).To(Equal(""))
 			if tc.ExpectedHostName == "" {
 				Expect(host).To(BeNil())
 			} else {
@@ -328,7 +333,12 @@ var _ = Describe("chooseHost", func() {
 			}
 			service := newTestService(bmMachine, c)
 
-			host, _, reason, err := service.chooseHost(context.TODO())
+			hosts := &infrav1.HetznerBareMetalHostList{}
+			err := service.scope.Client.List(context.TODO(), hosts,
+				client.InNamespace(service.scope.BareMetalMachine.Namespace))
+			Expect(err).To(Succeed())
+			host, reason, err := ChooseHost(bmMachine, hosts.Items)
+
 			Expect(err).To(Succeed())
 			Expect(reason).To(Equal(tc.expectedReason))
 			Expect(host).To(BeNil())
