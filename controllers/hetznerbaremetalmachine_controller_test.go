@@ -975,6 +975,10 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					})
 					// Close the channel, so that mock "GetHostName" does no longer block.
 					close(w)
+
+					// We updated the mock, and closed the channel. Set channel to nil,
+					// so that we don't mock and close again.
+					// Closing a closed channel would panic.
 					w = nil
 				}
 
