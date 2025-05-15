@@ -311,9 +311,12 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 		return reconcile.Result{}, nil
 	}
 
+	apiServerPodHealthy := s.scope.Cluster.Spec.ControlPlaneRef == nil ||
+		s.scope.Cluster.Spec.ControlPlaneRef.Kind != "KubeadmControlPlane" ||
+		conditions.IsTrue(s.scope.Machine, controlplanev1.MachineAPIServerPodHealthyCondition)
+
 	// we attach only nodes with kube-apiserver pod healthy to avoid downtime, skipped for the first node
-	if len(s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target) > 0 &&
-		!conditions.IsTrue(s.scope.Machine, controlplanev1.MachineAPIServerPodHealthyCondition) {
+	if len(s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target) > 0 && !apiServerPodHealthy {
 		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
