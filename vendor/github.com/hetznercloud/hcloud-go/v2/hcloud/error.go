@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"slices"
+	"strings"
 )
 
 // ErrorCode represents an error code returned from the API.
@@ -154,4 +155,37 @@ type DNSNotFoundError struct {
 
 func (e DNSNotFoundError) Error() string {
 	return fmt.Sprintf("dns for ip %s not found", e.IP.String())
+}
+
+// ArgumentError is a type of error returned when validating arguments.
+type ArgumentError string
+
+func (e ArgumentError) Error() string { return string(e) }
+
+func newArgumentErrorf(format string, args ...any) ArgumentError {
+	return ArgumentError(fmt.Sprintf(format, args...))
+}
+
+func missingArgument(obj any) error {
+	return newArgumentErrorf("missing argument [%T]", obj)
+}
+
+func missingField(obj any, field string) error {
+	return newArgumentErrorf("missing field [%s] in [%T]", field, obj)
+}
+
+func invalidFieldValue(obj any, field string, value any) error {
+	return newArgumentErrorf("invalid value '%v' for field [%s] in [%T]", value, field, obj)
+}
+
+func missingOneOfFields(obj any, fields ...string) error {
+	return newArgumentErrorf("missing one of fields [%s] in [%T]", strings.Join(fields, ", "), obj)
+}
+
+func mutuallyExclusiveFields(obj any, fields ...string) error {
+	return newArgumentErrorf("found mutually exclusive fields [%s] in [%T]", strings.Join(fields, ", "), obj)
+}
+
+func missingRequiredTogetherFields(obj any, fields ...string) error {
+	return newArgumentErrorf("missing required together fields [%s] in [%T]", strings.Join(fields, ", "), obj)
 }
