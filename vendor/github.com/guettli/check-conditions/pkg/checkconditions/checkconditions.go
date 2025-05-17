@@ -448,6 +448,9 @@ var conditionTypesOfResourceWithPositiveMeaning = map[string][]string{
 		"RequiredPackages",    // Longhorn
 		"KernelModulesLoaded", // Longhorn
 	},
+	"autopilotclusters": {
+		"ClusterRunning",
+	},
 }
 
 var conditionTypesOfResourceWithNegativeMeaning = map[string][]string{
