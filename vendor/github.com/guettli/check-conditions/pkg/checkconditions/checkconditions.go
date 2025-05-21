@@ -2,7 +2,9 @@ package checkconditions
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net"
 	"os"
 	"regexp"
 	"strings"
@@ -27,6 +29,7 @@ type Arguments struct {
 	ProgrammStartTime time.Time
 	Name              string
 	RetryCount        int16
+	RetryForEver      bool
 }
 
 var resourcesToSkip = []string{
@@ -133,18 +136,33 @@ func RunCheckAllConditions(ctx context.Context, config *restclient.Config, args 
 	// Get the list of all API resources available
 	var err error
 	var counter Counter
-	for i := 0; i < int(args.RetryCount); i++ {
+	var i int16
+	for {
 		counter, err = RunAndGetCounter(ctx, config, args)
 		if err == nil {
+			// Successful connection, from now on retry forever.
+			args.RetryForEver = true
 			break
 		}
-		fmt.Printf("an error occured. Will retry %d times: %v\n",
-			args.RetryCount, err)
+		var netError net.Error
+		if !errors.As(err, &netError) {
+			return false, err
+		}
+		if args.RetryForEver {
+			if i%10 == 0 {
+				fmt.Printf("a network error occured. Will retry forever: %v\n",
+					err)
+			}
+		} else {
+			if i > args.RetryCount {
+				return false, fmt.Errorf("network error: %w", err)
+			}
+			fmt.Printf("a network error occured. Will retry %d times: %v\n",
+				args.RetryCount-i, err)
+		}
 		time.Sleep(1 * time.Second)
+		i++
 		continue
-	}
-	if err != nil {
-		return false, fmt.Errorf("an error occured. Will retry %d times: %w", args.RetryCount, err)
 	}
 
 	for _, line := range counter.Lines {
@@ -447,6 +465,9 @@ var conditionTypesOfResourceWithPositiveMeaning = map[string][]string{
 		"MountPropagation",    // Longhorn
 		"RequiredPackages",    // Longhorn
 		"KernelModulesLoaded", // Longhorn
+	},
+	"autopilotclusters": {
+		"ClusterRunning",
 	},
 }
 
