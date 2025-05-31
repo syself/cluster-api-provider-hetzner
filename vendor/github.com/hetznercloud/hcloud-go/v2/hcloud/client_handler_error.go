@@ -41,7 +41,7 @@ func errorFromBody(resp *Response) error {
 
 	var s schema.ErrorResponse
 	if err := json.Unmarshal(resp.body, &s); err != nil {
-		return nil
+		return nil // nolint: nilerr
 	}
 	if s.Error.Code == "" && s.Error.Message == "" {
 		return nil
