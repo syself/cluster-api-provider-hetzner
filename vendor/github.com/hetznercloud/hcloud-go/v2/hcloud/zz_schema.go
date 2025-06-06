@@ -978,6 +978,44 @@ func (c *converterImpl) SchemaFromPrimaryIP(source *PrimaryIP) schema.PrimaryIP 
 	}
 	return schemaPrimaryIP
 }
+func (c *converterImpl) SchemaFromPrimaryIPAssignOpts(source PrimaryIPAssignOpts) schema.PrimaryIPActionAssignRequest {
+	var schemaPrimaryIPActionAssignRequest schema.PrimaryIPActionAssignRequest
+	schemaPrimaryIPActionAssignRequest.AssigneeID = source.AssigneeID
+	schemaPrimaryIPActionAssignRequest.AssigneeType = source.AssigneeType
+	return schemaPrimaryIPActionAssignRequest
+}
+func (c *converterImpl) SchemaFromPrimaryIPChangeDNSPtrOpts(source PrimaryIPChangeDNSPtrOpts) schema.PrimaryIPActionChangeDNSPtrRequest {
+	var schemaPrimaryIPActionChangeDNSPtrRequest schema.PrimaryIPActionChangeDNSPtrRequest
+	schemaPrimaryIPActionChangeDNSPtrRequest.IP = source.IP
+	pString := source.DNSPtr
+	schemaPrimaryIPActionChangeDNSPtrRequest.DNSPtr = &pString
+	return schemaPrimaryIPActionChangeDNSPtrRequest
+}
+func (c *converterImpl) SchemaFromPrimaryIPChangeProtectionOpts(source PrimaryIPChangeProtectionOpts) schema.PrimaryIPActionChangeProtectionRequest {
+	var schemaPrimaryIPActionChangeProtectionRequest schema.PrimaryIPActionChangeProtectionRequest
+	schemaPrimaryIPActionChangeProtectionRequest.Delete = source.Delete
+	return schemaPrimaryIPActionChangeProtectionRequest
+}
+func (c *converterImpl) SchemaFromPrimaryIPCreateOpts(source PrimaryIPCreateOpts) schema.PrimaryIPCreateRequest {
+	var schemaPrimaryIPCreateRequest schema.PrimaryIPCreateRequest
+	schemaPrimaryIPCreateRequest.Name = source.Name
+	schemaPrimaryIPCreateRequest.Type = string(source.Type)
+	schemaPrimaryIPCreateRequest.AssigneeType = source.AssigneeType
+	schemaPrimaryIPCreateRequest.AssigneeID = source.AssigneeID
+	schemaPrimaryIPCreateRequest.Labels = source.Labels
+	schemaPrimaryIPCreateRequest.AutoDelete = source.AutoDelete
+	schemaPrimaryIPCreateRequest.Datacenter = source.Datacenter
+	return schemaPrimaryIPCreateRequest
+}
+func (c *converterImpl) SchemaFromPrimaryIPUpdateOpts(source PrimaryIPUpdateOpts) schema.PrimaryIPUpdateRequest {
+	var schemaPrimaryIPUpdateRequest schema.PrimaryIPUpdateRequest
+	schemaPrimaryIPUpdateRequest.Name = source.Name
+	if source.Labels != nil {
+		schemaPrimaryIPUpdateRequest.Labels = (*source.Labels)
+	}
+	schemaPrimaryIPUpdateRequest.AutoDelete = source.AutoDelete
+	return schemaPrimaryIPUpdateRequest
+}
 func (c *converterImpl) SchemaFromSSHKey(source *SSHKey) schema.SSHKey {
 	var schemaSSHKey schema.SSHKey
 	if source != nil {
