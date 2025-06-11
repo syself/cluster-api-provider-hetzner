@@ -89,7 +89,7 @@ Example of an image provided by Hetzner via NFS:
 
 ```yaml
 image:
-  path: /root/.oldroot/nfs//images/Ubuntu-2204-jammy-amd64-base.tar.gz
+  path: /root/.oldroot/nfs//images/Ubuntu-2404-noble-amd64-base.tar.gz
 ```
 
 Example of an image provided by you via https. The script installimage of Hetzner parses the name to detect the version. It is
@@ -97,16 +97,16 @@ recommended to follow their naming pattern.
 
 ```yaml
 image:
-  name: Ubuntu-2204-jammy-amd64-custom
-  url: https://user:pwd@example.com/images/Ubuntu-2204-jammy-amd64-custom.tar.gz
+  name: Ubuntu-2404-noble-amd64-custom
+  url: https://user:pwd@example.com/images/Ubuntu-2404-noble-amd64-custom.tar.gz
 ```
 
 Example of pulling an image from an oci-registry:
 
 ```yaml
 image:
-  name: Ubuntu-2204-jammy-amd64-custom
-  url: oci://ghcr.io/myorg/images/Ubuntu-2204-jammy-amd64-custom:1.0.1
+  name: Ubuntu-2404-noble-amd64-custom
+  url: oci://ghcr.io/myorg/images/Ubuntu-2404-noble-amd64-custom:1.0.1
 ```
 
 If you need credentials to pull the image, then provide the environment variable `OCI_REGISTRY_AUTH_TOKEN` to the controller.
@@ -138,6 +138,6 @@ spec:
 You can push an image to an oci-registry with a tool like [oras](https://oras.land):
 
 ```shell
-oras push ghcr.io/myorg/images/Ubuntu-2204-jammy-amd64-custom:1.0.1 \
-    --artifact-type application/vnd.myorg.machine-image.v1 Ubuntu-2204-jammy-amd64-custom.tar.gz
+oras push ghcr.io/myorg/images/Ubuntu-2404-noble-amd64-custom:1.0.1 \
+    --artifact-type application/vnd.myorg.machine-image.v1 Ubuntu-2404-noble-amd64-custom.tar.gz
 ```
