@@ -50,7 +50,7 @@ func TestValidateHCloudMachineSpec(t *testing.T) {
 			name: "Immutable ImageName",
 			args: args{
 				oldSpec: HCloudMachineSpec{
-					ImageName: "ubuntu-20.04",
+					ImageName: "ubuntu-24.04",
 				},
 				newSpec: HCloudMachineSpec{
 					ImageName: "centos-7",
@@ -110,13 +110,13 @@ func TestValidateHCloudMachineSpec(t *testing.T) {
 			args: args{
 				oldSpec: HCloudMachineSpec{
 					Type:               "cpx11",
-					ImageName:          "ubuntu-20.04",
+					ImageName:          "ubuntu-24.04",
 					SSHKeys:            []SSHKey{{Name: "ssh-key-1"}},
 					PlacementGroupName: createPlacementGroupName("placement-group-1"),
 				},
 				newSpec: HCloudMachineSpec{
 					Type:               "cpx11",
-					ImageName:          "ubuntu-20.04",
+					ImageName:          "ubuntu-24.04",
 					SSHKeys:            []SSHKey{{Name: "ssh-key-1"}},
 					PlacementGroupName: createPlacementGroupName("placement-group-1"),
 				},

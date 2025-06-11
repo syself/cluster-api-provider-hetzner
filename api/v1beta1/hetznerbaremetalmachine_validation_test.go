@@ -39,8 +39,8 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 				spec: HetznerBareMetalMachineSpec{
 					InstallImage: InstallImage{
 						Image: Image{
-							Name: "ubuntu-20.04",
-							URL:  "https://example.com/ubuntu-20.04.tar.gz",
+							Name: "ubuntu-24.04",
+							URL:  "https://example.com/ubuntu-24.04.tar.gz",
 						},
 					},
 				},
@@ -77,13 +77,13 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 				spec: HetznerBareMetalMachineSpec{
 					InstallImage: InstallImage{
 						Image: Image{
-							Name: "ubuntu-20.04",
-							URL:  "https://example.com/ubuntu-20.04.invalid",
+							Name: "ubuntu-24.04",
+							URL:  "https://example.com/ubuntu-24.04.invalid",
 						},
 					},
 				},
 			},
-			want: field.Invalid(field.NewPath("spec", "installImage", "image", "url"), "https://example.com/ubuntu-20.04.invalid", "unknown image type in URL"),
+			want: field.Invalid(field.NewPath("spec", "installImage", "image", "url"), "https://example.com/ubuntu-24.04.invalid", "unknown image type in URL"),
 		},
 		{
 			name: "Valid HostSelector MatchLabels",
@@ -91,8 +91,8 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 				spec: HetznerBareMetalMachineSpec{
 					InstallImage: InstallImage{
 						Image: Image{
-							Name: "ubuntu-20.04",
-							URL:  "https://example.com/ubuntu-20.04.tar.gz",
+							Name: "ubuntu-24.04",
+							URL:  "https://example.com/ubuntu-24.04.tar.gz",
 						},
 					},
 					HostSelector: HostSelector{
@@ -110,8 +110,8 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 				spec: HetznerBareMetalMachineSpec{
 					InstallImage: InstallImage{
 						Image: Image{
-							Name: "ubuntu-20.04",
-							URL:  "https://example.com/ubuntu-20.04.tar.gz",
+							Name: "ubuntu-24.04",
+							URL:  "https://example.com/ubuntu-24.04.tar.gz",
 						},
 					},
 					HostSelector: HostSelector{
@@ -133,8 +133,8 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 				spec: HetznerBareMetalMachineSpec{
 					InstallImage: InstallImage{
 						Image: Image{
-							Name: "ubuntu-20.04",
-							URL:  "https://example.com/ubuntu-20.04.tar.gz",
+							Name: "ubuntu-24.04",
+							URL:  "https://example.com/ubuntu-24.04.tar.gz",
 						},
 					},
 					HostSelector: HostSelector{
@@ -166,8 +166,8 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 				spec: HetznerBareMetalMachineSpec{
 					InstallImage: InstallImage{
 						Image: Image{
-							Name: "ubuntu-20.04",
-							URL:  "https://example.com/ubuntu-20.04.tar.gz",
+							Name: "ubuntu-24.04",
+							URL:  "https://example.com/ubuntu-24.04.tar.gz",
 						},
 					},
 					HostSelector: HostSelector{
@@ -232,8 +232,8 @@ func TestValidateHetznerBareMetalMachineSpecUpdate(t *testing.T) {
 				oldSpec: HetznerBareMetalMachineSpec{
 					InstallImage: InstallImage{
 						Image: Image{
-							Name: "ubuntu-20.04",
-							URL:  "https://example.com/ubuntu-20.04.tar.gz",
+							Name: "ubuntu-24.04",
+							URL:  "https://example.com/ubuntu-24.04.tar.gz",
 						},
 					},
 				},
@@ -349,8 +349,8 @@ func TestValidateHetznerBareMetalMachineSpecUpdate(t *testing.T) {
 				oldSpec: HetznerBareMetalMachineSpec{
 					InstallImage: InstallImage{
 						Image: Image{
-							Name: "ubuntu-20.04",
-							URL:  "https://example.com/ubuntu-20.04.tar.gz",
+							Name: "ubuntu-24.04",
+							URL:  "https://example.com/ubuntu-24.04.tar.gz",
 						},
 					},
 					SSHSpec: SSHSpec{
@@ -381,8 +381,8 @@ func TestValidateHetznerBareMetalMachineSpecUpdate(t *testing.T) {
 				newSpec: HetznerBareMetalMachineSpec{
 					InstallImage: InstallImage{
 						Image: Image{
-							Name: "ubuntu-20.04",
-							URL:  "https://example.com/ubuntu-20.04.tar.gz",
+							Name: "ubuntu-24.04",
+							URL:  "https://example.com/ubuntu-24.04.tar.gz",
 						},
 					},
 					SSHSpec: SSHSpec{
