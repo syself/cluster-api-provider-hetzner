@@ -23,7 +23,7 @@ runs:
   using: "composite"
   steps:
     - uses: ./.github/actions/setup-go
-    - uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4
+    - uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4
       with:
         path: hack/tools/bin
         key: ${{ runner.os }}-tools-bin-e2e-${{ hashFiles('Makefile') }}
@@ -31,7 +31,7 @@ runs:
           ${{ runner.os }}-tools-bin-e2e-
           ${{ runner.os }}-tools-bin-
     - name: Download artifact
-      uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4
+      uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
       with:
         name: test-release
         path: out
@@ -55,7 +55,7 @@ runs:
         TAG: ${{ steps.meta.outputs.version }}
 
     - name: Get HCLOUD_TOKEN # sets env.HCLOUD_TOKEN
-      uses: hetznercloud/tps-action@dee5dd2546322c28ed8f74b910189066e8b6f31a # main
+      uses: hetznercloud/tps-action@d0d1054a75224f1fd1c2505420ae1d8327fa3352 # main
 
     - name: "e2e-${{ inputs.e2e_name }}"
       shell: bash
@@ -73,7 +73,7 @@ runs:
         CAPH_LATEST_VERSION: "v1.0.1"
       run: make ${{ inputs.e2e_make_target }}
     - name: Upload artifact
-      uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
       if: ${{ !cancelled() }}
       with:
         name: e2e-${{ inputs.e2e_name }}
