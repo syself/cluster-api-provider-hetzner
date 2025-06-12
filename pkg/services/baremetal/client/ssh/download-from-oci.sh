@@ -17,13 +17,15 @@
 # This scripts gets copied from the controller into the rescue system
 # of the bare-metal machine.
 
-set -euo pipefail
+# Bash Strict Mode: https://github.com/guettli/bash-strict-mode
+trap 'echo -e "\n🤷 🚨 🔥 Warning: A command has failed. Exiting the script. Line was ($0:$LINENO): $(sed -n "${LINENO}p" "$0" 2>/dev/null || true) 🔥 🚨 🤷 "; exit 3' ERR
+set -Eeuo pipefail
 
 image="${1:-}"
 outfile="${2:-}"
 
 function usage {
-    echo "$0 image outfile."
+    echo "$0 image outfile"
     echo "  Download a machine image from a container registry"
     echo "  image: for example ghcr.io/foo/bar/my-machine-image:v9"
     echo "  outfile: Created file. Usually with file extensions '.tgz'"
@@ -36,6 +38,7 @@ if [ -z "$outfile" ]; then
     usage
     exit 1
 fi
+
 OCI_REGISTRY_AUTH_TOKEN="${OCI_REGISTRY_AUTH_TOKEN:-}" # github:$GITHUB_TOKEN
 
 # Extract registry
@@ -74,8 +77,6 @@ function get_token {
 AUTH_ARGS=()
 if [ -z "$OCI_REGISTRY_AUTH_TOKEN" ]; then
     echo "OCI_REGISTRY_AUTH_TOKEN is not set. Using no auth"
-    AUTH_KEY=""
-    AUTH_VALUE=""
 else
     token=""
     get_token
