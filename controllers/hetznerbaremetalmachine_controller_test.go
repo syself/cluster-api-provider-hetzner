@@ -698,7 +698,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			})
 
 			It("should fail updating installImage", func() {
-				bmMachine.Spec.InstallImage.Image.Name = "ubuntu-2204"
+				bmMachine.Spec.InstallImage.Image.Name = "ubuntu-2404-noble"
 				Expect(testEnv.Update(ctx, bmMachine)).NotTo(Succeed())
 			})
 
@@ -758,8 +758,8 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 						Spec: infrav1.HetznerBareMetalMachineSpec{
 							InstallImage: infrav1.InstallImage{
 								Image: infrav1.Image{
-									Name: "ubuntu-20.04",
-									URL:  "https://example.com/ubuntu-20.04.tar.gz",
+									Name: "ubuntu-24.04",
+									URL:  "https://example.com/ubuntu-24.04.tar.gz",
 								},
 								Partitions: []infrav1.Partition{
 									{

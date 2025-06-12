@@ -1947,7 +1947,7 @@ func markProvisionPending(host *infrav1.HetznerBareMetalHost, state infrav1.Prov
 		infrav1.ProvisionSucceededCondition,
 		infrav1.StillProvisioningReason,
 		clusterv1.ConditionSeverityInfo,
-		"host is still provisioning - state %q", state,
+		"host (%s) is still provisioning - state %q", host.Name, state,
 	)
 }
 

@@ -7,7 +7,7 @@ spec:
     spec:
       installImage:
         image:
-          path: /root/.oldroot/nfs/images/Ubuntu-2204-jammy-amd64-base.tar.gz
+          path: /root/.oldroot/nfs/images/Ubuntu-2404-noble-amd64-base.tar.gz
         partitions:
           - fileSystem: esp
             mount: /boot/efi

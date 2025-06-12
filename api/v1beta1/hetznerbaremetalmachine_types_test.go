@@ -253,11 +253,11 @@ func Test_Image_String(t *testing.T) {
 		},
 		{
 			Image{
-				URL:  "https://user:pwd@example.com/images/Ubuntu-2204-jammy-amd64-custom.tar.gz",
-				Name: "Ubuntu-2204",
+				URL:  "https://user:pwd@example.com/images/Ubuntu-2404-noble-amd64-custom.tar.gz",
+				Name: "Ubuntu-2404-noble",
 				Path: "",
 			},
-			"Ubuntu-2204 (https://user:xxxxx@example.com/images/Ubuntu-2204-jammy-amd64-custom.tar.gz)",
+			"Ubuntu-2404-noble (https://user:xxxxx@example.com/images/Ubuntu-2404-noble-amd64-custom.tar.gz)",
 		},
 		{
 			Image{
@@ -277,9 +277,9 @@ func Test_Image_String(t *testing.T) {
 		{
 			Image{
 				Name: "nfs",
-				Path: "/root/.oldroot/nfs/images/Ubuntu-2204-jammy-amd64-base.tar.gz",
+				Path: "/root/.oldroot/nfs/images/Ubuntu-2404-noble-amd64-base.tar.gz",
 			},
-			"nfs (/root/.oldroot/nfs/images/Ubuntu-2204-jammy-amd64-base.tar.gz)",
+			"nfs (/root/.oldroot/nfs/images/Ubuntu-2404-noble-amd64-base.tar.gz)",
 		},
 	} {
 		require.Equal(t, row.expected, row.image.String())
