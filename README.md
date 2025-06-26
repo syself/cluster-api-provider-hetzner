@@ -79,12 +79,14 @@ This provider's versions are compatible with the following versions of Cluster A
 
 This provider's versions can install and manage the following versions of Kubernetes:
 
-|                   | Hetzner Provider `v1.0.x` |
-| ----------------- | ------------------------- |
-| Kubernetes 1.28.x | ✅                        |
-| Kubernetes 1.29.x | ✅                        |
-| Kubernetes 1.30.x | ✅                        |
-| Kubernetes 1.31.x | ✅                        |
+|                   | Hetzner Provider `v1.0.x` | Hetzner Provider `v1.1.x` |
+| ----------------- | ------------------------- | ------------------------- |
+| Kubernetes 1.28.x | ✅                        | ✅                        |
+| Kubernetes 1.29.x | ✅                        | ✅                        |
+| Kubernetes 1.30.x | ✅                        | ✅                        |
+| Kubernetes 1.31.x | ✅                        | ✅                        |
+| Kubernetes 1.32.x | ❌                        | ❔                        |
+| Kubernetes 1.33.x | ❌                        | ❔                        |
 
 Test status:
 
