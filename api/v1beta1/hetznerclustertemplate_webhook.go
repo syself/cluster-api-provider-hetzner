@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 
@@ -29,40 +30,48 @@ import (
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
+type hetznerClusterTemplateWebhook struct{}
+
 // log is for logging in this package.
 var hetznerclustertemplatelog = utils.GetDefaultLogger("info").WithName("hetznerclustertemplate-resource")
 
 // SetupWebhookWithManager initializes webhook manager for HetznerClusterTemplate.
 func (r *HetznerClusterTemplate) SetupWebhookWithManager(mgr ctrl.Manager) error {
+	w := new(hetznerClusterTemplateWebhook)
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
+		WithValidator(w).
+		WithDefaulter(w).
 		Complete()
 }
 
 // +kubebuilder:webhook:path=/mutate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerclustertemplate,mutating=true,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerclustertemplates,verbs=create;update,versions=v1beta1,name=mutation.hetznerclustertemplate.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
-var _ webhook.Defaulter = &HetznerClusterTemplate{}
+var _ webhook.CustomDefaulter = &hetznerClusterTemplateWebhook{}
 
-// Default implements webhook.Defaulter so a webhook will be registered for the type.
-func (r *HetznerClusterTemplate) Default() {
-	hetznerclustertemplatelog.V(1).Info("default", "name", r.Name)
+// Default implements webhook.CustomDefaulter so a webhook will be registered for the type.
+func (*hetznerClusterTemplateWebhook) Default(ctx context.Context, obj runtime.Object) error {
+	return nil
 }
 
 // +kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerclustertemplate,mutating=false,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerclustertemplates,verbs=create;update,versions=v1beta1,name=validation.hetznerclustertemplate.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
 
-var _ webhook.Validator = &HetznerClusterTemplate{}
+var _ webhook.CustomValidator = &hetznerClusterTemplateWebhook{}
 
-// ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
-func (r *HetznerClusterTemplate) ValidateCreate() (admission.Warnings, error) {
-	hetznerclustertemplatelog.V(1).Info("validate create", "name", r.Name)
+// ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
+func (*hetznerClusterTemplateWebhook) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	return nil, nil
 }
 
-// ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
-func (r *HetznerClusterTemplate) ValidateUpdate(oldRaw runtime.Object) (admission.Warnings, error) {
-	hetznerclustertemplatelog.V(1).Info("validate update", "name", r.Name)
-	old, ok := oldRaw.(*HetznerClusterTemplate)
+// ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
+func (*hetznerClusterTemplateWebhook) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+	r, ok := newObj.(*HetznerClusterTemplate)
 	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected an HetznerClusterTemplate but got a %T", oldRaw))
+		return nil, fmt.Errorf("expected an HetznerClusterTemplate object but got %T", r)
+	}
+	hetznerclustertemplatelog.V(1).Info("validate update", "name", r.Name)
+	old, ok := oldObj.(*HetznerClusterTemplate)
+	if !ok {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected an HetznerClusterTemplate but got a %T", oldObj))
 	}
 
 	if !reflect.DeepEqual(r.Spec, old.Spec) {
@@ -71,8 +80,7 @@ func (r *HetznerClusterTemplate) ValidateUpdate(oldRaw runtime.Object) (admissio
 	return nil, nil
 }
 
-// ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
-func (r *HetznerClusterTemplate) ValidateDelete() (admission.Warnings, error) {
-	hetznerclustertemplatelog.V(1).Info("validate delete", "name", r.Name)
+// ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
+func (*hetznerClusterTemplateWebhook) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	return nil, nil
 }

@@ -746,8 +746,8 @@ func (r *HetznerClusterReconciler) SetupWithManager(ctx context.Context, mgr ctr
 	err := ctrl.NewControllerManagedBy(mgr).
 		WithOptions(options).
 		For(&infrav1.HetznerCluster{}).
-		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(log, r.WatchFilterValue)).
-		WithEventFilter(predicates.ResourceIsNotExternallyManaged(log)).
+		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(mgr.GetScheme(), log, r.WatchFilterValue)).
+		WithEventFilter(predicates.ResourceIsNotExternallyManaged(mgr.GetScheme(), log)).
 		WithEventFilter(IgnoreInsignificantHetznerClusterStatusUpdates(log)).
 		Owns(&corev1.Secret{}).
 		Watches(

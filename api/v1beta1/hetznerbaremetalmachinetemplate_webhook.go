@@ -31,10 +31,12 @@ import (
 )
 
 // SetupWebhookWithManager initializes webhook manager for HetznerBareMetalMachineTemplate.
-func (r *HetznerBareMetalMachineTemplateWebhook) SetupWebhookWithManager(mgr ctrl.Manager) error {
+func (r *HetznerBareMetalMachineTemplate) SetupWebhookWithManager(mgr ctrl.Manager) error {
+	w := new(HetznerBareMetalMachineTemplateWebhook)
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(&HetznerBareMetalMachineTemplate{}).
-		WithValidator(r).
+		For(r).
+		WithValidator(w).
+		WithDefaulter(w).
 		Complete()
 }
 
@@ -42,11 +44,17 @@ func (r *HetznerBareMetalMachineTemplateWebhook) SetupWebhookWithManager(mgr ctr
 // +kubebuilder:object:generate=false
 type HetznerBareMetalMachineTemplateWebhook struct{}
 
+// Default implements admission.CustomDefaulter.
+func (*HetznerBareMetalMachineTemplateWebhook) Default(ctx context.Context, obj runtime.Object) error {
+	return nil
+}
+
 //+kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalmachinetemplate,mutating=false,sideEffects=None,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalmachinetemplates,verbs=create;update,versions=v1beta1,name=validation.hetznerbaremetalmachinetemplate.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
 
 var _ webhook.CustomValidator = &HetznerBareMetalMachineTemplateWebhook{}
+var _ webhook.CustomDefaulter = &HetznerBareMetalMachineTemplateWebhook{}
 
-// ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
+// ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
 func (r *HetznerBareMetalMachineTemplateWebhook) ValidateCreate(_ context.Context, raw runtime.Object) (admission.Warnings, error) {
 	hbmmt, ok := raw.(*HetznerBareMetalMachineTemplate)
 	if !ok {
@@ -62,7 +70,7 @@ func (r *HetznerBareMetalMachineTemplateWebhook) ValidateCreate(_ context.Contex
 	return nil, nil
 }
 
-// ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
+// ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
 func (r *HetznerBareMetalMachineTemplateWebhook) ValidateUpdate(ctx context.Context, oldRaw runtime.Object, newRaw runtime.Object) (admission.Warnings, error) {
 	newHetznerBareMetalMachineTemplate, ok := newRaw.(*HetznerBareMetalMachineTemplate)
 	if !ok {
@@ -86,7 +94,7 @@ func (r *HetznerBareMetalMachineTemplateWebhook) ValidateUpdate(ctx context.Cont
 	return nil, aggregateObjErrors(newHetznerBareMetalMachineTemplate.GroupVersionKind().GroupKind(), newHetznerBareMetalMachineTemplate.Name, allErrs)
 }
 
-// ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
+// ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
 func (r *HetznerBareMetalMachineTemplateWebhook) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
 	return nil, nil
 }

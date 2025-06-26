@@ -17,13 +17,13 @@ limitations under the License.
 package helpers
 
 import (
+	"crypto/tls"
 	"fmt"
-	"net"
+	"net/http"
 	"os"
 	"path"
 	"path/filepath"
 	goruntime "runtime"
-	"strconv"
 	"time"
 
 	v1 "k8s.io/api/admissionregistration/v1"
@@ -106,23 +106,23 @@ func initializeWebhookInEnvironment() {
 }
 
 // WaitForWebhooks waits for webhook port to be ready.
-func (t *TestEnvironment) WaitForWebhooks() {
+func (t *TestEnvironment) WaitForWebhooks() error {
 	port := env.WebhookInstallOptions.LocalServingPort
 
-	klog.V(2).Infof("Waiting for webhook port %d to be open prior to running tests", port)
-	timeout := 1 * time.Second
-	for {
-		time.Sleep(1 * time.Second)
-		fmt.Printf("checking port .................... %v\n", port)
-		conn, err := net.DialTimeout("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)), timeout)
-		if err != nil {
-			klog.V(2).Infof("Webhook port is not ready, will retry in %v: %s", timeout, err)
-			continue
-		}
-		if err := conn.Close(); err != nil {
-			klog.Fatalf("failed to close connection: %s", err)
-		}
-		klog.V(2).Info("Webhook port is now open. Continuing with tests...")
-		return
+	url := fmt.Sprintf("https://localhost:%d/", port)
+	client := &http.Client{
+		Timeout: 2 * time.Second,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
 	}
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		_, err := client.Get(url)
+		if err == nil {
+			return nil
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	return fmt.Errorf("webhook server not ready on port %d", port)
 }

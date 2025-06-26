@@ -205,25 +205,25 @@ func createClusterctlLocalRepository(ctx context.Context, config *clusterctl.E2E
 
 	// Ensuring a CCM file is defined in the config and register a FileTransformation to inject the referenced file as in place of the CCM_RESOURCES envSubst variable.
 	Expect(config.Variables).To(HaveKey(CiliumPath), "Missing %s variable in the config", CiliumPath)
-	ciliumPath := config.GetVariable(CiliumPath)
+	ciliumPath := config.GetVariableOrEmpty(CiliumPath)
 	Expect(ciliumPath).To(BeAnExistingFile(), "The %s variable should resolve to an existing file", CiliumPath)
 	createRepositoryInput.RegisterClusterResourceSetConfigMapTransformation(ciliumPath, CiliumResources)
 
 	// Ensuring a CCM file is defined in the config and register a FileTransformation to inject the referenced file as in place of the CCM_RESOURCES envSubst variable.
 	Expect(config.Variables).To(HaveKey(CCMPath), "Missing %s variable in the config", CCMPath)
-	ccmPath := config.GetVariable(CCMPath)
+	ccmPath := config.GetVariableOrEmpty(CCMPath)
 	Expect(ccmPath).To(BeAnExistingFile(), "The %s variable should resolve to an existing file", CCMPath)
 	createRepositoryInput.RegisterClusterResourceSetConfigMapTransformation(ccmPath, CCMResources)
 
 	// Ensuring a CCM file is defined for clusters with networks in the config and register a FileTransformation to inject the referenced file as in place of the CCM_RESOURCES envSubst variable.
 	Expect(config.Variables).To(HaveKey(CCMNetworkPath), "Missing %s variable in the config", CCMNetworkPath)
-	ccmNetworkPath := config.GetVariable(CCMNetworkPath)
+	ccmNetworkPath := config.GetVariableOrEmpty(CCMNetworkPath)
 	Expect(ccmNetworkPath).To(BeAnExistingFile(), "The %s variable should resolve to an existing file", CCMNetworkPath)
 	createRepositoryInput.RegisterClusterResourceSetConfigMapTransformation(ccmNetworkPath, CCMNetworkResources)
 
 	// Ensuring a CCM file is defined for clusters with networks in the config and register a FileTransformation to inject the referenced file as in place of the CCM_RESOURCES envSubst variable.
 	Expect(config.Variables).To(HaveKey(CCMHetznerPath), "Missing %s variable in the config", CCMHetznerPath)
-	ccmHetznerPath := config.GetVariable(CCMHetznerPath)
+	ccmHetznerPath := config.GetVariableOrEmpty(CCMHetznerPath)
 	Expect(ccmHetznerPath).To(BeAnExistingFile(), "The %s variable should resolve to an existing file", CCMHetznerPath)
 	createRepositoryInput.RegisterClusterResourceSetConfigMapTransformation(ccmHetznerPath, CCMHetznerResources)
 
@@ -290,7 +290,7 @@ func logStatus(ctx context.Context, restConfig *restclient.Config, c client.Clie
 }
 
 func logConditions(ctx context.Context, restConfig *restclient.Config) error {
-	counter, err := checkconditions.RunAndGetCounter(ctx, restConfig, checkconditions.Arguments{})
+	counter, err := checkconditions.RunAndGetCounter(ctx, restConfig, &checkconditions.Arguments{})
 	if err != nil {
 		return fmt.Errorf("failed to get check conditions: %w", err)
 	}
