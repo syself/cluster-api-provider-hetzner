@@ -9,8 +9,10 @@ outpkg: mocks
 packages:
   github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh:
     config:
-      dir: mocks/ssh
-
+      dir: "{{.InterfaceDir}}/../mocks/ssh"
   github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/robot:
     config:
-      dir: mocks/robot
+      dir: "{{.InterfaceDir}}/../mocks/robot"
+  github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client:
+    config:
+      dir: "{{.InterfaceDir}}/mocks"
