@@ -31,28 +31,36 @@ import (
 )
 
 // SetupWebhookWithManager initializes webhook manager for HetznerMachineTemplate.
-func (r *HCloudMachineTemplateWebhook) SetupWebhookWithManager(mgr ctrl.Manager) error {
+func (r *HCloudMachineTemplate) SetupWebhookWithManager(mgr ctrl.Manager) error {
+	w := new(hcloudMachineTemplateWebhook)
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(&HCloudMachineTemplate{}).
-		WithValidator(r).
+		For(r).
+		WithValidator(w).
+		WithDefaulter(w).
 		Complete()
 }
 
 // HCloudMachineTemplateWebhook implements a custom validation webhook for HCloudMachineTemplate.
 // +kubebuilder:object:generate=false
-type HCloudMachineTemplateWebhook struct{}
+type hcloudMachineTemplateWebhook struct{}
+
+// Default implements admission.CustomDefaulter.
+func (*hcloudMachineTemplateWebhook) Default(ctx context.Context, obj runtime.Object) error {
+	return nil
+}
 
 // +kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta1-hcloudmachinetemplate,mutating=false,sideEffects=None,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hcloudmachinetemplates,verbs=create;update,versions=v1beta1,name=validation.hcloudmachinetemplate.infrastructure.x-k8s.io,admissionReviewVersions=v1;v1beta1
 
-var _ webhook.CustomValidator = &HCloudMachineTemplateWebhook{}
+var _ webhook.CustomValidator = &hcloudMachineTemplateWebhook{}
+var _ webhook.CustomDefaulter = &hcloudMachineTemplateWebhook{}
 
-// ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
-func (r *HCloudMachineTemplateWebhook) ValidateCreate(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
+// ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
+func (*hcloudMachineTemplateWebhook) ValidateCreate(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
 	return nil, nil
 }
 
-// ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
-func (r *HCloudMachineTemplateWebhook) ValidateUpdate(ctx context.Context, oldRaw runtime.Object, newRaw runtime.Object) (admission.Warnings, error) {
+// ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
+func (*hcloudMachineTemplateWebhook) ValidateUpdate(ctx context.Context, oldRaw runtime.Object, newRaw runtime.Object) (admission.Warnings, error) {
 	newHCloudMachineTemplate, ok := newRaw.(*HCloudMachineTemplate)
 	if !ok {
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a HCloudMachineTemplate but got a %T", newRaw))
@@ -74,7 +82,7 @@ func (r *HCloudMachineTemplateWebhook) ValidateUpdate(ctx context.Context, oldRa
 	return nil, aggregateObjErrors(newHCloudMachineTemplate.GroupVersionKind().GroupKind(), newHCloudMachineTemplate.Name, allErrs)
 }
 
-// ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
-func (r *HCloudMachineTemplateWebhook) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
+// ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
+func (*hcloudMachineTemplateWebhook) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
 	return nil, nil
 }

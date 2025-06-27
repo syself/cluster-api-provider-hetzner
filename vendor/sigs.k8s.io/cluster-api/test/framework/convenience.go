@@ -24,15 +24,16 @@ import (
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1beta "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	addonsv1 "sigs.k8s.io/cluster-api/api/addons/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	bootstrapv1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
 	clusterctlv1 "sigs.k8s.io/cluster-api/cmd/clusterctl/api/v1alpha3"
 	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
-	addonsv1 "sigs.k8s.io/cluster-api/exp/addons/api/v1beta1"
 	expv1 "sigs.k8s.io/cluster-api/exp/api/v1beta1"
 	ipamv1 "sigs.k8s.io/cluster-api/exp/ipam/api/v1beta1"
 	runtimev1 "sigs.k8s.io/cluster-api/exp/runtime/api/v1alpha1"
@@ -58,6 +59,8 @@ func TryAddDefaultSchemes(scheme *runtime.Scheme) {
 
 	// Add the CAPI experiments scheme.
 	_ = expv1.AddToScheme(scheme)
+
+	// ADD the addons scheme.
 	_ = addonsv1.AddToScheme(scheme)
 
 	// Add the CAPI clusterctl scheme.
@@ -88,6 +91,9 @@ func TryAddDefaultSchemes(scheme *runtime.Scheme) {
 	// Add coordination to the schema
 	// Note: This is e.g. used to trigger kube-controller-manager restarts by stealing its lease.
 	_ = coordinationv1.AddToScheme(scheme)
+
+	// Add storagev1 to the scheme
+	_ = storagev1.AddToScheme(scheme)
 }
 
 // ObjectToKind returns the Kind without the package prefix. Pass in a pointer to a struct
