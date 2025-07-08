@@ -69,7 +69,7 @@ type HCloudMachineReconciler struct {
 // Reconcile manages the lifecycle of an HCloud machine object.
 func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.Request) (res reconcile.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
-
+	log.V(1).Info("Start reconciling HCloudMachine")
 	// Fetch the HCloudMachine instance.
 	hcloudMachine := &infrav1.HCloudMachine{}
 	err := r.Get(ctx, req.NamespacedName, hcloudMachine)
@@ -165,9 +165,11 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 	}
 
 	if !hcloudMachine.ObjectMeta.DeletionTimestamp.IsZero() {
+		log.V(1).Info("Reconciling HCloudMachine - delete")
 		return r.reconcileDelete(ctx, machineScope)
 	}
 
+	log.V(1).Info("Reconciling HCloudMachine - normal")
 	return r.reconcileNormal(ctx, machineScope)
 }
 
@@ -468,11 +470,14 @@ func IgnoreInsignificantHCloudMachineStatusUpdates(logger logr.Logger) predicate
 				return false
 			}
 
-			log.V(1).Info("HCloudMachine event")
+			log.V(1).Info("HCloudMachine update event received")
 			return true
 		},
-		CreateFunc:  func(_ event.CreateEvent) bool { return true },
-		DeleteFunc:  func(_ event.DeleteEvent) bool { return true },
+		CreateFunc: func(_ event.CreateEvent) bool { return true },
+		DeleteFunc: func(_ event.DeleteEvent) bool {
+			logger.V(1).Info("HCloudMachine delete event received")
+			return true
+		},
 		GenericFunc: func(_ event.GenericEvent) bool { return true },
 	}
 }
