@@ -223,6 +223,8 @@ func (s *Service) Delete(ctx context.Context) (res reconcile.Result, err error) 
 		return res, nil
 	}
 
+	s.scope.V(1).Info("HcloudMachine reconcile delete - server found")
+
 	// control planes have to be deleted as targets of server
 	if s.scope.IsControlPlane() && s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
 		for _, target := range s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target {
@@ -235,6 +237,8 @@ func (s *Service) Delete(ctx context.Context) (res reconcile.Result, err error) 
 		}
 	}
 
+	s.scope.V(1).Info("HcloudMachine reconcile delete", "server status", server.Status)
+
 	// first shut the server down, then delete it
 	switch server.Status {
 	case hcloud.ServerStatusRunning:
@@ -243,6 +247,7 @@ func (s *Service) Delete(ctx context.Context) (res reconcile.Result, err error) 
 		return s.handleDeleteServerStatusOff(ctx, server)
 	}
 
+	s.scope.V(1).Info("Requeue for five seconds - unknown state")
 	return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 }
 
@@ -621,6 +626,7 @@ func (s *Service) handleDeleteServerStatusRunning(ctx context.Context, server *h
 	// Shut down the server if one of the two conditions apply:
 	// 1. The server has not yet been tried to shut down and still is marked as "ready".
 	// 2. The server has been tried to shut down without an effect and the timeout is not reached yet.
+	s.scope.V(1).Info("Handle server status running")
 
 	if s.scope.HasServerAvailableCondition() {
 		if err := s.scope.HCloudClient.ShutdownServer(ctx, server); err != nil {
@@ -634,8 +640,11 @@ func (s *Service) handleDeleteServerStatusRunning(ctx context.Context, server *h
 			"Instance has been shut down",
 		)
 
+		s.scope.V(1).Info("Shut down server - requeue for 30 seconds")
 		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 	}
+
+	s.scope.V(1).Info("Delete server")
 
 	// timeout for shutdown has been reached - delete server
 	if err := s.scope.HCloudClient.DeleteServer(ctx, server); err != nil {
@@ -643,17 +652,21 @@ func (s *Service) handleDeleteServerStatusRunning(ctx context.Context, server *h
 		return reconcile.Result{}, handleRateLimit(s.scope.HCloudMachine, err, "DeleteServer", "failed to delete server")
 	}
 
+	s.scope.V(1).Info("Server deleted")
 	record.Eventf(s.scope.HCloudMachine, "HCloudServerDeleted", "HCloud server %s deleted", s.scope.Name())
 	return res, nil
 }
 
 func (s *Service) handleDeleteServerStatusOff(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
 	// server is off and can be deleted
+	s.scope.V(1).Info("Handle server status off")
+
 	if err := s.scope.HCloudClient.DeleteServer(ctx, server); err != nil {
 		record.Warnf(s.scope.HCloudMachine, "FailedDeleteHCloudServer", "Failed to delete HCloud server %s", s.scope.Name())
 		return reconcile.Result{}, handleRateLimit(s.scope.HCloudMachine, err, "DeleteServer", "failed to delete server")
 	}
 
+	s.scope.V(1).Info("Server deleted after server status off")
 	record.Eventf(s.scope.HCloudMachine, "HCloudServerDeleted", "HCloud server %s deleted", s.scope.Name())
 	return res, nil
 }
