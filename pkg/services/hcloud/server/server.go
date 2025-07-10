@@ -237,13 +237,11 @@ func (s *Service) Delete(ctx context.Context) (res reconcile.Result, err error) 
 
 	// first shut the server down, then delete it
 	switch server.Status {
-	case hcloud.ServerStatusRunning:
-		return s.handleDeleteServerStatusRunning(ctx, server)
 	case hcloud.ServerStatusOff:
 		return s.handleDeleteServerStatusOff(ctx, server)
+	default:
+		return s.handleDeleteServerStatusRunning(ctx, server)
 	}
-
-	return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 }
 
 func (s *Service) reconcileNetworkAttachment(ctx context.Context, server *hcloud.Server) error {
