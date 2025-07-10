@@ -23,6 +23,7 @@ runs:
   using: "composite"
   steps:
     - uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5.3.0
+
     - uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4
       with:
         path: hack/tools/bin
@@ -30,11 +31,13 @@ runs:
         restore-keys: |
           ${{ runner.os }}-tools-bin-e2e-
           ${{ runner.os }}-tools-bin-
+
     - name: Download artifact
       uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4
       with:
         name: test-release
         path: out
+
     - name: Install hcloud
       shell: bash
       env:
@@ -72,6 +75,7 @@ runs:
         SKIP_IMAGE_BUILD: "1"
         CAPH_LATEST_VERSION: "v1.0.1"
       run: make ${{ inputs.e2e_make_target }}
+
     - name: Upload artifact
       uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4
       if: ${{ !cancelled() }}
