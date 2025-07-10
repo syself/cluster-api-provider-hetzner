@@ -17,11 +17,11 @@ require (
 	github.com/spf13/pflag v1.0.6
 	github.com/stoewer/go-strcase v1.3.1
 	github.com/stretchr/testify v1.10.0
-	github.com/syself/hrobot-go v0.2.6
+	github.com/syself/hrobot-go v0.2.7
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.39.0
 	golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b
-	golang.org/x/mod v0.25.0
+	golang.org/x/mod v0.26.0
 	k8s.io/api v0.33.2
 	k8s.io/apimachinery v0.33.2
 	k8s.io/apiserver v0.33.2

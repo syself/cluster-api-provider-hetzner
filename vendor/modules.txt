@@ -435,7 +435,7 @@ github.com/stretchr/testify/require
 # github.com/subosito/gotenv v1.6.0
 ## explicit; go 1.18
 github.com/subosito/gotenv
-# github.com/syself/hrobot-go v0.2.6
+# github.com/syself/hrobot-go v0.2.7
 ## explicit; go 1.17
 github.com/syself/hrobot-go
 github.com/syself/hrobot-go/models
@@ -546,7 +546,7 @@ golang.org/x/crypto/ssh/internal/bcrypt_pbkdf
 ## explicit; go 1.23.0
 golang.org/x/exp/maps
 golang.org/x/exp/slices
-# golang.org/x/mod v0.25.0
+# golang.org/x/mod v0.26.0
 ## explicit; go 1.23.0
 golang.org/x/mod/internal/lazyregexp
 golang.org/x/mod/modfile
