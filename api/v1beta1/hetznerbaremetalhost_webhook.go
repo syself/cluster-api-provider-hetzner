@@ -52,7 +52,7 @@ func (r *HetznerBareMetalHost) SetupWebhookWithManager(mgr ctrl.Manager) error {
 var _ webhook.CustomDefaulter = &hetznerBareMetalHostWebhook{}
 
 // Default implements webhook.CustomDefaulter so a webhook will be registered for the type.
-func (host *hetznerBareMetalHostWebhook) Default(_ context.Context, _ runtime.Object) error {
+func (hw *hetznerBareMetalHostWebhook) Default(_ context.Context, _ runtime.Object) error {
 	return nil
 }
 
