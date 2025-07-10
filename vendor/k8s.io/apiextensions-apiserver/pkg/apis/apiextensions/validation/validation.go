@@ -28,7 +28,6 @@ import (
 	"unicode/utf8"
 
 	celgo "github.com/google/cel-go/cel"
-
 	"k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -275,7 +274,7 @@ func ValidateCustomResourceDefinitionStoredVersions(storedVersions []string, ver
 	}
 
 	for v, i := range storedVersionsMap {
-		allErrs = append(allErrs, field.Invalid(fldPath.Index(i), v, fmt.Sprintf("missing from spec.versions; %[1]s was previously a storage version, and must remain in spec.versions until a storage migration ensures no data remains persisted in %[1]s and removes %[1]s from status.storedVersions", v)))
+		allErrs = append(allErrs, field.Invalid(fldPath.Index(i), v, "must appear in spec.versions"))
 	}
 
 	return allErrs

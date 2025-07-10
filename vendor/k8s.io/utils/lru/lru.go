@@ -47,8 +47,6 @@ func NewWithEvictionFunc(size int, f EvictionFunc) *Cache {
 
 // SetEvictionFunc updates the eviction func
 func (c *Cache) SetEvictionFunc(f EvictionFunc) error {
-	c.lock.Lock()
-	defer c.lock.Unlock()
 	if c.cache.OnEvicted != nil {
 		return fmt.Errorf("lru cache eviction function is already set")
 	}
