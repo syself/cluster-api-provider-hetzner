@@ -340,19 +340,19 @@ type HetznerBareMetalMachine struct {
 }
 
 // GetConditions returns the observations of the operational state of the HetznerBareMetalMachine resource.
-func (bmMachine *HetznerBareMetalMachine) GetConditions() clusterv1.Conditions {
-	return bmMachine.Status.Conditions
+func (r *HetznerBareMetalMachine) GetConditions() clusterv1.Conditions {
+	return r.Status.Conditions
 }
 
 // SetConditions sets the underlying service state of the HetznerBareMetalMachine to the predescribed clusterv1.Conditions.
-func (bmMachine *HetznerBareMetalMachine) SetConditions(conditions clusterv1.Conditions) {
-	bmMachine.Status.Conditions = conditions
+func (r *HetznerBareMetalMachine) SetConditions(conditions clusterv1.Conditions) {
+	r.Status.Conditions = conditions
 }
 
 // SetFailure sets a failure reason and message.
-func (bmMachine *HetznerBareMetalMachine) SetFailure(reason capierrors.MachineStatusError, message string) {
-	bmMachine.Status.FailureReason = &reason
-	bmMachine.Status.FailureMessage = &message
+func (r *HetznerBareMetalMachine) SetFailure(reason capierrors.MachineStatusError, message string) {
+	r.Status.FailureReason = &reason
+	r.Status.FailureMessage = &message
 }
 
 // GetImageSuffix tests whether the suffix is known and outputs it if yes. Otherwise it returns an error.
@@ -379,8 +379,8 @@ func GetImageSuffix(url string) (string, error) {
 }
 
 // HasHostAnnotation checks whether the annotation that references a host exists.
-func (bmMachine *HetznerBareMetalMachine) HasHostAnnotation() bool {
-	annotations := bmMachine.GetAnnotations()
+func (r *HetznerBareMetalMachine) HasHostAnnotation() bool {
+	annotations := r.GetAnnotations()
 	if annotations == nil {
 		return false
 	}
