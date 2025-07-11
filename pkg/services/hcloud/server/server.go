@@ -21,7 +21,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
@@ -666,8 +665,9 @@ func (s *Service) deleteServerOfLoadBalancer(ctx context.Context, server *hcloud
 		// Do not return an error in case the target server was not found.
 		// In case the target server was not found we will get an error similar to
 		// "server with ID xxxxx not found (invalid_input, xxxxxxx)".
-		// Therefore, if error code is "invalid_input" or "load_balancer_not_found" don't do anything.
-		if strings.Contains(err.Error(), "invalid_input") || strings.Contains(err.Error(), "load_balancer_not_found") {
+		// If the load balancer itself was not found then we will get a "not_found" error.
+		// In both cases, don't do anything.
+		if hcloud.IsError(err, hcloud.ErrorCodeInvalidInput) || hcloud.IsError(err, hcloud.ErrorCodeNotFound) {
 			return nil
 		}
 
