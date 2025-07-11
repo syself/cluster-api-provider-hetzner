@@ -663,10 +663,10 @@ func (s *Service) deleteServerOfLoadBalancer(ctx context.Context, server *hcloud
 	lb := &hcloud.LoadBalancer{ID: s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID}
 
 	if err := s.scope.HCloudClient.DeleteTargetServerOfLoadBalancer(ctx, lb, server); err != nil {
-		// Do not return an error in case the target was not found.
+		// Do not return an error in case the target server was not found.
 		// In case the target server was not found we will get an error similar to
 		// "server with ID xxxxx not found (invalid_input, xxxxxxx)".
-		// Therefor, if error code is "invalid_input" or "load_balancer_not_found" don't do anything.
+		// Therefore, if error code is "invalid_input" or "load_balancer_not_found" don't do anything.
 		if strings.Contains(err.Error(), "invalid_input") || strings.Contains(err.Error(), "load_balancer_not_found") {
 			return nil
 		}
