@@ -664,9 +664,10 @@ func (s *Service) deleteServerOfLoadBalancer(ctx context.Context, server *hcloud
 
 	if err := s.scope.HCloudClient.DeleteTargetServerOfLoadBalancer(ctx, lb, server); err != nil {
 		// do not return an error in case the target was not found
-		if strings.Contains(err.Error(), "load_balancer_target_not_found") {
+		if strings.Contains(err.Error(), "invalid_input") || strings.Contains(err.Error(), "load_balancer_not_found") {
 			return nil
 		}
+
 		errMsg := fmt.Sprintf("failed to delete server %s with ID %d as target of load balancer %s with ID %d", server.Name, server.ID, lb.Name, lb.ID)
 		return handleRateLimit(s.scope.HCloudMachine, err, "DeleteTargetServerOfLoadBalancer", errMsg)
 	}
