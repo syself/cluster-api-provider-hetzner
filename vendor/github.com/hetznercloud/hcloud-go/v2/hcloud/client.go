@@ -267,7 +267,7 @@ func NewClient(options ...ClientOption) *Client {
 	client.buildUserAgent()
 	if client.instrumentationRegistry != nil {
 		i := instrumentation.New("api", client.instrumentationRegistry)
-		client.httpClient.Transport = i.InstrumentedRoundTripper()
+		client.httpClient.Transport = i.InstrumentedRoundTripper(client.httpClient.Transport)
 	}
 
 	client.handler = assembleHandlerChain(client)
@@ -304,6 +304,7 @@ func (c *Client) NewRequest(ctx context.Context, method, path string, body io.Re
 		return nil, err
 	}
 	req.Header.Set("User-Agent", c.userAgent)
+	req.Header.Set("Accept", "application/json")
 
 	if !c.tokenValid {
 		return nil, errors.New("Authorization token contains invalid characters")
@@ -323,22 +324,6 @@ func (c *Client) NewRequest(ctx context.Context, method, path string, body io.Re
 // a struct to json.Unmarshal the response to.
 func (c *Client) Do(req *http.Request, v any) (*Response, error) {
 	return c.handler.Do(req, v)
-}
-
-func (c *Client) all(f func(int) (*Response, error)) error {
-	var (
-		page = 1
-	)
-	for {
-		resp, err := f(page)
-		if err != nil {
-			return err
-		}
-		if resp.Meta.Pagination == nil || resp.Meta.Pagination.NextPage == 0 {
-			return nil
-		}
-		page = resp.Meta.Pagination.NextPage
-	}
 }
 
 func (c *Client) buildUserAgent() {
