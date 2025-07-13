@@ -17,6 +17,7 @@ limitations under the License.
 package contract
 
 import (
+	"encoding/json"
 	"sync"
 
 	"github.com/blang/semver/v4"
@@ -24,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/utils/ptr"
 
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/version"
 )
 
@@ -119,6 +121,41 @@ func (c *ControlPlaneContract) UnavailableReplicas() *Int64 {
 	}
 }
 
+// V1Beta2ReadyReplicas provide access to readyReplicas field in a ControlPlane object, if any. Applies to implementations using replicas.
+func (c *ControlPlaneContract) V1Beta2ReadyReplicas() *Int32 {
+	return &Int32{
+		paths: []Path{
+			[]string{"status", "v1beta2", "readyReplicas"},
+			[]string{"status", "readyReplicas"},
+		},
+	}
+}
+
+// V1Beta2AvailableReplicas provide access to the availableReplicas field in a ControlPlane object, if any. Applies to implementations using replicas.
+func (c *ControlPlaneContract) V1Beta2AvailableReplicas() *Int32 {
+	return &Int32{
+		paths: []Path{
+			[]string{"status", "v1beta2", "availableReplicas"},
+			[]string{"status", "availableReplicas"},
+		},
+	}
+}
+
+// V1Beta2UpToDateReplicas provide access to the upToDateReplicas field in a ControlPlane object, if any. Applies to implementations using replicas.
+func (c *ControlPlaneContract) V1Beta2UpToDateReplicas() *Int32 {
+	return &Int32{
+		paths: []Path{
+			[]string{"status", "v1beta2", "upToDateReplicas"},
+			[]string{"status", "upToDateReplicas"},
+		},
+	}
+}
+
+// AvailableConditionType returns the type of the available condition.
+func (c *ControlPlaneContract) AvailableConditionType() string {
+	return "Available"
+}
+
 // Selector provide access to the status.selector field in a ControlPlane object, if any. Applies to implementations using replicas.
 func (c *ControlPlaneContract) Selector() *String {
 	return &String{
@@ -127,6 +164,8 @@ func (c *ControlPlaneContract) Selector() *String {
 }
 
 // FailureReason provides access to the status.failureReason field in an ControlPlane object. Note that this field is optional.
+//
+// Deprecated: This function is deprecated and is going to be removed. Please see https://github.com/kubernetes-sigs/cluster-api/blob/main/docs/proposals/20240916-improve-status-in-CAPI-resources.md for more details.
 func (c *ControlPlaneContract) FailureReason() *String {
 	return &String{
 		path: []string{"status", "failureReason"},
@@ -134,6 +173,8 @@ func (c *ControlPlaneContract) FailureReason() *String {
 }
 
 // FailureMessage provides access to the status.failureMessage field in an ControlPlane object. Note that this field is optional.
+//
+// Deprecated: This function is deprecated and is going to be removed. Please see https://github.com/kubernetes-sigs/cluster-api/blob/main/docs/proposals/20240916-improve-status-in-CAPI-resources.md for more details.
 func (c *ControlPlaneContract) FailureMessage() *String {
 	return &String{
 		path: []string{"status", "failureMessage"},
@@ -311,4 +352,61 @@ func (c *ControlPlaneMachineTemplate) NodeDeletionTimeout() *Duration {
 	return &Duration{
 		path: Path{"spec", "machineTemplate", "nodeDeletionTimeout"},
 	}
+}
+
+// ReadinessGates provides access to control plane's ReadinessGates.
+func (c *ControlPlaneMachineTemplate) ReadinessGates() *ReadinessGates {
+	return &ReadinessGates{}
+}
+
+// ReadinessGates provides a helper struct for working with ReadinessGates.
+type ReadinessGates struct{}
+
+// Path returns the path of the ReadinessGates.
+func (m *ReadinessGates) Path() Path {
+	return Path{"spec", "machineTemplate", "readinessGates"}
+}
+
+// Get gets the ReadinessGates object.
+func (m *ReadinessGates) Get(obj *unstructured.Unstructured) ([]clusterv1.MachineReadinessGate, error) {
+	unstructuredValue, ok, err := unstructured.NestedSlice(obj.UnstructuredContent(), m.Path()...)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to retrieve control plane %s", "."+m.Path().String())
+	}
+	if !ok {
+		return nil, errors.Wrapf(ErrFieldNotFound, "path %s", "."+m.Path().String())
+	}
+
+	var readinessGates []clusterv1.MachineReadinessGate
+	jsonValue, err := json.Marshal(unstructuredValue)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to Marshal control plane %s", "."+m.Path().String())
+	}
+	if err := json.Unmarshal(jsonValue, &readinessGates); err != nil {
+		return nil, errors.Wrapf(err, "failed to Unmarshal control plane %s", "."+m.Path().String())
+	}
+
+	return readinessGates, nil
+}
+
+// Set sets the ReadinessGates value.
+// Note: in case the value is nil, the system assumes that the control plane do not implement the optional list of readiness gates.
+func (m *ReadinessGates) Set(obj *unstructured.Unstructured, readinessGates []clusterv1.MachineReadinessGate) error {
+	unstructured.RemoveNestedField(obj.UnstructuredContent(), m.Path()...)
+	if readinessGates == nil {
+		return nil
+	}
+
+	jsonValue, err := json.Marshal(readinessGates)
+	if err != nil {
+		return errors.Wrapf(err, "failed to Marshal control plane %s", "."+m.Path().String())
+	}
+	var unstructuredValue []interface{}
+	if err := json.Unmarshal(jsonValue, &unstructuredValue); err != nil {
+		return errors.Wrapf(err, "failed to Unmarshal control plane %s", "."+m.Path().String())
+	}
+	if err := unstructured.SetNestedSlice(obj.UnstructuredContent(), unstructuredValue, m.Path()...); err != nil {
+		return errors.Wrapf(err, "failed to set control plane %s", "."+m.Path().String())
+	}
+	return nil
 }
