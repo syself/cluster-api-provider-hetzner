@@ -31,7 +31,8 @@ type BeforeClusterCreateRequest struct {
 	// CommonRequest contains fields common to all request types.
 	CommonRequest `json:",inline"`
 
-	// Cluster is the cluster object the lifecycle hook corresponds to.
+	// cluster is the cluster object the lifecycle hook corresponds to.
+	// +required
 	Cluster clusterv1.Cluster `json:"cluster"`
 }
 
@@ -57,7 +58,8 @@ type AfterControlPlaneInitializedRequest struct {
 	// CommonRequest contains fields common to all request types.
 	CommonRequest `json:",inline"`
 
-	// Cluster is the cluster object the lifecycle hook corresponds to.
+	// cluster is the cluster object the lifecycle hook corresponds to.
+	// +required
 	Cluster clusterv1.Cluster `json:"cluster"`
 }
 
@@ -84,13 +86,16 @@ type BeforeClusterUpgradeRequest struct {
 	// CommonRequest contains fields common to all request types.
 	CommonRequest `json:",inline"`
 
-	// Cluster is the cluster object the lifecycle hook corresponds to.
+	// cluster is the cluster object the lifecycle hook corresponds to.
+	// +required
 	Cluster clusterv1.Cluster `json:"cluster"`
 
-	// FromKubernetesVersion is the current Kubernetes version of the cluster.
+	// fromKubernetesVersion is the current Kubernetes version of the cluster.
+	// +required
 	FromKubernetesVersion string `json:"fromKubernetesVersion"`
 
-	// ToKubernetesVersion is the target Kubernetes version of the upgrade.
+	// toKubernetesVersion is the target Kubernetes version of the upgrade.
+	// +required
 	ToKubernetesVersion string `json:"toKubernetesVersion"`
 }
 
@@ -117,10 +122,12 @@ type AfterControlPlaneUpgradeRequest struct {
 	// CommonRequest contains fields common to all request types.
 	CommonRequest `json:",inline"`
 
-	// Cluster is the cluster object the lifecycle hook corresponds to.
+	// cluster is the cluster object the lifecycle hook corresponds to.
+	// +required
 	Cluster clusterv1.Cluster `json:"cluster"`
 
-	// KubernetesVersion is the Kubernetes version of the Control Plane after the upgrade.
+	// kubernetesVersion is the Kubernetes version of the Control Plane after the upgrade.
+	// +required
 	KubernetesVersion string `json:"kubernetesVersion"`
 }
 
@@ -147,10 +154,12 @@ type AfterClusterUpgradeRequest struct {
 	// CommonRequest contains fields common to all request types.
 	CommonRequest `json:",inline"`
 
-	// Cluster is the cluster object the lifecycle hook corresponds to.
+	// cluster is the cluster object the lifecycle hook corresponds to.
+	// +required
 	Cluster clusterv1.Cluster `json:"cluster"`
 
-	// KubernetesVersion is the Kubernetes version after upgrade.
+	// kubernetesVersion is the Kubernetes version after upgrade.
+	// +required
 	KubernetesVersion string `json:"kubernetesVersion"`
 }
 
@@ -177,7 +186,8 @@ type BeforeClusterDeleteRequest struct {
 	// CommonRequest contains fields common to all request types.
 	CommonRequest `json:",inline"`
 
-	// Cluster is the cluster object the lifecycle hook corresponds to.
+	// cluster is the cluster object the lifecycle hook corresponds to.
+	// +required
 	Cluster clusterv1.Cluster `json:"cluster"`
 }
 

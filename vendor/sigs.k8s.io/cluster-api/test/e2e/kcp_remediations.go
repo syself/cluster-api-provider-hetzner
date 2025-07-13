@@ -64,7 +64,7 @@ type KCPRemediationSpecInput struct {
 	// InfrastructureProviders specifies the infrastructure to use for clusterctl
 	// operations (Example: get cluster templates).
 	// Note: In most cases this need not be specified. It only needs to be specified when
-	// multiple infrastructure providers (ex: CAPD + in-memory) are installed on the cluster as clusterctl will not be
+	// multiple infrastructure providers are installed on the cluster as clusterctl will not be
 	// able to identify the default.
 	InfrastructureProvider *string
 
@@ -418,7 +418,7 @@ func KCPRemediationSpec(ctx context.Context, inputGetter func() KCPRemediationSp
 
 	AfterEach(func() {
 		// Dumps all the resources in the spec namespace, then cleanups the cluster object and the spec namespace itself.
-		framework.DumpSpecResourcesAndCleanup(ctx, specName, input.BootstrapClusterProxy, input.ArtifactFolder, namespace, cancelWatches, clusterResources.Cluster, input.E2EConfig.GetIntervals, input.SkipCleanup)
+		framework.DumpSpecResourcesAndCleanup(ctx, specName, input.BootstrapClusterProxy, input.ClusterctlConfigPath, input.ArtifactFolder, namespace, cancelWatches, clusterResources.Cluster, input.E2EConfig.GetIntervals, input.SkipCleanup)
 	})
 }
 
@@ -473,7 +473,7 @@ func createWorkloadClusterAndWait(ctx context.Context, input createWorkloadClust
 		// define template variables
 		Namespace:                input.Namespace,
 		ClusterName:              clusterName,
-		KubernetesVersion:        input.E2EConfig.GetVariable(KubernetesVersion),
+		KubernetesVersion:        input.E2EConfig.MustGetVariable(KubernetesVersion),
 		ControlPlaneMachineCount: ptr.To[int64](3),
 		WorkerMachineCount:       ptr.To[int64](0),
 		InfrastructureProvider:   infrastructureProvider,

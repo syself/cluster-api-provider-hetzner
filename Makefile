@@ -91,7 +91,7 @@ export KUBEBUILDER_ENVTEST_KUBERNETES_VERSION ?= 1.31.0
 CONTROLLER_GEN := $(abspath $(TOOLS_BIN_DIR)/controller-gen)
 controller-gen: $(CONTROLLER_GEN) ## Build a local copy of controller-gen
 $(CONTROLLER_GEN): # Build controller-gen from tools folder.
-	go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.14.0
+	go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.18.0
 
 KUSTOMIZE := $(abspath $(TOOLS_BIN_DIR)/kustomize)
 kustomize: $(KUSTOMIZE) ## Build a local copy of kustomize
@@ -750,8 +750,7 @@ format: format-starlark format-golang format-yaml ## Format Codebase
 
 .PHONY: generate-mocks
 generate-mocks: ## Generate Mocks
-	cd pkg/services/baremetal/client; go run github.com/vektra/mockery/v2@v2.40.2
-	cd pkg/services/hcloud/client; go run github.com/vektra/mockery/v2@v2.40.2 --all
+	go run github.com/vektra/mockery/v2@v2.53.4
 
 .PHONY: generate
 generate: generate-manifests generate-go-deepcopy generate-boilerplate generate-modules generate-mocks ## Generate Files
