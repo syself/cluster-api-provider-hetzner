@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -65,7 +65,11 @@ type HetznerClusterSpec struct {
 	// This is generated in the security section under API TOKENS. Read & write is necessary.
 	HetznerSecret HetznerSecretRef `json:"hetznerSecretRef"`
 
-	// SkipCreatingHetznerSecretInWorkloadCluster indicates whether the Hetzner secret should be created in the workload cluster. By default the secret gets created, so that the ccm (running in the wl-cluster) can use that secret. If you prefer to not reveal the secret in the wl-cluster, you can set this to value to false, so that the secret is not created. Be sure to run the ccm outside of the wl-cluster in that case, e.g. in the management cluster.
+	// SkipCreatingHetznerSecretInWorkloadCluster indicates whether the Hetzner secret should be
+	// created in the workload cluster. By default the secret gets created, so that the ccm (running
+	// in the wl-cluster) can use that secret. If you prefer to not reveal the secret in the
+	// wl-cluster, you can set this to value to false, so that the secret is not created. Be sure to
+	// run the ccm outside of the wl-cluster in that case, e.g. in the management cluster.
 	// +optional
 	SkipCreatingHetznerSecretInWorkloadCluster bool `json:"skipCreatingHetznerSecretInWorkloadCluster,omitempty"`
 }
