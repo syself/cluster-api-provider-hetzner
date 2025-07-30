@@ -472,6 +472,12 @@ func hcloudTokenErrorResult(
 }
 
 func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope) (res reconcile.Result, reterr error) {
+	if clusterScope.HetznerCluster.Spec.SkipCreatingHetznerSecretInWorkloadCluster {
+		// If the secret should not be created in the workload cluster, we just return.
+		// This means the ccm is running outside of the workload cluster (or getting the secret differently).
+		return reconcile.Result{}, nil
+	}
+
 	// Checking if control plane is ready
 	clientConfig, err := clusterScope.ClientConfig(ctx)
 	if err != nil {
