@@ -750,7 +750,14 @@ format: format-starlark format-golang format-yaml ## Format Codebase
 
 .PHONY: generate-mocks
 generate-mocks: ## Generate Mocks
+ifeq ($(BUILD_IN_CONTAINER),true)
+	docker run  --rm -t -i \
+		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
+		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
+		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
+else
 	go run github.com/vektra/mockery/v2@v2.53.4
+endif
 
 .PHONY: generate
 generate: generate-manifests generate-go-deepcopy generate-boilerplate generate-modules generate-mocks ## Generate Files
