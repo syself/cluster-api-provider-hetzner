@@ -21,7 +21,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
@@ -663,10 +662,15 @@ func (s *Service) deleteServerOfLoadBalancer(ctx context.Context, server *hcloud
 	lb := &hcloud.LoadBalancer{ID: s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID}
 
 	if err := s.scope.HCloudClient.DeleteTargetServerOfLoadBalancer(ctx, lb, server); err != nil {
-		// do not return an error in case the target was not found
-		if strings.Contains(err.Error(), "load_balancer_target_not_found") {
+		// Do not return an error in case the target server was not found.
+		// In case the target server was not found we will get an error similar to
+		// "server with ID xxxxx not found (invalid_input, xxxxxxx)".
+		// If the load balancer itself was not found then we will get a "not_found" error.
+		// In both cases, don't do anything.
+		if hcloud.IsError(err, hcloud.ErrorCodeInvalidInput) || hcloud.IsError(err, hcloud.ErrorCodeNotFound) {
 			return nil
 		}
+
 		errMsg := fmt.Sprintf("failed to delete server %s with ID %d as target of load balancer %s with ID %d", server.Name, server.ID, lb.Name, lb.ID)
 		return handleRateLimit(s.scope.HCloudMachine, err, "DeleteTargetServerOfLoadBalancer", errMsg)
 	}
