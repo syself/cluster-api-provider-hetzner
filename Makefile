@@ -127,13 +127,13 @@ $(CLUSTERCTL):
 HELM := $(abspath $(TOOLS_BIN_DIR)/helm)
 helm: $(HELM) ## Build a local copy of helm
 $(HELM):
-	curl -sSL https://get.helm.sh/helm-v3.13.2-linux-amd64.tar.gz | tar xz -C $(TOOLS_BIN_DIR) --strip-components=1 linux-amd64/helm
+	curl -sSL https://get.helm.sh/helm-v3.13.2-$$(go env GOOS)-$$(go env GOARCH).tar.gz | tar xz -C $(TOOLS_BIN_DIR) --strip-components=1 $$(go env GOOS)-$$(go env GOARCH)/helm
 	chmod a+rx $(HELM)
 
 HCLOUD := $(abspath $(TOOLS_BIN_DIR)/hcloud)
 hcloud: $(HCLOUD) ## Build a local copy of hcloud
 $(HCLOUD):
-	curl -sSL https://github.com/hetznercloud/cli/releases/download/v1.43.1/hcloud-linux-amd64.tar.gz | tar xz -C $(TOOLS_BIN_DIR) hcloud
+	curl -sSL https://github.com/hetznercloud/cli/releases/download/v1.43.1/hcloud-$$(go env GOOS)-$$(go env GOARCH).tar.gz | tar xz -C $(TOOLS_BIN_DIR) hcloud
 	chmod a+rx $(HCLOUD)
 
 KIND := $(abspath $(TOOLS_BIN_DIR)/kind)
