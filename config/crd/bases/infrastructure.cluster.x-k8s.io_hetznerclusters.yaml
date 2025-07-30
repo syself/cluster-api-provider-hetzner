@@ -273,13 +273,12 @@ spec:
                 - name
                 type: object
               skipCreatingHetznerSecretInWorkloadCluster:
-                description: SkipCreatingHetznerSecretInWorkloadCluster indicates
-                  whether the Hetzner secret should be created in the workload cluster.
-                  By default the secret gets created, so that the ccm (running in
-                  the wl-cluster) can use that secret. If you prefer to not reveal
-                  the secret in the wl-cluster, you can set this to value to false,
-                  so that the secret is not created. Be sure to run the ccm outside
-                  of the wl-cluster in that case, e.g. in the management cluster.
+                description: |-
+                  SkipCreatingHetznerSecretInWorkloadCluster indicates whether the Hetzner secret should be
+                  created in the workload cluster. By default the secret gets created, so that the ccm (running
+                  in the wl-cluster) can use that secret. If you prefer to not reveal the secret in the
+                  wl-cluster, you can set this to value to false, so that the secret is not created. Be sure to
+                  run the ccm outside of the wl-cluster in that case, e.g. in the management cluster.
                 type: boolean
               sshKeys:
                 description: SSHKeys are cluster wide. Valid values are a valid SSH
