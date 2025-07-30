@@ -36,12 +36,12 @@ type hetznerBareMetalHostWebhook struct {
 }
 
 // SetupWebhookWithManager initializes webhook manager for HetznerBareMetalHost.
-func (r *HetznerBareMetalHost) SetupWebhookWithManager(mgr ctrl.Manager) error {
+func (host *HetznerBareMetalHost) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	w := new(hetznerBareMetalHostWebhook)
 	w.c = mgr.GetClient()
 
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(r).
+		For(host).
 		WithValidator(w).
 		WithDefaulter(w).
 		Complete()

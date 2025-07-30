@@ -43,7 +43,7 @@ func (r *HetznerBareMetalMachine) SetupWebhookWithManager(mgr ctrl.Manager) erro
 var _ webhook.CustomDefaulter = &hetznerBareMetalMachineWebhook{}
 
 // Default implements webhook.CustomDefaulter so a webhook will be registered for the type.
-func (*hetznerBareMetalMachineWebhook) Default(ctx context.Context, obj runtime.Object) error {
+func (*hetznerBareMetalMachineWebhook) Default(_ context.Context, _ runtime.Object) error {
 	return nil
 }
 
@@ -52,7 +52,7 @@ func (*hetznerBareMetalMachineWebhook) Default(ctx context.Context, obj runtime.
 var _ webhook.CustomValidator = &hetznerBareMetalMachineWebhook{}
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (*hetznerBareMetalMachineWebhook) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (*hetznerBareMetalMachineWebhook) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
 	r, ok := obj.(*HetznerBareMetalMachine)
 	if !ok {
 		return nil, fmt.Errorf("expected an HetznerBareMetalMachine object but got %T", r)
@@ -68,7 +68,7 @@ func (*hetznerBareMetalMachineWebhook) ValidateCreate(ctx context.Context, obj r
 }
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (*hetznerBareMetalMachineWebhook) ValidateUpdate(ctx context.Context, oldObj runtime.Object, newObj runtime.Object) (admission.Warnings, error) {
+func (*hetznerBareMetalMachineWebhook) ValidateUpdate(_ context.Context, oldObj runtime.Object, newObj runtime.Object) (admission.Warnings, error) {
 	r, ok := newObj.(*HetznerBareMetalMachine)
 	if !ok {
 		return nil, fmt.Errorf("expected an HetznerBareMetalMachine object but got %T", r)
@@ -82,6 +82,6 @@ func (*hetznerBareMetalMachineWebhook) ValidateUpdate(ctx context.Context, oldOb
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
-func (*hetznerBareMetalMachineWebhook) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (*hetznerBareMetalMachineWebhook) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
 	return nil, nil
 }

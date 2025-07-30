@@ -45,7 +45,7 @@ func (r *HCloudMachineTemplate) SetupWebhookWithManager(mgr ctrl.Manager) error 
 type hcloudMachineTemplateWebhook struct{}
 
 // Default implements admission.CustomDefaulter.
-func (*hcloudMachineTemplateWebhook) Default(ctx context.Context, obj runtime.Object) error {
+func (*hcloudMachineTemplateWebhook) Default(_ context.Context, _ runtime.Object) error {
 	return nil
 }
 

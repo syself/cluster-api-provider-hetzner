@@ -124,7 +124,7 @@ var _ = BeforeSuite(func() {
 	<-testEnv.Manager.Elected()
 
 	// wait for webhook port to be open prior to running tests
-	utilruntime.Must(testEnv.WaitForWebhooks())
+	testEnv.WaitForWebhooks()
 
 	// create manager pod namespace
 	ns := &corev1.Namespace{

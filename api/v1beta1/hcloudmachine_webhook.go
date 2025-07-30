@@ -57,7 +57,7 @@ func (r *HCloudMachineList) SetupWebhookWithManager(mgr ctrl.Manager) error {
 var _ webhook.CustomDefaulter = &hcloudMachineWebhook{}
 
 // Default implements webhook.CustomDefaulter so a webhook will be registered for the type.
-func (*hcloudMachineWebhook) Default(ctx context.Context, obj runtime.Object) error {
+func (*hcloudMachineWebhook) Default(_ context.Context, obj runtime.Object) error {
 	r, ok := obj.(*HCloudMachine)
 	if !ok {
 		return fmt.Errorf("expected an HCloudMachine object but got %T", r)
@@ -76,7 +76,7 @@ func (*hcloudMachineWebhook) Default(ctx context.Context, obj runtime.Object) er
 var _ webhook.CustomValidator = &hcloudMachineWebhook{}
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (*hcloudMachineWebhook) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (*hcloudMachineWebhook) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
 	r, ok := obj.(*HCloudMachine)
 	if !ok {
 		return nil, fmt.Errorf("expected an HCloudMachine object but got %T", r)
@@ -89,7 +89,7 @@ func (*hcloudMachineWebhook) ValidateCreate(ctx context.Context, obj runtime.Obj
 }
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (*hcloudMachineWebhook) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+func (*hcloudMachineWebhook) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	r, ok := newObj.(*HCloudMachine)
 	if !ok {
 		return nil, fmt.Errorf("expected an HCloudMachine object but got %T", r)
@@ -107,6 +107,6 @@ func (*hcloudMachineWebhook) ValidateUpdate(ctx context.Context, oldObj, newObj 
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
-func (r *hcloudMachineWebhook) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (r *hcloudMachineWebhook) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
 	return nil, nil
 }

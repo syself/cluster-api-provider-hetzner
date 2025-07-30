@@ -49,7 +49,7 @@ func (r *HetznerClusterTemplate) SetupWebhookWithManager(mgr ctrl.Manager) error
 var _ webhook.CustomDefaulter = &hetznerClusterTemplateWebhook{}
 
 // Default implements webhook.CustomDefaulter so a webhook will be registered for the type.
-func (*hetznerClusterTemplateWebhook) Default(ctx context.Context, obj runtime.Object) error {
+func (*hetznerClusterTemplateWebhook) Default(_ context.Context, _ runtime.Object) error {
 	return nil
 }
 
@@ -58,12 +58,12 @@ func (*hetznerClusterTemplateWebhook) Default(ctx context.Context, obj runtime.O
 var _ webhook.CustomValidator = &hetznerClusterTemplateWebhook{}
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (*hetznerClusterTemplateWebhook) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (*hetznerClusterTemplateWebhook) ValidateCreate(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
 	return nil, nil
 }
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (*hetznerClusterTemplateWebhook) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+func (*hetznerClusterTemplateWebhook) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	r, ok := newObj.(*HetznerClusterTemplate)
 	if !ok {
 		return nil, fmt.Errorf("expected an HetznerClusterTemplate object but got %T", r)
@@ -81,6 +81,6 @@ func (*hetznerClusterTemplateWebhook) ValidateUpdate(ctx context.Context, oldObj
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
-func (*hetznerClusterTemplateWebhook) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (*hetznerClusterTemplateWebhook) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
 	return nil, nil
 }

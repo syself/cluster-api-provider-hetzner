@@ -45,7 +45,7 @@ func (r *HetznerBareMetalMachineTemplate) SetupWebhookWithManager(mgr ctrl.Manag
 type HetznerBareMetalMachineTemplateWebhook struct{}
 
 // Default implements admission.CustomDefaulter.
-func (*HetznerBareMetalMachineTemplateWebhook) Default(ctx context.Context, obj runtime.Object) error {
+func (*HetznerBareMetalMachineTemplateWebhook) Default(_ context.Context, _ runtime.Object) error {
 	return nil
 }
 

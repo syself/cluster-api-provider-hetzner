@@ -42,7 +42,7 @@ func (r *HCloudRemediationTemplate) SetupWebhookWithManager(mgr ctrl.Manager) er
 var _ webhook.CustomDefaulter = &hcloudRemediationTemplateWebhook{}
 
 // Default implements webhook.CustomDefaulter so a webhook will be registered for the type.
-func (*hcloudRemediationTemplateWebhook) Default(ctx context.Context, obj runtime.Object) error {
+func (*hcloudRemediationTemplateWebhook) Default(_ context.Context, _ runtime.Object) error {
 	return nil
 }
 

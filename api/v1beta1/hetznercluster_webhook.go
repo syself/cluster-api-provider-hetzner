@@ -69,7 +69,7 @@ func (r *HetznerClusterList) SetupWebhookWithManager(mgr ctrl.Manager) error {
 var _ webhook.CustomDefaulter = &hetznerClusterWebhook{}
 
 // Default implements webhook.CustomDefaulter so a webhook will be registered for the type.
-func (*hetznerClusterWebhook) Default(ctx context.Context, obj runtime.Object) error {
+func (*hetznerClusterWebhook) Default(_ context.Context, _ runtime.Object) error {
 	return nil
 }
 
@@ -78,7 +78,7 @@ func (*hetznerClusterWebhook) Default(ctx context.Context, obj runtime.Object) e
 var _ webhook.CustomValidator = &hetznerClusterWebhook{}
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (*hetznerClusterWebhook) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (*hetznerClusterWebhook) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
 	r, ok := obj.(*HetznerCluster)
 	if !ok {
 		return nil, fmt.Errorf("expected an HetznerCluster object but got %T", r)
@@ -164,7 +164,7 @@ func isNetworkZoneSameForAllRegions(regions []Region, defaultNetworkZone *string
 }
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (*hetznerClusterWebhook) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+func (*hetznerClusterWebhook) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	r, ok := newObj.(*HetznerCluster)
 	if !ok {
 		return nil, fmt.Errorf("expected an HetznerCluster object but got %T", r)
@@ -237,6 +237,6 @@ func (r *HetznerCluster) validateHetznerSecretKey() *field.Error {
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
-func (*hetznerClusterWebhook) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (*hetznerClusterWebhook) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
 	return nil, nil
 }
