@@ -833,6 +833,9 @@ func nodeAddresses(host *infrav1.HetznerBareMetalHost, bareMetalMachineName stri
 	addrs := make([]clusterv1.MachineAddress, 0, len(host.Spec.Status.HardwareDetails.NIC)+2)
 
 	for _, nic := range host.Spec.Status.HardwareDetails.NIC {
+		if nic.IP == "" {
+			continue
+		}
 		address := clusterv1.MachineAddress{
 			Type:    clusterv1.MachineInternalIP,
 			Address: nic.IP,

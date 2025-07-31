@@ -859,6 +859,7 @@ func obtainHardwareDetailsNics(sshClient sshclient.Client) ([]infrav1.NIC, error
 	stringArray := strings.Split(stdOut, "\n")
 	nicsArray := make([]infrav1.NIC, 0, len(stringArray))
 
+	ipFound := false
 	for _, str := range stringArray {
 		validJSONString := validJSONFromSSHOutput(str)
 
@@ -883,6 +884,15 @@ func obtainHardwareDetailsNics(sshClient sshclient.Client) ([]infrav1.NIC, error
 			IP:        nic.IP,
 			SpeedMbps: speedMbps,
 		})
+
+		if nic.IP != "" {
+			ipFound = true
+		}
+	}
+	// if no IP was found, we return an error
+	// See nodeAddresses()
+	if !ipFound {
+		return nil, fmt.Errorf("no IP found in NICs: %+v", nicsArray)
 	}
 
 	return nicsArray, nil
