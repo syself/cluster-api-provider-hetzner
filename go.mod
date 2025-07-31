@@ -1,8 +1,6 @@
 module github.com/syself/cluster-api-provider-hetzner
 
-go 1.24.0
-
-toolchain go1.24.5
+go 1.24.5
 
 require (
 	github.com/blang/semver/v4 v4.0.0

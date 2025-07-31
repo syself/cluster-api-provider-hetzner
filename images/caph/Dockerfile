@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # Build the manager binary
-FROM --platform=${BUILDPLATFORM} docker.io/library/golang:1.24.5-bullseye@sha256:254c0d1f13aad57bb210caa9e049deaee17ab7b8a976dba755cba1adf3fbe291 \
+FROM --platform=${BUILDPLATFORM} docker.io/library/golang:1.24.5-bullseye@sha256:62ba6b19de03e891f7fa1001326bd48411f2626ff35e7ba5b9d890711ce581d9 \
     AS build
 ARG TARGETOS TARGETARCH
 
