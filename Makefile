@@ -586,9 +586,6 @@ ifeq ($(BUILD_IN_CONTAINER),true)
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
 else
-	type go
-	go version
-	grep PRETTY /etc/os-release
 	./hack/golang-modules-update.sh
 endif
 
