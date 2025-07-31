@@ -756,8 +756,8 @@ ifeq ($(BUILD_IN_CONTAINER),true)
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
 else
-	cd pkg/services/baremetal/client; go run github.com/vektra/mockery/v2@v2.40.2
-	cd pkg/services/hcloud/client; go run github.com/vektra/mockery/v2@v2.40.2 --all
+	cd pkg/services/baremetal/client; go run github.com/vektra/mockery/v2@v2.53.4
+	cd pkg/services/hcloud/client; go run github.com/vektra/mockery/v2@v2.53.4 --all
 endif
 
 .PHONY: generate
