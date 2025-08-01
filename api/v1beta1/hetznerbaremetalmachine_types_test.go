@@ -23,7 +23,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
-	capierrors "sigs.k8s.io/cluster-api/errors" //nolint:staticcheck
+	capierrors "github.com/syself/cluster-api-provider-hetzner/pkg/utils/errors"
 )
 
 var _ = Describe("Test Image.GetDetails", func() {
@@ -180,11 +180,11 @@ var _ = Describe("Test GetImageSuffix", func() {
 var _ = Describe("Test SetFailure", func() {
 	bmMachine := HetznerBareMetalMachine{}
 	newFailureMessage := "bad error"
-	newFailureReason := capierrors.CreateMachineError
+	newFailureReason := capierrors.DeprecatedCAPICreateMachineError
 
 	It("sets new failure on the machine with existing failure", func() {
 		failureMessage := "first message"
-		failureReason := capierrors.MachineStatusError("first error")
+		failureReason := capierrors.DeprecatedCAPIMachineStatusError("first error")
 		bmMachine.Status.FailureMessage = &failureMessage
 		bmMachine.Status.FailureReason = &failureReason
 

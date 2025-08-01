@@ -22,10 +22,10 @@ import (
 	"net/url"
 	"strings"
 
+	capierrors "github.com/syself/cluster-api-provider-hetzner/pkg/utils/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/selection"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	capierrors "sigs.k8s.io/cluster-api/errors" //nolint:staticcheck
 )
 
 const (
@@ -291,7 +291,7 @@ type HetznerBareMetalMachineStatus struct {
 
 	// FailureReason will be set in the event that there is a terminal problem.
 	// +optional
-	FailureReason *capierrors.MachineStatusError `json:"failureReason,omitempty"`
+	FailureReason *capierrors.DeprecatedCAPIMachineStatusError `json:"failureReason,omitempty"`
 
 	// FailureMessage will be set in the event that there is a terminal problem.
 	// +optional
@@ -350,7 +350,7 @@ func (r *HetznerBareMetalMachine) SetConditions(conditions clusterv1.Conditions)
 }
 
 // SetFailure sets a failure reason and message.
-func (r *HetznerBareMetalMachine) SetFailure(reason capierrors.MachineStatusError, message string) {
+func (r *HetznerBareMetalMachine) SetFailure(reason capierrors.DeprecatedCAPIMachineStatusError, message string) {
 	r.Status.FailureReason = &reason
 	r.Status.FailureMessage = &message
 }

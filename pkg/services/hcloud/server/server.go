@@ -24,10 +24,10 @@ import (
 	"time"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
+	capierrors "github.com/syself/cluster-api-provider-hetzner/pkg/utils/errors"
 	corev1 "k8s.io/api/core/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
-	capierrors "sigs.k8s.io/cluster-api/errors" //nolint:staticcheck
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -120,7 +120,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	// validate labels
 	if err := validateLabels(server, s.createLabels()); err != nil {
 		err := fmt.Errorf("could not validate labels of HCloud server: %w", err)
-		s.scope.SetError(err.Error(), capierrors.CreateMachineError)
+		s.scope.SetError(err.Error(), capierrors.DeprecatedCAPICreateMachineError)
 		return res, nil
 	}
 
@@ -592,7 +592,7 @@ func (s *Service) handleServerStatusOff(ctx context.Context, server *hcloud.Serv
 			}
 		} else {
 			// Timed out. Set failure reason
-			s.scope.SetError("reached timeout of waiting for machines that are switched off", capierrors.CreateMachineError)
+			s.scope.SetError("reached timeout of waiting for machines that are switched off", capierrors.DeprecatedCAPICreateMachineError)
 			return res, nil
 		}
 	} else {

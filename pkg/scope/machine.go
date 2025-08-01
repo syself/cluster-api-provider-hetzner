@@ -26,9 +26,9 @@ import (
 	"strings"
 	"time"
 
+	capierrors "github.com/syself/cluster-api-provider-hetzner/pkg/utils/errors"
 	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	capierrors "sigs.k8s.io/cluster-api/errors" //nolint:staticcheck
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
@@ -122,9 +122,10 @@ func (m *MachineScope) PatchObject(ctx context.Context) error {
 // SetError sets the ErrorMessage and ErrorReason fields on the machine and logs
 // the message. It assumes the reason is invalid configuration, since that is
 // currently the only relevant MachineStatusError choice.
-func (m *MachineScope) SetError(message string, reason capierrors.MachineStatusError) {
+func (m *MachineScope) SetError(message string, reason capierrors.DeprecatedCAPIMachineStatusError) {
 	m.HCloudMachine.Status.FailureMessage = &message
 	m.HCloudMachine.Status.FailureReason = &reason
+	conditions.MarkFalse(m.Machine, clusterv1.BootstrapReadyCondition, "", "", "")
 }
 
 // SetRegion sets the region field on the machine.

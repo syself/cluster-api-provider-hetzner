@@ -29,6 +29,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
+	capierrors "github.com/syself/cluster-api-provider-hetzner/pkg/utils/errors"
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
@@ -39,7 +40,6 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	capierrors "sigs.k8s.io/cluster-api/errors" //nolint:staticcheck
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/record"
@@ -208,7 +208,7 @@ func (s *Service) update(ctx context.Context) error {
 		return fmt.Errorf("failed to get host: %w", err)
 	}
 	if host == nil {
-		s.scope.BareMetalMachine.SetFailure(capierrors.UpdateMachineError, "host not found")
+		s.scope.BareMetalMachine.SetFailure(capierrors.DeprecatedCAPIUpdateMachineError, "host not found")
 		return fmt.Errorf("host not found for machine %s: %w", s.scope.Machine.Name, err)
 	}
 
@@ -230,7 +230,7 @@ func (s *Service) update(ctx context.Context) error {
 
 	// maintenance mode on the host is a fatal error for the machine object
 	if host.Spec.MaintenanceMode != nil && *host.Spec.MaintenanceMode && s.scope.BareMetalMachine.Status.FailureReason == nil {
-		s.scope.BareMetalMachine.SetFailure(capierrors.UpdateMachineError, FailureMessageMaintenanceMode)
+		s.scope.BareMetalMachine.SetFailure(capierrors.DeprecatedCAPIUpdateMachineError, FailureMessageMaintenanceMode)
 		record.Eventf(
 			s.scope.BareMetalMachine,
 			"BareMetalMachineSetFailure",
@@ -242,7 +242,7 @@ func (s *Service) update(ctx context.Context) error {
 	// if host has a fatal error, then it should be set on the machine object as well
 	if (host.Spec.Status.ErrorType == infrav1.FatalError || host.Spec.Status.ErrorType == infrav1.PermanentError) &&
 		s.scope.BareMetalMachine.Status.FailureReason == nil {
-		s.scope.BareMetalMachine.SetFailure(capierrors.UpdateMachineError, host.Spec.Status.ErrorMessage)
+		s.scope.BareMetalMachine.SetFailure(capierrors.DeprecatedCAPIUpdateMachineError, host.Spec.Status.ErrorMessage)
 		record.Eventf(s.scope.BareMetalMachine, "BareMetalMachineSetFailure", host.Spec.Status.ErrorMessage)
 		return nil
 	}
@@ -674,7 +674,7 @@ func (s *Service) setProviderID(ctx context.Context) error {
 	}
 
 	if host == nil {
-		s.scope.BareMetalMachine.SetFailure(capierrors.UpdateMachineError, "host not found")
+		s.scope.BareMetalMachine.SetFailure(capierrors.DeprecatedCAPIUpdateMachineError, "host not found")
 		return fmt.Errorf("host not found for machine %s: %w", s.scope.Machine.Name, err)
 	}
 
