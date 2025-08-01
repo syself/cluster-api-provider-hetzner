@@ -91,7 +91,7 @@ export KUBEBUILDER_ENVTEST_KUBERNETES_VERSION ?= 1.31.0
 CONTROLLER_GEN := $(abspath $(TOOLS_BIN_DIR)/controller-gen)
 controller-gen: $(CONTROLLER_GEN) ## Build a local copy of controller-gen
 $(CONTROLLER_GEN): # Build controller-gen from tools folder.
-	go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.14.0
+	go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.18.0
 
 KUSTOMIZE := $(abspath $(TOOLS_BIN_DIR)/kustomize)
 kustomize: $(KUSTOMIZE) ## Build a local copy of kustomize
@@ -756,8 +756,7 @@ ifeq ($(BUILD_IN_CONTAINER),true)
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
 else
-	cd pkg/services/baremetal/client; go run github.com/vektra/mockery/v2@v2.53.4
-	cd pkg/services/hcloud/client; go run github.com/vektra/mockery/v2@v2.53.4 --all
+	go run github.com/vektra/mockery/v2@v2.53.4
 endif
 
 .PHONY: generate

@@ -12,6 +12,14 @@ type Factory struct {
 	mock.Mock
 }
 
+type Factory_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *Factory) EXPECT() *Factory_Expecter {
+	return &Factory_Expecter{mock: &_m.Mock}
+}
+
 // NewClient provides a mock function with given fields: hcloudToken
 func (_m *Factory) NewClient(hcloudToken string) hcloudclient.Client {
 	ret := _m.Called(hcloudToken)
@@ -30,6 +38,34 @@ func (_m *Factory) NewClient(hcloudToken string) hcloudclient.Client {
 	}
 
 	return r0
+}
+
+// Factory_NewClient_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'NewClient'
+type Factory_NewClient_Call struct {
+	*mock.Call
+}
+
+// NewClient is a helper method to define mock.On call
+//   - hcloudToken string
+func (_e *Factory_Expecter) NewClient(hcloudToken interface{}) *Factory_NewClient_Call {
+	return &Factory_NewClient_Call{Call: _e.mock.On("NewClient", hcloudToken)}
+}
+
+func (_c *Factory_NewClient_Call) Run(run func(hcloudToken string)) *Factory_NewClient_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string))
+	})
+	return _c
+}
+
+func (_c *Factory_NewClient_Call) Return(_a0 hcloudclient.Client) *Factory_NewClient_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Factory_NewClient_Call) RunAndReturn(run func(string) hcloudclient.Client) *Factory_NewClient_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewFactory creates a new instance of Factory. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
