@@ -34,11 +34,11 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	addonsv1 "sigs.k8s.io/cluster-api/api/addons/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	bootstrapv1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
 	clusterctlcluster "sigs.k8s.io/cluster-api/cmd/clusterctl/client/cluster"
 	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
-	addonsv1 "sigs.k8s.io/cluster-api/exp/addons/api/v1beta1"
 	expv1 "sigs.k8s.io/cluster-api/exp/api/v1beta1"
 	infraexpv1 "sigs.k8s.io/cluster-api/test/infrastructure/docker/exp/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/patch"
@@ -394,7 +394,7 @@ func forceClusterClassReconcile(ctx context.Context, cli client.Client, clusterK
 
 	if cluster.Spec.Topology != nil {
 		class := &clusterv1.ClusterClass{}
-		Expect(cli.Get(ctx, client.ObjectKey{Namespace: clusterKey.Namespace, Name: cluster.Spec.Topology.Class}, class)).To(Succeed())
+		Expect(cli.Get(ctx, cluster.GetClassKey(), class)).To(Succeed())
 		annotationPatch := client.RawPatch(types.MergePatchType, []byte(fmt.Sprintf("{\"metadata\":{\"annotations\":{\"cluster.x-k8s.io/modifiedAt\":\"%v\"}}}", time.Now().Format(time.RFC3339))))
 		Expect(cli.Patch(ctx, class, annotationPatch)).To(Succeed())
 	}

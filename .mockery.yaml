@@ -1,0 +1,18 @@
+# This config was choosen, so that the output matches to old structure (pre config file .mockery.yaml).
+# If you are here to copy this config to a new project, then it might
+# make sense to choose a structure which needs less config by using
+# the default values of Mockery.
+all: True
+filename: "{{.InterfaceName}}.go"
+mockname: "{{.InterfaceName}}"
+outpkg: mocks
+packages:
+  github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh:
+    config:
+      dir: "{{.InterfaceDir}}/../mocks/ssh"
+  github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/robot:
+    config:
+      dir: "{{.InterfaceDir}}/../mocks/robot"
+  github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client:
+    config:
+      dir: "{{.InterfaceDir}}/mocks"

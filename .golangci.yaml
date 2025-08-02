@@ -83,8 +83,6 @@ linters-settings:
         alias: bootstrapv1
       - pkg: sigs.k8s.io/controller-runtime/pkg/metrics/server
         alias: metricsserver
-      - pkg: sigs.k8s.io/cluster-api/errors
-        alias: capierrors
       - pkg: sigs.k8s.io/controller-runtime/pkg/client/fake
         alias: fakeclient
   nolintlint:
