@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The Kubernetes Authors.
+Copyright 2025 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -64,6 +64,14 @@ type HetznerClusterSpec struct {
 	// HetznerSecretRef is a reference to a token to be used when reconciling this cluster.
 	// This is generated in the security section under API TOKENS. Read & write is necessary.
 	HetznerSecret HetznerSecretRef `json:"hetznerSecretRef"`
+
+	// SkipCreatingHetznerSecretInWorkloadCluster indicates whether the Hetzner secret should be
+	// created in the workload cluster. By default the secret gets created, so that the ccm (running
+	// in the wl-cluster) can use that secret. If you prefer to not reveal the secret in the
+	// wl-cluster, you can set this to value to false, so that the secret is not created. Be sure to
+	// run the ccm outside of the wl-cluster in that case, e.g. in the management cluster.
+	// +optional
+	SkipCreatingHetznerSecretInWorkloadCluster bool `json:"skipCreatingHetznerSecretInWorkloadCluster,omitempty"`
 }
 
 // HetznerClusterStatus defines the observed state of HetznerCluster.
