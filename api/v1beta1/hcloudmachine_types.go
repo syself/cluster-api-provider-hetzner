@@ -48,6 +48,12 @@ type HCloudMachineSpec struct {
 	// +kubebuilder:validation:MinLength=1
 	ImageName string `json:"imageName"`
 
+	// ImageURL is an oci node image URL. If set, the hcloud machine will be provisioned with the
+	// given. The node image must be in tgz format.
+	// ImageURL is mutual exclusive to "imageName".
+	// The URL must start with `oci://`.
+	ImageURL string `json:"imageURL"`
+
 	// SSHKeys define machine-specific SSH keys and override cluster-wide SSH keys.
 	// +optional
 	SSHKeys []SSHKey `json:"sshKeys,omitempty"`
