@@ -61,8 +61,8 @@ type HCloudMachineSpec struct {
 	// the process is considered to have failed.
 	//
 	// A Kubernetes event will be created in both (success, failure) cases containing the output
-	// (stdout and stderr) of the script. If the script takes longer than N seconds, the controller
-	// cancels the provisioning.
+	// (stdout and stderr) of the script. If the script takes longer than N (TODO) seconds, the
+	// controller cancels the provisioning.
 	//
 	// ImageURL is mutual exclusive to "ImageName".
 	ImageURL string `json:"imageURL"`
@@ -115,6 +115,19 @@ type HCloudMachineStatus struct {
 	// Conditions define the current service state of the HCloudMachine.
 	// +optional
 	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
+
+	// BootState indicates the current state during provisioning.
+	//
+	// If Spec.ImageName is set the states will be:
+	// "" -> BootToRealOS -> OperatingSystemRunning
+	//
+	// If Spec.ImageURL set set the states will be:
+	// "" -> PreRescueOSCreated -> RescueSystem -> NodeImageInstalling -> BootToRealOS -> OperatingSystemRunning
+	BootState HCloudBootState `json:"bootState,omitempty"`
+
+	// BootStateSince is the timestamp of the last change to BootState. It is used to timeout
+	// provisioning if a state takes too long.
+	BootStateSince metav1.Time `json:"bootStateSince"`
 }
 
 // HCloudMachine is the Schema for the hcloudmachines API.
