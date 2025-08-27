@@ -19,7 +19,6 @@ package server
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -90,104 +89,29 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 
 	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.BootstrapReadyCondition)
 
-	// try to find an existing server
-	server, err := s.findServer(ctx)
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to get server: %w", err)
-	}
-
-	// if no server is found we have to create one
-	if server == nil {
-		server, err = s.createServer(ctx)
-		if err != nil {
-			if errors.Is(err, errServerCreateNotPossible) {
-				return reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
-			}
-			return reconcile.Result{}, fmt.Errorf("failed to create server: %w", err)
-		}
-	}
-
-	s.scope.SetProviderID(server.ID)
-
-	// update HCloudMachineStatus
-	c := s.scope.HCloudMachine.Status.Conditions.DeepCopy()
-	sshKeys := s.scope.HCloudMachine.Status.SSHKeys
-	s.scope.HCloudMachine.Status = statusFromHCloudServer(server)
-	s.scope.SetRegion(failureDomain)
-	s.scope.HCloudMachine.Status.Conditions = c
-	s.scope.HCloudMachine.Status.SSHKeys = sshKeys
-
-	// validate labels
-	if err := validateLabels(server, s.createLabels()); err != nil {
-		err := fmt.Errorf("could not validate labels of HCloud server: %w", err)
-		s.scope.SetError(err.Error(), capierrors.CreateMachineError)
-		return res, nil
-	}
-
-	// analyze status of server
-	switch server.Status {
-	case hcloud.ServerStatusOff:
-		return s.handleServerStatusOff(ctx, server)
-	case hcloud.ServerStatusStarting:
-		// Requeue here so that server does not switch back and forth between off and starting.
-		// If we don't return here, the condition ServerAvailable would get marked as true in this
-		// case. However, if the server is stuck and does not power on, we should not mark the
-		// condition ServerAvailable as true to be able to remediate the server after a timeout.
-		conditions.MarkFalse(
-			s.scope.HCloudMachine,
-			infrav1.ServerAvailableCondition,
-			infrav1.ServerStartingReason,
-			clusterv1.ConditionSeverityInfo,
-			"server is starting",
-		)
-		return reconcile.Result{RequeueAfter: 1 * time.Minute}, nil
-	case hcloud.ServerStatusRunning: // do nothing
+	switch s.scope.HCloudMachine.Status.BootState {
+	case infrav1.HCloudBootStateUnset:
+		return s.handleBootStateUnset(ctx)
+	case infrav1.HCloudBootStatePending:
+		return s.handleBootStatePending(ctx)
+	case infrav1.HCloudBootStateRunning:
+		return s.handleBootStateRunning(ctx)
+	case infrav1.HCloudBootStateTerminating:
+		return s.handleBootStateTerminating(ctx)
+	case infrav1.HCloudBootStateTerminated:
+		return s.handleBootStateTerminated(ctx)
 	default:
-		// some temporary status
-		s.scope.SetReady(false)
-		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+		return reconcile.Result{}, fmt.Errorf("unknown BootState: %s", s.scope.HCloudMachine.Status.BootState)
 	}
+}
 
-	// check whether server is attached to the network
-	if err := s.reconcileNetworkAttachment(ctx, server); err != nil {
-		reterr := fmt.Errorf("failed to reconcile network attachment: %w", err)
-		conditions.MarkFalse(
-			s.scope.HCloudMachine,
-			infrav1.ServerAvailableCondition,
-			infrav1.NetworkAttachFailedReason,
-			clusterv1.ConditionSeverityError,
-			"%s",
-			reterr.Error(),
-		)
-		return res, reterr
+func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, error) {
+	if s.scope.HCloudMachine.Spec.ProviderID != nil && s.scope.HCloudMachine.Spec.ProviderID != "" {
+		// This machine seems to be an existing machine which was created before introducing
+		// ImageURL. This machine is very likely to be fine.
+		s.scope.HCloudMachine.Status.BootState
+		//
 	}
-
-	// nothing to do any more for worker nodes
-	if !s.scope.IsControlPlane() {
-		conditions.MarkTrue(s.scope.HCloudMachine, infrav1.ServerAvailableCondition)
-		s.scope.SetReady(true)
-		return res, nil
-	}
-
-	// all control planes have to be attached to the load balancer if it exists
-	res, err = s.reconcileLoadBalancerAttachment(ctx, server)
-	if err != nil {
-		reterr := fmt.Errorf("failed to reconcile load balancer attachment: %w", err)
-		conditions.MarkFalse(
-			s.scope.HCloudMachine,
-			infrav1.ServerAvailableCondition,
-			infrav1.LoadBalancerAttachFailedReason,
-			clusterv1.ConditionSeverityError,
-			"%s",
-			reterr.Error(),
-		)
-		return res, reterr
-	}
-
-	s.scope.SetReady(true)
-	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.ServerAvailableCondition)
-
-	return res, nil
 }
 
 // implements setting rate limit on hcloudmachine.
