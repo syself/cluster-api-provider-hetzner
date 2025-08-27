@@ -53,7 +53,7 @@ type HCloudMachineSpec struct {
 	// --hcloud-image-url-command (which you need to provide to the controller binary) will be
 	// copied into the rescue system and executed.
 	//
-	// The controller uses url.Parse (Go function) to validate the URL.
+	// The controller uses url.ParseRequestURI (Go function) to validate the URL.
 	//
 	// It is up to the script to provision the disk of the hcloud machine accordingly. The process
 	// is considered successful if the last line in the output is exactly
@@ -64,7 +64,7 @@ type HCloudMachineSpec struct {
 	// (stdout and stderr) of the script. If the script takes longer than N (TODO) seconds, the
 	// controller cancels the provisioning.
 	//
-	// ImageURL is mutual exclusive to "ImageName".
+	// ImageURL is mutually exclusive to "ImageName".
 	ImageURL string `json:"imageURL"`
 
 	// SSHKeys define machine-specific SSH keys and override cluster-wide SSH keys.

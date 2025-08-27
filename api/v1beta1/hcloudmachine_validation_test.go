@@ -17,9 +17,11 @@ limitations under the License.
 package v1beta1
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
@@ -28,7 +30,7 @@ type args struct {
 	newSpec HCloudMachineSpec
 }
 
-func TestValidateHCloudMachineSpec(t *testing.T) {
+func TestValidateHCloudMachineSpecUpdate(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
@@ -57,6 +59,32 @@ func TestValidateHCloudMachineSpec(t *testing.T) {
 				},
 			},
 			want: field.Invalid(field.NewPath("spec", "imageName"), "centos-7", "field is immutable"),
+		},
+		{
+			name: "Immutable ImageURL",
+			args: args{
+				oldSpec: HCloudMachineSpec{
+					ImageURL: "oci://ghcr.io/example/foo:v1",
+				},
+				newSpec: HCloudMachineSpec{
+					ImageURL: "oci://ghcr.io/example/foo:v2",
+				},
+			},
+			want: field.Invalid(field.NewPath("spec", "imageURL"), "oci://ghcr.io/example/foo:v2", "field is immutable"),
+		},
+		{
+			name: "ImageURL and ImageName mutually exclusive",
+			args: args{
+				oldSpec: HCloudMachineSpec{
+					ImageURL:  "oci://ghcr.io/example/foo:v1",
+					ImageName: "dummy-name",
+				},
+				newSpec: HCloudMachineSpec{
+					ImageURL:  "oci://ghcr.io/example/foo:v1",
+					ImageName: "dummy-name",
+				},
+			},
+			want: field.Invalid(field.NewPath("spec", "imageName"), "dummy-name", "imageName and imageURL are mutually exclusive"),
 		},
 		{
 			name: "Immutable SSHKeys",
@@ -126,14 +154,14 @@ func TestValidateHCloudMachineSpec(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := validateHCloudMachineSpec(tt.args.oldSpec, tt.args.newSpec)
+			got := validateHCloudMachineSpecUpdate(tt.args.oldSpec, tt.args.newSpec)
 
 			if len(got) == 0 {
-				assert.Empty(t, got)
+				assert.Empty(t, tt.want)
 			}
 
 			if len(got) > 1 {
-				t.Errorf("got length: %d greater than 1", len(got))
+				t.Errorf("got length: %d greater than 1: %+v", len(got), got)
 			}
 
 			// assert if length of got is 1
@@ -148,4 +176,25 @@ func TestValidateHCloudMachineSpec(t *testing.T) {
 
 func createPlacementGroupName(name string) *string {
 	return &name
+}
+
+func TestValidateHCloudMachineSpec(t *testing.T) {
+	allErrs := validateHCloudMachineSpec(HCloudMachineSpec{
+		ImageURL: "not-a-valid-url",
+	})
+	require.Equal(t, `spec.imageURL: Invalid value: "not-a-valid-url": parse "not-a-valid-url": invalid URI for request`, errorsToString(allErrs))
+
+	allErrs = validateHCloudMachineSpec(HCloudMachineSpec{
+		ImageName: "foo-name",
+		ImageURL:  "oci://ghcr.io/example/foo:v1",
+	})
+	require.Equal(t, `spec.imageName: Invalid value: "foo-name": imageName and imageURL are mutually exclusive`, errorsToString(allErrs))
+}
+
+func errorsToString(allErrs field.ErrorList) string {
+	var s []string
+	for _, err := range allErrs {
+		s = append(s, err.Error())
+	}
+	return strings.Join(s, "\n")
 }

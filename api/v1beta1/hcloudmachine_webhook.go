@@ -21,7 +21,6 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -67,7 +66,8 @@ var _ webhook.Validator = &HCloudMachine{}
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
 func (r *HCloudMachine) ValidateCreate() (admission.Warnings, error) {
 	hcloudmachinelog.V(1).Info("validate create", "name", r.Name)
-	var allErrs field.ErrorList
+
+	allErrs := validateHCloudMachineSpec(r.Spec)
 
 	return nil, aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
 }
@@ -81,7 +81,7 @@ func (r *HCloudMachine) ValidateUpdate(old runtime.Object) (admission.Warnings, 
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected an HCloudMachine but got a %T", old))
 	}
 
-	allErrs := validateHCloudMachineSpec(oldM.Spec, r.Spec)
+	allErrs := validateHCloudMachineSpecUpdate(oldM.Spec, r.Spec)
 
 	return nil, aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
 }
