@@ -24,11 +24,6 @@ import (
 	"time"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
-	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
-	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
@@ -37,6 +32,12 @@ import (
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
+	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
+	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
 const (
@@ -46,7 +47,7 @@ const (
 	// that the next reconcile gets a created server.
 	requeueAfterCreateServer = 10 * time.Second
 
-	preRescueOSImage = "ubuntu-24.04"
+	preRescueOSImage = "ubuntu-22.04" // todo, change to 24.04
 )
 
 var (
@@ -111,7 +112,14 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 	m := s.scope.HCloudMachine
 	if m.Spec.ProviderID != nil && *m.Spec.ProviderID != "" {
 		// This machine seems to be an existing machine which was created before introducing
-		// ImageURL. This machine is very likely to be fine.
+		// ImageURL.
+
+		if !m.Status.Ready {
+			logger := ctrl.LoggerFrom(ctx)
+			logger.Info("fooooooooooooo") // TODO: remove this, when tests are fine.
+			panic("foooooooo")
+			return reconcile.Result{}, fmt.Errorf("Old machine, and status.Ready is false. Caph got updated while provisioning? We can't handle that.")
+		}
 		m.SetBootState(infrav1.HCloudBootStateOperatingSystemRunning)
 		return reconcile.Result{}, nil
 	}
@@ -346,15 +354,15 @@ func (s *Service) createServerFromImageURL(ctx context.Context) (*hcloud.Server,
 		return nil, fmt.Errorf("controller was started without --hcloud-image-url-command. Provisioning via ImageURL %q not possible", m.Spec.ImageURL)
 	}
 
-	image, err := getServerImage(ctx, s.scope.HCloudClient, s.scope.HCloudMachine, s.scope.HCloudMachine.Spec.Type, s.scope.HCloudMachine.Spec.ImageName)
+	image, err := getServerImage(ctx, s.scope.HCloudClient, s.scope.HCloudMachine, s.scope.HCloudMachine.Spec.Type, preRescueOSImage)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get server image: %w", err)
+		return nil, fmt.Errorf("createServerFromImageURL: failed to get server image: %w", err)
 	}
 	server, err := s.createServer(ctx, nil, image)
 	if err != nil {
 		return nil, err
 	}
-	s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateBootToRealOS)
+	s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateBootToPreRescueOS)
 	return server, nil
 }
 
@@ -368,15 +376,15 @@ func (s *Service) createServerFromImageName(ctx context.Context) (*hcloud.Server
 		)
 		return nil, fmt.Errorf("failed to get raw bootstrap data: %s", err)
 	}
-	image, err := getServerImage(ctx, s.scope.HCloudClient, s.scope.HCloudMachine, s.scope.HCloudMachine.Spec.Type, preRescueOSImage)
+	image, err := getServerImage(ctx, s.scope.HCloudClient, s.scope.HCloudMachine, s.scope.HCloudMachine.Spec.Type, s.scope.HCloudMachine.Spec.ImageName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get server image: %w", err)
+		return nil, fmt.Errorf("createServerFromImageName: failed to get server image: %w", err)
 	}
 	server, err := s.createServer(ctx, userData, image)
 	if err != nil {
 		return nil, err
 	}
-	s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateBootToPreRescueOS)
+	s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateBootToRealOS)
 	return server, nil
 }
 

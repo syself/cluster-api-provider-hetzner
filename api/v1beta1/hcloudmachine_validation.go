@@ -84,5 +84,6 @@ func validateHCloudMachineSpec(spec HCloudMachineSpec) field.ErrorList {
 				field.Invalid(field.NewPath("spec", "imageURL"), spec.ImageURL, err.Error()))
 		}
 	}
+
 	return allErrs
 }
