@@ -40,10 +40,12 @@ func TestValidateHCloudMachineSpecUpdate(t *testing.T) {
 			name: "Immutable Type",
 			args: args{
 				oldSpec: HCloudMachineSpec{
-					Type: "cpx11",
+					ImageName: "ubuntu-24.04",
+					Type:      "cpx11",
 				},
 				newSpec: HCloudMachineSpec{
-					Type: "cx21",
+					ImageName: "ubuntu-24.04",
+					Type:      "cx21",
 				},
 			},
 			want: field.Invalid(field.NewPath("spec", "type"), "cx21", "field is immutable"),
@@ -90,6 +92,7 @@ func TestValidateHCloudMachineSpecUpdate(t *testing.T) {
 			name: "Immutable SSHKeys",
 			args: args{
 				oldSpec: HCloudMachineSpec{
+					ImageName: "ubuntu-24.04",
 					SSHKeys: []SSHKey{
 						{
 							Name:        "ssh-key-1",
@@ -98,6 +101,7 @@ func TestValidateHCloudMachineSpecUpdate(t *testing.T) {
 					},
 				},
 				newSpec: HCloudMachineSpec{
+					ImageName: "ubuntu-24.04",
 					SSHKeys: []SSHKey{
 						{
 							Name:        "ssh-key-1",
@@ -125,9 +129,11 @@ func TestValidateHCloudMachineSpecUpdate(t *testing.T) {
 			name: "Immutable PlacementGroupName",
 			args: args{
 				oldSpec: HCloudMachineSpec{
+					ImageName:          "ubuntu-24.04",
 					PlacementGroupName: createPlacementGroupName("placement-group-1"),
 				},
 				newSpec: HCloudMachineSpec{
+					ImageName:          "ubuntu-24.04",
 					PlacementGroupName: createPlacementGroupName("placement-group-2"),
 				},
 			},
@@ -192,7 +198,7 @@ func TestValidateHCloudMachineSpec(t *testing.T) {
 }
 
 func errorsToString(allErrs field.ErrorList) string {
-	var s []string
+	s := make([]string, 0, len(allErrs))
 	for _, err := range allErrs {
 		s = append(s, err.Error())
 	}

@@ -107,7 +107,7 @@ spec:
                           copied into the rescue system and executed.
 
 
-                          The controller uses url.Parse (Go function) to validate the URL.
+                          The controller uses url.ParseRequestURI (Go function) to validate the URL.
 
 
                           It is up to the script to provision the disk of the hcloud machine accordingly. The process

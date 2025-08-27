@@ -264,15 +264,16 @@ func (s *HCloudNetworkSpec) IsZero() bool {
 	return true
 }
 
+// HCloudBootState defines the boot state of an HCloud server during provisioning.
 type HCloudBootState string
 
 const (
 	// HCloudBootStateUnset is the initial state when the boot state has not been set yet.
 	HCloudBootStateUnset HCloudBootState = ""
 
-	// HCloudBootStatePreRescueOSCreated indicates that the server has been created but not yet
+	// HCloudBootStateBootToPreRescueOS indicates that the server has been created but not yet
 	// booted into rescue mode.
-	HCloudBootStatePreRescueOSCreated HCloudBootState = "PreRescueOSCreated"
+	HCloudBootStateBootToPreRescueOS HCloudBootState = "BootToPreRescueOS"
 
 	// HCloudBootStateRescueSystem indicates that the server is currently running in rescue mode.
 	HCloudBootStateRescueSystem HCloudBootState = "RescueSystem"

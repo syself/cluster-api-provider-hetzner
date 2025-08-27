@@ -52,13 +52,12 @@ import (
 // HetznerBareMetalHostReconciler reconciles a HetznerBareMetalHost object.
 type HetznerBareMetalHostReconciler struct {
 	client.Client
-	RateLimitWaitTime     time.Duration
-	APIReader             client.Reader
-	RobotClientFactory    robotclient.Factory
-	SSHClientFactory      sshclient.Factory
-	WatchFilterValue      string
-	PreProvisionCommand   string
-	HcloudImageURLCommand string
+	RateLimitWaitTime   time.Duration
+	APIReader           client.Reader
+	RobotClientFactory  robotclient.Factory
+	SSHClientFactory    sshclient.Factory
+	WatchFilterValue    string
+	PreProvisionCommand string
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalhosts,verbs=get;list;watch;create;update;patch;delete

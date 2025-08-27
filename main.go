@@ -206,11 +206,12 @@ func main() {
 	}
 
 	if err = (&controllers.HCloudMachineReconciler{
-		Client:              mgr.GetClient(),
-		APIReader:           mgr.GetAPIReader(),
-		RateLimitWaitTime:   rateLimitWaitTime,
-		HCloudClientFactory: hcloudClientFactory,
-		WatchFilterValue:    watchFilterValue,
+		Client:                mgr.GetClient(),
+		APIReader:             mgr.GetAPIReader(),
+		RateLimitWaitTime:     rateLimitWaitTime,
+		HCloudClientFactory:   hcloudClientFactory,
+		WatchFilterValue:      watchFilterValue,
+		HcloudImageURLCommand: hcloudImageURLCommand,
 	}).SetupWithManager(ctx, mgr, controller.Options{MaxConcurrentReconciles: hcloudMachineConcurrency}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HCloudMachine")
 		os.Exit(1)
@@ -228,14 +229,13 @@ func main() {
 	}
 
 	if err = (&controllers.HetznerBareMetalHostReconciler{
-		Client:                mgr.GetClient(),
-		RobotClientFactory:    robotclient.NewFactory(),
-		SSHClientFactory:      sshclient.NewFactory(),
-		APIReader:             mgr.GetAPIReader(),
-		RateLimitWaitTime:     rateLimitWaitTime,
-		WatchFilterValue:      watchFilterValue,
-		PreProvisionCommand:   preProvisionCommand,
-		HcloudImageURLCommand: hcloudImageURLCommand,
+		Client:              mgr.GetClient(),
+		RobotClientFactory:  robotclient.NewFactory(),
+		SSHClientFactory:    sshclient.NewFactory(),
+		APIReader:           mgr.GetAPIReader(),
+		RateLimitWaitTime:   rateLimitWaitTime,
+		WatchFilterValue:    watchFilterValue,
+		PreProvisionCommand: preProvisionCommand,
 	}).SetupWithManager(ctx, mgr, controller.Options{MaxConcurrentReconciles: hetznerBareMetalHostConcurrency}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HetznerBareMetalHost")
 		os.Exit(1)

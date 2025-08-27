@@ -72,6 +72,11 @@ func validateHCloudMachineSpec(spec HCloudMachineSpec) field.ErrorList {
 			field.Invalid(field.NewPath("spec", "imageName"), spec.ImageName, "imageName and imageURL are mutually exclusive"))
 	}
 
+	if spec.ImageName == "" && spec.ImageURL == "" {
+		allErrs = append(allErrs,
+			field.Invalid(field.NewPath("spec", "imageName"), spec.ImageName, "imageName and imageURL empty. One of these attributes must be set"))
+	}
+
 	if spec.ImageURL != "" {
 		_, err := url.ParseRequestURI(spec.ImageURL)
 		if err != nil {

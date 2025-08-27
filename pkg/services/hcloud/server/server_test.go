@@ -137,7 +137,7 @@ var _ = Describe("filterHCloudSSHKeys", func() {
 	})
 	_ = DescribeTable("no_error",
 		func(tc testCaseFilterHCloudSSHKeys) {
-			Expect(filterHCloudSSHKeys(sshKeysAPI, tc.sshKeysSpec)).Should(Equal(tc.expectedOutput))
+			Expect(convertCaphSSHKeysToHcloudSSHKeys(sshKeysAPI, tc.sshKeysSpec)).Should(Equal(tc.expectedOutput))
 		},
 		Entry("no_error_same_length", testCaseFilterHCloudSSHKeys{
 			sshKeysSpec: []infrav1.SSHKey{
@@ -199,7 +199,7 @@ var _ = Describe("filterHCloudSSHKeys", func() {
 	)
 
 	It("should error", func() {
-		_, err := filterHCloudSSHKeys(sshKeysAPI, []infrav1.SSHKey{
+		_, err := convertCaphSSHKeysToHcloudSSHKeys(sshKeysAPI, []infrav1.SSHKey{
 			{
 				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:2f",
 				Name:        "sshkey1",
