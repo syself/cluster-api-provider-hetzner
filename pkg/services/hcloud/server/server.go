@@ -107,7 +107,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 
 		if server == nil {
 			// This should not happen in production, but happens in tests.
-			return reconcile.Result{}, fmt.Errorf("no server found: Spec.ProviderID=%s Status.BootState=%s", s.scope.HCloudMachine.Spec.ProviderID,
+			return reconcile.Result{}, fmt.Errorf("no server found: Spec.ProviderID=%s Status.BootState=%s", *s.scope.HCloudMachine.Spec.ProviderID,
 				s.scope.HCloudMachine.Status.BootState)
 		}
 	}
@@ -129,7 +129,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		// ImageURL.
 
 		if !m.Status.Ready {
-			return reconcile.Result{}, fmt.Errorf("old machine, and status.Ready is false. Caph got updated while provisioning? We can't handle that.")
+			return reconcile.Result{}, fmt.Errorf("old machine, and status.Ready is false. Caph got updated while provisioning? We can't handle that")
 		}
 		m.SetBootState(infrav1.HCloudBootStateOperatingSystemRunning)
 		return reconcile.Result{}, nil
