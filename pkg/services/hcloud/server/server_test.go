@@ -19,11 +19,13 @@ package server
 import (
 	"context"
 	"fmt"
+	"testing"
 	"time"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -36,28 +38,24 @@ import (
 	fakeclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/fake"
 )
 
-var _ = Describe("statusFromHCloudServer", func() {
-	var sts infrav1.HCloudMachineStatus
-	BeforeEach(func() {
-		sts = statusFromHCloudServer(server)
-	})
-	It("should have the right instance state", func() {
-		Expect(*sts.InstanceState).To(Equal(instanceState))
-	})
-	It("should have three addresses", func() {
-		Expect(len(sts.Addresses)).To(Equal(3))
-	})
-	It("should have the right address IPs", func() {
-		for i, addr := range sts.Addresses {
-			Expect(addr.Address).To(Equal(ips[i]))
-		}
-	})
-	It("should have the right address types", func() {
-		for i, addr := range sts.Addresses {
-			Expect(addr.Type).To(Equal(addressTypes[i]))
-		}
-	})
-})
+func Test_getStatusAdressesFromHCloudServer(t *testing.T) {
+	addresses := getStatusAdressesFromHCloudServer(newTestServer())
+
+	// should have three addresses
+	require.Equal(t, 3, len(addresses))
+
+	// should have the right address IPs
+	ips := []string{"1.2.3.4", "2001:db8::1", "10.0.0.2"}
+	for i, addr := range addresses {
+		require.Equal(t, ips[i], addr.Address)
+	}
+
+	// should have the right address types
+	addressTypes := []clusterv1.MachineAddressType{clusterv1.MachineExternalIP, clusterv1.MachineExternalIP, clusterv1.MachineInternalIP}
+	for i, addr := range addresses {
+		require.Equal(t, addressTypes[i], addr.Type)
+	}
+}
 
 type testCaseStatusFromHCloudServer struct {
 	isControlPlane bool
