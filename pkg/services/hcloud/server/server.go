@@ -124,11 +124,6 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		return reconcile.Result{}, nil
 	}
 
-	// This should not happen.
-	if m.Spec.ImageURL == "" && m.Spec.ImageName == "" {
-		return reconcile.Result{}, errors.New("imageName and imageURL are not given. Invalid Spec")
-	}
-
 	server, err := s.createServerFromImageNameOrURL(ctx)
 	if err != nil {
 		if errors.Is(err, errServerCreateNotPossible) {
