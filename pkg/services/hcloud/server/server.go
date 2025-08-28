@@ -48,6 +48,8 @@ const (
 	// requeueAfterCreateServer: TODO get a good value. It should work for most cases, so
 	// that the next reconcile gets a created server.
 	requeueAfterCreateServer = 10 * time.Second
+
+	preRescueOSImage = "ubuntu-22.04" // todo, change to 24.04
 )
 
 var (
@@ -126,7 +128,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 	m := s.scope.HCloudMachine
 	if m.Spec.ProviderID != nil && *m.Spec.ProviderID != "" {
 		// This machine seems to be an existing machine which was created before introducing
-		// Status.BootState.
+		// ImageURL.
 
 		if !m.Status.Ready {
 			m.SetBootState(infrav1.HCloudBootStateBootToRealOS)
@@ -136,7 +138,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		return reconcile.Result{}, nil
 	}
 
-	server, err := s.createServerFromImageName(ctx)
+	server, err := s.createServerFromImageNameOrURL(ctx)
 	if err != nil {
 		if errors.Is(err, errServerCreateNotPossible) {
 			return reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
@@ -377,6 +379,32 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 		server.Name, server.ID, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID)
 
 	return reconcile.Result{}, nil
+}
+
+func (s *Service) createServerFromImageNameOrURL(ctx context.Context) (*hcloud.Server, error) {
+	if s.scope.HCloudMachine.Spec.ImageName != "" {
+		return s.createServerFromImageName(ctx)
+	}
+	return s.createServerFromImageURL(ctx)
+}
+
+func (s *Service) createServerFromImageURL(ctx context.Context) (*hcloud.Server, error) {
+	// Validate that HcloudImageURLCommand is given
+	m := s.scope.HCloudMachine
+	if s.scope.HcloudImageURLCommand == "" {
+		return nil, fmt.Errorf("controller was started without --hcloud-image-url-command. Provisioning via ImageURL %q not possible", m.Spec.ImageURL)
+	}
+
+	image, err := getServerImage(ctx, s.scope.HCloudClient, s.scope.HCloudMachine, s.scope.HCloudMachine.Spec.Type, preRescueOSImage)
+	if err != nil {
+		return nil, fmt.Errorf("createServerFromImageURL: failed to get server image: %w", err)
+	}
+	server, err := s.createServer(ctx, nil, image)
+	if err != nil {
+		return nil, err
+	}
+	s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateBootToPreRescueOS)
+	return server, nil
 }
 
 func (s *Service) createServerFromImageName(ctx context.Context) (*hcloud.Server, error) {

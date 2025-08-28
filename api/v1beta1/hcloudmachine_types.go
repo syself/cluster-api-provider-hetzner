@@ -48,6 +48,25 @@ type HCloudMachineSpec struct {
 	// +kubebuilder:validation:MinLength=1
 	ImageName string `json:"imageName"`
 
+	// ImageURL gets used for installing custom node images. If that field is set, the controller
+	// boots a new HCloud machine into rescue mode. Then the script provided by
+	// --hcloud-image-url-command (which you need to provide to the controller binary) will be
+	// copied into the rescue system and executed.
+	//
+	// The controller uses url.ParseRequestURI (Go function) to validate the URL.
+	//
+	// It is up to the script to provision the disk of the hcloud machine accordingly. The process
+	// is considered successful if the last line in the output is exactly
+	// HANDLE-HCLOUD-IMAGE-URL-SUCCESSFUL. If the script terminates with a different last-line, then
+	// the process is considered to have failed.
+	//
+	// A Kubernetes event will be created in both (success, failure) cases containing the output
+	// (stdout and stderr) of the script. If the script takes longer than N (TODO) seconds, the
+	// controller cancels the provisioning.
+	//
+	// ImageURL is mutually exclusive to "ImageName".
+	ImageURL string `json:"imageURL"`
+
 	// SSHKeys define machine-specific SSH keys and override cluster-wide SSH keys.
 	// +optional
 	SSHKeys []SSHKey `json:"sshKeys,omitempty"`
@@ -99,9 +118,11 @@ type HCloudMachineStatus struct {
 
 	// BootState indicates the current state during provisioning.
 	//
-	// The states will be:
+	// If Spec.ImageName is set the states will be:
 	// "" -> BootToRealOS -> OperatingSystemRunning
 	//
+	// If Spec.ImageURL set set the states will be:
+	// "" -> PreRescueOSCreated -> RescueSystem -> NodeImageInstalling -> BootToRealOS -> OperatingSystemRunning
 	// +optional
 	BootState HCloudBootState `json:"bootState"`
 
