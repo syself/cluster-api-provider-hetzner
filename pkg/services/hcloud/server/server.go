@@ -34,11 +34,13 @@ import (
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/kind/pkg/cmd/kind/version"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/sshkeygen"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
@@ -117,6 +119,8 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	switch s.scope.HCloudMachine.Status.BootState {
 	case infrav1.HCloudBootStateUnset:
 		return s.handleBootStateUnset(ctx)
+	case infrav1.HCloudBootStateBootToPreRescueOS:
+		return s.handleBootStateBootToPreRescueOS(ctx, server)
 	case infrav1.HCloudBootStateBootToRealOS:
 		return s.handleBootToRealOS(ctx, server)
 	default:
@@ -128,7 +132,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 	m := s.scope.HCloudMachine
 	if m.Spec.ProviderID != nil && *m.Spec.ProviderID != "" {
 		// This machine seems to be an existing machine which was created before introducing
-		// ImageURL.
+		// Status.BootState.
 
 		if !m.Status.Ready {
 			m.SetBootState(infrav1.HCloudBootStateBootToRealOS)
@@ -147,6 +151,66 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 	}
 	s.scope.SetProviderID(server.ID)
 	return reconcile.Result{RequeueAfter: requeueAfterCreateServer}, nil
+}
+
+func (s *Service) handleBootStateBootToPreRescueOS(ctx context.Context, server *hcloud.Server) (res reconcile.Result, reterr error) {
+	// analyze status of server
+	switch server.Status {
+	case hcloud.ServerStatusStarting:
+		conditions.MarkFalse(
+			s.scope.HCloudMachine,
+			infrav1.ServerAvailableCondition,
+			infrav1.ServerStartingReason,
+			clusterv1.ConditionSeverityInfo,
+			"server is starting",
+		)
+		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+	case hcloud.ServerStatusRunning:
+		// execute below code
+	default:
+		// some temporary status
+		ctrl.LoggerFrom(ctx).Info("Unknown hcloud server status", "status", server.Status)
+		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+	}
+
+	// Server is Running.
+	privKey, pubKey, err := sshkeygen.GenerateEd25519()
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("sshkeygen.GenerateEd25519 failed: %w", err)
+	}
+
+	keyName := fmt.Sprintf("tmp-image-url-%s", s.scope.HCloudMachine.Name)
+
+	// Create secret with private key
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      keyName,
+			Namespace: s.scope.HCloudMachine.Namespace,
+		},
+	}
+
+	_, err = controllerutil.CreateOrUpdate(ctx, s.scope.Client, secret, func() error {
+		if secret.Data == nil {
+			secret.Data = make(map[string][]byte)
+		}
+		secret.Data["private-key"] = []byte(privKey)
+		return controllerutil.SetControllerReference(s.scope.HCloudMachine, secret, s.scope.Scheme)
+	})
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to create or update secret %s: %w", keyName, err)
+	}
+
+	s.scope.HCloudClient.CreateSSHKey(ctx, hcloud.SSHKeyCreateOpts{
+		Name:      keyName,
+		PublicKey: pubKey,
+		Labels: map[string]string{
+			"use-case":      "temporary-key-for-reaching-rescue-system",
+			"creator":       fmt.Sprintf("caph-%s", version.Version()),
+			"hcloudmachine": s.scope.HCloudMachine.Name,
+		},
+	})
+
+	// ....
 }
 
 func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server) (res reconcile.Result, reterr error) {

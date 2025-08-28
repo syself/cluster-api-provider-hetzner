@@ -122,7 +122,7 @@ type HCloudMachineStatus struct {
 	// "" -> BootToRealOS -> OperatingSystemRunning
 	//
 	// If Spec.ImageURL set set the states will be:
-	// "" -> PreRescueOSCreated -> RescueSystem -> NodeImageInstalling -> BootToRealOS -> OperatingSystemRunning
+	// "" -> BootToPreRescueOS -> RescueSystem -> NodeImageInstalling -> BootToRealOS -> OperatingSystemRunning
 	// +optional
 	BootState HCloudBootState `json:"bootState"`
 
