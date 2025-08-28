@@ -129,7 +129,8 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		// ImageURL.
 
 		if !m.Status.Ready {
-			return reconcile.Result{}, fmt.Errorf("old machine, and status.Ready is false. Caph got updated while provisioning? We can't handle that")
+			m.SetBootState(infrav1.HCloudBootStateBootToRealOS)
+			return reconcile.Result{RequeueAfter: requeueAfterCreateServer}, nil
 		}
 		m.SetBootState(infrav1.HCloudBootStateOperatingSystemRunning)
 		return reconcile.Result{}, nil
@@ -148,11 +149,8 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 
 func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server) (res reconcile.Result, reterr error) {
 	// update HCloudMachineStatus
-	c := s.scope.HCloudMachine.Status.Conditions.DeepCopy()
-	sshKeys := s.scope.HCloudMachine.Status.SSHKeys
-	s.scope.HCloudMachine.Status = statusFromHCloudServer(server)
-	s.scope.HCloudMachine.Status.Conditions = c
-	s.scope.HCloudMachine.Status.SSHKeys = sshKeys
+	s.scope.HCloudMachine.Status.Addresses = getStatusAdressesFromHCloudServer(server)
+	s.scope.HCloudMachine.Status.InstanceState = &server.Status
 
 	// validate labels
 	if err := validateLabels(server, s.createLabels()); err != nil {
@@ -181,7 +179,7 @@ func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server)
 	case hcloud.ServerStatusRunning: // do nothing
 	default:
 		// some temporary status
-		s.scope.SetReady(false)
+		ctrl.LoggerFrom(ctx).Info("Unknown hcloud server status", "status", server.Status)
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
@@ -828,10 +826,7 @@ func validateLabels(server *hcloud.Server, labels map[string]string) error {
 	return nil
 }
 
-func statusFromHCloudServer(server *hcloud.Server) infrav1.HCloudMachineStatus {
-	// set instance state
-	instanceState := server.Status
-
+func getStatusAdressesFromHCloudServer(server *hcloud.Server) []clusterv1.MachineAddress {
 	// populate addresses
 	addresses := []clusterv1.MachineAddress{}
 
@@ -845,8 +840,9 @@ func statusFromHCloudServer(server *hcloud.Server) infrav1.HCloudMachineStatus {
 		)
 	}
 
-	if ip := server.PublicNet.IPv6.IP; ip.IsGlobalUnicast() {
-		ip[15]++
+	if unicastIP := server.PublicNet.IPv6.IP; unicastIP.IsGlobalUnicast() {
+		ip := unicastIP
+		ip[15]++ // We got a network, but we want the IP. Use the first IP of the network.
 		addresses = append(
 			addresses,
 			clusterv1.MachineAddress{
@@ -866,10 +862,7 @@ func statusFromHCloudServer(server *hcloud.Server) infrav1.HCloudMachineStatus {
 		)
 	}
 
-	return infrav1.HCloudMachineStatus{
-		InstanceState: &instanceState,
-		Addresses:     addresses,
-	}
+	return addresses
 }
 
 func (s *Service) createLabels() map[string]string {

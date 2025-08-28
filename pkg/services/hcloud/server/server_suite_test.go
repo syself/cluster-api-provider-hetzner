@@ -25,7 +25,6 @@ import (
 	"github.com/hetznercloud/hcloud-go/v2/hcloud/schema"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
@@ -188,27 +187,25 @@ const serverJSON = `
 	"volumes": []
 }`
 
-var server *hcloud.Server
-
-const instanceState = hcloud.ServerStatusRunning
-
-var ips = []string{"1.2.3.4", "2001:db8::3", "10.0.0.2"}
-var addressTypes = []clusterv1.MachineAddressType{clusterv1.MachineExternalIP, clusterv1.MachineExternalIP, clusterv1.MachineInternalIP}
-
 func TestServer(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Server Suite")
 }
 
-var _ = BeforeSuite(func() {
+func newTestServer() *hcloud.Server {
 	var serverSchema schema.Server
 	b := []byte(serverJSON)
 	var buffer bytes.Buffer
-	Expect(json.Compact(&buffer, b))
-	Expect(json.Unmarshal(buffer.Bytes(), &serverSchema)).To(Succeed())
-
-	server = hcloud.ServerFromSchema(serverSchema)
-})
+	err := json.Compact(&buffer, b)
+	if err != nil {
+		panic(err)
+	}
+	err = json.Unmarshal(buffer.Bytes(), &serverSchema)
+	if err != nil {
+		panic(err)
+	}
+	return hcloud.ServerFromSchema(serverSchema)
+}
 
 func newTestService(hcloudMachine *infrav1.HCloudMachine, hcloudClient hcloudclient.Client) *Service {
 	return &Service{
