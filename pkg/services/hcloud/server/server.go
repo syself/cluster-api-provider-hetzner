@@ -27,6 +27,7 @@ import (
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
 	capierrors "sigs.k8s.io/cluster-api/errors"
@@ -113,7 +114,9 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 
 	// update HCloudMachineStatus
 	s.scope.HCloudMachine.Status.Addresses = statusAddresses(server)
-	s.scope.HCloudMachine.Status.InstanceState = &server.Status
+
+	// Copy value
+	s.scope.HCloudMachine.Status.InstanceState = ptr.To(hcloud.ServerStatus(server.Status))
 
 	// validate labels
 	if err := validateLabels(server, s.createLabels()); err != nil {
