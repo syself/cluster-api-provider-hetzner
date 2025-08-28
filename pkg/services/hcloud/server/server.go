@@ -115,7 +115,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	s.scope.HCloudMachine.Status.Addresses = statusAddresses(server)
 
 	// Copy value
-	s.scope.HCloudMachine.Status.InstanceState = ptr.To(hcloud.ServerStatus(server.Status))
+	s.scope.HCloudMachine.Status.InstanceState = ptr.To(server.Status)
 
 	// validate labels
 	if err := validateLabels(server, s.createLabels()); err != nil {
@@ -753,8 +753,12 @@ func statusAddresses(server *hcloud.Server) []clusterv1.MachineAddress {
 	}
 
 	if unicastIP := server.PublicNet.IPv6.IP; unicastIP.IsGlobalUnicast() {
-		ip := net.IP(unicastIP)
-		ip[15]++ // Hetzner returns the routed /64 base, increment last byte to obtain first usable address
+		// create copy
+		ip := append(net.IP(nil), unicastIP...)
+
+		// Hetzner returns the routed /64 base, increment last byte to obtain first usable address
+		ip[15]++
+
 		addresses = append(
 			addresses,
 			clusterv1.MachineAddress{
