@@ -98,11 +98,25 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 
 	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.BootstrapReadyCondition)
 
+	var server *hcloud.Server
+	if s.scope.HCloudMachine.Spec.ProviderID != nil {
+		server, err = s.findServer(ctx)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("handleBootToRealOS: %w", err)
+		}
+
+		if server == nil {
+			// This should not happen in production, but happens in tests.
+			return reconcile.Result{}, fmt.Errorf("no server found: Spec.ProviderID=%s Status.BootState=%s", s.scope.HCloudMachine.Spec.ProviderID,
+				s.scope.HCloudMachine.Status.BootState)
+		}
+	}
+
 	switch s.scope.HCloudMachine.Status.BootState {
 	case infrav1.HCloudBootStateUnset:
 		return s.handleBootStateUnset(ctx)
 	case infrav1.HCloudBootStateBootToRealOS:
-		return s.handleBootToRealOS(ctx)
+		return s.handleBootToRealOS(ctx, server)
 	default:
 		return reconcile.Result{}, fmt.Errorf("unknown BootState: %s", s.scope.HCloudMachine.Status.BootState)
 	}
@@ -115,10 +129,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		// ImageURL.
 
 		if !m.Status.Ready {
-			logger := ctrl.LoggerFrom(ctx)
-			logger.Info("fooooooooooooo") // TODO: remove this, when tests are fine.
-			panic("foooooooo")
-			return reconcile.Result{}, fmt.Errorf("Old machine, and status.Ready is false. Caph got updated while provisioning? We can't handle that.")
+			return reconcile.Result{}, fmt.Errorf("old machine, and status.Ready is false. Caph got updated while provisioning? We can't handle that.")
 		}
 		m.SetBootState(infrav1.HCloudBootStateOperatingSystemRunning)
 		return reconcile.Result{}, nil
@@ -135,10 +146,43 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 	return reconcile.Result{RequeueAfter: requeueAfterCreateServer}, nil
 }
 
-func (s *Service) handleBootToRealOS(ctx context.Context) (res reconcile.Result, reterr error) {
-	server, err := s.findServer(ctx)
-	if err != nil {
-		return reconcile.Result{}, err
+func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server) (res reconcile.Result, reterr error) {
+	// update HCloudMachineStatus
+	c := s.scope.HCloudMachine.Status.Conditions.DeepCopy()
+	sshKeys := s.scope.HCloudMachine.Status.SSHKeys
+	s.scope.HCloudMachine.Status = statusFromHCloudServer(server)
+	s.scope.HCloudMachine.Status.Conditions = c
+	s.scope.HCloudMachine.Status.SSHKeys = sshKeys
+
+	// validate labels
+	if err := validateLabels(server, s.createLabels()); err != nil {
+		err := fmt.Errorf("could not validate labels of HCloud server: %w", err)
+		s.scope.SetError(err.Error(), capierrors.CreateMachineError)
+		return res, nil
+	}
+
+	// analyze status of server
+	switch server.Status {
+	case hcloud.ServerStatusOff:
+		return s.handleServerStatusOff(ctx, server)
+	case hcloud.ServerStatusStarting:
+		// Requeue here so that server does not switch back and forth between off and starting.
+		// If we don't return here, the condition ServerAvailable would get marked as true in this
+		// case. However, if the server is stuck and does not power on, we should not mark the
+		// condition ServerAvailable as true to be able to remediate the server after a timeout.
+		conditions.MarkFalse(
+			s.scope.HCloudMachine,
+			infrav1.ServerAvailableCondition,
+			infrav1.ServerStartingReason,
+			clusterv1.ConditionSeverityInfo,
+			"server is starting",
+		)
+		return reconcile.Result{RequeueAfter: 1 * time.Minute}, nil
+	case hcloud.ServerStatusRunning: // do nothing
+	default:
+		// some temporary status
+		s.scope.SetReady(false)
+		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
 	// check whether server is attached to the network
@@ -163,7 +207,7 @@ func (s *Service) handleBootToRealOS(ctx context.Context) (res reconcile.Result,
 	}
 
 	// all control planes have to be attached to the load balancer if it exists
-	res, err = s.reconcileLoadBalancerAttachment(ctx, server)
+	res, err := s.reconcileLoadBalancerAttachment(ctx, server)
 	if err != nil {
 		reterr := fmt.Errorf("failed to reconcile load balancer attachment: %w", err)
 		conditions.MarkFalse(

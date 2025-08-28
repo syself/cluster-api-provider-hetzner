@@ -203,7 +203,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 			})
 		})
 
-		FIt("checks that no remediation is tried if HCloud server does not exist anymore", func() {
+		It("checks that no remediation is tried if HCloud server does not exist anymore", func() {
 			By("ensuring if hcloudMachine is provisioned")
 			Eventually(func() bool {
 				if err := testEnv.Get(ctx, hcloudMachineKey, hcloudMachine); err != nil {
