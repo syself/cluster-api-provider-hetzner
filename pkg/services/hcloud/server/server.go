@@ -18,9 +18,11 @@ limitations under the License.
 package server
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"time"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
@@ -749,7 +751,7 @@ func getStatusAdressesFromHCloudServer(server *hcloud.Server) []clusterv1.Machin
 	}
 
 	if unicastIP := server.PublicNet.IPv6.IP; unicastIP.IsGlobalUnicast() {
-		ip := unicastIP
+		ip := net.IP(bytes.Clone(unicastIP))
 		ip[15]++ // We got a network, but we want the IP. Use the first IP of the network.
 		addresses = append(
 			addresses,
