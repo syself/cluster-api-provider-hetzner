@@ -57,7 +57,7 @@ type HCloudMachineSpec struct {
 	//
 	// It is up to the script to provision the disk of the hcloud machine accordingly. The process
 	// is considered successful if the last line in the output is exactly
-	// HANDLE-HCLOUD-IMAGE-URL-SUCCESFULL. If the script terminates with a different last-line, then
+	// HANDLE-HCLOUD-IMAGE-URL-SUCCESSFUL. If the script terminates with a different last-line, then
 	// the process is considered to have failed.
 	//
 	// A Kubernetes event will be created in both (success, failure) cases containing the output
