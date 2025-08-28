@@ -39,14 +39,14 @@ import (
 	fakeclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/fake"
 )
 
-func Test_getStatusAdressesFromHCloudServer(t *testing.T) {
+func Test_getStatusAddresses(t *testing.T) {
 	server := newTestServer()
 
 	// Create deep copy.
 	saved, err := copystructure.Copy(server)
 	require.NoError(t, err)
 
-	addresses := getStatusAdressesFromHCloudServer(server)
+	addresses := getStatusAddresses(server)
 
 	// should have three addresses
 	require.Equal(t, 3, len(addresses))

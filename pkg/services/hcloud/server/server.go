@@ -18,11 +18,11 @@ limitations under the License.
 package server
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"net"
+	"slices"
 	"time"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
@@ -112,7 +112,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	s.scope.SetProviderID(server.ID)
 
 	// update HCloudMachineStatus
-	s.scope.HCloudMachine.Status.Addresses = getStatusAdressesFromHCloudServer(server)
+	s.scope.HCloudMachine.Status.Addresses = getStatusAddresses(server)
 	s.scope.HCloudMachine.Status.InstanceState = &server.Status
 
 	// validate labels
@@ -736,7 +736,7 @@ func validateLabels(server *hcloud.Server, labels map[string]string) error {
 	return nil
 }
 
-func getStatusAdressesFromHCloudServer(server *hcloud.Server) []clusterv1.MachineAddress {
+func getStatusAddresses(server *hcloud.Server) []clusterv1.MachineAddress {
 	// populate addresses
 	addresses := []clusterv1.MachineAddress{}
 
@@ -751,8 +751,8 @@ func getStatusAdressesFromHCloudServer(server *hcloud.Server) []clusterv1.Machin
 	}
 
 	if unicastIP := server.PublicNet.IPv6.IP; unicastIP.IsGlobalUnicast() {
-		ip := net.IP(bytes.Clone(unicastIP))
-		ip[15]++ // We got a network, but we want the IP. Use the first IP of the network.
+		ip := net.IP(slices.Clone(unicastIP))
+		ip[15]++ // Hetzner returns the routed /64 base, increment last byte to obtain first usable address
 		addresses = append(
 			addresses,
 			clusterv1.MachineAddress{
