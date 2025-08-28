@@ -112,7 +112,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	s.scope.SetProviderID(server.ID)
 
 	// update HCloudMachineStatus
-	s.scope.HCloudMachine.Status.Addresses = getStatusAddresses(server)
+	s.scope.HCloudMachine.Status.Addresses = statusAddresses(server)
 	s.scope.HCloudMachine.Status.InstanceState = &server.Status
 
 	// validate labels
@@ -736,7 +736,7 @@ func validateLabels(server *hcloud.Server, labels map[string]string) error {
 	return nil
 }
 
-func getStatusAddresses(server *hcloud.Server) []clusterv1.MachineAddress {
+func statusAddresses(server *hcloud.Server) []clusterv1.MachineAddress {
 	// populate addresses
 	addresses := []clusterv1.MachineAddress{}
 
