@@ -817,10 +817,12 @@ func statusAddresses(server *hcloud.Server) []clusterv1.MachineAddress {
 	}
 
 	if unicastIP := server.PublicNet.IPv6.IP; unicastIP.IsGlobalUnicast() {
-		// create copy
+		// Create a copy. This is important, otherwise we modify the IP of `server`. This could lead
+		// to unexpected behaviour.
 		ip := append(net.IP(nil), unicastIP...)
 
 		// Hetzner returns the routed /64 base, increment last byte to obtain first usable address
+		// The local value gets changed, not the IP of `server`.
 		ip[15]++
 
 		addresses = append(
