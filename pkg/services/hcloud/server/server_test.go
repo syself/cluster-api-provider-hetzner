@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
+	"github.com/mitchellh/copystructure"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
@@ -38,8 +39,14 @@ import (
 	fakeclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/fake"
 )
 
-func Test_getStatusAdressesFromHCloudServer(t *testing.T) {
-	addresses := getStatusAdressesFromHCloudServer(newTestServer())
+func Test_statusAddresses(t *testing.T) {
+	server := newTestServer()
+
+	// Create deep copy.
+	saved, err := copystructure.Copy(server)
+	require.NoError(t, err)
+
+	addresses := statusAddresses(server)
 
 	// should have three addresses
 	require.Equal(t, 3, len(addresses))
@@ -49,6 +56,9 @@ func Test_getStatusAdressesFromHCloudServer(t *testing.T) {
 	for i, addr := range addresses {
 		require.Equal(t, ips[i], addr.Address)
 	}
+
+	// Check that input was not altered.
+	require.Equal(t, saved, server)
 
 	// should have the right address types
 	addressTypes := []clusterv1.MachineAddressType{clusterv1.MachineExternalIP, clusterv1.MachineExternalIP, clusterv1.MachineInternalIP}

@@ -21,10 +21,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
+	"slices"
 	"time"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
 	capierrors "sigs.k8s.io/cluster-api/errors"
@@ -149,8 +152,10 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 
 func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server) (res reconcile.Result, reterr error) {
 	// update HCloudMachineStatus
-	s.scope.HCloudMachine.Status.Addresses = getStatusAdressesFromHCloudServer(server)
-	s.scope.HCloudMachine.Status.InstanceState = &server.Status
+	s.scope.HCloudMachine.Status.Addresses = statusAddresses(server)
+
+	// Copy value
+	s.scope.HCloudMachine.Status.InstanceState = ptr.To(hcloud.ServerStatus(server.Status))
 
 	// validate labels
 	if err := validateLabels(server, s.createLabels()); err != nil {
@@ -826,7 +831,7 @@ func validateLabels(server *hcloud.Server, labels map[string]string) error {
 	return nil
 }
 
-func getStatusAdressesFromHCloudServer(server *hcloud.Server) []clusterv1.MachineAddress {
+func statusAddresses(server *hcloud.Server) []clusterv1.MachineAddress {
 	// populate addresses
 	addresses := []clusterv1.MachineAddress{}
 
@@ -841,8 +846,8 @@ func getStatusAdressesFromHCloudServer(server *hcloud.Server) []clusterv1.Machin
 	}
 
 	if unicastIP := server.PublicNet.IPv6.IP; unicastIP.IsGlobalUnicast() {
-		ip := unicastIP
-		ip[15]++ // We got a network, but we want the IP. Use the first IP of the network.
+		ip := net.IP(slices.Clone(unicastIP))
+		ip[15]++ // Hetzner returns the routed /64 base, increment last byte to obtain first usable address
 		addresses = append(
 			addresses,
 			clusterv1.MachineAddress{
