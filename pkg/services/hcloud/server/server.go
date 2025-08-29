@@ -152,6 +152,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		return reconcile.Result{}, fmt.Errorf("failed to create server: %w", err)
 	}
 	s.scope.SetProviderID(server.ID)
+	m.SetBootState(infrav1.HCloudBootStateBootToRealOS)
 	return reconcile.Result{RequeueAfter: requeueAfterCreateServer}, nil
 }
 
