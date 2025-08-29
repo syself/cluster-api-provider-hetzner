@@ -145,8 +145,21 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %+v", err)
 	}
 
+	initialHcloudMachine := hcloudMachine.DeepCopy()
 	// Always close the scope when exiting this function so we can persist any HCloudMachine changes.
 	defer func() {
+		if initialHcloudMachine.Status.BootState != machineScope.HCloudMachine.Status.BootState {
+			start := initialHcloudMachine.Status.BootStateSince
+			if start.IsZero() {
+				start = initialHcloudMachine.CreationTimestamp
+			}
+			duration := start.Time.Sub(machineScope.HCloudMachine.Status.BootStateSince.Time)
+			log.Info("BootState changed",
+				"oldState", initialHcloudMachine.Status.BootState,
+				"newState", machineScope.HCloudMachine.Status.BootState,
+				"duration", duration)
+		}
+
 		if reterr != nil && errors.Is(reterr, hcloudclient.ErrUnauthorized) {
 			conditions.MarkFalse(hcloudMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason, clusterv1.ConditionSeverityError, "wrong hcloud token")
 		} else {
