@@ -45,9 +45,7 @@ import (
 const (
 	serverOffTimeout = 10 * time.Minute
 
-	// requeueAfterCreateServer: TODO get a good value. It should work for most cases, so
-	// that the next reconcile gets a created server.
-	requeueAfterCreateServer = 10 * time.Second
+	requeueAfterCreateServer = 100 * time.Millisecond // #### TODO: Set good value
 )
 
 var (
@@ -102,7 +100,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	if s.scope.HCloudMachine.Spec.ProviderID != nil {
 		server, err = s.findServer(ctx)
 		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("handleBootToRealOS: %w", err)
+			return reconcile.Result{}, fmt.Errorf("findServer: %w", err)
 		}
 
 		if server == nil {
