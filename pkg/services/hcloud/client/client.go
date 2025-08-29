@@ -75,6 +75,7 @@ type Client interface {
 	DeletePlacementGroup(context.Context, int64) error
 	ListPlacementGroups(context.Context, hcloud.PlacementGroupListOpts) ([]*hcloud.PlacementGroup, error)
 	AddServerToPlacementGroup(context.Context, *hcloud.Server, *hcloud.PlacementGroup) error
+	CreateSSHKey(context.Context, hcloud.SSHKeyCreateOpts) (*hcloud.SSHKey, error)
 }
 
 // Factory is the interface for creating new Client objects.
@@ -307,6 +308,11 @@ func (c *realClient) DeleteNetwork(ctx context.Context, network *hcloud.Network)
 
 func (c *realClient) ListSSHKeys(ctx context.Context, opts hcloud.SSHKeyListOpts) ([]*hcloud.SSHKey, error) {
 	res, _, err := c.client.SSHKey.List(ctx, opts)
+	return res, err
+}
+
+func (c *realClient) CreateSSHKey(ctx context.Context, opts hcloud.SSHKeyCreateOpts) (*hcloud.SSHKey, error) {
+	res, _, err := c.client.SSHKey.Create(ctx, opts)
 	return res, err
 }
 

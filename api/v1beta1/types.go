@@ -271,6 +271,17 @@ const (
 	// HCloudBootStateUnset is the initial state when the boot state has not been set yet.
 	HCloudBootStateUnset HCloudBootState = ""
 
+	// HCloudBootStateBootToPreRescueOS indicates that the server has been created but not yet
+	// booted into rescue mode.
+	HCloudBootStateBootToPreRescueOS HCloudBootState = "BootToPreRescueOS"
+
+	// HCloudBootStateRescueSystem indicates that the server is currently running in rescue mode.
+	HCloudBootStateRescueSystem HCloudBootState = "RescueSystem"
+
+	// HCloudBootStateNodeImageInstalling indicates that the node image is currently being
+	// installed.
+	HCloudBootStateNodeImageInstalling HCloudBootState = "NodeImageInstalling"
+
 	// HCloudBootStateBootToRealOS indicates that the server is booting the operating system.
 	HCloudBootStateBootToRealOS HCloudBootState = "BootToRealOS"
 
