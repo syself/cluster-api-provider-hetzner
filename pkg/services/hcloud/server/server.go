@@ -554,7 +554,7 @@ func (s *Service) getSSHKeys(ctx context.Context) (
 		return nil, nil, handleRateLimit(s.scope.HCloudMachine, err, "ListSSHKeys", "failed listing ssh keys from hcloud")
 	}
 
-	// find matching keys and store them
+	// get matching keys
 	hcloudSSHKeys, err = convertCaphSSHKeysToHcloudSSHKeys(sshKeysAPI, caphSSHKeys)
 	if err != nil {
 		conditions.MarkFalse(
@@ -877,6 +877,7 @@ func (s *Service) createLabels() map[string]string {
 
 // convertCaphSSHKeysToHcloudSSHKeys converts the ssh keys from the spec to hcloud ssh keys.
 // sshKeysAPI contains all keys, returned by hcloudClient.ListSSHKeys().
+// Returns error, if a caphSSHKey is not in allHcloudSSHKeys.
 func convertCaphSSHKeysToHcloudSSHKeys(allHcloudSSHKeys []*hcloud.SSHKey, caphSSHKeys []infrav1.SSHKey) ([]*hcloud.SSHKey, error) {
 	sshKeysAPIMap := make(map[string]*hcloud.SSHKey, len(allHcloudSSHKeys))
 	for i, sshKey := range allHcloudSSHKeys {
