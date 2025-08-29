@@ -152,11 +152,6 @@ type HCloudMachine struct {
 	Status HCloudMachineStatus `json:"status,omitempty"`
 }
 
-// HCloudMachineSpec returns a DeepCopy.
-func (r *HCloudMachine) HCloudMachineSpec() *HCloudMachineSpec {
-	return r.Spec.DeepCopy()
-}
-
 // GetConditions returns the observations of the operational state of the HCloudMachine resource.
 func (r *HCloudMachine) GetConditions() clusterv1.Conditions {
 	return r.Status.Conditions
@@ -169,6 +164,9 @@ func (r *HCloudMachine) SetConditions(conditions clusterv1.Conditions) {
 
 // SetBootState sets Status.BootStates and updates Status.BootStateSince.
 func (r *HCloudMachine) SetBootState(bootState HCloudBootState) {
+	if r.Status.BootState == bootState {
+		return
+	}
 	r.Status.BootState = bootState
 	r.Status.BootStateSince = metav1.Now()
 }

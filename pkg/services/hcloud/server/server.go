@@ -47,9 +47,7 @@ import (
 const (
 	serverOffTimeout = 10 * time.Minute
 
-	// requeueAfterCreateServer: TODO get a good value. It should work for most cases, so
-	// that the next reconcile gets a created server.
-	requeueAfterCreateServer = 10 * time.Second
+	requeueAfterCreateServer = 100 * time.Millisecond // #### TODO: Set good value
 
 	preRescueOSImage = "ubuntu-22.04" // todo, change to 24.04
 )
@@ -106,13 +104,21 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	if s.scope.HCloudMachine.Spec.ProviderID != nil {
 		server, err = s.findServer(ctx)
 		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("handleBootToRealOS: %w", err)
+			return reconcile.Result{}, fmt.Errorf("findServer: %w", err)
 		}
 
 		if server == nil {
-			// This should not happen in production, but happens in tests.
-			return reconcile.Result{}, fmt.Errorf("no server found: Spec.ProviderID=%s Status.BootState=%s", *s.scope.HCloudMachine.Spec.ProviderID,
-				s.scope.HCloudMachine.Status.BootState)
+			// The server did disappear in HCloud? Maybe it was delete via web-UI.
+			// We delete the stale ProviderID and start provisioning again
+			msg := "hcloud server no longer available. Provisioning again"
+			ctrl.LoggerFrom(ctx).Error(errors.New(msg), msg,
+				"ProviderID", *s.scope.HCloudMachine.Spec.ProviderID,
+				"BootState", s.scope.HCloudMachine.Status.BootState,
+				"BootStateSince", s.scope.HCloudMachine.Status.BootStateSince,
+			)
+			s.scope.HCloudMachine.Spec.ProviderID = nil
+			s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateUnset)
+			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 		}
 	}
 
@@ -123,6 +129,8 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 		return s.handleBootStateBootToPreRescueOS(ctx, server)
 	case infrav1.HCloudBootStateBootToRealOS:
 		return s.handleBootToRealOS(ctx, server)
+	case infrav1.HCloudBootStateOperatingSystemRunning:
+		return s.handleOperatingSystemRunning(ctx, server)
 	default:
 		return reconcile.Result{}, fmt.Errorf("unknown BootState: %s", s.scope.HCloudMachine.Status.BootState)
 	}
@@ -150,6 +158,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		return reconcile.Result{}, fmt.Errorf("failed to create server: %w", err)
 	}
 	s.scope.SetProviderID(server.ID)
+	m.SetBootState(infrav1.HCloudBootStateBootToRealOS)
 	return reconcile.Result{RequeueAfter: requeueAfterCreateServer}, nil
 }
 
@@ -213,7 +222,7 @@ func (s *Service) handleBootStateBootToPreRescueOS(ctx context.Context, server *
 	// ....
 }
 
-func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server) (res reconcile.Result, reterr error) {
+func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
 	// update HCloudMachineStatus
 	s.scope.HCloudMachine.Status.Addresses = statusAddresses(server)
 
@@ -251,6 +260,11 @@ func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server)
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
+	s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateOperatingSystemRunning)
+	return reconcile.Result{}, nil
+}
+
+func (s *Service) handleOperatingSystemRunning(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
 	// check whether server is attached to the network
 	if err := s.reconcileNetworkAttachment(ctx, server); err != nil {
 		reterr := fmt.Errorf("failed to reconcile network attachment: %w", err)
@@ -273,7 +287,7 @@ func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server)
 	}
 
 	// all control planes have to be attached to the load balancer if it exists
-	res, err := s.reconcileLoadBalancerAttachment(ctx, server)
+	res, err = s.reconcileLoadBalancerAttachment(ctx, server)
 	if err != nil {
 		reterr := fmt.Errorf("failed to reconcile load balancer attachment: %w", err)
 		conditions.MarkFalse(
@@ -288,7 +302,6 @@ func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server)
 	}
 
 	s.scope.SetReady(true)
-	s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateOperatingSystemRunning)
 	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.ServerAvailableCondition)
 	return reconcile.Result{}, nil
 }
@@ -633,7 +646,7 @@ func (s *Service) getSSHKeys(ctx context.Context) (
 		return nil, nil, handleRateLimit(s.scope.HCloudMachine, err, "ListSSHKeys", "failed listing ssh keys from hcloud")
 	}
 
-	// find matching keys and store them
+	// get matching keys
 	hcloudSSHKeys, err = convertCaphSSHKeysToHcloudSSHKeys(sshKeysAPI, caphSSHKeys)
 	if err != nil {
 		conditions.MarkFalse(
@@ -956,6 +969,7 @@ func (s *Service) createLabels() map[string]string {
 
 // convertCaphSSHKeysToHcloudSSHKeys converts the ssh keys from the spec to hcloud ssh keys.
 // sshKeysAPI contains all keys, returned by hcloudClient.ListSSHKeys().
+// Returns error, if a caphSSHKey is not in allHcloudSSHKeys.
 func convertCaphSSHKeysToHcloudSSHKeys(allHcloudSSHKeys []*hcloud.SSHKey, caphSSHKeys []infrav1.SSHKey) ([]*hcloud.SSHKey, error) {
 	sshKeysAPIMap := make(map[string]*hcloud.SSHKey, len(allHcloudSSHKeys))
 	for i, sshKey := range allHcloudSSHKeys {
