@@ -104,9 +104,17 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 		}
 
 		if server == nil {
-			// This should not happen in production, but happens in tests.
-			return reconcile.Result{}, fmt.Errorf("no server found: Spec.ProviderID=%s Status.BootState=%s", *s.scope.HCloudMachine.Spec.ProviderID,
-				s.scope.HCloudMachine.Status.BootState)
+			// The server did disappear in HCloud? Maybe it was delete via web-UI.
+			// We delete the stale ProviderID and start provisioning again
+			msg := "hcloud server no longer available. Provisioning again"
+			ctrl.LoggerFrom(ctx).Error(errors.New(msg), msg,
+				"ProviderID", *s.scope.HCloudMachine.Spec.ProviderID,
+				"BootState", s.scope.HCloudMachine.Status.BootState,
+				"BootStateSince", s.scope.HCloudMachine.Status.BootStateSince,
+			)
+			s.scope.HCloudMachine.Spec.ProviderID = nil
+			s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateUnset)
+			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 		}
 	}
 
