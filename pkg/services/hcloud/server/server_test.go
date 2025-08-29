@@ -145,7 +145,7 @@ var _ = Describe("filterHCloudSSHKeys", func() {
 	})
 	_ = DescribeTable("no_error",
 		func(tc testCaseFilterHCloudSSHKeys) {
-			Expect(filterHCloudSSHKeys(sshKeysAPI, tc.sshKeysSpec)).Should(Equal(tc.expectedOutput))
+			Expect(convertCaphSSHKeysToHcloudSSHKeys(sshKeysAPI, tc.sshKeysSpec)).Should(Equal(tc.expectedOutput))
 		},
 		Entry("no_error_same_length", testCaseFilterHCloudSSHKeys{
 			sshKeysSpec: []infrav1.SSHKey{
@@ -207,7 +207,7 @@ var _ = Describe("filterHCloudSSHKeys", func() {
 	)
 
 	It("should error", func() {
-		_, err := filterHCloudSSHKeys(sshKeysAPI, []infrav1.SSHKey{
+		_, err := convertCaphSSHKeysToHcloudSSHKeys(sshKeysAPI, []infrav1.SSHKey{
 			{
 				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:2f",
 				Name:        "sshkey1",
@@ -308,46 +308,6 @@ var _ = Describe("handleServerStatusOff", func() {
 
 		Expect(server.Status).To(Equal(hcloud.ServerStatusRunning))
 	})
-})
-
-var _ = Describe("Test ValidateLabels", func() {
-	type testCaseValidateLabels struct {
-		gotLabels   map[string]string
-		wantLabels  map[string]string
-		expectError error
-	}
-
-	DescribeTable("Test ValidateLabels",
-		func(tc testCaseValidateLabels) {
-			err := validateLabels(&hcloud.Server{Labels: tc.gotLabels}, tc.wantLabels)
-
-			if tc.expectError != nil {
-				Expect(err).To(MatchError(tc.expectError))
-			} else {
-				Expect(err).To(BeNil())
-			}
-		},
-		Entry("exact equality", testCaseValidateLabels{
-			gotLabels:   map[string]string{"key1": "val1", "key2": "val2"},
-			wantLabels:  map[string]string{"key1": "val1", "key2": "val2"},
-			expectError: nil,
-		}),
-		Entry("subset of labels", testCaseValidateLabels{
-			gotLabels:   map[string]string{"key1": "val1", "otherkey": "otherval", "key2": "val2"},
-			wantLabels:  map[string]string{"key1": "val1", "key2": "val2"},
-			expectError: nil,
-		}),
-		Entry("wrong value", testCaseValidateLabels{
-			gotLabels:   map[string]string{"key1": "val1", "otherkey": "otherval", "key2": "otherval"},
-			wantLabels:  map[string]string{"key1": "val1", "key2": "val2"},
-			expectError: errWrongLabel,
-		}),
-		Entry("missing key", testCaseValidateLabels{
-			gotLabels:   map[string]string{"key1": "val1", "otherkey": "otherval"},
-			wantLabels:  map[string]string{"key1": "val1", "key2": "val2"},
-			expectError: errMissingLabel,
-		}),
-	)
 })
 
 var _ = Describe("Test handleRateLimit", func() {
