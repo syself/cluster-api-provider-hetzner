@@ -143,6 +143,9 @@ func (r *HCloudMachine) SetConditions(conditions clusterv1.Conditions) {
 
 // SetBootState sets Status.BootStates and updates Status.BootStateSince.
 func (r *HCloudMachine) SetBootState(bootState HCloudBootState) {
+	if r.Status.BootState == bootState {
+		return
+	}
 	r.Status.BootState = bootState
 	r.Status.BootStateSince = metav1.Now()
 }

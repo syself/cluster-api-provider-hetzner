@@ -124,7 +124,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	case infrav1.HCloudBootStateBootToRealOS:
 		return s.handleBootToRealOS(ctx, server)
 	case infrav1.HCloudBootStateOperatingSystemRunning:
-		return reconcile.Result{}, nil
+		return s.handleOperatingSystemRunning(ctx, server)
 	default:
 		return reconcile.Result{}, fmt.Errorf("unknown BootState: %s", s.scope.HCloudMachine.Status.BootState)
 	}
@@ -156,7 +156,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 	return reconcile.Result{RequeueAfter: requeueAfterCreateServer}, nil
 }
 
-func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server) (res reconcile.Result, reterr error) {
+func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
 	// update HCloudMachineStatus
 	s.scope.HCloudMachine.Status.Addresses = statusAddresses(server)
 
@@ -194,6 +194,11 @@ func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server)
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
+	s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateOperatingSystemRunning)
+	return reconcile.Result{}, nil
+}
+
+func (s *Service) handleOperatingSystemRunning(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
 	// check whether server is attached to the network
 	if err := s.reconcileNetworkAttachment(ctx, server); err != nil {
 		reterr := fmt.Errorf("failed to reconcile network attachment: %w", err)
@@ -216,7 +221,7 @@ func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server)
 	}
 
 	// all control planes have to be attached to the load balancer if it exists
-	res, err := s.reconcileLoadBalancerAttachment(ctx, server)
+	res, err = s.reconcileLoadBalancerAttachment(ctx, server)
 	if err != nil {
 		reterr := fmt.Errorf("failed to reconcile load balancer attachment: %w", err)
 		conditions.MarkFalse(
@@ -231,7 +236,6 @@ func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server)
 	}
 
 	s.scope.SetReady(true)
-	s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateOperatingSystemRunning)
 	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.ServerAvailableCondition)
 	return reconcile.Result{}, nil
 }
