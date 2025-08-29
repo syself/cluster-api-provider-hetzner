@@ -116,6 +116,12 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 			s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateUnset)
 			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 		}
+
+		// update HCloudMachineStatus
+		s.scope.HCloudMachine.Status.Addresses = statusAddresses(server)
+
+		// Copy value
+		s.scope.HCloudMachine.Status.InstanceState = ptr.To(server.Status)
 	}
 
 	switch s.scope.HCloudMachine.Status.BootState {
@@ -157,19 +163,6 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 }
 
 func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
-	// update HCloudMachineStatus
-	s.scope.HCloudMachine.Status.Addresses = statusAddresses(server)
-
-	// Copy value
-	s.scope.HCloudMachine.Status.InstanceState = ptr.To(server.Status)
-
-	// validate labels
-	if err := validateLabels(server, s.createLabels()); err != nil {
-		err := fmt.Errorf("could not validate labels of HCloud server: %w", err)
-		s.scope.SetError(err.Error(), capierrors.CreateMachineError)
-		return res, nil
-	}
-
 	// analyze status of server
 	switch server.Status {
 	case hcloud.ServerStatusOff:
@@ -800,19 +793,6 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 	}
 
 	return servers[0], nil
-}
-
-func validateLabels(server *hcloud.Server, labels map[string]string) error {
-	for key, val := range labels {
-		wantVal, found := server.Labels[key]
-		if !found {
-			return fmt.Errorf("did not find label with key %q: %w", key, errMissingLabel)
-		}
-		if wantVal != val {
-			return fmt.Errorf("got %q, want %q: %w", val, wantVal, errWrongLabel)
-		}
-	}
-	return nil
 }
 
 func statusAddresses(server *hcloud.Server) []clusterv1.MachineAddress {
