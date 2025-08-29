@@ -144,9 +144,13 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 
 		if !m.Status.Ready {
 			m.SetBootState(infrav1.HCloudBootStateBootToRealOS)
+			ctrl.LoggerFrom(ctx).Info("Updating old resource (pre BootState)",
+				"to", m.Status.BootState)
 			return reconcile.Result{RequeueAfter: requeueAfterCreateServer}, nil
 		}
 		m.SetBootState(infrav1.HCloudBootStateOperatingSystemRunning)
+		ctrl.LoggerFrom(ctx).Info("Updating old resource (pre BootState)",
+			"to", m.Status.BootState)
 		return reconcile.Result{}, nil
 	}
 
@@ -179,7 +183,10 @@ func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server)
 			clusterv1.ConditionSeverityInfo,
 			"server is starting",
 		)
-		return reconcile.Result{RequeueAfter: 1 * time.Minute}, nil
+		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+	case hcloud.ServerStatusInitializing:
+		// "Initializing" is the first state (for ~5 seconds), then comes "Starting"
+		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 	case hcloud.ServerStatusRunning: // do nothing
 	default:
 		// some temporary status
@@ -188,7 +195,10 @@ func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server)
 	}
 
 	s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateOperatingSystemRunning)
-	return reconcile.Result{}, nil
+
+	// Reconcile final stuff immediatly. Use 1s to make it unlikely that the local cache is out of
+	// date.
+	return reconcile.Result{RequeueAfter: 1 * time.Second}, nil
 }
 
 func (s *Service) handleOperatingSystemRunning(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {

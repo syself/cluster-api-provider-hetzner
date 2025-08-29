@@ -153,7 +153,7 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 			if start.IsZero() {
 				start = initialHcloudMachine.CreationTimestamp
 			}
-			duration := start.Time.Sub(machineScope.HCloudMachine.Status.BootStateSince.Time)
+			duration := machineScope.HCloudMachine.Status.BootStateSince.Time.Sub(start.Time)
 			log.Info("BootState changed",
 				"oldState", initialHcloudMachine.Status.BootState,
 				"newState", machineScope.HCloudMachine.Status.BootState,
