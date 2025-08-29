@@ -123,6 +123,8 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 		return s.handleBootStateUnset(ctx)
 	case infrav1.HCloudBootStateBootToRealOS:
 		return s.handleBootToRealOS(ctx, server)
+	case infrav1.HCloudBootStateOperatingSystemRunning:
+		return reconcile.Result{}, nil
 	default:
 		return reconcile.Result{}, fmt.Errorf("unknown BootState: %s", s.scope.HCloudMachine.Status.BootState)
 	}
