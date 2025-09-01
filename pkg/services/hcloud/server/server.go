@@ -177,6 +177,7 @@ func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server)
 	switch server.Status {
 	case hcloud.ServerStatusOff:
 		return s.handleServerStatusOff(ctx, server)
+
 	case hcloud.ServerStatusStarting:
 		// Requeue here so that server does not switch back and forth between off and starting.
 		// If we don't return here, the condition ServerAvailable would get marked as true in this
@@ -190,21 +191,22 @@ func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server)
 			"server is starting",
 		)
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+
 	case hcloud.ServerStatusInitializing:
 		// "Initializing" is the first state (for ~5 seconds), then comes "Starting"
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
-	case hcloud.ServerStatusRunning: // do nothing
+
+	case hcloud.ServerStatusRunning:
+		s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateOperatingSystemRunning)
+		// Show changes in Status and go to next BootState.
+		// Use 1s to make it unlikely that the local cache is out of date.
+		return reconcile.Result{RequeueAfter: 1 * time.Second}, nil
+
 	default:
 		// some temporary status
 		ctrl.LoggerFrom(ctx).Info("Unknown hcloud server status", "status", server.Status)
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 	}
-
-	s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateOperatingSystemRunning)
-
-	// Reconcile final stuff immediatly. Use 1s to make it unlikely that the local cache is out of
-	// date.
-	return reconcile.Result{RequeueAfter: 1 * time.Second}, nil
 }
 
 func (s *Service) handleOperatingSystemRunning(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
