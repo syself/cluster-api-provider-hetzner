@@ -105,16 +105,22 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 
 		if server == nil {
 			// The server did disappear in HCloud? Maybe it was delete via web-UI.
-			// We delete the stale ProviderID and start provisioning again
-			msg := "hcloud server no longer available. Provisioning again"
+			// We set MachineError. CAPI will delete machine.
+			msg := fmt.Sprintf("hcloud server (%q) no longer available. Setting MachineError.",
+				*s.scope.HCloudMachine.Spec.ProviderID)
+
 			ctrl.LoggerFrom(ctx).Error(errors.New(msg), msg,
 				"ProviderID", *s.scope.HCloudMachine.Spec.ProviderID,
 				"BootState", s.scope.HCloudMachine.Status.BootState,
 				"BootStateSince", s.scope.HCloudMachine.Status.BootStateSince,
 			)
-			s.scope.HCloudMachine.Spec.ProviderID = nil
+
+			s.scope.SetError(msg, capierrors.CreateMachineError)
 			s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateUnset)
-			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+			record.Warn(s.scope.HCloudMachine, "NoHCloudServerFound", msg)
+
+			// no need to requeue.
+			return reconcile.Result{}, nil
 		}
 
 		// update HCloudMachineStatus
