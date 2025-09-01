@@ -146,20 +146,9 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 	}
 
 	initialHcloudMachine := hcloudMachine.DeepCopy()
+	startReconcile := time.Now()
 	// Always close the scope when exiting this function so we can persist any HCloudMachine changes.
 	defer func() {
-		if initialHcloudMachine.Status.BootState != machineScope.HCloudMachine.Status.BootState {
-			start := initialHcloudMachine.Status.BootStateSince
-			if start.IsZero() {
-				start = initialHcloudMachine.CreationTimestamp
-			}
-			duration := machineScope.HCloudMachine.Status.BootStateSince.Time.Sub(start.Time)
-			log.Info("BootState changed",
-				"oldState", initialHcloudMachine.Status.BootState,
-				"newState", machineScope.HCloudMachine.Status.BootState,
-				"duration", duration)
-		}
-
 		if reterr != nil && errors.Is(reterr, hcloudclient.ErrUnauthorized) {
 			conditions.MarkFalse(hcloudMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason, clusterv1.ConditionSeverityError, "wrong hcloud token")
 		} else {
@@ -169,6 +158,36 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 		if err := machineScope.Close(ctx); err != nil && reterr == nil {
 			res = reconcile.Result{}
 			reterr = err
+		}
+
+		readyReason := conditions.GetReason(machineScope.HCloudMachine, clusterv1.ReadyCondition)
+		readyMessage := conditions.GetMessage(machineScope.HCloudMachine, clusterv1.ReadyCondition)
+
+		duration := time.Since(startReconcile)
+		if duration > 5*time.Second {
+			log.Info("Reconcile took too long",
+				"reconcileDuration", duration,
+				"res", res,
+				"reterr", reterr,
+				"oldState", initialHcloudMachine.Status.BootState,
+				"newState", machineScope.HCloudMachine.Status.BootState,
+				"readyReason", readyReason,
+				"readyMessage", readyMessage,
+			)
+		}
+
+		if initialHcloudMachine.Status.BootState != machineScope.HCloudMachine.Status.BootState {
+			startBootState := initialHcloudMachine.Status.BootStateSince
+			if startBootState.IsZero() {
+				startBootState = initialHcloudMachine.CreationTimestamp
+			}
+			log.Info("BootState changed",
+				"oldState", initialHcloudMachine.Status.BootState,
+				"newState", machineScope.HCloudMachine.Status.BootState,
+				"durationInState", machineScope.HCloudMachine.Status.BootStateSince.Time.Sub(startBootState.Time),
+				"readyReason", readyReason,
+				"readyMessage", readyMessage,
+			)
 		}
 	}()
 

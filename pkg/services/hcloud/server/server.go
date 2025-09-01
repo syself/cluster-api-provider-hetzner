@@ -155,10 +155,13 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 				"to", m.Status.BootState)
 			return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 		}
+
 		m.SetBootState(infrav1.HCloudBootStateOperatingSystemRunning)
 		ctrl.LoggerFrom(ctx).Info("Updating old resource (pre BootState)",
 			"to", m.Status.BootState)
-		return reconcile.Result{}, nil
+
+		// Requeue once the new way. But in most cases nothing should have changed.
+		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 	}
 
 	server, err := s.createServerFromImageName(ctx)
