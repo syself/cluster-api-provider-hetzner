@@ -46,13 +46,13 @@ const (
 	serverOffTimeout = 10 * time.Minute
 
 	requeueAfterCreateServer = 100 * time.Millisecond // #### TODO: Set good value
+
+	// requeueImmediately gets used to requeue "now". One second gets used to make
+	// it unlikely that the next Reconcile reads stale data from the local cache.
+	requeueImmediately = 1 * time.Second
 )
 
-var (
-	errWrongLabel              = fmt.Errorf("label is wrong")
-	errMissingLabel            = fmt.Errorf("label is missing")
-	errServerCreateNotPossible = fmt.Errorf("server create not possible - need action")
-)
+var errServerCreateNotPossible = fmt.Errorf("server create not possible - need action")
 
 // Service defines struct with machine scope to reconcile HCloudMachines.
 type Service struct {
@@ -144,6 +144,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 
 func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, error) {
 	m := s.scope.HCloudMachine
+
 	if m.Spec.ProviderID != nil && *m.Spec.ProviderID != "" {
 		// This machine seems to be an existing machine which was created before introducing
 		// Status.BootState.
@@ -152,7 +153,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 			m.SetBootState(infrav1.HCloudBootStateBootToRealOS)
 			ctrl.LoggerFrom(ctx).Info("Updating old resource (pre BootState)",
 				"to", m.Status.BootState)
-			return reconcile.Result{RequeueAfter: requeueAfterCreateServer}, nil
+			return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 		}
 		m.SetBootState(infrav1.HCloudBootStateOperatingSystemRunning)
 		ctrl.LoggerFrom(ctx).Info("Updating old resource (pre BootState)",
@@ -199,8 +200,7 @@ func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server)
 	case hcloud.ServerStatusRunning:
 		s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateOperatingSystemRunning)
 		// Show changes in Status and go to next BootState.
-		// Use 1s to make it unlikely that the local cache is out of date.
-		return reconcile.Result{RequeueAfter: 1 * time.Second}, nil
+		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 
 	default:
 		// some temporary status
