@@ -577,13 +577,13 @@ func (s *Service) getSSHKeys(ctx context.Context) (
 	}
 
 	// get all ssh keys that are stored in HCloud API
-	sshKeysAPI, err := s.scope.HCloudClient.ListSSHKeys(ctx, hcloud.SSHKeyListOpts{})
+	allHcloudSSHKeys, err := s.scope.HCloudClient.ListSSHKeys(ctx, hcloud.SSHKeyListOpts{})
 	if err != nil {
 		return nil, nil, handleRateLimit(s.scope.HCloudMachine, err, "ListSSHKeys", "failed listing ssh keys from hcloud")
 	}
 
 	// get matching keys
-	hcloudSSHKeys, err = convertCaphSSHKeysToHcloudSSHKeys(sshKeysAPI, caphSSHKeys)
+	hcloudSSHKeys, err = convertCaphSSHKeysToHcloudSSHKeys(allHcloudSSHKeys, caphSSHKeys)
 	if err != nil {
 		conditions.MarkFalse(
 			s.scope.HCloudMachine,
