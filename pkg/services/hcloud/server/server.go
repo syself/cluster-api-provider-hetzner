@@ -891,7 +891,7 @@ func (s *Service) createLabels() map[string]string {
 }
 
 // convertCaphSSHKeysToHcloudSSHKeys converts the ssh keys from the spec to hcloud ssh keys.
-// sshKeysAPI contains all keys, returned by hcloudClient.ListSSHKeys().
+// allHcloudSSHKeys contains all keys, returned by hcloudClient.ListSSHKeys().
 // Returns error, if a caphSSHKey is not in allHcloudSSHKeys.
 func convertCaphSSHKeysToHcloudSSHKeys(allHcloudSSHKeys []*hcloud.SSHKey, caphSSHKeys []infrav1.SSHKey) ([]*hcloud.SSHKey, error) {
 	sshKeysAPIMap := make(map[string]*hcloud.SSHKey, len(allHcloudSSHKeys))
