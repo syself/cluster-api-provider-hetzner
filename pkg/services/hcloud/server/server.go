@@ -557,9 +557,6 @@ func (s *Service) getSSHKeys(ctx context.Context) (
 	}
 
 	// always add ssh key from secret if one is found
-
-	// this code is redundant with a similar one on cluster level but is necessary if ClusterClass is used
-	// as in ClusterClass we cannot store anything in HetznerCluster object
 	sshKeyName := s.scope.HetznerSecret().Data[s.scope.HetznerCluster.Spec.HetznerSecret.Key.SSHKey]
 	if len(sshKeyName) > 0 {
 		// Check if the SSH key name already exists
