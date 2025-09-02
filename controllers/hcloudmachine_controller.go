@@ -155,9 +155,9 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 			conditions.MarkTrue(hcloudMachine, infrav1.HCloudTokenAvailableCondition)
 		}
 
-		if err := machineScope.Close(ctx); err != nil && reterr == nil {
+		if err := machineScope.Close(ctx); err != nil {
 			res = reconcile.Result{}
-			reterr = err
+			reterr = errors.Join(reterr, err)
 		}
 
 		readyReason := conditions.GetReason(machineScope.HCloudMachine, clusterv1.ReadyCondition)
