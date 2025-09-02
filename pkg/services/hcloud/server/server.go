@@ -639,6 +639,7 @@ func (s *Service) createServer(ctx context.Context, userData []byte, image *hclo
 
 // getSSHKeys returns the sshKey slice for the status and the sshKey slice for the createServer API
 // call.
+// HCloudMachine.Spec.SSHKeys is empty, HetznerCluster.Spec.SSHKeys.HCloud will be used.
 func (s *Service) getSSHKeys(ctx context.Context) (
 	caphSSHKeys []infrav1.SSHKey,
 	hcloudSSHKeys []*hcloud.SSHKey,
@@ -652,9 +653,6 @@ func (s *Service) getSSHKeys(ctx context.Context) (
 	}
 
 	// always add ssh key from secret if one is found
-
-	// this code is redundant with a similar one on cluster level but is necessary if ClusterClass is used
-	// as in ClusterClass we cannot store anything in HetznerCluster object
 	sshKeyName := s.scope.HetznerSecret().Data[s.scope.HetznerCluster.Spec.HetznerSecret.Key.SSHKey]
 	if len(sshKeyName) > 0 {
 		// Check if the SSH key name already exists
@@ -678,19 +676,29 @@ func (s *Service) getSSHKeys(ctx context.Context) (
 		return nil, nil, handleRateLimit(s.scope.HCloudMachine, err, "ListSSHKeys", "failed listing ssh keys from hcloud")
 	}
 
-	// get matching keys
-	hcloudSSHKeys, err = convertCaphSSHKeysToHcloudSSHKeys(allHcloudSSHKeys, caphSSHKeys)
-	if err != nil {
-		conditions.MarkFalse(
-			s.scope.HCloudMachine,
-			infrav1.ServerCreateSucceededCondition,
-			infrav1.SSHKeyNotFoundReason,
-			clusterv1.ConditionSeverityError,
-			"%s",
-			err.Error(),
-		)
-		return nil, nil, errServerCreateNotPossible
+	// Create a map, so we can easily check if each caphSSHKey exist in HCloud.
+	sshKeysAPIMap := make(map[string]*hcloud.SSHKey, len(allHcloudSSHKeys))
+	for i, sshKey := range allHcloudSSHKeys {
+		sshKeysAPIMap[sshKey.Name] = allHcloudSSHKeys[i]
 	}
+
+	// Check caphSSHKeys. Fail if key is not in HCloud
+	for _, sshKeySpec := range caphSSHKeys {
+		sshKey, ok := sshKeysAPIMap[sshKeySpec.Name]
+		if !ok {
+			conditions.MarkFalse(
+				s.scope.HCloudMachine,
+				infrav1.ServerCreateSucceededCondition,
+				infrav1.SSHKeyNotFoundReason,
+				clusterv1.ConditionSeverityError,
+				"%s",
+				err.Error(),
+			)
+			return nil, nil, errServerCreateNotPossible
+		}
+		hcloudSSHKeys = append(hcloudSSHKeys, sshKey)
+	}
+
 	return caphSSHKeys, hcloudSSHKeys, nil
 }
 
@@ -984,27 +992,6 @@ func (s *Service) createLabels() map[string]string {
 		infrav1.MachineNameTagKey:                                      s.scope.Name(),
 		"machine_type":                                                 machineType,
 	}
-}
-
-// convertCaphSSHKeysToHcloudSSHKeys converts the ssh keys from the spec to hcloud ssh keys.
-// allHcloudSSHKeys contains all keys, returned by hcloudClient.ListSSHKeys().
-// Returns error, if a caphSSHKey is not in allHcloudSSHKeys.
-func convertCaphSSHKeysToHcloudSSHKeys(allHcloudSSHKeys []*hcloud.SSHKey, caphSSHKeys []infrav1.SSHKey) ([]*hcloud.SSHKey, error) {
-	sshKeysAPIMap := make(map[string]*hcloud.SSHKey, len(allHcloudSSHKeys))
-	for i, sshKey := range allHcloudSSHKeys {
-		sshKeysAPIMap[sshKey.Name] = allHcloudSSHKeys[i]
-	}
-
-	hcloudSSHKeys := make([]*hcloud.SSHKey, len(caphSSHKeys))
-
-	for i, sshKeySpec := range caphSSHKeys {
-		sshKey, ok := sshKeysAPIMap[sshKeySpec.Name]
-		if !ok {
-			return nil, fmt.Errorf("ssh key not found in HCloud. SSH key name: %s", sshKeySpec.Name)
-		}
-		hcloudSSHKeys[i] = sshKey
-	}
-	return hcloudSSHKeys, nil
 }
 
 func updateHCloudMachineStatusFromServer(hm *infrav1.HCloudMachine, server *hcloud.Server) {
