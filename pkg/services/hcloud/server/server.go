@@ -49,8 +49,12 @@ const (
 	// Provisioning from a snapshot takes roughly 140 seconds.
 	// We do not want to do too many api-calls (rate-limiting). So we differentiate
 	// between both cases.
+	// These values get only used **once** after the server got created.
 	requeueAfterCreateServerRapidDeploy   = 10 * time.Second
 	requeueAfterCreateServerNoRapidDeploy = 140 * time.Second
+
+	// Continous RequeueAfter in BootToRealOS
+	requeueIntervalBootToRealOS = 10 * time.Second
 
 	// requeueImmediately gets used to requeue "now". One second gets used to make
 	// it unlikely that the next Reconcile reads stale data from the local cache.
@@ -204,11 +208,11 @@ func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server)
 			clusterv1.ConditionSeverityInfo,
 			"server is starting",
 		)
-		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+		return reconcile.Result{RequeueAfter: requeueIntervalBootToRealOS}, nil
 
 	case hcloud.ServerStatusInitializing:
-		// "Initializing" is the first state (for ~5 seconds), then comes "Starting"
-		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+		// "Initializing" is the first state, then (~5s later) comes "Starting"
+		return reconcile.Result{RequeueAfter: requeueIntervalBootToRealOS}, nil
 
 	case hcloud.ServerStatusRunning:
 		s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateOperatingSystemRunning)
@@ -218,7 +222,7 @@ func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server)
 	default:
 		// some temporary status
 		ctrl.LoggerFrom(ctx).Info("Unknown hcloud server status", "status", server.Status)
-		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+		return reconcile.Result{RequeueAfter: requeueIntervalBootToRealOS}, nil
 	}
 }
 
