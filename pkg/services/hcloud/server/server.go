@@ -53,7 +53,7 @@ const (
 	requeueAfterCreateServerRapidDeploy   = 10 * time.Second
 	requeueAfterCreateServerNoRapidDeploy = 140 * time.Second
 
-	// Continous RequeueAfter in BootToRealOS
+	// Continuous RequeueAfter in BootToRealOS.
 	requeueIntervalBootToRealOS = 10 * time.Second
 
 	// requeueImmediately gets used to requeue "now". One second gets used to make
