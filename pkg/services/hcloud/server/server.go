@@ -60,11 +60,14 @@ const (
 	// Continuous RequeueAfter in BootToRealOS.
 	requeueIntervalBootToRealOS = 10 * time.Second
 
+	// Continuous RequeueAfter in BootToPreRescueOS.
+	requeueIntervalBootToPreRescueOS = 10 * time.Second
+
 	// requeueImmediately gets used to requeue "now". One second gets used to make
 	// it unlikely that the next Reconcile reads stale data from the local cache.
 	requeueImmediately = 1 * time.Second
 
-	preRescueOSImage = "ubuntu-22.04" // todo, change to 24.04
+	preRescueOSImage = "ubuntu-24.04"
 )
 
 var errServerCreateNotPossible = fmt.Errorf("server create not possible - need action")
@@ -201,30 +204,32 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 func (s *Service) handleBootStateBootToPreRescueOS(ctx context.Context, server *hcloud.Server) (res reconcile.Result, reterr error) {
 	// analyze status of server
 	switch server.Status {
-	case hcloud.ServerStatusStarting:
+	case hcloud.ServerStatusStarting, hcloud.ServerStatusInitializing:
 		conditions.MarkFalse(
 			s.scope.HCloudMachine,
 			infrav1.ServerAvailableCondition,
 			infrav1.ServerStartingReason,
 			clusterv1.ConditionSeverityInfo,
-			"server is starting",
+			"server is %s", server.Status,
 		)
-		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+		return reconcile.Result{RequeueAfter: requeueIntervalBootToPreRescueOS}, nil
 	case hcloud.ServerStatusRunning:
 		// execute below code
 	default:
 		// some temporary status
 		ctrl.LoggerFrom(ctx).Info("Unknown hcloud server status", "status", server.Status)
-		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+		return reconcile.Result{RequeueAfter: requeueIntervalBootToPreRescueOS}, nil
 	}
 
 	// Server is Running.
+
+	// Generate temporary SSH-Key
 	privKey, pubKey, err := sshkeygen.GenerateEd25519()
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("sshkeygen.GenerateEd25519 failed: %w", err)
 	}
 
-	keyName := fmt.Sprintf("tmp-image-url-%s", s.scope.HCloudMachine.Name)
+	keyName := fmt.Sprintf("tmp-hcloud-image-url-ssh-%s", s.scope.HCloudMachine.Name)
 
 	// Create secret with private key
 	secret := &corev1.Secret{
