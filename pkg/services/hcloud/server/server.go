@@ -127,12 +127,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 			// no need to requeue.
 			return reconcile.Result{}, nil
 		}
-
-		// update HCloudMachineStatus
-		s.scope.HCloudMachine.Status.Addresses = statusAddresses(server)
-
-		// Copy value
-		s.scope.HCloudMachine.Status.InstanceState = ptr.To(server.Status)
+		updateHCloudMachineStatusFromServer(s.scope.HCloudMachine, server)
 	}
 
 	switch s.scope.HCloudMachine.Status.BootState {
@@ -176,12 +171,18 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		}
 		return reconcile.Result{}, fmt.Errorf("failed to create server: %w", err)
 	}
+
+	updateHCloudMachineStatusFromServer(s.scope.HCloudMachine, server)
+
 	s.scope.SetProviderID(server.ID)
+
 	m.SetBootState(infrav1.HCloudBootStateBootToRealOS)
+
 	requeueAfter := requeueAfterCreateServerNoRapidDeploy
 	if image.RapidDeploy {
 		requeueAfter = requeueAfterCreateServerRapidDeploy
 	}
+
 	return reconcile.Result{RequeueAfter: requeueAfter}, nil
 }
 
@@ -904,4 +905,9 @@ func convertCaphSSHKeysToHcloudSSHKeys(allHcloudSSHKeys []*hcloud.SSHKey, caphSS
 		hcloudSSHKeys[i] = sshKey
 	}
 	return hcloudSSHKeys, nil
+}
+
+func updateHCloudMachineStatusFromServer(hm *infrav1.HCloudMachine, server *hcloud.Server) {
+	hm.Status.Addresses = statusAddresses(server)
+	hm.Status.InstanceState = ptr.To(server.Status)
 }
