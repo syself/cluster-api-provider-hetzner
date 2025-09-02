@@ -48,6 +48,7 @@ type cacheHCloudClient struct {
 	placementGroupIDCounter int64
 	loadBalancerIDCounter   int64
 	networkIDCounter        int64
+	sshKeys                 []*hcloud.SSHKey
 }
 
 // NewClient gives reference to the fake client using cache for HCloud API.
@@ -86,6 +87,8 @@ func (c *cacheHCloudClient) Reset() {
 	cacheHCloudClientInstance.placementGroupIDCounter = 0
 	cacheHCloudClientInstance.loadBalancerIDCounter = 0
 	cacheHCloudClientInstance.networkIDCounter = 0
+
+	cacheHCloudClientInstance.sshKeys = []*hcloud.SSHKey{&defaultSSHKey}
 }
 
 type cacheHCloudClientFactory struct{}
@@ -714,7 +717,18 @@ func (c *cacheHCloudClient) DeleteNetwork(_ context.Context, network *hcloud.Net
 func (c *cacheHCloudClient) ListSSHKeys(_ context.Context, _ hcloud.SSHKeyListOpts) ([]*hcloud.SSHKey, error) {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
-	return []*hcloud.SSHKey{&defaultSSHKey}, nil
+	return c.sshKeys, nil
+}
+
+func (c *cacheHCloudClient) CreateSSHKey(_ context.Context, _ hcloud.SSHKeyCreateOpts) (*hcloud.SSHKey, error) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+	id := len(c.sshKeys) + 2
+	new := defaultSSHKey
+	new.ID = int64(id)
+	new.Name = "test-ssh-key" + string(id)
+	c.sshKeys = append(c.sshKeys, &new)
+	return &new, nil
 }
 
 func (c *cacheHCloudClient) CreatePlacementGroup(_ context.Context, opts hcloud.PlacementGroupCreateOpts) (*hcloud.PlacementGroup, error) {

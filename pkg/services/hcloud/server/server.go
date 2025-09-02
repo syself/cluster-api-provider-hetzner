@@ -244,6 +244,9 @@ func (s *Service) handleBootStateBootToPreRescueOS(ctx context.Context, server *
 			secret.Data = make(map[string][]byte)
 		}
 		secret.Data["private-key"] = []byte(privKey)
+
+		// Set ownerRef, so that Kubernetes Garbage Collection removes the secret, when
+		// the hcloudmachine gets deleted.
 		return controllerutil.SetControllerReference(
 			s.scope.HCloudMachine, secret, s.scope.Client.Scheme())
 	})
@@ -251,7 +254,7 @@ func (s *Service) handleBootStateBootToPreRescueOS(ctx context.Context, server *
 		return reconcile.Result{}, fmt.Errorf("failed to create or update secret %s: %w", keyName, err)
 	}
 
-	s.scope.HCloudClient.CreateSSHKey(ctx, hcloud.SSHKeyCreateOpts{
+	hcloudSSHKey, err := s.scope.HCloudClient.CreateSSHKey(ctx, hcloud.SSHKeyCreateOpts{
 		Name:      keyName,
 		PublicKey: pubKey,
 		Labels: map[string]string{
@@ -261,8 +264,10 @@ func (s *Service) handleBootStateBootToPreRescueOS(ctx context.Context, server *
 		},
 	})
 
+	s.scope.Logger.Info("CreateSSHKey ############# ", "key", hcloudSSHKey, "err", err)
+
 	// ....
-	return res, reterr
+	return reconcile.Result{RequeueAfter: requeueIntervalBootToPreRescueOS}, reterr
 }
 
 func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
