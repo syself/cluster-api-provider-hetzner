@@ -45,7 +45,12 @@ import (
 const (
 	serverOffTimeout = 10 * time.Minute
 
-	requeueAfterCreateServer = 100 * time.Millisecond // #### TODO: Set good value
+	// Provisioning from a hcloud image like ubuntu-YY.MM takes roughly 11 seconds.
+	// Provisioning from a snapshot takes roughly 140 seconds.
+	// We do not want to do too many api-calls (rate-limiting). So we differentiate
+	// between both cases.
+	requeueAfterCreateServerRapidDeploy   = 10 * time.Second
+	requeueAfterCreateServerNoRapidDeploy = 140 * time.Second
 
 	// requeueImmediately gets used to requeue "now". One second gets used to make
 	// it unlikely that the next Reconcile reads stale data from the local cache.
@@ -164,7 +169,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 	}
 
-	server, err := s.createServerFromImageName(ctx)
+	server, image, err := s.createServerFromImageName(ctx)
 	if err != nil {
 		if errors.Is(err, errServerCreateNotPossible) {
 			return reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
@@ -173,7 +178,11 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 	}
 	s.scope.SetProviderID(server.ID)
 	m.SetBootState(infrav1.HCloudBootStateBootToRealOS)
-	return reconcile.Result{RequeueAfter: requeueAfterCreateServer}, nil
+	requeueAfter := requeueAfterCreateServerNoRapidDeploy
+	if image.RapidDeploy {
+		requeueAfter = requeueAfterCreateServerRapidDeploy
+	}
+	return reconcile.Result{RequeueAfter: requeueAfter}, nil
 }
 
 func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
@@ -406,7 +415,7 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 	return reconcile.Result{}, nil
 }
 
-func (s *Service) createServerFromImageName(ctx context.Context) (*hcloud.Server, error) {
+func (s *Service) createServerFromImageName(ctx context.Context) (*hcloud.Server, *hcloud.Image, error) {
 	userData, err := s.scope.GetRawBootstrapData(ctx)
 	if err != nil {
 		record.Warnf(
@@ -414,18 +423,18 @@ func (s *Service) createServerFromImageName(ctx context.Context) (*hcloud.Server
 			"FailedGetBootstrapData",
 			err.Error(),
 		)
-		return nil, fmt.Errorf("failed to get raw bootstrap data: %s", err)
+		return nil, nil, fmt.Errorf("failed to get raw bootstrap data: %s", err)
 	}
 	image, err := getServerImage(ctx, s.scope.HCloudClient, s.scope.HCloudMachine, s.scope.HCloudMachine.Spec.Type, s.scope.HCloudMachine.Spec.ImageName)
 	if err != nil {
-		return nil, fmt.Errorf("createServerFromImageName: failed to get server image: %w", err)
+		return nil, nil, fmt.Errorf("createServerFromImageName: failed to get server image: %w", err)
 	}
 	server, err := s.createServer(ctx, userData, image)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateBootToRealOS)
-	return server, nil
+	return server, image, nil
 }
 
 func (s *Service) createServer(ctx context.Context, userData []byte, image *hcloud.Image) (*hcloud.Server, error) {
