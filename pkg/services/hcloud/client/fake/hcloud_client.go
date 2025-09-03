@@ -724,11 +724,11 @@ func (c *cacheHCloudClient) CreateSSHKey(_ context.Context, _ hcloud.SSHKeyCreat
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 	id := len(c.sshKeys) + 2
-	new := defaultSSHKey
-	new.ID = int64(id)
-	new.Name = "test-ssh-key-" + fmt.Sprint(id)
-	c.sshKeys = append(c.sshKeys, &new)
-	return &new, nil
+	newKey := defaultSSHKey
+	newKey.ID = int64(id)
+	newKey.Name = "test-ssh-key-" + fmt.Sprint(id)
+	c.sshKeys = append(c.sshKeys, &newKey)
+	return &newKey, nil
 }
 
 func (c *cacheHCloudClient) CreatePlacementGroup(_ context.Context, opts hcloud.PlacementGroupCreateOpts) (*hcloud.PlacementGroup, error) {
