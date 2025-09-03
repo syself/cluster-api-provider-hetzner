@@ -46,8 +46,9 @@ type HCloudMachineSpec struct {
 	// ImageName is the reference to the Machine Image from which to create the machine instance.
 	// It can reference an image uploaded to Hetzner API in two ways: either directly as the name of an image or as the label of an image.
 	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Optional
 	// +optional
-	ImageName string `json:"imageName"`
+	ImageName string `json:"imageName,omitempty"`
 
 	// ImageURL gets used for installing custom node images. If that field is set, the controller
 	// boots a new HCloud machine into rescue mode. Then the script provided by
@@ -66,8 +67,10 @@ type HCloudMachineSpec struct {
 	// controller cancels the provisioning.
 	//
 	// ImageURL is mutually exclusive to "ImageName".
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Optional
 	// +optional
-	ImageURL string `json:"imageURL"`
+	ImageURL string `json:"imageURL,omitempty"`
 
 	// SSHKeys define machine-specific SSH keys and override cluster-wide SSH keys.
 	// +optional

@@ -122,6 +122,7 @@ spec:
 
 
                           ImageURL is mutually exclusive to "ImageName".
+                        minLength: 1
                         type: string
                       placementGroupName:
                         description: PlacementGroupName defines the placement group
