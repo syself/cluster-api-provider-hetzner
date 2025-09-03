@@ -208,8 +208,6 @@ spec:
                         - cx52
                         type: string
                     required:
-                    - imageName
-                    - imageURL
                     - type
                     type: object
                 required:
