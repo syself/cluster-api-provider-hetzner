@@ -726,7 +726,7 @@ func (c *cacheHCloudClient) CreateSSHKey(_ context.Context, _ hcloud.SSHKeyCreat
 	id := len(c.sshKeys) + 2
 	new := defaultSSHKey
 	new.ID = int64(id)
-	new.Name = "test-ssh-key" + string(id)
+	new.Name = "test-ssh-key-" + fmt.Sprint(id)
 	c.sshKeys = append(c.sshKeys, &new)
 	return &new, nil
 }
