@@ -369,7 +369,11 @@ var _ = Describe("getSSHKeys", func() {
 		}
 	})
 
-	It("non-empty HCloudMachine.Spec.SSHKeys", func() {
+	AfterEach(func() {
+		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
+	})
+
+	It("uses HCloudMachine.Spec.SSHKeys if present", func() {
 		By("populating the HCloudMachine.Spec.SSHKeys")
 		service.scope.HCloudMachine.Spec.SSHKeys = []infrav1.SSHKey{
 			{
@@ -424,7 +428,7 @@ var _ = Describe("getSSHKeys", func() {
 		Expect(hcloudSSHKeys).To(ConsistOf(sshKeysByHCloudClient))
 	})
 
-	It("empty HCloudMachine.Spec.SSHKeys, extract ssh keys from HetznerCluster.Spec.SSHKeys.HCloud", func() {
+	It("falls back to HetznerCluster.Spec.SSHKeys.HCloud, if HCloudMachine.Spec.SSHKeys is empty", func() {
 		By("populating the HCloudMachine.Spec.SSHKeys")
 		service.scope.HetznerCluster.Spec.SSHKeys.HCloud = []infrav1.SSHKey{
 			{
@@ -511,6 +515,65 @@ var _ = Describe("getSSHKeys", func() {
 		By("ensuring that the getSSHKeys method fails")
 		_, _, err := service.getSSHKeys(context.Background())
 		Expect(err).ToNot(BeNil())
+	})
+
+	It("adds secret SSH key if not already present", func() {
+		// no machine keys, secretKey should be added
+
+		sshKeysByHCloudClient := []*hcloud.SSHKey{
+			{
+				ID:          1,
+				Name:        "sshKey1",
+				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:1f",
+			},
+		}
+
+		hcloudClient.On("ListSSHKeys", mock.Anything, mock.Anything).Return(sshKeysByHCloudClient, nil)
+
+		caphKeys, hcloudSSHKeys, err := service.getSSHKeys(context.Background())
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(caphKeys).To(ConsistOf([]infrav1.SSHKey{
+			{
+				Name: "sshKey1",
+			},
+		}))
+
+		Expect(hcloudSSHKeys).To(ConsistOf(sshKeysByHCloudClient))
+	})
+
+	It("does not duplicate secret SSH key if already in list", func() {
+		sshKeyName := "sshKey1"
+		sshKeyFingerprint := "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:1f"
+
+		service.scope.HCloudMachine.Spec.SSHKeys = []infrav1.SSHKey{
+			{
+				Name:        sshKeyName,
+				Fingerprint: sshKeyFingerprint,
+			},
+		}
+
+		sshKeysByHCloudClient := []*hcloud.SSHKey{
+			{
+				ID:          1,
+				Name:        sshKeyName,
+				Fingerprint: sshKeyFingerprint,
+			},
+		}
+
+		hcloudClient.On("ListSSHKeys", mock.Anything, mock.Anything).Return(sshKeysByHCloudClient, nil)
+
+		caphKeys, hcloudSSHKeys, err := service.getSSHKeys(context.Background())
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(caphKeys).To(ConsistOf([]infrav1.SSHKey{
+			{
+				Name:        sshKeyName,
+				Fingerprint: sshKeyFingerprint,
+			},
+		}))
+
+		Expect(hcloudSSHKeys).To(ConsistOf(sshKeysByHCloudClient))
 	})
 })
 
