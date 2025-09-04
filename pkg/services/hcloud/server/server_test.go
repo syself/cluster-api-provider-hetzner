@@ -30,17 +30,17 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
-	fakeclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/fake"
+	fakehcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/fake"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/mocks"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
 func Test_statusAddresses(t *testing.T) {
@@ -123,7 +123,7 @@ var _ = DescribeTable("createLabels",
 
 var _ = Describe("handleServerStatusOff", func() {
 	var hcloudMachine *infrav1.HCloudMachine
-	client := fakeclient.NewHCloudClientFactory().NewClient("")
+	client := fakehcloudclient.NewHCloudClientFactory().NewClient("")
 
 	server, err := client.CreateServer(context.Background(), hcloud.ServerCreateOpts{Name: "serverName"})
 	Expect(err).To(Succeed())
@@ -317,8 +317,8 @@ var _ = Describe("getSSHKeys", func() {
 		hcloudClient = mocks.NewClient(GinkgoT())
 
 		clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
-			Client:       fake.NewClientBuilder().WithScheme(testScheme).Build(),
-			APIReader:    fake.NewClientBuilder().WithScheme(testScheme).Build(),
+			Client:       fakeclient.NewClientBuilder().WithScheme(testScheme).Build(),
+			APIReader:    fakeclient.NewClientBuilder().WithScheme(testScheme).Build(),
 			HCloudClient: hcloudClient,
 			Logger:       GinkgoLogr,
 
