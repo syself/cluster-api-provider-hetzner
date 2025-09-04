@@ -802,6 +802,10 @@ func (c *cacheHCloudClient) AddServerToPlacementGroup(_ context.Context, server 
 	return nil
 }
 
+func (c *cacheHCloudClient) RebootIntoRescueSystem(_ context.Context, _ *hcloud.Server, _ *hcloud.ServerEnableRescueOpts) error {
+	return nil
+}
+
 func isIntInList(list []int64, str int64) bool {
 	for _, s := range list {
 		if s == str {

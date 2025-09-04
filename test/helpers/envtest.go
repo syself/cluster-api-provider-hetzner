@@ -58,6 +58,7 @@ import (
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	fakeclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/fake"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/mockedsshclient"
 )
 
 func init() {
@@ -104,23 +105,22 @@ func init() {
 	}
 }
 
-type (
-	// TestEnvironment encapsulates a Kubernetes local test environment.
-	TestEnvironment struct {
-		ctrl.Manager
-		client.Client
-		Config                       *rest.Config
-		HCloudClientFactory          hcloudclient.Factory
-		RobotClientFactory           robotclient.Factory
-		SSHClientFactory             sshclient.Factory
-		RescueSSHClient              *sshmock.Client
-		OSSSHClientAfterInstallImage *sshmock.Client
-		OSSSHClientAfterCloudInit    *sshmock.Client
-		RobotClient                  *robotmock.Client
-		cancel                       context.CancelFunc
-		RateLimitWaitTime            time.Duration
-	}
-)
+// TestEnvironment encapsulates a Kubernetes local test environment.
+type TestEnvironment struct {
+	ctrl.Manager
+	client.Client
+	Config                       *rest.Config
+	HCloudClientFactory          hcloudclient.Factory
+	RobotClientFactory           robotclient.Factory
+	BaremetalSSHClientFactory    sshclient.Factory
+	HCloudSHClientFactory        sshclient.Factory
+	RescueSSHClient              *sshmock.Client
+	OSSSHClientAfterInstallImage *sshmock.Client
+	OSSSHClientAfterCloudInit    *sshmock.Client
+	RobotClient                  *robotmock.Client
+	cancel                       context.CancelFunc
+	RateLimitWaitTime            time.Duration
+}
 
 // NewTestEnvironment creates a new environment spinning up a local api-server.
 func NewTestEnvironment() *TestEnvironment {
@@ -194,12 +194,15 @@ func NewTestEnvironment() *TestEnvironment {
 
 	robotClient := &robotmock.Client{}
 
+	hcloudSSHClient := &sshmock.Client{}
+
 	return &TestEnvironment{
 		Manager:                      mgr,
 		Client:                       mgr.GetClient(),
 		Config:                       mgr.GetConfig(),
 		HCloudClientFactory:          hcloudClientFactory,
-		SSHClientFactory:             mocks.NewSSHFactory(rescueSSHClient, osSSHClientAfterInstallImage, osSSHClientAfterCloudInit),
+		BaremetalSSHClientFactory:    mocks.NewSSHFactory(rescueSSHClient, osSSHClientAfterInstallImage, osSSHClientAfterCloudInit),
+		HCloudSHClientFactory:        mockedsshclient.NewSSHFactory(hcloudSSHClient),
 		RescueSSHClient:              rescueSSHClient,
 		OSSSHClientAfterInstallImage: osSSHClientAfterInstallImage,
 		OSSSHClientAfterCloudInit:    osSSHClientAfterCloudInit,

@@ -46,6 +46,7 @@ import (
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
+	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/server"
 )
@@ -53,10 +54,12 @@ import (
 // HCloudMachineReconciler reconciles a HCloudMachine object.
 type HCloudMachineReconciler struct {
 	client.Client
-	RateLimitWaitTime   time.Duration
-	APIReader           client.Reader
-	HCloudClientFactory hcloudclient.Factory
-	WatchFilterValue    string
+	RateLimitWaitTime     time.Duration
+	APIReader             client.Reader
+	HCloudClientFactory   hcloudclient.Factory
+	SSHClientFactory      sshclient.Factory
+	WatchFilterValue      string
+	HCloudImageURLCommand string
 }
 
 //+kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;patch
@@ -130,22 +133,24 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 
 	machineScope, err := scope.NewMachineScope(scope.MachineScopeParams{
 		ClusterScopeParams: scope.ClusterScopeParams{
-			Client:         r.Client,
-			Logger:         log,
-			Cluster:        cluster,
-			HetznerCluster: hetznerCluster,
-			HCloudClient:   hcc,
-			HetznerSecret:  hetznerSecret,
-			APIReader:      r.APIReader,
+			Client:                r.Client,
+			Logger:                log,
+			Cluster:               cluster,
+			HetznerCluster:        hetznerCluster,
+			HCloudClient:          hcc,
+			HetznerSecret:         hetznerSecret,
+			APIReader:             r.APIReader,
+			HCloudImageURLCommand: r.HCloudImageURLCommand,
 		},
-		Machine:       machine,
-		HCloudMachine: hcloudMachine,
+		Machine:          machine,
+		HCloudMachine:    hcloudMachine,
+		SSHClientFactory: r.SSHClientFactory,
 	})
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %+v", err)
 	}
 
-	initialHcloudMachine := hcloudMachine.DeepCopy()
+	initialHCloudMachine := hcloudMachine.DeepCopy()
 	startReconcile := time.Now()
 	// Always close the scope when exiting this function so we can persist any HCloudMachine changes.
 	defer func() {
@@ -164,25 +169,36 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 		readyMessage := conditions.GetMessage(machineScope.HCloudMachine, clusterv1.ReadyCondition)
 
 		duration := time.Since(startReconcile)
+
+		log.Info("DDDDDDDDDDDDDDebug Reconcile",
+			"reconcileDuration", duration,
+			"res", res,
+			"reterr", reterr,
+			"oldState", initialHCloudMachine.Status.BootState,
+			"newState", machineScope.HCloudMachine.Status.BootState,
+			"readyReason", readyReason,
+			"readyMessage", readyMessage,
+		)
+
 		if duration > 5*time.Second {
 			log.Info("Reconcile took too long",
 				"reconcileDuration", duration,
 				"res", res,
 				"reterr", reterr,
-				"oldState", initialHcloudMachine.Status.BootState,
+				"oldState", initialHCloudMachine.Status.BootState,
 				"newState", machineScope.HCloudMachine.Status.BootState,
 				"readyReason", readyReason,
 				"readyMessage", readyMessage,
 			)
 		}
 
-		if initialHcloudMachine.Status.BootState != machineScope.HCloudMachine.Status.BootState {
-			startBootState := initialHcloudMachine.Status.BootStateSince
+		if initialHCloudMachine.Status.BootState != machineScope.HCloudMachine.Status.BootState {
+			startBootState := initialHCloudMachine.Status.BootStateSince
 			if startBootState.IsZero() {
-				startBootState = initialHcloudMachine.CreationTimestamp
+				startBootState = initialHCloudMachine.CreationTimestamp
 			}
 			log.Info("BootState changed",
-				"oldState", initialHcloudMachine.Status.BootState,
+				"oldState", initialHCloudMachine.Status.BootState,
 				"newState", machineScope.HCloudMachine.Status.BootState,
 				"durationInState", machineScope.HCloudMachine.Status.BootStateSince.Time.Sub(startBootState.Time),
 				"readyReason", readyReason,

@@ -251,6 +251,36 @@ func (_m *Client) CreatePlacementGroup(_a0 context.Context, _a1 hcloud.Placement
 	return r0, r1
 }
 
+// CreateSSHKey provides a mock function with given fields: _a0, _a1
+func (_m *Client) CreateSSHKey(_a0 context.Context, _a1 hcloud.SSHKeyCreateOpts) (*hcloud.SSHKey, error) {
+	ret := _m.Called(_a0, _a1)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateSSHKey")
+	}
+
+	var r0 *hcloud.SSHKey
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, hcloud.SSHKeyCreateOpts) (*hcloud.SSHKey, error)); ok {
+		return rf(_a0, _a1)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, hcloud.SSHKeyCreateOpts) *hcloud.SSHKey); ok {
+		r0 = rf(_a0, _a1)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*hcloud.SSHKey)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, hcloud.SSHKeyCreateOpts) error); ok {
+		r1 = rf(_a0, _a1)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // CreateServer provides a mock function with given fields: _a0, _a1
 func (_m *Client) CreateServer(_a0 context.Context, _a1 hcloud.ServerCreateOpts) (*hcloud.Server, error) {
 	ret := _m.Called(_a0, _a1)
