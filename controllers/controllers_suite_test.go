@@ -83,6 +83,7 @@ var _ = BeforeSuite(func() {
 		Client:              testEnv.Manager.GetClient(),
 		APIReader:           testEnv.Manager.GetAPIReader(),
 		HCloudClientFactory: testEnv.HCloudClientFactory,
+		SSHClientFactory:    testEnv.SSHClientFactory,
 	}).SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
 
 	Expect((&HCloudMachineTemplateReconciler{

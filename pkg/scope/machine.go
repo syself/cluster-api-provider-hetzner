@@ -35,13 +35,15 @@ import (
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
+	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 )
 
 // MachineScopeParams defines the input parameters used to create a new Scope.
 type MachineScopeParams struct {
 	ClusterScopeParams
-	Machine       *clusterv1.Machine
-	HCloudMachine *infrav1.HCloudMachine
+	Machine          *clusterv1.Machine
+	HCloudMachine    *infrav1.HCloudMachine
+	SSHClientFactory sshclient.Factory
 }
 
 const maxShutDownTime = 2 * time.Minute
@@ -80,10 +82,11 @@ func NewMachineScope(params MachineScopeParams) (*MachineScope, error) {
 	}
 
 	return &MachineScope{
-		ClusterScope:          *cs,
-		Machine:               params.Machine,
-		HCloudMachine:         params.HCloudMachine,
-		HcloudImageURLCommand: params.HcloudImageURLCommand,
+		ClusterScope:           *cs,
+		Machine:                params.Machine,
+		HCloudMachine:          params.HCloudMachine,
+		HCloudImageURLCommand:  params.HCloudImageURLCommand,
+		HCloudSSHClientFactory: params.HCloudSSHClientFactory,
 	}, nil
 }
 
@@ -92,7 +95,8 @@ type MachineScope struct {
 	ClusterScope
 	Machine               *clusterv1.Machine
 	HCloudMachine         *infrav1.HCloudMachine
-	HcloudImageURLCommand string
+	HCloudImageURLCommand string
+	SSHClientFactory      sshclient.Factory
 }
 
 // Close closes the current scope persisting the cluster configuration and status.

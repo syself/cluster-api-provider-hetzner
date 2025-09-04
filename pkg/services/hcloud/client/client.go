@@ -75,7 +75,8 @@ type Client interface {
 	DeletePlacementGroup(context.Context, int64) error
 	ListPlacementGroups(context.Context, hcloud.PlacementGroupListOpts) ([]*hcloud.PlacementGroup, error)
 	AddServerToPlacementGroup(context.Context, *hcloud.Server, *hcloud.PlacementGroup) error
-	CreateSSHKey(context.Context, hcloud.SSHKeyCreateOpts) (*hcloud.SSHKey, error)
+
+	RebootIntoRescueSystem(context.Context, *hcloud.Server, *hcloud.ServerEnableRescueOpts) error
 }
 
 // Factory is the interface for creating new Client objects.
@@ -311,11 +312,6 @@ func (c *realClient) ListSSHKeys(ctx context.Context, opts hcloud.SSHKeyListOpts
 	return res, err
 }
 
-func (c *realClient) CreateSSHKey(ctx context.Context, opts hcloud.SSHKeyCreateOpts) (*hcloud.SSHKey, error) {
-	res, _, err := c.client.SSHKey.Create(ctx, opts)
-	return res, err
-}
-
 func (c *realClient) CreatePlacementGroup(ctx context.Context, opts hcloud.PlacementGroupCreateOpts) (*hcloud.PlacementGroup, error) {
 	res, _, err := c.client.PlacementGroup.Create(ctx, opts)
 	return res.PlacementGroup, err
@@ -333,4 +329,16 @@ func (c *realClient) ListPlacementGroups(ctx context.Context, opts hcloud.Placem
 func (c *realClient) AddServerToPlacementGroup(ctx context.Context, server *hcloud.Server, pg *hcloud.PlacementGroup) error {
 	_, _, err := c.client.Server.AddToPlacementGroup(ctx, server, pg)
 	return err
+}
+
+func (c *realClient) RebootIntoRescueSystem(ctx context.Context, server *hcloud.Server, rescueOpts *hcloud.ServerEnableRescueOpts) error {
+	_, _, err := c.client.Server.EnableRescue(ctx, server, *rescueOpts)
+	if err != nil {
+		return fmt.Errorf("EnableRescue failed for %d: %w", server.ID, err)
+	}
+	_, _, err = c.client.Server.Reboot(ctx, server)
+	if err != nil {
+		return fmt.Errorf("hcloud server reboot failed %d: %w", server.ID, err)
+	}
+	return nil
 }

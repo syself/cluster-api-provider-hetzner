@@ -46,7 +46,7 @@ type ClusterScopeParams struct {
 	HCloudClient          hcloudclient.Client
 	Cluster               *clusterv1.Cluster
 	HetznerCluster        *infrav1.HetznerCluster
-	HcloudImageURLCommand string
+	HCloudImageURLCommand string
 }
 
 // NewClusterScope creates a new Scope from the supplied parameters.

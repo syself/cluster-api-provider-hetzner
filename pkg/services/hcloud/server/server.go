@@ -34,15 +34,15 @@ import (
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/kind/pkg/cmd/kind/version"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
+	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/sshkeygen"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
@@ -62,6 +62,9 @@ const (
 
 	// Continuous RequeueAfter in BootToPreRescueOS.
 	requeueIntervalBootToPreRescueOS = 10 * time.Second
+
+	// Continuous RequeueAfter in NodeImageInstalling.
+	requeueIntervalNodeImageInstalling = 10 * time.Second
 
 	// requeueImmediately gets used to requeue "now". One second gets used to make
 	// it unlikely that the next Reconcile reads stale data from the local cache.
@@ -148,6 +151,10 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 		return s.handleBootStateUnset(ctx)
 	case infrav1.HCloudBootStateBootToPreRescueOS:
 		return s.handleBootStateBootToPreRescueOS(ctx, server)
+	case infrav1.HCloudBootStateRescueSystem:
+		return s.handleBootStateRescueSystem(ctx, server)
+	case infrav1.HCloudBootStateNodeImageInstalling:
+		return s.handleBootStateNodeImageInstalling(ctx, server)
 	case infrav1.HCloudBootStateBootToRealOS:
 		return s.handleBootToRealOS(ctx, server)
 	case infrav1.HCloudBootStateOperatingSystemRunning:
@@ -223,51 +230,104 @@ func (s *Service) handleBootStateBootToPreRescueOS(ctx context.Context, server *
 
 	// Server is Running.
 
-	// Generate temporary SSH-Key
-	privKey, pubKey, err := sshkeygen.GenerateEd25519()
+	_, hcloudSSHKeys, err := s.getSSHKeys(ctx)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("sshkeygen.GenerateEd25519 failed: %w", err)
+		return res, fmt.Errorf("getSSHKeys failed: %w", err)
 	}
 
-	keyName := fmt.Sprintf("tmp-hcloud-image-url-ssh-%s", s.scope.HCloudMachine.Name)
+	rescueOpts := &hcloud.ServerEnableRescueOpts{
+		Type:    hcloud.ServerRescueTypeLinux64,
+		SSHKeys: hcloudSSHKeys,
+	}
+	err = s.scope.HCloudClient.RebootIntoRescueSystem(ctx, server, rescueOpts)
+	if err != nil {
+		return res, fmt.Errorf("RebootIntoRescueSystem failed: %w", err)
+	}
 
-	// Create secret with private key
-	secret := &corev1.Secret{
+	s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateRescueSystem)
+	return reconcile.Result{RequeueAfter: requeueIntervalBootToPreRescueOS}, nil
+}
+
+func (s *Service) handleBootStateRescueSystem(ctx context.Context, server *hcloud.Server) (reconcile.Result, error) {
+	if !server.RescueEnabled {
+		log.FromContext(ctx).Info("Waiting for RescueEnabled. Requeue")
+		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
+	}
+	s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateNodeImageInstalling)
+	return reconcile.Result{RequeueAfter: requeueImmediately}, nil
+}
+
+func (s *Service) handleBootStateNodeImageInstalling(ctx context.Context, server *hcloud.Server) (reconcile.Result, error) {
+	if !server.RescueEnabled {
+		msg := "RescueEnabled is false. Something went wrong. Deleting machine"
+
+		// Machine will get deleted by capi
+		s.scope.SetError(msg, capierrors.CreateMachineError)
+
+		log.FromContext(ctx).Error(errors.New(msg), "")
+		return reconcile.Result{}, nil
+	}
+
+	robotSecretName := s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Name
+	if robotSecretName == "" {
+		return reconcile.Result{}, fmt.Errorf("HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Name is empty. Can not set hcloud machine into rescue-mode without ssh private key")
+	}
+
+	robotSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      keyName,
-			Namespace: s.scope.HCloudMachine.Namespace,
+			Name:      robotSecretName,
+			Namespace: s.scope.Namespace(),
 		},
 	}
-
-	_, err = controllerutil.CreateOrUpdate(ctx, s.scope.Client, secret, func() error {
-		if secret.Data == nil {
-			secret.Data = make(map[string][]byte)
-		}
-		secret.Data["private-key"] = []byte(privKey)
-
-		// Set ownerRef, so that Kubernetes Garbage Collection removes the secret, when
-		// the hcloudmachine gets deleted.
-		return controllerutil.SetControllerReference(
-			s.scope.HCloudMachine, secret, s.scope.Client.Scheme())
-	})
+	err := s.scope.Client.Get(ctx, client.ObjectKeyFromObject(robotSecret), robotSecret)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to create or update secret %s: %w", keyName, err)
+		return reconcile.Result{}, fmt.Errorf("failed to get secret %q: %w", robotSecretName, err)
 	}
 
-	hcloudSSHKey, err := s.scope.HCloudClient.CreateSSHKey(ctx, hcloud.SSHKeyCreateOpts{
-		Name:      keyName,
-		PublicKey: pubKey,
-		Labels: map[string]string{
-			"use-case":      "temporary-key-for-reaching-rescue-system",
-			"creator":       fmt.Sprintf("caph-%s", version.Version()),
-			"hcloudmachine": s.scope.HCloudMachine.Name,
-		},
+	if len(s.scope.HCloudMachine.Status.Addresses) == 0 {
+		return reconcile.Result{}, fmt.Errorf("HCloudMachine.Status.Addresses empty. Can not connect via ssh")
+	}
+
+	privateKey := string(robotSecret.Data[s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Key.PrivateKey])
+	if privateKey == "" {
+		return reconcile.Result{}, fmt.Errorf("key %q in secret %q is missing or empty. Failed to get ssh-private-key",
+			s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Key.PrivateKey,
+			robotSecretName)
+	}
+	ip := s.scope.HCloudMachine.Status.Addresses[0].Address
+
+	// Unfortunately the hcloud API does not provide the sshd hostkey of the rescue system.
+	// We need to trust the network. In theory a not man-in-the-middle attack is possible.
+	hcloudSSHClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
+		IP:         ip,
+		PrivateKey: privateKey,
+		Port:       22,
 	})
 
-	s.scope.Logger.Info("CreateSSHKey ############# ", "key", hcloudSSHKey, "err", err)
+	output := hcloudSSHClient.GetHostName()
+	if output.Err != nil {
+		conditions.MarkFalse(s.scope.HCloudMachine,
+			infrav1.ServerCreateSucceededCondition,
+			"GetHostnameFailed",
+			clusterv1.ConditionSeverityInfo,
+			"%s", output.String())
+		return reconcile.Result{RequeueAfter: requeueIntervalNodeImageInstalling}, nil
+	}
 
-	// ....
-	return reconcile.Result{RequeueAfter: requeueIntervalBootToPreRescueOS}, reterr
+	conditions.MarkTrue(s.scope.HCloudMachine,
+		infrav1.ServerCreateSucceededCondition)
+
+	remoteHostName := output.String()
+	if remoteHostName != "rescue" {
+		msg := "Remote hostname (via ssh) of hcloud server is %q. Expected 'rescue'. Deleting hcloud machine"
+
+		// CAPI will delete the machine
+		s.scope.SetError(msg, capierrors.CreateMachineError)
+
+		return reconcile.Result{}, nil
+	}
+
+	return reconcile.Result{}, fmt.Errorf("I am happy to reached here")
 }
 
 func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
@@ -508,9 +568,9 @@ func (s *Service) createServerFromImageNameOrURL(ctx context.Context) (*hcloud.S
 }
 
 func (s *Service) createServerFromImageURL(ctx context.Context) (*hcloud.Server, *hcloud.Image, error) {
-	// Validate that HcloudImageURLCommand is given
+	// Validate that HCloudImageURLCommand is given
 	m := s.scope.HCloudMachine
-	if s.scope.HcloudImageURLCommand == "" {
+	if s.scope.HCloudImageURLCommand == "" {
 		return nil, nil, fmt.Errorf("controller was started without --hcloud-image-url-command. Provisioning via ImageURL %q not possible", m.Spec.ImageURL)
 	}
 
