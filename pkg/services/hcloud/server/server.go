@@ -198,8 +198,6 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 
 	s.scope.SetProviderID(server.ID)
 
-	m.SetBootState(infrav1.HCloudBootStateBootToRealOS)
-
 	requeueAfter := requeueAfterCreateServerNoRapidDeploy
 	if image.RapidDeploy {
 		requeueAfter = requeueAfterCreateServerRapidDeploy
@@ -978,9 +976,6 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 		}
 	}
 
-	logger := ctrl.LoggerFrom(ctx)
-	logger.Info("DeprecationWarning finding Server by labels is no longer needed. We plan to remove that feature and rename findServer to getServer", "err", err)
-
 	// server has not been found via id - try to find the server based on its labels
 	opts := hcloud.ServerListOpts{}
 
@@ -1000,6 +995,9 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 	if len(servers) == 0 {
 		return nil, nil
 	}
+
+	logger := ctrl.LoggerFrom(ctx)
+	logger.Info("DeprecationWarning finding Server by labels is no longer needed. We plan to remove that feature and rename findServer to getServer", "err", err)
 
 	return servers[0], nil
 }
