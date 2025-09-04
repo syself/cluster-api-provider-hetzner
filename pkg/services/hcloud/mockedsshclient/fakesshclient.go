@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package mockedsshclient implements functions to create mocked ssh clients for hcloud testing
+// Package mockedsshclient implements functions to create mocked ssh clients for hcloud testing.
 package mockedsshclient
 
 import (
