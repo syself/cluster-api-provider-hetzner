@@ -83,7 +83,7 @@ var _ = BeforeSuite(func() {
 		Client:              testEnv.Manager.GetClient(),
 		APIReader:           testEnv.Manager.GetAPIReader(),
 		HCloudClientFactory: testEnv.HCloudClientFactory,
-		SSHClientFactory:    testEnv.SSHClientFactory,
+		SSHClientFactory:    testEnv.BaremetalSSHClientFactory,
 	}).SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
 
 	Expect((&HCloudMachineTemplateReconciler{
@@ -96,7 +96,7 @@ var _ = BeforeSuite(func() {
 		Client:              testEnv.Manager.GetClient(),
 		APIReader:           testEnv.Manager.GetAPIReader(),
 		RobotClientFactory:  testEnv.RobotClientFactory,
-		SSHClientFactory:    testEnv.SSHClientFactory,
+		SSHClientFactory:    testEnv.BaremetalSSHClientFactory,
 		PreProvisionCommand: "dummy-pre-provision-command",
 	}).SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
 

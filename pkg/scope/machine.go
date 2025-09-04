@@ -82,11 +82,11 @@ func NewMachineScope(params MachineScopeParams) (*MachineScope, error) {
 	}
 
 	return &MachineScope{
-		ClusterScope:           *cs,
-		Machine:                params.Machine,
-		HCloudMachine:          params.HCloudMachine,
-		HCloudImageURLCommand:  params.HCloudImageURLCommand,
-		HCloudSSHClientFactory: params.HCloudSSHClientFactory,
+		ClusterScope:          *cs,
+		Machine:               params.Machine,
+		HCloudMachine:         params.HCloudMachine,
+		HCloudImageURLCommand: params.HCloudImageURLCommand,
+		SSHClientFactory:      params.SSHClientFactory,
 	}, nil
 }
 

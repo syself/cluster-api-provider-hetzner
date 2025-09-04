@@ -311,7 +311,7 @@ func (s *Service) handleBootStateNodeImageInstalling(ctx context.Context, server
 			"GetHostnameFailed",
 			clusterv1.ConditionSeverityInfo,
 			"%s", output.String())
-		return reconcile.Result{RequeueAfter: requeueIntervalNodeImageInstalling}, nil
+		return reconcile.Result{RequeueAfter: requeueIntervalNodeImageInstalling}, nil //nolint:nilerr
 	}
 
 	conditions.MarkTrue(s.scope.HCloudMachine,
@@ -327,7 +327,7 @@ func (s *Service) handleBootStateNodeImageInstalling(ctx context.Context, server
 		return reconcile.Result{}, nil
 	}
 
-	return reconcile.Result{}, fmt.Errorf("I am happy to reached here")
+	return reconcile.Result{}, fmt.Errorf("i am happy to have reached here")
 }
 
 func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {

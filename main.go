@@ -206,11 +206,11 @@ func main() {
 	}
 
 	if err = (&controllers.HCloudMachineReconciler{
-		Client:              mgr.GetClient(),
-		APIReader:           mgr.GetAPIReader(),
-		RateLimitWaitTime:   rateLimitWaitTime,
-		HCloudClientFactory: hcloudClientFactory,
-		SSHClientFactory:    sshclient.NewFactory(),
+		Client:                mgr.GetClient(),
+		APIReader:             mgr.GetAPIReader(),
+		RateLimitWaitTime:     rateLimitWaitTime,
+		HCloudClientFactory:   hcloudClientFactory,
+		SSHClientFactory:      sshclient.NewFactory(),
 		WatchFilterValue:      watchFilterValue,
 		HCloudImageURLCommand: hcloudImageURLCommand,
 	}).SetupWithManager(ctx, mgr, controller.Options{MaxConcurrentReconciles: hcloudMachineConcurrency}); err != nil {

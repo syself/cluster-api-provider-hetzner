@@ -802,7 +802,7 @@ func (c *cacheHCloudClient) AddServerToPlacementGroup(_ context.Context, server 
 	return nil
 }
 
-func (c *cacheHCloudClient) RebootIntoRescueSystem(_ context.Context, server *hcloud.Server, rescueOpts *hcloud.ServerEnableRescueOpts) error {
+func (c *cacheHCloudClient) RebootIntoRescueSystem(_ context.Context, _ *hcloud.Server, _ *hcloud.ServerEnableRescueOpts) error {
 	return nil
 }
 
