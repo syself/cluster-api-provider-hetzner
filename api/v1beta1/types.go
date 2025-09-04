@@ -264,7 +264,7 @@ func (s *HCloudNetworkSpec) IsZero() bool {
 	return true
 }
 
-// HCloudBootState defines the boot state of an HCloud server during provisioning.
+// HCloudBootState defines the boot state of an HCloud server.
 type HCloudBootState string
 
 const (

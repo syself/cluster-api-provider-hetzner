@@ -26,17 +26,21 @@ import (
 	"github.com/mitchellh/copystructure"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	fakeclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/fake"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/mocks"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 func Test_statusAddresses(t *testing.T) {
@@ -297,6 +301,217 @@ var _ = Describe("Test handleRateLimit", func() {
 			expectCondition: false,
 		}),
 	)
+})
+
+var _ = Describe("getSSHKeys", func() {
+	var (
+		service      *Service
+		hcloudClient *mocks.Client
+	)
+
+	testScheme := runtime.NewScheme()
+	err := infrav1.AddToScheme(testScheme)
+	Expect(err).To(BeNil())
+
+	BeforeEach(func() {
+		hcloudClient = mocks.NewClient(GinkgoT())
+
+		clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
+			Client:       fake.NewClientBuilder().WithScheme(testScheme).Build(),
+			APIReader:    fake.NewClientBuilder().WithScheme(testScheme).Build(),
+			HCloudClient: hcloudClient,
+			Logger:       GinkgoLogr,
+
+			Cluster: &clusterv1.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "clusterName",
+					Namespace: "default",
+				},
+			},
+
+			HetznerCluster: &infrav1.HetznerCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "clusterName",
+					Namespace: "default",
+				},
+				Spec: infrav1.HetznerClusterSpec{
+					HetznerSecret: infrav1.HetznerSecretRef{
+						Name: "secretName",
+						Key: infrav1.HetznerSecretKeyRef{
+							SSHKey: "hcloud-ssh-key-name",
+						},
+					},
+				},
+			},
+
+			HetznerSecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "secretName",
+					Namespace: "default",
+				},
+				Data: map[string][]byte{
+					"hcloud-ssh-key-name": []byte("sshKey1"),
+				},
+			},
+		})
+		Expect(err).To(BeNil())
+
+		service = &Service{
+			scope: &scope.MachineScope{
+				ClusterScope: *clusterScope,
+				HCloudMachine: &infrav1.HCloudMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "hcloudMachineName",
+						Namespace: "default",
+					},
+				},
+			},
+		}
+	})
+
+	It("non-empty HCloudMachine.Spec.SSHKeys", func() {
+		By("populating the HCloudMachine.Spec.SSHKeys")
+		service.scope.HCloudMachine.Spec.SSHKeys = []infrav1.SSHKey{
+			{
+				Name:        "sshKey2",
+				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:2f",
+			},
+			{
+				Name:        "sshKey3",
+				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:4f",
+			},
+		}
+
+		By("ensuring that the mocked hcloud client returns all the ssh keys")
+		sshKeysByHCloudClient := []*hcloud.SSHKey{
+			{
+				ID:          1,
+				Name:        "sshKey1",
+				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:1f",
+			},
+			{
+				ID:          2,
+				Name:        "sshKey2",
+				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:2f",
+			},
+			{
+				ID:          3,
+				Name:        "sshKey3",
+				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:4f",
+			},
+		}
+
+		hcloudClient.On("ListSSHKeys", mock.Anything, mock.Anything).Return(sshKeysByHCloudClient, nil)
+
+		By("ensuring that the getSSHKeys method returns all the referenced ssh keys")
+		caphSSHKeys, hcloudSSHKeys, err := service.getSSHKeys(context.Background())
+		Expect(err).To(BeNil())
+
+		Expect(caphSSHKeys).To(ConsistOf([]infrav1.SSHKey{
+			{
+				Name: "sshKey1",
+			},
+			{
+				Name:        "sshKey2",
+				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:2f",
+			},
+			{
+				Name:        "sshKey3",
+				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:4f",
+			},
+		}))
+
+		Expect(hcloudSSHKeys).To(ConsistOf(sshKeysByHCloudClient))
+	})
+
+	It("empty HCloudMachine.Spec.SSHKeys, extract ssh keys from HetznerCluster.Spec.SSHKeys.HCloud", func() {
+		By("populating the HCloudMachine.Spec.SSHKeys")
+		service.scope.HetznerCluster.Spec.SSHKeys.HCloud = []infrav1.SSHKey{
+			{
+				Name:        "sshKey2",
+				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:2f",
+			},
+			{
+				Name:        "sshKey3",
+				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:4f",
+			},
+		}
+
+		By("ensuring that the mocked hcloud client returns all the ssh keys")
+		sshKeysByHCloudClient := []*hcloud.SSHKey{
+			{
+				ID:          1,
+				Name:        "sshKey1",
+				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:1f",
+			},
+			{
+				ID:          2,
+				Name:        "sshKey2",
+				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:2f",
+			},
+			{
+				ID:          3,
+				Name:        "sshKey3",
+				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:4f",
+			},
+		}
+
+		hcloudClient.On("ListSSHKeys", mock.Anything, mock.Anything).Return(sshKeysByHCloudClient, nil)
+
+		By("ensuring that the getSSHKeys method returns all the referenced ssh keys")
+		caphSSHKeys, hcloudSSHKeys, err := service.getSSHKeys(context.Background())
+		Expect(err).To(BeNil())
+
+		Expect(caphSSHKeys).To(ConsistOf([]infrav1.SSHKey{
+			{
+				Name: "sshKey1",
+			},
+			{
+				Name:        "sshKey2",
+				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:2f",
+			},
+			{
+				Name:        "sshKey3",
+				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:4f",
+			},
+		}))
+
+		Expect(hcloudSSHKeys).To(ConsistOf(sshKeysByHCloudClient))
+	})
+
+	It("one of the ssh key defined in HCloudMachine.Spec.SSHKeys is not present in hcloud", func() {
+		By("populating the HCloudMachine.Spec.SSHKeys")
+		service.scope.HCloudMachine.Spec.SSHKeys = []infrav1.SSHKey{
+			{
+				Name:        "sshKey2",
+				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:2f",
+			},
+			{
+				Name:        "sshKey3",
+				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:4f",
+			},
+		}
+
+		By("ensuring that the mocked hcloud client doesn't return one of the ssh key")
+		sshKeysByHCloudClient := []*hcloud.SSHKey{
+			{
+				ID:          1,
+				Name:        "sshKey1",
+				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:1f",
+			},
+			{
+				ID:          2,
+				Name:        "sshKey2",
+				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:2f",
+			},
+		}
+
+		hcloudClient.On("ListSSHKeys", mock.Anything, mock.Anything).Return(sshKeysByHCloudClient, nil)
+
+		By("ensuring that the getSSHKeys method fails")
+		_, _, err := service.getSSHKeys(context.Background())
+		Expect(err).ToNot(BeNil())
+	})
 })
 
 func isPresentAndFalseWithReason(getter conditions.Getter, condition clusterv1.ConditionType, reason string) bool {

@@ -146,7 +146,7 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 	}
 
 	initialHcloudMachine := hcloudMachine.DeepCopy()
-	startReconcile := time.Now()
+
 	// Always close the scope when exiting this function so we can persist any HCloudMachine changes.
 	defer func() {
 		if reterr != nil && errors.Is(reterr, hcloudclient.ErrUnauthorized) {
@@ -163,24 +163,12 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 		readyReason := conditions.GetReason(machineScope.HCloudMachine, clusterv1.ReadyCondition)
 		readyMessage := conditions.GetMessage(machineScope.HCloudMachine, clusterv1.ReadyCondition)
 
-		duration := time.Since(startReconcile)
-		if duration > 5*time.Second {
-			log.Info("Reconcile took too long",
-				"reconcileDuration", duration,
-				"res", res,
-				"reterr", reterr,
-				"oldState", initialHcloudMachine.Status.BootState,
-				"newState", machineScope.HCloudMachine.Status.BootState,
-				"readyReason", readyReason,
-				"readyMessage", readyMessage,
-			)
-		}
-
 		if initialHcloudMachine.Status.BootState != machineScope.HCloudMachine.Status.BootState {
 			startBootState := initialHcloudMachine.Status.BootStateSince
 			if startBootState.IsZero() {
 				startBootState = initialHcloudMachine.CreationTimestamp
 			}
+
 			log.Info("BootState changed",
 				"oldState", initialHcloudMachine.Status.BootState,
 				"newState", machineScope.HCloudMachine.Status.BootState,
