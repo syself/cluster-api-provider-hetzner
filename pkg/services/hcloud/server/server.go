@@ -60,11 +60,17 @@ const (
 	// Continuous RequeueAfter in BootToRealOS.
 	requeueIntervalBootToRealOS = 10 * time.Second
 
+	// requeueAfterEnableRescueSystem: the hcloud API needs roughly 3 seconds
+	// for that action to be finished. Do not wait longer.
+	requeueAfterEnableRescueSystem = 4 * time.Second
+
 	requeueIntervalWaitForPreRescueOSThenEnableRescueSystem = 10 * time.Second
 
-	requeueAfterRebootToRescue = 10 * time.Second
+	// After enabling the rescue system and GetHostname being successful,
+	// roughly 55 seconds pass. Do not reconcile more often.
+	requeueAfterRebootToRescue = 55 * time.Second
 
-	requeueIntervalWaitForRescueRunningThenInstallImage = 10 * time.Second
+	requeueIntervalWaitForRescueRunningThenInstallImage = 5 * time.Second
 
 	// requeueImmediately gets used to requeue "now". One second gets used to make
 	// it unlikely that the next Reconcile reads stale data from the local cache.
@@ -247,7 +253,7 @@ func (s *Service) handleBootStateWaitForPreRescueOSThenEnableRescueSystem(ctx co
 	s.scope.HCloudMachine.Status.ActionIDEnableRescueSystem = result.Action.ID
 
 	s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateWaitForRescueEnabledThenRebootToRescue)
-	return reconcile.Result{RequeueAfter: requeueIntervalWaitForPreRescueOSThenEnableRescueSystem}, nil
+	return reconcile.Result{RequeueAfter: requeueAfterEnableRescueSystem}, nil
 }
 
 func (s *Service) handleBootStateWaitForRescueEnabledThenRebootToRescue(ctx context.Context, server *hcloud.Server) (reconcile.Result, error) {
@@ -387,7 +393,6 @@ func (s *Service) handleBootStateWaitForRescueRunningThenInstallImage(ctx contex
 	if remoteHostName != "rescue" {
 		msg := fmt.Sprintf("Remote hostname (via ssh) of hcloud server is %q. Expected 'rescue'. Deleting hcloud machine via SetError", remoteHostName)
 		log.FromContext(ctx).Error(nil, msg)
-		// CAPI will delete the machine
 		s.scope.SetError(msg, capierrors.CreateMachineError)
 		return reconcile.Result{}, nil
 	}
