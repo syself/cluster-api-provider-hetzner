@@ -22,7 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
-func validateHCloudMachineSpec(oldSpec, newSpec HCloudMachineSpec) field.ErrorList {
+func validateHCloudMachineSpecUpdate(oldSpec, newSpec HCloudMachineSpec) field.ErrorList {
 	var allErrs field.ErrorList
 	// Type is immutable
 	if !reflect.DeepEqual(oldSpec.Type, newSpec.Type) {

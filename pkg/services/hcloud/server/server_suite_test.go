@@ -25,10 +25,16 @@ import (
 	"github.com/hetznercloud/hcloud-go/v2/hcloud/schema"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/kubectl/pkg/scheme"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
+	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
 )
 
 const serverJSON = `
@@ -187,10 +193,37 @@ const serverJSON = `
 	"volumes": []
 }`
 
+var (
+	testEnv *helpers.TestEnvironment
+	ctx     = ctrl.SetupSignalHandler()
+)
+
 func TestServer(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Server Suite")
 }
+
+var _ = BeforeSuite(func() {
+	utilruntime.Must(corev1.AddToScheme(scheme.Scheme))
+	utilruntime.Must(infrav1.AddToScheme(scheme.Scheme))
+	utilruntime.Must(clusterv1.AddToScheme(scheme.Scheme))
+
+	testEnv = helpers.NewTestEnvironment()
+
+	go func() {
+		defer GinkgoRecover()
+		Expect(testEnv.StartManager(ctx)).To(Succeed())
+	}()
+
+	<-testEnv.Manager.Elected()
+
+	// wait for webhook port to be open prior to running tests
+	testEnv.WaitForWebhooks()
+})
+
+var _ = AfterSuite(func() {
+	Expect(testEnv.Stop()).To(Succeed())
+})
 
 func newTestServer() *hcloud.Server {
 	var serverSchema schema.Server

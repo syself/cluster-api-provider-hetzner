@@ -145,6 +145,8 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %+v", err)
 	}
 
+	initialHcloudMachine := hcloudMachine.DeepCopy()
+
 	// Always close the scope when exiting this function so we can persist any HCloudMachine changes.
 	defer func() {
 		if reterr != nil && errors.Is(reterr, hcloudclient.ErrUnauthorized) {
@@ -156,6 +158,24 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 		if err := machineScope.Close(ctx); err != nil {
 			res = reconcile.Result{}
 			reterr = errors.Join(reterr, err)
+		}
+
+		readyReason := conditions.GetReason(machineScope.HCloudMachine, clusterv1.ReadyCondition)
+		readyMessage := conditions.GetMessage(machineScope.HCloudMachine, clusterv1.ReadyCondition)
+
+		if initialHcloudMachine.Status.BootState != machineScope.HCloudMachine.Status.BootState {
+			startBootState := initialHcloudMachine.Status.BootStateSince
+			if startBootState.IsZero() {
+				startBootState = initialHcloudMachine.CreationTimestamp
+			}
+
+			log.Info("BootState changed",
+				"oldState", initialHcloudMachine.Status.BootState,
+				"newState", machineScope.HCloudMachine.Status.BootState,
+				"durationInState", machineScope.HCloudMachine.Status.BootStateSince.Time.Sub(startBootState.Time),
+				"readyReason", readyReason,
+				"readyMessage", readyMessage,
+			)
 		}
 	}()
 

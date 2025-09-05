@@ -32,6 +32,7 @@ import (
 	capierrors "sigs.k8s.io/cluster-api/errors"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/record"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -42,13 +43,24 @@ import (
 
 const (
 	serverOffTimeout = 10 * time.Minute
+
+	// Provisioning from a hcloud image like ubuntu-YY.MM takes roughly 11 seconds.
+	// Provisioning from a snapshot takes roughly 140 seconds.
+	// We do not want to do too many api-calls (rate-limiting). So we differentiate
+	// between both cases.
+	// These values get only used **once** after the server got created.
+	requeueAfterCreateServerRapidDeploy   = 10 * time.Second
+	requeueAfterCreateServerNoRapidDeploy = 140 * time.Second
+
+	// Continuous RequeueAfter in BootToRealOS.
+	requeueIntervalBootToRealOS = 10 * time.Second
+
+	// requeueImmediately gets used to requeue "now". One second gets used to make
+	// it unlikely that the next Reconcile reads stale data from the local cache.
+	requeueImmediately = 1 * time.Second
 )
 
-var (
-	errWrongLabel              = fmt.Errorf("label is wrong")
-	errMissingLabel            = fmt.Errorf("label is missing")
-	errServerCreateNotPossible = fmt.Errorf("server create not possible - need action")
-)
+var errServerCreateNotPossible = fmt.Errorf("server create not possible - need action")
 
 // Service defines struct with machine scope to reconcile HCloudMachines.
 type Service struct {
@@ -92,42 +104,96 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 
 	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.BootstrapReadyCondition)
 
-	// try to find an existing server
-	server, err := s.findServer(ctx)
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to get server: %w", err)
-	}
-
-	// if no server is found we have to create one
-	if server == nil {
-		server, err = s.createServer(ctx)
+	var server *hcloud.Server
+	if s.scope.HCloudMachine.Spec.ProviderID != nil {
+		server, err = s.findServer(ctx)
 		if err != nil {
-			if errors.Is(err, errServerCreateNotPossible) {
-				return reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
-			}
-			return reconcile.Result{}, fmt.Errorf("failed to create server: %w", err)
+			return reconcile.Result{}, fmt.Errorf("findServer: %w", err)
+		}
+
+		if server == nil {
+			// The server did disappear in HCloud? Maybe it was delete via web-UI.
+			// We set MachineError. CAPI will delete machine.
+			msg := fmt.Sprintf("hcloud server (%q) no longer available. Setting MachineError.",
+				*s.scope.HCloudMachine.Spec.ProviderID)
+
+			ctrl.LoggerFrom(ctx).Error(errors.New(msg), msg,
+				"ProviderID", *s.scope.HCloudMachine.Spec.ProviderID,
+				"BootState", s.scope.HCloudMachine.Status.BootState,
+				"BootStateSince", s.scope.HCloudMachine.Status.BootStateSince,
+			)
+
+			s.scope.SetError(msg, capierrors.CreateMachineError)
+			s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateUnset)
+			record.Warn(s.scope.HCloudMachine, "NoHCloudServerFound", msg)
+
+			// no need to requeue.
+			return reconcile.Result{}, nil
 		}
 	}
 
-	s.scope.SetProviderID(server.ID)
+	switch s.scope.HCloudMachine.Status.BootState {
+	case infrav1.HCloudBootStateUnset:
+		return s.handleBootStateUnset(ctx)
+	case infrav1.HCloudBootStateBootToRealOS:
+		return s.handleBootToRealOS(ctx, server)
+	case infrav1.HCloudBootStateOperatingSystemRunning:
+		return s.handleOperatingSystemRunning(ctx, server)
+	default:
+		return reconcile.Result{}, fmt.Errorf("unknown BootState: %s", s.scope.HCloudMachine.Status.BootState)
+	}
+}
 
-	// update HCloudMachineStatus
-	s.scope.HCloudMachine.Status.Addresses = statusAddresses(server)
+func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, error) {
+	m := s.scope.HCloudMachine
 
-	// Copy value
-	s.scope.HCloudMachine.Status.InstanceState = ptr.To(server.Status)
+	if m.Spec.ProviderID != nil && *m.Spec.ProviderID != "" {
+		// This machine seems to be an existing machine which was created before introducing
+		// Status.BootState.
 
-	// validate labels
-	if err := validateLabels(server, s.createLabels()); err != nil {
-		err := fmt.Errorf("could not validate labels of HCloud server: %w", err)
-		s.scope.SetError(err.Error(), capierrors.CreateMachineError)
-		return res, nil
+		if !m.Status.Ready {
+			m.SetBootState(infrav1.HCloudBootStateBootToRealOS)
+			ctrl.LoggerFrom(ctx).Info("Updating old resource (pre BootState)",
+				"to", m.Status.BootState)
+			return reconcile.Result{RequeueAfter: requeueImmediately}, nil
+		}
+
+		m.SetBootState(infrav1.HCloudBootStateOperatingSystemRunning)
+		ctrl.LoggerFrom(ctx).Info("Updating old resource (pre BootState)",
+			"to", m.Status.BootState)
+
+		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 	}
 
+	// if provider id is not set create the server.
+	server, image, err := s.createServerFromImageName(ctx)
+	if err != nil {
+		if errors.Is(err, errServerCreateNotPossible) {
+			return reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
+		}
+		return reconcile.Result{}, fmt.Errorf("failed to create server: %w", err)
+	}
+
+	updateHCloudMachineStatusFromServer(s.scope.HCloudMachine, server)
+
+	s.scope.SetProviderID(server.ID)
+
+	m.SetBootState(infrav1.HCloudBootStateBootToRealOS)
+
+	requeueAfter := requeueAfterCreateServerNoRapidDeploy
+	if image.RapidDeploy {
+		requeueAfter = requeueAfterCreateServerRapidDeploy
+	}
+
+	return reconcile.Result{RequeueAfter: requeueAfter}, nil
+}
+
+func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
 	// analyze status of server
 	switch server.Status {
 	case hcloud.ServerStatusOff:
 		return s.handleServerStatusOff(ctx, server)
+
 	case hcloud.ServerStatusStarting:
 		// Requeue here so that server does not switch back and forth between off and starting.
 		// If we don't return here, the condition ServerAvailable would get marked as true in this
@@ -140,14 +206,25 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 			clusterv1.ConditionSeverityInfo,
 			"server is starting",
 		)
-		return reconcile.Result{RequeueAfter: 1 * time.Minute}, nil
-	case hcloud.ServerStatusRunning: // do nothing
+		return reconcile.Result{RequeueAfter: requeueIntervalBootToRealOS}, nil
+
+	case hcloud.ServerStatusInitializing:
+		// "Initializing" is the first state, then (~5s later) comes "Starting"
+		return reconcile.Result{RequeueAfter: requeueIntervalBootToRealOS}, nil
+
+	case hcloud.ServerStatusRunning:
+		s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateOperatingSystemRunning)
+		// Show changes in Status and go to next BootState.
+		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
+
 	default:
 		// some temporary status
-		s.scope.SetReady(false)
-		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+		ctrl.LoggerFrom(ctx).Info("Unknown hcloud server status", "status", server.Status)
+		return reconcile.Result{RequeueAfter: requeueIntervalBootToRealOS}, nil
 	}
+}
 
+func (s *Service) handleOperatingSystemRunning(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
 	// check whether server is attached to the network
 	if err := s.reconcileNetworkAttachment(ctx, server); err != nil {
 		reterr := fmt.Errorf("failed to reconcile network attachment: %w", err)
@@ -186,8 +263,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 
 	s.scope.SetReady(true)
 	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.ServerAvailableCondition)
-
-	return res, nil
+	return reconcile.Result{}, nil
 }
 
 // implements setting rate limit on hcloudmachine.
@@ -342,8 +418,7 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 	return reconcile.Result{}, nil
 }
 
-func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
-	// get userData
+func (s *Service) createServerFromImageName(ctx context.Context) (*hcloud.Server, *hcloud.Image, error) {
 	userData, err := s.scope.GetRawBootstrapData(ctx)
 	if err != nil {
 		record.Warnf(
@@ -351,14 +426,23 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 			"FailedGetBootstrapData",
 			err.Error(),
 		)
-		return nil, fmt.Errorf("failed to get raw bootstrap data: %s", err)
+		return nil, nil, fmt.Errorf("failed to get raw bootstrap data: %s", err)
 	}
-
 	image, err := s.getServerImage(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get server image: %w", err)
+		return nil, nil, fmt.Errorf("failed to get server image: %w", err)
 	}
 
+	server, err := s.createServer(ctx, userData, image)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateBootToRealOS)
+	return server, image, nil
+}
+
+func (s *Service) createServer(ctx context.Context, userData []byte, image *hcloud.Image) (*hcloud.Server, error) {
 	automount := false
 	startAfterCreate := true
 	opts := hcloud.ServerCreateOpts{
@@ -405,53 +489,11 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 		}
 	}
 
-	sshKeySpecs := s.scope.HCloudMachine.Spec.SSHKeys
-
-	// if no ssh keys are specified on the machine, take the ones from the cluster
-	if len(sshKeySpecs) == 0 {
-		sshKeySpecs = s.scope.HetznerCluster.Spec.SSHKeys.HCloud
-	}
-
-	// always add ssh key from secret if one is found
-
-	// this code is redundant with a similar one on cluster level but is necessary if ClusterClass is used
-	// as in ClusterClass we cannot store anything in HetznerCluster object
-	sshKeyName := s.scope.HetznerSecret().Data[s.scope.HetznerCluster.Spec.HetznerSecret.Key.SSHKey]
-	if len(sshKeyName) > 0 {
-		// Check if the SSH key name already exists
-		keyExists := false
-		for _, key := range sshKeySpecs {
-			if string(sshKeyName) == key.Name {
-				keyExists = true
-				break
-			}
-		}
-
-		// If the SSH key name doesn't exist, append it
-		if !keyExists {
-			sshKeySpecs = append(sshKeySpecs, infrav1.SSHKey{Name: string(sshKeyName)})
-		}
-	}
-
-	// get all ssh keys that are stored in HCloud API
-	sshKeysAPI, err := s.scope.HCloudClient.ListSSHKeys(ctx, hcloud.SSHKeyListOpts{})
+	caphSSHKeys, hcloudSSHKeys, err := s.getSSHKeys(ctx)
 	if err != nil {
-		return nil, handleRateLimit(s.scope.HCloudMachine, err, "ListSSHKeys", "failed listing ssh keys from hcloud")
+		return nil, err
 	}
-
-	// find matching keys and store them
-	opts.SSHKeys, err = filterHCloudSSHKeys(sshKeysAPI, sshKeySpecs)
-	if err != nil {
-		conditions.MarkFalse(
-			s.scope.HCloudMachine,
-			infrav1.ServerCreateSucceededCondition,
-			infrav1.SSHKeyNotFoundReason,
-			clusterv1.ConditionSeverityError,
-			"%s",
-			err.Error(),
-		)
-		return nil, errServerCreateNotPossible
-	}
+	opts.SSHKeys = hcloudSSHKeys
 
 	// set up network if available
 	if net := s.scope.HetznerCluster.Status.Network; net != nil {
@@ -492,11 +534,89 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 	}
 
 	// set ssh keys to status
-	s.scope.HCloudMachine.Status.SSHKeys = sshKeySpecs
+	s.scope.HCloudMachine.Status.SSHKeys = caphSSHKeys
 
 	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.ServerCreateSucceededCondition)
 	record.Eventf(s.scope.HCloudMachine, "SuccessfulCreate", "Created new server %s with ID %d", server.Name, server.ID)
 	return server, nil
+}
+
+// getSSHKeys collects the set of SSH keys to use when creating a server in Hetzner Cloud,
+// and validates that they exist in the HCloud API.
+//
+// The function:
+//  1. Starts with the SSH keys defined in HCloudMachine.Spec.SSHKeys.
+//     If none are defined there, it falls back to HetznerCluster.Spec.SSHKeys.HCloud.
+//  2. Always adds the SSH key referenced in the Hetzner secret (if present),
+//     ensuring it is included even if not listed in the spec.
+//  3. Fetches the complete list of SSH keys stored in HCloud via the API.
+//  4. Verifies that every SSH key referenced in the spec or secret exists in HCloud.
+//     If any key is missing, it updates machine conditions and returns an error.
+//  5. Builds and returns two slices:
+//     - caphSSHKeys: the logical set of SSH keys referenced in the spec/secret,
+//     suitable for storing in the HCloudMachine status.
+//     - hcloudSSHKeys: the corresponding HCloud API objects, suitable for passing
+//     to the HCloud CreateServer API call.
+func (s *Service) getSSHKeys(ctx context.Context) (
+	caphSSHKeys []infrav1.SSHKey,
+	hcloudSSHKeys []*hcloud.SSHKey,
+	reterr error,
+) {
+	caphSSHKeys = s.scope.HCloudMachine.Spec.SSHKeys
+
+	// if no ssh keys are specified on the machine, take the ones from the cluster
+	if len(caphSSHKeys) == 0 {
+		caphSSHKeys = s.scope.HetznerCluster.Spec.SSHKeys.HCloud
+	}
+
+	// always add ssh key from secret if one is found
+	sshKeyName := s.scope.HetznerSecret().Data[s.scope.HetznerCluster.Spec.HetznerSecret.Key.SSHKey]
+	if len(sshKeyName) > 0 {
+		// Check if the SSH key name already exists
+		keyExists := false
+		for _, key := range caphSSHKeys {
+			if string(sshKeyName) == key.Name {
+				keyExists = true
+				break
+			}
+		}
+
+		// If the SSH key name doesn't exist, append it
+		if !keyExists {
+			caphSSHKeys = append(caphSSHKeys, infrav1.SSHKey{Name: string(sshKeyName)})
+		}
+	}
+
+	// get all ssh keys that are stored in HCloud API
+	allHcloudSSHKeys, err := s.scope.HCloudClient.ListSSHKeys(ctx, hcloud.SSHKeyListOpts{})
+	if err != nil {
+		return nil, nil, handleRateLimit(s.scope.HCloudMachine, err, "ListSSHKeys", "failed listing ssh keys from hcloud")
+	}
+
+	// Create a map, so we can easily check if each caphSSHKey exist in HCloud.
+	sshKeysAPIMap := make(map[string]*hcloud.SSHKey, len(allHcloudSSHKeys))
+	for i, sshKey := range allHcloudSSHKeys {
+		sshKeysAPIMap[sshKey.Name] = allHcloudSSHKeys[i]
+	}
+
+	// Check caphSSHKeys. Fail if key is not in HCloud
+	for _, sshKeySpec := range caphSSHKeys {
+		sshKey, ok := sshKeysAPIMap[sshKeySpec.Name]
+		if !ok {
+			conditions.MarkFalse(
+				s.scope.HCloudMachine,
+				infrav1.ServerCreateSucceededCondition,
+				infrav1.SSHKeyNotFoundReason,
+				clusterv1.ConditionSeverityError,
+				"ssh key %q not present in hcloud",
+				sshKeySpec.Name,
+			)
+			return nil, nil, errServerCreateNotPossible
+		}
+		hcloudSSHKeys = append(hcloudSSHKeys, sshKey)
+	}
+
+	return caphSSHKeys, hcloudSSHKeys, nil
 }
 
 func (s *Service) getServerImage(ctx context.Context) (*hcloud.Image, error) {
@@ -545,7 +665,8 @@ func (s *Service) getServerImage(ctx context.Context) (*hcloud.Image, error) {
 	images = append(images, imagesByName...)
 
 	if len(images) > 1 {
-		err := fmt.Errorf("image is ambiguous - %d images have name %s", len(images), s.scope.HCloudMachine.Spec.ImageName)
+		err := fmt.Errorf("image is ambiguous - %d images have name %s",
+			len(images), s.scope.HCloudMachine.Spec.ImageName)
 		record.Warnf(s.scope.HCloudMachine, "ImageNameAmbiguous", err.Error())
 		conditions.MarkFalse(s.scope.HCloudMachine,
 			infrav1.ServerCreateSucceededCondition,
@@ -702,6 +823,9 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 		}
 	}
 
+	logger := ctrl.LoggerFrom(ctx)
+	logger.Info("DeprecationWarning finding Server by labels is no longer needed. We plan to remove that feature and rename findServer to getServer", "err", err)
+
 	// server has not been found via id - try to find the server based on its labels
 	opts := hcloud.ServerListOpts{}
 
@@ -723,19 +847,6 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 	}
 
 	return servers[0], nil
-}
-
-func validateLabels(server *hcloud.Server, labels map[string]string) error {
-	for key, val := range labels {
-		wantVal, found := server.Labels[key]
-		if !found {
-			return fmt.Errorf("did not find label with key %q: %w", key, errMissingLabel)
-		}
-		if wantVal != val {
-			return fmt.Errorf("got %q, want %q: %w", val, wantVal, errWrongLabel)
-		}
-	}
-	return nil
 }
 
 func statusAddresses(server *hcloud.Server) []clusterv1.MachineAddress {
@@ -798,19 +909,7 @@ func (s *Service) createLabels() map[string]string {
 	}
 }
 
-func filterHCloudSSHKeys(sshKeysAPI []*hcloud.SSHKey, sshKeysSpec []infrav1.SSHKey) ([]*hcloud.SSHKey, error) {
-	sshKeysAPIMap := make(map[string]*hcloud.SSHKey)
-	for i, sshKey := range sshKeysAPI {
-		sshKeysAPIMap[sshKey.Name] = sshKeysAPI[i]
-	}
-	sshKeys := make([]*hcloud.SSHKey, len(sshKeysSpec))
-
-	for i, sshKeySpec := range sshKeysSpec {
-		sshKey, ok := sshKeysAPIMap[sshKeySpec.Name]
-		if !ok {
-			return nil, fmt.Errorf("ssh key not found in HCloud. SSH key name: %s", sshKeySpec.Name)
-		}
-		sshKeys[i] = sshKey
-	}
-	return sshKeys, nil
+func updateHCloudMachineStatusFromServer(hm *infrav1.HCloudMachine, server *hcloud.Server) {
+	hm.Status.Addresses = statusAddresses(server)
+	hm.Status.InstanceState = ptr.To(server.Status)
 }
