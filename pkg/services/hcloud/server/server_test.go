@@ -693,7 +693,7 @@ var _ = Describe("Reconcile", func() {
 		Expect(service.scope.HCloudMachine.Status.Region).To(Equal(infrav1.Region("nbg1")))
 	})
 
-	FIt("transitions the BootStrate from BootStateUnset -> BootStateBootToRealOS -> BootStateOperatingSystemRunning", func() {
+	It("transitions the BootStrate from BootStateUnset -> BootStateBootToRealOS -> BootStateOperatingSystemRunning", func() {
 		By("setting the bootstrap data")
 		err = testEnv.Create(ctx, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
