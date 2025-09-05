@@ -130,8 +130,6 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 			// no need to requeue.
 			return reconcile.Result{}, nil
 		}
-
-		updateHCloudMachineStatusFromServer(s.scope.HCloudMachine, server)
 	}
 
 	switch s.scope.HCloudMachine.Status.BootState {
@@ -167,6 +165,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 	}
 
+	// if provider id is not set create the server.
 	server, image, err := s.createServerFromImageName(ctx)
 	if err != nil {
 		if errors.Is(err, errServerCreateNotPossible) {
