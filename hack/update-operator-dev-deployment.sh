@@ -76,6 +76,8 @@ docker build -f images/caph/Dockerfile -t "$image" .
 
 docker push "$image"
 
+make generate-manifests
+
 kustomize build config/crd | kubectl apply -f -
 
 kubectl scale --replicas=1 -n mgt-system deployment/caph-controller-manager

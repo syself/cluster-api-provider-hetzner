@@ -76,7 +76,11 @@ type Client interface {
 	ListPlacementGroups(context.Context, hcloud.PlacementGroupListOpts) ([]*hcloud.PlacementGroup, error)
 	AddServerToPlacementGroup(context.Context, *hcloud.Server, *hcloud.PlacementGroup) error
 
-	RebootIntoRescueSystem(context.Context, *hcloud.Server, *hcloud.ServerEnableRescueOpts) error
+	EnableRescueSystem(context.Context, *hcloud.Server, *hcloud.ServerEnableRescueOpts) (hcloud.ServerEnableRescueResult, error)
+
+	Reboot(context.Context, *hcloud.Server) (*hcloud.Action, error)
+
+	GetAction(ctx context.Context, actionID int64) (*hcloud.Action, error)
 }
 
 // Factory is the interface for creating new Client objects.
@@ -331,14 +335,30 @@ func (c *realClient) AddServerToPlacementGroup(ctx context.Context, server *hclo
 	return err
 }
 
-func (c *realClient) RebootIntoRescueSystem(ctx context.Context, server *hcloud.Server, rescueOpts *hcloud.ServerEnableRescueOpts) error {
-	_, _, err := c.client.Server.EnableRescue(ctx, server, *rescueOpts)
+func (c *realClient) EnableRescueSystem(ctx context.Context, server *hcloud.Server, rescueOpts *hcloud.ServerEnableRescueOpts) (result hcloud.ServerEnableRescueResult, reterr error) {
+	result, _, err := c.client.Server.EnableRescue(ctx, server, *rescueOpts)
 	if err != nil {
-		return fmt.Errorf("EnableRescue failed for %d: %w", server.ID, err)
+		return result, fmt.Errorf("EnableRescue failed for %d: %w", server.ID, err)
 	}
 	_, _, err = c.client.Server.Reboot(ctx, server)
 	if err != nil {
-		return fmt.Errorf("hcloud server reboot failed %d: %w", server.ID, err)
+		return result, fmt.Errorf("hcloud server reboot failed %d: %w", server.ID, err)
 	}
-	return nil
+	return result, nil
+}
+
+func (c *realClient) Reboot(ctx context.Context, server *hcloud.Server) (*hcloud.Action, error) {
+	action, _, err := c.client.Server.Reboot(ctx, server)
+	if err != nil {
+		return action, fmt.Errorf("Reboot failed for %d: %w", server.ID, err)
+	}
+	return action, nil
+}
+
+func (c *realClient) GetAction(ctx context.Context, actionID int64) (*hcloud.Action, error) {
+	action, _, err := c.client.Action.GetByID(ctx, actionID)
+	if err != nil {
+		return action, fmt.Errorf("getting hcloud action failed: %w", err)
+	}
+	return action, nil
 }

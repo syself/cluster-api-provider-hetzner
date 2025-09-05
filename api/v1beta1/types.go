@@ -271,18 +271,16 @@ const (
 	// HCloudBootStateUnset is the initial state when the boot state has not been set yet.
 	HCloudBootStateUnset HCloudBootState = ""
 
-	// HCloudBootStateBootToPreRescueOS indicates that the controller waits for PreRescueOS.
-	// When it is available, then the rescue system gets enabled, the server gets rebooted,
-	// and BootState gets set to RescueSystem.
-	HCloudBootStateBootToPreRescueOS HCloudBootState = "BootToPreRescueOS"
+	// HCloudBootStateWaitForPreRescueOSThenEnableRescueSystem indicates that the controller waits for PreRescueOS.
+	// When it is available, then the rescue system gets enabled.
+	HCloudBootStateWaitForPreRescueOSThenEnableRescueSystem HCloudBootState = "WaitForPreRescueOSThenEnableRescueSystem"
 
-	// HCloudBootStateRescueSystem indicates that the controller waits for the rescue system
-	// to be available. When available BootState gets set to NodeImageInstalling.
-	HCloudBootStateRescueSystem HCloudBootState = "RescueSystem"
+	// HCloudBootStateWaitForRescueEnabledThenRebootToRescue indicates that the controller waits for the rescue system enabled. Then the server gets booted into the rescue system.
+	HCloudBootStateWaitForRescueEnabledThenRebootToRescue HCloudBootState = "WaitForRescueEnabledThenRebootToRescue"
 
-	// HCloudBootStateNodeImageInstalling indicates that the node image is currently being
+	// HCloudBootStateWaitForRescueRunningThenInstallImage indicates that the node image is currently being
 	// installed.
-	HCloudBootStateNodeImageInstalling HCloudBootState = "NodeImageInstalling"
+	HCloudBootStateWaitForRescueRunningThenInstallImage HCloudBootState = "WaitForRescueRunningThenInstallImage"
 
 	// HCloudBootStateBootToRealOS indicates that the server is booting the operating system.
 	HCloudBootStateBootToRealOS HCloudBootState = "BootToRealOS"

@@ -251,36 +251,6 @@ func (_m *Client) CreatePlacementGroup(_a0 context.Context, _a1 hcloud.Placement
 	return r0, r1
 }
 
-// CreateSSHKey provides a mock function with given fields: _a0, _a1
-func (_m *Client) CreateSSHKey(_a0 context.Context, _a1 hcloud.SSHKeyCreateOpts) (*hcloud.SSHKey, error) {
-	ret := _m.Called(_a0, _a1)
-
-	if len(ret) == 0 {
-		panic("no return value specified for CreateSSHKey")
-	}
-
-	var r0 *hcloud.SSHKey
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, hcloud.SSHKeyCreateOpts) (*hcloud.SSHKey, error)); ok {
-		return rf(_a0, _a1)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, hcloud.SSHKeyCreateOpts) *hcloud.SSHKey); ok {
-		r0 = rf(_a0, _a1)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*hcloud.SSHKey)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, hcloud.SSHKeyCreateOpts) error); ok {
-		r1 = rf(_a0, _a1)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // CreateServer provides a mock function with given fields: _a0, _a1
 func (_m *Client) CreateServer(_a0 context.Context, _a1 hcloud.ServerCreateOpts) (*hcloud.Server, error) {
 	ret := _m.Called(_a0, _a1)
@@ -435,6 +405,64 @@ func (_m *Client) DeleteTargetServerOfLoadBalancer(_a0 context.Context, _a1 *hcl
 	}
 
 	return r0
+}
+
+// EnableRescueSystem provides a mock function with given fields: _a0, _a1, _a2
+func (_m *Client) EnableRescueSystem(_a0 context.Context, _a1 *hcloud.Server, _a2 *hcloud.ServerEnableRescueOpts) (hcloud.ServerEnableRescueResult, error) {
+	ret := _m.Called(_a0, _a1, _a2)
+
+	if len(ret) == 0 {
+		panic("no return value specified for EnableRescueSystem")
+	}
+
+	var r0 hcloud.ServerEnableRescueResult
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *hcloud.Server, *hcloud.ServerEnableRescueOpts) (hcloud.ServerEnableRescueResult, error)); ok {
+		return rf(_a0, _a1, _a2)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *hcloud.Server, *hcloud.ServerEnableRescueOpts) hcloud.ServerEnableRescueResult); ok {
+		r0 = rf(_a0, _a1, _a2)
+	} else {
+		r0 = ret.Get(0).(hcloud.ServerEnableRescueResult)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *hcloud.Server, *hcloud.ServerEnableRescueOpts) error); ok {
+		r1 = rf(_a0, _a1, _a2)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetAction provides a mock function with given fields: ctx, actionID
+func (_m *Client) GetAction(ctx context.Context, actionID int64) (*hcloud.Action, error) {
+	ret := _m.Called(ctx, actionID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetAction")
+	}
+
+	var r0 *hcloud.Action
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, int64) (*hcloud.Action, error)); ok {
+		return rf(ctx, actionID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, int64) *hcloud.Action); ok {
+		r0 = rf(ctx, actionID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*hcloud.Action)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, int64) error); ok {
+		r1 = rf(ctx, actionID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // GetServer provides a mock function with given fields: _a0, _a1
@@ -723,6 +751,36 @@ func (_m *Client) PowerOnServer(_a0 context.Context, _a1 *hcloud.Server) error {
 	}
 
 	return r0
+}
+
+// Reboot provides a mock function with given fields: _a0, _a1
+func (_m *Client) Reboot(_a0 context.Context, _a1 *hcloud.Server) (*hcloud.Action, error) {
+	ret := _m.Called(_a0, _a1)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Reboot")
+	}
+
+	var r0 *hcloud.Action
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *hcloud.Server) (*hcloud.Action, error)); ok {
+		return rf(_a0, _a1)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *hcloud.Server) *hcloud.Action); ok {
+		r0 = rf(_a0, _a1)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*hcloud.Action)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *hcloud.Server) error); ok {
+		r1 = rf(_a0, _a1)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // RebootServer provides a mock function with given fields: _a0, _a1

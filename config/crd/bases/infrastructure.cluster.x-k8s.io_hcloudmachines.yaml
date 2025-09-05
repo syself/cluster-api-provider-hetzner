@@ -187,6 +187,16 @@ spec:
           status:
             description: HCloudMachineStatus defines the observed state of HCloudMachine.
             properties:
+              actionIdEnableRescueSystem:
+                description: ActionIDEnableRescueSystem is the hcloud API Action result
+                  of EnableRescueSystem.
+                format: int64
+                type: integer
+              actionIdRebootToRescue:
+                description: ActionIDRebootToRescue is the hcloud API Action result
+                  of reboot to the rescue system.
+                format: int64
+                type: integer
               addresses:
                 description: Addresses contain the server's associated addresses.
                 items:
@@ -215,7 +225,7 @@ spec:
 
 
                   If Spec.ImageURL set set the states will be:
-                  "" -> BootToPreRescueOS -> RescueSystem -> NodeImageInstalling -> BootToRealOS -> OperatingSystemRunning
+                  "" -> WaitForPreRescueOSThenEnableRescueSystem -> RescueSystem -> WaitForRescueRunningThenInstallImage -> BootToRealOS -> OperatingSystemRunning
                 type: string
               bootStateSince:
                 description: |-

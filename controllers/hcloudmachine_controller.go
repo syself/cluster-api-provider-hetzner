@@ -192,16 +192,6 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 
 		duration := time.Since(startReconcile)
 
-		log.Info("DDDDDDDDDDDDDDebug Reconcile",
-			"reconcileDuration", duration,
-			"res", res,
-			"reterr", reterr,
-			"oldState", initialHCloudMachine.Status.BootState,
-			"newState", machineScope.HCloudMachine.Status.BootState,
-			"readyReason", readyReason,
-			"readyMessage", readyMessage,
-		)
-
 		if duration > 5*time.Second {
 			log.Info("Reconcile took too long",
 				"reconcileDuration", duration,
@@ -241,6 +231,10 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return r.reconcileDelete(ctx, machineScope)
 	}
 
+	if hcloudMachine.Status.FailureReason != nil {
+		// This machine will be removed.
+		return reconcile.Result{}, nil
+	}
 	return r.reconcileNormal(ctx, machineScope)
 }
 

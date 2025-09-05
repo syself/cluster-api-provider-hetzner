@@ -127,7 +127,7 @@ type HCloudMachineStatus struct {
 	// "" -> BootToRealOS -> OperatingSystemRunning
 	//
 	// If Spec.ImageURL set set the states will be:
-	// "" -> BootToPreRescueOS -> RescueSystem -> NodeImageInstalling -> BootToRealOS -> OperatingSystemRunning
+	// "" -> WaitForPreRescueOSThenEnableRescueSystem -> RescueSystem -> WaitForRescueRunningThenInstallImage -> BootToRealOS -> OperatingSystemRunning
 	// +optional
 	BootState HCloudBootState `json:"bootState"`
 
@@ -135,6 +135,14 @@ type HCloudMachineStatus struct {
 	// provisioning if a state takes too long.
 	// +optional
 	BootStateSince metav1.Time `json:"bootStateSince,omitzero"`
+
+	// ActionIDEnableRescueSystem is the hcloud API Action result of EnableRescueSystem.
+	// +optional
+	ActionIDEnableRescueSystem int64 `json:"actionIdEnableRescueSystem,omitzero"`
+
+	// ActionIDRebootToRescue is the hcloud API Action result of reboot to the rescue system.
+	// +optional
+	ActionIDRebootToRescue int64 `json:"actionIdRebootToRescue,omitzero"`
 }
 
 // HCloudMachine is the Schema for the hcloudmachines API.
