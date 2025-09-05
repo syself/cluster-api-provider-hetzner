@@ -17,7 +17,6 @@ limitations under the License.
 package controllers
 
 import (
-	"context"
 	"testing"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
@@ -435,9 +434,18 @@ var _ = Describe("HCloudMachineReconciler", func() {
 					return isPresentAndTrue(key, hcloudMachine, infrav1.ServerAvailableCondition)
 				}, timeout, interval).Should(BeTrue())
 
+				By("checking if the BootState is now OperatingSystemRunning")
+				Eventually(func() bool {
+					if err = testEnv.Get(ctx, key, hcloudMachine); err != nil {
+						return false
+					}
+
+					return hcloudMachine.Status.BootState == infrav1.HCloudBootStateOperatingSystemRunning && !hcloudMachine.Status.BootStateSince.IsZero()
+				}, timeout, interval).Should(BeTrue())
+
 				By("checking if the ssh keys are set in the status")
 				Eventually(func() bool {
-					if err = testEnv.Get(context.Background(), key, hcloudMachine); err != nil {
+					if err = testEnv.Get(ctx, key, hcloudMachine); err != nil {
 						return false
 					}
 

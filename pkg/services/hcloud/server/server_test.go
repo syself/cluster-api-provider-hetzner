@@ -34,7 +34,6 @@ import (
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
-	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -309,34 +308,29 @@ var _ = Describe("getSSHKeys", func() {
 		hcloudClient *mocks.Client
 	)
 
-	testScheme := runtime.NewScheme()
-	err := infrav1.AddToScheme(testScheme)
-	Expect(err).To(BeNil())
-
 	BeforeEach(func() {
 		hcloudClient = mocks.NewClient(GinkgoT())
-
 		clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
-			Client:       fakeclient.NewClientBuilder().WithScheme(testScheme).Build(),
-			APIReader:    fakeclient.NewClientBuilder().WithScheme(testScheme).Build(),
+			Client:       testEnv.Manager.GetClient(),
+			APIReader:    testEnv.Manager.GetAPIReader(),
 			HCloudClient: hcloudClient,
 			Logger:       GinkgoLogr,
 
 			Cluster: &clusterv1.Cluster{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "clusterName",
+					Name:      "clustername",
 					Namespace: "default",
 				},
 			},
 
 			HetznerCluster: &infrav1.HetznerCluster{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "clusterName",
+					Name:      "clustername",
 					Namespace: "default",
 				},
 				Spec: infrav1.HetznerClusterSpec{
 					HetznerSecret: infrav1.HetznerSecretRef{
-						Name: "secretName",
+						Name: "secretname",
 						Key: infrav1.HetznerSecretKeyRef{
 							SSHKey: "hcloud-ssh-key-name",
 						},
@@ -346,7 +340,7 @@ var _ = Describe("getSSHKeys", func() {
 
 			HetznerSecret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "secretName",
+					Name:      "secretname",
 					Namespace: "default",
 				},
 				Data: map[string][]byte{
@@ -361,7 +355,7 @@ var _ = Describe("getSSHKeys", func() {
 				ClusterScope: *clusterScope,
 				HCloudMachine: &infrav1.HCloudMachine{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "hcloudMachineName",
+						Name:      "hcloudmachinename",
 						Namespace: "default",
 					},
 				},
@@ -574,6 +568,204 @@ var _ = Describe("getSSHKeys", func() {
 		}))
 
 		Expect(hcloudSSHKeys).To(ConsistOf(sshKeysByHCloudClient))
+	})
+})
+
+var _ = Describe("Reconcile", func() {
+	var (
+		service      *Service
+		testNs       *corev1.Namespace
+		hcloudClient *mocks.Client
+	)
+
+	testScheme := runtime.NewScheme()
+	err := infrav1.AddToScheme(testScheme)
+	Expect(err).To(BeNil())
+
+	BeforeEach(func() {
+		hcloudClient = mocks.NewClient(GinkgoT())
+		testNs, err = testEnv.CreateNamespace(ctx, "server-reconcile")
+		Expect(err).To(BeNil())
+
+		clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
+			Client:       testEnv.Manager.GetClient(),
+			APIReader:    testEnv.Manager.GetAPIReader(),
+			HCloudClient: hcloudClient,
+			Logger:       GinkgoLogr,
+
+			Cluster: &clusterv1.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "clustername",
+					Namespace: testNs.Name,
+				},
+			},
+
+			HetznerCluster: &infrav1.HetznerCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "clustername",
+					Namespace: testNs.Name,
+				},
+				Spec: infrav1.HetznerClusterSpec{
+					HetznerSecret: infrav1.HetznerSecretRef{
+						Name: "secretname",
+						Key: infrav1.HetznerSecretKeyRef{
+							SSHKey: "hcloud-ssh-key-name",
+						},
+					},
+				},
+			},
+
+			HetznerSecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "secretname",
+					Namespace: testNs.Name,
+				},
+				Data: map[string][]byte{
+					"hcloud-ssh-key-name": []byte("sshKey1"),
+				},
+			},
+		})
+		Expect(err).To(BeNil())
+
+		service = &Service{
+			scope: &scope.MachineScope{
+				ClusterScope: *clusterScope,
+
+				Machine: &clusterv1.Machine{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "machineName",
+						Namespace: testNs.Name,
+					},
+					Spec: clusterv1.MachineSpec{
+						FailureDomain: ptr.To("nbg1"),
+					},
+				},
+
+				HCloudMachine: &infrav1.HCloudMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "hcloudmachinename",
+						Namespace: testNs.Name,
+					},
+					Spec: infrav1.HCloudMachineSpec{
+						Type:      "cpx11",
+						ImageName: "ubuntu-22.04",
+						SSHKeys: []infrav1.SSHKey{
+							{
+								Name:        "sshKey1",
+								Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:1f",
+							},
+						},
+					},
+				},
+			},
+		}
+	})
+
+	AfterEach(func() {
+		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
+		Expect(testEnv.Cleanup(ctx, testNs)).To(Succeed())
+	})
+
+	It("sets the region in status of hcloudMachine, by fetching the failure domain from machine.spec", func() {
+		By("calling reconcile")
+		_, err := service.Reconcile(ctx)
+		Expect(err).To(BeNil())
+
+		By("ensuring the region is set in the status of hcloudMachine")
+		Expect(service.scope.HCloudMachine.Status.Region).To(Equal(infrav1.Region("nbg1")))
+
+		By("ensuring the BootstrapReady condition is marked as false")
+		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.BootstrapReadyCondition, infrav1.BootstrapNotReadyReason)).To(BeTrue())
+	})
+
+	It("sets the region in status of hcloudMachine, by fetching the failure domain from cluster.status if machine.spec.failureDomain is empty", func() {
+		By("setting the failure domain in cluster.status")
+		service.scope.Machine.Spec = clusterv1.MachineSpec{}
+		service.scope.Cluster.Status.FailureDomains = clusterv1.FailureDomains{
+			"nbg1": clusterv1.FailureDomainSpec{},
+		}
+
+		By("calling reconcile")
+		_, err := service.Reconcile(ctx)
+		Expect(err).To(BeNil())
+
+		By("ensuring the region is set in the status of hcloudMachine")
+		Expect(service.scope.HCloudMachine.Status.Region).To(Equal(infrav1.Region("nbg1")))
+	})
+
+	FIt("transitions the BootStrate from BootStateUnset -> BootStateBootToRealOS -> BootStateOperatingSystemRunning", func() {
+		By("setting the bootstrap data")
+		err = testEnv.Create(ctx, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "bootstrapsecret",
+				Namespace: testNs.Name,
+			},
+			Data: map[string][]byte{
+				"value": []byte("dummy-bootstrap-data"),
+			},
+		})
+		Expect(err).To(BeNil())
+
+		err = testEnv.Create(ctx, service.scope.HCloudMachine)
+		Expect(err).To(BeNil())
+
+		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
+
+		hcloudClient.On("GetServerType", mock.Anything, mock.Anything).Return(&hcloud.ServerType{
+			Architecture: hcloud.ArchitectureX86,
+		}, nil)
+
+		hcloudClient.On("ListImages", mock.Anything, hcloud.ImageListOpts{
+			ListOpts: hcloud.ListOpts{
+				LabelSelector: "caph-image-name==ubuntu-22.04",
+			},
+			Architecture: []hcloud.Architecture{hcloud.ArchitectureX86},
+		}).Return([]*hcloud.Image{
+			{
+				ID:   123456,
+				Name: "ubuntu",
+			},
+		}, nil)
+
+		hcloudClient.On("ListImages", mock.Anything, hcloud.ImageListOpts{
+			Name:         "ubuntu-22.04",
+			Architecture: []hcloud.Architecture{hcloud.ArchitectureX86},
+		}).Return([]*hcloud.Image{}, nil)
+
+		hcloudClient.On("ListSSHKeys", mock.Anything, mock.Anything).Return([]*hcloud.SSHKey{
+			{
+				ID:          1,
+				Name:        "sshKey1",
+				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:1f",
+			},
+		}, nil)
+
+		hcloudClient.On("CreateServer", mock.Anything, mock.Anything).Return(&hcloud.Server{
+			ID:     1,
+			Name:   "hcloudmachinename",
+			Status: hcloud.ServerStatusInitializing,
+		}, nil)
+
+		By("calling reconcile")
+		_, err := service.Reconcile(ctx)
+		Expect(err).To(BeNil())
+
+		By("ensuring the bootstate has transitioned to BootStateBootToRealOS")
+
+		Expect(service.scope.HCloudMachine.Status.BootState == infrav1.HCloudBootStateBootToRealOS).To(BeTrue())
+
+		By("reconciling again")
+		hcloudClient.On("GetServer", mock.Anything, mock.Anything).Return(&hcloud.Server{
+			ID:     1,
+			Name:   "hcloudmachinename",
+			Status: hcloud.ServerStatusRunning,
+		}, nil)
+
+		_, err = service.Reconcile(ctx)
+		Expect(err).To(BeNil())
+
+		By("ensuring the bootstate has transitioned to BootStateOperatingSystemRunning once the server's status changes to running")
+		Expect(service.scope.HCloudMachine.Status.BootState == infrav1.HCloudBootStateOperatingSystemRunning).To(BeTrue())
 	})
 })
 
