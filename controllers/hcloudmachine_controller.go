@@ -25,7 +25,9 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/google/go-cmp/cmp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
@@ -165,6 +167,26 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 			reterr = errors.Join(reterr, err)
 		}
 
+		if !cmp.Equal(initialHCloudMachine, hcloudMachine) {
+			err := wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, 5*time.Second, true, func(ctx context.Context) (done bool, err error) {
+				// new resource, read from local cache
+				latest := &infrav1.HCloudMachine{}
+				getErr := r.Get(ctx, client.ObjectKeyFromObject(machineScope.HCloudMachine), latest)
+				if apierrors.IsNotFound(getErr) {
+					return true, nil
+				}
+				if getErr != nil {
+					return false, getErr
+				}
+				// When the ResourceVersion has changed, then it is very likely that the local
+				// cache has the new version.
+				return latest.ResourceVersion != hcloudMachine.ResourceVersion, nil
+			})
+			if err != nil {
+				log.Error(err, "cache sync failed after BootState change")
+			}
+		}
+
 		readyReason := conditions.GetReason(machineScope.HCloudMachine, clusterv1.ReadyCondition)
 		readyMessage := conditions.GetMessage(machineScope.HCloudMachine, clusterv1.ReadyCondition)
 
@@ -193,6 +215,9 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 		}
 
 		if initialHCloudMachine.Status.BootState != machineScope.HCloudMachine.Status.BootState {
+			// BootState changed. Wait until the update arrived in the local cache to ensure
+			// "read your own writes" in the next Reconcile.
+
 			startBootState := initialHCloudMachine.Status.BootStateSince
 			if startBootState.IsZero() {
 				startBootState = initialHCloudMachine.CreationTimestamp
@@ -507,6 +532,13 @@ func IgnoreInsignificantHCloudMachineStatusUpdates(logger logr.Logger) predicate
 
 			oldHCloudMachine.ResourceVersion = ""
 			newHCloudMachine.ResourceVersion = ""
+
+			// The ProviderID is set by the controller. Do not react if that changes.
+			// Otherwise the next Reconcile is likely to read outdated data, because
+			// the Status was not updated yet. PatchHelper updates three times in this order:
+			// Status.Conditions, Resource, Status.
+			oldHCloudMachine.Spec.ProviderID = nil
+			newHCloudMachine.Spec.ProviderID = nil
 
 			oldHCloudMachine.Status = infrav1.HCloudMachineStatus{}
 			newHCloudMachine.Status = infrav1.HCloudMachineStatus{}

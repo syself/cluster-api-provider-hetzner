@@ -256,16 +256,6 @@ func (s *Service) handleBootStateRescueSystem(ctx context.Context, server *hclou
 }
 
 func (s *Service) handleBootStateNodeImageInstalling(ctx context.Context, server *hcloud.Server) (reconcile.Result, error) {
-	if !server.RescueEnabled {
-		msg := "RescueEnabled is false. Something went wrong. Deleting machine"
-
-		// Machine will get deleted by capi
-		s.scope.SetError(msg, capierrors.CreateMachineError)
-
-		log.FromContext(ctx).Error(errors.New(msg), "")
-		return reconcile.Result{}, nil
-	}
-
 	robotSecretName := s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Name
 	if robotSecretName == "" {
 		return reconcile.Result{}, fmt.Errorf("HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Name is empty. Can not set hcloud machine into rescue-mode without ssh private key")
@@ -317,11 +307,10 @@ func (s *Service) handleBootStateNodeImageInstalling(ctx context.Context, server
 
 	remoteHostName := output.String()
 	if remoteHostName != "rescue" {
-		msg := "Remote hostname (via ssh) of hcloud server is %q. Expected 'rescue'. Deleting hcloud machine"
-
+		msg := fmt.Sprintf("Remote hostname (via ssh) of hcloud server is %q. Expected 'rescue'. Deleting hcloud machine via SetError", remoteHostName)
+		log.FromContext(ctx).Error(nil, msg)
 		// CAPI will delete the machine
 		s.scope.SetError(msg, capierrors.CreateMachineError)
-
 		return reconcile.Result{}, nil
 	}
 
