@@ -70,7 +70,7 @@ const (
 	// roughly 55 seconds pass. Do not reconcile more often.
 	requeueAfterRebootToRescue = 55 * time.Second
 
-	requeueIntervalWaitForRescueRunningThenInstallImage = 5 * time.Second
+	requeueIntervalWaitForRescueRunning = 5 * time.Second
 
 	// requeueImmediately gets used to requeue "now". One second gets used to make
 	// it unlikely that the next Reconcile reads stale data from the local cache.
@@ -79,6 +79,9 @@ const (
 	preRescueOSImage = "ubuntu-24.04"
 
 	actionDone int64 = -1
+
+	// Keep the prefix short, because machine names must not be longer than 63 chars.
+	preRescueServerPrefix = "prs-"
 )
 
 var errServerCreateNotPossible = fmt.Errorf("server create not possible - need action")
@@ -280,7 +283,7 @@ func (s *Service) handleBootStateWaitForRescueEnabledThenRebootToRescue(ctx cont
 
 		err = action.Error()
 		if err != nil {
-			err = fmt.Errorf("Action %+v failed: %w", action, err)
+			err = fmt.Errorf("action %+v failed: %w", action, err)
 			log.FromContext(ctx).Error(err, "")
 			s.scope.SetError(err.Error(), capierrors.CreateMachineError)
 			return reconcile.Result{}, nil
@@ -321,12 +324,12 @@ func (s *Service) handleBootStateWaitForRescueRunningThenInstallImage(ctx contex
 
 		if action.Finished.IsZero() {
 			log.FromContext(ctx).Info("Waiting until Action RebootToRescue is finished", "action", action)
-			return reconcile.Result{RequeueAfter: requeueIntervalWaitForRescueRunningThenInstallImage}, nil
+			return reconcile.Result{RequeueAfter: requeueIntervalWaitForRescueRunning}, nil
 		}
 
 		err = action.Error()
 		if err != nil {
-			err = fmt.Errorf("Action %+v failed: %w", action, err)
+			err = fmt.Errorf("action %+v failed: %w", action, err)
 			log.FromContext(ctx).Error(err, "")
 			s.scope.SetError(err.Error(), capierrors.CreateMachineError)
 			return reconcile.Result{}, nil
@@ -383,13 +386,19 @@ func (s *Service) handleBootStateWaitForRescueRunningThenInstallImage(ctx contex
 			"GetHostnameFailed",
 			clusterv1.ConditionSeverityInfo,
 			"%s", output.String())
-		return reconcile.Result{RequeueAfter: requeueIntervalWaitForRescueRunningThenInstallImage}, nil //nolint:nilerr
+		return reconcile.Result{RequeueAfter: requeueIntervalWaitForRescueRunning}, nil //nolint:nilerr
 	}
 
 	conditions.MarkTrue(s.scope.HCloudMachine,
 		infrav1.ServerCreateSucceededCondition)
 
 	remoteHostName := output.String()
+	if remoteHostName == preRescueServerPrefix+s.scope.Name() {
+		msg := fmt.Sprintf("Hostname is %q (not rescue yet). Retrying", remoteHostName)
+		log.FromContext(ctx).Info(msg)
+		return reconcile.Result{RequeueAfter: requeueIntervalWaitForRescueRunning}, nil
+	}
+
 	if remoteHostName != "rescue" {
 		msg := fmt.Sprintf("Remote hostname (via ssh) of hcloud server is %q. Expected 'rescue'. Deleting hcloud machine via SetError", remoteHostName)
 		log.FromContext(ctx).Error(nil, msg)
@@ -654,7 +663,7 @@ func (s *Service) createServerFromImageURL(ctx context.Context) (*hcloud.Server,
 	if err != nil {
 		return nil, nil, fmt.Errorf("createServerFromImageURL: failed to get server image: %w", err)
 	}
-	server, err := s.createServer(ctx, nil, image)
+	server, err := s.createServer(ctx, preRescueServerPrefix+s.scope.Name(), nil, image)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -676,7 +685,7 @@ func (s *Service) createServerFromImageName(ctx context.Context) (*hcloud.Server
 	if err != nil {
 		return nil, nil, fmt.Errorf("createServerFromImageName: failed to get server image: %w", err)
 	}
-	server, err := s.createServer(ctx, userData, image)
+	server, err := s.createServer(ctx, s.scope.Name(), userData, image)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -684,11 +693,11 @@ func (s *Service) createServerFromImageName(ctx context.Context) (*hcloud.Server
 	return server, image, nil
 }
 
-func (s *Service) createServer(ctx context.Context, userData []byte, image *hcloud.Image) (*hcloud.Server, error) {
+func (s *Service) createServer(ctx context.Context, serverName string, userData []byte, image *hcloud.Image) (*hcloud.Server, error) {
 	automount := false
 	startAfterCreate := true
 	opts := hcloud.ServerCreateOpts{
-		Name:   s.scope.Name(),
+		Name:   serverName,
 		Labels: s.createLabels(),
 		Image:  image,
 		Location: &hcloud.Location{
