@@ -200,7 +200,7 @@ type Client interface {
 	// is reachable. The env var `OCI_REGISTRY_AUTH_TOKEN` gets set to the same value of the
 	// corresponding env var of the controller.
 	// This gets used when the hcloudmachine has Spec.ImageURL set (instead of ImageName).
-	StartHCloudImageURLCommand(ctx context.Context, command, imageURL string, bootstrapData []byte) (exitStatus int, stdoutAndStderr string, err error)
+	StartHCloudImageURLCommand(ctx context.Context, command, imageURL string, bootstrapData []byte, machineName string) (exitStatus int, stdoutAndStderr string, err error)
 
 	StateOfHCloudImageURLCommand() (state HCloudImageURLCommandState, logFile string, err error)
 }
@@ -729,7 +729,7 @@ func (c *sshClient) ExecutePreProvisionCommand(ctx context.Context, command stri
 	return exitStatus, s, nil
 }
 
-func (c *sshClient) StartHCloudImageURLCommand(ctx context.Context, command, imageURL string, bootstrapData []byte) (int, string, error) {
+func (c *sshClient) StartHCloudImageURLCommand(ctx context.Context, command, imageURL string, bootstrapData []byte, machineName string) (int, string, error) {
 	client, err := c.getSSHClient()
 	if err != nil {
 		return 0, "", err
@@ -764,9 +764,9 @@ func (c *sshClient) StartHCloudImageURLCommand(ctx context.Context, command, ima
 	}
 
 	cmd := fmt.Sprintf(`#!/usr/bin/bash
-OCI_REGISTRY_AUTH_TOKEN='%s' nohup /root/hcloud-image-url-command '%s' /root/bootstrap.data >/root/hcloud-image-url-command.log 2>&1 </dev/null &
+OCI_REGISTRY_AUTH_TOKEN='%s' nohup /root/hcloud-image-url-command '%s' /root/bootstrap.data '%s' >/root/hcloud-image-url-command.log 2>&1 </dev/null &
 echo $! > /root/hcloud-image-url-command.pid
-`, os.Getenv("OCI_REGISTRY_AUTH_TOKEN"), imageURL)
+`, os.Getenv("OCI_REGISTRY_AUTH_TOKEN"), imageURL, machineName)
 
 	out := c.runSSH(cmd)
 

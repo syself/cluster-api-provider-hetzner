@@ -491,7 +491,7 @@ func (s *Service) handleBootStateWaitForRescueRunningThenInstallImage(ctx contex
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("hcloud GetRawBootstrapData failed: %w", err)
 	}
-	exitStatus, stdouStderr, err := hcloudSSHClient.StartHCloudImageURLCommand(ctx, s.scope.HCloudImageURLCommand, s.scope.HCloudMachine.Spec.ImageURL, data)
+	exitStatus, stdouStderr, err := hcloudSSHClient.StartHCloudImageURLCommand(ctx, s.scope.HCloudImageURLCommand, s.scope.HCloudMachine.Spec.ImageURL, data, s.scope.Name())
 	if err != nil {
 		err := fmt.Errorf("StartHCloudImageURLCommand failed (retrying): %w", err)
 		// This could be a temporary network error. Retry.

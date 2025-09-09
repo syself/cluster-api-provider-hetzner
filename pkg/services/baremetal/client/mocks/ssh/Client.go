@@ -1294,9 +1294,9 @@ func (_c *Client_ResetKubeadm_Call) RunAndReturn(run func() sshclient.Output) *C
 	return _c
 }
 
-// StartHCloudImageURLCommand provides a mock function with given fields: ctx, command, imageURL, bootstrapData
-func (_m *Client) StartHCloudImageURLCommand(ctx context.Context, command string, imageURL string, bootstrapData []byte) (int, string, error) {
-	ret := _m.Called(ctx, command, imageURL, bootstrapData)
+// StartHCloudImageURLCommand provides a mock function with given fields: ctx, command, imageURL, bootstrapData, machineName
+func (_m *Client) StartHCloudImageURLCommand(ctx context.Context, command string, imageURL string, bootstrapData []byte, machineName string) (int, string, error) {
+	ret := _m.Called(ctx, command, imageURL, bootstrapData, machineName)
 
 	if len(ret) == 0 {
 		panic("no return value specified for StartHCloudImageURLCommand")
@@ -1305,23 +1305,23 @@ func (_m *Client) StartHCloudImageURLCommand(ctx context.Context, command string
 	var r0 int
 	var r1 string
 	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, []byte) (int, string, error)); ok {
-		return rf(ctx, command, imageURL, bootstrapData)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, []byte, string) (int, string, error)); ok {
+		return rf(ctx, command, imageURL, bootstrapData, machineName)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, []byte) int); ok {
-		r0 = rf(ctx, command, imageURL, bootstrapData)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, []byte, string) int); ok {
+		r0 = rf(ctx, command, imageURL, bootstrapData, machineName)
 	} else {
 		r0 = ret.Get(0).(int)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string, string, []byte) string); ok {
-		r1 = rf(ctx, command, imageURL, bootstrapData)
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, []byte, string) string); ok {
+		r1 = rf(ctx, command, imageURL, bootstrapData, machineName)
 	} else {
 		r1 = ret.Get(1).(string)
 	}
 
-	if rf, ok := ret.Get(2).(func(context.Context, string, string, []byte) error); ok {
-		r2 = rf(ctx, command, imageURL, bootstrapData)
+	if rf, ok := ret.Get(2).(func(context.Context, string, string, []byte, string) error); ok {
+		r2 = rf(ctx, command, imageURL, bootstrapData, machineName)
 	} else {
 		r2 = ret.Error(2)
 	}
@@ -1339,13 +1339,14 @@ type Client_StartHCloudImageURLCommand_Call struct {
 //   - command string
 //   - imageURL string
 //   - bootstrapData []byte
-func (_e *Client_Expecter) StartHCloudImageURLCommand(ctx interface{}, command interface{}, imageURL interface{}, bootstrapData interface{}) *Client_StartHCloudImageURLCommand_Call {
-	return &Client_StartHCloudImageURLCommand_Call{Call: _e.mock.On("StartHCloudImageURLCommand", ctx, command, imageURL, bootstrapData)}
+//   - machineName string
+func (_e *Client_Expecter) StartHCloudImageURLCommand(ctx interface{}, command interface{}, imageURL interface{}, bootstrapData interface{}, machineName interface{}) *Client_StartHCloudImageURLCommand_Call {
+	return &Client_StartHCloudImageURLCommand_Call{Call: _e.mock.On("StartHCloudImageURLCommand", ctx, command, imageURL, bootstrapData, machineName)}
 }
 
-func (_c *Client_StartHCloudImageURLCommand_Call) Run(run func(ctx context.Context, command string, imageURL string, bootstrapData []byte)) *Client_StartHCloudImageURLCommand_Call {
+func (_c *Client_StartHCloudImageURLCommand_Call) Run(run func(ctx context.Context, command string, imageURL string, bootstrapData []byte, machineName string)) *Client_StartHCloudImageURLCommand_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].([]byte))
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].([]byte), args[4].(string))
 	})
 	return _c
 }
@@ -1355,7 +1356,7 @@ func (_c *Client_StartHCloudImageURLCommand_Call) Return(exitStatus int, stdoutA
 	return _c
 }
 
-func (_c *Client_StartHCloudImageURLCommand_Call) RunAndReturn(run func(context.Context, string, string, []byte) (int, string, error)) *Client_StartHCloudImageURLCommand_Call {
+func (_c *Client_StartHCloudImageURLCommand_Call) RunAndReturn(run func(context.Context, string, string, []byte, string) (int, string, error)) *Client_StartHCloudImageURLCommand_Call {
 	_c.Call.Return(run)
 	return _c
 }
