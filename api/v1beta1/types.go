@@ -275,7 +275,7 @@ const (
 	// When it is available, then the rescue system gets enabled.
 	HCloudBootStateWaitForPreRescueOSThenEnableRescueSystem HCloudBootState = "WaitForPreRescueOSThenEnableRescueSystem"
 
-	// HCloudBootStateWaitForRescueEnabledThenRebootToRescue indicates that the controller waits for the rescue system enabled. Then the server gets booted into the rescue system.
+	// HCloudBootStateWaitForRescueEnabledThenRebootToRescue indicates that the controller waits for the rescue system to be enabled. Then the server gets booted into the rescue system.
 	HCloudBootStateWaitForRescueEnabledThenRebootToRescue HCloudBootState = "WaitForRescueEnabledThenRebootToRescue"
 
 	// HCloudBootStateWaitForRescueRunningThenInstallImage indicates that the node image is currently being
