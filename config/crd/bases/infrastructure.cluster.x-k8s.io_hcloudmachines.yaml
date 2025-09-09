@@ -192,6 +192,11 @@ spec:
                   of EnableRescueSystem.
                 format: int64
                 type: integer
+              actionIdRebootToRealOS:
+                description: ActionIDRebootToRealOS is the hcloud API Action result
+                  of reboot to the real OS system.
+                format: int64
+                type: integer
               actionIdRebootToRescue:
                 description: ActionIDRebootToRescue is the hcloud API Action result
                   of reboot to the rescue system.
@@ -226,6 +231,10 @@ spec:
 
                   If Spec.ImageURL set set the states will be:
                   "" -> WaitForPreRescueOSThenEnableRescueSystem -> RescueSystem -> WaitForRescueRunningThenInstallImage -> BootToRealOS -> OperatingSystemRunning
+                type: string
+              bootStateMessage:
+                description: BootStateMessage gives a human reable, more detailed
+                  explanation of the current BootState
                 type: string
               bootStateSince:
                 description: |-
@@ -296,6 +305,11 @@ spec:
               ready:
                 description: Ready is true when the provider resource is ready.
                 type: boolean
+              rebootToRescueCount:
+                description: 'RebootToRescueCount: number of times we tried to reboot
+                  into the rescue-system.'
+                format: int64
+                type: integer
               region:
                 description: Region contains the name of the HCloud location the server
                   is running.

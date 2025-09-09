@@ -70,6 +70,9 @@ const (
 	// roughly 55 seconds pass. Do not reconcile more often.
 	requeueAfterRebootToRescue = 55 * time.Second
 
+	requeueAfterRebootToRealOS               = 55 * time.Second
+	requeueAfterHcloudImageURLCommandStarted = 55 * time.Second
+
 	requeueIntervalWaitForRescueRunning = 5 * time.Second
 
 	// requeueImmediately gets used to requeue "now". One second gets used to make
@@ -79,9 +82,6 @@ const (
 	preRescueOSImage = "ubuntu-24.04"
 
 	actionDone int64 = -1
-
-	// Keep the prefix short, because machine names must not be longer than 63 chars.
-	preRescueServerPrefix = "prs-"
 )
 
 var errServerCreateNotPossible = fmt.Errorf("server create not possible - need action")
@@ -150,7 +150,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 			s.scope.SetError(msg, capierrors.CreateMachineError)
 			s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateUnset)
 			record.Warn(s.scope.HCloudMachine, "NoHCloudServerFound", msg)
-
+			s.scope.HCloudMachine.Status.BootStateMessage = msg
 			// no need to requeue.
 			return reconcile.Result{}, nil
 		}
@@ -166,6 +166,8 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 		return s.handleBootStateWaitForRescueEnabledThenRebootToRescue(ctx, server)
 	case infrav1.HCloudBootStateWaitForRescueRunningThenInstallImage:
 		return s.handleBootStateWaitForRescueRunningThenInstallImage(ctx, server)
+	case infrav1.HCloudBootStateWaitForRebootAfterInstallImageThenBootToRealOS:
+		return s.handleBootStateWaitForRebootAfterInstallImageThenBootToRealOS(ctx, server)
 	case infrav1.HCloudBootStateBootToRealOS:
 		return s.handleBootToRealOS(ctx, server)
 	case infrav1.HCloudBootStateOperatingSystemRunning:
@@ -184,15 +186,17 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 
 		if !hm.Status.Ready {
 			hm.SetBootState(infrav1.HCloudBootStateBootToRealOS)
-			ctrl.LoggerFrom(ctx).Info("Updating old resource (pre BootState)",
-				"to", hm.Status.BootState)
+			msg := fmt.Sprintf("Updating old resource (pre BootState) to %s",
+				hm.Status.BootState)
+			ctrl.LoggerFrom(ctx).Info(msg)
+			hm.Status.BootStateMessage = msg
 			return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 		}
 
 		hm.SetBootState(infrav1.HCloudBootStateOperatingSystemRunning)
-		ctrl.LoggerFrom(ctx).Info("Updating old resource (pre BootState)",
-			"to", hm.Status.BootState)
-
+		msg := fmt.Sprintf("Updating old resource (pre BootState) %s", hm.Status.BootState)
+		ctrl.LoggerFrom(ctx).Info(msg)
+		hm.Status.BootStateMessage = msg
 		// Requeue once the new way. But in most cases nothing should have changed.
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 	}
@@ -200,6 +204,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 	server, image, err := s.createServerFromImageNameOrURL(ctx)
 	if err != nil {
 		if errors.Is(err, errServerCreateNotPossible) {
+			hm.Status.BootStateMessage = err.Error()
 			return reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
 		}
 		return reconcile.Result{}, fmt.Errorf("failed to create server: %w", err)
@@ -213,27 +218,23 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 	if image.RapidDeploy {
 		requeueAfter = requeueAfterCreateServerRapidDeploy
 	}
-
+	hm.Status.BootStateMessage = "ProviderID set"
 	return reconcile.Result{RequeueAfter: requeueAfter}, nil
 }
 
 func (s *Service) handleBootStateWaitForPreRescueOSThenEnableRescueSystem(ctx context.Context, server *hcloud.Server) (res reconcile.Result, reterr error) {
+	hm := s.scope.HCloudMachine
 	// analyze status of server
 	switch server.Status {
 	case hcloud.ServerStatusStarting, hcloud.ServerStatusInitializing:
-		conditions.MarkFalse(
-			s.scope.HCloudMachine,
-			infrav1.ServerAvailableCondition,
-			infrav1.ServerStartingReason,
-			clusterv1.ConditionSeverityInfo,
-			"server is %s", server.Status,
-		)
+		hm.Status.BootStateMessage = fmt.Sprintf("hcloud server is %q", server.Status)
 		return reconcile.Result{RequeueAfter: requeueIntervalWaitForPreRescueOSThenEnableRescueSystem}, nil
 	case hcloud.ServerStatusRunning:
 		// execute below code
 	default:
 		// some temporary status
 		ctrl.LoggerFrom(ctx).Info("Unknown hcloud server status", "status", server.Status)
+		hm.Status.BootStateMessage = fmt.Sprintf("hcloud server has unknown status: %q", server.Status)
 		return reconcile.Result{RequeueAfter: requeueIntervalWaitForPreRescueOSThenEnableRescueSystem}, nil
 	}
 
@@ -253,9 +254,11 @@ func (s *Service) handleBootStateWaitForPreRescueOSThenEnableRescueSystem(ctx co
 		return res, fmt.Errorf("RebootIntoRescueSystem failed: %w", err)
 	}
 
-	s.scope.HCloudMachine.Status.ActionIDEnableRescueSystem = result.Action.ID
+	hm.Status.ActionIDEnableRescueSystem = result.Action.ID
 
-	s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateWaitForRescueEnabledThenRebootToRescue)
+	hm.SetBootState(infrav1.HCloudBootStateWaitForRescueEnabledThenRebootToRescue)
+
+	hm.Status.BootStateMessage = "EnableRescueSystem was done"
 	return reconcile.Result{RequeueAfter: requeueAfterEnableRescueSystem}, nil
 }
 
@@ -266,54 +269,70 @@ func (s *Service) handleBootStateWaitForRescueEnabledThenRebootToRescue(ctx cont
 		msg := "handleBootStateWaitForRescueEnabledThenRebootToRescue ActionIdEnableRescueSystem not set? Can not continue. Provisioning Failed"
 		log.FromContext(ctx).Error(nil, msg)
 		s.scope.SetError(msg, capierrors.CreateMachineError)
+		hm.Status.BootStateMessage = msg
 		return reconcile.Result{}, nil
 	}
 
 	if hm.Status.ActionIDEnableRescueSystem != actionDone {
 		action, err := s.scope.HCloudClient.GetAction(ctx, hm.Status.ActionIDEnableRescueSystem)
 		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("GetAction failed: %w", err)
+			err = fmt.Errorf("GetAction failed: %w", err)
+			hm.Status.BootStateMessage = err.Error()
+			return reconcile.Result{}, err
 		}
 
 		if action.Finished.IsZero() {
-			log.FromContext(ctx).Info("Waiting until Action RescueEnabled is finished",
-				"action", action)
+			// not finished yet.
+			msg := "Waiting until Action RescueEnabled is finished"
+			hm.Status.BootStateMessage = msg
 			return reconcile.Result{RequeueAfter: requeueIntervalWaitForPreRescueOSThenEnableRescueSystem}, nil
 		}
 
 		err = action.Error()
 		if err != nil {
-			err = fmt.Errorf("action %+v failed: %w", action, err)
+			err = fmt.Errorf("action %+v failed (wait for rescue enabled): %w", action, err)
 			log.FromContext(ctx).Error(err, "")
 			s.scope.SetError(err.Error(), capierrors.CreateMachineError)
+			hm.Status.BootStateMessage = err.Error()
 			return reconcile.Result{}, nil
 		}
 
 		log.FromContext(ctx).Info("Action RescueEnabled is finished",
 			"actionDuration", action.Finished.Sub(action.Started),
-			"finishedSince", time.Since(action.Finished))
+			"finishedSince", time.Since(action.Finished),
+			"actionStatus", action.Status)
 
 		hm.Status.ActionIDEnableRescueSystem = actionDone
+		hm.Status.BootStateMessage = "Action RescueEnabled is finished"
+		// When the reboot is triggered immediately after the action is finished,
+		// then the reboot might get ignored.
+		return reconcile.Result{RequeueAfter: requeueAfterEnableRescueSystem}, nil
 	}
 
-	action, err := s.scope.HCloudClient.Reboot(ctx, server)
+	rebootAction, err := s.scope.HCloudClient.Reboot(ctx, server)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("reboot failed: %w", err)
 	}
-
-	hm.Status.ActionIDRebootToRescue = action.ID
+	log.FromContext(ctx).Info("Reboot started",
+		"actionID", rebootAction.ID,
+		"actionStatus", rebootAction.Status,
+		"action", rebootAction)
+	hm.Status.ActionIDRebootToRescue = rebootAction.ID
+	hm.Status.RebootToRescueCount = 1
 
 	hm.SetBootState(infrav1.HCloudBootStateWaitForRescueRunningThenInstallImage)
+	hm.Status.BootStateMessage = "Reboot started"
 	return reconcile.Result{RequeueAfter: requeueAfterRebootToRescue}, nil
 }
 
-func (s *Service) handleBootStateWaitForRescueRunningThenInstallImage(ctx context.Context, _ *hcloud.Server) (reconcile.Result, error) {
+func (s *Service) handleBootStateWaitForRescueRunningThenInstallImage(ctx context.Context, server *hcloud.Server) (reconcile.Result, error) {
 	hm := s.scope.HCloudMachine
 
 	if hm.Status.ActionIDRebootToRescue == 0 {
 		msg := "handleBootStateWaitForRescueRunningThenInstallImage ActionIdRebootToRescue not set? Can not continue. Provisioning Failed"
 		log.FromContext(ctx).Error(nil, msg)
 		s.scope.SetError(msg, capierrors.CreateMachineError)
+		hm.Status.BootStateMessage = msg
 		return reconcile.Result{}, nil
 	}
 	if hm.Status.ActionIDRebootToRescue != actionDone {
@@ -323,21 +342,24 @@ func (s *Service) handleBootStateWaitForRescueRunningThenInstallImage(ctx contex
 		}
 
 		if action.Finished.IsZero() {
-			log.FromContext(ctx).Info("Waiting until Action RebootToRescue is finished", "action", action)
+			// not finished yet.
+			hm.Status.BootStateMessage = "Waiting until Action RebootToRescue is finished"
 			return reconcile.Result{RequeueAfter: requeueIntervalWaitForRescueRunning}, nil
 		}
 
 		err = action.Error()
 		if err != nil {
-			err = fmt.Errorf("action %+v failed: %w", action, err)
+			err = fmt.Errorf("action %+v failed (RebootToRescue): %w", action, err)
 			log.FromContext(ctx).Error(err, "")
 			s.scope.SetError(err.Error(), capierrors.CreateMachineError)
+			hm.Status.BootStateMessage = err.Error()
 			return reconcile.Result{}, nil
 		}
 
 		log.FromContext(ctx).Info("Action RebootToRescue is finished",
 			"actionDuration", action.Finished.Sub(action.Started),
-			"finishedSince", time.Since(action.Finished))
+			"finishedSince", time.Since(action.Finished),
+			"actionStatus", action.Status)
 
 		hm.Status.ActionIDRebootToRescue = actionDone
 	}
@@ -386,6 +408,7 @@ func (s *Service) handleBootStateWaitForRescueRunningThenInstallImage(ctx contex
 			"GetHostnameFailed",
 			clusterv1.ConditionSeverityInfo,
 			"%s", output.String())
+		hm.Status.BootStateMessage = output.String()
 		return reconcile.Result{RequeueAfter: requeueIntervalWaitForRescueRunning}, nil //nolint:nilerr
 	}
 
@@ -393,54 +416,170 @@ func (s *Service) handleBootStateWaitForRescueRunningThenInstallImage(ctx contex
 		infrav1.ServerCreateSucceededCondition)
 
 	remoteHostName := output.String()
-	if remoteHostName == preRescueServerPrefix+s.scope.Name() {
-		msg := fmt.Sprintf("Hostname is %q (not rescue yet). Retrying", remoteHostName)
-		log.FromContext(ctx).Info(msg)
+	if remoteHostName == s.scope.Name() {
+		msg := fmt.Sprintf("Hostname is %q (not 'rescue' yet).", remoteHostName)
+		duration := time.Since(s.scope.HCloudMachine.Status.BootStateSince.Time)
+		if duration > time.Second*10 {
+			// Reboot has failed. Work around buggy hcloud API.
+			// TODO: We could use ssh here to avoid API calls.
+			rebootAction, err := s.scope.HCloudClient.Reboot(ctx, server)
+			if err != nil {
+				return reconcile.Result{}, fmt.Errorf("reboot failed: %w", err)
+			}
+			hm.Status.ActionIDRebootToRescue = rebootAction.ID
+			hm.Status.RebootToRescueCount++
+			hm.Status.BootStateSince = metav1.Now()
+			msg := "Hostname not 'rescue'. Reboot started (again)"
+			log.FromContext(ctx).Info(msg,
+				"actionID", rebootAction.ID,
+				"actionStatus", rebootAction.Status,
+				"action", rebootAction,
+				"rebootToRescueCount", hm.Status.RebootToRescueCount,
+				"durationInBootState", duration)
+			hm.Status.BootStateMessage = msg
+			return reconcile.Result{RequeueAfter: requeueAfterRebootToRescue}, nil
+		}
+		hm.Status.BootStateMessage = msg
 		return reconcile.Result{RequeueAfter: requeueIntervalWaitForRescueRunning}, nil
 	}
 
 	if remoteHostName != "rescue" {
 		msg := fmt.Sprintf("Remote hostname (via ssh) of hcloud server is %q. Expected 'rescue'. Deleting hcloud machine via SetError", remoteHostName)
+		s.scope.SetError(msg, capierrors.CreateMachineError)
+		hm.Status.BootStateMessage = msg
+		return reconcile.Result{}, nil
+	}
+
+	state, logFile, err := hcloudSSHClient.StateOfHCloudImageURLCommand()
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("StateOfHCloudImageURLCommand failed: %w", err)
+	}
+
+	switch state {
+	case sshclient.HCloudImageURLCommandStateRunning:
+		hm.Status.BootStateMessage = "hcloud-image-url-command still running"
+		return reconcile.Result{RequeueAfter: requeueIntervalWaitForRescueRunning}, nil
+
+	case sshclient.HCloudImageURLCommandStateFinishedSuccessfully:
+		rebootAction, err := s.scope.HCloudClient.Reboot(ctx, server)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("Reboot after HCloudImageURLCommand failed: %w",
+				err)
+		}
+		s.scope.HCloudMachine.Status.ActionIDRebootToRealOS = rebootAction.ID
+		s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateWaitForRebootAfterInstallImageThenBootToRealOS)
+		hm.Status.BootStateMessage = "hcloud-image-url-command finished successfully"
+		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
+
+	case sshclient.HCloudImageURLCommandStateFinishedFailed:
+		msg := "HCloudImageURLCommand failed. Deleting machine"
+		err = errors.New(msg)
+		log.FromContext(ctx).Error(err, "",
+			"logFile", logFile)
+		s.scope.SetError(msg, capierrors.CreateMachineError)
+		hm.Status.BootStateMessage = msg
+		return reconcile.Result{}, nil
+	case sshclient.HCloudImageURLCommandStateNotStarted:
+		// execute code below
+	default:
+		return reconcile.Result{}, fmt.Errorf("Unknown HCloudImageURLCommandState: %q", state)
+	}
+
+	// command has not started yet. Start it.
+
+	data, err := s.scope.GetRawBootstrapData(ctx)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("hcloud GetRawBootstrapData failed: %w", err)
+	}
+	exitStatus, stdouStderr, err := hcloudSSHClient.StartHCloudImageURLCommand(ctx, s.scope.HCloudImageURLCommand, s.scope.HCloudMachine.Spec.ImageURL, data)
+	if err != nil {
+		err := fmt.Errorf("StartHCloudImageURLCommand failed (retrying): %w", err)
+		// This could be a temporary network error. Retry.
+		log.FromContext(ctx).Error(err, "",
+			"HCloudImageURLCommand", s.scope.HCloudImageURLCommand,
+			"exitStatus", exitStatus,
+			"stdouStderr", stdouStderr)
+		return reconcile.Result{}, err
+
+	}
+
+	if exitStatus != 0 {
+		msg := "StartHCloudImageURLCommand failed with non-zero exit status. Deleting machine"
+		log.FromContext(ctx).Error(nil, msg,
+			"HCloudImageURLCommand", s.scope.HCloudImageURLCommand,
+			"exitStatus", exitStatus,
+			"stdouStderr", stdouStderr)
+		s.scope.SetError(msg, capierrors.CreateMachineError)
+		return reconcile.Result{}, nil
+	}
+	hm.Status.BootStateMessage = "hcloud-image-url-command started"
+	return reconcile.Result{RequeueAfter: requeueAfterHcloudImageURLCommandStarted}, nil // ööö
+}
+
+func (s *Service) handleBootStateWaitForRebootAfterInstallImageThenBootToRealOS(ctx context.Context, _ *hcloud.Server) (res reconcile.Result, err error) {
+	hm := s.scope.HCloudMachine
+
+	if hm.Status.ActionIDRebootToRealOS == 0 {
+		msg := "handleBootStateWaitForRebootAfterInstallImageThenBootToRealOS ActionIDRebootToRealOS not set? Can not continue. Provisioning Failed"
 		log.FromContext(ctx).Error(nil, msg)
 		s.scope.SetError(msg, capierrors.CreateMachineError)
 		return reconcile.Result{}, nil
 	}
 
-	return reconcile.Result{}, fmt.Errorf("i am happy to have reached here")
+	if hm.Status.ActionIDRebootToRealOS != actionDone {
+		action, err := s.scope.HCloudClient.GetAction(ctx, hm.Status.ActionIDRebootToRealOS)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("GetAction failed: %w", err)
+		}
+
+		if action.Finished.IsZero() {
+			// not finished yet.
+			hm.Status.BootStateMessage = "Waiting until Action RebootToRealOS is finished"
+			return reconcile.Result{RequeueAfter: requeueIntervalWaitForRescueRunning}, nil
+		}
+
+		err = action.Error()
+		if err != nil {
+			err = fmt.Errorf("action %+v failed (Reboot after hcloud-image-url-command): %w", action, err)
+			log.FromContext(ctx).Error(err, "")
+			s.scope.SetError(err.Error(), capierrors.CreateMachineError)
+			return reconcile.Result{}, nil
+		}
+
+		log.FromContext(ctx).Info("Action RebootToRealOS is finished",
+			"actionDuration", action.Finished.Sub(action.Started),
+			"finishedSince", time.Since(action.Finished),
+			"actionStatus", action.Status)
+
+		hm.Status.ActionIDRebootToRealOS = actionDone
+	}
+	s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateBootToRealOS)
+	hm.Status.BootStateMessage = "reboot after hcloud-image-url-command finished"
+	return reconcile.Result{RequeueAfter: requeueAfterRebootToRealOS}, nil
 }
 
 func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
+	hm := s.scope.HCloudMachine
+
 	// analyze status of server
 	switch server.Status {
 	case hcloud.ServerStatusOff:
 		return s.handleServerStatusOff(ctx, server)
 
-	case hcloud.ServerStatusStarting:
-		// Requeue here so that server does not switch back and forth between off and starting.
-		// If we don't return here, the condition ServerAvailable would get marked as true in this
-		// case. However, if the server is stuck and does not power on, we should not mark the
-		// condition ServerAvailable as true to be able to remediate the server after a timeout.
-		conditions.MarkFalse(
-			s.scope.HCloudMachine,
-			infrav1.ServerAvailableCondition,
-			infrav1.ServerStartingReason,
-			clusterv1.ConditionSeverityInfo,
-			"server is starting",
-		)
-		return reconcile.Result{RequeueAfter: requeueIntervalBootToRealOS}, nil
-
-	case hcloud.ServerStatusInitializing:
-		// "Initializing" is the first state, then (~5s later) comes "Starting"
+	case hcloud.ServerStatusStarting, hcloud.ServerStatusInitializing:
+		hm.Status.BootStateMessage = fmt.Sprintf("hcloud server status: %s", server.Status)
 		return reconcile.Result{RequeueAfter: requeueIntervalBootToRealOS}, nil
 
 	case hcloud.ServerStatusRunning:
 		s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateOperatingSystemRunning)
+		hm.Status.BootStateMessage = fmt.Sprintf("hcloud server status: %s", server.Status)
 		// Show changes in Status and go to next BootState.
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 
 	default:
 		// some temporary status
-		ctrl.LoggerFrom(ctx).Info("Unknown hcloud server status", "status", server.Status)
+		msg := fmt.Sprintf("hcloud server status unknown: %s", server.Status)
+		hm.Status.BootStateMessage = msg
 		return reconcile.Result{RequeueAfter: requeueIntervalBootToRealOS}, nil
 	}
 }
@@ -451,6 +590,7 @@ func (s *Service) handleOperatingSystemRunning(ctx context.Context, server *hclo
 	// Clean up old Status fields
 	hm.Status.ActionIDEnableRescueSystem = 0
 	hm.Status.ActionIDRebootToRescue = 0
+	hm.Status.ActionIDRebootToRealOS = 0
 
 	// check whether server is attached to the network
 	if err := s.reconcileNetworkAttachment(ctx, server); err != nil {
@@ -490,6 +630,7 @@ func (s *Service) handleOperatingSystemRunning(ctx context.Context, server *hclo
 
 	s.scope.SetReady(true)
 	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.ServerAvailableCondition)
+	hm.Status.BootStateMessage = ""
 	return reconcile.Result{}, nil
 }
 
@@ -576,6 +717,8 @@ func (s *Service) reconcileNetworkAttachment(ctx context.Context, server *hcloud
 }
 
 func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *hcloud.Server) (reconcile.Result, error) {
+	hm := s.scope.HCloudMachine
+
 	if s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer == nil {
 		return reconcile.Result{}, nil
 	}
@@ -617,6 +760,7 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 
 	// we attach only nodes with kube-apiserver pod healthy to avoid downtime, skipped for the first node
 	if len(s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target) > 0 && !apiServerPodHealthy {
+		hm.Status.BootStateMessage = "reconcile LoadBalancer: apiserver pod not healthy yet."
 		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
@@ -663,7 +807,7 @@ func (s *Service) createServerFromImageURL(ctx context.Context) (*hcloud.Server,
 	if err != nil {
 		return nil, nil, fmt.Errorf("createServerFromImageURL: failed to get server image: %w", err)
 	}
-	server, err := s.createServer(ctx, preRescueServerPrefix+s.scope.Name(), nil, image)
+	server, err := s.createServer(ctx, s.scope.Name(), nil, image)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -846,8 +990,8 @@ func (s *Service) getSSHKeys(ctx context.Context) (
 				infrav1.ServerCreateSucceededCondition,
 				infrav1.SSHKeyNotFoundReason,
 				clusterv1.ConditionSeverityError,
-				"%s",
-				err.Error(),
+				"ssh key not found in HCloud. SSH key name: %s",
+				sshKeySpec.Name,
 			)
 			return nil, nil, errServerCreateNotPossible
 		}
@@ -947,6 +1091,7 @@ func (s *Service) handleServerStatusOff(ctx context.Context, server *hcloud.Serv
 			if err := s.scope.HCloudClient.PowerOnServer(ctx, server); err != nil {
 				if hcloud.IsError(err, hcloud.ErrorCodeLocked) {
 					// if server is locked, we just retry again
+					s.scope.HCloudMachine.Status.BootStateMessage = "handleServerStatusOff: server locked. Will retry"
 					return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 				}
 				return reconcile.Result{}, handleRateLimit(s.scope.HCloudMachine, err, "PowerOnServer", "failed to power on server")
@@ -961,6 +1106,7 @@ func (s *Service) handleServerStatusOff(ctx context.Context, server *hcloud.Serv
 		if err := s.scope.HCloudClient.PowerOnServer(ctx, server); err != nil {
 			if hcloud.IsError(err, hcloud.ErrorCodeLocked) {
 				// if server is locked, we just retry again
+				s.scope.HCloudMachine.Status.BootStateMessage = "handleServerStatusOff: server locked. Will retry"
 				return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 			}
 			return reconcile.Result{}, handleRateLimit(s.scope.HCloudMachine, err, "PowerOnServer", "failed to power on server")

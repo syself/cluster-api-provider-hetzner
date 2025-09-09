@@ -282,6 +282,8 @@ const (
 	// installed.
 	HCloudBootStateWaitForRescueRunningThenInstallImage HCloudBootState = "WaitForRescueRunningThenInstallImage"
 
+	HCloudBootStateWaitForRebootAfterInstallImageThenBootToRealOS HCloudBootState = "WaitForRebootAfterInstallImageThenBootToRealOS"
+
 	// HCloudBootStateBootToRealOS indicates that the server is booting the operating system.
 	HCloudBootStateBootToRealOS HCloudBootState = "BootToRealOS"
 

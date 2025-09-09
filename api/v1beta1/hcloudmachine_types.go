@@ -136,6 +136,10 @@ type HCloudMachineStatus struct {
 	// +optional
 	BootStateSince metav1.Time `json:"bootStateSince,omitzero"`
 
+	// BootStateMessage gives a human reable, more detailed explanation of the current BootState
+	// +optional
+	BootStateMessage string `json:"bootStateMessage,omitzero"`
+
 	// ActionIDEnableRescueSystem is the hcloud API Action result of EnableRescueSystem.
 	// +optional
 	ActionIDEnableRescueSystem int64 `json:"actionIdEnableRescueSystem,omitzero"`
@@ -143,6 +147,14 @@ type HCloudMachineStatus struct {
 	// ActionIDRebootToRescue is the hcloud API Action result of reboot to the rescue system.
 	// +optional
 	ActionIDRebootToRescue int64 `json:"actionIdRebootToRescue,omitzero"`
+
+	// ActionIDRebootToRealOS is the hcloud API Action result of reboot to the real OS system.
+	// +optional
+	ActionIDRebootToRealOS int64 `json:"actionIdRebootToRealOS,omitzero"`
+
+	// RebootToRescueCount: number of times we tried to reboot into the rescue-system.
+	// +optional
+	RebootToRescueCount int64 `json:"rebootToRescueCount,omitzero"`
 }
 
 // HCloudMachine is the Schema for the hcloudmachines API.

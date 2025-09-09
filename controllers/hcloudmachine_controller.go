@@ -82,7 +82,7 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
-	log = log.WithValues("HCloudMachine", klog.KObj(hcloudMachine))
+	log = log.WithValues("HCloudMachine", hcloudMachine.Name)
 
 	// Fetch the Machine.
 	machine, err := util.GetOwnerMachine(ctx, r.Client, hcloudMachine.ObjectMeta)
@@ -162,6 +162,17 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 			conditions.MarkTrue(hcloudMachine, infrav1.HCloudTokenAvailableCondition)
 		}
 
+		if hcloudMachine.Status.BootState != infrav1.HCloudBootStateOperatingSystemRunning {
+			conditions.MarkFalse(hcloudMachine, infrav1.ServerAvailableCondition,
+				string(hcloudMachine.Status.BootState), clusterv1.ConditionSeverityWarning,
+				"%s", hcloudMachine.Status.BootStateMessage)
+		}
+		if reterr != nil {
+			conditions.MarkFalse(hcloudMachine, infrav1.ServerAvailableCondition,
+				string(hcloudMachine.Status.BootState), clusterv1.ConditionSeverityWarning,
+				"%s", reterr.Error())
+		}
+		// the Close() will use PatchHelper to store the changes.
 		if err := machineScope.Close(ctx); err != nil {
 			res = reconcile.Result{}
 			reterr = errors.Join(reterr, err)

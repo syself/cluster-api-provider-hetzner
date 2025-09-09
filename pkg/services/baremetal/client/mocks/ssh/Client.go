@@ -1294,6 +1294,134 @@ func (_c *Client_ResetKubeadm_Call) RunAndReturn(run func() sshclient.Output) *C
 	return _c
 }
 
+// StartHCloudImageURLCommand provides a mock function with given fields: ctx, command, imageURL, bootstrapData
+func (_m *Client) StartHCloudImageURLCommand(ctx context.Context, command string, imageURL string, bootstrapData []byte) (int, string, error) {
+	ret := _m.Called(ctx, command, imageURL, bootstrapData)
+
+	if len(ret) == 0 {
+		panic("no return value specified for StartHCloudImageURLCommand")
+	}
+
+	var r0 int
+	var r1 string
+	var r2 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, []byte) (int, string, error)); ok {
+		return rf(ctx, command, imageURL, bootstrapData)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, []byte) int); ok {
+		r0 = rf(ctx, command, imageURL, bootstrapData)
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, []byte) string); ok {
+		r1 = rf(ctx, command, imageURL, bootstrapData)
+	} else {
+		r1 = ret.Get(1).(string)
+	}
+
+	if rf, ok := ret.Get(2).(func(context.Context, string, string, []byte) error); ok {
+		r2 = rf(ctx, command, imageURL, bootstrapData)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
+}
+
+// Client_StartHCloudImageURLCommand_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StartHCloudImageURLCommand'
+type Client_StartHCloudImageURLCommand_Call struct {
+	*mock.Call
+}
+
+// StartHCloudImageURLCommand is a helper method to define mock.On call
+//   - ctx context.Context
+//   - command string
+//   - imageURL string
+//   - bootstrapData []byte
+func (_e *Client_Expecter) StartHCloudImageURLCommand(ctx interface{}, command interface{}, imageURL interface{}, bootstrapData interface{}) *Client_StartHCloudImageURLCommand_Call {
+	return &Client_StartHCloudImageURLCommand_Call{Call: _e.mock.On("StartHCloudImageURLCommand", ctx, command, imageURL, bootstrapData)}
+}
+
+func (_c *Client_StartHCloudImageURLCommand_Call) Run(run func(ctx context.Context, command string, imageURL string, bootstrapData []byte)) *Client_StartHCloudImageURLCommand_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].([]byte))
+	})
+	return _c
+}
+
+func (_c *Client_StartHCloudImageURLCommand_Call) Return(exitStatus int, stdoutAndStderr string, err error) *Client_StartHCloudImageURLCommand_Call {
+	_c.Call.Return(exitStatus, stdoutAndStderr, err)
+	return _c
+}
+
+func (_c *Client_StartHCloudImageURLCommand_Call) RunAndReturn(run func(context.Context, string, string, []byte) (int, string, error)) *Client_StartHCloudImageURLCommand_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// StateOfHCloudImageURLCommand provides a mock function with no fields
+func (_m *Client) StateOfHCloudImageURLCommand() (sshclient.HCloudImageURLCommandState, string, error) {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for StateOfHCloudImageURLCommand")
+	}
+
+	var r0 sshclient.HCloudImageURLCommandState
+	var r1 string
+	var r2 error
+	if rf, ok := ret.Get(0).(func() (sshclient.HCloudImageURLCommandState, string, error)); ok {
+		return rf()
+	}
+	if rf, ok := ret.Get(0).(func() sshclient.HCloudImageURLCommandState); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(sshclient.HCloudImageURLCommandState)
+	}
+
+	if rf, ok := ret.Get(1).(func() string); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(string)
+	}
+
+	if rf, ok := ret.Get(2).(func() error); ok {
+		r2 = rf()
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
+}
+
+// Client_StateOfHCloudImageURLCommand_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StateOfHCloudImageURLCommand'
+type Client_StateOfHCloudImageURLCommand_Call struct {
+	*mock.Call
+}
+
+// StateOfHCloudImageURLCommand is a helper method to define mock.On call
+func (_e *Client_Expecter) StateOfHCloudImageURLCommand() *Client_StateOfHCloudImageURLCommand_Call {
+	return &Client_StateOfHCloudImageURLCommand_Call{Call: _e.mock.On("StateOfHCloudImageURLCommand")}
+}
+
+func (_c *Client_StateOfHCloudImageURLCommand_Call) Run(run func()) *Client_StateOfHCloudImageURLCommand_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Client_StateOfHCloudImageURLCommand_Call) Return(state sshclient.HCloudImageURLCommandState, logFile string, err error) *Client_StateOfHCloudImageURLCommand_Call {
+	_c.Call.Return(state, logFile, err)
+	return _c
+}
+
+func (_c *Client_StateOfHCloudImageURLCommand_Call) RunAndReturn(run func() (sshclient.HCloudImageURLCommandState, string, error)) *Client_StateOfHCloudImageURLCommand_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UntarTGZ provides a mock function with no fields
 func (_m *Client) UntarTGZ() sshclient.Output {
 	ret := _m.Called()
