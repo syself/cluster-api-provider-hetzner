@@ -32,7 +32,6 @@ import (
 	capierrors "sigs.k8s.io/cluster-api/errors"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/record"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -111,13 +110,14 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 			return reconcile.Result{}, fmt.Errorf("findServer: %w", err)
 		}
 
+		// findServer will return both server and error as nil, if the server was not found.
 		if server == nil {
 			// The server did disappear in HCloud? Maybe it was delete via web-UI.
 			// We set MachineError. CAPI will delete machine.
 			msg := fmt.Sprintf("hcloud server (%q) no longer available. Setting MachineError.",
 				*s.scope.HCloudMachine.Spec.ProviderID)
 
-			ctrl.LoggerFrom(ctx).Error(errors.New(msg), msg,
+			s.scope.Logger.Error(errors.New(msg), msg,
 				"ProviderID", *s.scope.HCloudMachine.Spec.ProviderID,
 				"BootState", s.scope.HCloudMachine.Status.BootState,
 				"BootStateSince", s.scope.HCloudMachine.Status.BootStateSince,
@@ -153,14 +153,11 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 
 		if !m.Status.Ready {
 			m.SetBootState(infrav1.HCloudBootStateBootToRealOS)
-			ctrl.LoggerFrom(ctx).Info("Updating old resource (pre BootState)",
-				"to", m.Status.BootState)
-			return reconcile.Result{RequeueAfter: requeueImmediately}, nil
+		} else {
+			m.SetBootState(infrav1.HCloudBootStateOperatingSystemRunning)
 		}
 
-		m.SetBootState(infrav1.HCloudBootStateOperatingSystemRunning)
-		ctrl.LoggerFrom(ctx).Info("Updating old resource (pre BootState)",
-			"to", m.Status.BootState)
+		s.scope.Logger.Info("Updating old resource (pre BootState)", "to", m.Status.BootState)
 
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 	}
@@ -219,7 +216,7 @@ func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server)
 
 	default:
 		// some temporary status
-		ctrl.LoggerFrom(ctx).Info("Unknown hcloud server status", "status", server.Status)
+		s.scope.Logger.Info("Unknown hcloud server status", "status", server.Status)
 		return reconcile.Result{RequeueAfter: requeueIntervalBootToRealOS}, nil
 	}
 }
@@ -823,8 +820,7 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 		}
 	}
 
-	logger := ctrl.LoggerFrom(ctx)
-	logger.Info("DeprecationWarning finding Server by labels is no longer needed. We plan to remove that feature and rename findServer to getServer", "err", err)
+	s.scope.Logger.Info("DeprecationWarning finding Server by labels is no longer needed. We plan to remove that feature and rename findServer to getServer", "err", err)
 
 	// server has not been found via id - try to find the server based on its labels
 	opts := hcloud.ServerListOpts{}

@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	capierrors "sigs.k8s.io/cluster-api/errors"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -691,6 +692,39 @@ var _ = Describe("Reconcile", func() {
 
 		By("ensuring the region is set in the status of hcloudMachine")
 		Expect(service.scope.HCloudMachine.Status.Region).To(Equal(infrav1.Region("nbg1")))
+	})
+
+	It("sets the CreateMachineError if the ProviderID is set on the HCloudMachine but the actual server was not found in the cloud", func() {
+		By("setting the bootstrap data")
+		err = testEnv.Create(ctx, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "bootstrapsecret",
+				Namespace: testNs.Name,
+			},
+			Data: map[string][]byte{
+				"value": []byte("dummy-bootstrap-data"),
+			},
+		})
+		Expect(err).To(BeNil())
+
+		By("setting the ProviderID on the HCloudMachine")
+		service.scope.HCloudMachine.Spec.ProviderID = ptr.To("hcloud://1234567")
+		err = testEnv.Create(ctx, service.scope.HCloudMachine)
+		Expect(err).To(BeNil())
+
+		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
+
+		By("ensuring that the hcloud client returns both server and error as nil")
+		hcloudClient.On("GetServer", mock.Anything, int64(1234567)).Return(nil, nil)
+		hcloudClient.On("ListServers", mock.Anything, mock.Anything).Return(nil, nil)
+
+		By("calling reconcile")
+		_, err := service.Reconcile(ctx)
+		Expect(err).To(BeNil())
+
+		By("validating if CreateMachineError was set on HCloudMachine object")
+		Expect(*service.scope.HCloudMachine.Status.FailureReason).To(Equal(capierrors.CreateMachineError))
+		Expect(*service.scope.HCloudMachine.Status.FailureMessage).To(Equal("hcloud server (\"hcloud://1234567\") no longer available. Setting MachineError."))
 	})
 
 	It("transitions the BootStrate from BootStateUnset -> BootStateBootToRealOS -> BootStateOperatingSystemRunning", func() {
