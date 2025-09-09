@@ -181,6 +181,7 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 		if !cmp.Equal(initialHCloudMachine, hcloudMachine) {
 			// The hcloudMachine was changed. Wait until the local cache contains the revision
 			// which was created by above machineScope.Close().
+			// We want to read our own writes.
 			err := wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, 5*time.Second, true, func(ctx context.Context) (done bool, err error) {
 				// new resource, read from local cache
 				latest := &infrav1.HCloudMachine{}
