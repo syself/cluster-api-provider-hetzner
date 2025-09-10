@@ -94,8 +94,9 @@ func dumpSpecResourcesAndCleanup(ctx context.Context, specName string, clusterPr
 		// that cluster variable is not set even if the cluster exists, so we are calling DeleteAllClustersAndWait
 		// instead of DeleteClusterAndWait
 		framework.DeleteAllClustersAndWait(ctx, framework.DeleteAllClustersAndWaitInput{
-			ClusterProxy: clusterProxy,
-			Namespace:    namespace.Name,
+			ClusterProxy:         clusterProxy,
+			Namespace:            namespace.Name,
+			ClusterctlConfigPath: clusterctlConfigPath,
 		}, intervalsGetter(specName, "wait-delete-cluster")...)
 
 		Byf("Deleting namespace used for hosting the %q test spec", specName)

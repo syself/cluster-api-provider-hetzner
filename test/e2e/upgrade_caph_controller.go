@@ -330,8 +330,9 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 				case discovery.ServerSupportsVersion(managementClusterProxy.GetClientSet().DiscoveryClient, clusterv1.GroupVersion) == nil:
 					Byf("Deleting all %s clusters in namespace %s in management cluster %s", clusterv1.GroupVersion, testNamespace.Name, managementClusterName)
 					framework.DeleteAllClustersAndWait(ctx, framework.DeleteAllClustersAndWaitInput{
-						ClusterProxy: managementClusterProxy,
-						Namespace:    testNamespace.Name,
+						ClusterProxy:         managementClusterProxy,
+						Namespace:            testNamespace.Name,
+						ClusterctlConfigPath: input.ClusterctlConfigPath,
 					}, input.E2EConfig.GetIntervals(specName, "wait-delete-cluster")...)
 				default:
 					fmt.Fprintf(ginkgo.GinkgoWriter, "Management Cluster does not appear to support CAPI resources.")
@@ -339,8 +340,9 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 
 				Byf("Deleting cluster %s/%s", testNamespace.Name, managementClusterName)
 				framework.DeleteAllClustersAndWait(ctx, framework.DeleteAllClustersAndWaitInput{
-					ClusterProxy: managementClusterProxy,
-					Namespace:    testNamespace.Name,
+					ClusterProxy:         managementClusterProxy,
+					Namespace:            testNamespace.Name,
+					ClusterctlConfigPath: input.ClusterctlConfigPath,
 				}, input.E2EConfig.GetIntervals(specName, "wait-delete-cluster")...)
 
 				Byf("Deleting namespace %s used for hosting the %q test", testNamespace.Name, specName)
