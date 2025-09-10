@@ -270,7 +270,7 @@ func logStatusContinuously(ctx context.Context, restConfig *restclient.Config, c
 }
 
 func logStatus(ctx context.Context, restConfig *restclient.Config, c client.Client) error {
-	log("≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡ <<< Start logging status")
+	log(fmt.Sprintf("%s <<< Start logging status", time.Now().Format("2006-01-02 15:04:05")))
 
 	if err := logCaphDeployment(ctx, c); err != nil {
 		return err
@@ -284,7 +284,7 @@ func logStatus(ctx context.Context, restConfig *restclient.Config, c client.Clie
 	if err := logConditions(ctx, restConfig); err != nil {
 		return err
 	}
-	log("≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡ End logging status >>>")
+	log(fmt.Sprintf("%s End logging status >>>", time.Now().Format("2006-01-02 15:04:05")))
 
 	return nil
 }
