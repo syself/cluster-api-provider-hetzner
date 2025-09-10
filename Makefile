@@ -184,7 +184,7 @@ install-essentials: ## This gets the secret and installs a CNI and the CCM. Usag
 	$(MAKE) install-cilium-in-wl-cluster
 	$(MAKE) install-ccm-in-wl-cluster
 
-wait-and-get-secret:
+wait-and-get-secret: $(KUBECTL)
 	./hack/ensure-env-variables.sh CLUSTER_NAME
 	# Wait for the kubeconfig to become available.
 	rm -f $(WORKER_CLUSTER_KUBECONFIG)
@@ -194,12 +194,7 @@ wait-and-get-secret:
 	${TIMEOUT} --foreground 15m bash -c "while ! $(KUBECTL) --kubeconfig=$(WORKER_CLUSTER_KUBECONFIG) get nodes | grep control-plane; do sleep 1; done"
 
 install-cilium-in-wl-cluster: $(HELM)
-	# Deploy cilium
-	$(HELM) repo add cilium https://helm.cilium.io/
-	$(HELM) repo update cilium
-	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) $(HELM) upgrade --install cilium cilium/cilium \
-  		--namespace kube-system \
-		-f templates/cilium/cilium.yaml
+	WORKER_CLUSTER_KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) ./hack/install-ccm-in-wl-cluster.sh
 
 install-ccm-in-wl-cluster:
 	$(HELM) repo add syself https://charts.syself.com
