@@ -35,13 +35,14 @@ type Arguments struct {
 
 var resourcesToSkip = []string{
 	"bindings",
-	"tokenreviews",
-	"selfsubjectreviews",
-	"selfsubjectaccessreviews",
-	"selfsubjectrulesreviews",
-	"localsubjectaccessreviews",
-	"subjectaccessreviews",
 	"componentstatuses",
+	"endpoints", // Deprecated in 1.33+
+	"localsubjectaccessreviews",
+	"selfsubjectaccessreviews",
+	"selfsubjectreviews",
+	"selfsubjectrulesreviews",
+	"subjectaccessreviews",
+	"tokenreviews",
 }
 
 type Counter struct {
@@ -504,6 +505,7 @@ var conditionTypesOfResourceWithNegativeMeaning = map[string][]string{
 var conditionLinesToIgnoreRegexs = []*regexp.Regexp{
 	// Cluster API
 	regexp.MustCompile("machinesets MachinesReady=False Deleted @.*"),
+	regexp.MustCompile("machinesets (MachinesReady|Ready)=False DrainingFailed @."),
 	regexp.MustCompile("machinesets Ready=False Deleted @.*"),
 	regexp.MustCompile(`machinesets (MachinesReady|Ready)=False NodeNotFound.*`),
 	regexp.MustCompile(`machinedeployments (MachineSetReady|Ready)=False Deleted.*`),
@@ -555,6 +557,7 @@ func conditionTypeHasPositiveMeaning(resource string, ct string) bool {
 		"Synced",
 		"UpToDate",
 		"Valid",
+		"SuccessCriteriaMet",
 	} {
 		if strings.HasSuffix(ct, suffix) {
 			return true
