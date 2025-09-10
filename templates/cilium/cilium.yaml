@@ -24,8 +24,7 @@ kubeProxyReplacement: true
 operator:
   rollOutPods: true
   priorityClassName: "system-node-critical"
-  tolerations: # TODO: These Tolerations can be removed, when
-  # or PR https://github.com/cilium/cilium/pull/41098 got released.
+  tolerations: # TODO: These Tolerations can be removed, when our PR https://github.com/cilium/cilium/pull/41098 got released.
     - effect: NoSchedule
       key: node.cluster.x-k8s.io/uninitialized
     - effect: NoSchedule
