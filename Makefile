@@ -194,7 +194,7 @@ wait-and-get-secret: $(KUBECTL)
 	${TIMEOUT} --foreground 15m bash -c "while ! $(KUBECTL) --kubeconfig=$(WORKER_CLUSTER_KUBECONFIG) get nodes | grep control-plane; do sleep 1; done"
 
 install-cilium-in-wl-cluster: $(HELM)
-	WORKER_CLUSTER_KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) ./hack/install-ccm-in-wl-cluster.sh
+	WORKER_CLUSTER_KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) ./hack/install-ccm-in-wl-cluster.sh.sh
 
 install-ccm-in-wl-cluster:
 	$(HELM) repo add syself https://charts.syself.com

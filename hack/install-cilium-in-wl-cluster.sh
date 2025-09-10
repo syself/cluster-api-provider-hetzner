@@ -26,23 +26,13 @@ if [[ -z ${WORKER_CLUSTER_KUBECONFIG:-} ]]; then
 	echo "env var WORKER_CLUSTER_KUBECONFIG is not set"
 	exit 1
 fi
+
 if [[ ! -e $WORKER_CLUSTER_KUBECONFIG ]]; then
 	echo "WORKER_CLUSTER_KUBECONFIG=$WORKER_CLUSTER_KUBECONFIG is empty or does not exist"
 	exit 1
 fi
-KUBECONFIG=$WORKER_CLUSTER_KUBECONFIG helm upgrade --install cilium cilium/cilium \
+
+KUBECONFIG=$WORKER_CLUSTER_KUBECONFIG helm upgrade \
+	--install cilium cilium/cilium --version 1.18.1 \
 	--namespace kube-system \
 	-f templates/cilium/cilium.yaml
-
-# Work around until our PR is merged
-# https://github.com/cilium/cilium/pull/41098
-KUBECONFIG=$WORKER_CLUSTER_KUBECONFIG kubectl patch deployment cilium-operator -n kube-system --type='json' -p='[
-		{
-			"op": "add",
-			"path": "/spec/template/spec/tolerations/-",
-			"value": {
-				"key": "node.cloudprovider.kubernetes.io/uninitialized",
-				"operator": "Exists"
-			}
-		}
-	]'
