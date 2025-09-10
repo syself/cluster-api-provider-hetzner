@@ -22,10 +22,11 @@ import (
 	"net/url"
 	"strings"
 
-	capierrors "github.com/syself/cluster-api-provider-hetzner/pkg/utils/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/selection"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+
+	capierrors "github.com/syself/cluster-api-provider-hetzner/pkg/utils/errors"
 )
 
 const (

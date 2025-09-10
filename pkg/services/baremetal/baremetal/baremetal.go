@@ -29,7 +29,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
-	capierrors "github.com/syself/cluster-api-provider-hetzner/pkg/utils/errors"
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
@@ -50,6 +49,7 @@ import (
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
+	capierrors "github.com/syself/cluster-api-provider-hetzner/pkg/utils/errors"
 )
 
 // TODO: Implement logic for removal of unpaid servers.

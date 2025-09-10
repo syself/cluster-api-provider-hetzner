@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
+
 	capierrors "github.com/syself/cluster-api-provider-hetzner/pkg/utils/errors"
 )
 

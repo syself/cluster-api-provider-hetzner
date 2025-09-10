@@ -26,7 +26,6 @@ import (
 	"strings"
 	"time"
 
-	capierrors "github.com/syself/cluster-api-provider-hetzner/pkg/utils/errors"
 	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
@@ -35,6 +34,7 @@ import (
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
+	capierrors "github.com/syself/cluster-api-provider-hetzner/pkg/utils/errors"
 )
 
 // MachineScopeParams defines the input parameters used to create a new Scope.
