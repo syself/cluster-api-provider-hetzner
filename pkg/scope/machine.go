@@ -125,7 +125,6 @@ func (m *MachineScope) PatchObject(ctx context.Context) error {
 func (m *MachineScope) SetError(message string, reason capierrors.DeprecatedCAPIMachineStatusError) {
 	m.HCloudMachine.Status.FailureMessage = &message
 	m.HCloudMachine.Status.FailureReason = &reason
-	conditions.MarkFalse(m.Machine, clusterv1.BootstrapReadyCondition, "", "", "")
 }
 
 // SetRegion sets the region field on the machine.
