@@ -164,9 +164,9 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 		patchOpts := []patch.Option{}
 		patchOpts = append(patchOpts, patch.WithStatusObservedGeneration{})
 
-		if err := remediationScope.Close(ctx, patchOpts...); err != nil && reterr == nil {
+		if err := remediationScope.Close(ctx, patchOpts...); err != nil {
 			res = reconcile.Result{}
-			reterr = err
+			reterr = errors.Join(reterr, err)
 		}
 	}()
 

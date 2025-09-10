@@ -151,9 +151,9 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			conditions.MarkTrue(hetznerCluster, infrav1.HCloudTokenAvailableCondition)
 		}
 
-		if err := clusterScope.Close(ctx); err != nil && reterr == nil {
+		if err := clusterScope.Close(ctx); err != nil {
 			res = reconcile.Result{}
-			reterr = err
+			reterr = errors.Join(reterr, err)
 		}
 	}()
 

@@ -21,11 +21,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"time"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	capierrors "github.com/syself/cluster-api-provider-hetzner/pkg/utils/errors"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
@@ -110,12 +112,10 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	s.scope.SetProviderID(server.ID)
 
 	// update HCloudMachineStatus
-	c := s.scope.HCloudMachine.Status.Conditions.DeepCopy()
-	sshKeys := s.scope.HCloudMachine.Status.SSHKeys
-	s.scope.HCloudMachine.Status = statusFromHCloudServer(server)
-	s.scope.SetRegion(failureDomain)
-	s.scope.HCloudMachine.Status.Conditions = c
-	s.scope.HCloudMachine.Status.SSHKeys = sshKeys
+	s.scope.HCloudMachine.Status.Addresses = statusAddresses(server)
+
+	// Copy value
+	s.scope.HCloudMachine.Status.InstanceState = ptr.To(server.Status)
 
 	// validate labels
 	if err := validateLabels(server, s.createLabels()); err != nil {
@@ -738,10 +738,7 @@ func validateLabels(server *hcloud.Server, labels map[string]string) error {
 	return nil
 }
 
-func statusFromHCloudServer(server *hcloud.Server) infrav1.HCloudMachineStatus {
-	// set instance state
-	instanceState := server.Status
-
+func statusAddresses(server *hcloud.Server) []clusterv1.MachineAddress {
 	// populate addresses
 	addresses := []clusterv1.MachineAddress{}
 
@@ -755,8 +752,15 @@ func statusFromHCloudServer(server *hcloud.Server) infrav1.HCloudMachineStatus {
 		)
 	}
 
-	if ip := server.PublicNet.IPv6.IP; ip.IsGlobalUnicast() {
+	if unicastIP := server.PublicNet.IPv6.IP; unicastIP.IsGlobalUnicast() {
+		// Create a copy. This is important, otherwise we modify the IP of `server`. This could lead
+		// to unexpected behaviour.
+		ip := append(net.IP(nil), unicastIP...)
+
+		// Hetzner returns the routed /64 base, increment last byte to obtain first usable address
+		// The local value gets changed, not the IP of `server`.
 		ip[15]++
+
 		addresses = append(
 			addresses,
 			clusterv1.MachineAddress{
@@ -776,10 +780,7 @@ func statusFromHCloudServer(server *hcloud.Server) infrav1.HCloudMachineStatus {
 		)
 	}
 
-	return infrav1.HCloudMachineStatus{
-		InstanceState: &instanceState,
-		Addresses:     addresses,
-	}
+	return addresses
 }
 
 func (s *Service) createLabels() map[string]string {

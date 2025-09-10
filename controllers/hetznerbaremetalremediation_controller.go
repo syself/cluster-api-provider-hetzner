@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -139,9 +140,9 @@ func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, r
 		patchOpts := []patch.Option{}
 		patchOpts = append(patchOpts, patch.WithStatusObservedGeneration{})
 
-		if err := remediationScope.Close(ctx, patchOpts...); err != nil && reterr == nil {
+		if err := remediationScope.Close(ctx, patchOpts...); err != nil {
 			res = reconcile.Result{}
-			reterr = err
+			reterr = errors.Join(reterr, err)
 		}
 	}()
 

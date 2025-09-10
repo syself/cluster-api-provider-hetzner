@@ -144,9 +144,9 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 
 		conditions.SetSummary(hbmMachine)
 
-		if err := machineScope.Close(ctx); err != nil && reterr == nil {
+		if err := machineScope.Close(ctx); err != nil {
 			res = reconcile.Result{}
-			reterr = err
+			reterr = errors.Join(reterr, err)
 		}
 	}()
 
