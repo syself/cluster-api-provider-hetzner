@@ -318,10 +318,11 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 			managementClusterProxy.CollectWorkloadClusterLogs(ctx, testNamespace.Name, managementClusterName, filepath.Join(input.ArtifactFolder, "clusters", managementClusterName, "machines"))
 
 			framework.DumpAllResources(ctx, framework.DumpAllResourcesInput{
-				Lister:         managementClusterProxy.GetClient(),
-				Namespace:      testNamespace.Name,
-				LogPath:        filepath.Join(input.ArtifactFolder, "clusters", managementClusterResources.Cluster.Name, "resources"),
-				KubeConfigPath: managementClusterProxy.GetKubeconfigPath(),
+				Lister:               managementClusterProxy.GetClient(),
+				Namespace:            testNamespace.Name,
+				LogPath:              filepath.Join(input.ArtifactFolder, "clusters", managementClusterResources.Cluster.Name, "resources"),
+				KubeConfigPath:       managementClusterProxy.GetKubeconfigPath(),
+				ClusterctlConfigPath: input.ClusterctlConfigPath,
 			})
 
 			if !input.SkipCleanup {
@@ -360,7 +361,8 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 
 		// Dumps all the resources in the spec namespace, then cleanups the cluster object and the spec namespace itself.
 		dumpSpecResourcesAndCleanup(ctx, specName, input.BootstrapClusterProxy, input.ArtifactFolder, managementClusterNamespace, managementClusterCancelWatches, managementClusterResources.Cluster, input.E2EConfig.GetIntervals, input.SkipCleanup,
-			input.BootstrapClusterProxy.GetKubeconfigPath())
+			input.BootstrapClusterProxy.GetKubeconfigPath(),
+			input.ClusterctlConfigPath)
 	})
 }
 
