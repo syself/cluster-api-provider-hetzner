@@ -304,8 +304,6 @@ func logStatus(ctx context.Context, restConfig *restclient.Config, c client.Clie
 		if err != nil {
 			log(fmt.Sprintf("Failed to get Secret %s/%s: %v", cluster.Namespace, secretName, err))
 			continue
-		} else {
-			log(fmt.Sprintf("Found Secret %s/%s", cluster.Namespace, secretName))
 		}
 		data := secret.Data["value"]
 		if len(data) == 0 {
