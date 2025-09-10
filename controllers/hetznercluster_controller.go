@@ -37,6 +37,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
@@ -733,7 +734,11 @@ func (r *HetznerClusterReconciler) newTargetClusterManager(ctx context.Context, 
 			clusterName:      clusterScope.Cluster.Name,
 		}
 
-		if err := gr.SetupWithManager(ctx, clusterMgr, controller.Options{}); err != nil {
+		if err := gr.SetupWithManager(ctx, clusterMgr, controller.Options{
+			// SkipNameValidation. Avoid this error:
+			// failed to setup CSR controller: controller with name certificatesigningrequest already exists. Controller names must be unique to avoid multiple controllers reporting the same metric. This validation can be disabled via the SkipNameValidation option
+			SkipNameValidation: ptr.To(true),
+		}); err != nil {
 			return nil, fmt.Errorf("failed to setup CSR controller: %w", err)
 		}
 	}
