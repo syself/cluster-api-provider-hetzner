@@ -272,7 +272,8 @@ func logStatusContinuously(ctx context.Context, restConfig *restclient.Config, c
 }
 
 func logStatus(ctx context.Context, restConfig *restclient.Config, c client.Client) error {
-	log(fmt.Sprintf("%s <<< Start logging status", time.Now().Format("2006-01-02 15:04:05")))
+	log("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
+	log(fmt.Sprintf("≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡ %s <<< Start logging status", time.Now().Format("2006-01-02 15:04:05")))
 
 	if err := logCaphDeployment(ctx, c); err != nil {
 		return err
@@ -321,7 +322,7 @@ func logStatus(ctx context.Context, restConfig *restclient.Config, c client.Clie
 			continue
 		}
 	}
-	log(fmt.Sprintf("%s End logging status >>>", time.Now().Format("2006-01-02 15:04:05")))
+	log(fmt.Sprintf("≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡ %s End logging status >>>", time.Now().Format("2006-01-02 15:04:05")))
 
 	return nil
 }
@@ -455,8 +456,8 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 		if hbmh.Spec.Status.ProvisioningState == "" {
 			continue
 		}
-		log("BareMetalHost: " + hbmh.Name + " " + fmt.Sprint(hbmh.Spec.ServerID))
-		log("  ProvisioningState: " + string(hbmh.Spec.Status.ProvisioningState))
+		log("BareMetalHost: " + hbmh.Name + " " + fmt.Sprint(hbmh.Spec.ServerID) +
+			" | IPv4: " + hbmh.Spec.Status.IPv4)
 		eMsg := string(hbmh.Spec.Status.ErrorType) + " " + hbmh.Spec.Status.ErrorMessage
 		eMsg = strings.TrimSpace(eMsg)
 		if eMsg != "" {
@@ -471,7 +472,7 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 			reason = readyC.Reason
 			state = string(readyC.Status)
 		}
-		log("  Ready Condition: " + state + " " + reason + " " + msg)
+		log("  ProvisioningState: " + string(hbmh.Spec.Status.ProvisioningState) + " | Ready Condition: " + state + " " + reason + " " + msg)
 	}
 	return nil
 }
