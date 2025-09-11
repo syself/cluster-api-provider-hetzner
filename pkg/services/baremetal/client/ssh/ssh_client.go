@@ -407,8 +407,6 @@ func (c *sshClient) Reboot() Output {
 // CloudInitStatus implements the CloudInitStatus method of the SSHClient interface.
 func (c *sshClient) CloudInitStatus() Output {
 	return c.runSSH("cloud-init status")
-
-	return out
 }
 
 // CheckCloudInitLogsForSigTerm implements the CheckCloudInitLogsForSigTerm method of the SSHClient interface.
