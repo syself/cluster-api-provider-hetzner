@@ -1598,13 +1598,6 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 			}
 			return actionError{err: fmt.Errorf("failed to handle incomplete boot - provisioning: %w", err)}
 		}
-		// A connection failed error could mean that cloud init is still running (if cloudInit introduces a new port)
-		if isSSHConnectionRefusedError {
-			if actionRes := s.handleConnectionRefused(ctx); actionRes != nil {
-				s.scope.Logger.Info("ensureProvisioned: ConnectionRefused", "actionResult", actionRes)
-				return actionRes
-			}
-		}
 
 		failed, err := s.handleIncompleteBoot(ctx, false, isTimeout, isSSHConnectionRefusedError)
 		if failed {
@@ -1651,7 +1644,7 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 	}
 
 	// Check the status of cloud init
-	actResult, msg, _ := s.checkCloudInitStatus(ctx, sshClient)
+	actResult, msg := s.checkCloudInitStatus(ctx, sshClient)
 	if _, complete := actResult.(actionComplete); !complete {
 		record.Event(s.scope.HetznerBareMetalHost, "CloudInitStillRunning", msg)
 		return createEventWithCloudInitOutput(actResult)
@@ -1674,74 +1667,53 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 	return createEventWithCloudInitOutput(actionComplete{})
 }
 
-// handleConnectionRefused checks cloud init status via ssh to the old ssh port if the new ssh port
-// gave a connection refused error.
-func (s *Service) handleConnectionRefused(ctx context.Context) actionResult {
-	// Nothing to do if ports didn't change.
-	if s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterInstallImage == s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterCloudInit {
-		return nil
-	}
-	oldSSHClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
-		PrivateKey: sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.SecretRef).PrivateKey,
-		Port:       s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterInstallImage,
-		IP:         s.scope.HetznerBareMetalHost.Spec.Status.GetIPAddress(),
-	})
-	actResult, _, err := s.checkCloudInitStatus(ctx, oldSSHClient)
-	// If this ssh client also gives an error, then we go back to analyzing the error of the first ssh call
-	// This happens in the statement below this one.
-	if err == nil {
-		// If cloud-init status == "done" and cloud init was successful,
-		// then we will soon reboot and be able to access the server via the new port
-		if _, complete := actResult.(actionComplete); complete {
-			// Check whether cloud init did not run successfully even though it shows "done"
-			actResult := s.handleCloudInitNotStarted(ctx)
-			if _, complete := actResult.(actionComplete); complete {
-				return actionContinue{delay: 10 * time.Second}
-			}
-			return actResult
-		}
-	}
-	if _, actionerr := actResult.(actionError); !actionerr {
-		return actResult
-	}
-	return nil
-}
-
-func (s *Service) checkCloudInitStatus(ctx context.Context, sshClient sshclient.Client) (actionResult, string, error) {
+func (s *Service) checkCloudInitStatus(ctx context.Context, sshClient sshclient.Client) (actionResult, string) {
 	out := sshClient.CloudInitStatus()
-	// This error is interesting for further logic and might happen because of the fact that the sshClient has the wrong port
-	if out.Err != nil {
-		return actionError{err: fmt.Errorf("failed to get cloud init status: %w", out.Err)}, "", out.Err
+
+	status, err := out.ExitStatus()
+	if err != nil {
+		err = fmt.Errorf("getting CloudInitStatus failed (ssh connection failed): %w", err)
+		return actionContinue{delay: 5 * time.Second}, err.Error()
+	}
+
+	if status != 0 {
+		err = fmt.Errorf("command of CloudInitStatus failed (ssh connection worked): %s",
+			out.String())
+		return actionError{err: err}, err.Error()
 	}
 
 	stdOut := trimLineBreak(out.StdOut)
 	switch {
+
 	case strings.Contains(stdOut, "status: running"):
 		// Cloud init is still running
-		return actionContinue{delay: 5 * time.Second}, "cloud-init still running", nil
+		return actionContinue{delay: 5 * time.Second}, "cloud-init still running"
+
 	case strings.Contains(stdOut, "status: disabled"):
 		// Reboot needs to be triggered again - did not start yet
 		out = sshClient.Reboot()
 		msg := "cloud-init-status was 'disabled'"
 		if err := handleSSHError(out); err != nil {
-			return actionError{err: fmt.Errorf("failed to reboot (%s): %w", msg, err)}, "", nil
+			return actionError{err: fmt.Errorf("failed to reboot (%s): %w", msg, err)}, ""
 		}
 		createSSHRebootEvent(ctx, s.scope.HetznerBareMetalHost, msg)
 		s.scope.HetznerBareMetalHost.SetError(infrav1.ErrorTypeSSHRebootTriggered, "ssh reboot just triggered")
 		record.Warn(s.scope.HetznerBareMetalHost, "SSHRebootAfterCloudInitStatusDisabled", msg)
-		return actionContinue{delay: 5 * time.Second}, "cloud-init was disabled. Triggered a reboot again", nil
+		return actionContinue{delay: 5 * time.Second}, "cloud-init was disabled. Triggered a reboot again"
+
 	case strings.Contains(stdOut, "status: done"):
 		s.scope.HetznerBareMetalHost.ClearError()
-		return actionComplete{}, "cloud-init is done", nil
+		return actionComplete{}, "cloud-init is done"
+
 	case strings.Contains(stdOut, "status: error"):
-		record.Warn(s.scope.HetznerBareMetalHost, "CloudInitFailed", "cloud init returned status error")
-		return s.recordActionFailure(infrav1.FatalError, "cloud init returned status error"), "", nil
+		msg := fmt.Sprintf("cloud init returned status error: %s", out.String())
+		record.Warn(s.scope.HetznerBareMetalHost, "CloudInitFailed", msg)
+		return s.recordActionFailure(infrav1.FatalError, msg), msg
+
 	default:
-		// Errors are handled after stdOut in this case, as status: error returns an exited with status 1 error
-		if err := handleSSHError(out); err != nil {
-			return actionError{err: fmt.Errorf("failed to get cloud init status: %w", err)}, "", nil
-		}
-		return actionContinue{delay: 5 * time.Second}, fmt.Sprintf("cloud-init unknown output: %s. %s", out.StdOut, out.StdErr), nil
+		err = fmt.Errorf("unknown cloud-init output: %s", out.String())
+		return actionError{err: err}, err.Error()
+
 	}
 }
 

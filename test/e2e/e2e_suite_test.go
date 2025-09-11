@@ -331,7 +331,7 @@ func logConditions(ctx context.Context, clusterName string, restConfig *restclie
 	restConfig.QPS = -1 // Since Kubernetes 1.29 "API Priority and Fairness" handles that.
 	counter, err := checkconditions.RunAndGetCounter(ctx, restConfig, &checkconditions.Arguments{})
 	if err != nil {
-		return fmt.Errorf("failed to get check conditions: %w", err)
+		return fmt.Errorf("check conditions: %w", err)
 	}
 	log(fmt.Sprintf("----------------------------------------------- %s ---- Unhealthy Conditions: %d",
 		clusterName,
