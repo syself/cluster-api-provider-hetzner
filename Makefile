@@ -238,6 +238,7 @@ create-workload-cluster-hcloud-network: env-vars-for-wl-cluster $(KUSTOMIZE) $(E
 	$(MAKE) install-cilium-in-wl-cluster
 	$(MAKE) install-ccm-in-wl-cluster PRIVATE_NETWORK=true
 
+# Use that, if you want to test hcloud control-planes, hcloud worker and bm worker.
 create-workload-cluster-hetzner-hcloud-control-plane: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster.
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN HETZNER_ROBOT_USER HETZNER_ROBOT_PASSWORD HETZNER_SSH_PRIV_PATH HETZNER_SSH_PUB_PATH SSH_KEY_NAME

@@ -30,7 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-// SetupWebhookWithManager initializes webhook manager for HetznerMachineTemplate.
+// SetupWebhookWithManager initializes webhook manager for HCloudMachineTemplate.
 func (r *HCloudMachineTemplate) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	w := new(hcloudMachineTemplateWebhook)
 	return ctrl.NewWebhookManagedBy(mgr).
@@ -51,8 +51,10 @@ func (*hcloudMachineTemplateWebhook) Default(_ context.Context, _ runtime.Object
 
 // +kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta1-hcloudmachinetemplate,mutating=false,sideEffects=None,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hcloudmachinetemplates,verbs=create;update,versions=v1beta1,name=validation.hcloudmachinetemplate.infrastructure.x-k8s.io,admissionReviewVersions=v1;v1beta1
 
-var _ webhook.CustomValidator = &hcloudMachineTemplateWebhook{}
-var _ webhook.CustomDefaulter = &hcloudMachineTemplateWebhook{}
+var (
+	_ webhook.CustomValidator = &hcloudMachineTemplateWebhook{}
+	_ webhook.CustomDefaulter = &hcloudMachineTemplateWebhook{}
+)
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
 func (*hcloudMachineTemplateWebhook) ValidateCreate(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
