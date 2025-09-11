@@ -693,9 +693,7 @@ spec:
           touch /etc/cloud/cloud.cfg.d/99-custom-networking.cfg
           echo "network: { config: disabled }" > /etc/cloud/cloud.cfg.d/99-custom-networking.cfg
 
-          # Remove "|| true", when Hetzner mirror is working again:
-          # https://www.reddit.com/r/hetzner/comments/1ne8a33/mirrorhetznercomubuntu_file_has_unexpected_size/
-          apt-get update || true
+          apt-get update
 
           apt-get install -y cloud-init apparmor apparmor-utils
           cloud-init clean --logs
