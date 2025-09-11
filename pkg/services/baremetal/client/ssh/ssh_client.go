@@ -406,10 +406,8 @@ func (c *sshClient) Reboot() Output {
 
 // CloudInitStatus implements the CloudInitStatus method of the SSHClient interface.
 func (c *sshClient) CloudInitStatus() Output {
-	out := c.runSSH("cloud-init status")
-	if out.Err != nil && strings.Contains(out.Err.Error(), ErrCommandExitedWithStatusOne.Error()) {
-		return Output{StdOut: "status: error"}
-	}
+	return c.runSSH("cloud-init status")
+
 	return out
 }
 
