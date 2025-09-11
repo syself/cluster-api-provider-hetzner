@@ -1383,7 +1383,6 @@ var _ = Describe("actionEnsureProvisioned", func() {
 		outSSHClientCheckSigterm               sshclient.Output
 		outOldSSHClientCloudInitStatus         sshclient.Output
 		outOldSSHClientCheckSigterm            sshclient.Output
-		samePorts                              bool
 		expectedActionResult                   actionResult
 		expectedErrorType                      infrav1.ErrorType
 		expectsSSHClientCallCloudInitStatus    bool
@@ -1399,11 +1398,8 @@ var _ = Describe("actionEnsureProvisioned", func() {
 			ctx := context.Background()
 			var (
 				portAfterCloudInit    = 24
-				portAfterInstallImage = 23
-			)
-			if in.samePorts {
 				portAfterInstallImage = 24
-			}
+			)
 
 			host := helpers.BareMetalHost(
 				"test-host",
@@ -1477,7 +1473,6 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				outSSHClientCheckSigterm:               sshclient.Output{},
 				outOldSSHClientCloudInitStatus:         sshclient.Output{},
 				outOldSSHClientCheckSigterm:            sshclient.Output{},
-				samePorts:                              true,
 				expectedActionResult:                   actionContinue{},
 				expectedErrorType:                      infrav1.ErrorType(""),
 				expectsSSHClientCallCloudInitStatus:    true,
@@ -1495,7 +1490,6 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				outSSHClientCheckSigterm:               sshclient.Output{StdOut: ""},
 				outOldSSHClientCloudInitStatus:         sshclient.Output{},
 				outOldSSHClientCheckSigterm:            sshclient.Output{},
-				samePorts:                              true,
 				expectedActionResult:                   actionComplete{},
 				expectedErrorType:                      infrav1.ErrorType(""),
 				expectsSSHClientCallCloudInitStatus:    true,
@@ -1513,7 +1507,6 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				outSSHClientCheckSigterm:               sshclient.Output{StdOut: "found SIGTERM in cloud init output logs"},
 				outOldSSHClientCloudInitStatus:         sshclient.Output{},
 				outOldSSHClientCheckSigterm:            sshclient.Output{},
-				samePorts:                              true,
 				expectedActionResult:                   actionContinue{},
 				expectedErrorType:                      infrav1.ErrorType(""),
 				expectsSSHClientCallCloudInitStatus:    true,
@@ -1531,7 +1524,6 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				outSSHClientCheckSigterm:               sshclient.Output{},
 				outOldSSHClientCloudInitStatus:         sshclient.Output{},
 				outOldSSHClientCheckSigterm:            sshclient.Output{},
-				samePorts:                              true,
 				expectedActionResult:                   actionFailed{},
 				expectedErrorType:                      infrav1.FatalError,
 				expectsSSHClientCallCloudInitStatus:    true,
@@ -1549,7 +1541,6 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				outSSHClientCheckSigterm:               sshclient.Output{},
 				outOldSSHClientCloudInitStatus:         sshclient.Output{},
 				outOldSSHClientCheckSigterm:            sshclient.Output{},
-				samePorts:                              true,
 				expectedActionResult:                   actionContinue{},
 				expectedErrorType:                      infrav1.ErrorType(""),
 				expectsSSHClientCallCloudInitStatus:    true,
@@ -1567,7 +1558,6 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				outSSHClientCheckSigterm:               sshclient.Output{},
 				outOldSSHClientCloudInitStatus:         sshclient.Output{},
 				outOldSSHClientCheckSigterm:            sshclient.Output{},
-				samePorts:                              true,
 				expectedActionResult:                   actionContinue{},
 				expectedErrorType:                      infrav1.ErrorTypeConnectionError,
 				expectsSSHClientCallCloudInitStatus:    false,
@@ -1585,7 +1575,6 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				outSSHClientCheckSigterm:               sshclient.Output{},
 				outOldSSHClientCloudInitStatus:         sshclient.Output{Err: sshclient.ErrConnectionRefused},
 				outOldSSHClientCheckSigterm:            sshclient.Output{},
-				samePorts:                              false,
 				expectedActionResult:                   actionContinue{},
 				expectedErrorType:                      infrav1.ErrorTypeConnectionError,
 				expectsSSHClientCallCloudInitStatus:    false,
@@ -1603,7 +1592,6 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				outSSHClientCheckSigterm:               sshclient.Output{},
 				outOldSSHClientCloudInitStatus:         sshclient.Output{StdOut: "status: running"},
 				outOldSSHClientCheckSigterm:            sshclient.Output{},
-				samePorts:                              false,
 				expectedActionResult:                   actionContinue{},
 				expectedErrorType:                      infrav1.ErrorType(""),
 				expectsSSHClientCallCloudInitStatus:    false,
@@ -1621,7 +1609,6 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				outSSHClientCheckSigterm:               sshclient.Output{},
 				outOldSSHClientCloudInitStatus:         sshclient.Output{StdOut: "status: error"},
 				outOldSSHClientCheckSigterm:            sshclient.Output{},
-				samePorts:                              false,
 				expectedActionResult:                   actionFailed{},
 				expectedErrorType:                      infrav1.FatalError,
 				expectsSSHClientCallCloudInitStatus:    false,
@@ -1639,7 +1626,6 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				outSSHClientCheckSigterm:               sshclient.Output{},
 				outOldSSHClientCloudInitStatus:         sshclient.Output{StdOut: "status: disabled"},
 				outOldSSHClientCheckSigterm:            sshclient.Output{},
-				samePorts:                              false,
 				expectedActionResult:                   actionContinue{},
 				expectedErrorType:                      infrav1.ErrorType(""),
 				expectsSSHClientCallCloudInitStatus:    false,
@@ -1657,7 +1643,6 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				outSSHClientCheckSigterm:               sshclient.Output{},
 				outOldSSHClientCloudInitStatus:         sshclient.Output{StdOut: "status: done"},
 				outOldSSHClientCheckSigterm:            sshclient.Output{StdOut: "found SIGTERM in cloud init output logs"},
-				samePorts:                              false,
 				expectedActionResult:                   actionContinue{},
 				expectedErrorType:                      infrav1.ErrorType(""),
 				expectsSSHClientCallCloudInitStatus:    false,
@@ -1675,7 +1660,6 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				outSSHClientCheckSigterm:               sshclient.Output{},
 				outOldSSHClientCloudInitStatus:         sshclient.Output{StdOut: "status: done"},
 				outOldSSHClientCheckSigterm:            sshclient.Output{StdOut: ""},
-				samePorts:                              false,
 				expectedActionResult:                   actionContinue{},
 				expectedErrorType:                      infrav1.ErrorType(""),
 				expectsSSHClientCallCloudInitStatus:    false,
@@ -1693,7 +1677,6 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				outSSHClientCheckSigterm:               sshclient.Output{},
 				outOldSSHClientCloudInitStatus:         sshclient.Output{Err: timeout},
 				outOldSSHClientCheckSigterm:            sshclient.Output{},
-				samePorts:                              false,
 				expectedActionResult:                   actionContinue{},
 				expectedErrorType:                      infrav1.ErrorTypeConnectionError,
 				expectsSSHClientCallCloudInitStatus:    false,
@@ -1711,7 +1694,6 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				outSSHClientCheckSigterm:               sshclient.Output{StdOut: ""},
 				outOldSSHClientCloudInitStatus:         sshclient.Output{},
 				outOldSSHClientCheckSigterm:            sshclient.Output{},
-				samePorts:                              false,
 				expectedActionResult:                   actionComplete{},
 				expectedErrorType:                      infrav1.ErrorType(""),
 				expectsSSHClientCallCloudInitStatus:    true,
@@ -1729,7 +1711,6 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				outSSHClientCheckSigterm:               sshclient.Output{},
 				outOldSSHClientCloudInitStatus:         sshclient.Output{},
 				outOldSSHClientCheckSigterm:            sshclient.Output{},
-				samePorts:                              false,
 				expectedActionResult:                   actionContinue{},
 				expectedErrorType:                      infrav1.ErrorTypeSSHRebootTriggered,
 				expectsSSHClientCallCloudInitStatus:    false,

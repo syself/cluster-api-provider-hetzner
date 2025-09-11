@@ -1615,30 +1615,34 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 	createEventWithCloudInitOutput := func(ar actionResult) actionResult {
 		// Create an Event which contains the cloud-init-output.
 		var err error
-		errMsg := ""
-		f := record.Warnf
 		switch v := ar.(type) {
 		case actionContinue:
 			// Do not create and event containing the output, wait until finished.
 			return ar
 		case actionComplete:
-			f = record.Eventf
+			err = nil
 		case actionError:
 			err = v.err
-			errMsg = fmt.Sprintf(" (%s)", v.err.Error())
+		default:
+			s.scope.Logger.Info("Unhandled type of actionResult",
+				"actionResult", ar)
 		}
 		out := sshClient.GetCloudInitOutput()
-		if out.Err != nil || out.StdErr != "" {
+		exitStatus, exitError := out.ExitStatus()
+		if exitError != nil {
+			return actionError{err: fmt.Errorf("failed to get cloud init output (ssh connection failed): %w", errors.Join(exitError, err))}
+		}
+		if exitStatus != 0 || out.StdErr != "" {
+			err = errors.Join(err, fmt.Errorf("failed to get cloud init output (ssh connection worked): %s",
+				out.String()))
+		}
+		if err != nil {
 			record.Warnf(s.scope.HetznerBareMetalHost, "GetCloudInitOutputFailed",
-				"GetCloudInitOutput failed to get /var/log/cloud-init-output.log: stdout %q, stderr %q, err %q",
-				out.StdOut, out.StdErr, out.Err.Error())
-			if err != nil {
-				return actionError{err: fmt.Errorf("failed to get cloud init output: %w, while handling: %w", out.Err, err)}
-			}
+				"GetCloudInitOutput failed to get /var/log/cloud-init-output.log: %s",
+				err)
 			return actionError{err: fmt.Errorf("failed to get cloud init output: %w", err)}
 		}
-		f(s.scope.HetznerBareMetalHost, "CloudInitOutput", "cloud init output%s:\n%s",
-			errMsg,
+		record.Eventf(s.scope.HetznerBareMetalHost, "CloudInitOutput", "cloud init output:\n%s",
 			out.StdOut)
 		return ar
 	}
