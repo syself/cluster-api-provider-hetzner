@@ -66,6 +66,9 @@ e2e-cilium-templates:
 
 e2e-ccm-templates:
 	helm repo add syself https://charts.syself.com
+
+	# TODO: remove usage of syself/ccm-hcloud. This chart is not updated anymore
+	# by us. We support only the syself ccm.
 	helm template ccm syself/ccm-hcloud --version 1.0.11 \
 	--namespace kube-system \
 	--set pdb.enabled=false \
@@ -78,6 +81,7 @@ e2e-ccm-templates:
 	--set secret.name=hetzner \
 	--set secret.tokenKeyName=hcloud \
 	--set privateNetwork.enabled=true > $(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm-network.yaml
+
 	helm template ccm syself/ccm-hetzner --version 1.1.4 \
 	--namespace kube-system \
 	--set pdb.enabled=false \
