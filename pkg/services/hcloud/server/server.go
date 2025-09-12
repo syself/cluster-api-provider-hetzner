@@ -32,6 +32,7 @@ import (
 	capierrors "sigs.k8s.io/cluster-api/errors"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/record"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -54,28 +55,9 @@ const (
 	// Continuous RequeueAfter in BootToRealOS.
 	requeueIntervalBootToRealOS = 10 * time.Second
 
-	// requeueAfterEnableRescueSystem: the hcloud API needs roughly 3 seconds
-	// for that action to be finished. Do not wait longer.
-	requeueAfterEnableRescueSystem = 4 * time.Second
-
-	requeueIntervalWaitForPreRescueOSThenEnableRescueSystem = 10 * time.Second
-
-	// After enabling the rescue system and GetHostname being successful,
-	// roughly 55 seconds pass. Do not reconcile more often.
-	requeueAfterRebootToRescue = 55 * time.Second
-
-	requeueAfterRebootToRealOS               = 55 * time.Second
-	requeueAfterHcloudImageURLCommandStarted = 55 * time.Second
-
-	requeueIntervalWaitForRescueRunning = 5 * time.Second
-
 	// requeueImmediately gets used to requeue "now". One second gets used to make
 	// it unlikely that the next Reconcile reads stale data from the local cache.
 	requeueImmediately = 1 * time.Second
-
-	preRescueOSImage = "ubuntu-24.04"
-
-	actionDone int64 = -1
 )
 
 var errServerCreateNotPossible = fmt.Errorf("server create not possible - need action")
@@ -202,7 +184,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 
 	s.scope.SetProviderID(server.ID)
 
-	m.SetBootState(infrav1.HCloudBootStateBootToRealOS)
+	hm.SetBootState(infrav1.HCloudBootStateBootToRealOS)
 
 	requeueAfter := requeueAfterCreateServerNoRapidDeploy
 	if image.RapidDeploy {
