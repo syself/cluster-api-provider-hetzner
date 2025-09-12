@@ -144,19 +144,16 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		// This machine seems to be an existing machine which was created before introducing
 		// Status.BootState.
 
+		var msg string
 		if !hm.Status.Ready {
 			hm.SetBootState(infrav1.HCloudBootStateBootToRealOS)
-			msg := fmt.Sprintf("Updating old resource (pre BootState) to %s",
+			msg = fmt.Sprintf("Updating old resource (pre BootState) to %s",
 				hm.Status.BootState)
-			ctrl.LoggerFrom(ctx).Info(msg)
-			conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-				string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
-				"%s", msg)
-			return reconcile.Result{RequeueAfter: requeueImmediately}, nil
+		} else {
+			hm.SetBootState(infrav1.HCloudBootStateOperatingSystemRunning)
+			msg = fmt.Sprintf("Updating old resource (pre BootState) %s", hm.Status.BootState)
 		}
 
-		hm.SetBootState(infrav1.HCloudBootStateOperatingSystemRunning)
-		msg := fmt.Sprintf("Updating old resource (pre BootState) %s", hm.Status.BootState)
 		ctrl.LoggerFrom(ctx).Info(msg)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
