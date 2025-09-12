@@ -15,7 +15,6 @@
 # limitations under the License.
 
 # This script is executed in the Update-Bot container.
-# Call it via `make builder-image-push`.
 # It checks if the Dockerfile for the build container has changed.
 # If so, it uses the version of the main branch as the basis for creating a new image tag.
 # The script also checks if the image tag for the build image exists in the main branch.

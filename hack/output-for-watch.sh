@@ -42,7 +42,7 @@ kubectl get hetznerbaremetalhost -A
 
 print_heading events:
 
-kubectl get events -A --sort-by=lastTimestamp | grep -vP 'LeaderElection' | tail -6
+kubectl get events -A --sort-by=lastTimestamp | grep -vP 'LeaderElection' | tail -8
 
 print_heading caph:
 
@@ -54,8 +54,7 @@ regex='^I\d\d\d\d|\
 .*failed to retrieve Spec.ProviderID|\
 .*failed to patch Machine default
 '
-capi_ns=$(kubectl get deployments -A | grep capi-con | cut -d' ' -f1)
-capi_logs=$(kubectl logs -n "$capi_ns" deployments/capi-controller-manager --since 10m | grep -vP "$(echo "$regex" | tr -d '\n')" | tail -5)
+capi_logs=$(kubectl logs -n capi-system deployments/capi-controller-manager --since 7m | grep -vP "$(echo "$regex" | tr -d '\n')" | tail -5)
 if [ -n "$capi_logs" ]; then
     print_heading capi
     echo "$capi_logs"
@@ -63,7 +62,7 @@ fi
 
 echo
 
-if [[ $(kubectl get machine -l cluster.x-k8s.io/control-plane 2>/dev/null | wc -l) -eq 0 ]]; then
+if [ $(kubectl get machine -l cluster.x-k8s.io/control-plane 2>/dev/null | wc -l) -eq 0 ]; then
     echo "❌ no control-plane machine exists."
     exit 1
 fi

@@ -14,14 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ns=$(kubectl get deployments.apps -A | grep caph-controller-manager | cut -d' ' -f1)
-pod=$(kubectl -n "$ns" get pods | grep caph-controller-manager | cut -d' ' -f1)
+pod=$(kubectl -n caph-system get pods | grep caph-controller-manager | cut -d' ' -f1)
 
 if [ -z "$pod" ]; then
     echo "failed to find caph-controller-manager pod"
     exit 1
 fi
 
-kubectl -n "$ns" logs "$pod" --tail 200 |
-    ./hack/filter-caph-controller-manager-logs.py - |
-    tail -n 10
+kubectl -n caph-system logs "$pod" --tail 200 | \
+	   ./hack/filter-caph-controller-manager-logs.py - | \
+        tail -n 20

@@ -25,12 +25,6 @@
 trap 'echo "Warning: A command has failed. Exiting the script. Line was ($0:$LINENO): $(sed -n "${LINENO}p" "$0")"; exit 3' ERR
 set -Eeuo pipefail
 
-if [[ $(kubectl config current-context) == *oidc@* ]]; then
-    echo "found oidc@ in the current kubectl context. It is likely that you are connected"
-    echo "to the wrong cluster"
-    exit 1
-fi
-
 image_path="ghcr.io/syself"
 
 while [[ "$#" -gt 0 ]]; do
