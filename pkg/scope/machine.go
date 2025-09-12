@@ -34,7 +34,7 @@ import (
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
-	capierrors "github.com/syself/cluster-api-provider-hetzner/pkg/utils/errors"
+	capierrors "sigs.k8s.io/cluster-api/errors"
 )
 
 // MachineScopeParams defines the input parameters used to create a new Scope.
@@ -122,7 +122,7 @@ func (m *MachineScope) PatchObject(ctx context.Context) error {
 // SetError sets the ErrorMessage and ErrorReason fields on the machine and logs
 // the message. It assumes the reason is invalid configuration, since that is
 // currently the only relevant MachineStatusError choice.
-func (m *MachineScope) SetError(message string, reason capierrors.DeprecatedCAPIMachineStatusError) {
+func (m *MachineScope) SetError(message string, reason capierrors.MachineStatusError) {
 	m.HCloudMachine.Status.FailureMessage = &message
 	m.HCloudMachine.Status.FailureReason = &reason
 }

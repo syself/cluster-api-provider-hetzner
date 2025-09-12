@@ -37,7 +37,7 @@ import (
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
-	capierrors "github.com/syself/cluster-api-provider-hetzner/pkg/utils/errors"
+	capierrors "sigs.k8s.io/cluster-api/errors"
 )
 
 const (
@@ -120,7 +120,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	// validate labels
 	if err := validateLabels(server, s.createLabels()); err != nil {
 		err := fmt.Errorf("could not validate labels of HCloud server: %w", err)
-		s.scope.SetError(err.Error(), capierrors.DeprecatedCAPICreateMachineError)
+		s.scope.SetError(err.Error(), capierrors.CreateMachineError)
 		return res, nil
 	}
 
@@ -592,7 +592,7 @@ func (s *Service) handleServerStatusOff(ctx context.Context, server *hcloud.Serv
 			}
 		} else {
 			// Timed out. Set failure reason
-			s.scope.SetError("reached timeout of waiting for machines that are switched off", capierrors.DeprecatedCAPICreateMachineError)
+			s.scope.SetError("reached timeout of waiting for machines that are switched off", capierrors.CreateMachineError)
 			return res, nil
 		}
 	} else {
