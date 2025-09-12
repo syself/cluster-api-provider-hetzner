@@ -41,7 +41,6 @@ import (
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
-	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
@@ -135,13 +134,14 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 			return reconcile.Result{}, fmt.Errorf("findServer: %w", err)
 		}
 
+		// findServer will return both server and error as nil, if the server was not found.
 		if server == nil {
 			// The server did disappear in HCloud? Maybe it was delete via web-UI.
 			// We set MachineError. CAPI will delete machine.
 			msg := fmt.Sprintf("hcloud server (%q) no longer available. Setting MachineError.",
 				*s.scope.HCloudMachine.Spec.ProviderID)
 
-			ctrl.LoggerFrom(ctx).Error(errors.New(msg), msg,
+			s.scope.Logger.Error(errors.New(msg), msg,
 				"ProviderID", *s.scope.HCloudMachine.Spec.ProviderID,
 				"BootState", s.scope.HCloudMachine.Status.BootState,
 				"BootStateSince", s.scope.HCloudMachine.Status.BootStateSince,
@@ -201,6 +201,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 	}
 
+	// if provider id is not set create the server.
 	server, image, err := s.createServerFromImageNameOrURL(ctx)
 	if err != nil {
 		if errors.Is(err, errServerCreateNotPossible) {
@@ -463,7 +464,7 @@ func (s *Service) handleBootStateWaitForRescueRunningThenInstallImage(ctx contex
 	case sshclient.HCloudImageURLCommandStateFinishedSuccessfully:
 		rebootAction, err := s.scope.HCloudClient.Reboot(ctx, server)
 		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("Reboot after HCloudImageURLCommand failed: %w",
+			return reconcile.Result{}, fmt.Errorf("reboot after HCloudImageURLCommand failed: %w",
 				err)
 		}
 		s.scope.HCloudMachine.Status.ActionIDRebootToRealOS = rebootAction.ID
@@ -482,7 +483,7 @@ func (s *Service) handleBootStateWaitForRescueRunningThenInstallImage(ctx contex
 	case sshclient.HCloudImageURLCommandStateNotStarted:
 		// execute code below
 	default:
-		return reconcile.Result{}, fmt.Errorf("Unknown HCloudImageURLCommandState: %q", state)
+		return reconcile.Result{}, fmt.Errorf("unknown HCloudImageURLCommandState: %q", state)
 	}
 
 	// command has not started yet. Start it.
@@ -500,7 +501,6 @@ func (s *Service) handleBootStateWaitForRescueRunningThenInstallImage(ctx contex
 			"exitStatus", exitStatus,
 			"stdouStderr", stdouStderr)
 		return reconcile.Result{}, err
-
 	}
 
 	if exitStatus != 0 {
@@ -803,7 +803,7 @@ func (s *Service) createServerFromImageURL(ctx context.Context) (*hcloud.Server,
 		return nil, nil, fmt.Errorf("controller was started without --hcloud-image-url-command. Provisioning via ImageURL %q not possible", hm.Spec.ImageURL)
 	}
 
-	image, err := getServerImage(ctx, s.scope.HCloudClient, s.scope.HCloudMachine, s.scope.HCloudMachine.Spec.Type, preRescueOSImage)
+	image, err := s.getServerImage(ctx, preRescueOSImage)
 	if err != nil {
 		return nil, nil, fmt.Errorf("createServerFromImageURL: failed to get server image: %w", err)
 	}
@@ -825,14 +825,16 @@ func (s *Service) createServerFromImageName(ctx context.Context) (*hcloud.Server
 		)
 		return nil, nil, fmt.Errorf("failed to get raw bootstrap data: %s", err)
 	}
-	image, err := getServerImage(ctx, s.scope.HCloudClient, s.scope.HCloudMachine, s.scope.HCloudMachine.Spec.Type, s.scope.HCloudMachine.Spec.ImageName)
+	image, err := s.getServerImage(ctx, s.scope.HCloudMachine.Spec.ImageName)
 	if err != nil {
-		return nil, nil, fmt.Errorf("createServerFromImageName: failed to get server image: %w", err)
+		return nil, nil, fmt.Errorf("failed to get server image: %w", err)
 	}
+
 	server, err := s.createServer(ctx, s.scope.Name(), userData, image)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateBootToRealOS)
 	return server, image, nil
 }
@@ -936,9 +938,22 @@ func (s *Service) createServer(ctx context.Context, serverName string, userData 
 	return server, nil
 }
 
-// getSSHKeys returns the sshKey slice for the status and the sshKey slice for the createServer API
-// call.
-// HCloudMachine.Spec.SSHKeys is empty, HetznerCluster.Spec.SSHKeys.HCloud will be used.
+// getSSHKeys collects the set of SSH keys to use when creating a server in Hetzner Cloud,
+// and validates that they exist in the HCloud API.
+//
+// The function:
+//  1. Starts with the SSH keys defined in HCloudMachine.Spec.SSHKeys.
+//     If none are defined there, it falls back to HetznerCluster.Spec.SSHKeys.HCloud.
+//  2. Always adds the SSH key referenced in the Hetzner secret (if present),
+//     ensuring it is included even if not listed in the spec.
+//  3. Fetches the complete list of SSH keys stored in HCloud via the API.
+//  4. Verifies that every SSH key referenced in the spec or secret exists in HCloud.
+//     If any key is missing, it updates machine conditions and returns an error.
+//  5. Builds and returns two slices:
+//     - caphSSHKeys: the logical set of SSH keys referenced in the spec/secret,
+//     suitable for storing in the HCloudMachine status.
+//     - hcloudSSHKeys: the corresponding HCloud API objects, suitable for passing
+//     to the HCloud CreateServer API call.
 func (s *Service) getSSHKeys(ctx context.Context) (
 	caphSSHKeys []infrav1.SSHKey,
 	hcloudSSHKeys []*hcloud.SSHKey,
@@ -1001,19 +1016,17 @@ func (s *Service) getSSHKeys(ctx context.Context) (
 	return caphSSHKeys, hcloudSSHKeys, nil
 }
 
-func getServerImage(ctx context.Context, hcloudClient hcloudclient.Client,
-	hcloudMachine *infrav1.HCloudMachine, machineType infrav1.HCloudMachineType, imageName string,
-) (*hcloud.Image, error) {
+func (s *Service) getServerImage(ctx context.Context, imageName string) (*hcloud.Image, error) {
 	key := fmt.Sprintf("%s%s", infrav1.NameHetznerProviderPrefix, "image-name")
 
 	// Get server type so we can filter for images with correct architecture
-	serverType, err := hcloudClient.GetServerType(ctx, string(machineType))
+	serverType, err := s.scope.HCloudClient.GetServerType(ctx, string(s.scope.HCloudMachine.Spec.Type))
 	if err != nil {
-		return nil, handleRateLimit(hcloudMachine, err, "GetServerType", "failed to get server type in HCloud")
+		return nil, handleRateLimit(s.scope.HCloudMachine, err, "GetServerType", "failed to get server type in HCloud")
 	}
 	if serverType == nil {
 		conditions.MarkFalse(
-			hcloudMachine,
+			s.scope.HCloudMachine,
 			infrav1.ServerCreateSucceededCondition,
 			infrav1.ServerTypeNotFoundReason,
 			clusterv1.ConditionSeverityError,
@@ -1031,9 +1044,9 @@ func getServerImage(ctx context.Context, hcloudClient hcloudclient.Client,
 		Architecture: []hcloud.Architecture{serverType.Architecture},
 	}
 
-	images, err := hcloudClient.ListImages(ctx, listOpts)
+	images, err := s.scope.HCloudClient.ListImages(ctx, listOpts)
 	if err != nil {
-		return nil, handleRateLimit(hcloudMachine, err, "ListImages", "failed to list images by label in HCloud")
+		return nil, handleRateLimit(s.scope.HCloudMachine, err, "ListImages", "failed to list images by label in HCloud")
 	}
 
 	// query for an existing image by name.
@@ -1041,9 +1054,9 @@ func getServerImage(ctx context.Context, hcloudClient hcloudclient.Client,
 		Name:         imageName,
 		Architecture: []hcloud.Architecture{serverType.Architecture},
 	}
-	imagesByName, err := hcloudClient.ListImages(ctx, listOpts)
+	imagesByName, err := s.scope.HCloudClient.ListImages(ctx, listOpts)
 	if err != nil {
-		return nil, handleRateLimit(hcloudMachine, err, "ListImages", "failed to list images by name in HCloud")
+		return nil, handleRateLimit(s.scope.HCloudMachine, err, "ListImages", "failed to list images by name in HCloud")
 	}
 
 	images = append(images, imagesByName...)
@@ -1051,8 +1064,8 @@ func getServerImage(ctx context.Context, hcloudClient hcloudclient.Client,
 	if len(images) > 1 {
 		err := fmt.Errorf("image is ambiguous - %d images have name %s",
 			len(images), imageName)
-		record.Warnf(hcloudMachine, "ImageNameAmbiguous", err.Error())
-		conditions.MarkFalse(hcloudMachine,
+		record.Warnf(s.scope.HCloudMachine, "ImageNameAmbiguous", err.Error())
+		conditions.MarkFalse(s.scope.HCloudMachine,
 			infrav1.ServerCreateSucceededCondition,
 			infrav1.ImageAmbiguousReason,
 			clusterv1.ConditionSeverityError,
@@ -1062,9 +1075,9 @@ func getServerImage(ctx context.Context, hcloudClient hcloudclient.Client,
 		return nil, errServerCreateNotPossible
 	}
 	if len(images) == 0 {
-		err := fmt.Errorf("no image found with name %s", imageName)
-		record.Warnf(hcloudMachine, "ImageNotFound", err.Error())
-		conditions.MarkFalse(hcloudMachine,
+		err := fmt.Errorf("no image found with name %s", s.scope.HCloudMachine.Spec.ImageName)
+		record.Warnf(s.scope.HCloudMachine, "ImageNotFound", err.Error())
+		conditions.MarkFalse(s.scope.HCloudMachine,
 			infrav1.ServerCreateSucceededCondition,
 			infrav1.ImageNotFoundReason,
 			clusterv1.ConditionSeverityError,

@@ -433,6 +433,24 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				Eventually(func() bool {
 					return isPresentAndTrue(key, hcloudMachine, infrav1.ServerAvailableCondition)
 				}, timeout, interval).Should(BeTrue())
+
+				By("checking if the BootState is now OperatingSystemRunning")
+				Eventually(func() bool {
+					if err = testEnv.Get(ctx, key, hcloudMachine); err != nil {
+						return false
+					}
+
+					return hcloudMachine.Status.BootState == infrav1.HCloudBootStateOperatingSystemRunning && !hcloudMachine.Status.BootStateSince.IsZero()
+				}, timeout, interval).Should(BeTrue())
+
+				By("checking if the ssh keys are set in the status")
+				Eventually(func() bool {
+					if err = testEnv.Get(ctx, key, hcloudMachine); err != nil {
+						return false
+					}
+
+					return len(hcloudMachine.Status.SSHKeys) == 1 && hcloudMachine.Status.SSHKeys[0].Name == "testsshkey"
+				}, timeout, interval).Should(BeTrue())
 			})
 		})
 

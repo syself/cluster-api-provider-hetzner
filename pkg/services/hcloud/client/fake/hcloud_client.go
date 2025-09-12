@@ -813,7 +813,7 @@ func (c *cacheHCloudClient) Reboot(_ context.Context, _ *hcloud.Server) (*hcloud
 	return action, nil
 }
 
-func (c *cacheHCloudClient) GetAction(_ context.Context, actionID int64) (*hcloud.Action, error) {
+func (c *cacheHCloudClient) GetAction(_ context.Context, _ int64) (*hcloud.Action, error) {
 	action := &hcloud.Action{
 		ID: 1,
 	}
