@@ -2,6 +2,7 @@ rollOutCiliumPods: true
 priorityClassName: "system-node-critical"
 
 hubble:
+  enabled: false
   metrics:
     enabled:
       - dns:query;ignoreAAAA
