@@ -129,8 +129,8 @@ github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0 h1:Ovs26xHkKqVztRpIrF/92Bcuy
 github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0/go.mod h1:8NvIoxWQoOIhqOTXgfV/d3M/q6VIi02HzZEHgUlZvzk=
 github.com/grpc-ecosystem/grpc-gateway/v2 v2.16.0 h1:YBftPWNWd4WwGqtY2yeZL2ef8rHAxPBD8KFhJpmcqms=
 github.com/grpc-ecosystem/grpc-gateway/v2 v2.16.0/go.mod h1:YN5jB8ie0yfIUg6VvR9Kz84aCaG7AsGZnLjhHbUqwPg=
-github.com/guettli/check-conditions v0.0.9 h1:RWIVVxIxWUNWe+KfIFBAEmI+iHGTRRMfZxCMFtV2Xq8=
-github.com/guettli/check-conditions v0.0.9/go.mod h1:6NifCTWJHcTBVv/0BvsF4ed3K/UOQsw7Pfp7kiRKNww=
+github.com/guettli/check-conditions v0.0.18 h1:BVRcXOOhLi+31+kNnyXkVXNjcuqJrhWjKSQ2Ecxfifo=
+github.com/guettli/check-conditions v0.0.18/go.mod h1:6NifCTWJHcTBVv/0BvsF4ed3K/UOQsw7Pfp7kiRKNww=
 github.com/hashicorp/hcl v1.0.0 h1:0Anlzjpi4vEasTeNFn2mLJgTSwt0+6sfsiTG8qcWGx4=
 github.com/hashicorp/hcl v1.0.0/go.mod h1:E5yfLk+7swimpb2L/Alb/PJmXilQ/rhwaUYs4T20WEQ=
 github.com/hetznercloud/hcloud-go/v2 v2.19.1 h1:UU/7h3uc/rdgspM8xkQF7wokmwZXePWDXcLqrQRRzzY=
