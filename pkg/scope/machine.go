@@ -28,13 +28,13 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	capierrors "sigs.k8s.io/cluster-api/errors" //nolint:staticcheck // we will handle that, when we update to capi v1.11
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
-	capierrors "sigs.k8s.io/cluster-api/errors"
 )
 
 // MachineScopeParams defines the input parameters used to create a new Scope.

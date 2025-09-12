@@ -1683,7 +1683,6 @@ func (s *Service) checkCloudInitStatus(ctx context.Context, sshClient sshclient.
 
 	stdOut := trimLineBreak(out.StdOut)
 	switch {
-
 	case strings.Contains(stdOut, "status: running"):
 		// Cloud init is still running
 		return actionContinue{delay: 5 * time.Second}, "cloud-init still running"
@@ -1712,7 +1711,6 @@ func (s *Service) checkCloudInitStatus(ctx context.Context, sshClient sshclient.
 	default:
 		err = fmt.Errorf("unknown cloud-init output: %s", out.String())
 		return actionError{err: err}, err.Error()
-
 	}
 }
 
