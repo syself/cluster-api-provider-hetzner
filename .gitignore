@@ -8,7 +8,6 @@ bin
 hack/tools/bin
 testbin/*
 temp
-/tmp
 # Test binary, build with `go test -c`
 *.test
 .coverage
