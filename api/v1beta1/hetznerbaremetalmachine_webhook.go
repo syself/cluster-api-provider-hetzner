@@ -43,12 +43,7 @@ var _ webhook.Validator = &HetznerBareMetalMachine{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
 func (bmMachine *HetznerBareMetalMachine) ValidateCreate() (admission.Warnings, error) {
-	if bmMachine.Spec.SSHSpec.PortAfterCloudInit == 0 {
-		bmMachine.Spec.SSHSpec.PortAfterCloudInit = bmMachine.Spec.SSHSpec.PortAfterInstallImage
-	}
-
 	allErrs := validateHetznerBareMetalMachineSpecCreate(bmMachine.Spec)
-
 	return nil, aggregateObjErrors(bmMachine.GroupVersionKind().GroupKind(), bmMachine.Name, allErrs)
 }
 
