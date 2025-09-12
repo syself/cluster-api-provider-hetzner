@@ -1397,10 +1397,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 	DescribeTable("actionEnsureProvisioned",
 		func(in testCaseActionEnsureProvisioned) {
 			ctx := context.Background()
-			var (
-				portAfterCloudInit    = 24
-				portAfterInstallImage = 23
-			)
+			portAfterInstallImage := 23
 			if in.samePorts {
 				portAfterInstallImage = 24
 			}
@@ -1408,7 +1405,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 			host := helpers.BareMetalHost(
 				"test-host",
 				"default",
-				helpers.WithSSHSpecInclPorts(portAfterInstallImage, portAfterCloudInit),
+				helpers.WithSSHSpecInclPorts(portAfterInstallImage),
 				helpers.WithIPv4(),
 				helpers.WithConsumerRef(),
 			)

@@ -285,7 +285,6 @@ func getDefaultHetznerBareMetalMachineSpec() infrav1.HetznerBareMetalMachineSpec
 				},
 			},
 			PortAfterInstallImage: 22,
-			PortAfterCloudInit:    22,
 		},
 	}
 }

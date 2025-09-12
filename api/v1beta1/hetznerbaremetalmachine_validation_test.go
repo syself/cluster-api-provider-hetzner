@@ -267,7 +267,6 @@ func TestValidateHetznerBareMetalMachineSpecUpdate(t *testing.T) {
 							},
 						},
 						PortAfterInstallImage: 22,
-						PortAfterCloudInit:    22,
 					},
 				},
 				newSpec: HetznerBareMetalMachineSpec{
@@ -281,7 +280,6 @@ func TestValidateHetznerBareMetalMachineSpecUpdate(t *testing.T) {
 							},
 						},
 						PortAfterInstallImage: 2222,
-						PortAfterCloudInit:    2222,
 					},
 				},
 			},
@@ -295,7 +293,6 @@ func TestValidateHetznerBareMetalMachineSpecUpdate(t *testing.T) {
 					},
 				},
 				PortAfterInstallImage: 2222,
-				PortAfterCloudInit:    2222,
 			}, "sshSpec immutable"),
 		},
 		{
@@ -363,7 +360,6 @@ func TestValidateHetznerBareMetalMachineSpecUpdate(t *testing.T) {
 							},
 						},
 						PortAfterInstallImage: 22,
-						PortAfterCloudInit:    22,
 					},
 					HostSelector: HostSelector{
 						MatchLabels: map[string]string{
@@ -395,7 +391,6 @@ func TestValidateHetznerBareMetalMachineSpecUpdate(t *testing.T) {
 							},
 						},
 						PortAfterInstallImage: 22,
-						PortAfterCloudInit:    22,
 					},
 					HostSelector: HostSelector{
 						MatchLabels: map[string]string{
