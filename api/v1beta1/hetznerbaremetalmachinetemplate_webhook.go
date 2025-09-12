@@ -47,7 +47,7 @@ type HetznerBareMetalMachineTemplateWebhook struct{}
 var _ webhook.CustomValidator = &HetznerBareMetalMachineTemplateWebhook{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
-func (r *HetznerBareMetalMachineTemplateWebhook) ValidateCreate(_ context.Context, raw runtime.Object) (admission.Warnings, error) {
+func (r *HetznerBareMetalMachineTemplateWebhook) ValidateCreate(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
 	// TODO: Cannot validate it because ClusterClass applies empty template objects
 	// allErrs := validateHetznerBareMetalMachineSpecCreate(hbmmt.Spec.Template.Spec)
 	return nil, nil
