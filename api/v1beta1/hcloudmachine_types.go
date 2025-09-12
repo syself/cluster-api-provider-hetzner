@@ -109,10 +109,6 @@ type HCloudMachineStatus struct {
 	// provisioning if a state takes too long.
 	// +optional
 	BootStateSince metav1.Time `json:"bootStateSince,omitzero"`
-
-	// BootStateMessage gives a human reable, more detailed explanation of the current BootState
-	// +optional
-	BootStateMessage string `json:"bootStateMessage,omitzero"`
 }
 
 // HCloudMachine is the Schema for the hcloudmachines API.

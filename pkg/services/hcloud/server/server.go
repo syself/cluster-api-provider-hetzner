@@ -127,7 +127,9 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 			s.scope.SetError(msg, capierrors.CreateMachineError)
 			s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateUnset)
 			record.Warn(s.scope.HCloudMachine, "NoHCloudServerFound", msg)
-			s.scope.HCloudMachine.Status.BootStateMessage = msg
+			conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerAvailableCondition,
+				string(s.scope.HCloudMachine.Status.BootState), clusterv1.ConditionSeverityInfo,
+				"%s", msg)
 			// no need to requeue.
 			return reconcile.Result{}, nil
 		}
@@ -158,14 +160,18 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 			msg := fmt.Sprintf("Updating old resource (pre BootState) to %s",
 				hm.Status.BootState)
 			ctrl.LoggerFrom(ctx).Info(msg)
-			hm.Status.BootStateMessage = msg
+			conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
+				string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
+				"%s", msg)
 			return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 		}
 
 		hm.SetBootState(infrav1.HCloudBootStateOperatingSystemRunning)
 		msg := fmt.Sprintf("Updating old resource (pre BootState) %s", hm.Status.BootState)
 		ctrl.LoggerFrom(ctx).Info(msg)
-		hm.Status.BootStateMessage = msg
+		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
+			string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
+			"%s", msg)
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 	}
 
@@ -173,7 +179,9 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 	server, image, err := s.createServerFromImageName(ctx)
 	if err != nil {
 		if errors.Is(err, errServerCreateNotPossible) {
-			hm.Status.BootStateMessage = err.Error()
+			conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
+				string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
+				"%s", err.Error())
 			return reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
 		}
 		return reconcile.Result{}, fmt.Errorf("failed to create server: %w", err)
@@ -189,7 +197,9 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 	if image.RapidDeploy {
 		requeueAfter = requeueAfterCreateServerRapidDeploy
 	}
-	hm.Status.BootStateMessage = "ProviderID set"
+	conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
+		string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
+		"ProviderID set")
 	return reconcile.Result{RequeueAfter: requeueAfter}, nil
 }
 
@@ -202,19 +212,25 @@ func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server)
 		return s.handleServerStatusOff(ctx, server)
 
 	case hcloud.ServerStatusStarting, hcloud.ServerStatusInitializing:
-		hm.Status.BootStateMessage = fmt.Sprintf("hcloud server status: %s", server.Status)
+		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
+			string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
+			"hcloud server status: %s", server.Status)
 		return reconcile.Result{RequeueAfter: requeueIntervalBootToRealOS}, nil
 
 	case hcloud.ServerStatusRunning:
 		s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateOperatingSystemRunning)
-		hm.Status.BootStateMessage = fmt.Sprintf("hcloud server status: %s", server.Status)
+		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
+			string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
+			"%s", "hcloud server status: %s", server.Status)
 		// Show changes in Status and go to next BootState.
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 
 	default:
 		// some temporary status
 		msg := fmt.Sprintf("hcloud server status unknown: %s", server.Status)
-		hm.Status.BootStateMessage = msg
+		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
+			string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
+			"%s", msg)
 		return reconcile.Result{RequeueAfter: requeueIntervalBootToRealOS}, nil
 	}
 }
@@ -226,7 +242,7 @@ func (s *Service) handleOperatingSystemRunning(ctx context.Context, server *hclo
 	if err := s.reconcileNetworkAttachment(ctx, server); err != nil {
 		reterr := fmt.Errorf("failed to reconcile network attachment: %w", err)
 		conditions.MarkFalse(
-			s.scope.HCloudMachine,
+			hm,
 			infrav1.ServerAvailableCondition,
 			infrav1.NetworkAttachFailedReason,
 			clusterv1.ConditionSeverityError,
@@ -238,7 +254,7 @@ func (s *Service) handleOperatingSystemRunning(ctx context.Context, server *hclo
 
 	// nothing to do any more for worker nodes
 	if !s.scope.IsControlPlane() {
-		conditions.MarkTrue(s.scope.HCloudMachine, infrav1.ServerAvailableCondition)
+		conditions.MarkTrue(hm, infrav1.ServerAvailableCondition)
 		s.scope.SetReady(true)
 		return res, nil
 	}
@@ -248,7 +264,7 @@ func (s *Service) handleOperatingSystemRunning(ctx context.Context, server *hclo
 	if err != nil {
 		reterr := fmt.Errorf("failed to reconcile load balancer attachment: %w", err)
 		conditions.MarkFalse(
-			s.scope.HCloudMachine,
+			hm,
 			infrav1.ServerAvailableCondition,
 			infrav1.LoadBalancerAttachFailedReason,
 			clusterv1.ConditionSeverityError,
@@ -259,8 +275,7 @@ func (s *Service) handleOperatingSystemRunning(ctx context.Context, server *hclo
 	}
 
 	s.scope.SetReady(true)
-	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.ServerAvailableCondition)
-	hm.Status.BootStateMessage = ""
+	conditions.MarkTrue(hm, infrav1.ServerAvailableCondition)
 	return reconcile.Result{}, nil
 }
 
@@ -390,7 +405,9 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 
 	// we attach only nodes with kube-apiserver pod healthy to avoid downtime, skipped for the first node
 	if len(s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target) > 0 && !apiServerPodHealthy {
-		hm.Status.BootStateMessage = "reconcile LoadBalancer: apiserver pod not healthy yet."
+		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
+			string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
+			"reconcile LoadBalancer: apiserver pod not healthy yet.")
 		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
@@ -708,7 +725,9 @@ func (s *Service) handleServerStatusOff(ctx context.Context, server *hcloud.Serv
 			if err := s.scope.HCloudClient.PowerOnServer(ctx, server); err != nil {
 				if hcloud.IsError(err, hcloud.ErrorCodeLocked) {
 					// if server is locked, we just retry again
-					s.scope.HCloudMachine.Status.BootStateMessage = "handleServerStatusOff: server locked. Will retry"
+					conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerAvailableCondition,
+						string(s.scope.HCloudMachine.Status.BootState), clusterv1.ConditionSeverityInfo,
+						"handleServerStatusOff: server locked. Will retry")
 					return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 				}
 				return reconcile.Result{}, handleRateLimit(s.scope.HCloudMachine, err, "PowerOnServer", "failed to power on server")
@@ -723,7 +742,8 @@ func (s *Service) handleServerStatusOff(ctx context.Context, server *hcloud.Serv
 		if err := s.scope.HCloudClient.PowerOnServer(ctx, server); err != nil {
 			if hcloud.IsError(err, hcloud.ErrorCodeLocked) {
 				// if server is locked, we just retry again
-				s.scope.HCloudMachine.Status.BootStateMessage = "handleServerStatusOff: server locked. Will retry"
+				conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerAvailableCondition,
+					string(s.scope.HCloudMachine.Status.BootState), clusterv1.ConditionSeverityInfo, "handleServerStatusOff: server locked. Will retry")
 				return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 			}
 			return reconcile.Result{}, handleRateLimit(s.scope.HCloudMachine, err, "PowerOnServer", "failed to power on server")
