@@ -19,6 +19,8 @@ trap 'echo -e "\n🤷 🚨 🔥 Warning: A command has failed. Exiting the scrip
 set -Eeuo pipefail
 
 if ! git diff --quiet || ! git diff --cached --quiet || [[ -n "$(git ls-files --others --exclude-standard)" ]]; then
+    echo
+    echo "Pre Start of verify-generated-faile.sh"
     echo "Error: Git repository is not clean. Please commit, stash, or remove your changes and untracked files before proceeding."
     git status
     exit 1
@@ -36,7 +38,13 @@ fi
 make generate
 
 if ! git diff --quiet || ! git diff --cached --quiet || [[ -n "$(git ls-files --others --exclude-standard)" ]]; then
+    echo "After generated files got re-generated:"
     echo "Error: Git repository is not clean. Please commit, stash, or remove your changes and untracked files before proceeding."
     git status
+    echo
+    echo "-------------------------"
+    git diff
+    echo
+    echo "git hash: $(git rev-parse HEAD)"
     exit 1
 fi
