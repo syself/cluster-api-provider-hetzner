@@ -22,6 +22,7 @@ jobs:
 
       # Take from https://github.com/kubernetes-sigs/kubebuilder/blob/master/.github/workflows/verify.yml
       - name: Validate PR Title Format
+        shell: bash
         env:
           TITLE: ${{ github.event.pull_request.title }}
         run: |
@@ -63,6 +64,7 @@ jobs:
         run: npm i -g renovate@35.54.0 # TODO update this via renovatebot
 
       - name: Validate config
+        shell: bash
         run: |
           for file in $(find . -name "*.json5"); do
             renovate-config-validator ${file}
