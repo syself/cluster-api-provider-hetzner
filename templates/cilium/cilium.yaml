@@ -11,11 +11,9 @@ hubble:
       - icmp
       - http
   relay:
-    enabled: true
-    rollOutPods: true
+    enabled: false
   ui:
-    enabled: true
-    rollOutPods: true
+    enabled: false
 ipam:
   mode: "kubernetes"
 
@@ -24,3 +22,4 @@ kubeProxyReplacement: true
 operator:
   rollOutPods: true
   priorityClassName: "system-node-critical"
+  replicas: 1
