@@ -44,7 +44,7 @@ var _ = Describe("updateSSHKey", func() {
 				"test-host",
 				"default",
 				helpers.WithSSHStatus(),
-				helpers.WithSSHSpecInclPorts(23, 24),
+				helpers.WithSSHSpecInclPorts(23),
 			)
 
 			dataHashOS, err := infrav1.HashOfSecretData(tc.osSecretData)

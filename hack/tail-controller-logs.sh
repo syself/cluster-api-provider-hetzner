@@ -24,4 +24,4 @@ fi
 
 kubectl -n "$ns" logs "$pod" --tail 200 |
     ./hack/filter-caph-controller-manager-logs.py - |
-    tail -n 20
+    tail -n 10

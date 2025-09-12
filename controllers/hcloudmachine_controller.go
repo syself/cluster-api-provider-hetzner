@@ -162,16 +162,6 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 			conditions.MarkTrue(hcloudMachine, infrav1.HCloudTokenAvailableCondition)
 		}
 
-		if hcloudMachine.Status.BootState != infrav1.HCloudBootStateOperatingSystemRunning {
-			conditions.MarkFalse(hcloudMachine, infrav1.ServerAvailableCondition,
-				string(hcloudMachine.Status.BootState), clusterv1.ConditionSeverityWarning,
-				"%s", hcloudMachine.Status.BootStateMessage)
-		}
-		if reterr != nil {
-			conditions.MarkFalse(hcloudMachine, infrav1.ServerAvailableCondition,
-				string(hcloudMachine.Status.BootState), clusterv1.ConditionSeverityWarning,
-				"%s", reterr.Error())
-		}
 		// the Close() will use PatchHelper to store the changes.
 		if err := machineScope.Close(ctx); err != nil {
 			res = reconcile.Result{}
@@ -219,9 +209,6 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 		}
 
 		if initialHCloudMachine.Status.BootState != machineScope.HCloudMachine.Status.BootState {
-			// BootState changed. Wait until the update arrived in the local cache to ensure
-			// "read your own writes" in the next Reconcile.
-
 			startBootState := initialHCloudMachine.Status.BootStateSince
 			if startBootState.IsZero() {
 				startBootState = initialHCloudMachine.CreationTimestamp

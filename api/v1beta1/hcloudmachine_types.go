@@ -136,10 +136,6 @@ type HCloudMachineStatus struct {
 	// +optional
 	BootStateSince metav1.Time `json:"bootStateSince,omitzero"`
 
-	// BootStateMessage gives a human reable, more detailed explanation of the current BootState
-	// +optional
-	BootStateMessage string `json:"bootStateMessage,omitzero"`
-
 	// ActionIDEnableRescueSystem is the hcloud API Action result of EnableRescueSystem.
 	// +optional
 	ActionIDEnableRescueSystem int64 `json:"actionIdEnableRescueSystem,omitzero"`

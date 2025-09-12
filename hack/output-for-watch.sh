@@ -42,7 +42,7 @@ kubectl get hetznerbaremetalhost -A
 
 print_heading events:
 
-kubectl get events -A --sort-by=lastTimestamp | grep -vP 'LeaderElection' | tail -8
+kubectl get events -A --sort-by=lastTimestamp | grep -vP 'LeaderElection' | tail -6
 
 print_heading caph:
 

@@ -232,10 +232,6 @@ spec:
                   If Spec.ImageURL set set the states will be:
                   "" -> WaitForPreRescueOSThenEnableRescueSystem -> RescueSystem -> WaitForRescueRunningThenInstallImage -> BootToRealOS -> OperatingSystemRunning
                 type: string
-              bootStateMessage:
-                description: BootStateMessage gives a human reable, more detailed
-                  explanation of the current BootState
-                type: string
               bootStateSince:
                 description: |-
                   BootStateSince is the timestamp of the last change to BootState. It is used to timeout
