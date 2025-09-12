@@ -499,8 +499,8 @@ spec:
                     properties:
                       portAfterCloudInit:
                         description: |-
-                          PortAfterCloudInit specifies the port that has to be used to connect to the machine
-                          by reaching the server via SSH after the successful completion of cloud init.
+                          PortAfterCloudInit is deprecated. Since PR Install Cloud-Init-Data via post-install.sh #1407 this field is not functional.
+                          Deprecated: This field is not used anymore.
                         type: integer
                       portAfterInstallImage:
                         default: 22

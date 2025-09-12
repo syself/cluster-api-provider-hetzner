@@ -79,7 +79,7 @@ Via MatchLabels you can specify a certain label (key and value) that identifies 
 | `template.spec.sshSpec.secretRef.key.publicKey`                  | `string`              |                           | yes      | PublicKey is the key in the secret's data where the SSH key's public key is stored                                                                 |
 | `template.spec.sshSpec.secretRef.key.privateKey`                 | `string`              |                           | yes      | PrivateKey is the key in the secret's data where the SSH key's private key is stored                                                               |
 | `template.spec.sshSpec.portAfterInstallImage`                    | `int`                 | `22`                      | no       | PortAfterInstallImage specifies the port that can be used to reach the server via SSH after install image completed successfully                   |
-| `template.spec.sshSpec.portAfterCloudInit`                       | `int`                 | `22` (install image port) | no       | PortAfterCloudInit specifies the port that can be used to reach the server via SSH after cloud init completed successfully                         |
+| `template.spec.sshSpec.portAfterCloudInit`                       | `int`                 | `22` (install image port) | no       | PortAfterCloudInit specifies the port that can be used to reach the server via SSH after cloud init completed successfully. Deprecated. Since [PR Install Cloud-Init-Data via post-install.sh #1407](https://github.com/syself/cluster-api-provider-hetzner/pull/1407) this field is not functional.  |
 
 ## installImage.image
 

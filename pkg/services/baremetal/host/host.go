@@ -240,7 +240,7 @@ func (s *Service) actionPreparing(ctx context.Context) actionResult {
 
 	sshClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
 		PrivateKey: sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.SecretRef).PrivateKey,
-		Port:       s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterCloudInit,
+		Port:       s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterInstallImage,
 		IP:         s.scope.HetznerBareMetalHost.Spec.Status.GetIPAddress(),
 	})
 
@@ -1563,7 +1563,7 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StateEnsureProvisioned)
 	sshClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
 		PrivateKey: sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.SecretRef).PrivateKey,
-		Port:       s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterCloudInit,
+		Port:       s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterInstallImage,
 		IP:         s.scope.HetznerBareMetalHost.Spec.Status.GetIPAddress(),
 	})
 
@@ -1587,13 +1587,6 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 					"EnsureProvision: wanted %q. %s", wantHostName, err.Error())
 			}
 			return actionError{err: fmt.Errorf("failed to handle incomplete boot - provisioning: %w", err)}
-		}
-		// A connection failed error could mean that cloud init is still running (if cloudInit introduces a new port)
-		if isSSHConnectionRefusedError {
-			if actionRes := s.handleConnectionRefused(ctx); actionRes != nil {
-				s.scope.Logger.Info("ensureProvisioned: ConnectionRefused", "actionResult", actionRes)
-				return actionRes
-			}
 		}
 
 		failed, err := s.handleIncompleteBoot(ctx, false, isTimeout, isSSHConnectionRefusedError)
@@ -1647,54 +1640,16 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 		return createEventWithCloudInitOutput(actResult)
 	}
 
-	// Check whether cloud init did not run successfully even though it shows "done"
-	// Check this only when the port did not change. Because if it did, then we can already confirm at this point
-	// that the change worked and the new port is usable. This is a strong enough indication for us to assume cloud init worked.
-	if s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterInstallImage == s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterCloudInit {
-		actResult = s.handleCloudInitNotStarted(ctx)
-		if _, complete := actResult.(actionComplete); !complete {
-			s.scope.Logger.Info("ensureProvisioned: handleCloudInitNotStarted", "actResult", actResult)
-			return createEventWithCloudInitOutput(actResult)
-		}
+	actResult = s.handleCloudInitNotStarted(ctx)
+	if _, complete := actResult.(actionComplete); !complete {
+		s.scope.Logger.Info("ensureProvisioned: handleCloudInitNotStarted", "actResult", actResult)
+		return createEventWithCloudInitOutput(actResult)
 	}
 
 	record.Event(s.scope.HetznerBareMetalHost, "ServerProvisioned", "server successfully provisioned")
 	conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
 	s.scope.HetznerBareMetalHost.ClearError()
 	return createEventWithCloudInitOutput(actionComplete{})
-}
-
-// handleConnectionRefused checks cloud init status via ssh to the old ssh port if the new ssh port
-// gave a connection refused error.
-func (s *Service) handleConnectionRefused(ctx context.Context) actionResult {
-	// Nothing to do if ports didn't change.
-	if s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterInstallImage == s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterCloudInit {
-		return nil
-	}
-	oldSSHClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
-		PrivateKey: sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.SecretRef).PrivateKey,
-		Port:       s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterInstallImage,
-		IP:         s.scope.HetznerBareMetalHost.Spec.Status.GetIPAddress(),
-	})
-	actResult, _, err := s.checkCloudInitStatus(ctx, oldSSHClient)
-	// If this ssh client also gives an error, then we go back to analyzing the error of the first ssh call
-	// This happens in the statement below this one.
-	if err == nil {
-		// If cloud-init status == "done" and cloud init was successful,
-		// then we will soon reboot and be able to access the server via the new port
-		if _, complete := actResult.(actionComplete); complete {
-			// Check whether cloud init did not run successfully even though it shows "done"
-			actResult := s.handleCloudInitNotStarted(ctx)
-			if _, complete := actResult.(actionComplete); complete {
-				return actionContinue{delay: 10 * time.Second}
-			}
-			return actResult
-		}
-	}
-	if _, actionerr := actResult.(actionError); !actionerr {
-		return actResult
-	}
-	return nil
 }
 
 func (s *Service) checkCloudInitStatus(ctx context.Context, sshClient sshclient.Client) (actionResult, string, error) {
@@ -1817,7 +1772,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	creds := sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.SecretRef)
 	in := sshclient.Input{
 		PrivateKey: creds.PrivateKey,
-		Port:       s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterCloudInit,
+		Port:       s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterInstallImage,
 		IP:         s.scope.HetznerBareMetalHost.Spec.Status.GetIPAddress(),
 	}
 	sshClient := s.scope.SSHClientFactory.NewClient(in)
@@ -1886,7 +1841,7 @@ func (s *Service) actionDeprovisioning(_ context.Context) actionResult {
 	if s.scope.OSSSHSecret != nil {
 		sshClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
 			PrivateKey: sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.SecretRef).PrivateKey,
-			Port:       s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterCloudInit,
+			Port:       s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterInstallImage,
 			IP:         s.scope.HetznerBareMetalHost.Spec.Status.GetIPAddress(),
 		})
 		out := sshClient.ResetKubeadm()
