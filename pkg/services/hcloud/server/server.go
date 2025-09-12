@@ -54,9 +54,28 @@ const (
 	// Continuous RequeueAfter in BootToRealOS.
 	requeueIntervalBootToRealOS = 10 * time.Second
 
+	// requeueAfterEnableRescueSystem: the hcloud API needs roughly 3 seconds
+	// for that action to be finished. Do not wait longer.
+	requeueAfterEnableRescueSystem = 4 * time.Second
+
+	requeueIntervalWaitForPreRescueOSThenEnableRescueSystem = 10 * time.Second
+
+	// After enabling the rescue system and GetHostname being successful,
+	// roughly 55 seconds pass. Do not reconcile more often.
+	requeueAfterRebootToRescue = 55 * time.Second
+
+	requeueAfterRebootToRealOS               = 55 * time.Second
+	requeueAfterHcloudImageURLCommandStarted = 55 * time.Second
+
+	requeueIntervalWaitForRescueRunning = 5 * time.Second
+
 	// requeueImmediately gets used to requeue "now". One second gets used to make
 	// it unlikely that the next Reconcile reads stale data from the local cache.
 	requeueImmediately = 1 * time.Second
+
+	preRescueOSImage = "ubuntu-24.04"
+
+	actionDone int64 = -1
 )
 
 var errServerCreateNotPossible = fmt.Errorf("server create not possible - need action")
@@ -126,10 +145,11 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 			s.scope.SetError(msg, capierrors.CreateMachineError)
 			s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateUnset)
 			record.Warn(s.scope.HCloudMachine, "NoHCloudServerFound", msg)
-
+			s.scope.HCloudMachine.Status.BootStateMessage = msg
 			// no need to requeue.
 			return reconcile.Result{}, nil
 		}
+		updateHCloudMachineStatusFromServer(s.scope.HCloudMachine, server)
 	}
 
 	switch s.scope.HCloudMachine.Status.BootState {
@@ -145,20 +165,26 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 }
 
 func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, error) {
-	m := s.scope.HCloudMachine
+	hm := s.scope.HCloudMachine
 
-	if m.Spec.ProviderID != nil && *m.Spec.ProviderID != "" {
+	if hm.Spec.ProviderID != nil && *hm.Spec.ProviderID != "" {
 		// This machine seems to be an existing machine which was created before introducing
 		// Status.BootState.
 
-		if !m.Status.Ready {
-			m.SetBootState(infrav1.HCloudBootStateBootToRealOS)
-		} else {
-			m.SetBootState(infrav1.HCloudBootStateOperatingSystemRunning)
+		if !hm.Status.Ready {
+			hm.SetBootState(infrav1.HCloudBootStateBootToRealOS)
+			msg := fmt.Sprintf("Updating old resource (pre BootState) to %s",
+				hm.Status.BootState)
+			ctrl.LoggerFrom(ctx).Info(msg)
+			hm.Status.BootStateMessage = msg
+			return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 		}
 
-		s.scope.Logger.Info("Updating old resource (pre BootState)", "to", m.Status.BootState)
-
+		hm.SetBootState(infrav1.HCloudBootStateOperatingSystemRunning)
+		msg := fmt.Sprintf("Updating old resource (pre BootState) %s", hm.Status.BootState)
+		ctrl.LoggerFrom(ctx).Info(msg)
+		hm.Status.BootStateMessage = msg
+		// Requeue once the new way. But in most cases nothing should have changed.
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 	}
 
@@ -166,6 +192,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 	server, image, err := s.createServerFromImageName(ctx)
 	if err != nil {
 		if errors.Is(err, errServerCreateNotPossible) {
+			hm.Status.BootStateMessage = err.Error()
 			return reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
 		}
 		return reconcile.Result{}, fmt.Errorf("failed to create server: %w", err)
@@ -181,47 +208,39 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 	if image.RapidDeploy {
 		requeueAfter = requeueAfterCreateServerRapidDeploy
 	}
-
+	hm.Status.BootStateMessage = "ProviderID set"
 	return reconcile.Result{RequeueAfter: requeueAfter}, nil
 }
 
 func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
+	hm := s.scope.HCloudMachine
+
 	// analyze status of server
 	switch server.Status {
 	case hcloud.ServerStatusOff:
 		return s.handleServerStatusOff(ctx, server)
 
-	case hcloud.ServerStatusStarting:
-		// Requeue here so that server does not switch back and forth between off and starting.
-		// If we don't return here, the condition ServerAvailable would get marked as true in this
-		// case. However, if the server is stuck and does not power on, we should not mark the
-		// condition ServerAvailable as true to be able to remediate the server after a timeout.
-		conditions.MarkFalse(
-			s.scope.HCloudMachine,
-			infrav1.ServerAvailableCondition,
-			infrav1.ServerStartingReason,
-			clusterv1.ConditionSeverityInfo,
-			"server is starting",
-		)
-		return reconcile.Result{RequeueAfter: requeueIntervalBootToRealOS}, nil
-
-	case hcloud.ServerStatusInitializing:
-		// "Initializing" is the first state, then (~5s later) comes "Starting"
+	case hcloud.ServerStatusStarting, hcloud.ServerStatusInitializing:
+		hm.Status.BootStateMessage = fmt.Sprintf("hcloud server status: %s", server.Status)
 		return reconcile.Result{RequeueAfter: requeueIntervalBootToRealOS}, nil
 
 	case hcloud.ServerStatusRunning:
 		s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateOperatingSystemRunning)
+		hm.Status.BootStateMessage = fmt.Sprintf("hcloud server status: %s", server.Status)
 		// Show changes in Status and go to next BootState.
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 
 	default:
 		// some temporary status
-		s.scope.Logger.Info("Unknown hcloud server status", "status", server.Status)
+		msg := fmt.Sprintf("hcloud server status unknown: %s", server.Status)
+		hm.Status.BootStateMessage = msg
 		return reconcile.Result{RequeueAfter: requeueIntervalBootToRealOS}, nil
 	}
 }
 
 func (s *Service) handleOperatingSystemRunning(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
+	hm := s.scope.HCloudMachine
+
 	// check whether server is attached to the network
 	if err := s.reconcileNetworkAttachment(ctx, server); err != nil {
 		reterr := fmt.Errorf("failed to reconcile network attachment: %w", err)
@@ -260,6 +279,7 @@ func (s *Service) handleOperatingSystemRunning(ctx context.Context, server *hclo
 
 	s.scope.SetReady(true)
 	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.ServerAvailableCondition)
+	hm.Status.BootStateMessage = ""
 	return reconcile.Result{}, nil
 }
 
@@ -346,6 +366,8 @@ func (s *Service) reconcileNetworkAttachment(ctx context.Context, server *hcloud
 }
 
 func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *hcloud.Server) (reconcile.Result, error) {
+	hm := s.scope.HCloudMachine
+
 	if s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer == nil {
 		return reconcile.Result{}, nil
 	}
@@ -387,6 +409,7 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 
 	// we attach only nodes with kube-apiserver pod healthy to avoid downtime, skipped for the first node
 	if len(s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target) > 0 && !apiServerPodHealthy {
+		hm.Status.BootStateMessage = "reconcile LoadBalancer: apiserver pod not healthy yet."
 		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
@@ -704,6 +727,7 @@ func (s *Service) handleServerStatusOff(ctx context.Context, server *hcloud.Serv
 			if err := s.scope.HCloudClient.PowerOnServer(ctx, server); err != nil {
 				if hcloud.IsError(err, hcloud.ErrorCodeLocked) {
 					// if server is locked, we just retry again
+					s.scope.HCloudMachine.Status.BootStateMessage = "handleServerStatusOff: server locked. Will retry"
 					return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 				}
 				return reconcile.Result{}, handleRateLimit(s.scope.HCloudMachine, err, "PowerOnServer", "failed to power on server")
@@ -718,6 +742,7 @@ func (s *Service) handleServerStatusOff(ctx context.Context, server *hcloud.Serv
 		if err := s.scope.HCloudClient.PowerOnServer(ctx, server); err != nil {
 			if hcloud.IsError(err, hcloud.ErrorCodeLocked) {
 				// if server is locked, we just retry again
+				s.scope.HCloudMachine.Status.BootStateMessage = "handleServerStatusOff: server locked. Will retry"
 				return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 			}
 			return reconcile.Result{}, handleRateLimit(s.scope.HCloudMachine, err, "PowerOnServer", "failed to power on server")
@@ -820,8 +845,6 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 		}
 	}
 
-	s.scope.Logger.Info("DeprecationWarning finding Server by labels is no longer needed. We plan to remove that feature and rename findServer to getServer", "err", err)
-
 	// server has not been found via id - try to find the server based on its labels
 	opts := hcloud.ServerListOpts{}
 
@@ -841,6 +864,9 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 	if len(servers) == 0 {
 		return nil, nil
 	}
+
+	logger := ctrl.LoggerFrom(ctx)
+	logger.Info("DeprecationWarning finding Server by labels is no longer needed. We plan to remove that feature and rename findServer to getServer", "err", err)
 
 	return servers[0], nil
 }

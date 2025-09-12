@@ -77,7 +77,7 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
-	log = log.WithValues("HCloudMachine", klog.KObj(hcloudMachine))
+	log = log.WithValues("HCloudMachine", hcloudMachine.Name)
 
 	// Fetch the Machine.
 	machine, err := util.GetOwnerMachine(ctx, r.Client, hcloudMachine.ObjectMeta)
@@ -145,8 +145,8 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %+v", err)
 	}
 
-	initialHcloudMachine := hcloudMachine.DeepCopy()
-
+	initialHCloudMachine := hcloudMachine.DeepCopy()
+	startReconcile := time.Now()
 	// Always close the scope when exiting this function so we can persist any HCloudMachine changes.
 	defer func() {
 		if reterr != nil && errors.Is(reterr, hcloudclient.ErrUnauthorized) {
@@ -155,22 +155,72 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 			conditions.MarkTrue(hcloudMachine, infrav1.HCloudTokenAvailableCondition)
 		}
 
+		if hcloudMachine.Status.BootState != infrav1.HCloudBootStateOperatingSystemRunning {
+			conditions.MarkFalse(hcloudMachine, infrav1.ServerAvailableCondition,
+				string(hcloudMachine.Status.BootState), clusterv1.ConditionSeverityWarning,
+				"%s", hcloudMachine.Status.BootStateMessage)
+		}
+		if reterr != nil {
+			conditions.MarkFalse(hcloudMachine, infrav1.ServerAvailableCondition,
+				string(hcloudMachine.Status.BootState), clusterv1.ConditionSeverityWarning,
+				"%s", reterr.Error())
+		}
+		// the Close() will use PatchHelper to store the changes.
 		if err := machineScope.Close(ctx); err != nil {
 			res = reconcile.Result{}
 			reterr = errors.Join(reterr, err)
 		}
 
+		if !cmp.Equal(initialHCloudMachine, hcloudMachine) {
+			// The hcloudMachine was changed. Wait until the local cache contains the revision
+			// which was created by above machineScope.Close().
+			// We want to read our own writes.
+			err := wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, 5*time.Second, true, func(ctx context.Context) (done bool, err error) {
+				// new resource, read from local cache
+				latest := &infrav1.HCloudMachine{}
+				getErr := r.Get(ctx, client.ObjectKeyFromObject(machineScope.HCloudMachine), latest)
+				if apierrors.IsNotFound(getErr) {
+					return true, nil
+				}
+				if getErr != nil {
+					return false, getErr
+				}
+				// When the ResourceVersion has changed, then it is very likely that the local
+				// cache has the new version.
+				return latest.ResourceVersion != hcloudMachine.ResourceVersion, nil
+			})
+			if err != nil {
+				log.Error(err, "cache sync failed after BootState change")
+			}
+		}
+
 		readyReason := conditions.GetReason(machineScope.HCloudMachine, clusterv1.ReadyCondition)
 		readyMessage := conditions.GetMessage(machineScope.HCloudMachine, clusterv1.ReadyCondition)
 
-		if initialHcloudMachine.Status.BootState != machineScope.HCloudMachine.Status.BootState {
-			startBootState := initialHcloudMachine.Status.BootStateSince
-			if startBootState.IsZero() {
-				startBootState = initialHcloudMachine.CreationTimestamp
-			}
+		duration := time.Since(startReconcile)
 
+		if duration > 5*time.Second {
+			log.Info("Reconcile took too long",
+				"reconcileDuration", duration,
+				"res", res,
+				"reterr", reterr,
+				"oldState", initialHCloudMachine.Status.BootState,
+				"newState", machineScope.HCloudMachine.Status.BootState,
+				"readyReason", readyReason,
+				"readyMessage", readyMessage,
+			)
+		}
+
+		if initialHCloudMachine.Status.BootState != machineScope.HCloudMachine.Status.BootState {
+			// BootState changed. Wait until the update arrived in the local cache to ensure
+			// "read your own writes" in the next Reconcile.
+
+			startBootState := initialHCloudMachine.Status.BootStateSince
+			if startBootState.IsZero() {
+				startBootState = initialHCloudMachine.CreationTimestamp
+			}
 			log.Info("BootState changed",
-				"oldState", initialHcloudMachine.Status.BootState,
+				"oldState", initialHCloudMachine.Status.BootState,
 				"newState", machineScope.HCloudMachine.Status.BootState,
 				"durationInState", machineScope.HCloudMachine.Status.BootStateSince.Time.Sub(startBootState.Time),
 				"readyReason", readyReason,
@@ -188,6 +238,10 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return r.reconcileDelete(ctx, machineScope)
 	}
 
+	if hcloudMachine.Status.FailureReason != nil {
+		// This machine will be removed.
+		return reconcile.Result{}, nil
+	}
 	return r.reconcileNormal(ctx, machineScope)
 }
 
@@ -479,6 +533,13 @@ func IgnoreInsignificantHCloudMachineStatusUpdates(logger logr.Logger) predicate
 
 			oldHCloudMachine.ResourceVersion = ""
 			newHCloudMachine.ResourceVersion = ""
+
+			// The ProviderID is set by the controller. Do not react if that changes.
+			// Otherwise the next Reconcile is likely to read outdated data, because
+			// the Status was not updated yet. PatchHelper updates three times in this order:
+			// Status.Conditions, Resource, Status.
+			oldHCloudMachine.Spec.ProviderID = nil
+			newHCloudMachine.Spec.ProviderID = nil
 
 			oldHCloudMachine.Status = infrav1.HCloudMachineStatus{}
 			newHCloudMachine.Status = infrav1.HCloudMachineStatus{}
