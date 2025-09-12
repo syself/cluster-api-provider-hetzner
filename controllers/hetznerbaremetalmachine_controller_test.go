@@ -791,7 +791,6 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 									},
 								},
 								PortAfterInstallImage: 2222,
-								PortAfterCloudInit:    2222,
 							},
 						},
 					},

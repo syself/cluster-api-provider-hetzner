@@ -550,7 +550,6 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 				Spec: getDefaultHetznerBareMetalMachineSpec(),
 			}
 			bmMachine.Spec.SSHSpec.PortAfterInstallImage = 23
-			bmMachine.Spec.SSHSpec.PortAfterCloudInit = 24
 
 			Expect(testEnv.Create(ctx, bmMachine)).To(Succeed())
 		})

@@ -58,10 +58,6 @@ func (*hetznerBareMetalMachineWebhook) ValidateCreate(_ context.Context, obj run
 		return nil, fmt.Errorf("expected an HetznerBareMetalMachine object but got %T", r)
 	}
 
-	if r.Spec.SSHSpec.PortAfterCloudInit == 0 {
-		r.Spec.SSHSpec.PortAfterCloudInit = r.Spec.SSHSpec.PortAfterInstallImage
-	}
-
 	allErrs := validateHetznerBareMetalMachineSpecCreate(r.Spec)
 
 	return nil, aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
