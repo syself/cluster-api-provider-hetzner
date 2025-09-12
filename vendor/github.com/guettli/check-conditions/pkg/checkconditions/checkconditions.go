@@ -303,7 +303,13 @@ func printResources(args *Arguments, list *unstructured.UnstructuredList, gvr sc
 			conditions, _, err = unstructured.NestedSlice(obj.Object, "status", "conditions")
 		}
 		if err != nil {
-			panic(err)
+			if strings.Contains(err.Error(), "<nil> is of the type <nil>") {
+				// If we read the manifest before the controller created conditions, then
+				// this can happen.
+				continue
+			}
+			lines = append(lines, fmt.Sprintf("err of unstructured.NestedSlice(%+v): %s",
+				obj.Object, err.Error()))
 		}
 		subLines, a := printConditions(args, conditions, counter, gvr, obj)
 		if a {
