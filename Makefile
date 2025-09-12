@@ -615,6 +615,9 @@ ifeq ($(BUILD_IN_CONTAINER),true)
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
 else
+	# Ensure that these old binaries are not longer used. We use
+	# these from the builder-image now.
+	rm -f ./hack/tools/bin/controller-gen ./hack/tools/bin/helm
 	controller-gen \
 			paths=./api/... \
 			paths=./controllers/... \

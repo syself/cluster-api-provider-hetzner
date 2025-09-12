@@ -48,3 +48,5 @@ if ! git diff --quiet || ! git diff --cached --quiet || [[ -n "$(git ls-files --
     echo "git hash: $(git rev-parse HEAD)"
     exit 1
 fi
+
+echo "OK: No changes in git repo after re-creating generated files".
