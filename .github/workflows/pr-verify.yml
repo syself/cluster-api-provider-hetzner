@@ -10,6 +10,11 @@ jobs:
       pull-requests: write
       issues: write
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/syself/caph-builder:1.0.25
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.github_token }}
     name: Verify Pull Request
     steps:
       - name: Checkout repository
@@ -49,7 +54,7 @@ jobs:
         run: make verify-starlark
 
       - name: Verify Generated Files of Git Repo
-        run: make verify-generated-files
+        run: make BUILD_IN_CONTAINER=false verify-generated-files
 
       - uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e # v4
         with:
