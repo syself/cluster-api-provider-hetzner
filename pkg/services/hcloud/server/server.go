@@ -44,17 +44,6 @@ import (
 const (
 	serverOffTimeout = 10 * time.Minute
 
-	// Provisioning from a hcloud image like ubuntu-YY.MM takes roughly 11 seconds.
-	// Provisioning from a snapshot takes roughly 140 seconds.
-	// We do not want to do too many api-calls (rate-limiting). So we differentiate
-	// between both cases.
-	// These values get only used **once** after the server got created.
-	requeueAfterCreateServerRapidDeploy   = 10 * time.Second
-	requeueAfterCreateServerNoRapidDeploy = 140 * time.Second
-
-	// Continuous RequeueAfter in BootToRealOS.
-	requeueIntervalBootToRealOS = 10 * time.Second
-
 	// requeueImmediately gets used to requeue "now". One second gets used to make
 	// it unlikely that the next Reconcile reads stale data from the local cache.
 	requeueImmediately = 1 * time.Second
@@ -193,9 +182,15 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 
 	hm.SetBootState(infrav1.HCloudBootStateBootToRealOS)
 
-	requeueAfter := requeueAfterCreateServerNoRapidDeploy
+	// Provisioning from a hcloud image like ubuntu-YY.MM takes roughly 11 seconds.
+	// Provisioning from a snapshot takes roughly 140 seconds.
+	// We do not want to do too many api-calls (rate-limiting). So we differentiate
+	// between both cases.
+	// These values get only used **once** after the server got created.
+
+	requeueAfter := 140 * time.Second
 	if image.RapidDeploy {
-		requeueAfter = requeueAfterCreateServerRapidDeploy
+		requeueAfter = 10 * time.Second
 	}
 	conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 		string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
@@ -215,13 +210,13 @@ func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
 			"hcloud server status: %s", server.Status)
-		return reconcile.Result{RequeueAfter: requeueIntervalBootToRealOS}, nil
+		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 
 	case hcloud.ServerStatusRunning:
 		s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateOperatingSystemRunning)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
-			"%s", "hcloud server status: %s", server.Status)
+			"hcloud server status: %s", server.Status)
 		// Show changes in Status and go to next BootState.
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 
@@ -231,7 +226,7 @@ func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
 			"%s", msg)
-		return reconcile.Result{RequeueAfter: requeueIntervalBootToRealOS}, nil
+		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 }
 

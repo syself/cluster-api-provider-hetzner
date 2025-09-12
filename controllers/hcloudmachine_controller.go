@@ -204,8 +204,6 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 		}
 
 		if initialHCloudMachine.Status.BootState != machineScope.HCloudMachine.Status.BootState {
-			// BootState changed. Wait until the update arrived in the local cache to ensure
-			// "read your own writes" in the next Reconcile.
 
 			startBootState := initialHCloudMachine.Status.BootStateSince
 			if startBootState.IsZero() {
