@@ -256,6 +256,7 @@ func setupBootstrapCluster(config *clusterctl.E2EConfig, scheme *runtime.Scheme,
 	return clusterProvider, clusterProxy
 }
 
+// logStatusContinuously does log the state of the mgt-cluster and the wl-clusters continuously.
 func logStatusContinuously(ctx context.Context, restConfig *restclient.Config, c client.Client) {
 	for {
 		select {
@@ -271,6 +272,8 @@ func logStatusContinuously(ctx context.Context, restConfig *restclient.Config, c
 	}
 }
 
+// logStatus logs the current state of the mgt-cluster and the wl-clusters once.
+// It gets called again and again by logStatusContinuously.
 func logStatus(ctx context.Context, restConfig *restclient.Config, c client.Client) error {
 	log("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
 	log(fmt.Sprintf("≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡ %s <<< Start logging status", time.Now().Format("2006-01-02 15:04:05")))
@@ -278,22 +281,29 @@ func logStatus(ctx context.Context, restConfig *restclient.Config, c client.Clie
 	if err := logCaphDeployment(ctx, c); err != nil {
 		return err
 	}
+
 	if err := logBareMetalHostStatus(ctx, c); err != nil {
 		return err
 	}
+
 	if err := logHCloudMachineStatus(ctx, c); err != nil {
 		return err
 	}
+
+	// Log the unhealthy conditions of the mgt-cluster
 	if err := logConditions(ctx, "mgt-cluster", restConfig); err != nil {
 		return err
 	}
 
+	// log the unhealthy conditions of the wl-clusters.
 	clusterList := &clusterv1.ClusterList{}
 	err := c.List(ctx, clusterList)
 	if err != nil {
 		return fmt.Errorf("failed to list clusters: %w", err)
 	}
+
 	for _, cluster := range clusterList.Items {
+		// get the secret containing the kubeconfig.
 		secretName := cluster.Name + "-kubeconfig"
 		secret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -301,27 +311,34 @@ func logStatus(ctx context.Context, restConfig *restclient.Config, c client.Clie
 				Namespace: cluster.Namespace,
 			},
 		}
+
 		err := c.Get(ctx, client.ObjectKeyFromObject(secret), secret)
 		if err != nil {
 			log(fmt.Sprintf("Failed to get Secret %s/%s: %v", cluster.Namespace, secretName, err))
 			continue
 		}
+
 		data := secret.Data["value"]
 		if len(data) == 0 {
 			log(fmt.Sprintf("Failed to get Secret %s/%s: content is empty", cluster.Namespace, secretName))
 			continue
 		}
+
+		// create restConfig from kubeconfig.
 		restConfig, err := clientcmd.RESTConfigFromKubeConfig(data)
 		if err != nil {
 			log(fmt.Sprintf("Failed to create REST config from Secret %s/%s: %v", cluster.Namespace, secretName, err))
 			continue
 		}
+
+		// log the conditions of this wl-cluster
 		err = logConditions(ctx, "wl-cluster "+cluster.Name, restConfig)
 		if err != nil {
 			log(fmt.Sprintf("Failed to log Conditions %s/%s: %v", cluster.Namespace, secretName, err))
 			continue
 		}
 	}
+
 	log(fmt.Sprintf("≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡ %s End logging status >>>", time.Now().Format("2006-01-02 15:04:05")))
 
 	return nil
@@ -456,13 +473,18 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 		if hbmh.Spec.Status.ProvisioningState == "" {
 			continue
 		}
+
+		// log infos about that hbmh.
 		log("BareMetalHost: " + hbmh.Name + " " + fmt.Sprint(hbmh.Spec.ServerID) +
 			" | IPv4: " + hbmh.Spec.Status.IPv4)
+
+		// Show an Error, if set.
 		eMsg := string(hbmh.Spec.Status.ErrorType) + " " + hbmh.Spec.Status.ErrorMessage
 		eMsg = strings.TrimSpace(eMsg)
 		if eMsg != "" {
 			log("  Error: " + eMsg)
 		}
+
 		readyC := conditions.Get(hbmh, clusterv1.ReadyCondition)
 		msg := ""
 		reason := ""
