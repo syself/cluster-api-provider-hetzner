@@ -6,11 +6,11 @@ metadata:
   name: ccm-ccm-hcloud
   namespace: kube-system
   labels:
-    helm.sh/chart: ccm-hcloud-1.0.11
+    helm.sh/chart: ccm-hetzner-1.1.10
     app: ccm
     app.kubernetes.io/name: ccm-hcloud
     app.kubernetes.io/instance: ccm
-    app.kubernetes.io/version: "1.13.0"
+    app.kubernetes.io/version: "v1.18.0-0.0.5"
     app.kubernetes.io/managed-by: Helm
 ---
 # Source: ccm-hcloud/templates/serviceaccount.yaml
@@ -20,11 +20,11 @@ metadata:
   name: ccm-ccm-hcloud
   namespace: kube-system
   labels:
-    helm.sh/chart: ccm-hcloud-1.0.11
+    helm.sh/chart: ccm-hetzner-1.1.10
     app: ccm
     app.kubernetes.io/name: ccm-hcloud
     app.kubernetes.io/instance: ccm
-    app.kubernetes.io/version: "1.13.0"
+    app.kubernetes.io/version: "v1.18.0-0.0.5"
     app.kubernetes.io/managed-by: Helm
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -42,11 +42,11 @@ metadata:
   name: ccm-ccm-hcloud
   namespace: kube-system
   labels:
-    helm.sh/chart: ccm-hcloud-1.0.11
+    helm.sh/chart: ccm-hetzner-1.1.10
     app: ccm
     app.kubernetes.io/name: ccm-hcloud
     app.kubernetes.io/instance: ccm
-    app.kubernetes.io/version: "1.13.0"
+    app.kubernetes.io/version: "v1.18.0-0.0.5"
     app.kubernetes.io/managed-by: Helm
 spec:
   replicas: 1
@@ -63,8 +63,7 @@ spec:
     spec:
       dnsPolicy: Default
       serviceAccountName: ccm-ccm-hcloud
-      securityContext:
-        {}
+      securityContext: {}
       tolerations:
         # this taint is set by all kubelets running `--cloud-provider=external`
         # so we should tolerate it to schedule the cloud controller manager
@@ -85,12 +84,11 @@ spec:
       hostNetwork: true
       containers:
         - name: ccm-hcloud
-          securityContext:
-            {}
-          image: "docker.io/hetznercloud/hcloud-cloud-controller-manager:v1.13.0"
+          securityContext: {}
+          image: "ghcr.io/syself/hetzner-cloud-controller-manager:v1.18.0-0.0.5"
           imagePullPolicy: Always
           command:
-            - "/bin/hcloud-cloud-controller-manager"
+            - "/bin/hetzner-cloud-controller-manager"
             - "--cloud-provider=hcloud"
             - "--leader-elect=true"
             - "--allow-untagged-cloud"
@@ -110,6 +108,16 @@ spec:
                 secretKeyRef:
                   name: hetzner
                   key: hcloud
+            - name: ROBOT_USER_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: hetzner
+                  key: robot-user
+            - name: ROBOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: hetzner
+                  key: robot-password
             - name: HCLOUD_DEBUG
               value: "false"
             - name: HCLOUD_LOAD_BALANCERS_ENABLED
