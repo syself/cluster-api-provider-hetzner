@@ -572,7 +572,14 @@ verify-container-images: ## Verify container images
 
 .PHONY: verify-generated-files
 verify-generated-files: ## Verify geneated files in git repo
+ifeq ($(BUILD_IN_CONTAINER),true)
+	docker run  --rm \
+		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
+		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
+		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
+else
 	./hack/verify-generated-files.sh
+endif
 
 ##@ Generate
 ############
