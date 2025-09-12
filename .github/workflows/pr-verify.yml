@@ -20,6 +20,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
+      - name: Fix Env Var HOME
+        uses: ./.github/actions/fixes
+        # Fixes:
+        #   fatal: detected dubious ownership in repository at '/__w/clu...
+        #   To add an exception for this directory, call:
+        #   git config --global --add safe.directory /__w...
+
       # Take from https://github.com/kubernetes-sigs/kubebuilder/blob/master/.github/workflows/verify.yml
       - name: Validate PR Title Format
         shell: bash
