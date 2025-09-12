@@ -194,7 +194,12 @@ wait-and-get-secret: $(KUBECTL)
 	${TIMEOUT} --foreground 15m bash -c "while ! $(KUBECTL) --kubeconfig=$(WORKER_CLUSTER_KUBECONFIG) get nodes | grep control-plane; do sleep 1; done"
 
 install-cilium-in-wl-cluster: $(HELM)
-	WORKER_CLUSTER_KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) ./hack/install-ccm-in-wl-cluster.sh.sh
+	# Deploy cilium
+	$(HELM) repo add cilium https://helm.cilium.io/
+	$(HELM) repo update cilium
+	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) $(HELM) upgrade --install cilium cilium/cilium \
+  		--namespace kube-system \
+		-f templates/cilium/cilium.yaml
 
 install-ccm-in-wl-cluster:
 	$(HELM) repo add syself https://charts.syself.com
