@@ -1596,7 +1596,7 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 				record.Warnf(s.scope.HetznerBareMetalHost, "UnexpectedHostName",
 					"EnsureProvision: wanted %q. %s", wantHostName, err.Error())
 			}
-			return actionError{err: fmt.Errorf("failed to handle incomplete boot - provisioning: %w", err)}
+			return actionError{err: fmt.Errorf("failed to handle incomplete boot - actionEnsureProvisioned: %w", err)}
 		}
 
 		failed, err := s.handleIncompleteBoot(ctx, false, isTimeout, isSSHConnectionRefusedError)
@@ -1832,7 +1832,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 					record.Warnf(s.scope.HetznerBareMetalHost, "UnexpectedHostName",
 						"Provisioned: wanted %q. %s", wantHostName, err.Error())
 				}
-				return actionError{err: fmt.Errorf("failed to handle incomplete boot - provisioning: %w", err)}
+				return actionError{err: fmt.Errorf("failed to handle incomplete boot - actionProvisioned: %w", err)}
 			}
 			failed, err := s.handleIncompleteBoot(ctx, false, isTimeout, isSSHConnectionRefusedError)
 			if failed {
