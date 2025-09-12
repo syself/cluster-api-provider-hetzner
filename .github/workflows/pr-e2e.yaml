@@ -41,6 +41,10 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Fix broken env var HOME
+        uses: ./.github/actions/fixes
+
       - name: Test Release
         id: manager-image
         uses: ./.github/actions/test-release

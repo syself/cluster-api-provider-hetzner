@@ -15,9 +15,6 @@ runs:
           ${{ runner.os }}-tools-bin-release-
           ${{ runner.os }}-tools-bin-
 
-    - name: Fix broken env var HOME
-      uses: ./.github/actions/fixes
-
     - name: Generate metadata
       id: meta
       uses: ./.github/actions/metadata
