@@ -130,21 +130,24 @@ func TestValidateHCloudMachineSpecUpdate(t *testing.T) {
 			want: nil,
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := validateHCloudMachineSpecUpdate(tt.args.oldSpec, tt.args.newSpec)
 
-			if tt.want == nil {
-				assert.Empty(t, got)
-				return
+			if len(got) == 0 {
+				assert.Empty(t, tt.want)
 			}
 
-			assert.Equal(t, len(got), 1, "got length: %d greater than 1: %+v", len(got), got)
+			if len(got) > 1 {
+				t.Errorf("got length: %d greater than 1: %+v", len(got), got)
+			}
 
-			assert.Equal(t, tt.want.Type, got[0].Type)
-			assert.Equal(t, tt.want.Field, got[0].Field)
-			assert.Equal(t, tt.want.Detail, got[0].Detail)
+			// assert if length of got is 1
+			if len(got) == 1 {
+				assert.Equal(t, tt.want.Type, got[0].Type)
+				assert.Equal(t, tt.want.Field, got[0].Field)
+				assert.Equal(t, tt.want.Detail, got[0].Detail)
+			}
 		})
 	}
 }
