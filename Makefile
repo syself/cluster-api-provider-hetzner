@@ -570,6 +570,10 @@ verify-manifests:
 verify-container-images: ## Verify container images
 	trivy image -q --exit-code 1 --ignore-unfixed --severity MEDIUM,HIGH,CRITICAL $(IMAGE_PREFIX)/$(INFRA_SHORT):latest
 
+.PHONY: verify-generated-files
+verify-generated-files: ## Verify geneated files in git repo
+	./hack/verify-generated-files.sh
+
 ##@ Generate
 ############
 # Generate #

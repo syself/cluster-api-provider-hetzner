@@ -48,6 +48,9 @@ jobs:
       - name: Verify Starlark
         run: make verify-starlark
 
+      - name: Verify Generated Files of Git Repo
+        run: make verify-generated-files
+
       - uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e # v4
         with:
           node-version: "22"
