@@ -585,7 +585,7 @@ generate-boilerplate: ## Generates missing boilerplates
 # support go modules
 generate-modules: ## Generates missing go modules
 ifeq ($(BUILD_IN_CONTAINER),true)
-	docker run  --rm -t -i \
+	docker run  --rm \
 		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
@@ -639,7 +639,7 @@ cluster-templates: $(KUSTOMIZE)
 .PHONY: format-golang
 format-golang: ## Format the Go codebase and run auto-fixers if supported by the linter.
 ifeq ($(BUILD_IN_CONTAINER),true)
-	docker run  --rm -t -i \
+	docker run  --rm \
 		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
@@ -656,7 +656,7 @@ format-starlark: ## Format the Starlark codebase
 .PHONY: format-yaml
 format-yaml: ## Lint YAML files
 ifeq ($(BUILD_IN_CONTAINER),true)
-	docker run  --rm -t -i \
+	docker run  --rm \
 		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
@@ -672,7 +672,7 @@ endif
 .PHONY: lint-golang
 lint-golang: ## Lint Golang codebase
 ifeq ($(BUILD_IN_CONTAINER),true)
-	docker run  --rm -t -i \
+	docker run  --rm \
 		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
@@ -685,7 +685,7 @@ endif
 .PHONY: lint-golang-ci
 lint-golang-ci:
 ifeq ($(BUILD_IN_CONTAINER),true)
-	docker run  --rm -t -i \
+	docker run  --rm \
 		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
@@ -698,7 +698,7 @@ endif
 .PHONY: lint-yaml
 lint-yaml: ## Lint YAML files
 ifeq ($(BUILD_IN_CONTAINER),true)
-	docker run  --rm -t -i \
+	docker run  --rm \
 		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
@@ -710,7 +710,7 @@ endif
 .PHONY: lint-yaml-ci
 lint-yaml-ci:
 ifeq ($(BUILD_IN_CONTAINER),true)
-	docker run  --rm -t -i \
+	docker run  --rm \
 		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
@@ -723,7 +723,7 @@ DOCKERFILES=$(shell find . -not \( -path ./hack -prune \) -not \( -path ./vendor
 .PHONY: lint-dockerfile
 lint-dockerfile: ## Lint Dockerfiles
 ifeq ($(BUILD_IN_CONTAINER),true)
-	docker run  --rm -t -i \
+	docker run  --rm \
 		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
@@ -734,7 +734,7 @@ endif
 
 lint-links: ## Link Checker
 ifeq ($(BUILD_IN_CONTAINER),true)
-	docker run --rm -t -i \
+	docker run --rm \
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
 else
@@ -755,7 +755,7 @@ format: format-starlark format-golang format-yaml ## Format Codebase
 .PHONY: generate-mocks
 generate-mocks: ## Generate Mocks
 ifeq ($(BUILD_IN_CONTAINER),true)
-	docker run  --rm -t -i \
+	docker run  --rm \
 		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
