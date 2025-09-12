@@ -166,7 +166,6 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		msg := fmt.Sprintf("Updating old resource (pre BootState) %s", hm.Status.BootState)
 		ctrl.LoggerFrom(ctx).Info(msg)
 		hm.Status.BootStateMessage = msg
-		// Requeue once the new way. But in most cases nothing should have changed.
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 	}
 
