@@ -204,7 +204,6 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 		}
 
 		if initialHCloudMachine.Status.BootState != machineScope.HCloudMachine.Status.BootState {
-
 			startBootState := initialHCloudMachine.Status.BootStateSince
 			if startBootState.IsZero() {
 				startBootState = initialHCloudMachine.CreationTimestamp
