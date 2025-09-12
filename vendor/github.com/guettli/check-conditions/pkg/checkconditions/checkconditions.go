@@ -2,7 +2,9 @@ package checkconditions
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net"
 	"os"
 	"regexp"
 	"strings"
@@ -27,17 +29,20 @@ type Arguments struct {
 	ProgrammStartTime time.Time
 	Name              string
 	RetryCount        int16
+	RetryForEver      bool
+	Timeout           time.Duration
 }
 
 var resourcesToSkip = []string{
 	"bindings",
-	"tokenreviews",
-	"selfsubjectreviews",
-	"selfsubjectaccessreviews",
-	"selfsubjectrulesreviews",
-	"localsubjectaccessreviews",
-	"subjectaccessreviews",
 	"componentstatuses",
+	"endpoints", // Deprecated in 1.33+
+	"localsubjectaccessreviews",
+	"selfsubjectaccessreviews",
+	"selfsubjectreviews",
+	"selfsubjectrulesreviews",
+	"subjectaccessreviews",
+	"tokenreviews",
 }
 
 type Counter struct {
@@ -60,7 +65,7 @@ func (c *Counter) add(o handleResourceTypeOutput) {
 }
 
 // RunAllOnce returns true if an unhealthy condition was found.
-func RunAllOnce(ctx context.Context, args Arguments) (bool, error) {
+func RunAllOnce(ctx context.Context, args *Arguments) (bool, error) {
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	configOverrides := &clientcmd.ConfigOverrides{}
 	kubeconfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
@@ -79,7 +84,7 @@ func RunAllOnce(ctx context.Context, args Arguments) (bool, error) {
 	return RunCheckAllConditions(ctx, config, args)
 }
 
-func RunForever(ctx context.Context, args Arguments) error {
+func RunForever(ctx context.Context, args *Arguments) error {
 	for {
 		_, err := RunAllOnce(ctx, args)
 		if err != nil {
@@ -90,7 +95,7 @@ func RunForever(ctx context.Context, args Arguments) error {
 	}
 }
 
-func RunWhileRegex(ctx context.Context, arguments Arguments) error {
+func RunWhileRegex(ctx context.Context, arguments *Arguments) error {
 	for {
 		again, err := runWhileInner(ctx, arguments)
 		if err != nil {
@@ -103,7 +108,7 @@ func RunWhileRegex(ctx context.Context, arguments Arguments) error {
 }
 
 // return true if the while-regex matched
-func runWhileInner(ctx context.Context, arguments Arguments) (bool, error) {
+func runWhileInner(ctx context.Context, arguments *Arguments) (bool, error) {
 	unhealthy, err := RunAllOnce(ctx, arguments)
 	if err != nil {
 		return false, err
@@ -114,10 +119,12 @@ func runWhileInner(ctx context.Context, arguments Arguments) (bool, error) {
 	}
 	pre := fmt.Sprintf("Regex %q did match. ", arguments.WhileRegex.String())
 
-	durationInt := int(time.Since(arguments.ProgrammStartTime).Seconds())
-	// durationStr as string, without subseconds
-	durationStr := time.Duration(durationInt * int(time.Second)).String()
-
+	d := time.Since(arguments.ProgrammStartTime)
+	durationStr := d.Round(time.Second).String()
+	if arguments.Timeout > 0 {
+		untilTimeout := arguments.Timeout - d
+		durationStr += ", timeout in " + untilTimeout.Round(time.Second).String()
+	}
 	fmt.Printf("%sWaiting %s, then checking again. %s (%s).\n\n",
 		pre,
 		arguments.Sleep.String(),
@@ -129,22 +136,44 @@ func runWhileInner(ctx context.Context, arguments Arguments) (bool, error) {
 
 // If arguments.WhileRegex, then return true if there was a matching unhealthy condition.
 // Otherwise return true if there was at least one unhealthy condition.
-func RunCheckAllConditions(ctx context.Context, config *restclient.Config, args Arguments) (bool, error) {
+func RunCheckAllConditions(ctx context.Context, config *restclient.Config, args *Arguments) (bool, error) {
 	// Get the list of all API resources available
 	var err error
 	var counter Counter
-	for i := 0; i < int(args.RetryCount); i++ {
+	var i int16
+	for {
+		if args.Timeout > 0 {
+			d := time.Since(args.ProgrammStartTime)
+			if d > args.Timeout {
+				d := d.Round(time.Second)
+				return false, fmt.Errorf("timeout reached after %s", d.String())
+			}
+		}
 		counter, err = RunAndGetCounter(ctx, config, args)
 		if err == nil {
+			// Successful connection, from now on retry forever.
+			args.RetryForEver = true
 			break
 		}
-		fmt.Printf("an error occured. Will retry %d times: %v\n",
-			args.RetryCount, err)
+		var netError net.Error
+		if !errors.As(err, &netError) {
+			return false, err
+		}
+		if args.RetryForEver {
+			if i%10 == 0 {
+				fmt.Printf("a network error occured. Will retry forever: %v\n",
+					err)
+			}
+		} else {
+			if i > args.RetryCount {
+				return false, fmt.Errorf("network error: %w", err)
+			}
+			fmt.Printf("a network error occured. Will retry %d times: %v\n",
+				args.RetryCount-i, err)
+		}
 		time.Sleep(1 * time.Second)
+		i++
 		continue
-	}
-	if err != nil {
-		return false, fmt.Errorf("an error occured. Will retry %d times: %w", args.RetryCount, err)
 	}
 
 	for _, line := range counter.Lines {
@@ -168,7 +197,7 @@ func RunCheckAllConditions(ctx context.Context, config *restclient.Config, args 
 	return counter.WhileRegexDidMatch, nil
 }
 
-func RunAndGetCounter(ctx context.Context, config *restclient.Config, args Arguments) (Counter, error) {
+func RunAndGetCounter(ctx context.Context, config *restclient.Config, args *Arguments) (Counter, error) {
 	counter := Counter{StartTime: time.Now()}
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
@@ -221,7 +250,7 @@ func RunAndGetCounter(ctx context.Context, config *restclient.Config, args Argum
 	return counter, nil
 }
 
-func createJobs(serverResources []*metav1.APIResourceList, jobs chan handleResourceTypeInput, args Arguments, dynClient *dynamic.DynamicClient) {
+func createJobs(serverResources []*metav1.APIResourceList, jobs chan handleResourceTypeInput, args *Arguments, dynClient *dynamic.DynamicClient) {
 	for _, resourceList := range serverResources {
 		groupVersion, err := schema.ParseGroupVersion(resourceList.GroupVersion)
 		if err != nil {
@@ -230,7 +259,7 @@ func createJobs(serverResources []*metav1.APIResourceList, jobs chan handleResou
 		}
 		for i := range resourceList.APIResources {
 			jobs <- handleResourceTypeInput{
-				args:      &args,
+				args:      args,
 				dynClient: dynClient,
 				gvr: schema.GroupVersionResource{
 					Group:    groupVersion.Group,
@@ -274,7 +303,13 @@ func printResources(args *Arguments, list *unstructured.UnstructuredList, gvr sc
 			conditions, _, err = unstructured.NestedSlice(obj.Object, "status", "conditions")
 		}
 		if err != nil {
-			panic(err)
+			if strings.Contains(err.Error(), "<nil> is of the type <nil>") {
+				// If we read the manifest before the controller created conditions, then
+				// this can happen.
+				continue
+			}
+			lines = append(lines, fmt.Sprintf("err of unstructured.NestedSlice(%+v): %s",
+				obj.Object, err.Error()))
 		}
 		subLines, a := printConditions(args, conditions, counter, gvr, obj)
 		if a {
@@ -448,6 +483,9 @@ var conditionTypesOfResourceWithPositiveMeaning = map[string][]string{
 		"RequiredPackages",    // Longhorn
 		"KernelModulesLoaded", // Longhorn
 	},
+	"autopilotclusters": {
+		"ClusterRunning",
+	},
 }
 
 var conditionTypesOfResourceWithNegativeMeaning = map[string][]string{
@@ -471,8 +509,12 @@ var conditionTypesOfResourceWithNegativeMeaning = map[string][]string{
 // from: longhorn-system backuptargets myname Condition Unavailable=True Unavailable "backup target URL is empty" (5m21s)
 // to: `backuptargets Unavailable=True Unavailable "backup target URL is empty"`
 var conditionLinesToIgnoreRegexs = []*regexp.Regexp{
+	// Cluster API
 	regexp.MustCompile("machinesets MachinesReady=False Deleted @.*"),
+	regexp.MustCompile("machinesets (MachinesReady|Ready)=False DrainingFailed @."),
 	regexp.MustCompile("machinesets Ready=False Deleted @.*"),
+	regexp.MustCompile(`machinesets (MachinesReady|Ready)=False NodeNotFound.*`),
+	regexp.MustCompile(`machinedeployments (MachineSetReady|Ready)=False Deleted.*`),
 
 	// Longhorn
 	regexp.MustCompile(`backuptargets Unavailable=True Unavailable "backup target URL is empty"`),
@@ -485,7 +527,6 @@ var conditionLinesToIgnoreRegexs = []*regexp.Regexp{
 	regexp.MustCompile(`volumes TooManySnapshots=False`),
 	regexp.MustCompile(`volumes Scheduled=True`),
 	regexp.MustCompile(`volumes Restore=False`),
-	regexp.MustCompile(`machinesets (MachinesReady|Ready)=False NodeNotFound.*`),
 }
 
 func conditionTypeHasPositiveMeaning(resource string, ct string) bool {
@@ -522,6 +563,7 @@ func conditionTypeHasPositiveMeaning(resource string, ct string) bool {
 		"Synced",
 		"UpToDate",
 		"Valid",
+		"SuccessCriteriaMet",
 	} {
 		if strings.HasSuffix(ct, suffix) {
 			return true

@@ -30,9 +30,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	restclient "k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/test/framework"
@@ -254,6 +256,7 @@ func setupBootstrapCluster(config *clusterctl.E2EConfig, scheme *runtime.Scheme,
 	return clusterProvider, clusterProxy
 }
 
+// logStatusContinuously does log the state of the mgt-cluster and the wl-clusters continuously.
 func logStatusContinuously(ctx context.Context, restConfig *restclient.Config, c client.Client) {
 	for {
 		select {
@@ -269,33 +272,86 @@ func logStatusContinuously(ctx context.Context, restConfig *restclient.Config, c
 	}
 }
 
+// logStatus logs the current state of the mgt-cluster and the wl-clusters once.
+// It gets called again and again by logStatusContinuously.
 func logStatus(ctx context.Context, restConfig *restclient.Config, c client.Client) error {
-	log("≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡ <<< Start logging status")
+	log("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
+	log(fmt.Sprintf("≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡ %s <<< Start logging status", time.Now().Format("2006-01-02 15:04:05")))
 
 	if err := logCaphDeployment(ctx, c); err != nil {
 		return err
 	}
+
 	if err := logBareMetalHostStatus(ctx, c); err != nil {
 		return err
 	}
+
 	if err := logHCloudMachineStatus(ctx, c); err != nil {
 		return err
 	}
-	if err := logConditions(ctx, restConfig); err != nil {
+
+	// Log the unhealthy conditions of the mgt-cluster
+	if err := logConditions(ctx, "mgt-cluster", restConfig); err != nil {
 		return err
 	}
-	log("≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡ End logging status >>>")
+
+	// log the unhealthy conditions of the wl-clusters.
+	clusterList := &clusterv1.ClusterList{}
+	err := c.List(ctx, clusterList)
+	if err != nil {
+		return fmt.Errorf("failed to list clusters: %w", err)
+	}
+
+	for _, cluster := range clusterList.Items {
+		// get the secret containing the kubeconfig.
+		secretName := cluster.Name + "-kubeconfig"
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      secretName,
+				Namespace: cluster.Namespace,
+			},
+		}
+
+		err := c.Get(ctx, client.ObjectKeyFromObject(secret), secret)
+		if err != nil {
+			log(fmt.Sprintf("Failed to get Secret %s/%s: %v", cluster.Namespace, secretName, err))
+			continue
+		}
+
+		data := secret.Data["value"]
+		if len(data) == 0 {
+			log(fmt.Sprintf("Failed to get Secret %s/%s: content is empty", cluster.Namespace, secretName))
+			continue
+		}
+
+		// create restConfig from kubeconfig.
+		restConfig, err := clientcmd.RESTConfigFromKubeConfig(data)
+		if err != nil {
+			log(fmt.Sprintf("Failed to create REST config from Secret %s/%s: %v", cluster.Namespace, secretName, err))
+			continue
+		}
+
+		// log the conditions of this wl-cluster
+		err = logConditions(ctx, "wl-cluster "+cluster.Name, restConfig)
+		if err != nil {
+			log(fmt.Sprintf("Failed to log Conditions %s/%s: %v", cluster.Namespace, secretName, err))
+			continue
+		}
+	}
+
+	log(fmt.Sprintf("≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡ %s End logging status >>>", time.Now().Format("2006-01-02 15:04:05")))
 
 	return nil
 }
 
-func logConditions(ctx context.Context, restConfig *restclient.Config) error {
+func logConditions(ctx context.Context, clusterName string, restConfig *restclient.Config) error {
 	restConfig.QPS = -1 // Since Kubernetes 1.29 "API Priority and Fairness" handles that.
-	counter, err := checkconditions.RunAndGetCounter(ctx, restConfig, checkconditions.Arguments{})
+	counter, err := checkconditions.RunAndGetCounter(ctx, restConfig, &checkconditions.Arguments{})
 	if err != nil {
-		return fmt.Errorf("failed to get check conditions: %w", err)
+		return fmt.Errorf("check conditions: %w", err)
 	}
-	log(fmt.Sprintf("--------------------------------------------------- Unhealthy Conditions: %d",
+	log(fmt.Sprintf("----------------------------------------------- %s ---- Unhealthy Conditions: %d",
+		clusterName,
 		len(counter.Lines)))
 
 	for _, line := range counter.Lines {
@@ -417,13 +473,18 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 		if hbmh.Spec.Status.ProvisioningState == "" {
 			continue
 		}
-		log("BareMetalHost: " + hbmh.Name + " " + fmt.Sprint(hbmh.Spec.ServerID))
-		log("  ProvisioningState: " + string(hbmh.Spec.Status.ProvisioningState))
+
+		// log infos about that hbmh.
+		log("BareMetalHost: " + hbmh.Name + " " + fmt.Sprint(hbmh.Spec.ServerID) +
+			" | IPv4: " + hbmh.Spec.Status.IPv4)
+
+		// Show an Error, if set.
 		eMsg := string(hbmh.Spec.Status.ErrorType) + " " + hbmh.Spec.Status.ErrorMessage
 		eMsg = strings.TrimSpace(eMsg)
 		if eMsg != "" {
 			log("  Error: " + eMsg)
 		}
+
 		readyC := conditions.Get(hbmh, clusterv1.ReadyCondition)
 		msg := ""
 		reason := ""
@@ -433,7 +494,7 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 			reason = readyC.Reason
 			state = string(readyC.Status)
 		}
-		log("  Ready Condition: " + state + " " + reason + " " + msg)
+		log("  ProvisioningState: " + string(hbmh.Spec.Status.ProvisioningState) + " | Ready Condition: " + state + " " + reason + " " + msg)
 	}
 	return nil
 }
