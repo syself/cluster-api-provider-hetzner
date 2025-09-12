@@ -571,7 +571,7 @@ verify-container-images: ## Verify container images
 	trivy image -q --exit-code 1 --ignore-unfixed --severity MEDIUM,HIGH,CRITICAL $(IMAGE_PREFIX)/$(INFRA_SHORT):latest
 
 .PHONY: verify-generated-files
-verify-generated-files: $(HELM) ## Verify geneated files in git repo
+verify-generated-files: $(HELM) $(CONTROLLER_GEN) ## Verify geneated files in git repo
 ifeq ($(BUILD_IN_CONTAINER),true)
 	docker run  --rm \
 		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
