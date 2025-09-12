@@ -56,9 +56,9 @@ e2e-cilium-templates:
 	#   value for variables [BIN_PATH] is not set.
 	#   Please set the value using os environment variables or the clusterctl config file
 	#   Missing: ["BIN_PATH"]
-	$(REPO_ROOT)/hack/tools/bin/helm repo add cilium https://helm.cilium.io/
-	$(REPO_ROOT)/hack/tools/bin/helm repo update cilium
-	$(REPO_ROOT)/hack/tools/bin/helm template cilium cilium/cilium --version 1.17.2 \
+	helm repo add cilium https://helm.cilium.io/
+	helm repo update cilium
+	helm template cilium cilium/cilium --version 1.17.2 \
 	--namespace kube-system \
 	-f $(REPO_ROOT)/templates/cilium/cilium.yaml \
 	> $(REPO_ROOT)/test/e2e/data/cni/cilium/cilium.yaml
@@ -67,23 +67,23 @@ e2e-cilium-templates:
 	sed -i '1s/^/# Created by `make e2e-cilium-templates`\n/' $(REPO_ROOT)/test/e2e/data/cni/cilium/cilium.yaml
 
 e2e-ccm-templates:
-	$(REPO_ROOT)/hack/tools/bin/helm repo add syself https://charts.syself.com
+	helm repo add syself https://charts.syself.com
 
-	$(REPO_ROOT)/hack/tools/bin/helm template ccm syself/ccm-hcloud --version 1.0.11 \
+	helm template ccm syself/ccm-hcloud --version 1.0.11 \
 	--namespace kube-system \
 	--set pdb.enabled=false \
 	--set secret.name=hetzner \
 	--set secret.tokenKeyName=hcloud \
 	--set privateNetwork.enabled=false > $(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm.yaml
 
-	$(REPO_ROOT)/hack/tools/bin/helm template ccm syself/ccm-hcloud --version 1.0.11 \
+	helm template ccm syself/ccm-hcloud --version 1.0.11 \
 	--namespace kube-system \
 	--set pdb.enabled=false \
 	--set secret.name=hetzner \
 	--set secret.tokenKeyName=hcloud \
 	--set privateNetwork.enabled=true > $(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm-network.yaml
 
-	$(REPO_ROOT)/hack/tools/bin/helm template ccm syself/ccm-hetzner --version 2.0.1 \
+	helm template ccm syself/ccm-hetzner --version 2.0.1 \
 	--namespace kube-system \
 	--set pdb.enabled=false \
 	--set privateNetwork.enabled=false > $(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm-hetzner.yaml
