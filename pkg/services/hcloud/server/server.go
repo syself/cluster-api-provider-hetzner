@@ -50,6 +50,10 @@ const (
 	// requeueImmediately gets used to requeue "now". One second gets used to make
 	// it unlikely that the next Reconcile reads stale data from the local cache.
 	requeueImmediately = 1 * time.Second
+
+	actionDone = -1
+
+	preRescueOSImage = "ubuntu-24.04"
 )
 
 var errServerCreateNotPossible = fmt.Errorf("server create not possible - need action")
@@ -212,15 +216,15 @@ func (s *Service) handleBootStateWaitForPreRescueOSThenEnableRescueSystem(ctx co
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
 			"hcloud server is %q", server.Status)
-		return reconcile.Result{RequeueAfter: requeueIntervalWaitForPreRescueOSThenEnableRescueSystem}, nil
+		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 	case hcloud.ServerStatusRunning:
 		// execute below code
 	default:
 		// some temporary status
-		ctrl.LoggerFrom(ctx).Info("Unknown hcloud server status", "status", server.Status)
+		s.scope.Logger.Info("Unknown hcloud server status", "status", server.Status)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			string(hm.Status.BootState), clusterv1.ConditionSeverityInfo, "hcloud server has unknown status: %q", server.Status)
-		return reconcile.Result{RequeueAfter: requeueIntervalWaitForPreRescueOSThenEnableRescueSystem}, nil
+		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
 	// Server is Running.
@@ -246,7 +250,7 @@ func (s *Service) handleBootStateWaitForPreRescueOSThenEnableRescueSystem(ctx co
 	conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 		string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
 		"EnableRescueSystem was done")
-	return reconcile.Result{RequeueAfter: requeueAfterEnableRescueSystem}, nil
+	return reconcile.Result{RequeueAfter: 4 * time.Second}, nil
 }
 
 func (s *Service) handleBootStateWaitForRescueEnabledThenRebootToRescue(ctx context.Context, server *hcloud.Server) (reconcile.Result, error) {
@@ -277,7 +281,7 @@ func (s *Service) handleBootStateWaitForRescueEnabledThenRebootToRescue(ctx cont
 			conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 				string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
 				"Waiting until Action RescueEnabled is finished")
-			return reconcile.Result{RequeueAfter: requeueIntervalWaitForPreRescueOSThenEnableRescueSystem}, nil
+			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 		}
 
 		err = action.Error()
@@ -302,7 +306,7 @@ func (s *Service) handleBootStateWaitForRescueEnabledThenRebootToRescue(ctx cont
 			"Action RescueEnabled is finished")
 		// When the reboot is triggered immediately after the action is finished,
 		// then the reboot might get ignored.
-		return reconcile.Result{RequeueAfter: requeueAfterEnableRescueSystem}, nil
+		return reconcile.Result{RequeueAfter: 4 * time.Second}, nil
 	}
 
 	rebootAction, err := s.scope.HCloudClient.Reboot(ctx, server)
@@ -320,7 +324,7 @@ func (s *Service) handleBootStateWaitForRescueEnabledThenRebootToRescue(ctx cont
 	conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 		string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
 		"Reboot started")
-	return reconcile.Result{RequeueAfter: requeueAfterRebootToRescue}, nil
+	return reconcile.Result{RequeueAfter: 55 * time.Second}, nil
 }
 
 func (s *Service) handleBootStateWaitForRescueRunningThenInstallImage(ctx context.Context, server *hcloud.Server) (reconcile.Result, error) {
@@ -346,7 +350,7 @@ func (s *Service) handleBootStateWaitForRescueRunningThenInstallImage(ctx contex
 			conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 				string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
 				"Waiting until Action RebootToRescue is finished")
-			return reconcile.Result{RequeueAfter: requeueIntervalWaitForRescueRunning}, nil
+			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 		}
 
 		err = action.Error()
@@ -415,7 +419,7 @@ func (s *Service) handleBootStateWaitForRescueRunningThenInstallImage(ctx contex
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
 			"%s", output.String())
-		return reconcile.Result{RequeueAfter: requeueIntervalWaitForRescueRunning}, nil //nolint:nilerr
+		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil //nolint:nilerr
 	}
 
 	conditions.MarkTrue(s.scope.HCloudMachine,
@@ -445,12 +449,12 @@ func (s *Service) handleBootStateWaitForRescueRunningThenInstallImage(ctx contex
 			conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 				string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
 				"%s", msg)
-			return reconcile.Result{RequeueAfter: requeueAfterRebootToRescue}, nil
+			return reconcile.Result{RequeueAfter: 55 * time.Second}, nil
 		}
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
 			"%s", msg)
-		return reconcile.Result{RequeueAfter: requeueIntervalWaitForRescueRunning}, nil
+		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
 	if remoteHostName != "rescue" {
@@ -472,7 +476,7 @@ func (s *Service) handleBootStateWaitForRescueRunningThenInstallImage(ctx contex
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
 			"hcloud-image-url-command still running")
-		return reconcile.Result{RequeueAfter: requeueIntervalWaitForRescueRunning}, nil
+		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 
 	case sshclient.HCloudImageURLCommandStateFinishedSuccessfully:
 		rebootAction, err := s.scope.HCloudClient.Reboot(ctx, server)
@@ -532,7 +536,7 @@ func (s *Service) handleBootStateWaitForRescueRunningThenInstallImage(ctx contex
 	conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 		string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
 		"hcloud-image-url-command started")
-	return reconcile.Result{RequeueAfter: requeueAfterHcloudImageURLCommandStarted}, nil // ööö
+	return reconcile.Result{RequeueAfter: 55 * time.Second}, nil // ööö
 }
 
 func (s *Service) handleBootStateWaitForRebootAfterInstallImageThenBootToRealOS(ctx context.Context, _ *hcloud.Server) (res reconcile.Result, err error) {
@@ -556,7 +560,7 @@ func (s *Service) handleBootStateWaitForRebootAfterInstallImageThenBootToRealOS(
 			conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 				string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
 				"Waiting until Action RebootToRealOS is finished")
-			return reconcile.Result{RequeueAfter: requeueIntervalWaitForRescueRunning}, nil
+			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 		}
 
 		err = action.Error()
@@ -578,7 +582,7 @@ func (s *Service) handleBootStateWaitForRebootAfterInstallImageThenBootToRealOS(
 	conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 		string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
 		"reboot after hcloud-image-url-command finished")
-	return reconcile.Result{RequeueAfter: requeueAfterRebootToRealOS}, nil
+	return reconcile.Result{RequeueAfter: 55 * time.Second}, nil
 }
 
 func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
