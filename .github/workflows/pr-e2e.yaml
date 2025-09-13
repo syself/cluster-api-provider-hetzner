@@ -38,9 +38,20 @@ jobs:
     name: Test Release
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/syself/caph-builder:1.0.25
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.github_token }}
+    env:
+      BUILD_IN_CONTAINER: "false"
     steps:
       - name: checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Fix broken env var HOME
+        uses: ./.github/actions/fixes
+
       - name: Test Release
         id: manager-image
         uses: ./.github/actions/test-release
