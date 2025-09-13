@@ -859,6 +859,7 @@ func obtainHardwareDetailsNics(sshClient sshclient.Client) ([]infrav1.NIC, error
 	stringArray := strings.Split(stdOut, "\n")
 	nicsArray := make([]infrav1.NIC, 0, len(stringArray))
 
+	ipFound := false
 	for _, str := range stringArray {
 		validJSONString := validJSONFromSSHOutput(str)
 
@@ -883,6 +884,15 @@ func obtainHardwareDetailsNics(sshClient sshclient.Client) ([]infrav1.NIC, error
 			IP:        nic.IP,
 			SpeedMbps: speedMbps,
 		})
+
+		if nic.IP != "" {
+			ipFound = true
+		}
+	}
+	// if no IP was found, we return an error
+	// See nodeAddresses()
+	if !ipFound {
+		return nil, fmt.Errorf("no IP found in NICs: %+v", nicsArray)
 	}
 
 	return nicsArray, nil
@@ -1586,7 +1596,7 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 				record.Warnf(s.scope.HetznerBareMetalHost, "UnexpectedHostName",
 					"EnsureProvision: wanted %q. %s", wantHostName, err.Error())
 			}
-			return actionError{err: fmt.Errorf("failed to handle incomplete boot - provisioning: %w", err)}
+			return actionError{err: fmt.Errorf("failed to handle incomplete boot - actionEnsureProvisioned: %w", err)}
 		}
 
 		failed, err := s.handleIncompleteBoot(ctx, false, isTimeout, isSSHConnectionRefusedError)
@@ -1605,36 +1615,40 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 	createEventWithCloudInitOutput := func(ar actionResult) actionResult {
 		// Create an Event which contains the cloud-init-output.
 		var err error
-		errMsg := ""
-		f := record.Warnf
 		switch v := ar.(type) {
 		case actionContinue:
 			// Do not create and event containing the output, wait until finished.
 			return ar
 		case actionComplete:
-			f = record.Eventf
+			err = nil
 		case actionError:
 			err = v.err
-			errMsg = fmt.Sprintf(" (%s)", v.err.Error())
+		default:
+			s.scope.Logger.Info("Unhandled type of actionResult",
+				"actionResult", ar)
 		}
 		out := sshClient.GetCloudInitOutput()
-		if out.Err != nil || out.StdErr != "" {
+		exitStatus, exitError := out.ExitStatus()
+		if exitError != nil {
+			return actionError{err: fmt.Errorf("failed to get cloud init output (ssh connection failed): %w", errors.Join(exitError, err))}
+		}
+		if exitStatus != 0 || out.StdErr != "" {
+			err = errors.Join(err, fmt.Errorf("failed to get cloud init output (ssh connection worked): %s",
+				out.String()))
+		}
+		if err != nil {
 			record.Warnf(s.scope.HetznerBareMetalHost, "GetCloudInitOutputFailed",
-				"GetCloudInitOutput failed to get /var/log/cloud-init-output.log: stdout %q, stderr %q, err %q",
-				out.StdOut, out.StdErr, out.Err.Error())
-			if err != nil {
-				return actionError{err: fmt.Errorf("failed to get cloud init output: %w, while handling: %w", out.Err, err)}
-			}
+				"GetCloudInitOutput failed to get /var/log/cloud-init-output.log: %s",
+				err)
 			return actionError{err: fmt.Errorf("failed to get cloud init output: %w", err)}
 		}
-		f(s.scope.HetznerBareMetalHost, "CloudInitOutput", "cloud init output%s:\n%s",
-			errMsg,
+		record.Eventf(s.scope.HetznerBareMetalHost, "CloudInitOutput", "cloud init output:\n%s",
 			out.StdOut)
 		return ar
 	}
 
 	// Check the status of cloud init
-	actResult, msg, _ := s.checkCloudInitStatus(ctx, sshClient)
+	actResult, msg := s.checkCloudInitStatus(ctx, sshClient)
 	if _, complete := actResult.(actionComplete); !complete {
 		record.Event(s.scope.HetznerBareMetalHost, "CloudInitStillRunning", msg)
 		return createEventWithCloudInitOutput(actResult)
@@ -1652,41 +1666,51 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 	return createEventWithCloudInitOutput(actionComplete{})
 }
 
-func (s *Service) checkCloudInitStatus(ctx context.Context, sshClient sshclient.Client) (actionResult, string, error) {
+func (s *Service) checkCloudInitStatus(ctx context.Context, sshClient sshclient.Client) (actionResult, string) {
 	out := sshClient.CloudInitStatus()
-	// This error is interesting for further logic and might happen because of the fact that the sshClient has the wrong port
-	if out.Err != nil {
-		return actionError{err: fmt.Errorf("failed to get cloud init status: %w", out.Err)}, "", out.Err
+
+	status, err := out.ExitStatus()
+	if err != nil {
+		err = fmt.Errorf("getting CloudInitStatus failed (ssh connection failed): %w", err)
+		return actionContinue{delay: 5 * time.Second}, err.Error()
+	}
+
+	if status != 0 {
+		err = fmt.Errorf("command of CloudInitStatus failed (ssh connection worked): %s",
+			out.String())
+		return actionError{err: err}, err.Error()
 	}
 
 	stdOut := trimLineBreak(out.StdOut)
 	switch {
 	case strings.Contains(stdOut, "status: running"):
 		// Cloud init is still running
-		return actionContinue{delay: 5 * time.Second}, "cloud-init still running", nil
+		return actionContinue{delay: 5 * time.Second}, "cloud-init still running"
+
 	case strings.Contains(stdOut, "status: disabled"):
 		// Reboot needs to be triggered again - did not start yet
 		out = sshClient.Reboot()
 		msg := "cloud-init-status was 'disabled'"
 		if err := handleSSHError(out); err != nil {
-			return actionError{err: fmt.Errorf("failed to reboot (%s): %w", msg, err)}, "", nil
+			return actionError{err: fmt.Errorf("failed to reboot (%s): %w", msg, err)}, ""
 		}
 		createSSHRebootEvent(ctx, s.scope.HetznerBareMetalHost, msg)
 		s.scope.HetznerBareMetalHost.SetError(infrav1.ErrorTypeSSHRebootTriggered, "ssh reboot just triggered")
 		record.Warn(s.scope.HetznerBareMetalHost, "SSHRebootAfterCloudInitStatusDisabled", msg)
-		return actionContinue{delay: 5 * time.Second}, "cloud-init was disabled. Triggered a reboot again", nil
+		return actionContinue{delay: 5 * time.Second}, "cloud-init was disabled. Triggered a reboot again"
+
 	case strings.Contains(stdOut, "status: done"):
 		s.scope.HetznerBareMetalHost.ClearError()
-		return actionComplete{}, "cloud-init is done", nil
+		return actionComplete{}, "cloud-init is done"
+
 	case strings.Contains(stdOut, "status: error"):
-		record.Warn(s.scope.HetznerBareMetalHost, "CloudInitFailed", "cloud init returned status error")
-		return s.recordActionFailure(infrav1.FatalError, "cloud init returned status error"), "", nil
+		msg := fmt.Sprintf("cloud init returned status error: %s", out.String())
+		record.Warn(s.scope.HetznerBareMetalHost, "CloudInitFailed", msg)
+		return s.recordActionFailure(infrav1.FatalError, msg), msg
+
 	default:
-		// Errors are handled after stdOut in this case, as status: error returns an exited with status 1 error
-		if err := handleSSHError(out); err != nil {
-			return actionError{err: fmt.Errorf("failed to get cloud init status: %w", err)}, "", nil
-		}
-		return actionContinue{delay: 5 * time.Second}, fmt.Sprintf("cloud-init unknown output: %s. %s", out.StdOut, out.StdErr), nil
+		err = fmt.Errorf("unknown cloud-init output: %s", out.String())
+		return actionError{err: err}, err.Error()
 	}
 }
 
@@ -1801,7 +1825,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 					record.Warnf(s.scope.HetznerBareMetalHost, "UnexpectedHostName",
 						"Provisioned: wanted %q. %s", wantHostName, err.Error())
 				}
-				return actionError{err: fmt.Errorf("failed to handle incomplete boot - provisioning: %w", err)}
+				return actionError{err: fmt.Errorf("failed to handle incomplete boot - actionProvisioned: %w", err)}
 			}
 			failed, err := s.handleIncompleteBoot(ctx, false, isTimeout, isSSHConnectionRefusedError)
 			if failed {

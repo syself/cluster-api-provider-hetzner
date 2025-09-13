@@ -27,181 +27,234 @@ const BuiltinsName = "builtin"
 
 // Builtins represents builtin variables exposed through patches.
 type Builtins struct {
-	Cluster           *ClusterBuiltins           `json:"cluster,omitempty"`
-	ControlPlane      *ControlPlaneBuiltins      `json:"controlPlane,omitempty"`
+	// cluster represents builtin cluster variables.
+	// +optional
+	Cluster *ClusterBuiltins `json:"cluster,omitempty"`
+	// controlPlane represents builtin ControlPlane variables.
+	// +optional
+	ControlPlane *ControlPlaneBuiltins `json:"controlPlane,omitempty"`
+	// machineDeployment represents builtin MachineDeployment variables.
+	// +optional
 	MachineDeployment *MachineDeploymentBuiltins `json:"machineDeployment,omitempty"`
-	MachinePool       *MachinePoolBuiltins       `json:"machinePool,omitempty"`
+	// machinePool represents builtin MachinePool variables.
+	// +optional
+	MachinePool *MachinePoolBuiltins `json:"machinePool,omitempty"`
 }
 
 // ClusterBuiltins represents builtin cluster variables.
 type ClusterBuiltins struct {
-	// Name is the name of the cluster.
+	// name is the name of the cluster.
+	// +optional
 	Name string `json:"name,omitempty"`
 
-	// Namespace is the namespace of the cluster.
+	// namespace is the namespace of the cluster.
+	// +optional
 	Namespace string `json:"namespace,omitempty"`
 
-	// UID is the unqiue identifier of the cluster.
+	// uid is the unqiue identifier of the cluster.
+	// +optional
 	UID types.UID `json:"uid,omitempty"`
 
-	// Topology represents the cluster topology variables.
+	// metadata is the metadata set on the Cluster object.
+	// +optional
+	Metadata *clusterv1.ObjectMeta `json:"metadata,omitempty"`
+
+	// topology represents the cluster topology variables.
+	// +optional
 	Topology *ClusterTopologyBuiltins `json:"topology,omitempty"`
 
-	// Network represents the cluster network variables.
+	// network represents the cluster network variables.
+	// +optional
 	Network *ClusterNetworkBuiltins `json:"network,omitempty"`
 }
 
 // ClusterTopologyBuiltins represents builtin cluster topology variables.
 type ClusterTopologyBuiltins struct {
-	// Version is the Kubernetes version of the Cluster.
+	// version is the Kubernetes version of the Cluster.
 	// NOTE: Please note that this version might temporarily differ from the version
 	// of the ControlPlane or workers while an upgrade process is being orchestrated.
+	// +optional
 	Version string `json:"version,omitempty"`
 
-	// Class is the name of the ClusterClass of the Cluster.
+	// class is the name of the ClusterClass of the Cluster.
+	// +optional
 	Class string `json:"class,omitempty"`
+
+	// classNamespace is the namespace of the ClusterClass of the Cluster.
+	// +optional
+	ClassNamespace string `json:"classNamespace,omitempty"`
 }
 
 // ClusterNetworkBuiltins represents builtin cluster network variables.
 type ClusterNetworkBuiltins struct {
-	// ServiceDomain is the domain name for services.
+	// serviceDomain is the domain name for services.
+	// +optional
 	ServiceDomain *string `json:"serviceDomain,omitempty"`
-	// Services is the network ranges from which service VIPs are allocated.
+	// services is the network ranges from which service VIPs are allocated.
+	// +optional
 	Services []string `json:"services,omitempty"`
-	// Pods is the network ranges from which Pod networks are allocated.
+	// pods is the network ranges from which Pod networks are allocated.
+	// +optional
 	Pods []string `json:"pods,omitempty"`
-	// IPFamily is the IPFamily the Cluster is operating in. One of Invalid, IPv4, IPv6, DualStack.
+	// ipFamily is the IPFamily the Cluster is operating in. One of Invalid, IPv4, IPv6, DualStack.
 	//
 	// Deprecated: IPFamily is not a concept in Kubernetes. It was originally introduced in CAPI for CAPD.
 	// IPFamily will be dropped in a future release. More details at https://github.com/kubernetes-sigs/cluster-api/issues/7521
+	// +optional
 	IPFamily string `json:"ipFamily,omitempty"`
 }
 
 // ControlPlaneBuiltins represents builtin ControlPlane variables.
 // NOTE: These variables are only set for templates belonging to the ControlPlane object.
 type ControlPlaneBuiltins struct {
-	// Version is the Kubernetes version of the ControlPlane object.
+	// version is the Kubernetes version of the ControlPlane object.
 	// NOTE: Please note that this version is the version we are currently reconciling towards.
 	// It can differ from the current version of the ControlPlane while an upgrade process is
 	// being orchestrated.
+	// +optional
 	Version string `json:"version,omitempty"`
 
-	// Metadata is the metadata set on the ControlPlane object.
+	// metadata is the metadata set on the ControlPlane object.
+	// +optional
 	Metadata *clusterv1.ObjectMeta `json:"metadata,omitempty"`
 
-	// Name is the name of the ControlPlane,
+	// name is the name of the ControlPlane,
 	// to which the current template belongs to.
+	// +optional
 	Name string `json:"name,omitempty"`
 
-	// Replicas is the value of the replicas field of the ControlPlane object.
+	// replicas is the value of the replicas field of the ControlPlane object.
+	// +optional
 	Replicas *int64 `json:"replicas,omitempty"`
 
-	// MachineTemplate is the value of the .spec.machineTemplate field of the ControlPlane object.
+	// machineTemplate is the value of the .spec.machineTemplate field of the ControlPlane object.
+	// +optional
 	MachineTemplate *ControlPlaneMachineTemplateBuiltins `json:"machineTemplate,omitempty"`
 }
 
 // ControlPlaneMachineTemplateBuiltins is the value of the .spec.machineTemplate field of the ControlPlane object.
 type ControlPlaneMachineTemplateBuiltins struct {
-	// InfrastructureRef is the value of the infrastructureRef field of ControlPlane.spec.machineTemplate.
+	// infrastructureRef is the value of the infrastructureRef field of ControlPlane.spec.machineTemplate.
+	// +optional
 	InfrastructureRef ControlPlaneMachineTemplateInfrastructureRefBuiltins `json:"infrastructureRef,omitempty"`
 }
 
 // ControlPlaneMachineTemplateInfrastructureRefBuiltins is the value of the infrastructureRef field of
 // ControlPlane.spec.machineTemplate.
 type ControlPlaneMachineTemplateInfrastructureRefBuiltins struct {
-	// Name of the infrastructureRef.
+	// name of the infrastructureRef.
+	// +optional
 	Name string `json:"name,omitempty"`
 }
 
 // MachineDeploymentBuiltins represents builtin MachineDeployment variables.
 // NOTE: These variables are only set for templates belonging to a MachineDeployment.
 type MachineDeploymentBuiltins struct {
-	// Version is the Kubernetes version of the MachineDeployment,
+	// version is the Kubernetes version of the MachineDeployment,
 	// to which the current template belongs to.
 	// NOTE: Please note that this version is the version we are currently reconciling towards.
 	// It can differ from the current version of the MachineDeployment machines while an upgrade process is
 	// being orchestrated.
+	// +optional
 	Version string `json:"version,omitempty"`
 
-	// Metadata is the metadata set on the MachineDeployment.
+	// metadata is the metadata set on the MachineDeployment.
+	// +optional
 	Metadata *clusterv1.ObjectMeta `json:"metadata,omitempty"`
 
-	// Class is the class name of the MachineDeployment,
+	// class is the class name of the MachineDeployment,
 	// to which the current template belongs to.
+	// +optional
 	Class string `json:"class,omitempty"`
 
-	// Name is the name of the MachineDeployment,
+	// name is the name of the MachineDeployment,
 	// to which the current template belongs to.
+	// +optional
 	Name string `json:"name,omitempty"`
 
-	// TopologyName is the topology name of the MachineDeployment,
+	// topologyName is the topology name of the MachineDeployment,
 	// to which the current template belongs to.
+	// +optional
 	TopologyName string `json:"topologyName,omitempty"`
 
-	// Replicas is the value of the replicas field of the MachineDeployment,
+	// replicas is the value of the replicas field of the MachineDeployment,
 	// to which the current template belongs to.
+	// +optional
 	Replicas *int64 `json:"replicas,omitempty"`
 
-	// Bootstrap is the value of the .spec.template.spec.bootstrap field of the MachineDeployment.
+	// bootstrap is the value of the .spec.template.spec.bootstrap field of the MachineDeployment.
+	// +optional
 	Bootstrap *MachineBootstrapBuiltins `json:"bootstrap,omitempty"`
 
-	// InfrastructureRef is the value of the .spec.template.spec.infrastructureRef field of the MachineDeployment.
+	// infrastructureRef is the value of the .spec.template.spec.infrastructureRef field of the MachineDeployment.
+	// +optional
 	InfrastructureRef *MachineInfrastructureRefBuiltins `json:"infrastructureRef,omitempty"`
 }
 
 // MachinePoolBuiltins represents builtin MachinePool variables.
 // NOTE: These variables are only set for templates belonging to a MachinePool.
 type MachinePoolBuiltins struct {
-	// Version is the Kubernetes version of the MachinePool,
+	// version is the Kubernetes version of the MachinePool,
 	// to which the current template belongs to.
 	// NOTE: Please note that this version is the version we are currently reconciling towards.
 	// It can differ from the current version of the MachinePool machines while an upgrade process is
 	// being orchestrated.
+	// +optional
 	Version string `json:"version,omitempty"`
 
-	// Metadata is the metadata set on the MachinePool.
+	// metadata is the metadata set on the MachinePool.
+	// +optional
 	Metadata *clusterv1.ObjectMeta `json:"metadata,omitempty"`
 
-	// Class is the class name of the MachinePool,
+	// class is the class name of the MachinePool,
 	// to which the current template belongs to.
+	// +optional
 	Class string `json:"class,omitempty"`
 
-	// Name is the name of the MachinePool,
+	// name is the name of the MachinePool,
 	// to which the current template belongs to.
+	// +optional
 	Name string `json:"name,omitempty"`
 
-	// TopologyName is the topology name of the MachinePool,
+	// topologyName is the topology name of the MachinePool,
 	// to which the current template belongs to.
+	// +optional
 	TopologyName string `json:"topologyName,omitempty"`
 
-	// Replicas is the value of the replicas field of the MachinePool,
+	// replicas is the value of the replicas field of the MachinePool,
 	// to which the current template belongs to.
+	// +optional
 	Replicas *int64 `json:"replicas,omitempty"`
 
-	// Bootstrap is the value of the .spec.template.spec.bootstrap field of the MachinePool.
+	// bootstrap is the value of the .spec.template.spec.bootstrap field of the MachinePool.
+	// +optional
 	Bootstrap *MachineBootstrapBuiltins `json:"bootstrap,omitempty"`
 
-	// InfrastructureRef is the value of the .spec.template.spec.infrastructureRef field of the MachinePool.
+	// infrastructureRef is the value of the .spec.template.spec.infrastructureRef field of the MachinePool.
+	// +optional
 	InfrastructureRef *MachineInfrastructureRefBuiltins `json:"infrastructureRef,omitempty"`
 }
 
 // MachineBootstrapBuiltins is the value of the .spec.template.spec.bootstrap field
 // of the MachineDeployment or MachinePool.
 type MachineBootstrapBuiltins struct {
-	// ConfigRef is the value of the .spec.template.spec.bootstrap.configRef field of the MachineDeployment.
+	// configRef is the value of the .spec.template.spec.bootstrap.configRef field of the MachineDeployment.
+	// +optional
 	ConfigRef *MachineBootstrapConfigRefBuiltins `json:"configRef,omitempty"`
 }
 
 // MachineBootstrapConfigRefBuiltins is the value of the .spec.template.spec.bootstrap.configRef
 // field of the MachineDeployment or MachinePool.
 type MachineBootstrapConfigRefBuiltins struct {
-	// Name of the bootstrap.configRef.
+	// name of the bootstrap.configRef.
+	// +optional
 	Name string `json:"name,omitempty"`
 }
 
 // MachineInfrastructureRefBuiltins is the value of the .spec.template.spec.infrastructureRef field
 // of the MachineDeployment or MachinePool.
 type MachineInfrastructureRefBuiltins struct {
-	// Name of the infrastructureRef.
+	// name of the infrastructureRef.
+	// +optional
 	Name string `json:"name,omitempty"`
 }

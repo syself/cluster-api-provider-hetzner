@@ -62,7 +62,7 @@ func CaphClusterDeploymentSpec(ctx context.Context, inputGetter func() CaphClust
 		gomega.Expect(input.BootstrapClusterProxy).ToNot(gomega.BeNil(), "Invalid argument. input.BootstrapClusterProxy can't be nil when calling %s spec", specName)
 		gomega.Expect(os.MkdirAll(input.ArtifactFolder, 0o750)).To(gomega.Succeed(), "Invalid argument. input.ArtifactFolder can't be created for %s spec", specName)
 		gomega.Expect(input.E2EConfig.Variables).To(gomega.HaveKey(KubernetesVersion))
-		gomega.Expect(input.E2EConfig.Variables).To(HaveValidVersion(input.E2EConfig.GetVariable(KubernetesVersion)))
+		gomega.Expect(input.E2EConfig.Variables).To(HaveValidVersion(input.E2EConfig.GetVariableOrEmpty(KubernetesVersion)))
 
 		// Setup a Namespace where to host objects for this spec and create a watcher for the namespace events.
 		namespace, cancelWatches = setupSpecNamespace(ctx, specName, input.BootstrapClusterProxy, input.ArtifactFolder)
@@ -83,7 +83,7 @@ func CaphClusterDeploymentSpec(ctx context.Context, inputGetter func() CaphClust
 				Flavor:                   input.Flavor,
 				Namespace:                namespace.Name,
 				ClusterName:              clusterName,
-				KubernetesVersion:        input.E2EConfig.GetVariable(KubernetesVersion),
+				KubernetesVersion:        input.E2EConfig.GetVariableOrEmpty(KubernetesVersion),
 				ControlPlaneMachineCount: ptr.To(input.ControlPlaneMachineCount),
 				WorkerMachineCount:       ptr.To(input.WorkerMachineCount),
 			},
@@ -97,6 +97,7 @@ func CaphClusterDeploymentSpec(ctx context.Context, inputGetter func() CaphClust
 
 	ginkgo.AfterEach(func() {
 		// Dumps all the resources in the spec namespace, then cleanups the cluster object and the spec namespace itself.
-		dumpSpecResourcesAndCleanup(ctx, specName, input.BootstrapClusterProxy, input.ArtifactFolder, namespace, cancelWatches, clusterResources.Cluster, input.E2EConfig.GetIntervals, input.SkipCleanup)
+		dumpSpecResourcesAndCleanup(ctx, specName, input.BootstrapClusterProxy, input.ArtifactFolder, namespace, cancelWatches, clusterResources.Cluster, input.E2EConfig.GetIntervals, input.SkipCleanup, input.BootstrapClusterProxy.GetKubeconfigPath(),
+			input.ClusterctlConfigPath)
 	})
 }

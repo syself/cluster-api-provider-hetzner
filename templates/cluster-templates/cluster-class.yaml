@@ -526,26 +526,34 @@ spec:
           - apt-get -y install at jq unzip wget socat mtr logrotate apt-transport-https
           - sed -i '/swap/d' /etc/fstab
           - swapoff -a
-          - modprobe overlay && modprobe br_netfilter && sysctl --system
+          - modprobe overlay
+          - modprobe br_netfilter
+          - sysctl --system
           - wget https://github.com/containerd/containerd/releases/download/v$CONTAINERD/cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz
           - wget https://github.com/containerd/containerd/releases/download/v$CONTAINERD/cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
           - sha256sum --check cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
           - tar --no-overwrite-dir -C / -xzf cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz
           - rm -f cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
-          - chmod -R 644 /etc/cni && chown -R root:root /etc/cni
+          - chmod -R 644 /etc/cni
+          - chown -R root:root /etc/cni
           - mkdir -p /etc/containerd
           - containerd config default > /etc/containerd/config.toml
           - sed -i  "s/SystemdCgroup = false/SystemdCgroup = true/" /etc/containerd/config.toml
-          - systemctl daemon-reload && systemctl enable containerd && systemctl start containerd
+          - systemctl daemon-reload
+          - systemctl enable containerd
+          - systemctl start containerd
           - mkdir -p /etc/apt/keyrings/
           - curl -fsSL https://pkgs.k8s.io/core:/stable:/v$TRIMMED_KUBERNETES_VERSION/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
           - echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v$TRIMMED_KUBERNETES_VERSION/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list
           - apt-get update
-          - apt-get install -y kubelet="$KUBERNETES_VERSION-*" kubeadm="$KUBERNETES_VERSION-*" kubectl="$KUBERNETES_VERSION-*" bash-completion && apt-mark hold kubelet kubectl kubeadm && systemctl enable kubelet
+          - apt-get install -y kubelet="$KUBERNETES_VERSION-*" kubeadm="$KUBERNETES_VERSION-*" kubectl="$KUBERNETES_VERSION-*" bash-completion
+          - apt-mark hold kubelet kubectl kubeadm
+          - systemctl enable kubelet
           - kubeadm config images pull --kubernetes-version $KUBERNETES_VERSION
           - echo 'source <(kubectl completion bash)' >>/root/.bashrc
           - echo 'export KUBECONFIG=/etc/kubernetes/admin.conf' >>/root/.bashrc
-          - apt-get -y autoremove && apt-get -y clean all
+          - apt-get -y autoremove
+          - apt-get -y clean all
 ---
 apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
 kind: KubeadmConfigTemplate
@@ -612,26 +620,34 @@ spec:
         - apt-get -y install at jq unzip wget socat mtr logrotate apt-transport-https
         - sed -i '/swap/d' /etc/fstab
         - swapoff -a
-        - modprobe overlay && modprobe br_netfilter && sysctl --system
+        - modprobe overlay
+        - modprobe br_netfilter
+        - sysctl --system
         - wget https://github.com/containerd/containerd/releases/download/v$CONTAINERD/cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz
         - wget https://github.com/containerd/containerd/releases/download/v$CONTAINERD/cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
         - sha256sum --check cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
         - tar --no-overwrite-dir -C / -xzf cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz
         - rm -f cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
-        - chmod -R 644 /etc/cni && chown -R root:root /etc/cni
+        - chmod -R 644 /etc/cni
+        - chown -R root:root /etc/cni
         - mkdir -p /etc/containerd
         - containerd config default > /etc/containerd/config.toml
         - sed -i  "s/SystemdCgroup = false/SystemdCgroup = true/" /etc/containerd/config.toml
-        - systemctl daemon-reload && systemctl enable containerd && systemctl start containerd
+        - systemctl daemon-reload
+        - systemctl enable containerd
+        - systemctl start containerd
         - mkdir -p /etc/apt/keyrings/
         - curl -fsSL https://pkgs.k8s.io/core:/stable:/v$TRIMMED_KUBERNETES_VERSION/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
         - echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v$TRIMMED_KUBERNETES_VERSION/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list
         - apt-get update
-        - apt-get install -y kubelet="$KUBERNETES_VERSION-*" kubeadm="$KUBERNETES_VERSION-*" kubectl="$KUBERNETES_VERSION-*" bash-completion && apt-mark hold kubelet kubectl kubeadm && systemctl enable kubelet
+        - apt-get install -y kubelet="$KUBERNETES_VERSION-*" kubeadm="$KUBERNETES_VERSION-*" kubectl="$KUBERNETES_VERSION-*" bash-completion
+        - apt-mark hold kubelet kubectl kubeadm
+        - systemctl enable kubelet
         - kubeadm config images pull --kubernetes-version $KUBERNETES_VERSION
         - echo 'source <(kubectl completion bash)' >>/root/.bashrc
         - echo 'export KUBECONFIG=/etc/kubernetes/admin.conf' >>/root/.bashrc
-        - apt-get -y autoremove && apt-get -y clean all
+        - apt-get -y autoremove
+        - apt-get -y clean all
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: HetznerBareMetalRemediationTemplate
@@ -669,9 +685,17 @@ spec:
             size: all
         postInstallScript: |
           #!/bin/bash
-          mkdir -p /etc/cloud/cloud.cfg.d && touch /etc/cloud/cloud.cfg.d/99-custom-networking.cfg
+          # Bash Strict Mode: https://github.com/guettli/bash-strict-mode
+          trap 'echo -e "\n🤷 🚨 🔥 Warning: A command has failed. Exiting the script. Line was ($0:$LINENO): $(sed -n "$LINENO"p "$0" 2>/dev/null || true) 🔥 🚨 🤷 "; exit 3' ERR
+          set -Eeuo pipefail
+
+          mkdir -p /etc/cloud/cloud.cfg.d
+          touch /etc/cloud/cloud.cfg.d/99-custom-networking.cfg
           echo "network: { config: disabled }" > /etc/cloud/cloud.cfg.d/99-custom-networking.cfg
-          apt-get update && apt-get install -y cloud-init apparmor apparmor-utils
+
+          apt-get update
+
+          apt-get install -y cloud-init apparmor apparmor-utils
           cloud-init clean --logs
       sshSpec:
         portAfterCloudInit: 22
@@ -747,23 +771,31 @@ spec:
         - apt-get -y install at jq unzip wget socat mtr logrotate apt-transport-https
         - sed -i '/swap/d' /etc/fstab
         - swapoff -a
-        - modprobe overlay && modprobe br_netfilter && sysctl --system
+        - modprobe overlay
+        - modprobe br_netfilter
+        - sysctl --system
         - wget https://github.com/containerd/containerd/releases/download/v$CONTAINERD/cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz
         - wget https://github.com/containerd/containerd/releases/download/v$CONTAINERD/cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
         - sha256sum --check cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
         - tar --no-overwrite-dir -C / -xzf cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz
         - rm -f cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
-        - chmod -R 644 /etc/cni && chown -R root:root /etc/cni
+        - chmod -R 644 /etc/cni
+        - chown -R root:root /etc/cni
         - mkdir -p /etc/containerd
         - containerd config default > /etc/containerd/config.toml
         - sed -i  "s/SystemdCgroup = false/SystemdCgroup = true/" /etc/containerd/config.toml
-        - systemctl daemon-reload && systemctl enable containerd && systemctl start containerd
+        - systemctl daemon-reload
+        - systemctl enable containerd
+        - systemctl start containerd
         - mkdir -p /etc/apt/keyrings/
         - curl -fsSL https://pkgs.k8s.io/core:/stable:/v$TRIMMED_KUBERNETES_VERSION/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
         - echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v$TRIMMED_KUBERNETES_VERSION/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list
         - apt-get update
-        - apt-get install -y kubelet="$KUBERNETES_VERSION-*" kubeadm="$KUBERNETES_VERSION-*" kubectl="$KUBERNETES_VERSION-*" bash-completion && apt-mark hold kubelet kubectl kubeadm && systemctl enable kubelet
+        - apt-get install -y kubelet="$KUBERNETES_VERSION-*" kubeadm="$KUBERNETES_VERSION-*" kubectl="$KUBERNETES_VERSION-*" bash-completion
+        - apt-mark hold kubelet kubectl kubeadm
+        - systemctl enable kubelet
         - kubeadm config images pull --kubernetes-version $KUBERNETES_VERSION
         - echo 'source <(kubectl completion bash)' >>/root/.bashrc
         - echo 'export KUBECONFIG=/etc/kubernetes/admin.conf' >>/root/.bashrc
-        - apt-get -y autoremove && apt-get -y clean all
+        - apt-get -y autoremove
+        - apt-get -y clean all
