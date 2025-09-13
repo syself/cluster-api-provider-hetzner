@@ -282,7 +282,7 @@ const (
 	// installed.
 	HCloudBootStateWaitForRescueRunningThenInstallImage HCloudBootState = "WaitForRescueRunningThenInstallImage"
 
-	// HCloudBootStateWaitForRebootAfterInstallImageThenBootToRealOS indicates the controller waits for reboot (after install-image), and then switches BootState to BootToRealOS (no additonal reboot gets done).
+	// HCloudBootStateWaitForRebootAfterInstallImageThenBootToRealOS indicates the controller waits for reboot (after install-image), and then switches BootState to BootToRealOS (no additional reboot gets done).
 	HCloudBootStateWaitForRebootAfterInstallImageThenBootToRealOS HCloudBootState = "WaitForRebootAfterInstallImageThenBootToRealOS"
 
 	// HCloudBootStateBootToRealOS indicates that the server is booting the operating system.
