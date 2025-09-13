@@ -3,18 +3,7 @@ priorityClassName: "system-node-critical"
 
 hubble:
   enabled: false
-  metrics:
-    enabled:
-      - dns:query;ignoreAAAA
-      - drop
-      - tcp
-      - flow
-      - icmp
-      - http
-  relay:
-    enabled: false
-  ui:
-    enabled: false
+
 ipam:
   mode: "kubernetes"
 
