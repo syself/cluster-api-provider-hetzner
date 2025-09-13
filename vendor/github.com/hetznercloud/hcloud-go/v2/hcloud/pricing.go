@@ -3,11 +3,15 @@ package hcloud
 import (
 	"context"
 
+	"github.com/hetznercloud/hcloud-go/v2/hcloud/exp/ctxutil"
 	"github.com/hetznercloud/hcloud-go/v2/hcloud/schema"
 )
 
 // Pricing specifies pricing information for various resources.
 type Pricing struct {
+	Currency string
+	VATRate  string
+
 	Image ImagePricing
 	// Deprecated: [Pricing.FloatingIP] is deprecated, use [Pricing.FloatingIPs] instead.
 	FloatingIP  FloatingIPPricing
@@ -136,15 +140,15 @@ type PricingClient struct {
 
 // Get retrieves pricing information.
 func (c *PricingClient) Get(ctx context.Context) (Pricing, *Response, error) {
-	req, err := c.client.NewRequest(ctx, "GET", "/pricing", nil)
+	const opPath = "/pricing"
+	ctx = ctxutil.SetOpPath(ctx, opPath)
+
+	reqPath := opPath
+
+	respBody, resp, err := getRequest[schema.PricingGetResponse](ctx, c.client, reqPath)
 	if err != nil {
-		return Pricing{}, nil, err
+		return Pricing{}, resp, err
 	}
 
-	var body schema.PricingGetResponse
-	resp, err := c.client.Do(req, &body)
-	if err != nil {
-		return Pricing{}, nil, err
-	}
-	return PricingFromSchema(body.Pricing), resp, nil
+	return PricingFromSchema(respBody.Pricing), resp, nil
 }

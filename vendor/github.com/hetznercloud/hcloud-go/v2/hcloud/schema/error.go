@@ -7,7 +7,7 @@ type Error struct {
 	Code       string          `json:"code"`
 	Message    string          `json:"message"`
 	DetailsRaw json.RawMessage `json:"details"`
-	Details    interface{}
+	Details    any             `json:"-"`
 }
 
 // UnmarshalJSON overrides default json unmarshalling.
