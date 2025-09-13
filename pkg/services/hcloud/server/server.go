@@ -33,7 +33,6 @@ import (
 	capierrors "sigs.k8s.io/cluster-api/errors"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/record"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -159,14 +158,12 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		var msg string
 		if !hm.Status.Ready {
 			hm.SetBootState(infrav1.HCloudBootStateBootToRealOS)
-			msg = fmt.Sprintf("Updating old resource (pre BootState) to %s",
-				hm.Status.BootState)
 		} else {
 			hm.SetBootState(infrav1.HCloudBootStateOperatingSystemRunning)
-			msg = fmt.Sprintf("Updating old resource (pre BootState) %s", hm.Status.BootState)
 		}
+		msg = fmt.Sprintf("Updating old resource (pre BootState) %s", hm.Status.BootState)
 
-		ctrl.LoggerFrom(ctx).Info(msg)
+		s.scope.Logger.Info(msg)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
 			"%s", msg)
@@ -1278,8 +1275,7 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 		return nil, nil
 	}
 
-	logger := ctrl.LoggerFrom(ctx)
-	logger.Info("DeprecationWarning finding Server by labels is no longer needed. We plan to remove that feature and rename findServer to getServer", "err", err)
+	s.scope.Logger.Info("DeprecationWarning finding Server by labels is no longer needed. We plan to remove that feature and rename findServer to getServer", "err", err)
 
 	return servers[0], nil
 }

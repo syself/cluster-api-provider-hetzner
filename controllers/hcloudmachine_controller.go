@@ -82,7 +82,7 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
-	log = log.WithValues("HCloudMachine", hcloudMachine.Name)
+	log = log.WithValues("HCloudMachine", klog.KObj(hcloudMachine))
 
 	// Fetch the Machine.
 	machine, err := util.GetOwnerMachine(ctx, r.Client, hcloudMachine.ObjectMeta)
@@ -177,6 +177,7 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 				latest := &infrav1.HCloudMachine{}
 				getErr := r.Get(ctx, client.ObjectKeyFromObject(machineScope.HCloudMachine), latest)
 				if apierrors.IsNotFound(getErr) {
+					// the object was deleted. All is fine.
 					return true, nil
 				}
 				if getErr != nil {
