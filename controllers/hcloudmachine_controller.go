@@ -79,7 +79,7 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
-	log = log.WithValues("HCloudMachine", hcloudMachine.Name)
+	log = log.WithValues("HCloudMachine", klog.KObj(hcloudMachine))
 
 	// Fetch the Machine.
 	machine, err := util.GetOwnerMachine(ctx, r.Client, hcloudMachine.ObjectMeta)
