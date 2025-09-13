@@ -172,6 +172,7 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 				latest := &infrav1.HCloudMachine{}
 				getErr := r.Get(ctx, client.ObjectKeyFromObject(machineScope.HCloudMachine), latest)
 				if apierrors.IsNotFound(getErr) {
+					// the object was deleted. All is fine.
 					return true, nil
 				}
 				if getErr != nil {
