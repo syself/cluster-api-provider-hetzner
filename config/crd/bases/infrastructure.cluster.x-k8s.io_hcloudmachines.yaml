@@ -181,6 +181,20 @@ spec:
                   - type
                   type: object
                 type: array
+              bootState:
+                description: |-
+                  BootState indicates the current state during provisioning.
+
+
+                  The states will be:
+                  "" -> BootToRealOS -> OperatingSystemRunning
+                type: string
+              bootStateSince:
+                description: |-
+                  BootStateSince is the timestamp of the last change to BootState. It is used to timeout
+                  provisioning if a state takes too long.
+                format: date-time
+                type: string
               conditions:
                 description: Conditions define the current service state of the HCloudMachine.
                 items:

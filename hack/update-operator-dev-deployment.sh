@@ -75,7 +75,7 @@ docker build -f images/caph/Dockerfile -t "$image" .
 
 docker push "$image"
 
-# Note: Up to now changes in the CRD are not supported by this script.
+kustomize build config/crd | kubectl apply -f -
 
 kubectl scale --replicas=1 -n mgt-system deployment/caph-controller-manager
 

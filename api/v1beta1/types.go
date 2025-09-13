@@ -263,3 +263,17 @@ func (s *HCloudNetworkSpec) IsZero() bool {
 	}
 	return true
 }
+
+// HCloudBootState defines the boot state of an HCloud server.
+type HCloudBootState string
+
+const (
+	// HCloudBootStateUnset is the initial state when the boot state has not been set yet.
+	HCloudBootStateUnset HCloudBootState = ""
+
+	// HCloudBootStateBootToRealOS indicates that the server is booting the operating system.
+	HCloudBootStateBootToRealOS HCloudBootState = "BootToRealOS"
+
+	// HCloudBootStateOperatingSystemRunning indicates that the server is successfully running.
+	HCloudBootStateOperatingSystemRunning HCloudBootState = "OperatingSystemRunning"
+)

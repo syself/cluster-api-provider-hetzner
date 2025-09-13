@@ -28,7 +28,7 @@ type args struct {
 	newSpec HCloudMachineSpec
 }
 
-func TestValidateHCloudMachineSpec(t *testing.T) {
+func TestValidateHCloudMachineSpecUpdate(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
@@ -38,10 +38,12 @@ func TestValidateHCloudMachineSpec(t *testing.T) {
 			name: "Immutable Type",
 			args: args{
 				oldSpec: HCloudMachineSpec{
-					Type: "cpx11",
+					ImageName: "ubuntu-24.04",
+					Type:      "cpx11",
 				},
 				newSpec: HCloudMachineSpec{
-					Type: "cx21",
+					ImageName: "ubuntu-24.04",
+					Type:      "cx21",
 				},
 			},
 			want: field.Invalid(field.NewPath("spec", "type"), "cx21", "field is immutable"),
@@ -62,6 +64,7 @@ func TestValidateHCloudMachineSpec(t *testing.T) {
 			name: "Immutable SSHKeys",
 			args: args{
 				oldSpec: HCloudMachineSpec{
+					ImageName: "ubuntu-24.04",
 					SSHKeys: []SSHKey{
 						{
 							Name:        "ssh-key-1",
@@ -70,6 +73,7 @@ func TestValidateHCloudMachineSpec(t *testing.T) {
 					},
 				},
 				newSpec: HCloudMachineSpec{
+					ImageName: "ubuntu-24.04",
 					SSHKeys: []SSHKey{
 						{
 							Name:        "ssh-key-1",
@@ -97,9 +101,11 @@ func TestValidateHCloudMachineSpec(t *testing.T) {
 			name: "Immutable PlacementGroupName",
 			args: args{
 				oldSpec: HCloudMachineSpec{
+					ImageName:          "ubuntu-24.04",
 					PlacementGroupName: createPlacementGroupName("placement-group-1"),
 				},
 				newSpec: HCloudMachineSpec{
+					ImageName:          "ubuntu-24.04",
 					PlacementGroupName: createPlacementGroupName("placement-group-2"),
 				},
 			},
@@ -124,24 +130,21 @@ func TestValidateHCloudMachineSpec(t *testing.T) {
 			want: nil,
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := validateHCloudMachineSpec(tt.args.oldSpec, tt.args.newSpec)
+			got := validateHCloudMachineSpecUpdate(tt.args.oldSpec, tt.args.newSpec)
 
-			if len(got) == 0 {
+			if tt.want == nil {
 				assert.Empty(t, got)
+				return
 			}
 
-			if len(got) > 1 {
-				t.Errorf("got length: %d greater than 1", len(got))
-			}
+			assert.Equal(t, len(got), 1, "got length: %d greater than 1: %+v", len(got), got)
 
-			// assert if length of got is 1
-			if len(got) == 1 {
-				assert.Equal(t, tt.want.Type, got[0].Type)
-				assert.Equal(t, tt.want.Field, got[0].Field)
-				assert.Equal(t, tt.want.Detail, got[0].Detail)
-			}
+			assert.Equal(t, tt.want.Type, got[0].Type)
+			assert.Equal(t, tt.want.Field, got[0].Field)
+			assert.Equal(t, tt.want.Detail, got[0].Detail)
 		})
 	}
 }
