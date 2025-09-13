@@ -29,7 +29,6 @@ func BuildBuildCommand() command.Command {
 			var errors []error
 			cliConfig, goFlagsConfig, errors = types.VetAndInitializeCLIAndGoConfig(cliConfig, goFlagsConfig)
 			command.AbortIfErrors("Ginkgo detected configuration issues:", errors)
-
 			buildSpecs(args, cliConfig, goFlagsConfig)
 		},
 	}
@@ -44,7 +43,7 @@ func buildSpecs(args []string, cliConfig types.CLIConfig, goFlagsConfig types.Go
 	internal.VerifyCLIAndFrameworkVersion(suites)
 
 	opc := internal.NewOrderedParallelCompiler(cliConfig.ComputedNumCompilers())
-	opc.StartCompiling(suites, goFlagsConfig)
+	opc.StartCompiling(suites, goFlagsConfig, true)
 
 	for {
 		suiteIdx, suite := opc.Next()
