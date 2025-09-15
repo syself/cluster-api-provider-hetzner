@@ -129,6 +129,9 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 			// no need to requeue.
 			return reconcile.Result{}, nil
 		}
+
+		// We found a server, now update the Status. We do that for all BootStates,
+		// so we can keep the handleBootState functions a bit shorter.
 		updateHCloudMachineStatusFromServer(s.scope.HCloudMachine, server)
 	}
 
