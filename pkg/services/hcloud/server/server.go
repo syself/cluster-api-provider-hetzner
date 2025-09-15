@@ -590,6 +590,7 @@ func (s *Service) handleBootStateWaitForRebootAfterInstallImageThenBootToRealOS(
 
 func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
 	hm := s.scope.HCloudMachine
+	updateHCloudMachineStatusFromServer(hm, server)
 
 	// analyze status of server
 	switch server.Status {
@@ -622,6 +623,7 @@ func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server)
 
 func (s *Service) handleOperatingSystemRunning(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
 	hm := s.scope.HCloudMachine
+	updateHCloudMachineStatusFromServer(hm, server)
 
 	// Clean up old Status fields
 	hm.Status.ActionIDEnableRescueSystem = 0
