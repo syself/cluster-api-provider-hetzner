@@ -193,7 +193,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 
 func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
 	hm := s.scope.HCloudMachine
-	updateHCloudMachineStatusFromServer(s.scope.HCloudMachine, server)
+	updateHCloudMachineStatusFromServer(hm, server)
 
 	// analyze status of server
 	switch server.Status {
@@ -226,7 +226,7 @@ func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server)
 
 func (s *Service) handleOperatingSystemRunning(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
 	hm := s.scope.HCloudMachine
-	updateHCloudMachineStatusFromServer(s.scope.HCloudMachine, server)
+	updateHCloudMachineStatusFromServer(hm, server)
 
 	// check whether server is attached to the network
 	if err := s.reconcileNetworkAttachment(ctx, server); err != nil {
