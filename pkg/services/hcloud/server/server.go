@@ -121,7 +121,6 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 			// no need to requeue.
 			return reconcile.Result{}, nil
 		}
-		updateHCloudMachineStatusFromServer(s.scope.HCloudMachine, server)
 	}
 
 	switch s.scope.HCloudMachine.Status.BootState {
@@ -170,7 +169,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		return reconcile.Result{}, fmt.Errorf("failed to create server: %w", err)
 	}
 
-	updateHCloudMachineStatusFromServer(s.scope.HCloudMachine, server)
+	updateHCloudMachineStatusFromServer(hm, server)
 
 	s.scope.SetProviderID(server.ID)
 
@@ -194,6 +193,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 
 func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
 	hm := s.scope.HCloudMachine
+	updateHCloudMachineStatusFromServer(s.scope.HCloudMachine, server)
 
 	// analyze status of server
 	switch server.Status {
@@ -207,7 +207,7 @@ func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server)
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 
 	case hcloud.ServerStatusRunning:
-		s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateOperatingSystemRunning)
+		hm.SetBootState(infrav1.HCloudBootStateOperatingSystemRunning)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
 			"hcloud server status: %s", server.Status)
@@ -226,6 +226,7 @@ func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server)
 
 func (s *Service) handleOperatingSystemRunning(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
 	hm := s.scope.HCloudMachine
+	updateHCloudMachineStatusFromServer(s.scope.HCloudMachine, server)
 
 	// check whether server is attached to the network
 	if err := s.reconcileNetworkAttachment(ctx, server); err != nil {
