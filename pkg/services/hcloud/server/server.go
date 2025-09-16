@@ -124,7 +124,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 			s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateUnset)
 			record.Warn(s.scope.HCloudMachine, "NoHCloudServerFound", msg)
 			conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerAvailableCondition,
-				string(s.scope.HCloudMachine.Status.BootState), clusterv1.ConditionSeverityInfo,
+				string(s.scope.HCloudMachine.Status.BootState), clusterv1.ConditionSeverityWarning,
 				"%s", msg)
 			// no need to requeue.
 			return reconcile.Result{}, nil
@@ -265,7 +265,7 @@ func (s *Service) handleBootStateWaitForRescueEnabledThenRebootToRescue(ctx cont
 		log.FromContext(ctx).Error(nil, msg)
 		s.scope.SetError(msg, capierrors.CreateMachineError)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
+			string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		return reconcile.Result{}, nil
 	}
@@ -294,7 +294,7 @@ func (s *Service) handleBootStateWaitForRescueEnabledThenRebootToRescue(ctx cont
 			log.FromContext(ctx).Error(err, "")
 			s.scope.SetError(err.Error(), capierrors.CreateMachineError)
 			conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-				string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
+				string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
 				"%s", err.Error())
 			return reconcile.Result{}, nil
 		}
@@ -335,12 +335,24 @@ func (s *Service) handleBootStateWaitForRescueRunningThenStartImageURLCommand(ct
 	hm := s.scope.HCloudMachine
 	updateHCloudMachineStatusFromServer(hm, server)
 
+	duration := time.Since(hm.Status.BootStateSince.Time)
+	if duration > 4*time.Minute {
+		// timeout. Something has failed.
+		msg := fmt.Sprintf("reaching rescue system has timed out after %s. Deleting machine",
+			duration.Round(time.Second).String())
+		s.scope.SetError(msg, capierrors.CreateMachineError)
+		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
+			string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
+			"%s", msg)
+		return reconcile.Result{}, nil
+	}
+
 	if hm.Status.ActionIDRebootToRescue == 0 {
 		msg := "handleBootStateWaitForRescueRunningThenStartImageURLCommand ActionIdRebootToRescue not set? Can not continue. Provisioning Failed"
 		log.FromContext(ctx).Error(nil, msg)
 		s.scope.SetError(msg, capierrors.CreateMachineError)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
+			string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		return reconcile.Result{}, nil
 	}
@@ -364,7 +376,7 @@ func (s *Service) handleBootStateWaitForRescueRunningThenStartImageURLCommand(ct
 			log.FromContext(ctx).Error(err, "")
 			s.scope.SetError(err.Error(), capierrors.CreateMachineError)
 			conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-				string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
+				string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
 				"%s", err.Error())
 			return reconcile.Result{}, nil
 		}
@@ -387,7 +399,7 @@ func (s *Service) handleBootStateWaitForRescueRunningThenStartImageURLCommand(ct
 			clusterv1.ConditionSeverityInfo,
 			"%s", output.String())
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
+			string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
 			"%s", output.String())
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil //nolint:nilerr
 	}
@@ -427,15 +439,16 @@ func (s *Service) handleBootStateWaitForRescueRunningThenStartImageURLCommand(ct
 	}
 
 	if remoteHostName != "rescue" {
-		msg := fmt.Sprintf("Remote hostname (via ssh) of hcloud server is %q. Expected 'rescue'. Deleting hcloud machine via SetError", remoteHostName)
+		msg := fmt.Sprintf("Remote hostname (via ssh) of hcloud server is %q. Expected 'rescue'. Deleting hcloud machine", remoteHostName)
 		s.scope.SetError(msg, capierrors.CreateMachineError)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
+			string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		return reconcile.Result{}, nil
 	}
 
-	// command has not started yet. Start it.
+	// Now we know that we are inside a rescue system.
+	// image-url-command has not started yet. Start it.
 
 	data, err := s.scope.GetRawBootstrapData(ctx)
 	if err != nil {
@@ -459,6 +472,9 @@ func (s *Service) handleBootStateWaitForRescueRunningThenStartImageURLCommand(ct
 			"exitStatus", exitStatus,
 			"stdouStderr", stdouStderr)
 		s.scope.SetError(msg, capierrors.CreateMachineError)
+		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
+			string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
+			"%s", msg)
 		return reconcile.Result{}, nil
 	}
 	conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
@@ -490,7 +506,7 @@ func (s *Service) handleBootStateWaitForImageURLCommandThenRebootAfterImageURLCo
 			"logFile", logFile)
 		s.scope.SetError(msg, capierrors.CreateMachineError)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
+			string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		return reconcile.Result{}, nil
 	}
@@ -522,7 +538,7 @@ func (s *Service) handleBootStateWaitForImageURLCommandThenRebootAfterImageURLCo
 			"logFile", logFile)
 		s.scope.SetError(msg, capierrors.CreateMachineError)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
+			string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		return reconcile.Result{}, nil
 	case sshclient.HCloudImageURLCommandStateNotStarted:
@@ -541,6 +557,9 @@ func (s *Service) handleBootStateWaitForRebootAfterImageURLCommandThenBootToReal
 		msg := "handleBootStateWaitForRebootAfterImageURLCommandThenBootToRealOS ActionIDRebootAfterImageURLCommand not set? Can not continue. Provisioning Failed"
 		log.FromContext(ctx).Error(nil, msg)
 		s.scope.SetError(msg, capierrors.CreateMachineError)
+		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
+			string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
+			"%s", msg)
 		return reconcile.Result{}, nil
 	}
 
@@ -562,7 +581,11 @@ func (s *Service) handleBootStateWaitForRebootAfterImageURLCommandThenBootToReal
 		if err != nil {
 			err = fmt.Errorf("action %+v failed (Reboot after hcloud-image-url-command): %w", action, err)
 			log.FromContext(ctx).Error(err, "")
-			s.scope.SetError(err.Error(), capierrors.CreateMachineError)
+			msg := err.Error()
+			s.scope.SetError(msg, capierrors.CreateMachineError)
+			conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
+				string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
+				"%s", msg)
 			return reconcile.Result{}, nil
 		}
 
