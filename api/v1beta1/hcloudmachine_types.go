@@ -124,10 +124,17 @@ type HCloudMachineStatus struct {
 	// BootState indicates the current state during provisioning.
 	//
 	// If Spec.ImageName is set the states will be:
-	// "" -> BootToRealOS -> OperatingSystemRunning
+	//   1. BootToRealOS
+	//   2. OperatingSystemRunning
 	//
 	// If Spec.ImageURL set set the states will be:
-	// "" -> WaitForPreRescueOSThenEnableRescueSystem -> RescueSystem -> WaitForRescueRunningThenStartImageURLCommand -> BootToRealOS -> OperatingSystemRunning
+	//   1. WaitForRescueEnabledThenRebootToRescue
+	//   2. WaitForRescueRunningThenStartImageURLCommand
+	//   3. WaitForImageURLCommandThenRebootAfterImageURLCommand
+	//   4. WaitForRebootAfterImageURLCommandThenBootToRealOS
+	//   5. BootToRealOS
+	//   6. OperatingSystemRunning
+
 	// +optional
 	BootState HCloudBootState `json:"bootState"`
 
