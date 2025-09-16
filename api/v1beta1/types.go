@@ -288,7 +288,8 @@ const (
 	HCloudBootStateWaitForImageURLCommandThenRebootAfterImageURLCommand HCloudBootState = "WaitForImageURLCommandThenRebootAfterImageURLCommand"
 
 	// HCloudBootStateWaitForRebootAfterImageURLCommandThenBootToRealOS indicates that the
-	// image-url-command was sucessfull, and not the machine was rebooted to start the real OS.
+	// image-url-command was sucessful. The controller waits for the hcloud reboot action to be
+	// finished. Then BootState BootToRealOS gets set. No additional reboot gets done.
 	HCloudBootStateWaitForRebootAfterImageURLCommandThenBootToRealOS HCloudBootState = "WaitForRebootAfterImageURLCommandThenBootToRealOS"
 
 	// HCloudBootStateBootToRealOS indicates that the server is booting the operating system.
