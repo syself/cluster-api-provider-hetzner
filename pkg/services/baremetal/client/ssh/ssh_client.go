@@ -803,7 +803,7 @@ func (c *sshClient) StateOfHCloudImageURLCommand() (state HCloudImageURLCommandS
 		return HCloudImageURLCommandStateRunning, "", nil
 	}
 
-	out = c.runSSH(`tail -n 1 /root/hcloud-image-url-command.log | grep -q IMAGE_INSTALL_DONE`)
+	out = c.runSSH(`tail -n 1 /root/hcloud-image-url-command.log | grep -q IMAGE_URL_DONE`)
 	exitStatus, err = out.ExitStatus()
 	if err != nil {
 		return HCloudImageURLCommandStateNotStarted, "", fmt.Errorf("detecting if hcloud-image-url-command was successful failed: %w", err)
