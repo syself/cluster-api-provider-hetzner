@@ -278,12 +278,18 @@ const (
 	// HCloudBootStateWaitForRescueEnabledThenRebootToRescue indicates that the controller waits for the rescue system to be enabled. Then the server gets booted into the rescue system.
 	HCloudBootStateWaitForRescueEnabledThenRebootToRescue HCloudBootState = "WaitForRescueEnabledThenRebootToRescue"
 
-	// HCloudBootStateWaitForRescueRunningThenInstallImage indicates that the node image is currently being
-	// installed.
-	HCloudBootStateWaitForRescueRunningThenInstallImage HCloudBootState = "WaitForRescueRunningThenInstallImage"
+	// HCloudBootStateWaitForRescueRunningThenStartImageURLCommand indicates that the controller
+	// waits for the rescue system to be reachable. Then it starts the image-url-command.
+	HCloudBootStateWaitForRescueRunningThenStartImageURLCommand HCloudBootState = "WaitForRescueRunningThenStartImageURLCommand"
 
-	// HCloudBootStateWaitForRebootAfterInstallImageThenBootToRealOS indicates the controller waits for reboot (after install-image), and then switches BootState to BootToRealOS (no additional reboot gets done).
-	HCloudBootStateWaitForRebootAfterInstallImageThenBootToRealOS HCloudBootState = "WaitForRebootAfterInstallImageThenBootToRealOS"
+	// HCloudBootStateWaitForImageURLCommandThenRebootAfterImageURLCommand indicates the controller waits for the
+	// image-url-command, and then switches BootState to BootToRealOS (no additional reboot gets
+	// done).
+	HCloudBootStateWaitForImageURLCommandThenRebootAfterImageURLCommand HCloudBootState = "WaitForImageURLCommandThenRebootAfterImageURLCommand"
+
+	// HCloudBootStateWaitForRebootAfterImageURLCommandThenBootToRealOS indicates that the
+	// image-url-command was sucessfull, and not the machine was rebooted to start the real OS.
+	HCloudBootStateWaitForRebootAfterImageURLCommandThenBootToRealOS HCloudBootState = "WaitForRebootAfterImageURLCommandThenBootToRealOS"
 
 	// HCloudBootStateBootToRealOS indicates that the server is booting the operating system.
 	HCloudBootStateBootToRealOS HCloudBootState = "BootToRealOS"

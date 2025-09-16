@@ -241,7 +241,7 @@ spec:
 
 
                     If Spec.ImageURL set set the states will be:
-                    "" -> WaitForPreRescueOSThenEnableRescueSystem -> RescueSystem -> WaitForRescueRunningThenInstallImage -> BootToRealOS -> OperatingSystemRunning
+                    "" -> WaitForPreRescueOSThenEnableRescueSystem -> RescueSystem -> WaitForRescueRunningThenStartImageURLCommand -> BootToRealOS -> OperatingSystemRunning
                   type: string
                 bootStateSince:
                   description: |-

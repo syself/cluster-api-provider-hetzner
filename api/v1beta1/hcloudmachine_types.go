@@ -63,7 +63,7 @@ type HCloudMachineSpec struct {
 	// the process is considered to have failed.
 	//
 	// A Kubernetes event will be created in both (success, failure) cases containing the output
-	// (stdout and stderr) of the script. If the script takes longer than N (TODO) seconds, the
+	// (stdout and stderr) of the script. If the script takes longer than 7 minutes, the
 	// controller cancels the provisioning.
 	//
 	// ImageURL is mutually exclusive to "ImageName".
@@ -127,7 +127,7 @@ type HCloudMachineStatus struct {
 	// "" -> BootToRealOS -> OperatingSystemRunning
 	//
 	// If Spec.ImageURL set set the states will be:
-	// "" -> WaitForPreRescueOSThenEnableRescueSystem -> RescueSystem -> WaitForRescueRunningThenInstallImage -> BootToRealOS -> OperatingSystemRunning
+	// "" -> WaitForPreRescueOSThenEnableRescueSystem -> RescueSystem -> WaitForRescueRunningThenStartImageURLCommand -> BootToRealOS -> OperatingSystemRunning
 	// +optional
 	BootState HCloudBootState `json:"bootState"`
 
@@ -144,9 +144,9 @@ type HCloudMachineStatus struct {
 	// +optional
 	ActionIDRebootToRescue int64 `json:"actionIdRebootToRescue,omitzero"`
 
-	// ActionIDRebootToRealOS is the hcloud API Action result of reboot to the real OS system.
+	// ActionIDRebootAfterImageURLCommand is the hcloud API Action result of reboot to the real OS system.
 	// +optional
-	ActionIDRebootToRealOS int64 `json:"actionIdRebootToRealOS,omitzero"`
+	ActionIDRebootAfterImageURLCommand int64 `json:"actionIDRebootAfterImageURLCommand,omitzero"`
 
 	// RebootToRescueCount: number of times we tried to reboot into the rescue-system.
 	// +optional
