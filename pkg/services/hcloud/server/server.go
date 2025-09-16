@@ -390,6 +390,9 @@ func (s *Service) handleBootStateWaitForRescueRunningThenStartImageURLCommand(ct
 	}
 
 	hcloudSSHClient, err := s.getSSHClient(ctx)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("getSSHClient failed: %w", err)
+	}
 
 	output := hcloudSSHClient.GetHostName()
 	if output.Err != nil {
@@ -542,7 +545,7 @@ func (s *Service) handleBootStateWaitForImageURLCommandThenRebootAfterImageURLCo
 			"%s", msg)
 		return reconcile.Result{}, nil
 	case sshclient.HCloudImageURLCommandStateNotStarted:
-		return reconcile.Result{}, fmt.Errorf("image-url-command not started in BootState %q? Should not happen.",
+		return reconcile.Result{}, fmt.Errorf("image-url-command not started in BootState %q? Should not happen",
 			state)
 	default:
 		return reconcile.Result{}, fmt.Errorf("unknown HCloudImageURLCommandState: %q", state)
