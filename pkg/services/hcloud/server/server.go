@@ -854,7 +854,11 @@ func (s *Service) createServerFromImageURL(ctx context.Context) (*hcloud.Server,
 	// Validate that HCloudImageURLCommand is given
 	hm := s.scope.HCloudMachine
 	if s.scope.HCloudImageURLCommand == "" {
-		return nil, nil, fmt.Errorf("controller was started without --hcloud-image-url-command. Provisioning via ImageURL %q not possible", hm.Spec.ImageURL)
+		msg := fmt.Sprintf("controller was started without --hcloud-image-url-command. Provisioning via ImageURL %q not possible", hm.Spec.ImageURL)
+		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
+			string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
+			"%s", msg)
+		return nil, nil, errors.New(msg)
 	}
 
 	image, err := s.getServerImage(ctx, preRescueOSImage)
@@ -870,18 +874,27 @@ func (s *Service) createServerFromImageURL(ctx context.Context) (*hcloud.Server,
 }
 
 func (s *Service) createServerFromImageName(ctx context.Context) (*hcloud.Server, *hcloud.Image, error) {
+	hm := s.scope.HCloudMachine
 	userData, err := s.scope.GetRawBootstrapData(ctx)
 	if err != nil {
-		record.Warnf(
-			s.scope.HCloudMachine,
-			"FailedGetBootstrapData",
-			err.Error(),
-		)
-		return nil, nil, fmt.Errorf("failed to get raw bootstrap data: %s", err)
+		err = fmt.Errorf("failed to get raw bootstrap data: %s", err)
+		msg := err.Error()
+		record.Warn(hm, "FailedGetBootstrapData", msg)
+		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
+			string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
+			"%s", err.Error())
+		return nil, nil, err
 	}
-	image, err := s.getServerImage(ctx, s.scope.HCloudMachine.Spec.ImageName)
+
+	image, err := s.getServerImage(ctx, hm.Spec.ImageName)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get server image: %w", err)
+		err = fmt.Errorf("failed to get server image: %w", err)
+		msg := err.Error()
+		record.Warn(hm, "FailedGetBootstrapData", msg)
+		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
+			string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
+			"%s", msg)
+		return nil, nil, err
 	}
 
 	server, err := s.createServer(ctx, s.scope.Name(), userData, image)
@@ -889,7 +902,7 @@ func (s *Service) createServerFromImageName(ctx context.Context) (*hcloud.Server
 		return nil, nil, err
 	}
 
-	s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateBootToRealOS)
+	hm.SetBootState(infrav1.HCloudBootStateBootToRealOS)
 	return server, image, nil
 }
 
