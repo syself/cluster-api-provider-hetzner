@@ -1380,7 +1380,7 @@ func (s *Service) getSSHClient(ctx context.Context) (sshclient.Client, error) {
 	ip := hm.Status.Addresses[0].Address
 
 	// Unfortunately the hcloud API does not provide the sshd hostkey of the rescue system.
-	// We need to trust the network. In theory a not man-in-the-middle attack is possible.
+	// We need to trust the network. In theory a man-in-the-middle attack is possible.
 	hcloudSSHClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
 		IP:         ip,
 		PrivateKey: privateKey,
