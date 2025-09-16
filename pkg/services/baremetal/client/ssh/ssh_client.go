@@ -200,7 +200,7 @@ type Client interface {
 	// It gets called by the controller after the rescue system of the new hcloud machine
 	// is reachable. The env var `OCI_REGISTRY_AUTH_TOKEN` gets set to the same value of the
 	// corresponding env var of the controller.
-	// This gets used when the hcloudmachine has Spec.ImageURL set (instead of ImageName).
+	// This gets used when the hcloudmachine has Spec.ImageURL set.
 	StartHCloudImageURLCommand(ctx context.Context, command, imageURL string, bootstrapData []byte, machineName string) (exitStatus int, stdoutAndStderr string, err error)
 
 	StateOfHCloudImageURLCommand() (state HCloudImageURLCommandState, logFile string, err error)
