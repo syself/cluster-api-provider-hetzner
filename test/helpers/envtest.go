@@ -47,6 +47,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -145,6 +146,10 @@ func NewTestEnvironment() *TestEnvironment {
 				Host:    "localhost",
 			},
 		),
+		Metrics: metricsserver.Options{
+			// Disable MetricsServer, so that two tests processes can run concurrently
+			BindAddress: "0",
+		},
 	})
 	if err != nil {
 		klog.Fatalf("unable to create manager: %s", err)

@@ -94,8 +94,14 @@ func initializeWebhookInEnvironment() {
 		klog.Fatalf("Failed to append core controller webhook config: %v", err)
 	}
 
+	// Two tests processes should be able ro run concurrently. Each needs an own port:
+	port, err := getFreePort()
+	if err != nil {
+		klog.Fatalf("Failed to get a free port for webhook: %v", err)
+	}
+
 	env.WebhookInstallOptions = envtest.WebhookInstallOptions{
-		LocalServingPort:   9443,
+		LocalServingPort:   port,
 		LocalServingHost:   "localhost",
 		MaxTime:            20 * time.Second,
 		PollInterval:       time.Second,
@@ -125,4 +131,14 @@ func (t *TestEnvironment) WaitForWebhooks() {
 		klog.V(2).Info("Webhook port is now open. Continuing with tests...")
 		return
 	}
+}
+
+func getFreePort() (port int, err error) {
+	ln, err := net.Listen("tcp", "[::]:0")
+	if err != nil {
+		return 0, err
+	}
+	port = ln.Addr().(*net.TCPAddr).Port
+	err = ln.Close()
+	return
 }
