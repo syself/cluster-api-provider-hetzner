@@ -58,7 +58,7 @@ var (
 
 	// We do not want filenames to start with a dot or a number.
 	// Only lowercase letters are allowed.
-	preProvisionCommandRegex = regexp.MustCompile(`^[a-z][a-z0-9_.-]+[a-z0-9]$`)
+	commandRegex = regexp.MustCompile(`^[a-z][a-z0-9_.-]+[a-z0-9]$`)
 )
 
 func init() {
@@ -115,8 +115,8 @@ func main() {
 	// If preProvisionCommand is set, check if the file exists and validate the basename.
 	if preProvisionCommand != "" {
 		baseName := filepath.Base(preProvisionCommand)
-		if !preProvisionCommandRegex.MatchString(baseName) {
-			msg := fmt.Sprintf("basename of pre-provision-command (%s) must match the regex %s", baseName, preProvisionCommandRegex.String())
+		if !commandRegex.MatchString(baseName) {
+			msg := fmt.Sprintf("basename (%s) must match the regex %s", baseName, commandRegex.String())
 			setupLog.Error(errors.New(msg), "")
 			os.Exit(1)
 		}
