@@ -127,7 +127,7 @@ type HCloudMachineStatus struct {
 	//   1. BootToRealOS
 	//   2. OperatingSystemRunning
 	//
-	// If Spec.ImageURL set set the states will be:
+	// If Spec.ImageURL is set the states will be:
 	//   1. WaitForRescueEnabledThenRebootToRescue
 	//   2. WaitForRescueRunningThenStartImageURLCommand
 	//   3. WaitForImageURLCommandThenRebootAfterImageURLCommand

@@ -9,351 +9,326 @@ spec:
   group: infrastructure.cluster.x-k8s.io
   names:
     categories:
-      - cluster-api
+    - cluster-api
     kind: HCloudMachine
     listKind: HCloudMachineList
     plural: hcloudmachines
     shortNames:
-      - hcma
+    - hcma
     singular: hcloudmachine
   scope: Namespaced
   versions:
-    - additionalPrinterColumns:
-        - description: Cluster to which this HCloudMachine belongs
-          jsonPath: .metadata.labels.cluster\.x-k8s\.io/cluster-name
-          name: Cluster
-          type: string
-        - description: Machine object which owns with this HCloudMachine
-          jsonPath: .metadata.ownerReferences[?(@.kind=="Machine")].name
-          name: Machine
-          type: string
-        - description: Phase of HCloudMachine
-          jsonPath: .status.instanceState
-          name: Phase
-          type: string
-        - description: Time duration since creation of hcloudmachine
-          jsonPath: .metadata.creationTimestamp
-          name: Age
-          type: date
-        - jsonPath: .status.conditions[?(@.type=='Ready')].reason
-          name: Reason
-          type: string
-        - jsonPath: .status.conditions[?(@.type=='Ready')].message
-          name: Message
-          type: string
-      name: v1beta1
-      schema:
-        openAPIV3Schema:
-          description: HCloudMachine is the Schema for the hcloudmachines API.
-          properties:
-            apiVersion:
-              description: |-
-                APIVersion defines the versioned schema of this representation of an object.
-                Servers should convert recognized schemas to the latest internal value, and
-                may reject unrecognized values.
-                More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-              type: string
-            kind:
-              description: |-
-                Kind is a string value representing the REST resource this object represents.
-                Servers may infer this from the endpoint the client submits requests to.
-                Cannot be updated.
-                In CamelCase.
-                More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-              type: string
-            metadata:
-              type: object
-            spec:
-              description: HCloudMachineSpec defines the desired state of HCloudMachine.
-              properties:
-                imageName:
-                  description: |-
-                    ImageName is the reference to the Machine Image from which to create the machine instance.
-                    It can reference an image uploaded to Hetzner API in two ways: either directly as the name of an image or as the label of an image.
-                  minLength: 1
-                  type: string
-                imageURL:
-                  description: |-
-                    ImageURL gets used for installing custom node images. If that field is set, the controller
-                    boots a new HCloud machine into rescue mode. Then the script provided by
-                    --hcloud-image-url-command (which you need to provide to the controller binary) will be
-                    copied into the rescue system and executed.
+  - additionalPrinterColumns:
+    - description: Cluster to which this HCloudMachine belongs
+      jsonPath: .metadata.labels.cluster\.x-k8s\.io/cluster-name
+      name: Cluster
+      type: string
+    - description: Machine object which owns with this HCloudMachine
+      jsonPath: .metadata.ownerReferences[?(@.kind=="Machine")].name
+      name: Machine
+      type: string
+    - description: Phase of HCloudMachine
+      jsonPath: .status.instanceState
+      name: Phase
+      type: string
+    - description: Time duration since creation of hcloudmachine
+      jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .status.conditions[?(@.type=='Ready')].reason
+      name: Reason
+      type: string
+    - jsonPath: .status.conditions[?(@.type=='Ready')].message
+      name: Message
+      type: string
+    name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: HCloudMachine is the Schema for the hcloudmachines API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: HCloudMachineSpec defines the desired state of HCloudMachine.
+            properties:
+              imageName:
+                description: |-
+                  ImageName is the reference to the Machine Image from which to create the machine instance.
+                  It can reference an image uploaded to Hetzner API in two ways: either directly as the name of an image or as the label of an image.
+                minLength: 1
+                type: string
+              imageURL:
+                description: |-
+                  ImageURL gets used for installing custom node images. If that field is set, the controller
+                  boots a new HCloud machine into rescue mode. Then the script provided by
+                  --hcloud-image-url-command (which you need to provide to the controller binary) will be
+                  copied into the rescue system and executed.
 
 
-                    The controller uses url.ParseRequestURI (Go function) to validate the URL.
+                  The controller uses url.ParseRequestURI (Go function) to validate the URL.
 
 
-                    It is up to the script to provision the disk of the hcloud machine accordingly. The process
-                    is considered successful if the last line in the output contains
-                    IMAGE_URL_DONE. If the script terminates with a different last line, then
-                    the process is considered to have failed.
+                  It is up to the script to provision the disk of the hcloud machine accordingly. The process
+                  is considered successful if the last line in the output contains
+                  IMAGE_URL_DONE. If the script terminates with a different last line, then
+                  the process is considered to have failed.
 
 
-                    A Kubernetes event will be created in both (success, failure) cases containing the output
-                    (stdout and stderr) of the script. If the script takes longer than N (TODO) seconds, the
-                    controller cancels the provisioning.
+                  A Kubernetes event will be created in both (success, failure) cases containing the output
+                  (stdout and stderr) of the script. If the script takes longer than 7 minutes, the
+                  controller cancels the provisioning.
 
 
-                    ImageURL is mutually exclusive to "ImageName".
-                  minLength: 1
-                  type: string
-                placementGroupName:
-                  description:
-                    PlacementGroupName defines the placement group of the
-                    machine in HCloud API that must reference an existing placement
-                    group.
-                  type: string
-                providerID:
-                  description:
-                    ProviderID is the unique identifier as specified by the
-                    cloud provider.
-                  type: string
-                publicNetwork:
-                  description: |-
-                    PublicNetwork specifies information for public networks. It defines the specs about
-                    the primary IP address of the server. If both IPv4 and IPv6 are disabled, then the private network has to be enabled.
+                  ImageURL is mutually exclusive to "ImageName".
+                minLength: 1
+                type: string
+              placementGroupName:
+                description: PlacementGroupName defines the placement group of the
+                  machine in HCloud API that must reference an existing placement
+                  group.
+                type: string
+              providerID:
+                description: ProviderID is the unique identifier as specified by the
+                  cloud provider.
+                type: string
+              publicNetwork:
+                description: |-
+                  PublicNetwork specifies information for public networks. It defines the specs about
+                  the primary IP address of the server. If both IPv4 and IPv6 are disabled, then the private network has to be enabled.
+                properties:
+                  enableIPv4:
+                    default: true
+                    description: |-
+                      EnableIPv4 defines whether server has IPv4 address enabled.
+                      As Hetzner load balancers require an IPv4 address, this setting will be ignored and set to true if there is no private net.
+                    type: boolean
+                  enableIPv6:
+                    default: true
+                    description: EnableIPv6 defines whether server has IPv6 addresses
+                      enabled.
+                    type: boolean
+                type: object
+              sshKeys:
+                description: SSHKeys define machine-specific SSH keys and override
+                  cluster-wide SSH keys.
+                items:
+                  description: SSHKey defines the SSHKey for HCloud.
                   properties:
-                    enableIPv4:
-                      default: true
-                      description: |-
-                        EnableIPv4 defines whether server has IPv4 address enabled.
-                        As Hetzner load balancers require an IPv4 address, this setting will be ignored and set to true if there is no private net.
-                      type: boolean
-                    enableIPv6:
-                      default: true
-                      description:
-                        EnableIPv6 defines whether server has IPv6 addresses
-                        enabled.
-                      type: boolean
+                    fingerprint:
+                      description: Fingerprint defines the fingerprint of the SSH
+                        key - added by the controller.
+                      type: string
+                    name:
+                      description: Name defines the name of the SSH key.
+                      minLength: 1
+                      type: string
+                  required:
+                  - name
                   type: object
-                sshKeys:
-                  description:
-                    SSHKeys define machine-specific SSH keys and override
-                    cluster-wide SSH keys.
-                  items:
-                    description: SSHKey defines the SSHKey for HCloud.
-                    properties:
-                      fingerprint:
-                        description:
-                          Fingerprint defines the fingerprint of the SSH
-                          key - added by the controller.
-                        type: string
-                      name:
-                        description: Name defines the name of the SSH key.
-                        minLength: 1
-                        type: string
-                    required:
-                      - name
-                    type: object
-                  type: array
-                type:
-                  description:
-                    "Type is the HCloud Machine Type for this machine. It
-                    defines the desired server type of server in Hetzner's Cloud API.
-                    Example: cpx11."
-                  enum:
-                    - cpx11
-                    - cx21
-                    - cpx21
-                    - cx31
-                    - cpx31
-                    - cx41
-                    - cpx41
-                    - cx51
-                    - cpx51
-                    - ccx11
-                    - ccx12
-                    - ccx13
-                    - ccx21
-                    - ccx22
-                    - ccx23
-                    - ccx31
-                    - ccx32
-                    - ccx33
-                    - ccx41
-                    - ccx42
-                    - ccx43
-                    - ccx51
-                    - ccx52
-                    - ccx53
-                    - ccx62
-                    - ccx63
-                    - cax11
-                    - cax21
-                    - cax31
-                    - cax41
-                    - cx22
-                    - cx32
-                    - cx42
-                    - cx52
-                  type: string
-              required:
-                - type
-              type: object
-            status:
-              description: HCloudMachineStatus defines the observed state of HCloudMachine.
-              properties:
-                actionIdEnableRescueSystem:
-                  description:
-                    ActionIDEnableRescueSystem is the hcloud API Action result
-                    of EnableRescueSystem.
-                  format: int64
-                  type: integer
-                actionIdRebootToRealOS:
-                  description:
-                    ActionIDRebootToRealOS is the hcloud API Action result
-                    of reboot to the real OS system.
-                  format: int64
-                  type: integer
-                actionIdRebootToRescue:
-                  description:
-                    ActionIDRebootToRescue is the hcloud API Action result
-                    of reboot to the rescue system.
-                  format: int64
-                  type: integer
-                addresses:
-                  description: Addresses contain the server's associated addresses.
-                  items:
-                    description:
-                      MachineAddress contains information for the node's
-                      address.
-                    properties:
-                      address:
-                        description: The machine address.
-                        type: string
-                      type:
-                        description:
-                          Machine address type, one of Hostname, ExternalIP,
-                          InternalIP, ExternalDNS or InternalDNS.
-                        type: string
-                    required:
-                      - address
-                      - type
-                    type: object
-                  type: array
-                bootState:
-                  description: |-
-                    BootState indicates the current state during provisioning.
-
-
-                    If Spec.ImageName is set the states will be:
-                    "" -> BootToRealOS -> OperatingSystemRunning
-
-
-                    If Spec.ImageURL set set the states will be:
-                    "" -> WaitForPreRescueOSThenEnableRescueSystem -> RescueSystem -> WaitForRescueRunningThenStartImageURLCommand -> BootToRealOS -> OperatingSystemRunning
-                  type: string
-                bootStateSince:
-                  description: |-
-                    BootStateSince is the timestamp of the last change to BootState. It is used to timeout
-                    provisioning if a state takes too long.
-                  format: date-time
-                  type: string
-                conditions:
-                  description: Conditions define the current service state of the HCloudMachine.
-                  items:
-                    description:
-                      Condition defines an observation of a Cluster API resource
-                      operational state.
-                    properties:
-                      lastTransitionTime:
-                        description: |-
-                          Last time the condition transitioned from one status to another.
-                          This should be when the underlying condition changed. If that is not known, then using the time when
-                          the API field changed is acceptable.
-                        format: date-time
-                        type: string
-                      message:
-                        description: |-
-                          A human readable message indicating details about the transition.
-                          This field may be empty.
-                        type: string
-                      reason:
-                        description: |-
-                          The reason for the condition's last transition in CamelCase.
-                          The specific API may choose whether or not this field is considered a guaranteed API.
-                          This field may not be empty.
-                        type: string
-                      severity:
-                        description: |-
-                          Severity provides an explicit classification of Reason code, so the users or machines can immediately
-                          understand the current situation and act accordingly.
-                          The Severity field MUST be set only when Status=False.
-                        type: string
-                      status:
-                        description: Status of the condition, one of True, False, Unknown.
-                        type: string
-                      type:
-                        description: |-
-                          Type of condition in CamelCase or in foo.example.com/CamelCase.
-                          Many .condition.type values are consistent across resources like Available, but because arbitrary conditions
-                          can be useful (see .node.status.conditions), the ability to deconflict is important.
-                        type: string
-                    required:
-                      - lastTransitionTime
-                      - status
-                      - type
-                    type: object
-                  type: array
-                failureMessage:
-                  description: |-
-                    FailureMessage will be set in the event that there is a terminal problem
-                    reconciling the Machine and will contain a more verbose string suitable
-                    for logging and human consumption.
-                  type: string
-                failureReason:
-                  description: |-
-                    FailureReason will be set in the event that there is a terminal problem
-                    reconciling the Machine and will contain a succinct value suitable
-                    for machine interpretation.
-                  type: string
-                instanceState:
-                  description: InstanceState is the state of the server for this machine.
-                  type: string
-                ready:
-                  description: Ready is true when the provider resource is ready.
-                  type: boolean
-                rebootToRescueCount:
-                  description:
-                    "RebootToRescueCount: number of times we tried to reboot
-                    into the rescue-system."
-                  format: int64
-                  type: integer
-                region:
-                  description:
-                    Region contains the name of the HCloud location the server
-                    is running.
-                  enum:
-                    - fsn1
-                    - hel1
-                    - nbg1
-                    - ash
-                    - hil
-                    - sin
-                  type: string
-                sshKeys:
-                  description:
-                    SSHKeys specifies the ssh keys that were used for provisioning
-                    the server.
-                  items:
-                    description: SSHKey defines the SSHKey for HCloud.
-                    properties:
-                      fingerprint:
-                        description:
-                          Fingerprint defines the fingerprint of the SSH
-                          key - added by the controller.
-                        type: string
-                      name:
-                        description: Name defines the name of the SSH key.
-                        minLength: 1
-                        type: string
-                    required:
-                      - name
-                    type: object
-                  type: array
-              type: object
-          type: object
-      served: true
-      storage: true
-      subresources:
-        status: {}
+                type: array
+              type:
+                description: 'Type is the HCloud Machine Type for this machine. It
+                  defines the desired server type of server in Hetzner''s Cloud API.
+                  Example: cpx11.'
+                enum:
+                - cpx11
+                - cx21
+                - cpx21
+                - cx31
+                - cpx31
+                - cx41
+                - cpx41
+                - cx51
+                - cpx51
+                - ccx11
+                - ccx12
+                - ccx13
+                - ccx21
+                - ccx22
+                - ccx23
+                - ccx31
+                - ccx32
+                - ccx33
+                - ccx41
+                - ccx42
+                - ccx43
+                - ccx51
+                - ccx52
+                - ccx53
+                - ccx62
+                - ccx63
+                - cax11
+                - cax21
+                - cax31
+                - cax41
+                - cx22
+                - cx32
+                - cx42
+                - cx52
+                type: string
+            required:
+            - type
+            type: object
+          status:
+            description: HCloudMachineStatus defines the observed state of HCloudMachine.
+            properties:
+              actionIDRebootAfterImageURLCommand:
+                description: ActionIDRebootAfterImageURLCommand is the hcloud API
+                  Action result of reboot to the real OS system.
+                format: int64
+                type: integer
+              actionIdEnableRescueSystem:
+                description: ActionIDEnableRescueSystem is the hcloud API Action result
+                  of EnableRescueSystem.
+                format: int64
+                type: integer
+              actionIdRebootToRescue:
+                description: ActionIDRebootToRescue is the hcloud API Action result
+                  of reboot to the rescue system.
+                format: int64
+                type: integer
+              addresses:
+                description: Addresses contain the server's associated addresses.
+                items:
+                  description: MachineAddress contains information for the node's
+                    address.
+                  properties:
+                    address:
+                      description: The machine address.
+                      type: string
+                    type:
+                      description: Machine address type, one of Hostname, ExternalIP,
+                        InternalIP, ExternalDNS or InternalDNS.
+                      type: string
+                  required:
+                  - address
+                  - type
+                  type: object
+                type: array
+              bootState:
+                description: HCloudBootState defines the boot state of an HCloud server.
+                type: string
+              bootStateSince:
+                description: |-
+                  BootStateSince is the timestamp of the last change to BootState. It is used to timeout
+                  provisioning if a state takes too long.
+                format: date-time
+                type: string
+              conditions:
+                description: Conditions define the current service state of the HCloudMachine.
+                items:
+                  description: Condition defines an observation of a Cluster API resource
+                    operational state.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        Last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed. If that is not known, then using the time when
+                        the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        A human readable message indicating details about the transition.
+                        This field may be empty.
+                      type: string
+                    reason:
+                      description: |-
+                        The reason for the condition's last transition in CamelCase.
+                        The specific API may choose whether or not this field is considered a guaranteed API.
+                        This field may not be empty.
+                      type: string
+                    severity:
+                      description: |-
+                        Severity provides an explicit classification of Reason code, so the users or machines can immediately
+                        understand the current situation and act accordingly.
+                        The Severity field MUST be set only when Status=False.
+                      type: string
+                    status:
+                      description: Status of the condition, one of True, False, Unknown.
+                      type: string
+                    type:
+                      description: |-
+                        Type of condition in CamelCase or in foo.example.com/CamelCase.
+                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions
+                        can be useful (see .node.status.conditions), the ability to deconflict is important.
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - status
+                  - type
+                  type: object
+                type: array
+              failureMessage:
+                description: |-
+                  FailureMessage will be set in the event that there is a terminal problem
+                  reconciling the Machine and will contain a more verbose string suitable
+                  for logging and human consumption.
+                type: string
+              failureReason:
+                description: |-
+                  FailureReason will be set in the event that there is a terminal problem
+                  reconciling the Machine and will contain a succinct value suitable
+                  for machine interpretation.
+                type: string
+              instanceState:
+                description: InstanceState is the state of the server for this machine.
+                type: string
+              ready:
+                description: Ready is true when the provider resource is ready.
+                type: boolean
+              rebootToRescueCount:
+                description: 'RebootToRescueCount: number of times we tried to reboot
+                  into the rescue-system.'
+                format: int64
+                type: integer
+              region:
+                description: Region contains the name of the HCloud location the server
+                  is running.
+                enum:
+                - fsn1
+                - hel1
+                - nbg1
+                - ash
+                - hil
+                - sin
+                type: string
+              sshKeys:
+                description: SSHKeys specifies the ssh keys that were used for provisioning
+                  the server.
+                items:
+                  description: SSHKey defines the SSHKey for HCloud.
+                  properties:
+                    fingerprint:
+                      description: Fingerprint defines the fingerprint of the SSH
+                        key - added by the controller.
+                      type: string
+                    name:
+                      description: Name defines the name of the SSH key.
+                      minLength: 1
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
