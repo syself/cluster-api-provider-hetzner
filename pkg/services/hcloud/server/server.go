@@ -492,6 +492,9 @@ func (s *Service) handleBootStateWaitForImageURLCommandThenRebootAfterImageURLCo
 	updateHCloudMachineStatusFromServer(hm, server)
 
 	hcloudSSHClient, err := s.getSSHClient(ctx)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("getSSHClient failed: %w", err)
+	}
 
 	state, logFile, err := hcloudSSHClient.StateOfHCloudImageURLCommand()
 	if err != nil {
