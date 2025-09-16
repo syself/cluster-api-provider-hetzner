@@ -1045,7 +1045,7 @@ func (s *Service) getSSHKeys(ctx context.Context) (
 				infrav1.ServerCreateSucceededCondition,
 				infrav1.SSHKeyNotFoundReason,
 				clusterv1.ConditionSeverityError,
-				"ssh key not found in HCloud. SSH key name: %s",
+				"ssh key %q not present in hcloud",
 				sshKeySpec.Name,
 			)
 			return nil, nil, errServerCreateNotPossible
@@ -1056,7 +1056,7 @@ func (s *Service) getSSHKeys(ctx context.Context) (
 	return caphSSHKeys, hcloudSSHKeys, nil
 }
 
-func (s *Service) getServerImage(ctx context.Context, imageName string) (*hcloud.Image, error) {
+func (s *Service) getServerImage(ctx context.Context) (*hcloud.Image, error) {
 	key := fmt.Sprintf("%s%s", infrav1.NameHetznerProviderPrefix, "image-name")
 
 	// Get server type so we can filter for images with correct architecture
