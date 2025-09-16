@@ -122,6 +122,7 @@ func (m *MachineScope) PatchObject(ctx context.Context) error {
 // SetError sets the ErrorMessage and ErrorReason fields on the machine and logs
 // the message. It assumes the reason is invalid configuration, since that is
 // currently the only relevant MachineStatusError choice.
+// CAPI will delete the machine and create a new one.
 func (m *MachineScope) SetError(message string, reason capierrors.MachineStatusError) {
 	m.HCloudMachine.Status.FailureMessage = &message
 	m.HCloudMachine.Status.FailureReason = &reason

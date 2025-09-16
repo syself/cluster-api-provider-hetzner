@@ -101,7 +101,7 @@ func (*hcloudMachineWebhook) ValidateUpdate(_ context.Context, oldObj, newObj ru
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected an HCloudMachine but got a %T", oldObj))
 	}
 
-	allErrs := validateHCloudMachineSpec(oldM.Spec, r.Spec)
+	allErrs := validateHCloudMachineSpecUpdate(oldM.Spec, r.Spec)
 
 	return nil, aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
 }
