@@ -31,23 +31,26 @@ import (
 
 // Provider defines an entry in the provider inventory.
 type Provider struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+	// metadata is the standard object's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// ProviderName indicates the name of the provider.
+	// providerName indicates the name of the provider.
 	// +optional
 	ProviderName string `json:"providerName,omitempty"`
 
-	// Type indicates the type of the provider.
+	// type indicates the type of the provider.
 	// See ProviderType for a list of supported values
 	// +optional
 	Type string `json:"type,omitempty"`
 
-	// Version indicates the component version.
+	// version indicates the component version.
 	// +optional
 	Version string `json:"version,omitempty"`
 
-	// WatchedNamespace indicates the namespace where the provider controller is watching.
+	// watchedNamespace indicates the namespace where the provider controller is watching.
 	// If empty the provider controller is watching for objects in all namespaces.
 	//
 	// Deprecated: providers complying with the Cluster API v1alpha4 contract or above must watch all namespaces; this field will be removed in a future version of this API
@@ -165,8 +168,12 @@ func (p ProviderType) Order() int {
 // ProviderList contains a list of Provider.
 type ProviderList struct {
 	metav1.TypeMeta `json:",inline"`
+	// metadata is the standard list's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#lists-and-simple-kinds
+	// +optional
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []Provider `json:"items"`
+	// items is the list of Providers.
+	Items []Provider `json:"items"`
 }
 
 // FilterByNamespace returns a new list of providers that reside in the namespace provided.

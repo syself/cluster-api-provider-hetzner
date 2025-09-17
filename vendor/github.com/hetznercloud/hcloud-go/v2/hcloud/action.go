@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/hetznercloud/hcloud-go/v2/hcloud/exp/ctxutil"
 	"github.com/hetznercloud/hcloud-go/v2/hcloud/schema"
 )
 
@@ -153,20 +154,19 @@ func (c *ResourceActionClient) getBaseURL() string {
 
 // GetByID retrieves an action by its ID. If the action does not exist, nil is returned.
 func (c *ResourceActionClient) GetByID(ctx context.Context, id int64) (*Action, *Response, error) {
-	req, err := c.client.NewRequest(ctx, "GET", fmt.Sprintf("%s/actions/%d", c.getBaseURL(), id), nil)
-	if err != nil {
-		return nil, nil, err
-	}
+	opPath := c.getBaseURL() + "/actions/%d"
+	ctx = ctxutil.SetOpPath(ctx, opPath)
 
-	var body schema.ActionGetResponse
-	resp, err := c.client.Do(req, &body)
+	reqPath := fmt.Sprintf(opPath, id)
+
+	respBody, resp, err := getRequest[schema.ActionGetResponse](ctx, c.client, reqPath)
 	if err != nil {
 		if IsError(err, ErrorCodeNotFound) {
 			return nil, resp, nil
 		}
-		return nil, nil, err
+		return nil, resp, err
 	}
-	return ActionFromSchema(body.Action), resp, nil
+	return ActionFromSchema(respBody.Action), resp, nil
 }
 
 // List returns a list of actions for a specific page.
@@ -174,44 +174,23 @@ func (c *ResourceActionClient) GetByID(ctx context.Context, id int64) (*Action, 
 // Please note that filters specified in opts are not taken into account
 // when their value corresponds to their zero value or when they are empty.
 func (c *ResourceActionClient) List(ctx context.Context, opts ActionListOpts) ([]*Action, *Response, error) {
-	req, err := c.client.NewRequest(
-		ctx,
-		"GET",
-		fmt.Sprintf("%s/actions?%s", c.getBaseURL(), opts.values().Encode()),
-		nil,
-	)
+	opPath := c.getBaseURL() + "/actions?%s"
+	ctx = ctxutil.SetOpPath(ctx, opPath)
+
+	reqPath := fmt.Sprintf(opPath, opts.values().Encode())
+
+	respBody, resp, err := getRequest[schema.ActionListResponse](ctx, c.client, reqPath)
 	if err != nil {
-		return nil, nil, err
+		return nil, resp, err
 	}
 
-	var body schema.ActionListResponse
-	resp, err := c.client.Do(req, &body)
-	if err != nil {
-		return nil, nil, err
-	}
-	actions := make([]*Action, 0, len(body.Actions))
-	for _, i := range body.Actions {
-		actions = append(actions, ActionFromSchema(i))
-	}
-	return actions, resp, nil
+	return allFromSchemaFunc(respBody.Actions, ActionFromSchema), resp, nil
 }
 
 // All returns all actions for the given options.
 func (c *ResourceActionClient) All(ctx context.Context, opts ActionListOpts) ([]*Action, error) {
-	allActions := []*Action{}
-
-	err := c.client.all(func(page int) (*Response, error) {
+	return iterPages(func(page int) ([]*Action, *Response, error) {
 		opts.Page = page
-		actions, resp, err := c.List(ctx, opts)
-		if err != nil {
-			return resp, err
-		}
-		allActions = append(allActions, actions...)
-		return resp, nil
+		return c.List(ctx, opts)
 	})
-	if err != nil {
-		return nil, err
-	}
-
-	return allActions, nil
 }

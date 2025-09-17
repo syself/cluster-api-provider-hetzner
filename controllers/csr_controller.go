@@ -287,7 +287,7 @@ func (r *GuestCSRReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Mana
 	return ctrl.NewControllerManagedBy(mgr).
 		WithOptions(options).
 		For(&certificatesv1.CertificateSigningRequest{}).
-		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(ctrl.LoggerFrom(ctx), r.WatchFilterValue)).
+		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(mgr.GetScheme(), ctrl.LoggerFrom(ctx), r.WatchFilterValue)).
 		WithEventFilter(predicate.Funcs{
 			DeleteFunc: func(_ event.DeleteEvent) bool {
 				// We don't want to listen to delete events, as CSRs are deleted frequently without us having to do something

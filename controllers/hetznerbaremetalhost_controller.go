@@ -428,7 +428,7 @@ func (r *HetznerBareMetalHostReconciler) SetupWithManager(ctx context.Context, m
 	return ctrl.NewControllerManagedBy(mgr).
 		WithOptions(options).
 		For(&infrav1.HetznerBareMetalHost{}).
-		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(ctrl.LoggerFrom(ctx), r.WatchFilterValue)).
+		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(mgr.GetScheme(), ctrl.LoggerFrom(ctx), r.WatchFilterValue)).
 		WithEventFilter(
 			predicate.Funcs{
 				UpdateFunc: func(e event.UpdateEvent) bool {

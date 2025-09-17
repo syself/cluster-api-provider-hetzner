@@ -43,9 +43,9 @@ runs:
     - name: Install hcloud
       shell: bash
       env:
-        hcloudctl_version: 1.40.0
+        hcloudctl_version: v1.52.0
       run: |
-        curl -fsSL https://github.com/hetznercloud/cli/releases/download/v${{ env.hcloudctl_version }}/hcloud-linux-amd64.tar.gz | tar -xzv hcloud
+        curl -fsSL https://github.com/hetznercloud/cli/releases/download/${{ env.hcloudctl_version }}/hcloud-linux-amd64.tar.gz | tar -xzv hcloud
         mkdir -p hack/tools/bin/
         mv hcloud hack/tools/bin/hcloud
 

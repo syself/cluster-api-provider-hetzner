@@ -1262,7 +1262,7 @@ func registeringSSHMock(storageStdOut string) *sshmock.Client {
 	})
 	sshMock.On("GetHardwareDetailsNics").Return(sshclient.Output{
 		StdOut: `name="eth0" model="Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller (rev 15)" mac="a8:a1:59:94:19:42" ipv4="23.88.6.239/26" speedMbps="1000"
-name="eth0" model="Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller (rev 15)" mac="a8:a1:59:94:19:42" ipv6="2a01:4f8:272:3e0f::2/64" speedMbps="1000"`,
+name="eth0" model="Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller (rev 15)" mac="a8:a1:59:94:19:42" ip="2a01:4f8:272:3e0f::2/64" speedMbps="1000"`,
 	})
 	sshMock.On("GetHardwareDetailsCPUArch").Return(sshclient.Output{StdOut: "myarch"})
 	sshMock.On("GetHardwareDetailsCPUModel").Return(sshclient.Output{StdOut: "mymodel"})

@@ -37,6 +37,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
@@ -733,7 +734,17 @@ func (r *HetznerClusterReconciler) newTargetClusterManager(ctx context.Context, 
 			clusterName:      clusterScope.Cluster.Name,
 		}
 
-		if err := gr.SetupWithManager(ctx, clusterMgr, controller.Options{}); err != nil {
+		if err := gr.SetupWithManager(ctx, clusterMgr, controller.Options{
+			// SkipNameValidation. Avoid this error: failed to setup CSR controller: controller with
+			// name certificatesigningrequest already exists. Controller names must be unique to
+			// avoid multiple controllers reporting the same metric. This validation can be disabled
+			// via the SkipNameValidation option
+			//
+			// By default, controller names must be unique (to prevent duplicate Prometheus
+			// metrics). In our case the name is not unique, because it gets executed for every
+			// workload cluster.
+			SkipNameValidation: ptr.To(true),
+		}); err != nil {
 			return nil, fmt.Errorf("failed to setup CSR controller: %w", err)
 		}
 	}
@@ -752,8 +763,8 @@ func (r *HetznerClusterReconciler) SetupWithManager(ctx context.Context, mgr ctr
 	err := ctrl.NewControllerManagedBy(mgr).
 		WithOptions(options).
 		For(&infrav1.HetznerCluster{}).
-		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(log, r.WatchFilterValue)).
-		WithEventFilter(predicates.ResourceIsNotExternallyManaged(log)).
+		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(mgr.GetScheme(), log, r.WatchFilterValue)).
+		WithEventFilter(predicates.ResourceIsNotExternallyManaged(mgr.GetScheme(), log)).
 		WithEventFilter(IgnoreInsignificantHetznerClusterStatusUpdates(log)).
 		Owns(&corev1.Secret{}).
 		Watches(

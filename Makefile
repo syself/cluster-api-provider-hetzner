@@ -174,7 +174,7 @@ install-essentials: ## This gets the secret and installs a CNI and the CCM. Usag
 	$(MAKE) install-cilium-in-wl-cluster
 	$(MAKE) install-ccm-in-wl-cluster
 
-wait-and-get-secret:
+wait-and-get-secret: $(KUBECTL)
 	./hack/ensure-env-variables.sh CLUSTER_NAME
 	# Wait for the kubeconfig to become available.
 	rm -f $(WORKER_CLUSTER_KUBECONFIG)
@@ -201,7 +201,7 @@ ifeq ($(BUILD_IN_CONTAINER),true)
 else
 	helm repo add syself https://charts.syself.com
 	helm repo update syself
-	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hetzner --version 1.1.10 \
+	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hetzner --version 2.0.1 \
 	--namespace kube-system \
 	--set privateNetwork.enabled=$(PRIVATE_NETWORK)
 	@echo 'run "kubectl --kubeconfig=$(WORKER_CLUSTER_KUBECONFIG) ..." to work with the new target cluster'
@@ -241,6 +241,7 @@ create-workload-cluster-hcloud-network: env-vars-for-wl-cluster $(KUSTOMIZE) $(E
 	$(MAKE) install-cilium-in-wl-cluster
 	$(MAKE) install-ccm-in-wl-cluster PRIVATE_NETWORK=true
 
+# Use that, if you want to test hcloud control-planes, hcloud worker and bm worker.
 create-workload-cluster-hetzner-hcloud-control-plane: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster.
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN HETZNER_ROBOT_USER HETZNER_ROBOT_PASSWORD HETZNER_SSH_PRIV_PATH HETZNER_SSH_PUB_PATH SSH_KEY_NAME
@@ -782,8 +783,7 @@ ifeq ($(BUILD_IN_CONTAINER),true)
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
 else
-	cd pkg/services/baremetal/client; go run github.com/vektra/mockery/v2@v2.53.4
-	cd pkg/services/hcloud/client; go run github.com/vektra/mockery/v2@v2.53.4 --all
+	go run github.com/vektra/mockery/v2@v2.53.4
 endif
 
 .PHONY: generate
