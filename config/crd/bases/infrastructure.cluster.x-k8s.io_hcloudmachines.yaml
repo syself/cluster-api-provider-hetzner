@@ -193,7 +193,6 @@ spec:
                 description: |-
                   BootState indicates the current state during provisioning.
 
-
                   The states will be:
                   "" -> BootToRealOS -> OperatingSystemRunning
                 type: string

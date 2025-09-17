@@ -88,10 +88,12 @@ export KUBEBUILDER_ENVTEST_KUBERNETES_VERSION ?= 1.31.0
 ############
 # Binaries #
 ############
+CONTROLLER_GEN_VERSION = v0.18.0
 CONTROLLER_GEN := $(abspath $(TOOLS_BIN_DIR)/controller-gen)
 controller-gen: $(CONTROLLER_GEN) ## Build a local copy of controller-gen
 $(CONTROLLER_GEN): # Build controller-gen from tools folder.
-	go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.18.0
+	go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_VERSION)
+
 
 KUSTOMIZE := $(abspath $(TOOLS_BIN_DIR)/kustomize)
 kustomize: $(KUSTOMIZE) ## Build a local copy of kustomize
@@ -601,6 +603,11 @@ generate-modules-ci: generate-modules
 	fi
 
 generate-manifests: $(CONTROLLER_GEN) ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
+	@version="$$(controller-gen --version 2>/dev/null | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+')" ; \
+	if [ "$$version" != "$(CONTROLLER_GEN_VERSION)" ]; then \
+		echo "controller-gen version ($$version) does not match required $(CONTROLLER_GEN_VERSION)" ; \
+		exit 1 ; \
+	fi
 	$(CONTROLLER_GEN) \
 			paths=./api/... \
 			paths=./controllers/... \
