@@ -246,6 +246,9 @@ func (s *Service) handleBootStateWaitForPreRescueOSThenEnableRescueSystem(ctx co
 		return res, fmt.Errorf("RebootIntoRescueSystem failed: %w", err)
 	}
 
+	// The API of hetzner is async. We get an Action-ID as result. We need to wait until the action
+	// is done. After that we can trigger the reboot, so that the machine boots into the rescue
+	// system.
 	hm.Status.ActionIDEnableRescueSystem = result.Action.ID
 
 	hm.SetBootState(infrav1.HCloudBootStateWaitForRescueEnabledThenRebootToRescue)
@@ -313,6 +316,8 @@ func (s *Service) handleBootStateWaitForRescueEnabledThenRebootToRescue(ctx cont
 		return reconcile.Result{RequeueAfter: 4 * time.Second}, nil
 	}
 
+	// Now we know that the rescue-system was enabled. Up to now the PreRescueOS is running. Next
+	// step is to reboot the server into the rescue system.
 	rebootAction, err := s.scope.HCloudClient.Reboot(ctx, server)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("reboot failed: %w", err)
