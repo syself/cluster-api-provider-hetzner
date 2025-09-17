@@ -34,7 +34,6 @@ import (
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -265,7 +264,7 @@ func (s *Service) handleBootStateWaitForRescueEnabledThenRebootToRescue(ctx cont
 
 	if hm.Status.ActionIDEnableRescueSystem == 0 {
 		msg := "handleBootStateWaitForRescueEnabledThenRebootToRescue ActionIdEnableRescueSystem not set? Can not continue. Provisioning Failed"
-		log.FromContext(ctx).Error(nil, msg)
+		s.scope.Logger.Error(nil, msg)
 		s.scope.SetError(msg, capierrors.CreateMachineError)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
@@ -294,7 +293,7 @@ func (s *Service) handleBootStateWaitForRescueEnabledThenRebootToRescue(ctx cont
 		err = action.Error()
 		if err != nil {
 			err = fmt.Errorf("action %+v failed (wait for rescue enabled): %w", action, err)
-			log.FromContext(ctx).Error(err, "")
+			s.scope.Logger.Error(err, "")
 			s.scope.SetError(err.Error(), capierrors.CreateMachineError)
 			conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 				string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
@@ -302,7 +301,7 @@ func (s *Service) handleBootStateWaitForRescueEnabledThenRebootToRescue(ctx cont
 			return reconcile.Result{}, nil
 		}
 
-		log.FromContext(ctx).Info("Action RescueEnabled is finished",
+		s.scope.Logger.Info("Action RescueEnabled is finished",
 			"actionDuration", action.Finished.Sub(action.Started),
 			"finishedSince", time.Since(action.Finished),
 			"actionStatus", action.Status)
@@ -322,7 +321,7 @@ func (s *Service) handleBootStateWaitForRescueEnabledThenRebootToRescue(ctx cont
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("reboot failed: %w", err)
 	}
-	log.FromContext(ctx).Info("Reboot started",
+	s.scope.Logger.Info("Reboot started",
 		"actionID", rebootAction.ID,
 		"actionStatus", rebootAction.Status,
 		"action", rebootAction)
@@ -354,7 +353,7 @@ func (s *Service) handleBootStateWaitForRescueRunningThenStartImageURLCommand(ct
 
 	if hm.Status.ActionIDRebootToRescue == 0 {
 		msg := "handleBootStateWaitForRescueRunningThenStartImageURLCommand ActionIdRebootToRescue not set? Can not continue. Provisioning Failed"
-		log.FromContext(ctx).Error(nil, msg)
+		s.scope.Logger.Error(nil, msg)
 		s.scope.SetError(msg, capierrors.CreateMachineError)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
@@ -378,7 +377,7 @@ func (s *Service) handleBootStateWaitForRescueRunningThenStartImageURLCommand(ct
 		err = action.Error()
 		if err != nil {
 			err = fmt.Errorf("action %+v failed (RebootToRescue): %w", action, err)
-			log.FromContext(ctx).Error(err, "")
+			s.scope.Logger.Error(err, "")
 			s.scope.SetError(err.Error(), capierrors.CreateMachineError)
 			conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 				string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
@@ -386,7 +385,7 @@ func (s *Service) handleBootStateWaitForRescueRunningThenStartImageURLCommand(ct
 			return reconcile.Result{}, nil
 		}
 
-		log.FromContext(ctx).Info("Action RebootToRescue is finished",
+		s.scope.Logger.Info("Action RebootToRescue is finished",
 			"actionDuration", action.Finished.Sub(action.Started),
 			"finishedSince", time.Since(action.Finished),
 			"actionStatus", action.Status)
@@ -429,7 +428,7 @@ func (s *Service) handleBootStateWaitForRescueRunningThenStartImageURLCommand(ct
 			hm.Status.RebootToRescueCount++
 			hm.Status.BootStateSince = metav1.Now()
 			msg := "Hostname not 'rescue'. Reboot started (again)"
-			log.FromContext(ctx).Info(msg,
+			s.scope.Logger.Info(msg,
 				"actionID", rebootAction.ID,
 				"actionStatus", rebootAction.Status,
 				"action", rebootAction,
@@ -466,7 +465,7 @@ func (s *Service) handleBootStateWaitForRescueRunningThenStartImageURLCommand(ct
 	if err != nil {
 		err := fmt.Errorf("StartHCloudImageURLCommand failed (retrying): %w", err)
 		// This could be a temporary network error. Retry.
-		log.FromContext(ctx).Error(err, "",
+		s.scope.Logger.Error(err, "",
 			"HCloudImageURLCommand", s.scope.HCloudImageURLCommand,
 			"exitStatus", exitStatus,
 			"stdouStderr", stdouStderr)
@@ -475,7 +474,7 @@ func (s *Service) handleBootStateWaitForRescueRunningThenStartImageURLCommand(ct
 
 	if exitStatus != 0 {
 		msg := "StartHCloudImageURLCommand failed with non-zero exit status. Deleting machine"
-		log.FromContext(ctx).Error(nil, msg,
+		s.scope.Logger.Error(nil, msg,
 			"HCloudImageURLCommand", s.scope.HCloudImageURLCommand,
 			"exitStatus", exitStatus,
 			"stdouStderr", stdouStderr)
@@ -513,7 +512,7 @@ func (s *Service) handleBootStateWaitForImageURLCommandThenRebootAfterImageURLCo
 		msg := fmt.Sprintf("HCloudImageURLCommand timed out after %s. Deleting machine",
 			duration.Round(time.Second).String())
 		err = errors.New(msg)
-		log.FromContext(ctx).Error(err, "",
+		s.scope.Logger.Error(err, "",
 			"logFile", logFile)
 		s.scope.SetError(msg, capierrors.CreateMachineError)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
@@ -545,7 +544,7 @@ func (s *Service) handleBootStateWaitForImageURLCommandThenRebootAfterImageURLCo
 	case sshclient.HCloudImageURLCommandStateFinishedFailed:
 		msg := "HCloudImageURLCommand failed. Deleting machine"
 		err = errors.New(msg)
-		log.FromContext(ctx).Error(err, "",
+		s.scope.Logger.Error(err, "",
 			"logFile", logFile)
 		s.scope.SetError(msg, capierrors.CreateMachineError)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
@@ -566,7 +565,7 @@ func (s *Service) handleBootStateWaitForRebootAfterImageURLCommandThenBootToReal
 
 	if hm.Status.ActionIDRebootAfterImageURLCommand == 0 {
 		msg := "handleBootStateWaitForRebootAfterImageURLCommandThenBootToRealOS ActionIDRebootAfterImageURLCommand not set? Can not continue. Provisioning Failed"
-		log.FromContext(ctx).Error(nil, msg)
+		s.scope.Logger.Error(nil, msg)
 		s.scope.SetError(msg, capierrors.CreateMachineError)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
@@ -591,7 +590,7 @@ func (s *Service) handleBootStateWaitForRebootAfterImageURLCommandThenBootToReal
 		err = action.Error()
 		if err != nil {
 			err = fmt.Errorf("action %+v failed (Reboot after hcloud-image-url-command): %w", action, err)
-			log.FromContext(ctx).Error(err, "")
+			s.scope.Logger.Error(err, "")
 			msg := err.Error()
 			s.scope.SetError(msg, capierrors.CreateMachineError)
 			conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
@@ -600,7 +599,7 @@ func (s *Service) handleBootStateWaitForRebootAfterImageURLCommandThenBootToReal
 			return reconcile.Result{}, nil
 		}
 
-		log.FromContext(ctx).Info("Action RebootAfterImageURLCommand is finished",
+		s.scope.Logger.Info("Action RebootAfterImageURLCommand is finished",
 			"actionDuration", action.Finished.Sub(action.Started),
 			"finishedSince", time.Since(action.Finished),
 			"actionStatus", action.Status)
