@@ -13,3 +13,19 @@ operator:
   rollOutPods: true
   priorityClassName: "system-node-critical"
   replicas: 1
+  tolerations: # TODO: These Tolerations can be removed, when our PR https://github.com/cilium/cilium/pull/41098 got released.
+    - effect: NoSchedule
+      key: node.cluster.x-k8s.io/uninitialized
+    - effect: NoSchedule
+      key: node.cloudprovider.kubernetes.io/uninitialized
+      value: "true"
+    - key: CriticalAddonsOnly
+      operator: Exists
+    - effect: NoSchedule
+      key: node-role.kubernetes.io/master
+      operator: Exists
+    - effect: NoSchedule
+      key: node-role.kubernetes.io/control-plane
+      operator: Exists
+    - effect: NoSchedule
+      key: node.kubernetes.io/not-ready

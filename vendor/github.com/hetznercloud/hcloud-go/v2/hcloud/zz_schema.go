@@ -589,6 +589,12 @@ func (c *converterImpl) SchemaFromFirewallResource(source FirewallResource) sche
 	schemaFirewallResource.Type = string(source.Type)
 	schemaFirewallResource.Server = c.pHcloudFirewallResourceServerToPSchemaFirewallResourceServer(source.Server)
 	schemaFirewallResource.LabelSelector = c.pHcloudFirewallResourceLabelSelectorToPSchemaFirewallResourceLabelSelector(source.LabelSelector)
+	if source.AppliedToResources != nil {
+		schemaFirewallResource.AppliedToResources = make([]schema.FirewallResource, len(source.AppliedToResources))
+		for i := 0; i < len(source.AppliedToResources); i++ {
+			schemaFirewallResource.AppliedToResources[i] = c.SchemaFromFirewallResource(source.AppliedToResources[i])
+		}
+	}
 	return schemaFirewallResource
 }
 func (c *converterImpl) SchemaFromFirewallSetRulesOpts(source FirewallSetRulesOpts) schema.FirewallActionSetRulesRequest {
@@ -977,6 +983,44 @@ func (c *converterImpl) SchemaFromPrimaryIP(source *PrimaryIP) schema.PrimaryIP 
 		schemaPrimaryIP = schemaPrimaryIP2
 	}
 	return schemaPrimaryIP
+}
+func (c *converterImpl) SchemaFromPrimaryIPAssignOpts(source PrimaryIPAssignOpts) schema.PrimaryIPActionAssignRequest {
+	var schemaPrimaryIPActionAssignRequest schema.PrimaryIPActionAssignRequest
+	schemaPrimaryIPActionAssignRequest.AssigneeID = source.AssigneeID
+	schemaPrimaryIPActionAssignRequest.AssigneeType = source.AssigneeType
+	return schemaPrimaryIPActionAssignRequest
+}
+func (c *converterImpl) SchemaFromPrimaryIPChangeDNSPtrOpts(source PrimaryIPChangeDNSPtrOpts) schema.PrimaryIPActionChangeDNSPtrRequest {
+	var schemaPrimaryIPActionChangeDNSPtrRequest schema.PrimaryIPActionChangeDNSPtrRequest
+	schemaPrimaryIPActionChangeDNSPtrRequest.IP = source.IP
+	pString := source.DNSPtr
+	schemaPrimaryIPActionChangeDNSPtrRequest.DNSPtr = &pString
+	return schemaPrimaryIPActionChangeDNSPtrRequest
+}
+func (c *converterImpl) SchemaFromPrimaryIPChangeProtectionOpts(source PrimaryIPChangeProtectionOpts) schema.PrimaryIPActionChangeProtectionRequest {
+	var schemaPrimaryIPActionChangeProtectionRequest schema.PrimaryIPActionChangeProtectionRequest
+	schemaPrimaryIPActionChangeProtectionRequest.Delete = source.Delete
+	return schemaPrimaryIPActionChangeProtectionRequest
+}
+func (c *converterImpl) SchemaFromPrimaryIPCreateOpts(source PrimaryIPCreateOpts) schema.PrimaryIPCreateRequest {
+	var schemaPrimaryIPCreateRequest schema.PrimaryIPCreateRequest
+	schemaPrimaryIPCreateRequest.Name = source.Name
+	schemaPrimaryIPCreateRequest.Type = string(source.Type)
+	schemaPrimaryIPCreateRequest.AssigneeType = source.AssigneeType
+	schemaPrimaryIPCreateRequest.AssigneeID = source.AssigneeID
+	schemaPrimaryIPCreateRequest.Labels = source.Labels
+	schemaPrimaryIPCreateRequest.AutoDelete = source.AutoDelete
+	schemaPrimaryIPCreateRequest.Datacenter = source.Datacenter
+	return schemaPrimaryIPCreateRequest
+}
+func (c *converterImpl) SchemaFromPrimaryIPUpdateOpts(source PrimaryIPUpdateOpts) schema.PrimaryIPUpdateRequest {
+	var schemaPrimaryIPUpdateRequest schema.PrimaryIPUpdateRequest
+	schemaPrimaryIPUpdateRequest.Name = source.Name
+	if source.Labels != nil {
+		schemaPrimaryIPUpdateRequest.Labels = (*source.Labels)
+	}
+	schemaPrimaryIPUpdateRequest.AutoDelete = source.AutoDelete
+	return schemaPrimaryIPUpdateRequest
 }
 func (c *converterImpl) SchemaFromSSHKey(source *SSHKey) schema.SSHKey {
 	var schemaSSHKey schema.SSHKey
@@ -2090,6 +2134,12 @@ func (c *converterImpl) schemaFirewallResourceToHcloudFirewallResource(source sc
 	hcloudFirewallResource.Type = FirewallResourceType(source.Type)
 	hcloudFirewallResource.Server = c.pSchemaFirewallResourceServerToPHcloudFirewallResourceServer(source.Server)
 	hcloudFirewallResource.LabelSelector = c.pSchemaFirewallResourceLabelSelectorToPHcloudFirewallResourceLabelSelector(source.LabelSelector)
+	if source.AppliedToResources != nil {
+		hcloudFirewallResource.AppliedToResources = make([]FirewallResource, len(source.AppliedToResources))
+		for i := 0; i < len(source.AppliedToResources); i++ {
+			hcloudFirewallResource.AppliedToResources[i] = c.schemaFirewallResourceToHcloudFirewallResource(source.AppliedToResources[i])
+		}
+	}
 	return hcloudFirewallResource
 }
 func (c *converterImpl) schemaFirewallRuleToHcloudFirewallRule(source schema.FirewallRule) FirewallRule {

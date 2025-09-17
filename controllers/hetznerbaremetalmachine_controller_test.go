@@ -996,8 +996,12 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			Eventually(func() bool {
 				Expect(testEnv.Get(ctx, client.ObjectKeyFromObject(waitingMachine),
 					waitingMachine)).To(Succeed())
-				return waitingMachine.Status.Ready
-			}, timeout).Should(BeTrue())
+				if waitingMachine.Status.Ready {
+					return true
+				}
+				testEnv.GetLogger().Info("Waiting for machine to be ready", "status", waitingMachine.Status)
+				return false
+			}, timeout, interval).Should(BeTrue())
 		})
 	})
 })

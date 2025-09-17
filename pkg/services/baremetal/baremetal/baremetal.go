@@ -39,7 +39,7 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	capierrors "sigs.k8s.io/cluster-api/errors"
+	capierrors "sigs.k8s.io/cluster-api/errors" //nolint:staticcheck // we will handle that, when we update to capi v1.11
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/record"
@@ -833,6 +833,9 @@ func nodeAddresses(host *infrav1.HetznerBareMetalHost, bareMetalMachineName stri
 	addrs := make([]clusterv1.MachineAddress, 0, len(host.Spec.Status.HardwareDetails.NIC)+2)
 
 	for _, nic := range host.Spec.Status.HardwareDetails.NIC {
+		if nic.IP == "" {
+			continue
+		}
 		address := clusterv1.MachineAddress{
 			Type:    clusterv1.MachineInternalIP,
 			Address: nic.IP,

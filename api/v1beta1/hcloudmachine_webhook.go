@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"context"
 	"fmt"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -28,13 +29,18 @@ import (
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
+type hcloudMachineWebhook struct{}
+
 // log is for logging in this package.
 var hcloudmachinelog = utils.GetDefaultLogger("info").WithName("hcloudmachine-resource")
 
 // SetupWebhookWithManager initializes webhook manager for HCloudMachine.
 func (r *HCloudMachine) SetupWebhookWithManager(mgr ctrl.Manager) error {
+	w := new(hcloudMachineWebhook)
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
+		WithDefaulter(w).
+		WithValidator(w).
 		Complete()
 }
 
@@ -47,24 +53,34 @@ func (r *HCloudMachineList) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 //+kubebuilder:webhook:path=/mutate-infrastructure-cluster-x-k8s-io-v1beta1-hcloudmachine,mutating=true,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hcloudmachines,verbs=create;update,versions=v1beta1,name=mutation.hcloudmachine.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
 
-var _ webhook.Defaulter = &HCloudMachine{}
+var _ webhook.CustomDefaulter = &hcloudMachineWebhook{}
 
-// Default implements webhook.Defaulter so a webhook will be registered for the type.
-func (r *HCloudMachine) Default() {
+// Default implements webhook.CustomDefaulter so a webhook will be registered for the type.
+func (*hcloudMachineWebhook) Default(_ context.Context, obj runtime.Object) error {
+	r, ok := obj.(*HCloudMachine)
+	if !ok {
+		return fmt.Errorf("expected an HCloudMachine object but got %T", r)
+	}
 	if r.Spec.PublicNetwork == nil {
 		r.Spec.PublicNetwork = &PublicNetworkSpec{
 			EnableIPv4: true,
 			EnableIPv6: true,
 		}
 	}
+	return nil
 }
 
 //+kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta1-hcloudmachine,mutating=false,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hcloudmachines,verbs=create;update,versions=v1beta1,name=validation.hcloudmachine.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
 
-var _ webhook.Validator = &HCloudMachine{}
+var _ webhook.CustomValidator = &hcloudMachineWebhook{}
 
-// ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
-func (r *HCloudMachine) ValidateCreate() (admission.Warnings, error) {
+// ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
+func (*hcloudMachineWebhook) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
+	r, ok := obj.(*HCloudMachine)
+	if !ok {
+		return nil, fmt.Errorf("expected an HCloudMachine object but got %T", r)
+	}
+
 	hcloudmachinelog.V(1).Info("validate create", "name", r.Name)
 
 	allErrs := validateHCloudMachineSpec(r.Spec)
@@ -72,13 +88,17 @@ func (r *HCloudMachine) ValidateCreate() (admission.Warnings, error) {
 	return nil, aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
 }
 
-// ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
-func (r *HCloudMachine) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
+// ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
+func (*hcloudMachineWebhook) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+	r, ok := newObj.(*HCloudMachine)
+	if !ok {
+		return nil, fmt.Errorf("expected an HCloudMachine object but got %T", r)
+	}
 	hcloudmachinelog.V(1).Info("validate update", "name", r.Name)
 
-	oldM, ok := old.(*HCloudMachine)
+	oldM, ok := oldObj.(*HCloudMachine)
 	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected an HCloudMachine but got a %T", old))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected an HCloudMachine but got a %T", oldObj))
 	}
 
 	allErrs := validateHCloudMachineSpecUpdate(oldM.Spec, r.Spec)
@@ -86,8 +106,7 @@ func (r *HCloudMachine) ValidateUpdate(old runtime.Object) (admission.Warnings, 
 	return nil, aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
 }
 
-// ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
-func (r *HCloudMachine) ValidateDelete() (admission.Warnings, error) {
-	hcloudmachinelog.V(1).Info("validate delete", "name", r.Name)
+// ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
+func (r *hcloudMachineWebhook) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
 	return nil, nil
 }

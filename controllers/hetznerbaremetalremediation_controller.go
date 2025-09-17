@@ -171,6 +171,6 @@ func (r *HetznerBareMetalRemediationReconciler) SetupWithManager(ctx context.Con
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&infrav1.HetznerBareMetalRemediation{}).
 		WithOptions(options).
-		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(ctrl.LoggerFrom(ctx), r.WatchFilterValue)).
+		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(mgr.GetScheme(), ctrl.LoggerFrom(ctx), r.WatchFilterValue)).
 		Complete(r)
 }

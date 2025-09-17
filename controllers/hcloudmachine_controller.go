@@ -293,7 +293,7 @@ func (r *HCloudMachineReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 	err = ctrl.NewControllerManagedBy(mgr).
 		WithOptions(options).
 		For(&infrav1.HCloudMachine{}).
-		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(log, r.WatchFilterValue)).
+		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(mgr.GetScheme(), log, r.WatchFilterValue)).
 		WithEventFilter(IgnoreInsignificantHCloudMachineStatusUpdates(log)).
 		Watches(
 			&clusterv1.Machine{},
@@ -308,7 +308,7 @@ func (r *HCloudMachineReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 		Watches(
 			&clusterv1.Cluster{},
 			handler.EnqueueRequestsFromMapFunc(clusterToObjectFunc),
-			builder.WithPredicates(predicates.ClusterUnpausedAndInfrastructureReady(log)),
+			builder.WithPredicates(predicates.ClusterPausedTransitionsOrInfrastructureReady(mgr.GetScheme(), log)),
 		).
 		Complete(r)
 	if err != nil {

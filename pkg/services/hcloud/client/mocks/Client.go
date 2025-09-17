@@ -17,6 +17,14 @@ type Client struct {
 	mock.Mock
 }
 
+type Client_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *Client) EXPECT() *Client_Expecter {
+	return &Client_Expecter{mock: &_m.Mock}
+}
+
 // AddIPTargetToLoadBalancer provides a mock function with given fields: _a0, _a1, _a2
 func (_m *Client) AddIPTargetToLoadBalancer(_a0 context.Context, _a1 hcloud.LoadBalancerAddIPTargetOpts, _a2 *hcloud.LoadBalancer) error {
 	ret := _m.Called(_a0, _a1, _a2)
@@ -33,6 +41,36 @@ func (_m *Client) AddIPTargetToLoadBalancer(_a0 context.Context, _a1 hcloud.Load
 	}
 
 	return r0
+}
+
+// Client_AddIPTargetToLoadBalancer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AddIPTargetToLoadBalancer'
+type Client_AddIPTargetToLoadBalancer_Call struct {
+	*mock.Call
+}
+
+// AddIPTargetToLoadBalancer is a helper method to define mock.On call
+//   - _a0 context.Context
+//   - _a1 hcloud.LoadBalancerAddIPTargetOpts
+//   - _a2 *hcloud.LoadBalancer
+func (_e *Client_Expecter) AddIPTargetToLoadBalancer(_a0 interface{}, _a1 interface{}, _a2 interface{}) *Client_AddIPTargetToLoadBalancer_Call {
+	return &Client_AddIPTargetToLoadBalancer_Call{Call: _e.mock.On("AddIPTargetToLoadBalancer", _a0, _a1, _a2)}
+}
+
+func (_c *Client_AddIPTargetToLoadBalancer_Call) Run(run func(_a0 context.Context, _a1 hcloud.LoadBalancerAddIPTargetOpts, _a2 *hcloud.LoadBalancer)) *Client_AddIPTargetToLoadBalancer_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(hcloud.LoadBalancerAddIPTargetOpts), args[2].(*hcloud.LoadBalancer))
+	})
+	return _c
+}
+
+func (_c *Client_AddIPTargetToLoadBalancer_Call) Return(_a0 error) *Client_AddIPTargetToLoadBalancer_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Client_AddIPTargetToLoadBalancer_Call) RunAndReturn(run func(context.Context, hcloud.LoadBalancerAddIPTargetOpts, *hcloud.LoadBalancer) error) *Client_AddIPTargetToLoadBalancer_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // AddServerToPlacementGroup provides a mock function with given fields: _a0, _a1, _a2
@@ -53,6 +91,36 @@ func (_m *Client) AddServerToPlacementGroup(_a0 context.Context, _a1 *hcloud.Ser
 	return r0
 }
 
+// Client_AddServerToPlacementGroup_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AddServerToPlacementGroup'
+type Client_AddServerToPlacementGroup_Call struct {
+	*mock.Call
+}
+
+// AddServerToPlacementGroup is a helper method to define mock.On call
+//   - _a0 context.Context
+//   - _a1 *hcloud.Server
+//   - _a2 *hcloud.PlacementGroup
+func (_e *Client_Expecter) AddServerToPlacementGroup(_a0 interface{}, _a1 interface{}, _a2 interface{}) *Client_AddServerToPlacementGroup_Call {
+	return &Client_AddServerToPlacementGroup_Call{Call: _e.mock.On("AddServerToPlacementGroup", _a0, _a1, _a2)}
+}
+
+func (_c *Client_AddServerToPlacementGroup_Call) Run(run func(_a0 context.Context, _a1 *hcloud.Server, _a2 *hcloud.PlacementGroup)) *Client_AddServerToPlacementGroup_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*hcloud.Server), args[2].(*hcloud.PlacementGroup))
+	})
+	return _c
+}
+
+func (_c *Client_AddServerToPlacementGroup_Call) Return(_a0 error) *Client_AddServerToPlacementGroup_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Client_AddServerToPlacementGroup_Call) RunAndReturn(run func(context.Context, *hcloud.Server, *hcloud.PlacementGroup) error) *Client_AddServerToPlacementGroup_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // AddServiceToLoadBalancer provides a mock function with given fields: _a0, _a1, _a2
 func (_m *Client) AddServiceToLoadBalancer(_a0 context.Context, _a1 *hcloud.LoadBalancer, _a2 hcloud.LoadBalancerAddServiceOpts) error {
 	ret := _m.Called(_a0, _a1, _a2)
@@ -69,6 +137,36 @@ func (_m *Client) AddServiceToLoadBalancer(_a0 context.Context, _a1 *hcloud.Load
 	}
 
 	return r0
+}
+
+// Client_AddServiceToLoadBalancer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AddServiceToLoadBalancer'
+type Client_AddServiceToLoadBalancer_Call struct {
+	*mock.Call
+}
+
+// AddServiceToLoadBalancer is a helper method to define mock.On call
+//   - _a0 context.Context
+//   - _a1 *hcloud.LoadBalancer
+//   - _a2 hcloud.LoadBalancerAddServiceOpts
+func (_e *Client_Expecter) AddServiceToLoadBalancer(_a0 interface{}, _a1 interface{}, _a2 interface{}) *Client_AddServiceToLoadBalancer_Call {
+	return &Client_AddServiceToLoadBalancer_Call{Call: _e.mock.On("AddServiceToLoadBalancer", _a0, _a1, _a2)}
+}
+
+func (_c *Client_AddServiceToLoadBalancer_Call) Run(run func(_a0 context.Context, _a1 *hcloud.LoadBalancer, _a2 hcloud.LoadBalancerAddServiceOpts)) *Client_AddServiceToLoadBalancer_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*hcloud.LoadBalancer), args[2].(hcloud.LoadBalancerAddServiceOpts))
+	})
+	return _c
+}
+
+func (_c *Client_AddServiceToLoadBalancer_Call) Return(_a0 error) *Client_AddServiceToLoadBalancer_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Client_AddServiceToLoadBalancer_Call) RunAndReturn(run func(context.Context, *hcloud.LoadBalancer, hcloud.LoadBalancerAddServiceOpts) error) *Client_AddServiceToLoadBalancer_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // AddTargetServerToLoadBalancer provides a mock function with given fields: _a0, _a1, _a2
@@ -89,6 +187,36 @@ func (_m *Client) AddTargetServerToLoadBalancer(_a0 context.Context, _a1 hcloud.
 	return r0
 }
 
+// Client_AddTargetServerToLoadBalancer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AddTargetServerToLoadBalancer'
+type Client_AddTargetServerToLoadBalancer_Call struct {
+	*mock.Call
+}
+
+// AddTargetServerToLoadBalancer is a helper method to define mock.On call
+//   - _a0 context.Context
+//   - _a1 hcloud.LoadBalancerAddServerTargetOpts
+//   - _a2 *hcloud.LoadBalancer
+func (_e *Client_Expecter) AddTargetServerToLoadBalancer(_a0 interface{}, _a1 interface{}, _a2 interface{}) *Client_AddTargetServerToLoadBalancer_Call {
+	return &Client_AddTargetServerToLoadBalancer_Call{Call: _e.mock.On("AddTargetServerToLoadBalancer", _a0, _a1, _a2)}
+}
+
+func (_c *Client_AddTargetServerToLoadBalancer_Call) Run(run func(_a0 context.Context, _a1 hcloud.LoadBalancerAddServerTargetOpts, _a2 *hcloud.LoadBalancer)) *Client_AddTargetServerToLoadBalancer_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(hcloud.LoadBalancerAddServerTargetOpts), args[2].(*hcloud.LoadBalancer))
+	})
+	return _c
+}
+
+func (_c *Client_AddTargetServerToLoadBalancer_Call) Return(_a0 error) *Client_AddTargetServerToLoadBalancer_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Client_AddTargetServerToLoadBalancer_Call) RunAndReturn(run func(context.Context, hcloud.LoadBalancerAddServerTargetOpts, *hcloud.LoadBalancer) error) *Client_AddTargetServerToLoadBalancer_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // AttachLoadBalancerToNetwork provides a mock function with given fields: _a0, _a1, _a2
 func (_m *Client) AttachLoadBalancerToNetwork(_a0 context.Context, _a1 *hcloud.LoadBalancer, _a2 hcloud.LoadBalancerAttachToNetworkOpts) error {
 	ret := _m.Called(_a0, _a1, _a2)
@@ -105,6 +233,36 @@ func (_m *Client) AttachLoadBalancerToNetwork(_a0 context.Context, _a1 *hcloud.L
 	}
 
 	return r0
+}
+
+// Client_AttachLoadBalancerToNetwork_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AttachLoadBalancerToNetwork'
+type Client_AttachLoadBalancerToNetwork_Call struct {
+	*mock.Call
+}
+
+// AttachLoadBalancerToNetwork is a helper method to define mock.On call
+//   - _a0 context.Context
+//   - _a1 *hcloud.LoadBalancer
+//   - _a2 hcloud.LoadBalancerAttachToNetworkOpts
+func (_e *Client_Expecter) AttachLoadBalancerToNetwork(_a0 interface{}, _a1 interface{}, _a2 interface{}) *Client_AttachLoadBalancerToNetwork_Call {
+	return &Client_AttachLoadBalancerToNetwork_Call{Call: _e.mock.On("AttachLoadBalancerToNetwork", _a0, _a1, _a2)}
+}
+
+func (_c *Client_AttachLoadBalancerToNetwork_Call) Run(run func(_a0 context.Context, _a1 *hcloud.LoadBalancer, _a2 hcloud.LoadBalancerAttachToNetworkOpts)) *Client_AttachLoadBalancerToNetwork_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*hcloud.LoadBalancer), args[2].(hcloud.LoadBalancerAttachToNetworkOpts))
+	})
+	return _c
+}
+
+func (_c *Client_AttachLoadBalancerToNetwork_Call) Return(_a0 error) *Client_AttachLoadBalancerToNetwork_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Client_AttachLoadBalancerToNetwork_Call) RunAndReturn(run func(context.Context, *hcloud.LoadBalancer, hcloud.LoadBalancerAttachToNetworkOpts) error) *Client_AttachLoadBalancerToNetwork_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // AttachServerToNetwork provides a mock function with given fields: _a0, _a1, _a2
@@ -125,6 +283,36 @@ func (_m *Client) AttachServerToNetwork(_a0 context.Context, _a1 *hcloud.Server,
 	return r0
 }
 
+// Client_AttachServerToNetwork_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AttachServerToNetwork'
+type Client_AttachServerToNetwork_Call struct {
+	*mock.Call
+}
+
+// AttachServerToNetwork is a helper method to define mock.On call
+//   - _a0 context.Context
+//   - _a1 *hcloud.Server
+//   - _a2 hcloud.ServerAttachToNetworkOpts
+func (_e *Client_Expecter) AttachServerToNetwork(_a0 interface{}, _a1 interface{}, _a2 interface{}) *Client_AttachServerToNetwork_Call {
+	return &Client_AttachServerToNetwork_Call{Call: _e.mock.On("AttachServerToNetwork", _a0, _a1, _a2)}
+}
+
+func (_c *Client_AttachServerToNetwork_Call) Run(run func(_a0 context.Context, _a1 *hcloud.Server, _a2 hcloud.ServerAttachToNetworkOpts)) *Client_AttachServerToNetwork_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*hcloud.Server), args[2].(hcloud.ServerAttachToNetworkOpts))
+	})
+	return _c
+}
+
+func (_c *Client_AttachServerToNetwork_Call) Return(_a0 error) *Client_AttachServerToNetwork_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Client_AttachServerToNetwork_Call) RunAndReturn(run func(context.Context, *hcloud.Server, hcloud.ServerAttachToNetworkOpts) error) *Client_AttachServerToNetwork_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ChangeLoadBalancerAlgorithm provides a mock function with given fields: _a0, _a1, _a2
 func (_m *Client) ChangeLoadBalancerAlgorithm(_a0 context.Context, _a1 *hcloud.LoadBalancer, _a2 hcloud.LoadBalancerChangeAlgorithmOpts) error {
 	ret := _m.Called(_a0, _a1, _a2)
@@ -143,6 +331,36 @@ func (_m *Client) ChangeLoadBalancerAlgorithm(_a0 context.Context, _a1 *hcloud.L
 	return r0
 }
 
+// Client_ChangeLoadBalancerAlgorithm_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ChangeLoadBalancerAlgorithm'
+type Client_ChangeLoadBalancerAlgorithm_Call struct {
+	*mock.Call
+}
+
+// ChangeLoadBalancerAlgorithm is a helper method to define mock.On call
+//   - _a0 context.Context
+//   - _a1 *hcloud.LoadBalancer
+//   - _a2 hcloud.LoadBalancerChangeAlgorithmOpts
+func (_e *Client_Expecter) ChangeLoadBalancerAlgorithm(_a0 interface{}, _a1 interface{}, _a2 interface{}) *Client_ChangeLoadBalancerAlgorithm_Call {
+	return &Client_ChangeLoadBalancerAlgorithm_Call{Call: _e.mock.On("ChangeLoadBalancerAlgorithm", _a0, _a1, _a2)}
+}
+
+func (_c *Client_ChangeLoadBalancerAlgorithm_Call) Run(run func(_a0 context.Context, _a1 *hcloud.LoadBalancer, _a2 hcloud.LoadBalancerChangeAlgorithmOpts)) *Client_ChangeLoadBalancerAlgorithm_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*hcloud.LoadBalancer), args[2].(hcloud.LoadBalancerChangeAlgorithmOpts))
+	})
+	return _c
+}
+
+func (_c *Client_ChangeLoadBalancerAlgorithm_Call) Return(_a0 error) *Client_ChangeLoadBalancerAlgorithm_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Client_ChangeLoadBalancerAlgorithm_Call) RunAndReturn(run func(context.Context, *hcloud.LoadBalancer, hcloud.LoadBalancerChangeAlgorithmOpts) error) *Client_ChangeLoadBalancerAlgorithm_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ChangeLoadBalancerType provides a mock function with given fields: _a0, _a1, _a2
 func (_m *Client) ChangeLoadBalancerType(_a0 context.Context, _a1 *hcloud.LoadBalancer, _a2 hcloud.LoadBalancerChangeTypeOpts) error {
 	ret := _m.Called(_a0, _a1, _a2)
@@ -159,6 +377,36 @@ func (_m *Client) ChangeLoadBalancerType(_a0 context.Context, _a1 *hcloud.LoadBa
 	}
 
 	return r0
+}
+
+// Client_ChangeLoadBalancerType_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ChangeLoadBalancerType'
+type Client_ChangeLoadBalancerType_Call struct {
+	*mock.Call
+}
+
+// ChangeLoadBalancerType is a helper method to define mock.On call
+//   - _a0 context.Context
+//   - _a1 *hcloud.LoadBalancer
+//   - _a2 hcloud.LoadBalancerChangeTypeOpts
+func (_e *Client_Expecter) ChangeLoadBalancerType(_a0 interface{}, _a1 interface{}, _a2 interface{}) *Client_ChangeLoadBalancerType_Call {
+	return &Client_ChangeLoadBalancerType_Call{Call: _e.mock.On("ChangeLoadBalancerType", _a0, _a1, _a2)}
+}
+
+func (_c *Client_ChangeLoadBalancerType_Call) Run(run func(_a0 context.Context, _a1 *hcloud.LoadBalancer, _a2 hcloud.LoadBalancerChangeTypeOpts)) *Client_ChangeLoadBalancerType_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*hcloud.LoadBalancer), args[2].(hcloud.LoadBalancerChangeTypeOpts))
+	})
+	return _c
+}
+
+func (_c *Client_ChangeLoadBalancerType_Call) Return(_a0 error) *Client_ChangeLoadBalancerType_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Client_ChangeLoadBalancerType_Call) RunAndReturn(run func(context.Context, *hcloud.LoadBalancer, hcloud.LoadBalancerChangeTypeOpts) error) *Client_ChangeLoadBalancerType_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // CreateLoadBalancer provides a mock function with given fields: _a0, _a1
@@ -191,6 +439,35 @@ func (_m *Client) CreateLoadBalancer(_a0 context.Context, _a1 hcloud.LoadBalance
 	return r0, r1
 }
 
+// Client_CreateLoadBalancer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateLoadBalancer'
+type Client_CreateLoadBalancer_Call struct {
+	*mock.Call
+}
+
+// CreateLoadBalancer is a helper method to define mock.On call
+//   - _a0 context.Context
+//   - _a1 hcloud.LoadBalancerCreateOpts
+func (_e *Client_Expecter) CreateLoadBalancer(_a0 interface{}, _a1 interface{}) *Client_CreateLoadBalancer_Call {
+	return &Client_CreateLoadBalancer_Call{Call: _e.mock.On("CreateLoadBalancer", _a0, _a1)}
+}
+
+func (_c *Client_CreateLoadBalancer_Call) Run(run func(_a0 context.Context, _a1 hcloud.LoadBalancerCreateOpts)) *Client_CreateLoadBalancer_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(hcloud.LoadBalancerCreateOpts))
+	})
+	return _c
+}
+
+func (_c *Client_CreateLoadBalancer_Call) Return(_a0 *hcloud.LoadBalancer, _a1 error) *Client_CreateLoadBalancer_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Client_CreateLoadBalancer_Call) RunAndReturn(run func(context.Context, hcloud.LoadBalancerCreateOpts) (*hcloud.LoadBalancer, error)) *Client_CreateLoadBalancer_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CreateNetwork provides a mock function with given fields: _a0, _a1
 func (_m *Client) CreateNetwork(_a0 context.Context, _a1 hcloud.NetworkCreateOpts) (*hcloud.Network, error) {
 	ret := _m.Called(_a0, _a1)
@@ -219,6 +496,35 @@ func (_m *Client) CreateNetwork(_a0 context.Context, _a1 hcloud.NetworkCreateOpt
 	}
 
 	return r0, r1
+}
+
+// Client_CreateNetwork_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateNetwork'
+type Client_CreateNetwork_Call struct {
+	*mock.Call
+}
+
+// CreateNetwork is a helper method to define mock.On call
+//   - _a0 context.Context
+//   - _a1 hcloud.NetworkCreateOpts
+func (_e *Client_Expecter) CreateNetwork(_a0 interface{}, _a1 interface{}) *Client_CreateNetwork_Call {
+	return &Client_CreateNetwork_Call{Call: _e.mock.On("CreateNetwork", _a0, _a1)}
+}
+
+func (_c *Client_CreateNetwork_Call) Run(run func(_a0 context.Context, _a1 hcloud.NetworkCreateOpts)) *Client_CreateNetwork_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(hcloud.NetworkCreateOpts))
+	})
+	return _c
+}
+
+func (_c *Client_CreateNetwork_Call) Return(_a0 *hcloud.Network, _a1 error) *Client_CreateNetwork_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Client_CreateNetwork_Call) RunAndReturn(run func(context.Context, hcloud.NetworkCreateOpts) (*hcloud.Network, error)) *Client_CreateNetwork_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // CreatePlacementGroup provides a mock function with given fields: _a0, _a1
@@ -251,6 +557,35 @@ func (_m *Client) CreatePlacementGroup(_a0 context.Context, _a1 hcloud.Placement
 	return r0, r1
 }
 
+// Client_CreatePlacementGroup_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreatePlacementGroup'
+type Client_CreatePlacementGroup_Call struct {
+	*mock.Call
+}
+
+// CreatePlacementGroup is a helper method to define mock.On call
+//   - _a0 context.Context
+//   - _a1 hcloud.PlacementGroupCreateOpts
+func (_e *Client_Expecter) CreatePlacementGroup(_a0 interface{}, _a1 interface{}) *Client_CreatePlacementGroup_Call {
+	return &Client_CreatePlacementGroup_Call{Call: _e.mock.On("CreatePlacementGroup", _a0, _a1)}
+}
+
+func (_c *Client_CreatePlacementGroup_Call) Run(run func(_a0 context.Context, _a1 hcloud.PlacementGroupCreateOpts)) *Client_CreatePlacementGroup_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(hcloud.PlacementGroupCreateOpts))
+	})
+	return _c
+}
+
+func (_c *Client_CreatePlacementGroup_Call) Return(_a0 *hcloud.PlacementGroup, _a1 error) *Client_CreatePlacementGroup_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Client_CreatePlacementGroup_Call) RunAndReturn(run func(context.Context, hcloud.PlacementGroupCreateOpts) (*hcloud.PlacementGroup, error)) *Client_CreatePlacementGroup_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CreateServer provides a mock function with given fields: _a0, _a1
 func (_m *Client) CreateServer(_a0 context.Context, _a1 hcloud.ServerCreateOpts) (*hcloud.Server, error) {
 	ret := _m.Called(_a0, _a1)
@@ -281,6 +616,35 @@ func (_m *Client) CreateServer(_a0 context.Context, _a1 hcloud.ServerCreateOpts)
 	return r0, r1
 }
 
+// Client_CreateServer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateServer'
+type Client_CreateServer_Call struct {
+	*mock.Call
+}
+
+// CreateServer is a helper method to define mock.On call
+//   - _a0 context.Context
+//   - _a1 hcloud.ServerCreateOpts
+func (_e *Client_Expecter) CreateServer(_a0 interface{}, _a1 interface{}) *Client_CreateServer_Call {
+	return &Client_CreateServer_Call{Call: _e.mock.On("CreateServer", _a0, _a1)}
+}
+
+func (_c *Client_CreateServer_Call) Run(run func(_a0 context.Context, _a1 hcloud.ServerCreateOpts)) *Client_CreateServer_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(hcloud.ServerCreateOpts))
+	})
+	return _c
+}
+
+func (_c *Client_CreateServer_Call) Return(_a0 *hcloud.Server, _a1 error) *Client_CreateServer_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Client_CreateServer_Call) RunAndReturn(run func(context.Context, hcloud.ServerCreateOpts) (*hcloud.Server, error)) *Client_CreateServer_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // DeleteIPTargetOfLoadBalancer provides a mock function with given fields: _a0, _a1, _a2
 func (_m *Client) DeleteIPTargetOfLoadBalancer(_a0 context.Context, _a1 *hcloud.LoadBalancer, _a2 net.IP) error {
 	ret := _m.Called(_a0, _a1, _a2)
@@ -297,6 +661,36 @@ func (_m *Client) DeleteIPTargetOfLoadBalancer(_a0 context.Context, _a1 *hcloud.
 	}
 
 	return r0
+}
+
+// Client_DeleteIPTargetOfLoadBalancer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteIPTargetOfLoadBalancer'
+type Client_DeleteIPTargetOfLoadBalancer_Call struct {
+	*mock.Call
+}
+
+// DeleteIPTargetOfLoadBalancer is a helper method to define mock.On call
+//   - _a0 context.Context
+//   - _a1 *hcloud.LoadBalancer
+//   - _a2 net.IP
+func (_e *Client_Expecter) DeleteIPTargetOfLoadBalancer(_a0 interface{}, _a1 interface{}, _a2 interface{}) *Client_DeleteIPTargetOfLoadBalancer_Call {
+	return &Client_DeleteIPTargetOfLoadBalancer_Call{Call: _e.mock.On("DeleteIPTargetOfLoadBalancer", _a0, _a1, _a2)}
+}
+
+func (_c *Client_DeleteIPTargetOfLoadBalancer_Call) Run(run func(_a0 context.Context, _a1 *hcloud.LoadBalancer, _a2 net.IP)) *Client_DeleteIPTargetOfLoadBalancer_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*hcloud.LoadBalancer), args[2].(net.IP))
+	})
+	return _c
+}
+
+func (_c *Client_DeleteIPTargetOfLoadBalancer_Call) Return(_a0 error) *Client_DeleteIPTargetOfLoadBalancer_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Client_DeleteIPTargetOfLoadBalancer_Call) RunAndReturn(run func(context.Context, *hcloud.LoadBalancer, net.IP) error) *Client_DeleteIPTargetOfLoadBalancer_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // DeleteLoadBalancer provides a mock function with given fields: _a0, _a1
@@ -317,6 +711,35 @@ func (_m *Client) DeleteLoadBalancer(_a0 context.Context, _a1 int64) error {
 	return r0
 }
 
+// Client_DeleteLoadBalancer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteLoadBalancer'
+type Client_DeleteLoadBalancer_Call struct {
+	*mock.Call
+}
+
+// DeleteLoadBalancer is a helper method to define mock.On call
+//   - _a0 context.Context
+//   - _a1 int64
+func (_e *Client_Expecter) DeleteLoadBalancer(_a0 interface{}, _a1 interface{}) *Client_DeleteLoadBalancer_Call {
+	return &Client_DeleteLoadBalancer_Call{Call: _e.mock.On("DeleteLoadBalancer", _a0, _a1)}
+}
+
+func (_c *Client_DeleteLoadBalancer_Call) Run(run func(_a0 context.Context, _a1 int64)) *Client_DeleteLoadBalancer_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(int64))
+	})
+	return _c
+}
+
+func (_c *Client_DeleteLoadBalancer_Call) Return(_a0 error) *Client_DeleteLoadBalancer_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Client_DeleteLoadBalancer_Call) RunAndReturn(run func(context.Context, int64) error) *Client_DeleteLoadBalancer_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // DeleteNetwork provides a mock function with given fields: _a0, _a1
 func (_m *Client) DeleteNetwork(_a0 context.Context, _a1 *hcloud.Network) error {
 	ret := _m.Called(_a0, _a1)
@@ -333,6 +756,35 @@ func (_m *Client) DeleteNetwork(_a0 context.Context, _a1 *hcloud.Network) error 
 	}
 
 	return r0
+}
+
+// Client_DeleteNetwork_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteNetwork'
+type Client_DeleteNetwork_Call struct {
+	*mock.Call
+}
+
+// DeleteNetwork is a helper method to define mock.On call
+//   - _a0 context.Context
+//   - _a1 *hcloud.Network
+func (_e *Client_Expecter) DeleteNetwork(_a0 interface{}, _a1 interface{}) *Client_DeleteNetwork_Call {
+	return &Client_DeleteNetwork_Call{Call: _e.mock.On("DeleteNetwork", _a0, _a1)}
+}
+
+func (_c *Client_DeleteNetwork_Call) Run(run func(_a0 context.Context, _a1 *hcloud.Network)) *Client_DeleteNetwork_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*hcloud.Network))
+	})
+	return _c
+}
+
+func (_c *Client_DeleteNetwork_Call) Return(_a0 error) *Client_DeleteNetwork_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Client_DeleteNetwork_Call) RunAndReturn(run func(context.Context, *hcloud.Network) error) *Client_DeleteNetwork_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // DeletePlacementGroup provides a mock function with given fields: _a0, _a1
@@ -353,6 +805,35 @@ func (_m *Client) DeletePlacementGroup(_a0 context.Context, _a1 int64) error {
 	return r0
 }
 
+// Client_DeletePlacementGroup_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeletePlacementGroup'
+type Client_DeletePlacementGroup_Call struct {
+	*mock.Call
+}
+
+// DeletePlacementGroup is a helper method to define mock.On call
+//   - _a0 context.Context
+//   - _a1 int64
+func (_e *Client_Expecter) DeletePlacementGroup(_a0 interface{}, _a1 interface{}) *Client_DeletePlacementGroup_Call {
+	return &Client_DeletePlacementGroup_Call{Call: _e.mock.On("DeletePlacementGroup", _a0, _a1)}
+}
+
+func (_c *Client_DeletePlacementGroup_Call) Run(run func(_a0 context.Context, _a1 int64)) *Client_DeletePlacementGroup_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(int64))
+	})
+	return _c
+}
+
+func (_c *Client_DeletePlacementGroup_Call) Return(_a0 error) *Client_DeletePlacementGroup_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Client_DeletePlacementGroup_Call) RunAndReturn(run func(context.Context, int64) error) *Client_DeletePlacementGroup_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // DeleteServer provides a mock function with given fields: _a0, _a1
 func (_m *Client) DeleteServer(_a0 context.Context, _a1 *hcloud.Server) error {
 	ret := _m.Called(_a0, _a1)
@@ -369,6 +850,35 @@ func (_m *Client) DeleteServer(_a0 context.Context, _a1 *hcloud.Server) error {
 	}
 
 	return r0
+}
+
+// Client_DeleteServer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteServer'
+type Client_DeleteServer_Call struct {
+	*mock.Call
+}
+
+// DeleteServer is a helper method to define mock.On call
+//   - _a0 context.Context
+//   - _a1 *hcloud.Server
+func (_e *Client_Expecter) DeleteServer(_a0 interface{}, _a1 interface{}) *Client_DeleteServer_Call {
+	return &Client_DeleteServer_Call{Call: _e.mock.On("DeleteServer", _a0, _a1)}
+}
+
+func (_c *Client_DeleteServer_Call) Run(run func(_a0 context.Context, _a1 *hcloud.Server)) *Client_DeleteServer_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*hcloud.Server))
+	})
+	return _c
+}
+
+func (_c *Client_DeleteServer_Call) Return(_a0 error) *Client_DeleteServer_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Client_DeleteServer_Call) RunAndReturn(run func(context.Context, *hcloud.Server) error) *Client_DeleteServer_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // DeleteServiceFromLoadBalancer provides a mock function with given fields: _a0, _a1, _a2
@@ -389,6 +899,36 @@ func (_m *Client) DeleteServiceFromLoadBalancer(_a0 context.Context, _a1 *hcloud
 	return r0
 }
 
+// Client_DeleteServiceFromLoadBalancer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteServiceFromLoadBalancer'
+type Client_DeleteServiceFromLoadBalancer_Call struct {
+	*mock.Call
+}
+
+// DeleteServiceFromLoadBalancer is a helper method to define mock.On call
+//   - _a0 context.Context
+//   - _a1 *hcloud.LoadBalancer
+//   - _a2 int
+func (_e *Client_Expecter) DeleteServiceFromLoadBalancer(_a0 interface{}, _a1 interface{}, _a2 interface{}) *Client_DeleteServiceFromLoadBalancer_Call {
+	return &Client_DeleteServiceFromLoadBalancer_Call{Call: _e.mock.On("DeleteServiceFromLoadBalancer", _a0, _a1, _a2)}
+}
+
+func (_c *Client_DeleteServiceFromLoadBalancer_Call) Run(run func(_a0 context.Context, _a1 *hcloud.LoadBalancer, _a2 int)) *Client_DeleteServiceFromLoadBalancer_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*hcloud.LoadBalancer), args[2].(int))
+	})
+	return _c
+}
+
+func (_c *Client_DeleteServiceFromLoadBalancer_Call) Return(_a0 error) *Client_DeleteServiceFromLoadBalancer_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Client_DeleteServiceFromLoadBalancer_Call) RunAndReturn(run func(context.Context, *hcloud.LoadBalancer, int) error) *Client_DeleteServiceFromLoadBalancer_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // DeleteTargetServerOfLoadBalancer provides a mock function with given fields: _a0, _a1, _a2
 func (_m *Client) DeleteTargetServerOfLoadBalancer(_a0 context.Context, _a1 *hcloud.LoadBalancer, _a2 *hcloud.Server) error {
 	ret := _m.Called(_a0, _a1, _a2)
@@ -405,6 +945,36 @@ func (_m *Client) DeleteTargetServerOfLoadBalancer(_a0 context.Context, _a1 *hcl
 	}
 
 	return r0
+}
+
+// Client_DeleteTargetServerOfLoadBalancer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteTargetServerOfLoadBalancer'
+type Client_DeleteTargetServerOfLoadBalancer_Call struct {
+	*mock.Call
+}
+
+// DeleteTargetServerOfLoadBalancer is a helper method to define mock.On call
+//   - _a0 context.Context
+//   - _a1 *hcloud.LoadBalancer
+//   - _a2 *hcloud.Server
+func (_e *Client_Expecter) DeleteTargetServerOfLoadBalancer(_a0 interface{}, _a1 interface{}, _a2 interface{}) *Client_DeleteTargetServerOfLoadBalancer_Call {
+	return &Client_DeleteTargetServerOfLoadBalancer_Call{Call: _e.mock.On("DeleteTargetServerOfLoadBalancer", _a0, _a1, _a2)}
+}
+
+func (_c *Client_DeleteTargetServerOfLoadBalancer_Call) Run(run func(_a0 context.Context, _a1 *hcloud.LoadBalancer, _a2 *hcloud.Server)) *Client_DeleteTargetServerOfLoadBalancer_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*hcloud.LoadBalancer), args[2].(*hcloud.Server))
+	})
+	return _c
+}
+
+func (_c *Client_DeleteTargetServerOfLoadBalancer_Call) Return(_a0 error) *Client_DeleteTargetServerOfLoadBalancer_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Client_DeleteTargetServerOfLoadBalancer_Call) RunAndReturn(run func(context.Context, *hcloud.LoadBalancer, *hcloud.Server) error) *Client_DeleteTargetServerOfLoadBalancer_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // EnableRescueSystem provides a mock function with given fields: _a0, _a1, _a2
@@ -433,6 +1003,36 @@ func (_m *Client) EnableRescueSystem(_a0 context.Context, _a1 *hcloud.Server, _a
 	}
 
 	return r0, r1
+}
+
+// Client_EnableRescueSystem_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'EnableRescueSystem'
+type Client_EnableRescueSystem_Call struct {
+	*mock.Call
+}
+
+// EnableRescueSystem is a helper method to define mock.On call
+//   - _a0 context.Context
+//   - _a1 *hcloud.Server
+//   - _a2 *hcloud.ServerEnableRescueOpts
+func (_e *Client_Expecter) EnableRescueSystem(_a0 interface{}, _a1 interface{}, _a2 interface{}) *Client_EnableRescueSystem_Call {
+	return &Client_EnableRescueSystem_Call{Call: _e.mock.On("EnableRescueSystem", _a0, _a1, _a2)}
+}
+
+func (_c *Client_EnableRescueSystem_Call) Run(run func(_a0 context.Context, _a1 *hcloud.Server, _a2 *hcloud.ServerEnableRescueOpts)) *Client_EnableRescueSystem_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*hcloud.Server), args[2].(*hcloud.ServerEnableRescueOpts))
+	})
+	return _c
+}
+
+func (_c *Client_EnableRescueSystem_Call) Return(_a0 hcloud.ServerEnableRescueResult, _a1 error) *Client_EnableRescueSystem_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Client_EnableRescueSystem_Call) RunAndReturn(run func(context.Context, *hcloud.Server, *hcloud.ServerEnableRescueOpts) (hcloud.ServerEnableRescueResult, error)) *Client_EnableRescueSystem_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetAction provides a mock function with given fields: ctx, actionID
@@ -465,6 +1065,35 @@ func (_m *Client) GetAction(ctx context.Context, actionID int64) (*hcloud.Action
 	return r0, r1
 }
 
+// Client_GetAction_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetAction'
+type Client_GetAction_Call struct {
+	*mock.Call
+}
+
+// GetAction is a helper method to define mock.On call
+//   - ctx context.Context
+//   - actionID int64
+func (_e *Client_Expecter) GetAction(ctx interface{}, actionID interface{}) *Client_GetAction_Call {
+	return &Client_GetAction_Call{Call: _e.mock.On("GetAction", ctx, actionID)}
+}
+
+func (_c *Client_GetAction_Call) Run(run func(ctx context.Context, actionID int64)) *Client_GetAction_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(int64))
+	})
+	return _c
+}
+
+func (_c *Client_GetAction_Call) Return(_a0 *hcloud.Action, _a1 error) *Client_GetAction_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Client_GetAction_Call) RunAndReturn(run func(context.Context, int64) (*hcloud.Action, error)) *Client_GetAction_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetServer provides a mock function with given fields: _a0, _a1
 func (_m *Client) GetServer(_a0 context.Context, _a1 int64) (*hcloud.Server, error) {
 	ret := _m.Called(_a0, _a1)
@@ -493,6 +1122,35 @@ func (_m *Client) GetServer(_a0 context.Context, _a1 int64) (*hcloud.Server, err
 	}
 
 	return r0, r1
+}
+
+// Client_GetServer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetServer'
+type Client_GetServer_Call struct {
+	*mock.Call
+}
+
+// GetServer is a helper method to define mock.On call
+//   - _a0 context.Context
+//   - _a1 int64
+func (_e *Client_Expecter) GetServer(_a0 interface{}, _a1 interface{}) *Client_GetServer_Call {
+	return &Client_GetServer_Call{Call: _e.mock.On("GetServer", _a0, _a1)}
+}
+
+func (_c *Client_GetServer_Call) Run(run func(_a0 context.Context, _a1 int64)) *Client_GetServer_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(int64))
+	})
+	return _c
+}
+
+func (_c *Client_GetServer_Call) Return(_a0 *hcloud.Server, _a1 error) *Client_GetServer_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Client_GetServer_Call) RunAndReturn(run func(context.Context, int64) (*hcloud.Server, error)) *Client_GetServer_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetServerType provides a mock function with given fields: _a0, _a1
@@ -525,6 +1183,35 @@ func (_m *Client) GetServerType(_a0 context.Context, _a1 string) (*hcloud.Server
 	return r0, r1
 }
 
+// Client_GetServerType_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetServerType'
+type Client_GetServerType_Call struct {
+	*mock.Call
+}
+
+// GetServerType is a helper method to define mock.On call
+//   - _a0 context.Context
+//   - _a1 string
+func (_e *Client_Expecter) GetServerType(_a0 interface{}, _a1 interface{}) *Client_GetServerType_Call {
+	return &Client_GetServerType_Call{Call: _e.mock.On("GetServerType", _a0, _a1)}
+}
+
+func (_c *Client_GetServerType_Call) Run(run func(_a0 context.Context, _a1 string)) *Client_GetServerType_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *Client_GetServerType_Call) Return(_a0 *hcloud.ServerType, _a1 error) *Client_GetServerType_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Client_GetServerType_Call) RunAndReturn(run func(context.Context, string) (*hcloud.ServerType, error)) *Client_GetServerType_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListImages provides a mock function with given fields: _a0, _a1
 func (_m *Client) ListImages(_a0 context.Context, _a1 hcloud.ImageListOpts) ([]*hcloud.Image, error) {
 	ret := _m.Called(_a0, _a1)
@@ -553,6 +1240,35 @@ func (_m *Client) ListImages(_a0 context.Context, _a1 hcloud.ImageListOpts) ([]*
 	}
 
 	return r0, r1
+}
+
+// Client_ListImages_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListImages'
+type Client_ListImages_Call struct {
+	*mock.Call
+}
+
+// ListImages is a helper method to define mock.On call
+//   - _a0 context.Context
+//   - _a1 hcloud.ImageListOpts
+func (_e *Client_Expecter) ListImages(_a0 interface{}, _a1 interface{}) *Client_ListImages_Call {
+	return &Client_ListImages_Call{Call: _e.mock.On("ListImages", _a0, _a1)}
+}
+
+func (_c *Client_ListImages_Call) Run(run func(_a0 context.Context, _a1 hcloud.ImageListOpts)) *Client_ListImages_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(hcloud.ImageListOpts))
+	})
+	return _c
+}
+
+func (_c *Client_ListImages_Call) Return(_a0 []*hcloud.Image, _a1 error) *Client_ListImages_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Client_ListImages_Call) RunAndReturn(run func(context.Context, hcloud.ImageListOpts) ([]*hcloud.Image, error)) *Client_ListImages_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ListLoadBalancers provides a mock function with given fields: _a0, _a1
@@ -585,6 +1301,35 @@ func (_m *Client) ListLoadBalancers(_a0 context.Context, _a1 hcloud.LoadBalancer
 	return r0, r1
 }
 
+// Client_ListLoadBalancers_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListLoadBalancers'
+type Client_ListLoadBalancers_Call struct {
+	*mock.Call
+}
+
+// ListLoadBalancers is a helper method to define mock.On call
+//   - _a0 context.Context
+//   - _a1 hcloud.LoadBalancerListOpts
+func (_e *Client_Expecter) ListLoadBalancers(_a0 interface{}, _a1 interface{}) *Client_ListLoadBalancers_Call {
+	return &Client_ListLoadBalancers_Call{Call: _e.mock.On("ListLoadBalancers", _a0, _a1)}
+}
+
+func (_c *Client_ListLoadBalancers_Call) Run(run func(_a0 context.Context, _a1 hcloud.LoadBalancerListOpts)) *Client_ListLoadBalancers_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(hcloud.LoadBalancerListOpts))
+	})
+	return _c
+}
+
+func (_c *Client_ListLoadBalancers_Call) Return(_a0 []*hcloud.LoadBalancer, _a1 error) *Client_ListLoadBalancers_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Client_ListLoadBalancers_Call) RunAndReturn(run func(context.Context, hcloud.LoadBalancerListOpts) ([]*hcloud.LoadBalancer, error)) *Client_ListLoadBalancers_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListNetworks provides a mock function with given fields: _a0, _a1
 func (_m *Client) ListNetworks(_a0 context.Context, _a1 hcloud.NetworkListOpts) ([]*hcloud.Network, error) {
 	ret := _m.Called(_a0, _a1)
@@ -613,6 +1358,35 @@ func (_m *Client) ListNetworks(_a0 context.Context, _a1 hcloud.NetworkListOpts) 
 	}
 
 	return r0, r1
+}
+
+// Client_ListNetworks_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListNetworks'
+type Client_ListNetworks_Call struct {
+	*mock.Call
+}
+
+// ListNetworks is a helper method to define mock.On call
+//   - _a0 context.Context
+//   - _a1 hcloud.NetworkListOpts
+func (_e *Client_Expecter) ListNetworks(_a0 interface{}, _a1 interface{}) *Client_ListNetworks_Call {
+	return &Client_ListNetworks_Call{Call: _e.mock.On("ListNetworks", _a0, _a1)}
+}
+
+func (_c *Client_ListNetworks_Call) Run(run func(_a0 context.Context, _a1 hcloud.NetworkListOpts)) *Client_ListNetworks_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(hcloud.NetworkListOpts))
+	})
+	return _c
+}
+
+func (_c *Client_ListNetworks_Call) Return(_a0 []*hcloud.Network, _a1 error) *Client_ListNetworks_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Client_ListNetworks_Call) RunAndReturn(run func(context.Context, hcloud.NetworkListOpts) ([]*hcloud.Network, error)) *Client_ListNetworks_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ListPlacementGroups provides a mock function with given fields: _a0, _a1
@@ -645,6 +1419,35 @@ func (_m *Client) ListPlacementGroups(_a0 context.Context, _a1 hcloud.PlacementG
 	return r0, r1
 }
 
+// Client_ListPlacementGroups_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListPlacementGroups'
+type Client_ListPlacementGroups_Call struct {
+	*mock.Call
+}
+
+// ListPlacementGroups is a helper method to define mock.On call
+//   - _a0 context.Context
+//   - _a1 hcloud.PlacementGroupListOpts
+func (_e *Client_Expecter) ListPlacementGroups(_a0 interface{}, _a1 interface{}) *Client_ListPlacementGroups_Call {
+	return &Client_ListPlacementGroups_Call{Call: _e.mock.On("ListPlacementGroups", _a0, _a1)}
+}
+
+func (_c *Client_ListPlacementGroups_Call) Run(run func(_a0 context.Context, _a1 hcloud.PlacementGroupListOpts)) *Client_ListPlacementGroups_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(hcloud.PlacementGroupListOpts))
+	})
+	return _c
+}
+
+func (_c *Client_ListPlacementGroups_Call) Return(_a0 []*hcloud.PlacementGroup, _a1 error) *Client_ListPlacementGroups_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Client_ListPlacementGroups_Call) RunAndReturn(run func(context.Context, hcloud.PlacementGroupListOpts) ([]*hcloud.PlacementGroup, error)) *Client_ListPlacementGroups_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListSSHKeys provides a mock function with given fields: _a0, _a1
 func (_m *Client) ListSSHKeys(_a0 context.Context, _a1 hcloud.SSHKeyListOpts) ([]*hcloud.SSHKey, error) {
 	ret := _m.Called(_a0, _a1)
@@ -673,6 +1476,35 @@ func (_m *Client) ListSSHKeys(_a0 context.Context, _a1 hcloud.SSHKeyListOpts) ([
 	}
 
 	return r0, r1
+}
+
+// Client_ListSSHKeys_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListSSHKeys'
+type Client_ListSSHKeys_Call struct {
+	*mock.Call
+}
+
+// ListSSHKeys is a helper method to define mock.On call
+//   - _a0 context.Context
+//   - _a1 hcloud.SSHKeyListOpts
+func (_e *Client_Expecter) ListSSHKeys(_a0 interface{}, _a1 interface{}) *Client_ListSSHKeys_Call {
+	return &Client_ListSSHKeys_Call{Call: _e.mock.On("ListSSHKeys", _a0, _a1)}
+}
+
+func (_c *Client_ListSSHKeys_Call) Run(run func(_a0 context.Context, _a1 hcloud.SSHKeyListOpts)) *Client_ListSSHKeys_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(hcloud.SSHKeyListOpts))
+	})
+	return _c
+}
+
+func (_c *Client_ListSSHKeys_Call) Return(_a0 []*hcloud.SSHKey, _a1 error) *Client_ListSSHKeys_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Client_ListSSHKeys_Call) RunAndReturn(run func(context.Context, hcloud.SSHKeyListOpts) ([]*hcloud.SSHKey, error)) *Client_ListSSHKeys_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ListServerTypes provides a mock function with given fields: _a0
@@ -705,6 +1537,34 @@ func (_m *Client) ListServerTypes(_a0 context.Context) ([]*hcloud.ServerType, er
 	return r0, r1
 }
 
+// Client_ListServerTypes_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListServerTypes'
+type Client_ListServerTypes_Call struct {
+	*mock.Call
+}
+
+// ListServerTypes is a helper method to define mock.On call
+//   - _a0 context.Context
+func (_e *Client_Expecter) ListServerTypes(_a0 interface{}) *Client_ListServerTypes_Call {
+	return &Client_ListServerTypes_Call{Call: _e.mock.On("ListServerTypes", _a0)}
+}
+
+func (_c *Client_ListServerTypes_Call) Run(run func(_a0 context.Context)) *Client_ListServerTypes_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *Client_ListServerTypes_Call) Return(_a0 []*hcloud.ServerType, _a1 error) *Client_ListServerTypes_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Client_ListServerTypes_Call) RunAndReturn(run func(context.Context) ([]*hcloud.ServerType, error)) *Client_ListServerTypes_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListServers provides a mock function with given fields: _a0, _a1
 func (_m *Client) ListServers(_a0 context.Context, _a1 hcloud.ServerListOpts) ([]*hcloud.Server, error) {
 	ret := _m.Called(_a0, _a1)
@@ -735,6 +1595,35 @@ func (_m *Client) ListServers(_a0 context.Context, _a1 hcloud.ServerListOpts) ([
 	return r0, r1
 }
 
+// Client_ListServers_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListServers'
+type Client_ListServers_Call struct {
+	*mock.Call
+}
+
+// ListServers is a helper method to define mock.On call
+//   - _a0 context.Context
+//   - _a1 hcloud.ServerListOpts
+func (_e *Client_Expecter) ListServers(_a0 interface{}, _a1 interface{}) *Client_ListServers_Call {
+	return &Client_ListServers_Call{Call: _e.mock.On("ListServers", _a0, _a1)}
+}
+
+func (_c *Client_ListServers_Call) Run(run func(_a0 context.Context, _a1 hcloud.ServerListOpts)) *Client_ListServers_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(hcloud.ServerListOpts))
+	})
+	return _c
+}
+
+func (_c *Client_ListServers_Call) Return(_a0 []*hcloud.Server, _a1 error) *Client_ListServers_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Client_ListServers_Call) RunAndReturn(run func(context.Context, hcloud.ServerListOpts) ([]*hcloud.Server, error)) *Client_ListServers_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // PowerOnServer provides a mock function with given fields: _a0, _a1
 func (_m *Client) PowerOnServer(_a0 context.Context, _a1 *hcloud.Server) error {
 	ret := _m.Called(_a0, _a1)
@@ -751,6 +1640,35 @@ func (_m *Client) PowerOnServer(_a0 context.Context, _a1 *hcloud.Server) error {
 	}
 
 	return r0
+}
+
+// Client_PowerOnServer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PowerOnServer'
+type Client_PowerOnServer_Call struct {
+	*mock.Call
+}
+
+// PowerOnServer is a helper method to define mock.On call
+//   - _a0 context.Context
+//   - _a1 *hcloud.Server
+func (_e *Client_Expecter) PowerOnServer(_a0 interface{}, _a1 interface{}) *Client_PowerOnServer_Call {
+	return &Client_PowerOnServer_Call{Call: _e.mock.On("PowerOnServer", _a0, _a1)}
+}
+
+func (_c *Client_PowerOnServer_Call) Run(run func(_a0 context.Context, _a1 *hcloud.Server)) *Client_PowerOnServer_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*hcloud.Server))
+	})
+	return _c
+}
+
+func (_c *Client_PowerOnServer_Call) Return(_a0 error) *Client_PowerOnServer_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Client_PowerOnServer_Call) RunAndReturn(run func(context.Context, *hcloud.Server) error) *Client_PowerOnServer_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // Reboot provides a mock function with given fields: _a0, _a1
@@ -783,6 +1701,35 @@ func (_m *Client) Reboot(_a0 context.Context, _a1 *hcloud.Server) (*hcloud.Actio
 	return r0, r1
 }
 
+// Client_Reboot_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Reboot'
+type Client_Reboot_Call struct {
+	*mock.Call
+}
+
+// Reboot is a helper method to define mock.On call
+//   - _a0 context.Context
+//   - _a1 *hcloud.Server
+func (_e *Client_Expecter) Reboot(_a0 interface{}, _a1 interface{}) *Client_Reboot_Call {
+	return &Client_Reboot_Call{Call: _e.mock.On("Reboot", _a0, _a1)}
+}
+
+func (_c *Client_Reboot_Call) Run(run func(_a0 context.Context, _a1 *hcloud.Server)) *Client_Reboot_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*hcloud.Server))
+	})
+	return _c
+}
+
+func (_c *Client_Reboot_Call) Return(_a0 *hcloud.Action, _a1 error) *Client_Reboot_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Client_Reboot_Call) RunAndReturn(run func(context.Context, *hcloud.Server) (*hcloud.Action, error)) *Client_Reboot_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // RebootServer provides a mock function with given fields: _a0, _a1
 func (_m *Client) RebootServer(_a0 context.Context, _a1 *hcloud.Server) error {
 	ret := _m.Called(_a0, _a1)
@@ -801,9 +1748,65 @@ func (_m *Client) RebootServer(_a0 context.Context, _a1 *hcloud.Server) error {
 	return r0
 }
 
+// Client_RebootServer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RebootServer'
+type Client_RebootServer_Call struct {
+	*mock.Call
+}
+
+// RebootServer is a helper method to define mock.On call
+//   - _a0 context.Context
+//   - _a1 *hcloud.Server
+func (_e *Client_Expecter) RebootServer(_a0 interface{}, _a1 interface{}) *Client_RebootServer_Call {
+	return &Client_RebootServer_Call{Call: _e.mock.On("RebootServer", _a0, _a1)}
+}
+
+func (_c *Client_RebootServer_Call) Run(run func(_a0 context.Context, _a1 *hcloud.Server)) *Client_RebootServer_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*hcloud.Server))
+	})
+	return _c
+}
+
+func (_c *Client_RebootServer_Call) Return(_a0 error) *Client_RebootServer_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Client_RebootServer_Call) RunAndReturn(run func(context.Context, *hcloud.Server) error) *Client_RebootServer_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Reset provides a mock function with no fields
 func (_m *Client) Reset() {
 	_m.Called()
+}
+
+// Client_Reset_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Reset'
+type Client_Reset_Call struct {
+	*mock.Call
+}
+
+// Reset is a helper method to define mock.On call
+func (_e *Client_Expecter) Reset() *Client_Reset_Call {
+	return &Client_Reset_Call{Call: _e.mock.On("Reset")}
+}
+
+func (_c *Client_Reset_Call) Run(run func()) *Client_Reset_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Client_Reset_Call) Return() *Client_Reset_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *Client_Reset_Call) RunAndReturn(run func()) *Client_Reset_Call {
+	_c.Run(run)
+	return _c
 }
 
 // ShutdownServer provides a mock function with given fields: _a0, _a1
@@ -822,6 +1825,35 @@ func (_m *Client) ShutdownServer(_a0 context.Context, _a1 *hcloud.Server) error 
 	}
 
 	return r0
+}
+
+// Client_ShutdownServer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ShutdownServer'
+type Client_ShutdownServer_Call struct {
+	*mock.Call
+}
+
+// ShutdownServer is a helper method to define mock.On call
+//   - _a0 context.Context
+//   - _a1 *hcloud.Server
+func (_e *Client_Expecter) ShutdownServer(_a0 interface{}, _a1 interface{}) *Client_ShutdownServer_Call {
+	return &Client_ShutdownServer_Call{Call: _e.mock.On("ShutdownServer", _a0, _a1)}
+}
+
+func (_c *Client_ShutdownServer_Call) Run(run func(_a0 context.Context, _a1 *hcloud.Server)) *Client_ShutdownServer_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*hcloud.Server))
+	})
+	return _c
+}
+
+func (_c *Client_ShutdownServer_Call) Return(_a0 error) *Client_ShutdownServer_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Client_ShutdownServer_Call) RunAndReturn(run func(context.Context, *hcloud.Server) error) *Client_ShutdownServer_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // UpdateLoadBalancer provides a mock function with given fields: _a0, _a1, _a2
@@ -852,6 +1884,36 @@ func (_m *Client) UpdateLoadBalancer(_a0 context.Context, _a1 *hcloud.LoadBalanc
 	}
 
 	return r0, r1
+}
+
+// Client_UpdateLoadBalancer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateLoadBalancer'
+type Client_UpdateLoadBalancer_Call struct {
+	*mock.Call
+}
+
+// UpdateLoadBalancer is a helper method to define mock.On call
+//   - _a0 context.Context
+//   - _a1 *hcloud.LoadBalancer
+//   - _a2 hcloud.LoadBalancerUpdateOpts
+func (_e *Client_Expecter) UpdateLoadBalancer(_a0 interface{}, _a1 interface{}, _a2 interface{}) *Client_UpdateLoadBalancer_Call {
+	return &Client_UpdateLoadBalancer_Call{Call: _e.mock.On("UpdateLoadBalancer", _a0, _a1, _a2)}
+}
+
+func (_c *Client_UpdateLoadBalancer_Call) Run(run func(_a0 context.Context, _a1 *hcloud.LoadBalancer, _a2 hcloud.LoadBalancerUpdateOpts)) *Client_UpdateLoadBalancer_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*hcloud.LoadBalancer), args[2].(hcloud.LoadBalancerUpdateOpts))
+	})
+	return _c
+}
+
+func (_c *Client_UpdateLoadBalancer_Call) Return(_a0 *hcloud.LoadBalancer, _a1 error) *Client_UpdateLoadBalancer_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Client_UpdateLoadBalancer_Call) RunAndReturn(run func(context.Context, *hcloud.LoadBalancer, hcloud.LoadBalancerUpdateOpts) (*hcloud.LoadBalancer, error)) *Client_UpdateLoadBalancer_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewClient creates a new instance of Client. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
