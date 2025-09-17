@@ -340,10 +340,6 @@ func (c *realClient) EnableRescueSystem(ctx context.Context, server *hcloud.Serv
 	if err != nil {
 		return result, fmt.Errorf("EnableRescue failed for %d: %w", server.ID, err)
 	}
-	_, _, err = c.client.Server.Reboot(ctx, server)
-	if err != nil {
-		return result, fmt.Errorf("hcloud server reboot failed %d: %w", server.ID, err)
-	}
 	return result, nil
 }
 
