@@ -81,7 +81,7 @@ func (r *HCloudMachine) ValidateUpdate(old runtime.Object) (admission.Warnings, 
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected an HCloudMachine but got a %T", old))
 	}
 
-	allErrs := validateHCloudMachineSpec(oldM.Spec, r.Spec)
+	allErrs := validateHCloudMachineSpecUpdate(oldM.Spec, r.Spec)
 
 	return nil, aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
 }
