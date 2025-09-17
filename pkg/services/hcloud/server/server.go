@@ -1419,7 +1419,12 @@ func (s *Service) getSSHClient(ctx context.Context) (sshclient.Client, error) {
 	}
 
 	if len(hm.Status.Addresses) == 0 {
-		return nil, fmt.Errorf("HCloudMachine.Status.Addresses empty. Can not connect via ssh")
+		msg := "HCloudMachine.Status.Addresses empty. Can not connect via ssh"
+		s.scope.Logger.Error(nil, msg)
+		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
+			string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
+			"%s", msg)
+		return nil, errors.New(msg)
 	}
 
 	privateKey := string(robotSecret.Data[s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Key.PrivateKey])
