@@ -59,22 +59,23 @@ e2e-cilium-templates:
 	helm repo add cilium https://helm.cilium.io/
 	helm repo update cilium
 	helm template cilium cilium/cilium --version 1.18.1 \
-  	--namespace kube-system \
-	-f $(REPO_ROOT)/templates/cilium/cilium.yaml > $(REPO_ROOT)/test/e2e/data/cni/cilium/cilium.yaml
+	--namespace kube-system \
+	-f $(REPO_ROOT)/templates/cilium/cilium.yaml \
+	> $(REPO_ROOT)/test/e2e/data/cni/cilium/cilium.yaml
+
 	sed -i 's/$${BIN_PATH}/$$BIN_PATH/' $(REPO_ROOT)/test/e2e/data/cni/cilium/cilium.yaml
 	sed -i '1s/^/# Created by `make e2e-cilium-templates`\n/' $(REPO_ROOT)/test/e2e/data/cni/cilium/cilium.yaml
 
 e2e-ccm-templates:
 	helm repo add syself https://charts.syself.com
 
-	# TODO: remove usage of syself/ccm-hcloud. This chart is not updated anymore
-	# by us. We support only the syself ccm.
 	helm template ccm syself/ccm-hcloud --version 1.0.11 \
 	--namespace kube-system \
 	--set pdb.enabled=false \
 	--set secret.name=hetzner \
 	--set secret.tokenKeyName=hcloud \
 	--set privateNetwork.enabled=false > $(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm.yaml
+
 	helm template ccm syself/ccm-hcloud --version 1.0.11 \
 	--namespace kube-system \
 	--set pdb.enabled=false \
@@ -82,7 +83,7 @@ e2e-ccm-templates:
 	--set secret.tokenKeyName=hcloud \
 	--set privateNetwork.enabled=true > $(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm-network.yaml
 
-	helm template ccm syself/ccm-hetzner --version 1.1.4 \
+	helm template ccm syself/ccm-hetzner --version 2.0.1 \
 	--namespace kube-system \
 	--set pdb.enabled=false \
 	--set privateNetwork.enabled=false > $(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm-hetzner.yaml
