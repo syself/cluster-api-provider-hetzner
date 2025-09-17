@@ -735,8 +735,14 @@ func (r *HetznerClusterReconciler) newTargetClusterManager(ctx context.Context, 
 		}
 
 		if err := gr.SetupWithManager(ctx, clusterMgr, controller.Options{
-			// SkipNameValidation. Avoid this error:
-			// failed to setup CSR controller: controller with name certificatesigningrequest already exists. Controller names must be unique to avoid multiple controllers reporting the same metric. This validation can be disabled via the SkipNameValidation option
+			// SkipNameValidation. Avoid this error: failed to setup CSR controller: controller with
+			// name certificatesigningrequest already exists. Controller names must be unique to
+			// avoid multiple controllers reporting the same metric. This validation can be disabled
+			// via the SkipNameValidation option
+			//
+			// By default, controller names must be unique (to prevent duplicate Prometheus
+			// metrics). In our case the name is not unique, because it gets executed for every
+			// workload cluster.
 			SkipNameValidation: ptr.To(true),
 		}); err != nil {
 			return nil, fmt.Errorf("failed to setup CSR controller: %w", err)
