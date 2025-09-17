@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.18.0
+    controller-gen.kubebuilder.io/version: v0.14.0
   name: hetznerbaremetalhosts.infrastructure.cluster.x-k8s.io
 spec:
   group: infrastructure.cluster.x-k8s.io
@@ -82,50 +82,10 @@ spec:
             description: HetznerBareMetalHostSpec defines the desired state of HetznerBareMetalHost.
             properties:
               consumerRef:
+                $ref: '#/definitions/k8s.io~1api~1core~1v1~0ObjectReference'
                 description: |-
                   ConsumerRef is a reference to the HetznerBareMetalMachine
                   that is using this host. When it is not empty, the host is considered "in use".
-                properties:
-                  apiVersion:
-                    description: API version of the referent.
-                    type: string
-                  fieldPath:
-                    description: |-
-                      If referring to a piece of an object instead of an entire object, this string
-                      should contain a valid JSON/Go field access statement, such as desiredState.manifest.containers[2].
-                      For example, if the object reference is to a container within a pod, this would take on a value like:
-                      "spec.containers{name}" (where "name" refers to the name of the container that triggered
-                      the event) or if no container name is specified "spec.containers[2]" (container with
-                      index 2 in this pod). This syntax is chosen only to have some well-defined way of
-                      referencing a part of an object.
-                    type: string
-                  kind:
-                    description: |-
-                      Kind of the referent.
-                      More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-                    type: string
-                  name:
-                    description: |-
-                      Name of the referent.
-                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                    type: string
-                  namespace:
-                    description: |-
-                      Namespace of the referent.
-                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
-                    type: string
-                  resourceVersion:
-                    description: |-
-                      Specific resourceVersion to which this reference is made, if any.
-                      More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency
-                    type: string
-                  uid:
-                    description: |-
-                      UID of the referent.
-                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids
-                    type: string
-                type: object
-                x-kubernetes-map-type: atomic
               description:
                 description: |-
                   Description is a human-entered text used to help identify the host.
@@ -207,9 +167,9 @@ spec:
                           maxLength: 32
                           type: string
                         status:
+                          $ref: '#/definitions/k8s.io~1api~1core~1v1~0ConditionStatus'
                           description: status of the condition, one of True, False,
                             Unknown.
-                          type: string
                         type:
                           description: |-
                             type of condition in CamelCase or in foo.example.com/CamelCase.
@@ -558,20 +518,7 @@ spec:
                           where the os ssh key is stored.
                         properties:
                           credentials:
-                            description: |-
-                              SecretReference represents a Secret Reference. It has enough information to retrieve secret
-                              in any namespace
-                            properties:
-                              name:
-                                description: name is unique within a namespace to
-                                  reference a secret resource.
-                                type: string
-                              namespace:
-                                description: namespace defines the space within which
-                                  the secret name must be unique.
-                                type: string
-                            type: object
-                            x-kubernetes-map-type: atomic
+                            $ref: '#/definitions/k8s.io~1api~1core~1v1~0SecretReference'
                           credentialsDataHash:
                             format: byte
                             type: string
@@ -583,20 +530,7 @@ spec:
                           where the rescue ssh key is stored.
                         properties:
                           credentials:
-                            description: |-
-                              SecretReference represents a Secret Reference. It has enough information to retrieve secret
-                              in any namespace
-                            properties:
-                              name:
-                                description: name is unique within a namespace to
-                                  reference a secret resource.
-                                type: string
-                              namespace:
-                                description: namespace defines the space within which
-                                  the secret name must be unique.
-                                type: string
-                            type: object
-                            x-kubernetes-map-type: atomic
+                            $ref: '#/definitions/k8s.io~1api~1core~1v1~0SecretReference'
                           credentialsDataHash:
                             format: byte
                             type: string
@@ -635,20 +569,10 @@ spec:
                         type: object
                     type: object
                   userData:
+                    $ref: '#/definitions/k8s.io~1api~1core~1v1~0SecretReference'
                     description: |-
                       UserData holds the reference to the Secret containing the user
                       data to be passed to the host before it boots.
-                    properties:
-                      name:
-                        description: name is unique within a namespace to reference
-                          a secret resource.
-                        type: string
-                      namespace:
-                        description: namespace defines the space within which the
-                          secret name must be unique.
-                        type: string
-                    type: object
-                    x-kubernetes-map-type: atomic
                 required:
                 - errorCount
                 - hetznerClusterRef

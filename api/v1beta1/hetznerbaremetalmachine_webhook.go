@@ -29,10 +29,10 @@ import (
 type hetznerBareMetalMachineWebhook struct{}
 
 // SetupWebhookWithManager initializes webhook manager for HetznerBareMetalMachine.
-func (r *HetznerBareMetalMachine) SetupWebhookWithManager(mgr ctrl.Manager) error {
+func (hbmm *HetznerBareMetalMachine) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	w := new(hetznerBareMetalMachineWebhook)
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(r).
+		For(hbmm).
 		WithValidator(w).
 		WithDefaulter(w).
 		Complete()
