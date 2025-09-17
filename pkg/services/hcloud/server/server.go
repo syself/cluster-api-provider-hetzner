@@ -395,7 +395,7 @@ func (s *Service) handleBootStateWaitForRescueRunningThenStartImageURLCommand(ct
 
 	hcloudSSHClient, err := s.getSSHClient(ctx)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("getSSHClient failed: %w", err)
+		return reconcile.Result{}, fmt.Errorf("getSSHClient failed (waiting for rescue running): %w", err)
 	}
 
 	output := hcloudSSHClient.GetHostName()
@@ -497,7 +497,7 @@ func (s *Service) handleBootStateWaitForImageURLCommandThenRebootAfterImageURLCo
 
 	hcloudSSHClient, err := s.getSSHClient(ctx)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("getSSHClient failed: %w", err)
+		return reconcile.Result{}, fmt.Errorf("getSSHClient failed (wait for image-url-command): %w", err)
 	}
 
 	state, logFile, err := hcloudSSHClient.StateOfHCloudImageURLCommand()
