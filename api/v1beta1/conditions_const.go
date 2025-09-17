@@ -80,6 +80,8 @@ const (
 	NetworkReadyCondition clusterv1.ConditionType = "NetworkReady"
 	// NetworkReconcileFailedReason indicates that reconciling the network failed.
 	NetworkReconcileFailedReason = "NetworkReconcileFailed"
+	// MultipleSubnetsExistReason indicates that the network has multiple subnets.
+	MultipleSubnetsExistReason = "MultipleSubnetsExist"
 )
 
 const (
