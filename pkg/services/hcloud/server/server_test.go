@@ -974,6 +974,21 @@ var _ = Describe("Reconcile", func() {
 
 		By("ensuring the bootstate has transitioned to WaitForRescueEnabledThenRebootToRescue")
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateWaitForImageURLCommandThenRebootAfterImageURLCommand))
+
+		By("reconcile again --------------------------------------------------------")
+		startTime = time.Now()
+		testEnv.RescueSSHClient.On("GetHostName").Return(sshclient.Output{
+			StdOut: "rescue",
+			StdErr: "",
+			Err:    nil,
+		})
+		testEnv.RescueSSHClient.On("StateOfImageURLCommand").Return(sshclient.ImageURLCommandStateFinishedSuccessfully, "output-of-image-url-command", nil)
+		_, err = service.Reconcile(ctx)
+		Expect(err).To(BeNil())
+		Expect(service.scope.HCloudMachine.Status.FailureReason).To(BeNil())
+
+		By("ensuring the bootstate has transitioned to WaitForRescueEnabledThenRebootToRescue")
+		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateWaitForRebootAfterImageURLCommandThenBootToRealOS))
 	})
 })
 
