@@ -121,7 +121,6 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 				string(s.scope.HCloudMachine.Status.BootState), clusterv1.ConditionSeverityWarning,
 				"%s", err.Error())
 			return reconcile.Result{RequeueAfter: 3 * time.Minute}, nil
-
 		}
 
 		if len(hcloudSSHKeys) == 0 {

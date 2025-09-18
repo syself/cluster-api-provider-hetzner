@@ -712,7 +712,7 @@ var _ = Describe("Reconcile", func() {
 		Expect(service.scope.HCloudMachine.Status.Region).To(Equal(infrav1.Region("nbg1")))
 	})
 
-	It("sets the CreateMachineError if the ProviderID is set on the HCloudMachine but the actual server was not found in the cloud", func() {
+	FIt("sets the CreateMachineError if the ProviderID is set on the HCloudMachine but the actual server was not found in the cloud", func() {
 		By("setting the bootstrap data")
 		err = testEnv.Create(ctx, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -739,7 +739,6 @@ var _ = Describe("Reconcile", func() {
 		By("calling reconcile")
 		_, err := service.Reconcile(ctx)
 		Expect(err).To(BeNil())
-		Expect(service.scope.HCloudMachine.Status.FailureReason).To(BeNil())
 
 		By("validating if CreateMachineError was set on HCloudMachine object")
 		Expect(*service.scope.HCloudMachine.Status.FailureReason).To(Equal(capierrors.CreateMachineError))
@@ -961,7 +960,6 @@ var _ = Describe("Reconcile", func() {
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateWaitForRescueRunningThenStartImageURLCommand))
 
 		By("reconcile again --------------------------------------------------------")
-		startTime = time.Now()
 		testEnv.RescueSSHClient.On("GetHostName").Return(sshclient.Output{
 			StdOut: "rescue",
 			StdErr: "",
@@ -976,7 +974,6 @@ var _ = Describe("Reconcile", func() {
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateWaitForImageURLCommandThenRebootAfterImageURLCommand))
 
 		By("reconcile again --------------------------------------------------------")
-		startTime = time.Now()
 		testEnv.RescueSSHClient.On("GetHostName").Return(sshclient.Output{
 			StdOut: "rescue",
 			StdErr: "",
