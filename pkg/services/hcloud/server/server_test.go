@@ -721,6 +721,7 @@ var _ = Describe("Reconcile", func() {
 		By("calling reconcile")
 		_, err := service.Reconcile(ctx)
 		Expect(err).To(BeNil())
+		Expect(service.scope.HCloudMachine.Status.FailureReason).To(BeNil())
 
 		By("validating if CreateMachineError was set on HCloudMachine object")
 		Expect(*service.scope.HCloudMachine.Status.FailureReason).To(Equal(capierrors.CreateMachineError))
@@ -798,12 +799,13 @@ var _ = Describe("Reconcile", func() {
 
 		_, err = service.Reconcile(ctx)
 		Expect(err).To(BeNil())
+		Expect(service.scope.HCloudMachine.Status.FailureReason).To(BeNil())
 
 		By("ensuring the bootstate has transitioned to BootStateOperatingSystemRunning once the server's status changes to running")
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateOperatingSystemRunning))
 	})
 
-	FIt("transitions to BootStateOperatingSystemRunning (imageURL)", func() {
+	It("transitions to BootStateOperatingSystemRunning (imageURL)", func() {
 		By("setting the bootstrap data")
 		err = testEnv.Create(ctx, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -874,11 +876,71 @@ var _ = Describe("Reconcile", func() {
 			Status: hcloud.ServerStatusRunning,
 		}, nil)
 
+		startTime := time.Now()
+		hcloudClient.On("EnableRescueSystem", mock.Anything, mock.Anything, mock.Anything).Return(
+			hcloud.ServerEnableRescueResult{
+				Action: &hcloud.Action{
+					ID:           334455,
+					Status:       hcloud.ActionStatusRunning,
+					Command:      "",
+					Progress:     0,
+					Started:      startTime,
+					Finished:     time.Time{},
+					ErrorCode:    "",
+					ErrorMessage: "",
+					Resources:    []*hcloud.ActionResource{},
+				},
+				RootPassword: "",
+			}, nil)
 		_, err = service.Reconcile(ctx)
 		Expect(err).To(BeNil())
+		Expect(service.scope.HCloudMachine.Status.FailureReason).To(BeNil())
 
-		By("ensuring the bootstate has transitioned to BootStateOperatingSystemRunning once the server's status changes to running")
-		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateOperatingSystemRunning))
+		By("ensuring the bootstate has transitioned to WaitForRescueEnabledThenRebootToRescue")
+		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateWaitForRescueEnabledThenRebootToRescue))
+
+		By("reconcile again --------------------------------------------------------")
+		hcloudClient.On("GetAction", mock.Anything, mock.Anything).Return(
+			&hcloud.Action{
+				ID:           0,
+				Status:       hcloud.ActionStatusSuccess,
+				Command:      "",
+				Progress:     0,
+				Started:      startTime,
+				Finished:     time.Now(),
+				ErrorCode:    "",
+				ErrorMessage: "",
+				Resources:    []*hcloud.ActionResource{},
+			}, nil,
+		)
+		_, err = service.Reconcile(ctx)
+		Expect(err).To(BeNil())
+		Expect(service.scope.HCloudMachine.Status.FailureReason).To(BeNil())
+
+		By("ensuring the bootstate has transitioned to WaitForRescueEnabledThenRebootToRescue")
+		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateWaitForRescueEnabledThenRebootToRescue))
+
+		By("reconcile again --------------------------------------------------------")
+		startTime = time.Now()
+		hcloudClient.On("Reboot", mock.Anything, mock.Anything).Return(
+			&hcloud.Action{
+				ID:           0,
+				Status:       hcloud.ActionStatusRunning,
+				Command:      "",
+				Progress:     0,
+				Started:      startTime,
+				Finished:     time.Time{},
+				ErrorCode:    "",
+				ErrorMessage: "",
+				Resources:    []*hcloud.ActionResource{},
+			}, nil,
+		)
+		_, err = service.Reconcile(ctx)
+		Expect(err).To(BeNil())
+		Expect(service.scope.HCloudMachine.Status.FailureReason).To(BeNil())
+
+		By("ensuring the bootstate has transitioned to WaitForRescueEnabledThenRebootToRescue")
+		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateWaitForRescueRunningThenStartImageURLCommand))
 	})
 })
 
