@@ -26,15 +26,14 @@ import (
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
 	capierrors "sigs.k8s.io/cluster-api/errors" //nolint:staticcheck // we will handle that, when we update to capi v1.11
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/record"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -133,6 +132,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 				"%s", msg)
 			return reconcile.Result{RequeueAfter: 3 * time.Minute}, nil
 		}
+
 		// pre-flight checks passed.
 	}
 
@@ -1446,28 +1446,16 @@ func (s *Service) getSSHClient(ctx context.Context) (sshclient.Client, error) {
 		return nil, err
 	}
 
-	robotSecret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      robotSecretName,
-			Namespace: s.scope.Namespace(),
-		},
-	}
-
-	err := s.scope.Client.Get(ctx, client.ObjectKeyFromObject(robotSecret), robotSecret)
+	secretManager := secretutil.NewSecretManager(s.scope.Logger, s.scope.Client, s.scope.APIReader)
+	robotSecret, err := secretManager.ObtainSecret(ctx, types.NamespacedName{
+		Name:      robotSecretName,
+		Namespace: s.scope.Namespace(),
+	})
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			errReader := s.scope.APIReader.Get(ctx, client.ObjectKeyFromObject(robotSecret), robotSecret)
-			if errReader == nil {
-				msg := fmt.Sprintf("secret %q is missing label %s=%s", robotSecretName,
-					secretutil.LabelEnvironmentName, secretutil.LabelEnvironmentValue)
-				s.scope.Logger.Error(nil, msg)
-				conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-					string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
-					"%s", msg)
-				return nil, errors.New(msg)
-			}
-		}
 		return nil, fmt.Errorf("failed to get secret %q: %w", robotSecretName, err)
+	}
+	if robotSecret == nil {
+		return nil, fmt.Errorf("failed to obtain secret %s/%s", s.scope.Namespace(), robotSecretName)
 	}
 
 	if len(hm.Status.Addresses) == 0 {

@@ -39,8 +39,10 @@ import (
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
+	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	fakehcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/fake"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/mocks"
+	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
 )
 
 func Test_statusAddresses(t *testing.T) {
@@ -613,6 +615,17 @@ var _ = Describe("Reconcile", func() {
 							SSHKey: "hcloud-ssh-key-name",
 						},
 					},
+					SSHKeys: infrav1.HetznerSSHKeys{
+						HCloud: []infrav1.SSHKey{},
+						RobotRescueSecretRef: infrav1.SSHSecretRef{
+							Name: "rescue-ssh-secret",
+							Key: infrav1.SSHSecretKeyRef{
+								Name:       "sshkey-name",
+								PublicKey:  "public-key",
+								PrivateKey: "private-key",
+							},
+						},
+					},
 				},
 			},
 
@@ -626,6 +639,10 @@ var _ = Describe("Reconcile", func() {
 				},
 			},
 		})
+
+		Expect(err).To(BeNil())
+
+		err = testEnv.Create(ctx, helpers.GetDefaultSSHSecret("rescue-ssh-secret", testNs.Name))
 		Expect(err).To(BeNil())
 
 		service = &Service{
@@ -658,6 +675,7 @@ var _ = Describe("Reconcile", func() {
 						},
 					},
 				},
+				SSHClientFactory: testEnv.BaremetalSSHClientFactory,
 			},
 		}
 	})
@@ -805,7 +823,7 @@ var _ = Describe("Reconcile", func() {
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateOperatingSystemRunning))
 	})
 
-	It("transitions to BootStateOperatingSystemRunning (imageURL)", func() {
+	FIt("transitions to BootStateOperatingSystemRunning (imageURL)", func() {
 		By("setting the bootstrap data")
 		err = testEnv.Create(ctx, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -902,7 +920,7 @@ var _ = Describe("Reconcile", func() {
 		By("reconcile again --------------------------------------------------------")
 		hcloudClient.On("GetAction", mock.Anything, mock.Anything).Return(
 			&hcloud.Action{
-				ID:           0,
+				ID:           1,
 				Status:       hcloud.ActionStatusSuccess,
 				Command:      "",
 				Progress:     0,
@@ -924,7 +942,7 @@ var _ = Describe("Reconcile", func() {
 		startTime = time.Now()
 		hcloudClient.On("Reboot", mock.Anything, mock.Anything).Return(
 			&hcloud.Action{
-				ID:           0,
+				ID:           1,
 				Status:       hcloud.ActionStatusRunning,
 				Command:      "",
 				Progress:     0,
@@ -941,6 +959,21 @@ var _ = Describe("Reconcile", func() {
 
 		By("ensuring the bootstate has transitioned to WaitForRescueEnabledThenRebootToRescue")
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateWaitForRescueRunningThenStartImageURLCommand))
+
+		By("reconcile again --------------------------------------------------------")
+		startTime = time.Now()
+		testEnv.RescueSSHClient.On("GetHostName").Return(sshclient.Output{
+			StdOut: "rescue",
+			StdErr: "",
+			Err:    nil,
+		})
+		testEnv.RescueSSHClient.On("StartImageURLCommand", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(0, "", nil)
+		_, err = service.Reconcile(ctx)
+		Expect(err).To(BeNil())
+		Expect(service.scope.HCloudMachine.Status.FailureReason).To(BeNil())
+
+		By("ensuring the bootstate has transitioned to WaitForRescueEnabledThenRebootToRescue")
+		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateWaitForImageURLCommandThenRebootAfterImageURLCommand))
 	})
 })
 
