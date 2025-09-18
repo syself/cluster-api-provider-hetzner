@@ -26,7 +26,9 @@ kubectl get clusters -A
 
 print_heading machines:
 
-kubectl get machines -A
+kubectl -n org-testing get machines \
+    -o custom-columns='NAME:.metadata.name,NODENAME:.status.nodeRef.name,IP:.status.addresses[?(@.type=="ExternalIP")][0].address,PROVIDERID:.spec.providerID,PHASE:.status.phase,VERSION:.status.version' \
+    --no-headers
 
 print_heading hcloudmachine:
 

@@ -85,7 +85,7 @@ var (
 	syncPeriod                         time.Duration
 	rateLimitWaitTime                  time.Duration
 	preProvisionCommand                string
-	hcloudImageURLCommand              string
+	ImageURLCommand                    string
 	skipWebhooks                       bool
 )
 
@@ -107,7 +107,7 @@ func main() {
 	fs.DurationVar(&rateLimitWaitTime, "rate-limit", 5*time.Minute, "The rate limiting for HCloud controller (e.g. 5m)")
 	fs.BoolVar(&hcloudclient.DebugAPICalls, "debug-hcloud-api-calls", false, "Debug all calls to the hcloud API.")
 	fs.StringVar(&preProvisionCommand, "pre-provision-command", "", "Command to run (in rescue-system) before installing the image on bare metal servers. You can use that to check if the machine is healthy before installing the image. If the exit value is non-zero, the machine is considered unhealthy. This command must be accessible by the controller pod. You can use an initContainer to copy the command to a shared emptyDir.")
-	fs.StringVar(&hcloudImageURLCommand, "hcloud-image-url-command", "", "Command to run (in rescue-system) to provision an hcloud machine. The command will get the imageURL, bootstrap-data and machine-name of the corresponding hcloudmachine as argument. It is up to the command to download from that URL and provision the disk accordingly. This command must be accessible by the controller pod. You can use an initContainer to copy the command to a shared emptyDir. The env var OCI_REGISTRY_AUTH_TOKEN from the caph process will be set for the command, too. The command must end with the last line containing IMAGE_URL_DONE. Otherwise the execution is considered to have failed. Related https://pkg.go.dev/github.com/syself/cluster-api-provider-hetzner/api/v1beta1#HCloudMachineSpec.ImageURL")
+	fs.StringVar(&ImageURLCommand, "hcloud-image-url-command", "", "Command to run (in rescue-system) to provision an hcloud machine. The command will get the imageURL, bootstrap-data and machine-name of the corresponding hcloudmachine as argument. It is up to the command to download from that URL and provision the disk accordingly. This command must be accessible by the controller pod. You can use an initContainer to copy the command to a shared emptyDir. The env var OCI_REGISTRY_AUTH_TOKEN from the caph process will be set for the command, too. The command must end with the last line containing IMAGE_URL_DONE. Otherwise the execution is considered to have failed. Related https://pkg.go.dev/github.com/syself/cluster-api-provider-hetzner/api/v1beta1#HCloudMachineSpec.ImageURL")
 	fs.BoolVar(&skipWebhooks, "skip-webhooks", false, "Skip setting up of webhooks. Together with --leader-elect=false, you can use `go run main.go` to run CAPH in a cluster connected via KUBECONFIG. You should scale down the caph deployment to 0 before doing that. This is only for testing!")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
@@ -130,16 +130,16 @@ func main() {
 		}
 	}
 
-	// If hcloudImageURLCommand is set, check if the file exists and validate the basename.
-	if hcloudImageURLCommand != "" {
-		baseName := filepath.Base(hcloudImageURLCommand)
+	// If ImageURLCommand is set, check if the file exists and validate the basename.
+	if ImageURLCommand != "" {
+		baseName := filepath.Base(ImageURLCommand)
 		if !commandRegex.MatchString(baseName) {
 			msg := fmt.Sprintf("basename (%s) must match the regex %s", baseName, commandRegex.String())
 			setupLog.Error(errors.New(msg), "")
 			os.Exit(1)
 		}
 
-		_, err := os.Stat(hcloudImageURLCommand)
+		_, err := os.Stat(ImageURLCommand)
 		if err != nil {
 			setupLog.Error(err, "hcloud-image-url-command not found")
 			os.Exit(1)
@@ -206,13 +206,13 @@ func main() {
 	}
 
 	if err = (&controllers.HCloudMachineReconciler{
-		Client:                mgr.GetClient(),
-		APIReader:             mgr.GetAPIReader(),
-		RateLimitWaitTime:     rateLimitWaitTime,
-		HCloudClientFactory:   hcloudClientFactory,
-		SSHClientFactory:      sshclient.NewFactory(),
-		WatchFilterValue:      watchFilterValue,
-		HCloudImageURLCommand: hcloudImageURLCommand,
+		Client:              mgr.GetClient(),
+		APIReader:           mgr.GetAPIReader(),
+		RateLimitWaitTime:   rateLimitWaitTime,
+		HCloudClientFactory: hcloudClientFactory,
+		SSHClientFactory:    sshclient.NewFactory(),
+		WatchFilterValue:    watchFilterValue,
+		ImageURLCommand:     ImageURLCommand,
 	}).SetupWithManager(ctx, mgr, controller.Options{MaxConcurrentReconciles: hcloudMachineConcurrency}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HCloudMachine")
 		os.Exit(1)

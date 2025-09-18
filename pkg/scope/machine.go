@@ -82,21 +82,21 @@ func NewMachineScope(params MachineScopeParams) (*MachineScope, error) {
 	}
 
 	return &MachineScope{
-		ClusterScope:          *cs,
-		Machine:               params.Machine,
-		HCloudMachine:         params.HCloudMachine,
-		HCloudImageURLCommand: params.HCloudImageURLCommand,
-		SSHClientFactory:      params.SSHClientFactory,
+		ClusterScope:     *cs,
+		Machine:          params.Machine,
+		HCloudMachine:    params.HCloudMachine,
+		ImageURLCommand:  params.ImageURLCommand,
+		SSHClientFactory: params.SSHClientFactory,
 	}, nil
 }
 
 // MachineScope defines the basic context for an actuator to operate upon.
 type MachineScope struct {
 	ClusterScope
-	Machine               *clusterv1.Machine
-	HCloudMachine         *infrav1.HCloudMachine
-	HCloudImageURLCommand string
-	SSHClientFactory      sshclient.Factory
+	Machine          *clusterv1.Machine
+	HCloudMachine    *infrav1.HCloudMachine
+	ImageURLCommand  string
+	SSHClientFactory sshclient.Factory
 }
 
 // Close closes the current scope persisting the cluster configuration and status.

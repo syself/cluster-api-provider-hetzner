@@ -56,12 +56,12 @@ import (
 // HCloudMachineReconciler reconciles a HCloudMachine object.
 type HCloudMachineReconciler struct {
 	client.Client
-	RateLimitWaitTime     time.Duration
-	APIReader             client.Reader
-	HCloudClientFactory   hcloudclient.Factory
-	SSHClientFactory      sshclient.Factory
-	WatchFilterValue      string
-	HCloudImageURLCommand string
+	RateLimitWaitTime   time.Duration
+	APIReader           client.Reader
+	HCloudClientFactory hcloudclient.Factory
+	SSHClientFactory    sshclient.Factory
+	WatchFilterValue    string
+	ImageURLCommand     string
 }
 
 //+kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;patch
@@ -135,14 +135,14 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 
 	machineScope, err := scope.NewMachineScope(scope.MachineScopeParams{
 		ClusterScopeParams: scope.ClusterScopeParams{
-			Client:                r.Client,
-			Logger:                log,
-			Cluster:               cluster,
-			HetznerCluster:        hetznerCluster,
-			HCloudClient:          hcc,
-			HetznerSecret:         hetznerSecret,
-			APIReader:             r.APIReader,
-			HCloudImageURLCommand: r.HCloudImageURLCommand,
+			Client:          r.Client,
+			Logger:          log,
+			Cluster:         cluster,
+			HetznerCluster:  hetznerCluster,
+			HCloudClient:    hcc,
+			HetznerSecret:   hetznerSecret,
+			APIReader:       r.APIReader,
+			ImageURLCommand: r.ImageURLCommand,
 		},
 		Machine:          machine,
 		HCloudMachine:    hcloudMachine,

@@ -25,7 +25,9 @@ import (
 	"time"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
+	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -103,7 +105,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	if s.scope.HCloudMachine.Spec.ProviderID == nil && s.scope.HCloudMachine.Spec.ImageURL != "" {
 		// This is a new machine with imageURL.
 		// Do some pre-flight checks, so we do not waste the hcloud-api budget if something is wrong
-		if s.scope.HCloudImageURLCommand == "" {
+		if s.scope.ImageURLCommand == "" {
 			msg := "imageURL is set, but the caph command is missing the --hcloud-image-url-command"
 			s.scope.Logger.Error(nil, msg)
 			conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerAvailableCondition,
@@ -376,7 +378,7 @@ func (s *Service) handleBootStateWaitForRescueRunningThenStartImageURLCommand(ct
 	updateHCloudMachineStatusFromServer(hm, server)
 
 	duration := time.Since(hm.Status.BootStateSince.Time)
-	if duration > 4*time.Minute {
+	if duration > 400*time.Minute { // ############## TODO: use 4 minutes
 		// timeout. Something has failed.
 		msg := fmt.Sprintf("reaching rescue system has timed out after %s. Deleting machine",
 			duration.Round(time.Second).String())
@@ -497,21 +499,21 @@ func (s *Service) handleBootStateWaitForRescueRunningThenStartImageURLCommand(ct
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("hcloud GetRawBootstrapData failed: %w", err)
 	}
-	exitStatus, stdouStderr, err := hcloudSSHClient.StartHCloudImageURLCommand(ctx, s.scope.HCloudImageURLCommand, hm.Spec.ImageURL, data, s.scope.Name())
+	exitStatus, stdouStderr, err := hcloudSSHClient.StartImageURLCommand(ctx, s.scope.ImageURLCommand, hm.Spec.ImageURL, data, s.scope.Name())
 	if err != nil {
-		err := fmt.Errorf("StartHCloudImageURLCommand failed (retrying): %w", err)
+		err := fmt.Errorf("StartImageURLCommand failed (retrying): %w", err)
 		// This could be a temporary network error. Retry.
 		s.scope.Logger.Error(err, "",
-			"HCloudImageURLCommand", s.scope.HCloudImageURLCommand,
+			"ImageURLCommand", s.scope.ImageURLCommand,
 			"exitStatus", exitStatus,
 			"stdouStderr", stdouStderr)
 		return reconcile.Result{}, err
 	}
 
 	if exitStatus != 0 {
-		msg := "StartHCloudImageURLCommand failed with non-zero exit status. Deleting machine"
+		msg := "StartImageURLCommand failed with non-zero exit status. Deleting machine"
 		s.scope.Logger.Error(nil, msg,
-			"HCloudImageURLCommand", s.scope.HCloudImageURLCommand,
+			"ImageURLCommand", s.scope.ImageURLCommand,
 			"exitStatus", exitStatus,
 			"stdouStderr", stdouStderr)
 		s.scope.SetError(msg, capierrors.CreateMachineError)
@@ -536,16 +538,16 @@ func (s *Service) handleBootStateWaitForImageURLCommandThenRebootAfterImageURLCo
 		return reconcile.Result{}, fmt.Errorf("getSSHClient failed (wait for image-url-command): %w", err)
 	}
 
-	state, logFile, err := hcloudSSHClient.StateOfHCloudImageURLCommand()
+	state, logFile, err := hcloudSSHClient.StateOfImageURLCommand()
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("StateOfHCloudImageURLCommand failed: %w", err)
+		return reconcile.Result{}, fmt.Errorf("StateOfImageURLCommand failed: %w", err)
 	}
 
 	duration := time.Since(hm.Status.BootStateSince.Time)
 	// Please keep the number (7) in sync with the docstring of ImageURL.
 	if duration > 7*time.Minute {
 		// timeout. Something has failed.
-		msg := fmt.Sprintf("HCloudImageURLCommand timed out after %s. Deleting machine",
+		msg := fmt.Sprintf("ImageURLCommand timed out after %s. Deleting machine",
 			duration.Round(time.Second).String())
 		err = errors.New(msg)
 		s.scope.Logger.Error(err, "",
@@ -558,16 +560,16 @@ func (s *Service) handleBootStateWaitForImageURLCommandThenRebootAfterImageURLCo
 	}
 
 	switch state {
-	case sshclient.HCloudImageURLCommandStateRunning:
+	case sshclient.ImageURLCommandStateRunning:
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
 			"hcloud-image-url-command still running")
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 
-	case sshclient.HCloudImageURLCommandStateFinishedSuccessfully:
+	case sshclient.ImageURLCommandStateFinishedSuccessfully:
 		rebootAction, err := s.scope.HCloudClient.Reboot(ctx, server)
 		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("reboot after HCloudImageURLCommand failed: %w",
+			return reconcile.Result{}, fmt.Errorf("reboot after ImageURLCommand failed: %w",
 				err)
 		}
 		hm.Status.ActionIDRebootAfterImageURLCommand = rebootAction.ID
@@ -577,8 +579,8 @@ func (s *Service) handleBootStateWaitForImageURLCommandThenRebootAfterImageURLCo
 		hm.SetBootState(infrav1.HCloudBootStateWaitForRebootAfterImageURLCommandThenBootToRealOS)
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 
-	case sshclient.HCloudImageURLCommandStateFinishedFailed:
-		msg := "HCloudImageURLCommand failed. Deleting machine"
+	case sshclient.ImageURLCommandStateFinishedFailed:
+		msg := "ImageURLCommand failed. Deleting machine"
 		err = errors.New(msg)
 		s.scope.Logger.Error(err, "",
 			"logFile", logFile)
@@ -587,11 +589,11 @@ func (s *Service) handleBootStateWaitForImageURLCommandThenRebootAfterImageURLCo
 			string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		return reconcile.Result{}, nil
-	case sshclient.HCloudImageURLCommandStateNotStarted:
+	case sshclient.ImageURLCommandStateNotStarted:
 		return reconcile.Result{}, fmt.Errorf("image-url-command not started in BootState %q? Should not happen",
 			state)
 	default:
-		return reconcile.Result{}, fmt.Errorf("unknown HCloudImageURLCommandState: %q", state)
+		return reconcile.Result{}, fmt.Errorf("unknown ImageURLCommandState: %q", state)
 	}
 }
 
@@ -897,9 +899,9 @@ func (s *Service) createServerFromImageNameOrURL(ctx context.Context) (*hcloud.S
 }
 
 func (s *Service) createServerFromImageURL(ctx context.Context) (*hcloud.Server, *hcloud.Image, error) {
-	// Validate that HCloudImageURLCommand is given
+	// Validate that ImageURLCommand is given
 	hm := s.scope.HCloudMachine
-	if s.scope.HCloudImageURLCommand == "" {
+	if s.scope.ImageURLCommand == "" {
 		msg := fmt.Sprintf("controller was started without --hcloud-image-url-command. Provisioning via ImageURL %q not possible", hm.Spec.ImageURL)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
@@ -1451,6 +1453,18 @@ func (s *Service) getSSHClient(ctx context.Context) (sshclient.Client, error) {
 
 	err := s.scope.Client.Get(ctx, client.ObjectKeyFromObject(robotSecret), robotSecret)
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			errReader := s.scope.APIReader.Get(ctx, client.ObjectKeyFromObject(robotSecret), robotSecret)
+			if errReader == nil {
+				msg := fmt.Sprintf("secret %q is missing label %s=%s", robotSecretName,
+					secretutil.LabelEnvironmentName, secretutil.LabelEnvironmentValue)
+				s.scope.Logger.Error(nil, msg)
+				conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
+					string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
+					"%s", msg)
+				return nil, errors.New(msg)
+			}
+		}
 		return nil, fmt.Errorf("failed to get secret %q: %w", robotSecretName, err)
 	}
 

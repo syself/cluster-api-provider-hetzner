@@ -39,6 +39,8 @@ import (
 
 const (
 	sshTimeOut time.Duration = 5 * time.Second
+
+	imageURLCommandLog = "/root/image-url-command.log"
 )
 
 //go:embed detect-linux-on-another-disk.sh
@@ -101,21 +103,21 @@ const (
 	InstallImageStateFinished InstallImageState = "finished"
 )
 
-// HCloudImageURLCommandState is the command which reads the imageURL of a hcloudmachine and provisions the machine accordingly. It gets copied to the server running in the rescue system.
-type HCloudImageURLCommandState string
+// ImageURLCommandState is the command which reads the imageURL of and provisions the machine accordingly. It gets copied to the server running in the rescue system.
+type ImageURLCommandState string
 
 const (
-	// HCloudImageURLCommandStateNotStarted indicates that the command was not started yet.
-	HCloudImageURLCommandStateNotStarted HCloudImageURLCommandState = "HCloudImageURLCommandStateNotStarted"
+	// ImageURLCommandStateNotStarted indicates that the command was not started yet.
+	ImageURLCommandStateNotStarted ImageURLCommandState = "ImageURLCommandStateNotStarted"
 
-	// HCloudImageURLCommandStateRunning indicates that the command is running.
-	HCloudImageURLCommandStateRunning HCloudImageURLCommandState = "HCloudImageURLCommandStateRunning"
+	// ImageURLCommandStateRunning indicates that the command is running.
+	ImageURLCommandStateRunning ImageURLCommandState = "ImageURLCommandStateRunning"
 
-	// HCloudImageURLCommandStateFinishedSuccessfully indicates that the command is finished successfully.
-	HCloudImageURLCommandStateFinishedSuccessfully HCloudImageURLCommandState = "HCloudImageURLCommandStateFinishedSuccessfully"
+	// ImageURLCommandStateFinishedSuccessfully indicates that the command is finished successfully.
+	ImageURLCommandStateFinishedSuccessfully ImageURLCommandState = "ImageURLCommandStateFinishedSuccessfully"
 
-	// HCloudImageURLCommandStateFinishedFailed indicates that the command is finished, but failed.
-	HCloudImageURLCommandStateFinishedFailed HCloudImageURLCommandState = "HCloudImageURLCommandStateFinishedFailed"
+	// ImageURLCommandStateFinishedFailed indicates that the command is finished, but failed.
+	ImageURLCommandStateFinishedFailed ImageURLCommandState = "ImageURLCommandStateFinishedFailed"
 )
 
 func (o Output) String() string {
@@ -196,14 +198,14 @@ type Client interface {
 	// A non-zero exit status will indicate that provisioning should not start.
 	ExecutePreProvisionCommand(ctx context.Context, preProvisionCommand string) (exitStatus int, stdoutAndStderr string, err error)
 
-	// StartHCloudImageURLCommand calls the command provided via `--hcloud-image-url-command`.
-	// It gets called by the controller after the rescue system of the new hcloud machine
+	// StartImageURLCommand calls the command provided via image-url-command.
+	// It gets called by the controller after the rescue system of the new machine
 	// is reachable. The env var `OCI_REGISTRY_AUTH_TOKEN` gets set to the same value of the
 	// corresponding env var of the controller.
-	// This gets used when the hcloudmachine has Spec.ImageURL set.
-	StartHCloudImageURLCommand(ctx context.Context, command, imageURL string, bootstrapData []byte, machineName string) (exitStatus int, stdoutAndStderr string, err error)
+	// This gets used when imageURL set.
+	StartImageURLCommand(ctx context.Context, command, imageURL string, bootstrapData []byte, machineName string) (exitStatus int, stdoutAndStderr string, err error)
 
-	StateOfHCloudImageURLCommand() (state HCloudImageURLCommandState, logFile string, err error)
+	StateOfImageURLCommand() (state ImageURLCommandState, logFile string, err error)
 }
 
 // Factory is the interface for creating new Client objects.
@@ -726,7 +728,7 @@ func (c *sshClient) ExecutePreProvisionCommand(ctx context.Context, command stri
 	return exitStatus, s, nil
 }
 
-func (c *sshClient) StartHCloudImageURLCommand(ctx context.Context, command, imageURL string, bootstrapData []byte, machineName string) (int, string, error) {
+func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL string, bootstrapData []byte, machineName string) (int, string, error) {
 	client, err := c.getSSHClient()
 	if err != nil {
 		return 0, "", err
@@ -746,7 +748,7 @@ func (c *sshClient) StartHCloudImageURLCommand(ctx context.Context, command, ima
 	}
 	defer fdCommand.Close()
 
-	baseName := "hcloud-image-url-command"
+	baseName := "image-url-command"
 	dest := "/root/" + baseName
 	err = scpClient.CopyFromFile(ctx, *fdCommand, dest, "0700")
 	if err != nil {
@@ -761,9 +763,9 @@ func (c *sshClient) StartHCloudImageURLCommand(ctx context.Context, command, ima
 	}
 
 	cmd := fmt.Sprintf(`#!/usr/bin/bash
-OCI_REGISTRY_AUTH_TOKEN='%s' nohup /root/hcloud-image-url-command '%s' /root/bootstrap.data '%s' >/root/hcloud-image-url-command.log 2>&1 </dev/null &
-echo $! > /root/hcloud-image-url-command.pid
-`, os.Getenv("OCI_REGISTRY_AUTH_TOKEN"), imageURL, machineName)
+OCI_REGISTRY_AUTH_TOKEN='%s' nohup /root/image-url-command '%s' /root/bootstrap.data '%s' >%s 2>&1 </dev/null &
+echo $! > /root/image-url-command.pid
+`, os.Getenv("OCI_REGISTRY_AUTH_TOKEN"), imageURL, machineName, imageURLCommandLog)
 
 	out := c.runSSH(cmd)
 
@@ -778,52 +780,53 @@ echo $! > /root/hcloud-image-url-command.pid
 	return exitStatus, s, nil
 }
 
-func (c *sshClient) StateOfHCloudImageURLCommand() (state HCloudImageURLCommandState, stdoutStderr string, err error) {
-	out := c.runSSH(`[ -e /root/hcloud-image-url-command.pid ]`)
+func (c *sshClient) StateOfImageURLCommand() (state ImageURLCommandState, stdoutStderr string, err error) {
+	out := c.runSSH(`[ -e /root/image-url-command.pid ]`)
 	exitStatus, err := out.ExitStatus()
 	if err != nil {
-		return HCloudImageURLCommandStateNotStarted, "", fmt.Errorf("getting exit status of hcloud-image-url-command failed: %w", err)
+		return ImageURLCommandStateNotStarted, "", fmt.Errorf("getting exit status of image-url-command failed: %w", err)
 	}
 	if exitStatus > 0 {
 		// file does exists
-		return HCloudImageURLCommandStateNotStarted, "", nil
+		return ImageURLCommandStateNotStarted, "", nil
 	}
 
-	out = c.runSSH(`ps -p "$(cat /root/hcloud-image-url-command.pid)" -o args= | grep -q hcloud-image-url-command`)
+	out = c.runSSH(`ps -p "$(cat /root/image-url-command.pid)" -o args= | grep -q image-url-command`)
 	exitStatus, err = out.ExitStatus()
 	if err != nil {
-		return HCloudImageURLCommandStateNotStarted, "", fmt.Errorf("detecting if hcloud-image-url-command is still running failed: %w", err)
+		return ImageURLCommandStateNotStarted, "", fmt.Errorf("detecting if image-url-command is still running failed: %w", err)
 	}
 
 	if exitStatus == 0 {
-		return HCloudImageURLCommandStateRunning, "", nil
+		return ImageURLCommandStateRunning, "", nil
 	}
 
-	out = c.runSSH(`tail -n 1 /root/hcloud-image-url-command.log | grep -q IMAGE_URL_DONE`)
+	out = c.runSSH(fmt.Sprintf("tail -n 1 %s | grep -q IMAGE_URL_DONE", imageURLCommandLog))
 	exitStatus, err = out.ExitStatus()
 	if err != nil {
-		return HCloudImageURLCommandStateNotStarted, "", fmt.Errorf("detecting if hcloud-image-url-command was successful failed: %w", err)
+		return ImageURLCommandStateNotStarted, "", fmt.Errorf("detecting if image-url-command was successful failed: %w", err)
 	}
 
-	logFile, err := c.getHCloudImageURLCommandOutput()
+	logFile, err := c.getImageURLCommandOutput()
 	if err != nil {
-		return HCloudImageURLCommandStateFinishedFailed, logFile, err
+		return ImageURLCommandStateFinishedFailed, logFile, err
 	}
 
 	if exitStatus > 0 {
-		return HCloudImageURLCommandStateFinishedFailed, logFile, nil
+		return ImageURLCommandStateFinishedFailed,
+			fmt.Sprintf("IMAGE_URL_DONE not found in %s:\n%s", imageURLCommandLog, logFile), nil
 	}
-	return HCloudImageURLCommandStateFinishedSuccessfully, logFile, nil
+	return ImageURLCommandStateFinishedSuccessfully, logFile, nil
 }
 
-func (c *sshClient) getHCloudImageURLCommandOutput() (string, error) {
-	out := c.runSSH(`cat /root/hcloud-image-url-command.log`)
+func (c *sshClient) getImageURLCommandOutput() (string, error) {
+	out := c.runSSH(fmt.Sprintf("cat %s", imageURLCommandLog)) // TODO: implement getFile for sshClient.
 	exitStatus, err := out.ExitStatus()
 	if err != nil {
-		return "", fmt.Errorf("getting logs of hcloud-image-url-command failed: %w", err)
+		return "", fmt.Errorf("getting logs of image-url-command failed: %w", err)
 	}
 	if exitStatus > 0 {
-		return "", fmt.Errorf("getting logs of hcloud-image-url-command failed. Non zero status of 'cat'")
+		return "", fmt.Errorf("getting logs of image-url-command failed. Non zero status of 'cat'")
 	}
 	return out.StdOut, nil
 }
