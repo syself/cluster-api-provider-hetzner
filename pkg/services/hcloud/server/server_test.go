@@ -823,7 +823,7 @@ var _ = Describe("Reconcile", func() {
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateOperatingSystemRunning))
 	})
 
-	FIt("transitions to BootStateOperatingSystemRunning (imageURL)", func() {
+	It("transitions to BootStateOperatingSystemRunning (imageURL)", func() {
 		By("setting the bootstrap data")
 		err = testEnv.Create(ctx, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -989,6 +989,22 @@ var _ = Describe("Reconcile", func() {
 
 		By("ensuring the bootstate has transitioned to WaitForRescueEnabledThenRebootToRescue")
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateWaitForRebootAfterImageURLCommandThenBootToRealOS))
+
+		By("reconcile again --------------------------------------------------------")
+
+		_, err = service.Reconcile(ctx)
+		Expect(err).To(BeNil())
+		Expect(service.scope.HCloudMachine.Status.FailureReason).To(BeNil())
+		By("ensuring the bootstate has transitioned to WaitForRescueEnabledThenRebootToRescue")
+		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateBootToRealOS))
+
+		By("reconcile again --------------------------------------------------------")
+
+		_, err = service.Reconcile(ctx)
+		Expect(err).To(BeNil())
+		Expect(service.scope.HCloudMachine.Status.FailureReason).To(BeNil())
+		By("ensuring the bootstate has transitioned to WaitForRescueEnabledThenRebootToRescue")
+		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateOperatingSystemRunning))
 	})
 })
 
