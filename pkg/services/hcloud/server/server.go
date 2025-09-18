@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
-	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,6 +39,7 @@ import (
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
+	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
@@ -132,9 +132,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 				string(s.scope.HCloudMachine.Status.BootState), clusterv1.ConditionSeverityWarning,
 				"%s", msg)
 			return reconcile.Result{RequeueAfter: 3 * time.Minute}, nil
-
 		}
-
 		// pre-flight checks passed.
 	}
 
