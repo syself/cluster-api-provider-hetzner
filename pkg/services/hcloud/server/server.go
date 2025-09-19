@@ -168,16 +168,16 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	switch s.scope.HCloudMachine.Status.BootState {
 	case infrav1.HCloudBootStateUnset:
 		return s.handleBootStateUnset(ctx)
-	case infrav1.HCloudBootStateWaitForPreRescueOSThenEnableRescueSystem:
-		return s.handleBootStateWaitForPreRescueOSThenEnableRescueSystem(ctx, server)
-	case infrav1.HCloudBootStateWaitForRescueEnabledThenRebootToRescue:
-		return s.handleBootStateWaitForRescueEnabledThenRebootToRescue(ctx, server)
-	case infrav1.HCloudBootStateWaitForRescueRunningThenStartImageURLCommand:
-		return s.handleBootStateWaitForRescueRunningThenStartImageURLCommand(ctx, server)
-	case infrav1.HCloudBootStateWaitForImageURLCommandThenRebootAfterImageURLCommand:
-		return s.handleBootStateWaitForImageURLCommandThenRebootAfterImageURLCommand(ctx, server)
-	case infrav1.HCloudBootStateWaitForRebootAfterImageURLCommandThenBootToRealOS:
-		return s.handleBootStateWaitForRebootAfterImageURLCommandThenBootToRealOS(ctx, server)
+	case infrav1.HCloudBootStateInitializing:
+		return s.handleBootStateInitializing(ctx, server)
+	case infrav1.HCloudBootStateEnablingRescue:
+		return s.handleBootStateEnablingRescue(ctx, server)
+	case infrav1.HCloudBootStateBootingToRescue:
+		return s.handleBootStateBootingToRescue(ctx, server)
+	case infrav1.HCloudBootStateRunningImageCommand:
+		return s.handleBootStateRunningImageCommand(ctx, server)
+	case infrav1.HCloudBootStateWaitingForReboot:
+		return s.handleBootStateWaitingForReboot(ctx, server)
 	case infrav1.HCloudBootStateBootToRealOS:
 		return s.handleBootToRealOS(ctx, server)
 	case infrav1.HCloudBootStateOperatingSystemRunning:
@@ -241,7 +241,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 	return reconcile.Result{RequeueAfter: requeueAfter}, nil
 }
 
-func (s *Service) handleBootStateWaitForPreRescueOSThenEnableRescueSystem(ctx context.Context, server *hcloud.Server) (res reconcile.Result, reterr error) {
+func (s *Service) handleBootStateInitializing(ctx context.Context, server *hcloud.Server) (res reconcile.Result, reterr error) {
 	hm := s.scope.HCloudMachine
 	updateHCloudMachineStatusFromServer(hm, server)
 
@@ -283,7 +283,7 @@ func (s *Service) handleBootStateWaitForPreRescueOSThenEnableRescueSystem(ctx co
 	// system.
 	hm.Status.ActionIDEnableRescueSystem = result.Action.ID
 
-	hm.SetBootState(infrav1.HCloudBootStateWaitForRescueEnabledThenRebootToRescue)
+	hm.SetBootState(infrav1.HCloudBootStateEnablingRescue)
 
 	conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 		string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
@@ -291,12 +291,12 @@ func (s *Service) handleBootStateWaitForPreRescueOSThenEnableRescueSystem(ctx co
 	return reconcile.Result{RequeueAfter: 4 * time.Second}, nil
 }
 
-func (s *Service) handleBootStateWaitForRescueEnabledThenRebootToRescue(ctx context.Context, server *hcloud.Server) (reconcile.Result, error) {
+func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcloud.Server) (reconcile.Result, error) {
 	hm := s.scope.HCloudMachine
 	updateHCloudMachineStatusFromServer(hm, server)
 
 	if hm.Status.ActionIDEnableRescueSystem == 0 {
-		msg := "handleBootStateWaitForRescueEnabledThenRebootToRescue ActionIdEnableRescueSystem not set? Can not continue. Provisioning Failed"
+		msg := "handleBootStateEnablingRescue ActionIdEnableRescueSystem not set? Can not continue. Provisioning Failed"
 		s.scope.Logger.Error(nil, msg)
 		s.scope.SetError(msg, capierrors.CreateMachineError)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
@@ -361,14 +361,14 @@ func (s *Service) handleBootStateWaitForRescueEnabledThenRebootToRescue(ctx cont
 	hm.Status.ActionIDRebootToRescue = rebootAction.ID
 	hm.Status.RebootToRescueCount = 1
 
-	hm.SetBootState(infrav1.HCloudBootStateWaitForRescueRunningThenStartImageURLCommand)
+	hm.SetBootState(infrav1.HCloudBootStateBootingToRescue)
 	conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 		string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
 		"Reboot started")
 	return reconcile.Result{RequeueAfter: 55 * time.Second}, nil
 }
 
-func (s *Service) handleBootStateWaitForRescueRunningThenStartImageURLCommand(ctx context.Context, server *hcloud.Server) (reconcile.Result, error) {
+func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hcloud.Server) (reconcile.Result, error) {
 	hm := s.scope.HCloudMachine
 	updateHCloudMachineStatusFromServer(hm, server)
 
@@ -385,7 +385,7 @@ func (s *Service) handleBootStateWaitForRescueRunningThenStartImageURLCommand(ct
 	}
 
 	if hm.Status.ActionIDRebootToRescue == 0 {
-		msg := "handleBootStateWaitForRescueRunningThenStartImageURLCommand ActionIdRebootToRescue not set? Can not continue. Provisioning Failed"
+		msg := "handleBootStateBootingToRescue ActionIdRebootToRescue not set? Can not continue. Provisioning Failed"
 		s.scope.Logger.Error(nil, msg)
 		s.scope.SetError(msg, capierrors.CreateMachineError)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
@@ -520,11 +520,11 @@ func (s *Service) handleBootStateWaitForRescueRunningThenStartImageURLCommand(ct
 	conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 		string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
 		"hcloud-image-url-command started")
-	hm.SetBootState(infrav1.HCloudBootStateWaitForImageURLCommandThenRebootAfterImageURLCommand)
+	hm.SetBootState(infrav1.HCloudBootStateRunningImageCommand)
 	return reconcile.Result{RequeueAfter: 55 * time.Second}, nil
 }
 
-func (s *Service) handleBootStateWaitForImageURLCommandThenRebootAfterImageURLCommand(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
+func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
 	hm := s.scope.HCloudMachine
 	updateHCloudMachineStatusFromServer(hm, server)
 
@@ -571,7 +571,7 @@ func (s *Service) handleBootStateWaitForImageURLCommandThenRebootAfterImageURLCo
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
 			"hcloud-image-url-command finished successfully")
-		hm.SetBootState(infrav1.HCloudBootStateWaitForRebootAfterImageURLCommandThenBootToRealOS)
+		hm.SetBootState(infrav1.HCloudBootStateWaitingForReboot)
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 
 	case sshclient.ImageURLCommandStateFinishedFailed:
@@ -592,12 +592,12 @@ func (s *Service) handleBootStateWaitForImageURLCommandThenRebootAfterImageURLCo
 	}
 }
 
-func (s *Service) handleBootStateWaitForRebootAfterImageURLCommandThenBootToRealOS(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
+func (s *Service) handleBootStateWaitingForReboot(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
 	hm := s.scope.HCloudMachine
 	updateHCloudMachineStatusFromServer(hm, server)
 
 	if hm.Status.ActionIDRebootAfterImageURLCommand == 0 {
-		msg := "handleBootStateWaitForRebootAfterImageURLCommandThenBootToRealOS ActionIDRebootAfterImageURLCommand not set? Can not continue. Provisioning Failed"
+		msg := "handleBootStateWaitingForReboot ActionIDRebootAfterImageURLCommand not set? Can not continue. Provisioning Failed"
 		s.scope.Logger.Error(nil, msg)
 		s.scope.SetError(msg, capierrors.CreateMachineError)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
@@ -912,7 +912,7 @@ func (s *Service) createServerFromImageURL(ctx context.Context) (*hcloud.Server,
 	if err != nil {
 		return nil, nil, err
 	}
-	s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateWaitForPreRescueOSThenEnableRescueSystem)
+	s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateInitializing)
 	return server, image, nil
 }
 

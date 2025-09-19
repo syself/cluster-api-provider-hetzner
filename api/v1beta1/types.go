@@ -271,26 +271,26 @@ const (
 	// HCloudBootStateUnset is the initial state when the boot state has not been set yet.
 	HCloudBootStateUnset HCloudBootState = ""
 
-	// HCloudBootStateWaitForPreRescueOSThenEnableRescueSystem indicates that the controller waits for PreRescueOS.
+	// HCloudBootStateInitializing indicates that the controller waits for PreRescueOS.
 	// When it is available, then the rescue system gets enabled.
-	HCloudBootStateWaitForPreRescueOSThenEnableRescueSystem HCloudBootState = "WaitForPreRescueOSThenEnableRescueSystem"
+	HCloudBootStateInitializing HCloudBootState = "Initializing"
 
-	// HCloudBootStateWaitForRescueEnabledThenRebootToRescue indicates that the controller waits for the rescue system to be enabled. Then the server gets booted into the rescue system.
-	HCloudBootStateWaitForRescueEnabledThenRebootToRescue HCloudBootState = "WaitForRescueEnabledThenRebootToRescue"
+	// HCloudBootStateEnablingRescue indicates that the controller waits for the rescue system to be enabled. Then the server gets booted into the rescue system.
+	HCloudBootStateEnablingRescue HCloudBootState = "EnablingRescue"
 
-	// HCloudBootStateWaitForRescueRunningThenStartImageURLCommand indicates that the controller
+	// HCloudBootStateBootingToRescue indicates that the controller
 	// waits for the rescue system to be reachable. Then it starts the image-url-command.
-	HCloudBootStateWaitForRescueRunningThenStartImageURLCommand HCloudBootState = "WaitForRescueRunningThenStartImageURLCommand"
+	HCloudBootStateBootingToRescue HCloudBootState = "BootingToRescue"
 
-	// HCloudBootStateWaitForImageURLCommandThenRebootAfterImageURLCommand indicates the controller waits for the
+	// HCloudBootStateRunningImageCommand indicates the controller waits for the
 	// image-url-command, and then switches BootState to BootToRealOS (no additional reboot gets
 	// done).
-	HCloudBootStateWaitForImageURLCommandThenRebootAfterImageURLCommand HCloudBootState = "WaitForImageURLCommandThenRebootAfterImageURLCommand"
+	HCloudBootStateRunningImageCommand HCloudBootState = "RunningImageCommand"
 
-	// HCloudBootStateWaitForRebootAfterImageURLCommandThenBootToRealOS indicates that the
+	// HCloudBootStateWaitingForReboot indicates that the
 	// image-url-command was successful. The controller waits for the hcloud reboot action to be
 	// finished. Then BootState BootToRealOS gets set. No additional reboot gets done.
-	HCloudBootStateWaitForRebootAfterImageURLCommandThenBootToRealOS HCloudBootState = "WaitForRebootAfterImageURLCommandThenBootToRealOS"
+	HCloudBootStateWaitingForReboot HCloudBootState = "WaitingForReboot"
 
 	// HCloudBootStateBootToRealOS indicates that the server is booting the operating system.
 	HCloudBootStateBootToRealOS HCloudBootState = "BootToRealOS"
