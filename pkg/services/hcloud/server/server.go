@@ -448,34 +448,36 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 
 	remoteHostName := output.String()
 	if remoteHostName == s.scope.Name() {
-		msg := fmt.Sprintf("Hostname is %q (not 'rescue' yet).", remoteHostName)
 		duration := time.Since(hm.Status.BootStateSince.Time)
-		if duration > time.Second*10 {
-			// Reboot has failed. Work around buggy hcloud API.
-			// TODO: We could use ssh here to avoid API calls.
-			rebootAction, err := s.scope.HCloudClient.Reboot(ctx, server)
-			if err != nil {
-				return reconcile.Result{}, fmt.Errorf("reboot failed: %w", err)
-			}
-			hm.Status.ActionIDRebootToRescue = rebootAction.ID
-			hm.Status.RebootToRescueCount++
-			hm.Status.BootStateSince = metav1.Now()
-			msg := "Hostname not 'rescue'. Reboot started (again)"
-			s.scope.Logger.Info(msg,
-				"actionID", rebootAction.ID,
-				"actionStatus", rebootAction.Status,
-				"action", rebootAction,
-				"rebootToRescueCount", hm.Status.RebootToRescueCount,
-				"durationInBootState", duration)
+		if duration < time.Second*10 {
+			// Directly after RebootToRescue Action is done, we might still be able to connect
+			// to the old system. Requeue.
+			msg := fmt.Sprintf("Hostname is %q (not 'rescue' yet).", remoteHostName)
 			conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 				string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
 				"%s", msg)
-			return reconcile.Result{RequeueAfter: 55 * time.Second}, nil
+			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 		}
+		// Reboot has failed. Work around buggy hcloud API.
+		// Note: We could use ssh here to avoid API calls.
+		rebootAction, err := s.scope.HCloudClient.Reboot(ctx, server)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("reboot failed: %w", err)
+		}
+		hm.Status.ActionIDRebootToRescue = rebootAction.ID
+		hm.Status.RebootToRescueCount++
+		hm.Status.BootStateSince = metav1.Now()
+		msg := "Hostname not 'rescue'. Reboot started (again)"
+		s.scope.Logger.Info(msg,
+			"actionID", rebootAction.ID,
+			"actionStatus", rebootAction.Status,
+			"action", rebootAction,
+			"rebootToRescueCount", hm.Status.RebootToRescueCount,
+			"durationInBootState", duration)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
 			"%s", msg)
-		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+		return reconcile.Result{RequeueAfter: 55 * time.Second}, nil
 	}
 
 	if remoteHostName != "rescue" {
