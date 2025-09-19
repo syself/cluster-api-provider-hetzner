@@ -46,7 +46,31 @@ type HCloudMachineSpec struct {
 	// ImageName is the reference to the Machine Image from which to create the machine instance.
 	// It can reference an image uploaded to Hetzner API in two ways: either directly as the name of an image or as the label of an image.
 	// +kubebuilder:validation:MinLength=1
-	ImageName string `json:"imageName"`
+	// +kubebuilder:validation:Optional
+	// +optional
+	ImageName string `json:"imageName,omitempty"`
+
+	// ImageURL gets used for installing custom node images. If that field is set, the controller
+	// boots a new HCloud machine into rescue mode. Then the script provided by
+	// --hcloud-image-url-command (which you need to provide to the controller binary) will be
+	// copied into the rescue system and executed.
+	//
+	// The controller uses url.ParseRequestURI (Go function) to validate the URL.
+	//
+	// It is up to the script to provision the disk of the hcloud machine accordingly. The process
+	// is considered successful if the last line in the output contains
+	// IMAGE_URL_DONE. If the script terminates with a different last line, then
+	// the process is considered to have failed.
+	//
+	// A Kubernetes event will be created in both (success, failure) cases containing the output
+	// (stdout and stderr) of the script. If the script takes longer than 7 minutes, the
+	// controller cancels the provisioning.
+	//
+	// ImageURL is mutually exclusive to "ImageName".
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Optional
+	// +optional
+	ImageURL string `json:"imageURL,omitempty"`
 
 	// SSHKeys define machine-specific SSH keys and override cluster-wide SSH keys.
 	// +optional
@@ -99,9 +123,19 @@ type HCloudMachineStatus struct {
 
 	// BootState indicates the current state during provisioning.
 	//
-	// The states will be:
-	// "" -> BootToRealOS -> OperatingSystemRunning
+	// If Spec.ImageName is set the states will be:
+	//   1. BootToRealOS
+	//   2. OperatingSystemRunning
 	//
+	// If Spec.ImageURL is set the states will be:
+	//   1. Initializing
+	//   2. EnablingRescue
+	//   3. BootingToRescue
+	//   4. RunningImageCommand
+	//   5. WaitingForReboot
+	//   6. BootToRealOS
+	//   7. OperatingSystemRunning
+
 	// +optional
 	BootState HCloudBootState `json:"bootState"`
 
@@ -109,6 +143,22 @@ type HCloudMachineStatus struct {
 	// provisioning if a state takes too long.
 	// +optional
 	BootStateSince metav1.Time `json:"bootStateSince,omitzero"`
+
+	// ActionIDEnableRescueSystem is the hcloud API Action result of EnableRescueSystem.
+	// +optional
+	ActionIDEnableRescueSystem int64 `json:"actionIdEnableRescueSystem,omitzero"`
+
+	// ActionIDRebootToRescue is the hcloud API Action result of reboot to the rescue system.
+	// +optional
+	ActionIDRebootToRescue int64 `json:"actionIdRebootToRescue,omitzero"`
+
+	// ActionIDRebootAfterImageURLCommand is the hcloud API Action result of reboot to the real OS system.
+	// +optional
+	ActionIDRebootAfterImageURLCommand int64 `json:"actionIDRebootAfterImageURLCommand,omitzero"`
+
+	// RebootToRescueCount: number of times we tried to reboot into the rescue-system.
+	// +optional
+	RebootToRescueCount int64 `json:"rebootToRescueCount,omitzero"`
 }
 
 // HCloudMachine is the Schema for the hcloudmachines API.
