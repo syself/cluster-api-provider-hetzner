@@ -275,7 +275,7 @@ func (s *Service) handleBootStateWaitForPreRescueOSThenEnableRescueSystem(ctx co
 	}
 	result, err := s.scope.HCloudClient.EnableRescueSystem(ctx, server, rescueOpts)
 	if err != nil {
-		return res, fmt.Errorf("RebootIntoRescueSystem failed: %w", err)
+		return res, fmt.Errorf("EnableRescueSystem failed: %w", err)
 	}
 
 	// The API of hetzner is async. We get an Action-ID as result. We need to wait until the action
