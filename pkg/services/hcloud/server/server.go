@@ -225,12 +225,6 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 
 	s.scope.SetProviderID(server.ID)
 
-	if hm.Spec.ImageName != "" {
-		hm.SetBootState(infrav1.HCloudBootStateBootToRealOS)
-	} else {
-		hm.SetBootState(infrav1.HCloudBootStateWaitForPreRescueOSThenEnableRescueSystem)
-	}
-
 	// Provisioning from a hcloud image like ubuntu-YY.MM takes roughly 11 seconds.
 	// Provisioning from a snapshot takes roughly 140 seconds.
 	// We do not want to do too many api-calls (rate-limiting). So we differentiate

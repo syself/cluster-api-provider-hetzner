@@ -75,20 +75,6 @@ func TestValidateHCloudMachineSpecUpdate(t *testing.T) {
 			want: field.Invalid(field.NewPath("spec", "imageURL"), "oci://ghcr.io/example/foo:v2", "field is immutable"),
 		},
 		{
-			name: "ImageURL and ImageName mutually exclusive",
-			args: args{
-				oldSpec: HCloudMachineSpec{
-					ImageURL:  "oci://ghcr.io/example/foo:v1",
-					ImageName: "dummy-name",
-				},
-				newSpec: HCloudMachineSpec{
-					ImageURL:  "oci://ghcr.io/example/foo:v1",
-					ImageName: "dummy-name",
-				},
-			},
-			want: field.Invalid(field.NewPath("spec", "imageName"), "dummy-name", "imageName and imageURL are mutually exclusive"),
-		},
-		{
 			name: "Immutable SSHKeys",
 			args: args{
 				oldSpec: HCloudMachineSpec{
