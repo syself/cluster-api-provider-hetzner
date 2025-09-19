@@ -373,7 +373,7 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 	updateHCloudMachineStatusFromServer(hm, server)
 
 	duration := time.Since(hm.Status.BootStateSince.Time)
-	if duration > 400*time.Minute { // ############## TODO: use 4 minutes
+	if duration > 4*time.Minute {
 		// timeout. Something has failed.
 		msg := fmt.Sprintf("reaching rescue system has timed out after %s. Deleting machine",
 			duration.Round(time.Second).String())
