@@ -75,6 +75,12 @@ type Client interface {
 	DeletePlacementGroup(context.Context, int64) error
 	ListPlacementGroups(context.Context, hcloud.PlacementGroupListOpts) ([]*hcloud.PlacementGroup, error)
 	AddServerToPlacementGroup(context.Context, *hcloud.Server, *hcloud.PlacementGroup) error
+
+	EnableRescueSystem(context.Context, *hcloud.Server, *hcloud.ServerEnableRescueOpts) (hcloud.ServerEnableRescueResult, error)
+
+	Reboot(context.Context, *hcloud.Server) (*hcloud.Action, error)
+
+	GetAction(ctx context.Context, actionID int64) (*hcloud.Action, error)
 }
 
 // Factory is the interface for creating new Client objects.
@@ -327,4 +333,28 @@ func (c *realClient) ListPlacementGroups(ctx context.Context, opts hcloud.Placem
 func (c *realClient) AddServerToPlacementGroup(ctx context.Context, server *hcloud.Server, pg *hcloud.PlacementGroup) error {
 	_, _, err := c.client.Server.AddToPlacementGroup(ctx, server, pg)
 	return err
+}
+
+func (c *realClient) EnableRescueSystem(ctx context.Context, server *hcloud.Server, rescueOpts *hcloud.ServerEnableRescueOpts) (result hcloud.ServerEnableRescueResult, reterr error) {
+	result, _, err := c.client.Server.EnableRescue(ctx, server, *rescueOpts)
+	if err != nil {
+		return result, fmt.Errorf("EnableRescue failed for %d: %w", server.ID, err)
+	}
+	return result, nil
+}
+
+func (c *realClient) Reboot(ctx context.Context, server *hcloud.Server) (*hcloud.Action, error) {
+	action, _, err := c.client.Server.Reboot(ctx, server)
+	if err != nil {
+		return action, fmt.Errorf("Reboot failed for %d: %w", server.ID, err)
+	}
+	return action, nil
+}
+
+func (c *realClient) GetAction(ctx context.Context, actionID int64) (*hcloud.Action, error) {
+	action, _, err := c.client.Action.GetByID(ctx, actionID)
+	if err != nil {
+		return action, fmt.Errorf("getting hcloud action failed: %w", err)
+	}
+	return action, nil
 }

@@ -58,6 +58,7 @@ type HetznerBareMetalHostReconciler struct {
 	SSHClientFactory    sshclient.Factory
 	WatchFilterValue    string
 	PreProvisionCommand string
+	ImageURLCommand     string
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalhosts,verbs=get;list;watch;create;update;patch;delete
@@ -202,6 +203,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		RescueSSHSecret:         rescueSSHSecret,
 		SecretManager:           secretManager,
 		PreProvisionCommand:     r.PreProvisionCommand,
+		ImageURLCommand:         r.ImageURLCommand,
 	})
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %w", err)
