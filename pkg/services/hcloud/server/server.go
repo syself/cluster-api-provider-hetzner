@@ -165,6 +165,19 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 		}
 	}
 
+	if s.scope.HCloudMachine.Status.BootState != infrav1.HCloudBootStateUnset && s.scope.HCloudMachine.Spec.ProviderID == nil {
+		msg := fmt.Sprintf("internal error BootState=%q and ProviderID nil. Deleting machine",
+			s.scope.HCloudMachine.Status.BootState)
+		s.scope.Logger.Error(nil, msg)
+		s.scope.SetError(msg, capierrors.CreateMachineError)
+		s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateUnset)
+		record.Warn(s.scope.HCloudMachine, "NoHCloudServerFound", msg)
+		conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerAvailableCondition,
+			string(s.scope.HCloudMachine.Status.BootState), clusterv1.ConditionSeverityWarning,
+			"%s", msg)
+		return reconcile.Result{}, nil
+	}
+
 	switch s.scope.HCloudMachine.Status.BootState {
 	case infrav1.HCloudBootStateUnset:
 		return s.handleBootStateUnset(ctx)
