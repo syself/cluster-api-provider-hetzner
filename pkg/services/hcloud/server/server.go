@@ -364,7 +364,7 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 	hm.SetBootState(infrav1.HCloudBootStateBootingToRescue)
 	conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 		string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
-		"Reboot started")
+		"reboot to rescue started")
 	return reconcile.Result{RequeueAfter: 55 * time.Second}, nil
 }
 
