@@ -908,7 +908,7 @@ func (s *Service) createServerFromImageURL(ctx context.Context) (*hcloud.Server,
 	if err != nil {
 		return nil, nil, fmt.Errorf("createServerFromImageURL: failed to get server image: %w", err)
 	}
-	server, err := s.createServer(ctx, s.scope.Name(), nil, image)
+	server, err := s.createServer(ctx, nil, image)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -940,7 +940,7 @@ func (s *Service) createServerFromImageName(ctx context.Context) (*hcloud.Server
 		return nil, nil, err
 	}
 
-	server, err := s.createServer(ctx, s.scope.Name(), userData, image)
+	server, err := s.createServer(ctx, userData, image)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -949,12 +949,12 @@ func (s *Service) createServerFromImageName(ctx context.Context) (*hcloud.Server
 	return server, image, nil
 }
 
-func (s *Service) createServer(ctx context.Context, serverName string, userData []byte, image *hcloud.Image) (*hcloud.Server, error) {
+func (s *Service) createServer(ctx context.Context, userData []byte, image *hcloud.Image) (*hcloud.Server, error) {
 	hm := s.scope.HCloudMachine
 	automount := false
 	startAfterCreate := true
 	opts := hcloud.ServerCreateOpts{
-		Name:   serverName,
+		Name:   s.scope.Name(),
 		Labels: s.createLabels(),
 		Image:  image,
 		Location: &hcloud.Location{
@@ -1426,6 +1426,8 @@ func updateHCloudMachineStatusFromServer(hm *infrav1.HCloudMachine, server *hclo
 	hm.Status.InstanceState = ptr.To(server.Status)
 }
 
+// getSSHClient uses HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef to get the ssh private key.
+// Then it creates a sshClient connected to the first IP of the HCloudMachine.
 func (s *Service) getSSHClient(ctx context.Context) (sshclient.Client, error) {
 	hm := s.scope.HCloudMachine
 
