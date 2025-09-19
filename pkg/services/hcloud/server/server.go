@@ -906,7 +906,13 @@ func (s *Service) createServerFromImageURL(ctx context.Context) (*hcloud.Server,
 
 	image, err := s.getServerImage(ctx, preRescueOSImage)
 	if err != nil {
-		return nil, nil, fmt.Errorf("createServerFromImageURL: failed to get server image: %w", err)
+		err = fmt.Errorf("failed to get pre-rescue-OS server image %q: %w", preRescueOSImage, err)
+		msg := err.Error()
+		record.Warn(hm, "FailedGetServerImage", msg)
+		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
+			string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
+			"%s", msg)
+		return nil, nil, err
 	}
 	server, err := s.createServer(ctx, nil, image)
 	if err != nil {
@@ -931,9 +937,9 @@ func (s *Service) createServerFromImageName(ctx context.Context) (*hcloud.Server
 
 	image, err := s.getServerImage(ctx, hm.Spec.ImageName)
 	if err != nil {
-		err = fmt.Errorf("failed to get server image: %w", err)
+		err = fmt.Errorf("create server from imageName (%q): %w", hm.Spec.ImageName, err)
 		msg := err.Error()
-		record.Warn(hm, "FailedGetBootstrapData", msg)
+		record.Warn(hm, "FailedGetServerImage", msg)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
 			"%s", msg)
