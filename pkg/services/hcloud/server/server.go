@@ -26,7 +26,6 @@ import (
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -460,38 +459,6 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 	conditions.MarkTrue(hm, infrav1.ServerCreateSucceededCondition)
 
 	remoteHostName := output.String()
-	if remoteHostName == s.scope.Name() {
-		duration := time.Since(hm.Status.BootStateSince.Time)
-		if duration < time.Second*10 {
-			// Directly after RebootToRescue Action is done, we might still be able to connect
-			// to the old system. Requeue.
-			msg := fmt.Sprintf("Hostname is %q (not 'rescue' yet).", remoteHostName)
-			conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-				string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
-				"%s", msg)
-			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
-		}
-		// Reboot has failed. Work around buggy hcloud API.
-		// Note: We could use ssh here to avoid API calls.
-		rebootAction, err := s.scope.HCloudClient.Reboot(ctx, server)
-		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("reboot failed: %w", err)
-		}
-		hm.Status.ActionIDRebootToRescue = rebootAction.ID
-		hm.Status.RebootToRescueCount++
-		hm.Status.BootStateSince = metav1.Now()
-		msg := "Hostname not 'rescue'. Reboot started (again)"
-		s.scope.Logger.Info(msg,
-			"actionID", rebootAction.ID,
-			"actionStatus", rebootAction.Status,
-			"action", rebootAction,
-			"rebootToRescueCount", hm.Status.RebootToRescueCount,
-			"durationInBootState", duration)
-		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
-			"%s", msg)
-		return reconcile.Result{RequeueAfter: 55 * time.Second}, nil
-	}
 
 	if remoteHostName != "rescue" {
 		msg := fmt.Sprintf("Remote hostname (via ssh) of hcloud server is %q. Expected 'rescue'. Deleting hcloud machine", remoteHostName)
