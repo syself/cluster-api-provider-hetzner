@@ -128,12 +128,13 @@ type HCloudMachineStatus struct {
 	//   2. OperatingSystemRunning
 	//
 	// If Spec.ImageURL is set the states will be:
-	//   1. WaitForRescueEnabledThenRebootToRescue
-	//   2. WaitForRescueRunningThenStartImageURLCommand
-	//   3. WaitForImageURLCommandThenRebootAfterImageURLCommand
-	//   4. WaitForRebootAfterImageURLCommandThenBootToRealOS
-	//   5. BootToRealOS
-	//   6. OperatingSystemRunning
+	//   1. WaitForPreRescueOSThenEnableRescueSystem
+	//   2. WaitForRescueEnabledThenRebootToRescue
+	//   3. WaitForRescueRunningThenStartImageURLCommand
+	//   4. WaitForImageURLCommandThenRebootAfterImageURLCommand
+	//   5. WaitForRebootAfterImageURLCommandThenBootToRealOS
+	//   6. BootToRealOS
+	//   7. OperatingSystemRunning
 
 	// +optional
 	BootState HCloudBootState `json:"bootState"`
