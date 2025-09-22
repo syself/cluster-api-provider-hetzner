@@ -360,6 +360,15 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 		return reconcile.Result{RequeueAfter: 4 * time.Second}, nil
 	}
 
+	if !server.RescueEnabled {
+		msg := "rescue system is not enabled yet? Requeue"
+		s.scope.Logger.Error(nil, msg)
+		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
+			string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
+			"%s", msg)
+		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+	}
+
 	// Now we know that the rescue-system was enabled. Up to now the PreRescueOS is running. Next
 	// step is to reboot the server into the rescue system.
 	rebootAction, err := s.scope.HCloudClient.Reboot(ctx, server)
@@ -377,7 +386,7 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 	conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 		string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
 		"reboot to rescue started")
-	return reconcile.Result{RequeueAfter: 55 * time.Second}, nil
+	return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 }
 
 func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hcloud.Server) (reconcile.Result, error) {
@@ -406,25 +415,6 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 		return reconcile.Result{}, nil
 	}
 
-	if server.RescueEnabled {
-		// If RescueEnabled is still true, then the reboot was lost (bug in hcloud API)
-		rebootAction, err := s.scope.HCloudClient.Reboot(ctx, server)
-		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("reboot failed: %w", err)
-		}
-		hm.Status.RebootToRescueCount++
-		hm.Status.ActionIDRebootToRescue = rebootAction.ID
-		msg := fmt.Sprintf("Reboot started (again, RebootToRescueCount=%d)", hm.Status.RebootToRescueCount)
-		s.scope.Logger.Info(msg,
-			"actionID", rebootAction.ID,
-			"actionStatus", rebootAction.Status,
-			"action", rebootAction,
-		)
-		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
-			"%s", msg)
-		return reconcile.Result{RequeueAfter: 55 * time.Second}, nil
-	}
 	if hm.Status.ActionIDRebootToRescue != actionDone {
 		action, err := s.scope.HCloudClient.GetAction(ctx, hm.Status.ActionIDRebootToRescue)
 		if err != nil {
@@ -450,10 +440,42 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 			return reconcile.Result{}, nil
 		}
 
+		if server.RescueEnabled {
+			// It takes usually 40 seconds for RescueEnabled to switch to false.
+			// If it takes much longer, then the reboot seems to have failed.
+			duration = time.Since(action.Finished).Round(time.Second)
+			if duration < 2*time.Minute {
+				// No timeout yet. Requeue.
+				msg := fmt.Sprintf("Waiting until RescueEnabled is false (%s)", duration)
+				conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
+					string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
+					"%s", msg)
+				return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+			}
+
+			// The last reboot action seems to have failed.
+			rebootAction, err := s.scope.HCloudClient.Reboot(ctx, server)
+			if err != nil {
+				return reconcile.Result{}, fmt.Errorf("reboot failed: %w", err)
+			}
+			hm.Status.RebootToRescueCount++
+			hm.Status.ActionIDRebootToRescue = rebootAction.ID
+			msg := fmt.Sprintf("Reboot started (again, RebootToRescueCount=%d)", hm.Status.RebootToRescueCount)
+			s.scope.Logger.Info(msg,
+				"actionID", rebootAction.ID,
+				"actionStatus", rebootAction.Status,
+				"action", rebootAction,
+			)
+			conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
+				string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
+				"%s", msg)
+			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+		}
+
 		s.scope.Logger.Info("Action RebootToRescue is finished",
 			"actionDuration", action.Finished.Sub(action.Started),
 			"finishedSince", time.Since(action.Finished),
-			"actionStatus", action.Status)
+			"action", action)
 
 		hm.Status.ActionIDRebootToRescue = actionDone
 	}
