@@ -527,14 +527,14 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("hcloud GetRawBootstrapData failed: %w", err)
 	}
-	exitStatus, stdouStderr, err := hcloudSSHClient.StartImageURLCommand(ctx, s.scope.ImageURLCommand, hm.Spec.ImageURL, data, s.scope.Name())
+	exitStatus, stdoutStderr, err := hcloudSSHClient.StartImageURLCommand(ctx, s.scope.ImageURLCommand, hm.Spec.ImageURL, data, s.scope.Name())
 	if err != nil {
 		err := fmt.Errorf("StartImageURLCommand failed (retrying): %w", err)
 		// This could be a temporary network error. Retry.
 		s.scope.Logger.Error(err, "",
 			"ImageURLCommand", s.scope.ImageURLCommand,
 			"exitStatus", exitStatus,
-			"stdouStderr", stdouStderr)
+			"stdoutStderr", stdoutStderr)
 		return reconcile.Result{}, err
 	}
 
@@ -543,7 +543,7 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 		s.scope.Logger.Error(nil, msg,
 			"ImageURLCommand", s.scope.ImageURLCommand,
 			"exitStatus", exitStatus,
-			"stdouStderr", stdouStderr)
+			"stdoutStderr", stdoutStderr)
 		s.scope.SetError(msg, capierrors.CreateMachineError)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
