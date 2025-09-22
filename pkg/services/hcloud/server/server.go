@@ -606,19 +606,21 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 			return reconcile.Result{}, fmt.Errorf("reboot after ImageURLCommand failed: %w",
 				err)
 		}
+
 		hm.Status.RebootViaSSH = metav1.Now()
 		hm.SetBootState(infrav1.HCloudBootStateBootToRealOS)
+
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
 			"hcloud-image-url-command finished successfully. Rebooted, new state: %s",
 			hm.Status.BootState)
+
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 
 	case sshclient.ImageURLCommandStateFailed:
 		msg := "ImageURLCommand failed. Deleting machine"
 		err = errors.New(msg)
-		s.scope.Logger.Error(err, "",
-			"logFile", logFile)
+		s.scope.Logger.Error(err, "", "logFile", logFile)
 		s.scope.SetError(msg, capierrors.CreateMachineError)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
