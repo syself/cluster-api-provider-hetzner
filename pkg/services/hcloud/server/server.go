@@ -405,6 +405,26 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 			"%s", msg)
 		return reconcile.Result{}, nil
 	}
+
+	if server.RescueEnabled {
+		// If RescueEnabled is still true, then the reboot was lost (bug in hcloud API)
+		rebootAction, err := s.scope.HCloudClient.Reboot(ctx, server)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("reboot failed: %w", err)
+		}
+		hm.Status.RebootToRescueCount++
+		hm.Status.ActionIDRebootToRescue = rebootAction.ID
+		msg := fmt.Sprintf("Reboot started (again, RebootToRescueCount=%d)", hm.Status.RebootToRescueCount)
+		s.scope.Logger.Info(msg,
+			"actionID", rebootAction.ID,
+			"actionStatus", rebootAction.Status,
+			"action", rebootAction,
+		)
+		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
+			string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
+			"%s", msg)
+		return reconcile.Result{RequeueAfter: 55 * time.Second}, nil
+	}
 	if hm.Status.ActionIDRebootToRescue != actionDone {
 		action, err := s.scope.HCloudClient.GetAction(ctx, hm.Status.ActionIDRebootToRescue)
 		if err != nil {
@@ -462,6 +482,7 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 
 	if remoteHostName != "rescue" {
 		msg := fmt.Sprintf("Remote hostname (via ssh) of hcloud server is %q. Expected 'rescue'. Deleting hcloud machine", remoteHostName)
+		s.scope.Logger.Error(nil, msg)
 		s.scope.SetError(msg, capierrors.CreateMachineError)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
