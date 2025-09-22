@@ -22,6 +22,8 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
+	"syscall"
 	"time"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
@@ -387,8 +389,12 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 		err = fmt.Errorf("exit status %d", exitStatus)
 	}
 	if err != nil {
-		err = fmt.Errorf("reboot via ssh failed: %w", err)
-		s.scope.Logger.Error(err, "")
+		if errors.Is(err, syscall.ECONNREFUSED) || strings.Contains(err.Error(), "connect: connection refused") {
+			err = errors.New("reboot to rescue: ssh not reachable yet. Retrying")
+		} else {
+			err = fmt.Errorf("reboot to rescue: reboot via ssh failed: %w", err)
+			s.scope.Logger.Error(err, "")
+		}
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
 			"%s", err.Error())
@@ -453,7 +459,8 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 			err = fmt.Errorf("exit status %d", exitStatus)
 		}
 		if err != nil {
-			err = fmt.Errorf("reboot via ssh failed: %w", err)
+			err = fmt.Errorf("bootingToRescue: reboot via ssh (again, %d) failed: %w",
+				hm.Status.RebootToRescueCount, err)
 			s.scope.Logger.Error(err, "")
 			conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 				string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
@@ -482,14 +489,20 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 
 	output := hcloudSSHClient.GetHostName()
 	if output.Err != nil {
+		var msg string
+		if errors.Is(output.Err, syscall.ECONNREFUSED) || strings.Contains("connect: connection refused", output.Err.Error()) {
+			msg = "getHostName: ssh not reachable yet. Retrying"
+		} else {
+			msg = output.String()
+		}
 		conditions.MarkFalse(hm,
 			infrav1.ServerCreateSucceededCondition,
 			"GetHostnameFailed",
 			clusterv1.ConditionSeverityInfo,
-			"%s", output.String())
+			"%s", msg)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
-			"%s", output.String())
+			"%s", msg)
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil //nolint:nilerr
 	}
 
@@ -592,10 +605,11 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 				err)
 		}
 		hm.Status.RebootViaSSH = metav1.Now()
+		hm.SetBootState(infrav1.HCloudBootStateBootToRealOS)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
-			"hcloud-image-url-command finished successfully")
-		hm.SetBootState(infrav1.HCloudBootStateBootToRealOS)
+			"hcloud-image-url-command finished successfully. Rebooted, new state: %s",
+			hm.Status.BootState)
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 
 	case sshclient.ImageURLCommandStateFinishedFailed:
