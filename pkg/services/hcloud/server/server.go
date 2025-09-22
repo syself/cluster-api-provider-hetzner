@@ -550,6 +550,7 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 			"%s", msg)
 		return reconcile.Result{}, nil
 	}
+
 	conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 		string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
 		"hcloud-image-url-command started")
@@ -588,6 +589,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 	}
 
 	switch state {
+
 	case sshclient.ImageURLCommandStateRunning:
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
@@ -622,9 +624,11 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 			string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		return reconcile.Result{}, nil
+
 	case sshclient.ImageURLCommandStateNotStarted:
 		return reconcile.Result{}, fmt.Errorf("image-url-command not started in BootState %q? Should not happen",
 			state)
+
 	default:
 		return reconcile.Result{}, fmt.Errorf("unknown ImageURLCommandState: %q", state)
 	}
