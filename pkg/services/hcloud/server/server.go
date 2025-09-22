@@ -473,9 +473,9 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 		}
 
 		s.scope.Logger.Info("Action RebootToRescue is finished",
-			"actionDuration", action.Finished.Sub(action.Started),
-			"finishedSince", time.Since(action.Finished),
-			"action", action)
+			"actionDuration", action.Finished.Sub(action.Started).Round(time.Second),
+			"actionFinishedSince", time.Since(action.Finished).Round(time.Second),
+		)
 
 		hm.Status.ActionIDRebootToRescue = actionDone
 	}
