@@ -116,8 +116,8 @@ const (
 	// ImageURLCommandStateFinishedSuccessfully indicates that the command is finished successfully.
 	ImageURLCommandStateFinishedSuccessfully ImageURLCommandState = "ImageURLCommandStateFinishedSuccessfully"
 
-	// ImageURLCommandStateFinishedFailed indicates that the command is finished, but failed.
-	ImageURLCommandStateFinishedFailed ImageURLCommandState = "ImageURLCommandStateFinishedFailed"
+	// ImageURLCommandStateFailed indicates that the command is finished, but failed.
+	ImageURLCommandStateFailed ImageURLCommandState = "ImageURLCommandStateFinishedFailed"
 )
 
 func (o Output) String() string {
@@ -809,11 +809,11 @@ func (c *sshClient) StateOfImageURLCommand() (state ImageURLCommandState, stdout
 
 	logFile, err := c.getImageURLCommandOutput()
 	if err != nil {
-		return ImageURLCommandStateFinishedFailed, logFile, err
+		return ImageURLCommandStateFailed, logFile, err
 	}
 
 	if exitStatus > 0 {
-		return ImageURLCommandStateFinishedFailed,
+		return ImageURLCommandStateFailed,
 			fmt.Sprintf("IMAGE_URL_DONE not found in %s:\n%s", imageURLCommandLog, logFile), nil
 	}
 	return ImageURLCommandStateFinishedSuccessfully, logFile, nil

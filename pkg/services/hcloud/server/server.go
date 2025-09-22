@@ -614,7 +614,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 			hm.Status.BootState)
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 
-	case sshclient.ImageURLCommandStateFinishedFailed:
+	case sshclient.ImageURLCommandStateFailed:
 		msg := "ImageURLCommand failed. Deleting machine"
 		err = errors.New(msg)
 		s.scope.Logger.Error(err, "",
