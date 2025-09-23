@@ -32,6 +32,7 @@ import (
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
+	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	robotclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/robot"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
@@ -79,11 +80,13 @@ func newTestService(
 ) *Service {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(infrav1.AddToScheme(scheme))
+	utilruntime.Must(corev1.AddToScheme(scheme))
 	c := fakeclient.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(host).Build()
 	return &Service{
 		&scope.BareMetalHostScope{
 			Logger:               log,
 			Client:               c,
+			SecretManager:        secretutil.NewSecretManager(log, c, c),
 			SSHClientFactory:     sshClientFactory,
 			RobotClient:          robotClient,
 			HetznerBareMetalHost: host,
@@ -94,6 +97,7 @@ func newTestService(
 			Cluster:         &clusterv1.Cluster{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}},
 			OSSSHSecret:     osSSHSecret,
 			RescueSSHSecret: rescueSSHSecret,
+			ImageURLCommand: "image-url-command",
 		},
 	}
 }

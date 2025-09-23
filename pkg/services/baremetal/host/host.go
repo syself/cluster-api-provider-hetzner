@@ -1220,7 +1220,7 @@ func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context
 		msg := fmt.Sprintf("ImageURLCommand timed out after %s. Deleting machine",
 			duration.Round(time.Second).String())
 		s.scope.Logger.Error(nil, msg, "logFile", logFile)
-		conditions.MarkFalse(host, infrav1.ServerAvailableCondition,
+		conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
 			string(host.Spec.Status.ProvisioningState), clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		return s.recordActionFailure(infrav1.FatalError, msg)
@@ -1254,9 +1254,15 @@ func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context
 			record.Warn(s.scope.HetznerBareMetalHost, "RebootFailed", err.Error())
 			return actionError{err: err}
 		}
-		createSSHRebootEvent(ctx, s.scope.HetznerBareMetalHost, "machine image and cloud-init data got installed (via image-url-command)")
+		msg := "machine image and cloud-init data got installed (via image-url-command)"
+		createSSHRebootEvent(ctx, s.scope.HetznerBareMetalHost, msg)
 
-		s.scope.Logger.Info("RebootAfterImageURLCommandSucceeded", "stdout", out.StdOut, "stderr", out.StdErr)
+		s.scope.Logger.Info(msg, "stdout", out.StdOut, "stderr", out.StdErr)
+
+		conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
+			string(host.Spec.Status.ProvisioningState),
+			clusterv1.ConditionSeverityInfo,
+			"%s", msg)
 
 		// clear potential errors - all done
 		s.scope.HetznerBareMetalHost.ClearError()
@@ -1266,7 +1272,7 @@ func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context
 		record.Warn(s.scope.HetznerBareMetalHost, "InstallImageNotSuccessful", logFile)
 		msg := "image-url-command failed"
 		s.scope.Logger.Error(nil, msg, "logFile", logFile)
-		conditions.MarkFalse(host, infrav1.ServerAvailableCondition,
+		conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
 			string(host.Spec.Status.ProvisioningState), clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		return actionError{err: errors.New(msg)}
