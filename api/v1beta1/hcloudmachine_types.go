@@ -132,9 +132,8 @@ type HCloudMachineStatus struct {
 	//   2. EnablingRescue
 	//   3. BootingToRescue
 	//   4. RunningImageCommand
-	//   5. WaitingForReboot
-	//   6. BootToRealOS
-	//   7. OperatingSystemRunning
+	//   5. BootToRealOS
+	//   6. OperatingSystemRunning
 
 	// +optional
 	BootState HCloudBootState `json:"bootState"`
@@ -148,13 +147,9 @@ type HCloudMachineStatus struct {
 	// +optional
 	ActionIDEnableRescueSystem int64 `json:"actionIdEnableRescueSystem,omitzero"`
 
-	// ActionIDRebootToRescue is the hcloud API Action result of reboot to the rescue system.
+	// RebootViaSSH is the timestamp that the last reboot via ssh was executed.
 	// +optional
-	ActionIDRebootToRescue int64 `json:"actionIdRebootToRescue,omitzero"`
-
-	// ActionIDRebootAfterImageURLCommand is the hcloud API Action result of reboot to the real OS system.
-	// +optional
-	ActionIDRebootAfterImageURLCommand int64 `json:"actionIDRebootAfterImageURLCommand,omitzero"`
+	RebootViaSSH metav1.Time `json:"rebootViaSSH,omitzero"`
 
 	// RebootToRescueCount: number of times we tried to reboot into the rescue-system.
 	// +optional

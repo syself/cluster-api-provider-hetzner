@@ -217,7 +217,7 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 			log.Info("BootState changed",
 				"oldState", initialHCloudMachine.Status.BootState,
 				"newState", machineScope.HCloudMachine.Status.BootState,
-				"durationInState", machineScope.HCloudMachine.Status.BootStateSince.Time.Sub(startBootState.Time),
+				"durationInState", machineScope.HCloudMachine.Status.BootStateSince.Time.Sub(startBootState.Time).Round(time.Second),
 				"readyReason", readyReason,
 				"readyMessage", readyMessage,
 			)

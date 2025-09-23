@@ -287,11 +287,6 @@ const (
 	// done).
 	HCloudBootStateRunningImageCommand HCloudBootState = "RunningImageCommand"
 
-	// HCloudBootStateWaitingForReboot indicates that the
-	// image-url-command was successful. The controller waits for the hcloud reboot action to be
-	// finished. Then BootState BootToRealOS gets set. No additional reboot gets done.
-	HCloudBootStateWaitingForReboot HCloudBootState = "WaitingForReboot"
-
 	// HCloudBootStateBootToRealOS indicates that the server is booting the operating system.
 	HCloudBootStateBootToRealOS HCloudBootState = "BootToRealOS"
 

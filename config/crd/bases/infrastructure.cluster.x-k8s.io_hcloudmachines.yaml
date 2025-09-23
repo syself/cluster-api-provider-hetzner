@@ -183,19 +183,9 @@ spec:
           status:
             description: HCloudMachineStatus defines the observed state of HCloudMachine.
             properties:
-              actionIDRebootAfterImageURLCommand:
-                description: ActionIDRebootAfterImageURLCommand is the hcloud API
-                  Action result of reboot to the real OS system.
-                format: int64
-                type: integer
               actionIdEnableRescueSystem:
                 description: ActionIDEnableRescueSystem is the hcloud API Action result
                   of EnableRescueSystem.
-                format: int64
-                type: integer
-              actionIdRebootToRescue:
-                description: ActionIDRebootToRescue is the hcloud API Action result
-                  of reboot to the rescue system.
                 format: int64
                 type: integer
               addresses:
@@ -308,6 +298,11 @@ spec:
                   into the rescue-system.'
                 format: int64
                 type: integer
+              rebootViaSSH:
+                description: RebootViaSSH is the timestamp that the last reboot via
+                  ssh was executed.
+                format: date-time
+                type: string
               region:
                 description: Region contains the name of the HCloud location the server
                   is running.
