@@ -489,7 +489,7 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 	output := hcloudSSHClient.GetHostName()
 	if output.Err != nil {
 		var msg string
-		if errors.Is(output.Err, syscall.ECONNREFUSED) || strings.Contains("connect: connection refused", output.Err.Error()) {
+		if errors.Is(output.Err, syscall.ECONNREFUSED) || strings.Contains(output.Err.Error(), "connect: connection refused") {
 			msg = "getHostName: ssh not reachable yet. Retrying"
 		} else {
 			msg = output.String()
@@ -502,7 +502,7 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
 			"%s", msg)
-		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil //nolint:nilerr
+		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
 	conditions.MarkTrue(hm, infrav1.ServerCreateSucceededCondition)
@@ -588,7 +588,6 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 	}
 
 	switch state {
-
 	case sshclient.ImageURLCommandStateRunning:
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
