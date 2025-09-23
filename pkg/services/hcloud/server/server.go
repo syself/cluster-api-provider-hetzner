@@ -222,7 +222,6 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 	}
 
-	// if provider id is not set create the server.
 	server, image, err := s.createServerFromImageNameOrURL(ctx)
 	if err != nil {
 		if errors.Is(err, errServerCreateNotPossible) {
@@ -1449,7 +1448,8 @@ func (s *Service) getSSHClient(ctx context.Context) (sshclient.Client, error) {
 	}
 
 	if len(hm.Status.Addresses) == 0 {
-		msg := "HCloudMachine.Status.Addresses empty. Can not connect via ssh"
+		// This should never happen.
+		msg := "internal error: HCloudMachine.Status.Addresses empty. Can not connect via ssh"
 		s.scope.Logger.Error(nil, msg)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
