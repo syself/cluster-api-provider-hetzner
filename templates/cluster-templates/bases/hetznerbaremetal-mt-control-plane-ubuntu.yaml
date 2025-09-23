@@ -34,7 +34,6 @@ spec:
           cloud-init clean --logs
       sshSpec:
         portAfterInstallImage: 22
-        portAfterCloudInit: 22
         secretRef:
           name: robot-ssh
           key:
