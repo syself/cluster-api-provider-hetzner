@@ -1248,17 +1248,14 @@ func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context
 			return actionError{err: fmt.Errorf("failed to update name of host in robot API: %w", err)}
 		}
 
-		out := sshClient.Reboot()
-		if err := handleSSHError(out); err != nil {
+		if err := sshClient.Reboot().Err; err != nil {
 			err = fmt.Errorf("failed to reboot server (after install-image): %w", err)
 			record.Warn(s.scope.HetznerBareMetalHost, "RebootFailed", err.Error())
 			return actionError{err: err}
 		}
+
 		msg := "machine image and cloud-init data got installed (via image-url-command)"
 		createSSHRebootEvent(ctx, s.scope.HetznerBareMetalHost, msg)
-
-		s.scope.Logger.Info(msg, "stdout", out.StdOut, "stderr", out.StdErr)
-
 		conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
 			string(host.Spec.Status.ProvisioningState),
 			clusterv1.ConditionSeverityInfo,
