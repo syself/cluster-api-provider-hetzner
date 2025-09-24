@@ -201,7 +201,7 @@ type Client interface {
 	// is reachable. The env var `OCI_REGISTRY_AUTH_TOKEN` gets set to the same value of the
 	// corresponding env var of the controller.
 	// This gets used when imageURL set.
-	// For hcloud deviceNames is always {"/dev/sda"}. For baremetal it corresponds to the WWNs
+	// For hcloud deviceNames is always {"sda"}. For baremetal it corresponds to the WWNs
 	// of RootDeviceHints.
 	StartImageURLCommand(ctx context.Context, command, imageURL string, bootstrapData []byte, machineName string, deviceNames []string) (exitStatus int, stdoutAndStderr string, err error)
 
@@ -731,7 +731,7 @@ func (c *sshClient) ExecutePreProvisionCommand(ctx context.Context, command stri
 func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL string, bootstrapData []byte, machineName string, deviceNames []string) (int, string, error) {
 	// validate deviceNames
 	for _, dn := range deviceNames {
-		if !strings.Contains(dn, "/") {
+		if strings.Contains(dn, "/") {
 			return 0, "", fmt.Errorf("deviceName must not contain a slash (example: only sda not /dev/sda): %q", dn)
 		}
 		if strings.Contains(dn, " ") {
