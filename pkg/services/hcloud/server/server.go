@@ -203,6 +203,19 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, error) {
 	hm := s.scope.HCloudMachine
 
+	durationOfState := time.Since(hm.Status.BootStateSince.Time)
+	if durationOfState > 6*time.Minute {
+		// timeout. Something has failed.
+		msg := fmt.Sprintf("handleBootStateUnset timed out after %s. Deleting machine",
+			durationOfState.Round(time.Second).String())
+		s.scope.SetError(msg, capierrors.CreateMachineError)
+		s.scope.Logger.Error(nil, msg)
+		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
+			string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
+			"%s", msg)
+		return reconcile.Result{}, nil
+	}
+
 	if hm.Spec.ProviderID != nil && *hm.Spec.ProviderID != "" && hm.Spec.ImageURL == "" {
 		// This machine seems to be an existing machine which was created before introducing
 		// Status.BootState.
@@ -255,6 +268,19 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 
 func (s *Service) handleBootStateInitializing(ctx context.Context, server *hcloud.Server) (res reconcile.Result, reterr error) {
 	hm := s.scope.HCloudMachine
+
+	durationOfState := time.Since(hm.Status.BootStateSince.Time)
+	if durationOfState > 6*time.Minute {
+		// timeout. Something has failed.
+		msg := fmt.Sprintf("handleBootStateInitializing timed out after %s. Deleting machine",
+			durationOfState.Round(time.Second).String())
+		s.scope.SetError(msg, capierrors.CreateMachineError)
+		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
+			string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
+			"%s", msg)
+		return reconcile.Result{}, nil
+	}
+
 	updateHCloudMachineStatusFromServer(hm, server)
 
 	// analyze status of server
@@ -305,6 +331,19 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 
 func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcloud.Server) (reconcile.Result, error) {
 	hm := s.scope.HCloudMachine
+
+	durationOfState := time.Since(hm.Status.BootStateSince.Time)
+	if durationOfState > 6*time.Minute {
+		// timeout. Something has failed.
+		msg := fmt.Sprintf("handleBootStateEnablingRescue timed out after %s. Deleting machine",
+			durationOfState.Round(time.Second).String())
+		s.scope.SetError(msg, capierrors.CreateMachineError)
+		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
+			string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
+			"%s", msg)
+		return reconcile.Result{}, nil
+	}
+
 	updateHCloudMachineStatusFromServer(hm, server)
 
 	if hm.Status.ActionIDEnableRescueSystem == 0 {
@@ -382,6 +421,7 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 			"%s", err.Error())
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 	}
+
 	out := sshClient.Reboot()
 	exitStatus, err := out.ExitStatus()
 	if exitStatus != 0 {
@@ -415,11 +455,11 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 	hm := s.scope.HCloudMachine
 	updateHCloudMachineStatusFromServer(hm, server)
 
-	duration := time.Since(hm.Status.BootStateSince.Time)
-	if duration > 4*time.Minute {
+	durationOfState := time.Since(hm.Status.BootStateSince.Time)
+	if durationOfState > 6*time.Minute {
 		// timeout. Something has failed.
 		msg := fmt.Sprintf("reaching rescue system has timed out after %s. Deleting machine",
-			duration.Round(time.Second).String())
+			durationOfState.Round(time.Second).String())
 		s.scope.SetError(msg, capierrors.CreateMachineError)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
@@ -430,7 +470,7 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 	if server.RescueEnabled {
 		// It takes usually 40 seconds for RescueEnabled to switch to false.
 		// If it takes much longer, then the reboot seems to have failed.
-		duration = time.Since(hm.Status.RebootViaSSH.Time).Round(time.Second)
+		duration := time.Since(hm.Status.RebootViaSSH.Time).Round(time.Second)
 		if duration < 2*time.Minute {
 			// No timeout yet. Requeue.
 			msg := fmt.Sprintf("Waiting until RescueEnabled is false (%s)", duration)
@@ -571,12 +611,12 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 		return reconcile.Result{}, fmt.Errorf("StateOfImageURLCommand failed: %w", err)
 	}
 
-	duration := time.Since(hm.Status.BootStateSince.Time)
+	durationOfState := time.Since(hm.Status.BootStateSince.Time)
 	// Please keep the number (7) in sync with the docstring of ImageURL.
-	if duration > 7*time.Minute {
+	if durationOfState > 7*time.Minute {
 		// timeout. Something has failed.
 		msg := fmt.Sprintf("ImageURLCommand timed out after %s. Deleting machine",
-			duration.Round(time.Second).String())
+			durationOfState.Round(time.Second).String())
 		err = errors.New(msg)
 		s.scope.Logger.Error(err, "",
 			"logFile", logFile)
@@ -637,6 +677,18 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
 	hm := s.scope.HCloudMachine
 	updateHCloudMachineStatusFromServer(hm, server)
+
+	durationOfState := time.Since(hm.Status.BootStateSince.Time)
+	if durationOfState > 6*time.Minute {
+		// timeout. Something has failed.
+		msg := fmt.Sprintf("handleBootToRealOS timed out after %s. Deleting machine",
+			durationOfState.Round(time.Second).String())
+		s.scope.SetError(msg, capierrors.CreateMachineError)
+		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
+			string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
+			"%s", msg)
+		return reconcile.Result{}, nil
+	}
 
 	// analyze status of server
 	switch server.Status {
