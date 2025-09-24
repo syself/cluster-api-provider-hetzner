@@ -795,19 +795,19 @@ func (c *sshClient) StateOfImageURLCommand() (state ImageURLCommandState, stdout
 		return ImageURLCommandStateNotStarted, "", fmt.Errorf("detecting if image-url-command is still running failed: %w", err)
 	}
 
+	logFile, err := c.getImageURLCommandOutput()
+	if err != nil {
+		return ImageURLCommandStateFailed, logFile, err
+	}
+
 	if exitStatus == 0 {
-		return ImageURLCommandStateRunning, "", nil
+		return ImageURLCommandStateRunning, logFile, nil
 	}
 
 	out = c.runSSH(fmt.Sprintf("tail -n 1 %s | grep -q IMAGE_URL_DONE", imageURLCommandLog))
 	exitStatus, err = out.ExitStatus()
 	if err != nil {
 		return ImageURLCommandStateNotStarted, "", fmt.Errorf("detecting if image-url-command was successful failed: %w", err)
-	}
-
-	logFile, err := c.getImageURLCommandOutput()
-	if err != nil {
-		return ImageURLCommandStateFailed, logFile, err
 	}
 
 	if exitStatus > 0 {
