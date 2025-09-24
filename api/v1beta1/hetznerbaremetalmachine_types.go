@@ -202,7 +202,7 @@ type Image struct {
 func (image Image) GetDetails() (imagePath string, needsDownload bool, errorMessage string) {
 	// If image is set, then the URL is also set and we have to download a remote file
 	if image.UseCustomImageURLCommand {
-		return "", false, "internal error: image.UseCustomImageURLCommand is active. Method GetDetails() should be used for the tranditional way (without image-url-command)."
+		return "", false, "internal error: image.UseCustomImageURLCommand is active. Method GetDetails() should be used for the traditional way (without image-url-command)."
 	}
 	switch {
 	case image.Name != "" && image.URL != "":
