@@ -167,7 +167,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 
 		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 		res := svc.actionImageInstalling(ctx)
-		Expect(res).To(BeAssignableToTypeOf(actionError{}))
+		Expect(res).To(BeAssignableToTypeOf(actionFailed{}))
 		c := conditions.Get(host, infrav1.ProvisionSucceededCondition)
 		Expect(c.Message).To(ContainSubstring("image-url-command failed"))
 	})

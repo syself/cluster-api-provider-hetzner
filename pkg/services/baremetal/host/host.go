@@ -1272,7 +1272,7 @@ func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context
 		conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
 			string(host.Spec.Status.ProvisioningState), clusterv1.ConditionSeverityWarning,
 			"%s", msg)
-		return actionError{err: errors.New(msg)}
+		return s.recordActionFailure(infrav1.FatalError, msg)
 
 	case sshclient.ImageURLCommandStateNotStarted:
 		data, err := s.scope.GetRawBootstrapData(ctx)
@@ -1287,6 +1287,10 @@ func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context
 				"ImageURLCommand", s.scope.ImageURLCommand,
 				"exitStatus", exitStatus,
 				"stdoutStderr", stdoutStderr)
+			conditions.MarkFalse(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition,
+				string(s.scope.HetznerBareMetalHost.Spec.Status.ProvisioningState),
+				clusterv1.ConditionSeverityWarning,
+				"%s", err.Error())
 			return actionError{err: err}
 		}
 
