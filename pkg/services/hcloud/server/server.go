@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"strings"
 	"syscall"
 	"time"
 
@@ -202,6 +201,10 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 
 func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, error) {
 	hm := s.scope.HCloudMachine
+
+	if hm.Status.BootStateSince.IsZero() {
+		hm.Status.BootStateSince = metav1.Now()
+	}
 
 	durationOfState := time.Since(hm.Status.BootStateSince.Time)
 	if durationOfState > 6*time.Minute {
@@ -429,8 +432,8 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 
 	err = sshClient.Reboot().Err
 	if err != nil {
-		if errors.Is(err, syscall.ECONNREFUSED) || strings.Contains(err.Error(), "connect: connection refused") {
-			// This is common. Show a nice message, do not log.
+		if errors.Is(err, syscall.ECONNREFUSED) {
+			// This is common. Provide a nice message.
 			err = errors.New("reboot to rescue: ssh not reachable yet. Retrying")
 			conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 				string(hm.Status.BootState), clusterv1.ConditionSeverityInfo, "%s", err.Error())
@@ -531,18 +534,16 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 	err = output.Err
 	if err != nil {
 		var msg string
-		if errors.Is(err, syscall.ECONNREFUSED) || strings.Contains(err.Error(), "connect: connection refused") {
+		if errors.Is(err, syscall.ECONNREFUSED) {
 			// This is common. Provide a nice message.
 			msg = "getHostName: ssh not reachable yet. Retrying"
-		} else {
-			msg = output.String()
-			s.scope.Logger.Error(err, msg)
+			conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
+				string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
+				"%s", msg)
+			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 		}
-		conditions.MarkFalse(hm,
-			infrav1.ServerCreateSucceededCondition,
-			"GetHostnameFailed",
-			clusterv1.ConditionSeverityInfo,
-			"%s", msg)
+		msg = output.String()
+		s.scope.Logger.Error(err, msg)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
 			"%s", msg)
