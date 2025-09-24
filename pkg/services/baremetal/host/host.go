@@ -1288,7 +1288,17 @@ func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context
 				"%s", err.Error())
 			return actionError{err: err}
 		}
-		exitStatus, stdoutStderr, err := sshClient.StartImageURLCommand(ctx, s.scope.ImageURLCommand, s.scope.HetznerBareMetalHost.Spec.Status.InstallImage.Image.URL, data, s.scope.Name())
+		// get the information about storage devices again to have the latest names.
+		// Device names can change during restart.
+		storage, err := obtainHardwareDetailsStorage(sshClient)
+		if err != nil {
+			return actionError{err: fmt.Errorf("failed to obtain hardware details storage: %w", err)}
+		}
+
+		// get device names from storage device
+		deviceNames := getDeviceNames(s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.ListOfWWN(), storage)
+
+		exitStatus, stdoutStderr, err := sshClient.StartImageURLCommand(ctx, s.scope.ImageURLCommand, s.scope.HetznerBareMetalHost.Spec.Status.InstallImage.Image.URL, data, s.scope.Name(), deviceNames)
 		if err != nil {
 			err := fmt.Errorf("StartImageURLCommand failed (retrying): %w", err)
 			// This could be a temporary network error. Retry.
@@ -1593,6 +1603,7 @@ func (s *Service) createAutoSetupInput(sshClient sshclient.Client) (autoSetupInp
 	}
 
 	// get the information about storage devices again to have the latest names which are then taken for installimage
+	// Device names can change during restart.
 	storage, err := obtainHardwareDetailsStorage(sshClient)
 	if err != nil {
 		return autoSetupInput{}, actionError{err: fmt.Errorf("failed to obtain hardware details storage: %w", err)}

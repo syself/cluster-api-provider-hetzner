@@ -188,6 +188,7 @@ type Image struct {
 	URL string `json:"url,omitempty"`
 
 	// UseCustomImageURLCommand makes the controller use the command provided by `--baremetal-image-url-command` instead of installimage.
+	// Docs: https://syself.com/docs/caph/developers/image-url-command
 	// +optional
 	UseCustomImageURLCommand bool `json:"useCustomImageURLCommand"`
 

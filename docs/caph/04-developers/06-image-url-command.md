@@ -5,21 +5,29 @@ sidebar: image-url-command
 description: Documentation on the CAPH image-url-command
 ---
 
-The `--hcloud-image-url-command` for the caph controller can be used to execute a custom command to
-install the node image.
+The `--hcloud-image-url-command` and `--baremtal-image-url-command` for the caph controller can be
+used to execute a custom command to install the node image.
 
 This provides you a flexible way to create nodes.
 
-The script/binary will be copied into the Hetzner Rescue System and executed.
+The script/binary will be copied into the rescue system and executed.
 
 You need to enable two things:
 
 * The caph binary must get argument. Example:
-  `--hcloud-image-url-command=/shared/image-url-command.sh`
-* The hcloudmachine resource must have spec.imageURL set (usualy via a hcloudmachinetemplate)
+  `--[hcloud|baremetal]-image-url-command=/shared/image-url-command.sh`
+* for hcloud: The hcloudmachine resource must have spec.imageURL set (usually via a
+  hcloudmachinetemplate)
+* for baremetal: The hetznerbaremetal resource must use `useCustomImageURLCommand: true`.
 
-The command will get the imageURL, bootstrap-data and machine-name of the corresponding
-hcloudmachine as argument.
+The command will get the imageURL, bootstrap-data, machine-name of the corresponding
+machine and the root devices (seperated by spaces) as argument.
+
+Example:
+
+```bash
+/root/image-url-command oci://example.com/yourimage:v1 /root/bootstrap.data my-md-bm-kh57r-5z2v8-zdfc9 'sda sdb'
+```
 
 It is up to the command to download from that URL and provision the disk accordingly. This command
 must be accessible by the controller pod. You can use an initContainer to copy the command to a
@@ -36,7 +44,7 @@ A Kubernetes event will be created in both (success, failure) cases containing t
 and stderr) of the script. If the script takes longer than 7 minutes, the controller cancels the
 provisioning.
 
-We measured these durations:
+We measured these durations for hcloud:
 
 | oldState | newState | avg(s) | min(s) | max(s) |
 |----------|----------|-------:|-------:|-------:|

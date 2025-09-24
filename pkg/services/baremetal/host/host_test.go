@@ -184,7 +184,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		sshMock := &sshmock.Client{}
 		sshMock.On("GetHostName").Return(sshclient.Output{StdOut: "rescue"})
 		sshMock.On("StateOfImageURLCommand").Return(sshclient.ImageURLCommandStateNotStarted, "", nil)
-		sshMock.On("StartImageURLCommand", mock.Anything, "image-url-command", host.Spec.Status.InstallImage.Image.URL, mock.Anything, host.Name).Return(0, "", nil)
+		sshMock.On("StartImageURLCommand", mock.Anything, "image-url-command", host.Spec.Status.InstallImage.Image.URL, mock.Anything, host.Name, []string{"nvme1n1"}).Return(0, "", nil)
 
 		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 
@@ -192,9 +192,14 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: host.Spec.Status.UserData.Name, Namespace: host.Spec.Status.UserData.Namespace}, Data: map[string][]byte{"value": []byte("#cloud-config")}}
 		Expect(svc.scope.Client.Create(ctx, secret)).To(Succeed())
 
+		sshMock.On("GetHardwareDetailsStorage").Return(sshclient.Output{StdOut: `NAME="nvme1n1" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJQ-00000" VENDOR="" SERIAL="S3W8NX0N811178" SIZE="512110190592" WWN="eui.0025388801b4dff2" ROTA="0"`})
+		svc.scope.HetznerBareMetalHost.Spec.RootDeviceHints = &infrav1.RootDeviceHints{
+			WWN: "eui.0025388801b4dff2",
+		}
+
 		res := svc.actionImageInstalling(ctx)
 		Expect(res).To(BeAssignableToTypeOf(actionContinue{}))
-		Expect(sshMock.AssertCalled(GinkgoT(), "StartImageURLCommand", mock.Anything, "image-url-command", host.Spec.Status.InstallImage.Image.URL, mock.Anything, host.Name)).To(BeTrue())
+		Expect(sshMock.AssertCalled(GinkgoT(), "StartImageURLCommand", mock.Anything, "image-url-command", host.Spec.Status.InstallImage.Image.URL, mock.Anything, host.Name, []string{"nvme1n1"})).To(BeTrue())
 		c := conditions.Get(host, infrav1.ProvisionSucceededCondition)
 		Expect(c.Message).To(ContainSubstring(`host (test-host) is still provisioning - state "image-installing"`))
 	})
@@ -206,12 +211,16 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		sshMock := &sshmock.Client{}
 		sshMock.On("GetHostName").Return(sshclient.Output{StdOut: "rescue"})
 		sshMock.On("StateOfImageURLCommand").Return(sshclient.ImageURLCommandStateNotStarted, "", nil)
-		sshMock.On("StartImageURLCommand", mock.Anything, "image-url-command", host.Spec.Status.InstallImage.Image.URL, mock.Anything, host.Name).Return(7, "boom", nil)
+		sshMock.On("StartImageURLCommand", mock.Anything, "image-url-command", host.Spec.Status.InstallImage.Image.URL, mock.Anything, host.Name, []string{"nvme1n1"}).Return(7, "boom", nil)
 
 		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 		secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: host.Spec.Status.UserData.Name, Namespace: host.Spec.Status.UserData.Namespace}, Data: map[string][]byte{"value": []byte("#cloud-config")}}
 		Expect(svc.scope.Client.Create(ctx, secret)).To(Succeed())
 
+		sshMock.On("GetHardwareDetailsStorage").Return(sshclient.Output{StdOut: `NAME="nvme1n1" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJQ-00000" VENDOR="" SERIAL="S3W8NX0N811178" SIZE="512110190592" WWN="eui.0025388801b4dff2" ROTA="0"`})
+		svc.scope.HetznerBareMetalHost.Spec.RootDeviceHints = &infrav1.RootDeviceHints{
+			WWN: "eui.0025388801b4dff2",
+		}
 		res := svc.actionImageInstalling(ctx)
 		Expect(res).To(BeAssignableToTypeOf(actionFailed{}))
 		c := conditions.Get(host, infrav1.ProvisionSucceededCondition)
