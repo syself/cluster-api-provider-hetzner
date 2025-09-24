@@ -542,11 +542,11 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 				"%s", msg)
 			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 		}
-		msg = output.String()
-		s.scope.Logger.Error(err, msg)
+		err = fmt.Errorf("get hostname failed: %w", err)
+		s.scope.Logger.Error(err, "")
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
-			"%s", msg)
+			"%s", err.Error())
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
