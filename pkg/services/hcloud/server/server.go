@@ -422,11 +422,7 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
-	out := sshClient.Reboot()
-	exitStatus, err := out.ExitStatus()
-	if exitStatus != 0 {
-		err = fmt.Errorf("exit status %d", exitStatus)
-	}
+	err = sshClient.Reboot().Err
 	if err != nil {
 		if errors.Is(err, syscall.ECONNREFUSED) || strings.Contains(err.Error(), "connect: connection refused") {
 			err = errors.New("reboot to rescue: ssh not reachable yet. Retrying")
@@ -492,11 +488,7 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 				"%s", err.Error())
 			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 		}
-		out := sshClient.Reboot()
-		exitStatus, err := out.ExitStatus()
-		if exitStatus != 0 {
-			err = fmt.Errorf("exit status %d", exitStatus)
-		}
+		err = sshClient.Reboot().Err
 		if err != nil {
 			err = fmt.Errorf("bootingToRescue: reboot via ssh (again, %d) failed: %w",
 				hm.Status.RebootToRescueCount, err)
@@ -527,9 +519,10 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 	}
 
 	output := hcloudSSHClient.GetHostName()
-	if output.Err != nil {
+	err = output.Err
+	if err != nil {
 		var msg string
-		if errors.Is(output.Err, syscall.ECONNREFUSED) || strings.Contains(output.Err.Error(), "connect: connection refused") {
+		if errors.Is(err, syscall.ECONNREFUSED) || strings.Contains(err.Error(), "connect: connection refused") {
 			msg = "getHostName: ssh not reachable yet. Retrying"
 		} else {
 			msg = output.String()
