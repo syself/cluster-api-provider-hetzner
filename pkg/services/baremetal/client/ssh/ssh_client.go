@@ -30,6 +30,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"syscall"
 	"time"
 
 	scp "github.com/bramvdbogaerde/go-scp"
@@ -64,8 +65,6 @@ var (
 	// ErrCommandExitedWithStatusOne means the ssh command exited with sttatus 1.
 	ErrCommandExitedWithStatusOne = errors.New("Process exited with status 1") //nolint:stylecheck // this is used to check ssh errors
 
-	// ErrConnectionRefused means the ssh connection was refused.
-	ErrConnectionRefused = errors.New("connect: connection refused")
 	// ErrAuthenticationFailed means ssh was unable to authenticate.
 	ErrAuthenticationFailed = errors.New("ssh: unable to authenticate")
 	// ErrEmptyStdOut means that StdOut equals empty string.
@@ -74,7 +73,6 @@ var (
 	ErrTimeout = errors.New("i/o timeout")
 	// ErrCheckDiskBrokenDisk means that a disk seams broken.
 	ErrCheckDiskBrokenDisk = errors.New("CheckDisk failed")
-	errSSHDialFailed       = errors.New("failed to dial ssh")
 )
 
 // Input defines an SSH input.
@@ -571,7 +569,7 @@ func (c *sshClient) UntarTGZ() Output {
 
 // IsConnectionRefusedError checks whether the ssh error is a connection refused error.
 func IsConnectionRefusedError(err error) bool {
-	return strings.Contains(err.Error(), ErrConnectionRefused.Error())
+	return errors.Is(err, syscall.ECONNREFUSED)
 }
 
 // IsAuthenticationFailedError checks whether the ssh error is an authentication failed error.
@@ -609,7 +607,7 @@ func (c *sshClient) getSSHClient() (*ssh.Client, error) {
 	// Connect to the remote server and perform the SSH handshake.
 	client, err := ssh.Dial("tcp", fmt.Sprintf("%s:%v", c.ip, c.port), config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to dial ssh. Error message: %s. DialErr: %w", err.Error(), errSSHDialFailed)
+		return nil, fmt.Errorf("failed to dial ssh. DialErr: %w", err)
 	}
 
 	return client, nil
@@ -797,19 +795,19 @@ func (c *sshClient) StateOfImageURLCommand() (state ImageURLCommandState, stdout
 		return ImageURLCommandStateNotStarted, "", fmt.Errorf("detecting if image-url-command is still running failed: %w", err)
 	}
 
+	logFile, err := c.getImageURLCommandOutput()
+	if err != nil {
+		return ImageURLCommandStateFailed, logFile, err
+	}
+
 	if exitStatus == 0 {
-		return ImageURLCommandStateRunning, "", nil
+		return ImageURLCommandStateRunning, logFile, nil
 	}
 
 	out = c.runSSH(fmt.Sprintf("tail -n 1 %s | grep -q IMAGE_URL_DONE", imageURLCommandLog))
 	exitStatus, err = out.ExitStatus()
 	if err != nil {
-		return ImageURLCommandStateNotStarted, "", fmt.Errorf("detecting if image-url-command was successful failed: %w", err)
-	}
-
-	logFile, err := c.getImageURLCommandOutput()
-	if err != nil {
-		return ImageURLCommandStateFailed, logFile, err
+		return ImageURLCommandStateNotStarted, logFile, fmt.Errorf("detecting if image-url-command was successful failed: %w", err)
 	}
 
 	if exitStatus > 0 {

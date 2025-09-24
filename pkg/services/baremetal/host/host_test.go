@@ -19,6 +19,7 @@ package host
 import (
 	"context"
 	"fmt"
+	"syscall"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -912,14 +913,14 @@ var _ = Describe("analyzeSSHOutputInstallImage", func() {
 			expectedErrMessage:          "wrong ssh key",
 		}),
 		Entry("connectionRefused error, rescue active", testCaseAnalyzeSSHOutputInstallImageOutErr{
-			err:                         sshclient.ErrConnectionRefused,
+			err:                         syscall.ECONNREFUSED,
 			rescueActive:                true,
 			expectedIsTimeout:           false,
 			expectedIsConnectionRefused: true,
 			expectedErrMessage:          "",
 		}),
 		Entry("connectionRefused error, rescue not active", testCaseAnalyzeSSHOutputInstallImageOutErr{
-			err:                         sshclient.ErrConnectionRefused,
+			err:                         syscall.ECONNREFUSED,
 			rescueActive:                false,
 			expectedIsTimeout:           false,
 			expectedIsConnectionRefused: true,
@@ -1056,7 +1057,7 @@ var _ = Describe("analyzeSSHOutputInstallImage", func() {
 			expectedErrMessage:          "wrong ssh key",
 		}),
 		Entry("connectionRefused error, port 22", testCaseAnalyzeSSHOutputInstallImageOutErr{
-			err:                         sshclient.ErrConnectionRefused,
+			err:                         syscall.ECONNREFUSED,
 			errFromGetHostNameNil:       true,
 			port:                        22,
 			expectedIsTimeout:           false,
@@ -1064,7 +1065,7 @@ var _ = Describe("analyzeSSHOutputInstallImage", func() {
 			expectedErrMessage:          "",
 		}),
 		Entry("connectionRefused error, port != 22, hostname error", testCaseAnalyzeSSHOutputInstallImageOutErr{
-			err:                         sshclient.ErrConnectionRefused,
+			err:                         syscall.ECONNREFUSED,
 			errFromGetHostNameNil:       false,
 			port:                        23,
 			expectedIsTimeout:           false,
@@ -1072,7 +1073,7 @@ var _ = Describe("analyzeSSHOutputInstallImage", func() {
 			expectedErrMessage:          "",
 		}),
 		Entry("connectionRefused error, port != 22, no hostname error", testCaseAnalyzeSSHOutputInstallImageOutErr{
-			err:                         sshclient.ErrConnectionRefused,
+			err:                         syscall.ECONNREFUSED,
 			errFromGetHostNameNil:       true,
 			port:                        23,
 			expectedIsTimeout:           false,
@@ -1247,7 +1248,7 @@ var _ = Describe("analyzeSSHOutputProvisioned", func() {
 			expectedErrMessage:          ptr.To("wrong ssh key"),
 		}),
 		Entry("connection refused", testCaseAnalyzeSSHOutputProvisioned{
-			out:                         sshclient.Output{Err: sshclient.ErrConnectionRefused},
+			out:                         sshclient.Output{Err: syscall.ECONNREFUSED},
 			expectedIsTimeout:           false,
 			expectedIsConnectionRefused: true,
 			expectedErrMessage:          nil,
@@ -1386,7 +1387,7 @@ var _ = Describe("actionRegistering", func() {
 			expectedErrorType: infrav1.ErrorTypeSSHRebootTriggered,
 		}),
 		Entry("connectionRefused", testCaseActionRegisteringIncompleteBoot{
-			getHostNameOutput: sshclient.Output{Err: sshclient.ErrConnectionRefused},
+			getHostNameOutput: sshclient.Output{Err: syscall.ECONNREFUSED},
 			expectedErrorType: infrav1.ErrorTypeConnectionError,
 		}),
 	)
@@ -1689,7 +1690,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 		),
 		Entry("connectionFailed, same ports",
 			testCaseActionEnsureProvisioned{
-				outSSHClientGetHostName:                sshclient.Output{Err: sshclient.ErrConnectionRefused},
+				outSSHClientGetHostName:                sshclient.Output{Err: syscall.ECONNREFUSED},
 				outSSHClientCloudInitStatus:            sshclient.Output{},
 				outSSHClientCheckSigterm:               sshclient.Output{},
 				outOldSSHClientCloudInitStatus:         sshclient.Output{},
