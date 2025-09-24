@@ -132,7 +132,7 @@ func main() {
 		}
 	}
 
-	// If ImageURLCommand is set, check if the file exists and validate the basename.
+	// If hcloudImageURLCommand is set, check if the file exists and validate the basename.
 	if hcloudImageURLCommand != "" {
 		baseName := filepath.Base(hcloudImageURLCommand)
 		if !commandRegex.MatchString(baseName) {
@@ -144,6 +144,22 @@ func main() {
 		_, err := os.Stat(hcloudImageURLCommand)
 		if err != nil {
 			setupLog.Error(err, "hcloud-image-url-command not found")
+			os.Exit(1)
+		}
+	}
+
+	// If baremetalImageURLCommand is set, check if the file exists and validate the basename.
+	if baremetalImageURLCommand != "" {
+		baseName := filepath.Base(baremetalImageURLCommand)
+		if !commandRegex.MatchString(baseName) {
+			msg := fmt.Sprintf("basename (%s) must match the regex %s", baseName, commandRegex.String())
+			setupLog.Error(errors.New(msg), "")
+			os.Exit(1)
+		}
+
+		_, err := os.Stat(baremetalImageURLCommand)
+		if err != nil {
+			setupLog.Error(err, "baremetal-image-url-command not found")
 			os.Exit(1)
 		}
 	}

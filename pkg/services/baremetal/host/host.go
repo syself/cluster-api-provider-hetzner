@@ -1279,6 +1279,15 @@ func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context
 		if err != nil {
 			return actionError{err: fmt.Errorf("baremetal GetRawBootstrapData failed: %w", err)}
 		}
+		if s.scope.ImageURLCommand == "" {
+			err = errors.New("internal error: --baremetal-image-url-command is not set?")
+			s.scope.Logger.Error(err, "")
+			conditions.MarkFalse(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition,
+				string(s.scope.HetznerBareMetalHost.Spec.Status.ProvisioningState),
+				clusterv1.ConditionSeverityWarning,
+				"%s", err.Error())
+			return actionError{err: err}
+		}
 		exitStatus, stdoutStderr, err := sshClient.StartImageURLCommand(ctx, s.scope.ImageURLCommand, s.scope.HetznerBareMetalHost.Spec.Status.InstallImage.Image.URL, data, s.scope.Name())
 		if err != nil {
 			err := fmt.Errorf("StartImageURLCommand failed (retrying): %w", err)
