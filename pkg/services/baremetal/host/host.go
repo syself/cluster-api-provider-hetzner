@@ -1231,7 +1231,7 @@ func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context
 		conditions.MarkFalse(host, infrav1.ServerAvailableCondition,
 			string(host.Spec.Status.ProvisioningState), clusterv1.ConditionSeverityInfo,
 			"image-url-command still running")
-		return actionContinue{delay: 5 * time.Second}
+		return actionContinue{delay: 10 * time.Second}
 
 	case sshclient.ImageURLCommandStateFinishedSuccessfully:
 		conditions.MarkFalse(host, infrav1.ServerAvailableCondition,
