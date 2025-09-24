@@ -628,6 +628,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 		err = errors.New(msg)
 		s.scope.Logger.Error(err, "", "logFile", logFile)
 		s.scope.SetError(msg, capierrors.CreateMachineError)
+		record.Warn(hm, "ImageURLCommandFailed", logFile)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
 			"%s", msg)
@@ -642,12 +643,8 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 
 	case sshclient.ImageURLCommandStateFinishedSuccessfully:
-		out := hcloudSSHClient.Reboot()
-		exitStatus, err := out.ExitStatus()
-		if exitStatus != 0 {
-			err = fmt.Errorf("exit status: %d", exitStatus)
-		}
-		if err != nil {
+		record.Event(hm, "ImageURLCommandSuccessful", logFile)
+		if hcloudSSHClient.Reboot().Err != nil {
 			return reconcile.Result{}, fmt.Errorf("reboot after ImageURLCommand failed: %w",
 				err)
 		}
@@ -804,7 +801,7 @@ func (s *Service) Delete(ctx context.Context) (res reconcile.Result, err error) 
 	if server == nil {
 		msg := fmt.Sprintf("Unable to delete HCloud server. Could not find matching server for %s", s.scope.Name())
 		s.scope.V(1).Info(msg)
-		record.Warnf(s.scope.HCloudMachine, "NoInstanceFound", msg)
+		record.Warn(s.scope.HCloudMachine, "NoInstanceFound", msg)
 		return res, nil
 	}
 
@@ -1228,7 +1225,7 @@ func (s *Service) getServerImage(ctx context.Context, imageName string) (*hcloud
 	if len(images) > 1 {
 		err := fmt.Errorf("image is ambiguous - %d images have name %s",
 			len(images), imageName)
-		record.Warnf(s.scope.HCloudMachine, "ImageNameAmbiguous", err.Error())
+		record.Warn(s.scope.HCloudMachine, "ImageNameAmbiguous", err.Error())
 		conditions.MarkFalse(s.scope.HCloudMachine,
 			infrav1.ServerCreateSucceededCondition,
 			infrav1.ImageAmbiguousReason,
@@ -1240,7 +1237,7 @@ func (s *Service) getServerImage(ctx context.Context, imageName string) (*hcloud
 	}
 	if len(images) == 0 {
 		err := fmt.Errorf("no image found with name %s", s.scope.HCloudMachine.Spec.ImageName)
-		record.Warnf(s.scope.HCloudMachine, "ImageNotFound", err.Error())
+		record.Warn(s.scope.HCloudMachine, "ImageNotFound", err.Error())
 		conditions.MarkFalse(s.scope.HCloudMachine,
 			infrav1.ServerCreateSucceededCondition,
 			infrav1.ImageNotFoundReason,
@@ -1401,7 +1398,7 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 
 	if len(servers) > 1 {
 		err := fmt.Errorf("found %d servers with name %s", len(servers), s.scope.Name())
-		record.Warnf(s.scope.HCloudMachine, "MultipleInstances", err.Error())
+		record.Warn(s.scope.HCloudMachine, "MultipleInstances", err.Error())
 		return nil, err
 	}
 

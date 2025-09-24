@@ -30,6 +30,12 @@ The env var OCI_REGISTRY_AUTH_TOKEN from the caph process will be set for the co
 The command must end with the last line containing IMAGE_URL_DONE. Otherwise the execution is
 considered to have failed.
 
+The controller uses url.ParseRequestURI (Go function) to validate the imageURL.
+
+A Kubernetes event will be created in both (success, failure) cases containing the output (stdout
+and stderr) of the script. If the script takes longer than 7 minutes, the controller cancels the
+provisioning.
+
 We measured these durations:
 
 | oldState | newState | avg(s) | min(s) | max(s) |

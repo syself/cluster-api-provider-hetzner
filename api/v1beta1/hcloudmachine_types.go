@@ -66,6 +66,8 @@ type HCloudMachineSpec struct {
 	// (stdout and stderr) of the script. If the script takes longer than 7 minutes, the
 	// controller cancels the provisioning.
 	//
+	// Docs: https://syself.com/docs/caph/developers/image-url-command
+	//
 	// ImageURL is mutually exclusive to "ImageName".
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:Optional
