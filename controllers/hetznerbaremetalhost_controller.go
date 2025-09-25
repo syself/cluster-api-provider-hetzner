@@ -23,9 +23,11 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
@@ -87,6 +89,62 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		}
 		return reconcile.Result{}, err
 	}
+
+	// ----------------------------------------------------------------
+	// Start: avoid conflict errors. Wait until local cache is up-to-date
+	// Won't be needed once this was implemented:
+	// https://github.com/kubernetes-sigs/controller-runtime/issues/3320
+	initialHost := bmHost.DeepCopy()
+	defer func() {
+		if cmp.Equal(initialHost, bmHost) {
+			// Nothing has changed. No need to wait.
+			return
+		}
+		startReadOwnWrite := time.Now()
+
+		// The object changed. Wait until the new version is in the local cache
+
+		// Get the latest version from the apiserver.
+		apiserverHost := &infrav1.HetznerBareMetalHost{}
+
+		// Use uncached APIReader
+		err := r.APIReader.Get(ctx, client.ObjectKeyFromObject(bmHost), apiserverHost)
+		if err != nil {
+			reterr = errors.Join(reterr,
+				fmt.Errorf("failed get apiserverHost via uncached APIReader: %w", err))
+			return
+		}
+
+		apiserverRV := apiserverHost.ResourceVersion
+
+		err = wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, 3*time.Second, true, func(ctx context.Context) (done bool, err error) {
+			// new resource, read from local cache
+			latestFromLocalCache := &infrav1.HCloudMachine{}
+			getErr := r.Get(ctx, client.ObjectKeyFromObject(apiserverHost), latestFromLocalCache)
+			if apierrors.IsNotFound(getErr) {
+				// the object was deleted. All is fine.
+				return true, nil
+			}
+			if getErr != nil {
+				return false, getErr
+			}
+			if len(latestFromLocalCache.ResourceVersion) > len(apiserverRV) {
+				// RV changed like from 999 to 1000
+				return true, nil
+			}
+			if latestFromLocalCache.ResourceVersion >= apiserverRV {
+				// RV of cache is equal, or ahead.
+				return true, nil
+			}
+			return false, nil
+		})
+		if err != nil {
+			log.Error(err, "cache sync failed after BootState change")
+		}
+		log.Info("Wait for update being in local cache", "durationWaitForLocalCacheSync", time.Since(startReadOwnWrite).Round(time.Millisecond))
+	}()
+	// End: avoid conflict errors. Wait until local cache is up-to-date
+	// ----------------------------------------------------------------
 
 	initialProvisioningState := bmHost.Spec.Status.ProvisioningState
 	defer func() {
