@@ -134,7 +134,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		res := svc.actionImageInstalling(ctx)
 		Expect(res).To(BeAssignableToTypeOf(actionContinue{}))
 		c := conditions.Get(host, infrav1.ProvisionSucceededCondition)
-		Expect(c.Message).To(ContainSubstring(`host (test-host) is still provisioning - state "image-installing"`))
+		Expect(c.Message).To(ContainSubstring(`image-url-command still running`))
 	})
 
 	It("reboots and completes when command finished successfully", func() {
@@ -200,7 +200,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		Expect(res).To(BeAssignableToTypeOf(actionContinue{}))
 		Expect(sshMock.AssertCalled(GinkgoT(), "StartImageURLCommand", mock.Anything, "image-url-command", host.Spec.Status.InstallImage.Image.URL, mock.Anything, svc.scope.Hostname(), []string{"nvme1n1"})).To(BeTrue())
 		c := conditions.Get(host, infrav1.ProvisionSucceededCondition)
-		Expect(c.Message).To(ContainSubstring(`host (test-host) is still provisioning - state "image-installing"`))
+		Expect(c.Message).To(ContainSubstring(`baremetal-image-url-command started`))
 	})
 
 	It("records failure when StartImageURLCommand returns non-zero exit", func() {

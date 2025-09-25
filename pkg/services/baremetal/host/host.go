@@ -1228,13 +1228,13 @@ func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context
 
 	switch state {
 	case sshclient.ImageURLCommandStateRunning:
-		conditions.MarkFalse(host, infrav1.ServerAvailableCondition,
+		conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
 			string(host.Spec.Status.ProvisioningState), clusterv1.ConditionSeverityInfo,
 			"image-url-command still running")
 		return actionContinue{delay: 10 * time.Second}
 
 	case sshclient.ImageURLCommandStateFinishedSuccessfully:
-		conditions.MarkFalse(host, infrav1.ServerAvailableCondition,
+		conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
 			string(host.Spec.Status.ProvisioningState), clusterv1.ConditionSeverityInfo,
 			"baremetal-image-url-command finished successfully. Rebooting now")
 
@@ -1326,7 +1326,7 @@ func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context
 			return s.recordActionFailure(infrav1.ProvisioningError, msg)
 		}
 
-		conditions.MarkFalse(s.scope.HetznerBareMetalHost, infrav1.ServerAvailableCondition,
+		conditions.MarkFalse(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition,
 			string(s.scope.HetznerBareMetalHost.Spec.Status.ProvisioningState),
 			clusterv1.ConditionSeverityInfo,
 			"baremetal-image-url-command started")
