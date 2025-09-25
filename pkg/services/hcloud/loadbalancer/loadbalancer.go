@@ -287,7 +287,10 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 }
 
 func (s *Service) createLoadBalancer(ctx context.Context) (*hcloud.LoadBalancer, error) {
-	opts := createOptsFromSpec(s.scope.HetznerCluster)
+	opts, err := createOptsFromSpec(s.scope.HetznerCluster)
+	if err != nil {
+		return nil, err
+	}
 	lb, err := s.scope.HCloudClient.CreateLoadBalancer(ctx, opts)
 	if err != nil {
 		err = fmt.Errorf("failed to create load balancer: %w", err)
@@ -309,7 +312,7 @@ func (s *Service) createLoadBalancer(ctx context.Context) (*hcloud.LoadBalancer,
 	return lb, nil
 }
 
-func createOptsFromSpec(hc *infrav1.HetznerCluster) hcloud.LoadBalancerCreateOpts {
+func createOptsFromSpec(hc *infrav1.HetznerCluster) (hcloud.LoadBalancerCreateOpts, error) {
 	// gather algorithm type
 	algorithmType := hc.Spec.ControlPlaneLoadBalancer.Algorithm.HCloudAlgorithmType()
 
@@ -321,6 +324,10 @@ func createOptsFromSpec(hc *infrav1.HetznerCluster) hcloud.LoadBalancerCreateOpt
 	var network *hcloud.Network
 	if hc.Status.Network != nil {
 		network = &hcloud.Network{ID: hc.Status.Network.ID}
+	}
+
+	if hc.Spec.ControlPlaneEndpoint == nil {
+		return hcloud.LoadBalancerCreateOpts{}, errors.New("hetznercluster.spec.controlPlaneEndpoint is not set")
 	}
 
 	listenPort := int(hc.Spec.ControlPlaneEndpoint.Port)
@@ -341,7 +348,7 @@ func createOptsFromSpec(hc *infrav1.HetznerCluster) hcloud.LoadBalancerCreateOpt
 				Proxyprotocol:   &proxyprotocol,
 			},
 		},
-	}
+	}, nil
 }
 
 // Delete implements the deletion of HCloud load balancers.

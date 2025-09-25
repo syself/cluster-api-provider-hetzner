@@ -122,7 +122,8 @@ var _ = Describe("createOptsFromSpec", func() {
 		hetznerCluster.Status.Network = nil
 		wantCreateOpts.Network = nil
 
-		createOpts := createOptsFromSpec(hetznerCluster)
+		createOpts, err := createOptsFromSpec(hetznerCluster)
+		Expect(err).To(BeNil())
 
 		// ignore random name
 		createOpts.Name = ""
@@ -131,7 +132,8 @@ var _ = Describe("createOptsFromSpec", func() {
 	})
 
 	It("creates specs for cluster with network", func() {
-		createOpts := createOptsFromSpec(hetznerCluster)
+		createOpts, err := createOptsFromSpec(hetznerCluster)
+		Expect(err).To(BeNil())
 
 		// ignore random name
 		createOpts.Name = ""
@@ -142,7 +144,8 @@ var _ = Describe("createOptsFromSpec", func() {
 	It("creates specs for cluster without load balancer name set", func() {
 		hetznerCluster.Spec.ControlPlaneLoadBalancer.Name = nil
 
-		createOpts := createOptsFromSpec(hetznerCluster)
+		createOpts, err := createOptsFromSpec(hetznerCluster)
+		Expect(err).To(BeNil())
 
 		// should generate correct name
 		Expect(createOpts.Name).To(HavePrefix("hetzner-cluster-kube-apiserver-"))
