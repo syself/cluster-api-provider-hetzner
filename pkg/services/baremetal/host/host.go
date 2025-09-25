@@ -1571,6 +1571,16 @@ func verifyConnectionRefused(sshClient sshclient.Client, port int) bool {
 // next: Provisioned
 func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult) {
 	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StateEnsureProvisioned)
+
+	if !s.scope.SSHAfterInstallImage {
+		// Command line argument `--baremetal-ssh-after-install-image=false` was used.
+		// This mean we do not connect via ssh to the machine after the image got installed.
+		record.Event(s.scope.HetznerBareMetalHost, "ServerProvisioned", "server successfully provisioned ('ensure-provisioned' was skipped)")
+		conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
+		s.scope.HetznerBareMetalHost.ClearError()
+		return actionComplete{}
+	}
+
 	sshClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
 		PrivateKey: sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.SecretRef).PrivateKey,
 		Port:       s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterInstallImage,
