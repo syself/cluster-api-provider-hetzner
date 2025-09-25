@@ -91,9 +91,10 @@ func newTestService(
 				Spec: helpers.GetDefaultHetznerClusterSpec(),
 			},
 			// Attention: this doesn't make sense if we test with constant node names
-			Cluster:         &clusterv1.Cluster{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}},
-			OSSSHSecret:     osSSHSecret,
-			RescueSSHSecret: rescueSSHSecret,
+			Cluster:              &clusterv1.Cluster{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}},
+			OSSSHSecret:          osSSHSecret,
+			RescueSSHSecret:      rescueSSHSecret,
+			SSHAfterInstallImage: true,
 		},
 	}
 }
