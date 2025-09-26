@@ -238,6 +238,20 @@ spec:
                       ErrorType indicates the type of failure encountered when the
                       OperationalStatus is OperationalStatusError.
                     type: string
+                  externalIDs:
+                    description: ExternalIDs contains values of external systems.
+                    properties:
+                      rebootAnnotationNodeBootID:
+                        description: |-
+                          RebootAnnotationNodeBootID reflects the BootID of the Node resource in the workload-cluster.
+                          Only set when the machine gets rebooted.
+                        type: string
+                      rebootAnnotationSince:
+                        description: RebootAnnotationSince indicates when the reboot
+                          via Annotation started.
+                        format: date-time
+                        type: string
+                    type: object
                   hardwareDetails:
                     description: StatusHardwareDetails are automatically gathered
                       and should not be modified by the user.

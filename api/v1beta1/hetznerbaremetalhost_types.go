@@ -189,6 +189,7 @@ const (
 	// RebootTypeSoftware defines the software reboot. "Send CTRL+ALT+DEL to the server".
 	RebootTypeSoftware RebootType = "sw"
 	// RebootTypeHardware defines the hardware reboot. "Execute an automatic hardware reset".
+	// The RebootTypeHardware is supported by all servers.
 	RebootTypeHardware RebootType = "hw"
 	// RebootTypeManual defines the manual reboot. "Order a manual power cycle".
 	RebootTypeManual RebootType = "man"
@@ -310,6 +311,22 @@ type ControllerGeneratedStatus struct {
 	// Conditions define the current service state of the HetznerBareMetalHost.
 	// +optional
 	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
+
+	// ExternalIDs contains values of external systems.
+	// +optional
+	ExternalIDs ExternalIDs `json:"externalIDs,omitzero"`
+}
+
+// ExternalIDs contains values of external systems.
+type ExternalIDs struct {
+	// RebootAnnotationNodeBootID reflects the BootID of the Node resource in the workload-cluster.
+	// Only set when the machine gets rebooted.
+	// +optional
+	RebootAnnotationNodeBootID string `json:"rebootAnnotationNodeBootID,omitempty"`
+
+	// RebootAnnotationSince indicates when the reboot via Annotation started.
+	// +optional
+	RebootAnnotationSince metav1.Time `json:"rebootAnnotationSince,omitzero"`
 }
 
 // GetIPAddress returns the IPv6 if set, otherwise the IPv4.

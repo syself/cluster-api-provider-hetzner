@@ -146,15 +146,15 @@ func (s *ClusterScope) ControlPlaneAPIEndpointPort() int32 {
 	return int32(s.HetznerCluster.Spec.ControlPlaneLoadBalancer.Port) //nolint:gosec // Validation for the port range (1 to 65535) is already done via kubebuilder.
 }
 
-// ClientConfig return a kubernetes client config for the cluster context.
-func (s *ClusterScope) ClientConfig(ctx context.Context) (clientcmd.ClientConfig, error) {
-	cluster := client.ObjectKey{
-		Name:      fmt.Sprintf("%s-%s", s.Cluster.Name, secret.Kubeconfig),
-		Namespace: s.Cluster.Namespace,
+// WorkloadClientConfigFromKubeconfigSecret creates a kubernetes client config from kubeconfig secret.
+func WorkloadClientConfigFromKubeconfigSecret(ctx context.Context, logger logr.Logger, cl client.Client, apiReader client.Reader, cluster *clusterv1.Cluster, hetznerCluster *infrav1.HetznerCluster) (clientcmd.ClientConfig, error) {
+	secretKey := client.ObjectKey{
+		Name:      fmt.Sprintf("%s-%s", cluster.Name, secret.Kubeconfig),
+		Namespace: cluster.Namespace,
 	}
 
-	secretManager := secretutil.NewSecretManager(s.Logger, s.Client, s.APIReader)
-	kubeconfigSecret, err := secretManager.AcquireSecret(ctx, cluster, s.HetznerCluster, false, false)
+	secretManager := secretutil.NewSecretManager(logger, cl, apiReader)
+	kubeconfigSecret, err := secretManager.AcquireSecret(ctx, secretKey, hetznerCluster, false, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to acquire secret: %w", err)
 	}
@@ -163,6 +163,11 @@ func (s *ClusterScope) ClientConfig(ctx context.Context) (clientcmd.ClientConfig
 		return nil, fmt.Errorf("missing key %q in secret data", secret.KubeconfigDataName)
 	}
 	return clientcmd.NewClientConfigFromBytes(kubeconfigBytes)
+}
+
+// ClientConfig return a kubernetes client config for the cluster context.
+func (s *ClusterScope) ClientConfig(ctx context.Context) (clientcmd.ClientConfig, error) {
+	return WorkloadClientConfigFromKubeconfigSecret(ctx, s.Logger, s.Client, s.APIReader, s.Cluster, s.HetznerCluster)
 }
 
 // ClientConfigWithAPIEndpoint returns a client config.
@@ -176,7 +181,7 @@ func (s *ClusterScope) ClientConfigWithAPIEndpoint(ctx context.Context, endpoint
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving rawConfig from clientConfig: %w", err)
 	}
-	// update cluster endpint in config
+	// update cluster endpoint in config
 	for key := range raw.Clusters {
 		raw.Clusters[key].Server = fmt.Sprintf("https://%s:%d", endpoint.Host, endpoint.Port)
 	}

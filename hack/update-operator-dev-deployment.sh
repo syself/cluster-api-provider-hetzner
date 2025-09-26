@@ -77,7 +77,7 @@ docker push "$image"
 
 kustomize build config/crd | kubectl apply -f -
 
-ns=$(kubectl get deployments.apps -A | grep caph-controller | cut -d' ' -f1)
+ns=$(kubectl get deployments.apps -A | { grep caph-controller || true; } | cut -d' ' -f1)
 if [[ -z $ns ]]; then
     echo "failed to get namespace for caph-controller"
     exit 1
