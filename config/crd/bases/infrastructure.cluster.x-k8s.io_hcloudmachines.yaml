@@ -295,11 +295,6 @@ spec:
               ready:
                 description: Ready is true when the provider resource is ready.
                 type: boolean
-              rebootToRescueCount:
-                description: 'RebootToRescueCount: number of times we tried to reboot
-                  into the rescue-system.'
-                format: int64
-                type: integer
               rebootViaSSH:
                 description: RebootViaSSH is the timestamp that the last reboot via
                   ssh was executed.

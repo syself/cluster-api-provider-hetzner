@@ -448,7 +448,6 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 	}
 
 	s.scope.Logger.Info("Reboot started (via ssh)")
-	hm.Status.RebootToRescueCount = 1
 	hm.Status.RebootViaSSH = metav1.Now()
 
 	hm.SetBootState(infrav1.HCloudBootStateBootingToRescue)
@@ -479,7 +478,7 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 		// It takes usually 40 seconds for RescueEnabled to switch to false.
 		// If it takes much longer, then the reboot seems to have failed.
 		duration := time.Since(hm.Status.RebootViaSSH.Time).Round(time.Second)
-		if duration < 2*time.Minute {
+		if duration < 3*time.Minute {
 			// No timeout yet. Requeue.
 			msg := fmt.Sprintf("Waiting until RescueEnabled is false (%s)", duration)
 			s.scope.Logger.Info(msg)
@@ -489,36 +488,14 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 		}
 
-		// The last reboot seems to have failed. Reboot again.
-
-		sshClient, err := s.getSSHClient(ctx)
-		if err != nil {
-			err = fmt.Errorf("getSSHClient failed: %w", err)
-			s.scope.Logger.Error(err, "")
-			conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-				string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
-				"%s", err.Error())
-			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
-		}
-		err = sshClient.Reboot().Err
-		if err != nil {
-			err = fmt.Errorf("bootingToRescue: reboot via ssh (again, %d) failed: %w",
-				hm.Status.RebootToRescueCount, err)
-			s.scope.Logger.Error(err, "")
-			conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-				string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
-				"%s", err.Error())
-			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
-		}
-
-		hm.Status.RebootViaSSH = metav1.Now()
-		hm.Status.RebootToRescueCount++
-		msg := fmt.Sprintf("Reboot started (again, RebootToRescueCount=%d)", hm.Status.RebootToRescueCount)
+		// The reboot seems to have failed. Stop provisioning.
+		msg := fmt.Sprintf("timeout after %s. Reboot has failed. Deleting machine", duration)
 		s.scope.Logger.Error(nil, msg)
+		s.scope.SetError(msg, capierrors.CreateMachineError)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			string(hm.Status.BootState), clusterv1.ConditionSeverityWarning,
 			"%s", msg)
-		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+		return reconcile.Result{}, nil
 	}
 
 	s.scope.Logger.Info("Rescue system seems to be running.",

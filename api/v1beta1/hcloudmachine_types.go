@@ -152,10 +152,6 @@ type HCloudMachineStatus struct {
 	// RebootViaSSH is the timestamp that the last reboot via ssh was executed.
 	// +optional
 	RebootViaSSH metav1.Time `json:"rebootViaSSH,omitzero"`
-
-	// RebootToRescueCount: number of times we tried to reboot into the rescue-system.
-	// +optional
-	RebootToRescueCount int64 `json:"rebootToRescueCount,omitzero"`
 }
 
 // HCloudMachine is the Schema for the hcloudmachines API.
