@@ -129,7 +129,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 				return false, getErr
 			}
 			if len(latestFromLocalCache.ResourceVersion) > len(apiserverRV) {
-				// RV changed like from 999 to 1000
+				// RV has changed like from "999" to "1000"
 				return true, nil
 			}
 			if latestFromLocalCache.ResourceVersion >= apiserverRV {

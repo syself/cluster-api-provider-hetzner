@@ -1234,10 +1234,6 @@ func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context
 		return actionContinue{delay: 10 * time.Second}
 
 	case sshclient.ImageURLCommandStateFinishedSuccessfully:
-		conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
-			string(host.Spec.Status.ProvisioningState), clusterv1.ConditionSeverityInfo,
-			"baremetal-image-url-command finished successfully. Rebooting now")
-
 		record.Event(s.scope.HetznerBareMetalHost, "ImageURLCommandOutput", logFile)
 		s.scope.Logger.Info("ImageURLCommandOutput", "logFile", logFile)
 
