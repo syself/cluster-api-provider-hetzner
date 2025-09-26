@@ -196,9 +196,6 @@ var _ = Factory(&sshFactory{})
 
 // NewClient implements the NewClient method of the factory interface.
 func (f *sshFactory) NewClient(in Input) Client {
-	if in.Port == 100 {
-		panic("todo ")
-	}
 	return &sshClient{
 		privateSSHKey: in.PrivateKey,
 		ip:            in.IP,
