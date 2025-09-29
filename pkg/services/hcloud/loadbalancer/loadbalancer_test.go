@@ -17,6 +17,8 @@ limitations under the License.
 package loadbalancer
 
 import (
+	"errors"
+
 	"github.com/go-logr/logr"
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	. "github.com/onsi/ginkgo/v2"
@@ -154,5 +156,12 @@ var _ = Describe("createOptsFromSpec", func() {
 		createOpts.Name = ""
 		wantCreateOpts.Name = ""
 		Expect(createOpts).To(Equal(wantCreateOpts))
+	})
+
+	It("returns ErrControlPlaneEndpointNotSet", func() {
+		hetznerCluster.Spec.ControlPlaneEndpoint = nil
+
+		_, err := createOptsFromSpec(hetznerCluster)
+		Expect(errors.Is(err, ErrControlPlaneEndpointNotSet)).To(BeTrue())
 	})
 })
