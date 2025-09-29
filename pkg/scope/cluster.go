@@ -29,11 +29,9 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
-	"sigs.k8s.io/cluster-api/util/secret"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
-	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 )
 
@@ -146,29 +144,9 @@ func (s *ClusterScope) ControlPlaneAPIEndpointPort() int32 {
 	return int32(s.HetznerCluster.Spec.ControlPlaneLoadBalancer.Port) //nolint:gosec // Validation for the port range (1 to 65535) is already done via kubebuilder.
 }
 
-// WorkloadClientConfigFromKubeconfigSecret creates a kubernetes client config from kubeconfig secret.
-func WorkloadClientConfigFromKubeconfigSecret(ctx context.Context, logger logr.Logger, cl client.Client, apiReader client.Reader, cluster *clusterv1.Cluster, hetznerCluster *infrav1.HetznerCluster) (clientcmd.ClientConfig, error) {
-	secretKey := client.ObjectKey{
-		Name:      fmt.Sprintf("%s-%s", cluster.Name, secret.Kubeconfig),
-		Namespace: cluster.Namespace,
-	}
-
-	secretManager := secretutil.NewSecretManager(logger, cl, apiReader)
-	kubeconfigSecret, err := secretManager.AcquireSecret(ctx, secretKey, hetznerCluster, false, false)
-	if err != nil {
-		return nil, fmt.Errorf("failed to acquire secret: %w", err)
-	}
-	kubeconfigBytes, ok := kubeconfigSecret.Data[secret.KubeconfigDataName]
-	if !ok {
-		return nil, fmt.Errorf("missing key %q in secret data (WorkloadClientConfigFromKubeconfigSecret)", secret.KubeconfigDataName)
-	}
-	return clientcmd.NewClientConfigFromBytes(kubeconfigBytes)
-}
-
 // ClientConfig return a kubernetes client config for the cluster context.
 func (s *ClusterScope) ClientConfig(ctx context.Context) (clientcmd.ClientConfig, error) {
-	panic(555) // This panic gets reached often, but no single test fails ... strange. TODO: Inject FakeClient to return a Node....
-	return WorkloadClientConfigFromKubeconfigSecret(ctx, s.Logger, s.Client, s.APIReader, s.Cluster, s.HetznerCluster)
+	return workloadClientConfigFromKubeconfigSecret(ctx, s.Logger, s.Client, s.APIReader, s.Cluster, s.HetznerCluster)
 }
 
 // ClientConfigWithAPIEndpoint returns a client config.

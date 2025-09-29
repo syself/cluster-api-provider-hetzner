@@ -95,48 +95,13 @@ func NewBareMetalHostScope(params BareMetalHostScopeParams) (*BareMetalHostScope
 		SecretManager:           params.SecretManager,
 		PreProvisionCommand:     params.PreProvisionCommand,
 		SSHAfterInstallImage:    params.SSHAfterInstallImage,
-		WorkloadClusterClientFactory: &RealWorkloadClusterClientFactory{
+		WorkloadClusterClientFactory: &realWorkloadClusterClientFactory{
 			logger:         params.Logger,
 			client:         params.Client,
 			cluster:        params.Cluster,
 			hetznerCluster: params.HetznerCluster,
 		},
 	}, nil
-}
-
-// WorkloadClusterClientFactory is interface to get a new controller-runtime Client to access a
-// workload-cluster.
-type WorkloadClusterClientFactory interface {
-	// NewWorkloadClient returns a new client connected to the workload-cluster
-	NewWorkloadClient(ctx context.Context) (client.Client, error)
-}
-
-type RealWorkloadClusterClientFactory struct {
-	logger         logr.Logger
-	client         client.Client
-	cluster        *clusterv1.Cluster
-	hetznerCluster *infrav1.HetznerCluster
-}
-
-func (f *RealWorkloadClusterClientFactory) NewWorkloadClient(ctx context.Context) (client.Client, error) {
-	wlConfig, err := WorkloadClientConfigFromKubeconfigSecret(ctx, f.logger,
-		f.client, f.client, f.cluster, f.hetznerCluster)
-	if err != nil {
-		return nil, fmt.Errorf("actionProvisioned (Reboot via Annotation),WorkloadClientConfigFromKubeconfigSecret failed: %w",
-			err)
-	}
-
-	// getting client
-	restConfig, err := wlConfig.ClientConfig()
-	if err != nil {
-		return nil, fmt.Errorf("actionProvisioned (Reboot via Annotation), failed to get rest config: %w", err)
-	}
-
-	wlClient, err := client.New(restConfig, client.Options{})
-	if err != nil {
-		return nil, fmt.Errorf("client.New failed: %w", err)
-	}
-	return wlClient, nil
 }
 
 // BareMetalHostScope defines the basic context for an actuator to operate upon.
