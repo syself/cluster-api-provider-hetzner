@@ -153,6 +153,7 @@ type HCloudMachineStatus struct {
 	RebootViaSSH metav1.Time `json:"rebootViaSSH,omitzero"`
 }
 
+// HCloudMachineStatusExternalIDs holds temporary data during the provisioning process.
 type HCloudMachineStatusExternalIDs struct {
 	// ActionIDEnableRescueSystem is the hcloud API Action result of EnableRescueSystem.
 	// +optional
