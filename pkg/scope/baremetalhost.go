@@ -95,24 +95,66 @@ func NewBareMetalHostScope(params BareMetalHostScopeParams) (*BareMetalHostScope
 		SecretManager:           params.SecretManager,
 		PreProvisionCommand:     params.PreProvisionCommand,
 		SSHAfterInstallImage:    params.SSHAfterInstallImage,
+		WorkloadClusterClientFactory: &RealWorkloadClusterClientFactory{
+			logger:         params.Logger,
+			client:         params.Client,
+			cluster:        params.Cluster,
+			hetznerCluster: params.HetznerCluster,
+		},
 	}, nil
+}
+
+// WorkloadClusterClientFactory is interface to get a new controller-runtime Client to access a
+// workload-cluster.
+type WorkloadClusterClientFactory interface {
+	// NewWorkloadClient returns a new client connected to the workload-cluster
+	NewWorkloadClient(ctx context.Context) (client.Client, error)
+}
+
+type RealWorkloadClusterClientFactory struct {
+	logger         logr.Logger
+	client         client.Client
+	cluster        *clusterv1.Cluster
+	hetznerCluster *infrav1.HetznerCluster
+}
+
+func (f *RealWorkloadClusterClientFactory) NewWorkloadClient(ctx context.Context) (client.Client, error) {
+	wlConfig, err := WorkloadClientConfigFromKubeconfigSecret(ctx, f.logger,
+		f.client, f.client, f.cluster, f.hetznerCluster)
+	if err != nil {
+		return nil, fmt.Errorf("actionProvisioned (Reboot via Annotation),WorkloadClientConfigFromKubeconfigSecret failed: %w",
+			err)
+	}
+
+	// getting client
+	restConfig, err := wlConfig.ClientConfig()
+	if err != nil {
+		return nil, fmt.Errorf("actionProvisioned (Reboot via Annotation), failed to get rest config: %w", err)
+	}
+
+	wlClient, err := client.New(restConfig, client.Options{})
+	if err != nil {
+		return nil, fmt.Errorf("client.New failed: %w", err)
+	}
+	return wlClient, nil
 }
 
 // BareMetalHostScope defines the basic context for an actuator to operate upon.
 type BareMetalHostScope struct {
 	logr.Logger
-	Client                  client.Client
-	SecretManager           *secretutil.SecretManager
-	RobotClient             robotclient.Client
-	SSHClientFactory        sshclient.Factory
-	HetznerBareMetalHost    *infrav1.HetznerBareMetalHost
-	HetznerBareMetalMachine *infrav1.HetznerBareMetalMachine
-	HetznerCluster          *infrav1.HetznerCluster
-	Cluster                 *clusterv1.Cluster
-	OSSSHSecret             *corev1.Secret
-	RescueSSHSecret         *corev1.Secret
-	PreProvisionCommand     string
-	SSHAfterInstallImage    bool
+	Client                       client.Client
+	SecretManager                *secretutil.SecretManager
+	RobotClient                  robotclient.Client
+	SSHClientFactory             sshclient.Factory
+	HetznerBareMetalHost         *infrav1.HetznerBareMetalHost
+	HetznerBareMetalMachine      *infrav1.HetznerBareMetalMachine
+	HetznerCluster               *infrav1.HetznerCluster
+	Cluster                      *clusterv1.Cluster
+	OSSSHSecret                  *corev1.Secret
+	RescueSSHSecret              *corev1.Secret
+	PreProvisionCommand          string
+	SSHAfterInstallImage         bool
+	WorkloadClusterClientFactory WorkloadClusterClientFactory
 }
 
 // Name returns the HetznerCluster name.

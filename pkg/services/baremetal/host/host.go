@@ -1821,32 +1821,9 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		host.Spec.Status.ExternalIDs.RebootAnnotationSince = metav1.Now()
 	}
 
-	wlConfig, err := scope.WorkloadClientConfigFromKubeconfigSecret(ctx, s.scope.Logger,
-		s.scope.Client, s.scope.Client, s.scope.Cluster, s.scope.HetznerCluster)
+	wlClient, err := s.scope.WorkloadClusterClientFactory.NewWorkloadClient(ctx)
 	if err != nil {
-		err = fmt.Errorf("actionProvisioned (Reboot via Annotation),WorkloadClientConfigFromKubeconfigSecret failed: %w",
-			err)
-		conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
-			infrav1.StillProvisioningReason,
-			clusterv1.ConditionSeverityWarning, "%s",
-			err.Error())
-		return actionError{err: err}
-	}
-
-	// getting client
-	restConfig, err := wlConfig.ClientConfig()
-	if err != nil {
-		err = fmt.Errorf("actionProvisioned (Reboot via Annotation), failed to get rest config: %w", err)
-		conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
-			infrav1.StillProvisioningReason,
-			clusterv1.ConditionSeverityWarning, "%s",
-			err.Error())
-		return actionError{err: err}
-	}
-
-	wlClient, err := client.New(restConfig, client.Options{})
-	if err != nil {
-		err = fmt.Errorf("actionProvisioned (Reboot via Annotation), failed to get client: %w", err)
+		err = fmt.Errorf("actionProvisioned (Reboot via Annotation), failed to get wlClient: %w", err)
 		conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
 			infrav1.StillProvisioningReason,
 			clusterv1.ConditionSeverityWarning, "%s",
@@ -1864,6 +1841,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 			err.Error())
 		return actionError{err: err}
 	}
+
 	if machine.Status.NodeRef == nil {
 		// Very unlikely, but we want to avoid a panic.
 		err = errors.New("machine.Status.NodeRef is nil?")
@@ -1877,7 +1855,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	node := &corev1.Node{}
 	err = wlClient.Get(ctx, client.ObjectKey{Name: nodeName}, node)
 	if err != nil {
-		err = fmt.Errorf("Getting Node in wl-cluster failed: %w", err)
+		err = fmt.Errorf("getting Node in wl-cluster failed: %w", err)
 		conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
 			infrav1.StillProvisioningReason,
 			clusterv1.ConditionSeverityWarning, "%s",
@@ -1888,6 +1866,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	currentBootID := node.Status.NodeInfo.BootID
 	if currentBootID == "" {
 		err = errors.New("node.Status.NodeInfo.BootID is empty?")
+		s.scope.Logger.Error(err, "")
 		conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
 			infrav1.StillProvisioningReason,
 			clusterv1.ConditionSeverityWarning, "%s",
@@ -1942,8 +1921,19 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 
 	// Reboot has been done already. Check whether it has been successful
 
+	if host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID == "" {
+		err := errors.New("internal error host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID not set")
+		s.scope.Logger.Error(err, "")
+		conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
+			infrav1.StillProvisioningReason,
+			clusterv1.ConditionSeverityWarning, "%s",
+			err.Error())
+		return actionError{err: err}
+	}
+
 	if host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID != currentBootID {
 		// Reboot has been successful
+		s.scope.Logger.Info(fmt.Sprintf("BootID changed: %q -> %q", host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID, currentBootID))
 		host.Spec.Status.Rebooted = false
 		host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = ""
 		host.Spec.Status.ExternalIDs.RebootAnnotationSince.Time = time.Time{}

@@ -1591,6 +1591,7 @@ var _ = Describe("actionProvisioned", func() {
 
 			if tc.shouldHaveRebootAnnotation {
 				host.SetAnnotations(map[string]string{infrav1.RebootAnnotation: "reboot"})
+				host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = fakeBootID
 			}
 
 			host.Spec.Status.Rebooted = tc.rebooted

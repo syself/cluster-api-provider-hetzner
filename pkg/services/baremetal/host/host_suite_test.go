@@ -17,6 +17,7 @@ limitations under the License.
 package host
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -28,6 +29,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/klog/v2/textlogger"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -70,6 +72,8 @@ func newTestHostStateMachine(host *infrav1.HetznerBareMetalHost, service *Servic
 	return newHostStateMachine(host, service, log)
 }
 
+var fakeBootID = "1234321"
+
 func newTestService(
 	host *infrav1.HetznerBareMetalHost,
 	robotClient robotclient.Client,
@@ -79,14 +83,75 @@ func newTestService(
 ) *Service {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(infrav1.AddToScheme(scheme))
+	utilruntime.Must(corev1.AddToScheme(scheme))
+	utilruntime.Must(clusterv1.AddToScheme(scheme))
 	c := fakeclient.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(host).Build()
+	ctx := context.Background()
+
+	capiMachine := &clusterv1.Machine{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      host.Name,
+			Namespace: host.Namespace,
+		},
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Machine",
+			APIVersion: clusterv1.GroupVersion.String(),
+		},
+		Status: clusterv1.MachineStatus{
+			NodeRef: &corev1.ObjectReference{
+				Kind:       "Node",
+				Name:       host.Name,
+				APIVersion: "v1",
+			},
+		},
+	}
+	err := c.Create(ctx, capiMachine)
+	if err != nil {
+		panic(err)
+	}
+
+	node := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: host.Name,
+		},
+		Status: corev1.NodeStatus{
+			NodeInfo: corev1.NodeSystemInfo{
+				BootID: fakeBootID,
+			},
+		},
+	}
+	err = c.Create(ctx, node)
+	if err != nil {
+		panic(err)
+	}
+
+	hbmm := &infrav1.HetznerBareMetalMachine{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      host.Name,
+			Namespace: host.Namespace,
+		},
+	}
+
+	hbmm.OwnerReferences = append(hbmm.OwnerReferences, metav1.OwnerReference{
+		APIVersion: capiMachine.APIVersion,
+		Kind:       capiMachine.Kind,
+		Name:       capiMachine.Name,
+		UID:        capiMachine.UID,
+	})
+
+	err = c.Create(ctx, hbmm)
+	if err != nil {
+		panic(err)
+	}
+
 	return &Service{
 		&scope.BareMetalHostScope{
-			Logger:               log,
-			Client:               c,
-			SSHClientFactory:     sshClientFactory,
-			RobotClient:          robotClient,
-			HetznerBareMetalHost: host,
+			Logger:                  log,
+			Client:                  c,
+			SSHClientFactory:        sshClientFactory,
+			RobotClient:             robotClient,
+			HetznerBareMetalHost:    host,
+			HetznerBareMetalMachine: hbmm,
 			HetznerCluster: &infrav1.HetznerCluster{
 				Spec: helpers.GetDefaultHetznerClusterSpec(),
 			},
@@ -95,6 +160,17 @@ func newTestService(
 			OSSSHSecret:          osSSHSecret,
 			RescueSSHSecret:      rescueSSHSecret,
 			SSHAfterInstallImage: true,
+			WorkloadClusterClientFactory: &fakeWorkloadClusterClientFactory{
+				client: c,
+			},
 		},
 	}
+}
+
+type fakeWorkloadClusterClientFactory struct {
+	client client.Client
+}
+
+func (f *fakeWorkloadClusterClientFactory) NewWorkloadClient(ctx context.Context) (client.Client, error) {
+	return f.client, nil
 }

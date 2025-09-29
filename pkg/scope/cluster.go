@@ -160,13 +160,14 @@ func WorkloadClientConfigFromKubeconfigSecret(ctx context.Context, logger logr.L
 	}
 	kubeconfigBytes, ok := kubeconfigSecret.Data[secret.KubeconfigDataName]
 	if !ok {
-		return nil, fmt.Errorf("missing key %q in secret data", secret.KubeconfigDataName)
+		return nil, fmt.Errorf("missing key %q in secret data (WorkloadClientConfigFromKubeconfigSecret)", secret.KubeconfigDataName)
 	}
 	return clientcmd.NewClientConfigFromBytes(kubeconfigBytes)
 }
 
 // ClientConfig return a kubernetes client config for the cluster context.
 func (s *ClusterScope) ClientConfig(ctx context.Context) (clientcmd.ClientConfig, error) {
+	panic(555) // This panic gets reached often, but no single test fails ... strange. TODO: Inject FakeClient to return a Node....
 	return WorkloadClientConfigFromKubeconfigSecret(ctx, s.Logger, s.Client, s.APIReader, s.Cluster, s.HetznerCluster)
 }
 
