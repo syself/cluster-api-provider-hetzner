@@ -22,12 +22,13 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
-	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	"k8s.io/client-go/tools/clientcmd"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/secret"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 )
 
 // workloadClientConfigFromKubeconfigSecret creates a kubernetes client config from kubeconfig secret.

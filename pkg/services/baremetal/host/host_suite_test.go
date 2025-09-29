@@ -171,6 +171,6 @@ type fakeWorkloadClusterClientFactory struct {
 	client client.Client
 }
 
-func (f *fakeWorkloadClusterClientFactory) NewWorkloadClient(ctx context.Context) (client.Client, error) {
+func (f *fakeWorkloadClusterClientFactory) NewWorkloadClient(_ context.Context) (client.Client, error) {
 	return f.client, nil
 }
