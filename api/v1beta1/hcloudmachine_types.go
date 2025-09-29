@@ -145,13 +145,18 @@ type HCloudMachineStatus struct {
 	// +optional
 	BootStateSince metav1.Time `json:"bootStateSince,omitzero"`
 
-	// ActionIDEnableRescueSystem is the hcloud API Action result of EnableRescueSystem.
-	// +optional
-	ActionIDEnableRescueSystem int64 `json:"actionIdEnableRescueSystem,omitzero"`
+	// ExternalIDs contains temporary data during the provisioning process
+	ExternalIDs HCloudMachineStatusExternalIDs `json:"externalIDs,omitempty"`
 
 	// RebootViaSSH is the timestamp that the last reboot via ssh was executed.
 	// +optional
 	RebootViaSSH metav1.Time `json:"rebootViaSSH,omitzero"`
+}
+
+type HCloudMachineStatusExternalIDs struct {
+	// ActionIDEnableRescueSystem is the hcloud API Action result of EnableRescueSystem.
+	// +optional
+	ActionIDEnableRescueSystem int64 `json:"actionIdEnableRescueSystem,omitzero"`
 }
 
 // HCloudMachine is the Schema for the hcloudmachines API.

@@ -312,7 +312,7 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 	// The API of hetzner is async. We get an Action-ID as result. We need to wait until the action
 	// is done. After that we can trigger the reboot, so that the machine boots into the rescue
 	// system.
-	hm.Status.ActionIDEnableRescueSystem = result.Action.ID
+	hm.Status.ExternalIDs.ActionIDEnableRescueSystem = result.Action.ID
 
 	hm.SetBootState(infrav1.HCloudBootStateEnablingRescue)
 
@@ -340,7 +340,7 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 
 	updateHCloudMachineStatusFromServer(hm, server)
 
-	if hm.Status.ActionIDEnableRescueSystem == 0 {
+	if hm.Status.ExternalIDs.ActionIDEnableRescueSystem == 0 {
 		msg := "handleBootStateEnablingRescue ActionIdEnableRescueSystem not set? Can not continue. Provisioning Failed"
 		s.scope.Logger.Error(nil, msg)
 		s.scope.SetError(msg, capierrors.CreateMachineError)
@@ -350,8 +350,8 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 		return reconcile.Result{}, nil
 	}
 
-	if hm.Status.ActionIDEnableRescueSystem != actionDone {
-		action, err := s.scope.HCloudClient.GetAction(ctx, hm.Status.ActionIDEnableRescueSystem)
+	if hm.Status.ExternalIDs.ActionIDEnableRescueSystem != actionDone {
+		action, err := s.scope.HCloudClient.GetAction(ctx, hm.Status.ExternalIDs.ActionIDEnableRescueSystem)
 		if err != nil {
 			err = fmt.Errorf("GetAction failed: %w", err)
 			s.scope.Logger.Error(err, "")
@@ -385,7 +385,7 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 			"finishedSince", time.Since(action.Finished),
 			"actionStatus", action.Status)
 
-		hm.Status.ActionIDEnableRescueSystem = actionDone
+		hm.Status.ExternalIDs.ActionIDEnableRescueSystem = actionDone
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			string(hm.Status.BootState), clusterv1.ConditionSeverityInfo,
 			"Action RescueEnabled is finished")
@@ -693,7 +693,7 @@ func (s *Service) handleOperatingSystemRunning(ctx context.Context, server *hclo
 	updateHCloudMachineStatusFromServer(hm, server)
 
 	// Clean up old Status fields
-	hm.Status.ActionIDEnableRescueSystem = 0
+	hm.Status.ExternalIDs.ActionIDEnableRescueSystem = 0
 	hm.Status.RebootViaSSH.Time = time.Time{}
 
 	// check whether server is attached to the network
