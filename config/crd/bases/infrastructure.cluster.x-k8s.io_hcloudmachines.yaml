@@ -293,11 +293,6 @@ spec:
               ready:
                 description: Ready is true when the provider resource is ready.
                 type: boolean
-              rebootViaSSH:
-                description: RebootViaSSH is the timestamp that the last reboot via
-                  ssh was executed.
-                format: date-time
-                type: string
               region:
                 description: Region contains the name of the HCloud location the server
                   is running.
