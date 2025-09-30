@@ -317,7 +317,7 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 	hm.SetBootState(infrav1.HCloudBootStateEnablingRescue)
 
 	conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-		"InitializingWaitForRescueSystem", clusterv1.ConditionSeverityInfo,
+		"WaitForRescueSystem", clusterv1.ConditionSeverityInfo,
 		"waiting for rescue system to be enabled")
 	return reconcile.Result{RequeueAfter: 4 * time.Second}, nil
 }
@@ -373,7 +373,7 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 			s.scope.Logger.Error(err, "")
 			s.scope.SetError(err.Error(), capierrors.CreateMachineError)
 			conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-				"EnablingRescueActionError", clusterv1.ConditionSeverityWarning,
+				"EnablingRescueActionFailed", clusterv1.ConditionSeverityWarning,
 				"%s", err.Error())
 			return reconcile.Result{}, nil
 		}
