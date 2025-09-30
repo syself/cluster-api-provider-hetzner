@@ -253,8 +253,8 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		requeueAfter = 10 * time.Second
 	}
 	conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-		"ProviderIDSet", clusterv1.ConditionSeverityInfo,
-		"ProviderID set")
+		"ProvisioningServer", clusterv1.ConditionSeverityInfo,
+		"Provisioning and rebooting server")
 	return reconcile.Result{RequeueAfter: requeueAfter}, nil
 }
 
