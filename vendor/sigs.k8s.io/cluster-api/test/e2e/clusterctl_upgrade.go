@@ -53,6 +53,7 @@ import (
 	"sigs.k8s.io/cluster-api/test/framework/bootstrap"
 	"sigs.k8s.io/cluster-api/test/framework/clusterctl"
 	"sigs.k8s.io/cluster-api/util"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/conditions/v1beta2"
 )
 
 // ClusterctlUpgradeSpecInput is the input for ClusterctlUpgradeSpec.
@@ -105,7 +106,7 @@ type ClusterctlUpgradeSpecInput struct {
 	// InfrastructureProviders specifies the infrastructure to use for clusterctl
 	// operations (Example: get cluster templates).
 	// Note: In most cases this need not be specified. It only needs to be specified when
-	// multiple infrastructure providers (ex: CAPD + in-memory) are installed on the cluster as clusterctl will not be
+	// multiple infrastructure providers are installed on the cluster as clusterctl will not be
 	// able to identify the default.
 	InfrastructureProvider *string
 	// Allows to inject a function to be run after test namespace is created.
@@ -153,6 +154,9 @@ type ClusterctlUpgradeSpecInputUpgrade struct {
 	IPAMProviders             []string
 	RuntimeExtensionProviders []string
 	AddonProviders            []string
+
+	// PostUpgrade is called after the upgrade is completed.
+	PostUpgrade func(proxy framework.ClusterProxy, namespace string, clusterName string)
 }
 
 // ClusterctlUpgradeSpec implements a test that verifies clusterctl upgrade of a management cluster.
@@ -273,7 +277,7 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 				RequiresDockerSock: input.E2EConfig.HasDockerProvider(),
 				// Note: most of this images won't be used while starting the controllers, because it is used to spin up older versions of CAPI. Those images will be eventually used when upgrading to current.
 				Images:    input.E2EConfig.Images,
-				IPFamily:  input.E2EConfig.GetVariable(IPFamily),
+				IPFamily:  input.E2EConfig.MustGetVariable(IPFamily),
 				LogFolder: filepath.Join(managementClusterLogFolder, "logs-kind"),
 			})
 			Expect(managementClusterProvider).ToNot(BeNil(), "Failed to create a kind cluster")
@@ -416,7 +420,7 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 		workloadClusterNamespace := testNamespace.Name
 		kubernetesVersion := input.WorkloadKubernetesVersion
 		if kubernetesVersion == "" {
-			kubernetesVersion = input.E2EConfig.GetVariable(KubernetesVersion)
+			kubernetesVersion = input.E2EConfig.MustGetVariable(KubernetesVersion)
 		}
 		controlPlaneMachineCount := ptr.To[int64](1)
 		if input.ControlPlaneMachineCount != nil {
@@ -698,6 +702,14 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 				}
 			}
 
+			if upgrade.PostUpgrade != nil {
+				upgrade.PostUpgrade(managementClusterProxy, workloadCluster.Namespace, workloadCluster.Name)
+			}
+
+			Byf("[%d] Verify v1beta2 Available and Ready conditions (if exist) to be true for Cluster and Machines", i)
+			verifyV1Beta2ConditionsTrue(ctx, managementClusterProxy.GetClient(), workloadCluster.Name, workloadCluster.Namespace,
+				[]string{clusterv1.AvailableV1Beta2Condition, clusterv1.ReadyV1Beta2Condition})
+
 			Byf("[%d] Verify client-side SSA still works", i)
 			clusterUpdate := &unstructured.Unstructured{}
 			clusterUpdate.SetGroupVersionKind(clusterv1.GroupVersion.WithKind("Cluster"))
@@ -718,7 +730,7 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 	AfterEach(func() {
 		if testNamespace != nil {
 			// Dump all the logs from the workload cluster before deleting them.
-			framework.DumpAllResourcesAndLogs(ctx, managementClusterProxy, input.ArtifactFolder, testNamespace, managementClusterResources.Cluster)
+			framework.DumpAllResourcesAndLogs(ctx, managementClusterProxy, input.ClusterctlConfigPath, input.ArtifactFolder, testNamespace, managementClusterResources.Cluster)
 
 			if !input.SkipCleanup {
 				Byf("Deleting all clusters in namespace %s in management cluster %s", testNamespace.Name, managementClusterName)
@@ -755,9 +767,41 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 				managementClusterProvider.Dispose(ctx)
 			}
 		} else {
-			framework.DumpSpecResourcesAndCleanup(ctx, specName, input.BootstrapClusterProxy, input.ArtifactFolder, managementClusterNamespace, managementClusterCancelWatches, managementClusterResources.Cluster, input.E2EConfig.GetIntervals, input.SkipCleanup)
+			framework.DumpSpecResourcesAndCleanup(ctx, specName, input.BootstrapClusterProxy, input.ClusterctlConfigPath, input.ArtifactFolder, managementClusterNamespace, managementClusterCancelWatches, managementClusterResources.Cluster, input.E2EConfig.GetIntervals, input.SkipCleanup)
 		}
 	})
+}
+
+// verifyV1Beta2ConditionsTrue checks the Cluster and Machines of a Cluster that
+// the given v1beta2 condition types are set to true without a message, if they exist.
+func verifyV1Beta2ConditionsTrue(ctx context.Context, c client.Client, clusterName, clusterNamespace string, v1beta2conditionTypes []string) {
+	cluster := framework.GetClusterByName(ctx, framework.GetClusterByNameInput{
+		Getter:    c,
+		Name:      clusterName,
+		Namespace: clusterNamespace,
+	})
+	for _, conditionType := range v1beta2conditionTypes {
+		if v1beta2conditions.Has(cluster, conditionType) {
+			condition := v1beta2conditions.Get(cluster, conditionType)
+			Expect(condition.Status).To(Equal(metav1.ConditionTrue), "The v1beta2 condition %q on the Cluster should be set to true", conditionType)
+			Expect(condition.Message).To(BeEmpty(), "The v1beta2 condition %q on the Cluster should have an empty message", conditionType)
+		}
+	}
+
+	machines := framework.GetMachinesByCluster(ctx, framework.GetMachinesByClusterInput{
+		Lister:      c,
+		ClusterName: clusterName,
+		Namespace:   clusterNamespace,
+	})
+	for _, machine := range machines {
+		for _, conditionType := range v1beta2conditionTypes {
+			if v1beta2conditions.Has(&machine, conditionType) {
+				condition := v1beta2conditions.Get(&machine, conditionType)
+				Expect(condition.Status).To(Equal(metav1.ConditionTrue), "The v1beta2 condition %q on the Machine %q should be set to true", conditionType, machine.Name)
+				Expect(condition.Message).To(BeEmpty(), "The v1beta2 condition %q on the Machine %q should have an empty message", conditionType, machine.Name)
+			}
+		}
+	}
 }
 
 func setupClusterctl(ctx context.Context, clusterctlBinaryURL, clusterctlConfigPath string) (string, string) {
@@ -903,7 +947,7 @@ func calculateExpectedMachinePoolMachineCount(ctx context.Context, c client.Clie
 		client.MatchingLabels{clusterv1.ClusterNameLabel: workloadClusterName},
 	); err == nil {
 		for _, mp := range machinePoolList.Items {
-			infraMachinePool, err := external.Get(ctx, c, &mp.Spec.Template.Spec.InfrastructureRef, workloadClusterNamespace)
+			infraMachinePool, err := external.Get(ctx, c, &mp.Spec.Template.Spec.InfrastructureRef)
 			if err != nil {
 				return 0, err
 			}

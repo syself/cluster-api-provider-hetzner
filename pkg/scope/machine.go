@@ -28,7 +28,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	capierrors "sigs.k8s.io/cluster-api/errors"
+	capierrors "sigs.k8s.io/cluster-api/errors" //nolint:staticcheck // we will handle that, when we update to capi v1.11
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
@@ -122,6 +122,7 @@ func (m *MachineScope) PatchObject(ctx context.Context) error {
 // SetError sets the ErrorMessage and ErrorReason fields on the machine and logs
 // the message. It assumes the reason is invalid configuration, since that is
 // currently the only relevant MachineStatusError choice.
+// CAPI will delete the machine and create a new one.
 func (m *MachineScope) SetError(message string, reason capierrors.MachineStatusError) {
 	m.HCloudMachine.Status.FailureMessage = &message
 	m.HCloudMachine.Status.FailureReason = &reason

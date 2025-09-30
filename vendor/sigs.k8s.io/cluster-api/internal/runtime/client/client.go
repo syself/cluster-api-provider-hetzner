@@ -92,7 +92,7 @@ func (c *client) IsReady() bool {
 
 func (c *client) Discover(ctx context.Context, extensionConfig *runtimev1.ExtensionConfig) (*runtimev1.ExtensionConfig, error) {
 	log := ctrl.LoggerFrom(ctx)
-	log.Info("Performing discovery for ExtensionConfig")
+	log.V(4).Info("Performing discovery for ExtensionConfig")
 
 	hookGVH, err := c.catalog.GroupVersionHook(runtimehooksv1.Discovery)
 	if err != nil {
@@ -471,7 +471,7 @@ func httpCall(ctx context.Context, request, response runtime.Object, opts *httpC
 		extensionURL.RawQuery = values.Encode()
 
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, opts.timeout)
+		ctx, cancel = context.WithTimeoutCause(ctx, opts.timeout, errors.New("http request timeout expired"))
 		defer cancel()
 	}
 

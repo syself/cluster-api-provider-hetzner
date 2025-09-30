@@ -164,9 +164,9 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 		patchOpts := []patch.Option{}
 		patchOpts = append(patchOpts, patch.WithStatusObservedGeneration{})
 
-		if err := remediationScope.Close(ctx, patchOpts...); err != nil && reterr == nil {
+		if err := remediationScope.Close(ctx, patchOpts...); err != nil {
 			res = reconcile.Result{}
-			reterr = err
+			reterr = errors.Join(reterr, err)
 		}
 	}()
 
@@ -201,6 +201,6 @@ func (r *HCloudRemediationReconciler) SetupWithManager(ctx context.Context, mgr 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&infrav1.HCloudRemediation{}).
 		WithOptions(options).
-		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(ctrl.LoggerFrom(ctx), r.WatchFilterValue)).
+		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(mgr.GetScheme(), ctrl.LoggerFrom(ctx), r.WatchFilterValue)).
 		Complete(r)
 }

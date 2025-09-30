@@ -25,7 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/selection"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	capierrors "sigs.k8s.io/cluster-api/errors"
+	capierrors "sigs.k8s.io/cluster-api/errors" //nolint:staticcheck // we will handle that, when we update to capi v1.11
 )
 
 const (
@@ -121,8 +121,8 @@ type SSHSpec struct {
 	// +optional
 	PortAfterInstallImage int `json:"portAfterInstallImage"`
 
-	// PortAfterCloudInit specifies the port that has to be used to connect to the machine
-	// by reaching the server via SSH after the successful completion of cloud init.
+	// PortAfterCloudInit is deprecated. Since PR Install Cloud-Init-Data via post-install.sh #1407 this field is not functional.
+	// Deprecated: This field is not used anymore.
 	// +optional
 	PortAfterCloudInit int `json:"portAfterCloudInit"`
 }
@@ -340,19 +340,19 @@ type HetznerBareMetalMachine struct {
 }
 
 // GetConditions returns the observations of the operational state of the HetznerBareMetalMachine resource.
-func (bmMachine *HetznerBareMetalMachine) GetConditions() clusterv1.Conditions {
-	return bmMachine.Status.Conditions
+func (hbmm *HetznerBareMetalMachine) GetConditions() clusterv1.Conditions {
+	return hbmm.Status.Conditions
 }
 
 // SetConditions sets the underlying service state of the HetznerBareMetalMachine to the predescribed clusterv1.Conditions.
-func (bmMachine *HetznerBareMetalMachine) SetConditions(conditions clusterv1.Conditions) {
-	bmMachine.Status.Conditions = conditions
+func (hbmm *HetznerBareMetalMachine) SetConditions(conditions clusterv1.Conditions) {
+	hbmm.Status.Conditions = conditions
 }
 
 // SetFailure sets a failure reason and message.
-func (bmMachine *HetznerBareMetalMachine) SetFailure(reason capierrors.MachineStatusError, message string) {
-	bmMachine.Status.FailureReason = &reason
-	bmMachine.Status.FailureMessage = &message
+func (hbmm *HetznerBareMetalMachine) SetFailure(reason capierrors.MachineStatusError, message string) {
+	hbmm.Status.FailureReason = &reason
+	hbmm.Status.FailureMessage = &message
 }
 
 // GetImageSuffix tests whether the suffix is known and outputs it if yes. Otherwise it returns an error.
@@ -379,8 +379,8 @@ func GetImageSuffix(url string) (string, error) {
 }
 
 // HasHostAnnotation checks whether the annotation that references a host exists.
-func (bmMachine *HetznerBareMetalMachine) HasHostAnnotation() bool {
-	annotations := bmMachine.GetAnnotations()
+func (hbmm *HetznerBareMetalMachine) HasHostAnnotation() bool {
+	annotations := hbmm.GetAnnotations()
 	if annotations == nil {
 		return false
 	}

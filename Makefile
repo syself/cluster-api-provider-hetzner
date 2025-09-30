@@ -88,10 +88,6 @@ export KUBEBUILDER_ENVTEST_KUBERNETES_VERSION ?= 1.31.0
 ############
 # Binaries #
 ############
-CONTROLLER_GEN := $(abspath $(TOOLS_BIN_DIR)/controller-gen)
-controller-gen: $(CONTROLLER_GEN) ## Build a local copy of controller-gen
-$(CONTROLLER_GEN): # Build controller-gen from tools folder.
-	go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.14.0
 
 KUSTOMIZE := $(abspath $(TOOLS_BIN_DIR)/kustomize)
 kustomize: $(KUSTOMIZE) ## Build a local copy of kustomize
@@ -123,12 +119,6 @@ CLUSTERCTL := $(abspath $(TOOLS_BIN_DIR)/clusterctl)
 clusterctl: $(CLUSTERCTL) ## Build a local copy of clusterctl
 $(CLUSTERCTL):
 	go install sigs.k8s.io/cluster-api/cmd/clusterctl@v1.8.10
-
-HELM := $(abspath $(TOOLS_BIN_DIR)/helm)
-helm: $(HELM) ## Build a local copy of helm
-$(HELM):
-	curl -sSL https://get.helm.sh/helm-v3.13.2-$$(go env GOOS)-$$(go env GOARCH).tar.gz | tar xz -C $(TOOLS_BIN_DIR) --strip-components=1 $$(go env GOOS)-$$(go env GOARCH)/helm
-	chmod a+rx $(HELM)
 
 HCLOUD := $(abspath $(TOOLS_BIN_DIR)/hcloud)
 hcloud: $(HCLOUD) ## Build a local copy of hcloud
@@ -162,7 +152,7 @@ gotestsum: $(GOTESTSUM) # Build gotestsum from tools folder.
 $(GOTESTSUM):
 	go install gotest.tools/gotestsum@v1.11.0
 
-all-tools: $(GOTESTSUM) $(go-cover-treemap) $(go-binsize-treemap) $(KIND) $(KUBECTL) $(CLUSTERCTL) $(CTLPTL) $(SETUP_ENVTEST) $(ENVSUBST) $(KUSTOMIZE) $(CONTROLLER_GEN) $(HELM) ## Install all tools required for development
+all-tools: $(GOTESTSUM) $(go-cover-treemap) $(go-binsize-treemap) $(KIND) $(KUBECTL) $(CLUSTERCTL) $(CTLPTL) $(SETUP_ENVTEST) $(ENVSUBST) $(KUSTOMIZE) ## Install all tools required for development
 	echo 'done'
 
 ##@ Development
@@ -184,7 +174,7 @@ install-essentials: ## This gets the secret and installs a CNI and the CCM. Usag
 	$(MAKE) install-cilium-in-wl-cluster
 	$(MAKE) install-ccm-in-wl-cluster
 
-wait-and-get-secret:
+wait-and-get-secret: $(KUBECTL)
 	./hack/ensure-env-variables.sh CLUSTER_NAME
 	# Wait for the kubeconfig to become available.
 	rm -f $(WORKER_CLUSTER_KUBECONFIG)
@@ -193,21 +183,29 @@ wait-and-get-secret:
 	./hack/get-kubeconfig-of-workload-cluster.sh
 	${TIMEOUT} --foreground 15m bash -c "while ! $(KUBECTL) --kubeconfig=$(WORKER_CLUSTER_KUBECONFIG) get nodes | grep control-plane; do sleep 1; done"
 
-install-cilium-in-wl-cluster: $(HELM)
+install-cilium-in-wl-cluster:
 	# Deploy cilium
-	$(HELM) repo add cilium https://helm.cilium.io/
-	$(HELM) repo update cilium
-	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) $(HELM) upgrade --install cilium cilium/cilium \
+	helm repo add cilium https://helm.cilium.io/
+	helm repo update cilium
+	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) helm upgrade --install cilium cilium/cilium \
   		--namespace kube-system \
 		-f templates/cilium/cilium.yaml
 
+
 install-ccm-in-wl-cluster:
-	$(HELM) repo add syself https://charts.syself.com
-	$(HELM) repo update syself
-	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) $(HELM) upgrade --install ccm syself/ccm-hetzner --version 1.1.10 \
+ifeq ($(BUILD_IN_CONTAINER),true)
+	docker run  --rm \
+		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
+		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
+		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
+else
+	helm repo add syself https://charts.syself.com
+	helm repo update syself
+	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hetzner --version 2.0.1 \
 	--namespace kube-system \
 	--set privateNetwork.enabled=$(PRIVATE_NETWORK)
 	@echo 'run "kubectl --kubeconfig=$(WORKER_CLUSTER_KUBECONFIG) ..." to work with the new target cluster'
+endif
 
 add-ssh-pub-key:
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN SSH_KEY SSH_KEY_NAME
@@ -243,6 +241,7 @@ create-workload-cluster-hcloud-network: env-vars-for-wl-cluster $(KUSTOMIZE) $(E
 	$(MAKE) install-cilium-in-wl-cluster
 	$(MAKE) install-ccm-in-wl-cluster PRIVATE_NETWORK=true
 
+# Use that, if you want to test hcloud control-planes, hcloud worker and bm worker.
 create-workload-cluster-hetzner-hcloud-control-plane: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster.
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN HETZNER_ROBOT_USER HETZNER_ROBOT_PASSWORD HETZNER_SSH_PRIV_PATH HETZNER_SSH_PUB_PATH SSH_KEY_NAME
@@ -570,6 +569,17 @@ verify-manifests:
 verify-container-images: ## Verify container images
 	trivy image -q --exit-code 1 --ignore-unfixed --severity MEDIUM,HIGH,CRITICAL $(IMAGE_PREFIX)/$(INFRA_SHORT):latest
 
+.PHONY: verify-generated-files
+verify-generated-files: ## Verify geneated files in git repo
+ifeq ($(BUILD_IN_CONTAINER),true)
+	docker run  --rm \
+		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
+		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
+		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
+else
+	./hack/verify-generated-files.sh
+endif
+
 ##@ Generate
 ############
 # Generate #
@@ -581,7 +591,7 @@ generate-boilerplate: ## Generates missing boilerplates
 # support go modules
 generate-modules: ## Generates missing go modules
 ifeq ($(BUILD_IN_CONTAINER),true)
-	docker run  --rm -t -i \
+	docker run  --rm \
 		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
@@ -599,8 +609,17 @@ generate-modules-ci: generate-modules
 		exit 1; \
 	fi
 
-generate-manifests: $(CONTROLLER_GEN) ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN) \
+generate-manifests: ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
+ifeq ($(BUILD_IN_CONTAINER),true)
+	docker run  --rm \
+		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
+		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
+		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
+else
+	# Ensure that these old binaries are not longer used. We use
+	# these from the builder-image now.
+	rm -f ./hack/tools/bin/controller-gen ./hack/tools/bin/helm
+	controller-gen \
 			paths=./api/... \
 			paths=./controllers/... \
 			crd:crdVersions=v1 \
@@ -608,11 +627,19 @@ generate-manifests: $(CONTROLLER_GEN) ## Generate WebhookConfiguration, ClusterR
 			output:crd:dir=./config/crd/bases \
 			output:webhook:dir=./config/webhook \
 			webhook
+endif
 
-generate-go-deepcopy: $(CONTROLLER_GEN) ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
-	$(CONTROLLER_GEN) \
+generate-go-deepcopy: ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+ifeq ($(BUILD_IN_CONTAINER),true)
+	docker run  --rm \
+		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
+		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
+		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
+else
+	controller-gen \
 		object:headerFile="./hack/boilerplate/boilerplate.generatego.txt" \
 		paths="./api/..."
+endif
 
 generate-api-ci: generate-manifests generate-go-deepcopy
 	@if ! (git diff --exit-code ); then \
@@ -635,7 +662,7 @@ cluster-templates: $(KUSTOMIZE)
 .PHONY: format-golang
 format-golang: ## Format the Go codebase and run auto-fixers if supported by the linter.
 ifeq ($(BUILD_IN_CONTAINER),true)
-	docker run  --rm -t -i \
+	docker run  --rm \
 		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
@@ -652,7 +679,7 @@ format-starlark: ## Format the Starlark codebase
 .PHONY: format-yaml
 format-yaml: ## Lint YAML files
 ifeq ($(BUILD_IN_CONTAINER),true)
-	docker run  --rm -t -i \
+	docker run  --rm \
 		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
@@ -668,7 +695,7 @@ endif
 .PHONY: lint-golang
 lint-golang: ## Lint Golang codebase
 ifeq ($(BUILD_IN_CONTAINER),true)
-	docker run  --rm -t -i \
+	docker run  --rm \
 		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
@@ -681,7 +708,7 @@ endif
 .PHONY: lint-golang-ci
 lint-golang-ci:
 ifeq ($(BUILD_IN_CONTAINER),true)
-	docker run  --rm -t -i \
+	docker run  --rm \
 		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
@@ -694,7 +721,7 @@ endif
 .PHONY: lint-yaml
 lint-yaml: ## Lint YAML files
 ifeq ($(BUILD_IN_CONTAINER),true)
-	docker run  --rm -t -i \
+	docker run  --rm \
 		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
@@ -706,7 +733,7 @@ endif
 .PHONY: lint-yaml-ci
 lint-yaml-ci:
 ifeq ($(BUILD_IN_CONTAINER),true)
-	docker run  --rm -t -i \
+	docker run  --rm \
 		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
@@ -719,7 +746,7 @@ DOCKERFILES=$(shell find . -not \( -path ./hack -prune \) -not \( -path ./vendor
 .PHONY: lint-dockerfile
 lint-dockerfile: ## Lint Dockerfiles
 ifeq ($(BUILD_IN_CONTAINER),true)
-	docker run  --rm -t -i \
+	docker run  --rm \
 		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
@@ -730,7 +757,7 @@ endif
 
 lint-links: ## Link Checker
 ifeq ($(BUILD_IN_CONTAINER),true)
-	docker run --rm -t -i \
+	docker run --rm \
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
 else
@@ -751,13 +778,12 @@ format: format-starlark format-golang format-yaml ## Format Codebase
 .PHONY: generate-mocks
 generate-mocks: ## Generate Mocks
 ifeq ($(BUILD_IN_CONTAINER),true)
-	docker run  --rm -t -i \
+	docker run  --rm \
 		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
 else
-	cd pkg/services/baremetal/client; go run github.com/vektra/mockery/v2@v2.53.4
-	cd pkg/services/hcloud/client; go run github.com/vektra/mockery/v2@v2.53.4 --all
+	go run github.com/vektra/mockery/v2@v2.53.4
 endif
 
 .PHONY: generate
@@ -804,3 +830,10 @@ create-hetzner-installimage-tgz:
 	@echo "============= ↓↓↓↓↓ Now update the version number here ↓↓↓↓↓ ============="
 	@git ls-files | xargs grep -P 'hetzner-installimage.*v\d+\.\d+' || true
 	@echo "↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑"
+
+builder-image-shell: ## Start an interactive shell in the builder image.
+	docker run --rm -t -i \
+		--entrypoint bash \
+		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
+		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
+		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION)

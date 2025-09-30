@@ -20,7 +20,7 @@ import (
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	capierrors "sigs.k8s.io/cluster-api/errors"
+	capierrors "sigs.k8s.io/cluster-api/errors" //nolint:staticcheck // we will handle that, when we update to capi v1.11
 )
 
 const (
@@ -96,6 +96,19 @@ type HCloudMachineStatus struct {
 	// Conditions define the current service state of the HCloudMachine.
 	// +optional
 	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
+
+	// BootState indicates the current state during provisioning.
+	//
+	// The states will be:
+	// "" -> BootToRealOS -> OperatingSystemRunning
+	//
+	// +optional
+	BootState HCloudBootState `json:"bootState"`
+
+	// BootStateSince is the timestamp of the last change to BootState. It is used to timeout
+	// provisioning if a state takes too long.
+	// +optional
+	BootStateSince metav1.Time `json:"bootStateSince,omitzero"`
 }
 
 // HCloudMachine is the Schema for the hcloudmachines API.
@@ -118,11 +131,6 @@ type HCloudMachine struct {
 	Status HCloudMachineStatus `json:"status,omitempty"`
 }
 
-// HCloudMachineSpec returns a DeepCopy.
-func (r *HCloudMachine) HCloudMachineSpec() *HCloudMachineSpec {
-	return r.Spec.DeepCopy()
-}
-
 // GetConditions returns the observations of the operational state of the HCloudMachine resource.
 func (r *HCloudMachine) GetConditions() clusterv1.Conditions {
 	return r.Status.Conditions
@@ -131,6 +139,15 @@ func (r *HCloudMachine) GetConditions() clusterv1.Conditions {
 // SetConditions sets the underlying service state of the HCloudMachine to the predescribed clusterv1.Conditions.
 func (r *HCloudMachine) SetConditions(conditions clusterv1.Conditions) {
 	r.Status.Conditions = conditions
+}
+
+// SetBootState sets Status.BootStates and updates Status.BootStateSince.
+func (r *HCloudMachine) SetBootState(bootState HCloudBootState) {
+	if r.Status.BootState == bootState {
+		return
+	}
+	r.Status.BootState = bootState
+	r.Status.BootStateSince = metav1.Now()
 }
 
 //+kubebuilder:object:root=true

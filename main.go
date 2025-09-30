@@ -58,7 +58,7 @@ var (
 
 	// We do not want filenames to start with a dot or a number.
 	// Only lowercase letters are allowed.
-	preProvisionCommandRegex = regexp.MustCompile(`^[a-z][a-z0-9_.-]+[a-z0-9]$`)
+	commandRegex = regexp.MustCompile(`^[a-z][a-z0-9_.-]+[a-z0-9]$`)
 )
 
 func init() {
@@ -115,8 +115,8 @@ func main() {
 	// If preProvisionCommand is set, check if the file exists and validate the basename.
 	if preProvisionCommand != "" {
 		baseName := filepath.Base(preProvisionCommand)
-		if !preProvisionCommandRegex.MatchString(baseName) {
-			msg := fmt.Sprintf("basename of pre-provision-command (%s) must match the regex %s", baseName, preProvisionCommandRegex.String())
+		if !commandRegex.MatchString(baseName) {
+			msg := fmt.Sprintf("basename (%s) must match the regex %s", baseName, commandRegex.String())
 			setupLog.Error(errors.New(msg), "")
 			os.Exit(1)
 		}
@@ -292,11 +292,11 @@ func setUpWebhookWithManager(mgr ctrl.Manager) {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HCloudMachine")
 		os.Exit(1)
 	}
-	if err := (&infrastructurev1beta1.HCloudMachineTemplateWebhook{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&infrastructurev1beta1.HCloudMachineTemplate{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HCloudMachineTemplate")
 		os.Exit(1)
 	}
-	if err := (&infrastructurev1beta1.HetznerBareMetalHostWebhook{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&infrastructurev1beta1.HetznerBareMetalHost{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalHost")
 		os.Exit(1)
 	}
@@ -304,7 +304,7 @@ func setUpWebhookWithManager(mgr ctrl.Manager) {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalMachine")
 		os.Exit(1)
 	}
-	if err := (&infrastructurev1beta1.HetznerBareMetalMachineTemplateWebhook{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&infrastructurev1beta1.HetznerBareMetalMachineTemplate{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalMachineTemplate")
 		os.Exit(1)
 	}

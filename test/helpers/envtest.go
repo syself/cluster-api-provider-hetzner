@@ -47,6 +47,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -145,6 +146,10 @@ func NewTestEnvironment() *TestEnvironment {
 				Host:    "localhost",
 			},
 		),
+		Metrics: metricsserver.Options{
+			// Disable MetricsServer, so that two tests processes can run concurrently
+			BindAddress: "0",
+		},
 	})
 	if err != nil {
 		klog.Fatalf("unable to create manager: %s", err)
@@ -161,16 +166,16 @@ func NewTestEnvironment() *TestEnvironment {
 	if err := (&infrav1.HCloudMachine{}).SetupWebhookWithManager(mgr); err != nil {
 		klog.Fatalf("failed to set up webhook with manager for HCloudMachine: %s", err)
 	}
-	if err := (&infrav1.HCloudMachineTemplateWebhook{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&infrav1.HCloudMachineTemplate{}).SetupWebhookWithManager(mgr); err != nil {
 		klog.Fatalf("failed to set up webhook with manager for HCloudMachineTemplate: %s", err)
 	}
 	if err := (&infrav1.HetznerBareMetalMachine{}).SetupWebhookWithManager(mgr); err != nil {
 		klog.Fatalf("failed to set up webhook with manager for HetznerBareMetalMachine: %s", err)
 	}
-	if err := (&infrav1.HetznerBareMetalMachineTemplateWebhook{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&infrav1.HetznerBareMetalMachineTemplate{}).SetupWebhookWithManager(mgr); err != nil {
 		klog.Fatalf("failed to set up webhook with manager for HetznerBareMetalMachineTemplate: %s", err)
 	}
-	if err := (&infrav1.HetznerBareMetalHostWebhook{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&infrav1.HetznerBareMetalHost{}).SetupWebhookWithManager(mgr); err != nil {
 		klog.Fatalf("failed to set up webhook with manager for HetznerBareMetalHost: %s", err)
 	}
 	if err := (&infrav1.HetznerBareMetalRemediation{}).SetupWebhookWithManager(mgr); err != nil {

@@ -25,11 +25,16 @@ import (
 	"github.com/hetznercloud/hcloud-go/v2/hcloud/schema"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/kubectl/pkg/scheme"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
+	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
 )
 
 const serverJSON = `
@@ -188,12 +193,10 @@ const serverJSON = `
 	"volumes": []
 }`
 
-var server *hcloud.Server
-
-const instanceState = hcloud.ServerStatusRunning
-
-var ips = []string{"1.2.3.4", "2001:db8::3", "10.0.0.2"}
-var addressTypes = []clusterv1.MachineAddressType{clusterv1.MachineExternalIP, clusterv1.MachineExternalIP, clusterv1.MachineInternalIP}
+var (
+	testEnv *helpers.TestEnvironment
+	ctx     = ctrl.SetupSignalHandler()
+)
 
 func TestServer(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -201,14 +204,41 @@ func TestServer(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
+	utilruntime.Must(corev1.AddToScheme(scheme.Scheme))
+	utilruntime.Must(infrav1.AddToScheme(scheme.Scheme))
+	utilruntime.Must(clusterv1.AddToScheme(scheme.Scheme))
+
+	testEnv = helpers.NewTestEnvironment()
+
+	go func() {
+		defer GinkgoRecover()
+		Expect(testEnv.StartManager(ctx)).To(Succeed())
+	}()
+
+	<-testEnv.Manager.Elected()
+
+	// wait for webhook port to be open prior to running tests
+	testEnv.WaitForWebhooks()
+})
+
+var _ = AfterSuite(func() {
+	Expect(testEnv.Stop()).To(Succeed())
+})
+
+func newTestServer() *hcloud.Server {
 	var serverSchema schema.Server
 	b := []byte(serverJSON)
 	var buffer bytes.Buffer
-	Expect(json.Compact(&buffer, b))
-	Expect(json.Unmarshal(buffer.Bytes(), &serverSchema)).To(Succeed())
-
-	server = hcloud.ServerFromSchema(serverSchema)
-})
+	err := json.Compact(&buffer, b)
+	if err != nil {
+		panic(err)
+	}
+	err = json.Unmarshal(buffer.Bytes(), &serverSchema)
+	if err != nil {
+		panic(err)
+	}
+	return hcloud.ServerFromSchema(serverSchema)
+}
 
 func newTestService(hcloudMachine *infrav1.HCloudMachine, hcloudClient hcloudclient.Client) *Service {
 	return &Service{

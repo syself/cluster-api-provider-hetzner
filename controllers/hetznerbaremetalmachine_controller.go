@@ -144,9 +144,9 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 
 		conditions.SetSummary(hbmMachine)
 
-		if err := machineScope.Close(ctx); err != nil && reterr == nil {
+		if err := machineScope.Close(ctx); err != nil {
 			res = reconcile.Result{}
-			reterr = err
+			reterr = errors.Join(reterr, err)
 		}
 	}()
 
@@ -215,7 +215,7 @@ func (r *HetznerBareMetalMachineReconciler) SetupWithManager(ctx context.Context
 	err = ctrl.NewControllerManagedBy(mgr).
 		WithOptions(options).
 		For(&infrav1.HetznerBareMetalMachine{}).
-		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(log, r.WatchFilterValue)).
+		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(mgr.GetScheme(), log, r.WatchFilterValue)).
 		Watches(
 			&clusterv1.Machine{},
 			handler.EnqueueRequestsFromMapFunc(util.MachineToInfrastructureMapFunc(infrav1.GroupVersion.WithKind("HetznerBareMetalMachine"))),
@@ -235,7 +235,7 @@ func (r *HetznerBareMetalMachineReconciler) SetupWithManager(ctx context.Context
 		Watches(
 			&clusterv1.Cluster{},
 			handler.EnqueueRequestsFromMapFunc(clusterToObjectFunc),
-			builder.WithPredicates(predicates.ClusterUnpausedAndInfrastructureReady(log)),
+			builder.WithPredicates(predicates.ClusterPausedTransitionsOrInfrastructureReady(mgr.GetScheme(), log)),
 		).
 		Complete(r)
 	if err != nil {

@@ -36,5 +36,5 @@ hack/tools/bin/gotestsum \
     --jsonfile=.reports/go-test-output.json \
     --junitfile=.coverage/junit.xml \
     --format testname -- \
-    -covermode=atomic -coverprofile=.coverage/cover.out -p=4 -timeout 5m \
+    -covermode=atomic -coverprofile=.coverage/cover.out -p=1 -timeout 5m \
     ./controllers/... ./pkg/... ./api/...

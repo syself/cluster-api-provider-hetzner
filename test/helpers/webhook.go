@@ -17,7 +17,6 @@ limitations under the License.
 package helpers
 
 import (
-	"fmt"
 	"net"
 	"os"
 	"path"
@@ -95,8 +94,14 @@ func initializeWebhookInEnvironment() {
 		klog.Fatalf("Failed to append core controller webhook config: %v", err)
 	}
 
+	// Two tests processes should be able ro run concurrently. Each needs an own port:
+	port, err := getFreePort()
+	if err != nil {
+		klog.Fatalf("Failed to get a free port for webhook: %v", err)
+	}
+
 	env.WebhookInstallOptions = envtest.WebhookInstallOptions{
-		LocalServingPort:   9443,
+		LocalServingPort:   port,
 		LocalServingHost:   "localhost",
 		MaxTime:            20 * time.Second,
 		PollInterval:       time.Second,
@@ -106,23 +111,34 @@ func initializeWebhookInEnvironment() {
 }
 
 // WaitForWebhooks waits for webhook port to be ready.
+// WaitForWebhooks will not return until the webhook port is open.
 func (t *TestEnvironment) WaitForWebhooks() {
 	port := env.WebhookInstallOptions.LocalServingPort
-
 	klog.V(2).Infof("Waiting for webhook port %d to be open prior to running tests", port)
 	timeout := 1 * time.Second
 	for {
-		time.Sleep(1 * time.Second)
-		fmt.Printf("checking port .................... %v\n", port)
+		time.Sleep(timeout)
 		conn, err := net.DialTimeout("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)), timeout)
 		if err != nil {
 			klog.V(2).Infof("Webhook port is not ready, will retry in %v: %s", timeout, err)
 			continue
 		}
-		if err := conn.Close(); err != nil {
-			klog.Fatalf("failed to close connection: %s", err)
+		err = conn.Close()
+		if err != nil {
+			klog.V(2).Infof("Failed to close connection: %s", err)
+			return
 		}
 		klog.V(2).Info("Webhook port is now open. Continuing with tests...")
 		return
 	}
+}
+
+func getFreePort() (port int, err error) {
+	ln, err := net.Listen("tcp", "[::]:0")
+	if err != nil {
+		return 0, err
+	}
+	port = ln.Addr().(*net.TCPAddr).Port
+	err = ln.Close()
+	return
 }
