@@ -622,7 +622,7 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 
 		timeSinceReboot := "unknown"
 		if s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated != nil {
-			timeSinceReboot = time.Since(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated.Time).String()
+			timeSinceReboot = time.Since(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated.Time).Round(time.Second).String()
 		}
 
 		s.scope.Logger.Info("Could not reach rescue system. Will retry some seconds later.", "out", out.String(), "hostName", hostName,
