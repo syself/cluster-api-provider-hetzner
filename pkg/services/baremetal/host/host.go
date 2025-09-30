@@ -1221,7 +1221,7 @@ func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context
 			duration.Round(time.Second).String())
 		s.scope.Logger.Error(nil, msg, "logFile", logFile)
 		conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
-			string(host.Spec.Status.ProvisioningState), clusterv1.ConditionSeverityWarning,
+			"ImageURLCommandTimedout", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		return s.recordActionFailure(infrav1.FatalError, msg)
 	}
@@ -1229,7 +1229,7 @@ func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context
 	switch state {
 	case sshclient.ImageURLCommandStateRunning:
 		conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
-			string(host.Spec.Status.ProvisioningState), clusterv1.ConditionSeverityInfo,
+			"ImageURLCommandStillRunning", clusterv1.ConditionSeverityInfo,
 			"image-url-command still running")
 		return actionContinue{delay: 10 * time.Second}
 
@@ -1253,7 +1253,7 @@ func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context
 		msg := "machine image and cloud-init data got installed (via image-url-command)"
 		createSSHRebootEvent(ctx, s.scope.HetznerBareMetalHost, msg)
 		conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
-			string(host.Spec.Status.ProvisioningState),
+			"ImageURLCommandFinishedSuccessfully",
 			clusterv1.ConditionSeverityInfo,
 			"%s", msg)
 
@@ -1266,7 +1266,7 @@ func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context
 		msg := "image-url-command failed"
 		s.scope.Logger.Error(nil, msg, "logFile", logFile)
 		conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
-			string(host.Spec.Status.ProvisioningState), clusterv1.ConditionSeverityWarning,
+			"ImageURLCommandFailed", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		return s.recordActionFailure(infrav1.FatalError, msg)
 
@@ -1279,8 +1279,8 @@ func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context
 			err = errors.New("internal error: --baremetal-image-url-command is not set?")
 			s.scope.Logger.Error(err, "")
 			conditions.MarkFalse(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition,
-				string(s.scope.HetznerBareMetalHost.Spec.Status.ProvisioningState),
-				clusterv1.ConditionSeverityWarning,
+				"ImageURLCommandMissing",
+				clusterv1.ConditionSeverityError,
 				"%s", err.Error())
 			return actionError{err: err}
 		}
@@ -1303,7 +1303,7 @@ func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context
 				"exitStatus", exitStatus,
 				"stdoutStderr", stdoutStderr)
 			conditions.MarkFalse(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition,
-				string(s.scope.HetznerBareMetalHost.Spec.Status.ProvisioningState),
+				"ImageURLCommandFailedToStart",
 				clusterv1.ConditionSeverityWarning,
 				"%s", err.Error())
 			return actionError{err: err}
@@ -1316,14 +1316,14 @@ func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context
 				"exitStatus", exitStatus,
 				"stdoutStderr", stdoutStderr)
 			conditions.MarkFalse(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition,
-				string(s.scope.HetznerBareMetalHost.Spec.Status.ProvisioningState),
+				"StartImageURLCommandFailed",
 				clusterv1.ConditionSeverityWarning,
 				"%s", msg)
 			return s.recordActionFailure(infrav1.ProvisioningError, msg)
 		}
 
 		conditions.MarkFalse(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition,
-			string(s.scope.HetznerBareMetalHost.Spec.Status.ProvisioningState),
+			"ImageURLCommandStared",
 			clusterv1.ConditionSeverityInfo,
 			"baremetal-image-url-command started")
 
