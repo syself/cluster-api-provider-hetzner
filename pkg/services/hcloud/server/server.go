@@ -201,7 +201,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		s.scope.SetError(msg, capierrors.CreateMachineError)
 		s.scope.Logger.Error(nil, msg)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			"HandleBootStateUnsetTimedout", clusterv1.ConditionSeverityWarning,
+			"HandleBootStateUnsetTimedOut", clusterv1.ConditionSeverityWarning,
 			"%s: %s", hm.Status.BootState, msg)
 		return reconcile.Result{}, nil
 	}
@@ -269,7 +269,7 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 		s.scope.SetError(msg, capierrors.CreateMachineError)
 		s.scope.Logger.Error(nil, msg)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			"BootStateInitializingTimedout", clusterv1.ConditionSeverityWarning,
+			"BootStateInitializingTimedOut", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		return reconcile.Result{}, nil
 	}
@@ -335,7 +335,7 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 		s.scope.Logger.Error(nil, msg)
 		s.scope.SetError(msg, capierrors.CreateMachineError)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			"EnablingRescueTimedout", clusterv1.ConditionSeverityWarning, "%s", msg)
+			"EnablingRescueTimedOut", clusterv1.ConditionSeverityWarning, "%s", msg)
 		return reconcile.Result{}, nil
 	}
 
@@ -458,7 +458,7 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 		s.scope.SetError(msg, capierrors.CreateMachineError)
 		s.scope.Logger.Error(nil, msg)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			"BootingToRescueTimedout", clusterv1.ConditionSeverityWarning,
+			"BootingToRescueTimedOut", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		return reconcile.Result{}, nil
 	}
@@ -482,7 +482,7 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 		s.scope.Logger.Error(nil, msg)
 		s.scope.SetError(msg, capierrors.CreateMachineError)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			"BootingToRescueWaitForRescueEnabledToBeFalseTimedout", clusterv1.ConditionSeverityWarning,
+			"BootingToRescueWaitForRescueEnabledToBeFalseTimedOut", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		return reconcile.Result{}, nil
 	}
@@ -596,7 +596,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 		s.scope.SetError(msg, capierrors.CreateMachineError)
 		record.Warn(hm, "ImageURLCommandFailed", logFile)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			"RunningImageCommandTimedout", clusterv1.ConditionSeverityWarning,
+			"RunningImageCommandTimedOut", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		return reconcile.Result{}, nil
 	}
@@ -656,7 +656,7 @@ func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server)
 		s.scope.SetError(msg, capierrors.CreateMachineError)
 		s.scope.Logger.Error(nil, msg)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			"BootToRealOSTimedout", clusterv1.ConditionSeverityWarning,
+			"BootToRealOSTimedOut", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		return reconcile.Result{}, nil
 	}
