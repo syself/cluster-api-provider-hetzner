@@ -344,13 +344,15 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 		s.scope.Logger.Error(nil, msg)
 		s.scope.SetError(msg, capierrors.CreateMachineError)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			"EnablingRescueActionIDEnableRescueSystemNotSet", clusterv1.ConditionSeverityWarning, "%s", msg)
+			"ActionIDForEnablingRescueSystemNotSet", clusterv1.ConditionSeverityWarning, "%s", msg)
 		return reconcile.Result{}, nil
 	}
 
 	if hm.Status.ExternalIDs.ActionIDEnableRescueSystem != actionDone {
 		action, err := s.scope.HCloudClient.GetAction(ctx, hm.Status.ExternalIDs.ActionIDEnableRescueSystem)
 		if err != nil {
+			// If this error persists, then the BootState will time out, and a new
+			// machine will be created.
 			err = fmt.Errorf("GetAction failed: %w", err)
 			s.scope.Logger.Error(err, "")
 			conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
