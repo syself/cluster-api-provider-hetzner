@@ -88,12 +88,12 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 			if errors.Is(err, ErrControlPlaneEndpointNotSet) {
 				// When an external ControlPlane Provider gets used (Kamaji), it might
 				// need some time until the endpoint is available.
-				err = fmt.Errorf("Requeue, waiting for control-plane endpoit to be set: %w",
+				err = fmt.Errorf("Requeue, waiting for control-plane endpoint to be set: %w",
 					err)
 				conditions.MarkFalse(
 					s.scope.HetznerCluster,
 					infrav1.LoadBalancerReadyCondition,
-					infrav1.LoadBalancerUpdateFailedReason,
+					infrav1.LoadBalancerUpdateFailedReason+"MissingControlPlaneEndpoint",
 					clusterv1.ConditionSeverityWarning,
 					"%s",
 					err.Error(),
