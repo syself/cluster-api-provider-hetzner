@@ -297,8 +297,6 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 
 	_, hcloudSSHKeys, err := s.getSSHKeys(ctx)
 	if err != nil {
-		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			"InitializingGetSSHKeysFailed", clusterv1.ConditionSeverityInfo, "%s", err.Error())
 		return res, fmt.Errorf("getSSHKeys failed: %w", err)
 	}
 
