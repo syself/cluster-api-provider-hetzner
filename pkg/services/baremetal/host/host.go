@@ -1228,9 +1228,6 @@ func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context
 
 	switch state {
 	case sshclient.ImageURLCommandStateRunning:
-		conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
-			"ImageURLCommandStillRunning", clusterv1.ConditionSeverityInfo,
-			"image-url-command still running")
 		return actionContinue{delay: 10 * time.Second}
 
 	case sshclient.ImageURLCommandStateFinishedSuccessfully:
@@ -1252,10 +1249,6 @@ func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context
 
 		msg := "machine image and cloud-init data got installed (via image-url-command)"
 		createSSHRebootEvent(ctx, s.scope.HetznerBareMetalHost, msg)
-		conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
-			"ImageURLCommandFinishedSuccessfully",
-			clusterv1.ConditionSeverityInfo,
-			"%s", msg)
 
 		// clear potential errors - all done
 		s.scope.HetznerBareMetalHost.ClearError()
