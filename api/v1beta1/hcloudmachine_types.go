@@ -147,10 +147,6 @@ type HCloudMachineStatus struct {
 
 	// ExternalIDs contains temporary data during the provisioning process
 	ExternalIDs HCloudMachineStatusExternalIDs `json:"externalIDs,omitempty"`
-
-	// RebootViaSSH is the timestamp that the last reboot via ssh was executed.
-	// +optional
-	RebootViaSSH metav1.Time `json:"rebootViaSSH,omitzero"`
 }
 
 // HCloudMachineStatusExternalIDs holds temporary data during the provisioning process.
