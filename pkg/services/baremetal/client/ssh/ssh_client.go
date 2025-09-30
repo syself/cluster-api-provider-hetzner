@@ -201,7 +201,9 @@ type Client interface {
 	// is reachable. The env var `OCI_REGISTRY_AUTH_TOKEN` gets set to the same value of the
 	// corresponding env var of the controller.
 	// This gets used when imageURL set.
-	StartImageURLCommand(ctx context.Context, command, imageURL string, bootstrapData []byte, machineName string) (exitStatus int, stdoutAndStderr string, err error)
+	// For hcloud deviceNames is always {"sda"}. For baremetal it corresponds to the WWNs
+	// of RootDeviceHints.
+	StartImageURLCommand(ctx context.Context, command, imageURL string, bootstrapData []byte, machineName string, deviceNames []string) (exitStatus int, stdoutAndStderr string, err error)
 
 	StateOfImageURLCommand() (state ImageURLCommandState, logFile string, err error)
 }
@@ -726,7 +728,19 @@ func (c *sshClient) ExecutePreProvisionCommand(ctx context.Context, command stri
 	return exitStatus, s, nil
 }
 
-func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL string, bootstrapData []byte, machineName string) (int, string, error) {
+func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL string, bootstrapData []byte, machineName string, deviceNames []string) (int, string, error) {
+	// validate deviceNames
+	for _, dn := range deviceNames {
+		if strings.Contains(dn, "/") {
+			return 0, "", fmt.Errorf("deviceName must not contain a slash (example: only sda not /dev/sda): %q", dn)
+		}
+		if strings.Contains(dn, " ") {
+			return 0, "", fmt.Errorf("deviceName must not contain spaces: %q", dn)
+		}
+		if dn == "" {
+			return 0, "", errors.New("deviceName must not be empty")
+		}
+	}
 	client, err := c.getSSHClient()
 	if err != nil {
 		return 0, "", err
@@ -761,9 +775,10 @@ func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL 
 	}
 
 	cmd := fmt.Sprintf(`#!/usr/bin/bash
-OCI_REGISTRY_AUTH_TOKEN='%s' nohup /root/image-url-command '%s' /root/bootstrap.data '%s' >%s 2>&1 </dev/null &
+OCI_REGISTRY_AUTH_TOKEN='%s' nohup /root/image-url-command '%s' /root/bootstrap.data '%s' '%s' >%s 2>&1 </dev/null &
 echo $! > /root/image-url-command.pid
-`, os.Getenv("OCI_REGISTRY_AUTH_TOKEN"), imageURL, machineName, imageURLCommandLog)
+`, os.Getenv("OCI_REGISTRY_AUTH_TOKEN"), imageURL, machineName, strings.Join(deviceNames, " "),
+		imageURLCommandLog)
 
 	out := c.runSSH(cmd)
 
