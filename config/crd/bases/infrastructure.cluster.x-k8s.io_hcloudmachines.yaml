@@ -178,11 +178,6 @@ spec:
           status:
             description: HCloudMachineStatus defines the observed state of HCloudMachine.
             properties:
-              actionIdEnableRescueSystem:
-                description: ActionIDEnableRescueSystem is the hcloud API Action result
-                  of EnableRescueSystem.
-                format: int64
-                type: integer
               addresses:
                 description: Addresses contain the server's associated addresses.
                 items:
@@ -270,6 +265,16 @@ spec:
                   - type
                   type: object
                 type: array
+              externalIDs:
+                description: ExternalIDs contains temporary data during the provisioning
+                  process
+                properties:
+                  actionIdEnableRescueSystem:
+                    description: ActionIDEnableRescueSystem is the hcloud API Action
+                      result of EnableRescueSystem.
+                    format: int64
+                    type: integer
+                type: object
               failureMessage:
                 description: |-
                   FailureMessage will be set in the event that there is a terminal problem

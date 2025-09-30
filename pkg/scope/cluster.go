@@ -166,25 +166,6 @@ func (s *ClusterScope) ClientConfig(ctx context.Context) (clientcmd.ClientConfig
 	return clientcmd.NewClientConfigFromBytes(kubeconfigBytes)
 }
 
-// ClientConfigWithAPIEndpoint returns a client config.
-func (s *ClusterScope) ClientConfigWithAPIEndpoint(ctx context.Context, endpoint clusterv1.APIEndpoint) (clientcmd.ClientConfig, error) {
-	c, err := s.ClientConfig(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	raw, err := c.RawConfig()
-	if err != nil {
-		return nil, fmt.Errorf("error retrieving rawConfig from clientConfig: %w", err)
-	}
-	// update cluster endpint in config
-	for key := range raw.Clusters {
-		raw.Clusters[key].Server = fmt.Sprintf("https://%s:%d", endpoint.Host, endpoint.Port)
-	}
-
-	return clientcmd.NewDefaultClientConfig(raw, &clientcmd.ConfigOverrides{}), nil
-}
-
 // ListMachines returns HCloudMachines.
 func (s *ClusterScope) ListMachines(ctx context.Context) ([]*clusterv1.Machine, []*infrav1.HCloudMachine, error) {
 	// get and index Machines by HCloudMachine name
