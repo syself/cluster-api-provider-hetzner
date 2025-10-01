@@ -1758,7 +1758,7 @@ func (s *Service) handleCloudInitNotStarted(ctx context.Context) actionResult {
 	}
 
 	if trimLineBreak(out.StdOut) != "" {
-		// it was not succesfull. Prepare and reboot again
+		// it was not succesful. Prepare and reboot again
 		out = oldSSHClient.CleanCloudInitLogs()
 		if err := handleSSHError(out); err != nil {
 			return actionError{err: fmt.Errorf("failed to CleanCloudInitLogs: %w", err)}
@@ -1909,7 +1909,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	if !isRebooted {
 		// Reboot now
 
-		// Set current BootID, so we can detect a succesfull reboot
+		// Set current BootID, so we can detect a successful reboot
 		host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = currentBootID
 
 		if s.scope.SSHAfterInstallImage {
@@ -1956,7 +1956,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	}
 
 	// Reboot has been done already. Check whether it has been successful We connet to the
-	// wl-cluster and check the BootID. If it has changed, then the reboot was successfull.
+	// wl-cluster and check the BootID. If it has changed, then the reboot was successful.
 
 	if host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID != currentBootID {
 		// Reboot has been successful
