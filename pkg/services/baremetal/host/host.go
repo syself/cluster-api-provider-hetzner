@@ -1957,9 +1957,6 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		return actionComplete{}
 	}
 
-	s.scope.Logger.Info("foooo", "long", host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID,
-		"cur", currentBootID)
-
 	if !s.scope.SSHAfterInstallImage {
 		// s.scope.SSHAfterInstallImage is false: No ssh allowed.
 		// We can only wait for the BootID in the wl-cluster to change.
