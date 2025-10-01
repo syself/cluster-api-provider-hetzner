@@ -227,7 +227,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		Expect(c.Message).To(ContainSubstring("StartImageURLCommand failed with non-zero exit status. Deleting machine"))
 	})
 
-	It("time outs after 7 minutes", func() {
+	It("times out after 7 minutes", func() {
 		host := newBaseHost()
 		sevenPlus := metav1.NewTime(time.Now().Add(-8 * time.Minute))
 		host.Spec.Status.LastUpdated = &sevenPlus
