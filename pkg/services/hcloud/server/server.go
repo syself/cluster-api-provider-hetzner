@@ -103,8 +103,8 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 
 	var server *hcloud.Server
 	if s.scope.HCloudMachine.Spec.ProviderID == nil && s.scope.HCloudMachine.Spec.ImageURL != "" {
-		// This is a new machine with imageURL.
-		// Do some pre-flight checks, so we do not waste the hcloud-api budget if something is wrong
+		// This is a new machine with imageURL. Do some pre-flight checks, so we do not waste the
+		// hcloud-api budget if something is wrong. For example avoid calling findServer().
 		if s.scope.ImageURLCommand == "" {
 			msg := "imageURL is set, but the caph command is missing the --hcloud-image-url-command"
 			s.scope.Logger.Error(nil, msg)
