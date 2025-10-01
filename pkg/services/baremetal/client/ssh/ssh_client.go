@@ -115,7 +115,7 @@ const (
 	ImageURLCommandStateFinishedSuccessfully ImageURLCommandState = "ImageURLCommandStateFinishedSuccessfully"
 
 	// ImageURLCommandStateFailed indicates that the command is finished, but failed.
-	ImageURLCommandStateFailed ImageURLCommandState = "ImageURLCommandStateFinishedFailed"
+	ImageURLCommandStateFailed ImageURLCommandState = "ImageURLCommandStateFailed"
 )
 
 func (o Output) String() string {
@@ -205,6 +205,8 @@ type Client interface {
 	// of RootDeviceHints.
 	StartImageURLCommand(ctx context.Context, command, imageURL string, bootstrapData []byte, machineName string, deviceNames []string) (exitStatus int, stdoutAndStderr string, err error)
 
+	// StateOfImageURLCommand returns the current states of the ImageURLCommand. States can
+	// be: NotStarted, Running, Failed, FinishedSuccesfully.
 	StateOfImageURLCommand() (state ImageURLCommandState, logFile string, err error)
 }
 

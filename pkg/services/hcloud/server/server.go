@@ -102,55 +102,6 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.BootstrapReadyCondition)
 
 	var server *hcloud.Server
-	if s.scope.HCloudMachine.Spec.ProviderID == nil && s.scope.HCloudMachine.Spec.ImageURL != "" {
-		// This is a new machine with imageURL. Do some pre-flight checks, so we do not waste the
-		// hcloud-api budget if something is wrong. For example avoid calling findServer().
-		if s.scope.ImageURLCommand == "" {
-			msg := "imageURL is set, but the caph command is missing the --hcloud-image-url-command"
-			s.scope.Logger.Error(nil, msg)
-			conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerAvailableCondition,
-				"ImageURLSetButNoCommandProvided", clusterv1.ConditionSeverityWarning,
-				"%s", msg)
-			// No need for Requeue, because adding the command line argument to the caph deployment,
-			// will restart the controller, and all resources will be reconciled.
-			return reconcile.Result{}, nil
-		}
-
-		_, err := s.getSSHPrivateKey(ctx)
-		if err != nil {
-			err = fmt.Errorf("getSSHPrivateKey failed: %w", err)
-			s.scope.Logger.Error(err, "")
-			conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerAvailableCondition,
-				"GetSSHPrivateKeyFailed", clusterv1.ConditionSeverityWarning,
-				"%s", err.Error())
-			return reconcile.Result{RequeueAfter: 1 * time.Minute}, nil
-		}
-
-		_, hcloudSSHKeys, err := s.getSSHKeys(ctx)
-		if err != nil {
-			if hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "getSSHKeys") {
-				return reconcile.Result{}, fmt.Errorf("rate-limit reached while calling getSSHKeys: %w", err)
-			}
-
-			err = fmt.Errorf("getSSHKeys for hcloud imageURL provisioning failed: %w", err)
-			s.scope.Logger.Error(err, "")
-			conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerAvailableCondition,
-				"GetSSHKeysFailed", clusterv1.ConditionSeverityWarning,
-				"%s", err.Error())
-			return reconcile.Result{RequeueAfter: 3 * time.Minute}, nil
-		}
-
-		if len(hcloudSSHKeys) == 0 {
-			msg := "no ssh keys found hcloud imageURL provisioning found"
-			s.scope.Logger.Error(nil, msg)
-			conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerAvailableCondition,
-				"GetSSHKeysFailed", clusterv1.ConditionSeverityWarning,
-				"%s", msg)
-			return reconcile.Result{RequeueAfter: 1 * time.Minute}, nil
-		}
-
-		// pre-flight checks passed.
-	}
 
 	if s.scope.HCloudMachine.Spec.ProviderID != nil {
 		server, err = s.findServer(ctx)
@@ -291,6 +242,29 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 	}
 
 	updateHCloudMachineStatusFromServer(hm, server)
+
+	// This is a new machine with imageURL. Do some pre-flight checks.
+	if s.scope.ImageURLCommand == "" {
+		msg := "imageURL is set, but the caph command is missing the --hcloud-image-url-command"
+		s.scope.Logger.Error(nil, msg)
+		conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerAvailableCondition,
+			"ImageURLSetButNoCommandProvided", clusterv1.ConditionSeverityWarning,
+			"%s", msg)
+		// No need for Requeue, because adding the command line argument to the caph deployment,
+		// will restart the controller, and all resources will be reconciled.
+		return reconcile.Result{}, nil
+	}
+
+	_, err := s.getSSHPrivateKey(ctx)
+	if err != nil {
+		err = fmt.Errorf("getSSHPrivateKey failed: %w", err)
+		s.scope.Logger.Error(err, "")
+		conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerAvailableCondition,
+			"GetSSHPrivateKeyFailed", clusterv1.ConditionSeverityWarning,
+			"%s", err.Error())
+		return reconcile.Result{RequeueAfter: 1 * time.Minute}, nil
+	}
+	// end of pre-flight checks.
 
 	// analyze status of server
 	switch server.Status {
