@@ -257,6 +257,8 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 		return reconcile.Result{}, nil
 	}
 
+	// Check that we have valid ssh-private-key in the secret. A failure could also mean there is a
+	// network failure while trying to access the api-server.
 	_, err := s.getSSHPrivateKey(ctx)
 	if err != nil {
 		err = fmt.Errorf("getSSHPrivateKey failed: %w", err)
@@ -266,6 +268,7 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 			"%s", err.Error())
 		return reconcile.Result{RequeueAfter: 1 * time.Minute}, nil
 	}
+
 	// end of pre-flight checks.
 
 	// analyze status of server
