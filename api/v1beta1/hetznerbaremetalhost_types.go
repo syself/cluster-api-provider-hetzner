@@ -312,12 +312,12 @@ type ControllerGeneratedStatus struct {
 	// +optional
 	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
 
-	// ExternalIDs contains values of external systems.
+	// ExternalIDs contains values from external systems.
 	// +optional
 	ExternalIDs ExternalIDs `json:"externalIDs,omitzero"`
 }
 
-// ExternalIDs contains values of external systems.
+// ExternalIDs contains values from external systems.
 type ExternalIDs struct {
 	// RebootAnnotationNodeBootID reflects the BootID of the Node resource in the workload-cluster.
 	// Only set when the machine gets rebooted.

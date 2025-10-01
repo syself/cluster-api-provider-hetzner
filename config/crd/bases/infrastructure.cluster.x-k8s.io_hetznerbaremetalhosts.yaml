@@ -239,7 +239,7 @@ spec:
                       OperationalStatus is OperationalStatusError.
                     type: string
                   externalIDs:
-                    description: ExternalIDs contains values of external systems.
+                    description: ExternalIDs contains values from external systems.
                     properties:
                       rebootAnnotationNodeBootID:
                         description: |-
