@@ -97,6 +97,10 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	// https://github.com/kubernetes-sigs/controller-runtime/issues/3320
 	initialHost := bmHost.DeepCopy()
 	defer func() {
+		// We can potentially optimize this further by ensuring that the cache is up to date only in
+		// the cases where an outdated cache would lead to problems. Currently, we ensure that the
+		// cache is up to date in all cases, i.e. for all possible changes to the
+		// HetznerBareMetalHost object.
 		if cmp.Equal(initialHost, bmHost) {
 			// Nothing has changed. No need to wait.
 			return
