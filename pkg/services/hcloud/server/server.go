@@ -111,7 +111,9 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 			conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerAvailableCondition,
 				"ImageURLSetButNoCommandProvided", clusterv1.ConditionSeverityWarning,
 				"%s", msg)
-			return reconcile.Result{RequeueAfter: 3 * time.Minute}, nil
+			// No need for Requeue, because adding the command line argument to the caph deployment,
+			// will restart the controller, and all resources will be reconciled.
+			return reconcile.Result{}, nil
 		}
 
 		_, hcloudSSHKeys, err := s.getSSHKeys(ctx)
