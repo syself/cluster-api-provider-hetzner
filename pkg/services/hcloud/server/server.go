@@ -153,6 +153,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	}
 }
 
+// handleBootStateUnset is first state for both ways (imageName/snapshot and imageURL).
 func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, error) {
 	hm := s.scope.HCloudMachine
 
@@ -225,6 +226,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 	return reconcile.Result{RequeueAfter: requeueAfter}, nil
 }
 
+// handleBootStateInitializing is for provisioning with imageURL and image-url-command.
 func (s *Service) handleBootStateInitializing(ctx context.Context, server *hcloud.Server) (res reconcile.Result, reterr error) {
 	hm := s.scope.HCloudMachine
 
@@ -312,6 +314,7 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 	return reconcile.Result{RequeueAfter: 4 * time.Second}, nil
 }
 
+// handleBootStateEnablingRescue is for provisioning with imageURL and image-url-command.
 func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcloud.Server) (reconcile.Result, error) {
 	hm := s.scope.HCloudMachine
 
@@ -435,6 +438,7 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 	return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 }
 
+// handleBootStateBootingToRescue is for provisioning with imageURL and image-url-command.
 func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hcloud.Server) (reconcile.Result, error) {
 	hm := s.scope.HCloudMachine
 	updateHCloudMachineStatusFromServer(hm, server)
@@ -541,6 +545,7 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 	return reconcile.Result{RequeueAfter: 55 * time.Second}, nil
 }
 
+// handleBootStateRunningImageCommand is for provisioning with imageURL and image-url-command.
 func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
 	hm := s.scope.HCloudMachine
 	updateHCloudMachineStatusFromServer(hm, server)
@@ -613,6 +618,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 	}
 }
 
+// handleBootToRealOS is used for both ways (imageName/snapshot and imageURL).
 func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
 	hm := s.scope.HCloudMachine
 	updateHCloudMachineStatusFromServer(hm, server)
@@ -659,6 +665,7 @@ func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server)
 	}
 }
 
+// handleOperatingSystemRunning is the final state. It is used for both ways (imageName/snapshot and imageURL).
 func (s *Service) handleOperatingSystemRunning(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
 	hm := s.scope.HCloudMachine
 	updateHCloudMachineStatusFromServer(hm, server)
