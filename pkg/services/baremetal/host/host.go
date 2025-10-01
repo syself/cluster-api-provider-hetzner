@@ -1283,7 +1283,9 @@ func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context
 				"ImageURLCommandMissing",
 				clusterv1.ConditionSeverityError,
 				"%s", err.Error())
-			return actionError{err: err}
+			// this can only be changed by updating the controller. This will make the
+			// controller reconcile all resources.
+			return actionContinue{delay: time.Hour}
 		}
 		// get the information about storage devices again to have the latest names.
 		// Device names can change during restart.
@@ -1324,12 +1326,9 @@ func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context
 		}
 
 		conditions.MarkFalse(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition,
-			"ImageURLCommandStared",
+			"ImageURLCommandStarted",
 			clusterv1.ConditionSeverityInfo,
 			"baremetal-image-url-command started")
-
-		record.Event(s.scope.HetznerBareMetalHost, "ExecuteImageURLCommand",
-			s.scope.HetznerBareMetalHost.Spec.Status.InstallImage.Image.URL)
 
 		return actionContinue{delay: 55 * time.Second}
 

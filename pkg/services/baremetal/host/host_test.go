@@ -134,7 +134,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		res := svc.actionImageInstalling(ctx)
 		Expect(res).To(BeAssignableToTypeOf(actionContinue{}))
 		c := conditions.Get(host, infrav1.ProvisionSucceededCondition)
-		Expect(c.Message).To(ContainSubstring(`image-url-command still running`))
+		Expect(c.Message).To(Equal(`host (test-host) is still provisioning - state "image-installing"`))
 	})
 
 	It("reboots and completes when command finished successfully", func() {
@@ -156,7 +156,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		// error should be cleared
 		Expect(host.Spec.Status.ErrorMessage).To(Equal(""))
 		c := conditions.Get(host, infrav1.ProvisionSucceededCondition)
-		Expect(c.Message).To(ContainSubstring("machine image and cloud-init data got installed (via image-url-command)"))
+		Expect(c.Message).To(Equal(`host (test-host) is still provisioning - state "image-installing"`))
 	})
 
 	It("returns error when command failed", func() {
@@ -227,7 +227,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		Expect(c.Message).To(ContainSubstring("StartImageURLCommand failed with non-zero exit status. Deleting machine"))
 	})
 
-	It("timeouts after 7 minutes", func() {
+	It("time outs after 7 minutes", func() {
 		host := newBaseHost()
 		sevenPlus := metav1.NewTime(time.Now().Add(-8 * time.Minute))
 		host.Spec.Status.LastUpdated = &sevenPlus
