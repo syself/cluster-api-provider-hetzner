@@ -118,6 +118,10 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 
 		_, hcloudSSHKeys, err := s.getSSHKeys(ctx)
 		if err != nil {
+			if hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "getSSHKeys") {
+				return reconcile.Result{}, fmt.Errorf("rate-limit reached while calling getSSHKeys: %w", err)
+			}
+
 			err = fmt.Errorf("getSSHKeys for hcloud imageURL provisioning failed: %w", err)
 			s.scope.Logger.Error(err, "")
 			conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerAvailableCondition,
