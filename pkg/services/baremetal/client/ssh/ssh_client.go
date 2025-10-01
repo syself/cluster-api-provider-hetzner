@@ -754,9 +754,13 @@ func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL 
 
 	defer scpClient.Close()
 
+	if command == "" {
+		return 0, "", fmt.Errorf("image-url-command is empty")
+	}
+
 	fdCommand, err := os.Open(command) //nolint:gosec // the variable was valided.
 	if err != nil {
-		return 0, "", fmt.Errorf("error opening file %q: %w", command, err)
+		return 0, "", fmt.Errorf("error opening image-url-command %q: %w", command, err)
 	}
 	defer fdCommand.Close()
 

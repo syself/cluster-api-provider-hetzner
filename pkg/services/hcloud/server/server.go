@@ -890,14 +890,6 @@ func (s *Service) createServerFromImageNameOrURL(ctx context.Context) (*hcloud.S
 func (s *Service) createServerFromImageURL(ctx context.Context) (*hcloud.Server, *hcloud.Image, error) {
 	// Validate that ImageURLCommand is given
 	hm := s.scope.HCloudMachine
-	if s.scope.ImageURLCommand == "" {
-		msg := fmt.Sprintf("controller was started without --hcloud-image-url-command. Provisioning via ImageURL %q not possible", hm.Spec.ImageURL)
-		s.scope.Logger.Error(nil, msg)
-		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			"CreateServerFromImageURLMissingImageURLCommand", clusterv1.ConditionSeverityWarning,
-			"%s", msg)
-		return nil, nil, errors.New(msg)
-	}
 
 	image, err := s.getServerImage(ctx, preRescueOSImage)
 	if err != nil {
