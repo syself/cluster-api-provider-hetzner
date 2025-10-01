@@ -1914,12 +1914,15 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 
 		if s.scope.SSHAfterInstallImage {
 			creds := sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, host.Spec.Status.SSHSpec.SecretRef)
+
 			in := sshclient.Input{
 				PrivateKey: creds.PrivateKey,
 				Port:       host.Spec.Status.SSHSpec.PortAfterInstallImage,
 				IP:         host.Spec.Status.GetIPAddress(),
 			}
+
 			sshClient := s.scope.SSHClientFactory.NewClient(in)
+
 			out := sshClient.Reboot()
 			if err := handleSSHError(out); err != nil {
 				conditions.MarkFalse(host, infrav1.HostHasNoRebootAnnotationCondition,
@@ -1932,7 +1935,9 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 			rebootType := infrav1.RebootTypeHardware
 			if _, err := s.scope.RobotClient.RebootBMServer(host.Spec.ServerID, rebootType); err != nil {
 				s.handleRobotRateLimitExceeded(err, rebootServerStr)
+
 				err = fmt.Errorf("actionProvisioned (Reboot via Annotation), reboot (%s) failed: %w", rebootType, err)
+
 				conditions.MarkFalse(host, infrav1.HostHasNoRebootAnnotationCondition,
 					"RebootBMServerViaAPIFailed",
 					clusterv1.ConditionSeverityWarning, "%s",
@@ -2017,6 +2022,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 			err.Error())
 		return actionError{err: err}
 	}
+
 	failed, err := s.handleIncompleteBoot(ctx, false, isTimeout, isSSHConnectionRefusedError)
 	if failed {
 		conditions.MarkFalse(host, infrav1.HostHasNoRebootAnnotationCondition,
@@ -2033,6 +2039,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 			err.Error())
 		return actionError{err: err}
 	}
+
 	conditions.MarkFalse(host, infrav1.HostHasNoRebootAnnotationCondition,
 		"TriggeredRebootViaSSH",
 		clusterv1.ConditionSeverityWarning,
