@@ -1837,6 +1837,21 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		host.Spec.Status.ExternalIDs.RebootAnnotationSince = metav1.Now()
 	}
 
+	rebootDuration := time.Since(host.Spec.Status.ExternalIDs.RebootAnnotationSince.Time)
+	if rebootDuration > 5*time.Minute {
+		msg := fmt.Sprintf("Rebooting timed out after: %s", rebootDuration.Round(time.Second))
+		s.scope.Logger.Info(msg)
+		conditions.MarkFalse(
+			s.scope.HetznerBareMetalHost,
+			infrav1.HostHasNoRebootAnnotationCondition,
+			"TimedOut",
+			clusterv1.ConditionSeverityError,
+			"%s",
+			msg,
+		)
+		return s.recordActionFailure(infrav1.FatalError, msg)
+	}
+
 	wlClient, err := s.scope.WorkloadClusterClientFactory.NewWorkloadClient(ctx)
 	if err != nil {
 		err = fmt.Errorf("actionProvisioned (Reboot via Annotation), failed to get wlClient: %w", err)
