@@ -50,7 +50,7 @@ func NewService(scope *scope.ClusterScope) *Service {
 // ErrNoLoadBalancerAvailable indicates that no available load balancer could be fond.
 var ErrNoLoadBalancerAvailable = fmt.Errorf("no available load balancer")
 
-// ErrControlPlaneEndpointNotSet indicates that hetznercluster.spec.controlPlaneEndpoint is not set
+// ErrControlPlaneEndpointNotSet indicates that hetznercluster.spec.controlPlaneEndpoint is not set.
 var ErrControlPlaneEndpointNotSet = errors.New("hetznercluster.spec.controlPlaneEndpoint is not set")
 
 // Reconcile implements the life cycle of HCloud load balancers.
@@ -71,38 +71,37 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 	}
 
 	if lb == nil {
-		// fixed name is set - we expect a load balancer with this name to exist
-
 		if s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Name != nil {
+			// fixed name is set - we expect a load balancer with this name to exist
 			lb, err = s.ownExistingLoadBalancer(ctx)
-
-			// if load balancer is not found even though we expect it to exist, wait and reconcile until user creates it
-			if errors.Is(err, ErrNoLoadBalancerAvailable) {
-				return reconcile.Result{RequeueAfter: 1 * time.Minute}, nil
+			if err != nil {
+				// if load balancer is not found even though we expect it to exist, wait and reconcile until user creates it
+				if errors.Is(err, ErrNoLoadBalancerAvailable) {
+					return reconcile.Result{RequeueAfter: 1 * time.Minute}, nil
+				}
+				return reconcile.Result{}, fmt.Errorf("failed to own existing load balancer (name=%s): %w", *s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Name, err)
 			}
-			return reconcile.Result{}, fmt.Errorf("failed to own existing load balancer (name=%s): %w", *s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Name, err)
-		}
-
-		lb, err = s.createLoadBalancer(ctx)
-		if err != nil {
-			if errors.Is(err, ErrControlPlaneEndpointNotSet) {
-				// When an external ControlPlane Provider gets used (Kamaji), it might
-				// need some time until the endpoint is available.
-				err = fmt.Errorf("Requeue, waiting for control-plane endpoint to be set: %w",
-					err)
-				conditions.MarkFalse(
-					s.scope.HetznerCluster,
-					infrav1.LoadBalancerReadyCondition,
-					"MissingControlPlaneEndpoint",
-					clusterv1.ConditionSeverityWarning,
-					"%s",
-					err.Error(),
-				)
-				s.scope.Logger.Info(err.Error())
-				return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
-
+		} else {
+			lb, err = s.createLoadBalancer(ctx)
+			if err != nil {
+				if errors.Is(err, ErrControlPlaneEndpointNotSet) {
+					// When an external ControlPlane Provider gets used (Kamaji), it might
+					// need some time until the endpoint is available.
+					err = fmt.Errorf("requeue, waiting for control-plane endpoint to be set: %w",
+						err)
+					conditions.MarkFalse(
+						s.scope.HetznerCluster,
+						infrav1.LoadBalancerReadyCondition,
+						"MissingControlPlaneEndpoint",
+						clusterv1.ConditionSeverityWarning,
+						"%s",
+						err.Error(),
+					)
+					s.scope.Logger.Info(err.Error())
+					return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+				}
+				return reconcile.Result{}, fmt.Errorf("failed to create load balancer: %w", err)
 			}
-			return reconcile.Result{}, fmt.Errorf("failed to create load balancer: %w", err)
 		}
 	}
 
