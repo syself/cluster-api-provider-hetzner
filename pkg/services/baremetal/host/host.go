@@ -1926,7 +1926,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 			out := sshClient.Reboot()
 			if err := handleSSHError(out); err != nil {
 				conditions.MarkFalse(host, infrav1.HostHasNoRebootAnnotationCondition,
-					"SSHAfterInstallImageFailed",
+					"RebootViaSSHFailed",
 					clusterv1.ConditionSeverityWarning, "%s",
 					err.Error())
 				return actionError{err: err}
