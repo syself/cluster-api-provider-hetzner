@@ -235,6 +235,6 @@ const (
 )
 
 const (
-	// HostHasNoRebootAnnotationCondition reports that an annotation triggered a reboot.
-	HostHasNoRebootAnnotationCondition clusterv1.ConditionType = "HostHasNoRebootAnnotation"
+	// RebootSucceededCondition indicates that the machine gets rebooted
+	RebootSucceededCondition clusterv1.ConditionType = "RebootSucceeded"
 )

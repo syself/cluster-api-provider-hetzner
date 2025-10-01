@@ -1829,7 +1829,6 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		host.Spec.Status.Rebooted = false
 		host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = ""
 		host.Spec.Status.ExternalIDs.RebootAnnotationSince.Time = time.Time{}
-		conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.HostHasNoRebootAnnotationCondition)
 		return actionComplete{} // Stays in Provisioned (final state)
 	}
 
@@ -1843,7 +1842,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		s.scope.Logger.Info(msg)
 		conditions.MarkFalse(
 			s.scope.HetznerBareMetalHost,
-			infrav1.HostHasNoRebootAnnotationCondition,
+			infrav1.RebootSucceededCondition,
 			"TimedOut",
 			clusterv1.ConditionSeverityError,
 			"%s",
@@ -1855,7 +1854,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	wlClient, err := s.scope.WorkloadClusterClientFactory.NewWorkloadClient(ctx)
 	if err != nil {
 		err = fmt.Errorf("actionProvisioned (Reboot via Annotation), failed to get wlClient: %w", err)
-		conditions.MarkFalse(host, infrav1.HostHasNoRebootAnnotationCondition,
+		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
 			"GetWorkloadClusterClientFailed",
 			clusterv1.ConditionSeverityWarning, "%s",
 			err.Error())
@@ -1873,7 +1872,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	if machine.Status.NodeRef == nil {
 		// Very unlikely, but we want to avoid a panic.
 		err = errors.New("machine.Status.NodeRef is nil?")
-		conditions.MarkFalse(host, infrav1.HostHasNoRebootAnnotationCondition,
+		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
 			"MachineHasNoNodeRef",
 			clusterv1.ConditionSeverityWarning, "%s",
 			err.Error())
@@ -1885,7 +1884,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	err = wlClient.Get(ctx, client.ObjectKey{Name: nodeName}, node)
 	if err != nil {
 		err = fmt.Errorf("getting Node in wl-cluster failed: %w", err)
-		conditions.MarkFalse(host, infrav1.HostHasNoRebootAnnotationCondition,
+		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
 			"GettingNodeInWorkloadClusterFailed",
 			clusterv1.ConditionSeverityWarning, "%s",
 			err.Error())
@@ -1898,7 +1897,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	if currentBootID == "" {
 		err = errors.New("node.Status.NodeInfo.BootID is empty?")
 		s.scope.Logger.Error(err, "")
-		conditions.MarkFalse(host, infrav1.HostHasNoRebootAnnotationCondition,
+		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
 			"NodeInWorkloadClusterHasEmptyBootID",
 			clusterv1.ConditionSeverityWarning, "%s",
 			err.Error())
@@ -1925,7 +1924,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 
 			out := sshClient.Reboot()
 			if err := handleSSHError(out); err != nil {
-				conditions.MarkFalse(host, infrav1.HostHasNoRebootAnnotationCondition,
+				conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
 					"RebootViaSSHFailed",
 					clusterv1.ConditionSeverityWarning, "%s",
 					err.Error())
@@ -1938,7 +1937,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 
 				err = fmt.Errorf("actionProvisioned (Reboot via Annotation), reboot (%s) failed: %w", rebootType, err)
 
-				conditions.MarkFalse(host, infrav1.HostHasNoRebootAnnotationCondition,
+				conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
 					"RebootBMServerViaAPIFailed",
 					clusterv1.ConditionSeverityWarning, "%s",
 					err.Error())
@@ -1947,7 +1946,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		}
 		msg := fmt.Sprintf("Rebooting because annotation was set. Old BootID: %s", currentBootID)
 		createSSHRebootEvent(ctx, host, msg)
-		conditions.MarkFalse(host, infrav1.HostHasNoRebootAnnotationCondition,
+		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
 			"RebootingMachine",
 			clusterv1.ConditionSeverityInfo, "%s",
 			msg)
@@ -1965,19 +1964,20 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = ""
 		host.Spec.Status.ExternalIDs.RebootAnnotationSince.Time = time.Time{}
 
-		host.ClearRebootAnnotations()
+		conditions.MarkTrue(host, infrav1.RebootSucceededCondition)
 
+		host.ClearRebootAnnotations()
 		host.ClearError()
-		conditions.MarkTrue(host, infrav1.HostHasNoRebootAnnotationCondition)
+
 		return actionComplete{}
 	}
 
 	if !s.scope.SSHAfterInstallImage {
 		// s.scope.SSHAfterInstallImage is false: No ssh allowed.
 		// We can only wait for the BootID in the wl-cluster to change.
-		conditions.MarkFalse(host, infrav1.HostHasNoRebootAnnotationCondition,
+		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
 			"WaitingForNodeToBeRebooted",
-			clusterv1.ConditionSeverityWarning,
+			clusterv1.ConditionSeverityInfo,
 			"Waiting for BootID of Node (in wl-cluster) to change (%s)",
 			time.Since(host.Spec.Status.ExternalIDs.RebootAnnotationSince.Time).Round(time.Second))
 		return actionContinue{delay: 10 * time.Second}
@@ -2001,10 +2001,12 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		host.Spec.Status.Rebooted = false
 		host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = ""
 		host.Spec.Status.ExternalIDs.RebootAnnotationSince.Time = time.Time{}
-		conditions.MarkTrue(host, infrav1.HostHasNoRebootAnnotationCondition)
-		host.ClearRebootAnnotations()
 
+		conditions.MarkTrue(host, infrav1.RebootSucceededCondition)
+
+		host.ClearRebootAnnotations()
 		host.ClearError()
+
 		return actionComplete{}
 	}
 	// Reboot has been ongoing
@@ -2016,7 +2018,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 				"Provisioned: wanted %q. %s", wantHostName, err.Error())
 		}
 		err = fmt.Errorf("failed to handle incomplete boot - actionProvisioned: %w", err)
-		conditions.MarkFalse(host, infrav1.HostHasNoRebootAnnotationCondition,
+		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
 			"FailureFailGettingHostnameViaSSH",
 			clusterv1.ConditionSeverityWarning, "%s",
 			err.Error())
@@ -2025,7 +2027,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 
 	failed, err := s.handleIncompleteBoot(ctx, false, isTimeout, isSSHConnectionRefusedError)
 	if failed {
-		conditions.MarkFalse(host, infrav1.HostHasNoRebootAnnotationCondition,
+		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
 			"RebootFailed",
 			clusterv1.ConditionSeverityWarning, "%s",
 			err.Error())
@@ -2033,14 +2035,14 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	}
 	if err != nil {
 		err = fmt.Errorf(errMsgFailedHandlingIncompleteBoot, err)
-		conditions.MarkFalse(host, infrav1.HostHasNoRebootAnnotationCondition,
+		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
 			"RebootFailed",
 			clusterv1.ConditionSeverityWarning, "%s",
 			err.Error())
 		return actionError{err: err}
 	}
 
-	conditions.MarkFalse(host, infrav1.HostHasNoRebootAnnotationCondition,
+	conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
 		"TriggeredRebootViaSSH",
 		clusterv1.ConditionSeverityInfo,
 		"Waiting for BootID of Node (in wl-cluster) to change (%s) (baremetal-ssh-after-install-image=true)",

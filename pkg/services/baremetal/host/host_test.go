@@ -1683,7 +1683,7 @@ var _ = Describe("actionProvisioned SSHAfterInstallImage=false", func() {
 		actResult := service.actionProvisioned(ctx)
 		Expect(actResult).Should(BeAssignableToTypeOf(actionContinue{}))
 		Expect(robotMock.AssertNumberOfCalls(GinkgoT(), "RebootBMServer", 1)).To(BeTrue())
-		c := conditions.Get(host, infrav1.HostHasNoRebootAnnotationCondition)
+		c := conditions.Get(host, infrav1.RebootSucceededCondition)
 		Expect(c.Message).To(ContainSubstring("Rebooting because annotation was set"))
 		Expect(host.Spec.Status.Rebooted).To(BeTrue())
 	})
@@ -1707,7 +1707,7 @@ var _ = Describe("actionProvisioned SSHAfterInstallImage=false", func() {
 
 		actResult := service.actionProvisioned(ctx)
 		Expect(actResult).Should(BeAssignableToTypeOf(actionContinue{}))
-		c := conditions.Get(host, infrav1.HostHasNoRebootAnnotationCondition)
+		c := conditions.Get(host, infrav1.RebootSucceededCondition)
 		Expect(c.Message).To(ContainSubstring("Waiting for BootID of Node (in wl-cluster) to change"))
 	})
 
@@ -1746,7 +1746,7 @@ var _ = Describe("actionProvisioned SSHAfterInstallImage=false", func() {
 		Expect(actResult).Should(BeAssignableToTypeOf(actionComplete{}))
 
 		// Condition should be fine
-		c := conditions.Get(host, infrav1.HostHasNoRebootAnnotationCondition)
+		c := conditions.Get(host, infrav1.RebootSucceededCondition)
 		Expect(c.Message).To(Equal(""))
 		Expect(c.Status).To(Equal(corev1.ConditionTrue))
 		Expect(host.GetAnnotations()).To(BeEmpty())
