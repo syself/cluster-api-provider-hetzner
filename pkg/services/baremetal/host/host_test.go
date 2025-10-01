@@ -1658,7 +1658,7 @@ var _ = Describe("actionProvisioned SSHAfterInstallImage=true", func() {
 })
 
 var _ = Describe("actionProvisioned SSHAfterInstallImage=false", func() {
-	It("test reboot annotation for SSHAfterInstallImage=false", func() {
+	It("test reboot annotation for SSHAfterInstallImage=false, Reboot should be triggered", func() {
 		ctx := context.Background()
 		host := helpers.BareMetalHost(
 			"test-host",
@@ -1683,21 +1683,57 @@ var _ = Describe("actionProvisioned SSHAfterInstallImage=false", func() {
 		actResult := service.actionProvisioned(ctx)
 		Expect(actResult).Should(BeAssignableToTypeOf(actionContinue{}))
 		Expect(robotMock.AssertNumberOfCalls(GinkgoT(), "RebootBMServer", 1)).To(BeTrue())
-		c := conditions.Get(host, infrav1.ProvisionSucceededCondition)
+		c := conditions.Get(host, infrav1.HostHasNoRebootAnnotationCondition)
 		Expect(c.Message).To(ContainSubstring("Rebooting because annotation was set"))
+		Expect(host.Spec.Status.Rebooted).To(BeTrue())
+	})
 
-		// Call actionProvisioned again
-		actResult = service.actionProvisioned(ctx)
+	It("test reboot annotation for SSHAfterInstallImage=false, reach: Waiting for BootID of Node", func() {
+		ctx := context.Background()
+		host := helpers.BareMetalHost(
+			"test-host",
+			"default",
+			helpers.WithSSHSpecInclPorts(23),
+			helpers.WithIPv4(),
+			helpers.WithConsumerRef(),
+		)
+
+		host.SetAnnotations(map[string]string{infrav1.RebootAnnotation: "reboot"})
+		host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = fakeBootID
+		host.Spec.Status.Rebooted = true
+
+		service := newTestService(host, nil, nil, helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+		service.scope.SSHAfterInstallImage = false
+
+		actResult := service.actionProvisioned(ctx)
 		Expect(actResult).Should(BeAssignableToTypeOf(actionContinue{}))
-		c = conditions.Get(host, infrav1.ProvisionSucceededCondition)
+		c := conditions.Get(host, infrav1.HostHasNoRebootAnnotationCondition)
 		Expect(c.Message).To(ContainSubstring("Waiting for BootID of Node (in wl-cluster) to change"))
+	})
 
+	It("test reboot annotation for SSHAfterInstallImage=false, finished with healthy Condition", func() {
 		// Change BootID
+		ctx := context.Background()
+		host := helpers.BareMetalHost(
+			"test-host",
+			"default",
+			helpers.WithSSHSpecInclPorts(23),
+			helpers.WithIPv4(),
+			helpers.WithConsumerRef(),
+		)
+
+		host.SetAnnotations(map[string]string{infrav1.RebootAnnotation: "reboot"})
+		host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = fakeBootID
+		host.Spec.Status.Rebooted = true
+
 		node := &corev1.Node{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: host.Name,
 			},
 		}
+
+		service := newTestService(host, nil, nil, helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+
 		err := service.scope.Client.Get(ctx, client.ObjectKeyFromObject(node), node)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -1705,11 +1741,14 @@ var _ = Describe("actionProvisioned SSHAfterInstallImage=false", func() {
 		err = service.scope.Client.Status().Update(ctx, node)
 		Expect(err).ToNot(HaveOccurred())
 
-		// Call actionProvisioned again
-		actResult = service.actionProvisioned(ctx)
+		// Call actionProvisioned
+		actResult := service.actionProvisioned(ctx)
 		Expect(actResult).Should(BeAssignableToTypeOf(actionComplete{}))
-		c = conditions.Get(host, infrav1.ProvisionSucceededCondition)
+
+		// Condition should be fine
+		c := conditions.Get(host, infrav1.HostHasNoRebootAnnotationCondition)
 		Expect(c.Message).To(Equal(""))
 		Expect(c.Status).To(Equal(corev1.ConditionTrue))
+		Expect(host.GetAnnotations()).To(BeEmpty())
 	})
 })
