@@ -1229,7 +1229,7 @@ func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context
 			duration.Round(time.Second).String())
 		s.scope.Logger.Error(nil, msg, "logFile", logFile)
 		conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
-			"ImageURLCommandTimedout", clusterv1.ConditionSeverityWarning,
+			"ImageURLCommandTimedOut", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		return s.recordActionFailure(infrav1.FatalError, msg)
 	}
