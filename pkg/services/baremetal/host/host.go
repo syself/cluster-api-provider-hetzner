@@ -2001,7 +2001,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		host.Spec.Status.Rebooted = false
 		host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = ""
 		host.Spec.Status.ExternalIDs.RebootAnnotationSince.Time = time.Time{}
-
+		conditions.MarkTrue(host, infrav1.HostHasNoRebootAnnotationCondition)
 		host.ClearRebootAnnotations()
 
 		host.ClearError()
@@ -2042,7 +2042,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 
 	conditions.MarkFalse(host, infrav1.HostHasNoRebootAnnotationCondition,
 		"TriggeredRebootViaSSH",
-		clusterv1.ConditionSeverityWarning,
+		clusterv1.ConditionSeverityInfo,
 		"Waiting for BootID of Node (in wl-cluster) to change (%s) (baremetal-ssh-after-install-image=true)",
 		time.Since(host.Spec.Status.ExternalIDs.RebootAnnotationSince.Time).Round(time.Second))
 	return actionContinue{delay: 10 * time.Second}
