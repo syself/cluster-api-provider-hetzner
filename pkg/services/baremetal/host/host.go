@@ -1758,7 +1758,7 @@ func (s *Service) handleCloudInitNotStarted(ctx context.Context) actionResult {
 	}
 
 	if trimLineBreak(out.StdOut) != "" {
-		// it was not succesful. Prepare and reboot again
+		// it was not successful. Prepare and reboot again
 		out = oldSSHClient.CleanCloudInitLogs()
 		if err := handleSSHError(out); err != nil {
 			return actionError{err: fmt.Errorf("failed to CleanCloudInitLogs: %w", err)}

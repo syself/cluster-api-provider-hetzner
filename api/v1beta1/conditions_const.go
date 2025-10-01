@@ -235,5 +235,6 @@ const (
 )
 
 const (
+	// HostHasNoRebootAnnotationCondition reports that an annotation triggered a reboot.
 	HostHasNoRebootAnnotationCondition clusterv1.ConditionType = "HostHasNoRebootAnnotation"
 )
