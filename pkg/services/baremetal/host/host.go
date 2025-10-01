@@ -1955,8 +1955,8 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		return actionContinue{delay: 10 * time.Second}
 	}
 
-	// Reboot has been done already. Check whether it has been successful We connet to the
-	// wl-cluster and check the BootID. If it has changed, then the reboot was successful.
+	// Reboot has already been performed. Now, verify its success by connecting to the wl-cluster
+	// and checking the BootID. If the BootID has changed, the reboot was successful.
 
 	if host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID != currentBootID {
 		// Reboot has been successful
