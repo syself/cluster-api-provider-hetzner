@@ -902,10 +902,12 @@ func (s *Service) createServerFromImageURL(ctx context.Context) (*hcloud.Server,
 			"%s", msg)
 		return nil, nil, err
 	}
+
 	server, err := s.createServer(ctx, nil, image)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateInitializing)
 	return server, image, nil
 }
