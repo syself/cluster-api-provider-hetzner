@@ -1872,10 +1872,6 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	if machine.Status.NodeRef == nil {
 		// Very unlikely, but we want to avoid a panic.
 		err = errors.New("machine.Status.NodeRef is nil?")
-		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
-			"MachineHasNoNodeRef",
-			clusterv1.ConditionSeverityWarning, "%s",
-			err.Error())
 		return actionError{err: err}
 	}
 
