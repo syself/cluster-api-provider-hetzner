@@ -49,6 +49,7 @@ import (
 	robotclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/robot"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/host"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
 // HetznerBareMetalHostReconciler reconciles a HetznerBareMetalHost object.
@@ -128,15 +129,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 			if getErr != nil {
 				return false, getErr
 			}
-			if len(latestFromLocalCache.ResourceVersion) > len(apiserverRV) {
-				// RV has changed like from "999" to "1000"
-				return true, nil
-			}
-			if latestFromLocalCache.ResourceVersion >= apiserverRV {
-				// RV of cache is equal, or ahead.
-				return true, nil
-			}
-			return false, nil
+			return utils.IsLocalCacheUpToDate(latestFromLocalCache.ResourceVersion, apiserverRV), nil
 		})
 		if err != nil {
 			log.Error(err, "cache sync failed after BootState change")

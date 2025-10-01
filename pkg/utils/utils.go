@@ -221,3 +221,21 @@ func GetDefaultLogger(logLevel string) logr.Logger {
 
 	return zapr.NewLogger(zapLog)
 }
+
+// Compare two ResourceVersions, and return true if the local cache is up-to-date or ahead.
+// Related: https://github.com/kubernetes-sigs/controller-runtime/issues/3320
+func IsLocalCacheUpToDate(rvLocalCache, rvApiServer string) bool {
+	if len(rvLocalCache) < len(rvApiServer) {
+		// RV of cache is behind.
+		return false
+	}
+	if len(rvLocalCache) > len(rvApiServer) {
+		// RV of cache has changed like from "999" to "1000"
+		return true
+	}
+	if rvLocalCache >= rvApiServer {
+		// RV of cache is equal, or ahead.
+		return true
+	}
+	return false
+}
