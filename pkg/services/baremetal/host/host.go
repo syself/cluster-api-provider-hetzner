@@ -1847,6 +1847,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		return actionError{err: err}
 	}
 
+	// Get the capi-machine, so that we can get the Node-name in the wl-cluster.
 	machine, err := util.GetOwnerMachine(ctx, s.scope.Client, s.scope.HetznerBareMetalMachine.ObjectMeta)
 	if err != nil {
 		err = fmt.Errorf("actionProvisioned (Reboot via Annotation), GetOwnerMachine failed: %w",
@@ -1863,6 +1864,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 			err.Error())
 		return actionError{err: err}
 	}
+
 	nodeName := machine.Status.NodeRef.Name
 	node := &corev1.Node{}
 	err = wlClient.Get(ctx, client.ObjectKey{Name: nodeName}, node)
@@ -1875,6 +1877,8 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		return actionError{err: err}
 	}
 
+	// get the current BootId from the wl-cluster. If it has changed, we know that the reboot was
+	// successful.
 	currentBootID := node.Status.NodeInfo.BootID
 	if currentBootID == "" {
 		err = errors.New("node.Status.NodeInfo.BootID is empty?")
@@ -1931,7 +1935,8 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		return actionContinue{delay: 10 * time.Second}
 	}
 
-	// Reboot has been done already. Check whether it has been successful
+	// Reboot has been done already. Check whether it has been successful We connet to the
+	// wl-cluster and check the BootID. If it has changed, then the reboot was successfull.
 
 	if host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID == "" {
 		err := errors.New("internal error host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID not set")
