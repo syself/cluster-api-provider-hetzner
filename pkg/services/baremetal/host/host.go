@@ -191,6 +191,14 @@ func (s *Service) actionPreparing(ctx context.Context) actionResult {
 			s.scope.HetznerBareMetalHost.SetError(infrav1.PermanentError, msg)
 			return actionStop{}
 		}
+		if errors.Is(err, os.ErrDeadlineExceeded) {
+			// If the Hetzner API returns this, we just want to retry later:
+			// Get "https://robot-ws.your-server.de/server/1234": net/http: TLS handshake timeout
+			s.scope.Logger.Info("GetBMServer timed out, will retry later", "error", err)
+			return actionContinue{
+				delay: 10 * time.Second,
+			}
+		}
 		return actionError{err: fmt.Errorf("failed to get bare metal server: %w", err)}
 	}
 
@@ -1418,6 +1426,14 @@ func (s *Service) actionImageInstallingFinished(ctx context.Context, sshClient s
 
 	// Update name in robot API
 	if _, err := s.scope.RobotClient.SetBMServerName(s.scope.HetznerBareMetalHost.Spec.ServerID, s.scope.Hostname()); err != nil {
+		if errors.Is(err, os.ErrDeadlineExceeded) {
+			// If the Hetzner API returns this, we just want to retry later:
+			// Post "https://robot-ws.your-server.de/server/1234": net/http: TLS handshake timeout
+			s.scope.Logger.Info("SetBMServerName timed out, will retry later", "error", err)
+			return actionContinue{
+				delay: 10 * time.Second,
+			}
+		}
 		record.Warn(s.scope.HetznerBareMetalHost, "SetBMServerNameFailed", err.Error())
 		s.handleRobotRateLimitExceeded(err, "SetBMServerName")
 		return actionError{err: fmt.Errorf("failed to update name of host in robot API: %w", err)}
