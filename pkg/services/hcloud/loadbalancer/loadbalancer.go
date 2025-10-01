@@ -93,7 +93,7 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 				conditions.MarkFalse(
 					s.scope.HetznerCluster,
 					infrav1.LoadBalancerReadyCondition,
-					infrav1.LoadBalancerUpdateFailedReason+"MissingControlPlaneEndpoint",
+					"MissingControlPlaneEndpoint",
 					clusterv1.ConditionSeverityWarning,
 					"%s",
 					err.Error(),
