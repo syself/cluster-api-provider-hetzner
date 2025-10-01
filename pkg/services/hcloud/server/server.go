@@ -136,7 +136,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 			conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerAvailableCondition,
 				"GetSSHKeysFailed", clusterv1.ConditionSeverityWarning,
 				"%s", msg)
-			return reconcile.Result{RequeueAfter: 3 * time.Minute}, nil
+			return reconcile.Result{RequeueAfter: 1 * time.Minute}, nil
 		}
 
 		// pre-flight checks passed.
