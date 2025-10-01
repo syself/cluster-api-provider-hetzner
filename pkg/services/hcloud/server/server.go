@@ -102,39 +102,6 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.BootstrapReadyCondition)
 
 	var server *hcloud.Server
-	if s.scope.HCloudMachine.Spec.ProviderID == nil && s.scope.HCloudMachine.Spec.ImageURL != "" {
-		// This is a new machine with imageURL.
-		// Do some pre-flight checks, so we do not waste the hcloud-api budget if something is wrong
-		if s.scope.ImageURLCommand == "" {
-			msg := "imageURL is set, but the caph command is missing the --hcloud-image-url-command"
-			s.scope.Logger.Error(nil, msg)
-			conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerAvailableCondition,
-				"ImageURLSetButNoCommandProvided", clusterv1.ConditionSeverityWarning,
-				"%s", msg)
-			return reconcile.Result{RequeueAfter: 3 * time.Minute}, nil
-		}
-
-		_, hcloudSSHKeys, err := s.getSSHKeys(ctx)
-		if err != nil {
-			err = fmt.Errorf("getSSHKeys for hcloud imageURL provisioning failed: %w", err)
-			s.scope.Logger.Error(err, "")
-			conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerAvailableCondition,
-				"GetSSHKeysFailed", clusterv1.ConditionSeverityWarning,
-				"%s", err.Error())
-			return reconcile.Result{RequeueAfter: 3 * time.Minute}, nil
-		}
-
-		if len(hcloudSSHKeys) == 0 {
-			msg := "no ssh keys found hcloud imageURL provisioning found"
-			s.scope.Logger.Error(nil, msg)
-			conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerAvailableCondition,
-				"GetSSHKeysFailed", clusterv1.ConditionSeverityWarning,
-				"%s", msg)
-			return reconcile.Result{RequeueAfter: 3 * time.Minute}, nil
-		}
-
-		// pre-flight checks passed.
-	}
 
 	if s.scope.HCloudMachine.Spec.ProviderID != nil {
 		server, err = s.findServer(ctx)
@@ -186,6 +153,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	}
 }
 
+// handleBootStateUnset is first state for both ways (imageName/snapshot and imageURL).
 func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, error) {
 	hm := s.scope.HCloudMachine
 
@@ -202,7 +170,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		s.scope.Logger.Error(nil, msg)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			"HandleBootStateUnsetTimedOut", clusterv1.ConditionSeverityWarning,
-			"%s: %s", hm.Status.BootState, msg)
+			"%s", msg)
 		return reconcile.Result{}, nil
 	}
 
@@ -258,6 +226,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 	return reconcile.Result{RequeueAfter: requeueAfter}, nil
 }
 
+// handleBootStateInitializing is for provisioning with imageURL and image-url-command.
 func (s *Service) handleBootStateInitializing(ctx context.Context, server *hcloud.Server) (res reconcile.Result, reterr error) {
 	hm := s.scope.HCloudMachine
 
@@ -275,6 +244,32 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 	}
 
 	updateHCloudMachineStatusFromServer(hm, server)
+
+	// This is a new machine with imageURL. Do some pre-flight checks.
+	if s.scope.ImageURLCommand == "" {
+		msg := "imageURL is set, but the caph command is missing the --hcloud-image-url-command"
+		s.scope.Logger.Error(nil, msg)
+		conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerAvailableCondition,
+			"ImageURLSetButNoCommandProvided", clusterv1.ConditionSeverityWarning,
+			"%s", msg)
+		// No need for Requeue, because adding the command line argument to the caph deployment,
+		// will restart the controller, and all resources will be reconciled.
+		return reconcile.Result{}, nil
+	}
+
+	// Check that we have valid ssh-private-key in the secret. A failure could also mean there is a
+	// network failure while trying to access the api-server.
+	_, err := s.getSSHPrivateKey(ctx)
+	if err != nil {
+		err = fmt.Errorf("getSSHPrivateKey failed: %w", err)
+		s.scope.Logger.Error(err, "")
+		conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerAvailableCondition,
+			"GetSSHPrivateKeyFailed", clusterv1.ConditionSeverityWarning,
+			"%s", err.Error())
+		return reconcile.Result{RequeueAfter: 1 * time.Minute}, nil
+	}
+
+	// end of pre-flight checks.
 
 	// analyze status of server
 	switch server.Status {
@@ -322,6 +317,7 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 	return reconcile.Result{RequeueAfter: 4 * time.Second}, nil
 }
 
+// handleBootStateEnablingRescue is for provisioning with imageURL and image-url-command.
 func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcloud.Server) (reconcile.Result, error) {
 	hm := s.scope.HCloudMachine
 
@@ -412,7 +408,7 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 		err = fmt.Errorf("getSSHClient failed: %w", err)
 		s.scope.Logger.Error(err, "")
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			"EnablingRescueGetSSHClientFailed", clusterv1.ConditionSeverityWarning,
+			"GetSSHClientFailed", clusterv1.ConditionSeverityWarning,
 			"%s", err.Error())
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 	}
@@ -423,7 +419,7 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 			// This is common. Provide a nice message.
 			err = errors.New("reboot to rescue: ssh not reachable yet. Retrying")
 			conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-				"EnablingRescueRetryingSSHConnection",
+				"RetryingSSHConnection",
 				clusterv1.ConditionSeverityInfo, "%s", err.Error())
 			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 		}
@@ -431,7 +427,7 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 		err = fmt.Errorf("reboot to rescue: reboot via ssh failed: %w", err)
 		s.scope.Logger.Error(err, "")
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			"EnablingRescueRebootViaSSHFailed",
+			"RebootViaSSHFailed",
 			clusterv1.ConditionSeverityWarning, "%s", err.Error())
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 	}
@@ -445,6 +441,7 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 	return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 }
 
+// handleBootStateBootingToRescue is for provisioning with imageURL and image-url-command.
 func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hcloud.Server) (reconcile.Result, error) {
 	hm := s.scope.HCloudMachine
 	updateHCloudMachineStatusFromServer(hm, server)
@@ -466,7 +463,7 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 		msg := "Waiting until RescueEnabled is false"
 		s.scope.Logger.Info(msg)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			"BootingToRescueWaitForRescueEnabledToBeFalse", clusterv1.ConditionSeverityInfo,
+			"WaitForRescueEnabledToBeFalse", clusterv1.ConditionSeverityInfo,
 			"%s", msg)
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 	}
@@ -484,14 +481,14 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 			// This is common. Provide a nice message.
 			msg = "getHostName: ssh not reachable yet. Retrying"
 			conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-				"BootingToRescueRetryingSSHConnection", clusterv1.ConditionSeverityInfo,
+				"RetryingSSHConnection", clusterv1.ConditionSeverityInfo,
 				"%s", msg)
 			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 		}
 		err = fmt.Errorf("get hostname failed: %w", err)
 		s.scope.Logger.Error(err, "")
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			"BootingToRescueGetHostnameFailed", clusterv1.ConditionSeverityWarning,
+			"GetHostnameFailed", clusterv1.ConditionSeverityWarning,
 			"%s", err.Error())
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 	}
@@ -505,7 +502,7 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 		s.scope.Logger.Error(nil, msg)
 		s.scope.SetError(msg, capierrors.CreateMachineError)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			"BootingToRescueUnexpectedHostname", clusterv1.ConditionSeverityWarning,
+			"UnexpectedHostname", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		return reconcile.Result{}, nil
 	}
@@ -526,7 +523,7 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 			"exitStatus", exitStatus,
 			"stdoutStderr", stdoutStderr)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			"BootingToRescueStartImageURLCommandFailed", clusterv1.ConditionSeverityWarning,
+			"StartImageURLCommandFailed", clusterv1.ConditionSeverityWarning,
 			"%s", err.Error())
 		return reconcile.Result{}, err
 	}
@@ -539,18 +536,19 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 			"stdoutStderr", stdoutStderr)
 		s.scope.SetError(msg, capierrors.CreateMachineError)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			"BootingToRescueStartImageURLCommandNoZeroExitCode", clusterv1.ConditionSeverityWarning,
+			"StartImageURLCommandNoZeroExitCode", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		return reconcile.Result{}, nil
 	}
 
 	conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-		"BootingToRescueHCloudImageURLCommandStarted", clusterv1.ConditionSeverityInfo,
+		"HCloudImageURLCommandStarted", clusterv1.ConditionSeverityInfo,
 		"hcloud-image-url-command started")
 	hm.SetBootState(infrav1.HCloudBootStateRunningImageCommand)
 	return reconcile.Result{RequeueAfter: 55 * time.Second}, nil
 }
 
+// handleBootStateRunningImageCommand is for provisioning with imageURL and image-url-command.
 func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
 	hm := s.scope.HCloudMachine
 	updateHCloudMachineStatusFromServer(hm, server)
@@ -598,7 +596,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 		hm.SetBootState(infrav1.HCloudBootStateBootToRealOS)
 
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			"RunningImageCommandFinishedSuccessfully", clusterv1.ConditionSeverityInfo,
+			"ImageCommandFinishedSuccessfully", clusterv1.ConditionSeverityInfo,
 			"hcloud-image-url-command finished successfully. Rebooted, new state: %s",
 			hm.Status.BootState)
 
@@ -610,7 +608,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 		s.scope.Logger.Error(err, "", "logFile", logFile)
 		s.scope.SetError(msg, capierrors.CreateMachineError)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			"RunningImageCommandGettingStateFailed", clusterv1.ConditionSeverityWarning,
+			"ImageCommandGettingStateFailed", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		return reconcile.Result{}, nil
 
@@ -623,6 +621,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 	}
 }
 
+// handleBootToRealOS is used for both ways (imageName/snapshot and imageURL).
 func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
 	hm := s.scope.HCloudMachine
 	updateHCloudMachineStatusFromServer(hm, server)
@@ -647,14 +646,14 @@ func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server)
 
 	case hcloud.ServerStatusStarting, hcloud.ServerStatusInitializing:
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			"BootToRealOSNotRunningYet", clusterv1.ConditionSeverityInfo,
+			"RealOSNotRunningYet", clusterv1.ConditionSeverityInfo,
 			"hcloud server status: %s", server.Status)
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 
 	case hcloud.ServerStatusRunning:
 		hm.SetBootState(infrav1.HCloudBootStateOperatingSystemRunning)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			"BootToRealOSRunning", clusterv1.ConditionSeverityInfo,
+			"RealOSRunning", clusterv1.ConditionSeverityInfo,
 			"hcloud server status: %s", server.Status)
 		// Show changes in Status and go to next BootState.
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
@@ -663,12 +662,13 @@ func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server)
 		msg := fmt.Sprintf("hcloud server status unknown: %s", server.Status)
 		s.scope.Logger.Error(nil, msg)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			"BootToRealOSUnknownServerStatus", clusterv1.ConditionSeverityWarning,
+			"UnknownServerStatus", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 }
 
+// handleOperatingSystemRunning is the final state. It is used for both ways (imageName/snapshot and imageURL).
 func (s *Service) handleOperatingSystemRunning(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
 	hm := s.scope.HCloudMachine
 	updateHCloudMachineStatusFromServer(hm, server)
@@ -884,14 +884,6 @@ func (s *Service) createServerFromImageNameOrURL(ctx context.Context) (*hcloud.S
 func (s *Service) createServerFromImageURL(ctx context.Context) (*hcloud.Server, *hcloud.Image, error) {
 	// Validate that ImageURLCommand is given
 	hm := s.scope.HCloudMachine
-	if s.scope.ImageURLCommand == "" {
-		msg := fmt.Sprintf("controller was started without --hcloud-image-url-command. Provisioning via ImageURL %q not possible", hm.Spec.ImageURL)
-		s.scope.Logger.Error(nil, msg)
-		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			"CreateServerFromImageURLMissingImageURLCommand", clusterv1.ConditionSeverityWarning,
-			"%s", msg)
-		return nil, nil, errors.New(msg)
-	}
 
 	image, err := s.getServerImage(ctx, preRescueOSImage)
 	if err != nil {
@@ -900,14 +892,16 @@ func (s *Service) createServerFromImageURL(ctx context.Context) (*hcloud.Server,
 		record.Warn(hm, "FailedGetServerImage", msg)
 		s.scope.Logger.Error(nil, msg)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			"CreateServerFromImageURLGetServerImageFailed", clusterv1.ConditionSeverityWarning,
+			"GetServerImageFailed", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		return nil, nil, err
 	}
+
 	server, err := s.createServer(ctx, nil, image)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateInitializing)
 	return server, image, nil
 }
@@ -921,7 +915,7 @@ func (s *Service) createServerFromImageName(ctx context.Context) (*hcloud.Server
 		record.Warn(hm, "FailedGetBootstrapData", msg)
 		s.scope.Logger.Error(nil, msg)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			"CreateServerFromImageNameGetRawBootstrapDataFailed", clusterv1.ConditionSeverityWarning,
+			"GetRawBootstrapDataFailed", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		return nil, nil, err
 	}
@@ -933,7 +927,7 @@ func (s *Service) createServerFromImageName(ctx context.Context) (*hcloud.Server
 		record.Warn(hm, "FailedGetServerImage", msg)
 		s.scope.Logger.Error(nil, msg)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			"CreateServerFromImageNameGetServerImageFailed", clusterv1.ConditionSeverityWarning,
+			"GetServerImageFailed", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		return nil, nil, err
 	}
@@ -1210,7 +1204,7 @@ func (s *Service) handleServerStatusOff(ctx context.Context, server *hcloud.Serv
 				if hcloud.IsError(err, hcloud.ErrorCodeLocked) {
 					// if server is locked, we just retry again
 					conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerAvailableCondition,
-						"HandleServerStatusOffPowerOnServerFailed", clusterv1.ConditionSeverityInfo,
+						"PowerOnServerFailed", clusterv1.ConditionSeverityInfo,
 						"handleServerStatusOff: server locked. Will retry")
 					return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 				}
@@ -1420,38 +1414,49 @@ func updateHCloudMachineStatusFromServer(hm *infrav1.HCloudMachine, server *hclo
 	hm.Status.InstanceState = ptr.To(server.Status)
 }
 
-// getSSHClient uses HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef to get the ssh private key.
-// Then it creates a sshClient connected to the first IP of the HCloudMachine.
-func (s *Service) getSSHClient(ctx context.Context) (sshclient.Client, error) {
-	hm := s.scope.HCloudMachine
-
+func (s *Service) getSSHPrivateKey(ctx context.Context) (string, error) {
 	robotSecretName := s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Name
 	if robotSecretName == "" {
-		return nil, errors.New("HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Name is empty. Can not get ssh client")
+		return "", errors.New("HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Name is empty. Can not get ssh client")
 	}
 
 	secretManager := secretutil.NewSecretManager(s.scope.Logger, s.scope.Client, s.scope.APIReader)
+
 	robotSecret, err := secretManager.ObtainSecret(ctx, types.NamespacedName{
 		Name:      robotSecretName,
 		Namespace: s.scope.Namespace(),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get secret %q: %w", robotSecretName, err)
+		return "", fmt.Errorf("failed to get secret %q: %w", robotSecretName, err)
 	}
+
 	if robotSecret == nil {
-		return nil, fmt.Errorf("failed to obtain secret %s/%s", s.scope.Namespace(), robotSecretName)
+		return "", fmt.Errorf("failed to obtain secret %s/%s", s.scope.Namespace(), robotSecretName)
+	}
+
+	privateKey := string(robotSecret.Data[s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Key.PrivateKey])
+	if privateKey == "" {
+		return "", fmt.Errorf("key %q in secret %q is missing or empty. Failed to get ssh-private-key",
+			s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Key.PrivateKey,
+			robotSecretName)
+	}
+
+	return privateKey, nil
+}
+
+// getSSHClient uses HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef to get the ssh private key.
+// Then it creates a sshClient connected to the first IP of the HCloudMachine.
+func (s *Service) getSSHClient(ctx context.Context) (sshclient.Client, error) {
+	hm := s.scope.HCloudMachine
+
+	privateKey, err := s.getSSHPrivateKey(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("getSSHPrivateKey failed: %w", err)
 	}
 
 	if len(hm.Status.Addresses) == 0 {
 		// This should never happen.
 		return nil, errors.New("internal error: HCloudMachine.Status.Addresses empty. Can not connect via ssh")
-	}
-
-	privateKey := string(robotSecret.Data[s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Key.PrivateKey])
-	if privateKey == "" {
-		return nil, fmt.Errorf("key %q in secret %q is missing or empty. Failed to get ssh-private-key",
-			s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Key.PrivateKey,
-			robotSecretName)
 	}
 	ip := hm.Status.Addresses[0].Address
 
