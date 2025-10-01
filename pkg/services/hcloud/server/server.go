@@ -202,7 +202,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		s.scope.Logger.Error(nil, msg)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			"HandleBootStateUnsetTimedOut", clusterv1.ConditionSeverityWarning,
-			"%s: %s", hm.Status.BootState, msg)
+			"%s", msg)
 		return reconcile.Result{}, nil
 	}
 
