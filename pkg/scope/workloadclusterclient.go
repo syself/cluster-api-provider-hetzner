@@ -50,7 +50,7 @@ func workloadClientConfigFromKubeconfigSecret(ctx context.Context, logger logr.L
 	return clientcmd.NewClientConfigFromBytes(kubeconfigBytes)
 }
 
-// WorkloadClusterClientFactory is interface to get a new controller-runtime Client to access a
+// WorkloadClusterClientFactory is an interface to get a new controller-runtime Client to access a
 // workload-cluster.
 type WorkloadClusterClientFactory interface {
 	// NewWorkloadClient returns a new client connected to the workload-cluster
