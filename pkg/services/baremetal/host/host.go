@@ -1953,16 +1953,6 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	// Reboot has been done already. Check whether it has been successful We connet to the
 	// wl-cluster and check the BootID. If it has changed, then the reboot was successfull.
 
-	if host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID == "" {
-		err := errors.New("internal error host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID not set")
-		s.scope.Logger.Error(err, "")
-		conditions.MarkFalse(host, infrav1.HostHasNoRebootAnnotationCondition,
-			"RebootAnnotationNodeBootIDEmpty",
-			clusterv1.ConditionSeverityWarning, "%s",
-			err.Error())
-		return actionError{err: err}
-	}
-
 	if host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID != currentBootID {
 		// Reboot has been successful
 		s.scope.Logger.Info(fmt.Sprintf("BootID changed: %q -> %q", host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID, currentBootID))
