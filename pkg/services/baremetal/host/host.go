@@ -1851,10 +1851,6 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	if err != nil {
 		err = fmt.Errorf("actionProvisioned (Reboot via Annotation), GetOwnerMachine failed: %w",
 			err)
-		conditions.MarkFalse(host, infrav1.HostHasNoRebootAnnotationCondition,
-			"GetOwnerMachineFailed",
-			clusterv1.ConditionSeverityWarning, "%s",
-			err.Error())
 		return actionError{err: err}
 	}
 
