@@ -116,14 +116,14 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 			return reconcile.Result{}, nil
 		}
 
-		robotSecretName := s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Name
-		if robotSecretName == "" {
-			msg := "HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Name not set. This is required for provisioning via image-url-command"
-			s.scope.Logger.Error(nil, msg)
+		_, err := s.getSSHPrivateKey(ctx)
+		if err != nil {
+			err = fmt.Errorf("getSSHPrivateKey failed: %w", err)
+			s.scope.Logger.Error(err, "")
 			conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerAvailableCondition,
-				"RobotSSHKeyMissing", clusterv1.ConditionSeverityWarning,
-				"%s", msg)
-			return reconcile.Result{RequeueAfter: 3 * time.Minute}, nil
+				"GetSSHPrivateKeyFailed", clusterv1.ConditionSeverityWarning,
+				"%s", err.Error())
+			return reconcile.Result{RequeueAfter: 1 * time.Minute}, nil
 		}
 
 		_, hcloudSSHKeys, err := s.getSSHKeys(ctx)
@@ -1430,38 +1430,49 @@ func updateHCloudMachineStatusFromServer(hm *infrav1.HCloudMachine, server *hclo
 	hm.Status.InstanceState = ptr.To(server.Status)
 }
 
-// getSSHClient uses HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef to get the ssh private key.
-// Then it creates a sshClient connected to the first IP of the HCloudMachine.
-func (s *Service) getSSHClient(ctx context.Context) (sshclient.Client, error) {
-	hm := s.scope.HCloudMachine
-
+func (s *Service) getSSHPrivateKey(ctx context.Context) (string, error) {
 	robotSecretName := s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Name
 	if robotSecretName == "" {
-		return nil, errors.New("HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Name is empty. Can not get ssh client")
+		return "", errors.New("HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Name is empty. Can not get ssh client")
 	}
 
 	secretManager := secretutil.NewSecretManager(s.scope.Logger, s.scope.Client, s.scope.APIReader)
+
 	robotSecret, err := secretManager.ObtainSecret(ctx, types.NamespacedName{
 		Name:      robotSecretName,
 		Namespace: s.scope.Namespace(),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get secret %q: %w", robotSecretName, err)
+		return "", fmt.Errorf("failed to get secret %q: %w", robotSecretName, err)
 	}
+
 	if robotSecret == nil {
-		return nil, fmt.Errorf("failed to obtain secret %s/%s", s.scope.Namespace(), robotSecretName)
+		return "", fmt.Errorf("failed to obtain secret %s/%s", s.scope.Namespace(), robotSecretName)
+	}
+
+	privateKey := string(robotSecret.Data[s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Key.PrivateKey])
+	if privateKey == "" {
+		return "", fmt.Errorf("key %q in secret %q is missing or empty. Failed to get ssh-private-key",
+			s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Key.PrivateKey,
+			robotSecretName)
+	}
+
+	return privateKey, nil
+}
+
+// getSSHClient uses HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef to get the ssh private key.
+// Then it creates a sshClient connected to the first IP of the HCloudMachine.
+func (s *Service) getSSHClient(ctx context.Context) (sshclient.Client, error) {
+	hm := s.scope.HCloudMachine
+
+	privateKey, err := s.getSSHPrivateKey(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("getSSHPrivateKey failed: %w", err)
 	}
 
 	if len(hm.Status.Addresses) == 0 {
 		// This should never happen.
 		return nil, errors.New("internal error: HCloudMachine.Status.Addresses empty. Can not connect via ssh")
-	}
-
-	privateKey := string(robotSecret.Data[s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Key.PrivateKey])
-	if privateKey == "" {
-		return nil, fmt.Errorf("key %q in secret %q is missing or empty. Failed to get ssh-private-key",
-			s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Key.PrivateKey,
-			robotSecretName)
 	}
 	ip := hm.Status.Addresses[0].Address
 
