@@ -116,6 +116,16 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 			return reconcile.Result{}, nil
 		}
 
+		robotSecretName := s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Name
+		if robotSecretName == "" {
+			msg := "HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Name not set. This is required for provisioning via image-url-command"
+			s.scope.Logger.Error(nil, msg)
+			conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerAvailableCondition,
+				"RobotSSHKeyMissing", clusterv1.ConditionSeverityWarning,
+				"%s", msg)
+			return reconcile.Result{RequeueAfter: 3 * time.Minute}, nil
+		}
+
 		_, hcloudSSHKeys, err := s.getSSHKeys(ctx)
 		if err != nil {
 			if hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "getSSHKeys") {
