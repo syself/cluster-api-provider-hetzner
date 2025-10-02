@@ -598,9 +598,8 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 		hm.SetBootState(infrav1.HCloudBootStateBootingToRealOS)
 
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			"ImageCommandFinishedSuccessfully", clusterv1.ConditionSeverityInfo,
-			"hcloud-image-url-command finished successfully. Rebooted, new state: %s",
-			hm.Status.BootState)
+			"BootingToRealOS", clusterv1.ConditionSeverityInfo,
+			"Operating system of node is booting")
 
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 
@@ -610,7 +609,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 		s.scope.Logger.Error(err, "", "logFile", logFile)
 		s.scope.SetError(msg, capierrors.CreateMachineError)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			"ImageCommandGettingStateFailed", clusterv1.ConditionSeverityWarning,
+			"ImageCommandFailed", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		return reconcile.Result{}, nil
 
@@ -648,8 +647,8 @@ func (s *Service) handleBootingToRealOS(ctx context.Context, server *hcloud.Serv
 
 	case hcloud.ServerStatusStarting, hcloud.ServerStatusInitializing:
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			"RealOSNotRunningYet", clusterv1.ConditionSeverityInfo,
-			"hcloud server status: %s", server.Status)
+			"BootingToRealOS", clusterv1.ConditionSeverityInfo,
+			"Operating system of node is booting")
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 
 	case hcloud.ServerStatusRunning:
@@ -846,7 +845,7 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 	// we attach only nodes with kube-apiserver pod healthy to avoid downtime, skipped for the first node
 	if len(s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target) > 0 && !apiServerPodHealthy {
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			"ReconcileLoadBalancerAttachment", clusterv1.ConditionSeverityInfo,
+			"WaitingForAPIServer", clusterv1.ConditionSeverityInfo,
 			"reconcile LoadBalancer: apiserver pod not healthy yet.")
 		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 	}
