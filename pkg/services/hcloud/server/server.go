@@ -588,6 +588,8 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 
 	case sshclient.ImageURLCommandStateFinishedSuccessfully:
 		record.Event(hm, "ImageURLCommandSuccessful", logFile)
+
+		// The image got installed. Now reboot in the real operating system.
 		if hcloudSSHClient.Reboot().Err != nil {
 			return reconcile.Result{}, fmt.Errorf("reboot after ImageURLCommand failed: %w",
 				err)
