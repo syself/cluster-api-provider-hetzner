@@ -542,8 +542,8 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 	}
 
 	conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-		"HCloudImageURLCommandStarted", clusterv1.ConditionSeverityInfo,
-		"hcloud-image-url-command started")
+		"HCloudImageURLCommandRunning", clusterv1.ConditionSeverityInfo,
+		"hcloud-image-url-command running")
 	hm.SetBootState(infrav1.HCloudBootStateRunningImageCommand)
 	return reconcile.Result{RequeueAfter: 55 * time.Second}, nil
 }
@@ -582,8 +582,8 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 	switch state {
 	case sshclient.ImageURLCommandStateRunning:
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			"ImageCommandStillRunning", clusterv1.ConditionSeverityInfo,
-			"hcloud-image-url-command still running")
+			"HCloudImageURLCommandRunning", clusterv1.ConditionSeverityInfo,
+			"hcloud-image-url-command running")
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 
 	case sshclient.ImageURLCommandStateFinishedSuccessfully:
