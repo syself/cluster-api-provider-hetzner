@@ -283,12 +283,12 @@ const (
 	HCloudBootStateBootingToRescue HCloudBootState = "BootingToRescue"
 
 	// HCloudBootStateRunningImageCommand indicates the controller waits for the
-	// image-url-command, and then switches BootState to BootToRealOS (no additional reboot gets
+	// image-url-command, and then switches BootState to BootingToRealOS (no additional reboot gets
 	// done).
 	HCloudBootStateRunningImageCommand HCloudBootState = "RunningImageCommand"
 
-	// HCloudBootStateBootToRealOS indicates that the server is booting the operating system.
-	HCloudBootStateBootToRealOS HCloudBootState = "BootToRealOS"
+	// HCloudBootStateBootingToRealOS indicates that the server is booting the operating system.
+	HCloudBootStateBootingToRealOS HCloudBootState = "BootingToRealOS"
 
 	// HCloudBootStateOperatingSystemRunning indicates that the server is successfully running.
 	HCloudBootStateOperatingSystemRunning HCloudBootState = "OperatingSystemRunning"

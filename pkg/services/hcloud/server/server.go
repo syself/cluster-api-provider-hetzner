@@ -144,8 +144,8 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 		return s.handleBootStateBootingToRescue(ctx, server)
 	case infrav1.HCloudBootStateRunningImageCommand:
 		return s.handleBootStateRunningImageCommand(ctx, server)
-	case infrav1.HCloudBootStateBootToRealOS:
-		return s.handleBootToRealOS(ctx, server)
+	case infrav1.HCloudBootStateBootingToRealOS:
+		return s.handleBootingToRealOS(ctx, server)
 	case infrav1.HCloudBootStateOperatingSystemRunning:
 		return s.handleOperatingSystemRunning(ctx, server)
 	default:
@@ -180,7 +180,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 
 		var msg string
 		if !hm.Status.Ready {
-			hm.SetBootState(infrav1.HCloudBootStateBootToRealOS)
+			hm.SetBootState(infrav1.HCloudBootStateBootingToRealOS)
 		} else {
 			hm.SetBootState(infrav1.HCloudBootStateOperatingSystemRunning)
 		}
@@ -593,7 +593,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 				err)
 		}
 
-		hm.SetBootState(infrav1.HCloudBootStateBootToRealOS)
+		hm.SetBootState(infrav1.HCloudBootStateBootingToRealOS)
 
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			"ImageCommandFinishedSuccessfully", clusterv1.ConditionSeverityInfo,
@@ -621,20 +621,20 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 	}
 }
 
-// handleBootToRealOS is used for both ways (imageName/snapshot and imageURL).
-func (s *Service) handleBootToRealOS(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
+// handleBootingToRealOS is used for both ways (imageName/snapshot and imageURL).
+func (s *Service) handleBootingToRealOS(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
 	hm := s.scope.HCloudMachine
 	updateHCloudMachineStatusFromServer(hm, server)
 
 	durationOfState := time.Since(hm.Status.BootStateSince.Time)
 	if durationOfState > 6*time.Minute {
 		// timeout. Something has failed.
-		msg := fmt.Sprintf("handleBootToRealOS timed out after %s. Deleting machine",
+		msg := fmt.Sprintf("handleBootingToRealOS timed out after %s. Deleting machine",
 			durationOfState.Round(time.Second).String())
 		s.scope.SetError(msg, capierrors.CreateMachineError)
 		s.scope.Logger.Error(nil, msg)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			"BootToRealOSTimedOut", clusterv1.ConditionSeverityWarning,
+			"BootingToRealOSTimedOut", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		return reconcile.Result{}, nil
 	}
@@ -937,7 +937,7 @@ func (s *Service) createServerFromImageName(ctx context.Context) (*hcloud.Server
 		return nil, nil, err
 	}
 
-	hm.SetBootState(infrav1.HCloudBootStateBootToRealOS)
+	hm.SetBootState(infrav1.HCloudBootStateBootingToRealOS)
 	return server, image, nil
 }
 

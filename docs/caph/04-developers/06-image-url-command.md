@@ -44,8 +44,8 @@ We measured these durations:
 | Initializing | EnablingRescue | 19.20 | 11.00 | 21.00 |
 | EnablingRescue | BootingToRescue | 14.20 | 9.00 | 23.00 |
 | BootingToRescue | RunningImageCommand | 38.20 | 37.00 | 42.00 |
-| RunningImageCommand | BootToRealOS | 62.40 | 56.00 | 80.00 |
-| BootToRealOS | OperatingSystemRunning | 1.80 | 1.00 | 3.00 |
+| RunningImageCommand | BootingToRealOS | 62.40 | 56.00 | 80.00 |
+| BootingToRealOS | OperatingSystemRunning | 1.80 | 1.00 | 3.00 |
 
 <!--
   the table was created by:

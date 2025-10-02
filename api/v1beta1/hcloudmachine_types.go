@@ -126,7 +126,7 @@ type HCloudMachineStatus struct {
 	// BootState indicates the current state during provisioning.
 	//
 	// If Spec.ImageName is set the states will be:
-	//   1. BootToRealOS
+	//   1. BootingToRealOS
 	//   2. OperatingSystemRunning
 	//
 	// If Spec.ImageURL is set the states will be:
@@ -134,7 +134,7 @@ type HCloudMachineStatus struct {
 	//   2. EnablingRescue
 	//   3. BootingToRescue
 	//   4. RunningImageCommand
-	//   5. BootToRealOS
+	//   5. BootingToRealOS
 	//   6. OperatingSystemRunning
 
 	// +optional
