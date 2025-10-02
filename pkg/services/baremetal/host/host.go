@@ -1940,8 +1940,11 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 				return actionError{err: err}
 			}
 		}
+
 		msg := fmt.Sprintf("Rebooting because annotation was set. Old BootID: %s", currentBootID)
+
 		createSSHRebootEvent(ctx, host, msg)
+
 		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
 			"RebootingMachine",
 			clusterv1.ConditionSeverityInfo, "%s",
@@ -2039,10 +2042,11 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	}
 
 	conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
-		"TriggeredRebootViaSSH",
+		"WaitingForNodeToBeRebooted",
 		clusterv1.ConditionSeverityInfo,
-		"Waiting for BootID of Node (in wl-cluster) to change (%s) (baremetal-ssh-after-install-image=true)",
+		"Waiting for BootID of Node (in wl-cluster) to change (%s)",
 		time.Since(host.Spec.Status.ExternalIDs.RebootAnnotationSince.Time).Round(time.Second))
+
 	return actionContinue{delay: 10 * time.Second}
 }
 

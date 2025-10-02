@@ -235,6 +235,6 @@ const (
 )
 
 const (
-	// RebootSucceededCondition indicates that the machine gets rebooted.
+	// RebootSucceededCondition indicatesthat the machine got rebooted successfully.
 	RebootSucceededCondition clusterv1.ConditionType = "RebootSucceeded"
 )
