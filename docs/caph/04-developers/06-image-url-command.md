@@ -16,7 +16,7 @@ You need to enable two things:
 
 * The caph binary must get argument. Example:
   `--hcloud-image-url-command=/shared/image-url-command.sh`
-* The hcloudmachine resource must have spec.imageURL set (usualy via a hcloudmachinetemplate)
+* The hcloudmachine resource must have spec.imageURL set (usually via a hcloudmachinetemplate)
 
 The command will get the imageURL, bootstrap-data and machine-name of the corresponding
 hcloudmachine as argument.
