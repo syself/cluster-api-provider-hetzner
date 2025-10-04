@@ -416,11 +416,11 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 	err = sshClient.Reboot().Err
 	if err != nil {
 		if errors.Is(err, syscall.ECONNREFUSED) {
-			// This is common. Provide a nice message.
-			err = errors.New("reboot to rescue: ssh not reachable yet. Retrying")
+			// ssh connection refused is common while the rescue system starts.
+			// Provide a nice message.
 			conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 				"RetryingSSHConnection",
-				clusterv1.ConditionSeverityInfo, "%s", err.Error())
+				clusterv1.ConditionSeverityInfo, "Rebooting")
 			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 		}
 
