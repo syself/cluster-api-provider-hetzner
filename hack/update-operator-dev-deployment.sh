@@ -90,19 +90,25 @@ image="$image_path/caph-staging:$tag"
 
 wait
 
-kubectl scale --replicas=1 -n mgt-system deployment/caph-controller-manager
+ns=$(kubectl get deployments.apps -A | { grep caph-controller || true; } | cut -d' ' -f1)
+if [[ -z $ns ]]; then
+    echo "failed to get namespace for caph-controller"
+    exit 1
+fi
 
-kubectl set image -n mgt-system deployment/caph-controller-manager manager="$image"
+kubectl scale --replicas=1 -n "$ns" deployment/caph-controller-manager
 
-kubectl patch deployment -n mgt-system -p '[{"op": "replace", "path": "/spec/template/spec/containers/0/imagePullPolicy", "value": "Always"}]' --type='json' caph-controller-manager
+kubectl set image -n "$ns" deployment/caph-controller-manager manager="$image"
 
-kubectl rollout restart -n mgt-system deployment caph-controller-manager
+kubectl patch deployment -n "$ns" -p '[{"op": "replace", "path": "/spec/template/spec/containers/0/imagePullPolicy", "value": "Always"}]' --type='json' caph-controller-manager
+
+kubectl rollout restart -n "$ns" deployment caph-controller-manager
 
 trap "echo 'Interrupted! Exiting...'; exit 1" SIGINT
 
-while ! kubectl rollout status deployment --timeout=3s -n mgt-system caph-controller-manager; do
+while ! kubectl rollout status deployment --timeout=3s -n "$ns" caph-controller-manager; do
     echo "Rollout failed"
-    kubectl events -n mgt-system | grep caph-controller-manager | tail -n 5
+    kubectl events -n "$ns" | grep caph-controller-manager | tail -n 5
     echo
     echo
 done

@@ -29,11 +29,9 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
-	"sigs.k8s.io/cluster-api/util/secret"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
-	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 )
 
@@ -148,21 +146,7 @@ func (s *ClusterScope) ControlPlaneAPIEndpointPort() int32 {
 
 // ClientConfig return a kubernetes client config for the cluster context.
 func (s *ClusterScope) ClientConfig(ctx context.Context) (clientcmd.ClientConfig, error) {
-	cluster := client.ObjectKey{
-		Name:      fmt.Sprintf("%s-%s", s.Cluster.Name, secret.Kubeconfig),
-		Namespace: s.Cluster.Namespace,
-	}
-
-	secretManager := secretutil.NewSecretManager(s.Logger, s.Client, s.APIReader)
-	kubeconfigSecret, err := secretManager.AcquireSecret(ctx, cluster, s.HetznerCluster, false, false)
-	if err != nil {
-		return nil, fmt.Errorf("failed to acquire secret: %w", err)
-	}
-	kubeconfigBytes, ok := kubeconfigSecret.Data[secret.KubeconfigDataName]
-	if !ok {
-		return nil, fmt.Errorf("missing key %q in secret data", secret.KubeconfigDataName)
-	}
-	return clientcmd.NewClientConfigFromBytes(kubeconfigBytes)
+	return workloadClientConfigFromKubeconfigSecret(ctx, s.Logger, s.Client, s.APIReader, s.Cluster, s.HetznerCluster)
 }
 
 // ListMachines returns HCloudMachines.

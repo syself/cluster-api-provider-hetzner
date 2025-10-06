@@ -233,3 +233,8 @@ const (
 	// DeprecatedRateLimitExceededCondition reports whether the rate limit has been reached.
 	DeprecatedRateLimitExceededCondition clusterv1.ConditionType = "RateLimitExceeded"
 )
+
+const (
+	// RebootSucceededCondition indicates that the machine got rebooted successfully.
+	RebootSucceededCondition clusterv1.ConditionType = "RebootSucceeded"
+)
