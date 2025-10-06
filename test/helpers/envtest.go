@@ -114,7 +114,7 @@ type TestEnvironment struct {
 	HCloudClientFactory          hcloudclient.Factory
 	RobotClientFactory           robotclient.Factory
 	BaremetalSSHClientFactory    sshclient.Factory
-	HCloudSHClientFactory        sshclient.Factory
+	HCloudSSHClientFactory       sshclient.Factory
 	RescueSSHClient              *sshmock.Client
 	OSSSHClientAfterInstallImage *sshmock.Client
 	OSSSHClientAfterCloudInit    *sshmock.Client
@@ -207,7 +207,7 @@ func NewTestEnvironment() *TestEnvironment {
 		Config:                       mgr.GetConfig(),
 		HCloudClientFactory:          hcloudClientFactory,
 		BaremetalSSHClientFactory:    mocks.NewSSHFactory(rescueSSHClient, osSSHClientAfterInstallImage, osSSHClientAfterCloudInit),
-		HCloudSHClientFactory:        mockedsshclient.NewSSHFactory(hcloudSSHClient),
+		HCloudSSHClientFactory:       mockedsshclient.NewSSHFactory(hcloudSSHClient),
 		RescueSSHClient:              rescueSSHClient,
 		OSSSHClientAfterInstallImage: osSSHClientAfterInstallImage,
 		OSSSHClientAfterCloudInit:    osSSHClientAfterCloudInit,

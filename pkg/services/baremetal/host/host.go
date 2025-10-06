@@ -37,6 +37,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -246,25 +247,29 @@ func (s *Service) actionPreparing(ctx context.Context) actionResult {
 		return actionError{err: fmt.Errorf("failed to enforce rescue mode: %w", err)}
 	}
 
-	sshClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
-		PrivateKey: sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.SecretRef).PrivateKey,
-		Port:       s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterInstallImage,
-		IP:         s.scope.HetznerBareMetalHost.Spec.Status.GetIPAddress(),
-	})
+	if s.scope.SSHAfterInstallImage {
+		// We have ssh access to running nodes. Maybe we can reboot via ssh instead of
+		// using the robot API.
+		sshClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
+			PrivateKey: sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.SecretRef).PrivateKey,
+			Port:       s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterInstallImage,
+			IP:         s.scope.HetznerBareMetalHost.Spec.Status.GetIPAddress(),
+		})
 
-	// Check hostname with sshClient
-	out := sshClient.GetHostName()
-	if trimLineBreak(out.StdOut) != "" {
-		// we managed access with ssh - we can do an ssh reboot
-		if err := handleSSHError(sshClient.Reboot()); err != nil {
-			return actionError{err: fmt.Errorf("failed to reboot server via ssh (actionPreparing): %w", err)}
+		// Check hostname with sshClient
+		out := sshClient.GetHostName()
+		if trimLineBreak(out.StdOut) != "" {
+			// we managed access with ssh - we can do an ssh reboot
+			if err := handleSSHError(sshClient.Reboot()); err != nil {
+				return actionError{err: fmt.Errorf("failed to reboot server via ssh (actionPreparing): %w", err)}
+			}
+			msg := "Rebooting into rescue mode."
+			createSSHRebootEvent(ctx, s.scope.HetznerBareMetalHost, msg)
+			// we immediately set an error message in the host status to track the reboot we just performed
+			s.scope.HetznerBareMetalHost.SetError(infrav1.ErrorTypeSSHRebootTriggered, fmt.Sprintf("Phase %s, reboot via ssh: %s",
+				s.scope.HetznerBareMetalHost.Spec.Status.ProvisioningState, msg))
+			return actionComplete{} // next: Registering
 		}
-		msg := "Rebooting into rescue mode."
-		createSSHRebootEvent(ctx, s.scope.HetznerBareMetalHost, msg)
-		// we immediately set an error message in the host status to track the reboot we just performed
-		s.scope.HetznerBareMetalHost.SetError(infrav1.ErrorTypeSSHRebootTriggered, fmt.Sprintf("Phase %s, reboot via ssh: %s",
-			s.scope.HetznerBareMetalHost.Spec.Status.ProvisioningState, msg))
-		return actionComplete{} // next: Registering
 	}
 
 	// Check if software reboot is available. If it is not, choose hardware reboot.
@@ -1715,6 +1720,16 @@ func verifyConnectionRefused(sshClient sshclient.Client, port int) bool {
 // next: Provisioned
 func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult) {
 	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StateEnsureProvisioned)
+
+	if !s.scope.SSHAfterInstallImage {
+		// Command line argument `--baremetal-ssh-after-install-image=false` was used.
+		// This mean we do not connect via ssh to the machine after the image got installed.
+		record.Event(s.scope.HetznerBareMetalHost, "ServerProvisioned", "server successfully provisioned ('ensure-provisioned' was skipped)")
+		conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
+		s.scope.HetznerBareMetalHost.ClearError()
+		return actionComplete{}
+	}
+
 	sshClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
 		PrivateKey: sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.SecretRef).PrivateKey,
 		Port:       s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterInstallImage,
@@ -1871,7 +1886,7 @@ func (s *Service) handleCloudInitNotStarted(ctx context.Context) actionResult {
 	}
 
 	if trimLineBreak(out.StdOut) != "" {
-		// it was not succesfull. Prepare and reboot again
+		// it was not successful. Prepare and reboot again
 		out = oldSSHClient.CleanCloudInitLogs()
 		if err := handleSSHError(out); err != nil {
 			return actionError{err: fmt.Errorf("failed to CleanCloudInitLogs: %w", err)}
@@ -1933,65 +1948,234 @@ func analyzeSSHOutputProvisioned(out sshclient.Output) (isTimeout, isConnectionR
 // next: Stays in Provisioned (final state)
 func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	// set host to provisioned
-	conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
 
 	rebootDesired := s.scope.HetznerBareMetalHost.HasRebootAnnotation()
-	isRebooted := s.scope.HetznerBareMetalHost.Spec.Status.Rebooted
-	creds := sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.SecretRef)
-	in := sshclient.Input{
-		PrivateKey: creds.PrivateKey,
-		Port:       s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterInstallImage,
-		IP:         s.scope.HetznerBareMetalHost.Spec.Status.GetIPAddress(),
+
+	host := s.scope.HetznerBareMetalHost
+
+	if !rebootDesired {
+		host.Spec.Status.Rebooted = false
+		host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = ""
+		host.Spec.Status.ExternalIDs.RebootAnnotationSince.Time = time.Time{}
+		return actionComplete{} // Stays in Provisioned (final state)
 	}
-	sshClient := s.scope.SSHClientFactory.NewClient(in)
 
-	if rebootDesired {
-		if isRebooted {
-			// Reboot has been done already. Check whether it has been successful
-			// Check hostname with sshClient
-			out := sshClient.GetHostName()
+	if host.Spec.Status.ExternalIDs.RebootAnnotationSince.IsZero() {
+		host.Spec.Status.ExternalIDs.RebootAnnotationSince = metav1.Now()
+	}
 
-			wantHostName := s.scope.Hostname()
+	rebootDuration := time.Since(host.Spec.Status.ExternalIDs.RebootAnnotationSince.Time)
+	if rebootDuration > 5*time.Minute {
+		msg := fmt.Sprintf("Rebooting timed out after: %s", rebootDuration.Round(time.Second))
+		s.scope.Logger.Info(msg)
+		conditions.MarkFalse(
+			s.scope.HetznerBareMetalHost,
+			infrav1.RebootSucceededCondition,
+			"TimedOut",
+			clusterv1.ConditionSeverityError,
+			"%s",
+			msg,
+		)
+		return s.recordActionFailure(infrav1.FatalError, msg)
+	}
 
-			if trimLineBreak(out.StdOut) == wantHostName {
-				// Reboot has been successful
-				s.scope.HetznerBareMetalHost.Spec.Status.Rebooted = false
-				s.scope.HetznerBareMetalHost.ClearRebootAnnotations()
+	wlClient, err := s.scope.WorkloadClusterClientFactory.NewWorkloadClient(ctx)
+	if err != nil {
+		err = fmt.Errorf("actionProvisioned (Reboot via Annotation), failed to get wlClient: %w", err)
+		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
+			"GetWorkloadClusterClientFailed",
+			clusterv1.ConditionSeverityWarning, "%s",
+			err.Error())
+		return actionError{err: err}
+	}
 
-				s.scope.HetznerBareMetalHost.ClearError()
-				return actionComplete{}
-			}
-			// Reboot has been ongoing
-			isTimeout, isSSHConnectionRefusedError, err := analyzeSSHOutputProvisioned(out)
-			if err != nil {
-				if errors.Is(err, errUnexpectedHostName) {
-					// One possible reason: The machine gets used by a second wl-cluster
-					record.Warnf(s.scope.HetznerBareMetalHost, "UnexpectedHostName",
-						"Provisioned: wanted %q. %s", wantHostName, err.Error())
-				}
-				return actionError{err: fmt.Errorf("failed to handle incomplete boot - actionProvisioned: %w", err)}
-			}
-			failed, err := s.handleIncompleteBoot(ctx, false, isTimeout, isSSHConnectionRefusedError)
-			if failed {
-				return s.recordActionFailure(infrav1.PermanentError, err.Error())
-			}
-			if err != nil {
-				return actionError{err: fmt.Errorf(errMsgFailedHandlingIncompleteBoot, err)}
-			}
-			return actionContinue{delay: 10 * time.Second}
-		}
+	// Get the capi-machine, so that we can get the Node-name in the wl-cluster.
+	machine, err := util.GetOwnerMachine(ctx, s.scope.Client, s.scope.HetznerBareMetalMachine.ObjectMeta)
+	if err != nil {
+		err = fmt.Errorf("actionProvisioned (Reboot via Annotation), GetOwnerMachine failed: %w",
+			err)
+		return actionError{err: err}
+	}
+
+	if machine.Status.NodeRef == nil {
+		// Very unlikely, but we want to avoid a panic.
+		err = errors.New("machine.Status.NodeRef is nil?")
+		return actionError{err: err}
+	}
+
+	nodeName := machine.Status.NodeRef.Name
+	node := &corev1.Node{}
+	err = wlClient.Get(ctx, client.ObjectKey{Name: nodeName}, node)
+	if err != nil {
+		err = fmt.Errorf("getting Node in wl-cluster failed: %w", err)
+		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
+			"GettingNodeInWorkloadClusterFailed",
+			clusterv1.ConditionSeverityWarning, "%s",
+			err.Error())
+		return actionError{err: err}
+	}
+
+	// get the current BootId from the wl-cluster. If it has changed, we know that the reboot was
+	// successful.
+	currentBootID := node.Status.NodeInfo.BootID
+	if currentBootID == "" {
+		err = errors.New("node.Status.NodeInfo.BootID is empty?")
+		s.scope.Logger.Error(err, "")
+		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
+			"NodeInWorkloadClusterHasEmptyBootID",
+			clusterv1.ConditionSeverityWarning, "%s",
+			err.Error())
+		return actionError{err: err}
+	}
+
+	isRebooted := host.Spec.Status.Rebooted
+	if !isRebooted {
 		// Reboot now
-		out := sshClient.Reboot()
-		if err := handleSSHError(out); err != nil {
-			return actionError{err: err}
+
+		// Set current BootID, so we can detect a successful reboot
+		host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = currentBootID
+
+		if s.scope.SSHAfterInstallImage {
+			creds := sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, host.Spec.Status.SSHSpec.SecretRef)
+
+			in := sshclient.Input{
+				PrivateKey: creds.PrivateKey,
+				Port:       host.Spec.Status.SSHSpec.PortAfterInstallImage,
+				IP:         host.Spec.Status.GetIPAddress(),
+			}
+
+			sshClient := s.scope.SSHClientFactory.NewClient(in)
+
+			out := sshClient.Reboot()
+			if err := handleSSHError(out); err != nil {
+				conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
+					"RebootViaSSHFailed",
+					clusterv1.ConditionSeverityWarning, "%s",
+					err.Error())
+				return actionError{err: err}
+			}
+		} else {
+			rebootType := infrav1.RebootTypeHardware
+			if _, err := s.scope.RobotClient.RebootBMServer(host.Spec.ServerID, rebootType); err != nil {
+				s.handleRobotRateLimitExceeded(err, rebootServerStr)
+
+				err = fmt.Errorf("actionProvisioned (Reboot via Annotation), reboot (%s) failed: %w", rebootType, err)
+
+				conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
+					"RebootBMServerViaAPIFailed",
+					clusterv1.ConditionSeverityWarning, "%s",
+					err.Error())
+				return actionError{err: err}
+			}
 		}
 
-		createSSHRebootEvent(ctx, s.scope.HetznerBareMetalHost, "Rebooting because annotation was set")
-		s.scope.HetznerBareMetalHost.Spec.Status.Rebooted = true
+		msg := fmt.Sprintf("Rebooting because annotation was set. Old BootID: %s", currentBootID)
+
+		createSSHRebootEvent(ctx, host, msg)
+
+		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
+			"RebootingMachine",
+			clusterv1.ConditionSeverityInfo, "%s",
+			msg)
+		host.Spec.Status.Rebooted = true
 		return actionContinue{delay: 10 * time.Second}
 	}
 
-	return actionComplete{} // Stays in Provisioned (final state)
+	// Reboot has already been performed. Now, verify its success by connecting to the wl-cluster
+	// and checking the BootID. If the BootID has changed, the reboot was successful.
+
+	if host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID != currentBootID {
+		// Reboot has been successful
+		s.scope.Logger.Info(fmt.Sprintf("BootID changed: %q -> %q", host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID, currentBootID))
+		host.Spec.Status.Rebooted = false
+		host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = ""
+		host.Spec.Status.ExternalIDs.RebootAnnotationSince.Time = time.Time{}
+
+		conditions.MarkTrue(host, infrav1.RebootSucceededCondition)
+
+		host.ClearRebootAnnotations()
+		host.ClearError()
+
+		return actionComplete{}
+	}
+
+	if !s.scope.SSHAfterInstallImage {
+		// s.scope.SSHAfterInstallImage is false: No ssh allowed.
+		// We can only wait for the BootID in the wl-cluster to change.
+		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
+			"WaitingForNodeToBeRebooted",
+			clusterv1.ConditionSeverityInfo,
+			"Waiting for BootID of Node (in wl-cluster) to change (%s)",
+			time.Since(host.Spec.Status.ExternalIDs.RebootAnnotationSince.Time).Round(time.Second))
+		return actionContinue{delay: 10 * time.Second}
+	}
+
+	creds := sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, host.Spec.Status.SSHSpec.SecretRef)
+	in := sshclient.Input{
+		PrivateKey: creds.PrivateKey,
+		Port:       host.Spec.Status.SSHSpec.PortAfterInstallImage,
+		IP:         host.Spec.Status.GetIPAddress(),
+	}
+	sshClient := s.scope.SSHClientFactory.NewClient(in)
+
+	// Check hostname with sshClient
+	out := sshClient.GetHostName()
+
+	wantHostName := s.scope.Hostname()
+
+	if trimLineBreak(out.StdOut) == wantHostName {
+		// Reboot has been successful
+		host.Spec.Status.Rebooted = false
+		host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = ""
+		host.Spec.Status.ExternalIDs.RebootAnnotationSince.Time = time.Time{}
+
+		conditions.MarkTrue(host, infrav1.RebootSucceededCondition)
+
+		host.ClearRebootAnnotations()
+		host.ClearError()
+
+		return actionComplete{}
+	}
+	// Reboot has been ongoing
+	isTimeout, isSSHConnectionRefusedError, err := analyzeSSHOutputProvisioned(out)
+	if err != nil {
+		if errors.Is(err, errUnexpectedHostName) {
+			// One possible reason: The machine gets used by a second wl-cluster
+			record.Warnf(host, "UnexpectedHostName",
+				"Provisioned: wanted %q. %s", wantHostName, err.Error())
+		}
+		err = fmt.Errorf("failed to handle incomplete boot - actionProvisioned: %w", err)
+		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
+			"FailureFailGettingHostnameViaSSH",
+			clusterv1.ConditionSeverityWarning, "%s",
+			err.Error())
+		return actionError{err: err}
+	}
+
+	failed, err := s.handleIncompleteBoot(ctx, false, isTimeout, isSSHConnectionRefusedError)
+	if failed {
+		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
+			"RebootFailed",
+			clusterv1.ConditionSeverityWarning, "%s",
+			err.Error())
+		return s.recordActionFailure(infrav1.PermanentError, err.Error())
+	}
+	if err != nil {
+		err = fmt.Errorf(errMsgFailedHandlingIncompleteBoot, err)
+		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
+			"RebootFailed",
+			clusterv1.ConditionSeverityWarning, "%s",
+			err.Error())
+		return actionError{err: err}
+	}
+
+	conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
+		"WaitingForNodeToBeRebooted",
+		clusterv1.ConditionSeverityInfo,
+		"Waiting for BootID of Node (in wl-cluster) to change (%s)",
+		time.Since(host.Spec.Status.ExternalIDs.RebootAnnotationSince.Time).Round(time.Second))
+
+	return actionContinue{delay: 10 * time.Second}
 }
 
 // next: None
@@ -2005,22 +2189,24 @@ func (s *Service) actionDeprovisioning(_ context.Context) actionResult {
 		return actionError{err: fmt.Errorf("failed to update name of host in robot API: %w", err)}
 	}
 
-	// If has been provisioned completely, stop all running pods
-	if s.scope.OSSSHSecret != nil {
-		sshClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
-			PrivateKey: sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.SecretRef).PrivateKey,
-			Port:       s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterInstallImage,
-			IP:         s.scope.HetznerBareMetalHost.Spec.Status.GetIPAddress(),
-		})
-		out := sshClient.ResetKubeadm()
-		s.scope.V(1).Info("Output of ResetKubeadm", "stdout", out.StdOut, "stderr", out.StdErr, "err", out.Err)
-		if out.Err != nil {
-			record.Warnf(s.scope.HetznerBareMetalHost, "FailedResetKubeAdm", "failed to reset kubeadm: %s", out.Err.Error())
+	if s.scope.SSHAfterInstallImage {
+		// If has been provisioned completely, stop all running pods
+		if s.scope.OSSSHSecret != nil {
+			sshClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
+				PrivateKey: sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.SecretRef).PrivateKey,
+				Port:       s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterInstallImage,
+				IP:         s.scope.HetznerBareMetalHost.Spec.Status.GetIPAddress(),
+			})
+			out := sshClient.ResetKubeadm()
+			s.scope.V(1).Info("Output of ResetKubeadm", "stdout", out.StdOut, "stderr", out.StdErr, "err", out.Err)
+			if out.Err != nil {
+				record.Warnf(s.scope.HetznerBareMetalHost, "FailedResetKubeAdm", "failed to reset kubeadm: %s", out.Err.Error())
+			} else {
+				record.Event(s.scope.HetznerBareMetalHost, "SuccessfulResetKubeAdm", "Reset was successful.")
+			}
 		} else {
-			record.Event(s.scope.HetznerBareMetalHost, "SuccessfulResetKubeAdm", "Reset was successful.")
+			s.scope.Info("OS SSH Secret is empty - cannot reset kubeadm")
 		}
-	} else {
-		s.scope.Info("OS SSH Secret is empty - cannot reset kubeadm")
 	}
 
 	// Only keep permanent errors on the host object after deprovisioning.

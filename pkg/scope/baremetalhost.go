@@ -49,6 +49,7 @@ type BareMetalHostScopeParams struct {
 	SecretManager           *secretutil.SecretManager
 	PreProvisionCommand     string
 	ImageURLCommand         string
+	SSHAfterInstallImage    bool
 }
 
 // NewBareMetalHostScope creates a new Scope from the supplied parameters.
@@ -94,25 +95,34 @@ func NewBareMetalHostScope(params BareMetalHostScopeParams) (*BareMetalHostScope
 		RescueSSHSecret:         params.RescueSSHSecret,
 		SecretManager:           params.SecretManager,
 		PreProvisionCommand:     params.PreProvisionCommand,
-		ImageURLCommand:         params.ImageURLCommand,
+		SSHAfterInstallImage:    params.SSHAfterInstallImage,
+		WorkloadClusterClientFactory: &realWorkloadClusterClientFactory{
+			logger:         params.Logger,
+			client:         params.Client,
+			cluster:        params.Cluster,
+			hetznerCluster: params.HetznerCluster,
+		},
+		ImageURLCommand: params.ImageURLCommand,
 	}, nil
 }
 
 // BareMetalHostScope defines the basic context for an actuator to operate upon.
 type BareMetalHostScope struct {
 	logr.Logger
-	Client                  client.Client
-	SecretManager           *secretutil.SecretManager
-	RobotClient             robotclient.Client
-	SSHClientFactory        sshclient.Factory
-	HetznerBareMetalHost    *infrav1.HetznerBareMetalHost
-	HetznerBareMetalMachine *infrav1.HetznerBareMetalMachine
-	HetznerCluster          *infrav1.HetznerCluster
-	Cluster                 *clusterv1.Cluster
-	OSSSHSecret             *corev1.Secret
-	RescueSSHSecret         *corev1.Secret
-	PreProvisionCommand     string
-	ImageURLCommand         string
+	Client                       client.Client
+	SecretManager                *secretutil.SecretManager
+	RobotClient                  robotclient.Client
+	SSHClientFactory             sshclient.Factory
+	HetznerBareMetalHost         *infrav1.HetznerBareMetalHost
+	HetznerBareMetalMachine      *infrav1.HetznerBareMetalMachine
+	HetznerCluster               *infrav1.HetznerCluster
+	Cluster                      *clusterv1.Cluster
+	OSSSHSecret                  *corev1.Secret
+	RescueSSHSecret              *corev1.Secret
+	PreProvisionCommand          string
+	SSHAfterInstallImage         bool
+	WorkloadClusterClientFactory WorkloadClusterClientFactory
+	ImageURLCommand              string
 }
 
 // Name returns the HetznerCluster name.

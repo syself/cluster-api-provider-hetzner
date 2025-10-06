@@ -135,18 +135,18 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 
 	machineScope, err := scope.NewMachineScope(scope.MachineScopeParams{
 		ClusterScopeParams: scope.ClusterScopeParams{
-			Client:          r.Client,
-			Logger:          log,
-			Cluster:         cluster,
-			HetznerCluster:  hetznerCluster,
-			HCloudClient:    hcc,
-			HetznerSecret:   hetznerSecret,
-			APIReader:       r.APIReader,
-			ImageURLCommand: r.ImageURLCommand,
+			Client:         r.Client,
+			Logger:         log,
+			Cluster:        cluster,
+			HetznerCluster: hetznerCluster,
+			HCloudClient:   hcc,
+			HetznerSecret:  hetznerSecret,
+			APIReader:      r.APIReader,
 		},
 		Machine:          machine,
 		HCloudMachine:    hcloudMachine,
 		SSHClientFactory: r.SSHClientFactory,
+		ImageURLCommand:  r.ImageURLCommand,
 	})
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %+v", err)

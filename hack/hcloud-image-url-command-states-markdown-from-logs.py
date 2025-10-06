@@ -45,7 +45,7 @@ custom_state_order = [
     "EnablingRescue",
     "BootingToRescue",
     "RunningImageCommand",
-    "BootToRealOS",
+    "BootingToRealOS",
 ]
 order_index = {s: i for i, s in enumerate(custom_state_order)}
 

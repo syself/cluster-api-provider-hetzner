@@ -44,6 +44,7 @@ type MachineScopeParams struct {
 	Machine          *clusterv1.Machine
 	HCloudMachine    *infrav1.HCloudMachine
 	SSHClientFactory sshclient.Factory
+	ImageURLCommand  string
 }
 
 const maxShutDownTime = 2 * time.Minute
