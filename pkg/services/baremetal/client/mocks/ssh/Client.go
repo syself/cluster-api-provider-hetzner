@@ -1294,6 +1294,136 @@ func (_c *Client_ResetKubeadm_Call) RunAndReturn(run func() sshclient.Output) *C
 	return _c
 }
 
+// StartImageURLCommand provides a mock function with given fields: ctx, command, imageURL, bootstrapData, machineName, deviceNames
+func (_m *Client) StartImageURLCommand(ctx context.Context, command string, imageURL string, bootstrapData []byte, machineName string, deviceNames []string) (int, string, error) {
+	ret := _m.Called(ctx, command, imageURL, bootstrapData, machineName, deviceNames)
+
+	if len(ret) == 0 {
+		panic("no return value specified for StartImageURLCommand")
+	}
+
+	var r0 int
+	var r1 string
+	var r2 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, []byte, string, []string) (int, string, error)); ok {
+		return rf(ctx, command, imageURL, bootstrapData, machineName, deviceNames)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, []byte, string, []string) int); ok {
+		r0 = rf(ctx, command, imageURL, bootstrapData, machineName, deviceNames)
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, []byte, string, []string) string); ok {
+		r1 = rf(ctx, command, imageURL, bootstrapData, machineName, deviceNames)
+	} else {
+		r1 = ret.Get(1).(string)
+	}
+
+	if rf, ok := ret.Get(2).(func(context.Context, string, string, []byte, string, []string) error); ok {
+		r2 = rf(ctx, command, imageURL, bootstrapData, machineName, deviceNames)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
+}
+
+// Client_StartImageURLCommand_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StartImageURLCommand'
+type Client_StartImageURLCommand_Call struct {
+	*mock.Call
+}
+
+// StartImageURLCommand is a helper method to define mock.On call
+//   - ctx context.Context
+//   - command string
+//   - imageURL string
+//   - bootstrapData []byte
+//   - machineName string
+//   - deviceNames []string
+func (_e *Client_Expecter) StartImageURLCommand(ctx interface{}, command interface{}, imageURL interface{}, bootstrapData interface{}, machineName interface{}, deviceNames interface{}) *Client_StartImageURLCommand_Call {
+	return &Client_StartImageURLCommand_Call{Call: _e.mock.On("StartImageURLCommand", ctx, command, imageURL, bootstrapData, machineName, deviceNames)}
+}
+
+func (_c *Client_StartImageURLCommand_Call) Run(run func(ctx context.Context, command string, imageURL string, bootstrapData []byte, machineName string, deviceNames []string)) *Client_StartImageURLCommand_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].([]byte), args[4].(string), args[5].([]string))
+	})
+	return _c
+}
+
+func (_c *Client_StartImageURLCommand_Call) Return(exitStatus int, stdoutAndStderr string, err error) *Client_StartImageURLCommand_Call {
+	_c.Call.Return(exitStatus, stdoutAndStderr, err)
+	return _c
+}
+
+func (_c *Client_StartImageURLCommand_Call) RunAndReturn(run func(context.Context, string, string, []byte, string, []string) (int, string, error)) *Client_StartImageURLCommand_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// StateOfImageURLCommand provides a mock function with no fields
+func (_m *Client) StateOfImageURLCommand() (sshclient.ImageURLCommandState, string, error) {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for StateOfImageURLCommand")
+	}
+
+	var r0 sshclient.ImageURLCommandState
+	var r1 string
+	var r2 error
+	if rf, ok := ret.Get(0).(func() (sshclient.ImageURLCommandState, string, error)); ok {
+		return rf()
+	}
+	if rf, ok := ret.Get(0).(func() sshclient.ImageURLCommandState); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(sshclient.ImageURLCommandState)
+	}
+
+	if rf, ok := ret.Get(1).(func() string); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(string)
+	}
+
+	if rf, ok := ret.Get(2).(func() error); ok {
+		r2 = rf()
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
+}
+
+// Client_StateOfImageURLCommand_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StateOfImageURLCommand'
+type Client_StateOfImageURLCommand_Call struct {
+	*mock.Call
+}
+
+// StateOfImageURLCommand is a helper method to define mock.On call
+func (_e *Client_Expecter) StateOfImageURLCommand() *Client_StateOfImageURLCommand_Call {
+	return &Client_StateOfImageURLCommand_Call{Call: _e.mock.On("StateOfImageURLCommand")}
+}
+
+func (_c *Client_StateOfImageURLCommand_Call) Run(run func()) *Client_StateOfImageURLCommand_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Client_StateOfImageURLCommand_Call) Return(state sshclient.ImageURLCommandState, logFile string, err error) *Client_StateOfImageURLCommand_Call {
+	_c.Call.Return(state, logFile, err)
+	return _c
+}
+
+func (_c *Client_StateOfImageURLCommand_Call) RunAndReturn(run func() (sshclient.ImageURLCommandState, string, error)) *Client_StateOfImageURLCommand_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UntarTGZ provides a mock function with no fields
 func (_m *Client) UntarTGZ() sshclient.Output {
 	ret := _m.Called()

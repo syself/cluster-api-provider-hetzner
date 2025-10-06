@@ -271,8 +271,24 @@ const (
 	// HCloudBootStateUnset is the initial state when the boot state has not been set yet.
 	HCloudBootStateUnset HCloudBootState = ""
 
-	// HCloudBootStateBootToRealOS indicates that the server is booting the operating system.
-	HCloudBootStateBootToRealOS HCloudBootState = "BootToRealOS"
+	// HCloudBootStateInitializing indicates that the controller waits for PreRescueOS.
+	// When it is available, then the rescue system gets enabled.
+	HCloudBootStateInitializing HCloudBootState = "Initializing"
+
+	// HCloudBootStateEnablingRescue indicates that the controller waits for the rescue system to be enabled. Then the server gets booted into the rescue system.
+	HCloudBootStateEnablingRescue HCloudBootState = "EnablingRescue"
+
+	// HCloudBootStateBootingToRescue indicates that the controller
+	// waits for the rescue system to be reachable. Then it starts the image-url-command.
+	HCloudBootStateBootingToRescue HCloudBootState = "BootingToRescue"
+
+	// HCloudBootStateRunningImageCommand indicates the controller waits for the
+	// image-url-command, and then switches BootState to BootingToRealOS (no additional reboot gets
+	// done).
+	HCloudBootStateRunningImageCommand HCloudBootState = "RunningImageCommand"
+
+	// HCloudBootStateBootingToRealOS indicates that the server is booting the operating system.
+	HCloudBootStateBootingToRealOS HCloudBootState = "BootingToRealOS"
 
 	// HCloudBootStateOperatingSystemRunning indicates that the server is successfully running.
 	HCloudBootStateOperatingSystemRunning HCloudBootState = "OperatingSystemRunning"

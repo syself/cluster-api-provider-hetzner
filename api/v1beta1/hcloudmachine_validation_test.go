@@ -17,9 +17,11 @@ limitations under the License.
 package v1beta1
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
@@ -59,6 +61,18 @@ func TestValidateHCloudMachineSpecUpdate(t *testing.T) {
 				},
 			},
 			want: field.Invalid(field.NewPath("spec", "imageName"), "centos-7", "field is immutable"),
+		},
+		{
+			name: "Immutable ImageURL",
+			args: args{
+				oldSpec: HCloudMachineSpec{
+					ImageURL: "oci://ghcr.io/example/foo:v1",
+				},
+				newSpec: HCloudMachineSpec{
+					ImageURL: "oci://ghcr.io/example/foo:v2",
+				},
+			},
+			want: field.Invalid(field.NewPath("spec", "imageURL"), "oci://ghcr.io/example/foo:v2", "field is immutable"),
 		},
 		{
 			name: "Immutable SSHKeys",
@@ -151,4 +165,25 @@ func TestValidateHCloudMachineSpecUpdate(t *testing.T) {
 
 func createPlacementGroupName(name string) *string {
 	return &name
+}
+
+func TestValidateHCloudMachineSpec(t *testing.T) {
+	allErrs := validateHCloudMachineSpec(HCloudMachineSpec{
+		ImageURL: "not-a-valid-url",
+	})
+	require.Equal(t, `spec.imageURL: Invalid value: "not-a-valid-url": parse "not-a-valid-url": invalid URI for request`, errorsToString(allErrs))
+
+	allErrs = validateHCloudMachineSpec(HCloudMachineSpec{
+		ImageName: "foo-name",
+		ImageURL:  "oci://ghcr.io/example/foo:v1",
+	})
+	require.Equal(t, `spec.imageName: Invalid value: "foo-name": imageName and imageURL are mutually exclusive`, errorsToString(allErrs))
+}
+
+func errorsToString(allErrs field.ErrorList) string {
+	s := make([]string, 0, len(allErrs))
+	for _, err := range allErrs {
+		s = append(s, err.Error())
+	}
+	return strings.Join(s, "\n")
 }
