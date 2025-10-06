@@ -58,6 +58,13 @@ if ! kubectl cluster-info >/dev/null; then
     exit 1
 fi
 
+current_context=$(kubectl config current-context)
+if ! echo "$current_context" | grep -P '.*-admin@.*-mgt-cluster'; then
+    echo "The script refuses to update because the current context is: $current_context"
+    echo "Expecting something like foo-mgt-cluster-admin@foo-mgt-cluster with 'foo' being a short version of your name"
+    exit 1
+fi
+
 branch=$(git branch --show-current)
 if [ "$branch" == "" ]; then
     echo "failed to get branch name"
@@ -69,13 +76,19 @@ tag="$(echo -n "$tag" | tr -c 'a-zA-Z0-9_.-' '-')"
 
 image="$image_path/caph-staging:$tag"
 
-echo "Building image: $image"
+# run in background
+{
+    make generate-manifests
+    kustomize build config/crd | kubectl apply -f -
+} &
 
-docker build -f images/caph/Dockerfile -t "$image" .
+# run in background2
+{
+    docker build -f images/caph/Dockerfile -t "$image" .
+    docker push "$image"
+} &
 
-docker push "$image"
-
-kustomize build config/crd | kubectl apply -f -
+wait
 
 kubectl scale --replicas=1 -n mgt-system deployment/caph-controller-manager
 

@@ -48,6 +48,7 @@ import (
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
+	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/server"
 )
@@ -58,7 +59,9 @@ type HCloudMachineReconciler struct {
 	RateLimitWaitTime   time.Duration
 	APIReader           client.Reader
 	HCloudClientFactory hcloudclient.Factory
+	SSHClientFactory    sshclient.Factory
 	WatchFilterValue    string
+	ImageURLCommand     string
 }
 
 //+kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;patch
@@ -140,8 +143,10 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 			HetznerSecret:  hetznerSecret,
 			APIReader:      r.APIReader,
 		},
-		Machine:       machine,
-		HCloudMachine: hcloudMachine,
+		Machine:          machine,
+		HCloudMachine:    hcloudMachine,
+		SSHClientFactory: r.SSHClientFactory,
+		ImageURLCommand:  r.ImageURLCommand,
 	})
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %+v", err)
@@ -212,7 +217,7 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 			log.Info("BootState changed",
 				"oldState", initialHCloudMachine.Status.BootState,
 				"newState", machineScope.HCloudMachine.Status.BootState,
-				"durationInState", machineScope.HCloudMachine.Status.BootStateSince.Time.Sub(startBootState.Time),
+				"durationInState", machineScope.HCloudMachine.Status.BootStateSince.Time.Sub(startBootState.Time).Round(time.Second),
 				"readyReason", readyReason,
 				"readyMessage", readyMessage,
 			)
