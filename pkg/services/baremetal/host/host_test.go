@@ -173,7 +173,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		Expect(c.Message).To(ContainSubstring("image-url-command failed"))
 	})
 
-	FIt("starts the command on NotStarted and continues", func() {
+	It("starts the command on NotStarted and continues", func() {
 		host := newBaseHost()
 		// set UserData secret ref and create the secret the scope's SecretManager will fetch
 		host.Spec.Status.UserData = &corev1.SecretReference{ // bootstrap secret ref
