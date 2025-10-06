@@ -416,11 +416,11 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 	err = sshClient.Reboot().Err
 	if err != nil {
 		if errors.Is(err, syscall.ECONNREFUSED) {
-			// This is common. Provide a nice message.
-			err = errors.New("reboot to rescue: ssh not reachable yet. Retrying")
+			// ssh connection refused is common while the rescue system starts.
+			// Provide a nice message.
 			conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 				"RetryingSSHConnection",
-				clusterv1.ConditionSeverityInfo, "%s", err.Error())
+				clusterv1.ConditionSeverityInfo, "Rebooting")
 			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 		}
 
@@ -542,8 +542,8 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 	}
 
 	conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-		"HCloudImageURLCommandStarted", clusterv1.ConditionSeverityInfo,
-		"hcloud-image-url-command started")
+		"HCloudImageURLCommandRunning", clusterv1.ConditionSeverityInfo,
+		"hcloud-image-url-command running")
 	hm.SetBootState(infrav1.HCloudBootStateRunningImageCommand)
 	return reconcile.Result{RequeueAfter: 55 * time.Second}, nil
 }
@@ -582,12 +582,14 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 	switch state {
 	case sshclient.ImageURLCommandStateRunning:
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			"ImageCommandStillRunning", clusterv1.ConditionSeverityInfo,
-			"hcloud-image-url-command still running")
+			"HCloudImageURLCommandRunning", clusterv1.ConditionSeverityInfo,
+			"hcloud-image-url-command running")
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 
 	case sshclient.ImageURLCommandStateFinishedSuccessfully:
 		record.Event(hm, "ImageURLCommandSuccessful", logFile)
+
+		// The image got installed. Now reboot in the real operating system.
 		if hcloudSSHClient.Reboot().Err != nil {
 			return reconcile.Result{}, fmt.Errorf("reboot after ImageURLCommand failed: %w",
 				err)
@@ -596,9 +598,8 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 		hm.SetBootState(infrav1.HCloudBootStateBootingToRealOS)
 
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			"ImageCommandFinishedSuccessfully", clusterv1.ConditionSeverityInfo,
-			"hcloud-image-url-command finished successfully. Rebooted, new state: %s",
-			hm.Status.BootState)
+			"BootingToRealOS", clusterv1.ConditionSeverityInfo,
+			"Operating system of node is booting")
 
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 
@@ -608,7 +609,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 		s.scope.Logger.Error(err, "", "logFile", logFile)
 		s.scope.SetError(msg, capierrors.CreateMachineError)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			"ImageCommandGettingStateFailed", clusterv1.ConditionSeverityWarning,
+			"ImageCommandFailed", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		return reconcile.Result{}, nil
 
@@ -624,7 +625,6 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 // handleBootingToRealOS is used for both ways (imageName/snapshot and imageURL).
 func (s *Service) handleBootingToRealOS(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
 	hm := s.scope.HCloudMachine
-
 	updateHCloudMachineStatusFromServer(hm, server)
 
 	durationOfState := time.Since(hm.Status.BootStateSince.Time)
