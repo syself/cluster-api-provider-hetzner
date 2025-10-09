@@ -1254,6 +1254,7 @@ func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context
 			return actionError{err: fmt.Errorf("failed to update name of host in robot API: %w", err)}
 		}
 
+		// Reboot via SSH
 		if err := sshClient.Reboot().Err; err != nil {
 			err = fmt.Errorf("failed to reboot server (after install-image): %w", err)
 			record.Warn(s.scope.HetznerBareMetalHost, "RebootFailed", err.Error())
@@ -1281,6 +1282,7 @@ func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context
 		if err != nil {
 			return actionError{err: fmt.Errorf("baremetal GetRawBootstrapData failed: %w", err)}
 		}
+
 		if s.scope.ImageURLCommand == "" {
 			err = errors.New("internal error: --baremetal-image-url-command is not set?")
 			s.scope.Logger.Error(err, "")
@@ -1292,6 +1294,7 @@ func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context
 			// controller reconcile all resources.
 			return actionContinue{delay: time.Hour}
 		}
+
 		// get the information about storage devices again to have the latest names.
 		// Device names can change during restart.
 		storage, err := obtainHardwareDetailsStorage(sshClient)

@@ -117,7 +117,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		err := r.APIReader.Get(ctx, client.ObjectKeyFromObject(bmHost), apiserverHost)
 		if err != nil {
 			reterr = errors.Join(reterr,
-				fmt.Errorf("failed get apiserverHost via uncached APIReader: %w", err))
+				fmt.Errorf("failed get HetznerBareMetalHost via uncached APIReader: %w", err))
 			return
 		}
 
@@ -125,7 +125,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 
 		err = wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, 3*time.Second, true, func(ctx context.Context) (done bool, err error) {
 			// new resource, read from local cache
-			latestFromLocalCache := &infrav1.HCloudMachine{}
+			latestFromLocalCache := &infrav1.HetznerBareMetalHost{}
 			getErr := r.Get(ctx, client.ObjectKeyFromObject(apiserverHost), latestFromLocalCache)
 			if apierrors.IsNotFound(getErr) {
 				// the object was deleted. All is fine.
