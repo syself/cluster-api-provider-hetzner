@@ -698,7 +698,6 @@ spec:
           apt-get install -y cloud-init apparmor apparmor-utils
           cloud-init clean --logs
       sshSpec:
-        portAfterCloudInit: 22
         portAfterInstallImage: 22
         secretRef:
           key:

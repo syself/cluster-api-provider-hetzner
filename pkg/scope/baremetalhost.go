@@ -48,6 +48,7 @@ type BareMetalHostScopeParams struct {
 	RescueSSHSecret         *corev1.Secret
 	SecretManager           *secretutil.SecretManager
 	PreProvisionCommand     string
+	ImageURLCommand         string
 	SSHAfterInstallImage    bool
 }
 
@@ -101,6 +102,7 @@ func NewBareMetalHostScope(params BareMetalHostScopeParams) (*BareMetalHostScope
 			cluster:        params.Cluster,
 			hetznerCluster: params.HetznerCluster,
 		},
+		ImageURLCommand: params.ImageURLCommand,
 	}, nil
 }
 
@@ -120,6 +122,7 @@ type BareMetalHostScope struct {
 	PreProvisionCommand          string
 	SSHAfterInstallImage         bool
 	WorkloadClusterClientFactory WorkloadClusterClientFactory
+	ImageURLCommand              string
 }
 
 // Name returns the HetznerCluster name.

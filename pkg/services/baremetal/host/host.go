@@ -635,7 +635,7 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 
 		timeSinceReboot := "unknown"
 		if s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated != nil {
-			timeSinceReboot = time.Since(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated.Time).String()
+			timeSinceReboot = time.Since(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated.Time).Round(time.Second).String()
 		}
 
 		s.scope.Logger.Info("Could not reach rescue system. Will retry some seconds later.", "out", out.String(), "hostName", hostName,
@@ -1195,6 +1195,9 @@ func (s *Service) actionImageInstalling(ctx context.Context) actionResult {
 		return actionStop{}
 	}
 
+	if s.scope.HetznerBareMetalHost.Spec.Status.InstallImage.Image.UseCustomImageURLCommand {
+		return s.actionImageInstallingCustomImageURLCommand(ctx, sshClient)
+	}
 	state, err := sshClient.GetInstallImageState()
 	if err != nil {
 		return actionError{err: fmt.Errorf("failed to get state of installimage processes: %w", err)}
@@ -1212,6 +1215,133 @@ func (s *Service) actionImageInstalling(ctx context.Context) actionResult {
 		return s.actionImageInstallingStartBackgroundProcess(ctx, sshClient)
 	default:
 		panic(fmt.Sprintf("Unknown InstallImageState %+v", state))
+	}
+}
+
+func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context, sshClient sshclient.Client) actionResult {
+	host := s.scope.HetznerBareMetalHost
+
+	state, logFile, err := sshClient.StateOfImageURLCommand()
+	if err != nil {
+		return actionError{err: fmt.Errorf("StateOfImageURLCommand failed: %w", err)}
+	}
+
+	duration := time.Since(host.Spec.Status.LastUpdated.Time)
+	// Please keep the number (7) in sync with the docstring of ImageURL.
+	if duration > 7*time.Minute {
+		// timeout. Something has failed.
+		msg := fmt.Sprintf("ImageURLCommand timed out after %s. Deleting machine",
+			duration.Round(time.Second).String())
+		s.scope.Logger.Error(nil, msg, "logFile", logFile)
+		conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
+			"ImageURLCommandTimedOut", clusterv1.ConditionSeverityWarning,
+			"%s", msg)
+		return s.recordActionFailure(infrav1.FatalError, msg)
+	}
+
+	switch state {
+	case sshclient.ImageURLCommandStateRunning:
+		return actionContinue{delay: 10 * time.Second}
+
+	case sshclient.ImageURLCommandStateFinishedSuccessfully:
+		record.Event(s.scope.HetznerBareMetalHost, "ImageURLCommandOutput", logFile)
+		s.scope.Logger.Info("ImageURLCommandOutput", "logFile", logFile)
+
+		// Update name in robot API
+		if _, err := s.scope.RobotClient.SetBMServerName(s.scope.HetznerBareMetalHost.Spec.ServerID, s.scope.Hostname()); err != nil {
+			record.Warn(s.scope.HetznerBareMetalHost, "SetBMServerNameFailed", err.Error())
+			s.handleRobotRateLimitExceeded(err, "SetBMServerName")
+			return actionError{err: fmt.Errorf("failed to update name of host in robot API: %w", err)}
+		}
+
+		// Reboot via SSH
+		if err := sshClient.Reboot().Err; err != nil {
+			err = fmt.Errorf("failed to reboot server (after install-image): %w", err)
+			record.Warn(s.scope.HetznerBareMetalHost, "RebootFailed", err.Error())
+			return actionError{err: err}
+		}
+
+		msg := "machine image and cloud-init data got installed (via image-url-command)"
+		createSSHRebootEvent(ctx, s.scope.HetznerBareMetalHost, msg)
+
+		// clear potential errors - all done
+		s.scope.HetznerBareMetalHost.ClearError()
+		return actionComplete{}
+
+	case sshclient.ImageURLCommandStateFailed:
+		record.Warn(s.scope.HetznerBareMetalHost, "InstallImageNotSuccessful", logFile)
+		msg := "image-url-command failed"
+		s.scope.Logger.Error(nil, msg, "logFile", logFile)
+		conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
+			"ImageURLCommandFailed", clusterv1.ConditionSeverityWarning,
+			"%s", msg)
+		return s.recordActionFailure(infrav1.FatalError, msg)
+
+	case sshclient.ImageURLCommandStateNotStarted:
+		data, err := s.scope.GetRawBootstrapData(ctx)
+		if err != nil {
+			return actionError{err: fmt.Errorf("baremetal GetRawBootstrapData failed: %w", err)}
+		}
+
+		if s.scope.ImageURLCommand == "" {
+			err = errors.New("internal error: --baremetal-image-url-command is not set?")
+			s.scope.Logger.Error(err, "")
+			conditions.MarkFalse(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition,
+				"ImageURLCommandMissing",
+				clusterv1.ConditionSeverityError,
+				"%s", err.Error())
+			// this can only be changed by updating the controller. This will make the
+			// controller reconcile all resources.
+			return actionContinue{delay: time.Hour}
+		}
+
+		// get the information about storage devices again to have the latest names.
+		// Device names can change during restart.
+		storage, err := obtainHardwareDetailsStorage(sshClient)
+		if err != nil {
+			return actionError{err: fmt.Errorf("failed to obtain hardware details storage: %w", err)}
+		}
+
+		// get device names from storage device
+		deviceNames := getDeviceNames(s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.ListOfWWN(), storage)
+
+		exitStatus, stdoutStderr, err := sshClient.StartImageURLCommand(ctx, s.scope.ImageURLCommand, s.scope.HetznerBareMetalHost.Spec.Status.InstallImage.Image.URL, data, s.scope.Hostname(), deviceNames)
+		if err != nil {
+			err := fmt.Errorf("StartImageURLCommand failed (retrying): %w", err)
+			// This could be a temporary network error. Retry.
+			s.scope.Logger.Error(err, "",
+				"ImageURLCommand", s.scope.ImageURLCommand,
+				"exitStatus", exitStatus,
+				"stdoutStderr", stdoutStderr)
+			conditions.MarkFalse(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition,
+				"ImageURLCommandFailedToStart",
+				clusterv1.ConditionSeverityWarning,
+				"%s", err.Error())
+			return actionError{err: err}
+		}
+
+		if exitStatus != 0 {
+			msg := "StartImageURLCommand failed with non-zero exit status. Deleting machine"
+			s.scope.Logger.Error(nil, msg,
+				"ImageURLCommand", s.scope.ImageURLCommand,
+				"exitStatus", exitStatus,
+				"stdoutStderr", stdoutStderr)
+			conditions.MarkFalse(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition,
+				"StartImageURLCommandFailed",
+				clusterv1.ConditionSeverityWarning,
+				"%s", msg)
+			return s.recordActionFailure(infrav1.ProvisioningError, msg)
+		}
+
+		conditions.MarkFalse(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition,
+			"ImageURLCommandStarted",
+			clusterv1.ConditionSeverityInfo,
+			"baremetal-image-url-command started")
+
+		return actionContinue{delay: 55 * time.Second}
+
+	default:
+		return actionError{err: fmt.Errorf("unknown ImageURLCommandState: %q", state)}
 	}
 }
 
@@ -1485,6 +1615,7 @@ func (s *Service) createAutoSetupInput(sshClient sshclient.Client) (autoSetupInp
 	}
 
 	// get the information about storage devices again to have the latest names which are then taken for installimage
+	// Device names can change during restart.
 	storage, err := obtainHardwareDetailsStorage(sshClient)
 	if err != nil {
 		return autoSetupInput{}, actionError{err: fmt.Errorf("failed to obtain hardware details storage: %w", err)}

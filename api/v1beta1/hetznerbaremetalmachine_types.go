@@ -187,6 +187,11 @@ type Image struct {
 	// URL defines the remote URL for downloading a tar, tar.gz, tar.bz, tar.bz2, tar.xz, tgz, tbz, txz image.
 	URL string `json:"url,omitempty"`
 
+	// UseCustomImageURLCommand makes the controller use the command provided by `--baremetal-image-url-command` instead of installimage.
+	// Docs: https://syself.com/docs/caph/developers/image-url-command
+	// +optional
+	UseCustomImageURLCommand bool `json:"useCustomImageURLCommand"`
+
 	// Name defines the archive name after download. This has to be a valid name for Installimage.
 	Name string `json:"name,omitempty"`
 
@@ -197,6 +202,9 @@ type Image struct {
 // GetDetails returns the path of the image and whether the image has to be downloaded.
 func (image Image) GetDetails() (imagePath string, needsDownload bool, errorMessage string) {
 	// If image is set, then the URL is also set and we have to download a remote file
+	if image.UseCustomImageURLCommand {
+		return "", false, "internal error: image.UseCustomImageURLCommand is active. Method GetDetails() should be used for the traditional way (without image-url-command)."
+	}
 	switch {
 	case image.Name != "" && image.URL != "":
 		suffix, err := GetImageSuffix(image.URL)

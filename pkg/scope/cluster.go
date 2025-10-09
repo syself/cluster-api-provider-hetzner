@@ -37,13 +37,14 @@ import (
 
 // ClusterScopeParams defines the input parameters used to create a new scope.
 type ClusterScopeParams struct {
-	Client         client.Client
-	APIReader      client.Reader
-	Logger         logr.Logger
-	HetznerSecret  *corev1.Secret
-	HCloudClient   hcloudclient.Client
-	Cluster        *clusterv1.Cluster
-	HetznerCluster *infrav1.HetznerCluster
+	Client          client.Client
+	APIReader       client.Reader
+	Logger          logr.Logger
+	HetznerSecret   *corev1.Secret
+	HCloudClient    hcloudclient.Client
+	Cluster         *clusterv1.Cluster
+	HetznerCluster  *infrav1.HetznerCluster
+	ImageURLCommand string
 }
 
 // NewClusterScope creates a new Scope from the supplied parameters.

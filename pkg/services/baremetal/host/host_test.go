@@ -100,6 +100,152 @@ var _ = Describe("SetErrorMessage", func() {
 	)
 })
 
+var _ = Describe("actionImageInstalling (image-url-command)", func() {
+	ctx := context.Background()
+
+	newBaseHost := func() *infrav1.HetznerBareMetalHost {
+		host := helpers.BareMetalHost(
+			"test-host",
+			"default",
+			helpers.WithIPv4(),
+			helpers.WithConsumerRef(),
+			helpers.WithSSHStatus(),
+		)
+		// Set install image with custom image-url-command mode
+		host.Spec.Status.InstallImage = &infrav1.InstallImage{
+			Image: infrav1.Image{
+				URL:                      "https://example.com/foo/image",
+				UseCustomImageURLCommand: true,
+			},
+		}
+		// Ensure LastUpdated is now by default
+		t := metav1.Now()
+		host.Spec.Status.LastUpdated = &t
+		return host
+	}
+
+	It("returns continue when command is running", func() {
+		host := newBaseHost()
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName").Return(sshclient.Output{StdOut: "rescue"})
+		sshMock.On("StateOfImageURLCommand").Return(sshclient.ImageURLCommandStateRunning, "", nil)
+
+		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+
+		res := svc.actionImageInstalling(ctx)
+		Expect(res).To(BeAssignableToTypeOf(actionContinue{}))
+		c := conditions.Get(host, infrav1.ProvisionSucceededCondition)
+		Expect(c.Message).To(Equal(`host (test-host) is still provisioning - state "image-installing"`))
+	})
+
+	It("reboots and completes when command finished successfully", func() {
+		host := newBaseHost()
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName").Return(sshclient.Output{StdOut: "rescue"})
+		sshMock.On("StateOfImageURLCommand").Return(sshclient.ImageURLCommandStateFinishedSuccessfully, "LOGFILE-CONTENT", nil)
+		sshMock.On("Reboot").Return(sshclient.Output{})
+
+		robot := robotmock.Client{}
+		robot.On("SetBMServerName", mock.Anything, infrav1.BareMetalHostNamePrefix+host.Spec.ConsumerRef.Name).Return(nil, nil)
+
+		svc := newTestService(host, &robot, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+
+		res := svc.actionImageInstalling(ctx)
+		Expect(res).To(BeAssignableToTypeOf(actionComplete{}))
+		Expect(sshMock.AssertCalled(GinkgoT(), "Reboot")).To(BeTrue())
+		Expect(robot.AssertCalled(GinkgoT(), "SetBMServerName", mock.Anything, infrav1.BareMetalHostNamePrefix+host.Spec.ConsumerRef.Name)).To(BeTrue())
+		// error should be cleared
+		Expect(host.Spec.Status.ErrorMessage).To(Equal(""))
+		c := conditions.Get(host, infrav1.ProvisionSucceededCondition)
+		Expect(c.Message).To(Equal(`host (test-host) is still provisioning - state "image-installing"`))
+	})
+
+	It("returns error when command failed", func() {
+		host := newBaseHost()
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName").Return(sshclient.Output{StdOut: "rescue"})
+		sshMock.On("StateOfImageURLCommand").Return(sshclient.ImageURLCommandStateFailed, "some logs", nil)
+
+		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+		res := svc.actionImageInstalling(ctx)
+		Expect(res).To(BeAssignableToTypeOf(actionFailed{}))
+		c := conditions.Get(host, infrav1.ProvisionSucceededCondition)
+		Expect(c.Message).To(ContainSubstring("image-url-command failed"))
+	})
+
+	It("starts the command on NotStarted and continues", func() {
+		host := newBaseHost()
+		// set UserData secret ref and create the secret the scope's SecretManager will fetch
+		host.Spec.Status.UserData = &corev1.SecretReference{ // bootstrap secret ref
+			Name:      "bootstrap-secret",
+			Namespace: host.Namespace,
+		}
+
+		// Build service with fake client containing the bootstrap secret
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName").Return(sshclient.Output{StdOut: "rescue"})
+		sshMock.On("StateOfImageURLCommand").Return(sshclient.ImageURLCommandStateNotStarted, "", nil)
+
+		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+		sshMock.On("StartImageURLCommand", mock.Anything, "image-url-command", host.Spec.Status.InstallImage.Image.URL, mock.Anything, svc.scope.Hostname(), []string{"nvme1n1"}).Return(0, "", nil)
+		// Create bootstrap secret in fake client with key 'value'
+		secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: host.Spec.Status.UserData.Name, Namespace: host.Spec.Status.UserData.Namespace}, Data: map[string][]byte{"value": []byte("#cloud-config")}}
+		Expect(svc.scope.Client.Create(ctx, secret)).To(Succeed())
+
+		sshMock.On("GetHardwareDetailsStorage").Return(sshclient.Output{StdOut: `NAME="nvme1n1" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJQ-00000" VENDOR="" SERIAL="S3W8NX0N811178" SIZE="512110190592" WWN="eui.0025388801b4dff2" ROTA="0"`})
+		svc.scope.HetznerBareMetalHost.Spec.RootDeviceHints = &infrav1.RootDeviceHints{
+			WWN: "eui.0025388801b4dff2",
+		}
+
+		res := svc.actionImageInstalling(ctx)
+		Expect(res).To(BeAssignableToTypeOf(actionContinue{}))
+		Expect(sshMock.AssertCalled(GinkgoT(), "StartImageURLCommand", mock.Anything, "image-url-command", host.Spec.Status.InstallImage.Image.URL, mock.Anything, svc.scope.Hostname(), []string{"nvme1n1"})).To(BeTrue())
+		c := conditions.Get(host, infrav1.ProvisionSucceededCondition)
+		Expect(c.Message).To(ContainSubstring(`baremetal-image-url-command started`))
+	})
+
+	It("records failure when StartImageURLCommand returns non-zero exit", func() {
+		host := newBaseHost()
+		host.Spec.Status.UserData = &corev1.SecretReference{Name: "bootstrap-secret", Namespace: host.Namespace}
+
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName").Return(sshclient.Output{StdOut: "rescue"})
+		sshMock.On("StateOfImageURLCommand").Return(sshclient.ImageURLCommandStateNotStarted, "", nil)
+
+		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+		sshMock.On("StartImageURLCommand", mock.Anything, "image-url-command", host.Spec.Status.InstallImage.Image.URL, mock.Anything, svc.scope.Hostname(), []string{"nvme1n1"}).Return(7, "boom", nil)
+
+		secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: host.Spec.Status.UserData.Name, Namespace: host.Spec.Status.UserData.Namespace}, Data: map[string][]byte{"value": []byte("#cloud-config")}}
+		Expect(svc.scope.Client.Create(ctx, secret)).To(Succeed())
+
+		sshMock.On("GetHardwareDetailsStorage").Return(sshclient.Output{StdOut: `NAME="nvme1n1" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJQ-00000" VENDOR="" SERIAL="S3W8NX0N811178" SIZE="512110190592" WWN="eui.0025388801b4dff2" ROTA="0"`})
+		svc.scope.HetznerBareMetalHost.Spec.RootDeviceHints = &infrav1.RootDeviceHints{
+			WWN: "eui.0025388801b4dff2",
+		}
+		res := svc.actionImageInstalling(ctx)
+		Expect(res).To(BeAssignableToTypeOf(actionFailed{}))
+		c := conditions.Get(host, infrav1.ProvisionSucceededCondition)
+		Expect(c.Message).To(ContainSubstring("StartImageURLCommand failed with non-zero exit status. Deleting machine"))
+	})
+
+	It("times out after 7 minutes", func() {
+		host := newBaseHost()
+		sevenPlus := metav1.NewTime(time.Now().Add(-8 * time.Minute))
+		host.Spec.Status.LastUpdated = &sevenPlus
+
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName").Return(sshclient.Output{StdOut: "rescue"})
+		sshMock.On("StateOfImageURLCommand").Return(sshclient.ImageURLCommandStateRunning, "", nil)
+
+		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+
+		res := svc.actionImageInstalling(ctx)
+		Expect(res).To(BeAssignableToTypeOf(actionFailed{}))
+		c := conditions.Get(host, infrav1.ProvisionSucceededCondition)
+		Expect(c.Message).To(ContainSubstring("ImageURLCommand timed out"))
+	})
+})
+
 var _ = Describe("test validateRootDeviceWwnsAreSubsetOfExistingWwns", func() {
 	It("should return error when storageDevices is empty", func() {
 		rootDeviceHints := &infrav1.RootDeviceHints{WWN: "wwn1"}

@@ -34,6 +34,7 @@ import (
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
+	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	robotclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/robot"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
@@ -148,6 +149,7 @@ func newTestService(
 		&scope.BareMetalHostScope{
 			Logger:                  log,
 			Client:                  c,
+			SecretManager:           secretutil.NewSecretManager(log, c, c),
 			SSHClientFactory:        sshClientFactory,
 			RobotClient:             robotClient,
 			HetznerBareMetalHost:    host,
@@ -163,6 +165,7 @@ func newTestService(
 			WorkloadClusterClientFactory: &fakeWorkloadClusterClientFactory{
 				client: c,
 			},
+			ImageURLCommand: "image-url-command",
 		},
 	}
 }
