@@ -530,7 +530,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 				}, timeout, time.Second).Should(BeTrue())
 			})
 
-			It("should take over an existing load balancer with correct name", func() {
+			It("should take over an existing load balancer with correct name (flaky)", func() {
 				By("creating load balancer manually")
 
 				opts := hcloud.LoadBalancerCreateOpts{
