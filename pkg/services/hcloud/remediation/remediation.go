@@ -56,7 +56,8 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 		}
 	}
 
-	// stop remediation if server does not exist or ProviderID is nil.
+	// stop remediation if server does not exist or ProviderID is nil (in this case the server
+	// cannot exist).
 	if server == nil {
 		s.scope.HCloudRemediation.Status.Phase = infrav1.PhaseDeleting
 
