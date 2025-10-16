@@ -235,7 +235,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 			}, timeout).Should(BeTrue())
 		})
 
-		FIt("checks that, under normal conditions, a reboot is carried out and retryCount and lastRemediated are set", func() {
+		It("checks that, under normal conditions, a reboot is carried out and retryCount and lastRemediated are set", func() {
 			Expect(testEnv.Create(ctx, hcloudRemediation)).To(Succeed())
 
 			Eventually(func() error {
