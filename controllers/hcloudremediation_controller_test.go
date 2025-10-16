@@ -235,7 +235,18 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 			}, timeout).Should(BeTrue())
 		})
 
-		FIt("checks that, under normal conditions, a reboot is carried out and retryCount and lastRemediated are set", func() {
+		It("checks that, under normal conditions, a reboot is carried out and retryCount and lastRemediated are set", func() {
+			Eventually(func() error {
+				err := testEnv.Client.Get(ctx, hcloudMachineKey, hcloudMachine)
+				if err != nil {
+					return err
+				}
+				if hcloudMachine.Spec.ProviderID == nil {
+					return fmt.Errorf("hcloudMachine.Spec.ProviderID is still nil")
+				}
+				return nil
+			}).NotTo(HaveOccurred())
+
 			Expect(testEnv.Create(ctx, hcloudRemediation)).To(Succeed())
 
 			Eventually(func() error {
