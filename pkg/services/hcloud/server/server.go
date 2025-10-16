@@ -1124,7 +1124,8 @@ func (s *Service) getServerImage(ctx context.Context, imageName string) (*hcloud
 			infrav1.ServerCreateSucceededCondition,
 			infrav1.ServerTypeNotFoundReason,
 			clusterv1.ConditionSeverityError,
-			"failed to get server type - nil type",
+			"failed to get server type %q",
+			string(s.scope.HCloudMachine.Spec.Type),
 		)
 		return nil, errServerCreateNotPossible
 	}
