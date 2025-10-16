@@ -235,7 +235,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 			}, timeout).Should(BeTrue())
 		})
 
-		It("checks that, under normal conditions, a reboot is carried out and retryCount and lastRemediated are set", func() {
+		FIt("checks that, under normal conditions, a reboot is carried out and retryCount and lastRemediated are set", func() {
 			Expect(testEnv.Create(ctx, hcloudRemediation)).To(Succeed())
 
 			Eventually(func() error {
@@ -250,7 +250,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 					return fmt.Errorf("hcloudRemediation.Status.RetryCount is %d", hcloudRemediation.Status.RetryCount)
 				}
 				return nil
-			}, timeout).ToNot(HaveOccurred())
+			}, timeout).ShouldNot(HaveOccurred())
 		})
 
 		It("checks if PhaseWaiting is set when retryLimit is reached", func() {

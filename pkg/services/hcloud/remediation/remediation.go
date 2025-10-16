@@ -19,7 +19,6 @@ package remediation
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -49,15 +48,15 @@ func NewService(scope *scope.HCloudRemediationScope) *Service {
 
 // Reconcile implements reconcilement of HCloudRemediation.
 func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err error) {
-	server, err := s.findServer(ctx)
-	if errors.Is(err, hcloudutil.ErrNilProviderID) {
-		err = nil
-	}
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to find the server of unhealthy machine: %w", err)
+	var server *hcloud.Server
+	if s.scope.HCloudMachine.Spec.ProviderID != nil {
+		server, err = s.findServer(ctx)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("failed to find the server of unhealthy machine: %w", err)
+		}
 	}
 
-	// stop remediation if server does not exist
+	// stop remediation if server does not exist or ProviderID is nil.
 	if server == nil {
 		s.scope.HCloudRemediation.Status.Phase = infrav1.PhaseDeleting
 
