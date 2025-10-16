@@ -17,6 +17,7 @@ limitations under the License.
 package controllers
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
@@ -234,16 +235,22 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 			}, timeout).Should(BeTrue())
 		})
 
-		It("checks that, under normal conditions, a reboot is carried out and retryCount and lastRemediated are set", func() {
+		FIt("checks that, under normal conditions, a reboot is carried out and retryCount and lastRemediated are set", func() {
 			Expect(testEnv.Create(ctx, hcloudRemediation)).To(Succeed())
 
-			Eventually(func() bool {
+			Eventually(func() error {
 				if err := testEnv.Get(ctx, hcloudRemediationkey, hcloudRemediation); err != nil {
-					return false
+					return err
 				}
 
-				return hcloudRemediation.Status.LastRemediated != nil && hcloudRemediation.Status.RetryCount == 1
-			}, timeout).Should(BeTrue())
+				if hcloudRemediation.Status.LastRemediated == nil {
+					return fmt.Errorf("hcloudRemediation.Status.LastRemediated == nil")
+				}
+				if hcloudRemediation.Status.RetryCount != 1 {
+					return fmt.Errorf("hcloudRemediation.Status.RetryCount is %d", hcloudRemediation.Status.RetryCount)
+				}
+				return nil
+			}, timeout).ToNot(HaveOccurred())
 		})
 
 		It("checks if PhaseWaiting is set when retryLimit is reached", func() {

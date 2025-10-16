@@ -744,7 +744,11 @@ func (s *Service) Delete(ctx context.Context) (res reconcile.Result, err error) 
 
 	// if no server has been found, then nothing can be deleted
 	if server == nil {
-		msg := fmt.Sprintf("Unable to delete HCloud server. Could not find matching server for %s", s.scope.Name())
+		providerID := "nil"
+		if s.scope.HCloudMachine.Spec.ProviderID != nil {
+			providerID = *s.scope.HCloudMachine.Spec.ProviderID
+		}
+		msg := fmt.Sprintf("Unable to delete HCloud server. Could not find matching server for %s. ProviderID: %q", s.scope.Name(), providerID)
 		s.scope.V(1).Info(msg)
 		record.Warn(s.scope.HCloudMachine, "NoInstanceFound", msg)
 		return res, nil
