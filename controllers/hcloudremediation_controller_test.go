@@ -17,6 +17,7 @@ limitations under the License.
 package controllers
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
@@ -205,14 +206,16 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 
 		It("checks that no remediation is tried if HCloud server does not exist anymore", func() {
 			By("ensuring if hcloudMachine is provisioned")
-			Eventually(func() bool {
+			Eventually(func() error {
 				if err := testEnv.Get(ctx, hcloudMachineKey, hcloudMachine); err != nil {
-					return false
+					return err
 				}
 
-				testEnv.GetLogger().Info("Status of the hcloudmachine", "status", hcloudMachine.Status)
-				return hcloudMachine.Status.Ready
-			}, timeout).Should(BeTrue())
+				if !hcloudMachine.Status.Ready {
+					return fmt.Errorf("hcloudMachine.Status.Ready is not true (yet)")
+				}
+				return nil
+			}, timeout).ShouldNot(HaveOccurred())
 
 			By("deleting the server associated with the hcloudMachine")
 			providerID, err := hcloudutil.ServerIDFromProviderID(hcloudMachine.Spec.ProviderID)
@@ -235,28 +238,60 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 		})
 
 		It("checks that, under normal conditions, a reboot is carried out and retryCount and lastRemediated are set", func() {
+			// Wait until machine has a ProviderID
+			Eventually(func() error {
+				err := testEnv.Client.Get(ctx, hcloudMachineKey, hcloudMachine)
+				if err != nil {
+					return err
+				}
+				if hcloudMachine.Spec.ProviderID == nil {
+					return fmt.Errorf("hcloudMachine.Spec.ProviderID is still nil")
+				}
+				return nil
+			}).NotTo(HaveOccurred())
+
 			Expect(testEnv.Create(ctx, hcloudRemediation)).To(Succeed())
 
-			Eventually(func() bool {
+			Eventually(func() error {
 				if err := testEnv.Get(ctx, hcloudRemediationkey, hcloudRemediation); err != nil {
-					return false
+					return err
 				}
 
-				return hcloudRemediation.Status.LastRemediated != nil && hcloudRemediation.Status.RetryCount == 1
-			}, timeout).Should(BeTrue())
+				if hcloudRemediation.Status.LastRemediated == nil {
+					return fmt.Errorf("hcloudRemediation.Status.LastRemediated == nil")
+				}
+				if hcloudRemediation.Status.RetryCount != 1 {
+					return fmt.Errorf("hcloudRemediation.Status.RetryCount is %d", hcloudRemediation.Status.RetryCount)
+				}
+				return nil
+			}, timeout).ShouldNot(HaveOccurred())
 		})
 
 		It("checks if PhaseWaiting is set when retryLimit is reached", func() {
+			// Wait until machine has a ProviderID
+			Eventually(func() error {
+				err := testEnv.Client.Get(ctx, hcloudMachineKey, hcloudMachine)
+				if err != nil {
+					return err
+				}
+				if hcloudMachine.Spec.ProviderID == nil {
+					return fmt.Errorf("hcloudMachine.Spec.ProviderID is still nil")
+				}
+				return nil
+			}).NotTo(HaveOccurred())
+
+			hcloudRemediation.Status.RetryCount = hcloudRemediation.Spec.Strategy.RetryLimit
 			Expect(testEnv.Create(ctx, hcloudRemediation)).To(Succeed())
 
-			Eventually(func() bool {
+			Eventually(func() error {
 				if err := testEnv.Get(ctx, hcloudRemediationkey, hcloudRemediation); err != nil {
-					return false
+					return err
 				}
-
-				testEnv.GetLogger().Info("status of hcloudRemediation", "status", hcloudRemediation.Status.Phase)
-				return hcloudRemediation.Status.Phase == infrav1.PhaseWaiting
-			}, timeout).Should(BeTrue())
+				if hcloudRemediation.Status.Phase != infrav1.PhaseWaiting {
+					return fmt.Errorf("hcloudRemediation.Status.Phase != infrav1.PhaseWaiting (phase is %s)", hcloudRemediation.Status.Phase)
+				}
+				return nil
+			}, timeout).ShouldNot(HaveOccurred())
 		})
 
 		It("should delete machine if retry limit reached and reboot timed out (hcloud)", func() {

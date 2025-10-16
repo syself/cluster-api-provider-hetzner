@@ -744,7 +744,11 @@ func (s *Service) Delete(ctx context.Context) (res reconcile.Result, err error) 
 
 	// if no server has been found, then nothing can be deleted
 	if server == nil {
-		msg := fmt.Sprintf("Unable to delete HCloud server. Could not find matching server for %s", s.scope.Name())
+		providerID := "nil"
+		if s.scope.HCloudMachine.Spec.ProviderID != nil {
+			providerID = *s.scope.HCloudMachine.Spec.ProviderID
+		}
+		msg := fmt.Sprintf("Unable to delete HCloud server. Could not find matching server for %s. ProviderID: %q", s.scope.Name(), providerID)
 		s.scope.V(1).Info(msg)
 		record.Warn(s.scope.HCloudMachine, "NoInstanceFound", msg)
 		return res, nil
@@ -1015,18 +1019,12 @@ func (s *Service) createServer(ctx context.Context, userData []byte, image *hclo
 			// RateLimit was reached. Condition and Event got already created.
 			return nil, fmt.Errorf("failed to create HCloud server %s: %w", hm.Name, err)
 		}
-		msg := fmt.Sprintf("failed to create HCloud server %s", hm.Name)
+		msg := fmt.Sprintf("failed to create HCloud server %s: %s", hm.Name, err.Error())
 		s.scope.Logger.Error(nil, msg)
 		// No condition was set yet. Set a general condition to false.
 		conditions.MarkFalse(hm, infrav1.ServerCreateSucceededCondition,
-			infrav1.ServerCreateFailedReason, clusterv1.ConditionSeverityWarning,
-			"%s", msg)
-		record.Warnf(hm,
-			"FailedCreateHCloudServer",
-			"Failed to create HCloud server %s: %s",
-			s.scope.Name(),
-			err,
-		)
+			infrav1.ServerCreateFailedReason, clusterv1.ConditionSeverityWarning, "%s", msg)
+		record.Warn(hm, "FailedCreateHCloudServer", msg)
 		return nil, handleRateLimit(hm, err, "CreateServer", msg)
 	}
 
@@ -1130,7 +1128,8 @@ func (s *Service) getServerImage(ctx context.Context, imageName string) (*hcloud
 			infrav1.ServerCreateSucceededCondition,
 			infrav1.ServerTypeNotFoundReason,
 			clusterv1.ConditionSeverityError,
-			"failed to get server type - nil type",
+			"failed to get server type %q",
+			string(s.scope.HCloudMachine.Spec.Type),
 		)
 		return nil, errServerCreateNotPossible
 	}

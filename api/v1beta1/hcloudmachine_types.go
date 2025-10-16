@@ -39,8 +39,18 @@ type HCloudMachineSpec struct {
 	// +optional
 	ProviderID *string `json:"providerID,omitempty"`
 
-	// Type is the HCloud Machine Type for this machine. It defines the desired server type of server in Hetzner's Cloud API. Example: cpx11.
-	// +kubebuilder:validation:Enum=cpx11;cx21;cpx21;cx31;cpx31;cx41;cpx41;cx51;cpx51;ccx11;ccx12;ccx13;ccx21;ccx22;ccx23;ccx31;ccx32;ccx33;ccx41;ccx42;ccx43;ccx51;ccx52;ccx53;ccx62;ccx63;cax11;cax21;cax31;cax41;cx22;cx32;cx42;cx52
+	// Type is the HCloud Machine Type for this machine. It defines the desired server type of
+	// server in Hetzner's Cloud API. You can use the hcloud CLI to get server names (`hcloud
+	// server-type list`) or on https://www.hetzner.com/cloud
+	//
+	// The types follow this pattern: cxNV (shared, cheap), cpxNV (shared, performance), ccxNV
+	// (dedicated), caxNV (ARM)
+	//
+	// N is a number, and V is the version of this machine type. Example: cpx32.
+	//
+	// The list of valid machine types gets changed by Hetzner from time to time. CAPH no longer
+	// validates this string. It is up to you to use a valid type. Not all types are available in all
+	// locations.
 	Type HCloudMachineType `json:"type"`
 
 	// ImageName is the reference to the Machine Image from which to create the machine instance.

@@ -48,12 +48,16 @@ func NewService(scope *scope.HCloudRemediationScope) *Service {
 
 // Reconcile implements reconcilement of HCloudRemediation.
 func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err error) {
-	server, err := s.findServer(ctx)
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to find the server of unhealthy machine: %w", err)
+	var server *hcloud.Server
+	if s.scope.HCloudMachine.Spec.ProviderID != nil {
+		server, err = s.findServer(ctx)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("failed to find the server of unhealthy machine: %w", err)
+		}
 	}
 
-	// stop remediation if server does not exist
+	// stop remediation if server does not exist or ProviderID is nil (in this case the server
+	// cannot exist).
 	if server == nil {
 		s.scope.HCloudRemediation.Status.Phase = infrav1.PhaseDeleting
 
@@ -61,7 +65,14 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 			record.Warn(s.scope.HCloudRemediation, "FailedSettingConditionOnMachine", err.Error())
 			return reconcile.Result{}, fmt.Errorf("failed to set conditions on CAPI machine: %w", err)
 		}
-		record.Warn(s.scope.HCloudRemediation, "ExitRemediation", "exit remediation because bare metal server does not exist")
+		providerID := "nil"
+		if s.scope.HCloudMachine.Spec.ProviderID != nil {
+			providerID = *s.scope.HCloudMachine.Spec.ProviderID
+		}
+		msg := fmt.Sprintf("exit remediation because hcloud server (providerID=%s) does not exist",
+			providerID)
+		s.scope.Logger.Error(nil, msg)
+		record.Warn(s.scope.HCloudRemediation, "ExitRemediation", msg)
 		return res, nil
 	}
 
