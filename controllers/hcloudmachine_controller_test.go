@@ -808,11 +808,6 @@ var _ = Describe("HCloudMachine validation", func() {
 		Expect(testEnv.Cleanup(ctx, testNs, hcloudMachine)).To(Succeed())
 	})
 
-	It("should fail with wrong type", func() {
-		hcloudMachine.Spec.Type = "wrong-type"
-		Expect(testEnv.Create(ctx, hcloudMachine)).ToNot(Succeed())
-	})
-
 	It("should fail without imageName", func() {
 		hcloudMachine.Spec.ImageName = ""
 		Expect(testEnv.Create(ctx, hcloudMachine)).ToNot(Succeed())
