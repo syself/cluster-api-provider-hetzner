@@ -353,6 +353,80 @@ func SchemaFromDeprecation(d *DeprecationInfo) *schema.DeprecationInfo {
 	return c.SchemaFromDeprecation(d)
 }
 
+// ZoneFromSchema converts a schema.Zone to a Zone.
+func ZoneFromSchema(s schema.Zone) *Zone {
+	return c.ZoneFromSchema(s)
+}
+
+// SchemaFromZone converts a Zone to a schema.Zone.
+func SchemaFromZone(z *Zone) schema.Zone {
+	return c.SchemaFromZone(z)
+}
+
+func SchemaFromZoneCreateOpts(opts ZoneCreateOpts) schema.ZoneCreateRequest {
+	return c.SchemaFromZoneCreateOpts(opts)
+}
+
+func SchemaFromZoneUpdateOpts(opts ZoneUpdateOpts) schema.ZoneUpdateRequest {
+	return c.SchemaFromZoneUpdateOpts(opts)
+}
+
+func SchemaFromZoneChangeProtectionOpts(opts ZoneChangeProtectionOpts) schema.ZoneChangeProtectionRequest {
+	return c.SchemaFromZoneChangeProtectionOpts(opts)
+}
+
+func SchemaFromZoneChangeTTLOpts(opts ZoneChangeTTLOpts) schema.ZoneChangeTTLRequest {
+	return c.SchemaFromZoneChangeTTLOpts(opts)
+}
+
+func SchemaFromZoneChangePrimaryNameserversOpts(opts ZoneChangePrimaryNameserversOpts) schema.ZoneChangePrimaryNameserversRequest {
+	return c.SchemaFromZoneChangePrimaryNameserversOpts(opts)
+}
+
+func SchemaFromZoneImportZonefileOpts(opts ZoneImportZonefileOpts) schema.ZoneImportZonefileRequest {
+	return c.SchemaFromZoneImportZonefileOpts(opts)
+}
+
+func ZoneRRSetFromSchema(s schema.ZoneRRSet) *ZoneRRSet {
+	return c.ZoneRRSetFromSchema(s)
+}
+
+func ZoneRRSetRecordFromSchema(s schema.ZoneRRSetRecord) *ZoneRRSetRecord {
+	return c.ZoneRRSetRecordFromSchema(s)
+}
+
+func SchemaFromZoneRRSet(r *ZoneRRSet) schema.ZoneRRSet {
+	return c.SchemaFromZoneRRSet(r)
+}
+
+func SchemaFromZoneRRSetCreateOpts(opts ZoneRRSetCreateOpts) schema.ZoneRRSetCreateRequest {
+	return c.SchemaFromZoneRRSetCreateOpts(opts)
+}
+
+func SchemaFromZoneRRSetUpdateOpts(opts ZoneRRSetUpdateOpts) schema.ZoneRRSetUpdateRequest {
+	return c.SchemaFromZoneRRSetUpdateOpts(opts)
+}
+
+func SchemaFromZoneRRSetChangeProtectionOpts(opts ZoneRRSetChangeProtectionOpts) schema.ZoneRRSetChangeProtectionRequest {
+	return c.SchemaFromZoneRRSetChangeProtectionOpts(opts)
+}
+
+func SchemaFromZoneRRSetChangeTTLOpts(opts ZoneRRSetChangeTTLOpts) schema.ZoneRRSetChangeTTLRequest {
+	return c.SchemaFromZoneRRSetChangeTTLOpts(opts)
+}
+
+func SchemaFromZoneRRSetSetRecordsOpts(opts ZoneRRSetSetRecordsOpts) schema.ZoneRRSetSetRecordsRequest {
+	return c.SchemaFromZoneRRSetSetRecordsOpts(opts)
+}
+
+func SchemaFromZoneRRSetAddRecordsOpts(opts ZoneRRSetAddRecordsOpts) schema.ZoneRRSetAddRecordsRequest {
+	return c.SchemaFromZoneRRSetAddRecordsOpts(opts)
+}
+
+func SchemaFromZoneRRSetRemoveRecordsOpts(opts ZoneRRSetRemoveRecordsOpts) schema.ZoneRRSetRemoveRecordsRequest {
+	return c.SchemaFromZoneRRSetRemoveRecordsOpts(opts)
+}
+
 func placementGroupCreateOptsToSchema(opts PlacementGroupCreateOpts) schema.PlacementGroupCreateRequest {
 	return c.SchemaFromPlacementGroupCreateOpts(opts)
 }
