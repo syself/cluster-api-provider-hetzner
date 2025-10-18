@@ -180,12 +180,18 @@ func newArgumentErrorf(format string, args ...any) ArgumentError {
 	return ArgumentError(fmt.Sprintf(format, args...))
 }
 
-func missingArgument(name string, obj any) error {
-	return newArgumentErrorf("missing argument '%s' [%T]", name, obj)
+func invalidArgument(name string, obj any, inner error) error {
+	return newArgumentErrorf("invalid argument '%s' [%T]: %s", name, obj, inner)
 }
 
-func invalidArgument(name string, obj any) error {
-	return newArgumentErrorf("invalid value '%v' for argument '%s' [%T]", obj, name, obj)
+// Below are validation error to use together with [invalidArgument].
+
+func emptyValue(obj any) error {
+	return newArgumentErrorf("empty value '%v'", obj)
+}
+
+func invalidValue(obj any) error {
+	return newArgumentErrorf("invalid value '%v'", obj)
 }
 
 func missingField(obj any, field string) error {
