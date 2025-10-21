@@ -42,10 +42,10 @@ for idir in $(echo /sys/class/net/* | sort); do
         MODEL=$(lspci -s "$BUSINFO" | cut -d ' ' -f3- | tr '"' "'")
     fi
 
-    for ipv4 in $(ip -4 addr show dev "$iname" | awk '/inet /{print $2}'); do
+    for ipv4 in $(ip -4 addr show dev "$iname" | awk '/inet /{print $2}' | cut -d'/' -f1); do
         echo "name=\"$iname\" model=\"$MODEL\" mac=\"$MAC\" ip=\"$ipv4\" speedMbps=\"$SPEED\""
     done
-    for ipv6 in $(ip -6 addr show dev "$iname" | awk '/inet6 /{print $2}'); do
+    for ipv6 in $(ip -6 addr show dev "$iname" | awk '/inet6 /{print $2}' | cut -d'/' -f1); do
         if [[ "$ipv6" == fe80:* ]]; then
             continue
         fi
