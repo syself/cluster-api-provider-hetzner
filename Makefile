@@ -115,10 +115,12 @@ ctlptl: $(CTLPTL) ## Build a local copy of ctlptl
 $(CTLPTL):
 	go install github.com/tilt-dev/ctlptl/cmd/ctlptl@v0.8.25
 
+CLUSTERCTL_VERSION ?= v1.8.10
 CLUSTERCTL := $(abspath $(TOOLS_BIN_DIR)/clusterctl)
 clusterctl: $(CLUSTERCTL) ## Build a local copy of clusterctl
 $(CLUSTERCTL):
-	go install sigs.k8s.io/cluster-api/cmd/clusterctl@v1.8.10
+	curl -fsSL "https://github.com/kubernetes-sigs/cluster-api/releases/download/$(CLUSTERCTL_VERSION)/clusterctl-$$(go env GOOS)-$$(go env GOARCH)" -o $(CLUSTERCTL)
+	chmod a+rx $(CLUSTERCTL)
 
 HCLOUD := $(abspath $(TOOLS_BIN_DIR)/hcloud)
 hcloud: $(HCLOUD) ## Build a local copy of hcloud
