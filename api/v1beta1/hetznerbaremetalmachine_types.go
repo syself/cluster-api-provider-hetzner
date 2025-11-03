@@ -70,7 +70,7 @@ type HetznerBareMetalMachineSpec struct {
 	// ProviderID will be the hetznerbaremetalmachine which is set by the controller in the
 	// `hrobot://<server-id>` format. Before caph v1.1.0 the ProviderID had the format
 	// `hcloud://bm-NNNNN`. Starting with caph v1.1.x this was changed to `hrobot://NNNNN`. This
-	// alligns to the upstream hcloud ccm. In the long run we want discontinue our ccm fork.
+	// aligns to the upstream hcloud ccm. In the long run we want to discontinue our ccm fork.
 	// +optional
 	ProviderID *string `json:"providerID,omitempty"`
 
