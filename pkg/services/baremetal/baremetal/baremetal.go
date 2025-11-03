@@ -902,7 +902,7 @@ func checkForRequeueError(err error, errMessage string) (res reconcile.Result, r
 // providerIDFromServerID returns the ProviderID.
 // Before caph v1.1.0 the ProviderID had the format `hcloud://bm-NNNNN`.
 // Starting with caph v1.1.x this was changed to `hrobot://NNNNN`.
-// This alligns to the upstream hcloud ccm. In the long run we want
+// This aligns to the upstream hcloud ccm. In the long run we want to
 // discontinue our ccm fork.
 func providerIDFromServerID(serverID int) string {
 	return fmt.Sprintf("%s%d", providerIDPrefix, serverID)
