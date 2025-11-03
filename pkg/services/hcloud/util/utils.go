@@ -50,10 +50,16 @@ func ServerIDFromProviderID(providerID *string) (int64, error) {
 	if providerID == nil {
 		return 0, ErrNilProviderID
 	}
+
 	stringParts := strings.Split(*providerID, "://")
 	if len(stringParts) != 2 || stringParts[0] == "" || stringParts[1] == "" {
 		return 0, ErrInvalidProviderID
 	}
+
+	if stringParts[0] != "hcloud" {
+		return 0, ErrInvalidProviderID
+	}
+
 	idString := stringParts[1]
 	id, err := strconv.ParseInt(idString, 10, 64)
 	if err != nil {
