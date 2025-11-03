@@ -55,8 +55,7 @@ import (
 // TODO: Implement logic for removal of unpaid servers.
 
 const (
-	// providerIDPrefix is a prefix for ProviderID.
-	providerIDPrefix = "hcloud://"
+	providerIDPrefix = "hrobot://"
 
 	// requeueAfter gives the duration of time until the next reconciliation should be performed.
 	requeueAfter = time.Second * 30
@@ -900,8 +899,13 @@ func checkForRequeueError(err error, errMessage string) (res reconcile.Result, r
 	return reconcile.Result{}, fmt.Errorf("%s: %w", errMessage, err)
 }
 
+// providerIDFromServerID returns the ProviderID.
+// Before caph v1.1.0 the ProviderID had the format `hcloud://bm-NNNNN`.
+// Starting with caph v1.1.x this was changed to `hrobot://NNNNN`.
+// This alligns to the upstream hcloud ccm. In the long run we want
+// discontinue our ccm fork.
 func providerIDFromServerID(serverID int) string {
-	return fmt.Sprintf("%s%s%d", providerIDPrefix, infrav1.BareMetalHostNamePrefix, serverID)
+	return fmt.Sprintf("%s%d", providerIDPrefix, serverID)
 }
 
 func analyzePatchError(err error, ignoreNotFound bool) error {
