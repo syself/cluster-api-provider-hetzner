@@ -121,15 +121,15 @@ type HetznerSecretRef struct {
 type HetznerSecretKeyRef struct {
 	// HCloudToken defines the name of the key where the token for the Hetzner Cloud API is stored.
 	// +optional
-	// +kubebuilder:default=hcloud-token
+	// +kubebuilder:default=token
 	HCloudToken string `json:"hcloudToken"`
 	// HetznerRobotUser defines the name of the key where the username for the Hetzner Robot API is stored.
 	// +optional
-	// +kubebuilder:default=hetzner-robot-user
+	// +kubebuilder:default=robot-user
 	HetznerRobotUser string `json:"hetznerRobotUser"`
 	// HetznerRobotPassword defines the name of the key where the password for the Hetzner Robot API is stored.
 	// +optional
-	// +kubebuilder:default=hetzner-robot-password
+	// +kubebuilder:default=robot-password
 	HetznerRobotPassword string `json:"hetznerRobotPassword"`
 	// SSHKey defines the name of the ssh key.
 	// +optional

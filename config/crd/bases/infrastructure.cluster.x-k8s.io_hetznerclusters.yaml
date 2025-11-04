@@ -246,17 +246,17 @@ spec:
                       Need to specify either HCloudToken or both HetznerRobotUser and HetznerRobotPassword.
                     properties:
                       hcloudToken:
-                        default: hcloud-token
+                        default: token
                         description: HCloudToken defines the name of the key where
                           the token for the Hetzner Cloud API is stored.
                         type: string
                       hetznerRobotPassword:
-                        default: hetzner-robot-password
+                        default: robot-password
                         description: HetznerRobotPassword defines the name of the
                           key where the password for the Hetzner Robot API is stored.
                         type: string
                       hetznerRobotUser:
-                        default: hetzner-robot-user
+                        default: robot-user
                         description: HetznerRobotUser defines the name of the key
                           where the username for the Hetzner Robot API is stored.
                         type: string
@@ -267,7 +267,13 @@ spec:
                     type: object
                   name:
                     default: hetzner
-                    description: Name defines the name of the secret.
+                    description: |-
+                      Name defines the name of the secret. The name gets used for reading the credential in the
+                      mgt-cluster, and it gets used for creating a secret in the wl-cluster. About the secret in
+                      the wl-cluster: Attention, the upstream hcloud-ccm helm chart expects the name to be
+                      "hcloud". The Syself ccm defaults to "hetzner". The secret will be created in the namespace
+                      "mgt-system" of the workload-cluster. Set `spec.skipCreatingHetznerSecretInWorkloadCluster`,
+                      if you don't want that secret in the wl-cluster to be created.
                     type: string
                 required:
                 - key

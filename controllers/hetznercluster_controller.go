@@ -533,7 +533,7 @@ func reconcileWorkloadClusterSecret(ctx context.Context, clusterScope *scope.Clu
 			return fmt.Errorf("failed to acquire secret: %w", err)
 		}
 
-		hetznerToken, keyExists := mgtSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken]
+		hcloudToken, keyExists := mgtSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken]
 		if !keyExists {
 			return fmt.Errorf("error key %s does not exist in secret/%s: %w",
 				clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken,
@@ -546,7 +546,13 @@ func reconcileWorkloadClusterSecret(ctx context.Context, clusterScope *scope.Clu
 			wlSecret.Data = make(map[string][]byte)
 		}
 
-		wlSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken] = hetznerToken
+		wlSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken] = hcloudToken
+
+		// upstream hcloud-ccm uses the secret key "token", while the old Syself ccm used "hcloud".
+		// For compatibilty, we create always the other key, too.
+		for _, key := range []string{"token", "hcloud"} {
+			wlSecret.Data[key] = hcloudToken
+		}
 
 		// Save robot credentials if available
 		if clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser != "" {

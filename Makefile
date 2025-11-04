@@ -199,11 +199,12 @@ ifeq ($(BUILD_IN_CONTAINER),true)
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
 else
-	helm repo add syself https://charts.syself.com
-	helm repo update syself
-	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hetzner --version 2.0.1 \
-	--namespace kube-system \
-	--set privateNetwork.enabled=$(PRIVATE_NETWORK)
+	helm repo add hcloud https://charts.hetzner.cloud
+	helm repo update hcloud
+	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) helm install hccm \
+		hcloud/ cloud-cloud-controller-manager -n kube-system \
+		--set privateNetwork.enabled=$(PRIVATE_NETWORK)
+		--set robot.enabled=true
 	@echo 'run "kubectl --kubeconfig=$(WORKER_CLUSTER_KUBECONFIG) ..." to work with the new target cluster'
 endif
 
