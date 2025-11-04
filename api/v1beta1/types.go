@@ -101,9 +101,16 @@ type HCloudPlacementGroupStatus struct {
 
 // HetznerSecretRef defines all the names of the secret and the relevant keys needed to access Hetzner API.
 type HetznerSecretRef struct {
-	// Name defines the name of the secret.
+	// Name defines the name of the secret. The name gets used for reading the credential in the
+	// mgt-cluster, and it gets used for creating a secret in the wl-cluster. About the secret in
+	// the wl-cluster: Attention, the upstream hcloud-ccm helm chart expects the name to be
+	// "hcloud". The Syself ccm defaults to "hetzner". The secret will be created in the namespace
+	// "mgt-system" of the workload-cluster. Set `spec.skipCreatingHetznerSecretInWorkloadCluster`,
+	// if you don't want that secret in the wl-cluster to be created.
+	//
 	// +kubebuilder:default=hetzner
 	Name string `json:"name"`
+
 	// Key defines the keys that are used in the secret.
 	// Need to specify either HCloudToken or both HetznerRobotUser and HetznerRobotPassword.
 	Key HetznerSecretKeyRef `json:"key"`

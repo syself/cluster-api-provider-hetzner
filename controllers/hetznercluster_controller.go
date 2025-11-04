@@ -226,7 +226,7 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 	// target cluster is ready
 	conditions.MarkTrue(hetznerCluster, infrav1.TargetClusterReadyCondition)
 
-	result, err = reconcileTargetSecret(ctx, clusterScope)
+	result, err = reconcileWorkloadClusterSecret(ctx, clusterScope)
 	if err != nil {
 		reterr := fmt.Errorf("failed to reconcile target secret: %w", err)
 		conditions.MarkFalse(
@@ -472,7 +472,10 @@ func hcloudTokenErrorResult(
 	return res, nil
 }
 
-func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope) (res reconcile.Result, reterr error) {
+// reconcileWorkloadClusterSecret ensures that the workload-cluster has the secret needed by the ccm. The
+// name of the secret is read from HetznerCluster.Spec.HetznerSecret.Name. Creating the secret gets
+// skipped, if HetznerCluster.Spec.SkipCreatingHetznerSecretInWorkloadCluster is set.
+func reconcileWorkloadClusterSecret(ctx context.Context, clusterScope *scope.ClusterScope) (res reconcile.Result, reterr error) {
 	if clusterScope.HetznerCluster.Spec.SkipCreatingHetznerSecretInWorkloadCluster {
 		// If the secret should not be created in the workload cluster, we just return.
 		// This means the ccm is running outside of the workload cluster (or getting the secret differently).
@@ -480,13 +483,13 @@ func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope
 	}
 
 	// Checking if control plane is ready
-	clientConfig, err := clusterScope.ClientConfig(ctx)
+	wlClientConfig, err := clusterScope.ClientConfig(ctx)
 	if err != nil {
 		clusterScope.V(1).Info("failed to get clientconfig with api endpoint")
 		return reconcile.Result{}, err
 	}
 
-	if err := scope.IsControlPlaneReady(ctx, clientConfig); err != nil {
+	if err := scope.IsControlPlaneReady(ctx, wlClientConfig); err != nil {
 		conditions.MarkFalse(
 			clusterScope.HetznerCluster,
 			infrav1.TargetClusterSecretReadyCondition,
@@ -500,17 +503,18 @@ func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope
 	// Control plane ready, so we can check if the secret exists already
 
 	// getting client
-	restConfig, err := clientConfig.ClientConfig()
+	restConfig, err := wlClientConfig.ClientConfig()
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to get rest config: %w", err)
 	}
 
-	client, err := client.New(restConfig, client.Options{})
+	// workload cluster client
+	wlClient, err := client.New(restConfig, client.Options{})
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to get client: %w", err)
 	}
 
-	secret := &corev1.Secret{
+	wlSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      clusterScope.HetznerCluster.Spec.HetznerSecret.Name,
 			Namespace: metav1.NamespaceSystem,
@@ -518,47 +522,47 @@ func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope
 	}
 
 	// Make sure secret exists and has the expected values
-	_, err = controllerutil.CreateOrUpdate(ctx, client, secret, func() error {
-		tokenSecretName := types.NamespacedName{
+	_, err = controllerutil.CreateOrUpdate(ctx, wlClient, wlSecret, func() error {
+		mgtSecretName := types.NamespacedName{
 			Namespace: clusterScope.HetznerCluster.Namespace,
 			Name:      clusterScope.HetznerCluster.Spec.HetznerSecret.Name,
 		}
 		secretManager := secretutil.NewSecretManager(clusterScope.Logger, clusterScope.Client, clusterScope.APIReader)
-		tokenSecret, err := secretManager.AcquireSecret(ctx, tokenSecretName, clusterScope.HetznerCluster, false, clusterScope.HetznerCluster.DeletionTimestamp.IsZero())
+		mgtSecret, err := secretManager.AcquireSecret(ctx, mgtSecretName, clusterScope.HetznerCluster, false, clusterScope.HetznerCluster.DeletionTimestamp.IsZero())
 		if err != nil {
 			return fmt.Errorf("failed to acquire secret: %w", err)
 		}
 
-		hetznerToken, keyExists := tokenSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken]
+		hetznerToken, keyExists := mgtSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken]
 		if !keyExists {
 			return fmt.Errorf("error key %s does not exist in secret/%s: %w",
 				clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken,
-				tokenSecretName,
+				mgtSecretName,
 				err,
 			)
 		}
 
-		if secret.Data == nil {
-			secret.Data = make(map[string][]byte)
+		if wlSecret.Data == nil {
+			wlSecret.Data = make(map[string][]byte)
 		}
 
-		secret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken] = hetznerToken
+		wlSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken] = hetznerToken
 
 		// Save robot credentials if available
 		if clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser != "" {
-			robotUserName := tokenSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser]
-			secret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser] = robotUserName
-			robotPassword := tokenSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword]
-			secret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword] = robotPassword
+			robotUserName := mgtSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser]
+			wlSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser] = robotUserName
+			robotPassword := mgtSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword]
+			wlSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword] = robotPassword
 		}
 
 		// Save network ID in secret
 		if clusterScope.HetznerCluster.Spec.HCloudNetwork.Enabled {
-			secret.Data["network"] = []byte(strconv.FormatInt(clusterScope.HetznerCluster.Status.Network.ID, 10))
+			wlSecret.Data["network"] = []byte(strconv.FormatInt(clusterScope.HetznerCluster.Status.Network.ID, 10))
 		}
 		// Save api server information
-		secret.Data["apiserver-host"] = []byte(clusterScope.HetznerCluster.Spec.ControlPlaneEndpoint.Host)
-		secret.Data["apiserver-port"] = []byte(strconv.Itoa(int(clusterScope.HetznerCluster.Spec.ControlPlaneEndpoint.Port)))
+		wlSecret.Data["apiserver-host"] = []byte(clusterScope.HetznerCluster.Spec.ControlPlaneEndpoint.Host)
+		wlSecret.Data["apiserver-port"] = []byte(strconv.Itoa(int(clusterScope.HetznerCluster.Spec.ControlPlaneEndpoint.Port)))
 
 		return nil
 	})
