@@ -570,6 +570,9 @@ func reconcileWorkloadClusterSecret(ctx context.Context, clusterScope *scope.Clu
 		wlSecret.Data["apiserver-host"] = []byte(clusterScope.HetznerCluster.Spec.ControlPlaneEndpoint.Host)
 		wlSecret.Data["apiserver-port"] = []byte(strconv.Itoa(int(clusterScope.HetznerCluster.Spec.ControlPlaneEndpoint.Port)))
 
+		// Make things more obvious for people new to caph:
+		wlSecret.Data["note"] = []byte("This secret gets reconciled by Cluster API Provider Hetzner")
+
 		return nil
 	})
 	if err != nil {
