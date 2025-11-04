@@ -56,6 +56,7 @@ func ServerIDFromProviderID(providerID *string) (int64, error) {
 		return 0, ErrInvalidProviderID
 	}
 
+	// Check that HCloud ProviderID starts with "hcloud"
 	if stringParts[0] != "hcloud" {
 		return 0, ErrInvalidProviderID
 	}
