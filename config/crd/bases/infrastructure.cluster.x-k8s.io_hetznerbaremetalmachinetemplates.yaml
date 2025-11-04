@@ -244,7 +244,9 @@ spec:
                           ProviderID will be the hetznerbaremetalmachine which is set by the controller in the
                           `hrobot://<server-id>` format. Before caph v1.1.0 the ProviderID had the format
                           `hcloud://bm-NNNNN`. Starting with caph v1.1.x this was changed to `hrobot://NNNNN`. This
-                          aligns to the upstream hcloud ccm. In the long run we want to discontinue our ccm fork.
+                          aligns to the upstream hcloud ccm. In the long run we want to discontinue our ccm fork. After
+                          the ProviderID was set once, it never changes. It is safe to update the ccm in a running
+                          workload-cluster. Only new nodes will get the new format.
                         type: string
                       sshSpec:
                         description: SSHSpec gives a reference on the secret where
