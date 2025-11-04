@@ -45,7 +45,8 @@ func ProviderIDFromServerID(serverID int) string {
 	return fmt.Sprintf("%s%v", providerIDPrefix, serverID)
 }
 
-// ServerIDFromProviderID returns the serverID from a providerID.
+// ServerIDFromProviderID returns the serverID from a providerID. This is used for hcloud machines
+// only. The format must be "hcloud://NNN".
 func ServerIDFromProviderID(providerID *string) (int64, error) {
 	if providerID == nil {
 		return 0, ErrNilProviderID

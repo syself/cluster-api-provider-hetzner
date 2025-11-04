@@ -67,12 +67,11 @@ const (
 
 // HetznerBareMetalMachineSpec defines the desired state of HetznerBareMetalMachine.
 type HetznerBareMetalMachineSpec struct {
-	// ProviderID will be the hetznerbaremetalmachine which is set by the controller in the
-	// `hrobot://<server-id>` format. Before caph v1.1.0 the ProviderID had the format
-	// `hcloud://bm-NNNNN`. Starting with caph v1.1.x this was changed to `hrobot://NNNNN`. This
-	// aligns to the upstream hcloud ccm. In the long run we want to discontinue our ccm fork. After
-	// the ProviderID was set once, it never changes. It is safe to update the ccm in a running
-	// workload-cluster. Only new nodes will get the new format.
+	// ProviderID is set by the controller in the `hrobot://<server-id>` format. Before CAPH v1.1.0
+	// the ProviderID had the format `hcloud://bm-NNNNN`. Starting with CAPH v1.1.0 this was changed
+	// to `hrobot://NNNNN`. This aligns with the upstream hcloud CCM. In the long run we want to
+	// discontinue our CCM fork. After the ProviderID was set once, it never changes. It is safe to
+	// update the CCM in a running workload-cluster. Only new nodes will get the new format.
 	//
 	// +optional
 	ProviderID *string `json:"providerID,omitempty"`
