@@ -202,8 +202,8 @@ else
 	helm repo add hcloud https://charts.hetzner.cloud
 	helm repo update hcloud
 	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) helm install hccm \
-		hcloud/ cloud-cloud-controller-manager -n kube-system \
-		--set privateNetwork.enabled=$(PRIVATE_NETWORK)
+		hcloud/hcloud-cloud-controller-manager -n kube-system \
+		--set privateNetwork.enabled=$(PRIVATE_NETWORK) \
 		--set robot.enabled=true
 	@echo 'run "kubectl --kubeconfig=$(WORKER_CLUSTER_KUBECONFIG) ..." to work with the new target cluster'
 endif

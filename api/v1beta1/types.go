@@ -107,9 +107,9 @@ type HetznerSecretRef struct {
 	// "hcloud". The Syself ccm defaults to "hetzner". For compatibility with upstream hcloud-ccm
 	// the controller creates two secrets, if the name is different from "hcloud" (one with name
 	// "hcloud", one with name being the value of this setting). The secret will be created in the
-	// namespace "mgt-system" of the workload-cluster. Set
-	// `spec.skipCreatingHetznerSecretInWorkloadCluster`, if you don't want that secret in the
-	// wl-cluster to be created.
+	// namespace "kube-system" of the workload-cluster. We recommend to use "hcloud", because this is
+	// the default of upstream hcloud-ccm. Set `spec.skipCreatingHetznerSecretInWorkloadCluster`, if
+	// you don't want that secret in the wl-cluster to be created.
 	//
 	// +kubebuilder:default=hcloud
 	Name string `json:"name"`
@@ -123,18 +123,29 @@ type HetznerSecretRef struct {
 // Need to specify either HCloudToken or both HetznerRobotUser and HetznerRobotPassword.
 type HetznerSecretKeyRef struct {
 	// HCloudToken defines the name of the key where the token for the Hetzner Cloud API is stored.
+	// We recommend to use "token", because this is the default of upstream hcloud-ccm.
+	//
 	// +optional
 	// +kubebuilder:default=token
 	HCloudToken string `json:"hcloudToken"`
-	// HetznerRobotUser defines the name of the key where the username for the Hetzner Robot API is stored.
+
+	// HetznerRobotUser defines the name of the key where the username for the Hetzner Robot API is
+	// stored. We recommend to use "robot-user", because this is the default of upstream hcloud-ccm.
+	//
 	// +optional
 	// +kubebuilder:default=robot-user
 	HetznerRobotUser string `json:"hetznerRobotUser"`
-	// HetznerRobotPassword defines the name of the key where the password for the Hetzner Robot API is stored.
+
+	// HetznerRobotPassword defines the name of the key where the password for the Hetzner Robot API
+	// is stored. We recommend to use "robot-password", because this is the default of upstream
+	// hcloud-ccm.
+	//
 	// +optional
 	// +kubebuilder:default=robot-password
 	HetznerRobotPassword string `json:"hetznerRobotPassword"`
+
 	// SSHKey defines the name of the ssh key.
+	//
 	// +optional
 	// +kubebuilder:default=hcloud-ssh-key-name
 	SSHKey string `json:"sshKey"`

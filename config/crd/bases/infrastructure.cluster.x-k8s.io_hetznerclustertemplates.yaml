@@ -276,20 +276,22 @@ spec:
                             properties:
                               hcloudToken:
                                 default: token
-                                description: HCloudToken defines the name of the key
-                                  where the token for the Hetzner Cloud API is stored.
+                                description: |-
+                                  HCloudToken defines the name of the key where the token for the Hetzner Cloud API is stored.
+                                  We recommend to use "token", because this is the default of upstream hcloud-ccm.
                                 type: string
                               hetznerRobotPassword:
                                 default: robot-password
-                                description: HetznerRobotPassword defines the name
-                                  of the key where the password for the Hetzner Robot
-                                  API is stored.
+                                description: |-
+                                  HetznerRobotPassword defines the name of the key where the password for the Hetzner Robot API
+                                  is stored. We recommend to use "robot-password", because this is the default of upstream
+                                  hcloud-ccm.
                                 type: string
                               hetznerRobotUser:
                                 default: robot-user
-                                description: HetznerRobotUser defines the name of
-                                  the key where the username for the Hetzner Robot
-                                  API is stored.
+                                description: |-
+                                  HetznerRobotUser defines the name of the key where the username for the Hetzner Robot API is
+                                  stored. We recommend to use "robot-user", because this is the default of upstream hcloud-ccm.
                                 type: string
                               sshKey:
                                 default: hcloud-ssh-key-name
@@ -305,9 +307,9 @@ spec:
                               "hcloud". The Syself ccm defaults to "hetzner". For compatibility with upstream hcloud-ccm
                               the controller creates two secrets, if the name is different from "hcloud" (one with name
                               "hcloud", one with name being the value of this setting). The secret will be created in the
-                              namespace "mgt-system" of the workload-cluster. Set
-                              `spec.skipCreatingHetznerSecretInWorkloadCluster`, if you don't want that secret in the
-                              wl-cluster to be created.
+                              namespace "kube-system" of the workload-cluster. We recommend to use "hcloud", because this is
+                              the default of upstream hcloud-ccm. Set `spec.skipCreatingHetznerSecretInWorkloadCluster`, if
+                              you don't want that secret in the wl-cluster to be created.
                             type: string
                         required:
                         - key
