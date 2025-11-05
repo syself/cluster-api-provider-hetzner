@@ -192,9 +192,11 @@ install-cilium-in-wl-cluster:
 		-f templates/cilium/cilium.yaml
 
 
-install-ccm-in-wl-cluster:
+install-ccm-in-wl-cluster: $(WORKER_CLUSTER_KUBECONFIG)
 ifeq ($(BUILD_IN_CONTAINER),true)
 	docker run  --rm \
+	    -e CLUSTER_NAME=$(CLUSTER_NAME) \
+	    -e KUBECONFIG=$(KUBECONFIG) \
 		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
@@ -438,6 +440,7 @@ $(ARTIFACTS):
 $(MGT_CLUSTER_KUBECONFIG):
 	./hack/get-kubeconfig-of-management-cluster.sh
 
+.PHONY: $(WORKER_CLUSTER_KUBECONFIG)
 $(WORKER_CLUSTER_KUBECONFIG):
 	./hack/get-kubeconfig-of-workload-cluster.sh
 

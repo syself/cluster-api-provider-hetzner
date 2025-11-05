@@ -595,7 +595,7 @@ func reconcileOneWorkloadClusterSecret(ctx context.Context, clusterScope *scope.
 		}
 
 		if clusterScope.HetznerCluster.Spec.HetznerSecret.Name != "hcloud" {
-			notes = append(notes, fmt.Sprintf("We recommend to use 'hcloud' for hetznercluster.spec.hetznerSecret.name(not %q).",
+			notes = append(notes, fmt.Sprintf("We recommend to use 'hcloud' for hetznercluster.spec.hetznerSecret.name (not %q).",
 				clusterScope.HetznerCluster.Spec.HetznerSecret.Name))
 		}
 
