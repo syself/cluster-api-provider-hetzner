@@ -702,10 +702,6 @@ var _ = Describe("Test ensureClusterLabel", func() {
 	)
 })
 
-var _ = Describe("Test providerIDFromServerID", func() {
-	Expect(providerIDFromServerID(42)).To(Equal("hrobot://42"))
-})
-
 var _ = Describe("Test hostKey", func() {
 	host := &infrav1.HetznerBareMetalHost{}
 	host.Namespace = "namespace"

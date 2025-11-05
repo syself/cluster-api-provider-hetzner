@@ -55,8 +55,6 @@ import (
 // TODO: Implement logic for removal of unpaid servers.
 
 const (
-	providerIDPrefix = "hrobot://"
-
 	// requeueAfter gives the duration of time until the next reconciliation should be performed.
 	requeueAfter = time.Second * 30
 
@@ -684,7 +682,7 @@ func (s *Service) setProviderID(ctx context.Context) error {
 	}
 
 	// set providerID
-	providerID := providerIDFromServerID(host.Spec.ServerID)
+	providerID := fmt.Sprintf("hrobot://%d", host.Spec.ServerID)
 	s.scope.BareMetalMachine.Spec.ProviderID = &providerID
 	s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhaseRunning
 
@@ -897,12 +895,6 @@ func checkForRequeueError(err error, errMessage string) (res reconcile.Result, r
 	}
 
 	return reconcile.Result{}, fmt.Errorf("%s: %w", errMessage, err)
-}
-
-// providerIDFromServerID returns the ProviderID. See HetznerBareMetalMachineSpec.ProviderID for
-// docs.
-func providerIDFromServerID(serverID int) string {
-	return fmt.Sprintf("%s%d", providerIDPrefix, serverID)
 }
 
 func analyzePatchError(err error, ignoreNotFound bool) error {
