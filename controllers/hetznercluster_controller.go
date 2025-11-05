@@ -475,7 +475,7 @@ func hcloudTokenErrorResult(
 // reconcileWorkloadClusterSecrets ensures that the workload-cluster has the secret needed by the
 // ccm. The name of the secret is read from HetznerCluster.Spec.HetznerSecret.Name. If
 // HetznerSecret.Name is "hcloud", then only one secret gets created in the wl-cluster. If not, two
-// secrets are created in the wl-cluster. This ensures compatiblity between CCMs. Creating the
+// secrets are created in the wl-cluster. This ensures compatibility between CCMs. Creating the
 // secret gets skipped, if HetznerCluster.Spec.SkipCreatingHetznerSecretInWorkloadCluster is set.
 func reconcileWorkloadClusterSecrets(ctx context.Context, clusterScope *scope.ClusterScope) (res reconcile.Result, reterr error) {
 	if clusterScope.HetznerCluster.Spec.SkipCreatingHetznerSecretInWorkloadCluster {
@@ -516,7 +516,7 @@ func reconcileWorkloadClusterSecrets(ctx context.Context, clusterScope *scope.Cl
 		return reconcile.Result{}, fmt.Errorf("failed to get client: %w", err)
 	}
 
-	// To ensure compatibilty with both CCMs, create always a secret with name "hcloud" in the
+	// To ensure compatibility with both CCMs, create always a secret with name "hcloud" in the
 	// wl-cluster.
 	names := []string{clusterScope.HetznerCluster.Spec.HetznerSecret.Name}
 	if clusterScope.HetznerCluster.Spec.HetznerSecret.Name != "hcloud" {
@@ -569,7 +569,7 @@ func reconcileOneWorkloadClusterSecret(ctx context.Context, clusterScope *scope.
 		wlSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken] = hcloudToken
 
 		// upstream hcloud-ccm uses the secret key "token", while the old Syself ccm used "hcloud".
-		// For compatibilty, we create always the other key, too.
+		// For compatibility, we create always the other key, too.
 		for _, key := range []string{"token", "hcloud"} {
 			wlSecret.Data[key] = hcloudToken
 		}
