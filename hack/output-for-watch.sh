@@ -14,6 +14,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+#############################################################
+# This script creates an overview of the mgt-cluster.
+# You can call it once, if continously this:
+#   watch ./hack/output-for-watch.sh
+#
+# You can call it from a different directory, too:
+#   ../cluster-api-provider-hetzner/hack/output-for-watch.sh
+#############################################################
+
+hack_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+
 function print_heading() {
     blue='\033[0;34m'
     nc='\033[0m' # No Color
@@ -47,7 +58,7 @@ kubectl get events -A --sort-by=lastTimestamp | grep -vP 'LeaderElection' | tail
 
 print_heading caph:
 
-./hack/tail-controller-logs.sh
+"$hack_dir"/tail-controller-logs.sh
 
 regex='^I\d\d\d\d|\
 .*it may have already been deleted|\
@@ -55,8 +66,10 @@ regex='^I\d\d\d\d|\
 .*failed to retrieve Spec.ProviderID|\
 .*failed to patch Machine default
 '
-capi_ns=$(kubectl get deployments -A | grep capi-con | cut -d' ' -f1)
-capi_logs=$(kubectl logs -n "$capi_ns" deployments/capi-controller-manager --since 10m | grep -vP "$(echo "$regex" | tr -d '\n')" | tail -5)
+capi_ns=$("$hack_dir"/get-namespace-of-deployment.sh capi-controller-manager)
+capi_pod=$("$hack_dir"/get-leading-pod.sh capi-controller-manager "$capi_ns")
+
+capi_logs=$(kubectl logs -n "$capi_ns" "$capi_pod" --since 10m | grep -vP "$(echo "$regex" | tr -d '\n')" | tail -5)
 if [ -n "$capi_logs" ]; then
     print_heading capi
     echo "$capi_logs"
@@ -89,7 +102,7 @@ fi
 
 echo
 
-./hack/get-kubeconfig-of-workload-cluster.sh
+"$hack_dir"./hack/get-kubeconfig-of-workload-cluster.sh
 
 kubeconfig_wl=".workload-cluster-kubeconfig.yaml"
 
