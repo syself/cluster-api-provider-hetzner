@@ -5,7 +5,11 @@ sidebar: Reference of Tilt
 description: Full list of available Tilt configuration values and their description.
 ---
 
-```
+We do not update the Tilt configuration regularly. The script
+([update-operator-dev-deployment.sh](/hack/update-operator-dev-deployment.sh)) is maybe an easier
+solution.
+
+```json
 "allowed_contexts": [
     "kind-caph",
 ],
