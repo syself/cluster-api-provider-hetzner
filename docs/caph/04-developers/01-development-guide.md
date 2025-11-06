@@ -28,21 +28,21 @@ This ensures the following:
 
 ## Preparing Hetzner project
 
-For more information, please see in [Chapter "Hetzner project preparation"](/docs/caph/01-getting-started/03-preparation.md).
+For more information, please see the [Hetzner project preparation](/docs/caph/01-getting-started/03-preparation.md) guide.
 
 ## Tilt vs pushing development container
 
 You can use [Tilt](https://tilt.dev/) or a script like
 [update-operator-dev-deployment.sh](/hack/update-operator-dev-deployment.sh) to install your changed
-code in the mgt-cluster.
+code in the management cluster.
 
-We do not update the Tilt configuration regularly. The script is maybe an easier solution.
+We do not update the Tilt configuration regularly. The script may be an easier solution.
 
-We recommend to create a `.envrc` file and specify the values you need. After the `.envrc` is loaded
+We recommend creating a `.envrc` file and specifying the values you need. After the `.envrc` is loaded
 ([direnv.net](https://direnv.net/)), invoke `direnv allow` to load the environment variables in your
 current shell session.
 
-The complete reference can be found [Chapter "Reference of Tilt"](/docs/caph/04-developers/02-tilt.md).
+The complete reference can be found in the [Reference of Tilt](/docs/caph/04-developers/02-tilt.md) documentation.
 
 ## Developing with Tilt
 
@@ -78,7 +78,7 @@ If you have any trouble finding the right command, you can run the `make help` c
 
 ## Troubleshooting
 
-If you want to have a better overview about what is going on in your mgt-cluster, then you can use the
+If you want to have a better overview about what is going on in your management cluster, then you can use the
 following tools.
 
 ```console

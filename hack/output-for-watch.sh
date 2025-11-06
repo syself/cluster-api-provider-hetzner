@@ -15,8 +15,8 @@
 # limitations under the License.
 
 #############################################################
-# This script creates an overview of the mgt-cluster.
-# You can call it once, if continously this:
+# This script creates an overview of the management cluster.
+# You can call it once, or continuously like this:
 #   watch ./hack/output-for-watch.sh
 #
 # You can call it from a different directory, too:
@@ -133,9 +133,9 @@ print_heading "workload-cluster nodes"
 KUBECONFIG=$kubeconfig_wl kubectl get nodes -o 'custom-columns=NAME:.metadata.name,STATUS:.status.phase,ROLES:.metadata.labels.kubernetes\.io/role,creationTimestamp:.metadata.creationTimestamp,VERSION:.status.nodeInfo.kubeletVersion,IP:.status.addresses[?(@.type=="ExternalIP")].address'
 
 if [ "$(kubectl get machine | wc -l)" -ne "$(KUBECONFIG="$kubeconfig_wl" kubectl get nodes | wc -l)" ]; then
-    echo "❌ Number of nodes in wl-cluster does not match number of machines in mgt-cluster"
+    echo "❌ Number of nodes in workload cluster does not match number of machines in management cluster"
 else
-    echo "👌 number of nodes in wl-cluster is equal to number of machines in mgt-cluster"
+    echo "👌 number of nodes in workload cluster is equal to number of machines in management cluster"
 fi
 
 rows=$(kubectl get hcloudremediation -A 2>/dev/null)
