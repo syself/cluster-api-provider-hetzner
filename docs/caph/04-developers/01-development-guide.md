@@ -78,22 +78,22 @@ If you have any trouble finding the right command, you can run the `make help` c
 
 ## Troubleshooting
 
-If you want have a better overview about what is going on in your mgt-cluster, then you can use the
+If you want to have a better overview about what is going on in your mgt-cluster, then you can use the
 following tools.
 
 ```console
 ❯ watch ./hack/output-for-watch.sh
 ```
 
---> This script continously shows the most important resources (capi machines, infra machines, ...)
-and logs of caph and capi. This must be called in the mgt-cluster.
+This script continuously shows the most important resources (capi machines, infra machines, ...)
+and logs of caph and capi. Run this with your management cluster kubeconfig active.
 
 ```console
 go run github.com/guettli/check-conditions@latest all
 ```
 
---> [check-conditions](https://github.com/guettli/check-conditions) show all unhealthy conditions of
-the current cluster. You can use it in the mgt-cluster and the wl-cluster.
+[check-conditions](https://github.com/guettli/check-conditions) shows all unhealthy conditions of
+the current cluster. You can use it in both the management and workload clusters.
 
 ## Submitting PRs and testing
 

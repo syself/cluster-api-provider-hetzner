@@ -102,7 +102,7 @@ fi
 
 echo
 
-"$hack_dir"./hack/get-kubeconfig-of-workload-cluster.sh
+"$hack_dir"/get-kubeconfig-of-workload-cluster.sh
 
 kubeconfig_wl=".workload-cluster-kubeconfig.yaml"
 
