@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/spf13/pflag"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -37,6 +38,7 @@ import (
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -90,6 +92,20 @@ var (
 	skipWebhooks                       bool
 	sshAfterInstallImage               bool
 )
+
+// strictManager is a ctrl.Manager which creates controller-runtime clients which do strict schema
+// validateion. If the schema of the CRD does not match to the schema of the controller, unexpected
+// things can happen. It is better to get an error instead of updating a resource where only some
+// fields got applied. Related:
+// https://www.reddit.com/r/kubernetes/comments/1oqnn6v/schema_mismatch_between_controller_and_crd/
+type strictManager struct {
+	ctrl.Manager
+	strictClient client.Client
+}
+
+func (m *strictManager) GetClient() client.Client {
+	return m.strictClient
+}
 
 func main() {
 	fs := pflag.CommandLine
@@ -196,10 +212,15 @@ func main() {
 		})
 	}
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), options)
+	origManager, err := ctrl.NewManager(ctrl.GetConfigOrDie(), options)
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
+	}
+
+	mgr := &strictManager{
+		Manager:      origManager,
+		strictClient: client.WithFieldValidation(origManager.GetClient(), metav1.FieldValidationStrict),
 	}
 
 	// Initialize event recorder.
