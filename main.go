@@ -93,10 +93,10 @@ var (
 	sshAfterInstallImage               bool
 )
 
-// strictManager is a ctrl.Manager which creates controller-runtime clients which do strict schema
-// validateion. If the schema of the CRD does not match to the schema of the controller, unexpected
-// things can happen. It is better to get an error instead of updating a resource where only some
-// fields got applied. Related:
+// strictManager is a ctrl.Manager that creates controller-runtime clients that enforce strict
+// schema validation. If a CRD's schema does not match the controller's schema, unexpected behavior
+// can occur. It's better to return an error than to perform a partial update where only some fields
+// are applied.  Related:
 // https://www.reddit.com/r/kubernetes/comments/1oqnn6v/schema_mismatch_between_controller_and_crd/
 type strictManager struct {
 	ctrl.Manager
