@@ -67,6 +67,10 @@ fi
 
 branch=$(git branch --show-current)
 if [ "$branch" == "" ]; then
+    branch=$(git describe --tags --exact-match 2>/dev/null || echo "")
+fi
+
+if [ "$branch" == "" ]; then
     echo "failed to get branch name"
     exit 1
 fi
@@ -81,14 +85,25 @@ image="$image_path/caph-staging:$tag"
     make generate-manifests
     kustomize build config/crd | kubectl apply -f -
 } &
+pid_generate=$!
 
-# run in background2
+# run in background
 {
     docker build -f images/caph/Dockerfile -t "$image" .
     docker push "$image"
 } &
+pid_docker_push=$!
 
-wait
+# wait for both processes and check their exit codes
+if ! wait $pid_generate; then
+    echo "Error: generate-manifests/kustomize failed"
+    exit 1
+fi
+
+if ! wait $pid_docker_push; then
+    echo "Error: docker build/push failed"
+    exit 1
+fi
 
 ns=$(kubectl get deployments.apps -A | { grep caph-controller || true; } | cut -d' ' -f1)
 if [[ -z $ns ]]; then
