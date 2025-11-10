@@ -316,6 +316,7 @@ func rebootTypesFromStringList(rebootTypeStringList []string) ([]infrav1.RebootT
 	return rebootTypes, nil
 }
 
+// ensureSSHKey ensures that the given 
 func (s *Service) ensureSSHKey(sshSecretRef infrav1.SSHSecretRef, sshSecret *corev1.Secret) (infrav1.SSHKey, actionResult) {
 	if sshSecret == nil {
 		return infrav1.SSHKey{}, actionError{err: errNilSSHSecret}
@@ -324,7 +325,7 @@ func (s *Service) ensureSSHKey(sshSecretRef infrav1.SSHSecretRef, sshSecret *cor
 	if err != nil {
 		s.handleRobotRateLimitExceeded(err, "ListSSHKeys")
 		if !models.IsError(err, models.ErrorCodeNotFound) {
-			return infrav1.SSHKey{}, actionError{err: fmt.Errorf("failed to list ssh heys: %w", err)}
+			return infrav1.SSHKey{}, actionError{err: fmt.Errorf("failed to list ssh keys: %w", err)}
 		}
 	}
 
@@ -2149,7 +2150,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		}
 		err = fmt.Errorf("failed to handle incomplete boot - actionProvisioned: %w", err)
 		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
-			"FailureFailGettingHostnameViaSSH",
+			"FailureGettingHostnameViaSSH",
 			clusterv1.ConditionSeverityWarning, "%s",
 			err.Error())
 		return actionError{err: err}
