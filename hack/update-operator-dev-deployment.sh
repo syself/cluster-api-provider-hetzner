@@ -66,15 +66,18 @@ if ! echo "$current_context" | grep -P '.*-admin@.*-mgt-cluster'; then
 fi
 
 branch=$(git branch --show-current)
+
+# No branch name was found. Try to get a git-tag.
 if [ "$branch" == "" ]; then
     branch=$(git describe --tags --exact-match 2>/dev/null || echo "")
 fi
 
 if [ "$branch" == "" ]; then
-    echo "failed to get branch name"
+    echo "failed to find git branch/tag name"
     exit 1
 fi
 
+# Build tag for container image.
 tag="dev-$USER-$branch"
 tag="$(echo -n "$tag" | tr -c 'a-zA-Z0-9_.-' '-')"
 
@@ -105,18 +108,23 @@ if ! wait $pid_docker_push; then
     exit 1
 fi
 
+# Find namespace of caph deployment.
 ns=$(kubectl get deployments.apps -A | { grep caph-controller || true; } | cut -d' ' -f1)
 if [[ -z $ns ]]; then
     echo "failed to get namespace for caph-controller"
     exit 1
 fi
 
+# Scale deployment to 1.
 kubectl scale --replicas=1 -n "$ns" deployment/caph-controller-manager
 
 kubectl set image -n "$ns" deployment/caph-controller-manager manager="$image"
 
+# Set imagePullPolicy to "Always", so that a new image (with same name/tag) gets pulled.
 kubectl patch deployment -n "$ns" -p '[{"op": "replace", "path": "/spec/template/spec/containers/0/imagePullPolicy", "value": "Always"}]' --type='json' caph-controller-manager
 
+# If you update the image again, there might be no change the deployment spec.
+# Force a rollout:
 kubectl rollout restart -n "$ns" deployment caph-controller-manager
 
 trap "echo 'Interrupted! Exiting...'; exit 1" SIGINT
