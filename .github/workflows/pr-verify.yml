@@ -66,7 +66,7 @@ jobs:
 
       - uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e # v4
         with:
-          node-version: "22"
+          node-version: "24"
       - name: Install renovate
         run: npm i -g renovate@35.54.0 # TODO update this via renovatebot
 
