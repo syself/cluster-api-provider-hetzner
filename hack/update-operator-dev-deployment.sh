@@ -83,6 +83,14 @@ tag="$(echo -n "$tag" | tr -c 'a-zA-Z0-9_.-' '-')"
 
 image="$image_path/caph-staging:$tag"
 
+# Fail if cluster-api-operator is running
+if kubectl get pods -A | grep -q cluster-api-operator; then
+    echo "Error: cluster-api-operator is running!"
+    echo "Changes to caph deployment and its CRDs would be reverted."
+    echo "Hint: Scale down replicas of the cluster-api-operator deployment."
+    exit 1
+fi
+
 # run in background
 {
     make generate-manifests
