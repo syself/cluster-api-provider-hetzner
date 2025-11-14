@@ -533,6 +533,10 @@ func reconcileWorkloadClusterSecrets(ctx context.Context, clusterScope *scope.Cl
 	return reconcile.Result{}, nil
 }
 
+// reconcileOneWorkloadClusterSecret creates/updates the secret in the wl-cluster. For maximal
+// compatibility up to three keys get created in the secret for HCLOUD_TOKEN: "hcloud", "token" and
+// the value of HetznerCluster.Spec.HetznerSecret.Key.HCloudToken. See docstring of
+// HetznerCluster.Spec.HetznerSecret.Key.HCloudToken.
 func reconcileOneWorkloadClusterSecret(ctx context.Context, clusterScope *scope.ClusterScope, wlClient client.Client, name string) error {
 	wlSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{

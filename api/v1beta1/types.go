@@ -122,8 +122,11 @@ type HetznerSecretRef struct {
 // HetznerSecretKeyRef defines the key name of the HetznerSecret.
 // Need to specify either HCloudToken or both HetznerRobotUser and HetznerRobotPassword.
 type HetznerSecretKeyRef struct {
-	// HCloudToken defines the name of the key where the token for the Hetzner Cloud API is stored.
-	// We recommend to use "token", because this is the default of upstream hcloud-ccm.
+	// hcloudToken defines the name of the key where the token for the Hetzner Cloud API is stored.
+	// We recommend to use "token", because this is the default of upstream hcloud-ccm, while the
+	// legacy Syself ccm uses "hcloud". For maximal compatibility up to three keys get created in the
+	// secret for HCLOUD_TOKEN: "hcloud", "token" and the value of hcloudToken. This way we ensure
+	// that the ccm in the wl-cluster finds the secret.
 	//
 	// +optional
 	// +kubebuilder:default=token
