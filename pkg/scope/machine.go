@@ -34,6 +34,7 @@ import (
 	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
@@ -148,6 +149,10 @@ func (m *MachineScope) SetErrorAndRemediate(ctx context.Context, message string)
 	}
 
 	record.Warnf(m.HCloudMachine, "HCloudMachine will be remediated: %s", message)
+
+	conditions.MarkFalse(m.HCloudMachine, v1beta1.NoRemediateMachineAnnotationCondition,
+		v1beta1.RemediateMachineAnnotationIsSetReason, clusterv1.ConditionSeverityInfo, "%s",
+		message)
 
 	return nil
 }
