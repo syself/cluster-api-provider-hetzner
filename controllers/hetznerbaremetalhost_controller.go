@@ -238,8 +238,12 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		// The hbmm of this host will be deleted soon. Do no reconcile it.
 		msg := "CAPI Machine has RemediateMachineAnnotation. Not reconciling this machine."
 		log.Info(msg)
-		conditions.MarkFalse(bmHost, infrav1.NoRemediateMachineAnnotationCondition,
-			infrav1.RemediateMachineAnnotationIsSetReason, clusterv1.ConditionSeverityInfo, "%s", msg)
+		c := conditions.Get(bmHost, infrav1.NoRemediateMachineAnnotationCondition)
+		if c == nil || c.Status != corev1.ConditionFalse {
+			// Do not overwrite the message of the condition, if the condition already exists.
+			conditions.MarkFalse(bmHost, infrav1.NoRemediateMachineAnnotationCondition,
+				infrav1.RemediateMachineAnnotationIsSetReason, clusterv1.ConditionSeverityInfo, "%s", msg)
+		}
 		return reconcile.Result{}, nil
 	}
 	conditions.MarkTrue(bmHost, infrav1.NoRemediateMachineAnnotationCondition)

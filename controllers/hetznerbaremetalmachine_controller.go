@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
@@ -164,8 +165,12 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 		// This hbmm will be deleted soon. Do no reconcile it.
 		msg := "CAPI Machine has RemediateMachineAnnotation. Not reconciling this machine."
 		log.Info(msg)
-		conditions.MarkFalse(hbmMachine, infrav1.NoRemediateMachineAnnotationCondition,
-			infrav1.RemediateMachineAnnotationIsSetReason, clusterv1.ConditionSeverityInfo, "%s", msg)
+		c := conditions.Get(hbmMachine, infrav1.NoRemediateMachineAnnotationCondition)
+		if c == nil || c.Status != corev1.ConditionFalse {
+			// Do not overwrite the message of the condition, if the condition already exists.
+			conditions.MarkFalse(hbmMachine, infrav1.NoRemediateMachineAnnotationCondition,
+				infrav1.RemediateMachineAnnotationIsSetReason, clusterv1.ConditionSeverityInfo, "%s", msg)
+		}
 		return reconcile.Result{}, nil
 	}
 	conditions.MarkTrue(hbmMachine, infrav1.NoRemediateMachineAnnotationCondition)
