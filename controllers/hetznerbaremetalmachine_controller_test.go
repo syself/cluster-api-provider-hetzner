@@ -38,11 +38,13 @@ import (
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
+	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	robotmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/robot"
 	sshmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/ssh"
@@ -438,14 +440,26 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					if err := testEnv.Get(ctx, key, bmMachine); err != nil {
 						return err
 					}
+
 					capiMachine, err := util.GetOwnerMachine(ctx, testEnv, bmMachine.ObjectMeta)
 					if err != nil {
 						return err
 					}
+
 					_, exists := capiMachine.Annotations[clusterv1.RemediateMachineAnnotation]
 					if !exists {
 						return fmt.Errorf("RemediateMachineAnnotation not set on capi machine")
 					}
+
+					c := conditions.Get(bmMachine, v1beta1.NoRemediateMachineAnnotationCondition)
+					if c == nil {
+						return fmt.Errorf("Condition NoRemediateMachineAnnotationCondition does not exist.")
+					}
+
+					if c.Status != corev1.ConditionFalse {
+						return fmt.Errorf("Condition NoRemediateMachineAnnotationCondition should be False")
+					}
+
 					return nil
 				}, timeout).Should(Succeed())
 			})

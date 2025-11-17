@@ -42,6 +42,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
@@ -236,9 +237,13 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	_, exits := machine.Annotations[clusterv1.RemediateMachineAnnotation]
 	if exits {
 		// The hbmm of this hsot will be deleted soon. Do no reconcile it.
-		log.Info("CAPI Machine has RemediateMachineAnnotation. Not reconciling this machine.")
+		msg := "CAPI Machine has RemediateMachineAnnotation. Not reconciling this machine."
+		log.Info(msg)
+		conditions.MarkFalse(bmHost, v1beta1.NoRemediateMachineAnnotationCondition,
+			v1beta1.RemediateMachineAnnotationIsSetReason, clusterv1.ConditionSeverityInfo, "%s", msg)
 		return reconcile.Result{}, nil
 	}
+	conditions.MarkTrue(bmHost, v1beta1.NoRemediateMachineAnnotationCondition)
 
 	// Get Hetzner robot api credentials
 	secretManager := secretutil.NewSecretManager(log, r.Client, r.APIReader)
