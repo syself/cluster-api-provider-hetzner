@@ -159,6 +159,13 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 		return r.reconcileDelete(ctx, machineScope)
 	}
 
+	_, exist := machine.Annotations[clusterv1.RemediateMachineAnnotation]
+	if exist {
+		// This hbmm will be deleted soon. Do no reconcile it.
+		log.Info("CAPI Machine has RemediateMachineAnnotation. Not reconciling this machine.")
+		return reconcile.Result{}, nil
+	}
+
 	return r.reconcileNormal(ctx, machineScope)
 }
 

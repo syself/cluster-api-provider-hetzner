@@ -23,7 +23,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
-	capierrors "sigs.k8s.io/cluster-api/errors" //nolint:staticcheck // we will handle that, when we update to capi v1.11
+	//nolint:staticcheck // we will handle that, when we update to capi v1.11
 )
 
 var _ = Describe("Test Image.GetDetails", func() {
@@ -175,35 +175,6 @@ var _ = Describe("Test GetImageSuffix", func() {
 			expectError:  true,
 		}),
 	)
-})
-
-var _ = Describe("Test SetFailure", func() {
-	bmMachine := HetznerBareMetalMachine{}
-	newFailureMessage := "bad error"
-	newFailureReason := capierrors.CreateMachineError
-
-	It("sets new failure on the machine with existing failure", func() {
-		failureMessage := "first message"
-		failureReason := capierrors.MachineStatusError("first error")
-		bmMachine.Status.FailureMessage = &failureMessage
-		bmMachine.Status.FailureReason = &failureReason
-
-		bmMachine.SetFailure(newFailureReason, newFailureMessage)
-
-		Expect(bmMachine.Status.FailureMessage).ToNot(BeNil())
-		Expect(bmMachine.Status.FailureReason).ToNot(BeNil())
-		Expect(*bmMachine.Status.FailureMessage).To(Equal(newFailureMessage))
-		Expect(*bmMachine.Status.FailureReason).To(Equal(newFailureReason))
-	})
-
-	It("sets new failure on the machine without existing failure", func() {
-		bmMachine.SetFailure(newFailureReason, newFailureMessage)
-
-		Expect(bmMachine.Status.FailureMessage).ToNot(BeNil())
-		Expect(bmMachine.Status.FailureReason).ToNot(BeNil())
-		Expect(*bmMachine.Status.FailureMessage).To(Equal(newFailureMessage))
-		Expect(*bmMachine.Status.FailureReason).To(Equal(newFailureReason))
-	})
 })
 
 var _ = Describe("Test HasHostAnnotation", func() {

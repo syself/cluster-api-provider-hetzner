@@ -227,7 +227,18 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 
 	log = log.WithValues("HetznerBareMetalMachine", klog.KObj(hetznerBareMetalMachine))
 
+	machine, err := util.GetOwnerMachine(ctx, r.Client, hetznerBareMetalMachine.ObjectMeta)
 	ctx = ctrl.LoggerInto(ctx, log)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to get owner machine: %w", err)
+	}
+
+	_, exits := machine.Annotations[clusterv1.RemediateMachineAnnotation]
+	if exits {
+		// The hbmm of this hsot will be deleted soon. Do no reconcile it.
+		log.Info("CAPI Machine has RemediateMachineAnnotation. Not reconciling this machine.")
+		return reconcile.Result{}, nil
+	}
 
 	// Get Hetzner robot api credentials
 	secretManager := secretutil.NewSecretManager(log, r.Client, r.APIReader)

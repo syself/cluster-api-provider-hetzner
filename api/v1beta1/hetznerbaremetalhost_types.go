@@ -230,8 +230,9 @@ type HetznerBareMetalHostSpec struct {
 	// +optional
 	ConsumerRef *corev1.ObjectReference `json:"consumerRef,omitempty"`
 
-	// MaintenanceMode indicates that a machine is supposed to be deprovisioned
-	// and won't be selected by any Hetzner bare metal machine.
+	// MaintenanceMode indicates that a machine is supposed to be deprovisioned. The CAPI Machine
+	// will get the cluster.x-k8s.io/remediate-machine annotation, and CAPI will deprovision the
+	// machine. Accordingly new the host won't be selected by any Hetzner bare metal machine.
 	MaintenanceMode *bool `json:"maintenanceMode,omitempty"`
 
 	// Description is a human-entered text used to help identify the host.

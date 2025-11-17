@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -36,13 +37,13 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/baremetal"
 	robotmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/robot"
 	sshmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/ssh"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
@@ -433,12 +434,20 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 				By("checking that failure message is set on machine")
 
-				Eventually(func() bool {
+				Eventually(func() error {
 					if err := testEnv.Get(ctx, key, bmMachine); err != nil {
-						return false
+						return err
 					}
-					return bmMachine.Status.FailureMessage != nil && *bmMachine.Status.FailureMessage == baremetal.FailureMessageMaintenanceMode
-				}, timeout).Should(BeTrue())
+					capiMachine, err := util.GetOwnerMachine(ctx, testEnv, bmMachine.ObjectMeta)
+					if err != nil {
+						return err
+					}
+					_, exists := capiMachine.Annotations[clusterv1.RemediateMachineAnnotation]
+					if !exists {
+						return fmt.Errorf("RemediateMachineAnnotation not set on capi machine")
+					}
+					return nil
+				}, timeout).Should(Succeed())
 			})
 
 			It("checks the hetznerBareMetalMachine status running phase", func() {

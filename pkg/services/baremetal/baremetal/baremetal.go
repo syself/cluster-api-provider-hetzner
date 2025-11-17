@@ -38,8 +38,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/utils/ptr"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	capierrors "sigs.k8s.io/cluster-api/errors" //nolint:staticcheck // we will handle that, when we update to capi v1.11
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1" //nolint:staticcheck // we will handle that, when we update to capi v1.11
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/record"
@@ -208,7 +207,10 @@ func (s *Service) update(ctx context.Context) error {
 		return fmt.Errorf("failed to get host: %w", err)
 	}
 	if host == nil {
-		s.scope.BareMetalMachine.SetFailure(capierrors.UpdateMachineError, "host not found")
+		err := s.scope.SetErrorAndRemediate(ctx, "host not found")
+		if err != nil {
+			return err
+		}
 		return fmt.Errorf("host not found for machine %s: %w", s.scope.Machine.Name, err)
 	}
 
@@ -229,28 +231,21 @@ func (s *Service) update(ctx context.Context) error {
 	}
 
 	// maintenance mode on the host is a fatal error for the machine object
-	if host.Spec.MaintenanceMode != nil && *host.Spec.MaintenanceMode && s.scope.BareMetalMachine.Status.FailureReason == nil {
-		s.scope.BareMetalMachine.SetFailure(capierrors.UpdateMachineError, FailureMessageMaintenanceMode)
-		record.Eventf(
-			s.scope.BareMetalMachine,
-			"BareMetalMachineSetFailure",
-			"set failure reason due to maintenance mode of underlying host",
-		)
+	if host.Spec.MaintenanceMode != nil && *host.Spec.MaintenanceMode {
+		err := s.scope.SetErrorAndRemediate(ctx, FailureMessageMaintenanceMode)
+		if err != nil {
+			return err
+		}
 		return nil
 	}
 
-	// if host has a fatal error, then it should be set on the machine object as well
-	if (host.Spec.Status.ErrorType == infrav1.FatalError || host.Spec.Status.ErrorType == infrav1.PermanentError) &&
-		s.scope.BareMetalMachine.Status.FailureReason == nil {
-		s.scope.BareMetalMachine.SetFailure(capierrors.UpdateMachineError, host.Spec.Status.ErrorMessage)
-		record.Eventf(s.scope.BareMetalMachine, "BareMetalMachineSetFailure", host.Spec.Status.ErrorMessage)
+	// if host has a fatal error, then it should be set on the hbmm object as well
+	if host.Spec.Status.ErrorType == infrav1.FatalError || host.Spec.Status.ErrorType == infrav1.PermanentError {
+		err := s.scope.SetErrorAndRemediate(ctx, host.Spec.Status.ErrorMessage)
+		if err != nil {
+			return err
+		}
 		return nil
-	}
-
-	// if host is healthy, the machine is healthy as well
-	if host.Spec.Status.ErrorType == infrav1.ErrorType("") {
-		s.scope.BareMetalMachine.Status.FailureMessage = nil
-		s.scope.BareMetalMachine.Status.FailureReason = nil
 	}
 
 	// ensure that the references are correctly set on host
@@ -674,7 +669,10 @@ func (s *Service) setProviderID(ctx context.Context) error {
 	}
 
 	if host == nil {
-		s.scope.BareMetalMachine.SetFailure(capierrors.UpdateMachineError, "host not found")
+		err := s.scope.SetErrorAndRemediate(ctx, "host not found")
+		if err != nil {
+			return err
+		}
 		return fmt.Errorf("host not found for machine %s: %w", s.scope.Machine.Name, err)
 	}
 
