@@ -230,23 +230,15 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 
 	log = log.WithValues("HetznerBareMetalMachine", klog.KObj(hetznerBareMetalMachine))
 
-	capiMachine, err := util.GetOwnerMachine(ctx, r.Client, hetznerBareMetalMachine.ObjectMeta)
-	ctx = ctrl.LoggerInto(ctx, log)
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to get owner machine: %w", err)
-	}
-
-	_, exists := capiMachine.Annotations[clusterv1.RemediateMachineAnnotation]
-	if exists {
+	remediateConditionOfHbmm := conditions.Get(hetznerBareMetalMachine, infrav1.NoRemediateMachineAnnotationCondition)
+	if remediateConditionOfHbmm != nil && remediateConditionOfHbmm.Status == corev1.ConditionFalse {
 		// The hbmm of this host will be deleted soon. Do no reconcile it.
-		msg := "CAPI Machine has RemediateMachineAnnotation. Not reconciling this machine."
+		// Take the Condition of the hbmm and make it available on the hbmh.
+		msg := "hbmm has NoRemediateMachineAnnotationCondition=False. Not reconciling this host."
 		log.Info(msg)
-		c := conditions.Get(bmHost, infrav1.NoRemediateMachineAnnotationCondition)
-		if c == nil || c.Status != corev1.ConditionFalse {
-			// Do not overwrite the message of the condition, if the condition already exists.
-			conditions.MarkFalse(bmHost, infrav1.NoRemediateMachineAnnotationCondition,
-				infrav1.RemediateMachineAnnotationIsSetReason, clusterv1.ConditionSeverityInfo, "%s", msg)
-		}
+		conditions.MarkFalse(bmHost, infrav1.NoRemediateMachineAnnotationCondition,
+			remediateConditionOfHbmm.Reason, remediateConditionOfHbmm.Severity,
+			"%s", remediateConditionOfHbmm.Message)
 		return reconcile.Result{}, nil
 	}
 	conditions.MarkTrue(bmHost, infrav1.NoRemediateMachineAnnotationCondition)
