@@ -23,7 +23,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
-	//nolint:staticcheck // we will handle that, when we update to capi v1.11
 )
 
 var _ = Describe("Test Image.GetDetails", func() {
