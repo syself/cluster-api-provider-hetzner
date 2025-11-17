@@ -22,7 +22,6 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/conditions"
@@ -130,7 +129,8 @@ func (m *BareMetalMachineScope) IsBootstrapReady() bool {
 // SetErrorAndRemediate sets "cluster.x-k8s.io/remediate-machine" annotation on the corresponding
 // CAPI machine. CAPI will remediate that machine. Additionally, an event of type Warning will be
 // created, and the condition will be set on both the BareMetalMachine and the corresponding
-// HetznerBareMetalHost (if found).
+// HetznerBareMetalHost (if found). The Condition NoRemediateMachineAnnotationCondition will be set
+// on the hbmm.
 func (m *BareMetalMachineScope) SetErrorAndRemediate(ctx context.Context, message string) error {
 	obj := m.Machine
 
@@ -153,25 +153,6 @@ func (m *BareMetalMachineScope) SetErrorAndRemediate(ctx context.Context, messag
 
 	conditions.MarkFalse(m.BareMetalMachine, infrav1.NoRemediateMachineAnnotationCondition,
 		infrav1.RemediateMachineAnnotationIsSetReason, clusterv1.ConditionSeverityInfo, "%s", message)
-
-	// Try to set the condition on the corresponding HetznerBareMetalHost as well
-
-	// Get the host key from the BareMetalMachine annotations
-	host, patchHelper, err := m.GetAssociatedHost(ctx)
-	if apierrors.IsNotFound(err) || host == nil {
-		// It is ok, if there is no coresponding hbmh.
-		return nil
-	}
-
-	// Set the condition on the host
-	conditions.MarkFalse(host, infrav1.NoRemediateMachineAnnotationCondition,
-		infrav1.RemediateMachineAnnotationIsSetReason, clusterv1.ConditionSeverityInfo, "%s", message)
-
-	// Patch the host
-	if err := patchHelper.Patch(ctx, host); err != nil {
-		return fmt.Errorf("failed to patch HetznerBareMetalHost: %w", err)
-	}
-
 	return nil
 }
 

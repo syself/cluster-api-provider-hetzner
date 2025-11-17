@@ -207,7 +207,7 @@ func (s *Service) update(ctx context.Context) error {
 		return fmt.Errorf("failed to get host: %w", err)
 	}
 	if host == nil {
-		err := s.scope.SetErrorAndRemediate(ctx, "host not found")
+		err := s.scope.SetErrorAndRemediate(ctx, "Reconcile of hbmm: host not found")
 		if err != nil {
 			return err
 		}
@@ -632,7 +632,7 @@ func (s *Service) setProviderID(ctx context.Context) error {
 	}
 
 	if host == nil {
-		err := s.scope.SetErrorAndRemediate(ctx, "host not found")
+		err := s.scope.SetErrorAndRemediate(ctx, "setProviderID failed: host not found")
 		if err != nil {
 			return err
 		}

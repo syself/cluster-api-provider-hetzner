@@ -185,6 +185,9 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		return res, nil
 	}
 
+	// Case "Delete" was handled in reconcileSelectedStates. From now we know that the host has not
+	// DeletionTimestamp set.
+
 	hetznerCluster := &infrav1.HetznerCluster{}
 
 	hetznerClusterName := client.ObjectKey{
@@ -227,13 +230,13 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 
 	log = log.WithValues("HetznerBareMetalMachine", klog.KObj(hetznerBareMetalMachine))
 
-	machine, err := util.GetOwnerMachine(ctx, r.Client, hetznerBareMetalMachine.ObjectMeta)
+	capiMachine, err := util.GetOwnerMachine(ctx, r.Client, hetznerBareMetalMachine.ObjectMeta)
 	ctx = ctrl.LoggerInto(ctx, log)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to get owner machine: %w", err)
 	}
 
-	_, exists := machine.Annotations[clusterv1.RemediateMachineAnnotation]
+	_, exists := capiMachine.Annotations[clusterv1.RemediateMachineAnnotation]
 	if exists {
 		// The hbmm of this host will be deleted soon. Do no reconcile it.
 		msg := "CAPI Machine has RemediateMachineAnnotation. Not reconciling this machine."
@@ -247,6 +250,18 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		return reconcile.Result{}, nil
 	}
 	conditions.MarkTrue(bmHost, infrav1.NoRemediateMachineAnnotationCondition)
+
+	/* TODO: maybe do that later.
+	if bmHost.Spec.Status.ErrorType == infrav1.FatalError || bmHost.Spec.Status.ErrorType == infrav1.PermanentError {
+		// HetznerBaremetalMachineReconciler will detect that error on the host and call
+		// BareMetalMachineScope.SetErrorAndRemediate(). Then CAPI will delete the machine and the
+		// hbmm.
+		log.Info("ErrorType is Fatal or Permanent. Not reconciling host",
+			"errorType", bmHost.Spec.Status.ErrorType,
+			"errorMessage", bmHost.Spec.Status.ErrorMessage)
+		return reconcile.Result{}, nil
+	}
+	*/
 
 	// Get Hetzner robot api credentials
 	secretManager := secretutil.NewSecretManager(log, r.Client, r.APIReader)
