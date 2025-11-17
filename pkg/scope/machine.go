@@ -27,11 +27,12 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	capierrors "sigs.k8s.io/cluster-api/errors" //nolint:staticcheck // we will handle that, when we update to capi v1.11
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1" //nolint:staticcheck // we will handle that, when we update to capi v1.11
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
+	"sigs.k8s.io/cluster-api/util/record"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
@@ -126,13 +127,29 @@ func (m *MachineScope) PatchObject(ctx context.Context) error {
 	return m.patchHelper.Patch(ctx, m.HCloudMachine)
 }
 
-// SetError sets the ErrorMessage and ErrorReason fields on the machine and logs
-// the message. It assumes the reason is invalid configuration, since that is
-// currently the only relevant MachineStatusError choice.
-// CAPI will delete the machine and create a new one.
-func (m *MachineScope) SetError(message string, reason capierrors.MachineStatusError) {
-	m.HCloudMachine.Status.FailureMessage = &message
-	m.HCloudMachine.Status.FailureReason = &reason
+// SetErrorAndRemediate sets "cluster.x-k8s.io/remediate-machine" annotation on the corresponding
+// CAPI machine. CAPI will remediate that machine. Additionally, an event of type Warning will be
+// created.
+func (m *MachineScope) SetErrorAndRemediate(ctx context.Context, message string) error {
+	obj := m.Machine
+
+	// Create a patch base
+	patch := client.MergeFrom(obj.DeepCopy())
+
+	// Modify only annotations on the in-memory copy
+	if obj.Annotations == nil {
+		obj.Annotations = map[string]string{}
+	}
+	obj.Annotations[clusterv1.RemediateMachineAnnotation] = ""
+
+	// Apply patch – only the diff (annotations) is sent to the API server
+	if err := m.Client.Patch(ctx, obj, patch); err != nil {
+		return err
+	}
+
+	record.Warnf(m.HCloudMachine, "HCloudMachine will be remediated: %s", message)
+
+	return nil
 }
 
 // SetRegion sets the region field on the machine.

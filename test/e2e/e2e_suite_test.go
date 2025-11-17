@@ -402,11 +402,11 @@ func logHCloudMachineStatus(ctx context.Context, c client.Client) error {
 		log("HCloudMachine: " + hm.Name + " " + id + " " + strings.Join(addresses, " "))
 		log("  ProvisioningState: " + string(*hm.Status.InstanceState))
 		l := make([]string, 0)
-		if hm.Status.FailureMessage != nil {
-			l = append(l, *hm.Status.FailureMessage)
+		if hm.Status.FailureMessagepppp != nil {
+			l = append(l, *hm.Status.FailureMessagepppp)
 		}
-		if hm.Status.FailureMessage != nil {
-			l = append(l, *hm.Status.FailureMessage)
+		if hm.Status.FailureMessagepppp != nil {
+			l = append(l, *hm.Status.FailureMessagepppp)
 		}
 		if len(l) > 0 {
 			log("  Error: " + strings.Join(l, ", "))

@@ -22,7 +22,7 @@ package v1beta1
 
 import (
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	apiv1beta1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -245,13 +245,13 @@ func (in *HCloudMachineStatus) DeepCopyInto(out *HCloudMachineStatus) {
 		*out = new(hcloud.ServerStatus)
 		**out = **in
 	}
-	if in.FailureReason != nil {
-		in, out := &in.FailureReason, &out.FailureReason
+	if in.FailureReasonpppp != nil {
+		in, out := &in.FailureReasonpppp, &out.FailureReasonpppp
 		*out = new(errors.MachineStatusError)
 		**out = **in
 	}
-	if in.FailureMessage != nil {
-		in, out := &in.FailureMessage, &out.FailureMessage
+	if in.FailureMessagepppp != nil {
+		in, out := &in.FailureMessagepppp, &out.FailureMessagepppp
 		*out = new(string)
 		**out = **in
 	}

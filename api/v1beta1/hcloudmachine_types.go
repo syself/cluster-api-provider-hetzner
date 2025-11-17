@@ -117,17 +117,17 @@ type HCloudMachineStatus struct {
 	// +optional
 	InstanceState *hcloud.ServerStatus `json:"instanceState,omitempty"`
 
-	// FailureReason will be set in the event that there is a terminal problem
+	// FailureReasonpppp will be set in the event that there is a terminal problem
 	// reconciling the Machine and will contain a succinct value suitable
 	// for machine interpretation.
 	// +optional
-	FailureReason *capierrors.MachineStatusError `json:"failureReason,omitempty"`
+	FailureReasonpppp *capierrors.MachineStatusError `json:"failureReason,omitempty"`
 
-	// FailureMessage will be set in the event that there is a terminal problem
+	// FailureMessagepppp will be set in the event that there is a terminal problem
 	// reconciling the Machine and will contain a more verbose string suitable
 	// for logging and human consumption.
 	// +optional
-	FailureMessage *string `json:"failureMessage,omitempty"`
+	FailureMessagepppp *string `json:"failureMessage,omitempty"`
 
 	// Conditions define the current service state of the HCloudMachine.
 	// +optional
