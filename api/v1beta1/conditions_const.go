@@ -240,9 +240,9 @@ const (
 )
 
 const (
-	// NoRemediateMachineAnnotationCondition indicates (if False), that the CAPI machine has the
-	// "cluster.x-k8s.io/remediate-machine" annotation set. The CAPI machine and the corresponding
-	// infra-machine will be deleted by CAPI soon.
+	// NoRemediateMachineAnnotationCondition is:
+	// - False when the corresponding CAPI Machine has the "cluster.x-k8s.io/remediate-machine" annotation set and will be remediated by CAPI soon.
+	// - True otherwise.
 	NoRemediateMachineAnnotationCondition clusterv1.ConditionType = "NoRemediateMachineAnnotation"
 
 	// RemediateMachineAnnotationIsSetReason indicates that the CAPI machine has the

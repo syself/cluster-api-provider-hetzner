@@ -39,7 +39,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
@@ -165,11 +164,11 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 		// This hbmm will be deleted soon. Do no reconcile it.
 		msg := "CAPI Machine has RemediateMachineAnnotation. Not reconciling this machine."
 		log.Info(msg)
-		conditions.MarkFalse(hbmMachine, v1beta1.NoRemediateMachineAnnotationCondition,
-			v1beta1.RemediateMachineAnnotationIsSetReason, clusterv1.ConditionSeverityInfo, "%s", msg)
+		conditions.MarkFalse(hbmMachine, infrav1.NoRemediateMachineAnnotationCondition,
+			infrav1.RemediateMachineAnnotationIsSetReason, clusterv1.ConditionSeverityInfo, "%s", msg)
 		return reconcile.Result{}, nil
 	}
-	conditions.MarkTrue(hbmMachine, v1beta1.NoRemediateMachineAnnotationCondition)
+	conditions.MarkTrue(hbmMachine, infrav1.NoRemediateMachineAnnotationCondition)
 
 	return r.reconcileNormal(ctx, machineScope)
 }

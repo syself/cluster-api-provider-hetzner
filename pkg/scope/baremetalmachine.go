@@ -145,7 +145,8 @@ func (m *BareMetalMachineScope) SetErrorAndRemediate(ctx context.Context, messag
 		return err
 	}
 
-	record.Warnf(m.BareMetalMachine, "HetznerBareMetalMachine be remediated: %s", message)
+	record.Warnf(m.BareMetalMachine, "HetznerBareMetalMachineWillBeRemediated",
+		"HetznerBareMetalMachine will be remediated: %s", message)
 
 	return nil
 }
