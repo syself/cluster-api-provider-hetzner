@@ -19,8 +19,10 @@ package scope
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/conditions"
@@ -46,7 +48,7 @@ type BareMetalMachineScopeParams struct {
 // This is meant to be called for each reconcile iteration.
 func NewBareMetalMachineScope(params BareMetalMachineScopeParams) (*BareMetalMachineScope, error) {
 	if params.Client == nil {
-		return nil, fmt.Errorf("cannot create baremetal host scope without client")
+		return nil, fmt.Errorf("cannot create baremetal machine scope without client")
 	}
 	if params.Machine == nil {
 		return nil, fmt.Errorf("failed to generate new scope from nil Machine")
@@ -127,7 +129,8 @@ func (m *BareMetalMachineScope) IsBootstrapReady() bool {
 
 // SetErrorAndRemediate sets "cluster.x-k8s.io/remediate-machine" annotation on the corresponding
 // CAPI machine. CAPI will remediate that machine. Additionally, an event of type Warning will be
-// created.
+// created, and the condition will be set on both the BareMetalMachine and the corresponding
+// HetznerBareMetalHost (if found).
 func (m *BareMetalMachineScope) SetErrorAndRemediate(ctx context.Context, message string) error {
 	obj := m.Machine
 
@@ -145,7 +148,74 @@ func (m *BareMetalMachineScope) SetErrorAndRemediate(ctx context.Context, messag
 		return err
 	}
 
-	record.Warnf(m.BareMetalMachine, "HetznerBareMetalMachine be remediated: %s", message)
+	record.Warnf(m.BareMetalMachine, "HetznerBareMetalMachineWillBeRemediated",
+		"HetznerBareMetalMachine will be remediated: %s", message)
+
+	conditions.MarkFalse(m.BareMetalMachine, infrav1.NoRemediateMachineAnnotationCondition,
+		infrav1.RemediateMachineAnnotationIsSetReason, clusterv1.ConditionSeverityInfo, "%s", message)
+
+	// Try to set the condition on the corresponding HetznerBareMetalHost as well
+
+	// Get the host key from the BareMetalMachine annotations
+	host, patchHelper, err := m.GetAssociatedHost(ctx)
+	if apierrors.IsNotFound(err) || host == nil {
+		// It is ok, if there is no coresponding hbmh.
+		return nil
+	}
+
+	// Set the condition on the host
+	conditions.MarkFalse(host, infrav1.NoRemediateMachineAnnotationCondition,
+		infrav1.RemediateMachineAnnotationIsSetReason, clusterv1.ConditionSeverityInfo, "%s", message)
+
+	// Patch the host
+	if err := patchHelper.Patch(ctx, host); err != nil {
+		return fmt.Errorf("failed to patch HetznerBareMetalHost: %w", err)
+	}
 
 	return nil
+}
+
+func splitHostKey(key string) (namespace, name string) {
+	parts := strings.Split(key, "/")
+	if len(parts) != 2 {
+		panic("unexpected host key")
+	}
+	return parts[0], parts[1]
+}
+
+// GetAssociatedHost gets the associated host by looking for an annotation on the machine
+// that contains a reference to the host. Returns nil if not found. Assumes the
+// host is in the same namespace as the machine.
+func (m *BareMetalMachineScope) GetAssociatedHost(ctx context.Context) (*infrav1.HetznerBareMetalHost, *patch.Helper, error) {
+	annotations := m.BareMetalMachine.ObjectMeta.GetAnnotations()
+	// if no annotations exist on machine, no host can be associated
+	if annotations == nil {
+		return nil, nil, nil
+	}
+
+	// check if host annotation is set and return if not
+	hostKey, ok := annotations[infrav1.HostAnnotation]
+	if !ok {
+		return nil, nil, nil
+	}
+
+	// find associated host object and return it
+	hostNamespace, hostName := splitHostKey(hostKey)
+
+	host := infrav1.HetznerBareMetalHost{}
+	key := client.ObjectKey{
+		Name:      hostName,
+		Namespace: hostNamespace,
+	}
+
+	if err := m.Client.Get(ctx, key, &host); err != nil {
+		return nil, nil, fmt.Errorf("failed to get host object: %w", err)
+	}
+
+	helper, err := patch.NewHelper(&host, m.Client)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create patch helper: %w", err)
+	}
+
+	return &host, helper, nil
 }

@@ -130,7 +130,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 // Delete implements delete method of bare metal machine.
 func (s *Service) Delete(ctx context.Context) (res reconcile.Result, err error) {
 	// get host - ignore if not found
-	host, helper, err := s.getAssociatedHost(ctx)
+	host, helper, err := s.scope.GetAssociatedHost(ctx)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return reconcile.Result{}, fmt.Errorf("failed to get associated host: %w", err)
 	}
@@ -202,7 +202,7 @@ func (s *Service) Delete(ctx context.Context) (res reconcile.Result, err error) 
 
 // update updates a machine and is invoked by the Machine Controller.
 func (s *Service) update(ctx context.Context) error {
-	host, helper, err := s.getAssociatedHost(ctx)
+	host, helper, err := s.scope.GetAssociatedHost(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get host: %w", err)
 	}
@@ -278,7 +278,7 @@ func (s *Service) update(ctx context.Context) error {
 
 func (s *Service) associate(ctx context.Context) error {
 	// look for associated host
-	associatedHost, _, err := s.getAssociatedHost(ctx)
+	associatedHost, _, err := s.scope.GetAssociatedHost(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get associated host: %w", err)
 	}
@@ -345,43 +345,6 @@ func (s *Service) associate(ctx context.Context) error {
 	s.ensureMachineAnnotation(host)
 
 	return nil
-}
-
-// getAssociatedHost gets the associated host by looking for an annotation on the machine
-// that contains a reference to the host. Returns nil if not found. Assumes the
-// host is in the same namespace as the machine.
-func (s *Service) getAssociatedHost(ctx context.Context) (*infrav1.HetznerBareMetalHost, *patch.Helper, error) {
-	annotations := s.scope.BareMetalMachine.ObjectMeta.GetAnnotations()
-	// if no annotations exist on machine, no host can be associated
-	if annotations == nil {
-		return nil, nil, nil
-	}
-
-	// check if host annotation is set and return if not
-	hostKey, ok := annotations[infrav1.HostAnnotation]
-	if !ok {
-		return nil, nil, nil
-	}
-
-	// find associated host object and return it
-	hostNamespace, hostName := splitHostKey(hostKey)
-
-	host := infrav1.HetznerBareMetalHost{}
-	key := client.ObjectKey{
-		Name:      hostName,
-		Namespace: hostNamespace,
-	}
-
-	if err := s.scope.Client.Get(ctx, key, &host); err != nil {
-		return nil, nil, fmt.Errorf("failed to get host object: %w", err)
-	}
-
-	helper, err := patch.NewHelper(&host, s.scope.Client)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create patch helper: %w", err)
-	}
-
-	return &host, helper, nil
 }
 
 // ChooseHost tries to find a free hbmh.
@@ -663,7 +626,7 @@ func (s *Service) setProviderID(ctx context.Context) error {
 	}
 
 	// providerID is based on the ID of the host machine
-	host, _, err := s.getAssociatedHost(ctx)
+	host, _, err := s.scope.GetAssociatedHost(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get host: %w", err)
 	}
@@ -876,14 +839,6 @@ func consumerRefMatches(consumer *corev1.ObjectReference, bmMachine *infrav1.Het
 
 func hostKey(host *infrav1.HetznerBareMetalHost) string {
 	return host.GetNamespace() + "/" + host.GetName()
-}
-
-func splitHostKey(key string) (namespace, name string) {
-	parts := strings.Split(key, "/")
-	if len(parts) != 2 {
-		panic("unexpected host key")
-	}
-	return parts[0], parts[1]
 }
 
 func checkForRequeueError(err error, errMessage string) (res reconcile.Result, reterr error) {

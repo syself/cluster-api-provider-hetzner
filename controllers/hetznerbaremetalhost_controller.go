@@ -42,7 +42,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
@@ -234,16 +233,20 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		return reconcile.Result{}, fmt.Errorf("failed to get owner machine: %w", err)
 	}
 
-	_, exits := machine.Annotations[clusterv1.RemediateMachineAnnotation]
-	if exits {
-		// The hbmm of this hsot will be deleted soon. Do no reconcile it.
+	_, exists := machine.Annotations[clusterv1.RemediateMachineAnnotation]
+	if exists {
+		// The hbmm of this host will be deleted soon. Do no reconcile it.
 		msg := "CAPI Machine has RemediateMachineAnnotation. Not reconciling this machine."
 		log.Info(msg)
-		conditions.MarkFalse(bmHost, v1beta1.NoRemediateMachineAnnotationCondition,
-			v1beta1.RemediateMachineAnnotationIsSetReason, clusterv1.ConditionSeverityInfo, "%s", msg)
+		c := conditions.Get(bmHost, infrav1.NoRemediateMachineAnnotationCondition)
+		if c == nil || c.Status != corev1.ConditionFalse {
+			// Do not overwrite the message of the condition, if the condition already exists.
+			conditions.MarkFalse(bmHost, infrav1.NoRemediateMachineAnnotationCondition,
+				infrav1.RemediateMachineAnnotationIsSetReason, clusterv1.ConditionSeverityInfo, "%s", msg)
+		}
 		return reconcile.Result{}, nil
 	}
-	conditions.MarkTrue(bmHost, v1beta1.NoRemediateMachineAnnotationCondition)
+	conditions.MarkTrue(bmHost, infrav1.NoRemediateMachineAnnotationCondition)
 
 	// Get Hetzner robot api credentials
 	secretManager := secretutil.NewSecretManager(log, r.Client, r.APIReader)
