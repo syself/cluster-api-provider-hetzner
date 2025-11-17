@@ -230,18 +230,17 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 
 	log = log.WithValues("HetznerBareMetalMachine", klog.KObj(hetznerBareMetalMachine))
 
-	remediateConditionOfHbmm := conditions.Get(hetznerBareMetalMachine, infrav1.NoRemediateMachineAnnotationCondition)
-	if remediateConditionOfHbmm != nil && remediateConditionOfHbmm.Status == corev1.ConditionFalse {
+	c := conditions.Get(hetznerBareMetalMachine, infrav1.NoPermanentErrorCondition)
+	if c != nil && c.Status == corev1.ConditionFalse {
 		// The hbmm of this host will be deleted soon. Do no reconcile it.
 		// Take the Condition of the hbmm and make it available on the hbmh.
-		msg := "hbmm has NoRemediateMachineAnnotationCondition=False. Not reconciling this host."
+		msg := "hbmm has NoPermanentErrorCondition=False. Not reconciling this host."
 		log.Info(msg)
-		conditions.MarkFalse(bmHost, infrav1.NoRemediateMachineAnnotationCondition,
-			remediateConditionOfHbmm.Reason, remediateConditionOfHbmm.Severity,
-			"%s", remediateConditionOfHbmm.Message)
+		conditions.MarkFalse(bmHost, infrav1.NoPermanentErrorCondition,
+			c.Reason, c.Severity, "%s", c.Message)
 		return reconcile.Result{}, nil
 	}
-	conditions.MarkTrue(bmHost, infrav1.NoRemediateMachineAnnotationCondition)
+	conditions.MarkTrue(bmHost, infrav1.NoPermanentErrorCondition)
 
 	/* TODO: maybe do that later.
 	if bmHost.Spec.Status.ErrorType == infrav1.FatalError || bmHost.Spec.Status.ErrorType == infrav1.PermanentError {
