@@ -55,7 +55,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	// try to get information about host from bare metal machine annotations
 	key, err := objectKeyFromAnnotations(s.scope.BareMetalMachine.ObjectMeta.GetAnnotations())
 	if err != nil {
-		if err := s.setOwnerRemediatedConditionNew(ctx); err != nil {
+		if err := s.setOwnerRemediatedConditionToFailed(ctx); err != nil {
 			err = fmt.Errorf("failed to set remediated condition on capi machine: %w", err)
 			record.Warn(s.scope.BareMetalRemediation, "FailedSettingConditionOnMachine", err.Error())
 			return res, err
@@ -68,7 +68,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	var host infrav1.HetznerBareMetalHost
 	if err := s.scope.Client.Get(ctx, key, &host); err != nil {
 		if apierrors.IsNotFound(err) {
-			if err := s.setOwnerRemediatedConditionNew(ctx); err != nil {
+			if err := s.setOwnerRemediatedConditionToFailed(ctx); err != nil {
 				err = fmt.Errorf("failed to set remediated condition on capi machine: %w", err)
 				record.Warn(s.scope.BareMetalRemediation, "FailedSettingConditionOnMachine", err.Error())
 				return res, err
@@ -84,7 +84,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	// if host is not provisioned or in maintenance mode, then we do not try to reboot server
 	if host.Spec.Status.ProvisioningState != infrav1.StateProvisioned ||
 		host.Spec.MaintenanceMode != nil && *host.Spec.MaintenanceMode {
-		if err := s.setOwnerRemediatedConditionNew(ctx); err != nil {
+		if err := s.setOwnerRemediatedConditionToFailed(ctx); err != nil {
 			err := fmt.Errorf("failed to set remediated condition on capi machine: %w", err)
 			record.Warn(s.scope.BareMetalRemediation, "FailedSettingConditionOnMachine", err.Error())
 			return res, err
@@ -189,7 +189,7 @@ func (s *Service) handlePhaseWaiting(ctx context.Context) (res reconcile.Result,
 	// preflight checks and handles the Machine deletion
 	s.scope.BareMetalRemediation.Status.Phase = infrav1.PhaseDeleting
 
-	if err := s.setOwnerRemediatedConditionNew(ctx); err != nil {
+	if err := s.setOwnerRemediatedConditionToFailed(ctx); err != nil {
 		err := fmt.Errorf("failed to set remediated condition on capi machine: %w", err)
 		record.Warn(s.scope.BareMetalRemediation, "FailedSettingConditionOnMachine", err.Error())
 		return res, err
@@ -217,9 +217,9 @@ func (s *Service) timeUntilNextRemediation(now time.Time) time.Duration {
 	return nextRemediation
 }
 
-// setOwnerRemediatedConditionNew sets MachineOwnerRemediatedCondition on CAPI machine object
+// setOwnerRemediatedConditionToFailed sets MachineOwnerRemediatedCondition on CAPI machine object
 // that have failed a healthcheck.
-func (s *Service) setOwnerRemediatedConditionNew(ctx context.Context) error {
+func (s *Service) setOwnerRemediatedConditionToFailed(ctx context.Context, msg string) error {
 	capiMachine, err := util.GetOwnerMachine(ctx, s.scope.Client, s.scope.BareMetalRemediation.ObjectMeta)
 	if err != nil {
 		return fmt.Errorf("failed to get capi machine: %w", err)
@@ -235,7 +235,7 @@ func (s *Service) setOwnerRemediatedConditionNew(ctx context.Context) error {
 		clusterv1.MachineOwnerRemediatedCondition,
 		clusterv1.WaitingForRemediationReason,
 		clusterv1.ConditionSeverityWarning,
-		"remediation through reboot failed",
+		"Remediation finished: %s", msg,
 	)
 
 	if err := patchHelper.Patch(ctx, capiMachine); err != nil {
