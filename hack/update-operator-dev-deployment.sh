@@ -100,7 +100,7 @@ pid_generate=$!
 
 # run in background
 {
-    docker build -f images/caph/Dockerfile -t "$image" .
+    docker build -f images/caph/Dockerfile -t "$image" . --progress=plain
     docker push "$image"
 } &
 pid_docker_push=$!
