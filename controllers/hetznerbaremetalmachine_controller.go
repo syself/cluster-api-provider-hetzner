@@ -160,14 +160,20 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 		return r.reconcileDelete(ctx, machineScope)
 	}
 
-	c := conditions.Get(hbmMachine, infrav1.NoPermanentErrorCondition)
-	if c != nil && c.Status == corev1.ConditionFalse {
+	_, exist := machine.Annotations[clusterv1.RemediateMachineAnnotation]
+	if exist {
 		// This hbmm will be deleted soon. Do no reconcile it.
-		msg := "Hbmm has NoRemediateMachineAnnotationCondition=False. CAPI Machine will be deleted soon. Not reconciling this machine."
+		msg := "CAPI Machine has RemediateMachineAnnotation. Not reconciling this machine."
 		log.Info(msg)
+		c := conditions.Get(hbmMachine, infrav1.NoRemediateMachineAnnotationCondition)
+		if c == nil || c.Status != corev1.ConditionFalse {
+			// Do not overwrite the message of the condition, if the condition already exists.
+			conditions.MarkFalse(hbmMachine, infrav1.NoRemediateMachineAnnotationCondition,
+				infrav1.RemediateMachineAnnotationIsSetReason, clusterv1.ConditionSeverityInfo, "%s", msg)
+		}
 		return reconcile.Result{}, nil
 	}
-	conditions.MarkTrue(hbmMachine, infrav1.NoPermanentErrorCondition)
+	conditions.MarkTrue(hbmMachine, infrav1.NoRemediateMachineAnnotationCondition)
 
 	return r.reconcileNormal(ctx, machineScope)
 }

@@ -240,11 +240,13 @@ const (
 )
 
 const (
-	// NoPermanentErrorCondition is set to False, when the corresponding capi machine got deleted,
-	// and the infra-machine will deleted by capi soon.
-	NoPermanentErrorCondition clusterv1.ConditionType = "NoPermanentError"
+	// NoRemediateMachineAnnotationCondition is:
+	// - False when the corresponding CAPI Machine has the "cluster.x-k8s.io/remediate-machine" annotation set and will be remediated by CAPI soon.
+	// - True otherwise.
+	NoRemediateMachineAnnotationCondition clusterv1.ConditionType = "NoRemediateMachineAnnotation"
 
-	// PermanentErrorConditionIsSet the corresponding capi machine got deleted, and the
-	// infra-machine will deleted by capi soon.
-	PermanentErrorConditionIsSet = "PermanentErrorConditionIsSet"
+	// RemediateMachineAnnotationIsSetReason indicates that the CAPI machine has the
+	// "cluster.x-k8s.io/remediate-machine" annotation set. The CAPI machine and the corresponding
+	// infra-machine will be deleted by CAPI soon.
+	RemediateMachineAnnotationIsSetReason = "RemediateMachineAnnotationIsSet"
 )

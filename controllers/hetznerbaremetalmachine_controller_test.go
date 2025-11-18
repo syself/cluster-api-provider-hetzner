@@ -450,7 +450,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 						return fmt.Errorf("RemediateMachineAnnotation not set on capi machine")
 					}
 
-					c := conditions.Get(bmMachine, infrav1.NoPermanentErrorCondition)
+					c := conditions.Get(bmMachine, infrav1.NoRemediateMachineAnnotationCondition)
 					if c == nil {
 						return fmt.Errorf("Condition NoRemediateMachineAnnotationCondition does not exist.")
 					}

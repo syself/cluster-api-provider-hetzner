@@ -116,10 +116,6 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 		return checkForRequeueError(err, "failed to update machine")
 	}
 
-	err = s.scope.SetErrorAndDeleteCapiMachine(ctx, "dummydummydummydummy")
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed SetErrorAndRemediate: %w ", err)
-	}
 	// set providerID if necessary
 	if err := s.setProviderID(ctx); err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to set providerID: %w", err)

@@ -126,19 +126,33 @@ func (m *BareMetalMachineScope) IsBootstrapReady() bool {
 	return m.Machine.Spec.Bootstrap.DataSecretName != nil
 }
 
-// SetErrorAndDeleteCapiMachine deletes the corresponding CAPI machine. CAPI will remediate that
-// machine. Additionally, an event of type Warning will be created, and the condition will be set on
-// the BareMetalMachine NoRemediateMachineAnnotationCondition.
-func (m *BareMetalMachineScope) SetErrorAndDeleteCapiMachine(ctx context.Context, message string) error {
-	if err := m.Client.Delete(ctx, m.Machine); err != nil {
-		return fmt.Errorf("SetErrorAndDeleteCapiMachine Delete failed: %w", err)
+// SetErrorAndRemediate sets "cluster.x-k8s.io/remediate-machine" annotation on the corresponding
+// CAPI machine. CAPI will remediate that machine. Additionally, an event of type Warning will be
+// created, and the condition will be set on both the BareMetalMachine and the corresponding
+// HetznerBareMetalHost (if found). The Condition NoRemediateMachineAnnotationCondition will be set
+// on the hbmm.
+func (m *BareMetalMachineScope) SetErrorAndRemediate(ctx context.Context, message string) error {
+	obj := m.Machine
+
+	// Create a patch base
+	patch := client.MergeFrom(obj.DeepCopy())
+
+	// Modify only annotations on the in-memory copy
+	if obj.Annotations == nil {
+		obj.Annotations = map[string]string{}
+	}
+	obj.Annotations[clusterv1.RemediateMachineAnnotation] = ""
+
+	// Apply patch – only the diff (annotations) is sent to the API server
+	if err := m.Client.Patch(ctx, obj, patch); err != nil {
+		return err
 	}
 
 	record.Warnf(m.BareMetalMachine, "HetznerBareMetalMachineWillBeRemediated",
 		"HetznerBareMetalMachine will be remediated: %s", message)
 
-	conditions.MarkFalse(m.BareMetalMachine, infrav1.NoPermanentErrorCondition,
-		infrav1.PermanentErrorConditionIsSet, clusterv1.ConditionSeverityInfo, "%s", message)
+	conditions.MarkFalse(m.BareMetalMachine, infrav1.NoRemediateMachineAnnotationCondition,
+		infrav1.RemediateMachineAnnotationIsSetReason, clusterv1.ConditionSeverityInfo, "%s", message)
 	return nil
 }
 
