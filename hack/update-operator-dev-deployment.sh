@@ -22,7 +22,8 @@
 
 # Usually it is better to write a test, than to use this script.
 
-trap 'echo "Warning: A command has failed. Exiting the script. Line was ($0:$LINENO): $(sed -n "${LINENO}p" "$0")"; exit 3' ERR
+# Bash Strict Mode: https://github.com/guettli/bash-strict-mode
+trap 'echo -e "\n🤷 🚨 🔥 Warning: A command has failed. Exiting the script. Line was ($0:$LINENO): $(sed -n "${LINENO}p" "$0" 2>/dev/null || true) 🔥 🚨 🤷 "; exit 3' ERR
 set -Eeuo pipefail
 
 if [[ $(kubectl config current-context) == *oidc@* ]]; then
@@ -100,7 +101,7 @@ pid_generate=$!
 
 # run in background
 {
-    docker build -f images/caph/Dockerfile -t "$image" .
+    docker build -f images/caph/Dockerfile -t "$image" . --progress=plain
     docker push "$image"
 } &
 pid_docker_push=$!
