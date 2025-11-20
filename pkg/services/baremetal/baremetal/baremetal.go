@@ -46,6 +46,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/baremetalutils"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
@@ -130,7 +131,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 // Delete implements delete method of bare metal machine.
 func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 	// get host - ignore if not found
-	host, helper, err := s.scope.GetAssociatedHostAndPatchHelper(ctx)
+	host, helper, err := s.getAssociatedHostAndPatchHelper(ctx)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return reconcile.Result{}, fmt.Errorf("failed to get associated host: %w", err)
 	}
@@ -204,7 +205,7 @@ func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 
 // update updates a machine and is invoked by the Machine Controller.
 func (s *Service) update(ctx context.Context) error {
-	host, helper, err := s.scope.GetAssociatedHostAndPatchHelper(ctx)
+	host, helper, err := s.getAssociatedHostAndPatchHelper(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get host: %w", err)
 	}
@@ -278,7 +279,7 @@ func (s *Service) update(ctx context.Context) error {
 
 func (s *Service) associate(ctx context.Context) error {
 	// look for associated host
-	associatedHost, _, err := s.scope.GetAssociatedHostAndPatchHelper(ctx)
+	associatedHost, _, err := s.getAssociatedHostAndPatchHelper(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get associated host: %w", err)
 	}
@@ -345,6 +346,27 @@ func (s *Service) associate(ctx context.Context) error {
 	s.ensureMachineAnnotation(host)
 
 	return nil
+}
+
+// getAssociatedHostAndPatchHelper gets the associated host by looking for an annotation on the
+// machine that contains a reference to the host. Returns nil if not found. Assumes the host is in
+// the same namespace as the machine. Additionally, a PatchHelper gets returned.
+func (s *Service) getAssociatedHostAndPatchHelper(ctx context.Context) (*infrav1.HetznerBareMetalHost, *patch.Helper, error) {
+	host, err := baremetalutils.GetAssociatedHost(ctx, s.scope.Client, s.scope.BareMetalMachine)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if host == nil {
+		return nil, nil, nil
+	}
+
+	helper, err := patch.NewHelper(host, s.scope.Client)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create patch helper: %w", err)
+	}
+
+	return host, helper, nil
 }
 
 // ChooseHost tries to find a free hbmh.
@@ -626,7 +648,7 @@ func (s *Service) setProviderID(ctx context.Context) error {
 	}
 
 	// providerID is based on the ID of the host machine
-	host, _, err := s.scope.GetAssociatedHostAndPatchHelper(ctx)
+	host, _, err := s.getAssociatedHostAndPatchHelper(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get host: %w", err)
 	}

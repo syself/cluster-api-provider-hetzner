@@ -29,7 +29,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/baremetalutils"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 )
 
@@ -154,25 +153,4 @@ func (m *BareMetalMachineScope) SetErrorAndRemediate(ctx context.Context, messag
 	conditions.MarkFalse(m.BareMetalMachine, infrav1.NoRemediateMachineAnnotationCondition,
 		infrav1.RemediateMachineAnnotationIsSetReason, clusterv1.ConditionSeverityInfo, "%s", message)
 	return nil
-}
-
-// GetAssociatedHostAndPatchHelper gets the associated host by looking for an annotation on the
-// machine that contains a reference to the host. Returns nil if not found. Assumes the host is in
-// the same namespace as the machine. Additionally, a PatchHelper gets returned.
-func (m *BareMetalMachineScope) GetAssociatedHostAndPatchHelper(ctx context.Context) (*infrav1.HetznerBareMetalHost, *patch.Helper, error) {
-	host, err := baremetalutils.GetAssociatedHost(ctx, m.Client, m.BareMetalMachine)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if host == nil {
-		return nil, nil, nil
-	}
-
-	helper, err := patch.NewHelper(host, m.Client)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create patch helper: %w", err)
-	}
-
-	return host, helper, nil
 }
