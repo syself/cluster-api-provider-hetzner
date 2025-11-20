@@ -390,8 +390,71 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			})
 
 			It("deletes successfully", func() {
-				By("deleting bm machine")
+				By("Waiting until host is provisioned")
 
+				Eventually(func() bool {
+					return isPresentAndTrue(key, bmMachine, infrav1.HostReadyCondition)
+				}, timeout).Should(BeTrue())
+
+				err := testEnv.Get(ctx, hostKey, host)
+				Expect(err).To(BeNil())
+
+				Expect(host.Spec.Status.ProvisioningState).To(Equal(infrav1.StateProvisioned))
+
+				By("deleting hbmm")
+				Expect(testEnv.Delete(ctx, bmMachine)).To(Succeed())
+
+				Eventually(func() bool {
+					if err := testEnv.Get(ctx, key, bmMachine); apierrors.IsNotFound(err) {
+						return true
+					}
+					return false
+				}, timeout, time.Second).Should(BeTrue())
+
+				By("making sure the host has been deprovisioned")
+
+				Eventually(func() bool {
+					if err := testEnv.Get(ctx, hostKey, host); err != nil {
+						return false
+					}
+					return host.Spec.Status.ProvisioningState == infrav1.StateNone
+				}, timeout, time.Second).Should(BeTrue())
+			})
+
+			It("deletes successfully, even if state is 'ensure-provisioned'", func() {
+				By("checking that the host is ready")
+				Eventually(func() bool {
+					return isPresentAndTrue(key, bmMachine, infrav1.HostReadyCondition)
+				}, timeout).Should(BeTrue())
+
+				osSSHClient.On("GetHostName").Return(sshclient.Output{
+					StdOut: "some-unexpected-hostname",
+					StdErr: "",
+					Err:    nil,
+				})
+
+				err := testEnv.Get(ctx, hostKey, host)
+				Expect(err).To(BeNil())
+				Expect(host.Spec.Status.ProvisioningState).To(Equal(infrav1.StateProvisioned))
+
+				By("Setting State to 'ensure-provisioned'")
+				host.Spec.Status.ProvisioningState = infrav1.StateEnsureProvisioned
+				err = testEnv.Update(ctx, host)
+				Expect(err).To(BeNil())
+
+				Eventually(func() error {
+					err := testEnv.Get(ctx, hostKey, host)
+					apierrors.IsNotFound(err)
+					if err != nil {
+						return err
+					}
+					if host.Spec.Status.ProvisioningState != infrav1.StateEnsureProvisioned {
+						return fmt.Errorf("ProvisioningState=%s", host.Spec.Status.ProvisioningState)
+					}
+					return nil
+				}, timeout, time.Second).Should(Succeed())
+
+				By("deleting bm machine")
 				Expect(testEnv.Delete(ctx, bmMachine)).To(Succeed())
 
 				Eventually(func() bool {
