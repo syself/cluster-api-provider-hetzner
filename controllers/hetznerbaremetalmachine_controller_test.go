@@ -452,11 +452,11 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 					c := conditions.Get(bmMachine, infrav1.NoRemediateMachineAnnotationCondition)
 					if c == nil {
-						return fmt.Errorf("Condition NoRemediateMachineAnnotationCondition does not exist.")
+						return fmt.Errorf("condition NoRemediateMachineAnnotationCondition does not exist")
 					}
 
 					if c.Status != corev1.ConditionFalse {
-						return fmt.Errorf("Condition NoRemediateMachineAnnotationCondition should be False")
+						return fmt.Errorf("condition NoRemediateMachineAnnotationCondition should be False")
 					}
 
 					return nil
