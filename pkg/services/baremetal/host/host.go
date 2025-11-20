@@ -2187,10 +2187,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 }
 
 // next: None
-func (s *Service) actionDeprovisioning(ctx context.Context) actionResult {
-	logger := ctrl.LoggerFrom(ctx)
-	logger.Info("actionDeprovisioning actionDeprovisioning actionDeprovisioning actionDeprovisioning actionDeprovisioning")
-
+func (s *Service) actionDeprovisioning(_ context.Context) actionResult {
 	// Update name in robot API
 	if _, err := s.scope.RobotClient.SetBMServerName(
 		s.scope.HetznerBareMetalHost.Spec.ServerID,

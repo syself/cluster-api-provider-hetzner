@@ -658,7 +658,7 @@ func (s *Service) setProviderID(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		return fmt.Errorf("host not found for machine %s: %w", s.scope.Machine.Name, err)
+		return fmt.Errorf("host not found for machine %q", s.scope.Machine.Name)
 	}
 
 	if host.Spec.Status.ProvisioningState != infrav1.StateProvisioned {
