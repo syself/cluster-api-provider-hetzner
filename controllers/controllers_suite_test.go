@@ -93,11 +93,12 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
 
 	Expect((&HetznerBareMetalHostReconciler{
-		Client:              testEnv.Manager.GetClient(),
-		APIReader:           testEnv.Manager.GetAPIReader(),
-		RobotClientFactory:  testEnv.RobotClientFactory,
-		SSHClientFactory:    testEnv.BaremetalSSHClientFactory,
-		PreProvisionCommand: "dummy-pre-provision-command",
+		Client:               testEnv.Manager.GetClient(),
+		APIReader:            testEnv.Manager.GetAPIReader(),
+		RobotClientFactory:   testEnv.RobotClientFactory,
+		SSHClientFactory:     testEnv.BaremetalSSHClientFactory,
+		PreProvisionCommand:  "dummy-pre-provision-command",
+		SSHAfterInstallImage: true,
 	}).SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
 
 	Expect((&HetznerBareMetalMachineReconciler{

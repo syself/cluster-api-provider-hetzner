@@ -429,6 +429,8 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					return isPresentAndTrue(key, bmMachine, infrav1.HostReadyCondition)
 				}, timeout).Should(BeTrue())
 
+				osSSHClient.On("GetHostName").Unset()
+
 				osSSHClient.On("GetHostName").Return(sshclient.Output{
 					StdOut: "some-unexpected-hostname",
 					StdErr: "",
