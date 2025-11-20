@@ -413,7 +413,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				}, timeout, time.Second).Should(BeTrue())
 			})
 
-			It("sets a failure reason when maintenance mode is set on the host", func() {
+			It("sets RemediateMachineAnnotation when maintenance mode is set on the host", func() {
 				By("making sure that machine is ready")
 
 				Eventually(func() bool {
@@ -433,7 +433,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 				Expect(ph.Patch(ctx, host, patch.WithStatusObservedGeneration{})).To(Succeed())
 
-				By("checking that failure message is set on machine")
+				By("checking that RemediateMachineAnnotation is set on machine")
 
 				Eventually(func() error {
 					if err := testEnv.Get(ctx, key, bmMachine); err != nil {
