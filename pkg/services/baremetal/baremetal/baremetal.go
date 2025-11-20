@@ -207,7 +207,7 @@ func (s *Service) update(ctx context.Context) error {
 		return fmt.Errorf("failed to get host: %w", err)
 	}
 	if host == nil {
-		err := s.scope.SetErrorAndDeleteCapiMachine(ctx, "Reconcile of hbmm: host not found")
+		err := s.scope.SetErrorAndRemediate(ctx, "Reconcile of hbmm: host not found")
 		if err != nil {
 			return err
 		}
@@ -232,7 +232,7 @@ func (s *Service) update(ctx context.Context) error {
 
 	// maintenance mode on the host is a fatal error for the machine object
 	if host.Spec.MaintenanceMode != nil && *host.Spec.MaintenanceMode {
-		err := s.scope.SetErrorAndDeleteCapiMachine(ctx, FailureMessageMaintenanceMode)
+		err := s.scope.SetErrorAndRemediate(ctx, FailureMessageMaintenanceMode)
 		if err != nil {
 			return err
 		}
@@ -241,7 +241,7 @@ func (s *Service) update(ctx context.Context) error {
 
 	// if host has a fatal error, then it should be set on the hbmm object as well
 	if host.Spec.Status.ErrorType == infrav1.FatalError || host.Spec.Status.ErrorType == infrav1.PermanentError {
-		err := s.scope.SetErrorAndDeleteCapiMachine(ctx, host.Spec.Status.ErrorMessage)
+		err := s.scope.SetErrorAndRemediate(ctx, host.Spec.Status.ErrorMessage)
 		if err != nil {
 			return err
 		}
@@ -632,7 +632,7 @@ func (s *Service) setProviderID(ctx context.Context) error {
 	}
 
 	if host == nil {
-		err := s.scope.SetErrorAndDeleteCapiMachine(ctx, "setProviderID failed: host not found")
+		err := s.scope.SetErrorAndRemediate(ctx, "setProviderID failed: host not found")
 		if err != nil {
 			return err
 		}
