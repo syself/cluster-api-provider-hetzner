@@ -162,7 +162,7 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 
 	_, exist := machine.Annotations[clusterv1.RemediateMachineAnnotation]
 	if exist {
-		// This hbmm will be deleted soon. Do no reconcile it.
+		// This hbmm will be deleted soon. Do not reconcile it.
 		msg := "CAPI Machine has RemediateMachineAnnotation. Not reconciling this machine."
 		log.Info(msg)
 		c := conditions.Get(hbmMachine, infrav1.NoRemediateMachineAnnotationCondition)
@@ -180,10 +180,12 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 
 func (r *HetznerBareMetalMachineReconciler) reconcileDelete(ctx context.Context, machineScope *scope.BareMetalMachineScope) (reconcile.Result, error) {
 	// delete servers
+	machineScope.Logger.Info("reconcileDelete")
 	result, err := baremetal.NewService(machineScope).Delete(ctx)
 	if err != nil {
 		var requeueError *scope.RequeueAfterError
 		if ok := errors.As(err, &requeueError); ok {
+			machineScope.Logger.Info("reconcileDelete aaaaaafter", "e", requeueError)
 			return reconcile.Result{Requeue: true, RequeueAfter: requeueError.GetRequeueAfter()}, nil
 		}
 		return reconcile.Result{}, fmt.Errorf("failed to delete servers for HetznerBareMetalMachine %s/%s: %w",
@@ -191,6 +193,7 @@ func (r *HetznerBareMetalMachineReconciler) reconcileDelete(ctx context.Context,
 	}
 	emptyResult := reconcile.Result{}
 	if result != emptyResult {
+		machineScope.Logger.Info("reconcileDelete noooooo empty result", "res", result)
 		return result, nil
 	}
 	// Machine is deleted so remove the finalizer.

@@ -128,7 +128,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 }
 
 // Delete implements delete method of bare metal machine.
-func (s *Service) Delete(ctx context.Context) (res reconcile.Result, err error) {
+func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 	// get host - ignore if not found
 	host, helper, err := s.scope.GetAssociatedHost(ctx)
 	if err != nil && !apierrors.IsNotFound(err) {
@@ -150,7 +150,7 @@ func (s *Service) Delete(ctx context.Context) (res reconcile.Result, err error) 
 			// remove the ownerRef to this host, even if the consumerRef references another machine
 			host.OwnerReferences = s.removeOwnerRef(host.OwnerReferences)
 
-			return res, nil
+			return reconcile.Result{}, nil
 		}
 
 		if removeMachineSpecsFromHost(host) {
@@ -164,6 +164,8 @@ func (s *Service) Delete(ctx context.Context) (res reconcile.Result, err error) 
 
 		// check if deprovisioning is done
 		if host.Spec.Status.ProvisioningState != infrav1.StateNone {
+			s.scope.Logger.Info("hbmm is deleting, but host is not deprovisioned yet. Requeueing",
+				"ProvisioningState", host.Spec.Status.ProvisioningState)
 			return reconcile.Result{RequeueAfter: requeueAfter}, nil
 		}
 
@@ -197,7 +199,7 @@ func (s *Service) Delete(ctx context.Context) (res reconcile.Result, err error) 
 	)
 	s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhaseDeleted
 
-	return res, nil
+	return reconcile.Result{}, nil
 }
 
 // update updates a machine and is invoked by the Machine Controller.

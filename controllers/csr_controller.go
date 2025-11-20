@@ -112,7 +112,7 @@ func (r *GuestCSRReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		if errors.Is(err, errNoHetznerBareMetalMachineByProviderIDFound) {
 			log.Info(fmt.Sprintf("ProviderID not set yet. The hbmm seems to be in 'ensure-provision'. Retrying. %s",
 				err.Error()))
-			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+			return reconcile.Result{RequeueAfter: 15 * time.Second}, nil
 		}
 		if err != nil {
 			log.Error(err, "could not find an associated bm machine or hcloud machine",

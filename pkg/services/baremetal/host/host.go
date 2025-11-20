@@ -43,6 +43,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -2187,7 +2188,10 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 }
 
 // next: None
-func (s *Service) actionDeprovisioning(_ context.Context) actionResult {
+func (s *Service) actionDeprovisioning(ctx context.Context) actionResult {
+	logger := log.FromContext(ctx)
+	logger.Info("actionDeprovisioning actionDeprovisioning actionDeprovisioning actionDeprovisioning actionDeprovisioning")
+
 	// Update name in robot API
 	if _, err := s.scope.RobotClient.SetBMServerName(
 		s.scope.HetznerBareMetalHost.Spec.ServerID,

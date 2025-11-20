@@ -139,7 +139,9 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		if err != nil {
 			log.Error(err, "cache sync failed after BootState change")
 		}
-		log.Info("Wait for update being in local cache", "durationWaitForLocalCacheSync", time.Since(startReadOwnWrite).Round(time.Millisecond))
+		log.Info("Wait for update being in local cache",
+			"durationWaitForLocalCacheSync", time.Since(startReadOwnWrite).Round(time.Millisecond),
+			"diff", cmp.Diff(initialHost, bmHost))
 	}()
 	// End: avoid conflict errors. Wait until local cache is up-to-date
 	// ----------------------------------------------------------------
@@ -232,7 +234,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 
 	remediateConditionOfHbmm := conditions.Get(hetznerBareMetalMachine, infrav1.NoRemediateMachineAnnotationCondition)
 	if remediateConditionOfHbmm != nil && remediateConditionOfHbmm.Status == corev1.ConditionFalse {
-		// The hbmm of this host is in remediation. Do no reconcile it.
+		// The hbmm of this host is in remediation. Do not reconcile it.
 		// Take the Condition of the hbmm and make it available on the hbmh.
 		msg := "hbmm has NoRemediateMachineAnnotationCondition=False. Not reconciling this host."
 		log.Info(msg)
@@ -333,7 +335,7 @@ func (r *HetznerBareMetalHostReconciler) reconcileSelectedStates(ctx context.Con
 
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 
-		// Handle StateDeleting
+	// Handle StateDeleting
 	case infrav1.StateDeleting:
 		if controllerutil.RemoveFinalizer(bmHost, infrav1.HetznerBareMetalHostFinalizer) ||
 			controllerutil.RemoveFinalizer(bmHost, infrav1.DeprecatedBareMetalHostFinalizer) {
