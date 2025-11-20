@@ -24,7 +24,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
@@ -73,96 +72,6 @@ var _ = Describe("Test TimeUntilNextRemediation", func() {
 		Entry("remediation not timed out", testCaseTimeUntilNextRemediation{
 			lastRemediated:                 now.Add(-30 * time.Second),
 			expectTimeUntilLastRemediation: 31 * time.Second,
-		}),
-	)
-})
-
-var _ = Describe("Test ObjectKeyFromAnnotations", func() {
-	type testCaseObjectKeyFromAnnotations struct {
-		annotations map[string]string
-		expectError bool
-		expectKey   *client.ObjectKey
-	}
-
-	DescribeTable("Test ObjectKeyFromAnnotations",
-		func(tc testCaseObjectKeyFromAnnotations) {
-			key, err := objectKeyFromAnnotations(tc.annotations)
-
-			if tc.expectError {
-				Expect(err).ToNot(BeNil())
-			} else {
-				Expect(err).To(BeNil())
-			}
-
-			Expect(key).To(Equal(tc.expectKey))
-		},
-		Entry("correct host key", testCaseObjectKeyFromAnnotations{
-			annotations: map[string]string{
-				infrav1.HostAnnotation: "mynamespace/myname",
-			},
-			expectError: false,
-			expectKey:   &client.ObjectKey{Namespace: "mynamespace", Name: "myname"},
-		}),
-		Entry("nil annotations", testCaseObjectKeyFromAnnotations{
-			annotations: nil,
-			expectError: false,
-			expectKey:   nil,
-		}),
-		Entry("no host annotation", testCaseObjectKeyFromAnnotations{
-			annotations: map[string]string{
-				"other-key": "mynamespace/myname",
-			},
-			expectError: false,
-			expectKey:   nil,
-		}),
-		Entry("incorrect host key", testCaseObjectKeyFromAnnotations{
-			annotations: map[string]string{
-				infrav1.HostAnnotation: "mynamespace-myname",
-			},
-			expectError: true,
-			expectKey:   nil,
-		}),
-	)
-})
-
-var _ = Describe("Test SplitHostKey", func() {
-	type testCaseSplitHostKey struct {
-		hostKey         string
-		expectNamespace string
-		expectName      string
-		expectError     bool
-	}
-
-	DescribeTable("Test SplitHostKey",
-		func(tc testCaseSplitHostKey) {
-			ns, name, err := splitHostKey(tc.hostKey)
-
-			Expect(ns).To(Equal(tc.expectNamespace))
-			Expect(name).To(Equal(tc.expectName))
-
-			if tc.expectError {
-				Expect(err).ToNot(BeNil())
-			} else {
-				Expect(err).To(BeNil())
-			}
-		},
-		Entry("correct host key", testCaseSplitHostKey{
-			hostKey:         "ns/name",
-			expectNamespace: "ns",
-			expectName:      "name",
-			expectError:     false,
-		}),
-		Entry("incorrect host key 1", testCaseSplitHostKey{
-			hostKey:         "ns-name",
-			expectNamespace: "",
-			expectName:      "",
-			expectError:     true,
-		}),
-		Entry("incorrect host key 2", testCaseSplitHostKey{
-			hostKey:         "ns/name/other",
-			expectNamespace: "",
-			expectName:      "",
-			expectError:     true,
 		}),
 	)
 })

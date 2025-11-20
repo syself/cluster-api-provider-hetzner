@@ -130,7 +130,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 // Delete implements delete method of bare metal machine.
 func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 	// get host - ignore if not found
-	host, helper, err := s.scope.GetAssociatedHost(ctx)
+	host, helper, err := s.scope.GetAssociatedHostAndPatchHelper(ctx)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return reconcile.Result{}, fmt.Errorf("failed to get associated host: %w", err)
 	}
@@ -204,7 +204,7 @@ func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 
 // update updates a machine and is invoked by the Machine Controller.
 func (s *Service) update(ctx context.Context) error {
-	host, helper, err := s.scope.GetAssociatedHost(ctx)
+	host, helper, err := s.scope.GetAssociatedHostAndPatchHelper(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get host: %w", err)
 	}
@@ -278,7 +278,7 @@ func (s *Service) update(ctx context.Context) error {
 
 func (s *Service) associate(ctx context.Context) error {
 	// look for associated host
-	associatedHost, _, err := s.scope.GetAssociatedHost(ctx)
+	associatedHost, _, err := s.scope.GetAssociatedHostAndPatchHelper(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get associated host: %w", err)
 	}
@@ -626,7 +626,7 @@ func (s *Service) setProviderID(ctx context.Context) error {
 	}
 
 	// providerID is based on the ID of the host machine
-	host, _, err := s.scope.GetAssociatedHost(ctx)
+	host, _, err := s.scope.GetAssociatedHostAndPatchHelper(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get host: %w", err)
 	}

@@ -19,7 +19,6 @@ package scope
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/go-logr/logr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -30,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/baremetalutils"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 )
 
@@ -156,47 +156,18 @@ func (m *BareMetalMachineScope) SetErrorAndRemediate(ctx context.Context, messag
 	return nil
 }
 
-func splitHostKey(key string) (namespace, name string) {
-	parts := strings.Split(key, "/")
-	if len(parts) != 2 {
-		panic("unexpected host key")
+// GetAssociatedHostAndPatchHelper gets the associated host by looking for an annotation on the
+// machine that contains a reference to the host. Returns nil if not found. Assumes the host is in
+// the same namespace as the machine. Additionally, a PatchHelper gets returned.
+func (m *BareMetalMachineScope) GetAssociatedHostAndPatchHelper(ctx context.Context) (*infrav1.HetznerBareMetalHost, *patch.Helper, error) {
+	host, err := baremetalutils.GetAssociatedHost(ctx, m.Client, m.BareMetalMachine)
+	if err != nil {
+		return nil, nil, err
 	}
-	return parts[0], parts[1]
-}
-
-// GetAssociatedHost gets the associated host by looking for an annotation on the machine
-// that contains a reference to the host. Returns nil if not found. Assumes the
-// host is in the same namespace as the machine.
-func (m *BareMetalMachineScope) GetAssociatedHost(ctx context.Context) (*infrav1.HetznerBareMetalHost, *patch.Helper, error) {
-	annotations := m.BareMetalMachine.ObjectMeta.GetAnnotations()
-	// if no annotations exist on machine, no host can be associated
-	if annotations == nil {
-		return nil, nil, nil
-	}
-
-	// check if host annotation is set and return if not
-	hostKey, ok := annotations[infrav1.HostAnnotation]
-	if !ok {
-		return nil, nil, nil
-	}
-
-	// find associated host object and return it
-	hostNamespace, hostName := splitHostKey(hostKey)
-
-	host := infrav1.HetznerBareMetalHost{}
-	key := client.ObjectKey{
-		Name:      hostName,
-		Namespace: hostNamespace,
-	}
-
-	if err := m.Client.Get(ctx, key, &host); err != nil {
-		return nil, nil, fmt.Errorf("failed to get host object: %w", err)
-	}
-
-	helper, err := patch.NewHelper(&host, m.Client)
+	helper, err := patch.NewHelper(host, m.Client)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create patch helper: %w", err)
 	}
 
-	return &host, helper, nil
+	return host, helper, nil
 }

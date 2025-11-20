@@ -21,7 +21,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -32,10 +31,10 @@ import (
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/record"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/baremetalutils"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 )
 
@@ -53,33 +52,24 @@ func NewService(scope *scope.BareMetalRemediationScope) *Service {
 
 // Reconcile implements reconcilement of HetznerBareMetalRemediations.
 func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
-	// try to get information about host from bare metal machine annotations
-	key, err := objectKeyFromAnnotations(s.scope.BareMetalMachine.ObjectMeta.GetAnnotations())
+	host, err := baremetalutils.GetAssociatedHost(ctx, s.scope.Client, s.scope.BareMetalMachine)
 	if err != nil {
-		return s.setOwnerRemediatedConditionToFailed(ctx, err.Error())
-	}
-
-	if key == nil {
-		// BareMetalMachine has not host annotation.
-		return s.setOwnerRemediatedConditionToFailed(ctx,
-			"BareMetalMachine has not host annotation.")
-	}
-
-	// get host
-	var host infrav1.HetznerBareMetalHost
-	if err := s.scope.Client.Get(ctx, *key, &host); err != nil {
 		if apierrors.IsNotFound(err) {
 			return s.setOwnerRemediatedConditionToFailed(ctx,
-				"host not found - remediation failed.")
+				"exit remediation because host not found")
 		}
 
 		// retry
-		err := fmt.Errorf("failed to find the unhealthy host: %w", err)
+		err := fmt.Errorf("failed to find the unhealthy host (will retry): %w", err)
 		record.Warn(s.scope.BareMetalRemediation, "FailedToFindHost", err.Error())
 		return reconcile.Result{}, err
 	}
 
-	// SetErrorAndRemediate() was used to stop provisioning. No need to try a reboot.
+	if host == nil {
+		return s.setOwnerRemediatedConditionToFailed(ctx,
+			"exit remediation because hbmm has no host annotation")
+	}
+	// if SetErrorAndRemediate() was used to stop provisioning, do not try to reboot server
 	infraMachineCondition := conditions.Get(s.scope.BareMetalMachine, infrav1.NoRemediateMachineAnnotationCondition)
 	if infraMachineCondition != nil && infraMachineCondition.Status == corev1.ConditionFalse {
 		return s.setOwnerRemediatedConditionToFailed(ctx,
@@ -88,12 +78,17 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 				infraMachineCondition.Message))
 	}
 
-	// if host is not provisioned or in maintenance mode, then we do not try to reboot server
-	if host.Spec.Status.ProvisioningState != infrav1.StateProvisioned ||
-		host.Spec.MaintenanceMode != nil && *host.Spec.MaintenanceMode {
+	// if host is not provisioned, do not try to reboot server
+	if host.Spec.Status.ProvisioningState != infrav1.StateProvisioned {
 		return s.setOwnerRemediatedConditionToFailed(ctx,
-			fmt.Sprintf("exit remediation because host is not provisioned or in maintenance mode. Provisioning state: %s. Maintenance mode: %v",
-				host.Spec.Status.ProvisioningState, host.Spec.MaintenanceMode != nil && *host.Spec.MaintenanceMode))
+			fmt.Sprintf("exit remediation because host is not provisioned. Provisioning state: %s.",
+				host.Spec.Status.ProvisioningState))
+	}
+
+	// host is in maintenance mode, do not try to reboot server
+	if host.Spec.MaintenanceMode != nil && *host.Spec.MaintenanceMode {
+		return s.setOwnerRemediatedConditionToFailed(ctx,
+			"exit remediation because host is in maintenance mode")
 	}
 
 	if s.scope.BareMetalRemediation.Spec.Strategy.Type != infrav1.RemediationTypeReboot {
@@ -118,7 +113,7 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 	}
 }
 
-func (s *Service) handlePhaseRunning(ctx context.Context, host infrav1.HetznerBareMetalHost) (res reconcile.Result, err error) {
+func (s *Service) handlePhaseRunning(ctx context.Context, host *infrav1.HetznerBareMetalHost) (res reconcile.Result, err error) {
 	// if host has not been remediated yet, do that now
 	if s.scope.BareMetalRemediation.Status.LastRemediated == nil {
 		if err := s.remediate(ctx, host); err != nil {
@@ -147,10 +142,10 @@ func (s *Service) handlePhaseRunning(ctx context.Context, host infrav1.HetznerBa
 	return res, nil
 }
 
-func (s *Service) remediate(ctx context.Context, host infrav1.HetznerBareMetalHost) error {
+func (s *Service) remediate(ctx context.Context, host *infrav1.HetznerBareMetalHost) error {
 	var err error
 
-	patchHelper, err := patch.NewHelper(&host, s.scope.Client)
+	patchHelper, err := patch.NewHelper(host, s.scope.Client)
 	if err != nil {
 		return fmt.Errorf("failed to init patch helper: %s %s/%s %w", host.Kind, host.Namespace, host.Name, err)
 	}
@@ -162,7 +157,7 @@ func (s *Service) remediate(ctx context.Context, host infrav1.HetznerBareMetalHo
 		return fmt.Errorf("failed to add reboot annotation: %w", err)
 	}
 
-	if err := patchHelper.Patch(ctx, &host); err != nil {
+	if err := patchHelper.Patch(ctx, host); err != nil {
 		return fmt.Errorf("failed to patch: %s %s/%s %w", host.Kind, host.Namespace, host.Name, err)
 	}
 
@@ -251,26 +246,6 @@ func (s *Service) setOwnerRemediatedConditionToFailed(ctx context.Context, msg s
 	return reconcile.Result{}, nil
 }
 
-// objectKeyFromAnnotations returns the objectKey from the annotation. Case-1: There is no
-// annotation, then the ObjectKey and the error are nil. Case-2: The key exists, but contains a
-// syntax error, then an error gets returned. Case-3: there is a valid objectKey.
-func objectKeyFromAnnotations(annotations map[string]string) (*client.ObjectKey, error) {
-	if annotations == nil {
-		return nil, nil
-	}
-	hostKey, ok := annotations[infrav1.HostAnnotation]
-	if !ok {
-		return nil, nil
-	}
-
-	hostNamespace, hostName, err := splitHostKey(hostKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse host key %q: %w", hostKey, err)
-	}
-
-	return &client.ObjectKey{Name: hostName, Namespace: hostNamespace}, nil
-}
-
 // addRebootAnnotation sets reboot annotation on unhealthy host.
 func addRebootAnnotation(annotations map[string]string) (map[string]string, error) {
 	rebootAnnotationArguments := infrav1.RebootAnnotationArguments{Type: infrav1.RebootTypeHardware}
@@ -286,12 +261,4 @@ func addRebootAnnotation(annotations map[string]string) (map[string]string, erro
 
 	annotations[infrav1.RebootAnnotation] = string(b)
 	return annotations, nil
-}
-
-func splitHostKey(key string) (namespace, name string, err error) {
-	parts := strings.Split(key, "/")
-	if len(parts) != 2 {
-		return "", "", fmt.Errorf("unexpected host key")
-	}
-	return parts[0], parts[1], nil
 }
