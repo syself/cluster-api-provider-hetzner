@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -404,12 +405,13 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				By("deleting hbmm")
 				Expect(testEnv.Delete(ctx, bmMachine)).To(Succeed())
 
-				Eventually(func() bool {
-					if err := testEnv.Get(ctx, key, bmMachine); apierrors.IsNotFound(err) {
-						return true
+				Eventually(func() error {
+					err := testEnv.Get(ctx, key, bmMachine)
+					if apierrors.IsNotFound(err) {
+						return nil
 					}
-					return false
-				}, timeout, time.Second).Should(BeTrue())
+					return err
+				}, timeout, time.Second).Should(Succeed())
 
 				By("making sure the host has been deprovisioned")
 
@@ -457,12 +459,13 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				By("deleting bm machine")
 				Expect(testEnv.Delete(ctx, bmMachine)).To(Succeed())
 
-				Eventually(func() bool {
-					if err := testEnv.Get(ctx, key, bmMachine); apierrors.IsNotFound(err) {
-						return true
+				Eventually(func() error {
+					err := testEnv.Get(ctx, key, bmMachine)
+					if apierrors.IsNotFound(err) {
+						return nil
 					}
-					return false
-				}, timeout, time.Second).Should(BeTrue())
+					return err
+				}, timeout, time.Second).Should(Succeed())
 
 				By("making sure the host has been deprovisioned")
 
