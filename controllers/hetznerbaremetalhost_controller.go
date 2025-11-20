@@ -244,18 +244,6 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 	conditions.MarkTrue(bmHost, infrav1.NoRemediateMachineAnnotationCondition)
 
-	/* TODO: maybe do that later.
-	if bmHost.Spec.Status.ErrorType == infrav1.FatalError || bmHost.Spec.Status.ErrorType == infrav1.PermanentError {
-		// HetznerBaremetalMachineReconciler will detect that error on the host and call
-		// BareMetalMachineScope.SetErrorAndRemediate(). Then CAPI will delete the machine and the
-		// hbmm.
-		log.Info("ErrorType is Fatal or Permanent. Not reconciling host",
-			"errorType", bmHost.Spec.Status.ErrorType,
-			"errorMessage", bmHost.Spec.Status.ErrorMessage)
-		return reconcile.Result{}, nil
-	}
-	*/
-
 	// Get Hetzner robot api credentials
 	secretManager := secretutil.NewSecretManager(log, r.Client, r.APIReader)
 	robotCreds, err := getAndValidateRobotCredentials(ctx, req.Namespace, hetznerCluster, secretManager)
