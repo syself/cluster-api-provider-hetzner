@@ -232,7 +232,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 
 	remediateConditionOfHbmm := conditions.Get(hetznerBareMetalMachine, infrav1.NoRemediateMachineAnnotationCondition)
 	if remediateConditionOfHbmm != nil && remediateConditionOfHbmm.Status == corev1.ConditionFalse {
-		// The hbmm of this host will be deleted soon. Do no reconcile it.
+		// The hbmm of this host is in remediation. Do no reconcile it.
 		// Take the Condition of the hbmm and make it available on the hbmh.
 		msg := "hbmm has NoRemediateMachineAnnotationCondition=False. Not reconciling this host."
 		log.Info(msg)

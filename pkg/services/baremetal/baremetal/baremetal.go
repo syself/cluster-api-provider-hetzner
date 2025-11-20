@@ -207,18 +207,16 @@ func (s *Service) update(ctx context.Context) error {
 		return fmt.Errorf("failed to get host: %w", err)
 	}
 	if host == nil {
-		err := s.scope.SetErrorAndRemediate(ctx, "Reconcile of hbmm: host not found")
-		if err != nil {
-			return err
-		}
+		err = errors.Join(s.scope.SetErrorAndRemediate(ctx, "Reconcile of hbmm: host not found"))
 		return fmt.Errorf("host not found for machine %s: %w", s.scope.Machine.Name, err)
 	}
 
 	readyCondition := conditions.Get(host, clusterv1.ReadyCondition)
 	if readyCondition != nil {
-		if readyCondition.Status == corev1.ConditionTrue {
+		switch readyCondition.Status {
+		case corev1.ConditionTrue:
 			conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.HostReadyCondition)
-		} else if readyCondition.Status == corev1.ConditionFalse {
+		case corev1.ConditionFalse:
 			conditions.MarkFalse(
 				s.scope.BareMetalMachine,
 				infrav1.HostReadyCondition,

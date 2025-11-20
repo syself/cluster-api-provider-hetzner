@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -76,6 +77,15 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 		err := fmt.Errorf("failed to find the unhealthy host: %w", err)
 		record.Warn(s.scope.BareMetalRemediation, "FailedToFindHost", err.Error())
 		return reconcile.Result{}, err
+	}
+
+	// SetErrorAndRemediate() was used to stop provisioning. No need to try a reboot.
+	infraMachineCondition := conditions.Get(s.scope.BareMetalMachine, infrav1.NoRemediateMachineAnnotationCondition)
+	if infraMachineCondition != nil && infraMachineCondition.Status == corev1.ConditionFalse {
+		return s.setOwnerRemediatedConditionToFailed(ctx,
+			fmt.Sprintf("exit remediation because infra machine has condition set: %s: %s",
+				infraMachineCondition.Reason,
+				infraMachineCondition.Message))
 	}
 
 	// if host is not provisioned or in maintenance mode, then we do not try to reboot server
