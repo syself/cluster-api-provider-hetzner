@@ -164,6 +164,11 @@ func (m *BareMetalMachineScope) GetAssociatedHostAndPatchHelper(ctx context.Cont
 	if err != nil {
 		return nil, nil, err
 	}
+
+	if host == nil {
+		return nil, nil, nil
+	}
+
 	helper, err := patch.NewHelper(host, m.Client)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create patch helper: %w", err)
