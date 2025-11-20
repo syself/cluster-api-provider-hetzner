@@ -81,7 +81,7 @@ var _ = Describe("Test ObjectKeyFromAnnotations", func() {
 	type testCaseObjectKeyFromAnnotations struct {
 		annotations map[string]string
 		expectError bool
-		expectKey   client.ObjectKey
+		expectKey   *client.ObjectKey
 	}
 
 	DescribeTable("Test ObjectKeyFromAnnotations",
@@ -101,26 +101,26 @@ var _ = Describe("Test ObjectKeyFromAnnotations", func() {
 				infrav1.HostAnnotation: "mynamespace/myname",
 			},
 			expectError: false,
-			expectKey:   client.ObjectKey{Namespace: "mynamespace", Name: "myname"},
+			expectKey:   &client.ObjectKey{Namespace: "mynamespace", Name: "myname"},
 		}),
 		Entry("nil annotations", testCaseObjectKeyFromAnnotations{
 			annotations: nil,
-			expectError: true,
-			expectKey:   client.ObjectKey{},
+			expectError: false,
+			expectKey:   nil,
 		}),
 		Entry("no host annotation", testCaseObjectKeyFromAnnotations{
 			annotations: map[string]string{
 				"other-key": "mynamespace/myname",
 			},
-			expectError: true,
-			expectKey:   client.ObjectKey{},
+			expectError: false,
+			expectKey:   nil,
 		}),
 		Entry("incorrect host key", testCaseObjectKeyFromAnnotations{
 			annotations: map[string]string{
 				infrav1.HostAnnotation: "mynamespace-myname",
 			},
 			expectError: true,
-			expectKey:   client.ObjectKey{},
+			expectKey:   nil,
 		}),
 	)
 })

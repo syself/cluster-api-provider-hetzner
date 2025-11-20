@@ -43,7 +43,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -161,8 +160,8 @@ func SaveHostAndReturn(ctx context.Context, cl client.Client, host *infrav1.Hetz
 
 	if err := cl.Update(ctx, host); err != nil {
 		if apierrors.IsConflict(err) {
-			log := ctrl.LoggerFrom(ctx)
-			log.Info("conflict error. Retrying", "err", err)
+			logger := ctrl.LoggerFrom(ctx)
+			logger.Info("conflict error. Retrying", "err", err)
 			return reconcile.Result{Requeue: true}, nil
 		}
 		return reconcile.Result{}, fmt.Errorf("failed to update host object: %w", err)
@@ -2189,7 +2188,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 
 // next: None
 func (s *Service) actionDeprovisioning(ctx context.Context) actionResult {
-	logger := log.FromContext(ctx)
+	logger := ctrl.LoggerFrom(ctx)
 	logger.Info("actionDeprovisioning actionDeprovisioning actionDeprovisioning actionDeprovisioning actionDeprovisioning")
 
 	// Update name in robot API
