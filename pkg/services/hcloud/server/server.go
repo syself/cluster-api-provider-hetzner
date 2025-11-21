@@ -31,8 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
-	capierrors "sigs.k8s.io/cluster-api/errors" //nolint:staticcheck // we will handle that, when we update to capi v1.11
+	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1" //nolint:staticcheck // we will handle that, when we update to capi v1.11
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -122,7 +121,10 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 				"BootStateSince", s.scope.HCloudMachine.Status.BootStateSince,
 			)
 
-			s.scope.SetError(msg, capierrors.CreateMachineError)
+			err := s.scope.SetErrorAndRemediate(ctx, msg)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
 			s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateUnset)
 			record.Warn(s.scope.HCloudMachine, "NoHCloudServerFound", msg)
 			conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerAvailableCondition,
@@ -166,7 +168,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		// timeout. Something has failed.
 		msg := fmt.Sprintf("handleBootStateUnset timed out after %s. Deleting machine",
 			durationOfState.Round(time.Second).String())
-		s.scope.SetError(msg, capierrors.CreateMachineError)
+		s.scope.SetErrorAndRemediate(ctx, msg)
 		s.scope.Logger.Error(nil, msg)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			"HandleBootStateUnsetTimedOut", clusterv1.ConditionSeverityWarning,
@@ -235,7 +237,7 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 		// timeout. Something has failed.
 		msg := fmt.Sprintf("handleBootStateInitializing timed out after %s. Deleting machine",
 			durationOfState.Round(time.Second).String())
-		s.scope.SetError(msg, capierrors.CreateMachineError)
+		s.scope.SetErrorAndRemediate(ctx, msg)
 		s.scope.Logger.Error(nil, msg)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			"BootStateInitializingTimedOut", clusterv1.ConditionSeverityWarning,
@@ -327,7 +329,7 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 		msg := fmt.Sprintf("handleBootStateEnablingRescue timed out after %s. Deleting machine",
 			durationOfState.Round(time.Second).String())
 		s.scope.Logger.Error(nil, msg)
-		s.scope.SetError(msg, capierrors.CreateMachineError)
+		s.scope.SetErrorAndRemediate(ctx, msg)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			"EnablingRescueTimedOut", clusterv1.ConditionSeverityWarning, "%s", msg)
 		return reconcile.Result{}, nil
@@ -338,7 +340,7 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 	if hm.Status.ExternalIDs.ActionIDEnableRescueSystem == 0 {
 		msg := "handleBootStateEnablingRescue ActionIdEnableRescueSystem not set? Can not continue. Provisioning Failed"
 		s.scope.Logger.Error(nil, msg)
-		s.scope.SetError(msg, capierrors.CreateMachineError)
+		s.scope.SetErrorAndRemediate(ctx, msg)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			"ActionIDForEnablingRescueSystemNotSet", clusterv1.ConditionSeverityWarning, "%s", msg)
 		return reconcile.Result{}, nil
@@ -369,7 +371,7 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 		if err != nil {
 			err = fmt.Errorf("action %+v failed (wait for rescue enabled): %w", action, err)
 			s.scope.Logger.Error(err, "")
-			s.scope.SetError(err.Error(), capierrors.CreateMachineError)
+			s.scope.SetErrorAndRemediate(ctx, err.Error())
 			conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 				"EnablingRescueActionFailed", clusterv1.ConditionSeverityWarning,
 				"%s", err.Error())
@@ -451,7 +453,7 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 		// timeout. Something has failed.
 		msg := fmt.Sprintf("reaching rescue system has timed out after %s. Deleting machine",
 			durationOfState.Round(time.Second).String())
-		s.scope.SetError(msg, capierrors.CreateMachineError)
+		s.scope.SetErrorAndRemediate(ctx, msg)
 		s.scope.Logger.Error(nil, msg)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			"BootingToRescueTimedOut", clusterv1.ConditionSeverityWarning,
@@ -500,7 +502,7 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 	if remoteHostName != "rescue" {
 		msg := fmt.Sprintf("Remote hostname (via ssh) of hcloud server is %q. Expected 'rescue'. Deleting hcloud machine", remoteHostName)
 		s.scope.Logger.Error(nil, msg)
-		s.scope.SetError(msg, capierrors.CreateMachineError)
+		s.scope.SetErrorAndRemediate(ctx, msg)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			"UnexpectedHostname", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
@@ -534,7 +536,7 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 			"ImageURLCommand", s.scope.ImageURLCommand,
 			"exitStatus", exitStatus,
 			"stdoutStderr", stdoutStderr)
-		s.scope.SetError(msg, capierrors.CreateMachineError)
+		s.scope.SetErrorAndRemediate(ctx, msg)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			"StartImageURLCommandNoZeroExitCode", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
@@ -571,7 +573,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 			durationOfState.Round(time.Second).String())
 		err = errors.New(msg)
 		s.scope.Logger.Error(err, "", "logFile", logFile)
-		s.scope.SetError(msg, capierrors.CreateMachineError)
+		s.scope.SetErrorAndRemediate(ctx, msg)
 		record.Warn(hm, "ImageURLCommandFailed", logFile)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			"RunningImageCommandTimedOut", clusterv1.ConditionSeverityWarning,
@@ -607,7 +609,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 		msg := "ImageURLCommand failed. Deleting machine"
 		err = errors.New(msg)
 		s.scope.Logger.Error(err, "", "logFile", logFile)
-		s.scope.SetError(msg, capierrors.CreateMachineError)
+		s.scope.SetErrorAndRemediate(ctx, msg)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			"ImageCommandFailed", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
@@ -632,7 +634,7 @@ func (s *Service) handleBootingToRealOS(ctx context.Context, server *hcloud.Serv
 		// timeout. Something has failed.
 		msg := fmt.Sprintf("handleBootingToRealOS timed out after %s. Deleting machine",
 			durationOfState.Round(time.Second).String())
-		s.scope.SetError(msg, capierrors.CreateMachineError)
+		s.scope.SetErrorAndRemediate(ctx, msg)
 		s.scope.Logger.Error(nil, msg)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			"BootingToRealOSTimedOut", clusterv1.ConditionSeverityWarning,
@@ -1212,7 +1214,7 @@ func (s *Service) handleServerStatusOff(ctx context.Context, server *hcloud.Serv
 			}
 		} else {
 			// Timed out. Set failure reason
-			s.scope.SetError("reached timeout of waiting for machines that are switched off", capierrors.CreateMachineError)
+			s.scope.SetErrorAndRemediate(ctx, "reached timeout of waiting for machines that are switched off")
 			return res, nil
 		}
 	} else {
