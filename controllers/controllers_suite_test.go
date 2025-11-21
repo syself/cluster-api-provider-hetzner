@@ -118,7 +118,6 @@ func (r *ControllerResetter) Reset(namespace string, testEnv *helpers.TestEnviro
 
 	r.HCloudMachineReconciler.HCloudClientFactory = hcloudClientFactory
 	r.HCloudMachineReconciler.SSHClientFactory = baremetalSSHClientFactory
-	r.HCloudMachineReconciler.HCloudClientFactory = hcloudClientFactory
 	r.HCloudMachineReconciler.Namespace = namespace
 
 	r.HCloudMachineTemplateReconciler.HCloudClientFactory = hcloudClientFactory
