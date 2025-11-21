@@ -27,7 +27,6 @@ import (
 	goruntime "runtime"
 	"time"
 
-	"github.com/onsi/ginkgo/v2"
 	g "github.com/onsi/ginkgo/v2"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -105,8 +104,17 @@ func init() {
 	}
 }
 
+// Resetter provides an interface, so that test-suites using TestEnvironment can define their custom
+// resetting. Mocks get used in two places: In the real code (like FooReconciler) and during the
+// tests (for FooMock.On("....")). The Resetter contains the pointer to the places where mocks need
+// to be updated on Reset().
 type Resetter interface {
-	Reset(namespace string, testEnv *TestEnvironment, t ginkgo.FullGinkgoTInterface)
+	// Reset resets the objects shared between tests. This avoids that changes done by the first
+	// test will modify the environment of the second test. Testify Mocks should be initialized with
+	// fooMock.Test(t), to ensure failures are propagated to the corresponding test. Otherwise
+	// errors of mocks will panic on usage, and finding the corresponding test to the panic is
+	// sometimes not trivial.
+	Reset(namespace string, testEnv *TestEnvironment, t g.FullGinkgoTInterface)
 }
 
 // TestEnvironment encapsulates a Kubernetes local test environment.

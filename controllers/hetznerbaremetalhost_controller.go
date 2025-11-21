@@ -26,7 +26,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
@@ -198,25 +197,6 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	emptyResult := reconcile.Result{}
 	if res != emptyResult {
 		return res, nil
-	}
-
-	{
-		// Stop reconciling, if namspace gets deleted. Used for envTests.
-		// Related: https://book.kubebuilder.io/reference/envtest.html#testing-considerations
-		ns := &corev1.Namespace{
-			ObjectMeta: v1.ObjectMeta{
-				Name: req.Namespace,
-			},
-		}
-		err = r.Client.Get(ctx, client.ObjectKeyFromObject(ns), ns)
-		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to get namespace: %w", err)
-		}
-		if !ns.DeletionTimestamp.IsZero() {
-			// Namespace gets deleted. Stop reconciling this resource
-			log.Info("Namespace is deleting. Not reconciling")
-			return ctrl.Result{}, nil
-		}
 	}
 
 	hetznerCluster := &infrav1.HetznerCluster{}

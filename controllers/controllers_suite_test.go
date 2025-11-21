@@ -101,43 +101,40 @@ func (r *ControllerResetter) Reset(namespace string, testEnv *helpers.TestEnviro
 	robotClientFactory := mocks.NewRobotFactory(robotClient)
 	baremetalSSHClientFactory := mocks.NewSSHFactory(rescueSSHClient,
 		osSSHClientAfterInstallImage, osSSHClientAfterCloudInit)
-	{
-		// Reset clients used by the test code
-		testEnv.BaremetalSSHClientFactory = mocks.NewSSHFactory(rescueSSHClient,
-			osSSHClientAfterInstallImage, osSSHClientAfterCloudInit)
-		testEnv.HCloudSSHClientFactory = mockedsshclient.NewSSHFactory(hcloudSSHClient)
-		testEnv.RescueSSHClient = rescueSSHClient
-		testEnv.OSSSHClientAfterInstallImage = osSSHClientAfterInstallImage
-		testEnv.OSSSHClientAfterCloudInit = osSSHClientAfterCloudInit
-		testEnv.RobotClientFactory = robotClientFactory
-		testEnv.RobotClient = robotClient
-	}
 
-	{
-		// Reset clients used by Reconcile() and the namespace
-		r.HetznerClusterReconciler.HCloudClientFactory = hcloudClientFactory
-		r.HetznerClusterReconciler.Namespace = namespace
+	// Reset clients used by the test code
+	testEnv.BaremetalSSHClientFactory = mocks.NewSSHFactory(rescueSSHClient,
+		osSSHClientAfterInstallImage, osSSHClientAfterCloudInit)
+	testEnv.HCloudSSHClientFactory = mockedsshclient.NewSSHFactory(hcloudSSHClient)
+	testEnv.RescueSSHClient = rescueSSHClient
+	testEnv.OSSSHClientAfterInstallImage = osSSHClientAfterInstallImage
+	testEnv.OSSSHClientAfterCloudInit = osSSHClientAfterCloudInit
+	testEnv.RobotClientFactory = robotClientFactory
+	testEnv.RobotClient = robotClient
 
-		r.HCloudMachineReconciler.HCloudClientFactory = hcloudClientFactory
-		r.HCloudMachineReconciler.SSHClientFactory = baremetalSSHClientFactory
-		r.HCloudMachineReconciler.HCloudClientFactory = hcloudClientFactory
-		r.HCloudMachineReconciler.Namespace = namespace
+	// Reset clients used by Reconcile() and the namespace
+	r.HetznerClusterReconciler.HCloudClientFactory = hcloudClientFactory
+	r.HetznerClusterReconciler.Namespace = namespace
 
-		r.HCloudMachineTemplateReconciler.HCloudClientFactory = hcloudClientFactory
-		r.HCloudMachineTemplateReconciler.Namespace = namespace
+	r.HCloudMachineReconciler.HCloudClientFactory = hcloudClientFactory
+	r.HCloudMachineReconciler.SSHClientFactory = baremetalSSHClientFactory
+	r.HCloudMachineReconciler.HCloudClientFactory = hcloudClientFactory
+	r.HCloudMachineReconciler.Namespace = namespace
 
-		r.HetznerBareMetalHostReconciler.RobotClientFactory = robotClientFactory
-		r.HetznerBareMetalHostReconciler.SSHClientFactory = baremetalSSHClientFactory
-		r.HetznerBareMetalHostReconciler.Namespace = namespace
+	r.HCloudMachineTemplateReconciler.HCloudClientFactory = hcloudClientFactory
+	r.HCloudMachineTemplateReconciler.Namespace = namespace
 
-		r.HCloudRemediationReconciler.HCloudClientFactory = hcloudClientFactory
-		r.HCloudRemediationReconciler.Namespace = namespace
+	r.HetznerBareMetalHostReconciler.RobotClientFactory = robotClientFactory
+	r.HetznerBareMetalHostReconciler.SSHClientFactory = baremetalSSHClientFactory
+	r.HetznerBareMetalHostReconciler.Namespace = namespace
 
-		r.HetznerBareMetalMachineReconciler.HCloudClientFactory = hcloudClientFactory
-		r.HetznerBareMetalMachineReconciler.Namespace = namespace
+	r.HCloudRemediationReconciler.HCloudClientFactory = hcloudClientFactory
+	r.HCloudRemediationReconciler.Namespace = namespace
 
-		r.HetznerBareMetalRemediationReconciler.Namespace = namespace
-	}
+	r.HetznerBareMetalMachineReconciler.HCloudClientFactory = hcloudClientFactory
+	r.HetznerBareMetalMachineReconciler.Namespace = namespace
+
+	r.HetznerBareMetalRemediationReconciler.Namespace = namespace
 }
 
 var _ = BeforeSuite(func() {

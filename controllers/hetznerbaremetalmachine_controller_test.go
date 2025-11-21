@@ -133,13 +133,8 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 		Expect(testEnv.Create(ctx, bootstrapSecret)).To(Succeed())
 
 		robotClient = testEnv.RobotClient
-		robotClient.Test(GinkgoT())
-
 		rescueSSHClient = testEnv.RescueSSHClient
-		rescueSSHClient.Test(GinkgoT())
-
 		osSSHClient = testEnv.OSSSHClientAfterInstallImage
-		osSSHClient.Test(GinkgoT())
 
 		robotClient.On("GetBMServer", mock.Anything).Return(&models.Server{
 			ServerNumber: 1,
@@ -200,7 +195,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 		})
 
 		AfterEach(func() {
-			Expect(testEnv.Cleanup(ctx, host, capiMachine)).To(Succeed())
+			Expect(testEnv.Cleanup(ctx, host)).To(Succeed())
 		})
 
 		Context("Test bootstrap", func() {
@@ -395,7 +390,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				}, timeout).Should(BeTrue())
 			})
 
-			It("deletes successfully", func() {
+			It("hbmm deletes successfully and host gets deprovisioned", func() {
 				By("Waiting until host is provisioned")
 
 				Eventually(func() bool {
@@ -428,7 +423,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				}, timeout, time.Second).Should(BeTrue())
 			})
 
-			It("deletes successfully, even if state is 'ensure-provisioned'", func() {
+			It("hbmm deletes successfully and host gets deprovisioned, even if state is 'ensure-provisioned'", func() {
 				By("checking that the host is ready")
 				Eventually(func() bool {
 					return isPresentAndTrue(key, bmMachine, infrav1.HostReadyCondition)
@@ -453,7 +448,6 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 				Eventually(func() error {
 					err := testEnv.Get(ctx, hostKey, host)
-					apierrors.IsNotFound(err)
 					if err != nil {
 						return err
 					}

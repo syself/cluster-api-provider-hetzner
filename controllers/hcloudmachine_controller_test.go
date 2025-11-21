@@ -365,7 +365,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				}, timeout).Should(BeTrue())
 			})
 
-			It("creates the HCloud machine in Hetzner 1 (flaky)", func() {
+			It("creates the HCloud machine in Hetzner 1", func() {
 				By("checking that no servers exist")
 
 				Eventually(func() bool {
