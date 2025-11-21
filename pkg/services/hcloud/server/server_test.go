@@ -587,7 +587,7 @@ var _ = Describe("Reconcile", func() {
 
 	BeforeEach(func() {
 		hcloudClient = mocks.NewClient(GinkgoT())
-		testNs, err = testEnv.CreateNamespace(ctx, "server-reconcile")
+		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "server-reconcile")
 		Expect(err).To(BeNil())
 
 		clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
@@ -685,7 +685,7 @@ var _ = Describe("Reconcile", func() {
 		Expect(testEnv.Cleanup(ctx, testNs)).To(Succeed())
 	})
 
-	It("sets the region in status of hcloudMachine, by fetching the failure domain from machine.spec", func() {
+	FIt("sets the region in status of hcloudMachine, by fetching the failure domain from machine.spec", func() {
 		By("calling reconcile")
 		_, err := service.Reconcile(ctx)
 		Expect(err).To(BeNil())

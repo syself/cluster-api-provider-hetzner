@@ -271,7 +271,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 		)
 		BeforeEach(func() {
 			hcloudClient.Reset()
-			testNs, err = testEnv.CreateNamespace(ctx, "cluster-tests")
+			testNs, err = testEnv.ResetAndCreateNamespace(ctx, "cluster-tests")
 			Expect(err).NotTo(HaveOccurred())
 			namespace = testNs.Name
 
@@ -965,7 +965,7 @@ var _ = Describe("Hetzner secret", func() {
 	BeforeEach(func() {
 		hcloudClient.Reset()
 		var err error
-		testNs, err = testEnv.CreateNamespace(ctx, "hetzner-secret")
+		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hetzner-secret")
 		Expect(err).NotTo(HaveOccurred())
 
 		hetznerClusterName = utils.GenerateName(nil, "hetzner-cluster-test")
@@ -1064,7 +1064,7 @@ var _ = Describe("HetznerCluster validation", func() {
 	BeforeEach(func() {
 		hcloudClient.Reset()
 		var err error
-		testNs, err = testEnv.CreateNamespace(ctx, "hcloudmachine-validation")
+		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-validation")
 		Expect(err).NotTo(HaveOccurred())
 	})
 	AfterEach(func() {

@@ -57,7 +57,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 	BeforeEach(func() {
 		hcloudClient.Reset()
 		var err error
-		testNs, err = testEnv.CreateNamespace(ctx, "hcloudmachinetemplate-reconciler")
+		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachinetemplate-reconciler")
 		Expect(err).NotTo(HaveOccurred())
 
 		hetznerSecret = getDefaultHetznerSecret(testNs.Name)

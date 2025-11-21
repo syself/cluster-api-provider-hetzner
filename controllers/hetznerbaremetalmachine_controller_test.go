@@ -75,7 +75,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 	BeforeEach(func() {
 		var err error
-		testNs, err = testEnv.CreateNamespace(ctx, "baremetalmachine-reconciler")
+		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "baremetalmachine-reconciler")
 		Expect(err).NotTo(HaveOccurred())
 
 		hetznerClusterName = utils.GenerateName(nil, "hetzner-cluster-test")
@@ -133,8 +133,13 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 		Expect(testEnv.Create(ctx, bootstrapSecret)).To(Succeed())
 
 		robotClient = testEnv.RobotClient
+		robotClient.Test(GinkgoT())
+
 		rescueSSHClient = testEnv.RescueSSHClient
+		rescueSSHClient.Test(GinkgoT())
+
 		osSSHClient = testEnv.OSSSHClientAfterInstallImage
+		osSSHClient.Test(GinkgoT())
 
 		robotClient.On("GetBMServer", mock.Anything).Return(&models.Server{
 			ServerNumber: 1,
@@ -195,7 +200,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 		})
 
 		AfterEach(func() {
-			Expect(testEnv.Cleanup(ctx, host)).To(Succeed())
+			Expect(testEnv.Cleanup(ctx, host, capiMachine)).To(Succeed())
 		})
 
 		Context("Test bootstrap", func() {
@@ -511,14 +516,17 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 			It("checks the hetznerBareMetalMachine status running phase", func() {
 				By("making sure that machine is in running state")
-				Eventually(func() bool {
+				Eventually(func() error {
 					if err := testEnv.Get(ctx, key, bmMachine); err != nil {
-						return false
+						return err
 					}
-
-					testEnv.GetLogger().Info("status of host and hetznerBareMetalMachine", "hetznerBareMetalMachine phase", bmMachine.Status.Phase, "host state", host.Spec.Status.ProvisioningState)
-					return bmMachine.Status.Phase == clusterv1.MachinePhaseRunning
-				}, timeout, time.Second).Should(BeTrue())
+					testEnv.GetLogger().Info("status of host and hetznerBareMetalMachine", "hetznerBareMetalMachine phase", bmMachine.Status.Phase,
+						"hostState", host.Spec.Status.ProvisioningState)
+					if bmMachine.Status.Phase != clusterv1.MachinePhaseRunning {
+						return fmt.Errorf("bmMachine.Status.Phase should be MachinePhaseRunning, but is: %q", bmMachine.Status.Phase)
+					}
+					return nil
+				}, timeout, time.Second).Should(Succeed())
 			})
 
 			It("checks that HostReady condition is True for hetznerBareMetalMachine", func() {
@@ -789,7 +797,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			)
 			BeforeEach(func() {
 				var err error
-				testNs, err = testEnv.CreateNamespace(ctx, "hcloudmachine-validation")
+				testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-validation")
 				Expect(err).NotTo(HaveOccurred())
 
 				hbmmt = &infrav1.HetznerBareMetalMachineTemplate{

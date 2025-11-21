@@ -69,7 +69,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 
 	BeforeEach(func() {
 		var err error
-		testNs, err = testEnv.CreateNamespace(ctx, "hcloudmachinetemplate-reconciler")
+		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachinetemplate-reconciler")
 		Expect(err).NotTo(HaveOccurred())
 
 		capiCluster = &clusterv1.Cluster{
@@ -312,7 +312,6 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 							return false
 						}
 
-						testEnv.GetLogger().Info("Provisioning state of host", "state", host.Spec.Status.ProvisioningState, "conditions", host.Spec.Status.Conditions)
 						return host.Spec.Status.ProvisioningState == infrav1.StateProvisioned
 					}, timeout).Should(BeTrue())
 				})

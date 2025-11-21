@@ -23,7 +23,9 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -157,6 +159,25 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 
 	if !hbmMachine.ObjectMeta.DeletionTimestamp.IsZero() {
 		return r.reconcileDelete(ctx, machineScope)
+	}
+
+	{
+		// Stop reconciling, if namspace gets deleted. Used for envTests.
+		// Related: https://book.kubebuilder.io/reference/envtest.html#testing-considerations
+		ns := &corev1.Namespace{
+			ObjectMeta: v1.ObjectMeta{
+				Name: req.Namespace,
+			},
+		}
+		err = r.Client.Get(ctx, client.ObjectKeyFromObject(ns), ns)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to get namespace: %w", err)
+		}
+		if !ns.DeletionTimestamp.IsZero() {
+			// Namespace gets deleted. Stop reconciling this resource
+			log.Info("Namespace is deleting. Not reconciling")
+			return ctrl.Result{}, nil
+		}
 	}
 
 	return r.reconcileNormal(ctx, machineScope)
