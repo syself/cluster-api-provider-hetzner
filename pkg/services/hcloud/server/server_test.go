@@ -101,6 +101,7 @@ var _ = DescribeTable("createLabels",
 				ClusterScope: scope.ClusterScope{
 					HetznerCluster: &hetznerCluster,
 				},
+				SSHClientFactory: testEnv.HCloudSSHClientFactory,
 			},
 		}
 		Expect(service.createLabels()).To(Equal(tc.expectedOutput))
@@ -362,6 +363,7 @@ var _ = Describe("getSSHKeys", func() {
 						Namespace: "default",
 					},
 				},
+				SSHClientFactory: testEnv.HCloudSSHClientFactory,
 			},
 		}
 	})
@@ -675,7 +677,7 @@ var _ = Describe("Reconcile", func() {
 						},
 					},
 				},
-				SSHClientFactory: testEnv.BaremetalSSHClientFactory,
+				SSHClientFactory: testEnv.HCloudSSHClientFactory,
 			},
 		}
 	})
@@ -685,7 +687,7 @@ var _ = Describe("Reconcile", func() {
 		Expect(testEnv.Cleanup(ctx, testNs)).To(Succeed())
 	})
 
-	FIt("sets the region in status of hcloudMachine, by fetching the failure domain from machine.spec", func() {
+	It("sets the region in status of hcloudMachine, by fetching the failure domain from machine.spec", func() {
 		By("calling reconcile")
 		_, err := service.Reconcile(ctx)
 		Expect(err).To(BeNil())
@@ -951,7 +953,7 @@ var _ = Describe("Reconcile", func() {
 			Status:        hcloud.ServerStatusRunning,
 		}, nil).Once()
 
-		testEnv.RescueSSHClient.On("Reboot").Return(sshclient.Output{
+		testEnv.HCloudSSHClient.On("Reboot").Return(sshclient.Output{
 			Err:    nil,
 			StdOut: "ok",
 			StdErr: "",
@@ -969,12 +971,12 @@ var _ = Describe("Reconcile", func() {
 			Name:   "hcloudmachinenameWithRescueEnabled",
 			Status: hcloud.ServerStatusRunning,
 		}, nil).Once()
-		testEnv.RescueSSHClient.On("GetHostName").Return(sshclient.Output{
+		testEnv.HCloudSSHClient.On("GetHostName").Return(sshclient.Output{
 			StdOut: "rescue",
 			StdErr: "",
 			Err:    nil,
 		})
-		startImageURLCommandMock := testEnv.RescueSSHClient.On("StartImageURLCommand", mock.Anything, mock.Anything, mock.Anything, mock.Anything, "hcloudmachinename", []string{"sda"}).Return(0, "", nil)
+		startImageURLCommandMock := testEnv.HCloudSSHClient.On("StartImageURLCommand", mock.Anything, mock.Anything, mock.Anything, mock.Anything, "hcloudmachinename", []string{"sda"}).Return(0, "", nil)
 		_, err = service.Reconcile(ctx)
 		Expect(err).To(BeNil())
 		Expect(service.scope.HCloudMachine.Status.FailureReason).To(BeNil())
@@ -984,12 +986,12 @@ var _ = Describe("Reconcile", func() {
 		startImageURLCommandMock.Parent.AssertNumberOfCalls(GinkgoT(), "StartImageURLCommand", 1)
 
 		By("reconcile again --------------------------------------------------------")
-		testEnv.RescueSSHClient.On("GetHostName").Return(sshclient.Output{
+		testEnv.HCloudSSHClient.On("GetHostName").Return(sshclient.Output{
 			StdOut: "rescue",
 			StdErr: "",
 			Err:    nil,
 		})
-		testEnv.RescueSSHClient.On("StateOfImageURLCommand").Return(sshclient.ImageURLCommandStateFinishedSuccessfully, "output-of-image-url-command", nil)
+		testEnv.HCloudSSHClient.On("StateOfImageURLCommand").Return(sshclient.ImageURLCommandStateFinishedSuccessfully, "output-of-image-url-command", nil)
 		hcloudClient.On("GetServer", mock.Anything, mock.Anything).Return(&hcloud.Server{
 			ID:            1,
 			Name:          "hcloudmachinenameWithRescueEnabled",

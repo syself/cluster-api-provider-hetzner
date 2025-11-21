@@ -55,6 +55,9 @@ type HetznerBareMetalMachineReconciler struct {
 	RateLimitWaitTime   time.Duration
 	HCloudClientFactory hcloudclient.Factory
 	WatchFilterValue    string
+
+	// Reconcile only this namespace. Only needed for testing
+	Namespace string
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalmachines,verbs=get;list;watch;create;update;patch;delete
@@ -64,6 +67,11 @@ type HetznerBareMetalMachineReconciler struct {
 // Reconcile implements the reconcilement of HetznerBareMetalMachine objects.
 func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req reconcile.Request) (res reconcile.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
+
+	if r.Namespace != "" && req.Namespace != r.Namespace {
+		// Just for testing, skip reconciling objects from finished tests.
+		return ctrl.Result{}, nil
+	}
 
 	// Fetch the Hetzner bare metal instance.
 	hbmMachine := &infrav1.HetznerBareMetalMachine{}

@@ -64,6 +64,9 @@ type HetznerBareMetalHostReconciler struct {
 	PreProvisionCommand  string
 	SSHAfterInstallImage bool
 	ImageURLCommand      string
+
+	// Reconcile only this namespace. Only needed for testing
+	Namespace string
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalhosts,verbs=get;list;watch;create;update;patch;delete
@@ -73,6 +76,11 @@ type HetznerBareMetalHostReconciler struct {
 // Reconcile implements the reconcilement of HetznerBareMetalHost objects.
 func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res ctrl.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
+
+	if r.Namespace != "" && req.Namespace != r.Namespace {
+		// Just for testing, skip reconciling objects from finished tests.
+		return ctrl.Result{}, nil
+	}
 
 	start := time.Now()
 	defer func() {

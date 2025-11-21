@@ -106,7 +106,7 @@ func init() {
 }
 
 type Resetter interface {
-	Reset(*TestEnvironment, ginkgo.FullGinkgoTInterface)
+	Reset(namespace string, testEnv *TestEnvironment, t ginkgo.FullGinkgoTInterface)
 }
 
 // TestEnvironment encapsulates a Kubernetes local test environment.
@@ -118,6 +118,7 @@ type TestEnvironment struct {
 	RobotClientFactory           robotclient.Factory
 	BaremetalSSHClientFactory    sshclient.Factory
 	HCloudSSHClientFactory       sshclient.Factory
+	HCloudSSHClient              *sshmock.Client
 	RescueSSHClient              *sshmock.Client
 	OSSSHClientAfterInstallImage *sshmock.Client
 	OSSSHClientAfterCloudInit    *sshmock.Client
@@ -238,9 +239,6 @@ func (t *TestEnvironment) Cleanup(ctx context.Context, objs ...client.Object) er
 
 // ResetAndCreateNamespace creates a namespace.
 func (t *TestEnvironment) ResetAndCreateNamespace(ctx context.Context, generateName string) (*corev1.Namespace, error) {
-	if t.Resetter != nil {
-		t.Resetter.Reset(t, g.GinkgoT())
-	}
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: fmt.Sprintf("%s-", generateName),
@@ -251,6 +249,10 @@ func (t *TestEnvironment) ResetAndCreateNamespace(ctx context.Context, generateN
 	}
 	if err := t.Client.Create(ctx, ns); err != nil {
 		return nil, err
+	}
+
+	if t.Resetter != nil {
+		t.Resetter.Reset(ns.Name, t, g.GinkgoT())
 	}
 
 	return ns, nil

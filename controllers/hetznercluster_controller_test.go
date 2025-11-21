@@ -531,6 +531,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 			})
 
 			It("should take over an existing load balancer with correct name (flaky)", func() {
+				testEnv.GetLogger().Info("should should should should should")
 				By("creating load balancer manually")
 
 				opts := hcloud.LoadBalancerCreateOpts{

@@ -78,7 +78,9 @@ type ControllerResetter struct {
 	HetznerBareMetalRemediationReconciler *HetznerBareMetalRemediationReconciler
 }
 
-func (r *ControllerResetter) Reset(testEnv *helpers.TestEnvironment, t FullGinkgoTInterface) {
+var _ helpers.Resetter = &ControllerResetter{}
+
+func (r *ControllerResetter) Reset(namespace string, testEnv *helpers.TestEnvironment, t FullGinkgoTInterface) {
 	rescueSSHClient := &sshmock.Client{}
 	rescueSSHClient.Test(t)
 
@@ -112,21 +114,29 @@ func (r *ControllerResetter) Reset(testEnv *helpers.TestEnvironment, t FullGinkg
 	}
 
 	{
-		// Reset clients used by Reconcile()
+		// Reset clients used by Reconcile() and the namespace
 		r.HetznerClusterReconciler.HCloudClientFactory = hcloudClientFactory
+		r.HetznerClusterReconciler.Namespace = namespace
 
 		r.HCloudMachineReconciler.HCloudClientFactory = hcloudClientFactory
 		r.HCloudMachineReconciler.SSHClientFactory = baremetalSSHClientFactory
 		r.HCloudMachineReconciler.HCloudClientFactory = hcloudClientFactory
+		r.HCloudMachineReconciler.Namespace = namespace
 
 		r.HCloudMachineTemplateReconciler.HCloudClientFactory = hcloudClientFactory
+		r.HCloudMachineTemplateReconciler.Namespace = namespace
+
 		r.HetznerBareMetalHostReconciler.RobotClientFactory = robotClientFactory
 		r.HetznerBareMetalHostReconciler.SSHClientFactory = baremetalSSHClientFactory
+		r.HetznerBareMetalHostReconciler.Namespace = namespace
 
 		r.HCloudRemediationReconciler.HCloudClientFactory = hcloudClientFactory
+		r.HCloudRemediationReconciler.Namespace = namespace
 
 		r.HetznerBareMetalMachineReconciler.HCloudClientFactory = hcloudClientFactory
+		r.HetznerBareMetalMachineReconciler.Namespace = namespace
 
+		r.HetznerBareMetalRemediationReconciler.Namespace = namespace
 	}
 }
 
