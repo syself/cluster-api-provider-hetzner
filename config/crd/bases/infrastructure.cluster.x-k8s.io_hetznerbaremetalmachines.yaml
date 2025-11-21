@@ -399,8 +399,10 @@ spec:
                   a terminal problem.
                 type: string
               failureReason:
-                description: FailureReason will be set in the event that there is
-                  a terminal problem.
+                description: |-
+                  FailureReason will be set in the event that there is a terminal problem.
+
+                  Deprecated: This field is deprecated and is going to be removed when support for v1beta1 will be dropped. Please see https://github.com/kubernetes-sigs/cluster-api/blob/main/docs/proposals/20240916-improve-status-in-CAPI-resources.md for more details.
                 type: string
               lastUpdated:
                 description: LastUpdated identifies when this status was last observed.

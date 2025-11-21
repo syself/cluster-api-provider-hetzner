@@ -185,6 +185,9 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		return res, nil
 	}
 
+	// Case "Delete" was handled in reconcileSelectedStates. From now we know that the host has not
+	// DeletionTimestamp set.
+
 	hetznerCluster := &infrav1.HetznerCluster{}
 
 	hetznerClusterName := client.ObjectKey{
@@ -226,8 +229,20 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 
 	log = log.WithValues("HetznerBareMetalMachine", klog.KObj(hetznerBareMetalMachine))
-
 	ctx = ctrl.LoggerInto(ctx, log)
+
+	remediateConditionOfHbmm := conditions.Get(hetznerBareMetalMachine, infrav1.NoRemediateMachineAnnotationCondition)
+	if remediateConditionOfHbmm != nil && remediateConditionOfHbmm.Status == corev1.ConditionFalse {
+		// The hbmm of this host is in remediation. Do not reconcile it.
+		// Take the Condition of the hbmm and make it available on the hbmh.
+		msg := "hbmm has NoRemediateMachineAnnotationCondition=False. Not reconciling this host."
+		log.Info(msg)
+		conditions.MarkFalse(bmHost, infrav1.NoRemediateMachineAnnotationCondition,
+			remediateConditionOfHbmm.Reason, remediateConditionOfHbmm.Severity,
+			"%s", remediateConditionOfHbmm.Message)
+		return reconcile.Result{}, nil
+	}
+	conditions.MarkTrue(bmHost, infrav1.NoRemediateMachineAnnotationCondition)
 
 	// Get Hetzner robot api credentials
 	secretManager := secretutil.NewSecretManager(log, r.Client, r.APIReader)
@@ -307,7 +322,7 @@ func (r *HetznerBareMetalHostReconciler) reconcileSelectedStates(ctx context.Con
 
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 
-		// Handle StateDeleting
+	// Handle StateDeleting
 	case infrav1.StateDeleting:
 		if controllerutil.RemoveFinalizer(bmHost, infrav1.HetznerBareMetalHostFinalizer) ||
 			controllerutil.RemoveFinalizer(bmHost, infrav1.DeprecatedBareMetalHostFinalizer) {

@@ -896,7 +896,7 @@ func (in *HetznerBareMetalMachineStatus) DeepCopyInto(out *HetznerBareMetalMachi
 	}
 	if in.FailureReason != nil {
 		in, out := &in.FailureReason, &out.FailureReason
-		*out = new(errors.MachineStatusError)
+		*out = new(string)
 		**out = **in
 	}
 	if in.FailureMessage != nil {
