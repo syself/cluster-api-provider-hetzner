@@ -79,6 +79,9 @@ type HetznerClusterReconciler struct {
 	TargetClusterManagersWaitGroup *sync.WaitGroup
 	WatchFilterValue               string
 	DisableCSRApproval             bool
+
+	// Reconcile only this namespace. Only needed for testing
+	Namespace string
 }
 
 //+kubebuilder:rbac:groups=cluster.x-k8s.io,resources=clusters;clusters/status,verbs=get;list;watch
@@ -89,6 +92,11 @@ type HetznerClusterReconciler struct {
 // Reconcile manages the lifecycle of a HetznerCluster object.
 func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res ctrl.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
+
+	if r.Namespace != "" && req.Namespace != r.Namespace {
+		// Just for testing, skip reconciling objects from finished tests.
+		return ctrl.Result{}, nil
+	}
 
 	// Fetch the HetznerCluster instance
 	hetznerCluster := &infrav1.HetznerCluster{}

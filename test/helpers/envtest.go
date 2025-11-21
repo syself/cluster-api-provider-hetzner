@@ -52,14 +52,12 @@ import (
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks"
 	robotmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/robot"
 	sshmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/ssh"
 	robotclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/robot"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
-	fakeclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/fake"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/mockedsshclient"
+	fakehcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/fake"
 )
 
 func init() {
@@ -106,6 +104,19 @@ func init() {
 	}
 }
 
+// Resetter provides an interface, so that test-suites using TestEnvironment can define their custom
+// resetting. Mocks get used in two places: In the real code (like FooReconciler) and during the
+// tests (for FooMock.On("....")). The Resetter contains the pointer to the places where mocks need
+// to be updated on Reset().
+type Resetter interface {
+	// Reset resets the objects shared between tests. This avoids that changes done by the first
+	// test will modify the environment of the second test. Testify Mocks should be initialized with
+	// fooMock.Test(t), to ensure failures are propagated to the corresponding test. Otherwise
+	// errors of mocks will panic on usage, and finding the corresponding test to the panic is
+	// sometimes not trivial.
+	Reset(namespace string, testEnv *TestEnvironment, t g.FullGinkgoTInterface)
+}
+
 // TestEnvironment encapsulates a Kubernetes local test environment.
 type TestEnvironment struct {
 	ctrl.Manager
@@ -115,12 +126,14 @@ type TestEnvironment struct {
 	RobotClientFactory           robotclient.Factory
 	BaremetalSSHClientFactory    sshclient.Factory
 	HCloudSSHClientFactory       sshclient.Factory
+	HCloudSSHClient              *sshmock.Client
 	RescueSSHClient              *sshmock.Client
 	OSSSHClientAfterInstallImage *sshmock.Client
 	OSSSHClientAfterCloudInit    *sshmock.Client
 	RobotClient                  *robotmock.Client
 	cancel                       context.CancelFunc
 	RateLimitWaitTime            time.Duration
+	Resetter                     Resetter
 }
 
 // NewTestEnvironment creates a new environment spinning up a local api-server.
@@ -191,29 +204,15 @@ func NewTestEnvironment() *TestEnvironment {
 		klog.Fatalf("failed to set up webhook with manager for HCloudRemediationTemplate: %s", err)
 	}
 	// Create a fake HCloudClientFactory
-	hcloudClientFactory := fakeclient.NewHCloudClientFactory()
-
-	rescueSSHClient := &sshmock.Client{}
-	osSSHClientAfterInstallImage := &sshmock.Client{}
-	osSSHClientAfterCloudInit := &sshmock.Client{}
-
-	robotClient := &robotmock.Client{}
-
-	hcloudSSHClient := &sshmock.Client{}
+	hcloudClientFactory := fakehcloudclient.NewHCloudClientFactory()
 
 	return &TestEnvironment{
-		Manager:                      mgr,
-		Client:                       mgr.GetClient(),
-		Config:                       mgr.GetConfig(),
-		HCloudClientFactory:          hcloudClientFactory,
-		BaremetalSSHClientFactory:    mocks.NewSSHFactory(rescueSSHClient, osSSHClientAfterInstallImage, osSSHClientAfterCloudInit),
-		HCloudSSHClientFactory:       mockedsshclient.NewSSHFactory(hcloudSSHClient),
-		RescueSSHClient:              rescueSSHClient,
-		OSSSHClientAfterInstallImage: osSSHClientAfterInstallImage,
-		OSSSHClientAfterCloudInit:    osSSHClientAfterCloudInit,
-		RobotClientFactory:           mocks.NewRobotFactory(robotClient),
-		RobotClient:                  robotClient,
-		RateLimitWaitTime:            5 * time.Minute,
+		Manager:             mgr,
+		Client:              mgr.GetClient(),
+		Config:              mgr.GetConfig(),
+		HCloudClientFactory: hcloudClientFactory,
+
+		RateLimitWaitTime: 5 * time.Minute,
 	}
 }
 
@@ -246,8 +245,8 @@ func (t *TestEnvironment) Cleanup(ctx context.Context, objs ...client.Object) er
 	return kerrors.NewAggregate(errs)
 }
 
-// CreateNamespace creates a namespace.
-func (t *TestEnvironment) CreateNamespace(ctx context.Context, generateName string) (*corev1.Namespace, error) {
+// ResetAndCreateNamespace creates a namespace.
+func (t *TestEnvironment) ResetAndCreateNamespace(ctx context.Context, generateName string) (*corev1.Namespace, error) {
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: fmt.Sprintf("%s-", generateName),
@@ -258,6 +257,10 @@ func (t *TestEnvironment) CreateNamespace(ctx context.Context, generateName stri
 	}
 	if err := t.Client.Create(ctx, ns); err != nil {
 		return nil, err
+	}
+
+	if t.Resetter != nil {
+		t.Resetter.Reset(ns.Name, t, g.GinkgoT())
 	}
 
 	return ns, nil

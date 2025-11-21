@@ -49,6 +49,9 @@ type HCloudRemediationReconciler struct {
 	APIReader           client.Reader
 	HCloudClientFactory hcloudclient.Factory
 	WatchFilterValue    string
+
+	// Reconcile only this namespace. Only needed for testing
+	Namespace string
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hcloudremediations,verbs=get;list;watch;create;update;patch;delete
@@ -59,6 +62,11 @@ type HCloudRemediationReconciler struct {
 // Reconcile reconciles the hetznerHCloudRemediation object.
 func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconcile.Request) (res reconcile.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
+
+	if r.Namespace != "" && req.Namespace != r.Namespace {
+		// Just for testing, skip reconciling objects from finished tests.
+		return ctrl.Result{}, nil
+	}
 
 	hcloudRemediation := &infrav1.HCloudRemediation{}
 	err := r.Get(ctx, req.NamespacedName, hcloudRemediation)

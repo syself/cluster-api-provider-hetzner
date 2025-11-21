@@ -243,7 +243,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 		hcloudClient.Reset()
 
 		var err error
-		testNs, err = testEnv.CreateNamespace(ctx, "hcloudmachine-reconciler")
+		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-reconciler")
 		Expect(err).NotTo(HaveOccurred())
 
 		capiCluster = &clusterv1.Cluster{
@@ -365,7 +365,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				}, timeout).Should(BeTrue())
 			})
 
-			It("creates the HCloud machine in Hetzner 1 (flaky)", func() {
+			It("creates the HCloud machine in Hetzner 1", func() {
 				By("checking that no servers exist")
 
 				Eventually(func() bool {
@@ -655,7 +655,7 @@ var _ = Describe("Hetzner secret", func() {
 	BeforeEach(func() {
 		hcloudClient.Reset()
 		var err error
-		testNs, err = testEnv.CreateNamespace(ctx, "hcloudmachine-validation")
+		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-validation")
 		Expect(err).NotTo(HaveOccurred())
 
 		hetznerClusterName = utils.GenerateName(nil, "hetzner-cluster-test")
@@ -807,7 +807,7 @@ var _ = Describe("HCloudMachine validation", func() {
 		hcloudClient.Reset()
 
 		var err error
-		testNs, err = testEnv.CreateNamespace(ctx, "hcloudmachine-validation")
+		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-validation")
 		Expect(err).NotTo(HaveOccurred())
 
 		hcloudMachine = &infrav1.HCloudMachine{

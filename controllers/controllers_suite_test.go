@@ -38,7 +38,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks"
+	robotmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/robot"
+	sshmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/ssh"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
+	fakehcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/fake"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/mockedsshclient"
 	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
 )
 
@@ -63,6 +68,74 @@ func TestControllers(t *testing.T) {
 	RunSpecs(t, "Controller Suite")
 }
 
+type ControllerResetter struct {
+	HetznerClusterReconciler              *HetznerClusterReconciler
+	HCloudMachineReconciler               *HCloudMachineReconciler
+	HCloudMachineTemplateReconciler       *HCloudMachineTemplateReconciler
+	HetznerBareMetalHostReconciler        *HetznerBareMetalHostReconciler
+	HetznerBareMetalMachineReconciler     *HetznerBareMetalMachineReconciler
+	HCloudRemediationReconciler           *HCloudRemediationReconciler
+	HetznerBareMetalRemediationReconciler *HetznerBareMetalRemediationReconciler
+}
+
+var _ helpers.Resetter = &ControllerResetter{}
+
+func (r *ControllerResetter) Reset(namespace string, testEnv *helpers.TestEnvironment, t FullGinkgoTInterface) {
+	rescueSSHClient := &sshmock.Client{}
+	rescueSSHClient.Test(t)
+
+	osSSHClientAfterInstallImage := &sshmock.Client{}
+	osSSHClientAfterInstallImage.Test(t)
+
+	osSSHClientAfterCloudInit := &sshmock.Client{}
+	osSSHClientAfterCloudInit.Test(t)
+
+	robotClient := &robotmock.Client{}
+	robotClient.Test(t)
+
+	hcloudSSHClient := &sshmock.Client{}
+	hcloudSSHClient.Test(t)
+
+	hcloudClientFactory := fakehcloudclient.NewHCloudClientFactory()
+
+	robotClientFactory := mocks.NewRobotFactory(robotClient)
+	baremetalSSHClientFactory := mocks.NewSSHFactory(rescueSSHClient,
+		osSSHClientAfterInstallImage, osSSHClientAfterCloudInit)
+
+	// Reset clients used by the test code
+	testEnv.BaremetalSSHClientFactory = mocks.NewSSHFactory(rescueSSHClient,
+		osSSHClientAfterInstallImage, osSSHClientAfterCloudInit)
+	testEnv.HCloudSSHClientFactory = mockedsshclient.NewSSHFactory(hcloudSSHClient)
+	testEnv.RescueSSHClient = rescueSSHClient
+	testEnv.OSSSHClientAfterInstallImage = osSSHClientAfterInstallImage
+	testEnv.OSSSHClientAfterCloudInit = osSSHClientAfterCloudInit
+	testEnv.RobotClientFactory = robotClientFactory
+	testEnv.RobotClient = robotClient
+
+	// Reset clients used by Reconcile() and the namespace
+	r.HetznerClusterReconciler.HCloudClientFactory = hcloudClientFactory
+	r.HetznerClusterReconciler.Namespace = namespace
+
+	r.HCloudMachineReconciler.HCloudClientFactory = hcloudClientFactory
+	r.HCloudMachineReconciler.SSHClientFactory = baremetalSSHClientFactory
+	r.HCloudMachineReconciler.Namespace = namespace
+
+	r.HCloudMachineTemplateReconciler.HCloudClientFactory = hcloudClientFactory
+	r.HCloudMachineTemplateReconciler.Namespace = namespace
+
+	r.HetznerBareMetalHostReconciler.RobotClientFactory = robotClientFactory
+	r.HetznerBareMetalHostReconciler.SSHClientFactory = baremetalSSHClientFactory
+	r.HetznerBareMetalHostReconciler.Namespace = namespace
+
+	r.HCloudRemediationReconciler.HCloudClientFactory = hcloudClientFactory
+	r.HCloudRemediationReconciler.Namespace = namespace
+
+	r.HetznerBareMetalMachineReconciler.HCloudClientFactory = hcloudClientFactory
+	r.HetznerBareMetalMachineReconciler.Namespace = namespace
+
+	r.HetznerBareMetalRemediationReconciler.Namespace = namespace
+}
+
 var _ = BeforeSuite(func() {
 	utilruntime.Must(infrav1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(clusterv1.AddToScheme(scheme.Scheme))
@@ -71,51 +144,62 @@ var _ = BeforeSuite(func() {
 	hcloudClient = testEnv.HCloudClientFactory.NewClient("")
 	wg.Add(1)
 
-	Expect((&HetznerClusterReconciler{
+	resetter := ControllerResetter{}
+
+	hetznerClusterReconciler := &HetznerClusterReconciler{
 		Client:                         testEnv.Manager.GetClient(),
 		APIReader:                      testEnv.Manager.GetAPIReader(),
 		RateLimitWaitTime:              5 * time.Minute,
-		HCloudClientFactory:            testEnv.HCloudClientFactory,
 		TargetClusterManagersWaitGroup: &wg,
-	}).SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
+	}
+	Expect(hetznerClusterReconciler.SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
+	resetter.HetznerClusterReconciler = hetznerClusterReconciler
 
-	Expect((&HCloudMachineReconciler{
-		Client:              testEnv.Manager.GetClient(),
-		APIReader:           testEnv.Manager.GetAPIReader(),
-		HCloudClientFactory: testEnv.HCloudClientFactory,
-		SSHClientFactory:    testEnv.BaremetalSSHClientFactory,
-	}).SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
+	hcloudMachineReconciler := &HCloudMachineReconciler{
+		Client:    testEnv.Manager.GetClient(),
+		APIReader: testEnv.Manager.GetAPIReader(),
+	}
+	Expect(hcloudMachineReconciler.SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
+	resetter.HCloudMachineReconciler = hcloudMachineReconciler
 
-	Expect((&HCloudMachineTemplateReconciler{
-		Client:              testEnv.Manager.GetClient(),
-		APIReader:           testEnv.Manager.GetAPIReader(),
-		HCloudClientFactory: testEnv.HCloudClientFactory,
-	}).SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
+	hcloudMachineTemplateReconciler := &HCloudMachineTemplateReconciler{
+		Client:    testEnv.Manager.GetClient(),
+		APIReader: testEnv.Manager.GetAPIReader(),
+	}
+	Expect(hcloudMachineTemplateReconciler.SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
+	resetter.HCloudMachineTemplateReconciler = hcloudMachineTemplateReconciler
 
-	Expect((&HetznerBareMetalHostReconciler{
-		Client:              testEnv.Manager.GetClient(),
-		APIReader:           testEnv.Manager.GetAPIReader(),
-		RobotClientFactory:  testEnv.RobotClientFactory,
-		SSHClientFactory:    testEnv.BaremetalSSHClientFactory,
-		PreProvisionCommand: "dummy-pre-provision-command",
-	}).SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
+	hetznerBareMetalHostReconciler := &HetznerBareMetalHostReconciler{
+		Client:               testEnv.Manager.GetClient(),
+		APIReader:            testEnv.Manager.GetAPIReader(),
+		PreProvisionCommand:  "dummy-pre-provision-command",
+		SSHAfterInstallImage: true,
+	}
+	Expect(hetznerBareMetalHostReconciler.SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
+	resetter.HetznerBareMetalHostReconciler = hetznerBareMetalHostReconciler
 
-	Expect((&HetznerBareMetalMachineReconciler{
-		Client:              testEnv.Manager.GetClient(),
-		APIReader:           testEnv.Manager.GetAPIReader(),
-		HCloudClientFactory: testEnv.HCloudClientFactory,
-	}).SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
+	hetznerBareMetalMachineReconciler := &HetznerBareMetalMachineReconciler{
+		Client:    testEnv.Manager.GetClient(),
+		APIReader: testEnv.Manager.GetAPIReader(),
+	}
+	Expect(hetznerBareMetalMachineReconciler.SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
+	resetter.HetznerBareMetalMachineReconciler = hetznerBareMetalMachineReconciler
 
-	Expect((&HCloudRemediationReconciler{
-		Client:              testEnv.Manager.GetClient(),
-		APIReader:           testEnv.Manager.GetAPIReader(),
-		RateLimitWaitTime:   5 * time.Minute,
-		HCloudClientFactory: testEnv.HCloudClientFactory,
-	}).SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
+	hcloudRemediationReconciler := &HCloudRemediationReconciler{
+		Client:            testEnv.Manager.GetClient(),
+		APIReader:         testEnv.Manager.GetAPIReader(),
+		RateLimitWaitTime: 5 * time.Minute,
+	}
+	Expect(hcloudRemediationReconciler.SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
+	resetter.HCloudRemediationReconciler = hcloudRemediationReconciler
 
-	Expect((&HetznerBareMetalRemediationReconciler{
+	hetznerBareMetalRemediationReconciler := &HetznerBareMetalRemediationReconciler{
 		Client: testEnv.Manager.GetClient(),
-	}).SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
+	}
+	Expect(hetznerBareMetalRemediationReconciler.SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
+	resetter.HetznerBareMetalRemediationReconciler = hetznerBareMetalRemediationReconciler
+
+	testEnv.Resetter = &resetter
 
 	go func() {
 		defer GinkgoRecover()
