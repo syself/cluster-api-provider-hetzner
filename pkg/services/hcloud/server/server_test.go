@@ -40,6 +40,7 @@ import (
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
+	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	fakehcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/fake"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/mocks"
 	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
@@ -126,12 +127,15 @@ var _ = DescribeTable("createLabels",
 
 var _ = Describe("handleServerStatusOff", func() {
 	var hcloudMachine *infrav1.HCloudMachine
-	client := fakehcloudclient.NewHCloudClientFactory().NewClient("")
-
-	server, err := client.CreateServer(context.Background(), hcloud.ServerCreateOpts{Name: "serverName"})
-	Expect(err).To(Succeed())
-
+	var server *hcloud.Server
+	var client hcloudclient.Client
 	BeforeEach(func() {
+		client = fakehcloudclient.NewHCloudClientFactory().NewClient("")
+
+		var err error
+		server, err = client.CreateServer(context.Background(), hcloud.ServerCreateOpts{Name: "serverName"})
+		Expect(err).To(Succeed())
+
 		hcloudMachine = &infrav1.HCloudMachine{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "hcloudMachineName",
