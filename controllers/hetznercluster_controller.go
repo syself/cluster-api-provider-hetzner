@@ -572,7 +572,7 @@ func reconcileOneWorkloadClusterSecret(ctx context.Context, clusterScope *scope.
 
 		wlSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken] = hcloudToken
 
-		// upstream hcloud-ccm uses by default the secret key "token", while the old Syself ccm used
+		// upstream hcloud-ccm uses by default the secret key "token", while the old Syself ccm fork used
 		// "hcloud". For compatibility, we create always the other key, too.
 		for _, key := range []string{"token", "hcloud"} {
 			wlSecret.Data[key] = hcloudToken
