@@ -76,6 +76,26 @@ type ControllerResetter struct {
 	HetznerBareMetalRemediationReconciler *HetznerBareMetalRemediationReconciler
 }
 
+func NewControllerResetter(
+	hetznerClusterReconciler *HetznerClusterReconciler,
+	hcloudMachineReconciler *HCloudMachineReconciler,
+	hcloudMachineTemplateReconciler *HCloudMachineTemplateReconciler,
+	hetznerBareMetalHostReconciler *HetznerBareMetalHostReconciler,
+	hetznerBareMetalMachineReconciler *HetznerBareMetalMachineReconciler,
+	hcloudRemediationReconciler *HCloudRemediationReconciler,
+	hetznerBareMetalRemediationReconciler *HetznerBareMetalRemediationReconciler,
+) *ControllerResetter {
+	return &ControllerResetter{
+		HetznerClusterReconciler:              hetznerClusterReconciler,
+		HCloudMachineReconciler:               hcloudMachineReconciler,
+		HCloudMachineTemplateReconciler:       hcloudMachineTemplateReconciler,
+		HetznerBareMetalHostReconciler:        hetznerBareMetalHostReconciler,
+		HetznerBareMetalMachineReconciler:     hetznerBareMetalMachineReconciler,
+		HCloudRemediationReconciler:           hcloudRemediationReconciler,
+		HetznerBareMetalRemediationReconciler: hetznerBareMetalRemediationReconciler,
+	}
+}
+
 var _ helpers.Resetter = &ControllerResetter{}
 
 func (r *ControllerResetter) Reset(namespace string, testEnv *helpers.TestEnvironment, t FullGinkgoTInterface) {
@@ -142,8 +162,6 @@ var _ = BeforeSuite(func() {
 	testEnv = helpers.NewTestEnvironment()
 	wg.Add(1)
 
-	resetter := ControllerResetter{}
-
 	hetznerClusterReconciler := &HetznerClusterReconciler{
 		Client:                         testEnv.Manager.GetClient(),
 		APIReader:                      testEnv.Manager.GetAPIReader(),
@@ -151,21 +169,18 @@ var _ = BeforeSuite(func() {
 		TargetClusterManagersWaitGroup: &wg,
 	}
 	Expect(hetznerClusterReconciler.SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
-	resetter.HetznerClusterReconciler = hetznerClusterReconciler
 
 	hcloudMachineReconciler := &HCloudMachineReconciler{
 		Client:    testEnv.Manager.GetClient(),
 		APIReader: testEnv.Manager.GetAPIReader(),
 	}
 	Expect(hcloudMachineReconciler.SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
-	resetter.HCloudMachineReconciler = hcloudMachineReconciler
 
 	hcloudMachineTemplateReconciler := &HCloudMachineTemplateReconciler{
 		Client:    testEnv.Manager.GetClient(),
 		APIReader: testEnv.Manager.GetAPIReader(),
 	}
 	Expect(hcloudMachineTemplateReconciler.SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
-	resetter.HCloudMachineTemplateReconciler = hcloudMachineTemplateReconciler
 
 	hetznerBareMetalHostReconciler := &HetznerBareMetalHostReconciler{
 		Client:               testEnv.Manager.GetClient(),
@@ -174,14 +189,12 @@ var _ = BeforeSuite(func() {
 		SSHAfterInstallImage: true,
 	}
 	Expect(hetznerBareMetalHostReconciler.SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
-	resetter.HetznerBareMetalHostReconciler = hetznerBareMetalHostReconciler
 
 	hetznerBareMetalMachineReconciler := &HetznerBareMetalMachineReconciler{
 		Client:    testEnv.Manager.GetClient(),
 		APIReader: testEnv.Manager.GetAPIReader(),
 	}
 	Expect(hetznerBareMetalMachineReconciler.SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
-	resetter.HetznerBareMetalMachineReconciler = hetznerBareMetalMachineReconciler
 
 	hcloudRemediationReconciler := &HCloudRemediationReconciler{
 		Client:            testEnv.Manager.GetClient(),
@@ -189,15 +202,16 @@ var _ = BeforeSuite(func() {
 		RateLimitWaitTime: 5 * time.Minute,
 	}
 	Expect(hcloudRemediationReconciler.SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
-	resetter.HCloudRemediationReconciler = hcloudRemediationReconciler
 
 	hetznerBareMetalRemediationReconciler := &HetznerBareMetalRemediationReconciler{
 		Client: testEnv.Manager.GetClient(),
 	}
 	Expect(hetznerBareMetalRemediationReconciler.SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
-	resetter.HetznerBareMetalRemediationReconciler = hetznerBareMetalRemediationReconciler
 
-	testEnv.Resetter = &resetter
+	testEnv.Resetter = NewControllerResetter(hetznerClusterReconciler, hcloudMachineReconciler,
+		hcloudMachineTemplateReconciler, hetznerBareMetalHostReconciler,
+		hetznerBareMetalMachineReconciler, hcloudRemediationReconciler,
+		hetznerBareMetalRemediationReconciler)
 
 	go func() {
 		defer GinkgoRecover()
