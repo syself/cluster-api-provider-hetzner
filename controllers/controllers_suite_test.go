@@ -99,20 +99,15 @@ func NewControllerResetter(
 var _ helpers.Resetter = &ControllerResetter{}
 
 func (r *ControllerResetter) Reset(namespace string, testEnv *helpers.TestEnvironment, t FullGinkgoTInterface) {
-	rescueSSHClient := &sshmock.Client{}
-	rescueSSHClient.Test(t)
+	rescueSSHClient := sshmock.NewClient(t)
 
-	osSSHClientAfterInstallImage := &sshmock.Client{}
-	osSSHClientAfterInstallImage.Test(t)
+	osSSHClientAfterInstallImage := sshmock.NewClient(t)
 
-	osSSHClientAfterCloudInit := &sshmock.Client{}
-	osSSHClientAfterCloudInit.Test(t)
+	osSSHClientAfterCloudInit := sshmock.NewClient(t)
 
-	robotClient := &robotmock.Client{}
-	robotClient.Test(t)
+	robotClient := robotmock.NewClient(t)
 
-	hcloudSSHClient := &sshmock.Client{}
-	hcloudSSHClient.Test(t)
+	hcloudSSHClient := sshmock.NewClient(t)
 
 	hcloudClientFactory := fakehcloudclient.NewHCloudClientFactory()
 
