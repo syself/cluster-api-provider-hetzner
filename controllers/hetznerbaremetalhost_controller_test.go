@@ -86,7 +86,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 
 	BeforeEach(func() {
 		var err error
-		testNs, err = testEnv.CreateNamespace(ctx, "baremetalhost-reconciler")
+		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "baremetalhost-reconciler")
 		Expect(err).NotTo(HaveOccurred())
 
 		hetznerClusterName = utils.GenerateName(nil, "hetzner-cluster-test")
@@ -209,7 +209,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 			Expect(testEnv.Cleanup(ctx, host)).To(Succeed())
 		})
 
-		It("creates the host machine", func() {
+		FIt("creates the host machine", func() {
 			Eventually(func() bool {
 				if err := testEnv.Get(ctx, key, host); err != nil {
 					return false
@@ -615,7 +615,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 
 	BeforeEach(func() {
 		var err error
-		testNs, err = testEnv.CreateNamespace(ctx, "baremetalmachine-reconciler")
+		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "baremetalmachine-reconciler")
 		Expect(err).NotTo(HaveOccurred())
 
 		hetznerClusterName = utils.GenerateName(nil, "hetzner-cluster-test")

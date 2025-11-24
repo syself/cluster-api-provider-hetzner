@@ -35,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
 )
@@ -268,11 +269,13 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 			key                client.ObjectKey
 			lbName             string
 			hetznerClusterName string
+			hcloudClient       hcloudclient.Client
 		)
 		BeforeEach(func() {
-			hcloudClient.Reset()
-			testNs, err = testEnv.CreateNamespace(ctx, "cluster-tests")
+			testNs, err = testEnv.ResetAndCreateNamespace(ctx, "cluster-tests")
 			Expect(err).NotTo(HaveOccurred())
+			hcloudClient = testEnv.HCloudClientFactory.NewClient("fake-token")
+
 			namespace = testNs.Name
 
 			lbName = utils.GenerateName(nil, "myloadbalancer")
@@ -334,7 +337,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 		})
 
 		Context("load balancer", func() {
-			It("should create load balancer and update it accordingly (flaky)", func() {
+			It("should create load balancer and update it accordingly", func() {
 				Expect(testEnv.Create(ctx, instance)).To(Succeed())
 
 				Eventually(func() bool {
@@ -530,7 +533,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 				}, timeout, time.Second).Should(BeTrue())
 			})
 
-			It("should take over an existing load balancer with correct name (flaky)", func() {
+			It("should take over an existing load balancer with correct name", func() {
 				By("creating load balancer manually")
 
 				opts := hcloud.LoadBalancerCreateOpts{
@@ -576,7 +579,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 						"message", c.Message,
 					)
 					return false
-				}, 2*timeout, time.Second).Should(BeTrue()) // flaky ?
+				}, 2*timeout, time.Second).Should(BeTrue())
 
 				By("checking that load balancer has label set")
 
@@ -625,7 +628,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 					return false
 				}, timeout, time.Second).Should(BeTrue())
 
-				By("deleting the cluster and load balancer and testing that owned label is gone (flaky)")
+				By("deleting the cluster and load balancer and testing that owned label is gone")
 
 				Expect(testEnv.Delete(ctx, instance))
 
@@ -633,7 +636,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 					loadBalancers, err := hcloudClient.ListLoadBalancers(ctx, hcloud.LoadBalancerListOpts{Name: lbName})
 					// there should always be one load balancer, if not, then this is a problem where we can immediately return
 					Expect(err).To(BeNil())
-					Expect(loadBalancers).To(HaveLen(1)) // flaky
+					Expect(loadBalancers).To(HaveLen(1))
 
 					_, found := loadBalancers[0].Labels[instance.ClusterTagKey()]
 					return found
@@ -963,9 +966,8 @@ var _ = Describe("Hetzner secret", func() {
 	)
 
 	BeforeEach(func() {
-		hcloudClient.Reset()
 		var err error
-		testNs, err = testEnv.CreateNamespace(ctx, "hetzner-secret")
+		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hetzner-secret")
 		Expect(err).NotTo(HaveOccurred())
 
 		hetznerClusterName = utils.GenerateName(nil, "hetzner-cluster-test")
@@ -1062,9 +1064,8 @@ var _ = Describe("HetznerCluster validation", func() {
 		testNs         *corev1.Namespace
 	)
 	BeforeEach(func() {
-		hcloudClient.Reset()
 		var err error
-		testNs, err = testEnv.CreateNamespace(ctx, "hcloudmachine-validation")
+		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-validation")
 		Expect(err).NotTo(HaveOccurred())
 	})
 	AfterEach(func() {
@@ -1148,7 +1149,6 @@ var _ = Describe("HetznerCluster validation", func() {
 var _ = Describe("reconcileRateLimit", func() {
 	var hetznerCluster *infrav1.HetznerCluster
 	BeforeEach(func() {
-		hcloudClient.Reset()
 		hetznerCluster = &infrav1.HetznerCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "rate-limit-cluster",

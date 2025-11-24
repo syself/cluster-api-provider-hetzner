@@ -62,6 +62,9 @@ type HCloudMachineReconciler struct {
 	SSHClientFactory    sshclient.Factory
 	WatchFilterValue    string
 	ImageURLCommand     string
+
+	// Reconcile only this namespace. Only needed for testing
+	Namespace string
 }
 
 //+kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;patch
@@ -74,6 +77,11 @@ type HCloudMachineReconciler struct {
 // Reconcile manages the lifecycle of an HCloud machine object.
 func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.Request) (res reconcile.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
+
+	if r.Namespace != "" && req.Namespace != r.Namespace {
+		// Just for testing, skip reconciling objects from finished tests.
+		return ctrl.Result{}, nil
+	}
 
 	// Fetch the HCloudMachine instance.
 	hcloudMachine := &infrav1.HCloudMachine{}
