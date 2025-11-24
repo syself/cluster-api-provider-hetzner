@@ -225,13 +225,13 @@ func (s *Service) setOwnerRemediatedConditionToFailed(ctx context.Context, msg s
 
 	// When machine is still unhealthy after remediation, setting of OwnerRemediatedCondition
 	// moves control to CAPI machine controller. The owning controller will do
-	// preflight checks and handles the Machine deletion
+	// preflight checks and handles the Machine deletion.
 	conditions.MarkFalse(
 		capiMachine,
 		clusterv1.MachineOwnerRemediatedCondition,
 		clusterv1.WaitingForRemediationReason,
 		clusterv1.ConditionSeverityWarning,
-		"Remediation finished: %s", msg,
+		"Remediation finished (machine will be deleted): %s", msg,
 	)
 
 	if err := patchHelper.Patch(ctx, capiMachine); err != nil {
