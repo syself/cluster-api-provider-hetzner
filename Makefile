@@ -766,6 +766,7 @@ ifeq ($(BUILD_IN_CONTAINER),true)
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
 else
 	@lychee --version
+	@if [ -z "$${GITHUB_TOKEN}" ]; then echo "GITHUB_TOKEN is not set"; exit 1; fi
 	lychee --verbose --config .lychee.toml ./*.md  ./docs/**/*.md 2>&1 | grep -vP '\[(200|EXCLUDED)\]'
 endif
 

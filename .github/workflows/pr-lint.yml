@@ -44,6 +44,8 @@ jobs:
       # if there's a diff then the workflow will exit here.
       - name: Run make verify
         run: make BUILD_IN_CONTAINER=false verify
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Lint Golang Code
         run: make BUILD_IN_CONTAINER=false lint-golang-ci
