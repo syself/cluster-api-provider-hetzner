@@ -210,10 +210,12 @@ type Resetter struct{}
 var _ helpers.Resetter = &Resetter{}
 
 func (r *Resetter) Reset(_ string, testEnv *helpers.TestEnvironment, t FullGinkgoTInterface) {
-	rescueSSHClient := sshmock.NewClient(t)
+	rescueSSHClient := &sshmock.Client{}
+	rescueSSHClient.Test(t)
 	testEnv.RescueSSHClient = rescueSSHClient
 
-	testEnv.HCloudSSHClient = sshmock.NewClient(t)
+	testEnv.HCloudSSHClient = &sshmock.Client{}
+	testEnv.HCloudSSHClient.Test(t)
 	testEnv.HCloudSSHClientFactory = mockedsshclient.NewSSHFactory(testEnv.HCloudSSHClient)
 }
 

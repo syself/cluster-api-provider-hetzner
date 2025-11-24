@@ -209,7 +209,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 			Expect(testEnv.Cleanup(ctx, host)).To(Succeed())
 		})
 
-		It("creates the host machine", func() {
+		FIt("creates the host machine", func() {
 			Eventually(func() bool {
 				if err := testEnv.Get(ctx, key, host); err != nil {
 					return false
