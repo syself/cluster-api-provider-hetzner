@@ -107,10 +107,13 @@ func init() {
 // resetting.
 type Resetter interface {
 	// Reset resets the objects shared between tests. This avoids that changes done by the first
-	// test will modify the environment of the second test. Testify Mocks should be initialized with
-	// fooMock.Test(t), to ensure failures are propagated to the corresponding test. Otherwise
-	// errors of mocks will panic on usage, and finding the corresponding test to the panic is
-	// sometimes not trivial.
+	// test will modify the environment of the second test.
+	//
+	// namespace: is the name of the new namespace which the test will use. Related: https://book.kubebuilder.io/reference/envtest.html#namespace-usage-limitation
+	//
+	// testEnv: the TestEnvironment which should be resetted.
+	//
+	// t: g.GinkgoT()
 	Reset(namespace string, testEnv *TestEnvironment, t g.FullGinkgoTInterface)
 }
 
@@ -135,7 +138,7 @@ type TestEnvironment struct {
 
 // NewTestEnvironment creates a new environment spinning up a local api-server. Factories for
 // clients (like HCloudClientFactory) are not created. This gets done in ResetAndCreateNamespace(),
-// which you should use at the beginning of each test.
+// which should be use at the beginning of each test.
 func NewTestEnvironment() *TestEnvironment {
 	// initialize webhook here to be able to test the envtest install via webhookOptions
 	initializeWebhookInEnvironment()
