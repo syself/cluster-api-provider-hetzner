@@ -35,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
 )
@@ -268,11 +269,13 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 			key                client.ObjectKey
 			lbName             string
 			hetznerClusterName string
+			hcloudClient       hcloudclient.Client
 		)
 		BeforeEach(func() {
-			hcloudClient.Reset()
 			testNs, err = testEnv.ResetAndCreateNamespace(ctx, "cluster-tests")
 			Expect(err).NotTo(HaveOccurred())
+			hcloudClient = testEnv.HCloudClientFactory.NewClient("fake-token")
+
 			namespace = testNs.Name
 
 			lbName = utils.GenerateName(nil, "myloadbalancer")
@@ -963,7 +966,6 @@ var _ = Describe("Hetzner secret", func() {
 	)
 
 	BeforeEach(func() {
-		hcloudClient.Reset()
 		var err error
 		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hetzner-secret")
 		Expect(err).NotTo(HaveOccurred())
@@ -1062,7 +1064,6 @@ var _ = Describe("HetznerCluster validation", func() {
 		testNs         *corev1.Namespace
 	)
 	BeforeEach(func() {
-		hcloudClient.Reset()
 		var err error
 		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-validation")
 		Expect(err).NotTo(HaveOccurred())
@@ -1148,7 +1149,6 @@ var _ = Describe("HetznerCluster validation", func() {
 var _ = Describe("reconcileRateLimit", func() {
 	var hetznerCluster *infrav1.HetznerCluster
 	BeforeEach(func() {
-		hcloudClient.Reset()
 		hetznerCluster = &infrav1.HetznerCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "rate-limit-cluster",

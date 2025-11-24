@@ -55,7 +55,6 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 	)
 
 	BeforeEach(func() {
-		hcloudClient.Reset()
 		var err error
 		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachinetemplate-reconciler")
 		Expect(err).NotTo(HaveOccurred())
@@ -221,6 +220,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 			providerID, err := hcloudutil.ServerIDFromProviderID(hcloudMachine.Spec.ProviderID)
 			Expect(err).NotTo(HaveOccurred())
 
+			hcloudClient := testEnv.HCloudClientFactory.NewClient("fake-token")
 			Expect(hcloudClient.DeleteServer(ctx, &hcloud.Server{ID: providerID})).NotTo(HaveOccurred())
 
 			By("creating the hcloudRemediation")

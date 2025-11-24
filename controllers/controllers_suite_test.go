@@ -41,7 +41,6 @@ import (
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks"
 	robotmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/robot"
 	sshmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/ssh"
-	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	fakehcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/fake"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/mockedsshclient"
 	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
@@ -55,7 +54,6 @@ const (
 
 var (
 	testEnv                   *helpers.TestEnvironment
-	hcloudClient              hcloudclient.Client
 	ctx                       = ctrl.SetupSignalHandler()
 	wg                        sync.WaitGroup
 	defaultPlacementGroupName = "caph-placement-group"
@@ -111,6 +109,7 @@ func (r *ControllerResetter) Reset(namespace string, testEnv *helpers.TestEnviro
 	testEnv.OSSSHClientAfterCloudInit = osSSHClientAfterCloudInit
 	testEnv.RobotClientFactory = robotClientFactory
 	testEnv.RobotClient = robotClient
+	testEnv.HCloudClientFactory = hcloudClientFactory
 
 	// Reset clients used by Reconcile() and the namespace
 	r.HetznerClusterReconciler.HCloudClientFactory = hcloudClientFactory
@@ -141,7 +140,6 @@ var _ = BeforeSuite(func() {
 	utilruntime.Must(clusterv1.AddToScheme(scheme.Scheme))
 
 	testEnv = helpers.NewTestEnvironment()
-	hcloudClient = testEnv.HCloudClientFactory.NewClient("")
 	wg.Add(1)
 
 	resetter := ControllerResetter{}

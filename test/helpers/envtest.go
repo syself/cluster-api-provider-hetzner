@@ -57,7 +57,6 @@ import (
 	robotclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/robot"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
-	fakehcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/fake"
 )
 
 func init() {
@@ -105,9 +104,7 @@ func init() {
 }
 
 // Resetter provides an interface, so that test-suites using TestEnvironment can define their custom
-// resetting. Mocks get used in two places: In the real code (like FooReconciler) and during the
-// tests (for FooMock.On("....")). The Resetter contains the pointer to the places where mocks need
-// to be updated on Reset().
+// resetting.
 type Resetter interface {
 	// Reset resets the objects shared between tests. This avoids that changes done by the first
 	// test will modify the environment of the second test. Testify Mocks should be initialized with
@@ -136,7 +133,9 @@ type TestEnvironment struct {
 	Resetter                     Resetter
 }
 
-// NewTestEnvironment creates a new environment spinning up a local api-server.
+// NewTestEnvironment creates a new environment spinning up a local api-server. Factories for
+// clients (like HCloudClientFactory) are not created. This gets done in ResetAndCreateNamespace(),
+// which you should use at the beginning of each test.
 func NewTestEnvironment() *TestEnvironment {
 	// initialize webhook here to be able to test the envtest install via webhookOptions
 	initializeWebhookInEnvironment()
@@ -203,15 +202,11 @@ func NewTestEnvironment() *TestEnvironment {
 	if err := (&infrav1.HCloudRemediationTemplate{}).SetupWebhookWithManager(mgr); err != nil {
 		klog.Fatalf("failed to set up webhook with manager for HCloudRemediationTemplate: %s", err)
 	}
-	// Create a fake HCloudClientFactory
-	hcloudClientFactory := fakehcloudclient.NewHCloudClientFactory()
 
 	return &TestEnvironment{
-		Manager:             mgr,
-		Client:              mgr.GetClient(),
-		Config:              mgr.GetConfig(),
-		HCloudClientFactory: hcloudClientFactory,
-
+		Manager:           mgr,
+		Client:            mgr.GetClient(),
+		Config:            mgr.GetConfig(),
 		RateLimitWaitTime: 5 * time.Minute,
 	}
 }

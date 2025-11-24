@@ -34,6 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
@@ -237,14 +238,15 @@ var _ = Describe("HCloudMachineReconciler", func() {
 		key client.ObjectKey
 
 		hcloudMachineName string
+
+		hcloudClient hcloudclient.Client
 	)
 
 	BeforeEach(func() {
-		hcloudClient.Reset()
-
 		var err error
 		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-reconciler")
 		Expect(err).NotTo(HaveOccurred())
+		hcloudClient = testEnv.HCloudClientFactory.NewClient("fake-token")
 
 		capiCluster = &clusterv1.Cluster{
 			ObjectMeta: metav1.ObjectMeta{
@@ -369,7 +371,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				By("checking that no servers exist")
 
 				Eventually(func() bool {
-					servers, err := hcloudClient.ListServers(ctx, hcloud.ServerListOpts{
+					servers, err := testEnv.HCloudClientFactory.NewClient("fake-token").ListServers(ctx, hcloud.ServerListOpts{
 						ListOpts: hcloud.ListOpts{
 							LabelSelector: utils.LabelsToLabelSelector(map[string]string{hetznerCluster.ClusterTagKey(): "owned"}),
 						},
@@ -653,7 +655,6 @@ var _ = Describe("Hetzner secret", func() {
 	)
 
 	BeforeEach(func() {
-		hcloudClient.Reset()
 		var err error
 		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-validation")
 		Expect(err).NotTo(HaveOccurred())
@@ -804,8 +805,6 @@ var _ = Describe("HCloudMachine validation", func() {
 	)
 
 	BeforeEach(func() {
-		hcloudClient.Reset()
-
 		var err error
 		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-validation")
 		Expect(err).NotTo(HaveOccurred())
@@ -858,8 +857,6 @@ var _ = Describe("IgnoreInsignificantHetznerClusterUpdates Predicate", func() {
 	)
 
 	BeforeEach(func() {
-		hcloudClient.Reset()
-
 		predicate = IgnoreInsignificantHetznerClusterUpdates(klog.Background())
 
 		oldCluster = &infrav1.HetznerCluster{

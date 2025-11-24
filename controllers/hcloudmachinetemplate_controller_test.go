@@ -38,7 +38,6 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 	)
 
 	BeforeEach(func() {
-		hcloudClient.Reset()
 		var err error
 		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachinetemplate-reconciler")
 		Expect(err).NotTo(HaveOccurred())
@@ -144,8 +143,6 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 			)
 
 			BeforeEach(func() {
-				hcloudClient.Reset()
-
 				capiCluster = &clusterv1.Cluster{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "test-",
