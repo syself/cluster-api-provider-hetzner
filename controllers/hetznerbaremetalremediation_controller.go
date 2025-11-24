@@ -88,8 +88,11 @@ func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, r
 	bareMetalMachine := &infrav1.HetznerBareMetalMachine{}
 
 	key := client.ObjectKey{
-		Name:      machine.Spec.InfrastructureRef.Name,
-		Namespace: machine.Namespace,
+		Name: machine.Spec.InfrastructureRef.Name,
+
+		// Use the Namespace from the bareMetalRemediation, because cross-namespace references are
+		// not allowed.
+		Namespace: bareMetalRemediation.Namespace,
 	}
 
 	if err := r.Get(ctx, key, bareMetalMachine); err != nil {

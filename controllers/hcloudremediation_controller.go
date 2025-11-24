@@ -95,8 +95,11 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 	hcloudMachine := &infrav1.HCloudMachine{}
 
 	key := client.ObjectKey{
-		Name:      machine.Spec.InfrastructureRef.Name,
-		Namespace: machine.Spec.InfrastructureRef.Namespace,
+		Name: machine.Spec.InfrastructureRef.Name,
+
+		// Use the Namespace from the hcloudRemediation, because cross-namespace references are not
+		// allowed.
+		Namespace: hcloudRemediation.Namespace,
 	}
 
 	if err := r.Get(ctx, key, hcloudMachine); err != nil {
