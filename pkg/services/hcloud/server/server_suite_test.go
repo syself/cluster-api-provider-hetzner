@@ -209,7 +209,7 @@ type Resetter struct{}
 
 var _ helpers.Resetter = &Resetter{}
 
-func (r *Resetter) Reset(_ string, testEnv *helpers.TestEnvironment, t FullGinkgoTInterface) {
+func (r *Resetter) ResetAndInitNamespace(_ string, testEnv *helpers.TestEnvironment, t FullGinkgoTInterface) {
 	rescueSSHClient := &sshmock.Client{}
 	rescueSSHClient.Test(t)
 	testEnv.RescueSSHClient = rescueSSHClient

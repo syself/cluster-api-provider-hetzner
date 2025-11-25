@@ -98,7 +98,7 @@ func NewControllerResetter(
 
 var _ helpers.Resetter = &ControllerResetter{}
 
-func (r *ControllerResetter) Reset(namespace string, testEnv *helpers.TestEnvironment, t FullGinkgoTInterface) {
+func (r *ControllerResetter) ResetAndInitNamespace(namespace string, testEnv *helpers.TestEnvironment, t FullGinkgoTInterface) {
 	rescueSSHClient := &sshmock.Client{}
 	rescueSSHClient.Test(t)
 
