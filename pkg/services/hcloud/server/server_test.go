@@ -178,7 +178,7 @@ var _ = Describe("handleServerStatusOff", func() {
 		Expect(conditions.GetReason(hcloudMachine, infrav1.ServerAvailableCondition)).To(Equal(infrav1.ServerOffReason))
 	})
 
-	FIt("sets a failure message if it timed out", func() {
+	It("sets a failure message if it timed out", func() {
 		conditions.MarkFalse(hcloudMachine, infrav1.ServerAvailableCondition, infrav1.ServerOffReason, clusterv1.ConditionSeverityInfo, "")
 
 		// manipulate lastTransitionTime

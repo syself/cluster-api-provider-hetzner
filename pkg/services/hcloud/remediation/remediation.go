@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
+	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -59,20 +60,16 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	// stop remediation if server does not exist or ProviderID is nil (in this case the server
 	// cannot exist).
 	if server == nil {
-		s.scope.HCloudRemediation.Status.Phase = infrav1.PhaseDeleting
+		msg := "ProviderID is not set"
+		if s.scope.HCloudMachine.Spec.ProviderID != nil {
+			msg = fmt.Sprintf("No server found via hcloud api for providerID %q",
+				*s.scope.HCloudMachine.Spec.ProviderID)
+		}
 
-		if err := s.setOwnerRemediatedCondition(ctx); err != nil {
+		if err := s.setOwnerRemediatedConditionToFailed(ctx, msg); err != nil {
 			record.Warn(s.scope.HCloudRemediation, "FailedSettingConditionOnMachine", err.Error())
 			return reconcile.Result{}, fmt.Errorf("failed to set conditions on CAPI machine: %w", err)
 		}
-		providerID := "nil"
-		if s.scope.HCloudMachine.Spec.ProviderID != nil {
-			providerID = *s.scope.HCloudMachine.Spec.ProviderID
-		}
-		msg := fmt.Sprintf("exit remediation because hcloud server (providerID=%s) does not exist",
-			providerID)
-		s.scope.Logger.Error(nil, msg)
-		record.Warn(s.scope.HCloudRemediation, "ExitRemediation", msg)
 		return res, nil
 	}
 
@@ -145,7 +142,7 @@ func (s *Service) handlePhaseRunning(ctx context.Context, server *hcloud.Server)
 	return res, nil
 }
 
-func (s *Service) handlePhaseWaiting(ctx context.Context) (res reconcile.Result, err error) {
+func (s *Service) handlePhaseWaiting(ctx context.Context) (reconcile.Result, error) {
 	nextCheck := s.timeUntilNextRemediation(time.Now())
 
 	if nextCheck > 0 {
@@ -153,19 +150,15 @@ func (s *Service) handlePhaseWaiting(ctx context.Context) (res reconcile.Result,
 		return reconcile.Result{RequeueAfter: nextCheck}, nil
 	}
 
-	// When machine is still unhealthy after remediation, setting of OwnerRemediatedCondition
-	// moves control to CAPI machine controller. The owning controller will do
-	// preflight checks and handles the Machine deletion
-
-	s.scope.HCloudRemediation.Status.Phase = infrav1.PhaseDeleting
-
-	if err := s.setOwnerRemediatedCondition(ctx); err != nil {
+	err := s.setOwnerRemediatedConditionToFailed(ctx,
+		"exit remediation because because retryLimit is reached and reboot timed out")
+	if err != nil {
 		record.Warn(s.scope.HCloudRemediation, "FailedSettingConditionOnMachine", err.Error())
 		return reconcile.Result{}, fmt.Errorf("failed to set conditions on CAPI machine: %w", err)
 	}
-	record.Event(s.scope.HCloudRemediation, "SetOwnerRemediatedCondition", "exit remediation because because retryLimit is reached and reboot timed out")
 
-	return res, nil
+	// do not reconcile again.
+	return reconcile.Result{}, nil
 }
 
 func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
@@ -183,19 +176,30 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 	return server, nil
 }
 
-// setOwnerRemediatedCondition sets MachineOwnerRemediatedCondition on CAPI machine object
+// setOwnerRemediatedConditionToFailed sets MachineOwnerRemediatedCondition on CAPI machine object
 // that have failed a healthcheck.
-func (s *Service) setOwnerRemediatedCondition(ctx context.Context) error {
+func (s *Service) setOwnerRemediatedConditionToFailed(ctx context.Context, msg string) error {
+	patchHelper, err := patch.NewHelper(s.scope.Machine, s.scope.Client)
+	if err != nil {
+		return fmt.Errorf("failed to init patch helper: %w", err)
+	}
+
+	// Move control to CAPI machine controller. CAPI will delete the machine.
 	conditions.MarkFalse(
 		s.scope.Machine,
 		clusterv1.MachineOwnerRemediatedCondition,
 		clusterv1.WaitingForRemediationReason,
 		clusterv1.ConditionSeverityWarning,
-		"",
+		"Remediation finished (machine will be deleted): %s", msg,
 	)
-	if err := s.scope.PatchMachine(ctx); err != nil {
-		return fmt.Errorf("failed to patch machine: %w", err)
+
+	if err := patchHelper.Patch(ctx, s.scope.HCloudMachine); err != nil {
+		return fmt.Errorf("failed to patch: %w", err)
 	}
+
+	record.Event(s.scope.HCloudRemediation, "ExitRemediation", msg)
+
+	s.scope.HCloudRemediation.Status.Phase = infrav1.PhaseDeleting
 	return nil
 }
 
