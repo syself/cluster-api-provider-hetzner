@@ -150,7 +150,7 @@ func SetErrorAndRemediateMachine(ctx context.Context, crClient client.Client, ca
 
 	// Apply patch – only the diff (annotations) is sent to the API server
 	if err := crClient.Patch(ctx, capiMachine, patch); err != nil {
-		return fmt.Errorf("Patch failed in SetErrorAndRemediate: %w", err)
+		return fmt.Errorf("patch failed in SetErrorAndRemediate: %w", err)
 	}
 
 	record.Warnf(hcloudMachine,
