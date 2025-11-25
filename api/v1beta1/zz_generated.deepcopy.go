@@ -245,13 +245,13 @@ func (in *HCloudMachineStatus) DeepCopyInto(out *HCloudMachineStatus) {
 		*out = new(hcloud.ServerStatus)
 		**out = **in
 	}
-	if in.FailureReasonpppp != nil {
-		in, out := &in.FailureReasonpppp, &out.FailureReasonpppp
+	if in.FailureReason != nil {
+		in, out := &in.FailureReason, &out.FailureReason
 		*out = new(errors.MachineStatusError)
 		**out = **in
 	}
-	if in.FailureMessagepppp != nil {
-		in, out := &in.FailureMessagepppp, &out.FailureMessagepppp
+	if in.FailureMessage != nil {
+		in, out := &in.FailureMessage, &out.FailureMessage
 		*out = new(string)
 		**out = **in
 	}

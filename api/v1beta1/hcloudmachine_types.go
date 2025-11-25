@@ -117,17 +117,23 @@ type HCloudMachineStatus struct {
 	// +optional
 	InstanceState *hcloud.ServerStatus `json:"instanceState,omitempty"`
 
-	// FailureReasonpppp will be set in the event that there is a terminal problem
+	// FailureReason will be set in the event that there is a terminal problem
 	// reconciling the Machine and will contain a succinct value suitable
 	// for machine interpretation.
+	//
+	// Deprecated: This field is deprecated and is going to be removed when support for v1beta1 will be dropped. Please see https://github.com/kubernetes-sigs/cluster-api/blob/main/docs/proposals/20240916-improve-status-in-CAPI-resources.md for more details.
+	//
 	// +optional
-	FailureReasonpppp *capierrors.MachineStatusError `json:"failureReason,omitempty"`
+	FailureReason *capierrors.MachineStatusError `json:"failureReason,omitempty"`
 
-	// FailureMessagepppp will be set in the event that there is a terminal problem
+	// FailureMessage will be set in the event that there is a terminal problem
 	// reconciling the Machine and will contain a more verbose string suitable
 	// for logging and human consumption.
+	//
+	// Deprecated: This field is deprecated and is going to be removed when support for v1beta1 will be dropped. Please see https://github.com/kubernetes-sigs/cluster-api/blob/main/docs/proposals/20240916-improve-status-in-CAPI-resources.md for more details.
+	//
 	// +optional
-	FailureMessagepppp *string `json:"failureMessage,omitempty"`
+	FailureMessage *string `json:"failureMessage,omitempty"`
 
 	// Conditions define the current service state of the HCloudMachine.
 	// +optional
