@@ -26,7 +26,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
@@ -46,7 +45,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
@@ -242,21 +240,6 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 	if !hcloudMachine.ObjectMeta.DeletionTimestamp.IsZero() {
 		return r.reconcileDelete(ctx, machineScope)
 	}
-
-	_, exists := machine.Annotations[clusterv1.RemediateMachineAnnotation]
-	if exists {
-		// This hbmm will be deleted soon. Do no reconcile it.
-		msg := "CAPI Machine has RemediateMachineAnnotation. Not reconciling this machine."
-		log.Info(msg)
-		c := conditions.Get(hcloudMachine, v1beta1.NoRemediateMachineAnnotationCondition)
-		if c == nil || c.Status != corev1.ConditionFalse {
-			// Do not overwrite the message of the condition, if the condition already exists.
-			conditions.MarkFalse(hcloudMachine, v1beta1.NoRemediateMachineAnnotationCondition,
-				v1beta1.RemediateMachineAnnotationIsSetReason, clusterv1.ConditionSeverityInfo, "%s", msg)
-		}
-		return reconcile.Result{}, nil
-	}
-	conditions.MarkTrue(hcloudMachine, v1beta1.NoRemediateMachineAnnotationCondition)
 
 	return r.reconcileNormal(ctx, machineScope)
 }
