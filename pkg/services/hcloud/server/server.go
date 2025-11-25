@@ -123,7 +123,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 
 			err := s.scope.SetErrorAndRemediate(ctx, msg)
 			if err != nil {
-				return reconcile.Result{}, err
+				return reconcile.Result{}, fmt.Errorf("SetErrorAndRemediate failed: %w", err)
 			}
 			s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateUnset)
 			record.Warn(s.scope.HCloudMachine, "NoHCloudServerFound", msg)

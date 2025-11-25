@@ -27,7 +27,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1" //nolint:staticcheck // we will handle that, when we update to capi v1.11
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
@@ -145,7 +145,7 @@ func (m *MachineScope) SetErrorAndRemediate(ctx context.Context, message string)
 
 	// Apply patch – only the diff (annotations) is sent to the API server
 	if err := m.Client.Patch(ctx, obj, patch); err != nil {
-		return err
+		return fmt.Errorf("Patch failed in SetErrorAndRemediate: %w", err)
 	}
 
 	record.Warnf(m.HCloudMachine,
