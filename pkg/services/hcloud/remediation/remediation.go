@@ -30,6 +30,8 @@ import (
 	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	corev1 "k8s.io/api/core/v1"
+
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
@@ -71,6 +73,20 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 			return reconcile.Result{}, fmt.Errorf("failed to set conditions on CAPI machine: %w", err)
 		}
 		return res, nil
+	}
+
+	// if SetErrorAndRemediate() was used to stop provisioning, do not try to reboot server
+	infraMachineCondition := conditions.Get(s.scope.HCloudMachine, infrav1.NoRemediateMachineAnnotationCondition)
+	if infraMachineCondition != nil && infraMachineCondition.Status == corev1.ConditionFalse {
+		err := s.setOwnerRemediatedConditionToFailed(ctx,
+			fmt.Sprintf("exit remediation because infra machine has condition set: %s: %s",
+				infraMachineCondition.Reason,
+				infraMachineCondition.Message))
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("setOwnerRemediatedConditionToFailed failed: %w", err)
+		}
+		panic("qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq")
+		return reconcile.Result{}, nil
 	}
 
 	remediationType := s.scope.HCloudRemediation.Spec.Strategy.Type
@@ -193,7 +209,7 @@ func (s *Service) setOwnerRemediatedConditionToFailed(ctx context.Context, msg s
 		"Remediation finished (machine will be deleted): %s", msg,
 	)
 
-	if err := patchHelper.Patch(ctx, s.scope.HCloudMachine); err != nil {
+	if err := patchHelper.Patch(ctx, s.scope.Machine); err != nil {
 		return fmt.Errorf("failed to patch: %w", err)
 	}
 
