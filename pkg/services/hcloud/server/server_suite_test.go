@@ -33,7 +33,7 @@ import (
 	"k8s.io/kubectl/pkg/scheme"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
@@ -264,7 +264,7 @@ func newTestService(hcloudMachine *infrav1.HCloudMachine, hcloudClient hcloudcli
 	scheme := runtime.NewScheme()
 	utilruntime.Must(infrav1.AddToScheme(scheme))
 	utilruntime.Must(clusterv1.AddToScheme(scheme))
-	client := fake.NewClientBuilder().WithScheme(scheme).Build()
+	client := fakeclient.NewClientBuilder().WithScheme(scheme).Build()
 	machine := &clusterv1.Machine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      hcloudMachine.Name,

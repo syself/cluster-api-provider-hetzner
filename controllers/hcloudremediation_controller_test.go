@@ -339,7 +339,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 			Expect(err).ShouldNot(HaveOccurred())
 			providerID := hcloudutil.ProviderIDFromServerID(int(server.ID))
 			hcloudMachine.Spec.ProviderID = &providerID
-			testEnv.Update(ctx, hcloudMachine)
+			err = testEnv.Update(ctx, hcloudMachine)
 			Expect(err).ShouldNot(HaveOccurred())
 
 			By("Call SetErrorAndRemediateMachine")
@@ -367,7 +367,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				}
 				c := conditions.Get(hcloudMachine, infrav1.NoRemediateMachineAnnotationCondition)
 				if c == nil {
-					return fmt.Errorf("NoRemediateMachineAnnotationCondition not set yet.")
+					return fmt.Errorf("not set: NoRemediateMachineAnnotationCondition")
 				}
 				if c.Status != corev1.ConditionFalse {
 					return fmt.Errorf("Status not not set yet")
@@ -407,10 +407,10 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 
 				c := conditions.Get(capiMachine, clusterv1.MachineOwnerRemediatedCondition)
 				if c == nil {
-					return fmt.Errorf("MachineOwnerRemediatedCondition not set yet.")
+					return fmt.Errorf("not set: MachineOwnerRemediatedCondition")
 				}
 				if c.Status != corev1.ConditionFalse {
-					return fmt.Errorf("Status not not set yet")
+					return fmt.Errorf("status not not set yet")
 				}
 				if c.Message != "Remediation finished (machine will be deleted): exit remediation because infra machine has condition set: RemediateMachineAnnotationIsSet: test-of-set-error-and-remediate" {
 					return fmt.Errorf("Message is not as expected: %q", c.Message)
