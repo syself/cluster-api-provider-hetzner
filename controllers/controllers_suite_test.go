@@ -98,6 +98,8 @@ func NewControllerResetter(
 
 var _ helpers.Resetter = &ControllerResetter{}
 
+// ResetAndInitNamespace implements Resetter.ResetAndInitNamespace(). Documentation is on the
+// interface.
 func (r *ControllerResetter) ResetAndInitNamespace(namespace string, testEnv *helpers.TestEnvironment, t FullGinkgoTInterface) {
 	rescueSSHClient := &sshmock.Client{}
 	rescueSSHClient.Test(t)
