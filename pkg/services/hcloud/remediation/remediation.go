@@ -23,14 +23,13 @@ import (
 	"time"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	corev1 "k8s.io/api/core/v1"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
@@ -50,9 +49,23 @@ func NewService(scope *scope.HCloudRemediationScope) *Service {
 }
 
 // Reconcile implements reconcilement of HCloudRemediation.
-func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err error) {
+func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
+	// if SetErrorAndRemediate() was used to stop provisioning, do not try to reboot server
+	infraMachineCondition := conditions.Get(s.scope.HCloudMachine, infrav1.NoRemediateMachineAnnotationCondition)
+	if infraMachineCondition != nil && infraMachineCondition.Status == corev1.ConditionFalse {
+		err := s.setOwnerRemediatedConditionToFailed(ctx,
+			fmt.Sprintf("exit remediation because infra machine has condition set: %s: %s",
+				infraMachineCondition.Reason,
+				infraMachineCondition.Message))
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("setOwnerRemediatedConditionToFailed failed: %w", err)
+		}
+		return reconcile.Result{}, nil
+	}
+
 	var server *hcloud.Server
 	if s.scope.HCloudMachine.Spec.ProviderID != nil {
+		var err error
 		server, err = s.findServer(ctx)
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("failed to find the server of unhealthy machine: %w", err)
@@ -72,20 +85,13 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 			record.Warn(s.scope.HCloudRemediation, "FailedSettingConditionOnMachine", err.Error())
 			return reconcile.Result{}, fmt.Errorf("failed to set conditions on CAPI machine: %w", err)
 		}
-		return res, nil
+		return reconcile.Result{}, nil
 	}
 
-	// if SetErrorAndRemediate() was used to stop provisioning, do not try to reboot server
-	infraMachineCondition := conditions.Get(s.scope.HCloudMachine, infrav1.NoRemediateMachineAnnotationCondition)
-	if infraMachineCondition != nil && infraMachineCondition.Status == corev1.ConditionFalse {
-		err := s.setOwnerRemediatedConditionToFailed(ctx,
-			fmt.Sprintf("exit remediation because infra machine has condition set: %s: %s",
-				infraMachineCondition.Reason,
-				infraMachineCondition.Message))
-		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("setOwnerRemediatedConditionToFailed failed: %w", err)
-		}
-		panic("qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq")
+	if s.scope.HCloudRemediation.Spec.Strategy == nil {
+		s.scope.Info("remediation strategy is nil")
+		record.Warn(s.scope.HCloudRemediation, "UnsupportedRemdiationStrategy",
+			"remediation strategy is nil")
 		return reconcile.Result{}, nil
 	}
 
@@ -94,7 +100,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	if remediationType != infrav1.RemediationTypeReboot {
 		s.scope.Info("unsupported remediation strategy")
 		record.Warnf(s.scope.HCloudRemediation, "UnsupportedRemdiationStrategy", "remediation strategy %q is unsupported", remediationType)
-		return res, nil
+		return reconcile.Result{}, nil
 	}
 
 	// If no phase set, default to running
@@ -109,7 +115,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 		return s.handlePhaseWaiting(ctx)
 	}
 
-	return res, nil
+	return reconcile.Result{}, nil
 }
 
 func (s *Service) handlePhaseRunning(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {

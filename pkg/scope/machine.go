@@ -34,7 +34,6 @@ import (
 	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
@@ -130,30 +129,36 @@ func (m *MachineScope) PatchObject(ctx context.Context) error {
 
 // SetErrorAndRemediate sets "cluster.x-k8s.io/remediate-machine" annotation on the corresponding
 // CAPI machine. CAPI will remediate that machine. Additionally, an event of type Warning will be
-// created, and the NoRemediateMachineAnnotationCondition will be set on the hcloud-machine.
+// created, and the NoRemediateMachineAnnotationCondition will be set on the hcloud-machine. It gets
+// used, when a not-recoverable error happens. Example: hcloud server was deleted by hand in the
+// hcloud UI.
 func (m *MachineScope) SetErrorAndRemediate(ctx context.Context, message string) error {
-	obj := m.Machine
+	return SetErrorAndRemediateMachine(ctx, m.Client, m.Machine, m.HCloudMachine, message)
+}
 
+// SetErrorAndRemediateMachine implements SetErrorAndRemediate. It is exported, so that other code
+// (for example in tests) can call without creating a MachinenScope.
+func SetErrorAndRemediateMachine(ctx context.Context, crClient client.Client, capiMachine *clusterv1.Machine, hcloudMachine *infrav1.HCloudMachine, message string) error {
 	// Create a patch base
-	patch := client.MergeFrom(obj.DeepCopy())
+	patch := client.MergeFrom(capiMachine.DeepCopy())
 
 	// Modify only annotations on the in-memory copy
-	if obj.Annotations == nil {
-		obj.Annotations = map[string]string{}
+	if capiMachine.Annotations == nil {
+		capiMachine.Annotations = map[string]string{}
 	}
-	obj.Annotations[clusterv1.RemediateMachineAnnotation] = ""
+	capiMachine.Annotations[clusterv1.RemediateMachineAnnotation] = ""
 
 	// Apply patch – only the diff (annotations) is sent to the API server
-	if err := m.Client.Patch(ctx, obj, patch); err != nil {
+	if err := crClient.Patch(ctx, capiMachine, patch); err != nil {
 		return fmt.Errorf("Patch failed in SetErrorAndRemediate: %w", err)
 	}
 
-	record.Warnf(m.HCloudMachine,
+	record.Warnf(hcloudMachine,
 		"HCloudMachineWillBeRemediated",
 		"HCloudMachine will be remediated: %s", message)
 
-	conditions.MarkFalse(m.HCloudMachine, v1beta1.NoRemediateMachineAnnotationCondition,
-		v1beta1.RemediateMachineAnnotationIsSetReason, clusterv1.ConditionSeverityInfo, "%s",
+	conditions.MarkFalse(hcloudMachine, infrav1.NoRemediateMachineAnnotationCondition,
+		infrav1.RemediateMachineAnnotationIsSetReason, clusterv1.ConditionSeverityInfo, "%s",
 		message)
 
 	return nil

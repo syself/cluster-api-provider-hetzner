@@ -738,7 +738,7 @@ func handleRateLimit(hm *infrav1.HCloudMachine, err error, functionName string, 
 }
 
 // Delete implements delete method of server.
-func (s *Service) Delete(ctx context.Context) (res reconcile.Result, err error) {
+func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 	server, err := s.findServer(ctx)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to find server: %w", err)
@@ -753,7 +753,7 @@ func (s *Service) Delete(ctx context.Context) (res reconcile.Result, err error) 
 		msg := fmt.Sprintf("Unable to delete HCloud server. Could not find matching server for %s. ProviderID: %q", s.scope.Name(), providerID)
 		s.scope.V(1).Info(msg)
 		record.Warn(s.scope.HCloudMachine, "NoInstanceFound", msg)
-		return res, nil
+		return reconcile.Result{}, nil
 	}
 
 	// control planes have to be deleted as targets of server
@@ -985,14 +985,15 @@ func (s *Service) createServer(ctx context.Context, userData []byte, image *hclo
 			}
 		}
 		if !foundPlacementGroupInStatus {
+			msg := fmt.Sprintf("Placement group %q does not exist in cluster",
+				*hm.Spec.PlacementGroupName)
 			conditions.MarkFalse(hm,
 				infrav1.ServerCreateSucceededCondition,
 				infrav1.InstanceHasNonExistingPlacementGroupReason,
 				clusterv1.ConditionSeverityError,
-				"Placement group %q does not exist in cluster",
-				*hm.Spec.PlacementGroupName,
+				"%s", msg,
 			)
-			return nil, errServerCreateNotPossible
+			return nil, fmt.Errorf("%s: %w", msg, errServerCreateNotPossible)
 		}
 	}
 
@@ -1108,7 +1109,7 @@ func (s *Service) getSSHKeys(ctx context.Context) (
 				infrav1.SSHKeyNotFoundReason,
 				clusterv1.ConditionSeverityError,
 				"%s", msg)
-			return nil, nil, errServerCreateNotPossible
+			return nil, nil, fmt.Errorf("%s: %w", msg, errServerCreateNotPossible)
 		}
 		hcloudSSHKeys = append(hcloudSSHKeys, sshKey)
 	}
@@ -1125,15 +1126,15 @@ func (s *Service) getServerImage(ctx context.Context, imageName string) (*hcloud
 		return nil, handleRateLimit(s.scope.HCloudMachine, err, "GetServerType", "failed to get server type in HCloud")
 	}
 	if serverType == nil {
+		msg := fmt.Sprintf("failed to get server type %q", string(s.scope.HCloudMachine.Spec.Type))
 		conditions.MarkFalse(
 			s.scope.HCloudMachine,
 			infrav1.ServerCreateSucceededCondition,
 			infrav1.ServerTypeNotFoundReason,
 			clusterv1.ConditionSeverityError,
-			"failed to get server type %q",
-			string(s.scope.HCloudMachine.Spec.Type),
+			"%s", msg,
 		)
-		return nil, errServerCreateNotPossible
+		return nil, fmt.Errorf("%s: %w", msg, errServerCreateNotPossible)
 	}
 
 	// query for an existing image by label
@@ -1163,29 +1164,27 @@ func (s *Service) getServerImage(ctx context.Context, imageName string) (*hcloud
 	images = append(images, imagesByName...)
 
 	if len(images) > 1 {
-		err := fmt.Errorf("image is ambiguous - %d images have name %s",
+		msg := fmt.Sprintf("image is ambiguous - %d images have name %s",
 			len(images), imageName)
-		record.Warn(s.scope.HCloudMachine, "ImageNameAmbiguous", err.Error())
+		record.Warn(s.scope.HCloudMachine, "ImageNameAmbiguous", msg)
 		conditions.MarkFalse(s.scope.HCloudMachine,
 			infrav1.ServerCreateSucceededCondition,
 			infrav1.ImageAmbiguousReason,
 			clusterv1.ConditionSeverityError,
-			"%s",
-			err.Error(),
+			"%s", msg,
 		)
-		return nil, errServerCreateNotPossible
+		return nil, fmt.Errorf("%s: %w", msg, errServerCreateNotPossible)
 	}
 	if len(images) == 0 {
-		err := fmt.Errorf("no image found with name %s", s.scope.HCloudMachine.Spec.ImageName)
-		record.Warn(s.scope.HCloudMachine, "ImageNotFound", err.Error())
+		msg := fmt.Sprintf("no image found with name %s", s.scope.HCloudMachine.Spec.ImageName)
+		record.Warn(s.scope.HCloudMachine, "ImageNotFound", msg)
 		conditions.MarkFalse(s.scope.HCloudMachine,
 			infrav1.ServerCreateSucceededCondition,
 			infrav1.ImageNotFoundReason,
 			clusterv1.ConditionSeverityError,
-			"%s",
-			err.Error(),
+			"%s", msg,
 		)
-		return nil, errServerCreateNotPossible
+		return nil, fmt.Errorf("%s: %w", msg, errServerCreateNotPossible)
 	}
 
 	return images[0], nil
