@@ -63,6 +63,9 @@ type HetznerBareMetalHostReconciler struct {
 	PreProvisionCommand  string
 	SSHAfterInstallImage bool
 	ImageURLCommand      string
+
+	// Reconcile only this namespace. Only needed for testing
+	Namespace string
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalhosts,verbs=get;list;watch;create;update;patch;delete
@@ -72,6 +75,11 @@ type HetznerBareMetalHostReconciler struct {
 // Reconcile implements the reconcilement of HetznerBareMetalHost objects.
 func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res ctrl.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
+
+	if r.Namespace != "" && req.Namespace != r.Namespace {
+		// Just for testing, skip reconciling objects from finished tests.
+		return ctrl.Result{}, nil
+	}
 
 	start := time.Now()
 	defer func() {
@@ -116,6 +124,12 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		// Use uncached APIReader
 		err := r.APIReader.Get(ctx, client.ObjectKeyFromObject(bmHost), apiserverHost)
 		if err != nil {
+			if apierrors.IsNotFound(err) {
+				// resource was deleted. No need to reconcile again.
+				reterr = nil
+				res = reconcile.Result{}
+				return
+			}
 			reterr = errors.Join(reterr,
 				fmt.Errorf("failed get HetznerBareMetalHost via uncached APIReader: %w", err))
 			return
@@ -185,6 +199,9 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		return res, nil
 	}
 
+	// Case "Delete" was handled in reconcileSelectedStates. From now we know that the host has not
+	// DeletionTimestamp set.
+
 	hetznerCluster := &infrav1.HetznerCluster{}
 
 	hetznerClusterName := client.ObjectKey{
@@ -226,24 +243,17 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 
 	log = log.WithValues("HetznerBareMetalMachine", klog.KObj(hetznerBareMetalMachine))
-
-	machine, err := util.GetOwnerMachine(ctx, r.Client, hetznerBareMetalMachine.ObjectMeta)
 	ctx = ctrl.LoggerInto(ctx, log)
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to get owner machine: %w", err)
-	}
 
-	_, exists := machine.Annotations[clusterv1.RemediateMachineAnnotation]
-	if exists {
-		// The hbmm of this host will be deleted soon. Do no reconcile it.
-		msg := "CAPI Machine has RemediateMachineAnnotation. Not reconciling this machine."
+	remediateConditionOfHbmm := conditions.Get(hetznerBareMetalMachine, infrav1.NoRemediateMachineAnnotationCondition)
+	if remediateConditionOfHbmm != nil && remediateConditionOfHbmm.Status == corev1.ConditionFalse {
+		// The hbmm of this host is in remediation. Do not reconcile it.
+		// Take the Condition of the hbmm and make it available on the hbmh.
+		msg := "hbmm has NoRemediateMachineAnnotationCondition=False. Not reconciling this host."
 		log.Info(msg)
-		c := conditions.Get(bmHost, infrav1.NoRemediateMachineAnnotationCondition)
-		if c == nil || c.Status != corev1.ConditionFalse {
-			// Do not overwrite the message of the condition, if the condition already exists.
-			conditions.MarkFalse(bmHost, infrav1.NoRemediateMachineAnnotationCondition,
-				infrav1.RemediateMachineAnnotationIsSetReason, clusterv1.ConditionSeverityInfo, "%s", msg)
-		}
+		conditions.MarkFalse(bmHost, infrav1.NoRemediateMachineAnnotationCondition,
+			remediateConditionOfHbmm.Reason, remediateConditionOfHbmm.Severity,
+			"%s", remediateConditionOfHbmm.Message)
 		return reconcile.Result{}, nil
 	}
 	conditions.MarkTrue(bmHost, infrav1.NoRemediateMachineAnnotationCondition)
@@ -326,7 +336,7 @@ func (r *HetznerBareMetalHostReconciler) reconcileSelectedStates(ctx context.Con
 
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 
-		// Handle StateDeleting
+	// Handle StateDeleting
 	case infrav1.StateDeleting:
 		if controllerutil.RemoveFinalizer(bmHost, infrav1.HetznerBareMetalHostFinalizer) ||
 			controllerutil.RemoveFinalizer(bmHost, infrav1.DeprecatedBareMetalHostFinalizer) {

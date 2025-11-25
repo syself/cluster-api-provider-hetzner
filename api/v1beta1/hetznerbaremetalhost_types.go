@@ -120,8 +120,10 @@ const (
 	// RegistrationError is an error condition occurring when the
 	// controller is unable to retrieve information on a specific server via robot.
 	RegistrationError ErrorType = "registration error"
+
 	// PreparationError is an error condition occurring when something fails while preparing host reconciliation.
 	PreparationError ErrorType = "preparation error"
+
 	// ProvisioningError is an error condition occurring when the controller
 	// fails to provision or deprovision the Host.
 	ProvisioningError ErrorType = "provisioning error"

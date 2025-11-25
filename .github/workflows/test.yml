@@ -52,6 +52,16 @@ jobs:
         run: |
           cd test && go mod download
 
+      # Cache envtest binaries so we don't re-download from
+      # https://github.com/kubernetes-sigs/controller-tools/releases/...
+      # every run (helps avoid 503s).
+      - name: Cache envtest binaries
+        id: cache-envtest
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ~/.local/share/kubebuilder-envtest
+          key: local-share-kubebuilder-envtest-${{ runner.os }}
+
       - name: Running tests
         run: make test-unit
 

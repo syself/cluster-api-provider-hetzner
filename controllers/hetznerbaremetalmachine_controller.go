@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
@@ -54,6 +53,9 @@ type HetznerBareMetalMachineReconciler struct {
 	RateLimitWaitTime   time.Duration
 	HCloudClientFactory hcloudclient.Factory
 	WatchFilterValue    string
+
+	// Reconcile only this namespace. Only needed for testing
+	Namespace string
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalmachines,verbs=get;list;watch;create;update;patch;delete
@@ -63,6 +65,11 @@ type HetznerBareMetalMachineReconciler struct {
 // Reconcile implements the reconcilement of HetznerBareMetalMachine objects.
 func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req reconcile.Request) (res reconcile.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
+
+	if r.Namespace != "" && req.Namespace != r.Namespace {
+		// Just for testing, skip reconciling objects from finished tests.
+		return ctrl.Result{}, nil
+	}
 
 	// Fetch the Hetzner bare metal instance.
 	hbmMachine := &infrav1.HetznerBareMetalMachine{}
@@ -74,20 +81,20 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 	log = log.WithValues("HetznerBareMetalMachine", klog.KObj(hbmMachine))
 
 	// Fetch the Machine.
-	machine, err := util.GetOwnerMachine(ctx, r.Client, hbmMachine.ObjectMeta)
+	capiMachine, err := util.GetOwnerMachine(ctx, r.Client, hbmMachine.ObjectMeta)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to get owner machine. BareMetalMachine.ObjectMeta.OwnerReferences %v: %w",
 			hbmMachine.ObjectMeta.OwnerReferences, err)
 	}
-	if machine == nil {
+	if capiMachine == nil {
 		log.Info("Machine Controller has not yet set OwnerRef")
 		return reconcile.Result{}, nil
 	}
 
-	log = log.WithValues("Machine", klog.KObj(machine))
+	log = log.WithValues("Machine", klog.KObj(capiMachine))
 
 	// Fetch the Cluster.
-	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, machine.ObjectMeta)
+	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, capiMachine.ObjectMeta)
 	if err != nil {
 		log.Info("Machine is missing cluster label or cluster does not exist")
 		return reconcile.Result{}, nil
@@ -126,7 +133,7 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 	machineScope, err := scope.NewBareMetalMachineScope(scope.BareMetalMachineScopeParams{
 		Client:           r.Client,
 		Logger:           log,
-		Machine:          machine,
+		Machine:          capiMachine,
 		BareMetalMachine: hbmMachine,
 		HetznerCluster:   hetznerCluster,
 		HCloudClient:     hcc,
@@ -159,21 +166,6 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 	if !hbmMachine.ObjectMeta.DeletionTimestamp.IsZero() {
 		return r.reconcileDelete(ctx, machineScope)
 	}
-
-	_, exist := machine.Annotations[clusterv1.RemediateMachineAnnotation]
-	if exist {
-		// This hbmm will be deleted soon. Do no reconcile it.
-		msg := "CAPI Machine has RemediateMachineAnnotation. Not reconciling this machine."
-		log.Info(msg)
-		c := conditions.Get(hbmMachine, infrav1.NoRemediateMachineAnnotationCondition)
-		if c == nil || c.Status != corev1.ConditionFalse {
-			// Do not overwrite the message of the condition, if the condition already exists.
-			conditions.MarkFalse(hbmMachine, infrav1.NoRemediateMachineAnnotationCondition,
-				infrav1.RemediateMachineAnnotationIsSetReason, clusterv1.ConditionSeverityInfo, "%s", msg)
-		}
-		return reconcile.Result{}, nil
-	}
-	conditions.MarkTrue(hbmMachine, infrav1.NoRemediateMachineAnnotationCondition)
 
 	return r.reconcileNormal(ctx, machineScope)
 }
