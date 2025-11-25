@@ -138,8 +138,8 @@ type TestEnvironment struct {
 }
 
 // NewTestEnvironment creates a new environment spinning up a local api-server. Factories for
-// clients (like HCloudClientFactory) are not created. This gets done in ResetAndCreateNamespace(),
-// which should be use at the beginning of each test.
+// clients (like HCloudClientFactory) are not created. This gets done in
+// Resetter.ResetAndInitNamespace(), which should be use at the beginning of each test.
 func NewTestEnvironment() *TestEnvironment {
 	// initialize webhook here to be able to test the envtest install via webhookOptions
 	initializeWebhookInEnvironment()
