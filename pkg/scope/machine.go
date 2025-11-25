@@ -130,7 +130,7 @@ func (m *MachineScope) PatchObject(ctx context.Context) error {
 
 // SetErrorAndRemediate sets "cluster.x-k8s.io/remediate-machine" annotation on the corresponding
 // CAPI machine. CAPI will remediate that machine. Additionally, an event of type Warning will be
-// created.
+// created, and the NoRemediateMachineAnnotationCondition will be set on the hcloud-machine.
 func (m *MachineScope) SetErrorAndRemediate(ctx context.Context, message string) error {
 	obj := m.Machine
 
@@ -148,7 +148,9 @@ func (m *MachineScope) SetErrorAndRemediate(ctx context.Context, message string)
 		return err
 	}
 
-	record.Warnf(m.HCloudMachine, "HCloudMachine will be remediated: %s", message)
+	record.Warnf(m.HCloudMachine,
+		"HCloudMachineWillBeRemediated",
+		"HCloudMachine will be remediated: %s", message)
 
 	conditions.MarkFalse(m.HCloudMachine, v1beta1.NoRemediateMachineAnnotationCondition,
 		v1beta1.RemediateMachineAnnotationIsSetReason, clusterv1.ConditionSeverityInfo, "%s",
