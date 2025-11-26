@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"slices"
 	"strconv"
 	"time"
 
@@ -180,6 +181,18 @@ func (s *Server) GetDNSPtrForIP(ip net.IP) (string, error) {
 	}
 
 	return "", DNSNotFoundError{ip}
+}
+
+// PrivateNetFor returns the server's network attachment information in the given
+// Network, and nil if no attachment was found.
+func (s *Server) PrivateNetFor(network *Network) *ServerPrivateNet {
+	index := slices.IndexFunc(s.PrivateNet, func(o ServerPrivateNet) bool {
+		return o.Network != nil && o.Network.ID == network.ID
+	})
+	if index < 0 {
+		return nil
+	}
+	return &s.PrivateNet[index]
 }
 
 // ServerClient is a client for the servers API.
@@ -905,6 +918,7 @@ type ServerAttachToNetworkOpts struct {
 	Network  *Network
 	IP       net.IP
 	AliasIPs []net.IP
+	IPRange  *net.IPNet
 }
 
 // AttachToNetwork attaches a server to a network.
@@ -922,6 +936,10 @@ func (c *ServerClient) AttachToNetwork(ctx context.Context, server *Server, opts
 	}
 	for _, aliasIP := range opts.AliasIPs {
 		reqBody.AliasIPs = append(reqBody.AliasIPs, Ptr(aliasIP.String()))
+	}
+
+	if opts.IPRange != nil {
+		reqBody.IPRange = Ptr(opts.IPRange.String())
 	}
 
 	respBody, resp, err := postRequest[schema.ServerActionAttachToNetworkResponse](ctx, c.client, reqPath, reqBody)
@@ -1054,7 +1072,7 @@ func (c *ServerClient) GetMetrics(ctx context.Context, server *Server, opts Serv
 	ctx = ctxutil.SetOpPath(ctx, opPath)
 
 	if server == nil {
-		return nil, nil, missingArgument("server", server)
+		return nil, nil, invalidArgument("server", server, emptyValue(server))
 	}
 
 	if err := opts.Validate(); err != nil {
