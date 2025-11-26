@@ -175,8 +175,7 @@ def handle_line(line):
         line = line[1:]
     if leading_dots:
         print(leading_dots)
-    line = line.strip()  # Remove whitespace after extracting dots
-    if not line.startswith("{"):
+    if not (line.startswith("{") and line.rstrip().endswith("}")):
         write_line(line)
         return
     try:
