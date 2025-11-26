@@ -57,6 +57,8 @@ import (
 	robotclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/robot"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
+	fakeclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/fake"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/mockedsshclient"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
