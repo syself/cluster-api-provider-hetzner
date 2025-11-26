@@ -60,6 +60,7 @@ import (
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	fakeclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/fake"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/mockedsshclient"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
 func init() {
@@ -150,6 +151,7 @@ func NewTestEnvironment() *TestEnvironment {
 			// Disable MetricsServer, so that two tests processes can run concurrently
 			BindAddress: "0",
 		},
+		Logger: utils.GetDefaultLogger("info"),
 	})
 	if err != nil {
 		klog.Fatalf("unable to create manager: %s", err)

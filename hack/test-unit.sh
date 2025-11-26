@@ -37,4 +37,4 @@ hack/tools/bin/gotestsum \
     --junitfile=.coverage/junit.xml \
     --format testname -- \
     -covermode=atomic -coverprofile=.coverage/cover.out -p=1 -timeout 5m \
-    ./controllers/... ./pkg/... ./api/...
+    ./controllers/... ./pkg/... ./api/... | ./hack/filter-caph-controller-manager-logs.py -
