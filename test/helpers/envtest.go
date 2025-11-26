@@ -57,6 +57,7 @@ import (
 	robotclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/robot"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
 func init() {
@@ -166,6 +167,7 @@ func NewTestEnvironment() *TestEnvironment {
 			// Disable MetricsServer, so that two tests processes can run concurrently
 			BindAddress: "0",
 		},
+		Logger: utils.GetDefaultLogger("info"),
 	})
 	if err != nil {
 		klog.Fatalf("unable to create manager: %s", err)
