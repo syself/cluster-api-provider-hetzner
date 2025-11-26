@@ -46,8 +46,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/baremetalutils"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/host"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
@@ -352,7 +352,7 @@ func (s *Service) associate(ctx context.Context) error {
 // machine that contains a reference to the host. Returns nil if not found. Assumes the host is in
 // the same namespace as the machine. Additionally, a PatchHelper gets returned.
 func (s *Service) getAssociatedHostAndPatchHelper(ctx context.Context) (*infrav1.HetznerBareMetalHost, *patch.Helper, error) {
-	host, err := baremetalutils.GetAssociatedHost(ctx, s.scope.Client, s.scope.BareMetalMachine)
+	host, err := host.GetAssociatedHost(ctx, s.scope.Client, s.scope.BareMetalMachine)
 	if err != nil {
 		return nil, nil, err
 	}
