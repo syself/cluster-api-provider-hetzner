@@ -168,11 +168,25 @@ def write_line(line):
 
 
 def handle_line(line):
-    line = line.strip("•")  # from Ginkgo. Means passed tests.
+    # Extract leading dots (•) and print them on a separate line
+    leading_dots = ""
+    while line.startswith("•"):
+        leading_dots += "•"
+        line = line[1:]
+    if leading_dots:
+        print(leading_dots)
+    line = line.strip()  # Remove whitespace after extracting dots
     if not line.startswith("{"):
         write_line(line)
         return
-    data = json.loads(line)
+    try:
+        data = json.loads(line)
+    except json.decoder.JSONDecodeError as err:
+        write_line("\n")
+        write_line(str(err))
+        write_line(line)
+        write_line("\n")
+        return
     for key in keys_to_skip:
         data.pop(key, None)
 
