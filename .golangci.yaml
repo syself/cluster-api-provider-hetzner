@@ -77,9 +77,9 @@ linters-settings:
         alias: ctrl
       - pkg: k8s.io/apimachinery/pkg/util/runtime
         alias: utilruntime
-      - pkg: sigs.k8s.io/cluster-api/api/v1beta1
+      - pkg: sigs.k8s.io/cluster-api/api/v1beta2
         alias: clusterv1
-      - pkg: sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1
+      - pkg: sigs.k8s.io/cluster-api/api/bootstrap/kubeadm/v1beta2
         alias: bootstrapv1
       - pkg: sigs.k8s.io/controller-runtime/pkg/metrics/server
         alias: metricsserver

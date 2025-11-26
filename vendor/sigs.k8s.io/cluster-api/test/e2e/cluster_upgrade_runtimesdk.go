@@ -36,13 +36,14 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	runtimev1 "sigs.k8s.io/cluster-api/exp/runtime/api/v1alpha1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	runtimev1 "sigs.k8s.io/cluster-api/api/runtime/v1beta2"
 	"sigs.k8s.io/cluster-api/test/e2e/internal/log"
 	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/cluster-api/test/framework/clusterctl"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/conditions"
+	v1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
 	"sigs.k8s.io/cluster-api/util/patch"
 )
 
@@ -330,6 +331,20 @@ func ClusterUpgradeWithRuntimeSDKSpec(ctx context.Context, inputGetter func() Cl
 			input.PostUpgrade(input.BootstrapClusterProxy, namespace.Name, clusterResources.Cluster.Name)
 		}
 
+		Byf("Verify Cluster Available condition is true")
+		framework.VerifyClusterAvailable(ctx, framework.VerifyClusterAvailableInput{
+			Getter:    input.BootstrapClusterProxy.GetClient(),
+			Name:      clusterResources.Cluster.Name,
+			Namespace: clusterResources.Cluster.Namespace,
+		})
+
+		Byf("Verify Machines Ready condition is true")
+		framework.VerifyMachinesReady(ctx, framework.VerifyMachinesReadyInput{
+			Lister:    input.BootstrapClusterProxy.GetClient(),
+			Name:      clusterResources.Cluster.Name,
+			Namespace: clusterResources.Cluster.Namespace,
+		})
+
 		By("Dumping resources and deleting the workload cluster; deletion waits for BeforeClusterDeleteHook to gate the operation")
 		dumpAndDeleteCluster(ctx, input.BootstrapClusterProxy, input.ClusterctlConfigPath, namespace.Name, clusterName, input.ArtifactFolder)
 
@@ -455,11 +470,21 @@ func machineSetPreflightChecksTestHandler(ctx context.Context, c client.Client, 
 			MDName:    md.Name,
 			Namespace: md.Namespace,
 		})
-		g.Expect(conditions.IsFalse(machineSets[0], clusterv1.MachinesCreatedCondition)).To(BeTrue())
-		machinesCreatedCondition := conditions.Get(machineSets[0], clusterv1.MachinesCreatedCondition)
-		g.Expect(machinesCreatedCondition).NotTo(BeNil())
-		g.Expect(machinesCreatedCondition.Reason).To(Equal(clusterv1.PreflightCheckFailedReason))
+		// Check required replicas are like expected
 		g.Expect(machineSets[0].Spec.Replicas).To(Equal(md.Spec.Replicas))
+
+		// Check conditions to surface the MS cannot scale up due to preflight checks.
+		g.Expect(conditions.IsTrue(machineSets[0], clusterv1.MachineSetScalingUpCondition)).To(BeTrue())
+		scalingUpCondition := conditions.Get(machineSets[0], clusterv1.MachineSetScalingUpCondition)
+		g.Expect(scalingUpCondition).NotTo(BeNil())
+		g.Expect(scalingUpCondition.Reason).To(Equal(clusterv1.MachineSetScalingUpReason))
+		g.Expect(scalingUpCondition.Message).To(ContainSubstring("\"KubeadmVersionSkew\" preflight check failed"))
+
+		// Check v1beta1 conditions to surface the MS cannot scale up due to preflight checks.
+		g.Expect(v1beta1conditions.IsFalse(machineSets[0], clusterv1.MachinesCreatedV1Beta1Condition)).To(BeTrue())
+		machinesCreatedCondition := v1beta1conditions.Get(machineSets[0], clusterv1.MachinesCreatedV1Beta1Condition)
+		g.Expect(machinesCreatedCondition).NotTo(BeNil())
+		g.Expect(machinesCreatedCondition.Reason).To(Equal(clusterv1.PreflightCheckFailedV1Beta1Reason))
 	}).Should(Succeed(), "New Machine creation not blocked by MachineSet preflight checks")
 
 	// Verify that the MachineSet is not creating the new Machine.
@@ -503,7 +528,7 @@ func extensionConfig(name, extensionServiceNamespace, extensionServiceName strin
 		},
 		Spec: runtimev1.ExtensionConfigSpec{
 			ClientConfig: runtimev1.ClientConfig{
-				Service: &runtimev1.ServiceReference{
+				Service: runtimev1.ServiceReference{
 					Name: extensionServiceName,
 					// Note: this assumes the test extension get deployed in the default namespace defined in its own runtime-extensions-components.yaml
 					Namespace: extensionServiceNamespace,
@@ -595,18 +620,18 @@ func beforeClusterUpgradeAnnotationIsBlocking(ctx context.Context, c client.Clie
 		cluster := framework.GetClusterByName(ctx, framework.GetClusterByNameInput{
 			Name: clusterRef.Name, Namespace: clusterRef.Namespace, Getter: c})
 
-		if conditions.GetReason(cluster, clusterv1.TopologyReconciledCondition) != clusterv1.TopologyReconciledHookBlockingReason {
+		if conditions.GetReason(cluster, clusterv1.ClusterTopologyReconciledCondition) != clusterv1.TopologyReconciledHookBlockingV1Beta1Reason {
 			return fmt.Errorf("hook %s (via annotation) should lead to LifecycleHookBlocking reason", hookName)
 		}
-		if !strings.Contains(conditions.GetMessage(cluster, clusterv1.TopologyReconciledCondition), expectedBlockingMessage) {
+		if !strings.Contains(conditions.GetMessage(cluster, clusterv1.ClusterTopologyReconciledCondition), expectedBlockingMessage) {
 			return fmt.Errorf("hook %[1]s (via annotation) should show hook %[1]s is blocking as message with: %[2]s", hookName, expectedBlockingMessage)
 		}
 
 		controlPlaneMachines := framework.GetControlPlaneMachinesByCluster(ctx,
 			framework.GetControlPlaneMachinesByClusterInput{Lister: c, ClusterName: clusterRef.Name, Namespace: clusterRef.Namespace})
 		for _, machine := range controlPlaneMachines {
-			if *machine.Spec.Version == toVersion {
-				return errors.Errorf("Machine's %s version (%s) does match %s", klog.KObj(&machine), *machine.Spec.Version, toVersion)
+			if machine.Spec.Version == toVersion {
+				return errors.Errorf("Machine's %s version (%s) does match %s", klog.KObj(&machine), machine.Spec.Version, toVersion)
 			}
 		}
 
@@ -633,7 +658,7 @@ func beforeClusterUpgradeAnnotationIsBlocking(ctx context.Context, c client.Clie
 		cluster := framework.GetClusterByName(ctx, framework.GetClusterByNameInput{
 			Name: clusterRef.Name, Namespace: clusterRef.Namespace, Getter: c})
 
-		if strings.Contains(conditions.GetMessage(cluster, clusterv1.TopologyReconciledCondition), expectedBlockingMessage) {
+		if strings.Contains(conditions.GetMessage(cluster, clusterv1.ClusterTopologyReconciledCondition), expectedBlockingMessage) {
 			return fmt.Errorf("hook %s (via annotation %s) should not be blocking anymore with message: %s", hookName, annotation, expectedBlockingMessage)
 		}
 
@@ -652,7 +677,7 @@ func beforeClusterUpgradeTestHandler(ctx context.Context, c client.Client, clust
 		controlPlaneMachines := framework.GetControlPlaneMachinesByCluster(ctx,
 			framework.GetControlPlaneMachinesByClusterInput{Lister: c, ClusterName: cluster.Name, Namespace: cluster.Namespace})
 		for _, machine := range controlPlaneMachines {
-			if *machine.Spec.Version == toVersion {
+			if machine.Spec.Version == toVersion {
 				blocked = false
 			}
 		}
@@ -671,7 +696,7 @@ func afterControlPlaneUpgradeTestHandler(ctx context.Context, c client.Client, c
 			framework.GetMachineDeploymentsByClusterInput{ClusterName: cluster.Name, Namespace: cluster.Namespace, Lister: c})
 		// If any of the MachineDeployments have the target Kubernetes Version, the hook is unblocked.
 		for _, md := range mds {
-			if *md.Spec.Template.Spec.Version == version {
+			if md.Spec.Template.Spec.Version == version {
 				blocked = false
 			}
 		}
@@ -687,7 +712,7 @@ func beforeClusterDeleteHandler(ctx context.Context, c client.Client, cluster ty
 		var blocked = true
 
 		// If the Cluster is not found it has been deleted and the hook is unblocked.
-		if apierrors.IsNotFound(c.Get(ctx, client.ObjectKey{Name: cluster.Name, Namespace: cluster.Namespace}, &clusterv1.Cluster{})) {
+		if apierrors.IsNotFound(c.Get(ctx, cluster, &clusterv1.Cluster{})) {
 			blocked = false
 		}
 		return blocked
@@ -751,8 +776,8 @@ func runtimeHookTestHandler(ctx context.Context, c client.Client, cluster types.
 
 // clusterConditionShowsHookBlocking checks if the TopologyReconciled condition message contains both the hook name and hookFailedMessage.
 func clusterConditionShowsHookBlocking(cluster *clusterv1.Cluster, hookName string) bool {
-	return conditions.GetReason(cluster, clusterv1.TopologyReconciledCondition) == clusterv1.TopologyReconciledHookBlockingReason &&
-		strings.Contains(conditions.GetMessage(cluster, clusterv1.TopologyReconciledCondition), hookName)
+	return conditions.GetReason(cluster, clusterv1.ClusterTopologyReconciledCondition) == clusterv1.ClusterTopologyReconciledHookBlockingReason &&
+		strings.Contains(conditions.GetMessage(cluster, clusterv1.ClusterTopologyReconciledCondition), hookName)
 }
 
 func dumpAndDeleteCluster(ctx context.Context, proxy framework.ClusterProxy, clusterctlConfigPath, namespace, clusterName, artifactFolder string) {

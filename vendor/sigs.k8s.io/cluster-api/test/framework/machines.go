@@ -25,7 +25,7 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
 )
 
@@ -50,7 +50,7 @@ func WaitForClusterMachineNodeRefs(ctx context.Context, input WaitForClusterMach
 			if err != nil {
 				return
 			}
-			if machine.Status.NodeRef != nil {
+			if machine.Status.NodeRef.IsDefined() {
 				count++
 			}
 		}
@@ -78,7 +78,7 @@ func WaitForClusterMachinesReady(ctx context.Context, input WaitForClusterMachin
 			if err != nil {
 				return
 			}
-			if machine.Status.NodeRef == nil {
+			if !machine.Status.NodeRef.IsDefined() {
 				continue
 			}
 			node := &corev1.Node{}

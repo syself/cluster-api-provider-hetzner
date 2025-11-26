@@ -27,8 +27,7 @@ import (
 	"strings"
 
 	"golang.org/x/crypto/ssh"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	expv1 "sigs.k8s.io/cluster-api/exp/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	kinderrors "sigs.k8s.io/kind/pkg/errors"
 )
@@ -38,11 +37,6 @@ const (
 )
 
 type logCollector struct{}
-
-// CollectMachinePoolLog implements the CollectMachinePoolLog method of the LogCollector interface.
-func (collector logCollector) CollectMachinePoolLog(_ context.Context, _ client.Client, _ *expv1.MachinePool, _ string) error {
-	return nil
-}
 
 // CollectInfrastructureLogs implements the CollectInfrastructureLog method of the LogCollector interface.
 func (collector logCollector) CollectInfrastructureLogs(_ context.Context, _ client.Client, _ *clusterv1.Cluster, _ string) error {
