@@ -211,6 +211,8 @@ var _ helpers.Resetter = &Resetter{}
 
 func (r *Resetter) ResetAndInitNamespace(_ string, testEnv *helpers.TestEnvironment, t FullGinkgoTInterface) {
 	rescueSSHClient := &sshmock.Client{}
+	// Register Testify helpers so failed expectations are reported against this test instance.
+
 	rescueSSHClient.Test(t)
 	testEnv.RescueSSHClient = rescueSSHClient
 
