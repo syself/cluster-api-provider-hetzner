@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
@@ -165,6 +166,13 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 
 	if !hbmMachine.ObjectMeta.DeletionTimestamp.IsZero() {
 		return r.reconcileDelete(ctx, machineScope)
+	}
+
+	remediateConditionOfHbmm := conditions.Get(hbmMachine, infrav1.NoRemediateMachineAnnotationCondition)
+	if remediateConditionOfHbmm != nil && remediateConditionOfHbmm.Status == corev1.ConditionFalse {
+		// The hbmm will be deleted. Do not reconcile it.
+		log.Info("hbmm has NoRemediateMachineAnnotationCondition=False. Waiting for deletion")
+		return reconcile.Result{}, nil
 	}
 
 	return r.reconcileNormal(ctx, machineScope)

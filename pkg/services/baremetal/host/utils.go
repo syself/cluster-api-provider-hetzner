@@ -17,8 +17,11 @@ limitations under the License.
 package host
 
 import (
+	"context"
 	"fmt"
 	"strings"
+
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
@@ -92,4 +95,43 @@ func validJSONFromSSHOutput(str string) string {
 
 func trimLineBreak(str string) string {
 	return strings.TrimSuffix(str, "\n")
+}
+
+func splitHostKey(key string) (namespace, name string) {
+	parts := strings.Split(key, "/")
+	if len(parts) != 2 {
+		panic("unexpected host key")
+	}
+	return parts[0], parts[1]
+}
+
+// GetAssociatedHost gets the associated host by looking for an annotation on the
+// machine that contains a reference to the host. Returns nil if not found. Assumes the host is in
+// the same namespace as the machine.
+func GetAssociatedHost(ctx context.Context, crClient client.Client, hbmm *infrav1.HetznerBareMetalMachine) (*infrav1.HetznerBareMetalHost, error) {
+	annotations := hbmm.GetAnnotations()
+	// if no annotations exist on machine, no host can be associated
+	if annotations == nil {
+		return nil, nil
+	}
+
+	// check if host annotation is set and return if not
+	hostKey, ok := annotations[infrav1.HostAnnotation]
+	if !ok {
+		return nil, nil
+	}
+
+	// find associated host object and return it
+	hostNamespace, hostName := splitHostKey(hostKey)
+
+	host := &infrav1.HetznerBareMetalHost{}
+	key := client.ObjectKey{
+		Name:      hostName,
+		Namespace: hostNamespace,
+	}
+
+	if err := crClient.Get(ctx, key, host); err != nil {
+		return nil, fmt.Errorf("failed to get host object: %w", err)
+	}
+	return host, nil
 }

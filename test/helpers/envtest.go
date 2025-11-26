@@ -57,6 +57,7 @@ import (
 	robotclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/robot"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
 func init() {
@@ -106,15 +107,16 @@ func init() {
 // Resetter provides an interface, so that test-suites using TestEnvironment can define their custom
 // resetting.
 type Resetter interface {
-	// Reset resets the objects shared between tests. This avoids that changes done by the first
-	// test will modify the environment of the second test.
+	// ResetAndInitNamespace resets the objects shared between tests. This avoids that changes done
+	// by the first test will modify the environment of the second test.
 	//
-	// namespace: is the name of the new namespace which the test will use. Related: https://book.kubebuilder.io/reference/envtest.html#namespace-usage-limitation
+	// namespace: is the name of the new namespace which the test will use. Related:
+	// https://book.kubebuilder.io/reference/envtest.html#namespace-usage-limitation
 	//
 	// testEnv: the TestEnvironment which should be resetted.
 	//
 	// t: g.GinkgoT()
-	Reset(namespace string, testEnv *TestEnvironment, t g.FullGinkgoTInterface)
+	ResetAndInitNamespace(namespace string, testEnv *TestEnvironment, t g.FullGinkgoTInterface)
 }
 
 // TestEnvironment encapsulates a Kubernetes local test environment.
@@ -137,8 +139,8 @@ type TestEnvironment struct {
 }
 
 // NewTestEnvironment creates a new environment spinning up a local api-server. Factories for
-// clients (like HCloudClientFactory) are not created. This gets done in ResetAndCreateNamespace(),
-// which should be use at the beginning of each test.
+// clients (like HCloudClientFactory) are not created. This gets done in
+// Resetter.ResetAndInitNamespace(), which should be use at the beginning of each test.
 func NewTestEnvironment() *TestEnvironment {
 	// initialize webhook here to be able to test the envtest install via webhookOptions
 	initializeWebhookInEnvironment()
@@ -165,6 +167,7 @@ func NewTestEnvironment() *TestEnvironment {
 			// Disable MetricsServer, so that two tests processes can run concurrently
 			BindAddress: "0",
 		},
+		Logger: utils.GetDefaultLogger("info"),
 	})
 	if err != nil {
 		klog.Fatalf("unable to create manager: %s", err)
@@ -258,7 +261,7 @@ func (t *TestEnvironment) ResetAndCreateNamespace(ctx context.Context, generateN
 	}
 
 	if t.Resetter != nil {
-		t.Resetter.Reset(ns.Name, t, g.GinkgoT())
+		t.Resetter.ResetAndInitNamespace(ns.Name, t, g.GinkgoT())
 	}
 
 	return ns, nil

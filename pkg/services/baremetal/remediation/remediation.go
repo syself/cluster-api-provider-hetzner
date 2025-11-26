@@ -34,8 +34,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/baremetalutils"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/host"
 )
 
 // Service defines struct with BareMetalRemediationScope to reconcile HetznerBareMetalRemediations.
@@ -52,7 +52,7 @@ func NewService(scope *scope.BareMetalRemediationScope) *Service {
 
 // Reconcile implements reconcilement of HetznerBareMetalRemediations.
 func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
-	host, err := baremetalutils.GetAssociatedHost(ctx, s.scope.Client, s.scope.BareMetalMachine)
+	host, err := host.GetAssociatedHost(ctx, s.scope.Client, s.scope.BareMetalMachine)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return s.setOwnerRemediatedConditionToFailed(ctx,

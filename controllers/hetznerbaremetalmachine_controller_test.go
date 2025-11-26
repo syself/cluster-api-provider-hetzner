@@ -574,6 +574,27 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 					return nil
 				}, timeout).Should(Succeed())
+
+				By("Play role of CAPI: Delete capi and bm machine")
+				err = testEnv.Delete(ctx, capiMachine)
+				Expect(err).Should(Succeed())
+				err = testEnv.Delete(ctx, bmMachine)
+				Expect(err).Should(Succeed())
+
+				By("Wait for host to get deprovisioned")
+				Eventually(func() error {
+					err := testEnv.Get(ctx, client.ObjectKeyFromObject(host), host)
+					if err != nil {
+						return err
+					}
+					if host.Spec.Status.ProvisioningState != infrav1.StateDeprovisioning {
+						return fmt.Errorf("host.Spec.Status.ProvisioningState != infrav1.StateDeprovisioning. Is: %q", host.Spec.Status.ProvisioningState)
+					}
+					return nil
+				}).Should(Succeed())
+
+				// check that ResetKubeadm was called
+				osSSHClient.AssertCalled(GinkgoT(), "ResetKubeadm")
 			})
 
 			It("checks the hetznerBareMetalMachine status running phase", func() {
