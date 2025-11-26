@@ -757,7 +757,6 @@ endif
 
 lint-links: ## Link Checker
 ifeq ($(BUILD_IN_CONTAINER),true)
-	@if [ -z "$${GITHUB_TOKEN}" ]; then echo "GITHUB_TOKEN is not set"; exit 1; fi
 	docker run --rm \
 		-e GITHUB_TOKEN \
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
