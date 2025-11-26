@@ -21,8 +21,9 @@ import (
 	"fmt"
 	"strings"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
 
 type autoSetupInput struct {
