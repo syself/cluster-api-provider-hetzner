@@ -33,6 +33,23 @@ keys_to_skip = [
     "logger",
 ]
 
+# Only show the name. Not a nested struct.
+# in: 'HCloudMachine': {'name': 'myname', 'namespace': '...'}
+# out:'HCloudMachine': 'myname'
+keys_to_name = [
+    "HCloudMachine",
+    "HCloudMachineTemplate",
+    "HCloudRemediation",
+    "HCloudRemediationTemplate",
+    "HetznerBareMetalHost",
+    "HetznerBareMetalMachine",
+    "HetznerBareMetalMachineTemplate",
+    "HetznerBareMetalRemediation",
+    "HetznerBareMetalRemediationTemplate",
+    "HetznerCluster",
+    "HetznerClusterTemplate",
+]
+
 rows_to_skip_regex = [
     r"maxprocs: Leaving GOMAXPROCS=\d+: CPU quota undefined",
     r"^Random Seed: \d+",
@@ -78,7 +95,6 @@ rows_to_skip_for_tests = [
     'cluster.x-k8s.io\\": prefer a domain-qualified finalizer',
     '"Update to resource changes significant fields, will enqueue event"',
     '"Wait for update being in local cache"',
-    'predicate="IgnoreInsignificantHetznerClusterStatusUpdates"',
     '"Created load balancer"',
     '"Created network with opts',
     '"Starting workers" controller="',
@@ -95,9 +111,10 @@ rows_to_skip_for_tests = [
     'os-ssh-secret": context canceled',
     "http: TLS handshake error from 127.0.0.1:",
     '"Cluster infrastructure did not become ready, blocking further processing"',
-    'predicate="IgnoreInsignificantClusterStatusUpdates"',
+    'predicate="IgnoreInsignificant',
     '"HetznerCluster is not available yet"',
-    'predicate="IgnoreInsignificantMachineStatusUpdates"',
+    '"Unable to write event (broadcaster is shut down)"',
+    '"Unable to write event (may retry after sleeping)"',
 ]
 
 
@@ -151,12 +168,24 @@ def write_line(line):
 
 
 def handle_line(line):
+    line = line.strip("•")  # from Ginkgo. Means passed tests.
     if not line.startswith("{"):
         write_line(line)
         return
     data = json.loads(line)
     for key in keys_to_skip:
         data.pop(key, None)
+
+    # in: 'HCloudMachine': {'name': 'myname', 'namespace': '...'}
+    # out:'HCloudMachine': 'myname'
+    for key in keys_to_name:
+        value = data.get(key)
+        if not value:
+            continue
+        name = value.get("name")
+        if name:
+            data[key] = name
+
     t = data.pop("time", "")
     t = re.sub(r"^.*T(.+)*\..+$", r"\1", t)  # '2023-04-17T12:12:53.423Z
 
@@ -171,7 +200,15 @@ def handle_line(line):
     file = data.pop("file", "")
     message = data.pop("message", "")
 
-    if not data:
+    if data:
+        values = []
+        for key, value in data.items():
+            value = str(value)
+            if any(c.isspace() for c in value):
+                value = f"<{value}>"
+            values.append(f"{key}={value}")
+        data = " ".join(values)
+    else:
         data = ""
 
     new_line = f'{t} {level} "{message}" {file} {data}\n'
