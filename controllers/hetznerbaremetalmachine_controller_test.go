@@ -575,7 +575,13 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					return nil
 				}, timeout).Should(Succeed())
 
-				By("Wait for host to get deprevisioned")
+				By("Play role of CAPI: Delete capi and bm machine")
+				err = testEnv.Delete(ctx, capiMachine)
+				Expect(err).Should(Succeed())
+				err = testEnv.Delete(ctx, bmMachine)
+				Expect(err).Should(Succeed())
+
+				By("Wait for host to get deprovisioned")
 				Eventually(func() error {
 					err := testEnv.Get(ctx, client.ObjectKeyFromObject(host), host)
 					if err != nil {
