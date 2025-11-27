@@ -199,8 +199,8 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		return res, nil
 	}
 
-	// Case "Delete" was handled in reconcileSelectedStates. From now we know that the host has not
-	// DeletionTimestamp set.
+	// Case "Delete" was handled in reconcileSelectedStates. From now we know that the host has no
+	// DeletionTimestamp set. But the hbmm could be in Deprovisioning.
 
 	hetznerCluster := &infrav1.HetznerCluster{}
 
