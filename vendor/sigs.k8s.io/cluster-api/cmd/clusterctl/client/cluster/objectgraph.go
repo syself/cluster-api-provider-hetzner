@@ -35,8 +35,8 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	addonsv1 "sigs.k8s.io/cluster-api/api/addons/v1beta1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	addonsv1 "sigs.k8s.io/cluster-api/api/addons/v1beta2"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	clusterctlv1 "sigs.k8s.io/cluster-api/cmd/clusterctl/api/v1alpha3"
 	logf "sigs.k8s.io/cluster-api/cmd/clusterctl/log"
 	"sigs.k8s.io/cluster-api/controllers/external"
@@ -154,7 +154,7 @@ func (n *node) captureAdditionalInformation(obj *unstructured.Unstructured) erro
 		if err := localScheme.Convert(obj, cluster, nil); err != nil {
 			return errors.Wrapf(err, "failed to convert object %s to Cluster", n.identityStr())
 		}
-		if cluster.Spec.Topology != nil {
+		if cluster.Spec.Topology.IsDefined() {
 			if n.additionalInfo == nil {
 				n.additionalInfo = map[string]interface{}{}
 			}
@@ -521,27 +521,25 @@ func (o *objectGraph) Discovery(ctx context.Context, namespace string) error {
 		}
 
 		errs := []error{}
-		_, err = o.fetchRef(ctx, discoveryBackoff, cc.Spec.Infrastructure.Ref)
+		_, err = o.fetchRef(ctx, discoveryBackoff, cc.Spec.Infrastructure.TemplateRef.ToObjectReference(cc.Namespace))
 		errs = append(errs, err)
-		_, err = o.fetchRef(ctx, discoveryBackoff, cc.Spec.ControlPlane.Ref)
+		_, err = o.fetchRef(ctx, discoveryBackoff, cc.Spec.ControlPlane.TemplateRef.ToObjectReference(cc.Namespace))
 		errs = append(errs, err)
 
-		if cc.Spec.ControlPlane.MachineInfrastructure != nil {
-			_, err = o.fetchRef(ctx, discoveryBackoff, cc.Spec.ControlPlane.MachineInfrastructure.Ref)
-			errs = append(errs, err)
-		}
+		_, err = o.fetchRef(ctx, discoveryBackoff, cc.Spec.ControlPlane.MachineInfrastructure.TemplateRef.ToObjectReference(cc.Namespace))
+		errs = append(errs, err)
 
 		for _, mdClass := range cc.Spec.Workers.MachineDeployments {
-			_, err = o.fetchRef(ctx, discoveryBackoff, mdClass.Template.Infrastructure.Ref)
+			_, err = o.fetchRef(ctx, discoveryBackoff, mdClass.Infrastructure.TemplateRef.ToObjectReference(cc.Namespace))
 			errs = append(errs, err)
-			_, err = o.fetchRef(ctx, discoveryBackoff, mdClass.Template.Bootstrap.Ref)
+			_, err = o.fetchRef(ctx, discoveryBackoff, mdClass.Bootstrap.TemplateRef.ToObjectReference(cc.Namespace))
 			errs = append(errs, err)
 		}
 
 		for _, mpClass := range cc.Spec.Workers.MachinePools {
-			_, err = o.fetchRef(ctx, discoveryBackoff, mpClass.Template.Infrastructure.Ref)
+			_, err = o.fetchRef(ctx, discoveryBackoff, mpClass.Infrastructure.TemplateRef.ToObjectReference(cc.Namespace))
 			errs = append(errs, err)
-			_, err = o.fetchRef(ctx, discoveryBackoff, mpClass.Template.Bootstrap.Ref)
+			_, err = o.fetchRef(ctx, discoveryBackoff, mpClass.Bootstrap.TemplateRef.ToObjectReference(cc.Namespace))
 			errs = append(errs, err)
 		}
 
@@ -822,18 +820,18 @@ func (o *objectGraph) setShouldNotDelete(ctx context.Context, namespace string) 
 		}
 
 		// ignore cluster not using a CC.
-		if cluster.Spec.Topology == nil {
+		if !cluster.Spec.Topology.IsDefined() {
 			continue
 		}
 
 		// ignore cluster not referencing a CC in the namespace being moved.
-		if cluster.Spec.Topology.ClassNamespace != namespace {
+		if cluster.Spec.Topology.ClassRef.Namespace != namespace {
 			continue
 		}
 
 		// Otherwise mark the referenced CC as should not be deleted.
 		for _, class := range o.getClusterClasses() {
-			if class.identity.Namespace == cluster.Spec.Topology.ClassNamespace && class.identity.Name == cluster.Spec.Topology.Class {
+			if class.identity.Namespace == cluster.Spec.Topology.ClassRef.Namespace && class.identity.Name == cluster.Spec.Topology.ClassRef.Name {
 				class.shouldNotDelete = true
 				// Ensure that also the templates referenced by the CC won't be deleted.
 				o.setShouldNotDeleteHierarchy(class)

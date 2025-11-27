@@ -32,14 +32,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
-	"sigs.k8s.io/cluster-api/util/conditions"
+	capiconditions "sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
@@ -683,13 +684,13 @@ var _ = Describe("Reconcile", func() {
 				Namespace: testNs.Name,
 			},
 			Spec: clusterv1.MachineSpec{
-				InfrastructureRef: corev1.ObjectReference{
-					Name:       hcloudMachine.Name,
-					Kind:       hcloudMachine.Kind,
-					APIVersion: hcloudMachine.APIVersion,
+				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+					Name:     hcloudMachine.Name,
+					Kind:     hcloudMachine.Kind,
+					APIGroup: infrav1.GroupVersion.Group,
 				},
 				ClusterName:   "clustername",
-				FailureDomain: ptr.To("nbg1"),
+				FailureDomain: "nbg1",
 			},
 		}
 		Expect(testEnv.Create(ctx, capiMachine)).ShouldNot(HaveOccurred())
@@ -738,9 +739,9 @@ var _ = Describe("Reconcile", func() {
 	It("sets the region in status of hcloudMachine, by fetching the failure domain from cluster.status if machine.spec.failureDomain is empty", func() {
 		By("setting the failure domain in cluster.status")
 		service.scope.Machine.Spec = clusterv1.MachineSpec{}
-		service.scope.Cluster.Status.FailureDomains = clusterv1.FailureDomains{
-			"nbg1": clusterv1.FailureDomainSpec{},
-		}
+		service.scope.Cluster.Status.FailureDomains = []clusterv1.FailureDomain{{
+			Name: "nbg1",
+		}}
 
 		By("calling reconcile")
 		_, err := service.Reconcile(ctx)
@@ -781,7 +782,7 @@ var _ = Describe("Reconcile", func() {
 		By("validating if CreateMachineError was set on HCloudMachine object")
 		c := conditions.Get(service.scope.HCloudMachine, infrav1.NoRemediateMachineAnnotationCondition)
 		Expect(c).NotTo(BeNil())
-		Expect(c.Status).To(Equal(corev1.ConditionFalse))
+		Expect(c.Status).To(Equal(metav1.ConditionFalse))
 		Expect(c.Message).To(Equal(`hcloud server ("hcloud://1234567") no longer available. Setting MachineError.`))
 	})
 
@@ -1053,12 +1054,12 @@ var _ = Describe("Reconcile", func() {
 	})
 })
 
-func isPresentAndFalseWithReason(getter conditions.Getter, condition clusterv1.ConditionType, reason string) bool {
+func isPresentAndFalseWithReason(getter capiconditions.Getter, condition string, reason string) bool {
 	if !conditions.Has(getter, condition) {
 		return false
 	}
 	objectCondition := conditions.Get(getter, condition)
-	return objectCondition.Status == corev1.ConditionFalse &&
+	return objectCondition.Status == metav1.ConditionFalse &&
 		objectCondition.Reason == reason
 }
 
@@ -1067,7 +1068,7 @@ func noErrorOccured(s *scope.MachineScope) error {
 	if c == nil {
 		return nil
 	}
-	if c.Status == corev1.ConditionTrue {
+	if c.Status == metav1.ConditionTrue {
 		return nil
 	}
 	return fmt.Errorf("Error on HCloudMachine: %s: %s", c.Reason, c.Message)

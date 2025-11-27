@@ -26,7 +26,7 @@ import (
 	"reflect"
 	"strings"
 
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 )
 
 // nodesPrefix defines the prefix name for a node.

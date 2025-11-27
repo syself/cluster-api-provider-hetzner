@@ -25,8 +25,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	controlplanev1 "sigs.k8s.io/cluster-api/api/controlplane/kubeadm/v1beta2"
 	"sigs.k8s.io/cluster-api/cmd/clusterctl/client/cluster"
-	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
 )
 
 // getKubeadmControlPlane retrieves the KubeadmControlPlane object corresponding to the name and namespace specified.
@@ -49,7 +49,7 @@ func getKubeadmControlPlane(ctx context.Context, proxy cluster.Proxy, name, name
 
 // setRolloutAfterOnKCP sets KubeadmControlPlane.spec.rolloutAfter.
 func setRolloutAfterOnKCP(ctx context.Context, proxy cluster.Proxy, name, namespace string) error {
-	patch := client.RawPatch(types.MergePatchType, []byte(fmt.Sprintf(`{"spec":{"rolloutAfter":"%v"}}`, time.Now().Format(time.RFC3339))))
+	patch := client.RawPatch(types.MergePatchType, []byte(fmt.Sprintf(`{"spec":{"rollout":{"after":"%v"}}}`, time.Now().Format(time.RFC3339))))
 	return patchKubeadmControlPlane(ctx, proxy, name, namespace, patch)
 }
 

@@ -36,7 +36,7 @@ import (
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/cluster-api/test/framework/bootstrap"
 	"sigs.k8s.io/cluster-api/test/framework/clusterctl"
@@ -45,7 +45,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
 // Test suite flags.
@@ -402,7 +402,7 @@ func logHCloudMachineStatus(ctx context.Context, c client.Client) error {
 		log("HCloudMachine: " + hm.Name + " " + id + " " + strings.Join(addresses, " "))
 		log("  ProvisioningState: " + string(*hm.Status.InstanceState))
 		c := conditions.Get(hm, infrav1.NoRemediateMachineAnnotationCondition)
-		if c != nil && c.Status != corev1.ConditionTrue {
+		if c != nil && c.Status != metav1.ConditionTrue {
 			log(fmt.Sprintf("  Error: %s: %s", c.Reason, c.Message))
 		}
 		readyC := conditions.Get(hm, clusterv1.ReadyCondition)

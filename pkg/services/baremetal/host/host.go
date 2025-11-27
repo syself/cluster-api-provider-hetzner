@@ -36,16 +36,16 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
-	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
@@ -124,15 +124,22 @@ func (s *Service) Reconcile(ctx context.Context) (result reconcile.Result, err e
 		conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.DeprecatedRateLimitExceededCondition)
 		conditions.SetSummary(s.scope.HetznerBareMetalHost)
 
-		// save host if it changed during reconciliation
-		if !reflect.DeepEqual(oldHost, s.scope.HetznerBareMetalHost) {
-			saveResult, saveErr := SaveHostAndReturn(ctx, s.scope.Client, s.scope.HetznerBareMetalHost)
-			err = errors.Join(err, saveErr)
-			if err != nil {
-				result = reconcile.Result{}
-			} else if saveResult.Requeue {
-				result = saveResult
-			}
+		// If host has not changed, do not save it.
+		if reflect.DeepEqual(oldHost, s.scope.HetznerBareMetalHost) {
+			return
+		}
+
+		// host has changed, save it.
+		saveResult, saveErr := SaveHostAndReturn(ctx, s.scope.Client, s.scope.HetznerBareMetalHost)
+		err = errors.Join(err, saveErr)
+		if err != nil {
+			// if err is returned, result should be zero.
+			result = reconcile.Result{}
+			return
+		}
+
+		if saveResult.RequeueAfter != 0 {
+			result = saveResult
 		}
 	}()
 
@@ -162,7 +169,7 @@ func SaveHostAndReturn(ctx context.Context, cl client.Client, host *infrav1.Hetz
 		if apierrors.IsConflict(err) {
 			logger := ctrl.LoggerFrom(ctx)
 			logger.Info("conflict error. Retrying", "err", err)
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{RequeueAfter: time.Second}, nil
 		}
 		return reconcile.Result{}, fmt.Errorf("failed to update host object: %w", err)
 	}
@@ -2005,9 +2012,9 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		return actionError{err: err}
 	}
 
-	if machine.Status.NodeRef == nil {
+	if !machine.Status.NodeRef.IsDefined() {
 		// Very unlikely, but we want to avoid a panic.
-		err = errors.New("machine.Status.NodeRef is nil?")
+		err = errors.New("machine.Status.NodeRef is not defined")
 		return actionError{err: err}
 	}
 

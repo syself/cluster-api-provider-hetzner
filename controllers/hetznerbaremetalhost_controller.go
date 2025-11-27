@@ -26,12 +26,12 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
-	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -42,7 +42,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	bmclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client"
@@ -246,13 +247,13 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	ctx = ctrl.LoggerInto(ctx, log)
 
 	remediateConditionOfHbmm := conditions.Get(hetznerBareMetalMachine, infrav1.NoRemediateMachineAnnotationCondition)
-	if remediateConditionOfHbmm != nil && remediateConditionOfHbmm.Status == corev1.ConditionFalse {
+	if remediateConditionOfHbmm != nil && remediateConditionOfHbmm.Status == metav1.ConditionFalse {
 		// The hbmm of this host is in remediation. Do not reconcile it.
 		// Take the Condition of the hbmm and make it available on the hbmh.
 		msg := "hbmm has NoRemediateMachineAnnotationCondition=False."
 		log.Info(msg)
 		conditions.MarkFalse(bmHost, infrav1.NoRemediateMachineAnnotationCondition,
-			remediateConditionOfHbmm.Reason, remediateConditionOfHbmm.Severity,
+			remediateConditionOfHbmm.Reason, clusterv1.ConditionSeverityInfo,
 			"%s", remediateConditionOfHbmm.Message)
 	} else {
 		conditions.MarkTrue(bmHost, infrav1.NoRemediateMachineAnnotationCondition)

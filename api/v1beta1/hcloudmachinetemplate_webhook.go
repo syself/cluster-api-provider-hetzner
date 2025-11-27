@@ -77,7 +77,7 @@ func (*hcloudMachineTemplateWebhook) ValidateUpdate(ctx context.Context, oldRaw 
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a admission.Request inside context: %v", err))
 	}
 	var allErrs field.ErrorList
-	if !topology.ShouldSkipImmutabilityChecks(req, newHCloudMachineTemplate) && !reflect.DeepEqual(newHCloudMachineTemplate.Spec, oldHCloudMachineTemplate.Spec) {
+	if !topology.IsDryRunRequest(req, newHCloudMachineTemplate) && !reflect.DeepEqual(newHCloudMachineTemplate.Spec, oldHCloudMachineTemplate.Spec) {
 		allErrs = append(allErrs, field.Invalid(field.NewPath("spec"), newHCloudMachineTemplate, "HCloudMachineTemplate.Spec is immutable"))
 	}
 
