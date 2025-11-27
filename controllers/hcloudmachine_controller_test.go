@@ -27,13 +27,13 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
-	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
@@ -255,11 +255,10 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				Finalizers:   []string{clusterv1.ClusterFinalizer},
 			},
 			Spec: clusterv1.ClusterSpec{
-				InfrastructureRef: &corev1.ObjectReference{
-					APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
-					Kind:       "HetznerCluster",
-					Name:       "hetzner-test1",
-					Namespace:  testNs.Name,
+				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+					APIGroup: infrav1.GroupVersion.Group,
+					Kind:     "HetznerCluster",
+					Name:     "hetzner-test1",
 				},
 			},
 		}
@@ -280,7 +279,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 			Spec: clusterv1.MachineSpec{
 				ClusterName: capiCluster.Name,
 				InfrastructureRef: corev1.ObjectReference{
-					APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
+					APIVersion: "infrastructure.cluster.x-k8s.io/v1beta2",
 					Kind:       "HCloudMachine",
 					Name:       hcloudMachineName,
 				},
@@ -297,7 +296,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				Namespace: testNs.Name,
 				OwnerReferences: []metav1.OwnerReference{
 					{
-						APIVersion: "cluster.x-k8s.io/v1beta1",
+						APIVersion: "cluster.x-k8s.io/v1beta2",
 						Kind:       "Cluster",
 						Name:       capiCluster.Name,
 						UID:        capiCluster.UID,
@@ -684,7 +683,7 @@ var _ = Describe("Hetzner secret", func() {
 				Namespace: testNs.Name,
 				OwnerReferences: []metav1.OwnerReference{
 					{
-						APIVersion: "cluster.x-k8s.io/v1beta1",
+						APIVersion: "cluster.x-k8s.io/v1beta2",
 						Kind:       "Cluster",
 						Name:       capiCluster.Name,
 						UID:        capiCluster.UID,
@@ -709,7 +708,7 @@ var _ = Describe("Hetzner secret", func() {
 			Spec: clusterv1.MachineSpec{
 				ClusterName: capiCluster.Name,
 				InfrastructureRef: corev1.ObjectReference{
-					APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
+					APIVersion: "infrastructure.cluster.x-k8s.io/v1beta2",
 					Kind:       "HCloudMachine",
 					Name:       hcloudMachineName,
 				},

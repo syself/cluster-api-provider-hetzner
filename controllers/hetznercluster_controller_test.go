@@ -34,7 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
@@ -305,7 +305,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 					Namespace: namespace,
 					OwnerReferences: []metav1.OwnerReference{
 						{
-							APIVersion: "cluster.x-k8s.io/v1beta1",
+							APIVersion: "cluster.x-k8s.io/v1beta2",
 							Kind:       "Cluster",
 							Name:       capiCluster.Name,
 							UID:        capiCluster.UID,
@@ -917,7 +917,7 @@ func createCapiAndHcloudMachines(ctx context.Context, env *helpers.TestEnvironme
 		Spec: clusterv1.MachineSpec{
 			ClusterName: clusterName,
 			InfrastructureRef: corev1.ObjectReference{
-				APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
+				APIVersion: "infrastructure.cluster.x-k8s.io/v1beta2",
 				Kind:       "HCloudMachine",
 				Name:       hcloudMachineName,
 			},
@@ -994,7 +994,7 @@ var _ = Describe("Hetzner secret", func() {
 				Namespace: testNs.Name,
 				OwnerReferences: []metav1.OwnerReference{
 					{
-						APIVersion: "cluster.x-k8s.io/v1beta1",
+						APIVersion: "cluster.x-k8s.io/v1beta2",
 						Kind:       "Cluster",
 						Name:       capiCluster.Name,
 						UID:        capiCluster.UID,

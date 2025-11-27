@@ -39,10 +39,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
-	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	fakehcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/fake"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/mocks"
@@ -1005,7 +1004,6 @@ var _ = Describe("Reconcile", func() {
 			Name:   "hcloudmachinenameWithRescueEnabled",
 			Status: hcloud.ServerStatusRunning,
 		}, nil).Once()
-		testEnv.HCloudSSHClient.On("GetHostName").Return(sshclient.Output{
 		testEnv.HCloudSSHClient.On("GetHostName").Return(sshclient.Output{
 			StdOut: "rescue",
 			StdErr: "",

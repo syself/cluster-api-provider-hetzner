@@ -32,7 +32,7 @@ import (
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	robotmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/robot"
 	sshmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/ssh"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
@@ -83,7 +83,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 			},
 			Spec: clusterv1.ClusterSpec{
 				InfrastructureRef: &corev1.ObjectReference{
-					APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
+					APIVersion: "infrastructure.cluster.x-k8s.io/v1beta2",
 					Kind:       "HetznerCluster",
 					Name:       "hetzner-test1",
 					Namespace:  testNs.Name,
@@ -104,7 +104,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 			Spec: clusterv1.MachineSpec{
 				ClusterName: capiCluster.Name,
 				InfrastructureRef: corev1.ObjectReference{
-					APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
+					APIVersion: "infrastructure.cluster.x-k8s.io/v1beta2",
 					Kind:       "HetznerBareMetalMachine",
 					Name:       machineName,
 					Namespace:  testNs.Name,

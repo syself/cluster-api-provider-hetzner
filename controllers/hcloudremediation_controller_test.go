@@ -33,7 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
@@ -77,7 +77,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 			},
 			Spec: clusterv1.ClusterSpec{
 				InfrastructureRef: &corev1.ObjectReference{
-					APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
+					APIVersion: "infrastructure.cluster.x-k8s.io/v1beta2",
 					Kind:       "HetznerCluster",
 					Name:       "hetzner-test1",
 					Namespace:  testNs.Name,
@@ -101,7 +101,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 			Spec: clusterv1.MachineSpec{
 				ClusterName: capiCluster.Name,
 				InfrastructureRef: corev1.ObjectReference{
-					APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
+					APIVersion: "infrastructure.cluster.x-k8s.io/v1beta2",
 					Kind:       "HCloudMachine",
 					Name:       hcloudMachineName,
 					Namespace:  testNs.Name,

@@ -25,7 +25,7 @@ import (
 	. "github.com/onsi/gomega"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
 var _ = Describe("Loadbalancer", func() {

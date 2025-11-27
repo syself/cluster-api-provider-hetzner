@@ -37,7 +37,7 @@ import (
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 )
 
@@ -443,7 +443,7 @@ var _ = Describe("Test consumerRefMatches", func() {
 		},
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "HetznerBareMetalMachine",
-			APIVersion: "v1beta1",
+			APIVersion: "v1beta2",
 		},
 	}
 	DescribeTable("Test consumerRefMatches",
@@ -455,7 +455,7 @@ var _ = Describe("Test consumerRefMatches", func() {
 				Name:       "bm-machine",
 				Namespace:  "default",
 				Kind:       "HetznerBareMetalMachine",
-				APIVersion: "v1beta1",
+				APIVersion: "v1beta2",
 			},
 			ExpectedResult: true,
 		}),
@@ -464,7 +464,7 @@ var _ = Describe("Test consumerRefMatches", func() {
 				Name:       "other-bm-machine",
 				Namespace:  "default",
 				Kind:       "HetznerBareMetalMachine",
-				APIVersion: "v1beta1",
+				APIVersion: "v1beta2",
 			},
 			ExpectedResult: false,
 		}),
@@ -473,7 +473,7 @@ var _ = Describe("Test consumerRefMatches", func() {
 				Name:       "bm-machine",
 				Namespace:  "other",
 				Kind:       "HetznerBareMetalMachine",
-				APIVersion: "v1beta1",
+				APIVersion: "v1beta2",
 			},
 			ExpectedResult: false,
 		}),
@@ -482,7 +482,7 @@ var _ = Describe("Test consumerRefMatches", func() {
 				Name:       "bm-machine",
 				Namespace:  "default",
 				Kind:       "OtherBareMetalMachine",
-				APIVersion: "v1beta1",
+				APIVersion: "v1beta2",
 			},
 			ExpectedResult: false,
 		}),
@@ -510,7 +510,7 @@ var _ = Describe("Test setOwnerRefInList", func() {
 	}
 	objectType := metav1.TypeMeta{
 		Kind:       "HetznerBareMetalMachine",
-		APIVersion: "v1beta1",
+		APIVersion: "v1beta2",
 	}
 
 	DescribeTable("Test setOwnerRefInList",
@@ -523,19 +523,19 @@ var _ = Describe("Test setOwnerRefInList", func() {
 				{
 					Name:       "bm-machine2",
 					Kind:       "HetznerBareMetalMachine",
-					APIVersion: "v1beta1",
+					APIVersion: "v1beta2",
 				},
 			},
 			ExpectedRefList: []metav1.OwnerReference{
 				{
 					Name:       "bm-machine2",
 					Kind:       "HetznerBareMetalMachine",
-					APIVersion: "v1beta1",
+					APIVersion: "v1beta2",
 				},
 				{
 					Name:       "bm-machine",
 					Kind:       "HetznerBareMetalMachine",
-					APIVersion: "v1beta1",
+					APIVersion: "v1beta2",
 					Controller: ptr.To(true),
 				},
 			},
@@ -545,14 +545,14 @@ var _ = Describe("Test setOwnerRefInList", func() {
 				{
 					Name:       "bm-machine",
 					Kind:       "HetznerBareMetalMachine",
-					APIVersion: "v1beta1",
+					APIVersion: "v1beta2",
 				},
 			},
 			ExpectedRefList: []metav1.OwnerReference{
 				{
 					Name:       "bm-machine",
 					Kind:       "HetznerBareMetalMachine",
-					APIVersion: "v1beta1",
+					APIVersion: "v1beta2",
 					Controller: ptr.To(true),
 				},
 			},
@@ -562,7 +562,7 @@ var _ = Describe("Test setOwnerRefInList", func() {
 				{
 					Name:       "bm-machine2",
 					Kind:       "HetznerBareMetalMachine",
-					APIVersion: "v1beta1",
+					APIVersion: "v1beta2",
 				},
 				{
 					Name:       "new-bm-machine",
@@ -574,7 +574,7 @@ var _ = Describe("Test setOwnerRefInList", func() {
 				{
 					Name:       "bm-machine2",
 					Kind:       "HetznerBareMetalMachine",
-					APIVersion: "v1beta1",
+					APIVersion: "v1beta2",
 				},
 				{
 					Name:       "new-bm-machine",
@@ -584,7 +584,7 @@ var _ = Describe("Test setOwnerRefInList", func() {
 				{
 					Name:       "bm-machine",
 					Kind:       "HetznerBareMetalMachine",
-					APIVersion: "v1beta1",
+					APIVersion: "v1beta2",
 					Controller: ptr.To(true),
 				},
 			},

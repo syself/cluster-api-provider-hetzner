@@ -19,7 +19,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"fmt"
 	"testing"
 	"time"
 
@@ -46,11 +45,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
-	robotmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/robot"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	sshmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/ssh"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
+	robotmock "github.com/syself/cluster-api-provider-hetzner/pkv1beta2ces/baremetal/client/mocks/robot"
 	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
 )
 
@@ -117,8 +116,8 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				Namespace: testNs.Name,
 				OwnerReferences: []metav1.OwnerReference{
 					{
-						APIVersion: "cluster.x-k8s.io/v1beta1",
-						Kind:       "Cluster",
+						APIVersion: "cluster.x-k8s.io/v1beta2",
+						Kind:       "Cluster",v1beta2v1beta2
 						Name:       capiCluster.Name,
 						UID:        capiCluster.UID,
 					},
@@ -218,7 +217,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					Spec: clusterv1.MachineSpec{
 						ClusterName: capiCluster.Name,
 						InfrastructureRef: corev1.ObjectReference{
-							APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
+							APIVersion: "infrastructure.cluster.x-k8s.io/v1beta2",
 							Kind:       "HetznerBareMetalMachine",
 							Name:       machineName,
 						},
@@ -236,7 +235,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 						},
 						OwnerReferences: []metav1.OwnerReference{
 							{
-								APIVersion: "cluster.x-k8s.io/v1beta1",
+								APIVersion: "cluster.x-k8s.io/v1beta2",
 								Kind:       "Machine",
 								Name:       capiMachine.Name,
 								UID:        capiMachine.UID,
@@ -297,7 +296,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					Spec: clusterv1.MachineSpec{
 						ClusterName: capiCluster.Name,
 						InfrastructureRef: corev1.ObjectReference{
-							APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
+							APIVersion: "infrastructure.cluster.x-k8s.io/v1beta2",
 							Kind:       "HetznerBareMetalMachine",
 							Name:       machineName,
 						},
@@ -318,7 +317,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 						},
 						OwnerReferences: []metav1.OwnerReference{
 							{
-								APIVersion: "cluster.x-k8s.io/v1beta1",
+								APIVersion: "cluster.x-k8s.io/v1beta2",
 								Kind:       "Machine",
 								Name:       capiMachine.Name,
 								UID:        capiMachine.UID,
@@ -634,7 +633,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					Spec: clusterv1.MachineSpec{
 						ClusterName: capiCluster.Name,
 						InfrastructureRef: corev1.ObjectReference{
-							APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
+							APIVersion: "infrastructure.cluster.x-k8s.io/v1beta2",
 							Kind:       "HetznerBareMetalMachine",
 							Name:       machineName,
 						},
@@ -655,7 +654,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 						},
 						OwnerReferences: []metav1.OwnerReference{
 							{
-								APIVersion: "cluster.x-k8s.io/v1beta1",
+								APIVersion: "cluster.x-k8s.io/v1beta2",
 								Kind:       "Machine",
 								Name:       capiMachine.Name,
 								UID:        capiMachine.UID,
@@ -697,7 +696,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				Spec: clusterv1.MachineSpec{
 					ClusterName: capiCluster.Name,
 					InfrastructureRef: corev1.ObjectReference{
-						APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
+						APIVersion: "infrastructure.cluster.x-k8s.io/v1beta2",
 						Kind:       "HetznerBareMetalMachine",
 						Name:       machineName,
 					},
@@ -718,7 +717,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					},
 					OwnerReferences: []metav1.OwnerReference{
 						{
-							APIVersion: "cluster.x-k8s.io/v1beta1",
+							APIVersion: "cluster.x-k8s.io/v1beta2",
 							Kind:       "Machine",
 							Name:       capiMachine.Name,
 							UID:        capiMachine.UID,
@@ -766,7 +765,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				Spec: clusterv1.MachineSpec{
 					ClusterName: capiCluster.Name,
 					InfrastructureRef: corev1.ObjectReference{
-						APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
+						APIVersion: "infrastructure.cluster.x-k8s.io/v1beta2",
 						Kind:       "HetznerBareMetalMachine",
 						Name:       machineName,
 					},
@@ -787,7 +786,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					},
 					OwnerReferences: []metav1.OwnerReference{
 						{
-							APIVersion: "cluster.x-k8s.io/v1beta1",
+							APIVersion: "cluster.x-k8s.io/v1beta2",
 							Kind:       "Machine",
 							Name:       capiMachine.Name,
 							UID:        capiMachine.UID,
@@ -1010,7 +1009,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				Spec: clusterv1.MachineSpec{
 					ClusterName: capiCluster.Name,
 					InfrastructureRef: corev1.ObjectReference{
-						APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
+						APIVersion: "infrastructure.cluster.x-k8s.io/v1beta2",
 						Kind:       "HetznerBareMetalMachine",
 						Name:       machineName,
 					},
@@ -1031,7 +1030,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					},
 					OwnerReferences: []metav1.OwnerReference{
 						{
-							APIVersion: "cluster.x-k8s.io/v1beta1",
+							APIVersion: "cluster.x-k8s.io/v1beta2",
 							Kind:       "Machine",
 							Name:       capiMachine.Name,
 							UID:        capiMachine.UID,
@@ -1056,7 +1055,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				Spec: clusterv1.MachineSpec{
 					ClusterName: capiCluster.Name,
 					InfrastructureRef: corev1.ObjectReference{
-						APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
+						APIVersion: "infrastructure.cluster.x-k8s.io/v1beta2",
 						Kind:       "HetznerBareMetalMachine",
 						Name:       bmMachineName2,
 					},
@@ -1077,7 +1076,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					},
 					OwnerReferences: []metav1.OwnerReference{
 						{
-							APIVersion: "cluster.x-k8s.io/v1beta1",
+							APIVersion: "cluster.x-k8s.io/v1beta2",
 							Kind:       "Machine",
 							Name:       capiMachine2.Name,
 							UID:        capiMachine2.UID,

@@ -16,7 +16,7 @@ limitations under the License.
 
 package v1beta1
 
-import clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+import clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 
 const (
 	// LoadBalancerReadyCondition reports on whether a control plane load balancer was successfully reconciled.

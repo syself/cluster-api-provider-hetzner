@@ -181,7 +181,7 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 		ginkgo.By("Initializing the workload cluster with older versions of providers")
 
 		// NOTE: by default we are considering all the providers, no matter of the contract.
-		// However, given that we want to test both v1alpha3 --> v1beta1 and v1alpha4 --> v1beta1, the INIT_WITH_PROVIDERS_CONTRACT
+		// However, given that we want to test both v1alpha3 --> v1beta2 and v1alpha4 --> v1beta2, the INIT_WITH_PROVIDERS_CONTRACT
 		// variable can be used to select versions with a specific contract.
 		contract := "*"
 		if input.E2EConfig.HasVariable(initWithProvidersContract) {
