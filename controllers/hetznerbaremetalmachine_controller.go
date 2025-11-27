@@ -23,8 +23,8 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
@@ -41,6 +41,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	hetznerconditions "github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/baremetal"
@@ -146,12 +147,12 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 	// Always close the scope when exiting this function so we can persist any HetznerBareMetalMachine changes.
 	defer func() {
 		if reterr != nil && errors.Is(reterr, hcloudclient.ErrUnauthorized) {
-			conditions.MarkFalse(hbmMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason, clusterv1.ConditionSeverityError, "wrong hcloud token")
+			hetznerconditions.MarkFalse(hbmMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason, clusterv1.ConditionSeverityError, "wrong hcloud token")
 		} else {
-			conditions.MarkTrue(hbmMachine, infrav1.HCloudTokenAvailableCondition)
+			hetznerconditions.MarkTrue(hbmMachine, infrav1.HCloudTokenAvailableCondition)
 		}
 
-		conditions.SetSummary(hbmMachine)
+		hetznerconditions.SetSummary(hbmMachine)
 
 		if err := machineScope.Close(ctx); err != nil {
 			res = reconcile.Result{}
@@ -169,7 +170,7 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 	}
 
 	remediateConditionOfHbmm := conditions.Get(hbmMachine, infrav1.NoRemediateMachineAnnotationCondition)
-	if remediateConditionOfHbmm != nil && remediateConditionOfHbmm.Status == corev1.ConditionFalse {
+	if remediateConditionOfHbmm != nil && remediateConditionOfHbmm.Status == metav1.ConditionFalse {
 		// The hbmm will be deleted. Do not reconcile it.
 		log.Info("hbmm has NoRemediateMachineAnnotationCondition=False. Waiting for deletion")
 		return reconcile.Result{}, nil
@@ -251,7 +252,7 @@ func (r *HetznerBareMetalMachineReconciler) SetupWithManager(ctx context.Context
 		Watches(
 			&clusterv1.Cluster{},
 			handler.EnqueueRequestsFromMapFunc(clusterToObjectFunc),
-			builder.WithPredicates(predicates.ClusterPausedTransitionsOrInfrastructureReady(mgr.GetScheme(), log)),
+			builder.WithPredicates(predicates.ClusterPausedTransitionsOrInfrastructureProvisioned(mgr.GetScheme(), log)),
 		).
 		Complete(r)
 	if err != nil {
@@ -298,14 +299,18 @@ func (r *HetznerBareMetalMachineReconciler) HetznerClusterToBareMetalMachines(ct
 			return nil
 		}
 		for _, m := range machineList.Items {
-			if m.Spec.InfrastructureRef.GroupVersionKind().Kind != "HetznerBareMetalMachine" {
+			infraRef := m.Spec.InfrastructureRef
+			if !infraRef.IsDefined() {
 				continue
 			}
-			if m.Spec.InfrastructureRef.Name == "" {
+			if infraRef.Kind != "HetznerBareMetalMachine" || infraRef.APIGroup != infrav1.GroupVersion.Group {
+				continue
+			}
+			if infraRef.Name == "" {
 				continue
 			}
 
-			name := client.ObjectKey{Namespace: m.Namespace, Name: m.Spec.InfrastructureRef.Name}
+			name := client.ObjectKey{Namespace: m.Namespace, Name: infraRef.Name}
 
 			result = append(result, reconcile.Request{NamespacedName: name})
 		}
@@ -336,13 +341,11 @@ func (r *HetznerBareMetalMachineReconciler) ClusterToBareMetalMachines(ctx conte
 			return nil
 		}
 		for _, m := range capiMachineList.Items {
-			if m.Spec.InfrastructureRef.Name == "" {
+			infraRef := m.Spec.InfrastructureRef
+			if !infraRef.IsDefined() || infraRef.Name == "" {
 				continue
 			}
-			name := client.ObjectKey{Namespace: m.Namespace, Name: m.Spec.InfrastructureRef.Name}
-			if m.Spec.InfrastructureRef.Namespace != "" {
-				name = client.ObjectKey{Namespace: m.Spec.InfrastructureRef.Namespace, Name: m.Spec.InfrastructureRef.Name}
-			}
+			name := client.ObjectKey{Namespace: m.Namespace, Name: infraRef.Name}
 			result = append(result, reconcile.Request{NamespacedName: name})
 		}
 

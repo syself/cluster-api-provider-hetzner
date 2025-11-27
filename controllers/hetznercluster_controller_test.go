@@ -35,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	hetznerconditions "github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
@@ -81,8 +82,8 @@ func TestIgnoreInsignificantClusterStatusUpdates(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: clusterv1.ClusterSpec{
-					ClusterNetwork: &clusterv1.ClusterNetwork{
-						Pods: &clusterv1.NetworkRanges{
+					ClusterNetwork: clusterv1.ClusterNetwork{
+						Pods: clusterv1.NetworkRanges{
 							CIDRBlocks: []string{"192.168.0.0/16"},
 						},
 					},
@@ -94,8 +95,8 @@ func TestIgnoreInsignificantClusterStatusUpdates(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: clusterv1.ClusterSpec{
-					ClusterNetwork: &clusterv1.ClusterNetwork{
-						Pods: &clusterv1.NetworkRanges{
+					ClusterNetwork: clusterv1.ClusterNetwork{
+						Pods: clusterv1.NetworkRanges{
 							CIDRBlocks: []string{"10.0.0.0/16"},
 						},
 					},
@@ -289,10 +290,10 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 					Finalizers:   []string{clusterv1.ClusterFinalizer},
 				},
 				Spec: clusterv1.ClusterSpec{
-					InfrastructureRef: &corev1.ObjectReference{
-						APIVersion: infrav1.GroupVersion.String(),
-						Kind:       "HetznerCluster",
-						Name:       hetznerClusterName,
+					InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+						APIGroup: infrav1.GroupVersion.Group,
+						Kind:     "HetznerCluster",
+						Name:     hetznerClusterName,
 					},
 				},
 			}
@@ -570,7 +571,7 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 						GinkgoLogr.Info("LoadBalancerReadyCondition is nil")
 						return false
 					}
-					if c.Status == corev1.ConditionTrue {
+					if c.Status == metav1.ConditionTrue {
 						GinkgoLogr.Info("LoadBalancerReadyCondition is True now")
 						return true
 					}
@@ -916,12 +917,12 @@ func createCapiAndHcloudMachines(ctx context.Context, env *helpers.TestEnvironme
 		},
 		Spec: clusterv1.MachineSpec{
 			ClusterName: clusterName,
-			InfrastructureRef: corev1.ObjectReference{
-				APIVersion: "infrastructure.cluster.x-k8s.io/v1beta2",
-				Kind:       "HCloudMachine",
-				Name:       hcloudMachineName,
+			InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+				APIGroup: infrav1.GroupVersion.Group,
+				Kind:     "HCloudMachine",
+				Name:     hcloudMachineName,
 			},
-			FailureDomain: &defaultFailureDomain,
+			FailureDomain: defaultFailureDomain,
 			Bootstrap: clusterv1.Bootstrap{
 				DataSecretName: ptr.To("bootstrap-secret"),
 			},
@@ -978,11 +979,10 @@ var _ = Describe("Hetzner secret", func() {
 				Finalizers:   []string{clusterv1.ClusterFinalizer},
 			},
 			Spec: clusterv1.ClusterSpec{
-				InfrastructureRef: &corev1.ObjectReference{
-					APIVersion: infrav1.GroupVersion.String(),
-					Kind:       "HetznerCluster",
-					Name:       hetznerClusterName,
-					Namespace:  testNs.Name,
+				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+					APIGroup: infrav1.GroupVersion.Group,
+					Kind:     "HetznerCluster",
+					Name:     hetznerClusterName,
 				},
 			},
 		}
@@ -1159,19 +1159,19 @@ var _ = Describe("reconcileRateLimit", func() {
 	})
 
 	It("returns wait==true if rate limit exceeded is set and time is not over", func() {
-		conditions.MarkFalse(hetznerCluster, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason, clusterv1.ConditionSeverityWarning, "")
+		hetznerconditions.MarkFalse(hetznerCluster, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason, clusterv1.ConditionSeverityWarning, "")
 		Expect(reconcileRateLimit(hetznerCluster, testEnv.RateLimitWaitTime)).To(BeTrue())
 	})
 
 	It("returns wait==false if rate limit exceeded is set and time is over", func() {
-		conditions.MarkFalse(hetznerCluster, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason, clusterv1.ConditionSeverityWarning, "")
+		hetznerconditions.MarkFalse(hetznerCluster, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason, clusterv1.ConditionSeverityWarning, "")
 		conditionList := hetznerCluster.GetConditions()
 		conditionList[0].LastTransitionTime = metav1.NewTime(time.Now().Add(-time.Hour))
 		Expect(reconcileRateLimit(hetznerCluster, testEnv.RateLimitWaitTime)).To(BeFalse())
 	})
 
 	It("returns wait==false if rate limit condition is set to true", func() {
-		conditions.MarkTrue(hetznerCluster, infrav1.HetznerAPIReachableCondition)
+		hetznerconditions.MarkTrue(hetznerCluster, infrav1.HetznerAPIReachableCondition)
 		Expect(reconcileRateLimit(hetznerCluster, testEnv.RateLimitWaitTime)).To(BeFalse())
 	})
 
@@ -1264,7 +1264,7 @@ func TestSetControlPlaneEndpoint(t *testing.T) {
 		}
 
 		condition := conditions.Get(hetznerCluster, infrav1.ControlPlaneEndpointSetCondition)
-		if condition.Status != corev1.ConditionFalse {
+		if condition.Status != metav1.ConditionFalse {
 			t.Fatalf("condition status should be false")
 		}
 	})

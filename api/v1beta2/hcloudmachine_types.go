@@ -137,7 +137,7 @@ type HCloudMachineStatus struct {
 
 	// Conditions define the current service state of the HCloudMachine.
 	// +optional
-	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// BootState indicates the current state during provisioning.
 	//
@@ -193,12 +193,12 @@ type HCloudMachine struct {
 }
 
 // GetConditions returns the observations of the operational state of the HCloudMachine resource.
-func (r *HCloudMachine) GetConditions() clusterv1.Conditions {
+func (r *HCloudMachine) GetConditions() []metav1.Condition {
 	return r.Status.Conditions
 }
 
 // SetConditions sets the underlying service state of the HCloudMachine to the predescribed clusterv1.Conditions.
-func (r *HCloudMachine) SetConditions(conditions clusterv1.Conditions) {
+func (r *HCloudMachine) SetConditions(conditions []metav1.Condition) {
 	r.Status.Conditions = conditions
 }
 

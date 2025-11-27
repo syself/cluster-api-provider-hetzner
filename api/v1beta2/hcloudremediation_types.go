@@ -18,7 +18,6 @@ package v1beta2
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 )
 
 // HCloudRemediationSpec defines the desired state of HCloudRemediation.
@@ -45,7 +44,7 @@ type HCloudRemediationStatus struct {
 
 	// Conditions defines current service state of the HCloudRemediation.
 	// +optional
-	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -73,12 +72,12 @@ type HCloudRemediation struct {
 }
 
 // GetConditions returns the observations of the operational state of the HCloudRemediation resource.
-func (r *HCloudRemediation) GetConditions() clusterv1.Conditions {
+func (r *HCloudRemediation) GetConditions() []metav1.Condition {
 	return r.Status.Conditions
 }
 
 // SetConditions sets the underlying service state of the HCloudRemediation to the predescribed clusterv1.Conditions.
-func (r *HCloudRemediation) SetConditions(conditions clusterv1.Conditions) {
+func (r *HCloudRemediation) SetConditions(conditions []metav1.Condition) {
 	r.Status.Conditions = conditions
 }
 

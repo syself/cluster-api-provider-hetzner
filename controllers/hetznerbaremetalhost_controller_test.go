@@ -100,11 +100,10 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 				Finalizers:   []string{clusterv1.ClusterFinalizer},
 			},
 			Spec: clusterv1.ClusterSpec{
-				InfrastructureRef: &corev1.ObjectReference{
-					APIVersion: infrav1.GroupVersion.String(),
-					Kind:       "HetznerCluster",
-					Name:       hetznerClusterName,
-					Namespace:  testNs.Name,
+				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+					APIGroup: infrav1.GroupVersion.Group,
+					Kind:     "HetznerCluster",
+					Name:     hetznerClusterName,
 				},
 			},
 		}
@@ -262,12 +261,12 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 				},
 				Spec: clusterv1.MachineSpec{
 					ClusterName: capiCluster.Name,
-					InfrastructureRef: corev1.ObjectReference{
-						APIVersion: "infrastructure.cluster.x-k8s.io/v1beta2",
-						Kind:       "HetznerBareMetalMachine",
-						Name:       machineName,
+					InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+						APIGroup: infrav1.GroupVersion.Group,
+						Kind:     "HetznerBareMetalMachine",
+						Name:     machineName,
 					},
-					FailureDomain: &defaultFailureDomain,
+					FailureDomain: defaultFailureDomain,
 					Bootstrap: clusterv1.Bootstrap{
 						DataSecretName: ptr.To("bootstrap-secret"),
 					},
@@ -436,12 +435,12 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 				},
 				Spec: clusterv1.MachineSpec{
 					ClusterName: capiCluster.Name,
-					InfrastructureRef: corev1.ObjectReference{
-						APIVersion: "infrastructure.cluster.x-k8s.io/v1beta2",
-						Kind:       "HetznerBareMetalMachine",
-						Name:       machineName,
+					InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+						APIGroup: infrav1.GroupVersion.Group,
+						Kind:     "HetznerBareMetalMachine",
+						Name:     machineName,
 					},
-					FailureDomain: &defaultFailureDomain,
+					FailureDomain: defaultFailureDomain,
 					Bootstrap: clusterv1.Bootstrap{
 						DataSecretName: ptr.To("bootstrap-secret"),
 					},
@@ -520,12 +519,12 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 				},
 				Spec: clusterv1.MachineSpec{
 					ClusterName: capiCluster.Name,
-					InfrastructureRef: corev1.ObjectReference{
-						APIVersion: "infrastructure.cluster.x-k8s.io/v1beta2",
-						Kind:       "HetznerBareMetalMachine",
-						Name:       machineName,
+					InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+						APIGroup: infrav1.GroupVersion.Group,
+						Kind:     "HetznerBareMetalMachine",
+						Name:     machineName,
 					},
-					FailureDomain: &defaultFailureDomain,
+					FailureDomain: defaultFailureDomain,
 					Bootstrap: clusterv1.Bootstrap{
 						DataSecretName: ptr.To("bootstrap-secret"),
 					},
@@ -631,11 +630,10 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 				Finalizers:   []string{clusterv1.ClusterFinalizer},
 			},
 			Spec: clusterv1.ClusterSpec{
-				InfrastructureRef: &corev1.ObjectReference{
-					APIVersion: infrav1.GroupVersion.String(),
-					Kind:       "HetznerCluster",
-					Name:       hetznerClusterName,
-					Namespace:  testNs.Name,
+				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+					APIGroup: infrav1.GroupVersion.Group,
+					Kind:     "HetznerCluster",
+					Name:     hetznerClusterName,
 				},
 			},
 		}
@@ -670,12 +668,12 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 			},
 			Spec: clusterv1.MachineSpec{
 				ClusterName: capiCluster.Name,
-				InfrastructureRef: corev1.ObjectReference{
-					APIVersion: "infrastructure.cluster.x-k8s.io/v1beta2",
-					Kind:       "HetznerBareMetalMachine",
-					Name:       machineName,
+				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+					APIGroup: infrav1.GroupVersion.Group,
+					Kind:     "HetznerBareMetalMachine",
+					Name:     machineName,
 				},
-				FailureDomain: &defaultFailureDomain,
+				FailureDomain: defaultFailureDomain,
 				Bootstrap: clusterv1.Bootstrap{
 					DataSecretName: ptr.To("bootstrap-secret"),
 				},

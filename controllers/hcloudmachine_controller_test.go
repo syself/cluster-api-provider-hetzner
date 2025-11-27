@@ -278,12 +278,12 @@ var _ = Describe("HCloudMachineReconciler", func() {
 			},
 			Spec: clusterv1.MachineSpec{
 				ClusterName: capiCluster.Name,
-				InfrastructureRef: corev1.ObjectReference{
-					APIVersion: "infrastructure.cluster.x-k8s.io/v1beta2",
-					Kind:       "HCloudMachine",
-					Name:       hcloudMachineName,
+				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+					APIGroup: infrav1.GroupVersion.Group,
+					Kind:     "HCloudMachine",
+					Name:     hcloudMachineName,
 				},
-				FailureDomain: &defaultFailureDomain,
+				FailureDomain: defaultFailureDomain,
 				Bootstrap: clusterv1.Bootstrap{
 					DataSecretName: ptr.To("bootstrap-secret"),
 				},
@@ -667,11 +667,10 @@ var _ = Describe("Hetzner secret", func() {
 				Finalizers:   []string{clusterv1.ClusterFinalizer},
 			},
 			Spec: clusterv1.ClusterSpec{
-				InfrastructureRef: &corev1.ObjectReference{
-					APIVersion: infrav1.GroupVersion.String(),
-					Kind:       "HetznerCluster",
-					Name:       hetznerClusterName,
-					Namespace:  testNs.Name,
+				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+					APIGroup: infrav1.GroupVersion.Group,
+					Kind:     "HetznerCluster",
+					Name:     hetznerClusterName,
 				},
 			},
 		}
@@ -707,12 +706,12 @@ var _ = Describe("Hetzner secret", func() {
 			},
 			Spec: clusterv1.MachineSpec{
 				ClusterName: capiCluster.Name,
-				InfrastructureRef: corev1.ObjectReference{
-					APIVersion: "infrastructure.cluster.x-k8s.io/v1beta2",
-					Kind:       "HCloudMachine",
-					Name:       hcloudMachineName,
+				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+					APIGroup: infrav1.GroupVersion.Group,
+					Kind:     "HCloudMachine",
+					Name:     hcloudMachineName,
 				},
-				FailureDomain: &defaultFailureDomain,
+				FailureDomain: defaultFailureDomain,
 				Bootstrap: clusterv1.Bootstrap{
 					DataSecretName: ptr.To("bootstrap-secret"),
 				},
@@ -862,7 +861,7 @@ var _ = Describe("IgnoreInsignificantHetznerClusterUpdates Predicate", func() {
 			ObjectMeta: metav1.ObjectMeta{Name: "test-predicate", ResourceVersion: "1"},
 			Spec:       getDefaultHetznerClusterSpec(),
 			Status: infrav1.HetznerClusterStatus{
-				Conditions: []clusterv1.Condition{},
+				Conditions: []metav1.Condition{},
 			},
 		}
 		conditions.MarkTrue(oldCluster, infrav1.CredentialsAvailableCondition)

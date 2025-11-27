@@ -260,7 +260,7 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 			machineList := &clusterv1.MachineList{}
 			if err := managementClusterProxy.GetClient().List(ctx, machineList, c.InNamespace(testNamespace.Name), c.MatchingLabels{clusterv1.ClusterNameLabel: workLoadClusterName}); err == nil {
 				for _, machine := range machineList.Items {
-					if machine.Status.NodeRef != nil {
+					if machine.Status.NodeRef.IsDefined() {
 						n++
 					}
 				}

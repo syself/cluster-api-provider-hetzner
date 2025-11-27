@@ -24,11 +24,11 @@ import (
 
 	"github.com/go-logr/logr"
 	"k8s.io/klog/v2/textlogger"
-	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 )
 

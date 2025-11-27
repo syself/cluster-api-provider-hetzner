@@ -34,6 +34,7 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	ctrl "sigs.k8s.io/controller-runtime"
+	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
@@ -389,29 +390,39 @@ func getDefaultHetznerBareMetalMachineSpec() infrav1.HetznerBareMetalMachineSpec
 	}
 }
 
-func isPresentAndFalseWithReason(key types.NamespacedName, getter conditions.Getter, condition clusterv1.ConditionType, reason string) bool {
-	err := testEnv.Get(ctx, key, getter)
+func isPresentAndFalseWithReason(key types.NamespacedName, obj crclient.Object, condition clusterv1.ConditionType, reason string) bool {
+	err := testEnv.Get(ctx, key, obj)
 	if err != nil {
 		return false
 	}
 
-	if !conditions.Has(getter, condition) {
+	getter, ok := obj.(conditions.Getter)
+	if !ok {
 		return false
 	}
-	objectCondition := conditions.Get(getter, condition)
-	return objectCondition.Status == corev1.ConditionFalse &&
+
+	if !conditions.Has(getter, string(condition)) {
+		return false
+	}
+	objectCondition := conditions.Get(getter, string(condition))
+	return objectCondition.Status == metav1.ConditionFalse &&
 		objectCondition.Reason == reason
 }
 
-func isPresentAndTrue(key types.NamespacedName, getter conditions.Getter, condition clusterv1.ConditionType) bool {
-	err := testEnv.Get(ctx, key, getter)
+func isPresentAndTrue(key types.NamespacedName, obj crclient.Object, condition clusterv1.ConditionType) bool {
+	err := testEnv.Get(ctx, key, obj)
 	if err != nil {
 		return false
 	}
 
-	if !conditions.Has(getter, condition) {
+	getter, ok := obj.(conditions.Getter)
+	if !ok {
 		return false
 	}
-	objectCondition := conditions.Get(getter, condition)
-	return objectCondition.Status == corev1.ConditionTrue
+
+	if !conditions.Has(getter, string(condition)) {
+		return false
+	}
+	objectCondition := conditions.Get(getter, string(condition))
+	return objectCondition.Status == metav1.ConditionTrue
 }

@@ -46,6 +46,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	hetznerconditions "github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
@@ -165,9 +166,9 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 	// Always close the scope when exiting this function so we can persist any HCloudMachine changes.
 	defer func() {
 		if reterr != nil && errors.Is(reterr, hcloudclient.ErrUnauthorized) {
-			conditions.MarkFalse(hcloudMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason, clusterv1.ConditionSeverityError, "wrong hcloud token")
+			hetznerconditions.MarkFalse(hcloudMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason, clusterv1.ConditionSeverityError, "wrong hcloud token")
 		} else {
-			conditions.MarkTrue(hcloudMachine, infrav1.HCloudTokenAvailableCondition)
+			hetznerconditions.MarkTrue(hcloudMachine, infrav1.HCloudTokenAvailableCondition)
 		}
 
 		// the Close() will use PatchHelper to store the changes.
@@ -319,7 +320,7 @@ func (r *HCloudMachineReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 		Watches(
 			&clusterv1.Cluster{},
 			handler.EnqueueRequestsFromMapFunc(clusterToObjectFunc),
-			builder.WithPredicates(predicates.ClusterPausedTransitionsOrInfrastructureReady(mgr.GetScheme(), log)),
+			builder.WithPredicates(predicates.ClusterPausedTransitionsOrInfrastructureProvisioned(mgr.GetScheme(), log)),
 		).
 		Complete(r)
 	if err != nil {
@@ -366,13 +367,14 @@ func (r *HCloudMachineReconciler) HetznerClusterToHCloudMachines(_ context.Conte
 		}
 		for _, m := range machineList.Items {
 			log = log.WithValues("machine", m.Name)
-			if m.Spec.InfrastructureRef.GroupVersionKind().Kind != "HCloudMachine" {
+			infraRef := m.Spec.InfrastructureRef
+			if !infraRef.IsDefined() {
 				continue
 			}
-			if m.Spec.InfrastructureRef.Name == "" {
+			if infraRef.Kind != "HCloudMachine" || infraRef.APIGroup != infrav1.GroupVersion.Group {
 				continue
 			}
-			name := client.ObjectKey{Namespace: m.Namespace, Name: m.Spec.InfrastructureRef.Name}
+			name := client.ObjectKey{Namespace: m.Namespace, Name: infraRef.Name}
 
 			result = append(result, reconcile.Request{NamespacedName: name})
 		}

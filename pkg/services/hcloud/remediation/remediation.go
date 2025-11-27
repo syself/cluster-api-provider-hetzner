@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util/conditions"
@@ -32,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	hetznerconditions "github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
 )
@@ -52,7 +52,7 @@ func NewService(scope *scope.HCloudRemediationScope) *Service {
 func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 	// if SetErrorAndRemediate() was used to stop provisioning, do not try to reboot server
 	infraMachineCondition := conditions.Get(s.scope.HCloudMachine, infrav1.NoRemediateMachineAnnotationCondition)
-	if infraMachineCondition != nil && infraMachineCondition.Status == corev1.ConditionFalse {
+	if infraMachineCondition != nil && infraMachineCondition.Status == metav1.ConditionFalse {
 		err := s.setOwnerRemediatedConditionToFailed(ctx,
 			fmt.Sprintf("exit remediation because infra machine has condition set: %s: %s",
 				infraMachineCondition.Reason,
@@ -207,10 +207,10 @@ func (s *Service) setOwnerRemediatedConditionToFailed(ctx context.Context, msg s
 	}
 
 	// Move control to CAPI machine controller. CAPI will delete the machine.
-	conditions.MarkFalse(
+	hetznerconditions.MarkFalse(
 		s.scope.Machine,
 		clusterv1.MachineOwnerRemediatedCondition,
-		clusterv1.WaitingForRemediationReason,
+		clusterv1.MachineOwnerRemediatedWaitingForRemediationReason,
 		clusterv1.ConditionSeverityWarning,
 		"Remediation finished (machine will be deleted): %s", msg,
 	)

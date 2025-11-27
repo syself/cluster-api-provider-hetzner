@@ -37,7 +37,7 @@ type HCloudMachineTemplateStatus struct {
 
 	// Conditions defines current service state of the HCloudMachineTemplate.
 	// +optional
-	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// OwnerType is the type of object that owns the HCloudMachineTemplate.
 	// +optional
@@ -65,12 +65,12 @@ type HCloudMachineTemplate struct {
 }
 
 // GetConditions returns the observations of the operational state of the HCloudMachine resource.
-func (r *HCloudMachineTemplate) GetConditions() clusterv1.Conditions {
+func (r *HCloudMachineTemplate) GetConditions() []metav1.Condition {
 	return r.Status.Conditions
 }
 
 // SetConditions sets the underlying service state of the HCloudMachine to the predescribed clusterv1.Conditions.
-func (r *HCloudMachineTemplate) SetConditions(conditions clusterv1.Conditions) {
+func (r *HCloudMachineTemplate) SetConditions(conditions []metav1.Condition) {
 	r.Status.Conditions = conditions
 }
 

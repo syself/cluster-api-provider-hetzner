@@ -115,6 +115,11 @@ func (collector logCollector) CollectMachineLog(_ context.Context, _ client.Clie
 	})
 }
 
+// CollectMachinePoolLog implements the CollectMachinePoolLog method of the LogCollector interface.
+func (collector logCollector) CollectMachinePoolLog(_ context.Context, _ client.Client, _ *clusterv1.MachinePool, _ string) error {
+	return nil
+}
+
 func createOutputFile(path string) (*os.File, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		return nil, err

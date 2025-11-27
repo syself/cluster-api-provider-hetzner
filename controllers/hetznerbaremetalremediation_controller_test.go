@@ -82,11 +82,10 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 				Finalizers:   []string{clusterv1.ClusterFinalizer},
 			},
 			Spec: clusterv1.ClusterSpec{
-				InfrastructureRef: &corev1.ObjectReference{
-					APIVersion: "infrastructure.cluster.x-k8s.io/v1beta2",
-					Kind:       "HetznerCluster",
-					Name:       "hetzner-test1",
-					Namespace:  testNs.Name,
+				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+					APIGroup: infrav1.GroupVersion.Group,
+					Kind:     "HetznerCluster",
+					Name:     "hetzner-test1",
 				},
 			},
 		}
@@ -103,13 +102,12 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 			},
 			Spec: clusterv1.MachineSpec{
 				ClusterName: capiCluster.Name,
-				InfrastructureRef: corev1.ObjectReference{
-					APIVersion: "infrastructure.cluster.x-k8s.io/v1beta2",
-					Kind:       "HetznerBareMetalMachine",
-					Name:       machineName,
-					Namespace:  testNs.Name,
+				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+					APIGroup: infrav1.GroupVersion.Group,
+					Kind:     "HetznerBareMetalMachine",
+					Name:     machineName,
 				},
-				FailureDomain: &defaultFailureDomain,
+				FailureDomain: defaultFailureDomain,
 				Bootstrap: clusterv1.Bootstrap{
 					DataSecretName: ptr.To("bootstrap-secret"),
 				},
@@ -267,7 +265,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 							return false
 						}
 
-						return isPresentAndFalseWithReason(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedCondition, clusterv1.WaitingForRemediationReason)
+						return isPresentAndFalseWithReason(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedCondition, clusterv1.MachineOwnerRemediatedWaitingForRemediationReason)
 					}, timeout).Should(BeTrue())
 				})
 
@@ -283,7 +281,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 							return false
 						}
 
-						return isPresentAndFalseWithReason(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedCondition, clusterv1.WaitingForRemediationReason)
+						return isPresentAndFalseWithReason(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedCondition, clusterv1.MachineOwnerRemediatedWaitingForRemediationReason)
 					}, timeout).Should(BeTrue())
 				})
 			})
@@ -378,7 +376,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 						}
 
 						return hetznerBareMetalRemediation.Status.Phase == infrav1.PhaseDeleting &&
-							isPresentAndFalseWithReason(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedCondition, clusterv1.WaitingForRemediationReason)
+							isPresentAndFalseWithReason(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedCondition, clusterv1.MachineOwnerRemediatedWaitingForRemediationReason)
 					}, timeout).Should(BeTrue())
 				})
 			})
@@ -418,7 +416,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 						return false
 					}
 
-					return isPresentAndFalseWithReason(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedCondition, clusterv1.WaitingForRemediationReason)
+					return isPresentAndFalseWithReason(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedCondition, clusterv1.MachineOwnerRemediatedWaitingForRemediationReason)
 				}, timeout).Should(BeTrue())
 			})
 		})

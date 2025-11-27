@@ -26,6 +26,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
@@ -43,6 +44,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	hetznerconditions "github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	bmclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client"
@@ -246,16 +248,16 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	ctx = ctrl.LoggerInto(ctx, log)
 
 	remediateConditionOfHbmm := conditions.Get(hetznerBareMetalMachine, infrav1.NoRemediateMachineAnnotationCondition)
-	if remediateConditionOfHbmm != nil && remediateConditionOfHbmm.Status == corev1.ConditionFalse {
+	if remediateConditionOfHbmm != nil && remediateConditionOfHbmm.Status == metav1.ConditionFalse {
 		// The hbmm of this host is in remediation. Do not reconcile it.
 		// Take the Condition of the hbmm and make it available on the hbmh.
 		msg := "hbmm has NoRemediateMachineAnnotationCondition=False."
 		log.Info(msg)
-		conditions.MarkFalse(bmHost, infrav1.NoRemediateMachineAnnotationCondition,
-			remediateConditionOfHbmm.Reason, remediateConditionOfHbmm.Severity,
+		hetznerconditions.MarkFalse(bmHost, infrav1.NoRemediateMachineAnnotationCondition,
+			remediateConditionOfHbmm.Reason, clusterv1.ConditionSeverityInfo,
 			"%s", remediateConditionOfHbmm.Message)
 	} else {
-		conditions.MarkTrue(bmHost, infrav1.NoRemediateMachineAnnotationCondition)
+		hetznerconditions.MarkTrue(bmHost, infrav1.NoRemediateMachineAnnotationCondition)
 	}
 
 	// Get Hetzner robot api credentials
@@ -369,7 +371,7 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				msg := fmt.Sprintf("%s: %s", infrav1.ErrorMessageMissingOSSSHSecret, err.Error())
-				conditions.MarkFalse(
+				hetznerconditions.MarkFalse(
 					bmHost,
 					infrav1.CredentialsAvailableCondition,
 					infrav1.OSSSHSecretMissingReason,
@@ -378,7 +380,7 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 					msg,
 				)
 				record.Warnf(bmHost, infrav1.OSSSHSecretMissingReason, msg)
-				conditions.SetSummary(bmHost)
+				hetznerconditions.SetSummary(bmHost)
 				result, err := host.SaveHostAndReturn(ctx, r.Client, bmHost)
 				if result != emptyResult || err != nil {
 					return nil, nil, result, err
@@ -393,7 +395,7 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 		rescueSSHSecret, err = secretManager.AcquireSecret(ctx, rescueSSHSecretNamespacedName, hetznerCluster, false, hetznerCluster.DeletionTimestamp.IsZero())
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				conditions.MarkFalse(
+				hetznerconditions.MarkFalse(
 					bmHost,
 					infrav1.CredentialsAvailableCondition,
 					infrav1.RescueSSHSecretMissingReason,
@@ -402,7 +404,7 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 				)
 
 				record.Warnf(bmHost, infrav1.RescueSSHSecretMissingReason, infrav1.ErrorMessageMissingRescueSSHSecret)
-				conditions.SetSummary(bmHost)
+				hetznerconditions.SetSummary(bmHost)
 				result, err := host.SaveHostAndReturn(ctx, r.Client, bmHost)
 				if result != emptyResult || err != nil {
 					return nil, nil, result, err
@@ -472,7 +474,7 @@ func hetznerSecretErrorResult(
 		// In the event that the reference to the secret is defined, but we cannot find it
 		// we requeue the host as we will not know if they create the secret
 		// at some point in the future.
-		conditions.MarkFalse(
+		hetznerconditions.MarkFalse(
 			bmHost,
 			infrav1.CredentialsAvailableCondition,
 			infrav1.HetznerSecretUnreachableReason,
@@ -481,7 +483,7 @@ func hetznerSecretErrorResult(
 		)
 
 		record.Warnf(bmHost, infrav1.HetznerSecretUnreachableReason, fmt.Sprintf("%s: %s", infrav1.ErrorMessageMissingHetznerSecret, err.Error()))
-		conditions.SetSummary(bmHost)
+		hetznerconditions.SetSummary(bmHost)
 		result, err := host.SaveHostAndReturn(ctx, client, bmHost)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -497,7 +499,7 @@ func hetznerSecretErrorResult(
 
 	credValidationErr := &bmclient.CredentialsValidationError{}
 	if errors.As(err, &credValidationErr) {
-		conditions.MarkFalse(
+		hetznerconditions.MarkFalse(
 			bmHost,
 			infrav1.CredentialsAvailableCondition,
 			infrav1.RobotCredentialsInvalidReason,
@@ -505,7 +507,7 @@ func hetznerSecretErrorResult(
 			infrav1.ErrorMessageMissingOrInvalidSecretData,
 		)
 		record.Warnf(bmHost, infrav1.SSHCredentialsInSecretInvalidReason, err.Error())
-		conditions.SetSummary(bmHost)
+		hetznerconditions.SetSummary(bmHost)
 		return host.SaveHostAndReturn(ctx, client, bmHost)
 	}
 	return reconcile.Result{}, fmt.Errorf("hetznerSecretErrorResult: an unhandled failure occurred: %T %w", err, err)

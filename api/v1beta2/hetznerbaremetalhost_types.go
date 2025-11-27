@@ -25,7 +25,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util/record"
 )
 
@@ -313,7 +312,7 @@ type ControllerGeneratedStatus struct {
 
 	// Conditions define the current service state of the HetznerBareMetalHost.
 	// +optional
-	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// ExternalIDs contains values from external systems.
 	// +optional
@@ -341,12 +340,12 @@ func (sts ControllerGeneratedStatus) GetIPAddress() string {
 }
 
 // GetConditions returns the observations of the operational state of the HetznerBareMetalHost resource.
-func (host *HetznerBareMetalHost) GetConditions() clusterv1.Conditions {
+func (host *HetznerBareMetalHost) GetConditions() []metav1.Condition {
 	return host.Spec.Status.Conditions
 }
 
 // SetConditions sets the underlying service state of the HetznerBareMetalHost to the predescribed clusterv1.Conditions.
-func (host *HetznerBareMetalHost) SetConditions(conditions clusterv1.Conditions) {
+func (host *HetznerBareMetalHost) SetConditions(conditions []metav1.Condition) {
 	host.Spec.Status.Conditions = conditions
 }
 

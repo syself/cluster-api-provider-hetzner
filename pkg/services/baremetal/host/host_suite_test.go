@@ -99,11 +99,7 @@ func newTestService(
 			APIVersion: clusterv1.GroupVersion.String(),
 		},
 		Status: clusterv1.MachineStatus{
-			NodeRef: &corev1.ObjectReference{
-				Kind:       "Node",
-				Name:       host.Name,
-				APIVersion: "v1",
-			},
+			NodeRef: clusterv1.MachineNodeReference{Name: host.Name},
 		},
 	}
 	err := c.Create(ctx, capiMachine)

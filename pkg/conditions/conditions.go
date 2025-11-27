@@ -22,35 +22,76 @@ import (
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	capiconditions "sigs.k8s.io/cluster-api/util/conditions"
 )
 
-func MarkTrue(targetObj capiconditions.Setter, conditionType string) {
+const readyConditionType = clusterv1.ReadyCondition
+
+func MarkTrue[T ~string](targetObj capiconditions.Setter, conditionType T) {
 	capiconditions.Set(targetObj, metav1.Condition{
-		Type:    conditionType,
+		Type:    string(conditionType),
 		Status:  metav1.ConditionTrue,
 		Reason:  "",
 		Message: "",
 	})
 }
 
-func MarkFalse(to capiconditions.Setter, conditionType string, reason string, messageFormat string, messageArgs ...any) {
+func MarkFalse[T ~string, R ~string](to capiconditions.Setter, conditionType T, reason R, severity clusterv1.ConditionSeverity, messageFormat string, messageArgs ...any) {
+	// Severity is not part of metav1.Condition anymore, but we keep the parameter to avoid touching call sites.
+	_ = severity
+
 	message := messageFormat
 	if len(messageArgs) > 0 {
 		message = fmt.Sprintf(messageFormat, messageArgs...)
 	}
 	capiconditions.Set(to, metav1.Condition{
-		Type:    conditionType,
+		Type:    string(conditionType),
 		Status:  metav1.ConditionFalse,
-		Reason:  reason,
+		Reason:  string(reason),
 		Message: message,
 	})
 }
 
 func SetSummary(obj capiconditions.Setter) {
-	c, err := capiconditions.NewSummaryCondition(obj, "Ready")
-	if err != nil {
-		panic(fmt.Sprintf("error in SetSummary: %s", err.Error()))
+	getter, ok := any(obj).(capiconditions.Getter)
+	if !ok {
+		return
 	}
-	capiconditions.Set(obj, *c)
+
+	conditions := getter.GetConditions()
+	conditionTypes := make([]string, 0, len(conditions))
+	for _, condition := range conditions {
+		if condition.Type == readyConditionType {
+			continue
+		}
+		conditionTypes = append(conditionTypes, condition.Type)
+	}
+
+	var (
+		summary *metav1.Condition
+		err     error
+	)
+
+	switch len(conditionTypes) {
+	case 0:
+		summary = &metav1.Condition{
+			Type:    readyConditionType,
+			Status:  metav1.ConditionUnknown,
+			Reason:  capiconditions.NotYetReportedReason,
+			Message: "No conditions reported yet",
+		}
+	default:
+		summary, err = capiconditions.NewSummaryCondition(getter, readyConditionType, capiconditions.ForConditionTypes(conditionTypes))
+		if err != nil {
+			summary = &metav1.Condition{
+				Type:    readyConditionType,
+				Status:  metav1.ConditionUnknown,
+				Reason:  "SummaryError",
+				Message: err.Error(),
+			}
+		}
+	}
+
+	capiconditions.Set(obj, *summary)
 }

@@ -1895,7 +1895,7 @@ var _ = Describe("actionProvisioned SSHAfterInstallImage=false", func() {
 		// Condition should be fine
 		c := conditions.Get(host, infrav1.RebootSucceededCondition)
 		Expect(c.Message).To(Equal(""))
-		Expect(c.Status).To(Equal(corev1.ConditionTrue))
+		Expect(c.Status).To(Equal(metav1.ConditionTrue))
 		Expect(host.GetAnnotations()).To(BeEmpty())
 	})
 })

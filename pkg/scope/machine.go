@@ -29,12 +29,13 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
-	"sigs.k8s.io/cluster-api/util/conditions"
+	capiconditions "sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 )
@@ -199,18 +200,18 @@ func (m *MachineScope) SetReady(ready bool) {
 
 // HasServerAvailableCondition checks whether ServerAvailable condition is set on true.
 func (m *MachineScope) HasServerAvailableCondition() bool {
-	return conditions.IsTrue(m.HCloudMachine, infrav1.ServerAvailableCondition)
+	return capiconditions.IsTrue(m.HCloudMachine, string(infrav1.ServerAvailableCondition))
 }
 
 // HasServerTerminatedCondition checks the whether ServerAvailable condition is false with reason "terminated".
 func (m *MachineScope) HasServerTerminatedCondition() bool {
-	return conditions.IsFalse(m.HCloudMachine, infrav1.ServerAvailableCondition) &&
-		conditions.GetReason(m.HCloudMachine, infrav1.ServerAvailableCondition) == infrav1.ServerTerminatingReason
+	return capiconditions.IsFalse(m.HCloudMachine, string(infrav1.ServerAvailableCondition)) &&
+		capiconditions.GetReason(m.HCloudMachine, string(infrav1.ServerAvailableCondition)) == infrav1.ServerTerminatingReason
 }
 
 // HasShutdownTimedOut checks the whether the HCloud server is terminated.
 func (m *MachineScope) HasShutdownTimedOut() bool {
-	return time.Now().After(conditions.GetLastTransitionTime(m.HCloudMachine, infrav1.ServerAvailableCondition).Time.Add(maxShutDownTime))
+	return time.Now().After(capiconditions.GetLastTransitionTime(m.HCloudMachine, string(infrav1.ServerAvailableCondition)).Time.Add(maxShutDownTime))
 }
 
 // IsBootstrapDataReady checks the readiness of a capi machine's bootstrap data.
@@ -220,18 +221,18 @@ func (m *MachineScope) IsBootstrapDataReady() bool {
 
 // GetFailureDomain returns the machine's failure domain or a default one based on a hash.
 func (m *MachineScope) GetFailureDomain() (string, error) {
-	if m.Machine.Spec.FailureDomain != nil {
-		return *m.Machine.Spec.FailureDomain, nil
+	if m.Machine.Spec.FailureDomain != "" {
+		return m.Machine.Spec.FailureDomain, nil
 	}
 
 	failureDomainNames := make([]string, 0, len(m.Cluster.Status.FailureDomains))
-	for fdName, fd := range m.Cluster.Status.FailureDomains {
+	for _, fd := range m.Cluster.Status.FailureDomains {
 		// filter out zones if we are a control plane and the cluster object
 		// wants to avoid contorl planes in that zone
-		if m.IsControlPlane() && !fd.ControlPlane {
+		if m.IsControlPlane() && (fd.ControlPlane == nil || !*fd.ControlPlane) {
 			continue
 		}
-		failureDomainNames = append(failureDomainNames, fdName)
+		failureDomainNames = append(failureDomainNames, fd.Name)
 	}
 
 	if len(failureDomainNames) == 0 {

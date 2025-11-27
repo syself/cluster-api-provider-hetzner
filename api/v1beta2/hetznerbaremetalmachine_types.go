@@ -323,7 +323,7 @@ type HetznerBareMetalMachineStatus struct {
 
 	// Conditions define the current service state of the HetznerBareMetalMachine.
 	// +optional
-	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // HetznerBareMetalMachine is the Schema for the hetznerbaremetalmachines API.
@@ -350,12 +350,12 @@ type HetznerBareMetalMachine struct {
 }
 
 // GetConditions returns the observations of the operational state of the HetznerBareMetalMachine resource.
-func (hbmm *HetznerBareMetalMachine) GetConditions() clusterv1.Conditions {
+func (hbmm *HetznerBareMetalMachine) GetConditions() []metav1.Condition {
 	return hbmm.Status.Conditions
 }
 
 // SetConditions sets the underlying service state of the HetznerBareMetalMachine to the predescribed clusterv1.Conditions.
-func (hbmm *HetznerBareMetalMachine) SetConditions(conditions clusterv1.Conditions) {
+func (hbmm *HetznerBareMetalMachine) SetConditions(conditions []metav1.Condition) {
 	hbmm.Status.Conditions = conditions
 }
 
