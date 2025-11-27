@@ -245,17 +245,17 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	log = log.WithValues("HetznerBareMetalMachine", klog.KObj(hetznerBareMetalMachine))
 	ctx = ctrl.LoggerInto(ctx, log)
 
-	remediateConditionOfHbmm := conditions.Get(hetznerBareMetalMachine, infrav1.NoRemediateMachineAnnotationCondition)
+	remediateConditionOfHbmm := conditions.Get(hetznerBareMetalMachine, infrav1.RemediationSucceededCondition)
 	if remediateConditionOfHbmm != nil && remediateConditionOfHbmm.Status == corev1.ConditionFalse {
 		// The hbmm of this host is in remediation. Do not reconcile it.
 		// Take the Condition of the hbmm and make it available on the hbmh.
-		msg := "hbmm has NoRemediateMachineAnnotationCondition=False."
+		msg := "hbmm has RemediationSucceededCondition=False."
 		log.Info(msg)
-		conditions.MarkFalse(bmHost, infrav1.NoRemediateMachineAnnotationCondition,
+		conditions.MarkFalse(bmHost, infrav1.RemediationSucceededCondition,
 			remediateConditionOfHbmm.Reason, remediateConditionOfHbmm.Severity,
 			"%s", remediateConditionOfHbmm.Message)
 	} else {
-		conditions.MarkTrue(bmHost, infrav1.NoRemediateMachineAnnotationCondition)
+		conditions.MarkTrue(bmHost, infrav1.RemediationSucceededCondition)
 	}
 
 	// Get Hetzner robot api credentials

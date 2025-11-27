@@ -168,10 +168,10 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 		return r.reconcileDelete(ctx, machineScope)
 	}
 
-	remediateConditionOfHbmm := conditions.Get(hbmMachine, infrav1.NoRemediateMachineAnnotationCondition)
+	remediateConditionOfHbmm := conditions.Get(hbmMachine, infrav1.RemediationSucceededCondition)
 	if remediateConditionOfHbmm != nil && remediateConditionOfHbmm.Status == corev1.ConditionFalse {
 		// The hbmm will be deleted. Do not reconcile it.
-		log.Info("hbmm has NoRemediateMachineAnnotationCondition=False. Waiting for deletion")
+		log.Info("hbmm has RemediationSucceededCondition=False. Waiting for deletion")
 		return reconcile.Result{}, nil
 	}
 

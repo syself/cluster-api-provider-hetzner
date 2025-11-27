@@ -70,7 +70,7 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 			"exit remediation because hbmm has no host annotation")
 	}
 	// if SetErrorAndRemediate() was used to stop provisioning, do not try to reboot server
-	infraMachineCondition := conditions.Get(s.scope.BareMetalMachine, infrav1.NoRemediateMachineAnnotationCondition)
+	infraMachineCondition := conditions.Get(s.scope.BareMetalMachine, infrav1.RemediationSucceededCondition)
 	if infraMachineCondition != nil && infraMachineCondition.Status == corev1.ConditionFalse {
 		return s.setOwnerRemediatedConditionToFailed(ctx,
 			fmt.Sprintf("exit remediation because infra machine has condition set: %s: %s",
