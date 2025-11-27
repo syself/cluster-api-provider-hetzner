@@ -245,6 +245,11 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	log = log.WithValues("HetznerBareMetalMachine", klog.KObj(hetznerBareMetalMachine))
 	ctx = ctrl.LoggerInto(ctx, log)
 
+	// check whether rate limit has been reached and if so, then wait.
+	if wait := reconcileRateLimit(bmHost, r.RateLimitWaitTime); wait {
+		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+	}
+
 	remediateConditionOfHbmm := conditions.Get(hetznerBareMetalMachine, infrav1.RemediationSucceededCondition)
 	if remediateConditionOfHbmm != nil && remediateConditionOfHbmm.Status == corev1.ConditionFalse {
 		// The hbmm of this host is in remediation. Do not reconcile it.
@@ -293,11 +298,6 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	})
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %w", err)
-	}
-
-	// check whether rate limit has been reached and if so, then wait.
-	if wait := reconcileRateLimit(bmHost, r.RateLimitWaitTime); wait {
-		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
 	return r.reconcile(ctx, hostScope)
