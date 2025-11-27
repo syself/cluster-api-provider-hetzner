@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/cluster-api/util/record"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
-	hetznerconditions "github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
@@ -50,7 +50,7 @@ func NewService(scope *scope.ClusterScope) *Service {
 func (s *Service) Reconcile(ctx context.Context) (err error) {
 	defer func() {
 		if err != nil {
-			hetznerconditions.MarkFalse(
+			conditions.MarkFalse(
 				s.scope.HetznerCluster,
 				infrav1.PlacementGroupsSyncedCondition,
 				infrav1.PlacementGroupsSyncFailedReason,
@@ -130,7 +130,7 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 	}
 
 	s.scope.HetznerCluster.Status.HCloudPlacementGroups = statusFromHCloudPlacementGroups(placementGroups, s.scope.HetznerCluster.Name)
-	hetznerconditions.MarkTrue(s.scope.HetznerCluster, infrav1.PlacementGroupsSyncedCondition)
+	conditions.MarkTrue(s.scope.HetznerCluster, infrav1.PlacementGroupsSyncedCondition)
 
 	return nil
 }

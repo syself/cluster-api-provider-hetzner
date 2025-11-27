@@ -25,11 +25,10 @@ import (
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
-	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/record"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
-	hetznerconditions "github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
@@ -58,7 +57,7 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 
 	defer func() {
 		if err != nil {
-			hetznerconditions.MarkFalse(
+			conditions.MarkFalse(
 				s.scope.HetznerCluster,
 				infrav1.NetworkReadyCondition,
 				infrav1.NetworkReconcileFailedReason,
@@ -81,7 +80,7 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 		}
 	}
 
-	hetznerconditions.MarkTrue(s.scope.HetznerCluster, infrav1.NetworkReadyCondition)
+	conditions.MarkTrue(s.scope.HetznerCluster, infrav1.NetworkReadyCondition)
 	s.scope.HetznerCluster.Status.Network = statusFromHCloudNetwork(network)
 
 	return nil

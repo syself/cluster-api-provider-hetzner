@@ -14,8 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package conditions provides a wrapper for the new beta2 conditions of CAPI. Having it reduces the
-// changes needed for the update from capi v1.10 to v1.11
+// changes needed for the update from capi v1.10 to v1.11.
 package conditions
 
 import (
@@ -94,4 +93,32 @@ func SetSummary(obj capiconditions.Setter) {
 	}
 
 	capiconditions.Set(obj, *summary)
+}
+
+func Delete(obj capiconditions.Setter, conditionType string) {
+	capiconditions.Delete(obj, conditionType)
+}
+
+func Get(obj capiconditions.Getter, conditionType string) *metav1.Condition {
+	return capiconditions.Get(obj, conditionType)
+}
+
+func Has(obj capiconditions.Getter, conditionType string) bool {
+	return capiconditions.Has(obj, conditionType)
+}
+
+func IsFalse(obj capiconditions.Getter, conditionType string) bool {
+	return capiconditions.IsFalse(obj, conditionType)
+}
+
+func IsTrue(obj capiconditions.Getter, conditionType string) bool {
+	return capiconditions.IsTrue(obj, conditionType)
+}
+
+func GetReason(obj capiconditions.Getter, conditionType string) string {
+	return capiconditions.GetReason(obj, conditionType)
+}
+
+func GetMessage(obj capiconditions.Getter, conditionType string) string {
+	return capiconditions.GetMessage(obj, conditionType)
 }

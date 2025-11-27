@@ -30,7 +30,6 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
-	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -41,7 +40,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
-	hetznerconditions "github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/baremetal"
@@ -147,12 +146,12 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 	// Always close the scope when exiting this function so we can persist any HetznerBareMetalMachine changes.
 	defer func() {
 		if reterr != nil && errors.Is(reterr, hcloudclient.ErrUnauthorized) {
-			hetznerconditions.MarkFalse(hbmMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason, clusterv1.ConditionSeverityError, "wrong hcloud token")
+			conditions.MarkFalse(hbmMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason, clusterv1.ConditionSeverityError, "wrong hcloud token")
 		} else {
-			hetznerconditions.MarkTrue(hbmMachine, infrav1.HCloudTokenAvailableCondition)
+			conditions.MarkTrue(hbmMachine, infrav1.HCloudTokenAvailableCondition)
 		}
 
-		hetznerconditions.SetSummary(hbmMachine)
+		conditions.SetSummary(hbmMachine)
 
 		if err := machineScope.Close(ctx); err != nil {
 			res = reconcile.Result{}

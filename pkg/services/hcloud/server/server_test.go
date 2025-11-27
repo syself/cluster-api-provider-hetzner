@@ -34,13 +34,13 @@ import (
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
-	"sigs.k8s.io/cluster-api/util/conditions"
+	capiconditions "sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
-	hetznerconditions "github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
@@ -167,7 +167,7 @@ var _ = Describe("handleServerStatusOff", func() {
 	})
 
 	It("tries to power on server again if it is not timed out", func() {
-		hetznerconditions.MarkFalse(hcloudMachine, infrav1.ServerAvailableCondition, infrav1.ServerOffReason, clusterv1.ConditionSeverityInfo, "")
+		conditions.MarkFalse(hcloudMachine, infrav1.ServerAvailableCondition, infrav1.ServerOffReason, clusterv1.ConditionSeverityInfo, "")
 
 		service := newTestService(hcloudMachine, client)
 
@@ -182,7 +182,7 @@ var _ = Describe("handleServerStatusOff", func() {
 	})
 
 	It("sets a failure message if it timed out", func() {
-		hetznerconditions.MarkFalse(hcloudMachine, infrav1.ServerAvailableCondition, infrav1.ServerOffReason, clusterv1.ConditionSeverityInfo, "")
+		conditions.MarkFalse(hcloudMachine, infrav1.ServerAvailableCondition, infrav1.ServerOffReason, clusterv1.ConditionSeverityInfo, "")
 
 		// manipulate lastTransitionTime
 		conditionsList := hcloudMachine.GetConditions()
@@ -207,7 +207,7 @@ var _ = Describe("handleServerStatusOff", func() {
 	})
 
 	It("tries to power on server and sets new condition if different one is set", func() {
-		hetznerconditions.MarkTrue(hcloudMachine, infrav1.ServerAvailableCondition)
+		conditions.MarkTrue(hcloudMachine, infrav1.ServerAvailableCondition)
 
 		service := newTestService(hcloudMachine, client)
 
@@ -1054,7 +1054,7 @@ var _ = Describe("Reconcile", func() {
 	})
 })
 
-func isPresentAndFalseWithReason(getter conditions.Getter, condition string, reason string) bool {
+func isPresentAndFalseWithReason(getter capiconditions.Getter, condition string, reason string) bool {
 	if !conditions.Has(getter, condition) {
 		return false
 	}

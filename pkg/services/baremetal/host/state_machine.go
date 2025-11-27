@@ -23,11 +23,10 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
-	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/record"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
-	hetznerconditions "github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 )
 
@@ -92,7 +91,7 @@ func (hsm *hostStateMachine) ReconcileState(ctx context.Context) (actionRes acti
 	}
 
 	// Assume credentials are ready for now. This can be changed while the state is handled.
-	hetznerconditions.MarkTrue(hsm.host, infrav1.CredentialsAvailableCondition)
+	conditions.MarkTrue(hsm.host, infrav1.CredentialsAvailableCondition)
 
 	// This state was removed. We have to handle the edge-case where
 	// the controller got updated and a machine
@@ -179,7 +178,7 @@ func (hsm *hostStateMachine) updateOSSSHStatusAndValidateKey(osSSHSecret *corev1
 	}
 	if err := validateSSHKey(osSSHSecret, hsm.host.Spec.Status.SSHSpec.SecretRef); err != nil {
 		msg := fmt.Sprintf("ssh credentials are invalid: %s", err.Error())
-		hetznerconditions.MarkFalse(
+		conditions.MarkFalse(
 			hsm.host,
 			infrav1.CredentialsAvailableCondition,
 			infrav1.SSHCredentialsInSecretInvalidReason,
@@ -217,7 +216,7 @@ func (hsm *hostStateMachine) updateRescueSSHStatusAndValidateKey(rescueSSHSecret
 	}
 	if err := validateSSHKey(rescueSSHSecret, hsm.reconciler.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef); err != nil {
 		msg := fmt.Sprintf("ssh credentials for rescue system are invalid: %s", err.Error())
-		hetznerconditions.MarkFalse(
+		conditions.MarkFalse(
 			hsm.host,
 			infrav1.CredentialsAvailableCondition,
 			infrav1.SSHCredentialsInSecretInvalidReason,

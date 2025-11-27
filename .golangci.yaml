@@ -170,6 +170,11 @@ issues:
       text: "SA1019: in.(.+) is deprecated"
       path: .*(api|types)\/.*\/conversion.*\.go$
     - linters:
+        - staticcheck
+        #  SA1019: "sigs.k8s.io/cluster-api/api/core/v1beta1" is deprecated: This package is deprecated and is going to be removed when support for v1beta1 will be dropped
+      text: SA1019.*sigs.k8s.io/cluster-api/\S+ is deprecated
+      path: .*api/v1beta1/.*
+    - linters:
         - revive
       text: exported (method|function|type|const) (.+) should have comment or be unexported
       path: .*(api|types|test)\/.*\/conversion.*\.go$

@@ -29,13 +29,12 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
-	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
-	hetznerconditions "github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
@@ -1159,19 +1158,19 @@ var _ = Describe("reconcileRateLimit", func() {
 	})
 
 	It("returns wait==true if rate limit exceeded is set and time is not over", func() {
-		hetznerconditions.MarkFalse(hetznerCluster, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason, clusterv1.ConditionSeverityWarning, "")
+		conditions.MarkFalse(hetznerCluster, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason, clusterv1.ConditionSeverityWarning, "")
 		Expect(reconcileRateLimit(hetznerCluster, testEnv.RateLimitWaitTime)).To(BeTrue())
 	})
 
 	It("returns wait==false if rate limit exceeded is set and time is over", func() {
-		hetznerconditions.MarkFalse(hetznerCluster, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason, clusterv1.ConditionSeverityWarning, "")
+		conditions.MarkFalse(hetznerCluster, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason, clusterv1.ConditionSeverityWarning, "")
 		conditionList := hetznerCluster.GetConditions()
 		conditionList[0].LastTransitionTime = metav1.NewTime(time.Now().Add(-time.Hour))
 		Expect(reconcileRateLimit(hetznerCluster, testEnv.RateLimitWaitTime)).To(BeFalse())
 	})
 
 	It("returns wait==false if rate limit condition is set to true", func() {
-		hetznerconditions.MarkTrue(hetznerCluster, infrav1.HetznerAPIReachableCondition)
+		conditions.MarkTrue(hetznerCluster, infrav1.HetznerAPIReachableCondition)
 		Expect(reconcileRateLimit(hetznerCluster, testEnv.RateLimitWaitTime)).To(BeFalse())
 	})
 

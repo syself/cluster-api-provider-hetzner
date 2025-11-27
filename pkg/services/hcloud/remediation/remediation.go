@@ -25,13 +25,12 @@ import (
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
-	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
-	hetznerconditions "github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
 )
@@ -207,7 +206,7 @@ func (s *Service) setOwnerRemediatedConditionToFailed(ctx context.Context, msg s
 	}
 
 	// Move control to CAPI machine controller. CAPI will delete the machine.
-	hetznerconditions.MarkFalse(
+	conditions.MarkFalse(
 		s.scope.Machine,
 		clusterv1.MachineOwnerRemediatedCondition,
 		clusterv1.MachineOwnerRemediatedWaitingForRemediationReason,

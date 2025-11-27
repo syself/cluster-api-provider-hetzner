@@ -27,13 +27,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
-	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
-	hetznerconditions "github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/host"
 )
@@ -226,7 +225,7 @@ func (s *Service) setOwnerRemediatedConditionToFailed(ctx context.Context, msg s
 	// When machine is still unhealthy after remediation, setting of OwnerRemediatedCondition
 	// moves control to CAPI machine controller. The owning controller will do
 	// preflight checks and handles the Machine deletion.
-	hetznerconditions.MarkFalse(
+	conditions.MarkFalse(
 		capiMachine,
 		clusterv1.MachineOwnerRemediatedCondition,
 		clusterv1.MachineOwnerRemediatedWaitingForRemediationReason,

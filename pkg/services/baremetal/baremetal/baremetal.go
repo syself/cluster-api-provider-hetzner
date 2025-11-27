@@ -39,14 +39,13 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
-	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
-	hetznerconditions "github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/host"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
@@ -91,7 +90,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	// will get an event from the machine update when the flag is set to true.
 	if !s.scope.IsBootstrapReady() {
 		s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhasePending
-		hetznerconditions.MarkFalse(
+		conditions.MarkFalse(
 			s.scope.BareMetalMachine,
 			infrav1.BootstrapReadyCondition,
 			infrav1.BootstrapNotReadyReason,
@@ -101,7 +100,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 		return res, nil
 	}
 
-	hetznerconditions.MarkTrue(s.scope.BareMetalMachine, infrav1.BootstrapReadyCondition)
+	conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.BootstrapReadyCondition)
 
 	// Check if the bareMetalmachine is associated with a host already. If not, associate a new host.
 	if !s.scope.BareMetalMachine.HasHostAnnotation() {
@@ -111,7 +110,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 		}
 	}
 
-	hetznerconditions.MarkTrue(s.scope.BareMetalMachine, infrav1.HostAssociateSucceededCondition)
+	conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.HostAssociateSucceededCondition)
 
 	// update the machine
 	if err := s.update(ctx); err != nil {
@@ -219,9 +218,9 @@ func (s *Service) update(ctx context.Context) error {
 	if readyCondition != nil {
 		switch readyCondition.Status {
 		case metav1.ConditionTrue:
-			hetznerconditions.MarkTrue(s.scope.BareMetalMachine, infrav1.HostReadyCondition)
+			conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.HostReadyCondition)
 		case metav1.ConditionFalse:
-			hetznerconditions.MarkFalse(
+			conditions.MarkFalse(
 				s.scope.BareMetalMachine,
 				infrav1.HostReadyCondition,
 				readyCondition.Reason,
@@ -306,7 +305,7 @@ func (s *Service) associate(ctx context.Context) error {
 	if host == nil {
 		s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhasePending
 		s.scope.Info("No available host found. Requeuing.", "reason", reason)
-		hetznerconditions.MarkFalse(
+		conditions.MarkFalse(
 			s.scope.BareMetalMachine,
 			infrav1.HostAssociateSucceededCondition,
 			infrav1.NoAvailableHostReason,
@@ -333,7 +332,7 @@ func (s *Service) associate(ctx context.Context) error {
 
 	if err := analyzePatchError(helper.Patch(ctx, host), false); err != nil {
 		reterr := fmt.Errorf("failed to patch host: %w", err)
-		hetznerconditions.MarkFalse(
+		conditions.MarkFalse(
 			s.scope.BareMetalMachine,
 			infrav1.HostAssociateSucceededCondition,
 			infrav1.HostAssociateFailedReason,
