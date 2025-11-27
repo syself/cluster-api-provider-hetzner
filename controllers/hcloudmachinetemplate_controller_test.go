@@ -38,9 +38,8 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 	)
 
 	BeforeEach(func() {
-		hcloudClient.Reset()
 		var err error
-		testNs, err = testEnv.CreateNamespace(ctx, "hcloudmachinetemplate-reconciler")
+		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachinetemplate-reconciler")
 		Expect(err).NotTo(HaveOccurred())
 
 		hetznerSecret = getDefaultHetznerSecret(testNs.Name)
@@ -144,8 +143,6 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 			)
 
 			BeforeEach(func() {
-				hcloudClient.Reset()
-
 				capiCluster = &clusterv1.Cluster{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "test-",
@@ -253,7 +250,7 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 			)
 			BeforeEach(func() {
 				var err error
-				testNs, err = testEnv.CreateNamespace(ctx, "hcloudmachine-validation")
+				testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-validation")
 				Expect(err).NotTo(HaveOccurred())
 
 				hcloudMachineTemplate = &infrav1.HCloudMachineTemplate{

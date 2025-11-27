@@ -90,6 +90,8 @@ func (c *cacheHCloudClient) Reset() {
 
 type cacheHCloudClientFactory struct{}
 
+// cacheHCloudClientInstance is a global variable shared by all fake hcloud clients. Note: it would
+// be better if we could avoid a global variable here.
 var cacheHCloudClientInstance = &cacheHCloudClient{
 	serverCache: serverCache{
 		idMap:   make(map[int64]*hcloud.Server),
@@ -111,6 +113,7 @@ var cacheHCloudClientInstance = &cacheHCloudClient{
 
 // NewHCloudClientFactory creates new fake HCloud client factories using cache.
 func NewHCloudClientFactory() hcloudclient.Factory {
+	cacheHCloudClientInstance.Reset()
 	return &cacheHCloudClientFactory{}
 }
 
