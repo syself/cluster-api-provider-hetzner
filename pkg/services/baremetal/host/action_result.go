@@ -45,21 +45,20 @@ type actionContinue struct {
 	delay time.Duration
 }
 
-func (r actionContinue) Result() (result reconcile.Result, err error) {
-	result.RequeueAfter = r.delay
-	// Set Requeue true as well as RequeueAfter in case the delay is 0.
-	result.Requeue = true
-	return result, nil
+func (r actionContinue) Result() (reconcile.Result, error) {
+	if r.delay != 0 {
+		return reconcile.Result{RequeueAfter: r.delay}, nil
+	}
+	return reconcile.Result{RequeueAfter: time.Second}, nil
 }
 
 // actionComplete is a result indicating that the current action has completed,
 // and that the resource should transition to the next state.
 type actionComplete struct{}
 
-func (actionComplete) Result() (result reconcile.Result, err error) {
+func (actionComplete) Result() (reconcile.Result, error) {
 	// One phase is done. Go to the next phase in the next reconcile.
-	result.Requeue = true
-	return result, nil
+	return reconcile.Result{RequeueAfter: time.Second}, nil
 }
 
 // deleteComplete is a result indicating that the deletion action has

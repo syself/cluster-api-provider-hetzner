@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package conditions contains CAPI condition helpers used by the Hetzner provider.
 // changes needed for the update from capi v1.10 to v1.11.
 package conditions
 
@@ -27,7 +28,8 @@ import (
 
 const readyConditionType = clusterv1.ReadyCondition
 
-func MarkTrue[T ~string](targetObj capiconditions.Setter, conditionType T) {
+// MarkTrue sets the given condition to True on the target object.
+func MarkTrue(targetObj capiconditions.Setter, conditionType string) {
 	capiconditions.Set(targetObj, metav1.Condition{
 		Type:    string(conditionType),
 		Status:  metav1.ConditionTrue,
@@ -36,7 +38,8 @@ func MarkTrue[T ~string](targetObj capiconditions.Setter, conditionType T) {
 	})
 }
 
-func MarkFalse[T ~string, R ~string](to capiconditions.Setter, conditionType T, reason R, severity clusterv1.ConditionSeverity, messageFormat string, messageArgs ...any) {
+// MarkFalse sets the given condition to False with the provided reason and message.
+func MarkFalse(to capiconditions.Setter, conditionType string, reason string, severity clusterv1.ConditionSeverity, messageFormat string, messageArgs ...any) {
 	// Severity is not part of metav1.Condition anymore, but we keep the parameter to avoid touching call sites.
 	_ = severity
 
@@ -52,6 +55,7 @@ func MarkFalse[T ~string, R ~string](to capiconditions.Setter, conditionType T, 
 	})
 }
 
+// SetSummary recomputes the Ready condition based on the other conditions present on the object.
 func SetSummary(obj capiconditions.Setter) {
 	getter, ok := any(obj).(capiconditions.Getter)
 	if !ok {
@@ -95,30 +99,37 @@ func SetSummary(obj capiconditions.Setter) {
 	capiconditions.Set(obj, *summary)
 }
 
+// Delete removes a condition from the object.
 func Delete(obj capiconditions.Setter, conditionType string) {
 	capiconditions.Delete(obj, conditionType)
 }
 
+// Get returns the condition of the given type if present.
 func Get(obj capiconditions.Getter, conditionType string) *metav1.Condition {
 	return capiconditions.Get(obj, conditionType)
 }
 
+// Has reports whether the object contains the given condition.
 func Has(obj capiconditions.Getter, conditionType string) bool {
 	return capiconditions.Has(obj, conditionType)
 }
 
+// IsFalse reports whether the named condition is set to False.
 func IsFalse(obj capiconditions.Getter, conditionType string) bool {
 	return capiconditions.IsFalse(obj, conditionType)
 }
 
+// IsTrue reports whether the named condition is set to True.
 func IsTrue(obj capiconditions.Getter, conditionType string) bool {
 	return capiconditions.IsTrue(obj, conditionType)
 }
 
+// GetReason returns the reason associated with the named condition.
 func GetReason(obj capiconditions.Getter, conditionType string) string {
 	return capiconditions.GetReason(obj, conditionType)
 }
 
+// GetMessage returns the message associated with the named condition.
 func GetMessage(obj capiconditions.Getter, conditionType string) string {
 	return capiconditions.GetMessage(obj, conditionType)
 }

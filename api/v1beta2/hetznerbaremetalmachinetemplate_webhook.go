@@ -80,7 +80,7 @@ func (r *HetznerBareMetalMachineTemplateWebhook) ValidateUpdate(ctx context.Cont
 	}
 	var allErrs field.ErrorList
 
-	if !topology.ShouldSkipImmutabilityChecks(req, newHetznerBareMetalMachineTemplate) && !reflect.DeepEqual(newHetznerBareMetalMachineTemplate.Spec, oldHetznerBareMetalMachineTemplate.Spec) {
+	if !topology.IsDryRunRequest(req, newHetznerBareMetalMachineTemplate) && !reflect.DeepEqual(newHetznerBareMetalMachineTemplate.Spec, oldHetznerBareMetalMachineTemplate.Spec) {
 		allErrs = append(allErrs, field.Invalid(field.NewPath("spec"), newHetznerBareMetalMachineTemplate, "HetznerBareMetalMachineTemplate.Spec is immutable"))
 	}
 

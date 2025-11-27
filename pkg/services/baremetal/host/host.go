@@ -124,15 +124,22 @@ func (s *Service) Reconcile(ctx context.Context) (result reconcile.Result, err e
 		conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.DeprecatedRateLimitExceededCondition)
 		conditions.SetSummary(s.scope.HetznerBareMetalHost)
 
-		// save host if it changed during reconciliation
-		if !reflect.DeepEqual(oldHost, s.scope.HetznerBareMetalHost) {
-			saveResult, saveErr := SaveHostAndReturn(ctx, s.scope.Client, s.scope.HetznerBareMetalHost)
-			err = errors.Join(err, saveErr)
-			if err != nil {
-				result = reconcile.Result{}
-			} else if saveResult.Requeue {
-				result = saveResult
-			}
+		// If host has not changed, do not save it.
+		if reflect.DeepEqual(oldHost, s.scope.HetznerBareMetalHost) {
+			return
+		}
+
+		// host has changed, save it.
+		saveResult, saveErr := SaveHostAndReturn(ctx, s.scope.Client, s.scope.HetznerBareMetalHost)
+		err = errors.Join(err, saveErr)
+		if err != nil {
+			// if err is returned, result should be zero.
+			result = reconcile.Result{}
+			return
+		}
+
+		if saveResult.RequeueAfter != 0 {
+			result = saveResult
 		}
 	}()
 
@@ -162,7 +169,7 @@ func SaveHostAndReturn(ctx context.Context, cl client.Client, host *infrav1.Hetz
 		if apierrors.IsConflict(err) {
 			logger := ctrl.LoggerFrom(ctx)
 			logger.Info("conflict error. Retrying", "err", err)
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{RequeueAfter: time.Second}, nil
 		}
 		return reconcile.Result{}, fmt.Errorf("failed to update host object: %w", err)
 	}

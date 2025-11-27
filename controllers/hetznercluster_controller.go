@@ -434,7 +434,7 @@ func hcloudTokenErrorResult(
 	ctx context.Context,
 	inerr error,
 	setter capiconditions.Setter,
-	conditionType clusterv1.ConditionType,
+	conditionType string,
 	clientObj client.Client,
 ) (ctrl.Result, error) {
 	res := ctrl.Result{}
