@@ -138,7 +138,7 @@ const (
 
 const (
 	// HetznerAPIReachableCondition reports whether the Hetzner APIs are reachable.
-	HetznerAPIReachableCondition clusterv1.ConditionType = "HetznerAPIReachable"
+	HetznerAPIReachableCondition string = "HetznerAPIReachable"
 	// RateLimitExceededReason indicates that a rate limit has been exceeded.
 	RateLimitExceededReason = "RateLimitExceeded"
 )

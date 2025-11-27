@@ -484,6 +484,7 @@ type HetznerBareMetalHostStatus struct{}
 // +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".spec.status.conditions[?(@.type=='Ready')].reason"
 // +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".spec.status.conditions[?(@.type=='Ready')].message"
 // +k8s:defaulter-gen=true
+// +kubebuilder:storageversion
 
 // HetznerBareMetalHost is the Schema for the hetznerbaremetalhosts API.
 type HetznerBareMetalHost struct {

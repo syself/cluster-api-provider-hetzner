@@ -46,3 +46,11 @@ func MarkFalse(to capiconditions.Setter, conditionType string, reason string, me
 		Message: message,
 	})
 }
+
+func SetSummary(obj capiconditions.Setter) {
+	c, err := capiconditions.NewSummaryCondition(obj, "Ready")
+	if err != nil {
+		panic(fmt.Sprintf("error in SetSummary: %s", err.Error()))
+	}
+	capiconditions.Set(obj, *c)
+}

@@ -46,10 +46,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	robotmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/robot"
 	sshmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/ssh"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
-	robotmock "github.com/syself/cluster-api-provider-hetzner/pkv1beta2ces/baremetal/client/mocks/robot"
 	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
 )
 
@@ -117,9 +117,9 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				OwnerReferences: []metav1.OwnerReference{
 					{
 						APIVersion: "cluster.x-k8s.io/v1beta2",
-						Kind:       "Cluster",v1beta2v1beta2
-						Name:       capiCluster.Name,
-						UID:        capiCluster.UID,
+						Kind:       "Cluster", v1beta2v1beta2,
+						Name: capiCluster.Name,
+						UID:  capiCluster.UID,
 					},
 				},
 				Labels: map[string]string{clusterv1.ClusterNameLabel: capiCluster.Name},
