@@ -1777,38 +1777,6 @@ func (_c *Client_RebootServer_Call) RunAndReturn(run func(context.Context, *hclo
 	return _c
 }
 
-// Reset provides a mock function with no fields
-func (_m *Client) Reset() {
-	_m.Called()
-}
-
-// Client_Reset_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Reset'
-type Client_Reset_Call struct {
-	*mock.Call
-}
-
-// Reset is a helper method to define mock.On call
-func (_e *Client_Expecter) Reset() *Client_Reset_Call {
-	return &Client_Reset_Call{Call: _e.mock.On("Reset")}
-}
-
-func (_c *Client_Reset_Call) Run(run func()) *Client_Reset_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run()
-	})
-	return _c
-}
-
-func (_c *Client_Reset_Call) Return() *Client_Reset_Call {
-	_c.Call.Return()
-	return _c
-}
-
-func (_c *Client_Reset_Call) RunAndReturn(run func()) *Client_Reset_Call {
-	_c.Run(run)
-	return _c
-}
-
 // ShutdownServer provides a mock function with given fields: _a0, _a1
 func (_m *Client) ShutdownServer(_a0 context.Context, _a1 *hcloud.Server) error {
 	ret := _m.Called(_a0, _a1)
