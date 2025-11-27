@@ -43,6 +43,7 @@ import (
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
+	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	fakehcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/fake"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/mocks"
 	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
@@ -1004,6 +1005,7 @@ var _ = Describe("Reconcile", func() {
 			Name:   "hcloudmachinenameWithRescueEnabled",
 			Status: hcloud.ServerStatusRunning,
 		}, nil).Once()
+		testEnv.HCloudSSHClient.On("GetHostName").Return(sshclient.Output{
 		testEnv.HCloudSSHClient.On("GetHostName").Return(sshclient.Output{
 			StdOut: "rescue",
 			StdErr: "",
