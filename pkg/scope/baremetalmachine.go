@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
+	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -122,4 +123,34 @@ func (m *BareMetalMachineScope) IsControlPlane() bool {
 // IsBootstrapReady checks the readiness of a capi machine's bootstrap data.
 func (m *BareMetalMachineScope) IsBootstrapReady() bool {
 	return m.Machine.Spec.Bootstrap.DataSecretName != nil
+}
+
+// SetErrorAndRemediate sets "cluster.x-k8s.io/remediate-machine" annotation on the corresponding
+// CAPI machine. CAPI will remediate that machine. Additionally, an event of type Warning will be
+// created, and the condition will be set on both the BareMetalMachine and the corresponding
+// HetznerBareMetalHost (if found). The Condition RemediationSucceededCondition will be set
+// on the hbmm.
+func (m *BareMetalMachineScope) SetErrorAndRemediate(ctx context.Context, message string) error {
+	obj := m.Machine
+
+	// Create a patch base
+	patch := client.MergeFrom(obj.DeepCopy())
+
+	// Modify only annotations on the in-memory copy
+	if obj.Annotations == nil {
+		obj.Annotations = map[string]string{}
+	}
+	obj.Annotations[clusterv1.RemediateMachineAnnotation] = ""
+
+	// Apply patch – only the diff (annotations) is sent to the API server
+	if err := m.Client.Patch(ctx, obj, patch); err != nil {
+		return err
+	}
+
+	record.Warnf(m.BareMetalMachine, "HetznerBareMetalMachineWillBeRemediated",
+		"HetznerBareMetalMachine will be remediated: %s", message)
+
+	conditions.MarkFalse(m.BareMetalMachine, infrav1.RemediationSucceededCondition,
+		infrav1.RemediationInProgressReason, clusterv1.ConditionSeverityInfo, "%s", message)
+	return nil
 }
