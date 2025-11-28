@@ -87,7 +87,7 @@ that.
 
 A common way to run one particular unit-test is like this:
 
-```console
+```shell
 reset; ginkgo run --focus "foo" ./controllers/... | ./hack/filter-caph-controller-manager-logs.py -
 ```
 
