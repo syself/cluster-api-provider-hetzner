@@ -80,6 +80,25 @@ With `make test`, all unit tests are triggered. If they fail out of nowhere, the
 
 With `make generate`, new CRDs are generated. This is necessary if you change the API.
 
+## Running unit-tests locally
+
+Developing unit-tests (which do not need a running cluster) are much faster. We recommend to do
+that.
+
+A common way to run one particular unit-test is like this:
+
+```shell
+reset; ginkgo run --focus "foo" ./controllers/... | ./hack/filter-caph-controller-manager-logs.py -
+```
+
+Explanation:
+
+- `reset`: Reset the terminal so you can scroll back to the first line of output easily.
+- `ginkgo run --focus "foo" ./controllers/...`: Run tests in the controllers directory, but only those
+  whose `It("...")` contains "foo".
+- `./hack/filter-caph-controller-manager-logs.py -`: Filter the output to avoid being overwhelmed.
+  You can configure the script to exclude lines or individual key/value pairs of the JSON log lines.
+
 ## Running local e2e test
 
 If you are interested in running the E2E tests locally, then you can use the following commands:
