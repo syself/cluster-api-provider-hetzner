@@ -44,8 +44,7 @@ import (
 )
 
 const (
-	bmMachineName = "bm-machine-host-testing"
-	hostName      = "test-host"
+	hostName = "test-host"
 )
 
 func verifyError(host *infrav1.HetznerBareMetalHost, errorType infrav1.ErrorType, errorMessage string) bool {
@@ -62,6 +61,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 	var (
 		host           *infrav1.HetznerBareMetalHost
 		bmMachine      *infrav1.HetznerBareMetalMachine
+		machineName    string
 		hetznerCluster *infrav1.HetznerCluster
 
 		capiCluster *clusterv1.Cluster
@@ -90,6 +90,8 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		hetznerClusterName = utils.GenerateName(nil, "hetzner-cluster-test")
+
+		machineName = utils.GenerateName(nil, "machine")
 
 		capiCluster = &clusterv1.Cluster{
 			ObjectMeta: metav1.ObjectMeta{
@@ -169,7 +171,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 		osSSHClientAfterInstallImage.On("CheckCloudInitLogsForSigTerm").Return(sshclient.Output{})
 		osSSHClientAfterInstallImage.On("ResetKubeadm").Return(sshclient.Output{})
 		osSSHClientAfterInstallImage.On("GetHostName").Return(sshclient.Output{
-			StdOut: infrav1.BareMetalHostNamePrefix + bmMachineName,
+			StdOut: infrav1.BareMetalHostNamePrefix + machineName,
 			StdErr: "",
 			Err:    nil,
 		})
@@ -177,7 +179,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 
 		osSSHClientAfterCloudInit.On("Reboot").Return(sshclient.Output{})
 		osSSHClientAfterCloudInit.On("GetHostName").Return(sshclient.Output{
-			StdOut: infrav1.BareMetalHostNamePrefix + bmMachineName,
+			StdOut: infrav1.BareMetalHostNamePrefix + machineName,
 			StdErr: "",
 			Err:    nil,
 		})
@@ -251,9 +253,9 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 		BeforeEach(func() {
 			capiMachine = &clusterv1.Machine{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "capi-machine-",
-					Namespace:    testNs.Name,
-					Finalizers:   []string{clusterv1.MachineFinalizer},
+					Name:       machineName,
+					Namespace:  testNs.Name,
+					Finalizers: []string{clusterv1.MachineFinalizer},
 					Labels: map[string]string{
 						clusterv1.ClusterNameLabel: capiCluster.Name,
 					},
@@ -263,7 +265,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 					InfrastructureRef: corev1.ObjectReference{
 						APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
 						Kind:       "HetznerBareMetalMachine",
-						Name:       bmMachineName,
+						Name:       machineName,
 					},
 					FailureDomain: &defaultFailureDomain,
 					Bootstrap: clusterv1.Bootstrap{
@@ -275,7 +277,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 
 			bmMachine = &infrav1.HetznerBareMetalMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      bmMachineName,
+					Name:      machineName,
 					Namespace: testNs.Name,
 					Labels: map[string]string{
 						clusterv1.ClusterNameLabel: capiCluster.Name,
@@ -425,9 +427,9 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 		BeforeEach(func() {
 			capiMachine = &clusterv1.Machine{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "capi-machine-",
-					Namespace:    testNs.Name,
-					Finalizers:   []string{clusterv1.MachineFinalizer},
+					Name:       machineName,
+					Namespace:  testNs.Name,
+					Finalizers: []string{clusterv1.MachineFinalizer},
 					Labels: map[string]string{
 						clusterv1.ClusterNameLabel: capiCluster.Name,
 					},
@@ -437,7 +439,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 					InfrastructureRef: corev1.ObjectReference{
 						APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
 						Kind:       "HetznerBareMetalMachine",
-						Name:       bmMachineName,
+						Name:       machineName,
 					},
 					FailureDomain: &defaultFailureDomain,
 					Bootstrap: clusterv1.Bootstrap{
@@ -449,7 +451,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 
 			bmMachine = &infrav1.HetznerBareMetalMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      bmMachineName,
+					Name:      machineName,
 					Namespace: testNs.Name,
 					Labels: map[string]string{
 						clusterv1.ClusterNameLabel: capiCluster.Name,
@@ -509,9 +511,9 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 		BeforeEach(func() {
 			capiMachine = &clusterv1.Machine{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "capi-machine-",
-					Namespace:    testNs.Name,
-					Finalizers:   []string{clusterv1.MachineFinalizer},
+					Name:       machineName,
+					Namespace:  testNs.Name,
+					Finalizers: []string{clusterv1.MachineFinalizer},
 					Labels: map[string]string{
 						clusterv1.ClusterNameLabel: capiCluster.Name,
 					},
@@ -521,7 +523,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 					InfrastructureRef: corev1.ObjectReference{
 						APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
 						Kind:       "HetznerBareMetalMachine",
-						Name:       bmMachineName,
+						Name:       machineName,
 					},
 					FailureDomain: &defaultFailureDomain,
 					Bootstrap: clusterv1.Bootstrap{
@@ -533,7 +535,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 
 			bmMachine = &infrav1.HetznerBareMetalMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      bmMachineName,
+					Name:      machineName,
 					Namespace: testNs.Name,
 					Labels: map[string]string{
 						clusterv1.ClusterNameLabel: capiCluster.Name,
@@ -594,6 +596,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 	var (
 		host           *infrav1.HetznerBareMetalHost
 		bmMachine      *infrav1.HetznerBareMetalMachine
+		machineName    string
 		hetznerCluster *infrav1.HetznerCluster
 		capiCluster    *clusterv1.Cluster
 		capiMachine    *clusterv1.Machine
@@ -619,6 +622,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		hetznerClusterName = utils.GenerateName(nil, "hetzner-cluster-test")
+		machineName = utils.GenerateName(nil, "machine")
 
 		capiCluster = &clusterv1.Cluster{
 			ObjectMeta: metav1.ObjectMeta{
@@ -657,9 +661,9 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 
 		capiMachine = &clusterv1.Machine{
 			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "capi-machine-",
-				Namespace:    testNs.Name,
-				Finalizers:   []string{clusterv1.MachineFinalizer},
+				Name:       machineName,
+				Namespace:  testNs.Name,
+				Finalizers: []string{clusterv1.MachineFinalizer},
 				Labels: map[string]string{
 					clusterv1.ClusterNameLabel: capiCluster.Name,
 				},
@@ -669,7 +673,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 				InfrastructureRef: corev1.ObjectReference{
 					APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
 					Kind:       "HetznerBareMetalMachine",
-					Name:       bmMachineName,
+					Name:       machineName,
 				},
 				FailureDomain: &defaultFailureDomain,
 				Bootstrap: clusterv1.Bootstrap{
@@ -681,7 +685,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 
 		bmMachine = &infrav1.HetznerBareMetalMachine{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      bmMachineName,
+				Name:      machineName,
 				Namespace: testNs.Name,
 				Labels: map[string]string{
 					clusterv1.ClusterNameLabel: capiCluster.Name,

@@ -96,7 +96,7 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 
 	key := client.ObjectKey{
 		Name:      machine.Spec.InfrastructureRef.Name,
-		Namespace: machine.Spec.InfrastructureRef.Namespace,
+		Namespace: hcloudRemediation.Namespace,
 	}
 
 	if err := r.Get(ctx, key, hcloudMachine); err != nil {

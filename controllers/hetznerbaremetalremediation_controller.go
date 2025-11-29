@@ -89,7 +89,7 @@ func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, r
 
 	key := client.ObjectKey{
 		Name:      machine.Spec.InfrastructureRef.Name,
-		Namespace: machine.Spec.InfrastructureRef.Namespace,
+		Namespace: bareMetalRemediation.Namespace,
 	}
 
 	if err := r.Get(ctx, key, bareMetalMachine); err != nil {
@@ -109,7 +109,7 @@ func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, r
 	}
 
 	if annotations.IsPaused(cluster, bareMetalMachine) {
-		log.Info("HCloudMachine or linked Cluster is marked as paused. Won't reconcile")
+		log.Info("bareMetalMachine or linked Cluster is marked as paused. Won't reconcile")
 		return reconcile.Result{}, nil
 	}
 

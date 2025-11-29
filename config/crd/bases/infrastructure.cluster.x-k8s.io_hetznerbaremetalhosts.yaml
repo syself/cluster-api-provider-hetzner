@@ -133,8 +133,9 @@ spec:
                 type: string
               maintenanceMode:
                 description: |-
-                  MaintenanceMode indicates that a machine is supposed to be deprovisioned
-                  and won't be selected by any Hetzner bare metal machine.
+                  MaintenanceMode indicates that a machine is supposed to be deprovisioned. The CAPI Machine
+                  will get the cluster.x-k8s.io/remediate-machine annotation, and CAPI will deprovision the
+                  machine. Additionally, the host won't be selected by any Hetzner bare metal machine.
                 type: boolean
               rootDeviceHints:
                 description: |-
