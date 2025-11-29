@@ -39,7 +39,6 @@ spec:
           requestheader-username-headers: X-Remote-User
           enable-aggregator-routing: "true"
           # Additional Configuration
-          cloud-provider: external
           authorization-mode: "Node,RBAC"
           kubelet-preferred-address-types: ExternalIP,Hostname,InternalDNS,ExternalDNS
           profiling: "false"
@@ -48,7 +47,6 @@ spec:
           default-unreachable-toleration-seconds: "45"
       controllerManager:
         extraArgs:
-          cloud-provider: external
           cluster-signing-cert-file: /etc/kubernetes/pki/ca.crt
           cluster-signing-key-file: /etc/kubernetes/pki/ca.key
           cluster-signing-duration: 6h0m0s
@@ -85,7 +83,6 @@ spec:
     initConfiguration:
       nodeRegistration:
         kubeletExtraArgs:
-          cloud-provider: external
           tls-cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
           kubeconfig: /etc/kubernetes/kubelet.conf
           authentication-token-webhook: "true"
@@ -99,7 +96,6 @@ spec:
     joinConfiguration:
       nodeRegistration:
         kubeletExtraArgs:
-          cloud-provider: external
           tls-cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
           kubeconfig: /etc/kubernetes/kubelet.conf
           authentication-token-webhook: "true"
