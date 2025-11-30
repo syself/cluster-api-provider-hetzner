@@ -325,7 +325,8 @@ func getHbmmWithConstantHostname(ctx context.Context, csrUsername string, cluste
 	log := ctrl.LoggerFrom(ctx)
 
 	clusterFromCSR, serverID := getServerIDFromConstantHostname(ctx, csrUsername, clusterName)
-	providerID := "hcloud://bm-" + serverID
+	legacyProviderID := "hcloud://bm-" + serverID
+	providerID := "hrobot://" + serverID
 	hList := &infrav1.HetznerBareMetalMachineList{}
 	selector := labels.NewSelector()
 	req, err := labels.NewRequirement(clusterv1.ClusterNameLabel, selection.Equals, []string{clusterFromCSR})
@@ -348,13 +349,15 @@ func getHbmmWithConstantHostname(ctx context.Context, csrUsername string, cluste
 		if hList.Items[i].Spec.ProviderID == nil {
 			continue
 		}
-		if *hList.Items[i].Spec.ProviderID == providerID {
+		if *hList.Items[i].Spec.ProviderID == providerID ||
+			*hList.Items[i].Spec.ProviderID == legacyProviderID {
 			hbmm = &hList.Items[i]
 			break
 		}
 	}
+
 	if hbmm == nil {
-		return nil, fmt.Errorf("ProviderID: %q %w", providerID, errNoHetznerBareMetalMachineByProviderIDFound)
+		return nil, fmt.Errorf("ProviderID: %q (or %q): %w", providerID, legacyProviderID, errNoHetznerBareMetalMachineByProviderIDFound)
 	}
 
 	log.Info("Found HetznerBareMetalMachine with constant hostname", "csr-username", csrUsername, "hetznerBareMetalMachine", hbmm.Name)
