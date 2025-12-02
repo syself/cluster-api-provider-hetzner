@@ -18,11 +18,32 @@
 trap 'echo -e "\n🤷 🚨 🔥 Warning: A command has failed. Exiting the script. Line was ($0:$LINENO): $(sed -n "${LINENO}p" "$0" 2>/dev/null || true) 🔥 🚨 🤷 "; exit 3' ERR
 set -Eeuo pipefail
 
-dep="caph-controller-manager"
+if [[ $# -eq 0 ]] || [[ $# -gt 2 ]] || [[ "$1" == -* ]]; then
+    echo "Usage: $0 <deployment-name> [<namespace>]" >&2
+    exit 1
+fi
+
+dep="$1"
+
+ns="${2:-}"
 
 hack_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-ns=$("$hack_dir"/get-namespace-of-deployment.sh $dep)
-pod=$("$hack_dir"/get-leading-pod.sh $dep "$ns")
-kubectl -n "$ns" logs "$pod" --tail 200 |
-    "$hack_dir"/filter-caph-controller-manager-logs.py - |
-    tail -n 10
+
+if [[ -z $ns ]]; then
+    ns=$("$hack_dir/get-namespace-of-deployment.sh" "$dep")
+fi
+
+leases=$(kubectl get leases -n "$ns" -o yaml |
+    yq ".items[] | .spec.holderIdentity" | { grep -P "^${dep}-[^-]+-[^-]+_" || true; })
+
+if [[ -z $leases ]]; then
+    echo "Error: failed to find a lease for deployment $dep in namespace $ns"
+    exit 1
+fi
+
+if [ "$(echo "$leases" | wc -l)" -gt 1 ]; then
+    echo "Error: Multiple leases found for deployment '$dep'" >&2
+    exit 1
+fi
+
+echo "$leases" | cut -d_ -f1
