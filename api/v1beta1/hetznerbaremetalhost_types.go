@@ -473,6 +473,7 @@ type HardwareDetails struct {
 type HetznerBareMetalHostStatus struct{}
 
 // +kubebuilder:object:root=true
+// +kubebuilder:storageversion
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=hbmh
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".spec.status.provisioningState",description="Phase of provisioning"
@@ -486,8 +487,6 @@ type HetznerBareMetalHostStatus struct{}
 // +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".spec.status.conditions[?(@.type=='Ready')].reason"
 // +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".spec.status.conditions[?(@.type=='Ready')].message"
 // +k8s:defaulter-gen=true
-// +kubebuilder:storageversion
-
 // HetznerBareMetalHost is the Schema for the hetznerbaremetalhosts API.
 type HetznerBareMetalHost struct {
 	metav1.TypeMeta   `json:",inline"`

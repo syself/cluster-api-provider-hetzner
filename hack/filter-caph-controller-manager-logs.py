@@ -151,12 +151,13 @@ filtering_test_data = False
 
 
 def write_line(line):
+    global filtering_test_data
     ascii_line = ansi_pattern.sub("", line)
-    for r in rows_to_trigger_test_filter:
-        if r in ascii_line:
-            global filtering_test_data
-            filtering_test_data = True
-            rows_to_skip.extend(rows_to_skip_for_tests)
+    if not filtering_test_data:
+        for r in rows_to_trigger_test_filter:
+            if r in ascii_line:
+                filtering_test_data = True
+                rows_to_skip.extend(rows_to_skip_for_tests)
 
     for r in rows_to_skip:
         if r in ascii_line:

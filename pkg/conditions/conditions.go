@@ -31,7 +31,7 @@ const readyConditionType = clusterv1.ReadyCondition
 // MarkTrue sets the given condition to True on the target object.
 func MarkTrue(targetObj capiconditions.Setter, conditionType string) {
 	capiconditions.Set(targetObj, metav1.Condition{
-		Type:    string(conditionType),
+		Type:    conditionType,
 		Status:  metav1.ConditionTrue,
 		Reason:  "",
 		Message: "",
@@ -48,9 +48,9 @@ func MarkFalse(to capiconditions.Setter, conditionType string, reason string, se
 		message = fmt.Sprintf(messageFormat, messageArgs...)
 	}
 	capiconditions.Set(to, metav1.Condition{
-		Type:    string(conditionType),
+		Type:    conditionType,
 		Status:  metav1.ConditionFalse,
-		Reason:  string(reason),
+		Reason:  reason,
 		Message: message,
 	})
 }
@@ -101,6 +101,13 @@ func SetSummary(obj capiconditions.Setter) {
 
 // Delete removes a condition from the object.
 func Delete(obj capiconditions.Setter, conditionType string) {
+	// Work around bug which is not fixed in 1.11 yet:
+	// https://github.com/kubernetes-sigs/cluster-api/pull/13048
+	// Please delete that extra check later.
+	c := obj.GetConditions()
+	if len(c) == 0 {
+		return
+	}
 	capiconditions.Delete(obj, conditionType)
 }
 

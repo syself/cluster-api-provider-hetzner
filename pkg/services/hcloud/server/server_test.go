@@ -601,6 +601,17 @@ var _ = Describe("Reconcile", func() {
 		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "server-reconcile")
 		Expect(err).To(BeNil())
 
+		err = testEnv.Create(ctx, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "bootstrapsecret",
+				Namespace: testNs.Name,
+			},
+			Data: map[string][]byte{
+				"value": []byte("dummy-bootstrap-data"),
+			},
+		})
+		Expect(err).To(BeNil())
+
 		clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
 			Client:       testEnv.Manager.GetClient(),
 			APIReader:    testEnv.Manager.GetAPIReader(),
@@ -691,6 +702,10 @@ var _ = Describe("Reconcile", func() {
 				},
 				ClusterName:   "clustername",
 				FailureDomain: "nbg1",
+				Bootstrap: clusterv1.Bootstrap{
+					ConfigRef:      clusterv1.ContractVersionedObjectReference{},
+					DataSecretName: ptr.To("bootstrapsecret"),
+				},
 			},
 		}
 		Expect(testEnv.Create(ctx, capiMachine)).ShouldNot(HaveOccurred())
