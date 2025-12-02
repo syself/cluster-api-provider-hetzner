@@ -13,6 +13,7 @@ temp
 *.test
 .coverage
 .cache
+.lycheecache
 .reports
 # E2E test templates
 test/e2e/data/infrastructure-hetzner/v1beta1/cluster-template*.yaml
@@ -83,3 +84,4 @@ watchall-output*
 /conditions*.txt
 
 /.config
+/.kube

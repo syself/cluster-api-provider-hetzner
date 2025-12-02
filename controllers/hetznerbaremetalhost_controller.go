@@ -200,8 +200,8 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		return res, nil
 	}
 
-	// Case "Delete" was handled in reconcileSelectedStates. From now we know that the host has not
-	// DeletionTimestamp set.
+	// Case "Delete" was handled in reconcileSelectedStates. From now we know that the host has no
+	// DeletionTimestamp set. But the hbmm could be in Deprovisioning.
 
 	hetznerCluster := &infrav1.HetznerCluster{}
 
@@ -246,17 +246,22 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	log = log.WithValues("HetznerBareMetalMachine", klog.KObj(hetznerBareMetalMachine))
 	ctx = ctrl.LoggerInto(ctx, log)
 
-	remediateConditionOfHbmm := conditions.Get(hetznerBareMetalMachine, infrav1.NoRemediateMachineAnnotationCondition)
+	// check whether rate limit has been reached and if so, then wait.
+	if wait := reconcileRateLimit(bmHost, r.RateLimitWaitTime); wait {
+		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+	}
+
+	remediateConditionOfHbmm := conditions.Get(hetznerBareMetalMachine, infrav1.RemediationSucceededCondition)
 	if remediateConditionOfHbmm != nil && remediateConditionOfHbmm.Status == metav1.ConditionFalse {
 		// The hbmm of this host is in remediation. Do not reconcile it.
 		// Take the Condition of the hbmm and make it available on the hbmh.
-		msg := "hbmm has NoRemediateMachineAnnotationCondition=False."
+		msg := "hbmm has RemediationSucceededCondition=False."
 		log.Info(msg)
-		conditions.MarkFalse(bmHost, infrav1.NoRemediateMachineAnnotationCondition,
+		conditions.MarkFalse(bmHost, infrav1.RemediationSucceededCondition,
 			remediateConditionOfHbmm.Reason, clusterv1.ConditionSeverityInfo,
 			"%s", remediateConditionOfHbmm.Message)
 	} else {
-		conditions.MarkTrue(bmHost, infrav1.NoRemediateMachineAnnotationCondition)
+		conditions.MarkTrue(bmHost, infrav1.RemediationSucceededCondition)
 	}
 
 	// Get Hetzner robot api credentials
@@ -294,11 +299,6 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	})
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %w", err)
-	}
-
-	// check whether rate limit has been reached and if so, then wait.
-	if wait := reconcileRateLimit(bmHost, r.RateLimitWaitTime); wait {
-		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
 	return r.reconcile(ctx, hostScope)

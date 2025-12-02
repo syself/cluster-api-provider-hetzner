@@ -175,6 +175,10 @@ issues:
       text: SA1019.*sigs.k8s.io/cluster-api/\S+ is deprecated
       path: .*api/v1beta1/.*
     - linters:
+        - staticcheck
+      text: "SA1019: .*FailureReason is deprecated"
+      path: pkg/services/baremetal/baremetal/baremetal.go
+    - linters:
         - revive
       text: exported (method|function|type|const) (.+) should have comment or be unexported
       path: .*(api|types|test)\/.*\/conversion.*\.go$

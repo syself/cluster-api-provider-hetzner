@@ -40,7 +40,9 @@ const (
 	DeprecatedBareMetalHostFinalizer = "hetznerbaremetalhost.infrastructure.cluster.x-k8s.io"
 
 	// HostAnnotation is the key for an annotation that should go on a HetznerBareMetalMachine to
-	// reference what HetznerBareMetalHost it corresponds to.
+	// reference what HetznerBareMetalHost it corresponds to. The annotation is a string in the
+	// format "namespace/hbmh-name". Note: We should remove the namespace, as cross-namespace
+	// references are not allowed.
 	HostAnnotation = "infrastructure.cluster.x-k8s.io/HetznerBareMetalHost"
 
 	// WipeDiskAnnotation indicates which Disks (WWNs) to erase before provisioning

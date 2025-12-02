@@ -509,13 +509,13 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 						return fmt.Errorf("RemediateMachineAnnotation not set on capi machine")
 					}
 
-					c := conditions.Get(bmMachine, infrav1.NoRemediateMachineAnnotationCondition)
+					c := conditions.Get(bmMachine, infrav1.RemediationSucceededCondition)
 					if c == nil {
-						return fmt.Errorf("condition NoRemediateMachineAnnotationCondition does not exist")
+						return fmt.Errorf("condition RemediationSucceededCondition does not exist")
 					}
 
 					if c.Status != metav1.ConditionFalse {
-						return fmt.Errorf("condition NoRemediateMachineAnnotationCondition should be False")
+						return fmt.Errorf("condition RemediationSucceededCondition should be False")
 					}
 
 					return nil
@@ -558,7 +558,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 						return fmt.Errorf("condition MachineOwnerRemediatedCondition should be False")
 					}
 
-					if c.Message != "Remediation finished (machine will be deleted): exit remediation because infra machine has condition set: RemediateMachineAnnotationIsSet: host machine in maintenance mode" {
+					if c.Message != "Remediation finished (machine will be deleted): exit remediation because infra machine has condition set: RemediationInProgress: host machine in maintenance mode" {
 						return fmt.Errorf("Unexpected message: %q", c.Message)
 					}
 

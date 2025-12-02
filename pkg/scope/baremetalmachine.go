@@ -128,7 +128,7 @@ func (m *BareMetalMachineScope) IsBootstrapReady() bool {
 // SetErrorAndRemediate sets "cluster.x-k8s.io/remediate-machine" annotation on the corresponding
 // CAPI machine. CAPI will remediate that machine. Additionally, an event of type Warning will be
 // created, and the condition will be set on both the BareMetalMachine and the corresponding
-// HetznerBareMetalHost (if found). The Condition NoRemediateMachineAnnotationCondition will be set
+// HetznerBareMetalHost (if found). The Condition RemediationSucceededCondition will be set
 // on the hbmm.
 func (m *BareMetalMachineScope) SetErrorAndRemediate(ctx context.Context, message string) error {
 	obj := m.Machine
@@ -150,7 +150,7 @@ func (m *BareMetalMachineScope) SetErrorAndRemediate(ctx context.Context, messag
 	record.Warnf(m.BareMetalMachine, "HetznerBareMetalMachineWillBeRemediated",
 		"HetznerBareMetalMachine will be remediated: %s", message)
 
-	conditions.MarkFalse(m.BareMetalMachine, infrav1.NoRemediateMachineAnnotationCondition,
-		infrav1.RemediateMachineAnnotationIsSetReason, clusterv1.ConditionSeverityInfo, "%s", message)
+	conditions.MarkFalse(m.BareMetalMachine, infrav1.RemediationSucceededCondition,
+		infrav1.RemediationInProgressReason, clusterv1.ConditionSeverityInfo, "%s", message)
 	return nil
 }
