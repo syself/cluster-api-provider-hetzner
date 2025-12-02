@@ -55,6 +55,7 @@ rows_to_skip_regex = [
     r"^Random Seed: \d+",
 ]
 
+# if this string appears, then rows_to_skip_for_tests will be added to rows_to_skip.
 rows_to_trigger_test_filter = ["Running Suite:"]
 
 # List of fixed-strings.
@@ -115,6 +116,10 @@ rows_to_skip_for_tests = [
     '"HetznerCluster is not available yet"',
     '"Unable to write event (broadcaster is shut down)"',
     '"Unable to write event (may retry after sleeping)"',
+    '"Caches populated"',
+    '"Listing and watching"',
+    '"Starting reflector"',
+    '"Stopping reflector"',
 ]
 
 

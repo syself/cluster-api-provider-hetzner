@@ -741,6 +741,42 @@ var _ = Describe("Reconcile", func() {
 
 	It("sets the region in status of hcloudMachine, by fetching the failure domain from machine.spec", func() {
 		By("calling reconcile")
+
+		hcloudClient.On("GetServerType", mock.Anything, mock.Anything).Return(&hcloud.ServerType{
+			Architecture: hcloud.ArchitectureX86,
+		}, nil)
+
+		hcloudClient.On("ListImages", mock.Anything, hcloud.ImageListOpts{
+			Name:         "ubuntu-24.04",
+			Architecture: []hcloud.Architecture{hcloud.ArchitectureX86},
+		}).Return([]*hcloud.Image{}, nil)
+
+		hcloudClient.On("ListImages", mock.Anything, hcloud.ImageListOpts{
+			ListOpts: hcloud.ListOpts{
+				LabelSelector: "caph-image-name==ubuntu-24.04",
+			},
+			Architecture: []hcloud.Architecture{hcloud.ArchitectureX86},
+		}).Return([]*hcloud.Image{
+			{
+				ID:   123456,
+				Name: "ubuntu",
+			},
+		}, nil)
+
+		hcloudClient.On("ListSSHKeys", mock.Anything, mock.Anything).Return([]*hcloud.SSHKey{
+			{
+				ID:          1,
+				Name:        "sshKey1",
+				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:1f",
+			},
+		}, nil)
+
+		hcloudClient.On("CreateServer", mock.Anything, mock.Anything).Return(&hcloud.Server{
+			ID:     1,
+			Name:   "my-machine",
+			Status: hcloud.ServerStatusInitializing,
+		}, nil)
+
 		_, err := service.Reconcile(ctx)
 		Expect(err).To(BeNil())
 
@@ -748,7 +784,9 @@ var _ = Describe("Reconcile", func() {
 		Expect(service.scope.HCloudMachine.Status.Region).To(Equal(infrav1.Region("nbg1")))
 
 		By("ensuring the BootstrapReady condition is marked as false")
-		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.BootstrapReadyCondition, infrav1.BootstrapNotReadyReason)).To(BeTrue())
+		c := conditions.Get(service.scope.HCloudMachine, infrav1.BootstrapReadyCondition)
+		Expect(c).NotTo(BeNil())
+		Expect(c.Status).To(Equal(metav1.ConditionTrue))
 	})
 
 	It("sets the region in status of hcloudMachine, by fetching the failure domain from cluster.status if machine.spec.failureDomain is empty", func() {
@@ -767,18 +805,6 @@ var _ = Describe("Reconcile", func() {
 	})
 
 	It("sets the CreateMachineError if the ProviderID is set on the HCloudMachine but the actual server was not found in the cloud", func() {
-		By("setting the bootstrap data")
-		err = testEnv.Create(ctx, &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "bootstrapsecret",
-				Namespace: testNs.Name,
-			},
-			Data: map[string][]byte{
-				"value": []byte("dummy-bootstrap-data"),
-			},
-		})
-		Expect(err).To(BeNil())
-
 		By("setting the ProviderID on the HCloudMachine")
 		service.scope.HCloudMachine.Spec.ProviderID = ptr.To("hcloud://1234567")
 		err = testEnv.Update(ctx, service.scope.HCloudMachine)
@@ -802,18 +828,6 @@ var _ = Describe("Reconcile", func() {
 	})
 
 	It("transitions the BootStrate from BootStateUnset -> BootStateBootingToRealOS -> BootStateOperatingSystemRunning (imageName)", func() {
-		By("setting the bootstrap data")
-		err = testEnv.Create(ctx, &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "bootstrapsecret",
-				Namespace: testNs.Name,
-			},
-			Data: map[string][]byte{
-				"value": []byte("dummy-bootstrap-data"),
-			},
-		})
-		Expect(err).To(BeNil())
-
 		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
 
 		hcloudClient.On("GetServerType", mock.Anything, mock.Anything).Return(&hcloud.ServerType{
@@ -876,17 +890,6 @@ var _ = Describe("Reconcile", func() {
 	})
 
 	It("transitions to BootStateOperatingSystemRunning (imageURL)", func() {
-		By("setting the bootstrap data")
-		err = testEnv.Create(ctx, &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "bootstrapsecret",
-				Namespace: testNs.Name,
-			},
-			Data: map[string][]byte{
-				"value": []byte("dummy-bootstrap-data"),
-			},
-		})
-		Expect(err).To(BeNil())
 		service.scope.ImageURLCommand = "dummy-image-url-command.sh"
 		service.scope.HCloudMachine.Spec.ImageName = ""
 		service.scope.HCloudMachine.Spec.ImageURL = "oci://example.com/repo/image:v1"
