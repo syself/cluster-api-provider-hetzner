@@ -53,11 +53,6 @@ func NewService(scope *scope.BareMetalRemediationScope) *Service {
 func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 	host, err := host.GetAssociatedHost(ctx, s.scope.Client, s.scope.BareMetalMachine)
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return reconcile.Result{}, s.setOwnerRemediatedConditionToFailed(ctx,
-				"exit remediation because host not found")
-		}
-
 		// retry
 		err := fmt.Errorf("failed to find the unhealthy host (will retry): %w", err)
 		record.Warn(s.scope.BareMetalRemediation, "FailedToFindHost", err.Error())
