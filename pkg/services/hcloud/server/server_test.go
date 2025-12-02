@@ -780,7 +780,7 @@ var _ = Describe("Reconcile", func() {
 		Expect(err).To(BeNil())
 
 		By("validating if CreateMachineError was set on HCloudMachine object")
-		c := conditions.Get(service.scope.HCloudMachine, infrav1.NoRemediateMachineAnnotationCondition)
+		c := conditions.Get(service.scope.HCloudMachine, infrav1.RemediationSucceededCondition)
 		Expect(c).NotTo(BeNil())
 		Expect(c.Status).To(Equal(metav1.ConditionFalse))
 		Expect(c.Message).To(Equal(`hcloud server ("hcloud://1234567") no longer available. Setting MachineError.`))
@@ -1064,7 +1064,7 @@ func isPresentAndFalseWithReason(getter capiconditions.Getter, condition string,
 }
 
 func noErrorOccured(s *scope.MachineScope) error {
-	c := conditions.Get(s.HCloudMachine, infrav1.NoRemediateMachineAnnotationCondition)
+	c := conditions.Get(s.HCloudMachine, infrav1.RemediationSucceededCondition)
 	if c == nil {
 		return nil
 	}

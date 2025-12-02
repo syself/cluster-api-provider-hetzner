@@ -50,7 +50,7 @@ func NewService(scope *scope.HCloudRemediationScope) *Service {
 // Reconcile implements reconcilement of HCloudRemediation.
 func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 	// if SetErrorAndRemediate() was used to stop provisioning, do not try to reboot server
-	infraMachineCondition := conditions.Get(s.scope.HCloudMachine, infrav1.NoRemediateMachineAnnotationCondition)
+	infraMachineCondition := conditions.Get(s.scope.HCloudMachine, infrav1.RemediationSucceededCondition)
 	if infraMachineCondition != nil && infraMachineCondition.Status == metav1.ConditionFalse {
 		err := s.setOwnerRemediatedConditionToFailed(ctx,
 			fmt.Sprintf("exit remediation because infra machine has condition set: %s: %s",
