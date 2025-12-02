@@ -56,7 +56,10 @@ rows_to_skip_regex = [
 ]
 
 # if this string appears, then rows_to_skip_for_tests will be added to rows_to_skip.
-rows_to_trigger_test_filter = ["Running Suite:"]
+rows_to_trigger_test_filter_regex = [
+    "Running Suite:",
+    r"^\[\d+\] .* Suite - \d+/\d+ specs",
+]
 
 # List of fixed-strings.
 rows_to_skip = [
@@ -159,11 +162,11 @@ def write_line(line):
     global filtering_test_data
     ascii_line = ansi_pattern.sub("", line)
     if not filtering_test_data:
-        for r in rows_to_trigger_test_filter:
-            if r in ascii_line:
+        for r in rows_to_trigger_test_filter_regex:
+            if re.match(r, ascii_line):
                 filtering_test_data = True
                 rows_to_skip.extend(rows_to_skip_for_tests)
-
+                break
     for r in rows_to_skip:
         if r in ascii_line:
             return
