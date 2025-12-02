@@ -322,8 +322,6 @@ var _ = Describe("HCloudMachineReconciler", func() {
 	Context("Basic hcloudmachine test", func() {
 		Context("correct server", func() {
 			BeforeEach(func() {
-				// remove bootstrap infos
-				capiMachine.Spec.Bootstrap = clusterv1.Bootstrap{}
 				Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
 
 				hcloudMachine = &infrav1.HCloudMachine{
@@ -612,6 +610,8 @@ var _ = Describe("HCloudMachineReconciler", func() {
 					EnableIPv6: false,
 				}
 				Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
+				Expect(hetznerCluster.Spec.ControlPlaneEndpoint).NotTo(BeNil())
+				Expect(hetznerCluster.Spec.ControlPlaneEndpoint.Host).To(Equal("mycp.example.com"))
 				Expect(testEnv.Create(ctx, hcloudMachine)).To(Succeed())
 			})
 

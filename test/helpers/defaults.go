@@ -22,6 +22,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
@@ -194,8 +195,11 @@ func GetDefaultHetznerClusterSpec() infrav1.HetznerClusterSpec {
 			Region: "fsn1",
 			Type:   "lb11",
 		},
-		ControlPlaneEndpoint: nil,
-		ControlPlaneRegions:  []infrav1.Region{"fsn1"},
+		ControlPlaneEndpoint: &clusterv1.APIEndpoint{
+			Host: "mycp.example.com",
+			Port: 443,
+		},
+		ControlPlaneRegions: []infrav1.Region{"fsn1"},
 		HCloudNetwork: infrav1.HCloudNetworkSpec{
 			CIDRBlock:       "10.0.0.0/16",
 			Enabled:         true,

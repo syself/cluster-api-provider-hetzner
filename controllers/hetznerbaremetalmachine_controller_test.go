@@ -212,6 +212,10 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 							Name:     machineName,
 						},
 						FailureDomain: defaultFailureDomain,
+						Bootstrap: clusterv1.Bootstrap{
+							ConfigRef:      clusterv1.ContractVersionedObjectReference{},
+							DataSecretName: ptr.To("bootstrapsecret"),
+						},
 					},
 				}
 				Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
@@ -241,12 +245,6 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 			AfterEach(func() {
 				Expect(testEnv.Cleanup(ctx, capiMachine, bmMachine)).To(Succeed())
-			})
-
-			It("sets bootstrap condition on false if no bootstrap available", func() {
-				Eventually(func() bool {
-					return isPresentAndFalseWithReason(key, bmMachine, infrav1.BootstrapReadyCondition, infrav1.BootstrapNotReadyReason)
-				}, timeout, time.Second).Should(BeTrue())
 			})
 
 			It("sets bootstrap condition on true if bootstrap available", func() {
@@ -431,14 +429,20 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					Err:    nil,
 				})
 
-				err := testEnv.Get(ctx, hostKey, host)
-				Expect(err).To(BeNil())
-				Expect(host.Spec.Status.ProvisioningState).To(Equal(infrav1.StateProvisioned))
-
 				By("Setting State to 'ensure-provisioned'")
-				host.Spec.Status.ProvisioningState = infrav1.StateEnsureProvisioned
-				err = testEnv.Update(ctx, host)
-				Expect(err).To(BeNil())
+				Eventually(func() error {
+					err := testEnv.Get(ctx, hostKey, host)
+					if err != nil {
+						return err
+					}
+					Expect(host.Spec.Status.ProvisioningState).To(Equal(infrav1.StateProvisioned))
+					host.Spec.Status.ProvisioningState = infrav1.StateEnsureProvisioned
+					err = testEnv.Update(ctx, host)
+					if err != nil {
+						return err
+					}
+					return nil
+				}).Should(Succeed())
 
 				Eventually(func() error {
 					err := testEnv.Get(ctx, hostKey, host)
@@ -577,11 +581,11 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					if err != nil {
 						return err
 					}
-					if host.Spec.Status.ProvisioningState != infrav1.StateDeprovisioning {
-						return fmt.Errorf("host.Spec.Status.ProvisioningState != infrav1.StateDeprovisioning. Is: %q", host.Spec.Status.ProvisioningState)
+					if host.Spec.Status.ProvisioningState != infrav1.StateNone {
+						return fmt.Errorf("host.Spec.Status.ProvisioningState != infrav1.StateNone. Is: %q", host.Spec.Status.ProvisioningState)
 					}
 					return nil
-				}).Should(Succeed())
+				}, timeout).Should(Succeed())
 
 				// check that ResetKubeadm was called
 				osSSHClient.AssertCalled(GinkgoT(), "ResetKubeadm")

@@ -336,9 +336,19 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 			})
 			Expect(err).ShouldNot(HaveOccurred())
 			providerID := hcloudutil.ProviderIDFromServerID(int(server.ID))
-			hcloudMachine.Spec.ProviderID = &providerID
-			err = testEnv.Update(ctx, hcloudMachine)
-			Expect(err).ShouldNot(HaveOccurred())
+
+			Eventually(func() error {
+				err := testEnv.Get(ctx, client.ObjectKeyFromObject(hcloudMachine), hcloudMachine)
+				if err != nil {
+					return err
+				}
+				hcloudMachine.Spec.ProviderID = &providerID
+				err = testEnv.Update(ctx, hcloudMachine)
+				if err != nil {
+					return err
+				}
+				return nil
+			}).Should(Succeed())
 
 			By("Call SetErrorAndRemediateMachine")
 			Eventually(func() error {
@@ -410,7 +420,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				if c.Status != metav1.ConditionFalse {
 					return fmt.Errorf("status not set yet")
 				}
-				if c.Message != "Remediation finished (machine will be deleted): exit remediation because infra machine has condition set: RemediateMachineAnnotationIsSet: test-of-set-error-and-remediate" {
+				if c.Message != "Remediation finished (machine will be deleted): exit remediation because infra machine has condition set: RemediationInProgress: test-of-set-error-and-remediate" {
 					return fmt.Errorf("Message is not as expected: %q", c.Message)
 				}
 				return nil

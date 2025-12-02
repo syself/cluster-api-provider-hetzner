@@ -54,7 +54,7 @@ type HetznerClusterSpec struct {
 	SSHKeys HetznerSSHKeys `json:"sshKeys"`
 	// ControlPlaneEndpoint represents the endpoint used to communicate with the control plane.
 	// +optional
-	ControlPlaneEndpoint *clusterv1.APIEndpoint `json:"controlPlaneEndpoint,omitempty"`
+	ControlPlaneEndpoint *clusterv1.APIEndpoint `json:"controlPlaneEndpoint,omitzero"`
 
 	// ControlPlaneLoadBalancer is an optional configuration for customizing control plane behavior.
 	ControlPlaneLoadBalancer LoadBalancerSpec `json:"controlPlaneLoadBalancer,omitempty"`
