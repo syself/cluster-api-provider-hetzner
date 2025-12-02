@@ -54,11 +54,6 @@ func NewService(scope *scope.BareMetalRemediationScope) *Service {
 func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 	host, err := host.GetAssociatedHost(ctx, s.scope.Client, s.scope.BareMetalMachine)
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return s.setOwnerRemediatedConditionToFailed(ctx,
-				"exit remediation because host not found")
-		}
-
 		// retry
 		err := fmt.Errorf("failed to find the unhealthy host (will retry): %w", err)
 		record.Warn(s.scope.BareMetalRemediation, "FailedToFindHost", err.Error())
@@ -66,11 +61,11 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 	}
 
 	if host == nil {
-		return s.setOwnerRemediatedConditionToFailed(ctx,
+		return reconcile.Result{}, s.setOwnerRemediatedConditionToFailed(ctx,
 			"exit remediation because hbmm has no host annotation")
 	}
 	// if SetErrorAndRemediate() was used to stop provisioning, do not try to reboot server
-	infraMachineCondition := conditions.Get(s.scope.BareMetalMachine, infrav1.NoRemediateMachineAnnotationCondition)
+	infraMachineCondition := conditions.Get(s.scope.BareMetalMachine, infrav1.RemediationSucceededCondition)
 	if infraMachineCondition != nil && infraMachineCondition.Status == corev1.ConditionFalse {
 		return s.setOwnerRemediatedConditionToFailed(ctx,
 			fmt.Sprintf("exit remediation because infra machine has condition set: %s: %s",
@@ -80,14 +75,14 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 
 	// if host is not provisioned, do not try to reboot server
 	if host.Spec.Status.ProvisioningState != infrav1.StateProvisioned {
-		return s.setOwnerRemediatedConditionToFailed(ctx,
+		return reconcile.Result{}, s.setOwnerRemediatedConditionToFailed(ctx,
 			fmt.Sprintf("exit remediation because host is not provisioned. Provisioning state: %s.",
 				host.Spec.Status.ProvisioningState))
 	}
 
 	// host is in maintenance mode, do not try to reboot server
 	if host.Spec.MaintenanceMode != nil && *host.Spec.MaintenanceMode {
-		return s.setOwnerRemediatedConditionToFailed(ctx,
+		return reconcile.Result{}, s.setOwnerRemediatedConditionToFailed(ctx,
 			"exit remediation because host is in maintenance mode")
 	}
 
@@ -179,7 +174,7 @@ func (s *Service) handlePhaseWaiting(ctx context.Context) (res reconcile.Result,
 		return reconcile.Result{RequeueAfter: nextCheck}, nil
 	}
 
-	return s.setOwnerRemediatedConditionToFailed(ctx, "because retryLimit is reached and reboot timed out")
+	return reconcile.Result{}, s.setOwnerRemediatedConditionToFailed(ctx, "because retryLimit is reached and reboot timed out")
 }
 
 // timeUntilNextRemediation checks if it is time to execute a next remediation step
@@ -202,25 +197,25 @@ func (s *Service) timeUntilNextRemediation(now time.Time) time.Duration {
 
 // setOwnerRemediatedConditionToFailed sets MachineOwnerRemediatedCondition on CAPI machine object
 // that have failed a healthcheck.
-func (s *Service) setOwnerRemediatedConditionToFailed(ctx context.Context, msg string) (reconcile.Result, error) {
+func (s *Service) setOwnerRemediatedConditionToFailed(ctx context.Context, msg string) error {
 	capiMachine, err := util.GetOwnerMachine(ctx, s.scope.Client, s.scope.BareMetalRemediation.ObjectMeta)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
 			// Maybe a network error. Retry
-			return reconcile.Result{}, fmt.Errorf("failed to get capi machine: %w", err)
+			return fmt.Errorf("failed to get capi machine: %w", err)
 		}
 		record.Event(s.scope.BareMetalRemediation, "CapiMachineGone", "CAPI machine does not exist. Remediation will be stopped. Infra Machine will be deleted soon by GC.")
 
 		// do not retry
 		s.scope.BareMetalRemediation.Status.Phase = infrav1.PhaseDeleting
-		return reconcile.Result{}, nil
+		return nil
 	}
 
 	// There is a capi-machine. Set condition.
 	patchHelper, err := patch.NewHelper(capiMachine, s.scope.Client)
 	if err != nil {
 		// retry
-		return reconcile.Result{}, fmt.Errorf("failed to init patch helper: %s %s/%s %w", capiMachine.Kind, capiMachine.Namespace, capiMachine.Name, err)
+		return fmt.Errorf("failed to init patch helper: %s %s/%s %w", capiMachine.Kind, capiMachine.Namespace, capiMachine.Name, err)
 	}
 
 	// When machine is still unhealthy after remediation, setting of OwnerRemediatedCondition
@@ -236,14 +231,14 @@ func (s *Service) setOwnerRemediatedConditionToFailed(ctx context.Context, msg s
 
 	if err := patchHelper.Patch(ctx, capiMachine); err != nil {
 		// retry
-		return reconcile.Result{}, fmt.Errorf("failed to patch: %s %s/%s %w", capiMachine.Kind, capiMachine.Namespace, capiMachine.Name, err)
+		return fmt.Errorf("failed to patch: %s %s/%s %w", capiMachine.Kind, capiMachine.Namespace, capiMachine.Name, err)
 	}
 
 	record.Event(s.scope.BareMetalRemediation, "ExitRemediation", msg)
 
 	// do not retry
 	s.scope.BareMetalRemediation.Status.Phase = infrav1.PhaseDeleting
-	return reconcile.Result{}, nil
+	return nil
 }
 
 // addRebootAnnotation sets reboot annotation on unhealthy host.

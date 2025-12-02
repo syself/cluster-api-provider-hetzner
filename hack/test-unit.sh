@@ -32,9 +32,13 @@ export KUBEBUILDER_ASSETS
 
 mkdir -p .coverage
 
+mkdir -p tmp
+
 hack/tools/bin/gotestsum \
     --jsonfile=.reports/go-test-output.json \
     --junitfile=.coverage/junit.xml \
     --format testname -- \
-    -covermode=atomic -coverprofile=.coverage/cover.out -p=1 -timeout 5m \
-    ./controllers/... ./pkg/... ./api/... | ./hack/filter-caph-controller-manager-logs.py -
+    -covermode=atomic -coverprofile=.coverage/cover.out -p=1 -v -timeout 5m \
+    ./controllers/... ./pkg/... ./api/... |
+    tee tmp/test-unit-unfiltered.log |
+    ./hack/filter-caph-controller-manager-logs.py -

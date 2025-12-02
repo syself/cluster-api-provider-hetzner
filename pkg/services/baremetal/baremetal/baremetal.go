@@ -132,7 +132,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 	// get host - ignore if not found
 	host, helper, err := s.getAssociatedHostAndPatchHelper(ctx)
-	if err != nil && !apierrors.IsNotFound(err) {
+	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to get associated host: %w", err)
 	}
 
@@ -859,6 +859,8 @@ func consumerRefMatches(consumer *corev1.ObjectReference, bmMachine *infrav1.Het
 	return true
 }
 
+// returns "namespace/hbmh-name". Note: The namespace gets ignored, as cross-namespace references
+// are not allowed. We should update the format.
 func hostKey(host *infrav1.HetznerBareMetalHost) string {
 	return host.GetNamespace() + "/" + host.GetName()
 }
