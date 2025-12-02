@@ -21,6 +21,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	controlplanev1 "sigs.k8s.io/cluster-api/api/controlplane/kubeadm/v1beta2"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -65,20 +66,23 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 					Spec: clusterv1.ClusterClassSpec{
 						ControlPlane: clusterv1.ControlPlaneClass{
 							TemplateRef: clusterv1.ClusterClassTemplateReference{
-								Kind: "KubeadmControlPlaneTemplate",
-								Name: "quick-start-control-plane",
+								Kind:       "KubeadmControlPlaneTemplate",
+								Name:       "quick-start-control-plane",
+								APIVersion: controlplanev1.GroupVersion.String(),
 							},
 							MachineInfrastructure: clusterv1.ControlPlaneClassMachineInfrastructureTemplate{
 								TemplateRef: clusterv1.ClusterClassTemplateReference{
-									Kind: "HCloudMachineTemplate",
-									Name: "hcloud-machine-template",
+									Kind:       "HCloudMachineTemplate",
+									Name:       "hcloud-machine-template",
+									APIVersion: infrav1.GroupVersion.String(),
 								},
 							},
 						},
 						Infrastructure: clusterv1.InfrastructureClass{
 							TemplateRef: clusterv1.ClusterClassTemplateReference{
-								Kind: "HetznerClusterTemplate",
-								Name: "hcloud-cluster-template",
+								Kind:       "HetznerClusterTemplate",
+								Name:       "hcloud-cluster-template",
+								APIVersion: infrav1.GroupVersion.String(),
 							},
 						},
 					},
@@ -104,6 +108,11 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 								ImageName:          "my-control-plane",
 								Type:               "cpx31",
 								PlacementGroupName: &defaultPlacementGroupName,
+							},
+							ObjectMeta: clusterv1.ObjectMeta{
+								Labels: map[string]string{
+									"foo": "bar",
+								},
 							},
 						},
 					},

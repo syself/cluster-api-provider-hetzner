@@ -87,7 +87,7 @@ type HCloudMachineTemplateList struct {
 type HCloudMachineTemplateResource struct {
 	// Standard object's metadata.
 	// +optional
-	ObjectMeta clusterv1.ObjectMeta `json:"metadata,omitempty"`
+	ObjectMeta clusterv1.ObjectMeta `json:"metadata,omitzero"`
 
 	// Spec is the specification of the desired behavior of the machine.
 	Spec HCloudMachineSpec `json:"spec"`

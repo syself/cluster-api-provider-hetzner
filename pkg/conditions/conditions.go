@@ -33,8 +33,8 @@ func MarkTrue(targetObj capiconditions.Setter, conditionType string) {
 	capiconditions.Set(targetObj, metav1.Condition{
 		Type:    conditionType,
 		Status:  metav1.ConditionTrue,
-		Reason:  "",
-		Message: "",
+		Reason:  "none",
+		Message: "none",
 	})
 }
 
