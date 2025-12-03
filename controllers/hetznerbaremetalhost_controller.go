@@ -254,12 +254,12 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	// Mirror RemediationSucceededCondition from hbmm to hbmh.
 	remediateConditionOfHbmm := conditions.Get(hetznerBareMetalMachine, infrav1.RemediationSucceededCondition)
 	if remediateConditionOfHbmm != nil {
-		if remediateConditionOfHbmm.Status == corev1.ConditionFalse {
+		if remediateConditionOfHbmm.Status == metav1.ConditionFalse {
 			// Take the Condition of the hbmm and make it available on the hbmh.
 			msg := "hbmm has RemediationSucceededCondition=False."
 			log.Info(msg)
 			conditions.MarkFalse(bmHost, infrav1.RemediationSucceededCondition,
-				remediateConditionOfHbmm.Reason, remediateConditionOfHbmm.Severity,
+				remediateConditionOfHbmm.Reason, clusterv1.ConditionSeverityInfo,
 				"%s", remediateConditionOfHbmm.Message)
 		} else {
 			conditions.MarkTrue(bmHost, infrav1.RemediationSucceededCondition)
