@@ -80,7 +80,7 @@ following tools.
 This script continuously shows the most important resources (capi machines, infra machines, ...)
 and logs of caph and capi. Run this with your management cluster kubeconfig active.
 
-```shell
+```console
 go run github.com/guettli/check-conditions@latest all
 ```
 
