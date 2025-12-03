@@ -33,7 +33,7 @@ Have a question, bug, or feature request? Let us know! https://kind.sigs.k8s.io/
 
 After creating the bootstrap cluster, it is also required to have some variables exported and the name of the variables that needs to be exported can be known by running the following command:
 
-```shell
+```console
 $ clusterctl generate cluster my-cluster --list-variables --flavor hetzner-hcloud-control-planes
 Required Variables:
   - HCLOUD_CONTROL_PLANE_MACHINE_TYPE
@@ -207,7 +207,7 @@ In the above server, we have not specified the WWN of the server and we have app
 
 After a while, you will see that there is an error in provisioning of `HetznerBareMetalHost` object that you just applied above. The error will look the following:
 
-```shell
+```console
 $ kubectl get hetznerbaremetalhost -A
 default     my-cluster-md-1-tgvl5   my-cluster   default/test-bm-gpu    my-cluster-md-1-t9znj-694hs   Provisioning   23m   ValidationFailed   no root device hints specified
 ```

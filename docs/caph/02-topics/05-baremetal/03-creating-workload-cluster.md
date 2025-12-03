@@ -25,7 +25,7 @@ And apply it:
 kubectl apply -f my-cluster.yaml
 ```
 
-```shell
+```console
 $ kubectl apply -f my-cluster.yaml
 kubeadmconfigtemplate.bootstrap.cluster.x-k8s.io/my-cluster-md-0 created
 kubeadmconfigtemplate.bootstrap.cluster.x-k8s.io/my-cluster-md-1 created
@@ -94,7 +94,7 @@ TEST SUITE: None
 
 For CNI, let's deploy cilium in the workload cluster that will facilitate the networking in the cluster.
 
-```shell
+```console
 $ helm install cilium cilium/cilium --kubeconfig workload-kubeconfig
 NAME: cilium
 LAST DEPLOYED: Thu Apr  4 21:11:13 2024
@@ -112,7 +112,7 @@ For any further help, visit https://docs.cilium.io/en/v1.15/gettinghelp
 
 Now, the cluster should be up and you can verify it by running the following commands:
 
-```shell
+```console
 $ kubectl get clusters -A
 NAMESPACE   NAME         CLUSTERCLASS   PHASE         AGE   VERSION
 default     my-cluster                  Provisioned   10h

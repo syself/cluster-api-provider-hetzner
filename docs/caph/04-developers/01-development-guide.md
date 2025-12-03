@@ -73,7 +73,7 @@ If you have any trouble finding the right command, you can run the `make help` c
 If you want to have a better overview about what is going on in your management cluster, then you can use the
 following tools.
 
-```shell
+```console
 ❯ watch ./hack/output-for-watch.sh
 ```
 
