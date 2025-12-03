@@ -45,7 +45,7 @@ type BareMetalMachineScopeParams struct {
 // This is meant to be called for each reconcile iteration.
 func NewBareMetalMachineScope(params BareMetalMachineScopeParams) (*BareMetalMachineScope, error) {
 	if params.Client == nil {
-		return nil, fmt.Errorf("cannot create baremetal host scope without client")
+		return nil, fmt.Errorf("cannot create baremetal machine scope without client")
 	}
 	if params.Machine == nil {
 		return nil, fmt.Errorf("failed to generate new scope from nil Machine")

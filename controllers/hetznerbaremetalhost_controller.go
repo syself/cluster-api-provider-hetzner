@@ -199,6 +199,9 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		return res, nil
 	}
 
+	// Case "Delete" was handled in reconcileSelectedStates. From now we know that the host has no
+	// DeletionTimestamp set. But the hbmm could be in Deprovisioning.
+
 	hetznerCluster := &infrav1.HetznerCluster{}
 
 	hetznerClusterName := client.ObjectKey{
@@ -240,8 +243,12 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 
 	log = log.WithValues("HetznerBareMetalMachine", klog.KObj(hetznerBareMetalMachine))
-
 	ctx = ctrl.LoggerInto(ctx, log)
+
+	// check whether rate limit has been reached and if so, then wait.
+	if wait := reconcileRateLimit(bmHost, r.RateLimitWaitTime); wait {
+		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+	}
 
 	// Get Hetzner robot api credentials
 	secretManager := secretutil.NewSecretManager(log, r.Client, r.APIReader)
@@ -280,11 +287,6 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %w", err)
 	}
 
-	// check whether rate limit has been reached and if so, then wait.
-	if wait := reconcileRateLimit(bmHost, r.RateLimitWaitTime); wait {
-		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
-	}
-
 	return r.reconcile(ctx, hostScope)
 }
 
@@ -321,7 +323,7 @@ func (r *HetznerBareMetalHostReconciler) reconcileSelectedStates(ctx context.Con
 
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 
-		// Handle StateDeleting
+	// Handle StateDeleting
 	case infrav1.StateDeleting:
 		if controllerutil.RemoveFinalizer(bmHost, infrav1.HetznerBareMetalHostFinalizer) ||
 			controllerutil.RemoveFinalizer(bmHost, infrav1.DeprecatedBareMetalHostFinalizer) {
