@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -667,9 +668,35 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			})
 
 			It("checks for HostReadyCondition False for hetznerBareMetalMachine with HetznerSecretUnreachableReason", func() {
-				Eventually(func() bool {
-					return isPresentAndFalseWithReason(key, bmMachine, infrav1.HostReadyCondition, infrav1.OSSSHSecretMissingReason)
-				}, timeout, time.Second).Should(BeTrue())
+				magicString := "* CredentialsAvailable: could not find OSSSHSecret: failed to fetch secret"
+				Eventually(func() error {
+					err := testEnv.Get(ctx, client.ObjectKeyFromObject(host), host)
+					if err != nil {
+						return err
+					}
+					c := conditions.Get(host, clusterv1.ReadyCondition)
+					if c == nil {
+						return fmt.Errorf("ReadyCondition not set on host")
+					}
+					if !strings.Contains(c.Message, magicString) {
+						return fmt.Errorf("CredentialsAvailable substring not set (on host). Conditions: %+v", host.Spec.Status.Conditions)
+					}
+					err = testEnv.Get(ctx, client.ObjectKeyFromObject(bmMachine), bmMachine)
+					if err != nil {
+						return err
+					}
+					c = conditions.Get(bmMachine, infrav1.HostReadyCondition)
+					if c == nil {
+						return fmt.Errorf("HostReadyCondition not set on hbmm")
+					}
+					if c.Reason != "IssuesReported" {
+						return fmt.Errorf("IssuesReported not set on hbmm. is %q - Conditions: %+v", c.Reason, bmMachine.Status.Conditions)
+					}
+					if !strings.Contains(c.Message, magicString) {
+						return fmt.Errorf("CredentialsAvailable substring not set (on hbmm). Conditions: %+v", bmMachine.Status.Conditions)
+					}
+					return nil
+				}, timeout, time.Second).Should(Succeed())
 			})
 		})
 	})
