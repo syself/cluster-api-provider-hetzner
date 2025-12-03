@@ -242,7 +242,8 @@ const (
 const (
 	// RemediationSucceededCondition is:
 	// - False when the corresponding CAPI Machine has the "cluster.x-k8s.io/remediate-machine" annotation set and will be remediated by CAPI soon.
-	// - True otherwise.
+	// - True after remediation.
+	// - unset if no remediation was done yet.
 	RemediationSucceededCondition clusterv1.ConditionType = "RemediationSucceeded"
 
 	// RemediationInProgressReason indicates that the CAPI machine has the
