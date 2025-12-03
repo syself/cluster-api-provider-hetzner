@@ -250,6 +250,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
+	// Mirror RemediationSucceededCondition from hbmm to hbmh.
 	remediateConditionOfHbmm := conditions.Get(hetznerBareMetalMachine, infrav1.RemediationSucceededCondition)
 	if remediateConditionOfHbmm != nil {
 		if remediateConditionOfHbmm.Status == corev1.ConditionFalse {
