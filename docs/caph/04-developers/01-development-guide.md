@@ -115,12 +115,13 @@ that.
 A common way to run one particular unit-test is like this:
 
 ```shell
-reset; ginkgo run --focus "foo" ./controllers/... | ./hack/filter-caph-controller-manager-logs.py -
+reset; DEBUG=1 ginkgo run --focus "foo" ./controllers/... | ./hack/filter-caph-controller-manager-logs.py -
 ```
 
 Explanation:
 
 - `reset`: Reset the terminal so you can scroll back to the first line of output easily.
+- `DEBUG=1`: Set log-level to "debug".
 - `ginkgo run --focus "foo" ./controllers/...`: Run tests in the controllers directory, but only those
   whose `It("...")` contains "foo".
 - `./hack/filter-caph-controller-manager-logs.py -`: Filter the output to avoid being overwhelmed.

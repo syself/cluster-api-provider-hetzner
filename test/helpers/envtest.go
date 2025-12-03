@@ -150,6 +150,10 @@ func NewTestEnvironment() *TestEnvironment {
 		panic(err)
 	}
 
+	logLevel := "info"
+	if os.Getenv("DEBUG") != "" {
+		logLevel = "debug"
+	}
 	// Build the controller manager.
 	mgr, err := ctrl.NewManager(env.Config, ctrl.Options{
 		Scheme: scheme,
@@ -167,7 +171,8 @@ func NewTestEnvironment() *TestEnvironment {
 			// Disable MetricsServer, so that two tests processes can run concurrently
 			BindAddress: "0",
 		},
-		Logger: utils.GetDefaultLogger("info"),
+
+		Logger: utils.GetDefaultLogger(logLevel),
 	})
 	if err != nil {
 		klog.Fatalf("unable to create manager: %s", err)
