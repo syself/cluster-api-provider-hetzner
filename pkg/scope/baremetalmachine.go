@@ -125,12 +125,13 @@ func (m *BareMetalMachineScope) IsBootstrapReady() bool {
 	return m.Machine.Spec.Bootstrap.DataSecretName != nil
 }
 
-// SetErrorAndRemediate sets "cluster.x-k8s.io/remediate-machine" annotation on the corresponding
-// CAPI machine. CAPI will remediate that machine. Additionally, an event of type Warning will be
-// created, and the condition will be set on both the BareMetalMachine and the corresponding
-// HetznerBareMetalHost (if found). The Condition RemediationSucceededCondition will be set
-// on the hbmm.
-func (m *BareMetalMachineScope) SetErrorAndRemediate(ctx context.Context, message string) error {
+// SetErrorAndDeleteMachine sets "cluster.x-k8s.io/remediate-machine" annotation on the
+// corresponding CAPI machine. This will trigger CAPI to start remediation. To differentiate a
+// normal remediation from the request to delete the machine, the DeleteMachineSucceededCondition
+// gets set to False on the infra machine. Our remediation contoller will notice this condition and
+// stop remediation (no reboot gets tried). Finally the capi machine and the infra machine will be
+// deleted.
+func (m *BareMetalMachineScope) SetErrorAndDeleteMachine(ctx context.Context, message string) error {
 	obj := m.Machine
 
 	// Create a patch base
@@ -147,10 +148,10 @@ func (m *BareMetalMachineScope) SetErrorAndRemediate(ctx context.Context, messag
 		return err
 	}
 
-	record.Warnf(m.BareMetalMachine, "HetznerBareMetalMachineWillBeRemediated",
-		"HetznerBareMetalMachine will be remediated: %s", message)
+	record.Warnf(m.BareMetalMachine, "MachineWillBeDeleted", "Machine will be deleted: %s", message)
 
-	conditions.MarkFalse(m.BareMetalMachine, infrav1.RemediationSucceededCondition,
-		infrav1.RemediationInProgressReason, clusterv1.ConditionSeverityInfo, "%s", message)
+	// Set the condition, so that our remediation controller knows that no reboot should be tried.
+	conditions.MarkFalse(m.BareMetalMachine, infrav1.DeleteMachineSucceededCondition,
+		infrav1.DeleteMachineInProgressReason, clusterv1.ConditionSeverityInfo, "%s", message)
 	return nil
 }

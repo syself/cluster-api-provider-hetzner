@@ -17,6 +17,7 @@ limitations under the License.
 package controllers
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"sync"
@@ -428,4 +429,22 @@ func isPresentAndTrue(key types.NamespacedName, obj crclient.Object, condition c
 	}
 	objectCondition := conditions.Get(getter, string(condition))
 	return objectCondition.Status == metav1.ConditionTrue
+}
+
+func hasEvent(ctx context.Context, c client.Client, namespace, involvedObjectName, reason, message string) bool {
+	eventList := &corev1.EventList{}
+	if err := c.List(ctx, eventList, client.InNamespace(namespace)); err != nil {
+		return false
+	}
+
+	for i := range eventList.Items {
+		event := eventList.Items[i]
+		if event.Reason == reason &&
+			event.Message == message &&
+			event.InvolvedObject.Name == involvedObjectName {
+			return true
+		}
+	}
+
+	return false
 }

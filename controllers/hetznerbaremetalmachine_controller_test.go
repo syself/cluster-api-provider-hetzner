@@ -514,13 +514,13 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 						return fmt.Errorf("RemediateMachineAnnotation not set on capi machine")
 					}
 
-					c := conditions.Get(bmMachine, infrav1.RemediationSucceededCondition)
+					c := conditions.Get(bmMachine, infrav1.DeleteMachineSucceededCondition)
 					if c == nil {
-						return fmt.Errorf("condition RemediationSucceededCondition does not exist")
+						return fmt.Errorf("condition DeleteMachineSucceededCondition does not exist")
 					}
 
 					if c.Status != metav1.ConditionFalse {
-						return fmt.Errorf("condition RemediationSucceededCondition should be False")
+						return fmt.Errorf("condition DeleteMachineSucceededCondition should be False")
 					}
 
 					return nil
@@ -563,7 +563,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 						return fmt.Errorf("condition MachineOwnerRemediatedCondition should be False")
 					}
 
-					if c.Message != "Remediation finished (machine will be deleted): exit remediation because infra machine has condition set: RemediationInProgress: host machine in maintenance mode" {
+					if c.Message != "Remediation finished (machine will be deleted): exit remediation because infra machine has condition set: DeleteMachineInProgress: host machine in maintenance mode" {
 						return fmt.Errorf("Unexpected message: %q", c.Message)
 					}
 
@@ -588,8 +588,10 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					return nil
 				}, timeout).Should(Succeed())
 
-				// check that ResetKubeadm was called
-				osSSHClient.AssertCalled(GinkgoT(), "ResetKubeadm")
+				By("waiting for the successful kubeadm reset event")
+				Eventually(func() bool {
+					return hasEvent(ctx, testEnv, testNs.Name, host.Name, "SuccessfulResetKubeAdm", "Reset was successful.")
+				}, timeout, time.Second).Should(BeTrue())
 			})
 
 			It("checks the hetznerBareMetalMachine status running phase", func() {
