@@ -703,8 +703,12 @@ var _ = Describe("Reconcile", func() {
 				ClusterName:   "clustername",
 				FailureDomain: "nbg1",
 				Bootstrap: clusterv1.Bootstrap{
-					ConfigRef:      clusterv1.ContractVersionedObjectReference{},
-					DataSecretName: ptr.To("bootstrapsecret"),
+					ConfigRef: clusterv1.ContractVersionedObjectReference{
+						Kind:     "some-kind",
+						Name:     "some-name",
+						APIGroup: "some-api-group",
+					},
+					// DataSecretName: ptr.To("bootstrapsecret"),
 				},
 			},
 		}
@@ -741,42 +745,6 @@ var _ = Describe("Reconcile", func() {
 
 	It("sets the region in status of hcloudMachine, by fetching the failure domain from machine.spec", func() {
 		By("calling reconcile")
-
-		hcloudClient.On("GetServerType", mock.Anything, mock.Anything).Return(&hcloud.ServerType{
-			Architecture: hcloud.ArchitectureX86,
-		}, nil)
-
-		hcloudClient.On("ListImages", mock.Anything, hcloud.ImageListOpts{
-			Name:         "ubuntu-24.04",
-			Architecture: []hcloud.Architecture{hcloud.ArchitectureX86},
-		}).Return([]*hcloud.Image{}, nil)
-
-		hcloudClient.On("ListImages", mock.Anything, hcloud.ImageListOpts{
-			ListOpts: hcloud.ListOpts{
-				LabelSelector: "caph-image-name==ubuntu-24.04",
-			},
-			Architecture: []hcloud.Architecture{hcloud.ArchitectureX86},
-		}).Return([]*hcloud.Image{
-			{
-				ID:   123456,
-				Name: "ubuntu",
-			},
-		}, nil)
-
-		hcloudClient.On("ListSSHKeys", mock.Anything, mock.Anything).Return([]*hcloud.SSHKey{
-			{
-				ID:          1,
-				Name:        "sshKey1",
-				Fingerprint: "b7:2f:30:a0:2f:6c:58:6c:21:04:58:61:ba:06:3b:1f",
-			},
-		}, nil)
-
-		hcloudClient.On("CreateServer", mock.Anything, mock.Anything).Return(&hcloud.Server{
-			ID:     1,
-			Name:   "my-machine",
-			Status: hcloud.ServerStatusInitializing,
-		}, nil)
-
 		_, err := service.Reconcile(ctx)
 		Expect(err).To(BeNil())
 
@@ -786,7 +754,7 @@ var _ = Describe("Reconcile", func() {
 		By("ensuring the BootstrapReady condition is marked as false")
 		c := conditions.Get(service.scope.HCloudMachine, infrav1.BootstrapReadyCondition)
 		Expect(c).NotTo(BeNil())
-		Expect(c.Status).To(Equal(metav1.ConditionTrue))
+		Expect(c.Status).To(Equal(metav1.ConditionFalse))
 	})
 
 	It("sets the region in status of hcloudMachine, by fetching the failure domain from cluster.status if machine.spec.failureDomain is empty", func() {
