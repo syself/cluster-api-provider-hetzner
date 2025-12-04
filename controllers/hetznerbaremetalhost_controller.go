@@ -251,15 +251,15 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 
 	// Mirror DeleteMachineSucceededCondition from hbmm to hbmh.
-	remediateConditionOfHbmm := conditions.Get(hetznerBareMetalMachine, infrav1.DeleteMachineSucceededCondition)
-	if remediateConditionOfHbmm != nil {
-		if remediateConditionOfHbmm.Status == corev1.ConditionFalse {
+	deleteMachineCondition := conditions.Get(hetznerBareMetalMachine, infrav1.DeleteMachineSucceededCondition)
+	if deleteMachineCondition != nil {
+		if deleteMachineCondition.Status == corev1.ConditionFalse {
 			// Take this condition of the hbmm and make it available on the hbmh.
 			msg := "hbmm has DeleteMachineSucceededCondition=False."
 			log.Info(msg)
 			conditions.MarkFalse(bmHost, infrav1.DeleteMachineSucceededCondition,
-				remediateConditionOfHbmm.Reason, remediateConditionOfHbmm.Severity,
-				"%s", remediateConditionOfHbmm.Message)
+				deleteMachineCondition.Reason, deleteMachineCondition.Severity,
+				"%s", deleteMachineCondition.Message)
 		} else {
 			conditions.MarkTrue(bmHost, infrav1.DeleteMachineSucceededCondition)
 		}
