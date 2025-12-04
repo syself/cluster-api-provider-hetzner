@@ -593,8 +593,10 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					return nil
 				}).Should(Succeed())
 
-				// check that ResetKubeadm was called
-				osSSHClient.AssertCalled(GinkgoT(), "ResetKubeadm")
+				By("waiting for the successful kubeadm reset event")
+				Eventually(func() bool {
+					return hasEvent(ctx, testEnv, testNs.Name, host.Name, "SuccessfulResetKubeAdm", "Reset was successful.")
+				}, timeout, time.Second).Should(BeTrue())
 			})
 
 			It("checks the hetznerBareMetalMachine status running phase", func() {
