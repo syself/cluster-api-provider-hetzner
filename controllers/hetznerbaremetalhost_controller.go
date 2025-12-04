@@ -259,7 +259,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 			msg := "hbmm has DeleteMachineSucceededCondition=False."
 			log.Info(msg)
 			conditions.MarkFalse(bmHost, infrav1.DeleteMachineSucceededCondition,
-				deleteMachineCondition.Reason, deleteMachineCondition.Severity,
+				deleteMachineCondition.Reason, clusterv1.ConditionSeverityInfo,
 				"%s", deleteMachineCondition.Message)
 		} else {
 			conditions.MarkTrue(bmHost, infrav1.DeleteMachineSucceededCondition)
