@@ -535,6 +535,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 
 	Context("various specs", func() {
 		BeforeEach(func() {
+			capiMachine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrap-secret")
 			Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
 
 			hcloudMachine = &infrav1.HCloudMachine{
