@@ -72,33 +72,26 @@ func NewHCloudRemediationScope(params HCloudRemediationScopeParams) (*HCloudReme
 		return nil, fmt.Errorf("failed to init patch helper: %w", err)
 	}
 
-	machinePatchHelper, err := patch.NewHelper(params.Machine, params.Client)
-	if err != nil {
-		return nil, fmt.Errorf("failed to init machine patch helper: %w", err)
-	}
-
 	return &HCloudRemediationScope{
-		Logger:             params.Logger,
-		Client:             params.Client,
-		HCloudClient:       params.HCloudClient,
-		patchHelper:        patchHelper,
-		machinePatchHelper: machinePatchHelper,
-		Machine:            params.Machine,
-		HCloudMachine:      params.HCloudMachine,
-		HCloudRemediation:  params.HCloudRemediation,
+		Logger:            params.Logger,
+		Client:            params.Client,
+		HCloudClient:      params.HCloudClient,
+		patchHelper:       patchHelper,
+		Machine:           params.Machine,
+		HCloudMachine:     params.HCloudMachine,
+		HCloudRemediation: params.HCloudRemediation,
 	}, nil
 }
 
 // HCloudRemediationScope defines the basic context for an actuator to operate upon.
 type HCloudRemediationScope struct {
 	logr.Logger
-	Client             client.Client
-	patchHelper        *patch.Helper
-	machinePatchHelper *patch.Helper
-	HCloudClient       hcloudclient.Client
-	Machine            *clusterv1.Machine
-	HCloudMachine      *infrav1.HCloudMachine
-	HCloudRemediation  *infrav1.HCloudRemediation
+	Client            client.Client
+	patchHelper       *patch.Helper
+	HCloudClient      hcloudclient.Client
+	Machine           *clusterv1.Machine
+	HCloudMachine     *infrav1.HCloudMachine
+	HCloudRemediation *infrav1.HCloudRemediation
 }
 
 // Close closes the current scope persisting the cluster configuration and status.
@@ -125,9 +118,4 @@ func (m *HCloudRemediationScope) ServerIDFromProviderID() (int64, error) {
 // PatchObject persists the remediation spec and status.
 func (m *HCloudRemediationScope) PatchObject(ctx context.Context, opts ...patch.Option) error {
 	return m.patchHelper.Patch(ctx, m.HCloudRemediation, opts...)
-}
-
-// PatchMachine persists the machine spec and status.
-func (m *HCloudRemediationScope) PatchMachine(ctx context.Context, opts ...patch.Option) error {
-	return m.machinePatchHelper.Patch(ctx, m.Machine, opts...)
 }
