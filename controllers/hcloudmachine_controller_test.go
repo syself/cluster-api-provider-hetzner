@@ -286,7 +286,11 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				},
 				FailureDomain: defaultFailureDomain,
 				Bootstrap: clusterv1.Bootstrap{
-					DataSecretName: ptr.To("bootstrap-secret"),
+					ConfigRef: clusterv1.ContractVersionedObjectReference{
+						Kind:     "some-kind",
+						Name:     "some-name",
+						APIGroup: "some-api-group",
+					},
 				},
 			},
 		}
@@ -471,6 +475,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 
 		Context("wrong server", func() {
 			BeforeEach(func() {
+				capiMachine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrap-secret")
 				Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
 
 				hcloudMachine = &infrav1.HCloudMachine{
@@ -506,9 +511,24 @@ var _ = Describe("HCloudMachineReconciler", func() {
 			})
 
 			It("checks that ImageNotFound is visible in conditions if image does not exist", func() {
-				Eventually(func() bool {
-					return isPresentAndFalseWithReason(key, hcloudMachine, infrav1.ServerCreateSucceededCondition, infrav1.ImageNotFoundReason)
-				}, timeout, interval).Should(BeTrue())
+				Eventually(func() error {
+					err := testEnv.Get(ctx, client.ObjectKeyFromObject(hcloudMachine), hcloudMachine)
+					if err != nil {
+						return err
+					}
+					c := conditions.Get(hcloudMachine, infrav1.ServerCreateSucceededCondition)
+					if c == nil {
+						return fmt.Errorf("ServerCreateSucceededCondition not set: %+v",
+							hcloudMachine.Status.Conditions)
+					}
+					if c.Reason != infrav1.ImageNotFoundReason {
+						return fmt.Errorf("Reason not ImageNotFoundReason, but: %q", c.Reason)
+					}
+					if c.Status != metav1.ConditionFalse {
+						return fmt.Errorf("ServerCreateSucceededCondition not false?")
+					}
+					return nil
+				}, timeout, interval).Should(Succeed())
 			})
 		})
 	})
