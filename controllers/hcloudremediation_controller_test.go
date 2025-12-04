@@ -373,9 +373,9 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				if err != nil {
 					return err
 				}
-				c := conditions.Get(hcloudMachine, infrav1.RemediationSucceededCondition)
+				c := conditions.Get(hcloudMachine, infrav1.DeleteMachineSucceededCondition)
 				if c == nil {
-					return fmt.Errorf("not set: RemediationSucceededCondition")
+					return fmt.Errorf("not set: DeleteMachineSucceededCondition")
 				}
 				if c.Status != metav1.ConditionFalse {
 					return fmt.Errorf("status not set yet")

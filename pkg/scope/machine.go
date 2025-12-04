@@ -130,7 +130,7 @@ func (m *MachineScope) PatchObject(ctx context.Context) error {
 
 // SetErrorAndRemediate sets "cluster.x-k8s.io/remediate-machine" annotation on the corresponding
 // CAPI machine. CAPI will remediate that machine. Additionally, an event of type Warning will be
-// created, and the RemediationSucceededCondition will be set to False on the hcloud-machine. It
+// created, and the DeleteMachineSucceededCondition will be set to False on the hcloud-machine. It
 // gets used, when a not-recoverable error happens. Example: hcloud server was deleted by hand in
 // the hcloud UI.
 func (m *MachineScope) SetErrorAndRemediate(ctx context.Context, message string) error {
@@ -158,8 +158,8 @@ func SetErrorAndRemediateMachine(ctx context.Context, crClient client.Client, ca
 		"HCloudMachineWillBeRemediated",
 		"HCloudMachine will be remediated: %s", message)
 
-	conditions.MarkFalse(hcloudMachine, infrav1.RemediationSucceededCondition,
-		infrav1.RemediationInProgressReason, clusterv1.ConditionSeverityInfo, "%s",
+	conditions.MarkFalse(hcloudMachine, infrav1.DeleteMachineSucceededCondition,
+		infrav1.DeleteMachineInProgressReason, clusterv1.ConditionSeverityInfo, "%s",
 		message)
 
 	return nil

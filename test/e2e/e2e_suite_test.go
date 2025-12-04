@@ -401,7 +401,7 @@ func logHCloudMachineStatus(ctx context.Context, c client.Client) error {
 		}
 		log("HCloudMachine: " + hm.Name + " " + id + " " + strings.Join(addresses, " "))
 		log("  ProvisioningState: " + string(*hm.Status.InstanceState))
-		c := conditions.Get(hm, infrav1.RemediationSucceededCondition)
+		c := conditions.Get(hm, infrav1.DeleteMachineSucceededCondition)
 		if c != nil && c.Status != metav1.ConditionTrue {
 			log(fmt.Sprintf("  Error: %s: %s", c.Reason, c.Message))
 		}
