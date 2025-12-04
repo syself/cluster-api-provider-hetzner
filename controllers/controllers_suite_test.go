@@ -36,7 +36,6 @@ import (
 	"sigs.k8s.io/cluster-api/util/conditions"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
@@ -395,7 +394,7 @@ func getDefaultHetznerBareMetalMachineSpec() infrav1.HetznerBareMetalMachineSpec
 	}
 }
 
-func isPresentAndFalseWithReason(key types.NamespacedName, obj crclient.Object, condition clusterv1.ConditionType, reason string) bool {
+func isPresentAndFalseWithReason(key types.NamespacedName, obj client.Object, condition clusterv1.ConditionType, reason string) bool {
 	err := testEnv.Get(ctx, key, obj)
 	if err != nil {
 		return false
@@ -414,7 +413,7 @@ func isPresentAndFalseWithReason(key types.NamespacedName, obj crclient.Object, 
 		objectCondition.Reason == reason
 }
 
-func isPresentAndTrue(key types.NamespacedName, obj crclient.Object, condition clusterv1.ConditionType) bool {
+func isPresentAndTrue(key types.NamespacedName, obj client.Object, condition clusterv1.ConditionType) bool {
 	err := testEnv.Get(ctx, key, obj)
 	if err != nil {
 		return false
