@@ -248,6 +248,6 @@ const (
 	// The condition gets set during provisioning the infra machine.
 	DeleteMachineSucceededCondition clusterv1.ConditionType = "DeleteMachineSucceeded"
 
-	// DeleteMachineInProgressReason: See [DeleteMachineSucceededCondition]
+	// DeleteMachineInProgressReason is for [DeleteMachineSucceededCondition].
 	DeleteMachineInProgressReason = "DeleteMachineInProgress"
 )
