@@ -412,7 +412,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				if c.Status != corev1.ConditionFalse {
 					return fmt.Errorf("status not set yet")
 				}
-				if c.Message != "Remediation finished (machine will be deleted): exit remediation because infra machine has condition set: RemediateMachineAnnotationIsSet: test-of-set-error-and-remediate" {
+				if c.Message != "Remediation finished (machine will be deleted): exit remediation because infra machine has condition set: DeleteMachineInProgress: test-of-set-error-and-remediate" {
 					return fmt.Errorf("Message is not as expected: %q", c.Message)
 				}
 				return nil
