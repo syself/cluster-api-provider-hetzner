@@ -17,7 +17,7 @@
 # If you make changes to this Dockerfile run `make builder-image-push`.
 
 # Install Lychee
-FROM docker.io/library/alpine:3.21.3@sha256:a8560b36e8b8210634f77d9f7f9efd7ffa463e380b75e2e74aff4511df3ef88c AS lychee
+FROM docker.io/library/alpine:3.23.0@sha256:51183f2cfa6320055da30872f211093f9ff1d3cf06f39a0bdb212314c5dc7375 AS lychee
 # update: datasource=github-tags depName=lycheeverse/lychee versioning=semver
 ENV LYCHEE_VERSION="v0.15.1"
 # hadolint ignore=DL3018
@@ -28,29 +28,29 @@ RUN apk add --no-cache curl && \
     rm -rf /tmp/linux-amd64 /tmp/lychee-${LYCHEE_VERSION}.tgz
 
 # Install Golang CI Lint
-FROM docker.io/library/alpine:3.21.3@sha256:a8560b36e8b8210634f77d9f7f9efd7ffa463e380b75e2e74aff4511df3ef88c AS golangci
+FROM docker.io/library/alpine:3.23.0@sha256:51183f2cfa6320055da30872f211093f9ff1d3cf06f39a0bdb212314c5dc7375 AS golangci
 # update: datasource=github-tags depName=golangci/golangci-lint versioning=semver
-ENV GOLANGCI_VERSION="v1.64.8"
+ENV GOLANGCI_VERSION="v2.7.0"
 WORKDIR /
 # hadolint ignore=DL3018,DL4006
 RUN apk add --no-cache curl && \
     curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s ${GOLANGCI_VERSION}
 
 # Install Hadolint
-FROM docker.io/hadolint/hadolint:v2.12.0-alpine@sha256:3c206a451cec6d486367e758645269fd7d696c5ccb6ff59d8b03b0e45268a199 AS hadolint
+FROM docker.io/hadolint/hadolint:v2.14.0-alpine@sha256:7aba693c1442eb31c0b015c129697cb3b6cb7da589d85c7562f9deb435a6657c AS hadolint
 
 # Install Trivy
-FROM docker.io/aquasec/trivy:0.60.0@sha256:91c3a842834563a6860dbaec5af7c1949df5caf988f9632ef5cbb0a5cd59d8f8 AS trivy
+FROM docker.io/aquasec/trivy:0.68.1@sha256:a93fd67162843c0f749002af9245fe9a2e5edc41445bd71d3949c803e95ef05b AS trivy
 
 ############################
 # Caph Build Image Base #
 ############################
-FROM docker.io/library/golang:1.24.5-bullseye@sha256:62ba6b19de03e891f7fa1001326bd48411f2626ff35e7ba5b9d890711ce581d9
+FROM docker.io/library/golang:1.24.6-bullseye@sha256:2cdc80dc25edcb96ada1654f73092f2928045d037581fa4aa7c40d18af7dd85a
 
 # update: datasource=repology depName=debian_11/skopeo versioning=loose
 ENV SKOPEO_VERSION="1.2.2+dfsg1-1+b6"
 # update: datasource=github-tags depName=adrienverge/yamllint versioning=semver
-ENV YAMLLINT_VERSION="v1.36.2"
+ENV YAMLLINT_VERSION="v1.37.1"
 # update: datasource=github-tags depName=opt-nc/yamlfixer versioning=semver
 ENV YAMLFIXER_VERSION="0.9.15"
 
@@ -80,7 +80,7 @@ ENV GOCACHE=/go/cache
 
 ## Install Helm
 # update: datasource=github-tags depName=helm/helm versioning=semver
-ENV HELM_VERSION="v3.18.6"
+ENV HELM_VERSION="v4.0.1"
 RUN curl -sSL https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz | tar xz -C /usr/local/bin --strip-components=1 linux-amd64/helm
 RUN chmod a+rx /usr/local/bin/helm
 
