@@ -240,17 +240,14 @@ const (
 )
 
 const (
-	// RemediationSucceededCondition is:
-	// - False when the corresponding CAPI Machine has the "cluster.x-k8s.io/remediate-machine" annotation set and will be remediated by CAPI soon.
-	// - True after remediation.
-	// - unset if no remediation was done yet.
+	// DeleteMachineSucceededCondition is False when the capi (and infra) machine should be deleted.
+	// The condition appears on the infra machine, and gets mirrored to the hbmh. Finally the capi
+	// machine and the infra machine will be deleted. The condition is either False or does not
+	// exist.
 	//
-	// The condition gets set during provisioning the hbmm. The condition gets mirrored from the
-	// hbmm to the hbmh by the controller of the hbmh.
-	RemediationSucceededCondition clusterv1.ConditionType = "RemediationSucceeded"
+	// The condition gets set during provisioning the infra machine.
+	DeleteMachineSucceededCondition clusterv1.ConditionType = "DeleteMachineSucceeded"
 
-	// RemediationInProgressReason indicates that the CAPI machine has the
-	// "cluster.x-k8s.io/remediate-machine" annotation set. The CAPI machine and the corresponding
-	// infra-machine will be deleted by CAPI soon.
-	RemediationInProgressReason = "RemediationInProgress"
+	// DeleteMachineInProgressReason is for [DeleteMachineSucceededCondition].
+	DeleteMachineInProgressReason = "DeleteMachineInProgress"
 )

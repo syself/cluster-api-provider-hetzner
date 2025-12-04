@@ -250,22 +250,22 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
-	// Mirror RemediationSucceededCondition from hbmm to hbmh.
-	remediateConditionOfHbmm := conditions.Get(hetznerBareMetalMachine, infrav1.RemediationSucceededCondition)
-	if remediateConditionOfHbmm != nil {
-		if remediateConditionOfHbmm.Status == corev1.ConditionFalse {
-			// Take the Condition of the hbmm and make it available on the hbmh.
-			msg := "hbmm has RemediationSucceededCondition=False."
+	// Mirror DeleteMachineSucceededCondition from hbmm to hbmh.
+	deleteMachineCondition := conditions.Get(hetznerBareMetalMachine, infrav1.DeleteMachineSucceededCondition)
+	if deleteMachineCondition != nil {
+		if deleteMachineCondition.Status == corev1.ConditionFalse {
+			// Take this condition of the hbmm and make it available on the hbmh.
+			msg := "hbmm has DeleteMachineSucceededCondition=False."
 			log.Info(msg)
-			conditions.MarkFalse(bmHost, infrav1.RemediationSucceededCondition,
-				remediateConditionOfHbmm.Reason, remediateConditionOfHbmm.Severity,
-				"%s", remediateConditionOfHbmm.Message)
+			conditions.MarkFalse(bmHost, infrav1.DeleteMachineSucceededCondition,
+				deleteMachineCondition.Reason, deleteMachineCondition.Severity,
+				"%s", deleteMachineCondition.Message)
 		} else {
-			conditions.MarkTrue(bmHost, infrav1.RemediationSucceededCondition)
+			conditions.MarkTrue(bmHost, infrav1.DeleteMachineSucceededCondition)
 		}
 	} else {
-		// condition on hbmm is nil, ensure that there is no condition on hbmh.
-		conditions.Delete(bmHost, infrav1.RemediationSucceededCondition)
+		// This condition on hbmm is nil, ensure that it is not on hbmh.
+		conditions.Delete(bmHost, infrav1.DeleteMachineSucceededCondition)
 	}
 
 	// Get Hetzner robot api credentials
