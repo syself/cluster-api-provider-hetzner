@@ -68,6 +68,25 @@ To delete the registry, use `make delete-registry`. Use `make delete-mgt-cluster
 
 If you have any trouble finding the right command, you can run the `make help` command to get a list of all available make targets.
 
+## Troubleshooting
+
+If you want to have a better overview about what is going on in your management cluster, then you can use the
+following tools.
+
+```console
+❯ watch ./hack/output-for-watch.sh
+```
+
+This script continuously shows the most important resources (capi machines, infra machines, ...)
+and logs of caph and capi. Run this with your management cluster kubeconfig active.
+
+```console
+go run github.com/guettli/check-conditions@latest all
+```
+
+[check-conditions](https://github.com/guettli/check-conditions) shows all unhealthy conditions of
+the current cluster. You can use it in both the management and workload clusters.
+
 ## Submitting PRs and testing
 
 Pull requests and issues are highly encouraged! For more information, please have a look at the [Contribution Guidelines](https://github.com/syself/cluster-api-provider-hetzner/blob/main/CONTRIBUTING.md)
@@ -79,6 +98,25 @@ With `make verify`, you can run all linting checks and others. Make sure that al
 With `make test`, all unit tests are triggered. If they fail out of nowhere, then please re-run them. They are not 100% stable and sometimes there are tests failing due to something related to Kubernetes' `envtest`.
 
 With `make generate`, new CRDs are generated. This is necessary if you change the API.
+
+## Running unit-tests locally
+
+Developing unit-tests (which do not need a running cluster) are much faster. We recommend to do
+that.
+
+A common way to run one particular unit-test is like this:
+
+```shell
+reset; ginkgo run --focus "foo" ./controllers/... | ./hack/filter-caph-controller-manager-logs.py -
+```
+
+Explanation:
+
+- `reset`: Reset the terminal so you can scroll back to the first line of output easily.
+- `ginkgo run --focus "foo" ./controllers/...`: Run tests in the controllers directory, but only those
+  whose `It("...")` contains "foo".
+- `./hack/filter-caph-controller-manager-logs.py -`: Filter the output to avoid being overwhelmed.
+  You can configure the script to exclude lines or individual key/value pairs of the JSON log lines.
 
 ## Running local e2e test
 
