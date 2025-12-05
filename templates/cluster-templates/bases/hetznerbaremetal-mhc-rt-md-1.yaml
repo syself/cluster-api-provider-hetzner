@@ -4,22 +4,25 @@ metadata:
   name: "${CLUSTER_NAME}-md-1-unhealthy-5m"
 spec:
   clusterName: "${CLUSTER_NAME}"
-  maxUnhealthy: 100%
-  nodeStartupTimeout: 60m
   selector:
     matchLabels:
       nodepool: "${CLUSTER_NAME}-md-1"
-  unhealthyConditions:
+  checks:
+    nodeStartupTimeoutSeconds: 3600
+    unhealthyNodeConditions:
     - type: Ready
       status: Unknown
-      timeout: 300s
+      timeoutSeconds: 300
     - type: Ready
       status: "False"
-      timeout: 300s
-  remediationTemplate: # added infrastructure reference
-    kind: HetznerBareMetalRemediationTemplate
-    apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
-    name: worker-remediation-request
+      timeoutSeconds: 300
+  remediation:
+    triggerIf:
+      unhealthyLessThanOrEqualTo: 100%
+    templateRef:
+      kind: HetznerBareMetalRemediationTemplate
+      name: worker-remediation-request
+      apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
 kind: HetznerBareMetalRemediationTemplate

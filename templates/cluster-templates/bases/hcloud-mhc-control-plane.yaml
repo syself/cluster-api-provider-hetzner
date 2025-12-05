@@ -4,22 +4,25 @@ metadata:
   name: "${CLUSTER_NAME}-control-plane-unhealthy-5m"
 spec:
   clusterName: "${CLUSTER_NAME}"
-  maxUnhealthy: 100%
-  nodeStartupTimeout: 15m
   selector:
     matchLabels:
       cluster.x-k8s.io/control-plane: ""
-  unhealthyConditions:
+  checks:
+    nodeStartupTimeoutSeconds: 900
+    unhealthyNodeConditions:
     - type: Ready
       status: Unknown
-      timeout: 180s
+      timeoutSeconds: 180
     - type: Ready
       status: "False"
-      timeout: 180s
-  remediationTemplate: # added infrastructure reference
-    kind: HCloudRemediationTemplate
-    apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
-    name: control-plane-remediation-request
+      timeoutSeconds: 180
+  remediation:
+    triggerIf:
+      unhealthyLessThanOrEqualTo: 100%
+    templateRef:
+      kind: HCloudRemediationTemplate
+      name: control-plane-remediation-request
+      apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
 kind: HCloudRemediationTemplate

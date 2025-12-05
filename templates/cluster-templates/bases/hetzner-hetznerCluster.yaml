@@ -6,15 +6,12 @@ spec:
   hcloudNetwork:
     enabled: false
   controlPlaneRegions:
-    - "${HCLOUD_REGION}"
-  controlPlaneEndpoint:
-    host: ""
-    port: 443
+  - "${HCLOUD_REGION}"
   controlPlaneLoadBalancer:
     region: "${HCLOUD_REGION}"
   sshKeys:
     hcloud:
-      - name: "${SSH_KEY_NAME}"
+    - name: "${SSH_KEY_NAME}"
     robotRescueSecretRef:
       name: robot-ssh
       key:

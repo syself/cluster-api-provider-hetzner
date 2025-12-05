@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# Bash Strict Mode: https://github.com/guettli/bash-strict-mode
+trap 'echo -e "\n🤷 🚨 🔥 Warning: A command has failed. Exiting the script. Line was ($0:$LINENO): $(sed -n "${LINENO}p" "$0" 2>/dev/null || true) 🔥 🚨 🤷 "; exit 3' ERR
+set -Eeuo pipefail
+
+ROBOT=
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+    --robot)
+        ROBOT=1
+        shift
+        ;;
+    *)
+        break
+        ;;
+    esac
+done
+
+if [[ $# -ne 2 ]]; then
+    echo "Usage: $0 [--robot] SECRET NAME"
+    exit 1
+fi
+
+if [[ -z "${HCLOUD_TOKEN:-}" ]]; then
+    echo "Error: HCLOUD_TOKEN environment variable is not set or empty."
+    exit 2
+fi
+SECRET="$1"
+NAME="$2"
+
+BIN=./hack/tools/bin
+
+secret_args=(
+    create secret generic "$SECRET"
+    --from-literal=hcloud="$HCLOUD_TOKEN"
+)
+
+if [[ -n $ROBOT ]]; then
+    if [[ -z "${HETZNER_ROBOT_USER:-}" || -z "${HETZNER_ROBOT_PASSWORD:-}" ]]; then
+        echo "Error: HETZNER_ROBOT_USER/HETZNER_ROBOT_PASSWORD must be set when using --robot."
+        exit 2
+    fi
+    secret_args+=(--from-literal=robot-user="$HETZNER_ROBOT_USER")
+    secret_args+=(--from-literal=robot-password="$HETZNER_ROBOT_PASSWORD")
+fi
+
+"$BIN"/kubectl "${secret_args[@]}" \
+    --save-config --dry-run=client -o yaml | "$BIN"/kubectl apply -f -
+
+if [[ -n $ROBOT ]]; then
+
+    "$BIN"/kubectl create secret generic robot-ssh \
+        --from-literal=sshkey-name="$SSH_KEY_NAME" \
+        --from-file=ssh-privatekey="$HETZNER_SSH_PRIV_PATH" \
+        --from-file=ssh-publickey="$HETZNER_SSH_PUB_PATH" \
+        --save-config --dry-run=client -o yaml | "$BIN"/kubectl apply -f -
+
+fi
+
+"$BIN"/kustomize build templates/cluster-templates/"$NAME" \
+    --load-restrictor LoadRestrictionsNone >generated/"$NAME".yaml
+
+"$BIN"/clusterctl generate yaml --from generated/"$NAME".yaml | "$BIN"/kubectl apply -f -
+
+make wait-and-get-secret
+make install-cilium-in-wl-cluster
+make install-ccm-in-wl-cluster

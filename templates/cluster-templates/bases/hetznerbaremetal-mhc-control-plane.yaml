@@ -4,15 +4,18 @@ metadata:
   name: "${CLUSTER_NAME}-control-plane-unhealthy-5m"
 spec:
   clusterName: "${CLUSTER_NAME}"
-  maxUnhealthy: 100%
-  nodeStartupTimeout: 60m
   selector:
     matchLabels:
       cluster.x-k8s.io/control-plane: ""
-  unhealthyConditions:
+  checks:
+    nodeStartupTimeoutSeconds: 3600
+    unhealthyNodeConditions:
     - type: Ready
       status: Unknown
-      timeout: 300s
+      timeoutSeconds: 300
     - type: Ready
       status: "False"
-      timeout: 300s
+      timeoutSeconds: 300
+  remediation:
+    triggerIf:
+      unhealthyLessThanOrEqualTo: 100%

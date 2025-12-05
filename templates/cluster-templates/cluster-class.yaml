@@ -348,9 +348,6 @@ metadata:
 spec:
   template:
     spec:
-      controlPlaneEndpoint:
-        host: ""
-        port: 443
       controlPlaneLoadBalancer:
         region: fsn1
       controlPlaneRegions: []
@@ -392,68 +389,122 @@ spec:
         clusterConfiguration:
           apiServer:
             extraArgs:
-              authorization-mode: Node,RBAC
-              client-ca-file: /etc/kubernetes/pki/ca.crt
-              cloud-provider: external
-              default-not-ready-toleration-seconds: "45"
-              default-unreachable-toleration-seconds: "45"
-              enable-aggregator-routing: "true"
-              enable-bootstrap-token-auth: "true"
-              etcd-cafile: /etc/kubernetes/pki/etcd/ca.crt
-              etcd-certfile: /etc/kubernetes/pki/etcd/server.crt
-              etcd-keyfile: /etc/kubernetes/pki/etcd/server.key
-              kubelet-client-certificate: /etc/kubernetes/pki/apiserver-kubelet-client.crt
-              kubelet-client-key: /etc/kubernetes/pki/apiserver-kubelet-client.key
-              kubelet-preferred-address-types: ExternalIP,Hostname,InternalDNS,ExternalDNS
-              profiling: "false"
-              proxy-client-cert-file: /etc/kubernetes/pki/front-proxy-client.crt
-              proxy-client-key-file: /etc/kubernetes/pki/front-proxy-client.key
-              requestheader-allowed-names: front-proxy-client
-              requestheader-client-ca-file: /etc/kubernetes/pki/front-proxy-ca.crt
-              requestheader-extra-headers-prefix: X-Remote-Extra-
-              requestheader-group-headers: X-Remote-Group
-              requestheader-username-headers: X-Remote-User
-              service-account-key-file: /etc/kubernetes/pki/sa.pub
-              service-account-lookup: "true"
-              tls-cert-file: /etc/kubernetes/pki/apiserver.crt
-              tls-cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
-              tls-private-key-file: /etc/kubernetes/pki/apiserver.key
+            - name: authorization-mode
+              value: Node,RBAC
+            - name: client-ca-file
+              value: /etc/kubernetes/pki/ca.crt
+            - name: cloud-provider
+              value: external
+            - name: default-not-ready-toleration-seconds
+              value: "45"
+            - name: default-unreachable-toleration-seconds
+              value: "45"
+            - name: enable-aggregator-routing
+              value: "true"
+            - name: enable-bootstrap-token-auth
+              value: "true"
+            - name: etcd-cafile
+              value: /etc/kubernetes/pki/etcd/ca.crt
+            - name: etcd-certfile
+              value: /etc/kubernetes/pki/etcd/server.crt
+            - name: etcd-keyfile
+              value: /etc/kubernetes/pki/etcd/server.key
+            - name: kubelet-client-certificate
+              value: /etc/kubernetes/pki/apiserver-kubelet-client.crt
+            - name: kubelet-client-key
+              value: /etc/kubernetes/pki/apiserver-kubelet-client.key
+            - name: kubelet-preferred-address-types
+              value: ExternalIP,Hostname,InternalDNS,ExternalDNS
+            - name: profiling
+              value: "false"
+            - name: proxy-client-cert-file
+              value: /etc/kubernetes/pki/front-proxy-client.crt
+            - name: proxy-client-key-file
+              value: /etc/kubernetes/pki/front-proxy-client.key
+            - name: requestheader-allowed-names
+              value: front-proxy-client
+            - name: requestheader-client-ca-file
+              value: /etc/kubernetes/pki/front-proxy-ca.crt
+            - name: requestheader-extra-headers-prefix
+              value: X-Remote-Extra-
+            - name: requestheader-group-headers
+              value: X-Remote-Group
+            - name: requestheader-username-headers
+              value: X-Remote-User
+            - name: service-account-key-file
+              value: /etc/kubernetes/pki/sa.pub
+            - name: service-account-lookup
+              value: "true"
+            - name: tls-cert-file
+              value: /etc/kubernetes/pki/apiserver.crt
+            - name: tls-cipher-suites
+              value: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
+            - name: tls-private-key-file
+              value: /etc/kubernetes/pki/apiserver.key
           controllerManager:
             extraArgs:
-              allocate-node-cidrs: "true"
-              authentication-kubeconfig: /etc/kubernetes/controller-manager.conf
-              authorization-kubeconfig: /etc/kubernetes/controller-manager.conf
-              bind-address: 0.0.0.0
-              cloud-provider: external
-              cluster-signing-cert-file: /etc/kubernetes/pki/ca.crt
-              cluster-signing-duration: 6h0m0s
-              cluster-signing-key-file: /etc/kubernetes/pki/ca.key
-              kubeconfig: /etc/kubernetes/controller-manager.conf
-              profiling: "false"
-              requestheader-client-ca-file: /etc/kubernetes/pki/front-proxy-ca.crt
-              root-ca-file: /etc/kubernetes/pki/ca.crt
-              secure-port: "10257"
-              service-account-private-key-file: /etc/kubernetes/pki/sa.key
-              terminated-pod-gc-threshold: "10"
-              use-service-account-credentials: "true"
+            - name: allocate-node-cidrs
+              value: "true"
+            - name: authentication-kubeconfig
+              value: /etc/kubernetes/controller-manager.conf
+            - name: authorization-kubeconfig
+              value: /etc/kubernetes/controller-manager.conf
+            - name: bind-address
+              value: 0.0.0.0
+            - name: cloud-provider
+              value: external
+            - name: cluster-signing-cert-file
+              value: /etc/kubernetes/pki/ca.crt
+            - name: cluster-signing-duration
+              value: 6h0m0s
+            - name: cluster-signing-key-file
+              value: /etc/kubernetes/pki/ca.key
+            - name: kubeconfig
+              value: /etc/kubernetes/controller-manager.conf
+            - name: profiling
+              value: "false"
+            - name: requestheader-client-ca-file
+              value: /etc/kubernetes/pki/front-proxy-ca.crt
+            - name: root-ca-file
+              value: /etc/kubernetes/pki/ca.crt
+            - name: secure-port
+              value: "10257"
+            - name: service-account-private-key-file
+              value: /etc/kubernetes/pki/sa.key
+            - name: terminated-pod-gc-threshold
+              value: "10"
+            - name: use-service-account-credentials
+              value: "true"
           etcd:
             local:
               dataDir: /var/lib/etcd
               extraArgs:
-                auto-tls: "false"
-                cert-file: /etc/kubernetes/pki/etcd/server.crt
-                cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
-                client-cert-auth: "true"
-                key-file: /etc/kubernetes/pki/etcd/server.key
-                peer-auto-tls: "false"
-                peer-client-cert-auth: "true"
-                trusted-ca-file: /etc/kubernetes/pki/etcd/ca.crt
+              - name: auto-tls
+                value: "false"
+              - name: cert-file
+                value: /etc/kubernetes/pki/etcd/server.crt
+              - name: cipher-suites
+                value: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
+              - name: client-cert-auth
+                value: "true"
+              - name: key-file
+                value: /etc/kubernetes/pki/etcd/server.key
+              - name: peer-auto-tls
+                value: "false"
+              - name: peer-client-cert-auth
+                value: "true"
+              - name: trusted-ca-file
+                value: /etc/kubernetes/pki/etcd/ca.crt
           scheduler:
             extraArgs:
-              bind-address: 0.0.0.0
-              kubeconfig: /etc/kubernetes/scheduler.conf
-              profiling: "false"
-              secure-port: "10259"
+            - name: bind-address
+              value: 0.0.0.0
+            - name: kubeconfig
+              value: /etc/kubernetes/scheduler.conf
+            - name: profiling
+              value: "false"
+            - name: secure-port
+              value: "10259"
         files:
         - content: |
             net.ipv4.conf.lxc*.rp_filter = 0
