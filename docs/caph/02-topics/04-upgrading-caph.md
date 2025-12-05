@@ -61,7 +61,7 @@ NAME                     NAMESPACE                           TYPE               
 bootstrap-kubeadm        capi-kubeadm-bootstrap-system       BootstrapProvider        v1.8.0            v1.8.4
 control-plane-kubeadm    capi-kubeadm-control-plane-system   ControlPlaneProvider     v1.8.0            v1.8.4
 cluster-api              capi-system                         CoreProvider             v1.8.0            v1.8.4
-infrastructure-hetzner   caph-system                         InfrastructureProvider   v1.0.1           Already up to date
+infrastructure-hetzner   caph-system                         InfrastructureProvider   v1.0.7           Already up to date
 
 You can now apply the upgrade by executing the following command:
 
@@ -114,13 +114,13 @@ You can find the latest version of CAPH here:
 <https://github.com/syself/cluster-api-provider-hetzner/tags>
 
 ```shell
-$ clusterctl upgrade apply --infrastructure=hetzner:v1.0.1
+$ clusterctl upgrade apply --infrastructure=hetzner:v1.0.7
 Checking cert-manager version...
 Cert-manager is already up to date
 Performing upgrade...
 Scaling down Provider="infrastructure-hetzner" Version="" Namespace="caph-system"
 Deleting Provider="infrastructure-hetzner" Version="" Namespace="caph-system"
-Installing Provider="infrastructure-hetzner" Version="v1.0.1" TargetNamespace="caph-system"
+Installing Provider="infrastructure-hetzner" Version="v1.0.7" TargetNamespace="caph-system"
 ```
 
 After the upgrade, you'll notice the new pod spinning up the `caph-system` namespace.
@@ -133,7 +133,7 @@ caph-controller-manager-85fcb6ffcb-4sj6d   1/1     Running   0          79s
 
 {% callout %}
 
-Please note that `clusterctl` doesn't support pre-release of GitHub by default so if you want to use a pre-release, you'll have to specify the version such as `hetzner:v1.0.1`
+Please note that `clusterctl` doesn't support pre-release of GitHub by default so if you want to use a pre-release, you'll have to specify the version such as `hetzner:v1.0.7`
 
 {% /callout %}
 
