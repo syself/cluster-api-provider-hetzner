@@ -363,9 +363,9 @@ $(RELEASE_NOTES_DIR):
 
 .PHONY: test-release
 test-release:
-	@# TAG: caph container image tag. For PRs this is pr-NNNN
-	./hack/ensure-env-variables.sh TAG
-	$(MAKE) set-manifest-image MANIFEST_IMG=$(IMAGE_PREFIX)/$(STAGING_IMAGE) MANIFEST_TAG=$(TAG)
+	@# CAPH_CONTAINER_TAG: caph container image tag. For PRs this is pr-NNNN
+	./hack/ensure-env-variables.sh CAPH_CONTAINER_TAG
+	$(MAKE) set-manifest-image MANIFEST_IMG=$(IMAGE_PREFIX)/$(STAGING_IMAGE) MANIFEST_TAG=$(CAPH_CONTAINER_TAG)
 	$(MAKE) set-manifest-pull-policy PULL_POLICY=IfNotPresent
 	$(MAKE) release-manifests
 
@@ -469,8 +469,8 @@ test-unit: $(SETUP_ENVTEST) $(GOTESTSUM) ## Run unit and integration tests
 
 .PHONY: e2e-image
 e2e-image: ## Build the e2e manager image
-	./hack/ensure-env-variables.sh TAG
-	docker build --pull --build-arg ARCH=$(ARCH) --build-arg LDFLAGS="$(LDFLAGS)" -t $(IMAGE_PREFIX)/$(STAGING_IMAGE):$(TAG) -f images/$(INFRA_SHORT)/Dockerfile .
+	./hack/ensure-env-variables.sh CAPH_CONTAINER_TAG
+	docker build --pull --build-arg ARCH=$(ARCH) --build-arg LDFLAGS="$(LDFLAGS)" -t $(IMAGE_PREFIX)/$(STAGING_IMAGE):$(CAPH_CONTAINER_TAG) -f images/$(INFRA_SHORT)/Dockerfile .
 
 .PHONY: e2e-conf-file
 e2e-conf-file: $(E2E_CONF_FILE)

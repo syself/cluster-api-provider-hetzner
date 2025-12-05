@@ -69,7 +69,7 @@ In addition to the pure creation and operation of Kubernetes clusters, this prov
 
 ## 🖇️ Compatibility with Cluster API and Kubernetes Versions
 
-[Compatibility Table](https://syself.com/docs/caph/getting-started/introduction#compatibility-with-cluster-api-and-kubernetes-versions)
+[Compatibility Table](./docs/caph/01-getting-started/01-introduction.md#compatibility-with-cluster-api-and-kubernetes-versions)
 
 ## What is new in CAPH v1.1.x?
 
