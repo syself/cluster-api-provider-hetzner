@@ -60,11 +60,23 @@ To access the Tilt UI, please go to: `http://localhost:10351`
 
 {% /callout %}
 
-Once your kind management cluster is up and running, you can deploy a workload cluster. This could be done through the Tilt UI by pressing one of the buttons in the top right corner, e.g., **"Create Workload Cluster"**. This triggers the `make create-workload-cluster` command, which uses the environment variables (we defined in the .envrc) and the cluster-template. Additionally, it installs cilium as CNI.
+Once your kind management cluster is up and running, you can deploy a workload cluster. This could
+be done through the Tilt UI by pressing one of the buttons in the top right corner, e.g., **"Create
+HCloud Cluster"**, if you want to start a HCloud only cluster, or **"Create Baremetal Cluster - with
+hcloud control-planes"**, if you want to use baremetal worker.
 
-If you update the API in some way, you need to run `make generate` to generate everything related to kubebuilder and the CRDs.
+The buttons are defined in
+[Tiltfile](https://github.com/syself/cluster-api-provider-hetzner/blob/main/Tiltfile). There you see
+the corresponding makefile targets, if you prefer to use the command line.
 
-To tear down the workload cluster, press the **"Delete Workload Cluster"** button. After a few minutes, the resources should be deleted.
+You can use `make watch` to get an overview. It shows continously:
+
+- infrastructure resources in your mgt-cluster
+- logs of caph and capi controller
+- events
+
+To tear down the workload cluster, press the **"Delete Workload Cluster"** button. After a few
+minutes, the resources should be deleted.
 
 To tear down the kind cluster, use:
 

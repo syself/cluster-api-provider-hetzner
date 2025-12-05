@@ -127,8 +127,9 @@ $(KIND):
 	go install sigs.k8s.io/kind@v0.30.0
 
 KUBECTL := $(abspath $(TOOLS_BIN_DIR)/kubectl)
-kubectl: $(KUBECTL) ## Build a local copy of kubectl
+kubectl: $(TOOLS_BIN_DIR) $(KUBECTL) ## Build a local copy of kubectl
 $(KUBECTL):
+	mkdir -p $(TOOLS_BIN_DIR)
 	curl -fsSL "https://dl.k8s.io/release/v1.33.6/bin/$$(go env GOOS)/$$(go env GOARCH)/kubectl" -o $(KUBECTL)
 	chmod a+rx $(KUBECTL)
 

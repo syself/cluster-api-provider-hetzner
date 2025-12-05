@@ -359,7 +359,7 @@ caph()
 waitforsystem()
 
 cmd_button(
-    "Create Hcloud Cluster",
+    "Create HCloud Cluster",
     argv=["make", "create-workload-cluster-hcloud"],
     location=location.NAV,
     icon_name="switch_access_shortcut_outlined",
