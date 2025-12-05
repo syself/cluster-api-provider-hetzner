@@ -37,7 +37,7 @@ metadata:
   creationTimestamp: null
   name: robot-ssh
 ---
-apiVersion: addons.cluster.x-k8s.io/v1beta1
+apiVersion: addons.cluster.x-k8s.io/v1beta2
 kind: ClusterResourceSet
 metadata:
   name: ${CLUSTER_NAME}-crs-ccm-hetzner
@@ -50,7 +50,7 @@ spec:
     name: ${CLUSTER_NAME}-crs-ccm-hetzner
   strategy: ApplyOnce
 ---
-apiVersion: addons.cluster.x-k8s.io/v1beta1
+apiVersion: addons.cluster.x-k8s.io/v1beta2
 kind: ClusterResourceSet
 metadata:
   name: ${CLUSTER_NAME}-crs-cni
@@ -63,7 +63,7 @@ spec:
     name: ${CLUSTER_NAME}-crs-cni
   strategy: ApplyOnce
 ---
-apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+apiVersion: bootstrap.cluster.x-k8s.io/v1beta2
 kind: KubeadmConfigTemplate
 metadata:
   name: ${CLUSTER_NAME}-md-1
@@ -214,7 +214,7 @@ spec:
       - apt-get -y autoremove
       - apt-get -y clean all
 ---
-apiVersion: cluster.x-k8s.io/v1beta1
+apiVersion: cluster.x-k8s.io/v1beta2
 kind: Cluster
 metadata:
   labels:
@@ -227,15 +227,15 @@ spec:
       cidrBlocks:
       - 10.244.0.0/16
   controlPlaneRef:
-    apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+    apiVersion: controlplane.cluster.x-k8s.io/v1beta2
     kind: KubeadmControlPlane
     name: ${CLUSTER_NAME}-control-plane
   infrastructureRef:
-    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
     kind: HetznerCluster
     name: ${CLUSTER_NAME}
 ---
-apiVersion: cluster.x-k8s.io/v1beta1
+apiVersion: cluster.x-k8s.io/v1beta2
 kind: MachineDeployment
 metadata:
   labels:
@@ -253,17 +253,17 @@ spec:
     spec:
       bootstrap:
         configRef:
-          apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+          apiVersion: bootstrap.cluster.x-k8s.io/v1beta2
           kind: KubeadmConfigTemplate
           name: ${CLUSTER_NAME}-md-1
       clusterName: ${CLUSTER_NAME}
       infrastructureRef:
-        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
         kind: HetznerBareMetalMachineTemplate
         name: ${CLUSTER_NAME}-md-1
       version: ${KUBERNETES_VERSION}
 ---
-apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+apiVersion: controlplane.cluster.x-k8s.io/v1beta2
 kind: KubeadmControlPlane
 metadata:
   name: ${CLUSTER_NAME}-control-plane
@@ -511,13 +511,13 @@ spec:
     - apt-get -y clean all
   machineTemplate:
     infrastructureRef:
-      apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+      apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
       kind: HetznerBareMetalMachineTemplate
       name: ${CLUSTER_NAME}-control-plane
   replicas: ${CONTROL_PLANE_MACHINE_COUNT}
   version: ${KUBERNETES_VERSION}
 ---
-apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
 kind: HetznerBareMetalHost
 metadata:
   name: bm-e2e-1670788
@@ -528,7 +528,7 @@ spec:
     wwn: "0x5002538c0004413f"
   serverID: 1670788
 ---
-apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
 kind: HetznerBareMetalHost
 metadata:
   name: bm-e2e-1724024
@@ -539,7 +539,7 @@ spec:
     wwn: "0x500a075111968d25"
   serverID: 1724024
 ---
-apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
 kind: HetznerBareMetalMachineTemplate
 metadata:
   name: ${CLUSTER_NAME}-control-plane
@@ -577,7 +577,7 @@ spec:
             publicKey: ssh-publickey
           name: robot-ssh
 ---
-apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
 kind: HetznerBareMetalMachineTemplate
 metadata:
   name: ${CLUSTER_NAME}-md-1
@@ -615,7 +615,7 @@ spec:
             publicKey: ssh-publickey
           name: robot-ssh
 ---
-apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
 kind: HetznerCluster
 metadata:
   name: ${CLUSTER_NAME}

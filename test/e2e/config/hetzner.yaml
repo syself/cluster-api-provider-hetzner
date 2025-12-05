@@ -17,9 +17,9 @@ providers:
       - name: v1.11.3
         value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.11.3/core-components.yaml"
         type: "url"
-        contract: v1beta1
+        contract: v1beta2
         files:
-          - sourcePath: "../data/shared/v1beta1/metadata.yaml"
+          - sourcePath: "../data/shared/v1beta2/metadata.yaml"
         replacements:
           - old: "imagePullPolicy: Always"
             new: "imagePullPolicy: IfNotPresent"
@@ -34,9 +34,9 @@ providers:
       - name: v1.11.3
         value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.11.3/bootstrap-components.yaml"
         type: "url"
-        contract: "v1beta1"
+        contract: "v1beta2"
         files:
-          - sourcePath: "../data/shared/v1beta1/metadata.yaml"
+          - sourcePath: "../data/shared/v1beta2/metadata.yaml"
         replacements:
           - old: "imagePullPolicy: Always"
             new: "imagePullPolicy: IfNotPresent"
@@ -52,7 +52,7 @@ providers:
         value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.11.3/control-plane-components.yaml"
         type: "url"
         files:
-          - sourcePath: "../data/shared/v1beta1/metadata.yaml"
+          - sourcePath: "../data/shared/v1beta2/metadata.yaml"
         replacements:
           - old: "imagePullPolicy: Always"
             new: "imagePullPolicy: IfNotPresent"
@@ -67,24 +67,24 @@ providers:
       - name: ${CAPH_LATEST_VERSION} # latest published release
         value: https://github.com/syself/cluster-api-provider-hetzner/releases/download/${CAPH_LATEST_VERSION}/infrastructure-components.yaml
         type: "url"
-        contract: v1beta1
+        contract: v1beta2
         files:
           - sourcePath: "../../../out/metadata.yaml"
-          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template.yaml"
-          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-k8s-upgrade.yaml"
-          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-k8s-upgrade-kcp-scale-in.yaml"
-          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-load-balancer-extra-services.yaml"
-          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-placement-groups.yaml"
-          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-loadbalancer-off.yaml"
-          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-network.yaml"
-          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-node-drain.yaml"
-          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-md-remediation.yaml"
-          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-kcp-remediation.yaml"
-          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hetzner-baremetal.yaml"
-          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hetzner-baremetal-feature-raid-setup.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta2/cluster-template.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta2/cluster-template-k8s-upgrade.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta2/cluster-template-k8s-upgrade-kcp-scale-in.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta2/cluster-template-hcloud-feature-load-balancer-extra-services.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta2/cluster-template-hcloud-feature-placement-groups.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta2/cluster-template-hcloud-feature-loadbalancer-off.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta2/cluster-template-network.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta2/cluster-template-node-drain.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta2/cluster-template-md-remediation.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta2/cluster-template-kcp-remediation.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta2/cluster-template-hetzner-baremetal.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta2/cluster-template-hetzner-baremetal-feature-raid-setup.yaml"
       - name: v1.0.99 # next; use manifest from source files
         value: ../../../config/default
-        contract: v1beta1
+        contract: v1beta2
         replacements:
           - old: ghcr.io/syself/caph-staging:latest
             new: ghcr.io/syself/caph-staging:${CAPH_CONTAINER_TAG}
@@ -94,23 +94,23 @@ providers:
             new: --metrics-bind-addr=:8080
         files:
           - sourcePath: "../../../metadata.yaml"
-          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template.yaml"
-          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-k8s-upgrade.yaml"
-          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-k8s-upgrade-kcp-scale-in.yaml"
-          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-load-balancer-extra-services.yaml"
-          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-placement-groups.yaml"
-          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-loadbalancer-off.yaml"
-          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-network.yaml"
-          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-node-drain.yaml"
-          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-md-remediation.yaml"
-          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-kcp-remediation.yaml"
-          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hetzner-baremetal.yaml"
-          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hetzner-baremetal-feature-raid-setup.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta2/cluster-template.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta2/cluster-template-k8s-upgrade.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta2/cluster-template-k8s-upgrade-kcp-scale-in.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta2/cluster-template-hcloud-feature-load-balancer-extra-services.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta2/cluster-template-hcloud-feature-placement-groups.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta2/cluster-template-hcloud-feature-loadbalancer-off.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta2/cluster-template-network.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta2/cluster-template-node-drain.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta2/cluster-template-md-remediation.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta2/cluster-template-kcp-remediation.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta2/cluster-template-hetzner-baremetal.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta2/cluster-template-hetzner-baremetal-feature-raid-setup.yaml"
 
       ## Update and uncomment, if you want to do a caph upgrade test.
       # - name: v1.0.99 # next; use manifest from source files
       #   value: ../../../config/default
-      #   contract: v1beta1
+      #   contract: v1beta2
       #   replacements:
       #     - old: ghcr.io/syself/caph-staging:latest
       #       new: ghcr.io/syself/caph-staging:${CAPH_CONTAINER_TAG}
@@ -120,18 +120,18 @@ providers:
       #       new: --metrics-bind-addr=:8080
       #   files:
       #     - sourcePath: "../../../metadata.yaml"
-      #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template.yaml"
-      #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-k8s-upgrade.yaml"
-      #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-k8s-upgrade-kcp-scale-in.yaml"
-      #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-load-balancer-extra-services.yaml"
-      #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-placement-groups.yaml"
-      #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-loadbalancer-off.yaml"
-      #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-network.yaml"
-      #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-node-drain.yaml"
-      #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-md-remediation.yaml"
-      #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-kcp-remediation.yaml"
-      #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hetzner-baremetal.yaml"
-      #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hetzner-baremetal-feature-raid-setup.yaml"
+      #     - sourcePath: "../data/infrastructure-hetzner/v1beta2/cluster-template.yaml"
+      #     - sourcePath: "../data/infrastructure-hetzner/v1beta2/cluster-template-k8s-upgrade.yaml"
+      #     - sourcePath: "../data/infrastructure-hetzner/v1beta2/cluster-template-k8s-upgrade-kcp-scale-in.yaml"
+      #     - sourcePath: "../data/infrastructure-hetzner/v1beta2/cluster-template-hcloud-feature-load-balancer-extra-services.yaml"
+      #     - sourcePath: "../data/infrastructure-hetzner/v1beta2/cluster-template-hcloud-feature-placement-groups.yaml"
+      #     - sourcePath: "../data/infrastructure-hetzner/v1beta2/cluster-template-hcloud-feature-loadbalancer-off.yaml"
+      #     - sourcePath: "../data/infrastructure-hetzner/v1beta2/cluster-template-network.yaml"
+      #     - sourcePath: "../data/infrastructure-hetzner/v1beta2/cluster-template-node-drain.yaml"
+      #     - sourcePath: "../data/infrastructure-hetzner/v1beta2/cluster-template-md-remediation.yaml"
+      #     - sourcePath: "../data/infrastructure-hetzner/v1beta2/cluster-template-kcp-remediation.yaml"
+      #     - sourcePath: "../data/infrastructure-hetzner/v1beta2/cluster-template-hetzner-baremetal.yaml"
+      #     - sourcePath: "../data/infrastructure-hetzner/v1beta2/cluster-template-hetzner-baremetal-feature-raid-setup.yaml"
 
 variables:
   # Upgrade Test
@@ -150,7 +150,7 @@ variables:
   # NOTE: INIT_WITH_BINARY and INIT_WITH_KUBERNETES_VERSION are only used by the clusterctl upgrade test to initialize
   # the management cluster to be upgraded.
   INIT_WITH_BINARY: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.11.3/clusterctl-linux-amd64"
-  INIT_WITH_PROVIDERS_CONTRACT: "v1beta1"
+  INIT_WITH_PROVIDERS_CONTRACT: "v1beta2"
   INIT_WITH_KUBERNETES_VERSION: "v1.33.6"
   INIT_WITH_INFRASTRUCTURE_PROVIDER_VERSION: ${CAPH_LATEST_VERSION}
 

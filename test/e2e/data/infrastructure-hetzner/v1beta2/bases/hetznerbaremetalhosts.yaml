@@ -1,4 +1,4 @@
-apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
 kind: HetznerBareMetalHost
 metadata:
   name: "bm-e2e-1670788"
@@ -10,7 +10,7 @@ spec:
   description: Test Machine 1670788
 ---
 # Does not reach rescue system
-# apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+# apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
 # kind: HetznerBareMetalHost
 # metadata:
 #   name: "bm-e2e-1716772"
@@ -22,7 +22,7 @@ spec:
 #   description: Test Machine 1716772
 # ---
 
-apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
 kind: HetznerBareMetalHost
 metadata:
   name: "bm-e2e-1724024"
@@ -34,7 +34,7 @@ spec:
   description: Test Machine 1724024
 # --- We deactived 1731561 since it can't reach the rescue system.
 #     We enable it again, if we solved the issue.
-# apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+# apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
 # kind: HetznerBareMetalHost
 # metadata:
 #   name: "bm-e2e-1731561"
@@ -45,7 +45,7 @@ spec:
 #   maintenanceMode: false
 #   description: Test Machine 1731561
 # ---
-# apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+# apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
 # kind: HetznerBareMetalHost
 # metadata:
 #   name: "bm-e2e-1751550"
@@ -56,7 +56,7 @@ spec:
 #   maintenanceMode: false
 #   description: Test Machine 1751550
 # ---
-# apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+# apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
 # kind: HetznerBareMetalHost
 # metadata:
 #   name: "bm-e2e-1763731"
