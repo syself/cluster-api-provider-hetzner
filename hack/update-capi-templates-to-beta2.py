@@ -46,9 +46,39 @@ def convert_mapping_to_seq(mapping: CommentedMap) -> CommentedSeq:
     return seq
 
 
+def infer_api_group(ref: CommentedMap) -> str | None:
+    """Infer the apiGroup for a ref from apiVersion or kind heuristics."""
+    api_version = ref.get("apiVersion")
+    if isinstance(api_version, str) and "/" in api_version:
+        return api_version.split("/", 1)[0]
+
+    kind = ref.get("kind")
+    if not isinstance(kind, str):
+        return None
+
+    explicit_kind_map = {
+        "KubeadmControlPlane": "controlplane.cluster.x-k8s.io",
+        "KubeadmControlPlaneTemplate": "controlplane.cluster.x-k8s.io",
+        "KubeadmConfig": "bootstrap.cluster.x-k8s.io",
+        "KubeadmConfigTemplate": "bootstrap.cluster.x-k8s.io",
+        "KubeadmConfigTemplateList": "bootstrap.cluster.x-k8s.io",
+    }
+    if kind in explicit_kind_map:
+        return explicit_kind_map[kind]
+
+    # Infrastructure resources in this repo all live under infrastructure.cluster.x-k8s.io.
+    infra_hints = ("HCloud", "Hetzner", "BareMetal", "BM")
+    if any(hint in kind for hint in infra_hints) or kind.endswith("Cluster") or kind.endswith("MachineTemplate"):
+        return "infrastructure.cluster.x-k8s.io"
+
+    return None
+
+
 def transform(node) -> bool:
     """
-    Recursively walk the YAML structure and convert kubeletExtraArgs mappings.
+    Recursively walk the YAML structure, convert kubeletExtraArgs mappings,
+    drop apiVersion inside infrastructureRef/controlPlaneRef/configRef blocks,
+    and ensure apiGroup is set on those refs.
 
     Returns True if any change was made.
     """
@@ -65,6 +95,19 @@ def transform(node) -> bool:
                 pass
             else:
                 raise TypeError(f"Unexpected kubeletExtraArgs type: {type(args_val)!r}")
+
+        for ref_key in ("infrastructureRef", "controlPlaneRef", "configRef"):
+            if ref_key in node:
+                ref_val = node[ref_key]
+                if isinstance(ref_val, CommentedMap):
+                    if "apiGroup" not in ref_val:
+                        inferred = infer_api_group(ref_val)
+                        if inferred:
+                            ref_val["apiGroup"] = inferred
+                            changed = True
+                    if "apiVersion" in ref_val:
+                        del ref_val["apiVersion"]
+                        changed = True
 
         for value in node.values():
             if transform(value):

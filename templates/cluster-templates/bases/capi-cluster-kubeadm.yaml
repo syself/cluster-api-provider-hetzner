@@ -6,12 +6,12 @@ spec:
   clusterNetwork:
     pods:
       cidrBlocks:
-        - 10.244.0.0/16
+      - 10.244.0.0/16
   infrastructureRef:
-    apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
     kind: HetznerCluster
     name: "${CLUSTER_NAME}"
+    apiGroup: infrastructure.cluster.x-k8s.io
   controlPlaneRef:
     kind: KubeadmControlPlane
-    apiVersion: controlplane.cluster.x-k8s.io/v1beta2
     name: "${CLUSTER_NAME}-control-plane"
+    apiGroup: controlplane.cluster.x-k8s.io

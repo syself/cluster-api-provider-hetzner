@@ -7,8 +7,8 @@ spec:
   machineTemplate:
     infrastructureRef:
       kind: HCloudMachineTemplate
-      apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
       name: "${CLUSTER_NAME}-control-plane"
+      apiGroup: infrastructure.cluster.x-k8s.io
   kubeadmConfigSpec:
     clusterConfiguration:
       apiServer:

@@ -20,9 +20,9 @@ spec:
       bootstrap:
         configRef:
           name: "${CLUSTER_NAME}-md-0"
-          apiVersion: bootstrap.cluster.x-k8s.io/v1beta2
           kind: KubeadmConfigTemplate
+          apiGroup: bootstrap.cluster.x-k8s.io
       infrastructureRef:
         name: "${CLUSTER_NAME}-md-0"
-        apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
         kind: HCloudMachineTemplate
+        apiGroup: infrastructure.cluster.x-k8s.io
