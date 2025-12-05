@@ -238,3 +238,16 @@ const (
 	// RebootSucceededCondition indicates that the machine got rebooted successfully.
 	RebootSucceededCondition clusterv1.ConditionType = "RebootSucceeded"
 )
+
+const (
+	// DeleteMachineSucceededCondition is False when the capi (and infra) machine should be deleted.
+	// The condition appears on the infra machine, and gets mirrored to the hbmh. Finally the capi
+	// machine and the infra machine will be deleted. The condition is either False or does not
+	// exist.
+	//
+	// The condition gets set during provisioning the infra machine.
+	DeleteMachineSucceededCondition clusterv1.ConditionType = "DeleteMachineSucceeded"
+
+	// DeleteMachineInProgressReason is for [DeleteMachineSucceededCondition].
+	DeleteMachineInProgressReason = "DeleteMachineInProgress"
+)
