@@ -38,6 +38,11 @@ if [[ ! -e $KUBEBUILDER_ASSETS ]]; then
 fi
 export KUBEBUILDER_ASSETS
 
+if [[ ! -e $KUBEBUILDER_ASSETS ]]; then
+    echo "error: $KUBEBUILDER_ASSETS does not exit!"
+    exit 1
+fi
+
 mkdir -p .coverage
 
 mkdir -p tmp
@@ -62,4 +67,4 @@ hack/go-files-with-worst-coverage.py .coverage/cover.out
 go run github.com/gametimesf/gocov/gocov@latest convert .coverage/cover.out |
     go run github.com/AlekSi/gocov-xml@latest >.coverage/cover.xml
 
-pipx run pycobertura show --format html --output .coverage/cover.html .coverage/cover.xml
+pipx run pycobertura show --format html --output .coverage/cover.html --source "$PWD" .coverage/cover.xml
