@@ -103,12 +103,12 @@ $(TILT):
 SETUP_ENVTEST := $(abspath $(TOOLS_BIN_DIR)/setup-envtest)
 setup-envtest: $(SETUP_ENVTEST) ## Build a local copy of setup-envtest
 $(SETUP_ENVTEST): # Build setup-envtest from tools folder.
-	go install sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.0.0-20250310021545-f80bc5dbf8f7
+	go install sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.0.0-20251126220622-4b46eb04d57f
 
 CTLPTL := $(abspath $(TOOLS_BIN_DIR)/ctlptl)
 ctlptl: $(CTLPTL) ## Build a local copy of ctlptl
 $(CTLPTL):
-	go install github.com/tilt-dev/ctlptl/cmd/ctlptl@v0.8.25
+	go install github.com/tilt-dev/ctlptl/cmd/ctlptl@v0.8.43
 
 CLUSTERCTL := $(abspath $(TOOLS_BIN_DIR)/clusterctl)
 clusterctl: $(CLUSTERCTL) ## Build a local copy of clusterctl
@@ -118,7 +118,7 @@ $(CLUSTERCTL):
 HCLOUD := $(abspath $(TOOLS_BIN_DIR)/hcloud)
 hcloud: $(HCLOUD) ## Build a local copy of hcloud
 $(HCLOUD):
-	curl -sSL https://github.com/hetznercloud/cli/releases/download/v1.43.1/hcloud-$$(go env GOOS)-$$(go env GOARCH).tar.gz | tar xz -C $(TOOLS_BIN_DIR) hcloud
+	curl -sSL https://github.com/hetznercloud/cli/releases/download/v1.57.0/hcloud-$$(go env GOOS)-$$(go env GOARCH).tar.gz | tar xz -C $(TOOLS_BIN_DIR) hcloud
 	chmod a+rx $(HCLOUD)
 
 KIND := $(abspath $(TOOLS_BIN_DIR)/kind)
@@ -135,17 +135,17 @@ $(KUBECTL):
 go-binsize-treemap := $(abspath $(TOOLS_BIN_DIR)/go-binsize-treemap)
 go-binsize-treemap: $(go-binsize-treemap) # Build go-binsize-treemap from tools folder.
 $(go-binsize-treemap):
-	go install github.com/nikolaydubina/go-binsize-treemap@v0.2.0
+	go install github.com/nikolaydubina/go-binsize-treemap@v0.2.3
 
 go-cover-treemap := $(abspath $(TOOLS_BIN_DIR)/go-cover-treemap)
 go-cover-treemap: $(go-cover-treemap) # Build go-cover-treemap from tools folder.
 $(go-cover-treemap):
-	go install github.com/nikolaydubina/go-cover-treemap@v1.3.0
+	go install github.com/nikolaydubina/go-cover-treemap@v1.5.0
 
 GOTESTSUM := $(abspath $(TOOLS_BIN_DIR)/gotestsum)
 gotestsum: $(GOTESTSUM) # Build gotestsum from tools folder.
 $(GOTESTSUM):
-	go install gotest.tools/gotestsum@v1.11.0
+	go install gotest.tools/gotestsum@v1.13.0
 
 all-tools: $(GOTESTSUM) $(go-cover-treemap) $(go-binsize-treemap) $(KIND) $(KUBECTL) $(CLUSTERCTL) $(CTLPTL) $(SETUP_ENVTEST) $(KUSTOMIZE) ## Install all tools required for development
 	echo 'done'
