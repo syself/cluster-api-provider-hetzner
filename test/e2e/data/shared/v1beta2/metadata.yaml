@@ -1,3 +1,7 @@
+# Syself note: This is a copy of metadata.yaml from CAPI
+# Source: https://github.com/kubernetes-sigs/cluster-api/blob/main/metadata.yaml
+# Please add this header after copying.
+#
 # maps release series of major.minor to cluster-api contract version
 # the contract version may change between minor or major versions, but *not*
 # between patch versions.
@@ -7,29 +11,35 @@ apiVersion: clusterctl.cluster.x-k8s.io/v1alpha3
 kind: Metadata
 releaseSeries:
   - major: 1
+    minor: 10
+    contract: v1beta1
+  - major: 1
+    minor: 9
+    contract: v1beta1
+  - major: 1
     minor: 8
-    contract: v1beta2
+    contract: v1beta1
   - major: 1
     minor: 7
-    contract: v1beta2
+    contract: v1beta1
   - major: 1
     minor: 6
-    contract: v1beta2
+    contract: v1beta1
   - major: 1
     minor: 5
-    contract: v1beta2
+    contract: v1beta1
   - major: 1
     minor: 4
-    contract: v1beta2
+    contract: v1beta1
   - major: 1
     minor: 3
-    contract: v1beta2
+    contract: v1beta1
   - major: 1
     minor: 2
-    contract: v1beta2
+    contract: v1beta1
   - major: 1
     minor: 1
-    contract: v1beta2
+    contract: v1beta1
   - major: 1
     minor: 0
-    contract: v1beta2
+    contract: v1beta1
