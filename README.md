@@ -69,30 +69,15 @@ In addition to the pure creation and operation of Kubernetes clusters, this prov
 
 ## 🖇️ Compatibility with Cluster API and Kubernetes Versions
 
-This provider's versions are compatible with the following versions of Cluster API:
+[Compatibility Table](https://syself.com/docs/caph/getting-started/introduction#compatibility-with-cluster-api-and-kubernetes-versions)
 
-|                                      | CAPI `v1beta1` (`v1.8.x`) | CAPI `v1beta1` (`v1.9.x`) | CAPI `v1beta1` (`v1.10.x`) | 
-| ------------------------------------ | ------------------------- | ------------------------- | -------------------------- | 
-| Hetzner Provider `v1.0.x`            | ✅                        | ✅                        | ✅                         |
+## What is new in CAPH v1.1.x?
 
+With CAPH v1.1.x we adapt to the changes done by Cluster-API. CAPI bumped the API version from
+v1beta1 to v1beta2 with a lot of changes. See [v1.10 to v1.11 - The Cluster API
+Book](https://cluster-api.sigs.k8s.io/developer/providers/migrations/v1.10-to-v1.11)
 
-This provider's versions can install and manage the following versions of Kubernetes:
-
-|                   | Hetzner Provider `v1.0.x` |
-| ----------------- | ------------------------- |
-| Kubernetes 1.31.x | ✅                        |
-| Kubernetes 1.32.x | ✅                        |
-| Kubernetes 1.33.x | ✅                        |
-| Kubernetes 1.34.x | ❔                        |
-
-Test status:
-
-- ✅ tested
-- ❔ should work, but we weren't able to test it
-
-Each version of Cluster API for Hetzner will attempt to support at least two Kubernetes versions.
-
-**NOTE:** As the versioning for this project is tied to the versioning of Cluster API, future modifications to this policy may be made to more closely align with other providers in the Cluster API ecosystem.
+TODO TODO TODO: Summarize this PR here: https://github.com/syself/cluster-api-provider-hetzner/pull/1734
 
 ## 💿 Operating System Images
 
