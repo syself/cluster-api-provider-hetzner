@@ -32,6 +32,18 @@
 - [Contributing](#-getting-involved-and-contributing)
 - [Contact](#-contact)
 
+## You are seeing CAPH v1.0.x
+
+On December 5, 2025, we reset the main branch to the git tag
+[v1.0.7](https://github.com/syself/cluster-api-provider-hetzner/tree/v1.0.7) so paying customers
+see the documentation for the service we currently offer.
+
+Development for CAPH v1.1.x happens on the
+[v1.1.x](https://github.com/syself/cluster-api-provider-hetzner/tree/v1.1.x) branch. Please base
+pull requests on `v1.1.x`.
+
+When v1.1.x is released, we plan to switch `main` back so that it tracks the head of development.
+
 ## 📰 What is the Cluster API Provider Hetzner?
 
 > [!NOTE]
