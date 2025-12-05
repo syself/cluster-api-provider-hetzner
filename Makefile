@@ -82,7 +82,7 @@ MGT_CLUSTER_KUBECONFIG ?= ".mgt-cluster-kubeconfig.yaml"
 # Kubebuilder.
 # go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 # The command `setup-envtest list` shows the available versions.
-export KUBEBUILDER_ENVTEST_KUBERNETES_VERSION ?= 1.31.0
+export KUBEBUILDER_ENVTEST_KUBERNETES_VERSION ?= 1.33.6
 
 ##@ Binaries
 ############
@@ -92,18 +92,13 @@ export KUBEBUILDER_ENVTEST_KUBERNETES_VERSION ?= 1.31.0
 KUSTOMIZE := $(abspath $(TOOLS_BIN_DIR)/kustomize)
 kustomize: $(KUSTOMIZE) ## Build a local copy of kustomize
 $(KUSTOMIZE): # Build kustomize from tools folder.
-	go install sigs.k8s.io/kustomize/kustomize/v4@v4.5.7
+	go install sigs.k8s.io/kustomize/kustomize/v5@v5.8.0
 
 TILT := $(abspath $(TOOLS_BIN_DIR)/tilt)
 tilt: $(TILT) ## Build a local copy of tilt
 $(TILT):
 	@mkdir -p $(TOOLS_BIN_DIR)
-	MINIMUM_TILT_VERSION=0.33.3 hack/ensure-tilt.sh
-
-ENVSUBST := $(abspath $(TOOLS_BIN_DIR)/envsubst)
-envsubst: $(ENVSUBST) ## Build a local copy of envsubst
-$(ENVSUBST): # Build envsubst from tools folder.
-	go install github.com/drone/envsubst/v2/cmd/envsubst@latest
+	MINIMUM_TILT_VERSION=0.35.2 hack/ensure-tilt.sh
 
 SETUP_ENVTEST := $(abspath $(TOOLS_BIN_DIR)/setup-envtest)
 setup-envtest: $(SETUP_ENVTEST) ## Build a local copy of setup-envtest
@@ -129,12 +124,12 @@ $(HCLOUD):
 KIND := $(abspath $(TOOLS_BIN_DIR)/kind)
 kind: $(KIND) ## Build a local copy of kind
 $(KIND):
-	go install sigs.k8s.io/kind@v0.23.0
+	go install sigs.k8s.io/kind@v0.30.0
 
 KUBECTL := $(abspath $(TOOLS_BIN_DIR)/kubectl)
 kubectl: $(KUBECTL) ## Build a local copy of kubectl
 $(KUBECTL):
-	curl -fsSL "https://dl.k8s.io/release/v1.31.6/bin/$$(go env GOOS)/$$(go env GOARCH)/kubectl" -o $(KUBECTL)
+	curl -fsSL "https://dl.k8s.io/release/v1.33.6/bin/$$(go env GOOS)/$$(go env GOARCH)/kubectl" -o $(KUBECTL)
 	chmod a+rx $(KUBECTL)
 
 go-binsize-treemap := $(abspath $(TOOLS_BIN_DIR)/go-binsize-treemap)
@@ -152,7 +147,7 @@ gotestsum: $(GOTESTSUM) # Build gotestsum from tools folder.
 $(GOTESTSUM):
 	go install gotest.tools/gotestsum@v1.11.0
 
-all-tools: $(GOTESTSUM) $(go-cover-treemap) $(go-binsize-treemap) $(KIND) $(KUBECTL) $(CLUSTERCTL) $(CTLPTL) $(SETUP_ENVTEST) $(ENVSUBST) $(KUSTOMIZE) ## Install all tools required for development
+all-tools: $(GOTESTSUM) $(go-cover-treemap) $(go-binsize-treemap) $(KIND) $(KUBECTL) $(CLUSTERCTL) $(CTLPTL) $(SETUP_ENVTEST) $(KUSTOMIZE) ## Install all tools required for development
 	echo 'done'
 
 ##@ Development
@@ -221,56 +216,56 @@ env-vars-for-wl-cluster:
 	@./hack/ensure-env-variables.sh CLUSTER_NAME CONTROL_PLANE_MACHINE_COUNT HCLOUD_CONTROL_PLANE_MACHINE_TYPE \
 	HCLOUD_REGION SSH_KEY_NAME HCLOUD_WORKER_MACHINE_TYPE KUBERNETES_VERSION WORKER_MACHINE_COUNT
 
-create-workload-cluster-hcloud: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST) install-crds ## Creates a workload-cluster.
+create-workload-cluster-hcloud: env-vars-for-wl-cluster $(KUSTOMIZE) install-crds ## Creates a workload-cluster.
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN
 	$(KUBECTL) create secret generic $(INFRA_PROVIDER) --from-literal=hcloud=$(HCLOUD_TOKEN) --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
 	$(KUSTOMIZE) build templates/cluster-templates/hcloud --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud.yaml
-	cat templates/cluster-templates/cluster-template-hcloud.yaml | $(ENVSUBST) - | $(KUBECTL) apply -f -
+	cat templates/cluster-templates/cluster-template-hcloud.yaml | $(CLUSTERCTL) generate yaml | $(KUBECTL) apply -f -
 	$(MAKE) wait-and-get-secret
 	$(MAKE) install-cilium-in-wl-cluster
 	$(MAKE) install-ccm-in-wl-cluster
 
-create-workload-cluster-hcloud-network: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster.
+create-workload-cluster-hcloud-network: env-vars-for-wl-cluster $(KUSTOMIZE) ## Creates a workload-cluster.
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN
 	$(KUBECTL) create secret generic $(INFRA_PROVIDER) --from-literal=hcloud=$(HCLOUD_TOKEN) --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
 	$(KUSTOMIZE) build templates/cluster-templates/hcloud-network --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-network.yaml
-	cat templates/cluster-templates/cluster-template-hcloud-network.yaml | $(ENVSUBST) - | $(KUBECTL) apply -f -
+	cat templates/cluster-templates/cluster-template-hcloud-network.yaml | $(CLUSTERCTL) generate yaml | $(KUBECTL) apply -f -
 	$(MAKE) wait-and-get-secret
 	$(MAKE) install-cilium-in-wl-cluster
 	$(MAKE) install-ccm-in-wl-cluster PRIVATE_NETWORK=true
 
 # Use that, if you want to test hcloud control-planes, hcloud worker and bm worker.
-create-workload-cluster-hetzner-hcloud-control-plane: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster.
+create-workload-cluster-hetzner-hcloud-control-plane: env-vars-for-wl-cluster $(KUSTOMIZE) ## Creates a workload-cluster.
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN HETZNER_ROBOT_USER HETZNER_ROBOT_PASSWORD HETZNER_SSH_PRIV_PATH HETZNER_SSH_PUB_PATH SSH_KEY_NAME
 	$(KUBECTL) create secret generic $(INFRA_PROVIDER) --from-literal=hcloud=$(HCLOUD_TOKEN) --from-literal=robot-user=$(HETZNER_ROBOT_USER) --from-literal=robot-password=$(HETZNER_ROBOT_PASSWORD) --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
 	$(KUBECTL) create secret generic robot-ssh --from-literal=sshkey-name=$(SSH_KEY_NAME) --from-file=ssh-privatekey=${HETZNER_SSH_PRIV_PATH} --from-file=ssh-publickey=${HETZNER_SSH_PUB_PATH} --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
 	$(KUSTOMIZE) build templates/cluster-templates/$(INFRA_PROVIDER)-hcloud-control-planes --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-$(INFRA_PROVIDER)-hcloud-control-planes.yaml
-	cat templates/cluster-templates/cluster-template-$(INFRA_PROVIDER)-hcloud-control-planes.yaml | $(ENVSUBST) - | $(KUBECTL) apply -f -
+	cat templates/cluster-templates/cluster-template-$(INFRA_PROVIDER)-hcloud-control-planes.yaml | $(CLUSTERCTL) generate yaml | $(KUBECTL) apply -f -
 	$(MAKE) wait-and-get-secret
 	$(MAKE) install-cilium-in-wl-cluster
 	$(MAKE) install-ccm-in-wl-cluster
 
-create-workload-cluster-hetzner-baremetal-control-plane: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster.
+create-workload-cluster-hetzner-baremetal-control-plane: env-vars-for-wl-cluster $(KUSTOMIZE) ## Creates a workload-cluster.
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN HETZNER_ROBOT_USER HETZNER_ROBOT_PASSWORD HETZNER_SSH_PRIV_PATH HETZNER_SSH_PUB_PATH SSH_KEY_NAME
 	$(KUBECTL) create secret generic $(INFRA_PROVIDER) --from-literal=hcloud=$(HCLOUD_TOKEN) --from-literal=robot-user=$(HETZNER_ROBOT_USER) --from-literal=robot-password=$(HETZNER_ROBOT_PASSWORD) --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
 	$(KUBECTL) create secret generic robot-ssh --from-literal=sshkey-name=$(SSH_KEY_NAME) --from-file=ssh-privatekey=${HETZNER_SSH_PRIV_PATH} --from-file=ssh-publickey=${HETZNER_SSH_PUB_PATH} --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
 	$(KUSTOMIZE) build templates/cluster-templates/$(INFRA_PROVIDER)-baremetal-control-planes --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-$(INFRA_PROVIDER)-baremetal-control-planes.yaml
-	cat templates/cluster-templates/cluster-template-$(INFRA_PROVIDER)-baremetal-control-planes.yaml | $(ENVSUBST) - | $(KUBECTL) apply -f -
+	cat templates/cluster-templates/cluster-template-$(INFRA_PROVIDER)-baremetal-control-planes.yaml | $(CLUSTERCTL) generate yaml | $(KUBECTL) apply -f -
 	$(MAKE) wait-and-get-secret
 	$(MAKE) install-cilium-in-wl-cluster
 	$(MAKE) install-ccm-in-wl-cluster
 
-create-workload-cluster-hetzner-baremetal-control-plane-remediation: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster.
+create-workload-cluster-hetzner-baremetal-control-plane-remediation: env-vars-for-wl-cluster $(KUSTOMIZE) ## Creates a workload-cluster.
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN HETZNER_ROBOT_USER HETZNER_ROBOT_PASSWORD HETZNER_SSH_PRIV_PATH HETZNER_SSH_PUB_PATH SSH_KEY_NAME
 	$(KUBECTL) create secret generic $(INFRA_PROVIDER) --from-literal=hcloud=$(HCLOUD_TOKEN) --from-literal=robot-user=$(HETZNER_ROBOT_USER) --from-literal=robot-password=$(HETZNER_ROBOT_PASSWORD) --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
 	$(KUBECTL) create secret generic robot-ssh --from-literal=sshkey-name=$(SSH_KEY_NAME) --from-file=ssh-privatekey=${HETZNER_SSH_PRIV_PATH} --from-file=ssh-publickey=${HETZNER_SSH_PUB_PATH} --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
 	$(KUSTOMIZE) build templates/cluster-templates/$(INFRA_PROVIDER)-baremetal-control-planes-remediation --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-$(INFRA_PROVIDER)-baremetal-control-planes-remediation.yaml
-	cat templates/cluster-templates/cluster-template-$(INFRA_PROVIDER)-baremetal-control-planes-remediation.yaml | $(ENVSUBST) - | $(KUBECTL) apply -f -
+	cat templates/cluster-templates/cluster-template-$(INFRA_PROVIDER)-baremetal-control-planes-remediation.yaml | $(CLUSTERCTL) generate yaml | $(KUBECTL) apply -f -
 	$(MAKE) wait-and-get-secret
 	$(MAKE) install-cilium-in-wl-cluster
 	$(MAKE) install-ccm-in-wl-cluster
@@ -474,10 +469,11 @@ e2e-image: ## Build the e2e manager image
 
 .PHONY: e2e-conf-file
 e2e-conf-file: $(E2E_CONF_FILE)
-$(E2E_CONF_FILE): $(ENVSUBST) $(E2E_CONF_FILE_SOURCE) ./hack/create-e2e-conf-file.sh
-	CAPH_LATEST_VERSION=$(CAPH_LATEST_VERSION) ENVSUBST=$(ENVSUBST) \
+$(E2E_CONF_FILE): $(E2E_CONF_FILE_SOURCE) ./hack/create-e2e-conf-file.sh
+	CAPH_LATEST_VERSION=$(CAPH_LATEST_VERSION) \
 	E2E_CONF_FILE_SOURCE=$(E2E_CONF_FILE_SOURCE) \
 	E2E_CONF_FILE=$(E2E_CONF_FILE) \
+	CLUSTERCTL=$(CLUSTERCTL) \
 	./hack/create-e2e-conf-file.sh
 
 .PHONY: test-e2e
@@ -809,7 +805,7 @@ builder-image-push: ## Build $(INFRA_SHORT)-builder to a new version. For more i
 test: test-unit ## Runs all unit and integration tests.
 
 .PHONY: tilt-up
-tilt-up: env-vars-for-wl-cluster $(ENVSUBST) $(KUBECTL) $(KUSTOMIZE) $(TILT) cluster  ## Start a mgt-cluster & Tilt. Installs the CRDs and deploys the controllers
+tilt-up: env-vars-for-wl-cluster $(KUBECTL) $(KUSTOMIZE) $(TILT) cluster  ## Start a mgt-cluster & Tilt. Installs the CRDs and deploys the controllers
 	@mkdir -p .tiltbuild
 	EXP_CLUSTER_RESOURCE_SET=true $(TILT) up --port=10351
 

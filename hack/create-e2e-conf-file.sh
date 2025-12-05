@@ -17,7 +17,7 @@
 trap 'echo "ERROR: A command has failed. Exiting the script. Line was ($0:$LINENO): $(sed -n "${LINENO}p" "$0")"; exit 3' ERR
 set -Eeuo pipefail
 
-./hack/ensure-env-variables.sh CAPH_LATEST_VERSION ENVSUBST E2E_CONF_FILE_SOURCE E2E_CONF_FILE CAPH_CONTAINER_TAG
+./hack/ensure-env-variables.sh CAPH_LATEST_VERSION E2E_CONF_FILE_SOURCE E2E_CONF_FILE CAPH_CONTAINER_TAG
 
 if [[ -z "${CAPH_CONTAINER_TAG:-}" ]]; then
     echo
@@ -38,4 +38,4 @@ make release-manifests
 git restore config
 
 echo "# Created from $E2E_CONF_FILE_SOURCE by $0" >"$E2E_CONF_FILE"
-$ENVSUBST <"$E2E_CONF_FILE_SOURCE" >>"$E2E_CONF_FILE"
+$CLUSTERCLT generate yaml <"$E2E_CONF_FILE_SOURCE" >>"$E2E_CONF_FILE"

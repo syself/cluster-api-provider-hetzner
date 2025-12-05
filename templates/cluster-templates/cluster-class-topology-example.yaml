@@ -53,7 +53,7 @@ spec:
       #   value: ubuntu-24.04
       - name: hcloudControlPlanePlacementGroupName
         value: control-plane
-    version: v1.31.6
+    version: v1.33.6
     workers:
       machineDeployments:
         - class: hcloud-worker
