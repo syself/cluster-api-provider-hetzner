@@ -29,7 +29,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
-	"sigs.k8s.io/cluster-api/util/conditions"
+	capiconditions "sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
@@ -134,7 +134,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 
 		res := svc.actionImageInstalling(ctx)
 		Expect(res).To(BeAssignableToTypeOf(actionContinue{}))
-		c := conditions.Get(host, infrav1.ProvisionSucceededCondition)
+		c := capiconditions.Get(host, infrav1.ProvisionSucceededCondition)
 		Expect(c.Message).To(Equal(`host (test-host) is still provisioning - state "image-installing"`))
 	})
 
@@ -156,7 +156,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		Expect(robot.AssertCalled(GinkgoT(), "SetBMServerName", mock.Anything, infrav1.BareMetalHostNamePrefix+host.Spec.ConsumerRef.Name)).To(BeTrue())
 		// error should be cleared
 		Expect(host.Spec.Status.ErrorMessage).To(Equal(""))
-		c := conditions.Get(host, infrav1.ProvisionSucceededCondition)
+		c := capiconditions.Get(host, infrav1.ProvisionSucceededCondition)
 		Expect(c.Message).To(Equal(`host (test-host) is still provisioning - state "image-installing"`))
 	})
 
@@ -169,7 +169,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 		res := svc.actionImageInstalling(ctx)
 		Expect(res).To(BeAssignableToTypeOf(actionFailed{}))
-		c := conditions.Get(host, infrav1.ProvisionSucceededCondition)
+		c := capiconditions.Get(host, infrav1.ProvisionSucceededCondition)
 		Expect(c.Message).To(ContainSubstring("image-url-command failed"))
 	})
 
@@ -200,7 +200,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		res := svc.actionImageInstalling(ctx)
 		Expect(res).To(BeAssignableToTypeOf(actionContinue{}))
 		Expect(sshMock.AssertCalled(GinkgoT(), "StartImageURLCommand", mock.Anything, "image-url-command", host.Spec.Status.InstallImage.Image.URL, mock.Anything, svc.scope.Hostname(), []string{"nvme1n1"})).To(BeTrue())
-		c := conditions.Get(host, infrav1.ProvisionSucceededCondition)
+		c := capiconditions.Get(host, infrav1.ProvisionSucceededCondition)
 		Expect(c.Message).To(ContainSubstring(`baremetal-image-url-command started`))
 	})
 
@@ -224,7 +224,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		}
 		res := svc.actionImageInstalling(ctx)
 		Expect(res).To(BeAssignableToTypeOf(actionFailed{}))
-		c := conditions.Get(host, infrav1.ProvisionSucceededCondition)
+		c := capiconditions.Get(host, infrav1.ProvisionSucceededCondition)
 		Expect(c.Message).To(ContainSubstring("StartImageURLCommand failed with non-zero exit status. Deleting machine"))
 	})
 
@@ -241,7 +241,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 
 		res := svc.actionImageInstalling(ctx)
 		Expect(res).To(BeAssignableToTypeOf(actionFailed{}))
-		c := conditions.Get(host, infrav1.ProvisionSucceededCondition)
+		c := capiconditions.Get(host, infrav1.ProvisionSucceededCondition)
 		Expect(c.Message).To(ContainSubstring("ImageURLCommand timed out"))
 	})
 })
@@ -1830,7 +1830,7 @@ var _ = Describe("actionProvisioned SSHAfterInstallImage=false", func() {
 		actResult := service.actionProvisioned(ctx)
 		Expect(actResult).Should(BeAssignableToTypeOf(actionContinue{}))
 		Expect(robotMock.AssertNumberOfCalls(GinkgoT(), "RebootBMServer", 1)).To(BeTrue())
-		c := conditions.Get(host, infrav1.RebootSucceededCondition)
+		c := capiconditions.Get(host, infrav1.RebootSucceededCondition)
 		Expect(c.Message).To(ContainSubstring("Rebooting because annotation was set"))
 		Expect(host.Spec.Status.Rebooted).To(BeTrue())
 	})
@@ -1854,7 +1854,7 @@ var _ = Describe("actionProvisioned SSHAfterInstallImage=false", func() {
 
 		actResult := service.actionProvisioned(ctx)
 		Expect(actResult).Should(BeAssignableToTypeOf(actionContinue{}))
-		c := conditions.Get(host, infrav1.RebootSucceededCondition)
+		c := capiconditions.Get(host, infrav1.RebootSucceededCondition)
 		Expect(c.Message).To(ContainSubstring("Waiting for BootID of Node (in wl-cluster) to change"))
 	})
 
@@ -1893,7 +1893,7 @@ var _ = Describe("actionProvisioned SSHAfterInstallImage=false", func() {
 		Expect(actResult).Should(BeAssignableToTypeOf(actionComplete{}))
 
 		// Condition should be fine
-		c := conditions.Get(host, infrav1.RebootSucceededCondition)
+		c := capiconditions.Get(host, infrav1.RebootSucceededCondition)
 		Expect(c.Message).To(Equal("none"))
 		Expect(c.Status).To(Equal(metav1.ConditionTrue))
 		Expect(host.GetAnnotations()).To(BeEmpty())

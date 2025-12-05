@@ -33,7 +33,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/kubectl/pkg/scheme"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
-	"sigs.k8s.io/cluster-api/util/conditions"
+	capiconditions "sigs.k8s.io/cluster-api/util/conditions"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -400,15 +400,15 @@ func isPresentAndFalseWithReason(key types.NamespacedName, obj client.Object, co
 		return false
 	}
 
-	getter, ok := obj.(conditions.Getter)
+	getter, ok := obj.(capiconditions.Getter)
 	if !ok {
 		return false
 	}
 
-	if !conditions.Has(getter, string(condition)) {
+	if !capiconditions.Has(getter, string(condition)) {
 		return false
 	}
-	objectCondition := conditions.Get(getter, string(condition))
+	objectCondition := capiconditions.Get(getter, string(condition))
 	return objectCondition.Status == metav1.ConditionFalse &&
 		objectCondition.Reason == reason
 }
@@ -419,15 +419,15 @@ func isPresentAndTrue(key types.NamespacedName, obj client.Object, condition clu
 		return false
 	}
 
-	getter, ok := obj.(conditions.Getter)
+	getter, ok := obj.(capiconditions.Getter)
 	if !ok {
 		return false
 	}
 
-	if !conditions.Has(getter, string(condition)) {
+	if !capiconditions.Has(getter, string(condition)) {
 		return false
 	}
-	objectCondition := conditions.Get(getter, string(condition))
+	objectCondition := capiconditions.Get(getter, string(condition))
 	return objectCondition.Status == metav1.ConditionTrue
 }
 

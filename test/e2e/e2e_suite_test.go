@@ -41,7 +41,7 @@ import (
 	"sigs.k8s.io/cluster-api/test/framework/bootstrap"
 	"sigs.k8s.io/cluster-api/test/framework/clusterctl"
 	"sigs.k8s.io/cluster-api/test/framework/ginkgoextensions"
-	"sigs.k8s.io/cluster-api/util/conditions"
+	capiconditions "sigs.k8s.io/cluster-api/util/conditions"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -401,11 +401,11 @@ func logHCloudMachineStatus(ctx context.Context, c client.Client) error {
 		}
 		log("HCloudMachine: " + hm.Name + " " + id + " " + strings.Join(addresses, " "))
 		log("  ProvisioningState: " + string(*hm.Status.InstanceState))
-		c := conditions.Get(hm, infrav1.DeleteMachineSucceededCondition)
+		c := capiconditions.Get(hm, infrav1.DeleteMachineSucceededCondition)
 		if c != nil && c.Status != metav1.ConditionTrue {
 			log(fmt.Sprintf("  Error: %s: %s", c.Reason, c.Message))
 		}
-		readyC := conditions.Get(hm, clusterv1.ReadyCondition)
+		readyC := capiconditions.Get(hm, clusterv1.ReadyCondition)
 		msg := ""
 		reason := ""
 		state := "?"
@@ -479,7 +479,7 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 			log("  Error: " + eMsg)
 		}
 
-		readyC := conditions.Get(hbmh, clusterv1.ReadyCondition)
+		readyC := capiconditions.Get(hbmh, clusterv1.ReadyCondition)
 		msg := ""
 		reason := ""
 		state := "?"

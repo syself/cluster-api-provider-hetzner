@@ -81,6 +81,7 @@ rows_to_skip = [
     '"All workers finished"',
     '"Shutdown signal received, waiting for all workers to finish"',
     "'statusCode': 200, 'method': 'GET', 'url': 'https://robot-ws.your-server.de",
+    '"Update to resource changes significant fields, will enqueue event"',
 ]
 
 rows_to_skip_for_tests = [

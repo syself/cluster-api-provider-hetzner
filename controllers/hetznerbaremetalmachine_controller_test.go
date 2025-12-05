@@ -39,7 +39,7 @@ import (
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
-	"sigs.k8s.io/cluster-api/util/conditions"
+	capiconditions "sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -514,7 +514,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 						return fmt.Errorf("RemediateMachineAnnotation not set on capi machine")
 					}
 
-					c := conditions.Get(bmMachine, infrav1.DeleteMachineSucceededCondition)
+					c := capiconditions.Get(bmMachine, infrav1.DeleteMachineSucceededCondition)
 					if c == nil {
 						return fmt.Errorf("condition DeleteMachineSucceededCondition does not exist")
 					}
@@ -554,7 +554,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					Expect(capiMachine.Name).To(Equal(bmMachine.Name))
 					Expect(capiMachine.Spec.InfrastructureRef.Name).To(Equal(bmMachine.Name))
 
-					c := conditions.Get(capiMachine, clusterv1.MachineOwnerRemediatedCondition)
+					c := capiconditions.Get(capiMachine, clusterv1.MachineOwnerRemediatedCondition)
 					if c == nil {
 						return fmt.Errorf("condition MachineOwnerRemediatedCondition does not exist %+v", capiMachine.Status)
 					}
@@ -676,7 +676,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					if err != nil {
 						return err
 					}
-					c := conditions.Get(host, clusterv1.ReadyCondition)
+					c := capiconditions.Get(host, clusterv1.ReadyCondition)
 					if c == nil {
 						return fmt.Errorf("ReadyCondition not set on host")
 					}
@@ -687,7 +687,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					if err != nil {
 						return err
 					}
-					c = conditions.Get(bmMachine, infrav1.HostReadyCondition)
+					c = capiconditions.Get(bmMachine, infrav1.HostReadyCondition)
 					if c == nil {
 						return fmt.Errorf("HostReadyCondition not set on hbmm")
 					}

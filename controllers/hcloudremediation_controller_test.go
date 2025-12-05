@@ -28,7 +28,7 @@ import (
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
-	"sigs.k8s.io/cluster-api/util/conditions"
+	capiconditions "sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -373,7 +373,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				if err != nil {
 					return err
 				}
-				c := conditions.Get(hcloudMachine, infrav1.DeleteMachineSucceededCondition)
+				c := capiconditions.Get(hcloudMachine, infrav1.DeleteMachineSucceededCondition)
 				if c == nil {
 					return fmt.Errorf("not set: DeleteMachineSucceededCondition")
 				}
@@ -413,7 +413,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 					return err
 				}
 
-				c := conditions.Get(capiMachine, clusterv1.MachineOwnerRemediatedCondition)
+				c := capiconditions.Get(capiMachine, clusterv1.MachineOwnerRemediatedCondition)
 				if c == nil {
 					return fmt.Errorf("not set: MachineOwnerRemediatedCondition")
 				}

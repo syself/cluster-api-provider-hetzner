@@ -60,7 +60,8 @@ fi
 "$BIN"/kustomize build templates/cluster-templates/"$NAME" \
     --load-restrictor LoadRestrictionsNone >generated/"$NAME".yaml
 
-"$BIN"/clusterctl generate yaml --from generated/"$NAME".yaml | "$BIN"/kubectl apply -f -
+"$BIN"/clusterctl generate yaml --from generated/"$NAME".yaml |
+    "$BIN"/kubectl apply --validate=true -f -
 
 make wait-and-get-secret
 make install-cilium-in-wl-cluster
