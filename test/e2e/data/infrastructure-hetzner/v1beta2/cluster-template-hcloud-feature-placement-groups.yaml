@@ -1,0 +1,537 @@
+apiVersion: v1
+binaryData: null
+data: ${CCM_RESOURCES}
+kind: ConfigMap
+metadata:
+  name: ${CLUSTER_NAME}-crs-ccm
+---
+apiVersion: v1
+binaryData: null
+data: ${CILIUM_RESOURCES}
+kind: ConfigMap
+metadata:
+  name: ${CLUSTER_NAME}-crs-cni
+---
+apiVersion: v1
+data:
+  hcloud: |
+    NVlDQVV3S3Rna1dueUtqVXVRNVFuZ0JSeTZ0WTl6aW9rNVhQZWxtbXZPOUxkdE9leGJubVZxSFJobmdFSFZhUA==
+kind: Secret
+metadata:
+  labels:
+    clusterctl.cluster.x-k8s.io/move: ""
+  name: hetzner
+type: Opaque
+---
+apiVersion: addons.cluster.x-k8s.io/v1beta1
+kind: ClusterResourceSet
+metadata:
+  name: ${CLUSTER_NAME}-crs-ccm
+spec:
+  clusterSelector:
+    matchLabels:
+      ccm: ${CLUSTER_NAME}-crs-ccm
+  resources:
+  - kind: ConfigMap
+    name: ${CLUSTER_NAME}-crs-ccm
+  strategy: ApplyOnce
+---
+apiVersion: addons.cluster.x-k8s.io/v1beta1
+kind: ClusterResourceSet
+metadata:
+  name: ${CLUSTER_NAME}-crs-cni
+spec:
+  clusterSelector:
+    matchLabels:
+      cni: ${CLUSTER_NAME}-crs-cni
+  resources:
+  - kind: ConfigMap
+    name: ${CLUSTER_NAME}-crs-cni
+  strategy: ApplyOnce
+---
+apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+kind: KubeadmConfigTemplate
+metadata:
+  name: ${CLUSTER_NAME}-md-0
+spec:
+  template:
+    spec:
+      files:
+      - content: |
+          net.ipv4.conf.lxc*.rp_filter = 0
+        owner: root:root
+        path: /etc/sysctl.d/99-cilium.conf
+        permissions: "0744"
+      - content: |
+          overlay
+          br_netfilter
+        owner: root:root
+        path: /etc/modules-load.d/crio.conf
+        permissions: "0744"
+      - content: |
+          net.bridge.bridge-nf-call-iptables  = 1
+          net.bridge.bridge-nf-call-ip6tables = 1
+          net.ipv4.ip_forward                 = 1
+        owner: root:root
+        path: /etc/sysctl.d/99-kubernetes-cri.conf
+        permissions: "0744"
+      - content: |
+          vm.overcommit_memory=1
+          kernel.panic=10
+          kernel.panic_on_oops=1
+        owner: root:root
+        path: /etc/sysctl.d/99-kubelet.conf
+        permissions: "0744"
+      - content: |
+          nameserver 1.1.1.1
+          nameserver 1.0.0.1
+          nameserver 2606:4700:4700::1111
+        owner: root:root
+        path: /etc/kubernetes/resolv.conf
+        permissions: "0744"
+      - content: |
+          # Copyright The containerd Authors.
+          #
+          # Licensed under the Apache License, Version 2.0 (the "License");
+          # you may not use this file except in compliance with the License.
+          # You may obtain a copy of the License at
+          #
+          #     http://www.apache.org/licenses/LICENSE-2.0
+          #
+          # Unless required by applicable law or agreed to in writing, software
+          # distributed under the License is distributed on an "AS IS" BASIS,
+          # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+          # See the License for the specific language governing permissions and
+          # limitations under the License.
+          #
+          # https://raw.githubusercontent.com/containerd/containerd/main/containerd.service
+
+          [Unit]
+          Description=containerd container runtime
+          Documentation=https://containerd.io
+          After=network.target local-fs.target dbus.service
+
+          [Service]
+          ExecStartPre=-/sbin/modprobe overlay
+          ExecStart=/usr/local/bin/containerd
+
+          Type=notify
+          Delegate=yes
+          KillMode=process
+          Restart=always
+          RestartSec=5
+
+          # Having non-zero Limit*s causes performance problems due to accounting overhead
+          # in the kernel. We recommend using cgroups to do container-local accounting.
+          LimitNPROC=infinity
+          LimitCORE=infinity
+
+          # Comment TasksMax if your systemd version does not supports it.
+          # Only systemd 226 and above support this version.
+          TasksMax=infinity
+          OOMScoreAdjust=-999
+
+          [Install]
+          WantedBy=multi-user.target
+        owner: root:root
+        path: /etc/systemd/system/containerd.service
+        permissions: "0744"
+      joinConfiguration:
+        nodeRegistration:
+          kubeletExtraArgs:
+            anonymous-auth: "false"
+            authentication-token-webhook: "true"
+            authorization-mode: Webhook
+            cloud-provider: external
+            event-qps: "5"
+            kubeconfig: /etc/kubernetes/kubelet.conf
+            max-pods: "220"
+            read-only-port: "0"
+            resolv-conf: /etc/kubernetes/resolv.conf
+            rotate-server-certificates: "true"
+            tls-cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
+      preKubeadmCommands:
+      - set -x
+      - grep VERSION= /etc/os-release; uname -a
+      - export CONTAINERD=1.7.26
+      - export RUNC=1.2.5
+      - export KUBERNETES_VERSION=$(echo ${KUBERNETES_VERSION} | sed 's/^v//')
+      - export TRIMMED_KUBERNETES_VERSION=$(echo ${KUBERNETES_VERSION} | sed 's/^v//'
+        | awk -F . '{print $1 "." $2}')
+      - ARCH="$(dpkg --print-architecture)"
+      - localectl set-locale LANG=en_US.UTF-8
+      - localectl set-locale LANGUAGE=en_US.UTF-8
+      - apt-get update -y
+      - apt-get -y install at jq unzip wget socat mtr logrotate apt-transport-https
+      - sed -i '/swap/d' /etc/fstab
+      - swapoff -a
+      - modprobe overlay
+      - modprobe br_netfilter
+      - sysctl --system
+      - wget https://github.com/opencontainers/runc/releases/download/v$RUNC/runc.$ARCH
+      - wget https://github.com/opencontainers/runc/releases/download/v$RUNC/runc.sha256sum
+      - sha256sum --check --ignore-missing runc.sha256sum
+      - install runc.$ARCH /usr/local/sbin/runc
+      - rm -f runc.$ARCH runc.sha256sum
+      - wget https://github.com/containerd/containerd/releases/download/v$CONTAINERD/containerd-$CONTAINERD-linux-$ARCH.tar.gz
+      - wget https://github.com/containerd/containerd/releases/download/v$CONTAINERD/containerd-$CONTAINERD-linux-$ARCH.tar.gz.sha256sum
+      - sha256sum --check containerd-$CONTAINERD-linux-$ARCH.tar.gz.sha256sum
+      - tar -zxf containerd-$CONTAINERD-linux-$ARCH.tar.gz -C /usr/local
+      - rm -f containerd-$CONTAINERD-linux-$ARCH.tar.gz containerd-$CONTAINERD-linux-$ARCH.tar.gz.sha256sum
+      - mkdir -p /etc/containerd
+      - containerd config default > /etc/containerd/config.toml
+      - sed -i  "s/SystemdCgroup = false/SystemdCgroup = true/" /etc/containerd/config.toml
+      - systemctl daemon-reload
+      - systemctl enable containerd
+      - systemctl start containerd
+      - mkdir -p /etc/apt/keyrings/
+      - curl -fsSL https://pkgs.k8s.io/core:/stable:/v$TRIMMED_KUBERNETES_VERSION/deb/Release.key
+        | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+      - echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v$TRIMMED_KUBERNETES_VERSION/deb/
+        /" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+      - apt-get update
+      - apt-get install -y kubelet="$KUBERNETES_VERSION-*" kubeadm="$KUBERNETES_VERSION-*"
+        kubectl="$KUBERNETES_VERSION-*" bash-completion
+      - apt-mark hold kubelet kubectl kubeadm
+      - systemctl enable kubelet
+      - kubeadm config images pull --kubernetes-version $KUBERNETES_VERSION
+      - echo 'source <(kubectl completion bash)' >>/root/.bashrc
+      - echo 'export KUBECONFIG=/etc/kubernetes/admin.conf' >>/root/.bashrc
+      - apt-get -y autoremove
+      - apt-get -y clean all
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: Cluster
+metadata:
+  labels:
+    ccm: ${CLUSTER_NAME}-crs-ccm
+    cni: ${CLUSTER_NAME}-crs-cni
+  name: ${CLUSTER_NAME}
+spec:
+  clusterNetwork:
+    pods:
+      cidrBlocks:
+      - 10.244.0.0/16
+  controlPlaneRef:
+    apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+    kind: KubeadmControlPlane
+    name: ${CLUSTER_NAME}-control-plane
+  infrastructureRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    kind: HetznerCluster
+    name: ${CLUSTER_NAME}
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachineDeployment
+metadata:
+  labels:
+    nodepool: ${CLUSTER_NAME}-md-0
+  name: ${CLUSTER_NAME}-md-0
+spec:
+  clusterName: ${CLUSTER_NAME}
+  replicas: ${WORKER_MACHINE_COUNT}
+  selector:
+    matchLabels: null
+  template:
+    metadata:
+      labels:
+        nodepool: ${CLUSTER_NAME}-md-0
+    spec:
+      bootstrap:
+        configRef:
+          apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+          kind: KubeadmConfigTemplate
+          name: ${CLUSTER_NAME}-md-0
+      clusterName: ${CLUSTER_NAME}
+      failureDomain: ${HCLOUD_REGION}
+      infrastructureRef:
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        kind: HCloudMachineTemplate
+        name: ${CLUSTER_NAME}-md-0
+      version: ${KUBERNETES_VERSION}
+---
+apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+kind: KubeadmControlPlane
+metadata:
+  name: ${CLUSTER_NAME}-control-plane
+spec:
+  kubeadmConfigSpec:
+    clusterConfiguration:
+      apiServer:
+        extraArgs:
+          authorization-mode: Node,RBAC
+          client-ca-file: /etc/kubernetes/pki/ca.crt
+          cloud-provider: external
+          default-not-ready-toleration-seconds: "45"
+          default-unreachable-toleration-seconds: "45"
+          enable-aggregator-routing: "true"
+          enable-bootstrap-token-auth: "true"
+          etcd-cafile: /etc/kubernetes/pki/etcd/ca.crt
+          etcd-certfile: /etc/kubernetes/pki/etcd/server.crt
+          etcd-keyfile: /etc/kubernetes/pki/etcd/server.key
+          kubelet-client-certificate: /etc/kubernetes/pki/apiserver-kubelet-client.crt
+          kubelet-client-key: /etc/kubernetes/pki/apiserver-kubelet-client.key
+          kubelet-preferred-address-types: ExternalIP,Hostname,InternalDNS,ExternalDNS
+          profiling: "false"
+          proxy-client-cert-file: /etc/kubernetes/pki/front-proxy-client.crt
+          proxy-client-key-file: /etc/kubernetes/pki/front-proxy-client.key
+          requestheader-allowed-names: front-proxy-client
+          requestheader-client-ca-file: /etc/kubernetes/pki/front-proxy-ca.crt
+          requestheader-extra-headers-prefix: X-Remote-Extra-
+          requestheader-group-headers: X-Remote-Group
+          requestheader-username-headers: X-Remote-User
+          service-account-key-file: /etc/kubernetes/pki/sa.pub
+          service-account-lookup: "true"
+          tls-cert-file: /etc/kubernetes/pki/apiserver.crt
+          tls-cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
+          tls-private-key-file: /etc/kubernetes/pki/apiserver.key
+      controllerManager:
+        extraArgs:
+          allocate-node-cidrs: "true"
+          authentication-kubeconfig: /etc/kubernetes/controller-manager.conf
+          authorization-kubeconfig: /etc/kubernetes/controller-manager.conf
+          bind-address: 0.0.0.0
+          cloud-provider: external
+          cluster-signing-cert-file: /etc/kubernetes/pki/ca.crt
+          cluster-signing-duration: 6h0m0s
+          cluster-signing-key-file: /etc/kubernetes/pki/ca.key
+          kubeconfig: /etc/kubernetes/controller-manager.conf
+          profiling: "false"
+          requestheader-client-ca-file: /etc/kubernetes/pki/front-proxy-ca.crt
+          root-ca-file: /etc/kubernetes/pki/ca.crt
+          secure-port: "10257"
+          service-account-private-key-file: /etc/kubernetes/pki/sa.key
+          terminated-pod-gc-threshold: "10"
+          use-service-account-credentials: "true"
+      etcd:
+        local:
+          dataDir: /var/lib/etcd
+          extraArgs:
+            auto-tls: "false"
+            cert-file: /etc/kubernetes/pki/etcd/server.crt
+            cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
+            client-cert-auth: "true"
+            key-file: /etc/kubernetes/pki/etcd/server.key
+            peer-auto-tls: "false"
+            peer-client-cert-auth: "true"
+            trusted-ca-file: /etc/kubernetes/pki/etcd/ca.crt
+      scheduler:
+        extraArgs:
+          bind-address: 0.0.0.0
+          kubeconfig: /etc/kubernetes/scheduler.conf
+          profiling: "false"
+          secure-port: "10259"
+    files:
+    - content: |
+        net.ipv4.conf.lxc*.rp_filter = 0
+      owner: root:root
+      path: /etc/sysctl.d/99-cilium.conf
+      permissions: "0744"
+    - content: |
+        overlay
+        br_netfilter
+      owner: root:root
+      path: /etc/modules-load.d/crio.conf
+      permissions: "0744"
+    - content: |
+        net.bridge.bridge-nf-call-iptables  = 1
+        net.bridge.bridge-nf-call-ip6tables = 1
+        net.ipv4.ip_forward                 = 1
+      owner: root:root
+      path: /etc/sysctl.d/99-kubernetes-cri.conf
+      permissions: "0744"
+    - content: |
+        vm.overcommit_memory=1
+        kernel.panic=10
+        kernel.panic_on_oops=1
+      owner: root:root
+      path: /etc/sysctl.d/99-kubelet.conf
+      permissions: "0744"
+    - content: |
+        nameserver 1.1.1.1
+        nameserver 1.0.0.1
+        nameserver 2606:4700:4700::1111
+      owner: root:root
+      path: /etc/kubernetes/resolv.conf
+      permissions: "0744"
+    - content: |
+        # Copyright The containerd Authors.
+        #
+        # Licensed under the Apache License, Version 2.0 (the "License");
+        # you may not use this file except in compliance with the License.
+        # You may obtain a copy of the License at
+        #
+        #     http://www.apache.org/licenses/LICENSE-2.0
+        #
+        # Unless required by applicable law or agreed to in writing, software
+        # distributed under the License is distributed on an "AS IS" BASIS,
+        # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+        # See the License for the specific language governing permissions and
+        # limitations under the License.
+        #
+        # https://raw.githubusercontent.com/containerd/containerd/main/containerd.service
+
+        [Unit]
+        Description=containerd container runtime
+        Documentation=https://containerd.io
+        After=network.target local-fs.target dbus.service
+
+        [Service]
+        ExecStartPre=-/sbin/modprobe overlay
+        ExecStart=/usr/local/bin/containerd
+
+        Type=notify
+        Delegate=yes
+        KillMode=process
+        Restart=always
+        RestartSec=5
+
+        # Having non-zero Limit*s causes performance problems due to accounting overhead
+        # in the kernel. We recommend using cgroups to do container-local accounting.
+        LimitNPROC=infinity
+        LimitCORE=infinity
+
+        # Comment TasksMax if your systemd version does not supports it.
+        # Only systemd 226 and above support this version.
+        TasksMax=infinity
+        OOMScoreAdjust=-999
+
+        [Install]
+        WantedBy=multi-user.target
+      owner: root:root
+      path: /etc/systemd/system/containerd.service
+      permissions: "0744"
+    initConfiguration:
+      nodeRegistration:
+        kubeletExtraArgs:
+          anonymous-auth: "false"
+          authentication-token-webhook: "true"
+          authorization-mode: Webhook
+          cloud-provider: external
+          event-qps: "5"
+          kubeconfig: /etc/kubernetes/kubelet.conf
+          max-pods: "120"
+          read-only-port: "0"
+          resolv-conf: /etc/kubernetes/resolv.conf
+          rotate-server-certificates: "true"
+          tls-cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
+    joinConfiguration:
+      nodeRegistration:
+        kubeletExtraArgs:
+          anonymous-auth: "false"
+          authentication-token-webhook: "true"
+          authorization-mode: Webhook
+          cloud-provider: external
+          event-qps: "5"
+          kubeconfig: /etc/kubernetes/kubelet.conf
+          max-pods: "120"
+          read-only-port: "0"
+          resolv-conf: /etc/kubernetes/resolv.conf
+          rotate-server-certificates: "true"
+          tls-cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
+    preKubeadmCommands:
+    - set -x
+    - export CONTAINERD=1.7.26
+    - export RUNC=1.2.5
+    - export KUBERNETES_VERSION=$(echo ${KUBERNETES_VERSION} | sed 's/^v//')
+    - export TRIMMED_KUBERNETES_VERSION=$(echo ${KUBERNETES_VERSION} | sed 's/^v//'
+      | awk -F . '{print $1 "." $2}')
+    - ARCH="$(dpkg --print-architecture)"
+    - localectl set-locale LANG=en_US.UTF-8
+    - localectl set-locale LANGUAGE=en_US.UTF-8
+    - apt-get update -y
+    - apt-get -y install at jq unzip wget socat mtr logrotate apt-transport-https
+    - sed -i '/swap/d' /etc/fstab
+    - swapoff -a
+    - modprobe overlay
+    - modprobe br_netfilter
+    - sysctl --system
+    - wget https://github.com/opencontainers/runc/releases/download/v$RUNC/runc.$ARCH
+    - wget https://github.com/opencontainers/runc/releases/download/v$RUNC/runc.sha256sum
+    - sha256sum --check --ignore-missing runc.sha256sum
+    - install runc.$ARCH /usr/local/sbin/runc
+    - rm -f runc.$ARCH runc.sha256sum
+    - wget https://github.com/containerd/containerd/releases/download/v$CONTAINERD/containerd-$CONTAINERD-linux-$ARCH.tar.gz
+    - wget https://github.com/containerd/containerd/releases/download/v$CONTAINERD/containerd-$CONTAINERD-linux-$ARCH.tar.gz.sha256sum
+    - sha256sum --check containerd-$CONTAINERD-linux-$ARCH.tar.gz.sha256sum
+    - tar -zxf containerd-$CONTAINERD-linux-$ARCH.tar.gz -C /usr/local
+    - rm -f containerd-$CONTAINERD-linux-$ARCH.tar.gz containerd-$CONTAINERD-linux-$ARCH.tar.gz.sha256sum
+    - mkdir -p /etc/containerd
+    - containerd config default > /etc/containerd/config.toml
+    - sed -i  "s/SystemdCgroup = false/SystemdCgroup = true/" /etc/containerd/config.toml
+    - systemctl daemon-reload
+    - systemctl enable containerd
+    - systemctl start containerd
+    - mkdir -p /etc/apt/keyrings/
+    - curl -fsSL https://pkgs.k8s.io/core:/stable:/v$TRIMMED_KUBERNETES_VERSION/deb/Release.key
+      | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+    - echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v$TRIMMED_KUBERNETES_VERSION/deb/
+      /" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+    - apt-get update
+    - apt-get install -y kubelet="$KUBERNETES_VERSION-*" kubeadm="$KUBERNETES_VERSION-*"
+      kubectl="$KUBERNETES_VERSION-*" bash-completion
+    - apt-mark hold kubelet kubectl kubeadm
+    - systemctl enable kubelet
+    - kubeadm config images pull --kubernetes-version $KUBERNETES_VERSION
+    - echo 'source <(kubectl completion bash)' >>/root/.bashrc
+    - echo 'export KUBECONFIG=/etc/kubernetes/admin.conf' >>/root/.bashrc
+    - apt-get -y autoremove
+    - apt-get -y clean all
+  machineTemplate:
+    infrastructureRef:
+      apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+      kind: HCloudMachineTemplate
+      name: ${CLUSTER_NAME}-control-plane
+  replicas: ${CONTROL_PLANE_MACHINE_COUNT}
+  version: ${KUBERNETES_VERSION}
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: HCloudMachineTemplate
+metadata:
+  name: ${CLUSTER_NAME}-control-plane
+spec:
+  template:
+    spec:
+      imageName: ubuntu-24.04
+      placementGroupName: control-plane
+      type: ${HCLOUD_CONTROL_PLANE_MACHINE_TYPE}
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: HCloudMachineTemplate
+metadata:
+  name: ${CLUSTER_NAME}-md-0
+spec:
+  template:
+    spec:
+      imageName: ubuntu-24.04
+      placementGroupName: md-0
+      type: ${HCLOUD_WORKER_MACHINE_TYPE}
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: HetznerCluster
+metadata:
+  name: ${CLUSTER_NAME}
+spec:
+  controlPlaneEndpoint:
+    host: ""
+    port: 443
+  controlPlaneLoadBalancer:
+    region: ${HCLOUD_REGION}
+  controlPlaneRegions:
+  - ${HCLOUD_REGION}
+  hcloudNetwork:
+    enabled: false
+  hcloudPlacementGroups:
+  - name: control-plane
+    type: spread
+  - name: md-0
+    type: spread
+  hetznerSecretRef:
+    key:
+      hcloudToken: hcloud
+      hetznerRobotPassword: robot-password
+      hetznerRobotUser: robot-user
+    name: hetzner
+  sshKeys:
+    hcloud:
+    - name: ${SSH_KEY_NAME}

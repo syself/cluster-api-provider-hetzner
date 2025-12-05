@@ -14,8 +14,8 @@ providers:
   - name: cluster-api
     type: CoreProvider
     versions:
-      - name: v1.10.8
-        value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.10.8/core-components.yaml"
+      - name: v1.11.3
+        value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.11.3/core-components.yaml"
         type: "url"
         contract: v1beta1
         files:
@@ -31,8 +31,8 @@ providers:
   - name: kubeadm
     type: BootstrapProvider
     versions:
-      - name: v1.10.8
-        value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.10.8/bootstrap-components.yaml"
+      - name: v1.11.3
+        value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.11.3/bootstrap-components.yaml"
         type: "url"
         contract: "v1beta1"
         files:
@@ -48,8 +48,8 @@ providers:
   - name: kubeadm
     type: ControlPlaneProvider
     versions:
-      - name: v1.10.8
-        value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.10.8/control-plane-components.yaml"
+      - name: v1.11.3
+        value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.11.3/control-plane-components.yaml"
         type: "url"
         files:
           - sourcePath: "../data/shared/v1beta1/metadata.yaml"
@@ -149,7 +149,7 @@ variables:
 
   # NOTE: INIT_WITH_BINARY and INIT_WITH_KUBERNETES_VERSION are only used by the clusterctl upgrade test to initialize
   # the management cluster to be upgraded.
-  INIT_WITH_BINARY: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.10.8/clusterctl-linux-amd64"
+  INIT_WITH_BINARY: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.11.3/clusterctl-linux-amd64"
   INIT_WITH_PROVIDERS_CONTRACT: "v1beta1"
   INIT_WITH_KUBERNETES_VERSION: "v1.33.6"
   INIT_WITH_INFRASTRUCTURE_PROVIDER_VERSION: ${CAPH_LATEST_VERSION}

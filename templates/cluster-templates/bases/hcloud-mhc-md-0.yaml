@@ -1,4 +1,4 @@
-apiVersion: cluster.x-k8s.io/v1beta1
+apiVersion: cluster.x-k8s.io/v1beta2
 kind: MachineHealthCheck
 metadata:
   name: "${CLUSTER_NAME}-md-0-unhealthy-5m"
@@ -18,10 +18,10 @@ spec:
       timeout: 180s
   remediationTemplate: # added infrastructure reference
     kind: HCloudRemediationTemplate
-    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
     name: worker-remediation-request
 ---
-apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
 kind: HCloudRemediationTemplate
 metadata:
   name: worker-remediation-request

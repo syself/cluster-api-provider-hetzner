@@ -1,17 +1,17 @@
-apiVersion: cluster.x-k8s.io/v1beta1
+apiVersion: cluster.x-k8s.io/v1beta2
 kind: ClusterClass
 metadata:
   name: quick-start
 spec:
   controlPlane:
     ref:
-      apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+      apiVersion: controlplane.cluster.x-k8s.io/v1beta2
       kind: KubeadmControlPlaneTemplate
       name: quick-start-control-plane
     machineInfrastructure:
       ref:
         kind: HCloudMachineTemplate
-        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
         name: quick-start-hcloud-machinetemplate
     machineHealthCheck:
       maxUnhealthy: 33%
@@ -25,7 +25,7 @@ spec:
           timeout: 300s
   infrastructure:
     ref:
-      apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+      apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
       kind: HetznerClusterTemplate
       name: quick-start-cluster
   workers:
@@ -34,12 +34,12 @@ spec:
         template:
           bootstrap:
             ref:
-              apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+              apiVersion: bootstrap.cluster.x-k8s.io/v1beta2
               kind: KubeadmConfigTemplate
               name: quick-start-hcloud-worker-bootstraptemplate
           infrastructure:
             ref:
-              apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+              apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
               kind: HCloudMachineTemplate
               name: quick-start-hcloud-machinetemplate
         machineHealthCheck:
@@ -56,19 +56,19 @@ spec:
         template:
           bootstrap:
             ref:
-              apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+              apiVersion: bootstrap.cluster.x-k8s.io/v1beta2
               kind: KubeadmConfigTemplate
               name: quick-start-baremetal-worker-bootstraptemplate
           infrastructure:
             ref:
-              apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+              apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
               kind: HetznerBareMetalMachineTemplate
               name: quick-start-baremetal-machinetemplate
         machineHealthCheck:
           maxUnhealthy: 1
           nodeStartupTimeout: 15m
           remediationTemplate:
-            apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+            apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
             kind: HetznerBareMetalRemediationTemplate
             name: quick-start-worker-remediation-request
             namespace: default
@@ -226,7 +226,7 @@ spec:
     - name: HetznerClusterTemplateGeneral
       definitions:
         - selector:
-            apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+            apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
             kind: HetznerClusterTemplate
             matchResources:
               infrastructureCluster: true
@@ -267,7 +267,7 @@ spec:
       enabledIf: "{{ if .hcloudNetwork.enabled }}true{{end}}"
       definitions:
         - selector:
-            apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+            apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
             kind: HetznerClusterTemplate
             matchResources:
               infrastructureCluster: true
@@ -279,7 +279,7 @@ spec:
     - name: HCloudMachineTemplateControlPlane
       definitions:
         - selector:
-            apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+            apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
             kind: HCloudMachineTemplate
             matchResources:
               controlPlane: true
@@ -299,7 +299,7 @@ spec:
     - name: HCloudMachineTemplateWorker
       definitions:
         - selector:
-            apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+            apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
             kind: HCloudMachineTemplate
             matchResources:
               machineDeploymentClass:
@@ -321,7 +321,7 @@ spec:
     - name: HetznerBareMetalMachineTemplateWorker
       definitions:
         - selector:
-            apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+            apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
             kind: HetznerBareMetalMachineTemplate
             matchResources:
               machineDeploymentClass:
@@ -341,7 +341,7 @@ spec:
               valueFrom:
                 variable: bareMetalWorkerRaidLevel
 ---
-apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
 kind: HetznerClusterTemplate
 metadata:
   name: quick-start-cluster
@@ -371,7 +371,7 @@ spec:
             publicKey: ssh-publickey
           name: robot-ssh
 ---
-apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
 kind: HCloudMachineTemplate
 metadata:
   name: quick-start-hcloud-machinetemplate
@@ -381,7 +381,7 @@ spec:
       imageName: ubuntu-24.04
       type: cx21
 ---
-apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+apiVersion: controlplane.cluster.x-k8s.io/v1beta2
 kind: KubeadmControlPlaneTemplate
 metadata:
   name: quick-start-control-plane
@@ -555,7 +555,7 @@ spec:
           - apt-get -y autoremove
           - apt-get -y clean all
 ---
-apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+apiVersion: bootstrap.cluster.x-k8s.io/v1beta2
 kind: KubeadmConfigTemplate
 metadata:
   name: quick-start-hcloud-worker-bootstraptemplate
@@ -649,7 +649,7 @@ spec:
         - apt-get -y autoremove
         - apt-get -y clean all
 ---
-apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
 kind: HetznerBareMetalRemediationTemplate
 metadata:
   name: quick-start-worker-remediation-request
@@ -661,7 +661,7 @@ spec:
         timeout: 300s
         type: Reboot
 ---
-apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
 kind: HetznerBareMetalMachineTemplate
 metadata:
   name: quick-start-baremetal-machinetemplate
@@ -706,7 +706,7 @@ spec:
             publicKey: ssh-publickey
           name: robot-ssh
 ---
-apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+apiVersion: bootstrap.cluster.x-k8s.io/v1beta2
 kind: KubeadmConfigTemplate
 metadata:
   name: quick-start-baremetal-worker-bootstraptemplate

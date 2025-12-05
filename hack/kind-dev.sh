@@ -19,7 +19,7 @@ set -o pipefail
 set -x
 
 # See `crane ls ghcr.io/fluxcd/kindest/node` for available versions
-K8S_VERSION=v1.33.6
+K8S_VERSION=v1.33.0
 
 REPO_ROOT=$(git rev-parse --show-toplevel)
 cd "${REPO_ROOT}" || exit 1

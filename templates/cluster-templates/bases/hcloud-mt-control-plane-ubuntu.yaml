@@ -1,5 +1,5 @@
 kind: HCloudMachineTemplate
-apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
 metadata:
   name: "${CLUSTER_NAME}-control-plane"
 spec:

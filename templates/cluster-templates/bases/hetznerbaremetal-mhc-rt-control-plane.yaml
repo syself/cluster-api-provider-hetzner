@@ -1,4 +1,4 @@
-apiVersion: cluster.x-k8s.io/v1beta1
+apiVersion: cluster.x-k8s.io/v1beta2
 kind: MachineHealthCheck
 metadata:
   name: "${CLUSTER_NAME}-control-plane-unhealthy-5m"
@@ -18,10 +18,10 @@ spec:
       timeout: 300s
   remediationTemplate: # added infrastructure reference
     kind: HetznerBareMetalRemediationTemplate
-    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
     name: control-plane-remediation-request
 ---
-apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
 kind: HetznerBareMetalRemediationTemplate
 metadata:
   name: control-plane-remediation-request
