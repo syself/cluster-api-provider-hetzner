@@ -53,6 +53,27 @@ var ErrNoLoadBalancerAvailable = fmt.Errorf("no available load balancer")
 // ErrControlPlaneEndpointNotSet indicates that hetznercluster.spec.controlPlaneEndpoint is not set.
 var ErrControlPlaneEndpointNotSet = errors.New("hetznercluster.spec.controlPlaneEndpoint is not set")
 
+// kubeAPIPorts returns the listen and destination port for the kube-apiserver service on the load balancer.
+// It falls back to sane defaults (ControlPlaneLoadBalancer.Port, ControlPlaneEndpoint.Port, 6443) instead of failing.
+func kubeAPIPorts(hc *infrav1.HetznerCluster) (listenPort int, destinationPort int) {
+	// Determine destination port (the port used on the control plane nodes).
+	destinationPort = hc.Spec.ControlPlaneLoadBalancer.Port
+	if destinationPort == 0 && hc.Spec.ControlPlaneEndpoint != nil {
+		destinationPort = int(hc.Spec.ControlPlaneEndpoint.Port)
+	}
+	if destinationPort == 0 {
+		destinationPort = infrav1.DefaultAPIServerPort
+	}
+
+	// Listen port is what clients hit on the load balancer.
+	listenPort = destinationPort
+	if hc.Spec.ControlPlaneEndpoint != nil && hc.Spec.ControlPlaneEndpoint.Port != 0 {
+		listenPort = int(hc.Spec.ControlPlaneEndpoint.Port)
+	}
+
+	return listenPort, destinationPort
+}
+
 // Reconcile implements the life cycle of HCloud load balancers.
 func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 	// delete the deprecated condition from existing cluster objects
@@ -256,14 +277,12 @@ func (s *Service) reconcileServices(ctx context.Context, lb *hcloud.LoadBalancer
 	}
 
 	// add kubeAPI service if exists
-	if s.scope.HetznerCluster.Spec.ControlPlaneEndpoint != nil && s.scope.HetznerCluster.Spec.ControlPlaneEndpoint.Port != 0 {
-		kubeAPIServicePort := int(s.scope.HetznerCluster.Spec.ControlPlaneEndpoint.Port)
-		wantServiceListenPorts = append(wantServiceListenPorts, kubeAPIServicePort)
-		wantServiceListenPortsMap[kubeAPIServicePort] = infrav1.LoadBalancerServiceSpec{
-			Protocol:        "tcp",
-			ListenPort:      kubeAPIServicePort,
-			DestinationPort: s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Port,
-		}
+	kubeAPIServicePort, destinationPort := kubeAPIPorts(s.scope.HetznerCluster)
+	wantServiceListenPorts = append(wantServiceListenPorts, kubeAPIServicePort)
+	wantServiceListenPortsMap[kubeAPIServicePort] = infrav1.LoadBalancerServiceSpec{
+		Protocol:        "tcp",
+		ListenPort:      kubeAPIServicePort,
+		DestinationPort: destinationPort,
 	}
 
 	toCreate, toDelete := utils.DifferenceOfIntSlices(wantServiceListenPorts, haveServiceListenPorts)
@@ -336,6 +355,8 @@ func createOptsFromSpec(hc *infrav1.HetznerCluster) (hcloud.LoadBalancerCreateOp
 	// gather algorithm type
 	algorithmType := hc.Spec.ControlPlaneLoadBalancer.Algorithm.HCloudAlgorithmType()
 
+	listenPort, destinationPort := kubeAPIPorts(hc)
+
 	// Set name
 	name := utils.GenerateName(nil, fmt.Sprintf("%s-kube-apiserver-", hc.Name))
 
@@ -346,11 +367,6 @@ func createOptsFromSpec(hc *infrav1.HetznerCluster) (hcloud.LoadBalancerCreateOp
 		network = &hcloud.Network{ID: hc.Status.Network.ID}
 	}
 
-	if hc.Spec.ControlPlaneEndpoint == nil {
-		return hcloud.LoadBalancerCreateOpts{}, ErrControlPlaneEndpointNotSet
-	}
-
-	listenPort := int(hc.Spec.ControlPlaneEndpoint.Port)
 	publicInterface := true
 	return hcloud.LoadBalancerCreateOpts{
 		LoadBalancerType: &hcloud.LoadBalancerType{Name: hc.Spec.ControlPlaneLoadBalancer.Type},
@@ -364,7 +380,7 @@ func createOptsFromSpec(hc *infrav1.HetznerCluster) (hcloud.LoadBalancerCreateOp
 			{
 				Protocol:        hcloud.LoadBalancerServiceProtocolTCP,
 				ListenPort:      &listenPort,
-				DestinationPort: &hc.Spec.ControlPlaneLoadBalancer.Port,
+				DestinationPort: &destinationPort,
 				Proxyprotocol:   &proxyprotocol,
 			},
 		},

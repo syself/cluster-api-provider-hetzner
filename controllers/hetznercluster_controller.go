@@ -263,6 +263,9 @@ func processControlPlaneEndpoint(hetznerCluster *infrav1.HetznerCluster) {
 		if hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4 != "<nil>" {
 			defaultHost := hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4
 			defaultPort := int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port) //nolint:gosec // Validation for the port range (1 to 65535) is already done via kubebuilder.
+			if defaultPort == 0 {
+				defaultPort = infrav1.DefaultAPIServerPort
+			}
 
 			if hetznerCluster.Spec.ControlPlaneEndpoint == nil {
 				hetznerCluster.Spec.ControlPlaneEndpoint = &clusterv1.APIEndpoint{
@@ -278,6 +281,7 @@ func processControlPlaneEndpoint(hetznerCluster *infrav1.HetznerCluster) {
 				}
 			}
 			conditions.MarkTrue(hetznerCluster, infrav1.ControlPlaneEndpointSetCondition)
+			conditions.MarkTrue(hetznerCluster, clusterv1.InfrastructureReadyCondition)
 			hetznerCluster.Status.Ready = true
 		} else {
 			const msg = "enabled LoadBalancer but load balancer not ready yet"
@@ -286,16 +290,27 @@ func processControlPlaneEndpoint(hetznerCluster *infrav1.HetznerCluster) {
 				infrav1.ControlPlaneEndpointNotSetReason,
 				clusterv1.ConditionSeverityWarning,
 				msg)
+			conditions.MarkFalse(hetznerCluster,
+				clusterv1.InfrastructureReadyCondition,
+				infrav1.ControlPlaneEndpointNotSetReason,
+				clusterv1.ConditionSeverityWarning,
+				msg)
 			hetznerCluster.Status.Ready = false
 		}
 	} else {
 		if hetznerCluster.Spec.ControlPlaneEndpoint != nil && hetznerCluster.Spec.ControlPlaneEndpoint.Host != "" && hetznerCluster.Spec.ControlPlaneEndpoint.Port != 0 {
 			conditions.MarkTrue(hetznerCluster, infrav1.ControlPlaneEndpointSetCondition)
+			conditions.MarkTrue(hetznerCluster, clusterv1.InfrastructureReadyCondition)
 			hetznerCluster.Status.Ready = true
 		} else {
 			const msg = "disabled LoadBalancer and not yet provided ControlPlane endpoint"
 			conditions.MarkFalse(hetznerCluster,
 				infrav1.ControlPlaneEndpointSetCondition,
+				infrav1.ControlPlaneEndpointNotSetReason,
+				clusterv1.ConditionSeverityWarning,
+				msg)
+			conditions.MarkFalse(hetznerCluster,
+				clusterv1.InfrastructureReadyCondition,
 				infrav1.ControlPlaneEndpointNotSetReason,
 				clusterv1.ConditionSeverityWarning,
 				msg)

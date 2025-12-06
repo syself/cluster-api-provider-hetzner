@@ -32,6 +32,9 @@ const (
 	// The controller will automatically update to the new string.
 	DeprecatedHetznerClusterFinalizer = "hetznercluster.infrastructure.cluster.x-k8s.io"
 
+	// DefaultAPIServerPort is used when no control plane port has been specified.
+	DefaultAPIServerPort = 6443
+
 	// AllowEmptyControlPlaneAddressAnnotation allows HetznerCluster Webhook
 	// to skip some validation steps for externally managed control planes.
 	AllowEmptyControlPlaneAddressAnnotation = "capi.syself.com/allow-empty-control-plane-address"

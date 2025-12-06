@@ -64,8 +64,15 @@ func SetSummary(obj capiconditions.Setter) {
 
 	conditions := getter.GetConditions()
 	conditionTypes := make([]string, 0, len(conditions))
+	nonBlockingConditions := map[string]struct{}{
+		"TargetClusterReady":       {},
+		"TargetClusterSecretReady": {},
+	}
 	for _, condition := range conditions {
 		if condition.Type == readyConditionType {
+			continue
+		}
+		if _, skip := nonBlockingConditions[condition.Type]; skip {
 			continue
 		}
 		conditionTypes = append(conditionTypes, condition.Type)
