@@ -19,7 +19,7 @@ package v1beta1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 )
 
 // HCloudMachineTemplateSpec defines the desired state of HCloudMachineTemplate.
@@ -52,7 +52,6 @@ type HCloudMachineTemplateStatus struct {
 // +kubebuilder:printcolumn:name="Type",type="string",JSONPath=".spec.template.spec.type",description="Server type"
 // +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].reason"
 // +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].message"
-// +kubebuilder:storageversion
 // +k8s:defaulter-gen=true
 
 // HCloudMachineTemplate is the Schema for the hcloudmachinetemplates API.

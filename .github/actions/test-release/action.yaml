@@ -25,7 +25,7 @@ runs:
     - name: Test Release
       shell: bash
       env:
-        TAG: ${{ steps.meta.outputs.version }}
+        CAPH_CONTAINER_TAG: ${{ steps.meta.outputs.version }}
       run: make test-release
 
     - name: Upload artifact

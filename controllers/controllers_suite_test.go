@@ -32,14 +32,14 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/kubectl/pkg/scheme"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	"sigs.k8s.io/cluster-api/util/conditions"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	capiconditions "sigs.k8s.io/cluster-api/util/conditions"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks"
 	robotmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/robot"
 	sshmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/ssh"
@@ -291,8 +291,11 @@ func getDefaultHetznerClusterSpec() infrav1.HetznerClusterSpec {
 			Region: "fsn1",
 			Type:   "lb11",
 		},
-		ControlPlaneEndpoint: &clusterv1.APIEndpoint{},
-		ControlPlaneRegions:  []infrav1.Region{"fsn1"},
+		ControlPlaneEndpoint: &clusterv1.APIEndpoint{
+			Host: "mycp.example.com",
+			Port: 443,
+		},
+		ControlPlaneRegions: []infrav1.Region{"fsn1"},
 		HCloudNetwork: infrav1.HCloudNetworkSpec{
 			CIDRBlock:       "10.0.0.0/16",
 			Enabled:         true,
@@ -391,31 +394,41 @@ func getDefaultHetznerBareMetalMachineSpec() infrav1.HetznerBareMetalMachineSpec
 	}
 }
 
-func isPresentAndFalseWithReason(key types.NamespacedName, getter conditions.Getter, condition clusterv1.ConditionType, reason string) bool {
-	err := testEnv.Get(ctx, key, getter)
+func isPresentAndFalseWithReason(key types.NamespacedName, obj client.Object, condition clusterv1.ConditionType, reason string) bool {
+	err := testEnv.Get(ctx, key, obj)
 	if err != nil {
 		return false
 	}
 
-	if !conditions.Has(getter, condition) {
+	getter, ok := obj.(capiconditions.Getter)
+	if !ok {
 		return false
 	}
-	objectCondition := conditions.Get(getter, condition)
-	return objectCondition.Status == corev1.ConditionFalse &&
+
+	if !capiconditions.Has(getter, string(condition)) {
+		return false
+	}
+	objectCondition := capiconditions.Get(getter, string(condition))
+	return objectCondition.Status == metav1.ConditionFalse &&
 		objectCondition.Reason == reason
 }
 
-func isPresentAndTrue(key types.NamespacedName, getter conditions.Getter, condition clusterv1.ConditionType) bool {
-	err := testEnv.Get(ctx, key, getter)
+func isPresentAndTrue(key types.NamespacedName, obj client.Object, condition clusterv1.ConditionType) bool {
+	err := testEnv.Get(ctx, key, obj)
 	if err != nil {
 		return false
 	}
 
-	if !conditions.Has(getter, condition) {
+	getter, ok := obj.(capiconditions.Getter)
+	if !ok {
 		return false
 	}
-	objectCondition := conditions.Get(getter, condition)
-	return objectCondition.Status == corev1.ConditionTrue
+
+	if !capiconditions.Has(getter, string(condition)) {
+		return false
+	}
+	objectCondition := capiconditions.Get(getter, string(condition))
+	return objectCondition.Status == metav1.ConditionTrue
 }
 
 func hasEvent(ctx context.Context, c client.Client, namespace, involvedObjectName, reason, message string) bool {

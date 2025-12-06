@@ -1,4 +1,4 @@
-apiVersion: cluster.x-k8s.io/v1beta1
+apiVersion: cluster.x-k8s.io/v1beta2
 kind: Cluster
 metadata:
   name: "test"
@@ -53,7 +53,7 @@ spec:
       #   value: ubuntu-24.04
       - name: hcloudControlPlanePlacementGroupName
         value: control-plane
-    version: v1.31.6
+    version: v1.33.6
     workers:
       machineDeployments:
         - class: hcloud-worker

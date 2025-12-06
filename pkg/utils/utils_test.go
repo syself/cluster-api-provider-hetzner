@@ -188,13 +188,13 @@ var _ = Describe("Test removeOwnerRefFromList", func() {
 
 	name := "bm-machine"
 	kind := "HetznerBareMetalMachine"
-	apiVersion := "v1beta1"
+	apiVersion := "v1beta2"
 
 	expectedRefList3 := make([]metav1.OwnerReference, 0, 2)
 	expectedRefList3 = append(expectedRefList3, metav1.OwnerReference{
 		Name:       "bm-machine2",
 		Kind:       "HetznerBareMetalMachine",
-		APIVersion: "v1beta1",
+		APIVersion: "v1beta2",
 	})
 
 	DescribeTable("Test RemoveOwnerRefFromList",
@@ -207,7 +207,7 @@ var _ = Describe("Test removeOwnerRefFromList", func() {
 				{
 					Name:       "bm-machine",
 					Kind:       "HetznerBareMetalMachine",
-					APIVersion: "v1beta1",
+					APIVersion: "v1beta2",
 				},
 			},
 			ExpectedRefList: []metav1.OwnerReference{},
@@ -217,14 +217,14 @@ var _ = Describe("Test removeOwnerRefFromList", func() {
 				{
 					Name:       "bm-machine2",
 					Kind:       "HetznerBareMetalMachine",
-					APIVersion: "v1beta1",
+					APIVersion: "v1beta2",
 				},
 			},
 			ExpectedRefList: []metav1.OwnerReference{
 				{
 					Name:       "bm-machine2",
 					Kind:       "HetznerBareMetalMachine",
-					APIVersion: "v1beta1",
+					APIVersion: "v1beta2",
 				},
 			},
 		}),
@@ -233,12 +233,12 @@ var _ = Describe("Test removeOwnerRefFromList", func() {
 				{
 					Name:       "bm-machine2",
 					Kind:       "HetznerBareMetalMachine",
-					APIVersion: "v1beta1",
+					APIVersion: "v1beta2",
 				},
 				{
 					Name:       "bm-machine",
 					Kind:       "HetznerBareMetalMachine",
-					APIVersion: "v1beta1",
+					APIVersion: "v1beta2",
 				},
 			},
 			ExpectedRefList: expectedRefList3,
@@ -254,7 +254,7 @@ var _ = Describe("Test FindOwnerRefFromList", func() {
 
 	name := "bm-machine"
 	kind := "HetznerBareMetalMachine"
-	apiVersion := "v1beta1"
+	apiVersion := "v1beta2"
 
 	DescribeTable("Test FindOwnerRefFromList",
 		func(tc testCaseFindOwnerRefFromList) {
@@ -272,7 +272,7 @@ var _ = Describe("Test FindOwnerRefFromList", func() {
 				{
 					Name:       "bm-machine",
 					Kind:       "HetznerBareMetalMachine",
-					APIVersion: "v1beta1",
+					APIVersion: "v1beta2",
 				},
 			},
 			ExpectedPosition: ptr.To(0),
@@ -282,12 +282,12 @@ var _ = Describe("Test FindOwnerRefFromList", func() {
 				{
 					Name:       "bm-machine2",
 					Kind:       "HetznerBareMetalMachine",
-					APIVersion: "v1beta1",
+					APIVersion: "v1beta2",
 				},
 				{
 					Name:       "bm-machine",
 					Kind:       "HetznerBareMetalMachine",
-					APIVersion: "v1beta1",
+					APIVersion: "v1beta2",
 				},
 			},
 			ExpectedPosition: ptr.To(1),
@@ -297,12 +297,12 @@ var _ = Describe("Test FindOwnerRefFromList", func() {
 				{
 					Name:       "bm-machine",
 					Kind:       "OtherBareMetalMachine",
-					APIVersion: "v1beta1",
+					APIVersion: "v1beta2",
 				},
 				{
 					Name:       "bm-machine",
 					Kind:       "HetznerBareMetalMachine",
-					APIVersion: "v1beta1",
+					APIVersion: "v1beta2",
 				},
 			},
 			ExpectedPosition: ptr.To(1),
@@ -312,12 +312,12 @@ var _ = Describe("Test FindOwnerRefFromList", func() {
 				{
 					Name:       "bm-machine",
 					Kind:       "HetznerBareMetalMachine",
-					APIVersion: "hetzner/v1beta1",
+					APIVersion: "hetzner/v1beta2",
 				},
 				{
 					Name:       "bm-machine",
 					Kind:       "HetznerBareMetalMachine",
-					APIVersion: "v1beta1",
+					APIVersion: "v1beta2",
 				},
 			},
 			ExpectedPosition: ptr.To(1),

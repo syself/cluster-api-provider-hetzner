@@ -41,7 +41,6 @@ type HCloudRemediationTemplateStatus struct {
 // +kubebuilder:resource:path=hcloudremediationtemplates,scope=Namespaced,categories=cluster-api,shortName=hcrt
 // +kubebuilder:subresource:status
 // +kubebuilder:object:root=true
-// +kubebuilder:storageversion
 // +kubebuilder:printcolumn:name="Strategy",type=string,JSONPath=".spec.template.spec.strategy.type",description="Type of the remediation strategy"
 // +kubebuilder:printcolumn:name="Retry limit",type=string,JSONPath=".spec.template.spec.strategy.retryLimit",description="How many times remediation controller should attempt to remediate the node"
 // +kubebuilder:printcolumn:name="Timeout",type=string,JSONPath=".spec.template.spec.strategy.timeout",description="Timeout for the remediation"

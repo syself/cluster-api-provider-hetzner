@@ -30,7 +30,6 @@ type HetznerBareMetalMachineTemplateSpec struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time duration since creation of HetznerBareMetalMachineTemplate"
 // +kubebuilder:resource:path=hetznerbaremetalmachinetemplates,scope=Namespaced,categories=cluster-api,shortName=hbmmt
-// +kubebuilder:storageversion
 type HetznerBareMetalMachineTemplate struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional

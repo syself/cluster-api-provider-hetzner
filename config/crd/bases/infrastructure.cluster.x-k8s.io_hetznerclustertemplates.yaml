@@ -380,4 +380,369 @@ spec:
             type: object
         type: object
     served: true
+    storage: false
+  - name: v1beta2
+    schema:
+      openAPIV3Schema:
+        description: HetznerClusterTemplate is the Schema for the hetznerclustertemplates
+          API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: HetznerClusterTemplateSpec defines the desired state of HetznerClusterTemplate.
+            properties:
+              template:
+                description: HetznerClusterTemplateResource contains spec for HetznerClusterSpec.
+                properties:
+                  metadata:
+                    description: |-
+                      ObjectMeta is metadata that all persisted resources must have, which includes all objects
+                      users must create. This is a copy of customizable fields from metav1.ObjectMeta.
+
+                      ObjectMeta is embedded in `Machine.Spec`, `MachineDeployment.Template` and `MachineSet.Template`,
+                      which are not top-level Kubernetes objects. Given that metav1.ObjectMeta has lots of special cases
+                      and read-only fields which end up in the generated CRD validation, having it as a subset simplifies
+                      the API and some issues that can impact user experience.
+
+                      During the [upgrade to controller-tools@v2](https://github.com/kubernetes-sigs/cluster-api/pull/1054)
+                      for v1alpha2, we noticed a failure would occur running Cluster API test suite against the new CRDs,
+                      specifically `spec.metadata.creationTimestamp in body must be of type string: "null"`.
+                      The investigation showed that `controller-tools@v2` behaves differently than its previous version
+                      when handling types from [metav1](k8s.io/apimachinery/pkg/apis/meta/v1) package.
+
+                      In more details, we found that embedded (non-top level) types that embedded `metav1.ObjectMeta`
+                      had validation properties, including for `creationTimestamp` (metav1.Time).
+                      The `metav1.Time` type specifies a custom json marshaller that, when IsZero() is true, returns `null`
+                      which breaks validation because the field isn't marked as nullable.
+
+                      In future versions, controller-tools@v2 might allow overriding the type and validation for embedded
+                      types. When that happens, this hack should be revisited.
+                    minProperties: 1
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: |-
+                          annotations is an unstructured key value map stored with a resource that may be
+                          set by external tools to store and retrieve arbitrary metadata. They are not
+                          queryable and should be preserved when modifying objects.
+                          More info: http://kubernetes.io/docs/user-guide/annotations
+                        type: object
+                      labels:
+                        additionalProperties:
+                          type: string
+                        description: |-
+                          labels is a map of string keys and values that can be used to organize and categorize
+                          (scope and select) objects. May match selectors of replication controllers
+                          and services.
+                          More info: http://kubernetes.io/docs/user-guide/labels
+                        type: object
+                    type: object
+                  spec:
+                    description: HetznerClusterSpec defines the desired state of HetznerCluster.
+                    properties:
+                      controlPlaneEndpoint:
+                        description: ControlPlaneEndpoint represents the endpoint
+                          used to communicate with the control plane.
+                        minProperties: 1
+                        properties:
+                          host:
+                            description: host is the hostname on which the API server
+                              is serving.
+                            maxLength: 512
+                            minLength: 1
+                            type: string
+                          port:
+                            description: port is the port on which the API server
+                              is serving.
+                            format: int32
+                            maximum: 65535
+                            minimum: 1
+                            type: integer
+                        type: object
+                      controlPlaneLoadBalancer:
+                        description: ControlPlaneLoadBalancer is an optional configuration
+                          for customizing control plane behavior.
+                        properties:
+                          algorithm:
+                            allOf:
+                            - enum:
+                              - round_robin
+                              - least_connections
+                            - enum:
+                              - round_robin
+                              - least_connections
+                            default: round_robin
+                            description: Algorithm defines the type of load balancer
+                              algorithm. It could be round_robin or least_connection.
+                              The default value is "round_robin".
+                            type: string
+                          enabled:
+                            default: true
+                            description: Enabled specifies if a load balancer should
+                              be created.
+                            type: boolean
+                          extraServices:
+                            description: ExtraServices defines how traffic will be
+                              routed from the load balancer to your target server.
+                            items:
+                              description: LoadBalancerServiceSpec defines a load
+                                balancer Target.
+                              properties:
+                                destinationPort:
+                                  description: DestinationPort defines the port on
+                                    the server. It must be a valid port range (1-65535).
+                                  maximum: 65535
+                                  minimum: 1
+                                  type: integer
+                                listenPort:
+                                  description: ListenPort, i.e. source port, defines
+                                    the incoming port open on the load balancer. It
+                                    must be a valid port range (1-65535).
+                                  maximum: 65535
+                                  minimum: 1
+                                  type: integer
+                                protocol:
+                                  description: Protocol specifies the supported load
+                                    balancer Protocol. It could be one of the https,
+                                    http, or tcp.
+                                  enum:
+                                  - http
+                                  - https
+                                  - tcp
+                                  type: string
+                              type: object
+                            type: array
+                          name:
+                            description: Name defines the name of the load balancer.
+                              It can be specified in order to use an existing load
+                              balancer.
+                            type: string
+                          port:
+                            default: 6443
+                            description: Port defines the API Server port. It must
+                              be a valid port range (1-65535). If omitted, the default
+                              value is 6443.
+                            maximum: 65535
+                            minimum: 1
+                            type: integer
+                          region:
+                            description: Region contains the name of the HCloud location
+                              where the load balancer is running.
+                            enum:
+                            - fsn1
+                            - hel1
+                            - nbg1
+                            - ash
+                            - hil
+                            - sin
+                            type: string
+                          type:
+                            default: lb11
+                            description: Type defines the type of load balancer. It
+                              could be one of lb11, lb21, or lb31.
+                            enum:
+                            - lb11
+                            - lb21
+                            - lb31
+                            type: string
+                        type: object
+                      controlPlaneRegions:
+                        description: |-
+                          ControlPlaneRegion consists of a list of HCloud Regions (fsn, nbg, hel). Because HCloud Networks
+                          have a very low latency we could assume in some use cases that a region is behaving like a zone.
+                          https://kubernetes.io/docs/reference/labels-annotations-taints/#topologykubernetesiozone
+                        items:
+                          description: Region is a Hetzner Location.
+                          enum:
+                          - fsn1
+                          - hel1
+                          - nbg1
+                          - ash
+                          - hil
+                          - sin
+                          type: string
+                        type: array
+                      hcloudNetwork:
+                        description: HCloudNetwork defines details about the private
+                          Network for Hetzner Cloud. If left empty, no private Network
+                          is configured.
+                        properties:
+                          cidrBlock:
+                            default: 10.0.0.0/16
+                            description: CIDRBlock defines the cidrBlock of the HCloud
+                              Network. If omitted, default "10.0.0.0/16" will be used.
+                            type: string
+                          enabled:
+                            description: Enabled defines whether the network should
+                              be enabled or not.
+                            type: boolean
+                          networkZone:
+                            default: eu-central
+                            description: |-
+                              NetworkZone specifies the HCloud network zone of the private network.
+                              The zones must be one of eu-central, us-east, or us-west. The default is eu-central.
+                            enum:
+                            - eu-central
+                            - us-east
+                            - us-west
+                            - ap-southeast
+                            type: string
+                          subnetCidrBlock:
+                            default: 10.0.0.0/24
+                            description: |-
+                              SubnetCIDRBlock defines the cidrBlock for the subnet of the HCloud Network.
+                              Note: A subnet is required.
+                            type: string
+                        required:
+                        - enabled
+                        type: object
+                      hcloudPlacementGroups:
+                        items:
+                          description: HCloudPlacementGroupSpec defines a PlacementGroup.
+                          properties:
+                            name:
+                              minLength: 1
+                              type: string
+                            type:
+                              default: spread
+                              enum:
+                              - spread
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        type: array
+                      hetznerSecretRef:
+                        description: |-
+                          HetznerSecretRef is a reference to a token to be used when reconciling this cluster.
+                          This is generated in the security section under API TOKENS. Read & write is necessary.
+                        properties:
+                          key:
+                            description: |-
+                              Key defines the keys that are used in the secret.
+                              Need to specify either HCloudToken or both HetznerRobotUser and HetznerRobotPassword.
+                            properties:
+                              hcloudToken:
+                                default: hcloud-token
+                                description: HCloudToken defines the name of the key
+                                  where the token for the Hetzner Cloud API is stored.
+                                type: string
+                              hetznerRobotPassword:
+                                default: hetzner-robot-password
+                                description: HetznerRobotPassword defines the name
+                                  of the key where the password for the Hetzner Robot
+                                  API is stored.
+                                type: string
+                              hetznerRobotUser:
+                                default: hetzner-robot-user
+                                description: HetznerRobotUser defines the name of
+                                  the key where the username for the Hetzner Robot
+                                  API is stored.
+                                type: string
+                              sshKey:
+                                default: hcloud-ssh-key-name
+                                description: SSHKey defines the name of the ssh key.
+                                type: string
+                            type: object
+                          name:
+                            default: hetzner
+                            description: Name defines the name of the secret.
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                      skipCreatingHetznerSecretInWorkloadCluster:
+                        description: |-
+                          SkipCreatingHetznerSecretInWorkloadCluster indicates whether the Hetzner secret should be
+                          created in the workload cluster. By default the secret gets created, so that the ccm (running
+                          in the wl-cluster) can use that secret. If you prefer to not reveal the secret in the
+                          wl-cluster, you can set this to value to false, so that the secret is not created. Be sure to
+                          run the ccm outside of the wl-cluster in that case, e.g. in the management cluster.
+                        type: boolean
+                      sshKeys:
+                        description: SSHKeys are cluster wide. Valid values are a
+                          valid SSH key name.
+                        properties:
+                          hcloud:
+                            description: Hcloud defines the SSH keys used for hcloud.
+                            items:
+                              description: SSHKey defines the SSHKey for HCloud.
+                              properties:
+                                fingerprint:
+                                  description: Fingerprint defines the fingerprint
+                                    of the SSH key - added by the controller.
+                                  type: string
+                                name:
+                                  description: Name defines the name of the SSH key.
+                                  minLength: 1
+                                  type: string
+                              required:
+                              - name
+                              type: object
+                            type: array
+                          robotRescueSecretRef:
+                            description: RobotRescueSecretRef defines the reference
+                              to the secret where the SSH key for the rescue system
+                              is stored.
+                            properties:
+                              key:
+                                description: Key contains details about the keys used
+                                  in the data of the secret.
+                                properties:
+                                  name:
+                                    description: Name is the key in the secret's data
+                                      where the SSH key's name is stored.
+                                    type: string
+                                  privateKey:
+                                    description: PrivateKey is the key in the secret's
+                                      data where the SSH key's private key is stored.
+                                    type: string
+                                  publicKey:
+                                    description: PublicKey is the key in the secret's
+                                      data where the SSH key's public key is stored.
+                                    type: string
+                                required:
+                                - name
+                                - privateKey
+                                - publicKey
+                                type: object
+                              name:
+                                description: Name is the name of the secret.
+                                type: string
+                            required:
+                            - key
+                            - name
+                            type: object
+                        type: object
+                    required:
+                    - controlPlaneRegions
+                    - hetznerSecretRef
+                    - sshKeys
+                    type: object
+                required:
+                - spec
+                type: object
+            required:
+            - template
+            type: object
+        type: object
+    served: true
     storage: true

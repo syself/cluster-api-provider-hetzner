@@ -16,7 +16,7 @@ limitations under the License.
 
 package v1beta1
 
-import clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+import clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 
 const (
 	// LoadBalancerReadyCondition reports on whether a control plane load balancer was successfully reconciled.
@@ -99,7 +99,9 @@ const (
 )
 
 const (
-	// HostReadyCondition reports on whether the HetznerBareMetalHost is ready or not.
+	// HostReadyCondition reports on whether the HetznerBareMetalHost is ready or not. The hbmm
+	// reconciler reads the clusterv1.ReadyCondition condition from the host, and mirrors the Reason
+	// and Message on the HostReadyCondition of the hbmm.
 	HostReadyCondition clusterv1.ConditionType = "HostReady"
 )
 

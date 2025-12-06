@@ -38,8 +38,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	"k8s.io/klog/v2/textlogger"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	bootstrapv1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
+	bootstrapv1 "sigs.k8s.io/cluster-api/api/bootstrap/kubeadm/v1beta2"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/cmd/clusterctl/log"
 	"sigs.k8s.io/cluster-api/util/kubeconfig"
 	"sigs.k8s.io/cluster-api/util/record"
@@ -50,7 +50,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	robotmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/robot"
 	sshmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/ssh"
@@ -150,6 +150,10 @@ func NewTestEnvironment() *TestEnvironment {
 		panic(err)
 	}
 
+	logLevel := "info"
+	if os.Getenv("DEBUG") != "" {
+		logLevel = "debug"
+	}
 	// Build the controller manager.
 	mgr, err := ctrl.NewManager(env.Config, ctrl.Options{
 		Scheme: scheme,
@@ -167,7 +171,8 @@ func NewTestEnvironment() *TestEnvironment {
 			// Disable MetricsServer, so that two tests processes can run concurrently
 			BindAddress: "0",
 		},
-		Logger: utils.GetDefaultLogger("info"),
+
+		Logger: utils.GetDefaultLogger(logLevel),
 	})
 	if err != nil {
 		klog.Fatalf("unable to create manager: %s", err)

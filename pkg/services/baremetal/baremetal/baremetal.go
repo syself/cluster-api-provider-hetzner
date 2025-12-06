@@ -38,14 +38,14 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/utils/ptr"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	"sigs.k8s.io/cluster-api/util/conditions"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/host"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
@@ -217,14 +217,14 @@ func (s *Service) update(ctx context.Context) error {
 	readyCondition := conditions.Get(host, clusterv1.ReadyCondition)
 	if readyCondition != nil {
 		switch readyCondition.Status {
-		case corev1.ConditionTrue:
+		case metav1.ConditionTrue:
 			conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.HostReadyCondition)
-		case corev1.ConditionFalse:
+		case metav1.ConditionFalse:
 			conditions.MarkFalse(
 				s.scope.BareMetalMachine,
 				infrav1.HostReadyCondition,
 				readyCondition.Reason,
-				readyCondition.Severity,
+				clusterv1.ConditionSeverityInfo,
 				"%s",
 				readyCondition.Message,
 			)
