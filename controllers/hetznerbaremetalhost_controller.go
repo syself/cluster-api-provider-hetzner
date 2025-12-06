@@ -154,7 +154,9 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		if err != nil {
 			log.Error(err, "cache sync failed after BootState change")
 		}
-		log.Info("Wait for update being in local cache", "durationWaitForLocalCacheSync", time.Since(startReadOwnWrite).Round(time.Millisecond))
+		if time.Since(startReadOwnWrite) > 50*time.Millisecond {
+			log.Info("Wait for update being in local cache", "durationWaitForLocalCacheSync", time.Since(startReadOwnWrite).Round(time.Millisecond))
+		}
 	}()
 	// End: avoid conflict errors. Wait until local cache is up-to-date
 	// ----------------------------------------------------------------

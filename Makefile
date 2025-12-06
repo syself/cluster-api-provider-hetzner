@@ -203,7 +203,11 @@ else
 	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hetzner --version 2.0.1 \
 	--namespace kube-system \
 	--set privateNetwork.enabled=$(PRIVATE_NETWORK)
+	@echo
 	@echo 'run "kubectl --kubeconfig=$(WORKER_CLUSTER_KUBECONFIG) ..." to work with the new target cluster'
+	@echo
+	@echo "Use 'make watch' to get an overview of the resources, events and logs"
+	@echo
 endif
 
 add-ssh-pub-key:
