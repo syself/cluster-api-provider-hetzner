@@ -174,6 +174,9 @@ wait-and-get-secret: $(KUBECTL)
 	./hack/ensure-env-variables.sh CLUSTER_NAME
 	# Wait for the kubeconfig to become available.
 	rm -f $(WORKER_CLUSTER_KUBECONFIG)
+	@echo
+	@echo "You can use 'make watch' to get an overview"
+	@echo
 	${TIMEOUT} --foreground 5m bash -c "while ! $(KUBECTL) get secrets | grep $(CLUSTER_NAME)-kubeconfig; do sleep 1; done"
 	# Get kubeconfig and store it locally.
 	./hack/get-kubeconfig-of-workload-cluster.sh
