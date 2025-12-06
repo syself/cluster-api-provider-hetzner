@@ -2201,6 +2201,14 @@ func (s *Service) actionDeprovisioning(_ context.Context) actionResult {
 		s.scope.HetznerBareMetalHost.Spec.ConsumerRef.Name,
 	); err != nil {
 		s.handleRobotRateLimitExceeded(err, "SetBMServerName")
+		if models.IsError(err, models.ErrorCodeServerNotFound) {
+			msg := "server not found in Robot API during deprovisioning, assuming already removed"
+			s.scope.Logger.Info(msg)
+			// Clear previous errors/conditions so deletion can finish.
+			s.scope.HetznerBareMetalHost.ClearError()
+			conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
+			return actionComplete{}
+		}
 		return actionError{err: fmt.Errorf("failed to update name of host in robot API: %w", err)}
 	}
 
