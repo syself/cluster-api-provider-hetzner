@@ -956,6 +956,15 @@ spec:
                       type: string
                   type: object
                 type: array
+              initialization:
+                description: Initialization captures v1beta2 initialization signals
+                  required by Cluster API controllers.
+                properties:
+                  provisioned:
+                    description: Provisioned is true when the infrastructure provider
+                      reports that the cluster infrastructure is fully provisioned.
+                    type: boolean
+                type: object
               networkStatus:
                 description: NetworkStatus defines the observed state of the HCloud
                   Private Network.

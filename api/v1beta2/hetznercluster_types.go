@@ -83,6 +83,10 @@ type HetznerClusterStatus struct {
 	// +kubebuilder:default=false
 	Ready bool `json:"ready"`
 
+	// Initialization captures v1beta2 initialization signals required by Cluster API controllers.
+	// +optional
+	Initialization *ClusterInitializationStatus `json:"initialization,omitempty"`
+
 	// +optional
 	Network *NetworkStatus `json:"networkStatus,omitempty"`
 
@@ -125,6 +129,13 @@ type HetznerClusterList struct {
 }
 
 var _ capiconditions.Setter = &HetznerCluster{}
+
+// ClusterInitializationStatus holds provisioning signals consumed by CAPI.
+type ClusterInitializationStatus struct {
+	// Provisioned is true when the infrastructure provider reports that the cluster infrastructure is fully provisioned.
+	// +optional
+	Provisioned bool `json:"provisioned,omitempty"`
+}
 
 // GetConditions returns the observations of the operational state of the HetznerCluster resource.
 func (r *HetznerCluster) GetConditions() []metav1.Condition {

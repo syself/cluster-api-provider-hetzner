@@ -259,6 +259,12 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 }
 
 func processControlPlaneEndpoint(hetznerCluster *infrav1.HetznerCluster) {
+	ensureInitialization := func() {
+		if hetznerCluster.Status.Initialization == nil {
+			hetznerCluster.Status.Initialization = &infrav1.ClusterInitializationStatus{}
+		}
+	}
+
 	if hetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
 		if hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4 != "<nil>" {
 			defaultHost := hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4
@@ -281,6 +287,8 @@ func processControlPlaneEndpoint(hetznerCluster *infrav1.HetznerCluster) {
 				}
 			}
 			conditions.MarkTrue(hetznerCluster, infrav1.ControlPlaneEndpointSetCondition)
+			ensureInitialization()
+			hetznerCluster.Status.Initialization.Provisioned = true
 			conditions.MarkTrue(hetznerCluster, clusterv1.InfrastructureReadyCondition)
 			hetznerCluster.Status.Ready = true
 		} else {
@@ -290,6 +298,8 @@ func processControlPlaneEndpoint(hetznerCluster *infrav1.HetznerCluster) {
 				infrav1.ControlPlaneEndpointNotSetReason,
 				clusterv1.ConditionSeverityWarning,
 				msg)
+			ensureInitialization()
+			hetznerCluster.Status.Initialization.Provisioned = false
 			conditions.MarkFalse(hetznerCluster,
 				clusterv1.InfrastructureReadyCondition,
 				infrav1.ControlPlaneEndpointNotSetReason,
@@ -300,6 +310,8 @@ func processControlPlaneEndpoint(hetznerCluster *infrav1.HetznerCluster) {
 	} else {
 		if hetznerCluster.Spec.ControlPlaneEndpoint != nil && hetznerCluster.Spec.ControlPlaneEndpoint.Host != "" && hetznerCluster.Spec.ControlPlaneEndpoint.Port != 0 {
 			conditions.MarkTrue(hetznerCluster, infrav1.ControlPlaneEndpointSetCondition)
+			ensureInitialization()
+			hetznerCluster.Status.Initialization.Provisioned = true
 			conditions.MarkTrue(hetznerCluster, clusterv1.InfrastructureReadyCondition)
 			hetznerCluster.Status.Ready = true
 		} else {
@@ -309,6 +321,8 @@ func processControlPlaneEndpoint(hetznerCluster *infrav1.HetznerCluster) {
 				infrav1.ControlPlaneEndpointNotSetReason,
 				clusterv1.ConditionSeverityWarning,
 				msg)
+			ensureInitialization()
+			hetznerCluster.Status.Initialization.Provisioned = false
 			conditions.MarkFalse(hetznerCluster,
 				clusterv1.InfrastructureReadyCondition,
 				infrav1.ControlPlaneEndpointNotSetReason,
