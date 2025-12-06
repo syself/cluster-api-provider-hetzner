@@ -104,6 +104,13 @@ func SetSummary(obj capiconditions.Setter) {
 	}
 
 	capiconditions.Set(obj, *summary)
+
+	// Reduce noise: when everything is healthy, surface a simple Ready reason instead of InfoReported.
+	readyCond := capiconditions.Get(obj, readyConditionType)
+	if readyCond != nil && readyCond.Status == metav1.ConditionTrue && readyCond.Reason == "InfoReported" {
+		readyCond.Reason = "Ready"
+		capiconditions.Set(obj, *readyCond)
+	}
 }
 
 // Delete removes a condition from the object.
