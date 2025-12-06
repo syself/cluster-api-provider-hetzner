@@ -110,6 +110,11 @@ type HCloudMachineStatus struct {
 	// Region contains the name of the HCloud location the server is running.
 	Region Region `json:"region,omitempty"`
 
+	// Initialization captures v1beta2 initialization signals required by Cluster API controllers.
+	// NOTE: this is required by the Cluster API contract starting with v1beta2.
+	// +optional
+	Initialization *MachineInitializationStatus `json:"initialization,omitempty"`
+
 	// SSHKeys specifies the ssh keys that were used for provisioning the server.
 	SSHKeys []SSHKey `json:"sshKeys,omitempty"`
 

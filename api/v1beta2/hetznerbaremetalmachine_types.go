@@ -312,6 +312,11 @@ type HetznerBareMetalMachineStatus struct {
 	// +optional
 	Addresses []clusterv1.MachineAddress `json:"addresses,omitempty"`
 
+	// Initialization captures v1beta2 initialization signals required by Cluster API controllers.
+	// NOTE: this is required by the Cluster API contract starting with v1beta2.
+	// +optional
+	Initialization *MachineInitializationStatus `json:"initialization,omitempty"`
+
 	// Ready is the state of the hetznerbaremetalmachine.
 	// +optional
 	Ready bool `json:"ready"`

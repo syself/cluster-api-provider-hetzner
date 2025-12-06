@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
 	capiconditions "sigs.k8s.io/cluster-api/util/conditions"
@@ -174,6 +175,7 @@ func (m *MachineScope) SetRegion(region string) {
 func (m *MachineScope) SetProviderID(serverID int64) {
 	providerID := fmt.Sprintf("hcloud://%d", serverID)
 	m.HCloudMachine.Spec.ProviderID = &providerID
+	m.MarkInfrastructureProvisioned()
 }
 
 // ServerIDFromProviderID converts the ProviderID (hcloud://NNNN) to the ServerID.
@@ -196,6 +198,14 @@ func (m *MachineScope) ServerIDFromProviderID() (int64, error) {
 // SetReady sets the ready field on the machine.
 func (m *MachineScope) SetReady(ready bool) {
 	m.HCloudMachine.Status.Ready = ready
+}
+
+// MarkInfrastructureProvisioned surfaces the initialization signal required by CAPI v1beta2.
+func (m *MachineScope) MarkInfrastructureProvisioned() {
+	if m.HCloudMachine.Status.Initialization == nil {
+		m.HCloudMachine.Status.Initialization = &infrav1.MachineInitializationStatus{}
+	}
+	m.HCloudMachine.Status.Initialization.Provisioned = ptr.To(true)
 }
 
 // HasServerAvailableCondition checks whether ServerAvailable condition is set on true.

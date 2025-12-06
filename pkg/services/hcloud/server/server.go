@@ -132,6 +132,8 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 			// no need to requeue.
 			return reconcile.Result{}, nil
 		}
+
+		s.scope.MarkInfrastructureProvisioned()
 	}
 
 	switch s.scope.HCloudMachine.Status.BootState {

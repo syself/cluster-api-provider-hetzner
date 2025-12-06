@@ -813,6 +813,16 @@ spec:
 
                   Deprecated: This field is deprecated and is going to be removed when support for v1beta2 will be dropped. Please see https://github.com/kubernetes-sigs/cluster-api/blob/main/docs/proposals/20240916-improve-status-in-CAPI-resources.md for more details.
                 type: string
+              initialization:
+                description: |-
+                  Initialization captures v1beta2 initialization signals required by Cluster API controllers.
+                  NOTE: this is required by the Cluster API contract starting with v1beta2.
+                properties:
+                  provisioned:
+                    description: Provisioned is true when the infrastructure provider
+                      reports the machine is fully provisioned.
+                    type: boolean
+                type: object
               lastUpdated:
                 description: LastUpdated identifies when this status was last observed.
                 format: date-time

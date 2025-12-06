@@ -643,6 +643,7 @@ func getLabelSelector(hbmm *infrav1.HetznerBareMetalMachine) labels.Selector {
 func (s *Service) setProviderID(ctx context.Context) error {
 	// nothing to do if providerID is set
 	if s.scope.BareMetalMachine.Spec.ProviderID != nil {
+		s.scope.MarkInfrastructureProvisioned()
 		s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhaseRunning
 		return nil
 	}
@@ -670,6 +671,7 @@ func (s *Service) setProviderID(ctx context.Context) error {
 	// set providerID
 	providerID := providerIDFromServerID(host.Spec.ServerID)
 	s.scope.BareMetalMachine.Spec.ProviderID = &providerID
+	s.scope.MarkInfrastructureProvisioned()
 	s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhaseRunning
 
 	return nil
