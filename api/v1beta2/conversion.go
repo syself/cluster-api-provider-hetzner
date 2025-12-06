@@ -33,3 +33,51 @@ func (*HCloudMachineTemplate) Hub() {}
 
 // Hub marks HCloudMachineTemplateList as a conversion hub.
 func (*HCloudMachineTemplateList) Hub() {}
+
+// Hub marks HCloudRemediation as a conversion hub.
+func (*HCloudRemediation) Hub() {}
+
+// Hub marks HCloudRemediationList as a conversion hub.
+func (*HCloudRemediationList) Hub() {}
+
+// Hub marks HCloudRemediationTemplate as a conversion hub.
+func (*HCloudRemediationTemplate) Hub() {}
+
+// Hub marks HCloudRemediationTemplateList as a conversion hub.
+func (*HCloudRemediationTemplateList) Hub() {}
+
+// Hub marks HetznerBareMetalHost as a conversion hub.
+func (*HetznerBareMetalHost) Hub() {}
+
+// Hub marks HetznerBareMetalHostList as a conversion hub.
+func (*HetznerBareMetalHostList) Hub() {}
+
+// Hub marks HetznerBareMetalMachine as a conversion hub.
+func (*HetznerBareMetalMachine) Hub() {}
+
+// Hub marks HetznerBareMetalMachineList as a conversion hub.
+func (*HetznerBareMetalMachineList) Hub() {}
+
+// Hub marks HetznerBareMetalMachineTemplate as a conversion hub.
+func (*HetznerBareMetalMachineTemplate) Hub() {}
+
+// Hub marks HetznerBareMetalMachineTemplateList as a conversion hub.
+func (*HetznerBareMetalMachineTemplateList) Hub() {}
+
+// Hub marks HetznerBareMetalRemediation as a conversion hub.
+func (*HetznerBareMetalRemediation) Hub() {}
+
+// Hub marks HetznerBareMetalRemediationList as a conversion hub.
+func (*HetznerBareMetalRemediationList) Hub() {}
+
+// Hub marks HetznerBareMetalRemediationTemplate as a conversion hub.
+func (*HetznerBareMetalRemediationTemplate) Hub() {}
+
+// Hub marks HetznerBareMetalRemediationTemplateList as a conversion hub.
+func (*HetznerBareMetalRemediationTemplateList) Hub() {}
+
+// Hub marks HetznerClusterTemplate as a conversion hub.
+func (*HetznerClusterTemplate) Hub() {}
+
+// Hub marks HetznerClusterTemplateList as a conversion hub.
+func (*HetznerClusterTemplateList) Hub() {}
