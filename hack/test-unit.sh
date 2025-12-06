@@ -68,3 +68,5 @@ go run github.com/gametimesf/gocov/gocov@latest convert .coverage/cover.out |
     go run github.com/AlekSi/gocov-xml@latest >.coverage/cover.xml
 
 pipx run pycobertura show --format html --output .coverage/cover.html --source "$PWD" .coverage/cover.xml
+
+echo "Created .coverage/cover.html"
