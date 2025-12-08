@@ -264,13 +264,14 @@ delete-workload-cluster: ## Deletes the example workload Kubernetes cluster
 	${TIMEOUT} --foreground 15m bash -c "while $(KUBECTL) get cluster | grep $(NAME); do sleep 1; done"
 	@echo 'Cluster deleted'
 
-create-mgt-cluster: $(CLUSTERCTL) $(KUBECTL) cluster ## Start a mgt-cluster with the latest version of all capi components and the infra provider.
+create-mgt-cluster: $(CLUSTERCTL) $(KUBECTL) cluster ## Start a mgt-cluster with the latest **released** version of all capi components and the infra provider.
 	$(CLUSTERCTL) init --core cluster-api --bootstrap kubeadm --control-plane kubeadm --infrastructure $(INFRA_PROVIDER)
 	$(KUBECTL) create secret generic $(INFRA_PROVIDER) --from-literal=hcloud=$(HCLOUD_TOKEN) --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
 	$(KUBECTL) patch secret $(INFRA_PROVIDER) -p '{"metadata":{"labels":{"clusterctl.cluster.x-k8s.io/move":""}}}'
+	@echo "Your next step, for example: make create-workload-cluster-hetzner-hcloud-control-plane"
 
 .PHONY: cluster
-cluster: $(CTLPTL) $(KUBECTL) ## Creates kind-dev Cluster
+cluster: $(CTLPTL) $(KUBECTL) ## Creates kind-dev management cluster
 	@# Fail early: Test if HCLOUD_TOKEN is valid. Background: After Tilt started, changing .envrc has no effect for processes
 	@# started via Tilt. That's why this should fail early.
 	@curl -fsS -H "Authorization: Bearer $$HCLOUD_TOKEN" 'https://api.hetzner.cloud/v1/ssh_keys' > /dev/null || (echo "HCLOUD_TOKEN is invalid (might help: ./hack/ci-e2e-get-token.sh and update .envrc)"; exit 1)
