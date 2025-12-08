@@ -48,13 +48,12 @@ if [[ -z "${HCLOUD_TOKEN:-}" ]]; then
     echo "Error: HCLOUD_TOKEN environment variable is not set or empty."
     exit 2
 fi
-SECRET=hcloud
 NAME="$2"
 
 BIN=./hack/tools/bin
 
 secret_args=(
-    create secret generic "$SECRET"
+    create secret generic hetzner
     --from-literal=hcloud="$HCLOUD_TOKEN"
 )
 
