@@ -227,28 +227,28 @@ env-vars-for-wl-cluster:
 create-workload-cluster-hcloud: env-vars-for-wl-cluster $(KUSTOMIZE) install-crds ## Creates a workload-cluster.
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN
-	./hack/create-workload-cluster.sh $(INFRA_PROVIDER) hcloud
+	./hack/create-workload-cluster.sh v1beta2 hcloud
 
 create-workload-cluster-hcloud-network: env-vars-for-wl-cluster $(KUSTOMIZE) ## Creates a workload-cluster.
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN
-	./hack/create-workload-cluster.sh $(INFRA_PROVIDER) hcloud-network
+	./hack/create-workload-cluster.sh v1beta2 hcloud-network
 
 # Use that, if you want to test hcloud control-planes, hcloud worker and bm worker.
 create-workload-cluster-hetzner-hcloud-control-plane: env-vars-for-wl-cluster $(KUSTOMIZE) ## Creates a workload-cluster.
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN HETZNER_ROBOT_USER HETZNER_ROBOT_PASSWORD HETZNER_SSH_PRIV_PATH HETZNER_SSH_PUB_PATH SSH_KEY_NAME
-	./hack/create-workload-cluster.sh --robot $(INFRA_PROVIDER) hetzner-hcloud-control-planes
+	./hack/create-workload-cluster.sh --robot v1beta2 hetzner-hcloud-control-planes
 
 create-workload-cluster-hetzner-baremetal-control-plane: env-vars-for-wl-cluster $(KUSTOMIZE) ## Creates a workload-cluster.
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN HETZNER_ROBOT_USER HETZNER_ROBOT_PASSWORD HETZNER_SSH_PRIV_PATH HETZNER_SSH_PUB_PATH SSH_KEY_NAME
-	./hack/create-workload-cluster.sh --robot $(INFRA_PROVIDER) hetzner-baremetal-control-plane
+	./hack/create-workload-cluster.sh --robot v1beta2 hetzner-baremetal-control-plane
 
 create-workload-cluster-hetzner-baremetal-control-plane-remediation: env-vars-for-wl-cluster $(KUSTOMIZE) ## Creates a workload-cluster.
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN HETZNER_ROBOT_USER HETZNER_ROBOT_PASSWORD HETZNER_SSH_PRIV_PATH HETZNER_SSH_PUB_PATH SSH_KEY_NAME
-	./hack/create-workload-cluster.sh --robot $(INFRA_PROVIDER) hetzner-baremetal-control-plane-remediation
+	./hack/create-workload-cluster.sh --robot v1beta2 hetzner-baremetal-control-plane-remediation
 
 move-to-workload-cluster: $(CLUSTERCTL)
 	$(CLUSTERCTL) init --kubeconfig=$(WORKER_CLUSTER_KUBECONFIG) --core cluster-api --bootstrap kubeadm --control-plane kubeadm --infrastructure $(INFRA_PROVIDER)

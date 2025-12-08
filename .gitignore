@@ -61,7 +61,7 @@ resp.json
 # release artifacts
 out
 _releasenotes
-/generated/*.yaml
+/generated/v1*
 
 # Helm
 .helm

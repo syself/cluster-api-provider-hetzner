@@ -1,0 +1,800 @@
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: ClusterClass
+metadata:
+  name: quick-start
+spec:
+  controlPlane:
+    ref:
+      apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+      kind: KubeadmControlPlaneTemplate
+      name: quick-start-control-plane
+    machineInfrastructure:
+      ref:
+        kind: HCloudMachineTemplate
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        name: quick-start-hcloud-machinetemplate
+    machineHealthCheck:
+      maxUnhealthy: 33%
+      nodeStartupTimeout: 15m
+      unhealthyConditions:
+        - type: Ready
+          status: Unknown
+          timeout: 300s
+        - type: Ready
+          status: "False"
+          timeout: 300s
+  infrastructure:
+    ref:
+      apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+      kind: HetznerClusterTemplate
+      name: quick-start-cluster
+  workers:
+    machineDeployments:
+      - class: hcloud-worker
+        template:
+          bootstrap:
+            ref:
+              apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+              kind: KubeadmConfigTemplate
+              name: quick-start-hcloud-worker-bootstraptemplate
+          infrastructure:
+            ref:
+              apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+              kind: HCloudMachineTemplate
+              name: quick-start-hcloud-machinetemplate
+        machineHealthCheck:
+          unhealthyRange: "[0-2]"
+          nodeStartupTimeout: 10m
+          unhealthyConditions:
+            - type: Ready
+              status: Unknown
+              timeout: 300s
+            - type: Ready
+              status: "False"
+              timeout: 300s
+      - class: baremetal-worker
+        template:
+          bootstrap:
+            ref:
+              apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+              kind: KubeadmConfigTemplate
+              name: quick-start-baremetal-worker-bootstraptemplate
+          infrastructure:
+            ref:
+              apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+              kind: HetznerBareMetalMachineTemplate
+              name: quick-start-baremetal-machinetemplate
+        machineHealthCheck:
+          maxUnhealthy: 1
+          nodeStartupTimeout: 15m
+          remediationTemplate:
+            apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+            kind: HetznerBareMetalRemediationTemplate
+            name: quick-start-worker-remediation-request
+            namespace: default
+          unhealthyConditions:
+            - type: Ready
+              status: Unknown
+              timeout: 300s
+            - type: Ready
+              status: "False"
+              timeout: 300s
+  variables:
+    - name: clusterEndpointHost
+      required: false
+      schema:
+        openAPIV3Schema:
+          type: string
+          default: ""
+    - name: clusterEndpointPort
+      required: false
+      schema:
+        openAPIV3Schema:
+          type: integer
+          default: 443
+    - name: clusterLoadBalancerType
+      required: false
+      schema:
+        openAPIV3Schema:
+          type: string
+          default: "lb11"
+    - name: clusterLoadBalancerExtraServices
+      required: false
+      schema:
+        openAPIV3Schema:
+          type: array
+          default: []
+          items:
+            type: object
+            properties:
+              protocol:
+                type: string
+              listenPort:
+                type: integer
+              destinationPort:
+                type: integer
+    - name: hcloudPlacementGroups
+      required: false
+      schema:
+        openAPIV3Schema:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              type:
+                type: string
+    - name: hcloudNetwork
+      required: false
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+            cidrBlock:
+              type: string
+            subnetCidrBlock:
+              type: string
+            networkZone:
+              type: string
+    - name: hcloudSSHKeyName
+      required: true
+      schema:
+        openAPIV3Schema:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+    - name: region
+      required: true
+      schema:
+        openAPIV3Schema:
+          type: string
+          default: fsn1
+    - name: hcloudControlPlaneMachineType
+      required: true
+      schema:
+        openAPIV3Schema:
+          type: string
+          default: cx31
+    - name: hcloudControlPlaneMachineImageName
+      required: true
+      schema:
+        openAPIV3Schema:
+          type: string
+          default: ubuntu-24.04
+    - name: hcloudControlPlanePlacementGroupName
+      required: false
+      schema:
+        openAPIV3Schema:
+          type: string
+    - name: hcloudWorkerMachineType
+      required: true
+      schema:
+        openAPIV3Schema:
+          type: string
+          default: cx21
+    - name: hcloudWorkerMachineImageName
+      required: true
+      schema:
+        openAPIV3Schema:
+          type: string
+          default: ubuntu-24.04
+    - name: hcloudWorkerMachinePlacementGroupName
+      required: false
+      schema:
+        openAPIV3Schema:
+          type: string
+    - name: bareMetalWorkerHostSelector
+      required: false
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            matchExpressions:
+              type: array
+              items:
+                type: object
+                properties:
+                  key:
+                    type: string
+                  operator:
+                    type: string
+                  values:
+                    type: array
+                    items:
+                      type: string
+            matchLabels:
+              type: object
+              x-kubernetes-preserve-unknown-fields: true
+    - name: bareMetalWorkerRaidEnabled
+      required: false
+      schema:
+        openAPIV3Schema:
+          type: boolean
+    - name: bareMetalWorkerRaidLevel
+      required: false
+      schema:
+        openAPIV3Schema:
+          type: integer
+          default: 1
+  patches:
+    - name: HetznerClusterTemplateGeneral
+      definitions:
+        - selector:
+            apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+            kind: HetznerClusterTemplate
+            matchResources:
+              infrastructureCluster: true
+          jsonPatches:
+            - op: replace
+              path: "/spec/template/spec/controlPlaneEndpoint/host"
+              valueFrom:
+                variable: clusterEndpointHost
+            - op: replace
+              path: "/spec/template/spec/controlPlaneEndpoint/port"
+              valueFrom:
+                variable: clusterEndpointPort
+            - op: add
+              path: "/spec/template/spec/controlPlaneLoadBalancer/type"
+              valueFrom:
+                variable: clusterLoadBalancerType
+            - op: add
+              path: "/spec/template/spec/controlPlaneLoadBalancer/extraServices"
+              valueFrom:
+                variable: clusterLoadBalancerExtraServices
+            - op: add
+              path: "/spec/template/spec/hcloudPlacementGroups"
+              valueFrom:
+                variable: hcloudPlacementGroups
+            - op: add
+              path: "/spec/template/spec/sshKeys/hcloud"
+              valueFrom:
+                variable: hcloudSSHKeyName
+            - op: add
+              path: "/spec/template/spec/controlPlaneRegions"
+              valueFrom:
+                template: "[{{ .region | quote }}]"
+            - op: add
+              path: "/spec/template/spec/controlPlaneLoadBalancer/region"
+              valueFrom:
+                variable: region
+    - name: HetznerClusterTemplateNetwork
+      enabledIf: "{{ if .hcloudNetwork.enabled }}true{{end}}"
+      definitions:
+        - selector:
+            apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+            kind: HetznerClusterTemplate
+            matchResources:
+              infrastructureCluster: true
+          jsonPatches:
+            - op: add
+              path: "/spec/template/spec/hcloudNetwork"
+              valueFrom:
+                variable: hcloudNetwork
+    - name: HCloudMachineTemplateControlPlane
+      definitions:
+        - selector:
+            apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+            kind: HCloudMachineTemplate
+            matchResources:
+              controlPlane: true
+          jsonPatches:
+            - op: replace
+              path: "/spec/template/spec/type"
+              valueFrom:
+                variable: hcloudControlPlaneMachineType
+            - op: replace
+              path: "/spec/template/spec/imageName"
+              valueFrom:
+                variable: hcloudControlPlaneMachineImageName
+            - op: add
+              path: "/spec/template/spec/placementGroupName"
+              valueFrom:
+                variable: hcloudControlPlanePlacementGroupName
+    - name: HCloudMachineTemplateWorker
+      definitions:
+        - selector:
+            apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+            kind: HCloudMachineTemplate
+            matchResources:
+              machineDeploymentClass:
+                names:
+                  - hcloud-worker
+          jsonPatches:
+            - op: replace
+              path: "/spec/template/spec/type"
+              valueFrom:
+                variable: hcloudWorkerMachineType
+            - op: replace
+              path: "/spec/template/spec/imageName"
+              valueFrom:
+                variable: hcloudWorkerMachineImageName
+            - op: add
+              path: "/spec/template/spec/placementGroupName"
+              valueFrom:
+                variable: hcloudWorkerMachinePlacementGroupName
+    - name: HetznerBareMetalMachineTemplateWorker
+      definitions:
+        - selector:
+            apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+            kind: HetznerBareMetalMachineTemplate
+            matchResources:
+              machineDeploymentClass:
+                names:
+                  - baremetal-worker
+          jsonPatches:
+            - op: add
+              path: "/spec/template/spec/hostSelector"
+              valueFrom:
+                variable: bareMetalWorkerHostSelector
+            - op: replace
+              path: "/spec/template/spec/installImage/swraid"
+              valueFrom:
+                template: "{{ if .bareMetalWorkerRaidEnabled }}1{{else}}0{{end}}"
+            - op: replace
+              path: "/spec/template/spec/installImage/swraidLevel"
+              valueFrom:
+                variable: bareMetalWorkerRaidLevel
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: HetznerClusterTemplate
+metadata:
+  name: quick-start-cluster
+spec:
+  template:
+    spec:
+      controlPlaneEndpoint:
+        host: ""
+        port: 443
+      controlPlaneLoadBalancer:
+        region: fsn1
+      controlPlaneRegions: []
+      hcloudNetwork:
+        enabled: false
+      hetznerSecretRef:
+        key:
+          hcloudToken: hcloud
+          hetznerRobotPassword: robot-password
+          hetznerRobotUser: robot-user
+        name: hetzner
+      sshKeys:
+        hcloud: []
+        robotRescueSecretRef:
+          key:
+            name: sshkey-name
+            privateKey: ssh-privatekey
+            publicKey: ssh-publickey
+          name: robot-ssh
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: HCloudMachineTemplate
+metadata:
+  name: quick-start-hcloud-machinetemplate
+spec:
+  template:
+    spec:
+      imageName: ubuntu-24.04
+      type: cx21
+---
+apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+kind: KubeadmControlPlaneTemplate
+metadata:
+  name: quick-start-control-plane
+spec:
+  template:
+    spec:
+      kubeadmConfigSpec:
+        clusterConfiguration:
+          apiServer:
+            extraArgs:
+              authorization-mode: Node,RBAC
+              client-ca-file: /etc/kubernetes/pki/ca.crt
+              cloud-provider: external
+              default-not-ready-toleration-seconds: "45"
+              default-unreachable-toleration-seconds: "45"
+              enable-aggregator-routing: "true"
+              enable-bootstrap-token-auth: "true"
+              etcd-cafile: /etc/kubernetes/pki/etcd/ca.crt
+              etcd-certfile: /etc/kubernetes/pki/etcd/server.crt
+              etcd-keyfile: /etc/kubernetes/pki/etcd/server.key
+              kubelet-client-certificate: /etc/kubernetes/pki/apiserver-kubelet-client.crt
+              kubelet-client-key: /etc/kubernetes/pki/apiserver-kubelet-client.key
+              kubelet-preferred-address-types: ExternalIP,Hostname,InternalDNS,ExternalDNS
+              profiling: "false"
+              proxy-client-cert-file: /etc/kubernetes/pki/front-proxy-client.crt
+              proxy-client-key-file: /etc/kubernetes/pki/front-proxy-client.key
+              requestheader-allowed-names: front-proxy-client
+              requestheader-client-ca-file: /etc/kubernetes/pki/front-proxy-ca.crt
+              requestheader-extra-headers-prefix: X-Remote-Extra-
+              requestheader-group-headers: X-Remote-Group
+              requestheader-username-headers: X-Remote-User
+              service-account-key-file: /etc/kubernetes/pki/sa.pub
+              service-account-lookup: "true"
+              tls-cert-file: /etc/kubernetes/pki/apiserver.crt
+              tls-cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
+              tls-private-key-file: /etc/kubernetes/pki/apiserver.key
+          controllerManager:
+            extraArgs:
+              allocate-node-cidrs: "true"
+              authentication-kubeconfig: /etc/kubernetes/controller-manager.conf
+              authorization-kubeconfig: /etc/kubernetes/controller-manager.conf
+              bind-address: 0.0.0.0
+              cloud-provider: external
+              cluster-signing-cert-file: /etc/kubernetes/pki/ca.crt
+              cluster-signing-duration: 6h0m0s
+              cluster-signing-key-file: /etc/kubernetes/pki/ca.key
+              kubeconfig: /etc/kubernetes/controller-manager.conf
+              profiling: "false"
+              requestheader-client-ca-file: /etc/kubernetes/pki/front-proxy-ca.crt
+              root-ca-file: /etc/kubernetes/pki/ca.crt
+              secure-port: "10257"
+              service-account-private-key-file: /etc/kubernetes/pki/sa.key
+              terminated-pod-gc-threshold: "10"
+              use-service-account-credentials: "true"
+          etcd:
+            local:
+              dataDir: /var/lib/etcd
+              extraArgs:
+                auto-tls: "false"
+                cert-file: /etc/kubernetes/pki/etcd/server.crt
+                cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
+                client-cert-auth: "true"
+                key-file: /etc/kubernetes/pki/etcd/server.key
+                peer-auto-tls: "false"
+                peer-client-cert-auth: "true"
+                trusted-ca-file: /etc/kubernetes/pki/etcd/ca.crt
+          scheduler:
+            extraArgs:
+              bind-address: 0.0.0.0
+              kubeconfig: /etc/kubernetes/scheduler.conf
+              profiling: "false"
+              secure-port: "10259"
+        files:
+          - content: |
+              net.ipv4.conf.lxc*.rp_filter = 0
+            owner: root:root
+            path: /etc/sysctl.d/99-cilium.conf
+            permissions: "0744"
+          - content: |
+              overlay
+              br_netfilter
+            owner: root:root
+            path: /etc/modules-load.d/crio.conf
+            permissions: "0744"
+          - content: |
+              net.bridge.bridge-nf-call-iptables  = 1
+              net.bridge.bridge-nf-call-ip6tables = 1
+              net.ipv4.ip_forward                 = 1
+            owner: root:root
+            path: /etc/sysctl.d/99-kubernetes-cri.conf
+            permissions: "0744"
+          - content: |
+              vm.overcommit_memory=1
+              kernel.panic=10
+              kernel.panic_on_oops=1
+            owner: root:root
+            path: /etc/sysctl.d/99-kubelet.conf
+            permissions: "0744"
+          - content: |
+              nameserver 1.1.1.1
+              nameserver 1.0.0.1
+              nameserver 2606:4700:4700::1111
+            owner: root:root
+            path: /etc/kubernetes/resolv.conf
+            permissions: "0744"
+        initConfiguration:
+          nodeRegistration:
+            kubeletExtraArgs:
+              anonymous-auth: "false"
+              authentication-token-webhook: "true"
+              authorization-mode: Webhook
+              cloud-provider: external
+              event-qps: "5"
+              kubeconfig: /etc/kubernetes/kubelet.conf
+              max-pods: "120"
+              read-only-port: "0"
+              resolv-conf: /etc/kubernetes/resolv.conf
+              rotate-server-certificates: "true"
+              tls-cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
+        joinConfiguration:
+          nodeRegistration:
+            kubeletExtraArgs:
+              anonymous-auth: "false"
+              authentication-token-webhook: "true"
+              authorization-mode: Webhook
+              cloud-provider: external
+              event-qps: "5"
+              kubeconfig: /etc/kubernetes/kubelet.conf
+              max-pods: "120"
+              read-only-port: "0"
+              resolv-conf: /etc/kubernetes/resolv.conf
+              rotate-server-certificates: "true"
+              tls-cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
+        preKubeadmCommands:
+          - grep VERSION= /etc/os-release; uname -a # Show version info in logs.
+          - export CONTAINERD=1.7.16
+          - export KUBERNETES_VERSION=1.31.6
+          - export TRIMMED_KUBERNETES_VERSION=$(echo ${KUBERNETES_VERSION} | sed 's/^v//' | awk -F . '{print $1 "." $2}')
+          - localectl set-locale LANG=en_US.UTF-8
+          - localectl set-locale LANGUAGE=en_US.UTF-8
+          - apt-get update -y
+          - apt-get -y install at jq unzip wget socat mtr logrotate apt-transport-https
+          - sed -i '/swap/d' /etc/fstab
+          - swapoff -a
+          - modprobe overlay
+          - modprobe br_netfilter
+          - sysctl --system
+          - wget https://github.com/containerd/containerd/releases/download/v$CONTAINERD/cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz
+          - wget https://github.com/containerd/containerd/releases/download/v$CONTAINERD/cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
+          - sha256sum --check cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
+          - tar --no-overwrite-dir -C / -xzf cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz
+          - rm -f cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
+          - chmod -R 644 /etc/cni
+          - chown -R root:root /etc/cni
+          - mkdir -p /etc/containerd
+          - containerd config default > /etc/containerd/config.toml
+          - sed -i  "s/SystemdCgroup = false/SystemdCgroup = true/" /etc/containerd/config.toml
+          - systemctl daemon-reload
+          - systemctl enable containerd
+          - systemctl start containerd
+          - mkdir -p /etc/apt/keyrings/
+          - curl -fsSL https://pkgs.k8s.io/core:/stable:/v$TRIMMED_KUBERNETES_VERSION/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+          - echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v$TRIMMED_KUBERNETES_VERSION/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+          - apt-get update
+          - apt-get install -y kubelet="$KUBERNETES_VERSION-*" kubeadm="$KUBERNETES_VERSION-*" kubectl="$KUBERNETES_VERSION-*" bash-completion
+          - apt-mark hold kubelet kubectl kubeadm
+          - systemctl enable kubelet
+          - kubeadm config images pull --kubernetes-version $KUBERNETES_VERSION
+          - echo 'source <(kubectl completion bash)' >>/root/.bashrc
+          - echo 'export KUBECONFIG=/etc/kubernetes/admin.conf' >>/root/.bashrc
+          - apt-get -y autoremove
+          - apt-get -y clean all
+---
+apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+kind: KubeadmConfigTemplate
+metadata:
+  name: quick-start-hcloud-worker-bootstraptemplate
+spec:
+  template:
+    spec:
+      files:
+        - content: |
+            net.ipv4.conf.lxc*.rp_filter = 0
+          owner: root:root
+          path: /etc/sysctl.d/99-cilium.conf
+          permissions: "0744"
+        - content: |
+            overlay
+            br_netfilter
+          owner: root:root
+          path: /etc/modules-load.d/crio.conf
+          permissions: "0744"
+        - content: |
+            net.bridge.bridge-nf-call-iptables  = 1
+            net.bridge.bridge-nf-call-ip6tables = 1
+            net.ipv4.ip_forward                 = 1
+          owner: root:root
+          path: /etc/sysctl.d/99-kubernetes-cri.conf
+          permissions: "0744"
+        - content: |
+            vm.overcommit_memory=1
+            kernel.panic=10
+            kernel.panic_on_oops=1
+          owner: root:root
+          path: /etc/sysctl.d/99-kubelet.conf
+          permissions: "0744"
+        - content: |
+            nameserver 1.1.1.1
+            nameserver 1.0.0.1
+            nameserver 2606:4700:4700::1111
+          owner: root:root
+          path: /etc/kubernetes/resolv.conf
+          permissions: "0744"
+      joinConfiguration:
+        nodeRegistration:
+          kubeletExtraArgs:
+            anonymous-auth: "false"
+            authentication-token-webhook: "true"
+            authorization-mode: Webhook
+            cloud-provider: external
+            event-qps: "5"
+            kubeconfig: /etc/kubernetes/kubelet.conf
+            max-pods: "220"
+            read-only-port: "0"
+            resolv-conf: /etc/kubernetes/resolv.conf
+            rotate-server-certificates: "true"
+            tls-cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
+      preKubeadmCommands:
+        - grep VERSION= /etc/os-release; uname -a # Show version info in logs.
+        - export CONTAINERD=1.7.16
+        - export KUBERNETES_VERSION=1.31.6
+        - export TRIMMED_KUBERNETES_VERSION=$(echo ${KUBERNETES_VERSION} | sed 's/^v//' | awk -F . '{print $1 "." $2}')
+        - localectl set-locale LANG=en_US.UTF-8
+        - localectl set-locale LANGUAGE=en_US.UTF-8
+        - apt-get update -y
+        - apt-get -y install at jq unzip wget socat mtr logrotate apt-transport-https
+        - sed -i '/swap/d' /etc/fstab
+        - swapoff -a
+        - modprobe overlay
+        - modprobe br_netfilter
+        - sysctl --system
+        - wget https://github.com/containerd/containerd/releases/download/v$CONTAINERD/cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz
+        - wget https://github.com/containerd/containerd/releases/download/v$CONTAINERD/cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
+        - sha256sum --check cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
+        - tar --no-overwrite-dir -C / -xzf cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz
+        - rm -f cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
+        - chmod -R 644 /etc/cni
+        - chown -R root:root /etc/cni
+        - mkdir -p /etc/containerd
+        - containerd config default > /etc/containerd/config.toml
+        - sed -i  "s/SystemdCgroup = false/SystemdCgroup = true/" /etc/containerd/config.toml
+        - systemctl daemon-reload
+        - systemctl enable containerd
+        - systemctl start containerd
+        - mkdir -p /etc/apt/keyrings/
+        - curl -fsSL https://pkgs.k8s.io/core:/stable:/v$TRIMMED_KUBERNETES_VERSION/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+        - echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v$TRIMMED_KUBERNETES_VERSION/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+        - apt-get update
+        - apt-get install -y kubelet="$KUBERNETES_VERSION-*" kubeadm="$KUBERNETES_VERSION-*" kubectl="$KUBERNETES_VERSION-*" bash-completion
+        - apt-mark hold kubelet kubectl kubeadm
+        - systemctl enable kubelet
+        - kubeadm config images pull --kubernetes-version $KUBERNETES_VERSION
+        - echo 'source <(kubectl completion bash)' >>/root/.bashrc
+        - echo 'export KUBECONFIG=/etc/kubernetes/admin.conf' >>/root/.bashrc
+        - apt-get -y autoremove
+        - apt-get -y clean all
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: HetznerBareMetalRemediationTemplate
+metadata:
+  name: quick-start-worker-remediation-request
+spec:
+  template:
+    spec:
+      strategy:
+        retryLimit: 2
+        timeout: 300s
+        type: Reboot
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: HetznerBareMetalMachineTemplate
+metadata:
+  name: quick-start-baremetal-machinetemplate
+spec:
+  template:
+    spec:
+      installImage:
+        swraid: 0
+        swraidLevel: 1
+        image:
+          path: /root/.oldroot/nfs/images/Ubuntu-2404-noble-amd64-base.tar.gz
+        partitions:
+          - fileSystem: esp
+            mount: /boot/efi
+            size: 512M
+          - fileSystem: ext4
+            mount: /boot
+            size: 1024M
+          - fileSystem: ext4
+            mount: /
+            size: all
+        postInstallScript: |
+          #!/bin/bash
+          # Bash Strict Mode: https://github.com/guettli/bash-strict-mode
+          trap 'echo -e "\n🤷 🚨 🔥 Warning: A command has failed. Exiting the script. Line was ($0:$LINENO): $(sed -n "$LINENO"p "$0" 2>/dev/null || true) 🔥 🚨 🤷 "; exit 3' ERR
+          set -Eeuo pipefail
+
+          mkdir -p /etc/cloud/cloud.cfg.d
+          touch /etc/cloud/cloud.cfg.d/99-custom-networking.cfg
+          echo "network: { config: disabled }" > /etc/cloud/cloud.cfg.d/99-custom-networking.cfg
+
+          apt-get update
+
+          apt-get install -y cloud-init apparmor apparmor-utils
+          cloud-init clean --logs
+      sshSpec:
+        portAfterInstallImage: 22
+        secretRef:
+          key:
+            name: sshkey-name
+            privateKey: ssh-privatekey
+            publicKey: ssh-publickey
+          name: robot-ssh
+---
+apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+kind: KubeadmConfigTemplate
+metadata:
+  name: quick-start-baremetal-worker-bootstraptemplate
+spec:
+  template:
+    spec:
+      files:
+        - content: |
+            net.ipv4.conf.lxc*.rp_filter = 0
+          owner: root:root
+          path: /etc/sysctl.d/99-cilium.conf
+          permissions: "0744"
+        - content: |
+            overlay
+            br_netfilter
+          owner: root:root
+          path: /etc/modules-load.d/crio.conf
+          permissions: "0744"
+        - content: |
+            net.bridge.bridge-nf-call-iptables  = 1
+            net.bridge.bridge-nf-call-ip6tables = 1
+            net.ipv4.ip_forward                 = 1
+          owner: root:root
+          path: /etc/sysctl.d/99-kubernetes-cri.conf
+          permissions: "0744"
+        - content: |
+            vm.overcommit_memory=1
+            kernel.panic=10
+            kernel.panic_on_oops=1
+          owner: root:root
+          path: /etc/sysctl.d/99-kubelet.conf
+          permissions: "0744"
+        - content: |
+            nameserver 1.1.1.1
+            nameserver 1.0.0.1
+            nameserver 2606:4700:4700::1111
+          owner: root:root
+          path: /etc/kubernetes/resolv.conf
+          permissions: "0744"
+      joinConfiguration:
+        nodeRegistration:
+          kubeletExtraArgs:
+            anonymous-auth: "false"
+            authentication-token-webhook: "true"
+            authorization-mode: Webhook
+            cloud-provider: external
+            event-qps: "5"
+            kubeconfig: /etc/kubernetes/kubelet.conf
+            max-pods: "220"
+            read-only-port: "0"
+            resolv-conf: /etc/kubernetes/resolv.conf
+            rotate-server-certificates: "true"
+            tls-cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
+      preKubeadmCommands:
+        - grep VERSION= /etc/os-release; uname -a # Show version info in logs.
+        - export CONTAINERD=1.7.16
+        - export KUBERNETES_VERSION=1.31.6
+        - localectl set-locale LANG=en_US.UTF-8
+        - localectl set-locale LANGUAGE=en_US.UTF-8
+        - apt-get update -y
+        - apt-get -y install at jq unzip wget socat mtr logrotate apt-transport-https
+        - sed -i '/swap/d' /etc/fstab
+        - swapoff -a
+        - modprobe overlay
+        - modprobe br_netfilter
+        - sysctl --system
+        - wget https://github.com/containerd/containerd/releases/download/v$CONTAINERD/cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz
+        - wget https://github.com/containerd/containerd/releases/download/v$CONTAINERD/cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
+        - sha256sum --check cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
+        - tar --no-overwrite-dir -C / -xzf cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz
+        - rm -f cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz cri-containerd-cni-$CONTAINERD-linux-amd64.tar.gz.sha256sum
+        - chmod -R 644 /etc/cni
+        - chown -R root:root /etc/cni
+        - mkdir -p /etc/containerd
+        - containerd config default > /etc/containerd/config.toml
+        - sed -i  "s/SystemdCgroup = false/SystemdCgroup = true/" /etc/containerd/config.toml
+        - systemctl daemon-reload
+        - systemctl enable containerd
+        - systemctl start containerd
+        - mkdir -p /etc/apt/keyrings/
+        - curl -fsSL https://pkgs.k8s.io/core:/stable:/v$TRIMMED_KUBERNETES_VERSION/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+        - echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v$TRIMMED_KUBERNETES_VERSION/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+        - apt-get update
+        - apt-get install -y kubelet="$KUBERNETES_VERSION-*" kubeadm="$KUBERNETES_VERSION-*" kubectl="$KUBERNETES_VERSION-*" bash-completion
+        - apt-mark hold kubelet kubectl kubeadm
+        - systemctl enable kubelet
+        - kubeadm config images pull --kubernetes-version $KUBERNETES_VERSION
+        - echo 'source <(kubectl completion bash)' >>/root/.bashrc
+        - echo 'export KUBECONFIG=/etc/kubernetes/admin.conf' >>/root/.bashrc
+        - apt-get -y autoremove
+        - apt-get -y clean all
