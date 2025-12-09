@@ -205,6 +205,11 @@ func (s *Service) Delete(ctx context.Context) (res reconcile.Result, err error) 
 func (s *Service) update(ctx context.Context) error {
 	host, helper, err := s.getAssociatedHost(ctx)
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			err := fmt.Errorf("host not found for machine %q. Setting Failure, remediation will start: %w", s.scope.Machine.Name, err)
+			s.scope.BareMetalMachine.SetFailure(capierrors.UpdateMachineError, err.Error())
+			return err
+		}
 		return fmt.Errorf("failed to get host: %w", err)
 	}
 	if host == nil {
