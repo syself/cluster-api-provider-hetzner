@@ -36,6 +36,7 @@ test/e2e/data/infrastructure-hetzner/v1beta1/env*
 /tilt.d
 tilt_config.json
 baremetalhosts.yaml
+bm-*.yaml
 
 # kubeconfigs
 ./kind.kubeconfig
