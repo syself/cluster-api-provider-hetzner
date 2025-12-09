@@ -52,6 +52,14 @@ NAME="$2"
 
 BIN=./hack/tools/bin
 
+if [[ ! -e "$BIN"/kubectl ]]; then
+    make kubectl
+fi
+
+if [[ ! -e "$BIN"/kustomize ]]; then
+    make kustomize
+fi
+
 secret_args=(
     create secret generic hetzner
     --from-literal=hcloud="$HCLOUD_TOKEN"
