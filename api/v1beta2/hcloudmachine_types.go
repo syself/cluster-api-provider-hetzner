@@ -146,10 +146,6 @@ type HCloudMachineStatus struct {
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
-	// Deprecated groups status fields that were only used in the v1beta1 contract.
-	// +optional
-	Deprecated *HCloudMachineDeprecatedStatus `json:"deprecated,omitempty"`
-
 	// BootState indicates the current state during provisioning.
 	//
 	// If Spec.ImageName is set the states will be:
@@ -211,34 +207,7 @@ func (r *HCloudMachine) GetConditions() []metav1.Condition {
 // SetConditions sets the underlying service state of the HCloudMachine to the predescribed clusterv1.Conditions.
 func (r *HCloudMachine) SetConditions(conditions []metav1.Condition) {
 	sanitized := pkgconditions.EnsureReason(conditions)
-	copied := append([]metav1.Condition(nil), sanitized...)
-	r.Status.Conditions = copied
-	r.ensureDeprecated()
-	r.Status.Deprecated.V1Beta1.Conditions = append([]metav1.Condition(nil), copied...)
-}
-
-func (r *HCloudMachine) ensureDeprecated() {
-	if r.Status.Deprecated == nil {
-		r.Status.Deprecated = &HCloudMachineDeprecatedStatus{}
-	}
-	if r.Status.Deprecated.V1Beta1 == nil {
-		r.Status.Deprecated.V1Beta1 = &HCloudMachineV1Beta1DeprecatedStatus{}
-	}
-}
-
-// HCloudMachineDeprecatedStatus groups all the status fields that are deprecated and will be removed in a future version.
-type HCloudMachineDeprecatedStatus struct {
-	// v1beta1 groups all the status fields that were part of the legacy contract.
-	// +optional
-	V1Beta1 *HCloudMachineV1Beta1DeprecatedStatus `json:"v1beta1,omitempty"`
-}
-
-// HCloudMachineV1Beta1DeprecatedStatus groups the v1beta1 status fields that are
-// preserved for compatibility.
-type HCloudMachineV1Beta1DeprecatedStatus struct {
-	// Conditions stores the legacy conditions that were observed in v1beta1.
-	// +optional
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	r.Status.Conditions = append([]metav1.Condition(nil), sanitized...)
 }
 
 // SetBootState sets Status.BootStates and updates Status.BootStateSince.
