@@ -34,19 +34,26 @@
 
 ## You are seeing CAPH v1.0.x
 
-On December 5, 2025, we reset the main branch to the git tag
-[v1.0.7](https://github.com/syself/cluster-api-provider-hetzner/tree/v1.0.7). The first v1.1.x
-release is still in progress, and documentation published from `main` is often assumed to describe
-the latest stable release. To avoid confusion, we continue development and documentation work for
-v1.1.x on a dedicated branch. The main branch is in maintenance mode. It will only get bug and
-security fixes.
+**Important:** On December 5, 2025 we reset `main` to the
+[v1.0.7](https://github.com/syself/cluster-api-provider-hetzner/tree/v1.0.7) tag so that the
+documentation on `main` continues to describe the latest *stable* release. Active development for
+CAPH v1.1.x (code and docs) happens on the dedicated
+[`v1.1.x`](https://github.com/syself/cluster-api-provider-hetzner/tree/v1.1.x) branch. Please base
+new pull requests on `v1.1.x` unless you are intentionally backporting to v1.0.x.
 
-Development for CAPH v1.1.x happens on the
-[v1.1.x](https://github.com/syself/cluster-api-provider-hetzner/tree/v1.1.x) branch. Please base
-pull requests on `v1.1.x` if you plan to add a new feature.
+We will ship and support both lines in parallel until v1.1.x becomes generally available.
 
-When the first v1.1.x release is ready for general use, we'll switch `main` back to tracking active
-development and update the hosted documentation accordingly.
+| CAPH series | API version(s) | Compatible CAPI | Status |
+| ----------- | -------------- | --------------- | ------ |
+| `v1.0.x`    | `v1beta1` (CAPH + CAPI) | `<= v1.1.11` | On branch `main` |
+| `v1.1.x`    | `v1beta2`              | `>= v1.1.11` | Under active development on branch `v1.1.x` |
+
+**Tip:** CAPH `v1.0.x` must be used with CAPI `v1.1.11` or lower (it does **not** support CAPI
+`v1.1.12`). CAPH `v1.1.x` requires CAPI `v1.1.11` or higher.
+
+Documentation about upgrading to CAPH v1.1.x will be published alongside the first v1.1.x release.
+Once that release is generally available we'll switch `main` back to tracking active development
+and update the hosted documentation accordingly.
 
 ## 📰 What is the Cluster API Provider Hetzner?
 
