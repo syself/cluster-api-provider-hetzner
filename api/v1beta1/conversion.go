@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"errors"
+	"fmt"
 	"sort"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -34,7 +35,7 @@ func (src *HetznerCluster) ConvertTo(dstRaw conversion.Hub) error {
 }
 
 func (dst *HetznerCluster) ConvertFrom(srcRaw conversion.Hub) error {
-	return errDownConversion
+	return fmt.Errorf("HetznerCluster: %w", errDownConversion)
 }
 
 func (src *HetznerClusterTemplate) ConvertTo(dstRaw conversion.Hub) error {
@@ -43,7 +44,7 @@ func (src *HetznerClusterTemplate) ConvertTo(dstRaw conversion.Hub) error {
 }
 
 func (dst *HetznerClusterTemplate) ConvertFrom(srcRaw conversion.Hub) error {
-	return errDownConversion
+	return fmt.Errorf("HetznerClusterTemplate: %w", errDownConversion)
 }
 
 func (src *HCloudMachine) ConvertTo(dstRaw conversion.Hub) error {
@@ -52,7 +53,7 @@ func (src *HCloudMachine) ConvertTo(dstRaw conversion.Hub) error {
 }
 
 func (dst *HCloudMachine) ConvertFrom(srcRaw conversion.Hub) error {
-	return errDownConversion
+	return fmt.Errorf("HCloudMachine: %w", errDownConversion)
 }
 
 func (src *HCloudMachineTemplate) ConvertTo(dstRaw conversion.Hub) error {
@@ -61,7 +62,7 @@ func (src *HCloudMachineTemplate) ConvertTo(dstRaw conversion.Hub) error {
 }
 
 func (dst *HCloudMachineTemplate) ConvertFrom(srcRaw conversion.Hub) error {
-	return errDownConversion
+	return fmt.Errorf("HCloudMachineTemplate: %w", errDownConversion)
 }
 
 func (src *HCloudRemediation) ConvertTo(dstRaw conversion.Hub) error {
@@ -70,7 +71,7 @@ func (src *HCloudRemediation) ConvertTo(dstRaw conversion.Hub) error {
 }
 
 func (dst *HCloudRemediation) ConvertFrom(srcRaw conversion.Hub) error {
-	return errDownConversion
+	return fmt.Errorf("HCloudRemediation: %w", errDownConversion)
 }
 
 func (src *HCloudRemediationTemplate) ConvertTo(dstRaw conversion.Hub) error {
@@ -79,7 +80,7 @@ func (src *HCloudRemediationTemplate) ConvertTo(dstRaw conversion.Hub) error {
 }
 
 func (dst *HCloudRemediationTemplate) ConvertFrom(srcRaw conversion.Hub) error {
-	return errDownConversion
+	return fmt.Errorf("HCloudRemediationTemplate: %w", errDownConversion)
 }
 
 func (src *HetznerBareMetalHost) ConvertTo(dstRaw conversion.Hub) error {
@@ -88,7 +89,7 @@ func (src *HetznerBareMetalHost) ConvertTo(dstRaw conversion.Hub) error {
 }
 
 func (dst *HetznerBareMetalHost) ConvertFrom(srcRaw conversion.Hub) error {
-	return errDownConversion
+	return fmt.Errorf("HetznerBareMetalHost: %w", errDownConversion)
 }
 
 func (src *HetznerBareMetalMachine) ConvertTo(dstRaw conversion.Hub) error {
@@ -97,7 +98,7 @@ func (src *HetznerBareMetalMachine) ConvertTo(dstRaw conversion.Hub) error {
 }
 
 func (dst *HetznerBareMetalMachine) ConvertFrom(srcRaw conversion.Hub) error {
-	return errDownConversion
+	return fmt.Errorf("HetznerBareMetalMachine: %w", errDownConversion)
 }
 
 func (src *HetznerBareMetalMachineTemplate) ConvertTo(dstRaw conversion.Hub) error {
@@ -106,7 +107,7 @@ func (src *HetznerBareMetalMachineTemplate) ConvertTo(dstRaw conversion.Hub) err
 }
 
 func (dst *HetznerBareMetalMachineTemplate) ConvertFrom(srcRaw conversion.Hub) error {
-	return errDownConversion
+	return fmt.Errorf("HetznerBareMetalMachineTemplate: %w", errDownConversion)
 }
 
 func (src *HetznerBareMetalRemediation) ConvertTo(dstRaw conversion.Hub) error {
@@ -115,7 +116,7 @@ func (src *HetznerBareMetalRemediation) ConvertTo(dstRaw conversion.Hub) error {
 }
 
 func (dst *HetznerBareMetalRemediation) ConvertFrom(srcRaw conversion.Hub) error {
-	return errDownConversion
+	return fmt.Errorf("HetznerBareMetalRemediation: %w", errDownConversion)
 }
 
 func (src *HetznerBareMetalRemediationTemplate) ConvertTo(dstRaw conversion.Hub) error {
@@ -124,7 +125,7 @@ func (src *HetznerBareMetalRemediationTemplate) ConvertTo(dstRaw conversion.Hub)
 }
 
 func (dst *HetznerBareMetalRemediationTemplate) ConvertFrom(srcRaw conversion.Hub) error {
-	return errDownConversion
+	return fmt.Errorf("HetznerBareMetalRemediationTemplate: %w", errDownConversion)
 }
 
 func convertUnstructured(src runtime.Object, dst runtime.Object, mutate func(map[string]interface{})) error {
