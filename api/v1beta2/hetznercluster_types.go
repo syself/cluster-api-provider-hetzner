@@ -55,6 +55,7 @@ type HetznerClusterSpec struct {
 
 	// SSHKeys are cluster wide. Valid values are a valid SSH key name.
 	SSHKeys HetznerSSHKeys `json:"sshKeys"`
+
 	// ControlPlaneEndpoint represents the endpoint used to communicate with the control plane.
 	// +optional
 	ControlPlaneEndpoint *clusterv1.APIEndpoint `json:"controlPlaneEndpoint,omitzero"`
@@ -85,7 +86,7 @@ type HetznerClusterStatus struct {
 
 	// Initialization captures v1beta2 initialization signals required by Cluster API controllers.
 	// +optional
-	Initialization *ClusterInitializationStatus `json:"initialization,omitempty"`
+	Initialization ClusterInitializationStatus `json:"initialization,omitempty,omitzero"`
 
 	// +optional
 	Network *NetworkStatus `json:"networkStatus,omitempty"`
@@ -134,7 +135,7 @@ var _ capiconditions.Setter = &HetznerCluster{}
 type ClusterInitializationStatus struct {
 	// Provisioned is true when the infrastructure provider reports that the cluster infrastructure is fully provisioned.
 	// +optional
-	Provisioned bool `json:"provisioned,omitempty"`
+	Provisioned *bool `json:"provisioned,omitempty"`
 }
 
 // GetConditions returns the observations of the operational state of the HetznerCluster resource.

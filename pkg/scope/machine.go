@@ -202,9 +202,6 @@ func (m *MachineScope) SetReady(ready bool) {
 
 // MarkInfrastructureProvisioned surfaces the initialization signal required by CAPI v1beta2.
 func (m *MachineScope) MarkInfrastructureProvisioned() {
-	if m.HCloudMachine.Status.Initialization == nil {
-		m.HCloudMachine.Status.Initialization = &infrav1.MachineInitializationStatus{}
-	}
 	m.HCloudMachine.Status.Initialization.Provisioned = ptr.To(true)
 }
 

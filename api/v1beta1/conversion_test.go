@@ -61,8 +61,8 @@ func TestHetznerClusterFailureDomainsConversion(t *testing.T) {
 		t.Fatalf("ConvertTo failed: %v", err)
 	}
 
-	if hub.Status.Initialization != nil {
-		t.Fatalf("expected nil initialization after ConvertTo, got %v", hub.Status.Initialization)
+	if hub.Status.Initialization.Provisioned != nil {
+		t.Fatalf("expected unset initialization after ConvertTo, got %v", hub.Status.Initialization)
 	}
 
 	if len(hub.Status.FailureDomains) != len(original.Status.FailureDomains) {
@@ -125,8 +125,8 @@ func TestHCloudMachineConditionsConversion(t *testing.T) {
 		t.Fatalf("expected %d conditions, got %d", len(original.Status.Conditions), len(hub.Status.Conditions))
 	}
 
-	if hub.Status.Initialization != nil {
-		t.Fatalf("expected nil initialization after ConvertTo, got %v", hub.Status.Initialization)
+	if hub.Status.Initialization.Provisioned != nil {
+		t.Fatalf("expected unset initialization after ConvertTo, got %v", hub.Status.Initialization)
 	}
 
 	restored := &HCloudMachine{}

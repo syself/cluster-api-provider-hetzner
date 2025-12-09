@@ -53,8 +53,9 @@ var ErrNoLoadBalancerAvailable = fmt.Errorf("no available load balancer")
 // ErrControlPlaneEndpointNotSet indicates that hetznercluster.spec.controlPlaneEndpoint is not set.
 var ErrControlPlaneEndpointNotSet = errors.New("hetznercluster.spec.controlPlaneEndpoint is not set")
 
-// kubeAPIPorts returns the listen and destination port for the kube-apiserver service on the load balancer.
-// It falls back to sane defaults (ControlPlaneLoadBalancer.Port, ControlPlaneEndpoint.Port, 6443) instead of failing.
+// kubeAPIPorts returns the listen and destination port for the kube-apiserver service on the load
+// balancer. It falls back to sane defaults (ControlPlaneLoadBalancer.Port,
+// ControlPlaneEndpoint.Port, 6443) instead of failing.
 func kubeAPIPorts(hc *infrav1.HetznerCluster) (listenPort int, destinationPort int) {
 	// Determine destination port (the port used on the control plane nodes).
 	destinationPort = hc.Spec.ControlPlaneLoadBalancer.Port

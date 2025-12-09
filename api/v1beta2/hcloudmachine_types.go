@@ -113,7 +113,7 @@ type HCloudMachineStatus struct {
 	// Initialization captures v1beta2 initialization signals required by Cluster API controllers.
 	// NOTE: this is required by the Cluster API contract starting with v1beta2.
 	// +optional
-	Initialization *MachineInitializationStatus `json:"initialization,omitempty"`
+	Initialization MachineInitializationStatus `json:"initialization,omitempty,omitzero"`
 
 	// SSHKeys specifies the ssh keys that were used for provisioning the server.
 	SSHKeys []SSHKey `json:"sshKeys,omitempty"`

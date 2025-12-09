@@ -159,8 +159,5 @@ func (m *BareMetalMachineScope) SetErrorAndDeleteMachine(ctx context.Context, me
 
 // MarkInfrastructureProvisioned surfaces the initialization signal required by CAPI v1beta2.
 func (m *BareMetalMachineScope) MarkInfrastructureProvisioned() {
-	if m.BareMetalMachine.Status.Initialization == nil {
-		m.BareMetalMachine.Status.Initialization = &infrav1.MachineInitializationStatus{}
-	}
 	m.BareMetalMachine.Status.Initialization.Provisioned = ptr.To(true)
 }
