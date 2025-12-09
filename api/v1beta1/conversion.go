@@ -17,7 +17,6 @@ limitations under the License.
 package v1beta1
 
 import (
-	"errors"
 	"fmt"
 	"sort"
 
@@ -27,15 +26,16 @@ import (
 	infrav1beta2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
-var errDownConversion = errors.New("conversion from v1beta2 to v1beta1 is not supported")
-
 func (src *HetznerCluster) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*infrav1beta2.HetznerCluster)
 	return convertUnstructured(src, dst, convertFailureDomainsMapToSlice)
 }
 
 func (dst *HetznerCluster) ConvertFrom(srcRaw conversion.Hub) error {
-	return fmt.Errorf("HetznerCluster: %w", errDownConversion)
+	if err := convertFromUnstructured(srcRaw, dst, convertFailureDomainsSliceToMap); err != nil {
+		return fmt.Errorf("HetznerCluster: %w", err)
+	}
+	return nil
 }
 
 func (src *HetznerClusterTemplate) ConvertTo(dstRaw conversion.Hub) error {
@@ -44,7 +44,10 @@ func (src *HetznerClusterTemplate) ConvertTo(dstRaw conversion.Hub) error {
 }
 
 func (dst *HetznerClusterTemplate) ConvertFrom(srcRaw conversion.Hub) error {
-	return fmt.Errorf("HetznerClusterTemplate: %w", errDownConversion)
+	if err := convertFromUnstructured(srcRaw, dst, nil); err != nil {
+		return fmt.Errorf("HetznerClusterTemplate: %w", err)
+	}
+	return nil
 }
 
 func (src *HCloudMachine) ConvertTo(dstRaw conversion.Hub) error {
@@ -53,7 +56,10 @@ func (src *HCloudMachine) ConvertTo(dstRaw conversion.Hub) error {
 }
 
 func (dst *HCloudMachine) ConvertFrom(srcRaw conversion.Hub) error {
-	return fmt.Errorf("HCloudMachine: %w", errDownConversion)
+	if err := convertFromUnstructured(srcRaw, dst, nil); err != nil {
+		return fmt.Errorf("HCloudMachine: %w", err)
+	}
+	return nil
 }
 
 func (src *HCloudMachineTemplate) ConvertTo(dstRaw conversion.Hub) error {
@@ -62,7 +68,10 @@ func (src *HCloudMachineTemplate) ConvertTo(dstRaw conversion.Hub) error {
 }
 
 func (dst *HCloudMachineTemplate) ConvertFrom(srcRaw conversion.Hub) error {
-	return fmt.Errorf("HCloudMachineTemplate: %w", errDownConversion)
+	if err := convertFromUnstructured(srcRaw, dst, nil); err != nil {
+		return fmt.Errorf("HCloudMachineTemplate: %w", err)
+	}
+	return nil
 }
 
 func (src *HCloudRemediation) ConvertTo(dstRaw conversion.Hub) error {
@@ -71,7 +80,10 @@ func (src *HCloudRemediation) ConvertTo(dstRaw conversion.Hub) error {
 }
 
 func (dst *HCloudRemediation) ConvertFrom(srcRaw conversion.Hub) error {
-	return fmt.Errorf("HCloudRemediation: %w", errDownConversion)
+	if err := convertFromUnstructured(srcRaw, dst, nil); err != nil {
+		return fmt.Errorf("HCloudRemediation: %w", err)
+	}
+	return nil
 }
 
 func (src *HCloudRemediationTemplate) ConvertTo(dstRaw conversion.Hub) error {
@@ -80,7 +92,10 @@ func (src *HCloudRemediationTemplate) ConvertTo(dstRaw conversion.Hub) error {
 }
 
 func (dst *HCloudRemediationTemplate) ConvertFrom(srcRaw conversion.Hub) error {
-	return fmt.Errorf("HCloudRemediationTemplate: %w", errDownConversion)
+	if err := convertFromUnstructured(srcRaw, dst, nil); err != nil {
+		return fmt.Errorf("HCloudRemediationTemplate: %w", err)
+	}
+	return nil
 }
 
 func (src *HetznerBareMetalHost) ConvertTo(dstRaw conversion.Hub) error {
@@ -89,7 +104,10 @@ func (src *HetznerBareMetalHost) ConvertTo(dstRaw conversion.Hub) error {
 }
 
 func (dst *HetznerBareMetalHost) ConvertFrom(srcRaw conversion.Hub) error {
-	return fmt.Errorf("HetznerBareMetalHost: %w", errDownConversion)
+	if err := convertFromUnstructured(srcRaw, dst, nil); err != nil {
+		return fmt.Errorf("HetznerBareMetalHost: %w", err)
+	}
+	return nil
 }
 
 func (src *HetznerBareMetalMachine) ConvertTo(dstRaw conversion.Hub) error {
@@ -98,7 +116,10 @@ func (src *HetznerBareMetalMachine) ConvertTo(dstRaw conversion.Hub) error {
 }
 
 func (dst *HetznerBareMetalMachine) ConvertFrom(srcRaw conversion.Hub) error {
-	return fmt.Errorf("HetznerBareMetalMachine: %w", errDownConversion)
+	if err := convertFromUnstructured(srcRaw, dst, nil); err != nil {
+		return fmt.Errorf("HetznerBareMetalMachine: %w", err)
+	}
+	return nil
 }
 
 func (src *HetznerBareMetalMachineTemplate) ConvertTo(dstRaw conversion.Hub) error {
@@ -107,7 +128,10 @@ func (src *HetznerBareMetalMachineTemplate) ConvertTo(dstRaw conversion.Hub) err
 }
 
 func (dst *HetznerBareMetalMachineTemplate) ConvertFrom(srcRaw conversion.Hub) error {
-	return fmt.Errorf("HetznerBareMetalMachineTemplate: %w", errDownConversion)
+	if err := convertFromUnstructured(srcRaw, dst, nil); err != nil {
+		return fmt.Errorf("HetznerBareMetalMachineTemplate: %w", err)
+	}
+	return nil
 }
 
 func (src *HetznerBareMetalRemediation) ConvertTo(dstRaw conversion.Hub) error {
@@ -116,7 +140,10 @@ func (src *HetznerBareMetalRemediation) ConvertTo(dstRaw conversion.Hub) error {
 }
 
 func (dst *HetznerBareMetalRemediation) ConvertFrom(srcRaw conversion.Hub) error {
-	return fmt.Errorf("HetznerBareMetalRemediation: %w", errDownConversion)
+	if err := convertFromUnstructured(srcRaw, dst, nil); err != nil {
+		return fmt.Errorf("HetznerBareMetalRemediation: %w", err)
+	}
+	return nil
 }
 
 func (src *HetznerBareMetalRemediationTemplate) ConvertTo(dstRaw conversion.Hub) error {
@@ -125,7 +152,10 @@ func (src *HetznerBareMetalRemediationTemplate) ConvertTo(dstRaw conversion.Hub)
 }
 
 func (dst *HetznerBareMetalRemediationTemplate) ConvertFrom(srcRaw conversion.Hub) error {
-	return fmt.Errorf("HetznerBareMetalRemediationTemplate: %w", errDownConversion)
+	if err := convertFromUnstructured(srcRaw, dst, nil); err != nil {
+		return fmt.Errorf("HetznerBareMetalRemediationTemplate: %w", err)
+	}
+	return nil
 }
 
 func convertUnstructured(src runtime.Object, dst runtime.Object, mutate func(map[string]interface{})) error {
@@ -136,6 +166,8 @@ func convertUnstructured(src runtime.Object, dst runtime.Object, mutate func(map
 
 	obj["apiVersion"] = infrav1beta2.GroupVersion.String()
 
+	copyBeta1DeprecatedConditions(obj)
+
 	if mutate != nil {
 		mutate(obj)
 	}
@@ -145,6 +177,101 @@ func convertUnstructured(src runtime.Object, dst runtime.Object, mutate func(map
 	}
 
 	return nil
+}
+
+func convertFromUnstructured(src runtime.Object, dst runtime.Object, mutate func(map[string]interface{})) error {
+	obj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(src)
+	if err != nil {
+		return err
+	}
+
+	obj["apiVersion"] = GroupVersion.String()
+
+	copyConditionsToDeprecated(obj)
+
+	if mutate != nil {
+		mutate(obj)
+	}
+
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj, dst); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func copyBeta1DeprecatedConditions(obj map[string]interface{}) {
+	status, ok := obj["status"].(map[string]interface{})
+	if !ok {
+		return
+	}
+	deprecated, ok := status["deprecated"].(map[string]interface{})
+	if !ok {
+		return
+	}
+	v1beta1, ok := deprecated["v1beta1"].(map[string]interface{})
+	if !ok {
+		return
+	}
+	conds, ok := v1beta1["conditions"]
+	if !ok {
+		return
+	}
+	status["conditions"] = sanitizeConditions(conds)
+}
+
+func copyConditionsToDeprecated(obj map[string]interface{}) {
+	status, ok := obj["status"].(map[string]interface{})
+	if !ok {
+		return
+	}
+	conds, ok := status["conditions"]
+	if !ok {
+		return
+	}
+
+	sanitized := sanitizeConditions(conds)
+	if len(sanitized) == 0 {
+		return
+	}
+
+	deprecated, ok := status["deprecated"].(map[string]interface{})
+	if !ok {
+		deprecated = make(map[string]interface{})
+		status["deprecated"] = deprecated
+	}
+	v1beta1, ok := deprecated["v1beta1"].(map[string]interface{})
+	if !ok {
+		v1beta1 = make(map[string]interface{})
+		deprecated["v1beta1"] = v1beta1
+	}
+	v1beta1["conditions"] = sanitized
+}
+
+func sanitizeConditions(raw interface{}) []interface{} {
+	conds, ok := raw.([]interface{})
+	if !ok {
+		return nil
+	}
+	if len(conds) == 0 {
+		return nil
+	}
+	sanitized := make([]interface{}, 0, len(conds))
+	for _, rawCond := range conds {
+		condMap, ok := rawCond.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		copied := make(map[string]interface{}, len(condMap))
+		for k, v := range condMap {
+			copied[k] = v
+		}
+		if reason, ok := copied["reason"].(string); ok && reason == "" {
+			copied["reason"] = "Succeeded"
+		}
+		sanitized = append(sanitized, copied)
+	}
+	return sanitized
 }
 
 func convertFailureDomainsMapToSlice(obj map[string]interface{}) {
