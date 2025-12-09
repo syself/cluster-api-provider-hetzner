@@ -20,6 +20,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+
+	pkgconditions "github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
 )
 
 // HCloudMachineTemplateSpec defines the desired state of HCloudMachineTemplate.
@@ -71,7 +73,7 @@ func (r *HCloudMachineTemplate) GetConditions() []metav1.Condition {
 
 // SetConditions sets the underlying service state of the HCloudMachine to the predescribed clusterv1.Conditions.
 func (r *HCloudMachineTemplate) SetConditions(conditions []metav1.Condition) {
-	r.Status.Conditions = conditions
+	r.Status.Conditions = append([]metav1.Condition(nil), pkgconditions.EnsureReason(conditions)...)
 }
 
 //+kubebuilder:object:root=true

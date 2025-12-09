@@ -26,14 +26,17 @@ import (
 	capiconditions "sigs.k8s.io/cluster-api/util/conditions"
 )
 
-const readyConditionType = clusterv1.ReadyCondition
+const (
+	readyConditionType     = clusterv1.ReadyCondition
+	defaultConditionReason = "Succeeded"
+)
 
 // MarkTrue sets the given condition to True on the target object.
 func MarkTrue(targetObj capiconditions.Setter, conditionType string) {
 	capiconditions.Set(targetObj, metav1.Condition{
 		Type:    conditionType,
 		Status:  metav1.ConditionTrue,
-		Reason:  "Succeeded",
+		Reason:  defaultConditionReason,
 		Message: "",
 	})
 }
@@ -53,6 +56,20 @@ func MarkFalse(to capiconditions.Setter, conditionType string, reason string, se
 		Reason:  reason,
 		Message: message,
 	})
+}
+
+// EnsureReason sets a default reason for conditions that do not specify one.
+func EnsureReason(conditions []metav1.Condition) []metav1.Condition {
+	if len(conditions) == 0 {
+		return nil
+	}
+	sanitized := append([]metav1.Condition(nil), conditions...)
+	for i := range sanitized {
+		if sanitized[i].Reason == "" {
+			sanitized[i].Reason = defaultConditionReason
+		}
+	}
+	return sanitized
 }
 
 // SetSummary recomputes the Ready condition based on the other conditions present on the object.

@@ -25,6 +25,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/selection"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+
+	pkgconditions "github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
 )
 
 const (
@@ -361,7 +363,7 @@ func (hbmm *HetznerBareMetalMachine) GetConditions() []metav1.Condition {
 
 // SetConditions sets the underlying service state of the HetznerBareMetalMachine to the predescribed clusterv1.Conditions.
 func (hbmm *HetznerBareMetalMachine) SetConditions(conditions []metav1.Condition) {
-	hbmm.Status.Conditions = conditions
+	hbmm.Status.Conditions = append([]metav1.Condition(nil), pkgconditions.EnsureReason(conditions)...)
 }
 
 // GetImageSuffix tests whether the suffix is known and outputs it if yes. Otherwise it returns an error.

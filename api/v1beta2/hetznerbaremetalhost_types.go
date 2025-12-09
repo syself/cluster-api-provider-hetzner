@@ -26,6 +26,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/cluster-api/util/record"
+
+	pkgconditions "github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
 )
 
 const (
@@ -346,7 +348,7 @@ func (host *HetznerBareMetalHost) GetConditions() []metav1.Condition {
 
 // SetConditions sets the underlying service state of the HetznerBareMetalHost to the predescribed clusterv1.Conditions.
 func (host *HetznerBareMetalHost) SetConditions(conditions []metav1.Condition) {
-	host.Spec.Status.Conditions = conditions
+	host.Spec.Status.Conditions = append([]metav1.Condition(nil), pkgconditions.EnsureReason(conditions)...)
 }
 
 // SSHStatus contains all status information about SSHStatus.

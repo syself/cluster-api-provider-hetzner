@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta2
 
 import (
+	pkgconditions "github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	capiconditions "sigs.k8s.io/cluster-api/util/conditions"
@@ -145,7 +146,7 @@ func (r *HetznerCluster) GetConditions() []metav1.Condition {
 
 // SetConditions sets the underlying service state of the HetznerCluster to the predescribed clusterv1.Conditions.
 func (r *HetznerCluster) SetConditions(conditions []metav1.Condition) {
-	r.Status.Conditions = conditions
+	r.Status.Conditions = append([]metav1.Condition(nil), pkgconditions.EnsureReason(conditions)...)
 }
 
 // ClusterTagKey generates the key for resources associated with a cluster.

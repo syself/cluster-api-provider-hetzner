@@ -18,6 +18,8 @@ package v1beta2
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	pkgconditions "github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
 )
 
 // HCloudRemediationSpec defines the desired state of HCloudRemediation.
@@ -78,7 +80,7 @@ func (r *HCloudRemediation) GetConditions() []metav1.Condition {
 
 // SetConditions sets the underlying service state of the HCloudRemediation to the predescribed clusterv1.Conditions.
 func (r *HCloudRemediation) SetConditions(conditions []metav1.Condition) {
-	r.Status.Conditions = conditions
+	r.Status.Conditions = append([]metav1.Condition(nil), pkgconditions.EnsureReason(conditions)...)
 }
 
 //+kubebuilder:object:root=true

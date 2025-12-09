@@ -21,6 +21,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	capierrors "sigs.k8s.io/cluster-api/errors" //nolint:staticcheck // we will handle that, when we update to capi v1.11
+
+	pkgconditions "github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
 )
 
 const (
@@ -208,7 +210,8 @@ func (r *HCloudMachine) GetConditions() []metav1.Condition {
 
 // SetConditions sets the underlying service state of the HCloudMachine to the predescribed clusterv1.Conditions.
 func (r *HCloudMachine) SetConditions(conditions []metav1.Condition) {
-	copied := append([]metav1.Condition(nil), conditions...)
+	sanitized := pkgconditions.EnsureReason(conditions)
+	copied := append([]metav1.Condition(nil), sanitized...)
 	r.Status.Conditions = copied
 	r.ensureDeprecated()
 	r.Status.Deprecated.V1Beta1.Conditions = append([]metav1.Condition(nil), copied...)
