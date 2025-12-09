@@ -44,6 +44,15 @@ Development for CAPH v1.1.x happens on the
 [v1.1.x](https://github.com/syself/cluster-api-provider-hetzner/tree/v1.1.x) branch. Please base
 pull requests on `v1.1.x`.
 
+We plan to do releases for both series: v1.0.x and v1.1.x.
+
+The v1.0.x releases will use `v1beta1` (for caph and capi). The v1.1.x releases will use `v1beta2`.
+
+CAPH v1.0.x must be used with CAPI v1.1.11 or lower. It does not support CAPH v1.1.12.
+
+CAPH v1.1.x must be used with CAPI v1.1.11 or higher. Documentation about upgrading to CAPH v1.1.x
+will be released together with the first v1.1.x release.
+
 When the first v1.1.x release is ready for general use, we'll switch `main` back to tracking active
 development and update the hosted documentation accordingly.
 
