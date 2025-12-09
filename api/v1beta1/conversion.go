@@ -26,66 +26,6 @@ import (
 	infrav1beta2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
-// Hub marks HetznerCluster as a conversion hub.
-func (*HetznerCluster) Hub() {}
-
-// Hub marks HetznerClusterList as a conversion hub.
-func (*HetznerClusterList) Hub() {}
-
-// Hub marks HCloudMachine as a conversion hub.
-func (*HCloudMachine) Hub() {}
-
-// Hub marks HCloudMachineList as a conversion hub.
-func (*HCloudMachineList) Hub() {}
-
-// Hub marks HCloudMachineTemplate as a conversion hub.
-func (*HCloudMachineTemplate) Hub() {}
-
-// Hub marks HCloudMachineTemplateList as a conversion hub.
-func (*HCloudMachineTemplateList) Hub() {}
-
-// Hub marks HCloudRemediation as a conversion hub.
-func (*HCloudRemediation) Hub() {}
-
-// Hub marks HCloudRemediationList as a conversion hub.
-func (*HCloudRemediationList) Hub() {}
-
-// Hub marks HCloudRemediationTemplate as a conversion hub.
-func (*HCloudRemediationTemplate) Hub() {}
-
-// Hub marks HCloudRemediationTemplateList as a conversion hub.
-func (*HCloudRemediationTemplateList) Hub() {}
-
-// Hub marks HetznerBareMetalHost as a conversion hub.
-func (*HetznerBareMetalHost) Hub() {}
-
-// Hub marks HetznerBareMetalHostList as a conversion hub.
-func (*HetznerBareMetalHostList) Hub() {}
-
-// Hub marks HetznerBareMetalMachine as a conversion hub.
-func (*HetznerBareMetalMachine) Hub() {}
-
-// Hub marks HetznerBareMetalMachineList as a conversion hub.
-func (*HetznerBareMetalMachineList) Hub() {}
-
-// Hub marks HetznerBareMetalMachineTemplate as a conversion hub.
-func (*HetznerBareMetalMachineTemplate) Hub() {}
-
-// Hub marks HetznerBareMetalMachineTemplateList as a conversion hub.
-func (*HetznerBareMetalMachineTemplateList) Hub() {}
-
-// Hub marks HetznerBareMetalRemediation as a conversion hub.
-func (*HetznerBareMetalRemediation) Hub() {}
-
-// Hub marks HetznerBareMetalRemediationList as a conversion hub.
-func (*HetznerBareMetalRemediationList) Hub() {}
-
-// Hub marks HetznerBareMetalRemediationTemplate as a conversion hub.
-func (*HetznerBareMetalRemediationTemplate) Hub() {}
-
-// Hub marks HetznerBareMetalRemediationTemplateList as a conversion hub.
-func (*HetznerBareMetalRemediationTemplateList) Hub() {}
-
 var errDownConversion = errors.New("conversion from v1beta2 to v1beta1 is not supported")
 
 func (src *HetznerCluster) ConvertTo(dstRaw conversion.Hub) error {
@@ -192,6 +132,8 @@ func convertUnstructured(src runtime.Object, dst runtime.Object, mutate func(map
 	if err != nil {
 		return err
 	}
+
+	obj["apiVersion"] = infrav1beta2.GroupVersion.String()
 
 	if mutate != nil {
 		mutate(obj)
