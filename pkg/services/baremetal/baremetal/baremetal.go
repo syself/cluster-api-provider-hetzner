@@ -209,7 +209,7 @@ func (s *Service) update(ctx context.Context) error {
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			err := fmt.Errorf("host not found for machine %q. Setting error and deleting machine: %w", s.scope.Machine.Name, err)
-			s.scope.BareMetalMachine.SetErrorAndDeleteMachine(ctx, err.Error())
+			s.scope.SetErrorAndDeleteMachine(ctx, err.Error())
 			return err
 		}
 		return fmt.Errorf("failed to get host: %w", err)
