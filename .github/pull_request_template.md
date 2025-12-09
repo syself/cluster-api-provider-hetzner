@@ -1,8 +1,8 @@
 <!--
 
-    PLEASE BASE YOUR PULL REQUESTS ON THE v1.1.x BRANCH.
+    PLEASE BASE YOUR PULL REQUESTS ON THE v1.1.x BRANCH IF YOU ADD A NEW FEATURE.
 
-    The main branch reflects v1.0.x
+    The main branch reflects v1.0.x. Use the main branch if you create a bug or security fix.
 
  -->
 

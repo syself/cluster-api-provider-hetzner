@@ -38,11 +38,12 @@ On December 5, 2025, we reset the main branch to the git tag
 [v1.0.7](https://github.com/syself/cluster-api-provider-hetzner/tree/v1.0.7). The first v1.1.x
 release is still in progress, and documentation published from `main` is often assumed to describe
 the latest stable release. To avoid confusion, we continue development and documentation work for
-v1.1.x on a dedicated branch.
+v1.1.x on a dedicated branch. The main branch is in maintenance mode. It will only get bug and
+security fixes.
 
 Development for CAPH v1.1.x happens on the
 [v1.1.x](https://github.com/syself/cluster-api-provider-hetzner/tree/v1.1.x) branch. Please base
-pull requests on `v1.1.x`.
+pull requests on `v1.1.x` if you plan to add a new feature.
 
 When the first v1.1.x release is ready for general use, we'll switch `main` back to tracking active
 development and update the hosted documentation accordingly.
