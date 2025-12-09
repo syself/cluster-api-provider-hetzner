@@ -82,7 +82,7 @@ MGT_CLUSTER_KUBECONFIG ?= ".mgt-cluster-kubeconfig.yaml"
 # Kubebuilder.
 # go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 # The command `setup-envtest list` shows the available versions.
-export KUBEBUILDER_ENVTEST_KUBERNETES_VERSION ?= 1.33.6
+export KUBEBUILDER_ENVTEST_KUBERNETES_VERSION ?= 1.33.0
 
 ##@ Binaries
 ############
@@ -101,6 +101,8 @@ $(TILT):
 	MINIMUM_TILT_VERSION=0.35.2 hack/ensure-tilt.sh
 
 SETUP_ENVTEST := $(abspath $(TOOLS_BIN_DIR)/setup-envtest)
+
+.PHONY: setup-envtest
 setup-envtest: $(SETUP_ENVTEST) ## Build a local copy of setup-envtest
 $(SETUP_ENVTEST): # Build setup-envtest from tools folder.
 	go install sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.0.0-20251126220622-4b46eb04d57f
