@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"errors"
 	"sort"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -85,14 +86,15 @@ func (*HetznerBareMetalRemediationTemplate) Hub() {}
 // Hub marks HetznerBareMetalRemediationTemplateList as a conversion hub.
 func (*HetznerBareMetalRemediationTemplateList) Hub() {}
 
+var errDownConversion = errors.New("conversion from v1beta2 to v1beta1 is not supported")
+
 func (src *HetznerCluster) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*infrav1beta2.HetznerCluster)
 	return convertUnstructured(src, dst, convertFailureDomainsMapToSlice)
 }
 
 func (dst *HetznerCluster) ConvertFrom(srcRaw conversion.Hub) error {
-	src := srcRaw.(*infrav1beta2.HetznerCluster)
-	return convertUnstructured(src, dst, convertFailureDomainsSliceToMap)
+	return errDownConversion
 }
 
 func (src *HetznerClusterTemplate) ConvertTo(dstRaw conversion.Hub) error {
@@ -101,8 +103,7 @@ func (src *HetznerClusterTemplate) ConvertTo(dstRaw conversion.Hub) error {
 }
 
 func (dst *HetznerClusterTemplate) ConvertFrom(srcRaw conversion.Hub) error {
-	src := srcRaw.(*infrav1beta2.HetznerClusterTemplate)
-	return convertUnstructured(src, dst, nil)
+	return errDownConversion
 }
 
 func (src *HCloudMachine) ConvertTo(dstRaw conversion.Hub) error {
@@ -111,8 +112,7 @@ func (src *HCloudMachine) ConvertTo(dstRaw conversion.Hub) error {
 }
 
 func (dst *HCloudMachine) ConvertFrom(srcRaw conversion.Hub) error {
-	src := srcRaw.(*infrav1beta2.HCloudMachine)
-	return convertUnstructured(src, dst, nil)
+	return errDownConversion
 }
 
 func (src *HCloudMachineTemplate) ConvertTo(dstRaw conversion.Hub) error {
@@ -121,8 +121,7 @@ func (src *HCloudMachineTemplate) ConvertTo(dstRaw conversion.Hub) error {
 }
 
 func (dst *HCloudMachineTemplate) ConvertFrom(srcRaw conversion.Hub) error {
-	src := srcRaw.(*infrav1beta2.HCloudMachineTemplate)
-	return convertUnstructured(src, dst, nil)
+	return errDownConversion
 }
 
 func (src *HCloudRemediation) ConvertTo(dstRaw conversion.Hub) error {
@@ -131,8 +130,7 @@ func (src *HCloudRemediation) ConvertTo(dstRaw conversion.Hub) error {
 }
 
 func (dst *HCloudRemediation) ConvertFrom(srcRaw conversion.Hub) error {
-	src := srcRaw.(*infrav1beta2.HCloudRemediation)
-	return convertUnstructured(src, dst, nil)
+	return errDownConversion
 }
 
 func (src *HCloudRemediationTemplate) ConvertTo(dstRaw conversion.Hub) error {
@@ -141,8 +139,7 @@ func (src *HCloudRemediationTemplate) ConvertTo(dstRaw conversion.Hub) error {
 }
 
 func (dst *HCloudRemediationTemplate) ConvertFrom(srcRaw conversion.Hub) error {
-	src := srcRaw.(*infrav1beta2.HCloudRemediationTemplate)
-	return convertUnstructured(src, dst, nil)
+	return errDownConversion
 }
 
 func (src *HetznerBareMetalHost) ConvertTo(dstRaw conversion.Hub) error {
@@ -151,8 +148,7 @@ func (src *HetznerBareMetalHost) ConvertTo(dstRaw conversion.Hub) error {
 }
 
 func (dst *HetznerBareMetalHost) ConvertFrom(srcRaw conversion.Hub) error {
-	src := srcRaw.(*infrav1beta2.HetznerBareMetalHost)
-	return convertUnstructured(src, dst, nil)
+	return errDownConversion
 }
 
 func (src *HetznerBareMetalMachine) ConvertTo(dstRaw conversion.Hub) error {
@@ -161,8 +157,7 @@ func (src *HetznerBareMetalMachine) ConvertTo(dstRaw conversion.Hub) error {
 }
 
 func (dst *HetznerBareMetalMachine) ConvertFrom(srcRaw conversion.Hub) error {
-	src := srcRaw.(*infrav1beta2.HetznerBareMetalMachine)
-	return convertUnstructured(src, dst, nil)
+	return errDownConversion
 }
 
 func (src *HetznerBareMetalMachineTemplate) ConvertTo(dstRaw conversion.Hub) error {
@@ -171,8 +166,7 @@ func (src *HetznerBareMetalMachineTemplate) ConvertTo(dstRaw conversion.Hub) err
 }
 
 func (dst *HetznerBareMetalMachineTemplate) ConvertFrom(srcRaw conversion.Hub) error {
-	src := srcRaw.(*infrav1beta2.HetznerBareMetalMachineTemplate)
-	return convertUnstructured(src, dst, nil)
+	return errDownConversion
 }
 
 func (src *HetznerBareMetalRemediation) ConvertTo(dstRaw conversion.Hub) error {
@@ -181,8 +175,7 @@ func (src *HetznerBareMetalRemediation) ConvertTo(dstRaw conversion.Hub) error {
 }
 
 func (dst *HetznerBareMetalRemediation) ConvertFrom(srcRaw conversion.Hub) error {
-	src := srcRaw.(*infrav1beta2.HetznerBareMetalRemediation)
-	return convertUnstructured(src, dst, nil)
+	return errDownConversion
 }
 
 func (src *HetznerBareMetalRemediationTemplate) ConvertTo(dstRaw conversion.Hub) error {
@@ -191,8 +184,7 @@ func (src *HetznerBareMetalRemediationTemplate) ConvertTo(dstRaw conversion.Hub)
 }
 
 func (dst *HetznerBareMetalRemediationTemplate) ConvertFrom(srcRaw conversion.Hub) error {
-	src := srcRaw.(*infrav1beta2.HetznerBareMetalRemediationTemplate)
-	return convertUnstructured(src, dst, nil)
+	return errDownConversion
 }
 
 func convertUnstructured(src runtime.Object, dst runtime.Object, mutate func(map[string]interface{})) error {
