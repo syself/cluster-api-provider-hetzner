@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -681,7 +682,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					if err != nil {
 						return err
 					}
-					c := capiconditions.Get(host, clusterv1.ReadyCondition)
+					c := conditions.Get(host, clusterv1.ReadyCondition)
 					if c == nil {
 						return fmt.Errorf("ReadyCondition not set on host")
 					}
@@ -692,7 +693,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					if err != nil {
 						return err
 					}
-					c = capiconditions.Get(bmMachine, infrav1.HostReadyCondition)
+					c = conditions.Get(bmMachine, infrav1.HostReadyCondition)
 					if c == nil {
 						return fmt.Errorf("HostReadyCondition not set on hbmm")
 					}

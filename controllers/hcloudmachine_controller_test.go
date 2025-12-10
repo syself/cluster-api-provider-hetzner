@@ -17,6 +17,7 @@ limitations under the License.
 package controllers
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
@@ -397,7 +398,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 					if c == nil {
 						return fmt.Errorf("BootstrapReadyCondition not set")
 					}
-					if c.Status != metav1.ConditionFalse {
+					if c.Status != corev1.ConditionFalse {
 						return fmt.Errorf("BootstrapReadyCondition not false")
 					}
 					if c.Reason != infrav1.BootstrapNotReadyReason {
