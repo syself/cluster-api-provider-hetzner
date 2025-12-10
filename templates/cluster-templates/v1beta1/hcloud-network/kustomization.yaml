@@ -1,14 +1,16 @@
-bases:
-  - ../bases/capi-cluster-kubeadm.yaml
-  - ../bases/hcloud-hetznerCluster-network.yaml
-  - ../bases/hcloud-kcp-ubuntu.yaml
-  - ../bases/hcloud-mt-control-plane-ubuntu.yaml
-  - ../bases/hcloud-mhc-control-plane.yaml
-  - ../bases/hcloud-md-0-kubeadm.yaml
-  - ../bases/kct-md-0-ubuntu.yaml
-  - ../bases/hcloud-mt-md-0-ubuntu.yaml
-  - ../bases/hcloud-mhc-md-0.yaml
-patchesStrategicMerge:
-  - ../bases/hcloud-hetznerCluster-placementGroup_patch.yaml
-  - ../bases/hcloud-mt-control-plane-placementGroup_patch.yaml
-  - ../bases/hcloud-mt-md-0-placementGroup_patch.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- ../bases/capi-cluster-kubeadm.yaml
+- ../bases/hcloud-hetznerCluster-network.yaml
+- ../bases/hcloud-kcp-ubuntu.yaml
+- ../bases/hcloud-mt-control-plane-ubuntu.yaml
+- ../bases/hcloud-mhc-control-plane.yaml
+- ../bases/hcloud-md-0-kubeadm.yaml
+- ../bases/kct-md-0-ubuntu.yaml
+- ../bases/hcloud-mt-md-0-ubuntu.yaml
+- ../bases/hcloud-mhc-md-0.yaml
+patches:
+- path: ../bases/hcloud-hetznerCluster-placementGroup_patch.yaml
+- path: ../bases/hcloud-mt-control-plane-placementGroup_patch.yaml
+- path: ../bases/hcloud-mt-md-0-placementGroup_patch.yaml

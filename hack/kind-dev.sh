@@ -24,6 +24,10 @@ K8S_VERSION=v1.33.0
 REPO_ROOT=$(git rev-parse --show-toplevel)
 cd "${REPO_ROOT}" || exit 1
 
+if [[ ! -e $REPO_ROOT/hack/tools/bin/ctlptl ]]; then
+  make ctlptl
+fi
+
 # Creates a kind cluster with the ctlptl tool https://github.com/tilt-dev/ctlptl
 ctlptl_kind-cluster-with-registry() {
 

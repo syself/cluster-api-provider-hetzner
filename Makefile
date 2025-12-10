@@ -270,7 +270,11 @@ create-mgt-cluster: $(CLUSTERCTL) $(KUBECTL) cluster ## Start a mgt-cluster with
 	$(CLUSTERCTL) init --core cluster-api --bootstrap kubeadm --control-plane kubeadm --infrastructure $(INFRA_PROVIDER)
 	$(KUBECTL) create secret generic $(INFRA_PROVIDER) --from-literal=hcloud=$(HCLOUD_TOKEN) --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
 	$(KUBECTL) patch secret $(INFRA_PROVIDER) -p '{"metadata":{"labels":{"clusterctl.cluster.x-k8s.io/move":""}}}'
-	@echo "Your next step, for example: make create-workload-cluster-hetzner-hcloud-control-plane"
+	@echo
+	@echo "Your next step, for example:"
+	@echo "  ./hack/update-operator-dev-deployment.sh to install the caph code of the git repo into the mgt-cluster"
+	@echo "then you could create a wl-cluster:"
+	@echo " make create-workload-cluster-hetzner-hcloud-control-plane"
 
 .PHONY: cluster
 cluster: $(CTLPTL) $(KUBECTL) ## Creates kind-dev management cluster
