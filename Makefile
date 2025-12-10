@@ -213,14 +213,7 @@ else
 endif
 
 add-ssh-pub-key:
-	./hack/ensure-env-variables.sh HCLOUD_TOKEN SSH_KEY SSH_KEY_NAME
-	SSH_KEY_CONTENT=$$(cat $(SSH_KEY)) ; \
-	curl -sS \
-		-X POST \
-		-H "Authorization: Bearer $${HCLOUD_TOKEN}" \
-		-H "Content-Type: application/json" \
-		-d '{"labels":{},"name":"${SSH_KEY_NAME}","public_key":"'"$${SSH_KEY_CONTENT}"'"}' \
-		'https://api.hetzner.cloud/v1/ssh_keys'
+	./hack/ensure-ssh-key-in-hcloud.sh
 
 env-vars-for-wl-cluster:
 	@./hack/ensure-env-variables.sh CLUSTER_NAME CONTROL_PLANE_MACHINE_COUNT HCLOUD_CONTROL_PLANE_MACHINE_TYPE \

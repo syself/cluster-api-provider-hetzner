@@ -60,6 +60,8 @@ if [[ ! -e "$BIN"/kustomize ]]; then
     make kustomize
 fi
 
+hack/ensure-ssh-key-in-hcloud.py
+
 secret_args=(
     create secret generic hetzner
     --from-literal=hcloud="$HCLOUD_TOKEN"
