@@ -676,7 +676,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			})
 
 			It("checks for HostReadyCondition False for hetznerBareMetalMachine with HetznerSecretUnreachableReason", func() {
-				magicString := "* CredentialsAvailable: could not find OSSSHSecret: failed to fetch secret"
+				magicString := "could not find OSSSHSecret: failed to fetch secret os-ssh-secret"
 				Eventually(func() error {
 					err := testEnv.Get(ctx, client.ObjectKeyFromObject(host), host)
 					if err != nil {
@@ -697,8 +697,8 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					if c == nil {
 						return fmt.Errorf("HostReadyCondition not set on hbmm")
 					}
-					if c.Reason != "IssuesReported" {
-						return fmt.Errorf("IssuesReported not set on hbmm. is %q - Conditions: %+v", c.Reason, bmMachine.Status.Conditions)
+					if c.Reason != infrav1.OSSSHSecretMissingReason {
+						return fmt.Errorf("%s not set on hbmm. is %q - Conditions: %+v", infrav1.OSSSHSecretMissingReason, c.Reason, bmMachine.Status.Conditions)
 					}
 					if !strings.Contains(c.Message, magicString) {
 						return fmt.Errorf("CredentialsAvailable substring not set (on hbmm). Conditions: %+v", bmMachine.Status.Conditions)

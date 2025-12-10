@@ -629,8 +629,24 @@ var _ = Describe("HCloudMachineReconciler", func() {
 					EnableIPv6: false,
 				}
 				Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
-				Expect(hetznerCluster.Spec.ControlPlaneEndpoint).NotTo(BeNil())
-				Expect(hetznerCluster.Spec.ControlPlaneEndpoint.Host).To(Equal("mycp.example.com"))
+				Eventually(func() bool {
+					var updatedCluster infrav1.HetznerCluster
+					if err := testEnv.Get(ctx, client.ObjectKeyFromObject(hetznerCluster), &updatedCluster); err != nil {
+						return false
+					}
+
+					if updatedCluster.Spec.ControlPlaneEndpoint == nil {
+						return false
+					}
+					if updatedCluster.Status.ControlPlaneLoadBalancer == nil {
+						return false
+					}
+					if updatedCluster.Status.ControlPlaneLoadBalancer.IPv4 == "" {
+						return false
+					}
+
+					return updatedCluster.Spec.ControlPlaneEndpoint.Host == updatedCluster.Status.ControlPlaneLoadBalancer.IPv4
+				}, timeout, interval).Should(BeTrue())
 				Expect(testEnv.Create(ctx, hcloudMachine)).To(Succeed())
 			})
 
