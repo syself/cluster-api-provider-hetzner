@@ -295,7 +295,7 @@ func convertFailureDomainsMapToSlice(obj map[string]interface{}) {
 	}
 	sort.Strings(names)
 
-	var entries []interface{}
+	entries := make([]interface{}, 0, len(names))
 	for _, name := range names {
 		entry := map[string]interface{}{"name": name}
 		rawEntry, _ := fdMap[name].(map[string]interface{})

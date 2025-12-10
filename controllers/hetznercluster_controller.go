@@ -259,7 +259,6 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 }
 
 func processControlPlaneEndpoint(hetznerCluster *infrav1.HetznerCluster) {
-
 	if hetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
 		if hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4 != "<nil>" {
 			defaultHost := hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4

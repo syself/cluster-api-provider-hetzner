@@ -23,10 +23,10 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 
 	infrav1beta2 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
-	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 )
 
 func TestAllCRDConversionsRoundTrip(t *testing.T) {
@@ -251,7 +251,6 @@ func TestAllCRDConversionsRoundTrip(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			src := tc.newSource()
