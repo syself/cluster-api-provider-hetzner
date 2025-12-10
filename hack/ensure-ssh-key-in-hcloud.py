@@ -67,11 +67,16 @@ def main() -> None:
     hcloud_token = env_or_exit("HCLOUD_TOKEN", "your Hetzner API token")
 
     public_key = read_ssh_key(ssh_key_path)
+
+    # remove trailing docstring, just use the first to words:
+    public_key = " ".join(public_key.split()[0:2])
+
     encoded_name = urllib.parse.quote_plus(ssh_name)
     url = f"https://api.hetzner.cloud/v1/ssh_keys?name={encoded_name}"
 
     data = hetzner_request(url, hcloud_token)
     ssh_keys = data.get("ssh_keys", [])
+    assert isinstance(ssh_keys, list), "ssh_keys is not a list"
 
     if ssh_keys:
         existing = ssh_keys[0].get("public_key", "").strip()
