@@ -387,9 +387,24 @@ var _ = Describe("HCloudMachineReconciler", func() {
 
 				By("checking that bootstrap condition is not ready")
 
-				Eventually(func() bool {
-					return isPresentAndFalseWithReason(key, hcloudMachine, infrav1.BootstrapReadyCondition, infrav1.BootstrapNotReadyReason)
-				}, timeout, interval).Should(BeTrue())
+				// From
+				Eventually(func() error {
+					err := testEnv.Get(ctx, client.ObjectKeyFromObject(hcloudMachine), hcloudMachine)
+					if err != nil {
+						return err
+					}
+					c := conditions.Get(hcloudMachine, infrav1.BootstrapReadyCondition)
+					if c == nil {
+						return fmt.Errorf("BootstrapReadyCondition not set")
+					}
+					if c.Status != metav1.ConditionFalse {
+						return fmt.Errorf("BootstrapReadyCondition not false")
+					}
+					if c.Reason != infrav1.BootstrapNotReadyReason {
+						return fmt.Errorf("BootstrapNotReadyReason not set. Reason: %q", c.Reason)
+					}
+					return nil
+				}, timeout, interval).Should(Succeed())
 
 				By("setting the bootstrap data")
 
@@ -613,6 +628,8 @@ var _ = Describe("HCloudMachineReconciler", func() {
 					EnableIPv6: false,
 				}
 				Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
+				Expect(hetznerCluster.Spec.ControlPlaneEndpoint).NotTo(BeNil())
+				Expect(hetznerCluster.Spec.ControlPlaneEndpoint.Host).To(Equal("mycp.example.com"))
 				Expect(testEnv.Create(ctx, hcloudMachine)).To(Succeed())
 			})
 

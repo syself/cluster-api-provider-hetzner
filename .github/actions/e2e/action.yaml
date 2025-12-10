@@ -58,9 +58,9 @@ runs:
 
     - name: Prepull the pre-built image
       shell: bash
-      run: docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${TAG}
+      run: docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${CAPH_CONTAINER_TAG}
       env:
-        TAG: ${{ steps.meta.outputs.version }}
+        CAPH_CONTAINER_TAG: ${{ steps.meta.outputs.version }}
 
     - name: Get HCLOUD_TOKEN # sets env.HCLOUD_TOKEN
       uses: hetznercloud/tps-action@dee5dd2546322c28ed8f74b910189066e8b6f31a # main
@@ -71,14 +71,14 @@ runs:
         CI: "true"
         REGISTRY: ${{ env.REGISTRY }}
         IMAGE_NAME: ${{ env.IMAGE_NAME }}
-        TAG: ${{ steps.meta.outputs.version }}
+        CAPH_CONTAINER_TAG: ${{ steps.meta.outputs.version }}
         HCLOUD_TOKEN: ${{ env.HCLOUD_TOKEN }}
         HETZNER_ROBOT_USER: ${{ inputs.e2e_robot_user }}
         HETZNER_ROBOT_PASSWORD: ${{ inputs.e2e_robot_password }}
         HETZNER_SSH_PUB: ${{ inputs.e2e_ssh_pub }}
         HETZNER_SSH_PRIV: ${{ inputs.e2e_ssh_priv }}
         SKIP_IMAGE_BUILD: "1"
-        CAPH_LATEST_VERSION: "v1.0.1"
+        CAPH_LATEST_VERSION: "v1.0.7"
       run: make ${{ inputs.e2e_make_target }}
 
     - name: Upload artifact
