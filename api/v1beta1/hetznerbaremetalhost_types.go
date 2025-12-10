@@ -262,8 +262,12 @@ type ControllerGeneratedStatus struct {
 	// +optional
 	UserData *corev1.SecretReference `json:"userData,omitempty"`
 
-	// InstallImage is the configuration that is used for the autosetup configuration for installing an OS via InstallImage.
-	// +optional
+	// InstallImage is the configuration that is used for the autosetup configuration for installing
+	// an OS via InstallImage. The field has an additional usage: When a hbmm gets deleted, then the
+	// hbmm controller sets this field of the hbmh to nil. This indicates the hbmh controller that
+	// deprovisioning should started
+	//
+	//  +optional
 	InstallImage *InstallImage `json:"installImage,omitempty"`
 
 	// StatusHardwareDetails are automatically gathered and should not be modified by the user.

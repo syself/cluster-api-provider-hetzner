@@ -6,7 +6,7 @@ description: Full list of available Tilt configuration values and their descript
 ---
 
 We do not update the Tilt configuration regularly. The script
-([update-operator-dev-deployment.sh](/hack/update-operator-dev-deployment.sh)) may be an easier
+([update-operator-dev-deployment.sh](https://github.com/syself/cluster-api-provider-hetzner/blob/main/hack/update-operator-dev-deployment.sh)) may be an easier
 solution.
 
 ```json

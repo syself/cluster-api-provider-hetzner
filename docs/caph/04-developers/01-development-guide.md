@@ -33,7 +33,7 @@ For more information, please see the [Hetzner project preparation](/docs/caph/01
 ## Tilt vs pushing development container
 
 You can use [Tilt](https://tilt.dev/) or a script like
-[update-operator-dev-deployment.sh](/hack/update-operator-dev-deployment.sh) to install your changed
+[update-operator-dev-deployment.sh](https://github.com/syself/cluster-api-provider-hetzner/blob/main/hack/update-operator-dev-deployment.sh) to install your changed
 code in the management cluster.
 
 We do not update the Tilt configuration regularly. The script may be an easier solution.
