@@ -1591,7 +1591,9 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 		// A connection failed error could mean that cloud init is still running (if cloudInit introduces a new port)
 		if isSSHConnectionRefusedError {
 			if actionRes := s.handleConnectionRefused(ctx); actionRes != nil {
-				s.scope.Logger.Info("ensureProvisioned: ConnectionRefused", "actionResult", actionRes)
+				s.scope.Logger.Info("ensureProvisioned: ConnectionRefused",
+					"ssh-port-after-cloud-init", s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterCloudInit,
+					"actionResult", actionRes)
 				return actionRes
 			}
 		}

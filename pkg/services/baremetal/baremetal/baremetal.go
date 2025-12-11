@@ -65,6 +65,8 @@ const (
 
 	// FailureMessageMaintenanceMode indicates that host is in maintenance mode.
 	FailureMessageMaintenanceMode = "host machine in maintenance mode"
+
+	defaultSSHPort = 22
 )
 
 // Service defines struct with machine scope to reconcile HetznerBareMetalMachines.
@@ -710,7 +712,16 @@ func (s *Service) setHostSpec(host *infrav1.HetznerBareMetalHost) {
 	if host.Spec.Status.InstallImage == nil && s.scope.Machine.Spec.Bootstrap.DataSecretName != nil {
 		host.Spec.Status.InstallImage = &s.scope.BareMetalMachine.Spec.InstallImage
 		host.Spec.Status.UserData = &corev1.SecretReference{Namespace: s.scope.Namespace(), Name: *s.scope.Machine.Spec.Bootstrap.DataSecretName}
-		host.Spec.Status.SSHSpec = &s.scope.BareMetalMachine.Spec.SSHSpec
+
+		sshSpec := s.scope.BareMetalMachine.Spec.SSHSpec
+		if sshSpec.PortAfterInstallImage == 0 {
+			sshSpec.PortAfterInstallImage = defaultSSHPort
+		}
+		if sshSpec.PortAfterCloudInit == 0 {
+			sshSpec.PortAfterCloudInit = sshSpec.PortAfterInstallImage
+		}
+		host.Spec.Status.SSHSpec = &sshSpec
+
 		host.Spec.Status.HetznerClusterRef = s.scope.HetznerCluster.Name
 	}
 }
