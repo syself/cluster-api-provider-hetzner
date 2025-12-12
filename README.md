@@ -50,7 +50,7 @@ hope that we can release it soon. This will still use our APIVersion v1beta1, bu
 lot of updates.
 
 We are working on branch
-[v1.2.x-v1beta2](https://github.com/syself/cluster-api-provider-hetzner/tree/v1.1.x-v1beta2). And
+[v1.2.x-v1beta2](https://github.com/syself/cluster-api-provider-hetzner/tree/v1.2.x-v1beta2). And
 hope that we can release it soon. This will use the new APIVersion v1beta2. It will support CAPI
 v1beta2. You need CAPI v1.11 or newer.
 
@@ -60,7 +60,7 @@ We will ship and support three lines in parallel until v1.2.x becomes generally 
 | ----------- | -------------- | --------------- | ------ |
 | `v1.0.x`    | `v1beta1` (CAPH + CAPI) | `<= v1.1.10` | On branch `main` |
 | `v1.1.x`    | `v1beta1`              | `<= v1.1.11` | Under active development on branch `v1.1.x-v1beta1` |
-| `v1.2.x`    | `v1beta3`              | `>= v1.1.11` | Under active development on branch `v1.2.x-v1beta2` |
+| `v1.2.x`    | `v1beta2`              | `>= v1.1.11` | Under active development on branch `v1.2.x-v1beta2` |
 
 Documentation about upgrading to CAPH v1.2.x will be published alongside the first v1.2.x release.
 
@@ -106,8 +106,8 @@ In addition to the pure creation and operation of Kubernetes clusters, this prov
 
 This provider's versions are compatible with the following versions of Cluster API:
 
-|                                      | CAPI `v1beta1` (`v1.8.x`) | CAPI `v1beta1` (`v1.9.x`) | CAPI `v1beta1` (`v1.10.x`) | 
-| ------------------------------------ | ------------------------- | ------------------------- | -------------------------- | 
+|                                      | CAPI `v1beta1` (`v1.8.x`) | CAPI `v1beta1` (`v1.9.x`) | CAPI `v1beta1` (`v1.10.x`) |
+| ------------------------------------ | ------------------------- | ------------------------- | -------------------------- |
 | Hetzner Provider `v1.0.x`            | ✅                        | ✅                        | ✅                         |
 
 
