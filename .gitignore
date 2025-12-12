@@ -39,6 +39,7 @@ baremetalhosts.yaml
 ./kind.kubeconfig
 ./kubeconfig
 ./.kubeconfig
+/.kube
 .workload-cluster-kubeconfig.yaml
 .mgt-cluster-kubeconfig.yaml
 

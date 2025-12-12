@@ -36,24 +36,36 @@
 
 **Important:** On December 5, 2025 we reset `main` to the
 [v1.0.7](https://github.com/syself/cluster-api-provider-hetzner/tree/v1.0.7) tag so that the
-documentation on `main` continues to describe the latest *stable* release. Active development for
-CAPH v1.1.x (code and docs) happens on the dedicated
-[`v1.1.x`](https://github.com/syself/cluster-api-provider-hetzner/tree/v1.1.x) branch. Please base
-new pull requests on `v1.1.x` unless you are intentionally backporting to v1.0.x.
+documentation on `main` continues to describe the latest *stable* release.
 
-We will ship and support both lines in parallel until v1.1.x becomes generally available.
+Currently there are three versions of CAPH:
 
-| CAPH series | API version(s) | Compatible CAPI | Status |
-| ----------- | -------------- | --------------- | ------ |
-| `v1.0.x`    | `v1beta1` (CAPH + CAPI) | `<= v1.1.11` | On branch `main` |
-| `v1.1.x`    | `v1beta2`              | `>= v1.1.11` | Under active development on branch `v1.1.x` |
+- v1.0.x: Stable, uses APIVersion v1beta1. Compatible with CAPI v1.10 or lower. Does not support CAPI v1.11!
+- v1.1.x: In development, uses APIVersion v1beta1. Compatible with CAPI v1.11 or lower.
+- v1.2.x: In development, uses APIVersion v1beta2. Compatible with CAPI v1.11 and higher.
 
-**Tip:** CAPH `v1.0.x` must be used with CAPI `v1.1.11` or lower (it does **not** support CAPI
-`v1.1.12`). CAPH `v1.1.x` requires CAPI `v1.1.11` or higher.
+We are working on branch
+[v1.1.x-v1beta1](https://github.com/syself/cluster-api-provider-hetzner/tree/v1.1.x-v1beta1). And
+hope that we can release it soon. This will still use our APIVersion v1beta1, but it will include a
+lot of updates.
 
-Documentation about upgrading to CAPH v1.1.x will be published alongside the first v1.1.x release.
-Once that release is generally available we'll switch `main` back to tracking active development
-and update the hosted documentation accordingly.
+We are working on branch
+[v1.2.x-v1beta2](https://github.com/syself/cluster-api-provider-hetzner/tree/v1.2.x-v1beta2). And
+hope that we can release it soon. This will use the new APIVersion v1beta2. It will support CAPI
+v1beta2. You need CAPI v1.11 or newer.
+
+We will ship and support three lines in parallel until v1.2.x becomes generally available.
+
+| CAPH series | API version (CAPH + CAPI) | Compatible CAPI | Status |
+| ----------- | ------------------------- | --------------- | ------ |
+| `v1.0.x`    | `v1beta1`                 | `<= v1.10`      | On branch `main` |
+| `v1.1.x`    | `v1beta1`                 | `<= v1.11`      | Under active development on branch `v1.1.x-v1beta1` |
+| `v1.2.x`    | `v1beta2`                 | `>= v1.11`      | Under active development on branch `v1.2.x-v1beta2` |
+
+Documentation about upgrading to CAPH v1.2.x will be published alongside the first v1.2.x release.
+
+Once that release is generally available we'll switch `main` back to tracking active development and
+update the hosted documentation accordingly.
 
 ## 📰 What is the Cluster API Provider Hetzner?
 
@@ -94,20 +106,19 @@ In addition to the pure creation and operation of Kubernetes clusters, this prov
 
 This provider's versions are compatible with the following versions of Cluster API:
 
-|                                      | CAPI `v1beta1` (`v1.7.x`) | CAPI `v1beta1` (`v1.8.x`) |
-| ------------------------------------ | ------------------------- | ------------------------- |
-| Hetzner Provider `v1.0.0-beta.34-43` | ✅                        | ❌                        |
-| Hetzner Provider `v1.0.0`            | ✅                        | ✅                        |
-| Hetzner Provider `v1.0.1`            | ✅                        | ✅                        |
+|                                      | CAPI `v1beta1` (`v1.8.x`) | CAPI `v1beta1` (`v1.9.x`) | CAPI `v1beta1` (`v1.10.x`) |
+| ------------------------------------ | ------------------------- | ------------------------- | -------------------------- |
+| Hetzner Provider `v1.0.x`            | ✅                        | ✅                        | ✅                         |
+
 
 This provider's versions can install and manage the following versions of Kubernetes:
 
 |                   | Hetzner Provider `v1.0.x` |
 | ----------------- | ------------------------- |
-| Kubernetes 1.28.x | ✅                        |
-| Kubernetes 1.29.x | ✅                        |
-| Kubernetes 1.30.x | ✅                        |
 | Kubernetes 1.31.x | ✅                        |
+| Kubernetes 1.32.x | ✅                        |
+| Kubernetes 1.33.x | ✅                        |
+| Kubernetes 1.34.x | ❔                        |
 
 Test status:
 

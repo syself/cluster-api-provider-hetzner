@@ -1,8 +1,12 @@
 <!--
 
-    PLEASE BASE YOUR PULL REQUESTS ON THE v1.1.x BRANCH IF YOU ADD A NEW FEATURE.
+    PLEASE CHOOSE A MATCHING BASE BRANCH FOR YOUR PR
 
-    The main branch reflects v1.0.x. Use the main branch if you create a bug or security fix.
+    The main branch reflects v1.0.x. Use this branch if you create a bug or security fix.
+
+    The v1.1.x-v1beta1 branch reflects v1.1.x. Use this if you want to add a feature request.
+
+    The v1.2.x-v1beta2 branch reflects v1.2.x. Use this if you want to improve CAPI beta2 (v1.11) support.
 
  -->
 
