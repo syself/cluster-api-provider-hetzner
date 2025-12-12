@@ -132,13 +132,6 @@ func SetSummary(obj capiconditions.Setter) {
 
 // Delete removes a condition from the object.
 func Delete(obj capiconditions.Setter, conditionType string) {
-	// Work around bug which is not fixed in 1.11 yet:
-	// https://github.com/kubernetes-sigs/cluster-api/pull/13048
-	// Please delete that extra check later.
-	c := obj.GetConditions()
-	if len(c) == 0 {
-		return
-	}
 	capiconditions.Delete(obj, conditionType)
 }
 
