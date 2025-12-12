@@ -132,19 +132,19 @@ func (m *BareMetalMachineScope) IsBootstrapReady() bool {
 // stop remediation (no reboot gets tried). Finally the capi machine and the infra machine will be
 // deleted.
 func (m *BareMetalMachineScope) SetErrorAndDeleteMachine(ctx context.Context, message string) error {
-	obj := m.Machine
+	capiMachine := m.Machine
 
 	// Create a patch base
-	patch := client.MergeFrom(obj.DeepCopy())
+	patch := client.MergeFrom(capiMachine.DeepCopy())
 
 	// Modify only annotations on the in-memory copy
-	if obj.Annotations == nil {
-		obj.Annotations = map[string]string{}
+	if capiMachine.Annotations == nil {
+		capiMachine.Annotations = map[string]string{}
 	}
-	obj.Annotations[clusterv1.RemediateMachineAnnotation] = ""
+	capiMachine.Annotations[clusterv1.RemediateMachineAnnotation] = ""
 
 	// Apply patch – only the diff (annotations) is sent to the API server
-	if err := m.Client.Patch(ctx, obj, patch); err != nil {
+	if err := m.Client.Patch(ctx, capiMachine, patch); err != nil {
 		return err
 	}
 

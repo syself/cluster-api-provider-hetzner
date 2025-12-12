@@ -241,11 +241,16 @@ const (
 
 const (
 	// DeleteMachineSucceededCondition is False when the capi (and infra) machine should be deleted.
-	// The condition appears on the infra machine, and gets mirrored to the hbmh. Finally the capi
-	// machine and the infra machine will be deleted. The condition is either False or does not
-	// exist.
+	// Unfortunately the infra machine controller, can not directly delete the capi machine, if a
+	// permanent error occurs.
 	//
-	// The condition gets set during provisioning the infra machine.
+	// But the controller can set the clusterv1.RemediateMachineAnnotation on the capi-machine. This
+	// will make CAPI start remediation. During remediation the infra remediation controller needs
+	// to differentiate between "try remediation (reboot)" and "please just delete machine".
+	//
+	// This condition provides the needed signal to the remediation controller, so that a reboot is
+	// not tried. After the remediation controller has acted accordingly the capi machine will
+	// finally be deleted.
 	DeleteMachineSucceededCondition clusterv1.ConditionType = "DeleteMachineSucceeded"
 
 	// DeleteMachineInProgressReason is for [DeleteMachineSucceededCondition].
