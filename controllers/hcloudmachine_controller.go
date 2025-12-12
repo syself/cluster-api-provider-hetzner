@@ -26,6 +26,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
@@ -241,10 +242,13 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return r.reconcileDelete(ctx, machineScope)
 	}
 
-	if hcloudMachine.Status.FailureReason != nil {
-		// This machine will be removed.
+	c := conditions.Get(hcloudMachine, infrav1.DeleteMachineSucceededCondition)
+	if c != nil && c.Status == corev1.ConditionFalse {
+		// This hcloud machine will be removed soon.
+		log.Info("hcloudmachine has DeleteMachineSucceededCondition. Not reconciling this machine.")
 		return reconcile.Result{}, nil
 	}
+
 	return r.reconcileNormal(ctx, machineScope)
 }
 
