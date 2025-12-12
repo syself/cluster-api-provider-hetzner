@@ -25,15 +25,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/fake"
 )
 
 const labelSelector = "key1==val1"
 
-var (
-	factory = fake.NewHCloudClientFactory()
-	ctx     = context.Background()
-)
+var ctx = context.Background()
 
 func TestFake(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -75,13 +73,13 @@ var _ = Describe("Load balancer", func() {
 		Subnets: []hcloud.NetworkSubnet{{IPRange: &net.IPNet{IP: net.IP("1.2.3.6")}}},
 	}
 
-	client := factory.NewClient("")
+	var client hcloudclient.Client
 
 	var lb *hcloud.LoadBalancer
 	var network *hcloud.Network
 
 	BeforeEach(func() {
-		client.Reset()
+		client = fake.NewHCloudClientFactory().NewClient("fake-hcloud-token")
 		_, err := client.CreateLoadBalancer(ctx, opts)
 		Expect(err).To(Succeed())
 
@@ -423,10 +421,10 @@ var _ = Describe("Load balancer", func() {
 
 var _ = Describe("Images", func() {
 	var listOpts hcloud.ImageListOpts
-	client := factory.NewClient("")
+	var client hcloudclient.Client
 
 	BeforeEach(func() {
-		client.Reset()
+		client = fake.NewHCloudClientFactory().NewClient("fake-hcloud-token")
 		listOpts.LabelSelector = "caph-image-name==my-control-plane"
 	})
 	It("lists at least one image", func() {
@@ -440,7 +438,7 @@ var _ = Describe("Server", func() {
 	var listOpts hcloud.ServerListOpts
 	listOpts.LabelSelector = labelSelector
 
-	client := factory.NewClient("")
+	var client hcloudclient.Client
 
 	opts := hcloud.ServerCreateOpts{
 		Name: "test-server",
@@ -463,8 +461,8 @@ var _ = Describe("Server", func() {
 	var network *hcloud.Network
 
 	BeforeEach(func() {
-		client.Reset()
 		var err error
+		client = fake.NewHCloudClientFactory().NewClient("fake-hcloud-token")
 		server, err = client.CreateServer(ctx, opts)
 		Expect(err).To(Succeed())
 
@@ -607,8 +605,6 @@ var _ = Describe("Network", func() {
 	var listOpts hcloud.NetworkListOpts
 	listOpts.LabelSelector = labelSelector
 
-	client := factory.NewClient("")
-
 	opts := hcloud.NetworkCreateOpts{
 		Name: "test-network",
 		Labels: map[string]string{
@@ -620,10 +616,11 @@ var _ = Describe("Network", func() {
 	}
 
 	var network *hcloud.Network
+	var client hcloudclient.Client
 
 	BeforeEach(func() {
-		client.Reset()
 		var err error
+		client = fake.NewHCloudClientFactory().NewClient("fake-hcloud-token")
 		network, err = client.CreateNetwork(ctx, opts)
 		Expect(err).To(Succeed())
 	})
@@ -671,13 +668,13 @@ var _ = Describe("Placement groups", func() {
 		Type: "stream",
 	}
 
-	client := factory.NewClient("")
+	var client hcloudclient.Client
 	var server *hcloud.Server
 	var placementGroup *hcloud.PlacementGroup
 
 	BeforeEach(func() {
-		client.Reset()
 		var err error
+		client = fake.NewHCloudClientFactory().NewClient("fake-hcloud-token")
 		server, err = client.CreateServer(ctx, hcloud.ServerCreateOpts{
 			Name: "test-server",
 			Labels: map[string]string{

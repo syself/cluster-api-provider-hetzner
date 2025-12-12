@@ -23,24 +23,32 @@ This ensures the following:
 - helmfile
 - kind (required)
 - kubectl (required)
-- tilt (required)
-- hcloud
+- tilt
+- hcloud cli-tool.
 
 ## Preparing Hetzner project
 
-For more information, please see [here](/docs/caph/01-getting-started/03-preparation.md).
+For more information, please see the [Hetzner project preparation](/docs/caph/01-getting-started/03-preparation.md) guide.
 
-## Setting Tilt up
+## Tilt vs pushing development container
 
-You need to create a `.envrc` file and specify the values you need. After the `.envrc` is loaded, invoke `direnv allow` to load the environment variables in your current shell session.
+You can use [Tilt](https://tilt.dev/) or a script like
+[update-operator-dev-deployment.sh](https://github.com/syself/cluster-api-provider-hetzner/blob/main/hack/update-operator-dev-deployment.sh) to install your changed
+code in the management cluster.
 
-The complete reference can be found [here](/docs/caph/04-developers/02-tilt.md).
+We do not update the Tilt configuration regularly. The script may be an easier solution.
+
+We recommend creating a `.envrc` file and specifying the values you need. After the `.envrc` is loaded
+([direnv.net](https://direnv.net/)), invoke `direnv allow` to load the environment variables in your
+current shell session.
+
+The complete reference can be found in the [Reference of Tilt](/docs/caph/04-developers/02-tilt.md) documentation.
 
 ## Developing with Tilt
 
 ![tilt](https://syself.com/images/tilt.png)
 
-Provider Integration development requires a lot of iteration, and the “build, tag, push, update deployment” workflow can be very tedious. Tilt makes this process much simpler by watching for updates and automatically building and deploying them. To build a kind cluster and to start Tilt, run:
+To build a kind cluster and to start Tilt, run:
 
 ```shell
 make tilt-up
@@ -68,6 +76,25 @@ To delete the registry, use `make delete-registry`. Use `make delete-mgt-cluster
 
 If you have any trouble finding the right command, you can run the `make help` command to get a list of all available make targets.
 
+## Troubleshooting
+
+If you want to have a better overview about what is going on in your management cluster, then you can use the
+following tools.
+
+```console
+❯ watch ./hack/output-for-watch.sh
+```
+
+This script continuously shows the most important resources (capi machines, infra machines, ...)
+and logs of caph and capi. Run this with your management cluster kubeconfig active.
+
+```console
+go run github.com/guettli/check-conditions@latest all
+```
+
+[check-conditions](https://github.com/guettli/check-conditions) shows all unhealthy conditions of
+the current cluster. You can use it in both the management and workload clusters.
+
 ## Submitting PRs and testing
 
 Pull requests and issues are highly encouraged! For more information, please have a look at the [Contribution Guidelines](https://github.com/syself/cluster-api-provider-hetzner/blob/main/CONTRIBUTING.md)
@@ -79,6 +106,25 @@ With `make verify`, you can run all linting checks and others. Make sure that al
 With `make test`, all unit tests are triggered. If they fail out of nowhere, then please re-run them. They are not 100% stable and sometimes there are tests failing due to something related to Kubernetes' `envtest`.
 
 With `make generate`, new CRDs are generated. This is necessary if you change the API.
+
+## Running unit-tests locally
+
+Developing unit-tests (which do not need a running cluster) are much faster. We recommend to do
+that.
+
+A common way to run one particular unit-test is like this:
+
+```shell
+reset; ginkgo run --focus "foo" ./controllers/... | ./hack/filter-caph-controller-manager-logs.py -
+```
+
+Explanation:
+
+- `reset`: Reset the terminal so you can scroll back to the first line of output easily.
+- `ginkgo run --focus "foo" ./controllers/...`: Run tests in the controllers directory, but only those
+  whose `It("...")` contains "foo".
+- `./hack/filter-caph-controller-manager-logs.py -`: Filter the output to avoid being overwhelmed.
+  You can configure the script to exclude lines or individual key/value pairs of the JSON log lines.
 
 ## Running local e2e test
 

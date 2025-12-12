@@ -55,9 +55,8 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 	)
 
 	BeforeEach(func() {
-		hcloudClient.Reset()
 		var err error
-		testNs, err = testEnv.CreateNamespace(ctx, "hcloudmachinetemplate-reconciler")
+		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachinetemplate-reconciler")
 		Expect(err).NotTo(HaveOccurred())
 
 		hetznerSecret = getDefaultHetznerSecret(testNs.Name)
@@ -204,7 +203,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 			})
 		})
 
-		It("checks that no remediation is tried if HCloud server does not exist anymore (flaky)", func() {
+		It("checks that no remediation is tried if HCloud server does not exist anymore", func() {
 			By("ensuring if hcloudMachine is provisioned")
 			Eventually(func() error {
 				if err := testEnv.Get(ctx, hcloudMachineKey, hcloudMachine); err != nil {
@@ -212,7 +211,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				}
 
 				if !hcloudMachine.Status.Ready {
-					return fmt.Errorf("hcloudMachine.Status.Ready is not true (yet) (flaky)")
+					return fmt.Errorf("hcloudMachine.Status.Ready is not true (yet)")
 				}
 				return nil
 			}, timeout).ShouldNot(HaveOccurred())
@@ -221,6 +220,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 			providerID, err := hcloudutil.ServerIDFromProviderID(hcloudMachine.Spec.ProviderID)
 			Expect(err).NotTo(HaveOccurred())
 
+			hcloudClient := testEnv.HCloudClientFactory.NewClient("fake-token")
 			Expect(hcloudClient.DeleteServer(ctx, &hcloud.Server{ID: providerID})).NotTo(HaveOccurred())
 
 			By("creating the hcloudRemediation")

@@ -33,7 +33,9 @@ import (
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
+	sshmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/ssh"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/mockedsshclient"
 	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
 )
 
@@ -203,13 +205,29 @@ func TestServer(t *testing.T) {
 	RunSpecs(t, "Server Suite")
 }
 
+type Resetter struct{}
+
+var _ helpers.Resetter = &Resetter{}
+
+func (r *Resetter) ResetAndInitNamespace(_ string, testEnv *helpers.TestEnvironment, t FullGinkgoTInterface) {
+	rescueSSHClient := &sshmock.Client{}
+	// Register Testify helpers so failed expectations are reported against this test instance.
+
+	rescueSSHClient.Test(t)
+	testEnv.RescueSSHClient = rescueSSHClient
+
+	testEnv.HCloudSSHClient = &sshmock.Client{}
+	testEnv.HCloudSSHClient.Test(t)
+	testEnv.HCloudSSHClientFactory = mockedsshclient.NewSSHFactory(testEnv.HCloudSSHClient)
+}
+
 var _ = BeforeSuite(func() {
 	utilruntime.Must(corev1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(infrav1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(clusterv1.AddToScheme(scheme.Scheme))
 
 	testEnv = helpers.NewTestEnvironment()
-
+	testEnv.Resetter = &Resetter{}
 	go func() {
 		defer GinkgoRecover()
 		Expect(testEnv.StartManager(ctx)).To(Succeed())

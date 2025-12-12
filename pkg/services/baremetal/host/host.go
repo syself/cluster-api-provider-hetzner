@@ -160,8 +160,8 @@ func SaveHostAndReturn(ctx context.Context, cl client.Client, host *infrav1.Hetz
 
 	if err := cl.Update(ctx, host); err != nil {
 		if apierrors.IsConflict(err) {
-			log := ctrl.LoggerFrom(ctx)
-			log.Info("conflict error. Retrying", "err", err)
+			logger := ctrl.LoggerFrom(ctx)
+			logger.Info("conflict error. Retrying", "err", err)
 			return reconcile.Result{Requeue: true}, nil
 		}
 		return reconcile.Result{}, fmt.Errorf("failed to update host object: %w", err)

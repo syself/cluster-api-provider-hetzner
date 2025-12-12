@@ -40,7 +40,9 @@ const (
 	DeprecatedBareMetalHostFinalizer = "hetznerbaremetalhost.infrastructure.cluster.x-k8s.io"
 
 	// HostAnnotation is the key for an annotation that should go on a HetznerBareMetalMachine to
-	// reference what HetznerBareMetalHost it corresponds to.
+	// reference what HetznerBareMetalHost it corresponds to. The annotation is a string in the
+	// format "namespace/hbmh-name". Note: We should remove the namespace, as cross-namespace
+	// references are not allowed.
 	HostAnnotation = "infrastructure.cluster.x-k8s.io/HetznerBareMetalHost"
 
 	// WipeDiskAnnotation indicates which Disks (WWNs) to erase before provisioning
@@ -120,8 +122,10 @@ const (
 	// RegistrationError is an error condition occurring when the
 	// controller is unable to retrieve information on a specific server via robot.
 	RegistrationError ErrorType = "registration error"
+
 	// PreparationError is an error condition occurring when something fails while preparing host reconciliation.
 	PreparationError ErrorType = "preparation error"
+
 	// ProvisioningError is an error condition occurring when the controller
 	// fails to provision or deprovision the Host.
 	ProvisioningError ErrorType = "provisioning error"
@@ -230,8 +234,9 @@ type HetznerBareMetalHostSpec struct {
 	// +optional
 	ConsumerRef *corev1.ObjectReference `json:"consumerRef,omitempty"`
 
-	// MaintenanceMode indicates that a machine is supposed to be deprovisioned
-	// and won't be selected by any Hetzner bare metal machine.
+	// MaintenanceMode indicates that a machine is supposed to be deprovisioned. The CAPI Machine
+	// will get the cluster.x-k8s.io/remediate-machine annotation, and CAPI will deprovision the
+	// machine. Additionally, the host won't be selected by any Hetzner bare metal machine.
 	MaintenanceMode *bool `json:"maintenanceMode,omitempty"`
 
 	// Description is a human-entered text used to help identify the host.

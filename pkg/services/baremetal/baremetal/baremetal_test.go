@@ -710,12 +710,6 @@ var _ = Describe("Test hostKey", func() {
 	Expect(hostKey(host)).To(Equal("namespace/name"))
 })
 
-var _ = Describe("Test splitHostKey", func() {
-	namespace, name := splitHostKey("namespace/name")
-	Expect(namespace).To(Equal("namespace"))
-	Expect(name).To(Equal("name"))
-})
-
 var _ = Describe("Test checkForRequeueError", func() {
 	type testCaseCheckForRequeueError struct {
 		err            error
@@ -753,12 +747,6 @@ var _ = Describe("Test checkForRequeueError", func() {
 			expectedErrMsg: "test message: other error",
 		}),
 	)
-})
-
-var _ = Describe("Test splitHostKey", func() {
-	namespace, name := splitHostKey("namespace/name")
-	Expect(namespace).To(Equal("namespace"))
-	Expect(name).To(Equal("name"))
 })
 
 var _ = Describe("Test analyzePatchError", func() {
