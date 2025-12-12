@@ -56,11 +56,11 @@ v1beta2. You need CAPI v1.11 or newer.
 
 We will ship and support three lines in parallel until v1.2.x becomes generally available.
 
-| CAPH series | API version(s) | Compatible CAPI | Status |
-| ----------- | -------------- | --------------- | ------ |
-| `v1.0.x`    | `v1beta1` (CAPH + CAPI) | `<= v1.10` | On branch `main` |
-| `v1.1.x`    | `v1beta1`              | `<= v1.11` | Under active development on branch `v1.1.x-v1beta1` |
-| `v1.2.x`    | `v1beta2`              | `>= v1.11` | Under active development on branch `v1.2.x-v1beta2` |
+| CAPH series | API version (CAPH + CAPI) | Compatible CAPI | Status |
+| ----------- | ------------------------- | --------------- | ------ |
+| `v1.0.x`    | `v1beta1`                 | `<= v1.10`      | On branch `main` |
+| `v1.1.x`    | `v1beta1`                 | `<= v1.11`      | Under active development on branch `v1.1.x-v1beta1` |
+| `v1.2.x`    | `v1beta2`                 | `>= v1.11`      | Under active development on branch `v1.2.x-v1beta2` |
 
 Documentation about upgrading to CAPH v1.2.x will be published alongside the first v1.2.x release.
 
