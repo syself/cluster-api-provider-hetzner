@@ -42,7 +42,7 @@ Currently there are three versions of CAPH:
 
 - v1.0.x: Stable, uses APIVersion v1beta1. Compatible with CAPI v1.10 or lower. Does not support CAPI v1.11!
 - v1.1.x: In development, uses APIVersion v1beta1. Compatible with CAPI v1.11 or lower.
-- v1.2.x: In development, uses APIVersion v1beta2. Compatiable with CAPI v1.11 and higher.
+- v1.2.x: In development, uses APIVersion v1beta2. Compatible with CAPI v1.11 and higher.
 
 We are working on branch
 [v1.1.x-v1beta1](https://github.com/syself/cluster-api-provider-hetzner/tree/v1.1.x-v1beta1). And
@@ -58,9 +58,9 @@ We will ship and support three lines in parallel until v1.2.x becomes generally 
 
 | CAPH series | API version(s) | Compatible CAPI | Status |
 | ----------- | -------------- | --------------- | ------ |
-| `v1.0.x`    | `v1beta1` (CAPH + CAPI) | `<= v1.1.10` | On branch `main` |
-| `v1.1.x`    | `v1beta1`              | `<= v1.1.11` | Under active development on branch `v1.1.x-v1beta1` |
-| `v1.2.x`    | `v1beta2`              | `>= v1.1.11` | Under active development on branch `v1.2.x-v1beta2` |
+| `v1.0.x`    | `v1beta1` (CAPH + CAPI) | `<= v1.10` | On branch `main` |
+| `v1.1.x`    | `v1beta1`              | `<= v1.11` | Under active development on branch `v1.1.x-v1beta1` |
+| `v1.2.x`    | `v1beta2`              | `>= v1.11` | Under active development on branch `v1.2.x-v1beta2` |
 
 Documentation about upgrading to CAPH v1.2.x will be published alongside the first v1.2.x release.
 
