@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
+	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -122,4 +123,35 @@ func (m *BareMetalMachineScope) IsControlPlane() bool {
 // IsBootstrapReady checks the readiness of a capi machine's bootstrap data.
 func (m *BareMetalMachineScope) IsBootstrapReady() bool {
 	return m.Machine.Spec.Bootstrap.DataSecretName != nil
+}
+
+// SetErrorAndDeleteMachine sets "cluster.x-k8s.io/remediate-machine" annotation on the
+// corresponding CAPI machine. This will trigger CAPI to start remediation. To differentiate a
+// normal remediation from the request to delete the machine, the DeleteMachineSucceededCondition
+// gets set to False on the infra machine. Our remediation contoller will notice this condition and
+// stop remediation (no reboot gets tried). Finally the capi machine and the infra machine will be
+// deleted.
+func (m *BareMetalMachineScope) SetErrorAndDeleteMachine(ctx context.Context, message string) error {
+	capiMachine := m.Machine
+
+	// Create a patch base
+	patch := client.MergeFrom(capiMachine.DeepCopy())
+
+	// Modify only annotations on the in-memory copy
+	if capiMachine.Annotations == nil {
+		capiMachine.Annotations = map[string]string{}
+	}
+	capiMachine.Annotations[clusterv1.RemediateMachineAnnotation] = ""
+
+	// Apply patch – only the diff (annotations) is sent to the API server
+	if err := m.Client.Patch(ctx, capiMachine, patch); err != nil {
+		return err
+	}
+
+	record.Warnf(m.BareMetalMachine, "MachineWillBeDeleted", "Machine will be deleted: %s", message)
+
+	// Set the condition, so that our remediation controller knows that no reboot should be tried.
+	conditions.MarkFalse(m.BareMetalMachine, infrav1.DeleteMachineSucceededCondition,
+		infrav1.DeleteMachineInProgressReason, clusterv1.ConditionSeverityInfo, "%s", message)
+	return nil
 }

@@ -207,10 +207,15 @@ func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 func (s *Service) update(ctx context.Context) error {
 	host, helper, err := s.getAssociatedHostAndPatchHelper(ctx)
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			err := fmt.Errorf("host not found for machine %q. Setting error and deleting machine: %w", s.scope.Machine.Name, err)
+			s.scope.SetErrorAndDeleteMachine(ctx, err.Error())
+			return err
+		}
 		return fmt.Errorf("failed to get host: %w", err)
 	}
 	if host == nil {
-		s.scope.BareMetalMachine.SetFailure("UpdateError", "host not found")
+		err = errors.Join(s.scope.SetErrorAndDeleteMachine(ctx, "Reconcile of hbmm: host not found"))
 		return fmt.Errorf("host not found for machine %s: %w", s.scope.Machine.Name, err)
 	}
 
@@ -232,28 +237,21 @@ func (s *Service) update(ctx context.Context) error {
 	}
 
 	// maintenance mode on the host is a fatal error for the machine object
-	if host.Spec.MaintenanceMode != nil && *host.Spec.MaintenanceMode && s.scope.BareMetalMachine.Status.FailureReason == nil {
-		s.scope.BareMetalMachine.SetFailure("UpdateError", FailureMessageMaintenanceMode)
-		record.Eventf(
-			s.scope.BareMetalMachine,
-			"BareMetalMachineSetFailure",
-			"set failure reason due to maintenance mode of underlying host",
-		)
+	if host.Spec.MaintenanceMode != nil && *host.Spec.MaintenanceMode {
+		err := s.scope.SetErrorAndDeleteMachine(ctx, FailureMessageMaintenanceMode)
+		if err != nil {
+			return err
+		}
 		return nil
 	}
 
-	// if host has a fatal error, then it should be set on the machine object as well
-	if (host.Spec.Status.ErrorType == infrav1.FatalError || host.Spec.Status.ErrorType == infrav1.PermanentError) &&
-		s.scope.BareMetalMachine.Status.FailureReason == nil {
-		s.scope.BareMetalMachine.SetFailure("UpdateError", host.Spec.Status.ErrorMessage)
-		record.Eventf(s.scope.BareMetalMachine, "BareMetalMachineSetFailure", host.Spec.Status.ErrorMessage)
+	// if host has a fatal error, then it should be set on the hbmm object as well
+	if host.Spec.Status.ErrorType == infrav1.FatalError || host.Spec.Status.ErrorType == infrav1.PermanentError {
+		err := s.scope.SetErrorAndDeleteMachine(ctx, host.Spec.Status.ErrorMessage)
+		if err != nil {
+			return err
+		}
 		return nil
-	}
-
-	// if host is healthy, the machine is healthy as well
-	if host.Spec.Status.ErrorType == infrav1.ErrorType("") {
-		s.scope.BareMetalMachine.Status.FailureMessage = nil
-		s.scope.BareMetalMachine.Status.FailureReason = nil
 	}
 
 	// ensure that the references are correctly set on host
@@ -661,8 +659,11 @@ func (s *Service) setProviderID(ctx context.Context) error {
 	}
 
 	if host == nil {
-		s.scope.BareMetalMachine.SetFailure("UpdateError", "host not found")
-		return fmt.Errorf("host not found for machine %s: %w", s.scope.Machine.Name, err)
+		err := s.scope.SetErrorAndDeleteMachine(ctx, "setProviderID failed: host not found")
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf("host not found for machine %q", s.scope.Machine.Name)
 	}
 
 	if host.Spec.Status.ProvisioningState != infrav1.StateProvisioned {
