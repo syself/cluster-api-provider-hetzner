@@ -33,6 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	bmmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks"
 	robotmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/robot"
 	sshmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/ssh"
@@ -243,6 +244,35 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		Expect(res).To(BeAssignableToTypeOf(actionFailed{}))
 		c := conditions.Get(host, infrav1.ProvisionSucceededCondition)
 		Expect(c.Message).To(ContainSubstring("ImageURLCommand timed out"))
+	})
+})
+
+var _ = Describe("action results", func() {
+	It("returns expected reconcile results", func() {
+		res, err := (actionContinue{delay: time.Second}).Result()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.Requeue).To(BeTrue())
+		Expect(res.RequeueAfter).To(Equal(time.Second))
+
+		res, err = (actionComplete{}).Result()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.Requeue).To(BeTrue())
+
+		res, err = (deleteComplete{}).Result()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.Requeue).To(BeFalse())
+
+		res, err = (actionError{err: errTest}).Result()
+		Expect(err).To(Equal(errTest))
+		Expect(res.Requeue).To(BeFalse())
+
+		res, err = (actionStop{}).Result()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.Requeue).To(BeFalse())
+
+		res, err = (actionFailed{errorCount: 1}).Result()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.RequeueAfter > 0).To(BeTrue())
 	})
 })
 
@@ -1897,5 +1927,376 @@ var _ = Describe("actionProvisioned SSHAfterInstallImage=false", func() {
 		Expect(c.Message).To(Equal(""))
 		Expect(c.Status).To(Equal(corev1.ConditionTrue))
 		Expect(host.GetAnnotations()).To(BeEmpty())
+	})
+})
+
+var _ = Describe("Reconcile", func() {
+	It("moves the host forward from preparing", func() {
+		ctx := context.Background()
+		host := helpers.BareMetalHost(
+			"prepare-host",
+			"default",
+			helpers.WithSSHStatus(),
+			helpers.WithSSHSpec(),
+			helpers.WithConsumerRef(),
+		)
+		host.Spec.Status.ProvisioningState = infrav1.StatePreparing
+		host.Spec.Status.InstallImage = &infrav1.InstallImage{}
+
+		robot := robotmock.Client{}
+		robot.On("GetBMServer", mock.Anything).Return(&models.Server{ServerIP: "192.0.2.1", ServerIPv6Net: "2001:db8::", Rescue: true}, nil)
+		robot.On("ListSSHKeys").Return([]models.Key{{Name: "my-name", Fingerprint: "fp-rescue"}}, nil)
+		robot.On("GetReboot", mock.Anything).Return(&models.Reset{Type: []string{string(infrav1.RebootTypeSoftware), string(infrav1.RebootTypeHardware)}}, nil)
+		robot.On("DeleteBootRescue", mock.Anything).Return(nil, nil)
+		robot.On("SetBootRescue", mock.Anything, mock.Anything).Return(nil, nil)
+		robot.On("RebootBMServer", mock.Anything, infrav1.RebootTypeSoftware).Return(nil, nil)
+
+		sshMock := &sshmock.Client{}
+
+		service := newTestService(host, &robot, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+		service.scope.SSHAfterInstallImage = false
+
+		res, err := service.Reconcile(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.Requeue).To(BeTrue())
+		Expect(host.Spec.Status.ProvisioningState).To(Equal(infrav1.StateRegistering))
+		Expect(host.Spec.Status.IPv4).To(Equal("192.0.2.1"))
+		Expect(host.Spec.Status.IPv6).To(Equal("2001:db8::1"))
+		Expect(host.Spec.Status.RebootTypes).To(ContainElements(infrav1.RebootTypeSoftware, infrav1.RebootTypeHardware))
+		Expect(host.Spec.Status.SSHStatus.RescueKey.Fingerprint).To(Equal("fp-rescue"))
+		Expect(host.Spec.Status.LastUpdated).NotTo(BeNil())
+	})
+})
+
+var _ = Describe("actionPreProvisioning", func() {
+	It("completes when no pre-provision command is set", func() {
+		ctx := context.Background()
+		host := helpers.BareMetalHost(
+			"preprovision-host",
+			"default",
+			helpers.WithSSHStatus(),
+			helpers.WithSSHSpec(),
+		)
+		host.Spec.Status.InstallImage = &infrav1.InstallImage{}
+
+		robot := robotmock.Client{}
+		robot.On("ListSSHKeys").Return([]models.Key{{Name: "my-name", Fingerprint: "fp-os"}}, nil)
+
+		service := newTestService(host, &robot, bmmock.NewSSHFactory(nil, nil, nil), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), nil)
+
+		res := service.actionPreProvisioning(ctx)
+		Expect(res).To(BeAssignableToTypeOf(actionComplete{}))
+		Expect(host.Spec.Status.SSHStatus.OSKey).NotTo(BeNil())
+		Expect(host.Spec.Status.SSHStatus.OSKey.Fingerprint).To(Equal("fp-os"))
+	})
+
+	It("executes pre-provision command when configured", func() {
+		ctx := context.Background()
+		host := helpers.BareMetalHost(
+			"preprovision-host-cmd",
+			"default",
+			helpers.WithSSHStatus(),
+			helpers.WithSSHSpec(),
+			helpers.WithIPv4(),
+		)
+		host.Spec.Status.InstallImage = &infrav1.InstallImage{}
+
+		robot := robotmock.Client{}
+		robot.On("ListSSHKeys").Return([]models.Key{{Name: "my-name", Fingerprint: "fp-os"}}, nil)
+
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName").Return(sshclient.Output{StdOut: "rescue"})
+		sshMock.On("ExecutePreProvisionCommand", mock.Anything, "/bin/true").Return(0, "ok", nil)
+
+		service := newTestService(host, &robot, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+		service.scope.PreProvisionCommand = "/bin/true"
+
+		res := service.actionPreProvisioning(ctx)
+		Expect(res).To(BeAssignableToTypeOf(actionComplete{}))
+	})
+})
+
+var _ = Describe("createAutoSetupInput", func() {
+	It("builds devices from storage output", func() {
+		host := helpers.BareMetalHost(
+			"autosetup-host",
+			"default",
+			helpers.WithConsumerRef(),
+			helpers.WithRootDeviceHintWWN(),
+		)
+		host.Spec.Status.InstallImage = &infrav1.InstallImage{
+			Image: infrav1.Image{Path: "/root/custom.img"},
+		}
+
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHardwareDetailsStorage").Return(sshclient.Output{
+			StdOut: fmt.Sprintf(`NAME="sda" TYPE="disk" HCTL="" MODEL="" VENDOR="" SERIAL="" SIZE="1024" WWN="%s" ROTA="0"`, helpers.DefaultWWN),
+		})
+
+		service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, nil)
+
+		input, actRes := service.createAutoSetupInput(sshMock)
+		Expect(actRes).To(BeNil())
+		Expect(input.osDevices).To(Equal([]string{"sda"}))
+		Expect(input.image).To(Equal("/root/custom.img"))
+		Expect(input.hostName).To(Equal(service.scope.Hostname()))
+	})
+})
+
+var _ = Describe("actionImageInstallingFinished", func() {
+	It("reboots after installimage output success", func() {
+		ctx := context.Background()
+		host := helpers.BareMetalHost(
+			"finish-host",
+			"default",
+			helpers.WithSSHStatus(),
+			helpers.WithSSHSpec(),
+			helpers.WithConsumerRef(),
+		)
+
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetResultOfInstallImage").Return(PostInstallScriptFinished, nil)
+		sshMock.On("Reboot").Return(sshclient.Output{})
+
+		robot := robotmock.Client{}
+		robot.On("SetBMServerName", mock.Anything, infrav1.BareMetalHostNamePrefix+host.Spec.ConsumerRef.Name).Return(nil, nil)
+
+		service := newTestService(host, &robot, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+
+		res := service.actionImageInstallingFinished(ctx, sshMock)
+		Expect(res).To(BeAssignableToTypeOf(actionComplete{}))
+		Expect(host.Spec.Status.ErrorType).To(BeEmpty())
+	})
+
+	It("fails when post install marker is missing", func() {
+		ctx := context.Background()
+		host := helpers.BareMetalHost(
+			"finish-host-missing",
+			"default",
+			helpers.WithSSHStatus(),
+			helpers.WithSSHSpec(),
+			helpers.WithConsumerRef(),
+		)
+
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetResultOfInstallImage").Return("no marker", nil)
+
+		service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+
+		res := service.actionImageInstallingFinished(ctx, sshMock)
+		Expect(res).To(BeAssignableToTypeOf(actionError{}))
+	})
+})
+
+var _ = Describe("actionDeprovisioning", func() {
+	It("resets host name via robot api", func() {
+		ctx := context.Background()
+		host := helpers.BareMetalHost(
+			"deprov-host",
+			"default",
+			helpers.WithConsumerRef(),
+		)
+
+		robot := robotmock.Client{}
+		robot.On("SetBMServerName", host.Spec.ServerID, host.Spec.ConsumerRef.Name).Return(nil, nil)
+
+		service := newTestService(host, &robot, bmmock.NewSSHFactory(nil, nil, nil), nil, nil)
+		service.scope.SSHAfterInstallImage = false
+
+		res := service.actionDeprovisioning(ctx)
+		Expect(res).To(BeAssignableToTypeOf(actionComplete{}))
+	})
+
+	It("resets kubeadm when ssh after installimage is enabled", func() {
+		ctx := context.Background()
+		host := helpers.BareMetalHost(
+			"deprov-host-ssh",
+			"default",
+			helpers.WithSSHSpecInclPorts(22),
+			helpers.WithSSHStatus(),
+			helpers.WithIPv4(),
+			helpers.WithConsumerRef(),
+		)
+
+		sshMock := &sshmock.Client{}
+		sshMock.On("ResetKubeadm").Return(sshclient.Output{})
+
+		robot := robotmock.Client{}
+		robot.On("SetBMServerName", host.Spec.ServerID, host.Spec.ConsumerRef.Name).Return(nil, nil)
+
+		service := newTestService(host, &robot, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+		service.scope.SSHAfterInstallImage = true
+
+		res := service.actionDeprovisioning(ctx)
+		Expect(res).To(BeAssignableToTypeOf(actionComplete{}))
+		Expect(sshMock.AssertCalled(GinkgoT(), "ResetKubeadm")).To(BeTrue())
+	})
+})
+
+var _ = Describe("actionDeleting", func() {
+	It("removes finalizers", func() {
+		host := helpers.BareMetalHost("delete-host", "default")
+		host.Finalizers = []string{infrav1.HetznerBareMetalHostFinalizer, infrav1.DeprecatedBareMetalHostFinalizer}
+
+		service := newTestService(host, nil, bmmock.NewSSHFactory(nil, nil, nil), nil, nil)
+
+		res := service.actionDeleting(context.Background())
+		Expect(res).To(BeAssignableToTypeOf(deleteComplete{}))
+		Expect(host.Finalizers).To(BeEmpty())
+	})
+})
+
+var _ = Describe("handleRobotRateLimitExceeded", func() {
+	It("marks condition when rate limit is hit", func() {
+		host := helpers.BareMetalHost("ratelimit-host", "default")
+		service := newTestService(host, nil, bmmock.NewSSHFactory(nil, nil, nil), nil, nil)
+
+		service.handleRobotRateLimitExceeded(fmt.Errorf("server responded with status code 403"), "GetBMServer")
+
+		cond := conditions.Get(host, infrav1.HetznerAPIReachableCondition)
+		Expect(cond).NotTo(BeNil())
+		Expect(cond.Reason).To(Equal(infrav1.RateLimitExceededReason))
+		Expect(cond.Status).To(Equal(corev1.ConditionFalse))
+	})
+})
+
+var _ = Describe("actionImageInstallingStartBackgroundProcess", func() {
+	It("runs preflight and starts installimage", func() {
+		ctx := context.Background()
+		host := helpers.BareMetalHost(
+			"bg-process-host",
+			"default",
+			helpers.WithSSHStatus(),
+			helpers.WithSSHSpec(),
+			helpers.WithConsumerRef(),
+			helpers.WithRootDeviceHintWWN(),
+		)
+		host.Spec.Status.InstallImage = &infrav1.InstallImage{
+			Image:             infrav1.Image{Path: "/root/custom.img"},
+			PostInstallScript: "echo ok",
+		}
+		host.Spec.Status.UserData = &corev1.SecretReference{Name: "bootstrap-secret", Namespace: host.Namespace}
+
+		sshMock := &sshmock.Client{}
+		sshMock.On("CheckDisk", mock.Anything, mock.Anything).Return("disk-ok", nil)
+		sshMock.On("DetectLinuxOnAnotherDisk", mock.Anything).Return(sshclient.Output{})
+		sshMock.On("GetHardwareDetailsStorage").Return(sshclient.Output{StdOut: fmt.Sprintf(`NAME="sda" TYPE="disk" HCTL="" MODEL="" VENDOR="" SERIAL="" SIZE="1024" WWN="%s" ROTA="0"`, helpers.DefaultWWN)})
+		sshMock.On("CreateAutoSetup", mock.Anything).Return(sshclient.Output{})
+		sshMock.On("CreatePostInstallScript", mock.Anything).Return(sshclient.Output{})
+		sshMock.On("UntarTGZ").Return(sshclient.Output{})
+		sshMock.On("ExecuteInstallImage", mock.Anything).Return(sshclient.Output{})
+
+		service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      host.Spec.Status.UserData.Name,
+				Namespace: host.Spec.Status.UserData.Namespace,
+			},
+			Data: map[string][]byte{"value": []byte("#cloud-config")},
+		}
+		Expect(service.scope.Client.Create(ctx, secret)).To(Succeed())
+
+		res := service.actionImageInstallingStartBackgroundProcess(ctx, sshMock)
+		Expect(res).To(BeAssignableToTypeOf(actionContinue{}))
+	})
+
+	It("stops when CheckDisk fails without ignore annotation", func() {
+		ctx := context.Background()
+		host := helpers.BareMetalHost(
+			"bg-process-host-fail",
+			"default",
+			helpers.WithSSHStatus(),
+			helpers.WithSSHSpec(),
+			helpers.WithConsumerRef(),
+			helpers.WithRootDeviceHintWWN(),
+		)
+		host.Spec.Status.InstallImage = &infrav1.InstallImage{
+			Image: infrav1.Image{Path: "/root/custom.img"},
+		}
+
+		sshMock := &sshmock.Client{}
+		sshMock.On("CheckDisk", mock.Anything, mock.Anything).Return("", fmt.Errorf("disk broken"))
+
+		service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+
+		res := service.actionImageInstallingStartBackgroundProcess(ctx, sshMock)
+		Expect(res).To(BeAssignableToTypeOf(actionStop{}))
+		Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.PermanentError))
+	})
+})
+
+var _ = Describe("SaveHostAndReturn", func() {
+	It("updates lastUpdated and persists host", func() {
+		ctx := context.Background()
+		host := helpers.BareMetalHost("save-host", "default", helpers.WithConsumerRef())
+		service := newTestService(host, nil, bmmock.NewSSHFactory(nil, nil, nil), nil, nil)
+
+		res, err := SaveHostAndReturn(ctx, service.scope.Client, host)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.Requeue).To(BeFalse())
+		Expect(host.Spec.Status.LastUpdated).NotTo(BeNil())
+
+		stored := &infrav1.HetznerBareMetalHost{}
+		Expect(service.scope.Client.Get(ctx, client.ObjectKeyFromObject(host), stored)).To(Succeed())
+		Expect(stored.Spec.Status.LastUpdated).NotTo(BeNil())
+	})
+})
+
+var _ = Describe("NewService", func() {
+	It("wraps provided scope", func() {
+		scope := &scope.BareMetalHostScope{}
+		svc := NewService(scope)
+		Expect(svc.scope).To(Equal(scope))
+	})
+})
+
+var _ = Describe("actionImageInstalling", func() {
+	It("continues while installimage is running", func() {
+		ctx := context.Background()
+		host := helpers.BareMetalHost(
+			"installing-host",
+			"default",
+			helpers.WithSSHStatus(),
+			helpers.WithSSHSpec(),
+			helpers.WithIPv4(),
+			helpers.WithConsumerRef(),
+		)
+		host.Spec.Status.InstallImage = &infrav1.InstallImage{
+			Image: infrav1.Image{Path: "/root/image"},
+		}
+
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName").Return(sshclient.Output{StdOut: "rescue"})
+		sshMock.On("GetInstallImageState").Return(sshclient.InstallImageStateRunning, nil)
+
+		service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+
+		res := service.actionImageInstalling(ctx)
+		Expect(res).To(BeAssignableToTypeOf(actionContinue{}))
+	})
+})
+
+var _ = Describe("createAutoSetupInput with download", func() {
+	It("downloads image when needed", func() {
+		host := helpers.BareMetalHost(
+			"autosetup-download",
+			"default",
+			helpers.WithConsumerRef(),
+			helpers.WithRootDeviceHintWWN(),
+		)
+		host.Spec.Status.InstallImage = &infrav1.InstallImage{
+			Image: infrav1.Image{Name: "ubuntu", URL: "https://example.com/ubuntu.tar.gz"},
+		}
+
+		sshMock := &sshmock.Client{}
+		sshMock.On("DownloadImage", "/root/ubuntu.tar.gz", host.Spec.Status.InstallImage.Image.URL).Return(sshclient.Output{})
+		sshMock.On("GetHardwareDetailsStorage").Return(sshclient.Output{StdOut: fmt.Sprintf(`NAME="sda" TYPE="disk" HCTL="" MODEL="" VENDOR="" SERIAL="" SIZE="1024" WWN="%s" ROTA="0"`, helpers.DefaultWWN)})
+
+		service := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, nil)
+
+		input, res := service.createAutoSetupInput(sshMock)
+		Expect(res).To(BeNil())
+		Expect(input.image).To(Equal("/root/ubuntu.tar.gz"))
 	})
 })

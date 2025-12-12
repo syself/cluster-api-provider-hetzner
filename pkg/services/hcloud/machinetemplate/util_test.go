@@ -17,22 +17,20 @@ limitations under the License.
 package machinetemplate
 
 import (
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
-var _ = DescribeTable("GetCPUQuantityFromInt",
-	func(cpuCores int, expectedOutput string) {
-		Expect(GetCPUQuantityFromInt(cpuCores)).To(Equal(expectedOutput))
-	},
-	Entry("1", 1, "1"),
-	Entry("2", 2, "2"),
-)
+func TestGetCPUQuantityFromInt(t *testing.T) {
+	qty, err := GetCPUQuantityFromInt(2)
+	require.NoError(t, err)
+	require.Zero(t, qty.Cmp(resource.MustParse("2")))
+}
 
-var _ = DescribeTable("GetMemoryQuantityFromFloat32",
-	func(memory float32, expectedOutput string) {
-		Expect(GetMemoryQuantityFromFloat32(memory)).To(Equal(expectedOutput))
-	},
-	Entry("1", float32(1), "1G"),
-	Entry("2", float32(2), "2G"),
-)
+func TestGetMemoryQuantityFromFloat32(t *testing.T) {
+	qty, err := GetMemoryQuantityFromFloat32(1.5)
+	require.NoError(t, err)
+	require.Zero(t, qty.Cmp(resource.MustParse("1.5G")))
+}
