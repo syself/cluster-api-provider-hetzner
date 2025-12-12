@@ -1056,7 +1056,7 @@ func (s *Service) createServer(ctx context.Context, userData []byte, image *hclo
 			serverType = opts.ServerType.Name
 		}
 
-		msg := fmt.Sprintf("failed to create HCloud server %s in %s (type %s)",
+		msg := fmt.Sprintf("failed to create HCloud server %q in %q (type %q)",
 			hm.Name, opts.Location.Name, serverType)
 
 		if hcloudutil.HandleRateLimitExceeded(hm, err, "CreateServer") {
