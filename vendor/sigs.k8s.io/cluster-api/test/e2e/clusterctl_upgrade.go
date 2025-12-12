@@ -738,12 +738,14 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 					Namespace: workloadCluster.Namespace,
 				})
 
-				Byf("[%d] Verify Machines Ready condition is true", i)
-				framework.VerifyMachinesReady(ctx, framework.VerifyMachinesReadyInput{
-					Lister:    managementClusterProxy.GetClient(),
-					Name:      workloadCluster.Name,
-					Namespace: workloadCluster.Namespace,
-				})
+				if len(postUpgradeMachineList.Items) > 0 {
+					Byf("[%d] Verify Machines Ready condition is true", i)
+					framework.VerifyMachinesReady(ctx, framework.VerifyMachinesReadyInput{
+						Lister:    managementClusterProxy.GetClient(),
+						Name:      workloadCluster.Name,
+						Namespace: workloadCluster.Namespace,
+					})
+				}
 			}
 
 			// Note: It is a known issue on Kubernetes < v1.29 that SSA sometimes fail:
@@ -1006,20 +1008,42 @@ func calculateExpectedMachinePoolMachineCount(ctx context.Context, c client.Clie
 		client.MatchingLabels{clusterv1.ClusterNameLabel: workloadClusterName},
 	); err == nil {
 		for _, mp := range machinePoolList.Items {
-			ref := &corev1.ObjectReference{}
-			err = util.UnstructuredUnmarshalField(&mp, ref, "spec", "template", "spec", "infrastructureRef")
-			if err != nil && !errors.Is(err, util.ErrUnstructuredFieldNotFound) {
-				return 0, err
+			var infraMachinePool *unstructured.Unstructured
+
+			// Fallback to v1beta1's objectReference
+			if coreCAPIStorageVersion == "v1beta1" {
+				ref := &corev1.ObjectReference{}
+				err = util.UnstructuredUnmarshalField(&mp, ref, "spec", "template", "spec", "infrastructureRef")
+				if err != nil && !errors.Is(err, util.ErrUnstructuredFieldNotFound) {
+					return 0, err
+				}
+
+				infraMachinePool, err = external.Get(ctx, c, ref)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				ref := clusterv1.ContractVersionedObjectReference{}
+				err = util.UnstructuredUnmarshalField(&mp, &ref, "spec", "template", "spec", "infrastructureRef")
+				if err != nil && !errors.Is(err, util.ErrUnstructuredFieldNotFound) {
+					return 0, err
+				}
+
+				infraMachinePool, err = external.GetObjectFromContractVersionedRef(ctx, c, ref, mp.GetNamespace())
+				if err != nil {
+					return 0, err
+				}
 			}
 
-			infraMachinePool, err := external.Get(ctx, c, ref)
-			if err != nil {
-				return 0, err
-			}
 			// Check if the InfraMachinePool has an infrastructureMachineKind field. If it does not, we should skip checking for MachinePool machines.
 			err = util.UnstructuredUnmarshalField(infraMachinePool, ptr.To(""), "status", "infrastructureMachineKind")
 			if err != nil && !errors.Is(err, util.ErrUnstructuredFieldNotFound) {
 				return 0, err
+			}
+
+			// The MachinePool does not support machines if the field does not exist.
+			if errors.Is(err, util.ErrUnstructuredFieldNotFound) {
+				continue
 			}
 
 			replicas, found, err := unstructured.NestedInt64(mp.Object, "spec", "replicas")
