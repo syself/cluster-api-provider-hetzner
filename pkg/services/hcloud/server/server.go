@@ -106,6 +106,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 			return reconcile.Result{}, fmt.Errorf("failed to create server: %w", err)
 		}
 	}
+	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.ServerCreateSucceededCondition)
 
 	s.scope.SetProviderID(server.ID)
 
@@ -494,7 +495,6 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 	// set ssh keys to status
 	s.scope.HCloudMachine.Status.SSHKeys = sshKeySpecs
 
-	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.ServerCreateSucceededCondition)
 	record.Eventf(s.scope.HCloudMachine, "SuccessfulCreate", "Created new server %s with ID %d", server.Name, server.ID)
 	return server, nil
 }
