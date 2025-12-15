@@ -151,6 +151,7 @@ func (m *BareMetalMachineScope) SetErrorAndDeleteMachine(ctx context.Context, me
 	record.Warnf(m.BareMetalMachine, "MachineWillBeDeleted", "Machine will be deleted: %s", message)
 
 	// Set the condition, so that our remediation controller knows that no reboot should be tried.
+	// More docs are at [infrav1.DeleteMachineSucceededCondition]
 	conditions.MarkFalse(m.BareMetalMachine, infrav1.DeleteMachineSucceededCondition,
 		infrav1.DeleteMachineInProgressReason, clusterv1.ConditionSeverityInfo, "%s", message)
 	return nil
