@@ -56,6 +56,8 @@ ENV YAMLFIXER_VERSION="0.9.15"
 
 # hadolint ignore=DL3008
 ENV DEBIAN_FRONTEND=noninteractive
+ENV PIPX_HOME="/opt/pipx"
+ENV PIPX_BIN_DIR="/usr/local/bin"
 RUN apt-get update && \
     apt-get install -qy --no-install-recommends \
     gnupg python3 python3-pip \
@@ -65,8 +67,7 @@ RUN apt-get update && \
     libsystemd-dev jq  pipx && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
     pipx ensurepath && \
-    pipx install yamllint==${YAMLLINT_VERSION} && \
-    pipx inject yamllint "yamlfixer-opt-nc==${YAMLFIXER_VERSION}"
+    pipx install --global yamllint==${YAMLLINT_VERSION} yamlfixer-opt-nc==${YAMLFIXER_VERSION}
 
 COPY --from=lychee /usr/bin/lychee /usr/bin/lychee
 COPY --from=golangci /bin/golangci-lint /usr/local/bin
