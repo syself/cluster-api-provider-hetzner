@@ -333,8 +333,11 @@ spec:
                       needed as some necessary information is stored there, e.g. the hrobot password.
                     type: string
                   installImage:
-                    description: InstallImage is the configuration that is used for
-                      the autosetup configuration for installing an OS via InstallImage.
+                    description: |-
+                      InstallImage is the configuration that is used for the autosetup configuration for installing
+                      an OS via InstallImage. The field has an additional usage: When a hbmm gets deleted, then the
+                      hbmm controller sets this field of the hbmh to nil. This indicates the hbmh controller that
+                      deprovisioning should started
                     properties:
                       btrfsDefinitions:
                         description: BTRFSDefinitions define the btrfs subvolume definitions
