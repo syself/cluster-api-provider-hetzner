@@ -176,35 +176,6 @@ var _ = Describe("Test GetImageSuffix", func() {
 	)
 })
 
-var _ = Describe("Test SetFailure", func() {
-	bmMachine := HetznerBareMetalMachine{}
-	newFailureMessage := "bad failure message"
-	newFailureReason := "bad failure reason"
-
-	It("sets new failure on the machine with existing failure", func() {
-		failureMessage := "first message"
-		failureReason := "first error"
-		bmMachine.Status.FailureMessage = &failureMessage
-		bmMachine.Status.FailureReason = &failureReason
-
-		bmMachine.SetFailure(newFailureReason, newFailureMessage)
-
-		Expect(bmMachine.Status.FailureMessage).ToNot(BeNil())
-		Expect(bmMachine.Status.FailureReason).ToNot(BeNil())
-		Expect(*bmMachine.Status.FailureMessage).To(Equal(newFailureMessage))
-		Expect(*bmMachine.Status.FailureReason).To(Equal(newFailureReason))
-	})
-
-	It("sets new failure on the machine without existing failure", func() {
-		bmMachine.SetFailure(newFailureReason, newFailureMessage)
-
-		Expect(bmMachine.Status.FailureMessage).ToNot(BeNil())
-		Expect(bmMachine.Status.FailureReason).ToNot(BeNil())
-		Expect(*bmMachine.Status.FailureMessage).To(Equal(newFailureMessage))
-		Expect(*bmMachine.Status.FailureReason).To(Equal(newFailureReason))
-	})
-})
-
 var _ = Describe("Test HasHostAnnotation", func() {
 	type testCaseHasHostAnnotation struct {
 		annotations map[string]string

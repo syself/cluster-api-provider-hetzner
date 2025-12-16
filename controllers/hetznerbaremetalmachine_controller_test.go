@@ -37,9 +37,12 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	"sigs.k8s.io/cluster-api/util"
+	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -480,7 +483,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				}, timeout, time.Second).Should(BeTrue())
 			})
 
-			It("sets a failure reason when maintenance mode is set on the host", func() {
+			It("sets RemediateMachineAnnotation when maintenance mode is set on the host", func() {
 				By("making sure that machine is ready")
 
 				Eventually(func() bool {
@@ -500,14 +503,85 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 				Expect(ph.Patch(ctx, host, patch.WithStatusObservedGeneration{})).To(Succeed())
 
-				By("checking that failure message is set on machine")
+				By("checking that RemediateMachineAnnotation is set on machine")
 
-				Eventually(func() bool {
+				Eventually(func() error {
 					if err := testEnv.Get(ctx, key, bmMachine); err != nil {
-						return false
+						return err
 					}
-					return bmMachine.Status.FailureMessage != nil && *bmMachine.Status.FailureMessage == baremetal.FailureMessageMaintenanceMode
-				}, timeout).Should(BeTrue())
+
+					capiMachine, err := util.GetOwnerMachine(ctx, testEnv, bmMachine.ObjectMeta)
+					if err != nil {
+						return err
+					}
+
+					_, exists := capiMachine.Annotations[clusterv1.RemediateMachineAnnotation]
+					if !exists {
+						return fmt.Errorf("RemediateMachineAnnotation not set on capi machine")
+					}
+
+					if !hasEvent(ctx, testEnv, testNs.Name, bmMachine.Name, "MachineWillBeDeleted",
+						baremetal.FailureMessageMaintenanceMode) {
+						return fmt.Errorf("Event not found")
+					}
+
+					return nil
+				}, timeout).Should(Succeed())
+
+				By("Do the job of CAPI: Create a HetznerBareMetalRemediation")
+				rem := &infrav1.HetznerBareMetalRemediation{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      bmMachine.Name,
+						Namespace: bmMachine.Namespace,
+					},
+				}
+				err = controllerutil.SetOwnerReference(capiMachine, rem, testEnv.Scheme())
+				Expect(err).To(BeNil())
+				err = testEnv.Create(ctx, rem)
+				Expect(err).To(BeNil())
+
+				By("Wait for MachineOwnerRemediatedCondition to be set on capiMachine")
+				Eventually(func() error {
+					capiMachine, err = util.GetOwnerMachine(ctx, testEnv, bmMachine.ObjectMeta)
+					if err != nil {
+						return err
+					}
+					if capiMachine == nil {
+						return fmt.Errorf("capiMachine is nil")
+					}
+
+					err = testEnv.Get(ctx, client.ObjectKeyFromObject(bmMachine), bmMachine)
+					Expect(err).ShouldNot(HaveOccurred())
+
+					Expect(capiMachine.Name).To(Equal(bmMachine.Name))
+					Expect(capiMachine.Spec.InfrastructureRef.Name).To(Equal(bmMachine.Name))
+
+					c := conditions.Get(capiMachine, clusterv1.MachineOwnerRemediatedCondition)
+					if c == nil {
+						return fmt.Errorf("condition MachineOwnerRemediatedCondition does not exist %+v", capiMachine.Status)
+					}
+
+					if c.Status != corev1.ConditionFalse {
+						return fmt.Errorf("condition MachineOwnerRemediatedCondition should be False")
+					}
+
+					if c.Message != "Remediation finished (machine will be deleted): exit remediation because host is in maintenance mode" {
+						return fmt.Errorf("Unexpected message: %q", c.Message)
+					}
+
+					return nil
+				}, timeout).Should(Succeed())
+
+				By("Play role of CAPI: Delete capi and bm machine")
+				err = testEnv.Delete(ctx, capiMachine)
+				Expect(err).Should(Succeed())
+				err = testEnv.Delete(ctx, bmMachine)
+				Expect(err).Should(Succeed())
+
+				By("waiting for the successful kubeadm reset event")
+				Eventually(func() bool {
+					return hasEvent(ctx, testEnv, testNs.Name, host.Name, "SuccessfulResetKubeAdm", "Reset was successful.")
+				}, timeout, time.Second).Should(BeTrue())
 			})
 
 			It("checks the hetznerBareMetalMachine status running phase", func() {

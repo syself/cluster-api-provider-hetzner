@@ -64,6 +64,13 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 			"exit remediation because hbmm has no host annotation")
 	}
 
+	if host.Spec.Status.HasFatalError() {
+		return reconcile.Result{}, s.setOwnerRemediatedConditionToFailed(ctx,
+			fmt.Sprintf("exit remediation because host has error: %s: %s",
+				host.Spec.Status.ErrorType,
+				host.Spec.Status.ErrorMessage))
+	}
+
 	// if host is not provisioned, do not try to reboot server
 	if host.Spec.Status.ProvisioningState != infrav1.StateProvisioned {
 		return reconcile.Result{}, s.setOwnerRemediatedConditionToFailed(ctx,

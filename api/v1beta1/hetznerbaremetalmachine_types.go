@@ -359,12 +359,6 @@ func (hbmm *HetznerBareMetalMachine) SetConditions(conditions clusterv1.Conditio
 	hbmm.Status.Conditions = conditions
 }
 
-// SetFailure sets a failure reason and message.
-func (hbmm *HetznerBareMetalMachine) SetFailure(reason string, message string) {
-	hbmm.Status.FailureReason = &reason
-	hbmm.Status.FailureMessage = &message
-}
-
 // GetImageSuffix tests whether the suffix is known and outputs it if yes. Otherwise it returns an error.
 func GetImageSuffix(url string) (string, error) {
 	if strings.HasPrefix(url, "oci://") {

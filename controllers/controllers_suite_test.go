@@ -17,8 +17,10 @@ limitations under the License.
 package controllers
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -34,6 +36,7 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
@@ -414,4 +417,22 @@ func isPresentAndTrue(key types.NamespacedName, getter conditions.Getter, condit
 	}
 	objectCondition := conditions.Get(getter, condition)
 	return objectCondition.Status == corev1.ConditionTrue
+}
+
+func hasEvent(ctx context.Context, c client.Client, namespace, involvedObjectName, reason, message string) bool {
+	eventList := &corev1.EventList{}
+	if err := c.List(ctx, eventList, client.InNamespace(namespace)); err != nil {
+		return false
+	}
+
+	for i := range eventList.Items {
+		event := eventList.Items[i]
+		if event.Reason == reason &&
+			event.InvolvedObject.Name == involvedObjectName &&
+			strings.Contains(event.Message, message) {
+			return true
+		}
+	}
+
+	return false
 }
