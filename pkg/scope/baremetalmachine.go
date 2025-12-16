@@ -126,11 +126,13 @@ func (m *BareMetalMachineScope) IsBootstrapReady() bool {
 }
 
 // SetErrorAndDeleteMachine sets "cluster.x-k8s.io/remediate-machine" annotation on the
-// corresponding CAPI machine. This will trigger CAPI to start remediation. To differentiate a
-// normal remediation from the request to delete the machine, the DeleteMachineSucceededCondition
-// gets set to False on the infra machine. Our remediation contoller will notice this condition and
-// stop remediation (no reboot gets tried). Finally the capi machine and the infra machine will be
+// corresponding CAPI machine. This will trigger CAPI to start remediation. Our remediation
+// contoller will use ShouldCapiMachineGetDeleted() to differentiate between a remediate (with
+// reboot) and delete (no reboot gets tried). Finally the capi machine and the infra machine will be
 // deleted.
+//
+// Background: the hbmm/hbmh controller has no permission to delete a capi machine. That's why this
+// extra step (via remediate-machine annotation) is needed.
 func (m *BareMetalMachineScope) SetErrorAndDeleteMachine(ctx context.Context, message string) error {
 	capiMachine := m.Machine
 
@@ -149,10 +151,5 @@ func (m *BareMetalMachineScope) SetErrorAndDeleteMachine(ctx context.Context, me
 	}
 
 	record.Warnf(m.BareMetalMachine, "MachineWillBeDeleted", "Machine will be deleted: %s", message)
-
-	// Set the condition, so that our remediation controller knows that no reboot should be tried.
-	// More docs are at [infrav1.DeleteMachineSucceededCondition]
-	conditions.MarkFalse(m.BareMetalMachine, infrav1.DeleteMachineSucceededCondition,
-		infrav1.DeleteMachineInProgressReason, clusterv1.ConditionSeverityInfo, "%s", message)
 	return nil
 }

@@ -238,21 +238,3 @@ const (
 	// RebootSucceededCondition indicates that the machine got rebooted successfully.
 	RebootSucceededCondition clusterv1.ConditionType = "RebootSucceeded"
 )
-
-const (
-	// DeleteMachineSucceededCondition is False when the capi (and infra) machine should be deleted.
-	// Unfortunately the infra machine controller, can not directly delete the capi machine, if a
-	// permanent error occurs.
-	//
-	// But the controller can set the clusterv1.RemediateMachineAnnotation on the capi-machine. This
-	// will make CAPI start remediation. During remediation the infra remediation controller needs
-	// to differentiate between "try remediation (reboot)" and "please just delete machine".
-	//
-	// This condition provides the needed signal to the remediation controller, so that a reboot is
-	// not tried. After the remediation controller has acted accordingly the capi machine will
-	// finally be deleted.
-	DeleteMachineSucceededCondition clusterv1.ConditionType = "DeleteMachineSucceeded"
-
-	// DeleteMachineInProgressReason is for [DeleteMachineSucceededCondition].
-	DeleteMachineInProgressReason = "DeleteMachineInProgress"
-)

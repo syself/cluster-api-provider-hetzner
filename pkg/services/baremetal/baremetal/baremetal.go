@@ -113,8 +113,16 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.HostAssociateSucceededCondition)
 
 	// update the machine
-	if err := s.update(ctx); err != nil {
+	host, err := s.update(ctx)
+	if err != nil {
 		return checkForRequeueError(err, "failed to update machine")
+	}
+
+	if host.Spec.Status.ShouldCapiMachineGetDeleted() {
+		// hbmm will be deleted soon.
+		s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhaseDeleting
+		s.scope.BareMetalMachine.Status.Ready = false
+		return reconcile.Result{}, nil
 	}
 
 	// set providerID if necessary
@@ -204,19 +212,19 @@ func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 }
 
 // update updates a machine and is invoked by the Machine Controller.
-func (s *Service) update(ctx context.Context) error {
+func (s *Service) update(ctx context.Context) (*infrav1.HetznerBareMetalHost, error) {
 	host, helper, err := s.getAssociatedHostAndPatchHelper(ctx)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			err := fmt.Errorf("host not found for machine %q. Setting error and deleting machine: %w", s.scope.Machine.Name, err)
 			s.scope.SetErrorAndDeleteMachine(ctx, err.Error())
-			return err
+			return nil, err
 		}
-		return fmt.Errorf("failed to get host: %w", err)
+		return nil, fmt.Errorf("failed to get host: %w", err)
 	}
 	if host == nil {
 		err = errors.Join(s.scope.SetErrorAndDeleteMachine(ctx, "Reconcile of hbmm: host not found"))
-		return fmt.Errorf("host not found for machine %s: %w", s.scope.Machine.Name, err)
+		return nil, fmt.Errorf("host not found for machine %s: %w", s.scope.Machine.Name, err)
 	}
 
 	readyCondition := conditions.Get(host, clusterv1.ReadyCondition)
@@ -240,18 +248,18 @@ func (s *Service) update(ctx context.Context) error {
 	if host.Spec.MaintenanceMode != nil && *host.Spec.MaintenanceMode {
 		err := s.scope.SetErrorAndDeleteMachine(ctx, FailureMessageMaintenanceMode)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		return nil
+		return host, nil
 	}
 
 	// if host has a fatal error, then it should be set on the hbmm object as well
-	if host.Spec.Status.ErrorType == infrav1.FatalError || host.Spec.Status.ErrorType == infrav1.PermanentError {
+	if host.Spec.Status.ShouldCapiMachineGetDeleted() {
 		err := s.scope.SetErrorAndDeleteMachine(ctx, host.Spec.Status.ErrorMessage)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		return nil
+		return host, nil
 	}
 
 	// ensure that the references are correctly set on host
@@ -264,13 +272,13 @@ func (s *Service) update(ctx context.Context) error {
 	ensureClusterLabel(host, s.scope.Machine.Spec.ClusterName)
 
 	if err := analyzePatchError(helper.Patch(ctx, host), false); err != nil {
-		return fmt.Errorf("failed to patch host: %w", err)
+		return nil, fmt.Errorf("failed to patch host: %w", err)
 	}
 
 	// if machine is a control plane, the host should be set as target of load balancer
 	if s.scope.IsControlPlane() {
 		if err := s.reconcileLoadBalancerAttachment(ctx, host); err != nil {
-			return fmt.Errorf("failed to reconcile load balancer attachment: %w", err)
+			return nil, fmt.Errorf("failed to reconcile load balancer attachment: %w", err)
 		}
 	}
 
@@ -279,7 +287,7 @@ func (s *Service) update(ctx context.Context) error {
 
 	// update status of HetznerBareMetalMachine with infos from host
 	s.updateMachineAddresses(host)
-	return nil
+	return host, nil
 }
 
 func (s *Service) associate(ctx context.Context) error {

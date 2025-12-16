@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -64,14 +63,12 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 		return reconcile.Result{}, s.setOwnerRemediatedConditionToFailed(ctx,
 			"exit remediation because hbmm has no host annotation")
 	}
-	// if SetErrorAndDeleteMachine() was used to stop provisioning, do not try to reboot server.
-	// More docs are at [infrav1.DeleteMachineSucceededCondition].
-	infraMachineCondition := conditions.Get(s.scope.BareMetalMachine, infrav1.DeleteMachineSucceededCondition)
-	if infraMachineCondition != nil && infraMachineCondition.Status == corev1.ConditionFalse {
+
+	if host.Spec.Status.ShouldCapiMachineGetDeleted() {
 		return reconcile.Result{}, s.setOwnerRemediatedConditionToFailed(ctx,
-			fmt.Sprintf("exit remediation because infra machine has condition set: %s: %s",
-				infraMachineCondition.Reason,
-				infraMachineCondition.Message))
+			fmt.Sprintf("exit remediation because host has error: %s: %s",
+				host.Spec.Status.ErrorType,
+				host.Spec.Status.ErrorMessage))
 	}
 
 	// if host is not provisioned, do not try to reboot server

@@ -342,6 +342,11 @@ func (sts ControllerGeneratedStatus) GetIPAddress() string {
 	return sts.IPv4
 }
 
+// ShouldCapiMachineGetDeleted returns true, if the corresponding capi machine should get deleted.
+func (sts ControllerGeneratedStatus) ShouldCapiMachineGetDeleted() bool {
+	return sts.ErrorType == FatalError || sts.ErrorType == PermanentError
+}
+
 // GetConditions returns the observations of the operational state of the HetznerBareMetalHost resource.
 func (host *HetznerBareMetalHost) GetConditions() clusterv1.Conditions {
 	return host.Spec.Status.Conditions
