@@ -250,6 +250,24 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
+	// Mirror DeleteMachineSucceededCondition from hbmm to hbmh.
+	deleteMachineCondition := conditions.Get(hetznerBareMetalMachine, infrav1.DeleteMachineSucceededCondition)
+	if deleteMachineCondition != nil {
+		if deleteMachineCondition.Status == corev1.ConditionFalse {
+			// Take this condition of the hbmm and make it available on the hbmh.
+			msg := "hbmm has DeleteMachineSucceededCondition=False."
+			log.Info(msg)
+			conditions.MarkFalse(bmHost, infrav1.DeleteMachineSucceededCondition,
+				deleteMachineCondition.Reason, clusterv1.ConditionSeverityInfo,
+				"%s", deleteMachineCondition.Message)
+		} else {
+			conditions.MarkTrue(bmHost, infrav1.DeleteMachineSucceededCondition)
+		}
+	} else {
+		// This condition on hbmm is nil, ensure that it is not on hbmh.
+		conditions.Delete(bmHost, infrav1.DeleteMachineSucceededCondition)
+	}
+
 	// Get Hetzner robot api credentials
 	secretManager := secretutil.NewSecretManager(log, r.Client, r.APIReader)
 	robotCreds, err := getAndValidateRobotCredentials(ctx, req.Namespace, hetznerCluster, secretManager)

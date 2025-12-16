@@ -28,10 +28,11 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	capierrors "sigs.k8s.io/cluster-api/errors" //nolint:staticcheck // we will handle that, when we update to capi v1.11
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
+	"sigs.k8s.io/cluster-api/util/record"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
@@ -126,13 +127,41 @@ func (m *MachineScope) PatchObject(ctx context.Context) error {
 	return m.patchHelper.Patch(ctx, m.HCloudMachine)
 }
 
-// SetError sets the ErrorMessage and ErrorReason fields on the machine and logs
-// the message. It assumes the reason is invalid configuration, since that is
-// currently the only relevant MachineStatusError choice.
-// CAPI will delete the machine and create a new one.
-func (m *MachineScope) SetError(message string, reason capierrors.MachineStatusError) {
-	m.HCloudMachine.Status.FailureMessage = &message
-	m.HCloudMachine.Status.FailureReason = &reason
+// SetErrorAndRemediate sets "cluster.x-k8s.io/remediate-machine" annotation on the corresponding
+// CAPI machine. CAPI will remediate that machine. Additionally, an event of type Warning will be
+// created, and the DeleteMachineSucceededCondition will be set to False on the hcloud-machine. It
+// gets used, when a not-recoverable error happens. Example: hcloud server was deleted by hand in
+// the hcloud UI.
+func (m *MachineScope) SetErrorAndRemediate(ctx context.Context, message string) error {
+	return SetErrorAndRemediateMachine(ctx, m.Client, m.Machine, m.HCloudMachine, message)
+}
+
+// SetErrorAndRemediateMachine implements SetErrorAndRemediate. It is exported, so that other code
+// (for example in tests) can call without creating a MachinenScope.
+func SetErrorAndRemediateMachine(ctx context.Context, crClient client.Client, capiMachine *clusterv1.Machine, hcloudMachine *infrav1.HCloudMachine, message string) error {
+	// Create a patch base
+	patch := client.MergeFrom(capiMachine.DeepCopy())
+
+	// Modify only annotations on the in-memory copy
+	if capiMachine.Annotations == nil {
+		capiMachine.Annotations = map[string]string{}
+	}
+	capiMachine.Annotations[clusterv1.RemediateMachineAnnotation] = ""
+
+	// Apply patch – only the diff (annotations) is sent to the API server
+	if err := crClient.Patch(ctx, capiMachine, patch); err != nil {
+		return fmt.Errorf("patch failed in SetErrorAndRemediate: %w", err)
+	}
+
+	record.Warnf(hcloudMachine,
+		"HCloudMachineWillBeRemediated",
+		"HCloudMachine will be remediated: %s", message)
+
+	conditions.MarkFalse(hcloudMachine, infrav1.DeleteMachineSucceededCondition,
+		infrav1.DeleteMachineInProgressReason, clusterv1.ConditionSeverityInfo, "%s",
+		message)
+
+	return nil
 }
 
 // SetRegion sets the region field on the machine.
