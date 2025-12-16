@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: hcloudmachinetemplates.infrastructure.cluster.x-k8s.io
 spec:
   group: infrastructure.cluster.x-k8s.io
@@ -149,13 +149,10 @@ spec:
                           server in Hetzner's Cloud API. You can use the hcloud CLI to get server names (`hcloud
                           server-type list`) or on https://www.hetzner.com/cloud
 
-
                           The types follow this pattern: cxNV (shared, cheap), cpxNV (shared, performance), ccxNV
                           (dedicated), caxNV (ARM)
 
-
                           N is a number, and V is the version of this machine type. Example: cpx32.
-
 
                           The list of valid machine types gets changed by Hetzner from time to time. CAPH no longer
                           validates this string. It is up to you to use a valid type. Not all types are available in all
