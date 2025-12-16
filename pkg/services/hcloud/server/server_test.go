@@ -778,11 +778,8 @@ var _ = Describe("Reconcile", func() {
 		_, err = service.Reconcile(ctx)
 		Expect(err).To(BeNil())
 
-		By("validating if CreateMachineError was set on HCloudMachine object")
-		c := conditions.Get(service.scope.HCloudMachine, infrav1.DeleteMachineSucceededCondition)
-		Expect(c).NotTo(BeNil())
-		Expect(c.Status).To(Equal(corev1.ConditionFalse))
-		Expect(c.Message).To(Equal(`hcloud server ("hcloud://1234567") no longer available. Setting MachineError.`))
+		By("validating if HCloudBootStateProvisioningFailed was set on HCloudMachine object")
+		Expect(service.scope.HCloudMachine).To(Equal(infrav1.HCloudBootStateProvisioningFailed))
 	})
 
 	It("transitions the BootStrate from BootStateUnset -> BootStateBootingToRealOS -> BootStateOperatingSystemRunning (imageName)", func() {
@@ -1063,12 +1060,8 @@ func isPresentAndFalseWithReason(getter conditions.Getter, condition clusterv1.C
 }
 
 func noErrorOccured(s *scope.MachineScope) error {
-	c := conditions.Get(s.HCloudMachine, infrav1.DeleteMachineSucceededCondition)
-	if c == nil {
-		return nil
+	if s.HCloudMachine.Status.BootState == infrav1.HCloudBootStateProvisioningFailed {
+		return fmt.Errorf("HCloudBootStateProvisioningFailed set")
 	}
-	if c.Status == corev1.ConditionTrue {
-		return nil
-	}
-	return fmt.Errorf("Error on HCloudMachine: %s: %s", c.Reason, c.Message)
+	return nil
 }

@@ -342,13 +342,13 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 			err = testEnv.Update(ctx, hcloudMachine)
 			Expect(err).ShouldNot(HaveOccurred())
 
-			By("Call SetErrorAndRemediateMachine")
+			By("Call SetRemediateMachineAnnotationToDeleteMachine")
 			Eventually(func() error {
 				err = testEnv.Get(ctx, client.ObjectKeyFromObject(hcloudMachine), hcloudMachine)
 				if err != nil {
 					return err
 				}
-				err = scope.SetErrorAndRemediateMachine(ctx, testEnv, capiMachine, hcloudMachine, "test-of-set-error-and-remediate")
+				err = scope.SetRemediateMachineAnnotationToDeleteMachine(ctx, testEnv, capiMachine, hcloudMachine, "test-of-set-error-and-remediate")
 				if err != nil {
 					return err
 				}
@@ -365,12 +365,8 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				if err != nil {
 					return err
 				}
-				c := conditions.Get(hcloudMachine, infrav1.DeleteMachineSucceededCondition)
-				if c == nil {
-					return fmt.Errorf("not set: DeleteMachineSucceededCondition")
-				}
-				if c.Status != corev1.ConditionFalse {
-					return fmt.Errorf("status not set yet")
+				if hcloudMachine.Status.BootState != infrav1.HCloudBootStateProvisioningFailed {
+					return fmt.Errorf("not set: HCloudBootStateProvisioningFailed")
 				}
 				return nil
 			}).Should(Succeed())

@@ -133,12 +133,17 @@ func (m *MachineScope) PatchObject(ctx context.Context) error {
 // gets used, when a not-recoverable error happens. Example: hcloud server was deleted by hand in
 // the hcloud UI.
 func (m *MachineScope) SetErrorAndRemediate(ctx context.Context, message string) error {
-	return SetErrorAndRemediateMachine(ctx, m.Client, m.Machine, m.HCloudMachine, message)
+	return SetRemediateMachineAnnotationToDeleteMachine(ctx, m.Client, m.Machine, m.HCloudMachine, message)
 }
 
-// SetErrorAndRemediateMachine implements SetErrorAndRemediate. It is exported, so that other code
-// (for example in tests) can call without creating a MachinenScope.
-func SetErrorAndRemediateMachine(ctx context.Context, crClient client.Client, capiMachine *clusterv1.Machine, hcloudMachine *infrav1.HCloudMachine, message string) error {
+// SetRemediateMachineAnnotationToDeleteMachine sets "cluster.x-k8s.io/remediate-machine" annotation
+// on the corresponding CAPI machine. This will trigger CAPI to start remediation. Our remediation
+// contoller will use HasFatalError(öööö) to differentiate between a remediate (with reboot) and delete
+// (no reboot gets tried). Finally the capi machine and the infra machine will be deleted.
+//
+// Background: the hcloudmachine controller has no permission to delete a capi machine. That's why
+// this extra step (via remediate-machine annotation) is needed.
+func SetRemediateMachineAnnotationToDeleteMachine(ctx context.Context, crClient client.Client, capiMachine *clusterv1.Machine, hcloudMachine *infrav1.HCloudMachine, message string) error {
 	// Create a patch base
 	patch := client.MergeFrom(capiMachine.DeepCopy())
 
@@ -157,9 +162,7 @@ func SetErrorAndRemediateMachine(ctx context.Context, crClient client.Client, ca
 		"HCloudMachineWillBeRemediated",
 		"HCloudMachine will be remediated: %s", message)
 
-	conditions.MarkFalse(hcloudMachine, infrav1.DeleteMachineSucceededCondition,
-		infrav1.DeleteMachineInProgressReason, clusterv1.ConditionSeverityInfo, "%s",
-		message)
+	hcloudMachine.SetBootState(infrav1.HCloudBootStateProvisioningFailed)
 
 	return nil
 }

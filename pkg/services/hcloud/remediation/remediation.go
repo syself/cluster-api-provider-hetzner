@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
@@ -50,13 +49,9 @@ func NewService(scope *scope.HCloudRemediationScope) *Service {
 
 // Reconcile implements reconcilement of HCloudRemediation.
 func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
-	// if SetErrorAndRemediate() was used to stop provisioning, do not try to reboot server
-	infraMachineCondition := conditions.Get(s.scope.HCloudMachine, infrav1.DeleteMachineSucceededCondition)
-	if infraMachineCondition != nil && infraMachineCondition.Status == corev1.ConditionFalse {
+	if s.scope.HCloudMachine.Status.BootState != infrav1.HCloudBootStateOperatingSystemRunning {
 		err := s.setOwnerRemediatedConditionToFailed(ctx,
-			fmt.Sprintf("exit remediation because infra machine has condition set: %s: %s",
-				infraMachineCondition.Reason,
-				infraMachineCondition.Message))
+			fmt.Sprintf("exit remediation because infra machine is in BootState %s (no need to try a reboot)", s.scope.HCloudMachine.Status.BootState))
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("setOwnerRemediatedConditionToFailed failed: %w", err)
 		}
