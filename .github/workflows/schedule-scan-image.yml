@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.repository == 'syself/cluster-api-provider-hetzner'
     container:
-      image: ghcr.io/syself/caph-builder:1.0.23
+      image: ghcr.io/syself/caph-builder:1.0.25
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.github_token }}
