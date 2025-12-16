@@ -474,21 +474,22 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 			serverType = opts.ServerType.Name
 		}
 
-		msg := fmt.Sprintf("failed to create HCloud server %q in %q (type %q)",
-			hm.Name, opts.Location.Name, serverType)
+		msg := fmt.Sprintf("failed to create HCloud server in %q (type %q)",
+			opts.Location.Name, serverType)
 
 		if hcloudutil.HandleRateLimitExceeded(hm, err, "CreateServer") {
 			// RateLimit was reached. Condition and Event got already created.
-			return nil, fmt.Errorf("%s: %w", msg, err)
+			return nil, fmt.Errorf("%s (rate limit was reached): %w", msg, err)
 		}
 
-		msg = fmt.Sprintf("%s: %s", msg, err.Error())
-		s.scope.Logger.Error(nil, msg)
+		err = fmt.Errorf("%s: %w", msg, err)
+		s.scope.Logger.Error(err, "")
 		// No condition was set yet. Set a general condition to false.
 		conditions.MarkFalse(hm, infrav1.ServerCreateSucceededCondition,
-			infrav1.ServerCreateFailedReason, clusterv1.ConditionSeverityWarning, "%s", msg)
-		record.Warn(hm, "FailedCreateHCloudServer", msg)
-		return nil, handleRateLimit(hm, err, "CreateServer", msg)
+			infrav1.ServerCreateFailedReason, clusterv1.ConditionSeverityWarning, "%s",
+			err.Error())
+		record.Warn(hm, "FailedCreateHCloudServer", err.Error())
+		return nil, err
 	}
 
 	// set ssh keys to status
