@@ -106,6 +106,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 			return reconcile.Result{}, fmt.Errorf("failed to create server: %w", err)
 		}
 	}
+
 	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.ServerCreateSucceededCondition)
 
 	s.scope.SetProviderID(server.ID)
