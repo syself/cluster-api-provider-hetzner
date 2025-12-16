@@ -46,6 +46,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/baremetal"
 	robotmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/robot"
 	sshmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/ssh"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
@@ -519,6 +520,11 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 						return fmt.Errorf("RemediateMachineAnnotation not set on capi machine")
 					}
 
+					if !hasEvent(ctx, testEnv, testNs.Name, bmMachine.Name, "MachineWillBeDeleted",
+						baremetal.FailureMessageMaintenanceMode) {
+						return fmt.Errorf("Event not found")
+					}
+
 					return nil
 				}, timeout).Should(Succeed())
 
@@ -559,7 +565,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 						return fmt.Errorf("condition MachineOwnerRemediatedCondition should be False")
 					}
 
-					if c.Message != "Remediation finished (machine will be deleted): exit remediation because infra machine has condition set: DeleteMachineInProgress: host machine in maintenance mode" {
+					if c.Message != "Remediation finished (machine will be deleted): exit remediation because host is in maintenance mode" {
 						return fmt.Errorf("Unexpected message: %q", c.Message)
 					}
 

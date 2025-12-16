@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -427,8 +428,8 @@ func hasEvent(ctx context.Context, c client.Client, namespace, involvedObjectNam
 	for i := range eventList.Items {
 		event := eventList.Items[i]
 		if event.Reason == reason &&
-			event.Message == message &&
-			event.InvolvedObject.Name == involvedObjectName {
+			event.InvolvedObject.Name == involvedObjectName &&
+			strings.Contains(event.Message, message) {
 			return true
 		}
 	}
