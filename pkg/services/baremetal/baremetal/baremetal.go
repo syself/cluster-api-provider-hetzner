@@ -216,8 +216,8 @@ func (s *Service) update(ctx context.Context) (*infrav1.HetznerBareMetalHost, er
 	host, helper, err := s.getAssociatedHostAndPatchHelper(ctx)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			err := fmt.Errorf("host not found for machine %q. Setting error and deleting machine: %w", s.scope.Machine.Name, err)
-			s.scope.SetErrorAndDeleteMachine(ctx, err.Error())
+			msg := fmt.Sprintf("host not found for machine %q. Setting error and deleting machine", s.scope.Machine.Name)
+			err = s.scope.SetErrorAndDeleteMachine(ctx, msg)
 			return nil, err
 		}
 		return nil, fmt.Errorf("failed to get host: %w", err)
