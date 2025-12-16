@@ -468,27 +468,28 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 	// Create the server
 	server, err := s.scope.HCloudClient.CreateServer(ctx, opts)
 	if err != nil {
-		if hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "CreateServer") {
-			// RateLimit was reached. Condition and Event got already created.
-			return nil, fmt.Errorf("failed to create HCloud server %s: %w", s.scope.HCloudMachine.Name, err)
+		hm := s.scope.HCloudMachine
+		serverType := "nil"
+		if opts.ServerType != nil {
+			serverType = opts.ServerType.Name
 		}
+
+		msg := fmt.Sprintf("failed to create HCloud server in %q (type %q)",
+			opts.Location.Name, serverType)
+
+		if hcloudutil.HandleRateLimitExceeded(hm, err, "CreateServer") {
+			// RateLimit was reached. Condition and Event got already created.
+			return nil, fmt.Errorf("%s (rate limit was reached): %w", msg, err)
+		}
+
+		err = fmt.Errorf("%s: %w", msg, err)
+		s.scope.Logger.Error(err, "")
 		// No condition was set yet. Set a general condition to false.
-		conditions.MarkFalse(
-			s.scope.HCloudMachine,
-			infrav1.ServerCreateSucceededCondition,
-			infrav1.ServerCreateFailedReason,
-			clusterv1.ConditionSeverityWarning,
-			"%s",
-			err.Error(),
-		)
-		record.Warnf(s.scope.HCloudMachine,
-			"FailedCreateHCloudServer",
-			"Failed to create HCloud server %s: %s",
-			s.scope.Name(),
-			err,
-		)
-		errMsg := fmt.Sprintf("failed to create HCloud server %s", s.scope.HCloudMachine.Name)
-		return nil, handleRateLimit(s.scope.HCloudMachine, err, "CreateServer", errMsg)
+		conditions.MarkFalse(hm, infrav1.ServerCreateSucceededCondition,
+			infrav1.ServerCreateFailedReason, clusterv1.ConditionSeverityWarning, "%s",
+			err.Error())
+		record.Warn(hm, "FailedCreateHCloudServer", err.Error())
+		return nil, err
 	}
 
 	// set ssh keys to status
