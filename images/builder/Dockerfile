@@ -45,27 +45,29 @@ FROM docker.io/aquasec/trivy:0.60.0@sha256:91c3a842834563a6860dbaec5af7c1949df5c
 ############################
 # Caph Build Image Base #
 ############################
-FROM docker.io/library/golang:1.23.7-bullseye@sha256:c4f892cd1906e6bf8a0e181f48babf76331c6f5dc786b709ffc9f591cb7edece
+FROM docker.io/library/golang:1.25.5-trixie@sha256:8e8f9c84609b6005af0a4a8227cee53d6226aab1c6dcb22daf5aeeb8b05480e1
 
 # update: datasource=repology depName=debian_11/skopeo versioning=loose
-ENV SKOPEO_VERSION="1.2.2+dfsg1-1+b6"
+ENV SKOPEO_VERSION="1.18.0+ds1-1+b5"
 # update: datasource=github-tags depName=adrienverge/yamllint versioning=semver
-ENV YAMLLINT_VERSION="v1.36.2"
+ENV YAMLLINT_VERSION="v1.37.1"
 # update: datasource=github-tags depName=opt-nc/yamlfixer versioning=semver
 ENV YAMLFIXER_VERSION="0.9.15"
 
 # hadolint ignore=DL3008
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PIPX_HOME="/opt/pipx"
+ENV PIPX_BIN_DIR="/usr/local/bin"
 RUN apt-get update && \
     apt-get install -qy --no-install-recommends \
     gnupg python3 python3-pip \
     file zip unzip jq gettext \
     skopeo=${SKOPEO_VERSION} \
     protobuf-compiler libprotobuf-dev \
-    libsystemd-dev jq && \
+    libsystemd-dev jq  pipx && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
-    pip install --no-cache-dir \
-    yamllint==${YAMLLINT_VERSION} \
-    yamlfixer-opt-nc==${YAMLFIXER_VERSION}
+    pipx ensurepath && \
+    pipx install --global yamllint==${YAMLLINT_VERSION} yamlfixer-opt-nc==${YAMLFIXER_VERSION}
 
 COPY --from=lychee /usr/bin/lychee /usr/bin/lychee
 COPY --from=golangci /bin/golangci-lint /usr/local/bin
