@@ -125,15 +125,14 @@ func (m *BareMetalMachineScope) IsBootstrapReady() bool {
 	return m.Machine.Spec.Bootstrap.DataSecretName != nil
 }
 
-// SetErrorAndDeleteMachine sets "cluster.x-k8s.io/remediate-machine" annotation on the
-// corresponding CAPI machine. This will trigger CAPI to start remediation. Our remediation
-// contoller will use HasFatalError() to differentiate between a remediate (with
-// reboot) and delete (no reboot gets tried). Finally the capi machine and the infra machine will be
-// deleted.
+// SetRemediateMachineAnnotationToDeleteMachine sets "cluster.x-k8s.io/remediate-machine" annotation
+// on the corresponding CAPI machine. This will trigger CAPI to start remediation. Our remediation
+// contoller will use HasFatalError() to differentiate between a remediate (with reboot) and delete
+// (no reboot gets tried). Finally the capi machine and the infra machine will be deleted.
 //
 // Background: the hbmm/hbmh controller has no permission to delete a capi machine. That's why this
 // extra step (via remediate-machine annotation) is needed.
-func (m *BareMetalMachineScope) SetErrorAndDeleteMachine(ctx context.Context, message string) error {
+func (m *BareMetalMachineScope) SetRemediateMachineAnnotationToDeleteMachine(ctx context.Context, message string) error {
 	capiMachine := m.Machine
 
 	// Create a patch base

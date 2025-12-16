@@ -217,13 +217,13 @@ func (s *Service) update(ctx context.Context) (*infrav1.HetznerBareMetalHost, er
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			msg := fmt.Sprintf("host not found for machine %q. Setting error and deleting machine", s.scope.Machine.Name)
-			err = s.scope.SetErrorAndDeleteMachine(ctx, msg)
+			err = s.scope.SetRemediateMachineAnnotationToDeleteMachine(ctx, msg)
 			return nil, err
 		}
 		return nil, fmt.Errorf("failed to get host: %w", err)
 	}
 	if host == nil {
-		err = errors.Join(s.scope.SetErrorAndDeleteMachine(ctx, "Reconcile of hbmm: host not found"))
+		err = errors.Join(s.scope.SetRemediateMachineAnnotationToDeleteMachine(ctx, "Reconcile of hbmm: host not found"))
 		return nil, fmt.Errorf("host not found for machine %s: %w", s.scope.Machine.Name, err)
 	}
 
@@ -246,7 +246,7 @@ func (s *Service) update(ctx context.Context) (*infrav1.HetznerBareMetalHost, er
 
 	// maintenance mode on the host is a fatal error for the machine object
 	if host.Spec.MaintenanceMode != nil && *host.Spec.MaintenanceMode {
-		err := s.scope.SetErrorAndDeleteMachine(ctx, FailureMessageMaintenanceMode)
+		err := s.scope.SetRemediateMachineAnnotationToDeleteMachine(ctx, FailureMessageMaintenanceMode)
 		if err != nil {
 			return nil, err
 		}
@@ -255,7 +255,7 @@ func (s *Service) update(ctx context.Context) (*infrav1.HetznerBareMetalHost, er
 
 	// if host has a fatal error, then it should be set on the hbmm object as well
 	if host.Spec.Status.HasFatalError() {
-		err := s.scope.SetErrorAndDeleteMachine(ctx, host.Spec.Status.ErrorMessage)
+		err := s.scope.SetRemediateMachineAnnotationToDeleteMachine(ctx, host.Spec.Status.ErrorMessage)
 		if err != nil {
 			return nil, err
 		}
@@ -667,7 +667,7 @@ func (s *Service) setProviderID(ctx context.Context) error {
 	}
 
 	if host == nil {
-		err := s.scope.SetErrorAndDeleteMachine(ctx, "setProviderID failed: host not found")
+		err := s.scope.SetRemediateMachineAnnotationToDeleteMachine(ctx, "setProviderID failed: host not found")
 		if err != nil {
 			return err
 		}
