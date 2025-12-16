@@ -127,7 +127,7 @@ func (m *BareMetalMachineScope) IsBootstrapReady() bool {
 
 // SetErrorAndDeleteMachine sets "cluster.x-k8s.io/remediate-machine" annotation on the
 // corresponding CAPI machine. This will trigger CAPI to start remediation. Our remediation
-// contoller will use ShouldCapiMachineGetDeleted() to differentiate between a remediate (with
+// contoller will use HasFatalError() to differentiate between a remediate (with
 // reboot) and delete (no reboot gets tried). Finally the capi machine and the infra machine will be
 // deleted.
 //

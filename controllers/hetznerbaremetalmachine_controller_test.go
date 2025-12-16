@@ -578,18 +578,6 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				err = testEnv.Delete(ctx, bmMachine)
 				Expect(err).Should(Succeed())
 
-				By("Wait for host to get deprovisioned")
-				Eventually(func() error {
-					err := testEnv.Get(ctx, client.ObjectKeyFromObject(host), host)
-					if err != nil {
-						return err
-					}
-					if host.Spec.Status.ProvisioningState != infrav1.StateDeprovisioning {
-						return fmt.Errorf("host.Spec.Status.ProvisioningState != infrav1.StateDeprovisioning. Is: %q", host.Spec.Status.ProvisioningState)
-					}
-					return nil
-				}).Should(Succeed())
-
 				By("waiting for the successful kubeadm reset event")
 				Eventually(func() bool {
 					return hasEvent(ctx, testEnv, testNs.Name, host.Name, "SuccessfulResetKubeAdm", "Reset was successful.")

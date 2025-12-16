@@ -118,7 +118,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 		return checkForRequeueError(err, "failed to update machine")
 	}
 
-	if host.Spec.Status.ShouldCapiMachineGetDeleted() {
+	if host.Spec.Status.HasFatalError() {
 		// hbmm will be deleted soon.
 		s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhaseDeleting
 		s.scope.BareMetalMachine.Status.Ready = false
@@ -254,7 +254,7 @@ func (s *Service) update(ctx context.Context) (*infrav1.HetznerBareMetalHost, er
 	}
 
 	// if host has a fatal error, then it should be set on the hbmm object as well
-	if host.Spec.Status.ShouldCapiMachineGetDeleted() {
+	if host.Spec.Status.HasFatalError() {
 		err := s.scope.SetErrorAndDeleteMachine(ctx, host.Spec.Status.ErrorMessage)
 		if err != nil {
 			return nil, err

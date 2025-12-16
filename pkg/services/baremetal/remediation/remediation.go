@@ -64,7 +64,7 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 			"exit remediation because hbmm has no host annotation")
 	}
 
-	if host.Spec.Status.ShouldCapiMachineGetDeleted() {
+	if host.Spec.Status.HasFatalError() {
 		return reconcile.Result{}, s.setOwnerRemediatedConditionToFailed(ctx,
 			fmt.Sprintf("exit remediation because host has error: %s: %s",
 				host.Spec.Status.ErrorType,

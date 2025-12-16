@@ -342,8 +342,8 @@ func (sts ControllerGeneratedStatus) GetIPAddress() string {
 	return sts.IPv4
 }
 
-// ShouldCapiMachineGetDeleted returns true, if the corresponding capi machine should get deleted.
-func (sts ControllerGeneratedStatus) ShouldCapiMachineGetDeleted() bool {
+// HasFatalError returns true, if the corresponding capi machine should get deleted.
+func (sts ControllerGeneratedStatus) HasFatalError() bool {
 	return sts.ErrorType == FatalError || sts.ErrorType == PermanentError
 }
 
