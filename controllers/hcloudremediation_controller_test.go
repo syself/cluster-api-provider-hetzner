@@ -391,7 +391,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 			err = testEnv.Create(ctx, rem)
 			Expect(err).ShouldNot(HaveOccurred())
 
-			By("Wait until remediation is done")
+			By("Wait until our remediation controller has set condition on capi machine")
 			Eventually(func() error {
 				err := testEnv.Get(ctx, client.ObjectKeyFromObject(capiMachine), capiMachine)
 				if err != nil {
