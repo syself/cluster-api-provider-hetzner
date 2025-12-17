@@ -355,14 +355,15 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				return nil
 			}).Should(Succeed())
 
-			By("Wait until hcloud has condition set.")
+			By("Wait until HCloudBootStateProvisioningFailed is set.")
 			Eventually(func() error {
 				err := testEnv.Get(ctx, client.ObjectKeyFromObject(hcloudMachine), hcloudMachine)
 				if err != nil {
 					return err
 				}
 				if hcloudMachine.Status.BootState != infrav1.HCloudBootStateProvisioningFailed {
-					return fmt.Errorf("not set: HCloudBootStateProvisioningFailed")
+					return fmt.Errorf("BootState is not HCloudBootStateProvisioningFailed, but %q",
+						hcloudMachine.Status.BootState)
 				}
 				return nil
 			}).Should(Succeed())
