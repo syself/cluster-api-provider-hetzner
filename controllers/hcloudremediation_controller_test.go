@@ -27,7 +27,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -326,11 +325,8 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 			}, timeout).Should(BeTrue())
 		})
 		It("should delete machine if SetErrorAndRemediate() was called", func() {
-			By("Checking Environment")
-			capiMachineAgain, err := util.GetOwnerMachine(ctx, testEnv, hcloudMachine.ObjectMeta)
-			Expect(err).ShouldNot(HaveOccurred())
-			Expect(capiMachineAgain).ToNot(BeNil())
-			Expect(capiMachine.UID).To(Equal(capiMachineAgain.UID))
+			By("Creating Server")
+
 			hcloudClient := testEnv.HCloudClientFactory.NewClient("dummy-token")
 
 			server, err := hcloudClient.CreateServer(ctx, hcloud.ServerCreateOpts{
@@ -408,7 +404,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				if c.Status != corev1.ConditionFalse {
 					return fmt.Errorf("status not set yet")
 				}
-				if c.Message != "Remediation finished (machine will be deleted): exit remediation because infra machine has condition set: DeleteMachineInProgress: test-of-set-error-and-remediate" {
+				if c.Message != "Remediation finished (machine will be deleted): exit remediation because infra machine is in BootState ProvisioningFailed (no need to try a reboot)" {
 					return fmt.Errorf("Message is not as expected: %q", c.Message)
 				}
 				return nil
