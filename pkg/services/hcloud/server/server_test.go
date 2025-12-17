@@ -835,7 +835,7 @@ var _ = Describe("Reconcile", func() {
 		By("calling reconcile")
 		_, err := service.Reconcile(ctx)
 		Expect(err).To(BeNil())
-		Expect(noErrorOccured(service.scope)).To(BeNil())
+		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateBootingToRealOS))
 
 		By("ensuring the bootstate has transitioned to BootStateBootingToRealOS")
 
@@ -850,7 +850,7 @@ var _ = Describe("Reconcile", func() {
 
 		_, err = service.Reconcile(ctx)
 		Expect(err).To(BeNil())
-		Expect(noErrorOccured(service.scope)).To(BeNil())
+		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateOperatingSystemRunning))
 
 		By("ensuring the bootstate has transitioned to BootStateOperatingSystemRunning once the server's status changes to running")
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateOperatingSystemRunning))
@@ -912,7 +912,7 @@ var _ = Describe("Reconcile", func() {
 		By("calling reconcile")
 		_, err := service.Reconcile(ctx)
 		Expect(err).To(BeNil())
-		Expect(noErrorOccured(service.scope)).To(BeNil())
+		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateInitializing))
 
 		By("ensuring the bootstate has transitioned to Initializing")
 
@@ -943,7 +943,7 @@ var _ = Describe("Reconcile", func() {
 			}, nil).Once()
 		_, err = service.Reconcile(ctx)
 		Expect(err).To(BeNil())
-		Expect(noErrorOccured(service.scope)).To(BeNil())
+		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateEnablingRescue))
 
 		By("ensuring the bootstate has transitioned to EnablingRescue")
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateEnablingRescue))
@@ -970,7 +970,7 @@ var _ = Describe("Reconcile", func() {
 		)
 		_, err = service.Reconcile(ctx)
 		Expect(err).To(BeNil())
-		Expect(noErrorOccured(service.scope)).To(BeNil())
+		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateEnablingRescue))
 
 		By("ensuring the bootstate has transitioned to EnablingRescue")
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateEnablingRescue))
@@ -990,7 +990,7 @@ var _ = Describe("Reconcile", func() {
 		})
 		_, err = service.Reconcile(ctx)
 		Expect(err).To(BeNil())
-		Expect(noErrorOccured(service.scope)).To(BeNil())
+		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateBootingToRescue))
 
 		By("ensuring the bootstate has transitioned to BootingToRescue")
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateBootingToRescue))
@@ -1009,7 +1009,7 @@ var _ = Describe("Reconcile", func() {
 		startImageURLCommandMock := testEnv.HCloudSSHClient.On("StartImageURLCommand", mock.Anything, mock.Anything, mock.Anything, mock.Anything, "my-machine", []string{"sda"}).Return(0, "", nil)
 		_, err = service.Reconcile(ctx)
 		Expect(err).To(BeNil())
-		Expect(noErrorOccured(service.scope)).To(BeNil())
+		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateRunningImageCommand))
 
 		By("ensuring the bootstate has transitioned to RunningImageCommand")
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateRunningImageCommand))
@@ -1030,7 +1030,7 @@ var _ = Describe("Reconcile", func() {
 		}, nil).Once()
 		_, err = service.Reconcile(ctx)
 		Expect(err).To(BeNil())
-		Expect(noErrorOccured(service.scope)).To(BeNil())
+		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateBootingToRealOS))
 
 		By("ensuring the bootstate has transitioned to BootingToRealOS")
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateBootingToRealOS))
@@ -1044,7 +1044,7 @@ var _ = Describe("Reconcile", func() {
 		}, nil).Once()
 		_, err = service.Reconcile(ctx)
 		Expect(err).To(BeNil())
-		Expect(noErrorOccured(service.scope)).To(BeNil())
+		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateOperatingSystemRunning))
 		By("ensuring the bootstate has transitioned to OperatingSystemRunning")
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateOperatingSystemRunning))
 	})
@@ -1057,11 +1057,4 @@ func isPresentAndFalseWithReason(getter conditions.Getter, condition clusterv1.C
 	objectCondition := conditions.Get(getter, condition)
 	return objectCondition.Status == corev1.ConditionFalse &&
 		objectCondition.Reason == reason
-}
-
-func noErrorOccured(s *scope.MachineScope) error {
-	if s.HCloudMachine.Status.BootState == infrav1.HCloudBootStateProvisioningFailed {
-		return fmt.Errorf("HCloudBootStateProvisioningFailed set")
-	}
-	return nil
 }
