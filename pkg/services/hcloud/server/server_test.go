@@ -779,7 +779,7 @@ var _ = Describe("Reconcile", func() {
 		Expect(err).To(BeNil())
 
 		By("validating if HCloudBootStateProvisioningFailed was set on HCloudMachine object")
-		Expect(service.scope.HCloudMachine).To(Equal(infrav1.HCloudBootStateProvisioningFailed))
+		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateProvisioningFailed))
 	})
 
 	It("transitions the BootStrate from BootStateUnset -> BootStateBootingToRealOS -> BootStateOperatingSystemRunning (imageName)", func() {

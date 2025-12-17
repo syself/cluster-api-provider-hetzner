@@ -194,7 +194,7 @@ func (s *Service) timeUntilNextRemediation(now time.Time) time.Duration {
 }
 
 // setOwnerRemediatedConditionToFailed sets MachineOwnerRemediatedCondition on CAPI machine object
-// that have failed a healthcheck.
+// that have failed a healthcheck. This will make capi delete the capi and baremetal machine.
 func (s *Service) setOwnerRemediatedConditionToFailed(ctx context.Context, msg string) error {
 	capiMachine, err := util.GetOwnerMachine(ctx, s.scope.Client, s.scope.BareMetalRemediation.ObjectMeta)
 	if err != nil {

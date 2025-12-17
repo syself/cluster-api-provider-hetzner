@@ -194,7 +194,7 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 }
 
 // setOwnerRemediatedConditionToFailed sets MachineOwnerRemediatedCondition on CAPI machine object
-// that have failed a healthcheck.
+// that have failed a healthcheck. This will make capi delete the capi and hcloud machine.
 func (s *Service) setOwnerRemediatedConditionToFailed(ctx context.Context, msg string) error {
 	patchHelper, err := patch.NewHelper(s.scope.Machine, s.scope.Client)
 	if err != nil {
