@@ -160,8 +160,8 @@ func SaveHostAndReturn(ctx context.Context, cl client.Client, host *infrav1.Hetz
 
 	if err := cl.Update(ctx, host); err != nil {
 		if apierrors.IsConflict(err) {
-			log := ctrl.LoggerFrom(ctx)
-			log.Info("conflict error. Retrying", "err", err)
+			logger := ctrl.LoggerFrom(ctx)
+			logger.Info("conflict error. Retrying", "err", err)
 			return reconcile.Result{Requeue: true}, nil
 		}
 		return reconcile.Result{}, fmt.Errorf("failed to update host object: %w", err)
@@ -316,6 +316,8 @@ func rebootTypesFromStringList(rebootTypeStringList []string) ([]infrav1.RebootT
 	return rebootTypes, nil
 }
 
+// ensureSSHKey ensures that the given ssh key is known to the Robot-API.
+// s.scope.RobotClient.SetSSHKey() gets used to upload the public-key, if it is not there yet.
 func (s *Service) ensureSSHKey(sshSecretRef infrav1.SSHSecretRef, sshSecret *corev1.Secret) (infrav1.SSHKey, actionResult) {
 	if sshSecret == nil {
 		return infrav1.SSHKey{}, actionError{err: errNilSSHSecret}
@@ -324,7 +326,7 @@ func (s *Service) ensureSSHKey(sshSecretRef infrav1.SSHSecretRef, sshSecret *cor
 	if err != nil {
 		s.handleRobotRateLimitExceeded(err, "ListSSHKeys")
 		if !models.IsError(err, models.ErrorCodeNotFound) {
-			return infrav1.SSHKey{}, actionError{err: fmt.Errorf("failed to list ssh heys: %w", err)}
+			return infrav1.SSHKey{}, actionError{err: fmt.Errorf("failed to list ssh keys: %w", err)}
 		}
 	}
 
@@ -345,6 +347,9 @@ func (s *Service) ensureSSHKey(sshSecretRef infrav1.SSHSecretRef, sshSecret *cor
 		if err != nil {
 			s.handleRobotRateLimitExceeded(err, "SetSSHKey")
 			if models.IsError(err, models.ErrorCodeKeyAlreadyExists) {
+				// Robot SSH-keys API is a bit strange: the public key value must be unique; you
+				// can’t add the same key twice. Uniqueness is checked by key value, not by the
+				// key’s name.
 				msg := fmt.Sprintf("cannot upload ssh key %q (from secret %q) - exists already under a different name: %s",
 					string(sshSecret.Data[sshSecretRef.Key.Name]), sshSecretRef.Name, err.Error())
 				conditions.MarkFalse(
@@ -2149,7 +2154,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		}
 		err = fmt.Errorf("failed to handle incomplete boot - actionProvisioned: %w", err)
 		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
-			"FailureFailGettingHostnameViaSSH",
+			"FailureGettingHostnameViaSSH",
 			clusterv1.ConditionSeverityWarning, "%s",
 			err.Error())
 		return actionError{err: err}

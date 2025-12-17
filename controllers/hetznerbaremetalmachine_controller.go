@@ -53,6 +53,9 @@ type HetznerBareMetalMachineReconciler struct {
 	RateLimitWaitTime   time.Duration
 	HCloudClientFactory hcloudclient.Factory
 	WatchFilterValue    string
+
+	// Reconcile only this namespace. Only needed for testing
+	Namespace string
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalmachines,verbs=get;list;watch;create;update;patch;delete
@@ -62,6 +65,11 @@ type HetznerBareMetalMachineReconciler struct {
 // Reconcile implements the reconcilement of HetznerBareMetalMachine objects.
 func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req reconcile.Request) (res reconcile.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
+
+	if r.Namespace != "" && req.Namespace != r.Namespace {
+		// Just for testing, skip reconciling objects from finished tests.
+		return ctrl.Result{}, nil
+	}
 
 	// Fetch the Hetzner bare metal instance.
 	hbmMachine := &infrav1.HetznerBareMetalMachine{}
@@ -73,20 +81,20 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 	log = log.WithValues("HetznerBareMetalMachine", klog.KObj(hbmMachine))
 
 	// Fetch the Machine.
-	machine, err := util.GetOwnerMachine(ctx, r.Client, hbmMachine.ObjectMeta)
+	capiMachine, err := util.GetOwnerMachine(ctx, r.Client, hbmMachine.ObjectMeta)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to get owner machine. BareMetalMachine.ObjectMeta.OwnerReferences %v: %w",
 			hbmMachine.ObjectMeta.OwnerReferences, err)
 	}
-	if machine == nil {
+	if capiMachine == nil {
 		log.Info("Machine Controller has not yet set OwnerRef")
 		return reconcile.Result{}, nil
 	}
 
-	log = log.WithValues("Machine", klog.KObj(machine))
+	log = log.WithValues("Machine", klog.KObj(capiMachine))
 
 	// Fetch the Cluster.
-	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, machine.ObjectMeta)
+	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, capiMachine.ObjectMeta)
 	if err != nil {
 		log.Info("Machine is missing cluster label or cluster does not exist")
 		return reconcile.Result{}, nil
@@ -125,7 +133,7 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 	machineScope, err := scope.NewBareMetalMachineScope(scope.BareMetalMachineScopeParams{
 		Client:           r.Client,
 		Logger:           log,
-		Machine:          machine,
+		Machine:          capiMachine,
 		BareMetalMachine: hbmMachine,
 		HetznerCluster:   hetznerCluster,
 		HCloudClient:     hcc,

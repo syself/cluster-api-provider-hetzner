@@ -25,7 +25,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/selection"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	capierrors "sigs.k8s.io/cluster-api/errors" //nolint:staticcheck // we will handle that, when we update to capi v1.11
 )
 
 const (
@@ -298,8 +297,11 @@ type HetznerBareMetalMachineStatus struct {
 	LastUpdated *metav1.Time `json:"lastUpdated,omitempty"`
 
 	// FailureReason will be set in the event that there is a terminal problem.
+	//
+	// Deprecated: This field is deprecated and is going to be removed when support for v1beta1 will be dropped. Please see https://github.com/kubernetes-sigs/cluster-api/blob/main/docs/proposals/20240916-improve-status-in-CAPI-resources.md for more details.
+	//
 	// +optional
-	FailureReason *capierrors.MachineStatusError `json:"failureReason,omitempty"`
+	FailureReason *string `json:"failureReason,omitempty"`
 
 	// FailureMessage will be set in the event that there is a terminal problem.
 	// +optional
@@ -355,12 +357,6 @@ func (hbmm *HetznerBareMetalMachine) GetConditions() clusterv1.Conditions {
 // SetConditions sets the underlying service state of the HetznerBareMetalMachine to the predescribed clusterv1.Conditions.
 func (hbmm *HetznerBareMetalMachine) SetConditions(conditions clusterv1.Conditions) {
 	hbmm.Status.Conditions = conditions
-}
-
-// SetFailure sets a failure reason and message.
-func (hbmm *HetznerBareMetalMachine) SetFailure(reason capierrors.MachineStatusError, message string) {
-	hbmm.Status.FailureReason = &reason
-	hbmm.Status.FailureMessage = &message
 }
 
 // GetImageSuffix tests whether the suffix is known and outputs it if yes. Otherwise it returns an error.

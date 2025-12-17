@@ -63,6 +63,9 @@ type HetznerBareMetalHostReconciler struct {
 	PreProvisionCommand  string
 	SSHAfterInstallImage bool
 	ImageURLCommand      string
+
+	// Reconcile only this namespace. Only needed for testing
+	Namespace string
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalhosts,verbs=get;list;watch;create;update;patch;delete
@@ -72,6 +75,11 @@ type HetznerBareMetalHostReconciler struct {
 // Reconcile implements the reconcilement of HetznerBareMetalHost objects.
 func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res ctrl.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
+
+	if r.Namespace != "" && req.Namespace != r.Namespace {
+		// Just for testing, skip reconciling objects from finished tests.
+		return ctrl.Result{}, nil
+	}
 
 	start := time.Now()
 	defer func() {
@@ -116,6 +124,12 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		// Use uncached APIReader
 		err := r.APIReader.Get(ctx, client.ObjectKeyFromObject(bmHost), apiserverHost)
 		if err != nil {
+			if apierrors.IsNotFound(err) {
+				// resource was deleted. No need to reconcile again.
+				reterr = nil
+				res = reconcile.Result{}
+				return
+			}
 			reterr = errors.Join(reterr,
 				fmt.Errorf("failed get HetznerBareMetalHost via uncached APIReader: %w", err))
 			return
@@ -185,6 +199,9 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		return res, nil
 	}
 
+	// Case "Delete" was handled in reconcileSelectedStates. From now we know that the host has no
+	// DeletionTimestamp set. But the hbmm could be in Deprovisioning.
+
 	hetznerCluster := &infrav1.HetznerCluster{}
 
 	hetznerClusterName := client.ObjectKey{
@@ -226,8 +243,12 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 
 	log = log.WithValues("HetznerBareMetalMachine", klog.KObj(hetznerBareMetalMachine))
-
 	ctx = ctrl.LoggerInto(ctx, log)
+
+	// check whether rate limit has been reached and if so, then wait.
+	if wait := reconcileRateLimit(bmHost, r.RateLimitWaitTime); wait {
+		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+	}
 
 	// Get Hetzner robot api credentials
 	secretManager := secretutil.NewSecretManager(log, r.Client, r.APIReader)
@@ -266,11 +287,6 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %w", err)
 	}
 
-	// check whether rate limit has been reached and if so, then wait.
-	if wait := reconcileRateLimit(bmHost, r.RateLimitWaitTime); wait {
-		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
-	}
-
 	return r.reconcile(ctx, hostScope)
 }
 
@@ -307,7 +323,7 @@ func (r *HetznerBareMetalHostReconciler) reconcileSelectedStates(ctx context.Con
 
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 
-		// Handle StateDeleting
+	// Handle StateDeleting
 	case infrav1.StateDeleting:
 		if controllerutil.RemoveFinalizer(bmHost, infrav1.HetznerBareMetalHostFinalizer) ||
 			controllerutil.RemoveFinalizer(bmHost, infrav1.DeprecatedBareMetalHostFinalizer) {

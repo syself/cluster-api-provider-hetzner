@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
+	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -45,7 +46,7 @@ type BareMetalMachineScopeParams struct {
 // This is meant to be called for each reconcile iteration.
 func NewBareMetalMachineScope(params BareMetalMachineScopeParams) (*BareMetalMachineScope, error) {
 	if params.Client == nil {
-		return nil, fmt.Errorf("cannot create baremetal host scope without client")
+		return nil, fmt.Errorf("cannot create baremetal machine scope without client")
 	}
 	if params.Machine == nil {
 		return nil, fmt.Errorf("failed to generate new scope from nil Machine")
@@ -122,4 +123,32 @@ func (m *BareMetalMachineScope) IsControlPlane() bool {
 // IsBootstrapReady checks the readiness of a capi machine's bootstrap data.
 func (m *BareMetalMachineScope) IsBootstrapReady() bool {
 	return m.Machine.Spec.Bootstrap.DataSecretName != nil
+}
+
+// SetRemediateMachineAnnotationToDeleteMachine sets "cluster.x-k8s.io/remediate-machine" annotation
+// on the corresponding CAPI machine. This will trigger CAPI to start remediation. Our remediation
+// contoller will use HasFatalError() to differentiate between a remediate (with reboot) and delete
+// (no reboot gets tried). Finally the capi machine and the infra machine will be deleted.
+//
+// Background: the hbmm/hbmh controller has no permission to delete a capi machine. That's why this
+// extra step (via remediate-machine annotation) is needed.
+func (m *BareMetalMachineScope) SetRemediateMachineAnnotationToDeleteMachine(ctx context.Context, message string) error {
+	capiMachine := m.Machine
+
+	// Create a patch base
+	patch := client.MergeFrom(capiMachine.DeepCopy())
+
+	// Modify only annotations on the in-memory copy
+	if capiMachine.Annotations == nil {
+		capiMachine.Annotations = map[string]string{}
+	}
+	capiMachine.Annotations[clusterv1.RemediateMachineAnnotation] = ""
+
+	// Apply patch – only the diff (annotations) is sent to the API server
+	if err := m.Client.Patch(ctx, capiMachine, patch); err != nil {
+		return err
+	}
+
+	record.Warnf(m.BareMetalMachine, "MachineWillBeDeleted", "Machine will be deleted: %s", message)
+	return nil
 }

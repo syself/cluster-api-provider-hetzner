@@ -13,6 +13,7 @@ temp
 *.test
 .coverage
 .cache
+.lycheecache
 .reports
 # E2E test templates
 test/e2e/data/infrastructure-hetzner/v1beta1/cluster-template*.yaml
@@ -35,6 +36,7 @@ test/e2e/data/infrastructure-hetzner/v1beta1/env*
 /tilt.d
 tilt_config.json
 baremetalhosts.yaml
+bm-*.yaml
 
 # kubeconfigs
 ./kind.kubeconfig
@@ -83,3 +85,4 @@ watchall-output*
 /conditions*.txt
 
 /.config
+/.kube

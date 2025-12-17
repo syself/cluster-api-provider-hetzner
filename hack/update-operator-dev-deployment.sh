@@ -22,7 +22,8 @@
 
 # Usually it is better to write a test, than to use this script.
 
-trap 'echo "Warning: A command has failed. Exiting the script. Line was ($0:$LINENO): $(sed -n "${LINENO}p" "$0")"; exit 3' ERR
+# Bash Strict Mode: https://github.com/guettli/bash-strict-mode
+trap 'echo -e "\n🤷 🚨 🔥 Warning: A command has failed. Exiting the script. Line was ($0:$LINENO): $(sed -n "${LINENO}p" "$0" 2>/dev/null || true) 🔥 🚨 🤷 "; exit 3' ERR
 set -Eeuo pipefail
 
 if [[ $(kubectl config current-context) == *oidc@* ]]; then
@@ -66,42 +67,73 @@ if ! echo "$current_context" | grep -P '.*-admin@.*-mgt-cluster'; then
 fi
 
 branch=$(git branch --show-current)
+
+# No branch name was found. Try to get a git-tag.
 if [ "$branch" == "" ]; then
-    echo "failed to get branch name"
+    branch=$(git describe --tags --exact-match 2>/dev/null || echo "")
+fi
+
+if [ "$branch" == "" ]; then
+    echo "failed to find git branch/tag name"
     exit 1
 fi
 
+# Build tag for container image.
 tag="dev-$USER-$branch"
 tag="$(echo -n "$tag" | tr -c 'a-zA-Z0-9_.-' '-')"
 
 image="$image_path/caph-staging:$tag"
+
+# Fail if cluster-api-operator is running
+if kubectl get pods -A | grep -q cluster-api-operator; then
+    echo "Error: cluster-api-operator is running!"
+    echo "Changes to caph deployment and its CRDs would be reverted."
+    echo "Hint: Scale down replicas of the cluster-api-operator deployment."
+    exit 1
+fi
 
 # run in background
 {
     make generate-manifests
     kustomize build config/crd | kubectl apply -f -
 } &
+pid_generate=$!
 
-# run in background2
+# run in background
 {
-    docker build -f images/caph/Dockerfile -t "$image" .
+    docker build -f images/caph/Dockerfile -t "$image" . --progress=plain
     docker push "$image"
 } &
+pid_docker_push=$!
 
-wait
+# wait for both processes and check their exit codes
+if ! wait $pid_generate; then
+    echo "Error: generate-manifests/kustomize failed"
+    exit 1
+fi
 
+if ! wait $pid_docker_push; then
+    echo "Error: docker build/push failed"
+    exit 1
+fi
+
+# Find namespace of caph deployment.
 ns=$(kubectl get deployments.apps -A | { grep caph-controller || true; } | cut -d' ' -f1)
 if [[ -z $ns ]]; then
     echo "failed to get namespace for caph-controller"
     exit 1
 fi
 
+# Scale deployment to 1.
 kubectl scale --replicas=1 -n "$ns" deployment/caph-controller-manager
 
 kubectl set image -n "$ns" deployment/caph-controller-manager manager="$image"
 
+# Set imagePullPolicy to "Always", so that a new image (with same name/tag) gets pulled.
 kubectl patch deployment -n "$ns" -p '[{"op": "replace", "path": "/spec/template/spec/containers/0/imagePullPolicy", "value": "Always"}]' --type='json' caph-controller-manager
 
+# If you update the image again, there might be no change the deployment spec.
+# Force a rollout:
 kubectl rollout restart -n "$ns" deployment caph-controller-manager
 
 trap "echo 'Interrupted! Exiting...'; exit 1" SIGINT

@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -36,9 +37,12 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	"sigs.k8s.io/cluster-api/util"
+	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -53,6 +57,7 @@ import (
 var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 	var (
 		bmMachine      *infrav1.HetznerBareMetalMachine
+		machineName    string
 		hetznerCluster *infrav1.HetznerCluster
 
 		capiCluster *clusterv1.Cluster
@@ -74,8 +79,10 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 	BeforeEach(func() {
 		var err error
-		testNs, err = testEnv.CreateNamespace(ctx, "baremetalmachine-reconciler")
+		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "baremetalmachine-reconciler")
 		Expect(err).NotTo(HaveOccurred())
+
+		machineName = utils.GenerateName(nil, "machine")
 
 		hetznerClusterName = utils.GenerateName(nil, "hetzner-cluster-test")
 		capiCluster = &clusterv1.Cluster{
@@ -161,7 +168,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 		osSSHClient.On("CheckCloudInitLogsForSigTerm").Return(sshclient.Output{})
 		osSSHClient.On("ResetKubeadm").Return(sshclient.Output{})
 		osSSHClient.On("GetHostName").Return(sshclient.Output{
-			StdOut: infrav1.BareMetalHostNamePrefix + bmMachineName,
+			StdOut: infrav1.BareMetalHostNamePrefix + machineName,
 			StdErr: "",
 			Err:    nil,
 		})
@@ -199,10 +206,9 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 		Context("Test bootstrap", func() {
 			BeforeEach(func() {
-				capiMachineName := utils.GenerateName(nil, "capimachine-name-")
 				capiMachine = &clusterv1.Machine{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:       capiMachineName,
+						Name:       machineName,
 						Namespace:  testNs.Name,
 						Finalizers: []string{clusterv1.MachineFinalizer},
 						Labels: map[string]string{
@@ -214,7 +220,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 						InfrastructureRef: corev1.ObjectReference{
 							APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
 							Kind:       "HetznerBareMetalMachine",
-							Name:       bmMachineName,
+							Name:       machineName,
 						},
 						FailureDomain: &defaultFailureDomain,
 					},
@@ -223,7 +229,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 				bmMachine = &infrav1.HetznerBareMetalMachine{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      bmMachineName,
+						Name:      machineName,
 						Namespace: testNs.Name,
 						Labels: map[string]string{
 							clusterv1.ClusterNameLabel: capiCluster.Name,
@@ -241,7 +247,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				}
 				Expect(testEnv.Create(ctx, bmMachine)).To(Succeed())
 
-				key = client.ObjectKey{Namespace: testNs.Name, Name: bmMachineName}
+				key = client.ObjectKey{Namespace: testNs.Name, Name: machineName}
 			})
 
 			AfterEach(func() {
@@ -281,9 +287,9 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			BeforeEach(func() {
 				capiMachine = &clusterv1.Machine{
 					ObjectMeta: metav1.ObjectMeta{
-						GenerateName: "capi-machine-",
-						Namespace:    testNs.Name,
-						Finalizers:   []string{clusterv1.MachineFinalizer},
+						Name:       machineName,
+						Namespace:  testNs.Name,
+						Finalizers: []string{clusterv1.MachineFinalizer},
 						Labels: map[string]string{
 							clusterv1.ClusterNameLabel: capiCluster.Name,
 						},
@@ -293,7 +299,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 						InfrastructureRef: corev1.ObjectReference{
 							APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
 							Kind:       "HetznerBareMetalMachine",
-							Name:       bmMachineName,
+							Name:       machineName,
 						},
 						FailureDomain: &defaultFailureDomain,
 						Bootstrap: clusterv1.Bootstrap{
@@ -305,7 +311,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 				bmMachine = &infrav1.HetznerBareMetalMachine{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      bmMachineName,
+						Name:      machineName,
 						Namespace: testNs.Name,
 						Labels: map[string]string{
 							clusterv1.ClusterNameLabel: capiCluster.Name,
@@ -326,7 +332,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				osSSHSecret = helpers.GetDefaultSSHSecret("os-ssh-secret", testNs.Name)
 				Expect(testEnv.Create(ctx, osSSHSecret)).To(Succeed())
 
-				key = client.ObjectKey{Namespace: testNs.Name, Name: bmMachineName}
+				key = client.ObjectKey{Namespace: testNs.Name, Name: machineName}
 			})
 
 			AfterEach(func() {
@@ -389,17 +395,28 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				}, timeout).Should(BeTrue())
 			})
 
-			It("deletes successfully", func() {
-				By("deleting bm machine")
-
-				Expect(testEnv.Delete(ctx, bmMachine)).To(Succeed())
+			It("hbmm deletes successfully and host gets deprovisioned", func() {
+				By("Waiting until host is provisioned")
 
 				Eventually(func() bool {
-					if err := testEnv.Get(ctx, key, bmMachine); apierrors.IsNotFound(err) {
-						return true
+					return isPresentAndTrue(key, bmMachine, infrav1.HostReadyCondition)
+				}, timeout).Should(BeTrue())
+
+				err := testEnv.Get(ctx, hostKey, host)
+				Expect(err).To(BeNil())
+
+				Expect(host.Spec.Status.ProvisioningState).To(Equal(infrav1.StateProvisioned))
+
+				By("deleting hbmm")
+				Expect(testEnv.Delete(ctx, bmMachine)).To(Succeed())
+
+				Eventually(func() error {
+					err := testEnv.Get(ctx, key, bmMachine)
+					if apierrors.IsNotFound(err) {
+						return nil
 					}
-					return false
-				}, timeout, time.Second).Should(BeTrue())
+					return err
+				}, timeout, time.Second).Should(Succeed())
 
 				By("making sure the host has been deprovisioned")
 
@@ -411,7 +428,62 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				}, timeout, time.Second).Should(BeTrue())
 			})
 
-			It("sets a failure reason when maintenance mode is set on the host", func() {
+			It("hbmm deletes successfully and host gets deprovisioned, even if state is 'ensure-provisioned'", func() {
+				By("checking that the host is ready")
+				Eventually(func() bool {
+					return isPresentAndTrue(key, bmMachine, infrav1.HostReadyCondition)
+				}, timeout).Should(BeTrue())
+
+				osSSHClient.On("GetHostName").Unset()
+
+				osSSHClient.On("GetHostName").Return(sshclient.Output{
+					StdOut: "some-unexpected-hostname",
+					StdErr: "",
+					Err:    nil,
+				})
+
+				err := testEnv.Get(ctx, hostKey, host)
+				Expect(err).To(BeNil())
+				Expect(host.Spec.Status.ProvisioningState).To(Equal(infrav1.StateProvisioned))
+
+				By("Setting State to 'ensure-provisioned'")
+				host.Spec.Status.ProvisioningState = infrav1.StateEnsureProvisioned
+				err = testEnv.Update(ctx, host)
+				Expect(err).To(BeNil())
+
+				Eventually(func() error {
+					err := testEnv.Get(ctx, hostKey, host)
+					if err != nil {
+						return err
+					}
+					if host.Spec.Status.ProvisioningState != infrav1.StateEnsureProvisioned {
+						return fmt.Errorf("ProvisioningState=%s", host.Spec.Status.ProvisioningState)
+					}
+					return nil
+				}, timeout, time.Second).Should(Succeed())
+
+				By("deleting bm machine")
+				Expect(testEnv.Delete(ctx, bmMachine)).To(Succeed())
+
+				Eventually(func() error {
+					err := testEnv.Get(ctx, key, bmMachine)
+					if apierrors.IsNotFound(err) {
+						return nil
+					}
+					return err
+				}, timeout, time.Second).Should(Succeed())
+
+				By("making sure the host has been deprovisioned")
+
+				Eventually(func() bool {
+					if err := testEnv.Get(ctx, hostKey, host); err != nil {
+						return false
+					}
+					return host.Spec.Status.ProvisioningState == infrav1.StateNone
+				}, timeout, time.Second).Should(BeTrue())
+			})
+
+			It("sets RemediateMachineAnnotation when maintenance mode is set on the host", func() {
 				By("making sure that machine is ready")
 
 				Eventually(func() bool {
@@ -431,26 +503,100 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 				Expect(ph.Patch(ctx, host, patch.WithStatusObservedGeneration{})).To(Succeed())
 
-				By("checking that failure message is set on machine")
+				By("checking that RemediateMachineAnnotation is set on machine")
 
-				Eventually(func() bool {
+				Eventually(func() error {
 					if err := testEnv.Get(ctx, key, bmMachine); err != nil {
-						return false
+						return err
 					}
-					return bmMachine.Status.FailureMessage != nil && *bmMachine.Status.FailureMessage == baremetal.FailureMessageMaintenanceMode
-				}, timeout).Should(BeTrue())
+
+					capiMachine, err := util.GetOwnerMachine(ctx, testEnv, bmMachine.ObjectMeta)
+					if err != nil {
+						return err
+					}
+
+					_, exists := capiMachine.Annotations[clusterv1.RemediateMachineAnnotation]
+					if !exists {
+						return fmt.Errorf("RemediateMachineAnnotation not set on capi machine")
+					}
+
+					if !hasEvent(ctx, testEnv, testNs.Name, bmMachine.Name, "MachineWillBeDeleted",
+						baremetal.FailureMessageMaintenanceMode) {
+						return fmt.Errorf("Event not found")
+					}
+
+					return nil
+				}, timeout).Should(Succeed())
+
+				By("Do the job of CAPI: Create a HetznerBareMetalRemediation")
+				rem := &infrav1.HetznerBareMetalRemediation{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      bmMachine.Name,
+						Namespace: bmMachine.Namespace,
+					},
+				}
+				err = controllerutil.SetOwnerReference(capiMachine, rem, testEnv.Scheme())
+				Expect(err).To(BeNil())
+				err = testEnv.Create(ctx, rem)
+				Expect(err).To(BeNil())
+
+				By("Wait for MachineOwnerRemediatedCondition to be set on capiMachine")
+				Eventually(func() error {
+					capiMachine, err = util.GetOwnerMachine(ctx, testEnv, bmMachine.ObjectMeta)
+					if err != nil {
+						return err
+					}
+					if capiMachine == nil {
+						return fmt.Errorf("capiMachine is nil")
+					}
+
+					err = testEnv.Get(ctx, client.ObjectKeyFromObject(bmMachine), bmMachine)
+					Expect(err).ShouldNot(HaveOccurred())
+
+					Expect(capiMachine.Name).To(Equal(bmMachine.Name))
+					Expect(capiMachine.Spec.InfrastructureRef.Name).To(Equal(bmMachine.Name))
+
+					c := conditions.Get(capiMachine, clusterv1.MachineOwnerRemediatedCondition)
+					if c == nil {
+						return fmt.Errorf("condition MachineOwnerRemediatedCondition does not exist %+v", capiMachine.Status)
+					}
+
+					if c.Status != corev1.ConditionFalse {
+						return fmt.Errorf("condition MachineOwnerRemediatedCondition should be False")
+					}
+
+					if c.Message != "Remediation finished (machine will be deleted): exit remediation because host is in maintenance mode" {
+						return fmt.Errorf("Unexpected message: %q", c.Message)
+					}
+
+					return nil
+				}, timeout).Should(Succeed())
+
+				By("Play role of CAPI: Delete capi and bm machine")
+				err = testEnv.Delete(ctx, capiMachine)
+				Expect(err).Should(Succeed())
+				err = testEnv.Delete(ctx, bmMachine)
+				Expect(err).Should(Succeed())
+
+				By("waiting for the successful kubeadm reset event")
+				Eventually(func() bool {
+					return hasEvent(ctx, testEnv, testNs.Name, host.Name, "SuccessfulResetKubeAdm", "Reset was successful.")
+				}, timeout, time.Second).Should(BeTrue())
 			})
 
 			It("checks the hetznerBareMetalMachine status running phase", func() {
 				By("making sure that machine is in running state")
-				Eventually(func() bool {
+				Eventually(func() error {
 					if err := testEnv.Get(ctx, key, bmMachine); err != nil {
-						return false
+						return err
 					}
-
-					testEnv.GetLogger().Info("status of host and hetznerBareMetalMachine", "hetznerBareMetalMachine phase", bmMachine.Status.Phase, "host state", host.Spec.Status.ProvisioningState)
-					return bmMachine.Status.Phase == clusterv1.MachinePhaseRunning
-				}, timeout, time.Second).Should(BeTrue())
+					testEnv.GetLogger().Info("status of host and hetznerBareMetalMachine", "hetznerBareMetalMachine phase", bmMachine.Status.Phase,
+						"hostState", host.Spec.Status.ProvisioningState)
+					if bmMachine.Status.Phase != clusterv1.MachinePhaseRunning {
+						return fmt.Errorf("bmMachine.Status.Phase should be MachinePhaseRunning, but is: %q", bmMachine.Status.Phase)
+					}
+					return nil
+				}, timeout, time.Second).Should(Succeed())
 			})
 
 			It("checks that HostReady condition is True for hetznerBareMetalMachine", func() {
@@ -464,9 +610,9 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			BeforeEach(func() {
 				capiMachine = &clusterv1.Machine{
 					ObjectMeta: metav1.ObjectMeta{
-						GenerateName: "capi-machine-",
-						Namespace:    testNs.Name,
-						Finalizers:   []string{clusterv1.MachineFinalizer},
+						Name:       machineName,
+						Namespace:  testNs.Name,
+						Finalizers: []string{clusterv1.MachineFinalizer},
 						Labels: map[string]string{
 							clusterv1.ClusterNameLabel: capiCluster.Name,
 						},
@@ -476,7 +622,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 						InfrastructureRef: corev1.ObjectReference{
 							APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
 							Kind:       "HetznerBareMetalMachine",
-							Name:       bmMachineName,
+							Name:       machineName,
 						},
 						FailureDomain: &defaultFailureDomain,
 						Bootstrap: clusterv1.Bootstrap{
@@ -488,7 +634,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 				bmMachine = &infrav1.HetznerBareMetalMachine{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      bmMachineName,
+						Name:      machineName,
 						Namespace: testNs.Name,
 						Labels: map[string]string{
 							clusterv1.ClusterNameLabel: capiCluster.Name,
@@ -506,7 +652,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				}
 				Expect(testEnv.Create(ctx, bmMachine)).To(Succeed())
 
-				key = client.ObjectKey{Namespace: testNs.Name, Name: bmMachineName}
+				key = client.ObjectKey{Namespace: testNs.Name, Name: machineName}
 			})
 
 			AfterEach(func() {
@@ -527,9 +673,9 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 		BeforeEach(func() {
 			capiMachine = &clusterv1.Machine{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "capi-machine-",
-					Namespace:    testNs.Name,
-					Finalizers:   []string{clusterv1.MachineFinalizer},
+					Name:       machineName,
+					Namespace:  testNs.Name,
+					Finalizers: []string{clusterv1.MachineFinalizer},
 					Labels: map[string]string{
 						clusterv1.ClusterNameLabel: capiCluster.Name,
 					},
@@ -539,7 +685,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					InfrastructureRef: corev1.ObjectReference{
 						APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
 						Kind:       "HetznerBareMetalMachine",
-						Name:       bmMachineName,
+						Name:       machineName,
 					},
 					FailureDomain: &defaultFailureDomain,
 					Bootstrap: clusterv1.Bootstrap{
@@ -551,7 +697,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 			bmMachine = &infrav1.HetznerBareMetalMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      bmMachineName,
+					Name:      machineName,
 					Namespace: testNs.Name,
 					Labels: map[string]string{
 						clusterv1.ClusterNameLabel: capiCluster.Name,
@@ -569,7 +715,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			}
 			Expect(testEnv.Create(ctx, bmMachine)).To(Succeed())
 
-			key = client.ObjectKey{Namespace: testNs.Name, Name: bmMachineName}
+			key = client.ObjectKey{Namespace: testNs.Name, Name: bmMachine.Name}
 		})
 
 		It("creates the bare metal machine and sets condition that no host is available", func() {
@@ -596,9 +742,9 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 		BeforeEach(func() {
 			capiMachine = &clusterv1.Machine{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "capi-machine-",
-					Namespace:    testNs.Name,
-					Finalizers:   []string{clusterv1.MachineFinalizer},
+					Namespace:  testNs.Name,
+					Name:       machineName,
+					Finalizers: []string{clusterv1.MachineFinalizer},
 					Labels: map[string]string{
 						clusterv1.ClusterNameLabel: capiCluster.Name,
 					},
@@ -608,7 +754,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					InfrastructureRef: corev1.ObjectReference{
 						APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
 						Kind:       "HetznerBareMetalMachine",
-						Name:       bmMachineName,
+						Name:       machineName,
 					},
 					FailureDomain: &defaultFailureDomain,
 					Bootstrap: clusterv1.Bootstrap{
@@ -620,7 +766,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 			bmMachine = &infrav1.HetznerBareMetalMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      bmMachineName,
+					Name:      machineName,
 					Namespace: testNs.Name,
 					Labels: map[string]string{
 						clusterv1.ClusterNameLabel: capiCluster.Name,
@@ -640,7 +786,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				"hcloud": "baremetalmachine-test",
 			}
 
-			key = client.ObjectKey{Namespace: testNs.Name, Name: bmMachineName}
+			key = client.ObjectKey{Namespace: testNs.Name, Name: bmMachine.Name}
 		})
 
 		AfterEach(func() {
@@ -721,12 +867,12 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			)
 			BeforeEach(func() {
 				var err error
-				testNs, err = testEnv.CreateNamespace(ctx, "hcloudmachine-validation")
+				testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-validation")
 				Expect(err).NotTo(HaveOccurred())
 
 				hbmmt = &infrav1.HetznerBareMetalMachineTemplate{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      bmMachineName,
+						Name:      machineName,
 						Namespace: testNs.Name,
 						Labels: map[string]string{
 							clusterv1.ClusterNameLabel: capiCluster.Name,
@@ -840,9 +986,9 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			// We have a free host. Trigger a matching HetznerBareMetalMachine to be reconciled.
 			capiMachine := &clusterv1.Machine{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "capi-machine-",
-					Namespace:    testNs.Name,
-					Finalizers:   []string{clusterv1.MachineFinalizer},
+					Name:       machineName,
+					Namespace:  testNs.Name,
+					Finalizers: []string{clusterv1.MachineFinalizer},
 					Labels: map[string]string{
 						clusterv1.ClusterNameLabel: capiCluster.Name,
 					},
@@ -852,7 +998,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					InfrastructureRef: corev1.ObjectReference{
 						APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
 						Kind:       "HetznerBareMetalMachine",
-						Name:       bmMachineName,
+						Name:       machineName,
 					},
 					FailureDomain: &defaultFailureDomain,
 					Bootstrap: clusterv1.Bootstrap{
@@ -864,7 +1010,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 			bmMachine = &infrav1.HetznerBareMetalMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      bmMachineName,
+					Name:      machineName,
 					Namespace: testNs.Name,
 					Labels: map[string]string{
 						clusterv1.ClusterNameLabel: capiCluster.Name,
@@ -886,7 +1032,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			bmMachineName2 := "hbmm2"
 			capiMachine2 := &clusterv1.Machine{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:       utils.GenerateName(nil, "capimachine-name-"),
+					Name:       utils.GenerateName(nil, "capimachine-name2-"),
 					Namespace:  testNs.Name,
 					Finalizers: []string{clusterv1.MachineFinalizer},
 					Labels: map[string]string{
@@ -955,7 +1101,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					return false
 				}
 
-				if host.Spec.ConsumerRef.Name == bmMachineName {
+				if host.Spec.ConsumerRef.Name == bmMachine.Name {
 					pickedMachine = bmMachine
 					waitingMachine = bmMachine2
 				} else {

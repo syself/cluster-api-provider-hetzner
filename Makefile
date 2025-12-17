@@ -118,7 +118,7 @@ $(CTLPTL):
 CLUSTERCTL := $(abspath $(TOOLS_BIN_DIR)/clusterctl)
 clusterctl: $(CLUSTERCTL) ## Build a local copy of clusterctl
 $(CLUSTERCTL):
-	go install sigs.k8s.io/cluster-api/cmd/clusterctl@v1.8.10
+	go install sigs.k8s.io/cluster-api/cmd/clusterctl@v1.10.7
 
 HCLOUD := $(abspath $(TOOLS_BIN_DIR)/hcloud)
 hcloud: $(HCLOUD) ## Build a local copy of hcloud
@@ -758,11 +758,13 @@ endif
 lint-links: ## Link Checker
 ifeq ($(BUILD_IN_CONTAINER),true)
 	docker run --rm \
+		-e GITHUB_TOKEN \
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
 else
 	@lychee --version
-	lychee --verbose --config .lychee.toml ./*.md  ./docs/**/*.md 2>&1 | grep -vP '\[(200|EXCLUDED)\]'
+	@if [ -z "$${GITHUB_TOKEN}" ]; then echo "GITHUB_TOKEN is not set"; exit 1; fi
+	lychee --verbose --config .lychee.toml --cache ./*.md  ./docs/**/*.md 2>&1 | grep -vP '\[(200|EXCLUDED)\]'
 endif
 
 ##@ Main Targets
