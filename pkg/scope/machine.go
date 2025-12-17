@@ -138,7 +138,7 @@ func (m *MachineScope) SetErrorAndRemediate(ctx context.Context, message string)
 
 // SetRemediateMachineAnnotationToDeleteMachine sets "cluster.x-k8s.io/remediate-machine" annotation
 // on the corresponding CAPI machine. This will trigger CAPI to start remediation. Our remediation
-// contoller will use HasFatalError(öööö) to differentiate between a remediate (with reboot) and delete
+// contoller will inspect BootState to differentiate between a remediate (with reboot) and delete
 // (no reboot gets tried). Finally the capi machine and the infra machine will be deleted.
 //
 // Background: the hcloudmachine controller has no permission to delete a capi machine. That's why
