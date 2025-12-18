@@ -253,6 +253,9 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				if hcloudMachine.Spec.ProviderID == nil {
 					return fmt.Errorf("hcloudMachine.Spec.ProviderID is still nil")
 				}
+				if hcloudMachine.Status.BootState != infrav1.HCloudBootStateOperatingSystemRunning {
+					return fmt.Errorf("hcloudMachine.Status.BootState is not HCloudBootStateOperatingSystemRunning, but: %q", hcloudMachine.Status.BootState)
+				}
 				return nil
 			}).NotTo(HaveOccurred())
 
