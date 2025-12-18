@@ -1,0 +1,42 @@
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: HetznerBareMetalMachineTemplate
+metadata:
+  name: "${CLUSTER_NAME}-md-1"
+spec:
+  template:
+    spec:
+      installImage:
+        image:
+          path: /root/.oldroot/nfs/images/Ubuntu-2404-noble-amd64-base.tar.gz
+        partitions:
+          - fileSystem: esp
+            mount: /boot/efi
+            size: 512M
+          - mount: /boot
+            fileSystem: ext4
+            size: 1024M
+          - mount: /
+            fileSystem: ext4
+            size: all
+        postInstallScript: |
+          #!/bin/bash
+          # Bash Strict Mode: https://github.com/guettli/bash-strict-mode
+          trap 'echo -e "\n🤷 🚨 🔥 Warning: A command has failed. Exiting the script. Line was ($0:$LINENO): $(sed -n "$LINENO"p "$0" 2>/dev/null || true) 🔥 🚨 🤷 "; exit 3' ERR
+          set -Eeuo pipefail
+
+          mkdir -p /etc/cloud/cloud.cfg.d
+          touch /etc/cloud/cloud.cfg.d/99-custom-networking.cfg
+          echo "network: { config: disabled }" > /etc/cloud/cloud.cfg.d/99-custom-networking.cfg
+
+          apt-get update
+
+          apt-get install -y cloud-init apparmor apparmor-utils
+          cloud-init clean --logs
+      sshSpec:
+        portAfterInstallImage: 22
+        secretRef:
+          name: robot-ssh
+          key:
+            name: sshkey-name
+            publicKey: ssh-publickey
+            privateKey: ssh-privatekey

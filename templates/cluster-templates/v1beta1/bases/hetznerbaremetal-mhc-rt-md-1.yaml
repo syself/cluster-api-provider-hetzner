@@ -1,0 +1,34 @@
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachineHealthCheck
+metadata:
+  name: "${CLUSTER_NAME}-md-1-unhealthy-5m"
+spec:
+  clusterName: "${CLUSTER_NAME}"
+  maxUnhealthy: 100%
+  nodeStartupTimeout: 60m
+  selector:
+    matchLabels:
+      nodepool: "${CLUSTER_NAME}-md-1"
+  unhealthyConditions:
+    - type: Ready
+      status: Unknown
+      timeout: 300s
+    - type: Ready
+      status: "False"
+      timeout: 300s
+  remediationTemplate: # added infrastructure reference
+    kind: HetznerBareMetalRemediationTemplate
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    name: worker-remediation-request
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: HetznerBareMetalRemediationTemplate
+metadata:
+  name: worker-remediation-request
+spec:
+  template:
+    spec:
+      strategy:
+        type: "Reboot"
+        retryLimit: 2
+        timeout: 300s

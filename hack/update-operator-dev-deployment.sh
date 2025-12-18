@@ -60,7 +60,7 @@ if ! kubectl cluster-info >/dev/null; then
 fi
 
 current_context=$(kubectl config current-context)
-if ! echo "$current_context" | grep -P '.*-admin@.*-mgt-cluster'; then
+if ! echo "$current_context" | grep -P '.*-admin@.*-mgt-cluster|kind-'; then
     echo "The script refuses to update because the current context is: $current_context"
     echo "Expecting something like foo-mgt-cluster-admin@foo-mgt-cluster with 'foo' being a short version of your name"
     exit 1
