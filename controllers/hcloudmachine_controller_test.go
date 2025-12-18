@@ -876,7 +876,7 @@ var _ = Describe("HCloudMachine validation", func() {
 			return testEnv.Client.Get(ctx, key, hcloudMachine)
 		}, timeout, interval).Should(BeNil())
 
-		hcloudMachine.Spec.Type = "cpx32"
+		hcloudMachine.Spec.Type = "cpx42"
 		hcloudMachine.Spec.ImageName = "my-control-plane"
 		Expect(testEnv.Update(ctx, hcloudMachine)).ToNot(Succeed())
 	})
