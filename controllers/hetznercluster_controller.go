@@ -472,7 +472,7 @@ func hcloudTokenErrorResult(
 	}
 	conditions.SetSummary(setter)
 	if err := client.Status().Update(ctx, setter); err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to update: %w", err)
+		return reconcile.Result{}, fmt.Errorf("hcloudTokenErrorResult: failed to update: %w", err)
 	}
 	if inerr != nil {
 		return reconcile.Result{}, inerr
