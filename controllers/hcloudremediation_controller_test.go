@@ -339,10 +339,16 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				Name: "myserver",
 			})
 			Expect(err).ShouldNot(HaveOccurred())
-			providerID := hcloudutil.ProviderIDFromServerID(int(server.ID))
-			hcloudMachine.Spec.ProviderID = &providerID
-			err = testEnv.Update(ctx, hcloudMachine)
-			Expect(err).ShouldNot(HaveOccurred())
+
+			Eventually(func() error {
+				err := testEnv.Get(ctx, client.ObjectKeyFromObject(hcloudMachine), hcloudMachine)
+				if err != nil {
+					return err
+				}
+				providerID := hcloudutil.ProviderIDFromServerID(int(server.ID))
+				hcloudMachine.Spec.ProviderID = &providerID
+				return testEnv.Update(ctx, hcloudMachine)
+			}, timeout).Should(Succeed())
 
 			By("Call SetRemediateMachineAnnotationToDeleteMachine")
 			Eventually(func() error {
