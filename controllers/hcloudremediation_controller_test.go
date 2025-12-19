@@ -151,7 +151,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 			},
 			Spec: infrav1.HCloudMachineSpec{
 				ImageName: "my-control-plane",
-				Type:      "cpx31",
+				Type:      "cpx32",
 			},
 		}
 		Expect(testEnv.Create(ctx, hcloudMachine)).To(Succeed())
@@ -253,6 +253,9 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				if hcloudMachine.Spec.ProviderID == nil {
 					return fmt.Errorf("hcloudMachine.Spec.ProviderID is still nil")
 				}
+				if hcloudMachine.Status.BootState != infrav1.HCloudBootStateOperatingSystemRunning {
+					return fmt.Errorf("hcloudMachine.Status.BootState is not HCloudBootStateOperatingSystemRunning, but: %q", hcloudMachine.Status.BootState)
+				}
 				return nil
 			}).NotTo(HaveOccurred())
 
@@ -283,9 +286,12 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				if hcloudMachine.Spec.ProviderID == nil {
 					return fmt.Errorf("hcloudMachine.Spec.ProviderID is still nil")
 				}
+				if hcloudMachine.Status.BootState != infrav1.HCloudBootStateOperatingSystemRunning {
+					return fmt.Errorf("Expected HCloudBootStateOperatingSystemRunning, but: %q",
+						hcloudMachine.Status.BootState)
+				}
 				return nil
 			}).NotTo(HaveOccurred())
-
 			hcloudRemediation.Status.RetryCount = hcloudRemediation.Spec.Strategy.RetryLimit
 			Expect(testEnv.Create(ctx, hcloudRemediation)).To(Succeed())
 
@@ -294,7 +300,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 					return err
 				}
 				if hcloudRemediation.Status.Phase != infrav1.PhaseWaiting {
-					return fmt.Errorf("hcloudRemediation.Status.Phase != infrav1.PhaseWaiting (phase is %s)", hcloudRemediation.Status.Phase)
+					return fmt.Errorf("hcloudRemediation.Status.Phase != infrav1.PhaseWaiting (phase is %q)", hcloudRemediation.Status.Phase)
 				}
 				return nil
 			}, timeout).ShouldNot(HaveOccurred())
@@ -333,10 +339,16 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				Name: "myserver",
 			})
 			Expect(err).ShouldNot(HaveOccurred())
-			providerID := hcloudutil.ProviderIDFromServerID(int(server.ID))
-			hcloudMachine.Spec.ProviderID = &providerID
-			err = testEnv.Update(ctx, hcloudMachine)
-			Expect(err).ShouldNot(HaveOccurred())
+
+			Eventually(func() error {
+				err := testEnv.Get(ctx, client.ObjectKeyFromObject(hcloudMachine), hcloudMachine)
+				if err != nil {
+					return err
+				}
+				providerID := hcloudutil.ProviderIDFromServerID(int(server.ID))
+				hcloudMachine.Spec.ProviderID = &providerID
+				return testEnv.Update(ctx, hcloudMachine)
+			}, timeout).Should(Succeed())
 
 			By("Call SetRemediateMachineAnnotationToDeleteMachine")
 			Eventually(func() error {
