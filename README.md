@@ -45,7 +45,7 @@ Currently there are three versions of CAPH:
 - v1.2.x: In development, uses APIVersion v1beta2. Compatible with CAPI v1.11 and higher.
 
 We are working on branch
-[v1.1.x-v1beta1](https://github.com/syself/cluster-api-provider-hetzner/tree/v1.1.x-v1beta1). And
+[v1.1.x](https://github.com/syself/cluster-api-provider-hetzner/tree/v1.1.x). And
 hope that we can release it soon. This will still use our APIVersion v1beta1, but it will include a
 lot of updates.
 
@@ -59,7 +59,7 @@ We will ship and support three lines in parallel until v1.2.x becomes generally 
 | CAPH series | API version (CAPH + CAPI) | Compatible CAPI | Status |
 | ----------- | ------------------------- | --------------- | ------ |
 | `v1.0.x`    | `v1beta1`                 | `<= v1.10`      | On branch `main` |
-| `v1.1.x`    | `v1beta1`                 | `<= v1.11`      | Under active development on branch `v1.1.x-v1beta1` |
+| `v1.1.x`    | `v1beta1`                 | `<= v1.11`      | Under active development on branch `v1.1.x` |
 | `v1.2.x`    | `v1beta2`                 | `>= v1.11`      | Under active development on branch `v1.2.x-v1beta2` |
 
 Documentation about upgrading to CAPH v1.2.x will be published alongside the first v1.2.x release.
@@ -109,7 +109,6 @@ This provider's versions are compatible with the following versions of Cluster A
 |                                      | CAPI `v1beta1` (`v1.8.x`) | CAPI `v1beta1` (`v1.9.x`) | CAPI `v1beta1` (`v1.10.x`) |
 | ------------------------------------ | ------------------------- | ------------------------- | -------------------------- |
 | Hetzner Provider `v1.0.x`            | ✅                        | ✅                        | ✅                         |
-
 
 This provider's versions can install and manage the following versions of Kubernetes:
 
@@ -177,7 +176,7 @@ We also use the issue tracker to track features. If you have an idea for a featu
 - Give it a meaningful title to help others who might be searching for your issue in the future.
 - Clearly define the use case with concrete examples, e.g. "I type `this` and Cluster API Provider Hetzner does `that`".
 - Some of our larger features will require some design. If you would like to include a technical design for your feature, please include it in the issue.
-- Once the new feature is well understood and the design is agreed upon, we can start coding. We would love for you to take part in this process, so we encourage you to take the lead and start coding it yourself. Please open a **WIP** _(work in progress)_ pull request. Happy coding!
+- Once the new feature is well understood and the design is agreed upon, we can start coding. We would love for you to take part in this process, so we encourage you to take the lead and start coding it yourself. Please open a **WIP** *(work in progress)* pull request. Happy coding!
 
 ## 💬 Contact
 
