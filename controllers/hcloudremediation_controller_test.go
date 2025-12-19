@@ -286,9 +286,12 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				if hcloudMachine.Spec.ProviderID == nil {
 					return fmt.Errorf("hcloudMachine.Spec.ProviderID is still nil")
 				}
+				if hcloudMachine.Status.BootState != infrav1.HCloudBootStateOperatingSystemRunning {
+					return fmt.Errorf("Expected HCloudBootStateOperatingSystemRunning, but: %q",
+						hcloudMachine.Status.BootState)
+				}
 				return nil
 			}).NotTo(HaveOccurred())
-
 			hcloudRemediation.Status.RetryCount = hcloudRemediation.Spec.Strategy.RetryLimit
 			Expect(testEnv.Create(ctx, hcloudRemediation)).To(Succeed())
 
@@ -297,7 +300,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 					return err
 				}
 				if hcloudRemediation.Status.Phase != infrav1.PhaseWaiting {
-					return fmt.Errorf("hcloudRemediation.Status.Phase != infrav1.PhaseWaiting (phase is %s)", hcloudRemediation.Status.Phase)
+					return fmt.Errorf("hcloudRemediation.Status.Phase != infrav1.PhaseWaiting (phase is %q)", hcloudRemediation.Status.Phase)
 				}
 				return nil
 			}, timeout).ShouldNot(HaveOccurred())
