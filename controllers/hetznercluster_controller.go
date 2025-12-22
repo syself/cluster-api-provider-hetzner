@@ -328,6 +328,10 @@ func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterS
 	secretManager := secretutil.NewSecretManager(clusterScope.Logger, r.Client, r.APIReader)
 	// Remove finalizer of secret
 	if err := secretManager.ReleaseSecret(ctx, clusterScope.HetznerSecret(), clusterScope.HetznerCluster); err != nil {
+		if apierrors.IsConflict(err) {
+			clusterScope.Logger.Info("conflict in ReleaseSecret, doing a requeue")
+			return reconcile.Result{RequeueAfter: time.Second}, nil
+		}
 		return reconcile.Result{}, fmt.Errorf("failed to release Hetzner secret: %w", err)
 	}
 
@@ -472,7 +476,7 @@ func hcloudTokenErrorResult(
 	}
 	conditions.SetSummary(setter)
 	if err := client.Status().Update(ctx, setter); err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to update: %w", err)
+		return reconcile.Result{}, fmt.Errorf("hcloudTokenErrorResult: failed to update: %w", err)
 	}
 	if inerr != nil {
 		return reconcile.Result{}, inerr
