@@ -388,7 +388,6 @@ var _ = Describe("HCloudMachineReconciler", func() {
 
 				By("checking that bootstrap condition is not ready")
 
-				// From
 				Eventually(func() error {
 					err := testEnv.Get(ctx, client.ObjectKeyFromObject(hcloudMachine), hcloudMachine)
 					if err != nil {
