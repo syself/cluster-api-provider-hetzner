@@ -400,6 +400,18 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 			err = controllerutil.SetOwnerReference(capiMachine, rem, testEnv.GetScheme())
 			Expect(err).Should(Succeed())
 
+			Eventually(func() error {
+				err := testEnv.Get(ctx, client.ObjectKeyFromObject(hcloudMachine), hcloudMachine)
+				if err != nil {
+					return err
+				}
+				if hcloudMachine.Status.BootState != infrav1.HCloudBootStateProvisioningFailed {
+					return fmt.Errorf("Expected HCloudBootStateProvisioningFailed, got %q",
+						hcloudMachine.Status.BootState)
+				}
+				return nil
+			}, timeout).Should(Succeed())
+
 			err = testEnv.Create(ctx, rem)
 			Expect(err).ShouldNot(HaveOccurred())
 
