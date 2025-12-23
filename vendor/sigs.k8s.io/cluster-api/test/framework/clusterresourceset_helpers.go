@@ -27,8 +27,8 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	addonsv1 "sigs.k8s.io/cluster-api/api/addons/v1beta1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	addonsv1 "sigs.k8s.io/cluster-api/api/addons/v1beta2"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 )
 
 // GetClusterResourceSetsInput is the input for GetClusterResourceSets.
@@ -169,7 +169,7 @@ func getResourceSetBindingForClusterResourceSet(
 	}
 	for _, binding := range clusterResourceSetBinding.Spec.Bindings {
 		if binding.ClusterResourceSetName == clusterResourceSet.Name {
-			return binding
+			return &binding
 		}
 	}
 	return nil

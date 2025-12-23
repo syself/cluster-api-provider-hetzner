@@ -24,9 +24,10 @@ import (
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/cmd/clusterctl/client/cluster"
 	"sigs.k8s.io/cluster-api/util/annotations"
 )
@@ -39,7 +40,7 @@ func (r *rollout) ObjectResumer(ctx context.Context, proxy cluster.Proxy, ref co
 		if err != nil || deployment == nil {
 			return errors.Wrapf(err, "failed to fetch %v/%v", ref.Kind, ref.Name)
 		}
-		if !deployment.Spec.Paused {
+		if !ptr.Deref(deployment.Spec.Paused, false) {
 			return errors.Errorf("MachineDeployment is not currently paused: %v/%v\n", ref.Kind, ref.Name) //nolint:revive // MachineDeployment is intentionally capitalized.
 		}
 		if err := resumeMachineDeployment(ctx, proxy, ref.Name, ref.Namespace); err != nil {
@@ -72,7 +73,7 @@ func resumeMachineDeployment(ctx context.Context, proxy cluster.Proxy, name, nam
 // resumeKubeadmControlPlane removes paused annotation.
 func resumeKubeadmControlPlane(ctx context.Context, proxy cluster.Proxy, name, namespace string) error {
 	// In the paused annotation we must replace slashes to ~1, see https://datatracker.ietf.org/doc/html/rfc6901#section-3.
-	pausedAnnotation := strings.Replace(clusterv1.PausedAnnotation, "/", "~1", -1)
+	pausedAnnotation := strings.ReplaceAll(clusterv1.PausedAnnotation, "/", "~1")
 	patch := client.RawPatch(types.JSONPatchType, []byte(fmt.Sprintf("[{\"op\": \"remove\", \"path\": \"/metadata/annotations/%s\"}]", pausedAnnotation)))
 
 	return patchKubeadmControlPlane(ctx, proxy, name, namespace, patch)
