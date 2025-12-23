@@ -673,7 +673,7 @@ var _ = Describe("Reconcile", func() {
 				Namespace: testNs.Name,
 			},
 			Spec: infrav1.HCloudMachineSpec{
-				Type:      "cpx11",
+				Type:      "cpx22",
 				ImageName: "ubuntu-24.04",
 				SSHKeys: []infrav1.SSHKey{
 					{

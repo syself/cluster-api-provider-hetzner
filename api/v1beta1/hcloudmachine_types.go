@@ -19,7 +19,7 @@ package v1beta1
 import (
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta1" // Deprecated, will be removed
 	capierrors "sigs.k8s.io/cluster-api/errors"
 )
 
