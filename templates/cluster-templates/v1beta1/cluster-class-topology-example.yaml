@@ -48,7 +48,7 @@ spec:
       - name: region
         value: hel1
       # - name: hcloudControlPlaneMachineType
-      #   value: cpx31
+      #   value: cpx32
       # - name: hcloudControlPlaneMachineImageName
       #   value: ubuntu-24.04
       - name: hcloudControlPlanePlacementGroupName

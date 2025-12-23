@@ -348,7 +348,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 					},
 					Spec: infrav1.HCloudMachineSpec{
 						ImageName:          "my-control-plane",
-						Type:               "cpx31",
+						Type:               "cpx32",
 						PlacementGroupName: &defaultPlacementGroupName,
 					},
 				}
@@ -497,7 +497,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 					},
 					Spec: infrav1.HCloudMachineSpec{
 						ImageName:          "my-control-plane-2",
-						Type:               "cpx31",
+						Type:               "cpx32",
 						PlacementGroupName: &defaultPlacementGroupName,
 					},
 				}
@@ -557,7 +557,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				},
 				Spec: infrav1.HCloudMachineSpec{
 					ImageName:          "my-control-plane",
-					Type:               "cpx31",
+					Type:               "cpx32",
 					PlacementGroupName: &defaultPlacementGroupName,
 				},
 			}
@@ -775,7 +775,7 @@ var _ = Describe("Hetzner secret", func() {
 			},
 			Spec: infrav1.HCloudMachineSpec{
 				ImageName:          "my-control-plane",
-				Type:               "cpx31",
+				Type:               "cpx32",
 				PlacementGroupName: &defaultPlacementGroupName,
 			},
 		}
@@ -851,7 +851,7 @@ var _ = Describe("HCloudMachine validation", func() {
 			},
 			Spec: infrav1.HCloudMachineSpec{
 				ImageName: "my-control-plane",
-				Type:      "cpx31",
+				Type:      "cpx32",
 			},
 		}
 	})

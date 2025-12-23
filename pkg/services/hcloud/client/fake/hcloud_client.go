@@ -620,7 +620,7 @@ func (c *cacheHCloudClient) ListServerTypes(_ context.Context) ([]*hcloud.Server
 		},
 		{
 			ID:           3,
-			Name:         "cpx31",
+			Name:         "cpx32",
 			Cores:        DefaultCPUCores,
 			Memory:       DefaultMemoryInGB,
 			Architecture: DefaultArchitecture,
@@ -643,9 +643,9 @@ func (c *cacheHCloudClient) GetServerType(_ context.Context, name string) (*hclo
 	case "cpx21":
 		serverType.ID = 2
 		serverType.Name = "cpx21"
-	case "cpx31":
+	case "cpx32":
 		serverType.ID = 3
-		serverType.Name = "cpx31"
+		serverType.Name = "cpx32"
 	default:
 		return nil, nil
 	}

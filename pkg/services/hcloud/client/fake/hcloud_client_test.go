@@ -592,7 +592,7 @@ var _ = Describe("Server", func() {
 			},
 			{
 				ID:           3,
-				Name:         "cpx31",
+				Name:         "cpx32",
 				Cores:        fake.DefaultCPUCores,
 				Memory:       fake.DefaultMemoryInGB,
 				Architecture: fake.DefaultArchitecture,
