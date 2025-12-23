@@ -115,7 +115,7 @@ $(CTLPTL):
 CLUSTERCTL := $(abspath $(TOOLS_BIN_DIR)/clusterctl)
 clusterctl: $(CLUSTERCTL) ## Build a local copy of clusterctl
 $(CLUSTERCTL):
-	go install sigs.k8s.io/cluster-api/cmd/clusterctl@v1.10.9
+	go install sigs.k8s.io/cluster-api/cmd/clusterctl@v1.11.4
 
 HCLOUD := $(abspath $(TOOLS_BIN_DIR)/hcloud)
 hcloud: $(HCLOUD) ## Build a local copy of hcloud
@@ -213,7 +213,14 @@ else
 endif
 
 add-ssh-pub-key:
-	./hack/ensure-ssh-key-in-hcloud.sh
+	./hack/ensure-env-variables.sh HCLOUD_TOKEN SSH_KEY SSH_KEY_NAME
+	SSH_KEY_CONTENT=$$(cat $(SSH_KEY)) ; \
+	curl -sS \
+		-X POST \
+		-H "Authorization: Bearer $${HCLOUD_TOKEN}" \
+		-H "Content-Type: application/json" \
+		-d '{"labels":{},"name":"${SSH_KEY_NAME}","public_key":"'"$${SSH_KEY_CONTENT}"'"}' \
+		'https://api.hetzner.cloud/v1/ssh_keys'
 
 env-vars-for-wl-cluster:
 	@./hack/ensure-env-variables.sh CLUSTER_NAME CONTROL_PLANE_MACHINE_COUNT HCLOUD_CONTROL_PLANE_MACHINE_TYPE \
@@ -222,28 +229,28 @@ env-vars-for-wl-cluster:
 create-workload-cluster-hcloud: env-vars-for-wl-cluster $(KUSTOMIZE) install-crds ## Creates a workload-cluster.
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN
-	./hack/create-workload-cluster.sh v1beta1 hcloud
+	./hack/create-workload-cluster.sh v1beta2 hcloud
 
 create-workload-cluster-hcloud-network: env-vars-for-wl-cluster $(KUSTOMIZE) ## Creates a workload-cluster.
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN
-	./hack/create-workload-cluster.sh v1beta1 hcloud-network
+	./hack/create-workload-cluster.sh v1beta2 hcloud-network
 
 # Use that, if you want to test hcloud control-planes, hcloud worker and bm worker.
 create-workload-cluster-hetzner-hcloud-control-plane: env-vars-for-wl-cluster $(KUSTOMIZE) ## Creates a workload-cluster.
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN HETZNER_ROBOT_USER HETZNER_ROBOT_PASSWORD HETZNER_SSH_PRIV_PATH HETZNER_SSH_PUB_PATH SSH_KEY_NAME
-	./hack/create-workload-cluster.sh --robot v1beta1 hetzner-hcloud-control-planes
+	./hack/create-workload-cluster.sh --robot v1beta2 hetzner-hcloud-control-planes
 
 create-workload-cluster-hetzner-baremetal-control-plane: env-vars-for-wl-cluster $(KUSTOMIZE) ## Creates a workload-cluster.
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN HETZNER_ROBOT_USER HETZNER_ROBOT_PASSWORD HETZNER_SSH_PRIV_PATH HETZNER_SSH_PUB_PATH SSH_KEY_NAME
-	./hack/create-workload-cluster.sh --robot v1beta1 hetzner-baremetal-control-plane
+	./hack/create-workload-cluster.sh --robot v1beta2 hetzner-baremetal-control-plane
 
 create-workload-cluster-hetzner-baremetal-control-plane-remediation: env-vars-for-wl-cluster $(KUSTOMIZE) ## Creates a workload-cluster.
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN HETZNER_ROBOT_USER HETZNER_ROBOT_PASSWORD HETZNER_SSH_PRIV_PATH HETZNER_SSH_PUB_PATH SSH_KEY_NAME
-	./hack/create-workload-cluster.sh --robot v1beta1 hetzner-baremetal-control-plane-remediation
+	./hack/create-workload-cluster.sh --robot v1beta2 hetzner-baremetal-control-plane-remediation
 
 move-to-workload-cluster: $(CLUSTERCTL)
 	$(CLUSTERCTL) init --kubeconfig=$(WORKER_CLUSTER_KUBECONFIG) --core cluster-api --bootstrap kubeadm --control-plane kubeadm --infrastructure $(INFRA_PROVIDER)
@@ -263,11 +270,7 @@ create-mgt-cluster: $(CLUSTERCTL) $(KUBECTL) cluster ## Start a mgt-cluster with
 	$(CLUSTERCTL) init --core cluster-api --bootstrap kubeadm --control-plane kubeadm --infrastructure $(INFRA_PROVIDER)
 	$(KUBECTL) create secret generic $(INFRA_PROVIDER) --from-literal=hcloud=$(HCLOUD_TOKEN) --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
 	$(KUBECTL) patch secret $(INFRA_PROVIDER) -p '{"metadata":{"labels":{"clusterctl.cluster.x-k8s.io/move":""}}}'
-	@echo
-	@echo "Your next step, for example:"
-	@echo "  ./hack/update-operator-dev-deployment.sh to install the caph code of the git repo into the mgt-cluster"
-	@echo "then you could create a wl-cluster:"
-	@echo " make create-workload-cluster-hetzner-hcloud-control-plane"
+	@echo "Your next step, for example: make create-workload-cluster-hetzner-hcloud-control-plane"
 
 .PHONY: cluster
 cluster: $(CTLPTL) $(KUBECTL) ## Creates kind-dev management cluster

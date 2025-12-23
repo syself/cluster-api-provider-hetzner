@@ -26,7 +26,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
 var lb *hcloud.LoadBalancer
@@ -202,10 +202,12 @@ const lbJSON = `{
 
 }`
 
-const ipv4 = "1.2.3.4"
-const ipv6 = "2001:db8::1"
-const protected = false
-const internalIP = "10.0.0.2"
+const (
+	ipv4       = "1.2.3.4"
+	ipv6       = "2001:db8::1"
+	protected  = false
+	internalIP = "10.0.0.2"
+)
 
 var targets = []infrav1.LoadBalancerTarget{
 	{

@@ -25,7 +25,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	"sigs.k8s.io/cluster-api/util/record"
 )
 
@@ -344,11 +344,6 @@ func (sts ControllerGeneratedStatus) GetIPAddress() string {
 		return sts.IPv6
 	}
 	return sts.IPv4
-}
-
-// HasFatalError returns true, if the corresponding capi machine should get deleted.
-func (sts ControllerGeneratedStatus) HasFatalError() bool {
-	return sts.ErrorType == FatalError || sts.ErrorType == PermanentError
 }
 
 // GetConditions returns the observations of the operational state of the HetznerBareMetalHost resource.

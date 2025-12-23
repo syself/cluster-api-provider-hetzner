@@ -38,10 +38,10 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
-	"sigs.k8s.io/cluster-api/util/conditions"
+	capiconditions "sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -57,7 +57,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
@@ -262,6 +263,9 @@ func processControlPlaneEndpoint(hetznerCluster *infrav1.HetznerCluster) {
 		if hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4 != "<nil>" {
 			defaultHost := hetznerCluster.Status.ControlPlaneLoadBalancer.IPv4
 			defaultPort := int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port) //nolint:gosec // Validation for the port range (1 to 65535) is already done via kubebuilder.
+			if defaultPort == 0 {
+				defaultPort = infrav1.DefaultAPIServerPort
+			}
 
 			if hetznerCluster.Spec.ControlPlaneEndpoint == nil {
 				hetznerCluster.Spec.ControlPlaneEndpoint = &clusterv1.APIEndpoint{
@@ -277,6 +281,8 @@ func processControlPlaneEndpoint(hetznerCluster *infrav1.HetznerCluster) {
 				}
 			}
 			conditions.MarkTrue(hetznerCluster, infrav1.ControlPlaneEndpointSetCondition)
+			hetznerCluster.Status.Initialization.Provisioned = ptr.To(true)
+			conditions.MarkTrue(hetznerCluster, clusterv1.InfrastructureReadyCondition)
 			hetznerCluster.Status.Ready = true
 		} else {
 			const msg = "enabled LoadBalancer but load balancer not ready yet"
@@ -285,16 +291,30 @@ func processControlPlaneEndpoint(hetznerCluster *infrav1.HetznerCluster) {
 				infrav1.ControlPlaneEndpointNotSetReason,
 				clusterv1.ConditionSeverityWarning,
 				msg)
+			hetznerCluster.Status.Initialization.Provisioned = ptr.To(false)
+			conditions.MarkFalse(hetznerCluster,
+				clusterv1.InfrastructureReadyCondition,
+				infrav1.ControlPlaneEndpointNotSetReason,
+				clusterv1.ConditionSeverityWarning,
+				msg)
 			hetznerCluster.Status.Ready = false
 		}
 	} else {
 		if hetznerCluster.Spec.ControlPlaneEndpoint != nil && hetznerCluster.Spec.ControlPlaneEndpoint.Host != "" && hetznerCluster.Spec.ControlPlaneEndpoint.Port != 0 {
 			conditions.MarkTrue(hetznerCluster, infrav1.ControlPlaneEndpointSetCondition)
+			hetznerCluster.Status.Initialization.Provisioned = ptr.To(true)
+			conditions.MarkTrue(hetznerCluster, clusterv1.InfrastructureReadyCondition)
 			hetznerCluster.Status.Ready = true
 		} else {
 			const msg = "disabled LoadBalancer and not yet provided ControlPlane endpoint"
 			conditions.MarkFalse(hetznerCluster,
 				infrav1.ControlPlaneEndpointSetCondition,
+				infrav1.ControlPlaneEndpointNotSetReason,
+				clusterv1.ConditionSeverityWarning,
+				msg)
+			hetznerCluster.Status.Initialization.Provisioned = ptr.To(false)
+			conditions.MarkFalse(hetznerCluster,
+				clusterv1.InfrastructureReadyCondition,
 				infrav1.ControlPlaneEndpointNotSetReason,
 				clusterv1.ConditionSeverityWarning,
 				msg)
@@ -328,10 +348,6 @@ func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterS
 	secretManager := secretutil.NewSecretManager(clusterScope.Logger, r.Client, r.APIReader)
 	// Remove finalizer of secret
 	if err := secretManager.ReleaseSecret(ctx, clusterScope.HetznerSecret(), clusterScope.HetznerCluster); err != nil {
-		if apierrors.IsConflict(err) {
-			clusterScope.Logger.Info("conflict in ReleaseSecret, doing a requeue")
-			return reconcile.Result{RequeueAfter: time.Second}, nil
-		}
 		return reconcile.Result{}, fmt.Errorf("failed to release Hetzner secret: %w", err)
 	}
 
@@ -390,9 +406,9 @@ func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterS
 
 // reconcileRateLimit checks whether a rate limit has been reached and returns whether
 // the controller should wait a bit more.
-func reconcileRateLimit(setter conditions.Setter, rateLimitWaitTime time.Duration) bool {
+func reconcileRateLimit(setter capiconditions.Setter, rateLimitWaitTime time.Duration) bool {
 	condition := conditions.Get(setter, infrav1.HetznerAPIReachableCondition)
-	if condition != nil && condition.Status == corev1.ConditionFalse {
+	if condition != nil && condition.Status == metav1.ConditionFalse {
 		if time.Now().Before(condition.LastTransitionTime.Time.Add(rateLimitWaitTime)) {
 			// Not yet timed out, reconcile again after timeout
 			// Don't give a more precise requeueAfter value to not reconcile too many
@@ -436,9 +452,9 @@ func getAndValidateHCloudToken(ctx context.Context, namespace string, hetznerClu
 func hcloudTokenErrorResult(
 	ctx context.Context,
 	inerr error,
-	setter conditions.Setter,
-	conditionType clusterv1.ConditionType,
-	client client.Client,
+	setter capiconditions.Setter,
+	conditionType string,
+	clientObj client.Client,
 ) (ctrl.Result, error) {
 	res := ctrl.Result{}
 	switch inerr.(type) {
@@ -475,8 +491,14 @@ func hcloudTokenErrorResult(
 		return reconcile.Result{}, fmt.Errorf("an unhandled failure occurred with the Hetzner secret: %w", inerr)
 	}
 	conditions.SetSummary(setter)
-	if err := client.Status().Update(ctx, setter); err != nil {
-		return reconcile.Result{}, fmt.Errorf("hcloudTokenErrorResult: failed to update: %w", err)
+
+	obj, ok := setter.(client.Object)
+	if !ok {
+		return reconcile.Result{}, fmt.Errorf("setter does not implement client.Object")
+	}
+
+	if err := clientObj.Status().Update(ctx, obj); err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to update: %w", err)
 	}
 	if inerr != nil {
 		return reconcile.Result{}, inerr
@@ -804,16 +826,16 @@ func (r *HetznerClusterReconciler) clusterToHetznerCluster(ctx context.Context, 
 	}
 
 	// Make sure the ref is set
-	if c.Spec.InfrastructureRef == nil {
+	if !c.Spec.InfrastructureRef.IsDefined() {
 		return nil
 	}
 
-	if c.Spec.InfrastructureRef.GroupVersionKind().Kind != "HetznerCluster" {
+	if c.Spec.InfrastructureRef.Kind != "HetznerCluster" || c.Spec.InfrastructureRef.APIGroup != infrav1.GroupVersion.Group {
 		return nil
 	}
 
 	hetznerCluster := &infrav1.HetznerCluster{}
-	key := types.NamespacedName{Namespace: c.Spec.InfrastructureRef.Namespace, Name: c.Spec.InfrastructureRef.Name}
+	key := types.NamespacedName{Namespace: c.Namespace, Name: c.Spec.InfrastructureRef.Name}
 
 	if err := r.Get(ctx, key, hetznerCluster); err != nil {
 		return nil

@@ -34,7 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/version"
 	"k8s.io/client-go/discovery"
 	"k8s.io/utils/ptr"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/cmd/clusterctl/client/config"
 	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/cluster-api/test/framework/bootstrap"
@@ -181,7 +181,7 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 		ginkgo.By("Initializing the workload cluster with older versions of providers")
 
 		// NOTE: by default we are considering all the providers, no matter of the contract.
-		// However, given that we want to test both v1alpha3 --> v1beta1 and v1alpha4 --> v1beta1, the INIT_WITH_PROVIDERS_CONTRACT
+		// However, given that we want to test both v1alpha3 --> v1beta2 and v1alpha4 --> v1beta2, the INIT_WITH_PROVIDERS_CONTRACT
 		// variable can be used to select versions with a specific contract.
 		contract := "*"
 		if input.E2EConfig.HasVariable(initWithProvidersContract) {
@@ -260,7 +260,7 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 			machineList := &clusterv1.MachineList{}
 			if err := managementClusterProxy.GetClient().List(ctx, machineList, c.InNamespace(testNamespace.Name), c.MatchingLabels{clusterv1.ClusterNameLabel: workLoadClusterName}); err == nil {
 				for _, machine := range machineList.Items {
-					if machine.Status.NodeRef != nil {
+					if machine.Status.NodeRef.IsDefined() {
 						n++
 					}
 				}

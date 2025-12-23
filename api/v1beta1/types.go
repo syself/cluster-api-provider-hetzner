@@ -292,8 +292,4 @@ const (
 
 	// HCloudBootStateOperatingSystemRunning indicates that the server is successfully running.
 	HCloudBootStateOperatingSystemRunning HCloudBootState = "OperatingSystemRunning"
-
-	// HCloudBootStateProvisioningFailed indicates that provisioning failed. The capi machine, and
-	// the hcloud machine will get deleted.
-	HCloudBootStateProvisioningFailed HCloudBootState = "ProvisioningFailed"
 )

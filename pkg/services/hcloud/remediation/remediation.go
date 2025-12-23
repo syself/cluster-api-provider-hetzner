@@ -24,13 +24,13 @@ import (
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	"sigs.k8s.io/cluster-api/util/conditions"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
 )
@@ -49,9 +49,13 @@ func NewService(scope *scope.HCloudRemediationScope) *Service {
 
 // Reconcile implements reconcilement of HCloudRemediation.
 func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
-	if s.scope.HCloudMachine.Status.BootState != infrav1.HCloudBootStateOperatingSystemRunning {
+	// if SetErrorAndRemediate() was used to stop provisioning, do not try to reboot server
+	infraMachineCondition := conditions.Get(s.scope.HCloudMachine, infrav1.DeleteMachineSucceededCondition)
+	if infraMachineCondition != nil && infraMachineCondition.Status == metav1.ConditionFalse {
 		err := s.setOwnerRemediatedConditionToFailed(ctx,
-			fmt.Sprintf("exit remediation because infra machine is in BootState %s (no need to try a reboot)", s.scope.HCloudMachine.Status.BootState))
+			fmt.Sprintf("exit remediation because infra machine has condition set: %s: %s",
+				infraMachineCondition.Reason,
+				infraMachineCondition.Message))
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("setOwnerRemediatedConditionToFailed failed: %w", err)
 		}
@@ -194,7 +198,7 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 }
 
 // setOwnerRemediatedConditionToFailed sets MachineOwnerRemediatedCondition on CAPI machine object
-// that have failed a healthcheck. This will make capi delete the capi and hcloud machine.
+// that have failed a healthcheck.
 func (s *Service) setOwnerRemediatedConditionToFailed(ctx context.Context, msg string) error {
 	patchHelper, err := patch.NewHelper(s.scope.Machine, s.scope.Client)
 	if err != nil {
@@ -205,7 +209,7 @@ func (s *Service) setOwnerRemediatedConditionToFailed(ctx context.Context, msg s
 	conditions.MarkFalse(
 		s.scope.Machine,
 		clusterv1.MachineOwnerRemediatedCondition,
-		clusterv1.WaitingForRemediationReason,
+		clusterv1.MachineOwnerRemediatedWaitingForRemediationReason,
 		clusterv1.ConditionSeverityWarning,
 		"Remediation finished (machine will be deleted): %s", msg,
 	)

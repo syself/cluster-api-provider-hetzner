@@ -32,14 +32,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
-	"sigs.k8s.io/cluster-api/util/conditions"
+	capiconditions "sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
@@ -145,7 +146,7 @@ var _ = Describe("handleServerStatusOff", func() {
 			},
 			Spec: infrav1.HCloudMachineSpec{
 				ImageName: "my-control-plane",
-				Type:      "cpx32",
+				Type:      "cpx31",
 			},
 		}
 
@@ -600,6 +601,17 @@ var _ = Describe("Reconcile", func() {
 		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "server-reconcile")
 		Expect(err).To(BeNil())
 
+		err = testEnv.Create(ctx, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "bootstrapsecret",
+				Namespace: testNs.Name,
+			},
+			Data: map[string][]byte{
+				"value": []byte("dummy-bootstrap-data"),
+			},
+		})
+		Expect(err).To(BeNil())
+
 		clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
 			Client:       testEnv.Manager.GetClient(),
 			APIReader:    testEnv.Manager.GetAPIReader(),
@@ -661,7 +673,7 @@ var _ = Describe("Reconcile", func() {
 				Namespace: testNs.Name,
 			},
 			Spec: infrav1.HCloudMachineSpec{
-				Type:      "cpx22",
+				Type:      "cpx11",
 				ImageName: "ubuntu-24.04",
 				SSHKeys: []infrav1.SSHKey{
 					{
@@ -683,13 +695,21 @@ var _ = Describe("Reconcile", func() {
 				Namespace: testNs.Name,
 			},
 			Spec: clusterv1.MachineSpec{
-				InfrastructureRef: corev1.ObjectReference{
-					Name:       hcloudMachine.Name,
-					Kind:       hcloudMachine.Kind,
-					APIVersion: hcloudMachine.APIVersion,
+				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+					Name:     hcloudMachine.Name,
+					Kind:     hcloudMachine.Kind,
+					APIGroup: infrav1.GroupVersion.Group,
 				},
 				ClusterName:   "clustername",
-				FailureDomain: ptr.To("nbg1"),
+				FailureDomain: "nbg1",
+				Bootstrap: clusterv1.Bootstrap{
+					ConfigRef: clusterv1.ContractVersionedObjectReference{
+						Kind:     "some-kind",
+						Name:     "some-name",
+						APIGroup: "some-api-group",
+					},
+					// DataSecretName: ptr.To("bootstrapsecret"),
+				},
 			},
 		}
 		Expect(testEnv.Create(ctx, capiMachine)).ShouldNot(HaveOccurred())
@@ -732,15 +752,17 @@ var _ = Describe("Reconcile", func() {
 		Expect(service.scope.HCloudMachine.Status.Region).To(Equal(infrav1.Region("nbg1")))
 
 		By("ensuring the BootstrapReady condition is marked as false")
-		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.BootstrapReadyCondition, infrav1.BootstrapNotReadyReason)).To(BeTrue())
+		c := conditions.Get(service.scope.HCloudMachine, infrav1.BootstrapReadyCondition)
+		Expect(c).NotTo(BeNil())
+		Expect(c.Status).To(Equal(metav1.ConditionFalse))
 	})
 
 	It("sets the region in status of hcloudMachine, by fetching the failure domain from cluster.status if machine.spec.failureDomain is empty", func() {
 		By("setting the failure domain in cluster.status")
 		service.scope.Machine.Spec = clusterv1.MachineSpec{}
-		service.scope.Cluster.Status.FailureDomains = clusterv1.FailureDomains{
-			"nbg1": clusterv1.FailureDomainSpec{},
-		}
+		service.scope.Cluster.Status.FailureDomains = []clusterv1.FailureDomain{{
+			Name: "nbg1",
+		}}
 
 		By("calling reconcile")
 		_, err := service.Reconcile(ctx)
@@ -751,18 +773,6 @@ var _ = Describe("Reconcile", func() {
 	})
 
 	It("sets the CreateMachineError if the ProviderID is set on the HCloudMachine but the actual server was not found in the cloud", func() {
-		By("setting the bootstrap data")
-		err = testEnv.Create(ctx, &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "bootstrapsecret",
-				Namespace: testNs.Name,
-			},
-			Data: map[string][]byte{
-				"value": []byte("dummy-bootstrap-data"),
-			},
-		})
-		Expect(err).To(BeNil())
-
 		By("setting the ProviderID on the HCloudMachine")
 		service.scope.HCloudMachine.Spec.ProviderID = ptr.To("hcloud://1234567")
 		err = testEnv.Update(ctx, service.scope.HCloudMachine)
@@ -778,23 +788,14 @@ var _ = Describe("Reconcile", func() {
 		_, err = service.Reconcile(ctx)
 		Expect(err).To(BeNil())
 
-		By("validating if HCloudBootStateProvisioningFailed was set on HCloudMachine object")
-		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateProvisioningFailed))
+		By("validating if CreateMachineError was set on HCloudMachine object")
+		c := conditions.Get(service.scope.HCloudMachine, infrav1.DeleteMachineSucceededCondition)
+		Expect(c).NotTo(BeNil())
+		Expect(c.Status).To(Equal(metav1.ConditionFalse))
+		Expect(c.Message).To(Equal(`hcloud server ("hcloud://1234567") no longer available. Setting MachineError.`))
 	})
 
 	It("transitions the BootStrate from BootStateUnset -> BootStateBootingToRealOS -> BootStateOperatingSystemRunning (imageName)", func() {
-		By("setting the bootstrap data")
-		err = testEnv.Create(ctx, &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "bootstrapsecret",
-				Namespace: testNs.Name,
-			},
-			Data: map[string][]byte{
-				"value": []byte("dummy-bootstrap-data"),
-			},
-		})
-		Expect(err).To(BeNil())
-
 		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
 
 		hcloudClient.On("GetServerType", mock.Anything, mock.Anything).Return(&hcloud.ServerType{
@@ -835,7 +836,7 @@ var _ = Describe("Reconcile", func() {
 		By("calling reconcile")
 		_, err := service.Reconcile(ctx)
 		Expect(err).To(BeNil())
-		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateBootingToRealOS))
+		Expect(noErrorOccured(service.scope)).To(BeNil())
 
 		By("ensuring the bootstate has transitioned to BootStateBootingToRealOS")
 
@@ -850,24 +851,13 @@ var _ = Describe("Reconcile", func() {
 
 		_, err = service.Reconcile(ctx)
 		Expect(err).To(BeNil())
-		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateOperatingSystemRunning))
+		Expect(noErrorOccured(service.scope)).To(BeNil())
 
 		By("ensuring the bootstate has transitioned to BootStateOperatingSystemRunning once the server's status changes to running")
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateOperatingSystemRunning))
 	})
 
 	It("transitions to BootStateOperatingSystemRunning (imageURL)", func() {
-		By("setting the bootstrap data")
-		err = testEnv.Create(ctx, &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "bootstrapsecret",
-				Namespace: testNs.Name,
-			},
-			Data: map[string][]byte{
-				"value": []byte("dummy-bootstrap-data"),
-			},
-		})
-		Expect(err).To(BeNil())
 		service.scope.ImageURLCommand = "dummy-image-url-command.sh"
 		service.scope.HCloudMachine.Spec.ImageName = ""
 		service.scope.HCloudMachine.Spec.ImageURL = "oci://example.com/repo/image:v1"
@@ -912,7 +902,7 @@ var _ = Describe("Reconcile", func() {
 		By("calling reconcile")
 		_, err := service.Reconcile(ctx)
 		Expect(err).To(BeNil())
-		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateInitializing))
+		Expect(noErrorOccured(service.scope)).To(BeNil())
 
 		By("ensuring the bootstate has transitioned to Initializing")
 
@@ -943,7 +933,7 @@ var _ = Describe("Reconcile", func() {
 			}, nil).Once()
 		_, err = service.Reconcile(ctx)
 		Expect(err).To(BeNil())
-		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateEnablingRescue))
+		Expect(noErrorOccured(service.scope)).To(BeNil())
 
 		By("ensuring the bootstate has transitioned to EnablingRescue")
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateEnablingRescue))
@@ -970,7 +960,7 @@ var _ = Describe("Reconcile", func() {
 		)
 		_, err = service.Reconcile(ctx)
 		Expect(err).To(BeNil())
-		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateEnablingRescue))
+		Expect(noErrorOccured(service.scope)).To(BeNil())
 
 		By("ensuring the bootstate has transitioned to EnablingRescue")
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateEnablingRescue))
@@ -990,7 +980,7 @@ var _ = Describe("Reconcile", func() {
 		})
 		_, err = service.Reconcile(ctx)
 		Expect(err).To(BeNil())
-		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateBootingToRescue))
+		Expect(noErrorOccured(service.scope)).To(BeNil())
 
 		By("ensuring the bootstate has transitioned to BootingToRescue")
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateBootingToRescue))
@@ -1009,7 +999,7 @@ var _ = Describe("Reconcile", func() {
 		startImageURLCommandMock := testEnv.HCloudSSHClient.On("StartImageURLCommand", mock.Anything, mock.Anything, mock.Anything, mock.Anything, "my-machine", []string{"sda"}).Return(0, "", nil)
 		_, err = service.Reconcile(ctx)
 		Expect(err).To(BeNil())
-		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateRunningImageCommand))
+		Expect(noErrorOccured(service.scope)).To(BeNil())
 
 		By("ensuring the bootstate has transitioned to RunningImageCommand")
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateRunningImageCommand))
@@ -1030,7 +1020,7 @@ var _ = Describe("Reconcile", func() {
 		}, nil).Once()
 		_, err = service.Reconcile(ctx)
 		Expect(err).To(BeNil())
-		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateBootingToRealOS))
+		Expect(noErrorOccured(service.scope)).To(BeNil())
 
 		By("ensuring the bootstate has transitioned to BootingToRealOS")
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateBootingToRealOS))
@@ -1044,17 +1034,28 @@ var _ = Describe("Reconcile", func() {
 		}, nil).Once()
 		_, err = service.Reconcile(ctx)
 		Expect(err).To(BeNil())
-		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateOperatingSystemRunning))
+		Expect(noErrorOccured(service.scope)).To(BeNil())
 		By("ensuring the bootstate has transitioned to OperatingSystemRunning")
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateOperatingSystemRunning))
 	})
 })
 
-func isPresentAndFalseWithReason(getter conditions.Getter, condition clusterv1.ConditionType, reason string) bool {
+func isPresentAndFalseWithReason(getter capiconditions.Getter, condition string, reason string) bool {
 	if !conditions.Has(getter, condition) {
 		return false
 	}
 	objectCondition := conditions.Get(getter, condition)
-	return objectCondition.Status == corev1.ConditionFalse &&
+	return objectCondition.Status == metav1.ConditionFalse &&
 		objectCondition.Reason == reason
+}
+
+func noErrorOccured(s *scope.MachineScope) error {
+	c := conditions.Get(s.HCloudMachine, infrav1.DeleteMachineSucceededCondition)
+	if c == nil {
+		return nil
+	}
+	if c.Status == metav1.ConditionTrue {
+		return nil
+	}
+	return fmt.Errorf("Error on HCloudMachine: %s: %s", c.Reason, c.Message)
 }

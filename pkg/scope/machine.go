@@ -27,14 +27,16 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	"k8s.io/utils/ptr"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
-	"sigs.k8s.io/cluster-api/util/conditions"
+	capiconditions "sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 )
@@ -133,17 +135,12 @@ func (m *MachineScope) PatchObject(ctx context.Context) error {
 // gets used, when a not-recoverable error happens. Example: hcloud server was deleted by hand in
 // the hcloud UI.
 func (m *MachineScope) SetErrorAndRemediate(ctx context.Context, message string) error {
-	return SetRemediateMachineAnnotationToDeleteMachine(ctx, m.Client, m.Machine, m.HCloudMachine, message)
+	return SetErrorAndRemediateMachine(ctx, m.Client, m.Machine, m.HCloudMachine, message)
 }
 
-// SetRemediateMachineAnnotationToDeleteMachine sets "cluster.x-k8s.io/remediate-machine" annotation
-// on the corresponding CAPI machine. This will trigger CAPI to start remediation. Our remediation
-// contoller will inspect BootState to differentiate between a remediate (with reboot) and delete
-// (no reboot gets tried). Finally the capi machine and the infra machine will be deleted.
-//
-// Background: the hcloudmachine controller has no permission to delete a capi machine. That's why
-// this extra step (via remediate-machine annotation) is needed.
-func SetRemediateMachineAnnotationToDeleteMachine(ctx context.Context, crClient client.Client, capiMachine *clusterv1.Machine, hcloudMachine *infrav1.HCloudMachine, message string) error {
+// SetErrorAndRemediateMachine implements SetErrorAndRemediate. It is exported, so that other code
+// (for example in tests) can call without creating a MachinenScope.
+func SetErrorAndRemediateMachine(ctx context.Context, crClient client.Client, capiMachine *clusterv1.Machine, hcloudMachine *infrav1.HCloudMachine, message string) error {
 	// Create a patch base
 	patch := client.MergeFrom(capiMachine.DeepCopy())
 
@@ -162,7 +159,9 @@ func SetRemediateMachineAnnotationToDeleteMachine(ctx context.Context, crClient 
 		"HCloudMachineWillBeRemediated",
 		"HCloudMachine will be remediated: %s", message)
 
-	hcloudMachine.SetBootState(infrav1.HCloudBootStateProvisioningFailed)
+	conditions.MarkFalse(hcloudMachine, infrav1.DeleteMachineSucceededCondition,
+		infrav1.DeleteMachineInProgressReason, clusterv1.ConditionSeverityInfo, "%s",
+		message)
 
 	return nil
 }
@@ -176,6 +175,7 @@ func (m *MachineScope) SetRegion(region string) {
 func (m *MachineScope) SetProviderID(serverID int64) {
 	providerID := fmt.Sprintf("hcloud://%d", serverID)
 	m.HCloudMachine.Spec.ProviderID = &providerID
+	m.MarkInfrastructureProvisioned()
 }
 
 // ServerIDFromProviderID converts the ProviderID (hcloud://NNNN) to the ServerID.
@@ -200,20 +200,25 @@ func (m *MachineScope) SetReady(ready bool) {
 	m.HCloudMachine.Status.Ready = ready
 }
 
+// MarkInfrastructureProvisioned surfaces the initialization signal required by CAPI v1beta2.
+func (m *MachineScope) MarkInfrastructureProvisioned() {
+	m.HCloudMachine.Status.Initialization.Provisioned = ptr.To(true)
+}
+
 // HasServerAvailableCondition checks whether ServerAvailable condition is set on true.
 func (m *MachineScope) HasServerAvailableCondition() bool {
-	return conditions.IsTrue(m.HCloudMachine, infrav1.ServerAvailableCondition)
+	return capiconditions.IsTrue(m.HCloudMachine, string(infrav1.ServerAvailableCondition))
 }
 
 // HasServerTerminatedCondition checks the whether ServerAvailable condition is false with reason "terminated".
 func (m *MachineScope) HasServerTerminatedCondition() bool {
-	return conditions.IsFalse(m.HCloudMachine, infrav1.ServerAvailableCondition) &&
-		conditions.GetReason(m.HCloudMachine, infrav1.ServerAvailableCondition) == infrav1.ServerTerminatingReason
+	return capiconditions.IsFalse(m.HCloudMachine, string(infrav1.ServerAvailableCondition)) &&
+		capiconditions.GetReason(m.HCloudMachine, string(infrav1.ServerAvailableCondition)) == infrav1.ServerTerminatingReason
 }
 
 // HasShutdownTimedOut checks the whether the HCloud server is terminated.
 func (m *MachineScope) HasShutdownTimedOut() bool {
-	return time.Now().After(conditions.GetLastTransitionTime(m.HCloudMachine, infrav1.ServerAvailableCondition).Time.Add(maxShutDownTime))
+	return time.Now().After(capiconditions.GetLastTransitionTime(m.HCloudMachine, string(infrav1.ServerAvailableCondition)).Time.Add(maxShutDownTime))
 }
 
 // IsBootstrapDataReady checks the readiness of a capi machine's bootstrap data.
@@ -223,18 +228,18 @@ func (m *MachineScope) IsBootstrapDataReady() bool {
 
 // GetFailureDomain returns the machine's failure domain or a default one based on a hash.
 func (m *MachineScope) GetFailureDomain() (string, error) {
-	if m.Machine.Spec.FailureDomain != nil {
-		return *m.Machine.Spec.FailureDomain, nil
+	if m.Machine.Spec.FailureDomain != "" {
+		return m.Machine.Spec.FailureDomain, nil
 	}
 
 	failureDomainNames := make([]string, 0, len(m.Cluster.Status.FailureDomains))
-	for fdName, fd := range m.Cluster.Status.FailureDomains {
+	for _, fd := range m.Cluster.Status.FailureDomains {
 		// filter out zones if we are a control plane and the cluster object
 		// wants to avoid contorl planes in that zone
-		if m.IsControlPlane() && !fd.ControlPlane {
+		if m.IsControlPlane() && (fd.ControlPlane == nil || !*fd.ControlPlane) {
 			continue
 		}
-		failureDomainNames = append(failureDomainNames, fdName)
+		failureDomainNames = append(failureDomainNames, fd.Name)
 	}
 
 	if len(failureDomainNames) == 0 {

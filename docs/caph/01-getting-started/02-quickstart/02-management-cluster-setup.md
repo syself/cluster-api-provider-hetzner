@@ -78,8 +78,8 @@ For a specific version, use the `--infrastructure hetzner:vX.X.X` flag with the 
 ```shell
 export SSH_KEY_NAME="<ssh-key-name>"
 export HCLOUD_REGION="fsn1"
-export HCLOUD_CONTROL_PLANE_MACHINE_TYPE=cpx32
-export HCLOUD_WORKER_MACHINE_TYPE=cpx32
+export HCLOUD_CONTROL_PLANE_MACHINE_TYPE=cpx31
+export HCLOUD_WORKER_MACHINE_TYPE=cpx31
 ```
 
 - **SSH_KEY_NAME**: The SSH Key name you loaded in HCloud.
