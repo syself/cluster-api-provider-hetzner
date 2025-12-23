@@ -213,14 +213,7 @@ else
 endif
 
 add-ssh-pub-key:
-	./hack/ensure-env-variables.sh HCLOUD_TOKEN SSH_KEY SSH_KEY_NAME
-	SSH_KEY_CONTENT=$$(cat $(SSH_KEY)) ; \
-	curl -sS \
-		-X POST \
-		-H "Authorization: Bearer $${HCLOUD_TOKEN}" \
-		-H "Content-Type: application/json" \
-		-d '{"labels":{},"name":"${SSH_KEY_NAME}","public_key":"'"$${SSH_KEY_CONTENT}"'"}' \
-		'https://api.hetzner.cloud/v1/ssh_keys'
+	./hack/ensure-ssh-key-in-hcloud.sh
 
 env-vars-for-wl-cluster:
 	@./hack/ensure-env-variables.sh CLUSTER_NAME CONTROL_PLANE_MACHINE_COUNT HCLOUD_CONTROL_PLANE_MACHINE_TYPE \
@@ -270,7 +263,11 @@ create-mgt-cluster: $(CLUSTERCTL) $(KUBECTL) cluster ## Start a mgt-cluster with
 	$(CLUSTERCTL) init --core cluster-api --bootstrap kubeadm --control-plane kubeadm --infrastructure $(INFRA_PROVIDER)
 	$(KUBECTL) create secret generic $(INFRA_PROVIDER) --from-literal=hcloud=$(HCLOUD_TOKEN) --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
 	$(KUBECTL) patch secret $(INFRA_PROVIDER) -p '{"metadata":{"labels":{"clusterctl.cluster.x-k8s.io/move":""}}}'
-	@echo "Your next step, for example: make create-workload-cluster-hetzner-hcloud-control-plane"
+	@echo
+	@echo "Your next step, for example:"
+	@echo "  ./hack/update-operator-dev-deployment.sh to install the caph code of the git repo into the mgt-cluster"
+	@echo "then you could create a wl-cluster:"
+	@echo " make create-workload-cluster-hetzner-hcloud-control-plane"
 
 .PHONY: cluster
 cluster: $(CTLPTL) $(KUBECTL) ## Creates kind-dev management cluster
