@@ -167,7 +167,7 @@ func ClusterUpgradeConformanceSpec(ctx context.Context, inputGetter func() Clust
 			WaitForMachinePools:          input.E2EConfig.GetIntervals(specName, "wait-machine-pool-nodes"),
 		}, clusterResources)
 
-		if clusterResources.Cluster.Spec.Topology != nil {
+		if clusterResources.Cluster.Spec.Topology.IsDefined() {
 			// Cluster is using ClusterClass, upgrade via topology.
 			By("Upgrading the Cluster topology")
 			framework.UpgradeClusterTopologyAndWaitForUpgrade(ctx, framework.UpgradeClusterTopologyAndWaitForUpgradeInput{
@@ -257,6 +257,20 @@ func ClusterUpgradeConformanceSpec(ctx context.Context, inputGetter func() Clust
 			KubernetesVersion: input.E2EConfig.MustGetVariable(KubernetesVersionUpgradeTo),
 			Count:             int(clusterResources.ExpectedTotalNodes()),
 			WaitForNodesReady: input.E2EConfig.GetIntervals(specName, "wait-nodes-ready"),
+		})
+
+		Byf("Verify Cluster Available condition is true")
+		framework.VerifyClusterAvailable(ctx, framework.VerifyClusterAvailableInput{
+			Getter:    input.BootstrapClusterProxy.GetClient(),
+			Name:      clusterResources.Cluster.Name,
+			Namespace: clusterResources.Cluster.Namespace,
+		})
+
+		Byf("Verify Machines Ready condition is true")
+		framework.VerifyMachinesReady(ctx, framework.VerifyMachinesReadyInput{
+			Lister:    input.BootstrapClusterProxy.GetClient(),
+			Name:      clusterResources.Cluster.Name,
+			Namespace: clusterResources.Cluster.Namespace,
 		})
 
 		if !input.SkipConformanceTests {
