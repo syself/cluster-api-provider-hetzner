@@ -25,14 +25,14 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
-	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/host"
 )
@@ -63,12 +63,13 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 		return reconcile.Result{}, s.setOwnerRemediatedConditionToFailed(ctx,
 			"exit remediation because hbmm has no host annotation")
 	}
-
-	if host.Spec.Status.HasFatalError() {
+	// if SetErrorAndDeleteMachine() was used to stop provisioning, do not try to reboot server
+	infraMachineCondition := conditions.Get(s.scope.BareMetalMachine, infrav1.DeleteMachineSucceededCondition)
+	if infraMachineCondition != nil && infraMachineCondition.Status == metav1.ConditionFalse {
 		return reconcile.Result{}, s.setOwnerRemediatedConditionToFailed(ctx,
-			fmt.Sprintf("exit remediation because host has error: %s: %s",
-				host.Spec.Status.ErrorType,
-				host.Spec.Status.ErrorMessage))
+			fmt.Sprintf("exit remediation because infra machine has condition set: %s: %s",
+				infraMachineCondition.Reason,
+				infraMachineCondition.Message))
 	}
 
 	// if host is not provisioned, do not try to reboot server
@@ -194,7 +195,7 @@ func (s *Service) timeUntilNextRemediation(now time.Time) time.Duration {
 }
 
 // setOwnerRemediatedConditionToFailed sets MachineOwnerRemediatedCondition on CAPI machine object
-// that have failed a healthcheck. This will make capi delete the capi and baremetal machine.
+// that have failed a healthcheck.
 func (s *Service) setOwnerRemediatedConditionToFailed(ctx context.Context, msg string) error {
 	capiMachine, err := util.GetOwnerMachine(ctx, s.scope.Client, s.scope.BareMetalRemediation.ObjectMeta)
 	if err != nil {
@@ -222,7 +223,7 @@ func (s *Service) setOwnerRemediatedConditionToFailed(ctx context.Context, msg s
 	conditions.MarkFalse(
 		capiMachine,
 		clusterv1.MachineOwnerRemediatedCondition,
-		clusterv1.WaitingForRemediationReason,
+		clusterv1.MachineOwnerRemediatedWaitingForRemediationReason,
 		clusterv1.ConditionSeverityWarning,
 		"Remediation finished (machine will be deleted): %s", msg,
 	)

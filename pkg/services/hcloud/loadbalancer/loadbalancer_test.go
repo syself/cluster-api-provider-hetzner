@@ -17,15 +17,13 @@ limitations under the License.
 package loadbalancer
 
 import (
-	"errors"
-
 	"github.com/go-logr/logr"
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
 var _ = Describe("Loadbalancer", func() {
@@ -158,10 +156,49 @@ var _ = Describe("createOptsFromSpec", func() {
 		Expect(createOpts).To(Equal(wantCreateOpts))
 	})
 
-	It("returns ErrControlPlaneEndpointNotSet", func() {
+	It("succeeds when control plane endpoint is nil", func() {
 		hetznerCluster.Spec.ControlPlaneEndpoint = nil
 
-		_, err := createOptsFromSpec(hetznerCluster)
-		Expect(errors.Is(err, ErrControlPlaneEndpointNotSet)).To(BeTrue())
+		createOpts, err := createOptsFromSpec(hetznerCluster)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(*createOpts.Services[0].ListenPort).To(Equal(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port))
+		Expect(*createOpts.Services[0].DestinationPort).To(Equal(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port))
+	})
+
+	It("falls back to load balancer port if control plane endpoint is not set", func() {
+		hetznerCluster.Spec.ControlPlaneEndpoint = nil
+
+		createOpts, err := createOptsFromSpec(hetznerCluster)
+		Expect(err).To(BeNil())
+
+		createOpts.Name = ""
+
+		wantCreateOptsCopy := wantCreateOpts
+		wantCreateOptsCopy.Services = append([]hcloud.LoadBalancerCreateOptsService(nil), wantCreateOpts.Services...)
+		wantCreateOptsCopy.Name = ""
+		wantCreateOptsCopy.Services[0].ListenPort = &hetznerCluster.Spec.ControlPlaneLoadBalancer.Port
+
+		Expect(createOpts).To(Equal(wantCreateOptsCopy))
+	})
+
+	It("falls back to default api port when both control plane endpoint and lb port are missing", func() {
+		hetznerCluster.Spec.ControlPlaneEndpoint = nil
+		hetznerCluster.Spec.ControlPlaneLoadBalancer.Port = 0
+
+		createOpts, err := createOptsFromSpec(hetznerCluster)
+		Expect(err).NotTo(HaveOccurred())
+
+		createOpts.Name = ""
+
+		defaultPort := infrav1.DefaultAPIServerPort
+		wantCreateOptsCopy := wantCreateOpts
+		wantCreateOptsCopy.Services = append([]hcloud.LoadBalancerCreateOptsService(nil), wantCreateOpts.Services...)
+		wantCreateOptsCopy.Services[0].DestinationPort = &defaultPort
+		wantCreateOptsCopy.Services[0].ListenPort = &defaultPort
+		wantCreateOptsCopy.Name = ""
+		wantCreateOptsCopy.Labels = map[string]string{hetznerCluster.ClusterTagKey(): string(infrav1.ResourceLifecycleOwned)}
+		wantCreateOptsCopy.Network = &hcloud.Network{ID: hetznerCluster.Status.Network.ID}
+		Expect(createOpts).To(Equal(wantCreateOptsCopy))
 	})
 })

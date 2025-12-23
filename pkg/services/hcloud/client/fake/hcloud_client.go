@@ -613,7 +613,7 @@ func (c *cacheHCloudClient) ListServerTypes(_ context.Context) ([]*hcloud.Server
 		},
 		{
 			ID:           2,
-			Name:         "cpx22",
+			Name:         "cpx21",
 			Cores:        DefaultCPUCores,
 			Memory:       DefaultMemoryInGB,
 			Architecture: DefaultArchitecture,
@@ -637,12 +637,12 @@ func (c *cacheHCloudClient) GetServerType(_ context.Context, name string) (*hclo
 		Architecture: DefaultArchitecture,
 	}
 	switch name {
-	case "cpx12":
-		serverType.ID = 1
-		serverType.Name = "cpx12"
 	case "cpx22":
-		serverType.ID = 2
+		serverType.ID = 1
 		serverType.Name = "cpx22"
+	case "cpx21":
+		serverType.ID = 2
+		serverType.Name = "cpx21"
 	case "cpx32":
 		serverType.ID = 3
 		serverType.Name = "cpx32"

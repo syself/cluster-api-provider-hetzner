@@ -1,0 +1,68 @@
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+kind: HetznerBareMetalHost
+metadata:
+  name: "bm-e2e-1670788"
+spec:
+  serverID: 1670788
+  rootDeviceHints:
+    wwn: "0x5002538c0004413f"
+  maintenanceMode: false
+  description: Test Machine 1670788
+---
+# Does not reach rescue system
+# apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+# kind: HetznerBareMetalHost
+# metadata:
+#   name: "bm-e2e-1716772"
+# spec:
+#   serverID: 1716772
+#   rootDeviceHints:
+#     wwn: "0x5000cca22de4ef84"
+#   maintenanceMode: false
+#   description: Test Machine 1716772
+# ---
+
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+kind: HetznerBareMetalHost
+metadata:
+  name: "bm-e2e-1724024"
+spec:
+  serverID: 1724024
+  rootDeviceHints:
+    wwn: "0x500a075111968d25"
+  maintenanceMode: false
+  description: Test Machine 1724024
+# --- We deactived 1731561 since it can't reach the rescue system.
+#     We enable it again, if we solved the issue.
+# apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+# kind: HetznerBareMetalHost
+# metadata:
+#   name: "bm-e2e-1731561"
+# spec:
+#   serverID: 1731561
+#   rootDeviceHints:
+#     wwn: "0x500a075119615dc2"
+#   maintenanceMode: false
+#   description: Test Machine 1731561
+# ---
+# apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+# kind: HetznerBareMetalHost
+# metadata:
+#   name: "bm-e2e-1751550"
+# spec:
+#   serverID: 1751550
+#   rootDeviceHints:
+#     wwn: "0x500a075119549dcf"
+#   maintenanceMode: false
+#   description: Test Machine 1751550
+# ---
+# apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+# kind: HetznerBareMetalHost
+# metadata:
+#   name: "bm-e2e-1763731"
+# spec:
+#   serverID: 1763731
+#   rootDeviceHints:
+#     wwn: "0x500a07511756c36d"
+#   maintenanceMode: false
+#   description: Test Machine 1751550

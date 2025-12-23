@@ -27,7 +27,7 @@ import (
 	"github.com/syself/hrobot-go/models"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
 )
 
 // Client collects all methods used by the controller in the robot API.

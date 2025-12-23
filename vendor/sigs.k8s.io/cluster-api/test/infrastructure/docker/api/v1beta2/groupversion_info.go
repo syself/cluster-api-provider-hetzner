@@ -24,7 +24,7 @@ import (
 
 var (
 	// GroupVersion is group version used to register these objects.
-	GroupVersion = schema.GroupVersion{Group: "infrastructure.cluster.x-k8s.io", Version: "v1beta2"}
+	GroupVersion = schema.GroupVersion{Group: "cluster.x-k8s.io", Version: "v1beta2"}
 
 	// schemeBuilder is used to add go types to the GroupVersionKind scheme.
 	schemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
@@ -33,6 +33,15 @@ var (
 	AddToScheme = schemeBuilder.AddToScheme
 
 	objectTypes = []runtime.Object{}
+
+	// GroupVersionInfrastructure is the recommended group version for infrastructure objects.
+	GroupVersionInfrastructure = schema.GroupVersion{Group: "infrastructure.cluster.x-k8s.io", Version: "v1beta2"}
+
+	// GroupVersionBootstrap is the recommended group version for bootstrap objects.
+	GroupVersionBootstrap = schema.GroupVersion{Group: "bootstrap.cluster.x-k8s.io", Version: "v1beta2"}
+
+	// GroupVersionControlPlane is the recommended group version for controlplane objects.
+	GroupVersionControlPlane = schema.GroupVersion{Group: "controlplane.cluster.x-k8s.io", Version: "v1beta2"}
 )
 
 func addKnownTypes(scheme *runtime.Scheme) error {
