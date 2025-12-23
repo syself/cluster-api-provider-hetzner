@@ -55,7 +55,11 @@ rows_to_skip_regex = [
     r"^Random Seed: \d+",
 ]
 
-rows_to_trigger_test_filter = ["Running Suite:"]
+# if this string appears, then rows_to_skip_for_tests will be added to rows_to_skip.
+rows_to_trigger_test_filter_regex = [
+    "Running Suite:",
+    r"^\[\d+\] .* Suite - \d+/\d+ specs",
+]
 
 # List of fixed-strings.
 rows_to_skip = [
@@ -77,6 +81,7 @@ rows_to_skip = [
     '"All workers finished"',
     '"Shutdown signal received, waiting for all workers to finish"',
     "'statusCode': 200, 'method': 'GET', 'url': 'https://robot-ws.your-server.de",
+    '"Update to resource changes significant fields, will enqueue event"',
 ]
 
 rows_to_skip_for_tests = [
@@ -115,6 +120,10 @@ rows_to_skip_for_tests = [
     '"HetznerCluster is not available yet"',
     '"Unable to write event (broadcaster is shut down)"',
     '"Unable to write event (may retry after sleeping)"',
+    '"Caches populated"',
+    '"Listing and watching"',
+    '"Starting reflector"',
+    '"Stopping reflector"',
 ]
 
 
@@ -151,13 +160,14 @@ filtering_test_data = False
 
 
 def write_line(line):
+    global filtering_test_data
     ascii_line = ansi_pattern.sub("", line)
-    for r in rows_to_trigger_test_filter:
-        if r in ascii_line:
-            global filtering_test_data
-            filtering_test_data = True
-            rows_to_skip.extend(rows_to_skip_for_tests)
-
+    if not filtering_test_data:
+        for r in rows_to_trigger_test_filter_regex:
+            if re.match(r, ascii_line):
+                filtering_test_data = True
+                rows_to_skip.extend(rows_to_skip_for_tests)
+                break
     for r in rows_to_skip:
         if r in ascii_line:
             return
@@ -229,4 +239,7 @@ def handle_line(line):
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        sys.exit(0)

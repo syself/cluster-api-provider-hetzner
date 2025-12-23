@@ -11,7 +11,7 @@ The `clusterctl generate cluster` command returns a YAML template for creating a
 It generates a YAML file named `my-cluster.yaml` with a predefined list of Cluster API objects (`Cluster`, `Machines`, `MachineDeployments`, etc.) to be deployed in the current namespace.
 
 ```shell
-clusterctl generate cluster my-cluster --kubernetes-version v1.31.6 --control-plane-machine-count=3 --worker-machine-count=3  > my-cluster.yaml
+clusterctl generate cluster my-cluster --kubernetes-version v1.33.6 --control-plane-machine-count=3 --worker-machine-count=3  > my-cluster.yaml
 ```
 
 {% callout %}
