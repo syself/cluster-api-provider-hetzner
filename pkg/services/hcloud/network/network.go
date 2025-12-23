@@ -173,7 +173,14 @@ func (s *Service) findNetwork(ctx context.Context) (*hcloud.Network, error) {
 	}
 
 	if len(networks[0].Subnets) > 1 {
-		return nil, fmt.Errorf("multiple subnets not allowed")
+		configuredSubnet := s.scope.HetznerCluster.Spec.HCloudNetwork.SubnetCIDRBlock
+		firstSubnet := networks[0].Subnets[0]
+
+		// Allow multiple subnets only if the first subnet matches the configured one. On attaching a server to a
+		// network the first subnet is used.
+		if firstSubnet.IPRange.String() != configuredSubnet {
+			return nil, fmt.Errorf("multiple subnets found and first subnet %s doesn't match the configured %s", firstSubnet.IPRange.String(), configuredSubnet)
+		}
 	}
 
 	return networks[0], nil
