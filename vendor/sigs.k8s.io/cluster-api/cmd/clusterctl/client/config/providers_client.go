@@ -57,7 +57,6 @@ const (
 	NutanixProviderName        = "nutanix"
 	OCIProviderName            = "oci"
 	OpenStackProviderName      = "openstack"
-	PacketProviderName         = "packet"
 	TinkerbellProviderName     = "tinkerbell-tinkerbell"
 	SideroProviderName         = "sidero"
 	VCloudDirectorProviderName = "vcd"
@@ -104,10 +103,12 @@ const (
 const (
 	InClusterIPAMProviderName = "in-cluster"
 	NutanixIPAMProviderName   = "nutanix"
+	Metal3IPAMProviderName    = "metal3"
 )
 
 // Add-on providers.
 const (
+	Cdk8sAddonProviderName = "eitco-cdk8s"
 	HelmAddonProviderName  = "helm"
 	FleetAddonProviderName = "rancher-fleet"
 )
@@ -198,11 +199,6 @@ func (p *providersClient) defaults() []Provider {
 		&provider{
 			name:         GCPProviderName,
 			url:          "https://github.com/kubernetes-sigs/cluster-api-provider-gcp/releases/latest/infrastructure-components.yaml",
-			providerType: clusterctlv1.InfrastructureProviderType,
-		},
-		&provider{
-			name:         PacketProviderName,
-			url:          "https://github.com/kubernetes-sigs/cluster-api-provider-packet/releases/latest/infrastructure-components.yaml",
 			providerType: clusterctlv1.InfrastructureProviderType,
 		},
 		&provider{
@@ -322,7 +318,7 @@ func (p *providersClient) defaults() []Provider {
 		},
 		&provider{
 			name:         K0smotronProviderName,
-			url:          "https://github.com/k0smotron/k0smotron/releases/latest/infrastructure-components.yaml",
+			url:          "https://github.com/k0sproject/k0smotron/releases/latest/infrastructure-components.yaml",
 			providerType: clusterctlv1.InfrastructureProviderType,
 		},
 		&provider{
@@ -374,7 +370,7 @@ func (p *providersClient) defaults() []Provider {
 		},
 		&provider{
 			name:         K0smotronBootstrapProviderName,
-			url:          "https://github.com/k0smotron/k0smotron/releases/latest/bootstrap-components.yaml",
+			url:          "https://github.com/k0sproject/k0smotron/releases/latest/bootstrap-components.yaml",
 			providerType: clusterctlv1.BootstrapProviderType,
 		},
 		&provider{
@@ -421,7 +417,7 @@ func (p *providersClient) defaults() []Provider {
 		},
 		&provider{
 			name:         K0smotronControlPlaneProviderName,
-			url:          "https://github.com/k0smotron/k0smotron/releases/latest/control-plane-components.yaml",
+			url:          "https://github.com/k0sproject/k0smotron/releases/latest/control-plane-components.yaml",
 			providerType: clusterctlv1.ControlPlaneProviderType,
 		},
 		&provider{
@@ -437,6 +433,11 @@ func (p *providersClient) defaults() []Provider {
 			providerType: clusterctlv1.IPAMProviderType,
 		},
 		&provider{
+			name:         Metal3IPAMProviderName,
+			url:          "https://github.com/metal3-io/ip-address-manager/releases/latest/ipam-components.yaml",
+			providerType: clusterctlv1.IPAMProviderType,
+		},
+		&provider{
 			name:         NutanixIPAMProviderName,
 			url:          "https://github.com/nutanix-cloud-native/cluster-api-ipam-provider-nutanix/releases/latest/ipam-components.yaml",
 			providerType: clusterctlv1.IPAMProviderType,
@@ -445,12 +446,17 @@ func (p *providersClient) defaults() []Provider {
 		// Add-on providers
 		&provider{
 			name:         FleetAddonProviderName,
-			url:          "https://github.com/rancher-sandbox/cluster-api-addon-provider-fleet/releases/latest/addon-components.yaml",
+			url:          "https://github.com/rancher/cluster-api-addon-provider-fleet/releases/latest/addon-components.yaml",
 			providerType: clusterctlv1.AddonProviderType,
 		},
 		&provider{
 			name:         HelmAddonProviderName,
 			url:          "https://github.com/kubernetes-sigs/cluster-api-addon-provider-helm/releases/latest/addon-components.yaml",
+			providerType: clusterctlv1.AddonProviderType,
+		},
+		&provider{
+			name:         Cdk8sAddonProviderName,
+			url:          "https://github.com/eitco/cluster-api-addon-provider-cdk8s/releases/latest/addon-components.yaml",
 			providerType: clusterctlv1.AddonProviderType,
 		},
 
