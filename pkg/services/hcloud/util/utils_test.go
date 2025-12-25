@@ -17,10 +17,16 @@ limitations under the License.
 package hcloudutil
 
 import (
+	"errors"
 	"testing"
 
+	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/cluster-api/util/conditions"
+
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
 
 func TestHCloudUtils(t *testing.T) {
@@ -80,4 +86,26 @@ var _ = Describe("Test ServerIDFromProviderID", func() {
 			expectError:    ErrInvalidProviderID,
 		}),
 	)
+})
+
+var _ = Describe("HandleRateLimitExceeded", func() {
+	It("marks the object unreachable when rate limit is exceeded", func() {
+		machine := &infrav1.HCloudMachine{}
+
+		result := HandleRateLimitExceeded(machine, hcloud.Error{Code: hcloud.ErrorCodeRateLimitExceeded}, "ListServers")
+		Expect(result).To(BeTrue())
+
+		condition := conditions.Get(machine, infrav1.HetznerAPIReachableCondition)
+		Expect(condition.Status).To(Equal(corev1.ConditionFalse))
+		Expect(condition.Reason).To(Equal(infrav1.RateLimitExceededReason))
+		Expect(condition.Message).To(ContainSubstring("ListServers"))
+	})
+
+	It("returns false without touching conditions for other errors", func() {
+		machine := &infrav1.HCloudMachine{}
+
+		result := HandleRateLimitExceeded(machine, errors.New("other error"), "ListServers")
+		Expect(result).To(BeFalse())
+		Expect(conditions.Has(machine, infrav1.HetznerAPIReachableCondition)).To(BeFalse())
+	})
 })

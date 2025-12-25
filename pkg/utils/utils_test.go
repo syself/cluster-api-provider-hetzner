@@ -17,6 +17,8 @@ limitations under the License.
 package utils_test
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -178,6 +180,43 @@ var _ = Describe("StringInList", func() {
 			str:             "d",
 			expectedOutcome: false,
 		}))
+})
+
+var _ = Describe("GenerateName", func() {
+	It("returns explicit name when provided", func() {
+		name := "explicit-name"
+		Expect(utils.GenerateName(&name, "fallback-")).To(Equal(name))
+	})
+
+	It("generates a fallback with suffix when name is nil", func() {
+		fallback := "fallback-"
+		generated := utils.GenerateName(nil, fallback)
+
+		Expect(strings.HasPrefix(generated, fallback)).To(BeTrue())
+		Expect(len(generated)).To(BeNumerically(">", len(fallback)))
+	})
+})
+
+var _ = Describe("GetDefaultLogger", func() {
+	It("enables info level by default", func() {
+		logger := utils.GetDefaultLogger("info")
+		Expect(logger.Enabled()).To(BeTrue())
+	})
+
+	It("enables verbose logging when debug is requested", func() {
+		logger := utils.GetDefaultLogger("debug")
+		Expect(logger.Enabled()).To(BeTrue())
+		Expect(logger.V(1).Enabled()).To(BeTrue())
+	})
+
+	It("suppresses info logs when error level is requested", func() {
+		logger := utils.GetDefaultLogger("error")
+		Expect(logger.Enabled()).To(BeFalse())
+
+		// verify error logs still work without panicking
+		logger.Error(fmt.Errorf("rate limit exceeded"), "test error")
+		Expect(logger.V(1).Enabled()).To(BeFalse())
+	})
 })
 
 var _ = Describe("Test removeOwnerRefFromList", func() {
