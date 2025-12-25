@@ -145,7 +145,7 @@ func (s *ClusterScope) ControlPlaneAPIEndpointPort() int32 {
 	return int32(s.HetznerCluster.Spec.ControlPlaneLoadBalancer.Port) //nolint:gosec // Validation for the port range (1 to 65535) is already done via kubebuilder.
 }
 
-// ClientConfig return a kubernetes client config for the cluster context.
+// ClientConfig return a kubernetes client config for the workload cluster.
 func (s *ClusterScope) ClientConfig(ctx context.Context) (clientcmd.ClientConfig, error) {
 	return workloadClientConfigFromKubeconfigSecret(ctx, s.Logger, s.Client, s.APIReader, s.Cluster, s.HetznerCluster)
 }

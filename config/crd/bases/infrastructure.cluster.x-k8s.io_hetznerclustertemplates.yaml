@@ -275,21 +275,26 @@ spec:
                               Need to specify either HCloudToken or both HetznerRobotUser and HetznerRobotPassword.
                             properties:
                               hcloudToken:
-                                default: hcloud-token
-                                description: HCloudToken defines the name of the key
-                                  where the token for the Hetzner Cloud API is stored.
+                                default: token
+                                description: |-
+                                  HCloudToken defines the name of the key where the token for the Hetzner Cloud API is stored.
+                                  We recommend to use "token", because this is the default of upstream hcloud-ccm, while the
+                                  legacy Syself ccm fork uses "hcloud". For maximal compatibility up to three keys get created in the
+                                  secret for HCLOUD_TOKEN: "hcloud", "token" and the value of hcloudToken. This way we ensure
+                                  that the ccm in the wl-cluster finds the secret.
                                 type: string
                               hetznerRobotPassword:
-                                default: hetzner-robot-password
-                                description: HetznerRobotPassword defines the name
-                                  of the key where the password for the Hetzner Robot
-                                  API is stored.
+                                default: robot-password
+                                description: |-
+                                  HetznerRobotPassword defines the name of the key where the password for the Hetzner Robot API
+                                  is stored. We recommend to use "robot-password", because this is the default of upstream
+                                  hcloud-ccm.
                                 type: string
                               hetznerRobotUser:
-                                default: hetzner-robot-user
-                                description: HetznerRobotUser defines the name of
-                                  the key where the username for the Hetzner Robot
-                                  API is stored.
+                                default: robot-user
+                                description: |-
+                                  HetznerRobotUser defines the name of the key where the username for the Hetzner Robot API is
+                                  stored. We recommend to use "robot-user", because this is the default of upstream hcloud-ccm.
                                 type: string
                               sshKey:
                                 default: hcloud-ssh-key-name
@@ -297,8 +302,17 @@ spec:
                                 type: string
                             type: object
                           name:
-                            default: hetzner
-                            description: Name defines the name of the secret.
+                            default: hcloud
+                            description: |-
+                              Name defines the name of the secret. The name gets used for reading the credential in the
+                              mgt-cluster, and it gets used for creating a secret in the wl-cluster. About the secret in
+                              the wl-cluster: Attention, the upstream hcloud-ccm helm chart expects the name to be
+                              "hcloud". The Syself ccm fork defaults to "hetzner". For compatibility with upstream hcloud-ccm
+                              the controller creates two secrets, if the name is different from "hcloud" (one with name
+                              "hcloud", one with name being the value of this setting). The secret will be created in the
+                              namespace "kube-system" of the workload-cluster. We recommend to use "hcloud", because this is
+                              the default of upstream hcloud-ccm. Set `spec.skipCreatingHetznerSecretInWorkloadCluster`, if
+                              you don't want that secret in the wl-cluster to be created.
                             type: string
                         required:
                         - key

@@ -16,12 +16,26 @@
 
 set -euo pipefail
 
-if [ -z "$CLUSTER_NAME" ]; then
+if [ -z "${CLUSTER_NAME:-}" ]; then
     echo "env var CLUSTER_NAME is missing. Failed to get kubeconfig of workload cluster"
     exit 1
 fi
+
+if [ -z "${KUBECONFIG:-}" ]; then
+    echo "env var KUBECONFIG (for mgt-cluster) is missing. Failed to get kubeconfig of workload cluster"
+    exit 1
+fi
+
+if [[ ! -e $KUBECONFIG ]]; then
+    echo "KUBECONFIG=$KUBECONFIG file does not exist!  Failed to get kubeconfig of workload cluster"
+    exit 1
+fi
+
 kubeconfig=".workload-cluster-kubeconfig.yaml"
-new_content="$(kubectl get secrets "${CLUSTER_NAME}-kubeconfig" -ojsonpath='{.data.value}' | base64 -d)"
+if ! new_content="$(kubectl get secrets "${CLUSTER_NAME}-kubeconfig" -ojsonpath='{.data.value}' 2>/dev/null | base64 -d)"; then
+    echo "error: Failed to get kubeconfig of wl-cluster"
+    exit 1
+fi
 
 if [ -z "$new_content" ]; then
     echo "failed to get kubeconfig of workload cluster"
