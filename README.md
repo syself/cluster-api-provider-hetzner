@@ -45,11 +45,12 @@ We will ship and support both lines in parallel until v1.1.x becomes generally a
 
 | CAPH series | API version(s) | Compatible CAPI | Status |
 | ----------- | -------------- | --------------- | ------ |
-| `v1.0.x`    | `v1beta1` (CAPH + CAPI) | `<= v1.1.11` | On branch `main` |
-| `v1.1.x`    | `v1beta2`              | `>= v1.1.11` | Under active development on branch `v1.1.x` |
+| `v1.0.x`    | `v1beta1` (CAPH + CAPI) | `<= v1.10` | On branch `main` |
+| `v1.1.x`    | `v1beta1`              | `>= v1.10` `<= v1.12` | Under active development on branch `v1.1.x` |
+| `v1.2.x`    | `v1beta2`              | `>= v1.10` | Under active development on branch `v1.2.x` |
 
-**Tip:** CAPH `v1.0.x` must be used with CAPI `v1.1.11` or lower (it does **not** support CAPI
-`v1.1.12`). CAPH `v1.1.x` requires CAPI `v1.1.11` or higher.
+**Tip:** CAPH `v1.0.x` must be used with CAPI `v1.10` or lower (it does **not** support CAPI
+`v1.11`).
 
 Documentation about upgrading to CAPH v1.1.x will be published alongside the first v1.1.x release.
 Once that release is generally available we'll switch `main` back to tracking active development
