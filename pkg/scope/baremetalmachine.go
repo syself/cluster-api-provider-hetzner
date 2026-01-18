@@ -70,25 +70,32 @@ func NewBareMetalMachineScope(params BareMetalMachineScopeParams) (*BareMetalMac
 		return nil, fmt.Errorf("failed to init patch helper: %w", err)
 	}
 
+	hetznerClusterPatchHelper, err := patch.NewHelper(params.HetznerCluster, params.Client)
+	if err != nil {
+		return nil, fmt.Errorf("failed to init hetzner cluster patch helper: %w", err)
+	}
+
 	return &BareMetalMachineScope{
-		Logger:           params.Logger,
-		Client:           params.Client,
-		patchHelper:      patchHelper,
-		Machine:          params.Machine,
-		BareMetalMachine: params.BareMetalMachine,
-		HetznerCluster:   params.HetznerCluster,
-		HCloudClient:     params.HCloudClient,
+		Logger:                    params.Logger,
+		Client:                    params.Client,
+		patchHelper:               patchHelper,
+		hetznerClusterPatchHelper: hetznerClusterPatchHelper,
+		Machine:                   params.Machine,
+		BareMetalMachine:          params.BareMetalMachine,
+		HetznerCluster:            params.HetznerCluster,
+		HCloudClient:              params.HCloudClient,
 	}, nil
 }
 
 // BareMetalMachineScope defines the basic context for an actuator to operate upon.
 type BareMetalMachineScope struct {
 	logr.Logger
-	Client           client.Client
-	patchHelper      *patch.Helper
-	Machine          *clusterv1.Machine
-	BareMetalMachine *infrav1.HetznerBareMetalMachine
-	HetznerCluster   *infrav1.HetznerCluster
+	Client                    client.Client
+	patchHelper               *patch.Helper
+	hetznerClusterPatchHelper *patch.Helper
+	Machine                   *clusterv1.Machine
+	BareMetalMachine          *infrav1.HetznerBareMetalMachine
+	HetznerCluster            *infrav1.HetznerCluster
 
 	HCloudClient hcloudclient.Client
 }
@@ -112,6 +119,11 @@ func (m *BareMetalMachineScope) Namespace() string {
 // PatchObject persists the machine spec and status.
 func (m *BareMetalMachineScope) PatchObject(ctx context.Context) error {
 	return m.patchHelper.Patch(ctx, m.BareMetalMachine)
+}
+
+// PatchHetznerClusterStatus persists the HetznerCluster status.
+func (m *BareMetalMachineScope) PatchHetznerClusterStatus(ctx context.Context) error {
+	return m.hetznerClusterPatchHelper.Patch(ctx, m.HetznerCluster)
 }
 
 // IsControlPlane returns true if the machine is a control plane.

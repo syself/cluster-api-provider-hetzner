@@ -74,23 +74,28 @@ func NewMachineScope(params MachineScopeParams) (*MachineScope, error) {
 		return nil, fmt.Errorf("failed create new cluster scope: %w", err)
 	}
 
+	// Store the HetznerCluster patch helper before overwriting cs.patchHelper
+	hetznerClusterPatchHelper := cs.patchHelper
+
 	cs.patchHelper, err = patch.NewHelper(params.HCloudMachine, params.Client)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init patch helper: %w", err)
 	}
 
 	return &MachineScope{
-		ClusterScope:  *cs,
-		Machine:       params.Machine,
-		HCloudMachine: params.HCloudMachine,
+		ClusterScope:              *cs,
+		Machine:                   params.Machine,
+		HCloudMachine:             params.HCloudMachine,
+		hetznerClusterPatchHelper: hetznerClusterPatchHelper,
 	}, nil
 }
 
 // MachineScope defines the basic context for an actuator to operate upon.
 type MachineScope struct {
 	ClusterScope
-	Machine       *clusterv1.Machine
-	HCloudMachine *infrav1.HCloudMachine
+	Machine                   *clusterv1.Machine
+	HCloudMachine             *infrav1.HCloudMachine
+	hetznerClusterPatchHelper *patch.Helper
 }
 
 // Close closes the current scope persisting the cluster configuration and status.
@@ -117,6 +122,11 @@ func (m *MachineScope) Namespace() string {
 // PatchObject persists the machine spec and status.
 func (m *MachineScope) PatchObject(ctx context.Context) error {
 	return m.patchHelper.Patch(ctx, m.HCloudMachine)
+}
+
+// PatchHetznerClusterStatus persists the HetznerCluster status.
+func (m *MachineScope) PatchHetznerClusterStatus(ctx context.Context) error {
+	return m.hetznerClusterPatchHelper.Patch(ctx, m.HetznerCluster)
 }
 
 // SetError sets the ErrorMessage and ErrorReason fields on the machine and logs

@@ -335,6 +335,15 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 		return reconcile.Result{}, handleRateLimit(s.scope.HCloudMachine, err, "AddTargetServerToLoadBalancer", errMsg)
 	}
 
+	// Update the in-memory status and persist to avoid stale cache issues
+	s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target = append(
+		s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target,
+		infrav1.LoadBalancerTarget{Type: infrav1.LoadBalancerTargetTypeServer, ServerID: server.ID},
+	)
+	if err := s.scope.PatchHetznerClusterStatus(ctx); err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to patch HetznerCluster status after adding server target: %w", err)
+	}
+
 	record.Eventf(
 		s.scope.HetznerCluster,
 		"AddedAsTargetToLoadBalancer",
@@ -676,6 +685,15 @@ func (s *Service) deleteServerOfLoadBalancer(ctx context.Context, server *hcloud
 		errMsg := fmt.Sprintf("failed to delete server %s with ID %d as target of load balancer %s with ID %d", server.Name, server.ID, lb.Name, lb.ID)
 		return handleRateLimit(s.scope.HCloudMachine, err, "DeleteTargetServerOfLoadBalancer", errMsg)
 	}
+
+	// Update the in-memory status and persist to avoid stale cache issues
+	s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target = removeServerTargetFromList(
+		s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target, server.ID,
+	)
+	if err := s.scope.PatchHetznerClusterStatus(ctx); err != nil {
+		return fmt.Errorf("failed to patch HetznerCluster status after removing server target: %w", err)
+	}
+
 	record.Eventf(
 		s.scope.HetznerCluster,
 		"DeletedTargetOfLoadBalancer",
@@ -684,6 +702,18 @@ func (s *Service) deleteServerOfLoadBalancer(ctx context.Context, server *hcloud
 	)
 
 	return nil
+}
+
+// removeServerTargetFromList removes a server target from the target list.
+func removeServerTargetFromList(targets []infrav1.LoadBalancerTarget, serverID int64) []infrav1.LoadBalancerTarget {
+	result := make([]infrav1.LoadBalancerTarget, 0, len(targets))
+	for _, t := range targets {
+		if t.Type == infrav1.LoadBalancerTargetTypeServer && t.ServerID == serverID {
+			continue
+		}
+		result = append(result, t)
+	}
+	return result
 }
 
 func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {

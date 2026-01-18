@@ -597,6 +597,16 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 			}
 			return fmt.Errorf("failed to add IP %q as target to load balancer: %w", ip, err)
 		}
+
+		// Update the in-memory status and persist to avoid stale cache issues
+		s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target = append(
+			s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target,
+			infrav1.LoadBalancerTarget{Type: infrav1.LoadBalancerTargetTypeIP, IP: ip},
+		)
+		if err := s.scope.PatchHetznerClusterStatus(ctx); err != nil {
+			return fmt.Errorf("failed to patch HetznerCluster status after adding IP target: %w", err)
+		}
+
 		record.Eventf(
 			s.scope.HetznerCluster,
 			"AddedIPAsTargetToLoadBalancer",
@@ -619,6 +629,15 @@ func (s *Service) removeAttachedServerOfLoadBalancer(ctx context.Context, host *
 				return fmt.Errorf("failed to remove IPv4 %v as target of load balancer: %w", host.Spec.Status.IPv4, err)
 			}
 		}
+
+		// Update the in-memory status and persist to avoid stale cache issues
+		s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target = removeIPTargetFromList(
+			s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target, host.Spec.Status.IPv4,
+		)
+		if err := s.scope.PatchHetznerClusterStatus(ctx); err != nil {
+			return fmt.Errorf("failed to patch HetznerCluster status after removing IPv4 target: %w", err)
+		}
+
 		record.Eventf(
 			s.scope.HetznerCluster,
 			"DeletedIPTargetOfLoadBalancer",
@@ -636,6 +655,15 @@ func (s *Service) removeAttachedServerOfLoadBalancer(ctx context.Context, host *
 				return fmt.Errorf("failed to remove IPv6 %v as target of load balancer: %w", host.Spec.Status.IPv6, err)
 			}
 		}
+
+		// Update the in-memory status and persist to avoid stale cache issues
+		s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target = removeIPTargetFromList(
+			s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target, host.Spec.Status.IPv6,
+		)
+		if err := s.scope.PatchHetznerClusterStatus(ctx); err != nil {
+			return fmt.Errorf("failed to patch HetznerCluster status after removing IPv6 target: %w", err)
+		}
+
 		record.Eventf(
 			s.scope.HetznerCluster,
 			"DeletedTargetOfLoadBalancer",
@@ -644,6 +672,18 @@ func (s *Service) removeAttachedServerOfLoadBalancer(ctx context.Context, host *
 		)
 	}
 	return nil
+}
+
+// removeIPTargetFromList removes an IP target from the target list.
+func removeIPTargetFromList(targets []infrav1.LoadBalancerTarget, ip string) []infrav1.LoadBalancerTarget {
+	result := make([]infrav1.LoadBalancerTarget, 0, len(targets))
+	for _, t := range targets {
+		if t.Type == infrav1.LoadBalancerTargetTypeIP && t.IP == ip {
+			continue
+		}
+		result = append(result, t)
+	}
+	return result
 }
 
 func getLabelSelector(hbmm *infrav1.HetznerBareMetalMachine) labels.Selector {
