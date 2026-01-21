@@ -241,10 +241,12 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return r.reconcileDelete(ctx, machineScope)
 	}
 
-	if hcloudMachine.Status.FailureReason != nil {
-		// This machine will be removed.
+	if hcloudMachine.Status.BootState == infrav1.HCloudBootStateProvisioningFailed {
+		// This hcloud machine will be removed soon.
+		log.Info("hcloudmachine: ProvisioningFailed. Not reconciling this machine.")
 		return reconcile.Result{}, nil
 	}
+
 	return r.reconcileNormal(ctx, machineScope)
 }
 

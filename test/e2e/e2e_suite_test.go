@@ -401,16 +401,7 @@ func logHCloudMachineStatus(ctx context.Context, c client.Client) error {
 		}
 		log("HCloudMachine: " + hm.Name + " " + id + " " + strings.Join(addresses, " "))
 		log("  ProvisioningState: " + string(*hm.Status.InstanceState))
-		l := make([]string, 0)
-		if hm.Status.FailureMessage != nil {
-			l = append(l, *hm.Status.FailureMessage)
-		}
-		if hm.Status.FailureMessage != nil {
-			l = append(l, *hm.Status.FailureMessage)
-		}
-		if len(l) > 0 {
-			log("  Error: " + strings.Join(l, ", "))
-		}
+
 		readyC := conditions.Get(hm, clusterv1.ReadyCondition)
 		msg := ""
 		reason := ""

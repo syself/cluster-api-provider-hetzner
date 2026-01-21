@@ -64,6 +64,13 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 			"exit remediation because hbmm has no host annotation")
 	}
 
+	if host.Spec.Status.HasFatalError() {
+		return reconcile.Result{}, s.setOwnerRemediatedConditionToFailed(ctx,
+			fmt.Sprintf("exit remediation because host has error: %s: %s",
+				host.Spec.Status.ErrorType,
+				host.Spec.Status.ErrorMessage))
+	}
+
 	// if host is not provisioned, do not try to reboot server
 	if host.Spec.Status.ProvisioningState != infrav1.StateProvisioned {
 		return reconcile.Result{}, s.setOwnerRemediatedConditionToFailed(ctx,
@@ -187,7 +194,7 @@ func (s *Service) timeUntilNextRemediation(now time.Time) time.Duration {
 }
 
 // setOwnerRemediatedConditionToFailed sets MachineOwnerRemediatedCondition on CAPI machine object
-// that have failed a healthcheck.
+// that have failed a healthcheck. This will make capi delete the capi and baremetal machine.
 func (s *Service) setOwnerRemediatedConditionToFailed(ctx context.Context, msg string) error {
 	capiMachine, err := util.GetOwnerMachine(ctx, s.scope.Client, s.scope.BareMetalRemediation.ObjectMeta)
 	if err != nil {
