@@ -75,19 +75,12 @@ If you have configured your secret correctly in the previous step then you alrea
 Let's deploy the hetzner CCM helm chart.
 
 ```shell
-helm repo add syself https://charts.syself.com
-helm repo update syself
+helm repo add hcloud https://charts.hetzner.cloud
+helm repo update hcloud
 
-$ helm upgrade --install ccm syself/ccm-hetzner --version 2.0.1 \
-              --namespace kube-system \
-              --kubeconfig workload-kubeconfig
-Release "ccm" does not exist. Installing it now.
-NAME: ccm
-LAST DEPLOYED: Thu Apr  4 21:09:25 2024
-NAMESPACE: kube-system
-STATUS: deployed
-REVISION: 1
-TEST SUITE: None
+helm upgrade --install ccm \
+    --namespace kube-system \
+    --kubeconfig workload-kubeconfig
 ```
 
 ### Installing CNI

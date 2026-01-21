@@ -44,12 +44,8 @@ const (
 	// Currently (in this context) "hetzner" means the syself-ccm,
 	// and "hcloud" means the hcloud ccm (which now supports bare-metal, too)
 	// Nevertheless, the hcloud/hetzner ccm is not supported.
-	CCMPath             = "CCM"
-	CCMResources        = "CCM_RESOURCES"
-	CCMNetworkPath      = "CCM_NETWORK"
-	CCMNetworkResources = "CCM_RESOURCES_NETWORK"
-	CCMHetznerPath      = "CCM_HETZNER"
-	CCMHetznerResources = "CCM_RESOURCES_HETZNER"
+	CCMPath      = "CCM"
+	CCMResources = "CCM_RESOURCES"
 )
 
 // Byf implements Ginkgo's By with fmt.Sprintf.
