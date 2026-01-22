@@ -67,14 +67,13 @@ Additional resources from the documentation:
 
 In addition to the pure creation and operation of Kubernetes clusters, this provider can also validate and approve certificate signing requests. This increases security as the kubelets of the nodes can be operated with signed certificates, and enables the metrics-server to run securely. [Click here](https://syself.com/docs/caph/topics/advanced/csr-controller) to read more about the CSR controller.
 
-## 🖇️ Compatibility with Cluster API and Kubernetes Versions
+## 🖇️ Compatibility with Cluster API and Kubernetes Versions (TODO: update below table)
 
 This provider's versions are compatible with the following versions of Cluster API:
 
-|                                      | CAPI `v1beta1` (`v1.8.x`) | CAPI `v1beta1` (`v1.9.x`) | CAPI `v1beta1` (`v1.10.x`) | 
-| ------------------------------------ | ------------------------- | ------------------------- | -------------------------- | 
+|                                      | CAPI `v1beta1` (`v1.8.x`) | CAPI `v1beta1` (`v1.9.x`) | CAPI `v1beta1` (`v1.10.x`) |
+| ------------------------------------ | ------------------------- | ------------------------- | -------------------------- |
 | Hetzner Provider `v1.0.x`            | ✅                        | ✅                        | ✅                         |
-
 
 This provider's versions can install and manage the following versions of Kubernetes:
 
