@@ -1,8 +1,10 @@
-package types
+package types // import "github.com/docker/docker/api/types"
 
 import (
-	"github.com/docker/docker/api/types/build"
+	"time"
+
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/swarm"
 	"github.com/docker/docker/api/types/volume"
@@ -22,7 +24,7 @@ type Ping struct {
 	APIVersion     string
 	OSType         string
 	Experimental   bool
-	BuilderVersion build.BuilderVersion
+	BuilderVersion BuilderVersion
 
 	// SwarmStatus provides information about the current swarm status of the
 	// engine, obtained from the "Swarm" header in the API response.
@@ -89,8 +91,39 @@ type DiskUsage struct {
 	Images      []*image.Summary
 	Containers  []*container.Summary
 	Volumes     []*volume.Volume
-	BuildCache  []*build.CacheRecord
+	BuildCache  []*BuildCache
 	BuilderSize int64 `json:",omitempty"` // Deprecated: deprecated in API 1.38, and no longer used since API 1.40.
+}
+
+// BuildCachePruneReport contains the response for Engine API:
+// POST "/build/prune"
+type BuildCachePruneReport struct {
+	CachesDeleted  []string
+	SpaceReclaimed uint64
+}
+
+// SecretCreateResponse contains the information returned to a client
+// on the creation of a new secret.
+type SecretCreateResponse struct {
+	// ID is the id of the created secret.
+	ID string
+}
+
+// SecretListOptions holds parameters to list secrets
+type SecretListOptions struct {
+	Filters filters.Args
+}
+
+// ConfigCreateResponse contains the information returned to a client
+// on the creation of a new config.
+type ConfigCreateResponse struct {
+	// ID is the id of the created config.
+	ID string
+}
+
+// ConfigListOptions holds parameters to list configs
+type ConfigListOptions struct {
+	Filters filters.Args
 }
 
 // PushResult contains the tag, manifest digest, and manifest size from the
@@ -100,4 +133,47 @@ type PushResult struct {
 	Tag    string
 	Digest string
 	Size   int
+}
+
+// BuildResult contains the image id of a successful build
+type BuildResult struct {
+	ID string
+}
+
+// BuildCache contains information about a build cache record.
+type BuildCache struct {
+	// ID is the unique ID of the build cache record.
+	ID string
+	// Parent is the ID of the parent build cache record.
+	//
+	// Deprecated: deprecated in API v1.42 and up, as it was deprecated in BuildKit; use Parents instead.
+	Parent string `json:"Parent,omitempty"`
+	// Parents is the list of parent build cache record IDs.
+	Parents []string `json:" Parents,omitempty"`
+	// Type is the cache record type.
+	Type string
+	// Description is a description of the build-step that produced the build cache.
+	Description string
+	// InUse indicates if the build cache is in use.
+	InUse bool
+	// Shared indicates if the build cache is shared.
+	Shared bool
+	// Size is the amount of disk space used by the build cache (in bytes).
+	Size int64
+	// CreatedAt is the date and time at which the build cache was created.
+	CreatedAt time.Time
+	// LastUsedAt is the date and time at which the build cache was last used.
+	LastUsedAt *time.Time
+	UsageCount int
+}
+
+// BuildCachePruneOptions hold parameters to prune the build cache
+type BuildCachePruneOptions struct {
+	All           bool
+	ReservedSpace int64
+	MaxUsedSpace  int64
+	MinFreeSpace  int64
+	Filters       filters.Args
+
+	KeepStorage int64 // Deprecated: deprecated in API 1.48.
 }

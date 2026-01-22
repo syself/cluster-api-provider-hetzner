@@ -1,4 +1,4 @@
-package client
+package client // import "github.com/docker/docker/client"
 
 import (
 	"context"
@@ -15,10 +15,10 @@ func (cli *Client) ContainerStart(ctx context.Context, containerID string, optio
 	}
 
 	query := url.Values{}
-	if options.CheckpointID != "" {
+	if len(options.CheckpointID) != 0 {
 		query.Set("checkpoint", options.CheckpointID)
 	}
-	if options.CheckpointDir != "" {
+	if len(options.CheckpointDir) != 0 {
 		query.Set("checkpoint-dir", options.CheckpointDir)
 	}
 

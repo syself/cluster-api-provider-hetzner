@@ -1,4 +1,4 @@
-package client
+package client // import "github.com/docker/docker/client"
 
 import (
 	"bytes"
@@ -15,6 +15,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/versions"
+	"github.com/docker/docker/errdefs"
 	"github.com/pkg/errors"
 )
 
@@ -115,8 +116,10 @@ func (cli *Client) sendRequest(ctx context.Context, method, path string, query u
 
 	resp, err := cli.doRequest(req)
 	switch {
-	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
-		return nil, err
+	case errors.Is(err, context.Canceled):
+		return nil, errdefs.Cancelled(err)
+	case errors.Is(err, context.DeadlineExceeded):
+		return nil, errdefs.Deadline(err)
 	case err == nil:
 		return resp, cli.checkResponseErr(resp)
 	default:
@@ -192,11 +195,11 @@ func (cli *Client) checkResponseErr(serverResp *http.Response) (retErr error) {
 	if serverResp == nil {
 		return nil
 	}
-	if serverResp.StatusCode >= http.StatusOK && serverResp.StatusCode < http.StatusBadRequest {
+	if serverResp.StatusCode >= 200 && serverResp.StatusCode < 400 {
 		return nil
 	}
 	defer func() {
-		retErr = httpErrorFromStatusCode(retErr, serverResp.StatusCode)
+		retErr = errdefs.FromStatusCode(retErr, serverResp.StatusCode)
 	}()
 
 	var body []byte
@@ -234,7 +237,7 @@ func (cli *Client) checkResponseErr(serverResp *http.Response) (retErr error) {
 	}
 
 	var daemonErr error
-	if serverResp.Header.Get("Content-Type") == "application/json" {
+	if serverResp.Header.Get("Content-Type") == "application/json" && (cli.version == "" || versions.GreaterThan(cli.version, "1.23")) {
 		var errorResponse types.ErrorResponse
 		if err := json.Unmarshal(body, &errorResponse); err != nil {
 			return errors.Wrap(err, "Error reading JSON")

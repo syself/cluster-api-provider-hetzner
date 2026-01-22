@@ -23,25 +23,24 @@ import (
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
 )
 
-// ClusterCreateInfraProvisioned returns a predicate that returns true for a create event when the Cluster infrastructure is provisioned.
-// It also returns true if the resource provided is not a Cluster to allow for use with controller-runtime NewControllerManagedBy.
+// ClusterCreateInfraReady returns a predicate that returns true for a create event when a cluster has Status.InfrastructureReady set as true
+// it also returns true if the resource provided is not a Cluster to allow for use with controller-runtime NewControllerManagedBy.
 //
 // Deprecated: This predicate is deprecated and will be removed in a future version. On creation of a cluster the status will always be empty.
 // Because of that the predicate would never return true for InfrastructureReady.
-func ClusterCreateInfraProvisioned(scheme *runtime.Scheme, logger logr.Logger) predicate.Funcs {
+func ClusterCreateInfraReady(scheme *runtime.Scheme, logger logr.Logger) predicate.Funcs {
 	return predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
-			log := logger.WithValues("predicate", "ClusterCreateInfraProvisioned", "eventType", "create")
+			log := logger.WithValues("predicate", "ClusterCreateInfraReady", "eventType", "create")
 			if gvk, err := apiutil.GVKForObject(e.Object, scheme); err == nil {
 				log = log.WithValues(gvk.Kind, klog.KObj(e.Object))
 			}
@@ -52,8 +51,8 @@ func ClusterCreateInfraProvisioned(scheme *runtime.Scheme, logger logr.Logger) p
 				return false
 			}
 
-			// Only need to trigger a reconcile if the Cluster infrastructure is provisioned.
-			if ptr.Deref(c.Status.Initialization.InfrastructureProvisioned, false) {
+			// Only need to trigger a reconcile if the Cluster.Status.InfrastructureReady is true
+			if c.Status.InfrastructureReady {
 				log.V(6).Info("Cluster infrastructure is ready, allowing further processing")
 				return true
 			}
@@ -84,7 +83,7 @@ func ClusterCreateNotPaused(scheme *runtime.Scheme, logger logr.Logger) predicat
 			}
 
 			// Only need to trigger a reconcile if the Cluster.Spec.Paused is false
-			if !ptr.Deref(c.Spec.Paused, false) {
+			if !c.Spec.Paused {
 				log.V(6).Info("Cluster is not paused, allowing further processing")
 				return true
 			}
@@ -98,12 +97,12 @@ func ClusterCreateNotPaused(scheme *runtime.Scheme, logger logr.Logger) predicat
 	}
 }
 
-// ClusterUpdateInfraProvisioned returns a predicate that returns true for an update event when a cluster has Status.Initialization.InfrastructureProvisioned changed from false to true
+// ClusterUpdateInfraReady returns a predicate that returns true for an update event when a cluster has Status.InfrastructureReady changed from false to true
 // it also returns true if the resource provided is not a Cluster to allow for use with controller-runtime NewControllerManagedBy.
-func ClusterUpdateInfraProvisioned(scheme *runtime.Scheme, logger logr.Logger) predicate.Funcs {
+func ClusterUpdateInfraReady(scheme *runtime.Scheme, logger logr.Logger) predicate.Funcs {
 	return predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			log := logger.WithValues("predicate", "ClusterUpdateInfraProvisioned", "eventType", "update")
+			log := logger.WithValues("predicate", "ClusterUpdateInfraReady", "eventType", "update")
 			if gvk, err := apiutil.GVKForObject(e.ObjectOld, scheme); err == nil {
 				log = log.WithValues(gvk.Kind, klog.KObj(e.ObjectOld))
 			}
@@ -116,7 +115,7 @@ func ClusterUpdateInfraProvisioned(scheme *runtime.Scheme, logger logr.Logger) p
 
 			newCluster := e.ObjectNew.(*clusterv1.Cluster)
 
-			if !ptr.Deref(oldCluster.Status.Initialization.InfrastructureProvisioned, false) && ptr.Deref(newCluster.Status.Initialization.InfrastructureProvisioned, false) {
+			if !oldCluster.Status.InfrastructureReady && newCluster.Status.InfrastructureReady {
 				log.V(6).Info("Cluster infrastructure became ready, allowing further processing")
 				return true
 			}
@@ -148,7 +147,7 @@ func ClusterUpdateUnpaused(scheme *runtime.Scheme, logger logr.Logger) predicate
 
 			newCluster := e.ObjectNew.(*clusterv1.Cluster)
 
-			if ptr.Deref(oldCluster.Spec.Paused, false) && !ptr.Deref(newCluster.Spec.Paused, false) {
+			if oldCluster.Spec.Paused && !newCluster.Spec.Paused {
 				log.V(4).Info("Cluster was unpaused, allowing further processing")
 				return true
 			}
@@ -199,12 +198,12 @@ func ClusterPausedTransitions(scheme *runtime.Scheme, logger logr.Logger) predic
 
 			newCluster := e.ObjectNew.(*clusterv1.Cluster)
 
-			if ptr.Deref(oldCluster.Spec.Paused, false) && !ptr.Deref(newCluster.Spec.Paused, false) {
+			if oldCluster.Spec.Paused && !newCluster.Spec.Paused {
 				log.V(6).Info("Cluster unpausing, allowing further processing")
 				return true
 			}
 
-			if !ptr.Deref(oldCluster.Spec.Paused, false) && ptr.Deref(newCluster.Spec.Paused, false) {
+			if !oldCluster.Spec.Paused && newCluster.Spec.Paused {
 				log.V(6).Info("Cluster pausing, allowing further processing")
 				return true
 			}
@@ -244,8 +243,9 @@ func ClusterControlPlaneInitialized(scheme *runtime.Scheme, logger logr.Logger) 
 			}
 
 			newCluster := e.ObjectNew.(*clusterv1.Cluster)
-			if !conditions.IsTrue(oldCluster, clusterv1.ClusterControlPlaneInitializedCondition) &&
-				conditions.IsTrue(newCluster, clusterv1.ClusterControlPlaneInitializedCondition) {
+
+			if !conditions.IsTrue(oldCluster, clusterv1.ControlPlaneInitializedCondition) &&
+				conditions.IsTrue(newCluster, clusterv1.ControlPlaneInitializedCondition) {
 				log.V(6).Info("Cluster ControlPlaneInitialized was set, allow further processing")
 				return true
 			}
@@ -259,8 +259,8 @@ func ClusterControlPlaneInitialized(scheme *runtime.Scheme, logger logr.Logger) 
 	}
 }
 
-// ClusterPausedTransitionsOrInfrastructureProvisioned returns a Predicate that returns true on Cluster Update events where
-// either Cluster.Spec.Paused transitions or Cluster.Status.Initialization.InfrastructureProvisioned transitions to true.
+// ClusterPausedTransitionsOrInfrastructureReady returns a Predicate that returns true on Cluster Update events where
+// either Cluster.Spec.Paused transitions or Cluster.Status.InfrastructureReady transitions to true.
 // This implements a common requirement for some cluster-api and provider controllers (such as Machine Infrastructure
 // controllers) to resume reconciliation when the Cluster gets paused or unpaused and when the infrastructure becomes ready.
 // Example use:
@@ -268,17 +268,17 @@ func ClusterControlPlaneInitialized(scheme *runtime.Scheme, logger logr.Logger) 
 //	err := controller.Watch(
 //	    source.Kind(cache, &clusterv1.Cluster{}),
 //	    handler.EnqueueRequestsFromMapFunc(clusterToMachines)
-//	    predicates.ClusterPausedTransitionsOrInfrastructureProvisioned(mgr.GetScheme(), r.Log),
+//	    predicates.ClusterPausedTransitionsOrInfrastructureReady(mgr.GetScheme(), r.Log),
 //	)
-func ClusterPausedTransitionsOrInfrastructureProvisioned(scheme *runtime.Scheme, logger logr.Logger) predicate.Funcs {
-	log := logger.WithValues("predicate", "ClusterPausedTransitionsOrInfrastructureProvisioned")
+func ClusterPausedTransitionsOrInfrastructureReady(scheme *runtime.Scheme, logger logr.Logger) predicate.Funcs {
+	log := logger.WithValues("predicate", "ClusterPausedTransitionsOrInfrastructureReady")
 
-	return Any(scheme, log, ClusterPausedTransitions(scheme, log), ClusterUpdateInfraProvisioned(scheme, log))
+	return Any(scheme, log, ClusterPausedTransitions(scheme, log), ClusterUpdateInfraReady(scheme, log))
 }
 
-// ClusterUnpausedAndInfrastructureProvisioned returns a Predicate that returns true on Cluster creation events where
-// both Cluster.Spec.Paused is false and Cluster.Status.Initialization.InfrastructureProvisioned is true and Update events when
-// either Cluster.Spec.Paused transitions to false or Cluster.Status.Initialization.InfrastructureProvisioned transitions to true.
+// ClusterUnpausedAndInfrastructureReady returns a Predicate that returns true on Cluster creation events where
+// both Cluster.Spec.Paused is false and Cluster.Status.InfrastructureReady is true and Update events when
+// either Cluster.Spec.Paused transitions to false or Cluster.Status.InfrastructureReady transitions to true.
 // This implements a common requirement for some cluster-api and provider controllers (such as Machine Infrastructure
 // controllers) to resume reconciliation when the Cluster is unpaused and when the infrastructure becomes ready.
 // Example use:
@@ -286,19 +286,19 @@ func ClusterPausedTransitionsOrInfrastructureProvisioned(scheme *runtime.Scheme,
 //	err := controller.Watch(
 //	    source.Kind(cache, &clusterv1.Cluster{}),
 //	    handler.EnqueueRequestsFromMapFunc(clusterToMachines)
-//	    predicates.ClusterUnpausedAndInfrastructureProvisioned(mgr.GetScheme(), r.Log),
+//	    predicates.ClusterUnpausedAndInfrastructureReady(mgr.GetScheme(), r.Log),
 //	)
 //
 // Deprecated: This predicate is deprecated and will be removed in a future version,
-// use ClusterPausedTransitionsOrInfrastructureProvisioned instead.
-func ClusterUnpausedAndInfrastructureProvisioned(scheme *runtime.Scheme, logger logr.Logger) predicate.Funcs {
-	log := logger.WithValues("predicate", "ClusterUnpausedAndInfrastructureProvisioned")
+// use ClusterPausedTransitionsOrInfrastructureReady instead.
+func ClusterUnpausedAndInfrastructureReady(scheme *runtime.Scheme, logger logr.Logger) predicate.Funcs {
+	log := logger.WithValues("predicate", "ClusterUnpausedAndInfrastructureReady")
 
 	// Only continue processing create events if both not paused and infrastructure is ready
-	createPredicates := All(scheme, log, ClusterCreateNotPaused(scheme, log), ClusterCreateInfraProvisioned(scheme, log))
+	createPredicates := All(scheme, log, ClusterCreateNotPaused(scheme, log), ClusterCreateInfraReady(scheme, log))
 
 	// Process update events if either Cluster is unpaused or infrastructure becomes ready
-	updatePredicates := Any(scheme, log, ClusterUpdateUnpaused(scheme, log), ClusterUpdateInfraProvisioned(scheme, log))
+	updatePredicates := Any(scheme, log, ClusterUpdateUnpaused(scheme, log), ClusterUpdateInfraReady(scheme, log))
 
 	// Use any to ensure we process either create or update events we care about
 	return Any(scheme, log, createPredicates, updatePredicates)
@@ -333,7 +333,7 @@ func processIfTopologyManaged(scheme *runtime.Scheme, logger logr.Logger, object
 		return false
 	}
 
-	if cluster.Spec.Topology.IsDefined() {
+	if cluster.Spec.Topology != nil {
 		logger.V(6).Info("Cluster has topology, allowing further processing")
 		return true
 	}
@@ -360,7 +360,7 @@ func ClusterTopologyVersionChanged(scheme *runtime.Scheme, logger logr.Logger) p
 
 			newCluster := e.ObjectNew.(*clusterv1.Cluster)
 
-			if !oldCluster.Spec.Topology.IsDefined() || !newCluster.Spec.Topology.IsDefined() {
+			if oldCluster.Spec.Topology == nil || newCluster.Spec.Topology == nil {
 				logger.V(6).Info("Cluster does not have topology, blocking further processing")
 				return false
 			}

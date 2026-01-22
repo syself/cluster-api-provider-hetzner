@@ -30,8 +30,9 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	controlplanev1 "sigs.k8s.io/cluster-api/api/controlplane/kubeadm/v1beta2"
-	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	bootstrapv1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
+	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
 	"sigs.k8s.io/cluster-api/test/framework/internal/log"
 	"sigs.k8s.io/cluster-api/util/patch"
 )
@@ -107,7 +108,7 @@ func WaitForKubeadmControlPlaneMachinesToExist(ctx context.Context, input WaitFo
 		}
 		count := 0
 		for _, machine := range machineList.Items {
-			if machine.Status.NodeRef.IsDefined() {
+			if machine.Status.NodeRef != nil {
 				count++
 			}
 		}
@@ -144,7 +145,7 @@ func WaitForOneKubeadmControlPlaneMachineToExist(ctx context.Context, input Wait
 		}
 		count := 0
 		for _, machine := range machineList.Items {
-			if machine.Status.NodeRef.IsDefined() {
+			if machine.Status.NodeRef != nil {
 				count++
 			}
 		}
@@ -171,19 +172,20 @@ func WaitForControlPlaneToBeReady(ctx context.Context, input WaitForControlPlane
 			return false, errors.Wrapf(err, "failed to get KCP")
 		}
 
-		desiredReplicas := ptr.Deref(controlplane.Spec.Replicas, 0)
-		statusReplicas := ptr.Deref(controlplane.Status.Replicas, 0)
-		upToDatedReplicas := ptr.Deref(controlplane.Status.UpToDateReplicas, 0)
-		readyReplicas := ptr.Deref(controlplane.Status.ReadyReplicas, 0)
-		availableReplicas := ptr.Deref(controlplane.Status.AvailableReplicas, 0)
+		desiredReplicas := controlplane.Spec.Replicas
+		statusReplicas := controlplane.Status.Replicas
+		updatedReplicas := controlplane.Status.UpdatedReplicas
+		readyReplicas := controlplane.Status.ReadyReplicas
+		unavailableReplicas := controlplane.Status.UnavailableReplicas
 
 		// Control plane is still rolling out (and thus not ready) if:
-		// * .spec.replicas, .status.replicas, .status.upToDateReplicas,
-		//   .status.readyReplicas, .status.availableReplicas are not equal.
-		if statusReplicas != desiredReplicas ||
-			upToDatedReplicas != desiredReplicas ||
-			readyReplicas != desiredReplicas ||
-			availableReplicas != desiredReplicas {
+		// * .spec.replicas, .status.replicas, .status.updatedReplicas,
+		//   .status.readyReplicas are not equal and
+		// * unavailableReplicas > 0
+		if statusReplicas != *desiredReplicas ||
+			updatedReplicas != *desiredReplicas ||
+			readyReplicas != *desiredReplicas ||
+			unavailableReplicas > 0 {
 			return false, nil
 		}
 
@@ -206,9 +208,9 @@ func AssertControlPlaneFailureDomains(ctx context.Context, input AssertControlPl
 
 	By("Checking all the control plane machines are in the expected failure domains")
 	controlPlaneFailureDomains := sets.Set[string]{}
-	for _, fd := range input.Cluster.Status.FailureDomains {
-		if ptr.Deref(fd.ControlPlane, false) {
-			controlPlaneFailureDomains.Insert(fd.Name)
+	for fd, fdSettings := range input.Cluster.Status.FailureDomains {
+		if fdSettings.ControlPlane {
+			controlPlaneFailureDomains.Insert(fd)
 		}
 	}
 
@@ -225,8 +227,8 @@ func AssertControlPlaneFailureDomains(ctx context.Context, input AssertControlPl
 	}, retryableOperationTimeout, retryableOperationInterval).Should(Succeed(), "Couldn't list control-plane machines for the cluster %q", input.Cluster.Name)
 
 	for _, machine := range machineList.Items {
-		if machine.Spec.FailureDomain != "" {
-			machineFD := machine.Spec.FailureDomain
+		if machine.Spec.FailureDomain != nil {
+			machineFD := *machine.Spec.FailureDomain
 			if !controlPlaneFailureDomains.Has(machineFD) {
 				Fail(fmt.Sprintf("Machine %s is in the %q failure domain, expecting one of the failure domain defined at cluster level", machine.Name, machineFD))
 			}
@@ -334,14 +336,22 @@ func UpgradeControlPlaneAndWaitForUpgrade(ctx context.Context, input UpgradeCont
 
 	input.ControlPlane.Spec.Version = input.KubernetesUpgradeVersion
 	if input.UpgradeMachineTemplate != nil {
-		input.ControlPlane.Spec.MachineTemplate.Spec.InfrastructureRef.Name = *input.UpgradeMachineTemplate
+		input.ControlPlane.Spec.MachineTemplate.InfrastructureRef.Name = *input.UpgradeMachineTemplate
+	}
+	// If the ClusterConfiguration is not specified, create an empty one.
+	if input.ControlPlane.Spec.KubeadmConfigSpec.ClusterConfiguration == nil {
+		input.ControlPlane.Spec.KubeadmConfigSpec.ClusterConfiguration = new(bootstrapv1.ClusterConfiguration)
+	}
+
+	if input.ControlPlane.Spec.KubeadmConfigSpec.ClusterConfiguration.Etcd.Local == nil {
+		input.ControlPlane.Spec.KubeadmConfigSpec.ClusterConfiguration.Etcd.Local = new(bootstrapv1.LocalEtcd)
 	}
 
 	if input.EtcdImageTag != "" {
-		input.ControlPlane.Spec.KubeadmConfigSpec.ClusterConfiguration.Etcd.Local.ImageTag = input.EtcdImageTag
+		input.ControlPlane.Spec.KubeadmConfigSpec.ClusterConfiguration.Etcd.Local.ImageMeta.ImageTag = input.EtcdImageTag
 	}
 	if input.DNSImageTag != "" {
-		input.ControlPlane.Spec.KubeadmConfigSpec.ClusterConfiguration.DNS.ImageTag = input.DNSImageTag
+		input.ControlPlane.Spec.KubeadmConfigSpec.ClusterConfiguration.DNS.ImageMeta.ImageTag = input.DNSImageTag
 	}
 
 	Eventually(func() error {
@@ -430,7 +440,7 @@ func ScaleAndWaitControlPlane(ctx context.Context, input ScaleAndWaitControlPlan
 		}
 		nodeRefCount := 0
 		for _, machine := range machines.Items {
-			if machine.Status.NodeRef.IsDefined() {
+			if machine.Status.NodeRef != nil {
 				nodeRefCount++
 			}
 		}

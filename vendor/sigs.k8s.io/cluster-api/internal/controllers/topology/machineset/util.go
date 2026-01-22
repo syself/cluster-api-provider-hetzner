@@ -23,14 +23,14 @@ import (
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/controllers/external"
-	"sigs.k8s.io/cluster-api/internal/contract"
 )
 
 // GetMachineSetsForDeployment returns a list of MachineSets associated with a MachineDeployment.
@@ -61,8 +61,10 @@ func CalculateTemplatesInUse(md *clusterv1.MachineDeployment, msList []*clusterv
 		}
 
 		bootstrapRef := ms.Spec.Template.Spec.Bootstrap.ConfigRef
-		infrastructureRef := ms.Spec.Template.Spec.InfrastructureRef
-		addTemplateRef(templatesInUse, bootstrapRef, infrastructureRef)
+		infrastructureRef := &ms.Spec.Template.Spec.InfrastructureRef
+		if err := addTemplateRef(templatesInUse, bootstrapRef, infrastructureRef); err != nil {
+			return nil, errors.Wrapf(err, "failed to add templates of MachineSet %s to templatesInUse", klog.KObj(ms))
+		}
 	}
 
 	// If MachineDeployment has already been deleted or still exists and is in deleting state, then there
@@ -73,21 +75,26 @@ func CalculateTemplatesInUse(md *clusterv1.MachineDeployment, msList []*clusterv
 
 	//  Otherwise, the templates of the MachineDeployment are still in use.
 	bootstrapRef := md.Spec.Template.Spec.Bootstrap.ConfigRef
-	infrastructureRef := md.Spec.Template.Spec.InfrastructureRef
-	addTemplateRef(templatesInUse, bootstrapRef, infrastructureRef)
+	infrastructureRef := &md.Spec.Template.Spec.InfrastructureRef
+	if err := addTemplateRef(templatesInUse, bootstrapRef, infrastructureRef); err != nil {
+		return nil, errors.Wrapf(err, "failed to add templates of MachineDeployment %s to templatesInUse", klog.KObj(md))
+	}
 	return templatesInUse, nil
 }
 
 // DeleteTemplateIfUnused deletes the template (ref), if it is not in use (i.e. in templatesInUse).
-func DeleteTemplateIfUnused(ctx context.Context, c client.Client, templatesInUse map[string]bool, ref clusterv1.ContractVersionedObjectReference, namespace string) error {
+func DeleteTemplateIfUnused(ctx context.Context, c client.Client, templatesInUse map[string]bool, ref *corev1.ObjectReference) error {
 	// If ref is nil, do nothing (this can happen, because bootstrap templates are optional).
-	if !ref.IsDefined() {
+	if ref == nil {
 		return nil
 	}
 
-	log := ctrl.LoggerFrom(ctx).WithValues(ref.Kind, klog.KRef(namespace, ref.Name))
+	log := ctrl.LoggerFrom(ctx).WithValues(ref.Kind, klog.KRef(ref.Namespace, ref.Name))
 
-	refID := templateRefID(ref)
+	refID, err := templateRefID(ref)
+	if err != nil {
+		return errors.Wrapf(err, "failed to calculate templateRefID")
+	}
 
 	// If the template is still in use, do nothing.
 	if templatesInUse[refID] {
@@ -95,39 +102,38 @@ func DeleteTemplateIfUnused(ctx context.Context, c client.Client, templatesInUse
 		return nil
 	}
 
-	apiVersion, err := contract.GetAPIVersion(ctx, c, ref.GroupKind())
-	if err != nil {
-		return errors.Wrapf(err, "failed to delete %s %s", ref.Kind, klog.KRef(namespace, ref.Name))
-	}
-	deleteRef := &corev1.ObjectReference{
-		APIVersion: apiVersion,
-		Kind:       ref.Kind,
-		Namespace:  namespace,
-		Name:       ref.Name,
-	}
-
 	log.Info(fmt.Sprintf("Deleting %s", ref.Kind))
-	if err := external.Delete(ctx, c, deleteRef); err != nil && !apierrors.IsNotFound(err) {
-		return errors.Wrapf(err, "failed to delete %s %s", ref.Kind, klog.KRef(namespace, ref.Name))
+	if err := external.Delete(ctx, c, ref); err != nil && !apierrors.IsNotFound(err) {
+		return errors.Wrapf(err, "failed to delete %s %s", ref.Kind, klog.KRef(ref.Namespace, ref.Name))
 	}
 	return nil
 }
 
 // addTemplateRef adds the refs to the refMap with the templateRefID as key.
-func addTemplateRef(refMap map[string]bool, refs ...clusterv1.ContractVersionedObjectReference) {
+func addTemplateRef(refMap map[string]bool, refs ...*corev1.ObjectReference) error {
 	for _, ref := range refs {
-		if ref.IsDefined() {
-			refMap[templateRefID(ref)] = true
+		if ref != nil {
+			refID, err := templateRefID(ref)
+			if err != nil {
+				return errors.Wrapf(err, "failed to calculate templateRefID")
+			}
+			refMap[refID] = true
 		}
 	}
+	return nil
 }
 
 // templateRefID returns the templateRefID of a ObjectReference in the format: g/k/name.
 // Note: We don't include the version as references with different versions should be treated as equal.
-func templateRefID(ref clusterv1.ContractVersionedObjectReference) string {
-	if !ref.IsDefined() {
-		return ""
+func templateRefID(ref *corev1.ObjectReference) (string, error) {
+	if ref == nil {
+		return "", nil
 	}
 
-	return fmt.Sprintf("%s/%s/%s", ref.APIGroup, ref.Kind, ref.Name)
+	gv, err := schema.ParseGroupVersion(ref.APIVersion)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to parse apiVersion %q", ref.APIVersion)
+	}
+
+	return fmt.Sprintf("%s/%s/%s", gv.Group, ref.Kind, ref.Name), nil
 }

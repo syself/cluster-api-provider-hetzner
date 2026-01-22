@@ -22,14 +22,13 @@ import (
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
 
-	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 )
 
 // IsPaused returns true if the Cluster is paused or the object has the `paused` annotation.
 func IsPaused(cluster *clusterv1.Cluster, o metav1.Object) bool {
-	if ptr.Deref(cluster.Spec.Paused, false) {
+	if cluster.Spec.Paused {
 		return true
 	}
 	return HasPaused(o)

@@ -30,7 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	clusterctlv1 "sigs.k8s.io/cluster-api/cmd/clusterctl/api/v1alpha3"
 	"sigs.k8s.io/cluster-api/cmd/clusterctl/client/config"
 	yaml "sigs.k8s.io/cluster-api/cmd/clusterctl/client/yamlprocessor"
@@ -41,6 +41,7 @@ import (
 
 const (
 	namespaceKind                      = "Namespace"
+	clusterRoleKind                    = "ClusterRole"
 	clusterRoleBindingKind             = "ClusterRoleBinding"
 	roleBindingKind                    = "RoleBinding"
 	certificateKind                    = "Certificate"
@@ -316,8 +317,7 @@ func addNamespaceIfMissing(objs []unstructured.Unstructured, targetNamespace str
 	if !namespaceObjectFound {
 		objs = append(objs, unstructured.Unstructured{
 			Object: map[string]interface{}{
-				"apiVersion": "v1",
-				"kind":       namespaceKind,
+				"kind": namespaceKind,
 				"metadata": map[string]interface{}{
 					"name": targetNamespace,
 				},

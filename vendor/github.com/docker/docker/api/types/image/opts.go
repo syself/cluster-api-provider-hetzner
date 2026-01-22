@@ -75,8 +75,6 @@ type ListOptions struct {
 	SharedSize bool
 
 	// ContainerCount indicates whether container count should be computed.
-	//
-	// Deprecated: This field has been unused and is no longer required and will be removed in a future version.
 	ContainerCount bool
 
 	// Manifests indicates whether the image manifests should be returned.
@@ -85,7 +83,6 @@ type ListOptions struct {
 
 // RemoveOptions holds parameters to remove images.
 type RemoveOptions struct {
-	Platforms     []ocispec.Platform
 	Force         bool
 	PruneChildren bool
 }
@@ -109,11 +106,6 @@ type LoadOptions struct {
 type InspectOptions struct {
 	// Manifests returns the image manifests.
 	Manifests bool
-
-	// Platform selects the specific platform of a multi-platform image to inspect.
-	//
-	// This option is only available for API version 1.49 and up.
-	Platform *ocispec.Platform
 }
 
 // SaveOptions holds parameters to save images.

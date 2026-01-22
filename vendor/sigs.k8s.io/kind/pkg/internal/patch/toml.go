@@ -24,7 +24,7 @@ import (
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	toml "github.com/pelletier/go-toml"
 
-	yaml "go.yaml.in/yaml/v3"
+	yaml "sigs.k8s.io/yaml/goyaml.v3"
 
 	"sigs.k8s.io/kind/pkg/errors"
 )

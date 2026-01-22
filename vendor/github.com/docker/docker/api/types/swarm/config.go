@@ -1,10 +1,6 @@
-package swarm
+package swarm // import "github.com/docker/docker/api/types/swarm"
 
-import (
-	"os"
-
-	"github.com/docker/docker/api/types/filters"
-)
+import "os"
 
 // Config represents a config.
 type Config struct {
@@ -47,16 +43,4 @@ type ConfigReference struct {
 	Runtime    *ConfigReferenceRuntimeTarget `json:",omitempty"`
 	ConfigID   string
 	ConfigName string
-}
-
-// ConfigCreateResponse contains the information returned to a client
-// on the creation of a new config.
-type ConfigCreateResponse struct {
-	// ID is the id of the created config.
-	ID string
-}
-
-// ConfigListOptions holds parameters to list configs
-type ConfigListOptions struct {
-	Filters filters.Args
 }

@@ -1,4 +1,4 @@
-package client
+package client // import "github.com/docker/docker/client"
 
 import (
 	"context"
@@ -32,7 +32,7 @@ func (cli *Client) ContainerCommit(ctx context.Context, containerID string, opti
 		if tagged, ok := ref.(reference.Tagged); ok {
 			tag = tagged.Tag()
 		}
-		repository = ref.Name()
+		repository = reference.FamiliarName(ref)
 	}
 
 	query := url.Values{}

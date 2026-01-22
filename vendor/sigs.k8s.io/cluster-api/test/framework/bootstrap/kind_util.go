@@ -20,7 +20,6 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/blang/semver/v4"
 	. "github.com/onsi/gomega"
@@ -85,10 +84,10 @@ func CreateKindBootstrapClusterAndLoadImages(ctx context.Context, input CreateKi
 	if input.RequiresDockerSock {
 		options = append(options, WithDockerSockMount())
 	}
-	if strings.EqualFold(input.IPFamily, string(kindv1.IPv6Family)) {
+	if input.IPFamily == "IPv6" {
 		options = append(options, WithIPv6Family())
 	}
-	if strings.EqualFold(input.IPFamily, string(kindv1.DualStackFamily)) {
+	if input.IPFamily == "dual" {
 		options = append(options, WithDualStackFamily())
 	}
 	if input.LogFolder != "" {

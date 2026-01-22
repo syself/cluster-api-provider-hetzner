@@ -1,4 +1,4 @@
-package client
+package client // import "github.com/docker/docker/client"
 
 import (
 	"context"
@@ -6,13 +6,13 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/docker/docker/api/types/build"
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/pkg/errors"
 )
 
 // BuildCachePrune requests the daemon to delete unused cache data
-func (cli *Client) BuildCachePrune(ctx context.Context, opts build.CachePruneOptions) (*build.CachePruneReport, error) {
+func (cli *Client) BuildCachePrune(ctx context.Context, opts types.BuildCachePruneOptions) (*types.BuildCachePruneReport, error) {
 	if err := cli.NewVersionError(ctx, "1.31", "build prune"); err != nil {
 		return nil, err
 	}
@@ -47,7 +47,7 @@ func (cli *Client) BuildCachePrune(ctx context.Context, opts build.CachePruneOpt
 		return nil, err
 	}
 
-	report := build.CachePruneReport{}
+	report := types.BuildCachePruneReport{}
 	if err := json.NewDecoder(resp.Body).Decode(&report); err != nil {
 		return nil, errors.Wrap(err, "error retrieving disk usage")
 	}

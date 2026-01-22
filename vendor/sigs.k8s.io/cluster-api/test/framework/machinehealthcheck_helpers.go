@@ -29,7 +29,7 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 )
 
 // DiscoverMachineHealthCheckAndWaitForRemediationInput is the input for DiscoverMachineHealthCheckAndWait.
@@ -56,7 +56,7 @@ func DiscoverMachineHealthChecksAndWaitForRemediation(ctx context.Context, input
 	Expect(machineHealthChecks).NotTo(BeEmpty())
 
 	for _, mhc := range machineHealthChecks {
-		Expect(mhc.Spec.Checks.UnhealthyNodeConditions).NotTo(BeEmpty())
+		Expect(mhc.Spec.UnhealthyConditions).NotTo(BeEmpty())
 
 		fmt.Fprintln(GinkgoWriter, "Ensuring there is at least 1 Machine that MachineHealthCheck is matching")
 		machines := GetMachinesByMachineHealthCheck(ctx, GetMachinesByMachineHealthCheckInput{
@@ -69,8 +69,8 @@ func DiscoverMachineHealthChecksAndWaitForRemediation(ctx context.Context, input
 
 		fmt.Fprintln(GinkgoWriter, "Patching MachineHealthCheck unhealthy condition to one of the nodes")
 		unhealthyNodeCondition := corev1.NodeCondition{
-			Type:               mhc.Spec.Checks.UnhealthyNodeConditions[0].Type,
-			Status:             mhc.Spec.Checks.UnhealthyNodeConditions[0].Status,
+			Type:               mhc.Spec.UnhealthyConditions[0].Type,
+			Status:             mhc.Spec.UnhealthyConditions[0].Status,
 			LastTransitionTime: metav1.Time{Time: time.Now()},
 		}
 		PatchNodeCondition(ctx, PatchNodeConditionInput{
@@ -145,22 +145,22 @@ func WaitForMachineHealthCheckToRemediateUnhealthyNodeCondition(ctx context.Cont
 		})
 		// Wait for all the machines to exist.
 		// NOTE: this is required given that this helper is called after a remediation
-		// and we want to make sure all the machine are back in place before testing for unhealthyNodeConditions being fixed.
+		// and we want to make sure all the machine are back in place before testing for unhealthyCondition being fixed.
 		if len(machines) < input.MachinesCount {
 			return false
 		}
 
 		for _, machine := range machines {
-			if !machine.Status.NodeRef.IsDefined() {
+			if machine.Status.NodeRef == nil {
 				return false
 			}
 			node := &corev1.Node{}
 			// This should not be an Expect(), because it may return error during machine deletion.
-			err := input.ClusterProxy.GetWorkloadCluster(ctx, input.Cluster.Namespace, input.Cluster.Name).GetClient().Get(ctx, types.NamespacedName{Name: machine.Status.NodeRef.Name}, node)
+			err := input.ClusterProxy.GetWorkloadCluster(ctx, input.Cluster.Namespace, input.Cluster.Name).GetClient().Get(ctx, types.NamespacedName{Name: machine.Status.NodeRef.Name, Namespace: machine.Status.NodeRef.Namespace}, node)
 			if err != nil {
 				return false
 			}
-			if hasMatchingUnhealthyNodeConditions(input.MachineHealthCheck, node.Status.Conditions) {
+			if hasMatchingUnhealthyConditions(input.MachineHealthCheck, node.Status.Conditions) {
 				return false
 			}
 		}
@@ -168,11 +168,11 @@ func WaitForMachineHealthCheckToRemediateUnhealthyNodeCondition(ctx context.Cont
 	}, intervals...).Should(BeTrue())
 }
 
-// hasMatchingUnhealthyNodeConditions returns true if any node condition matches with machine health check unhealthy conditions.
-func hasMatchingUnhealthyNodeConditions(machineHealthCheck *clusterv1.MachineHealthCheck, nodeConditions []corev1.NodeCondition) bool {
-	for _, unhealthyNodeCondition := range machineHealthCheck.Spec.Checks.UnhealthyNodeConditions {
+// hasMatchingUnhealthyConditions returns true if any node condition matches with machine health check unhealthy conditions.
+func hasMatchingUnhealthyConditions(machineHealthCheck *clusterv1.MachineHealthCheck, nodeConditions []corev1.NodeCondition) bool {
+	for _, unhealthyCondition := range machineHealthCheck.Spec.UnhealthyConditions {
 		for _, nodeCondition := range nodeConditions {
-			if nodeCondition.Type == unhealthyNodeCondition.Type && nodeCondition.Status == unhealthyNodeCondition.Status {
+			if nodeCondition.Type == unhealthyCondition.Type && nodeCondition.Status == unhealthyCondition.Status {
 				return true
 			}
 		}

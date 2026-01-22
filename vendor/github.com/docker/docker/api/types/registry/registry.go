@@ -1,7 +1,4 @@
-// FIXME(thaJeztah): remove once we are a module; the go:build directive prevents go from downgrading language version to go1.16:
-//go:build go1.23
-
-package registry
+package registry // import "github.com/docker/docker/api/types/registry"
 
 import (
 	"encoding/json"
@@ -18,26 +15,23 @@ type ServiceConfig struct {
 	InsecureRegistryCIDRs []*NetIPNet           `json:"InsecureRegistryCIDRs"`
 	IndexConfigs          map[string]*IndexInfo `json:"IndexConfigs"`
 	Mirrors               []string
-
-	// ExtraFields is for internal use to include deprecated fields on older API versions.
-	ExtraFields map[string]any `json:"-"`
 }
 
 // MarshalJSON implements a custom marshaler to include legacy fields
 // in API responses.
-func (sc *ServiceConfig) MarshalJSON() ([]byte, error) {
-	type tmp ServiceConfig
-	base, err := json.Marshal((*tmp)(sc))
-	if err != nil {
-		return nil, err
+func (sc ServiceConfig) MarshalJSON() ([]byte, error) {
+	tmp := map[string]interface{}{
+		"InsecureRegistryCIDRs": sc.InsecureRegistryCIDRs,
+		"IndexConfigs":          sc.IndexConfigs,
+		"Mirrors":               sc.Mirrors,
 	}
-	var merged map[string]any
-	_ = json.Unmarshal(base, &merged)
-
-	for k, v := range sc.ExtraFields {
-		merged[k] = v
+	if sc.AllowNondistributableArtifactsCIDRs != nil {
+		tmp["AllowNondistributableArtifactsCIDRs"] = nil
 	}
-	return json.Marshal(merged)
+	if sc.AllowNondistributableArtifactsHostnames != nil {
+		tmp["AllowNondistributableArtifactsHostnames"] = nil
+	}
+	return json.Marshal(tmp)
 }
 
 // NetIPNet is the net.IPNet type, which can be marshalled and

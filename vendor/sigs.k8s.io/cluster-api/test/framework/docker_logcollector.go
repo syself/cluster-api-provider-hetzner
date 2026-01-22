@@ -29,7 +29,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/kind/pkg/errors"
 
-	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	expv1 "sigs.k8s.io/cluster-api/exp/api/v1beta1"
 	"sigs.k8s.io/cluster-api/test/infrastructure/container"
 )
 
@@ -65,7 +66,7 @@ func (k DockerLogCollector) CollectMachineLog(ctx context.Context, _ client.Clie
 	return k.collectLogsFromNode(ctx, outputPath, containerName)
 }
 
-func (k DockerLogCollector) CollectMachinePoolLog(ctx context.Context, _ client.Client, m *clusterv1.MachinePool, outputPath string) error {
+func (k DockerLogCollector) CollectMachinePoolLog(ctx context.Context, _ client.Client, m *expv1.MachinePool, outputPath string) error {
 	containerRuntime, err := container.NewDockerClient()
 	if err != nil {
 		return err
@@ -154,7 +155,7 @@ func (k DockerLogCollector) collectLogsFromNode(ctx context.Context, outputPath 
 				return err
 			}
 
-			return osExec.CommandContext(ctx, "tar", "--extract", "--file", tempfileName, "--directory", outputDir).Run() //nolint:gosec // We don't care about command injection here.
+			return osExec.Command("tar", "--extract", "--file", tempfileName, "--directory", outputDir).Run() //nolint:gosec // We don't care about command injection here.
 		}
 	}
 

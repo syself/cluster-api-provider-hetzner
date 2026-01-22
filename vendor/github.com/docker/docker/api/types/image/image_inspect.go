@@ -3,7 +3,6 @@ package image
 import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/storage"
-	dockerspec "github.com/moby/docker-image-spec/specs-go/v1"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
@@ -85,7 +84,7 @@ type InspectResponse struct {
 	// Author is the name of the author that was specified when committing the
 	// image, or as specified through MAINTAINER (deprecated) in the Dockerfile.
 	Author string
-	Config *dockerspec.DockerOCIImageConfig
+	Config *container.Config
 
 	// Architecture is the hardware CPU architecture that the image runs on.
 	Architecture string
@@ -129,12 +128,11 @@ type InspectResponse struct {
 	// compatibility.
 	Descriptor *ocispec.Descriptor `json:"Descriptor,omitempty"`
 
-	// Manifests is a list of image manifests available in this image. It
+	// Manifests is a list of image manifests available in this image.  It
 	// provides a more detailed view of the platform-specific image manifests or
 	// other image-attached data like build attestations.
 	//
-	// Only available if the daemon provides a multi-platform image store, the client
-	// requests manifests AND does not request a specific platform.
+	// Only available if the daemon provides a multi-platform image store.
 	//
 	// WARNING: This is experimental and may change at any time without any backward
 	// compatibility.

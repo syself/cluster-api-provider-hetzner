@@ -21,10 +21,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	controlplanev1 "sigs.k8s.io/cluster-api/api/controlplane/kubeadm/v1beta2"
+	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
 )
 
 // WaitForControlPlaneToBeUpToDateInput is the input for WaitForControlPlaneToBeUpToDate.
@@ -45,6 +44,6 @@ func WaitForControlPlaneToBeUpToDate(ctx context.Context, input WaitForControlPl
 		if err := input.Getter.Get(ctx, key, controlplane); err != nil {
 			return 0, err
 		}
-		return ptr.Deref(controlplane.Status.UpToDateReplicas, 0), nil
+		return controlplane.Status.UpdatedReplicas, nil
 	}, intervals...).Should(Equal(*input.ControlPlane.Spec.Replicas), "Timed waiting for all control plane replicas to be updated")
 }

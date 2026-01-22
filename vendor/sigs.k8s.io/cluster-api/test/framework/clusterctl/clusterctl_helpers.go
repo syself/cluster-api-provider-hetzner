@@ -28,9 +28,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 
-	controlplanev1 "sigs.k8s.io/cluster-api/api/controlplane/kubeadm/v1beta2"
-	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/cmd/clusterctl/client/config"
+	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
+	expv1 "sigs.k8s.io/cluster-api/exp/api/v1beta1"
 	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/cluster-api/test/framework/internal/log"
 )
@@ -281,7 +282,7 @@ type ApplyClusterTemplateAndWaitResult struct {
 	Cluster            *clusterv1.Cluster
 	ControlPlane       *controlplanev1.KubeadmControlPlane
 	MachineDeployments []*clusterv1.MachineDeployment
-	MachinePools       []*clusterv1.MachinePool
+	MachinePools       []*expv1.MachinePool
 }
 
 // ExpectedWorkerNodes returns the expected number of worker nodes that will
@@ -402,7 +403,7 @@ type ApplyCustomClusterTemplateAndWaitResult struct {
 	Cluster            *clusterv1.Cluster
 	ControlPlane       *controlplanev1.KubeadmControlPlane
 	MachineDeployments []*clusterv1.MachineDeployment
-	MachinePools       []*clusterv1.MachinePool
+	MachinePools       []*expv1.MachinePool
 }
 
 func ApplyCustomClusterTemplateAndWait(ctx context.Context, input ApplyCustomClusterTemplateAndWaitInput, result *ApplyCustomClusterTemplateAndWaitResult) {
@@ -444,11 +445,11 @@ func ApplyCustomClusterTemplateAndWait(ctx context.Context, input ApplyCustomClu
 		Name:      input.ClusterName,
 	}, input.WaitForClusterIntervals...)
 
-	if result.Cluster.Spec.Topology.IsDefined() {
+	if result.Cluster.Spec.Topology != nil {
 		result.ClusterClass = framework.GetClusterClassByName(ctx, framework.GetClusterClassByNameInput{
 			Getter:    input.ClusterProxy.GetClient(),
 			Namespace: result.Cluster.GetClassKey().Namespace,
-			Name:      result.Cluster.GetClassKey().Name,
+			Name:      result.Cluster.Spec.Topology.Class,
 		})
 	}
 

@@ -1535,29 +1535,27 @@ func (v *Viper) MergeInConfig() error {
 func ReadConfig(in io.Reader) error { return v.ReadConfig(in) }
 
 func (v *Viper) ReadConfig(in io.Reader) error {
-	config := make(map[string]any)
-
-	err := v.unmarshalReader(in, config)
-	if err != nil {
-		return err
+	if v.configType == "" {
+		return errors.New("cannot decode configuration: config type is not set")
 	}
 
-	v.config = config
-
-	return nil
+	v.config = make(map[string]any)
+	return v.unmarshalReader(in, v.config)
 }
 
 // MergeConfig merges a new configuration with an existing config.
 func MergeConfig(in io.Reader) error { return v.MergeConfig(in) }
 
 func (v *Viper) MergeConfig(in io.Reader) error {
-	config := make(map[string]any)
-
-	if err := v.unmarshalReader(in, config); err != nil {
-		return err
+	if v.configType == "" {
+		return errors.New("cannot decode configuration: config type is not set")
 	}
 
-	return v.MergeConfigMap(config)
+	cfg := make(map[string]any)
+	if err := v.unmarshalReader(in, cfg); err != nil {
+		return err
+	}
+	return v.MergeConfigMap(cfg)
 }
 
 // MergeConfigMap merges the configuration from the map given with an existing config.
@@ -1664,21 +1662,15 @@ func (v *Viper) writeConfig(filename string, force bool) error {
 }
 
 func (v *Viper) unmarshalReader(in io.Reader, c map[string]any) error {
-	format := strings.ToLower(v.getConfigType())
-	if format == "" {
-		return errors.New("cannot decode configuration: unable to determine config type")
-	}
-
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(in)
 
-	// TODO: remove this once SupportedExts is deprecated/removed
+	format := strings.ToLower(v.getConfigType())
+
 	if !slices.Contains(SupportedExts, format) {
 		return UnsupportedConfigError(format)
 	}
 
-	// TODO: return [UnsupportedConfigError] if the registry does not contain the format
-	// TODO: consider deprecating this error type
 	decoder, err := v.decoderRegistry.Decoder(format)
 	if err != nil {
 		return ConfigParseError{err}

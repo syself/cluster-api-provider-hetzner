@@ -40,7 +40,7 @@ global
   maxconn 100000
 
 resolvers docker
-  parse-resolv-conf
+  nameserver dns 127.0.0.11:53
 
 defaults
   log global

@@ -90,7 +90,7 @@ type Stat_t struct {
 	Gid     uint32
 	Rdev    uint64
 	_       uint16
-	_       [6]byte
+	_       [4]byte
 	Size    int64
 	Blksize int32
 	_       [4]byte
@@ -285,13 +285,19 @@ type Taskstats struct {
 	Ac_exitcode               uint32
 	Ac_flag                   uint8
 	Ac_nice                   uint8
-	_                         [6]byte
+	_                         [4]byte
 	Cpu_count                 uint64
 	Cpu_delay_total           uint64
+	Cpu_delay_max             uint64
+	Cpu_delay_min             uint64
 	Blkio_count               uint64
 	Blkio_delay_total         uint64
+	Blkio_delay_max           uint64
+	Blkio_delay_min           uint64
 	Swapin_count              uint64
 	Swapin_delay_total        uint64
+	Swapin_delay_max          uint64
+	Swapin_delay_min          uint64
 	Cpu_run_real_total        uint64
 	Cpu_run_virtual_total     uint64
 	Ac_comm                   [32]uint8
@@ -327,11 +333,17 @@ type Taskstats struct {
 	Cpu_scaled_run_real_total uint64
 	Freepages_count           uint64
 	Freepages_delay_total     uint64
+	Freepages_delay_max       uint64
+	Freepages_delay_min       uint64
 	Thrashing_count           uint64
 	Thrashing_delay_total     uint64
+	Thrashing_delay_max       uint64
+	Thrashing_delay_min       uint64
 	Ac_btime64                uint64
 	Compact_count             uint64
 	Compact_delay_total       uint64
+	Compact_delay_max         uint64
+	Compact_delay_min         uint64
 	Ac_tgid                   uint32
 	_                         [4]byte
 	Ac_tgetime                uint64
@@ -339,22 +351,10 @@ type Taskstats struct {
 	Ac_exe_inode              uint64
 	Wpcopy_count              uint64
 	Wpcopy_delay_total        uint64
-	Irq_count                 uint64
-	Irq_delay_total           uint64
-	Cpu_delay_max             uint64
-	Cpu_delay_min             uint64
-	Blkio_delay_max           uint64
-	Blkio_delay_min           uint64
-	Swapin_delay_max          uint64
-	Swapin_delay_min          uint64
-	Freepages_delay_max       uint64
-	Freepages_delay_min       uint64
-	Thrashing_delay_max       uint64
-	Thrashing_delay_min       uint64
-	Compact_delay_max         uint64
-	Compact_delay_min         uint64
 	Wpcopy_delay_max          uint64
 	Wpcopy_delay_min          uint64
+	Irq_count                 uint64
+	Irq_delay_total           uint64
 	Irq_delay_max             uint64
 	Irq_delay_min             uint64
 }
