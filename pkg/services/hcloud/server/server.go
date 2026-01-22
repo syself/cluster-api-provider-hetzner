@@ -212,6 +212,10 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 
 	updateHCloudMachineStatusFromServer(hm, server)
 
+	// If server creation was successfull, but the reconcile failed after server creation, then his
+	// condition might not be True yet.
+	conditions.MarkTrue(hm, infrav1.ServerCreateSucceededCondition)
+
 	s.scope.SetProviderID(server.ID)
 
 	// Provisioning from a hcloud image like ubuntu-YY.MM takes roughly 11 seconds.
