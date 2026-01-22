@@ -6,7 +6,7 @@ resources:
   - ../../../../../../templates/cluster-templates/bases/hetznerbaremetal-md-1-kubeadm.yaml
   - ../../../../../../templates/cluster-templates/bases/hetznerbaremetal-mt-md-1-ubuntu.yaml
   - ../bases/crs-cni.yaml
-  - ../bases/crs-ccm-hetzner.yaml
+  - ../bases/crs-ccm.yaml
   - ../bases/hetzner-secret.yaml
   - ../cluster-template-hetzner-secret.yaml
   - ../bases/hetznerbaremetalhosts.yaml
