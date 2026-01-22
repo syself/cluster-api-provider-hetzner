@@ -77,9 +77,9 @@ linters-settings:
         alias: ctrl
       - pkg: k8s.io/apimachinery/pkg/util/runtime
         alias: utilruntime
-      - pkg: sigs.k8s.io/cluster-api/api/v1beta1
+      - pkg: sigs.k8s.io/cluster-api/api/v1beta2
         alias: clusterv1
-      - pkg: sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1
+      - pkg: sigs.k8s.io/cluster-api/api/bootstrap/kubeadm/v1beta2
         alias: bootstrapv1
       - pkg: sigs.k8s.io/controller-runtime/pkg/metrics/server
         alias: metricsserver
@@ -169,6 +169,11 @@ issues:
         - staticcheck
       text: "SA1019: in.(.+) is deprecated"
       path: .*(api|types)\/.*\/conversion.*\.go$
+    - linters:
+        - staticcheck
+        #  SA1019: "sigs.k8s.io/cluster-api/api/core/v1beta1" is deprecated: This package is deprecated and is going to be removed when support for v1beta1 will be dropped
+      text: SA1019.*sigs.k8s.io/cluster-api/\S+ is deprecated
+      path: .*api/v1beta1/.*
     - linters:
         - staticcheck
       text: "SA1019: .*FailureReason is deprecated"

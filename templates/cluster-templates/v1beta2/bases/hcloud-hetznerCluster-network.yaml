@@ -1,0 +1,20 @@
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta2
+kind: HetznerCluster
+metadata:
+  name: "${CLUSTER_NAME}"
+spec:
+  hcloudNetwork:
+    enabled: true
+  controlPlaneRegions:
+  - "${HCLOUD_REGION}"
+  controlPlaneLoadBalancer:
+    region: "${HCLOUD_REGION}"
+  sshKeys:
+    hcloud:
+    - name: "${SSH_KEY_NAME}"
+  hetznerSecretRef:
+    name: hetzner
+    key:
+      hcloudToken: hcloud
+      hetznerRobotPassword: robot-password
+      hetznerRobotUser: robot-user

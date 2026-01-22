@@ -26,17 +26,16 @@ import (
 	"time"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
-	"sigs.k8s.io/cluster-api/util/conditions"
+	controlplanev1 "sigs.k8s.io/cluster-api/api/controlplane/kubeadm/v1beta2"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
@@ -125,6 +124,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 			if err != nil {
 				return reconcile.Result{}, fmt.Errorf("SetErrorAndRemediate failed: %w", err)
 			}
+			s.scope.HCloudMachine.SetBootState(infrav1.HCloudBootStateUnset)
 			record.Warn(s.scope.HCloudMachine, "NoHCloudServerFound", msg)
 			conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerAvailableCondition,
 				"NoHCloudServerFound", clusterv1.ConditionSeverityWarning,
@@ -132,6 +132,8 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 			// no need to requeue.
 			return reconcile.Result{}, nil
 		}
+
+		s.scope.MarkInfrastructureProvisioned()
 	}
 
 	switch s.scope.HCloudMachine.Status.BootState {
@@ -846,7 +848,7 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 	}
 
 	// remove server from load balancer if it's being deleted
-	if conditions.Has(s.scope.Machine, clusterv1.PreDrainDeleteHookSucceededCondition) {
+	if conditions.Has(s.scope.Machine, string(clusterv1.PreDrainDeleteHookSucceededV1Beta1Condition)) {
 		if err := s.deleteServerOfLoadBalancer(ctx, server); err != nil {
 			return reconcile.Result{}, fmt.Errorf("failed to delete server %s with ID %d from loadbalancer: %w", server.Name, server.ID, err)
 		}
@@ -876,9 +878,10 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 		return reconcile.Result{}, nil
 	}
 
-	apiServerPodHealthy := s.scope.Cluster.Spec.ControlPlaneRef == nil ||
-		s.scope.Cluster.Spec.ControlPlaneRef.Kind != "KubeadmControlPlane" ||
-		conditions.IsTrue(s.scope.Machine, controlplanev1.MachineAPIServerPodHealthyCondition)
+	controlPlaneRef := s.scope.Cluster.Spec.ControlPlaneRef
+	apiServerPodHealthy := !controlPlaneRef.IsDefined() ||
+		controlPlaneRef.Kind != "KubeadmControlPlane" ||
+		conditions.IsTrue(s.scope.Machine, controlplanev1.KubeadmControlPlaneMachineAPIServerPodHealthyCondition)
 
 	// we attach only nodes with kube-apiserver pod healthy to avoid downtime, skipped for the first node
 	if len(s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target) > 0 && !apiServerPodHealthy {
@@ -1050,20 +1053,11 @@ func (s *Service) createServer(ctx context.Context, userData []byte, image *hclo
 	// Create the server
 	server, err := s.scope.HCloudClient.CreateServer(ctx, opts)
 	if err != nil {
-		serverType := "nil"
-		if opts.ServerType != nil {
-			serverType = opts.ServerType.Name
-		}
-
-		msg := fmt.Sprintf("failed to create HCloud server %q in %q (type %q)",
-			hm.Name, opts.Location.Name, serverType)
-
 		if hcloudutil.HandleRateLimitExceeded(hm, err, "CreateServer") {
 			// RateLimit was reached. Condition and Event got already created.
-			return nil, fmt.Errorf("%s: %w", msg, err)
+			return nil, fmt.Errorf("failed to create HCloud server %s: %w", hm.Name, err)
 		}
-
-		msg = fmt.Sprintf("%s: %s", msg, err.Error())
+		msg := fmt.Sprintf("failed to create HCloud server %s: %s", hm.Name, err.Error())
 		s.scope.Logger.Error(nil, msg)
 		// No condition was set yet. Set a general condition to false.
 		conditions.MarkFalse(hm, infrav1.ServerCreateSucceededCondition,
@@ -1237,7 +1231,7 @@ func (s *Service) handleServerStatusOff(ctx context.Context, server *hcloud.Serv
 
 	serverAvailableCondition := conditions.Get(s.scope.HCloudMachine, infrav1.ServerAvailableCondition)
 	if serverAvailableCondition != nil &&
-		serverAvailableCondition.Status == corev1.ConditionFalse &&
+		serverAvailableCondition.Status == metav1.ConditionFalse &&
 		serverAvailableCondition.Reason == infrav1.ServerOffReason {
 		s.scope.Info("Trigger power on again")
 		if time.Now().Before(serverAvailableCondition.LastTransitionTime.Time.Add(serverOffTimeout)) {

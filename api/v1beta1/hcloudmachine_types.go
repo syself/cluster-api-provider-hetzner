@@ -19,8 +19,8 @@ package v1beta1
 import (
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	capierrors "sigs.k8s.io/cluster-api/errors" //nolint:staticcheck // we will handle that, when we update to capi v1.11
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta1" // Deprecated, will be removed
+	capierrors "sigs.k8s.io/cluster-api/errors"
 )
 
 const (
@@ -175,7 +175,6 @@ type HCloudMachineStatusExternalIDs struct {
 // HCloudMachine is the Schema for the hcloudmachines API.
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=hcloudmachines,scope=Namespaced,categories=cluster-api,shortName=hcma
-// +kubebuilder:storageversion
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Cluster",type="string",JSONPath=".metadata.labels.cluster\\.x-k8s\\.io/cluster-name",description="Cluster to which this HCloudMachine belongs"
 // +kubebuilder:printcolumn:name="Machine",type="string",JSONPath=".metadata.ownerReferences[?(@.kind==\"Machine\")].name",description="Machine object which owns with this HCloudMachine"

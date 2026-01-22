@@ -80,10 +80,10 @@ e2e-ccm-templates:
 
 
 .PHONY: cluster-templates
-cluster-templates: $(KUSTOMIZE) cluster-templates-v1beta1 ## Generate cluster templates for all versions
+cluster-templates: $(KUSTOMIZE) cluster-templates-v1beta2 ## Generate cluster templates for all versions
 
-cluster-templates-v1beta1: $(KUSTOMIZE) ## Generate cluster templates for v1beta1
-	HETZNER_TEMPLATES=$(HETZNER_TEMPLATES) ./cluster-templates-v1beta1.sh
+cluster-templates-v1beta2: $(KUSTOMIZE) ## Generate cluster templates for v1beta2
+	HETZNER_TEMPLATES=$(HETZNER_TEMPLATES) ./cluster-templates-v1beta2.sh
 
 ## --------------------------------------
 ## Testing

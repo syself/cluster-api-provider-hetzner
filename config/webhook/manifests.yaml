@@ -10,14 +10,14 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-infrastructure-cluster-x-k8s-io-v1beta1-hcloudremediationtemplate
+      path: /mutate-infrastructure-cluster-x-k8s-io-v1beta2-hcloudremediationtemplate
   failurePolicy: Fail
   name: mhcloudremediationtemplate.kb.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
     apiVersions:
-    - v1beta1
+    - v1beta2
     operations:
     - CREATE
     - UPDATE
@@ -30,14 +30,14 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalremediationtemplate
+      path: /mutate-infrastructure-cluster-x-k8s-io-v1beta2-hetznerbaremetalremediationtemplate
   failurePolicy: Fail
   name: mhetznerbaremetalremediationtemplate.kb.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
     apiVersions:
-    - v1beta1
+    - v1beta2
     operations:
     - CREATE
     - UPDATE
@@ -46,19 +46,19 @@ webhooks:
   sideEffects: None
 - admissionReviewVersions:
   - v1
-  - v1beta1
+  - v1beta2
   clientConfig:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-infrastructure-cluster-x-k8s-io-v1beta1-hcloudmachine
+      path: /mutate-infrastructure-cluster-x-k8s-io-v1beta2-hcloudmachine
   failurePolicy: Fail
   name: mutation.hcloudmachine.infrastructure.cluster.x-k8s.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
     apiVersions:
-    - v1beta1
+    - v1beta2
     operations:
     - CREATE
     - UPDATE
@@ -67,19 +67,19 @@ webhooks:
   sideEffects: None
 - admissionReviewVersions:
   - v1
-  - v1beta1
+  - v1beta2
   clientConfig:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-infrastructure-cluster-x-k8s-io-v1beta1-hcloudremediation
+      path: /mutate-infrastructure-cluster-x-k8s-io-v1beta2-hcloudremediation
   failurePolicy: Fail
   name: mutation.hcloudremediation.infrastructure.cluster.x-k8s.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
     apiVersions:
-    - v1beta1
+    - v1beta2
     operations:
     - CREATE
     - UPDATE
@@ -88,19 +88,19 @@ webhooks:
   sideEffects: None
 - admissionReviewVersions:
   - v1
-  - v1beta1
+  - v1beta2
   clientConfig:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalhost
+      path: /mutate-infrastructure-cluster-x-k8s-io-v1beta2-hetznerbaremetalhost
   failurePolicy: Fail
   name: mutation.hetznerbaremetalhost.infrastructure.cluster.x-k8s.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
     apiVersions:
-    - v1beta1
+    - v1beta2
     operations:
     - CREATE
     - UPDATE
@@ -109,19 +109,19 @@ webhooks:
   sideEffects: None
 - admissionReviewVersions:
   - v1
-  - v1beta1
+  - v1beta2
   clientConfig:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalmachine
+      path: /mutate-infrastructure-cluster-x-k8s-io-v1beta2-hetznerbaremetalmachine
   failurePolicy: Fail
   name: mutation.hetznerbaremetalmachine.infrastructure.cluster.x-k8s.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
     apiVersions:
-    - v1beta1
+    - v1beta2
     operations:
     - CREATE
     - UPDATE
@@ -130,19 +130,19 @@ webhooks:
   sideEffects: None
 - admissionReviewVersions:
   - v1
-  - v1beta1
+  - v1beta2
   clientConfig:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalremediation
+      path: /mutate-infrastructure-cluster-x-k8s-io-v1beta2-hetznerbaremetalremediation
   failurePolicy: Fail
   name: mutation.hetznerbaremetalremediation.infrastructure.cluster.x-k8s.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
     apiVersions:
-    - v1beta1
+    - v1beta2
     operations:
     - CREATE
     - UPDATE
@@ -151,19 +151,19 @@ webhooks:
   sideEffects: None
 - admissionReviewVersions:
   - v1
-  - v1beta1
+  - v1beta2
   clientConfig:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-infrastructure-cluster-x-k8s-io-v1beta1-hetznercluster
+      path: /mutate-infrastructure-cluster-x-k8s-io-v1beta2-hetznercluster
   failurePolicy: Fail
   name: mutation.hetznercluster.infrastructure.cluster.x-k8s.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
     apiVersions:
-    - v1beta1
+    - v1beta2
     operations:
     - CREATE
     - UPDATE
@@ -178,19 +178,19 @@ metadata:
 webhooks:
 - admissionReviewVersions:
   - v1
-  - v1beta1
+  - v1beta2
   clientConfig:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-infrastructure-cluster-x-k8s-io-v1beta1-hcloudmachine
+      path: /validate-infrastructure-cluster-x-k8s-io-v1beta2-hcloudmachine
   failurePolicy: Fail
   name: validation.hcloudmachine.infrastructure.cluster.x-k8s.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
     apiVersions:
-    - v1beta1
+    - v1beta2
     operations:
     - CREATE
     - UPDATE
@@ -199,19 +199,19 @@ webhooks:
   sideEffects: None
 - admissionReviewVersions:
   - v1
-  - v1beta1
+  - v1beta2
   clientConfig:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-infrastructure-cluster-x-k8s-io-v1beta1-hcloudmachinetemplate
+      path: /validate-infrastructure-cluster-x-k8s-io-v1beta2-hcloudmachinetemplate
   failurePolicy: Fail
   name: validation.hcloudmachinetemplate.infrastructure.x-k8s.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
     apiVersions:
-    - v1beta1
+    - v1beta2
     operations:
     - CREATE
     - UPDATE
@@ -220,19 +220,19 @@ webhooks:
   sideEffects: None
 - admissionReviewVersions:
   - v1
-  - v1beta1
+  - v1beta2
   clientConfig:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-infrastructure-cluster-x-k8s-io-v1beta1-hcloudremediation
+      path: /validate-infrastructure-cluster-x-k8s-io-v1beta2-hcloudremediation
   failurePolicy: Fail
   name: validation.hcloudremediation.infrastructure.cluster.x-k8s.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
     apiVersions:
-    - v1beta1
+    - v1beta2
     operations:
     - CREATE
     - UPDATE
@@ -241,19 +241,19 @@ webhooks:
   sideEffects: None
 - admissionReviewVersions:
   - v1
-  - v1beta1
+  - v1beta2
   clientConfig:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalhost
+      path: /validate-infrastructure-cluster-x-k8s-io-v1beta2-hetznerbaremetalhost
   failurePolicy: Fail
   name: validation.hetznerbaremetalhost.infrastructure.cluster.x-k8s.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
     apiVersions:
-    - v1beta1
+    - v1beta2
     operations:
     - CREATE
     - UPDATE
@@ -262,19 +262,19 @@ webhooks:
   sideEffects: None
 - admissionReviewVersions:
   - v1
-  - v1beta1
+  - v1beta2
   clientConfig:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalmachine
+      path: /validate-infrastructure-cluster-x-k8s-io-v1beta2-hetznerbaremetalmachine
   failurePolicy: Fail
   name: validation.hetznerbaremetalmachine.infrastructure.cluster.x-k8s.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
     apiVersions:
-    - v1beta1
+    - v1beta2
     operations:
     - CREATE
     - UPDATE
@@ -283,19 +283,19 @@ webhooks:
   sideEffects: None
 - admissionReviewVersions:
   - v1
-  - v1beta1
+  - v1beta2
   clientConfig:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalmachinetemplate
+      path: /validate-infrastructure-cluster-x-k8s-io-v1beta2-hetznerbaremetalmachinetemplate
   failurePolicy: Fail
   name: validation.hetznerbaremetalmachinetemplate.infrastructure.cluster.x-k8s.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
     apiVersions:
-    - v1beta1
+    - v1beta2
     operations:
     - CREATE
     - UPDATE
@@ -304,19 +304,19 @@ webhooks:
   sideEffects: None
 - admissionReviewVersions:
   - v1
-  - v1beta1
+  - v1beta2
   clientConfig:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalremediation
+      path: /validate-infrastructure-cluster-x-k8s-io-v1beta2-hetznerbaremetalremediation
   failurePolicy: Fail
   name: validation.hetznerbaremetalremediation.infrastructure.cluster.x-k8s.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
     apiVersions:
-    - v1beta1
+    - v1beta2
     operations:
     - CREATE
     - UPDATE
@@ -325,19 +325,19 @@ webhooks:
   sideEffects: None
 - admissionReviewVersions:
   - v1
-  - v1beta1
+  - v1beta2
   clientConfig:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-infrastructure-cluster-x-k8s-io-v1beta1-hetznercluster
+      path: /validate-infrastructure-cluster-x-k8s-io-v1beta2-hetznercluster
   failurePolicy: Fail
   name: validation.hetznercluster.infrastructure.cluster.x-k8s.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
     apiVersions:
-    - v1beta1
+    - v1beta2
     operations:
     - CREATE
     - UPDATE
@@ -346,19 +346,19 @@ webhooks:
   sideEffects: None
 - admissionReviewVersions:
   - v1
-  - v1beta1
+  - v1beta2
   clientConfig:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerclustertemplate
+      path: /validate-infrastructure-cluster-x-k8s-io-v1beta2-hetznerclustertemplate
   failurePolicy: Fail
   name: validation.hetznerclustertemplate.infrastructure.cluster.x-k8s.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
     apiVersions:
-    - v1beta1
+    - v1beta2
     operations:
     - CREATE
     - UPDATE
@@ -371,14 +371,14 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-infrastructure-cluster-x-k8s-io-v1beta1-hcloudremediationtemplate
+      path: /validate-infrastructure-cluster-x-k8s-io-v1beta2-hcloudremediationtemplate
   failurePolicy: Fail
   name: vhcloudremediationtemplate.kb.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
     apiVersions:
-    - v1beta1
+    - v1beta2
     operations:
     - CREATE
     - UPDATE
@@ -391,14 +391,14 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalremediationtemplate
+      path: /validate-infrastructure-cluster-x-k8s-io-v1beta2-hetznerbaremetalremediationtemplate
   failurePolicy: Fail
   name: vhetznerbaremetalremediationtemplate.kb.io
   rules:
   - apiGroups:
     - infrastructure.cluster.x-k8s.io
     apiVersions:
-    - v1beta1
+    - v1beta2
     operations:
     - CREATE
     - UPDATE

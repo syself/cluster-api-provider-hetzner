@@ -27,12 +27,12 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
-	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -45,7 +45,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
@@ -241,9 +242,10 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return r.reconcileDelete(ctx, machineScope)
 	}
 
-	if hcloudMachine.Status.BootState == infrav1.HCloudBootStateProvisioningFailed {
+	c := conditions.Get(hcloudMachine, infrav1.DeleteMachineSucceededCondition)
+	if c != nil && c.Status == metav1.ConditionFalse {
 		// This hcloud machine will be removed soon.
-		log.Info("hcloudmachine: ProvisioningFailed. Not reconciling this machine.")
+		log.Info("hcloudmachine has DeleteMachineSucceededCondition. Not reconciling this machine.")
 		return reconcile.Result{}, nil
 	}
 
@@ -318,7 +320,7 @@ func (r *HCloudMachineReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 		Watches(
 			&clusterv1.Cluster{},
 			handler.EnqueueRequestsFromMapFunc(clusterToObjectFunc),
-			builder.WithPredicates(predicates.ClusterPausedTransitionsOrInfrastructureReady(mgr.GetScheme(), log)),
+			builder.WithPredicates(predicates.ClusterPausedTransitionsOrInfrastructureProvisioned(mgr.GetScheme(), log)),
 		).
 		Complete(r)
 	if err != nil {
@@ -365,13 +367,14 @@ func (r *HCloudMachineReconciler) HetznerClusterToHCloudMachines(_ context.Conte
 		}
 		for _, m := range machineList.Items {
 			log = log.WithValues("machine", m.Name)
-			if m.Spec.InfrastructureRef.GroupVersionKind().Kind != "HCloudMachine" {
+			infraRef := m.Spec.InfrastructureRef
+			if !infraRef.IsDefined() {
 				continue
 			}
-			if m.Spec.InfrastructureRef.Name == "" {
+			if infraRef.Kind != "HCloudMachine" || infraRef.APIGroup != infrav1.GroupVersion.Group {
 				continue
 			}
-			name := client.ObjectKey{Namespace: m.Namespace, Name: m.Spec.InfrastructureRef.Name}
+			name := client.ObjectKey{Namespace: m.Namespace, Name: infraRef.Name}
 
 			result = append(result, reconcile.Request{NamespacedName: name})
 		}

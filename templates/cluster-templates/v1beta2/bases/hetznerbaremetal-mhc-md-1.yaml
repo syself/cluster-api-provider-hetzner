@@ -1,0 +1,21 @@
+apiVersion: cluster.x-k8s.io/v1beta2
+kind: MachineHealthCheck
+metadata:
+  name: "${CLUSTER_NAME}-md-1-unhealthy-5m"
+spec:
+  clusterName: "${CLUSTER_NAME}"
+  selector:
+    matchLabels:
+      nodepool: "${CLUSTER_NAME}-md-1"
+  checks:
+    nodeStartupTimeoutSeconds: 3600
+    unhealthyNodeConditions:
+    - type: Ready
+      status: Unknown
+      timeoutSeconds: 300
+    - type: Ready
+      status: "False"
+      timeoutSeconds: 300
+  remediation:
+    triggerIf:
+      unhealthyLessThanOrEqualTo: 100%

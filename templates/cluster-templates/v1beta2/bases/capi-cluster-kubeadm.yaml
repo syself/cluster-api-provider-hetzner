@@ -1,0 +1,17 @@
+apiVersion: cluster.x-k8s.io/v1beta2
+kind: Cluster
+metadata:
+  name: "${CLUSTER_NAME}"
+spec:
+  clusterNetwork:
+    pods:
+      cidrBlocks:
+      - 10.244.0.0/16
+  infrastructureRef:
+    kind: HetznerCluster
+    name: "${CLUSTER_NAME}"
+    apiGroup: infrastructure.cluster.x-k8s.io
+  controlPlaneRef:
+    kind: KubeadmControlPlane
+    name: "${CLUSTER_NAME}-control-plane"
+    apiGroup: controlplane.cluster.x-k8s.io

@@ -21,14 +21,15 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	"k8s.io/utils/ptr"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
-	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta2"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/conditions"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 )
 
@@ -125,30 +126,38 @@ func (m *BareMetalMachineScope) IsBootstrapReady() bool {
 	return m.Machine.Spec.Bootstrap.DataSecretName != nil
 }
 
-// SetRemediateMachineAnnotationToDeleteMachine sets "cluster.x-k8s.io/remediate-machine" annotation
-// on the corresponding CAPI machine. This will trigger CAPI to start remediation. Our remediation
-// contoller will use HasFatalError() to differentiate between a remediate (with reboot) and delete
-// (no reboot gets tried). Finally the capi machine and the infra machine will be deleted.
-//
-// Background: the hbmm/hbmh controller has no permission to delete a capi machine. That's why this
-// extra step (via remediate-machine annotation) is needed.
-func (m *BareMetalMachineScope) SetRemediateMachineAnnotationToDeleteMachine(ctx context.Context, message string) error {
-	capiMachine := m.Machine
+// SetErrorAndDeleteMachine sets "cluster.x-k8s.io/remediate-machine" annotation on the
+// corresponding CAPI machine. This will trigger CAPI to start remediation. To differentiate a
+// normal remediation from the request to delete the machine, the DeleteMachineSucceededCondition
+// gets set to False on the infra machine. Our remediation contoller will notice this condition and
+// stop remediation (no reboot gets tried). Finally the capi machine and the infra machine will be
+// deleted.
+func (m *BareMetalMachineScope) SetErrorAndDeleteMachine(ctx context.Context, message string) error {
+	obj := m.Machine
 
 	// Create a patch base
-	patch := client.MergeFrom(capiMachine.DeepCopy())
+	patch := client.MergeFrom(obj.DeepCopy())
 
 	// Modify only annotations on the in-memory copy
-	if capiMachine.Annotations == nil {
-		capiMachine.Annotations = map[string]string{}
+	if obj.Annotations == nil {
+		obj.Annotations = map[string]string{}
 	}
-	capiMachine.Annotations[clusterv1.RemediateMachineAnnotation] = ""
+	obj.Annotations[clusterv1.RemediateMachineAnnotation] = ""
 
 	// Apply patch – only the diff (annotations) is sent to the API server
-	if err := m.Client.Patch(ctx, capiMachine, patch); err != nil {
+	if err := m.Client.Patch(ctx, obj, patch); err != nil {
 		return err
 	}
 
 	record.Warnf(m.BareMetalMachine, "MachineWillBeDeleted", "Machine will be deleted: %s", message)
+
+	// Set the condition, so that our remediation controller knows that no reboot should be tried.
+	conditions.MarkFalse(m.BareMetalMachine, infrav1.DeleteMachineSucceededCondition,
+		infrav1.DeleteMachineInProgressReason, clusterv1.ConditionSeverityInfo, "%s", message)
 	return nil
+}
+
+// MarkInfrastructureProvisioned surfaces the initialization signal required by CAPI v1beta2.
+func (m *BareMetalMachineScope) MarkInfrastructureProvisioned() {
+	m.BareMetalMachine.Status.Initialization.Provisioned = ptr.To(true)
 }

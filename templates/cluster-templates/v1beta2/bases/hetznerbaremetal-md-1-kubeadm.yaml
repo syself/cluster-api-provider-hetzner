@@ -1,0 +1,27 @@
+apiVersion: cluster.x-k8s.io/v1beta2
+kind: MachineDeployment
+metadata:
+  name: "${CLUSTER_NAME}-md-1"
+  labels:
+    nodepool: "${CLUSTER_NAME}-md-1"
+spec:
+  clusterName: "${CLUSTER_NAME}"
+  replicas: ${WORKER_MACHINE_COUNT}
+  selector:
+    matchLabels:
+  template:
+    metadata:
+      labels:
+        nodepool: "${CLUSTER_NAME}-md-1"
+    spec:
+      clusterName: "${CLUSTER_NAME}"
+      version: "${KUBERNETES_VERSION}"
+      bootstrap:
+        configRef:
+          name: "${CLUSTER_NAME}-md-1"
+          kind: KubeadmConfigTemplate
+          apiGroup: bootstrap.cluster.x-k8s.io
+      infrastructureRef:
+        name: "${CLUSTER_NAME}-md-1"
+        kind: HetznerBareMetalMachineTemplate
+        apiGroup: infrastructure.cluster.x-k8s.io
