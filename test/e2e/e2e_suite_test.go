@@ -217,18 +217,6 @@ func createClusterctlLocalRepository(ctx context.Context, config *clusterctl.E2E
 	Expect(ccmPath).To(BeAnExistingFile(), "The %s variable should resolve to an existing file", CCMPath)
 	createRepositoryInput.RegisterClusterResourceSetConfigMapTransformation(ccmPath, CCMResources)
 
-	// Ensuring a CCM file is defined for clusters with networks in the config and register a FileTransformation to inject the referenced file as in place of the CCM_RESOURCES envSubst variable.
-	Expect(config.Variables).To(HaveKey(CCMNetworkPath), "Missing %s variable in the config", CCMNetworkPath)
-	ccmNetworkPath := config.GetVariableOrEmpty(CCMNetworkPath)
-	Expect(ccmNetworkPath).To(BeAnExistingFile(), "The %s variable should resolve to an existing file", CCMNetworkPath)
-	createRepositoryInput.RegisterClusterResourceSetConfigMapTransformation(ccmNetworkPath, CCMNetworkResources)
-
-	// Ensuring a CCM file is defined for clusters with networks in the config and register a FileTransformation to inject the referenced file as in place of the CCM_RESOURCES envSubst variable.
-	Expect(config.Variables).To(HaveKey(CCMHetznerPath), "Missing %s variable in the config", CCMHetznerPath)
-	ccmHetznerPath := config.GetVariableOrEmpty(CCMHetznerPath)
-	Expect(ccmHetznerPath).To(BeAnExistingFile(), "The %s variable should resolve to an existing file", CCMHetznerPath)
-	createRepositoryInput.RegisterClusterResourceSetConfigMapTransformation(ccmHetznerPath, CCMHetznerResources)
-
 	clusterctlConfig := clusterctl.CreateRepository(ctx, createRepositoryInput)
 	Expect(clusterctlConfig).To(BeAnExistingFile(), "The clusterctl config file does not exists in the local repository %s", repositoryFolder)
 
