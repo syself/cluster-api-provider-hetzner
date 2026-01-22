@@ -145,7 +145,7 @@ var _ = Describe("handleServerStatusOff", func() {
 			},
 			Spec: infrav1.HCloudMachineSpec{
 				ImageName: "my-control-plane",
-				Type:      "cpx31",
+				Type:      "cpx32",
 			},
 		}
 
@@ -661,7 +661,7 @@ var _ = Describe("Reconcile", func() {
 				Namespace: testNs.Name,
 			},
 			Spec: infrav1.HCloudMachineSpec{
-				Type:      "cpx11",
+				Type:      "cpx22",
 				ImageName: "ubuntu-24.04",
 				SSHKeys: []infrav1.SSHKey{
 					{

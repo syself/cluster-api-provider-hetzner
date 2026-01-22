@@ -62,7 +62,7 @@ resp.json
 # release artifacts
 out
 _releasenotes
-templates/cluster-templates/cluster-template*
+/generated/v1*
 
 # Helm
 .helm

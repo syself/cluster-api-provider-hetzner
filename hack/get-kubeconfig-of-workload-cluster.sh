@@ -16,8 +16,17 @@
 
 set -euo pipefail
 
+CLUSTER_NAME=${CLUSTER_NAME:-}
+CLUSTER_NAMESPACE=${CLUSTER_NAMESPACE:-}
+
 if [ -z "${CLUSTER_NAME:-}" ]; then
-    echo "env var CLUSTER_NAME is missing. Failed to get kubeconfig of workload cluster"
+    # Pick the first cluster found if none is provided explicitly.
+    CLUSTER_NAME=$(kubectl get clusters -A -o jsonpath='{.items[0].metadata.name}')
+    CLUSTER_NAMESPACE=$(kubectl get clusters -A -o jsonpath='{.items[0].metadata.namespace}')
+fi
+
+if [ -z "$CLUSTER_NAME" ]; then
+    echo "env var CLUSTER_NAME is missing and no clusters found. Failed to get kubeconfig of workload cluster"
     exit 1
 fi
 
@@ -30,6 +39,7 @@ if [[ ! -e $KUBECONFIG ]]; then
     echo "KUBECONFIG=$KUBECONFIG file does not exist!  Failed to get kubeconfig of workload cluster"
     exit 1
 fi
+
 
 kubeconfig=".workload-cluster-kubeconfig.yaml"
 if ! new_content="$(kubectl get secrets "${CLUSTER_NAME}-kubeconfig" -ojsonpath='{.data.value}' 2>/dev/null | base64 -d)"; then
