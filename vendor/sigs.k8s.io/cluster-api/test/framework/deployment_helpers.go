@@ -49,15 +49,14 @@ import (
 	toolscache "sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
+	controlplanev1 "sigs.k8s.io/cluster-api/api/controlplane/kubeadm/v1beta2"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	. "sigs.k8s.io/cluster-api/test/framework/ginkgoextensions"
 	"sigs.k8s.io/cluster-api/test/framework/internal/log"
 )
 
 const (
-	nodeRoleOldControlPlane = "node-role.kubernetes.io/master" // Deprecated: https://github.com/kubernetes/kubeadm/issues/2200
-	nodeRoleControlPlane    = "node-role.kubernetes.io/control-plane"
+	nodeRoleControlPlane = "node-role.kubernetes.io/control-plane"
 )
 
 // WaitForDeploymentsAvailableInput is the input for WaitForDeploymentsAvailable.
@@ -251,7 +250,7 @@ func (eh *watchPodLogsEventHandler) streamPodLogs(pod *corev1.Pod) {
 		return
 	}
 
-	for _, container := range pod.Spec.Containers {
+	for _, container := range append(pod.Spec.Containers, pod.Spec.InitContainers...) {
 		log.Logf("Creating log watcher for controller %s, pod %s, container %s", klog.KRef(eh.input.Namespace, eh.input.ManagingResourceName), pod.Name, container.Name)
 
 		// Create log metadata file.
