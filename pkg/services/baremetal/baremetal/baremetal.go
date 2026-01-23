@@ -677,7 +677,13 @@ func (s *Service) setProviderID(ctx context.Context) error {
 		return nil
 	}
 
-	// set providerID
+	// TODO TODO TODO: We must not set the new format for old wl-clusters. Idea: from
+	// Kubernetes 1.35 on, we trust that the wl-cluster has a current ccm which writes the new
+	// format. Before that we use the old format.
+	// One solution would be two new arguments for caph aund our ccm:
+	// --bm-provider-id-always-hrobot (default is always use old hcloud://bm-)
+	// --bm-provider-id-use-hrobot-if-great-equal-kubernetes=1.NN
+	// TODO TODO TODO.
 	providerID := fmt.Sprintf("hrobot://%d", host.Spec.ServerID)
 	s.scope.BareMetalMachine.Spec.ProviderID = &providerID
 	s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhaseRunning
