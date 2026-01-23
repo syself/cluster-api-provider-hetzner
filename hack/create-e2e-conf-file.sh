@@ -38,4 +38,4 @@ make release-manifests
 git restore config
 
 echo "# Created from $E2E_CONF_FILE_SOURCE by $0" >"$E2E_CONF_FILE"
-$CLUSTERCLT generate yaml <"$E2E_CONF_FILE_SOURCE" >>"$E2E_CONF_FILE"
+$CLUSTERCTL generate yaml <"$E2E_CONF_FILE_SOURCE" >>"$E2E_CONF_FILE"
