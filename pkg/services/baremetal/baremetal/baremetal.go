@@ -37,6 +37,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
+	"k8s.io/apimachinery/pkg/util/version"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
@@ -677,14 +678,20 @@ func (s *Service) setProviderID(ctx context.Context) error {
 		return nil
 	}
 
-	// TODO TODO TODO: We must not set the new format for old wl-clusters. Idea: from
-	// Kubernetes 1.35 on, we trust that the wl-cluster has a current ccm which writes the new
-	// format. Before that we use the old format.
-	// One solution would be two new arguments for caph aund our ccm:
-	// --bm-provider-id-always-hrobot (default is always use old hcloud://bm-)
-	// --bm-provider-id-use-hrobot-if-great-equal-kubernetes=1.NN
-	// TODO TODO TODO.
-	providerID := fmt.Sprintf("hrobot://%d", host.Spec.ServerID)
+	var kubeVersion *version.Version
+	if s.scope.BmProviderIdUseHrobotIfGreaterEqualVersion != nil {
+		if s.scope.Machine.Spec.Version == nil || *s.scope.Machine.Spec.Version == "" {
+			return fmt.Errorf("machine spec.version is empty")
+		}
+
+		var err error
+		kubeVersion, err = version.ParseSemantic(*s.scope.Machine.Spec.Version)
+		if err != nil {
+			return fmt.Errorf("invalid machine spec.version %q: %w", *s.scope.Machine.Spec.Version, err)
+		}
+	}
+	providerID := GenerateProviderId(host.Spec.ServerID, s.scope.BmProviderIdAlwaysUseHrobot,
+		s.scope.BmProviderIdUseHrobotIfGreaterEqualVersion, kubeVersion)
 	s.scope.BareMetalMachine.Spec.ProviderID = &providerID
 	s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhaseRunning
 
@@ -901,4 +908,24 @@ func analyzePatchError(err error, ignoreNotFound bool) error {
 		return nil
 	}
 	return err
+}
+
+// GenerateProviderId uses hrobot format if bmProviderIdAlwaysUseHrobot is true. If
+// bmProviderIdUseHrobotIfGreaterEqualVersion is nil use hcloud://bm-NNNN format. Otherwise compare
+// bmProviderIdUseHrobotIfGreaterEqualVersion and kubeVersion. See command line args:
+// --bm-provider-id-always-hrobot and --bm-provider-id-use-hrobot-if-great-equal-kubernetes=1.NN
+func GenerateProviderId(serverId int, bmProviderIdAlwaysUseHrobot bool,
+	bmProviderIdUseHrobotIfGreaterEqualVersion *version.Version,
+	kubeVersion *version.Version,
+) string {
+	if bmProviderIdAlwaysUseHrobot {
+		return fmt.Sprintf("hrobot://%d", serverId)
+	}
+	if bmProviderIdUseHrobotIfGreaterEqualVersion == nil {
+		return fmt.Sprintf("hcloud://bm-%d", serverId)
+	}
+	if kubeVersion.AtLeast(bmProviderIdUseHrobotIfGreaterEqualVersion) {
+		return fmt.Sprintf("hrobot://%d", serverId)
+	}
+	return fmt.Sprintf("hcloud://bm-%d", serverId)
 }

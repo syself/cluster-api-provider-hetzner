@@ -25,6 +25,7 @@ import (
 	"github.com/go-logr/logr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/version"
 	"k8s.io/klog/v2"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
@@ -49,11 +50,12 @@ import (
 // HetznerBareMetalMachineReconciler reconciles a HetznerBareMetalMachine object.
 type HetznerBareMetalMachineReconciler struct {
 	client.Client
-	APIReader           client.Reader
-	RateLimitWaitTime   time.Duration
-	HCloudClientFactory hcloudclient.Factory
-	WatchFilterValue    string
-
+	APIReader                                  client.Reader
+	RateLimitWaitTime                          time.Duration
+	HCloudClientFactory                        hcloudclient.Factory
+	WatchFilterValue                           string
+	BmProviderIdAlwaysUseHrobot                bool
+	BmProviderIdUseHrobotIfGreaterEqualVersion *version.Version
 	// Reconcile only this namespace. Only needed for testing
 	Namespace string
 }
@@ -131,12 +133,14 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 
 	// Create the scope.
 	machineScope, err := scope.NewBareMetalMachineScope(scope.BareMetalMachineScopeParams{
-		Client:           r.Client,
-		Logger:           log,
-		Machine:          capiMachine,
-		BareMetalMachine: hbmMachine,
-		HetznerCluster:   hetznerCluster,
-		HCloudClient:     hcc,
+		Client:                      r.Client,
+		Logger:                      log,
+		Machine:                     capiMachine,
+		BareMetalMachine:            hbmMachine,
+		HetznerCluster:              hetznerCluster,
+		HCloudClient:                hcc,
+		BmProviderIdAlwaysUseHrobot: r.BmProviderIdAlwaysUseHrobot,
+		BmProviderIdUseHrobotIfGreaterEqualVersion: r.BmProviderIdUseHrobotIfGreaterEqualVersion,
 	})
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %w", err)

@@ -19,11 +19,13 @@ package baremetal
 import (
 	"context"
 	"fmt"
+	"testing"
 	"time"
 
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/selection"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/version"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -796,3 +799,13 @@ var _ = Describe("Test analyzePatchError", func() {
 		}),
 	)
 })
+
+func TestGenerateProviderId(t *testing.T) {
+	require.Equal(t, "hrobot://42", GenerateProviderId(42, true, nil, nil))
+	require.Equal(t, "hcloud://bm-42", GenerateProviderId(42, false, nil, nil))
+
+	threshold := version.MustParseSemantic("1.35.0")
+	require.Equal(t, "hrobot://42", GenerateProviderId(42, false, threshold, version.MustParseSemantic("1.35.1")))
+	require.Equal(t, "hcloud://bm-42", GenerateProviderId(42, false, threshold, version.MustParseSemantic("1.34.9")))
+	require.Equal(t, "hrobot://42", GenerateProviderId(42, false, threshold, version.MustParseSemantic("1.111.9")))
+}

@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/util/version"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/conditions"
@@ -40,6 +41,9 @@ type BareMetalMachineScopeParams struct {
 	BareMetalMachine *infrav1.HetznerBareMetalMachine
 	HetznerCluster   *infrav1.HetznerCluster
 	HCloudClient     hcloudclient.Client
+
+	BmProviderIdAlwaysUseHrobot                bool
+	BmProviderIdUseHrobotIfGreaterEqualVersion *version.Version
 }
 
 // NewBareMetalMachineScope creates a new Scope from the supplied parameters.
@@ -72,13 +76,15 @@ func NewBareMetalMachineScope(params BareMetalMachineScopeParams) (*BareMetalMac
 	}
 
 	return &BareMetalMachineScope{
-		Logger:           params.Logger,
-		Client:           params.Client,
-		patchHelper:      patchHelper,
-		Machine:          params.Machine,
-		BareMetalMachine: params.BareMetalMachine,
-		HetznerCluster:   params.HetznerCluster,
-		HCloudClient:     params.HCloudClient,
+		Logger:                      params.Logger,
+		Client:                      params.Client,
+		patchHelper:                 patchHelper,
+		Machine:                     params.Machine,
+		BareMetalMachine:            params.BareMetalMachine,
+		HetznerCluster:              params.HetznerCluster,
+		HCloudClient:                params.HCloudClient,
+		BmProviderIdAlwaysUseHrobot: params.BmProviderIdAlwaysUseHrobot,
+		BmProviderIdUseHrobotIfGreaterEqualVersion: params.BmProviderIdUseHrobotIfGreaterEqualVersion,
 	}, nil
 }
 
@@ -92,6 +98,9 @@ type BareMetalMachineScope struct {
 	HetznerCluster   *infrav1.HetznerCluster
 
 	HCloudClient hcloudclient.Client
+
+	BmProviderIdAlwaysUseHrobot                bool
+	BmProviderIdUseHrobotIfGreaterEqualVersion *version.Version
 }
 
 // Close closes the current scope persisting the cluster configuration and status.

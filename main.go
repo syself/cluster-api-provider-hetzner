@@ -31,6 +31,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/version"
+	utilversion "k8s.io/apimachinery/pkg/util/version"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -72,25 +74,27 @@ func init() {
 }
 
 var (
-	metricsAddr                        string
-	enableLeaderElection               bool
-	disableCSRApproval                 bool
-	leaderElectionNamespace            string
-	probeAddr                          string
-	watchFilterValue                   string
-	watchNamespace                     string
-	hetznerClusterConcurrency          int
-	hcloudMachineConcurrency           int
-	hetznerBareMetalMachineConcurrency int
-	hetznerBareMetalHostConcurrency    int
-	logLevel                           string
-	syncPeriod                         time.Duration
-	rateLimitWaitTime                  time.Duration
-	preProvisionCommand                string
-	hcloudImageURLCommand              string
-	baremetalImageURLCommand           string
-	skipWebhooks                       bool
-	sshAfterInstallImage               bool
+	metricsAddr                         string
+	enableLeaderElection                bool
+	disableCSRApproval                  bool
+	leaderElectionNamespace             string
+	probeAddr                           string
+	watchFilterValue                    string
+	watchNamespace                      string
+	hetznerClusterConcurrency           int
+	hcloudMachineConcurrency            int
+	hetznerBareMetalMachineConcurrency  int
+	hetznerBareMetalHostConcurrency     int
+	logLevel                            string
+	syncPeriod                          time.Duration
+	rateLimitWaitTime                   time.Duration
+	preProvisionCommand                 string
+	hcloudImageURLCommand               string
+	baremetalImageURLCommand            string
+	skipWebhooks                        bool
+	sshAfterInstallImage                bool
+	bmProviderIdAlwaysUseHrobot         bool
+	bmProviderIdUseHrobotIfGreaterEqual string
 )
 
 // strictManager is a ctrl.Manager that creates controller-runtime clients that enforce strict
@@ -129,6 +133,8 @@ func main() {
 	fs.StringVar(&baremetalImageURLCommand, "baremetal-image-url-command", "", "Command to run (in rescue-system) to provision an baremetal machine. Docs: https://syself.com/docs/caph/developers/image-url-command")
 	fs.BoolVar(&skipWebhooks, "skip-webhooks", false, "Skip setting up of webhooks. Together with --leader-elect=false, you can use `go run main.go` to run CAPH in a cluster connected via KUBECONFIG. You should scale down the caph deployment to 0 before doing that. This is only for testing!")
 	fs.BoolVar(&sshAfterInstallImage, "baremetal-ssh-after-install-image", true, "Connect to the baremetal machine after install-image and ensure it is provisioned. Current default is true, but we might change that to false. Background: Users might not want the controller to be able to ssh onto the servers")
+	fs.BoolVar(&bmProviderIdAlwaysUseHrobot, "bm-provider-id-always-use-hrobot", false, "Always use the upstream hcloud ccm format for bare-metal providerID: `hrobot://NNNN`. Default is to use the old format: `hcloud://bm-NNNN`")
+	fs.StringVar(&bmProviderIdUseHrobotIfGreaterEqual, "bm-provider-id-use-hrobot-if-great-equal-kubernetes", "", "Use the upstream hcloud ccm format for bare-metal providerID: `hrobot://NNNN`, if Kubernetes is greater than the given value. Format is `N.MM` (like 1.35) or N.MM.P. Default is to use always the old format: `hcloud://bm-NNNN`")
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
@@ -183,6 +189,20 @@ func main() {
 		}
 	}
 
+	if bmProviderIdUseHrobotIfGreaterEqual != "" && bmProviderIdAlwaysUseHrobot {
+		setupLog.Error(errors.New("--bm-provider-id-always-use-hrobot and --bm-provider-id-use-hrobot-if-great-equal-kubernetes must not be used together"), "")
+		os.Exit(1)
+	}
+
+	var bmProviderIdUseHrobotIfGreaterEqualVersion *version.Version
+	if bmProviderIdUseHrobotIfGreaterEqual != "" {
+		var err error
+		bmProviderIdUseHrobotIfGreaterEqualVersion, err = utilversion.ParseGeneric(bmProviderIdUseHrobotIfGreaterEqual)
+		if err != nil {
+			setupLog.Error(err, "--bm-provider-id-use-hrobot-if-great-equal-kubernetes failed to parse")
+			os.Exit(1)
+		}
+	}
 	var watchNamespaces map[string]cache.Config
 	if watchNamespace != "" {
 		watchNamespaces = map[string]cache.Config{
@@ -287,11 +307,13 @@ func main() {
 	}
 
 	if err = (&controllers.HetznerBareMetalMachineReconciler{
-		Client:              mgr.GetClient(),
-		APIReader:           mgr.GetAPIReader(),
-		RateLimitWaitTime:   rateLimitWaitTime,
-		HCloudClientFactory: hcloudClientFactory,
-		WatchFilterValue:    watchFilterValue,
+		Client:                      mgr.GetClient(),
+		APIReader:                   mgr.GetAPIReader(),
+		RateLimitWaitTime:           rateLimitWaitTime,
+		HCloudClientFactory:         hcloudClientFactory,
+		WatchFilterValue:            watchFilterValue,
+		BmProviderIdAlwaysUseHrobot: bmProviderIdAlwaysUseHrobot,
+		BmProviderIdUseHrobotIfGreaterEqualVersion: bmProviderIdUseHrobotIfGreaterEqualVersion,
 	}).SetupWithManager(ctx, mgr, controller.Options{MaxConcurrentReconciles: hetznerBareMetalMachineConcurrency}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HetznerBareMetalMachine")
 		os.Exit(1)

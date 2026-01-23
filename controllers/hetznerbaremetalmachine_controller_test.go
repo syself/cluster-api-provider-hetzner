@@ -605,6 +605,23 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					return isPresentAndTrue(key, bmMachine, infrav1.HostReadyCondition)
 				}, timeout, time.Second).Should(BeTrue())
 			})
+
+			It("checks providerId is set. By default return the old format", func() {
+				Eventually(func() error {
+					err := testEnv.Get(ctx, client.ObjectKeyFromObject(bmMachine), bmMachine)
+					if err != nil {
+						return err
+					}
+					if bmMachine.Spec.ProviderID == nil {
+						return fmt.Errorf("bmMachine.Spec.ProviderID is nil.")
+					}
+					if *bmMachine.Spec.ProviderID != "hcloud://bm-1" {
+						return fmt.Errorf("bmMachine.Spec.ProviderID  = %q",
+							*bmMachine.Spec.ProviderID)
+					}
+					return nil
+				}, timeout, time.Second).Should(Succeed())
+			})
 		})
 
 		Context("Test wrong Host", func() {
