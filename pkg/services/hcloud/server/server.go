@@ -1050,11 +1050,20 @@ func (s *Service) createServer(ctx context.Context, userData []byte, image *hclo
 	// Create the server
 	server, err := s.scope.HCloudClient.CreateServer(ctx, opts)
 	if err != nil {
+		serverType := "nil"
+		if opts.ServerType != nil {
+			serverType = opts.ServerType.Name
+		}
+
+		msg := fmt.Sprintf("failed to create HCloud server %q in %q (type %q)",
+			hm.Name, opts.Location.Name, serverType)
+
 		if hcloudutil.HandleRateLimitExceeded(hm, err, "CreateServer") {
 			// RateLimit was reached. Condition and Event got already created.
-			return nil, fmt.Errorf("failed to create HCloud server %s: %w", hm.Name, err)
+			return nil, fmt.Errorf("%s: %w", msg, err)
 		}
-		msg := fmt.Sprintf("failed to create HCloud server %s: %s", hm.Name, err.Error())
+
+		msg = fmt.Sprintf("%s: %s", msg, err.Error())
 		s.scope.Logger.Error(nil, msg)
 		// No condition was set yet. Set a general condition to false.
 		conditions.MarkFalse(hm, infrav1.ServerCreateSucceededCondition,

@@ -70,6 +70,7 @@ func TestControllers(t *testing.T) {
 }
 
 type ControllerResetter struct {
+	debug                                 bool
 	HetznerClusterReconciler              *HetznerClusterReconciler
 	HCloudMachineReconciler               *HCloudMachineReconciler
 	HCloudMachineTemplateReconciler       *HCloudMachineTemplateReconciler
@@ -96,6 +97,7 @@ func NewControllerResetter(
 		HetznerBareMetalMachineReconciler:     hetznerBareMetalMachineReconciler,
 		HCloudRemediationReconciler:           hcloudRemediationReconciler,
 		HetznerBareMetalRemediationReconciler: hetznerBareMetalRemediationReconciler,
+		debug:                                 os.Getenv("DEBUG") != "",
 	}
 }
 
@@ -159,6 +161,10 @@ func (r *ControllerResetter) ResetAndInitNamespace(namespace string, testEnv *he
 	r.HetznerBareMetalMachineReconciler.Namespace = namespace
 
 	r.HetznerBareMetalRemediationReconciler.Namespace = namespace
+
+	if r.debug {
+		testEnv.GetLogger().Info("Starting test: ===> ===> ===> ===> ===> ===> ===> " + t.Name())
+	}
 }
 
 var _ = BeforeSuite(func() {

@@ -17,6 +17,7 @@ limitations under the License.
 package controllers
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
@@ -346,7 +347,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 					},
 					Spec: infrav1.HCloudMachineSpec{
 						ImageName:          "my-control-plane",
-						Type:               "cpx31",
+						Type:               "cpx32",
 						PlacementGroupName: &defaultPlacementGroupName,
 					},
 				}
@@ -387,9 +388,23 @@ var _ = Describe("HCloudMachineReconciler", func() {
 
 				By("checking that bootstrap condition is not ready")
 
-				Eventually(func() bool {
-					return isPresentAndFalseWithReason(key, hcloudMachine, infrav1.BootstrapReadyCondition, infrav1.BootstrapNotReadyReason)
-				}, timeout, interval).Should(BeTrue())
+				Eventually(func() error {
+					err := testEnv.Get(ctx, client.ObjectKeyFromObject(hcloudMachine), hcloudMachine)
+					if err != nil {
+						return err
+					}
+					c := conditions.Get(hcloudMachine, infrav1.BootstrapReadyCondition)
+					if c == nil {
+						return fmt.Errorf("BootstrapReadyCondition not set")
+					}
+					if c.Status != corev1.ConditionFalse {
+						return fmt.Errorf("BootstrapReadyCondition not false")
+					}
+					if c.Reason != infrav1.BootstrapNotReadyReason {
+						return fmt.Errorf("BootstrapNotReadyReason not set. Reason: %q", c.Reason)
+					}
+					return nil
+				}, timeout, interval).Should(Succeed())
 
 				By("setting the bootstrap data")
 
@@ -479,7 +494,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 					},
 					Spec: infrav1.HCloudMachineSpec{
 						ImageName:          "my-control-plane-2",
-						Type:               "cpx31",
+						Type:               "cpx32",
 						PlacementGroupName: &defaultPlacementGroupName,
 					},
 				}
@@ -523,7 +538,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				},
 				Spec: infrav1.HCloudMachineSpec{
 					ImageName:          "my-control-plane",
-					Type:               "cpx31",
+					Type:               "cpx32",
 					PlacementGroupName: &defaultPlacementGroupName,
 				},
 			}
@@ -613,6 +628,24 @@ var _ = Describe("HCloudMachineReconciler", func() {
 					EnableIPv6: false,
 				}
 				Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
+				Eventually(func() bool {
+					var updatedCluster infrav1.HetznerCluster
+					if err := testEnv.Get(ctx, client.ObjectKeyFromObject(hetznerCluster), &updatedCluster); err != nil {
+						return false
+					}
+
+					if updatedCluster.Spec.ControlPlaneEndpoint == nil {
+						return false
+					}
+					if updatedCluster.Status.ControlPlaneLoadBalancer == nil {
+						return false
+					}
+					if updatedCluster.Status.ControlPlaneLoadBalancer.IPv4 == "" {
+						return false
+					}
+
+					return updatedCluster.Spec.ControlPlaneEndpoint.Host == updatedCluster.Status.ControlPlaneLoadBalancer.IPv4
+				}, timeout, interval).Should(BeTrue())
 				Expect(testEnv.Create(ctx, hcloudMachine)).To(Succeed())
 			})
 
@@ -740,7 +773,7 @@ var _ = Describe("Hetzner secret", func() {
 			},
 			Spec: infrav1.HCloudMachineSpec{
 				ImageName:          "my-control-plane",
-				Type:               "cpx31",
+				Type:               "cpx32",
 				PlacementGroupName: &defaultPlacementGroupName,
 			},
 		}
@@ -816,7 +849,7 @@ var _ = Describe("HCloudMachine validation", func() {
 			},
 			Spec: infrav1.HCloudMachineSpec{
 				ImageName: "my-control-plane",
-				Type:      "cpx31",
+				Type:      "cpx32",
 			},
 		}
 	})
@@ -842,7 +875,7 @@ var _ = Describe("HCloudMachine validation", func() {
 			return testEnv.Client.Get(ctx, key, hcloudMachine)
 		}, timeout, interval).Should(BeNil())
 
-		hcloudMachine.Spec.Type = "cpx32"
+		hcloudMachine.Spec.Type = "cpx42"
 		hcloudMachine.Spec.ImageName = "my-control-plane"
 		Expect(testEnv.Update(ctx, hcloudMachine)).ToNot(Succeed())
 	})
