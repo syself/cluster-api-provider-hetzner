@@ -679,7 +679,7 @@ func (s *Service) setProviderID(ctx context.Context) error {
 	}
 
 	var kubeVersion *version.Version
-	if s.scope.BmProviderIdUseHrobotIfGreaterEqualVersion != nil {
+	if s.scope.BmProviderIDUseHrobotIfGreaterEqualVersion != nil {
 		if s.scope.Machine.Spec.Version == nil || *s.scope.Machine.Spec.Version == "" {
 			return fmt.Errorf("machine spec.version is empty")
 		}
@@ -690,8 +690,8 @@ func (s *Service) setProviderID(ctx context.Context) error {
 			return fmt.Errorf("invalid machine spec.version %q: %w", *s.scope.Machine.Spec.Version, err)
 		}
 	}
-	providerID := GenerateProviderId(host.Spec.ServerID, s.scope.BmProviderIdAlwaysUseHrobot,
-		s.scope.BmProviderIdUseHrobotIfGreaterEqualVersion, kubeVersion)
+	providerID := GenerateProviderID(host.Spec.ServerID, s.scope.BmProviderIDAlwaysUseHrobot,
+		s.scope.BmProviderIDUseHrobotIfGreaterEqualVersion, kubeVersion)
 	s.scope.BareMetalMachine.Spec.ProviderID = &providerID
 	s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhaseRunning
 
@@ -910,22 +910,22 @@ func analyzePatchError(err error, ignoreNotFound bool) error {
 	return err
 }
 
-// GenerateProviderId uses hrobot format if bmProviderIdAlwaysUseHrobot is true. If
+// GenerateProviderID uses hrobot format if BmProviderIDAlwaysUseHrobot is true. If
 // bmProviderIdUseHrobotIfGreaterEqualVersion is nil use hcloud://bm-NNNN format. Otherwise compare
 // bmProviderIdUseHrobotIfGreaterEqualVersion and kubeVersion. See command line args:
-// --bm-provider-id-always-hrobot and --bm-provider-id-use-hrobot-if-great-equal-kubernetes=1.NN
-func GenerateProviderId(serverId int, bmProviderIdAlwaysUseHrobot bool,
-	bmProviderIdUseHrobotIfGreaterEqualVersion *version.Version,
+// --bm-provider-id-always-hrobot and --bm-provider-id-use-hrobot-if-great-equal-kubernetes=1.NN.
+func GenerateProviderID(serverID int, bmProviderIDAlwaysUseHrobot bool,
+	bmProviderIDUseHrobotIfGreaterEqualVersion *version.Version,
 	kubeVersion *version.Version,
 ) string {
-	if bmProviderIdAlwaysUseHrobot {
-		return fmt.Sprintf("hrobot://%d", serverId)
+	if bmProviderIDAlwaysUseHrobot {
+		return fmt.Sprintf("hrobot://%d", serverID)
 	}
-	if bmProviderIdUseHrobotIfGreaterEqualVersion == nil {
-		return fmt.Sprintf("hcloud://bm-%d", serverId)
+	if bmProviderIDUseHrobotIfGreaterEqualVersion == nil {
+		return fmt.Sprintf("hcloud://bm-%d", serverID)
 	}
-	if kubeVersion.AtLeast(bmProviderIdUseHrobotIfGreaterEqualVersion) {
-		return fmt.Sprintf("hrobot://%d", serverId)
+	if kubeVersion.AtLeast(bmProviderIDUseHrobotIfGreaterEqualVersion) {
+		return fmt.Sprintf("hrobot://%d", serverID)
 	}
-	return fmt.Sprintf("hcloud://bm-%d", serverId)
+	return fmt.Sprintf("hcloud://bm-%d", serverID)
 }

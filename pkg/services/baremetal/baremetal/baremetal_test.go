@@ -800,12 +800,12 @@ var _ = Describe("Test analyzePatchError", func() {
 	)
 })
 
-func TestGenerateProviderId(t *testing.T) {
-	require.Equal(t, "hrobot://42", GenerateProviderId(42, true, nil, nil))
-	require.Equal(t, "hcloud://bm-42", GenerateProviderId(42, false, nil, nil))
+func TestGenerateProviderID(t *testing.T) {
+	require.Equal(t, "hrobot://42", GenerateProviderID(42, true, nil, nil))
+	require.Equal(t, "hcloud://bm-42", GenerateProviderID(42, false, nil, nil))
 
 	threshold := version.MustParseSemantic("1.35.0")
-	require.Equal(t, "hrobot://42", GenerateProviderId(42, false, threshold, version.MustParseSemantic("1.35.1")))
-	require.Equal(t, "hcloud://bm-42", GenerateProviderId(42, false, threshold, version.MustParseSemantic("1.34.9")))
-	require.Equal(t, "hrobot://42", GenerateProviderId(42, false, threshold, version.MustParseSemantic("1.111.9")))
+	require.Equal(t, "hrobot://42", GenerateProviderID(42, false, threshold, version.MustParseSemantic("1.35.1")))
+	require.Equal(t, "hcloud://bm-42", GenerateProviderID(42, false, threshold, version.MustParseSemantic("1.34.9")))
+	require.Equal(t, "hrobot://42", GenerateProviderID(42, false, threshold, version.MustParseSemantic("1.111.9")))
 }

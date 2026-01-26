@@ -42,8 +42,8 @@ type BareMetalMachineScopeParams struct {
 	HetznerCluster   *infrav1.HetznerCluster
 	HCloudClient     hcloudclient.Client
 
-	BmProviderIdAlwaysUseHrobot                bool
-	BmProviderIdUseHrobotIfGreaterEqualVersion *version.Version
+	BmProviderIDAlwaysUseHrobot                bool
+	BmProviderIDUseHrobotIfGreaterEqualVersion *version.Version
 }
 
 // NewBareMetalMachineScope creates a new Scope from the supplied parameters.
@@ -83,8 +83,8 @@ func NewBareMetalMachineScope(params BareMetalMachineScopeParams) (*BareMetalMac
 		BareMetalMachine:            params.BareMetalMachine,
 		HetznerCluster:              params.HetznerCluster,
 		HCloudClient:                params.HCloudClient,
-		BmProviderIdAlwaysUseHrobot: params.BmProviderIdAlwaysUseHrobot,
-		BmProviderIdUseHrobotIfGreaterEqualVersion: params.BmProviderIdUseHrobotIfGreaterEqualVersion,
+		BmProviderIDAlwaysUseHrobot: params.BmProviderIDAlwaysUseHrobot,
+		BmProviderIDUseHrobotIfGreaterEqualVersion: params.BmProviderIDUseHrobotIfGreaterEqualVersion,
 	}, nil
 }
 
@@ -99,8 +99,8 @@ type BareMetalMachineScope struct {
 
 	HCloudClient hcloudclient.Client
 
-	BmProviderIdAlwaysUseHrobot                bool
-	BmProviderIdUseHrobotIfGreaterEqualVersion *version.Version
+	BmProviderIDAlwaysUseHrobot                bool
+	BmProviderIDUseHrobotIfGreaterEqualVersion *version.Version
 }
 
 // Close closes the current scope persisting the cluster configuration and status.

@@ -54,8 +54,8 @@ type HetznerBareMetalMachineReconciler struct {
 	RateLimitWaitTime                          time.Duration
 	HCloudClientFactory                        hcloudclient.Factory
 	WatchFilterValue                           string
-	BmProviderIdAlwaysUseHrobot                bool
-	BmProviderIdUseHrobotIfGreaterEqualVersion *version.Version
+	BmProviderIDAlwaysUseHrobot                bool
+	BmProviderIDUseHrobotIfGreaterEqualVersion *version.Version
 	// Reconcile only this namespace. Only needed for testing
 	Namespace string
 }
@@ -139,8 +139,8 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 		BareMetalMachine:            hbmMachine,
 		HetznerCluster:              hetznerCluster,
 		HCloudClient:                hcc,
-		BmProviderIdAlwaysUseHrobot: r.BmProviderIdAlwaysUseHrobot,
-		BmProviderIdUseHrobotIfGreaterEqualVersion: r.BmProviderIdUseHrobotIfGreaterEqualVersion,
+		BmProviderIDAlwaysUseHrobot: r.BmProviderIDAlwaysUseHrobot,
+		BmProviderIDUseHrobotIfGreaterEqualVersion: r.BmProviderIDUseHrobotIfGreaterEqualVersion,
 	})
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %w", err)
