@@ -71,9 +71,6 @@ RUN apt-get update && \
 # Install controller-gen (current version)
 RUN go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.18.0
 
-# Install controller-gen (current version)
-RUN go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.18.0
-
 COPY --from=lychee /usr/bin/lychee /usr/bin/lychee
 COPY --from=golangci /bin/golangci-lint /usr/local/bin
 COPY --from=hadolint /bin/hadolint /usr/bin/hadolint

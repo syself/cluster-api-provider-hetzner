@@ -28,6 +28,14 @@ KUBEBUILDER_ASSETS=$(./hack/tools/bin/setup-envtest use --use-env \
     --bin-dir "$PWD/hack/tools/bin" -p path \
     "$KUBEBUILDER_ENVTEST_KUBERNETES_VERSION")
 
+if [[ ! -e $KUBEBUILDER_ASSETS ]]; then
+    echo "$KUBEBUILDER_ASSETS does not exist. Check our setup."
+    echo "Maybe env var wrong: KUBEBUILDER_ASSETS=$KUBEBUILDER_ASSETS"
+    echo "Maybe this helps:"
+    echo "    rm -rf hack/tools/bin/setup-envtest"
+    echo "    make setup-envtest"
+    exit 1
+fi
 export KUBEBUILDER_ASSETS
 
 mkdir -p .coverage
