@@ -209,6 +209,7 @@ else
 		--set privateNetwork.enabled=$(PRIVATE_NETWORK) \
 		--set robot.enabled=true
 	@echo
+	@echo
 	@echo 'run "kubectl --kubeconfig=$(WORKER_CLUSTER_KUBECONFIG) ..." to work with the new target cluster'
 	@echo
 	@echo "Use 'make watch' to get an overview of the resources, events and logs"

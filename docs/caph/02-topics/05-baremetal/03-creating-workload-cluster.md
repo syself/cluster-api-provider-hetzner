@@ -75,12 +75,19 @@ If you have configured your secret correctly in the previous step then you alrea
 Let's deploy the hetzner CCM helm chart.
 
 ```shell
-helm repo add hcloud https://charts.hetzner.cloud
-helm repo update hcloud
+helm repo add syself https://charts.syself.com
+helm repo update syself
 
-helm upgrade --install ccm \
-    --namespace kube-system \
-    --kubeconfig workload-kubeconfig
+$ helm upgrade --install ccm syself/ccm-hetzner --version 2.0.1 \
+              --namespace kube-system \
+              --kubeconfig workload-kubeconfig
+Release "ccm" does not exist. Installing it now.
+NAME: ccm
+LAST DEPLOYED: Thu Apr  4 21:09:25 2024
+NAMESPACE: kube-system
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
 ```
 
 ### Installing CNI
@@ -117,8 +124,8 @@ default     my-cluster-control-plane-qwsq6   my-cluster   my-cluster-control-pla
 default     my-cluster-md-0-2xgj5-c5bhc      my-cluster   my-cluster-md-0-6xttr            hcloud://45443694     Running        10h   v1.33.6
 default     my-cluster-md-0-2xgj5-rbnbw      my-cluster   my-cluster-md-0-fdq9l            hcloud://45443693     Running        10h   v1.33.6
 default     my-cluster-md-0-2xgj5-tl2jr      my-cluster   my-cluster-md-0-59cgw            hcloud://45443692     Running        10h   v1.33.6
-default     my-cluster-md-1-cp2fd-7nld7      my-cluster   bm-my-cluster-md-1-d7526         hrobot://2317525   Running        9h    v1.33.6
-default     my-cluster-md-1-cp2fd-n74sm      my-cluster   bm-my-cluster-md-1-l5dnr         hrobot://2105469   Running        10h   v1.33.6
+default     my-cluster-md-1-cp2fd-7nld7      my-cluster   bm-my-cluster-md-1-d7526         hcloud://bm-2317525   Running        9h    v1.33.6
+default     my-cluster-md-1-cp2fd-n74sm      my-cluster   bm-my-cluster-md-1-l5dnr         hcloud://bm-2105469   Running        10h   v1.33.6
 ```
 
-Please note that hcloud servers are prefixed with `hcloud://` and baremetal servers are prefixed with `hrobot://`.
+Please note that hcloud servers are prefixed with `hcloud://` and baremetal servers are prefixed with `hcloud://bm-`.
