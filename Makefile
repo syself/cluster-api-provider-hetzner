@@ -25,8 +25,6 @@ SHELL = /usr/bin/env bash -o pipefail
 .DEFAULT_GOAL:=help
 GOTEST ?= go test
 
-# https://github.com/syself/hetzner-cloud-controller-manager#networks-support
-PRIVATE_NETWORK ?= false
 
 ##@ General
 
@@ -202,13 +200,10 @@ ifeq ($(BUILD_IN_CONTAINER),true)
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
 else
-	helm repo add hcloud https://charts.hetzner.cloud
-	helm repo update hcloud
-	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) helm install hccm \
-		hcloud/hcloud-cloud-controller-manager -n kube-system \
-		--set privateNetwork.enabled=$(PRIVATE_NETWORK) \
-		--set robot.enabled=true
-	@echo
+	helm repo add syself https://charts.syself.com
+	helm repo update syself
+	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hetzner --version 2.0.1 \
+	--namespace kube-system \
 	@echo
 	@echo 'run "kubectl --kubeconfig=$(WORKER_CLUSTER_KUBECONFIG) ..." to work with the new target cluster'
 	@echo
@@ -227,11 +222,6 @@ create-workload-cluster-hcloud: env-vars-for-wl-cluster $(KUSTOMIZE) install-crd
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN
 	./hack/create-workload-cluster.sh v1beta1 hcloud
-
-create-workload-cluster-hcloud-network: env-vars-for-wl-cluster $(KUSTOMIZE) ## Creates a workload-cluster.
-	# Create workload Cluster.
-	./hack/ensure-env-variables.sh HCLOUD_TOKEN
-	./hack/create-workload-cluster.sh v1beta1 hcloud-network
 
 # Use that, if you want to test hcloud control-planes, hcloud worker and bm worker.
 create-workload-cluster-hetzner-hcloud-control-plane: env-vars-for-wl-cluster $(KUSTOMIZE) ## Creates a workload-cluster.
@@ -631,7 +621,6 @@ generate-api-ci: generate-manifests generate-go-deepcopy
 cluster-templates: $(KUSTOMIZE)
 	$(KUSTOMIZE) build templates/cluster-templates/hcloud --load-restrictor LoadRestrictionsNone  > generated/cluster-template.yaml
 	$(KUSTOMIZE) build templates/cluster-templates/hcloud --load-restrictor LoadRestrictionsNone  > generated/cluster-template-hcloud.yaml
-	$(KUSTOMIZE) build templates/cluster-templates/hcloud-network --load-restrictor LoadRestrictionsNone  > generated/cluster-template-hcloud-network.yaml
 	$(KUSTOMIZE) build templates/cluster-templates/hetzner-hcloud-control-planes --load-restrictor LoadRestrictionsNone  > generated/cluster-template-hetzner-hcloud-control-planes.yaml
 	$(KUSTOMIZE) build templates/cluster-templates/hetzner-baremetal-control-planes --load-restrictor LoadRestrictionsNone  > generated/cluster-template-hetzner-baremetal-control-planes.yaml
 	$(KUSTOMIZE) build templates/cluster-templates/hetzner-baremetal-control-planes-remediation --load-restrictor LoadRestrictionsNone  > generated/cluster-template-hetzner-baremetal-control-planes-remediation.yaml

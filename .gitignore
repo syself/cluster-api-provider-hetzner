@@ -85,5 +85,4 @@ watchall-output*
 /conditions*.txt
 
 /.config
-
 /.kube

@@ -153,7 +153,8 @@ variables:
 
   # Cluster Addons
   CILIUM: "./data/cni/cilium/cilium.yaml"
-  CCM: "./data/ccm/ccm.yaml"
+  CCM: "./data/ccm/hcloud-ccm.yaml"
+  CCM_HETZNER: "./data/ccm/hcloud-ccm-hetzner.yaml"
 
   # Conformance testing variables
   CONFORMANCE_WORKER_MACHINE_COUNT: 3
