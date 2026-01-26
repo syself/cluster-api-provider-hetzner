@@ -25,6 +25,8 @@ SHELL = /usr/bin/env bash -o pipefail
 .DEFAULT_GOAL:=help
 GOTEST ?= go test
 
+# https://github.com/syself/hetzner-cloud-controller-manager#networks-support
+PRIVATE_NETWORK ?= false
 
 ##@ General
 
@@ -191,11 +193,9 @@ install-cilium-in-wl-cluster:
 		-f templates/cilium/cilium.yaml
 
 
-install-ccm-in-wl-cluster: $(WORKER_CLUSTER_KUBECONFIG)
+install-ccm-in-wl-cluster:
 ifeq ($(BUILD_IN_CONTAINER),true)
 	docker run  --rm \
-	    -e CLUSTER_NAME=$(CLUSTER_NAME) \
-	    -e KUBECONFIG=$(KUBECONFIG) \
 		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
@@ -204,6 +204,7 @@ else
 	helm repo update syself
 	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hetzner --version 2.0.1 \
 	--namespace kube-system \
+	--set privateNetwork.enabled=$(PRIVATE_NETWORK)
 	@echo
 	@echo 'run "kubectl --kubeconfig=$(WORKER_CLUSTER_KUBECONFIG) ..." to work with the new target cluster'
 	@echo
@@ -222,6 +223,11 @@ create-workload-cluster-hcloud: env-vars-for-wl-cluster $(KUSTOMIZE) install-crd
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN
 	./hack/create-workload-cluster.sh v1beta1 hcloud
+
+create-workload-cluster-hcloud-network: env-vars-for-wl-cluster $(KUSTOMIZE) ## Creates a workload-cluster.
+	# Create workload Cluster.
+	./hack/ensure-env-variables.sh HCLOUD_TOKEN
+	./hack/create-workload-cluster.sh v1beta1 hcloud-network
 
 # Use that, if you want to test hcloud control-planes, hcloud worker and bm worker.
 create-workload-cluster-hetzner-hcloud-control-plane: env-vars-for-wl-cluster $(KUSTOMIZE) ## Creates a workload-cluster.
@@ -406,7 +412,6 @@ $(ARTIFACTS):
 $(MGT_CLUSTER_KUBECONFIG):
 	./hack/get-kubeconfig-of-management-cluster.sh
 
-.PHONY: $(WORKER_CLUSTER_KUBECONFIG)
 $(WORKER_CLUSTER_KUBECONFIG):
 	./hack/get-kubeconfig-of-workload-cluster.sh
 
@@ -621,6 +626,7 @@ generate-api-ci: generate-manifests generate-go-deepcopy
 cluster-templates: $(KUSTOMIZE)
 	$(KUSTOMIZE) build templates/cluster-templates/hcloud --load-restrictor LoadRestrictionsNone  > generated/cluster-template.yaml
 	$(KUSTOMIZE) build templates/cluster-templates/hcloud --load-restrictor LoadRestrictionsNone  > generated/cluster-template-hcloud.yaml
+	$(KUSTOMIZE) build templates/cluster-templates/hcloud-network --load-restrictor LoadRestrictionsNone  > generated/cluster-template-hcloud-network.yaml
 	$(KUSTOMIZE) build templates/cluster-templates/hetzner-hcloud-control-planes --load-restrictor LoadRestrictionsNone  > generated/cluster-template-hetzner-hcloud-control-planes.yaml
 	$(KUSTOMIZE) build templates/cluster-templates/hetzner-baremetal-control-planes --load-restrictor LoadRestrictionsNone  > generated/cluster-template-hetzner-baremetal-control-planes.yaml
 	$(KUSTOMIZE) build templates/cluster-templates/hetzner-baremetal-control-planes-remediation --load-restrictor LoadRestrictionsNone  > generated/cluster-template-hetzner-baremetal-control-planes-remediation.yaml

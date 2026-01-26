@@ -76,6 +76,7 @@ providers:
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-load-balancer-extra-services.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-placement-groups.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-loadbalancer-off.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-network.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-node-drain.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-md-remediation.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-kcp-remediation.yaml"
@@ -99,6 +100,7 @@ providers:
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-load-balancer-extra-services.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-placement-groups.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-loadbalancer-off.yaml"
+          - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-network.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-node-drain.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-md-remediation.yaml"
           - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-kcp-remediation.yaml"
@@ -124,6 +126,7 @@ providers:
       #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-load-balancer-extra-services.yaml"
       #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-placement-groups.yaml"
       #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-hcloud-feature-loadbalancer-off.yaml"
+      #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-network.yaml"
       #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-node-drain.yaml"
       #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-md-remediation.yaml"
       #     - sourcePath: "../data/infrastructure-hetzner/v1beta1/cluster-template-kcp-remediation.yaml"
@@ -154,6 +157,7 @@ variables:
   # Cluster Addons
   CILIUM: "./data/cni/cilium/cilium.yaml"
   CCM: "./data/ccm/hcloud-ccm.yaml"
+  CCM_NETWORK: "./data/ccm/hcloud-ccm-network.yaml"
   CCM_HETZNER: "./data/ccm/hcloud-ccm-hetzner.yaml"
 
   # Conformance testing variables

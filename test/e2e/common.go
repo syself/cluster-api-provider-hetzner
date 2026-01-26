@@ -39,13 +39,15 @@ const (
 	CiliumResources     = "CILIUM_RESOURCES"
 
 	// TODO: We should clean up here.
-	// Currently we support the syself ccm and upstream hcloud ccm.
+	// We only support the syself ccm.
 	// To make this clear, we should use the term "syself".
 	// Currently (in this context) "hetzner" means the syself-ccm,
 	// and "hcloud" means the hcloud ccm (which now supports bare-metal, too)
 	// Nevertheless, the hcloud/hetzner ccm is not supported.
 	CCMPath             = "CCM"
 	CCMResources        = "CCM_RESOURCES"
+	CCMNetworkPath      = "CCM_NETWORK"
+	CCMNetworkResources = "CCM_RESOURCES_NETWORK"
 	CCMHetznerPath      = "CCM_HETZNER"
 	CCMHetznerResources = "CCM_RESOURCES_HETZNER"
 )

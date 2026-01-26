@@ -367,6 +367,14 @@ cmd_button(
 )
 
 cmd_button(
+    "Create Hcloud Cluster Private Network",
+    argv=["make", "create-workload-cluster-hcloud-network"],
+    location=location.NAV,
+    icon_name="switch_access_shortcut_add_outlined",
+    text="Create Hcloud Cluster Private Network",
+)
+
+cmd_button(
     "Create Baremetal Cluster - with hcloud control-planes",
     argv=["make", "create-workload-cluster-hetzner-hcloud-control-plane"],
     location=location.NAV,

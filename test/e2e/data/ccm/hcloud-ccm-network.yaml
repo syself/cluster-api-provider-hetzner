@@ -82,6 +82,7 @@ spec:
           operator: Exists
         - key: "node.kubernetes.io/not-ready"
           effect: "NoSchedule"
+      hostNetwork: true
       containers:
         - name: ccm-hcloud
           securityContext:
@@ -93,6 +94,8 @@ spec:
             - "--cloud-provider=hcloud"
             - "--leader-elect=true"
             - "--allow-untagged-cloud"
+            - "--allocate-node-cidrs=true"
+            - "--cluster-cidr=10.244.0.0/16"
           resources:
             requests:
               cpu: 100m
@@ -111,3 +114,8 @@ spec:
               value: "false"
             - name: HCLOUD_LOAD_BALANCERS_ENABLED
               value: "true"
+            - name: HCLOUD_NETWORK
+              valueFrom:
+                secretKeyRef:
+                  name: hetzner
+                  key: network

@@ -19,7 +19,7 @@ set -euo pipefail
 CLUSTER_NAME=${CLUSTER_NAME:-}
 CLUSTER_NAMESPACE=${CLUSTER_NAMESPACE:-}
 
-if [ -z "${CLUSTER_NAME:-}" ]; then
+if [ -z "$CLUSTER_NAME" ]; then
     # Pick the first cluster found if none is provided explicitly.
     CLUSTER_NAME=$(kubectl get clusters -A -o jsonpath='{.items[0].metadata.name}')
     CLUSTER_NAMESPACE=$(kubectl get clusters -A -o jsonpath='{.items[0].metadata.namespace}')

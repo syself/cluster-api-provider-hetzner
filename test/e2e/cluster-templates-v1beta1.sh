@@ -57,6 +57,8 @@ kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-hcloud-feature-loa
 
 kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-hcloud-feature-placement-groups --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-hcloud-feature-placement-groups.yaml
 
+kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-network --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-network.yaml
+
 kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-kcp-remediation --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-kcp-remediation.yaml
 
 kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-md-remediation --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-md-remediation.yaml
