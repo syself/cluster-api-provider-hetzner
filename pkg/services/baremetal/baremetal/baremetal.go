@@ -37,7 +37,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
-	"k8s.io/apimachinery/pkg/util/version"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
@@ -677,21 +676,10 @@ func (s *Service) setProviderID(ctx context.Context) error {
 		// no need for requeue error since host update will trigger a reconciliation
 		return nil
 	}
-
-	var kubeVersion *version.Version
-	if s.scope.BmProviderIDUseHrobotIfGreaterEqualVersion != nil {
-		if s.scope.Machine.Spec.Version == nil || *s.scope.Machine.Spec.Version == "" {
-			return fmt.Errorf("machine spec.version is empty")
-		}
-
-		var err error
-		kubeVersion, err = version.ParseSemantic(*s.scope.Machine.Spec.Version)
-		if err != nil {
-			return fmt.Errorf("invalid machine spec.version %q: %w", *s.scope.Machine.Spec.Version, err)
-		}
+	providerID, err := GenerateProviderID(s.scope.Machine, host.Spec.ServerID)
+	if err != nil {
+		return err
 	}
-	providerID := GenerateProviderID(host.Spec.ServerID, s.scope.BmProviderIDAlwaysUseHrobot,
-		s.scope.BmProviderIDUseHrobotIfGreaterEqualVersion, kubeVersion)
 	s.scope.BareMetalMachine.Spec.ProviderID = &providerID
 	s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhaseRunning
 
@@ -910,22 +898,37 @@ func analyzePatchError(err error, ignoreNotFound bool) error {
 	return err
 }
 
-// GenerateProviderID uses hrobot format if BmProviderIDAlwaysUseHrobot is true. If
-// bmProviderIdUseHrobotIfGreaterEqualVersion is nil use hcloud://bm-NNNN format. Otherwise compare
-// bmProviderIdUseHrobotIfGreaterEqualVersion and kubeVersion. See command line args:
-// --bm-provider-id-always-hrobot and --bm-provider-id-use-hrobot-if-great-equal-kubernetes=1.NN.
-func GenerateProviderID(serverID int, bmProviderIDAlwaysUseHrobot bool,
-	bmProviderIDUseHrobotIfGreaterEqualVersion *version.Version,
-	kubeVersion *version.Version,
-) string {
-	if bmProviderIDAlwaysUseHrobot {
-		return fmt.Sprintf("hrobot://%d", serverID)
+const (
+	// prefixRobotLegacy is the prefix used by the Syself Fork for Robot Server provider IDs.
+	// This Prefix is no longer used for new nodes, instead prefix "hrobot://" should be used.
+	//
+	// It MUST not be changed, otherwise existing nodes will not be recognized anymore.
+	prefixRobotLegacy = "hcloud://bm-"
+
+	prefixRobotNew = "hrobot://"
+
+	hetznerBMProviderIDPrefixAnnotation = "node.cluster.x-k8s.io/hetzner-bm-provider-id-prefix"
+)
+
+// GenerateProviderID uses the old format by default (hcloud://bm-NNNN), except the Annotation
+// `node.cluster.x-k8s.io/hetzner-bm-provider-id-prefix` is set to `hcloud://bm-`.
+func GenerateProviderID(machine *clusterv1.Machine, serverNumber int) (string, error) {
+	if machine.Spec.ProviderID != nil && *machine.Spec.ProviderID != "" {
+		return *machine.Spec.ProviderID, nil
 	}
-	if bmProviderIDUseHrobotIfGreaterEqualVersion == nil {
-		return fmt.Sprintf("hcloud://bm-%d", serverID)
+	prefix, ok := machine.Annotations[hetznerBMProviderIDPrefixAnnotation]
+	if !ok {
+		prefix = prefixRobotLegacy
 	}
-	if kubeVersion.AtLeast(bmProviderIDUseHrobotIfGreaterEqualVersion) {
-		return fmt.Sprintf("hrobot://%d", serverID)
+	if prefix != prefixRobotLegacy && prefix != prefixRobotNew {
+		return "", fmt.Errorf(
+			"Value %q of machine (%s) annotation %s is invalid. Ony %q and %q are supported",
+			prefix,
+			machine.Name,
+			hetznerBMProviderIDPrefixAnnotation,
+			prefixRobotLegacy,
+			prefixRobotNew,
+		)
 	}
-	return fmt.Sprintf("hcloud://bm-%d", serverID)
+	return fmt.Sprintf("%s%d", prefix, serverNumber), nil
 }
