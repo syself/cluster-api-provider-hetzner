@@ -22,6 +22,7 @@ import (
 
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/utils/ptr"
 
 	"sigs.k8s.io/cluster-api/cmd/clusterctl/client/cluster"
 	"sigs.k8s.io/cluster-api/util/annotations"
@@ -35,11 +36,11 @@ func (r *rollout) ObjectRestarter(ctx context.Context, proxy cluster.Proxy, ref 
 		if err != nil || deployment == nil {
 			return errors.Wrapf(err, "failed to fetch %v/%v", ref.Kind, ref.Name)
 		}
-		if deployment.Spec.Paused {
+		if ptr.Deref(deployment.Spec.Paused, false) {
 			return errors.Errorf("can't restart paused MachineDeployment (run rollout resume first): %v/%v", ref.Kind, ref.Name)
 		}
-		if deployment.Spec.RolloutAfter != nil && deployment.Spec.RolloutAfter.After(time.Now()) {
-			return errors.Errorf("can't update MachineDeployment (remove 'spec.rolloutAfter' first): %v/%v", ref.Kind, ref.Name)
+		if !deployment.Spec.Rollout.After.IsZero() && deployment.Spec.Rollout.After.After(time.Now()) {
+			return errors.Errorf("can't update MachineDeployment (remove 'spec.rollout.after' first): %v/%v", ref.Kind, ref.Name)
 		}
 		if err := setRolloutAfterOnMachineDeployment(ctx, proxy, ref.Name, ref.Namespace); err != nil {
 			return err
@@ -52,8 +53,8 @@ func (r *rollout) ObjectRestarter(ctx context.Context, proxy cluster.Proxy, ref 
 		if annotations.HasPaused(kcp.GetObjectMeta()) {
 			return errors.Errorf("can't restart paused KubeadmControlPlane (remove annotation 'cluster.x-k8s.io/paused' first): %v/%v", ref.Kind, ref.Name)
 		}
-		if kcp.Spec.RolloutAfter != nil && kcp.Spec.RolloutAfter.After(time.Now()) {
-			return errors.Errorf("can't update KubeadmControlPlane (remove 'spec.rolloutAfter' first): %v/%v", ref.Kind, ref.Name)
+		if !kcp.Spec.Rollout.After.IsZero() && kcp.Spec.Rollout.After.After(time.Now()) {
+			return errors.Errorf("can't update KubeadmControlPlane (remove 'spec.rollout.after' first): %v/%v", ref.Kind, ref.Name)
 		}
 		if err := setRolloutAfterOnKCP(ctx, proxy, ref.Name, ref.Namespace); err != nil {
 			return err
