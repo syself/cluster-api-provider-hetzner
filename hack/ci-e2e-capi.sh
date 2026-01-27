@@ -17,6 +17,8 @@
 trap 'echo "Warning: A command has failed. Exiting the script. Line was ($0:$LINENO): $(sed -n "${LINENO}p" "$0")"; exit 3' ERR
 set -Eeuo pipefail
 
+./hack/ensure-env-variables.sh HCLOUD_WORKER_MACHINE_TYPE HCLOUD_CONTROL_PLANE_MACHINE_TYPE HCLOUD_REGION
+
 REPO_ROOT=$(realpath "$(dirname "${BASH_SOURCE[0]}")/..")
 cd "${REPO_ROOT}" || exit 1
 
