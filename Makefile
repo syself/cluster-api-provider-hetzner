@@ -205,6 +205,10 @@ else
 	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hetzner --version 2.0.1 \
 	--namespace kube-system \
 	--set privateNetwork.enabled=$(PRIVATE_NETWORK)
+
+	# Optional: override CCM image for staging/testing.
+	#--set image.tag=sha-93d3a7f \
+	#--set image.repository=ghcr.io/syself/hetzner-cloud-controller-manager-staging
 	@echo
 	@echo 'run "kubectl --kubeconfig=$(WORKER_CLUSTER_KUBECONFIG) ..." to work with the new target cluster'
 	@echo
@@ -349,8 +353,8 @@ release-manifests: generate-manifests generate-go-deepcopy $(KUSTOMIZE) $(RELEAS
 	$(KUSTOMIZE) build config/default > $(RELEASE_DIR)/infrastructure-components.yaml
 	## Build $(INFRA_SHORT)-components (aggregate of all of the above).
 	cp metadata.yaml $(RELEASE_DIR)/metadata.yaml
-	cp templates/cluster-templates/cluster-template* $(RELEASE_DIR)/
-	cp templates/cluster-templates/cluster-class* $(RELEASE_DIR)/
+	cp generated/cluster-template* $(RELEASE_DIR)/
+	cp templates/cluster-templates/v1beta1/cluster-class* $(RELEASE_DIR)/
 
 .PHONY: release
 release: clean-release  ## Builds and push container images using the latest git tag for the commit.
@@ -624,12 +628,13 @@ generate-api-ci: generate-manifests generate-go-deepcopy
 	fi
 
 cluster-templates: $(KUSTOMIZE)
-	$(KUSTOMIZE) build templates/cluster-templates/hcloud --load-restrictor LoadRestrictionsNone  > generated/cluster-template.yaml
-	$(KUSTOMIZE) build templates/cluster-templates/hcloud --load-restrictor LoadRestrictionsNone  > generated/cluster-template-hcloud.yaml
-	$(KUSTOMIZE) build templates/cluster-templates/hcloud-network --load-restrictor LoadRestrictionsNone  > generated/cluster-template-hcloud-network.yaml
-	$(KUSTOMIZE) build templates/cluster-templates/hetzner-hcloud-control-planes --load-restrictor LoadRestrictionsNone  > generated/cluster-template-hetzner-hcloud-control-planes.yaml
-	$(KUSTOMIZE) build templates/cluster-templates/hetzner-baremetal-control-planes --load-restrictor LoadRestrictionsNone  > generated/cluster-template-hetzner-baremetal-control-planes.yaml
-	$(KUSTOMIZE) build templates/cluster-templates/hetzner-baremetal-control-planes-remediation --load-restrictor LoadRestrictionsNone  > generated/cluster-template-hetzner-baremetal-control-planes-remediation.yaml
+	mkdir -p generated
+	$(KUSTOMIZE) build templates/cluster-templates/v1beta1/hcloud --load-restrictor LoadRestrictionsNone  > generated/cluster-template.yaml
+	$(KUSTOMIZE) build templates/cluster-templates/v1beta1/hcloud --load-restrictor LoadRestrictionsNone  > generated/cluster-template-hcloud.yaml
+	$(KUSTOMIZE) build templates/cluster-templates/v1beta1/hcloud-network --load-restrictor LoadRestrictionsNone  > generated/cluster-template-hcloud-network.yaml
+	$(KUSTOMIZE) build templates/cluster-templates/v1beta1/hetzner-hcloud-control-planes --load-restrictor LoadRestrictionsNone  > generated/cluster-template-hetzner-hcloud-control-planes.yaml
+	$(KUSTOMIZE) build templates/cluster-templates/v1beta1/hetzner-baremetal-control-planes --load-restrictor LoadRestrictionsNone  > generated/cluster-template-hetzner-baremetal-control-planes.yaml
+	$(KUSTOMIZE) build templates/cluster-templates/v1beta1/hetzner-baremetal-control-planes-remediation --load-restrictor LoadRestrictionsNone  > generated/cluster-template-hetzner-baremetal-control-planes-remediation.yaml
 
 ##@ Format
 ##########
