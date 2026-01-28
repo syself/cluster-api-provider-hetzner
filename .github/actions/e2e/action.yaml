@@ -63,7 +63,10 @@ runs:
         CAPH_CONTAINER_TAG: ${{ steps.meta.outputs.version }}
 
     - name: Get HCLOUD_TOKEN # sets env.HCLOUD_TOKEN
-      uses: hetznercloud/tps-action@dee5dd2546322c28ed8f74b910189066e8b6f31a # main
+      shell: bash
+      env:
+        TPS_TOKEN: ${{ secrets.TPS_TOKEN }}
+      run: hack/ci-e2e-get-token.sh
 
     - name: "e2e-${{ inputs.e2e_name }}"
       shell: bash
