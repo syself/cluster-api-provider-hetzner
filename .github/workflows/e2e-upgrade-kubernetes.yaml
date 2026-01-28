@@ -47,3 +47,4 @@ jobs:
         with:
           e2e_name: upgrade-kubernetes
           e2e_make_target: test-e2e-upgrade-kubernetes
+          tps_token: ${{ secrets.TPS_TOKEN }}
