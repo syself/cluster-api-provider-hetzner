@@ -4,6 +4,7 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     branches:
       - main
+      - v1.1.x
       - "releases/**"
     paths-ignore:
       - "**/*.md"
