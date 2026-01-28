@@ -22,3 +22,8 @@ if [ -e .envrc ]; then
         direnv allow
     fi
 fi
+
+# Export to Github Action (if run via Github Action)
+if [ -n "${GITHUB_ENV:-}" ]; then
+    echo "HCLOUD_TOKEN=$newtoken" >>"$GITHUB_ENV"
+fi
