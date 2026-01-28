@@ -47,3 +47,4 @@ jobs:
         with:
           e2e_name: hcloud-basic
           e2e_make_target: test-e2e-hcloud
+          tps_token: ${{ secrets.TPS_TOKEN }}

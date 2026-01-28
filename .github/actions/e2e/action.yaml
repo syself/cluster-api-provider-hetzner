@@ -19,6 +19,9 @@ inputs:
   e2e_ssh_priv:
     description: "e2e_ssh_priv"
     required: false
+  tps_token:
+    description: "TPS token for fetching HCLOUD_TOKEN"
+    required: true
 runs:
   using: "composite"
   steps:
@@ -65,7 +68,7 @@ runs:
     - name: Get HCLOUD_TOKEN # sets env.HCLOUD_TOKEN
       shell: bash
       env:
-        TPS_TOKEN: ${{ secrets.TPS_TOKEN }}
+        TPS_TOKEN: ${{ inputs.tps_token }}
       run: hack/ci-e2e-get-token.sh
 
     - name: "e2e-${{ inputs.e2e_name }}"
