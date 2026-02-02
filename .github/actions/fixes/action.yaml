@@ -9,10 +9,10 @@ runs:
       # Issue [HOME is overridden for containers](https://github.com/actions/runner/issues/863)
       h=$(getent passwd $(id -un) | cut -d: -f6)
       if [ "$h" = "$HOME" ]; then
-        echo "HOME fine: $HOME"
+        echo "fixing HOME: fine: $HOME"
         exit 0
       fi
-      echo "HOME=$HOME was broken. Setting it to $h"
+      echo "fixing HOME: HOME=$HOME was broken. Setting it to $h"
       ls -ld $HOME
       ls -ld $h
       echo "USER: $USER"
