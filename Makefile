@@ -94,7 +94,8 @@ kustomize: $(KUSTOMIZE) ## Build a local copy of kustomize
 $(KUSTOMIZE): # Build kustomize from tools folder.
 	echo
 	echo "start debugging permission denied"
-	ls -ldh $$HOME/go/pkg/mod
+	mkdir -p $$HOME/go/pkg/mod || true
+	ls -ldh $$HOME/go/pkg/mod || true
 	id
 	echo "USER=$$USER HOME=$$HOME"
 	echo "end debugging permission denied"
