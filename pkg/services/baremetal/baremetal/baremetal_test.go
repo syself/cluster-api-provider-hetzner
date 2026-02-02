@@ -843,7 +843,7 @@ var _ = Describe("Test GenerateProviderID", func() {
 			machine: func() *clusterv1.Machine {
 				machine := newMachine()
 				machine.Annotations = map[string]string{
-					hetznerBMProviderIDPrefixAnnotation: prefixRobotNew,
+					useHrobotProviderIdForBaremetalAnnotation: prefixRobotNew,
 				}
 				return machine
 			}(),
@@ -854,7 +854,7 @@ var _ = Describe("Test GenerateProviderID", func() {
 			machine: func() *clusterv1.Machine {
 				machine := newMachine()
 				machine.Annotations = map[string]string{
-					hetznerBMProviderIDPrefixAnnotation: "invalid://",
+					useHrobotProviderIdForBaremetalAnnotation: "invalid://",
 				}
 				return machine
 			}(),

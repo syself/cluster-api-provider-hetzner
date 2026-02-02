@@ -907,7 +907,7 @@ const (
 
 	prefixRobotNew = "hrobot://"
 
-	hetznerBMProviderIDPrefixAnnotation = "node.cluster.x-k8s.io/hetzner-bm-provider-id-prefix"
+	useHrobotProviderIdForBaremetalAnnotation = "capi.syself.com/use-hrobot-provider-id-for-baremetal"
 )
 
 // GenerateProviderID uses the old format by default (hcloud://bm-NNNN), except the Annotation
@@ -916,7 +916,7 @@ func GenerateProviderID(machine *clusterv1.Machine, serverNumber int) (string, e
 	if machine.Spec.ProviderID != nil && *machine.Spec.ProviderID != "" {
 		return *machine.Spec.ProviderID, nil
 	}
-	prefix, ok := machine.Annotations[hetznerBMProviderIDPrefixAnnotation]
+	prefix, ok := machine.Annotations[useHrobotProviderIdForBaremetalAnnotation]
 	if !ok {
 		prefix = prefixRobotLegacy
 	}
@@ -925,7 +925,7 @@ func GenerateProviderID(machine *clusterv1.Machine, serverNumber int) (string, e
 			"Value %q of machine (%s) annotation %s is invalid. Ony %q and %q are supported",
 			prefix,
 			machine.Name,
-			hetznerBMProviderIDPrefixAnnotation,
+			useHrobotProviderIdForBaremetalAnnotation,
 			prefixRobotLegacy,
 			prefixRobotNew,
 		)
