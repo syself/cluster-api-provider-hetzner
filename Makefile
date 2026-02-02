@@ -92,6 +92,13 @@ export KUBEBUILDER_ENVTEST_KUBERNETES_VERSION ?= 1.33.0
 KUSTOMIZE := $(abspath $(TOOLS_BIN_DIR)/kustomize)
 kustomize: $(KUSTOMIZE) ## Build a local copy of kustomize
 $(KUSTOMIZE): # Build kustomize from tools folder.
+	echo
+	echo "start debugging permission denied"
+	ls -ldh $HOME/go/pkg/mod
+	id
+	echo "USER=$USER HOME=$HOME"
+	echo "end debugging permission denied"
+	echo
 	go install sigs.k8s.io/kustomize/kustomize/v5@v5.8.0
 
 TILT := $(abspath $(TOOLS_BIN_DIR)/tilt)
