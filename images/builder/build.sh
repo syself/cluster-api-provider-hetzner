@@ -18,6 +18,8 @@ set -eu
 
 SRC_PATH=/src/cluster-api-provider-hetzner
 
+# We autodetect the UID/GID of the host, and create a Linux user inside the container. This way the
+# cache between the host and inside the container can be shared. This avoids permission problems.
 uid=$(stat --format="%u" "${SRC_PATH}")
 gid=$(stat --format="%g" "${SRC_PATH}")
 echo "caph:x:${uid}:${gid}::${SRC_PATH}:/bin/bash" >>/etc/passwd
