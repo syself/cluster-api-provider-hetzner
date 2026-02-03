@@ -84,6 +84,12 @@ ENV HELM_VERSION="v3.18.6"
 RUN curl -sSL https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz | tar xz -C /usr/local/bin --strip-components=1 linux-amd64/helm
 RUN chmod a+rx /usr/local/bin/helm
 
+ARG RUNNER_UID=1001
+ARG RUNNER_GID=1001
+RUN groupadd -g ${RUNNER_GID} runner && \
+    useradd -m -u ${RUNNER_UID} -g ${RUNNER_GID} -s /bin/bash runner
+
 COPY build.sh /
 RUN chmod +x /build.sh
+USER runner
 ENTRYPOINT ["/build.sh"]
