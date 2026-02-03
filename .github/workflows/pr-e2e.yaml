@@ -62,11 +62,6 @@ jobs:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     concurrency: ci-${{ github.ref }}-e2e-basic
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/syself/caph-builder:1.0.26
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.github_token }}
     permissions:
       # Required for hcloud TPS
       id-token: write
