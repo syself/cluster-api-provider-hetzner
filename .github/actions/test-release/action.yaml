@@ -7,14 +7,6 @@ runs:
       with:
         go-version-file: "go.mod"
 
-    - uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4
-      with:
-        path: hack/tools/bin
-        key: ${{ runner.os }}-tools-bin-release-${{ hashFiles('Makefile') }}
-        restore-keys: |
-          ${{ runner.os }}-tools-bin-release-
-          ${{ runner.os }}-tools-bin-
-
     - name: Generate metadata
       id: meta
       uses: ./.github/actions/metadata
