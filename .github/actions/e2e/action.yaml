@@ -32,6 +32,14 @@ runs:
       with:
         go-version-file: "go.mod"
 
+    - uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4
+      with:
+        path: hack/tools/bin
+        key: ${{ runner.os }}-tools-bin-e2e-${{ hashFiles('Makefile') }}
+        restore-keys: |
+          ${{ runner.os }}-tools-bin-e2e-
+          ${{ runner.os }}-tools-bin-
+
     - name: Download artifact
       uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4
       with:
