@@ -26,9 +26,6 @@ cd "${REPO_ROOT}" || exit 1
 export PATH="${REPO_ROOT}/hack/tools/bin:${PATH}"
 export ARTIFACTS="${ARTIFACTS:-${REPO_ROOT}/_artifacts}"
 
-# shellcheck source=../hack/ci-e2e-sshkeys.sh
-source "${REPO_ROOT}/hack/ci-e2e-sshkeys.sh"
-
 # We need to export the HCLOUD_TOKEN as a environment variable
 SSH_KEY_NAME=caph-e2e-$(
     LC_CTYPE=C dd if=/dev/urandom bs=1 count=100 2>/dev/null | base64 | tr -dc 'A-Za-z0-9' | head -c 12
@@ -36,7 +33,27 @@ SSH_KEY_NAME=caph-e2e-$(
 )
 export SSH_KEY_PATH=/tmp/${SSH_KEY_NAME}
 export SSH_KEY_NAME=${SSH_KEY_NAME}
-create_ssh_key ${SSH_KEY_NAME} ${SSH_KEY_PATH}
+
+create_ssh_key() {
+    echo "generating new ssh key"
+    ssh-keygen -t ed25519 -f "$SSH_KEY_PATH" -N '' 2>/dev/null <<<y >/dev/null
+    echo "importing ssh key "
+    hcloud ssh-key create --name "$SSH_KEY_NAME" --public-key-from-file "$SSH_KEY_PATH".pub
+}
+
+remove_ssh_key() {
+    echo "removing ssh key"
+    hcloud ssh-key delete "$SSH_KEY_NAME"
+    rm -f "$SSH_KEY_PATH"
+    "$REPO_ROOT"/hack/log/redact.sh || true
+}
+
+if ! output=$(curl -fsS -H "Authorization: Bearer $HCLOUD_TOKEN" 'https://api.hetzner.cloud/v1/ssh_keys' 2>&1); then
+    echo "HCLOUD_TOKEN is invalid: $output"
+    exit 1
+fi
+
+create_ssh_key "$SSH_KEY_NAME" "$SSH_KEY_PATH"
 trap 'remove_ssh_key ${SSH_KEY_NAME}' EXIT
 
 mkdir -p "$ARTIFACTS"
