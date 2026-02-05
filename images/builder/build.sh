@@ -29,6 +29,7 @@ echo "caph	ALL=(ALL)	NOPASSWD: ALL" >>/etc/sudoers
 # This chown is needed. Otherwise /home/runner/go/pkg will suddenly belong to the root user. We want
 # to avoid this permission change in the file system of the host (outside the container).
 mkdir -p /go/pkg
-chown -R "$uid":"$gid" /go
+# Do not add "-R". This would add a overhead of 15 seconds for each start of the container.
+chown "$uid":"$gid" /go /go/pkg
 
 su caph -c "PATH=${PATH} make -C ${SRC_PATH} BUILD_IN_CONTAINER=false $*"
