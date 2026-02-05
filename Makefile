@@ -114,7 +114,6 @@ $(KUSTOMIZE): # Build kustomize from tools folder.
 	echo
 	@if [ -d "$$HOME/go/pkg" ]; then find $$HOME/go/pkg -print0 | xargs -r0 ls -ld; fi
 	echo
-	echo
 	id
 	echo "USER=$$USER HOME=$$HOME"
 	echo "end debugging permission denied"
