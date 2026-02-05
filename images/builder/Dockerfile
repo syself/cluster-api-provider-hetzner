@@ -16,39 +16,50 @@
 # pipelines.
 # If you make changes to this Dockerfile run `make builder-image-push`.
 
-# Install Lychee
-FROM docker.io/library/alpine:3.21.3@sha256:a8560b36e8b8210634f77d9f7f9efd7ffa463e380b75e2e74aff4511df3ef88c AS lychee
-# update: datasource=github-tags depName=lycheeverse/lychee versioning=semver
-ENV LYCHEE_VERSION="v0.15.1"
-# hadolint ignore=DL3018
-RUN apk add --no-cache curl && \
-    curl -L -o /tmp/lychee-${LYCHEE_VERSION}.tgz https://github.com/lycheeverse/lychee/releases/download/${LYCHEE_VERSION}/lychee-${LYCHEE_VERSION}-x86_64-unknown-linux-gnu.tar.gz && \
-    tar -xz -C /tmp -f /tmp/lychee-${LYCHEE_VERSION}.tgz && \
-    mv /tmp/lychee /usr/bin/lychee && \
-    rm -rf /tmp/linux-amd64 /tmp/lychee-${LYCHEE_VERSION}.tgz
 
-# Install Golang CI Lint
-FROM docker.io/library/alpine:3.21.3@sha256:a8560b36e8b8210634f77d9f7f9efd7ffa463e380b75e2e74aff4511df3ef88c AS golangci
-# update: datasource=github-tags depName=golangci/golangci-lint versioning=semver
-ENV GOLANGCI_VERSION="v1.64.8"
+FROM cgr.dev/chainguard/wolfi-base:latest AS wolfi
 WORKDIR /
-# hadolint ignore=DL3018,DL4006
-RUN apk add --no-cache curl && \
-    curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s ${GOLANGCI_VERSION}
+
+# update: datasource=repology depName=wolfi/controller-gen versioning=apk
+ARG CONTROLLER_GEN_VERSION="0.20.0-r1"
+
+# update: datasource=repology depName=wolfi/golangci-lint versioning=apk
+ARG GOLANGCI_VERSION="2.8.0-r2"
+
+# update: datasource=repology depName=wolfi/helm versioning=apk
+ARG HELM_VERSION="4.1.0-r1"
+
+# update: datasource=repology depName=wolfi/skopeo versioning=apk
+ARG SKOPEO_VERSION="1.21.0-r3"
+
+# update: datasource=repology depName=wolfi/trivy versioning=apk
+ARG TRIVY_VERSION="0.69.0-r1"
+
+RUN apk add --no-cache \
+    controller-gen=$CONTROLLER_GEN_VERSION \
+    curl \
+    golangci-lint=$GOLANGCI_VERSION \
+    helm=$HELM_VERSION \
+    skopeo=$SKOPEO_VERSION \
+    trivy=$TRIVY_VERSION
+
+
+# --- end of Wolfi
+
+# Install Lychee
+FROM docker.io/lycheeverse/lychee:0.14.3 AS lychee
 
 # Install Hadolint
 FROM docker.io/hadolint/hadolint:v2.12.0-alpine@sha256:3c206a451cec6d486367e758645269fd7d696c5ccb6ff59d8b03b0e45268a199 AS hadolint
-
-# Install Trivy
-FROM docker.io/aquasec/trivy:0.60.0@sha256:91c3a842834563a6860dbaec5af7c1949df5caf988f9632ef5cbb0a5cd59d8f8 AS trivy
 
 ############################
 # Caph Build Image Base #
 ############################
 FROM docker.io/library/golang:1.24.5-bullseye@sha256:62ba6b19de03e891f7fa1001326bd48411f2626ff35e7ba5b9d890711ce581d9
 
-# update: datasource=repology depName=debian_11/skopeo versioning=loose
-ENV SKOPEO_VERSION="1.2.2+dfsg1-1+b6"
+# Start of "we should move that to a previous Layer"
+# We should keep the final layer clean. I guess this could all be done in the wolfi layer.
+
 # update: datasource=github-tags depName=adrienverge/yamllint versioning=semver
 ENV YAMLLINT_VERSION="v1.36.2"
 # update: datasource=github-tags depName=opt-nc/yamlfixer versioning=semver
@@ -59,31 +70,35 @@ RUN apt-get update && \
     apt-get install -qy --no-install-recommends \
     gnupg python3 python3-pip \
     file zip unzip jq gettext \
-    skopeo=${SKOPEO_VERSION} \
     protobuf-compiler libprotobuf-dev \
     libsystemd-dev jq && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
     pip install --no-cache-dir \
     yamllint==${YAMLLINT_VERSION} \
     yamlfixer-opt-nc==${YAMLFIXER_VERSION}
+# End of "we should move that to a previous Layer"
 
+COPY --from=wolfi /bin/golangci-lint /usr/bin/golangci-lint
+COPY --from=wolfi /usr/bin/trivy /usr/bin/trivy
+COPY --from=wolfi /usr/bin/skopeo /usr/bin/skopeo
+COPY --from=wolfi /usr/bin/helm /usr/bin/helm
 
-# Install controller-gen (current version)
-RUN go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.18.0
-
-COPY --from=lychee /usr/bin/lychee /usr/bin/lychee
-COPY --from=golangci /bin/golangci-lint /usr/local/bin
+COPY --from=lychee /usr/local/bin/lychee /usr/bin/lychee
 COPY --from=hadolint /bin/hadolint /usr/bin/hadolint
-COPY --from=trivy /usr/local/bin/trivy /usr/bin/trivy
 
-ENV GOCACHE=/go/cache
-
-## Install Helm
-# update: datasource=github-tags depName=helm/helm versioning=semver
-ENV HELM_VERSION="v3.18.6"
-RUN curl -sSL https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz | tar xz -C /usr/local/bin --strip-components=1 linux-amd64/helm
-RUN chmod a+rx /usr/local/bin/helm
 
 COPY build.sh /
 RUN chmod +x /build.sh
+
+# Fail, if one of these directories exists.
+RUN set -eu; \
+    for var in GOCACHE GOMODCACHE; do \
+    dir="$(go env "${var}")"; \
+    if [ -e "${dir}" ]; then \
+    echo "Refusing to build: ${var} already exists at ${dir}. This would cause permission issues with the on-the-fly created Linux user in the container (see build.sh)." >&2; \
+    exit 1; \
+    fi; \
+    done
+
+# build.sh automatically switches to the UID/GID of the host.
 ENTRYPOINT ["/build.sh"]
