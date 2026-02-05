@@ -26,4 +26,9 @@ echo "caph:x:${uid}:${gid}::${SRC_PATH}:/bin/bash" >>/etc/passwd
 echo "caph:*:::::::" >>/etc/shadow
 echo "caph	ALL=(ALL)	NOPASSWD: ALL" >>/etc/sudoers
 
+# This chown is needed. Otherwise /home/runner/go/pkg will suddenly belong to the root user. We want
+# to avoid this permission change in the file system of the host (outside the container).
+mkdir -p /go/pkg
+chown -R "$uid":"$gid" /go
+
 su caph -c "PATH=${PATH} make -C ${SRC_PATH} BUILD_IN_CONTAINER=false $*"

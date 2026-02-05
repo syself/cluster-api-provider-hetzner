@@ -92,32 +92,6 @@ export KUBEBUILDER_ENVTEST_KUBERNETES_VERSION ?= 1.33.0
 KUSTOMIZE := $(abspath $(TOOLS_BIN_DIR)/kustomize)
 kustomize: $(KUSTOMIZE) ## Build a local copy of kustomize
 $(KUSTOMIZE): # Build kustomize from tools folder.
-	echo
-	echo "start debugging permission denied"
-	echo
-	echo "output of go env:"
-	go env
-	echo
-	echo "----- output of env:"
-	env
-	echo "----- end of env"
-	@ls -ldh $$HOME 2>/dev/null || true
-	@ls -ldh $$HOME/go  2>/dev/null || true
-	@ls -ldh $$HOME/go/pkg  2>/dev/null || true
-	@ls -ldh $$HOME/go/pkg/mod   2>/dev/null || true
-	echo
-	@ls -ldh $$GOPATH/pkg/mod/cache/download/sigs.k8s.io/kustomize  2>/dev/null || true
-	@ls -ldh $$GOPATH/pkg/mod/cache/download/sigs.k8s.io  2>/dev/null || true
-	@ls -ldh $$GOPATH/pkg/mod/cache/download  2>/dev/null || true
-	@ls -ldh $$GOPATH/pkg/mod/cache  2>/dev/null || true
-	echo
-	echo
-	@if [ -d "$$HOME/go/pkg" ]; then find $$HOME/go/pkg -print0 | xargs -r0 ls -ld; fi
-	echo
-	id
-	echo "USER=$$USER HOME=$$HOME"
-	echo "end debugging permission denied"
-	echo
 	go install sigs.k8s.io/kustomize/kustomize/v5@v5.8.0
 
 TILT := $(abspath $(TOOLS_BIN_DIR)/tilt)
@@ -624,14 +598,6 @@ ifeq ($(BUILD_IN_CONTAINER),true)
 else
 	# Ensure that these old binaries are not longer used. We use
 	# these from the builder-image now.
-	echo "debug generate-manifests"
-	env
-	echo
-	id
-	echo
-	ls -ld $$HOME/go/ || true
-	echo "end debug"
-	echo
 	rm -f ./hack/tools/bin/controller-gen ./hack/tools/bin/helm
 	controller-gen \
 			paths=./api/... \
@@ -641,9 +607,6 @@ else
 			output:crd:dir=./config/crd/bases \
 			output:webhook:dir=./config/webhook \
 			webhook
-	echo
-	echo "after"
-	ls -ld $$HOME/go/ || true
 endif
 
 generate-go-deepcopy: ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
@@ -857,8 +820,3 @@ builder-image-shell: ## Start an interactive shell in the builder image.
 		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION)
-
-dummy:
-	echo foo
-	#type go
-	id

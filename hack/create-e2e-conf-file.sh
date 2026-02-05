@@ -31,22 +31,6 @@ fi
 
 ./hack/ensure-env-variables.sh CAPH_LATEST_VERSION E2E_CONF_FILE_SOURCE E2E_CONF_FILE CAPH_CONTAINER_TAG
 
-echo "----------------------------------"
-echo "---- start of debug in create-e2e"
-id
-echo
-echo HOME="$HOME"
-echo
-go env
-echo
-ls -ldh $HOME || true
-ls -ldh $HOME/go || true
-ls -ldh $HOME/go/pkg || true
-ls -ldh $HOME/go/pkg/mod || true
-echo
-echo "---- end of debug in create-e2e"
-echo "----------------------------------"
-
 make release-manifests
 
 # `make release-manifests` changes local files (caph image). Restore them,
