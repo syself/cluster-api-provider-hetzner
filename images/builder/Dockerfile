@@ -96,6 +96,8 @@ RUN groupadd -g ${RUNNER_GID} runner && \
 RUN mkdir -p $GOPATH && chown -R runner:runner $GOPATH
 
 USER runner
+ENV BUILD_IN_CONTAINER="false"
+
 
 # Install controller-gen (current version)
 RUN go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.18.0
