@@ -624,6 +624,14 @@ ifeq ($(BUILD_IN_CONTAINER),true)
 else
 	# Ensure that these old binaries are not longer used. We use
 	# these from the builder-image now.
+	echo "debug generate-manifests"
+	env
+	echo
+	id
+	echo
+	ls -ld $$HOME/go/ || true
+	echo "end debug"
+	echo
 	rm -f ./hack/tools/bin/controller-gen ./hack/tools/bin/helm
 	controller-gen \
 			paths=./api/... \
@@ -633,6 +641,9 @@ else
 			output:crd:dir=./config/crd/bases \
 			output:webhook:dir=./config/webhook \
 			webhook
+	echo
+	echo "after"
+	ls -ld $$HOME/go/ || true
 endif
 
 generate-go-deepcopy: ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
@@ -846,3 +857,8 @@ builder-image-shell: ## Start an interactive shell in the builder image.
 		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION)
+
+dummy:
+	echo foo
+	#type go
+	id

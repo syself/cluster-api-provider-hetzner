@@ -101,5 +101,9 @@ RUN set -eu; \
     fi; \
     done
 
+#RUN rm /usr/local/go/bin/go
+
+ENV RUNNING_IN_CONTAINER=true
+
 # build.sh automatically switches to the UID/GID of the host.
 ENTRYPOINT ["/build.sh"]
