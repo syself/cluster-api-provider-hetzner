@@ -95,8 +95,12 @@ $(KUSTOMIZE): # Build kustomize from tools folder.
 	echo
 	echo "start debugging permission denied"
 	echo
+	echo "output of go env:"
 	go env
 	echo
+	echo "----- output of env:"
+	env
+	echo "----- end of env"
 	mkdir -p $$HOME/go/pkg/mod || true
 	ls -ldh $$HOME || true
 	ls -ldh $$HOME/go || true
