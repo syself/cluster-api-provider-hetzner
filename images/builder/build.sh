@@ -18,10 +18,4 @@ set -eu
 
 SRC_PATH=/src/cluster-api-provider-hetzner
 
-uid=$(stat --format="%u" "${SRC_PATH}")
-gid=$(stat --format="%g" "${SRC_PATH}")
-echo "caph:x:${uid}:${gid}::${SRC_PATH}:/bin/bash" >>/etc/passwd
-echo "caph:*:::::::" >>/etc/shadow
-echo "caph	ALL=(ALL)	NOPASSWD: ALL" >>/etc/sudoers
-
-su caph -c "PATH=${PATH} make -C ${SRC_PATH} BUILD_IN_CONTAINER=false $*"
+make -C ${SRC_PATH} BUILD_IN_CONTAINER=false "$*"
