@@ -78,10 +78,11 @@ RUN apt-get update && \
     yamlfixer-opt-nc==${YAMLFIXER_VERSION}
 # End of "we should move that to a previous Layer"
 
+COPY --from=wolfi /usr/bin/controller-gen /usr/bin/controller-gen
 COPY --from=wolfi /bin/golangci-lint /usr/bin/golangci-lint
-COPY --from=wolfi /usr/bin/trivy /usr/bin/trivy
-COPY --from=wolfi /usr/bin/skopeo /usr/bin/skopeo
 COPY --from=wolfi /usr/bin/helm /usr/bin/helm
+COPY --from=wolfi /usr/bin/skopeo /usr/bin/skopeo
+COPY --from=wolfi /usr/bin/trivy /usr/bin/trivy
 
 COPY --from=lychee /usr/local/bin/lychee /usr/bin/lychee
 COPY --from=hadolint /bin/hadolint /usr/bin/hadolint
