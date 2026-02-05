@@ -45,7 +45,12 @@ FROM docker.io/aquasec/trivy:0.60.0@sha256:91c3a842834563a6860dbaec5af7c1949df5c
 ############################
 # Caph Build Image Base #
 ############################
+# We use golang as base image. This means GOPATH is set to /go
+# See: https://hub.docker.com/_/golang/#how-to-use-this-image
 FROM docker.io/library/golang:1.24.5-bullseye@sha256:62ba6b19de03e891f7fa1001326bd48411f2626ff35e7ba5b9d890711ce581d9
+
+# Running as root. Do not use `go install` here.
+# Use `go install` after "USER runner"
 
 # update: datasource=repology depName=debian_11/skopeo versioning=loose
 ENV SKOPEO_VERSION="1.2.2+dfsg1-1+b6"
@@ -68,15 +73,11 @@ RUN apt-get update && \
     yamlfixer-opt-nc==${YAMLFIXER_VERSION}
 
 
-# Install controller-gen (current version)
-RUN go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.18.0
 
 COPY --from=lychee /usr/bin/lychee /usr/bin/lychee
 COPY --from=golangci /bin/golangci-lint /usr/local/bin
 COPY --from=hadolint /bin/hadolint /usr/bin/hadolint
 COPY --from=trivy /usr/local/bin/trivy /usr/bin/trivy
-
-ENV GOCACHE=/go/cache
 
 ## Install Helm
 # update: datasource=github-tags depName=helm/helm versioning=semver
@@ -84,12 +85,19 @@ ENV HELM_VERSION="v3.18.6"
 RUN curl -sSL https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz | tar xz -C /usr/local/bin --strip-components=1 linux-amd64/helm
 RUN chmod a+rx /usr/local/bin/helm
 
+COPY build.sh /
+RUN chmod +x /build.sh
+
+# Change to user "runner"
 ARG RUNNER_UID=1001
 ARG RUNNER_GID=1001
 RUN groupadd -g ${RUNNER_GID} runner && \
     useradd -m -u ${RUNNER_UID} -g ${RUNNER_GID} -s /bin/bash runner
+RUN mkdir -p $GOPATH && chown -R runner:runner $GOPATH
 
-COPY build.sh /
-RUN chmod +x /build.sh
 USER runner
+
+# Install controller-gen (current version)
+RUN go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.18.0
+
 ENTRYPOINT ["/build.sh"]

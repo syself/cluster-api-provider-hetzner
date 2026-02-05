@@ -101,11 +101,16 @@ $(KUSTOMIZE): # Build kustomize from tools folder.
 	echo "----- output of env:"
 	env
 	echo "----- end of env"
-	mkdir -p $$HOME/go/pkg/mod || true
-	ls -ldh $$HOME || true
-	ls -ldh $$HOME/go || true
-	ls -ldh $$HOME/go/pkg || true
-	ls -ldh $$HOME/go/pkg/mod || true
+	@ls -ldh $$HOME || true
+	@ls -ldh $$HOME/go || true
+	@ls -ldh $$HOME/go/pkg || true
+	@ls -ldh $$HOME/go/pkg/mod || true
+	echo
+	@ls -ldh $$GOPATH/pkg/mod/cache/download/sigs.k8s.io/kustomize || true
+	@ls -ldh $$GOPATH/pkg/mod/cache/download/sigs.k8s.io || true
+	@ls -ldh $$GOPATH/pkg/mod/cache/download || true
+	@ls -ldh $$GOPATH/pkg/mod/cache || true
+
 	id
 	echo "USER=$$USER HOME=$$HOME"
 	echo "end debugging permission denied"
