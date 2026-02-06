@@ -105,5 +105,8 @@ RUN set -eu; \
 
 ENV RUNNING_IN_CONTAINER=true
 
+# We are already in the container. Do not enter it again.
+ENV BUILD_IN_CONTAINER=false
+
 # build.sh automatically switches to the UID/GID of the host.
 ENTRYPOINT ["/build.sh"]
