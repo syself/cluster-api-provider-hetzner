@@ -17,6 +17,14 @@
 set -eu
 
 SRC_PATH=/src/cluster-api-provider-hetzner
+makefile="$SRC_PATH/Makefile"
+if [ ! -e $makefile ]; then
+    echo "Error: $makefile does not exist."
+    echo "Be sure to use:"
+    # shellcheck disable=SC2016
+    echo '   docker run  --rm -v $HOME/go/pkg:/go/pkg -v $(pwd):/src/cluster-api-provider-hetzner  ghcr.io/syself/caph-builder:XXX makefile-target'
+    exit 1
+fi
 
 # We autodetect the UID/GID of the host, and create a Linux user inside the container. This way the
 # cache between the host and inside the container can be shared. This avoids permission problems.
