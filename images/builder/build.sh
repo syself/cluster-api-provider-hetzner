@@ -37,7 +37,12 @@ echo "caph	ALL=(ALL)	NOPASSWD: ALL" >>/etc/sudoers
 # This chown is needed. Otherwise /home/runner/go/pkg will suddenly belong to the root user. We want
 # to avoid this permission change in the file system of the host (outside the container).
 mkdir -p /go/pkg
+# Use the host-mounted GOPATH cache to avoid filling the container filesystem.
+export GOPATH=/go
+export GOCACHE=/go/pkg/go-build
+export GOMODCACHE=/go/pkg/mod
+mkdir -p "${GOCACHE}" "${GOMODCACHE}"
 # Do not add "-R". This would add a overhead of 15 seconds for each start of the container.
-chown "$uid":"$gid" /go /go/pkg
+chown "$uid":"$gid" /go /go/pkg "${GOCACHE}" "${GOMODCACHE}"
 
-su caph -c "PATH=${PATH} make -C ${SRC_PATH} BUILD_IN_CONTAINER=false $*"
+su caph -c "PATH=${PATH} GOPATH=/go GOCACHE=/go/pkg/go-build GOMODCACHE=/go/pkg/mod make -C ${SRC_PATH} BUILD_IN_CONTAINER=false $*"
