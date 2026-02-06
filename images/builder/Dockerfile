@@ -55,7 +55,7 @@ FROM docker.io/hadolint/hadolint:v2.12.0-alpine@sha256:3c206a451cec6d486367e7586
 ############################
 # Caph Build Image Base #
 ############################
-FROM docker.io/library/golang:1.24.5-bullseye@sha256:62ba6b19de03e891f7fa1001326bd48411f2626ff35e7ba5b9d890711ce581d9
+FROM docker.io/library/golang:1.25-bookworm@sha256:38342f3e7a504bf1efad858c18e771f84b66dc0b363add7a57c9a0bbb6cf7b12
 
 # Start of "we should move that to a previous Layer"
 # We should keep the final layer clean. I guess this could all be done in the wolfi layer.
@@ -65,17 +65,23 @@ ENV YAMLLINT_VERSION="v1.36.2"
 # update: datasource=github-tags depName=opt-nc/yamlfixer versioning=semver
 ENV YAMLFIXER_VERSION="0.9.15"
 
+# PIPX_HOME is the directory where virtual environments for the installed tools will be created.
+ENV PIPX_HOME=/opt/pipx
+
+# PIPX_BIN_DIR is the directory where the tools installed via pipx will exist.
+ENV PIPX_BIN_DIR=/usr/local/bin
+
 # hadolint ignore=DL3008
 RUN apt-get update && \
     apt-get install -qy --no-install-recommends \
-    gnupg python3 python3-pip \
+    gnupg python3 python3-pip pipx \
     file zip unzip jq gettext \
     protobuf-compiler libprotobuf-dev \
     libsystemd-dev jq && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
-    pip install --no-cache-dir \
-    yamllint==${YAMLLINT_VERSION} \
-    yamlfixer-opt-nc==${YAMLFIXER_VERSION}
+    pipx install yamllint==${YAMLLINT_VERSION} && \
+    pipx install yamlfixer-opt-nc==${YAMLFIXER_VERSION} && \
+    pipx ensurepath
 # End of "we should move that to a previous Layer"
 
 COPY --from=wolfi /usr/bin/controller-gen /usr/bin/controller-gen

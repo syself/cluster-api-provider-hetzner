@@ -1,3 +1,11 @@
+version: "2"
+
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - goimports
+
 linters:
   disable-all: true
   enable:
@@ -12,14 +20,10 @@ linters:
     - errcheck
     - errchkjson
     - copyloopvar
-    - gci
     - gocritic
     - godot
-    - gofmt
-    - goimports
     - goprintffuncname
     - gosec
-    - gosimple
     - govet
     - importas
     - ineffassign
@@ -34,9 +38,7 @@ linters:
     - revive
     - rowserrcheck
     - staticcheck
-    - stylecheck
     - thelper
-    - typecheck
     - unconvert
     - unparam
     - unused
