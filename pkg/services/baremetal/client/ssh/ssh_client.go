@@ -622,13 +622,13 @@ func (c *sshClient) runSSH(command string) Output {
 	if err != nil {
 		return Output{Err: err}
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	sess, err := client.NewSession()
 	if err != nil {
 		return Output{Err: fmt.Errorf("unable to create new ssh session: %w", err)}
 	}
-	defer sess.Close()
+	defer func() { _ = sess.Close() }()
 
 	var stdoutBuffer bytes.Buffer
 	var stderrBuffer bytes.Buffer
@@ -697,19 +697,19 @@ func (c *sshClient) ExecutePreProvisionCommand(ctx context.Context, command stri
 	if err != nil {
 		return 0, "", err
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	scpClient, err := scp.NewClientBySSH(client)
 	if err != nil {
 		return 0, "", fmt.Errorf("couldn't create a new scp client: %w", err)
 	}
-
-	defer scpClient.Close()
+	defer func() { scpClient.Close() }()
 
 	f, err := os.Open(command) //nolint:gosec // the variable was valided.
 	if err != nil {
 		return 0, "", fmt.Errorf("error opening file %q: %w", command, err)
 	}
+	defer func() { _ = f.Close() }()
 
 	baseName := filepath.Base(command)
 	dest := "/root/" + baseName
@@ -747,14 +747,13 @@ func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL 
 	if err != nil {
 		return 0, "", err
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	scpClient, err := scp.NewClientBySSH(client)
 	if err != nil {
 		return 0, "", fmt.Errorf("couldn't create a new scp client: %w", err)
 	}
-
-	defer scpClient.Close()
+	defer func() { scpClient.Close() }()
 
 	if command == "" {
 		return 0, "", fmt.Errorf("image-url-command is empty")
@@ -764,7 +763,7 @@ func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL 
 	if err != nil {
 		return 0, "", fmt.Errorf("error opening image-url-command %q: %w", command, err)
 	}
-	defer fdCommand.Close()
+	defer func() { _ = fdCommand.Close() }()
 
 	baseName := "image-url-command"
 	dest := "/root/" + baseName

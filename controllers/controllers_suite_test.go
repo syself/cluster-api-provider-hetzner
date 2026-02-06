@@ -258,7 +258,7 @@ func dumpMetrics() error {
 	if err != nil {
 		return fmt.Errorf("Error creating file: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	// Encode the metrics into text format
 	encoder := expfmt.NewEncoder(f, expfmt.NewFormat(expfmt.TypeTextPlain))

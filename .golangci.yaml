@@ -5,11 +5,17 @@ linters:
   enable:
     - ineffassign
     - govet
-  disable:
     - errcheck
+    - gocritic
+    - gosec
+    - noctx
     - nolintlint
-    - staticcheck
-    - unused
+    - prealloc
+    - unparam
+  disable:
+    - revive # 84 issues (full run 2026-02-06)
+    - staticcheck # 120 issues (full run 2026-02-06)
+
 
 linters-settings:
   gci:
