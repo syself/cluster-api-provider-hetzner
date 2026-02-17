@@ -676,7 +676,7 @@ func (s *Service) setProviderID(ctx context.Context) error {
 		// no need for requeue error since host update will trigger a reconciliation
 		return nil
 	}
-	providerID, err := GenerateProviderID(s.scope.Machine, host.Spec.ServerID)
+	providerID, err := GenerateProviderID(s.scope.Machine, s.scope.HetznerCluster, host.Spec.ServerID)
 	if err != nil {
 		return err
 	}
@@ -910,21 +910,23 @@ const (
 	useHrobotProviderIdForBaremetalAnnotation = "capi.syself.com/use-hrobot-provider-id-for-baremetal"
 )
 
-// GenerateProviderID uses the old format by default (hcloud://bm-NNNN), except the Annotation
-// `node.cluster.x-k8s.io/hetzner-bm-provider-id-prefix` is set to `hcloud://bm-`.
-func GenerateProviderID(machine *clusterv1.Machine, serverNumber int) (string, error) {
+// GenerateProviderID returns the providerID for the given machine. If the ProviderID already
+// exists, then this will be returned. If the ProviderID is empty, it uses the old format by default
+// (hcloud://bm-NNNN), except the Annotation `node.cluster.x-k8s.io/hetzner-bm-provider-id-prefix`
+// on the hetznerCluster is set to `hcloud://bm-`.
+func GenerateProviderID(machine *clusterv1.Machine, hetznerCluster *infrav1.HetznerCluster, serverNumber int) (string, error) {
 	if machine.Spec.ProviderID != nil && *machine.Spec.ProviderID != "" {
 		return *machine.Spec.ProviderID, nil
 	}
-	prefix, ok := machine.Annotations[useHrobotProviderIdForBaremetalAnnotation]
+	prefix, ok := hetznerCluster.Annotations[useHrobotProviderIdForBaremetalAnnotation]
 	if !ok {
 		prefix = prefixRobotLegacy
 	}
 	if prefix != prefixRobotLegacy && prefix != prefixRobotNew {
 		return "", fmt.Errorf(
-			"Value %q of machine (%s) annotation %s is invalid. Ony %q and %q are supported",
+			"Value %q of hetznerCluster (%s) annotation %s is invalid. Only %q and %q are supported",
 			prefix,
-			machine.Name,
+			hetznerCluster.Name,
 			useHrobotProviderIdForBaremetalAnnotation,
 			prefixRobotLegacy,
 			prefixRobotNew,

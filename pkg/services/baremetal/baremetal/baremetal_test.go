@@ -800,6 +800,7 @@ var _ = Describe("Test analyzePatchError", func() {
 var _ = Describe("Test GenerateProviderID", func() {
 	type testCaseGenerateProviderID struct {
 		machine            *clusterv1.Machine
+		hetznerCluster     *infrav1.HetznerCluster
 		serverNumber       int
 		expectedProviderID string
 		expectedErr        string
@@ -813,9 +814,18 @@ var _ = Describe("Test GenerateProviderID", func() {
 		}
 	}
 
+	newHetznerCluster := func() *infrav1.HetznerCluster {
+		return &infrav1.HetznerCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "test-hetzner-cluster",
+				Annotations: map[string]string{},
+			},
+		}
+	}
+
 	DescribeTable("GenerateProviderID",
 		func(tc testCaseGenerateProviderID) {
-			providerID, err := GenerateProviderID(tc.machine, tc.serverNumber)
+			providerID, err := GenerateProviderID(tc.machine, tc.hetznerCluster, tc.serverNumber)
 
 			if tc.expectedErr == "" {
 				Expect(err).To(BeNil())
@@ -831,36 +841,40 @@ var _ = Describe("Test GenerateProviderID", func() {
 				machine.Spec.ProviderID = ptr.To("hrobot://123")
 				return machine
 			}(),
+			hetznerCluster:     newHetznerCluster(),
 			serverNumber:       42,
 			expectedProviderID: "hrobot://123",
 		}),
 		Entry("Defaults to legacy prefix", testCaseGenerateProviderID{
 			machine:            newMachine(),
+			hetznerCluster:     newHetznerCluster(),
 			serverNumber:       7,
 			expectedProviderID: "hcloud://bm-7",
 		}),
 		Entry("Uses annotation prefix", testCaseGenerateProviderID{
-			machine: func() *clusterv1.Machine {
-				machine := newMachine()
-				machine.Annotations = map[string]string{
+			machine: newMachine(),
+			hetznerCluster: func() *infrav1.HetznerCluster {
+				hetznerCluster := newHetznerCluster()
+				hetznerCluster.Annotations = map[string]string{
 					useHrobotProviderIdForBaremetalAnnotation: prefixRobotNew,
 				}
-				return machine
+				return hetznerCluster
 			}(),
 			serverNumber:       11,
 			expectedProviderID: "hrobot://11",
 		}),
 		Entry("Rejects invalid annotation prefix", testCaseGenerateProviderID{
-			machine: func() *clusterv1.Machine {
-				machine := newMachine()
-				machine.Annotations = map[string]string{
+			machine: newMachine(),
+			hetznerCluster: func() *infrav1.HetznerCluster {
+				hetznerCluster := newHetznerCluster()
+				hetznerCluster.Annotations = map[string]string{
 					useHrobotProviderIdForBaremetalAnnotation: "invalid://",
 				}
-				return machine
+				return hetznerCluster
 			}(),
 			serverNumber: 5,
-			expectedErr: "Value \"invalid://\" of machine (test-machine) annotation " +
-				"node.cluster.x-k8s.io/hetzner-bm-provider-id-prefix is invalid. Ony \"hcloud://bm-\" " +
+			expectedErr: "Value \"invalid://\" of hetznerCluster (test-hetzner-cluster) annotation " +
+				"capi.syself.com/use-hrobot-provider-id-for-baremetal is invalid. Only \"hcloud://bm-\" " +
 				"and \"hrobot://\" are supported",
 		}),
 	)
