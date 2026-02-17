@@ -56,7 +56,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Lint Golang Code
-        run: make lint-golang-ci
+        run: make lint-golang
 
       - name: Lint YAML
         run: make lint-yaml-ci
