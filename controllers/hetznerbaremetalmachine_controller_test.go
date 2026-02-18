@@ -606,7 +606,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				}, timeout, time.Second).Should(BeTrue())
 			})
 
-			It("checks providerId is set. By default return the old format", func() {
+			It("checks providerID is set; by default it uses the old format", func() {
 				Eventually(func() error {
 					err := testEnv.Get(ctx, client.ObjectKeyFromObject(bmMachine), bmMachine)
 					if err != nil {
@@ -616,7 +616,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 						return fmt.Errorf("bmMachine.Spec.ProviderID is nil")
 					}
 					if *bmMachine.Spec.ProviderID != "hcloud://bm-1" {
-						return fmt.Errorf("bmMachine.Spec.ProviderID  = %q",
+						return fmt.Errorf("bmMachine.Spec.ProviderID = %q",
 							*bmMachine.Spec.ProviderID)
 					}
 					return nil

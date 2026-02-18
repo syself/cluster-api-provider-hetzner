@@ -913,7 +913,7 @@ const (
 
 // GenerateProviderID returns the providerID for the given machine. If the ProviderID already
 // exists, then this will be returned. If the ProviderID is empty, it uses the old format by default
-// (hcloud://bm-NNNN), except the Annotation `node.cluster.x-k8s.io/hetzner-bm-provider-id-prefix`
+// (hcloud://bm-NNNN), except the Annotation `capi.syself.com/use-hrobot-provider-id-for-baremetal`
 // on the hetznerCluster is set to `hcloud://bm-`.
 func GenerateProviderID(machine *clusterv1.Machine, hetznerCluster *infrav1.HetznerCluster, serverNumber int) (string, error) {
 	if machine.Spec.ProviderID != nil && *machine.Spec.ProviderID != "" {
