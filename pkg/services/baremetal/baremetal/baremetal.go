@@ -899,12 +899,10 @@ func analyzePatchError(err error, ignoreNotFound bool) error {
 }
 
 const (
-	// prefixRobotLegacy is the prefix used by the Syself Fork for Robot Server provider IDs.
-	// This Prefix is no longer used for new nodes, instead prefix "hrobot://" should be used.
-	//
-	// It MUST not be changed, otherwise existing nodes will not be recognized anymore.
+	// prefixRobotLegacy is the prefix used by the Syself ccm.
 	prefixRobotLegacy = "hcloud://bm-"
 
+	// prefixRobotNew is the prefix used by the HCloud ccm.
 	prefixRobotNew = "hrobot://"
 
 	// UseHrobotProviderIdForBaremetalAnnotation on a HetznerCluster defines the ProviderID format
