@@ -25,9 +25,9 @@ fi
 
 rm -f "$HETZNER_TEMPLATES"/v1beta1/cluster-template*.yaml
 
-echo -n "$HETZNER_SSH_PUB" | base64 -d >tmp_ssh_pub_enc
-echo -n "$HETZNER_SSH_PRIV" | base64 -d >tmp_ssh_priv_enc
-kubectl create secret generic robot-ssh --from-literal=sshkey-name=shared-2024-07-08 --from-file=ssh-privatekey=tmp_ssh_priv_enc --from-file=ssh-publickey=tmp_ssh_pub_enc --dry-run=client -o yaml >data/infrastructure-hetzner/v1beta1/cluster-template-hetzner-secret.yaml
+echo "$HETZNER_SSH_PUB" >tmp_ssh_pub_enc
+echo "$HETZNER_SSH_PRIV" >tmp_ssh_priv_enc
+kubectl create secret generic robot-ssh --from-literal=sshkey-name="$SSH_KEY_NAME" --from-file=ssh-privatekey=tmp_ssh_priv_enc --from-file=ssh-publickey=tmp_ssh_pub_enc --dry-run=client -o yaml >data/infrastructure-hetzner/v1beta1/cluster-template-hetzner-secret.yaml
 rm tmp_ssh_pub_enc tmp_ssh_priv_enc
 
 kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template.yaml
