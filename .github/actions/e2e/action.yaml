@@ -86,6 +86,9 @@ runs:
         HETZNER_ROBOT_PASSWORD: ${{ inputs.e2e_robot_password }}
         HETZNER_SSH_PUB: ${{ inputs.e2e_ssh_pub }}
         HETZNER_SSH_PRIV: ${{ inputs.e2e_ssh_priv }}
+        HCLOUD_WORKER_MACHINE_TYPE: cpx32
+        HCLOUD_CONTROL_PLANE_MACHINE_TYPE: cpx32
+        HCLOUD_REGION: hel1
         SKIP_IMAGE_BUILD: "1"
         CAPH_LATEST_VERSION: "v1.0.7"
       run: make ${{ inputs.e2e_make_target }}

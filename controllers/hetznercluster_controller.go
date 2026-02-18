@@ -433,6 +433,7 @@ func getAndValidateHCloudToken(ctx context.Context, namespace string, hetznerClu
 	return hcloudToken, hetznerSecret, nil
 }
 
+//nolint:unparam // conditionType kept for future reuse across conditions.
 func hcloudTokenErrorResult(
 	ctx context.Context,
 	inerr error,

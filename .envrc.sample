@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 export CLUSTER_NAME=caph-${USER}
 export KUBECONFIG=$PWD/.mgt-cluster-kubeconfig.yaml
 export HCLOUD_TOKEN=...

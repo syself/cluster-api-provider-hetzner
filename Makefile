@@ -713,19 +713,6 @@ else
 	golangci-lint run -v
 endif
 
-.PHONY: lint-golang-ci
-lint-golang-ci:
-ifeq ($(BUILD_IN_CONTAINER),true)
-	docker run  --rm \
-		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
-		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
-		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
-else
-	go version
-	golangci-lint version
-	golangci-lint run --out-format=github-actions
-endif
-
 .PHONY: lint-yaml
 lint-yaml: ## Lint YAML files
 ifeq ($(BUILD_IN_CONTAINER),true)

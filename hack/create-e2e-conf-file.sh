@@ -33,6 +33,8 @@ fi
 
 make release-manifests
 
+make "$CLUSTERCTL"
+
 # `make release-manifests` changes local files (caph image). Restore them,
 # so they do not get committed accidentally.
 git restore config

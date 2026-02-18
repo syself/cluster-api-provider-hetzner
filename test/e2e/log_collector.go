@@ -66,7 +66,7 @@ func (collector logCollector) CollectMachineLog(_ context.Context, _ client.Clie
 			if err != nil {
 				return err
 			}
-			defer f.Close()
+			defer func() { _ = f.Close() }()
 			return executeRemoteCommand(f, hostIPAddr, command, args...)
 		}
 	}
@@ -77,11 +77,12 @@ func (collector logCollector) CollectMachineLog(_ context.Context, _ client.Clie
 			if err != nil {
 				return err
 			}
+			defer func() { _ = f.Close() }()
 
 			tempfileName := f.Name()
 			outputDir := filepath.Join(outputPath, dirName)
 
-			defer os.Remove(tempfileName)
+			defer func() { _ = os.Remove(tempfileName) }()
 
 			if err := executeRemoteCommand(
 				f, hostIPAddr,
@@ -94,7 +95,7 @@ func (collector logCollector) CollectMachineLog(_ context.Context, _ client.Clie
 				return err
 			}
 
-			cmd := exec.Command("tar", "--extract", "--file", tempfileName, "--directory", outputDir) // #nosec
+			cmd := exec.CommandContext(context.Background(), "tar", "--extract", "--file", tempfileName, "--directory", outputDir) // #nosec
 			if err := cmd.Run(); err != nil {
 				return fmt.Errorf("failed to run command: %w", err)
 			}
@@ -139,13 +140,13 @@ func executeRemoteCommand(f io.StringWriter, hostIPAddr, command string, args ..
 	if err != nil {
 		return fmt.Errorf("dialing host IP address at %s: %w", hostIPAddr, err)
 	}
-	defer hostClient.Close()
+	defer func() { _ = hostClient.Close() }()
 
 	session, err := hostClient.NewSession()
 	if err != nil {
 		return fmt.Errorf("opening SSH session: %w", err)
 	}
-	defer session.Close()
+	defer func() { _ = session.Close() }()
 
 	// Run the command and write the captured stdout to the file
 	var stdoutBuf bytes.Buffer
@@ -177,7 +178,7 @@ func newSSHConfig() (*ssh.ClientConfig, error) {
 
 	config := &ssh.ClientConfig{
 		User:            "root",
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // #nosec G106
 		Auth: []ssh.AuthMethod{
 			ssh.PublicKeys(signer),
 		},
