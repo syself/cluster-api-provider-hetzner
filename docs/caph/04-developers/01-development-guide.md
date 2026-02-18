@@ -150,17 +150,11 @@ export HETZNER_ROBOT_USER=<your robot user>
 export HETZNER_ROBOT_PASSWORD=<your robot password>
 export HETZNER_SSH_PUB_PATH=$HOME/.ssh/my-caph-ssh-key.pub
 export HETZNER_SSH_PRIV_PATH=$HOME/.ssh/my-caph-ssh-key
-HETZNER_SSH_PUB=$(base64 -w0 "$HETZNER_SSH_PUB_PATH")
-HETZNER_SSH_PRIV=$(base64 -w0 "$HETZNER_SSH_PRIV_PATH")
+HETZNER_SSH_PUB=$(cat "$HETZNER_SSH_PUB_PATH")
+HETZNER_SSH_PRIV=$(cat "$HETZNER_SSH_PRIV_PATH")
 export HETZNER_SSH_PUB HETZNER_SSH_PRIV
 
 make test-e2e-hcloud
-```
-
-For the SSH public and private keys, you should use the following command to encode the keys. Note that the E2E test will not work if the ssh key is in any other format!
-
-```shell
-export HETZNER_SSH_PRIV=$(cat ~/.ssh/cluster | base64 -w0)
 ```
 
 ## Creating new user in Robot
