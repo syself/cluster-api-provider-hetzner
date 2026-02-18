@@ -34,7 +34,7 @@ import (
 )
 
 const (
-	hetznerPrivateKeyFilePath = "SSH_KEY_PATH"
+	hetznerPrivateKeyContent = "HETZNER_SSH_PRIV"
 )
 
 type logCollector struct{}
@@ -58,6 +58,10 @@ func (collector logCollector) CollectMachineLog(_ context.Context, _ client.Clie
 		}
 		hostIPAddr = address.Address
 		break
+	}
+
+	if hostIPAddr == "" {
+		return fmt.Errorf("machine %q has no ExternalIP: machine.status.addresses: %+v", m.Name, m.Status.Addresses)
 	}
 
 	execToPathFn := func(hostFileName, command string, args ...string) func() error {
@@ -188,10 +192,9 @@ func newSSHConfig() (*ssh.ClientConfig, error) {
 }
 
 func readPrivateKey() ([]byte, error) {
-	privateKeyFilePath := os.Getenv(hetznerPrivateKeyFilePath)
-	if privateKeyFilePath == "" {
-		return nil, fmt.Errorf("private key information missing. Please set %s environment variable", hetznerPrivateKeyFilePath)
+	privateKeyContent := os.Getenv(hetznerPrivateKeyContent)
+	if privateKeyContent == "" {
+		return nil, fmt.Errorf("private key information missing. Please set %s environment variable", hetznerPrivateKeyContent)
 	}
-
-	return os.ReadFile(privateKeyFilePath) // #nosec
+	return []byte(privateKeyContent), nil
 }

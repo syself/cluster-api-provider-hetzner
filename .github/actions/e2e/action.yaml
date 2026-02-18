@@ -15,10 +15,13 @@ inputs:
     required: false
   e2e_ssh_pub:
     description: "e2e_ssh_pub"
-    required: false
+    required: true
   e2e_ssh_priv:
     description: "e2e_ssh_priv"
-    required: false
+    required: true
+  e2e_ssh_key_name:
+    description: "e2e_ssh_key_name"
+    required: true
   tps_token:
     description: "TPS token for fetching HCLOUD_TOKEN"
     required: true
@@ -83,6 +86,7 @@ runs:
         HETZNER_ROBOT_PASSWORD: ${{ inputs.e2e_robot_password }}
         HETZNER_SSH_PUB: ${{ inputs.e2e_ssh_pub }}
         HETZNER_SSH_PRIV: ${{ inputs.e2e_ssh_priv }}
+        SSH_KEY_NAME: ${{ inputs.e2e_ssh_key_name }}
         HCLOUD_WORKER_MACHINE_TYPE: cpx32
         HCLOUD_CONTROL_PLANE_MACHINE_TYPE: cpx32
         HCLOUD_REGION: hel1
