@@ -71,10 +71,6 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-
-      - name: Fix broken env var HOME
-        uses: ./.github/actions/fixes
-
       - name: Run e2e Test
         id: e2e
         uses: ./.github/actions/e2e
@@ -97,10 +93,6 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-
-      - name: Fix broken env var HOME
-        uses: ./.github/actions/fixes
-
       - name: Run e2e Test
         id: e2e-bm
         uses: ./.github/actions/e2e

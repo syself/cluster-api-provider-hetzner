@@ -79,11 +79,11 @@ jobs:
         id: cache
         with:
           path: /tmp/.cache/caph
-          key: ${{ runner.os }}-go-v2-${{ hashFiles('**/go.sum') }}-caph-${{ github.sha }}
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-caph-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-go-v2-${{ hashFiles('**/go.sum') }}-caph-
-            ${{ runner.os }}-go-v2-${{ hashFiles('**/go.sum') }}-
-            ${{ runner.os }}-go-v2-
+            ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-caph-
+            ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-
+            ${{ runner.os }}-go-
 
       - name: Create Caph cache directory
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
