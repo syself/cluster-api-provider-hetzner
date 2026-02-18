@@ -66,11 +66,12 @@ const (
 
 // HetznerBareMetalMachineSpec defines the desired state of HetznerBareMetalMachine.
 type HetznerBareMetalMachineSpec struct {
-	// ProviderID is set by the controller in the either (new) `hrobot://<server-id>` or
-	// (old)`hcloud://bm-NNNN` format. See arguments --bm-provider-id-always-hrobot and
-	// --bm-provider-id-use-hrobot-if-great-equal-kubernetes for caph and our ccm. After the
-	// ProviderID was set once, it never changes.
-	//
+	// ProviderID is set by the controller to either (new) `hrobot://<server-id>` or (old)
+	// `hcloud://bm-NNNN` format. If the HetznerBareMetalMachineSpec has already a ProviderID, then
+	// this will never change. If the ProviderID is empty, the controller sets it to the old format
+	// by default (hcloud://bm-NNNN), except the Annotation
+	// `node.cluster.x-k8s.io/hetzner-bm-provider-id-prefix` on the hetznerCluster is set to
+	// `hcloud://bm-`.
 	// +optional
 	ProviderID *string `json:"providerID,omitempty"`
 

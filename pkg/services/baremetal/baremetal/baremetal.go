@@ -907,7 +907,10 @@ const (
 
 	prefixRobotNew = "hrobot://"
 
-	useHrobotProviderIdForBaremetalAnnotation = "capi.syself.com/use-hrobot-provider-id-for-baremetal"
+	// UseHrobotProviderIdForBaremetalAnnotation on a HetznerCluster defines the ProviderID format
+	// for baremetal nodes. Only "hcloud://bm-" and "hrobot://" are allowed values. If not set, then
+	// the old format ("hcloud://bm-") gets used.
+	UseHrobotProviderIdForBaremetalAnnotation = "capi.syself.com/use-hrobot-provider-id-for-baremetal"
 )
 
 // GenerateProviderID returns the providerID for the given machine. If the ProviderID already
@@ -918,7 +921,7 @@ func GenerateProviderID(machine *clusterv1.Machine, hetznerCluster *infrav1.Hetz
 	if machine.Spec.ProviderID != nil && *machine.Spec.ProviderID != "" {
 		return *machine.Spec.ProviderID, nil
 	}
-	prefix, ok := hetznerCluster.Annotations[useHrobotProviderIdForBaremetalAnnotation]
+	prefix, ok := hetznerCluster.Annotations[UseHrobotProviderIdForBaremetalAnnotation]
 	if !ok {
 		prefix = prefixRobotLegacy
 	}
@@ -927,7 +930,7 @@ func GenerateProviderID(machine *clusterv1.Machine, hetznerCluster *infrav1.Hetz
 			"Value %q of hetznerCluster (%s) annotation %s is invalid. Only %q and %q are supported",
 			prefix,
 			hetznerCluster.Name,
-			useHrobotProviderIdForBaremetalAnnotation,
+			UseHrobotProviderIdForBaremetalAnnotation,
 			prefixRobotLegacy,
 			prefixRobotNew,
 		)
