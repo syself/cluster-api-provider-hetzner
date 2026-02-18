@@ -71,7 +71,7 @@ type HetznerBareMetalMachineSpec struct {
 	// this will never change. If the ProviderID is empty, the controller sets it to the old format
 	// by default (hcloud://bm-NNNN), except the Annotation
 	// `capi.syself.com/use-hrobot-provider-id-for-baremetal` on the hetznerCluster is set to
-	// `hcloud://bm-`.
+	// `hrobot://`.
 	// +optional
 	ProviderID *string `json:"providerID,omitempty"`
 
