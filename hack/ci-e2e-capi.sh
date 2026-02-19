@@ -29,6 +29,8 @@ export ARTIFACTS="${ARTIFACTS:-${REPO_ROOT}/_artifacts}"
 if ! output=$(curl -fsS -H "Authorization: Bearer $HCLOUD_TOKEN" 'https://api.hetzner.cloud/v1/ssh_keys' 2>&1); then
     echo "HCLOUD_TOKEN is invalid: $output"
     exit 1
+else
+    echo "HCLOUD_TOKEN with prefix ${HCLOUD_TOKEN:0:5}... is valid"
 fi
 
 # Create ssh-key if it does not exist yet
