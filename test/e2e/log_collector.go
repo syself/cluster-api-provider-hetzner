@@ -108,15 +108,81 @@ func (collector logCollector) CollectMachineLog(_ context.Context, _ client.Clie
 		}
 	}
 
+	collectCrictlContainerLogsFn := func(hostFileName string, containerNames ...string) func() error {
+		return func() error {
+			f, err := createOutputFile(filepath.Join(outputPath, hostFileName))
+			if err != nil {
+				return err
+			}
+			defer func() { _ = f.Close() }()
+
+			for _, containerName := range containerNames {
+				if _, err := f.WriteString(fmt.Sprintf("===== container name: %s =====\n", containerName)); err != nil {
+					return fmt.Errorf("writing output to file: %w", err)
+				}
+
+				var idsBuf bytes.Buffer
+				if err := executeRemoteCommand(&idsBuf, hostIPAddr, "crictl", "ps", "-a", "--name", containerName, "-q"); err != nil {
+					if _, writeErr := f.WriteString(fmt.Sprintf("failed to list containers for %s: %v\n\n", containerName, err)); writeErr != nil {
+						return fmt.Errorf("writing output to file: %w", writeErr)
+					}
+					continue
+				}
+
+				containerIDs := strings.Fields(idsBuf.String())
+				if len(containerIDs) == 0 {
+					if _, err := f.WriteString("no containers found\n\n"); err != nil {
+						return fmt.Errorf("writing output to file: %w", err)
+					}
+					continue
+				}
+
+				for _, containerID := range containerIDs {
+					if _, err := f.WriteString(fmt.Sprintf("----- inspect: %s -----\n", containerID)); err != nil {
+						return fmt.Errorf("writing output to file: %w", err)
+					}
+					if err := executeRemoteCommand(f, hostIPAddr, "crictl", "inspect", containerID); err != nil {
+						if _, writeErr := f.WriteString(fmt.Sprintf("inspect failed for %s: %v\n", containerID, err)); writeErr != nil {
+							return fmt.Errorf("writing output to file: %w", writeErr)
+						}
+					}
+
+					if _, err := f.WriteString(fmt.Sprintf("\n----- logs: %s -----\n", containerID)); err != nil {
+						return fmt.Errorf("writing output to file: %w", err)
+					}
+					if err := executeRemoteCommand(f, hostIPAddr, "crictl", "logs", containerID); err != nil {
+						if _, writeErr := f.WriteString(fmt.Sprintf("logs failed for %s: %v\n", containerID, err)); writeErr != nil {
+							return fmt.Errorf("writing output to file: %w", writeErr)
+						}
+					}
+
+					if _, err := f.WriteString("\n\n"); err != nil {
+						return fmt.Errorf("writing output to file: %w", err)
+					}
+				}
+			}
+
+			return nil
+		}
+	}
+
 	return kinderrors.AggregateConcurrent([]func() error{
 		execToPathFn("kern.log",
-			"sudo journalctl", "--no-pager", "--output=short-precise", "-k"),
+			"journalctl", "--no-pager", "--output=short-precise", "-k"),
 		execToPathFn("kubelet.log",
-			"sudo journalctl", "--no-pager", "--output=short-precise", "-u", "kubelet.service"),
+			"journalctl", "--no-pager", "--output=short-precise", "-u", "kubelet.service"),
 		execToPathFn("kubelet-version.txt",
 			"kubelet", "--version"),
 		execToPathFn("containerd.log",
-			"sudo journalctl", "--no-pager", "--output=short-precise", "-u", "containerd.service"),
+			"journalctl", "--no-pager", "--output=short-precise", "-u", "containerd.service"),
+		execToPathFn("crictl-ps-a.log",
+			"crictl", "ps", "-a"),
+		execToPathFn("crictl-pods-a.log",
+			"crictl", "pods", "-a"),
+		collectCrictlContainerLogsFn("crictl-control-plane.log",
+			"kube-apiserver", "etcd", "kube-controller-manager", "kube-scheduler"),
+		execToPathFn("var-log-k8s-ls.log",
+			"ls", "-lah", "/var/log/containers", "/var/log/pods"),
 		execToPathFn("cloud-init.log",
 			"cat", "/var/log/cloud-init.log"),
 		execToPathFn("cloud-init-output.log",
@@ -152,16 +218,20 @@ func executeRemoteCommand(f io.StringWriter, hostIPAddr, command string, args ..
 	}
 	defer func() { _ = session.Close() }()
 
-	// Run the command and write the captured stdout to the file
-	var stdoutBuf bytes.Buffer
-	session.Stdout = &stdoutBuf
+	// Capture both stdout and stderr to keep useful failure details.
+	var outputBuf bytes.Buffer
+	session.Stdout = &outputBuf
+	session.Stderr = &outputBuf
 	if len(args) > 0 {
 		command += " " + strings.Join(args, " ")
 	}
 	if err = session.Run(command); err != nil {
+		if _, writeErr := f.WriteString(outputBuf.String()); writeErr != nil {
+			return fmt.Errorf("running command %q: %w (writing output to file: %v)", command, err, writeErr)
+		}
 		return fmt.Errorf("running command %q: %w", command, err)
 	}
-	if _, err = f.WriteString(stdoutBuf.String()); err != nil {
+	if _, err = f.WriteString(outputBuf.String()); err != nil {
 		return fmt.Errorf("writing output to file: %w", err)
 	}
 
