@@ -31,6 +31,20 @@ if [ ${#missing_vars[@]} -gt 0 ]; then
   exit 1
 fi
 
+if [[ -n "${HETZNER_SSH_PUB:-}" ]]; then
+  if ! echo "$HETZNER_SSH_PUB" | grep -q 'ssh-'; then
+    echo "env var HETZNER_SSH_PUB seems wrong. It should be the pub key (not  base64 encoded). Guess: update .envrc"
+    exit 1
+  fi
+fi
+
+if [[ -n "${HETZNER_SSH_PRIV:-}" ]]; then
+  if ! echo "$HETZNER_SSH_PRIV" | grep -q 'OPENSSH'; then
+    echo "env var HETZNER_SSH_PRIV seems wrong. It should be the priv key (not  base64 encoded). Guess: update .envrc"
+    exit 1
+  fi
+fi
+
 for varname in "$@"; do
   if [ "$varname" = "HCLOUD_CONTROL_PLANE_MACHINE_TYPE" ] || [ "$varname" = "HCLOUD_WORKER_MACHINE_TYPE" ]; then
     deprecated_types=(cx22 cx32 cx42 cx52 cpx11 cpx21 cpx31 cpx41 cpx51)
