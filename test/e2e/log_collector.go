@@ -25,8 +25,10 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"golang.org/x/crypto/ssh"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	expv1 "sigs.k8s.io/cluster-api/exp/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,10 +36,39 @@ import (
 )
 
 const (
-	hetznerPrivateKeyContent = "HETZNER_SSH_PRIV"
+	HetznerPrivateKeyContent = "HETZNER_SSH_PRIV"
 )
 
 type logCollector struct{}
+
+// CollectMachineLogByExternalIP provides a minimal entrypoint for ad-hoc log collection.
+func CollectMachineLogByExternalIP(ctx context.Context, machineName, externalIP, outputPath string) error {
+	if machineName == "" {
+		return fmt.Errorf("machine name must not be empty")
+	}
+	if externalIP == "" {
+		return fmt.Errorf("external IP must not be empty")
+	}
+	if outputPath == "" {
+		return fmt.Errorf("output path must not be empty")
+	}
+
+	m := &clusterv1.Machine{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: machineName,
+		},
+		Status: clusterv1.MachineStatus{
+			Addresses: []clusterv1.MachineAddress{
+				{
+					Type:    clusterv1.MachineExternalIP,
+					Address: externalIP,
+				},
+			},
+		},
+	}
+
+	return logCollector{}.CollectMachineLog(ctx, nil, m, outputPath)
+}
 
 // CollectMachinePoolLog implements the CollectMachinePoolLog method of the LogCollector interface.
 func (collector logCollector) CollectMachinePoolLog(_ context.Context, _ client.Client, _ *expv1.MachinePool, _ string) error {
@@ -77,7 +108,7 @@ func (collector logCollector) CollectMachineLog(_ context.Context, _ client.Clie
 
 	copyDirFn := func(pathToDir, dirName string) func() error {
 		return func() error {
-			f, err := os.Create("/tmp/" + m.Name) // #nosec
+			f, err := os.CreateTemp("/tmp", m.Name+"-*.tar") // #nosec
 			if err != nil {
 				return err
 			}
@@ -88,7 +119,7 @@ func (collector logCollector) CollectMachineLog(_ context.Context, _ client.Clie
 
 			defer func() { _ = os.Remove(tempfileName) }()
 
-			if err := executeRemoteCommand(
+			if err := executeRemoteCommandStdoutOnly(
 				f, hostIPAddr,
 				"tar", "--hard-dereference", "-hcf", "-", pathToDir); err != nil {
 				return fmt.Errorf("failed to tar dir %s: %w", pathToDir, err)
@@ -100,73 +131,13 @@ func (collector logCollector) CollectMachineLog(_ context.Context, _ client.Clie
 			}
 
 			cmd := exec.CommandContext(context.Background(), "tar", "--extract", "--file", tempfileName, "--directory", outputDir) // #nosec
-			if err := cmd.Run(); err != nil {
-				return fmt.Errorf("failed to run command: %w", err)
-			}
-
-			return nil
-		}
-	}
-
-	collectCrictlContainerLogsFn := func(hostFileName string, containerNames ...string) func() error {
-		return func() error {
-			f, err := createOutputFile(filepath.Join(outputPath, hostFileName))
+			output, err := cmd.CombinedOutput()
 			if err != nil {
-				return err
-			}
-			defer func() { _ = f.Close() }()
-
-			for _, containerName := range containerNames {
-				if _, err := f.WriteString(fmt.Sprintf("===== container name: %s =====\n", containerName)); err != nil {
-					return fmt.Errorf("writing output to file: %w", err)
+				outputForError := formatOutputForError(string(output))
+				if outputForError != "" {
+					return fmt.Errorf("failed to extract dir %s: %w; output: %s", pathToDir, err, outputForError)
 				}
-
-				var idsBuf bytes.Buffer
-				if err := executeRemoteCommand(&idsBuf, hostIPAddr, "crictl", "ps", "-a", "--name", containerName+".*", "-q"); err != nil {
-					if _, writeErr := f.WriteString(fmt.Sprintf("failed to list containers for %s: %v\n\n", containerName, err)); writeErr != nil {
-						return fmt.Errorf("writing output to file: %w", writeErr)
-					}
-					continue
-				}
-				ids := idsBuf.String()
-				containerIDs := strings.Fields(ids)
-				if len(containerIDs) == 0 {
-					if _, err := f.WriteString("no containers found\n\n"); err != nil {
-						return fmt.Errorf("writing output to file: %w", err)
-					}
-					continue
-				}
-
-				for _, containerID := range containerIDs {
-					if !isLikelyContainerID(containerID) {
-						if _, err := f.WriteString(fmt.Sprintf("skip unexpected container ID token: %q\n\n", containerID)); err != nil {
-							return fmt.Errorf("writing output to file: %w", err)
-						}
-						continue
-					}
-
-					if _, err := f.WriteString(fmt.Sprintf("----- inspect: %s -----\n", containerID)); err != nil {
-						return fmt.Errorf("writing output to file: %w", err)
-					}
-					if err := executeRemoteCommand(f, hostIPAddr, "crictl", "inspect", containerID); err != nil {
-						if _, writeErr := f.WriteString(fmt.Sprintf("inspect failed for %s: %v\n", containerID, err)); writeErr != nil {
-							return fmt.Errorf("writing output to file: %w", writeErr)
-						}
-					}
-
-					if _, err := f.WriteString(fmt.Sprintf("\n----- logs: %s -----\n", containerID)); err != nil {
-						return fmt.Errorf("writing output to file: %w", err)
-					}
-					if err := executeRemoteCommand(f, hostIPAddr, "crictl", "logs", containerID); err != nil {
-						if _, writeErr := f.WriteString(fmt.Sprintf("logs failed for %s: %v\n", containerID, err)); writeErr != nil {
-							return fmt.Errorf("writing output to file: %w", writeErr)
-						}
-					}
-
-					if _, err := f.WriteString("\n\n"); err != nil {
-						return fmt.Errorf("writing output to file: %w", err)
-					}
-				}
+				return fmt.Errorf("failed to extract dir %s: %w", pathToDir, err)
 			}
 
 			return nil
@@ -182,12 +153,6 @@ func (collector logCollector) CollectMachineLog(_ context.Context, _ client.Clie
 			"kubelet", "--version"),
 		execToPathFn("containerd.log",
 			"journalctl", "--no-pager", "--output=short-precise", "-u", "containerd.service"),
-		execToPathFn("crictl-ps-a.log",
-			"crictl", "ps", "-a"),
-		execToPathFn("crictl-pods-a.log",
-			"crictl", "pods", "-a"),
-		collectCrictlContainerLogsFn("crictl-control-plane.log",
-			"kube-apiserver", "etcd", "kube-controller-manager", "kube-scheduler"),
 		execToPathFn("var-log-k8s-ls.log",
 			"ls", "-lah", "/var/log/containers", "/var/log/pods"),
 		execToPathFn("cloud-init.log",
@@ -206,21 +171,6 @@ func createOutputFile(path string) (*os.File, error) {
 	return os.Create(path) // #nosec
 }
 
-func isLikelyContainerID(value string) bool {
-	if len(value) != 64 {
-		return false
-	}
-
-	for i := 0; i < len(value); i++ {
-		char := value[i]
-		if !((char >= '0' && char <= '9') || (char >= 'a' && char <= 'f') || (char >= 'A' && char <= 'F')) {
-			return false
-		}
-	}
-
-	return true
-}
-
 func executeRemoteCommand(f io.StringWriter, hostIPAddr, command string, args ...string) error {
 	config, err := newSSHConfig()
 	if err != nil {
@@ -228,9 +178,17 @@ func executeRemoteCommand(f io.StringWriter, hostIPAddr, command string, args ..
 	}
 	port := "22"
 
-	hostClient, err := ssh.Dial("tcp", fmt.Sprintf("%s:%s", hostIPAddr, port), config)
-	if err != nil {
-		return fmt.Errorf("dialing host IP address at %s: %w", hostIPAddr, err)
+	var hostClient *ssh.Client
+	for attempt := 1; attempt <= 3; attempt++ {
+		hostClient, err = ssh.Dial("tcp", fmt.Sprintf("%s:%s", hostIPAddr, port), config)
+		if err != nil {
+			if attempt < 3 && isRetryableSSHError(err) {
+				time.Sleep(time.Duration(attempt) * time.Second)
+				continue
+			}
+			return fmt.Errorf("dialing host IP address at %s: %w", hostIPAddr, err)
+		}
+		break
 	}
 	defer func() { _ = hostClient.Close() }()
 
@@ -241,23 +199,99 @@ func executeRemoteCommand(f io.StringWriter, hostIPAddr, command string, args ..
 	defer func() { _ = session.Close() }()
 
 	// Capture both stdout and stderr to keep useful failure details.
-	var outputBuf bytes.Buffer
-	session.Stdout = &outputBuf
-	session.Stderr = &outputBuf
+	var stdoutBuf bytes.Buffer
+	var stderrBuf bytes.Buffer
+	var combinedOutputBuf bytes.Buffer
+	session.Stdout = io.MultiWriter(&combinedOutputBuf, &stdoutBuf)
+	session.Stderr = io.MultiWriter(&combinedOutputBuf, &stderrBuf)
 	if len(args) > 0 {
 		command += " " + strings.Join(args, " ")
 	}
 	if err = session.Run(command); err != nil {
-		if _, writeErr := f.WriteString(outputBuf.String()); writeErr != nil {
+		output := combinedOutputBuf.String()
+		if _, writeErr := f.WriteString(output); writeErr != nil {
 			return fmt.Errorf("running command %q: %w (writing output to file: %v)", command, err, writeErr)
+		}
+		stdoutForError := formatOutputForError(stdoutBuf.String())
+		stderrForError := formatOutputForError(stderrBuf.String())
+		if stdoutForError != "" || stderrForError != "" {
+			return fmt.Errorf("running command %q: %w; stdout: %q; stderr: %q", command, err, stdoutForError, stderrForError)
 		}
 		return fmt.Errorf("running command %q: %w", command, err)
 	}
-	if _, err = f.WriteString(outputBuf.String()); err != nil {
+	if _, err = f.WriteString(combinedOutputBuf.String()); err != nil {
 		return fmt.Errorf("writing output to file: %w", err)
 	}
 
 	return nil
+}
+
+func executeRemoteCommandStdoutOnly(w io.Writer, hostIPAddr, command string, args ...string) error {
+	config, err := newSSHConfig()
+	if err != nil {
+		return err
+	}
+	port := "22"
+
+	var hostClient *ssh.Client
+	for attempt := 1; attempt <= 3; attempt++ {
+		hostClient, err = ssh.Dial("tcp", fmt.Sprintf("%s:%s", hostIPAddr, port), config)
+		if err != nil {
+			if attempt < 3 && isRetryableSSHError(err) {
+				time.Sleep(time.Duration(attempt) * time.Second)
+				continue
+			}
+			return fmt.Errorf("dialing host IP address at %s: %w", hostIPAddr, err)
+		}
+		break
+	}
+	defer func() { _ = hostClient.Close() }()
+
+	session, err := hostClient.NewSession()
+	if err != nil {
+		return fmt.Errorf("opening SSH session: %w", err)
+	}
+	defer func() { _ = session.Close() }()
+
+	var stderrBuf bytes.Buffer
+	session.Stdout = w
+	session.Stderr = &stderrBuf
+	if len(args) > 0 {
+		command += " " + strings.Join(args, " ")
+	}
+	if err = session.Run(command); err != nil {
+		stderrForError := formatOutputForError(stderrBuf.String())
+		if stderrForError != "" {
+			return fmt.Errorf("running command %q: %w; stderr: %q", command, err, stderrForError)
+		}
+		return fmt.Errorf("running command %q: %w", command, err)
+	}
+
+	return nil
+}
+
+func isRetryableSSHError(err error) bool {
+	message := strings.ToLower(err.Error())
+
+	return strings.Contains(message, "handshake failed") ||
+		strings.Contains(message, "connection reset by peer") ||
+		strings.Contains(message, "connection refused") ||
+		strings.Contains(message, "i/o timeout")
+}
+
+func formatOutputForError(output string) string {
+	const maxOutputLength = 3000
+
+	formatted := strings.TrimSpace(strings.ToValidUTF8(output, "?"))
+	if formatted == "" {
+		return ""
+	}
+
+	if len(formatted) > maxOutputLength {
+		return formatted[:maxOutputLength] + "..."
+	}
+
+	return formatted
 }
 
 // newSSHConfig returns a configuration to use for SSH connections to remote machines.
@@ -284,9 +318,9 @@ func newSSHConfig() (*ssh.ClientConfig, error) {
 }
 
 func readPrivateKey() ([]byte, error) {
-	privateKeyContent := os.Getenv(hetznerPrivateKeyContent)
+	privateKeyContent := os.Getenv(HetznerPrivateKeyContent)
 	if privateKeyContent == "" {
-		return nil, fmt.Errorf("private key information missing. Please set %s environment variable", hetznerPrivateKeyContent)
+		return nil, fmt.Errorf("private key information missing. Please set %s environment variable", HetznerPrivateKeyContent)
 	}
 	return []byte(privateKeyContent), nil
 }
