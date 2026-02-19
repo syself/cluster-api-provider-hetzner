@@ -45,6 +45,21 @@ if [[ -n "${HETZNER_SSH_PRIV:-}" ]]; then
   fi
 fi
 
+if [[ -n "${KUBERNETES_VERSION:-}" ]]; then
+  min_kubernetes_version="1.33.6"
+  kubernetes_version="${KUBERNETES_VERSION#v}"
+
+  if [[ ! "$kubernetes_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    echo "env var KUBERNETES_VERSION should look like v<major>.<minor>.<patch> or <major>.<minor>.<patch>, got '$KUBERNETES_VERSION'."
+    exit 1
+  fi
+
+  if [[ "$(printf '%s\n%s\n' "$min_kubernetes_version" "$kubernetes_version" | sort -V | head -n 1)" != "$min_kubernetes_version" ]]; then
+    echo "KUBERNETES_VERSION must be >= v${min_kubernetes_version}, got '$KUBERNETES_VERSION'."
+    exit 1
+  fi
+fi
+
 for varname in "$@"; do
   if [ "$varname" = "HCLOUD_CONTROL_PLANE_MACHINE_TYPE" ] || [ "$varname" = "HCLOUD_WORKER_MACHINE_TYPE" ]; then
     deprecated_types=(cx22 cx32 cx42 cx52 cpx11 cpx21 cpx31 cpx41 cpx51)
