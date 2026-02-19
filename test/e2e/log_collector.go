@@ -122,14 +122,14 @@ func (collector logCollector) CollectMachineLog(_ context.Context, _ client.Clie
 				}
 
 				var idsBuf bytes.Buffer
-				if err := executeRemoteCommand(&idsBuf, hostIPAddr, "crictl", "ps", "-a", "--name", containerName, "-q"); err != nil {
+				if err := executeRemoteCommand(&idsBuf, hostIPAddr, "crictl", "ps", "-a", "--name", containerName+".*", "-q"); err != nil {
 					if _, writeErr := f.WriteString(fmt.Sprintf("failed to list containers for %s: %v\n\n", containerName, err)); writeErr != nil {
 						return fmt.Errorf("writing output to file: %w", writeErr)
 					}
 					continue
 				}
-
-				containerIDs := strings.Fields(idsBuf.String())
+				ids := idsBuf.String()
+				containerIDs := strings.Fields(ids)
 				if len(containerIDs) == 0 {
 					if _, err := f.WriteString("no containers found\n\n"); err != nil {
 						return fmt.Errorf("writing output to file: %w", err)
@@ -138,6 +138,13 @@ func (collector logCollector) CollectMachineLog(_ context.Context, _ client.Clie
 				}
 
 				for _, containerID := range containerIDs {
+					if !isLikelyContainerID(containerID) {
+						if _, err := f.WriteString(fmt.Sprintf("skip unexpected container ID token: %q\n\n", containerID)); err != nil {
+							return fmt.Errorf("writing output to file: %w", err)
+						}
+						continue
+					}
+
 					if _, err := f.WriteString(fmt.Sprintf("----- inspect: %s -----\n", containerID)); err != nil {
 						return fmt.Errorf("writing output to file: %w", err)
 					}
@@ -197,6 +204,21 @@ func createOutputFile(path string) (*os.File, error) {
 		return nil, err
 	}
 	return os.Create(path) // #nosec
+}
+
+func isLikelyContainerID(value string) bool {
+	if len(value) != 64 {
+		return false
+	}
+
+	for i := 0; i < len(value); i++ {
+		char := value[i]
+		if !((char >= '0' && char <= '9') || (char >= 'a' && char <= 'f') || (char >= 'A' && char <= 'F')) {
+			return false
+		}
+	}
+
+	return true
 }
 
 func executeRemoteCommand(f io.StringWriter, hostIPAddr, command string, args ...string) error {
