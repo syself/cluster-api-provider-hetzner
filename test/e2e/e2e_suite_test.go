@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -33,6 +34,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
@@ -294,6 +296,9 @@ func logStatus(ctx context.Context, restConfig *restclient.Config, c client.Clie
 	if err := logConditions(ctx, "mgt-cluster", restConfig); err != nil {
 		return err
 	}
+	if err := logCCMDeployments(ctx, "mgt-cluster", restConfig); err != nil {
+		return err
+	}
 
 	// log the unhealthy conditions of the wl-clusters.
 	clusterList := &clusterv1.ClusterList{}
@@ -337,6 +342,12 @@ func logStatus(ctx context.Context, restConfig *restclient.Config, c client.Clie
 			log(fmt.Sprintf("Failed to log Conditions %s/%s: %v", cluster.Namespace, secretName, err))
 			continue
 		}
+		err = logCCMDeployments(ctx, "wl-cluster "+cluster.Name, restConfig)
+		if err != nil {
+			log(fmt.Sprintf("Failed to log CCM deployment %s/%s: %v", cluster.Namespace, secretName, err))
+			continue
+		}
+
 	}
 
 	log(fmt.Sprintf("≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡ %s End logging status >>>", time.Now().Format("2006-01-02 15:04:05")))
@@ -358,6 +369,75 @@ func logConditions(ctx context.Context, clusterName string, restConfig *restclie
 		log(line)
 	}
 	return nil
+}
+
+func logCCMDeployments(ctx context.Context, clusterName string, restConfig *restclient.Config) error {
+	cfg := restclient.CopyConfig(restConfig)
+	cfg.QPS = -1 // Since Kubernetes 1.29 "API Priority and Fairness" handles that.
+
+	kubeClient, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		return fmt.Errorf("create kubernetes client from restConfig: %w", err)
+	}
+
+	deployments, err := kubeClient.AppsV1().Deployments(corev1.NamespaceAll).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("list deployments: %w", err)
+	}
+
+	ccmDeployments := make([]appsv1.Deployment, 0, len(deployments.Items))
+	for _, deployment := range deployments.Items {
+		if strings.HasPrefix(deployment.Name, "ccm") {
+			ccmDeployments = append(ccmDeployments, deployment)
+		}
+	}
+
+	sort.Slice(ccmDeployments, func(i, j int) bool {
+		if ccmDeployments[i].Namespace == ccmDeployments[j].Namespace {
+			return ccmDeployments[i].Name < ccmDeployments[j].Name
+		}
+		return ccmDeployments[i].Namespace < ccmDeployments[j].Namespace
+	})
+
+	log(fmt.Sprintf("----------------------------------------------- %s ---- CCM Deployment: %d",
+		clusterName, len(ccmDeployments)))
+
+	if len(ccmDeployments) == 0 {
+		return nil
+	}
+
+	for _, deployment := range ccmDeployments {
+		log(fmt.Sprintf("Deployment: %s/%s", deployment.Namespace, deployment.Name))
+		logDeploymentContainerImages("initContainer", deployment.Spec.Template.Spec.InitContainers)
+		logDeploymentContainerImages("container", deployment.Spec.Template.Spec.Containers)
+	}
+
+	return nil
+}
+
+func logDeploymentContainerImages(containerType string, containers []corev1.Container) {
+	for _, container := range containers {
+		log(fmt.Sprintf("  %s %s image=%s tag=%s",
+			containerType,
+			container.Name,
+			container.Image,
+			extractImageTag(container.Image),
+		))
+	}
+}
+
+func extractImageTag(image string) string {
+	if at := strings.LastIndex(image, "@"); at != -1 {
+		return image[at+1:]
+	}
+
+	lastSlash := strings.LastIndex(image, "/")
+	lastColon := strings.LastIndex(image, ":")
+	if lastColon > lastSlash {
+		return image[lastColon+1:]
+	}
+
+	return "<none>"
 }
 
 func logHCloudMachineStatus(ctx context.Context, c client.Client) error {

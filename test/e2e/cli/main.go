@@ -1,3 +1,19 @@
+/*
+Copyright 2026 The Kubernetes Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package main
 
 import (
@@ -12,6 +28,14 @@ import (
 )
 
 func main() {
+	err := do()
+	if err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
+}
+
+func do() error {
 	fs := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
 
@@ -25,40 +49,36 @@ func main() {
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(os.Args[1:]); err != nil {
-		os.Exit(2)
+		return err
 	}
 
 	if fs.NArg() != 1 {
-		fmt.Fprintln(os.Stderr, "missing required argument: <host>")
 		fs.Usage()
-		os.Exit(2)
+		return fmt.Errorf("missing required argument: <host>")
 	}
 	host := fs.Arg(0)
 
 	if os.Getenv(e2e.HetznerPrivateKeyContent) == "" {
-		fmt.Fprintf(os.Stderr, "missing required environment variable: %s\n", e2e.HetznerPrivateKeyContent)
 		fs.Usage()
-		os.Exit(2)
+		return fmt.Errorf("missing required environment variable: %s", e2e.HetznerPrivateKeyContent)
 	}
 
 	if err := os.MkdirAll(*outputDir, 0o750); err != nil {
-		fmt.Fprintf(os.Stderr, "create output directory: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("create output directory: %w", err)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
 	defer cancel()
 
 	if err := e2e.CollectMachineLogByExternalIP(ctx, *machineName, host, *outputDir); err != nil {
-		fmt.Fprintf(os.Stderr, "collect logs: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("collect logs: %w", err)
 	}
 
 	absOutputDir, err := filepath.Abs(*outputDir)
 	if err != nil {
-		fmt.Printf("logs collected in %s\n", *outputDir)
-		return
+		return err
 	}
 
 	fmt.Printf("logs collected in %s\n", absOutputDir)
+	return nil
 }
