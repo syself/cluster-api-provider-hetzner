@@ -23,7 +23,7 @@ metadata:
 spec:
   serverID: 1716772
   rootDeviceHints:
-    wwn: "0x5000cca22de4ef84"
+    wwn: "0x5002538d41d70a46"
   maintenanceMode: false
   description: Test Machine 1716772
 ---
@@ -47,7 +47,7 @@ kind: HetznerBareMetalHost
 metadata:
   name: "bm-e2e-1731561"
   labels:
-    baremetal-pool: ci-pool
+    baremetal-pool: free-pool
     name: bm-e2e-1731561
 spec:
   serverID: 1731561
@@ -56,6 +56,7 @@ spec:
   maintenanceMode: false
   description: Test Machine 1731561
 ---
+# Had issues: Feb 2026.
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: HetznerBareMetalHost
 metadata:
@@ -70,12 +71,13 @@ spec:
   maintenanceMode: false
   description: Test Machine 1751550
 ---
+# Worked Feb 2026
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: HetznerBareMetalHost
 metadata:
   name: "bm-e2e-1763731"
   labels:
-    baremetal-pool: free-pool
+    baremetal-pool: ci-pool
     name: bm-e2e-1763731
 spec:
   serverID: 1763731
