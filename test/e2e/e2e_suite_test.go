@@ -68,7 +68,7 @@ var (
 	// kubetestConfigFilePath is the path to the kubetest configuration file.
 	kubetestConfigFilePath string
 
-	// alsoLogToFile enables additional logging to the 'ginkgo-log.txt' file in the artifact folder.
+	// alsoLogToFile enables additional logging to a timestamped 'ginkgo-log-MM-DD_HH-MM-SS.txt' file in the artifact folder.
 	// These logs also contain timestamps.
 	alsoLogToFile bool
 
@@ -98,7 +98,7 @@ var (
 func init() {
 	flag.StringVar(&configPath, "e2e.config", "", "path to the e2e config file")
 	flag.StringVar(&artifactFolder, "e2e.artifacts-folder", "", "folder where e2e test artifact should be stored")
-	flag.BoolVar(&alsoLogToFile, "e2e.also-log-to-file", true, "if true, ginkgo logs are additionally written to the `ginkgo-log.txt` file in the artifacts folder (including timestamps)")
+	flag.BoolVar(&alsoLogToFile, "e2e.also-log-to-file", true, "if true, ginkgo logs are additionally written to a `ginkgo-log-MM-DD_HH-MM-SS.txt` file in the artifacts folder (including timestamps)")
 	flag.BoolVar(&skipCleanup, "e2e.skip-resource-cleanup", false, "if true, the resource cleanup after tests will be skipped")
 	flag.StringVar(&clusterctlConfig, "e2e.clusterctl-config", "", "file which tests will use as a clusterctl config. If it is not set, a local clusterctl repository (including a clusterctl config) will be created automatically.")
 	flag.BoolVar(&useExistingCluster, "e2e.use-existing-cluster", false, "if true, the test uses the current cluster instead of creating a new one (default discovery rules apply)")
@@ -116,7 +116,8 @@ func TestE2E(t *testing.T) {
 	RegisterFailHandler(Fail)
 
 	if alsoLogToFile {
-		w, err := ginkgoextensions.EnableFileLogging(filepath.Join(artifactFolder, "ginkgo-log.txt"))
+		logFileName := fmt.Sprintf("ginkgo-log-%s.txt", time.Now().Format("01-02_15-04-05"))
+		w, err := ginkgoextensions.EnableFileLogging(filepath.Join(artifactFolder, logFileName))
 		Expect(err).ToNot(HaveOccurred())
 		defer func() { _ = w.Close() }()
 	}
@@ -468,27 +469,12 @@ func logCCMDeployments(ctx context.Context, clusterName string, restConfig *rest
 
 func logDeploymentContainerImages(containerType string, containers []corev1.Container) {
 	for _, container := range containers {
-		log(fmt.Sprintf("  %s %s image=%s tag=%s",
+		log(fmt.Sprintf("  %s %s image=%s",
 			containerType,
 			container.Name,
 			container.Image,
-			extractImageTag(container.Image),
 		))
 	}
-}
-
-func extractImageTag(image string) string {
-	if at := strings.LastIndex(image, "@"); at != -1 {
-		return image[at+1:]
-	}
-
-	lastSlash := strings.LastIndex(image, "/")
-	lastColon := strings.LastIndex(image, ":")
-	if lastColon > lastSlash {
-		return image[lastColon+1:]
-	}
-
-	return "<none>"
 }
 
 func logHCloudMachineStatus(ctx context.Context, c client.Client) error {
