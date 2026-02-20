@@ -103,13 +103,13 @@ if [[ -z $CLUSTER_NAME ]]; then
 fi
 UNIQ="$API_VERSION/$NAME--$CLUSTER_NAME"
 "$BIN"/kustomize build templates/cluster-templates/"$API_VERSION/$NAME" \
-    --load-restrictor LoadRestrictionsNone >>generated/"$UNIQ"--kustomized.yaml
+    --load-restrictor LoadRestrictionsNone >generated/"$UNIQ"--kustomized.yaml
 
 "$BIN"/clusterctl generate yaml --from generated/"$UNIQ"--kustomized.yaml \
     >generated/"$UNIQ"--rendered.yaml
 echo "Created generated/$UNIQ--rendered.yaml"
 
-echo "Applying manifests"
+echo "Applying manifests: generated/$UNIQ--rendered.yaml"
 "$BIN"/kubectl apply --validate=true -f generated/"$UNIQ"--rendered.yaml
 
 make wait-and-get-secret

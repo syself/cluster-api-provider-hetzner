@@ -95,9 +95,15 @@ def main() -> None:
 
     if ssh_keys:
         existing = ssh_keys[0].get("public_key", "").strip()
+        parts = existing.split()
+        if len(parts) == 3:
+            existing = " ".join(parts[:2])
         if existing == public_key:
             print(f"ok: SSH key {ssh_name} already exists with identical content.")
             sys.exit(0)
+        print(existing)
+        print()
+        print(public_key)
         print(
             f"error: SSH key {ssh_name} already exists with different public key data.",
             file=sys.stderr,
