@@ -342,6 +342,11 @@ func logStatus(ctx context.Context, restConfig *restclient.Config, c client.Clie
 			log(fmt.Sprintf("Failed to log Conditions %s/%s: %v", cluster.Namespace, secretName, err))
 			continue
 		}
+		err = logNodes(ctx, "wl-cluster "+cluster.Name, restConfig)
+		if err != nil {
+			log(fmt.Sprintf("Failed to log Nodes %s/%s: %v", cluster.Namespace, secretName, err))
+			continue
+		}
 		err = logCCMDeployments(ctx, "wl-cluster "+cluster.Name, restConfig)
 		if err != nil {
 			log(fmt.Sprintf("Failed to log CCM deployment %s/%s: %v", cluster.Namespace, secretName, err))
@@ -371,6 +376,52 @@ func logConditions(ctx context.Context, clusterName string, restConfig *restclie
 	return nil
 }
 
+func logNodes(ctx context.Context, clusterName string, restConfig *restclient.Config) error {
+	cfg := restclient.CopyConfig(restConfig)
+	cfg.QPS = -1 // Since Kubernetes 1.29 "API Priority and Fairness" handles that.
+
+	kubeClient, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		return fmt.Errorf("create kubernetes client from restConfig: %w", err)
+	}
+
+	nodes, err := kubeClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("list nodes: %w", err)
+	}
+
+	sort.Slice(nodes.Items, func(i, j int) bool {
+		return nodes.Items[i].Name < nodes.Items[j].Name
+	})
+
+	log(fmt.Sprintf("----------------------------------------------- %s ---- Nodes: %d",
+		clusterName, len(nodes.Items)))
+
+	for _, node := range nodes.Items {
+		addresses := make([]string, 0, len(node.Status.Addresses))
+		for _, address := range node.Status.Addresses {
+			addresses = append(addresses, fmt.Sprintf("%s=%s", address.Type, address.Address))
+		}
+		sort.Strings(addresses)
+
+		addressText := "<none>"
+		if len(addresses) > 0 {
+			addressText = strings.Join(addresses, ", ")
+		}
+
+		log(fmt.Sprintf("Node: %s providerID=%q addresses=[%s]",
+			node.Name,
+			node.Spec.ProviderID,
+			addressText,
+		))
+		if node.Spec.ProviderID == "" {
+			log(fmt.Sprintf("  !!! WARNING !!! Node %s has empty providerID (check ccm)", node.Name))
+		}
+	}
+
+	return nil
+}
+
 func logCCMDeployments(ctx context.Context, clusterName string, restConfig *restclient.Config) error {
 	cfg := restclient.CopyConfig(restConfig)
 	cfg.QPS = -1 // Since Kubernetes 1.29 "API Priority and Fairness" handles that.
@@ -380,14 +431,14 @@ func logCCMDeployments(ctx context.Context, clusterName string, restConfig *rest
 		return fmt.Errorf("create kubernetes client from restConfig: %w", err)
 	}
 
-	deployments, err := kubeClient.AppsV1().Deployments(corev1.NamespaceAll).List(ctx, metav1.ListOptions{})
+	deployments, err := kubeClient.AppsV1().Deployments(metav1.NamespaceSystem).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("list deployments: %w", err)
 	}
 
 	ccmDeployments := make([]appsv1.Deployment, 0, len(deployments.Items))
 	for _, deployment := range deployments.Items {
-		if strings.HasPrefix(deployment.Name, "ccm") {
+		if strings.HasSuffix(deployment.Name, "ccm") || strings.HasSuffix(deployment.Name, "cloud-controller-manager") {
 			ccmDeployments = append(ccmDeployments, deployment)
 		}
 	}
