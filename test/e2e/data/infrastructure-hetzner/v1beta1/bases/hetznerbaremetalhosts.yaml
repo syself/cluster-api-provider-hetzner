@@ -12,13 +12,13 @@ spec:
   maintenanceMode: false
   description: Test Machine 1670788
 ---
-# Did not reach rescue system
+# Feb 2026: worked.
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: HetznerBareMetalHost
 metadata:
   name: "bm-e2e-1716772"
   labels:
-    baremetal-pool: ci-pool
+    baremetal-pool: free-pool
     name: bm-e2e-1716772
 spec:
   serverID: 1716772
@@ -41,7 +41,7 @@ spec:
   maintenanceMode: false
   description: Test Machine 1724024
 ---
-# We deactived 1731561 since it can't reach the rescue system.
+# Feb 2026: works
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: HetznerBareMetalHost
 metadata:
@@ -68,7 +68,7 @@ spec:
   serverID: 1751550
   rootDeviceHints:
     wwn: "0x500a075119549dcf"
-  maintenanceMode: false
+  maintenanceMode: true #### < --- set to false, when ok.
   description: Test Machine 1751550
 ---
 # Worked Feb 2026
