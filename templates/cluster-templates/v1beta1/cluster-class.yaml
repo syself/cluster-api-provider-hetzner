@@ -419,6 +419,7 @@ spec:
               tls-private-key-file: /etc/kubernetes/pki/apiserver.key
           controllerManager:
             extraArgs:
+              cloud-provider: external
               allocate-node-cidrs: "true"
               authentication-kubeconfig: /etc/kubernetes/controller-manager.conf
               authorization-kubeconfig: /etc/kubernetes/controller-manager.conf

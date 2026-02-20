@@ -47,6 +47,7 @@ spec:
           default-unreachable-toleration-seconds: "45"
       controllerManager:
         extraArgs:
+          cloud-provider: external
           cluster-signing-cert-file: /etc/kubernetes/pki/ca.crt
           cluster-signing-key-file: /etc/kubernetes/pki/ca.key
           cluster-signing-duration: 6h0m0s
