@@ -139,7 +139,7 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 	secretManager := secretutil.NewSecretManager(log, r.Client, r.APIReader)
 	hcloudToken, _, err := getAndValidateHCloudToken(ctx, req.Namespace, hetznerCluster, secretManager)
 	if err != nil {
-		return hcloudTokenErrorResult(ctx, err, hcloudRemediation, infrav1.HCloudTokenAvailableCondition, r.Client)
+		return hcloudTokenErrorResult(ctx, err, hcloudRemediation, r.Client)
 	}
 
 	hcc := r.HCloudClientFactory.NewClient(hcloudToken)
