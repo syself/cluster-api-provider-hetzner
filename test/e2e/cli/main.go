@@ -70,7 +70,10 @@ func do() error {
 		if err != nil {
 			return err
 		}
-		os.Setenv(e2e.HetznerPrivateKeyContent, string(privKey))
+		err = os.Setenv(e2e.HetznerPrivateKeyContent, string(privKey))
+		if err != nil {
+			return err
+		}
 	}
 
 	if err := os.MkdirAll(*outputDir, 0o750); err != nil {
