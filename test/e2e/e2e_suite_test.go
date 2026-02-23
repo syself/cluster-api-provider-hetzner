@@ -438,21 +438,30 @@ func logCCMDeployments(ctx context.Context, clusterName string, restConfig *rest
 	}
 
 	ccmDeployments := make([]appsv1.Deployment, 0, len(deployments.Items))
+	ccmDeploymentNameSuffixes := []string{
+		"ccm",
+		"cloud-controller-manager",
+		"ccm-hetzner",
+		"ccm-hcloud",
+	}
 	for _, deployment := range deployments.Items {
-		if strings.HasSuffix(deployment.Name, "ccm") || strings.HasSuffix(deployment.Name, "cloud-controller-manager") {
-			ccmDeployments = append(ccmDeployments, deployment)
+		for _, suffix := range ccmDeploymentNameSuffixes {
+			if strings.HasSuffix(deployment.Name, suffix) {
+				ccmDeployments = append(ccmDeployments, deployment)
+				break
+			}
 		}
 	}
 
-	sort.Slice(ccmDeployments, func(i, j int) bool {
-		if ccmDeployments[i].Namespace == ccmDeployments[j].Namespace {
-			return ccmDeployments[i].Name < ccmDeployments[j].Name
-		}
-		return ccmDeployments[i].Namespace < ccmDeployments[j].Namespace
-	})
-
 	log(fmt.Sprintf("----------------------------------------------- %s ---- CCM Deployment: %d",
 		clusterName, len(ccmDeployments)))
+
+	if len(ccmDeployments) == 0 {
+		log("  !!! WARNING !!! Expected exactly 1 CCM deployment, found none")
+	}
+	if len(ccmDeployments) > 1 {
+		log(fmt.Sprintf("  !!! WARNING !!! Expected exactly 1 CCM deployment, found %d", len(ccmDeployments)))
+	}
 
 	if len(ccmDeployments) == 0 {
 		return nil
