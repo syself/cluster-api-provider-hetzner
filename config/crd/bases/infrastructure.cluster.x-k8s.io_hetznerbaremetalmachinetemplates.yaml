@@ -246,7 +246,7 @@ spec:
                           this will never change. If the ProviderID is empty, the controller sets it to the old format
                           by default (hcloud://bm-NNNN), except the Annotation
                           `capi.syself.com/use-hrobot-provider-id-for-baremetal` on the hetznerCluster is set to
-                          `hrobot://`.
+                          `"true"`.
                         type: string
                       sshSpec:
                         description: SSHSpec gives a reference on the secret where
