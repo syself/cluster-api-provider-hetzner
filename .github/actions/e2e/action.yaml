@@ -1,4 +1,4 @@
-# dummy change. GH UI shows outdated diff.
+# dummy change. GH UI shows outdated diff. After merge
 name: "E2E Test"
 description: "Runs the e2e test"
 inputs:
