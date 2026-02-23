@@ -297,9 +297,6 @@ func logStatus(ctx context.Context, restConfig *restclient.Config, c client.Clie
 	if err := logConditions(ctx, "mgt-cluster", restConfig); err != nil {
 		return err
 	}
-	if err := logCCMDeployments(ctx, "mgt-cluster", restConfig); err != nil {
-		return err
-	}
 
 	// log the unhealthy conditions of the wl-clusters.
 	clusterList := &clusterv1.ClusterList{}
