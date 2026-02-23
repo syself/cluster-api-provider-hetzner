@@ -71,8 +71,34 @@ This requires a secret containing access credentials to both Hetzner Robot and H
 
 {% /callout %}
 
-If you have configured your secret correctly in the previous step then you already have the secret in your cluster.
-Let's deploy the hetzner CCM helm chart.
+First you need to decide if you want to use the Syself CCM or the upstream HCloud CCM.
+
+If you are unsure, use the HCloud CCM. In the long run we (Syself) want to switch from our fork to the
+upstream CCM.
+
+The CAPH controller creates the required secrets in the workload cluster for you. You only need to
+install the CCM.
+
+Important: CAPH and the CCM must both use the same ProviderID format for bare metal. Unfortunately
+(for historical reasons), there are two formats:
+
+- old: `hcloud://bm-NNNN`
+- new: `hrobot://NNNN`
+
+The Syself CCM uses the old format by default. The HCloud CCM always uses the new format.
+
+If you use the new format, set the annotation
+`capi.syself.com/use-hrobot-provider-id-for-baremetal` to `"true"` on the `HetznerCluster`.
+
+If CAPH and the CCM do not agree on the ProviderID format, then new nodes will not be able to join
+the cluster, because CAPI waits for the wrong ProviderID.
+
+This only applies to new nodes. Once a node has a ProviderID, it will never change. Both CCMs
+support both formats when the ProviderID is already set.
+
+This applies only to bare metal. HCloud nodes always use the format `hcloud://NNNN`.
+
+If you want to use the Syself CCM:
 
 ```shell
 helm repo add syself https://charts.syself.com
@@ -88,6 +114,20 @@ NAMESPACE: kube-system
 STATUS: deployed
 REVISION: 1
 TEST SUITE: None
+```
+
+If you want to use the HCloud CCM:
+
+```shell
+helm repo add hcloud https://charts.hetzner.cloud
+helm repo update hcloud
+
+helm upgrade --install hccm hcloud/hcloud-cloud-controller-manager \
+              --namespace kube-system \
+              --kubeconfig workload-kubeconfig \
+              --set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.name=hetzner \
+              --set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.key=hcloud \
+              --set networking.enabled=false
 ```
 
 ### Installing CNI
@@ -128,4 +168,5 @@ default     my-cluster-md-1-cp2fd-7nld7      my-cluster   bm-my-cluster-md-1-d75
 default     my-cluster-md-1-cp2fd-n74sm      my-cluster   bm-my-cluster-md-1-l5dnr         hcloud://bm-2105469   Running        10h   v1.33.6
 ```
 
-Please note that hcloud servers are prefixed with `hcloud://` and baremetal servers are prefixed with `hcloud://bm-`.
+Please note that HCloud servers are prefixed with `hcloud://` and bare-metal servers are prefixed
+with either `hcloud://bm-` or `hrobot://`, depending on your ProviderID format configuration.
