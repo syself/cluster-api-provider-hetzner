@@ -1,3 +1,4 @@
+# Dummy change on branch tg/get-e2e-tests-working. GH UI shows outdated diff.
 name: Fix env var HOME and git permissions
 description: Fix env var HOME and git permissions
 runs:
