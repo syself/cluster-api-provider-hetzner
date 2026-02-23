@@ -856,7 +856,7 @@ var _ = Describe("Test GenerateProviderID", func() {
 			hetznerCluster: func() *infrav1.HetznerCluster {
 				hetznerCluster := newHetznerCluster()
 				hetznerCluster.Annotations = map[string]string{
-					UseHrobotProviderIdForBaremetalAnnotation: prefixRobotNew,
+					UseHrobotProviderIdForBaremetalAnnotation: "true",
 				}
 				return hetznerCluster
 			}(),
@@ -868,14 +868,12 @@ var _ = Describe("Test GenerateProviderID", func() {
 			hetznerCluster: func() *infrav1.HetznerCluster {
 				hetznerCluster := newHetznerCluster()
 				hetznerCluster.Annotations = map[string]string{
-					UseHrobotProviderIdForBaremetalAnnotation: "invalid://",
+					UseHrobotProviderIdForBaremetalAnnotation: "invalid",
 				}
 				return hetznerCluster
 			}(),
 			serverNumber: 5,
-			expectedErr: "Value \"invalid://\" of hetznerCluster (test-hetzner-cluster) annotation " +
-				"capi.syself.com/use-hrobot-provider-id-for-baremetal is invalid. Only \"hcloud://bm-\" " +
-				"and \"hrobot://\" are supported",
+			expectedErr:  `Unsupported value for HetznerCluster Annotation "capi.syself.com/use-hrobot-provider-id-for-baremetal": "invalid"`,
 		}),
 	)
 })
