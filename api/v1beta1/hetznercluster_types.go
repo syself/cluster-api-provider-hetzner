@@ -36,6 +36,11 @@ const (
 	AllowEmptyControlPlaneAddressAnnotation = "capi.syself.com/allow-empty-control-plane-address"
 	// ConstantBareMetalHostnameAnnotation makes hostnames of bare metal servers constant.
 	ConstantBareMetalHostnameAnnotation = "capi.syself.com/constant-bare-metal-hostname"
+
+	// UseHrobotProviderIdForBaremetalAnnotation on a HetznerCluster defines which  ProviderID
+	// format to use for baremetal nodes. If "true" "hrobot://" will be used. If not set or empty,
+	// then the old format ("hcloud://bm-") gets used.
+	UseHrobotProviderIdForBaremetalAnnotation = "capi.syself.com/use-hrobot-provider-id-for-baremetal"
 )
 
 // HetznerClusterSpec defines the desired state of HetznerCluster.

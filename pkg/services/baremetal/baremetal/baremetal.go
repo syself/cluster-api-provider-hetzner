@@ -904,11 +904,6 @@ const (
 
 	// prefixRobotNew is the prefix used by the HCloud ccm.
 	prefixRobotNew = "hrobot://"
-
-	// UseHrobotProviderIdForBaremetalAnnotation on a HetznerCluster defines which  ProviderID
-	// format to use for baremetal nodes. If "true" "hrobot://" will be used. If not set or empty,
-	// then the old format ("hcloud://bm-") gets used.
-	UseHrobotProviderIdForBaremetalAnnotation = "capi.syself.com/use-hrobot-provider-id-for-baremetal"
 )
 
 // GenerateProviderID returns the providerID for the given machine. If the ProviderID already
@@ -919,13 +914,13 @@ func GenerateProviderID(machine *clusterv1.Machine, hetznerCluster *infrav1.Hetz
 	if machine.Spec.ProviderID != nil && *machine.Spec.ProviderID != "" {
 		return *machine.Spec.ProviderID, nil
 	}
-	trueString, _ := hetznerCluster.Annotations[UseHrobotProviderIdForBaremetalAnnotation]
+	trueString, _ := hetznerCluster.Annotations[infrav1.UseHrobotProviderIdForBaremetalAnnotation]
 	if trueString == "" {
 		return fmt.Sprintf("%s%d", prefixRobotLegacy, serverNumber), nil
 	}
 	if strings.ToLower(trueString) != "true" {
 		return "", fmt.Errorf("Unsupported value for HetznerCluster Annotation %q: %q",
-			UseHrobotProviderIdForBaremetalAnnotation, trueString)
+			infrav1.UseHrobotProviderIdForBaremetalAnnotation, trueString)
 	}
 	return fmt.Sprintf("%s%d", prefixRobotNew, serverNumber), nil
 }
