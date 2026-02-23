@@ -1,4 +1,3 @@
-# Dummy change on branch tg/get-e2e-tests-working. GH UI shows outdated diff.
 name: "E2E Test"
 description: "Runs the e2e test"
 inputs:
