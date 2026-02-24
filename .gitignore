@@ -54,7 +54,7 @@ bm-*.yaml
 config/samples
 
 # test results
-_artifacts
+_artifacts*
 test/e2e/config/hetzner.tmp.yaml
 resp.json
 **manifest.json
