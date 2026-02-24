@@ -91,17 +91,7 @@ The following `make` command will install the CCM in your workload cluster:
 
 `make install-ccm-in-wl-cluster`
 
-For a cluster without a private network, use the following command:
-
-```shell
-helm repo add hcloud https://charts.hetzner.cloud
-helm repo update hcloud
-
-KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install hccm hcloud/hcloud-cloud-controller-manager \
-        --namespace kube-system \
-        --set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.name=hetzner \
-        --set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.key=hcloud
-```
+For a cluster without a private network use: `make install-ccm-in-wl-cluster PRIVATE_NETWORK=true`
 
 For baremetal, see  [Baremetal
 Docs](docs/caph/02-topics/05-baremetal/03-creating-workload-cluster.md#deploying-the-hetzner-cloud-controller-manager)

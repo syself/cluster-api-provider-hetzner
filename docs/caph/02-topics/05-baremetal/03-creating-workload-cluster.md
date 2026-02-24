@@ -24,9 +24,6 @@ The CCM is the "Cloud Controller" which runs in the workload-cluster. Most impor
 If you are unsure, use the HCloud CCM. In the long run we (Syself) want to switch from our fork to
 the upstream CCM.
 
-TODO TODO: We need to release our new CCM first.
-THEN: Update this paragraph, use new format (hrobot://) by setting the annotation.
-
 The CAPH controller creates the required secrets in the workload cluster for you. You only need to
 install the CCM. To allow switching the ccm, the controller creates the secret "hetzner" and
 "hcloud" in the workload-cluster. These secrets contain the HCLOUD_TOKEN, so that the ccm can
@@ -40,8 +37,8 @@ Important: CAPH and the CCM must both use the same ProviderID format for bare me
 
 The Syself CCM uses the old format by default. The HCloud CCM always uses the new format.
 
-If you use the new format, set the annotation
-`capi.syself.com/use-hrobot-provider-id-for-baremetal` to `"true"` on the `HetznerCluster`.
+If you use the new format, set the annotation `capi.syself.com/use-hrobot-provider-id-for-baremetal`
+to `"true"` on the `HetznerCluster`. Our default templates have this annotation set.
 
 If CAPH and the CCM do not agree on the ProviderID format, then new nodes will not be able to join
 the cluster, because CAPI waits for the wrong ProviderID.
@@ -109,9 +106,23 @@ This requires a secret containing access credentials to both Hetzner Robot and H
 
 {% /callout %}
 
-ööööö
+If you want to use the HCloud CCM:
 
-If you want to use the Syself CCM:
+```shell
+helm repo add hcloud https://charts.hetzner.cloud
+helm repo update hcloud
+
+helm upgrade --install ccm hcloud/hcloud-cloud-controller-manager \
+             --namespace kube-system \
+             --kubeconfig workload-kubeconfig
+```
+
+Be sure that the HetznerCluster has not the annotation
+`capi.syself.com/use-hrobot-provider-id-for-baremetal: "true"`.
+
+---
+
+If you want to use the Syself CCM (not recommended for new clusters):
 
 ```shell
 helm repo add syself https://charts.syself.com
@@ -120,28 +131,10 @@ helm repo update syself
 $ helm upgrade --install ccm syself/ccm-hetzner --version 2.0.1 \
               --namespace kube-system \
               --kubeconfig workload-kubeconfig
-Release "ccm" does not exist. Installing it now.
-NAME: ccm
-LAST DEPLOYED: Thu Apr  4 21:09:25 2024
-NAMESPACE: kube-system
-STATUS: deployed
-REVISION: 1
-TEST SUITE: None
 ```
 
-If you want to use the HCloud CCM:
-
-```shell
-helm repo add hcloud https://charts.hetzner.cloud
-helm repo update hcloud
-
-helm upgrade --install hccm hcloud/hcloud-cloud-controller-manager \
-              --namespace kube-system \
-              --kubeconfig workload-kubeconfig \
-              --set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.name=hetzner \
-              --set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.key=hcloud \
-              --set networking.enabled=false
-```
+Be sure that the HetznerCluster has not the annotation
+`capi.syself.com/use-hrobot-provider-id-for-baremetal`.
 
 ### Installing CNI
 

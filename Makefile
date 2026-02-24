@@ -196,19 +196,19 @@ install-cilium-in-wl-cluster:
 install-ccm-in-wl-cluster:
 ifeq ($(BUILD_IN_CONTAINER),true)
 	docker run  --rm \
+		-e PRIVATE_NETWORK \
 		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
 else
-	helm repo add syself https://charts.syself.com
-	helm repo update syself
-	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hetzner --version 2.0.1 \
-	--namespace kube-system \
-	--set privateNetwork.enabled=$(PRIVATE_NETWORK)
+	helm repo add hetzner-cloud https://charts.hetzner.cloud
+	helm repo update hetzner-cloud
+	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm \
+	  hetzner-cloud/hcloud-cloud-controller-manager \
+	  --version 1.30.1 \
+	  --namespace kube-system \
+	  --set networking.enabled=$(PRIVATE_NETWORK)
 
-	# Optional: override CCM image for staging/testing.
-	#--set image.tag=sha-93d3a7f \
-	#--set image.repository=ghcr.io/syself/hetzner-cloud-controller-manager-staging
 	@echo
 	@echo 'run "kubectl --kubeconfig=$(WORKER_CLUSTER_KUBECONFIG) ..." to work with the new target cluster'
 	@echo
