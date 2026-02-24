@@ -15,9 +15,9 @@ Secrets as of now are hardcoded given we are using a flavor which is essentially
 
 First you need to decide if you want to use the Syself CCM or the upstream HCloud CCM.
 
-The CCM is the "Cloud Controller" which runs in the workload-cluster. Most important tasks of CCM:
+The CCM is the "Cloud Controller" which runs in the workload-cluster. The most important tasks of the CCM are:
 
-- Set ProviderID on Nodes. This is important, so that CAPI in the mgt-cluster knows which capi
+- Set ProviderID on Nodes. This is important, so that CAPI in the mgt-cluster knows which CAPI
   machine (in mgt-cluster) is which Node (in wl-cluster).
 - Creates LoadBalancers
 
