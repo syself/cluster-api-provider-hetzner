@@ -205,6 +205,10 @@ else
 	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hetzner --version 2.0.1 \
 	--namespace kube-system \
 	--set privateNetwork.enabled=$(PRIVATE_NETWORK)
+
+	# Optional: override CCM image for staging/testing.
+	#--set image.tag=sha-93d3a7f \
+	#--set image.repository=ghcr.io/syself/hetzner-cloud-controller-manager-staging
 	@echo
 	@echo 'run "kubectl --kubeconfig=$(WORKER_CLUSTER_KUBECONFIG) ..." to work with the new target cluster'
 	@echo
@@ -224,23 +228,23 @@ create-workload-cluster-hcloud: env-vars-for-wl-cluster $(KUSTOMIZE) install-crd
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN
 	./hack/create-workload-cluster.sh v1beta1 hcloud
 
-create-workload-cluster-hcloud-network: env-vars-for-wl-cluster $(KUSTOMIZE) ## Creates a workload-cluster.
+create-workload-cluster-hcloud-network: env-vars-for-wl-cluster $(KUSTOMIZE) install-crds ## Creates a workload-cluster.
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN
 	./hack/create-workload-cluster.sh v1beta1 hcloud-network
 
 # Use that, if you want to test hcloud control-planes, hcloud worker and bm worker.
-create-workload-cluster-hetzner-hcloud-control-plane: env-vars-for-wl-cluster $(KUSTOMIZE) ## Creates a workload-cluster.
+create-workload-cluster-hetzner-hcloud-control-plane: env-vars-for-wl-cluster $(KUSTOMIZE) install-crds ## Creates a workload-cluster.
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN HETZNER_ROBOT_USER HETZNER_ROBOT_PASSWORD HETZNER_SSH_PRIV_PATH HETZNER_SSH_PUB_PATH SSH_KEY_NAME
 	./hack/create-workload-cluster.sh --robot v1beta1 hetzner-hcloud-control-planes
 
-create-workload-cluster-hetzner-baremetal-control-plane: env-vars-for-wl-cluster $(KUSTOMIZE) ## Creates a workload-cluster.
+create-workload-cluster-hetzner-baremetal-control-plane: env-vars-for-wl-cluster $(KUSTOMIZE) install-crds ## Creates a workload-cluster.
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN HETZNER_ROBOT_USER HETZNER_ROBOT_PASSWORD HETZNER_SSH_PRIV_PATH HETZNER_SSH_PUB_PATH SSH_KEY_NAME
 	./hack/create-workload-cluster.sh --robot v1beta1 hetzner-baremetal-control-plane
 
-create-workload-cluster-hetzner-baremetal-control-plane-remediation: env-vars-for-wl-cluster $(KUSTOMIZE) ## Creates a workload-cluster.
+create-workload-cluster-hetzner-baremetal-control-plane-remediation: env-vars-for-wl-cluster $(KUSTOMIZE) install-crds ## Creates a workload-cluster.
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN HETZNER_ROBOT_USER HETZNER_ROBOT_PASSWORD HETZNER_SSH_PRIV_PATH HETZNER_SSH_PUB_PATH SSH_KEY_NAME
 	./hack/create-workload-cluster.sh --robot v1beta1 hetzner-baremetal-control-plane-remediation
@@ -349,8 +353,8 @@ release-manifests: generate-manifests generate-go-deepcopy $(KUSTOMIZE) $(RELEAS
 	$(KUSTOMIZE) build config/default > $(RELEASE_DIR)/infrastructure-components.yaml
 	## Build $(INFRA_SHORT)-components (aggregate of all of the above).
 	cp metadata.yaml $(RELEASE_DIR)/metadata.yaml
-	cp templates/cluster-templates/cluster-template* $(RELEASE_DIR)/
-	cp templates/cluster-templates/cluster-class* $(RELEASE_DIR)/
+	cp generated/cluster-template* $(RELEASE_DIR)/
+	cp templates/cluster-templates/v1beta1/cluster-class* $(RELEASE_DIR)/
 
 .PHONY: release
 release: clean-release  ## Builds and push container images using the latest git tag for the commit.
@@ -462,9 +466,6 @@ test-e2e: test-e2e-hcloud
 .PHONY: test-e2e-hcloud
 test-e2e-hcloud: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
 	rm -f $(WORKER_CLUSTER_KUBECONFIG)
-	HETZNER_SSH_PUB= HETZNER_SSH_PRIV= \
-	HETZNER_SSH_PUB_PATH= HETZNER_SSH_PRIV_PATH= \
-	HETZNER_ROBOT_PASSWORD= HETZNER_ROBOT_USER= \
 	GINKGO_FOKUS="'\[Basic\]'" GINKGO_NODES=2 \
 	./hack/ci-e2e-capi.sh
 
@@ -624,12 +625,13 @@ generate-api-ci: generate-manifests generate-go-deepcopy
 	fi
 
 cluster-templates: $(KUSTOMIZE)
-	$(KUSTOMIZE) build templates/cluster-templates/hcloud --load-restrictor LoadRestrictionsNone  > generated/cluster-template.yaml
-	$(KUSTOMIZE) build templates/cluster-templates/hcloud --load-restrictor LoadRestrictionsNone  > generated/cluster-template-hcloud.yaml
-	$(KUSTOMIZE) build templates/cluster-templates/hcloud-network --load-restrictor LoadRestrictionsNone  > generated/cluster-template-hcloud-network.yaml
-	$(KUSTOMIZE) build templates/cluster-templates/hetzner-hcloud-control-planes --load-restrictor LoadRestrictionsNone  > generated/cluster-template-hetzner-hcloud-control-planes.yaml
-	$(KUSTOMIZE) build templates/cluster-templates/hetzner-baremetal-control-planes --load-restrictor LoadRestrictionsNone  > generated/cluster-template-hetzner-baremetal-control-planes.yaml
-	$(KUSTOMIZE) build templates/cluster-templates/hetzner-baremetal-control-planes-remediation --load-restrictor LoadRestrictionsNone  > generated/cluster-template-hetzner-baremetal-control-planes-remediation.yaml
+	mkdir -p generated
+	$(KUSTOMIZE) build templates/cluster-templates/v1beta1/hcloud --load-restrictor LoadRestrictionsNone  > generated/cluster-template.yaml
+	$(KUSTOMIZE) build templates/cluster-templates/v1beta1/hcloud --load-restrictor LoadRestrictionsNone  > generated/cluster-template-hcloud.yaml
+	$(KUSTOMIZE) build templates/cluster-templates/v1beta1/hcloud-network --load-restrictor LoadRestrictionsNone  > generated/cluster-template-hcloud-network.yaml
+	$(KUSTOMIZE) build templates/cluster-templates/v1beta1/hetzner-hcloud-control-planes --load-restrictor LoadRestrictionsNone  > generated/cluster-template-hetzner-hcloud-control-planes.yaml
+	$(KUSTOMIZE) build templates/cluster-templates/v1beta1/hetzner-baremetal-control-planes --load-restrictor LoadRestrictionsNone  > generated/cluster-template-hetzner-baremetal-control-planes.yaml
+	$(KUSTOMIZE) build templates/cluster-templates/v1beta1/hetzner-baremetal-control-planes-remediation --load-restrictor LoadRestrictionsNone  > generated/cluster-template-hetzner-baremetal-control-planes-remediation.yaml
 
 ##@ Format
 ##########
@@ -679,19 +681,6 @@ else
 	go version
 	golangci-lint version
 	golangci-lint run -v
-endif
-
-.PHONY: lint-golang-ci
-lint-golang-ci:
-ifeq ($(BUILD_IN_CONTAINER),true)
-	docker run  --rm \
-		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
-		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
-		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
-else
-	go version
-	golangci-lint version
-	golangci-lint run --out-format=github-actions
 endif
 
 .PHONY: lint-yaml
