@@ -171,9 +171,9 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 
 		// Download the older clusterctl version to be used for setting up the management cluster to be upgraded
 
-		fmt.Fprintf(ginkgo.GinkgoWriter, "Downloading clusterctl binary from %s", clusterctlBinaryURL)
+		_, _ = fmt.Fprintf(ginkgo.GinkgoWriter, "Downloading clusterctl binary from %s", clusterctlBinaryURL)
 		clusterctlBinaryPath := downloadToTmpFile(ctx, clusterctlBinaryURL)
-		defer os.Remove(clusterctlBinaryPath) // clean up
+		defer func() { _ = os.Remove(clusterctlBinaryPath) }() // clean up
 
 		err := os.Chmod(clusterctlBinaryPath, 0o744) //nolint:gosec
 		gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to chmod temporary file")
@@ -228,10 +228,10 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 		controlPlaneMachineCount := ptr.To[int64](1)
 		workerMachineCount := ptr.To[int64](1)
 
-		fmt.Fprintf(ginkgo.GinkgoWriter, "Creating the workload cluster with name %q using the %q template (Kubernetes %s, %d control-plane machines, %d worker machines)",
+		_, _ = fmt.Fprintf(ginkgo.GinkgoWriter, "Creating the workload cluster with name %q using the %q template (Kubernetes %s, %d control-plane machines, %d worker machines)",
 			workLoadClusterName, "(default)", kubernetesVersion, *controlPlaneMachineCount, *workerMachineCount)
 
-		fmt.Fprintf(ginkgo.GinkgoWriter, "Getting the cluster template yaml")
+		_, _ = fmt.Fprintf(ginkgo.GinkgoWriter, "Getting the cluster template yaml")
 		workloadClusterTemplate := clusterctl.ConfigClusterWithBinary(ctx, clusterctlBinaryPath, clusterctl.ConfigClusterInput{
 			// pass reference to the management cluster hosting this test
 			KubeconfigPath: managementClusterProxy.GetKubeconfigPath(),
@@ -251,7 +251,7 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 		})
 		gomega.Expect(workloadClusterTemplate).ToNot(gomega.BeNil(), "Failed to get the cluster template")
 
-		fmt.Fprintf(ginkgo.GinkgoWriter, "Applying the cluster template yaml to the cluster")
+		_, _ = fmt.Fprintf(ginkgo.GinkgoWriter, "Applying the cluster template yaml to the cluster")
 		gomega.Expect(managementClusterProxy.CreateOrUpdate(ctx, workloadClusterTemplate)).To(gomega.Succeed())
 
 		ginkgo.By("Waiting for the machines to exists")
@@ -335,7 +335,7 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 						ClusterctlConfigPath: input.ClusterctlConfigPath,
 					}, input.E2EConfig.GetIntervals(specName, "wait-delete-cluster")...)
 				default:
-					fmt.Fprintf(ginkgo.GinkgoWriter, "Management Cluster does not appear to support CAPI resources.")
+					_, _ = fmt.Fprintf(ginkgo.GinkgoWriter, "Management Cluster does not appear to support CAPI resources.")
 				}
 
 				Byf("Deleting cluster %s/%s", testNamespace.Name, managementClusterName)
@@ -371,7 +371,7 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 func downloadToTmpFile(ctx context.Context, url string) string {
 	tmpFile, err := os.CreateTemp("", "clusterctl")
 	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to get temporary file")
-	defer tmpFile.Close()
+	defer func() { _ = tmpFile.Close() }()
 
 	// Get the data
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
@@ -379,7 +379,7 @@ func downloadToTmpFile(ctx context.Context, url string) string {
 
 	resp, err := http.DefaultClient.Do(req)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to get clusterctl")
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Write the body to file
 	_, err = io.Copy(tmpFile, resp.Body)
