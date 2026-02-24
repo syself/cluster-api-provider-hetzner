@@ -36,7 +36,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/pointer"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	caipamv1 "sigs.k8s.io/cluster-api/exp/ipam/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -196,6 +199,24 @@ func (s *Service) actionPreparing(ctx context.Context) actionResult {
 	s.scope.HetznerBareMetalHost.Spec.Status.IPv4 = server.ServerIP
 	s.scope.HetznerBareMetalHost.Spec.Status.IPv6 = server.ServerIPv6Net + "1"
 
+	privateIPsPoolRef := s.scope.HetznerBareMetalMachine.Spec.PrivateIPsFromPool
+	if privateIPsPoolRef != nil {
+		ipAddressClaim, err := s.ensureIPAddressClaim(ctx, *privateIPsPoolRef)
+		if err != nil {
+			return actionError{err: fmt.Errorf("failed ensuring IPAddressClaim is created: %w", err)}
+		}
+
+		privateIP, err := s.addressFromIPAddressClaim(ctx, ipAddressClaim)
+		if err != nil {
+			return actionError{err: fmt.Errorf("failed getting private IP from IPAddressClaim: %w", err)}
+		}
+		if len(privateIP) == 0 {
+			return actionError{err: fmt.Errorf("private IP not allocated")}
+		}
+
+		s.scope.HetznerBareMetalHost.Spec.Status.PrivateIPv4 = privateIP
+	}
+
 	sshKey, actResult := s.ensureSSHKey(s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef, s.scope.RescueSSHSecret)
 	if _, isComplete := actResult.(actionComplete); !isComplete {
 		return actResult
@@ -272,6 +293,127 @@ func (s *Service) actionPreparing(ctx context.Context) actionResult {
 	// This is not a real error. Sooner or later we should track the reboots differently.
 	s.scope.HetznerBareMetalHost.SetError(errorType, msg)
 	return actionComplete{} // next: Registering
+}
+
+// ensureIPClaim creates an IPAddressClaim for the given IP pool, if it does not exist yet.
+func (s *Service) ensureIPAddressClaim(ctx context.Context, poolRef corev1.TypedLocalObjectReference) (*caipamv1.IPAddressClaim, error) {
+	hetznerBareMetalHost := s.scope.HetznerBareMetalHost
+
+	claim := &caipamv1.IPAddressClaim{}
+
+	nn := types.NamespacedName{
+		Name:      hetznerBareMetalHost.Name + "-" + poolRef.Name,
+		Namespace: hetznerBareMetalHost.Namespace,
+	}
+
+	if err := s.scope.Client.Get(ctx, nn, claim); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return claim, err
+		}
+	}
+	if claim.Name != "" {
+		return claim, nil
+	}
+
+	// the IPAddressClaim doesn't exist.
+	// So, we need to go ahead and create one.
+
+	claim = &caipamv1.IPAddressClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      hetznerBareMetalHost.Name + "-" + poolRef.Name,
+			Namespace: hetznerBareMetalHost.Namespace,
+
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: hetznerBareMetalHost.APIVersion,
+					Kind:       hetznerBareMetalHost.Kind,
+					Name:       hetznerBareMetalHost.Name,
+					UID:        hetznerBareMetalHost.UID,
+					Controller: pointer.BoolPtr(true),
+				},
+			},
+
+			Finalizers: []string{infrav1.HetznerBareMetalMachineFinalizer},
+		},
+
+		Spec: caipamv1.IPAddressClaimSpec{
+			PoolRef: poolRef,
+		},
+	}
+
+	err := s.scope.Client.Create(ctx, claim)
+	return claim, err
+}
+
+// addressFromIPAddressClaim retrieves the IP Address from an IPAddressClaim.
+func (s *Service) addressFromIPAddressClaim(ctx context.Context, claim *caipamv1.IPAddressClaim) (string, error) {
+	if claim == nil {
+		return "", errors.New("no IPAddressClaim provided")
+	}
+	if !claim.DeletionTimestamp.IsZero() {
+		// This IPAddressClaim is about to be deleted so we cannot use it. Requeue.
+		s.scope.Logger.Info("Found IPAddressClaim with deletion timestamp, requeuing.", "IPAddressClaim", claim)
+		return "", nil
+	}
+
+	// IP address hasn't been allocated yet.
+	if claim.Status.AddressRef.Name == "" {
+		return "", nil
+	}
+
+	// IP address has been allocated.
+	// Let's try to get the referenced IPAddress resource.
+
+	address := &caipamv1.IPAddress{}
+
+	addressNamespacedName := types.NamespacedName{
+		Name:      claim.Status.AddressRef.Name,
+		Namespace: s.scope.Namespace(),
+	}
+
+	if err := s.scope.Client.Get(ctx, addressNamespacedName, address); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return "", nil
+		}
+		return "", err
+	}
+	return address.Spec.Address, nil
+}
+
+func (s *Service) releaseIPAddressFromPool(ctx context.Context, poolRef corev1.TypedLocalObjectReference) error {
+	hetznerBareMetalHost := s.scope.HetznerBareMetalHost
+
+	claim := &caipamv1.IPAddressClaim{}
+
+	nn := types.NamespacedName{
+		Name:      hetznerBareMetalHost.Name + "-" + poolRef.Name,
+		Namespace: hetznerBareMetalHost.Namespace,
+	}
+
+	if err := s.scope.Client.Get(ctx, nn, claim); err != nil {
+		// The IPAddressClaim doesn't exists anymore.
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	// Remove the finalizer from the IPAddressClaim.
+	if controllerutil.RemoveFinalizer(claim, infrav1.HetznerBareMetalMachineFinalizer) {
+		if err := s.scope.Client.Update(ctx, claim); err != nil {
+			return err
+		}
+	}
+
+	// Delete the IPAddressClaim.
+	if err := s.scope.Client.Delete(ctx, claim); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	return nil
 }
 
 func (s *Service) enforceRescueMode() error {
@@ -1326,6 +1468,19 @@ func (s *Service) actionImageInstallingStartBackgroundProcess(ctx context.Contex
 	if out.StdErr != "" {
 		return actionError{err: fmt.Errorf("failed to create autosetup: %q %q %w. Content: %s", out.StdOut, out.StdErr, out.Err, autoSetup)}
 	}
+
+	// determine the Network Interface name to which the public IP is bound.
+	var networkInterfaceName string
+
+	status := s.scope.HetznerBareMetalHost.Spec.Status
+	for _, nic := range status.HardwareDetails.NIC {
+		if nic.IP == status.IPv4 {
+			networkInterfaceName = nic.Name
+			break
+		}
+	}
+
+	_ = networkInterfaceName
 
 	// create post install script
 	postInstallScript := s.scope.HetznerBareMetalHost.Spec.Status.InstallImage.PostInstallScript

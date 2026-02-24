@@ -272,6 +272,10 @@ type ControllerGeneratedStatus struct {
 	// +optional
 	IPv4 string `json:"ipv4"`
 
+	// Private IPv4 address of server.
+	// +optional
+	PrivateIPv4 string `json:"privateIPv4"`
+
 	// IPv6 address of server.
 	// +optional
 	IPv6 string `json:"ipv6"`

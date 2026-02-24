@@ -22,6 +22,7 @@ import (
 	"net/url"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/selection"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -83,6 +84,11 @@ type HetznerBareMetalMachineSpec struct {
 
 	// SSHSpec gives a reference on the secret where SSH details are specified as well as ports for SSH.
 	SSHSpec SSHSpec `json:"sshSpec,omitempty"`
+
+	// PrivateIPsFromPool is the reference to an IP pool from which the private IPs
+	// (currently only IPv4) for the corresponding Hetzner bare-metal machine will be obtained.
+	// TODO : Add support for IPv6.
+	PrivateIPsFromPool *corev1.TypedLocalObjectReference `json:"privateIPv4FromPool,omitempty"`
 }
 
 // HostSelector specifies matching criteria for labels on BareMetalHosts.
