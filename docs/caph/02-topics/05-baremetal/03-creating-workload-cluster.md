@@ -117,7 +117,7 @@ helm upgrade --install ccm hcloud/hcloud-cloud-controller-manager \
              --kubeconfig workload-kubeconfig
 ```
 
-Be sure that the HetznerCluster has not the annotation
+Be sure that the HetznerCluster has the annotation
 `capi.syself.com/use-hrobot-provider-id-for-baremetal: "true"`.
 
 ---
@@ -133,7 +133,7 @@ $ helm upgrade --install ccm syself/ccm-hetzner --version 2.0.1 \
               --kubeconfig workload-kubeconfig
 ```
 
-Be sure that the HetznerCluster has not the annotation
+Be sure that the HetznerCluster does not have the annotation
 `capi.syself.com/use-hrobot-provider-id-for-baremetal`.
 
 ### Installing CNI
