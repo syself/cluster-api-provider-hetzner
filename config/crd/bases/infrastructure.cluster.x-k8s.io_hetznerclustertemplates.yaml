@@ -302,14 +302,14 @@ spec:
                                 type: string
                             type: object
                           name:
-                            default: hcloud
+                            default: hetzner
                             description: |-
                               Name defines the name of the secret. The name gets used for reading the credential in the
                               mgt-cluster, and it gets used for creating a secret in the wl-cluster. About the secret in
                               the wl-cluster: Attention, the upstream hcloud-ccm helm chart expects the name to be
-                              "hcloud". The Syself ccm fork defaults to "hetzner". For compatibility with upstream hcloud-ccm
-                              the controller creates two secrets, if the name is different from "hcloud" (one with name
-                              "hcloud", one with name being the value of this setting). The secret will be created in the
+                              "hcloud". The Syself ccm fork defaults to "hetzner". To stay compatible with upstream
+                              hcloud-ccm, if this name is not "hcloud", the controller creates two secrets: one named
+                              "hcloud" and one named after the value of this setting. The secret will be created in the
                               namespace "kube-system" of the workload-cluster. We recommend to use "hcloud", because this is
                               the default of upstream hcloud-ccm. Set `spec.skipCreatingHetznerSecretInWorkloadCluster`, if
                               you don't want that secret in the wl-cluster to be created.
