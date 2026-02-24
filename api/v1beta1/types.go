@@ -111,7 +111,7 @@ type HetznerSecretRef struct {
 	// the default of upstream hcloud-ccm. Set `spec.skipCreatingHetznerSecretInWorkloadCluster`, if
 	// you don't want that secret in the wl-cluster to be created.
 	//
-	// +kubebuilder:default=hcloud
+	// +kubebuilder:default=hetzner
 	Name string `json:"name"`
 
 	// Key defines the keys that are used in the secret.
