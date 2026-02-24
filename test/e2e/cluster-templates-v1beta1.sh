@@ -40,6 +40,13 @@ if [ -z "${HETZNER_ROBOT_USER:-}" ]; then
     HETZNER_SSH_PRIV=$(echo -n "dummy-HETZNER_SSH_PRIV" | base64 -w0)
 fi
 
+if echo "$HETZNER_SSH_PUB" | grep -q ' '; then
+    echo
+    echo "HETZNER_SSH_PUB seems to be already in the new format (not base64 encoded)."
+    echo "This script needs the old base64 encoded format. Update your .envrc"
+    echo
+    exit 1
+fi
 echo -n "$HETZNER_SSH_PUB" | base64 -d >tmp_ssh_pub_enc
 echo -n "$HETZNER_SSH_PRIV" | base64 -d >tmp_ssh_priv_enc
 kubectl create secret generic robot-ssh --from-literal=sshkey-name=shared-2024-07-08 --from-file=ssh-privatekey=tmp_ssh_priv_enc --from-file=ssh-publickey=tmp_ssh_pub_enc --dry-run=client -o yaml >data/infrastructure-hetzner/v1beta1/cluster-template-hetzner-secret.yaml

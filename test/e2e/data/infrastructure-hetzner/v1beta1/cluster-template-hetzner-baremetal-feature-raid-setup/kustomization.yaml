@@ -1,10 +1,10 @@
 resources:
-  - ../../../../../../templates/cluster-templates/bases/capi-cluster-kubeadm.yaml
-  - ../../../../../../templates/cluster-templates/bases/hetzner-hetznerCluster.yaml
-  - ../../../../../../templates/cluster-templates/bases/hetznerbaremetal-kcp-ubuntu.yaml
-  - ../../../../../../templates/cluster-templates/bases/hetznerbaremetal-mt-control-plane-ubuntu.yaml
-  - ../../../../../../templates/cluster-templates/bases/hetznerbaremetal-md-1-kubeadm.yaml
-  - ../../../../../../templates/cluster-templates/bases/hetznerbaremetal-mt-md-1-ubuntu.yaml
+  - ../../../../../../templates/cluster-templates/v1beta1/bases/capi-cluster-kubeadm.yaml
+  - ../../../../../../templates/cluster-templates/v1beta1/bases/hetzner-hetznerCluster.yaml
+  - ../../../../../../templates/cluster-templates/v1beta1/bases/hetznerbaremetal-kcp-ubuntu.yaml
+  - ../../../../../../templates/cluster-templates/v1beta1/bases/hetznerbaremetal-mt-control-plane-ubuntu.yaml
+  - ../../../../../../templates/cluster-templates/v1beta1/bases/hetznerbaremetal-md-1-kubeadm.yaml
+  - ../../../../../../templates/cluster-templates/v1beta1/bases/hetznerbaremetal-mt-md-1-ubuntu.yaml
   - ../bases/crs-cni.yaml
   - ../bases/crs-ccm-hetzner.yaml
   - ../bases/hetzner-secret.yaml
