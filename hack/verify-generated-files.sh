@@ -25,14 +25,12 @@ if ! git diff --quiet || ! git diff --cached --quiet || [[ -n "$(git ls-files --
     git status
     exit 1
 fi
-(
-    cd test/e2e
-    make e2e-cilium-templates
-)
 
 (
     cd test/e2e
+    make e2e-cilium-templates
     make e2e-ccm-templates
+    make cluster-templates
 )
 
 make generate
