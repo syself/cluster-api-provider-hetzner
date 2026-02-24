@@ -24,10 +24,11 @@ The CCM is the "Cloud Controller" which runs in the workload-cluster. The most i
 If you are unsure, use the HCloud CCM. In the long run we (Syself) want to switch from our fork to
 the upstream CCM.
 
-The CAPH controller creates the required secrets in the workload cluster for you. You only need to
-install the CCM. To allow switching the ccm, the controller creates the secret "hetzner" and
-"hcloud" in the workload-cluster. These secrets contain the HCLOUD_TOKEN, so that the ccm can
-connect to the HCloud API.
+The CCM calls the Hetzner APIs. To authenticate, it reads the credentials from a secret. This secret
+has to be in the workload cluster, when the CCM runs in the workload cluster. CAPH creates the
+secret and syncs the credentials specified in the management cluster to the workload cluster. The
+Syself fork and the HCloud CCM use a different naming pattern. That's why CAPH generates two secrets
+named "hetzner" and "hcloud".
 
 Important: CAPH and the CCM must both use the same ProviderID format for bare metal. Unfortunately
 (for historical reasons), there are two formats:
