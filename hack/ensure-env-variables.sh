@@ -30,3 +30,45 @@ if [ ${#missing_vars[@]} -gt 0 ]; then
   echo "Missing or empty environment variables: ${missing_vars[*]}"
   exit 1
 fi
+
+if [[ -n "${HETZNER_SSH_PUB:-}" ]]; then
+  if ! echo "$HETZNER_SSH_PUB" | grep -q 'ssh-'; then
+    echo "env var HETZNER_SSH_PUB seems wrong. It should be the pub key (not  base64 encoded). Guess: update .envrc"
+    exit 1
+  fi
+fi
+
+if [[ -n "${HETZNER_SSH_PRIV:-}" ]]; then
+  if ! echo "$HETZNER_SSH_PRIV" | grep -q 'OPENSSH'; then
+    echo "env var HETZNER_SSH_PRIV seems wrong. It should be the priv key (not  base64 encoded). Guess: update .envrc"
+    exit 1
+  fi
+fi
+
+if [[ -n "${KUBERNETES_VERSION:-}" ]]; then
+  min_kubernetes_version="1.33.6"
+  kubernetes_version="${KUBERNETES_VERSION#v}"
+
+  if [[ ! "$kubernetes_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    echo "env var KUBERNETES_VERSION should look like v<major>.<minor>.<patch> or <major>.<minor>.<patch>, got '$KUBERNETES_VERSION'."
+    exit 1
+  fi
+
+  if [[ "$(printf '%s\n%s\n' "$min_kubernetes_version" "$kubernetes_version" | sort -V | head -n 1)" != "$min_kubernetes_version" ]]; then
+    echo "KUBERNETES_VERSION must be >= v${min_kubernetes_version}, got '$KUBERNETES_VERSION'."
+    exit 1
+  fi
+fi
+
+for varname in "$@"; do
+  if [ "$varname" = "HCLOUD_CONTROL_PLANE_MACHINE_TYPE" ] || [ "$varname" = "HCLOUD_WORKER_MACHINE_TYPE" ]; then
+    deprecated_types=(cx22 cx32 cx42 cx52 cpx11 cpx21 cpx31 cpx41 cpx51)
+    for deprecated in "${deprecated_types[@]}"; do
+      if [[ "${!varname}" == *"$deprecated"* ]]; then
+        echo "$varname contains deprecated type '$deprecated'."
+        echo "Deprecated types: ${deprecated_types[*]}"
+        exit 1
+      fi
+    done
+  fi
+done
