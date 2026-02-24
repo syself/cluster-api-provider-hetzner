@@ -13,6 +13,44 @@ Secrets as of now are hardcoded given we are using a flavor which is essentially
 
 {% /callout %}
 
+First you need to decide if you want to use the Syself CCM or the upstream HCloud CCM.
+
+The CCM is the "Cloud Controller" which runs in the workload-cluster. Most important tasks of CCM:
+
+- Set ProviderID on Nodes. This is important, so that CAPI in the mgt-cluster knows which capi
+  machine (in mgt-cluster) is which Node (in wl-cluster).
+- Creates LoadBalancers
+
+If you are unsure, use the HCloud CCM. In the long run we (Syself) want to switch from our fork to
+the upstream CCM.
+
+TODO TODO: We need to release our new CCM first.
+THEN: Update this paragraph, use new format (hrobot://) by setting the annotation.
+
+The CAPH controller creates the required secrets in the workload cluster for you. You only need to
+install the CCM. To allow switching the ccm, the controller creates the secret "hetzner" and
+"hcloud" in the workload-cluster. These secrets contain the HCLOUD_TOKEN, so that the ccm can
+connect to the HCloud API.
+
+Important: CAPH and the CCM must both use the same ProviderID format for bare metal. Unfortunately
+(for historical reasons), there are two formats:
+
+- old: `hcloud://bm-NNNN`
+- new: `hrobot://NNNN`
+
+The Syself CCM uses the old format by default. The HCloud CCM always uses the new format.
+
+If you use the new format, set the annotation
+`capi.syself.com/use-hrobot-provider-id-for-baremetal` to `"true"` on the `HetznerCluster`.
+
+If CAPH and the CCM do not agree on the ProviderID format, then new nodes will not be able to join
+the cluster, because CAPI waits for the wrong ProviderID.
+
+This only applies to new nodes. Once a node has a ProviderID, it will never change. Both CCMs
+support both formats when the ProviderID is already set.
+
+This applies only to bare metal. HCloud nodes always use the format `hcloud://NNNN`.
+
 Since we have already created secret in hetzner robot, hcloud and ssh-keys as secret in management cluster, we can create a workload cluster. Generate the manifest by using `clusterctl generate`:
 
 ```shell
@@ -71,32 +109,7 @@ This requires a secret containing access credentials to both Hetzner Robot and H
 
 {% /callout %}
 
-First you need to decide if you want to use the Syself CCM or the upstream HCloud CCM.
-
-If you are unsure, use the HCloud CCM. In the long run we (Syself) want to switch from our fork to the
-upstream CCM.
-
-The CAPH controller creates the required secrets in the workload cluster for you. You only need to
-install the CCM.
-
-Important: CAPH and the CCM must both use the same ProviderID format for bare metal. Unfortunately
-(for historical reasons), there are two formats:
-
-- old: `hcloud://bm-NNNN`
-- new: `hrobot://NNNN`
-
-The Syself CCM uses the old format by default. The HCloud CCM always uses the new format.
-
-If you use the new format, set the annotation
-`capi.syself.com/use-hrobot-provider-id-for-baremetal` to `"true"` on the `HetznerCluster`.
-
-If CAPH and the CCM do not agree on the ProviderID format, then new nodes will not be able to join
-the cluster, because CAPI waits for the wrong ProviderID.
-
-This only applies to new nodes. Once a node has a ProviderID, it will never change. Both CCMs
-support both formats when the ProviderID is already set.
-
-This applies only to bare metal. HCloud nodes always use the format `hcloud://NNNN`.
+ööööö
 
 If you want to use the Syself CCM:
 

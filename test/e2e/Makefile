@@ -75,7 +75,6 @@ e2e-ccm-templates:
 	--set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.name=hetzner \
 	--set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.key=hcloud \
 	--set networking.enabled=false > $(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm.yaml
-	sed -i '1s/^/# Created by e2e-ccm-templates. DO NOT EDIT.\n/' $(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm.yaml
 
 	helm template ccm hetzner-cloud/hcloud-cloud-controller-manager --version 1.30.1 \
 	--namespace kube-system \
@@ -84,13 +83,11 @@ e2e-ccm-templates:
 	--set networking.enabled=true \
 	--set networking.network.valueFrom.secretKeyRef.name=hetzner \
 	--set networking.network.valueFrom.secretKeyRef.key=network > $(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm-network.yaml
-	sed -i '1s/^/# Created by e2e-ccm-templates. DO NOT EDIT.\n/' $(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm-network.yaml
 
 	helm template ccm syself/ccm-hetzner --version 2.0.1 \
 	--namespace kube-system \
 	--set pdb.enabled=false \
 	--set privateNetwork.enabled=false > $(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm-hetzner.yaml
-	sed -i '1s/^/# Created by e2e-ccm-templates. DO NOT EDIT.\n/' $(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm-hetzner.yaml
 
 .PHONY: cluster-templates
 cluster-templates: $(KUSTOMIZE) cluster-templates-v1beta1 ## Generate cluster templates for all versions

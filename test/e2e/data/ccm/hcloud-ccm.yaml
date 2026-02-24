@@ -1,4 +1,3 @@
-# Created by e2e-ccm-templates. DO NOT EDIT.
 ---
 # Source: hcloud-cloud-controller-manager/templates/serviceaccount.yaml
 apiVersion: v1
