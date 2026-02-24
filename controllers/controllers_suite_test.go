@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -245,7 +246,7 @@ var _ = BeforeSuite(func() {
 	Expect(testEnv.Create(ctx, ns)).To(Succeed())
 })
 
-func dumpMetrics() error {
+func dumpMetrics() (reterr error) {
 	metricFamilies, err := metrics.Registry.Gather()
 	if err != nil {
 		return fmt.Errorf("failed to gather metrics: %w", err)
@@ -258,7 +259,11 @@ func dumpMetrics() error {
 	if err != nil {
 		return fmt.Errorf("Error creating file: %w", err)
 	}
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			reterr = errors.Join(reterr, fmt.Errorf("error closing metrics file: %w", err))
+		}
+	}()
 
 	// Encode the metrics into text format
 	encoder := expfmt.NewEncoder(f, expfmt.NewFormat(expfmt.TypeTextPlain))

@@ -622,13 +622,21 @@ func (c *sshClient) runSSH(command string) Output {
 	if err != nil {
 		return Output{Err: err}
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			ctrl.Log.WithName("ssh-client").Error(err, "failed to close ssh client")
+		}
+	}()
 
 	sess, err := client.NewSession()
 	if err != nil {
 		return Output{Err: fmt.Errorf("unable to create new ssh session: %w", err)}
 	}
-	defer sess.Close()
+	defer func() {
+		if err := sess.Close(); err != nil {
+			ctrl.Log.WithName("ssh-client").Error(err, "failed to close ssh session")
+		}
+	}()
 
 	var stdoutBuffer bytes.Buffer
 	var stderrBuffer bytes.Buffer
@@ -697,7 +705,11 @@ func (c *sshClient) ExecutePreProvisionCommand(ctx context.Context, command stri
 	if err != nil {
 		return 0, "", err
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			ctrl.Log.WithName("ssh-client").Error(err, "failed to close ssh client")
+		}
+	}()
 
 	scpClient, err := scp.NewClientBySSH(client)
 	if err != nil {
@@ -747,7 +759,11 @@ func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL 
 	if err != nil {
 		return 0, "", err
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			ctrl.Log.WithName("ssh-client").Error(err, "failed to close ssh client")
+		}
+	}()
 
 	scpClient, err := scp.NewClientBySSH(client)
 	if err != nil {
@@ -764,7 +780,11 @@ func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL 
 	if err != nil {
 		return 0, "", fmt.Errorf("error opening image-url-command %q: %w", command, err)
 	}
-	defer fdCommand.Close()
+	defer func() {
+		if err := fdCommand.Close(); err != nil {
+			ctrl.Log.WithName("ssh-client").Error(err, "failed to close image-url-command file", "path", command)
+		}
+	}()
 
 	baseName := "image-url-command"
 	dest := "/root/" + baseName

@@ -19,6 +19,7 @@ package e2e
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -50,7 +51,7 @@ func (collector logCollector) CollectInfrastructureLogs(_ context.Context, _ cli
 }
 
 // CollectMachineLog implements the CollectMachineLog method of the LogCollector interface.
-func (collector logCollector) CollectMachineLog(_ context.Context, _ client.Client, m *clusterv1.Machine, outputPath string) error {
+func (collector logCollector) CollectMachineLog(ctx context.Context, _ client.Client, m *clusterv1.Machine, outputPath string) error {
 	var hostIPAddr string
 	for _, address := range m.Status.Addresses {
 		if address.Type != clusterv1.MachineExternalIP {
@@ -61,18 +62,22 @@ func (collector logCollector) CollectMachineLog(_ context.Context, _ client.Clie
 	}
 
 	execToPathFn := func(hostFileName, command string, args ...string) func() error {
-		return func() error {
+		return func() (reterr error) {
 			f, err := createOutputFile(filepath.Join(outputPath, hostFileName))
 			if err != nil {
 				return err
 			}
-			defer f.Close()
+			defer func() {
+				if err := f.Close(); err != nil {
+					reterr = errors.Join(reterr, fmt.Errorf("closing output file %q: %w", f.Name(), err))
+				}
+			}()
 			return executeRemoteCommand(f, hostIPAddr, command, args...)
 		}
 	}
 
 	copyDirFn := func(pathToDir, dirName string) func() error {
-		return func() error {
+		return func() (reterr error) {
 			f, err := os.Create("/tmp/" + m.Name) // #nosec
 			if err != nil {
 				return err
@@ -81,20 +86,35 @@ func (collector logCollector) CollectMachineLog(_ context.Context, _ client.Clie
 			tempfileName := f.Name()
 			outputDir := filepath.Join(outputPath, dirName)
 
-			defer os.Remove(tempfileName)
+			defer func() {
+				if f != nil {
+					if err := f.Close(); err != nil {
+						reterr = errors.Join(reterr, fmt.Errorf("closing temporary file %q: %w", tempfileName, err))
+					}
+				}
+			}()
+			defer func() {
+				if err := os.Remove(tempfileName); err != nil && !os.IsNotExist(err) {
+					reterr = errors.Join(reterr, fmt.Errorf("removing temporary file %q: %w", tempfileName, err))
+				}
+			}()
 
 			if err := executeRemoteCommand(
 				f, hostIPAddr,
 				"tar", "--hard-dereference", "-hcf", "-", pathToDir); err != nil {
 				return fmt.Errorf("failed to tar dir %s: %w", pathToDir, err)
 			}
+			if err := f.Close(); err != nil {
+				return fmt.Errorf("closing temporary file %q: %w", tempfileName, err)
+			}
+			f = nil
 
 			err = os.MkdirAll(outputDir, 0o750)
 			if err != nil {
 				return err
 			}
 
-			cmd := exec.Command("tar", "--extract", "--file", tempfileName, "--directory", outputDir) // #nosec
+			cmd := exec.CommandContext(ctx, "tar", "--extract", "--file", tempfileName, "--directory", outputDir) // #nosec
 			if err := cmd.Run(); err != nil {
 				return fmt.Errorf("failed to run command: %w", err)
 			}
@@ -128,7 +148,7 @@ func createOutputFile(path string) (*os.File, error) {
 	return os.Create(path) // #nosec
 }
 
-func executeRemoteCommand(f io.StringWriter, hostIPAddr, command string, args ...string) error {
+func executeRemoteCommand(f io.StringWriter, hostIPAddr, command string, args ...string) (reterr error) {
 	config, err := newSSHConfig()
 	if err != nil {
 		return err
@@ -139,13 +159,21 @@ func executeRemoteCommand(f io.StringWriter, hostIPAddr, command string, args ..
 	if err != nil {
 		return fmt.Errorf("dialing host IP address at %s: %w", hostIPAddr, err)
 	}
-	defer hostClient.Close()
+	defer func() {
+		if err := hostClient.Close(); err != nil {
+			reterr = errors.Join(reterr, fmt.Errorf("closing ssh client: %w", err))
+		}
+	}()
 
 	session, err := hostClient.NewSession()
 	if err != nil {
 		return fmt.Errorf("opening SSH session: %w", err)
 	}
-	defer session.Close()
+	defer func() {
+		if err := session.Close(); err != nil {
+			reterr = errors.Join(reterr, fmt.Errorf("closing ssh session: %w", err))
+		}
+	}()
 
 	// Run the command and write the captured stdout to the file
 	var stdoutBuf bytes.Buffer
@@ -177,7 +205,7 @@ func newSSHConfig() (*ssh.ClientConfig, error) {
 
 	config := &ssh.ClientConfig{
 		User:            "root",
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(), //nolint:gosec // e2e tests connect to ephemeral machines without host keys.
 		Auth: []ssh.AuthMethod{
 			ssh.PublicKeys(signer),
 		},
