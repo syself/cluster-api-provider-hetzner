@@ -94,7 +94,7 @@ The following `make` command will install the CCM in your workload cluster:
 For a cluster without a private network use: `make install-ccm-in-wl-cluster PRIVATE_NETWORK=true`
 
 For baremetal, see  [Baremetal
-Docs](docs/caph/02-topics/05-baremetal/03-creating-workload-cluster.md#deploying-the-hetzner-cloud-controller-manager)
+Docs](/docs/caph/02-topics/05-baremetal/03-creating-workload-cluster.md#deploying-the-hetzner-cloud-controller-manager)
 
 ## Deploying the CSI (optional)
 
