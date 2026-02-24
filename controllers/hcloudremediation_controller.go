@@ -80,7 +80,7 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 	log = log.WithValues("HCloudRemediation", klog.KObj(hcloudRemediation))
 
 	// Fetch the Machine.
-	machine, err := util.GetOwnerMachine(ctx, r.Client, hcloudRemediation.ObjectMeta)
+	machine, err := util.GetOwnerMachine(ctx, r, hcloudRemediation.ObjectMeta)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -109,7 +109,7 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 	log = log.WithValues("HCloudMachine", klog.KObj(hcloudMachine))
 
 	// Fetch the Cluster.
-	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, machine.ObjectMeta)
+	cluster, err := util.GetClusterFromMetadata(ctx, r, machine.ObjectMeta)
 	if err != nil {
 		log.Info("Machine is missing cluster label or cluster does not exist")
 		return reconcile.Result{}, nil
@@ -128,7 +128,7 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 		Namespace: hcloudMachine.Namespace,
 		Name:      cluster.Spec.InfrastructureRef.Name,
 	}
-	if err := r.Client.Get(ctx, hetznerClusterName, hetznerCluster); err != nil {
+	if err := r.Get(ctx, hetznerClusterName, hetznerCluster); err != nil {
 		return reconcile.Result{}, nil
 	}
 
@@ -136,16 +136,16 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 	ctx = ctrl.LoggerInto(ctx, log)
 
 	// Create the scope.
-	secretManager := secretutil.NewSecretManager(log, r.Client, r.APIReader)
+	secretManager := secretutil.NewSecretManager(log, r, r.APIReader)
 	hcloudToken, _, err := getAndValidateHCloudToken(ctx, req.Namespace, hetznerCluster, secretManager)
 	if err != nil {
-		return hcloudTokenErrorResult(ctx, err, hcloudRemediation, r.Client)
+		return hcloudTokenErrorResult(ctx, err, hcloudRemediation, r)
 	}
 
 	hcc := r.HCloudClientFactory.NewClient(hcloudToken)
 
 	remediationScope, err := scope.NewHCloudRemediationScope(scope.HCloudRemediationScopeParams{
-		Client:            r.Client,
+		Client:            r,
 		Logger:            log,
 		Machine:           machine,
 		HCloudMachine:     hcloudMachine,
@@ -182,7 +182,7 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
-	if !hcloudRemediation.ObjectMeta.DeletionTimestamp.IsZero() {
+	if !hcloudRemediation.DeletionTimestamp.IsZero() {
 		// Nothing to do
 		return reconcile.Result{}, nil
 	}

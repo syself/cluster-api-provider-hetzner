@@ -205,7 +205,7 @@ func newSSHConfig() (*ssh.ClientConfig, error) {
 
 	config := &ssh.ClientConfig{
 		User:            "root",
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(), //nolint:gosec // e2e tests connect to ephemeral machines without host keys.
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		Auth: []ssh.AuthMethod{
 			ssh.PublicKeys(signer),
 		},

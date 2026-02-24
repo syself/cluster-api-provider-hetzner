@@ -176,50 +176,50 @@ var _ = BeforeSuite(func() {
 	wg.Add(1)
 
 	hetznerClusterReconciler := &HetznerClusterReconciler{
-		Client:                         testEnv.Manager.GetClient(),
-		APIReader:                      testEnv.Manager.GetAPIReader(),
+		Client:                         testEnv.GetClient(),
+		APIReader:                      testEnv.GetAPIReader(),
 		RateLimitWaitTime:              5 * time.Minute,
 		TargetClusterManagersWaitGroup: &wg,
 	}
-	Expect(hetznerClusterReconciler.SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
+	Expect(hetznerClusterReconciler.SetupWithManager(ctx, testEnv, controller.Options{})).To(Succeed())
 
 	hcloudMachineReconciler := &HCloudMachineReconciler{
-		Client:    testEnv.Manager.GetClient(),
-		APIReader: testEnv.Manager.GetAPIReader(),
+		Client:    testEnv.GetClient(),
+		APIReader: testEnv.GetAPIReader(),
 	}
-	Expect(hcloudMachineReconciler.SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
+	Expect(hcloudMachineReconciler.SetupWithManager(ctx, testEnv, controller.Options{})).To(Succeed())
 
 	hcloudMachineTemplateReconciler := &HCloudMachineTemplateReconciler{
-		Client:    testEnv.Manager.GetClient(),
-		APIReader: testEnv.Manager.GetAPIReader(),
+		Client:    testEnv.GetClient(),
+		APIReader: testEnv.GetAPIReader(),
 	}
-	Expect(hcloudMachineTemplateReconciler.SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
+	Expect(hcloudMachineTemplateReconciler.SetupWithManager(ctx, testEnv, controller.Options{})).To(Succeed())
 
 	hetznerBareMetalHostReconciler := &HetznerBareMetalHostReconciler{
-		Client:               testEnv.Manager.GetClient(),
-		APIReader:            testEnv.Manager.GetAPIReader(),
+		Client:               testEnv.GetClient(),
+		APIReader:            testEnv.GetAPIReader(),
 		PreProvisionCommand:  "dummy-pre-provision-command",
 		SSHAfterInstallImage: true,
 	}
-	Expect(hetznerBareMetalHostReconciler.SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
+	Expect(hetznerBareMetalHostReconciler.SetupWithManager(ctx, testEnv, controller.Options{})).To(Succeed())
 
 	hetznerBareMetalMachineReconciler := &HetznerBareMetalMachineReconciler{
-		Client:    testEnv.Manager.GetClient(),
-		APIReader: testEnv.Manager.GetAPIReader(),
+		Client:    testEnv.GetClient(),
+		APIReader: testEnv.GetAPIReader(),
 	}
-	Expect(hetznerBareMetalMachineReconciler.SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
+	Expect(hetznerBareMetalMachineReconciler.SetupWithManager(ctx, testEnv, controller.Options{})).To(Succeed())
 
 	hcloudRemediationReconciler := &HCloudRemediationReconciler{
-		Client:            testEnv.Manager.GetClient(),
-		APIReader:         testEnv.Manager.GetAPIReader(),
+		Client:            testEnv.GetClient(),
+		APIReader:         testEnv.GetAPIReader(),
 		RateLimitWaitTime: 5 * time.Minute,
 	}
-	Expect(hcloudRemediationReconciler.SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
+	Expect(hcloudRemediationReconciler.SetupWithManager(ctx, testEnv, controller.Options{})).To(Succeed())
 
 	hetznerBareMetalRemediationReconciler := &HetznerBareMetalRemediationReconciler{
-		Client: testEnv.Manager.GetClient(),
+		Client: testEnv.GetClient(),
 	}
-	Expect(hetznerBareMetalRemediationReconciler.SetupWithManager(ctx, testEnv.Manager, controller.Options{})).To(Succeed())
+	Expect(hetznerBareMetalRemediationReconciler.SetupWithManager(ctx, testEnv, controller.Options{})).To(Succeed())
 
 	testEnv.Resetter = NewControllerResetter(hetznerClusterReconciler, hcloudMachineReconciler,
 		hcloudMachineTemplateReconciler, hetznerBareMetalHostReconciler,
@@ -231,7 +231,7 @@ var _ = BeforeSuite(func() {
 		Expect(testEnv.StartManager(ctx)).To(Succeed())
 	}()
 
-	<-testEnv.Manager.Elected()
+	<-testEnv.Elected()
 
 	// wait for webhook port to be open prior to running tests
 	testEnv.WaitForWebhooks()

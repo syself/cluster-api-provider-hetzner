@@ -213,7 +213,7 @@ func (m *MachineScope) HasServerTerminatedCondition() bool {
 
 // HasShutdownTimedOut checks the whether the HCloud server is terminated.
 func (m *MachineScope) HasShutdownTimedOut() bool {
-	return time.Now().After(conditions.GetLastTransitionTime(m.HCloudMachine, infrav1.ServerAvailableCondition).Time.Add(maxShutDownTime))
+	return time.Now().After(conditions.GetLastTransitionTime(m.HCloudMachine, infrav1.ServerAvailableCondition).Add(maxShutDownTime))
 }
 
 // IsBootstrapDataReady checks the readiness of a capi machine's bootstrap data.

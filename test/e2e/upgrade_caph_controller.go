@@ -171,7 +171,7 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 
 		// Download the older clusterctl version to be used for setting up the management cluster to be upgraded
 
-		writeToGinkgo("Downloading clusterctl binary from %s", clusterctlBinaryURL)
+		writeToGinkgof("Downloading clusterctl binary from %s", clusterctlBinaryURL)
 		clusterctlBinaryPath := downloadToTmpFile(ctx, clusterctlBinaryURL)
 		defer func() {
 			err := os.Remove(clusterctlBinaryPath)
@@ -233,10 +233,10 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 		controlPlaneMachineCount := ptr.To[int64](1)
 		workerMachineCount := ptr.To[int64](1)
 
-		writeToGinkgo("Creating the workload cluster with name %q using the %q template (Kubernetes %s, %d control-plane machines, %d worker machines)",
+		writeToGinkgof("Creating the workload cluster with name %q using the %q template (Kubernetes %s, %d control-plane machines, %d worker machines)",
 			workLoadClusterName, "(default)", kubernetesVersion, *controlPlaneMachineCount, *workerMachineCount)
 
-		writeToGinkgo("Getting the cluster template yaml")
+		writeToGinkgof("Getting the cluster template yaml")
 		workloadClusterTemplate := clusterctl.ConfigClusterWithBinary(ctx, clusterctlBinaryPath, clusterctl.ConfigClusterInput{
 			// pass reference to the management cluster hosting this test
 			KubeconfigPath: managementClusterProxy.GetKubeconfigPath(),
@@ -256,7 +256,7 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 		})
 		gomega.Expect(workloadClusterTemplate).ToNot(gomega.BeNil(), "Failed to get the cluster template")
 
-		writeToGinkgo("Applying the cluster template yaml to the cluster")
+		writeToGinkgof("Applying the cluster template yaml to the cluster")
 		gomega.Expect(managementClusterProxy.CreateOrUpdate(ctx, workloadClusterTemplate)).To(gomega.Succeed())
 
 		ginkgo.By("Waiting for the machines to exists")
@@ -340,7 +340,7 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 						ClusterctlConfigPath: input.ClusterctlConfigPath,
 					}, input.E2EConfig.GetIntervals(specName, "wait-delete-cluster")...)
 				default:
-					writeToGinkgo("Management Cluster does not appear to support CAPI resources.")
+					writeToGinkgof("Management Cluster does not appear to support CAPI resources.")
 				}
 
 				Byf("Deleting cluster %s/%s", testNamespace.Name, managementClusterName)
@@ -397,7 +397,7 @@ func downloadToTmpFile(ctx context.Context, url string) string {
 	return tmpFile.Name()
 }
 
-func writeToGinkgo(format string, a ...any) {
+func writeToGinkgof(format string, a ...any) {
 	_, err := fmt.Fprintf(ginkgo.GinkgoWriter, format, a...)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 }
