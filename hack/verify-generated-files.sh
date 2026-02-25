@@ -29,6 +29,7 @@ fi
 (
     make kubectl
     cd test/e2e
+    export HCLOUD_TOKEN=dummy_hcloud_token
     make e2e-cilium-templates
     make e2e-ccm-templates
     make cluster-templates

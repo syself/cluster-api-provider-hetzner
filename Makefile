@@ -549,7 +549,6 @@ verify-container-images: ## Verify container images
 verify-generated-files: ## Verify geneated files in git repo
 ifeq ($(BUILD_IN_CONTAINER),true)
 	docker run  --rm \
-	    -e HCLOUD_TOKEN \
 		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
