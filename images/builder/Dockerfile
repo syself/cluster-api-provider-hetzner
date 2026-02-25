@@ -58,7 +58,7 @@ FROM docker.io/hadolint/hadolint:v2.12.0-alpine@sha256:3c206a451cec6d486367e7586
 FROM docker.io/library/golang:1.25-bookworm@sha256:38342f3e7a504bf1efad858c18e771f84b66dc0b363add7a57c9a0bbb6cf7b12
 
 # Start of "we should move that to a previous Layer"
-# We should keep the final layer clean. I guess this could all be done in the wolfi layer.
+# Note: We should keep the final layer clean. We could get most tools from wolfi.
 
 # update: datasource=github-tags depName=adrienverge/yamllint versioning=semver
 ENV YAMLLINT_VERSION="v1.36.2"
