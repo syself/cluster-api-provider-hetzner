@@ -36,6 +36,7 @@ import (
 )
 
 const (
+	// HetznerPrivateKeyContent is the env var "HETZNER_SSH_PRIV".
 	HetznerPrivateKeyContent = "HETZNER_SSH_PRIV"
 )
 
