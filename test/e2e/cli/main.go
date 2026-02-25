@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package main contains main function for the e2e cli tool.
 package main
 
 import (
