@@ -27,6 +27,7 @@ if ! git diff --quiet || ! git diff --cached --quiet || [[ -n "$(git ls-files --
 fi
 
 (
+    make kubectl
     cd test/e2e
     make e2e-cilium-templates
     make e2e-ccm-templates
