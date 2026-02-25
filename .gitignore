@@ -86,3 +86,5 @@ watchall-output*
 
 /.config
 /.kube
+
+/generated
