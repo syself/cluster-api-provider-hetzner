@@ -88,3 +88,5 @@ watchall-output*
 /.kube
 
 /generated
+
+.vscode
