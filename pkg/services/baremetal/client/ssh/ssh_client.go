@@ -34,6 +34,7 @@ import (
 	"time"
 
 	scp "github.com/bramvdbogaerde/go-scp"
+	"github.com/go-logr/logr"
 	"golang.org/x/crypto/ssh"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -230,6 +231,7 @@ func (f *sshFactory) NewClient(in Input) Client {
 		privateSSHKey: in.PrivateKey,
 		ip:            in.IP,
 		port:          in.Port,
+		log:           ctrl.Log.WithName("ssh-client"),
 	}
 }
 
@@ -237,6 +239,7 @@ type sshClient struct {
 	ip            string
 	privateSSHKey string
 	port          int
+	log           logr.Logger
 }
 
 var _ = Client(&sshClient{})
@@ -624,7 +627,7 @@ func (c *sshClient) runSSH(command string) Output {
 	}
 	defer func() {
 		if err := client.Close(); err != nil {
-			ctrl.Log.WithName("ssh-client").Error(err, "failed to close ssh client")
+			c.log.Error(err, "failed to close ssh client")
 		}
 	}()
 
@@ -634,7 +637,7 @@ func (c *sshClient) runSSH(command string) Output {
 	}
 	defer func() {
 		if err := sess.Close(); err != nil {
-			ctrl.Log.WithName("ssh-client").Error(err, "failed to close ssh session")
+			c.log.Error(err, "failed to close ssh session")
 		}
 	}()
 
@@ -707,7 +710,7 @@ func (c *sshClient) ExecutePreProvisionCommand(ctx context.Context, command stri
 	}
 	defer func() {
 		if err := client.Close(); err != nil {
-			ctrl.Log.WithName("ssh-client").Error(err, "failed to close ssh client")
+			c.log.Error(err, "failed to close ssh client")
 		}
 	}()
 
@@ -761,7 +764,7 @@ func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL 
 	}
 	defer func() {
 		if err := client.Close(); err != nil {
-			ctrl.Log.WithName("ssh-client").Error(err, "failed to close ssh client")
+			c.log.Error(err, "failed to close ssh client")
 		}
 	}()
 
@@ -782,7 +785,7 @@ func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL 
 	}
 	defer func() {
 		if err := fdCommand.Close(); err != nil {
-			ctrl.Log.WithName("ssh-client").Error(err, "failed to close image-url-command file", "path", command)
+			c.log.Error(err, "failed to close image-url-command file", "path", command)
 		}
 	}()
 
