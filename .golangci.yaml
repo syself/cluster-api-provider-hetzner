@@ -43,7 +43,7 @@ linters:
     gocritic:
       disabled-checks:
         - appendAssign
-        - dupImport
+        - dupImport # https://github.com/go-critic/go-critic/issues/845
         - evalOrder
         - ifElseChain
         - octalLiteral
@@ -62,17 +62,21 @@ linters:
         - experimental
         - performance
     godot:
+      #   declarations - for top level declaration comments (default);
+      #   toplevel     - for top level comments;
+      #   all          - for all comments.
       scope: toplevel
       exclude:
         - ^ \+.*
         - ^ ANCHOR.*
     gosec:
       excludes:
-        - G307
-        - G108
-        - G106
+        - G307 # Deferring unsafe method "Close" on type "\*os.File"
+        - G108 # Profiling endpoint is automatically exposed on /debug/pprof
+        - G106 # Allowing for insecure ssh
     importas:
       alias:
+        # Kubernetes
         - pkg: k8s.io/api/core/v1
           alias: corev1
         - pkg: k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1
@@ -85,6 +89,7 @@ linters:
           alias: kerrors
         - pkg: k8s.io/component-base/logs/api/v1
           alias: logsv1
+        # Controller Runtime
         - pkg: sigs.k8s.io/controller-runtime
           alias: ctrl
         - pkg: k8s.io/apimachinery/pkg/util/runtime
