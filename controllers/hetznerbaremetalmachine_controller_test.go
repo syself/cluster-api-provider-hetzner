@@ -998,10 +998,10 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			It("should allow update of mutable fields", func() {
 				Expect(testEnv.Get(ctx, key, hbmmt)).To(Succeed())
 
-				if hbmmt.ObjectMeta.Annotations == nil {
-					hbmmt.ObjectMeta.Annotations = make(map[string]string)
+				if hbmmt.Annotations == nil {
+					hbmmt.Annotations = make(map[string]string)
 				}
-				hbmmt.ObjectMeta.Annotations["test"] = "should_succeed"
+				hbmmt.Annotations["test"] = "should_succeed"
 				Expect(testEnv.Client.Update(ctx, hbmmt)).To(Succeed())
 			})
 		})

@@ -683,6 +683,7 @@ else
 	golangci-lint run -v
 endif
 
+
 .PHONY: lint-yaml
 lint-yaml: ## Lint YAML files
 ifeq ($(BUILD_IN_CONTAINER),true)

@@ -323,8 +323,8 @@ var _ = Describe("getSSHKeys", func() {
 	BeforeEach(func() {
 		hcloudClient = mocks.NewClient(GinkgoT())
 		clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
-			Client:       testEnv.Manager.GetClient(),
-			APIReader:    testEnv.Manager.GetAPIReader(),
+			Client:       testEnv.GetClient(),
+			APIReader:    testEnv.GetAPIReader(),
 			HCloudClient: hcloudClient,
 			Logger:       GinkgoLogr,
 
@@ -601,8 +601,8 @@ var _ = Describe("Reconcile", func() {
 		Expect(err).To(BeNil())
 
 		clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
-			Client:       testEnv.Manager.GetClient(),
-			APIReader:    testEnv.Manager.GetAPIReader(),
+			Client:       testEnv.GetClient(),
+			APIReader:    testEnv.GetAPIReader(),
 			HCloudClient: hcloudClient,
 			Logger:       GinkgoLogr,
 
