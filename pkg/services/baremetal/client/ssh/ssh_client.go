@@ -34,6 +34,7 @@ import (
 	"time"
 
 	scp "github.com/bramvdbogaerde/go-scp"
+	"github.com/go-logr/logr"
 	"golang.org/x/crypto/ssh"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -63,7 +64,7 @@ var (
 	// ErrCommandExitedWithoutExitSignal means the ssh command exited unplanned.
 	ErrCommandExitedWithoutExitSignal = errors.New("wait: remote command exited without exit status or exit signal")
 	// ErrCommandExitedWithStatusOne means the ssh command exited with sttatus 1.
-	ErrCommandExitedWithStatusOne = errors.New("Process exited with status 1") //nolint:stylecheck // this is used to check ssh errors
+	ErrCommandExitedWithStatusOne = errors.New("process exited with status 1")
 
 	// ErrAuthenticationFailed means ssh was unable to authenticate.
 	ErrAuthenticationFailed = errors.New("ssh: unable to authenticate")
@@ -230,6 +231,7 @@ func (f *sshFactory) NewClient(in Input) Client {
 		privateSSHKey: in.PrivateKey,
 		ip:            in.IP,
 		port:          in.Port,
+		log:           ctrl.Log.WithName("ssh-client"),
 	}
 }
 
@@ -237,6 +239,7 @@ type sshClient struct {
 	ip            string
 	privateSSHKey string
 	port          int
+	log           logr.Logger
 }
 
 var _ = Client(&sshClient{})
@@ -622,13 +625,21 @@ func (c *sshClient) runSSH(command string) Output {
 	if err != nil {
 		return Output{Err: err}
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			c.log.Error(err, "failed to close ssh client")
+		}
+	}()
 
 	sess, err := client.NewSession()
 	if err != nil {
 		return Output{Err: fmt.Errorf("unable to create new ssh session: %w", err)}
 	}
-	defer sess.Close()
+	defer func() {
+		if err := sess.Close(); err != nil {
+			c.log.Error(err, "failed to close ssh session")
+		}
+	}()
 
 	var stdoutBuffer bytes.Buffer
 	var stderrBuffer bytes.Buffer
@@ -697,7 +708,11 @@ func (c *sshClient) ExecutePreProvisionCommand(ctx context.Context, command stri
 	if err != nil {
 		return 0, "", err
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			c.log.Error(err, "failed to close ssh client")
+		}
+	}()
 
 	scpClient, err := scp.NewClientBySSH(client)
 	if err != nil {
@@ -747,7 +762,11 @@ func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL 
 	if err != nil {
 		return 0, "", err
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			c.log.Error(err, "failed to close ssh client")
+		}
+	}()
 
 	scpClient, err := scp.NewClientBySSH(client)
 	if err != nil {
@@ -764,7 +783,11 @@ func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL 
 	if err != nil {
 		return 0, "", fmt.Errorf("error opening image-url-command %q: %w", command, err)
 	}
-	defer fdCommand.Close()
+	defer func() {
+		if err := fdCommand.Close(); err != nil {
+			c.log.Error(err, "failed to close image-url-command file", "path", command)
+		}
+	}()
 
 	baseName := "image-url-command"
 	dest := "/root/" + baseName

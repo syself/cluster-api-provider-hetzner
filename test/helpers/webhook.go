@@ -17,6 +17,7 @@ limitations under the License.
 package helpers
 
 import (
+	"context"
 	"net"
 	"os"
 	"path"
@@ -116,9 +117,12 @@ func (t *TestEnvironment) WaitForWebhooks() {
 	port := env.WebhookInstallOptions.LocalServingPort
 	klog.V(2).Infof("Waiting for webhook port %d to be open prior to running tests", port)
 	timeout := 1 * time.Second
+	dialer := &net.Dialer{Timeout: timeout}
 	for {
 		time.Sleep(timeout)
-		conn, err := net.DialTimeout("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)), timeout)
+		dialCtx, cancel := context.WithTimeout(context.Background(), timeout)
+		conn, err := dialer.DialContext(dialCtx, "tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)))
+		cancel()
 		if err != nil {
 			klog.V(2).Infof("Webhook port is not ready, will retry in %v: %s", timeout, err)
 			continue
@@ -134,7 +138,8 @@ func (t *TestEnvironment) WaitForWebhooks() {
 }
 
 func getFreePort() (port int, err error) {
-	ln, err := net.Listen("tcp", "[::]:0")
+	listenConfig := net.ListenConfig{}
+	ln, err := listenConfig.Listen(context.Background(), "tcp", "[::]:0")
 	if err != nil {
 		return 0, err
 	}

@@ -1,25 +1,25 @@
+version: "2"
+run:
+  go: "1.22"
+  modules-download-mode: readonly
+  allow-parallel-runners: true
 linters:
-  disable-all: true
+  default: none
   enable:
     - asasalint
     - asciicheck
     - bidichk
     - bodyclose
     - containedctx
-    # - depguard
+    - copyloopvar
     - dogsled
     - durationcheck
     - errcheck
     - errchkjson
-    - copyloopvar
-    - gci
     - gocritic
     - godot
-    - gofmt
-    - goimports
     - goprintffuncname
     - gosec
-    - gosimple
     - govet
     - importas
     - ineffassign
@@ -34,185 +34,168 @@ linters:
     - revive
     - rowserrcheck
     - staticcheck
-    - stylecheck
     - thelper
-    - typecheck
     - unconvert
     - unparam
     - unused
     - whitespace
-
-linters-settings:
-  gci:
-    sections:
-      - standard
-      - default
-      - prefix(github.com/syself/cluster-api-provider-hetzner)
-  godot:
-    #   declarations - for top level declaration comments (default);
-    #   toplevel     - for top level comments;
-    #   all          - for all comments.
-    scope: toplevel
-    exclude:
-      - '^ \+.*'
-      - "^ ANCHOR.*"
-  importas:
-    no-unaliased: true
-    alias:
-      # Kubernetes
-      - pkg: k8s.io/api/core/v1
-        alias: corev1
-      - pkg: k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1
-        alias: apiextensionsv1
-      - pkg: k8s.io/apimachinery/pkg/apis/meta/v1
-        alias: metav1
-      - pkg: k8s.io/apimachinery/pkg/api/errors
-        alias: apierrors
-      - pkg: k8s.io/apimachinery/pkg/util/errors
-        alias: kerrors
-      - pkg: k8s.io/component-base/logs/api/v1
-        alias: logsv1
-      # Controller Runtime
-      - pkg: sigs.k8s.io/controller-runtime
-        alias: ctrl
-      - pkg: k8s.io/apimachinery/pkg/util/runtime
-        alias: utilruntime
-      - pkg: sigs.k8s.io/cluster-api/api/v1beta1
-        alias: clusterv1
-      - pkg: sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1
-        alias: bootstrapv1
-      - pkg: sigs.k8s.io/controller-runtime/pkg/metrics/server
-        alias: metricsserver
-      - pkg: sigs.k8s.io/controller-runtime/pkg/client/fake
-        alias: fakeclient
-  nolintlint:
-    allow-unused: false
-    allow-leading-space: false
-    require-specific: true
-  gosec:
-    excludes:
-      - G307 # Deferring unsafe method "Close" on type "\*os.File"
-      - G108 # Profiling endpoint is automatically exposed on /debug/pprof
-      - G106 # Allowing for insecure ssh
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - experimental
-      - performance
-    disabled-checks:
-      - appendAssign
-      - dupImport # https://github.com/go-critic/go-critic/issues/845
-      - evalOrder
-      - ifElseChain
-      - octalLiteral
-      - regexpSimplify
-      - sloppyReassign
-      - truncateCmp
-      - typeDefFirst
-      - unnamedResult
-      - unnecessaryDefer
-      - whyNoLint
-      - wrapperFunc
-      - rangeValCopy
-      - hugeParam
-  unused:
-    go: "1.22"
+  settings:
+    gocritic:
+      disabled-checks:
+        - appendAssign
+        - dupImport # https://github.com/go-critic/go-critic/issues/845
+        - evalOrder
+        - ifElseChain
+        - octalLiteral
+        - regexpSimplify
+        - sloppyReassign
+        - truncateCmp
+        - typeDefFirst
+        - unnamedResult
+        - unnecessaryDefer
+        - whyNoLint
+        - wrapperFunc
+        - rangeValCopy
+        - hugeParam
+      enabled-tags:
+        - diagnostic
+        - experimental
+        - performance
+    godot:
+      #   declarations - for top level declaration comments (default);
+      #   toplevel     - for top level comments;
+      #   all          - for all comments.
+      scope: toplevel
+      exclude:
+        - ^ \+.*
+        - ^ ANCHOR.*
+    gosec:
+      excludes:
+        - G307 # Deferring unsafe method "Close" on type "\*os.File"
+        - G108 # Profiling endpoint is automatically exposed on /debug/pprof
+        - G106 # Allowing for insecure ssh
+    importas:
+      alias:
+        # Kubernetes
+        - pkg: k8s.io/api/core/v1
+          alias: corev1
+        - pkg: k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1
+          alias: apiextensionsv1
+        - pkg: k8s.io/apimachinery/pkg/apis/meta/v1
+          alias: metav1
+        - pkg: k8s.io/apimachinery/pkg/api/errors
+          alias: apierrors
+        - pkg: k8s.io/apimachinery/pkg/util/errors
+          alias: kerrors
+        - pkg: k8s.io/component-base/logs/api/v1
+          alias: logsv1
+        # Controller Runtime
+        - pkg: sigs.k8s.io/controller-runtime
+          alias: ctrl
+        - pkg: k8s.io/apimachinery/pkg/util/runtime
+          alias: utilruntime
+        - pkg: sigs.k8s.io/cluster-api/api/v1beta1
+          alias: clusterv1
+        - pkg: sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1
+          alias: bootstrapv1
+        - pkg: sigs.k8s.io/controller-runtime/pkg/metrics/server
+          alias: metricsserver
+        - pkg: sigs.k8s.io/controller-runtime/pkg/client/fake
+          alias: fakeclient
+      no-unaliased: true
+    nolintlint:
+      require-specific: true
+      allow-unused: false
+  exclusions:
+    generated: lax
+    rules:
+      - linters:
+          - revive
+        text: 'exported: exported method .*\.(Reconcile|SetupWithManager|SetupWebhookWithManager) should have comment or be unexported'
+      - linters:
+          - errcheck
+        text: Error return value of .((os\.)?std(out|err)\..*|.*Close|.*Flush|os\.Remove(All)?|.*print(f|ln)?|os\.(Un)?Setenv). is not checked
+      - linters:
+          - revive
+        text: exported (method|function|type|const) (.+) should have comment or be unexported
+        source: (func|type).*Fake.*
+      - linters:
+          - revive
+        path: fake_\.go
+        text: exported (method|function|type|const) (.+) should have comment or be unexported
+      - linters:
+          - revive
+        path: (framework|e2e)/.*.go
+        text: exported (method|function|type|const) (.+) should have comment or be unexported
+      - linters:
+          - revive
+        path: (e2e|infrastructure/hetzner)/.*.go
+        text: exported (method|function|type|const) (.+) should have comment or be unexported
+      - linters:
+          - unparam
+        text: always receives
+      - path: _test\.go
+        text: should not use dot imports
+      - path: (framework|e2e)/.*.go
+        text: should not use dot imports
+      - path: _test\.go
+        text: cyclomatic complexity
+      - linters:
+          - gocritic
+        text: 'appendAssign: append result not assigned to the same slice'
+      - linters:
+          - staticcheck
+        path: .*(api|types)\/.*\/conversion.*\.go$
+        text: 'SA1019: in.(.+) is deprecated'
+      - linters:
+          - staticcheck
+        path: pkg/services/baremetal/baremetal/baremetal.go
+        text: 'SA1019: .*FailureReason is deprecated'
+      - linters:
+          - revive
+        path: .*(api|types|test)\/.*\/conversion.*\.go$
+        text: exported (method|function|type|const) (.+) should have comment or be unexported
+      - linters:
+          - revive
+        path: .*(api|types|test)\/.*\/conversion.*\.go$
+        text: 'var-naming: don''t use underscores in Go names;'
+      - linters:
+          - revive
+        path: .*(api|types)\/.*\/conversion.*\.go$
+        text: 'receiver-naming: receiver name'
+      - linters:
+          - staticcheck
+        path: .*(api|types|test)\/.*\/conversion.*\.go$
+        text: 'ST1003: should not use underscores in Go names;'
+      - linters:
+          - staticcheck
+        path: .*(api|types)\/.*\/conversion.*\.go$
+        text: 'ST1016: methods on the same type should have the same receiver name'
+      - linters:
+          - gocritic
+        path: _test\.go
+        text: 'deferInLoop: Possible resource leak, ''defer'' is called in the ''for'' loop'
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
 issues:
-  max-same-issues: 0
   max-issues-per-linter: 0
-  # We are disabling default golangci exclusions because we want to help reviewers to focus on reviewing the most relevant
-  # changes in PRs and avoid nitpicking.
-  exclude-use-default: false
-  exclude-rules:
-    - linters:
-        - revive
-      text: "exported: exported method .*\\.(Reconcile|SetupWithManager|SetupWebhookWithManager) should have comment or be unexported"
-    - linters:
-        - errcheck
-      text: Error return value of .((os\.)?std(out|err)\..*|.*Close|.*Flush|os\.Remove(All)?|.*print(f|ln)?|os\.(Un)?Setenv). is not checked
-    # Exclude some packages or code to require comments, for example test code, or fake clients.
-    - linters:
-        - revive
-      text: exported (method|function|type|const) (.+) should have comment or be unexported
-      source: (func|type).*Fake.*
-    - linters:
-        - revive
-      text: exported (method|function|type|const) (.+) should have comment or be unexported
-      path: fake_\.go
-    - linters:
-        - revive
-      text: exported (method|function|type|const) (.+) should have comment or be unexported
-      path: "(framework|e2e)/.*.go"
-    - linters:
-        - revive
-      text: exported (method|function|type|const) (.+) should have comment or be unexported
-      path: "(e2e|infrastructure/hetzner)/.*.go"
-    # Disable unparam "always receives" which might not be really
-    # useful when building libraries.
-    - linters:
-        - unparam
-      text: always receives
-    # Dot imports for gomega or ginkgo are allowed
-    # within test files.
-    - path: _test\.go
-      text: should not use dot imports
-    - path: (framework|e2e)/.*.go
-      text: should not use dot imports
-    - path: _test\.go
-      text: cyclomatic complexity
-    # Append should be able to assign to a different var/slice.
-    - linters:
-        - gocritic
-      text: "appendAssign: append result not assigned to the same slice"
-    # Disable linters for conversion
-    - linters:
-        - staticcheck
-      text: "SA1019: in.(.+) is deprecated"
-      path: .*(api|types)\/.*\/conversion.*\.go$
-    - linters:
-        - staticcheck
-      text: "SA1019: .*FailureReason is deprecated"
-      path: pkg/services/baremetal/baremetal/baremetal.go
-    - linters:
-        - revive
-      text: exported (method|function|type|const) (.+) should have comment or be unexported
-      path: .*(api|types|test)\/.*\/conversion.*\.go$
-    - linters:
-        - revive
-      text: "var-naming: don't use underscores in Go names;"
-      path: .*(api|types|test)\/.*\/conversion.*\.go$
-    - linters:
-        - revive
-      text: "receiver-naming: receiver name"
-      path: .*(api|types)\/.*\/conversion.*\.go$
-    - linters:
-        - stylecheck
-      text: "ST1003: should not use underscores in Go names;"
-      path: .*(api|types|test)\/.*\/conversion.*\.go$
-    - linters:
-        - stylecheck
-      text: "ST1016: methods on the same type should have the same receiver name"
-      path: .*(api|types)\/.*\/conversion.*\.go$
-    # hack/tools
-    - linters:
-        - typecheck
-      text: import (".+") is a program, not an importable package
-      path: ^tools\.go$
-    # We don't care about defer in for loops in test files.
-    - linters:
-        - gocritic
-      text: "deferInLoop: Possible resource leak, 'defer' is called in the 'for' loop"
-      path: _test\.go
-run:
-  timeout: 10m
-  issues.exclude-files:
-    - "zz_generated.*\\.go$"
-    - ".*conversion.*\\.go$"
-    - "test/e2e/*\\.go$"
-  issues.exclude-dirs:
-    - "third_party"
-    - "tilt_modules"
-    - "test"
-  allow-parallel-runners: true
-  modules-download-mode: readonly
-  go: "1.22"
+  max-same-issues: 0
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - goimports
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(github.com/syself/cluster-api-provider-hetzner)
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

@@ -76,10 +76,10 @@ var _ = Describe("updateSSHKey", func() {
 			host.Spec.Status.ProvisioningState = tc.currentState
 
 			osSSHSecret := helpers.GetDefaultSSHSecret(osSSHKeyName, "default")
-			osSSHSecret.ObjectMeta.ResourceVersion = "1"
+			osSSHSecret.ResourceVersion = "1"
 
 			rescueSSHSecret := helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default")
-			rescueSSHSecret.ObjectMeta.ResourceVersion = "1"
+			rescueSSHSecret.ResourceVersion = "1"
 
 			service := newTestService(host, nil, nil, osSSHSecret, rescueSSHSecret)
 			hsm := newTestHostStateMachine(host, service)

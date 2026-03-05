@@ -135,7 +135,7 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	secretManager := secretutil.NewSecretManager(log, r.Client, r.APIReader)
 	hcloudToken, hetznerSecret, err := getAndValidateHCloudToken(ctx, req.Namespace, hetznerCluster, secretManager)
 	if err != nil {
-		return hcloudTokenErrorResult(ctx, err, hetznerCluster, infrav1.HCloudTokenAvailableCondition, r.Client)
+		return hcloudTokenErrorResult(ctx, err, hetznerCluster, r.Client)
 	}
 	hcloudClient := r.HCloudClientFactory.NewClient(hcloudToken)
 
@@ -329,7 +329,7 @@ func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterS
 	// Remove finalizer of secret
 	if err := secretManager.ReleaseSecret(ctx, clusterScope.HetznerSecret(), clusterScope.HetznerCluster); err != nil {
 		if apierrors.IsConflict(err) {
-			clusterScope.Logger.Info("conflict in ReleaseSecret, doing a requeue")
+			clusterScope.Info("conflict in ReleaseSecret, doing a requeue")
 			return reconcile.Result{RequeueAfter: time.Second}, nil
 		}
 		return reconcile.Result{}, fmt.Errorf("failed to release Hetzner secret: %w", err)
@@ -393,7 +393,7 @@ func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterS
 func reconcileRateLimit(setter conditions.Setter, rateLimitWaitTime time.Duration) bool {
 	condition := conditions.Get(setter, infrav1.HetznerAPIReachableCondition)
 	if condition != nil && condition.Status == corev1.ConditionFalse {
-		if time.Now().Before(condition.LastTransitionTime.Time.Add(rateLimitWaitTime)) {
+		if time.Now().Before(condition.LastTransitionTime.Add(rateLimitWaitTime)) {
 			// Not yet timed out, reconcile again after timeout
 			// Don't give a more precise requeueAfter value to not reconcile too many
 			// objects at the same time
@@ -437,7 +437,6 @@ func hcloudTokenErrorResult(
 	ctx context.Context,
 	inerr error,
 	setter conditions.Setter,
-	conditionType clusterv1.ConditionType,
 	client client.Client,
 ) (ctrl.Result, error) {
 	res := ctrl.Result{}
@@ -447,7 +446,7 @@ func hcloudTokenErrorResult(
 	// at some point in the future.
 	case *secretutil.ResolveSecretRefError:
 		conditions.MarkFalse(setter,
-			conditionType,
+			infrav1.HCloudTokenAvailableCondition,
 			infrav1.HetznerSecretUnreachableReason,
 			clusterv1.ConditionSeverityError,
 			"could not find HetznerSecret",
@@ -458,7 +457,7 @@ func hcloudTokenErrorResult(
 	// No need to reconcile again, as it will be triggered as soon as the secret is updated.
 	case *secretutil.HCloudTokenValidationError:
 		conditions.MarkFalse(setter,
-			conditionType,
+			infrav1.HCloudTokenAvailableCondition,
 			infrav1.HCloudCredentialsInvalidReason,
 			clusterv1.ConditionSeverityError,
 			"invalid or not specified hcloud token in Hetzner secret",
@@ -466,7 +465,7 @@ func hcloudTokenErrorResult(
 
 	default:
 		conditions.MarkFalse(setter,
-			conditionType,
+			infrav1.HCloudTokenAvailableCondition,
 			infrav1.HCloudCredentialsInvalidReason,
 			clusterv1.ConditionSeverityError,
 			"%s",
@@ -799,7 +798,7 @@ func (r *HetznerClusterReconciler) clusterToHetznerCluster(ctx context.Context, 
 	}
 
 	// Don't handle deleted clusters
-	if !c.ObjectMeta.DeletionTimestamp.IsZero() {
+	if !c.DeletionTimestamp.IsZero() {
 		return nil
 	}
 
