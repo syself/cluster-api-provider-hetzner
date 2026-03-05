@@ -62,7 +62,7 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 		return reconcile.Result{}, nil
 	}
 
-	log := s.scope.Logger.WithValues("reconciler", "load balancer")
+	log := s.scope.WithValues("reconciler", "load balancer")
 
 	// find load balancer
 	lb, err := s.findLoadBalancer(ctx)
@@ -97,7 +97,7 @@ func (s *Service) Reconcile(ctx context.Context) (reconcile.Result, error) {
 						"%s",
 						err.Error(),
 					)
-					s.scope.Logger.Info(err.Error())
+					s.scope.Info(err.Error())
 					return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 				}
 				return reconcile.Result{}, fmt.Errorf("failed to create load balancer: %w", err)

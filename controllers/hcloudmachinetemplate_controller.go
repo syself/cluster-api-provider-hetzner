@@ -73,7 +73,7 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 
 	log = log.WithValues("HCloudMachineTemplate", klog.KObj(machineTemplate))
 
-	patchHelper, err := patch.NewHelper(machineTemplate, r.Client)
+	patchHelper, err := patch.NewHelper(machineTemplate, r)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to get patch helper: %w", err)
 	}
@@ -95,7 +95,7 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 	}
 
 	var cluster *clusterv1.Cluster
-	cluster, err = util.GetOwnerCluster(ctx, r.Client, machineTemplate.ObjectMeta)
+	cluster, err = util.GetOwnerCluster(ctx, r, machineTemplate.ObjectMeta)
 	if err != nil || cluster == nil {
 		log.Info(fmt.Sprintf("%s is missing ownerRef to cluster or cluster does not exist %s/%s",
 			machineTemplate.Kind, machineTemplate.Namespace, machineTemplate.Name))
@@ -116,7 +116,7 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 		Namespace: machineTemplate.Namespace,
 		Name:      cluster.Spec.InfrastructureRef.Name,
 	}
-	if err := r.Client.Get(ctx, hetznerClusterName, hetznerCluster); err != nil {
+	if err := r.Get(ctx, hetznerClusterName, hetznerCluster); err != nil {
 		return reconcile.Result{}, nil
 	}
 
@@ -124,16 +124,16 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 	ctx = ctrl.LoggerInto(ctx, log)
 
 	// Create the scope.
-	secretManager := secretutil.NewSecretManager(log, r.Client, r.APIReader)
+	secretManager := secretutil.NewSecretManager(log, r, r.APIReader)
 	hcloudToken, _, err := getAndValidateHCloudToken(ctx, req.Namespace, hetznerCluster, secretManager)
 	if err != nil {
-		return hcloudTokenErrorResult(ctx, err, machineTemplate, infrav1.HCloudTokenAvailableCondition, r.Client)
+		return hcloudTokenErrorResult(ctx, err, machineTemplate, r)
 	}
 
 	hcc := r.HCloudClientFactory.NewClient(hcloudToken)
 
 	machineTemplateScope, err := scope.NewHCloudMachineTemplateScope(scope.HCloudMachineTemplateScopeParams{
-		Client:                r.Client,
+		Client:                r,
 		Logger:                &log,
 		HCloudMachineTemplate: machineTemplate,
 		HCloudClient:          hcc,
