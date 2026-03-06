@@ -205,6 +205,10 @@ else
 	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hetzner --version 2.0.1 \
 	--namespace kube-system \
 	--set privateNetwork.enabled=$(PRIVATE_NETWORK)
+
+	# Optional: override CCM image for staging/testing.
+	#--set image.tag=sha-93d3a7f \
+	#--set image.repository=ghcr.io/syself/hetzner-cloud-controller-manager-staging
 	@echo
 	@echo 'run "kubectl --kubeconfig=$(WORKER_CLUSTER_KUBECONFIG) ..." to work with the new target cluster'
 	@echo
@@ -224,23 +228,23 @@ create-workload-cluster-hcloud: env-vars-for-wl-cluster $(KUSTOMIZE) install-crd
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN
 	./hack/create-workload-cluster.sh v1beta1 hcloud
 
-create-workload-cluster-hcloud-network: env-vars-for-wl-cluster $(KUSTOMIZE) ## Creates a workload-cluster.
+create-workload-cluster-hcloud-network: env-vars-for-wl-cluster $(KUSTOMIZE) install-crds ## Creates a workload-cluster.
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN
 	./hack/create-workload-cluster.sh v1beta1 hcloud-network
 
 # Use that, if you want to test hcloud control-planes, hcloud worker and bm worker.
-create-workload-cluster-hetzner-hcloud-control-plane: env-vars-for-wl-cluster $(KUSTOMIZE) ## Creates a workload-cluster.
+create-workload-cluster-hetzner-hcloud-control-plane: env-vars-for-wl-cluster $(KUSTOMIZE) install-crds ## Creates a workload-cluster.
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN HETZNER_ROBOT_USER HETZNER_ROBOT_PASSWORD HETZNER_SSH_PRIV_PATH HETZNER_SSH_PUB_PATH SSH_KEY_NAME
 	./hack/create-workload-cluster.sh --robot v1beta1 hetzner-hcloud-control-planes
 
-create-workload-cluster-hetzner-baremetal-control-plane: env-vars-for-wl-cluster $(KUSTOMIZE) ## Creates a workload-cluster.
+create-workload-cluster-hetzner-baremetal-control-plane: env-vars-for-wl-cluster $(KUSTOMIZE) install-crds ## Creates a workload-cluster.
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN HETZNER_ROBOT_USER HETZNER_ROBOT_PASSWORD HETZNER_SSH_PRIV_PATH HETZNER_SSH_PUB_PATH SSH_KEY_NAME
 	./hack/create-workload-cluster.sh --robot v1beta1 hetzner-baremetal-control-plane
 
-create-workload-cluster-hetzner-baremetal-control-plane-remediation: env-vars-for-wl-cluster $(KUSTOMIZE) ## Creates a workload-cluster.
+create-workload-cluster-hetzner-baremetal-control-plane-remediation: env-vars-for-wl-cluster $(KUSTOMIZE) install-crds ## Creates a workload-cluster.
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN HETZNER_ROBOT_USER HETZNER_ROBOT_PASSWORD HETZNER_SSH_PRIV_PATH HETZNER_SSH_PUB_PATH SSH_KEY_NAME
 	./hack/create-workload-cluster.sh --robot v1beta1 hetzner-baremetal-control-plane-remediation
@@ -462,9 +466,6 @@ test-e2e: test-e2e-hcloud
 .PHONY: test-e2e-hcloud
 test-e2e-hcloud: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
 	rm -f $(WORKER_CLUSTER_KUBECONFIG)
-	HETZNER_SSH_PUB= HETZNER_SSH_PRIV= \
-	HETZNER_SSH_PUB_PATH= HETZNER_SSH_PRIV_PATH= \
-	HETZNER_ROBOT_PASSWORD= HETZNER_ROBOT_USER= \
 	GINKGO_FOKUS="'\[Basic\]'" GINKGO_NODES=2 \
 	./hack/ci-e2e-capi.sh
 

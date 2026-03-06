@@ -109,7 +109,7 @@ UNIQ="$API_VERSION/$NAME--$CLUSTER_NAME"
     >generated/"$UNIQ"--rendered.yaml
 echo "Created generated/$UNIQ--rendered.yaml"
 
-echo "Applying manifests"
+echo "Applying manifests: generated/$UNIQ--rendered.yaml"
 "$BIN"/kubectl apply --validate=true -f generated/"$UNIQ"--rendered.yaml
 
 make wait-and-get-secret
