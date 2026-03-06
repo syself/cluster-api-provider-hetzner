@@ -61,6 +61,12 @@ jobs:
         run: make verify-starlark
 
       - name: Verify Generated Files of Git Repo
+        env:
+          HETZNER_ROBOT_USER: ${{ secrets.HETZNER_ROBOT_USER }}
+          HETZNER_ROBOT_PASSWORD: ${{ secrets.HETZNER_ROBOT_PASSWORD }}
+          HETZNER_SSH_PUB: ${{ secrets.HETZNER_SSH_PUB }}
+          HETZNER_SSH_PRIV: ${{ secrets.HETZNER_SSH_PRIV }}
+          SSH_KEY_NAME: ${{ secrets.SSH_KEY_NAME }}
         run: make verify-generated-files
 
       - uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e # v4

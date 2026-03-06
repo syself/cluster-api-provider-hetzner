@@ -29,7 +29,7 @@ jobs:
         uses: ./.github/actions/test-release
 
   e2e-hcloud-basic:
-    name: Test Hcloud Basic
+    name: Test Hcloud Basic (Periodic)
     concurrency: ci-${{ github.ref }}-e2e-basic-periodic
     runs-on: ubuntu-latest
     permissions:
@@ -47,6 +47,10 @@ jobs:
         with:
           e2e_name: hcloud-basic
           e2e_make_target: test-e2e-hcloud
+          tps_token: ${{ secrets.TPS_TOKEN }}
+          e2e_ssh_pub: ${{ secrets.HETZNER_SSH_PUB }}
+          e2e_ssh_priv: ${{ secrets.HETZNER_SSH_PRIV }}
+          e2e_ssh_key_name: ${{ secrets.SSH_KEY_NAME }}
 
   e2e-hcloud-feature:
     name: Test Hcloud Features
@@ -67,6 +71,10 @@ jobs:
         with:
           e2e_name: hcloud-feature
           e2e_make_target: test-e2e-feature
+          tps_token: ${{ secrets.TPS_TOKEN }}
+          e2e_ssh_pub: ${{ secrets.HETZNER_SSH_PUB }}
+          e2e_ssh_priv: ${{ secrets.HETZNER_SSH_PRIV }}
+          e2e_ssh_key_name: ${{ secrets.SSH_KEY_NAME }}
 
   e2e-hcloud-lifecycle:
     name: Test Hcloud Lifecycle
@@ -87,6 +95,10 @@ jobs:
         with:
           e2e_name: hcloud-lifecycle
           e2e_make_target: test-e2e-lifecycle
+          tps_token: ${{ secrets.TPS_TOKEN }}
+          e2e_ssh_pub: ${{ secrets.HETZNER_SSH_PUB }}
+          e2e_ssh_priv: ${{ secrets.HETZNER_SSH_PRIV }}
+          e2e_ssh_key_name: ${{ secrets.SSH_KEY_NAME }}
 
   e2e-hcloud-conformance:
     name: Test Hcloud Conformance
@@ -107,3 +119,7 @@ jobs:
         with:
           e2e_name: hcloud-conformance
           e2e_make_target: test-e2e-conformance
+          tps_token: ${{ secrets.TPS_TOKEN }}
+          e2e_ssh_pub: ${{ secrets.HETZNER_SSH_PUB }}
+          e2e_ssh_priv: ${{ secrets.HETZNER_SSH_PRIV }}
+          e2e_ssh_key_name: ${{ secrets.SSH_KEY_NAME }}
