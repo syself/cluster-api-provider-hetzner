@@ -62,11 +62,12 @@ jobs:
 
       - name: Verify Generated Files of Git Repo
         env:
-          HETZNER_ROBOT_USER: ${{ secrets.HETZNER_ROBOT_USER }}
-          HETZNER_ROBOT_PASSWORD: ${{ secrets.HETZNER_ROBOT_PASSWORD }}
-          HETZNER_SSH_PUB: ${{ secrets.HETZNER_SSH_PUB }}
-          HETZNER_SSH_PRIV: ${{ secrets.HETZNER_SSH_PRIV }}
-          SSH_KEY_NAME: ${{ secrets.SSH_KEY_NAME }}
+          # Use dummy data.
+          HETZNER_ROBOT_USER: ${{ secrets.HETZNER_ROBOT_USER || 'robot' }}
+          HETZNER_ROBOT_PASSWORD: ${{ secrets.HETZNER_ROBOT_PASSWORD || 'password' }}
+          HETZNER_SSH_PUB: ${{ secrets.HETZNER_SSH_PUB || 'c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUZha2VQdWJsaWNLZXlGb3JDSU9ubHkgdXNlckBjaQ==' }}
+          HETZNER_SSH_PRIV: ${{ secrets.HETZNER_SSH_PRIV || 'LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0KZmFrZQotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0K' }}
+          SSH_KEY_NAME: ${{ secrets.SSH_KEY_NAME || 'ci-key' }}
         run: make verify-generated-files
 
       - uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e # v4
