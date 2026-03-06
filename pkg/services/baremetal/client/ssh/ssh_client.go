@@ -718,13 +718,13 @@ func (c *sshClient) ExecutePreProvisionCommand(ctx context.Context, command stri
 	if err != nil {
 		return 0, "", fmt.Errorf("couldn't create a new scp client: %w", err)
 	}
-	defer func() { scpClient.Close() }()
+
+	defer scpClient.Close()
 
 	f, err := os.Open(command) //nolint:gosec // the variable was valided.
 	if err != nil {
 		return 0, "", fmt.Errorf("error opening file %q: %w", command, err)
 	}
-	defer func() { _ = f.Close() }()
 
 	baseName := filepath.Base(command)
 	dest := "/root/" + baseName
@@ -772,7 +772,8 @@ func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL 
 	if err != nil {
 		return 0, "", fmt.Errorf("couldn't create a new scp client: %w", err)
 	}
-	defer func() { scpClient.Close() }()
+
+	defer scpClient.Close()
 
 	if command == "" {
 		return 0, "", fmt.Errorf("image-url-command is empty")

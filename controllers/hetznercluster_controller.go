@@ -454,7 +454,7 @@ func hcloudTokenErrorResult(
 		res = ctrl.Result{RequeueAfter: secretErrorRetryDelay}
 		inerr = nil
 
-		// No need to reconcile again, as it will be triggered as soon as the secret is updated.
+	// No need to reconcile again, as it will be triggered as soon as the secret is updated.
 	case *secretutil.HCloudTokenValidationError:
 		conditions.MarkFalse(setter,
 			infrav1.HCloudTokenAvailableCondition,

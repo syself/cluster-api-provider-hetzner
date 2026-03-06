@@ -78,7 +78,8 @@ var (
 
 // Test suite global vars.
 var (
-	ctx = ctrl.SetupSignalHandler()
+	ctx            = ctrl.SetupSignalHandler()
+	suiteStartTime = time.Now()
 
 	// e2eConfig to be used for this test, read from configPath.
 	e2eConfig *clusterctl.E2EConfig
@@ -108,6 +109,8 @@ func init() {
 }
 
 func TestE2E(t *testing.T) {
+	suiteStartTime = time.Now()
+
 	// If running in prow, make sure to use the artifacts folder that will be reported in test grid (ignoring the value provided by flag).
 	if prowArtifactFolder, exists := os.LookupEnv("ARTIFACTS"); exists {
 		artifactFolder = prowArtifactFolder
@@ -119,9 +122,7 @@ func TestE2E(t *testing.T) {
 		logFileName := fmt.Sprintf("ginkgo-log-%s.txt", time.Now().Format("01-02_15-04-05"))
 		w, err := ginkgoextensions.EnableFileLogging(filepath.Join(artifactFolder, logFileName))
 		Expect(err).ToNot(HaveOccurred())
-		defer func() {
-			Expect(w.Close()).To(Succeed())
-		}()
+		defer func() { _ = w.Close() }()
 	}
 
 	RunSpecs(t, "caph-e2e")
@@ -281,7 +282,10 @@ func logStatusContinuously(ctx context.Context, restConfig *restclient.Config, c
 // It gets called again and again by logStatusContinuously.
 func logStatus(ctx context.Context, restConfig *restclient.Config, c client.Client) error {
 	log("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
-	log(fmt.Sprintf("≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡ %s <<< Start logging status", time.Now().Format("2006-01-02 15:04:05")))
+	log(fmt.Sprintf("≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡ %s (elapsed: %s) <<< Start logging status",
+		time.Now().Format("2006-01-02 15:04:05"),
+		time.Since(suiteStartTime).Round(time.Second),
+	))
 
 	if err := logCaphDeployment(ctx, c); err != nil {
 		return err
@@ -352,7 +356,6 @@ func logStatus(ctx context.Context, restConfig *restclient.Config, c client.Clie
 			log(fmt.Sprintf("Failed to log CCM deployment %s/%s: %v", cluster.Namespace, secretName, err))
 			continue
 		}
-
 	}
 
 	log(fmt.Sprintf("≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡ %s End logging status >>>", time.Now().Format("2006-01-02 15:04:05")))
@@ -635,6 +638,5 @@ func tearDown(ctx context.Context, bootstrapClusterProvider bootstrap.ClusterPro
 }
 
 func log(msg string) {
-	_, err := fmt.Fprintln(GinkgoWriter, msg)
-	Expect(err).ToNot(HaveOccurred())
+	_, _ = fmt.Fprintln(GinkgoWriter, msg)
 }

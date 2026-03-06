@@ -32,15 +32,23 @@ if [ ${#missing_vars[@]} -gt 0 ]; then
 fi
 
 if [[ -n "${HETZNER_SSH_PUB:-}" ]]; then
-  if ! echo "$HETZNER_SSH_PUB" | grep -q 'ssh-'; then
-    echo "env var HETZNER_SSH_PUB seems wrong. It should be the pub key (not  base64 encoded). Guess: update .envrc"
+  if ! decoded_pub="$(printf '%s' "$HETZNER_SSH_PUB" | base64 --decode 2>/dev/null)"; then
+    echo "env var HETZNER_SSH_PUB seems wrong. It should be the base64-encoded pub key. Guess: update .envrc"
+    exit 1
+  fi
+  if ! printf '%s' "$decoded_pub" | grep -q -- 'ssh-'; then
+    echo "env var HETZNER_SSH_PUB seems wrong. It should be the base64-encoded pub key. Guess: update .envrc"
     exit 1
   fi
 fi
 
 if [[ -n "${HETZNER_SSH_PRIV:-}" ]]; then
-  if ! echo "$HETZNER_SSH_PRIV" | grep -q 'OPENSSH'; then
-    echo "env var HETZNER_SSH_PRIV seems wrong. It should be the priv key (not  base64 encoded). Guess: update .envrc"
+  if ! decoded_priv="$(printf '%s' "$HETZNER_SSH_PRIV" | base64 --decode 2>/dev/null)"; then
+    echo "env var HETZNER_SSH_PRIV seems wrong. It should be the base64-encoded priv key. Guess: update .envrc"
+    exit 1
+  fi
+  if ! printf '%s' "$decoded_priv" | grep -q -- 'OPENSSH'; then
+    echo "env var HETZNER_SSH_PRIV seems wrong. It should be the base64-encoded priv key. Guess: update .envrc"
     exit 1
   fi
 fi
