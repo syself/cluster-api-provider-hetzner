@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"flag"
 	"fmt"
 	"os"
@@ -44,7 +45,7 @@ func do() error {
 	sshPrivKey := fs.String("ssh-private-key-file", "", fmt.Sprintf("SSH private key. If not set, env var %s will be used", e2e.HetznerPrivateKeyContent))
 	fs.Usage = func() {
 		fmt.Fprintln(os.Stderr, "Collect logs from a CAPH machine over SSH using the e2e log collector.")
-		fmt.Fprintf(os.Stderr, "Requires environment variable %s to contain the private key.\n", e2e.HetznerPrivateKeyContent)
+		fmt.Fprintf(os.Stderr, "Requires environment variable %s to contain the base64-encoded private key.\n", e2e.HetznerPrivateKeyContent)
 		fmt.Fprintf(os.Stderr, "Usage: %s [flags] <host>\n", os.Args[0])
 		fs.PrintDefaults()
 	}
@@ -70,7 +71,7 @@ func do() error {
 		if err != nil {
 			return err
 		}
-		err = os.Setenv(e2e.HetznerPrivateKeyContent, string(privKey))
+		err = os.Setenv(e2e.HetznerPrivateKeyContent, base64.StdEncoding.EncodeToString(privKey))
 		if err != nil {
 			return err
 		}

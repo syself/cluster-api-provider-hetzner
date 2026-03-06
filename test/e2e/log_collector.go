@@ -19,6 +19,7 @@ package e2e
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"os"
@@ -303,7 +304,7 @@ func newSSHConfig() (*ssh.ClientConfig, error) {
 
 	signer, err := ssh.ParsePrivateKey(sshPrivateKeyContent)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse private key %s: %w", sshPrivateKeyContent, err)
+		return nil, fmt.Errorf("failed to parse private key from env var %s: %w", HetznerPrivateKeyContent, err)
 	}
 
 	config := &ssh.ClientConfig{
@@ -318,9 +319,14 @@ func newSSHConfig() (*ssh.ClientConfig, error) {
 }
 
 func readPrivateKey() ([]byte, error) {
-	privateKeyContent := os.Getenv(HetznerPrivateKeyContent)
-	if privateKeyContent == "" {
+	privateKeyContentBase64 := strings.TrimSpace(os.Getenv(HetznerPrivateKeyContent))
+	if privateKeyContentBase64 == "" {
 		return nil, fmt.Errorf("private key information missing. Please set %s environment variable", HetznerPrivateKeyContent)
 	}
-	return []byte(privateKeyContent), nil
+	privateKeyContent, err := base64.StdEncoding.DecodeString(privateKeyContentBase64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid %s: expected base64-encoded private key: %w", HetznerPrivateKeyContent, err)
+	}
+
+	return privateKeyContent, nil
 }
