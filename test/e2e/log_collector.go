@@ -37,6 +37,7 @@ import (
 )
 
 const (
+	// HetznerPrivateKeyContent is the env var that contains the base64-encoded SSH private key.
 	HetznerPrivateKeyContent = "HETZNER_SSH_PRIV"
 )
 
