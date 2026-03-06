@@ -1760,12 +1760,17 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 		// give the reboot some time until it takes effect
 		if s.hasJustRebooted() {
 			markProvisionPendingWithInfo(s.scope.HetznerBareMetalHost,
-				infrav1.StateEnsureProvisioned, "hasJustRebooted")
+				infrav1.StateEnsureProvisioned, "host has just rebooted")
 			return actionContinue{delay: 2 * time.Second}
 		}
 
 		isTimeout, isSSHConnectionRefusedError, err := analyzeSSHOutputProvisioned(out)
 		if err != nil {
+			if errors.Is(err, errUnexpectedHostName) {
+				// One possible reason: The machine gets used by a second wl-cluster.
+				record.Warnf(s.scope.HetznerBareMetalHost, "UnexpectedHostName",
+					"EnsureProvision: wanted %q. %s", wantHostName, err.Error())
+			}
 			markProvisionPendingWithInfo(s.scope.HetznerBareMetalHost,
 				infrav1.StateEnsureProvisioned, err.Error())
 			return actionError{err: fmt.Errorf("failed to handle incomplete boot - actionEnsureProvisioned: %w", err)}
@@ -1773,9 +1778,13 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 
 		failed, err := s.handleIncompleteBoot(ctx, false, isTimeout, isSSHConnectionRefusedError)
 		if failed {
+			msg := "reboot handling failed"
+			if err != nil {
+				msg = err.Error()
+			}
 			markProvisionPendingWithInfo(s.scope.HetznerBareMetalHost,
-				infrav1.StateEnsureProvisioned, err.Error())
-			return s.recordActionFailure(infrav1.ProvisioningError, err.Error())
+				infrav1.StateEnsureProvisioned, msg)
+			return s.recordActionFailure(infrav1.ProvisioningError, msg)
 		}
 		if err != nil {
 			markProvisionPendingWithInfo(s.scope.HetznerBareMetalHost,
@@ -1836,7 +1845,7 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 	if _, complete := actResult.(actionComplete); !complete {
 		record.Event(s.scope.HetznerBareMetalHost, "CloudInitStillRunning", msg)
 		markProvisionPendingWithInfo(s.scope.HetznerBareMetalHost,
-			infrav1.StateEnsureProvisioned, "CloudInitStillRunning")
+			infrav1.StateEnsureProvisioned, "cloud-init is still running")
 		return createEventWithCloudInitOutput(actResult)
 	}
 
@@ -1844,7 +1853,7 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 	if _, complete := actResult.(actionComplete); !complete {
 		s.scope.Info("ensureProvisioned: handleCloudInitNotStarted", "actResult", actResult)
 		markProvisionPendingWithInfo(s.scope.HetznerBareMetalHost,
-			infrav1.StateEnsureProvisioned, "CloudInitNotStarted")
+			infrav1.StateEnsureProvisioned, "cloud-init has not started yet")
 		return createEventWithCloudInitOutput(actResult)
 	}
 
@@ -2290,7 +2299,7 @@ func (s *Service) hasJustRebooted() bool {
 func markProvisionPendingWithInfo(host *infrav1.HetznerBareMetalHost, state infrav1.ProvisioningState, info string) {
 	msg := fmt.Sprintf("host (%s) is still provisioning - state %q", host.Name, state)
 	if info != "" {
-		msg = fmt.Sprintf("%s (%s)", msg, info)
+		msg = fmt.Sprintf("%s: %s", msg, info)
 	}
 	conditions.MarkFalse(
 		host,
