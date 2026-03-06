@@ -4,6 +4,7 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     branches:
       - main
+      - v1.1.x
       - "releases/**"
     paths-ignore:
       - "**/*.md"
@@ -55,7 +56,7 @@ jobs:
         uses: ./.github/actions/test-release
 
   e2e-hcloud-basic:
-    name: Test Hcloud Basic
+    name: Test Hcloud Basic (PR)
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     concurrency: ci-${{ github.ref }}-e2e-basic
     runs-on: ubuntu-latest
@@ -74,6 +75,10 @@ jobs:
         with:
           e2e_name: hcloud-basic
           e2e_make_target: test-e2e-hcloud
+          tps_token: ${{ secrets.TPS_TOKEN }}
+          e2e_ssh_pub: ${{ secrets.HETZNER_SSH_PUB }}
+          e2e_ssh_priv: ${{ secrets.HETZNER_SSH_PRIV }}
+          e2e_ssh_key_name: ${{ secrets.SSH_KEY_NAME }}
 
   e2e-hetzner-basic:
     name: Test Hetzner Baremetal Basic
@@ -95,7 +100,9 @@ jobs:
         with:
           e2e_name: hetzner-basic
           e2e_make_target: test-e2e-baremetal
+          tps_token: ${{ secrets.TPS_TOKEN }}
           e2e_robot_user: ${{ secrets.HETZNER_ROBOT_USER }}
           e2e_robot_password: ${{ secrets.HETZNER_ROBOT_PASSWORD }}
           e2e_ssh_pub: ${{ secrets.HETZNER_SSH_PUB }}
           e2e_ssh_priv: ${{ secrets.HETZNER_SSH_PRIV }}
+          e2e_ssh_key_name: ${{ secrets.SSH_KEY_NAME }}
