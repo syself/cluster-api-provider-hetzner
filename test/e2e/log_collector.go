@@ -37,7 +37,7 @@ import (
 )
 
 const (
-	// HetznerPrivateKeyContent is the env var that contains the base64-encoded SSH private key.
+	// HetznerPrivateKeyContent is the env var "HETZNER_SSH_PRIV" with base64-encoded private key content.
 	HetznerPrivateKeyContent = "HETZNER_SSH_PRIV"
 )
 
@@ -305,7 +305,7 @@ func newSSHConfig() (*ssh.ClientConfig, error) {
 
 	signer, err := ssh.ParsePrivateKey(sshPrivateKeyContent)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse private key from env var %s: %w", HetznerPrivateKeyContent, err)
+		return nil, fmt.Errorf("failed to parse private key from %s: %w", HetznerPrivateKeyContent, err)
 	}
 
 	config := &ssh.ClientConfig{
@@ -320,14 +320,13 @@ func newSSHConfig() (*ssh.ClientConfig, error) {
 }
 
 func readPrivateKey() ([]byte, error) {
-	privateKeyContentBase64 := strings.TrimSpace(os.Getenv(HetznerPrivateKeyContent))
-	if privateKeyContentBase64 == "" {
-		return nil, fmt.Errorf("private key information missing. Please set %s environment variable", HetznerPrivateKeyContent)
+	privateKeyBase64 := os.Getenv(HetznerPrivateKeyContent)
+	if privateKeyBase64 == "" {
+		return nil, fmt.Errorf("private key information missing. Please set %s environment variable with base64-encoded private key content", HetznerPrivateKeyContent)
 	}
-	privateKeyContent, err := base64.StdEncoding.DecodeString(privateKeyContentBase64)
+	privateKeyContent, err := base64.StdEncoding.DecodeString(privateKeyBase64)
 	if err != nil {
-		return nil, fmt.Errorf("invalid %s: expected base64-encoded private key: %w", HetznerPrivateKeyContent, err)
+		return nil, fmt.Errorf("failed to base64-decode %s: %w", HetznerPrivateKeyContent, err)
 	}
-
 	return privateKeyContent, nil
 }

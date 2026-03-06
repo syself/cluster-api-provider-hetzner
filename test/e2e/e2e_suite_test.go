@@ -122,9 +122,7 @@ func TestE2E(t *testing.T) {
 		logFileName := fmt.Sprintf("ginkgo-log-%s.txt", time.Now().Format("01-02_15-04-05"))
 		w, err := ginkgoextensions.EnableFileLogging(filepath.Join(artifactFolder, logFileName))
 		Expect(err).ToNot(HaveOccurred())
-		defer func() {
-			Expect(w.Close()).To(Succeed())
-		}()
+		defer func() { _ = w.Close() }()
 	}
 
 	RunSpecs(t, "caph-e2e")
@@ -640,6 +638,5 @@ func tearDown(ctx context.Context, bootstrapClusterProvider bootstrap.ClusterPro
 }
 
 func log(msg string) {
-	_, err := fmt.Fprintln(GinkgoWriter, msg)
-	Expect(err).ToNot(HaveOccurred())
+	_, _ = fmt.Fprintln(GinkgoWriter, msg)
 }

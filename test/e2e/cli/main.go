@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package main provides a small CLI for collecting e2e machine logs over SSH.
+// Package main contains main function for the e2e cli tool.
 package main
 
 import (
@@ -42,11 +42,10 @@ func do() error {
 
 	machineName := fs.String("machine-name", "manual-machine", "Machine name used in output paths")
 	outputDir := fs.String("output-dir", "_artifacts/manual-machine-logs", "Directory for collected logs")
-	timeout := fs.Duration("timeout", 10*time.Minute, "Timeout for log collection")
-	sshPrivKey := fs.String("ssh-private-key-file", "", fmt.Sprintf("SSH private key. If not set, env var %s will be used", e2e.HetznerPrivateKeyContent))
+	sshPrivKey := fs.String("ssh-private-key-file", "", fmt.Sprintf("SSH private key file path. If set, content gets base64-encoded and exported to %s", e2e.HetznerPrivateKeyContent))
 	fs.Usage = func() {
 		fmt.Fprintln(os.Stderr, "Collect logs from a CAPH machine over SSH using the e2e log collector.")
-		fmt.Fprintf(os.Stderr, "Requires environment variable %s to contain the base64-encoded private key.\n", e2e.HetznerPrivateKeyContent)
+		fmt.Fprintf(os.Stderr, "Requires environment variable %s to contain base64-encoded private key content.\n", e2e.HetznerPrivateKeyContent)
 		fmt.Fprintf(os.Stderr, "Usage: %s [flags] <host>\n", os.Args[0])
 		fs.PrintDefaults()
 	}
@@ -56,7 +55,7 @@ func do() error {
 
 	if fs.NArg() != 1 {
 		fs.Usage()
-		return fmt.Errorf("missing required argument: <host>")
+		return fmt.Errorf("expected exactly 1 host argument, got %d", fs.NArg())
 	}
 	host := fs.Arg(0)
 
@@ -82,10 +81,7 @@ func do() error {
 		return fmt.Errorf("create output directory: %w", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
-	defer cancel()
-
-	if err := e2e.CollectMachineLogByExternalIP(ctx, *machineName, host, *outputDir); err != nil {
+	if err := e2e.CollectMachineLogByExternalIP(context.Background(), *machineName, host, *outputDir); err != nil {
 		fmt.Printf("logs collected in %s\n", *outputDir)
 
 		return fmt.Errorf("collect logs: %w", err)

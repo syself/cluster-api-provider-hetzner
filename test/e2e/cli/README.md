@@ -12,5 +12,5 @@ go run ./test/e2e/cli --output-dir /tmp/cp-0-logs 1.2.3.4
 
 Notes:
 
-- Requires `HETZNER_SSH_PRIV` to be set to a base64-encoded private key.
+- Requires `HETZNER_SSH_PRIV` to be set to base64-encoded private key content.
 - Connects as `root` over SSH port `22`.

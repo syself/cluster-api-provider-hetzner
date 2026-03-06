@@ -140,7 +140,6 @@ func (t *TestEnvironment) WaitForWebhooks() {
 func getFreePort() (port int, err error) {
 	listenConfig := net.ListenConfig{}
 	ln, err := listenConfig.Listen(context.Background(), "tcp", "[::]:0")
-
 	if err != nil {
 		return 0, err
 	}
