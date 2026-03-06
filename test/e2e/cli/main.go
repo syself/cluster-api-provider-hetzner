@@ -23,7 +23,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/syself/cluster-api-provider-hetzner/test/e2e"
 )
