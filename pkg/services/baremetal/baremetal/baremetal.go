@@ -170,7 +170,7 @@ func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 
 		// check if deprovisioning is done
 		if host.Spec.Status.ProvisioningState != infrav1.StateNone {
-			s.scope.Logger.Info("hbmm is deleting, but host is not deprovisioned yet. Requeueing",
+			s.scope.Info("hbmm is deleting, but host is not deprovisioned yet. Requeueing",
 				"ProvisioningState", host.Spec.Status.ProvisioningState)
 			return reconcile.Result{RequeueAfter: requeueAfter}, nil
 		}
@@ -451,7 +451,7 @@ func ChooseHost(hbmm *infrav1.HetznerBareMetalMachine, hosts []infrav1.HetznerBa
 func skipHost(labelSelector labels.Selector, hbmm *infrav1.HetznerBareMetalMachine, host infrav1.HetznerBareMetalHost, mapOfSkipReasons map[string]int) bool {
 	// This comes first, because we should not look too deep into machines
 	// which are not in our scope.
-	if !labelSelector.Matches(labels.Set(host.ObjectMeta.Labels)) {
+	if !labelSelector.Matches(labels.Set(host.Labels)) {
 		mapOfSkipReasons["label-selector-does-not-match"]++
 		return true
 	}
@@ -537,9 +537,10 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 
 	for _, target := range s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target {
 		if target.Type == infrav1.LoadBalancerTargetTypeIP {
-			if target.IP == host.Spec.Status.IPv4 {
+			switch target.IP {
+			case host.Spec.Status.IPv4:
 				foundIPv4 = true
-			} else if target.IP == host.Spec.Status.IPv6 {
+			case host.Spec.Status.IPv6:
 				foundIPv6 = true
 			}
 		}
@@ -771,9 +772,9 @@ func (s *Service) removeOwnerRef(refList []metav1.OwnerReference) []metav1.Owner
 // ensureMachineAnnotation makes sure the machine has an annotation that references the
 // host and uses the API to update the machine if necessary.
 func (s *Service) ensureMachineAnnotation(host *infrav1.HetznerBareMetalHost) {
-	annotations := s.scope.BareMetalMachine.ObjectMeta.GetAnnotations()
+	annotations := s.scope.BareMetalMachine.GetAnnotations()
 	updatedAnnotations := updateHostAnnotation(annotations, hostKey(host), s.scope.Logger)
-	s.scope.BareMetalMachine.ObjectMeta.SetAnnotations(updatedAnnotations)
+	s.scope.BareMetalMachine.SetAnnotations(updatedAnnotations)
 }
 
 func updateHostAnnotation(annotations map[string]string, hostKey string, log logr.Logger) map[string]string {

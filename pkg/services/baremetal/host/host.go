@@ -201,7 +201,7 @@ func (s *Service) actionPreparing(ctx context.Context) actionResult {
 		if errors.Is(err, os.ErrDeadlineExceeded) {
 			// If the Hetzner API returns this, we just want to retry later:
 			// Get "https://robot-ws.your-server.de/server/1234": net/http: TLS handshake timeout
-			s.scope.Logger.Info("GetBMServer timed out, will retry later", "error", err)
+			s.scope.Info("GetBMServer timed out, will retry later", "error", err)
 			return actionContinue{
 				delay: 10 * time.Second,
 			}
@@ -650,7 +650,7 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 			timeSinceReboot = time.Since(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated.Time).Round(time.Second).String()
 		}
 
-		s.scope.Logger.Info("Could not reach rescue system. Will retry some seconds later.", "out", out.String(), "hostName", hostName,
+		s.scope.Info("Could not reach rescue system. Will retry some seconds later.", "out", out.String(), "hostName", hostName,
 			"isSSHTimeoutError", isSSHTimeoutError, "isSSHConnectionRefusedError", isSSHConnectionRefusedError, "timeSinceReboot", timeSinceReboot)
 		return actionContinue{delay: 10 * time.Second}
 	}
@@ -725,7 +725,7 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 		// and CAPI machine and will lead to this Machine to be deleted.
 		// Another machine (with same swraid setting) will not take the same host anymore,
 		// because the rootDeviceHints don't fit.
-		s.scope.Logger.Info(msg)
+		s.scope.Info(msg)
 		conditions.MarkFalse(
 			s.scope.HetznerBareMetalHost,
 			infrav1.RootDeviceHintsValidatedCondition,
@@ -1217,13 +1217,13 @@ func (s *Service) actionImageInstalling(ctx context.Context) actionResult {
 
 	switch state {
 	case sshclient.InstallImageStateRunning:
-		s.scope.Logger.Info("installimage is still running. Checking again in some seconds.")
+		s.scope.Info("installimage is still running. Checking again in some seconds.")
 		return actionContinue{delay: 10 * time.Second}
 	case sshclient.InstallImageStateFinished:
-		s.scope.Logger.Info("installimage is finished.")
+		s.scope.Info("installimage is finished.")
 		return s.actionImageInstallingFinished(ctx, sshClient)
 	case sshclient.InstallImageStateNotStartedYet:
-		s.scope.Logger.Info("installimage is not started yet. Starting it now")
+		s.scope.Info("installimage is not started yet. Starting it now")
 		return s.actionImageInstallingStartBackgroundProcess(ctx, sshClient)
 	default:
 		panic(fmt.Sprintf("Unknown InstallImageState %+v", state))
@@ -1244,7 +1244,7 @@ func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context
 		// timeout. Something has failed.
 		msg := fmt.Sprintf("ImageURLCommand timed out after %s. Deleting machine",
 			duration.Round(time.Second).String())
-		s.scope.Logger.Error(nil, msg, "logFile", logFile)
+		s.scope.Error(nil, msg, "logFile", logFile)
 		conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
 			"ImageURLCommandTimedOut", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
@@ -1257,7 +1257,7 @@ func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context
 
 	case sshclient.ImageURLCommandStateFinishedSuccessfully:
 		record.Event(s.scope.HetznerBareMetalHost, "ImageURLCommandOutput", logFile)
-		s.scope.Logger.Info("ImageURLCommandOutput", "logFile", logFile)
+		s.scope.Info("ImageURLCommandOutput", "logFile", logFile)
 
 		// Update name in robot API
 		if _, err := s.scope.RobotClient.SetBMServerName(s.scope.HetznerBareMetalHost.Spec.ServerID, s.scope.Hostname()); err != nil {
@@ -1283,7 +1283,7 @@ func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context
 	case sshclient.ImageURLCommandStateFailed:
 		record.Warn(s.scope.HetznerBareMetalHost, "InstallImageNotSuccessful", logFile)
 		msg := "image-url-command failed"
-		s.scope.Logger.Error(nil, msg, "logFile", logFile)
+		s.scope.Error(nil, msg, "logFile", logFile)
 		conditions.MarkFalse(host, infrav1.ProvisionSucceededCondition,
 			"ImageURLCommandFailed", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
@@ -1297,7 +1297,7 @@ func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context
 
 		if s.scope.ImageURLCommand == "" {
 			err = errors.New("internal error: --baremetal-image-url-command is not set?")
-			s.scope.Logger.Error(err, "")
+			s.scope.Error(err, "")
 			conditions.MarkFalse(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition,
 				"ImageURLCommandMissing",
 				clusterv1.ConditionSeverityError,
@@ -1321,7 +1321,7 @@ func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context
 		if err != nil {
 			err := fmt.Errorf("StartImageURLCommand failed (retrying): %w", err)
 			// This could be a temporary network error. Retry.
-			s.scope.Logger.Error(err, "",
+			s.scope.Error(err, "",
 				"ImageURLCommand", s.scope.ImageURLCommand,
 				"exitStatus", exitStatus,
 				"stdoutStderr", stdoutStderr)
@@ -1334,7 +1334,7 @@ func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context
 
 		if exitStatus != 0 {
 			msg := "StartImageURLCommand failed with non-zero exit status. Deleting machine"
-			s.scope.Logger.Error(nil, msg,
+			s.scope.Error(nil, msg,
 				"ImageURLCommand", s.scope.ImageURLCommand,
 				"exitStatus", exitStatus,
 				"stdoutStderr", stdoutStderr)
@@ -1546,7 +1546,7 @@ echo %q
 		record.Warnf(s.scope.HetznerBareMetalHost, "ExecuteInstallImageFailed", out.String())
 		return actionError{err: fmt.Errorf("failed to execute installimage: %w", out.Err)}
 	}
-	s.scope.Logger.Info("ExecuteInstallImage started successfully", "out", out.String())
+	s.scope.Info("ExecuteInstallImage started successfully", "out", out.String())
 	return actionContinue{delay: 10 * time.Second}
 }
 
@@ -1564,14 +1564,14 @@ func (s *Service) actionImageInstallingFinished(ctx context.Context, sshClient s
 	}
 
 	record.Event(s.scope.HetznerBareMetalHost, "InstallImageOutput", output)
-	s.scope.Logger.Info("InstallImageOutput", "output", output)
+	s.scope.Info("InstallImageOutput", "output", output)
 
 	// Update name in robot API
 	if _, err := s.scope.RobotClient.SetBMServerName(s.scope.HetznerBareMetalHost.Spec.ServerID, s.scope.Hostname()); err != nil {
 		if errors.Is(err, os.ErrDeadlineExceeded) {
 			// If the Hetzner API returns this, we just want to retry later:
 			// Post "https://robot-ws.your-server.de/server/1234": net/http: TLS handshake timeout
-			s.scope.Logger.Info("SetBMServerName timed out, will retry later", "error", err)
+			s.scope.Info("SetBMServerName timed out, will retry later", "error", err)
 			return actionContinue{
 				delay: 10 * time.Second,
 			}
@@ -1589,7 +1589,7 @@ func (s *Service) actionImageInstallingFinished(ctx context.Context, sshClient s
 	}
 	createSSHRebootEvent(ctx, s.scope.HetznerBareMetalHost, "machine image and cloud-init data got installed")
 
-	s.scope.Logger.Info("RebootAfterInstallimageSucceeded", "stdout", out.StdOut, "stderr", out.StdErr)
+	s.scope.Info("RebootAfterInstallimageSucceeded", "stdout", out.StdOut, "stderr", out.StdErr)
 
 	// clear potential errors - all done
 	s.scope.HetznerBareMetalHost.ClearError()
@@ -1759,7 +1759,7 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 	if hostname != wantHostName {
 		// give the reboot some time until it takes effect
 		if s.hasJustRebooted() {
-			s.scope.Logger.Info("ensureProvisioned: hasJustRebooted. Retrying...", "hostname", hostname)
+			s.scope.Info("ensureProvisioned: hasJustRebooted. Retrying...", "hostname", hostname)
 			return actionContinue{delay: 2 * time.Second}
 		}
 
@@ -1798,7 +1798,7 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 		case actionError:
 			err = v.err
 		default:
-			s.scope.Logger.Info("Unhandled type of actionResult",
+			s.scope.Info("Unhandled type of actionResult",
 				"actionResult", ar)
 		}
 		out := sshClient.GetCloudInitOutput()
@@ -1830,7 +1830,7 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 
 	actResult = s.handleCloudInitNotStarted(ctx)
 	if _, complete := actResult.(actionComplete); !complete {
-		s.scope.Logger.Info("ensureProvisioned: handleCloudInitNotStarted", "actResult", actResult)
+		s.scope.Info("ensureProvisioned: handleCloudInitNotStarted", "actResult", actResult)
 		return createEventWithCloudInitOutput(actResult)
 	}
 
@@ -1982,7 +1982,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	rebootDuration := time.Since(host.Spec.Status.ExternalIDs.RebootAnnotationSince.Time)
 	if rebootDuration > 5*time.Minute {
 		msg := fmt.Sprintf("Rebooting timed out after: %s", rebootDuration.Round(time.Second))
-		s.scope.Logger.Info(msg)
+		s.scope.Info(msg)
 		conditions.MarkFalse(
 			s.scope.HetznerBareMetalHost,
 			infrav1.RebootSucceededCondition,
@@ -2035,7 +2035,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	currentBootID := node.Status.NodeInfo.BootID
 	if currentBootID == "" {
 		err = errors.New("node.Status.NodeInfo.BootID is empty?")
-		s.scope.Logger.Error(err, "")
+		s.scope.Error(err, "")
 		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
 			"NodeInWorkloadClusterHasEmptyBootID",
 			clusterv1.ConditionSeverityWarning, "%s",
@@ -2101,7 +2101,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 
 	if host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID != currentBootID {
 		// Reboot has been successful
-		s.scope.Logger.Info(fmt.Sprintf("BootID changed: %q -> %q", host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID, currentBootID))
+		s.scope.Info(fmt.Sprintf("BootID changed: %q -> %q", host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID, currentBootID))
 		host.Spec.Status.Rebooted = false
 		host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = ""
 		host.Spec.Status.ExternalIDs.RebootAnnotationSince.Time = time.Time{}
@@ -2203,7 +2203,7 @@ func (s *Service) actionDeprovisioning(_ context.Context) actionResult {
 		s.handleRobotRateLimitExceeded(err, "SetBMServerName")
 		if models.IsError(err, models.ErrorCodeServerNotFound) {
 			msg := "server not found in Robot API during deprovisioning, assuming already removed"
-			s.scope.Logger.Info(msg)
+			s.scope.Info(msg)
 			// Clear previous errors/conditions so deletion can finish.
 			s.scope.HetznerBareMetalHost.ClearError()
 			conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)

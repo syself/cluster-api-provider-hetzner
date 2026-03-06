@@ -93,7 +93,7 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 	log = log.WithValues("HCloudMachine", klog.KObj(hcloudMachine))
 
 	// Fetch the Machine.
-	machine, err := util.GetOwnerMachine(ctx, r.Client, hcloudMachine.ObjectMeta)
+	machine, err := util.GetOwnerMachine(ctx, r, hcloudMachine.ObjectMeta)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to get owner machine: %w", err)
 	}
@@ -105,7 +105,7 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 	log = log.WithValues("Machine", klog.KObj(machine))
 
 	// Fetch the Cluster.
-	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, machine.ObjectMeta)
+	cluster, err := util.GetClusterFromMetadata(ctx, r, machine.ObjectMeta)
 	if err != nil {
 		log.Info("Machine is missing cluster label or cluster does not exist")
 		return reconcile.Result{}, nil
@@ -124,7 +124,7 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 		Namespace: hcloudMachine.Namespace,
 		Name:      cluster.Spec.InfrastructureRef.Name,
 	}
-	if err := r.Client.Get(ctx, hetznerClusterName, hetznerCluster); err != nil {
+	if err := r.Get(ctx, hetznerClusterName, hetznerCluster); err != nil {
 		log.Info("HetznerCluster is not available yet")
 		return reconcile.Result{}, nil
 	}
@@ -133,17 +133,17 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 	ctx = ctrl.LoggerInto(ctx, log)
 
 	// Create the scope.
-	secretManager := secretutil.NewSecretManager(log, r.Client, r.APIReader)
+	secretManager := secretutil.NewSecretManager(log, r, r.APIReader)
 	hcloudToken, hetznerSecret, err := getAndValidateHCloudToken(ctx, req.Namespace, hetznerCluster, secretManager)
 	if err != nil {
-		return hcloudTokenErrorResult(ctx, err, hcloudMachine, r.Client)
+		return hcloudTokenErrorResult(ctx, err, hcloudMachine, r)
 	}
 
 	hcc := r.HCloudClientFactory.NewClient(hcloudToken)
 
 	machineScope, err := scope.NewMachineScope(scope.MachineScopeParams{
 		ClusterScopeParams: scope.ClusterScopeParams{
-			Client:         r.Client,
+			Client:         r,
 			Logger:         log,
 			Cluster:        cluster,
 			HetznerCluster: hetznerCluster,
@@ -237,7 +237,7 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
-	if !hcloudMachine.ObjectMeta.DeletionTimestamp.IsZero() {
+	if !hcloudMachine.DeletionTimestamp.IsZero() {
 		return r.reconcileDelete(ctx, machineScope)
 	}
 
@@ -295,7 +295,7 @@ func (r *HCloudMachineReconciler) reconcileNormal(ctx context.Context, machineSc
 func (r *HCloudMachineReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, options controller.Options) error {
 	log := ctrl.LoggerFrom(ctx)
 
-	clusterToObjectFunc, err := util.ClusterToTypedObjectsMapper(r.Client, &infrav1.HCloudMachineList{}, mgr.GetScheme())
+	clusterToObjectFunc, err := util.ClusterToTypedObjectsMapper(r, &infrav1.HCloudMachineList{}, mgr.GetScheme())
 	if err != nil {
 		return fmt.Errorf("failed to create mapper for Cluster to HCloudMachines: %w", err)
 	}
@@ -345,11 +345,11 @@ func (r *HCloudMachineReconciler) HetznerClusterToHCloudMachines(_ context.Conte
 		log = log.WithValues("objectMapper", "hetznerClusterToHCloudMachine", "namespace", c.Namespace, "hetznerCluster", c.Name)
 
 		// Don't handle deleted HetznerCluster
-		if !c.ObjectMeta.DeletionTimestamp.IsZero() {
+		if !c.DeletionTimestamp.IsZero() {
 			return nil
 		}
 
-		cluster, err := util.GetOwnerCluster(ctx, r.Client, c.ObjectMeta)
+		cluster, err := util.GetOwnerCluster(ctx, r, c.ObjectMeta)
 		switch {
 		case apierrors.IsNotFound(err) || cluster == nil:
 			return result

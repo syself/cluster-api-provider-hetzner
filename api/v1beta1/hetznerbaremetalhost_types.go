@@ -386,9 +386,9 @@ func (cs SecretStatus) Match(secret corev1.Secret) bool {
 	switch {
 	case cs.Reference == nil:
 		return false
-	case cs.Reference.Name != secret.ObjectMeta.Name:
+	case cs.Reference.Name != secret.Name:
 		return false
-	case cs.Reference.Namespace != secret.ObjectMeta.Namespace:
+	case cs.Reference.Namespace != secret.Namespace:
 		return false
 	}
 
@@ -533,8 +533,8 @@ func statusFromSecret(secret corev1.Secret) (*SecretStatus, error) {
 	}
 	return &SecretStatus{
 		Reference: &corev1.SecretReference{
-			Name:      secret.ObjectMeta.Name,
-			Namespace: secret.ObjectMeta.Namespace,
+			Name:      secret.Name,
+			Namespace: secret.Namespace,
 		},
 		DataHash: hash,
 	}, nil
