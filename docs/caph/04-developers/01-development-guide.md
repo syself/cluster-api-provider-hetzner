@@ -52,7 +52,8 @@ current shell session.
 
 You can use [Tilt](https://tilt.dev/) to install your changed code in the management cluster.
 
-We do not update the Tilt configuration regularly. If unsure use "Developing without Tilt".
+We do not update the Tilt configuration regularly. If unsure use [Developing without
+Tilt](#developing-without-tilt).
 
 The complete reference can be found in the [Reference of Tilt](/docs/caph/04-developers/02-tilt.md) documentation.
 
