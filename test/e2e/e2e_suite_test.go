@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -33,6 +34,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
@@ -66,7 +68,7 @@ var (
 	// kubetestConfigFilePath is the path to the kubetest configuration file.
 	kubetestConfigFilePath string
 
-	// alsoLogToFile enables additional logging to the 'ginkgo-log.txt' file in the artifact folder.
+	// alsoLogToFile enables additional logging to a timestamped 'ginkgo-log-MM-DD_HH-MM-SS.txt' file in the artifact folder.
 	// These logs also contain timestamps.
 	alsoLogToFile bool
 
@@ -96,7 +98,7 @@ var (
 func init() {
 	flag.StringVar(&configPath, "e2e.config", "", "path to the e2e config file")
 	flag.StringVar(&artifactFolder, "e2e.artifacts-folder", "", "folder where e2e test artifact should be stored")
-	flag.BoolVar(&alsoLogToFile, "e2e.also-log-to-file", true, "if true, ginkgo logs are additionally written to the `ginkgo-log.txt` file in the artifacts folder (including timestamps)")
+	flag.BoolVar(&alsoLogToFile, "e2e.also-log-to-file", true, "if true, ginkgo logs are additionally written to a `ginkgo-log-MM-DD_HH-MM-SS.txt` file in the artifacts folder (including timestamps)")
 	flag.BoolVar(&skipCleanup, "e2e.skip-resource-cleanup", false, "if true, the resource cleanup after tests will be skipped")
 	flag.StringVar(&clusterctlConfig, "e2e.clusterctl-config", "", "file which tests will use as a clusterctl config. If it is not set, a local clusterctl repository (including a clusterctl config) will be created automatically.")
 	flag.BoolVar(&useExistingCluster, "e2e.use-existing-cluster", false, "if true, the test uses the current cluster instead of creating a new one (default discovery rules apply)")
@@ -114,11 +116,10 @@ func TestE2E(t *testing.T) {
 	RegisterFailHandler(Fail)
 
 	if alsoLogToFile {
-		w, err := ginkgoextensions.EnableFileLogging(filepath.Join(artifactFolder, "ginkgo-log.txt"))
+		logFileName := fmt.Sprintf("ginkgo-log-%s.txt", time.Now().Format("01-02_15-04-05"))
+		w, err := ginkgoextensions.EnableFileLogging(filepath.Join(artifactFolder, logFileName))
 		Expect(err).ToNot(HaveOccurred())
-		defer func() {
-			Expect(w.Close()).To(Succeed())
-		}()
+		defer func() { _ = w.Close() }()
 	}
 
 	RunSpecs(t, "caph-e2e")
@@ -339,6 +340,16 @@ func logStatus(ctx context.Context, restConfig *restclient.Config, c client.Clie
 			log(fmt.Sprintf("Failed to log Conditions %s/%s: %v", cluster.Namespace, secretName, err))
 			continue
 		}
+		err = logNodes(ctx, "wl-cluster "+cluster.Name, restConfig)
+		if err != nil {
+			log(fmt.Sprintf("Failed to log Nodes %s/%s: %v", cluster.Namespace, secretName, err))
+			continue
+		}
+		err = logCCMDeployments(ctx, "wl-cluster "+cluster.Name, restConfig)
+		if err != nil {
+			log(fmt.Sprintf("Failed to log CCM deployment %s/%s: %v", cluster.Namespace, secretName, err))
+			continue
+		}
 	}
 
 	log(fmt.Sprintf("≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡ %s End logging status >>>", time.Now().Format("2006-01-02 15:04:05")))
@@ -360,6 +371,115 @@ func logConditions(ctx context.Context, clusterName string, restConfig *restclie
 		log(line)
 	}
 	return nil
+}
+
+func logNodes(ctx context.Context, clusterName string, restConfig *restclient.Config) error {
+	cfg := restclient.CopyConfig(restConfig)
+	cfg.QPS = -1 // Since Kubernetes 1.29 "API Priority and Fairness" handles that.
+
+	kubeClient, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		return fmt.Errorf("create kubernetes client from restConfig: %w", err)
+	}
+
+	nodes, err := kubeClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("list nodes: %w", err)
+	}
+
+	sort.Slice(nodes.Items, func(i, j int) bool {
+		return nodes.Items[i].Name < nodes.Items[j].Name
+	})
+
+	log(fmt.Sprintf("----------------------------------------------- %s ---- Nodes: %d",
+		clusterName, len(nodes.Items)))
+
+	for _, node := range nodes.Items {
+		addresses := make([]string, 0, len(node.Status.Addresses))
+		for _, address := range node.Status.Addresses {
+			addresses = append(addresses, fmt.Sprintf("%s=%s", address.Type, address.Address))
+		}
+		sort.Strings(addresses)
+
+		addressText := "<none>"
+		if len(addresses) > 0 {
+			addressText = strings.Join(addresses, ", ")
+		}
+
+		log(fmt.Sprintf("Node: %s providerID=%q addresses=[%s]",
+			node.Name,
+			node.Spec.ProviderID,
+			addressText,
+		))
+		if node.Spec.ProviderID == "" {
+			log(fmt.Sprintf("  !!! WARNING !!! Node %s has empty providerID (check ccm)", node.Name))
+		}
+	}
+
+	return nil
+}
+
+func logCCMDeployments(ctx context.Context, clusterName string, restConfig *restclient.Config) error {
+	cfg := restclient.CopyConfig(restConfig)
+	cfg.QPS = -1 // Since Kubernetes 1.29 "API Priority and Fairness" handles that.
+
+	kubeClient, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		return fmt.Errorf("create kubernetes client from restConfig: %w", err)
+	}
+
+	deployments, err := kubeClient.AppsV1().Deployments(metav1.NamespaceSystem).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("list deployments: %w", err)
+	}
+
+	ccmDeployments := make([]appsv1.Deployment, 0, len(deployments.Items))
+	ccmDeploymentNameSuffixes := []string{
+		"ccm",
+		"cloud-controller-manager",
+		"ccm-hetzner",
+		"ccm-hcloud",
+	}
+	for _, deployment := range deployments.Items {
+		for _, suffix := range ccmDeploymentNameSuffixes {
+			if strings.HasSuffix(deployment.Name, suffix) {
+				ccmDeployments = append(ccmDeployments, deployment)
+				break
+			}
+		}
+	}
+
+	log(fmt.Sprintf("----------------------------------------------- %s ---- CCM Deployment: %d",
+		clusterName, len(ccmDeployments)))
+
+	if len(ccmDeployments) == 0 {
+		log("  !!! WARNING !!! Expected exactly 1 CCM deployment, found none")
+	}
+	if len(ccmDeployments) > 1 {
+		log(fmt.Sprintf("  !!! WARNING !!! Expected exactly 1 CCM deployment, found %d", len(ccmDeployments)))
+	}
+
+	if len(ccmDeployments) == 0 {
+		return nil
+	}
+
+	for _, deployment := range ccmDeployments {
+		log(fmt.Sprintf("Deployment: %s/%s", deployment.Namespace, deployment.Name))
+		logDeploymentContainerImages("initContainer", deployment.Spec.Template.Spec.InitContainers)
+		logDeploymentContainerImages("container", deployment.Spec.Template.Spec.Containers)
+	}
+
+	return nil
+}
+
+func logDeploymentContainerImages(containerType string, containers []corev1.Container) {
+	for _, container := range containers {
+		log(fmt.Sprintf("  %s %s image=%s",
+			containerType,
+			container.Name,
+			container.Image,
+		))
+	}
 }
 
 func logHCloudMachineStatus(ctx context.Context, c client.Client) error {
@@ -512,6 +632,5 @@ func tearDown(ctx context.Context, bootstrapClusterProvider bootstrap.ClusterPro
 }
 
 func log(msg string) {
-	_, err := fmt.Fprintln(GinkgoWriter, msg)
-	Expect(err).ToNot(HaveOccurred())
+	_, _ = fmt.Fprintln(GinkgoWriter, msg)
 }
