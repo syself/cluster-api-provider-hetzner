@@ -30,23 +30,31 @@ This ensures the following:
 
 For more information, please see the [Hetzner project preparation](/docs/caph/01-getting-started/03-preparation.md) guide.
 
-## Tilt vs pushing development container
+## Developing without Tilt
 
-You can use [Tilt](https://tilt.dev/) or a script like
-[update-operator-dev-deployment.sh](https://github.com/syself/cluster-api-provider-hetzner/blob/main/hack/update-operator-dev-deployment.sh) to install your changed
-code in the management cluster.
+You can create a development environment like this:
 
-We do not update the Tilt configuration regularly. The script may be an easier solution.
+- `make cluster`: Creates kind cluster.
+- `make create-mgt-cluster`: Makes kind cluster a mgt-cluster: installs capi and caph into the
+  mgt-cluster
+- `make create-workload-cluster-hetzner-hcloud-control-plane`: Create workload cluster with hcloud
+  control-planes, and hcloud machine deployment and a baremetal machine deployment.
+- `./hack/update-operator-dev-deployment.sh`: To update the caph container to the code of your git
+  repo.
 
 We recommend creating a `.envrc` file and specifying the values you need. After the `.envrc` is loaded
 ([direnv.net](https://direnv.net/)), invoke `direnv allow` to load the environment variables in your
 current shell session.
 
-The complete reference can be found in the [Reference of Tilt](/docs/caph/04-developers/02-tilt.md) documentation.
-
 ## Developing with Tilt
 
 ![tilt](https://syself.com/images/tilt.png)
+
+You can use [Tilt](https://tilt.dev/) to install your changed code in the management cluster.
+
+We do not update the Tilt configuration regularly. If unsure use "Developing without Tilt".
+
+The complete reference can be found in the [Reference of Tilt](/docs/caph/04-developers/02-tilt.md) documentation.
 
 To build a kind cluster and to start Tilt, run:
 
