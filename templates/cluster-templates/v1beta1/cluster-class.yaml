@@ -394,7 +394,6 @@ spec:
             extraArgs:
               authorization-mode: Node,RBAC
               client-ca-file: /etc/kubernetes/pki/ca.crt
-              cloud-provider: external
               default-not-ready-toleration-seconds: "45"
               default-unreachable-toleration-seconds: "45"
               enable-aggregator-routing: "true"
