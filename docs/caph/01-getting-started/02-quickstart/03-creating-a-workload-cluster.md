@@ -73,6 +73,11 @@ clusterctl get kubeconfig my-cluster > $CAPH_WORKER_CLUSTER_KUBECONFIG
 
 Cilium is used as a CNI solution in this guide. The following command deploys it to your cluster:
 
+The file `templates/cilium/cilium.yaml` is a repo-provided Helm values file in this repository.
+Before running the command, make sure this file exists at that path in your working environment
+(for example, by using it from a local checkout of this repo or copying it from
+`templates/cilium/cilium.yaml` into your working directory setup).
+
 ```shell
 helm repo add cilium https://helm.cilium.io/
 
@@ -85,6 +90,13 @@ You can, of course, also install an alternative CNI, e.g., calico.
 
 ## Deploy the CCM
 
+The CCM (Cloud Controller Manager) runs in the workload cluster and integrates Kubernetes with the
+Hetzner APIs. In practice, it is responsible for tasks such as setting the `ProviderID` on nodes
+and managing load balancers.
+
+You need to install a CCM in this flow so the workload cluster can properly interact with Hetzner
+infrastructure.
+
 ### Deploy HCloud Cloud Controller Manager - _hcloud only_
 
 The following `make` command will install the CCM in your workload cluster:
@@ -93,7 +105,7 @@ The following `make` command will install the CCM in your workload cluster:
 
 For a cluster with a private network use: `make install-ccm-in-wl-cluster PRIVATE_NETWORK=true`
 
-For bare-metal, see [Baremetal
+For a more detailed explanation of the CCM and bare-metal setup, see [Baremetal
 Docs](/docs/caph/02-topics/05-baremetal/03-creating-workload-cluster.md#deploying-the-hetzner-cloud-controller-manager)
 
 ## Deploying the CSI (optional)
@@ -115,15 +127,18 @@ KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install csi hcloud/hcl
 --namespace kube-system -f csi-values.yaml
 ```
 
-## Clean Up
+If you want to continue with the next step and move the Cluster API components to your workload
+cluster (so it becomes the new management cluster), do not run the cleanup command.
 
-Delete the workload cluster and remove all of the components by using:
+## Clean Up (optional)
+
+If you want to stop here, delete the workload cluster and remove all of the components by using:
 
 ```shell
 kubectl delete cluster my-cluster
 ```
 
-> **IMPORTANT**: In order to ensure a proper clean-up of your infrastructure, you must always delete the cluster object. Deleting the entire cluster template with the `kubectl delete -f capi-quickstart.yaml` command might lead to pending resources that have to be cleaned up manually.
+> **IMPORTANT**: In order to ensure a proper clean-up of your infrastructure, you must always delete the cluster object. Deleting the entire cluster template with the `kubectl delete -f my-cluster.yaml` command might lead to pending resources that have to be cleaned up manually.
 
 Delete management cluster with the following command:
 
