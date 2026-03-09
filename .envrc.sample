@@ -1,4 +1,3 @@
-# shellcheck shell=bash
 export CLUSTER_NAME=caph-${USER}
 export KUBECONFIG=$PWD/.mgt-cluster-kubeconfig.yaml
 export HCLOUD_TOKEN=...
@@ -6,8 +5,8 @@ export SSH_KEY_NAME=my-caph-ssh-key
 export HCLOUD_REGION=hel1
 export CONTROL_PLANE_MACHINE_COUNT=1
 export WORKER_MACHINE_COUNT=1
-export HCLOUD_CONTROL_PLANE_MACHINE_TYPE=cpx32
-export HCLOUD_WORKER_MACHINE_TYPE=cpx32
+export HCLOUD_CONTROL_PLANE_MACHINE_TYPE=cpx31
+export HCLOUD_WORKER_MACHINE_TYPE=cpx31
 export SSH_KEY=$HOME/.ssh/my-caph-ssh-key.pub
 export HETZNER_SSH_PUB_PATH=$HOME/.ssh/my-caph-ssh-key.pub
 export HETZNER_SSH_PRIV_PATH=$HOME/.ssh/my-caph-ssh-key
