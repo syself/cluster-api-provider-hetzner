@@ -31,6 +31,7 @@ if [ ${#missing_vars[@]} -gt 0 ]; then
   exit 1
 fi
 
+
 if [[ -n "${HETZNER_SSH_PUB:-}" ]]; then
   if ! decoded_pub="$(printf '%s' "$HETZNER_SSH_PUB" | base64 --decode 2>/dev/null)"; then
     echo "env var HETZNER_SSH_PUB seems wrong. It should be the base64-encoded pub key. Guess: update .envrc"
@@ -52,22 +53,6 @@ if [[ -n "${HETZNER_SSH_PRIV:-}" ]]; then
     exit 1
   fi
 fi
-
-if [[ -n "${KUBERNETES_VERSION:-}" ]]; then
-  min_kubernetes_version="1.33.6"
-  kubernetes_version="${KUBERNETES_VERSION#v}"
-
-  if [[ ! "$kubernetes_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    echo "env var KUBERNETES_VERSION should look like v<major>.<minor>.<patch> or <major>.<minor>.<patch>, got '$KUBERNETES_VERSION'."
-    exit 1
-  fi
-
-  if [[ "$(printf '%s\n%s\n' "$min_kubernetes_version" "$kubernetes_version" | sort -V | head -n 1)" != "$min_kubernetes_version" ]]; then
-    echo "KUBERNETES_VERSION must be >= v${min_kubernetes_version}, got '$KUBERNETES_VERSION'."
-    exit 1
-  fi
-fi
-
 
 # Ensure that no outdated hcloud machine types get used.
 for varname in "$@"; do
