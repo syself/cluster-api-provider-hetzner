@@ -29,7 +29,7 @@ jobs:
         uses: ./.github/actions/test-release
 
   e2e-hcloud-basic:
-    name: Test Hcloud Basic
+    name: Test Hcloud Basic (Dispatch)
     concurrency: ci-${{ github.ref }}-e2e-basic
     runs-on: ubuntu-latest
     permissions:
