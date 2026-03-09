@@ -8,7 +8,7 @@
 
 # For creating local dev images run make e2e-image from the main CAPH repository
 images:
-  - name: ghcr.io/syself/caph-staging:${TAG}
+  - name: ghcr.io/syself/caph-staging:${CAPH_CONTAINER_TAG}
     loadBehavior: mustLoad
 providers:
   - name: cluster-api
@@ -87,7 +87,7 @@ providers:
         contract: v1beta1
         replacements:
           - old: ghcr.io/syself/caph-staging:latest
-            new: ghcr.io/syself/caph-staging:${TAG}
+            new: ghcr.io/syself/caph-staging:${CAPH_CONTAINER_TAG}
           - old: "imagePullPolicy: Always"
             new: "imagePullPolicy: IfNotPresent"
           - old: --metrics-bind-addr=localhost:8080
@@ -113,7 +113,7 @@ providers:
       #   contract: v1beta1
       #   replacements:
       #     - old: ghcr.io/syself/caph-staging:latest
-      #       new: ghcr.io/syself/caph-staging:${TAG}
+      #       new: ghcr.io/syself/caph-staging:${CAPH_CONTAINER_TAG}
       #     - old: "imagePullPolicy: Always"
       #       new: "imagePullPolicy: IfNotPresent"
       #     - old: --metrics-bind-addr=localhost:8080
