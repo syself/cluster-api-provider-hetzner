@@ -78,7 +78,7 @@ helm repo add cilium https://helm.cilium.io/
 
 KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install cilium cilium/cilium \
 --namespace kube-system \
--f templates/cilium/cilium.yaml
+-f templates/cilium/values.yaml
 ```
 
 You can, of course, also install an alternative CNI, e.g., calico.
