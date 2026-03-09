@@ -22,9 +22,14 @@ To use bare metal servers for your deployment, you can choose one of the followi
 
 | Flavor                                         | What it does                                                                                                  |
 | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `hetzner-baremetal-control-planes-remediation` | Uses bare metal servers for the control plane nodes - with custom remediation (try to reboot machines first)  |
-| `hetzner-baremetal-control-planes`             | Uses bare metal servers for the control plane nodes - with normal remediation (unprovision/recreate machines) |
-| `hetzner-hcloud-control-planes`                | Uses the hcloud servers for the control plane nodes and the bare metal servers for the worker nodes           |
+| `hetzner-baremetal-control-planes-remediation` | Uses bare metal servers for control plane nodes and worker nodes, with custom remediation (try to reboot failed machines first). |
+| `hetzner-baremetal-control-planes`             | Uses bare metal servers for control plane nodes and worker nodes, with normal remediation (unprovision and recreate failed machines). |
+| `hetzner-hcloud-control-planes`                | Uses hcloud servers for control plane nodes and bare metal servers for worker nodes.                         |
+
+In Cluster API terms, remediation is the automatic recovery behavior for failed or unhealthy machines.
+For bare metal control planes, `custom remediation` tries a reboot first and only falls back to replacement if needed.
+`Normal remediation` directly replaces the failed machine by unprovisioning and recreating it.
+Choose custom remediation if you want to prioritize less disruptive recovery attempts; choose normal remediation if you prefer direct replacement behavior.
 
 {% callout %}
 
