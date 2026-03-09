@@ -1761,6 +1761,8 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 		if s.hasJustRebooted() {
 			markProvisionPendingWithInfo(s.scope.HetznerBareMetalHost,
 				infrav1.StateEnsureProvisioned, "host has just rebooted")
+			markProvisionPendingWithInfo(s.scope.HetznerBareMetalHost,
+				infrav1.StateEnsureProvisioned, "host has just rebooted")
 			return actionContinue{delay: 2 * time.Second}
 		}
 
