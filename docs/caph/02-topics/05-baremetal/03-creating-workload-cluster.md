@@ -49,7 +49,42 @@ support both formats when the ProviderID is already set.
 
 This applies only to bare metal. HCloud nodes always use the format `hcloud://NNNN`.
 
-Since we have already created secret in hetzner robot, hcloud and ssh-keys as secret in management cluster, we can create a workload cluster. Generate the manifest by using `clusterctl generate`:
+First you need to decide if you want to use the Syself CCM or the upstream HCloud CCM.
+
+The CCM is the "Cloud Controller" which runs in the workload-cluster. The most important tasks of the CCM are:
+
+- Set ProviderID on Nodes. This is important, so that CAPI in the mgt-cluster knows which CAPI
+  machine (in mgt-cluster) is which Node (in wl-cluster).
+- Creates LoadBalancers
+
+If you are unsure, use the HCloud CCM. In the long run we (Syself) want to switch from our fork to
+the upstream CCM.
+
+The CCM calls the Hetzner APIs. To authenticate, it reads the credentials from a secret. This secret
+has to be in the workload cluster, when the CCM runs in the workload cluster. CAPH creates the
+secret and syncs the credentials specified in the management cluster to the workload cluster. The
+
+Important: CAPH and the CCM must both use the same ProviderID format for bare metal. Unfortunately
+(for historical reasons), there are two formats:
+
+- old: `hcloud://bm-NNNN`
+- new: `hrobot://NNNN`
+
+The Syself CCM uses the old format by default. The HCloud CCM always uses the new format.
+
+If you use the new format, set the annotation `capi.syself.com/use-hrobot-provider-id-for-baremetal`
+to `"true"` on the `HetznerCluster`. Our default templates have this annotation set.
+
+If CAPH and the CCM do not agree on the ProviderID format, then new nodes will not be able to join
+the cluster, because CAPI waits for the wrong ProviderID.
+
+This only applies to new nodes. Once a node has a ProviderID, it will never change. Both CCMs
+support both formats when the ProviderID is already set.
+
+This applies only to bare metal. HCloud nodes always use the format `hcloud://NNNN`.
+
+Since we have already created secret in hetzner robot, hcloud and ssh-keys as secret in management
+cluster, we can create a workload cluster. Generate the manifest by using `clusterctl generate`:
 
 ```shell
 clusterctl generate cluster my-cluster --flavor hetzner-hcloud-control-planes > my-cluster.yaml
