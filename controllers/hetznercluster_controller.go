@@ -525,34 +525,15 @@ func reconcileWorkloadClusterSecrets(ctx context.Context, clusterScope *scope.Cl
 		return reconcile.Result{}, fmt.Errorf("failed to get client: %w", err)
 	}
 
-	// To ensure compatibility with both CCMs, create always a secret with name "hcloud" in the
-	// wl-cluster.
-	names := []string{clusterScope.HetznerCluster.Spec.HetznerSecret.Name}
-	if clusterScope.HetznerCluster.Spec.HetznerSecret.Name != "hcloud" {
-		names = append(names, "hcloud")
-	}
-
-	for _, name := range names {
-		err = reconcileOneWorkloadClusterSecret(ctx, clusterScope, wlClient, name)
-		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("failed to reconcile wl-cluster secret %q: %w",
-				name, err)
-		}
-	}
-	return reconcile.Result{}, nil
-}
-
-// reconcileOneWorkloadClusterSecret creates/updates the secret in the wl-cluster.
-func reconcileOneWorkloadClusterSecret(ctx context.Context, clusterScope *scope.ClusterScope, wlClient client.Client, name string) error {
 	wlSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
+			Name:      clusterScope.HetznerCluster.Spec.HetznerSecret.Name,
 			Namespace: metav1.NamespaceSystem,
 		},
 	}
 
 	// Make sure secret exists and has the expected values
-	_, err := controllerutil.CreateOrUpdate(ctx, wlClient, wlSecret, func() error {
+	_, err = controllerutil.CreateOrUpdate(ctx, wlClient, wlSecret, func() error {
 		tokenSecretName := types.NamespacedName{
 			Namespace: clusterScope.HetznerCluster.Namespace,
 			Name:      clusterScope.HetznerCluster.Spec.HetznerSecret.Name,
@@ -596,10 +577,10 @@ func reconcileOneWorkloadClusterSecret(ctx context.Context, clusterScope *scope.
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("failed to create or update secret: %w", err)
+		return reconcile.Result{}, fmt.Errorf("failed to create or update secret: %w", err)
 	}
 
-	return nil
+	return reconcile.Result{}, nil
 }
 
 func (r *HetznerClusterReconciler) reconcileTargetClusterManager(ctx context.Context, clusterScope *scope.ClusterScope) (res reconcile.Result, err error) {
