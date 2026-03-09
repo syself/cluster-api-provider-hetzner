@@ -347,6 +347,9 @@ metadata:
   name: quick-start-cluster
 spec:
   template:
+    metadata:
+      annotations:
+        capi.syself.com/use-hrobot-provider-id-for-baremetal: "true"
     spec:
       controlPlaneEndpoint:
         host: ""
