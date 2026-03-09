@@ -5,9 +5,6 @@ metadata:
 spec:
   template:
     spec:
-      hostSelector:
-        matchLabels:
-          baremetal-pool: "${BAREMETAL_POOL}"
       installImage:
         image:
           path: /root/.oldroot/nfs/images/Ubuntu-2404-noble-amd64-base.tar.gz

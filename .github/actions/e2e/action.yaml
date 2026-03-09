@@ -92,7 +92,6 @@ runs:
         HCLOUD_REGION: hel1
         SKIP_IMAGE_BUILD: "1"
         CAPH_LATEST_VERSION: "v1.0.7"
-        BAREMETAL_POOL: ci-pool
       run: make ${{ inputs.e2e_make_target }}
 
     - name: Upload artifact

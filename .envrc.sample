@@ -19,5 +19,3 @@ HETZNER_SSH_PRIV=$(base64 -w0 "$HETZNER_SSH_PRIV_PATH")
 export HETZNER_SSH_PUB HETZNER_SSH_PRIV
 
 export PATH="$PWD/hack/tools/bin:$PATH"
-
-export BAREMETAL_POOL=free-pool
