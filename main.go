@@ -287,11 +287,11 @@ func main() {
 	}
 
 	if err = (&controllers.HetznerBareMetalMachineReconciler{
-		Client:              mgr.GetClient(),
-		APIReader:           mgr.GetAPIReader(),
-		RateLimitWaitTime:   rateLimitWaitTime,
-		HCloudClientFactory: hcloudClientFactory,
-		WatchFilterValue:    watchFilterValue,
+		Client:                      mgr.GetClient(),
+		APIReader:                   mgr.GetAPIReader(),
+		RateLimitWaitTime:           rateLimitWaitTime,
+		HCloudClientFactory:         hcloudClientFactory,
+		WatchFilterValue:            watchFilterValue,
 	}).SetupWithManager(ctx, mgr, controller.Options{MaxConcurrentReconciles: hetznerBareMetalMachineConcurrency}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HetznerBareMetalMachine")
 		os.Exit(1)

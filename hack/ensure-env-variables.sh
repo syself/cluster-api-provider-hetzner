@@ -31,7 +31,28 @@ if [ ${#missing_vars[@]} -gt 0 ]; then
   exit 1
 fi
 
-# Ensure env var KUBERNETES_VERSION is not outdated.
+if [[ -n "${HETZNER_SSH_PUB:-}" ]]; then
+  if ! decoded_pub="$(printf '%s' "$HETZNER_SSH_PUB" | base64 --decode 2>/dev/null)"; then
+    echo "env var HETZNER_SSH_PUB seems wrong. It should be the base64-encoded pub key. Guess: update .envrc"
+    exit 1
+  fi
+  if ! printf '%s' "$decoded_pub" | grep -q -- 'ssh-'; then
+    echo "env var HETZNER_SSH_PUB seems wrong. It should be the base64-encoded pub key. Guess: update .envrc"
+    exit 1
+  fi
+fi
+
+if [[ -n "${HETZNER_SSH_PRIV:-}" ]]; then
+  if ! decoded_priv="$(printf '%s' "$HETZNER_SSH_PRIV" | base64 --decode 2>/dev/null)"; then
+    echo "env var HETZNER_SSH_PRIV seems wrong. It should be the base64-encoded priv key. Guess: update .envrc"
+    exit 1
+  fi
+  if ! printf '%s' "$decoded_priv" | grep -q -- 'OPENSSH'; then
+    echo "env var HETZNER_SSH_PRIV seems wrong. It should be the base64-encoded priv key. Guess: update .envrc"
+    exit 1
+  fi
+fi
+
 if [[ -n "${KUBERNETES_VERSION:-}" ]]; then
   min_kubernetes_version="1.33.6"
   kubernetes_version="${KUBERNETES_VERSION#v}"

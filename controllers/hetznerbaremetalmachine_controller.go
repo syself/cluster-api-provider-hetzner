@@ -53,7 +53,6 @@ type HetznerBareMetalMachineReconciler struct {
 	RateLimitWaitTime   time.Duration
 	HCloudClientFactory hcloudclient.Factory
 	WatchFilterValue    string
-
 	// Reconcile only this namespace. Only needed for testing
 	Namespace string
 }

@@ -158,7 +158,7 @@ variables:
   CILIUM: "./data/cni/cilium/cilium.yaml"
   CCM: "./data/ccm/hcloud-ccm.yaml"
   CCM_NETWORK: "./data/ccm/hcloud-ccm-network.yaml"
-  CCM_HETZNER: "./data/ccm/hcloud-ccm-hetzner.yaml"
+  CCM_HETZNER: "./data/ccm/hcloud-ccm.yaml"
 
   # Conformance testing variables
   CONFORMANCE_WORKER_MACHINE_COUNT: 3

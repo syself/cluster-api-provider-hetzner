@@ -484,7 +484,9 @@ func hcloudTokenErrorResult(
 }
 
 // reconcileWorkloadClusterSecrets ensures that the workload-cluster has the secret needed by the
-// ccm. The name of the secret is read from HetznerCluster.Spec.HetznerSecret.Name.Creating the
+// ccm. The name of the secret is read from HetznerCluster.Spec.HetznerSecret.Name. If
+// HetznerSecret.Name is "hcloud", then only one secret gets created in the wl-cluster. If not, two
+// secrets are created in the wl-cluster. This ensures compatibility between CCMs. Creating the
 // secret gets skipped, if HetznerCluster.Spec.SkipCreatingHetznerSecretInWorkloadCluster is set.
 func reconcileWorkloadClusterSecrets(ctx context.Context, clusterScope *scope.ClusterScope) (res reconcile.Result, reterr error) {
 	if clusterScope.HetznerCluster.Spec.SkipCreatingHetznerSecretInWorkloadCluster {
@@ -556,21 +558,21 @@ func reconcileOneWorkloadClusterSecret(ctx context.Context, clusterScope *scope.
 
 	// Make sure secret exists and has the expected values
 	_, err := controllerutil.CreateOrUpdate(ctx, wlClient, wlSecret, func() error {
-		tokenSecretName := types.NamespacedName{
+		mgtSecretName := types.NamespacedName{
 			Namespace: clusterScope.HetznerCluster.Namespace,
 			Name:      clusterScope.HetznerCluster.Spec.HetznerSecret.Name,
 		}
 		secretManager := secretutil.NewSecretManager(clusterScope.Logger, clusterScope.Client, clusterScope.APIReader)
-		tokenSecret, err := secretManager.AcquireSecret(ctx, tokenSecretName, clusterScope.HetznerCluster, false, clusterScope.HetznerCluster.DeletionTimestamp.IsZero())
+		mgtSecret, err := secretManager.AcquireSecret(ctx, mgtSecretName, clusterScope.HetznerCluster, false, clusterScope.HetznerCluster.DeletionTimestamp.IsZero())
 		if err != nil {
 			return fmt.Errorf("failed to acquire secret: %w", err)
 		}
 
-		hetznerToken, keyExists := tokenSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken]
+		hcloudToken, keyExists := mgtSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken]
 		if !keyExists {
 			return fmt.Errorf("key %q does not exist in secret/%s",
 				clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken,
-				tokenSecretName,
+				mgtSecretName,
 			)
 		}
 
@@ -578,13 +580,19 @@ func reconcileOneWorkloadClusterSecret(ctx context.Context, clusterScope *scope.
 			wlSecret.Data = make(map[string][]byte)
 		}
 
-		wlSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken] = hetznerToken
+		wlSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken] = hcloudToken
+
+		// upstream hcloud-ccm uses by default the secret key "token", while the old Syself ccm fork used
+		// "hcloud". For compatibility, we create always the other key, too.
+		for _, key := range []string{"token", "hcloud"} {
+			wlSecret.Data[key] = hcloudToken
+		}
 
 		// Save robot credentials if available
 		if clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser != "" {
-			robotUserName := tokenSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser]
+			robotUserName := mgtSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser]
 			wlSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser] = robotUserName
-			robotPassword := tokenSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword]
+			robotPassword := mgtSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword]
 			wlSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword] = robotPassword
 		}
 
@@ -595,6 +603,22 @@ func reconcileOneWorkloadClusterSecret(ctx context.Context, clusterScope *scope.
 		// Save api server information
 		wlSecret.Data["apiserver-host"] = []byte(clusterScope.HetznerCluster.Spec.ControlPlaneEndpoint.Host)
 		wlSecret.Data["apiserver-port"] = []byte(strconv.Itoa(int(clusterScope.HetznerCluster.Spec.ControlPlaneEndpoint.Port)))
+
+		notes := []string{
+			"This secret gets reconciled by Cluster API Provider Hetzner.",
+		}
+
+		if clusterScope.HetznerCluster.Spec.HetznerSecret.Name != "hcloud" {
+			notes = append(notes, fmt.Sprintf("We recommend to use 'hcloud' for hetznercluster.spec.hetznerSecret.name (not %q).",
+				clusterScope.HetznerCluster.Spec.HetznerSecret.Name))
+		}
+
+		if clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken != "token" {
+			notes = append(notes, fmt.Sprintf("We recommend to use 'token' for hetznercluster.spec.hetznerSecret.key.hcloudToken (not %q).", clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken))
+		}
+
+		// Make things more obvious for people new to caph:
+		wlSecret.Data["note"] = []byte(strings.Join(notes, " "))
 
 		return nil
 	})

@@ -1759,7 +1759,8 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 	if hostname != wantHostName {
 		// give the reboot some time until it takes effect
 		if s.hasJustRebooted() {
-			s.scope.Info("ensureProvisioned: hasJustRebooted. Retrying...", "hostname", hostname)
+			markProvisionPendingWithInfo(s.scope.HetznerBareMetalHost,
+				infrav1.StateEnsureProvisioned, "host has just rebooted")
 			markProvisionPendingWithInfo(s.scope.HetznerBareMetalHost,
 				infrav1.StateEnsureProvisioned, "host has just rebooted")
 			return actionContinue{delay: 2 * time.Second}
