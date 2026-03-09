@@ -445,6 +445,14 @@ func (c *sshClient) CloudInitStatus() Output {
 // CheckCloudInitLogsForSigTerm implements the CheckCloudInitLogsForSigTerm method of the SSHClient interface.
 func (c *sshClient) CheckCloudInitLogsForSigTerm() Output {
 	out := c.runSSH(`cat /var/log/cloud-init.log | grep "SIGTERM"`)
+	if out.Err != nil {
+		exitStatus, err := out.ExitStatus()
+		if err == nil && exitStatus == 1 {
+			// grep returns exit status 1 if no matching lines are found.
+			// This is expected and should not be treated as an error here.
+			return Output{}
+		}
+	}
 	if out.Err != nil && strings.Contains(out.Err.Error(), ErrCommandExitedWithStatusOne.Error()) {
 		return Output{}
 	}

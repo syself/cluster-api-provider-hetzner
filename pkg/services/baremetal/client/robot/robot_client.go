@@ -18,9 +18,12 @@ limitations under the License.
 package robotclient
 
 import (
+	"context"
+	"net"
 	"net/http"
 	"regexp"
 	"runtime/debug"
+	"time"
 
 	"github.com/go-logr/logr"
 	hrobot "github.com/syself/hrobot-go"
@@ -74,9 +77,29 @@ func (lt *LoggingTransport) RoundTrip(req *http.Request) (resp *http.Response, e
 
 // NewClient creates new robot clients.
 func (f *factory) NewClient(creds Credentials) Client {
+	// Some management clusters (e.g. kind) have no IPv6 egress. The default resolver may
+	// pick AAAA first for robot-ws.your-server.de, which then fails with:
+	// "dial tcp [2a01:...]:443: connect: network is unreachable".
+	// Use IPv4-only dialing for Robot API calls to avoid getting stuck in "preparing".
+	transport := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			d := &net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}
+			return d.DialContext(ctx, "tcp4", addr)
+		},
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
+
 	client := &http.Client{
 		Transport: &LoggingTransport{
-			roundTripper: http.DefaultTransport,
+			roundTripper: transport,
 			log:          ctrl.Log.WithName("robot-api"),
 		},
 	}
