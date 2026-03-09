@@ -254,8 +254,12 @@ spec:
                 type: object
               providerID:
                 description: |-
-                  ProviderID will be the hetznerbaremetalmachine which is set by the controller
-                  in the `hcloud://bm-<server-id>` format.
+                  ProviderID is set by the controller to either (new) `hrobot://<server-id>` or (old)
+                  `hcloud://bm-NNNN` format. If the HetznerBareMetalMachineSpec has already a ProviderID, then
+                  this will never change. If the ProviderID is empty, the controller sets it to the old format
+                  by default (hcloud://bm-NNNN), except the Annotation
+                  `capi.syself.com/use-hrobot-provider-id-for-baremetal` on the hetznerCluster is set to
+                  `"true"`.
                 type: string
               sshSpec:
                 description: SSHSpec gives a reference on the secret where SSH details

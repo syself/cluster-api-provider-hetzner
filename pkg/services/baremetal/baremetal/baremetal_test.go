@@ -702,10 +702,6 @@ var _ = Describe("Test ensureClusterLabel", func() {
 	)
 })
 
-var _ = Describe("Test providerIDFromServerID", func() {
-	Expect(providerIDFromServerID(42)).To(Equal("hcloud://bm-42"))
-})
-
 var _ = Describe("Test hostKey", func() {
 	host := &infrav1.HetznerBareMetalHost{}
 	host.Namespace = "namespace"
@@ -797,6 +793,87 @@ var _ = Describe("Test analyzePatchError", func() {
 			ignoreNotFound: false,
 			err:            apierrors.NewConflict(groupResource, "groupResource", fmt.Errorf("conflict error")),
 			expectedErr:    &scope.RequeueAfterError{},
+		}),
+	)
+})
+
+var _ = Describe("Test GenerateProviderID", func() {
+	type testCaseGenerateProviderID struct {
+		machine            *clusterv1.Machine
+		hetznerCluster     *infrav1.HetznerCluster
+		serverNumber       int
+		expectedProviderID string
+		expectedErr        string
+	}
+
+	newMachine := func() *clusterv1.Machine {
+		return &clusterv1.Machine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test-machine",
+			},
+		}
+	}
+
+	newHetznerCluster := func() *infrav1.HetznerCluster {
+		return &infrav1.HetznerCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "test-hetzner-cluster",
+				Annotations: map[string]string{},
+			},
+		}
+	}
+
+	DescribeTable("GenerateProviderID",
+		func(tc testCaseGenerateProviderID) {
+			providerID, err := GenerateProviderID(tc.machine, tc.hetznerCluster, tc.serverNumber)
+
+			if tc.expectedErr == "" {
+				Expect(err).To(BeNil())
+				Expect(providerID).To(Equal(tc.expectedProviderID))
+			} else {
+				Expect(err).ToNot(BeNil())
+				Expect(err.Error()).To(Equal(tc.expectedErr))
+			}
+		},
+		Entry("Uses existing ProviderID", testCaseGenerateProviderID{
+			machine: func() *clusterv1.Machine {
+				machine := newMachine()
+				machine.Spec.ProviderID = ptr.To("hrobot://123")
+				return machine
+			}(),
+			hetznerCluster:     newHetznerCluster(),
+			serverNumber:       42,
+			expectedProviderID: "hrobot://123",
+		}),
+		Entry("Defaults to legacy prefix", testCaseGenerateProviderID{
+			machine:            newMachine(),
+			hetznerCluster:     newHetznerCluster(),
+			serverNumber:       7,
+			expectedProviderID: "hcloud://bm-7",
+		}),
+		Entry("Uses annotation prefix", testCaseGenerateProviderID{
+			machine: newMachine(),
+			hetznerCluster: func() *infrav1.HetznerCluster {
+				hetznerCluster := newHetznerCluster()
+				hetznerCluster.Annotations = map[string]string{
+					infrav1.UseHrobotProviderIdForBaremetalAnnotation: "true",
+				}
+				return hetznerCluster
+			}(),
+			serverNumber:       11,
+			expectedProviderID: "hrobot://11",
+		}),
+		Entry("Rejects invalid annotation prefix", testCaseGenerateProviderID{
+			machine: newMachine(),
+			hetznerCluster: func() *infrav1.HetznerCluster {
+				hetznerCluster := newHetznerCluster()
+				hetznerCluster.Annotations = map[string]string{
+					infrav1.UseHrobotProviderIdForBaremetalAnnotation: "invalid",
+				}
+				return hetznerCluster
+			}(),
+			serverNumber: 5,
+			expectedErr:  `Unsupported value for HetznerCluster Annotation "capi.syself.com/use-hrobot-provider-id-for-baremetal": "invalid"`,
 		}),
 	)
 })
