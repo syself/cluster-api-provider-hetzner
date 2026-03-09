@@ -68,7 +68,6 @@ if [[ -n "${KUBERNETES_VERSION:-}" ]]; then
   fi
 fi
 
-
 # Ensure that no outdated hcloud machine types get used.
 for varname in "$@"; do
   if [ "$varname" = "HCLOUD_CONTROL_PLANE_MACHINE_TYPE" ] || [ "$varname" = "HCLOUD_WORKER_MACHINE_TYPE" ]; then
