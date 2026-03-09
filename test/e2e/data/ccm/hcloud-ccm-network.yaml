@@ -1,121 +1,181 @@
 ---
-# Source: ccm-hcloud/templates/serviceaccount.yaml
+# Source: hcloud-cloud-controller-manager/templates/serviceaccount.yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: ccm-ccm-hcloud
+  name: hcloud-cloud-controller-manager
   namespace: kube-system
-  labels:
-    helm.sh/chart: ccm-hcloud-1.0.11
-    app: ccm
-    app.kubernetes.io/name: ccm-hcloud
-    app.kubernetes.io/instance: ccm
-    app.kubernetes.io/version: "1.13.0"
-    app.kubernetes.io/managed-by: Helm
 ---
-# Source: ccm-hcloud/templates/serviceaccount.yaml
+# Source: hcloud-cloud-controller-manager/templates/clusterrole.yml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: "system:hcloud-cloud-controller-manager"
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
+      - update
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+    verbs:
+      - "*"
+  - apiGroups:
+      - ""
+    resources:
+      - nodes/status
+    verbs:
+      - patch
+  - apiGroups:
+      - ""
+    resources:
+      - services
+    verbs:
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - services/status
+    verbs:
+      - patch
+      - update
+  - apiGroups:
+      - ""
+    resources:
+      - serviceaccounts
+    verbs:
+      - create
+  - apiGroups:
+      - ""
+    resources:
+      - persistentvolumes
+    verbs:
+      - get
+      - list
+      - update
+      - watch
+  - apiGroups:
+      - coordination.k8s.io
+    resources:
+      - leases
+    verbs:
+      - create
+      - get
+      - list
+      - watch
+      - update
+---
+# Source: hcloud-cloud-controller-manager/templates/clusterrolebinding.yaml
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: ccm-ccm-hcloud
-  namespace: kube-system
-  labels:
-    helm.sh/chart: ccm-hcloud-1.0.11
-    app: ccm
-    app.kubernetes.io/name: ccm-hcloud
-    app.kubernetes.io/instance: ccm
-    app.kubernetes.io/version: "1.13.0"
-    app.kubernetes.io/managed-by: Helm
+  # The prefix ":restricted" originates from removing the cluster-admin role from HCCM.
+  # Renaming the ClusterRoleBinding makes the migration easier for users.
+  name: "system:hcloud-cloud-controller-manager:restricted"
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: cluster-admin
+  name: "system:hcloud-cloud-controller-manager"
 subjects:
   - kind: ServiceAccount
-    name: ccm-ccm-hcloud
+    name: hcloud-cloud-controller-manager
     namespace: kube-system
 ---
-# Source: ccm-hcloud/templates/deployment.yaml
+# Source: hcloud-cloud-controller-manager/templates/deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ccm-ccm-hcloud
+  name: hcloud-cloud-controller-manager
   namespace: kube-system
-  labels:
-    helm.sh/chart: ccm-hcloud-1.0.11
-    app: ccm
-    app.kubernetes.io/name: ccm-hcloud
-    app.kubernetes.io/instance: ccm
-    app.kubernetes.io/version: "1.13.0"
-    app.kubernetes.io/managed-by: Helm
 spec:
   replicas: 1
-  revisionHistoryLimit: 5
+  revisionHistoryLimit: 2
   selector:
     matchLabels:
-      app.kubernetes.io/name: ccm-hcloud
-      app.kubernetes.io/instance: ccm
+      app.kubernetes.io/instance: 'ccm'
+      app.kubernetes.io/name: 'hcloud-cloud-controller-manager'
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: ccm-hcloud
-        app.kubernetes.io/instance: ccm
+        app.kubernetes.io/instance: 'ccm'
+        app.kubernetes.io/name: 'hcloud-cloud-controller-manager'
     spec:
+      serviceAccountName: hcloud-cloud-controller-manager
       dnsPolicy: Default
-      serviceAccountName: ccm-ccm-hcloud
-      securityContext:
-        {}
       tolerations:
-        # this taint is set by all kubelets running `--cloud-provider=external`
-        # so we should tolerate it to schedule the cloud controller manager
+        # Allow HCCM itself to schedule on nodes that have not yet been initialized by HCCM.
         - key: "node.cloudprovider.kubernetes.io/uninitialized"
           value: "true"
           effect: "NoSchedule"
         - key: "CriticalAddonsOnly"
           operator: "Exists"
-        # cloud controller manages should be able to run on masters
+
+        # Allow HCCM to schedule on control plane nodes.
         - key: "node-role.kubernetes.io/master"
           effect: NoSchedule
           operator: Exists
         - key: "node-role.kubernetes.io/control-plane"
           effect: NoSchedule
           operator: Exists
+
         - key: "node.kubernetes.io/not-ready"
-          effect: "NoSchedule"
+          effect: "NoExecute"
       hostNetwork: true
       containers:
-        - name: ccm-hcloud
-          securityContext:
-            {}
-          image: "docker.io/hetznercloud/hcloud-cloud-controller-manager:v1.13.0"
-          imagePullPolicy: Always
-          command:
-            - "/bin/hcloud-cloud-controller-manager"
-            - "--cloud-provider=hcloud"
-            - "--leader-elect=true"
+        - name: hcloud-cloud-controller-manager
+          args:
             - "--allow-untagged-cloud"
+            - "--cloud-provider=hcloud"
+            - "--feature-gates=CloudControllerManagerWatchBasedRoutesReconciliation=true"
+            - "--route-reconciliation-period=30s"
+            - "--webhook-secure-port=0"
             - "--allocate-node-cidrs=true"
             - "--cluster-cidr=10.244.0.0/16"
+            - "--leader-elect=false"
+          env:
+            - name: HCLOUD_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  key: hcloud
+                  name: hetzner
+            - name: ROBOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: robot-password
+                  name: hcloud
+                  optional: true
+            - name: ROBOT_USER
+              valueFrom:
+                secretKeyRef:
+                  key: robot-user
+                  name: hcloud
+                  optional: true
+            - name: HCLOUD_NETWORK
+              valueFrom:
+                secretKeyRef:
+                  key: network
+                  name: hetzner
+          image: docker.io/hetznercloud/hcloud-cloud-controller-manager:v1.30.1 # x-releaser-pleaser-version
+          ports:
+            - name: metrics
+              containerPort: 8233
           resources:
             requests:
               cpu: 100m
               memory: 50Mi
-          env:
-            - name: NODE_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: spec.nodeName
-            - name: HCLOUD_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: hetzner
-                  key: hcloud
-            - name: HCLOUD_DEBUG
-              value: "false"
-            - name: HCLOUD_LOAD_BALANCERS_ENABLED
-              value: "true"
-            - name: HCLOUD_NETWORK
-              valueFrom:
-                secretKeyRef:
-                  name: hetzner
-                  key: network
+      priorityClassName: "system-cluster-critical"
