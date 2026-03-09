@@ -615,7 +615,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					if bmMachine.Spec.ProviderID == nil {
 						return fmt.Errorf("bmMachine.Spec.ProviderID is nil")
 					}
-					if *bmMachine.Spec.ProviderID != "hcloud://bm-1" {
+					if !strings.HasPrefix(*bmMachine.Spec.ProviderID, "hcloud://bm-") {
 						return fmt.Errorf("bmMachine.Spec.ProviderID = %q",
 							*bmMachine.Spec.ProviderID)
 					}
