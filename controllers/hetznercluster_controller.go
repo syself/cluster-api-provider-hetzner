@@ -542,9 +542,10 @@ func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope
 
 		hetznerToken, keyExists := tokenSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken]
 		if !keyExists {
-			return fmt.Errorf("key %q does not exist in secret/%s",
+			return fmt.Errorf("error key %s does not exist in secret/%s: %w",
 				clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken,
 				tokenSecretName,
+				err,
 			)
 		}
 
