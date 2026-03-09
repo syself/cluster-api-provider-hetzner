@@ -30,3 +30,17 @@ if [ ${#missing_vars[@]} -gt 0 ]; then
   echo "Missing or empty environment variables: ${missing_vars[*]}"
   exit 1
 fi
+
+# Ensure that no outdated hcloud machine types get used.
+for varname in "$@"; do
+  if [ "$varname" = "HCLOUD_CONTROL_PLANE_MACHINE_TYPE" ] || [ "$varname" = "HCLOUD_WORKER_MACHINE_TYPE" ]; then
+    deprecated_types=(cx22 cx32 cx42 cx52 cpx11 cpx21 cpx31 cpx41 cpx51)
+    for deprecated in "${deprecated_types[@]}"; do
+      if [[ "${!varname}" == *"$deprecated"* ]]; then
+        echo "$varname contains deprecated type '$deprecated'."
+        echo "Deprecated types: ${deprecated_types[*]}"
+        exit 1
+      fi
+    done
+  fi
+done
