@@ -570,10 +570,9 @@ func reconcileOneWorkloadClusterSecret(ctx context.Context, clusterScope *scope.
 
 		hcloudToken, keyExists := mgtSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken]
 		if !keyExists {
-			return fmt.Errorf("error key %s does not exist in secret/%s: %w",
+			return fmt.Errorf("key %q does not exist in secret/%s",
 				clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken,
 				mgtSecretName,
-				err,
 			)
 		}
 
