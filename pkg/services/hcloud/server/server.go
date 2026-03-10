@@ -105,6 +105,11 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 			}
 			return reconcile.Result{}, fmt.Errorf("failed to create server: %w", err)
 		}
+		if server == nil {
+			return reconcile.Result{
+				RequeueAfter: 30 * time.Second,
+			}, errors.New("createServer returned no error and nil server")
+		}
 	}
 
 	s.scope.SetProviderID(server.ID)
@@ -436,7 +441,11 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 	// get all ssh keys that are stored in HCloud API
 	sshKeysAPI, err := s.scope.HCloudClient.ListSSHKeys(ctx, hcloud.SSHKeyListOpts{})
 	if err != nil {
-		return nil, handleRateLimit(s.scope.HCloudMachine, err, "ListSSHKeys", "failed listing ssh keys from hcloud")
+		rateLimitErr := handleRateLimit(s.scope.HCloudMachine, err, "ListSSHKeys", "failed listing ssh keys from hcloud")
+		if rateLimitErr == nil {
+			s.scope.Logger.Error(err, "This error was set to nil by handleRateLimit")
+		}
+		return nil, rateLimitErr
 	}
 
 	// find matching keys and store them
@@ -488,7 +497,11 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 			err,
 		)
 		errMsg := fmt.Sprintf("failed to create HCloud server %s", s.scope.HCloudMachine.Name)
-		return nil, handleRateLimit(s.scope.HCloudMachine, err, "CreateServer", errMsg)
+		rateLimitErr := handleRateLimit(s.scope.HCloudMachine, err, "CreateServer", errMsg)
+		if rateLimitErr == nil {
+			s.scope.Logger.Error(err, "This error was set to nil by handleRateLimit")
+		}
+		return nil, rateLimitErr
 	}
 
 	// set ssh keys to status
