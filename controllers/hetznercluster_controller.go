@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -78,6 +79,7 @@ type HetznerClusterReconciler struct {
 	TargetClusterManagersWaitGroup *sync.WaitGroup
 	WatchFilterValue               string
 	DisableCSRApproval             bool
+	IgnoredNamespaces              []string
 }
 
 //+kubebuilder:rbac:groups=cluster.x-k8s.io,resources=clusters;clusters/status,verbs=get;list;watch
@@ -88,6 +90,12 @@ type HetznerClusterReconciler struct {
 // Reconcile manages the lifecycle of a HetznerCluster object.
 func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res ctrl.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
+
+	// Skip ignored namespaces.
+	if slices.Contains(r.IgnoredNamespaces, req.Namespace) {
+		log.Info("Skipping reconciliation for ignored namespace", "namespace", req.Namespace)
+		return ctrl.Result{}, nil
+	}
 
 	// Fetch the HetznerCluster instance
 	hetznerCluster := &infrav1.HetznerCluster{}
