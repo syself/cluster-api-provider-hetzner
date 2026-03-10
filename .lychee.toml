@@ -63,6 +63,7 @@ exclude = [
     "https://github.com/syself/cluster-api-provider-hetzner/blob/main/README.md#%EF%B8%8F-compatibility-with-cluster-api-and-kubernetes-versions",
     "https://github.com/syself/cluster-api-provider-hetzner/blob/main/CONTRIBUTING.md",
     "https://github.com/syself/cluster-api-provider-hetzner/blob/main/CONTRIBUTING.md#versioning",
+    "https://cluster-api.sigs.k8s.io/introduction",
 ]
 
 include = []
