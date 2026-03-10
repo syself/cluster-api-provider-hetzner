@@ -108,7 +108,7 @@ func main() {
 	fs.BoolVar(&hcloudclient.DebugAPICalls, "debug-hcloud-api-calls", false, "Debug all calls to the hcloud API.")
 	fs.StringVar(&preProvisionCommand, "pre-provision-command", "", "Command to run (in rescue-system) before installing the image on bare metal servers. You can use that to check if the machine is healthy before installing the image. If the exit value is non-zero, the machine is considered unhealthy. This command must be accessible by the controller pod. You can use an initContainer to copy the command to a shared emptyDir.")
 	fs.BoolVar(&skipWebhooks, "skip-webhooks", false, "Skip setting up of webhooks. Together with --leader-elect=false, you can use `go run main.go` to run CAPH in a cluster connected via KUBECONFIG. You should scale down the caph deployment to 0 before doing that. This is only for testing!")
-	fs.StringSliceVar(&ignoredNamespaces, "ignored-namespaces", []string{"default", "kube-system"}, "List of namespaces that should be ignored i.e. for which reconciliation will be skipped")
+	fs.StringSliceVar(&ignoredNamespaces, "ignored-namespaces", []string{}, "List of namespaces that should be ignored i.e. for which reconciliation will be skipped")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 
