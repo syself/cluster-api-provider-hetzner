@@ -21,6 +21,7 @@ yaml-files:
   - "*.yml"
 
 ignore:
+  - ".git/"
   - "**/vendor/**"
   - ".cache"
   - _artifacts
