@@ -59,6 +59,10 @@ exclude = [
     "https://opensource.org/license/apache-2-0/",
     "https://robot.your-server.de/*",
     "https://www.linkedin.com/company/syself/",
+    "https://github.com/kubernetes/community/blob/master/contributors/guide/github-workflow.md#squash-commits",
+    "https://github.com/syself/cluster-api-provider-hetzner/blob/main/README.md#%EF%B8%8F-compatibility-with-cluster-api-and-kubernetes-versions",
+    "https://github.com/syself/cluster-api-provider-hetzner/blob/main/CONTRIBUTING.md",
+    "https://github.com/syself/cluster-api-provider-hetzner/blob/main/CONTRIBUTING.md#versioning",
 ]
 
 include = []

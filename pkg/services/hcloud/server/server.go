@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	corev1 "k8s.io/api/core/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -191,7 +192,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 }
 
 // implements setting rate limit on hcloudmachine.
-func handleRateLimit(hm *infrav1.HCloudMachine, err error, functionName string, errMsg string) error {
+func handleRateLimit(hm *infrav1.HCloudMachine, err error, functionName string, errMsg string, log logr.Logger) error {
 	// returns error if not a rate limit exceeded error
 	if !hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
 		return fmt.Errorf("%s: %w", errMsg, err)
@@ -199,6 +200,7 @@ func handleRateLimit(hm *infrav1.HCloudMachine, err error, functionName string, 
 
 	// does not return error if machine is running and does not have a deletion timestamp
 	if hm.Status.Ready && hm.DeletionTimestamp.IsZero() {
+		log.Info("Rate limit exceeded but machine is ready and not being deleted, ignoring", "namespace", hm.Namespace, "name", hm.Name)
 		return nil
 	}
 
