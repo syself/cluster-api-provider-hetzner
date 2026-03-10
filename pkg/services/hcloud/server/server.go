@@ -406,6 +406,10 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 		return nil, fmt.Errorf("failed to get server image: %w", err)
 	}
 
+	if image == nil {
+		return nil, fmt.Errorf("getServerImage returned nil image without error")
+	}
+
 	automount := false
 	startAfterCreate := true
 	opts := hcloud.ServerCreateOpts{
