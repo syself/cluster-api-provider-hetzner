@@ -91,18 +91,49 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 
 	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.BootstrapReadyCondition)
 
-	// try to find an existing server
+	// try to find an existing server.
 	server, err := s.findServer(ctx)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to get server: %w", err)
+		if !hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
+			conditions.MarkFalse(
+				s.scope.HCloudMachine,
+				infrav1.ServerAvailableCondition,
+				infrav1.ServerNotFoundReason,
+				clusterv1.ConditionSeverityError,
+				"failed to find server: %s",
+				err.Error(),
+			)
+
+			return reconcile.Result{}, nil
+		}
+
+		// Only set rate limit condition if providerID is not set.
+		if s.scope.HCloudMachine.Spec.ProviderID == nil {
+			hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "findServer")
+		}
+
+		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
 	// if no server is found we have to create one
 	if server == nil {
-		// If provider ID is already set, the server exists but wasn't found due to rate limiting. Skip creation.
 		if s.scope.HCloudMachine.Spec.ProviderID != nil {
-			s.scope.Logger.Info("Server not found but providerID is set, likely due to rate limiting, skipping creation", "providerID", *s.scope.HCloudMachine.Spec.ProviderID)
-			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+			// Server was previously created but is now gone. Mark failed, stop reconciling.
+			s.scope.SetError(
+				fmt.Sprintf("server with providerID %s not found", *s.scope.HCloudMachine.Spec.ProviderID),
+				capierrors.UpdateMachineError,
+			)
+
+			conditions.MarkFalse(
+				s.scope.HCloudMachine,
+				infrav1.ServerAvailableCondition,
+				infrav1.ServerNotFoundReason,
+				clusterv1.ConditionSeverityError,
+				"server with providerID %s not found",
+				*s.scope.HCloudMachine.Spec.ProviderID,
+			)
+
+			return res, nil
 		}
 
 		server, err = s.createServer(ctx)
@@ -114,6 +145,9 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 		}
 	}
 
+	// Server found, so clear any previous errors.
+	s.scope.HCloudMachine.Status.FailureReason = nil
+	s.scope.HCloudMachine.Status.FailureMessage = nil
 	s.scope.SetProviderID(server.ID)
 
 	// update HCloudMachineStatus
@@ -219,6 +253,10 @@ func handleRateLimit(hm *infrav1.HCloudMachine, err error, functionName string, 
 func (s *Service) Delete(ctx context.Context) (res reconcile.Result, err error) {
 	server, err := s.findServer(ctx)
 	if err != nil {
+		if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
+			hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "findServer")
+			return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
+		}
 		return reconcile.Result{}, fmt.Errorf("failed to find server: %w", err)
 	}
 
@@ -700,8 +738,7 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 	if err == nil {
 		server, err = s.scope.HCloudClient.GetServer(ctx, serverID)
 		if err != nil {
-			errMsg := fmt.Sprintf("failed to get server %d", serverID)
-			return nil, handleRateLimit(s.scope.HCloudMachine, err, "GetServer", errMsg, s.scope.Logger)
+			return nil, fmt.Errorf("failed to get server %d: %w", serverID, err)
 		}
 
 		// if server has been found, return it
@@ -717,7 +754,7 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 
 	servers, err := s.scope.HCloudClient.ListServers(ctx, opts)
 	if err != nil {
-		return nil, handleRateLimit(s.scope.HCloudMachine, err, "ListServers", "failed to list servers", s.scope.Logger)
+		return nil, fmt.Errorf("failed to list servers: %w", err)
 	}
 
 	if len(servers) > 1 {
