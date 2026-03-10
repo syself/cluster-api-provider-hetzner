@@ -351,6 +351,10 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 }
 
 func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
+	if s.scope.Machine.Spec.ProviderID != nil && *s.scope.Machine.Spec.ProviderID != "" {
+		return nil, fmt.Errorf("s.scope.Machine.Spec.ProviderID is %q. Not creating a server",
+			*s.scope.Machine.Spec.ProviderID)
+	}
 	// get userData
 	userData, err := s.scope.GetRawBootstrapData(ctx)
 	if err != nil {
@@ -365,6 +369,9 @@ func (s *Service) createServer(ctx context.Context) (*hcloud.Server, error) {
 	image, err := s.getServerImage(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get server image: %w", err)
+	}
+	if image == nil {
+		return nil, fmt.Errorf("failed to get server image: nil image returned")
 	}
 
 	automount := false
