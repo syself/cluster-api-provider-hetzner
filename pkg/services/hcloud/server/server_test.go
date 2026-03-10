@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
@@ -354,7 +355,8 @@ var _ = Describe("Test handleRateLimit", func() {
 
 	DescribeTable("Test handleRateLimit",
 		func(tc testCaseHandleRateLimit) {
-			err := handleRateLimit(tc.hm, tc.err, tc.functionName, tc.errMsg)
+			log := klog.Background()
+			err := handleRateLimit(tc.hm, tc.err, tc.functionName, tc.errMsg, log)
 			if tc.expectError != nil {
 				Expect(err).To(MatchError(tc.expectError))
 			} else {
