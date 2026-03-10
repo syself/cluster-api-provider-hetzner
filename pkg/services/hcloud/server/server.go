@@ -99,9 +99,6 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 
 	// if no server is found we have to create one
 	if server == nil {
-		// check in the status if provider id is set, If so that means server exists but there is rate-limit
-		// Don't createServer again. Return nil and log something.
-
 		// If provider ID is already set, the server exists but wasn't found due to rate limiting. Skip creation.
 		if s.scope.HCloudMachine.Spec.ProviderID != nil {
 			s.scope.Logger.Info("Server not found but providerID is set, likely due to rate limiting, skipping creation", "providerID", *s.scope.HCloudMachine.Spec.ProviderID)
