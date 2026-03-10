@@ -148,6 +148,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	// Server found, so clear any previous errors.
 	s.scope.HCloudMachine.Status.FailureReason = nil
 	s.scope.HCloudMachine.Status.FailureMessage = nil
+	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.ServerCreateSucceededCondition)
 	s.scope.SetProviderID(server.ID)
 
 	// update HCloudMachineStatus
