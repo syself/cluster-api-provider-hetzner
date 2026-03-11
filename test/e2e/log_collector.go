@@ -29,11 +29,14 @@ import (
 	"time"
 
 	"golang.org/x/crypto/ssh"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	expv1 "sigs.k8s.io/cluster-api/exp/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	kinderrors "sigs.k8s.io/kind/pkg/errors"
+
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
 
 const (
@@ -83,18 +86,10 @@ func (collector logCollector) CollectInfrastructureLogs(_ context.Context, _ cli
 }
 
 // CollectMachineLog implements the CollectMachineLog method of the LogCollector interface.
-func (collector logCollector) CollectMachineLog(_ context.Context, _ client.Client, m *clusterv1.Machine, outputPath string) error {
-	var hostIPAddr string
-	for _, address := range m.Status.Addresses {
-		if address.Type != clusterv1.MachineExternalIP {
-			continue
-		}
-		hostIPAddr = address.Address
-		break
-	}
-
-	if hostIPAddr == "" {
-		return fmt.Errorf("machine %q has no ExternalIP: machine.status.addresses: %+v", m.Name, m.Status.Addresses)
+func (collector logCollector) CollectMachineLog(ctx context.Context, c client.Client, m *clusterv1.Machine, outputPath string) error {
+	hostIPAddr, err := machineExternalIP(ctx, c, m)
+	if err != nil {
+		return err
 	}
 
 	execToPathFn := func(hostFileName, command string, args ...string) func() error {
@@ -164,6 +159,61 @@ func (collector logCollector) CollectMachineLog(_ context.Context, _ client.Clie
 		copyDirFn("/var/log/pods", "pods"),
 		copyDirFn("/etc/kubernetes", "kubernetes"),
 	})
+}
+
+func machineExternalIP(ctx context.Context, c client.Client, m *clusterv1.Machine) (string, error) {
+	if hostIPAddr := externalIPFromAddresses(m.Status.Addresses); hostIPAddr != "" {
+		return hostIPAddr, nil
+	}
+
+	if c != nil {
+		if hostIPAddr := infrastructureMachineExternalIP(ctx, c, m); hostIPAddr != "" {
+			return hostIPAddr, nil
+		}
+	}
+
+	return "", fmt.Errorf("machine %q has no ExternalIP: machine.status.addresses: %+v", m.Name, m.Status.Addresses)
+}
+
+func infrastructureMachineExternalIP(ctx context.Context, c client.Client, m *clusterv1.Machine) string {
+	key := client.ObjectKey{
+		Namespace: infrastructureRefNamespace(m.Spec.InfrastructureRef, m.Namespace),
+		Name:      m.Spec.InfrastructureRef.Name,
+	}
+
+	switch m.Spec.InfrastructureRef.Kind {
+	case "HetznerBareMetalMachine":
+		hbmm := &infrav1.HetznerBareMetalMachine{}
+		if err := c.Get(ctx, key, hbmm); err != nil {
+			return ""
+		}
+		return externalIPFromAddresses(hbmm.Status.Addresses)
+	case "HCloudMachine":
+		hm := &infrav1.HCloudMachine{}
+		if err := c.Get(ctx, key, hm); err != nil {
+			return ""
+		}
+		return externalIPFromAddresses(hm.Status.Addresses)
+	default:
+		return ""
+	}
+}
+
+func infrastructureRefNamespace(ref corev1.ObjectReference, defaultNamespace string) string {
+	if ref.Namespace != "" {
+		return ref.Namespace
+	}
+	return defaultNamespace
+}
+
+func externalIPFromAddresses(addresses []clusterv1.MachineAddress) string {
+	for _, address := range addresses {
+		if address.Type != clusterv1.MachineExternalIP {
+			continue
+		}
+		return address.Address
+	}
+	return ""
 }
 
 func createOutputFile(path string) (*os.File, error) {
