@@ -190,7 +190,7 @@ install-cilium-in-wl-cluster:
 	helm repo update cilium
 	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) helm upgrade --install cilium cilium/cilium \
   		--namespace kube-system \
-		-f templates/cilium/cilium.yaml
+		-f templates/cilium/values.yaml
 
 
 install-ccm-in-wl-cluster:
