@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
@@ -33,6 +34,7 @@ import (
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
+	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	fakeclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/fake"
 )
 
@@ -354,7 +356,8 @@ var _ = Describe("Test handleRateLimit", func() {
 
 	DescribeTable("Test handleRateLimit",
 		func(tc testCaseHandleRateLimit) {
-			err := handleRateLimit(tc.hm, tc.err, tc.functionName, tc.errMsg)
+			log := klog.Background()
+			err := handleRateLimit(tc.hm, tc.err, tc.functionName, tc.errMsg, log)
 			if tc.expectError != nil {
 				Expect(err).To(MatchError(tc.expectError))
 			} else {
@@ -433,6 +436,155 @@ var _ = Describe("Test handleRateLimit", func() {
 			expectCondition: false,
 		}),
 	)
+})
+
+var _ = Describe("findServer", func() {
+	var (
+		hcloudMachine  *infrav1.HCloudMachine
+		hetznerCluster *infrav1.HetznerCluster
+		capiMachine    *clusterv1.Machine
+		client         hcloudclient.Client
+		service        *Service
+	)
+
+	BeforeEach(func() {
+		hcloudMachine = &infrav1.HCloudMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-machine",
+				Namespace: "default",
+			},
+			Spec: infrav1.HCloudMachineSpec{
+				ImageName: "my-image",
+				Type:      "cpx31",
+			},
+		}
+
+		hetznerCluster = &infrav1.HetznerCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test-cluster",
+			},
+		}
+
+		capiMachine = &clusterv1.Machine{}
+
+		client = fakeclient.NewHCloudClientFactory().NewClient("")
+	})
+
+	It("should find the server by provider ID when server exists and provider ID is set", func() {
+		By("creating a server")
+		createdServer, err := client.CreateServer(context.Background(), hcloud.ServerCreateOpts{
+			Name: "test-server-providerid",
+		})
+		Expect(err).To(BeNil())
+
+		hcloudMachine.Spec.ProviderID = ptr.To(fmt.Sprintf("hcloud://%d", createdServer.ID))
+
+		service = newTestService(hcloudMachine, client)
+		service.scope.Machine = capiMachine
+		service.scope.HetznerCluster = hetznerCluster
+
+		By("finding the server")
+		server, err := service.findServer(context.Background())
+		Expect(err).To(BeNil())
+		Expect(server).ToNot(BeNil())
+		Expect(server.ID).To(Equal(createdServer.ID))
+
+		// teardown: remove the created server otherwise it will pollute the subsequent tests.
+		err = client.DeleteServer(context.Background(), createdServer)
+		Expect(err).To(BeNil())
+	})
+
+	It("should find the server by matching labels if server exists but provider ID is not set", func() {
+		service = newTestService(hcloudMachine, client)
+		service.scope.Machine = capiMachine
+		service.scope.HetznerCluster = hetznerCluster
+
+		By("creating a server with matching labels")
+		labels := service.createLabels()
+		createdServer, err := client.CreateServer(context.Background(), hcloud.ServerCreateOpts{
+			Name:   "test-server-labels",
+			Labels: labels,
+		})
+		Expect(err).To(Succeed())
+
+		By("finding the server via label selector")
+		server, err := service.findServer(context.Background())
+		Expect(err).To(Succeed())
+		Expect(server).ToNot(BeNil())
+		Expect(server.ID).To(Equal(createdServer.ID))
+
+		// teardown: remove the created server otherwise it will pollute the subsequent tests.
+		err = client.DeleteServer(context.Background(), createdServer)
+		Expect(err).To(BeNil())
+	})
+
+	It("should return nil without error when no server is found", func() {
+		service = newTestService(hcloudMachine, client)
+		service.scope.Machine = capiMachine
+		service.scope.HetznerCluster = hetznerCluster
+
+		By("finding server")
+		server, err := service.findServer(context.Background())
+		Expect(err).To(Succeed())
+		Expect(server).To(BeNil())
+	})
+
+	It("should fall back to label search when provider ID is set but server no longer exists", func() {
+		hcloudMachine.Spec.ProviderID = ptr.To("hcloud://99999")
+
+		service = newTestService(hcloudMachine, client)
+		service.scope.Machine = capiMachine
+		service.scope.HetznerCluster = hetznerCluster
+
+		By("creating a server with matching labels")
+		labels := service.createLabels()
+		createdServer, err := client.CreateServer(context.Background(), hcloud.ServerCreateOpts{
+			Name:   "test-server-fallback",
+			Labels: labels,
+		})
+		Expect(err).To(Succeed())
+
+		By("not finding server by ID, falling back to labels")
+		server, err := service.findServer(context.Background())
+		Expect(err).To(Succeed())
+		Expect(server).ToNot(BeNil())
+		Expect(server.ID).To(Equal(createdServer.ID))
+
+		// teardown: remove the created server otherwise it will pollute the subsequent tests.
+		err = client.DeleteServer(context.Background(), createdServer)
+		Expect(err).To(BeNil())
+	})
+
+	It("should return an error when multiple servers match labels", func() {
+		service = newTestService(hcloudMachine, client)
+		service.scope.Machine = capiMachine
+		service.scope.HetznerCluster = hetznerCluster
+
+		By("creating two servers with matching labels")
+		labels := service.createLabels()
+		s1, err := client.CreateServer(context.Background(), hcloud.ServerCreateOpts{
+			Name:   "test-server-multi-1",
+			Labels: labels,
+		})
+		Expect(err).To(Succeed())
+
+		s2, err := client.CreateServer(context.Background(), hcloud.ServerCreateOpts{
+			Name:   "test-server-multi-2",
+			Labels: labels,
+		})
+		Expect(err).To(Succeed())
+
+		By("expecting an error for multiple instances")
+		server, err := service.findServer(context.Background())
+		Expect(err).To(HaveOccurred())
+		Expect(server).To(BeNil())
+
+		// teardown: remove the created server otherwise it will pollute the subsequent tests.
+		err = client.DeleteServer(context.Background(), s1)
+		Expect(err).To(BeNil())
+		err = client.DeleteServer(context.Background(), s2)
+		Expect(err).To(BeNil())
+	})
 })
 
 func isPresentAndFalseWithReason(getter conditions.Getter, condition clusterv1.ConditionType, reason string) bool {

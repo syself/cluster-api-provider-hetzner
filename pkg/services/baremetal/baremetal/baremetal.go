@@ -116,6 +116,14 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 
 	// update the machine
 	if err := s.update(ctx); err != nil {
+		if apierrors.IsNotFound(err) {
+			err := fmt.Errorf("host not found for machine %q. Setting Failure, remediation will start: %w", s.scope.Machine.Name, err)
+			s.scope.BareMetalMachine.SetFailure(capierrors.UpdateMachineError, err.Error())
+
+			// returning error as nil here because otherwise it will lead continuous reconcile loop.
+			return reconcile.Result{}, nil
+		}
+
 		return checkForRequeueError(err, "failed to update machine")
 	}
 
@@ -207,11 +215,6 @@ func (s *Service) Delete(ctx context.Context) (res reconcile.Result, err error) 
 func (s *Service) update(ctx context.Context) error {
 	host, helper, err := s.getAssociatedHost(ctx)
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			err := fmt.Errorf("host not found for machine %q. Setting Failure, remediation will start: %w", s.scope.Machine.Name, err)
-			s.scope.BareMetalMachine.SetFailure(capierrors.UpdateMachineError, err.Error())
-			return err
-		}
 		return fmt.Errorf("failed to get host: %w", err)
 	}
 	if host == nil {
