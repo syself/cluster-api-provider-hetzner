@@ -370,12 +370,12 @@ var _ = Describe("Test NodeAddresses", func() {
 	}
 
 	addr1 := clusterv1.MachineAddress{
-		Type:    clusterv1.MachineInternalIP,
+		Type:    clusterv1.MachineExternalIP,
 		Address: "192.168.1.1",
 	}
 
 	addr2 := clusterv1.MachineAddress{
-		Type:    clusterv1.MachineInternalIP,
+		Type:    clusterv1.MachineExternalIP,
 		Address: "172.0.20.2",
 	}
 

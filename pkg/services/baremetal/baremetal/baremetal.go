@@ -834,7 +834,7 @@ func nodeAddresses(host *infrav1.HetznerBareMetalHost, bareMetalMachineName stri
 			continue
 		}
 		address := clusterv1.MachineAddress{
-			Type:    clusterv1.MachineInternalIP,
+			Type:    clusterv1.MachineExternalIP,
 			Address: nic.IP,
 		}
 		addrs = append(addrs, address)
