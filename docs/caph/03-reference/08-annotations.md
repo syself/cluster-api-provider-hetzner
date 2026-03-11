@@ -9,6 +9,14 @@ You can set [Kubernetes Annotations](https://kubernetes.io/docs/concepts/overvie
 
 ## Overview of Annotations
 
+### capi.syself.com/skip-namespace
+
+| **Resource**    | Namespace                                                                                                                                                                 |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Description** | If set to `"true"`, the Syself CAPH Controller skips reconciliation for all CAPH resources in that namespace.                                                           |
+| **Value**       | `"true"` enables the skip behavior. Any other value keeps reconciliation enabled.                                                                                        |
+| **Auto-Remove** | Disabled: The annotation remains on the namespace until it is removed manually.                                                                                          |
+
 ### capi.syself.com/wipe-disk
 
 | **Resource**    | [HetznerBareMetalHost](/docs/caph/03-reference/05-hetzner-bare-metal-host.md)                                                                                                                                                                                                                                       |

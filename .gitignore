@@ -82,3 +82,4 @@ watchall-output*
 /conditions*.txt
 
 /.config
+/test/e2e/ginkgo-log.txt

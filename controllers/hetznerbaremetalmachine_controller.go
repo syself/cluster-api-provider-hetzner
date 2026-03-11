@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -54,7 +53,6 @@ type HetznerBareMetalMachineReconciler struct {
 	RateLimitWaitTime   time.Duration
 	HCloudClientFactory hcloudclient.Factory
 	WatchFilterValue    string
-	IgnoredNamespaces   []string
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalmachines,verbs=get;list;watch;create;update;patch;delete
@@ -65,15 +63,18 @@ type HetznerBareMetalMachineReconciler struct {
 func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req reconcile.Request) (res reconcile.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
 
-	// Skip ignored namespaces.
-	if slices.Contains(r.IgnoredNamespaces, req.Namespace) {
-		log.Info("Skipping reconciliation for ignored namespace", "namespace", req.Namespace)
+	skipReconciliation, err := shouldSkipReconciliationForNamespace(ctx, r.Client, req.Namespace)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if skipReconciliation {
+		log.Info("Skipping reconciliation for namespace", "namespace", req.Namespace, "annotation", infrav1.SkipNamespaceAnnotation)
 		return ctrl.Result{}, nil
 	}
 
 	// Fetch the Hetzner bare metal instance.
 	hbmMachine := &infrav1.HetznerBareMetalMachine{}
-	err := r.Get(ctx, req.NamespacedName, hbmMachine)
+	err = r.Get(ctx, req.NamespacedName, hbmMachine)
 	if err != nil {
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
