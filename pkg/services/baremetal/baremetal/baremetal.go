@@ -822,26 +822,42 @@ func ensureClusterLabel(host *infrav1.HetznerBareMetalHost, clusterName string) 
 
 // nodeAddresses returns a slice of clusterv1.MachineAddress objects for a given host.
 func nodeAddresses(host *infrav1.HetznerBareMetalHost, bareMetalMachineName string) []clusterv1.MachineAddress {
-	// if there are no hw details, return
-	if host.Spec.Status.HardwareDetails == nil {
-		return nil
+	hardwareNICCount := 0
+	if host.Spec.Status.HardwareDetails != nil {
+		hardwareNICCount = len(host.Spec.Status.HardwareDetails.NIC)
 	}
 
-	addrs := make([]clusterv1.MachineAddress, 0, len(host.Spec.Status.HardwareDetails.NIC)+2)
+	addrs := make([]clusterv1.MachineAddress, 0, hardwareNICCount+4)
+	seenIPs := make(map[string]struct{})
 
-	for _, nic := range host.Spec.Status.HardwareDetails.NIC {
-		if nic.IP == "" {
-			continue
-		}
-		normalizedIP := normalizeIPAddress(nic.IP)
+	addExternalIP := func(ip string) {
+		normalizedIP := normalizeIPAddress(ip)
 		if normalizedIP == "" {
-			continue
+			return
 		}
-		address := clusterv1.MachineAddress{
+		if _, exists := seenIPs[normalizedIP]; exists {
+			return
+		}
+		seenIPs[normalizedIP] = struct{}{}
+		addrs = append(addrs, clusterv1.MachineAddress{
 			Type:    clusterv1.MachineExternalIP,
 			Address: normalizedIP,
+		})
+	}
+
+	// We already know host IPv4/IPv6 during early provisioning phases (like registering),
+	// while NIC-based hardware details can still be missing.
+	addExternalIP(host.Spec.Status.IPv4)
+	addExternalIP(host.Spec.Status.IPv6)
+
+	if host.Spec.Status.HardwareDetails != nil {
+		for _, nic := range host.Spec.Status.HardwareDetails.NIC {
+			addExternalIP(nic.IP)
 		}
-		addrs = append(addrs, address)
+	}
+
+	if len(addrs) == 0 && host.Spec.Status.HardwareDetails == nil {
+		return nil
 	}
 
 	// Add hostname == bareMetalMachineName as well

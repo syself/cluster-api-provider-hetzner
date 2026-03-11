@@ -135,6 +135,64 @@ func TestMachineExternalIP_FromHBMMStatus(t *testing.T) {
 	}
 }
 
+func TestMachineExternalIP_FromAssociatedHostWhenHBMMAddressesEmpty(t *testing.T) {
+	t.Parallel()
+
+	scheme := runtime.NewScheme()
+	if err := clusterv1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add clusterv1 scheme: %v", err)
+	}
+	if err := infrav1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add infrav1 scheme: %v", err)
+	}
+
+	machine := &clusterv1.Machine{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "machine-1",
+			Namespace: "default",
+		},
+		Spec: clusterv1.MachineSpec{
+			InfrastructureRef: corev1.ObjectReference{
+				APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
+				Kind:       "HetznerBareMetalMachine",
+				Name:       "hbmm-1",
+			},
+		},
+	}
+
+	hbmm := &infrav1.HetznerBareMetalMachine{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "hbmm-1",
+			Namespace: "default",
+			Annotations: map[string]string{
+				infrav1.HostAnnotation: "default/hbmh-1",
+			},
+		},
+	}
+
+	hbmh := &infrav1.HetznerBareMetalHost{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "hbmh-1",
+			Namespace: "default",
+		},
+		Spec: infrav1.HetznerBareMetalHostSpec{
+			Status: infrav1.ControllerGeneratedStatus{
+				IPv4: "144.76.101.50/26",
+			},
+		},
+	}
+
+	c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(hbmm, hbmh).Build()
+
+	ip, err := machineExternalIP(context.Background(), c, machine)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if ip != "144.76.101.50" {
+		t.Fatalf("expected ip %q, got %q", "144.76.101.50", ip)
+	}
+}
+
 func TestMachineExternalIP_FromHCloudMachineStatus(t *testing.T) {
 	t.Parallel()
 

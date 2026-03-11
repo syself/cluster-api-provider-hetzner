@@ -210,8 +210,13 @@ func infrastructureMachineExternalIP(ctx context.Context, c client.Client, m *cl
 			return "", fmt.Errorf("get HetznerBareMetalMachine %s: %w", key, err)
 		}
 		hostIPAddr := externalIPFromAddresses(hbmm.Status.Addresses)
-		if hostIPAddr == "" {
-			return "", fmt.Errorf("HetznerBareMetalMachine %s has no ExternalIP in status.addresses: %+v", key, hbmm.Status.Addresses)
+		if hostIPAddr != "" {
+			return hostIPAddr, nil
+		}
+
+		hostIPAddr, err := externalIPFromAssociatedHost(ctx, c, hbmm)
+		if err != nil {
+			return "", fmt.Errorf("HetznerBareMetalMachine %s has no ExternalIP in status.addresses: %+v; host fallback failed: %w", key, hbmm.Status.Addresses, err)
 		}
 		return hostIPAddr, nil
 	case "HCloudMachine":
@@ -227,6 +232,52 @@ func infrastructureMachineExternalIP(ctx context.Context, c client.Client, m *cl
 	default:
 		return "", fmt.Errorf("unsupported infrastructureRef kind %q", m.Spec.InfrastructureRef.Kind)
 	}
+}
+
+func externalIPFromAssociatedHost(ctx context.Context, c client.Client, hbmm *infrav1.HetznerBareMetalMachine) (string, error) {
+	if hbmm == nil {
+		return "", fmt.Errorf("hbmm is nil")
+	}
+
+	annotationValue, ok := hbmm.Annotations[infrav1.HostAnnotation]
+	if !ok || annotationValue == "" {
+		return "", fmt.Errorf("annotation %q not found", infrav1.HostAnnotation)
+	}
+
+	hostNamespace := hbmm.Namespace
+	hostName := annotationValue
+	parts := strings.Split(annotationValue, "/")
+	if len(parts) == 2 {
+		if parts[0] != "" {
+			hostNamespace = parts[0]
+		}
+		hostName = parts[1]
+	}
+	if hostName == "" {
+		return "", fmt.Errorf("associated host name in annotation %q is empty", infrav1.HostAnnotation)
+	}
+
+	host := &infrav1.HetznerBareMetalHost{}
+	hostKey := client.ObjectKey{
+		Namespace: hostNamespace,
+		Name:      hostName,
+	}
+	if err := c.Get(ctx, hostKey, host); err != nil {
+		return "", fmt.Errorf("get HetznerBareMetalHost %s: %w", hostKey, err)
+	}
+
+	for _, candidate := range []string{host.Spec.Status.IPv4, host.Spec.Status.IPv6} {
+		if candidate == "" {
+			continue
+		}
+		hostIPAddr, err := normalizeHostIP(candidate)
+		if err != nil {
+			continue
+		}
+		return hostIPAddr, nil
+	}
+
+	return "", fmt.Errorf("HetznerBareMetalHost %s has no usable IPv4/IPv6 (IPv4=%q, IPv6=%q)", hostKey, host.Spec.Status.IPv4, host.Spec.Status.IPv6)
 }
 
 func infrastructureRefNamespace(ref corev1.ObjectReference, defaultNamespace string) string {

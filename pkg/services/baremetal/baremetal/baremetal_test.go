@@ -388,6 +388,11 @@ var _ = Describe("Test NodeAddresses", func() {
 		Address: "136.243.69.167",
 	}
 
+	addrIPv4FromHostStatus := clusterv1.MachineAddress{
+		Type:    clusterv1.MachineExternalIP,
+		Address: "144.76.101.50",
+	}
+
 	addr3 := clusterv1.MachineAddress{
 		Type:    clusterv1.MachineHostName,
 		Address: "bm-machine",
@@ -447,6 +452,16 @@ var _ = Describe("Test NodeAddresses", func() {
 				},
 			},
 			ExpectedNodeAddresses: []clusterv1.MachineAddress{addrCIDR, addr3, addr4},
+		}),
+		Entry("IPv4 from host status is used without hardware details", testCaseNodeAddress{
+			Host: &infrav1.HetznerBareMetalHost{
+				Spec: infrav1.HetznerBareMetalHostSpec{
+					Status: infrav1.ControllerGeneratedStatus{
+						IPv4: "144.76.101.50",
+					},
+				},
+			},
+			ExpectedNodeAddresses: []clusterv1.MachineAddress{addrIPv4FromHostStatus, addr3, addr4},
 		}),
 	)
 })
