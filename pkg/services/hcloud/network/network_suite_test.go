@@ -37,6 +37,11 @@ var (
 	hcloudClient      hcloudclient.Client
 )
 
+func TestNetwork(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Network Suite")
+}
+
 var _ = BeforeEach(func() {
 	hetznerCluster.Name = "hetzner-cluster"
 	hetznerCluster.Spec.HCloudNetwork = infrav1.HCloudNetworkSpec{
@@ -49,8 +54,3 @@ var _ = BeforeEach(func() {
 	hcloudClient = fakeclient.NewHCloudClientFactory().NewClient("")
 	service = Service{&scope.ClusterScope{HetznerCluster: &hetznerCluster, HCloudClient: hcloudClient}}
 })
-
-func TestNetwork(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Network Suite")
-}
