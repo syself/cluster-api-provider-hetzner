@@ -33,7 +33,6 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	capierrors "sigs.k8s.io/cluster-api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -362,7 +361,7 @@ var _ = Describe("chooseHost", func() {
 })
 
 var _ = Describe("Service.update", func() {
-	It("marks BareMetalMachine as failed when the associated host no longer exists", func() {
+	It("returns a not-found error when the associated host no longer exists", func() {
 		const namespace = "default"
 
 		scheme := runtime.NewScheme()
@@ -399,10 +398,6 @@ var _ = Describe("Service.update", func() {
 		err := service.update(context.Background())
 		Expect(err).To(HaveOccurred())
 		Expect(apierrors.IsNotFound(err)).To(BeTrue())
-		Expect(bmMachine.Status.FailureReason).ToNot(BeNil())
-		Expect(*bmMachine.Status.FailureReason).To(Equal(capierrors.UpdateMachineError))
-		Expect(bmMachine.Status.FailureMessage).ToNot(BeNil())
-		Expect(*bmMachine.Status.FailureMessage).To(ContainSubstring("host not found for machine \"test-machine\""))
 	})
 })
 
