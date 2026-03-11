@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -79,7 +78,6 @@ type HetznerClusterReconciler struct {
 	TargetClusterManagersWaitGroup *sync.WaitGroup
 	WatchFilterValue               string
 	DisableCSRApproval             bool
-	IgnoredNamespaces              []string
 }
 
 //+kubebuilder:rbac:groups=cluster.x-k8s.io,resources=clusters;clusters/status,verbs=get;list;watch
@@ -91,15 +89,18 @@ type HetznerClusterReconciler struct {
 func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res ctrl.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
 
-	// Skip ignored namespaces.
-	if slices.Contains(r.IgnoredNamespaces, req.Namespace) {
-		log.Info("Skipping reconciliation for ignored namespace", "namespace", req.Namespace)
+	skipReconciliation, err := shouldSkipReconciliationForNamespace(ctx, r.Client, req.Namespace)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if skipReconciliation {
+		log.Info("Skipping reconciliation for namespace", "namespace", req.Namespace, "annotation", skipNamespaceAnnotation)
 		return ctrl.Result{}, nil
 	}
 
 	// Fetch the HetznerCluster instance
 	hetznerCluster := &infrav1.HetznerCluster{}
-	err := r.Get(ctx, req.NamespacedName, hetznerCluster)
+	err = r.Get(ctx, req.NamespacedName, hetznerCluster)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return reconcile.Result{}, nil

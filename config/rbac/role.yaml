@@ -25,6 +25,12 @@ rules:
   - update
   - watch
 - apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+- apiGroups:
   - certificates.k8s.io
   resources:
   - certificatesigningrequests

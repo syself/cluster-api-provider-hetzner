@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"slices"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -59,7 +58,6 @@ type HetznerBareMetalHostReconciler struct {
 	SSHClientFactory    sshclient.Factory
 	WatchFilterValue    string
 	PreProvisionCommand string
-	IgnoredNamespaces   []string
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalhosts,verbs=get;list;watch;create;update;patch;delete
@@ -70,9 +68,12 @@ type HetznerBareMetalHostReconciler struct {
 func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res ctrl.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
 
-	// Skip ignored namespaces.
-	if slices.Contains(r.IgnoredNamespaces, req.Namespace) {
-		log.Info("Skipping reconciliation for ignored namespace", "namespace", req.Namespace)
+	skipReconciliation, err := shouldSkipReconciliationForNamespace(ctx, r.Client, req.Namespace)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if skipReconciliation {
+		log.Info("Skipping reconciliation for namespace", "namespace", req.Namespace, "annotation", skipNamespaceAnnotation)
 		return ctrl.Result{}, nil
 	}
 
@@ -87,7 +88,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 
 	// Fetch the Hetzner bare metal host instance.
 	bmHost := &infrav1.HetznerBareMetalHost{}
-	err := r.Get(ctx, req.NamespacedName, bmHost)
+	err = r.Get(ctx, req.NamespacedName, bmHost)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return reconcile.Result{}, nil

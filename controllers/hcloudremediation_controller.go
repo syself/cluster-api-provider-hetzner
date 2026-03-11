@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -50,7 +49,6 @@ type HCloudRemediationReconciler struct {
 	APIReader           client.Reader
 	HCloudClientFactory hcloudclient.Factory
 	WatchFilterValue    string
-	IgnoredNamespaces   []string
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hcloudremediations,verbs=get;list;watch;create;update;patch;delete
@@ -62,14 +60,17 @@ type HCloudRemediationReconciler struct {
 func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconcile.Request) (res reconcile.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
 
-	// Skip ignored namespaces.
-	if slices.Contains(r.IgnoredNamespaces, req.Namespace) {
-		log.Info("Skipping reconciliation for ignored namespace", "namespace", req.Namespace)
+	skipReconciliation, err := shouldSkipReconciliationForNamespace(ctx, r.Client, req.Namespace)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if skipReconciliation {
+		log.Info("Skipping reconciliation for namespace", "namespace", req.Namespace, "annotation", skipNamespaceAnnotation)
 		return ctrl.Result{}, nil
 	}
 
 	hcloudRemediation := &infrav1.HCloudRemediation{}
-	err := r.Get(ctx, req.NamespacedName, hcloudRemediation)
+	err = r.Get(ctx, req.NamespacedName, hcloudRemediation)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return reconcile.Result{}, nil
