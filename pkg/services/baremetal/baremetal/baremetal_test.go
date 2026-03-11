@@ -863,7 +863,7 @@ var _ = Describe("Test GenerateProviderID", func() {
 			serverNumber:       11,
 			expectedProviderID: "hrobot://11",
 		}),
-		Entry("Rejects invalid annotation prefix", testCaseGenerateProviderID{
+		Entry("Uses legacy prefix for non-true annotation value", testCaseGenerateProviderID{
 			machine: newMachine(),
 			hetznerCluster: func() *infrav1.HetznerCluster {
 				hetznerCluster := newHetznerCluster()
@@ -872,8 +872,8 @@ var _ = Describe("Test GenerateProviderID", func() {
 				}
 				return hetznerCluster
 			}(),
-			serverNumber: 5,
-			expectedErr:  `Unsupported value for HetznerCluster Annotation "capi.syself.com/use-hrobot-provider-id-for-baremetal": "invalid"`,
+			serverNumber:       5,
+			expectedProviderID: "hcloud://bm-5",
 		}),
 	)
 })

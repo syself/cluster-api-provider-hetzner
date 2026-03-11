@@ -92,15 +92,13 @@ and managing load balancers.
 You need to install a CCM in this flow so the workload cluster can properly interact with Hetzner
 infrastructure.
 
-### Deploy HCloud Cloud Controller Manager - _hcloud only_
+### Deploy Syself Cloud Controller Manager
 
-The following `make` command will install the CCM in your workload cluster:
+The following `make` command will install the Syself CCM in your workload cluster:
 
 `make install-ccm-in-wl-cluster`
 
-For a cluster without a private network, use the following command:
-
-For a more detailed explanation of the CCM and bare-metal setup, see [Baremetal
+For upstream HCloud CCM instructions and bare-metal ProviderID format details, see [Baremetal
 Docs](/docs/caph/02-topics/05-baremetal/03-creating-workload-cluster.md#deploying-the-hetzner-cloud-controller-manager)
 
 ## Deploying the CSI (optional)

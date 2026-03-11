@@ -908,20 +908,17 @@ const (
 )
 
 // GenerateProviderID returns the providerID for the given machine. If the ProviderID already
-// exists, then this will be returned. If the ProviderID is empty, it uses the old format by default
-// (hcloud://bm-NNNN), except the Annotation `capi.syself.com/use-hrobot-provider-id-for-baremetal`
-// on the hetznerCluster is set to `hrobot://`.
+// exists, then this will be returned. If the ProviderID is empty, it uses the old format
+// (hcloud://bm-NNNN) by default. If the annotation
+// `capi.syself.com/use-hrobot-provider-id-for-baremetal` on the HetznerCluster is set to "true"
+// (case-insensitive), then `hrobot://` is used.
 func GenerateProviderID(machine *clusterv1.Machine, hetznerCluster *infrav1.HetznerCluster, serverNumber int) (string, error) {
 	if machine.Spec.ProviderID != nil && *machine.Spec.ProviderID != "" {
 		return *machine.Spec.ProviderID, nil
 	}
-	trueString, _ := hetznerCluster.Annotations[infrav1.UseHrobotProviderIdForBaremetalAnnotation]
-	if trueString == "" {
-		return fmt.Sprintf("%s%d", prefixRobotLegacy, serverNumber), nil
+	annotationValue := strings.TrimSpace(hetznerCluster.Annotations[infrav1.UseHrobotProviderIdForBaremetalAnnotation])
+	if strings.EqualFold(annotationValue, "true") {
+		return fmt.Sprintf("%s%d", prefixRobotNew, serverNumber), nil
 	}
-	if strings.ToLower(trueString) != "true" {
-		return "", fmt.Errorf("Unsupported value for HetznerCluster Annotation %q: %q",
-			infrav1.UseHrobotProviderIdForBaremetalAnnotation, trueString)
-	}
-	return fmt.Sprintf("%s%d", prefixRobotNew, serverNumber), nil
+	return fmt.Sprintf("%s%d", prefixRobotLegacy, serverNumber), nil
 }
