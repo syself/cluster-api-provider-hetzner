@@ -9,7 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
@@ -38,6 +38,33 @@ func TestMachineExternalIP_FromMachineStatus(t *testing.T) {
 	}
 	if ip != "203.0.113.10" {
 		t.Fatalf("expected ip %q, got %q", "203.0.113.10", ip)
+	}
+}
+
+func TestMachineExternalIP_NormalizesCIDR(t *testing.T) {
+	t.Parallel()
+
+	machine := &clusterv1.Machine{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "machine-1",
+			Namespace: "default",
+		},
+		Status: clusterv1.MachineStatus{
+			Addresses: []clusterv1.MachineAddress{
+				{
+					Type:    clusterv1.MachineExternalIP,
+					Address: "136.243.69.167/26",
+				},
+			},
+		},
+	}
+
+	ip, err := machineExternalIP(context.Background(), nil, machine)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if ip != "136.243.69.167" {
+		t.Fatalf("expected ip %q, got %q", "136.243.69.167", ip)
 	}
 }
 
@@ -81,7 +108,7 @@ func TestMachineExternalIP_FromHBMMStatus(t *testing.T) {
 		},
 	}
 
-	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(hbmm).Build()
+	c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(hbmm).Build()
 
 	ip, err := machineExternalIP(context.Background(), c, machine)
 	if err != nil {
@@ -132,7 +159,7 @@ func TestMachineExternalIP_FromHCloudMachineStatus(t *testing.T) {
 		},
 	}
 
-	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(hm).Build()
+	c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(hm).Build()
 
 	ip, err := machineExternalIP(context.Background(), c, machine)
 	if err != nil {
@@ -184,7 +211,7 @@ func TestMachineExternalIP_FallbackGetError(t *testing.T) {
 		},
 	}
 
-	c := fake.NewClientBuilder().WithScheme(scheme).Build()
+	c := fakeclient.NewClientBuilder().WithScheme(scheme).Build()
 
 	_, err := machineExternalIP(context.Background(), c, machine)
 	if err == nil {

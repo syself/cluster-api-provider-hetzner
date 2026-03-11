@@ -833,9 +833,13 @@ func nodeAddresses(host *infrav1.HetznerBareMetalHost, bareMetalMachineName stri
 		if nic.IP == "" {
 			continue
 		}
+		normalizedIP := normalizeIPAddress(nic.IP)
+		if normalizedIP == "" {
+			continue
+		}
 		address := clusterv1.MachineAddress{
 			Type:    clusterv1.MachineExternalIP,
-			Address: nic.IP,
+			Address: normalizedIP,
 		}
 		addrs = append(addrs, address)
 	}
@@ -903,4 +907,20 @@ func analyzePatchError(err error, ignoreNotFound bool) error {
 		return nil
 	}
 	return err
+}
+
+func normalizeIPAddress(value string) string {
+	if value == "" {
+		return ""
+	}
+
+	if ip := net.ParseIP(value); ip != nil {
+		return ip.String()
+	}
+
+	if ip, _, err := net.ParseCIDR(value); err == nil && ip != nil {
+		return ip.String()
+	}
+
+	return value
 }

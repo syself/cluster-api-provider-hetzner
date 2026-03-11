@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	stdlog "log"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -240,7 +241,12 @@ func externalIPFromAddresses(addresses []clusterv1.MachineAddress) string {
 		if address.Type != clusterv1.MachineExternalIP {
 			continue
 		}
-		return address.Address
+		hostIPAddr, err := normalizeHostIP(address.Address)
+		if err != nil {
+			stdlog.Printf("CollectMachineLog: skipping invalid MachineExternalIP %q: %v", address.Address, err)
+			continue
+		}
+		return hostIPAddr
 	}
 	return ""
 }
@@ -258,16 +264,20 @@ func executeRemoteCommand(f io.StringWriter, hostIPAddr, command string, args ..
 		return err
 	}
 	port := "22"
+	normalizedHostIPAddr, err := normalizeHostIP(hostIPAddr)
+	if err != nil {
+		return fmt.Errorf("invalid host IP address %q: %w", hostIPAddr, err)
+	}
 
 	var hostClient *ssh.Client
 	for attempt := 1; attempt <= 3; attempt++ {
-		hostClient, err = ssh.Dial("tcp", fmt.Sprintf("%s:%s", hostIPAddr, port), config)
+		hostClient, err = ssh.Dial("tcp", net.JoinHostPort(normalizedHostIPAddr, port), config)
 		if err != nil {
 			if attempt < 3 && isRetryableSSHError(err) {
 				time.Sleep(time.Duration(attempt) * time.Second)
 				continue
 			}
-			return fmt.Errorf("dialing host IP address at %s: %w", hostIPAddr, err)
+			return fmt.Errorf("dialing host IP address at %s: %w", normalizedHostIPAddr, err)
 		}
 		break
 	}
@@ -313,16 +323,20 @@ func executeRemoteCommandStdoutOnly(w io.Writer, hostIPAddr, command string, arg
 		return err
 	}
 	port := "22"
+	normalizedHostIPAddr, err := normalizeHostIP(hostIPAddr)
+	if err != nil {
+		return fmt.Errorf("invalid host IP address %q: %w", hostIPAddr, err)
+	}
 
 	var hostClient *ssh.Client
 	for attempt := 1; attempt <= 3; attempt++ {
-		hostClient, err = ssh.Dial("tcp", fmt.Sprintf("%s:%s", hostIPAddr, port), config)
+		hostClient, err = ssh.Dial("tcp", net.JoinHostPort(normalizedHostIPAddr, port), config)
 		if err != nil {
 			if attempt < 3 && isRetryableSSHError(err) {
 				time.Sleep(time.Duration(attempt) * time.Second)
 				continue
 			}
-			return fmt.Errorf("dialing host IP address at %s: %w", hostIPAddr, err)
+			return fmt.Errorf("dialing host IP address at %s: %w", normalizedHostIPAddr, err)
 		}
 		break
 	}
@@ -358,6 +372,22 @@ func isRetryableSSHError(err error) bool {
 		strings.Contains(message, "connection reset by peer") ||
 		strings.Contains(message, "connection refused") ||
 		strings.Contains(message, "i/o timeout")
+}
+
+func normalizeHostIP(value string) (string, error) {
+	if value == "" {
+		return "", fmt.Errorf("host IP address is empty")
+	}
+
+	if ip := net.ParseIP(value); ip != nil {
+		return ip.String(), nil
+	}
+
+	if ip, _, err := net.ParseCIDR(value); err == nil && ip != nil {
+		return ip.String(), nil
+	}
+
+	return "", fmt.Errorf("invalid host IP address %q", value)
 }
 
 func formatOutputForError(output string) string {

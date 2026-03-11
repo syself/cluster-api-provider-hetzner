@@ -369,6 +369,10 @@ var _ = Describe("Test NodeAddresses", func() {
 		IP: "172.0.20.2",
 	}
 
+	nicCIDR := infrav1.NIC{
+		IP: "136.243.69.167/26",
+	}
+
 	addr1 := clusterv1.MachineAddress{
 		Type:    clusterv1.MachineExternalIP,
 		Address: "192.168.1.1",
@@ -377,6 +381,11 @@ var _ = Describe("Test NodeAddresses", func() {
 	addr2 := clusterv1.MachineAddress{
 		Type:    clusterv1.MachineExternalIP,
 		Address: "172.0.20.2",
+	}
+
+	addrCIDR := clusterv1.MachineAddress{
+		Type:    clusterv1.MachineExternalIP,
+		Address: "136.243.69.167",
 	}
 
 	addr3 := clusterv1.MachineAddress{
@@ -426,6 +435,18 @@ var _ = Describe("Test NodeAddresses", func() {
 				},
 			},
 			ExpectedNodeAddresses: []clusterv1.MachineAddress{addr1, addr2, addr3, addr4},
+		}),
+		Entry("CIDR IP gets normalized", testCaseNodeAddress{
+			Host: &infrav1.HetznerBareMetalHost{
+				Spec: infrav1.HetznerBareMetalHostSpec{
+					Status: infrav1.ControllerGeneratedStatus{
+						HardwareDetails: &infrav1.HardwareDetails{
+							NIC: []infrav1.NIC{nicCIDR},
+						},
+					},
+				},
+			},
+			ExpectedNodeAddresses: []clusterv1.MachineAddress{addrCIDR, addr3, addr4},
 		}),
 	)
 })
