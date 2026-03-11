@@ -856,7 +856,7 @@ var _ = Describe("Test GenerateProviderID", func() {
 			hetznerCluster: func() *infrav1.HetznerCluster {
 				hetznerCluster := newHetznerCluster()
 				hetznerCluster.Annotations = map[string]string{
-					infrav1.UseHrobotProviderIdForBaremetalAnnotation: "true",
+					infrav1.UseHrobotProviderIDForBaremetalAnnotation: "true",
 				}
 				return hetznerCluster
 			}(),
@@ -868,7 +868,7 @@ var _ = Describe("Test GenerateProviderID", func() {
 			hetznerCluster: func() *infrav1.HetznerCluster {
 				hetznerCluster := newHetznerCluster()
 				hetznerCluster.Annotations = map[string]string{
-					infrav1.UseHrobotProviderIdForBaremetalAnnotation: "invalid",
+					infrav1.UseHrobotProviderIDForBaremetalAnnotation: "invalid",
 				}
 				return hetznerCluster
 			}(),

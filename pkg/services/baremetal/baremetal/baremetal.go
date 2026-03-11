@@ -916,7 +916,7 @@ func GenerateProviderID(machine *clusterv1.Machine, hetznerCluster *infrav1.Hetz
 	if machine.Spec.ProviderID != nil && *machine.Spec.ProviderID != "" {
 		return *machine.Spec.ProviderID, nil
 	}
-	annotationValue := strings.TrimSpace(hetznerCluster.Annotations[infrav1.UseHrobotProviderIdForBaremetalAnnotation])
+	annotationValue := strings.TrimSpace(hetznerCluster.Annotations[infrav1.UseHrobotProviderIDForBaremetalAnnotation])
 	if strings.EqualFold(annotationValue, "true") {
 		return fmt.Sprintf("%s%d", prefixRobotNew, serverNumber), nil
 	}
