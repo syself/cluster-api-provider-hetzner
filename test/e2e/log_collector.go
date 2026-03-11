@@ -22,6 +22,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	stdlog "log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -89,7 +90,7 @@ func (collector logCollector) CollectInfrastructureLogs(_ context.Context, _ cli
 func (collector logCollector) CollectMachineLog(ctx context.Context, c client.Client, m *clusterv1.Machine, outputPath string) error {
 	hostIPAddr, err := machineExternalIP(ctx, c, m)
 	if err != nil {
-		return err
+		return fmt.Errorf("CollectMachineLog failed: %w", err)
 	}
 
 	execToPathFn := func(hostFileName, command string, args ...string) func() error {
@@ -166,16 +167,36 @@ func machineExternalIP(ctx context.Context, c client.Client, m *clusterv1.Machin
 		return hostIPAddr, nil
 	}
 
-	if c != nil {
-		if hostIPAddr := infrastructureMachineExternalIP(ctx, c, m); hostIPAddr != "" {
-			return hostIPAddr, nil
-		}
+	baseErr := fmt.Errorf("machine %q has no ExternalIP: machine.status.addresses: %+v", m.Name, m.Status.Addresses)
+	if c == nil {
+		return "", baseErr
 	}
 
-	return "", fmt.Errorf("machine %q has no ExternalIP: machine.status.addresses: %+v", m.Name, m.Status.Addresses)
+	hostIPAddr, err := infrastructureMachineExternalIP(ctx, c, m)
+	if err != nil {
+		stdlog.Printf(
+			"CollectMachineLog: failed to resolve external IP via infrastructure machine for %s/%s (%s %s): %v",
+			m.Namespace, m.Name, m.Spec.InfrastructureRef.Kind, m.Spec.InfrastructureRef.Name, err,
+		)
+		return "", fmt.Errorf("%w; infrastructure fallback failed: %w", baseErr, err)
+	}
+
+	if hostIPAddr != "" {
+		return hostIPAddr, nil
+	}
+
+	return "", baseErr
 }
 
-func infrastructureMachineExternalIP(ctx context.Context, c client.Client, m *clusterv1.Machine) string {
+func infrastructureMachineExternalIP(ctx context.Context, c client.Client, m *clusterv1.Machine) (string, error) {
+	if c == nil {
+		return "", fmt.Errorf("client is nil")
+	}
+
+	if m.Spec.InfrastructureRef.Name == "" {
+		return "", fmt.Errorf("machine.spec.infrastructureRef.name is empty")
+	}
+
 	key := client.ObjectKey{
 		Namespace: infrastructureRefNamespace(m.Spec.InfrastructureRef, m.Namespace),
 		Name:      m.Spec.InfrastructureRef.Name,
@@ -185,17 +206,25 @@ func infrastructureMachineExternalIP(ctx context.Context, c client.Client, m *cl
 	case "HetznerBareMetalMachine":
 		hbmm := &infrav1.HetznerBareMetalMachine{}
 		if err := c.Get(ctx, key, hbmm); err != nil {
-			return ""
+			return "", fmt.Errorf("get HetznerBareMetalMachine %s: %w", key, err)
 		}
-		return externalIPFromAddresses(hbmm.Status.Addresses)
+		hostIPAddr := externalIPFromAddresses(hbmm.Status.Addresses)
+		if hostIPAddr == "" {
+			return "", fmt.Errorf("HetznerBareMetalMachine %s has no ExternalIP in status.addresses: %+v", key, hbmm.Status.Addresses)
+		}
+		return hostIPAddr, nil
 	case "HCloudMachine":
 		hm := &infrav1.HCloudMachine{}
 		if err := c.Get(ctx, key, hm); err != nil {
-			return ""
+			return "", fmt.Errorf("get HCloudMachine %s: %w", key, err)
 		}
-		return externalIPFromAddresses(hm.Status.Addresses)
+		hostIPAddr := externalIPFromAddresses(hm.Status.Addresses)
+		if hostIPAddr == "" {
+			return "", fmt.Errorf("HCloudMachine %s has no ExternalIP in status.addresses: %+v", key, hm.Status.Addresses)
+		}
+		return hostIPAddr, nil
 	default:
-		return ""
+		return "", fmt.Errorf("unsupported infrastructureRef kind %q", m.Spec.InfrastructureRef.Kind)
 	}
 }
 

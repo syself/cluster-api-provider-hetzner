@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -155,5 +156,41 @@ func TestMachineExternalIP_MissingEverywhere(t *testing.T) {
 	_, err := machineExternalIP(context.Background(), nil, machine)
 	if err == nil {
 		t.Fatalf("expected error, got nil")
+	}
+}
+
+func TestMachineExternalIP_FallbackGetError(t *testing.T) {
+	t.Parallel()
+
+	scheme := runtime.NewScheme()
+	if err := clusterv1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add clusterv1 scheme: %v", err)
+	}
+	if err := infrav1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add infrav1 scheme: %v", err)
+	}
+
+	machine := &clusterv1.Machine{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "machine-1",
+			Namespace: "default",
+		},
+		Spec: clusterv1.MachineSpec{
+			InfrastructureRef: corev1.ObjectReference{
+				APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
+				Kind:       "HetznerBareMetalMachine",
+				Name:       "hbmm-does-not-exist",
+			},
+		},
+	}
+
+	c := fake.NewClientBuilder().WithScheme(scheme).Build()
+
+	_, err := machineExternalIP(context.Background(), c, machine)
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "infrastructure fallback failed") {
+		t.Fatalf("expected infrastructure fallback error, got %v", err)
 	}
 }
