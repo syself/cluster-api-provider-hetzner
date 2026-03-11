@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 	"time"
 
@@ -57,6 +58,7 @@ type HCloudMachineReconciler struct {
 	APIReader           client.Reader
 	HCloudClientFactory hcloudclient.Factory
 	WatchFilterValue    string
+	IgnoredNamespaces   []string
 }
 
 //+kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;patch
@@ -69,6 +71,12 @@ type HCloudMachineReconciler struct {
 // Reconcile manages the lifecycle of an HCloud machine object.
 func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.Request) (res reconcile.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
+
+	// Skip ignored namespaces.
+	if slices.Contains(r.IgnoredNamespaces, req.Namespace) {
+		log.Info("Skipping reconciliation for ignored namespace", "namespace", req.Namespace)
+		return ctrl.Result{}, nil
+	}
 
 	// Fetch the HCloudMachine instance.
 	hcloudMachine := &infrav1.HCloudMachine{}
