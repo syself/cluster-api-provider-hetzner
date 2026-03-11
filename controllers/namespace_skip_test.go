@@ -24,6 +24,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
 
 func Test_shouldSkipReconciliationForNamespace(t *testing.T) {
@@ -62,14 +64,14 @@ func Test_shouldSkipReconciliationForNamespace(t *testing.T) {
 			name:          "namespace has skip annotation set to false",
 			namespace:     "default",
 			createNS:      true,
-			nsAnnotations: map[string]string{skipNamespaceAnnotation: "false"},
+			nsAnnotations: map[string]string{infrav1.SkipNamespaceAnnotation: "false"},
 			wantSkip:      false,
 		},
 		{
 			name:          "namespace has skip annotation set to true",
 			namespace:     "default",
 			createNS:      true,
-			nsAnnotations: map[string]string{skipNamespaceAnnotation: "true"},
+			nsAnnotations: map[string]string{infrav1.SkipNamespaceAnnotation: "true"},
 			wantSkip:      true,
 		},
 	}
