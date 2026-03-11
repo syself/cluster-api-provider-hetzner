@@ -47,3 +47,7 @@ jobs:
         with:
           e2e_name: upgrade-kubernetes
           e2e_make_target: test-e2e-upgrade-kubernetes
+          tps_token: ${{ secrets.TPS_TOKEN }}
+          e2e_ssh_pub: ${{ secrets.HETZNER_SSH_PUB }}
+          e2e_ssh_priv: ${{ secrets.HETZNER_SSH_PRIV }}
+          e2e_ssh_key_name: ${{ secrets.SSH_KEY_NAME }}
