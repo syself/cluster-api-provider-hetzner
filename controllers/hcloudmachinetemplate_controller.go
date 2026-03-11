@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -49,6 +50,7 @@ type HCloudMachineTemplateReconciler struct {
 	APIReader           client.Reader
 	HCloudClientFactory hcloudclient.Factory
 	WatchFilterValue    string
+	IgnoredNamespaces   []string
 }
 
 // +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hcloudmachinetemplates,verbs=get;list;watch;create;update;patch;delete
@@ -57,6 +59,12 @@ type HCloudMachineTemplateReconciler struct {
 // Reconcile manages the lifecycle of an HCloudMachineTemplate object.
 func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req reconcile.Request) (_ reconcile.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
+
+	// Skip ignored namespaces.
+	if slices.Contains(r.IgnoredNamespaces, req.Namespace) {
+		log.Info("Skipping reconciliation for ignored namespace", "namespace", req.Namespace)
+		return ctrl.Result{}, nil
+	}
 
 	machineTemplate := &infrav1.HCloudMachineTemplate{}
 	if err := r.Get(ctx, req.NamespacedName, machineTemplate); err != nil {

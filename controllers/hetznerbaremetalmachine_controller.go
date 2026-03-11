@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -53,6 +54,7 @@ type HetznerBareMetalMachineReconciler struct {
 	RateLimitWaitTime   time.Duration
 	HCloudClientFactory hcloudclient.Factory
 	WatchFilterValue    string
+	IgnoredNamespaces   []string
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalmachines,verbs=get;list;watch;create;update;patch;delete
@@ -62,6 +64,12 @@ type HetznerBareMetalMachineReconciler struct {
 // Reconcile implements the reconcilement of HetznerBareMetalMachine objects.
 func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req reconcile.Request) (res reconcile.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
+
+	// Skip ignored namespaces.
+	if slices.Contains(r.IgnoredNamespaces, req.Namespace) {
+		log.Info("Skipping reconciliation for ignored namespace", "namespace", req.Namespace)
+		return ctrl.Result{}, nil
+	}
 
 	// Fetch the Hetzner bare metal instance.
 	hbmMachine := &infrav1.HetznerBareMetalMachine{}

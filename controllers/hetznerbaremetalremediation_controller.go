@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
@@ -39,7 +40,8 @@ import (
 // HetznerBareMetalRemediationReconciler reconciles a HetznerBareMetalRemediation object.
 type HetznerBareMetalRemediationReconciler struct {
 	client.Client
-	WatchFilterValue string
+	WatchFilterValue  string
+	IgnoredNamespaces []string
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalremediations,verbs=get;list;watch;create;update;patch;delete
@@ -50,6 +52,12 @@ type HetznerBareMetalRemediationReconciler struct {
 // Reconcile reconciles the hetznerBareMetalRemediation object.
 func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, req reconcile.Request) (res reconcile.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
+
+	// Skip ignored namespaces.
+	if slices.Contains(r.IgnoredNamespaces, req.Namespace) {
+		log.Info("Skipping reconciliation for ignored namespace", "namespace", req.Namespace)
+		return ctrl.Result{}, nil
+	}
 
 	// Fetch the Hetzner bare metal host instance.
 	bareMetalRemediation := &infrav1.HetznerBareMetalRemediation{}
