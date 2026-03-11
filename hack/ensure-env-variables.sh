@@ -53,6 +53,7 @@ if [[ -n "${HETZNER_SSH_PRIV:-}" ]]; then
   fi
 fi
 
+# Ensure env var KUBERNETES_VERSION is not outdated.
 if [[ -n "${KUBERNETES_VERSION:-}" ]]; then
   min_kubernetes_version="1.33.6"
   kubernetes_version="${KUBERNETES_VERSION#v}"
