@@ -42,8 +42,7 @@ func TestNetwork(t *testing.T) {
 	RunSpecs(t, "Network Suite")
 }
 
-func resetTestState() {
-	hetznerCluster = infrav1.HetznerCluster{}
+var _ = BeforeEach(func() {
 	hetznerCluster.Name = "hetzner-cluster"
 	hetznerCluster.Spec.HCloudNetwork = infrav1.HCloudNetworkSpec{
 		Enabled:         true,
@@ -54,12 +53,4 @@ func resetTestState() {
 
 	hcloudClient = fakeclient.NewHCloudClientFactory().NewClient("")
 	service = Service{&scope.ClusterScope{HetznerCluster: &hetznerCluster, HCloudClient: hcloudClient}}
-}
-
-var _ = BeforeSuite(func() {
-	resetTestState()
-})
-
-var _ = BeforeEach(func() {
-	resetTestState()
 })

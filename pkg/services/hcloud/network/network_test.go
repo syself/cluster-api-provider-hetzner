@@ -64,10 +64,6 @@ var _ = Describe("Test createOpts", func() {
 var _ = Describe("Test findNetwork", func() {
 	_, subnet2Cidr, _ := net.ParseCIDR("10.0.1.0/24")
 
-	BeforeEach(func() {
-		Expect(subnet2Cidr).ToNot(BeNil())
-	})
-
 	It("outputs the correct network", func() {
 		_, createErr := hcloudClient.CreateNetwork(context.Background(), hcloud.NetworkCreateOpts{
 			Name:    "test-network",
@@ -174,4 +170,5 @@ var _ = Describe("Test findNetwork", func() {
 		}
 		Expect(err).To(Equal(fmt.Errorf("found multiple networks with opts %v - not allowed", expectedOpts)))
 	})
+
 })
