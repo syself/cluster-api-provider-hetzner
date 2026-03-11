@@ -23,7 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func Test_shouldSkipReconciliationForNamespace(t *testing.T) {
@@ -81,7 +81,7 @@ func Test_shouldSkipReconciliationForNamespace(t *testing.T) {
 				t.Fatalf("failed to add corev1 scheme: %v", err)
 			}
 
-			builder := fake.NewClientBuilder().WithScheme(scheme)
+			builder := fakeclient.NewClientBuilder().WithScheme(scheme)
 			if tt.createNS {
 				builder = builder.WithObjects(&corev1.Namespace{
 					ObjectMeta: metav1.ObjectMeta{
