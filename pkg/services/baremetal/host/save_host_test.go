@@ -65,7 +65,7 @@ func TestSaveHostAndReturnPreservesLastUpdatedForTimeoutTrackedErrors(t *testing
 	cl, liveHost := testClientWithHost(t, host)
 	_, err := SaveHostAndReturn(context.Background(), cl, liveHost)
 	require.NoError(t, err)
-	require.Equal(t, old.Time.Unix(), liveHost.Spec.Status.LastUpdated.Time.Unix())
+	require.Equal(t, old.Unix(), liveHost.Spec.Status.LastUpdated.Unix())
 }
 
 func TestSaveHostAndReturnRefreshesLastUpdatedForOtherStates(t *testing.T) {
@@ -86,5 +86,5 @@ func TestSaveHostAndReturnRefreshesLastUpdatedForOtherStates(t *testing.T) {
 	cl, liveHost := testClientWithHost(t, host)
 	_, err := SaveHostAndReturn(context.Background(), cl, liveHost)
 	require.NoError(t, err)
-	require.True(t, liveHost.Spec.Status.LastUpdated.Time.After(old.Time))
+	require.True(t, liveHost.Spec.Status.LastUpdated.After(old.Time))
 }

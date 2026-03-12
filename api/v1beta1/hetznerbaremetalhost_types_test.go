@@ -506,5 +506,5 @@ func TestHetznerBareMetalHost_SetErrorLastUpdated(t *testing.T) {
 
 	host.SetError(ProvisioningError, "new error")
 	require.NotNil(t, host.Spec.Status.LastUpdated)
-	require.True(t, host.Spec.Status.LastUpdated.Time.After(initial.Time))
+	require.True(t, host.Spec.Status.LastUpdated.After(initial.Time))
 }
