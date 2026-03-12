@@ -96,13 +96,13 @@ var _ = Describe("Test findNetwork", func() {
 		Expect(network).To(BeNil())
 	})
 
-	It("outputs the correct network if there are multiple subnets but the first one matches the configured one on the HetznerCluster", func() {
+	It("outputs the correct network if there is one existing subnet of type cloud and one existing subnet of type vswitch", func() {
 		_, createErr := hcloudClient.CreateNetwork(context.Background(), hcloud.NetworkCreateOpts{
 			Name:    "test-network",
 			IPRange: networkCidr,
 			Subnets: []hcloud.NetworkSubnet{
 				{IPRange: subnetCidr, Type: hcloud.NetworkSubnetTypeCloud},
-				{IPRange: subnet2Cidr, Type: hcloud.NetworkSubnetTypeCloud},
+				{IPRange: subnet2Cidr, Type: hcloud.NetworkSubnetTypeVSwitch},
 			},
 			Labels: map[string]string{"caph-cluster-hetzner-cluster": "owned"},
 		})
@@ -114,7 +114,7 @@ var _ = Describe("Test findNetwork", func() {
 			IPRange: networkCidr,
 			Subnets: []hcloud.NetworkSubnet{
 				{IPRange: subnetCidr, Type: hcloud.NetworkSubnetTypeCloud},
-				{IPRange: subnet2Cidr, Type: hcloud.NetworkSubnetTypeCloud},
+				{IPRange: subnet2Cidr, Type: hcloud.NetworkSubnetTypeVSwitch},
 			},
 			Labels: map[string]string{"caph-cluster-hetzner-cluster": "owned"},
 		}
@@ -124,13 +124,31 @@ var _ = Describe("Test findNetwork", func() {
 		Expect(network).To(Equal(expectedNetwork))
 	})
 
-	It("gives an error if there there are multiple subnet and the first one doesn't match the configure one on the HetznerCluster", func() {
+	It("gives an error if an existing subnet of type cloud does not match the configured one on the HetznerCluster", func() {
 		_, createErr := hcloudClient.CreateNetwork(context.Background(), hcloud.NetworkCreateOpts{
 			Name:    "test-network",
 			IPRange: networkCidr,
 			Subnets: []hcloud.NetworkSubnet{
 				{IPRange: subnet2Cidr, Type: hcloud.NetworkSubnetTypeCloud},
+			},
+			Labels: map[string]string{"caph-cluster-hetzner-cluster": "owned"},
+		})
+		Expect(createErr).To(BeNil())
+
+		println("createErr", createErr)
+
+		network, err := service.findNetwork(context.Background())
+		Expect(network).To(BeNil())
+		Expect(err).To(Equal(fmt.Errorf("the subnet 10.0.1.0/24 does not match the configured 10.0.0.0/24")))
+	})
+
+	It("gives an error if there are multiple subnet of type cloud", func() {
+		_, createErr := hcloudClient.CreateNetwork(context.Background(), hcloud.NetworkCreateOpts{
+			Name:    "test-network",
+			IPRange: networkCidr,
+			Subnets: []hcloud.NetworkSubnet{
 				{IPRange: subnetCidr, Type: hcloud.NetworkSubnetTypeCloud},
+				{IPRange: subnet2Cidr, Type: hcloud.NetworkSubnetTypeCloud},
 			},
 			Labels: map[string]string{"caph-cluster-hetzner-cluster": "owned"},
 		})
@@ -138,7 +156,23 @@ var _ = Describe("Test findNetwork", func() {
 
 		network, err := service.findNetwork(context.Background())
 		Expect(network).To(BeNil())
-		Expect(err).To(Equal(fmt.Errorf("multiple subnets found and first subnet 10.0.1.0/24 doesn't match the configured 10.0.0.0/24")))
+		Expect(err).To(Equal(fmt.Errorf("multiple subnet of type 'cloud' are currently not allowed")))
+	})
+
+	It("gives an error if there is a subnet of type vswitch but no subnet of type cloud", func() {
+		_, createErr := hcloudClient.CreateNetwork(context.Background(), hcloud.NetworkCreateOpts{
+			Name:    "test-network",
+			IPRange: networkCidr,
+			Subnets: []hcloud.NetworkSubnet{
+				{IPRange: subnetCidr, Type: hcloud.NetworkSubnetTypeVSwitch},
+			},
+			Labels: map[string]string{"caph-cluster-hetzner-cluster": "owned"},
+		})
+		Expect(createErr).To(BeNil())
+
+		network, err := service.findNetwork(context.Background())
+		Expect(network).To(BeNil())
+		Expect(err).To(Equal(fmt.Errorf("a subnet of type 'cloud' is missing")))
 	})
 
 	It("gives an error if there are multiple networks with the same label", func() {
