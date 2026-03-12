@@ -116,6 +116,37 @@ go run github.com/guettli/check-conditions@latest all
 [check-conditions](https://github.com/guettli/check-conditions) shows all unhealthy conditions of
 the current cluster. You can use it in both the management and workload clusters.
 
+### Check bare metal provisioning reliability
+
+Use `hbmh-provision-check` to verify that one `HetznerBareMetalHost` can reliably:
+
+1. reboot to rescue,
+2. install Ubuntu 24.04,
+3. boot into the installed OS,
+4. and repeat the cycle a second time.
+
+The tool reads one HBMH from a YAML file and continuously prints progress, elapsed time, timeout usage, and remaining time per step.
+
+Example:
+
+```shell
+go run ./hack/tools/hbmh-provision-check \
+  --file test/e2e/data/infrastructure-hetzner/v1beta1/bases/hetznerbaremetalhosts.yaml \
+  --name bm-e2e-1731561
+```
+
+Required environment variables:
+
+```shell
+export HETZNER_ROBOT_USER=<robot-user>
+export HETZNER_ROBOT_PASSWORD=<robot-password>
+export SSH_KEY_NAME=<ssh-key-name-in-robot>
+export HETZNER_SSH_PUB_PATH=$HOME/.ssh/my-caph-ssh-key.pub
+export HETZNER_SSH_PRIV_PATH=$HOME/.ssh/my-caph-ssh-key
+```
+
+Alternatively, you can provide `HETZNER_SSH_PUB` and `HETZNER_SSH_PRIV` (base64 or plain content) instead of file paths.
+
 ## Submitting PRs and testing
 
 Pull requests and issues are highly encouraged! For more information, please have a look at the [Contribution Guidelines](https://github.com/syself/cluster-api-provider-hetzner/blob/main/CONTRIBUTING.md)
