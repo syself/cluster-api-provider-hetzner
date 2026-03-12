@@ -160,10 +160,25 @@ func (s *Service) recordActionFailure(errorType infrav1.ErrorType, errorMessage 
 	return actionFailed{ErrorType: errorType, errorCount: s.scope.HetznerBareMetalHost.Spec.Status.ErrorCount}
 }
 
-// SaveHostAndReturn saves host object, updates LastUpdated in host status and returns the reconcile Result.
+func errorTypeUsesLastUpdatedTimeout(errType infrav1.ErrorType) bool {
+	switch errType {
+	case infrav1.ErrorTypeSSHRebootTriggered,
+		infrav1.ErrorTypeSoftwareRebootTriggered,
+		infrav1.ErrorTypeHardwareRebootTriggered,
+		infrav1.ErrorTypeConnectionError:
+		return true
+	default:
+		return false
+	}
+}
+
+// SaveHostAndReturn saves host object and returns the reconcile Result.
+// LastUpdated is intentionally kept stable for timeout-tracked error states.
 func SaveHostAndReturn(ctx context.Context, cl client.Client, host *infrav1.HetznerBareMetalHost) (res reconcile.Result, err error) {
-	t := metav1.Now()
-	host.Spec.Status.LastUpdated = &t
+	if host.Spec.Status.LastUpdated == nil || !errorTypeUsesLastUpdatedTimeout(host.Spec.Status.ErrorType) {
+		t := metav1.Now()
+		host.Spec.Status.LastUpdated = &t
+	}
 
 	if err := cl.Update(ctx, host); err != nil {
 		if apierrors.IsConflict(err) {

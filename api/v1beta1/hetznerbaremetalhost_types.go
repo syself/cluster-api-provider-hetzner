@@ -590,6 +590,8 @@ func (host *HetznerBareMetalHost) SetError(errType ErrorType, errMessage string)
 	} else {
 		// new error - start fresh error count
 		host.Spec.Status.ErrorCount = 1
+		now := metav1.Now()
+		host.Spec.Status.LastUpdated = &now
 	}
 	host.Spec.Status.ErrorType = errType
 	host.Spec.Status.ErrorMessage = errMessage

@@ -20,6 +20,7 @@ import (
 	"cmp"
 	"slices"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -490,4 +491,20 @@ func TestHetznerBareMetalHost_SetError(t *testing.T) {
 	}
 	host.SetError(ProvisioningError, "some error")
 	require.Equal(t, []string{"other-annotation"}, mapKeys(host.Annotations))
+}
+
+func TestHetznerBareMetalHost_SetErrorLastUpdated(t *testing.T) {
+	host := HetznerBareMetalHost{}
+
+	initial := metav1.NewTime(time.Unix(100, 0))
+	host.Spec.Status.LastUpdated = &initial
+	host.Spec.Status.ErrorType = ProvisioningError
+	host.Spec.Status.ErrorMessage = "same error"
+
+	host.SetError(ProvisioningError, "same error")
+	require.Equal(t, initial.Time, host.Spec.Status.LastUpdated.Time)
+
+	host.SetError(ProvisioningError, "new error")
+	require.NotNil(t, host.Spec.Status.LastUpdated)
+	require.True(t, host.Spec.Status.LastUpdated.Time.After(initial.Time))
 }
