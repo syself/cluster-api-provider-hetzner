@@ -27,7 +27,7 @@ import (
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
 
-//+kubebuilder:rbac:groups="",resources=namespaces,verbs=get
+//+kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
 
 func shouldSkipReconciliationForNamespace(ctx context.Context, c client.Reader, namespace string) (bool, error) {
 	if namespace == "" {
