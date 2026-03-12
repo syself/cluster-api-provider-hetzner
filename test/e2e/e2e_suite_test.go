@@ -610,10 +610,7 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 		if eMsg != "" {
 			log("  Error: " + eMsg)
 			if hbmh.Spec.Status.ErrorType == infrav1.PermanentError {
-				return &permanentHBMHError{
-					name:    hbmh.Name,
-					message: eMsg,
-				}
+				return fmt.Errorf("%w on HetznerBareMetalHost %q: %s", errPermanentHBMH, hbmh.Name, eMsg)
 			}
 		}
 
@@ -629,19 +626,6 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 		log("  ProvisioningState: " + string(hbmh.Spec.Status.ProvisioningState) + " | Ready Condition: " + state + " " + reason + " " + msg)
 	}
 	return nil
-}
-
-type permanentHBMHError struct {
-	name    string
-	message string
-}
-
-func (e *permanentHBMHError) Error() string {
-	return fmt.Sprintf("permanent error on HetznerBareMetalHost %q: %s", e.name, e.message)
-}
-
-func (e *permanentHBMHError) Is(target error) bool {
-	return target == errPermanentHBMH
 }
 
 func initBootstrapCluster(ctx context.Context, bootstrapClusterProxy framework.ClusterProxy, config *clusterctl.E2EConfig, clusterctlConfig, artifactFolder string) {
