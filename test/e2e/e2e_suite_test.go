@@ -18,6 +18,7 @@ package e2e
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -264,6 +265,8 @@ func setupBootstrapCluster(config *clusterctl.E2EConfig, scheme *runtime.Scheme,
 
 // logStatusContinuously does log the state of the mgt-cluster and the wl-clusters continuously.
 func logStatusContinuously(ctx context.Context, restConfig *restclient.Config, c client.Client) {
+	defer GinkgoRecover()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -272,7 +275,11 @@ func logStatusContinuously(ctx context.Context, restConfig *restclient.Config, c
 		case <-time.After(30 * time.Second):
 			err := logStatus(ctx, restConfig, c)
 			if err != nil {
-				log(fmt.Sprintf("Error logging caph Deployment: %v", err))
+				var permanentErr *permanentHBMHError
+				if errors.As(err, &permanentErr) {
+					Fail(err.Error())
+				}
+				log(fmt.Sprintf("Error logging status: %v", err))
 			}
 		}
 	}
@@ -602,6 +609,12 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 		eMsg = strings.TrimSpace(eMsg)
 		if eMsg != "" {
 			log("  Error: " + eMsg)
+			if hbmh.Spec.Status.ErrorType == infrav1.PermanentError {
+				return &permanentHBMHError{
+					name:    hbmh.Name,
+					message: eMsg,
+				}
+			}
 		}
 
 		readyC := conditions.Get(hbmh, clusterv1.ReadyCondition)
@@ -616,6 +629,15 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 		log("  ProvisioningState: " + string(hbmh.Spec.Status.ProvisioningState) + " | Ready Condition: " + state + " " + reason + " " + msg)
 	}
 	return nil
+}
+
+type permanentHBMHError struct {
+	name    string
+	message string
+}
+
+func (e *permanentHBMHError) Error() string {
+	return fmt.Sprintf("permanent error on HetznerBareMetalHost %q: %s", e.name, e.message)
 }
 
 func initBootstrapCluster(ctx context.Context, bootstrapClusterProxy framework.ClusterProxy, config *clusterctl.E2EConfig, clusterctlConfig, artifactFolder string) {
