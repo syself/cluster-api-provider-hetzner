@@ -41,7 +41,6 @@ import (
 
 const (
 	sshTimeOut time.Duration = 5 * time.Second
-	sshUser                  = "root"
 
 	imageURLCommandLog = "/root/image-url-command.log"
 )
@@ -64,6 +63,8 @@ var downloadFromOciShellScript string
 var (
 	// ErrCommandExitedWithoutExitSignal means the ssh command exited unplanned.
 	ErrCommandExitedWithoutExitSignal = errors.New("wait: remote command exited without exit status or exit signal")
+	// ErrCommandExitedWithStatusOne means the ssh command exited with sttatus 1.
+	ErrCommandExitedWithStatusOne = errors.New("process exited with status 1")
 
 	// ErrAuthenticationFailed means ssh was unable to authenticate.
 	ErrAuthenticationFailed = errors.New("ssh: unable to authenticate")
@@ -444,8 +445,7 @@ func (c *sshClient) CloudInitStatus() Output {
 // CheckCloudInitLogsForSigTerm implements the CheckCloudInitLogsForSigTerm method of the SSHClient interface.
 func (c *sshClient) CheckCloudInitLogsForSigTerm() Output {
 	out := c.runSSH(`cat /var/log/cloud-init.log | grep "SIGTERM"`)
-	exitStatus, exitError := out.ExitStatus()
-	if exitError == nil && exitStatus == 1 {
+	if out.Err != nil && strings.Contains(out.Err.Error(), ErrCommandExitedWithStatusOne.Error()) {
 		return Output{}
 	}
 	return out
@@ -598,11 +598,11 @@ func (c *sshClient) getSSHClient() (*ssh.Client, error) {
 	// Create the Signer for this private key.
 	signer, err := ssh.ParsePrivateKey([]byte(c.privateSSHKey))
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse private key (%s): %w", c.connectionDetails(), err)
+		return nil, fmt.Errorf("unable to parse private key: %w", err)
 	}
 
 	config := &ssh.ClientConfig{
-		User: sshUser,
+		User: "root",
 		Auth: []ssh.AuthMethod{
 			// Use the PublicKeys method for remote authentication.
 			ssh.PublicKeys(signer),
@@ -614,7 +614,7 @@ func (c *sshClient) getSSHClient() (*ssh.Client, error) {
 	// Connect to the remote server and perform the SSH handshake.
 	client, err := ssh.Dial("tcp", fmt.Sprintf("%s:%v", c.ip, c.port), config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to dial ssh (%s): %w", c.connectionDetails(), err)
+		return nil, fmt.Errorf("failed to dial ssh. DialErr: %w", err)
 	}
 
 	return client, nil
@@ -633,7 +633,7 @@ func (c *sshClient) runSSH(command string) Output {
 
 	sess, err := client.NewSession()
 	if err != nil {
-		return Output{Err: fmt.Errorf("unable to create new ssh session (%s): %w", c.connectionDetails(), err)}
+		return Output{Err: fmt.Errorf("unable to create new ssh session: %w", err)}
 	}
 	defer func() {
 		if err := sess.Close(); err != nil {
@@ -651,28 +651,8 @@ func (c *sshClient) runSSH(command string) Output {
 	return Output{
 		StdOut: stdoutBuffer.String(),
 		StdErr: stderrBuffer.String(),
-		Err:    wrapSSHCommandError(err, c.connectionDetails(), command),
+		Err:    err,
 	}
-}
-
-func (c *sshClient) connectionDetails() string {
-	return fmt.Sprintf("user=%s host=%s port=%d timeout=%s", sshUser, c.ip, c.port, sshTimeOut)
-}
-
-func wrapSSHCommandError(err error, connectionDetails, command string) error {
-	if err == nil {
-		return nil
-	}
-	return fmt.Errorf("ssh command failed (%s command=%q): %w", connectionDetails, shortenedCommand(command), err)
-}
-
-func shortenedCommand(command string) string {
-	const maxLength = 160
-	command = strings.ReplaceAll(strings.TrimSpace(command), "\n", " ")
-	if len(command) <= maxLength {
-		return command
-	}
-	return command[:maxLength] + "..."
 }
 
 func removeUselessLinesFromCloudInitOutput(s string) string {
