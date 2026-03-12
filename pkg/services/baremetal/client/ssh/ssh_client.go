@@ -41,6 +41,7 @@ import (
 
 const (
 	sshTimeOut time.Duration = 5 * time.Second
+	sshUser                  = "root"
 
 	imageURLCommandLog = "/root/image-url-command.log"
 )
@@ -598,11 +599,11 @@ func (c *sshClient) getSSHClient() (*ssh.Client, error) {
 	// Create the Signer for this private key.
 	signer, err := ssh.ParsePrivateKey([]byte(c.privateSSHKey))
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse private key: %w", err)
+		return nil, fmt.Errorf("unable to parse private key (%s): %w", c.connectionDetails(), err)
 	}
 
 	config := &ssh.ClientConfig{
-		User: "root",
+		User: sshUser,
 		Auth: []ssh.AuthMethod{
 			// Use the PublicKeys method for remote authentication.
 			ssh.PublicKeys(signer),
@@ -614,7 +615,7 @@ func (c *sshClient) getSSHClient() (*ssh.Client, error) {
 	// Connect to the remote server and perform the SSH handshake.
 	client, err := ssh.Dial("tcp", fmt.Sprintf("%s:%v", c.ip, c.port), config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to dial ssh. DialErr: %w", err)
+		return nil, fmt.Errorf("failed to dial ssh (%s): %w", c.connectionDetails(), err)
 	}
 
 	return client, nil
@@ -633,7 +634,7 @@ func (c *sshClient) runSSH(command string) Output {
 
 	sess, err := client.NewSession()
 	if err != nil {
-		return Output{Err: fmt.Errorf("unable to create new ssh session: %w", err)}
+		return Output{Err: fmt.Errorf("unable to create new ssh session (%s): %w", c.connectionDetails(), err)}
 	}
 	defer func() {
 		if err := sess.Close(); err != nil {
@@ -648,11 +649,18 @@ func (c *sshClient) runSSH(command string) Output {
 	sess.Stderr = &stderrBuffer
 
 	err = sess.Run(command)
+	if err != nil {
+		err = fmt.Errorf("ssh command failed (%s): %w", c.connectionDetails(), err)
+	}
 	return Output{
 		StdOut: stdoutBuffer.String(),
 		StdErr: stderrBuffer.String(),
 		Err:    err,
 	}
+}
+
+func (c *sshClient) connectionDetails() string {
+	return fmt.Sprintf("user=%s host=%s port=%d timeout=%s", sshUser, c.ip, c.port, sshTimeOut)
 }
 
 func removeUselessLinesFromCloudInitOutput(s string) string {
