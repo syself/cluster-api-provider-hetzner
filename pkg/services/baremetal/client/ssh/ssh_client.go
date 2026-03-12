@@ -650,7 +650,7 @@ func (c *sshClient) runSSH(command string) Output {
 
 	err = sess.Run(command)
 	if err != nil {
-		err = fmt.Errorf("ssh command failed (%s command=%q): %w", c.connectionDetails(), shortenedCommand(command), err)
+		err = fmt.Errorf("ssh command failed (%s): %w", c.connectionDetails(), err)
 	}
 	return Output{
 		StdOut: stdoutBuffer.String(),
@@ -661,15 +661,6 @@ func (c *sshClient) runSSH(command string) Output {
 
 func (c *sshClient) connectionDetails() string {
 	return fmt.Sprintf("user=%s host=%s port=%d timeout=%s", sshUser, c.ip, c.port, sshTimeOut)
-}
-
-func shortenedCommand(command string) string {
-	const maxLength = 160
-	command = strings.ReplaceAll(strings.TrimSpace(command), "\n", " ")
-	if len(command) <= maxLength {
-		return command
-	}
-	return command[:maxLength] + "..."
 }
 
 func removeUselessLinesFromCloudInitOutput(s string) string {
