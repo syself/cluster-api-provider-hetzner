@@ -18,6 +18,8 @@ package e2e
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -293,5 +295,90 @@ func TestMachineExternalIP_FallbackGetError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "infrastructure fallback failed") {
 		t.Fatalf("expected infrastructure fallback error, got %v", err)
+	}
+}
+
+func TestAssociatedHostFromHBMM(t *testing.T) {
+	t.Parallel()
+
+	scheme := runtime.NewScheme()
+	if err := clusterv1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add clusterv1 scheme: %v", err)
+	}
+	if err := infrav1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add infrav1 scheme: %v", err)
+	}
+
+	hbmm := &infrav1.HetznerBareMetalMachine{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "hbmm-1",
+			Namespace: "default",
+			Annotations: map[string]string{
+				infrav1.HostAnnotation: "default/hbmh-1",
+			},
+		},
+	}
+
+	hbmh := &infrav1.HetznerBareMetalHost{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "hbmh-1",
+			Namespace: "default",
+		},
+	}
+
+	c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(hbmm, hbmh).Build()
+
+	host, key, err := associatedHostFromHBMM(context.Background(), c, hbmm)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if host.Name != "hbmh-1" || host.Namespace != "default" {
+		t.Fatalf("unexpected host: %s/%s", host.Namespace, host.Name)
+	}
+	if key.Name != "hbmh-1" || key.Namespace != "default" {
+		t.Fatalf("unexpected host key: %s/%s", key.Namespace, key.Name)
+	}
+}
+
+func TestMoveTempFileIfNonEmpty_EmptyFileGetsDropped(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	tempPath := filepath.Join(dir, "empty.tmp")
+	finalPath := filepath.Join(dir, "final.log")
+	if err := os.WriteFile(tempPath, []byte(""), 0o600); err != nil {
+		t.Fatalf("write temp file: %v", err)
+	}
+
+	if err := moveTempFileIfNonEmpty(tempPath, finalPath); err != nil {
+		t.Fatalf("move temp file: %v", err)
+	}
+
+	if _, err := os.Stat(finalPath); !os.IsNotExist(err) {
+		t.Fatalf("expected final file to not exist, got err=%v", err)
+	}
+}
+
+func TestMoveTempFileIfNonEmpty_NonEmptyFileGetsMoved(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	tempPath := filepath.Join(dir, "nonempty.tmp")
+	finalPath := filepath.Join(dir, "final.log")
+	content := "hello world\n"
+	if err := os.WriteFile(tempPath, []byte(content), 0o600); err != nil {
+		t.Fatalf("write temp file: %v", err)
+	}
+
+	if err := moveTempFileIfNonEmpty(tempPath, finalPath); err != nil {
+		t.Fatalf("move temp file: %v", err)
+	}
+
+	b, err := os.ReadFile(finalPath)
+	if err != nil {
+		t.Fatalf("read final file: %v", err)
+	}
+	if string(b) != content {
+		t.Fatalf("unexpected final content: %q", string(b))
 	}
 }

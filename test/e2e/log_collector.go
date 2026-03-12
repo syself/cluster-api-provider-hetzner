@@ -96,12 +96,25 @@ func (collector logCollector) CollectMachineLog(ctx context.Context, c client.Cl
 
 	execToPathFn := func(hostFileName, command string, args ...string) func() error {
 		return func() error {
-			f, err := createOutputFile(filepath.Join(outputPath, hostFileName))
+			if err := os.MkdirAll(outputPath, 0o750); err != nil {
+				return err
+			}
+			tempFile, err := os.CreateTemp(outputPath, hostFileName+".tmp-*") // #nosec
 			if err != nil {
 				return err
 			}
-			defer func() { _ = f.Close() }()
-			return executeRemoteCommand(f, hostIPAddr, command, args...)
+			tempPath := tempFile.Name()
+			defer func() {
+				_ = tempFile.Close()
+				_ = os.Remove(tempPath)
+			}()
+
+			if err := executeRemoteCommand(tempFile, hostIPAddr, command, args...); err != nil {
+				_ = moveTempFileIfNonEmpty(tempPath, filepath.Join(outputPath, hostFileName))
+				return err
+			}
+
+			return moveTempFileIfNonEmpty(tempPath, filepath.Join(outputPath, hostFileName))
 		}
 	}
 
@@ -143,7 +156,7 @@ func (collector logCollector) CollectMachineLog(ctx context.Context, c client.Cl
 		}
 	}
 
-	return kinderrors.AggregateConcurrent([]func() error{
+	collectionErr := kinderrors.AggregateConcurrent([]func() error{
 		execToPathFn("kern.log",
 			"journalctl", "--no-pager", "--output=short-precise", "-k"),
 		execToPathFn("kubelet.log",
@@ -161,6 +174,8 @@ func (collector logCollector) CollectMachineLog(ctx context.Context, c client.Cl
 		copyDirFn("/var/log/pods", "pods"),
 		copyDirFn("/etc/kubernetes", "kubernetes"),
 	})
+
+	return collectionErr
 }
 
 func machineExternalIP(ctx context.Context, c client.Client, m *clusterv1.Machine) (string, error) {
@@ -235,35 +250,9 @@ func infrastructureMachineExternalIP(ctx context.Context, c client.Client, m *cl
 }
 
 func externalIPFromAssociatedHost(ctx context.Context, c client.Client, hbmm *infrav1.HetznerBareMetalMachine) (string, error) {
-	if hbmm == nil {
-		return "", fmt.Errorf("hbmm is nil")
-	}
-
-	annotationValue, ok := hbmm.Annotations[infrav1.HostAnnotation]
-	if !ok || annotationValue == "" {
-		return "", fmt.Errorf("annotation %q not found", infrav1.HostAnnotation)
-	}
-
-	hostNamespace := hbmm.Namespace
-	hostName := annotationValue
-	parts := strings.Split(annotationValue, "/")
-	if len(parts) == 2 {
-		if parts[0] != "" {
-			hostNamespace = parts[0]
-		}
-		hostName = parts[1]
-	}
-	if hostName == "" {
-		return "", fmt.Errorf("associated host name in annotation %q is empty", infrav1.HostAnnotation)
-	}
-
-	host := &infrav1.HetznerBareMetalHost{}
-	hostKey := client.ObjectKey{
-		Namespace: hostNamespace,
-		Name:      hostName,
-	}
-	if err := c.Get(ctx, hostKey, host); err != nil {
-		return "", fmt.Errorf("get HetznerBareMetalHost %s: %w", hostKey, err)
+	host, hostKey, err := associatedHostFromHBMM(ctx, c, hbmm)
+	if err != nil {
+		return "", err
 	}
 
 	for _, candidate := range []string{host.Spec.Status.IPv4, host.Spec.Status.IPv6} {
@@ -278,6 +267,41 @@ func externalIPFromAssociatedHost(ctx context.Context, c client.Client, hbmm *in
 	}
 
 	return "", fmt.Errorf("HetznerBareMetalHost %s has no usable IPv4/IPv6 (IPv4=%q, IPv6=%q)", hostKey, host.Spec.Status.IPv4, host.Spec.Status.IPv6)
+}
+
+func associatedHostFromHBMM(ctx context.Context, c client.Client, hbmm *infrav1.HetznerBareMetalMachine) (*infrav1.HetznerBareMetalHost, client.ObjectKey, error) {
+	if hbmm == nil {
+		return nil, client.ObjectKey{}, fmt.Errorf("hbmm is nil")
+	}
+
+	annotationValue, ok := hbmm.Annotations[infrav1.HostAnnotation]
+	if !ok || annotationValue == "" {
+		return nil, client.ObjectKey{}, fmt.Errorf("annotation %q not found", infrav1.HostAnnotation)
+	}
+
+	hostNamespace := hbmm.Namespace
+	hostName := annotationValue
+	parts := strings.Split(annotationValue, "/")
+	if len(parts) == 2 {
+		if parts[0] != "" {
+			hostNamespace = parts[0]
+		}
+		hostName = parts[1]
+	}
+	if hostName == "" {
+		return nil, client.ObjectKey{}, fmt.Errorf("associated host name in annotation %q is empty", infrav1.HostAnnotation)
+	}
+
+	host := &infrav1.HetznerBareMetalHost{}
+	hostKey := client.ObjectKey{
+		Namespace: hostNamespace,
+		Name:      hostName,
+	}
+	if err := c.Get(ctx, hostKey, host); err != nil {
+		return nil, client.ObjectKey{}, fmt.Errorf("get HetznerBareMetalHost %s: %w", hostKey, err)
+	}
+
+	return host, hostKey, nil
 }
 
 func infrastructureRefNamespace(ref corev1.ObjectReference, defaultNamespace string) string {
@@ -454,6 +478,27 @@ func formatOutputForError(output string) string {
 	}
 
 	return formatted
+}
+
+func moveTempFileIfNonEmpty(tempPath, finalPath string) error {
+	info, err := os.Stat(tempPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	if info.Size() == 0 {
+		return nil
+	}
+
+	if err := os.MkdirAll(filepath.Dir(finalPath), 0o750); err != nil {
+		return err
+	}
+	if err := os.Rename(tempPath, finalPath); err != nil {
+		return err
+	}
+	return nil
 }
 
 // newSSHConfig returns a configuration to use for SSH connections to remote machines.
