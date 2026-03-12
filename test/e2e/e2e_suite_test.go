@@ -79,8 +79,9 @@ var (
 
 // Test suite global vars.
 var (
-	ctx            = ctrl.SetupSignalHandler()
-	suiteStartTime = time.Now()
+	ctx              = ctrl.SetupSignalHandler()
+	suiteStartTime   = time.Now()
+	errPermanentHBMH = errors.New("permanent HetznerBareMetalHost error")
 
 	// e2eConfig to be used for this test, read from configPath.
 	e2eConfig *clusterctl.E2EConfig
@@ -275,8 +276,7 @@ func logStatusContinuously(ctx context.Context, restConfig *restclient.Config, c
 		case <-time.After(30 * time.Second):
 			err := logStatus(ctx, restConfig, c)
 			if err != nil {
-				var permanentErr *permanentHBMHError
-				if errors.As(err, &permanentErr) {
+				if errors.Is(err, errPermanentHBMH) {
 					Fail(err.Error())
 				}
 				log(fmt.Sprintf("Error logging status: %v", err))
@@ -638,6 +638,10 @@ type permanentHBMHError struct {
 
 func (e *permanentHBMHError) Error() string {
 	return fmt.Sprintf("permanent error on HetznerBareMetalHost %q: %s", e.name, e.message)
+}
+
+func (e *permanentHBMHError) Is(target error) bool {
+	return target == errPermanentHBMH
 }
 
 func initBootstrapCluster(ctx context.Context, bootstrapClusterProxy framework.ClusterProxy, config *clusterctl.E2EConfig, clusterctlConfig, artifactFolder string) {
