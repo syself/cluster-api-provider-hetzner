@@ -374,7 +374,7 @@ func TestMoveTempFileIfNonEmpty_NonEmptyFileGetsMoved(t *testing.T) {
 		t.Fatalf("move temp file: %v", err)
 	}
 
-	b, err := os.ReadFile(finalPath)
+	b, err := os.ReadFile(finalPath) // #nosec G304 -- test reads file created in t.TempDir
 	if err != nil {
 		t.Fatalf("read final file: %v", err)
 	}

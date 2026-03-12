@@ -326,13 +326,6 @@ func externalIPFromAddresses(addresses []clusterv1.MachineAddress) string {
 	return ""
 }
 
-func createOutputFile(path string) (*os.File, error) {
-	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
-		return nil, err
-	}
-	return os.Create(path) // #nosec
-}
-
 func executeRemoteCommand(f io.StringWriter, hostIPAddr, command string, args ...string) error {
 	config, err := newSSHConfig()
 	if err != nil {
