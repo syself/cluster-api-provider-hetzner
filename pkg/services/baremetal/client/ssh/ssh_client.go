@@ -649,22 +649,18 @@ func (c *sshClient) runSSH(command string) Output {
 	sess.Stderr = &stderrBuffer
 
 	err = sess.Run(command)
+	if err != nil {
+		err = fmt.Errorf("ssh command failed (%s command=%q): %w", c.connectionDetails(), shortenedCommand(command), err)
+	}
 	return Output{
 		StdOut: stdoutBuffer.String(),
 		StdErr: stderrBuffer.String(),
-		Err:    wrapSSHCommandError(err, c.connectionDetails(), command),
+		Err:    err,
 	}
 }
 
 func (c *sshClient) connectionDetails() string {
 	return fmt.Sprintf("user=%s host=%s port=%d timeout=%s", sshUser, c.ip, c.port, sshTimeOut)
-}
-
-func wrapSSHCommandError(err error, connectionDetails, command string) error {
-	if err == nil {
-		return nil
-	}
-	return fmt.Errorf("ssh command failed (%s command=%q): %w", connectionDetails, shortenedCommand(command), err)
 }
 
 func shortenedCommand(command string) string {
