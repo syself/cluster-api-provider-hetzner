@@ -18,6 +18,7 @@ package e2e
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -78,8 +79,9 @@ var (
 
 // Test suite global vars.
 var (
-	ctx            = ctrl.SetupSignalHandler()
-	suiteStartTime = time.Now()
+	ctx              = ctrl.SetupSignalHandler()
+	suiteStartTime   = time.Now()
+	errPermanentHBMH = errors.New("permanent HetznerBareMetalHost error")
 
 	// e2eConfig to be used for this test, read from configPath.
 	e2eConfig *clusterctl.E2EConfig
@@ -264,6 +266,8 @@ func setupBootstrapCluster(config *clusterctl.E2EConfig, scheme *runtime.Scheme,
 
 // logStatusContinuously does log the state of the mgt-cluster and the wl-clusters continuously.
 func logStatusContinuously(ctx context.Context, restConfig *restclient.Config, c client.Client) {
+	defer GinkgoRecover()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -272,7 +276,10 @@ func logStatusContinuously(ctx context.Context, restConfig *restclient.Config, c
 		case <-time.After(30 * time.Second):
 			err := logStatus(ctx, restConfig, c)
 			if err != nil {
-				log(fmt.Sprintf("Error logging caph Deployment: %v", err))
+				if errors.Is(err, errPermanentHBMH) {
+					Fail(err.Error())
+				}
+				log(fmt.Sprintf("Error logging status: %v", err))
 			}
 		}
 	}
@@ -602,6 +609,9 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 		eMsg = strings.TrimSpace(eMsg)
 		if eMsg != "" {
 			log("  Error: " + eMsg)
+			if hbmh.Spec.Status.ErrorType == infrav1.PermanentError {
+				return fmt.Errorf("%w on HetznerBareMetalHost %q: %s", errPermanentHBMH, hbmh.Name, eMsg)
+			}
 		}
 
 		readyC := conditions.Get(hbmh, clusterv1.ReadyCondition)
