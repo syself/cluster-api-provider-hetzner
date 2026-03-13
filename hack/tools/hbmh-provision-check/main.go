@@ -1,16 +1,17 @@
-// Command hbmh-provision-check validates rescue/provision reliability for one HBMH from YAML input.
+// Command hbmh-provision-check validates rescue/provision reliability for one HBMH from a local YAML file.
 package main
 
 import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/go-logr/logr"
 	"github.com/spf13/pflag"
 	ctrlLog "sigs.k8s.io/controller-runtime/pkg/log"
 
-	_ "github.com/syself/cluster-api-provider-hetzner/data"
+	_ "github.com/syself/cluster-api-provider-hetzner/data" // Register the embedded installimage archive used during rescue installs.
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/provisioncheck"
 )
 
@@ -22,7 +23,10 @@ func main() {
 	pflag.Usage = func() {
 		out := pflag.CommandLine.Output()
 		_, _ = fmt.Fprintf(out, "Usage: %s [flags]\n\n", os.Args[0])
-		_, _ = fmt.Fprintln(out, "Validates rescue/provision reliability for one HetznerBareMetalHost from YAML input.")
+		_, _ = fmt.Fprintln(out, "Validates rescue/provision reliability for one HetznerBareMetalHost from a local YAML file.")
+		_, _ = fmt.Fprintln(out, "The tool does not talk to Kubernetes. It only reads the HBMH manifest from --file.")
+		_, _ = fmt.Fprintln(out, "You can use a checked-in manifest or export one first, for example:")
+		_, _ = fmt.Fprintln(out, "  kubectl get hetznerbaremetalhost <name> -o yaml > host.yaml")
 		_, _ = fmt.Fprintln(out)
 		_, _ = fmt.Fprintln(out, "Required environment variables:")
 		_, _ = fmt.Fprintln(out, "  HETZNER_ROBOT_USER        Hetzner Robot username")
@@ -37,37 +41,43 @@ func main() {
 		pflag.PrintDefaults()
 	}
 
-	cfg := provisioncheck.DefaultConfig()
+	cfg := provisioncheck.Config{
+		Input:  os.Stdin,
+		Output: os.Stdout,
+	}
 
-	pflag.StringVar(&cfg.YAMLFile, "file", "", "Path to a YAML file containing HetznerBareMetalHost objects (required)")
+	pflag.StringVar(&cfg.HbmhYAMLFile, "file", "", "Path to a local YAML file containing HetznerBareMetalHost objects (required)")
 	pflag.StringVar(&cfg.Name, "name", "", "HetznerBareMetalHost metadata.name. Optional if YAML contains exactly one host")
-	pflag.StringVar(&cfg.ImagePath, "image-path", cfg.ImagePath, "Installimage IMAGE path for Ubuntu 24.04")
-	pflag.BoolVar(&cfg.Force, "force", cfg.Force, "Skip the destructive-action confirmation prompt")
+	pflag.StringVar(&cfg.ImagePath, "image-path", provisioncheck.DefaultUbuntu2404ImagePath, "Installimage IMAGE path for Ubuntu 24.04 inside the Hetzner rescue system")
+	pflag.BoolVar(&cfg.Force, "force", false, "Skip the destructive-action confirmation prompt")
 
-	pflag.DurationVar(&cfg.PollInterval, "poll-interval", cfg.PollInterval, "Polling interval for wait steps")
-	pflag.DurationVar(&cfg.Timeouts.LoadInput, "timeout-load-input", cfg.Timeouts.LoadInput, "Timeout for input parsing + env loading")
-	pflag.DurationVar(&cfg.Timeouts.EnsureSSHKey, "timeout-ensure-ssh-key", cfg.Timeouts.EnsureSSHKey, "Timeout for ensuring SSH key in Robot")
-	pflag.DurationVar(&cfg.Timeouts.FetchServerDetails, "timeout-fetch-server", cfg.Timeouts.FetchServerDetails, "Timeout for fetching server details from Robot")
-	pflag.DurationVar(&cfg.Timeouts.ActivateRescue, "timeout-activate-rescue", cfg.Timeouts.ActivateRescue, "Timeout for activating rescue boot")
-	pflag.DurationVar(&cfg.Timeouts.RebootToRescue, "timeout-reboot-rescue", cfg.Timeouts.RebootToRescue, "Timeout for requesting reboot to rescue")
-	pflag.DurationVar(&cfg.Timeouts.WaitForRescue, "timeout-wait-rescue", cfg.Timeouts.WaitForRescue, "Timeout for waiting until rescue SSH is reachable")
-	pflag.DurationVar(&cfg.Timeouts.InstallUbuntu, "timeout-install", cfg.Timeouts.InstallUbuntu, "Timeout for one Ubuntu install step")
-	pflag.DurationVar(&cfg.Timeouts.RebootToOS, "timeout-reboot-os", cfg.Timeouts.RebootToOS, "Timeout for rebooting into installed OS")
-	pflag.DurationVar(&cfg.Timeouts.WaitForOS, "timeout-wait-os", cfg.Timeouts.WaitForOS, "Timeout for waiting until installed OS is reachable")
+	pflag.DurationVar(&cfg.PollInterval, "poll-interval", provisioncheck.DefaultPollInterval, "Polling interval for wait steps")
+	pflag.DurationVar(&cfg.Timeouts.LoadInput, "timeout-load-input", provisioncheck.DefaultLoadInputTimeout, "Timeout for input parsing + env loading")
+	pflag.DurationVar(&cfg.Timeouts.EnsureSSHKey, "timeout-ensure-ssh-key", provisioncheck.DefaultEnsureSSHKeyTimeout, "Timeout for ensuring SSH key in Robot")
+	pflag.DurationVar(&cfg.Timeouts.FetchServerDetails, "timeout-fetch-server", provisioncheck.DefaultFetchServerDetailsTimeout, "Timeout for fetching server details from Robot")
+	pflag.DurationVar(&cfg.Timeouts.ActivateRescue, "timeout-activate-rescue", provisioncheck.DefaultActivateRescueTimeout, "Timeout for activating rescue boot")
+	pflag.DurationVar(&cfg.Timeouts.RebootToRescue, "timeout-reboot-rescue", provisioncheck.DefaultRebootToRescueTimeout, "Timeout for requesting reboot to rescue")
+	pflag.DurationVar(&cfg.Timeouts.WaitForRescue, "timeout-wait-rescue", provisioncheck.DefaultWaitForRescueTimeout, "Timeout for waiting until rescue SSH is reachable")
+	pflag.DurationVar(&cfg.Timeouts.CheckDiskInRescue, "timeout-check-disk-rescue", provisioncheck.DefaultCheckDiskInRescueTimeout, "Timeout for checking target disks in rescue")
+	pflag.DurationVar(&cfg.Timeouts.InstallUbuntu, "timeout-install", provisioncheck.DefaultInstallUbuntuTimeout, "Timeout for one Ubuntu install step")
+	pflag.DurationVar(&cfg.Timeouts.RebootToOS, "timeout-reboot-os", provisioncheck.DefaultRebootToOSTimeout, "Timeout for rebooting into installed OS")
+	pflag.DurationVar(&cfg.Timeouts.WaitForOS, "timeout-wait-os", provisioncheck.DefaultWaitForOSTimeout, "Timeout for waiting until installed OS is reachable")
 
 	pflag.Parse()
 
-	if cfg.YAMLFile == "" {
+	if cfg.HbmhYAMLFile == "" {
 		fmt.Fprintln(os.Stderr, "--file is required")
 		os.Exit(2)
 	}
 
-	resolved, err := provisioncheck.ResolveYAMLPath(cfg.YAMLFile)
+	// Resolve the file once up front so later logs and errors always refer to a
+	// stable absolute path, even when the caller provided a relative one.
+	resolved, err := filepath.Abs(cfg.HbmhYAMLFile)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "resolve --file: %v\n", err)
 		os.Exit(2)
 	}
-	cfg.YAMLFile = resolved
+	cfg.HbmhYAMLFile = resolved
 
 	if err := provisioncheck.Run(context.Background(), cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "hbmh-provision-check failed. %s: %v\n", cfg.Name, err)

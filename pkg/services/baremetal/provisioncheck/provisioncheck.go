@@ -27,7 +27,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -43,9 +42,24 @@ import (
 )
 
 const (
-	defaultImagePath = "/root/.oldroot/nfs/images/Ubuntu-2404-noble-amd64-base.tar.gz"
-	rescueHostName   = "rescue"
-	sshPort          = 22
+	// Hetzner's rescue environment exposes the stock OS images for installimage
+	// from an NFS mount under /root/.oldroot/nfs/images.
+	DefaultUbuntu2404ImagePath = "/root/.oldroot/nfs/images/Ubuntu-2404-noble-amd64-base.tar.gz"
+
+	DefaultPollInterval              = 10 * time.Second
+	DefaultLoadInputTimeout          = 30 * time.Second
+	DefaultEnsureSSHKeyTimeout       = 60 * time.Second
+	DefaultFetchServerDetailsTimeout = 30 * time.Second
+	DefaultActivateRescueTimeout     = 45 * time.Second
+	DefaultRebootToRescueTimeout     = 45 * time.Second
+	DefaultWaitForRescueTimeout      = 6 * time.Minute
+	DefaultCheckDiskInRescueTimeout  = 1 * time.Minute
+	DefaultInstallUbuntuTimeout      = 9 * time.Minute
+	DefaultRebootToOSTimeout         = 45 * time.Second
+	DefaultWaitForOSTimeout          = 6 * time.Minute
+
+	rescueHostName = "rescue"
+	sshPort        = 22
 )
 
 // Timeouts contains per-step timeouts for the provision check workflow.
@@ -56,6 +70,7 @@ type Timeouts struct {
 	ActivateRescue     time.Duration
 	RebootToRescue     time.Duration
 	WaitForRescue      time.Duration
+	CheckDiskInRescue  time.Duration
 	InstallUbuntu      time.Duration
 	RebootToOS         time.Duration
 	WaitForOS          time.Duration
@@ -63,7 +78,7 @@ type Timeouts struct {
 
 // Config configures the provision check run.
 type Config struct {
-	YAMLFile     string
+	HbmhYAMLFile string
 	Name         string
 	ImagePath    string
 	Force        bool
@@ -76,52 +91,169 @@ type Config struct {
 // DefaultConfig returns default configuration values.
 func DefaultConfig() Config {
 	return Config{
-		ImagePath:    defaultImagePath,
-		PollInterval: 10 * time.Second,
+		ImagePath:    DefaultUbuntu2404ImagePath,
+		PollInterval: DefaultPollInterval,
 		Timeouts: Timeouts{
-			LoadInput:          30 * time.Second,
-			EnsureSSHKey:       60 * time.Second,
-			FetchServerDetails: 30 * time.Second,
-			ActivateRescue:     45 * time.Second,
-			RebootToRescue:     45 * time.Second,
-			WaitForRescue:      4*time.Minute + 3*time.Second,  // 1m21s * 3
-			InstallUbuntu:      7*time.Minute + 12*time.Second, // 2m24s * 3
-			RebootToOS:         45 * time.Second,
-			WaitForOS:          4*time.Minute + 6*time.Second, // 1m22s * 3
+			LoadInput:          DefaultLoadInputTimeout,
+			EnsureSSHKey:       DefaultEnsureSSHKeyTimeout,
+			FetchServerDetails: DefaultFetchServerDetailsTimeout,
+			ActivateRescue:     DefaultActivateRescueTimeout,
+			RebootToRescue:     DefaultRebootToRescueTimeout,
+			WaitForRescue:      DefaultWaitForRescueTimeout,
+			CheckDiskInRescue:  DefaultCheckDiskInRescueTimeout,
+			InstallUbuntu:      DefaultInstallUbuntuTimeout,
+			RebootToOS:         DefaultRebootToOSTimeout,
+			WaitForOS:          DefaultWaitForOSTimeout,
 		},
 		Input:  os.Stdin,
 		Output: os.Stdout,
 	}
 }
 
-// Run executes the two-pass rescue/provision/reboot check for one HBMH from YAML.
+func (cfg Config) withDefaults() Config {
+	defaults := DefaultConfig()
+
+	if cfg.ImagePath == "" {
+		cfg.ImagePath = defaults.ImagePath
+	}
+	if cfg.PollInterval == 0 {
+		cfg.PollInterval = defaults.PollInterval
+	}
+	if cfg.Input == nil {
+		cfg.Input = defaults.Input
+	}
+	if cfg.Output == nil {
+		cfg.Output = defaults.Output
+	}
+
+	if cfg.Timeouts.LoadInput == 0 {
+		cfg.Timeouts.LoadInput = defaults.Timeouts.LoadInput
+	}
+	if cfg.Timeouts.EnsureSSHKey == 0 {
+		cfg.Timeouts.EnsureSSHKey = defaults.Timeouts.EnsureSSHKey
+	}
+	if cfg.Timeouts.FetchServerDetails == 0 {
+		cfg.Timeouts.FetchServerDetails = defaults.Timeouts.FetchServerDetails
+	}
+	if cfg.Timeouts.ActivateRescue == 0 {
+		cfg.Timeouts.ActivateRescue = defaults.Timeouts.ActivateRescue
+	}
+	if cfg.Timeouts.RebootToRescue == 0 {
+		cfg.Timeouts.RebootToRescue = defaults.Timeouts.RebootToRescue
+	}
+	if cfg.Timeouts.WaitForRescue == 0 {
+		cfg.Timeouts.WaitForRescue = defaults.Timeouts.WaitForRescue
+	}
+	if cfg.Timeouts.CheckDiskInRescue == 0 {
+		cfg.Timeouts.CheckDiskInRescue = defaults.Timeouts.CheckDiskInRescue
+	}
+	if cfg.Timeouts.InstallUbuntu == 0 {
+		cfg.Timeouts.InstallUbuntu = defaults.Timeouts.InstallUbuntu
+	}
+	if cfg.Timeouts.RebootToOS == 0 {
+		cfg.Timeouts.RebootToOS = defaults.Timeouts.RebootToOS
+	}
+	if cfg.Timeouts.WaitForOS == 0 {
+		cfg.Timeouts.WaitForOS = defaults.Timeouts.WaitForOS
+	}
+
+	return cfg
+}
+
+// Validate checks required inputs and rejects non-positive polling/timeout values.
+func (cfg Config) Validate() error {
+	if cfg.HbmhYAMLFile == "" {
+		return errors.New("--file is required")
+	}
+	if cfg.ImagePath == "" {
+		return errors.New("--image-path must not be empty")
+	}
+	if cfg.Input == nil {
+		return errors.New("config Input must not be nil")
+	}
+	if cfg.Output == nil {
+		return errors.New("config Output must not be nil")
+	}
+	if cfg.PollInterval <= 0 {
+		return fmt.Errorf("--poll-interval must be > 0, got %s", cfg.PollInterval)
+	}
+	if err := validateTimeout("--timeout-load-input", cfg.Timeouts.LoadInput); err != nil {
+		return err
+	}
+	if err := validateTimeout("--timeout-ensure-ssh-key", cfg.Timeouts.EnsureSSHKey); err != nil {
+		return err
+	}
+	if err := validateTimeout("--timeout-fetch-server", cfg.Timeouts.FetchServerDetails); err != nil {
+		return err
+	}
+	if err := validateTimeout("--timeout-activate-rescue", cfg.Timeouts.ActivateRescue); err != nil {
+		return err
+	}
+	if err := validateTimeout("--timeout-reboot-rescue", cfg.Timeouts.RebootToRescue); err != nil {
+		return err
+	}
+	if err := validateTimeout("--timeout-wait-rescue", cfg.Timeouts.WaitForRescue); err != nil {
+		return err
+	}
+	if err := validateTimeout("--timeout-check-disk-rescue", cfg.Timeouts.CheckDiskInRescue); err != nil {
+		return err
+	}
+	if err := validateTimeout("--timeout-install", cfg.Timeouts.InstallUbuntu); err != nil {
+		return err
+	}
+	if err := validateTimeout("--timeout-reboot-os", cfg.Timeouts.RebootToOS); err != nil {
+		return err
+	}
+	if err := validateTimeout("--timeout-wait-os", cfg.Timeouts.WaitForOS); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateTimeout(flagName string, timeout time.Duration) error {
+	if timeout <= 0 {
+		return fmt.Errorf("%s must be > 0, got %s", flagName, timeout)
+	}
+	return nil
+}
+
+// Run validates the local inputs, selects exactly one HBMH from the YAML file,
+// and then executes two destructive rescue/install/boot cycles against that host.
 func Run(ctx context.Context, cfg Config) error {
-	r, err := newRunner(cfg)
-	if err != nil {
+	cfg = cfg.withDefaults()
+	if err := cfg.Validate(); err != nil {
 		return err
 	}
 
+	r := newRunner(cfg)
+
+	// Load all local inputs first so parse and credential errors fail before any
+	// Robot API call or reboot on the target machine.
 	creds, err := loadEnvCredentials()
 	if err != nil {
 		return err
 	}
 	r.creds = creds
 
-	hosts, err := loadHostsFromYAMLFile(cfg.YAMLFile)
+	hosts, err := loadHostsFromHBMHYAMLFile(cfg.HbmhYAMLFile)
 	if err != nil {
 		return err
 	}
+
 	r.hostNames = listHostNames(hosts)
 	if len(hosts) > 1 && cfg.Name == "" {
 		return fmt.Errorf("multiple HBMH objects in file; --name is required. HBMH names: %s", strings.Join(r.hostNames, ", "))
 	}
+
 	host, err := selectHost(hosts, cfg.Name)
 	if err != nil {
 		return err
 	}
 	r.host = host
-	err = r.confirmDestructiveAction()
-	if err != nil {
+
+	// Ask for confirmation only after we know the exact host and WWNs that will
+	// be wiped by the provisioning loop.
+	if err := r.confirmDestructiveAction(); err != nil {
 		return err
 	}
 
@@ -160,29 +292,13 @@ type storageDetails struct {
 
 type stepProgress func(format string, args ...any)
 
-func newRunner(cfg Config) (*runner, error) {
-	if cfg.YAMLFile == "" {
-		return nil, errors.New("--file is required")
-	}
-	if cfg.Output == nil {
-		cfg.Output = os.Stdout
-	}
-	if cfg.Input == nil {
-		cfg.Input = os.Stdin
-	}
-	if cfg.PollInterval <= 0 {
-		cfg.PollInterval = 10 * time.Second
-	}
-	if cfg.ImagePath == "" {
-		cfg.ImagePath = defaultImagePath
-	}
-
+func newRunner(cfg Config) *runner {
 	return &runner{
 		cfg:        cfg,
 		in:         cfg.Input,
 		out:        cfg.Output,
 		sshFactory: sshclient.NewFactory(),
-	}, nil
+	}
 }
 
 func (r *runner) run(ctx context.Context) error {
@@ -326,6 +442,15 @@ func (r *runner) cycle(ctx context.Context, pass int) error {
 		return err
 	}
 
+	err = r.runStep(ctx, fmt.Sprintf("pass-%d-check-disk-in-rescue", pass), r.cfg.Timeouts.CheckDiskInRescue,
+		func(stepCtx context.Context, progress stepProgress) error {
+			ssh := r.newRescueSSHClient()
+			return r.checkDiskInRescue(stepCtx, ssh, progress)
+		})
+	if err != nil {
+		return err
+	}
+
 	err = r.runStep(ctx, fmt.Sprintf("pass-%d-install-ubuntu-24.04", pass), r.cfg.Timeouts.InstallUbuntu,
 		func(stepCtx context.Context, progress stepProgress) error {
 			ssh := r.newRescueSSHClient()
@@ -418,12 +543,6 @@ func (r *runner) runInstall(ctx context.Context, ssh sshclient.Client, progress 
 		return errors.New("rootDeviceHints are required in the input HBMH")
 	}
 
-	diskInfo, err := ssh.CheckDisk(ctx, rootWWNs)
-	if err != nil {
-		return fmt.Errorf("check-disk failed: %w", err)
-	}
-	progress("check-disk ok: %s", strings.TrimSpace(diskInfo))
-
 	devices, err := findDeviceNamesByWWN(ssh, rootWWNs)
 	if err != nil {
 		return err
@@ -489,6 +608,21 @@ func (r *runner) runInstall(ctx context.Context, ssh sshclient.Client, progress 
 	})
 }
 
+func (r *runner) checkDiskInRescue(ctx context.Context, ssh sshclient.Client, progress stepProgress) error {
+	rootWWNs := r.host.Spec.RootDeviceHints.ListOfWWN()
+	if len(rootWWNs) == 0 {
+		return errors.New("rootDeviceHints are required in the input HBMH")
+	}
+
+	diskInfo, err := ssh.CheckDisk(ctx, rootWWNs)
+	if err != nil {
+		return fmt.Errorf("check-disk failed: %w", err)
+	}
+
+	progress("check-disk ok: %s", strings.TrimSpace(diskInfo))
+	return nil
+}
+
 func collectInstallLogs(ctx context.Context, ssh sshclient.Client) (string, error) {
 	script := `#!/bin/bash
 set +e
@@ -531,6 +665,10 @@ ps aux | grep installimage | grep -v grep || true
 }
 
 func ensureInstallImageBinary(ssh sshclient.Client, progress stepProgress) error {
+	// Package data registers an embedded installimage tgz via
+	// sshclient.SetInstallImageTGZOverride. UntarTGZ uploads and extracts that
+	// archive in rescue, so this CLI can execute the same installimage tooling
+	// without requiring extra local files beside the HBMH YAML manifest.
 	out := ssh.UntarTGZ()
 	if out.Err != nil || out.StdErr != "" {
 		return fmt.Errorf("untar installimage tgz failed: stdout=%q stderr=%q err=%v", out.StdOut, out.StdErr, out.Err)
@@ -558,7 +696,7 @@ func ensureRobotSSHKey(cli robotclient.Client, keyName, publicKey string) (strin
 	return created.Fingerprint, nil
 }
 
-func loadHostsFromYAMLFile(path string) ([]infrav1.HetznerBareMetalHost, error) {
+func loadHostsFromHBMHYAMLFile(path string) ([]infrav1.HetznerBareMetalHost, error) {
 	data, err := os.ReadFile(path) // #nosec G304 -- file path is intentionally user-provided CLI input.
 	if err != nil {
 		return nil, fmt.Errorf("read yaml file %q: %w", path, err)
@@ -799,6 +937,10 @@ func buildAutoSetup(spec *infrav1.InstallImage, hostName string, osDevices []str
 }
 
 func buildInstallImageSpecFromHBMH(host infrav1.HetznerBareMetalHost, imagePath string, enableSWRAID bool) *infrav1.InstallImage {
+	// Prefer the installimage settings already materialized on the HBMH status,
+	// because that mirrors what the controller would use for this server. When
+	// status.installImage is still empty, fall back to a minimal Ubuntu 24.04
+	// layout so the standalone checker can still provision the machine.
 	if host.Spec.Status.InstallImage == nil {
 		return defaultInstallImageSpec(imagePath, enableSWRAID)
 	}
@@ -958,19 +1100,4 @@ func ParseServerIDFromName(name string) (int, error) {
 		return 0, fmt.Errorf("parse server id from %q: %w", name, err)
 	}
 	return id, nil
-}
-
-// ResolveYAMLPath resolves a possibly relative input path against current working directory.
-func ResolveYAMLPath(path string) (string, error) {
-	if path == "" {
-		return "", errors.New("path is empty")
-	}
-	if filepath.IsAbs(path) {
-		return path, nil
-	}
-	abs, err := filepath.Abs(path)
-	if err != nil {
-		return "", fmt.Errorf("resolve absolute path for %q: %w", path, err)
-	}
-	return abs, nil
 }

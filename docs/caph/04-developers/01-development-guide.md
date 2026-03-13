@@ -125,7 +125,11 @@ Use `hbmh-provision-check` to verify that one `HetznerBareMetalHost` can reliabl
 3. boot into the installed OS,
 4. and repeat the cycle a second time.
 
-The tool reads one HBMH from a YAML file and continuously prints progress, elapsed time, timeout usage, and remaining time per step.
+The tool does not talk to Kubernetes. It only reads one local YAML file containing `HetznerBareMetalHost` objects and then talks to Robot plus the target server directly, so no kubeconfig or running cluster is required while you execute it.
+
+You can point `--file` at a manifest from this repository or export one first, for example with `kubectl get hetznerbaremetalhost <name> -o yaml > host.yaml`.
+
+It continuously prints progress, elapsed time, timeout usage, and remaining time per step.
 
 Example:
 
