@@ -85,6 +85,12 @@ func Run(ctx context.Context, cfg Config) error {
 		return err
 	}
 
+	creds, err := loadEnvCredentials()
+	if err != nil {
+		return err
+	}
+	r.creds = creds
+
 	hosts, err := loadHostsFromYAMLFile(cfg.YAMLFile)
 	if err != nil {
 		return err
@@ -165,12 +171,6 @@ func (r *runner) run(ctx context.Context) error {
 		progress("found %d HBMH object(s) in %s", len(r.hostNames), r.cfg.YAMLFile)
 		progress("HBMH names: %s", strings.Join(r.hostNames, ", "))
 		progress("selected host %q (serverID=%d)", r.host.Name, r.host.Spec.ServerID)
-
-		creds, err := loadEnvCredentials()
-		if err != nil {
-			return err
-		}
-		r.creds = creds
 		progress("loaded Robot + SSH credentials from environment")
 
 		_ = stepCtx
