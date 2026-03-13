@@ -19,6 +19,23 @@ func main() {
 
 	// Recreate default flag set to avoid unrelated global flags from imported packages.
 	pflag.CommandLine = pflag.NewFlagSet(os.Args[0], pflag.ExitOnError)
+	pflag.Usage = func() {
+		out := pflag.CommandLine.Output()
+		_, _ = fmt.Fprintf(out, "Usage: %s [flags]\n\n", os.Args[0])
+		_, _ = fmt.Fprintln(out, "Validates rescue/provision reliability for one HetznerBareMetalHost from YAML input.")
+		_, _ = fmt.Fprintln(out)
+		_, _ = fmt.Fprintln(out, "Required environment variables:")
+		_, _ = fmt.Fprintln(out, "  HETZNER_ROBOT_USER        Hetzner Robot username")
+		_, _ = fmt.Fprintln(out, "  HETZNER_ROBOT_PASSWORD    Hetzner Robot password")
+		_, _ = fmt.Fprintln(out, "  SSH_KEY_NAME              Robot SSH key name to use for rescue mode")
+		_, _ = fmt.Fprintln(out)
+		_, _ = fmt.Fprintln(out, "SSH key material: set either the *_PATH or the raw/base64 env var")
+		_, _ = fmt.Fprintln(out, "  HETZNER_SSH_PUB_PATH or HETZNER_SSH_PUB")
+		_, _ = fmt.Fprintln(out, "  HETZNER_SSH_PRIV_PATH or HETZNER_SSH_PRIV")
+		_, _ = fmt.Fprintln(out)
+		_, _ = fmt.Fprintln(out, "Flags:")
+		pflag.PrintDefaults()
+	}
 
 	cfg := provisioncheck.DefaultConfig()
 

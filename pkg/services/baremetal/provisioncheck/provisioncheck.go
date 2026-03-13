@@ -118,6 +118,7 @@ type runner struct {
 	out        io.Writer
 	sshFactory sshclient.Factory
 	startedAt  time.Time
+	lastStep   string
 
 	host        infrav1.HetznerBareMetalHost
 	hostNames   []string
@@ -172,8 +173,6 @@ func (r *runner) run(ctx context.Context) error {
 	r.startedAt = time.Now()
 
 	err := r.runStep(ctx, "load-input", r.cfg.Timeouts.LoadInput, func(stepCtx context.Context, progress stepProgress) error {
-		progress("found %d HBMH object(s) in %s", len(r.hostNames), r.cfg.YAMLFile)
-		progress("HBMH names: %s", strings.Join(r.hostNames, ", "))
 		progress("selected host %q (serverID=%d)", r.host.Name, r.host.Spec.ServerID)
 		progress("loaded Robot + SSH credentials from environment")
 
@@ -858,6 +857,11 @@ func (r *runner) runStep(ctx context.Context, name string, timeout time.Duration
 	if timeout <= 0 {
 		return fmt.Errorf("step %q has non-positive timeout %s", name, timeout)
 	}
+
+	if r.lastStep != "" && r.lastStep != name {
+		_, _ = fmt.Fprintln(r.out)
+	}
+	r.lastStep = name
 
 	start := time.Now()
 	r.logf("step=%s state=start timeout=%s", name, formatMinSec(timeout))
