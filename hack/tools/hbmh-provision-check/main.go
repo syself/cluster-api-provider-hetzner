@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/go-logr/logr"
 	"github.com/spf13/pflag"
@@ -73,14 +72,10 @@ func main() {
 		os.Exit(2)
 	}
 
-	// Resolve the file once up front so later logs and errors always refer to a
-	// stable absolute path, even when the caller provided a relative one.
-	resolved, err := filepath.Abs(cfg.HbmhYAMLFile)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "resolve --file: %v\n", err)
+	if _, err := os.Stat(cfg.HbmhYAMLFile); err != nil {
+		fmt.Fprintf(os.Stderr, "check --file: %v\n", err)
 		os.Exit(2)
 	}
-	cfg.HbmhYAMLFile = resolved
 
 	if err := provisioncheck.Run(context.Background(), cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "hbmh-provision-check failed. %s: %v\n", cfg.Name, err)
