@@ -33,7 +33,7 @@ runs:
           ${{ runner.os }}-tools-bin-
 
     - name: Download artifact
-      uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4
+      uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
       with:
         name: test-release
         path: out
@@ -77,7 +77,7 @@ runs:
       run: make ${{ inputs.e2e_make_target }}
 
     - name: Upload artifact
-      uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
       if: ${{ !cancelled() }}
       with:
         name: e2e-${{ inputs.e2e_name }}
