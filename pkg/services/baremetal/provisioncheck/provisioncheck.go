@@ -377,10 +377,10 @@ func (r *runner) confirmDestructiveAction() error {
 	}
 
 	_, err := fmt.Fprintf(r.out,
-		"WARNING: this will delete all data on host %q (serverID=%d) on disks with WWN(s): %s\nType \"yes\" to continue: ",
+		"WARNING: this will delete all data on disks with WWN(s): %s\nhost %q (serverID=%d) \nType \"yes\" to continue: ",
+		strings.Join(rootWWNs, ", "),
 		r.host.Name,
 		r.host.Spec.ServerID,
-		strings.Join(rootWWNs, ", "),
 	)
 	if err != nil {
 		return fmt.Errorf("write confirmation prompt: %w", err)
