@@ -14,7 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package provisioncheck runs a two-pass rescue/provision reliability check for one HBMH.
+// Package provisioncheck runs a two-pass rescue/provision reliability check for one HBMH. The bm
+// server gets provisioned with a vanilla Ubuntu twice, so we ensure that the machine works and can
+// reliably enter the rescue system. It does not need a Kubernetes cluster. The package was create
+// to build a standalone cli.
 package provisioncheck
 
 import (
