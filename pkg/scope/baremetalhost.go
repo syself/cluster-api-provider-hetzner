@@ -89,7 +89,6 @@ func NewBareMetalHostScope(params BareMetalHostScopeParams) (*BareMetalHostScope
 		Cluster:                 params.Cluster,
 		HetznerBareMetalHost:    params.HetznerBareMetalHost,
 		HetznerBareMetalMachine: params.HetznerBareMetalMachine,
-		Machine:                 params.HetznerBareMetalMachine,
 		OSSSHSecret:             params.OSSSHSecret,
 		RescueSSHSecret:         params.RescueSSHSecret,
 		SecretManager:           params.SecretManager,
@@ -106,7 +105,6 @@ type BareMetalHostScope struct {
 	SSHClientFactory        sshclient.Factory
 	HetznerBareMetalHost    *infrav1.HetznerBareMetalHost
 	HetznerBareMetalMachine *infrav1.HetznerBareMetalMachine
-	Machine                 *clusterv1.Machine
 	HetznerCluster          *infrav1.HetznerCluster
 	Cluster                 *clusterv1.Cluster
 	OSSSHSecret             *corev1.Secret
