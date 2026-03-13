@@ -51,7 +51,7 @@ func main() {
 
 	pflag.StringVar(&cfg.HbmhYAMLFile, "file", "", "Path to a local YAML file containing HetznerBareMetalHost objects (required)")
 	pflag.StringVar(&cfg.Name, "name", "", "HetznerBareMetalHost metadata.name. Optional if YAML contains exactly one host")
-	pflag.StringVar(&cfg.ImagePath, "image-path", provisioncheck.DefaultUbuntu2404ImagePath, "Installimage IMAGE path for Ubuntu 24.04 inside the Hetzner rescue system")
+	pflag.StringVar(&cfg.ImagePath, "image-path", provisioncheck.DefaultUbuntu2404ImagePath, "Installimage IMAGE path for operating system inside the Hetzner rescue system")
 	pflag.BoolVar(&cfg.Force, "force", false, "Skip the destructive-action confirmation prompt")
 
 	pflag.DurationVar(&cfg.PollInterval, "poll-interval", provisioncheck.DefaultPollInterval, "Polling interval for wait steps")

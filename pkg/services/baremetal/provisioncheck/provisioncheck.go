@@ -951,7 +951,7 @@ func buildAutoSetup(spec *infrav1.InstallImage, hostName string, osDevices []str
 func buildInstallImageSpecFromHBMH(host infrav1.HetznerBareMetalHost, imagePath string, enableSWRAID bool) *infrav1.InstallImage {
 	// Prefer the installimage settings already materialized on the HBMH status,
 	// because that mirrors what the controller would use for this server. When
-	// status.installImage is still empty, fall back to a minimal Ubuntu 24.04
+	// status.installImage is still empty, fall back to a minimal
 	// layout so the standalone checker can still provision the machine.
 	if host.Spec.Status.InstallImage == nil {
 		return defaultInstallImageSpec(imagePath, enableSWRAID)
