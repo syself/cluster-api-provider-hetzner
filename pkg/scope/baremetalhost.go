@@ -89,6 +89,7 @@ func NewBareMetalHostScope(params BareMetalHostScopeParams) (*BareMetalHostScope
 		Cluster:                 params.Cluster,
 		HetznerBareMetalHost:    params.HetznerBareMetalHost,
 		HetznerBareMetalMachine: params.HetznerBareMetalMachine,
+		Machine:                 params.HetznerBareMetalMachine,
 		OSSSHSecret:             params.OSSSHSecret,
 		RescueSSHSecret:         params.RescueSSHSecret,
 		SecretManager:           params.SecretManager,
@@ -105,6 +106,7 @@ type BareMetalHostScope struct {
 	SSHClientFactory        sshclient.Factory
 	HetznerBareMetalHost    *infrav1.HetznerBareMetalHost
 	HetznerBareMetalMachine *infrav1.HetznerBareMetalMachine
+	Machine                 *clusterv1.Machine
 	HetznerCluster          *infrav1.HetznerCluster
 	Cluster                 *clusterv1.Cluster
 	OSSSHSecret             *corev1.Secret
@@ -154,6 +156,13 @@ func (s *BareMetalHostScope) Hostname() (hostname string) {
 }
 
 func (s *BareMetalHostScope) hasConstantHostname() bool {
+	if s.HetznerBareMetalMachine != nil {
+		_, ok := s.HetznerBareMetalMachine.GetAnnotations()[clusterv1.MachineControlPlaneLabel]
+		if ok {
+			// Annotation "cluster.x-k8s.io/control-plane" exists. Do not use constant-hostname
+			return false
+		}
+	}
 	return s.Cluster.GetAnnotations()[infrav1.ConstantBareMetalHostnameAnnotation] == "true" ||
 		s.HetznerBareMetalMachine != nil && s.HetznerBareMetalMachine.GetAnnotations()[infrav1.ConstantBareMetalHostnameAnnotation] == "true"
 }
