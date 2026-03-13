@@ -42,21 +42,32 @@ import (
 )
 
 const (
-	// Hetzner's rescue environment exposes the stock OS images for installimage
-	// from an NFS mount under /root/.oldroot/nfs/images.
+	// DefaultUbuntu2404ImagePath is the stock Ubuntu 24.04 image path exposed by
+	// Hetzner's rescue environment for installimage.
 	DefaultUbuntu2404ImagePath = "/root/.oldroot/nfs/images/Ubuntu-2404-noble-amd64-base.tar.gz"
 
-	DefaultPollInterval              = 10 * time.Second
-	DefaultLoadInputTimeout          = 30 * time.Second
-	DefaultEnsureSSHKeyTimeout       = 60 * time.Second
+	// DefaultPollInterval is the default polling interval for wait steps.
+	DefaultPollInterval = 10 * time.Second
+	// DefaultLoadInputTimeout is the default timeout for local input loading.
+	DefaultLoadInputTimeout = 30 * time.Second
+	// DefaultEnsureSSHKeyTimeout is the default timeout for ensuring the Robot SSH key exists.
+	DefaultEnsureSSHKeyTimeout = 60 * time.Second
+	// DefaultFetchServerDetailsTimeout is the default timeout for fetching server details from Robot.
 	DefaultFetchServerDetailsTimeout = 30 * time.Second
-	DefaultActivateRescueTimeout     = 45 * time.Second
-	DefaultRebootToRescueTimeout     = 45 * time.Second
-	DefaultWaitForRescueTimeout      = 6 * time.Minute
-	DefaultCheckDiskInRescueTimeout  = 1 * time.Minute
-	DefaultInstallUbuntuTimeout      = 9 * time.Minute
-	DefaultRebootToOSTimeout         = 45 * time.Second
-	DefaultWaitForOSTimeout          = 6 * time.Minute
+	// DefaultActivateRescueTimeout is the default timeout for enabling rescue boot in Robot.
+	DefaultActivateRescueTimeout = 45 * time.Second
+	// DefaultRebootToRescueTimeout is the default timeout for requesting the reboot into rescue.
+	DefaultRebootToRescueTimeout = 45 * time.Second
+	// DefaultWaitForRescueTimeout is the default timeout for waiting until rescue SSH is reachable.
+	DefaultWaitForRescueTimeout = 6 * time.Minute
+	// DefaultCheckDiskInRescueTimeout is the default timeout for smartctl disk checks in rescue.
+	DefaultCheckDiskInRescueTimeout = 1 * time.Minute
+	// DefaultInstallUbuntuTimeout is the default timeout for one installimage run.
+	DefaultInstallUbuntuTimeout = 9 * time.Minute
+	// DefaultRebootToOSTimeout is the default timeout for rebooting into the installed OS.
+	DefaultRebootToOSTimeout = 45 * time.Second
+	// DefaultWaitForOSTimeout is the default timeout for waiting until the installed OS is reachable.
+	DefaultWaitForOSTimeout = 6 * time.Minute
 
 	rescueHostName = "rescue"
 	sshPort        = 22
