@@ -104,6 +104,10 @@ func Run(ctx context.Context, cfg Config) error {
 		return err
 	}
 	r.host = host
+	err = r.confirmDestructiveAction()
+	if err != nil {
+		return err
+	}
 
 	return r.run(ctx)
 }
@@ -176,11 +180,6 @@ func (r *runner) run(ctx context.Context) error {
 		_ = stepCtx
 		return nil
 	})
-	if err != nil {
-		return err
-	}
-
-	err = r.confirmDestructiveAction()
 	if err != nil {
 		return err
 	}
