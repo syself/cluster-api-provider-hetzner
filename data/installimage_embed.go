@@ -14,11 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package data registers embedded helper assets used by standalone tools.
+// Package data exposes embedded helper assets used by standalone tools.
 //
 // hbmh-provision-check runs outside the controller-manager pod, so it cannot rely
-// on a local checkout of the installimage archive. Importing this package makes
-// the embedded Hetzner installimage tarball available to sshclient.UntarTGZ.
+// on a local checkout of the installimage archive. Standalone tools can call
+// RegisterEmbeddedInstallImageTGZ to make the embedded Hetzner installimage
+// tarball available to sshclient.UntarTGZ.
 package data
 
 import (
@@ -33,8 +34,8 @@ import (
 //go:embed hetzner-installimage-v1.0.7.tgz
 var installImageTGZ []byte
 
-func init() {
-	// Register the embedded archive once so blank-importing package data is
-	// enough for standalone provisioning tools.
+// RegisterEmbeddedInstallImageTGZ makes the embedded installimage archive
+// available to sshclient.UntarTGZ.
+func RegisterEmbeddedInstallImageTGZ() {
 	sshclient.SetInstallImageTGZOverride(installImageTGZ)
 }

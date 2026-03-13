@@ -11,12 +11,13 @@ import (
 	"github.com/spf13/pflag"
 	ctrlLog "sigs.k8s.io/controller-runtime/pkg/log"
 
-	_ "github.com/syself/cluster-api-provider-hetzner/data" // Register the embedded installimage archive used during rescue installs.
+	"github.com/syself/cluster-api-provider-hetzner/data"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/provisioncheck"
 )
 
 func main() {
 	ctrlLog.SetLogger(logr.Discard())
+	data.RegisterEmbeddedInstallImageTGZ()
 
 	// Recreate default flag set to avoid unrelated global flags from imported packages.
 	pflag.CommandLine = pflag.NewFlagSet(os.Args[0], pflag.ExitOnError)

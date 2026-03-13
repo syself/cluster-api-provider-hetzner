@@ -665,10 +665,11 @@ ps aux | grep installimage | grep -v grep || true
 }
 
 func ensureInstallImageBinary(ssh sshclient.Client, progress stepProgress) error {
-	// Package data registers an embedded installimage tgz via
-	// sshclient.SetInstallImageTGZOverride. UntarTGZ uploads and extracts that
-	// archive in rescue, so this CLI can execute the same installimage tooling
-	// without requiring extra local files beside the HBMH YAML manifest.
+	// The CLI registers an embedded installimage tgz via
+	// sshclient.SetInstallImageTGZOverride before calling Run. UntarTGZ uploads
+	// and extracts that archive in rescue, so this workflow can execute the same
+	// installimage tooling without requiring extra local files beside the HBMH
+	// YAML manifest.
 	out := ssh.UntarTGZ()
 	if out.Err != nil || out.StdErr != "" {
 		return fmt.Errorf("untar installimage tgz failed: stdout=%q stderr=%q err=%v", out.StdOut, out.StdErr, out.Err)
