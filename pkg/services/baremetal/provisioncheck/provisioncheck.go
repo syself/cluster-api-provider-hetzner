@@ -2,6 +2,7 @@
 package provisioncheck
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/base64"
@@ -49,8 +50,10 @@ type Config struct {
 	YAMLFile     string
 	Name         string
 	ImagePath    string
+	Force        bool
 	PollInterval time.Duration
 	Timeouts     Timeouts
+	Input        io.Reader
 	Output       io.Writer
 }
 
@@ -70,6 +73,7 @@ func DefaultConfig() Config {
 			RebootToOS:         45 * time.Second,
 			WaitForOS:          4*time.Minute + 6*time.Second, // 1m22s * 3
 		},
+		Input:  os.Stdin,
 		Output: os.Stdout,
 	}
 }
@@ -100,6 +104,7 @@ func Run(ctx context.Context, cfg Config) error {
 
 type runner struct {
 	cfg        Config
+	in         io.Reader
 	out        io.Writer
 	sshFactory sshclient.Factory
 	startedAt  time.Time
@@ -135,6 +140,9 @@ func newRunner(cfg Config) (*runner, error) {
 	if cfg.Output == nil {
 		cfg.Output = os.Stdout
 	}
+	if cfg.Input == nil {
+		cfg.Input = os.Stdin
+	}
 	if cfg.PollInterval <= 0 {
 		cfg.PollInterval = 10 * time.Second
 	}
@@ -144,6 +152,7 @@ func newRunner(cfg Config) (*runner, error) {
 
 	return &runner{
 		cfg:        cfg,
+		in:         cfg.Input,
 		out:        cfg.Output,
 		sshFactory: sshclient.NewFactory(),
 	}, nil
@@ -152,7 +161,7 @@ func newRunner(cfg Config) (*runner, error) {
 func (r *runner) run(ctx context.Context) error {
 	r.startedAt = time.Now()
 
-	if err := r.runStep(ctx, "load-input", r.cfg.Timeouts.LoadInput, func(stepCtx context.Context, progress stepProgress) error {
+	err := r.runStep(ctx, "load-input", r.cfg.Timeouts.LoadInput, func(stepCtx context.Context, progress stepProgress) error {
 		progress("found %d HBMH object(s) in %s", len(r.hostNames), r.cfg.YAMLFile)
 		progress("HBMH names: %s", strings.Join(r.hostNames, ", "))
 		progress("selected host %q (serverID=%d)", r.host.Name, r.host.Spec.ServerID)
@@ -166,7 +175,13 @@ func (r *runner) run(ctx context.Context) error {
 
 		_ = stepCtx
 		return nil
-	}); err != nil {
+	})
+	if err != nil {
+		return err
+	}
+
+	err = r.confirmDestructiveAction()
+	if err != nil {
 		return err
 	}
 
@@ -175,7 +190,7 @@ func (r *runner) run(ctx context.Context) error {
 		Password: r.creds.robotPass,
 	})
 
-	if err := r.runStep(ctx, "ensure-robot-ssh-key", r.cfg.Timeouts.EnsureSSHKey, func(_ context.Context, progress stepProgress) error {
+	err = r.runStep(ctx, "ensure-robot-ssh-key", r.cfg.Timeouts.EnsureSSHKey, func(_ context.Context, progress stepProgress) error {
 		fingerprint, err := ensureRobotSSHKey(r.robotClient, r.creds.sshKeyName, r.creds.sshPub)
 		if err != nil {
 			return err
@@ -183,59 +198,100 @@ func (r *runner) run(ctx context.Context) error {
 		r.fingerprint = fingerprint
 		progress("using robot key=%q fingerprint=%q", r.creds.sshKeyName, r.fingerprint)
 		return nil
-	}); err != nil {
+	})
+	if err != nil {
 		return err
 	}
 
-	if err := r.runStep(ctx, "fetch-server-details", r.cfg.Timeouts.FetchServerDetails, func(stepCtx context.Context, progress stepProgress) error {
+	err = r.runStep(ctx, "fetch-server-details", r.cfg.Timeouts.FetchServerDetails, func(stepCtx context.Context, progress stepProgress) error {
 		return r.refreshServerIP(stepCtx, progress)
-	}); err != nil {
+	})
+	if err != nil {
 		return err
 	}
 
 	for pass := 1; pass <= 2; pass++ {
-		if err := r.cycle(ctx, pass); err != nil {
+		err = r.cycle(ctx, pass)
+		if err != nil {
 			return err
 		}
 	}
 
-	r.log("all checks passed: machine %q (serverID=%d) completed two rescue+install+boot cycles", r.host.Name, r.host.Spec.ServerID)
+	r.logf("all checks passed: machine %q (serverID=%d) completed two rescue+install+boot cycles", r.host.Name, r.host.Spec.ServerID)
+	return nil
+}
+
+func (r *runner) confirmDestructiveAction() error {
+	if r.cfg.Force {
+		r.logf("confirmation skipped because --force was provided")
+		return nil
+	}
+
+	rootWWNs := r.host.Spec.RootDeviceHints.ListOfWWN()
+	if len(rootWWNs) == 0 {
+		return errors.New("rootDeviceHints are required in the input HBMH")
+	}
+
+	_, err := fmt.Fprintf(r.out,
+		"WARNING: this will delete all data on host %q (serverID=%d) on disks with WWN(s): %s\nType \"yes\" to continue: ",
+		r.host.Name,
+		r.host.Spec.ServerID,
+		strings.Join(rootWWNs, ", "),
+	)
+	if err != nil {
+		return fmt.Errorf("write confirmation prompt: %w", err)
+	}
+
+	reader := bufio.NewReader(r.in)
+	confirmation, err := reader.ReadString('\n')
+	if err != nil {
+		return fmt.Errorf("read confirmation: %w", err)
+	}
+
+	confirmation = strings.TrimSpace(confirmation)
+	if confirmation != "yes" {
+		return fmt.Errorf("confirmation failed: expected %q, got %q", "yes", confirmation)
+	}
+
+	r.logf("destructive action confirmed for WWN(s): %s", strings.Join(rootWWNs, ", "))
 	return nil
 }
 
 func (r *runner) cycle(ctx context.Context, pass int) error {
-	if err := r.runStep(ctx, fmt.Sprintf("pass-%d-activate-rescue", pass), r.cfg.Timeouts.ActivateRescue,
+	err := r.runStep(ctx, fmt.Sprintf("pass-%d-activate-rescue", pass), r.cfg.Timeouts.ActivateRescue,
 		func(stepCtx context.Context, progress stepProgress) error {
 			_ = stepCtx
-			if _, err := r.robotClient.DeleteBootRescue(r.host.Spec.ServerID); err != nil && !models.IsError(err, models.ErrorCodeNotFound) {
-				return fmt.Errorf("delete boot rescue: %w", err)
+			_, deleteBootRescueErr := r.robotClient.DeleteBootRescue(r.host.Spec.ServerID)
+			if deleteBootRescueErr != nil && !models.IsError(deleteBootRescueErr, models.ErrorCodeNotFound) {
+				return fmt.Errorf("delete boot rescue: %w", deleteBootRescueErr)
 			}
-			if _, err := r.robotClient.SetBootRescue(r.host.Spec.ServerID, r.fingerprint); err != nil {
-				return fmt.Errorf("set boot rescue: %w", err)
+			_, setBootRescueErr := r.robotClient.SetBootRescue(r.host.Spec.ServerID, r.fingerprint)
+			if setBootRescueErr != nil {
+				return fmt.Errorf("set boot rescue: %w", setBootRescueErr)
 			}
 			progress("rescue mode activated")
 			return nil
-		}); err != nil {
+		})
+	if err != nil {
 		return err
 	}
 
-	if err := r.runStep(ctx, fmt.Sprintf("pass-%d-reboot-to-rescue", pass), r.cfg.Timeouts.RebootToRescue,
+	err = r.runStep(ctx, fmt.Sprintf("pass-%d-reboot-to-rescue", pass), r.cfg.Timeouts.RebootToRescue,
 		func(stepCtx context.Context, progress stepProgress) error {
 			_ = stepCtx
-			if _, err := r.robotClient.RebootBMServer(r.host.Spec.ServerID, infrav1.RebootTypeHardware); err != nil {
-				return fmt.Errorf("robot reboot hw: %w", err)
+			_, rebootErr := r.robotClient.RebootBMServer(r.host.Spec.ServerID, infrav1.RebootTypeHardware)
+			if rebootErr != nil {
+				return fmt.Errorf("robot reboot hw: %w", rebootErr)
 			}
 			progress("hardware reboot requested")
 			return nil
-		}); err != nil {
+		})
+	if err != nil {
 		return err
 	}
 
-	if err := r.runStep(ctx, fmt.Sprintf("pass-%d-wait-rescue", pass), r.cfg.Timeouts.WaitForRescue,
+	err = r.runStep(ctx, fmt.Sprintf("pass-%d-wait-rescue", pass), r.cfg.Timeouts.WaitForRescue,
 		func(stepCtx context.Context, progress stepProgress) error {
-			if err := r.refreshServerIP(stepCtx, progress); err != nil {
-				return err
-			}
 			ssh := r.newRescueSSHClient()
 			return waitUntil(stepCtx, r.cfg.PollInterval, progress, func() (bool, string, error) {
 				out := ssh.GetHostName()
@@ -251,19 +307,21 @@ func (r *runner) cycle(ctx context.Context, pass int) error {
 				}
 				return false, fmt.Sprintf("waiting for rescue ssh: %v", out.Err), nil
 			})
-		}); err != nil {
+		})
+	if err != nil {
 		return err
 	}
 
-	if err := r.runStep(ctx, fmt.Sprintf("pass-%d-install-ubuntu-24.04", pass), r.cfg.Timeouts.InstallUbuntu,
+	err = r.runStep(ctx, fmt.Sprintf("pass-%d-install-ubuntu-24.04", pass), r.cfg.Timeouts.InstallUbuntu,
 		func(stepCtx context.Context, progress stepProgress) error {
 			ssh := r.newRescueSSHClient()
 			return r.runInstall(stepCtx, ssh, progress)
-		}); err != nil {
+		})
+	if err != nil {
 		return err
 	}
 
-	if err := r.runStep(ctx, fmt.Sprintf("pass-%d-reboot-to-os", pass), r.cfg.Timeouts.RebootToOS,
+	err = r.runStep(ctx, fmt.Sprintf("pass-%d-reboot-to-os", pass), r.cfg.Timeouts.RebootToOS,
 		func(stepCtx context.Context, progress stepProgress) error {
 			_ = stepCtx
 			out := r.newRescueSSHClient().Reboot()
@@ -272,15 +330,13 @@ func (r *runner) cycle(ctx context.Context, pass int) error {
 			}
 			progress("reboot command sent from rescue")
 			return nil
-		}); err != nil {
+		})
+	if err != nil {
 		return err
 	}
 
-	if err := r.runStep(ctx, fmt.Sprintf("pass-%d-wait-os", pass), r.cfg.Timeouts.WaitForOS,
+	err = r.runStep(ctx, fmt.Sprintf("pass-%d-wait-os", pass), r.cfg.Timeouts.WaitForOS,
 		func(stepCtx context.Context, progress stepProgress) error {
-			if err := r.refreshServerIP(stepCtx, progress); err != nil {
-				return err
-			}
 			ssh := r.newOSSSHClient()
 			return waitUntil(stepCtx, r.cfg.PollInterval, progress, func() (bool, string, error) {
 				out := ssh.GetHostName()
@@ -296,7 +352,8 @@ func (r *runner) cycle(ctx context.Context, pass int) error {
 				}
 				return false, fmt.Sprintf("waiting for os ssh: %v", out.Err), nil
 			})
-		}); err != nil {
+		})
+	if err != nil {
 		return err
 	}
 
@@ -337,7 +394,8 @@ func (r *runner) runInstall(ctx context.Context, ssh sshclient.Client, progress 
 	if out.Err != nil {
 		return fmt.Errorf("rescue ssh check failed: %w", out.Err)
 	}
-	if got := strings.TrimSpace(out.StdOut); got != rescueHostName {
+	got := strings.TrimSpace(out.StdOut)
+	if got != rescueHostName {
 		return fmt.Errorf("expected rescue hostname %q before install, got %q", rescueHostName, got)
 	}
 
@@ -360,18 +418,21 @@ func (r *runner) runInstall(ctx context.Context, ssh sshclient.Client, progress 
 
 	installSpec := buildInstallImageSpecFromHBMH(r.host, r.cfg.ImagePath, len(rootWWNs) > 1)
 	autosetup := buildAutoSetup(installSpec, r.host.Name, devices)
-	if out := ssh.CreateAutoSetup(autosetup); out.Err != nil || out.StdErr != "" {
-		return fmt.Errorf("create autosetup failed: stdout=%q stderr=%q err=%v", out.StdOut, out.StdErr, out.Err)
+	autoSetupOut := ssh.CreateAutoSetup(autosetup)
+	if autoSetupOut.Err != nil || autoSetupOut.StdErr != "" {
+		return fmt.Errorf("create autosetup failed: stdout=%q stderr=%q err=%v", autoSetupOut.StdOut, autoSetupOut.StdErr, autoSetupOut.Err)
 	}
 	progress("autosetup uploaded")
 
 	postInstall := buildPostInstallScript(strings.TrimSpace(r.creds.sshPub))
-	if out := ssh.CreatePostInstallScript(postInstall); out.Err != nil || out.StdErr != "" {
-		return fmt.Errorf("create post-install script failed: stdout=%q stderr=%q err=%v", out.StdOut, out.StdErr, out.Err)
+	postInstallOut := ssh.CreatePostInstallScript(postInstall)
+	if postInstallOut.Err != nil || postInstallOut.StdErr != "" {
+		return fmt.Errorf("create post-install script failed: stdout=%q stderr=%q err=%v", postInstallOut.StdOut, postInstallOut.StdErr, postInstallOut.Err)
 	}
 	progress("post-install script uploaded")
 
-	if err := ensureInstallImageBinary(ssh, progress); err != nil {
+	err = ensureInstallImageBinary(ssh, progress)
+	if err != nil {
 		return err
 	}
 
@@ -431,14 +492,21 @@ ps aux | grep installimage | grep -v grep || true
 	if err != nil {
 		return "", fmt.Errorf("create temp script for log collection: %w", err)
 	}
+	tmpPath := tmpFile.Name()
 	defer func() {
-		_ = os.Remove(tmpFile.Name())
+		// #nosec G703 -- tmpPath is generated by os.CreateTemp and stays within the local temp dir.
+		_ = os.Remove(tmpPath)
 	}()
-	if err := os.WriteFile(tmpFile.Name(), []byte(script), 0o600); err != nil {
+	_, err = tmpFile.WriteString(script)
+	if err != nil {
 		return "", fmt.Errorf("write temp script for log collection: %w", err)
 	}
+	err = tmpFile.Close()
+	if err != nil {
+		return "", fmt.Errorf("close temp script for log collection: %w", err)
+	}
 
-	exitStatus, output, err := ssh.ExecutePreProvisionCommand(ctx, tmpFile.Name())
+	exitStatus, output, err := ssh.ExecutePreProvisionCommand(ctx, tmpPath)
 	if err != nil {
 		return "", fmt.Errorf("collect install logs via ssh: %w", err)
 	}
@@ -580,8 +648,9 @@ func loadEnvCredentials() (envCredentials, error) {
 }
 
 func loadKeyMaterial(pathVar, base64Var string) (string, error) {
-	if path := strings.TrimSpace(os.Getenv(pathVar)); path != "" {
-		data, err := os.ReadFile(path) // #nosec G304 -- file path is intentionally provided via environment variable.
+	path := strings.TrimSpace(os.Getenv(pathVar))
+	if path != "" {
+		data, err := os.ReadFile(path) // #nosec G304,G703 -- file path is intentionally provided via environment variable.
 		if err != nil {
 			return "", fmt.Errorf("read %s (%s): %w", pathVar, path, err)
 		}
@@ -622,7 +691,8 @@ func findDeviceNamesByWWN(ssh sshclient.Client, wwns []string) ([]string, error)
 	for _, line := range lines {
 		var s storageDetails
 		validJSON := validJSONFromSSHOutput(line)
-		if err := json.Unmarshal([]byte(validJSON), &s); err != nil {
+		err := json.Unmarshal([]byte(validJSON), &s)
+		if err != nil {
 			return nil, fmt.Errorf("parse lsblk line %q: %w", line, err)
 		}
 		if s.Type == "disk" {
@@ -791,7 +861,7 @@ func (r *runner) runStep(ctx context.Context, name string, timeout time.Duration
 	}
 
 	start := time.Now()
-	r.log("step=%s state=start timeout=%s", name, formatMinSec(timeout))
+	r.logf("step=%s state=start timeout=%s", name, formatMinSec(timeout))
 
 	stepCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
@@ -807,7 +877,7 @@ func (r *runner) runStep(ctx context.Context, name string, timeout time.Duration
 			used = 100
 		}
 		msg := fmt.Sprintf(format, args...)
-		r.log("step=%s state=running elapsed=%s used=%.1f%% remaining=%s %s",
+		r.logf("step=%s state=running elapsed=%s used=%.1f%% remaining=%s %s",
 			name, formatMinSec(elapsed), used, formatMinSec(remaining), msg)
 	}
 
@@ -823,23 +893,23 @@ func (r *runner) runStep(ctx context.Context, name string, timeout time.Duration
 	}
 
 	if err == nil {
-		r.log("step=%s state=success duration=%s used=%.1f%% remaining=%s",
+		r.logf("step=%s state=success duration=%s used=%.1f%% remaining=%s",
 			name, formatMinSec(duration), used, formatMinSec(remaining))
 		return nil
 	}
 
 	if errors.Is(err, context.DeadlineExceeded) || errors.Is(stepCtx.Err(), context.DeadlineExceeded) {
-		r.log("step=%s state=timeout duration=%s used=%.1f%% remaining=%s err=%v",
+		r.logf("step=%s state=timeout duration=%s used=%.1f%% remaining=%s err=%v",
 			name, formatMinSec(duration), used, formatMinSec(0), err)
 		return fmt.Errorf("step %q timed out after %s: %w", name, timeout, err)
 	}
 
-	r.log("step=%s state=failed duration=%s used=%.1f%% remaining=%s err=%v",
+	r.logf("step=%s state=failed duration=%s used=%.1f%% remaining=%s err=%v",
 		name, formatMinSec(duration), used, formatMinSec(remaining), err)
 	return fmt.Errorf("step %q failed: %w", name, err)
 }
 
-func (r *runner) log(format string, args ...any) {
+func (r *runner) logf(format string, args ...any) {
 	overall := formatMinSec(0)
 	if !r.startedAt.IsZero() {
 		overall = formatMinSec(time.Since(r.startedAt))
