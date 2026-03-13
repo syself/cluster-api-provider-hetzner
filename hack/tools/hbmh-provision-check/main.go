@@ -38,6 +38,8 @@ func main() {
 		_, _ = fmt.Fprintln(out, "  HETZNER_SSH_PUB_PATH or HETZNER_SSH_PUB")
 		_, _ = fmt.Fprintln(out, "  HETZNER_SSH_PRIV_PATH or HETZNER_SSH_PRIV")
 		_, _ = fmt.Fprintln(out)
+		_, _ = fmt.Fprintln(out, "The tool does not talk to Kubernetes. It only reads one local YAML file containing `HetznerBareMetalHost` objects and then talks to Robot plus the target server directly, so no kubeconfig or running cluster is required while you execute it.")
+		_, _ = fmt.Fprintln(out)
 		_, _ = fmt.Fprintln(out, "Flags:")
 		pflag.PrintDefaults()
 	}
