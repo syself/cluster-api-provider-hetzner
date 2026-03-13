@@ -37,6 +37,9 @@ if [ $# -eq 0 ]; then
     exit 3
 fi
 
+# Avoid empty WWNs, when called directly after boot.
+udevadm settle --timeout=30
+
 # Iterate over all input arguments
 for wwn in "$@"; do
     if ! lsblk -l -oWWN | grep -qFx "${wwn}"; then

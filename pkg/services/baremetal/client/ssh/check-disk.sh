@@ -34,6 +34,9 @@ if [ $# -eq 0 ]; then
     exit 3
 fi
 
+# Avoid empty WWNs, when called directly after boot.
+udevadm settle --timeout=30
+
 install_smartmontools() {
     if [[ -f /etc/os-release ]]; then
         # shellcheck disable=SC1091

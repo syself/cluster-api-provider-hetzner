@@ -32,6 +32,9 @@ if [ $# -eq 0 ]; then
     exit 3
 fi
 
+# Avoid empty WWNs, when called directly after boot.
+udevadm settle --timeout=30
+
 # Show usage, if any argument starts with a dash.
 for arg in "$@"; do
     if [[ "$arg" == -* ]]; then
