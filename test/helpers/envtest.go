@@ -128,7 +128,6 @@ func NewTestEnvironment() *TestEnvironment {
 	initializeWebhookInEnvironment()
 
 	if _, err := env.Start(); err != nil {
-		err = kerrors.NewAggregate([]error{err, env.Stop()})
 		panic(err)
 	}
 
@@ -218,7 +217,12 @@ func (t *TestEnvironment) StartManager(ctx context.Context) error {
 
 // Stop stops the manager and cancels the context.
 func (t *TestEnvironment) Stop() error {
-	t.cancel()
+	if t == nil {
+		return nil
+	}
+	if t.cancel != nil {
+		t.cancel()
+	}
 	return env.Stop()
 }
 

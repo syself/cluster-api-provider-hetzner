@@ -24,7 +24,9 @@ if ! ./hack/tools/bin/setup-envtest list | grep -q "$KUBEBUILDER_ENVTEST_KUBERNE
     exit 1
 fi
 
-KUBEBUILDER_ASSETS=$(./hack/tools/bin/setup-envtest use --use-env \
+unset KUBEBUILDER_ASSETS
+
+KUBEBUILDER_ASSETS=$(./hack/tools/bin/setup-envtest use \
     --bin-dir "$PWD/hack/tools/bin" -p path \
     "$KUBEBUILDER_ENVTEST_KUBERNETES_VERSION")
 

@@ -187,6 +187,18 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 	})
 
 	Context("Basic hcloudremediation test", func() {
+		waitForHCloudMachineProvisioned := func() {
+			By("ensuring if hcloudMachine is provisioned")
+			Eventually(func() bool {
+				if err := testEnv.Get(ctx, hcloudMachineKey, hcloudMachine); err != nil {
+					return false
+				}
+
+				testEnv.GetLogger().Info("Status of the hcloudmachine", "status", hcloudMachine.Status)
+				return hcloudMachine.Status.Ready
+			}, timeout).Should(BeTrue())
+		}
+
 		It("creates the hcloudRemediation successfully", func() {
 			Expect(testEnv.Create(ctx, hcloudRemediation)).To(Succeed())
 
@@ -204,15 +216,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 		})
 
 		It("checks that no remediation is tried if HCloud server does not exist anymore", func() {
-			By("ensuring if hcloudMachine is provisioned")
-			Eventually(func() bool {
-				if err := testEnv.Get(ctx, hcloudMachineKey, hcloudMachine); err != nil {
-					return false
-				}
-
-				testEnv.GetLogger().Info("Status of the hcloudmachine", "status", hcloudMachine.Status)
-				return hcloudMachine.Status.Ready
-			}, timeout).Should(BeTrue())
+			waitForHCloudMachineProvisioned()
 
 			By("deleting the server associated with the hcloudMachine")
 			providerID, err := hcloudutil.ServerIDFromProviderID(hcloudMachine.Spec.ProviderID)
@@ -235,6 +239,8 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 		})
 
 		It("checks that, under normal conditions, a reboot is carried out and retryCount and lastRemediated are set", func() {
+			waitForHCloudMachineProvisioned()
+
 			Expect(testEnv.Create(ctx, hcloudRemediation)).To(Succeed())
 
 			Eventually(func() bool {
@@ -247,6 +253,8 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 		})
 
 		It("checks if PhaseWaiting is set when retryLimit is reached", func() {
+			waitForHCloudMachineProvisioned()
+
 			Expect(testEnv.Create(ctx, hcloudRemediation)).To(Succeed())
 
 			Eventually(func() bool {
