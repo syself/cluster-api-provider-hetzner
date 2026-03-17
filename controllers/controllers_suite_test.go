@@ -163,11 +163,9 @@ func dumpMetrics() error {
 
 var _ = AfterSuite(func() {
 	Expect(dumpMetrics()).To(Succeed())
-	if testEnv != nil {
-		Expect(testEnv.Stop()).To(Succeed())
-		wg.Done() // Main manager has been stopped
-		wg.Wait() // Wait for target cluster manager
-	}
+	Expect(testEnv.Stop()).To(Succeed())
+	wg.Done() // Main manager has been stopped
+	wg.Wait() // Wait for target cluster manager
 })
 
 func getDefaultHetznerClusterSpec() infrav1.HetznerClusterSpec {
