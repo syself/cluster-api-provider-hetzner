@@ -8,10 +8,12 @@ bin
 hack/tools/bin
 testbin/*
 temp
+/tmp
 # Test binary, build with `go test -c`
 *.test
 .coverage
 .cache
+.lycheecache
 .reports
 # E2E test templates
 test/e2e/data/infrastructure-hetzner/v1beta1/cluster-template*.yaml
@@ -34,6 +36,7 @@ test/e2e/data/infrastructure-hetzner/v1beta1/env*
 /tilt.d
 tilt_config.json
 baremetalhosts.yaml
+bm-*.yaml
 
 # kubeconfigs
 ./kind.kubeconfig
@@ -51,7 +54,7 @@ baremetalhosts.yaml
 config/samples
 
 # test results
-_artifacts
+_artifacts*
 test/e2e/config/hetzner.tmp.yaml
 resp.json
 **manifest.json
@@ -59,7 +62,7 @@ resp.json
 # release artifacts
 out
 _releasenotes
-templates/cluster-templates/cluster-template*
+/generated/v1*
 
 # Helm
 .helm
@@ -82,6 +85,8 @@ watchall-output*
 /conditions*.txt
 
 /.config
-/test/e2e/ginkgo-log.txt
+/.kube
 
-.lycheecache
+/generated
+
+.vscode
