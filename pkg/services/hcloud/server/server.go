@@ -142,6 +142,21 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 		// otherwise create server.
 		server, err = s.createServer(ctx)
 		if err != nil {
+			// Terminal errors like invalid_input (e.g. unsupported location for server type)
+			// or resource_unavailable (e.g. server location disabled) will never succeed on retry.
+			// Mark the machine as irrecoverably failed and stop reconciling.
+			if hcloud.IsError(err, hcloud.ErrorCodeInvalidInput) || hcloud.IsError(err, hcloud.ErrorCodeResourceUnavailable) {
+				conditions.MarkFalse(
+					s.scope.HCloudMachine,
+					infrav1.ServerCreateSucceededCondition,
+					infrav1.ServerCreateFailedIrrecoverableErrorReason,
+					clusterv1.ConditionSeverityError,
+					"%s",
+					err.Error(),
+				)
+				return reconcile.Result{}, nil
+			}
+
 			if errors.Is(err, errServerCreateNotPossible) {
 				return reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
 			}

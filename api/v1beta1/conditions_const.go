@@ -48,6 +48,8 @@ const (
 	ServerTypeNotFoundReason = "ServerTypeNotFound"
 	// ServerCreateFailedReason indicates that server could not get created.
 	ServerCreateFailedReason = "ServerCreateFailedReason"
+	// ServerCreateFailedIrrecoverableErrorReason indicates that server creation failed with an irrecoverable error.
+	ServerCreateFailedIrrecoverableErrorReason = "ServerCreateFailedIrrecoverableError"
 )
 
 const (
