@@ -100,6 +100,15 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 
 	log = log.WithValues("Machine", klog.KObj(machine))
 
+	// If the HCloudMachine has an unauthorized / HCloudCredentialsInvalid error, stop reconciling.
+	// There is no point in retrying API calls with an invalid token.
+	// The MachineHealthCheck will eventually remediate the machine by deleting and recreating it.
+	if conditions.IsFalse(hcloudMachine, infrav1.HCloudTokenAvailableCondition) &&
+		conditions.GetReason(hcloudMachine, infrav1.HCloudTokenAvailableCondition) == infrav1.HCloudCredentialsInvalidReason {
+		log.Info("HCloudMachine has HCloudCredentialsInvalid, stopping reconciliation")
+		return reconcile.Result{}, nil
+	}
+
 	// Fetch the Cluster.
 	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, machine.ObjectMeta)
 	if err != nil {
