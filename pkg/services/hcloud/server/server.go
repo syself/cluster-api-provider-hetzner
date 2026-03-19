@@ -199,6 +199,21 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 
 	server, image, err := s.createServerFromImageNameOrURL(ctx)
 	if err != nil {
+		// Terminal errors like invalid_input (e.g. unsupported location for server type)
+		// or resource_unavailable (e.g. server location disabled) will never succeed on retry.
+		// Mark the machine as irrecoverably failed and stop reconciling.
+		if hcloud.IsError(err, hcloud.ErrorCodeInvalidInput) || hcloud.IsError(err, hcloud.ErrorCodeResourceUnavailable) {
+			conditions.MarkFalse(
+				s.scope.HCloudMachine,
+				infrav1.ServerCreateSucceededCondition,
+				infrav1.ServerCreateFailedIrrecoverableErrorReason,
+				clusterv1.ConditionSeverityError,
+				"%s",
+				err.Error(),
+			)
+			return reconcile.Result{}, nil
+		}
+
 		if errors.Is(err, errServerCreateNotPossible) {
 			err = fmt.Errorf("createServerFromImageNameOrURL failed: %w", err)
 			s.scope.Error(err, "")
