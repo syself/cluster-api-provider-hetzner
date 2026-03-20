@@ -164,15 +164,6 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 	startReconcile := time.Now()
 	// Always close the scope when exiting this function so we can persist any HCloudMachine changes.
 	defer func() {
-		if reterr != nil && errors.Is(reterr, hcloudclient.ErrUnauthorized) {
-			conditions.MarkFalse(hcloudMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason, clusterv1.ConditionSeverityError, "wrong hcloud token")
-			// Don't return an error, no point retrying with invalid credentials.
-			reterr = nil
-			res = reconcile.Result{}
-		} else {
-			conditions.MarkTrue(hcloudMachine, infrav1.HCloudTokenAvailableCondition)
-		}
-
 		// the Close() will use PatchHelper to store the changes.
 		if err := machineScope.Close(ctx); err != nil {
 			res = reconcile.Result{}

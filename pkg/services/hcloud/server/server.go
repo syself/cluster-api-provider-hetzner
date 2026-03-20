@@ -40,6 +40,7 @@ import (
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
+	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
@@ -105,6 +106,12 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	if s.scope.HCloudMachine.Spec.ProviderID != nil {
 		server, err = s.findServer(ctx)
 		if err != nil {
+			// If it is an unauthorized error i.e. wrong HCloudToken do not return an error.
+			// As there is no point retrying with invalid credentials.
+			if errors.Is(err, hcloudclient.ErrUnauthorized) {
+				return reconcile.Result{}, nil
+			}
+
 			return reconcile.Result{}, fmt.Errorf("findServer: %w", err)
 		}
 
@@ -199,6 +206,12 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 
 	server, image, err := s.createServerFromImageNameOrURL(ctx)
 	if err != nil {
+		// If it is an unauthorized error i.e. wrong HCloudToken do not return an error.
+		// As there is no point retrying with invalid credentials.
+		if errors.Is(err, hcloudclient.ErrUnauthorized) {
+			return reconcile.Result{}, nil
+		}
+
 		// Terminal errors like invalid_input (e.g. unsupported location for server type)
 		// or resource_unavailable (e.g. server location disabled) will never succeed on retry.
 		// Mark the machine as irrecoverably failed and stop reconciling.
@@ -1179,8 +1192,23 @@ func (s *Service) getServerImage(ctx context.Context, imageName string) (*hcloud
 	// Get server type so we can filter for images with correct architecture
 	serverType, err := s.scope.HCloudClient.GetServerType(ctx, string(s.scope.HCloudMachine.Spec.Type))
 	if err != nil {
+		// If it is an unauthorized error i.e. wrong HCloudToken, set HCloudCredentialsInvalid condition.
+		if errors.Is(err, hcloudclient.ErrUnauthorized) {
+			conditions.MarkFalse(
+				s.scope.HCloudMachine,
+				infrav1.HCloudTokenAvailableCondition,
+				infrav1.HCloudCredentialsInvalidReason,
+				clusterv1.ConditionSeverityError,
+				"wrong hcloud token",
+			)
+			return nil, err
+		}
+
 		return nil, handleRateLimit(s.scope.HCloudMachine, err, "GetServerType", "failed to get server type in HCloud")
 	}
+
+	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition)
+
 	if serverType == nil {
 		msg := fmt.Sprintf("failed to get server type %q", string(s.scope.HCloudMachine.Spec.Type))
 		conditions.MarkFalse(
@@ -1374,9 +1402,23 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 	if err == nil {
 		server, err = s.scope.HCloudClient.GetServer(ctx, serverID)
 		if err != nil {
+			// If it is an unauthorized error i.e. wrong HCloudToken, set HCloudCredentialsInvalid condition.
+			if errors.Is(err, hcloudclient.ErrUnauthorized) {
+				conditions.MarkFalse(
+					s.scope.HCloudMachine,
+					infrav1.HCloudTokenAvailableCondition,
+					infrav1.HCloudCredentialsInvalidReason,
+					clusterv1.ConditionSeverityError,
+					"wrong hcloud token",
+				)
+				return nil, err
+			}
+
 			errMsg := fmt.Sprintf("failed to get server %d", serverID)
 			return nil, handleRateLimit(s.scope.HCloudMachine, err, "GetServer", errMsg)
 		}
+
+		conditions.MarkTrue(s.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition)
 
 		// if server has been found, return it
 		if server != nil {
