@@ -720,18 +720,20 @@ func loadHostsFromHBMHYAMLFile(path string) ([]infrav1.HetznerBareMetalHost, err
 	dec := utilyaml.NewYAMLOrJSONDecoder(bytes.NewReader(data), 4096)
 	result := make([]infrav1.HetznerBareMetalHost, 0)
 	for {
-		var host infrav1.HetznerBareMetalHost
-		err := dec.Decode(&host)
+		var raw any
+		err := dec.Decode(&raw)
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
 			return nil, fmt.Errorf("decode yaml file %q: %w", path, err)
 		}
-		if host.Kind != "HetznerBareMetalHost" {
-			continue
+
+		hosts, err := extractHostsFromManifest(raw)
+		if err != nil {
+			return nil, fmt.Errorf("decode yaml file %q: %w", path, err)
 		}
-		result = append(result, *host.DeepCopy())
+		result = append(result, hosts...)
 	}
 
 	if len(result) == 0 {
@@ -739,6 +741,50 @@ func loadHostsFromHBMHYAMLFile(path string) ([]infrav1.HetznerBareMetalHost, err
 	}
 
 	return result, nil
+}
+
+func extractHostsFromManifest(raw any) ([]infrav1.HetznerBareMetalHost, error) {
+	obj, ok := raw.(map[string]any)
+	if !ok || len(obj) == 0 {
+		return nil, nil
+	}
+
+	if kind, _ := obj["kind"].(string); kind == "HetznerBareMetalHost" {
+		host, err := decodeHostObject(obj)
+		if err != nil {
+			return nil, err
+		}
+		return []infrav1.HetznerBareMetalHost{host}, nil
+	}
+
+	items, ok := obj["items"].([]any)
+	if !ok {
+		return nil, nil
+	}
+
+	result := make([]infrav1.HetznerBareMetalHost, 0, len(items))
+	for _, item := range items {
+		hosts, err := extractHostsFromManifest(item)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, hosts...)
+	}
+	return result, nil
+}
+
+func decodeHostObject(obj map[string]any) (infrav1.HetznerBareMetalHost, error) {
+	data, err := json.Marshal(obj)
+	if err != nil {
+		return infrav1.HetznerBareMetalHost{}, fmt.Errorf("marshal HetznerBareMetalHost manifest: %w", err)
+	}
+
+	var host infrav1.HetznerBareMetalHost
+	if err := json.Unmarshal(data, &host); err != nil {
+		return infrav1.HetznerBareMetalHost{}, fmt.Errorf("unmarshal HetznerBareMetalHost manifest: %w", err)
+	}
+
+	return host, nil
 }
 
 func selectHost(hosts []infrav1.HetznerBareMetalHost, name string) (infrav1.HetznerBareMetalHost, error) {
