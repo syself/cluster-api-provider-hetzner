@@ -23,15 +23,14 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/conditions"
+	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -49,7 +48,6 @@ import (
 	robotclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/robot"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/host"
-	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
 // HetznerBareMetalHostReconciler reconciles a HetznerBareMetalHost object.
@@ -100,70 +98,28 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		return reconcile.Result{}, err
 	}
 
-	// ----------------------------------------------------------------
-	// Start: avoid conflict errors. Wait until local cache is up-to-date
-	// Won't be needed once this was implemented:
-	// https://github.com/kubernetes-sigs/controller-runtime/issues/3320
-	initialHost := bmHost.DeepCopy()
-	defer func() {
-		// We can potentially optimize this further by ensuring that the cache is up to date only in
-		// the cases where an outdated cache would lead to problems. Currently, we ensure that the
-		// cache is up to date in all cases, i.e. for all possible changes to the
-		// HetznerBareMetalHost object.
-		if cmp.Equal(initialHost, bmHost) {
-			// Nothing has changed. No need to wait.
-			return
-		}
-		startReadOwnWrite := time.Now()
-
-		// The object changed. Wait until the new version is in the local cache
-
-		// Get the latest version from the apiserver.
-		apiserverHost := &infrav1.HetznerBareMetalHost{}
-
-		// Use uncached APIReader
-		err := r.APIReader.Get(ctx, client.ObjectKeyFromObject(bmHost), apiserverHost)
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				// resource was deleted. No need to reconcile again.
-				reterr = nil
-				res = reconcile.Result{}
-				return
-			}
-			reterr = errors.Join(reterr,
-				fmt.Errorf("failed get HetznerBareMetalHost via uncached APIReader: %w", err))
-			return
-		}
-
-		apiserverRV := apiserverHost.ResourceVersion
-
-		err = wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, 3*time.Second, true, func(ctx context.Context) (done bool, err error) {
-			// new resource, read from local cache
-			latestFromLocalCache := &infrav1.HetznerBareMetalHost{}
-			getErr := r.Get(ctx, client.ObjectKeyFromObject(apiserverHost), latestFromLocalCache)
-			if apierrors.IsNotFound(getErr) {
-				// the object was deleted. All is fine.
-				return true, nil
-			}
-			if getErr != nil {
-				return false, getErr
-			}
-			return utils.IsLocalCacheUpToDate(latestFromLocalCache.ResourceVersion, apiserverRV), nil
-		})
-		if err != nil {
-			log.Error(err, "cache sync failed after BootState change")
-		}
-		if time.Since(startReadOwnWrite) > 50*time.Millisecond {
-			log.Info("Wait for update being in local cache", "durationWaitForLocalCacheSync", time.Since(startReadOwnWrite).Round(time.Millisecond))
-		}
-	}()
-	// End: avoid conflict errors. Wait until local cache is up-to-date
-	// ----------------------------------------------------------------
+	patchHelper, err := patch.NewHelper(bmHost, r)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to init patch helper: %w", err)
+	}
 
 	initialProvisioningState := bmHost.Spec.Status.ProvisioningState
+
 	defer func() {
 		if initialProvisioningState != bmHost.Spec.Status.ProvisioningState {
 			log.Info("Provisioning state changed", "from", initialProvisioningState, "to", bmHost.Spec.Status.ProvisioningState)
+		}
+
+		// remove deprecated conditions
+		conditions.Delete(bmHost, infrav1.DeprecatedHetznerBareMetalHostReadyCondition)
+		conditions.Delete(bmHost, infrav1.DeprecatedHostProvisionSucceededCondition)
+		conditions.Delete(bmHost, infrav1.DeprecatedRateLimitExceededCondition)
+
+		conditions.SetSummary(bmHost)
+		if err := patchHelper.Patch(ctx, bmHost); err != nil {
+			res = reconcile.Result{}
+			reterr = errors.Join(reterr, err)
+			return
 		}
 	}()
 
@@ -256,7 +212,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	secretManager := secretutil.NewSecretManager(log, r, r.APIReader)
 	robotCreds, err := getAndValidateRobotCredentials(ctx, req.Namespace, hetznerCluster, secretManager)
 	if err != nil {
-		return hetznerSecretErrorResult(ctx, err, bmHost, r)
+		return hetznerSecretErrorResult(err, bmHost)
 	}
 
 	// Get secrets. Return when result != nil.
@@ -350,7 +306,6 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 	res ctrl.Result,
 	reterr error,
 ) {
-	emptyResult := reconcile.Result{}
 	if bmHost.Spec.Status.SSHSpec != nil {
 		var err error
 		osSSHSecretNamespacedName := types.NamespacedName{Namespace: bmHost.Namespace, Name: bmHost.Spec.Status.SSHSpec.SecretRef.Name}
@@ -368,11 +323,6 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 				)
 				record.Warnf(bmHost, infrav1.OSSSHSecretMissingReason, msg)
 				conditions.SetSummary(bmHost)
-				result, err := host.SaveHostAndReturn(ctx, r, bmHost)
-				if result != emptyResult || err != nil {
-					return nil, nil, result, err
-				}
-
 				return nil, nil, reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
 			}
 			return nil, nil, res, fmt.Errorf("failed to get secret: %w", err)
@@ -392,11 +342,6 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 
 				record.Warnf(bmHost, infrav1.RescueSSHSecretMissingReason, infrav1.ErrorMessageMissingRescueSSHSecret)
 				conditions.SetSummary(bmHost)
-				result, err := host.SaveHostAndReturn(ctx, r, bmHost)
-				if result != emptyResult || err != nil {
-					return nil, nil, result, err
-				}
-
 				return nil, nil, reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
 			}
 			return nil, nil, res, fmt.Errorf("failed to acquire secret: %w", err)
@@ -451,10 +396,8 @@ func getAndValidateRobotCredentials(
 }
 
 func hetznerSecretErrorResult(
-	ctx context.Context,
 	err error,
 	bmHost *infrav1.HetznerBareMetalHost,
-	client client.Client,
 ) (res ctrl.Result, reterr error) {
 	resolveErr := &secretutil.ResolveSecretRefError{}
 	if errors.As(err, &resolveErr) {
@@ -471,14 +414,6 @@ func hetznerSecretErrorResult(
 
 		record.Warnf(bmHost, infrav1.HetznerSecretUnreachableReason, fmt.Sprintf("%s: %s", infrav1.ErrorMessageMissingHetznerSecret, err.Error()))
 		conditions.SetSummary(bmHost)
-		result, err := host.SaveHostAndReturn(ctx, client, bmHost)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		emptyResult := reconcile.Result{}
-		if result != emptyResult {
-			return result, nil
-		}
 
 		// No need to reconcile again, as it will be triggered as soon as the secret is updated.
 		return res, nil
@@ -494,8 +429,7 @@ func hetznerSecretErrorResult(
 			infrav1.ErrorMessageMissingOrInvalidSecretData,
 		)
 		record.Warnf(bmHost, infrav1.SSHCredentialsInSecretInvalidReason, err.Error())
-		conditions.SetSummary(bmHost)
-		return host.SaveHostAndReturn(ctx, client, bmHost)
+		return res, nil
 	}
 	return reconcile.Result{}, fmt.Errorf("hetznerSecretErrorResult: an unhandled failure occurred: %T %w", err, err)
 }
