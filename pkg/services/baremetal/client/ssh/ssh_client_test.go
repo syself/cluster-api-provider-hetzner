@@ -112,7 +112,7 @@ func Test_ExecutePreProvisionCommand_withRealServer(t *testing.T) {
 	t.SkipNow()
 
 	ctx := context.Background()
-	pk, err := os.ReadFile(filepath.Join(os.Getenv("HOME"), ".ssh", "id_rsa")) // #nosec G304,G703 -- Test-only read from the operator's local SSH key path.
+	pk, err := os.ReadFile(filepath.Join(os.Getenv("HOME"), ".ssh", "id_rsa"))
 	require.NoError(t, err)
 
 	c := sshClient{

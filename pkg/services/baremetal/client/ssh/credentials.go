@@ -25,9 +25,8 @@ import (
 
 // Credentials defines the credentials for SSH calls specified in a secret.
 type Credentials struct {
-	Name      string
-	PublicKey string
-	// #nosec G117 -- This type intentionally carries runtime private key material loaded from a Secret.
+	Name       string
+	PublicKey  string
 	PrivateKey string
 }
 

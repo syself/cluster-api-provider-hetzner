@@ -79,8 +79,7 @@ var (
 
 // Input defines an SSH input.
 type Input struct {
-	IP string
-	// #nosec G117 -- This struct transports runtime SSH key material and does not hardcode secrets.
+	IP         string
 	PrivateKey string
 	Port       int
 }
