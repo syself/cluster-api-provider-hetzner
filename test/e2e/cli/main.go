@@ -27,6 +27,8 @@ import (
 	"github.com/syself/cluster-api-provider-hetzner/test/e2e"
 )
 
+const cliName = "caph-e2e-log-collector"
+
 func main() {
 	err := do()
 	if err != nil {
@@ -36,7 +38,7 @@ func main() {
 }
 
 func do() error {
-	fs := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
+	fs := flag.NewFlagSet(cliName, flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
 
 	machineName := fs.String("machine-name", "manual-machine", "Machine name used in output paths")
@@ -45,7 +47,7 @@ func do() error {
 	fs.Usage = func() {
 		fmt.Fprintln(os.Stderr, "Collect logs from a CAPH machine over SSH using the e2e log collector.")
 		fmt.Fprintf(os.Stderr, "Requires environment variable %s to contain base64-encoded private key content.\n", e2e.HetznerPrivateKeyContent)
-		fmt.Fprintf(os.Stderr, "Usage: %s [flags] <host>\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Usage: %s [flags] <host>\n", cliName)
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(os.Args[1:]); err != nil {

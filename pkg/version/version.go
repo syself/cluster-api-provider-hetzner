@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 // Package version implements version handling code.
-package version
+package version //nolint:revive // This is the canonical import path for build metadata within the project.
 
 import (
 	"fmt"

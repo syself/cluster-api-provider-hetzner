@@ -145,7 +145,7 @@ type SSHSecretKeyRef struct {
 	PublicKey string `json:"publicKey"`
 
 	// PrivateKey is the key in the secret's data where the SSH key's private key is stored.
-	PrivateKey string `json:"privateKey"`
+	PrivateKey string `json:"privateKey"` //nolint:gosec // This is a reference to a Kubernetes Secret key name, not embedded key material.
 }
 
 // InstallImage defines the configuration for InstallImage.

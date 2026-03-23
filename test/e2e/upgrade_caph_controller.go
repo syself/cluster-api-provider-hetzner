@@ -377,7 +377,7 @@ func downloadToTmpFile(ctx context.Context, url string) string {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to create new http request")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := http.DefaultClient.Do(req) //nolint:gosec // URL comes from controlled E2E config for downloading clusterctl.
 	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to get clusterctl")
 	defer func() { _ = resp.Body.Close() }()
 

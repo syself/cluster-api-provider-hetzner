@@ -14,15 +14,17 @@ import (
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/provisioncheck"
 )
 
+const toolName = "hbmh-provision-check"
+
 func main() {
 	ctrlLog.SetLogger(logr.Discard())
 	data.RegisterEmbeddedInstallImageTGZ()
 
 	// Recreate default flag set to avoid unrelated global flags from imported packages.
-	pflag.CommandLine = pflag.NewFlagSet(os.Args[0], pflag.ExitOnError)
+	pflag.CommandLine = pflag.NewFlagSet(toolName, pflag.ExitOnError)
 	pflag.Usage = func() {
 		out := pflag.CommandLine.Output()
-		_, _ = fmt.Fprintf(out, "Usage: %s [flags]\n\n", os.Args[0])
+		_, _ = fmt.Fprintf(out, "Usage: %s [flags]\n\n", toolName)
 		_, _ = fmt.Fprintln(out, "Validates rescue/provision reliability for one HetznerBareMetalHost from a local YAML file.")
 		_, _ = fmt.Fprintln(out, "The tool does not talk to Kubernetes. It only reads the HBMH manifest from --file.")
 		_, _ = fmt.Fprintln(out, "You can use a checked-in manifest or export one first, for example:")

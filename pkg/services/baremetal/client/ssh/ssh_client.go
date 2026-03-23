@@ -80,7 +80,7 @@ var (
 // Input defines an SSH input.
 type Input struct {
 	IP         string
-	PrivateKey string
+	PrivateKey string //nolint:gosec // This struct transports runtime SSH key material and does not hardcode secrets.
 	Port       int
 }
 
@@ -585,7 +585,7 @@ func (c *sshClient) UntarTGZ() Output {
 			fileName = customPath
 		}
 
-		readData, err := os.ReadFile(fileName)
+		readData, err := os.ReadFile(fileName) //nolint:gosec // Operator-controlled local path override for the installimage archive.
 		if err != nil {
 			return Output{Err: fmt.Errorf("ReadInstallimageTgzFailed %s: %w", fileName, err)}
 		}
