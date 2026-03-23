@@ -16,10 +16,10 @@ limitations under the License.
 
 // Package data exposes embedded helper assets used by standalone tools.
 //
-// hbmh-provision-check runs outside the controller-manager pod, so it cannot rely
-// on a local checkout of the installimage archive. Standalone tools can call
-// RegisterEmbeddedInstallImageTGZ to make the embedded Hetzner installimage
-// tarball available to sshclient.UntarTGZ.
+// caphcli check-bm-servers runs outside the controller-manager pod, so it
+// cannot rely on a local checkout of the installimage archive. Standalone tools
+// can call RegisterEmbeddedInstallImageTGZ to make the embedded Hetzner
+// installimage tarball available to sshclient.UntarTGZ.
 package data
 
 import (

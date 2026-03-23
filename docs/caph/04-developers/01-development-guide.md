@@ -118,7 +118,7 @@ the current cluster. You can use it in both the management and workload clusters
 
 ### Check bare metal provisioning reliability
 
-Use `hbmh-provision-check` to verify that one `HetznerBareMetalHost` can reliably:
+Use `caphcli check-bm-servers` to verify that one `HetznerBareMetalHost` can reliably:
 
 1. reboot to rescue,
 2. install Ubuntu 24.04,
@@ -134,7 +134,7 @@ It continuously prints progress, elapsed time, timeout usage, and remaining time
 Example:
 
 ```shell
-go run ./hack/tools/hbmh-provision-check \
+go run ./cmd/caphcli check-bm-servers \
   --file test/e2e/data/infrastructure-hetzner/v1beta1/bases/hetznerbaremetalhosts.yaml \
   --name bm-e2e-1731561
 ```
