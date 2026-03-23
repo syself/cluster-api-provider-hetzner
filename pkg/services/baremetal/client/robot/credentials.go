@@ -19,5 +19,6 @@ package robotclient
 // Credentials holds the information for authenticating with the Hetzner Robot API.
 type Credentials struct {
 	Username string
-	Password string //nolint:gosec // This type intentionally carries runtime credentials loaded from the environment or a Secret.
+	// #nosec G117 -- This type intentionally carries runtime credentials loaded from the environment or a Secret.
+	Password string
 }
