@@ -190,7 +190,7 @@ install-cilium-in-wl-cluster:
 	helm repo update cilium
 	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) helm upgrade --install cilium cilium/cilium \
   		--namespace kube-system \
-		-f templates/cilium/cilium.yaml
+		-f templates/cilium/values.yaml
 
 
 install-ccm-in-wl-cluster:
@@ -730,7 +730,7 @@ ifeq ($(BUILD_IN_CONTAINER),true)
 else
 	@lychee --version
 	@if [ -z "$${GITHUB_TOKEN}" ]; then echo "GITHUB_TOKEN is not set"; exit 1; fi
-	lychee --verbose --config .lychee.toml --cache ./*.md  ./docs/**/*.md 2>&1 | grep -vP '\[(200|EXCLUDED)\]'
+	lychee --verbose --config .lychee.toml --root-dir "$$(pwd)" --cache ./*.md ./docs/**/*.md 2>&1 | grep -vP '\[(200|EXCLUDED)\]'
 endif
 
 ##@ Main Targets

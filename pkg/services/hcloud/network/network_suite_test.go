@@ -42,7 +42,7 @@ func TestNetwork(t *testing.T) {
 	RunSpecs(t, "Network Suite")
 }
 
-var _ = BeforeSuite(func() {
+var _ = BeforeEach(func() {
 	hetznerCluster.Name = "hetzner-cluster"
 	hetznerCluster.Spec.HCloudNetwork = infrav1.HCloudNetworkSpec{
 		Enabled:         true,

@@ -3,7 +3,7 @@
 ###
 
 # Show progress
-progress = false
+no_progress = true
 
 
 ###
@@ -15,6 +15,9 @@ progress = false
 
 # Maximum number of allowed redirects
 max_redirects = 10
+
+# Do not cache common rate-limit responses
+cache_exclude_status = "403, 429, 503"
 
 
 ###
@@ -41,7 +44,7 @@ insecure = true
 method = "get"
 
 # Custom request headers
-headers = []
+header = {}
 
 
 ###
@@ -75,9 +78,6 @@ exclude_link_local = false
 
 # Exclude loopback IP address range from checking
 exclude_loopback = true
-
-# Exclude all mail addresses from checking
-exclude_mail = false
 
 # Avoid https://docs.hetzner.com/... | Failed: Network error: Connection reset by peer (os error 104)
 max_concurrency = 3
