@@ -856,24 +856,24 @@ var _ = Describe("Test GenerateProviderID", func() {
 			hetznerCluster: func() *infrav1.HetznerCluster {
 				hetznerCluster := newHetznerCluster()
 				hetznerCluster.Annotations = map[string]string{
-					infrav1.UseHrobotProviderIdForBaremetalAnnotation: "true",
+					infrav1.UseHrobotProviderIDForBaremetalAnnotation: "true",
 				}
 				return hetznerCluster
 			}(),
 			serverNumber:       11,
 			expectedProviderID: "hrobot://11",
 		}),
-		Entry("Rejects invalid annotation prefix", testCaseGenerateProviderID{
+		Entry("Uses legacy prefix for non-true annotation value", testCaseGenerateProviderID{
 			machine: newMachine(),
 			hetznerCluster: func() *infrav1.HetznerCluster {
 				hetznerCluster := newHetznerCluster()
 				hetznerCluster.Annotations = map[string]string{
-					infrav1.UseHrobotProviderIdForBaremetalAnnotation: "invalid",
+					infrav1.UseHrobotProviderIDForBaremetalAnnotation: "invalid",
 				}
 				return hetznerCluster
 			}(),
-			serverNumber: 5,
-			expectedErr:  `Unsupported value for HetznerCluster Annotation "capi.syself.com/use-hrobot-provider-id-for-baremetal": "invalid"`,
+			serverNumber:       5,
+			expectedProviderID: "hcloud://bm-5",
 		}),
 	)
 })

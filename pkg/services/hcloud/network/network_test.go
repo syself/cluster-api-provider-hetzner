@@ -174,4 +174,5 @@ var _ = Describe("Test findNetwork", func() {
 		}
 		Expect(err).To(Equal(fmt.Errorf("found multiple networks with opts %v - not allowed", expectedOpts)))
 	})
+
 })

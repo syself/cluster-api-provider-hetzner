@@ -135,6 +135,13 @@ spec:
 
         - key: "node.kubernetes.io/not-ready"
           effect: "NoExecute"
+        
+        - effect: NoSchedule
+          key: node.cluster.x-k8s.io/uninitialized
+          operator: Exists
+        - effect: NoSchedule
+          key: node.cilium.io/agent-not-ready
+          operator: Exists
       containers:
         - name: hcloud-cloud-controller-manager
           args:
