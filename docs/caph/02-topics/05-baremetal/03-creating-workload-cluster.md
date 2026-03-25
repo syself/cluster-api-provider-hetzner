@@ -26,9 +26,9 @@ the upstream CCM.
 
 The CCM calls the Hetzner APIs. To authenticate, it reads the credentials from a secret. This secret
 has to be in the workload cluster, when the CCM runs in the workload cluster. CAPH creates the
-secret and syncs the credentials specified in the management cluster to the workload cluster. The
-Syself fork and the HCloud CCM use a different naming pattern. The Syself uses the secret called
-"hetzner", and the hcloud ccm uses the secret called "hcloud".
+secret and syncs the credentials specified in the management cluster to the workload cluster. In our
+default templates this secret is called `hetzner`. The upstream HCloud chart defaults to a secret
+called `hcloud`, so you need to override the secret references when installing the chart.
 
 Important: CAPH and the CCM must both use the same ProviderID format for bare metal. Unfortunately
 (for historical reasons), there are two formats:
@@ -116,11 +116,22 @@ helm repo update hcloud
 
 helm upgrade --install ccm hcloud/hcloud-cloud-controller-manager \
              --namespace kube-system \
+             --set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.name=hetzner \
+             --set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.key=hcloud \
+             --set env.ROBOT_USER.valueFrom.secretKeyRef.name=hetzner \
+             --set env.ROBOT_USER.valueFrom.secretKeyRef.key=robot-user \
+             --set env.ROBOT_PASSWORD.valueFrom.secretKeyRef.name=hetzner \
+             --set env.ROBOT_PASSWORD.valueFrom.secretKeyRef.key=robot-password \
+             --set-json 'additionalTolerations=[{"key":"node.cluster.x-k8s.io/uninitialized","operator":"Exists","effect":"NoSchedule"},{"key":"node.cilium.io/agent-not-ready","operator":"Exists","effect":"NoSchedule"}]' \
+             --set robot.enabled=true \
              --kubeconfig workload-kubeconfig
 ```
 
 Be sure that the HetznerCluster has the annotation
 `capi.syself.com/use-hrobot-provider-id-for-baremetal: "true"`.
+
+If you use a different `hetznerSecretRef.name` or different keys, then adjust the chart values
+above accordingly.
 
 ---
 
