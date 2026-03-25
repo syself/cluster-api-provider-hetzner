@@ -135,7 +135,7 @@ spec:
 
         - key: "node.kubernetes.io/not-ready"
           effect: "NoExecute"
-
+        
         - effect: NoSchedule
           key: node.cluster.x-k8s.io/uninitialized
           operator: Exists
