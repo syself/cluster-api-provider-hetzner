@@ -31,7 +31,6 @@ import (
 	"time"
 
 	"golang.org/x/crypto/ssh"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	expv1 "sigs.k8s.io/cluster-api/exp/api/v1beta1"
@@ -214,7 +213,7 @@ func infrastructureMachineExternalIP(ctx context.Context, c client.Client, m *cl
 	}
 
 	key := client.ObjectKey{
-		Namespace: infrastructureRefNamespace(m.Spec.InfrastructureRef, m.Namespace),
+		Namespace: m.Namespace,
 		Name:      m.Spec.InfrastructureRef.Name,
 	}
 
@@ -302,13 +301,6 @@ func associatedHostFromHBMM(ctx context.Context, c client.Client, hbmm *infrav1.
 	}
 
 	return host, hostKey, nil
-}
-
-func infrastructureRefNamespace(ref corev1.ObjectReference, defaultNamespace string) string {
-	if ref.Namespace != "" {
-		return ref.Namespace
-	}
-	return defaultNamespace
 }
 
 func externalIPFromAddresses(addresses []clusterv1.MachineAddress) string {
