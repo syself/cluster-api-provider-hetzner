@@ -114,20 +114,21 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 
 	// update the machine
 	host, err := s.update(ctx)
-	if apierrors.IsNotFound(err) {
-		// if host doesn't exist, set HostNotFound condition on HetznerBaremetalMachine
-		// and mark the machine object for remediation and stop reconciling.
-		conditions.MarkFalse(
-			s.scope.BareMetalMachine,
-			infrav1.HostReadyCondition,
-			infrav1.HostNotFoundReason,
-			clusterv1.ConditionSeverityError,
-			"associated host not found",
-		)
-
-		return reconcile.Result{}, s.scope.SetRemediateMachineAnnotationToDeleteMachine(ctx, "Reconcile of hbmm: host not found")
-	}
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			// if host doesn't exist, set HostNotFound condition on HetznerBaremetalMachine
+			// and mark the machine object for remediation and stop reconciling.
+			conditions.MarkFalse(
+				s.scope.BareMetalMachine,
+				infrav1.HostReadyCondition,
+				infrav1.HostNotFoundReason,
+				clusterv1.ConditionSeverityError,
+				"associated host not found",
+			)
+
+			return reconcile.Result{}, s.scope.SetRemediateMachineAnnotationToDeleteMachine(ctx, "Reconcile of hbmm: host not found")
+		}
+
 		return checkForRequeueError(err, "failed to update machine")
 	}
 
@@ -139,21 +140,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	}
 
 	// set providerID if necessary
-	err = s.setProviderID(ctx)
-	if apierrors.IsNotFound(err) {
-		// if host doesn't exist, set HostNotFound condition on HetznerBaremetalMachine
-		// and mark the machine object for remediation and stop reconciling.
-		conditions.MarkFalse(
-			s.scope.BareMetalMachine,
-			infrav1.HostReadyCondition,
-			infrav1.HostNotFoundReason,
-			clusterv1.ConditionSeverityError,
-			"associated host not found",
-		)
-
-		return reconcile.Result{}, s.scope.SetRemediateMachineAnnotationToDeleteMachine(ctx, "Reconcile of hbmm: host not found")
-	}
-	if err != nil {
+	if err := s.setProviderID(ctx); err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to set providerID: %w", err)
 	}
 

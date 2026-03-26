@@ -763,7 +763,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 		})
 	})
 
-	Context("Tests with hosts that got deleted later", func() {
+	Context("Tests with hosts which get deleted later", func() {
 		var (
 			host        *infrav1.HetznerBareMetalHost
 			hostKey     client.ObjectKey
