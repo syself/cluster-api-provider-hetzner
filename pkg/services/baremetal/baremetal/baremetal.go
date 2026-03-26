@@ -676,9 +676,10 @@ func (s *Service) setProviderID(ctx context.Context) error {
 		// no need for requeue error since host update will trigger a reconciliation
 		return nil
 	}
-
-	// set providerID
-	providerID := fmt.Sprintf("hrobot://%d", host.Spec.ServerID)
+	providerID, err := GenerateProviderID(s.scope.Machine, s.scope.HetznerCluster, host.Spec.ServerID)
+	if err != nil {
+		return err
+	}
 	s.scope.BareMetalMachine.Spec.ProviderID = &providerID
 	s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhaseRunning
 
@@ -895,4 +896,31 @@ func analyzePatchError(err error, ignoreNotFound bool) error {
 		return nil
 	}
 	return err
+}
+
+const (
+	// prefixRobotLegacy is the prefix used by the Syself ccm.
+	prefixRobotLegacy = "hcloud://bm-"
+
+	// prefixRobotNew is the prefix used by the HCloud ccm.
+	prefixRobotNew = "hrobot://"
+)
+
+// GenerateProviderID returns the providerID for the given machine. If the ProviderID already
+// exists, then this will be returned. If the ProviderID is empty, it uses the old format by default
+// (hcloud://bm-NNNN), except the Annotation `capi.syself.com/use-hrobot-provider-id-for-baremetal`
+// on the hetznerCluster is set to `hrobot://`.
+func GenerateProviderID(machine *clusterv1.Machine, hetznerCluster *infrav1.HetznerCluster, serverNumber int) (string, error) {
+	if machine.Spec.ProviderID != nil && *machine.Spec.ProviderID != "" {
+		return *machine.Spec.ProviderID, nil
+	}
+	trueString, _ := hetznerCluster.Annotations[infrav1.UseHrobotProviderIdForBaremetalAnnotation]
+	if trueString == "" {
+		return fmt.Sprintf("%s%d", prefixRobotLegacy, serverNumber), nil
+	}
+	if strings.ToLower(trueString) != "true" {
+		return "", fmt.Errorf("Unsupported value for HetznerCluster Annotation %q: %q",
+			infrav1.UseHrobotProviderIdForBaremetalAnnotation, trueString)
+	}
+	return fmt.Sprintf("%s%d", prefixRobotNew, serverNumber), nil
 }

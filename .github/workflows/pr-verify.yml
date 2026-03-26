@@ -11,7 +11,7 @@ jobs:
       issues: write
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/syself/caph-builder:1.0.26
+      image: ghcr.io/syself/caph-builder:1.0.27
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.github_token }}
@@ -61,7 +61,7 @@ jobs:
         run: make verify-starlark
 
       - name: Verify Generated Files of Git Repo
-        run: make BUILD_IN_CONTAINER=false verify-generated-files
+        run: make verify-generated-files
 
       - uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e # v4
         with:

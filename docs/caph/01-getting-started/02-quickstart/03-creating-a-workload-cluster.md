@@ -103,6 +103,9 @@ KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install hccm hcloud/hc
         --set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.key=hcloud
 ```
 
+For baremetal, see  [Baremetal
+Docs](docs/caph/02-topics/05-baremetal/03-creating-workload-cluster.md#deploying-the-hetzner-cloud-controller-manager)
+
 ## Deploying the CSI (optional)
 
 ```shell

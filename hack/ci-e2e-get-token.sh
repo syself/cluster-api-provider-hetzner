@@ -8,6 +8,11 @@ if [[ "$TPS_TOKEN" == tps-11048c03556f* ]]; then
     exit 1
 fi
 
+if [[ -z $TPS_TOKEN ]]; then
+    echo "Error: TPS_TOKEN is not set."
+    exit 1
+fi
+
 newtoken=$(curl -fsSL --retry 2 -A "github.com/syself/cluster-api-provider-hetzner" --header 'Authorization: Bearer '"$TPS_TOKEN"'' -X POST https://tps.hc-integrations.de)
 
 if [ -z "${newtoken:-}" ]; then
@@ -21,4 +26,9 @@ if [ -e .envrc ]; then
     if type -P direnv >/dev/null; then
         direnv allow
     fi
+fi
+
+# Export to Github Action (if run via Github Action)
+if [ -n "${GITHUB_ENV:-}" ]; then
+    echo "HCLOUD_TOKEN=$newtoken" >>"$GITHUB_ENV"
 fi

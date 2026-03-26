@@ -39,7 +39,6 @@ spec:
           requestheader-username-headers: X-Remote-User
           enable-aggregator-routing: "true"
           # Additional Configuration
-          cloud-provider: external
           authorization-mode: "Node,RBAC"
           kubelet-preferred-address-types: ExternalIP,Hostname,InternalDNS,ExternalDNS
           profiling: "false"

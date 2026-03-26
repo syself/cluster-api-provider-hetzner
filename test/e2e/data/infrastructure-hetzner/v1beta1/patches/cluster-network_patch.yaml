@@ -4,4 +4,4 @@ metadata:
   name: "${CLUSTER_NAME}"
   labels:
     cni: "${CLUSTER_NAME}-crs-cni"
-    ccm: "${CLUSTER_NAME}-crs-ccm-hetzner"
+    ccm: "${CLUSTER_NAME}-crs-ccm-network"

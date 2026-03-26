@@ -54,7 +54,7 @@ func LabelSelectorToLabels(str string) (map[string]string, error) {
 	}
 	input := strings.ReplaceAll(str, "==", `":"`)
 	input = strings.ReplaceAll(input, ",", `","`)
-	input = fmt.Sprintf(`{"%s"}`, input) //nolint:gocritic
+	input = fmt.Sprintf(`{"%s"}`, input)
 
 	if err := json.Unmarshal([]byte(input), &labels); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal: %w", err)

@@ -1,5 +1,5 @@
 bases:
-  - ../../../../../../../templates/cluster-templates/bases/kct-md-0-ubuntu.yaml
+  - ../../../../../../../templates/cluster-templates/v1beta1/bases/kct-md-0-ubuntu.yaml
 
 patches:
   - patch: |-
