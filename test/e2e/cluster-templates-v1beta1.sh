@@ -25,10 +25,28 @@ fi
 
 rm -f "$HETZNER_TEMPLATES"/v1beta1/cluster-template*.yaml
 
-echo "$HETZNER_SSH_PUB" >tmp_ssh_pub_enc
-echo "$HETZNER_SSH_PRIV" >tmp_ssh_priv_enc
-kubectl create secret generic robot-ssh --from-literal=sshkey-name="$SSH_KEY_NAME" --from-file=ssh-privatekey=tmp_ssh_priv_enc --from-file=ssh-publickey=tmp_ssh_pub_enc --dry-run=client -o yaml >data/infrastructure-hetzner/v1beta1/cluster-template-hetzner-secret.yaml
-rm tmp_ssh_pub_enc tmp_ssh_priv_enc
+require_non_empty_base64_env() {
+    local var_name=$1
+    local value=${!var_name:-}
+
+    if [[ -z "$value" ]]; then
+        echo "Error: env var $var_name must not be empty" >&2
+        exit 1
+    fi
+
+    if ! printf '%s' "$value" | base64 --decode >/dev/null 2>&1; then
+        echo "Error: env var $var_name must be valid base64" >&2
+        exit 1
+    fi
+}
+
+require_non_empty_base64_env HETZNER_SSH_PUB
+require_non_empty_base64_env HETZNER_SSH_PRIV
+
+printf '%s' "$HETZNER_SSH_PUB" | base64 --decode >tmp_ssh_pub
+printf '%s' "$HETZNER_SSH_PRIV" | base64 --decode >tmp_ssh_priv
+kubectl create secret generic robot-ssh --from-literal=sshkey-name="$SSH_KEY_NAME" --from-file=ssh-privatekey=tmp_ssh_priv --from-file=ssh-publickey=tmp_ssh_pub --dry-run=client -o yaml >data/infrastructure-hetzner/v1beta1/cluster-template-hetzner-secret.yaml
+rm tmp_ssh_pub tmp_ssh_priv
 
 kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template.yaml
 

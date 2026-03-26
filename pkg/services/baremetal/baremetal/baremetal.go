@@ -170,7 +170,7 @@ func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 
 		// check if deprovisioning is done
 		if host.Spec.Status.ProvisioningState != infrav1.StateNone {
-			s.scope.Logger.Info("hbmm is deleting, but host is not deprovisioned yet. Requeueing",
+			s.scope.Info("hbmm is deleting, but host is not deprovisioned yet. Requeueing",
 				"ProvisioningState", host.Spec.Status.ProvisioningState)
 			return reconcile.Result{RequeueAfter: requeueAfter}, nil
 		}
@@ -451,7 +451,7 @@ func ChooseHost(hbmm *infrav1.HetznerBareMetalMachine, hosts []infrav1.HetznerBa
 func skipHost(labelSelector labels.Selector, hbmm *infrav1.HetznerBareMetalMachine, host infrav1.HetznerBareMetalHost, mapOfSkipReasons map[string]int) bool {
 	// This comes first, because we should not look too deep into machines
 	// which are not in our scope.
-	if !labelSelector.Matches(labels.Set(host.ObjectMeta.Labels)) {
+	if !labelSelector.Matches(labels.Set(host.Labels)) {
 		mapOfSkipReasons["label-selector-does-not-match"]++
 		return true
 	}
@@ -537,9 +537,10 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 
 	for _, target := range s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target {
 		if target.Type == infrav1.LoadBalancerTargetTypeIP {
-			if target.IP == host.Spec.Status.IPv4 {
+			switch target.IP {
+			case host.Spec.Status.IPv4:
 				foundIPv4 = true
-			} else if target.IP == host.Spec.Status.IPv6 {
+			case host.Spec.Status.IPv6:
 				foundIPv6 = true
 			}
 		}
@@ -771,9 +772,9 @@ func (s *Service) removeOwnerRef(refList []metav1.OwnerReference) []metav1.Owner
 // ensureMachineAnnotation makes sure the machine has an annotation that references the
 // host and uses the API to update the machine if necessary.
 func (s *Service) ensureMachineAnnotation(host *infrav1.HetznerBareMetalHost) {
-	annotations := s.scope.BareMetalMachine.ObjectMeta.GetAnnotations()
+	annotations := s.scope.BareMetalMachine.GetAnnotations()
 	updatedAnnotations := updateHostAnnotation(annotations, hostKey(host), s.scope.Logger)
-	s.scope.BareMetalMachine.ObjectMeta.SetAnnotations(updatedAnnotations)
+	s.scope.BareMetalMachine.SetAnnotations(updatedAnnotations)
 }
 
 func updateHostAnnotation(annotations map[string]string, hostKey string, log logr.Logger) map[string]string {
@@ -907,20 +908,17 @@ const (
 )
 
 // GenerateProviderID returns the providerID for the given machine. If the ProviderID already
-// exists, then this will be returned. If the ProviderID is empty, it uses the old format by default
-// (hcloud://bm-NNNN), except the Annotation `capi.syself.com/use-hrobot-provider-id-for-baremetal`
-// on the hetznerCluster is set to `hrobot://`.
+// exists, then this will be returned. If the ProviderID is empty, it uses the old format
+// (hcloud://bm-NNNN) by default. If the annotation
+// `capi.syself.com/use-hrobot-provider-id-for-baremetal` on the HetznerCluster is set to "true"
+// (case-insensitive), then `hrobot://` is used.
 func GenerateProviderID(machine *clusterv1.Machine, hetznerCluster *infrav1.HetznerCluster, serverNumber int) (string, error) {
 	if machine.Spec.ProviderID != nil && *machine.Spec.ProviderID != "" {
 		return *machine.Spec.ProviderID, nil
 	}
-	trueString, _ := hetznerCluster.Annotations[infrav1.UseHrobotProviderIdForBaremetalAnnotation]
-	if trueString == "" {
-		return fmt.Sprintf("%s%d", prefixRobotLegacy, serverNumber), nil
+	annotationValue := strings.TrimSpace(hetznerCluster.Annotations[infrav1.UseHrobotProviderIDForBaremetalAnnotation])
+	if strings.EqualFold(annotationValue, "true") {
+		return fmt.Sprintf("%s%d", prefixRobotNew, serverNumber), nil
 	}
-	if strings.ToLower(trueString) != "true" {
-		return "", fmt.Errorf("Unsupported value for HetznerCluster Annotation %q: %q",
-			infrav1.UseHrobotProviderIdForBaremetalAnnotation, trueString)
-	}
-	return fmt.Sprintf("%s%d", prefixRobotNew, serverNumber), nil
+	return fmt.Sprintf("%s%d", prefixRobotLegacy, serverNumber), nil
 }

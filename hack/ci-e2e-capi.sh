@@ -36,7 +36,7 @@ fi
 # Create ssh-key if it does not exist yet
 if ! hcloud ssh-key list | grep -qF "$SSH_KEY_NAME"; then
     echo "info: Creating ssh-key in hcloud"
-    echo "$HETZNER_SSH_PUB" | hcloud ssh-key create --name "$SSH_KEY_NAME" --public-key-from-file -
+    printf '%s' "$HETZNER_SSH_PUB" | base64 --decode | hcloud ssh-key create --name "$SSH_KEY_NAME" --public-key-from-file -
 fi
 
 echo "info: You can connect to the machines with ssh-key $SSH_KEY_NAME"

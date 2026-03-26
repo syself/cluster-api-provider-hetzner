@@ -13,7 +13,44 @@ Secrets as of now are hardcoded given we are using a flavor which is essentially
 
 {% /callout %}
 
-Since we have already created secret in hetzner robot, hcloud and ssh-keys as secret in management cluster, we can create a workload cluster. Generate the manifest by using `clusterctl generate`:
+First you need to decide if you want to use the Syself CCM or the upstream HCloud CCM.
+
+The CCM is the "Cloud Controller" which runs in the workload-cluster. The most important tasks of the CCM are:
+
+- Set ProviderID on Nodes. This is important, so that CAPI in the mgt-cluster knows which CAPI
+  machine (in mgt-cluster) is which Node (in wl-cluster).
+- Creates LoadBalancers
+
+If you are unsure, use the HCloud CCM. In the long run we (Syself) want to switch from our fork to
+the upstream CCM.
+
+The CCM calls the Hetzner APIs. To authenticate, it reads the credentials from a secret. This secret
+has to be in the workload cluster, when the CCM runs in the workload cluster. CAPH creates the
+secret and syncs the credentials specified in the management cluster to the workload cluster. In our
+default templates this secret is called `hetzner`. The upstream HCloud chart defaults to a secret
+called `hcloud`, so you need to override the secret references when installing the chart.
+
+Important: CAPH and the CCM must both use the same ProviderID format for bare metal. Unfortunately
+(for historical reasons), there are two formats:
+
+- old: `hcloud://bm-NNNN`
+- new: `hrobot://NNNN`
+
+The Syself CCM uses the old format by default. The HCloud CCM always uses the new format.
+
+If you use the new format, set the annotation `capi.syself.com/use-hrobot-provider-id-for-baremetal`
+to `"true"` on the `HetznerCluster`. Our default templates have this annotation set.
+
+If CAPH and the CCM do not agree on the ProviderID format, then new nodes will not be able to join
+the cluster, because CAPI waits for the wrong ProviderID.
+
+This only applies to new nodes. Once a node has a ProviderID, it will never change. Both CCMs
+support both formats when the ProviderID is already set.
+
+This applies only to bare metal. HCloud nodes always use the format `hcloud://NNNN`.
+
+Since we have already created secret in hetzner robot, hcloud and ssh-keys as secret in management
+cluster, we can create a workload cluster. Generate the manifest by using `clusterctl generate`:
 
 ```shell
 clusterctl generate cluster my-cluster --flavor hetzner-hcloud-control-planes > my-cluster.yaml
@@ -71,34 +108,34 @@ This requires a secret containing access credentials to both Hetzner Robot and H
 
 {% /callout %}
 
-First you need to decide if you want to use the Syself CCM or the upstream HCloud CCM.
+If you want to use the HCloud CCM:
 
-If you are unsure, use the HCloud CCM. In the long run we (Syself) want to switch from our fork to the
-upstream CCM.
+```shell
+helm repo add hcloud https://charts.hetzner.cloud
+helm repo update hcloud
 
-The CAPH controller creates the required secrets in the workload cluster for you. You only need to
-install the CCM.
+helm upgrade --install ccm hcloud/hcloud-cloud-controller-manager \
+             --namespace kube-system \
+             --set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.name=hetzner \
+             --set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.key=hcloud \
+             --set env.ROBOT_USER.valueFrom.secretKeyRef.name=hetzner \
+             --set env.ROBOT_USER.valueFrom.secretKeyRef.key=robot-user \
+             --set env.ROBOT_PASSWORD.valueFrom.secretKeyRef.name=hetzner \
+             --set env.ROBOT_PASSWORD.valueFrom.secretKeyRef.key=robot-password \
+             --set-json 'additionalTolerations=[{"key":"node.cluster.x-k8s.io/uninitialized","operator":"Exists","effect":"NoSchedule"},{"key":"node.cilium.io/agent-not-ready","operator":"Exists","effect":"NoSchedule"}]' \
+             --set robot.enabled=true \
+             --kubeconfig workload-kubeconfig
+```
 
-Important: CAPH and the CCM must both use the same ProviderID format for bare metal. Unfortunately
-(for historical reasons), there are two formats:
+Be sure that the HetznerCluster has the annotation
+`capi.syself.com/use-hrobot-provider-id-for-baremetal: "true"`.
 
-- old: `hcloud://bm-NNNN`
-- new: `hrobot://NNNN`
+If you use a different `hetznerSecretRef.name` or different keys, then adjust the chart values
+above accordingly.
 
-The Syself CCM uses the old format by default. The HCloud CCM always uses the new format.
+---
 
-If you use the new format, set the annotation
-`capi.syself.com/use-hrobot-provider-id-for-baremetal` to `"true"` on the `HetznerCluster`.
-
-If CAPH and the CCM do not agree on the ProviderID format, then new nodes will not be able to join
-the cluster, because CAPI waits for the wrong ProviderID.
-
-This only applies to new nodes. Once a node has a ProviderID, it will never change. Both CCMs
-support both formats when the ProviderID is already set.
-
-This applies only to bare metal. HCloud nodes always use the format `hcloud://NNNN`.
-
-If you want to use the Syself CCM:
+If you want to use the Syself CCM (not recommended for new clusters):
 
 ```shell
 helm repo add syself https://charts.syself.com
@@ -107,28 +144,10 @@ helm repo update syself
 $ helm upgrade --install ccm syself/ccm-hetzner --version 2.0.1 \
               --namespace kube-system \
               --kubeconfig workload-kubeconfig
-Release "ccm" does not exist. Installing it now.
-NAME: ccm
-LAST DEPLOYED: Thu Apr  4 21:09:25 2024
-NAMESPACE: kube-system
-STATUS: deployed
-REVISION: 1
-TEST SUITE: None
 ```
 
-If you want to use the HCloud CCM:
-
-```shell
-helm repo add hcloud https://charts.hetzner.cloud
-helm repo update hcloud
-
-helm upgrade --install hccm hcloud/hcloud-cloud-controller-manager \
-              --namespace kube-system \
-              --kubeconfig workload-kubeconfig \
-              --set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.name=hetzner \
-              --set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.key=hcloud \
-              --set networking.enabled=false
-```
+Be sure that the HetznerCluster does not have the annotation
+`capi.syself.com/use-hrobot-provider-id-for-baremetal`.
 
 ### Installing CNI
 

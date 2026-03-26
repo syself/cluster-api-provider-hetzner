@@ -190,7 +190,7 @@ install-cilium-in-wl-cluster:
 	helm repo update cilium
 	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) helm upgrade --install cilium cilium/cilium \
   		--namespace kube-system \
-		-f templates/cilium/cilium.yaml
+		-f templates/cilium/values.yaml
 
 
 install-ccm-in-wl-cluster:
@@ -205,10 +205,6 @@ else
 	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hetzner --version 2.0.1 \
 	--namespace kube-system \
 	--set privateNetwork.enabled=$(PRIVATE_NETWORK)
-
-	# Optional: override CCM image for staging/testing.
-	#--set image.tag=sha-93d3a7f \
-	#--set image.repository=ghcr.io/syself/hetzner-cloud-controller-manager-staging
 	@echo
 	@echo 'run "kubectl --kubeconfig=$(WORKER_CLUSTER_KUBECONFIG) ..." to work with the new target cluster'
 	@echo
@@ -683,6 +679,7 @@ else
 	golangci-lint run -v
 endif
 
+
 .PHONY: lint-yaml
 lint-yaml: ## Lint YAML files
 ifeq ($(BUILD_IN_CONTAINER),true)
@@ -729,7 +726,7 @@ ifeq ($(BUILD_IN_CONTAINER),true)
 else
 	@lychee --version
 	@if [ -z "$${GITHUB_TOKEN}" ]; then echo "GITHUB_TOKEN is not set"; exit 1; fi
-	lychee --verbose --config .lychee.toml --cache ./*.md  ./docs/**/*.md 2>&1 | grep -vP '\[(200|EXCLUDED)\]'
+	lychee --verbose --config .lychee.toml --root-dir "$$(pwd)" --cache ./*.md ./docs/**/*.md 2>&1 | grep -vP '\[(200|EXCLUDED)\]'
 endif
 
 ##@ Main Targets

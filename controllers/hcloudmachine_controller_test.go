@@ -907,8 +907,8 @@ var _ = Describe("IgnoreInsignificantHetznerClusterUpdates Predicate", func() {
 	It("should skip updates to the HetznerCluster conditions", func() {
 		// Make change to conditions & other fields that get changed on every update
 		conditions.MarkFalse(newCluster, infrav1.CredentialsAvailableCondition, infrav1.HCloudCredentialsInvalidReason, clusterv1.ConditionSeverityError, "")
-		newCluster.ObjectMeta.ResourceVersion = "2"
-		newCluster.ObjectMeta.SetManagedFields([]metav1.ManagedFieldsEntry{{
+		newCluster.ResourceVersion = "2"
+		newCluster.SetManagedFields([]metav1.ManagedFieldsEntry{{
 			Manager:   "test",
 			Operation: "update",
 		}})

@@ -214,7 +214,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		log.Info("bmHost.Spec.Status.HetznerClusterRef is empty. Looks like a stale cache read")
 		return reconcile.Result{Requeue: true}, nil
 	}
-	if err := r.Client.Get(ctx, hetznerClusterName, hetznerCluster); err != nil {
+	if err := r.Get(ctx, hetznerClusterName, hetznerCluster); err != nil {
 		if apierrors.IsNotFound(err) {
 			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 		}
@@ -224,7 +224,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	log = log.WithValues("HetznerCluster", klog.KObj(hetznerCluster))
 
 	// Fetch the Cluster.
-	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, hetznerCluster.ObjectMeta)
+	cluster, err := util.GetClusterFromMetadata(ctx, r, hetznerCluster.ObjectMeta)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to get Cluster: %w", err)
 	}
@@ -239,7 +239,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 			Name:      bmHost.Spec.ConsumerRef.Name,
 		}
 
-		if err := r.Client.Get(ctx, name, hetznerBareMetalMachine); err != nil {
+		if err := r.Get(ctx, name, hetznerBareMetalMachine); err != nil {
 			return reconcile.Result{}, fmt.Errorf("failed to get HetznerBareMetalMachine: %w", err)
 		}
 	}
@@ -253,10 +253,10 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	}
 
 	// Get Hetzner robot api credentials
-	secretManager := secretutil.NewSecretManager(log, r.Client, r.APIReader)
+	secretManager := secretutil.NewSecretManager(log, r, r.APIReader)
 	robotCreds, err := getAndValidateRobotCredentials(ctx, req.Namespace, hetznerCluster, secretManager)
 	if err != nil {
-		return hetznerSecretErrorResult(ctx, err, bmHost, r.Client)
+		return hetznerSecretErrorResult(ctx, err, bmHost, r)
 	}
 
 	// Get secrets. Return when result != nil.
@@ -271,7 +271,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	// Create the scope.
 	hostScope, err := scope.NewBareMetalHostScope(scope.BareMetalHostScopeParams{
 		Logger:                  log,
-		Client:                  r.Client,
+		Client:                  r,
 		HetznerCluster:          hetznerCluster,
 		Cluster:                 cluster,
 		HetznerBareMetalHost:    bmHost,
@@ -368,7 +368,7 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 				)
 				record.Warnf(bmHost, infrav1.OSSSHSecretMissingReason, msg)
 				conditions.SetSummary(bmHost)
-				result, err := host.SaveHostAndReturn(ctx, r.Client, bmHost)
+				result, err := host.SaveHostAndReturn(ctx, r, bmHost)
 				if result != emptyResult || err != nil {
 					return nil, nil, result, err
 				}
@@ -392,7 +392,7 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 
 				record.Warnf(bmHost, infrav1.RescueSSHSecretMissingReason, infrav1.ErrorMessageMissingRescueSSHSecret)
 				conditions.SetSummary(bmHost)
-				result, err := host.SaveHostAndReturn(ctx, r.Client, bmHost)
+				result, err := host.SaveHostAndReturn(ctx, r, bmHost)
 				if result != emptyResult || err != nil {
 					return nil, nil, result, err
 				}
@@ -512,7 +512,7 @@ func (r *HetznerBareMetalHostReconciler) SetupWithManager(ctx context.Context, m
 					objectOld, oldOK := e.ObjectOld.(*infrav1.HetznerBareMetalHost)
 					objectNew, newOK := e.ObjectNew.(*infrav1.HetznerBareMetalHost)
 
-					if !(oldOK && newOK) {
+					if !oldOK || !newOK {
 						// The thing that changed wasn't a host, so we
 						// need to assume that we must update. This
 						// happens when, for example, an owned Secret

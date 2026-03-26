@@ -155,7 +155,7 @@ variables:
   INIT_WITH_INFRASTRUCTURE_PROVIDER_VERSION: ${CAPH_LATEST_VERSION}
 
   # Cluster Addons
-  CILIUM: "./data/cni/cilium/cilium.yaml"
+  CILIUM: "./data/cni/cilium/values.yaml"
   CCM: "./data/ccm/hcloud-ccm.yaml"
   CCM_NETWORK: "./data/ccm/hcloud-ccm-network.yaml"
   CCM_HETZNER: "./data/ccm/hcloud-ccm-hetzner.yaml"

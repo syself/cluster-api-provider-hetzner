@@ -18,6 +18,7 @@ package e2e
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -78,7 +79,9 @@ var (
 
 // Test suite global vars.
 var (
-	ctx = ctrl.SetupSignalHandler()
+	ctx              = ctrl.SetupSignalHandler()
+	suiteStartTime   = time.Now()
+	errPermanentHBMH = errors.New("permanent HetznerBareMetalHost error")
 
 	// e2eConfig to be used for this test, read from configPath.
 	e2eConfig *clusterctl.E2EConfig
@@ -108,6 +111,8 @@ func init() {
 }
 
 func TestE2E(t *testing.T) {
+	suiteStartTime = time.Now()
+
 	// If running in prow, make sure to use the artifacts folder that will be reported in test grid (ignoring the value provided by flag).
 	if prowArtifactFolder, exists := os.LookupEnv("ARTIFACTS"); exists {
 		artifactFolder = prowArtifactFolder
@@ -261,6 +266,8 @@ func setupBootstrapCluster(config *clusterctl.E2EConfig, scheme *runtime.Scheme,
 
 // logStatusContinuously does log the state of the mgt-cluster and the wl-clusters continuously.
 func logStatusContinuously(ctx context.Context, restConfig *restclient.Config, c client.Client) {
+	defer GinkgoRecover()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -269,7 +276,10 @@ func logStatusContinuously(ctx context.Context, restConfig *restclient.Config, c
 		case <-time.After(30 * time.Second):
 			err := logStatus(ctx, restConfig, c)
 			if err != nil {
-				log(fmt.Sprintf("Error logging caph Deployment: %v", err))
+				if errors.Is(err, errPermanentHBMH) {
+					Fail(err.Error())
+				}
+				log(fmt.Sprintf("Error logging status: %v", err))
 			}
 		}
 	}
@@ -279,7 +289,10 @@ func logStatusContinuously(ctx context.Context, restConfig *restclient.Config, c
 // It gets called again and again by logStatusContinuously.
 func logStatus(ctx context.Context, restConfig *restclient.Config, c client.Client) error {
 	log("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
-	log(fmt.Sprintf("≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡ %s <<< Start logging status", time.Now().Format("2006-01-02 15:04:05")))
+	log(fmt.Sprintf("≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡ %s (elapsed: %s) <<< Start logging status",
+		time.Now().Format("2006-01-02 15:04:05"),
+		time.Since(suiteStartTime).Round(time.Second),
+	))
 
 	if err := logCaphDeployment(ctx, c); err != nil {
 		return err
@@ -350,7 +363,6 @@ func logStatus(ctx context.Context, restConfig *restclient.Config, c client.Clie
 			log(fmt.Sprintf("Failed to log CCM deployment %s/%s: %v", cluster.Namespace, secretName, err))
 			continue
 		}
-
 	}
 
 	log(fmt.Sprintf("≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡ %s End logging status >>>", time.Now().Format("2006-01-02 15:04:05")))
@@ -597,6 +609,9 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 		eMsg = strings.TrimSpace(eMsg)
 		if eMsg != "" {
 			log("  Error: " + eMsg)
+			if hbmh.Spec.Status.ErrorType == infrav1.PermanentError {
+				return fmt.Errorf("%w on HetznerBareMetalHost %q: %s", errPermanentHBMH, hbmh.Name, eMsg)
+			}
 		}
 
 		readyC := conditions.Get(hbmh, clusterv1.ReadyCondition)

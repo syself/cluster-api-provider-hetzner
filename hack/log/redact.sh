@@ -29,9 +29,13 @@ redact_vars=(
     "${HETZNER_ROBOT_PASSWORD:-}"
     "$(echo -n "${HETZNER_ROBOT_PASSWORD:-}" | base64 | tr -d '\n')"
     "${HETZNER_SSH_PUB:-}"
+    "$(echo -n "${HETZNER_SSH_PUB:-}" | base64 -d | tr -d '\n')"
     "$(echo -n "${HETZNER_SSH_PUB:-}" | tr -d '\n')"
+    "$(echo -n "${HETZNER_SSH_PUB:-}" | base64 -d)"
     "${HETZNER_SSH_PRIV:-}"
+    "$(echo -n "${HETZNER_SSH_PRIV:-}" | base64 -d | tr -d '\n')"
     "$(echo -n "${HETZNER_SSH_PRIV:-}" | tr -d '\n')"
+    "$(echo -n "${HETZNER_SSH_PRIV:-}" | base64 -d)"
 )
 
 for log_file in "${log_files[@]}"; do

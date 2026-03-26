@@ -102,7 +102,7 @@ func (sm *SecretManager) claimSecret(ctx context.Context, secret *corev1.Secret,
 
 	if needsUpdate {
 		if err := sm.client.Update(ctx, secret); err != nil {
-			return fmt.Errorf("failed to update secret %s in namespace %s: %w", secret.ObjectMeta.Name, secret.ObjectMeta.Namespace, err)
+			return fmt.Errorf("failed to update secret %s in namespace %s: %w", secret.Name, secret.Namespace, err)
 		}
 	}
 
@@ -191,7 +191,7 @@ func (sm *SecretManager) ReleaseSecret(ctx context.Context, secret *corev1.Secre
 	secret.OwnerReferences = newOwnerRefs
 	if err := sm.client.Update(ctx, secret); err != nil {
 		return fmt.Errorf("failed to remove finalizer from secret %s in namespace %s: %w",
-			secret.ObjectMeta.Name, secret.ObjectMeta.Namespace, err)
+			secret.Name, secret.Namespace, err)
 	}
 
 	return nil

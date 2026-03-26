@@ -60,37 +60,42 @@ e2e-cilium-templates:
 	helm repo update cilium
 	helm template cilium cilium/cilium --version 1.18.1 \
 	--namespace kube-system \
-	-f $(REPO_ROOT)/templates/cilium/cilium.yaml \
-	> $(REPO_ROOT)/test/e2e/data/cni/cilium/cilium.yaml
+	-f $(REPO_ROOT)/templates/cilium/values.yaml \
+	> $(REPO_ROOT)/test/e2e/data/cni/cilium/values.yaml
 
-	sed -i 's/$${BIN_PATH}/$$BIN_PATH/' $(REPO_ROOT)/test/e2e/data/cni/cilium/cilium.yaml
-	sed -i '1s/^/# Created by `make e2e-cilium-templates`\n/' $(REPO_ROOT)/test/e2e/data/cni/cilium/cilium.yaml
+	sed -i 's/$${BIN_PATH}/$$BIN_PATH/' $(REPO_ROOT)/test/e2e/data/cni/cilium/values.yaml
+	sed -i '1s/^/# Created by `make e2e-cilium-templates`\n/' $(REPO_ROOT)/test/e2e/data/cni/cilium/values.yaml
 
 e2e-ccm-templates:
 	helm repo add hetzner-cloud https://charts.hetzner.cloud
-	helm repo add syself https://charts.syself.com
 
 	helm template ccm hetzner-cloud/hcloud-cloud-controller-manager --version 1.30.1 \
 	--namespace kube-system \
 	--set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.name=hetzner \
 	--set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.key=hcloud \
+	--set-json 'additionalTolerations=[{"key":"node.cluster.x-k8s.io/uninitialized","operator":"Exists","effect":"NoSchedule"},{"key":"node.cilium.io/agent-not-ready","operator":"Exists","effect":"NoSchedule"}]' \
 	--set networking.enabled=false > $(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm.yaml
-	sed -i '1s/^/# Created by e2e-ccm-templates. DO NOT EDIT.\n/' $(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm.yaml
 
 	helm template ccm hetzner-cloud/hcloud-cloud-controller-manager --version 1.30.1 \
 	--namespace kube-system \
 	--set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.name=hetzner \
 	--set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.key=hcloud \
+	--set-json 'additionalTolerations=[{"key":"node.cluster.x-k8s.io/uninitialized","operator":"Exists","effect":"NoSchedule"},{"key":"node.cilium.io/agent-not-ready","operator":"Exists","effect":"NoSchedule"}]' \
 	--set networking.enabled=true \
 	--set networking.network.valueFrom.secretKeyRef.name=hetzner \
 	--set networking.network.valueFrom.secretKeyRef.key=network > $(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm-network.yaml
-	sed -i '1s/^/# Created by e2e-ccm-templates. DO NOT EDIT.\n/' $(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm-network.yaml
 
-	helm template ccm syself/ccm-hetzner --version 2.0.1 \
+	helm template ccm hetzner-cloud/hcloud-cloud-controller-manager --version 1.30.1 \
 	--namespace kube-system \
-	--set pdb.enabled=false \
-	--set privateNetwork.enabled=false > $(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm-hetzner.yaml
-	sed -i '1s/^/# Created by e2e-ccm-templates. DO NOT EDIT.\n/' $(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm-hetzner.yaml
+	--set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.name=hetzner \
+	--set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.key=hcloud \
+	--set env.ROBOT_USER.valueFrom.secretKeyRef.name=hetzner \
+	--set env.ROBOT_USER.valueFrom.secretKeyRef.key=robot-user \
+	--set env.ROBOT_PASSWORD.valueFrom.secretKeyRef.name=hetzner \
+	--set env.ROBOT_PASSWORD.valueFrom.secretKeyRef.key=robot-password \
+	--set-json 'additionalTolerations=[{"key":"node.cluster.x-k8s.io/uninitialized","operator":"Exists","effect":"NoSchedule"},{"key":"node.cilium.io/agent-not-ready","operator":"Exists","effect":"NoSchedule"}]' \
+	--set robot.enabled=true \
+	--set networking.enabled=false > $(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm-hetzner.yaml
 
 .PHONY: cluster-templates
 cluster-templates: $(KUSTOMIZE) cluster-templates-v1beta1 ## Generate cluster templates for all versions

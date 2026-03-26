@@ -237,7 +237,7 @@ var _ = BeforeSuite(func() {
 		Expect(testEnv.StartManager(ctx)).To(Succeed())
 	}()
 
-	<-testEnv.Manager.Elected()
+	<-testEnv.Elected()
 
 	// wait for webhook port to be open prior to running tests
 	testEnv.WaitForWebhooks()
