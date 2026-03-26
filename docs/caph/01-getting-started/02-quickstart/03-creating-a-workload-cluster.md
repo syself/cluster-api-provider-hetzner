@@ -103,9 +103,7 @@ The following `make` command will install the Syself CCM in your workload cluste
 
 `make install-ccm-in-wl-cluster`
 
-For a cluster with a private network use: `make install-ccm-in-wl-cluster PRIVATE_NETWORK=true`
-
-For a more detailed explanation of the CCM and bare-metal setup, see [Baremetal
+For upstream HCloud CCM instructions and bare-metal ProviderID format details, see [Baremetal
 Docs](/docs/caph/02-topics/05-baremetal/03-creating-workload-cluster.md#deploying-the-hetzner-cloud-controller-manager)
 
 ## Deploying the CSI (optional)
