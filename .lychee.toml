@@ -87,6 +87,6 @@ exclude_link_local = false
 exclude_loopback = true
 
 # Avoid https://docs.hetzner.com/... | Failed: Network error: Connection reset by peer (os error 104)
-max_concurrency = 3
+max_concurrency = 1
 max_retries = 4
 retry_wait_time = 3
