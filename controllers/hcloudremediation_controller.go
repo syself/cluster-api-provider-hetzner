@@ -108,6 +108,19 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 
 	log = log.WithValues("HCloudMachine", klog.KObj(hcloudMachine))
 
+	// Skip remediation for machines that failed to create with irrecoverable errors (e.g. invalid_input, resource_unavailable).
+	// These errors cannot be fixed by rebooting or replacing the machine.
+	// We return without error so the MHC does not keep retrying remediation.
+	if conditions.IsFalse(hcloudMachine, infrav1.ServerCreateSucceededCondition) &&
+		conditions.GetReason(hcloudMachine, infrav1.ServerCreateSucceededCondition) == infrav1.ServerCreateFailedIrrecoverableErrorReason {
+		log.Info("Skipping remediation for machine with irrecoverable creation failure",
+			"reason", conditions.GetMessage(hcloudMachine, infrav1.ServerCreateSucceededCondition),
+		)
+
+		// signal remediation done.
+		return reconcile.Result{}, nil
+	}
+
 	// Fetch the Cluster.
 	cluster, err := util.GetClusterFromMetadata(ctx, r, machine.ObjectMeta)
 	if err != nil {
