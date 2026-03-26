@@ -31,7 +31,8 @@ fi
     cd test/e2e
     export HCLOUD_TOKEN=dummy_hcloud_token
     HETZNER_SSH_PUB=$(echo dummy-hetzner-ssh-pub | base64)
-    export HETZNER_SSH_PUB
+    HETZNER_SSH_PRIV=$(echo dummy-hetzner-ssh-priv | base64)
+    export HETZNER_SSH_PUB HETZNER_SSH_PRIV
     make e2e-cilium-templates
     make e2e-ccm-templates
     make cluster-templates
