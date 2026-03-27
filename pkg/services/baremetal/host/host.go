@@ -1776,15 +1776,6 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 				infrav1.StateEnsureProvisioned, err.Error())
 			return actionError{err: fmt.Errorf("failed to handle incomplete boot - actionEnsureProvisioned: %w", err)}
 		}
-		// A connection refused error could mean that cloud-init is still running on the old port.
-		if isSSHConnectionRefusedError {
-			if actionRes := s.handleConnectionRefused(ctx); actionRes != nil {
-				s.scope.Logger.Info("ensureProvisioned: ConnectionRefused",
-					"ssh-port-after-cloud-init", s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterCloudInit,
-					"actionResult", actionRes)
-				return actionRes
-			}
-		}
 
 		failed, err := s.handleIncompleteBoot(ctx, false, isTimeout, isSSHConnectionRefusedError)
 		if failed {
@@ -1871,37 +1862,6 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 	conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
 	s.scope.HetznerBareMetalHost.ClearError()
 	return createEventWithCloudInitOutput(actionComplete{})
-}
-
-// handleConnectionRefused checks cloud-init status via ssh to the old ssh port if the new ssh port
-// gave a connection refused error.
-func (s *Service) handleConnectionRefused(ctx context.Context) actionResult {
-	// Nothing to do if ports didn't change.
-	if s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterInstallImage == s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterCloudInit {
-		return nil
-	}
-
-	oldSSHClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
-		PrivateKey: sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.SecretRef).PrivateKey,
-		Port:       s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.PortAfterInstallImage,
-		IP:         s.scope.HetznerBareMetalHost.Spec.Status.GetIPAddress(),
-	})
-
-	actResult, _ := s.checkCloudInitStatus(ctx, oldSSHClient)
-
-	// If cloud-init completed successfully on the old port, wait for the reboot and port switch.
-	if _, complete := actResult.(actionComplete); complete {
-		actResult = s.handleCloudInitNotStarted(ctx)
-		if _, complete := actResult.(actionComplete); complete {
-			return actionContinue{delay: 10 * time.Second}
-		}
-	}
-
-	if _, actionErr := actResult.(actionError); !actionErr {
-		return actResult
-	}
-
-	return nil
 }
 
 func (s *Service) checkCloudInitStatus(ctx context.Context, sshClient sshclient.Client) (actionResult, string) {
