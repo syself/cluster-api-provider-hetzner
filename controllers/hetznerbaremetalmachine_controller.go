@@ -70,10 +70,18 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 		// Just for testing, skip reconciling objects from finished tests.
 		return ctrl.Result{}, nil
 	}
+	skipReconciliation, err := shouldSkipReconciliationForNamespace(ctx, r.Client, req.Namespace)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if skipReconciliation {
+		log.Info("Skipping reconciliation for namespace", "namespace", req.Namespace, "annotation", infrav1.SkipNamespaceAnnotation)
+		return ctrl.Result{}, nil
+	}
 
 	// Fetch the Hetzner bare metal instance.
 	hbmMachine := &infrav1.HetznerBareMetalMachine{}
-	err := r.Get(ctx, req.NamespacedName, hbmMachine)
+	err = r.Get(ctx, req.NamespacedName, hbmMachine)
 	if err != nil {
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
