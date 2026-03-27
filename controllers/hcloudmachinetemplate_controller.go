@@ -65,6 +65,14 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 		// Just for testing, skip reconciling objects from finished tests.
 		return ctrl.Result{}, nil
 	}
+	skipReconciliation, err := shouldSkipReconciliationForNamespace(ctx, r.Client, req.Namespace)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if skipReconciliation {
+		log.Info("Skipping reconciliation for namespace", "namespace", req.Namespace, "annotation", infrav1.SkipNamespaceAnnotation)
+		return ctrl.Result{}, nil
+	}
 
 	machineTemplate := &infrav1.HCloudMachineTemplate{}
 	if err := r.Get(ctx, req.NamespacedName, machineTemplate); err != nil {
