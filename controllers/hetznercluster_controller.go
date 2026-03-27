@@ -113,7 +113,7 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// Fetch the Cluster.
 	cluster, err := util.GetOwnerCluster(ctx, r.Client, hetznerCluster.ObjectMeta)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to get owner cluster: %w", err)
+		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
 	log = log.WithValues("Cluster", klog.KObj(cluster))
