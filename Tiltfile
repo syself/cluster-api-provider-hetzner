@@ -281,16 +281,9 @@ def base64_decode(to_decode):
     return str(decode_blob)
 
 
-<<<<<<< HEAD
 def ensure_clusterctl():
     if not os.path.exists(clusterctl_cmd):
         local("make {}".format(os.path.abspath(clusterctl_cmd)))
-
-=======
-def ensure_envsubst():
-    if not os.path.exists(envsubst_cmd):
-        local("make {}".format(os.path.abspath(envsubst_cmd)))
->>>>>>> 774ec79de (:seedling: Update InstallImage to v1.0.8 (#1892))
 
 
 def ensure_kustomize():
@@ -366,11 +359,7 @@ caph()
 waitforsystem()
 
 cmd_button(
-<<<<<<< HEAD
     "Create HCloud Cluster",
-=======
-    "Create Hcloud Cluster",
->>>>>>> 774ec79de (:seedling: Update InstallImage to v1.0.8 (#1892))
     argv=["make", "create-workload-cluster-hcloud"],
     location=location.NAV,
     icon_name="switch_access_shortcut_outlined",
