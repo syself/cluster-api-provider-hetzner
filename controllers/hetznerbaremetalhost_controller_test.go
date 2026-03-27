@@ -835,6 +835,95 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 			}, timeout).Should(BeTrue())
 		})
 	})
+
+	Context("Wrong Robot Credentials - unauthorized", func() {
+		BeforeEach(func() {
+			host = helpers.BareMetalHost(
+				hostName,
+				testNs.Name,
+				helpers.WithHetznerClusterRef(hetznerClusterName),
+				helpers.WithRootDeviceHintWWN(),
+			)
+			Expect(testEnv.Create(ctx, host)).To(Succeed())
+
+			key = client.ObjectKey{Namespace: testNs.Name, Name: host.Name}
+
+			hetznerSecret = getDefaultHetznerSecret(testNs.Name)
+			Expect(testEnv.Create(ctx, hetznerSecret)).To(Succeed())
+
+			rescueSSHSecret = helpers.GetDefaultSSHSecret("rescue-ssh-secret", testNs.Name)
+			Expect(testEnv.Create(ctx, rescueSSHSecret)).To(Succeed())
+
+			osSSHSecret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "os-ssh-secret",
+					Namespace: testNs.Name,
+				},
+				Data: map[string][]byte{
+					"private-key": []byte("os-ssh-secret-private-key"),
+					"sshkey-name": []byte("ssh-key-name"),
+					"public-key":  []byte("my-public-key"),
+				},
+			}
+			Expect(testEnv.Create(ctx, osSSHSecret)).To(Succeed())
+
+			robotClient.ExpectedCalls = nil
+			robotClient.On("GetBMServer", mock.Anything).Return(nil, models.Error{
+				Code:    models.ErrorCodeUnauthorized,
+				Message: "You are not authorized - wrong RobotCredentials",
+			}).Once()
+		})
+
+		It("should set CredentialsAvailable condition to false if Robot API returned unauthorized", func() {
+			By("making the Robot client return an unauthorized error")
+			Eventually(func() bool {
+				return isPresentAndFalseWithReason(key, host, infrav1.RobotCredentialsAvailableCondition, infrav1.RobotCredentialsInvalidReason)
+			}, timeout).Should(BeTrue())
+
+			Expect(robotClient.AssertExpectations(GinkgoT())).To(BeTrue())
+		})
+
+		AfterEach(func() {
+			Expect(testEnv.Cleanup(ctx, host, hetznerSecret, rescueSSHSecret)).To(Succeed())
+		})
+	})
+
+	Context("Wrong Robot Credentials - missing username in secret", func() {
+		BeforeEach(func() {
+			host = helpers.BareMetalHost(
+				hostName,
+				testNs.Name,
+				helpers.WithHetznerClusterRef(hetznerClusterName),
+				helpers.WithRootDeviceHintWWN(),
+			)
+			Expect(testEnv.Create(ctx, host)).To(Succeed())
+
+			hetznerSecret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hetzner-secret",
+					Namespace: testNs.Name,
+				},
+				Data: map[string][]byte{
+					"hcloud":         []byte("my-token"),
+					"robot-user":     []byte(""),
+					"robot-password": []byte("my-password"),
+				},
+			}
+			Expect(testEnv.Create(ctx, hetznerSecret)).To(Succeed())
+
+			key = client.ObjectKey{Namespace: testNs.Name, Name: host.Name}
+		})
+
+		AfterEach(func() {
+			Expect(testEnv.Cleanup(ctx, host, hetznerSecret)).To(Succeed())
+		})
+
+		It("sets RobotCredentialsAvailable to false if robot-user is empty", func() {
+			Eventually(func() bool {
+				return isPresentAndFalseWithReason(key, host, infrav1.RobotCredentialsAvailableCondition, infrav1.RobotCredentialsInvalidReason)
+			}, timeout).Should(BeTrue())
+		})
+	})
 })
 
 func configureRescueSSHClient(sshClient *sshmock.Client) {

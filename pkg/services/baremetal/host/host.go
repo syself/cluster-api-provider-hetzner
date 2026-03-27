@@ -137,6 +137,23 @@ func (s *Service) actionPreparing(ctx context.Context) actionResult {
 
 	server, err := s.scope.RobotClient.GetBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID)
 	if err != nil {
+		// If Robot API returned "unauthorized" error - mark condition RobotCredentialsAvailable as false
+		// with reason RobotCredentialsInvalid and stop reconciling.
+		if models.IsError(err, models.ErrorCodeUnauthorized) {
+			msg := "Robot API returned unauthorized; verify the credentials in the referenced secret are correct"
+			conditions.MarkFalse(
+				s.scope.HetznerBareMetalHost,
+				infrav1.RobotCredentialsAvailableCondition,
+				infrav1.RobotCredentialsInvalidReason,
+				clusterv1.ConditionSeverityError,
+				"%s",
+				msg,
+			)
+			record.Warnf(s.scope.HetznerBareMetalHost, infrav1.RobotCredentialsInvalidReason, msg)
+
+			return actionStop{}
+		}
+
 		s.handleRobotRateLimitExceeded(err, "GetBMServer")
 		if models.IsError(err, models.ErrorCodeServerNotFound) {
 			msg := "GetBMServer (Robot API) replied: ServerNotFound"
@@ -162,6 +179,8 @@ func (s *Service) actionPreparing(ctx context.Context) actionResult {
 		}
 		return actionError{err: fmt.Errorf("failed to get bare metal server: %w", err)}
 	}
+
+	conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.RobotCredentialsAvailableCondition)
 
 	s.scope.HetznerBareMetalHost.Spec.Status.IPv4 = server.ServerIP
 	s.scope.HetznerBareMetalHost.Spec.Status.IPv6 = server.ServerIPv6Net + "1"
@@ -2034,6 +2053,23 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		} else {
 			rebootType := infrav1.RebootTypeHardware
 			if _, err := s.scope.RobotClient.RebootBMServer(host.Spec.ServerID, rebootType); err != nil {
+				// If Robot API returned "unauthorized" error - mark condition RobotCredentialsAvailable as false
+				// with reason RobotCredentialsInvalidReason and stop reconciling.
+				if models.IsError(err, models.ErrorCodeUnauthorized) {
+					msg := "Robot API returned unauthorized; verify the credentials in the referenced secret are correct"
+					conditions.MarkFalse(
+						s.scope.HetznerBareMetalHost,
+						infrav1.RobotCredentialsAvailableCondition,
+						infrav1.RobotCredentialsInvalidReason,
+						clusterv1.ConditionSeverityError,
+						"%s",
+						msg,
+					)
+					record.Warnf(s.scope.HetznerBareMetalHost, infrav1.RobotCredentialsInvalidReason, msg)
+
+					return actionStop{}
+				}
+
 				s.handleRobotRateLimitExceeded(err, rebootServerStr)
 
 				err = fmt.Errorf("actionProvisioned (Reboot via Annotation), reboot (%s) failed: %w", rebootType, err)
@@ -2044,6 +2080,8 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 					err.Error())
 				return actionError{err: err}
 			}
+
+			conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.RobotCredentialsAvailableCondition)
 		}
 
 		msg := fmt.Sprintf("Rebooting because annotation was set. Old BootID: %s", currentBootID)
@@ -2162,6 +2200,24 @@ func (s *Service) actionDeprovisioning(_ context.Context) actionResult {
 		s.scope.HetznerBareMetalHost.Spec.ServerID,
 		s.scope.HetznerBareMetalHost.Spec.ConsumerRef.Name,
 	); err != nil {
+		if models.IsError(err, models.ErrorCodeUnauthorized) {
+			// If Robot API returned "unauthorized" error while trying to set baremetal server name, then
+			// mark condition RobotCredentialsAvailable as false with reason RobotCredentialsInvalid
+			// and stop reconciling.
+			msg := "Robot API returned unauthorized; verify the credentials in the referenced secret are correct"
+			conditions.MarkFalse(
+				s.scope.HetznerBareMetalHost,
+				infrav1.RobotCredentialsAvailableCondition,
+				infrav1.RobotCredentialsInvalidReason,
+				clusterv1.ConditionSeverityError,
+				"%s",
+				msg,
+			)
+			record.Warnf(s.scope.HetznerBareMetalHost, infrav1.RobotCredentialsInvalidReason, msg)
+
+			return actionStop{}
+		}
+
 		s.handleRobotRateLimitExceeded(err, "SetBMServerName")
 		if models.IsError(err, models.ErrorCodeServerNotFound) {
 			msg := "server not found in Robot API during deprovisioning, assuming already removed"
@@ -2173,6 +2229,8 @@ func (s *Service) actionDeprovisioning(_ context.Context) actionResult {
 		}
 		return actionError{err: fmt.Errorf("failed to update name of host in robot API: %w", err)}
 	}
+
+	conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.RobotCredentialsAvailableCondition)
 
 	if s.scope.SSHAfterInstallImage {
 		// If has been provisioned completely, stop all running pods
