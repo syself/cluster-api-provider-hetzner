@@ -121,9 +121,7 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	if cluster == nil {
 		log.Info("Cluster Controller has not yet set OwnerRef")
-		return reconcile.Result{
-			RequeueAfter: 2 * time.Second,
-		}, nil
+		return reconcile.Result{}, nil
 	}
 
 	if annotations.IsPaused(cluster, hetznerCluster) {

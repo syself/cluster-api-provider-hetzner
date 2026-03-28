@@ -102,7 +102,7 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 	if cluster == nil {
 		log.Info(fmt.Sprintf("%s is missing ownerRef to cluster %s/%s",
 			machineTemplate.Kind, machineTemplate.Namespace, machineTemplate.Name))
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{}, nil
 	}
 	machineTemplate.Status.OwnerType = cluster.Kind
 
