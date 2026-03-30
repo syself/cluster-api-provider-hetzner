@@ -494,8 +494,9 @@ func hcloudTokenErrorResult(
 // reconcileWorkloadClusterSecrets ensures that the workload-cluster has the secret needed by the
 // ccm. The name of the secret is read from HetznerCluster.Spec.HetznerSecret.Name. If
 // HetznerSecret.Name is "hcloud", then only one secret gets created in the wl-cluster. If not, two
-// secrets are created in the wl-cluster. This ensures compatibility between CCMs. Creating the
-// secret gets skipped, if HetznerCluster.Spec.SkipCreatingHetznerSecretInWorkloadCluster is set.
+// secrets are created in the wl-cluster: one with the configured name and one named "hcloud". This
+// ensures compatibility between the upstream CCM defaults and CAPH defaults. Creating the secret
+// gets skipped, if HetznerCluster.Spec.SkipCreatingHetznerSecretInWorkloadCluster is set.
 func reconcileWorkloadClusterSecrets(ctx context.Context, clusterScope *scope.ClusterScope) (res reconcile.Result, reterr error) {
 	if clusterScope.HetznerCluster.Spec.SkipCreatingHetznerSecretInWorkloadCluster {
 		// If the secret should not be created in the workload cluster, we just return.
@@ -535,15 +536,34 @@ func reconcileWorkloadClusterSecrets(ctx context.Context, clusterScope *scope.Cl
 		return reconcile.Result{}, fmt.Errorf("failed to get client: %w", err)
 	}
 
+	for _, name := range workloadClusterSecretNames(clusterScope.HetznerCluster.Spec.HetznerSecret.Name) {
+		err = reconcileOneWorkloadClusterSecret(ctx, clusterScope, wlClient, name)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("failed to reconcile wl-cluster secret %q: %w", name, err)
+		}
+	}
+
+	return reconcile.Result{}, nil
+}
+
+func workloadClusterSecretNames(secretName string) []string {
+	names := []string{secretName}
+	if secretName != "hcloud" {
+		names = append(names, "hcloud")
+	}
+	return names
+}
+
+func reconcileOneWorkloadClusterSecret(ctx context.Context, clusterScope *scope.ClusterScope, wlClient client.Client, name string) error {
 	wlSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      clusterScope.HetznerCluster.Spec.HetznerSecret.Name,
+			Name:      name,
 			Namespace: metav1.NamespaceSystem,
 		},
 	}
 
 	// Make sure secret exists and has the expected values
-	_, err = controllerutil.CreateOrUpdate(ctx, wlClient, wlSecret, func() error {
+	_, err := controllerutil.CreateOrUpdate(ctx, wlClient, wlSecret, func() error {
 		mgtSecretName := types.NamespacedName{
 			Namespace: clusterScope.HetznerCluster.Namespace,
 			Name:      clusterScope.HetznerCluster.Spec.HetznerSecret.Name,
@@ -595,7 +615,7 @@ func reconcileWorkloadClusterSecrets(ctx context.Context, clusterScope *scope.Cl
 		}
 
 		if clusterScope.HetznerCluster.Spec.HetznerSecret.Name != "hcloud" {
-			notes = append(notes, fmt.Sprintf("We recommend to use 'hcloud' for hetznercluster.spec.hetznerSecret.name (not %q).",
+			notes = append(notes, fmt.Sprintf("We recommend to use 'hcloud' for hetznercluster.spec.hetznerSecret.name (not %q). CAPH also creates a workload-cluster secret named 'hcloud' for upstream compatibility.",
 				clusterScope.HetznerCluster.Spec.HetznerSecret.Name))
 		}
 
@@ -609,10 +629,10 @@ func reconcileWorkloadClusterSecrets(ctx context.Context, clusterScope *scope.Cl
 		return nil
 	})
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to create or update secret: %w", err)
+		return fmt.Errorf("failed to create or update secret: %w", err)
 	}
 
-	return reconcile.Result{}, nil
+	return nil
 }
 
 func (r *HetznerClusterReconciler) reconcileTargetClusterManager(ctx context.Context, clusterScope *scope.ClusterScope) (res reconcile.Result, err error) {
