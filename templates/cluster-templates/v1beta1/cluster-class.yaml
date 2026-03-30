@@ -394,7 +394,6 @@ spec:
             extraArgs:
               authorization-mode: Node,RBAC
               client-ca-file: /etc/kubernetes/pki/ca.crt
-              cloud-provider: external
               default-not-ready-toleration-seconds: "45"
               default-unreachable-toleration-seconds: "45"
               enable-aggregator-routing: "true"
@@ -424,7 +423,6 @@ spec:
               authentication-kubeconfig: /etc/kubernetes/controller-manager.conf
               authorization-kubeconfig: /etc/kubernetes/controller-manager.conf
               bind-address: 0.0.0.0
-              cloud-provider: external
               cluster-signing-cert-file: /etc/kubernetes/pki/ca.crt
               cluster-signing-duration: 6h0m0s
               cluster-signing-key-file: /etc/kubernetes/pki/ca.key
@@ -493,7 +491,6 @@ spec:
               anonymous-auth: "false"
               authentication-token-webhook: "true"
               authorization-mode: Webhook
-              cloud-provider: external
               event-qps: "5"
               kubeconfig: /etc/kubernetes/kubelet.conf
               max-pods: "120"
@@ -507,7 +504,6 @@ spec:
               anonymous-auth: "false"
               authentication-token-webhook: "true"
               authorization-mode: Webhook
-              cloud-provider: external
               event-qps: "5"
               kubeconfig: /etc/kubernetes/kubelet.conf
               max-pods: "120"
@@ -601,7 +597,6 @@ spec:
             anonymous-auth: "false"
             authentication-token-webhook: "true"
             authorization-mode: Webhook
-            cloud-provider: external
             event-qps: "5"
             kubeconfig: /etc/kubernetes/kubelet.conf
             max-pods: "220"
@@ -752,7 +747,6 @@ spec:
             anonymous-auth: "false"
             authentication-token-webhook: "true"
             authorization-mode: Webhook
-            cloud-provider: external
             event-qps: "5"
             kubeconfig: /etc/kubernetes/kubelet.conf
             max-pods: "220"
