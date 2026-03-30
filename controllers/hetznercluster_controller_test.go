@@ -18,6 +18,8 @@ package controllers
 
 import (
 	"context"
+	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -26,15 +28,19 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
@@ -251,6 +257,189 @@ func TestIgnoreInsignificantHetznerClusterStatusUpdates(t *testing.T) {
 				t.Errorf("Expected %v, but got %v", tc.expected, result)
 			}
 		})
+	}
+}
+
+func TestWorkloadClusterSecretNames(t *testing.T) {
+	testCases := []struct {
+		name       string
+		secretName string
+		want       []string
+	}{
+		{
+			name:       "keep hcloud as single secret",
+			secretName: "hcloud",
+			want:       []string{"hcloud"},
+		},
+		{
+			name:       "add hcloud compatibility secret",
+			secretName: "hetzner",
+			want:       []string{"hetzner", "hcloud"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := workloadClusterSecretNames(tc.secretName)
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("workloadClusterSecretNames(%q) = %v, want %v", tc.secretName, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestReconcileOneWorkloadClusterSecret(t *testing.T) {
+	ctx := context.Background()
+
+	testScheme := runtime.NewScheme()
+	utilruntime.Must(corev1.AddToScheme(testScheme))
+	utilruntime.Must(infrav1.AddToScheme(testScheme))
+
+	hetznerCluster := &infrav1.HetznerCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-cluster",
+			Namespace: "test-ns",
+			UID:       "test-cluster-uid",
+		},
+		Spec: getDefaultHetznerClusterSpec(),
+	}
+	hetznerCluster.Spec.HetznerSecret.Name = "hetzner"
+	hetznerCluster.Spec.HetznerSecret.Key.HCloudToken = "custom-token"
+	hetznerCluster.Spec.HCloudNetwork.Enabled = false
+	hetznerCluster.Spec.ControlPlaneEndpoint = &clusterv1.APIEndpoint{
+		Host: "198.51.100.10",
+		Port: 6443,
+	}
+
+	mgtSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      hetznerCluster.Spec.HetznerSecret.Name,
+			Namespace: hetznerCluster.Namespace,
+		},
+		Data: map[string][]byte{
+			"custom-token":   []byte("my-token"),
+			"robot-user":     []byte("my-user"),
+			"robot-password": []byte("my-password"),
+		},
+	}
+
+	mgtClient := fakeclient.NewClientBuilder().
+		WithScheme(testScheme).
+		WithObjects(hetznerCluster.DeepCopy(), mgtSecret.DeepCopy()).
+		Build()
+	wlClient := fakeclient.NewClientBuilder().
+		WithScheme(testScheme).
+		Build()
+
+	clusterScope := &scope.ClusterScope{
+		Logger:         klog.Background(),
+		Client:         mgtClient,
+		APIReader:      mgtClient,
+		HetznerCluster: hetznerCluster,
+	}
+
+	for _, name := range workloadClusterSecretNames(hetznerCluster.Spec.HetznerSecret.Name) {
+		if err := reconcileOneWorkloadClusterSecret(ctx, clusterScope, wlClient, name); err != nil {
+			t.Fatalf("reconcileOneWorkloadClusterSecret(%q) returned error: %v", name, err)
+		}
+	}
+
+	for _, name := range []string{"hetzner", "hcloud"} {
+		secret := &corev1.Secret{}
+		if err := wlClient.Get(ctx, client.ObjectKey{Namespace: metav1.NamespaceSystem, Name: name}, secret); err != nil {
+			t.Fatalf("get workload secret %q: %v", name, err)
+		}
+
+		if got := string(secret.Data["custom-token"]); got != "my-token" {
+			t.Fatalf("secret %q custom-token = %q, want %q", name, got, "my-token")
+		}
+		if got := string(secret.Data["token"]); got != "my-token" {
+			t.Fatalf("secret %q token = %q, want %q", name, got, "my-token")
+		}
+		if got := string(secret.Data["hcloud"]); got != "my-token" {
+			t.Fatalf("secret %q hcloud = %q, want %q", name, got, "my-token")
+		}
+		if got := string(secret.Data["robot-user"]); got != "my-user" {
+			t.Fatalf("secret %q robot-user = %q, want %q", name, got, "my-user")
+		}
+		if got := string(secret.Data["robot-password"]); got != "my-password" {
+			t.Fatalf("secret %q robot-password = %q, want %q", name, got, "my-password")
+		}
+		if got := string(secret.Data["apiserver-host"]); got != "198.51.100.10" {
+			t.Fatalf("secret %q apiserver-host = %q, want %q", name, got, "198.51.100.10")
+		}
+		if got := string(secret.Data["apiserver-port"]); got != "6443" {
+			t.Fatalf("secret %q apiserver-port = %q, want %q", name, got, "6443")
+		}
+
+		note := string(secret.Data["note"])
+		if !strings.Contains(note, "reconciled by Cluster API Provider Hetzner") {
+			t.Fatalf("secret %q note %q does not mention CAPH reconciliation", name, note)
+		}
+		if !strings.Contains(note, "workload-cluster secret named 'hcloud'") {
+			t.Fatalf("secret %q note %q does not mention hcloud compatibility secret", name, note)
+		}
+	}
+}
+
+func TestReconcileAllWorkloadClusterSecretsCreatesCompatibilitySecret(t *testing.T) {
+	ctx := context.Background()
+
+	testScheme := runtime.NewScheme()
+	utilruntime.Must(corev1.AddToScheme(testScheme))
+	utilruntime.Must(infrav1.AddToScheme(testScheme))
+
+	hetznerCluster := &infrav1.HetznerCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-cluster",
+			Namespace: "test-ns",
+			UID:       "test-cluster-uid",
+		},
+		Spec: getDefaultHetznerClusterSpec(),
+	}
+	hetznerCluster.Spec.HetznerSecret.Name = "hetzner"
+	hetznerCluster.Spec.HCloudNetwork.Enabled = false
+	hetznerCluster.Spec.ControlPlaneEndpoint = &clusterv1.APIEndpoint{
+		Host: "198.51.100.10",
+		Port: 6443,
+	}
+
+	mgtSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      hetznerCluster.Spec.HetznerSecret.Name,
+			Namespace: hetznerCluster.Namespace,
+		},
+		Data: map[string][]byte{
+			"hcloud":         []byte("my-token"),
+			"robot-user":     []byte("my-user"),
+			"robot-password": []byte("my-password"),
+		},
+	}
+
+	mgtClient := fakeclient.NewClientBuilder().
+		WithScheme(testScheme).
+		WithObjects(hetznerCluster.DeepCopy(), mgtSecret.DeepCopy()).
+		Build()
+	wlClient := fakeclient.NewClientBuilder().
+		WithScheme(testScheme).
+		Build()
+
+	clusterScope := &scope.ClusterScope{
+		Logger:         klog.Background(),
+		Client:         mgtClient,
+		APIReader:      mgtClient,
+		HetznerCluster: hetznerCluster,
+	}
+
+	if err := reconcileAllWorkloadClusterSecrets(ctx, clusterScope, wlClient); err != nil {
+		t.Fatalf("reconcileAllWorkloadClusterSecrets returned error: %v", err)
+	}
+
+	for _, name := range []string{"hetzner", "hcloud"} {
+		secret := &corev1.Secret{}
+		if err := wlClient.Get(ctx, client.ObjectKey{Namespace: metav1.NamespaceSystem, Name: name}, secret); err != nil {
+			t.Fatalf("expected workload secret %q to exist: %v", name, err)
+		}
 	}
 }
 
