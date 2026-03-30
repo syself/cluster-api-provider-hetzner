@@ -67,9 +67,17 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 		// Just for testing, skip reconciling objects from finished tests.
 		return ctrl.Result{}, nil
 	}
+	skipReconciliation, err := shouldSkipReconciliationForNamespace(ctx, r.Client, req.Namespace)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if skipReconciliation {
+		log.Info("Skipping reconciliation for namespace", "namespace", req.Namespace, "annotation", infrav1.SkipNamespaceAnnotation)
+		return ctrl.Result{}, nil
+	}
 
 	hcloudRemediation := &infrav1.HCloudRemediation{}
-	err := r.Get(ctx, req.NamespacedName, hcloudRemediation)
+	err = r.Get(ctx, req.NamespacedName, hcloudRemediation)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return reconcile.Result{}, nil
