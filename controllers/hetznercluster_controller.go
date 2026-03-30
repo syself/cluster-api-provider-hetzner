@@ -536,13 +536,9 @@ func reconcileWorkloadClusterSecrets(ctx context.Context, clusterScope *scope.Cl
 		return reconcile.Result{}, fmt.Errorf("failed to get client: %w", err)
 	}
 
-	for _, name := range workloadClusterSecretNames(clusterScope.HetznerCluster.Spec.HetznerSecret.Name) {
-		err = reconcileOneWorkloadClusterSecret(ctx, clusterScope, wlClient, name)
-		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("failed to reconcile wl-cluster secret %q: %w", name, err)
-		}
+	if err := reconcileAllWorkloadClusterSecrets(ctx, clusterScope, wlClient); err != nil {
+		return reconcile.Result{}, err
 	}
-
 	return reconcile.Result{}, nil
 }
 
@@ -552,6 +548,15 @@ func workloadClusterSecretNames(secretName string) []string {
 		names = append(names, "hcloud")
 	}
 	return names
+}
+
+func reconcileAllWorkloadClusterSecrets(ctx context.Context, clusterScope *scope.ClusterScope, wlClient client.Client) error {
+	for _, name := range workloadClusterSecretNames(clusterScope.HetznerCluster.Spec.HetznerSecret.Name) {
+		if err := reconcileOneWorkloadClusterSecret(ctx, clusterScope, wlClient, name); err != nil {
+			return fmt.Errorf("failed to reconcile wl-cluster secret %q: %w", name, err)
+		}
+	}
+	return nil
 }
 
 func reconcileOneWorkloadClusterSecret(ctx context.Context, clusterScope *scope.ClusterScope, wlClient client.Client, name string) error {

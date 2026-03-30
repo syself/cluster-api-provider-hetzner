@@ -382,6 +382,67 @@ func TestReconcileOneWorkloadClusterSecret(t *testing.T) {
 	}
 }
 
+func TestReconcileAllWorkloadClusterSecretsCreatesCompatibilitySecret(t *testing.T) {
+	ctx := context.Background()
+
+	testScheme := runtime.NewScheme()
+	utilruntime.Must(corev1.AddToScheme(testScheme))
+	utilruntime.Must(infrav1.AddToScheme(testScheme))
+
+	hetznerCluster := &infrav1.HetznerCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-cluster",
+			Namespace: "test-ns",
+			UID:       "test-cluster-uid",
+		},
+		Spec: getDefaultHetznerClusterSpec(),
+	}
+	hetznerCluster.Spec.HetznerSecret.Name = "hetzner"
+	hetznerCluster.Spec.HCloudNetwork.Enabled = false
+	hetznerCluster.Spec.ControlPlaneEndpoint = &clusterv1.APIEndpoint{
+		Host: "198.51.100.10",
+		Port: 6443,
+	}
+
+	mgtSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      hetznerCluster.Spec.HetznerSecret.Name,
+			Namespace: hetznerCluster.Namespace,
+		},
+		Data: map[string][]byte{
+			"hcloud":         []byte("my-token"),
+			"robot-user":     []byte("my-user"),
+			"robot-password": []byte("my-password"),
+		},
+	}
+
+	mgtClient := fakeclient.NewClientBuilder().
+		WithScheme(testScheme).
+		WithObjects(hetznerCluster.DeepCopy(), mgtSecret.DeepCopy()).
+		Build()
+	wlClient := fakeclient.NewClientBuilder().
+		WithScheme(testScheme).
+		Build()
+
+	clusterScope := &scope.ClusterScope{
+		Logger:         klog.Background(),
+		Client:         mgtClient,
+		APIReader:      mgtClient,
+		HetznerCluster: hetznerCluster,
+	}
+
+	if err := reconcileAllWorkloadClusterSecrets(ctx, clusterScope, wlClient); err != nil {
+		t.Fatalf("reconcileAllWorkloadClusterSecrets returned error: %v", err)
+	}
+
+	for _, name := range []string{"hetzner", "hcloud"} {
+		secret := &corev1.Secret{}
+		if err := wlClient.Get(ctx, client.ObjectKey{Namespace: metav1.NamespaceSystem, Name: name}, secret); err != nil {
+			t.Fatalf("expected workload secret %q to exist: %v", name, err)
+		}
+	}
+}
+
 var _ = Describe("Hetzner ClusterReconciler", func() {
 	Context("cluster tests", func() {
 		var (
