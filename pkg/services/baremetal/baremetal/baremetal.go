@@ -62,6 +62,12 @@ const (
 
 	// FailureMessageMaintenanceMode indicates that host is in maintenance mode.
 	FailureMessageMaintenanceMode = "host machine in maintenance mode"
+
+	// prefixRobotLegacy is the prefix used by the Syself ccm.
+	prefixRobotLegacy = "hcloud://bm-"
+
+	// prefixRobotNew is the prefix used by the HCloud ccm.
+	prefixRobotNew = "hrobot://"
 )
 
 // Service defines struct with machine scope to reconcile HetznerBareMetalMachines.
@@ -907,14 +913,6 @@ func analyzePatchError(err error, ignoreNotFound bool) error {
 	}
 	return err
 }
-
-const (
-	// prefixRobotLegacy is the prefix used by the Syself ccm.
-	prefixRobotLegacy = "hcloud://bm-"
-
-	// prefixRobotNew is the prefix used by the HCloud ccm.
-	prefixRobotNew = "hrobot://"
-)
 
 // GenerateProviderID returns the providerID for the given machine. If the ProviderID already
 // exists, then this will be returned. If the ProviderID is empty, it uses the old format
