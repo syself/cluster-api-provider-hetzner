@@ -78,7 +78,7 @@ Let's deploy the hetzner CCM helm chart.
 helm repo add syself https://charts.syself.com
 helm repo update syself
 
-$ helm upgrade --install ccm syself/ccm-hetzner --version 2.0.1 \
+$ helm upgrade --install ccm syself/ccm-hetzner --version 2.0.6 \
               --namespace kube-system \
               --kubeconfig workload-kubeconfig
 Release "ccm" does not exist. Installing it now.

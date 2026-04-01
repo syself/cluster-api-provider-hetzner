@@ -84,7 +84,7 @@ e2e-ccm-templates:
 	--set networking.network.valueFrom.secretKeyRef.name=hetzner \
 	--set networking.network.valueFrom.secretKeyRef.key=network > $(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm-network.yaml
 
-	helm template ccm syself/ccm-hetzner --version 2.0.1 \
+	helm template ccm syself/ccm-hetzner --version 2.0.6 \
 	--namespace kube-system \
 	--set pdb.enabled=false \
 	--set privateNetwork.enabled=false > $(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm-hetzner.yaml
