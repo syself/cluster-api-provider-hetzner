@@ -45,8 +45,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	expv1 "sigs.k8s.io/cluster-api/exp/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/test/framework/internal/log"
 	"sigs.k8s.io/cluster-api/test/infrastructure/container"
 	"sigs.k8s.io/cluster-api/util/yaml"
@@ -142,7 +141,7 @@ type ClusterLogCollector interface {
 	// CollectMachineLog collects log from a machine.
 	// TODO: describe output folder struct
 	CollectMachineLog(ctx context.Context, managementClusterClient client.Client, m *clusterv1.Machine, outputPath string) error
-	CollectMachinePoolLog(ctx context.Context, managementClusterClient client.Client, m *expv1.MachinePool, outputPath string) error
+	CollectMachinePoolLog(ctx context.Context, managementClusterClient client.Client, m *clusterv1.MachinePool, outputPath string) error
 	// CollectInfrastructureLogs collects log from the infrastructure.
 	CollectInfrastructureLogs(ctx context.Context, managementClusterClient client.Client, c *clusterv1.Cluster, outputPath string) error
 }
@@ -308,6 +307,7 @@ func (p *clusterProxy) GetCache(ctx context.Context) cache.Cache {
 }
 
 // CreateOrUpdate creates or updates objects using the clusterProxy client.
+// Defaults to use FieldValidation: strict, which can be overwritten with CreateOrUpdateOptions.
 func (p *clusterProxy) CreateOrUpdate(ctx context.Context, resources []byte, opts ...CreateOrUpdateOption) error {
 	Expect(ctx).NotTo(BeNil(), "ctx is required for CreateOrUpdate")
 	Expect(resources).NotTo(BeNil(), "resources is required for CreateOrUpdate")
@@ -319,6 +319,9 @@ func (p *clusterProxy) CreateOrUpdate(ctx context.Context, resources []byte, opt
 	if config.labelSelector != nil {
 		labelSelector = config.labelSelector
 	}
+	// Prepending field validation strict so that it is used per default, but can still be overwritten.
+	config.createOpts = append([]client.CreateOption{client.FieldValidation("Strict")}, config.createOpts...)
+	config.updateOpts = append([]client.UpdateOption{client.FieldValidation("Strict")}, config.updateOpts...)
 	objs, err := yaml.ToUnstructured(resources)
 	if err != nil {
 		return err
@@ -423,7 +426,7 @@ func (p *clusterProxy) CollectWorkloadClusterLogs(ctx context.Context, namespace
 		}
 	}
 
-	var machinePools *expv1.MachinePoolList
+	var machinePools *clusterv1.MachinePoolList
 	Eventually(func() error {
 		var err error
 		machinePools, err = getMachinePoolsInCluster(ctx, p.GetClient(), namespace, name)
@@ -471,12 +474,12 @@ func getMachinesInCluster(ctx context.Context, c client.Client, namespace, name 
 	return machineList, nil
 }
 
-func getMachinePoolsInCluster(ctx context.Context, c client.Client, namespace, name string) (*expv1.MachinePoolList, error) {
+func getMachinePoolsInCluster(ctx context.Context, c client.Client, namespace, name string) (*clusterv1.MachinePoolList, error) {
 	if name == "" {
 		return nil, errors.New("cluster name should not be empty")
 	}
 
-	machinePoolList := &expv1.MachinePoolList{}
+	machinePoolList := &clusterv1.MachinePoolList{}
 	labels := map[string]string{clusterv1.ClusterNameLabel: name}
 	if err := c.List(ctx, machinePoolList, client.InNamespace(namespace), client.MatchingLabels(labels)); err != nil {
 		return nil, err
@@ -516,7 +519,7 @@ func (p *clusterProxy) isDockerCluster(ctx context.Context, namespace string, na
 		return cl.Get(ctx, key, cluster)
 	}, retryableOperationTimeout, retryableOperationInterval).Should(Succeed(), "Failed to get %s", key)
 
-	return cluster.Spec.InfrastructureRef != nil && cluster.Spec.InfrastructureRef.Kind == "DockerCluster"
+	return cluster.Spec.InfrastructureRef.IsDefined() && cluster.Spec.InfrastructureRef.Kind == "DockerCluster"
 }
 
 func (p *clusterProxy) fixConfig(ctx context.Context, name string, config *api.Config) {

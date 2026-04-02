@@ -19,11 +19,16 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 
 	"github.com/blang/semver/v4"
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega/types"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/cluster-api/test/framework/clusterctl"
 )
 
@@ -42,7 +47,8 @@ const (
 	IPFamily                        = "IP_FAMILY"
 )
 
-var releaseMarkerPrefix = "go://sigs.k8s.io/cluster-api@v%s"
+var stableReleaseMarkerPrefix = "go://sigs.k8s.io/cluster-api@v%s"
+var latestReleaseMarkerPrefix = "go://sigs.k8s.io/cluster-api@latest-v%s"
 
 func Byf(format string, a ...interface{}) {
 	By(fmt.Sprintf(format, a...))
@@ -72,6 +78,55 @@ func (m *validVersionMatcher) NegatedFailureMessage(_ interface{}) (message stri
 
 // GetStableReleaseOfMinor returns latest stable version of minorRelease.
 func GetStableReleaseOfMinor(ctx context.Context, minorRelease string) (string, error) {
-	releaseMarker := fmt.Sprintf(releaseMarkerPrefix, minorRelease)
+	releaseMarker := fmt.Sprintf(stableReleaseMarkerPrefix, minorRelease)
 	return clusterctl.ResolveRelease(ctx, releaseMarker)
+}
+
+// GetLatestReleaseOfMinor returns latest version of minorRelease.
+func GetLatestReleaseOfMinor(ctx context.Context, minorRelease string) (string, error) {
+	releaseMarker := fmt.Sprintf(latestReleaseMarkerPrefix, minorRelease)
+	return clusterctl.ResolveRelease(ctx, releaseMarker)
+}
+
+func initScheme() *runtime.Scheme {
+	sc := runtime.NewScheme()
+	framework.TryAddDefaultSchemes(sc)
+	return sc
+}
+
+func dumpKindClusterLogs(ctx context.Context, artifactFolder string, clusterProxy framework.ClusterProxy) {
+	if clusterProxy == nil {
+		return
+	}
+
+	clusterLogCollector := clusterProxy.GetLogCollector()
+	if clusterLogCollector == nil {
+		return
+	}
+
+	nodes, err := clusterProxy.GetClientSet().CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		fmt.Printf("Failed to get nodes for the cluster: %v\n", err)
+		return
+	}
+
+	for i := range nodes.Items {
+		nodeName := nodes.Items[i].GetName()
+		err = clusterLogCollector.CollectMachineLog(
+			ctx,
+			clusterProxy.GetClient(),
+			// The kind cluster is not a CAPI cluster, so in order to re-use the logCollector,
+			// we create a fake machine that wraps the node.
+			// NOTE: This assumes a naming convention between machines and nodes, which e.g. applies to the clusters generated with kind.
+			//       This might not work if you are using an existing cluster provided by other means.
+			&clusterv1.Machine{
+				Spec:       clusterv1.MachineSpec{ClusterName: nodeName},
+				ObjectMeta: metav1.ObjectMeta{Name: nodeName},
+			},
+			filepath.Join(artifactFolder, "clusters", clusterProxy.GetName(), "machines", nodeName),
+		)
+		if err != nil {
+			fmt.Printf("Failed to get logs for the cluster node %s: %v\n", nodeName, err)
+		}
+	}
 }

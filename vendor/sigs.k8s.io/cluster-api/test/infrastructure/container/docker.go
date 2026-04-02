@@ -42,7 +42,6 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/utils/ptr"
 
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/test/infrastructure/kind"
 )
 
@@ -65,6 +64,7 @@ func NewDockerClient() (Runtime, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to created docker runtime client")
 	}
+
 	return &dockerRuntime{
 		dockerClient: dockerClient,
 	}, nil
@@ -416,7 +416,7 @@ func (d *dockerRuntime) RunContainer(ctx context.Context, runConfig *RunContaine
 		hostConfig.CgroupnsMode = "private"
 	}
 
-	if runConfig.IPFamily == clusterv1.IPv6IPFamily || runConfig.IPFamily == clusterv1.DualStackIPFamily {
+	if runConfig.IPFamily == IPv6IPFamily || runConfig.IPFamily == DualStackIPFamily {
 		hostConfig.Sysctls = map[string]string{
 			"net.ipv6.conf.all.disable_ipv6": "0",
 			"net.ipv6.conf.all.forwarding":   "1",
@@ -538,11 +538,16 @@ func (d *dockerRuntime) RunContainer(ctx context.Context, runConfig *RunContaine
 		return fmt.Errorf("error inspecting container %s: %v", resp.ID, err)
 	}
 
-	if containerJSON.ContainerJSONBase.State.ExitCode != 0 {
-		return fmt.Errorf("error container run failed with exit code %d", containerJSON.ContainerJSONBase.State.ExitCode)
+	if containerJSON.State.ExitCode != 0 {
+		return fmt.Errorf("error container run failed with exit code %d", containerJSON.State.ExitCode)
 	}
 
 	return nil
+}
+
+// GetSystemInfo will return the docker system info.
+func (d *dockerRuntime) GetSystemInfo(ctx context.Context) (dockersystem.Info, error) {
+	return d.dockerClient.Info(ctx)
 }
 
 // needsDevMapper checks whether we need to mount /dev/mapper.

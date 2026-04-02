@@ -38,7 +38,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	clusterctlclient "sigs.k8s.io/cluster-api/cmd/clusterctl/client"
 	"sigs.k8s.io/cluster-api/test/framework/internal/log"
 	"sigs.k8s.io/cluster-api/util/patch"
@@ -92,7 +92,7 @@ func ApplyAutoscalerToWorkloadCluster(ctx context.Context, input ApplyAutoscaler
 	Expect(err).ToNot(HaveOccurred(), "failed to load %s", workloadYamlTemplate)
 
 	if input.InfrastructureAPIGroup == "" {
-		input.InfrastructureAPIGroup = "infrastructure.cluster.x-k8s.io"
+		input.InfrastructureAPIGroup = clusterv1.GroupVersionInfrastructure.Group
 	}
 
 	// Get a server address for the Management Cluster.
@@ -169,9 +169,6 @@ func AddScaleUpDeploymentAndWait(ctx context.Context, input AddScaleUpDeployment
 		if _, ok := n.Labels[nodeRoleControlPlane]; ok {
 			continue
 		}
-		if _, ok := n.Labels[nodeRoleOldControlPlane]; ok {
-			continue
-		}
 		memory = n.Status.Allocatable.Memory() // Assume that all nodes have the same memory.
 		workers++
 	}
@@ -224,7 +221,7 @@ func AddScaleUpDeploymentAndWait(ctx context.Context, input AddScaleUpDeployment
 		},
 	}
 
-	By("Create scale up deployment")
+	byf("Create scale up deployment (%d replicas)", replicas)
 	Expect(input.ClusterProxy.GetClient().Create(ctx, scaleUpDeployment)).To(Succeed(), "failed to create the scale up pod")
 
 	By("Wait for the scale up deployment to become ready (this implies machines to be created)")
@@ -545,6 +542,16 @@ func getAuthenticationTokenForAutoscaler(ctx context.Context, managementClusterP
 	}
 	Expect(managementClusterProxy.GetClient().Create(ctx, sa)).To(Succeed(), fmt.Sprintf("failed to create %s service account", name))
 
+	var resources []string
+	if infraMachineTemplateKind != "" {
+		resources = append(resources, infraMachineTemplateKind)
+	}
+	if infraMachinePoolTemplateKind != "" {
+		resources = append(resources, infraMachinePoolTemplateKind)
+	}
+	if infraMachinePoolKind != "" {
+		resources = append(resources, infraMachinePoolKind)
+	}
 	role := &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -552,14 +559,14 @@ func getAuthenticationTokenForAutoscaler(ctx context.Context, managementClusterP
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
-				Verbs:     []string{"get", "list", "update", "watch"},
+				Verbs:     []string{"get", "list", "watch", "patch", "update"},
 				APIGroups: []string{"cluster.x-k8s.io"},
 				Resources: []string{"machinedeployments", "machinedeployments/scale", "machinepools", "machinepools/scale", "machines", "machinesets"},
 			},
 			{
-				Verbs:     []string{"get", "list"},
+				Verbs:     []string{"get", "list", "watch"},
 				APIGroups: []string{infraAPIGroup},
-				Resources: []string{infraMachineTemplateKind, infraMachinePoolTemplateKind, infraMachinePoolKind},
+				Resources: resources,
 			},
 		},
 	}
