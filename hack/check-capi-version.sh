@@ -1,4 +1,18 @@
 #!/usr/bin/env bash
+# Copyright 2026 The Kubernetes Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 # Copyright 2025 The Kubernetes Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -40,6 +54,35 @@ if git ls-files | grep -v vendor | grep -v '\.md$' | xargs grep -nH -E '(cluster
     echo ""
     echo "❌ Version mismatches found! Expected: ${DESIRED_VERSION}"
     echo "Please update the mismatched files to use the version from go.mod"
+    exit 1
+fi
+
+DESIRED_SERIES="${DESIRED_VERSION#v}"
+DESIRED_SERIES="${DESIRED_SERIES%.*}"
+DESIRED_MAJOR="${DESIRED_SERIES%%.*}"
+DESIRED_MINOR="${DESIRED_SERIES##*.}"
+METADATA_FILE="test/e2e/data/shared/v1beta1/metadata.yaml"
+
+if ! awk \
+    -v desired_major="${DESIRED_MAJOR}" \
+    -v desired_minor="${DESIRED_MINOR}" \
+    '
+        /^[[:space:]]*-[[:space:]]*major:[[:space:]]*/ {
+            major = $0
+            sub(/.*major:[[:space:]]*/, "", major)
+            next
+        }
+        /^[[:space:]]*minor:[[:space:]]*/ {
+            minor = $0
+            sub(/.*minor:[[:space:]]*/, "", minor)
+            if (major == desired_major && minor == desired_minor) {
+                found = 1
+            }
+        }
+        END { exit(found ? 0 : 1) }
+    ' "${METADATA_FILE}"; then
+    echo "❌ Missing releaseSeries entry for CAPI ${DESIRED_MAJOR}.${DESIRED_MINOR} in ${METADATA_FILE}"
+    echo "Please update the shared e2e metadata to include the major/minor series from go.mod"
     exit 1
 fi
 
