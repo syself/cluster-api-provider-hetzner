@@ -489,9 +489,11 @@ func hcloudTokenErrorResult(
 	return res, nil
 }
 
-// reconcileWorkloadClusterSecrets ensures that the workload-cluster has the secret needed by the
-// ccm. The name of the secret is read from HetznerCluster.Spec.HetznerSecret.Name. Creating the
-// secret gets skipped, if HetznerCluster.Spec.SkipCreatingHetznerSecretInWorkloadCluster is set.
+// reconcileWorkloadClusterSecrets syncs Hetzner credentials from the management cluster into
+// workload-cluster secrets for CCM consumption. It creates the secret named in
+// HetznerCluster.Spec.HetznerSecret.Name and, unless that name is already "hcloud", also creates a
+// second secret named "hcloud" for upstream hcloud-ccm compatibility. Secret creation is skipped
+// if HetznerCluster.Spec.SkipCreatingHetznerSecretInWorkloadCluster is set.
 func reconcileWorkloadClusterSecrets(ctx context.Context, clusterScope *scope.ClusterScope) (res reconcile.Result, reterr error) {
 	if clusterScope.HetznerCluster.Spec.SkipCreatingHetznerSecretInWorkloadCluster {
 		// If the secret should not be created in the workload cluster, we just return.
