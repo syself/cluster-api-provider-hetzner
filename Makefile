@@ -538,6 +538,10 @@ verify-starlark: ## Verify Starlark Code
 verify-manifests:
 	./hack/verify-manifests.sh
 
+.PHONY: verify-capi-version
+verify-capi-version: ## Verify Cluster API versions stay aligned with go.mod
+	./hack/check-capi-version.sh
+
 .PHONY: verify-container-images
 verify-container-images: ## Verify container images
 	trivy image -q --exit-code 1 --ignore-unfixed --severity MEDIUM,HIGH,CRITICAL $(IMAGE_PREFIX)/$(INFRA_SHORT):latest
@@ -753,7 +757,7 @@ endif
 .PHONY: generate
 generate: generate-manifests generate-go-deepcopy generate-boilerplate generate-modules generate-mocks ## Generate Files
 
-ALL_VERIFY_CHECKS = boilerplate shellcheck starlark manifests
+ALL_VERIFY_CHECKS = boilerplate shellcheck starlark manifests capi-version
 .PHONY: verify
 verify: generate lint $(addprefix verify-,$(ALL_VERIFY_CHECKS)) ## Verify all
 
