@@ -48,6 +48,8 @@ const (
 	ServerTypeNotFoundReason = "ServerTypeNotFound"
 	// ServerCreateFailedReason indicates that server could not get created.
 	ServerCreateFailedReason = "ServerCreateFailedReason"
+	// ServerCreateFailedIrrecoverableErrorReason indicates that server creation failed with an irrecoverable error.
+	ServerCreateFailedIrrecoverableErrorReason = "ServerCreateFailedIrrecoverableError"
 )
 
 const (
@@ -100,9 +102,13 @@ const (
 
 const (
 	// HostReadyCondition reports on whether the HetznerBareMetalHost is ready or not. The hbmm
-	// reconciler reads the clusterv1.ReadyCondition condition from the host, and mirrors the Reason
-	// and Message on the HostReadyCondition of the hbmm.
+	// reconciler reads the clusterv1.ReadyCondition condition from the host (if the host exists),
+	// and mirrors the Reason and Message on the HostReadyCondition of the hbmm.
 	HostReadyCondition clusterv1.ConditionType = "HostReady"
+
+	// HostNotFoundReason indicates that the HetznerBaremetalHost associated with the HetznerBaremetalMachine
+	// was not found.
+	HostNotFoundReason = "HostNotFound"
 )
 
 const (

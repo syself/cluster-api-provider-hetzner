@@ -17,6 +17,8 @@
 trap 'echo "Warning: A command has failed. Exiting the script. Line was ($0:$LINENO): $(sed -n "${LINENO}p" "$0")"; exit 3' ERR
 set -Eeuo pipefail
 
+./hack/ensure-env-variables.sh HCLOUD_WORKER_MACHINE_TYPE HCLOUD_CONTROL_PLANE_MACHINE_TYPE HCLOUD_REGION SSH_KEY_NAME HETZNER_SSH_PUB HETZNER_SSH_PRIV
+
 REPO_ROOT=$(realpath "$(dirname "${BASH_SOURCE[0]}")/..")
 cd "${REPO_ROOT}" || exit 1
 
@@ -24,18 +26,20 @@ cd "${REPO_ROOT}" || exit 1
 export PATH="${REPO_ROOT}/hack/tools/bin:${PATH}"
 export ARTIFACTS="${ARTIFACTS:-${REPO_ROOT}/_artifacts}"
 
-# shellcheck source=../hack/ci-e2e-sshkeys.sh
-source "${REPO_ROOT}/hack/ci-e2e-sshkeys.sh"
+if ! output=$(curl -fsS -H "Authorization: Bearer $HCLOUD_TOKEN" 'https://api.hetzner.cloud/v1/ssh_keys' 2>&1); then
+    echo "HCLOUD_TOKEN is invalid: $output"
+    exit 1
+else
+    echo "HCLOUD_TOKEN with prefix ${HCLOUD_TOKEN:0:5}... is valid"
+fi
 
-# We need to export the HCLOUD_TOKEN as a environment variable
-SSH_KEY_NAME=caph-e2e-$(
-    LC_CTYPE=C dd if=/dev/urandom bs=1 count=100 2>/dev/null | base64 | tr -dc 'A-Za-z0-9' | head -c 12
-    echo ''
-)
-export SSH_KEY_PATH=/tmp/${SSH_KEY_NAME}
-export SSH_KEY_NAME=${SSH_KEY_NAME}
-create_ssh_key ${SSH_KEY_NAME} ${SSH_KEY_PATH}
-trap 'remove_ssh_key ${SSH_KEY_NAME}' EXIT
+# Create ssh-key if it does not exist yet
+if ! hcloud ssh-key list | grep -qF "$SSH_KEY_NAME"; then
+    echo "info: Creating ssh-key in hcloud"
+    printf '%s' "$HETZNER_SSH_PUB" | base64 --decode | hcloud ssh-key create --name "$SSH_KEY_NAME" --public-key-from-file -
+fi
+
+echo "info: You can connect to the machines with ssh-key $SSH_KEY_NAME"
 
 mkdir -p "$ARTIFACTS"
 echo "+ run tests!"

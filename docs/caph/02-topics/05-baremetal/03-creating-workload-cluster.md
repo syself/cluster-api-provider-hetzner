@@ -13,7 +13,44 @@ Secrets as of now are hardcoded given we are using a flavor which is essentially
 
 {% /callout %}
 
-Since we have already created secret in hetzner robot, hcloud and ssh-keys as secret in management cluster, we can create a workload cluster. Generate the manifest by using `clusterctl generate`:
+First you need to decide if you want to use the Syself CCM or the upstream HCloud CCM.
+
+The CCM is the "Cloud Controller" which runs in the workload-cluster. The most important tasks of the CCM are:
+
+- Set ProviderID on Nodes. This is important, so that CAPI in the mgt-cluster knows which CAPI
+  machine (in mgt-cluster) is which Node (in wl-cluster).
+- Creates LoadBalancers
+
+If you are unsure, use the HCloud CCM. In the long run we (Syself) want to switch from our fork to
+the upstream CCM.
+
+The CCM calls the Hetzner APIs. To authenticate, it reads the credentials from a secret. This secret
+has to be in the workload cluster, when the CCM runs in the workload cluster. CAPH creates the
+secret and syncs the credentials specified in the management cluster to the workload cluster. In our
+default templates this secret is called `hetzner`. The upstream HCloud chart defaults to a secret
+called `hcloud`, so you need to override the secret references when installing the chart.
+
+Important: CAPH and the CCM must both use the same ProviderID format for bare metal. Unfortunately
+(for historical reasons), there are two formats:
+
+- old: `hcloud://bm-NNNN`
+- new: `hrobot://NNNN`
+
+The Syself CCM uses the old format by default. The HCloud CCM always uses the new format.
+
+If you use the new format, set the annotation `capi.syself.com/use-hrobot-provider-id-for-baremetal`
+to `"true"` on the `HetznerCluster`. Our default templates have this annotation set.
+
+If CAPH and the CCM do not agree on the ProviderID format, then new nodes will not be able to join
+the cluster, because CAPI waits for the wrong ProviderID.
+
+This only applies to new nodes. Once a node has a ProviderID, it will never change. Both CCMs
+support both formats when the ProviderID is already set.
+
+This applies only to bare metal. HCloud nodes always use the format `hcloud://NNNN`.
+
+Since we have already created secret in hetzner robot, hcloud and ssh-keys as secret in management
+cluster, we can create a workload cluster. Generate the manifest by using `clusterctl generate`:
 
 ```shell
 clusterctl generate cluster my-cluster --flavor hetzner-hcloud-control-planes > my-cluster.yaml
@@ -25,7 +62,7 @@ And apply it:
 kubectl apply -f my-cluster.yaml
 ```
 
-```shell
+```console
 $ kubectl apply -f my-cluster.yaml
 kubeadmconfigtemplate.bootstrap.cluster.x-k8s.io/my-cluster-md-0 created
 kubeadmconfigtemplate.bootstrap.cluster.x-k8s.io/my-cluster-md-1 created
@@ -71,23 +108,52 @@ This requires a secret containing access credentials to both Hetzner Robot and H
 
 {% /callout %}
 
-If you have configured your secret correctly in the previous step then you already have the secret in your cluster.
-Let's deploy the hetzner CCM helm chart.
+If you want to use the HCloud CCM:
 
 ```shell
 helm repo add hcloud https://charts.hetzner.cloud
 helm repo update hcloud
 
-helm upgrade --install ccm \
-    --namespace kube-system \
-    --kubeconfig workload-kubeconfig
+helm upgrade --install ccm hcloud/hcloud-cloud-controller-manager \
+             --namespace kube-system \
+             --set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.name=hetzner \
+             --set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.key=hcloud \
+             --set env.ROBOT_USER.valueFrom.secretKeyRef.name=hetzner \
+             --set env.ROBOT_USER.valueFrom.secretKeyRef.key=robot-user \
+             --set env.ROBOT_PASSWORD.valueFrom.secretKeyRef.name=hetzner \
+             --set env.ROBOT_PASSWORD.valueFrom.secretKeyRef.key=robot-password \
+             --set-json 'additionalTolerations=[{"key":"node.cluster.x-k8s.io/uninitialized","operator":"Exists","effect":"NoSchedule"},{"key":"node.cilium.io/agent-not-ready","operator":"Exists","effect":"NoSchedule"}]' \
+             --set robot.enabled=true \
+             --kubeconfig workload-kubeconfig
 ```
+
+Be sure that the HetznerCluster has the annotation
+`capi.syself.com/use-hrobot-provider-id-for-baremetal: "true"`.
+
+If you use a different `hetznerSecretRef.name` or different keys, then adjust the chart values
+above accordingly.
+
+---
+
+If you want to use the Syself CCM (not recommended for new clusters):
+
+```shell
+helm repo add syself https://charts.syself.com
+helm repo update syself
+
+$ helm upgrade --install ccm syself/ccm-hetzner --version 2.0.1 \
+              --namespace kube-system \
+              --kubeconfig workload-kubeconfig
+```
+
+Be sure that the HetznerCluster does not have the annotation
+`capi.syself.com/use-hrobot-provider-id-for-baremetal`.
 
 ### Installing CNI
 
 For CNI, let's deploy cilium in the workload cluster that will facilitate the networking in the cluster.
 
-```shell
+```console
 $ helm install cilium cilium/cilium --kubeconfig workload-kubeconfig
 NAME: cilium
 LAST DEPLOYED: Thu Apr  4 21:11:13 2024
@@ -105,7 +171,7 @@ For any further help, visit https://docs.cilium.io/en/v1.15/gettinghelp
 
 Now, the cluster should be up and you can verify it by running the following commands:
 
-```shell
+```console
 $ kubectl get clusters -A
 NAMESPACE   NAME         CLUSTERCLASS   PHASE         AGE   VERSION
 default     my-cluster                  Provisioned   10h
@@ -117,8 +183,9 @@ default     my-cluster-control-plane-qwsq6   my-cluster   my-cluster-control-pla
 default     my-cluster-md-0-2xgj5-c5bhc      my-cluster   my-cluster-md-0-6xttr            hcloud://45443694     Running        10h   v1.33.6
 default     my-cluster-md-0-2xgj5-rbnbw      my-cluster   my-cluster-md-0-fdq9l            hcloud://45443693     Running        10h   v1.33.6
 default     my-cluster-md-0-2xgj5-tl2jr      my-cluster   my-cluster-md-0-59cgw            hcloud://45443692     Running        10h   v1.33.6
-default     my-cluster-md-1-cp2fd-7nld7      my-cluster   bm-my-cluster-md-1-d7526         hrobot://2317525   Running        9h    v1.33.6
-default     my-cluster-md-1-cp2fd-n74sm      my-cluster   bm-my-cluster-md-1-l5dnr         hrobot://2105469   Running        10h   v1.33.6
+default     my-cluster-md-1-cp2fd-7nld7      my-cluster   bm-my-cluster-md-1-d7526         hcloud://bm-2317525   Running        9h    v1.33.6
+default     my-cluster-md-1-cp2fd-n74sm      my-cluster   bm-my-cluster-md-1-l5dnr         hcloud://bm-2105469   Running        10h   v1.33.6
 ```
 
-Please note that hcloud servers are prefixed with `hcloud://` and baremetal servers are prefixed with `hrobot://`.
+Please note that HCloud servers are prefixed with `hcloud://` and bare-metal servers are prefixed
+with either `hcloud://bm-` or `hrobot://`, depending on your ProviderID format configuration.

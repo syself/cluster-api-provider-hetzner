@@ -97,10 +97,18 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		// Just for testing, skip reconciling objects from finished tests.
 		return ctrl.Result{}, nil
 	}
+	skipReconciliation, err := shouldSkipReconciliationForNamespace(ctx, r.Client, req.Namespace)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if skipReconciliation {
+		log.Info("Skipping reconciliation for namespace", "namespace", req.Namespace, "annotation", infrav1.SkipNamespaceAnnotation)
+		return ctrl.Result{}, nil
+	}
 
 	// Fetch the HetznerCluster instance
 	hetznerCluster := &infrav1.HetznerCluster{}
-	err := r.Get(ctx, req.NamespacedName, hetznerCluster)
+	err = r.Get(ctx, req.NamespacedName, hetznerCluster)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return reconcile.Result{}, nil
@@ -113,7 +121,7 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// Fetch the Cluster.
 	cluster, err := util.GetOwnerCluster(ctx, r.Client, hetznerCluster.ObjectMeta)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to get owner cluster: %w", err)
+		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
 	log = log.WithValues("Cluster", klog.KObj(cluster))
@@ -121,9 +129,7 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	if cluster == nil {
 		log.Info("Cluster Controller has not yet set OwnerRef")
-		return reconcile.Result{
-			RequeueAfter: 2 * time.Second,
-		}, nil
+		return reconcile.Result{}, nil
 	}
 
 	if annotations.IsPaused(cluster, hetznerCluster) {
@@ -135,7 +141,7 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	secretManager := secretutil.NewSecretManager(log, r.Client, r.APIReader)
 	hcloudToken, hetznerSecret, err := getAndValidateHCloudToken(ctx, req.Namespace, hetznerCluster, secretManager)
 	if err != nil {
-		return hcloudTokenErrorResult(ctx, err, hetznerCluster, infrav1.HCloudTokenAvailableCondition, r.Client)
+		return hcloudTokenErrorResult(ctx, err, hetznerCluster, r.Client)
 	}
 	hcloudClient := r.HCloudClientFactory.NewClient(hcloudToken)
 
@@ -329,7 +335,7 @@ func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterS
 	// Remove finalizer of secret
 	if err := secretManager.ReleaseSecret(ctx, clusterScope.HetznerSecret(), clusterScope.HetznerCluster); err != nil {
 		if apierrors.IsConflict(err) {
-			clusterScope.Logger.Info("conflict in ReleaseSecret, doing a requeue")
+			clusterScope.Info("conflict in ReleaseSecret, doing a requeue")
 			return reconcile.Result{RequeueAfter: time.Second}, nil
 		}
 		return reconcile.Result{}, fmt.Errorf("failed to release Hetzner secret: %w", err)
@@ -393,7 +399,7 @@ func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterS
 func reconcileRateLimit(setter conditions.Setter, rateLimitWaitTime time.Duration) bool {
 	condition := conditions.Get(setter, infrav1.HetznerAPIReachableCondition)
 	if condition != nil && condition.Status == corev1.ConditionFalse {
-		if time.Now().Before(condition.LastTransitionTime.Time.Add(rateLimitWaitTime)) {
+		if time.Now().Before(condition.LastTransitionTime.Add(rateLimitWaitTime)) {
 			// Not yet timed out, reconcile again after timeout
 			// Don't give a more precise requeueAfter value to not reconcile too many
 			// objects at the same time
@@ -437,7 +443,6 @@ func hcloudTokenErrorResult(
 	ctx context.Context,
 	inerr error,
 	setter conditions.Setter,
-	conditionType clusterv1.ConditionType,
 	client client.Client,
 ) (ctrl.Result, error) {
 	res := ctrl.Result{}
@@ -447,7 +452,7 @@ func hcloudTokenErrorResult(
 	// at some point in the future.
 	case *secretutil.ResolveSecretRefError:
 		conditions.MarkFalse(setter,
-			conditionType,
+			infrav1.HCloudTokenAvailableCondition,
 			infrav1.HetznerSecretUnreachableReason,
 			clusterv1.ConditionSeverityError,
 			"could not find HetznerSecret",
@@ -458,7 +463,7 @@ func hcloudTokenErrorResult(
 	// No need to reconcile again, as it will be triggered as soon as the secret is updated.
 	case *secretutil.HCloudTokenValidationError:
 		conditions.MarkFalse(setter,
-			conditionType,
+			infrav1.HCloudTokenAvailableCondition,
 			infrav1.HCloudCredentialsInvalidReason,
 			clusterv1.ConditionSeverityError,
 			"invalid or not specified hcloud token in Hetzner secret",
@@ -466,7 +471,7 @@ func hcloudTokenErrorResult(
 
 	default:
 		conditions.MarkFalse(setter,
-			conditionType,
+			infrav1.HCloudTokenAvailableCondition,
 			infrav1.HCloudCredentialsInvalidReason,
 			clusterv1.ConditionSeverityError,
 			"%s",
@@ -484,11 +489,11 @@ func hcloudTokenErrorResult(
 	return res, nil
 }
 
-// reconcileWorkloadClusterSecrets ensures that the workload-cluster has the secret needed by the
-// ccm. The name of the secret is read from HetznerCluster.Spec.HetznerSecret.Name. If
-// HetznerSecret.Name is "hcloud", then only one secret gets created in the wl-cluster. If not, two
-// secrets are created in the wl-cluster. This ensures compatibility between CCMs. Creating the
-// secret gets skipped, if HetznerCluster.Spec.SkipCreatingHetznerSecretInWorkloadCluster is set.
+// reconcileWorkloadClusterSecrets syncs Hetzner credentials from the management cluster into
+// workload-cluster secrets for CCM consumption. It creates the secret named in
+// HetznerCluster.Spec.HetznerSecret.Name and, unless that name is already "hcloud", also creates a
+// second secret named "hcloud" for upstream hcloud-ccm compatibility. Secret creation is skipped
+// if HetznerCluster.Spec.SkipCreatingHetznerSecretInWorkloadCluster is set.
 func reconcileWorkloadClusterSecrets(ctx context.Context, clusterScope *scope.ClusterScope) (res reconcile.Result, reterr error) {
 	if clusterScope.HetznerCluster.Spec.SkipCreatingHetznerSecretInWorkloadCluster {
 		// If the secret should not be created in the workload cluster, we just return.
@@ -528,27 +533,29 @@ func reconcileWorkloadClusterSecrets(ctx context.Context, clusterScope *scope.Cl
 		return reconcile.Result{}, fmt.Errorf("failed to get client: %w", err)
 	}
 
-	// To ensure compatibility with both CCMs, create always a secret with name "hcloud" in the
-	// wl-cluster.
-	names := []string{clusterScope.HetznerCluster.Spec.HetznerSecret.Name}
-	if clusterScope.HetznerCluster.Spec.HetznerSecret.Name != "hcloud" {
-		names = append(names, "hcloud")
-	}
-
-	for _, name := range names {
-		err = reconcileOneWorkloadClusterSecret(ctx, clusterScope, wlClient, name)
-		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("failed to reconcile wl-cluster secret %q: %w",
-				name, err)
-		}
+	if err := reconcileAllWorkloadClusterSecrets(ctx, clusterScope, wlClient); err != nil {
+		return reconcile.Result{}, err
 	}
 	return reconcile.Result{}, nil
 }
 
-// reconcileOneWorkloadClusterSecret creates/updates the secret in the wl-cluster. For maximal
-// compatibility up to three keys get created in the secret for HCLOUD_TOKEN: "hcloud", "token" and
-// the value of HetznerCluster.Spec.HetznerSecret.Key.HCloudToken. See docstring of
-// HetznerCluster.Spec.HetznerSecret.Key.HCloudToken.
+func workloadClusterSecretNames(secretName string) []string {
+	names := []string{secretName}
+	if secretName != "hcloud" {
+		names = append(names, "hcloud")
+	}
+	return names
+}
+
+func reconcileAllWorkloadClusterSecrets(ctx context.Context, clusterScope *scope.ClusterScope, wlClient client.Client) error {
+	for _, name := range workloadClusterSecretNames(clusterScope.HetznerCluster.Spec.HetznerSecret.Name) {
+		if err := reconcileOneWorkloadClusterSecret(ctx, clusterScope, wlClient, name); err != nil {
+			return fmt.Errorf("failed to reconcile wl-cluster secret %q: %w", name, err)
+		}
+	}
+	return nil
+}
+
 func reconcileOneWorkloadClusterSecret(ctx context.Context, clusterScope *scope.ClusterScope, wlClient client.Client, name string) error {
 	wlSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -571,10 +578,9 @@ func reconcileOneWorkloadClusterSecret(ctx context.Context, clusterScope *scope.
 
 		hcloudToken, keyExists := mgtSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken]
 		if !keyExists {
-			return fmt.Errorf("error key %s does not exist in secret/%s: %w",
+			return fmt.Errorf("key %q does not exist in secret/%s",
 				clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken,
 				mgtSecretName,
-				err,
 			)
 		}
 
@@ -611,7 +617,7 @@ func reconcileOneWorkloadClusterSecret(ctx context.Context, clusterScope *scope.
 		}
 
 		if clusterScope.HetznerCluster.Spec.HetznerSecret.Name != "hcloud" {
-			notes = append(notes, fmt.Sprintf("We recommend to use 'hcloud' for hetznercluster.spec.hetznerSecret.name (not %q).",
+			notes = append(notes, fmt.Sprintf("We recommend to use 'hcloud' for hetznercluster.spec.hetznerSecret.name (not %q). CAPH also creates a workload-cluster secret named 'hcloud' for upstream compatibility.",
 				clusterScope.HetznerCluster.Spec.HetznerSecret.Name))
 		}
 
@@ -849,7 +855,7 @@ func (r *HetznerClusterReconciler) clusterToHetznerCluster(ctx context.Context, 
 	}
 
 	// Don't handle deleted clusters
-	if !c.ObjectMeta.DeletionTimestamp.IsZero() {
+	if !c.DeletionTimestamp.IsZero() {
 		return nil
 	}
 

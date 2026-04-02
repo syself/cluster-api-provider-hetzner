@@ -66,12 +66,12 @@ const (
 
 // HetznerBareMetalMachineSpec defines the desired state of HetznerBareMetalMachine.
 type HetznerBareMetalMachineSpec struct {
-	// ProviderID is set by the controller in the `hrobot://<server-id>` format. Before CAPH v1.1.0
-	// the ProviderID had the format `hcloud://bm-NNNNN`. Starting with CAPH v1.1.0 this was changed
-	// to `hrobot://NNNNN`. This aligns with the upstream hcloud CCM. In the long run we want to
-	// discontinue our CCM fork. After the ProviderID was set once, it never changes. It is safe to
-	// update the CCM in a running workload-cluster. Only new nodes will get the new format.
-	//
+	// ProviderID is set by the controller to either (new) `hrobot://<server-id>` or (old)
+	// `hcloud://bm-NNNN` format. If the HetznerBareMetalMachineSpec has already a ProviderID, then
+	// this will never change. If the ProviderID is empty, the controller sets it to the old format
+	// by default (hcloud://bm-NNNN), except the Annotation
+	// `capi.syself.com/use-hrobot-provider-id-for-baremetal` on the hetznerCluster is set to
+	// `"true"`.
 	// +optional
 	ProviderID *string `json:"providerID,omitempty"`
 
@@ -125,6 +125,7 @@ type SSHSpec struct {
 	PortAfterInstallImage int `json:"portAfterInstallImage"`
 
 	// PortAfterCloudInit is deprecated. Since PR Install Cloud-Init-Data via post-install.sh #1407 this field is not functional.
+	//
 	// Deprecated: This field is not used anymore.
 	// +optional
 	PortAfterCloudInit int `json:"portAfterCloudInit"`

@@ -29,7 +29,7 @@ jobs:
         uses: ./.github/actions/test-release
 
   e2e-hcloud-basic:
-    name: Test Hcloud Basic
+    name: Test Hcloud Basic (Dispatch)
     concurrency: ci-${{ github.ref }}-e2e-basic
     runs-on: ubuntu-latest
     permissions:
@@ -47,3 +47,7 @@ jobs:
         with:
           e2e_name: hcloud-basic
           e2e_make_target: test-e2e-hcloud
+          tps_token: ${{ secrets.TPS_TOKEN }}
+          e2e_ssh_pub: ${{ secrets.HETZNER_SSH_PUB }}
+          e2e_ssh_priv: ${{ secrets.HETZNER_SSH_PRIV }}
+          e2e_ssh_key_name: ${{ secrets.SSH_KEY_NAME }}

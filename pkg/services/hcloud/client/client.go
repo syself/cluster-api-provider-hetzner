@@ -263,6 +263,9 @@ func (c *realClient) ListServerTypes(ctx context.Context) ([]*hcloud.ServerType,
 
 func (c *realClient) GetServerType(ctx context.Context, name string) (*hcloud.ServerType, error) {
 	res, _, err := c.client.ServerType.GetByName(ctx, name)
+	if err != nil && strings.Contains(err.Error(), errStringUnauthorized) {
+		return res, fmt.Errorf("%w: %w", ErrUnauthorized, err)
+	}
 	return res, err
 }
 

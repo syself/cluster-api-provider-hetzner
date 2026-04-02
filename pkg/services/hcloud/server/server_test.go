@@ -323,8 +323,8 @@ var _ = Describe("getSSHKeys", func() {
 	BeforeEach(func() {
 		hcloudClient = mocks.NewClient(GinkgoT())
 		clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
-			Client:       testEnv.Manager.GetClient(),
-			APIReader:    testEnv.Manager.GetAPIReader(),
+			Client:       testEnv.GetClient(),
+			APIReader:    testEnv.GetAPIReader(),
 			HCloudClient: hcloudClient,
 			Logger:       GinkgoLogr,
 
@@ -601,8 +601,8 @@ var _ = Describe("Reconcile", func() {
 		Expect(err).To(BeNil())
 
 		clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
-			Client:       testEnv.Manager.GetClient(),
-			APIReader:    testEnv.Manager.GetAPIReader(),
+			Client:       testEnv.GetClient(),
+			APIReader:    testEnv.GetAPIReader(),
 			HCloudClient: hcloudClient,
 			Logger:       GinkgoLogr,
 
@@ -1047,6 +1047,92 @@ var _ = Describe("Reconcile", func() {
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateOperatingSystemRunning))
 		By("ensuring the bootstate has transitioned to OperatingSystemRunning")
 		Expect(service.scope.HCloudMachine.Status.BootState).To(Equal(infrav1.HCloudBootStateOperatingSystemRunning))
+	})
+
+	It("sets condition HCloudCredentialsInvalid when HCloud API returns 'unauthorized' error while creating a server", func() {
+		By("setting the bootstrap data")
+		err = testEnv.Create(ctx, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "bootstrapsecret",
+				Namespace: testNs.Name,
+			},
+			Data: map[string][]byte{
+				"value": []byte("dummy-bootstrap-data"),
+			},
+		})
+		Expect(err).To(BeNil())
+
+		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
+
+		By("ensuring that the mock hcloud client return unauthorized error on GetServerType")
+		// GetServerType is the first API call to HCloud while creating a server.
+		hcloudClient.On("GetServerType", mock.Anything, mock.Anything).Return(nil, fmt.Errorf("%w: invalid HCloud token", hcloudclient.ErrUnauthorized)).Once()
+
+		By("calling reconcile")
+		_, err := service.Reconcile(ctx)
+		Expect(err).To(BeNil())
+
+		By("ensuring condition HCloudCredentialsInvalid is set")
+		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason)).To(BeTrue())
+
+		// Ensure that the HCloudCredentialsInvalid condition persists even when we hit rate-limit on Hetzner.
+		By("making hcloud client return a rate-limit error on GetServerType API call")
+		hcloudClient.On("GetServerType", mock.Anything, mock.Anything).Return(nil, hcloud.Error{
+			Code:    hcloud.ErrorCodeRateLimitExceeded,
+			Message: "rate limit exceeded for ip 48.49.48.49",
+		}).Once()
+
+		By("calling reconcile again")
+		_, err = service.Reconcile(ctx)
+		Expect(err).NotTo(BeNil())
+
+		By("ensuring conditions HCloudCredentialsInvalid and RateLimitExceeded are set")
+		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason)).To(BeTrue())
+		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason)).To(BeTrue())
+	})
+
+	It("sets condition HCloudCredentialsInvalid when HCloud API returns 'unauthorized' error while finding server", func() {
+		By("setting the bootstrap data")
+		err = testEnv.Create(ctx, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "bootstrapsecret",
+				Namespace: testNs.Name,
+			},
+			Data: map[string][]byte{
+				"value": []byte("dummy-bootstrap-data"),
+			},
+		})
+		Expect(err).To(BeNil())
+
+		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
+
+		By("setting the ProviderID on the HCloudMachine")
+		service.scope.HCloudMachine.Spec.ProviderID = ptr.To("hcloud://1234567")
+
+		By("ensuring that the mock hcloud client return unauthorized error on GetServer")
+		hcloudClient.On("GetServer", mock.Anything, mock.Anything).Return(nil, fmt.Errorf("%w: invalid HCloud token", hcloudclient.ErrUnauthorized)).Once()
+
+		By("calling reconcile")
+		_, err := service.Reconcile(ctx)
+		Expect(err).To(BeNil())
+
+		By("ensuring condition HCloudCredentialsInvalid is set")
+		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason)).To(BeTrue())
+
+		// Ensure that the HCloudCredentialsInvalid condition persists even when we hit rate-limit on Hetzner.
+		By("making hcloud client return a rate-limit error on GetServer API call")
+		hcloudClient.On("GetServer", mock.Anything, mock.Anything).Return(nil, hcloud.Error{
+			Code:    hcloud.ErrorCodeRateLimitExceeded,
+			Message: "rate limit exceeded for ip 48.49.48.49",
+		}).Once()
+
+		By("calling reconcile again")
+		_, err = service.Reconcile(ctx)
+		Expect(err).NotTo(BeNil())
+
+		By("ensuring conditions HCloudCredentialsInvalid and RateLimitExceeded are set")
+		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason)).To(BeTrue())
+		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason)).To(BeTrue())
 	})
 })
 

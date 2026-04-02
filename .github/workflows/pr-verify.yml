@@ -11,7 +11,7 @@ jobs:
       issues: write
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/syself/caph-builder:1.0.26
+      image: ghcr.io/syself/caph-builder:1.0.27
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.github_token }}
@@ -57,11 +57,21 @@ jobs:
       - name: Verify Shellcheck
         run: make verify-shellcheck
 
+      - name: Verify CAPI Version
+        run: make verify-capi-version
+
       - name: Verify Starlark
         run: make verify-starlark
 
       - name: Verify Generated Files of Git Repo
-        run: make BUILD_IN_CONTAINER=false verify-generated-files
+        env:
+          # Use dummy data.
+          HETZNER_ROBOT_USER: ${{ secrets.HETZNER_ROBOT_USER || 'robot' }}
+          HETZNER_ROBOT_PASSWORD: ${{ secrets.HETZNER_ROBOT_PASSWORD || 'password' }}
+          HETZNER_SSH_PUB: ${{ secrets.HETZNER_SSH_PUB || 'c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUZha2VQdWJsaWNLZXlGb3JDSU9ubHkgdXNlckBjaQ==' }}
+          HETZNER_SSH_PRIV: ${{ secrets.HETZNER_SSH_PRIV || 'LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0KZmFrZQotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0K' }}
+          SSH_KEY_NAME: ${{ secrets.SSH_KEY_NAME || 'ci-key' }}
+        run: make verify-generated-files
 
       - uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e # v4
         with:

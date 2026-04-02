@@ -1,0 +1,24 @@
+---
+# ConfigMap object referenced by the ClusterResourceSet object and with
+# the CCM resource defined in the test config file
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: "${CLUSTER_NAME}-crs-ccm-network"
+data: ${CCM_RESOURCES_NETWORK}
+binaryData:
+---
+# ClusterResourceSet object with
+# a selector that targets all the Cluster with label ccm=${CLUSTER_NAME}-crs-ccm-network
+apiVersion: addons.cluster.x-k8s.io/v1beta1
+kind: ClusterResourceSet
+metadata:
+  name: "${CLUSTER_NAME}-crs-ccm-network"
+spec:
+  strategy: ApplyOnce
+  clusterSelector:
+    matchLabels:
+      ccm: "${CLUSTER_NAME}-crs-ccm-network"
+  resources:
+    - name: "${CLUSTER_NAME}-crs-ccm-network"
+      kind: ConfigMap
