@@ -57,6 +57,9 @@ jobs:
       - name: Verify Shellcheck
         run: make verify-shellcheck
 
+      - name: Verify CAPI Version
+        run: make verify-capi-version
+
       - name: Verify Starlark
         run: make verify-starlark
 
