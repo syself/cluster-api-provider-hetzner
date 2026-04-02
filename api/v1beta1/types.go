@@ -123,31 +123,37 @@ type HetznerSecretRef struct {
 // Need to specify either HCloudToken or both HetznerRobotUser and HetznerRobotPassword.
 type HetznerSecretKeyRef struct {
 	// HCloudToken defines the name of the key where the token for the Hetzner Cloud API is stored.
-	// We recommend to use "token", because this is the default of upstream hcloud-ccm, while the
-	// legacy Syself ccm fork uses "hcloud". For maximal compatibility up to three keys get created in the
-	// secret for HCLOUD_TOKEN: "hcloud", "token" and the value of hcloudToken. This way we ensure
-	// that the ccm in the wl-cluster finds the secret.
+	// It gets used for reading the credential in the mgt-cluster, and it gets used for creating a
+	// secret in the wl-cluster. We recommend to use "token", because this is the default of
+	// upstream hcloud-ccm, while the legacy Syself ccm fork uses "hcloud". For maximal
+	// compatibility up to three keys get created in the secret for HCLOUD_TOKEN: "hcloud", "token"
+	// and the value of hcloudToken. This way we ensure that the ccm in the wl-cluster finds the
+	// secret.
 	//
 	// +optional
-	// +kubebuilder:default=token
+	// +kubebuilder:default=hcloud-token
 	HCloudToken string `json:"hcloudToken"`
 
 	// HetznerRobotUser defines the name of the key where the username for the Hetzner Robot API is
-	// stored. We recommend to use "robot-user", because this is the default of upstream hcloud-ccm.
+	// stored.  It gets used for reading the credential in the mgt-cluster, and it gets used for
+	// creating a secret in the wl-cluster. We recommend to use "robot-user", because this is the
+	// default of upstream hcloud-ccm.
 	//
 	// +optional
 	// +kubebuilder:default=robot-user
 	HetznerRobotUser string `json:"hetznerRobotUser"`
 
 	// HetznerRobotPassword defines the name of the key where the password for the Hetzner Robot API
-	// is stored. We recommend to use "robot-password", because this is the default of upstream
-	// hcloud-ccm.
+	// is stored.  It gets used for reading the credential in the mgt-cluster, and it gets used for
+	// creating a secret in the wl-cluster. We recommend to use "robot-password", because this is
+	// the default of upstream hcloud-ccm.
 	//
 	// +optional
 	// +kubebuilder:default=robot-password
 	HetznerRobotPassword string `json:"hetznerRobotPassword"`
 
-	// SSHKey defines the name of the ssh key.
+	// SSHKey defines the name of the ssh key. It is only used in the mgt-cluster. It is not synced
+	// to the wl-cluster.
 	//
 	// +optional
 	// +kubebuilder:default=hcloud-ssh-key-name
