@@ -223,10 +223,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		return reconcile.Result{Requeue: true}, nil
 	}
 	if err := r.Get(ctx, hetznerClusterName, hetznerCluster); err != nil {
-		if apierrors.IsNotFound(err) {
-			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
-		}
-		return reconcile.Result{}, fmt.Errorf("failed to get HetznerCluster: %w", err)
+		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
 	log = log.WithValues("HetznerCluster", klog.KObj(hetznerCluster))
@@ -234,7 +231,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	// Fetch the Cluster.
 	cluster, err := util.GetClusterFromMetadata(ctx, r, hetznerCluster.ObjectMeta)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to get Cluster: %w", err)
+		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
 	log = log.WithValues("Cluster", klog.KObj(cluster))
@@ -248,7 +245,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		}
 
 		if err := r.Get(ctx, name, hetznerBareMetalMachine); err != nil {
-			return reconcile.Result{}, fmt.Errorf("failed to get HetznerBareMetalMachine: %w", err)
+			return reconcile.Result{}, client.IgnoreNotFound(err)
 		}
 	}
 
