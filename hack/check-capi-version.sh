@@ -72,18 +72,4 @@ if ! awk \
     exit 1
 fi
 
-echo "✅ All CAPI versions are in sync with go.mod (${DESIRED_VERSION})"     /^[[:space:]]*minor:[[:space:]]*/ {
-            minor = $0
-            sub(/.*minor:[[:space:]]*/, "", minor)
-            if (major == desired_major && minor == desired_minor) {
-                found = 1
-            }
-        }
-        END { exit(found ? 0 : 1) }
-    ' "${METADATA_FILE}"; then
-    echo "❌ Missing releaseSeries entry for CAPI ${DESIRED_MAJOR}.${DESIRED_MINOR} in ${METADATA_FILE}"
-    echo "Please update the shared e2e metadata to include the major/minor series from go.mod"
-    exit 1
-fi
-
 echo "✅ All CAPI versions are in sync with go.mod (${DESIRED_VERSION})"
