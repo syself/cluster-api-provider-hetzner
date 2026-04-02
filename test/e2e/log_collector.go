@@ -22,6 +22,8 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	stdlog "log"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -34,6 +36,8 @@ import (
 	expv1 "sigs.k8s.io/cluster-api/exp/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	kinderrors "sigs.k8s.io/kind/pkg/errors"
+
+	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
 
 const (
@@ -83,28 +87,33 @@ func (collector logCollector) CollectInfrastructureLogs(_ context.Context, _ cli
 }
 
 // CollectMachineLog implements the CollectMachineLog method of the LogCollector interface.
-func (collector logCollector) CollectMachineLog(_ context.Context, _ client.Client, m *clusterv1.Machine, outputPath string) error {
-	var hostIPAddr string
-	for _, address := range m.Status.Addresses {
-		if address.Type != clusterv1.MachineExternalIP {
-			continue
-		}
-		hostIPAddr = address.Address
-		break
-	}
-
-	if hostIPAddr == "" {
-		return fmt.Errorf("machine %q has no ExternalIP: machine.status.addresses: %+v", m.Name, m.Status.Addresses)
+func (collector logCollector) CollectMachineLog(ctx context.Context, c client.Client, m *clusterv1.Machine, outputPath string) error {
+	hostIPAddr, err := machineExternalIP(ctx, c, m)
+	if err != nil {
+		return fmt.Errorf("CollectMachineLog failed: %w", err)
 	}
 
 	execToPathFn := func(hostFileName, command string, args ...string) func() error {
 		return func() error {
-			f, err := createOutputFile(filepath.Join(outputPath, hostFileName))
+			if err := os.MkdirAll(outputPath, 0o750); err != nil {
+				return err
+			}
+			tempFile, err := os.CreateTemp(outputPath, hostFileName+".tmp-*") // #nosec
 			if err != nil {
 				return err
 			}
-			defer func() { _ = f.Close() }()
-			return executeRemoteCommand(f, hostIPAddr, command, args...)
+			tempPath := tempFile.Name()
+			defer func() {
+				_ = tempFile.Close()
+				_ = os.Remove(tempPath)
+			}()
+
+			if err := executeRemoteCommand(tempFile, hostIPAddr, command, args...); err != nil {
+				_ = moveTempFileIfNonEmpty(tempPath, filepath.Join(outputPath, hostFileName))
+				return err
+			}
+
+			return moveTempFileIfNonEmpty(tempPath, filepath.Join(outputPath, hostFileName))
 		}
 	}
 
@@ -146,7 +155,7 @@ func (collector logCollector) CollectMachineLog(_ context.Context, _ client.Clie
 		}
 	}
 
-	return kinderrors.AggregateConcurrent([]func() error{
+	collectionErr := kinderrors.AggregateConcurrent([]func() error{
 		execToPathFn("kern.log",
 			"journalctl", "--no-pager", "--output=short-precise", "-k"),
 		execToPathFn("kubelet.log",
@@ -164,13 +173,149 @@ func (collector logCollector) CollectMachineLog(_ context.Context, _ client.Clie
 		copyDirFn("/var/log/pods", "pods"),
 		copyDirFn("/etc/kubernetes", "kubernetes"),
 	})
+
+	return collectionErr
 }
 
-func createOutputFile(path string) (*os.File, error) {
-	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
-		return nil, err
+func machineExternalIP(ctx context.Context, c client.Client, m *clusterv1.Machine) (string, error) {
+	if hostIPAddr := externalIPFromAddresses(m.Status.Addresses); hostIPAddr != "" {
+		return hostIPAddr, nil
 	}
-	return os.Create(path) // #nosec
+
+	baseErr := fmt.Errorf("machine %q has no ExternalIP: machine.status.addresses: %+v", m.Name, m.Status.Addresses)
+	if c == nil {
+		return "", baseErr
+	}
+
+	hostIPAddr, err := infrastructureMachineExternalIP(ctx, c, m)
+	if err != nil {
+		stdlog.Printf(
+			"CollectMachineLog: failed to resolve external IP via infrastructure machine for %s/%s (%s %s): %v",
+			m.Namespace, m.Name, m.Spec.InfrastructureRef.Kind, m.Spec.InfrastructureRef.Name, err,
+		)
+		return "", fmt.Errorf("%w; infrastructure fallback failed: %w", baseErr, err)
+	}
+
+	if hostIPAddr != "" {
+		return hostIPAddr, nil
+	}
+
+	return "", baseErr
+}
+
+func infrastructureMachineExternalIP(ctx context.Context, c client.Client, m *clusterv1.Machine) (string, error) {
+	if c == nil {
+		return "", fmt.Errorf("client is nil")
+	}
+
+	if m.Spec.InfrastructureRef.Name == "" {
+		return "", fmt.Errorf("machine.spec.infrastructureRef.name is empty")
+	}
+
+	key := client.ObjectKey{
+		Namespace: m.Namespace,
+		Name:      m.Spec.InfrastructureRef.Name,
+	}
+
+	switch m.Spec.InfrastructureRef.Kind {
+	case "HetznerBareMetalMachine":
+		hbmm := &infrav1.HetznerBareMetalMachine{}
+		if err := c.Get(ctx, key, hbmm); err != nil {
+			return "", fmt.Errorf("get HetznerBareMetalMachine %s: %w", key, err)
+		}
+		hostIPAddr := externalIPFromAddresses(hbmm.Status.Addresses)
+		if hostIPAddr != "" {
+			return hostIPAddr, nil
+		}
+
+		hostIPAddr, err := externalIPFromAssociatedHost(ctx, c, hbmm)
+		if err != nil {
+			return "", fmt.Errorf("HetznerBareMetalMachine %s has no ExternalIP in status.addresses: %+v; host fallback failed: %w", key, hbmm.Status.Addresses, err)
+		}
+		return hostIPAddr, nil
+	case "HCloudMachine":
+		hm := &infrav1.HCloudMachine{}
+		if err := c.Get(ctx, key, hm); err != nil {
+			return "", fmt.Errorf("get HCloudMachine %s: %w", key, err)
+		}
+		hostIPAddr := externalIPFromAddresses(hm.Status.Addresses)
+		if hostIPAddr == "" {
+			return "", fmt.Errorf("HCloudMachine %s has no ExternalIP in status.addresses: %+v", key, hm.Status.Addresses)
+		}
+		return hostIPAddr, nil
+	default:
+		return "", fmt.Errorf("unsupported infrastructureRef kind %q", m.Spec.InfrastructureRef.Kind)
+	}
+}
+
+func externalIPFromAssociatedHost(ctx context.Context, c client.Client, hbmm *infrav1.HetznerBareMetalMachine) (string, error) {
+	host, hostKey, err := associatedHostFromHBMM(ctx, c, hbmm)
+	if err != nil {
+		return "", err
+	}
+
+	for _, candidate := range []string{host.Spec.Status.IPv4, host.Spec.Status.IPv6} {
+		if candidate == "" {
+			continue
+		}
+		hostIPAddr, err := normalizeHostIP(candidate)
+		if err != nil {
+			continue
+		}
+		return hostIPAddr, nil
+	}
+
+	return "", fmt.Errorf("HetznerBareMetalHost %s has no usable IPv4/IPv6 (IPv4=%q, IPv6=%q)", hostKey, host.Spec.Status.IPv4, host.Spec.Status.IPv6)
+}
+
+func associatedHostFromHBMM(ctx context.Context, c client.Client, hbmm *infrav1.HetznerBareMetalMachine) (*infrav1.HetznerBareMetalHost, client.ObjectKey, error) {
+	if hbmm == nil {
+		return nil, client.ObjectKey{}, fmt.Errorf("hbmm is nil")
+	}
+
+	annotationValue, ok := hbmm.Annotations[infrav1.HostAnnotation]
+	if !ok || annotationValue == "" {
+		return nil, client.ObjectKey{}, fmt.Errorf("annotation %q not found", infrav1.HostAnnotation)
+	}
+
+	hostNamespace := hbmm.Namespace
+	hostName := annotationValue
+	parts := strings.Split(annotationValue, "/")
+	if len(parts) == 2 {
+		if parts[0] != "" {
+			hostNamespace = parts[0]
+		}
+		hostName = parts[1]
+	}
+	if hostName == "" {
+		return nil, client.ObjectKey{}, fmt.Errorf("associated host name in annotation %q is empty", infrav1.HostAnnotation)
+	}
+
+	host := &infrav1.HetznerBareMetalHost{}
+	hostKey := client.ObjectKey{
+		Namespace: hostNamespace,
+		Name:      hostName,
+	}
+	if err := c.Get(ctx, hostKey, host); err != nil {
+		return nil, client.ObjectKey{}, fmt.Errorf("get HetznerBareMetalHost %s: %w", hostKey, err)
+	}
+
+	return host, hostKey, nil
+}
+
+func externalIPFromAddresses(addresses []clusterv1.MachineAddress) string {
+	for _, address := range addresses {
+		if address.Type != clusterv1.MachineExternalIP {
+			continue
+		}
+		hostIPAddr, err := normalizeHostIP(address.Address)
+		if err != nil {
+			stdlog.Printf("CollectMachineLog: skipping invalid MachineExternalIP %q: %v", address.Address, err)
+			continue
+		}
+		return hostIPAddr
+	}
+	return ""
 }
 
 func executeRemoteCommand(f io.StringWriter, hostIPAddr, command string, args ...string) error {
@@ -179,16 +324,20 @@ func executeRemoteCommand(f io.StringWriter, hostIPAddr, command string, args ..
 		return err
 	}
 	port := "22"
+	normalizedHostIPAddr, err := normalizeHostIP(hostIPAddr)
+	if err != nil {
+		return fmt.Errorf("invalid host IP address %q: %w", hostIPAddr, err)
+	}
 
 	var hostClient *ssh.Client
 	for attempt := 1; attempt <= 3; attempt++ {
-		hostClient, err = ssh.Dial("tcp", fmt.Sprintf("%s:%s", hostIPAddr, port), config)
+		hostClient, err = ssh.Dial("tcp", net.JoinHostPort(normalizedHostIPAddr, port), config)
 		if err != nil {
 			if attempt < 3 && isRetryableSSHError(err) {
 				time.Sleep(time.Duration(attempt) * time.Second)
 				continue
 			}
-			return fmt.Errorf("dialing host IP address at %s: %w", hostIPAddr, err)
+			return fmt.Errorf("dialing host IP address at %s: %w", normalizedHostIPAddr, err)
 		}
 		break
 	}
@@ -234,16 +383,20 @@ func executeRemoteCommandStdoutOnly(w io.Writer, hostIPAddr, command string, arg
 		return err
 	}
 	port := "22"
+	normalizedHostIPAddr, err := normalizeHostIP(hostIPAddr)
+	if err != nil {
+		return fmt.Errorf("invalid host IP address %q: %w", hostIPAddr, err)
+	}
 
 	var hostClient *ssh.Client
 	for attempt := 1; attempt <= 3; attempt++ {
-		hostClient, err = ssh.Dial("tcp", fmt.Sprintf("%s:%s", hostIPAddr, port), config)
+		hostClient, err = ssh.Dial("tcp", net.JoinHostPort(normalizedHostIPAddr, port), config)
 		if err != nil {
 			if attempt < 3 && isRetryableSSHError(err) {
 				time.Sleep(time.Duration(attempt) * time.Second)
 				continue
 			}
-			return fmt.Errorf("dialing host IP address at %s: %w", hostIPAddr, err)
+			return fmt.Errorf("dialing host IP address at %s: %w", normalizedHostIPAddr, err)
 		}
 		break
 	}
@@ -281,6 +434,22 @@ func isRetryableSSHError(err error) bool {
 		strings.Contains(message, "i/o timeout")
 }
 
+func normalizeHostIP(value string) (string, error) {
+	if value == "" {
+		return "", fmt.Errorf("host IP address is empty")
+	}
+
+	if ip := net.ParseIP(value); ip != nil {
+		return ip.String(), nil
+	}
+
+	if ip, _, err := net.ParseCIDR(value); err == nil && ip != nil {
+		return ip.String(), nil
+	}
+
+	return "", fmt.Errorf("invalid host IP address %q", value)
+}
+
 func formatOutputForError(output string) string {
 	const maxOutputLength = 3000
 
@@ -294,6 +463,27 @@ func formatOutputForError(output string) string {
 	}
 
 	return formatted
+}
+
+func moveTempFileIfNonEmpty(tempPath, finalPath string) error {
+	info, err := os.Stat(tempPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	if info.Size() == 0 {
+		return nil
+	}
+
+	if err := os.MkdirAll(filepath.Dir(finalPath), 0o750); err != nil {
+		return err
+	}
+	if err := os.Rename(tempPath, finalPath); err != nil {
+		return err
+	}
+	return nil
 }
 
 // newSSHConfig returns a configuration to use for SSH connections to remote machines.

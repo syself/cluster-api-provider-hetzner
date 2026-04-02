@@ -174,7 +174,7 @@ def caph():
             yaml = str(encode_yaml_stream(yaml_dict))
             yaml = fixup_yaml_empty_arrays(yaml)
 
-    local("cp data/hetzner-installimage-v1.0.7.tgz .tiltbuild/installimage.tgz")
+    local("cp data/hetzner-installimage-v1.0.8.tgz .tiltbuild/installimage.tgz")
 
     # Set up a local_resource build of the provider's manager binary.
 
