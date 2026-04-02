@@ -286,7 +286,7 @@ spec:
                                   secret.
                                 type: string
                               hetznerRobotPassword:
-                                default: robot-password
+                                default: hetzner-robot-password
                                 description: |-
                                   HetznerRobotPassword defines the name of the key where the password for the Hetzner Robot API
                                   is stored.  It gets used for reading the credential in the mgt-cluster, and it gets used for
@@ -294,7 +294,7 @@ spec:
                                   the default of upstream hcloud-ccm.
                                 type: string
                               hetznerRobotUser:
-                                default: robot-user
+                                default: hetzner-robot-user
                                 description: |-
                                   HetznerRobotUser defines the name of the key where the username for the Hetzner Robot API is
                                   stored.  It gets used for reading the credential in the mgt-cluster, and it gets used for
