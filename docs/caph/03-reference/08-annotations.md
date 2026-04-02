@@ -33,6 +33,14 @@ You can set [Kubernetes Annotations](https://kubernetes.io/docs/concepts/overvie
 | **Value**       | `"true"` enables this feature. All other strings are considered `"false"`.                                                                                                                                                                                           |
 | **Auto-Remove** | Disabled: The annotation remains on the resource.                                                                                                                                                                                                                    |
 
+### capi.syself.com/skip-namespace
+
+| **Resource**    | [Namespace](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/)                                                                                                                            |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Description** | This annotation makes CAPH skip reconciliation for namespaced CAPH resources in the annotated namespace. This is useful while debugging or during namespace-level maintenance.                                       |
+| **Value**       | `"true"` enables this feature. All other strings are considered `"false"`.                                                                                                                                            |
+| **Auto-Remove** | Disabled: The annotation remains on the resource.                                                                                                                                                                     |
+
 ### capi.syself.com/constant-bare-metal-hostname
 
 | **Resource**    | Cluster (CRD of Cluster-API), HetznerBareMetalMachine                                                        |

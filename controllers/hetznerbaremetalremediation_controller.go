@@ -59,10 +59,18 @@ func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, r
 		// Just for testing, skip reconciling objects from finished tests.
 		return ctrl.Result{}, nil
 	}
+	skipReconciliation, err := shouldSkipReconciliationForNamespace(ctx, r.Client, req.Namespace)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if skipReconciliation {
+		log.Info("Skipping reconciliation for namespace", "namespace", req.Namespace, "annotation", infrav1.SkipNamespaceAnnotation)
+		return ctrl.Result{}, nil
+	}
 
 	// Fetch the Hetzner bare metal host instance.
 	bareMetalRemediation := &infrav1.HetznerBareMetalRemediation{}
-	err := r.Get(ctx, req.NamespacedName, bareMetalRemediation)
+	err = r.Get(ctx, req.NamespacedName, bareMetalRemediation)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return reconcile.Result{}, nil
@@ -75,7 +83,7 @@ func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, r
 	// Fetch the Machine.
 	machine, err := util.GetOwnerMachine(ctx, r, bareMetalRemediation.ObjectMeta)
 	if err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 	if machine == nil {
 		log.Info("Machine Controller has not yet set OwnerRef")
