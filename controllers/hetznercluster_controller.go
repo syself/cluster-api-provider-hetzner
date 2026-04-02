@@ -121,7 +121,7 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// Fetch the Cluster.
 	cluster, err := util.GetOwnerCluster(ctx, r.Client, hetznerCluster.ObjectMeta)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to get owner cluster: %w", err)
+		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
 	log = log.WithValues("Cluster", klog.KObj(cluster))
@@ -129,9 +129,7 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	if cluster == nil {
 		log.Info("Cluster Controller has not yet set OwnerRef")
-		return reconcile.Result{
-			RequeueAfter: 2 * time.Second,
-		}, nil
+		return reconcile.Result{}, nil
 	}
 
 	if annotations.IsPaused(cluster, hetznerCluster) {
@@ -491,12 +489,11 @@ func hcloudTokenErrorResult(
 	return res, nil
 }
 
-// reconcileWorkloadClusterSecrets ensures that the workload-cluster has the secret needed by the
-// ccm. The name of the secret is read from HetznerCluster.Spec.HetznerSecret.Name. If
-// HetznerSecret.Name is "hcloud", then only one secret gets created in the wl-cluster. If not, two
-// secrets are created in the wl-cluster: one with the configured name and one named "hcloud". This
-// ensures compatibility between the upstream CCM defaults and CAPH defaults. Creating the secret
-// gets skipped, if HetznerCluster.Spec.SkipCreatingHetznerSecretInWorkloadCluster is set.
+// reconcileWorkloadClusterSecrets syncs Hetzner credentials from the management cluster into
+// workload-cluster secrets for CCM consumption. It creates the secret named in
+// HetznerCluster.Spec.HetznerSecret.Name and, unless that name is already "hcloud", also creates a
+// second secret named "hcloud" for upstream hcloud-ccm compatibility. Secret creation is skipped
+// if HetznerCluster.Spec.SkipCreatingHetznerSecretInWorkloadCluster is set.
 func reconcileWorkloadClusterSecrets(ctx context.Context, clusterScope *scope.ClusterScope) (res reconcile.Result, reterr error) {
 	if clusterScope.HetznerCluster.Spec.SkipCreatingHetznerSecretInWorkloadCluster {
 		// If the secret should not be created in the workload cluster, we just return.

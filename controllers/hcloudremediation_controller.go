@@ -90,7 +90,7 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 	// Fetch the Machine.
 	machine, err := util.GetOwnerMachine(ctx, r, hcloudRemediation.ObjectMeta)
 	if err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 	if machine == nil {
 		log.Info("Machine Controller has not yet set OwnerRef")

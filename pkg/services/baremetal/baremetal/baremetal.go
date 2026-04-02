@@ -62,6 +62,12 @@ const (
 
 	// FailureMessageMaintenanceMode indicates that host is in maintenance mode.
 	FailureMessageMaintenanceMode = "host machine in maintenance mode"
+
+	// prefixRobotLegacy is the prefix used by the Syself ccm.
+	prefixRobotLegacy = "hcloud://bm-"
+
+	// prefixRobotNew is the prefix used by the HCloud ccm.
+	prefixRobotNew = "hrobot://"
 )
 
 // Service defines struct with machine scope to reconcile HetznerBareMetalMachines.
@@ -686,10 +692,7 @@ func (s *Service) setProviderID(ctx context.Context) error {
 		// no need for requeue error since host update will trigger a reconciliation
 		return nil
 	}
-	providerID, err := GenerateProviderID(s.scope.Machine, s.scope.HetznerCluster, host.Spec.ServerID)
-	if err != nil {
-		return err
-	}
+	providerID := generateProviderID(s.scope.HetznerCluster, host.Spec.ServerID)
 	s.scope.BareMetalMachine.Spec.ProviderID = &providerID
 	s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhaseRunning
 
@@ -908,26 +911,14 @@ func analyzePatchError(err error, ignoreNotFound bool) error {
 	return err
 }
 
-const (
-	// prefixRobotLegacy is the prefix used by the Syself ccm.
-	prefixRobotLegacy = "hcloud://bm-"
-
-	// prefixRobotNew is the prefix used by the HCloud ccm.
-	prefixRobotNew = "hrobot://"
-)
-
-// GenerateProviderID returns the providerID for the given machine. If the ProviderID already
-// exists, then this will be returned. If the ProviderID is empty, it uses the old format
+// generateProviderID returns the providerID for the given machine. It uses the old format
 // (hcloud://bm-NNNN) by default. If the annotation
 // `capi.syself.com/use-hrobot-provider-id-for-baremetal` on the HetznerCluster is set to "true"
 // (case-insensitive), then `hrobot://` is used.
-func GenerateProviderID(machine *clusterv1.Machine, hetznerCluster *infrav1.HetznerCluster, serverNumber int) (string, error) {
-	if machine.Spec.ProviderID != nil && *machine.Spec.ProviderID != "" {
-		return *machine.Spec.ProviderID, nil
-	}
+func generateProviderID(hetznerCluster *infrav1.HetznerCluster, serverNumber int) string {
 	annotationValue := strings.TrimSpace(hetznerCluster.Annotations[infrav1.UseHrobotProviderIDForBaremetalAnnotation])
 	if strings.EqualFold(annotationValue, "true") {
-		return fmt.Sprintf("%s%d", prefixRobotNew, serverNumber), nil
+		return fmt.Sprintf("%s%d", prefixRobotNew, serverNumber)
 	}
-	return fmt.Sprintf("%s%d", prefixRobotLegacy, serverNumber), nil
+	return fmt.Sprintf("%s%d", prefixRobotLegacy, serverNumber)
 }
