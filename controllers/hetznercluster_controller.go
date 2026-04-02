@@ -490,11 +490,8 @@ func hcloudTokenErrorResult(
 }
 
 // reconcileWorkloadClusterSecrets ensures that the workload-cluster has the secret needed by the
-// ccm. The name of the secret is read from HetznerCluster.Spec.HetznerSecret.Name. If
-// HetznerSecret.Name is "hcloud", then only one secret gets created in the wl-cluster. If not, two
-// secrets are created in the wl-cluster: one with the configured name and one named "hcloud". This
-// ensures compatibility between the upstream CCM defaults and CAPH defaults. Creating the secret
-// gets skipped, if HetznerCluster.Spec.SkipCreatingHetznerSecretInWorkloadCluster is set.
+// ccm. The name of the secret is read from HetznerCluster.Spec.HetznerSecret.Name. Creating the
+// secret gets skipped, if HetznerCluster.Spec.SkipCreatingHetznerSecretInWorkloadCluster is set.
 func reconcileWorkloadClusterSecrets(ctx context.Context, clusterScope *scope.ClusterScope) (res reconcile.Result, reterr error) {
 	if clusterScope.HetznerCluster.Spec.SkipCreatingHetznerSecretInWorkloadCluster {
 		// If the secret should not be created in the workload cluster, we just return.
