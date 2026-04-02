@@ -597,8 +597,7 @@ else
 	# these from the builder-image now.
 	rm -f ./hack/tools/bin/controller-gen ./hack/tools/bin/helm
 	controller-gen \
-			paths=./api/... \
-			paths=./controllers/... \
+			paths="{./, ./api/..., ./controllers/...}" \
 			crd:crdVersions=v1 \
 			rbac:roleName=manager-role \
 			output:crd:dir=./config/crd/bases \

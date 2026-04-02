@@ -18,6 +18,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -28,6 +29,7 @@ import (
 	"time"
 
 	"github.com/spf13/pflag"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -35,6 +37,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	bootstrapv1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
+	"sigs.k8s.io/cluster-api/controllers/crdmigrator"
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
@@ -65,6 +68,7 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 	utilruntime.Must(clusterv1.AddToScheme(scheme))
 	utilruntime.Must(bootstrapv1.AddToScheme(scheme))
 	utilruntime.Must(infrastructurev1beta1.AddToScheme(scheme))
@@ -91,6 +95,7 @@ var (
 	baremetalImageURLCommand           string
 	skipWebhooks                       bool
 	sshAfterInstallImage               bool
+	skipCRDMigrationPhases             []string
 )
 
 // strictManager is a ctrl.Manager that creates controller-runtime clients that enforce strict
@@ -129,6 +134,7 @@ func main() {
 	fs.StringVar(&baremetalImageURLCommand, "baremetal-image-url-command", "", "Command to run (in rescue-system) to provision an baremetal machine. Docs: https://syself.com/docs/caph/developers/image-url-command")
 	fs.BoolVar(&skipWebhooks, "skip-webhooks", false, "Skip setting up of webhooks. Together with --leader-elect=false, you can use `go run main.go` to run CAPH in a cluster connected via KUBECONFIG. You should scale down the caph deployment to 0 before doing that. This is only for testing!")
 	fs.BoolVar(&sshAfterInstallImage, "baremetal-ssh-after-install-image", true, "Connect to the baremetal machine after install-image and ensure it is provisioned. Current default is true, but we might change that to false. Background: Users might not want the controller to be able to ssh onto the servers")
+	fs.StringSliceVar(&skipCRDMigrationPhases, "skip-crd-migration-phases", []string{}, "List of CRD migration phases to skip. Valid values are: StorageVersionMigration, CleanupManagedFields.")
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
@@ -316,6 +322,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := setupCRDMigrator(ctx, mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "CRDMigrator")
+		os.Exit(1)
+	}
+
 	if !skipWebhooks {
 		setUpWebhookWithManager(mgr)
 
@@ -388,4 +399,81 @@ func setUpWebhookWithManager(mgr ctrl.Manager) {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HCloudRemediationTemplate")
 		os.Exit(1)
 	}
+}
+
+// ADD CRD RBAC for CRD Migrator.
+// +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch
+// +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions;customresourcedefinitions/status,verbs=update;patch,resourceNames=hcloudmachinetemplates.infrastructure.cluster.x-k8s.io;hcloudmachines.infrastructure.cluster.x-k8s.io;hcloudremediationtemplates.infrastructure.cluster.x-k8s.io;hcloudremediations.infrastructure.cluster.x-k8s.io;hetznerbaremetalhosts.infrastructure.cluster.x-k8s.io;hetznerbaremetalmachinetemplates.infrastructure.cluster.x-k8s.io;hetznerbaremetalmachines.infrastructure.cluster.x-k8s.io;hetznerbaremetalremediationtemplates.infrastructure.cluster.x-k8s.io;hetznerbaremetalremediations.infrastructure.cluster.x-k8s.io;hetznerclustertemplates.infrastructure.cluster.x-k8s.io;hetznerclusters.infrastructure.cluster.x-k8s.io
+// +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hcloudmachinetemplates;hcloudmachines;hcloudremediationtemplates;hcloudremediations;hetznerbaremetalhosts;hetznerbaremetalmachinetemplates;hetznerbaremetalmachines;hetznerbaremetalremediationtemplates;hetznerbaremetalremediations;hetznerclustertemplates;hetznerclusters,verbs=get;list;watch;patch;update
+// +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hcloudmachinetemplates/status;hcloudmachines/status;hcloudremediationtemplates/status;hcloudremediations/status;hetznerbaremetalhosts/status;hetznerbaremetalmachines/status;hetznerbaremetalremediationtemplates/status;hetznerbaremetalremediations/status;hetznerclusters/status,verbs=get;patch;update
+
+func setupCRDMigrator(ctx context.Context, mgr *strictManager) error {
+	crdMigratorConfig := map[client.Object]crdmigrator.ByObjectConfig{
+		&infrastructurev1beta1.HCloudMachineTemplate{}: {
+			// UseCache should be set to true only if an informer already exists for the API type
+			// (i.e. there is a controller watching this resource).
+			UseCache: true,
+
+			// UseStatusForStorageVersionMigration should be enabled only if the CRD defines a status subresource.
+			UseStatusForStorageVersionMigration: true,
+		},
+		&infrastructurev1beta1.HCloudMachine{}: {
+			UseCache:                            true,
+			UseStatusForStorageVersionMigration: true,
+		},
+		&infrastructurev1beta1.HCloudRemediationTemplate{}: {
+			UseCache:                            false,
+			UseStatusForStorageVersionMigration: true,
+		},
+		&infrastructurev1beta1.HCloudRemediation{}: {
+			UseCache:                            true,
+			UseStatusForStorageVersionMigration: true,
+		},
+		&infrastructurev1beta1.HetznerBareMetalHost{}: {
+			UseCache:                            true,
+			UseStatusForStorageVersionMigration: true,
+		},
+		&infrastructurev1beta1.HetznerBareMetalMachineTemplate{}: {
+			UseCache:                            false,
+			UseStatusForStorageVersionMigration: false,
+		},
+		&infrastructurev1beta1.HetznerBareMetalMachine{}: {
+			UseCache:                            true,
+			UseStatusForStorageVersionMigration: true,
+		},
+		&infrastructurev1beta1.HetznerBareMetalRemediationTemplate{}: {
+			UseCache:                            false,
+			UseStatusForStorageVersionMigration: true,
+		},
+		&infrastructurev1beta1.HetznerBareMetalRemediation{}: {
+			UseCache:                            true,
+			UseStatusForStorageVersionMigration: true,
+		},
+		&infrastructurev1beta1.HetznerClusterTemplate{}: {
+			UseCache:                            false,
+			UseStatusForStorageVersionMigration: false,
+		},
+		&infrastructurev1beta1.HetznerCluster{}: {
+			UseCache:                            true,
+			UseStatusForStorageVersionMigration: true,
+		},
+	}
+
+	crdMigratorSkipPhases := make([]crdmigrator.Phase, len(skipCRDMigrationPhases))
+	for i := range skipCRDMigrationPhases {
+		crdMigratorSkipPhases[i] = crdmigrator.Phase(skipCRDMigrationPhases[i])
+	}
+
+	if err := (&crdmigrator.CRDMigrator{
+		Client:                 mgr.GetClient(),
+		APIReader:              mgr.GetAPIReader(),
+		SkipCRDMigrationPhases: crdMigratorSkipPhases,
+		Config:                 crdMigratorConfig,
+		// The CRDMigrator is run with only concurrency 1 to ensure we don't overwhelm the apiserver by patching a
+		// lot of CRs concurrently.
+	}).SetupWithManager(ctx, mgr, controller.Options{MaxConcurrentReconciles: 1}); err != nil {
+		return err
+	}
+
+	return nil
 }
