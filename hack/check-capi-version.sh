@@ -67,9 +67,14 @@ if ! awk \
     -v desired_major="${DESIRED_MAJOR}" \
     -v desired_minor="${DESIRED_MINOR}" \
     '
-        match($0, /major:[[:space:]]*([0-9]+)/, captures) { major = captures[1] }
-        match($0, /minor:[[:space:]]*([0-9]+)/, captures) {
-            minor = captures[1]
+        /^[[:space:]]*-[[:space:]]*major:[[:space:]]*/ {
+            major = $0
+            sub(/.*major:[[:space:]]*/, "", major)
+            next
+        }
+        /^[[:space:]]*minor:[[:space:]]*/ {
+            minor = $0
+            sub(/.*minor:[[:space:]]*/, "", minor)
             if (major == desired_major && minor == desired_minor) {
                 found = 1
             }
