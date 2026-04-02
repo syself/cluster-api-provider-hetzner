@@ -78,6 +78,14 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		// Just for testing, skip reconciling objects from finished tests.
 		return ctrl.Result{}, nil
 	}
+	skipReconciliation, err := shouldSkipReconciliationForNamespace(ctx, r.Client, req.Namespace)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if skipReconciliation {
+		log.Info("Skipping reconciliation for namespace", "namespace", req.Namespace, "annotation", infrav1.SkipNamespaceAnnotation)
+		return ctrl.Result{}, nil
+	}
 
 	start := time.Now()
 	defer func() {
@@ -90,7 +98,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 
 	// Fetch the Hetzner bare metal host instance.
 	bmHost := &infrav1.HetznerBareMetalHost{}
-	err := r.Get(ctx, req.NamespacedName, bmHost)
+	err = r.Get(ctx, req.NamespacedName, bmHost)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return reconcile.Result{}, nil
@@ -171,10 +179,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		return reconcile.Result{Requeue: true}, nil
 	}
 	if err := r.Get(ctx, hetznerClusterName, hetznerCluster); err != nil {
-		if apierrors.IsNotFound(err) {
-			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
-		}
-		return reconcile.Result{}, fmt.Errorf("failed to get HetznerCluster: %w", err)
+		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
 	log = log.WithValues("HetznerCluster", klog.KObj(hetznerCluster))
@@ -182,7 +187,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	// Fetch the Cluster.
 	cluster, err := util.GetClusterFromMetadata(ctx, r, hetznerCluster.ObjectMeta)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to get Cluster: %w", err)
+		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
 	log = log.WithValues("Cluster", klog.KObj(cluster))
@@ -196,7 +201,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		}
 
 		if err := r.Get(ctx, name, hetznerBareMetalMachine); err != nil {
-			return reconcile.Result{}, fmt.Errorf("failed to get HetznerBareMetalMachine: %w", err)
+			return reconcile.Result{}, client.IgnoreNotFound(err)
 		}
 	}
 

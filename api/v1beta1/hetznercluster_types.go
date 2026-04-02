@@ -34,6 +34,8 @@ const (
 	// AllowEmptyControlPlaneAddressAnnotation allows HetznerCluster Webhook
 	// to skip some validation steps for externally managed control planes.
 	AllowEmptyControlPlaneAddressAnnotation = "capi.syself.com/allow-empty-control-plane-address"
+	// SkipNamespaceAnnotation marks a namespace so CAPH controllers skip reconciliation.
+	SkipNamespaceAnnotation = "capi.syself.com/skip-namespace"
 	// ConstantBareMetalHostnameAnnotation makes hostnames of bare metal servers constant.
 	ConstantBareMetalHostnameAnnotation = "capi.syself.com/constant-bare-metal-hostname"
 )

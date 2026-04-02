@@ -115,6 +115,20 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	// update the machine
 	host, err := s.update(ctx)
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			// if host doesn't exist, set HostNotFound condition on HetznerBaremetalMachine
+			// and mark the machine object for remediation and stop reconciling.
+			conditions.MarkFalse(
+				s.scope.BareMetalMachine,
+				infrav1.HostReadyCondition,
+				infrav1.HostNotFoundReason,
+				clusterv1.ConditionSeverityError,
+				"associated host not found",
+			)
+
+			return reconcile.Result{}, s.scope.SetRemediateMachineAnnotationToDeleteMachine(ctx, "Reconcile of hbmm: host not found")
+		}
+
 		return checkForRequeueError(err, "failed to update machine")
 	}
 
@@ -140,10 +154,9 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 	// get host - ignore if not found
 	host, helper, err := s.getAssociatedHostAndPatchHelper(ctx)
-	if err != nil {
+	if err != nil && !apierrors.IsNotFound(err) {
 		return reconcile.Result{}, fmt.Errorf("failed to get associated host: %w", err)
 	}
-
 	if host != nil && host.Spec.ConsumerRef != nil {
 		s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhaseDeleting
 
@@ -215,13 +228,9 @@ func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 func (s *Service) update(ctx context.Context) (*infrav1.HetznerBareMetalHost, error) {
 	host, helper, err := s.getAssociatedHostAndPatchHelper(ctx)
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			msg := fmt.Sprintf("host not found for machine %q. Setting error and deleting machine", s.scope.Machine.Name)
-			err = s.scope.SetRemediateMachineAnnotationToDeleteMachine(ctx, msg)
-			return nil, err
-		}
 		return nil, fmt.Errorf("failed to get host: %w", err)
 	}
+
 	if host == nil {
 		err = errors.Join(s.scope.SetRemediateMachineAnnotationToDeleteMachine(ctx, "Reconcile of hbmm: host not found"))
 		return nil, fmt.Errorf("host not found for machine %s: %w", s.scope.Machine.Name, err)
@@ -362,7 +371,7 @@ func (s *Service) associate(ctx context.Context) error {
 }
 
 // getAssociatedHostAndPatchHelper gets the associated host by looking for an annotation on the
-// machine that contains a reference to the host. Returns nil if not found. Assumes the host is in
+// machine that contains a reference to the host. Assumes the host is in
 // the same namespace as the machine. Additionally, a PatchHelper gets returned.
 func (s *Service) getAssociatedHostAndPatchHelper(ctx context.Context) (*infrav1.HetznerBareMetalHost, *patch.Helper, error) {
 	host, err := host.GetAssociatedHost(ctx, s.scope.Client, s.scope.BareMetalMachine)

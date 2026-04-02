@@ -763,6 +763,106 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 		})
 	})
 
+	Context("Tests with hosts which get deleted later", func() {
+		var (
+			host        *infrav1.HetznerBareMetalHost
+			hostKey     client.ObjectKey
+			capiMachine *clusterv1.Machine
+			bmmKey      client.ObjectKey
+		)
+
+		BeforeEach(func() {
+			host = helpers.BareMetalHost(
+				hostName,
+				testNs.Name,
+				helpers.WithRootDeviceHintWWN(),
+				helpers.WithHetznerClusterRef(hetznerClusterName),
+			)
+			Expect(testEnv.Create(ctx, host)).To(Succeed())
+
+			hostKey = client.ObjectKeyFromObject(host)
+
+			capiMachine = &clusterv1.Machine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       machineName,
+					Namespace:  testNs.Name,
+					Finalizers: []string{clusterv1.MachineFinalizer},
+					Labels: map[string]string{
+						clusterv1.ClusterNameLabel: capiCluster.Name,
+					},
+				},
+				Spec: clusterv1.MachineSpec{
+					ClusterName: capiCluster.Name,
+					InfrastructureRef: corev1.ObjectReference{
+						APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
+						Kind:       "HetznerBareMetalMachine",
+						Name:       machineName,
+					},
+					FailureDomain: &defaultFailureDomain,
+					Bootstrap: clusterv1.Bootstrap{
+						DataSecretName: ptr.To("bootstrap-secret"),
+					},
+				},
+			}
+			Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
+
+			bmMachine = &infrav1.HetznerBareMetalMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      machineName,
+					Namespace: testNs.Name,
+					Labels: map[string]string{
+						clusterv1.ClusterNameLabel: capiCluster.Name,
+					},
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: "cluster.x-k8s.io/v1beta1",
+							Kind:       "Machine",
+							Name:       capiMachine.Name,
+							UID:        capiMachine.UID,
+						},
+					},
+				},
+				Spec: getDefaultHetznerBareMetalMachineSpec(),
+			}
+			Expect(testEnv.Create(ctx, bmMachine)).To(Succeed())
+
+			bmmKey = client.ObjectKeyFromObject(bmMachine)
+
+			osSSHSecret := helpers.GetDefaultSSHSecret("os-ssh-secret", testNs.Name)
+			Expect(testEnv.Create(ctx, osSSHSecret)).To(Succeed())
+		})
+
+		It("First associate a host with baremetal machine and later delete the host", func() {
+			By("Waiting until host is provisioned")
+
+			Eventually(func() bool {
+				return isPresentAndTrue(bmmKey, bmMachine, infrav1.HostReadyCondition)
+			}, timeout).Should(BeTrue())
+
+			err := testEnv.Get(ctx, hostKey, host)
+			Expect(err).To(BeNil())
+
+			Expect(host.Spec.Status.ProvisioningState).To(Equal(infrav1.StateProvisioned))
+
+			By("Deleting the host, expect HostReady condition is set to false")
+			Expect(testEnv.Delete(ctx, host)).To(Succeed())
+
+			Eventually(func() bool {
+				return isPresentAndFalseWithReason(bmmKey, bmMachine, infrav1.HostReadyCondition, infrav1.HostNotFoundReason)
+			}, timeout).Should(BeTrue())
+
+			By("ensuring remediate machine annotation is set on CAPI machine")
+			Expect(testEnv.Get(ctx, client.ObjectKeyFromObject(capiMachine), capiMachine)).To(Succeed())
+
+			_, found := capiMachine.Annotations[clusterv1.RemediateMachineAnnotation]
+			Expect(found).To(BeTrue())
+		})
+
+		AfterEach(func() {
+			Expect(testEnv.Cleanup(ctx, host)).To(Succeed())
+		})
+	})
+
 	Context("hetznerBareMetalMachine validation", func() {
 		var capiMachine *clusterv1.Machine
 

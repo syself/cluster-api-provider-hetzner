@@ -30,7 +30,7 @@ jobs:
 
   e2e-hetzner-baremetal-feature:
     name: Test Hetzner Baremetal Features
-    concurrency: ci-${{ github.ref }}-e2e-baremetal-hetzner
+    concurrency: ci-e2e-baremetal-global
     runs-on: ubuntu-latest
     permissions:
       # Required for hcloud TPS

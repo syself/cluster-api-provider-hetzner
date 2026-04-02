@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"strings"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -134,9 +133,6 @@ func GetAssociatedHost(ctx context.Context, crClient client.Client, hbmm *infrav
 	}
 
 	err := crClient.Get(ctx, key, host)
-	if apierrors.IsNotFound(err) {
-		return nil, nil
-	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get host object: %w", err)
 	}
