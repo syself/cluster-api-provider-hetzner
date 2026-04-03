@@ -597,8 +597,7 @@ else
 	# these from the builder-image now.
 	rm -f ./hack/tools/bin/controller-gen ./hack/tools/bin/helm
 	controller-gen \
-			paths=./api/... \
-			paths=./controllers/... \
+			paths="{./, ./api/..., ./controllers/...}" \
 			crd:crdVersions=v1 \
 			rbac:roleName=manager-role \
 			output:crd:dir=./config/crd/bases \
@@ -728,9 +727,7 @@ ifeq ($(BUILD_IN_CONTAINER),true)
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
 else
-	@lychee --version
-	@if [ -z "$${GITHUB_TOKEN}" ]; then echo "GITHUB_TOKEN is not set"; exit 1; fi
-	lychee --verbose --config .lychee.toml --root-dir "$$(pwd)" --cache ./*.md ./docs/**/*.md 2>&1 | grep -vP '\[(200|EXCLUDED)\]'
+	./hack/lint-links.sh
 endif
 
 ##@ Main Targets
