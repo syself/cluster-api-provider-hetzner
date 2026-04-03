@@ -140,7 +140,7 @@ type HetznerSecretKeyRef struct {
 	// default of upstream hcloud-ccm.
 	//
 	// +optional
-	// +kubebuilder:default=robot-user
+	// +kubebuilder:default=hetzner-robot-user
 	HetznerRobotUser string `json:"hetznerRobotUser"`
 
 	// HetznerRobotPassword defines the name of the key where the password for the Hetzner Robot API
@@ -149,7 +149,7 @@ type HetznerSecretKeyRef struct {
 	// the default of upstream hcloud-ccm.
 	//
 	// +optional
-	// +kubebuilder:default=robot-password
+	// +kubebuilder:default=hetzner-robot-password
 	HetznerRobotPassword string `json:"hetznerRobotPassword"`
 
 	// SSHKey defines the name of the ssh key. It is only used in the mgt-cluster. It is not synced
