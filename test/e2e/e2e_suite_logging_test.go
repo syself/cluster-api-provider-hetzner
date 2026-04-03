@@ -107,3 +107,78 @@ func TestCollectNewCCMLogLinesDedupesAndHighlights(t *testing.T) {
 		t.Fatalf("expected fresh line in second batch, got %q", secondBatch[0])
 	}
 }
+
+func TestFormatCCMPodStateLinesIncludesSchedulingAndContainerState(t *testing.T) {
+	t.Parallel()
+
+	pod := corev1.Pod{
+		Status: corev1.PodStatus{
+			Phase: corev1.PodPending,
+			Conditions: []corev1.PodCondition{
+				{
+					Type:    corev1.PodScheduled,
+					Status:  corev1.ConditionFalse,
+					Reason:  "Unschedulable",
+					Message: "0/2 nodes are available",
+				},
+			},
+			ContainerStatuses: []corev1.ContainerStatus{
+				{
+					Name: "manager",
+					State: corev1.ContainerState{
+						Waiting: &corev1.ContainerStateWaiting{
+							Reason:  "ContainerCreating",
+							Message: "creating",
+						},
+					},
+				},
+			},
+		},
+	}
+	pod.Name = "ccm-pod"
+
+	lines := formatCCMPodStateLines("wl-cluster test", pod)
+	joined := strings.Join(lines, "\n")
+	if !strings.Contains(joined, "phase=Pending") {
+		t.Fatalf("expected pod phase in output, got %q", joined)
+	}
+	if !strings.Contains(joined, "condition PodScheduled=False reason=Unschedulable") {
+		t.Fatalf("expected PodScheduled condition in output, got %q", joined)
+	}
+	if !strings.Contains(joined, "container manager waiting reason=ContainerCreating") {
+		t.Fatalf("expected waiting container state in output, got %q", joined)
+	}
+}
+
+func TestCollectNewCCMPodStateLinesDedupes(t *testing.T) {
+	t.Parallel()
+
+	state := newCCMLogState(time.Unix(0, 0))
+	pod := corev1.Pod{
+		Status: corev1.PodStatus{
+			Phase: corev1.PodPending,
+		},
+	}
+	pod.Name = "ccm-pod"
+
+	firstBatch := collectNewCCMPodStateLines("wl-cluster test", pod, state)
+	if len(firstBatch) == 0 {
+		t.Fatal("expected initial pod state lines")
+	}
+
+	secondBatch := collectNewCCMPodStateLines("wl-cluster test", pod, state)
+	if len(secondBatch) != 0 {
+		t.Fatalf("expected duplicate pod state lines to be suppressed, got %v", secondBatch)
+	}
+}
+
+func TestPodSupportsLogStreaming(t *testing.T) {
+	t.Parallel()
+
+	if podSupportsLogStreaming(corev1.Pod{Status: corev1.PodStatus{Phase: corev1.PodPending}}) {
+		t.Fatal("pending pod should not support log streaming")
+	}
+	if !podSupportsLogStreaming(corev1.Pod{Status: corev1.PodStatus{Phase: corev1.PodRunning}}) {
+		t.Fatal("running pod should support log streaming")
+	}
+}

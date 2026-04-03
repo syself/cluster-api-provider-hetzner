@@ -488,6 +488,19 @@ func logCCMPodLogs(ctx context.Context, clusterName string, restConfig *restclie
 		})
 
 		for _, pod := range podList.Items {
+			podStateLines := collectNewCCMPodStateLines(clusterName, pod, state)
+			if len(podStateLines) > 0 && !printedHeader {
+				log(fmt.Sprintf("----------------------------------------------- %s ---- CCM Logs", clusterName))
+				printedHeader = true
+			}
+			for _, line := range podStateLines {
+				log(line)
+			}
+
+			if !podSupportsLogStreaming(pod) {
+				continue
+			}
+
 			for _, containerName := range ccmContainerNames(pod) {
 				stream, err := kubeClient.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &corev1.PodLogOptions{
 					Container: containerName,
@@ -613,6 +626,97 @@ func formatCCMLogLine(clusterName, podName, containerName, rawLine string) strin
 	}
 
 	return line
+}
+
+func collectNewCCMPodStateLines(clusterName string, pod corev1.Pod, state *ccmLogState) []string {
+	if state == nil {
+		return nil
+	}
+
+	lines := []string{}
+	for _, line := range formatCCMPodStateLines(clusterName, pod) {
+		if !state.markSeen(line) {
+			continue
+		}
+		lines = append(lines, line)
+	}
+
+	return lines
+}
+
+func formatCCMPodStateLines(clusterName string, pod corev1.Pod) []string {
+	lines := []string{
+		fmt.Sprintf("CCM %s pod %s phase=%s", clusterName, pod.Name, pod.Status.Phase),
+	}
+
+	for _, condition := range pod.Status.Conditions {
+		if condition.Status != corev1.ConditionTrue {
+			lines = append(lines, fmt.Sprintf(
+				"CCM %s pod %s condition %s=%s reason=%s message=%q",
+				clusterName,
+				pod.Name,
+				condition.Type,
+				condition.Status,
+				condition.Reason,
+				condition.Message,
+			))
+		}
+	}
+
+	for _, containerStatus := range pod.Status.InitContainerStatuses {
+		if line, ok := formatCCMContainerStateLine(clusterName, pod.Name, "initContainer", containerStatus); ok {
+			lines = append(lines, line)
+		}
+	}
+	for _, containerStatus := range pod.Status.ContainerStatuses {
+		if line, ok := formatCCMContainerStateLine(clusterName, pod.Name, "container", containerStatus); ok {
+			lines = append(lines, line)
+		}
+	}
+
+	return lines
+}
+
+func formatCCMContainerStateLine(clusterName, podName, containerType string, containerStatus corev1.ContainerStatus) (string, bool) {
+	switch {
+	case containerStatus.State.Waiting != nil:
+		return fmt.Sprintf(
+			"CCM %s pod %s %s %s waiting reason=%s message=%q",
+			clusterName,
+			podName,
+			containerType,
+			containerStatus.Name,
+			containerStatus.State.Waiting.Reason,
+			containerStatus.State.Waiting.Message,
+		), true
+	case containerStatus.State.Terminated != nil:
+		return fmt.Sprintf(
+			"CCM %s pod %s %s %s terminated exitCode=%d reason=%s message=%q",
+			clusterName,
+			podName,
+			containerType,
+			containerStatus.Name,
+			containerStatus.State.Terminated.ExitCode,
+			containerStatus.State.Terminated.Reason,
+			containerStatus.State.Terminated.Message,
+		), true
+	case !containerStatus.Ready:
+		return fmt.Sprintf(
+			"CCM %s pod %s %s %s ready=%t restartCount=%d",
+			clusterName,
+			podName,
+			containerType,
+			containerStatus.Name,
+			containerStatus.Ready,
+			containerStatus.RestartCount,
+		), true
+	default:
+		return "", false
+	}
+}
+
+func podSupportsLogStreaming(pod corev1.Pod) bool {
+	return pod.Status.Phase != corev1.PodPending
 }
 
 func logNodes(ctx context.Context, clusterName string, restConfig *restclient.Config) error {
