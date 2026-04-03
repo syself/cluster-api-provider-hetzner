@@ -73,6 +73,11 @@ clusterctl get kubeconfig my-cluster > $CAPH_WORKER_CLUSTER_KUBECONFIG
 
 Cilium is used as a CNI solution in this guide. The following command deploys it to your cluster:
 
+The file `templates/cilium/values.yaml` is a repo-provided Helm values file in this repository.
+Before running the command, make sure this file exists at that path in your working environment
+(for example, by using it from a local checkout of this repo or copying it from
+`templates/cilium/values.yaml` into your working directory setup).
+
 ```shell
 helm repo add cilium https://helm.cilium.io/
 
@@ -122,15 +127,18 @@ KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install csi hcloud/hcl
 --namespace kube-system -f csi-values.yaml
 ```
 
-## Clean Up
+If you want to continue with the next step and move the Cluster API components to your workload
+cluster (so it becomes the new management cluster), do not run the cleanup command.
 
-Delete the workload cluster and remove all of the components by using:
+## Clean Up (optional)
+
+If you want to stop here, delete the workload cluster and remove all of the components by using:
 
 ```shell
 kubectl delete cluster my-cluster
 ```
 
-> **IMPORTANT**: In order to ensure a proper clean-up of your infrastructure, you must always delete the cluster object. Deleting the entire cluster template with the `kubectl delete -f capi-quickstart.yaml` command might lead to pending resources that have to be cleaned up manually.
+> **IMPORTANT**: In order to ensure a proper clean-up of your infrastructure, you must always delete the cluster object. Deleting the entire cluster template with the `kubectl delete -f my-cluster.yaml` command might lead to pending resources that have to be cleaned up manually.
 
 Delete management cluster with the following command:
 
