@@ -126,9 +126,10 @@ type HetznerSecretKeyRef struct {
 	// It gets used for reading the credential in the mgt-cluster, and it gets used for creating a
 	// secret in the wl-cluster. We recommend to use "token", because this is the default of
 	// upstream hcloud-ccm, while the legacy Syself ccm fork uses "hcloud". To facilitate migration
-	// to the upstream hcloud-ccm up to three keys get created in the secret for HCLOUD_TOKEN:
-	// "hcloud", "token" and the value of hcloudToken. This way we ensure that the ccm in the
-	// wl-cluster finds the secret.
+	// to the upstream hcloud-ccm up an additional key get created in the secret for HCLOUD_TOKEN:
+	// If the secret is called "hetzner", then the key "hcloud" gets created. If the secretd is
+	// called "hcloud", then they key called "token" gets created. This way we ensure that the ccm
+	// in the wl-cluster finds the secret.
 	//
 	// +optional +kubebuilder:default=hcloud-token
 	HCloudToken string `json:"hcloudToken"`
