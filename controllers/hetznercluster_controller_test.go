@@ -18,14 +18,13 @@ package controllers
 
 import (
 	"context"
-	"reflect"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -281,9 +280,7 @@ func TestWorkloadClusterSecretNames(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			got := workloadClusterSecretNames(tc.secretName)
-			if !reflect.DeepEqual(got, tc.want) {
-				t.Fatalf("workloadClusterSecretNames(%q) = %v, want %v", tc.secretName, got, tc.want)
-			}
+			require.Equal(t, tc.want, got)
 		})
 	}
 }
@@ -330,9 +327,7 @@ func TestWorkloadClusterHCloudTokenKeys(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			got := workloadClusterHCloudTokenKeys(tc.secretName, tc.configuredKey)
-			if !reflect.DeepEqual(got, tc.want) {
-				t.Fatalf("workloadClusterHCloudTokenKeys(%q, %q) = %v, want %v", tc.secretName, tc.configuredKey, got, tc.want)
-			}
+			require.Equal(t, tc.want, got)
 		})
 	}
 }
@@ -387,44 +382,21 @@ func TestReconcileOneWorkloadClusterSecretHetzner(t *testing.T) {
 		HetznerCluster: hetznerCluster,
 	}
 
-	if err := reconcileOneWorkloadClusterSecret(ctx, clusterScope, wlClient, "hetzner"); err != nil {
-		t.Fatalf("reconcileOneWorkloadClusterSecret(%q) returned error: %v", "hetzner", err)
-	}
+	require.NoError(t, reconcileOneWorkloadClusterSecret(ctx, clusterScope, wlClient, "hetzner"))
 
 	secret := &corev1.Secret{}
-	if err := wlClient.Get(ctx, client.ObjectKey{Namespace: metav1.NamespaceSystem, Name: "hetzner"}, secret); err != nil {
-		t.Fatalf("get workload secret %q: %v", "hetzner", err)
-	}
-
-	if got := string(secret.Data["custom-token"]); got != "my-token" {
-		t.Fatalf("secret %q custom-token = %q, want %q", "hetzner", got, "my-token")
-	}
-	if got := string(secret.Data["hcloud"]); got != "my-token" {
-		t.Fatalf("secret %q hcloud = %q, want %q", "hetzner", got, "my-token")
-	}
-	if _, ok := secret.Data["token"]; ok {
-		t.Fatalf("secret %q unexpectedly contains key %q", "hetzner", "token")
-	}
-	if got := string(secret.Data["robot-user"]); got != "my-user" {
-		t.Fatalf("secret %q robot-user = %q, want %q", "hetzner", got, "my-user")
-	}
-	if got := string(secret.Data["robot-password"]); got != "my-password" {
-		t.Fatalf("secret %q robot-password = %q, want %q", "hetzner", got, "my-password")
-	}
-	if got := string(secret.Data["apiserver-host"]); got != "198.51.100.10" {
-		t.Fatalf("secret %q apiserver-host = %q, want %q", "hetzner", got, "198.51.100.10")
-	}
-	if got := string(secret.Data["apiserver-port"]); got != "6443" {
-		t.Fatalf("secret %q apiserver-port = %q, want %q", "hetzner", got, "6443")
-	}
+	require.NoError(t, wlClient.Get(ctx, client.ObjectKey{Namespace: metav1.NamespaceSystem, Name: "hetzner"}, secret))
+	require.Equal(t, "my-token", string(secret.Data["custom-token"]))
+	require.Equal(t, "my-token", string(secret.Data["hcloud"]))
+	require.NotContains(t, secret.Data, "token")
+	require.Equal(t, "my-user", string(secret.Data["robot-user"]))
+	require.Equal(t, "my-password", string(secret.Data["robot-password"]))
+	require.Equal(t, "198.51.100.10", string(secret.Data["apiserver-host"]))
+	require.Equal(t, "6443", string(secret.Data["apiserver-port"]))
 
 	note := string(secret.Data["note"])
-	if !strings.Contains(note, "reconciled by Cluster API Provider Hetzner") {
-		t.Fatalf("secret %q note %q does not mention CAPH reconciliation", "hetzner", note)
-	}
-	if !strings.Contains(note, "workload-cluster secret named 'hcloud'") {
-		t.Fatalf("secret %q note %q does not mention hcloud compatibility secret", "hetzner", note)
-	}
+	require.Contains(t, note, "reconciled by Cluster API Provider Hetzner")
+	require.Contains(t, note, "workload-cluster secret named 'hcloud'")
 }
 
 func TestReconcileOneWorkloadClusterSecretHCloud(t *testing.T) {
@@ -477,44 +449,21 @@ func TestReconcileOneWorkloadClusterSecretHCloud(t *testing.T) {
 		HetznerCluster: hetznerCluster,
 	}
 
-	if err := reconcileOneWorkloadClusterSecret(ctx, clusterScope, wlClient, "hcloud"); err != nil {
-		t.Fatalf("reconcileOneWorkloadClusterSecret(%q) returned error: %v", "hcloud", err)
-	}
+	require.NoError(t, reconcileOneWorkloadClusterSecret(ctx, clusterScope, wlClient, "hcloud"))
 
 	secret := &corev1.Secret{}
-	if err := wlClient.Get(ctx, client.ObjectKey{Namespace: metav1.NamespaceSystem, Name: "hcloud"}, secret); err != nil {
-		t.Fatalf("get workload secret %q: %v", "hcloud", err)
-	}
-
-	if got := string(secret.Data["custom-token"]); got != "my-token" {
-		t.Fatalf("secret %q custom-token = %q, want %q", "hcloud", got, "my-token")
-	}
-	if got := string(secret.Data["token"]); got != "my-token" {
-		t.Fatalf("secret %q token = %q, want %q", "hcloud", got, "my-token")
-	}
-	if _, ok := secret.Data["hcloud"]; ok {
-		t.Fatalf("secret %q unexpectedly contains key %q", "hcloud", "hcloud")
-	}
-	if got := string(secret.Data["robot-user"]); got != "my-user" {
-		t.Fatalf("secret %q robot-user = %q, want %q", "hcloud", got, "my-user")
-	}
-	if got := string(secret.Data["robot-password"]); got != "my-password" {
-		t.Fatalf("secret %q robot-password = %q, want %q", "hcloud", got, "my-password")
-	}
-	if got := string(secret.Data["apiserver-host"]); got != "198.51.100.10" {
-		t.Fatalf("secret %q apiserver-host = %q, want %q", "hcloud", got, "198.51.100.10")
-	}
-	if got := string(secret.Data["apiserver-port"]); got != "6443" {
-		t.Fatalf("secret %q apiserver-port = %q, want %q", "hcloud", got, "6443")
-	}
+	require.NoError(t, wlClient.Get(ctx, client.ObjectKey{Namespace: metav1.NamespaceSystem, Name: "hcloud"}, secret))
+	require.Equal(t, "my-token", string(secret.Data["custom-token"]))
+	require.Equal(t, "my-token", string(secret.Data["token"]))
+	require.NotContains(t, secret.Data, "hcloud")
+	require.Equal(t, "my-user", string(secret.Data["robot-user"]))
+	require.Equal(t, "my-password", string(secret.Data["robot-password"]))
+	require.Equal(t, "198.51.100.10", string(secret.Data["apiserver-host"]))
+	require.Equal(t, "6443", string(secret.Data["apiserver-port"]))
 
 	note := string(secret.Data["note"])
-	if !strings.Contains(note, "reconciled by Cluster API Provider Hetzner") {
-		t.Fatalf("secret %q note %q does not mention CAPH reconciliation", "hcloud", note)
-	}
-	if !strings.Contains(note, "workload-cluster secret named 'hcloud'") {
-		t.Fatalf("secret %q note %q does not mention hcloud compatibility secret", "hcloud", note)
-	}
+	require.Contains(t, note, "reconciled by Cluster API Provider Hetzner")
+	require.Contains(t, note, "workload-cluster secret named 'hcloud'")
 }
 
 func TestReconcileAllWorkloadClusterSecretsCreatesCompatibilitySecret(t *testing.T) {
@@ -566,15 +515,11 @@ func TestReconcileAllWorkloadClusterSecretsCreatesCompatibilitySecret(t *testing
 		HetznerCluster: hetznerCluster,
 	}
 
-	if err := reconcileAllWorkloadClusterSecrets(ctx, clusterScope, wlClient); err != nil {
-		t.Fatalf("reconcileAllWorkloadClusterSecrets returned error: %v", err)
-	}
+	require.NoError(t, reconcileAllWorkloadClusterSecrets(ctx, clusterScope, wlClient))
 
 	for _, name := range []string{"hetzner", "hcloud"} {
 		secret := &corev1.Secret{}
-		if err := wlClient.Get(ctx, client.ObjectKey{Namespace: metav1.NamespaceSystem, Name: name}, secret); err != nil {
-			t.Fatalf("expected workload secret %q to exist: %v", name, err)
-		}
+		require.NoError(t, wlClient.Get(ctx, client.ObjectKey{Namespace: metav1.NamespaceSystem, Name: name}, secret))
 	}
 }
 
