@@ -720,6 +720,53 @@ var _ = Describe("ensureSSHKey", func() {
 	)
 })
 
+var _ = Describe("actionPreparing", func() {
+	It("continues when Robot omits rescue availability from the server response", func() {
+		host := helpers.BareMetalHost(
+			"test-host",
+			"default",
+			helpers.WithSSHSpecInclPorts(22, 22),
+		)
+
+		robotMock := robotmock.Client{}
+		robotMock.On("GetBMServer", mock.Anything).Return(&models.Server{
+			ServerNumber:  1,
+			ServerIP:      "1.2.3.4",
+			ServerIPv6Net: "2a01:4f9:3051:12ce::",
+			Rescue:        false,
+		}, nil)
+		robotMock.On("ListSSHKeys").Return([]models.Key{}, nil)
+		robotMock.On("SetSSHKey", mock.Anything, mock.Anything).Return(
+			&models.Key{Name: rescueSSHKeyName, Fingerprint: sshFingerprint},
+			nil,
+		)
+		robotMock.On("GetReboot", mock.Anything).Return(&models.Reset{Type: []string{"sw", "hw"}}, nil)
+		robotMock.On("DeleteBootRescue", mock.Anything).Return(&models.Rescue{Active: false}, nil)
+		robotMock.On("SetBootRescue", mock.Anything, sshFingerprint).Return(&models.Rescue{Active: true}, nil)
+		robotMock.On("RebootBMServer", mock.Anything, infrav1.RebootTypeSoftware).Return(&models.ResetPost{}, nil)
+
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName").Return(sshclient.Output{})
+
+		service := newTestService(
+			host,
+			&robotMock,
+			bmmock.NewSSHFactory(sshMock, sshMock, sshMock),
+			helpers.GetDefaultSSHSecret(osSSHKeyName, "default"),
+			helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"),
+		)
+
+		actResult := service.actionPreparing(context.Background())
+
+		Expect(actResult).To(BeAssignableToTypeOf(actionComplete{}))
+		Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.ErrorTypeSoftwareRebootTriggered))
+		Expect(host.Spec.Status.IPv4).To(Equal("1.2.3.4"))
+		Expect(host.Spec.Status.IPv6).To(Equal("2a01:4f9:3051:12ce::1"))
+		Expect(robotMock.AssertCalled(GinkgoT(), "DeleteBootRescue", mock.Anything)).To(BeTrue())
+		Expect(robotMock.AssertCalled(GinkgoT(), "SetBootRescue", mock.Anything, sshFingerprint)).To(BeTrue())
+	})
+})
+
 var _ = Describe("analyzeSSHOutputInstallImage", func() {
 	type testCaseAnalyzeSSHOutputInstallImageOutErr struct {
 		err                         error
