@@ -94,6 +94,8 @@ e2e-ccm-templates:
 	--set env.ROBOT_PASSWORD.valueFrom.secretKeyRef.name=hetzner \
 	--set env.ROBOT_PASSWORD.valueFrom.secretKeyRef.key=robot-password \
 	--set-json 'additionalTolerations=[{"key":"node.cluster.x-k8s.io/uninitialized","operator":"Exists","effect":"NoSchedule"},{"key":"node.cilium.io/agent-not-ready","operator":"Exists","effect":"NoSchedule"}]' \
+	--set args.route-reconciliation-period=null \
+	--set args.feature-gates=null \
 	--set robot.enabled=true \
 	--set networking.enabled=false > $(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm-hetzner.yaml
 
