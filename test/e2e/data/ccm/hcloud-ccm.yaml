@@ -153,6 +153,8 @@ spec:
             - "--webhook-secure-port=0"
             - "--leader-elect=false"
           env:
+            - name: HCLOUD_DEBUG
+              value: "true"
             - name: HCLOUD_TOKEN
               valueFrom:
                 secretKeyRef:
