@@ -242,6 +242,10 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 
 	s.scope.SetProviderID(server.ID)
 
+	// If server creation was successful, but reconciliation failed afterward, its
+	// condition might not be true yet.
+	conditions.MarkTrue(hm, infrav1.ServerCreateSucceededCondition)
+
 	// Provisioning from a hcloud image like ubuntu-YY.MM takes roughly 11 seconds.
 	// Provisioning from a snapshot takes roughly 140 seconds.
 	// We do not want to do too many api-calls (rate-limiting). So we differentiate
