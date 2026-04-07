@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
@@ -41,6 +42,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/google/go-cmp/cmp"
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	secretutil "github.com/syself/cluster-api-provider-hetzner/pkg/secrets"
@@ -48,6 +50,7 @@ import (
 	robotclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/robot"
 	sshclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/ssh"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/host"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
 // HetznerBareMetalHostReconciler reconciles a HetznerBareMetalHost object.
@@ -105,6 +108,66 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		}
 		return reconcile.Result{}, err
 	}
+
+	// ----------------------------------------------------------------
+	// Start: avoid conflict errors. Wait until local cache is up-to-date
+	// Won't be needed once this was implemented:
+	// https://github.com/kubernetes-sigs/controller-runtime/issues/3320
+	initialHost := bmHost.DeepCopy()
+	defer func() {
+		// We can potentially optimize this further by ensuring that the cache is up to date only in
+		// the cases where an outdated cache would lead to problems. Currently, we ensure that the
+		// cache is up to date in all cases, i.e. for all possible changes to the
+		// HetznerBareMetalHost object.
+		if cmp.Equal(initialHost, bmHost) {
+			// Nothing has changed. No need to wait.
+			return
+		}
+		startReadOwnWrite := time.Now()
+
+		// The object changed. Wait until the new version is in the local cache
+
+		// Get the latest version from the apiserver.
+		apiserverHost := &infrav1.HetznerBareMetalHost{}
+
+		// Use uncached APIReader
+		err := r.APIReader.Get(ctx, client.ObjectKeyFromObject(bmHost), apiserverHost)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				// resource was deleted. No need to reconcile again.
+				reterr = nil
+				res = reconcile.Result{}
+				return
+			}
+			reterr = errors.Join(reterr,
+				fmt.Errorf("failed get HetznerBareMetalHost via uncached APIReader: %w", err))
+			return
+		}
+
+		apiserverRV := apiserverHost.ResourceVersion
+
+		err = wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, 3*time.Second, true, func(ctx context.Context) (done bool, err error) {
+			// new resource, read from local cache
+			latestFromLocalCache := &infrav1.HetznerBareMetalHost{}
+			getErr := r.Get(ctx, client.ObjectKeyFromObject(apiserverHost), latestFromLocalCache)
+			if apierrors.IsNotFound(getErr) {
+				// the object was deleted. All is fine.
+				return true, nil
+			}
+			if getErr != nil {
+				return false, getErr
+			}
+			return utils.IsLocalCacheUpToDate(latestFromLocalCache.ResourceVersion, apiserverRV), nil
+		})
+		if err != nil {
+			log.Error(err, "cache sync failed after BootState change")
+		}
+		if time.Since(startReadOwnWrite) > 50*time.Millisecond {
+			log.Info("Wait for update being in local cache", "durationWaitForLocalCacheSync", time.Since(startReadOwnWrite).Round(time.Millisecond))
+		}
+	}()
+	// End: avoid conflict errors. Wait until local cache is up-to-date
+	// ----------------------------------------------------------------
 
 	patchHelper, err := patch.NewHelper(bmHost, r)
 	if err != nil {
