@@ -504,8 +504,8 @@ spec:
                     description: IPv6 address of server.
                     type: string
                   lastUpdated:
-                    description: the last error message reported by the provisioning
-                      subsystem.
+                    description: LastUpdated indicates when the provisioning subsystem
+                      last updated the host state.
                     format: date-time
                     type: string
                   provisioningState:
