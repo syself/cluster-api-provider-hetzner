@@ -293,10 +293,10 @@ func TestWorkloadClusterHCloudTokenKeys(t *testing.T) {
 		want          []string
 	}{
 		{
-			name:          "hetzner secret adds hcloud compatibility key",
+			name:          "non-hcloud secrets only keep configured key",
 			secretName:    "hetzner",
 			configuredKey: "custom-token",
-			want:          []string{"custom-token", "hcloud"},
+			want:          []string{"custom-token"},
 		},
 		{
 			name:          "hcloud secret adds token compatibility key",
@@ -305,7 +305,7 @@ func TestWorkloadClusterHCloudTokenKeys(t *testing.T) {
 			want:          []string{"custom-token", "token"},
 		},
 		{
-			name:          "existing hcloud key is not duplicated",
+			name:          "non-hcloud secrets keep hcloud configured key without duplication",
 			secretName:    "hetzner",
 			configuredKey: "hcloud",
 			want:          []string{"hcloud"},
@@ -387,7 +387,7 @@ func TestReconcileOneWorkloadClusterSecretHetzner(t *testing.T) {
 	secret := &corev1.Secret{}
 	require.NoError(t, wlClient.Get(ctx, client.ObjectKey{Namespace: metav1.NamespaceSystem, Name: "hetzner"}, secret))
 	require.Equal(t, "my-token", string(secret.Data["custom-token"]))
-	require.Equal(t, "my-token", string(secret.Data["hcloud"]))
+	require.NotContains(t, secret.Data, "hcloud")
 	require.NotContains(t, secret.Data, "token")
 	require.Equal(t, "my-user", string(secret.Data["robot-user"]))
 	require.Equal(t, "my-password", string(secret.Data["robot-password"]))
@@ -520,6 +520,14 @@ func TestReconcileAllWorkloadClusterSecretsCreatesCompatibilitySecret(t *testing
 	for _, name := range []string{"hetzner", "hcloud"} {
 		secret := &corev1.Secret{}
 		require.NoError(t, wlClient.Get(ctx, client.ObjectKey{Namespace: metav1.NamespaceSystem, Name: name}, secret))
+		switch name {
+		case "hetzner":
+			require.Equal(t, "my-token", string(secret.Data["hcloud"]))
+			require.NotContains(t, secret.Data, "token")
+		case "hcloud":
+			require.Equal(t, "my-token", string(secret.Data["hcloud"]))
+			require.Equal(t, "my-token", string(secret.Data["token"]))
+		}
 	}
 }
 

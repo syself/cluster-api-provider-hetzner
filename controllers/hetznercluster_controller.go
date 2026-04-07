@@ -550,15 +550,8 @@ func workloadClusterSecretNames(secretName string) []string {
 func workloadClusterHCloudTokenKeys(secretName, configuredKey string) []string {
 	keys := []string{configuredKey}
 
-	switch secretName {
-	case "hetzner":
-		if configuredKey != "hcloud" {
-			keys = append(keys, "hcloud")
-		}
-	case "hcloud":
-		if configuredKey != "token" {
-			keys = append(keys, "token")
-		}
+	if secretName == "hcloud" && configuredKey != "token" {
+		keys = append(keys, "token")
 	}
 
 	return keys

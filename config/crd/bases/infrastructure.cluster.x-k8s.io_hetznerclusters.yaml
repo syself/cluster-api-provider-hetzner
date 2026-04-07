@@ -251,10 +251,9 @@ spec:
                           It gets used for reading the credential in the mgt-cluster, and it gets used for creating a
                           secret in the wl-cluster. We recommend to use "token", because this is the default of
                           upstream hcloud-ccm, while the legacy Syself ccm fork uses "hcloud". To facilitate migration
-                          to the upstream hcloud-ccm up an additional key get created in the secret for HCLOUD_TOKEN:
-                          If the secret is called "hetzner", then the key "hcloud" gets created. If the secretd is
-                          called "hcloud", then they key called "token" gets created. This way we ensure that the ccm
-                          in the wl-cluster finds the secret.
+                          to the upstream hcloud-ccm, an additional key gets created only in the workload-cluster
+                          secret named "hcloud": if this field is not "token", then the same token value gets copied
+                          to the key "token" in that secret. Other workload-cluster secrets only get the configured key.
                         type: string
                       hetznerRobotPassword:
                         default: hetzner-robot-password
