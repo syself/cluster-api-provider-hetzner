@@ -4,14 +4,14 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: hcloud-cloud-controller-manager
+  name: ccm-ccm-hetzner
   namespace: kube-system
 ---
 # Source: hcloud-cloud-controller-manager/templates/clusterrole.yml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: "system:hcloud-cloud-controller-manager"
+  name: "system:ccm-ccm-hetzner"
 rules:
   - apiGroups:
       - ""
@@ -87,21 +87,21 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   # The prefix ":restricted" originates from removing the cluster-admin role from HCCM.
   # Renaming the ClusterRoleBinding makes the migration easier for users.
-  name: "system:hcloud-cloud-controller-manager:restricted"
+  name: "system:ccm-ccm-hetzner:restricted"
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: "system:hcloud-cloud-controller-manager"
+  name: "system:ccm-ccm-hetzner"
 subjects:
   - kind: ServiceAccount
-    name: hcloud-cloud-controller-manager
+    name: ccm-ccm-hetzner
     namespace: kube-system
 ---
 # Source: hcloud-cloud-controller-manager/templates/deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: hcloud-cloud-controller-manager
+  name: ccm-ccm-hetzner
   namespace: kube-system
 spec:
   replicas: 1
@@ -109,14 +109,14 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/instance: 'ccm'
-      app.kubernetes.io/name: 'hcloud-cloud-controller-manager'
+      app.kubernetes.io/name: 'ccm-ccm-hetzner'
   template:
     metadata:
       labels:
         app.kubernetes.io/instance: 'ccm'
-        app.kubernetes.io/name: 'hcloud-cloud-controller-manager'
+        app.kubernetes.io/name: 'ccm-ccm-hetzner'
     spec:
-      serviceAccountName: hcloud-cloud-controller-manager
+      serviceAccountName: ccm-ccm-hetzner
       dnsPolicy: Default
       tolerations:
         # Allow HCCM itself to schedule on nodes that have not yet been initialized by HCCM.

@@ -100,6 +100,7 @@ e2e-ccm-templates:
 	--set args.route-reconciliation-period=null \
 	--set args.feature-gates=null \
 	--set robot.enabled=true \
+	--set nameOverride=ccm-ccm-hetzner \
 	--set networking.enabled=false > $(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm-hetzner.yaml
 
 	for file in \
