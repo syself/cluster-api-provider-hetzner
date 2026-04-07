@@ -547,6 +547,16 @@ func workloadClusterSecretNames(secretName string) []string {
 	return names
 }
 
+func workloadClusterHCloudTokenKeys(secretName, configuredKey string) []string {
+	keys := []string{configuredKey}
+
+	if secretName == "hcloud" && configuredKey != "token" {
+		keys = append(keys, "token")
+	}
+
+	return keys
+}
+
 func reconcileAllWorkloadClusterSecrets(ctx context.Context, clusterScope *scope.ClusterScope, wlClient client.Client) error {
 	for _, name := range workloadClusterSecretNames(clusterScope.HetznerCluster.Spec.HetznerSecret.Name) {
 		if err := reconcileOneWorkloadClusterSecret(ctx, clusterScope, wlClient, name); err != nil {
@@ -588,11 +598,7 @@ func reconcileOneWorkloadClusterSecret(ctx context.Context, clusterScope *scope.
 			wlSecret.Data = make(map[string][]byte)
 		}
 
-		wlSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken] = hcloudToken
-
-		// upstream hcloud-ccm uses by default the secret key "token", while the old Syself ccm fork used
-		// "hcloud". For compatibility, we create always the other key, too.
-		for _, key := range []string{"token", "hcloud"} {
+		for _, key := range workloadClusterHCloudTokenKeys(name, clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken) {
 			wlSecret.Data[key] = hcloudToken
 		}
 

@@ -87,7 +87,7 @@ func validateHetznerBareMetalMachineSpecUpdate(oldSpec, newSpec HetznerBareMetal
 	}
 
 	if oldSpec.ProviderID != nil && *oldSpec.ProviderID != "" {
-		// once the Provider was set, the value must not change.
+		// once the ProviderID was set, the value must not change.
 		if newSpec.ProviderID == nil || *oldSpec.ProviderID != *newSpec.ProviderID {
 			allErrs = append(allErrs,
 				field.Invalid(field.NewPath("spec", "providerID"), newSpec.ProviderID, "providerID immutable"),
