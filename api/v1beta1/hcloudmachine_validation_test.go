@@ -38,7 +38,7 @@ func TestValidateHCloudMachineSpec(t *testing.T) {
 			name: "Immutable Type",
 			args: args{
 				oldSpec: HCloudMachineSpec{
-					Type: "cpx11",
+					Type: "cpx12",
 				},
 				newSpec: HCloudMachineSpec{
 					Type: "cx21",
@@ -109,13 +109,13 @@ func TestValidateHCloudMachineSpec(t *testing.T) {
 			name: "No Errors",
 			args: args{
 				oldSpec: HCloudMachineSpec{
-					Type:               "cpx11",
+					Type:               "cpx12",
 					ImageName:          "ubuntu-24.04",
 					SSHKeys:            []SSHKey{{Name: "ssh-key-1"}},
 					PlacementGroupName: createPlacementGroupName("placement-group-1"),
 				},
 				newSpec: HCloudMachineSpec{
-					Type:               "cpx11",
+					Type:               "cpx12",
 					ImageName:          "ubuntu-24.04",
 					SSHKeys:            []SSHKey{{Name: "ssh-key-1"}},
 					PlacementGroupName: createPlacementGroupName("placement-group-1"),

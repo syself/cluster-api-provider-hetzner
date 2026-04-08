@@ -230,7 +230,7 @@ var _ = Describe("handleServerStatusOff", func() {
 			},
 			Spec: infrav1.HCloudMachineSpec{
 				ImageName: "my-control-plane",
-				Type:      "cpx31",
+				Type:      "cpx32",
 			},
 		}
 
@@ -455,7 +455,7 @@ var _ = Describe("findServer", func() {
 			},
 			Spec: infrav1.HCloudMachineSpec{
 				ImageName: "my-image",
-				Type:      "cpx31",
+				Type:      "cpx32",
 			},
 		}
 

@@ -452,7 +452,7 @@ var _ = Describe("Server", func() {
 			ID: 14,
 		},
 		ServerType: &hcloud.ServerType{
-			Name: "cpx11",
+			Name: "cpx12",
 		},
 		PlacementGroup: &hcloud.PlacementGroup{
 			ID: 24,
@@ -580,21 +580,21 @@ var _ = Describe("Server", func() {
 		Expect(serverTypes).To(Equal([]*hcloud.ServerType{
 			{
 				ID:           1,
-				Name:         "cpx11",
+				Name:         "cpx12",
 				Cores:        fake.DefaultCPUCores,
 				Memory:       fake.DefaultMemoryInGB,
 				Architecture: fake.DefaultArchitecture,
 			},
 			{
 				ID:           2,
-				Name:         "cpx21",
+				Name:         "cpx22",
 				Cores:        fake.DefaultCPUCores,
 				Memory:       fake.DefaultMemoryInGB,
 				Architecture: fake.DefaultArchitecture,
 			},
 			{
 				ID:           3,
-				Name:         "cpx31",
+				Name:         "cpx32",
 				Cores:        fake.DefaultCPUCores,
 				Memory:       fake.DefaultMemoryInGB,
 				Architecture: fake.DefaultArchitecture,
@@ -688,7 +688,7 @@ var _ = Describe("Placement groups", func() {
 				ID: 14,
 			},
 			ServerType: &hcloud.ServerType{
-				Name: "cpx11",
+				Name: "cpx12",
 			},
 			PlacementGroup: &hcloud.PlacementGroup{
 				ID: 24,

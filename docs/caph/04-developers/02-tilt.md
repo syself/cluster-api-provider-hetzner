@@ -22,8 +22,8 @@ description: Full list of available Tilt configuration values and their descript
     "CONTROL_PLANE_MACHINE_COUNT": "3",
     "WORKER_MACHINE_COUNT": "3",
     "KUBERNETES_VERSION": "v1.31.6",
-    "HCLOUD_CONTROL_PLANE_MACHINE_TYPE": "cpx31",
-    "HCLOUD_WORKER_MACHINE_TYPE": "cpx31",
+    "HCLOUD_CONTROL_PLANE_MACHINE_TYPE": "cpx32",
+    "HCLOUD_WORKER_MACHINE_TYPE": "cpx32",
     "CLUSTER_NAME": "test",
     "HETZNER_SSH_PUB_PATH": "~/.ssh/test",
     "HETZNER_SSH_PRIV_PATH": "~/.ssh/test",
@@ -39,5 +39,5 @@ description: Full list of available Tilt configuration values and their descript
 | `deploy_observability`    | `bool`     | `false`         | no       | If true, installs grafana, loki and promtail in the dev cluster. Grafana UI will be accessible via a link in the tilt console. Important! This feature requires the `helm` command to be available in the user's path |
 | `preload_images_for_kind` | `bool`     | `true`          | no       | If set to true, uses `kind load docker-image` to preload images into a kind cluster                                                                                                                                   |
 | `kind_cluster_name`       | `[]object` | `"caph"`        | no       | The name of the kind cluster to use when preloading images                                                                                                                                                            |
-| `capi_version`            | `string`   | `"v1.8.10"`      | no       | Version of CAPI                                                                                                                                                                                                       |
+| `capi_version`            | `string`   | `"v1.8.10"`     | no       | Version of CAPI                                                                                                                                                                                                       |
 | `cert_manager_version`    | `string`   | `"v1.11.0"`     | no       | Version of cert manager                                                                                                                                                                                               |

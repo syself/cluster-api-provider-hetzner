@@ -148,7 +148,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 			},
 			Spec: infrav1.HCloudMachineSpec{
 				ImageName:          "my-control-plane",
-				Type:               "cpx31",
+				Type:               "cpx32",
 				PlacementGroupName: &defaultPlacementGroupName,
 			},
 		}
