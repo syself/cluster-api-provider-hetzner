@@ -202,7 +202,7 @@ ifeq ($(BUILD_IN_CONTAINER),true)
 else
 	helm repo add syself https://charts.syself.com
 	helm repo update syself
-	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hetzner --version 2.0.1 \
+	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hetzner --version 2.0.6 \
 	--namespace kube-system \
 	--set privateNetwork.enabled=$(PRIVATE_NETWORK)
 	@echo

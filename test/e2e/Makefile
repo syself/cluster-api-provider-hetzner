@@ -71,6 +71,7 @@ e2e-ccm-templates:
 
 	helm template ccm hetzner-cloud/hcloud-cloud-controller-manager --version 1.30.1 \
 	--namespace kube-system \
+	--set image.repository=ghcr.io/syself/hcloud-cloud-controller-manager \
 	--set-string env.HCLOUD_DEBUG.value=true \
 	--set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.name=hcloud \
 	--set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.key=token \
@@ -79,6 +80,7 @@ e2e-ccm-templates:
 
 	helm template ccm hetzner-cloud/hcloud-cloud-controller-manager --version 1.30.1 \
 	--namespace kube-system \
+	--set image.repository=ghcr.io/syself/hcloud-cloud-controller-manager \
 	--set-string env.HCLOUD_DEBUG.value=true \
 	--set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.name=hcloud \
 	--set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.key=token \
@@ -89,6 +91,7 @@ e2e-ccm-templates:
 
 	helm template ccm hetzner-cloud/hcloud-cloud-controller-manager --version 1.30.1 \
 	--namespace kube-system \
+	--set image.repository=ghcr.io/syself/hcloud-cloud-controller-manager \
 	--set-string env.HCLOUD_DEBUG.value=true \
 	--set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.name=hcloud \
 	--set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.key=token \
