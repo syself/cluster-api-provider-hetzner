@@ -398,7 +398,9 @@ var _ = Describe("Delete", func() {
 
 		res, err := service.Delete(context.Background())
 		Expect(res).To(Equal(reconcile.Result{}))
-		Expect(err).To(MatchError(fmt.Errorf("failed to find server for deletion: %w", rateLimitErr)))
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(Equal("failed to find server for deletion: failed to get server 1234567: rate limit exceeded for ip 48.49.48.49 (rate_limit_exceeded)"))
+		Expect(hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded)).To(BeTrue())
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason)).To(BeTrue())
 		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
 	})
@@ -1217,8 +1219,9 @@ var _ = Describe("Reconcile", func() {
 		}).Once()
 
 		By("calling reconcile again")
-		_, err = service.Reconcile(ctx)
-		Expect(err).NotTo(BeNil())
+		res, err := service.Reconcile(ctx)
+		Expect(err).To(BeNil())
+		Expect(res).To(Equal(reconcile.Result{RequeueAfter: 30 * time.Second}))
 
 		By("ensuring conditions HCloudCredentialsInvalid and RateLimitExceeded are set")
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason)).To(BeTrue())
