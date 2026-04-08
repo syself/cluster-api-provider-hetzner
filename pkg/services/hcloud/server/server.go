@@ -240,10 +240,6 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 
 	updateHCloudMachineStatusFromServer(hm, server)
 
-	// If server creation was successful, but reconciliation failed afterward, its
-	// condition might not be true yet.
-	conditions.MarkTrue(hm, infrav1.ServerCreateSucceededCondition)
-
 	s.scope.SetProviderID(server.ID)
 
 	// If server creation was successful, but reconciliation failed afterward, its
