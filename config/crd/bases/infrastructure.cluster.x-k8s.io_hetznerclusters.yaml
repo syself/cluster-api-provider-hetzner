@@ -287,12 +287,16 @@ spec:
                       Name defines the name of the secret. The controller reads the credential from the
                       management-cluster secret with this name and creates a workload-cluster secret with the same
                       name. The upstream hcloud-ccm helm chart expects the secret name "hcloud", while the Syself
-                      ccm fork defaults to "hetzner". To facilitate migration to the upstream hcloud-ccm, the
-                      configured workload-cluster secret remains untouched. If this field is not "hcloud", CAPH
-                      also creates an additional workload-cluster secret named "hcloud" in namespace "kube-system"
-                      with the key names expected by upstream hcloud-ccm. We recommend to use the value "hcloud".
-                      Set `spec.skipCreatingHetznerSecretInWorkloadCluster` if you don't want workload-cluster
-                      secrets to be created.
+                      ccm fork defaults to "hetzner".
+
+                      To facilitate migrations to the upstream hcloud-ccm, it is ensured that the secret it expects
+                      is created in the proper way. This means that CAPH ensures that in the secret called "hcloud"
+                      there is the hcloud token stored under the key "token". This might lead to the same value
+                      being stored in two different keys of the same secret, depending on the configuration used
+                      here.
+
+                      We recommend to use the value "hcloud". Set `spec.skipCreatingHetznerSecretInWorkloadCluster`
+                      if you don't want workload-cluster secrets to be created.
                     type: string
                 required:
                 - key
