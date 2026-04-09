@@ -875,7 +875,7 @@ var _ = Describe("actionPreparing", func() {
 		host := helpers.BareMetalHost(
 			"test-host",
 			"default",
-			helpers.WithSSHSpecInclPorts(22, 22),
+			helpers.WithSSHSpecInclPorts(22),
 		)
 
 		robotMock := robotmock.Client{}
