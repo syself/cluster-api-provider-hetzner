@@ -92,6 +92,8 @@ e2e-ccm-templates:
 	helm template ccm syself/ccm-hetzner --version 2.0.6 \
 	--namespace kube-system \
 	--set env.debug=true \
+	--set pdb.enabled=false \
+	--set privateNetwork.enabled=false \
 	--set-json 'tolerations=[{"key":"node.cluster.x-k8s.io/uninitialized","operator":"Exists","effect":"NoSchedule"},{"key":"node.cilium.io/agent-not-ready","operator":"Exists","effect":"NoSchedule"}]' \
 	> $(REPO_ROOT)/test/e2e/data/ccm/syself-ccm-hetzner.yaml
 
