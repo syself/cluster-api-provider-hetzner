@@ -67,6 +67,6 @@ You can set [Kubernetes Annotations](https://kubernetes.io/docs/concepts/overvie
 
 | **Resource**    | [HetznerCluster](/docs/caph/03-reference/02-hetzner-cluster.md)                                                                                                                  |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Description** | When set to `"true"`, then the ProviderID format `hrobot://NNNN` will be used. If not set or empty `hcloud://bm-NNNN` will be used.                                              |
+| **Description** | When set to `"true"`, CAPH uses the ProviderID format `hrobot://NNNN` for bare metal. Leave it unset to use `hcloud://bm-NNNN`, which matches the Syself CCM. Set it only when you run an upstream bare-metal-capable `hcloud-cloud-controller-manager` release. |
 | **Value**       | `"true"` enables this feature.                                                                                                                                                   |
 | **Auto-Remove** | Disabled: The annotation remains on the resource.                                                                                                                                |
