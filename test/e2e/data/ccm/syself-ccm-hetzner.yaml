@@ -69,7 +69,7 @@ spec:
       volumes:
       - name: hetzner-secret
         secret:
-          secretName: hetzner
+          secretName: hcloud
       tolerations:
         # Introduced with CAPI v1.4, more info: https://cluster-api.sigs.k8s.io/developer/providers/bootstrap.html#taint-nodes-at-creation
         - key: "node.cluster.x-k8s.io/uninitialized"
