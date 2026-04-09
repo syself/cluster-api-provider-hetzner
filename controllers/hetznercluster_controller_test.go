@@ -259,6 +259,8 @@ func TestIgnoreInsignificantHetznerClusterStatusUpdates(t *testing.T) {
 	}
 }
 
+// TestWorkloadClusterSecretNames verifies which workload-cluster secrets CAPH
+// reconciles for the configured management-cluster secret name.
 func TestWorkloadClusterSecretNames(t *testing.T) {
 	testCases := []struct {
 		name       string
@@ -285,6 +287,8 @@ func TestWorkloadClusterSecretNames(t *testing.T) {
 	}
 }
 
+// TestWorkloadClusterHCloudTokenKeys verifies when CAPH adds the upstream
+// compatibility key alongside the configured management-cluster key.
 func TestWorkloadClusterHCloudTokenKeys(t *testing.T) {
 	testCases := []struct {
 		name          string
@@ -332,6 +336,9 @@ func TestWorkloadClusterHCloudTokenKeys(t *testing.T) {
 	}
 }
 
+// TestReconcileOneWorkloadClusterSecretHetzner verifies that the configured
+// workload-cluster secret keeps the configured key names without adding the
+// upstream compatibility aliases.
 func TestReconcileOneWorkloadClusterSecretHetzner(t *testing.T) {
 	ctx := context.Background()
 
@@ -402,6 +409,9 @@ func TestReconcileOneWorkloadClusterSecretHetzner(t *testing.T) {
 	require.Equal(t, "This secret gets reconciled by Cluster API Provider Hetzner.", note)
 }
 
+// TestReconcileOneWorkloadClusterSecretHCloud verifies that the "hcloud"
+// compatibility secret exposes both the configured keys and the upstream alias
+// keys expected by external consumers.
 func TestReconcileOneWorkloadClusterSecretHCloud(t *testing.T) {
 	ctx := context.Background()
 
@@ -472,6 +482,9 @@ func TestReconcileOneWorkloadClusterSecretHCloud(t *testing.T) {
 	require.Equal(t, "This secret gets reconciled by Cluster API Provider Hetzner.", note)
 }
 
+// TestReconcileAllWorkloadClusterSecretsCreatesCompatibilitySecret verifies
+// that reconciling a non-default management secret creates both workload
+// secrets with the expected per-secret data.
 func TestReconcileAllWorkloadClusterSecretsCreatesCompatibilitySecret(t *testing.T) {
 	ctx := context.Background()
 
