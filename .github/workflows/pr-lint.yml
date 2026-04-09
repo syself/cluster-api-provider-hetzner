@@ -6,6 +6,19 @@ on: # yamllint disable-line rule:truthy
       - v1.1.x
   pull_request:
     types: [opened, edited, synchronize, reopened, ready_for_review]
+    paths:
+      - "**.go"
+      - "**go.mod"
+      - "**go.sum"
+      - "<templates|test>/**/*.<yml|yaml>"
+      - ".github/actions/**/*"
+      - ".github/workflows/e2e-*"
+      - ".github/workflows/pr-*"
+      - ".golangci.yaml"
+      - "images/caph/**"
+      - "!**/vendor/**"
+      - "test/e2e/**"
+      - "docs/**"
 # yamllint disable rule:line-length
 jobs:
   pr-lint:
