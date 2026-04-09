@@ -547,6 +547,9 @@ func workloadClusterSecretNames(secretName string) []string {
 	return names
 }
 
+// workloadClusterCompatibilityKeys keeps the configured key for every secret and
+// only adds the upstream-compatible alias when reconciling the compatibility
+// secret named "hcloud".
 func workloadClusterCompatibilityKeys(secretName, configuredKey, compatibilityKey string) []string {
 	keys := []string{configuredKey}
 
