@@ -406,7 +406,8 @@ func TestReconcileOneWorkloadClusterSecretHetzner(t *testing.T) {
 	require.Equal(t, "6443", string(secret.Data["apiserver-port"]))
 
 	note := string(secret.Data["note"])
-	require.Equal(t, "This secret gets reconciled by Cluster API Provider Hetzner.", note)
+	require.Contains(t, note, "reconciled by Cluster API Provider Hetzner")
+	require.Contains(t, note, "workload-cluster secret named 'hcloud'")
 }
 
 // TestReconcileOneWorkloadClusterSecretHCloud verifies that the "hcloud"
@@ -479,7 +480,8 @@ func TestReconcileOneWorkloadClusterSecretHCloud(t *testing.T) {
 	require.Equal(t, "6443", string(secret.Data["apiserver-port"]))
 
 	note := string(secret.Data["note"])
-	require.Equal(t, "This secret gets reconciled by Cluster API Provider Hetzner.", note)
+	require.Contains(t, note, "reconciled by Cluster API Provider Hetzner")
+	require.Contains(t, note, "workload-cluster secret named 'hcloud'")
 }
 
 // TestReconcileAllWorkloadClusterSecretsCreatesCompatibilitySecret verifies
