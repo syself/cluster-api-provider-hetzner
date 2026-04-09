@@ -68,6 +68,7 @@ e2e-cilium-templates:
 
 e2e-ccm-templates:
 	helm repo add hetzner-cloud https://charts.hetzner.cloud
+	helm repo add syself https://charts.syself.com
 
 	helm template ccm hetzner-cloud/hcloud-cloud-controller-manager --version 1.30.1 \
 	--namespace kube-system \

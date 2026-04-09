@@ -18,8 +18,11 @@
 trap 'echo -e "\nWarning: A command has failed. Exiting the script. Line was ($0:$LINENO): $(sed -n "${LINENO}p" "$0")"; exit 3' ERR
 set -Eeuo pipefail
 
-if ! command -v kustomize | grep hack/tools/bin; then
-    echo "fix $PATH: kustomize should be from hack/tools/bin"
+REPO_ROOT=$(git rev-parse --show-toplevel)
+KUSTOMIZE_BIN="$REPO_ROOT/hack/tools/bin/kustomize"
+
+if [[ ! -x "$KUSTOMIZE_BIN" ]]; then
+    echo "fix $KUSTOMIZE_BIN: missing executable kustomize in hack/tools/bin"
     exit 1
 fi
 
@@ -48,29 +51,29 @@ printf '%s' "$HETZNER_SSH_PRIV" | base64 --decode >tmp_ssh_priv
 kubectl create secret generic robot-ssh --from-literal=sshkey-name="$SSH_KEY_NAME" --from-file=ssh-privatekey=tmp_ssh_priv --from-file=ssh-publickey=tmp_ssh_pub --dry-run=client -o yaml >data/infrastructure-hetzner/v1beta1/cluster-template-hetzner-secret.yaml
 rm tmp_ssh_pub tmp_ssh_priv
 
-kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template.yaml
+"$KUSTOMIZE_BIN" build "$HETZNER_TEMPLATES"/v1beta1/cluster-template --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template.yaml
 
-kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-k8s-upgrade --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-k8s-upgrade.yaml
+"$KUSTOMIZE_BIN" build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-k8s-upgrade --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-k8s-upgrade.yaml
 
-kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-k8s-upgrade-kcp-scale-in --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-k8s-upgrade-kcp-scale-in.yaml
+"$KUSTOMIZE_BIN" build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-k8s-upgrade-kcp-scale-in --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-k8s-upgrade-kcp-scale-in.yaml
 
-kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-hcloud-feature-loadbalancer-off --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-hcloud-feature-loadbalancer-off.yaml
+"$KUSTOMIZE_BIN" build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-hcloud-feature-loadbalancer-off --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-hcloud-feature-loadbalancer-off.yaml
 
-kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-hcloud-feature-load-balancer-extra-services --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-hcloud-feature-load-balancer-extra-services.yaml
+"$KUSTOMIZE_BIN" build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-hcloud-feature-load-balancer-extra-services --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-hcloud-feature-load-balancer-extra-services.yaml
 
-kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-hcloud-feature-placement-groups --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-hcloud-feature-placement-groups.yaml
+"$KUSTOMIZE_BIN" build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-hcloud-feature-placement-groups --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-hcloud-feature-placement-groups.yaml
 
-kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-network --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-network.yaml
+"$KUSTOMIZE_BIN" build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-network --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-network.yaml
 
-kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-kcp-remediation --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-kcp-remediation.yaml
+"$KUSTOMIZE_BIN" build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-kcp-remediation --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-kcp-remediation.yaml
 
-kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-md-remediation --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-md-remediation.yaml
+"$KUSTOMIZE_BIN" build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-md-remediation --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-md-remediation.yaml
 
-kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-node-drain --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-node-drain.yaml
+"$KUSTOMIZE_BIN" build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-node-drain --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-node-drain.yaml
 
-kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-hetzner-baremetal --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-hetzner-baremetal.yaml
+"$KUSTOMIZE_BIN" build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-hetzner-baremetal --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-hetzner-baremetal.yaml
 
-kustomize build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-hetzner-baremetal-feature-raid-setup --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-hetzner-baremetal-feature-raid-setup.yaml
+"$KUSTOMIZE_BIN" build "$HETZNER_TEMPLATES"/v1beta1/cluster-template-hetzner-baremetal-feature-raid-setup --load-restrictor LoadRestrictionsNone >"$HETZNER_TEMPLATES"/v1beta1/cluster-template-hetzner-baremetal-feature-raid-setup.yaml
 
 sed -i "s/robot-user_secret_placeholder/$(echo -n "$HETZNER_ROBOT_USER" | base64 -w0)/" "$HETZNER_TEMPLATES"/v1beta1/*.yaml
 sed -i "s/robot-password_secret_placeholder/$(echo -n "$HETZNER_ROBOT_PASSWORD" | base64 -w0)/" "$HETZNER_TEMPLATES"/v1beta1/*.yaml
