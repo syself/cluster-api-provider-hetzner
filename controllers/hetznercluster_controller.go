@@ -548,30 +548,21 @@ func workloadClusterSecretNames(secretName string) []string {
 }
 
 // workloadClusterCompatibilityKeys returns the configured key for every secret.
-// When reconciling the secret named "hcloud", it also returns any compatibility
-// keys unless they already match the configured key.
-func workloadClusterCompatibilityKeys(secretName, configuredKey string, compatibilityKeys ...string) []string {
-	keys := []string{configuredKey}
+// When reconciling the secret named "hcloud", it also returns the compatibility
+// key unless it matches the configured key.
+func workloadClusterCompatibilityKeys(secretName, configuredKey, compatibilityKey string) []string {
 	if secretName != "hcloud" {
-		// Only the secret named "hcloud" gets compatibility keys.
-		return keys
+		// Only the secret named "hcloud" gets the compatibility key.
+		return []string{configuredKey}
 	}
 
-	for _, compatibilityKey := range compatibilityKeys {
-		duplicate := false
-		for _, key := range keys {
-			if key == compatibilityKey {
-				duplicate = true
-				break
-			}
-		}
-		if duplicate {
-			continue
-		}
-		keys = append(keys, compatibilityKey)
+	if configuredKey == compatibilityKey {
+		// Avoid duplicating the key when it already matches the compatibility key.
+		return []string{configuredKey}
 	}
 
-	return keys
+	// The compatibility secret exposes both the configured key and the compatibility key.
+	return []string{configuredKey, compatibilityKey}
 }
 
 func reconcileAllWorkloadClusterSecrets(ctx context.Context, clusterScope *scope.ClusterScope, wlClient client.Client) error {
@@ -615,7 +606,7 @@ func reconcileOneWorkloadClusterSecret(ctx context.Context, clusterScope *scope.
 			wlSecret.Data = make(map[string][]byte)
 		}
 
-		for _, key := range workloadClusterCompatibilityKeys(name, clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken, "token", "hcloud") {
+		for _, key := range workloadClusterCompatibilityKeys(name, clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken, "token") {
 			wlSecret.Data[key] = hcloudToken
 		}
 

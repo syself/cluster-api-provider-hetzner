@@ -287,8 +287,8 @@ func TestWorkloadClusterSecretNames(t *testing.T) {
 	}
 }
 
-// TestWorkloadClusterHCloudTokenKeys verifies when CAPH adds compatibility
-// keys alongside the configured management-cluster key.
+// TestWorkloadClusterHCloudTokenKeys verifies when CAPH adds the upstream
+// compatibility key alongside the configured management-cluster key.
 func TestWorkloadClusterHCloudTokenKeys(t *testing.T) {
 	testCases := []struct {
 		name          string
@@ -306,7 +306,7 @@ func TestWorkloadClusterHCloudTokenKeys(t *testing.T) {
 			name:          "hcloud secret adds token compatibility key",
 			secretName:    "hcloud",
 			configuredKey: "custom-token",
-			want:          []string{"custom-token", "token", "hcloud"},
+			want:          []string{"custom-token", "token"},
 		},
 		{
 			name:          "non-hcloud secrets keep hcloud configured key without duplication",
@@ -315,16 +315,10 @@ func TestWorkloadClusterHCloudTokenKeys(t *testing.T) {
 			want:          []string{"hcloud"},
 		},
 		{
-			name:          "existing token key still adds legacy hcloud compatibility key",
+			name:          "existing token key is not duplicated",
 			secretName:    "hcloud",
 			configuredKey: "token",
-			want:          []string{"token", "hcloud"},
-		},
-		{
-			name:          "existing hcloud key still adds upstream token compatibility key",
-			secretName:    "hcloud",
-			configuredKey: "hcloud",
-			want:          []string{"hcloud", "token"},
+			want:          []string{"token"},
 		},
 		{
 			name:          "other secret names only keep configured key",
@@ -336,7 +330,7 @@ func TestWorkloadClusterHCloudTokenKeys(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := workloadClusterCompatibilityKeys(tc.secretName, tc.configuredKey, "token", "hcloud")
+			got := workloadClusterCompatibilityKeys(tc.secretName, tc.configuredKey, "token")
 			require.Equal(t, tc.want, got)
 		})
 	}
@@ -475,7 +469,7 @@ func TestReconcileOneWorkloadClusterSecretHCloud(t *testing.T) {
 	require.NoError(t, wlClient.Get(ctx, client.ObjectKey{Namespace: metav1.NamespaceSystem, Name: "hcloud"}, secret))
 	require.Equal(t, "my-token", string(secret.Data["custom-token"]))
 	require.Equal(t, "my-token", string(secret.Data["token"]))
-	require.Equal(t, "my-token", string(secret.Data["hcloud"]))
+	require.NotContains(t, secret.Data, "hcloud")
 	require.Equal(t, "my-user", string(secret.Data["custom-robot-user"]))
 	require.Equal(t, "my-password", string(secret.Data["custom-robot-password"]))
 	require.Equal(t, "my-user", string(secret.Data["robot-user"]))
