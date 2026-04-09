@@ -490,10 +490,10 @@ func hcloudTokenErrorResult(
 }
 
 // reconcileWorkloadClusterSecrets syncs Hetzner credentials from the management cluster into
-// workload-cluster secrets for CCM consumption. It creates the secret named in
-// HetznerCluster.Spec.HetznerSecret.Name and, unless that name is already "hcloud", also creates a
-// second secret named "hcloud" for upstream hcloud-ccm compatibility. Secret creation is skipped
-// if HetznerCluster.Spec.SkipCreatingHetznerSecretInWorkloadCluster is set.
+// workload-cluster secrets for CCM consumption. It creates a secret named by
+// HetznerCluster.Spec.HetznerSecret.Name. If that name is not "hcloud", it also creates a second
+// secret named "hcloud" for upstream hcloud-ccm compatibility. Secret creation is skipped when
+// HetznerCluster.Spec.SkipCreatingHetznerSecretInWorkloadCluster is set.
 func reconcileWorkloadClusterSecrets(ctx context.Context, clusterScope *scope.ClusterScope) (res reconcile.Result, reterr error) {
 	if clusterScope.HetznerCluster.Spec.SkipCreatingHetznerSecretInWorkloadCluster {
 		// If the secret should not be created in the workload cluster, we just return.
@@ -547,14 +547,22 @@ func workloadClusterSecretNames(secretName string) []string {
 	return names
 }
 
+// workloadClusterCompatibilityKeys returns the configured key for every secret.
+// When reconciling the secret named "hcloud", it also returns the compatibility
+// key unless it matches the configured key.
 func workloadClusterCompatibilityKeys(secretName, configuredKey, compatibilityKey string) []string {
-	keys := []string{configuredKey}
-
-	if secretName == "hcloud" && configuredKey != compatibilityKey {
-		keys = append(keys, compatibilityKey)
+	if secretName != "hcloud" {
+		// Only the secret named "hcloud" gets the compatibility key.
+		return []string{configuredKey}
 	}
 
-	return keys
+	if configuredKey == compatibilityKey {
+		// Avoid duplicating the key when it already matches the compatibility key.
+		return []string{configuredKey}
+	}
+
+	// The compatibility secret exposes both the configured key and the compatibility key.
+	return []string{configuredKey, compatibilityKey}
 }
 
 func reconcileAllWorkloadClusterSecrets(ctx context.Context, clusterScope *scope.ClusterScope, wlClient client.Client) error {
@@ -621,22 +629,6 @@ func reconcileOneWorkloadClusterSecret(ctx context.Context, clusterScope *scope.
 		// Save api server information
 		wlSecret.Data["apiserver-host"] = []byte(clusterScope.HetznerCluster.Spec.ControlPlaneEndpoint.Host)
 		wlSecret.Data["apiserver-port"] = []byte(strconv.Itoa(int(clusterScope.HetznerCluster.Spec.ControlPlaneEndpoint.Port)))
-
-		notes := []string{
-			"This secret gets reconciled by Cluster API Provider Hetzner.",
-		}
-
-		if clusterScope.HetznerCluster.Spec.HetznerSecret.Name != "hcloud" {
-			notes = append(notes, fmt.Sprintf("We recommend to use 'hcloud' for hetznercluster.spec.hetznerSecret.name (not %q). CAPH also creates a workload-cluster secret named 'hcloud' for upstream compatibility.",
-				clusterScope.HetznerCluster.Spec.HetznerSecret.Name))
-		}
-
-		if clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken != "token" {
-			notes = append(notes, fmt.Sprintf("We recommend to use 'token' for hetznercluster.spec.hetznerSecret.key.hcloudToken (not %q).", clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken))
-		}
-
-		// Make things more obvious for people new to caph:
-		wlSecret.Data["note"] = []byte(strings.Join(notes, " "))
 
 		return nil
 	})

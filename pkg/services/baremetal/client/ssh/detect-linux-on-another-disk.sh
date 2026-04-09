@@ -37,6 +37,39 @@ if [ $# -eq 0 ]; then
     exit 3
 fi
 
+# Show usage, if any argument starts with a dash.
+for arg in "$@"; do
+    if [[ "$arg" == -* ]]; then
+        usage
+        exit 3
+    fi
+done
+
+wait_for_wwns() {
+    local deadline=$((SECONDS + 30))
+    local known_wwns
+
+    while [ "$SECONDS" -lt "$deadline" ]; do
+        known_wwns=$(lsblk --nodeps --noheadings -o WWN 2>/dev/null || true)
+        local all_found=1
+        for wwn in "$@"; do
+            if ! grep -qFx -- "$wwn" <<<"$known_wwns"; then
+                all_found=0
+                break
+            fi
+        done
+        if [ "$all_found" -eq 1 ]; then
+            return 0
+        fi
+        sleep 1
+    done
+
+    echo "INFO: Timed out waiting for requested WWNs to appear in lsblk. Continuing with current device state."
+}
+
+# Wait only for the requested disks instead of the full udev queue.
+wait_for_wwns "$@"
+
 # Iterate over all input arguments
 for wwn in "$@"; do
     if ! lsblk -l -oWWN | grep -qFx "${wwn}"; then

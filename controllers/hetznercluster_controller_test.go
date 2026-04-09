@@ -259,6 +259,8 @@ func TestIgnoreInsignificantHetznerClusterStatusUpdates(t *testing.T) {
 	}
 }
 
+// TestWorkloadClusterSecretNames verifies which workload-cluster secrets CAPH
+// reconciles for the configured management-cluster secret name.
 func TestWorkloadClusterSecretNames(t *testing.T) {
 	testCases := []struct {
 		name       string
@@ -285,6 +287,8 @@ func TestWorkloadClusterSecretNames(t *testing.T) {
 	}
 }
 
+// TestWorkloadClusterHCloudTokenKeys verifies when CAPH adds the upstream
+// compatibility key alongside the configured management-cluster key.
 func TestWorkloadClusterHCloudTokenKeys(t *testing.T) {
 	testCases := []struct {
 		name          string
@@ -332,6 +336,9 @@ func TestWorkloadClusterHCloudTokenKeys(t *testing.T) {
 	}
 }
 
+// TestReconcileOneWorkloadClusterSecretHetzner verifies that the configured
+// workload-cluster secret keeps the configured key names without adding the
+// upstream compatibility aliases.
 func TestReconcileOneWorkloadClusterSecretHetzner(t *testing.T) {
 	ctx := context.Background()
 
@@ -398,11 +405,12 @@ func TestReconcileOneWorkloadClusterSecretHetzner(t *testing.T) {
 	require.Equal(t, "198.51.100.10", string(secret.Data["apiserver-host"]))
 	require.Equal(t, "6443", string(secret.Data["apiserver-port"]))
 
-	note := string(secret.Data["note"])
-	require.Contains(t, note, "reconciled by Cluster API Provider Hetzner")
-	require.Contains(t, note, "workload-cluster secret named 'hcloud'")
+	require.NotContains(t, secret.Data, "note")
 }
 
+// TestReconcileOneWorkloadClusterSecretHCloud verifies that the "hcloud"
+// compatibility secret exposes both the configured keys and the upstream alias
+// keys expected by external consumers.
 func TestReconcileOneWorkloadClusterSecretHCloud(t *testing.T) {
 	ctx := context.Background()
 
@@ -469,11 +477,12 @@ func TestReconcileOneWorkloadClusterSecretHCloud(t *testing.T) {
 	require.Equal(t, "198.51.100.10", string(secret.Data["apiserver-host"]))
 	require.Equal(t, "6443", string(secret.Data["apiserver-port"]))
 
-	note := string(secret.Data["note"])
-	require.Contains(t, note, "reconciled by Cluster API Provider Hetzner")
-	require.Contains(t, note, "workload-cluster secret named 'hcloud'")
+	require.NotContains(t, secret.Data, "note")
 }
 
+// TestReconcileAllWorkloadClusterSecretsCreatesCompatibilitySecret verifies
+// that reconciling a non-default management secret creates both workload
+// secrets with the expected per-secret data.
 func TestReconcileAllWorkloadClusterSecretsCreatesCompatibilitySecret(t *testing.T) {
 	ctx := context.Background()
 
