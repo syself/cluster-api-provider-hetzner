@@ -111,6 +111,13 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 			if errors.Is(err, hcloudclient.ErrUnauthorized) {
 				return reconcile.Result{}, nil
 			}
+			if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
+				if !s.scope.HCloudMachine.Status.Ready {
+					hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "findServer")
+					return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
+				}
+				return reconcile.Result{}, nil
+			}
 
 			return reconcile.Result{}, fmt.Errorf("findServer: %w", err)
 		}
@@ -803,9 +810,14 @@ func handleRateLimit(hm *infrav1.HCloudMachine, err error, functionName string, 
 
 // Delete implements delete method of server.
 func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
+	// Nothing to do if ProviderID was never set.
+	if s.scope.HCloudMachine.Spec.ProviderID == nil {
+		return reconcile.Result{}, nil
+	}
+
 	server, err := s.findServer(ctx)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to find server: %w", err)
+		return reconcile.Result{}, handleRateLimit(s.scope.HCloudMachine, err, "findServer", "failed to find server for deletion")
 	}
 
 	// if no server has been found, then nothing can be deleted
@@ -1418,8 +1430,7 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 				return nil, err
 			}
 
-			errMsg := fmt.Sprintf("failed to get server %d", serverID)
-			return nil, handleRateLimit(s.scope.HCloudMachine, err, "GetServer", errMsg)
+			return nil, fmt.Errorf("failed to get server %d: %w", serverID, err)
 		}
 
 		conditions.MarkTrue(s.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition)
@@ -1437,7 +1448,7 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 
 	servers, err := s.scope.HCloudClient.ListServers(ctx, opts)
 	if err != nil {
-		return nil, handleRateLimit(s.scope.HCloudMachine, err, "ListServers", "failed to list servers")
+		return nil, fmt.Errorf("failed to list servers: %w", err)
 	}
 
 	if len(servers) > 1 {
