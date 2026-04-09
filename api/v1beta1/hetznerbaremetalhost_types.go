@@ -310,7 +310,7 @@ type ControllerGeneratedStatus struct {
 	// +optional
 	ErrorMessage string `json:"errorMessage"`
 
-	// the last error message reported by the provisioning subsystem.
+	// LastUpdated indicates when the provisioning subsystem last updated the host state.
 	// +optional
 	LastUpdated *metav1.Time `json:"lastUpdated,omitempty"`
 

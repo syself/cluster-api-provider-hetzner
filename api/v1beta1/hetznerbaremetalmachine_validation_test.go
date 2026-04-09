@@ -17,11 +17,14 @@ limitations under the License.
 package v1beta1
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/utils/ptr"
 )
 
 func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
@@ -428,4 +431,44 @@ func TestValidateHetznerBareMetalMachineSpecUpdate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestValidateHetznerBareMetalMachineSpecUpdate_ProviderID(t *testing.T) {
+	got := validateHetznerBareMetalMachineSpecUpdate(
+		HetznerBareMetalMachineSpec{
+			ProviderID: ptr.To("provider://foo"),
+		},
+		HetznerBareMetalMachineSpec{})
+	require.Equal(t, `[spec.providerID: Invalid value: "null": providerID immutable]`, fmt.Sprintf("%+v", got))
+
+	got = validateHetznerBareMetalMachineSpecUpdate(
+		HetznerBareMetalMachineSpec{
+			ProviderID: ptr.To("provider://foo"),
+		},
+		HetznerBareMetalMachineSpec{
+			ProviderID: ptr.To("provider://bar"),
+		})
+	require.Equal(t, `[spec.providerID: Invalid value: "provider://bar": providerID immutable]`, fmt.Sprintf("%+v", got))
+
+	// Allowed Updates
+	got = validateHetznerBareMetalMachineSpecUpdate(
+		HetznerBareMetalMachineSpec{},
+		HetznerBareMetalMachineSpec{})
+	require.Equal(t, `[]`, fmt.Sprintf("%+v", got))
+
+	got = validateHetznerBareMetalMachineSpecUpdate(
+		HetznerBareMetalMachineSpec{},
+		HetznerBareMetalMachineSpec{
+			ProviderID: ptr.To("provider://bar"),
+		})
+	require.Equal(t, `[]`, fmt.Sprintf("%+v", got))
+
+	got = validateHetznerBareMetalMachineSpecUpdate(
+		HetznerBareMetalMachineSpec{
+			ProviderID: ptr.To("provider://bar"),
+		},
+		HetznerBareMetalMachineSpec{
+			ProviderID: ptr.To("provider://bar"),
+		})
+	require.Equal(t, `[]`, fmt.Sprintf("%+v", got))
 }

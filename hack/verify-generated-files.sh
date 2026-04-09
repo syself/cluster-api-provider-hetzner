@@ -29,7 +29,13 @@ fi
 (
     make kubectl
     cd test/e2e
-    export HCLOUD_TOKEN=dummy_hcloud_token
+    HCLOUD_TOKEN=dummy_hcloud_token
+    HETZNER_SSH_PUB=$(echo dummy-hetzner-ssh-pub | base64)
+    HETZNER_SSH_PRIV=$(echo dummy-hetzner-ssh-priv | base64)
+    SSH_KEY_NAME="dummy-ssh-key-name"
+    HETZNER_ROBOT_USER="dummy-hetzner-robot-user"
+    HETZNER_ROBOT_PASSWORD="dummy-hetzner-robot-password"
+    export HCLOUD_TOKEN HETZNER_SSH_PUB HETZNER_SSH_PRIV SSH_KEY_NAME HETZNER_ROBOT_USER HETZNER_ROBOT_PASSWORD
     make e2e-cilium-templates
     make e2e-ccm-templates
     make cluster-templates
