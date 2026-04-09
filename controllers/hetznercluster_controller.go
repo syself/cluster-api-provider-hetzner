@@ -547,11 +547,11 @@ func workloadClusterSecretNames(secretName string) []string {
 	return names
 }
 
-func workloadClusterHCloudTokenKeys(secretName, configuredKey string) []string {
+func workloadClusterCompatibilityKeys(secretName, configuredKey, compatibilityKey string) []string {
 	keys := []string{configuredKey}
 
-	if secretName == "hcloud" && configuredKey != "token" {
-		keys = append(keys, "token")
+	if secretName == "hcloud" && configuredKey != compatibilityKey {
+		keys = append(keys, compatibilityKey)
 	}
 
 	return keys
@@ -598,16 +598,20 @@ func reconcileOneWorkloadClusterSecret(ctx context.Context, clusterScope *scope.
 			wlSecret.Data = make(map[string][]byte)
 		}
 
-		for _, key := range workloadClusterHCloudTokenKeys(name, clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken) {
+		for _, key := range workloadClusterCompatibilityKeys(name, clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken, "token") {
 			wlSecret.Data[key] = hcloudToken
 		}
 
 		// Save robot credentials if available
 		if clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser != "" {
 			robotUserName := mgtSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser]
-			wlSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser] = robotUserName
+			for _, key := range workloadClusterCompatibilityKeys(name, clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser, "robot-user") {
+				wlSecret.Data[key] = robotUserName
+			}
 			robotPassword := mgtSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword]
-			wlSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword] = robotPassword
+			for _, key := range workloadClusterCompatibilityKeys(name, clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword, "robot-password") {
+				wlSecret.Data[key] = robotPassword
+			}
 		}
 
 		// Save network ID in secret

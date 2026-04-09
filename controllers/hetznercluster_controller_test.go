@@ -326,7 +326,7 @@ func TestWorkloadClusterHCloudTokenKeys(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := workloadClusterHCloudTokenKeys(tc.secretName, tc.configuredKey)
+			got := workloadClusterCompatibilityKeys(tc.secretName, tc.configuredKey, "token")
 			require.Equal(t, tc.want, got)
 		})
 	}
@@ -349,6 +349,8 @@ func TestReconcileOneWorkloadClusterSecretHetzner(t *testing.T) {
 	}
 	hetznerCluster.Spec.HetznerSecret.Name = "hetzner"
 	hetznerCluster.Spec.HetznerSecret.Key.HCloudToken = "custom-token"
+	hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser = "custom-robot-user"
+	hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword = "custom-robot-password"
 	hetznerCluster.Spec.HCloudNetwork.Enabled = false
 	hetznerCluster.Spec.ControlPlaneEndpoint = &clusterv1.APIEndpoint{
 		Host: "198.51.100.10",
@@ -361,9 +363,9 @@ func TestReconcileOneWorkloadClusterSecretHetzner(t *testing.T) {
 			Namespace: hetznerCluster.Namespace,
 		},
 		Data: map[string][]byte{
-			"custom-token":   []byte("my-token"),
-			"robot-user":     []byte("my-user"),
-			"robot-password": []byte("my-password"),
+			"custom-token":          []byte("my-token"),
+			"custom-robot-user":     []byte("my-user"),
+			"custom-robot-password": []byte("my-password"),
 		},
 	}
 
@@ -389,8 +391,10 @@ func TestReconcileOneWorkloadClusterSecretHetzner(t *testing.T) {
 	require.Equal(t, "my-token", string(secret.Data["custom-token"]))
 	require.NotContains(t, secret.Data, "hcloud")
 	require.NotContains(t, secret.Data, "token")
-	require.Equal(t, "my-user", string(secret.Data["robot-user"]))
-	require.Equal(t, "my-password", string(secret.Data["robot-password"]))
+	require.Equal(t, "my-user", string(secret.Data["custom-robot-user"]))
+	require.Equal(t, "my-password", string(secret.Data["custom-robot-password"]))
+	require.NotContains(t, secret.Data, "robot-user")
+	require.NotContains(t, secret.Data, "robot-password")
 	require.Equal(t, "198.51.100.10", string(secret.Data["apiserver-host"]))
 	require.Equal(t, "6443", string(secret.Data["apiserver-port"]))
 
@@ -416,6 +420,8 @@ func TestReconcileOneWorkloadClusterSecretHCloud(t *testing.T) {
 	}
 	hetznerCluster.Spec.HetznerSecret.Name = "hetzner"
 	hetznerCluster.Spec.HetznerSecret.Key.HCloudToken = "custom-token"
+	hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser = "custom-robot-user"
+	hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword = "custom-robot-password"
 	hetznerCluster.Spec.HCloudNetwork.Enabled = false
 	hetznerCluster.Spec.ControlPlaneEndpoint = &clusterv1.APIEndpoint{
 		Host: "198.51.100.10",
@@ -428,9 +434,9 @@ func TestReconcileOneWorkloadClusterSecretHCloud(t *testing.T) {
 			Namespace: hetznerCluster.Namespace,
 		},
 		Data: map[string][]byte{
-			"custom-token":   []byte("my-token"),
-			"robot-user":     []byte("my-user"),
-			"robot-password": []byte("my-password"),
+			"custom-token":          []byte("my-token"),
+			"custom-robot-user":     []byte("my-user"),
+			"custom-robot-password": []byte("my-password"),
 		},
 	}
 
@@ -456,6 +462,8 @@ func TestReconcileOneWorkloadClusterSecretHCloud(t *testing.T) {
 	require.Equal(t, "my-token", string(secret.Data["custom-token"]))
 	require.Equal(t, "my-token", string(secret.Data["token"]))
 	require.NotContains(t, secret.Data, "hcloud")
+	require.Equal(t, "my-user", string(secret.Data["custom-robot-user"]))
+	require.Equal(t, "my-password", string(secret.Data["custom-robot-password"]))
 	require.Equal(t, "my-user", string(secret.Data["robot-user"]))
 	require.Equal(t, "my-password", string(secret.Data["robot-password"]))
 	require.Equal(t, "198.51.100.10", string(secret.Data["apiserver-host"]))
@@ -482,6 +490,8 @@ func TestReconcileAllWorkloadClusterSecretsCreatesCompatibilitySecret(t *testing
 		Spec: getDefaultHetznerClusterSpec(),
 	}
 	hetznerCluster.Spec.HetznerSecret.Name = "hetzner"
+	hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser = "custom-robot-user"
+	hetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword = "custom-robot-password"
 	hetznerCluster.Spec.HCloudNetwork.Enabled = false
 	hetznerCluster.Spec.ControlPlaneEndpoint = &clusterv1.APIEndpoint{
 		Host: "198.51.100.10",
@@ -494,9 +504,9 @@ func TestReconcileAllWorkloadClusterSecretsCreatesCompatibilitySecret(t *testing
 			Namespace: hetznerCluster.Namespace,
 		},
 		Data: map[string][]byte{
-			"hcloud":         []byte("my-token"),
-			"robot-user":     []byte("my-user"),
-			"robot-password": []byte("my-password"),
+			"hcloud":                []byte("my-token"),
+			"custom-robot-user":     []byte("my-user"),
+			"custom-robot-password": []byte("my-password"),
 		},
 	}
 
@@ -524,9 +534,17 @@ func TestReconcileAllWorkloadClusterSecretsCreatesCompatibilitySecret(t *testing
 		case "hetzner":
 			require.Equal(t, "my-token", string(secret.Data["hcloud"]))
 			require.NotContains(t, secret.Data, "token")
+			require.Equal(t, "my-user", string(secret.Data["custom-robot-user"]))
+			require.Equal(t, "my-password", string(secret.Data["custom-robot-password"]))
+			require.NotContains(t, secret.Data, "robot-user")
+			require.NotContains(t, secret.Data, "robot-password")
 		case "hcloud":
 			require.Equal(t, "my-token", string(secret.Data["hcloud"]))
 			require.Equal(t, "my-token", string(secret.Data["token"]))
+			require.Equal(t, "my-user", string(secret.Data["custom-robot-user"]))
+			require.Equal(t, "my-password", string(secret.Data["custom-robot-password"]))
+			require.Equal(t, "my-user", string(secret.Data["robot-user"]))
+			require.Equal(t, "my-password", string(secret.Data["robot-password"]))
 		}
 	}
 }
