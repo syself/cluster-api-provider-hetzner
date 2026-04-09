@@ -2,6 +2,8 @@ apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: HetznerCluster
 metadata:
   name: "${CLUSTER_NAME}"
+  annotations:
+    capi.syself.com/use-hrobot-provider-id-for-baremetal: "true"
 spec:
   hcloudNetwork:
     enabled: true

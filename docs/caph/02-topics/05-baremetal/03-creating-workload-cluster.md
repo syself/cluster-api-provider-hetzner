@@ -13,18 +13,17 @@ Secrets as of now are hardcoded given we are using a flavor which is essentially
 
 {% /callout %}
 
-For bare metal, use the Syself CCM on this branch.
+For bare metal, use the Syself CCM until an upstream release includes [PR fix robot name lookup
+after stale cache miss](https://github.com/hetznercloud/hcloud-cloud-controller-manager/pull/1204),
+which merged on April 9, 2026.
+
+In the long run we (Syself) want to switch from our fork to the upstream CCM.
 
 The CCM is the "Cloud Controller" which runs in the workload-cluster. The most important tasks of the CCM are:
 
 - Set ProviderID on Nodes. This is important, so that CAPI in the mgt-cluster knows which CAPI
   machine (in mgt-cluster) is which Node (in wl-cluster).
 - Creates LoadBalancers
-
-The upstream fix for stale Robot cache misses on bare-metal name lookups merged in
-[hetznercloud/hcloud-cloud-controller-manager#1204](https://github.com/hetznercloud/hcloud-cloud-controller-manager/pull/1204)
-on April 9, 2026, but the latest upstream release is still `v1.30.1` from February 20, 2026. Until
-an upstream release includes that fix, keep using the Syself CCM for bare metal.
 
 The CCM calls the Hetzner APIs. To authenticate, it reads the credentials from a secret. This secret
 has to be in the workload cluster, when the CCM runs in the workload cluster. CAPH creates the
@@ -38,10 +37,11 @@ Important: CAPH and the CCM must both use the same ProviderID format for bare me
 - old: `hcloud://bm-NNNN`
 - new: `hrobot://NNNN`
 
-The Syself CCM uses the old format by default. The upstream HCloud CCM uses the new format.
+The upstream HCloud CCM uses the new format. Our default templates keep the annotation enabled and
+therefore use the new format for bare metal.
 
 If you use the new format, set the annotation `capi.syself.com/use-hrobot-provider-id-for-baremetal`
-to `"true"` on the `HetznerCluster`.
+to `"true"` on the `HetznerCluster`. Our default templates have this annotation set.
 
 If CAPH and the CCM do not agree on the ProviderID format, then new nodes will not be able to join
 the cluster, because CAPI waits for the wrong ProviderID.
@@ -121,8 +121,8 @@ helm upgrade --install ccm syself/ccm-hetzner --version 2.0.6 \
              --kubeconfig workload-kubeconfig
 ```
 
-Be sure that the HetznerCluster does not have the annotation
-`capi.syself.com/use-hrobot-provider-id-for-baremetal`.
+Be sure that the HetznerCluster has the annotation
+`capi.syself.com/use-hrobot-provider-id-for-baremetal: "true"`.
 
 ---
 
