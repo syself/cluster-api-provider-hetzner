@@ -547,17 +547,22 @@ func workloadClusterSecretNames(secretName string) []string {
 	return names
 }
 
-// workloadClusterCompatibilityKeys keeps the configured key for every secret and
-// only adds the upstream-compatible alias when reconciling the compatibility
-// secret named "hcloud".
+// workloadClusterCompatibilityKeys returns the configured key for every secret.
+// When reconciling the secret named "hcloud", it also returns the compatibility
+// key unless it matches the configured key.
 func workloadClusterCompatibilityKeys(secretName, configuredKey, compatibilityKey string) []string {
-	keys := []string{configuredKey}
-
-	if secretName == "hcloud" && configuredKey != compatibilityKey {
-		keys = append(keys, compatibilityKey)
+	if secretName != "hcloud" {
+		// Only the secret named "hcloud" gets the compatibility key.
+		return []string{configuredKey}
 	}
 
-	return keys
+	if configuredKey == compatibilityKey {
+		// Avoid duplicating the key when it already matches the compatibility key.
+		return []string{configuredKey}
+	}
+
+	// The compatibility secret exposes both the configured key and the compatibility key.
+	return []string{configuredKey, compatibilityKey}
 }
 
 func reconcileAllWorkloadClusterSecrets(ctx context.Context, clusterScope *scope.ClusterScope, wlClient client.Client) error {
