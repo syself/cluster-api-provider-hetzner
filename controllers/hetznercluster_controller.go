@@ -630,22 +630,6 @@ func reconcileOneWorkloadClusterSecret(ctx context.Context, clusterScope *scope.
 		wlSecret.Data["apiserver-host"] = []byte(clusterScope.HetznerCluster.Spec.ControlPlaneEndpoint.Host)
 		wlSecret.Data["apiserver-port"] = []byte(strconv.Itoa(int(clusterScope.HetznerCluster.Spec.ControlPlaneEndpoint.Port)))
 
-		notes := []string{
-			"This secret gets reconciled by Cluster API Provider Hetzner.",
-		}
-
-		if clusterScope.HetznerCluster.Spec.HetznerSecret.Name != "hcloud" {
-			notes = append(notes, fmt.Sprintf("We recommend to use 'hcloud' for hetznercluster.spec.hetznerSecret.name (not %q). CAPH also creates a workload-cluster secret named 'hcloud' for upstream compatibility.",
-				clusterScope.HetznerCluster.Spec.HetznerSecret.Name))
-		}
-
-		if clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken != "token" {
-			notes = append(notes, fmt.Sprintf("We recommend to use 'token' for hetznercluster.spec.hetznerSecret.key.hcloudToken (not %q).", clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken))
-		}
-
-		// Make things more obvious for people new to caph:
-		wlSecret.Data["note"] = []byte(strings.Join(notes, " "))
-
 		return nil
 	})
 	if err != nil {
