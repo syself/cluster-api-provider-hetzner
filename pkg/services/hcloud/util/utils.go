@@ -23,9 +23,11 @@ import (
 	"strings"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/conditions/v1beta2"
 	"sigs.k8s.io/cluster-api/util/record"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -89,6 +91,14 @@ func HandleRateLimitExceeded(obj runtimeObjectWithConditions, err error, functio
 			"%s",
 			msg,
 		)
+		if hcloudMachine, ok := obj.(*infrav1.HCloudMachine); ok {
+			v1beta2conditions.Set(hcloudMachine, metav1.Condition{
+				Type:    infrav1.HCloudMachineHetznerAPIReachableV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav1.HCloudMachineHetznerAPIRateLimitExceededV1Beta2Reason,
+				Message: msg,
+			})
+		}
 		record.Warnf(obj, "RateLimitExceeded", msg)
 		return true
 	}

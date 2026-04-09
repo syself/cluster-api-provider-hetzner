@@ -30,6 +30,7 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/conditions/v1beta2"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -98,10 +99,16 @@ type MachineScope struct {
 	SSHClientFactory sshclient.Factory
 }
 
-// Close closes the current scope persisting the cluster configuration and status.
+// Close closes the current scope persisting the machine configuration and status.
 func (m *MachineScope) Close(ctx context.Context) error {
 	conditions.SetSummary(m.HCloudMachine)
-	return m.patchHelper.Patch(ctx, m.HCloudMachine)
+	if err := SetHCloudMachineV1Beta2SummaryCondition(m.HCloudMachine); err != nil {
+		return fmt.Errorf("failed to set %s condition: %w", infrav1.HCloudMachineReadyV1Beta2Condition, err)
+	}
+
+	return m.patchHelper.Patch(ctx, m.HCloudMachine,
+		patch.WithOwnedV1Beta2Conditions{Conditions: infrav1.HCloudMachineV1Beta2OwnedConditions()},
+	)
 }
 
 // IsControlPlane returns true if the machine is a control plane.
@@ -120,8 +127,36 @@ func (m *MachineScope) Namespace() string {
 }
 
 // PatchObject persists the machine spec and status.
-func (m *MachineScope) PatchObject(ctx context.Context) error {
-	return m.patchHelper.Patch(ctx, m.HCloudMachine)
+func (m *MachineScope) PatchObject(ctx context.Context, opts ...patch.Option) error {
+	return m.patchHelper.Patch(ctx, m.HCloudMachine, opts...)
+}
+
+// SetHCloudMachineV1Beta2SummaryCondition computes the HCloudMachine v1beta2 Ready condition.
+func SetHCloudMachineV1Beta2SummaryCondition(hcloudMachine *infrav1.HCloudMachine) error {
+	return v1beta2conditions.SetSummaryCondition(hcloudMachine, hcloudMachine, infrav1.HCloudMachineReadyV1Beta2Condition,
+		v1beta2conditions.ForConditionTypes(infrav1.HCloudMachineV1Beta2SummaryConditionTypes()),
+		v1beta2conditions.NegativePolarityConditionTypes{
+			infrav1.HCloudMachineDeletingV1Beta2Condition,
+		},
+		v1beta2conditions.IgnoreTypesIfMissing{
+			infrav1.HCloudMachineBootstrapReadyV1Beta2Condition,
+			infrav1.HCloudMachineServerCreatedV1Beta2Condition,
+			infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+			infrav1.HCloudMachineHetznerAPIReachableV1Beta2Condition,
+		},
+		v1beta2conditions.CustomMergeStrategy{
+			MergeStrategy: v1beta2conditions.DefaultMergeStrategy(
+				v1beta2conditions.GetPriorityFunc(v1beta2conditions.GetDefaultMergePriorityFunc(
+					infrav1.HCloudMachineDeletingV1Beta2Condition,
+				)),
+				v1beta2conditions.ComputeReasonFunc(v1beta2conditions.GetDefaultComputeMergeReasonFunc(
+					infrav1.HCloudMachineNotReadyV1Beta2Reason,
+					infrav1.HCloudMachineReadyUnknownV1Beta2Reason,
+					infrav1.HCloudMachineReadyV1Beta2Reason,
+				)),
+			),
+		},
+	)
 }
 
 // SetErrorAndRemediate sets "cluster.x-k8s.io/remediate-machine" annotation on the corresponding

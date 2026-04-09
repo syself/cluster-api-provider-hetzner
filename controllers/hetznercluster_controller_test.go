@@ -33,6 +33,7 @@ import (
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/conditions/v1beta2"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -1472,6 +1473,18 @@ var _ = Describe("reconcileRateLimit", func() {
 		conditionList := hetznerCluster.GetConditions()
 		conditionList[0].LastTransitionTime = metav1.NewTime(time.Now().Add(-time.Hour))
 		Expect(reconcileRateLimit(hetznerCluster, testEnv.RateLimitWaitTime)).To(BeFalse())
+	})
+
+	It("sets v1beta2 HetznerAPIReachable condition on HCloudMachine when wait is over", func() {
+		hcloudMachine := &infrav1.HCloudMachine{}
+		conditions.MarkFalse(hcloudMachine, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason, clusterv1.ConditionSeverityWarning, "")
+		conditionList := hcloudMachine.GetConditions()
+		conditionList[0].LastTransitionTime = metav1.NewTime(time.Now().Add(-time.Hour))
+		Expect(reconcileRateLimit(hcloudMachine, testEnv.RateLimitWaitTime)).To(BeFalse())
+		Expect(v1beta2conditions.Has(hcloudMachine, infrav1.HCloudMachineHetznerAPIReachableV1Beta2Condition)).To(BeTrue())
+		c := v1beta2conditions.Get(hcloudMachine, infrav1.HCloudMachineHetznerAPIReachableV1Beta2Condition)
+		Expect(c.Status).To(Equal(metav1.ConditionTrue))
+		Expect(c.Reason).To(Equal(infrav1.HCloudMachineHetznerAPIReachableV1Beta2Reason))
 	})
 
 	It("returns wait==false if rate limit condition is set to true", func() {

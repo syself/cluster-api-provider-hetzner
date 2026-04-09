@@ -255,3 +255,108 @@ const (
 	// RebootSucceededCondition indicates that the machine got rebooted successfully.
 	RebootSucceededCondition clusterv1.ConditionType = "RebootSucceeded"
 )
+
+// HCloudMachine v1beta2 conditions and reasons.
+const (
+	// HCloudMachineReadyV1Beta2Condition summarizes the readiness of the HCloudMachine.
+	HCloudMachineReadyV1Beta2Condition = clusterv1.ReadyV1Beta2Condition
+	// HCloudMachineReadyV1Beta2Reason surfaces when the HCloudMachine is ready.
+	HCloudMachineReadyV1Beta2Reason = clusterv1.ReadyV1Beta2Reason
+	// HCloudMachineNotReadyV1Beta2Reason surfaces when the HCloudMachine is not ready.
+	HCloudMachineNotReadyV1Beta2Reason = clusterv1.NotReadyV1Beta2Reason
+	// HCloudMachineReadyUnknownV1Beta2Reason surfaces when the HCloudMachine readiness is unknown.
+	HCloudMachineReadyUnknownV1Beta2Reason = clusterv1.ReadyUnknownV1Beta2Reason
+)
+
+const (
+	// HCloudMachineHCloudTokenAvailableV1Beta2Condition reports on whether the HCloud token is available.
+	HCloudMachineHCloudTokenAvailableV1Beta2Condition = "HCloudTokenAvailable"
+	// HCloudMachineTokenAvailableV1Beta2Reason surfaces when the HCloud token is available.
+	HCloudMachineTokenAvailableV1Beta2Reason = "TokenAvailable"
+	// HCloudMachineTokenSecretUnreachableV1Beta2Reason surfaces when the Hetzner secret cannot be reached.
+	HCloudMachineTokenSecretUnreachableV1Beta2Reason = "SecretUnreachable"
+	// HCloudMachineTokenInvalidV1Beta2Reason surfaces when the HCloud token is invalid.
+	HCloudMachineTokenInvalidV1Beta2Reason = "CredentialsInvalid"
+)
+
+const (
+	// HCloudMachineBootstrapReadyV1Beta2Condition reports on whether bootstrap data is ready.
+	HCloudMachineBootstrapReadyV1Beta2Condition = "BootstrapReady"
+	// HCloudMachineBootstrapReadyV1Beta2Reason surfaces when bootstrap data is ready.
+	HCloudMachineBootstrapReadyV1Beta2Reason = "BootstrapReady"
+	// HCloudMachineBootstrapNotReadyV1Beta2Reason surfaces when bootstrap data is not ready yet.
+	HCloudMachineBootstrapNotReadyV1Beta2Reason = clusterv1.WaitingForBootstrapDataV1Beta2Reason
+)
+
+const (
+	// HCloudMachineServerCreatedV1Beta2Condition reports on whether the HCloud server was created.
+	HCloudMachineServerCreatedV1Beta2Condition = "ServerCreated"
+	// HCloudMachineServerCreatedV1Beta2Reason surfaces when the HCloud server is provisioned.
+	HCloudMachineServerCreatedV1Beta2Reason = clusterv1.ProvisionedV1Beta2Reason
+	// HCloudMachineServerNotCreatedV1Beta2Reason surfaces when the HCloud server is not provisioned.
+	HCloudMachineServerNotCreatedV1Beta2Reason = clusterv1.NotProvisionedV1Beta2Reason
+	// HCloudMachineServerCreateFailedIrrecoverableV1Beta2Reason surfaces an irrecoverable create failure.
+	HCloudMachineServerCreateFailedIrrecoverableV1Beta2Reason = "CreateFailedIrrecoverable"
+)
+
+const (
+	// HCloudMachineServerAvailableV1Beta2Condition reports on whether the HCloud server is available.
+	HCloudMachineServerAvailableV1Beta2Condition = "ServerAvailable"
+	// HCloudMachineServerAvailableV1Beta2Reason surfaces when the HCloud server is available.
+	HCloudMachineServerAvailableV1Beta2Reason = clusterv1.AvailableV1Beta2Reason
+	// HCloudMachineServerNotAvailableV1Beta2Reason surfaces when the HCloud server is not available.
+	HCloudMachineServerNotAvailableV1Beta2Reason = clusterv1.NotAvailableV1Beta2Reason
+	// HCloudMachineServerStartingV1Beta2Reason surfaces when the HCloud server is still starting.
+	HCloudMachineServerStartingV1Beta2Reason = "Starting"
+	// HCloudMachineServerNotFoundV1Beta2Reason surfaces when the HCloud server cannot be found.
+	HCloudMachineServerNotFoundV1Beta2Reason = "ServerNotFound"
+	// HCloudMachineNetworkAttachFailedV1Beta2Reason surfaces a network attachment failure.
+	HCloudMachineNetworkAttachFailedV1Beta2Reason = "NetworkAttachFailed"
+	// HCloudMachineLoadBalancerAttachFailedV1Beta2Reason surfaces a load balancer attachment failure.
+	HCloudMachineLoadBalancerAttachFailedV1Beta2Reason = "LoadBalancerAttachFailed"
+)
+
+const (
+	// HCloudMachineDeletingV1Beta2Condition reports on HCloudMachine deletion progress.
+	HCloudMachineDeletingV1Beta2Condition = clusterv1.DeletingV1Beta2Condition
+	// HCloudMachineDeletingV1Beta2Reason surfaces when the HCloudMachine is deleting.
+	HCloudMachineDeletingV1Beta2Reason = clusterv1.DeletingV1Beta2Reason
+	// HCloudMachineNotDeletingV1Beta2Reason surfaces when the HCloudMachine is not deleting.
+	HCloudMachineNotDeletingV1Beta2Reason = clusterv1.NotDeletingV1Beta2Reason
+)
+
+const (
+	// HCloudMachineHetznerAPIReachableV1Beta2Condition reports whether the Hetzner API is reachable for the HCloudMachine.
+	HCloudMachineHetznerAPIReachableV1Beta2Condition = "HetznerAPIReachable"
+	// HCloudMachineHetznerAPIReachableV1Beta2Reason surfaces when the Hetzner API is reachable.
+	HCloudMachineHetznerAPIReachableV1Beta2Reason = "Reachable"
+	// HCloudMachineHetznerAPIRateLimitExceededV1Beta2Reason surfaces when requests hit the Hetzner API rate limit.
+	HCloudMachineHetznerAPIRateLimitExceededV1Beta2Reason = "RateLimitExceeded"
+)
+
+// HCloudMachineV1Beta2OwnedConditions returns a fresh copy of the v1beta2 conditions
+// owned by the HCloudMachine controller.
+func HCloudMachineV1Beta2OwnedConditions() []string {
+	return []string{
+		HCloudMachineReadyV1Beta2Condition,
+		HCloudMachineHCloudTokenAvailableV1Beta2Condition,
+		HCloudMachineBootstrapReadyV1Beta2Condition,
+		HCloudMachineServerCreatedV1Beta2Condition,
+		HCloudMachineServerAvailableV1Beta2Condition,
+		HCloudMachineDeletingV1Beta2Condition,
+		HCloudMachineHetznerAPIReachableV1Beta2Condition,
+	}
+}
+
+// HCloudMachineV1Beta2SummaryConditionTypes returns the condition types used for computing
+// the Ready summary condition (all owned conditions except Ready itself).
+func HCloudMachineV1Beta2SummaryConditionTypes() []string {
+	owned := HCloudMachineV1Beta2OwnedConditions()
+	types := make([]string, 0, len(owned)-1)
+	for _, c := range owned {
+		if c != HCloudMachineReadyV1Beta2Condition {
+			types = append(types, c)
+		}
+	}
+	return types
+}

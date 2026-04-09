@@ -150,6 +150,10 @@ type HCloudMachineStatus struct {
 	// +optional
 	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
 
+	// v1beta2 groups all the fields that will be added or modified in HCloudMachine's status with the V1Beta2 version.
+	// +optional
+	V1Beta2 *HCloudMachineV1Beta2Status `json:"v1beta2,omitempty"`
+
 	// BootState indicates the current state during provisioning.
 	//
 	// If Spec.ImageName is set the states will be:
@@ -174,6 +178,16 @@ type HCloudMachineStatus struct {
 
 	// ExternalIDs contains temporary data during the provisioning process
 	ExternalIDs HCloudMachineStatusExternalIDs `json:"externalIDs,omitempty"`
+}
+
+// HCloudMachineV1Beta2Status groups all the fields that will be added or modified in HCloudMachineStatus with the V1Beta2 version.
+type HCloudMachineV1Beta2Status struct {
+	// conditions represents the observations of a HCloudMachine's current state.
+	// Known condition types are Ready, HCloudTokenAvailable, BootstrapReady, ServerCreated, ServerAvailable, Deleting and HetznerAPIReachable.
+	// +optional
+	// +listType=map
+	// +listMapKey=type
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // HCloudMachineStatusExternalIDs holds temporary data during the provisioning process.
@@ -211,6 +225,22 @@ func (r *HCloudMachine) GetConditions() clusterv1.Conditions {
 // SetConditions sets the underlying service state of the HCloudMachine to the predescribed clusterv1.Conditions.
 func (r *HCloudMachine) SetConditions(conditions clusterv1.Conditions) {
 	r.Status.Conditions = conditions
+}
+
+// GetV1Beta2Conditions returns the observations of the operational state of the HCloudMachine resource.
+func (r *HCloudMachine) GetV1Beta2Conditions() []metav1.Condition {
+	if r.Status.V1Beta2 == nil {
+		return nil
+	}
+	return r.Status.V1Beta2.Conditions
+}
+
+// SetV1Beta2Conditions sets the underlying v1beta2 service state of the HCloudMachine.
+func (r *HCloudMachine) SetV1Beta2Conditions(conditions []metav1.Condition) {
+	if r.Status.V1Beta2 == nil {
+		r.Status.V1Beta2 = &HCloudMachineV1Beta2Status{}
+	}
+	r.Status.V1Beta2.Conditions = conditions
 }
 
 // SetBootState sets Status.BootStates and updates Status.BootStateSince.

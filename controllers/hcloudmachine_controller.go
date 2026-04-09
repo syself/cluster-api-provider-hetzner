@@ -27,12 +27,15 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
 	"sigs.k8s.io/cluster-api/util/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/conditions/v1beta2"
+	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -232,6 +235,25 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 		}
 	}()
 
+	if !hcloudMachine.DeletionTimestamp.IsZero() {
+		v1beta2conditions.Set(hcloudMachine, metav1.Condition{
+			Type:   infrav1.HCloudMachineDeletingV1Beta2Condition,
+			Status: metav1.ConditionTrue,
+			Reason: infrav1.HCloudMachineDeletingV1Beta2Reason,
+		})
+		v1beta2conditions.Set(hcloudMachine, metav1.Condition{
+			Type:   infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+			Status: metav1.ConditionFalse,
+			Reason: infrav1.HCloudMachineDeletingV1Beta2Reason,
+		})
+	} else {
+		v1beta2conditions.Set(hcloudMachine, metav1.Condition{
+			Type:   infrav1.HCloudMachineDeletingV1Beta2Condition,
+			Status: metav1.ConditionFalse,
+			Reason: infrav1.HCloudMachineNotDeletingV1Beta2Reason,
+		})
+	}
+
 	// Check whether rate limit has been reached and if so, then wait.
 	if wait := reconcileRateLimit(hcloudMachine, r.RateLimitWaitTime); wait {
 		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
@@ -277,7 +299,9 @@ func (r *HCloudMachineReconciler) reconcileNormal(ctx context.Context, machineSc
 	controllerutil.RemoveFinalizer(machineScope.HCloudMachine, infrav1.DeprecatedHCloudMachineFinalizer)
 
 	// Register the finalizer immediately to avoid orphaning HCloud resources on delete.
-	if err := machineScope.PatchObject(ctx); err != nil {
+	if err := machineScope.PatchObject(ctx,
+		patch.WithOwnedV1Beta2Conditions{Conditions: infrav1.HCloudMachineV1Beta2OwnedConditions()},
+	); err != nil {
 		return reconcile.Result{}, err
 	}
 

@@ -35,6 +35,7 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/conditions/v1beta2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -287,8 +288,10 @@ var _ = Describe("Test handleRateLimit", func() {
 			}
 			if tc.expectCondition {
 				Expect(isPresentAndFalseWithReason(tc.hm, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason)).To(BeTrue())
+				Expect(isPresentAndFalseWithReasonV1Beta2(tc.hm, infrav1.HCloudMachineHetznerAPIReachableV1Beta2Condition, infrav1.HCloudMachineHetznerAPIRateLimitExceededV1Beta2Reason)).To(BeTrue())
 			} else {
 				Expect(conditions.Get(tc.hm, infrav1.HetznerAPIReachableCondition)).To(BeNil())
+				Expect(v1beta2conditions.Get(tc.hm, infrav1.HCloudMachineHetznerAPIReachableV1Beta2Condition)).To(BeNil())
 			}
 		},
 		Entry("machine not ready, rate limit exceeded error", testCaseHandleRateLimit{
@@ -871,6 +874,11 @@ var _ = Describe("Reconcile", func() {
 
 		By("ensuring the BootstrapReady condition is marked as false")
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.BootstrapReadyCondition, infrav1.BootstrapNotReadyReason)).To(BeTrue())
+
+		By("ensuring the v1beta2 BootstrapReady and Ready conditions are false")
+		Expect(isPresentAndFalseWithReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudMachineBootstrapReadyV1Beta2Condition, infrav1.HCloudMachineBootstrapNotReadyV1Beta2Reason)).To(BeTrue())
+		Expect(scope.SetHCloudMachineV1Beta2SummaryCondition(service.scope.HCloudMachine)).To(Succeed())
+		Expect(isPresentAndFalseWithReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudMachineReadyV1Beta2Condition, infrav1.HCloudMachineNotReadyV1Beta2Reason)).To(BeTrue())
 	})
 
 	It("sets the region in status of hcloudMachine, by fetching the failure domain from cluster.status if machine.spec.failureDomain is empty", func() {
@@ -1212,6 +1220,9 @@ var _ = Describe("Reconcile", func() {
 
 		By("ensuring condition HCloudCredentialsInvalid is set")
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason)).To(BeTrue())
+		Expect(isPresentAndFalseWithReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudMachineHCloudTokenAvailableV1Beta2Condition, infrav1.HCloudMachineTokenInvalidV1Beta2Reason)).To(BeTrue())
+		Expect(scope.SetHCloudMachineV1Beta2SummaryCondition(service.scope.HCloudMachine)).To(Succeed())
+		Expect(isPresentAndFalseWithReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudMachineReadyV1Beta2Condition, infrav1.HCloudMachineNotReadyV1Beta2Reason)).To(BeTrue())
 
 		// Ensure that the HCloudCredentialsInvalid condition persists even when we hit rate-limit on Hetzner.
 		By("making hcloud client return a rate-limit error on GetServerType API call")
@@ -1226,7 +1237,9 @@ var _ = Describe("Reconcile", func() {
 
 		By("ensuring conditions HCloudCredentialsInvalid and RateLimitExceeded are set")
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason)).To(BeTrue())
+		Expect(isPresentAndFalseWithReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudMachineHCloudTokenAvailableV1Beta2Condition, infrav1.HCloudMachineTokenInvalidV1Beta2Reason)).To(BeTrue())
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason)).To(BeTrue())
+		Expect(isPresentAndFalseWithReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudMachineHetznerAPIReachableV1Beta2Condition, infrav1.HCloudMachineHetznerAPIRateLimitExceededV1Beta2Reason)).To(BeTrue())
 	})
 
 	It("requeues for 5 minutes when server creation is not possible while creating a server", func() {
@@ -1283,6 +1296,9 @@ var _ = Describe("Reconcile", func() {
 
 		By("ensuring condition HCloudCredentialsInvalid is set")
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason)).To(BeTrue())
+		Expect(isPresentAndFalseWithReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudMachineHCloudTokenAvailableV1Beta2Condition, infrav1.HCloudMachineTokenInvalidV1Beta2Reason)).To(BeTrue())
+		Expect(scope.SetHCloudMachineV1Beta2SummaryCondition(service.scope.HCloudMachine)).To(Succeed())
+		Expect(isPresentAndFalseWithReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudMachineReadyV1Beta2Condition, infrav1.HCloudMachineNotReadyV1Beta2Reason)).To(BeTrue())
 
 		// Ensure that the HCloudCredentialsInvalid condition persists even when we hit rate-limit on Hetzner.
 		By("making hcloud client return a rate-limit error on GetServer API call")
@@ -1298,7 +1314,9 @@ var _ = Describe("Reconcile", func() {
 
 		By("ensuring conditions HCloudCredentialsInvalid and RateLimitExceeded are set")
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason)).To(BeTrue())
+		Expect(isPresentAndFalseWithReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudMachineHCloudTokenAvailableV1Beta2Condition, infrav1.HCloudMachineTokenInvalidV1Beta2Reason)).To(BeTrue())
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason)).To(BeTrue())
+		Expect(isPresentAndFalseWithReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudMachineHetznerAPIReachableV1Beta2Condition, infrav1.HCloudMachineHetznerAPIRateLimitExceededV1Beta2Reason)).To(BeTrue())
 	})
 })
 
@@ -1308,5 +1326,14 @@ func isPresentAndFalseWithReason(getter conditions.Getter, condition clusterv1.C
 	}
 	objectCondition := conditions.Get(getter, condition)
 	return objectCondition.Status == corev1.ConditionFalse &&
+		objectCondition.Reason == reason
+}
+
+func isPresentAndFalseWithReasonV1Beta2(getter v1beta2conditions.Getter, condition string, reason string) bool {
+	if !v1beta2conditions.Has(getter, condition) {
+		return false
+	}
+	objectCondition := v1beta2conditions.Get(getter, condition)
+	return objectCondition.Status == metav1.ConditionFalse &&
 		objectCondition.Reason == reason
 }

@@ -36,6 +36,7 @@ import (
 	"k8s.io/kubectl/pkg/scheme"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/conditions/v1beta2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -430,6 +431,36 @@ func isPresentAndTrue(key types.NamespacedName, getter conditions.Getter, condit
 	}
 	objectCondition := conditions.Get(getter, condition)
 	return objectCondition.Status == corev1.ConditionTrue
+}
+
+func isPresentAndFalseWithReasonV1Beta2(key types.NamespacedName, getter client.Object, condition string, reason string) bool {
+	err := testEnv.Get(ctx, key, getter)
+	if err != nil {
+		return false
+	}
+
+	v1beta2Getter, ok := getter.(v1beta2conditions.Getter)
+	if !ok || !v1beta2conditions.Has(v1beta2Getter, condition) {
+		return false
+	}
+	objectCondition := v1beta2conditions.Get(v1beta2Getter, condition)
+	return objectCondition.Status == metav1.ConditionFalse &&
+		objectCondition.Reason == reason
+}
+
+func isPresentAndTrueV1Beta2(key types.NamespacedName, getter client.Object, condition string, reason string) bool {
+	err := testEnv.Get(ctx, key, getter)
+	if err != nil {
+		return false
+	}
+
+	v1beta2Getter, ok := getter.(v1beta2conditions.Getter)
+	if !ok || !v1beta2conditions.Has(v1beta2Getter, condition) {
+		return false
+	}
+	objectCondition := v1beta2conditions.Get(v1beta2Getter, condition)
+	return objectCondition.Status == metav1.ConditionTrue &&
+		objectCondition.Reason == reason
 }
 
 func hasEvent(ctx context.Context, c client.Client, namespace, involvedObjectName, reason, message string) bool {

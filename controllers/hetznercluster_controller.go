@@ -42,6 +42,7 @@ import (
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
 	"sigs.k8s.io/cluster-api/util/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/conditions/v1beta2"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -407,6 +408,14 @@ func reconcileRateLimit(setter conditions.Setter, rateLimitWaitTime time.Duratio
 		}
 		// Wait time is over, we continue
 		conditions.MarkTrue(setter, infrav1.HetznerAPIReachableCondition)
+		if hcloudMachine, ok := setter.(*infrav1.HCloudMachine); ok {
+			v1beta2conditions.Set(hcloudMachine, metav1.Condition{
+				Type:    infrav1.HCloudMachineHetznerAPIReachableV1Beta2Condition,
+				Status:  metav1.ConditionTrue,
+				Reason:  infrav1.HCloudMachineHetznerAPIReachableV1Beta2Reason,
+				Message: "rate limit wait time is over",
+			})
+		}
 	}
 	return false
 }
@@ -446,6 +455,7 @@ func hcloudTokenErrorResult(
 	client client.Client,
 ) (ctrl.Result, error) {
 	res := ctrl.Result{}
+	var v1beta2Reason string
 	switch inerr.(type) {
 	// In the event that the reference to the secret is defined, but we cannot find it
 	// we requeue the host as we will not know if they create the secret
@@ -457,6 +467,7 @@ func hcloudTokenErrorResult(
 			clusterv1.ConditionSeverityError,
 			"could not find HetznerSecret",
 		)
+		v1beta2Reason = infrav1.HCloudMachineTokenSecretUnreachableV1Beta2Reason
 		res = ctrl.Result{RequeueAfter: secretErrorRetryDelay}
 		inerr = nil
 
@@ -468,6 +479,7 @@ func hcloudTokenErrorResult(
 			clusterv1.ConditionSeverityError,
 			"invalid or not specified hcloud token in Hetzner secret",
 		)
+		v1beta2Reason = infrav1.HCloudMachineTokenInvalidV1Beta2Reason
 
 	default:
 		conditions.MarkFalse(setter,
@@ -480,6 +492,35 @@ func hcloudTokenErrorResult(
 		return reconcile.Result{}, fmt.Errorf("an unhandled failure occurred with the Hetzner secret: %w", inerr)
 	}
 	conditions.SetSummary(setter)
+	if hcloudMachine, ok := setter.(*infrav1.HCloudMachine); ok {
+		v1beta2conditions.Set(hcloudMachine, metav1.Condition{
+			Type:    infrav1.HCloudMachineHCloudTokenAvailableV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  v1beta2Reason,
+			Message: conditions.GetMessage(hcloudMachine, infrav1.HCloudTokenAvailableCondition),
+		})
+		if !hcloudMachine.DeletionTimestamp.IsZero() {
+			v1beta2conditions.Set(hcloudMachine, metav1.Condition{
+				Type:   infrav1.HCloudMachineDeletingV1Beta2Condition,
+				Status: metav1.ConditionTrue,
+				Reason: infrav1.HCloudMachineDeletingV1Beta2Reason,
+			})
+			v1beta2conditions.Set(hcloudMachine, metav1.Condition{
+				Type:   infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+				Status: metav1.ConditionFalse,
+				Reason: infrav1.HCloudMachineDeletingV1Beta2Reason,
+			})
+		} else {
+			v1beta2conditions.Set(hcloudMachine, metav1.Condition{
+				Type:   infrav1.HCloudMachineDeletingV1Beta2Condition,
+				Status: metav1.ConditionFalse,
+				Reason: infrav1.HCloudMachineNotDeletingV1Beta2Reason,
+			})
+		}
+		if err := scope.SetHCloudMachineV1Beta2SummaryCondition(hcloudMachine); err != nil {
+			return reconcile.Result{}, fmt.Errorf("hcloudTokenErrorResult: failed to set HCloudMachine v1beta2 summary: %w", err)
+		}
+	}
 	if err := client.Status().Update(ctx, setter); err != nil {
 		return reconcile.Result{}, fmt.Errorf("hcloudTokenErrorResult: failed to update: %w", err)
 	}
