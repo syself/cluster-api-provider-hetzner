@@ -55,9 +55,6 @@ import (
 // TODO: Implement logic for removal of unpaid servers.
 
 const (
-	// providerIDPrefix is a prefix for ProviderID.
-	providerIDPrefix = "hcloud://"
-
 	// requeueAfter gives the duration of time until the next reconciliation should be performed.
 	requeueAfter = time.Second * 30
 
@@ -65,6 +62,12 @@ const (
 
 	// FailureMessageMaintenanceMode indicates that host is in maintenance mode.
 	FailureMessageMaintenanceMode = "host machine in maintenance mode"
+
+	// prefixRobotLegacy is the prefix used by the Syself ccm.
+	prefixRobotLegacy = "hcloud://bm-"
+
+	// prefixRobotNew is the prefix used by the HCloud ccm.
+	prefixRobotNew = "hrobot://"
 )
 
 // Service defines struct with machine scope to reconcile HetznerBareMetalMachines.
@@ -689,9 +692,7 @@ func (s *Service) setProviderID(ctx context.Context) error {
 		// no need for requeue error since host update will trigger a reconciliation
 		return nil
 	}
-
-	// set providerID
-	providerID := providerIDFromServerID(host.Spec.ServerID)
+	providerID := generateProviderID(s.scope.HetznerCluster, host.Spec.ServerID)
 	s.scope.BareMetalMachine.Spec.ProviderID = &providerID
 	s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhaseRunning
 
@@ -900,10 +901,6 @@ func checkForRequeueError(err error, errMessage string) (res reconcile.Result, r
 	return reconcile.Result{}, fmt.Errorf("%s: %w", errMessage, err)
 }
 
-func providerIDFromServerID(serverID int) string {
-	return fmt.Sprintf("%s%s%d", providerIDPrefix, infrav1.BareMetalHostNamePrefix, serverID)
-}
-
 func analyzePatchError(err error, ignoreNotFound bool) error {
 	if apierrors.IsConflict(err) {
 		return &scope.RequeueAfterError{}
@@ -912,4 +909,16 @@ func analyzePatchError(err error, ignoreNotFound bool) error {
 		return nil
 	}
 	return err
+}
+
+// generateProviderID returns the providerID for the given machine. It uses the old format
+// (hcloud://bm-NNNN) by default. If the annotation
+// `capi.syself.com/use-hrobot-provider-id-for-baremetal` on the HetznerCluster is set to "true"
+// (case-insensitive), then `hrobot://` is used.
+func generateProviderID(hetznerCluster *infrav1.HetznerCluster, serverNumber int) string {
+	annotationValue := strings.TrimSpace(hetznerCluster.Annotations[infrav1.UseHrobotProviderIDForBaremetalAnnotation])
+	if strings.EqualFold(annotationValue, "true") {
+		return fmt.Sprintf("%s%d", prefixRobotNew, serverNumber)
+	}
+	return fmt.Sprintf("%s%d", prefixRobotLegacy, serverNumber)
 }

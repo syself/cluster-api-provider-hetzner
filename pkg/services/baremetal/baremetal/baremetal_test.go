@@ -702,10 +702,6 @@ var _ = Describe("Test ensureClusterLabel", func() {
 	)
 })
 
-var _ = Describe("Test providerIDFromServerID", func() {
-	Expect(providerIDFromServerID(42)).To(Equal("hcloud://bm-42"))
-})
-
 var _ = Describe("Test hostKey", func() {
 	host := &infrav1.HetznerBareMetalHost{}
 	host.Namespace = "namespace"
@@ -797,6 +793,58 @@ var _ = Describe("Test analyzePatchError", func() {
 			ignoreNotFound: false,
 			err:            apierrors.NewConflict(groupResource, "groupResource", fmt.Errorf("conflict error")),
 			expectedErr:    &scope.RequeueAfterError{},
+		}),
+	)
+})
+
+var _ = Describe("Test GenerateProviderID", func() {
+	type testCaseGenerateProviderID struct {
+		hetznerCluster     *infrav1.HetznerCluster
+		serverNumber       int
+		expectedProviderID string
+	}
+
+	newHetznerCluster := func() *infrav1.HetznerCluster {
+		return &infrav1.HetznerCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "test-hetzner-cluster",
+				Annotations: map[string]string{},
+			},
+		}
+	}
+
+	DescribeTable("GenerateProviderID",
+		func(tc testCaseGenerateProviderID) {
+			providerID := generateProviderID(tc.hetznerCluster, tc.serverNumber)
+			Expect(providerID).To(Equal(tc.expectedProviderID))
+		},
+
+		Entry("Defaults to legacy prefix", testCaseGenerateProviderID{
+			hetznerCluster:     newHetznerCluster(),
+			serverNumber:       7,
+			expectedProviderID: "hcloud://bm-7",
+		}),
+		Entry("Uses annotation prefix", testCaseGenerateProviderID{
+			hetznerCluster: func() *infrav1.HetznerCluster {
+				hetznerCluster := newHetznerCluster()
+				hetznerCluster.Annotations = map[string]string{
+					infrav1.UseHrobotProviderIDForBaremetalAnnotation: "true",
+				}
+				return hetznerCluster
+			}(),
+			serverNumber:       11,
+			expectedProviderID: "hrobot://11",
+		}),
+		Entry("Uses legacy prefix for non-true annotation value", testCaseGenerateProviderID{
+			hetznerCluster: func() *infrav1.HetznerCluster {
+				hetznerCluster := newHetznerCluster()
+				hetznerCluster.Annotations = map[string]string{
+					infrav1.UseHrobotProviderIDForBaremetalAnnotation: "invalid",
+				}
+				return hetznerCluster
+			}(),
+			serverNumber:       5,
+			expectedProviderID: "hcloud://bm-5",
 		}),
 	)
 })

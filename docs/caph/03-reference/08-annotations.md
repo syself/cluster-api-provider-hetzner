@@ -62,3 +62,11 @@ You can set [Kubernetes Annotations](https://kubernetes.io/docs/concepts/overvie
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Description** | This annotation is set by the Syself CAPH Controller when a bare-metal machine enters the "permanent error" state. This indicates that human intervention is required (e.g., to fix a broken disk). After the root cause is resolved, the user must remove this annotation to allow the Controller to manage the HetznerBareMetalHost again. |
 | **Auto-Remove** | Disabled: The annotation must be removed by the user.                                                                                                                                                                                                                                                                                        |
+
+### capi.syself.com/use-hrobot-provider-id-for-baremetal
+
+| **Resource**    | [HetznerCluster](/docs/caph/03-reference/02-hetzner-cluster.md)                                                                                                                  |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Description** | When set to `"true"`, then the ProviderID format `hrobot://NNNN` will be used. If not set or empty `hcloud://bm-NNNN` will be used.                                              |
+| **Value**       | `"true"` enables this feature.                                                                                                                                                   |
+| **Auto-Remove** | Disabled: The annotation remains on the resource.                                                                                                                                |

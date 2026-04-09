@@ -45,15 +45,23 @@ func ProviderIDFromServerID(serverID int) string {
 	return fmt.Sprintf("%s%v", providerIDPrefix, serverID)
 }
 
-// ServerIDFromProviderID returns the serverID from a providerID.
+// ServerIDFromProviderID returns the serverID from a providerID. This is used for hcloud machines
+// only. The format must be "hcloud://NNN".
 func ServerIDFromProviderID(providerID *string) (int64, error) {
 	if providerID == nil {
 		return 0, ErrNilProviderID
 	}
+
 	stringParts := strings.Split(*providerID, "://")
 	if len(stringParts) != 2 || stringParts[0] == "" || stringParts[1] == "" {
 		return 0, ErrInvalidProviderID
 	}
+
+	// Check that HCloud ProviderID starts with "hcloud"
+	if stringParts[0] != "hcloud" {
+		return 0, ErrInvalidProviderID
+	}
+
 	idString := stringParts[1]
 	id, err := strconv.ParseInt(idString, 10, 64)
 	if err != nil {

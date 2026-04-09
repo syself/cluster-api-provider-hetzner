@@ -90,23 +90,21 @@ You can, of course, also install an alternative CNI, e.g., calico.
 
 ## Deploy the CCM
 
-### Deploy HCloud Cloud Controller Manager - _hcloud only_
+The CCM (Cloud Controller Manager) runs in the workload cluster and integrates Kubernetes with the
+Hetzner APIs. In practice, it is responsible for tasks such as setting the `ProviderID` on nodes
+and managing load balancers.
 
-The following `make` command will install the CCM in your workload cluster:
+You need to install a CCM in this flow so the workload cluster can properly interact with Hetzner
+infrastructure.
+
+### Deploy Syself Cloud Controller Manager
+
+The following `make` command will install the Syself CCM in your workload cluster:
 
 `make install-ccm-in-wl-cluster`
 
-For a cluster without a private network, use the following command:
-
-```shell
-helm repo add hcloud https://charts.hetzner.cloud
-helm repo update hcloud
-
-KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install hccm hcloud/hcloud-cloud-controller-manager \
-        --namespace kube-system \
-        --set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.name=hetzner \
-        --set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.key=hcloud
-```
+For upstream HCloud CCM instructions and bare-metal ProviderID format details, see [Baremetal
+Docs](/docs/caph/02-topics/05-baremetal/03-creating-workload-cluster.md#deploying-the-hetzner-cloud-controller-manager)
 
 ## Deploying the CSI (optional)
 
