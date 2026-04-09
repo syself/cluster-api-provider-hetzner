@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -34,7 +33,6 @@ import (
 	"github.com/syself/hrobot-go/models"
 	"golang.org/x/crypto/ssh"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
@@ -103,8 +101,6 @@ func NewService(s *scope.BareMetalHostScope) *Service {
 func (s *Service) Reconcile(ctx context.Context) (result reconcile.Result, err error) {
 	initialState := s.scope.HetznerBareMetalHost.Spec.Status.ProvisioningState
 
-	oldHost := s.scope.HetznerBareMetalHost.DeepCopy()
-
 	if !s.scope.HetznerBareMetalHost.DeletionTimestamp.IsZero() {
 		conditions.MarkFalse(
 			s.scope.HetznerBareMetalHost,
@@ -116,32 +112,6 @@ func (s *Service) Reconcile(ctx context.Context) (result reconcile.Result, err e
 	}
 
 	hostStateMachine := newHostStateMachine(s.scope.HetznerBareMetalHost, s, s.scope.Logger)
-
-	defer func() {
-		// remove deprecated conditions
-		conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.DeprecatedHetznerBareMetalHostReadyCondition)
-		conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.DeprecatedHostProvisionSucceededCondition)
-		conditions.Delete(s.scope.HetznerBareMetalHost, infrav1.DeprecatedRateLimitExceededCondition)
-		conditions.SetSummary(s.scope.HetznerBareMetalHost)
-
-		// If host has not changed, do not save it.
-		if reflect.DeepEqual(oldHost, s.scope.HetznerBareMetalHost) {
-			return
-		}
-
-		// host has changed, save it.
-		saveResult, saveErr := SaveHostAndReturn(ctx, s.scope.Client, s.scope.HetznerBareMetalHost)
-		err = errors.Join(err, saveErr)
-		if err != nil {
-			// if err is returned, result should be zero.
-			result = reconcile.Result{}
-			return
-		}
-
-		if saveResult.RequeueAfter != 0 {
-			result = saveResult
-		}
-	}()
 
 	// reconcile state
 	actResult := hostStateMachine.ReconcileState(ctx)
@@ -158,22 +128,6 @@ func (s *Service) recordActionFailure(errorType infrav1.ErrorType, errorMessage 
 	s.scope.HetznerBareMetalHost.SetError(errorType, errorMessage)
 	s.scope.Error(errActionFailure, errorMessage, "errorType", errorType)
 	return actionFailed{ErrorType: errorType, errorCount: s.scope.HetznerBareMetalHost.Spec.Status.ErrorCount}
-}
-
-// SaveHostAndReturn saves host object, updates LastUpdated in host status and returns the reconcile Result.
-func SaveHostAndReturn(ctx context.Context, cl client.Client, host *infrav1.HetznerBareMetalHost) (res reconcile.Result, err error) {
-	t := metav1.Now()
-	host.Spec.Status.LastUpdated = &t
-
-	if err := cl.Update(ctx, host); err != nil {
-		if apierrors.IsConflict(err) {
-			logger := ctrl.LoggerFrom(ctx)
-			logger.Info("conflict error. Retrying", "err", err)
-			return reconcile.Result{RequeueAfter: time.Second}, nil
-		}
-		return reconcile.Result{}, fmt.Errorf("failed to update host object: %w", err)
-	}
-	return res, nil
 }
 
 // previous: None

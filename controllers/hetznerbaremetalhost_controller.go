@@ -26,12 +26,14 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/conditions"
+	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -168,10 +170,35 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	// End: avoid conflict errors. Wait until local cache is up-to-date
 	// ----------------------------------------------------------------
 
+	patchHelper, err := patch.NewHelper(bmHost, r)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to init patch helper: %w", err)
+	}
+
 	initialProvisioningState := bmHost.Spec.Status.ProvisioningState
+
 	defer func() {
 		if initialProvisioningState != bmHost.Spec.Status.ProvisioningState {
 			log.Info("Provisioning state changed", "from", initialProvisioningState, "to", bmHost.Spec.Status.ProvisioningState)
+		}
+
+		// Set LastUpdated only if the host actually changed.
+		if !cmp.Equal(initialHost, bmHost) {
+			t := metav1.Now()
+			bmHost.Spec.Status.LastUpdated = &t
+		}
+
+		// remove deprecated conditions.
+		conditions.Delete(bmHost, infrav1.DeprecatedHetznerBareMetalHostReadyCondition)
+		conditions.Delete(bmHost, infrav1.DeprecatedHostProvisionSucceededCondition)
+		conditions.Delete(bmHost, infrav1.DeprecatedRateLimitExceededCondition)
+
+		conditions.SetSummary(bmHost)
+
+		if err := patchHelper.Patch(ctx, bmHost); err != nil {
+			res = reconcile.Result{}
+			reterr = errors.Join(reterr, err)
+			return
 		}
 	}()
 
@@ -179,10 +206,6 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	if bmHost.DeletionTimestamp.IsZero() &&
 		(controllerutil.AddFinalizer(bmHost, infrav1.HetznerBareMetalHostFinalizer) ||
 			controllerutil.RemoveFinalizer(bmHost, infrav1.DeprecatedBareMetalHostFinalizer)) {
-		err := r.Update(ctx, bmHost)
-		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("failed to update finalizer: %w", err)
-		}
 		return ctrl.Result{Requeue: true}, nil
 	}
 
@@ -191,19 +214,12 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	if removed {
 		// The permanent error was removed from Spec.Status.
 		// Save the changes, and then reconcile again.
-		err := r.Update(ctx, bmHost)
-		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("failed to update (after removePermanentErrorIfAnnotationIsGone): %w", err)
-		}
 		return reconcile.Result{Requeue: true}, nil
 	}
 
 	// Certain cases need to be handled here and not later in the host state machine.
 	// If res != nil, then we should return, otherwise not.
-	res, err = r.reconcileSelectedStates(ctx, bmHost)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
+	res = r.reconcileSelectedStates(bmHost)
 	emptyResult := reconcile.Result{}
 	if res != emptyResult {
 		return res, nil
@@ -261,7 +277,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	secretManager := secretutil.NewSecretManager(log, r, r.APIReader)
 	robotCreds, err := getAndValidateRobotCredentials(ctx, req.Namespace, hetznerCluster, secretManager)
 	if err != nil {
-		return hetznerSecretErrorResult(ctx, err, bmHost, r)
+		return hetznerSecretErrorResult(err, bmHost)
 	}
 
 	// Get secrets. Return when result != nil.
@@ -309,39 +325,26 @@ func (r *HetznerBareMetalHostReconciler) reconcile(
 	return result, nil
 }
 
-func (r *HetznerBareMetalHostReconciler) reconcileSelectedStates(ctx context.Context, bmHost *infrav1.HetznerBareMetalHost) (res ctrl.Result, err error) {
+func (r *HetznerBareMetalHostReconciler) reconcileSelectedStates(bmHost *infrav1.HetznerBareMetalHost) ctrl.Result {
 	switch bmHost.Spec.Status.ProvisioningState {
 	// Handle StateNone: check whether needs to be provisioned or deleted.
 	case infrav1.StateNone:
-		var needsUpdate bool
 		if !bmHost.DeletionTimestamp.IsZero() && bmHost.Spec.ConsumerRef == nil {
 			bmHost.Spec.Status.ProvisioningState = infrav1.StateDeleting
-			needsUpdate = true
 		} else if bmHost.NeedsProvisioning() {
 			bmHost.Spec.Status.ProvisioningState = infrav1.StatePreparing
-			needsUpdate = true
-		}
-		if needsUpdate {
-			err := r.Update(ctx, bmHost)
-			if err != nil {
-				return reconcile.Result{}, fmt.Errorf("Update() failed after setting ProvisioningState: %w", err)
-			}
 		}
 
-		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
+		return ctrl.Result{RequeueAfter: 10 * time.Second}
 
 	// Handle StateDeleting
 	case infrav1.StateDeleting:
-		if controllerutil.RemoveFinalizer(bmHost, infrav1.HetznerBareMetalHostFinalizer) ||
-			controllerutil.RemoveFinalizer(bmHost, infrav1.DeprecatedBareMetalHostFinalizer) {
-			// at least one finalizer was removed.
-			if err := r.Update(ctx, bmHost); err != nil {
-				return reconcile.Result{}, fmt.Errorf("failed to remove finalizer: %w", err)
-			}
-		}
-		return reconcile.Result{Requeue: true}, nil
+		// remove finalizers.
+		controllerutil.RemoveFinalizer(bmHost, infrav1.HetznerBareMetalHostFinalizer)
+		controllerutil.RemoveFinalizer(bmHost, infrav1.DeprecatedBareMetalHostFinalizer)
+		return reconcile.Result{Requeue: true}
 	}
-	return res, nil
+	return ctrl.Result{}
 }
 
 func (r *HetznerBareMetalHostReconciler) getSecrets(
@@ -355,7 +358,6 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 	res ctrl.Result,
 	reterr error,
 ) {
-	emptyResult := reconcile.Result{}
 	if bmHost.Spec.Status.SSHSpec != nil {
 		var err error
 		osSSHSecretNamespacedName := types.NamespacedName{Namespace: bmHost.Namespace, Name: bmHost.Spec.Status.SSHSpec.SecretRef.Name}
@@ -373,11 +375,6 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 				)
 				record.Warnf(bmHost, infrav1.OSSSHSecretMissingReason, msg)
 				conditions.SetSummary(bmHost)
-				result, err := host.SaveHostAndReturn(ctx, r, bmHost)
-				if result != emptyResult || err != nil {
-					return nil, nil, result, err
-				}
-
 				return nil, nil, reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
 			}
 			return nil, nil, res, fmt.Errorf("failed to get secret: %w", err)
@@ -397,11 +394,6 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 
 				record.Warnf(bmHost, infrav1.RescueSSHSecretMissingReason, infrav1.ErrorMessageMissingRescueSSHSecret)
 				conditions.SetSummary(bmHost)
-				result, err := host.SaveHostAndReturn(ctx, r, bmHost)
-				if result != emptyResult || err != nil {
-					return nil, nil, result, err
-				}
-
 				return nil, nil, reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
 			}
 			return nil, nil, res, fmt.Errorf("failed to acquire secret: %w", err)
@@ -456,10 +448,8 @@ func getAndValidateRobotCredentials(
 }
 
 func hetznerSecretErrorResult(
-	ctx context.Context,
 	err error,
 	bmHost *infrav1.HetznerBareMetalHost,
-	client client.Client,
 ) (res ctrl.Result, reterr error) {
 	resolveErr := &secretutil.ResolveSecretRefError{}
 	if errors.As(err, &resolveErr) {
@@ -476,14 +466,6 @@ func hetznerSecretErrorResult(
 
 		record.Warnf(bmHost, infrav1.HetznerSecretUnreachableReason, fmt.Sprintf("%s: %s", infrav1.ErrorMessageMissingHetznerSecret, err.Error()))
 		conditions.SetSummary(bmHost)
-		result, err := host.SaveHostAndReturn(ctx, client, bmHost)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		emptyResult := reconcile.Result{}
-		if result != emptyResult {
-			return result, nil
-		}
 
 		// No need to reconcile again, as it will be triggered as soon as the secret is updated.
 		return res, nil
@@ -499,8 +481,7 @@ func hetznerSecretErrorResult(
 			infrav1.ErrorMessageMissingOrInvalidSecretData,
 		)
 		record.Warnf(bmHost, infrav1.SSHCredentialsInSecretInvalidReason, err.Error())
-		conditions.SetSummary(bmHost)
-		return host.SaveHostAndReturn(ctx, client, bmHost)
+		return res, nil
 	}
 	return reconcile.Result{}, fmt.Errorf("hetznerSecretErrorResult: an unhandled failure occurred: %T %w", err, err)
 }
