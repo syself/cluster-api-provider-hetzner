@@ -145,6 +145,8 @@ func (s *ccmLogState) nextSince(clusterName string) *metav1.Time {
 	return &sinceTime
 }
 
+// markSeen deduplicates lines so overlapping log windows and repeated pod state
+// snapshots are only printed once.
 func (s *ccmLogState) markSeen(line string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
