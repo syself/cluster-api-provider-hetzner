@@ -1531,6 +1531,8 @@ func updateHCloudMachineStatusFromServer(hm *infrav1.HCloudMachine, server *hclo
 	hm.Status.InstanceState = ptr.To(server.Status)
 }
 
+// getSSHPrivateKey retrieves the SSH private key used for connecting to the rescue systems.
+// It reads the key from the Kubernetes secret referenced by HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.
 func (s *Service) getSSHPrivateKey(ctx context.Context) (string, error) {
 	robotSecretName := s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Name
 	if robotSecretName == "" {
