@@ -67,27 +67,31 @@ Additional resources from the documentation:
 
 In addition to the pure creation and operation of Kubernetes clusters, this provider can also validate and approve certificate signing requests. This increases security as the kubelets of the nodes can be operated with signed certificates, and enables the metrics-server to run securely. [Click here](https://syself.com/docs/caph/topics/advanced/csr-controller) to read more about the CSR controller.
 
-## 🖇️ Compatibility with Cluster API and Kubernetes Versions (TODO: update below table)
+## 🖇️ Compatibility with Cluster API and Kubernetes Versions
 
 This provider's versions are compatible with the following versions of Cluster API:
 
-|                                      | CAPI `v1beta1` (`v1.8.x`) | CAPI `v1beta1` (`v1.9.x`) | CAPI `v1beta1` (`v1.10.x`) |
-| ------------------------------------ | ------------------------- | ------------------------- | -------------------------- |
-| Hetzner Provider `v1.0.x`            | ✅                        | ✅                        | ✅                         |
+| CAPI Version                                                                                              | Hetzner Provider `v1.0.x` | Hetzner Provider `v1.2.x` |
+| --------------------------------------------------------------------------------------------------------- | ------------------------- | ------------------------- |
+| `v1.8.x`                                                                                                  | ✅                        | ❌                        |
+| `v1.9.x`                                                                                                  | ✅                        | ❌                        |
+| `v1.10.x`                                                                                                 | ✅                        | ❌                        |
+| `v1.11.x` [start of beta2](https://cluster-api.sigs.k8s.io/developer/providers/migrations/v1.10-to-v1.11) | ✅                        | ✅                        |
+| `v1.12.x`                                                                                                 | ❌                        | ✅                        |
 
 This provider's versions can install and manage the following versions of Kubernetes:
 
-|                   | Hetzner Provider `v1.0.x` |
-| ----------------- | ------------------------- |
-| Kubernetes 1.31.x | ✅                        |
-| Kubernetes 1.32.x | ✅                        |
-| Kubernetes 1.33.x | ✅                        |
-| Kubernetes 1.34.x | ❔                        |
+|                   | Hetzner Provider `v1.0.x` | Hetzner Provider `v1.2.x` |
+| ----------------- | ------------------------- | ------------------------- |
+| Kubernetes 1.31.x | ✅                        | ❌                        |
+| Kubernetes 1.32.x | ✅                        | ✅                        |
+| Kubernetes 1.33.x | ✅                        | ✅                        |
+| Kubernetes 1.34.x | ❔                        | ✅                        |
 
 Test status:
 
 - ✅ tested
-- ❔ should work, but we weren't able to test it
+- ❔ should work
 
 Each version of Cluster API for Hetzner will attempt to support at least two Kubernetes versions.
 

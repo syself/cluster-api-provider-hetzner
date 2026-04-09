@@ -19,17 +19,17 @@ It is recommended that you have at least a basic understanding of Cluster API be
 
 This provider's versions are compatible with the following versions of Cluster API:
 
-| CAPI Version                                                                                              | Hetzner Provider `v1.0.x` | Hetzner Provider `v1.1.x` |
+| CAPI Version                                                                                              | Hetzner Provider `v1.0.x` | Hetzner Provider `v1.2.x` |
 | --------------------------------------------------------------------------------------------------------- | ------------------------- | ------------------------- |
-| `v1.8.x`                                                                                                  | ✅                        | ❔                        |
-| `v1.9.x`                                                                                                  | ✅                        | ❔                        |
-| `v1.10.x`                                                                                                 | ✅                        | ✅                        |
-| `v1.11.x` [start of beta2](https://cluster-api.sigs.k8s.io/developer/providers/migrations/v1.10-to-v1.11) | ❌                        | ✅                        |
+| `v1.8.x`                                                                                                  | ✅                        | ❌                        |
+| `v1.9.x`                                                                                                  | ✅                        | ❌                        |
+| `v1.10.x`                                                                                                 | ✅                        | ❌                        |
+| `v1.11.x` [start of beta2](https://cluster-api.sigs.k8s.io/developer/providers/migrations/v1.10-to-v1.11) | ✅                        | ✅                        |
 | `v1.12.x`                                                                                                 | ❌                        | ✅                        |
 
 This provider's versions can install and manage the following versions of Kubernetes:
 
-|                   | Hetzner Provider `v1.0.x` | Hetzner Provider `v1.1.x` |
+|                   | Hetzner Provider `v1.0.x` | Hetzner Provider `v1.2.x` |
 | ----------------- | ------------------------- | ------------------------- |
 | Kubernetes 1.31.x | ✅                        | ❌                        |
 | Kubernetes 1.32.x | ✅                        | ✅                        |
