@@ -26,7 +26,7 @@ spec:
     wwn: "0x5002538d41d70a46"
   maintenanceMode: false
   description: Test Machine 1716772
-# 2026-04-09: Disabled after CI hit repeated rescue-mode reboot timeouts.
+---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: HetznerBareMetalHost
 metadata:
@@ -71,6 +71,7 @@ spec:
   maintenanceMode: true #### < --- set to false, when ok.
   description: Test Machine 1751550
 ---
+# 2026-04-09: Disabled after CI hit repeated rescue-mode reboot timeouts.
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: HetznerBareMetalHost
 metadata:
