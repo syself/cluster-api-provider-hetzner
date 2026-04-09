@@ -117,6 +117,7 @@ helm repo update syself
 
 helm upgrade --install ccm syself/ccm-hetzner --version 2.0.6 \
              --namespace kube-system \
+             --set-json 'extraEnvVars=[{"name":"HCLOUD_USE_HROBOT_PROVIDER_ID_FOR_BAREMETAL","value":"true"}]' \
              --kubeconfig workload-kubeconfig
 ```
 

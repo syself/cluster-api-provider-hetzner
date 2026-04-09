@@ -96,6 +96,7 @@ e2e-ccm-templates:
 	--set pdb.enabled=false \
 	--set privateNetwork.enabled=false \
 	--set secret.name=hcloud \
+	--set-json 'extraEnvVars=[{"name":"HCLOUD_USE_HROBOT_PROVIDER_ID_FOR_BAREMETAL","value":"true"}]' \
 	--set-json 'tolerations=[{"key":"node.cluster.x-k8s.io/uninitialized","operator":"Exists","effect":"NoSchedule"},{"key":"node.cilium.io/agent-not-ready","operator":"Exists","effect":"NoSchedule"}]' \
 	> $(REPO_ROOT)/test/e2e/data/ccm/syself-ccm-hetzner.yaml
 

@@ -119,3 +119,5 @@ spec:
               value: "true"
             - name: HCLOUD_LOAD_BALANCERS_ENABLED
               value: "true"
+            - name: HCLOUD_USE_HROBOT_PROVIDER_ID_FOR_BAREMETAL
+              value: "true"
