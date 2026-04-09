@@ -221,6 +221,26 @@ var _ = Describe("handleServerStatusOff", func() {
 	})
 })
 
+var _ = Describe("Delete", func() {
+	It("returns without querying hcloud when ProviderID is nil", func() {
+		hcloudMachine := &infrav1.HCloudMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-machine",
+				Namespace: "default",
+			},
+		}
+		hcloudClient := &mocks.Client{}
+		service := newTestService(hcloudMachine, hcloudClient)
+
+		res, err := service.Delete(context.Background())
+
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res).To(Equal(reconcile.Result{}))
+		Expect(hcloudClient.AssertNotCalled(GinkgoT(), "GetServer", mock.Anything, mock.Anything)).To(BeTrue())
+		Expect(hcloudClient.AssertNotCalled(GinkgoT(), "ListServers", mock.Anything, mock.Anything)).To(BeTrue())
+	})
+})
+
 var _ = Describe("Test handleRateLimit", func() {
 	type testCaseHandleRateLimit struct {
 		hm              *infrav1.HCloudMachine

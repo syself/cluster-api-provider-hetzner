@@ -803,6 +803,11 @@ func handleRateLimit(hm *infrav1.HCloudMachine, err error, functionName string, 
 
 // Delete implements delete method of server.
 func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
+	// Nothing to do if ProviderID was never set.
+	if s.scope.HCloudMachine.Spec.ProviderID == nil {
+		return reconcile.Result{}, nil
+	}
+
 	server, err := s.findServer(ctx)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to find server: %w", err)
