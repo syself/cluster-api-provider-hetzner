@@ -453,6 +453,8 @@ func logConditions(ctx context.Context, clusterName string, restConfig *restclie
 	return nil
 }
 
+// logCCMPodLogs logs new CCM pod state details and container logs, including
+// sidecars, for the current polling interval.
 func logCCMPodLogs(ctx context.Context, clusterName string, restConfig *restclient.Config, state *ccmLogState) error {
 	if state == nil {
 		return nil
