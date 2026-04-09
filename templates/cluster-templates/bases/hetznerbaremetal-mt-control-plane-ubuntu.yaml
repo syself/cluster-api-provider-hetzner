@@ -22,7 +22,7 @@ spec:
           #!/bin/bash
           mkdir -p /etc/cloud/cloud.cfg.d && touch /etc/cloud/cloud.cfg.d/99-custom-networking.cfg
           echo "network: { config: disabled }" > /etc/cloud/cloud.cfg.d/99-custom-networking.cfg
-          apt-get update && apt-get install -y cloud-init apparmor apparmor-utils
+          apt-get update && apt-get install -y cloud-init apparmor apparmor-utils conntrack
           cloud-init clean --logs
       sshSpec:
         portAfterInstallImage: 22

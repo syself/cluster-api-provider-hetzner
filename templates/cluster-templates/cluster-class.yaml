@@ -523,7 +523,7 @@ spec:
           - localectl set-locale LANG=en_US.UTF-8
           - localectl set-locale LANGUAGE=en_US.UTF-8
           - apt-get update -y
-          - apt-get -y install at jq unzip wget socat mtr logrotate apt-transport-https
+          - apt-get -y install at jq unzip wget socat mtr logrotate apt-transport-https conntrack
           - sed -i '/swap/d' /etc/fstab
           - swapoff -a
           - modprobe overlay && modprobe br_netfilter && sysctl --system
@@ -609,7 +609,7 @@ spec:
         - localectl set-locale LANG=en_US.UTF-8
         - localectl set-locale LANGUAGE=en_US.UTF-8
         - apt-get update -y
-        - apt-get -y install at jq unzip wget socat mtr logrotate apt-transport-https
+        - apt-get -y install at jq unzip wget socat mtr logrotate apt-transport-https conntrack
         - sed -i '/swap/d' /etc/fstab
         - swapoff -a
         - modprobe overlay && modprobe br_netfilter && sysctl --system
@@ -671,7 +671,7 @@ spec:
           #!/bin/bash
           mkdir -p /etc/cloud/cloud.cfg.d && touch /etc/cloud/cloud.cfg.d/99-custom-networking.cfg
           echo "network: { config: disabled }" > /etc/cloud/cloud.cfg.d/99-custom-networking.cfg
-          apt-get update && apt-get install -y cloud-init apparmor apparmor-utils
+          apt-get update && apt-get install -y cloud-init apparmor apparmor-utils conntrack
           cloud-init clean --logs
       sshSpec:
         portAfterCloudInit: 22
@@ -744,7 +744,7 @@ spec:
         - localectl set-locale LANG=en_US.UTF-8
         - localectl set-locale LANGUAGE=en_US.UTF-8
         - apt-get update -y
-        - apt-get -y install at jq unzip wget socat mtr logrotate apt-transport-https
+        - apt-get -y install at jq unzip wget socat mtr logrotate apt-transport-https conntrack
         - sed -i '/swap/d' /etc/fstab
         - swapoff -a
         - modprobe overlay && modprobe br_netfilter && sysctl --system
