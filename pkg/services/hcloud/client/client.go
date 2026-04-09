@@ -38,6 +38,9 @@ const errStringUnauthorized = "(unauthorized)"
 // ErrUnauthorized means that the API call is unauthorized.
 var ErrUnauthorized = fmt.Errorf("unauthorized")
 
+// ErrNotFound means that the requested resource cannot be found.
+var ErrNotFound = fmt.Errorf("not found")
+
 // Client collects all methods used by the controller in the hcloud cloud API.
 type Client interface {
 	// Reset resets the local cache. Only implemented in the fake client.
@@ -69,6 +72,7 @@ type Client interface {
 	RebootServer(context.Context, *hcloud.Server) error
 	CreateNetwork(context.Context, hcloud.NetworkCreateOpts) (*hcloud.Network, error)
 	ListNetworks(context.Context, hcloud.NetworkListOpts) ([]*hcloud.Network, error)
+	GetNetwork(ctx context.Context, id int64) (*hcloud.Network, error)
 	DeleteNetwork(context.Context, *hcloud.Network) error
 	ListSSHKeys(context.Context, hcloud.SSHKeyListOpts) ([]*hcloud.SSHKey, error)
 	CreatePlacementGroup(context.Context, hcloud.PlacementGroupCreateOpts) (*hcloud.PlacementGroup, error)
@@ -298,6 +302,14 @@ func (c *realClient) ListNetworks(ctx context.Context, opts hcloud.NetworkListOp
 		return resp, fmt.Errorf("%w: %w", ErrUnauthorized, err)
 	}
 	return resp, err
+}
+
+func (c *realClient) GetNetwork(ctx context.Context, id int64) (*hcloud.Network, error) {
+	res, _, err := c.client.Network.GetByID(ctx, id)
+	if res == nil {
+		return nil, fmt.Errorf("%w: id: %d", ErrNotFound, id)
+	}
+	return res, err
 }
 
 func (c *realClient) DeleteNetwork(ctx context.Context, network *hcloud.Network) error {
