@@ -303,7 +303,8 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 		return reconcile.Result{}, nil
 	}
 
-	// Check that we have valid ssh-private-key in the secret. A failure could also mean there is a
+	// Fetch the SSH private key from the secret referenced in HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.
+	// Check that we have valid SSH private key in the secret. A failure could also mean there is a
 	// network failure while trying to access the api-server.
 	_, err := s.getSSHPrivateKey(ctx)
 	if err != nil {
@@ -1568,6 +1569,7 @@ func (s *Service) getSSHPrivateKey(ctx context.Context) (string, error) {
 func (s *Service) getSSHClient(ctx context.Context) (sshclient.Client, error) {
 	hm := s.scope.HCloudMachine
 
+	// retrieve the SSH private key from the secret referenced by HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.
 	privateKey, err := s.getSSHPrivateKey(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("getSSHPrivateKey failed: %w", err)
