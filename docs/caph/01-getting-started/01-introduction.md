@@ -23,7 +23,7 @@ This provider's versions are compatible with the following versions of Cluster A
 | --------------------------------------------------------------------------------------------------------- | ------------------------- | ------------------------- |
 | `v1.8.x`                                                                                                  | ✅                        | ❔                        |
 | `v1.9.x`                                                                                                  | ✅                        | ❔                        |
-| `v1.10.x`                                                                                                 | ✅                        | ✅                        |
+| `v1.10.x`                                                                                                 | ❌                        | ✅                        |
 | `v1.11.x` [start of beta2](https://cluster-api.sigs.k8s.io/developer/providers/migrations/v1.10-to-v1.11) | ❌                        | ❌                        |
 | `v1.12.x`                                                                                                 | ❌                        | ❌                        |
 
@@ -40,6 +40,10 @@ Test status:
 
 - ✅ tested
 - ❔ should work, but we weren't able to test it
+
+Compatibility notes:
+
+- CAPH `v1.0.x` is not supported with CAPI `v1.10.x`. `v1.0.x` still relied on `status.failureReason` and `status.failureMessage` semantics, and this can lead to lifecycle bugs such as bare-metal deprovisioning hanging. The CAPH fixes landed later in [#1716](https://github.com/syself/cluster-api-provider-hetzner/pull/1716) and [#1770](https://github.com/syself/cluster-api-provider-hetzner/pull/1770). See also the upstream [v1.10 to v1.11 migration guide](https://cluster-api.sigs.k8s.io/developer/providers/migrations/v1.10-to-v1.11) and the upstream [InfraMachine contract notes about terminal failures](https://cluster-api.sigs.k8s.io/developer/providers/contracts/infra-machine).
 
 Each version of Cluster API for Hetzner will attempt to support at least two Kubernetes versions.
 
