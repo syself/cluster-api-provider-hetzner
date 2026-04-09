@@ -156,19 +156,19 @@ spec:
             - name: HCLOUD_TOKEN
               valueFrom:
                 secretKeyRef:
-                  key: hcloud
-                  name: hetzner
+                  key: token
+                  name: hcloud
             - name: ROBOT_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: robot-password
-                  name: hetzner
+                  name: hcloud
                   optional: true
             - name: ROBOT_USER
               valueFrom:
                 secretKeyRef:
                   key: robot-user
-                  name: hetzner
+                  name: hcloud
                   optional: true
             - name: ROBOT_ENABLED
               value: "true"

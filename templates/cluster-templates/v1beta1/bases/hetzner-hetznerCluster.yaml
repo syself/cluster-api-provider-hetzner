@@ -24,8 +24,8 @@ spec:
         publicKey: ssh-publickey
         privateKey: ssh-privatekey
   hetznerSecretRef:
-    name: hetzner
+    name: hcloud
     key:
-      hcloudToken: hcloud
+      hcloudToken: token
       hetznerRobotUser: robot-user
       hetznerRobotPassword: robot-password

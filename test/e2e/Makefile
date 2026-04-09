@@ -73,8 +73,8 @@ e2e-ccm-templates:
 	--namespace kube-system \
 	--set image.repository=ghcr.io/syself/hcloud-cloud-controller-manager \
 	--set-string env.HCLOUD_DEBUG.value=true \
-	--set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.name=hetzner \
-	--set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.key=hcloud \
+	--set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.name=hcloud \
+	--set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.key=token \
 	--set-json 'additionalTolerations=[{"key":"node.cluster.x-k8s.io/uninitialized","operator":"Exists","effect":"NoSchedule"},{"key":"node.cilium.io/agent-not-ready","operator":"Exists","effect":"NoSchedule"}]' \
 	--set networking.enabled=false > $(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm.yaml
 
@@ -82,22 +82,22 @@ e2e-ccm-templates:
 	--namespace kube-system \
 	--set image.repository=ghcr.io/syself/hcloud-cloud-controller-manager \
 	--set-string env.HCLOUD_DEBUG.value=true \
-	--set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.name=hetzner \
-	--set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.key=hcloud \
+	--set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.name=hcloud \
+	--set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.key=token \
 	--set-json 'additionalTolerations=[{"key":"node.cluster.x-k8s.io/uninitialized","operator":"Exists","effect":"NoSchedule"},{"key":"node.cilium.io/agent-not-ready","operator":"Exists","effect":"NoSchedule"}]' \
 	--set networking.enabled=true \
-	--set networking.network.valueFrom.secretKeyRef.name=hetzner \
+	--set networking.network.valueFrom.secretKeyRef.name=hcloud \
 	--set networking.network.valueFrom.secretKeyRef.key=network > $(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm-network.yaml
 
 	helm template ccm hetzner-cloud/hcloud-cloud-controller-manager --version 1.30.1 \
 	--namespace kube-system \
 	--set image.repository=ghcr.io/syself/hcloud-cloud-controller-manager \
 	--set-string env.HCLOUD_DEBUG.value=true \
-	--set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.name=hetzner \
-	--set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.key=hcloud \
-	--set env.ROBOT_USER.valueFrom.secretKeyRef.name=hetzner \
+	--set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.name=hcloud \
+	--set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.key=token \
+	--set env.ROBOT_USER.valueFrom.secretKeyRef.name=hcloud \
 	--set env.ROBOT_USER.valueFrom.secretKeyRef.key=robot-user \
-	--set env.ROBOT_PASSWORD.valueFrom.secretKeyRef.name=hetzner \
+	--set env.ROBOT_PASSWORD.valueFrom.secretKeyRef.name=hcloud \
 	--set env.ROBOT_PASSWORD.valueFrom.secretKeyRef.key=robot-password \
 	--set-json 'additionalTolerations=[{"key":"node.cluster.x-k8s.io/uninitialized","operator":"Exists","effect":"NoSchedule"},{"key":"node.cilium.io/agent-not-ready","operator":"Exists","effect":"NoSchedule"}]' \
 	--set args.route-reconciliation-period=null \

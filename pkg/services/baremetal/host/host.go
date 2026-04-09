@@ -234,22 +234,6 @@ func (s *Service) actionPreparing(ctx context.Context) actionResult {
 		s.scope.HetznerBareMetalHost.Spec.Status.RebootTypes = rebootTypes
 	}
 
-	// if there is no rescue system, we cannot provision the server
-	if !server.Rescue {
-		errMsg := fmt.Sprintf("bm server %v has no rescue system", server.ServerNumber)
-		conditions.MarkFalse(
-			s.scope.HetznerBareMetalHost,
-			infrav1.ProvisionSucceededCondition,
-			infrav1.RescueSystemUnavailableReason,
-			clusterv1.ConditionSeverityError,
-			"%s",
-			errMsg,
-		)
-		record.Warnf(s.scope.HetznerBareMetalHost, "NoRescueSystemAvailable", errMsg)
-		s.scope.HetznerBareMetalHost.SetError(infrav1.PermanentError, errMsg)
-		return actionStop{}
-	}
-
 	if err := s.enforceRescueMode(); err != nil {
 		return actionError{err: fmt.Errorf("failed to enforce rescue mode: %w", err)}
 	}
