@@ -71,7 +71,7 @@ In addition to the pure creation and operation of Kubernetes clusters, this prov
 
 This provider's versions are compatible with the following versions of Cluster API:
 
-| CAPI Version                                                                                              | Hetzner Provider `v1.0.x` | Hetzner Provider `v1.2.x` |
+| CAPI Version                                                                                              | Hetzner Provider `v1.0.x` | Hetzner Provider `v1.1.x` |
 | --------------------------------------------------------------------------------------------------------- | ------------------------- | ------------------------- |
 | `v1.8.x`                                                                                                  | ✅                        | ❌                        |
 | `v1.9.x`                                                                                                  | ✅                        | ❌                        |
@@ -81,7 +81,7 @@ This provider's versions are compatible with the following versions of Cluster A
 
 This provider's versions can install and manage the following versions of Kubernetes:
 
-|                   | Hetzner Provider `v1.0.x` | Hetzner Provider `v1.2.x` |
+|                   | Hetzner Provider `v1.0.x` | Hetzner Provider `v1.1.x` |
 | ----------------- | ------------------------- | ------------------------- |
 | Kubernetes 1.31.x | ✅                        | ❌                        |
 | Kubernetes 1.32.x | ✅                        | ✅                        |
