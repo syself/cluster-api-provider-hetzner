@@ -14,8 +14,7 @@ Secrets as of now are hardcoded given we are using a flavor which is essentially
 {% /callout %}
 
 For bare metal, use the Syself CCM until an upstream release includes [PR fix robot name lookup
-after stale cache miss](https://github.com/hetznercloud/hcloud-cloud-controller-manager/pull/1204),
-which merged on April 9, 2026.
+after stale cache miss](https://github.com/hetznercloud/hcloud-cloud-controller-manager/pull/1204).
 
 In the long run we (Syself) want to switch from our fork to the upstream CCM.
 
@@ -37,8 +36,7 @@ Important: CAPH and the CCM must both use the same ProviderID format for bare me
 - old: `hcloud://bm-NNNN`
 - new: `hrobot://NNNN`
 
-The upstream HCloud CCM uses the new format. Our default templates keep the annotation enabled and
-therefore use the new format for bare metal.
+The upstream HCloud CCM uses the new format.
 
 If you use the new format, set the annotation `capi.syself.com/use-hrobot-provider-id-for-baremetal`
 to `"true"` on the `HetznerCluster`. Our default templates have this annotation set.
@@ -110,7 +108,8 @@ This requires a secret containing access credentials to both Hetzner Robot and H
 
 {% /callout %}
 
-Use the Syself CCM:
+For bare metal, use the Syself CCM until an upstream release includes [PR fix robot name lookup
+after stale cache miss](https://github.com/hetznercloud/hcloud-cloud-controller-manager/pull/1204).
 
 ```shell
 helm repo add syself https://charts.syself.com
@@ -123,35 +122,6 @@ helm upgrade --install ccm syself/ccm-hetzner --version 2.0.6 \
 
 Be sure that the HetznerCluster has the annotation
 `capi.syself.com/use-hrobot-provider-id-for-baremetal: "true"`.
-
----
-
-Once an upstream release includes PR
-[#1204](https://github.com/hetznercloud/hcloud-cloud-controller-manager/pull/1204), you can use the
-upstream HCloud CCM for bare metal with the following values:
-
-```shell
-helm repo add hcloud https://charts.hetzner.cloud
-helm repo update hcloud
-
-helm upgrade --install ccm hcloud/hcloud-cloud-controller-manager \
-             --namespace kube-system \
-             --set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.name=hetzner \
-             --set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.key=hcloud \
-             --set env.ROBOT_USER.valueFrom.secretKeyRef.name=hetzner \
-             --set env.ROBOT_USER.valueFrom.secretKeyRef.key=robot-user \
-             --set env.ROBOT_PASSWORD.valueFrom.secretKeyRef.name=hetzner \
-             --set env.ROBOT_PASSWORD.valueFrom.secretKeyRef.key=robot-password \
-             --set-json 'additionalTolerations=[{"key":"node.cluster.x-k8s.io/uninitialized","operator":"Exists","effect":"NoSchedule"},{"key":"node.cilium.io/agent-not-ready","operator":"Exists","effect":"NoSchedule"}]' \
-             --set robot.enabled=true \
-             --kubeconfig workload-kubeconfig
-```
-
-Be sure that the HetznerCluster has the annotation
-`capi.syself.com/use-hrobot-provider-id-for-baremetal: "true"`.
-
-If you use a different `hetznerSecretRef.name` or different keys, then adjust the chart values
-above accordingly.
 
 ### Installing CNI
 
