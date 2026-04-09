@@ -125,6 +125,8 @@ func newCCMLogState(initialSince time.Time) *ccmLogState {
 	}
 }
 
+// nextSince returns the timestamp used for incremental CCM log fetching.
+// Subsequent polls overlap slightly so lines at the query boundary are not missed.
 func (s *ccmLogState) nextSince(clusterName string) *metav1.Time {
 	s.mu.Lock()
 	defer s.mu.Unlock()
