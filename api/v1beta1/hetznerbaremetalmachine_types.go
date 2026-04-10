@@ -309,6 +309,9 @@ type HetznerBareMetalMachineStatus struct {
 	FailureReason *string `json:"failureReason,omitempty"`
 
 	// FailureMessage will be set in the event that there is a terminal problem.
+	//
+	// Deprecated: This field is deprecated and is going to be removed when support for v1beta1 will be dropped. Please see https://github.com/kubernetes-sigs/cluster-api/blob/main/docs/proposals/20240916-improve-status-in-CAPI-resources.md for more details.
+	//
 	// +optional
 	FailureMessage *string `json:"failureMessage,omitempty"`
 

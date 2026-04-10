@@ -109,8 +109,17 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 			// If it is an unauthorized error i.e. wrong HCloudToken do not return an error.
 			// As there is no point retrying with invalid credentials.
 			if errors.Is(err, hcloudclient.ErrUnauthorized) {
+				conditions.MarkFalse(
+					s.scope.HCloudMachine,
+					infrav1.HCloudTokenAvailableCondition,
+					infrav1.HCloudCredentialsInvalidReason,
+					clusterv1.ConditionSeverityError,
+					"wrong hcloud token",
+				)
+
 				return reconcile.Result{}, nil
 			}
+
 			if hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded) {
 				if !s.scope.HCloudMachine.Status.Ready {
 					hcloudutil.HandleRateLimitExceeded(s.scope.HCloudMachine, err, "findServer")
@@ -121,6 +130,8 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 
 			return reconcile.Result{}, fmt.Errorf("findServer: %w", err)
 		}
+
+		conditions.MarkTrue(s.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition)
 
 		// findServer will return both server and error as nil, if the server was not found.
 		if server == nil {
@@ -216,6 +227,14 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		// If it is an unauthorized error i.e. wrong HCloudToken do not return an error.
 		// As there is no point retrying with invalid credentials.
 		if errors.Is(err, hcloudclient.ErrUnauthorized) {
+			conditions.MarkFalse(
+				s.scope.HCloudMachine,
+				infrav1.HCloudTokenAvailableCondition,
+				infrav1.HCloudCredentialsInvalidReason,
+				clusterv1.ConditionSeverityError,
+				"wrong hcloud token",
+			)
+
 			return reconcile.Result{}, nil
 		}
 
@@ -244,6 +263,8 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		}
 		return reconcile.Result{}, fmt.Errorf("failed to create server: %w", err)
 	}
+
+	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition)
 
 	updateHCloudMachineStatusFromServer(hm, server)
 
@@ -303,7 +324,8 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 		return reconcile.Result{}, nil
 	}
 
-	// Check that we have valid ssh-private-key in the secret. A failure could also mean there is a
+	// Fetch the SSH private key from the secret referenced in HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.
+	// Check that we have valid SSH private key in the secret. A failure could also mean there is a
 	// network failure while trying to access the api-server.
 	_, err := s.getSSHPrivateKey(ctx)
 	if err != nil {
@@ -1208,22 +1230,8 @@ func (s *Service) getServerImage(ctx context.Context, imageName string) (*hcloud
 	// Get server type so we can filter for images with correct architecture
 	serverType, err := s.scope.HCloudClient.GetServerType(ctx, string(s.scope.HCloudMachine.Spec.Type))
 	if err != nil {
-		// If it is an unauthorized error i.e. wrong HCloudToken, set HCloudCredentialsInvalid condition.
-		if errors.Is(err, hcloudclient.ErrUnauthorized) {
-			conditions.MarkFalse(
-				s.scope.HCloudMachine,
-				infrav1.HCloudTokenAvailableCondition,
-				infrav1.HCloudCredentialsInvalidReason,
-				clusterv1.ConditionSeverityError,
-				"wrong hcloud token",
-			)
-			return nil, err
-		}
-
 		return nil, handleRateLimit(s.scope.HCloudMachine, err, "GetServerType", "failed to get server type in HCloud")
 	}
-
-	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition)
 
 	if serverType == nil {
 		msg := fmt.Sprintf("failed to get server type %q", string(s.scope.HCloudMachine.Spec.Type))
@@ -1418,22 +1426,8 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 	if err == nil {
 		server, err = s.scope.HCloudClient.GetServer(ctx, serverID)
 		if err != nil {
-			// If it is an unauthorized error i.e. wrong HCloudToken, set HCloudCredentialsInvalid condition.
-			if errors.Is(err, hcloudclient.ErrUnauthorized) {
-				conditions.MarkFalse(
-					s.scope.HCloudMachine,
-					infrav1.HCloudTokenAvailableCondition,
-					infrav1.HCloudCredentialsInvalidReason,
-					clusterv1.ConditionSeverityError,
-					"wrong hcloud token",
-				)
-				return nil, err
-			}
-
 			return nil, fmt.Errorf("failed to get server %d: %w", serverID, err)
 		}
-
-		conditions.MarkTrue(s.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition)
 
 		// if server has been found, return it
 		if server != nil {
@@ -1531,6 +1525,8 @@ func updateHCloudMachineStatusFromServer(hm *infrav1.HCloudMachine, server *hclo
 	hm.Status.InstanceState = ptr.To(server.Status)
 }
 
+// getSSHPrivateKey retrieves the SSH private key used for connecting to the rescue systems.
+// It reads the key from the Kubernetes secret referenced by HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.
 func (s *Service) getSSHPrivateKey(ctx context.Context) (string, error) {
 	robotSecretName := s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Name
 	if robotSecretName == "" {
@@ -1566,6 +1562,7 @@ func (s *Service) getSSHPrivateKey(ctx context.Context) (string, error) {
 func (s *Service) getSSHClient(ctx context.Context) (sshclient.Client, error) {
 	hm := s.scope.HCloudMachine
 
+	// retrieve the SSH private key from the secret referenced by HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.
 	privateKey, err := s.getSSHPrivateKey(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("getSSHPrivateKey failed: %w", err)

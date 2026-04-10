@@ -26,6 +26,6 @@ spec:
   hetznerSecretRef:
     name: hcloud
     key:
-      hcloudToken: token
+      hcloudToken: hcloud
       hetznerRobotUser: robot-user
       hetznerRobotPassword: robot-password

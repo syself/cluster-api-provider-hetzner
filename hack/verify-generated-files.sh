@@ -27,6 +27,7 @@ if ! git diff --quiet || ! git diff --cached --quiet || [[ -n "$(git ls-files --
 fi
 
 (
+    export PATH="$(git rev-parse --show-toplevel)/hack/tools/bin:$PATH"
     make kubectl
     cd test/e2e
     HCLOUD_TOKEN=dummy_hcloud_token
