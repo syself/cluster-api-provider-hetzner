@@ -832,6 +832,9 @@ func handleRateLimit(hm *infrav1.HCloudMachine, err error, functionName string, 
 
 // Delete implements delete method of server.
 func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
+	// Set phase to deleting.
+	s.scope.HCloudMachine.Status.InstanceState = ptr.To(hcloud.ServerStatusDeleting)
+
 	// Nothing to do if ProviderID was never set.
 	if s.scope.HCloudMachine.Spec.ProviderID == nil {
 		return reconcile.Result{}, nil
@@ -839,6 +842,20 @@ func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 
 	server, err := s.findServer(ctx)
 	if err != nil {
+		// If it is an unauthorized error i.e. wrong HCloudToken do not return an error.
+		// As there is no point retrying with invalid credentials.
+		if errors.Is(err, hcloudclient.ErrUnauthorized) {
+			conditions.MarkFalse(
+				s.scope.HCloudMachine,
+				infrav1.HCloudTokenAvailableCondition,
+				infrav1.HCloudCredentialsInvalidReason,
+				clusterv1.ConditionSeverityError,
+				"wrong hcloud token",
+			)
+
+			return reconcile.Result{}, nil
+		}
+
 		return reconcile.Result{}, handleRateLimit(s.scope.HCloudMachine, err, "findServer", "failed to find server for deletion")
 	}
 
@@ -865,6 +882,8 @@ func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 			}
 		}
 	}
+
+	updateHCloudMachineStatusFromServer(s.scope.HCloudMachine, server)
 
 	// first shut the server down, then delete it
 	switch server.Status {

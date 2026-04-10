@@ -236,8 +236,34 @@ var _ = Describe("Delete", func() {
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res).To(Equal(reconcile.Result{}))
+		Expect(hcloudMachine.Status.InstanceState).To(Equal(ptr.To(hcloud.ServerStatusDeleting)))
 		Expect(hcloudClient.AssertNotCalled(GinkgoT(), "GetServer", mock.Anything, mock.Anything)).To(BeTrue())
 		Expect(hcloudClient.AssertNotCalled(GinkgoT(), "ListServers", mock.Anything, mock.Anything)).To(BeTrue())
+	})
+	It("sets HCloudTokenAvailable condition to false when HCloud API returns unauthorized error", func() {
+		hcloudMachine := &infrav1.HCloudMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-machine",
+				Namespace: "default",
+			},
+			Spec: infrav1.HCloudMachineSpec{
+				ProviderID: ptr.To("hcloud://1234567"),
+			},
+		}
+		hcloudClient := &mocks.Client{}
+		service := newTestService(hcloudMachine, hcloudClient)
+
+		hcloudClient.On("GetServer", mock.Anything, int64(1234567)).Return(nil, fmt.Errorf("%w: invalid HCloud token", hcloudclient.ErrUnauthorized)).Once()
+
+		res, err := service.Delete(context.Background())
+		Expect(err).To(BeNil())
+		Expect(res).To(Equal(reconcile.Result{}))
+
+		Expect(hcloudMachine.Status.InstanceState).To(Equal(ptr.To(hcloud.ServerStatusDeleting)))
+		Expect(conditions.IsFalse(hcloudMachine, infrav1.HCloudTokenAvailableCondition)).To(BeTrue())
+		Expect(conditions.GetReason(hcloudMachine, infrav1.HCloudTokenAvailableCondition)).To(Equal(infrav1.HCloudCredentialsInvalidReason))
+
+		hcloudClient.AssertExpectations(GinkgoT())
 	})
 })
 
