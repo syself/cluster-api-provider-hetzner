@@ -300,14 +300,24 @@ const (
 )
 
 const (
+	// HCloudMachineServerProvisionedV1Beta2Condition reports on whether the HCloud server has completed
+	// boot-time provisioning (rescue boot, image install, OS startup).
+	HCloudMachineServerProvisionedV1Beta2Condition = "ServerProvisioned"
+	// HCloudMachineServerProvisionedV1Beta2Reason surfaces when the boot state machine has completed.
+	HCloudMachineServerProvisionedV1Beta2Reason = clusterv1.ProvisionedV1Beta2Reason
+	// HCloudMachineServerNotProvisionedV1Beta2Reason surfaces when the boot state machine has not completed.
+	HCloudMachineServerNotProvisionedV1Beta2Reason = clusterv1.NotProvisionedV1Beta2Reason
+	// HCloudMachineServerProvisioningV1Beta2Reason surfaces when the server is progressing through the boot state machine.
+	HCloudMachineServerProvisioningV1Beta2Reason = "Provisioning"
+)
+
+const (
 	// HCloudMachineServerAvailableV1Beta2Condition reports on whether the HCloud server is available.
 	HCloudMachineServerAvailableV1Beta2Condition = "ServerAvailable"
 	// HCloudMachineServerAvailableV1Beta2Reason surfaces when the HCloud server is available.
 	HCloudMachineServerAvailableV1Beta2Reason = clusterv1.AvailableV1Beta2Reason
 	// HCloudMachineServerNotAvailableV1Beta2Reason surfaces when the HCloud server is not available.
 	HCloudMachineServerNotAvailableV1Beta2Reason = clusterv1.NotAvailableV1Beta2Reason
-	// HCloudMachineServerStartingV1Beta2Reason surfaces when the HCloud server is still starting.
-	HCloudMachineServerStartingV1Beta2Reason = "Starting"
 	// HCloudMachineServerNotFoundV1Beta2Reason surfaces when the HCloud server cannot be found.
 	HCloudMachineServerNotFoundV1Beta2Reason = "ServerNotFound"
 	// HCloudMachineNetworkAttachFailedV1Beta2Reason surfaces a network attachment failure.
@@ -342,6 +352,7 @@ func HCloudMachineV1Beta2OwnedConditions() []string {
 		HCloudMachineHCloudTokenAvailableV1Beta2Condition,
 		HCloudMachineBootstrapReadyV1Beta2Condition,
 		HCloudMachineServerCreatedV1Beta2Condition,
+		HCloudMachineServerProvisionedV1Beta2Condition,
 		HCloudMachineServerAvailableV1Beta2Condition,
 		HCloudMachineDeletingV1Beta2Condition,
 		HCloudMachineHetznerAPIReachableV1Beta2Condition,

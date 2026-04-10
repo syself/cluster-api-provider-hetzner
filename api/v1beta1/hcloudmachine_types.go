@@ -183,7 +183,7 @@ type HCloudMachineStatus struct {
 // HCloudMachineV1Beta2Status groups all the fields that will be added or modified in HCloudMachineStatus with the V1Beta2 version.
 type HCloudMachineV1Beta2Status struct {
 	// conditions represents the observations of a HCloudMachine's current state.
-	// Known condition types are Ready, HCloudTokenAvailable, BootstrapReady, ServerCreated, ServerAvailable, Deleting and HetznerAPIReachable.
+	// Known condition types are Ready, HCloudTokenAvailable, BootstrapReady, ServerCreated, ServerProvisioned, ServerAvailable, Deleting and HetznerAPIReachable.
 	// +optional
 	// +listType=map
 	// +listMapKey=type

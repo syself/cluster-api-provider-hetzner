@@ -452,8 +452,10 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				}, timeout, interval).Should(BeTrue())
 
 				By("checking if server provisioned condition is set")
+
 				Eventually(func() bool {
-					return isPresentAndTrue(key, hcloudMachine, infrav1.ServerProvisionedCondition)
+					return isPresentAndTrue(key, hcloudMachine, infrav1.ServerProvisionedCondition) &&
+						isPresentAndTrueV1Beta2(key, hcloudMachine, infrav1.HCloudMachineServerProvisionedV1Beta2Condition, infrav1.HCloudMachineServerProvisionedV1Beta2Reason)
 				}, timeout, interval).Should(BeTrue())
 
 				By("checking if server available condition is set")

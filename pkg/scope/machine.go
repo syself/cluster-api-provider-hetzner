@@ -141,6 +141,7 @@ func SetHCloudMachineV1Beta2SummaryCondition(hcloudMachine *infrav1.HCloudMachin
 		v1beta2conditions.IgnoreTypesIfMissing{
 			infrav1.HCloudMachineBootstrapReadyV1Beta2Condition,
 			infrav1.HCloudMachineServerCreatedV1Beta2Condition,
+			infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			infrav1.HCloudMachineServerAvailableV1Beta2Condition,
 			infrav1.HCloudMachineHetznerAPIReachableV1Beta2Condition,
 		},

@@ -221,9 +221,9 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 			"HandleBootStateUnsetTimedOut", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		v1beta2conditions.Set(hm, metav1.Condition{
-			Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+			Reason:  infrav1.HCloudMachineServerNotProvisionedV1Beta2Reason,
 			Message: msg,
 		})
 		return reconcile.Result{}, nil
@@ -246,9 +246,9 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 			"HandleBootStateUnset", clusterv1.ConditionSeverityInfo,
 			"%s", msg)
 		v1beta2conditions.Set(hm, metav1.Condition{
-			Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+			Reason:  infrav1.HCloudMachineServerProvisioningV1Beta2Reason,
 			Message: msg,
 		})
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
@@ -322,9 +322,9 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		"ProvisioningServer", clusterv1.ConditionSeverityInfo,
 		"Provisioning and rebooting server")
 	v1beta2conditions.Set(hm, metav1.Condition{
-		Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+		Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 		Status:  metav1.ConditionFalse,
-		Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+		Reason:  infrav1.HCloudMachineServerProvisioningV1Beta2Reason,
 		Message: "Provisioning and rebooting server",
 	})
 	return reconcile.Result{RequeueAfter: requeueAfter}, nil
@@ -348,9 +348,9 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 			"BootStateInitializingTimedOut", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		v1beta2conditions.Set(hm, metav1.Condition{
-			Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+			Reason:  infrav1.HCloudMachineServerNotProvisionedV1Beta2Reason,
 			Message: msg,
 		})
 		return reconcile.Result{}, nil
@@ -367,9 +367,9 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 			"ImageURLSetButNoCommandProvided", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		v1beta2conditions.Set(hm, metav1.Condition{
-			Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+			Reason:  infrav1.HCloudMachineServerNotProvisionedV1Beta2Reason,
 			Message: msg,
 		})
 		// No need for Requeue, because adding the command line argument to the caph deployment,
@@ -407,9 +407,9 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 			"GetSSHPrivateKeyFailed", clusterv1.ConditionSeverityWarning,
 			"%s", err.Error())
 		v1beta2conditions.Set(hm, metav1.Condition{
-			Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+			Reason:  infrav1.HCloudMachineServerProvisioningV1Beta2Reason,
 			Message: err.Error(),
 		})
 		return reconcile.Result{RequeueAfter: 1 * time.Minute}, nil
@@ -424,9 +424,9 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 			"ServerNotRunningYet", clusterv1.ConditionSeverityInfo,
 			"hcloud server is %q", server.Status)
 		v1beta2conditions.Set(hm, metav1.Condition{
-			Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineServerStartingV1Beta2Reason,
+			Reason:  infrav1.HCloudMachineServerProvisioningV1Beta2Reason,
 			Message: fmt.Sprintf("hcloud server is %q", server.Status),
 		})
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
@@ -438,9 +438,9 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 		conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
 			"UnknownHCloudStatus", clusterv1.ConditionSeverityInfo, "hcloud server has unknown status: %q", server.Status)
 		v1beta2conditions.Set(hm, metav1.Condition{
-			Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+			Reason:  infrav1.HCloudMachineServerProvisioningV1Beta2Reason,
 			Message: fmt.Sprintf("hcloud server has unknown status: %q", server.Status),
 		})
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
@@ -473,9 +473,9 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 		"WaitForRescueSystem", clusterv1.ConditionSeverityInfo,
 		"waiting for rescue system to be enabled")
 	v1beta2conditions.Set(hm, metav1.Condition{
-		Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+		Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 		Status:  metav1.ConditionFalse,
-		Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+		Reason:  infrav1.HCloudMachineServerProvisioningV1Beta2Reason,
 		Message: "waiting for rescue system to be enabled",
 	})
 	return reconcile.Result{RequeueAfter: 4 * time.Second}, nil
@@ -498,9 +498,9 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 		conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
 			"EnablingRescueTimedOut", clusterv1.ConditionSeverityWarning, "%s", msg)
 		v1beta2conditions.Set(hm, metav1.Condition{
-			Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+			Reason:  infrav1.HCloudMachineServerNotProvisionedV1Beta2Reason,
 			Message: msg,
 		})
 		return reconcile.Result{}, nil
@@ -518,9 +518,9 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 		conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
 			"ActionIDForEnablingRescueSystemNotSet", clusterv1.ConditionSeverityWarning, "%s", msg)
 		v1beta2conditions.Set(hm, metav1.Condition{
-			Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+			Reason:  infrav1.HCloudMachineServerNotProvisionedV1Beta2Reason,
 			Message: msg,
 		})
 		return reconcile.Result{}, nil
@@ -537,9 +537,9 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 				"EnablingRescueGetActionFailed", clusterv1.ConditionSeverityWarning,
 				"%s", err.Error())
 			v1beta2conditions.Set(hm, metav1.Condition{
-				Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+				Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+				Reason:  infrav1.HCloudMachineServerProvisioningV1Beta2Reason,
 				Message: err.Error(),
 			})
 			return reconcile.Result{}, err
@@ -551,9 +551,9 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 				"WaitingForEnablingRescueAction", clusterv1.ConditionSeverityInfo,
 				"Waiting until Action RescueEnabled is finished")
 			v1beta2conditions.Set(hm, metav1.Condition{
-				Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+				Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+				Reason:  infrav1.HCloudMachineServerProvisioningV1Beta2Reason,
 				Message: "Waiting until Action RescueEnabled is finished",
 			})
 			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
@@ -571,9 +571,9 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 				"EnablingRescueActionFailed", clusterv1.ConditionSeverityWarning,
 				"%s", err.Error())
 			v1beta2conditions.Set(hm, metav1.Condition{
-				Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+				Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+				Reason:  infrav1.HCloudMachineServerNotProvisionedV1Beta2Reason,
 				Message: err.Error(),
 			})
 			return reconcile.Result{}, nil
@@ -589,9 +589,9 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 			"EnablingRescueActionDone", clusterv1.ConditionSeverityInfo,
 			"Action RescueEnabled is finished")
 		v1beta2conditions.Set(hm, metav1.Condition{
-			Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+			Reason:  infrav1.HCloudMachineServerProvisioningV1Beta2Reason,
 			Message: "Action RescueEnabled is finished",
 		})
 		// When the reboot is triggered immediately after the action is finished,
@@ -606,9 +606,9 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 			"RescueNotEnabledYet", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		v1beta2conditions.Set(hm, metav1.Condition{
-			Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+			Reason:  infrav1.HCloudMachineServerProvisioningV1Beta2Reason,
 			Message: msg,
 		})
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
@@ -626,9 +626,9 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 			"GetSSHClientFailed", clusterv1.ConditionSeverityWarning,
 			"%s", err.Error())
 		v1beta2conditions.Set(hm, metav1.Condition{
-			Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+			Reason:  infrav1.HCloudMachineServerProvisioningV1Beta2Reason,
 			Message: err.Error(),
 		})
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
@@ -643,9 +643,9 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 				"RetryingSSHConnection",
 				clusterv1.ConditionSeverityInfo, "Rebooting")
 			v1beta2conditions.Set(hm, metav1.Condition{
-				Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+				Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+				Reason:  infrav1.HCloudMachineServerProvisioningV1Beta2Reason,
 				Message: "Rebooting",
 			})
 			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
@@ -657,9 +657,9 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 			"RebootViaSSHFailed",
 			clusterv1.ConditionSeverityWarning, "%s", err.Error())
 		v1beta2conditions.Set(hm, metav1.Condition{
-			Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+			Reason:  infrav1.HCloudMachineServerProvisioningV1Beta2Reason,
 			Message: err.Error(),
 		})
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
@@ -672,9 +672,9 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 		"BootingToRescue", clusterv1.ConditionSeverityInfo,
 		"reboot to rescue started")
 	v1beta2conditions.Set(hm, metav1.Condition{
-		Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+		Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 		Status:  metav1.ConditionFalse,
-		Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+		Reason:  infrav1.HCloudMachineServerProvisioningV1Beta2Reason,
 		Message: "reboot to rescue started",
 	})
 	return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
@@ -699,9 +699,9 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 			"BootingToRescueTimedOut", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		v1beta2conditions.Set(hm, metav1.Condition{
-			Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+			Reason:  infrav1.HCloudMachineServerNotProvisionedV1Beta2Reason,
 			Message: msg,
 		})
 		return reconcile.Result{}, nil
@@ -714,9 +714,9 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 			"WaitForRescueEnabledToBeFalse", clusterv1.ConditionSeverityInfo,
 			"%s", msg)
 		v1beta2conditions.Set(hm, metav1.Condition{
-			Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+			Reason:  infrav1.HCloudMachineServerProvisioningV1Beta2Reason,
 			Message: msg,
 		})
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
@@ -738,9 +738,9 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 				"RetryingSSHConnection", clusterv1.ConditionSeverityInfo,
 				"%s", msg)
 			v1beta2conditions.Set(hm, metav1.Condition{
-				Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+				Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+				Reason:  infrav1.HCloudMachineServerProvisioningV1Beta2Reason,
 				Message: msg,
 			})
 			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
@@ -751,9 +751,9 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 			"GetHostnameFailed", clusterv1.ConditionSeverityWarning,
 			"%s", err.Error())
 		v1beta2conditions.Set(hm, metav1.Condition{
-			Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+			Reason:  infrav1.HCloudMachineServerProvisioningV1Beta2Reason,
 			Message: err.Error(),
 		})
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
@@ -779,9 +779,9 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 			"UnexpectedHostname", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		v1beta2conditions.Set(hm, metav1.Condition{
-			Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+			Reason:  infrav1.HCloudMachineServerNotProvisionedV1Beta2Reason,
 			Message: msg,
 		})
 		return reconcile.Result{}, nil
@@ -812,9 +812,9 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 			"StartImageURLCommandFailed", clusterv1.ConditionSeverityWarning,
 			"%s", err.Error())
 		v1beta2conditions.Set(hm, metav1.Condition{
-			Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+			Reason:  infrav1.HCloudMachineServerProvisioningV1Beta2Reason,
 			Message: err.Error(),
 		})
 		return reconcile.Result{}, err
@@ -834,9 +834,9 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 			"StartImageURLCommandNoZeroExitCode", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		v1beta2conditions.Set(hm, metav1.Condition{
-			Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+			Reason:  infrav1.HCloudMachineServerNotProvisionedV1Beta2Reason,
 			Message: msg,
 		})
 		return reconcile.Result{}, nil
@@ -846,9 +846,9 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 		"HCloudImageURLCommandRunning", clusterv1.ConditionSeverityInfo,
 		"imageURLCommand running")
 	v1beta2conditions.Set(hm, metav1.Condition{
-		Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+		Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 		Status:  metav1.ConditionFalse,
-		Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+		Reason:  infrav1.HCloudMachineServerProvisioningV1Beta2Reason,
 		Message: "imageURLCommand running",
 	})
 	hm.SetBootState(infrav1.HCloudBootStateRunningImageCommand)
@@ -887,9 +887,9 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 			"RunningImageCommandTimedOut", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		v1beta2conditions.Set(hm, metav1.Condition{
-			Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+			Reason:  infrav1.HCloudMachineServerNotProvisionedV1Beta2Reason,
 			Message: msg,
 		})
 		return reconcile.Result{}, nil
@@ -901,9 +901,9 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 			"HCloudImageURLCommandRunning", clusterv1.ConditionSeverityInfo,
 			"imageURLCommand running")
 		v1beta2conditions.Set(hm, metav1.Condition{
-			Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+			Reason:  infrav1.HCloudMachineServerProvisioningV1Beta2Reason,
 			Message: "imageURLCommand running",
 		})
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
@@ -923,9 +923,9 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 			"BootingToRealOS", clusterv1.ConditionSeverityInfo,
 			"Operating system of node is booting")
 		v1beta2conditions.Set(hm, metav1.Condition{
-			Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+			Reason:  infrav1.HCloudMachineServerProvisioningV1Beta2Reason,
 			Message: "Operating system of node is booting",
 		})
 
@@ -943,9 +943,9 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 			"ImageCommandFailed", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		v1beta2conditions.Set(hm, metav1.Condition{
-			Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+			Reason:  infrav1.HCloudMachineServerNotProvisionedV1Beta2Reason,
 			Message: msg,
 		})
 		return reconcile.Result{}, nil
@@ -978,9 +978,9 @@ func (s *Service) handleBootingToRealOS(ctx context.Context, server *hcloud.Serv
 			"BootingToRealOSTimedOut", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		v1beta2conditions.Set(hm, metav1.Condition{
-			Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+			Reason:  infrav1.HCloudMachineServerNotProvisionedV1Beta2Reason,
 			Message: msg,
 		})
 		return reconcile.Result{}, nil
@@ -996,9 +996,9 @@ func (s *Service) handleBootingToRealOS(ctx context.Context, server *hcloud.Serv
 			"BootingToRealOS", clusterv1.ConditionSeverityInfo,
 			"Operating system of node is booting")
 		v1beta2conditions.Set(hm, metav1.Condition{
-			Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+			Reason:  infrav1.HCloudMachineServerProvisioningV1Beta2Reason,
 			Message: "Operating system of node is booting",
 		})
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
@@ -1012,6 +1012,11 @@ func (s *Service) handleBootingToRealOS(ctx context.Context, server *hcloud.Serv
 			Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
 			Message: fmt.Sprintf("hcloud server status: %s", server.Status),
 		})
+		v1beta2conditions.Set(hm, metav1.Condition{
+			Type:   infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
+			Status: metav1.ConditionTrue,
+			Reason: infrav1.HCloudMachineServerProvisionedV1Beta2Reason,
+		})
 		// Show changes in Status and go to next BootState.
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 
@@ -1022,9 +1027,9 @@ func (s *Service) handleBootingToRealOS(ctx context.Context, server *hcloud.Serv
 			"UnknownServerStatus", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		v1beta2conditions.Set(hm, metav1.Condition{
-			Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+			Reason:  infrav1.HCloudMachineServerProvisioningV1Beta2Reason,
 			Message: msg,
 		})
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
@@ -1040,6 +1045,12 @@ func (s *Service) handleOperatingSystemRunning(ctx context.Context, server *hclo
 	hm.Status.ExternalIDs.ActionIDEnableRescueSystem = 0
 
 	conditions.MarkTrue(hm, infrav1.ServerProvisionedCondition)
+	// Provisioning is complete.
+	v1beta2conditions.Set(hm, metav1.Condition{
+		Type:   infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
+		Status: metav1.ConditionTrue,
+		Reason: infrav1.HCloudMachineServerProvisionedV1Beta2Reason,
+	})
 
 	// check whether server is attached to the network
 	if err := s.reconcileNetworkAttachment(ctx, server); err != nil {
@@ -1316,9 +1327,9 @@ func (s *Service) createServerFromImageURL(ctx context.Context) (*hcloud.Server,
 			"GetServerImageFailed", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		v1beta2conditions.Set(hm, metav1.Condition{
-			Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+			Reason:  infrav1.HCloudMachineServerNotProvisionedV1Beta2Reason,
 			Message: msg,
 		})
 		return nil, nil, err
@@ -1345,9 +1356,9 @@ func (s *Service) createServerFromImageName(ctx context.Context) (*hcloud.Server
 			"GetRawBootstrapDataFailed", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		v1beta2conditions.Set(hm, metav1.Condition{
-			Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+			Reason:  infrav1.HCloudMachineServerNotProvisionedV1Beta2Reason,
 			Message: msg,
 		})
 		return nil, nil, err
@@ -1363,9 +1374,9 @@ func (s *Service) createServerFromImageName(ctx context.Context) (*hcloud.Server
 			"GetServerImageFailed", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		v1beta2conditions.Set(hm, metav1.Condition{
-			Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+			Reason:  infrav1.HCloudMachineServerNotProvisionedV1Beta2Reason,
 			Message: msg,
 		})
 		return nil, nil, err
@@ -1698,6 +1709,8 @@ func (s *Service) getServerImage(ctx context.Context, imageName string) (*hcloud
 	return images[0], nil
 }
 
+// handleServerStatusOff is only called from handleBootingToRealOS (pre-provisioning).
+// If this function is ever called post-provisioning, it should set ServerAvailable instead of ServerProvisioned.
 func (s *Service) handleServerStatusOff(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
 	// Check if server is in ServerStatusOff and turn it on. This is to avoid a bug of Hetzner where
 	// sometimes machines are created and not turned on
@@ -1716,9 +1729,9 @@ func (s *Service) handleServerStatusOff(ctx context.Context, server *hcloud.Serv
 						"PowerOnServerFailed", clusterv1.ConditionSeverityInfo,
 						"handleServerStatusOff: server locked. Will retry")
 					v1beta2conditions.Set(s.scope.HCloudMachine, metav1.Condition{
-						Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+						Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 						Status:  metav1.ConditionFalse,
-						Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+						Reason:  infrav1.HCloudMachineServerProvisioningV1Beta2Reason,
 						Message: "handleServerStatusOff: server locked. Will retry",
 					})
 					return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
@@ -1734,6 +1747,12 @@ func (s *Service) handleServerStatusOff(ctx context.Context, server *hcloud.Serv
 			conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerProvisionedCondition,
 				"ServerOffTimeout", clusterv1.ConditionSeverityWarning,
 				"reached timeout waiting for server that is switched off")
+			v1beta2conditions.Set(s.scope.HCloudMachine, metav1.Condition{
+				Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav1.HCloudMachineServerNotProvisionedV1Beta2Reason,
+				Message: "reached timeout waiting for server that is switched off",
+			})
 			return res, nil
 		}
 	} else {
@@ -1744,9 +1763,9 @@ func (s *Service) handleServerStatusOff(ctx context.Context, server *hcloud.Serv
 				conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerProvisionedCondition,
 					"PowerOnServerFailed", clusterv1.ConditionSeverityInfo, "handleServerStatusOff: server locked. Will retry")
 				v1beta2conditions.Set(s.scope.HCloudMachine, metav1.Condition{
-					Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+					Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 					Status:  metav1.ConditionFalse,
-					Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+					Reason:  infrav1.HCloudMachineServerProvisioningV1Beta2Reason,
 					Message: "handleServerStatusOff: server locked. Will retry",
 				})
 				return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
@@ -1761,9 +1780,9 @@ func (s *Service) handleServerStatusOff(ctx context.Context, server *hcloud.Serv
 			"server is switched off",
 		)
 		v1beta2conditions.Set(s.scope.HCloudMachine, metav1.Condition{
-			Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+			Reason:  infrav1.HCloudMachineServerProvisioningV1Beta2Reason,
 			Message: "server is switched off",
 		})
 	}
