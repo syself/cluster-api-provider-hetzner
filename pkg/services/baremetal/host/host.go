@@ -1937,6 +1937,9 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		return actionComplete{} // Stays in Provisioned (final state)
 	}
 
+	// The server should be rebooted. The difficult part is to know when the node is up again after
+	// reboot. This gets done by looking at node.Status.NodeInfo.BootID (in wl-cluster).
+
 	if host.Spec.Status.ExternalIDs.RebootAnnotationSince.IsZero() {
 		host.Spec.Status.ExternalIDs.RebootAnnotationSince = metav1.Now()
 	}
@@ -2007,7 +2010,8 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 
 	isRebooted := host.Spec.Status.Rebooted
 	if !isRebooted {
-		// Reboot now
+		// First reconcile after the annotation was noticed: store the current BootID and trigger
+		// exactly one reboot, either via SSH or the Robot API.
 
 		// Set current BootID, so we can detect a successful reboot
 		host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = currentBootID
@@ -2058,9 +2062,8 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		return actionContinue{delay: 10 * time.Second}
 	}
 
-	// Reboot has already been performed. Now, verify its success by connecting to the wl-cluster
-	// and checking the BootID. If the BootID has changed, the reboot was successful.
-
+	// Later reconciles only verify progress. A different BootID means the node completed a full
+	// reboot, so the annotation can be cleared and the host stays Provisioned.
 	if host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID != currentBootID {
 		// Reboot has been successful
 		s.scope.Info(fmt.Sprintf("BootID changed: %q -> %q", host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID, currentBootID))
@@ -2077,8 +2080,8 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	}
 
 	if !s.scope.SSHAfterInstallImage {
-		// s.scope.SSHAfterInstallImage is false: No ssh allowed.
-		// We can only wait for the BootID in the wl-cluster to change.
+		// Without SSH access we cannot probe the machine directly, so keep polling the workload
+		// cluster until the BootID changes or the timeout above is hit.
 		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
 			"WaitingForNodeToBeRebooted",
 			clusterv1.ConditionSeverityInfo,
@@ -2087,6 +2090,8 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		return actionContinue{delay: 10 * time.Second}
 	}
 
+	// With SSH access enabled, fall back to direct host checks while the BootID still has not
+	// changed. This distinguishes "still rebooting" from "reboot failed to start".
 	creds := sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, host.Spec.Status.SSHSpec.SecretRef)
 	in := sshclient.Input{
 		PrivateKey: creds.PrivateKey,
@@ -2097,10 +2102,9 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 
 	// Check hostname with sshClient
 	out := sshClient.GetHostName()
-
+	actualHostName := trimLineBreak(out.StdOut)
 	wantHostName := s.scope.Hostname()
-
-	if trimLineBreak(out.StdOut) == wantHostName {
+	if actualHostName == wantHostName {
 		// Reboot has been successful
 		host.Spec.Status.Rebooted = false
 		host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = ""
@@ -2113,6 +2117,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 
 		return actionComplete{}
 	}
+
 	// Reboot has been ongoing
 	isTimeout, isSSHConnectionRefusedError, err := analyzeSSHOutputProvisioned(out)
 	if err != nil {
