@@ -74,7 +74,7 @@ The main binary prints its usage text before trying to connect to a Kubernetes c
 
 <!-- BEGIN MAIN BINARY USAGE -->
 ```console
-$ cluster-api-provider-hetzner
+$ cluster-api-provider-hetzner --help
 Usage:
   cluster-api-provider-hetzner [flags]
 

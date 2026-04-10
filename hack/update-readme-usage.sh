@@ -47,12 +47,12 @@ replacement_file="$tmp_dir/replacement.txt"
 updated_readme_file="$tmp_dir/README.md"
 
 go build -o "$binary_path" .
-"$binary_path" >"$usage_output_file"
+"$binary_path" --help >"$usage_output_file"
 
 {
 	echo "$START_MARKER"
 	echo '```console'
-	echo '$ cluster-api-provider-hetzner'
+	echo '$ cluster-api-provider-hetzner --help'
 	cat "$usage_output_file"
 	echo '```'
 	echo "$END_MARKER"

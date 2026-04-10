@@ -154,11 +154,6 @@ func main() {
 	fs.SetOutput(io.Discard)
 	registerFlags(fs)
 
-	if len(os.Args) == 1 {
-		printUsage(fs, os.Stdout)
-		return
-	}
-
 	if err := fs.Parse(os.Args[1:]); err != nil {
 		if errors.Is(err, pflag.ErrHelp) {
 			printUsage(fs, os.Stdout)
