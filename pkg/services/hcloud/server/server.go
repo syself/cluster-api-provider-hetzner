@@ -27,6 +27,7 @@ import (
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -227,6 +228,16 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 	}
 
+	// Fetch the SSH private key from the secret referenced in HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.
+	// Check that we have valid SSH private key in the secret. A failure could also mean there is a
+	// network failure while trying to access the api-server.
+	_, err := s.getSSHPrivateKey(ctx)
+	if err != nil {
+		s.scope.Error(err, "")
+		return reconcile.Result{RequeueAfter: 1 * time.Minute}, nil
+	}
+	v1beta1conditions.MarkTrue(s.scope.HCloudMachine, infrav1.SSHPrivateKeyAvailableCondition)
+
 	server, image, err := s.createServerFromImageNameOrURL(ctx)
 	if err != nil {
 		// If it is an unauthorized error i.e. wrong HCloudToken do not return an error.
@@ -319,21 +330,6 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 	}
 
 	updateHCloudMachineStatusFromServer(hm, server)
-
-	// Fetch the SSH private key from the secret referenced in HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.
-	// Check that we have valid SSH private key in the secret. A failure could also mean there is a
-	// network failure while trying to access the api-server.
-	_, err := s.getSSHPrivateKey(ctx)
-	if err != nil {
-		err = fmt.Errorf("getSSHPrivateKey failed: %w", err)
-		s.scope.Error(err, "")
-		v1beta1conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerProvisionedCondition,
-			"GetSSHPrivateKeyFailed", clusterv1beta1.ConditionSeverityWarning,
-			"%s", err.Error())
-		return reconcile.Result{RequeueAfter: 1 * time.Minute}, nil
-	}
-
-	// end of pre-flight checks.
 
 	// analyze status of server
 	switch server.Status {
@@ -1599,9 +1595,17 @@ func updateHCloudMachineStatusFromServer(hm *infrav1.HCloudMachine, server *hclo
 
 // getSSHPrivateKey retrieves the SSH private key used for connecting to the rescue systems.
 // It reads the key from the Kubernetes secret referenced by HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.
+// On failure it sets SSHPrivateKeyAvailableCondition with a specific reason describing the root cause.
 func (s *Service) getSSHPrivateKey(ctx context.Context) (string, error) {
 	robotSecretName := s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Name
 	if robotSecretName == "" {
+		v1beta1conditions.MarkFalse(
+			s.scope.HCloudMachine,
+			infrav1.SSHPrivateKeyAvailableCondition,
+			infrav1.SSHPrivateKeySecretRefNotConfiguredReason,
+			clusterv1beta1.ConditionSeverityError,
+			"HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Name is empty",
+		)
 		return "", errors.New("HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Name is empty. Can not get ssh client")
 	}
 
@@ -1612,15 +1616,30 @@ func (s *Service) getSSHPrivateKey(ctx context.Context) (string, error) {
 		Namespace: s.scope.Namespace(),
 	})
 	if err != nil {
-		return "", fmt.Errorf("failed to get secret %q: %w", robotSecretName, err)
-	}
+		if apierrors.IsNotFound(err) {
+			v1beta1conditions.MarkFalse(
+				s.scope.HCloudMachine,
+				infrav1.SSHPrivateKeyAvailableCondition,
+				infrav1.SSHPrivateKeySecretNotFoundReason,
+				clusterv1beta1.ConditionSeverityWarning,
+				"secret %s/%s not found", s.scope.Namespace(), robotSecretName,
+			)
+		}
 
-	if robotSecret == nil {
-		return "", fmt.Errorf("failed to obtain secret %s/%s", s.scope.Namespace(), robotSecretName)
+		return "", fmt.Errorf("failed to get secret %q: %w", robotSecretName, err)
 	}
 
 	privateKey := string(robotSecret.Data[s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Key.PrivateKey])
 	if privateKey == "" {
+		v1beta1conditions.MarkFalse(
+			s.scope.HCloudMachine,
+			infrav1.SSHPrivateKeyAvailableCondition,
+			infrav1.SSHPrivateKeyFieldEmptyReason,
+			clusterv1beta1.ConditionSeverityError,
+			"key %q in secret %q is missing or empty",
+			s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Key.PrivateKey,
+			robotSecretName,
+		)
 		return "", fmt.Errorf("key %q in secret %q is missing or empty. Failed to get ssh-private-key",
 			s.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Key.PrivateKey,
 			robotSecretName)

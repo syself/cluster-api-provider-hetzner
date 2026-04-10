@@ -68,6 +68,19 @@ const (
 )
 
 const (
+	// SSHPrivateKeyAvailableCondition indicates that the SSH private key is available which is used to SSH into a server.
+	SSHPrivateKeyAvailableCondition clusterv1beta1.ConditionType = "SSHPrivateKeyAvailable"
+	// SSHPrivateKeyNotFoundReason indicates that the ssh private key could not be found.
+	SSHPrivateKeyNotFoundReason = "SSHPrivateKeyNotFound"
+	// SSHPrivateKeySecretRefNotConfiguredReason indicates that HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Name is empty.
+	SSHPrivateKeySecretRefNotConfiguredReason = "SSHPrivateKeySecretRefNotConfigured" //nolint:gosec
+	// SSHPrivateKeySecretNotFoundReason indicates that the referenced secret does not exist.
+	SSHPrivateKeySecretNotFoundReason = "SSHPrivateKeySecretNotFound" //nolint:gosec
+	// SSHPrivateKeyFieldEmptyReason indicates that the private key field referenced in the secret is missing or empty.
+	SSHPrivateKeyFieldEmptyReason = "SSHPrivateKeyFieldEmpty"
+)
+
+const (
 	// NetworkAttachFailedReason is used when server could not be attached to network.
 	NetworkAttachFailedReason = "NetworkAttachFailed"
 	// LoadBalancerAttachFailedReason is used when server could not be attached to network.
