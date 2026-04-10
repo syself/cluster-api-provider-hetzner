@@ -594,6 +594,7 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 	log(fmt.Sprintf("--------------------------------------------------- BareMetalHosts %s",
 		caphDeployment.Spec.Template.Spec.Containers[0].Image))
 
+	var allErrors []error
 	for i := range hbmhList.Items {
 		hbmh := &hbmhList.Items[i]
 		if hbmh.Spec.Status.ProvisioningState == "" {
@@ -618,7 +619,7 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 		if eMsg != "" {
 			log("  Error: " + eMsg)
 			if hbmh.Spec.Status.ErrorType == infrav1.PermanentError {
-				return fmt.Errorf("%w on HetznerBareMetalHost (stopping e2e test now) %q: %s", errPermanentHBMH, hbmh.Name, eMsg)
+				allErrors = append(allErrors, fmt.Errorf("%w on HetznerBareMetalHost (stopping e2e test now) %q: %s", errPermanentHBMH, hbmh.Name, eMsg))
 			}
 		}
 
@@ -633,7 +634,7 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 		}
 		log("  ProvisioningState: " + string(hbmh.Spec.Status.ProvisioningState) + " | Ready Condition: " + state + " " + reason + " " + msg)
 	}
-	return nil
+	return errors.Join(allErrors...)
 }
 
 func initBootstrapCluster(ctx context.Context, bootstrapClusterProxy framework.ClusterProxy, config *clusterctl.E2EConfig, clusterctlConfig, artifactFolder string) {
