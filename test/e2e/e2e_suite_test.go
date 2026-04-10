@@ -601,8 +601,16 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 		}
 
 		// log infos about that hbmh.
-		log("BareMetalHost: " + hbmh.Name + " " + fmt.Sprint(hbmh.Spec.ServerID) +
-			" | IPv4: " + hbmh.Spec.Status.IPv4)
+		hbmmName := ""
+		if hbmh.Spec.ConsumerRef != nil {
+			hbmmName = hbmh.Spec.ConsumerRef.Name
+		}
+		logMsg := "BareMetalHost: " + hbmh.Name + " " + fmt.Sprint(hbmh.Spec.ServerID) +
+			" | IPv4: " + hbmh.Spec.Status.IPv4
+		if hbmmName != "" {
+			logMsg += " | HBMM: " + hbmmName
+		}
+		log(logMsg)
 
 		// Show an Error, if set.
 		eMsg := string(hbmh.Spec.Status.ErrorType) + " " + hbmh.Spec.Status.ErrorMessage
