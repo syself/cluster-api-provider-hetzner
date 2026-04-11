@@ -53,14 +53,18 @@ const (
 )
 
 const (
+	// ServerProvisionedCondition reports on whether the HCloud server has completed
+	// boot-time provisioning (rescue boot, image install, OS startup).
+	ServerProvisionedCondition clusterv1.ConditionType = "ServerProvisioned"
+	// ServerOffReason instance is off.
+	ServerOffReason = "ServerOff"
+)
+
+const (
 	// ServerAvailableCondition indicates the instance is in a Running state.
 	ServerAvailableCondition clusterv1.ConditionType = "ServerAvailable"
 	// ServerTerminatingReason instance is in a terminated state.
 	ServerTerminatingReason = "InstanceTerminated"
-	// ServerStartingReason instance is in a terminated state.
-	ServerStartingReason = "ServerStarting"
-	// ServerOffReason instance is off.
-	ServerOffReason = "ServerOff"
 )
 
 const (
