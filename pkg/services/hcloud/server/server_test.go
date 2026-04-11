@@ -263,6 +263,7 @@ var _ = Describe("Delete", func() {
 		Expect(hcloudMachine.Status.InstanceState).To(Equal(ptr.To(hcloud.ServerStatusDeleting)))
 		Expect(conditions.IsFalse(hcloudMachine, infrav1.HCloudTokenAvailableCondition)).To(BeTrue())
 		Expect(conditions.GetReason(hcloudMachine, infrav1.HCloudTokenAvailableCondition)).To(Equal(infrav1.HCloudCredentialsInvalidReason))
+		Expect(isPresentAndFalseWithReasonV1Beta2(hcloudMachine, infrav1.HCloudMachineHCloudTokenAvailableV1Beta2Condition, infrav1.HCloudMachineTokenInvalidV1Beta2Reason)).To(BeTrue())
 
 		hcloudClient.AssertExpectations(GinkgoT())
 	})
