@@ -24,6 +24,7 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/conditions/v1beta2"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -94,10 +95,46 @@ type BareMetalMachineScope struct {
 	HCloudClient hcloudclient.Client
 }
 
-// Close closes the current scope persisting the cluster configuration and status.
+// Close closes the current scope persisting the machine configuration and status.
 func (m *BareMetalMachineScope) Close(ctx context.Context) error {
 	conditions.SetSummary(m.BareMetalMachine)
-	return m.patchHelper.Patch(ctx, m.BareMetalMachine)
+	if err := SetHetznerBareMetalMachineV1Beta2SummaryCondition(m.BareMetalMachine); err != nil {
+		return fmt.Errorf("failed to set %s condition: %w", infrav1.HetznerBareMetalMachineReadyV1Beta2Condition, err)
+	}
+
+	return m.patchHelper.Patch(ctx, m.BareMetalMachine,
+		patch.WithOwnedV1Beta2Conditions{Conditions: infrav1.HetznerBareMetalMachineV1Beta2OwnedConditions()},
+	)
+}
+
+// SetHetznerBareMetalMachineV1Beta2SummaryCondition sets the Ready summary condition for a HetznerBareMetalMachine.
+func SetHetznerBareMetalMachineV1Beta2SummaryCondition(hbmm *infrav1.HetznerBareMetalMachine) error {
+	return v1beta2conditions.SetSummaryCondition(hbmm, hbmm,
+		infrav1.HetznerBareMetalMachineReadyV1Beta2Condition,
+		v1beta2conditions.ForConditionTypes(infrav1.HetznerBareMetalMachineV1Beta2SummaryConditionTypes()),
+		v1beta2conditions.NegativePolarityConditionTypes{
+			infrav1.HetznerBareMetalMachineDeletingV1Beta2Condition,
+		},
+		v1beta2conditions.IgnoreTypesIfMissing{
+			infrav1.HetznerBareMetalMachineBootstrapReadyV1Beta2Condition,
+			infrav1.HetznerBareMetalMachineHostAssociateSucceededV1Beta2Condition,
+			infrav1.HetznerBareMetalMachineHostReadyV1Beta2Condition,
+		},
+		v1beta2conditions.CustomMergeStrategy{
+			MergeStrategy: v1beta2conditions.DefaultMergeStrategy(
+				v1beta2conditions.GetPriorityFunc(
+					v1beta2conditions.GetDefaultMergePriorityFunc(infrav1.HetznerBareMetalMachineDeletingV1Beta2Condition),
+				),
+				v1beta2conditions.ComputeReasonFunc(
+					v1beta2conditions.GetDefaultComputeMergeReasonFunc(
+						infrav1.HetznerBareMetalMachineNotReadyV1Beta2Reason,
+						infrav1.HetznerBareMetalMachineReadyUnknownV1Beta2Reason,
+						infrav1.HetznerBareMetalMachineReadyV1Beta2Reason,
+					),
+				),
+			),
+		},
+	)
 }
 
 // Name returns the BareMetalMachine name.
@@ -111,8 +148,8 @@ func (m *BareMetalMachineScope) Namespace() string {
 }
 
 // PatchObject persists the machine spec and status.
-func (m *BareMetalMachineScope) PatchObject(ctx context.Context) error {
-	return m.patchHelper.Patch(ctx, m.BareMetalMachine)
+func (m *BareMetalMachineScope) PatchObject(ctx context.Context, opts ...patch.Option) error {
+	return m.patchHelper.Patch(ctx, m.BareMetalMachine, opts...)
 }
 
 // IsControlPlane returns true if the machine is a control plane.

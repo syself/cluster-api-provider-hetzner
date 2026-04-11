@@ -40,6 +40,7 @@ import (
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/conditions/v1beta2"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -100,10 +101,21 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 			clusterv1.ConditionSeverityInfo,
 			"bootstrap not ready yet",
 		)
+		v1beta2conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
+			Type:    infrav1.HetznerBareMetalMachineBootstrapReadyV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav1.HetznerBareMetalMachineWaitingForBootstrapDataV1Beta2Reason,
+			Message: "bootstrap not ready yet",
+		})
 		return res, nil
 	}
 
 	conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.BootstrapReadyCondition)
+	v1beta2conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
+		Type:   infrav1.HetznerBareMetalMachineBootstrapReadyV1Beta2Condition,
+		Status: metav1.ConditionTrue,
+		Reason: infrav1.HetznerBareMetalMachineBootstrapReadyV1Beta2Reason,
+	})
 
 	// Check if the bareMetalmachine is associated with a host already. If not, associate a new host.
 	if !s.scope.BareMetalMachine.HasHostAnnotation() {
@@ -114,6 +126,11 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	}
 
 	conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.HostAssociateSucceededCondition)
+	v1beta2conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
+		Type:   infrav1.HetznerBareMetalMachineHostAssociateSucceededV1Beta2Condition,
+		Status: metav1.ConditionTrue,
+		Reason: infrav1.HetznerBareMetalMachineHostAssociatedV1Beta2Reason,
+	})
 
 	// update the machine
 	host, err := s.update(ctx)
@@ -128,6 +145,12 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 				clusterv1.ConditionSeverityError,
 				"associated host not found",
 			)
+			v1beta2conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
+				Type:    infrav1.HetznerBareMetalMachineHostReadyV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav1.HetznerBareMetalMachineHostNotFoundV1Beta2Reason,
+				Message: "associated host not found",
+			})
 
 			return reconcile.Result{}, s.scope.SetRemediateMachineAnnotationToDeleteMachine(ctx, "Reconcile of hbmm: host not found")
 		}
@@ -165,6 +188,12 @@ func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 
 		// remove control plane as load balancer target
 		if s.scope.IsControlPlane() && s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
+			v1beta2conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
+				Type:    infrav1.HetznerBareMetalMachineDeletingV1Beta2Condition,
+				Status:  metav1.ConditionTrue,
+				Reason:  infrav1.HetznerBareMetalMachineDeletingV1Beta2Reason,
+				Message: "Removing server from load balancer",
+			})
 			if err := s.removeAttachedServerOfLoadBalancer(ctx, host); err != nil {
 				return reconcile.Result{}, fmt.Errorf("failed to delete attached server of load balancer: %w", err)
 			}
@@ -179,6 +208,12 @@ func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 		}
 
 		if removeMachineSpecsFromHost(host) {
+			v1beta2conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
+				Type:    infrav1.HetznerBareMetalMachineDeletingV1Beta2Condition,
+				Status:  metav1.ConditionTrue,
+				Reason:  infrav1.HetznerBareMetalMachineDeletingV1Beta2Reason,
+				Message: "Waiting for host to deprovision",
+			})
 			// Patch the host object. If the error is NotFound, do not return the error.
 			if err := analyzePatchError(helper.Patch(ctx, host), true); err != nil {
 				return checkForRequeueError(err, "failed to patch host")
@@ -189,6 +224,12 @@ func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 
 		// check if deprovisioning is done
 		if host.Spec.Status.ProvisioningState != infrav1.StateNone {
+			v1beta2conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
+				Type:    infrav1.HetznerBareMetalMachineDeletingV1Beta2Condition,
+				Status:  metav1.ConditionTrue,
+				Reason:  infrav1.HetznerBareMetalMachineDeletingV1Beta2Reason,
+				Message: fmt.Sprintf("Waiting for host to deprovision (state: %s)", host.Spec.Status.ProvisioningState),
+			})
 			s.scope.Info("hbmm is deleting, but host is not deprovisioned yet. Requeueing",
 				"ProvisioningState", host.Spec.Status.ProvisioningState)
 			return reconcile.Result{RequeueAfter: requeueAfter}, nil
@@ -244,6 +285,11 @@ func (s *Service) update(ctx context.Context) (*infrav1.HetznerBareMetalHost, er
 		switch readyCondition.Status {
 		case corev1.ConditionTrue:
 			conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.HostReadyCondition)
+			v1beta2conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
+				Type:   infrav1.HetznerBareMetalMachineHostReadyV1Beta2Condition,
+				Status: metav1.ConditionTrue,
+				Reason: infrav1.HetznerBareMetalMachineHostReadyV1Beta2Reason,
+			})
 		case corev1.ConditionFalse:
 			conditions.MarkFalse(
 				s.scope.BareMetalMachine,
@@ -253,6 +299,12 @@ func (s *Service) update(ctx context.Context) (*infrav1.HetznerBareMetalHost, er
 				"%s",
 				readyCondition.Message,
 			)
+			v1beta2conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
+				Type:    infrav1.HetznerBareMetalMachineHostReadyV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav1.HetznerBareMetalMachineHostNotReadyV1Beta2Reason,
+				Message: readyCondition.Message,
+			})
 		}
 	}
 
@@ -338,6 +390,12 @@ func (s *Service) associate(ctx context.Context) error {
 			"%s",
 			fmt.Sprintf("no available host (%s)", reason),
 		)
+		v1beta2conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
+			Type:    infrav1.HetznerBareMetalMachineHostAssociateSucceededV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav1.HetznerBareMetalMachineNoAvailableHostV1Beta2Reason,
+			Message: fmt.Sprintf("no available host (%s)", reason),
+		})
 		return &scope.RequeueAfterError{RequeueAfter: requeueAfterNoAvailableHost}
 	}
 
@@ -365,6 +423,12 @@ func (s *Service) associate(ctx context.Context) error {
 			"%s",
 			reterr.Error(),
 		)
+		v1beta2conditions.Set(s.scope.BareMetalMachine, metav1.Condition{
+			Type:    infrav1.HetznerBareMetalMachineHostAssociateSucceededV1Beta2Condition,
+			Status:  metav1.ConditionFalse,
+			Reason:  infrav1.HetznerBareMetalMachineHostAssociateFailedV1Beta2Reason,
+			Message: reterr.Error(),
+		})
 		return reterr
 	}
 

@@ -332,6 +332,20 @@ type HetznerBareMetalMachineStatus struct {
 	// Conditions define the current service state of the HetznerBareMetalMachine.
 	// +optional
 	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
+
+	// v1beta2 groups all the fields that will be added or modified in HetznerBareMetalMachine's status with the V1Beta2 version.
+	// +optional
+	V1Beta2 *HetznerBareMetalMachineV1Beta2Status `json:"v1beta2,omitempty"`
+}
+
+// HetznerBareMetalMachineV1Beta2Status groups all the fields that will be added or modified in HetznerBareMetalMachine with the V1Beta2 version.
+type HetznerBareMetalMachineV1Beta2Status struct {
+	// conditions represents the observations of a HetznerBareMetalMachine's current state.
+	// Known condition types are Ready, HCloudTokenAvailable, BootstrapReady, HostAssociateSucceeded, HostReady and Deleting.
+	// +optional
+	// +listType=map
+	// +listMapKey=type
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // HetznerBareMetalMachine is the Schema for the hetznerbaremetalmachines API.
@@ -365,6 +379,22 @@ func (hbmm *HetznerBareMetalMachine) GetConditions() clusterv1.Conditions {
 // SetConditions sets the underlying service state of the HetznerBareMetalMachine to the predescribed clusterv1.Conditions.
 func (hbmm *HetznerBareMetalMachine) SetConditions(conditions clusterv1.Conditions) {
 	hbmm.Status.Conditions = conditions
+}
+
+// GetV1Beta2Conditions returns the list of conditions for a HetznerBareMetalMachine API object.
+func (hbmm *HetznerBareMetalMachine) GetV1Beta2Conditions() []metav1.Condition {
+	if hbmm.Status.V1Beta2 == nil {
+		return nil
+	}
+	return hbmm.Status.V1Beta2.Conditions
+}
+
+// SetV1Beta2Conditions sets conditions for a HetznerBareMetalMachine API object.
+func (hbmm *HetznerBareMetalMachine) SetV1Beta2Conditions(conditions []metav1.Condition) {
+	if hbmm.Status.V1Beta2 == nil {
+		hbmm.Status.V1Beta2 = &HetznerBareMetalMachineV1Beta2Status{}
+	}
+	hbmm.Status.V1Beta2.Conditions = conditions
 }
 
 // GetImageSuffix tests whether the suffix is known and outputs it if yes. Otherwise it returns an error.
