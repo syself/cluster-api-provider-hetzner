@@ -19,6 +19,7 @@ package scope
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
@@ -87,4 +88,95 @@ var _ = Describe("Test ServerIDFromProviderID", func() {
 			expectError:    nil,
 		}),
 	)
+})
+
+var _ = Describe("SetHCloudMachineV1Beta2SummaryCondition", func() {
+	It("surfaces the highest-priority unhealthy condition in the summary message", func() {
+		hcloudMachine := &infrav1.HCloudMachine{
+			Status: infrav1.HCloudMachineStatus{
+				V1Beta2: &infrav1.HCloudMachineV1Beta2Status{},
+			},
+		}
+
+		hcloudMachine.SetV1Beta2Conditions([]metav1.Condition{
+			// ServerAvailable=False (lowest priority issue).
+			{
+				Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
+				Message: "server is not available",
+			},
+			// Set HCloudTokenAvailable=False (highest priority issue).
+			{
+				Type:    infrav1.HCloudMachineHCloudTokenAvailableV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav1.HCloudMachineTokenInvalidV1Beta2Reason,
+				Message: "token is invalid",
+			},
+			// Deleting=True (negative polarity, mid priority issue).
+			{
+				Type:    infrav1.HCloudMachineDeletingV1Beta2Condition,
+				Status:  metav1.ConditionTrue,
+				Reason:  infrav1.HCloudMachineDeletingV1Beta2Reason,
+				Message: "machine is deleting",
+			},
+		})
+
+		Expect(SetHCloudMachineV1Beta2SummaryCondition(hcloudMachine)).To(Succeed())
+
+		readyCond := hcloudMachine.GetV1Beta2Conditions()
+		var summaryMsg string
+		for _, c := range readyCond {
+			if c.Type == infrav1.HCloudMachineReadyV1Beta2Condition {
+				summaryMsg = c.Message
+				Expect(c.Status).To(Equal(metav1.ConditionFalse))
+				break
+			}
+		}
+		Expect(summaryMsg).ToNot(BeEmpty(), "Ready summary condition should have a message")
+
+		// The summary message lists issues in ForConditionTypes order.
+		// HCloudTokenAvailable (priority 1) before Deleting (priority 3) before ServerAvailable (priority 7).
+		Expect(summaryMsg).To(MatchRegexp(`(?s)token is invalid.*machine is deleting.*server is not available`))
+	})
+
+	It("surfaces HetznerAPIReachable before Deleting when both are unhealthy", func() {
+		hcloudMachine := &infrav1.HCloudMachine{
+			Status: infrav1.HCloudMachineStatus{
+				V1Beta2: &infrav1.HCloudMachineV1Beta2Status{},
+			},
+		}
+
+		hcloudMachine.SetV1Beta2Conditions([]metav1.Condition{
+			// HetznerAPIReachable=False (priority 2).
+			{
+				Type:    infrav1.HCloudMachineHetznerAPIReachableV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav1.HCloudMachineHetznerAPIRateLimitExceededV1Beta2Reason,
+				Message: "rate limit exceeded",
+			},
+			// Deleting=True (negative polarity, priority 3).
+			{
+				Type:    infrav1.HCloudMachineDeletingV1Beta2Condition,
+				Status:  metav1.ConditionTrue,
+				Reason:  infrav1.HCloudMachineDeletingV1Beta2Reason,
+				Message: "machine is deleting",
+			},
+		})
+
+		Expect(SetHCloudMachineV1Beta2SummaryCondition(hcloudMachine)).To(Succeed())
+
+		readyCond := hcloudMachine.GetV1Beta2Conditions()
+		var summaryMsg string
+		for _, c := range readyCond {
+			if c.Type == infrav1.HCloudMachineReadyV1Beta2Condition {
+				summaryMsg = c.Message
+				break
+			}
+		}
+		Expect(summaryMsg).ToNot(BeEmpty())
+
+		// HetznerAPIReachable (priority 2) before Deleting (priority 3).
+		Expect(summaryMsg).To(MatchRegexp(`(?s)rate limit exceeded.*machine is deleting`))
+	})
 })

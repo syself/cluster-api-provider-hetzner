@@ -346,16 +346,27 @@ const (
 
 // HCloudMachineV1Beta2OwnedConditions returns a fresh copy of the v1beta2 conditions
 // owned by the HCloudMachine controller.
+//
+// The order of conditions (after Ready) defines the priority for the Ready summary
+// condition: when multiple conditions are unhealthy, the summary surfaces the message
+// of the highest-priority (earliest) one. The ordering reflects operational importance:
+//  1. HCloudTokenAvailable - invalid credentials block everything.
+//  2. HetznerAPIReachable  - rate-limit / API issues (shown only when relevant).
+//  3. Deleting             - deletion state is more important than lifecycle conditions.
+//  4. BootstrapReady       - bootstrap data must be ready before provisioning.
+//  5. ServerCreated        - server existence precedes later lifecycle stages.
+//  6. ServerProvisioned    - provisioning precedes availability.
+//  7. ServerAvailable
 func HCloudMachineV1Beta2OwnedConditions() []string {
 	return []string{
 		HCloudMachineReadyV1Beta2Condition,
 		HCloudMachineHCloudTokenAvailableV1Beta2Condition,
+		HCloudMachineHetznerAPIReachableV1Beta2Condition,
+		HCloudMachineDeletingV1Beta2Condition,
 		HCloudMachineBootstrapReadyV1Beta2Condition,
 		HCloudMachineServerCreatedV1Beta2Condition,
 		HCloudMachineServerProvisionedV1Beta2Condition,
 		HCloudMachineServerAvailableV1Beta2Condition,
-		HCloudMachineDeletingV1Beta2Condition,
-		HCloudMachineHetznerAPIReachableV1Beta2Condition,
 	}
 }
 

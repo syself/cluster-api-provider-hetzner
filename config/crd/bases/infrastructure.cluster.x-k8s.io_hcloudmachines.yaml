@@ -325,7 +325,7 @@ spec:
                   conditions:
                     description: |-
                       conditions represents the observations of a HCloudMachine's current state.
-                      Known condition types are Ready, HCloudTokenAvailable, BootstrapReady, ServerCreated, ServerAvailable, Deleting and HetznerAPIReachable.
+                      Known condition types are Ready, HCloudTokenAvailable, BootstrapReady, ServerCreated, ServerProvisioned, ServerAvailable, Deleting and HetznerAPIReachable.
                     items:
                       description: Condition contains details for one aspect of the
                         current state of this API Resource.
