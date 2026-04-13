@@ -1008,7 +1008,7 @@ var _ = Describe("Reconcile", func() {
 		Expect(err).To(BeNil())
 		service.scope.HCloudMachine.Spec.ImageName = ""
 		service.scope.HCloudMachine.Spec.ImageURL = "oci://example.com/repo/image:v1"
-		service.scope.HCloudMachine.Spec.ImageURLCommand = "/bin/sh"
+		service.scope.HCloudMachine.Spec.ImageURLCommand = "image-url-command-test.sh"
 
 		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
 

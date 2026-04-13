@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"os"
 	"syscall"
 	"time"
 
@@ -57,6 +56,8 @@ const (
 
 	preRescueOSImage = "ubuntu-24.04"
 )
+
+var hcloudImageURLCommandDir = "/shared"
 
 var errServerCreateNotPossible = fmt.Errorf("server create not possible - need action")
 
@@ -314,8 +315,8 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 	updateHCloudMachineStatusFromServer(hm, server)
 
 	// This is a new machine with imageURL. Do some pre-flight checks.
-	imageURLCommand := hm.Spec.ImageURLCommand
-	if imageURLCommand == "" {
+	imageURLCommandName := hm.Spec.ImageURLCommand
+	if imageURLCommandName == "" {
 		msg := "imageURL is set, but spec.imageURLCommand is empty"
 		s.scope.Error(nil, msg)
 		conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerAvailableCondition,
@@ -323,8 +324,8 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 			"%s", msg)
 		return reconcile.Result{}, nil
 	}
-	if _, err := os.Stat(imageURLCommand); err != nil {
-		err = fmt.Errorf("imageURLCommand %q is not accessible by the controller pod: %w", imageURLCommand, err)
+	if _, err := utils.ResolveImageURLCommandPath(hcloudImageURLCommandDir, imageURLCommandName); err != nil {
+		err = fmt.Errorf("imageURLCommand %q is invalid or not accessible by the controller pod: %w", imageURLCommandName, err)
 		s.scope.Error(err, "")
 		conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerAvailableCondition,
 			"ImageURLCommandNotAccessible", clusterv1.ConditionSeverityWarning,
@@ -605,7 +606,11 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("hcloud GetRawBootstrapData failed: %w", err)
 	}
-	exitStatus, stdoutStderr, err := sshClient.StartImageURLCommand(ctx, hm.Spec.ImageURLCommand, hm.Spec.ImageURL, data, s.scope.Name(), []string{"sda"})
+	imageURLCommandPath, err := utils.ResolveImageURLCommandPath(hcloudImageURLCommandDir, hm.Spec.ImageURLCommand)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("resolving imageURLCommand failed: %w", err)
+	}
+	exitStatus, stdoutStderr, err := sshClient.StartImageURLCommand(ctx, imageURLCommandPath, hm.Spec.ImageURL, data, s.scope.Name(), []string{"sda"})
 	if err != nil {
 		err := fmt.Errorf("StartImageURLCommand failed (retrying): %w", err)
 		// This could be a temporary network error. Retry.

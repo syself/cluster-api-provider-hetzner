@@ -20,6 +20,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
@@ -229,6 +231,13 @@ var _ = BeforeSuite(func() {
 	utilruntime.Must(corev1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(infrav1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(clusterv1.AddToScheme(scheme.Scheme))
+
+	tmpDir, err := os.MkdirTemp("", "caph-hcloud-image-url-command-*")
+	Expect(err).NotTo(HaveOccurred())
+	hcloudImageURLCommandDir = tmpDir
+	commandPath := filepath.Join(hcloudImageURLCommandDir, "image-url-command-test.sh")
+	err = os.WriteFile(commandPath, []byte("#!/bin/sh\nexit 0\n"), 0o700)
+	Expect(err).NotTo(HaveOccurred())
 
 	testEnv = helpers.NewTestEnvironment()
 	testEnv.Resetter = &Resetter{}

@@ -31,7 +31,7 @@ spec:
     spec:
       type: cpx22
       imageURL: oci://example.com/yourimage:v1
-      imageURLCommand: /shared/image-url-command.sh
+      imageURLCommand: image-url-command-install-flatcar.sh
 ```
 
 The command will get the imageURL, bootstrap-data, machine-name of the corresponding
@@ -44,8 +44,9 @@ Example:
 ```
 
 It is up to the command to download from that URL and provision the disk accordingly. This command
-must be accessible by the controller pod. You can use an initContainer to copy the command to a
-shared emptyDir.
+must be accessible by the controller pod below `/shared`. You can use an initContainer to copy the
+command to a shared emptyDir. For hcloud, `spec.imageURLCommand` is only the basename and must
+start with `image-url-command-`.
 
 The env var OCI_REGISTRY_AUTH_TOKEN from the caph process will be set for the command, too.
 

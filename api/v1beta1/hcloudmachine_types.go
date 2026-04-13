@@ -61,7 +61,7 @@ type HCloudMachineSpec struct {
 	ImageName string `json:"imageName,omitempty"`
 
 	// ImageURL gets used for installing custom node images. If that field is set, the controller
-	// boots a new HCloud machine into rescue mode. Then the script provided by
+	// boots a new HCloud machine into rescue mode. Then the command referenced by
 	// ImageURLCommand will be copied into the rescue system and executed.
 	//
 	// The controller uses url.ParseRequestURI (Go function) to validate the URL.
@@ -83,9 +83,9 @@ type HCloudMachineSpec struct {
 	// +optional
 	ImageURL string `json:"imageURL,omitempty"`
 
-	// ImageURLCommand is the local path of the command which provisions a machine from ImageURL.
-	// The command must be accessible by the controller pod. CAPH copies it into the rescue system
-	// and executes it there.
+	// ImageURLCommand is the basename of a command file below /shared on the controller pod which
+	// provisions a machine from ImageURL. CAPH copies that command into the rescue system and
+	// executes it there.
 	//
 	// Docs: https://syself.com/docs/caph/developers/image-url-command
 	//

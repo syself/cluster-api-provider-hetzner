@@ -18,14 +18,11 @@ package v1beta1
 
 import (
 	"net/url"
-	"path/filepath"
 	"reflect"
-	"regexp"
 
+	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
-
-var imageURLCommandBasenameRegex = regexp.MustCompile(`^[a-z][a-z0-9_.-]+[a-z0-9]$`)
 
 func validateHCloudMachineSpecUpdate(oldSpec, newSpec HCloudMachineSpec) field.ErrorList {
 	var allErrs field.ErrorList
@@ -107,11 +104,10 @@ func validateHCloudMachineSpec(spec HCloudMachineSpec) field.ErrorList {
 	}
 
 	if spec.ImageURLCommand != "" {
-		baseName := filepath.Base(spec.ImageURLCommand)
-		if !imageURLCommandBasenameRegex.MatchString(baseName) {
+		if err := utils.ValidateImageURLCommandName(spec.ImageURLCommand); err != nil {
 			allErrs = append(allErrs,
 				field.Invalid(field.NewPath("spec", "imageURLCommand"), spec.ImageURLCommand,
-					"basename must match the regex "+imageURLCommandBasenameRegex.String()))
+					err.Error()))
 		}
 	}
 
