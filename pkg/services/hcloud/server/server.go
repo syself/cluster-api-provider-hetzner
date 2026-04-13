@@ -197,7 +197,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 			return reconcile.Result{}, err
 		}
 		s.scope.Error(nil, msg)
-		conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
+		conditions.MarkFalse(hm, infrav1.ServerCreateSucceededCondition,
 			"HandleBootStateUnsetTimedOut", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		return reconcile.Result{}, nil
@@ -216,9 +216,6 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		msg = fmt.Sprintf("Updating old resource (pre BootState) %s", hm.Status.BootState)
 
 		s.scope.Info(msg)
-		conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
-			"HandleBootStateUnset", clusterv1.ConditionSeverityInfo,
-			"%s", msg)
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 	}
 
@@ -256,7 +253,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		if errors.Is(err, errServerCreateNotPossible) {
 			err = fmt.Errorf("createServerFromImageNameOrURL failed: %w", err)
 			s.scope.Error(err, "")
-			conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
+			conditions.MarkFalse(hm, infrav1.ServerCreateSucceededCondition,
 				"ServerCreateNotPossible", clusterv1.ConditionSeverityWarning,
 				"%s", err.Error())
 			return reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
@@ -749,9 +746,6 @@ func (s *Service) handleBootingToRealOS(ctx context.Context, server *hcloud.Serv
 	case hcloud.ServerStatusRunning:
 		hm.SetBootState(infrav1.HCloudBootStateOperatingSystemRunning)
 		conditions.MarkTrue(hm, infrav1.ServerProvisionedCondition)
-		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
-			"RealOSRunning", clusterv1.ConditionSeverityInfo,
-			"hcloud server status: %s", server.Status)
 		// Show changes in Status and go to next BootState.
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 
