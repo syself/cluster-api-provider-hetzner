@@ -259,6 +259,13 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
+	// If we passed the rate limit check, the API is not rate limited.
+	v1beta2conditions.Set(hcloudMachine, metav1.Condition{
+		Type:   infrav1.HCloudMachineHCloudRateLimitExceededV1Beta2Condition,
+		Status: metav1.ConditionFalse,
+		Reason: infrav1.HCloudMachineRateLimitNotExceededV1Beta2Reason,
+	})
+
 	if !hcloudMachine.DeletionTimestamp.IsZero() {
 		return r.reconcileDelete(ctx, machineScope)
 	}

@@ -93,9 +93,9 @@ func HandleRateLimitExceeded(obj runtimeObjectWithConditions, err error, functio
 		)
 		if hcloudMachine, ok := obj.(*infrav1.HCloudMachine); ok {
 			v1beta2conditions.Set(hcloudMachine, metav1.Condition{
-				Type:    infrav1.HCloudMachineHetznerAPIReachableV1Beta2Condition,
-				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HCloudMachineHetznerAPIRateLimitExceededV1Beta2Reason,
+				Type:    infrav1.HCloudMachineHCloudRateLimitExceededV1Beta2Condition,
+				Status:  metav1.ConditionTrue,
+				Reason:  infrav1.HCloudMachineRateLimitExceededV1Beta2Reason,
 				Message: msg,
 			})
 		}

@@ -256,6 +256,9 @@ const (
 	RebootSucceededCondition clusterv1.ConditionType = "RebootSucceeded"
 )
 
+// NotYetReconciledV1Beta2Reason surfaces when a condition has not been evaluated yet. Used for conditions that are set to `Unknown` by default.
+const NotYetReconciledV1Beta2Reason = "NotYetReconciled"
+
 // HCloudMachine v1beta2 conditions and reasons.
 const (
 	// HCloudMachineReadyV1Beta2Condition summarizes the readiness of the HCloudMachine.
@@ -336,12 +339,13 @@ const (
 )
 
 const (
-	// HCloudMachineHetznerAPIReachableV1Beta2Condition reports whether the Hetzner API is reachable for the HCloudMachine.
-	HCloudMachineHetznerAPIReachableV1Beta2Condition = "HetznerAPIReachable"
-	// HCloudMachineHetznerAPIReachableV1Beta2Reason surfaces when the Hetzner API is reachable.
-	HCloudMachineHetznerAPIReachableV1Beta2Reason = "Reachable"
-	// HCloudMachineHetznerAPIRateLimitExceededV1Beta2Reason surfaces when requests hit the Hetzner API rate limit.
-	HCloudMachineHetznerAPIRateLimitExceededV1Beta2Reason = "RateLimitExceeded"
+	// HCloudMachineHCloudRateLimitExceededV1Beta2Condition reports whether the HCloud API rate limit
+	// has been exceeded (negative polarity: True = rate limited = unhealthy).
+	HCloudMachineHCloudRateLimitExceededV1Beta2Condition = "HCloudRateLimitExceeded"
+	// HCloudMachineRateLimitNotExceededV1Beta2Reason surfaces when the HCloud API rate limit is not exceeded.
+	HCloudMachineRateLimitNotExceededV1Beta2Reason = "RateLimitNotExceeded"
+	// HCloudMachineRateLimitExceededV1Beta2Reason surfaces when requests hit the HCloud API rate limit.
+	HCloudMachineRateLimitExceededV1Beta2Reason = "RateLimitExceeded"
 )
 
 // HCloudMachineV1Beta2OwnedConditions returns a fresh copy of the v1beta2 conditions
@@ -350,18 +354,18 @@ const (
 // The order of conditions (after Ready) defines the priority for the Ready summary
 // condition: when multiple conditions are unhealthy, the summary surfaces the message
 // of the highest-priority (earliest) one. The ordering reflects operational importance:
-//  1. HCloudTokenAvailable - invalid credentials block everything.
-//  2. HetznerAPIReachable  - rate-limit / API issues (shown only when relevant).
-//  3. Deleting             - deletion state is more important than lifecycle conditions.
-//  4. BootstrapReady       - bootstrap data must be ready before provisioning.
-//  5. ServerCreated        - server existence precedes later lifecycle stages.
-//  6. ServerProvisioned    - provisioning precedes availability.
+//  1. HCloudTokenAvailable      - invalid credentials block everything.
+//  2. HCloudRateLimitExceeded   - rate-limit issues (negative polarity).
+//  3. Deleting                  - deletion state is more important than lifecycle conditions (negative polarity).
+//  4. BootstrapReady            - bootstrap data must be ready before provisioning.
+//  5. ServerCreated             - server existence precedes later lifecycle stages.
+//  6. ServerProvisioned         - provisioning precedes availability.
 //  7. ServerAvailable
 func HCloudMachineV1Beta2OwnedConditions() []string {
 	return []string{
 		HCloudMachineReadyV1Beta2Condition,
 		HCloudMachineHCloudTokenAvailableV1Beta2Condition,
-		HCloudMachineHetznerAPIReachableV1Beta2Condition,
+		HCloudMachineHCloudRateLimitExceededV1Beta2Condition,
 		HCloudMachineDeletingV1Beta2Condition,
 		HCloudMachineBootstrapReadyV1Beta2Condition,
 		HCloudMachineServerCreatedV1Beta2Condition,

@@ -148,11 +148,11 @@ var _ = Describe("SetHCloudMachineV1Beta2SummaryCondition", func() {
 		}
 
 		hcloudMachine.SetV1Beta2Conditions([]metav1.Condition{
-			// HetznerAPIReachable=False (priority 2).
+			// HCloudRateLimitExceeded=True (negative polarity, priority 2).
 			{
-				Type:    infrav1.HCloudMachineHetznerAPIReachableV1Beta2Condition,
-				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HCloudMachineHetznerAPIRateLimitExceededV1Beta2Reason,
+				Type:    infrav1.HCloudMachineHCloudRateLimitExceededV1Beta2Condition,
+				Status:  metav1.ConditionTrue,
+				Reason:  infrav1.HCloudMachineRateLimitExceededV1Beta2Reason,
 				Message: "rate limit exceeded",
 			},
 			// Deleting=True (negative polarity, priority 3).
