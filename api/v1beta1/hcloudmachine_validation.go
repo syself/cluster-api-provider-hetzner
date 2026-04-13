@@ -105,6 +105,8 @@ func validateHCloudMachineSpec(spec HCloudMachineSpec) field.ErrorList {
 	}
 
 	if spec.ImageURLCommand != "" {
+		// Intentionally validate only the name here. Checking whether the file exists on the
+		// controller pod would make kubectl apply depend on the current controller filesystem state.
 		if err := utils.ValidateImageURLCommandName(spec.ImageURLCommand); err != nil {
 			allErrs = append(allErrs,
 				field.Invalid(field.NewPath("spec", "imageURLCommand"), spec.ImageURLCommand,

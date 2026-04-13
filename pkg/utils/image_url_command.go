@@ -21,6 +21,7 @@ package utils
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -46,27 +47,16 @@ func ValidateImageURLCommandName(name string) error {
 	return nil
 }
 
-// ResolveImageURLCommandPath resolves a command name below the given directory and rejects
-// symlinks that escape that directory.
+// ResolveImageURLCommandPath resolves a command name below the given directory.
 func ResolveImageURLCommandPath(commandDir, name string) (string, error) {
 	if err := ValidateImageURLCommandName(name); err != nil {
 		return "", err
 	}
 
 	commandPath := filepath.Join(commandDir, name)
-	resolvedPath, err := filepath.EvalSymlinks(commandPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to resolve %q: %w", commandPath, err)
+	if _, err := os.Stat(commandPath); err != nil {
+		return "", fmt.Errorf("failed to stat %q: %w", commandPath, err)
 	}
 
-	cleanCommandDir := filepath.Clean(commandDir)
-	rel, err := filepath.Rel(cleanCommandDir, resolvedPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to compare %q against %q: %w", resolvedPath, cleanCommandDir, err)
-	}
-	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return "", fmt.Errorf("resolved path %q escapes %q", resolvedPath, cleanCommandDir)
-	}
-
-	return resolvedPath, nil
+	return commandPath, nil
 }

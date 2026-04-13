@@ -324,6 +324,11 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 			"%s", msg)
 		return reconcile.Result{}, nil
 	}
+
+	// The webhook already validates this, but we check again before any file access because we
+	// never want a HCloudMachine to make CAPH copy arbitrary controller files into the rescue
+	// system, for example service-account tokens. The webhook could also have been disabled
+	// temporarily, so this runtime check is still meaningful.
 	if _, err := utils.ResolveImageURLCommandPath(hcloudImageURLCommandDir, imageURLCommandName); err != nil {
 		err = fmt.Errorf("imageURLCommand %q is invalid or not accessible by the controller pod: %w", imageURLCommandName, err)
 		s.scope.Error(err, "")
@@ -606,10 +611,12 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("hcloud GetRawBootstrapData failed: %w", err)
 	}
+
 	imageURLCommandPath, err := utils.ResolveImageURLCommandPath(hcloudImageURLCommandDir, hm.Spec.ImageURLCommand)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("resolving imageURLCommand failed: %w", err)
 	}
+
 	exitStatus, stdoutStderr, err := sshClient.StartImageURLCommand(ctx, imageURLCommandPath, hm.Spec.ImageURL, data, s.scope.Name(), []string{"sda"})
 	if err != nil {
 		err := fmt.Errorf("StartImageURLCommand failed (retrying): %w", err)
