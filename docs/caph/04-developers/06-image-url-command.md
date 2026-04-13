@@ -31,7 +31,7 @@ spec:
     spec:
       type: cpx22
       imageURL: oci://example.com/yourimage:v1
-      imageURLCommand: image-url-command-install-flatcar.sh
+      imageURLCommand: image-url-command-install-foo.sh
 ```
 
 The command will get the imageURL, bootstrap-data, machine-name of the corresponding
