@@ -32,30 +32,6 @@
 - [Contributing](#-getting-involved-and-contributing)
 - [Contact](#-contact)
 
-## You are seeing CAPH v1.0.x
-
-**Important:** On December 5, 2025 we reset `main` to the
-[v1.0.7](https://github.com/syself/cluster-api-provider-hetzner/tree/v1.0.7) tag so that the
-documentation on `main` continues to describe the latest *stable* release. Active development for
-CAPH v1.1.x (code and docs) happens on the dedicated
-[`v1.1.x`](https://github.com/syself/cluster-api-provider-hetzner/tree/v1.1.x) branch. Please base
-new pull requests on `v1.1.x` unless you are intentionally backporting to v1.0.x.
-
-We will ship and support both lines in parallel until v1.1.x becomes generally available.
-
-| CAPH series | API version(s) | Compatible CAPI | Status |
-| ----------- | -------------- | --------------- | ------ |
-| `v1.0.x`    | `v1beta1` (CAPH + CAPI) | `<= v1.10` | On branch `main` |
-| `v1.1.x`    | `v1beta1`              | `>= v1.10` `<= v1.12` | Under active development on branch `v1.1.x` |
-| `v1.2.x`    | `v1beta2`              | `>= v1.10` | Under active development on branch `v1.2.x` |
-
-**Tip:** CAPH `v1.0.x` must be used with CAPI `v1.10` or lower (it does **not** support CAPI
-`v1.11`).
-
-Documentation about upgrading to CAPH v1.1.x will be published alongside the first v1.1.x release.
-Once that release is generally available we'll switch `main` back to tracking active development
-and update the hosted documentation accordingly.
-
 ## 📰 What is the Cluster API Provider Hetzner?
 
 > [!NOTE]
@@ -95,20 +71,19 @@ In addition to the pure creation and operation of Kubernetes clusters, this prov
 
 This provider's versions are compatible with the following versions of Cluster API:
 
-|                                      | CAPI `v1beta1` (`v1.7.x`) | CAPI `v1beta1` (`v1.8.x`) |
-| ------------------------------------ | ------------------------- | ------------------------- |
-| Hetzner Provider `v1.0.0-beta.34-43` | ✅                        | ❌                        |
-| Hetzner Provider `v1.0.0`            | ✅                        | ✅                        |
-| Hetzner Provider `v1.0.1`            | ✅                        | ✅                        |
+|                                      | CAPI `v1beta1` (`v1.8.x`) | CAPI `v1beta1` (`v1.9.x`) | CAPI `v1beta1` (`v1.10.x`) |
+| ------------------------------------ | ------------------------- | ------------------------- | -------------------------- |
+| Hetzner Provider `v1.0.x`            | ✅                        | ✅                        | ✅                         |
+
 
 This provider's versions can install and manage the following versions of Kubernetes:
 
 |                   | Hetzner Provider `v1.0.x` |
 | ----------------- | ------------------------- |
-| Kubernetes 1.28.x | ✅                        |
-| Kubernetes 1.29.x | ✅                        |
-| Kubernetes 1.30.x | ✅                        |
 | Kubernetes 1.31.x | ✅                        |
+| Kubernetes 1.32.x | ✅                        |
+| Kubernetes 1.33.x | ✅                        |
+| Kubernetes 1.34.x | ❔                        |
 
 Test status:
 
@@ -123,9 +98,9 @@ Each version of Cluster API for Hetzner will attempt to support at least two Kub
 
 Cluster API Provider Hetzner relies on a few prerequisites that must be already installed in the operating system images, such as a container runtime, kubelet, and kubeadm.
 
-Reference images are available in kubernetes-sigs/image-builder and [templates/node-image](/templates/node-image).
+Reference images are available in kubernetes-sigs/image-builder.
 
-If it's not possible to pre-install these prerequisites, [custom scripts can be deployed](/docs/caph/02-topics/02-node-image) through the kubeadm config.
+If it's not possible to pre-install these prerequisites, [custom scripts can be deployed](/docs/caph/02-topics/03-node-image.md) through the kubeadm config.
 
 In case you want a solution with managed node images, [Syself](https://syself.com) might be interesting for you.
 

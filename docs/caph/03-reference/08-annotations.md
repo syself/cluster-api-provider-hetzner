@@ -9,14 +9,6 @@ You can set [Kubernetes Annotations](https://kubernetes.io/docs/concepts/overvie
 
 ## Overview of Annotations
 
-### capi.syself.com/skip-namespace
-
-| **Resource**    | Namespace                                                                                                                                                                 |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Description** | If set to `"true"`, the Syself CAPH Controller skips reconciliation for all CAPH resources in that namespace.                                                           |
-| **Value**       | `"true"` enables the skip behavior. Any other value keeps reconciliation enabled.                                                                                        |
-| **Auto-Remove** | Disabled: The annotation remains on the namespace until it is removed manually.                                                                                          |
-
 ### capi.syself.com/wipe-disk
 
 | **Resource**    | [HetznerBareMetalHost](/docs/caph/03-reference/05-hetzner-bare-metal-host.md)                                                                                                                                                                                                                                       |
@@ -41,6 +33,14 @@ You can set [Kubernetes Annotations](https://kubernetes.io/docs/concepts/overvie
 | **Value**       | `"true"` enables this feature. All other strings are considered `"false"`.                                                                                                                                                                                           |
 | **Auto-Remove** | Disabled: The annotation remains on the resource.                                                                                                                                                                                                                    |
 
+### capi.syself.com/skip-namespace
+
+| **Resource**    | [Namespace](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/)                                                                                                                            |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Description** | This annotation makes CAPH skip reconciliation for namespaced CAPH resources in the annotated namespace. This is useful while debugging or during namespace-level maintenance.                                       |
+| **Value**       | `"true"` enables this feature. All other strings are considered `"false"`.                                                                                                                                            |
+| **Auto-Remove** | Disabled: The annotation remains on the resource.                                                                                                                                                                     |
+
 ### capi.syself.com/constant-bare-metal-hostname
 
 | **Resource**    | Cluster (CRD of Cluster-API), HetznerBareMetalMachine                                                        |
@@ -62,3 +62,11 @@ You can set [Kubernetes Annotations](https://kubernetes.io/docs/concepts/overvie
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Description** | This annotation is set by the Syself CAPH Controller when a bare-metal machine enters the "permanent error" state. This indicates that human intervention is required (e.g., to fix a broken disk). After the root cause is resolved, the user must remove this annotation to allow the Controller to manage the HetznerBareMetalHost again. |
 | **Auto-Remove** | Disabled: The annotation must be removed by the user.                                                                                                                                                                                                                                                                                        |
+
+### capi.syself.com/use-hrobot-provider-id-for-baremetal
+
+| **Resource**    | [HetznerCluster](/docs/caph/03-reference/02-hetzner-cluster.md)                                                                                                                  |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Description** | When set to `"true"`, then the ProviderID format `hrobot://NNNN` will be used. If not set or empty `hcloud://bm-NNNN` will be used.                                              |
+| **Value**       | `"true"` enables this feature.                                                                                                                                                   |
+| **Auto-Remove** | Disabled: The annotation remains on the resource.                                                                                                                                |

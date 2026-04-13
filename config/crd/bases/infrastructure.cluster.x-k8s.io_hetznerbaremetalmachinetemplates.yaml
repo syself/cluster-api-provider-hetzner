@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.19.0
+    controller-gen.kubebuilder.io/version: v0.20.0
   name: hetznerbaremetalmachinetemplates.infrastructure.cluster.x-k8s.io
 spec:
   group: infrastructure.cluster.x-k8s.io
@@ -142,6 +142,11 @@ spec:
                                   a tar, tar.gz, tar.bz, tar.bz2, tar.xz, tgz, tbz,
                                   txz image.
                                 type: string
+                              useCustomImageURLCommand:
+                                description: |-
+                                  UseCustomImageURLCommand makes the controller use the command provided by `--baremetal-image-url-command` instead of installimage.
+                                  Docs: https://syself.com/docs/caph/developers/image-url-command
+                                type: boolean
                             type: object
                           logicalVolumeDefinitions:
                             description: LVMDefinitions defines the logical volume
@@ -236,8 +241,12 @@ spec:
                         type: object
                       providerID:
                         description: |-
-                          ProviderID will be the hetznerbaremetalmachine which is set by the controller
-                          in the `hcloud://bm-<server-id>` format.
+                          ProviderID is set by the controller to either (new) `hrobot://<server-id>` or (old)
+                          `hcloud://bm-NNNN` format. If the HetznerBareMetalMachineSpec has already a ProviderID, then
+                          this will never change. If the ProviderID is empty, the controller sets it to the old format
+                          by default (hcloud://bm-NNNN), except the Annotation
+                          `capi.syself.com/use-hrobot-provider-id-for-baremetal` on the hetznerCluster is set to
+                          `"true"`.
                         type: string
                       sshSpec:
                         description: SSHSpec gives a reference on the secret where
@@ -245,8 +254,9 @@ spec:
                         properties:
                           portAfterCloudInit:
                             description: |-
-                              PortAfterCloudInit specifies the port that has to be used to connect to the machine
-                              by reaching the server via SSH after the successful completion of cloud init.
+                              PortAfterCloudInit is deprecated. Since PR Install Cloud-Init-Data via post-install.sh #1407 this field is not functional.
+
+                              Deprecated: This field is not used anymore.
                             type: integer
                           portAfterInstallImage:
                             default: 22

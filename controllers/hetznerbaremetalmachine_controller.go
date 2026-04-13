@@ -53,6 +53,9 @@ type HetznerBareMetalMachineReconciler struct {
 	RateLimitWaitTime   time.Duration
 	HCloudClientFactory hcloudclient.Factory
 	WatchFilterValue    string
+
+	// Reconcile only this namespace. Only needed for testing
+	Namespace string
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalmachines,verbs=get;list;watch;create;update;patch;delete
@@ -63,6 +66,10 @@ type HetznerBareMetalMachineReconciler struct {
 func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req reconcile.Request) (res reconcile.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
 
+	if r.Namespace != "" && req.Namespace != r.Namespace {
+		// Just for testing, skip reconciling objects from finished tests.
+		return ctrl.Result{}, nil
+	}
 	skipReconciliation, err := shouldSkipReconciliationForNamespace(ctx, r.Client, req.Namespace)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -82,20 +89,19 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 	log = log.WithValues("HetznerBareMetalMachine", klog.KObj(hbmMachine))
 
 	// Fetch the Machine.
-	machine, err := util.GetOwnerMachine(ctx, r.Client, hbmMachine.ObjectMeta)
+	capiMachine, err := util.GetOwnerMachine(ctx, r, hbmMachine.ObjectMeta)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to get owner machine. BareMetalMachine.ObjectMeta.OwnerReferences %v: %w",
-			hbmMachine.ObjectMeta.OwnerReferences, err)
+		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
-	if machine == nil {
+	if capiMachine == nil {
 		log.Info("Machine Controller has not yet set OwnerRef")
 		return reconcile.Result{}, nil
 	}
 
-	log = log.WithValues("Machine", klog.KObj(machine))
+	log = log.WithValues("Machine", klog.KObj(capiMachine))
 
 	// Fetch the Cluster.
-	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, machine.ObjectMeta)
+	cluster, err := util.GetClusterFromMetadata(ctx, r, capiMachine.ObjectMeta)
 	if err != nil {
 		log.Info("Machine is missing cluster label or cluster does not exist")
 		return reconcile.Result{}, nil
@@ -114,7 +120,7 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 		Namespace: hbmMachine.Namespace,
 		Name:      cluster.Spec.InfrastructureRef.Name,
 	}
-	if err := r.Client.Get(ctx, hetznerClusterName, hetznerCluster); err != nil {
+	if err := r.Get(ctx, hetznerClusterName, hetznerCluster); err != nil {
 		return reconcile.Result{}, nil
 	}
 
@@ -122,19 +128,19 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 	ctx = ctrl.LoggerInto(ctx, log)
 
 	// Create the scope.
-	secretManager := secretutil.NewSecretManager(log, r.Client, r.APIReader)
+	secretManager := secretutil.NewSecretManager(log, r, r.APIReader)
 	hcloudToken, _, err := getAndValidateHCloudToken(ctx, req.Namespace, hetznerCluster, secretManager)
 	if err != nil {
-		return hcloudTokenErrorResult(ctx, err, hbmMachine, infrav1.HCloudTokenAvailableCondition, r.Client)
+		return hcloudTokenErrorResult(ctx, err, hbmMachine, r)
 	}
 
 	hcc := r.HCloudClientFactory.NewClient(hcloudToken)
 
 	// Create the scope.
 	machineScope, err := scope.NewBareMetalMachineScope(scope.BareMetalMachineScopeParams{
-		Client:           r.Client,
+		Client:           r,
 		Logger:           log,
-		Machine:          machine,
+		Machine:          capiMachine,
 		BareMetalMachine: hbmMachine,
 		HetznerCluster:   hetznerCluster,
 		HCloudClient:     hcc,
@@ -153,9 +159,9 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 
 		conditions.SetSummary(hbmMachine)
 
-		if err := machineScope.Close(ctx); err != nil && reterr == nil {
+		if err := machineScope.Close(ctx); err != nil {
 			res = reconcile.Result{}
-			reterr = err
+			reterr = errors.Join(reterr, err)
 		}
 	}()
 
@@ -164,7 +170,7 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
-	if !hbmMachine.ObjectMeta.DeletionTimestamp.IsZero() {
+	if !hbmMachine.DeletionTimestamp.IsZero() {
 		return r.reconcileDelete(ctx, machineScope)
 	}
 
@@ -217,14 +223,14 @@ func (r *HetznerBareMetalMachineReconciler) reconcileNormal(ctx context.Context,
 func (r *HetznerBareMetalMachineReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, options controller.Options) error {
 	log := ctrl.LoggerFrom(ctx)
 
-	clusterToObjectFunc, err := util.ClusterToTypedObjectsMapper(r.Client, &infrav1.HetznerBareMetalMachineList{}, mgr.GetScheme())
+	clusterToObjectFunc, err := util.ClusterToTypedObjectsMapper(r, &infrav1.HetznerBareMetalMachineList{}, mgr.GetScheme())
 	if err != nil {
 		return fmt.Errorf("failed to create mapper for Cluster to BareMetalMachines: %w", err)
 	}
 	err = ctrl.NewControllerManagedBy(mgr).
 		WithOptions(options).
 		For(&infrav1.HetznerBareMetalMachine{}).
-		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(log, r.WatchFilterValue)).
+		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(mgr.GetScheme(), log, r.WatchFilterValue)).
 		Watches(
 			&clusterv1.Machine{},
 			handler.EnqueueRequestsFromMapFunc(util.MachineToInfrastructureMapFunc(infrav1.GroupVersion.WithKind("HetznerBareMetalMachine"))),
@@ -239,12 +245,12 @@ func (r *HetznerBareMetalMachineReconciler) SetupWithManager(ctx context.Context
 		).
 		Watches(
 			&infrav1.HetznerBareMetalHost{},
-			handler.EnqueueRequestsFromMapFunc(BareMetalHostToBareMetalMachines(r.Client, log)),
+			handler.EnqueueRequestsFromMapFunc(BareMetalHostToBareMetalMachines(r, log)),
 		).
 		Watches(
 			&clusterv1.Cluster{},
 			handler.EnqueueRequestsFromMapFunc(clusterToObjectFunc),
-			builder.WithPredicates(predicates.ClusterUnpausedAndInfrastructureReady(log)),
+			builder.WithPredicates(predicates.ClusterPausedTransitionsOrInfrastructureReady(mgr.GetScheme(), log)),
 		).
 		Complete(r)
 	if err != nil {
@@ -270,11 +276,11 @@ func (r *HetznerBareMetalMachineReconciler) HetznerClusterToBareMetalMachines(ct
 		log := log.WithValues("objectMapper", "hetznerClusterToBareMetalMachine", "namespace", c.Namespace, "hetznerCluster", c.Name)
 
 		// Don't handle deleted HetznerCluster
-		if !c.ObjectMeta.DeletionTimestamp.IsZero() {
+		if !c.DeletionTimestamp.IsZero() {
 			return nil
 		}
 
-		cluster, err := util.GetOwnerCluster(ctx, r.Client, c.ObjectMeta)
+		cluster, err := util.GetOwnerCluster(ctx, r, c.ObjectMeta)
 		switch {
 		case apierrors.IsNotFound(err) || cluster == nil:
 			log.V(1).Info("Cluster for HetznerCluster not found, skipping mapping")
@@ -322,7 +328,7 @@ func (r *HetznerBareMetalMachineReconciler) ClusterToBareMetalMachines(ctx conte
 
 		labels := map[string]string{clusterv1.ClusterNameLabel: c.Name}
 		capiMachineList := &clusterv1.MachineList{}
-		if err := r.Client.List(ctx, capiMachineList, client.InNamespace(c.Namespace),
+		if err := r.List(ctx, capiMachineList, client.InNamespace(c.Namespace),
 			client.MatchingLabels(labels),
 		); err != nil {
 			log.Error(err, "failed to list BareMetalMachines")

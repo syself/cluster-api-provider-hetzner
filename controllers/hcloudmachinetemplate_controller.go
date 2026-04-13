@@ -49,6 +49,9 @@ type HCloudMachineTemplateReconciler struct {
 	APIReader           client.Reader
 	HCloudClientFactory hcloudclient.Factory
 	WatchFilterValue    string
+
+	// Reconcile only this namespace. Only needed for testing
+	Namespace string
 }
 
 // +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hcloudmachinetemplates,verbs=get;list;watch;create;update;patch;delete
@@ -58,6 +61,10 @@ type HCloudMachineTemplateReconciler struct {
 func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req reconcile.Request) (_ reconcile.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
 
+	if r.Namespace != "" && req.Namespace != r.Namespace {
+		// Just for testing, skip reconciling objects from finished tests.
+		return ctrl.Result{}, nil
+	}
 	skipReconciliation, err := shouldSkipReconciliationForNamespace(ctx, r.Client, req.Namespace)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -68,13 +75,13 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 	}
 
 	machineTemplate := &infrav1.HCloudMachineTemplate{}
-	if err = r.Get(ctx, req.NamespacedName, machineTemplate); err != nil {
+	if err := r.Get(ctx, req.NamespacedName, machineTemplate); err != nil {
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
 	log = log.WithValues("HCloudMachineTemplate", klog.KObj(machineTemplate))
 
-	patchHelper, err := patch.NewHelper(machineTemplate, r.Client)
+	patchHelper, err := patch.NewHelper(machineTemplate, r)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to get patch helper: %w", err)
 	}
@@ -96,11 +103,14 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 	}
 
 	var cluster *clusterv1.Cluster
-	cluster, err = util.GetOwnerCluster(ctx, r.Client, machineTemplate.ObjectMeta)
-	if err != nil || cluster == nil {
-		log.Info(fmt.Sprintf("%s is missing ownerRef to cluster or cluster does not exist %s/%s",
+	cluster, err = util.GetOwnerCluster(ctx, r, machineTemplate.ObjectMeta)
+	if err != nil {
+		return reconcile.Result{}, client.IgnoreNotFound(err)
+	}
+	if cluster == nil {
+		log.Info(fmt.Sprintf("%s is missing ownerRef to cluster %s/%s",
 			machineTemplate.Kind, machineTemplate.Namespace, machineTemplate.Name))
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{}, nil
 	}
 	machineTemplate.Status.OwnerType = cluster.Kind
 
@@ -117,7 +127,7 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 		Namespace: machineTemplate.Namespace,
 		Name:      cluster.Spec.InfrastructureRef.Name,
 	}
-	if err := r.Client.Get(ctx, hetznerClusterName, hetznerCluster); err != nil {
+	if err := r.Get(ctx, hetznerClusterName, hetznerCluster); err != nil {
 		return reconcile.Result{}, nil
 	}
 
@@ -125,16 +135,16 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 	ctx = ctrl.LoggerInto(ctx, log)
 
 	// Create the scope.
-	secretManager := secretutil.NewSecretManager(log, r.Client, r.APIReader)
+	secretManager := secretutil.NewSecretManager(log, r, r.APIReader)
 	hcloudToken, _, err := getAndValidateHCloudToken(ctx, req.Namespace, hetznerCluster, secretManager)
 	if err != nil {
-		return hcloudTokenErrorResult(ctx, err, machineTemplate, infrav1.HCloudTokenAvailableCondition, r.Client)
+		return hcloudTokenErrorResult(ctx, err, machineTemplate, r)
 	}
 
 	hcc := r.HCloudClientFactory.NewClient(hcloudToken)
 
 	machineTemplateScope, err := scope.NewHCloudMachineTemplateScope(scope.HCloudMachineTemplateScopeParams{
-		Client:                r.Client,
+		Client:                r,
 		Logger:                &log,
 		HCloudMachineTemplate: machineTemplate,
 		HCloudClient:          hcc,
@@ -176,7 +186,7 @@ func (r *HCloudMachineTemplateReconciler) SetupWithManager(ctx context.Context, 
 	return ctrl.NewControllerManagedBy(mgr).
 		WithOptions(options).
 		For(&infrav1.HCloudMachineTemplate{}).
-		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(ctrl.LoggerFrom(ctx), r.WatchFilterValue)).
+		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(mgr.GetScheme(), ctrl.LoggerFrom(ctx), r.WatchFilterValue)).
 		Complete(r)
 }
 

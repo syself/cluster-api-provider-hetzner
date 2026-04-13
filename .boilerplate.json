@@ -11,7 +11,9 @@
     "hack/tools/",
     "vendor",
     ".cache",
-    ".pkg"
+    ".pkg",
+    ".git",
+    "tmp"
   ],
   "not_generated_files_to_skip" : [
     "hack/boilerplate/boilerplate.py"

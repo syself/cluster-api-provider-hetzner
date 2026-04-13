@@ -17,6 +17,7 @@ limitations under the License.
 package controllers
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
@@ -34,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
@@ -237,14 +239,15 @@ var _ = Describe("HCloudMachineReconciler", func() {
 		key client.ObjectKey
 
 		hcloudMachineName string
+
+		hcloudClient hcloudclient.Client
 	)
 
 	BeforeEach(func() {
-		hcloudClient.Reset()
-
 		var err error
-		testNs, err = testEnv.CreateNamespace(ctx, "hcloudmachine-reconciler")
+		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-reconciler")
 		Expect(err).NotTo(HaveOccurred())
+		hcloudClient = testEnv.HCloudClientFactory.NewClient("fake-token")
 
 		capiCluster = &clusterv1.Cluster{
 			ObjectMeta: metav1.ObjectMeta{
@@ -344,7 +347,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 					},
 					Spec: infrav1.HCloudMachineSpec{
 						ImageName:          "my-control-plane",
-						Type:               "cpx31",
+						Type:               "cpx32",
 						PlacementGroupName: &defaultPlacementGroupName,
 					},
 				}
@@ -369,7 +372,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				By("checking that no servers exist")
 
 				Eventually(func() bool {
-					servers, err := hcloudClient.ListServers(ctx, hcloud.ServerListOpts{
+					servers, err := testEnv.HCloudClientFactory.NewClient("fake-token").ListServers(ctx, hcloud.ServerListOpts{
 						ListOpts: hcloud.ListOpts{
 							LabelSelector: utils.LabelsToLabelSelector(map[string]string{hetznerCluster.ClusterTagKey(): "owned"}),
 						},
@@ -385,9 +388,23 @@ var _ = Describe("HCloudMachineReconciler", func() {
 
 				By("checking that bootstrap condition is not ready")
 
-				Eventually(func() bool {
-					return isPresentAndFalseWithReason(key, hcloudMachine, infrav1.BootstrapReadyCondition, infrav1.BootstrapNotReadyReason)
-				}, timeout, interval).Should(BeTrue())
+				Eventually(func() error {
+					err := testEnv.Get(ctx, client.ObjectKeyFromObject(hcloudMachine), hcloudMachine)
+					if err != nil {
+						return err
+					}
+					c := conditions.Get(hcloudMachine, infrav1.BootstrapReadyCondition)
+					if c == nil {
+						return fmt.Errorf("BootstrapReadyCondition not set")
+					}
+					if c.Status != corev1.ConditionFalse {
+						return fmt.Errorf("BootstrapReadyCondition not false")
+					}
+					if c.Reason != infrav1.BootstrapNotReadyReason {
+						return fmt.Errorf("BootstrapNotReadyReason not set. Reason: %q", c.Reason)
+					}
+					return nil
+				}, timeout, interval).Should(Succeed())
 
 				By("setting the bootstrap data")
 
@@ -433,6 +450,24 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				Eventually(func() bool {
 					return isPresentAndTrue(key, hcloudMachine, infrav1.ServerAvailableCondition)
 				}, timeout, interval).Should(BeTrue())
+
+				By("checking if the BootState is now OperatingSystemRunning")
+				Eventually(func() bool {
+					if err = testEnv.Get(ctx, key, hcloudMachine); err != nil {
+						return false
+					}
+
+					return hcloudMachine.Status.BootState == infrav1.HCloudBootStateOperatingSystemRunning && !hcloudMachine.Status.BootStateSince.IsZero()
+				}, timeout, interval).Should(BeTrue())
+
+				By("checking if the ssh keys are set in the status")
+				Eventually(func() bool {
+					if err = testEnv.Get(ctx, key, hcloudMachine); err != nil {
+						return false
+					}
+
+					return len(hcloudMachine.Status.SSHKeys) == 1 && hcloudMachine.Status.SSHKeys[0].Name == "testsshkey"
+				}, timeout, interval).Should(BeTrue())
 			})
 		})
 
@@ -459,7 +494,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 					},
 					Spec: infrav1.HCloudMachineSpec{
 						ImageName:          "my-control-plane-2",
-						Type:               "cpx31",
+						Type:               "cpx32",
 						PlacementGroupName: &defaultPlacementGroupName,
 					},
 				}
@@ -503,7 +538,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				},
 				Spec: infrav1.HCloudMachineSpec{
 					ImageName:          "my-control-plane",
-					Type:               "cpx31",
+					Type:               "cpx32",
 					PlacementGroupName: &defaultPlacementGroupName,
 				},
 			}
@@ -593,6 +628,24 @@ var _ = Describe("HCloudMachineReconciler", func() {
 					EnableIPv6: false,
 				}
 				Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
+				Eventually(func() bool {
+					var updatedCluster infrav1.HetznerCluster
+					if err := testEnv.Get(ctx, client.ObjectKeyFromObject(hetznerCluster), &updatedCluster); err != nil {
+						return false
+					}
+
+					if updatedCluster.Spec.ControlPlaneEndpoint == nil {
+						return false
+					}
+					if updatedCluster.Status.ControlPlaneLoadBalancer == nil {
+						return false
+					}
+					if updatedCluster.Status.ControlPlaneLoadBalancer.IPv4 == "" {
+						return false
+					}
+
+					return updatedCluster.Spec.ControlPlaneEndpoint.Host == updatedCluster.Status.ControlPlaneLoadBalancer.IPv4
+				}, timeout, interval).Should(BeTrue())
 				Expect(testEnv.Create(ctx, hcloudMachine)).To(Succeed())
 			})
 
@@ -635,9 +688,8 @@ var _ = Describe("Hetzner secret", func() {
 	)
 
 	BeforeEach(func() {
-		hcloudClient.Reset()
 		var err error
-		testNs, err = testEnv.CreateNamespace(ctx, "hcloudmachine-validation")
+		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-validation")
 		Expect(err).NotTo(HaveOccurred())
 
 		hetznerClusterName = utils.GenerateName(nil, "hetzner-cluster-test")
@@ -721,7 +773,7 @@ var _ = Describe("Hetzner secret", func() {
 			},
 			Spec: infrav1.HCloudMachineSpec{
 				ImageName:          "my-control-plane",
-				Type:               "cpx31",
+				Type:               "cpx32",
 				PlacementGroupName: &defaultPlacementGroupName,
 			},
 		}
@@ -786,10 +838,8 @@ var _ = Describe("HCloudMachine validation", func() {
 	)
 
 	BeforeEach(func() {
-		hcloudClient.Reset()
-
 		var err error
-		testNs, err = testEnv.CreateNamespace(ctx, "hcloudmachine-validation")
+		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "hcloudmachine-validation")
 		Expect(err).NotTo(HaveOccurred())
 
 		hcloudMachine = &infrav1.HCloudMachine{
@@ -799,7 +849,7 @@ var _ = Describe("HCloudMachine validation", func() {
 			},
 			Spec: infrav1.HCloudMachineSpec{
 				ImageName: "my-control-plane",
-				Type:      "cpx31",
+				Type:      "cpx32",
 			},
 		}
 	})
@@ -825,7 +875,7 @@ var _ = Describe("HCloudMachine validation", func() {
 			return testEnv.Client.Get(ctx, key, hcloudMachine)
 		}, timeout, interval).Should(BeNil())
 
-		hcloudMachine.Spec.Type = "cpx32"
+		hcloudMachine.Spec.Type = "cpx42"
 		hcloudMachine.Spec.ImageName = "my-control-plane"
 		Expect(testEnv.Update(ctx, hcloudMachine)).ToNot(Succeed())
 	})
@@ -840,8 +890,6 @@ var _ = Describe("IgnoreInsignificantHetznerClusterUpdates Predicate", func() {
 	)
 
 	BeforeEach(func() {
-		hcloudClient.Reset()
-
 		predicate = IgnoreInsignificantHetznerClusterUpdates(klog.Background())
 
 		oldCluster = &infrav1.HetznerCluster{
@@ -859,8 +907,8 @@ var _ = Describe("IgnoreInsignificantHetznerClusterUpdates Predicate", func() {
 	It("should skip updates to the HetznerCluster conditions", func() {
 		// Make change to conditions & other fields that get changed on every update
 		conditions.MarkFalse(newCluster, infrav1.CredentialsAvailableCondition, infrav1.HCloudCredentialsInvalidReason, clusterv1.ConditionSeverityError, "")
-		newCluster.ObjectMeta.ResourceVersion = "2"
-		newCluster.ObjectMeta.SetManagedFields([]metav1.ManagedFieldsEntry{{
+		newCluster.ResourceVersion = "2"
+		newCluster.SetManagedFields([]metav1.ManagedFieldsEntry{{
 			Manager:   "test",
 			Operation: "update",
 		}})

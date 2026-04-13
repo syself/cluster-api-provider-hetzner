@@ -25,7 +25,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/selection"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	capierrors "sigs.k8s.io/cluster-api/errors"
 )
 
 const (
@@ -67,8 +66,12 @@ const (
 
 // HetznerBareMetalMachineSpec defines the desired state of HetznerBareMetalMachine.
 type HetznerBareMetalMachineSpec struct {
-	// ProviderID will be the hetznerbaremetalmachine which is set by the controller
-	// in the `hcloud://bm-<server-id>` format.
+	// ProviderID is set by the controller to either (new) `hrobot://<server-id>` or (old)
+	// `hcloud://bm-NNNN` format. If the HetznerBareMetalMachineSpec has already a ProviderID, then
+	// this will never change. If the ProviderID is empty, the controller sets it to the old format
+	// by default (hcloud://bm-NNNN), except the Annotation
+	// `capi.syself.com/use-hrobot-provider-id-for-baremetal` on the hetznerCluster is set to
+	// `"true"`.
 	// +optional
 	ProviderID *string `json:"providerID,omitempty"`
 
@@ -121,8 +124,9 @@ type SSHSpec struct {
 	// +optional
 	PortAfterInstallImage int `json:"portAfterInstallImage"`
 
-	// PortAfterCloudInit specifies the port that has to be used to connect to the machine
-	// by reaching the server via SSH after the successful completion of cloud init.
+	// PortAfterCloudInit is deprecated. Since PR Install Cloud-Init-Data via post-install.sh #1407 this field is not functional.
+	//
+	// Deprecated: This field is not used anymore.
 	// +optional
 	PortAfterCloudInit int `json:"portAfterCloudInit"`
 }
@@ -187,6 +191,11 @@ type Image struct {
 	// URL defines the remote URL for downloading a tar, tar.gz, tar.bz, tar.bz2, tar.xz, tgz, tbz, txz image.
 	URL string `json:"url,omitempty"`
 
+	// UseCustomImageURLCommand makes the controller use the command provided by `--baremetal-image-url-command` instead of installimage.
+	// Docs: https://syself.com/docs/caph/developers/image-url-command
+	// +optional
+	UseCustomImageURLCommand bool `json:"useCustomImageURLCommand"`
+
 	// Name defines the archive name after download. This has to be a valid name for Installimage.
 	Name string `json:"name,omitempty"`
 
@@ -197,6 +206,9 @@ type Image struct {
 // GetDetails returns the path of the image and whether the image has to be downloaded.
 func (image Image) GetDetails() (imagePath string, needsDownload bool, errorMessage string) {
 	// If image is set, then the URL is also set and we have to download a remote file
+	if image.UseCustomImageURLCommand {
+		return "", false, "internal error: image.UseCustomImageURLCommand is active. Method GetDetails() should be used for the traditional way (without image-url-command)."
+	}
 	switch {
 	case image.Name != "" && image.URL != "":
 		suffix, err := GetImageSuffix(image.URL)
@@ -290,10 +302,16 @@ type HetznerBareMetalMachineStatus struct {
 	LastUpdated *metav1.Time `json:"lastUpdated,omitempty"`
 
 	// FailureReason will be set in the event that there is a terminal problem.
+	//
+	// Deprecated: This field is deprecated and is going to be removed when support for v1beta1 will be dropped. Please see https://github.com/kubernetes-sigs/cluster-api/blob/main/docs/proposals/20240916-improve-status-in-CAPI-resources.md for more details.
+	//
 	// +optional
-	FailureReason *capierrors.MachineStatusError `json:"failureReason,omitempty"`
+	FailureReason *string `json:"failureReason,omitempty"`
 
 	// FailureMessage will be set in the event that there is a terminal problem.
+	//
+	// Deprecated: This field is deprecated and is going to be removed when support for v1beta1 will be dropped. Please see https://github.com/kubernetes-sigs/cluster-api/blob/main/docs/proposals/20240916-improve-status-in-CAPI-resources.md for more details.
+	//
 	// +optional
 	FailureMessage *string `json:"failureMessage,omitempty"`
 
@@ -340,19 +358,13 @@ type HetznerBareMetalMachine struct {
 }
 
 // GetConditions returns the observations of the operational state of the HetznerBareMetalMachine resource.
-func (bmMachine *HetznerBareMetalMachine) GetConditions() clusterv1.Conditions {
-	return bmMachine.Status.Conditions
+func (hbmm *HetznerBareMetalMachine) GetConditions() clusterv1.Conditions {
+	return hbmm.Status.Conditions
 }
 
 // SetConditions sets the underlying service state of the HetznerBareMetalMachine to the predescribed clusterv1.Conditions.
-func (bmMachine *HetznerBareMetalMachine) SetConditions(conditions clusterv1.Conditions) {
-	bmMachine.Status.Conditions = conditions
-}
-
-// SetFailure sets a failure reason and message.
-func (bmMachine *HetznerBareMetalMachine) SetFailure(reason capierrors.MachineStatusError, message string) {
-	bmMachine.Status.FailureReason = &reason
-	bmMachine.Status.FailureMessage = &message
+func (hbmm *HetznerBareMetalMachine) SetConditions(conditions clusterv1.Conditions) {
+	hbmm.Status.Conditions = conditions
 }
 
 // GetImageSuffix tests whether the suffix is known and outputs it if yes. Otherwise it returns an error.
@@ -379,8 +391,8 @@ func GetImageSuffix(url string) (string, error) {
 }
 
 // HasHostAnnotation checks whether the annotation that references a host exists.
-func (bmMachine *HetznerBareMetalMachine) HasHostAnnotation() bool {
-	annotations := bmMachine.GetAnnotations()
+func (hbmm *HetznerBareMetalMachine) HasHostAnnotation() bool {
+	annotations := hbmm.GetAnnotations()
 	if annotations == nil {
 		return false
 	}

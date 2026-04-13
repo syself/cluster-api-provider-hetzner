@@ -49,6 +49,9 @@ type HCloudRemediationReconciler struct {
 	APIReader           client.Reader
 	HCloudClientFactory hcloudclient.Factory
 	WatchFilterValue    string
+
+	// Reconcile only this namespace. Only needed for testing
+	Namespace string
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hcloudremediations,verbs=get;list;watch;create;update;patch;delete
@@ -60,6 +63,10 @@ type HCloudRemediationReconciler struct {
 func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconcile.Request) (res reconcile.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
 
+	if r.Namespace != "" && req.Namespace != r.Namespace {
+		// Just for testing, skip reconciling objects from finished tests.
+		return ctrl.Result{}, nil
+	}
 	skipReconciliation, err := shouldSkipReconciliationForNamespace(ctx, r.Client, req.Namespace)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -81,9 +88,9 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 	log = log.WithValues("HCloudRemediation", klog.KObj(hcloudRemediation))
 
 	// Fetch the Machine.
-	machine, err := util.GetOwnerMachine(ctx, r.Client, hcloudRemediation.ObjectMeta)
+	machine, err := util.GetOwnerMachine(ctx, r, hcloudRemediation.ObjectMeta)
 	if err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 	if machine == nil {
 		log.Info("Machine Controller has not yet set OwnerRef")
@@ -97,7 +104,7 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 
 	key := client.ObjectKey{
 		Name:      machine.Spec.InfrastructureRef.Name,
-		Namespace: machine.Spec.InfrastructureRef.Namespace,
+		Namespace: hcloudRemediation.Namespace,
 	}
 
 	if err := r.Get(ctx, key, hcloudMachine); err != nil {
@@ -123,7 +130,7 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 	}
 
 	// Fetch the Cluster.
-	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, machine.ObjectMeta)
+	cluster, err := util.GetClusterFromMetadata(ctx, r, machine.ObjectMeta)
 	if err != nil {
 		log.Info("Machine is missing cluster label or cluster does not exist")
 		return reconcile.Result{}, nil
@@ -142,7 +149,7 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 		Namespace: hcloudMachine.Namespace,
 		Name:      cluster.Spec.InfrastructureRef.Name,
 	}
-	if err := r.Client.Get(ctx, hetznerClusterName, hetznerCluster); err != nil {
+	if err := r.Get(ctx, hetznerClusterName, hetznerCluster); err != nil {
 		return reconcile.Result{}, nil
 	}
 
@@ -150,16 +157,16 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 	ctx = ctrl.LoggerInto(ctx, log)
 
 	// Create the scope.
-	secretManager := secretutil.NewSecretManager(log, r.Client, r.APIReader)
+	secretManager := secretutil.NewSecretManager(log, r, r.APIReader)
 	hcloudToken, _, err := getAndValidateHCloudToken(ctx, req.Namespace, hetznerCluster, secretManager)
 	if err != nil {
-		return hcloudTokenErrorResult(ctx, err, hcloudRemediation, infrav1.HCloudTokenAvailableCondition, r.Client)
+		return hcloudTokenErrorResult(ctx, err, hcloudRemediation, r)
 	}
 
 	hcc := r.HCloudClientFactory.NewClient(hcloudToken)
 
 	remediationScope, err := scope.NewHCloudRemediationScope(scope.HCloudRemediationScopeParams{
-		Client:            r.Client,
+		Client:            r,
 		Logger:            log,
 		Machine:           machine,
 		HCloudMachine:     hcloudMachine,
@@ -183,12 +190,11 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 
 		// Always attempt to Patch the Remediation object and status after each reconciliation.
 		// Patch ObservedGeneration only if the reconciliation completed successfully
-		patchOpts := []patch.Option{}
-		patchOpts = append(patchOpts, patch.WithStatusObservedGeneration{})
+		patchOpts := []patch.Option{patch.WithStatusObservedGeneration{}}
 
-		if err := remediationScope.Close(ctx, patchOpts...); err != nil && reterr == nil {
+		if err := remediationScope.Close(ctx, patchOpts...); err != nil {
 			res = reconcile.Result{}
-			reterr = err
+			reterr = errors.Join(reterr, err)
 		}
 	}()
 
@@ -197,7 +203,7 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
-	if !hcloudRemediation.ObjectMeta.DeletionTimestamp.IsZero() {
+	if !hcloudRemediation.DeletionTimestamp.IsZero() {
 		// Nothing to do
 		return reconcile.Result{}, nil
 	}
@@ -223,6 +229,6 @@ func (r *HCloudRemediationReconciler) SetupWithManager(ctx context.Context, mgr 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&infrav1.HCloudRemediation{}).
 		WithOptions(options).
-		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(ctrl.LoggerFrom(ctx), r.WatchFilterValue)).
+		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(mgr.GetScheme(), ctrl.LoggerFrom(ctx), r.WatchFilterValue)).
 		Complete(r)
 }

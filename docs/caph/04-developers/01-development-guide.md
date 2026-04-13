@@ -23,24 +23,41 @@ This ensures the following:
 - helmfile
 - kind (required)
 - kubectl (required)
-- tilt (required)
-- hcloud
+- tilt
+- hcloud cli-tool.
 
 ## Preparing Hetzner project
 
-For more information, please see [here](/docs/caph/01-getting-started/03-preparation.md).
+For more information, please see the [Hetzner project preparation](/docs/caph/01-getting-started/03-preparation.md) guide.
 
-## Setting Tilt up
+## Developing without Tilt
 
-You need to create a `.envrc` file and specify the values you need. After the `.envrc` is loaded, invoke `direnv allow` to load the environment variables in your current shell session.
+You can create a development environment like this:
 
-The complete reference can be found [here](/docs/caph/04-developers/02-tilt.md).
+- `make cluster`: Creates kind cluster.
+- `make create-mgt-cluster`: Makes kind cluster a mgt-cluster: installs capi and caph into the
+  mgt-cluster
+- `make create-workload-cluster-hetzner-hcloud-control-plane`: Create workload cluster with hcloud
+  control-planes, and hcloud machine deployment and a baremetal machine deployment.
+- `./hack/update-operator-dev-deployment.sh`: To update the caph container to the code of your git
+  repo.
+
+We recommend creating a `.envrc` file and specifying the values you need. After the `.envrc` is loaded
+([direnv.net](https://direnv.net/)), invoke `direnv allow` to load the environment variables in your
+current shell session.
 
 ## Developing with Tilt
 
 ![tilt](https://syself.com/images/tilt.png)
 
-Provider Integration development requires a lot of iteration, and the “build, tag, push, update deployment” workflow can be very tedious. Tilt makes this process much simpler by watching for updates and automatically building and deploying them. To build a kind cluster and to start Tilt, run:
+You can use [Tilt](https://tilt.dev/) to install your changed code in the management cluster.
+
+We do not update the Tilt configuration regularly. If unsure use [Developing without
+Tilt](#developing-without-tilt).
+
+The complete reference can be found in the [Reference of Tilt](/docs/caph/04-developers/02-tilt.md) documentation.
+
+To build a kind cluster and to start Tilt, run:
 
 ```shell
 make tilt-up
@@ -52,11 +69,23 @@ To access the Tilt UI, please go to: `http://localhost:10351`
 
 {% /callout %}
 
-Once your kind management cluster is up and running, you can deploy a workload cluster. This could be done through the Tilt UI by pressing one of the buttons in the top right corner, e.g., **"Create Workload Cluster"**. This triggers the `make create-workload-cluster` command, which uses the environment variables (we defined in the .envrc) and the cluster-template. Additionally, it installs cilium as CNI.
+Once your kind management cluster is up and running, you can deploy a workload cluster. This could
+be done through the Tilt UI by pressing one of the buttons in the top right corner, e.g., **"Create
+HCloud Cluster"**, if you want to start a HCloud only cluster, or **"Create Baremetal Cluster - with
+hcloud control-planes"**, if you want to use baremetal worker.
 
-If you update the API in some way, you need to run `make generate` to generate everything related to kubebuilder and the CRDs.
+The buttons are defined in
+[Tiltfile](https://github.com/syself/cluster-api-provider-hetzner/blob/main/Tiltfile). There you see
+the corresponding makefile targets, if you prefer to use the command line.
 
-To tear down the workload cluster, press the **"Delete Workload Cluster"** button. After a few minutes, the resources should be deleted.
+You can use `make watch` to get an overview. It shows continously:
+
+- infrastructure resources in your mgt-cluster
+- logs of caph and capi controller
+- events
+
+To tear down the workload cluster, press the **"Delete Workload Cluster"** button. After a few
+minutes, the resources should be deleted.
 
 To tear down the kind cluster, use:
 
@@ -107,12 +136,13 @@ that.
 A common way to run one particular unit-test is like this:
 
 ```shell
-reset; ginkgo run --focus "foo" ./controllers/... | ./hack/filter-caph-controller-manager-logs.py -
+reset; DEBUG=1 ginkgo run --focus "foo" ./controllers/... | ./hack/filter-caph-controller-manager-logs.py -
 ```
 
 Explanation:
 
 - `reset`: Reset the terminal so you can scroll back to the first line of output easily.
+- `DEBUG=1`: Set log-level to "debug".
 - `ginkgo run --focus "foo" ./controllers/...`: Run tests in the controllers directory, but only those
   whose `It("...")` contains "foo".
 - `./hack/filter-caph-controller-manager-logs.py -`: Filter the output to avoid being overwhelmed.

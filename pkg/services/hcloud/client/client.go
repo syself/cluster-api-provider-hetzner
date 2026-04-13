@@ -40,9 +40,6 @@ var ErrUnauthorized = fmt.Errorf("unauthorized")
 
 // Client collects all methods used by the controller in the hcloud cloud API.
 type Client interface {
-	// Reset resets the local cache. Only implemented in the fake client.
-	Reset()
-
 	CreateLoadBalancer(context.Context, hcloud.LoadBalancerCreateOpts) (*hcloud.LoadBalancer, error)
 	DeleteLoadBalancer(context.Context, int64) error
 	ListLoadBalancers(context.Context, hcloud.LoadBalancerListOpts) ([]*hcloud.LoadBalancer, error)
@@ -75,6 +72,12 @@ type Client interface {
 	DeletePlacementGroup(context.Context, int64) error
 	ListPlacementGroups(context.Context, hcloud.PlacementGroupListOpts) ([]*hcloud.PlacementGroup, error)
 	AddServerToPlacementGroup(context.Context, *hcloud.Server, *hcloud.PlacementGroup) error
+
+	EnableRescueSystem(context.Context, *hcloud.Server, *hcloud.ServerEnableRescueOpts) (hcloud.ServerEnableRescueResult, error)
+
+	Reboot(context.Context, *hcloud.Server) (*hcloud.Action, error)
+
+	GetAction(ctx context.Context, actionID int64) (*hcloud.Action, error)
 }
 
 // Factory is the interface for creating new Client objects.
@@ -141,10 +144,6 @@ var _ Client = &realClient{}
 
 type realClient struct {
 	client *hcloud.Client
-}
-
-// Reset implements the Reset method of the HCloudClient interface.
-func (c *realClient) Reset() {
 }
 
 func (c *realClient) CreateLoadBalancer(ctx context.Context, opts hcloud.LoadBalancerCreateOpts) (*hcloud.LoadBalancer, error) {
@@ -264,6 +263,9 @@ func (c *realClient) ListServerTypes(ctx context.Context) ([]*hcloud.ServerType,
 
 func (c *realClient) GetServerType(ctx context.Context, name string) (*hcloud.ServerType, error) {
 	res, _, err := c.client.ServerType.GetByName(ctx, name)
+	if err != nil && strings.Contains(err.Error(), errStringUnauthorized) {
+		return res, fmt.Errorf("%w: %w", ErrUnauthorized, err)
+	}
 	return res, err
 }
 
@@ -327,4 +329,28 @@ func (c *realClient) ListPlacementGroups(ctx context.Context, opts hcloud.Placem
 func (c *realClient) AddServerToPlacementGroup(ctx context.Context, server *hcloud.Server, pg *hcloud.PlacementGroup) error {
 	_, _, err := c.client.Server.AddToPlacementGroup(ctx, server, pg)
 	return err
+}
+
+func (c *realClient) EnableRescueSystem(ctx context.Context, server *hcloud.Server, rescueOpts *hcloud.ServerEnableRescueOpts) (result hcloud.ServerEnableRescueResult, reterr error) {
+	result, _, err := c.client.Server.EnableRescue(ctx, server, *rescueOpts)
+	if err != nil {
+		return result, fmt.Errorf("EnableRescue failed for %d: %w", server.ID, err)
+	}
+	return result, nil
+}
+
+func (c *realClient) Reboot(ctx context.Context, server *hcloud.Server) (*hcloud.Action, error) {
+	action, _, err := c.client.Server.Reboot(ctx, server)
+	if err != nil {
+		return action, fmt.Errorf("Reboot failed for %d: %w", server.ID, err)
+	}
+	return action, nil
+}
+
+func (c *realClient) GetAction(ctx context.Context, actionID int64) (*hcloud.Action, error) {
+	action, _, err := c.client.Action.GetByID(ctx, actionID)
+	if err != nil {
+		return action, fmt.Errorf("getting hcloud action failed: %w", err)
+	}
+	return action, nil
 }

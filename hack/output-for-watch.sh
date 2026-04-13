@@ -14,6 +14,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+#############################################################
+# This script creates an overview of the management cluster.
+# You can call it once, or continuously like this:
+#   watch ./hack/output-for-watch.sh
+#
+# You can call it from a different directory, too:
+#   ../cluster-api-provider-hetzner/hack/output-for-watch.sh
+#############################################################
+
+hack_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+
 function print_heading() {
     blue='\033[0;34m'
     nc='\033[0m' # No Color
@@ -26,7 +37,8 @@ kubectl get clusters -A
 
 print_heading machines:
 
-kubectl get machines -A
+kubectl get machines -A \
+    -o custom-columns='NAME:.metadata.name,NODENAME:.status.nodeRef.name,IP:.status.addresses[?(@.type=="ExternalIP")].address,PROVIDERID:.spec.providerID,PHASE:.status.phase,VERSION:.spec.version'
 
 print_heading hcloudmachine:
 
@@ -42,11 +54,11 @@ kubectl get hetznerbaremetalhost -A
 
 print_heading events:
 
-kubectl get events -A --sort-by=lastTimestamp | grep -vP 'LeaderElection' | tail -8
+kubectl get events -A --sort-by=lastTimestamp | grep -vP 'LeaderElection' | tail -6
 
 print_heading caph:
 
-./hack/tail-controller-logs.sh
+"$hack_dir"/tail-controller-logs.sh
 
 regex='^I\d\d\d\d|\
 .*it may have already been deleted|\
@@ -54,7 +66,10 @@ regex='^I\d\d\d\d|\
 .*failed to retrieve Spec.ProviderID|\
 .*failed to patch Machine default
 '
-capi_logs=$(kubectl logs -n capi-system deployments/capi-controller-manager --since 7m | grep -vP "$(echo "$regex" | tr -d '\n')" | tail -5)
+capi_ns=$("$hack_dir"/get-namespace-of-deployment.sh capi-controller-manager)
+capi_pod=$("$hack_dir"/get-leading-pod.sh capi-controller-manager "$capi_ns")
+
+capi_logs=$(kubectl logs -n "$capi_ns" "$capi_pod" --since 10m | grep -vP "$(echo "$regex" | tr -d '\n')" | tail -5)
 if [ -n "$capi_logs" ]; then
     print_heading capi
     echo "$capi_logs"
@@ -62,7 +77,7 @@ fi
 
 echo
 
-if [ $(kubectl get machine -l cluster.x-k8s.io/control-plane 2>/dev/null | wc -l) -eq 0 ]; then
+if [[ $(kubectl get machine -l cluster.x-k8s.io/control-plane 2>/dev/null | wc -l) -eq 0 ]]; then
     echo "❌ no control-plane machine exists."
     exit 1
 fi
@@ -87,7 +102,7 @@ fi
 
 echo
 
-./hack/get-kubeconfig-of-workload-cluster.sh
+"$hack_dir"/get-kubeconfig-of-workload-cluster.sh
 
 kubeconfig_wl=".workload-cluster-kubeconfig.yaml"
 
@@ -118,9 +133,9 @@ print_heading "workload-cluster nodes"
 KUBECONFIG=$kubeconfig_wl kubectl get nodes -o 'custom-columns=NAME:.metadata.name,STATUS:.status.phase,ROLES:.metadata.labels.kubernetes\.io/role,creationTimestamp:.metadata.creationTimestamp,VERSION:.status.nodeInfo.kubeletVersion,IP:.status.addresses[?(@.type=="ExternalIP")].address'
 
 if [ "$(kubectl get machine | wc -l)" -ne "$(KUBECONFIG="$kubeconfig_wl" kubectl get nodes | wc -l)" ]; then
-    echo "❌ Number of nodes in wl-cluster does not match number of machines in mgt-cluster"
+    echo "❌ Number of nodes in workload cluster does not match number of machines in management cluster"
 else
-    echo "👌 number of nodes in wl-cluster is equal to number of machines in mgt-cluster"
+    echo "👌 number of nodes in workload cluster is equal to number of machines in management cluster"
 fi
 
 rows=$(kubectl get hcloudremediation -A 2>/dev/null)

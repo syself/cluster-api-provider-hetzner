@@ -37,6 +37,11 @@ const (
 	KubernetesVersion   = "KUBERNETES_VERSION"
 	CiliumPath          = "CILIUM"
 	CiliumResources     = "CILIUM_RESOURCES"
+
+	// TODO: We should clean up these legacy names.
+	// Historically "hetzner" here referred to the baremetal CCM resources.
+	// The baremetal e2e now also uses the upstream hcloud CCM, but the variable
+	// names are kept for compatibility with the existing cluster templates.
 	CCMPath             = "CCM"
 	CCMResources        = "CCM_RESOURCES"
 	CCMNetworkPath      = "CCM_NETWORK"
@@ -62,7 +67,7 @@ func setupSpecNamespace(ctx context.Context, specName string, clusterProxy frame
 	return namespace, cancelWatches
 }
 
-func dumpSpecResourcesAndCleanup(ctx context.Context, specName string, clusterProxy framework.ClusterProxy, artifactFolder string, namespace *corev1.Namespace, cancelWatches context.CancelFunc, cluster *clusterv1.Cluster, intervalsGetter func(spec, key string) []interface{}, skipCleanup bool) {
+func dumpSpecResourcesAndCleanup(ctx context.Context, specName string, clusterProxy framework.ClusterProxy, artifactFolder string, namespace *corev1.Namespace, cancelWatches context.CancelFunc, cluster *clusterv1.Cluster, intervalsGetter func(spec, key string) []interface{}, skipCleanup bool, kubeConfigPath, clusterctlConfigPath string) {
 	var clusterName string
 	var clusterNamespace string
 	if cluster != nil {
@@ -77,9 +82,11 @@ func dumpSpecResourcesAndCleanup(ctx context.Context, specName string, clusterPr
 
 		// Dump all Cluster API related resources to artifacts before deleting them.
 		framework.DumpAllResources(ctx, framework.DumpAllResourcesInput{
-			Lister:    clusterProxy.GetClient(),
-			Namespace: namespace.Name,
-			LogPath:   filepath.Join(artifactFolder, "clusters", clusterProxy.GetName(), "resources"),
+			Lister:               clusterProxy.GetClient(),
+			Namespace:            namespace.Name,
+			LogPath:              filepath.Join(artifactFolder, "clusters", clusterProxy.GetName(), "resources"),
+			KubeConfigPath:       kubeConfigPath,
+			ClusterctlConfigPath: clusterctlConfigPath,
 		})
 	} else {
 		clusterName = "empty"
@@ -92,8 +99,9 @@ func dumpSpecResourcesAndCleanup(ctx context.Context, specName string, clusterPr
 		// that cluster variable is not set even if the cluster exists, so we are calling DeleteAllClustersAndWait
 		// instead of DeleteClusterAndWait
 		framework.DeleteAllClustersAndWait(ctx, framework.DeleteAllClustersAndWaitInput{
-			Client:    clusterProxy.GetClient(),
-			Namespace: namespace.Name,
+			ClusterProxy:         clusterProxy,
+			Namespace:            namespace.Name,
+			ClusterctlConfigPath: clusterctlConfigPath,
 		}, intervalsGetter(specName, "wait-delete-cluster")...)
 
 		Byf("Deleting namespace used for hosting the %q test spec", specName)

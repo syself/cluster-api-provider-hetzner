@@ -14,15 +14,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -o errexit
-set -o pipefail
-set -x
+# Bash Strict Mode: https://github.com/guettli/bash-strict-mode
+trap 'echo -e "\n🤷 🚨 🔥 Warning: A command has failed. Exiting the script. Line was ($0:$LINENO): $(sed -n "${LINENO}p" "$0" 2>/dev/null || true) 🔥 🚨 🤷 "; exit 3' ERR
+set -Eeuo pipefail
 
 # See `crane ls ghcr.io/fluxcd/kindest/node` for available versions
-K8S_VERSION=v1.31.5
+K8S_VERSION=v1.33.0
 
 REPO_ROOT=$(git rev-parse --show-toplevel)
 cd "${REPO_ROOT}" || exit 1
+
+if [[ ! -e $REPO_ROOT/hack/tools/bin/ctlptl ]]; then
+  make ctlptl
+fi
 
 # Creates a kind cluster with the ctlptl tool https://github.com/tilt-dev/ctlptl
 ctlptl_kind-cluster-with-registry() {
@@ -62,4 +66,4 @@ ctlptl_kind-cluster-with-registry caph ${K8S_VERSION}
 echo ""
 echo ""
 echo ""
-echo "Cluster is ready - you can now tilt up!"
+echo "Cluster is ready. Next: 'make tilt-up' or 'make create-mgt-cluster'"

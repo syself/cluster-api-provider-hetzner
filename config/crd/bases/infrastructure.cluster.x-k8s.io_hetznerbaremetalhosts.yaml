@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.19.0
+    controller-gen.kubebuilder.io/version: v0.20.0
   name: hetznerbaremetalhosts.infrastructure.cluster.x-k8s.io
 spec:
   group: infrastructure.cluster.x-k8s.io
@@ -133,8 +133,9 @@ spec:
                 type: string
               maintenanceMode:
                 description: |-
-                  MaintenanceMode indicates that a machine is supposed to be deprovisioned
-                  and won't be selected by any Hetzner bare metal machine.
+                  MaintenanceMode indicates that a machine is supposed to be deprovisioned. The CAPI Machine
+                  will get the cluster.x-k8s.io/remediate-machine annotation, and CAPI will deprovision the
+                  machine. Additionally, the host won't be selected by any Hetzner bare metal machine.
                 type: boolean
               rootDeviceHints:
                 description: |-
@@ -179,37 +180,44 @@ spec:
                       properties:
                         lastTransitionTime:
                           description: |-
-                            Last time the condition transitioned from one status to another.
+                            lastTransitionTime is the last time the condition transitioned from one status to another.
                             This should be when the underlying condition changed. If that is not known, then using the time when
                             the API field changed is acceptable.
                           format: date-time
                           type: string
                         message:
                           description: |-
-                            A human readable message indicating details about the transition.
+                            message is a human readable message indicating details about the transition.
                             This field may be empty.
+                          maxLength: 10240
+                          minLength: 1
                           type: string
                         reason:
                           description: |-
-                            The reason for the condition's last transition in CamelCase.
+                            reason is the reason for the condition's last transition in CamelCase.
                             The specific API may choose whether or not this field is considered a guaranteed API.
-                            This field may not be empty.
+                            This field may be empty.
+                          maxLength: 256
+                          minLength: 1
                           type: string
                         severity:
                           description: |-
-                            Severity provides an explicit classification of Reason code, so the users or machines can immediately
+                            severity provides an explicit classification of Reason code, so the users or machines can immediately
                             understand the current situation and act accordingly.
                             The Severity field MUST be set only when Status=False.
+                          maxLength: 32
                           type: string
                         status:
-                          description: Status of the condition, one of True, False,
+                          description: status of the condition, one of True, False,
                             Unknown.
                           type: string
                         type:
                           description: |-
-                            Type of condition in CamelCase or in foo.example.com/CamelCase.
+                            type of condition in CamelCase or in foo.example.com/CamelCase.
                             Many .condition.type values are consistent across resources like Available, but because arbitrary conditions
                             can be useful (see .node.status.conditions), the ability to deconflict is important.
+                          maxLength: 256
+                          minLength: 1
                           type: string
                       required:
                       - lastTransitionTime
@@ -231,6 +239,20 @@ spec:
                       ErrorType indicates the type of failure encountered when the
                       OperationalStatus is OperationalStatusError.
                     type: string
+                  externalIDs:
+                    description: ExternalIDs contains values from external systems.
+                    properties:
+                      rebootAnnotationNodeBootID:
+                        description: |-
+                          RebootAnnotationNodeBootID reflects the BootID of the Node resource in the workload-cluster.
+                          Only set when the machine gets rebooted.
+                        type: string
+                      rebootAnnotationSince:
+                        description: RebootAnnotationSince indicates when the reboot
+                          via Annotation started.
+                        format: date-time
+                        type: string
+                    type: object
                   hardwareDetails:
                     description: StatusHardwareDetails are automatically gathered
                       and should not be modified by the user.
@@ -378,6 +400,11 @@ spec:
                               a tar, tar.gz, tar.bz, tar.bz2, tar.xz, tgz, tbz, txz
                               image.
                             type: string
+                          useCustomImageURLCommand:
+                            description: |-
+                              UseCustomImageURLCommand makes the controller use the command provided by `--baremetal-image-url-command` instead of installimage.
+                              Docs: https://syself.com/docs/caph/developers/image-url-command
+                            type: boolean
                         type: object
                       logicalVolumeDefinitions:
                         description: LVMDefinitions defines the logical volume definitions
@@ -477,8 +504,8 @@ spec:
                     description: IPv6 address of server.
                     type: string
                   lastUpdated:
-                    description: the last error message reported by the provisioning
-                      subsystem.
+                    description: LastUpdated indicates when the provisioning subsystem
+                      last updated the host state.
                     format: date-time
                     type: string
                   provisioningState:
@@ -501,8 +528,9 @@ spec:
                     properties:
                       portAfterCloudInit:
                         description: |-
-                          PortAfterCloudInit specifies the port that has to be used to connect to the machine
-                          by reaching the server via SSH after the successful completion of cloud init.
+                          PortAfterCloudInit is deprecated. Since PR Install Cloud-Init-Data via post-install.sh #1407 this field is not functional.
+
+                          Deprecated: This field is not used anymore.
                         type: integer
                       portAfterInstallImage:
                         default: 22

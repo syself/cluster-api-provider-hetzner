@@ -172,8 +172,36 @@ func (s *Service) findNetwork(ctx context.Context) (*hcloud.Network, error) {
 		return nil, nil
 	}
 
-	if len(networks[0].Subnets) > 1 {
-		return nil, fmt.Errorf("multiple subnets not allowed")
+	if len(networks[0].Subnets) >= 1 {
+		// Allow existing subnets, but validate them
+
+		// When multiple subnets of type "cloud" are present,
+		// there currently is no guarantee that resources will be created in the correct subnet
+		// The current solution is to allow only one subnet of type "cloud" and any subnet of type "vswitch" (technically limited to 1 though)
+		// Official support for multiple "cloud" subnets can be added when using hcloud-go version >= 2.30.0
+		// where ServerAttachToNetworkOpts allows to specify an "IPRange"
+		// ref: https://pkg.go.dev/github.com/hetznercloud/hcloud-go/v2@v2.30.0/hcloud#ServerAttachToNetworkOpts
+
+		// Create a new slice with only "cloud" typed subnet
+		cloudSubnets := slices.Clone(networks[0].Subnets)
+		cloudSubnets = slices.DeleteFunc(cloudSubnets, func(s hcloud.NetworkSubnet) bool {
+			return s.Type == hcloud.NetworkSubnetTypeVSwitch
+		})
+
+		switch c := len(cloudSubnets); {
+		case c > 1:
+			return nil, fmt.Errorf("multiple subnet of type 'cloud' are currently not allowed")
+		case c == 0:
+			return nil, fmt.Errorf("a subnet of type 'cloud' is missing")
+		case c == 1:
+			configuredSubnet := s.scope.HetznerCluster.Spec.HCloudNetwork.SubnetCIDRBlock
+			gotSubnet := cloudSubnets[0].IPRange.String()
+
+			// Make sure the configured subnet CIDR matches the one available in the network
+			if gotSubnet != configuredSubnet {
+				return nil, fmt.Errorf("the subnet %s does not match the configured %s", gotSubnet, configuredSubnet)
+			}
+		}
 	}
 
 	return networks[0], nil

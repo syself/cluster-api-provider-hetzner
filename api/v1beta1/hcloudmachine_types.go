@@ -20,7 +20,7 @@ import (
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	capierrors "sigs.k8s.io/cluster-api/errors"
+	capierrors "sigs.k8s.io/cluster-api/errors" //nolint:staticcheck // we will handle that, when we update to capi v1.11
 )
 
 const (
@@ -56,7 +56,33 @@ type HCloudMachineSpec struct {
 	// ImageName is the reference to the Machine Image from which to create the machine instance.
 	// It can reference an image uploaded to Hetzner API in two ways: either directly as the name of an image or as the label of an image.
 	// +kubebuilder:validation:MinLength=1
-	ImageName string `json:"imageName"`
+	// +kubebuilder:validation:Optional
+	// +optional
+	ImageName string `json:"imageName,omitempty"`
+
+	// ImageURL gets used for installing custom node images. If that field is set, the controller
+	// boots a new HCloud machine into rescue mode. Then the script provided by
+	// --hcloud-image-url-command (which you need to provide to the controller binary) will be
+	// copied into the rescue system and executed.
+	//
+	// The controller uses url.ParseRequestURI (Go function) to validate the URL.
+	//
+	// It is up to the script to provision the disk of the hcloud machine accordingly. The process
+	// is considered successful if the last line in the output contains
+	// IMAGE_URL_DONE. If the script terminates with a different last line, then
+	// the process is considered to have failed.
+	//
+	// A Kubernetes event will be created in both (success, failure) cases containing the output
+	// (stdout and stderr) of the script. If the script takes longer than 7 minutes, the
+	// controller cancels the provisioning.
+	//
+	// Docs: https://syself.com/docs/caph/developers/image-url-command
+	//
+	// ImageURL is mutually exclusive to "ImageName".
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Optional
+	// +optional
+	ImageURL string `json:"imageURL,omitempty"`
 
 	// SSHKeys define machine-specific SSH keys and override cluster-wide SSH keys.
 	// +optional
@@ -94,18 +120,56 @@ type HCloudMachineStatus struct {
 	// FailureReason will be set in the event that there is a terminal problem
 	// reconciling the Machine and will contain a succinct value suitable
 	// for machine interpretation.
+	//
+	// Deprecated: This field is deprecated and is going to be removed when support for v1beta1 will be dropped. Please see https://github.com/kubernetes-sigs/cluster-api/blob/main/docs/proposals/20240916-improve-status-in-CAPI-resources.md for more details.
+	//
 	// +optional
 	FailureReason *capierrors.MachineStatusError `json:"failureReason,omitempty"`
 
 	// FailureMessage will be set in the event that there is a terminal problem
 	// reconciling the Machine and will contain a more verbose string suitable
 	// for logging and human consumption.
+	//
+	// Deprecated: This field is deprecated and is going to be removed when support for v1beta1 will be dropped. Please see https://github.com/kubernetes-sigs/cluster-api/blob/main/docs/proposals/20240916-improve-status-in-CAPI-resources.md for more details.
+	//
 	// +optional
 	FailureMessage *string `json:"failureMessage,omitempty"`
 
 	// Conditions define the current service state of the HCloudMachine.
 	// +optional
 	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
+
+	// BootState indicates the current state during provisioning.
+	//
+	// If Spec.ImageName is set the states will be:
+	//   1. BootingToRealOS
+	//   2. OperatingSystemRunning
+	//
+	// If Spec.ImageURL is set the states will be:
+	//   1. Initializing
+	//   2. EnablingRescue
+	//   3. BootingToRescue
+	//   4. RunningImageCommand
+	//   5. BootingToRealOS
+	//   6. OperatingSystemRunning
+
+	// +optional
+	BootState HCloudBootState `json:"bootState"`
+
+	// BootStateSince is the timestamp of the last change to BootState. It is used to timeout
+	// provisioning if a state takes too long.
+	// +optional
+	BootStateSince metav1.Time `json:"bootStateSince,omitzero"`
+
+	// ExternalIDs contains temporary data during the provisioning process
+	ExternalIDs HCloudMachineStatusExternalIDs `json:"externalIDs,omitempty"`
+}
+
+// HCloudMachineStatusExternalIDs holds temporary data during the provisioning process.
+type HCloudMachineStatusExternalIDs struct {
+	// ActionIDEnableRescueSystem is the hcloud API Action result of EnableRescueSystem.
+	// +optional
+	ActionIDEnableRescueSystem int64 `json:"actionIdEnableRescueSystem,omitzero"`
 }
 
 // HCloudMachine is the Schema for the hcloudmachines API.
@@ -128,11 +192,6 @@ type HCloudMachine struct {
 	Status HCloudMachineStatus `json:"status,omitempty"`
 }
 
-// HCloudMachineSpec returns a DeepCopy.
-func (r *HCloudMachine) HCloudMachineSpec() *HCloudMachineSpec {
-	return r.Spec.DeepCopy()
-}
-
 // GetConditions returns the observations of the operational state of the HCloudMachine resource.
 func (r *HCloudMachine) GetConditions() clusterv1.Conditions {
 	return r.Status.Conditions
@@ -141,6 +200,15 @@ func (r *HCloudMachine) GetConditions() clusterv1.Conditions {
 // SetConditions sets the underlying service state of the HCloudMachine to the predescribed clusterv1.Conditions.
 func (r *HCloudMachine) SetConditions(conditions clusterv1.Conditions) {
 	r.Status.Conditions = conditions
+}
+
+// SetBootState sets Status.BootStates and updates Status.BootStateSince.
+func (r *HCloudMachine) SetBootState(bootState HCloudBootState) {
+	if r.Status.BootState == bootState {
+		return
+	}
+	r.Status.BootState = bootState
+	r.Status.BootStateSince = metav1.Now()
 }
 
 //+kubebuilder:object:root=true

@@ -47,59 +47,56 @@ func Test_shouldSkipReconciliationForNamespace(t *testing.T) {
 			wantSkip:  false,
 		},
 		{
-			name:          "namespace without annotation",
-			namespace:     "default",
-			createNS:      true,
-			nsAnnotations: nil,
-			wantSkip:      false,
+			name:      "namespace exists without annotation",
+			namespace: "default",
+			createNS:  true,
+			wantSkip:  false,
 		},
 		{
-			name:          "namespace has unrelated annotation",
-			namespace:     "default",
-			createNS:      true,
-			nsAnnotations: map[string]string{"example.com/test": "true"},
-			wantSkip:      false,
+			name:      "namespace exists with skip annotation set to true",
+			namespace: "default",
+			createNS:  true,
+			nsAnnotations: map[string]string{
+				infrav1.SkipNamespaceAnnotation: "true",
+			},
+			wantSkip: true,
 		},
 		{
-			name:          "namespace has skip annotation set to false",
-			namespace:     "default",
-			createNS:      true,
-			nsAnnotations: map[string]string{infrav1.SkipNamespaceAnnotation: "false"},
-			wantSkip:      false,
-		},
-		{
-			name:          "namespace has skip annotation set to true",
-			namespace:     "default",
-			createNS:      true,
-			nsAnnotations: map[string]string{infrav1.SkipNamespaceAnnotation: "true"},
-			wantSkip:      true,
+			name:      "namespace exists with skip annotation set to false",
+			namespace: "default",
+			createNS:  true,
+			nsAnnotations: map[string]string{
+				infrav1.SkipNamespaceAnnotation: "false",
+			},
+			wantSkip: false,
 		},
 	}
 
-	for _, tt := range testCases {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
 			scheme := runtime.NewScheme()
 			if err := corev1.AddToScheme(scheme); err != nil {
-				t.Fatalf("failed to add corev1 scheme: %v", err)
+				t.Fatalf("add corev1 scheme: %v", err)
 			}
 
 			builder := fakeclient.NewClientBuilder().WithScheme(scheme)
-			if tt.createNS {
+			if tc.createNS {
 				builder = builder.WithObjects(&corev1.Namespace{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:        tt.namespace,
-						Annotations: tt.nsAnnotations,
+						Name:        tc.namespace,
+						Annotations: tc.nsAnnotations,
 					},
 				})
 			}
 
 			c := builder.Build()
-			gotSkip, err := shouldSkipReconciliationForNamespace(context.Background(), c, tt.namespace)
+
+			gotSkip, err := shouldSkipReconciliationForNamespace(context.Background(), c, tc.namespace)
 			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
+				t.Fatalf("shouldSkipReconciliationForNamespace returned error: %v", err)
 			}
-			if gotSkip != tt.wantSkip {
-				t.Fatalf("got skip=%v, want=%v", gotSkip, tt.wantSkip)
+			if gotSkip != tc.wantSkip {
+				t.Fatalf("shouldSkipReconciliationForNamespace(%q) = %v, want %v", tc.namespace, gotSkip, tc.wantSkip)
 			}
 		})
 	}

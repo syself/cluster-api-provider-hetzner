@@ -123,7 +123,7 @@ func WithSSHSpec() HostOpts {
 }
 
 // WithSSHSpecInclPorts gives the option to define a host with ssh spec incl. ports.
-func WithSSHSpecInclPorts(portAfterInstallImage, portAfterCloudInit int) HostOpts {
+func WithSSHSpecInclPorts(portAfterInstallImage int) HostOpts {
 	return func(host *infrav1.HetznerBareMetalHost) {
 		host.Spec.Status.SSHSpec = &infrav1.SSHSpec{
 			SecretRef: infrav1.SSHSecretRef{
@@ -135,7 +135,6 @@ func WithSSHSpecInclPorts(portAfterInstallImage, portAfterCloudInit int) HostOpt
 				},
 			},
 			PortAfterInstallImage: portAfterInstallImage,
-			PortAfterCloudInit:    portAfterCloudInit,
 		}
 	}
 }

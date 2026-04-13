@@ -1,0 +1,25 @@
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: HetznerCluster
+metadata:
+  name: "${CLUSTER_NAME}"
+  annotations:
+    capi.syself.com/use-hrobot-provider-id-for-baremetal: "true"
+spec:
+  hcloudNetwork:
+    enabled: true
+  controlPlaneRegions:
+    - "${HCLOUD_REGION}"
+  controlPlaneEndpoint:
+    host: ""
+    port: 443
+  controlPlaneLoadBalancer:
+    region: "${HCLOUD_REGION}"
+  sshKeys:
+    hcloud:
+      - name: "${SSH_KEY_NAME}"
+  hetznerSecretRef:
+    name: hcloud
+    key:
+      hcloudToken: token
+      hetznerRobotPassword: robot-password
+      hetznerRobotUser: robot-user

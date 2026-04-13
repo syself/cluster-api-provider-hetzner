@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.19.0
+    controller-gen.kubebuilder.io/version: v0.20.0
   name: hetznerbaremetalmachines.infrastructure.cluster.x-k8s.io
 spec:
   group: infrastructure.cluster.x-k8s.io
@@ -155,6 +155,11 @@ spec:
                         description: URL defines the remote URL for downloading a
                           tar, tar.gz, tar.bz, tar.bz2, tar.xz, tgz, tbz, txz image.
                         type: string
+                      useCustomImageURLCommand:
+                        description: |-
+                          UseCustomImageURLCommand makes the controller use the command provided by `--baremetal-image-url-command` instead of installimage.
+                          Docs: https://syself.com/docs/caph/developers/image-url-command
+                        type: boolean
                     type: object
                   logicalVolumeDefinitions:
                     description: LVMDefinitions defines the logical volume definitions
@@ -249,8 +254,12 @@ spec:
                 type: object
               providerID:
                 description: |-
-                  ProviderID will be the hetznerbaremetalmachine which is set by the controller
-                  in the `hcloud://bm-<server-id>` format.
+                  ProviderID is set by the controller to either (new) `hrobot://<server-id>` or (old)
+                  `hcloud://bm-NNNN` format. If the HetznerBareMetalMachineSpec has already a ProviderID, then
+                  this will never change. If the ProviderID is empty, the controller sets it to the old format
+                  by default (hcloud://bm-NNNN), except the Annotation
+                  `capi.syself.com/use-hrobot-provider-id-for-baremetal` on the hetznerCluster is set to
+                  `"true"`.
                 type: string
               sshSpec:
                 description: SSHSpec gives a reference on the secret where SSH details
@@ -258,8 +267,9 @@ spec:
                 properties:
                   portAfterCloudInit:
                     description: |-
-                      PortAfterCloudInit specifies the port that has to be used to connect to the machine
-                      by reaching the server via SSH after the successful completion of cloud init.
+                      PortAfterCloudInit is deprecated. Since PR Install Cloud-Init-Data via post-install.sh #1407 this field is not functional.
+
+                      Deprecated: This field is not used anymore.
                     type: integer
                   portAfterInstallImage:
                     default: 22
@@ -318,11 +328,19 @@ spec:
                     address.
                   properties:
                     address:
-                      description: The machine address.
+                      description: address is the machine address.
+                      maxLength: 256
+                      minLength: 1
                       type: string
                     type:
-                      description: Machine address type, one of Hostname, ExternalIP,
-                        InternalIP, ExternalDNS or InternalDNS.
+                      description: type is the machine address type, one of Hostname,
+                        ExternalIP, InternalIP, ExternalDNS or InternalDNS.
+                      enum:
+                      - Hostname
+                      - ExternalIP
+                      - InternalIP
+                      - ExternalDNS
+                      - InternalDNS
                       type: string
                   required:
                   - address
@@ -337,36 +355,43 @@ spec:
                   properties:
                     lastTransitionTime:
                       description: |-
-                        Last time the condition transitioned from one status to another.
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
                         This should be when the underlying condition changed. If that is not known, then using the time when
                         the API field changed is acceptable.
                       format: date-time
                       type: string
                     message:
                       description: |-
-                        A human readable message indicating details about the transition.
+                        message is a human readable message indicating details about the transition.
                         This field may be empty.
+                      maxLength: 10240
+                      minLength: 1
                       type: string
                     reason:
                       description: |-
-                        The reason for the condition's last transition in CamelCase.
+                        reason is the reason for the condition's last transition in CamelCase.
                         The specific API may choose whether or not this field is considered a guaranteed API.
-                        This field may not be empty.
+                        This field may be empty.
+                      maxLength: 256
+                      minLength: 1
                       type: string
                     severity:
                       description: |-
-                        Severity provides an explicit classification of Reason code, so the users or machines can immediately
+                        severity provides an explicit classification of Reason code, so the users or machines can immediately
                         understand the current situation and act accordingly.
                         The Severity field MUST be set only when Status=False.
+                      maxLength: 32
                       type: string
                     status:
-                      description: Status of the condition, one of True, False, Unknown.
+                      description: status of the condition, one of True, False, Unknown.
                       type: string
                     type:
                       description: |-
-                        Type of condition in CamelCase or in foo.example.com/CamelCase.
+                        type of condition in CamelCase or in foo.example.com/CamelCase.
                         Many .condition.type values are consistent across resources like Available, but because arbitrary conditions
                         can be useful (see .node.status.conditions), the ability to deconflict is important.
+                      maxLength: 256
+                      minLength: 1
                       type: string
                   required:
                   - lastTransitionTime
@@ -375,12 +400,16 @@ spec:
                   type: object
                 type: array
               failureMessage:
-                description: FailureMessage will be set in the event that there is
-                  a terminal problem.
+                description: |-
+                  FailureMessage will be set in the event that there is a terminal problem.
+
+                  Deprecated: This field is deprecated and is going to be removed when support for v1beta1 will be dropped. Please see https://github.com/kubernetes-sigs/cluster-api/blob/main/docs/proposals/20240916-improve-status-in-CAPI-resources.md for more details.
                 type: string
               failureReason:
-                description: FailureReason will be set in the event that there is
-                  a terminal problem.
+                description: |-
+                  FailureReason will be set in the event that there is a terminal problem.
+
+                  Deprecated: This field is deprecated and is going to be removed when support for v1beta1 will be dropped. Please see https://github.com/kubernetes-sigs/cluster-api/blob/main/docs/proposals/20240916-improve-status-in-CAPI-resources.md for more details.
                 type: string
               lastUpdated:
                 description: LastUpdated identifies when this status was last observed.

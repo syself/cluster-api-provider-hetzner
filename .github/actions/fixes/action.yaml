@@ -1,0 +1,25 @@
+name: Fix env var HOME and git permissions
+description: Fix env var HOME and git permissions
+runs:
+  using: "composite"
+  steps:
+  - name: Fix HOME Directory
+    shell: bash
+    run: |
+      # Issue [HOME is overridden for containers](https://github.com/actions/runner/issues/863)
+      h=$(getent passwd $(id -un) | cut -d: -f6)
+      if [ "$h" = "$HOME" ]; then
+        echo "HOME fine: $HOME"
+        exit 0
+      fi
+      echo "HOME=$HOME was broken. Setting it to $h"
+      ls -ld $HOME
+      ls -ld $h
+      echo "USER: $USER"
+      echo "id: $(id)"
+      echo "HOME=$h" >> $GITHUB_ENV
+
+  - name: Fixup git permissions
+    # https://github.com/actions/checkout/issues/766
+    shell: bash
+    run: git config --global --add safe.directory "$GITHUB_WORKSPACE"

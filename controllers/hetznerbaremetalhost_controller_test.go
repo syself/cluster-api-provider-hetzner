@@ -44,8 +44,7 @@ import (
 )
 
 const (
-	bmMachineName = "bm-machine-host-testing"
-	hostName      = "test-host"
+	hostName = "test-host"
 )
 
 func verifyError(host *infrav1.HetznerBareMetalHost, errorType infrav1.ErrorType, errorMessage string) bool {
@@ -62,6 +61,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 	var (
 		host           *infrav1.HetznerBareMetalHost
 		bmMachine      *infrav1.HetznerBareMetalMachine
+		machineName    string
 		hetznerCluster *infrav1.HetznerCluster
 
 		capiCluster *clusterv1.Cluster
@@ -86,10 +86,12 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 
 	BeforeEach(func() {
 		var err error
-		testNs, err = testEnv.CreateNamespace(ctx, "baremetalhost-reconciler")
+		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "baremetalhost-reconciler")
 		Expect(err).NotTo(HaveOccurred())
 
 		hetznerClusterName = utils.GenerateName(nil, "hetzner-cluster-test")
+
+		machineName = utils.GenerateName(nil, "machine")
 
 		capiCluster = &clusterv1.Cluster{
 			ObjectMeta: metav1.ObjectMeta{
@@ -169,7 +171,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 		osSSHClientAfterInstallImage.On("CheckCloudInitLogsForSigTerm").Return(sshclient.Output{})
 		osSSHClientAfterInstallImage.On("ResetKubeadm").Return(sshclient.Output{})
 		osSSHClientAfterInstallImage.On("GetHostName").Return(sshclient.Output{
-			StdOut: infrav1.BareMetalHostNamePrefix + bmMachineName,
+			StdOut: infrav1.BareMetalHostNamePrefix + machineName,
 			StdErr: "",
 			Err:    nil,
 		})
@@ -177,7 +179,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 
 		osSSHClientAfterCloudInit.On("Reboot").Return(sshclient.Output{})
 		osSSHClientAfterCloudInit.On("GetHostName").Return(sshclient.Output{
-			StdOut: infrav1.BareMetalHostNamePrefix + bmMachineName,
+			StdOut: infrav1.BareMetalHostNamePrefix + machineName,
 			StdErr: "",
 			Err:    nil,
 		})
@@ -251,9 +253,9 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 		BeforeEach(func() {
 			capiMachine = &clusterv1.Machine{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "capi-machine-",
-					Namespace:    testNs.Name,
-					Finalizers:   []string{clusterv1.MachineFinalizer},
+					Name:       machineName,
+					Namespace:  testNs.Name,
+					Finalizers: []string{clusterv1.MachineFinalizer},
 					Labels: map[string]string{
 						clusterv1.ClusterNameLabel: capiCluster.Name,
 					},
@@ -263,7 +265,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 					InfrastructureRef: corev1.ObjectReference{
 						APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
 						Kind:       "HetznerBareMetalMachine",
-						Name:       bmMachineName,
+						Name:       machineName,
 					},
 					FailureDomain: &defaultFailureDomain,
 					Bootstrap: clusterv1.Bootstrap{
@@ -275,7 +277,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 
 			bmMachine = &infrav1.HetznerBareMetalMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      bmMachineName,
+					Name:      machineName,
 					Namespace: testNs.Name,
 					Labels: map[string]string{
 						clusterv1.ClusterNameLabel: capiCluster.Name,
@@ -425,9 +427,9 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 		BeforeEach(func() {
 			capiMachine = &clusterv1.Machine{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "capi-machine-",
-					Namespace:    testNs.Name,
-					Finalizers:   []string{clusterv1.MachineFinalizer},
+					Name:       machineName,
+					Namespace:  testNs.Name,
+					Finalizers: []string{clusterv1.MachineFinalizer},
 					Labels: map[string]string{
 						clusterv1.ClusterNameLabel: capiCluster.Name,
 					},
@@ -437,7 +439,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 					InfrastructureRef: corev1.ObjectReference{
 						APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
 						Kind:       "HetznerBareMetalMachine",
-						Name:       bmMachineName,
+						Name:       machineName,
 					},
 					FailureDomain: &defaultFailureDomain,
 					Bootstrap: clusterv1.Bootstrap{
@@ -449,7 +451,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 
 			bmMachine = &infrav1.HetznerBareMetalMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      bmMachineName,
+					Name:      machineName,
 					Namespace: testNs.Name,
 					Labels: map[string]string{
 						clusterv1.ClusterNameLabel: capiCluster.Name,
@@ -509,9 +511,9 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 		BeforeEach(func() {
 			capiMachine = &clusterv1.Machine{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "capi-machine-",
-					Namespace:    testNs.Name,
-					Finalizers:   []string{clusterv1.MachineFinalizer},
+					Name:       machineName,
+					Namespace:  testNs.Name,
+					Finalizers: []string{clusterv1.MachineFinalizer},
 					Labels: map[string]string{
 						clusterv1.ClusterNameLabel: capiCluster.Name,
 					},
@@ -521,7 +523,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 					InfrastructureRef: corev1.ObjectReference{
 						APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
 						Kind:       "HetznerBareMetalMachine",
-						Name:       bmMachineName,
+						Name:       machineName,
 					},
 					FailureDomain: &defaultFailureDomain,
 					Bootstrap: clusterv1.Bootstrap{
@@ -533,7 +535,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 
 			bmMachine = &infrav1.HetznerBareMetalMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      bmMachineName,
+					Name:      machineName,
 					Namespace: testNs.Name,
 					Labels: map[string]string{
 						clusterv1.ClusterNameLabel: capiCluster.Name,
@@ -550,7 +552,6 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 				Spec: getDefaultHetznerBareMetalMachineSpec(),
 			}
 			bmMachine.Spec.SSHSpec.PortAfterInstallImage = 23
-			bmMachine.Spec.SSHSpec.PortAfterCloudInit = 24
 
 			Expect(testEnv.Create(ctx, bmMachine)).To(Succeed())
 		})
@@ -595,6 +596,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 	var (
 		host           *infrav1.HetznerBareMetalHost
 		bmMachine      *infrav1.HetznerBareMetalMachine
+		machineName    string
 		hetznerCluster *infrav1.HetznerCluster
 		capiCluster    *clusterv1.Cluster
 		capiMachine    *clusterv1.Machine
@@ -616,10 +618,11 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 
 	BeforeEach(func() {
 		var err error
-		testNs, err = testEnv.CreateNamespace(ctx, "baremetalmachine-reconciler")
+		testNs, err = testEnv.ResetAndCreateNamespace(ctx, "baremetalmachine-reconciler")
 		Expect(err).NotTo(HaveOccurred())
 
 		hetznerClusterName = utils.GenerateName(nil, "hetzner-cluster-test")
+		machineName = utils.GenerateName(nil, "machine")
 
 		capiCluster = &clusterv1.Cluster{
 			ObjectMeta: metav1.ObjectMeta{
@@ -658,9 +661,9 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 
 		capiMachine = &clusterv1.Machine{
 			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "capi-machine-",
-				Namespace:    testNs.Name,
-				Finalizers:   []string{clusterv1.MachineFinalizer},
+				Name:       machineName,
+				Namespace:  testNs.Name,
+				Finalizers: []string{clusterv1.MachineFinalizer},
 				Labels: map[string]string{
 					clusterv1.ClusterNameLabel: capiCluster.Name,
 				},
@@ -670,7 +673,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 				InfrastructureRef: corev1.ObjectReference{
 					APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
 					Kind:       "HetznerBareMetalMachine",
-					Name:       bmMachineName,
+					Name:       machineName,
 				},
 				FailureDomain: &defaultFailureDomain,
 				Bootstrap: clusterv1.Bootstrap{
@@ -682,7 +685,7 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 
 		bmMachine = &infrav1.HetznerBareMetalMachine{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      bmMachineName,
+				Name:      machineName,
 				Namespace: testNs.Name,
 				Labels: map[string]string{
 					clusterv1.ClusterNameLabel: capiCluster.Name,
@@ -832,6 +835,95 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 			}, timeout).Should(BeTrue())
 		})
 	})
+
+	Context("Wrong Robot Credentials - unauthorized", func() {
+		BeforeEach(func() {
+			host = helpers.BareMetalHost(
+				hostName,
+				testNs.Name,
+				helpers.WithHetznerClusterRef(hetznerClusterName),
+				helpers.WithRootDeviceHintWWN(),
+			)
+			Expect(testEnv.Create(ctx, host)).To(Succeed())
+
+			key = client.ObjectKey{Namespace: testNs.Name, Name: host.Name}
+
+			hetznerSecret = getDefaultHetznerSecret(testNs.Name)
+			Expect(testEnv.Create(ctx, hetznerSecret)).To(Succeed())
+
+			rescueSSHSecret = helpers.GetDefaultSSHSecret("rescue-ssh-secret", testNs.Name)
+			Expect(testEnv.Create(ctx, rescueSSHSecret)).To(Succeed())
+
+			osSSHSecret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "os-ssh-secret",
+					Namespace: testNs.Name,
+				},
+				Data: map[string][]byte{
+					"private-key": []byte("os-ssh-secret-private-key"),
+					"sshkey-name": []byte("ssh-key-name"),
+					"public-key":  []byte("my-public-key"),
+				},
+			}
+			Expect(testEnv.Create(ctx, osSSHSecret)).To(Succeed())
+
+			robotClient.ExpectedCalls = nil
+			robotClient.On("GetBMServer", mock.Anything).Return(nil, models.Error{
+				Code:    models.ErrorCodeUnauthorized,
+				Message: "You are not authorized - wrong RobotCredentials",
+			}).Once()
+		})
+
+		It("should set CredentialsAvailable condition to false if Robot API returned unauthorized", func() {
+			By("making the Robot client return an unauthorized error")
+			Eventually(func() bool {
+				return isPresentAndFalseWithReason(key, host, infrav1.RobotCredentialsAvailableCondition, infrav1.RobotCredentialsInvalidReason)
+			}, timeout).Should(BeTrue())
+
+			Expect(robotClient.AssertExpectations(GinkgoT())).To(BeTrue())
+		})
+
+		AfterEach(func() {
+			Expect(testEnv.Cleanup(ctx, host, hetznerSecret, rescueSSHSecret)).To(Succeed())
+		})
+	})
+
+	Context("Wrong Robot Credentials - missing username in secret", func() {
+		BeforeEach(func() {
+			host = helpers.BareMetalHost(
+				hostName,
+				testNs.Name,
+				helpers.WithHetznerClusterRef(hetznerClusterName),
+				helpers.WithRootDeviceHintWWN(),
+			)
+			Expect(testEnv.Create(ctx, host)).To(Succeed())
+
+			hetznerSecret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "hetzner-secret",
+					Namespace: testNs.Name,
+				},
+				Data: map[string][]byte{
+					"hcloud":         []byte("my-token"),
+					"robot-user":     []byte(""),
+					"robot-password": []byte("my-password"),
+				},
+			}
+			Expect(testEnv.Create(ctx, hetznerSecret)).To(Succeed())
+
+			key = client.ObjectKey{Namespace: testNs.Name, Name: host.Name}
+		})
+
+		AfterEach(func() {
+			Expect(testEnv.Cleanup(ctx, host, hetznerSecret)).To(Succeed())
+		})
+
+		It("sets RobotCredentialsAvailable to false if robot-user is empty", func() {
+			Eventually(func() bool {
+				return isPresentAndFalseWithReason(key, host, infrav1.RobotCredentialsAvailableCondition, infrav1.RobotCredentialsInvalidReason)
+			}, timeout).Should(BeTrue())
+		})
+	})
 })
 
 func configureRescueSSHClient(sshClient *sshmock.Client) {
@@ -853,8 +945,8 @@ NAME="nvme1n1" LABEL="" FSTYPE="" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJ
 		Err:    nil,
 	})
 	sshClient.On("GetHardwareDetailsNics").Return(sshclient.Output{
-		StdOut: `name="eth0" model="Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller (rev 15)" mac="a8:a1:59:94:19:42" ipv4="23.88.6.239/26" speedMbps="1000"
-name="eth0" model="Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller (rev 15)" mac="a8:a1:59:94:19:42" ipv6="2a01:4f8:272:3e0f::2/64" speedMbps="1000"`,
+		StdOut: `name="eth0" model="Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller (rev 15)" mac="a8:a1:59:94:19:42" ip="23.88.6.239/26" speedMbps="1000"
+name="eth0" model="Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller (rev 15)" mac="a8:a1:59:94:19:42" ip="2a01:4f8:272:3e0f::2/64" speedMbps="1000"`,
 		StdErr: "",
 		Err:    nil,
 	})

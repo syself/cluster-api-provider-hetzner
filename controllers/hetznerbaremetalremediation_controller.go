@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -40,6 +41,9 @@ import (
 type HetznerBareMetalRemediationReconciler struct {
 	client.Client
 	WatchFilterValue string
+
+	// Reconcile only this namespace. Only needed for testing
+	Namespace string
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalremediations,verbs=get;list;watch;create;update;patch;delete
@@ -51,6 +55,10 @@ type HetznerBareMetalRemediationReconciler struct {
 func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, req reconcile.Request) (res reconcile.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
 
+	if r.Namespace != "" && req.Namespace != r.Namespace {
+		// Just for testing, skip reconciling objects from finished tests.
+		return ctrl.Result{}, nil
+	}
 	skipReconciliation, err := shouldSkipReconciliationForNamespace(ctx, r.Client, req.Namespace)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -73,9 +81,9 @@ func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, r
 	log = log.WithValues("HetznerBareMetalRemediation", klog.KObj(bareMetalRemediation))
 
 	// Fetch the Machine.
-	machine, err := util.GetOwnerMachine(ctx, r.Client, bareMetalRemediation.ObjectMeta)
+	machine, err := util.GetOwnerMachine(ctx, r, bareMetalRemediation.ObjectMeta)
 	if err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 	if machine == nil {
 		log.Info("Machine Controller has not yet set OwnerRef")
@@ -89,7 +97,7 @@ func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, r
 
 	key := client.ObjectKey{
 		Name:      machine.Spec.InfrastructureRef.Name,
-		Namespace: machine.Spec.InfrastructureRef.Namespace,
+		Namespace: bareMetalRemediation.Namespace,
 	}
 
 	if err := r.Get(ctx, key, bareMetalMachine); err != nil {
@@ -102,14 +110,14 @@ func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, r
 	log = log.WithValues("HetznerBareMetalMachine", klog.KObj(bareMetalMachine))
 
 	// Fetch the Cluster.
-	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, machine.ObjectMeta)
+	cluster, err := util.GetClusterFromMetadata(ctx, r, machine.ObjectMeta)
 	if err != nil {
 		log.Info("Machine is missing cluster label or cluster does not exist")
 		return reconcile.Result{}, nil
 	}
 
 	if annotations.IsPaused(cluster, bareMetalMachine) {
-		log.Info("HCloudMachine or linked Cluster is marked as paused. Won't reconcile")
+		log.Info("bareMetalMachine or linked Cluster is marked as paused. Won't reconcile")
 		return reconcile.Result{}, nil
 	}
 
@@ -121,7 +129,7 @@ func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, r
 		Namespace: bareMetalMachine.Namespace,
 		Name:      cluster.Spec.InfrastructureRef.Name,
 	}
-	if err := r.Client.Get(ctx, hetznerClusterName, hetznerCluster); err != nil {
+	if err := r.Get(ctx, hetznerClusterName, hetznerCluster); err != nil {
 		return reconcile.Result{}, nil
 	}
 
@@ -130,7 +138,7 @@ func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, r
 
 	// Create the scope.
 	remediationScope, err := scope.NewBareMetalRemediationScope(scope.BareMetalRemediationScopeParams{
-		Client:               r.Client,
+		Client:               r,
 		Logger:               &log,
 		Machine:              machine,
 		BareMetalMachine:     bareMetalMachine,
@@ -145,16 +153,15 @@ func (r *HetznerBareMetalRemediationReconciler) Reconcile(ctx context.Context, r
 	defer func() {
 		// Always attempt to Patch the Remediation object and status after each reconciliation.
 		// Patch ObservedGeneration only if the reconciliation completed successfully
-		patchOpts := []patch.Option{}
-		patchOpts = append(patchOpts, patch.WithStatusObservedGeneration{})
+		patchOpts := []patch.Option{patch.WithStatusObservedGeneration{}}
 
-		if err := remediationScope.Close(ctx, patchOpts...); err != nil && reterr == nil {
+		if err := remediationScope.Close(ctx, patchOpts...); err != nil {
 			res = reconcile.Result{}
-			reterr = err
+			reterr = errors.Join(reterr, err)
 		}
 	}()
 
-	if !bareMetalRemediation.ObjectMeta.DeletionTimestamp.IsZero() {
+	if !bareMetalRemediation.DeletionTimestamp.IsZero() {
 		// Nothing to do
 		return reconcile.Result{}, nil
 	}
@@ -179,6 +186,6 @@ func (r *HetznerBareMetalRemediationReconciler) SetupWithManager(ctx context.Con
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&infrav1.HetznerBareMetalRemediation{}).
 		WithOptions(options).
-		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(ctrl.LoggerFrom(ctx), r.WatchFilterValue)).
+		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(mgr.GetScheme(), ctrl.LoggerFrom(ctx), r.WatchFilterValue)).
 		Complete(r)
 }

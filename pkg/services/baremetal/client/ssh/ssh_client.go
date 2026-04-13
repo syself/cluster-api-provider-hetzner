@@ -30,15 +30,20 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"syscall"
 	"time"
 
 	scp "github.com/bramvdbogaerde/go-scp"
+	"github.com/go-logr/logr"
 	"golang.org/x/crypto/ssh"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 const (
 	sshTimeOut time.Duration = 5 * time.Second
+	sshUser                  = "root"
+
+	imageURLCommandLog = "/root/image-url-command.log"
 )
 
 //go:embed detect-linux-on-another-disk.sh
@@ -59,11 +64,7 @@ var downloadFromOciShellScript string
 var (
 	// ErrCommandExitedWithoutExitSignal means the ssh command exited unplanned.
 	ErrCommandExitedWithoutExitSignal = errors.New("wait: remote command exited without exit status or exit signal")
-	// ErrCommandExitedWithStatusOne means the ssh command exited with sttatus 1.
-	ErrCommandExitedWithStatusOne = errors.New("Process exited with status 1") //nolint:stylecheck // this is used to check ssh errors
 
-	// ErrConnectionRefused means the ssh connection was refused.
-	ErrConnectionRefused = errors.New("connect: connection refused")
 	// ErrAuthenticationFailed means ssh was unable to authenticate.
 	ErrAuthenticationFailed = errors.New("ssh: unable to authenticate")
 	// ErrEmptyStdOut means that StdOut equals empty string.
@@ -72,7 +73,6 @@ var (
 	ErrTimeout = errors.New("i/o timeout")
 	// ErrCheckDiskBrokenDisk means that a disk seams broken.
 	ErrCheckDiskBrokenDisk = errors.New("CheckDisk failed")
-	errSSHDialFailed       = errors.New("failed to dial ssh")
 )
 
 // Input defines an SSH input.
@@ -99,6 +99,23 @@ const (
 	InstallImageStateRunning InstallImageState = "running"
 	// InstallImageStateFinished has finished.
 	InstallImageStateFinished InstallImageState = "finished"
+)
+
+// ImageURLCommandState is the command which reads the imageURL of and provisions the machine accordingly. It gets copied to the server running in the rescue system.
+type ImageURLCommandState string
+
+const (
+	// ImageURLCommandStateNotStarted indicates that the command was not started yet.
+	ImageURLCommandStateNotStarted ImageURLCommandState = "ImageURLCommandStateNotStarted"
+
+	// ImageURLCommandStateRunning indicates that the command is running.
+	ImageURLCommandStateRunning ImageURLCommandState = "ImageURLCommandStateRunning"
+
+	// ImageURLCommandStateFinishedSuccessfully indicates that the command is finished successfully.
+	ImageURLCommandStateFinishedSuccessfully ImageURLCommandState = "ImageURLCommandStateFinishedSuccessfully"
+
+	// ImageURLCommandStateFailed indicates that the command is finished, but failed.
+	ImageURLCommandStateFailed ImageURLCommandState = "ImageURLCommandStateFailed"
 )
 
 func (o Output) String() string {
@@ -129,7 +146,7 @@ func (o Output) String() string {
 // There are three case:
 // First case: Remote command finished with exit 0: 0, nil.
 // Second case: Remote command finished with non zero: N, nil.
-// Third case: Remote command was not called successfully (like host not reachable): 0, err.
+// Third case: Remote command was not called successfully (like "host not reachable"): 0, err.
 func (o Output) ExitStatus() (int, error) {
 	var exitError *ssh.ExitError
 	if errors.As(o.Err, &exitError) {
@@ -178,6 +195,19 @@ type Client interface {
 	// ExecutePreProvisionCommand executes a command before the provision process starts.
 	// A non-zero exit status will indicate that provisioning should not start.
 	ExecutePreProvisionCommand(ctx context.Context, preProvisionCommand string) (exitStatus int, stdoutAndStderr string, err error)
+
+	// StartImageURLCommand calls the command provided via image-url-command.
+	// It gets called by the controller after the rescue system of the new machine
+	// is reachable. The env var `OCI_REGISTRY_AUTH_TOKEN` gets set to the same value of the
+	// corresponding env var of the controller.
+	// This gets used when imageURL set.
+	// For hcloud deviceNames is always {"sda"}. For baremetal it corresponds to the WWNs
+	// of RootDeviceHints.
+	StartImageURLCommand(ctx context.Context, command, imageURL string, bootstrapData []byte, machineName string, deviceNames []string) (exitStatus int, stdoutAndStderr string, err error)
+
+	// StateOfImageURLCommand returns the current states of the ImageURLCommand. States can
+	// be: NotStarted, Running, Failed, FinishedSuccesfully.
+	StateOfImageURLCommand() (state ImageURLCommandState, logFile string, err error)
 }
 
 // Factory is the interface for creating new Client objects.
@@ -200,6 +230,7 @@ func (f *sshFactory) NewClient(in Input) Client {
 		privateSSHKey: in.PrivateKey,
 		ip:            in.IP,
 		port:          in.Port,
+		log:           ctrl.Log.WithName("ssh-client"),
 	}
 }
 
@@ -207,6 +238,7 @@ type sshClient struct {
 	ip            string
 	privateSSHKey string
 	port          int
+	log           logr.Logger
 }
 
 var _ = Client(&sshClient{})
@@ -406,18 +438,19 @@ func (c *sshClient) Reboot() Output {
 
 // CloudInitStatus implements the CloudInitStatus method of the SSHClient interface.
 func (c *sshClient) CloudInitStatus() Output {
-	out := c.runSSH("cloud-init status")
-	if out.Err != nil && strings.Contains(out.Err.Error(), ErrCommandExitedWithStatusOne.Error()) {
-		return Output{StdOut: "status: error"}
-	}
-	return out
+	return c.runSSH("cloud-init status")
 }
 
 // CheckCloudInitLogsForSigTerm implements the CheckCloudInitLogsForSigTerm method of the SSHClient interface.
 func (c *sshClient) CheckCloudInitLogsForSigTerm() Output {
 	out := c.runSSH(`cat /var/log/cloud-init.log | grep "SIGTERM"`)
-	if out.Err != nil && strings.Contains(out.Err.Error(), ErrCommandExitedWithStatusOne.Error()) {
-		return Output{}
+	if out.Err != nil {
+		exitStatus, err := out.ExitStatus()
+		if err == nil && exitStatus == 1 {
+			// grep exits with status 1 when no matching line is found.
+			// That's expected in this check and should not fail reconciliation.
+			return Output{}
+		}
 	}
 	return out
 }
@@ -547,7 +580,7 @@ func (c *sshClient) UntarTGZ() Output {
 
 // IsConnectionRefusedError checks whether the ssh error is a connection refused error.
 func IsConnectionRefusedError(err error) bool {
-	return strings.Contains(err.Error(), ErrConnectionRefused.Error())
+	return errors.Is(err, syscall.ECONNREFUSED)
 }
 
 // IsAuthenticationFailedError checks whether the ssh error is an authentication failed error.
@@ -569,11 +602,11 @@ func (c *sshClient) getSSHClient() (*ssh.Client, error) {
 	// Create the Signer for this private key.
 	signer, err := ssh.ParsePrivateKey([]byte(c.privateSSHKey))
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse private key: %w", err)
+		return nil, fmt.Errorf("unable to parse private key (%s): %w", c.connectionDetails(), err)
 	}
 
 	config := &ssh.ClientConfig{
-		User: "root",
+		User: sshUser,
 		Auth: []ssh.AuthMethod{
 			// Use the PublicKeys method for remote authentication.
 			ssh.PublicKeys(signer),
@@ -585,7 +618,7 @@ func (c *sshClient) getSSHClient() (*ssh.Client, error) {
 	// Connect to the remote server and perform the SSH handshake.
 	client, err := ssh.Dial("tcp", fmt.Sprintf("%s:%v", c.ip, c.port), config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to dial ssh. Error message: %s. DialErr: %w", err.Error(), errSSHDialFailed)
+		return nil, fmt.Errorf("failed to dial ssh (%s): %w", c.connectionDetails(), err)
 	}
 
 	return client, nil
@@ -596,13 +629,21 @@ func (c *sshClient) runSSH(command string) Output {
 	if err != nil {
 		return Output{Err: err}
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			c.log.Error(err, "failed to close ssh client")
+		}
+	}()
 
 	sess, err := client.NewSession()
 	if err != nil {
-		return Output{Err: fmt.Errorf("unable to create new ssh session: %w", err)}
+		return Output{Err: fmt.Errorf("unable to create new ssh session (%s): %w", c.connectionDetails(), err)}
 	}
-	defer sess.Close()
+	defer func() {
+		if err := sess.Close(); err != nil {
+			c.log.Error(err, "failed to close ssh session")
+		}
+	}()
 
 	var stdoutBuffer bytes.Buffer
 	var stderrBuffer bytes.Buffer
@@ -611,11 +652,18 @@ func (c *sshClient) runSSH(command string) Output {
 	sess.Stderr = &stderrBuffer
 
 	err = sess.Run(command)
+	if err != nil {
+		err = fmt.Errorf("ssh command failed (%s): %w", c.connectionDetails(), err)
+	}
 	return Output{
 		StdOut: stdoutBuffer.String(),
 		StdErr: stderrBuffer.String(),
 		Err:    err,
 	}
+}
+
+func (c *sshClient) connectionDetails() string {
+	return fmt.Sprintf("user=%s host=%s port=%d timeout=%s", sshUser, c.ip, c.port, sshTimeOut)
 }
 
 func removeUselessLinesFromCloudInitOutput(s string) string {
@@ -671,7 +719,11 @@ func (c *sshClient) ExecutePreProvisionCommand(ctx context.Context, command stri
 	if err != nil {
 		return 0, "", err
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			c.log.Error(err, "failed to close ssh client")
+		}
+	}()
 
 	scpClient, err := scp.NewClientBySSH(client)
 	if err != nil {
@@ -702,4 +754,132 @@ func (c *sshClient) ExecutePreProvisionCommand(ctx context.Context, command stri
 	s = strings.TrimSpace(s)
 
 	return exitStatus, s, nil
+}
+
+func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL string, bootstrapData []byte, machineName string, deviceNames []string) (int, string, error) {
+	// validate deviceNames
+	for _, dn := range deviceNames {
+		if strings.Contains(dn, "/") {
+			return 0, "", fmt.Errorf("deviceName must not contain a slash (example: only sda not /dev/sda): %q", dn)
+		}
+		if strings.Contains(dn, " ") {
+			return 0, "", fmt.Errorf("deviceName must not contain spaces: %q", dn)
+		}
+		if dn == "" {
+			return 0, "", errors.New("deviceName must not be empty")
+		}
+	}
+	client, err := c.getSSHClient()
+	if err != nil {
+		return 0, "", err
+	}
+	defer func() {
+		if err := client.Close(); err != nil {
+			c.log.Error(err, "failed to close ssh client")
+		}
+	}()
+
+	scpClient, err := scp.NewClientBySSH(client)
+	if err != nil {
+		return 0, "", fmt.Errorf("couldn't create a new scp client: %w", err)
+	}
+
+	defer scpClient.Close()
+
+	if command == "" {
+		return 0, "", fmt.Errorf("image-url-command is empty")
+	}
+
+	fdCommand, err := os.Open(command) //nolint:gosec // the variable was valided.
+	if err != nil {
+		return 0, "", fmt.Errorf("error opening image-url-command %q: %w", command, err)
+	}
+	defer func() {
+		if err := fdCommand.Close(); err != nil {
+			c.log.Error(err, "failed to close image-url-command file", "path", command)
+		}
+	}()
+
+	baseName := "image-url-command"
+	dest := "/root/" + baseName
+	err = scpClient.CopyFromFile(ctx, *fdCommand, dest, "0700")
+	if err != nil {
+		return 0, "", fmt.Errorf("error copying file %q to %s:%d:%s %w", command, c.ip, c.port, dest, err)
+	}
+
+	reader := bytes.NewReader(bootstrapData)
+	dest = "/root/bootstrap.data"
+	err = scpClient.CopyFile(ctx, reader, dest, "0700")
+	if err != nil {
+		return 0, "", fmt.Errorf("error copying boostrap data to %s:%d:%s %w", c.ip, c.port, dest, err)
+	}
+
+	cmd := fmt.Sprintf(`#!/usr/bin/bash
+OCI_REGISTRY_AUTH_TOKEN='%s' nohup /root/image-url-command '%s' /root/bootstrap.data '%s' '%s' >%s 2>&1 </dev/null &
+echo $! > /root/image-url-command.pid
+`, os.Getenv("OCI_REGISTRY_AUTH_TOKEN"), imageURL, machineName, strings.Join(deviceNames, " "),
+		imageURLCommandLog)
+
+	out := c.runSSH(cmd)
+
+	exitStatus, err := out.ExitStatus()
+	if err != nil {
+		return 0, "", fmt.Errorf("error executing %q on %s:%d: %w", dest, c.ip, c.port, err)
+	}
+
+	s := out.StdOut + "\n" + out.StdErr
+	s = strings.TrimSpace(s)
+
+	return exitStatus, s, nil
+}
+
+func (c *sshClient) StateOfImageURLCommand() (state ImageURLCommandState, stdoutStderr string, err error) {
+	out := c.runSSH(`[ -e /root/image-url-command.pid ]`)
+	exitStatus, err := out.ExitStatus()
+	if err != nil {
+		return ImageURLCommandStateNotStarted, "", fmt.Errorf("getting exit status of image-url-command failed: %w", err)
+	}
+	if exitStatus > 0 {
+		// file does exists
+		return ImageURLCommandStateNotStarted, "", nil
+	}
+
+	out = c.runSSH(`ps -p "$(cat /root/image-url-command.pid)" -o args= | grep -q image-url-command`)
+	exitStatus, err = out.ExitStatus()
+	if err != nil {
+		return ImageURLCommandStateNotStarted, "", fmt.Errorf("detecting if image-url-command is still running failed: %w", err)
+	}
+
+	logFile, err := c.getImageURLCommandOutput()
+	if err != nil {
+		return ImageURLCommandStateFailed, logFile, err
+	}
+
+	if exitStatus == 0 {
+		return ImageURLCommandStateRunning, logFile, nil
+	}
+
+	out = c.runSSH(fmt.Sprintf("tail -n 1 %s | grep -q IMAGE_URL_DONE", imageURLCommandLog))
+	exitStatus, err = out.ExitStatus()
+	if err != nil {
+		return ImageURLCommandStateNotStarted, logFile, fmt.Errorf("detecting if image-url-command was successful failed: %w", err)
+	}
+
+	if exitStatus > 0 {
+		return ImageURLCommandStateFailed,
+			fmt.Sprintf("IMAGE_URL_DONE not found in %s:\n%s", imageURLCommandLog, logFile), nil
+	}
+	return ImageURLCommandStateFinishedSuccessfully, logFile, nil
+}
+
+func (c *sshClient) getImageURLCommandOutput() (string, error) {
+	out := c.runSSH(fmt.Sprintf("cat %s", imageURLCommandLog)) // TODO: implement getFile for sshClient.
+	exitStatus, err := out.ExitStatus()
+	if err != nil {
+		return "", fmt.Errorf("getting logs of image-url-command failed: %w", err)
+	}
+	if exitStatus > 0 {
+		return "", fmt.Errorf("getting logs of image-url-command failed. Non zero status of 'cat'")
+	}
+	return out.StdOut, nil
 }

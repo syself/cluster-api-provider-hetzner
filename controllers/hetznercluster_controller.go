@@ -37,6 +37,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
@@ -78,6 +79,9 @@ type HetznerClusterReconciler struct {
 	TargetClusterManagersWaitGroup *sync.WaitGroup
 	WatchFilterValue               string
 	DisableCSRApproval             bool
+
+	// Reconcile only this namespace. Only needed for testing
+	Namespace string
 }
 
 //+kubebuilder:rbac:groups=cluster.x-k8s.io,resources=clusters;clusters/status,verbs=get;list;watch
@@ -89,6 +93,10 @@ type HetznerClusterReconciler struct {
 func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res ctrl.Result, reterr error) {
 	log := ctrl.LoggerFrom(ctx)
 
+	if r.Namespace != "" && req.Namespace != r.Namespace {
+		// Just for testing, skip reconciling objects from finished tests.
+		return ctrl.Result{}, nil
+	}
 	skipReconciliation, err := shouldSkipReconciliationForNamespace(ctx, r.Client, req.Namespace)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -113,7 +121,7 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// Fetch the Cluster.
 	cluster, err := util.GetOwnerCluster(ctx, r.Client, hetznerCluster.ObjectMeta)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to get owner cluster: %w", err)
+		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
 	log = log.WithValues("Cluster", klog.KObj(cluster))
@@ -121,9 +129,7 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	if cluster == nil {
 		log.Info("Cluster Controller has not yet set OwnerRef")
-		return reconcile.Result{
-			RequeueAfter: 2 * time.Second,
-		}, nil
+		return reconcile.Result{}, nil
 	}
 
 	if annotations.IsPaused(cluster, hetznerCluster) {
@@ -135,7 +141,7 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	secretManager := secretutil.NewSecretManager(log, r.Client, r.APIReader)
 	hcloudToken, hetznerSecret, err := getAndValidateHCloudToken(ctx, req.Namespace, hetznerCluster, secretManager)
 	if err != nil {
-		return hcloudTokenErrorResult(ctx, err, hetznerCluster, infrav1.HCloudTokenAvailableCondition, r.Client)
+		return hcloudTokenErrorResult(ctx, err, hetznerCluster, r.Client)
 	}
 	hcloudClient := r.HCloudClientFactory.NewClient(hcloudToken)
 
@@ -160,9 +166,9 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			conditions.MarkTrue(hetznerCluster, infrav1.HCloudTokenAvailableCondition)
 		}
 
-		if err := clusterScope.Close(ctx); err != nil && reterr == nil {
+		if err := clusterScope.Close(ctx); err != nil {
 			res = reconcile.Result{}
-			reterr = err
+			reterr = errors.Join(reterr, err)
 		}
 	}()
 
@@ -234,7 +240,7 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 	// target cluster is ready
 	conditions.MarkTrue(hetznerCluster, infrav1.TargetClusterReadyCondition)
 
-	result, err = reconcileTargetSecret(ctx, clusterScope)
+	result, err = reconcileWorkloadClusterSecrets(ctx, clusterScope)
 	if err != nil {
 		reterr := fmt.Errorf("failed to reconcile target secret: %w", err)
 		conditions.MarkFalse(
@@ -328,6 +334,10 @@ func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterS
 	secretManager := secretutil.NewSecretManager(clusterScope.Logger, r.Client, r.APIReader)
 	// Remove finalizer of secret
 	if err := secretManager.ReleaseSecret(ctx, clusterScope.HetznerSecret(), clusterScope.HetznerCluster); err != nil {
+		if apierrors.IsConflict(err) {
+			clusterScope.Info("conflict in ReleaseSecret, doing a requeue")
+			return reconcile.Result{RequeueAfter: time.Second}, nil
+		}
 		return reconcile.Result{}, fmt.Errorf("failed to release Hetzner secret: %w", err)
 	}
 
@@ -389,7 +399,7 @@ func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterS
 func reconcileRateLimit(setter conditions.Setter, rateLimitWaitTime time.Duration) bool {
 	condition := conditions.Get(setter, infrav1.HetznerAPIReachableCondition)
 	if condition != nil && condition.Status == corev1.ConditionFalse {
-		if time.Now().Before(condition.LastTransitionTime.Time.Add(rateLimitWaitTime)) {
+		if time.Now().Before(condition.LastTransitionTime.Add(rateLimitWaitTime)) {
 			// Not yet timed out, reconcile again after timeout
 			// Don't give a more precise requeueAfter value to not reconcile too many
 			// objects at the same time
@@ -433,7 +443,6 @@ func hcloudTokenErrorResult(
 	ctx context.Context,
 	inerr error,
 	setter conditions.Setter,
-	conditionType clusterv1.ConditionType,
 	client client.Client,
 ) (ctrl.Result, error) {
 	res := ctrl.Result{}
@@ -443,7 +452,7 @@ func hcloudTokenErrorResult(
 	// at some point in the future.
 	case *secretutil.ResolveSecretRefError:
 		conditions.MarkFalse(setter,
-			conditionType,
+			infrav1.HCloudTokenAvailableCondition,
 			infrav1.HetznerSecretUnreachableReason,
 			clusterv1.ConditionSeverityError,
 			"could not find HetznerSecret",
@@ -454,7 +463,7 @@ func hcloudTokenErrorResult(
 	// No need to reconcile again, as it will be triggered as soon as the secret is updated.
 	case *secretutil.HCloudTokenValidationError:
 		conditions.MarkFalse(setter,
-			conditionType,
+			infrav1.HCloudTokenAvailableCondition,
 			infrav1.HCloudCredentialsInvalidReason,
 			clusterv1.ConditionSeverityError,
 			"invalid or not specified hcloud token in Hetzner secret",
@@ -462,7 +471,7 @@ func hcloudTokenErrorResult(
 
 	default:
 		conditions.MarkFalse(setter,
-			conditionType,
+			infrav1.HCloudTokenAvailableCondition,
 			infrav1.HCloudCredentialsInvalidReason,
 			clusterv1.ConditionSeverityError,
 			"%s",
@@ -472,7 +481,7 @@ func hcloudTokenErrorResult(
 	}
 	conditions.SetSummary(setter)
 	if err := client.Status().Update(ctx, setter); err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to update: %w", err)
+		return reconcile.Result{}, fmt.Errorf("hcloudTokenErrorResult: failed to update: %w", err)
 	}
 	if inerr != nil {
 		return reconcile.Result{}, inerr
@@ -480,7 +489,12 @@ func hcloudTokenErrorResult(
 	return res, nil
 }
 
-func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope) (res reconcile.Result, reterr error) {
+// reconcileWorkloadClusterSecrets syncs Hetzner credentials from the management cluster into
+// workload-cluster secrets for CCM consumption. It creates a secret named by
+// HetznerCluster.Spec.HetznerSecret.Name. If that name is not "hcloud", it also creates a second
+// secret named "hcloud" for upstream hcloud-ccm compatibility. Secret creation is skipped when
+// HetznerCluster.Spec.SkipCreatingHetznerSecretInWorkloadCluster is set.
+func reconcileWorkloadClusterSecrets(ctx context.Context, clusterScope *scope.ClusterScope) (res reconcile.Result, reterr error) {
 	if clusterScope.HetznerCluster.Spec.SkipCreatingHetznerSecretInWorkloadCluster {
 		// If the secret should not be created in the workload cluster, we just return.
 		// This means the ccm is running outside of the workload cluster (or getting the secret differently).
@@ -488,13 +502,13 @@ func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope
 	}
 
 	// Checking if control plane is ready
-	clientConfig, err := clusterScope.ClientConfig(ctx)
+	wlClientConfig, err := clusterScope.ClientConfig(ctx)
 	if err != nil {
 		clusterScope.V(1).Info("failed to get clientconfig with api endpoint")
 		return reconcile.Result{}, err
 	}
 
-	if err := scope.IsControlPlaneReady(ctx, clientConfig); err != nil {
+	if err := scope.IsControlPlaneReady(ctx, wlClientConfig); err != nil {
 		conditions.MarkFalse(
 			clusterScope.HetznerCluster,
 			infrav1.TargetClusterSecretReadyCondition,
@@ -508,73 +522,121 @@ func reconcileTargetSecret(ctx context.Context, clusterScope *scope.ClusterScope
 	// Control plane ready, so we can check if the secret exists already
 
 	// getting client
-	restConfig, err := clientConfig.ClientConfig()
+	restConfig, err := wlClientConfig.ClientConfig()
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to get rest config: %w", err)
 	}
 
-	client, err := client.New(restConfig, client.Options{})
+	// workload cluster client
+	wlClient, err := client.New(restConfig, client.Options{})
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to get client: %w", err)
 	}
 
-	secret := &corev1.Secret{
+	if err := reconcileAllWorkloadClusterSecrets(ctx, clusterScope, wlClient); err != nil {
+		return reconcile.Result{}, err
+	}
+	return reconcile.Result{}, nil
+}
+
+func workloadClusterSecretNames(secretName string) []string {
+	names := []string{secretName}
+	if secretName != "hcloud" {
+		names = append(names, "hcloud")
+	}
+	return names
+}
+
+// workloadClusterCompatibilityKeys returns the configured key for every secret.
+// When reconciling the secret named "hcloud", it also returns the compatibility
+// key unless it matches the configured key.
+func workloadClusterCompatibilityKeys(secretName, configuredKey, compatibilityKey string) []string {
+	if secretName != "hcloud" {
+		// Only the secret named "hcloud" gets the compatibility key.
+		return []string{configuredKey}
+	}
+
+	if configuredKey == compatibilityKey {
+		// Avoid duplicating the key when it already matches the compatibility key.
+		return []string{configuredKey}
+	}
+
+	// The compatibility secret exposes both the configured key and the compatibility key.
+	return []string{configuredKey, compatibilityKey}
+}
+
+func reconcileAllWorkloadClusterSecrets(ctx context.Context, clusterScope *scope.ClusterScope, wlClient client.Client) error {
+	for _, name := range workloadClusterSecretNames(clusterScope.HetznerCluster.Spec.HetznerSecret.Name) {
+		if err := reconcileOneWorkloadClusterSecret(ctx, clusterScope, wlClient, name); err != nil {
+			return fmt.Errorf("failed to reconcile wl-cluster secret %q: %w", name, err)
+		}
+	}
+	return nil
+}
+
+func reconcileOneWorkloadClusterSecret(ctx context.Context, clusterScope *scope.ClusterScope, wlClient client.Client, name string) error {
+	wlSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      clusterScope.HetznerCluster.Spec.HetznerSecret.Name,
+			Name:      name,
 			Namespace: metav1.NamespaceSystem,
 		},
 	}
 
 	// Make sure secret exists and has the expected values
-	_, err = controllerutil.CreateOrUpdate(ctx, client, secret, func() error {
-		tokenSecretName := types.NamespacedName{
+	_, err := controllerutil.CreateOrUpdate(ctx, wlClient, wlSecret, func() error {
+		mgtSecretName := types.NamespacedName{
 			Namespace: clusterScope.HetznerCluster.Namespace,
 			Name:      clusterScope.HetznerCluster.Spec.HetznerSecret.Name,
 		}
 		secretManager := secretutil.NewSecretManager(clusterScope.Logger, clusterScope.Client, clusterScope.APIReader)
-		tokenSecret, err := secretManager.AcquireSecret(ctx, tokenSecretName, clusterScope.HetznerCluster, false, clusterScope.HetznerCluster.DeletionTimestamp.IsZero())
+		mgtSecret, err := secretManager.AcquireSecret(ctx, mgtSecretName, clusterScope.HetznerCluster, false, clusterScope.HetznerCluster.DeletionTimestamp.IsZero())
 		if err != nil {
 			return fmt.Errorf("failed to acquire secret: %w", err)
 		}
 
-		hetznerToken, keyExists := tokenSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken]
+		hcloudToken, keyExists := mgtSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken]
 		if !keyExists {
-			return fmt.Errorf("error key %s does not exist in secret/%s: %w",
+			return fmt.Errorf("key %q does not exist in secret/%s",
 				clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken,
-				tokenSecretName,
-				err,
+				mgtSecretName,
 			)
 		}
 
-		if secret.Data == nil {
-			secret.Data = make(map[string][]byte)
+		if wlSecret.Data == nil {
+			wlSecret.Data = make(map[string][]byte)
 		}
 
-		secret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken] = hetznerToken
+		for _, key := range workloadClusterCompatibilityKeys(name, clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken, "token") {
+			wlSecret.Data[key] = hcloudToken
+		}
 
 		// Save robot credentials if available
 		if clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser != "" {
-			robotUserName := tokenSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser]
-			secret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser] = robotUserName
-			robotPassword := tokenSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword]
-			secret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword] = robotPassword
+			robotUserName := mgtSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser]
+			for _, key := range workloadClusterCompatibilityKeys(name, clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser, "robot-user") {
+				wlSecret.Data[key] = robotUserName
+			}
+			robotPassword := mgtSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword]
+			for _, key := range workloadClusterCompatibilityKeys(name, clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword, "robot-password") {
+				wlSecret.Data[key] = robotPassword
+			}
 		}
 
 		// Save network ID in secret
 		if clusterScope.HetznerCluster.Spec.HCloudNetwork.Enabled {
-			secret.Data["network"] = []byte(strconv.FormatInt(clusterScope.HetznerCluster.Status.Network.ID, 10))
+			wlSecret.Data["network"] = []byte(strconv.FormatInt(clusterScope.HetznerCluster.Status.Network.ID, 10))
 		}
 		// Save api server information
-		secret.Data["apiserver-host"] = []byte(clusterScope.HetznerCluster.Spec.ControlPlaneEndpoint.Host)
-		secret.Data["apiserver-port"] = []byte(strconv.Itoa(int(clusterScope.HetznerCluster.Spec.ControlPlaneEndpoint.Port)))
+		wlSecret.Data["apiserver-host"] = []byte(clusterScope.HetznerCluster.Spec.ControlPlaneEndpoint.Host)
+		wlSecret.Data["apiserver-port"] = []byte(strconv.Itoa(int(clusterScope.HetznerCluster.Spec.ControlPlaneEndpoint.Port)))
 
 		return nil
 	})
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to create or update secret: %w", err)
+		return fmt.Errorf("failed to create or update secret: %w", err)
 	}
 
-	return res, nil
+	return nil
 }
 
 func (r *HetznerClusterReconciler) reconcileTargetClusterManager(ctx context.Context, clusterScope *scope.ClusterScope) (res reconcile.Result, err error) {
@@ -742,7 +804,17 @@ func (r *HetznerClusterReconciler) newTargetClusterManager(ctx context.Context, 
 			clusterName:      clusterScope.Cluster.Name,
 		}
 
-		if err := gr.SetupWithManager(ctx, clusterMgr, controller.Options{}); err != nil {
+		if err := gr.SetupWithManager(ctx, clusterMgr, controller.Options{
+			// SkipNameValidation. Avoid this error: failed to setup CSR controller: controller with
+			// name certificatesigningrequest already exists. Controller names must be unique to
+			// avoid multiple controllers reporting the same metric. This validation can be disabled
+			// via the SkipNameValidation option
+			//
+			// By default, controller names must be unique (to prevent duplicate Prometheus
+			// metrics). In our case the name is not unique, because it gets executed for every
+			// workload cluster.
+			SkipNameValidation: ptr.To(true),
+		}); err != nil {
 			return nil, fmt.Errorf("failed to setup CSR controller: %w", err)
 		}
 	}
@@ -761,8 +833,8 @@ func (r *HetznerClusterReconciler) SetupWithManager(ctx context.Context, mgr ctr
 	err := ctrl.NewControllerManagedBy(mgr).
 		WithOptions(options).
 		For(&infrav1.HetznerCluster{}).
-		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(log, r.WatchFilterValue)).
-		WithEventFilter(predicates.ResourceIsNotExternallyManaged(log)).
+		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(mgr.GetScheme(), log, r.WatchFilterValue)).
+		WithEventFilter(predicates.ResourceIsNotExternallyManaged(mgr.GetScheme(), log)).
 		WithEventFilter(IgnoreInsignificantHetznerClusterStatusUpdates(log)).
 		Owns(&corev1.Secret{}).
 		Watches(
@@ -785,7 +857,7 @@ func (r *HetznerClusterReconciler) clusterToHetznerCluster(ctx context.Context, 
 	}
 
 	// Don't handle deleted clusters
-	if !c.ObjectMeta.DeletionTimestamp.IsZero() {
+	if !c.DeletionTimestamp.IsZero() {
 		return nil
 	}
 

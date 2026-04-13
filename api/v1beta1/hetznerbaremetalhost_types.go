@@ -40,7 +40,9 @@ const (
 	DeprecatedBareMetalHostFinalizer = "hetznerbaremetalhost.infrastructure.cluster.x-k8s.io"
 
 	// HostAnnotation is the key for an annotation that should go on a HetznerBareMetalMachine to
-	// reference what HetznerBareMetalHost it corresponds to.
+	// reference what HetznerBareMetalHost it corresponds to. The annotation is a string in the
+	// format "namespace/hbmh-name". Note: We should remove the namespace, as cross-namespace
+	// references are not allowed.
 	HostAnnotation = "infrastructure.cluster.x-k8s.io/HetznerBareMetalHost"
 
 	// WipeDiskAnnotation indicates which Disks (WWNs) to erase before provisioning
@@ -120,8 +122,10 @@ const (
 	// RegistrationError is an error condition occurring when the
 	// controller is unable to retrieve information on a specific server via robot.
 	RegistrationError ErrorType = "registration error"
+
 	// PreparationError is an error condition occurring when something fails while preparing host reconciliation.
 	PreparationError ErrorType = "preparation error"
+
 	// ProvisioningError is an error condition occurring when the controller
 	// fails to provision or deprovision the Host.
 	ProvisioningError ErrorType = "provisioning error"
@@ -189,6 +193,7 @@ const (
 	// RebootTypeSoftware defines the software reboot. "Send CTRL+ALT+DEL to the server".
 	RebootTypeSoftware RebootType = "sw"
 	// RebootTypeHardware defines the hardware reboot. "Execute an automatic hardware reset".
+	// The RebootTypeHardware is supported by all servers.
 	RebootTypeHardware RebootType = "hw"
 	// RebootTypeManual defines the manual reboot. "Order a manual power cycle".
 	RebootTypeManual RebootType = "man"
@@ -229,8 +234,9 @@ type HetznerBareMetalHostSpec struct {
 	// +optional
 	ConsumerRef *corev1.ObjectReference `json:"consumerRef,omitempty"`
 
-	// MaintenanceMode indicates that a machine is supposed to be deprovisioned
-	// and won't be selected by any Hetzner bare metal machine.
+	// MaintenanceMode indicates that a machine is supposed to be deprovisioned. The CAPI Machine
+	// will get the cluster.x-k8s.io/remediate-machine annotation, and CAPI will deprovision the
+	// machine. Additionally, the host won't be selected by any Hetzner bare metal machine.
 	MaintenanceMode *bool `json:"maintenanceMode,omitempty"`
 
 	// Description is a human-entered text used to help identify the host.
@@ -261,7 +267,7 @@ type ControllerGeneratedStatus struct {
 	// hbmm controller sets this field of the hbmh to nil. This indicates the hbmh controller that
 	// deprovisioning should started
 	//
-	// +optional
+	//  +optional
 	InstallImage *InstallImage `json:"installImage,omitempty"`
 
 	// StatusHardwareDetails are automatically gathered and should not be modified by the user.
@@ -304,7 +310,7 @@ type ControllerGeneratedStatus struct {
 	// +optional
 	ErrorMessage string `json:"errorMessage"`
 
-	// the last error message reported by the provisioning subsystem.
+	// LastUpdated indicates when the provisioning subsystem last updated the host state.
 	// +optional
 	LastUpdated *metav1.Time `json:"lastUpdated,omitempty"`
 
@@ -314,6 +320,22 @@ type ControllerGeneratedStatus struct {
 	// Conditions define the current service state of the HetznerBareMetalHost.
 	// +optional
 	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
+
+	// ExternalIDs contains values from external systems.
+	// +optional
+	ExternalIDs ExternalIDs `json:"externalIDs,omitzero"`
+}
+
+// ExternalIDs contains values from external systems.
+type ExternalIDs struct {
+	// RebootAnnotationNodeBootID reflects the BootID of the Node resource in the workload-cluster.
+	// Only set when the machine gets rebooted.
+	// +optional
+	RebootAnnotationNodeBootID string `json:"rebootAnnotationNodeBootID,omitempty"`
+
+	// RebootAnnotationSince indicates when the reboot via Annotation started.
+	// +optional
+	RebootAnnotationSince metav1.Time `json:"rebootAnnotationSince,omitzero"`
 }
 
 // GetIPAddress returns the IPv6 if set, otherwise the IPv4.
@@ -322,6 +344,11 @@ func (sts ControllerGeneratedStatus) GetIPAddress() string {
 		return sts.IPv6
 	}
 	return sts.IPv4
+}
+
+// HasFatalError returns true, if the corresponding capi machine should get deleted.
+func (sts ControllerGeneratedStatus) HasFatalError() bool {
+	return sts.ErrorType == FatalError || sts.ErrorType == PermanentError
 }
 
 // GetConditions returns the observations of the operational state of the HetznerBareMetalHost resource.
@@ -359,9 +386,9 @@ func (cs SecretStatus) Match(secret corev1.Secret) bool {
 	switch {
 	case cs.Reference == nil:
 		return false
-	case cs.Reference.Name != secret.ObjectMeta.Name:
+	case cs.Reference.Name != secret.Name:
 		return false
-	case cs.Reference.Namespace != secret.ObjectMeta.Namespace:
+	case cs.Reference.Namespace != secret.Namespace:
 		return false
 	}
 
@@ -506,8 +533,8 @@ func statusFromSecret(secret corev1.Secret) (*SecretStatus, error) {
 	}
 	return &SecretStatus{
 		Reference: &corev1.SecretReference{
-			Name:      secret.ObjectMeta.Name,
-			Namespace: secret.ObjectMeta.Namespace,
+			Name:      secret.Name,
+			Namespace: secret.Namespace,
 		},
 		DataHash: hash,
 	}, nil

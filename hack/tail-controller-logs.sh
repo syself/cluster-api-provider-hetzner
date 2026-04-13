@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Copyright 2023 The Kubernetes Authors.
 #
@@ -14,13 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-pod=$(kubectl -n caph-system get pods | grep caph-controller-manager | cut -d' ' -f1)
+# Bash Strict Mode: https://github.com/guettli/bash-strict-mode
+trap 'echo -e "\n🤷 🚨 🔥 Warning: A command has failed. Exiting the script. Line was ($0:$LINENO): $(sed -n "${LINENO}p" "$0" 2>/dev/null || true) 🔥 🚨 🤷 "; exit 3' ERR
+set -Eeuo pipefail
 
-if [ -z "$pod" ]; then
-    echo "failed to find caph-controller-manager pod"
-    exit 1
-fi
+dep="caph-controller-manager"
 
-kubectl -n caph-system logs "$pod" --tail 200 | \
-	   ./hack/filter-caph-controller-manager-logs.py - | \
-        tail -n 20
+hack_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+ns=$("$hack_dir"/get-namespace-of-deployment.sh $dep)
+pod=$("$hack_dir"/get-leading-pod.sh $dep "$ns")
+kubectl -n "$ns" logs "$pod" --tail 200 |
+    "$hack_dir"/filter-caph-controller-manager-logs.py - |
+    tail -n 10

@@ -104,14 +104,14 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 		if input.InitWithBinary == "" {
 			gomega.Expect(input.E2EConfig.Variables).To(gomega.HaveKey(initWithBinaryVariableName), "Invalid argument. %s variable must be defined when calling %s spec", initWithBinaryVariableName, specName)
 			gomega.Expect(input.E2EConfig.Variables[initWithBinaryVariableName]).ToNot(gomega.BeEmpty(), "Invalid argument. %s variable can't be empty when calling %s spec", initWithBinaryVariableName, specName)
-			clusterctlBinaryURLTemplate = input.E2EConfig.GetVariable(initWithBinaryVariableName)
+			clusterctlBinaryURLTemplate = input.E2EConfig.GetVariableOrEmpty(initWithBinaryVariableName)
 		} else {
 			clusterctlBinaryURLTemplate = input.InitWithBinary
 		}
 		if input.InitWithInfrastructureProviderVersion == "" {
 			gomega.Expect(input.E2EConfig.Variables).To(gomega.HaveKey(initWithInfrastructureProviderVersion), "Invalid argument. %s variable must be defined when calling %s spec", initWithBinaryVariableName, specName)
 			gomega.Expect(input.E2EConfig.Variables[initWithInfrastructureProviderVersion]).ToNot(gomega.BeEmpty(), "Invalid argument. %s variable can't be empty when calling %s spec", initWithBinaryVariableName, specName)
-			desiredInfrastructureVersion = input.E2EConfig.GetVariable(initWithInfrastructureProviderVersion)
+			desiredInfrastructureVersion = input.E2EConfig.GetVariableOrEmpty(initWithInfrastructureProviderVersion)
 		} else {
 			desiredInfrastructureVersion = input.InitWithInfrastructureProviderVersion
 		}
@@ -142,7 +142,7 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 				Flavor:                   input.MgmtFlavor,
 				Namespace:                managementClusterNamespace.Name,
 				ClusterName:              managementClusterName,
-				KubernetesVersion:        input.E2EConfig.GetVariable(initWithKubernetesVersion),
+				KubernetesVersion:        input.E2EConfig.GetVariableOrEmpty(initWithKubernetesVersion),
 				ControlPlaneMachineCount: ptr.To[int64](1),
 				WorkerMachineCount:       ptr.To[int64](1),
 			},
@@ -171,9 +171,9 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 
 		// Download the older clusterctl version to be used for setting up the management cluster to be upgraded
 
-		fmt.Fprintf(ginkgo.GinkgoWriter, "Downloading clusterctl binary from %s", clusterctlBinaryURL)
+		_, _ = fmt.Fprintf(ginkgo.GinkgoWriter, "Downloading clusterctl binary from %s", clusterctlBinaryURL)
 		clusterctlBinaryPath := downloadToTmpFile(ctx, clusterctlBinaryURL)
-		defer os.Remove(clusterctlBinaryPath) // clean up
+		defer func() { _ = os.Remove(clusterctlBinaryPath) }() // clean up
 
 		err := os.Chmod(clusterctlBinaryPath, 0o744) //nolint:gosec
 		gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to chmod temporary file")
@@ -185,7 +185,7 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 		// variable can be used to select versions with a specific contract.
 		contract := "*"
 		if input.E2EConfig.HasVariable(initWithProvidersContract) {
-			contract = input.E2EConfig.GetVariable(initWithProvidersContract)
+			contract = input.E2EConfig.GetVariableOrEmpty(initWithProvidersContract)
 		}
 		if input.InitWithProvidersContract != "" {
 			contract = input.InitWithProvidersContract
@@ -224,14 +224,14 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 		// so we are getting a template using the downloaded version of clusterctl, applying it, and wait for machines to be provisioned.
 
 		workLoadClusterName = fmt.Sprintf("%s-%s", specName, util.RandomString(6))
-		kubernetesVersion := input.E2EConfig.GetVariable(KubernetesVersion)
+		kubernetesVersion := input.E2EConfig.GetVariableOrEmpty(KubernetesVersion)
 		controlPlaneMachineCount := ptr.To[int64](1)
 		workerMachineCount := ptr.To[int64](1)
 
-		fmt.Fprintf(ginkgo.GinkgoWriter, "Creating the workload cluster with name %q using the %q template (Kubernetes %s, %d control-plane machines, %d worker machines)",
+		_, _ = fmt.Fprintf(ginkgo.GinkgoWriter, "Creating the workload cluster with name %q using the %q template (Kubernetes %s, %d control-plane machines, %d worker machines)",
 			workLoadClusterName, "(default)", kubernetesVersion, *controlPlaneMachineCount, *workerMachineCount)
 
-		fmt.Fprintf(ginkgo.GinkgoWriter, "Getting the cluster template yaml")
+		_, _ = fmt.Fprintf(ginkgo.GinkgoWriter, "Getting the cluster template yaml")
 		workloadClusterTemplate := clusterctl.ConfigClusterWithBinary(ctx, clusterctlBinaryPath, clusterctl.ConfigClusterInput{
 			// pass reference to the management cluster hosting this test
 			KubeconfigPath: managementClusterProxy.GetKubeconfigPath(),
@@ -251,7 +251,7 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 		})
 		gomega.Expect(workloadClusterTemplate).ToNot(gomega.BeNil(), "Failed to get the cluster template")
 
-		fmt.Fprintf(ginkgo.GinkgoWriter, "Applying the cluster template yaml to the cluster")
+		_, _ = fmt.Fprintf(ginkgo.GinkgoWriter, "Applying the cluster template yaml to the cluster")
 		gomega.Expect(managementClusterProxy.CreateOrUpdate(ctx, workloadClusterTemplate)).To(gomega.Succeed())
 
 		ginkgo.By("Waiting for the machines to exists")
@@ -318,9 +318,11 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 			managementClusterProxy.CollectWorkloadClusterLogs(ctx, testNamespace.Name, managementClusterName, filepath.Join(input.ArtifactFolder, "clusters", managementClusterName, "machines"))
 
 			framework.DumpAllResources(ctx, framework.DumpAllResourcesInput{
-				Lister:    managementClusterProxy.GetClient(),
-				Namespace: testNamespace.Name,
-				LogPath:   filepath.Join(input.ArtifactFolder, "clusters", managementClusterResources.Cluster.Name, "resources"),
+				Lister:               managementClusterProxy.GetClient(),
+				Namespace:            testNamespace.Name,
+				LogPath:              filepath.Join(input.ArtifactFolder, "clusters", managementClusterResources.Cluster.Name, "resources"),
+				KubeConfigPath:       managementClusterProxy.GetKubeconfigPath(),
+				ClusterctlConfigPath: input.ClusterctlConfigPath,
 			})
 
 			if !input.SkipCleanup {
@@ -328,17 +330,19 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 				case discovery.ServerSupportsVersion(managementClusterProxy.GetClientSet().DiscoveryClient, clusterv1.GroupVersion) == nil:
 					Byf("Deleting all %s clusters in namespace %s in management cluster %s", clusterv1.GroupVersion, testNamespace.Name, managementClusterName)
 					framework.DeleteAllClustersAndWait(ctx, framework.DeleteAllClustersAndWaitInput{
-						Client:    managementClusterProxy.GetClient(),
-						Namespace: testNamespace.Name,
+						ClusterProxy:         managementClusterProxy,
+						Namespace:            testNamespace.Name,
+						ClusterctlConfigPath: input.ClusterctlConfigPath,
 					}, input.E2EConfig.GetIntervals(specName, "wait-delete-cluster")...)
 				default:
-					fmt.Fprintf(ginkgo.GinkgoWriter, "Management Cluster does not appear to support CAPI resources.")
+					_, _ = fmt.Fprintf(ginkgo.GinkgoWriter, "Management Cluster does not appear to support CAPI resources.")
 				}
 
 				Byf("Deleting cluster %s/%s", testNamespace.Name, managementClusterName)
 				framework.DeleteAllClustersAndWait(ctx, framework.DeleteAllClustersAndWaitInput{
-					Client:    managementClusterProxy.GetClient(),
-					Namespace: testNamespace.Name,
+					ClusterProxy:         managementClusterProxy,
+					Namespace:            testNamespace.Name,
+					ClusterctlConfigPath: input.ClusterctlConfigPath,
 				}, input.E2EConfig.GetIntervals(specName, "wait-delete-cluster")...)
 
 				Byf("Deleting namespace %s used for hosting the %q test", testNamespace.Name, specName)
@@ -358,14 +362,16 @@ func ClusterctlUpgradeSpec(ctx context.Context, inputGetter func() ClusterctlUpg
 		}
 
 		// Dumps all the resources in the spec namespace, then cleanups the cluster object and the spec namespace itself.
-		dumpSpecResourcesAndCleanup(ctx, specName, input.BootstrapClusterProxy, input.ArtifactFolder, managementClusterNamespace, managementClusterCancelWatches, managementClusterResources.Cluster, input.E2EConfig.GetIntervals, input.SkipCleanup)
+		dumpSpecResourcesAndCleanup(ctx, specName, input.BootstrapClusterProxy, input.ArtifactFolder, managementClusterNamespace, managementClusterCancelWatches, managementClusterResources.Cluster, input.E2EConfig.GetIntervals, input.SkipCleanup,
+			input.BootstrapClusterProxy.GetKubeconfigPath(),
+			input.ClusterctlConfigPath)
 	})
 }
 
 func downloadToTmpFile(ctx context.Context, url string) string {
 	tmpFile, err := os.CreateTemp("", "clusterctl")
 	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to get temporary file")
-	defer tmpFile.Close()
+	defer func() { _ = tmpFile.Close() }()
 
 	// Get the data
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
@@ -373,7 +379,7 @@ func downloadToTmpFile(ctx context.Context, url string) string {
 
 	resp, err := http.DefaultClient.Do(req)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to get clusterctl")
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Write the body to file
 	_, err = io.Copy(tmpFile, resp.Body)

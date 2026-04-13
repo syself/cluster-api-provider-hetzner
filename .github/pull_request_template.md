@@ -1,11 +1,3 @@
-<!--
-
-    PLEASE BASE YOUR PULL REQUESTS ON THE v1.1.x BRANCH IF YOU ADD A NEW FEATURE.
-
-    The main branch reflects v1.0.x. Use the main branch if you create a bug or security fix.
-
- -->
-
 <!-- If this is your first PR, welcome! Please make sure you read the [contributing guidelines](../CONTRIBUTING.md#contributing-a-patch). -->
 <!-- please add an icon to the title of this PR and delete this line and similar ones -->
 <!-- the icon will be either ⚠️ (:warning:, major or breaking changes), ✨ (:sparkles:, feature additions), 🐛 (:bug:, patches and bugfixes), 📖 (:book:, documentation or proposals), or 🌱 (:seedling:, minor or other) -->
@@ -24,3 +16,4 @@ _Please confirm that if this PR changes any image versions, then that's the sole
 - [ ] squash commits
 - [ ] include documentation
 - [ ] add unit tests
+

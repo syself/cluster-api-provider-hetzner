@@ -82,87 +82,75 @@ MGT_CLUSTER_KUBECONFIG ?= ".mgt-cluster-kubeconfig.yaml"
 # Kubebuilder.
 # go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 # The command `setup-envtest list` shows the available versions.
-export KUBEBUILDER_ENVTEST_KUBERNETES_VERSION ?= 1.31.0
+export KUBEBUILDER_ENVTEST_KUBERNETES_VERSION ?= 1.33.0
 
 ##@ Binaries
 ############
 # Binaries #
 ############
-CONTROLLER_GEN := $(abspath $(TOOLS_BIN_DIR)/controller-gen)
-controller-gen: $(CONTROLLER_GEN) ## Build a local copy of controller-gen
-$(CONTROLLER_GEN): # Build controller-gen from tools folder.
-	go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0
 
 KUSTOMIZE := $(abspath $(TOOLS_BIN_DIR)/kustomize)
 kustomize: $(KUSTOMIZE) ## Build a local copy of kustomize
 $(KUSTOMIZE): # Build kustomize from tools folder.
-	go install sigs.k8s.io/kustomize/kustomize/v4@v4.5.7
+	go install sigs.k8s.io/kustomize/kustomize/v5@v5.8.0
 
 TILT := $(abspath $(TOOLS_BIN_DIR)/tilt)
 tilt: $(TILT) ## Build a local copy of tilt
 $(TILT):
 	@mkdir -p $(TOOLS_BIN_DIR)
-	MINIMUM_TILT_VERSION=0.33.3 hack/ensure-tilt.sh
-
-ENVSUBST := $(abspath $(TOOLS_BIN_DIR)/envsubst)
-envsubst: $(ENVSUBST) ## Build a local copy of envsubst
-$(ENVSUBST): # Build envsubst from tools folder.
-	go install github.com/drone/envsubst/v2/cmd/envsubst@latest
+	MINIMUM_TILT_VERSION=0.35.2 hack/ensure-tilt.sh
 
 SETUP_ENVTEST := $(abspath $(TOOLS_BIN_DIR)/setup-envtest)
+
+.PHONY: setup-envtest
 setup-envtest: $(SETUP_ENVTEST) ## Build a local copy of setup-envtest
 $(SETUP_ENVTEST): # Build setup-envtest from tools folder.
-	go install sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.0.0-20250310021545-f80bc5dbf8f7
+	go install sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.0.0-20251126220622-4b46eb04d57f
 
 CTLPTL := $(abspath $(TOOLS_BIN_DIR)/ctlptl)
 ctlptl: $(CTLPTL) ## Build a local copy of ctlptl
 $(CTLPTL):
-	go install github.com/tilt-dev/ctlptl/cmd/ctlptl@v0.8.25
+	go install github.com/tilt-dev/ctlptl/cmd/ctlptl@v0.8.43
 
 CLUSTERCTL := $(abspath $(TOOLS_BIN_DIR)/clusterctl)
 clusterctl: $(CLUSTERCTL) ## Build a local copy of clusterctl
 $(CLUSTERCTL):
-	go install sigs.k8s.io/cluster-api/cmd/clusterctl@v1.8.10
-
-HELM := $(abspath $(TOOLS_BIN_DIR)/helm)
-helm: $(HELM) ## Build a local copy of helm
-$(HELM):
-	curl -sSL https://get.helm.sh/helm-v3.13.2-$$(go env GOOS)-$$(go env GOARCH).tar.gz | tar xz -C $(TOOLS_BIN_DIR) --strip-components=1 $$(go env GOOS)-$$(go env GOARCH)/helm
-	chmod a+rx $(HELM)
+	go install sigs.k8s.io/cluster-api/cmd/clusterctl@v1.10.10
 
 HCLOUD := $(abspath $(TOOLS_BIN_DIR)/hcloud)
 hcloud: $(HCLOUD) ## Build a local copy of hcloud
 $(HCLOUD):
-	curl -sSL https://github.com/hetznercloud/cli/releases/download/v1.43.1/hcloud-$$(go env GOOS)-$$(go env GOARCH).tar.gz | tar xz -C $(TOOLS_BIN_DIR) hcloud
+	curl -sSL https://github.com/hetznercloud/cli/releases/download/v1.57.0/hcloud-$$(go env GOOS)-$$(go env GOARCH).tar.gz | tar xz -C $(TOOLS_BIN_DIR) hcloud
 	chmod a+rx $(HCLOUD)
 
 KIND := $(abspath $(TOOLS_BIN_DIR)/kind)
 kind: $(KIND) ## Build a local copy of kind
 $(KIND):
-	go install sigs.k8s.io/kind@v0.23.0
+	go install sigs.k8s.io/kind@v0.30.0
 
 KUBECTL := $(abspath $(TOOLS_BIN_DIR)/kubectl)
-kubectl: $(KUBECTL) ## Build a local copy of kubectl
+kubectl: $(TOOLS_BIN_DIR) $(KUBECTL) ## Build a local copy of kubectl
 $(KUBECTL):
-	curl -fsSL "https://dl.k8s.io/release/v1.31.6/bin/$$(go env GOOS)/$$(go env GOARCH)/kubectl" -o $(KUBECTL)
+	mkdir -p $(TOOLS_BIN_DIR)
+	curl -fsSL "https://dl.k8s.io/release/v1.33.6/bin/$$(go env GOOS)/$$(go env GOARCH)/kubectl" -o $(KUBECTL)
 	chmod a+rx $(KUBECTL)
 
 go-binsize-treemap := $(abspath $(TOOLS_BIN_DIR)/go-binsize-treemap)
 go-binsize-treemap: $(go-binsize-treemap) # Build go-binsize-treemap from tools folder.
 $(go-binsize-treemap):
-	go install github.com/nikolaydubina/go-binsize-treemap@v0.2.0
+	go install github.com/nikolaydubina/go-binsize-treemap@v0.2.3
 
 go-cover-treemap := $(abspath $(TOOLS_BIN_DIR)/go-cover-treemap)
 go-cover-treemap: $(go-cover-treemap) # Build go-cover-treemap from tools folder.
 $(go-cover-treemap):
-	go install github.com/nikolaydubina/go-cover-treemap@v1.3.0
+	go install github.com/nikolaydubina/go-cover-treemap@v1.5.0
 
 GOTESTSUM := $(abspath $(TOOLS_BIN_DIR)/gotestsum)
 gotestsum: $(GOTESTSUM) # Build gotestsum from tools folder.
 $(GOTESTSUM):
-	go install gotest.tools/gotestsum@v1.11.0
+	go install gotest.tools/gotestsum@v1.13.0
 
-all-tools: $(GOTESTSUM) $(go-cover-treemap) $(go-binsize-treemap) $(KIND) $(KUBECTL) $(CLUSTERCTL) $(CTLPTL) $(SETUP_ENVTEST) $(ENVSUBST) $(KUSTOMIZE) $(CONTROLLER_GEN) $(HELM) ## Install all tools required for development
+all-tools: $(GOTESTSUM) $(go-cover-treemap) $(go-binsize-treemap) $(KIND) $(KUBECTL) $(CLUSTERCTL) $(CTLPTL) $(SETUP_ENVTEST) $(KUSTOMIZE) ## Install all tools required for development
 	echo 'done'
 
 ##@ Development
@@ -184,97 +172,79 @@ install-essentials: ## This gets the secret and installs a CNI and the CCM. Usag
 	$(MAKE) install-cilium-in-wl-cluster
 	$(MAKE) install-ccm-in-wl-cluster
 
-wait-and-get-secret:
+wait-and-get-secret: $(KUBECTL)
 	./hack/ensure-env-variables.sh CLUSTER_NAME
 	# Wait for the kubeconfig to become available.
 	rm -f $(WORKER_CLUSTER_KUBECONFIG)
+	@echo
+	@echo "You can use 'make watch' to get an overview"
+	@echo
 	${TIMEOUT} --foreground 5m bash -c "while ! $(KUBECTL) get secrets | grep $(CLUSTER_NAME)-kubeconfig; do sleep 1; done"
 	# Get kubeconfig and store it locally.
 	./hack/get-kubeconfig-of-workload-cluster.sh
 	${TIMEOUT} --foreground 15m bash -c "while ! $(KUBECTL) --kubeconfig=$(WORKER_CLUSTER_KUBECONFIG) get nodes | grep control-plane; do sleep 1; done"
 
-install-cilium-in-wl-cluster: $(HELM)
+install-cilium-in-wl-cluster:
 	# Deploy cilium
-	$(HELM) repo add cilium https://helm.cilium.io/
-	$(HELM) repo update cilium
-	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) $(HELM) upgrade --install cilium cilium/cilium \
+	helm repo add cilium https://helm.cilium.io/
+	helm repo update cilium
+	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) helm upgrade --install cilium cilium/cilium \
   		--namespace kube-system \
-		-f templates/cilium/cilium.yaml
+		-f templates/cilium/values.yaml
+
 
 install-ccm-in-wl-cluster:
-	$(HELM) repo add syself https://charts.syself.com
-	$(HELM) repo update syself
-	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) $(HELM) upgrade --install ccm syself/ccm-hetzner --version 1.1.10 \
+ifeq ($(BUILD_IN_CONTAINER),true)
+	docker run  --rm \
+		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
+		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
+		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
+else
+	helm repo add syself https://charts.syself.com
+	helm repo update syself
+	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hetzner --version 2.0.6 \
 	--namespace kube-system \
-	--set privateNetwork.enabled=$(PRIVATE_NETWORK)
+	--set privateNetwork.enabled=$(PRIVATE_NETWORK) \
+	--set-json 'extraEnvVars=[{"name":"HCLOUD_USE_HROBOT_PROVIDER_ID_FOR_BAREMETAL","value":"true"}]'
+	@echo
 	@echo 'run "kubectl --kubeconfig=$(WORKER_CLUSTER_KUBECONFIG) ..." to work with the new target cluster'
+	@echo
+	@echo "Use 'make watch' to get an overview of the resources, events and logs"
+	@echo
+endif
 
 add-ssh-pub-key:
-	./hack/ensure-env-variables.sh HCLOUD_TOKEN SSH_KEY SSH_KEY_NAME
-	SSH_KEY_CONTENT=$$(cat $(SSH_KEY)) ; \
-	curl -sS \
-		-X POST \
-		-H "Authorization: Bearer $${HCLOUD_TOKEN}" \
-		-H "Content-Type: application/json" \
-		-d '{"labels":{},"name":"${SSH_KEY_NAME}","public_key":"'"$${SSH_KEY_CONTENT}"'"}' \
-		'https://api.hetzner.cloud/v1/ssh_keys'
+	./hack/ensure-ssh-key-in-hcloud.sh
 
 env-vars-for-wl-cluster:
 	@./hack/ensure-env-variables.sh CLUSTER_NAME CONTROL_PLANE_MACHINE_COUNT HCLOUD_CONTROL_PLANE_MACHINE_TYPE \
 	HCLOUD_REGION SSH_KEY_NAME HCLOUD_WORKER_MACHINE_TYPE KUBERNETES_VERSION WORKER_MACHINE_COUNT
 
-create-workload-cluster-hcloud: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST) install-crds ## Creates a workload-cluster.
+create-workload-cluster-hcloud: env-vars-for-wl-cluster $(KUSTOMIZE) install-crds ## Creates a workload-cluster.
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN
-	$(KUBECTL) create secret generic $(INFRA_PROVIDER) --from-literal=hcloud=$(HCLOUD_TOKEN) --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
-	$(KUSTOMIZE) build templates/cluster-templates/hcloud --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud.yaml
-	cat templates/cluster-templates/cluster-template-hcloud.yaml | $(ENVSUBST) - | $(KUBECTL) apply -f -
-	$(MAKE) wait-and-get-secret
-	$(MAKE) install-cilium-in-wl-cluster
-	$(MAKE) install-ccm-in-wl-cluster
+	./hack/create-workload-cluster.sh v1beta1 hcloud
 
-create-workload-cluster-hcloud-network: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster.
+create-workload-cluster-hcloud-network: env-vars-for-wl-cluster $(KUSTOMIZE) install-crds ## Creates a workload-cluster.
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN
-	$(KUBECTL) create secret generic $(INFRA_PROVIDER) --from-literal=hcloud=$(HCLOUD_TOKEN) --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
-	$(KUSTOMIZE) build templates/cluster-templates/hcloud-network --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-network.yaml
-	cat templates/cluster-templates/cluster-template-hcloud-network.yaml | $(ENVSUBST) - | $(KUBECTL) apply -f -
-	$(MAKE) wait-and-get-secret
-	$(MAKE) install-cilium-in-wl-cluster
-	$(MAKE) install-ccm-in-wl-cluster PRIVATE_NETWORK=true
+	./hack/create-workload-cluster.sh v1beta1 hcloud-network
 
-create-workload-cluster-hetzner-hcloud-control-plane: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster.
+# Use that, if you want to test hcloud control-planes, hcloud worker and bm worker.
+create-workload-cluster-hetzner-hcloud-control-plane: env-vars-for-wl-cluster $(KUSTOMIZE) install-crds ## Creates a workload-cluster.
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN HETZNER_ROBOT_USER HETZNER_ROBOT_PASSWORD HETZNER_SSH_PRIV_PATH HETZNER_SSH_PUB_PATH SSH_KEY_NAME
-	$(KUBECTL) create secret generic $(INFRA_PROVIDER) --from-literal=hcloud=$(HCLOUD_TOKEN) --from-literal=robot-user=$(HETZNER_ROBOT_USER) --from-literal=robot-password=$(HETZNER_ROBOT_PASSWORD) --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
-	$(KUBECTL) create secret generic robot-ssh --from-literal=sshkey-name=$(SSH_KEY_NAME) --from-file=ssh-privatekey=${HETZNER_SSH_PRIV_PATH} --from-file=ssh-publickey=${HETZNER_SSH_PUB_PATH} --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
-	$(KUSTOMIZE) build templates/cluster-templates/$(INFRA_PROVIDER)-hcloud-control-planes --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-$(INFRA_PROVIDER)-hcloud-control-planes.yaml
-	cat templates/cluster-templates/cluster-template-$(INFRA_PROVIDER)-hcloud-control-planes.yaml | $(ENVSUBST) - | $(KUBECTL) apply -f -
-	$(MAKE) wait-and-get-secret
-	$(MAKE) install-cilium-in-wl-cluster
-	$(MAKE) install-ccm-in-wl-cluster
+	./hack/create-workload-cluster.sh --robot v1beta1 hetzner-hcloud-control-planes
 
-create-workload-cluster-hetzner-baremetal-control-plane: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster.
+create-workload-cluster-hetzner-baremetal-control-plane: env-vars-for-wl-cluster $(KUSTOMIZE) install-crds ## Creates a workload-cluster.
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN HETZNER_ROBOT_USER HETZNER_ROBOT_PASSWORD HETZNER_SSH_PRIV_PATH HETZNER_SSH_PUB_PATH SSH_KEY_NAME
-	$(KUBECTL) create secret generic $(INFRA_PROVIDER) --from-literal=hcloud=$(HCLOUD_TOKEN) --from-literal=robot-user=$(HETZNER_ROBOT_USER) --from-literal=robot-password=$(HETZNER_ROBOT_PASSWORD) --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
-	$(KUBECTL) create secret generic robot-ssh --from-literal=sshkey-name=$(SSH_KEY_NAME) --from-file=ssh-privatekey=${HETZNER_SSH_PRIV_PATH} --from-file=ssh-publickey=${HETZNER_SSH_PUB_PATH} --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
-	$(KUSTOMIZE) build templates/cluster-templates/$(INFRA_PROVIDER)-baremetal-control-planes --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-$(INFRA_PROVIDER)-baremetal-control-planes.yaml
-	cat templates/cluster-templates/cluster-template-$(INFRA_PROVIDER)-baremetal-control-planes.yaml | $(ENVSUBST) - | $(KUBECTL) apply -f -
-	$(MAKE) wait-and-get-secret
-	$(MAKE) install-cilium-in-wl-cluster
-	$(MAKE) install-ccm-in-wl-cluster
+	./hack/create-workload-cluster.sh --robot v1beta1 hetzner-baremetal-control-plane
 
-create-workload-cluster-hetzner-baremetal-control-plane-remediation: env-vars-for-wl-cluster $(KUSTOMIZE) $(ENVSUBST) ## Creates a workload-cluster.
+create-workload-cluster-hetzner-baremetal-control-plane-remediation: env-vars-for-wl-cluster $(KUSTOMIZE) install-crds ## Creates a workload-cluster.
 	# Create workload Cluster.
 	./hack/ensure-env-variables.sh HCLOUD_TOKEN HETZNER_ROBOT_USER HETZNER_ROBOT_PASSWORD HETZNER_SSH_PRIV_PATH HETZNER_SSH_PUB_PATH SSH_KEY_NAME
-	$(KUBECTL) create secret generic $(INFRA_PROVIDER) --from-literal=hcloud=$(HCLOUD_TOKEN) --from-literal=robot-user=$(HETZNER_ROBOT_USER) --from-literal=robot-password=$(HETZNER_ROBOT_PASSWORD) --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
-	$(KUBECTL) create secret generic robot-ssh --from-literal=sshkey-name=$(SSH_KEY_NAME) --from-file=ssh-privatekey=${HETZNER_SSH_PRIV_PATH} --from-file=ssh-publickey=${HETZNER_SSH_PUB_PATH} --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
-	$(KUSTOMIZE) build templates/cluster-templates/$(INFRA_PROVIDER)-baremetal-control-planes-remediation --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-$(INFRA_PROVIDER)-baremetal-control-planes-remediation.yaml
-	cat templates/cluster-templates/cluster-template-$(INFRA_PROVIDER)-baremetal-control-planes-remediation.yaml | $(ENVSUBST) - | $(KUBECTL) apply -f -
-	$(MAKE) wait-and-get-secret
-	$(MAKE) install-cilium-in-wl-cluster
-	$(MAKE) install-ccm-in-wl-cluster
+	./hack/create-workload-cluster.sh --robot v1beta1 hetzner-baremetal-control-plane-remediation
 
 move-to-workload-cluster: $(CLUSTERCTL)
 	$(CLUSTERCTL) init --kubeconfig=$(WORKER_CLUSTER_KUBECONFIG) --core cluster-api --bootstrap kubeadm --control-plane kubeadm --infrastructure $(INFRA_PROVIDER)
@@ -290,13 +260,18 @@ delete-workload-cluster: ## Deletes the example workload Kubernetes cluster
 	${TIMEOUT} --foreground 15m bash -c "while $(KUBECTL) get cluster | grep $(NAME); do sleep 1; done"
 	@echo 'Cluster deleted'
 
-create-mgt-cluster: $(CLUSTERCTL) $(KUBECTL) cluster ## Start a mgt-cluster with the latest version of all capi components and the infra provider.
+create-mgt-cluster: $(CLUSTERCTL) $(KUBECTL) cluster ## Start a mgt-cluster with the latest **released** version of all capi components and the infra provider.
 	$(CLUSTERCTL) init --core cluster-api --bootstrap kubeadm --control-plane kubeadm --infrastructure $(INFRA_PROVIDER)
 	$(KUBECTL) create secret generic $(INFRA_PROVIDER) --from-literal=hcloud=$(HCLOUD_TOKEN) --save-config --dry-run=client -o yaml | $(KUBECTL) apply -f -
 	$(KUBECTL) patch secret $(INFRA_PROVIDER) -p '{"metadata":{"labels":{"clusterctl.cluster.x-k8s.io/move":""}}}'
+	@echo
+	@echo "Your next step, for example:"
+	@echo "  ./hack/update-operator-dev-deployment.sh to install the caph code of the git repo into the mgt-cluster"
+	@echo "then you could create a wl-cluster:"
+	@echo " make create-workload-cluster-hetzner-hcloud-control-plane"
 
 .PHONY: cluster
-cluster: $(CTLPTL) $(KUBECTL) ## Creates kind-dev Cluster
+cluster: $(CTLPTL) $(KUBECTL) ## Creates kind-dev management cluster
 	@# Fail early: Test if HCLOUD_TOKEN is valid. Background: After Tilt started, changing .envrc has no effect for processes
 	@# started via Tilt. That's why this should fail early.
 	@curl -fsS -H "Authorization: Bearer $$HCLOUD_TOKEN" 'https://api.hetzner.cloud/v1/ssh_keys' > /dev/null || (echo "HCLOUD_TOKEN is invalid (might help: ./hack/ci-e2e-get-token.sh and update .envrc)"; exit 1)
@@ -364,9 +339,9 @@ $(RELEASE_NOTES_DIR):
 
 .PHONY: test-release
 test-release:
-	@# TAG: caph container image tag. For PRs this is pr-NNNN
-	./hack/ensure-env-variables.sh TAG
-	$(MAKE) set-manifest-image MANIFEST_IMG=$(IMAGE_PREFIX)/$(STAGING_IMAGE) MANIFEST_TAG=$(TAG)
+	@# CAPH_CONTAINER_TAG: caph container image tag. For PRs this is pr-NNNN
+	./hack/ensure-env-variables.sh CAPH_CONTAINER_TAG
+	$(MAKE) set-manifest-image MANIFEST_IMG=$(IMAGE_PREFIX)/$(STAGING_IMAGE) MANIFEST_TAG=$(CAPH_CONTAINER_TAG)
 	$(MAKE) set-manifest-pull-policy PULL_POLICY=IfNotPresent
 	$(MAKE) release-manifests
 
@@ -375,8 +350,8 @@ release-manifests: generate-manifests generate-go-deepcopy $(KUSTOMIZE) $(RELEAS
 	$(KUSTOMIZE) build config/default > $(RELEASE_DIR)/infrastructure-components.yaml
 	## Build $(INFRA_SHORT)-components (aggregate of all of the above).
 	cp metadata.yaml $(RELEASE_DIR)/metadata.yaml
-	cp templates/cluster-templates/cluster-template* $(RELEASE_DIR)/
-	cp templates/cluster-templates/cluster-class* $(RELEASE_DIR)/
+	cp generated/cluster-template* $(RELEASE_DIR)/
+	cp templates/cluster-templates/v1beta1/cluster-class* $(RELEASE_DIR)/
 
 .PHONY: release
 release: clean-release  ## Builds and push container images using the latest git tag for the commit.
@@ -470,15 +445,16 @@ test-unit: $(SETUP_ENVTEST) $(GOTESTSUM) ## Run unit and integration tests
 
 .PHONY: e2e-image
 e2e-image: ## Build the e2e manager image
-	./hack/ensure-env-variables.sh TAG
-	docker build --pull --build-arg ARCH=$(ARCH) --build-arg LDFLAGS="$(LDFLAGS)" -t $(IMAGE_PREFIX)/$(STAGING_IMAGE):$(TAG) -f images/$(INFRA_SHORT)/Dockerfile .
+	./hack/ensure-env-variables.sh CAPH_CONTAINER_TAG
+	docker build --pull --build-arg ARCH=$(ARCH) --build-arg LDFLAGS="$(LDFLAGS)" -t $(IMAGE_PREFIX)/$(STAGING_IMAGE):$(CAPH_CONTAINER_TAG) -f images/$(INFRA_SHORT)/Dockerfile .
 
 .PHONY: e2e-conf-file
 e2e-conf-file: $(E2E_CONF_FILE)
-$(E2E_CONF_FILE): $(ENVSUBST) $(E2E_CONF_FILE_SOURCE) ./hack/create-e2e-conf-file.sh
-	CAPH_LATEST_VERSION=$(CAPH_LATEST_VERSION) ENVSUBST=$(ENVSUBST) \
+$(E2E_CONF_FILE): $(E2E_CONF_FILE_SOURCE) ./hack/create-e2e-conf-file.sh
+	CAPH_LATEST_VERSION=$(CAPH_LATEST_VERSION) \
 	E2E_CONF_FILE_SOURCE=$(E2E_CONF_FILE_SOURCE) \
 	E2E_CONF_FILE=$(E2E_CONF_FILE) \
+	CLUSTERCTL=$(CLUSTERCTL) \
 	./hack/create-e2e-conf-file.sh
 
 .PHONY: test-e2e
@@ -487,9 +463,6 @@ test-e2e: test-e2e-hcloud
 .PHONY: test-e2e-hcloud
 test-e2e-hcloud: $(E2E_CONF_FILE) $(if $(SKIP_IMAGE_BUILD),,e2e-image) $(ARTIFACTS)
 	rm -f $(WORKER_CLUSTER_KUBECONFIG)
-	HETZNER_SSH_PUB= HETZNER_SSH_PRIV= \
-	HETZNER_SSH_PUB_PATH= HETZNER_SSH_PRIV_PATH= \
-	HETZNER_ROBOT_PASSWORD= HETZNER_ROBOT_USER= \
 	GINKGO_FOKUS="'\[Basic\]'" GINKGO_NODES=2 \
 	./hack/ci-e2e-capi.sh
 
@@ -566,9 +539,24 @@ verify-starlark: ## Verify Starlark Code
 verify-manifests:
 	./hack/verify-manifests.sh
 
+.PHONY: verify-capi-version
+verify-capi-version: ## Verify Cluster API versions stay aligned with go.mod
+	./hack/check-capi-version.sh
+
 .PHONY: verify-container-images
 verify-container-images: ## Verify container images
 	trivy image -q --exit-code 1 --ignore-unfixed --severity MEDIUM,HIGH,CRITICAL $(IMAGE_PREFIX)/$(INFRA_SHORT):latest
+
+.PHONY: verify-generated-files
+verify-generated-files: ## Verify geneated files in git repo
+ifeq ($(BUILD_IN_CONTAINER),true)
+	docker run  --rm \
+		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
+		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
+		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
+else
+	./hack/verify-generated-files.sh
+endif
 
 ##@ Generate
 ############
@@ -581,7 +569,7 @@ generate-boilerplate: ## Generates missing boilerplates
 # support go modules
 generate-modules: ## Generates missing go modules
 ifeq ($(BUILD_IN_CONTAINER),true)
-	docker run  --rm -t -i \
+	docker run  --rm \
 		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
@@ -599,20 +587,36 @@ generate-modules-ci: generate-modules
 		exit 1; \
 	fi
 
-generate-manifests: $(CONTROLLER_GEN) ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN) \
-			paths=./api/... \
-			paths=./controllers/... \
+generate-manifests: ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
+ifeq ($(BUILD_IN_CONTAINER),true)
+	docker run  --rm \
+		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
+		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
+		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
+else
+	# Ensure that these old binaries are not longer used. We use
+	# these from the builder-image now.
+	rm -f ./hack/tools/bin/controller-gen ./hack/tools/bin/helm
+	controller-gen \
+			paths="{./, ./api/..., ./controllers/...}" \
 			crd:crdVersions=v1 \
 			rbac:roleName=manager-role \
 			output:crd:dir=./config/crd/bases \
 			output:webhook:dir=./config/webhook \
 			webhook
+endif
 
-generate-go-deepcopy: $(CONTROLLER_GEN) ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
-	$(CONTROLLER_GEN) \
+generate-go-deepcopy: ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+ifeq ($(BUILD_IN_CONTAINER),true)
+	docker run  --rm \
+		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
+		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
+		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
+else
+	controller-gen \
 		object:headerFile="./hack/boilerplate/boilerplate.generatego.txt" \
 		paths="./api/..."
+endif
 
 generate-api-ci: generate-manifests generate-go-deepcopy
 	@if ! (git diff --exit-code ); then \
@@ -621,12 +625,13 @@ generate-api-ci: generate-manifests generate-go-deepcopy
 	fi
 
 cluster-templates: $(KUSTOMIZE)
-	$(KUSTOMIZE) build templates/cluster-templates/hcloud --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template.yaml
-	$(KUSTOMIZE) build templates/cluster-templates/hcloud --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud.yaml
-	$(KUSTOMIZE) build templates/cluster-templates/hcloud-network --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hcloud-network.yaml
-	$(KUSTOMIZE) build templates/cluster-templates/hetzner-hcloud-control-planes --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hetzner-hcloud-control-planes.yaml
-	$(KUSTOMIZE) build templates/cluster-templates/hetzner-baremetal-control-planes --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hetzner-baremetal-control-planes.yaml
-	$(KUSTOMIZE) build templates/cluster-templates/hetzner-baremetal-control-planes-remediation --load-restrictor LoadRestrictionsNone  > templates/cluster-templates/cluster-template-hetzner-baremetal-control-planes-remediation.yaml
+	mkdir -p generated
+	$(KUSTOMIZE) build templates/cluster-templates/v1beta1/hcloud --load-restrictor LoadRestrictionsNone  > generated/cluster-template.yaml
+	$(KUSTOMIZE) build templates/cluster-templates/v1beta1/hcloud --load-restrictor LoadRestrictionsNone  > generated/cluster-template-hcloud.yaml
+	$(KUSTOMIZE) build templates/cluster-templates/v1beta1/hcloud-network --load-restrictor LoadRestrictionsNone  > generated/cluster-template-hcloud-network.yaml
+	$(KUSTOMIZE) build templates/cluster-templates/v1beta1/hetzner-hcloud-control-planes --load-restrictor LoadRestrictionsNone  > generated/cluster-template-hetzner-hcloud-control-planes.yaml
+	$(KUSTOMIZE) build templates/cluster-templates/v1beta1/hetzner-baremetal-control-planes --load-restrictor LoadRestrictionsNone  > generated/cluster-template-hetzner-baremetal-control-planes.yaml
+	$(KUSTOMIZE) build templates/cluster-templates/v1beta1/hetzner-baremetal-control-planes-remediation --load-restrictor LoadRestrictionsNone  > generated/cluster-template-hetzner-baremetal-control-planes-remediation.yaml
 
 ##@ Format
 ##########
@@ -635,7 +640,7 @@ cluster-templates: $(KUSTOMIZE)
 .PHONY: format-golang
 format-golang: ## Format the Go codebase and run auto-fixers if supported by the linter.
 ifeq ($(BUILD_IN_CONTAINER),true)
-	docker run  --rm -t -i \
+	docker run  --rm \
 		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
@@ -652,7 +657,7 @@ format-starlark: ## Format the Starlark codebase
 .PHONY: format-yaml
 format-yaml: ## Lint YAML files
 ifeq ($(BUILD_IN_CONTAINER),true)
-	docker run  --rm -t -i \
+	docker run  --rm \
 		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
@@ -668,7 +673,7 @@ endif
 .PHONY: lint-golang
 lint-golang: ## Lint Golang codebase
 ifeq ($(BUILD_IN_CONTAINER),true)
-	docker run  --rm -t -i \
+	docker run  --rm \
 		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
@@ -678,23 +683,11 @@ else
 	golangci-lint run -v
 endif
 
-.PHONY: lint-golang-ci
-lint-golang-ci:
-ifeq ($(BUILD_IN_CONTAINER),true)
-	docker run  --rm -t -i \
-		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
-		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
-		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
-else
-	go version
-	golangci-lint version
-	golangci-lint run --out-format=github-actions
-endif
 
 .PHONY: lint-yaml
 lint-yaml: ## Lint YAML files
 ifeq ($(BUILD_IN_CONTAINER),true)
-	docker run  --rm -t -i \
+	docker run  --rm \
 		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
@@ -706,7 +699,7 @@ endif
 .PHONY: lint-yaml-ci
 lint-yaml-ci:
 ifeq ($(BUILD_IN_CONTAINER),true)
-	docker run  --rm -t -i \
+	docker run  --rm \
 		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
@@ -719,7 +712,7 @@ DOCKERFILES=$(shell find . -not \( -path ./hack -prune \) -not \( -path ./vendor
 .PHONY: lint-dockerfile
 lint-dockerfile: ## Lint Dockerfiles
 ifeq ($(BUILD_IN_CONTAINER),true)
-	docker run  --rm -t -i \
+	docker run  --rm \
 		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
@@ -735,9 +728,7 @@ ifeq ($(BUILD_IN_CONTAINER),true)
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
 else
-	@lychee --version
-	@if [ -z "$${GITHUB_TOKEN}" ]; then echo "GITHUB_TOKEN is not set"; exit 1; fi
-	lychee --verbose --config .lychee.toml --root-dir "$$(pwd)" --cache ./*.md ./docs/**/*.md 2>&1 | grep -vP '\[(200|EXCLUDED)\]'
+	./hack/lint-links.sh
 endif
 
 ##@ Main Targets
@@ -753,19 +744,18 @@ format: format-starlark format-golang format-yaml ## Format Codebase
 .PHONY: generate-mocks
 generate-mocks: ## Generate Mocks
 ifeq ($(BUILD_IN_CONTAINER),true)
-	docker run  --rm -t -i \
+	docker run  --rm \
 		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
 else
-	cd pkg/services/baremetal/client; go run github.com/vektra/mockery/v2@v2.53.5
-	cd pkg/services/hcloud/client; go run github.com/vektra/mockery/v2@v2.53.5 --all
+	go run github.com/vektra/mockery/v2@v2.53.4
 endif
 
 .PHONY: generate
 generate: generate-manifests generate-go-deepcopy generate-boilerplate generate-modules generate-mocks ## Generate Files
 
-ALL_VERIFY_CHECKS = boilerplate shellcheck starlark manifests
+ALL_VERIFY_CHECKS = boilerplate shellcheck starlark manifests capi-version
 .PHONY: verify
 verify: generate lint $(addprefix verify-,$(ALL_VERIFY_CHECKS)) ## Verify all
 
@@ -783,7 +773,7 @@ builder-image-push: ## Build $(INFRA_SHORT)-builder to a new version. For more i
 test: test-unit ## Runs all unit and integration tests.
 
 .PHONY: tilt-up
-tilt-up: env-vars-for-wl-cluster $(ENVSUBST) $(KUBECTL) $(KUSTOMIZE) $(TILT) cluster  ## Start a mgt-cluster & Tilt. Installs the CRDs and deploys the controllers
+tilt-up: env-vars-for-wl-cluster $(KUBECTL) $(KUSTOMIZE) $(TILT) cluster  ## Start a mgt-cluster & Tilt. Installs the CRDs and deploys the controllers
 	@mkdir -p .tiltbuild
 	EXP_CLUSTER_RESOURCE_SET=true $(TILT) up --port=10351
 
@@ -806,3 +796,10 @@ create-hetzner-installimage-tgz:
 	@echo "============= ↓↓↓↓↓ Now update the version number here ↓↓↓↓↓ ============="
 	@git ls-files | xargs grep -P 'hetzner-installimage.*v\d+\.\d+' || true
 	@echo "↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑"
+
+builder-image-shell: ## Start an interactive shell in the builder image.
+	docker run --rm -t -i \
+		--entrypoint bash \
+		-v $(shell go env GOPATH)/pkg:/go/pkg$(MOUNT_FLAGS) \
+		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
+		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION)

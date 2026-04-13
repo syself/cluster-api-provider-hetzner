@@ -17,8 +17,11 @@ limitations under the License.
 package utils_test
 
 import (
+	"testing"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
@@ -321,3 +324,20 @@ var _ = Describe("Test FindOwnerRefFromList", func() {
 		}),
 	)
 })
+
+func Test_IsLocalCacheUpToDate(t *testing.T) {
+	// true: localCache is up-to-date
+	require.True(t, utils.IsLocalCacheUpToDate("123", "123"))
+
+	// true: localCache is ahead apiserver
+	require.True(t, utils.IsLocalCacheUpToDate("124", "123"))
+
+	// true: localCache is ahead apiserver
+	require.True(t, utils.IsLocalCacheUpToDate("1000", "999"))
+
+	// false: localCache is behind apiserver.
+	require.False(t, utils.IsLocalCacheUpToDate("123", "124"))
+
+	// false: localCache is behind apiserver.
+	require.False(t, utils.IsLocalCacheUpToDate("999", "1000"))
+}

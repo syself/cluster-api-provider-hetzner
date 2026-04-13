@@ -90,6 +90,8 @@ func (c *cacheHCloudClient) Reset() {
 
 type cacheHCloudClientFactory struct{}
 
+// cacheHCloudClientInstance is a global variable shared by all fake hcloud clients. Note: it would
+// be better if we could avoid a global variable here.
 var cacheHCloudClientInstance = &cacheHCloudClient{
 	serverCache: serverCache{
 		idMap:   make(map[int64]*hcloud.Server),
@@ -111,6 +113,7 @@ var cacheHCloudClientInstance = &cacheHCloudClient{
 
 // NewHCloudClientFactory creates new fake HCloud client factories using cache.
 func NewHCloudClientFactory() hcloudclient.Factory {
+	cacheHCloudClientInstance.Reset()
 	return &cacheHCloudClientFactory{}
 }
 
@@ -603,21 +606,21 @@ func (c *cacheHCloudClient) ListServerTypes(_ context.Context) ([]*hcloud.Server
 	return []*hcloud.ServerType{
 		{
 			ID:           1,
-			Name:         "cpx11",
+			Name:         "cpx22",
 			Cores:        DefaultCPUCores,
 			Memory:       DefaultMemoryInGB,
 			Architecture: DefaultArchitecture,
 		},
 		{
 			ID:           2,
-			Name:         "cpx21",
+			Name:         "cpx22",
 			Cores:        DefaultCPUCores,
 			Memory:       DefaultMemoryInGB,
 			Architecture: DefaultArchitecture,
 		},
 		{
 			ID:           3,
-			Name:         "cpx31",
+			Name:         "cpx32",
 			Cores:        DefaultCPUCores,
 			Memory:       DefaultMemoryInGB,
 			Architecture: DefaultArchitecture,
@@ -634,15 +637,15 @@ func (c *cacheHCloudClient) GetServerType(_ context.Context, name string) (*hclo
 		Architecture: DefaultArchitecture,
 	}
 	switch name {
-	case "cpx11":
+	case "cpx12":
 		serverType.ID = 1
-		serverType.Name = "cpx11"
-	case "cpx21":
+		serverType.Name = "cpx12"
+	case "cpx22":
 		serverType.ID = 2
-		serverType.Name = "cpx21"
-	case "cpx31":
+		serverType.Name = "cpx22"
+	case "cpx32":
 		serverType.ID = 3
-		serverType.Name = "cpx31"
+		serverType.Name = "cpx32"
 	default:
 		return nil, nil
 	}
@@ -800,6 +803,24 @@ func (c *cacheHCloudClient) AddServerToPlacementGroup(_ context.Context, server 
 	// Add it
 	c.placementGroupCache.idMap[pg.ID].Servers = append(c.placementGroupCache.idMap[pg.ID].Servers, server.ID)
 	return nil
+}
+
+func (c *cacheHCloudClient) EnableRescueSystem(_ context.Context, _ *hcloud.Server, _ *hcloud.ServerEnableRescueOpts) (result hcloud.ServerEnableRescueResult, reterr error) {
+	return result, nil
+}
+
+func (c *cacheHCloudClient) Reboot(_ context.Context, _ *hcloud.Server) (*hcloud.Action, error) {
+	action := &hcloud.Action{
+		ID: 1,
+	}
+	return action, nil
+}
+
+func (c *cacheHCloudClient) GetAction(_ context.Context, _ int64) (*hcloud.Action, error) {
+	action := &hcloud.Action{
+		ID: 1,
+	}
+	return action, nil
 }
 
 func isIntInList(list []int64, str int64) bool {

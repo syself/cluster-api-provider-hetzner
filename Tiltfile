@@ -3,7 +3,7 @@ load("ext://uibutton", "cmd_button", "location")
 load("ext://restart_process", "docker_build_with_restart")
 
 kustomize_cmd = "./hack/tools/bin/kustomize"
-envsubst_cmd = "./hack/tools/bin/envsubst"
+clusterctl_cmd = "./hack/tools/bin/clusterctl"
 tools_bin = "./hack/tools/bin"
 
 # Add tools to path
@@ -22,7 +22,7 @@ settings = {
     "deploy_observability": False,
     "preload_images_for_kind": True,
     "kind_cluster_name": "caph",
-    "capi_version": "v1.8.10",
+    "capi_version": "v1.10.10",
     "cabpt_version": "v0.5.6",
     "cacppt_version": "v0.4.11",
     "cert_manager_version": "v1.11.0",
@@ -58,7 +58,9 @@ def deploy_capi():
     capi_uri = "https://github.com/kubernetes-sigs/cluster-api/releases/download/{}/cluster-api-components.yaml".format(
         version
     )
-    cmd = "curl -sSL {} | {} | kubectl apply -f -".format(capi_uri, envsubst_cmd)
+    cmd = "curl -sSL {} | {} generate yaml | kubectl apply -f -".format(
+        capi_uri, clusterctl_cmd
+    )
     local(cmd, quiet=True)
     if settings.get("extra_args"):
         extra_args = settings.get("extra_args")
@@ -279,9 +281,9 @@ def base64_decode(to_decode):
     return str(decode_blob)
 
 
-def ensure_envsubst():
-    if not os.path.exists(envsubst_cmd):
-        local("make {}".format(os.path.abspath(envsubst_cmd)))
+def ensure_clusterctl():
+    if not os.path.exists(clusterctl_cmd):
+        local("make {}".format(os.path.abspath(clusterctl_cmd)))
 
 
 def ensure_kustomize():
@@ -335,7 +337,7 @@ def deploy_observability():
 ##############################
 # Actual work happens here
 ##############################
-ensure_envsubst()
+ensure_clusterctl()
 ensure_kustomize()
 
 include_user_tilt_files()
@@ -357,7 +359,7 @@ caph()
 waitforsystem()
 
 cmd_button(
-    "Create Hcloud Cluster",
+    "Create HCloud Cluster",
     argv=["make", "create-workload-cluster-hcloud"],
     location=location.NAV,
     icon_name="switch_access_shortcut_outlined",

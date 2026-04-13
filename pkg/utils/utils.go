@@ -15,6 +15,8 @@ limitations under the License.
 */
 
 // Package utils implements some utility functions.
+//
+//revive:disable:var-naming // Keep package name for compatibility with existing imports.
 package utils
 
 import (
@@ -54,7 +56,7 @@ func LabelSelectorToLabels(str string) (map[string]string, error) {
 	}
 	input := strings.ReplaceAll(str, "==", `":"`)
 	input = strings.ReplaceAll(input, ",", `","`)
-	input = fmt.Sprintf(`{"%s"}`, input) //nolint:gocritic
+	input = `{"` + input + `"}`
 
 	if err := json.Unmarshal([]byte(input), &labels); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal: %w", err)
@@ -220,4 +222,22 @@ func GetDefaultLogger(logLevel string) logr.Logger {
 	}
 
 	return zapr.NewLogger(zapLog)
+}
+
+// IsLocalCacheUpToDate compares two ResourceVersions, and return true if the local cache is
+// up-to-date or ahead. Related: https://github.com/kubernetes-sigs/controller-runtime/issues/3320
+func IsLocalCacheUpToDate(rvLocalCache, rvAPIServer string) bool {
+	if len(rvLocalCache) < len(rvAPIServer) {
+		// RV of cache is behind.
+		return false
+	}
+	if len(rvLocalCache) > len(rvAPIServer) {
+		// RV of cache has changed like from "999" to "1000"
+		return true
+	}
+	if rvLocalCache >= rvAPIServer {
+		// RV of cache is equal, or ahead.
+		return true
+	}
+	return false
 }

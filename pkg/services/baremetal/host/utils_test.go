@@ -248,3 +248,11 @@ var _ = Describe("validJSONFromSSHOutput", func() {
 		}),
 	)
 })
+
+var _ = Describe("Test splitHostKey", func() {
+	It("Should split the host key", func() {
+		namespace, name := splitHostKey("namespace/name")
+		Expect(namespace).To(Equal("namespace"))
+		Expect(name).To(Equal("name"))
+	})
+})

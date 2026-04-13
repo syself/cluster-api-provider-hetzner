@@ -18,6 +18,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -28,15 +29,19 @@ import (
 	"time"
 
 	"github.com/spf13/pflag"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	bootstrapv1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
+	"sigs.k8s.io/cluster-api/controllers/crdmigrator"
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -58,11 +63,12 @@ var (
 
 	// We do not want filenames to start with a dot or a number.
 	// Only lowercase letters are allowed.
-	preProvisionCommandRegex = regexp.MustCompile(`^[a-z][a-z0-9_.-]+[a-z0-9]$`)
+	commandRegex = regexp.MustCompile(`^[a-z][a-z0-9_.-]+[a-z0-9]$`)
 )
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 	utilruntime.Must(clusterv1.AddToScheme(scheme))
 	utilruntime.Must(bootstrapv1.AddToScheme(scheme))
 	utilruntime.Must(infrastructurev1beta1.AddToScheme(scheme))
@@ -85,8 +91,26 @@ var (
 	syncPeriod                         time.Duration
 	rateLimitWaitTime                  time.Duration
 	preProvisionCommand                string
+	hcloudImageURLCommand              string
+	baremetalImageURLCommand           string
 	skipWebhooks                       bool
+	sshAfterInstallImage               bool
+	skipCRDMigrationPhases             []string
 )
+
+// strictManager is a ctrl.Manager that creates controller-runtime clients that enforce strict
+// schema validation. If a CRD's schema does not match the controller's schema, unexpected behavior
+// can occur. It's better to return an error than to perform a partial update where only some fields
+// are applied.  Related:
+// https://www.reddit.com/r/kubernetes/comments/1oqnn6v/schema_mismatch_between_controller_and_crd/
+type strictManager struct {
+	ctrl.Manager
+	strictClient client.Client
+}
+
+func (m *strictManager) GetClient() client.Client {
+	return m.strictClient
+}
 
 func main() {
 	fs := pflag.CommandLine
@@ -106,7 +130,12 @@ func main() {
 	fs.DurationVar(&rateLimitWaitTime, "rate-limit", 5*time.Minute, "The rate limiting for HCloud controller (e.g. 5m)")
 	fs.BoolVar(&hcloudclient.DebugAPICalls, "debug-hcloud-api-calls", false, "Debug all calls to the hcloud API.")
 	fs.StringVar(&preProvisionCommand, "pre-provision-command", "", "Command to run (in rescue-system) before installing the image on bare metal servers. You can use that to check if the machine is healthy before installing the image. If the exit value is non-zero, the machine is considered unhealthy. This command must be accessible by the controller pod. You can use an initContainer to copy the command to a shared emptyDir.")
+	fs.StringVar(&hcloudImageURLCommand, "hcloud-image-url-command", "", "Command to run (in rescue-system) to provision an hcloud machine. Docs: https://syself.com/docs/caph/developers/image-url-command")
+	fs.StringVar(&baremetalImageURLCommand, "baremetal-image-url-command", "", "Command to run (in rescue-system) to provision an baremetal machine. Docs: https://syself.com/docs/caph/developers/image-url-command")
 	fs.BoolVar(&skipWebhooks, "skip-webhooks", false, "Skip setting up of webhooks. Together with --leader-elect=false, you can use `go run main.go` to run CAPH in a cluster connected via KUBECONFIG. You should scale down the caph deployment to 0 before doing that. This is only for testing!")
+	fs.BoolVar(&sshAfterInstallImage, "baremetal-ssh-after-install-image", true, "Connect to the baremetal machine after install-image and ensure it is provisioned. Current default is true, but we might change that to false. Background: Users might not want the controller to be able to ssh onto the servers")
+	fs.StringSliceVar(&skipCRDMigrationPhases, "skip-crd-migration-phases", []string{}, "List of CRD migration phases to skip. Valid values are: StorageVersionMigration, CleanupManagedFields.")
+
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 
@@ -115,8 +144,8 @@ func main() {
 	// If preProvisionCommand is set, check if the file exists and validate the basename.
 	if preProvisionCommand != "" {
 		baseName := filepath.Base(preProvisionCommand)
-		if !preProvisionCommandRegex.MatchString(baseName) {
-			msg := fmt.Sprintf("basename of pre-provision-command (%s) must match the regex %s", baseName, preProvisionCommandRegex.String())
+		if !commandRegex.MatchString(baseName) {
+			msg := fmt.Sprintf("basename (%s) must match the regex %s", baseName, commandRegex.String())
 			setupLog.Error(errors.New(msg), "")
 			os.Exit(1)
 		}
@@ -124,6 +153,38 @@ func main() {
 		_, err := os.Stat(preProvisionCommand)
 		if err != nil {
 			setupLog.Error(err, "pre-provision-command not found")
+			os.Exit(1)
+		}
+	}
+
+	// If hcloudImageURLCommand is set, check if the file exists and validate the basename.
+	if hcloudImageURLCommand != "" {
+		baseName := filepath.Base(hcloudImageURLCommand)
+		if !commandRegex.MatchString(baseName) {
+			msg := fmt.Sprintf("basename (%s) must match the regex %s", baseName, commandRegex.String())
+			setupLog.Error(errors.New(msg), "")
+			os.Exit(1)
+		}
+
+		_, err := os.Stat(hcloudImageURLCommand)
+		if err != nil {
+			setupLog.Error(err, "hcloud-image-url-command not found")
+			os.Exit(1)
+		}
+	}
+
+	// If baremetalImageURLCommand is set, check if the file exists and validate the basename.
+	if baremetalImageURLCommand != "" {
+		baseName := filepath.Base(baremetalImageURLCommand)
+		if !commandRegex.MatchString(baseName) {
+			msg := fmt.Sprintf("basename (%s) must match the regex %s", baseName, commandRegex.String())
+			setupLog.Error(errors.New(msg), "")
+			os.Exit(1)
+		}
+
+		_, err := os.Stat(baremetalImageURLCommand)
+		if err != nil {
+			setupLog.Error(err, "baremetal-image-url-command not found")
 			os.Exit(1)
 		}
 	}
@@ -157,10 +218,15 @@ func main() {
 		})
 	}
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), options)
+	origManager, err := ctrl.NewManager(ctrl.GetConfigOrDie(), options)
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
+	}
+
+	mgr := &strictManager{
+		Manager:      origManager,
+		strictClient: client.WithFieldValidation(origManager.GetClient(), metav1.FieldValidationStrict),
 	}
 
 	// Initialize event recorder.
@@ -192,7 +258,9 @@ func main() {
 		APIReader:           mgr.GetAPIReader(),
 		RateLimitWaitTime:   rateLimitWaitTime,
 		HCloudClientFactory: hcloudClientFactory,
+		SSHClientFactory:    sshclient.NewFactory(),
 		WatchFilterValue:    watchFilterValue,
+		ImageURLCommand:     hcloudImageURLCommand,
 	}).SetupWithManager(ctx, mgr, controller.Options{MaxConcurrentReconciles: hcloudMachineConcurrency}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HCloudMachine")
 		os.Exit(1)
@@ -210,13 +278,15 @@ func main() {
 	}
 
 	if err = (&controllers.HetznerBareMetalHostReconciler{
-		Client:              mgr.GetClient(),
-		RobotClientFactory:  robotclient.NewFactory(),
-		SSHClientFactory:    sshclient.NewFactory(),
-		APIReader:           mgr.GetAPIReader(),
-		RateLimitWaitTime:   rateLimitWaitTime,
-		WatchFilterValue:    watchFilterValue,
-		PreProvisionCommand: preProvisionCommand,
+		Client:               mgr.GetClient(),
+		RobotClientFactory:   robotclient.NewFactory(),
+		SSHClientFactory:     sshclient.NewFactory(),
+		APIReader:            mgr.GetAPIReader(),
+		RateLimitWaitTime:    rateLimitWaitTime,
+		WatchFilterValue:     watchFilterValue,
+		PreProvisionCommand:  preProvisionCommand,
+		ImageURLCommand:      baremetalImageURLCommand,
+		SSHAfterInstallImage: sshAfterInstallImage,
 	}).SetupWithManager(ctx, mgr, controller.Options{MaxConcurrentReconciles: hetznerBareMetalHostConcurrency}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HetznerBareMetalHost")
 		os.Exit(1)
@@ -249,6 +319,11 @@ func main() {
 		WatchFilterValue:    watchFilterValue,
 	}).SetupWithManager(ctx, mgr, controller.Options{}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HCloudRemediation")
+		os.Exit(1)
+	}
+
+	if err := setupCRDMigrator(ctx, mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "CRDMigrator")
 		os.Exit(1)
 	}
 
@@ -292,11 +367,11 @@ func setUpWebhookWithManager(mgr ctrl.Manager) {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HCloudMachine")
 		os.Exit(1)
 	}
-	if err := (&infrastructurev1beta1.HCloudMachineTemplateWebhook{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&infrastructurev1beta1.HCloudMachineTemplate{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HCloudMachineTemplate")
 		os.Exit(1)
 	}
-	if err := (&infrastructurev1beta1.HetznerBareMetalHostWebhook{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&infrastructurev1beta1.HetznerBareMetalHost{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalHost")
 		os.Exit(1)
 	}
@@ -304,7 +379,7 @@ func setUpWebhookWithManager(mgr ctrl.Manager) {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalMachine")
 		os.Exit(1)
 	}
-	if err := (&infrastructurev1beta1.HetznerBareMetalMachineTemplateWebhook{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&infrastructurev1beta1.HetznerBareMetalMachineTemplate{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HetznerBareMetalMachineTemplate")
 		os.Exit(1)
 	}
@@ -324,4 +399,81 @@ func setUpWebhookWithManager(mgr ctrl.Manager) {
 		setupLog.Error(err, "unable to create webhook", "webhook", "HCloudRemediationTemplate")
 		os.Exit(1)
 	}
+}
+
+// ADD CRD RBAC for CRD Migrator.
+// +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch
+// +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions;customresourcedefinitions/status,verbs=update;patch,resourceNames=hcloudmachinetemplates.infrastructure.cluster.x-k8s.io;hcloudmachines.infrastructure.cluster.x-k8s.io;hcloudremediationtemplates.infrastructure.cluster.x-k8s.io;hcloudremediations.infrastructure.cluster.x-k8s.io;hetznerbaremetalhosts.infrastructure.cluster.x-k8s.io;hetznerbaremetalmachinetemplates.infrastructure.cluster.x-k8s.io;hetznerbaremetalmachines.infrastructure.cluster.x-k8s.io;hetznerbaremetalremediationtemplates.infrastructure.cluster.x-k8s.io;hetznerbaremetalremediations.infrastructure.cluster.x-k8s.io;hetznerclustertemplates.infrastructure.cluster.x-k8s.io;hetznerclusters.infrastructure.cluster.x-k8s.io
+// +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hcloudmachinetemplates;hcloudmachines;hcloudremediationtemplates;hcloudremediations;hetznerbaremetalhosts;hetznerbaremetalmachinetemplates;hetznerbaremetalmachines;hetznerbaremetalremediationtemplates;hetznerbaremetalremediations;hetznerclustertemplates;hetznerclusters,verbs=get;list;watch;patch;update
+// +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hcloudmachinetemplates/status;hcloudmachines/status;hcloudremediationtemplates/status;hcloudremediations/status;hetznerbaremetalhosts/status;hetznerbaremetalmachines/status;hetznerbaremetalremediationtemplates/status;hetznerbaremetalremediations/status;hetznerclusters/status,verbs=get;patch;update
+
+func setupCRDMigrator(ctx context.Context, mgr *strictManager) error {
+	crdMigratorConfig := map[client.Object]crdmigrator.ByObjectConfig{
+		&infrastructurev1beta1.HCloudMachineTemplate{}: {
+			// UseCache should be set to true only if an informer already exists for the API type
+			// (i.e. there is a controller watching this resource).
+			UseCache: true,
+
+			// UseStatusForStorageVersionMigration should be enabled only if the CRD defines a status subresource.
+			UseStatusForStorageVersionMigration: true,
+		},
+		&infrastructurev1beta1.HCloudMachine{}: {
+			UseCache:                            true,
+			UseStatusForStorageVersionMigration: true,
+		},
+		&infrastructurev1beta1.HCloudRemediationTemplate{}: {
+			UseCache:                            false,
+			UseStatusForStorageVersionMigration: true,
+		},
+		&infrastructurev1beta1.HCloudRemediation{}: {
+			UseCache:                            true,
+			UseStatusForStorageVersionMigration: true,
+		},
+		&infrastructurev1beta1.HetznerBareMetalHost{}: {
+			UseCache:                            true,
+			UseStatusForStorageVersionMigration: true,
+		},
+		&infrastructurev1beta1.HetznerBareMetalMachineTemplate{}: {
+			UseCache:                            false,
+			UseStatusForStorageVersionMigration: false,
+		},
+		&infrastructurev1beta1.HetznerBareMetalMachine{}: {
+			UseCache:                            true,
+			UseStatusForStorageVersionMigration: true,
+		},
+		&infrastructurev1beta1.HetznerBareMetalRemediationTemplate{}: {
+			UseCache:                            false,
+			UseStatusForStorageVersionMigration: true,
+		},
+		&infrastructurev1beta1.HetznerBareMetalRemediation{}: {
+			UseCache:                            true,
+			UseStatusForStorageVersionMigration: true,
+		},
+		&infrastructurev1beta1.HetznerClusterTemplate{}: {
+			UseCache:                            false,
+			UseStatusForStorageVersionMigration: false,
+		},
+		&infrastructurev1beta1.HetznerCluster{}: {
+			UseCache:                            true,
+			UseStatusForStorageVersionMigration: true,
+		},
+	}
+
+	crdMigratorSkipPhases := make([]crdmigrator.Phase, len(skipCRDMigrationPhases))
+	for i := range skipCRDMigrationPhases {
+		crdMigratorSkipPhases[i] = crdmigrator.Phase(skipCRDMigrationPhases[i])
+	}
+
+	if err := (&crdmigrator.CRDMigrator{
+		Client:                 mgr.GetClient(),
+		APIReader:              mgr.GetAPIReader(),
+		SkipCRDMigrationPhases: crdMigratorSkipPhases,
+		Config:                 crdMigratorConfig,
+		// The CRDMigrator is run with only concurrency 1 to ensure we don't overwhelm the apiserver by patching a
+		// lot of CRs concurrently.
+	}).SetupWithManager(ctx, mgr, controller.Options{MaxConcurrentReconciles: 1}); err != nil {
+		return err
+	}
+
+	return nil
 }

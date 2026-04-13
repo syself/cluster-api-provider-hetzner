@@ -19,14 +19,18 @@ package host
 import (
 	"context"
 	"fmt"
+	"syscall"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/mock"
 	"github.com/syself/hrobot-go/models"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/cluster-api/util/conditions"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	bmmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks"
@@ -94,6 +98,152 @@ var _ = Describe("SetErrorMessage", func() {
 			expectedErrorMessage: "new message",             // expectedErrorMessage
 		}),
 	)
+})
+
+var _ = Describe("actionImageInstalling (image-url-command)", func() {
+	ctx := context.Background()
+
+	newBaseHost := func() *infrav1.HetznerBareMetalHost {
+		host := helpers.BareMetalHost(
+			"test-host",
+			"default",
+			helpers.WithIPv4(),
+			helpers.WithConsumerRef(),
+			helpers.WithSSHStatus(),
+		)
+		// Set install image with custom image-url-command mode
+		host.Spec.Status.InstallImage = &infrav1.InstallImage{
+			Image: infrav1.Image{
+				URL:                      "https://example.com/foo/image",
+				UseCustomImageURLCommand: true,
+			},
+		}
+		// Ensure LastUpdated is now by default
+		t := metav1.Now()
+		host.Spec.Status.LastUpdated = &t
+		return host
+	}
+
+	It("returns continue when command is running", func() {
+		host := newBaseHost()
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName").Return(sshclient.Output{StdOut: "rescue"})
+		sshMock.On("StateOfImageURLCommand").Return(sshclient.ImageURLCommandStateRunning, "", nil)
+
+		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+
+		res := svc.actionImageInstalling(ctx)
+		Expect(res).To(BeAssignableToTypeOf(actionContinue{}))
+		c := conditions.Get(host, infrav1.ProvisionSucceededCondition)
+		Expect(c.Message).To(Equal(`host (test-host) is still provisioning - state "image-installing"`))
+	})
+
+	It("reboots and completes when command finished successfully", func() {
+		host := newBaseHost()
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName").Return(sshclient.Output{StdOut: "rescue"})
+		sshMock.On("StateOfImageURLCommand").Return(sshclient.ImageURLCommandStateFinishedSuccessfully, "LOGFILE-CONTENT", nil)
+		sshMock.On("Reboot").Return(sshclient.Output{})
+
+		robot := robotmock.Client{}
+		robot.On("SetBMServerName", mock.Anything, infrav1.BareMetalHostNamePrefix+host.Spec.ConsumerRef.Name).Return(nil, nil)
+
+		svc := newTestService(host, &robot, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+
+		res := svc.actionImageInstalling(ctx)
+		Expect(res).To(BeAssignableToTypeOf(actionComplete{}))
+		Expect(sshMock.AssertCalled(GinkgoT(), "Reboot")).To(BeTrue())
+		Expect(robot.AssertCalled(GinkgoT(), "SetBMServerName", mock.Anything, infrav1.BareMetalHostNamePrefix+host.Spec.ConsumerRef.Name)).To(BeTrue())
+		// error should be cleared
+		Expect(host.Spec.Status.ErrorMessage).To(Equal(""))
+		c := conditions.Get(host, infrav1.ProvisionSucceededCondition)
+		Expect(c.Message).To(Equal(`host (test-host) is still provisioning - state "image-installing"`))
+	})
+
+	It("returns error when command failed", func() {
+		host := newBaseHost()
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName").Return(sshclient.Output{StdOut: "rescue"})
+		sshMock.On("StateOfImageURLCommand").Return(sshclient.ImageURLCommandStateFailed, "some logs", nil)
+
+		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+		res := svc.actionImageInstalling(ctx)
+		Expect(res).To(BeAssignableToTypeOf(actionFailed{}))
+		c := conditions.Get(host, infrav1.ProvisionSucceededCondition)
+		Expect(c.Message).To(ContainSubstring("image-url-command failed"))
+	})
+
+	It("starts the command on NotStarted and continues", func() {
+		host := newBaseHost()
+		// set UserData secret ref and create the secret the scope's SecretManager will fetch
+		host.Spec.Status.UserData = &corev1.SecretReference{ // bootstrap secret ref
+			Name:      "bootstrap-secret",
+			Namespace: host.Namespace,
+		}
+
+		// Build service with fake client containing the bootstrap secret
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName").Return(sshclient.Output{StdOut: "rescue"})
+		sshMock.On("StateOfImageURLCommand").Return(sshclient.ImageURLCommandStateNotStarted, "", nil)
+
+		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+		sshMock.On("StartImageURLCommand", mock.Anything, "image-url-command", host.Spec.Status.InstallImage.Image.URL, mock.Anything, svc.scope.Hostname(), []string{"nvme1n1"}).Return(0, "", nil)
+		// Create bootstrap secret in fake client with key 'value'
+		secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: host.Spec.Status.UserData.Name, Namespace: host.Spec.Status.UserData.Namespace}, Data: map[string][]byte{"value": []byte("#cloud-config")}}
+		Expect(svc.scope.Client.Create(ctx, secret)).To(Succeed())
+
+		sshMock.On("GetHardwareDetailsStorage").Return(sshclient.Output{StdOut: `NAME="nvme1n1" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJQ-00000" VENDOR="" SERIAL="S3W8NX0N811178" SIZE="512110190592" WWN="eui.0025388801b4dff2" ROTA="0"`})
+		svc.scope.HetznerBareMetalHost.Spec.RootDeviceHints = &infrav1.RootDeviceHints{
+			WWN: "eui.0025388801b4dff2",
+		}
+
+		res := svc.actionImageInstalling(ctx)
+		Expect(res).To(BeAssignableToTypeOf(actionContinue{}))
+		Expect(sshMock.AssertCalled(GinkgoT(), "StartImageURLCommand", mock.Anything, "image-url-command", host.Spec.Status.InstallImage.Image.URL, mock.Anything, svc.scope.Hostname(), []string{"nvme1n1"})).To(BeTrue())
+		c := conditions.Get(host, infrav1.ProvisionSucceededCondition)
+		Expect(c.Message).To(ContainSubstring(`baremetal-image-url-command started`))
+	})
+
+	It("records failure when StartImageURLCommand returns non-zero exit", func() {
+		host := newBaseHost()
+		host.Spec.Status.UserData = &corev1.SecretReference{Name: "bootstrap-secret", Namespace: host.Namespace}
+
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName").Return(sshclient.Output{StdOut: "rescue"})
+		sshMock.On("StateOfImageURLCommand").Return(sshclient.ImageURLCommandStateNotStarted, "", nil)
+
+		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+		sshMock.On("StartImageURLCommand", mock.Anything, "image-url-command", host.Spec.Status.InstallImage.Image.URL, mock.Anything, svc.scope.Hostname(), []string{"nvme1n1"}).Return(7, "boom", nil)
+
+		secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: host.Spec.Status.UserData.Name, Namespace: host.Spec.Status.UserData.Namespace}, Data: map[string][]byte{"value": []byte("#cloud-config")}}
+		Expect(svc.scope.Client.Create(ctx, secret)).To(Succeed())
+
+		sshMock.On("GetHardwareDetailsStorage").Return(sshclient.Output{StdOut: `NAME="nvme1n1" TYPE="disk" HCTL="" MODEL="SAMSUNG MZVLB512HAJQ-00000" VENDOR="" SERIAL="S3W8NX0N811178" SIZE="512110190592" WWN="eui.0025388801b4dff2" ROTA="0"`})
+		svc.scope.HetznerBareMetalHost.Spec.RootDeviceHints = &infrav1.RootDeviceHints{
+			WWN: "eui.0025388801b4dff2",
+		}
+		res := svc.actionImageInstalling(ctx)
+		Expect(res).To(BeAssignableToTypeOf(actionFailed{}))
+		c := conditions.Get(host, infrav1.ProvisionSucceededCondition)
+		Expect(c.Message).To(ContainSubstring("StartImageURLCommand failed with non-zero exit status. Deleting machine"))
+	})
+
+	It("times out after 7 minutes", func() {
+		host := newBaseHost()
+		sevenPlus := metav1.NewTime(time.Now().Add(-8 * time.Minute))
+		host.Spec.Status.LastUpdated = &sevenPlus
+
+		sshMock := &sshmock.Client{}
+		sshMock.On("GetHostName").Return(sshclient.Output{StdOut: "rescue"})
+		sshMock.On("StateOfImageURLCommand").Return(sshclient.ImageURLCommandStateRunning, "", nil)
+
+		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+
+		res := svc.actionImageInstalling(ctx)
+		Expect(res).To(BeAssignableToTypeOf(actionFailed{}))
+		c := conditions.Get(host, infrav1.ProvisionSucceededCondition)
+		Expect(c.Message).To(ContainSubstring("ImageURLCommand timed out"))
+	})
 })
 
 var _ = Describe("test validateRootDeviceWwnsAreSubsetOfExistingWwns", func() {
@@ -725,7 +875,7 @@ var _ = Describe("actionPreparing", func() {
 		host := helpers.BareMetalHost(
 			"test-host",
 			"default",
-			helpers.WithSSHSpecInclPorts(22, 22),
+			helpers.WithSSHSpecInclPorts(22),
 		)
 
 		robotMock := robotmock.Client{}
@@ -820,14 +970,14 @@ var _ = Describe("analyzeSSHOutputInstallImage", func() {
 			expectedErrMessage:          "wrong ssh key",
 		}),
 		Entry("connectionRefused error, rescue active", testCaseAnalyzeSSHOutputInstallImageOutErr{
-			err:                         sshclient.ErrConnectionRefused,
+			err:                         syscall.ECONNREFUSED,
 			rescueActive:                true,
 			expectedIsTimeout:           false,
 			expectedIsConnectionRefused: true,
 			expectedErrMessage:          "",
 		}),
 		Entry("connectionRefused error, rescue not active", testCaseAnalyzeSSHOutputInstallImageOutErr{
-			err:                         sshclient.ErrConnectionRefused,
+			err:                         syscall.ECONNREFUSED,
 			rescueActive:                false,
 			expectedIsTimeout:           false,
 			expectedIsConnectionRefused: true,
@@ -964,7 +1114,7 @@ var _ = Describe("analyzeSSHOutputInstallImage", func() {
 			expectedErrMessage:          "wrong ssh key",
 		}),
 		Entry("connectionRefused error, port 22", testCaseAnalyzeSSHOutputInstallImageOutErr{
-			err:                         sshclient.ErrConnectionRefused,
+			err:                         syscall.ECONNREFUSED,
 			errFromGetHostNameNil:       true,
 			port:                        22,
 			expectedIsTimeout:           false,
@@ -972,7 +1122,7 @@ var _ = Describe("analyzeSSHOutputInstallImage", func() {
 			expectedErrMessage:          "",
 		}),
 		Entry("connectionRefused error, port != 22, hostname error", testCaseAnalyzeSSHOutputInstallImageOutErr{
-			err:                         sshclient.ErrConnectionRefused,
+			err:                         syscall.ECONNREFUSED,
 			errFromGetHostNameNil:       false,
 			port:                        23,
 			expectedIsTimeout:           false,
@@ -980,7 +1130,7 @@ var _ = Describe("analyzeSSHOutputInstallImage", func() {
 			expectedErrMessage:          "",
 		}),
 		Entry("connectionRefused error, port != 22, no hostname error", testCaseAnalyzeSSHOutputInstallImageOutErr{
-			err:                         sshclient.ErrConnectionRefused,
+			err:                         syscall.ECONNREFUSED,
 			errFromGetHostNameNil:       true,
 			port:                        23,
 			expectedIsTimeout:           false,
@@ -1155,7 +1305,7 @@ var _ = Describe("analyzeSSHOutputProvisioned", func() {
 			expectedErrMessage:          ptr.To("wrong ssh key"),
 		}),
 		Entry("connection refused", testCaseAnalyzeSSHOutputProvisioned{
-			out:                         sshclient.Output{Err: sshclient.ErrConnectionRefused},
+			out:                         sshclient.Output{Err: syscall.ECONNREFUSED},
 			expectedIsTimeout:           false,
 			expectedIsConnectionRefused: true,
 			expectedErrMessage:          nil,
@@ -1294,7 +1444,7 @@ var _ = Describe("actionRegistering", func() {
 			expectedErrorType: infrav1.ErrorTypeSSHRebootTriggered,
 		}),
 		Entry("connectionRefused", testCaseActionRegisteringIncompleteBoot{
-			getHostNameOutput: sshclient.Output{Err: sshclient.ErrConnectionRefused},
+			getHostNameOutput: sshclient.Output{Err: syscall.ECONNREFUSED},
 			expectedErrorType: infrav1.ErrorTypeConnectionError,
 		}),
 	)
@@ -1309,7 +1459,7 @@ func registeringSSHMock(storageStdOut string) *sshmock.Client {
 	})
 	sshMock.On("GetHardwareDetailsNics").Return(sshclient.Output{
 		StdOut: `name="eth0" model="Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller (rev 15)" mac="a8:a1:59:94:19:42" ipv4="23.88.6.239/26" speedMbps="1000"
-name="eth0" model="Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller (rev 15)" mac="a8:a1:59:94:19:42" ipv6="2a01:4f8:272:3e0f::2/64" speedMbps="1000"`,
+name="eth0" model="Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller (rev 15)" mac="a8:a1:59:94:19:42" ip="2a01:4f8:272:3e0f::2/64" speedMbps="1000"`,
 	})
 	sshMock.On("GetHardwareDetailsCPUArch").Return(sshclient.Output{StdOut: "myarch"})
 	sshMock.On("GetHardwareDetailsCPUModel").Return(sshclient.Output{StdOut: "mymodel"})
@@ -1430,7 +1580,6 @@ var _ = Describe("actionEnsureProvisioned", func() {
 		outSSHClientCheckSigterm               sshclient.Output
 		outOldSSHClientCloudInitStatus         sshclient.Output
 		outOldSSHClientCheckSigterm            sshclient.Output
-		samePorts                              bool
 		expectedActionResult                   actionResult
 		expectedErrorType                      infrav1.ErrorType
 		expectsSSHClientCallCloudInitStatus    bool
@@ -1444,18 +1593,12 @@ var _ = Describe("actionEnsureProvisioned", func() {
 	DescribeTable("actionEnsureProvisioned",
 		func(in testCaseActionEnsureProvisioned) {
 			ctx := context.Background()
-			var (
-				portAfterCloudInit    = 24
-				portAfterInstallImage = 23
-			)
-			if in.samePorts {
-				portAfterInstallImage = 24
-			}
+			portAfterInstallImage := 24
 
 			host := helpers.BareMetalHost(
 				"test-host",
 				"default",
-				helpers.WithSSHSpecInclPorts(portAfterInstallImage, portAfterCloudInit),
+				helpers.WithSSHSpecInclPorts(portAfterInstallImage),
 				helpers.WithIPv4(),
 				helpers.WithConsumerRef(),
 			)
@@ -1524,7 +1667,6 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				outSSHClientCheckSigterm:               sshclient.Output{},
 				outOldSSHClientCloudInitStatus:         sshclient.Output{},
 				outOldSSHClientCheckSigterm:            sshclient.Output{},
-				samePorts:                              true,
 				expectedActionResult:                   actionContinue{},
 				expectedErrorType:                      infrav1.ErrorType(""),
 				expectsSSHClientCallCloudInitStatus:    true,
@@ -1542,7 +1684,6 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				outSSHClientCheckSigterm:               sshclient.Output{StdOut: ""},
 				outOldSSHClientCloudInitStatus:         sshclient.Output{},
 				outOldSSHClientCheckSigterm:            sshclient.Output{},
-				samePorts:                              true,
 				expectedActionResult:                   actionComplete{},
 				expectedErrorType:                      infrav1.ErrorType(""),
 				expectsSSHClientCallCloudInitStatus:    true,
@@ -1560,7 +1701,6 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				outSSHClientCheckSigterm:               sshclient.Output{StdOut: "found SIGTERM in cloud init output logs"},
 				outOldSSHClientCloudInitStatus:         sshclient.Output{},
 				outOldSSHClientCheckSigterm:            sshclient.Output{},
-				samePorts:                              true,
 				expectedActionResult:                   actionContinue{},
 				expectedErrorType:                      infrav1.ErrorType(""),
 				expectsSSHClientCallCloudInitStatus:    true,
@@ -1578,7 +1718,6 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				outSSHClientCheckSigterm:               sshclient.Output{},
 				outOldSSHClientCloudInitStatus:         sshclient.Output{},
 				outOldSSHClientCheckSigterm:            sshclient.Output{},
-				samePorts:                              true,
 				expectedActionResult:                   actionFailed{},
 				expectedErrorType:                      infrav1.FatalError,
 				expectsSSHClientCallCloudInitStatus:    true,
@@ -1596,7 +1735,6 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				outSSHClientCheckSigterm:               sshclient.Output{},
 				outOldSSHClientCloudInitStatus:         sshclient.Output{},
 				outOldSSHClientCheckSigterm:            sshclient.Output{},
-				samePorts:                              true,
 				expectedActionResult:                   actionContinue{},
 				expectedErrorType:                      infrav1.ErrorType(""),
 				expectsSSHClientCallCloudInitStatus:    true,
@@ -1609,176 +1747,13 @@ var _ = Describe("actionEnsureProvisioned", func() {
 		),
 		Entry("connectionFailed, same ports",
 			testCaseActionEnsureProvisioned{
-				outSSHClientGetHostName:                sshclient.Output{Err: sshclient.ErrConnectionRefused},
+				outSSHClientGetHostName:                sshclient.Output{Err: syscall.ECONNREFUSED},
 				outSSHClientCloudInitStatus:            sshclient.Output{},
 				outSSHClientCheckSigterm:               sshclient.Output{},
 				outOldSSHClientCloudInitStatus:         sshclient.Output{},
 				outOldSSHClientCheckSigterm:            sshclient.Output{},
-				samePorts:                              true,
 				expectedActionResult:                   actionContinue{},
 				expectedErrorType:                      infrav1.ErrorTypeConnectionError,
-				expectsSSHClientCallCloudInitStatus:    false,
-				expectsSSHClientCallCheckSigterm:       false,
-				expectsSSHClientCallReboot:             false,
-				expectsOldSSHClientCallCloudInitStatus: false,
-				expectsOldSSHClientCallCheckSigterm:    false,
-				expectsOldSSHClientCallReboot:          false,
-			},
-		),
-		Entry("connectionFailed, different ports, connectionFailed of oldSSHClient",
-			testCaseActionEnsureProvisioned{
-				outSSHClientGetHostName:                sshclient.Output{Err: sshclient.ErrConnectionRefused},
-				outSSHClientCloudInitStatus:            sshclient.Output{},
-				outSSHClientCheckSigterm:               sshclient.Output{},
-				outOldSSHClientCloudInitStatus:         sshclient.Output{Err: sshclient.ErrConnectionRefused},
-				outOldSSHClientCheckSigterm:            sshclient.Output{},
-				samePorts:                              false,
-				expectedActionResult:                   actionContinue{},
-				expectedErrorType:                      infrav1.ErrorTypeConnectionError,
-				expectsSSHClientCallCloudInitStatus:    false,
-				expectsSSHClientCallCheckSigterm:       false,
-				expectsSSHClientCallReboot:             false,
-				expectsOldSSHClientCallCloudInitStatus: true,
-				expectsOldSSHClientCallCheckSigterm:    false,
-				expectsOldSSHClientCallReboot:          false,
-			},
-		),
-		Entry("connectionFailed, different ports, status running of oldSSHClient",
-			testCaseActionEnsureProvisioned{
-				outSSHClientGetHostName:                sshclient.Output{Err: sshclient.ErrConnectionRefused},
-				outSSHClientCloudInitStatus:            sshclient.Output{},
-				outSSHClientCheckSigterm:               sshclient.Output{},
-				outOldSSHClientCloudInitStatus:         sshclient.Output{StdOut: "status: running"},
-				outOldSSHClientCheckSigterm:            sshclient.Output{},
-				samePorts:                              false,
-				expectedActionResult:                   actionContinue{},
-				expectedErrorType:                      infrav1.ErrorType(""),
-				expectsSSHClientCallCloudInitStatus:    false,
-				expectsSSHClientCallCheckSigterm:       false,
-				expectsSSHClientCallReboot:             false,
-				expectsOldSSHClientCallCloudInitStatus: true,
-				expectsOldSSHClientCallCheckSigterm:    false,
-				expectsOldSSHClientCallReboot:          false,
-			},
-		),
-		Entry("connectionFailed, different ports, status error of oldSSHClient",
-			testCaseActionEnsureProvisioned{
-				outSSHClientGetHostName:                sshclient.Output{Err: sshclient.ErrConnectionRefused},
-				outSSHClientCloudInitStatus:            sshclient.Output{},
-				outSSHClientCheckSigterm:               sshclient.Output{},
-				outOldSSHClientCloudInitStatus:         sshclient.Output{StdOut: "status: error"},
-				outOldSSHClientCheckSigterm:            sshclient.Output{},
-				samePorts:                              false,
-				expectedActionResult:                   actionFailed{},
-				expectedErrorType:                      infrav1.FatalError,
-				expectsSSHClientCallCloudInitStatus:    false,
-				expectsSSHClientCallCheckSigterm:       false,
-				expectsSSHClientCallReboot:             false,
-				expectsOldSSHClientCallCloudInitStatus: true,
-				expectsOldSSHClientCallCheckSigterm:    false,
-				expectsOldSSHClientCallReboot:          false,
-			},
-		),
-		Entry("connectionFailed, different ports, status disabled of oldSSHClient",
-			testCaseActionEnsureProvisioned{
-				outSSHClientGetHostName:                sshclient.Output{Err: sshclient.ErrConnectionRefused},
-				outSSHClientCloudInitStatus:            sshclient.Output{},
-				outSSHClientCheckSigterm:               sshclient.Output{},
-				outOldSSHClientCloudInitStatus:         sshclient.Output{StdOut: "status: disabled"},
-				outOldSSHClientCheckSigterm:            sshclient.Output{},
-				samePorts:                              false,
-				expectedActionResult:                   actionContinue{},
-				expectedErrorType:                      infrav1.ErrorType(""),
-				expectsSSHClientCallCloudInitStatus:    false,
-				expectsSSHClientCallCheckSigterm:       false,
-				expectsSSHClientCallReboot:             false,
-				expectsOldSSHClientCallCloudInitStatus: true,
-				expectsOldSSHClientCallCheckSigterm:    false,
-				expectsOldSSHClientCallReboot:          true,
-			},
-		),
-		Entry("connectionFailed, different ports, status done of oldSSHClient, SIGTERM of oldSSHClient",
-			testCaseActionEnsureProvisioned{
-				outSSHClientGetHostName:                sshclient.Output{Err: sshclient.ErrConnectionRefused},
-				outSSHClientCloudInitStatus:            sshclient.Output{},
-				outSSHClientCheckSigterm:               sshclient.Output{},
-				outOldSSHClientCloudInitStatus:         sshclient.Output{StdOut: "status: done"},
-				outOldSSHClientCheckSigterm:            sshclient.Output{StdOut: "found SIGTERM in cloud init output logs"},
-				samePorts:                              false,
-				expectedActionResult:                   actionContinue{},
-				expectedErrorType:                      infrav1.ErrorType(""),
-				expectsSSHClientCallCloudInitStatus:    false,
-				expectsSSHClientCallCheckSigterm:       false,
-				expectsSSHClientCallReboot:             false,
-				expectsOldSSHClientCallCloudInitStatus: true,
-				expectsOldSSHClientCallCheckSigterm:    true,
-				expectsOldSSHClientCallReboot:          true,
-			},
-		),
-		Entry("connectionFailed, different ports, status done of oldSSHClient, no SIGTERM of oldSSHClient",
-			testCaseActionEnsureProvisioned{
-				outSSHClientGetHostName:                sshclient.Output{Err: sshclient.ErrConnectionRefused},
-				outSSHClientCloudInitStatus:            sshclient.Output{},
-				outSSHClientCheckSigterm:               sshclient.Output{},
-				outOldSSHClientCloudInitStatus:         sshclient.Output{StdOut: "status: done"},
-				outOldSSHClientCheckSigterm:            sshclient.Output{StdOut: ""},
-				samePorts:                              false,
-				expectedActionResult:                   actionContinue{},
-				expectedErrorType:                      infrav1.ErrorType(""),
-				expectsSSHClientCallCloudInitStatus:    false,
-				expectsSSHClientCallCheckSigterm:       false,
-				expectsSSHClientCallReboot:             false,
-				expectsOldSSHClientCallCloudInitStatus: true,
-				expectsOldSSHClientCallCheckSigterm:    true,
-				expectsOldSSHClientCallReboot:          false,
-			},
-		),
-		Entry("connectionFailed, different ports, timeout of oldSSHClient",
-			testCaseActionEnsureProvisioned{
-				outSSHClientGetHostName:                sshclient.Output{Err: sshclient.ErrConnectionRefused},
-				outSSHClientCloudInitStatus:            sshclient.Output{},
-				outSSHClientCheckSigterm:               sshclient.Output{},
-				outOldSSHClientCloudInitStatus:         sshclient.Output{Err: timeout},
-				outOldSSHClientCheckSigterm:            sshclient.Output{},
-				samePorts:                              false,
-				expectedActionResult:                   actionContinue{},
-				expectedErrorType:                      infrav1.ErrorTypeConnectionError,
-				expectsSSHClientCallCloudInitStatus:    false,
-				expectsSSHClientCallCheckSigterm:       false,
-				expectsSSHClientCallReboot:             false,
-				expectsOldSSHClientCallCloudInitStatus: true,
-				expectsOldSSHClientCallCheckSigterm:    false,
-				expectsOldSSHClientCallReboot:          false,
-			},
-		),
-		Entry("correct hostname, cloud init done, no SIGTERM, ports different",
-			testCaseActionEnsureProvisioned{
-				outSSHClientGetHostName:                sshclient.Output{StdOut: infrav1.BareMetalHostNamePrefix + "bm-machine"},
-				outSSHClientCloudInitStatus:            sshclient.Output{StdOut: "status: done"},
-				outSSHClientCheckSigterm:               sshclient.Output{StdOut: ""},
-				outOldSSHClientCloudInitStatus:         sshclient.Output{},
-				outOldSSHClientCheckSigterm:            sshclient.Output{},
-				samePorts:                              false,
-				expectedActionResult:                   actionComplete{},
-				expectedErrorType:                      infrav1.ErrorType(""),
-				expectsSSHClientCallCloudInitStatus:    true,
-				expectsSSHClientCallCheckSigterm:       false,
-				expectsSSHClientCallReboot:             false,
-				expectsOldSSHClientCallCloudInitStatus: false,
-				expectsOldSSHClientCallCheckSigterm:    false,
-				expectsOldSSHClientCallReboot:          false,
-			},
-		),
-		Entry("timeout of sshclient",
-			testCaseActionEnsureProvisioned{
-				outSSHClientGetHostName:                sshclient.Output{Err: timeout},
-				outSSHClientCloudInitStatus:            sshclient.Output{},
-				outSSHClientCheckSigterm:               sshclient.Output{},
-				outOldSSHClientCloudInitStatus:         sshclient.Output{},
-				outOldSSHClientCheckSigterm:            sshclient.Output{},
-				samePorts:                              false,
-				expectedActionResult:                   actionContinue{},
-				expectedErrorType:                      infrav1.ErrorTypeSSHRebootTriggered,
 				expectsSSHClientCallCloudInitStatus:    false,
 				expectsSSHClientCallCheckSigterm:       false,
 				expectsSSHClientCallReboot:             false,
@@ -1790,7 +1765,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 	)
 })
 
-var _ = Describe("actionProvisioned", func() {
+var _ = Describe("actionProvisioned SSHAfterInstallImage=true", func() {
 	type testCaseActionProvisioned struct {
 		shouldHaveRebootAnnotation bool
 		rebooted                   bool
@@ -1806,13 +1781,14 @@ var _ = Describe("actionProvisioned", func() {
 			host := helpers.BareMetalHost(
 				"test-host",
 				"default",
-				helpers.WithSSHSpecInclPorts(23, 24),
+				helpers.WithSSHSpecInclPorts(23),
 				helpers.WithIPv4(),
 				helpers.WithConsumerRef(),
 			)
 
 			if tc.shouldHaveRebootAnnotation {
 				host.SetAnnotations(map[string]string{infrav1.RebootAnnotation: "reboot"})
+				host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = fakeBootID
 			}
 
 			host.Spec.Status.Rebooted = tc.rebooted
@@ -1873,4 +1849,100 @@ var _ = Describe("actionProvisioned", func() {
 			expectRebootInStatus:       false,
 		}),
 	)
+})
+
+var _ = Describe("actionProvisioned SSHAfterInstallImage=false", func() {
+	It("test reboot annotation for SSHAfterInstallImage=false, Reboot should be triggered", func() {
+		ctx := context.Background()
+		host := helpers.BareMetalHost(
+			"test-host",
+			"default",
+			helpers.WithSSHSpecInclPorts(23),
+			helpers.WithIPv4(),
+			helpers.WithConsumerRef(),
+		)
+
+		host.SetAnnotations(map[string]string{infrav1.RebootAnnotation: "reboot"})
+		host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = fakeBootID
+
+		host.Spec.Status.Rebooted = false
+
+		robotMock := robotmock.Client{}
+		robotMock.On("RebootBMServer", mock.Anything, mock.Anything).Return(nil, nil).Once()
+
+		service := newTestService(host, &robotMock, nil, helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+		Expect(service.scope.RobotClient).ToNot(BeNil())
+		service.scope.SSHAfterInstallImage = false
+
+		actResult := service.actionProvisioned(ctx)
+		Expect(actResult).Should(BeAssignableToTypeOf(actionContinue{}))
+		Expect(robotMock.AssertNumberOfCalls(GinkgoT(), "RebootBMServer", 1)).To(BeTrue())
+		c := conditions.Get(host, infrav1.RebootSucceededCondition)
+		Expect(c.Message).To(ContainSubstring("Rebooting because annotation was set"))
+		Expect(host.Spec.Status.Rebooted).To(BeTrue())
+	})
+
+	It("test reboot annotation for SSHAfterInstallImage=false, reach: Waiting for BootID of Node", func() {
+		ctx := context.Background()
+		host := helpers.BareMetalHost(
+			"test-host",
+			"default",
+			helpers.WithSSHSpecInclPorts(23),
+			helpers.WithIPv4(),
+			helpers.WithConsumerRef(),
+		)
+
+		host.SetAnnotations(map[string]string{infrav1.RebootAnnotation: "reboot"})
+		host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = fakeBootID
+		host.Spec.Status.Rebooted = true
+
+		service := newTestService(host, nil, nil, helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+		service.scope.SSHAfterInstallImage = false
+
+		actResult := service.actionProvisioned(ctx)
+		Expect(actResult).Should(BeAssignableToTypeOf(actionContinue{}))
+		c := conditions.Get(host, infrav1.RebootSucceededCondition)
+		Expect(c.Message).To(ContainSubstring("Waiting for BootID of Node (in wl-cluster) to change"))
+	})
+
+	It("test reboot annotation for SSHAfterInstallImage=false, finished with healthy Condition", func() {
+		// Change BootID
+		ctx := context.Background()
+		host := helpers.BareMetalHost(
+			"test-host",
+			"default",
+			helpers.WithSSHSpecInclPorts(23),
+			helpers.WithIPv4(),
+			helpers.WithConsumerRef(),
+		)
+
+		host.SetAnnotations(map[string]string{infrav1.RebootAnnotation: "reboot"})
+		host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = fakeBootID
+		host.Spec.Status.Rebooted = true
+
+		node := &corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: host.Name,
+			},
+		}
+
+		service := newTestService(host, nil, nil, helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+
+		err := service.scope.Client.Get(ctx, client.ObjectKeyFromObject(node), node)
+		Expect(err).ToNot(HaveOccurred())
+
+		node.Status.NodeInfo.BootID = "98765"
+		err = service.scope.Client.Status().Update(ctx, node)
+		Expect(err).ToNot(HaveOccurred())
+
+		// Call actionProvisioned
+		actResult := service.actionProvisioned(ctx)
+		Expect(actResult).Should(BeAssignableToTypeOf(actionComplete{}))
+
+		// Condition should be fine
+		c := conditions.Get(host, infrav1.RebootSucceededCondition)
+		Expect(c.Message).To(Equal(""))
+		Expect(c.Status).To(Equal(corev1.ConditionTrue))
+		Expect(host.GetAnnotations()).To(BeEmpty())
+	})
 })
