@@ -52,6 +52,7 @@ import (
 const (
 	rebootWaitTime           time.Duration = 15 * time.Second
 	sshResetTimeout          time.Duration = 5 * time.Minute
+	rescueSSHResetTimeout    time.Duration = 8 * time.Minute
 	softwareResetTimeout     time.Duration = 10 * time.Minute
 	hardwareResetTimeout     time.Duration = 10 * time.Minute
 	connectionRefusedTimeout time.Duration = 10 * time.Minute
@@ -413,7 +414,11 @@ func (s *Service) handleErrorTypeSSHRebootFailed(ctx context.Context, isSSHTimeo
 	if wantsRescue {
 		rebootInto = "rescue mode"
 	}
-	if !isSSHTimeoutError || hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated, sshResetTimeout) {
+	sshRebootTimeout := sshResetTimeout
+	if wantsRescue {
+		sshRebootTimeout = rescueSSHResetTimeout
+	}
+	if !isSSHTimeoutError || hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated, sshRebootTimeout) {
 		if wantsRescue {
 			// make sure hat we boot into rescue mode if that is necessary
 			if err := s.ensureRescueMode(); err != nil {

@@ -563,7 +563,9 @@ var _ = Describe("handleIncompleteBoot", func() {
 		)
 
 		type testCaseHandleIncompleteBootDifferentTimeouts struct {
+			isRebootIntoRescue    bool
 			hostErrorType         infrav1.ErrorType
+			isTimeout             bool
 			lastUpdated           time.Time
 			expectedHostErrorType infrav1.ErrorType
 			expectedRebootType    infrav1.RebootType
@@ -590,7 +592,7 @@ var _ = Describe("handleIncompleteBoot", func() {
 				service := newTestService(host, &robotMock, nil, nil, nil)
 
 				ctx := context.Background()
-				_, err := service.handleIncompleteBoot(ctx, true, true, false)
+				_, err := service.handleIncompleteBoot(ctx, tc.isRebootIntoRescue, tc.isTimeout, false)
 				Expect(err).To(Succeed())
 				Expect(host.Spec.Status.ErrorType).To(Equal(tc.expectedHostErrorType))
 				if tc.expectedRebootType != infrav1.RebootType("") {
@@ -600,22 +602,44 @@ var _ = Describe("handleIncompleteBoot", func() {
 				}
 			},
 			Entry("timed out sw reset", testCaseHandleIncompleteBootDifferentTimeouts{
+				isRebootIntoRescue:    true,
 				hostErrorType:         infrav1.ErrorTypeSoftwareRebootTriggered,
+				isTimeout:             true,
 				lastUpdated:           time.Now().Add(-15 * time.Minute),
 				expectedHostErrorType: infrav1.ErrorTypeHardwareRebootTriggered,
 				expectedRebootType:    infrav1.RebootTypeHardware,
 			}),
 			Entry("not timed out hw reset", testCaseHandleIncompleteBootDifferentTimeouts{
+				isRebootIntoRescue:    true,
 				hostErrorType:         infrav1.ErrorTypeHardwareRebootTriggered,
+				isTimeout:             true,
 				lastUpdated:           time.Now().Add(-2 * time.Minute),
 				expectedHostErrorType: infrav1.ErrorTypeHardwareRebootTriggered,
 				expectedRebootType:    infrav1.RebootType(""),
 			}),
 			Entry("not timed out sw reset", testCaseHandleIncompleteBootDifferentTimeouts{
+				isRebootIntoRescue:    true,
 				hostErrorType:         infrav1.ErrorTypeSoftwareRebootTriggered,
+				isTimeout:             true,
 				lastUpdated:           time.Now().Add(-3 * time.Minute),
 				expectedHostErrorType: infrav1.ErrorTypeSoftwareRebootTriggered,
 				expectedRebootType:    infrav1.RebootType(""),
+			}),
+			Entry("not timed out rescue ssh reset", testCaseHandleIncompleteBootDifferentTimeouts{
+				isRebootIntoRescue:    true,
+				hostErrorType:         infrav1.ErrorTypeSSHRebootTriggered,
+				isTimeout:             true,
+				lastUpdated:           time.Now().Add(-6 * time.Minute),
+				expectedHostErrorType: infrav1.ErrorTypeSSHRebootTriggered,
+				expectedRebootType:    infrav1.RebootType(""),
+			}),
+			Entry("timed out node ssh reset", testCaseHandleIncompleteBootDifferentTimeouts{
+				isRebootIntoRescue:    false,
+				hostErrorType:         infrav1.ErrorTypeSSHRebootTriggered,
+				isTimeout:             true,
+				lastUpdated:           time.Now().Add(-6 * time.Minute),
+				expectedHostErrorType: infrav1.ErrorTypeSoftwareRebootTriggered,
+				expectedRebootType:    infrav1.RebootTypeSoftware,
 			}),
 		)
 		It("returns failed if connection error and timed out", func() {
