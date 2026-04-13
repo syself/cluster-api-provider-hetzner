@@ -15,9 +15,9 @@ The script/binary will be copied into the rescue system and executed.
 
 You need to enable two things:
 
-* for hcloud: The caph binary must get the argument
-  `--hcloud-image-url-command=/shared/image-url-command.sh`
-* for hcloud: The hcloudmachine resource must have `spec.imageURL` set (usually via a
+* The caph binary must get argument. Example:
+  `--[hcloud|baremetal]-image-url-command=/shared/image-url-command.sh`
+* for hcloud: The hcloudmachine resource must have spec.imageURL set (usually via a
   hcloudmachinetemplate)
 * for baremetal: The `HetznerBareMetalMachine` must set
   `spec.installImage.imageURLCommand`, for example:
@@ -43,8 +43,7 @@ Example:
 
 It is up to the command to download from that URL and provision the disk accordingly. The command
 must be accessible by the controller pod. You can use an initContainer to copy the command to a
-shared emptyDir. For bare metal, the path is configured per machine via
-`imageURLCommand`.
+shared emptyDir.
 
 The env var OCI_REGISTRY_AUTH_TOKEN from the caph process will be set for the command, too.
 
