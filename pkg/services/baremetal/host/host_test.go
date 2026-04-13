@@ -563,7 +563,6 @@ var _ = Describe("handleIncompleteBoot", func() {
 		)
 
 		type testCaseHandleIncompleteBootDifferentTimeouts struct {
-			isRebootIntoRescue    bool
 			hostErrorType         infrav1.ErrorType
 			isTimeout             bool
 			lastUpdated           time.Time
@@ -571,38 +570,40 @@ var _ = Describe("handleIncompleteBoot", func() {
 			expectedRebootType    infrav1.RebootType
 		}
 
-		// Test with reached timeouts
-		DescribeTable("Timeout handling",
+		runTimeoutHandlingTest := func(isRebootIntoRescue bool, tc testCaseHandleIncompleteBootDifferentTimeouts) {
+			robotMock := robotmock.Client{}
+			robotMock.On("SetBootRescue", mock.Anything, sshFingerprint).Return(nil, nil)
+			robotMock.On("GetBootRescue", mock.Anything).Return(&models.Rescue{Active: true}, nil)
+			robotMock.On("RebootBMServer", mock.Anything, mock.Anything).Return(nil, nil)
+
+			host := helpers.BareMetalHost("test-host", "default",
+				helpers.WithRebootTypes([]infrav1.RebootType{
+					infrav1.RebootTypeSoftware,
+					infrav1.RebootTypeHardware,
+					infrav1.RebootTypePower,
+				}),
+				helpers.WithSSHSpec(),
+				helpers.WithSSHStatus(),
+				helpers.WithError(tc.hostErrorType, "", 1, metav1.Time{Time: tc.lastUpdated}),
+			)
+			service := newTestService(host, &robotMock, nil, nil, nil)
+
+			ctx := context.Background()
+			_, err := service.handleIncompleteBoot(ctx, isRebootIntoRescue, tc.isTimeout, false)
+			Expect(err).To(Succeed())
+			Expect(host.Spec.Status.ErrorType).To(Equal(tc.expectedHostErrorType))
+			if tc.expectedRebootType != infrav1.RebootType("") {
+				Expect(robotMock.AssertCalled(GinkgoT(), "RebootBMServer", mock.Anything, tc.expectedRebootType)).To(BeTrue())
+			} else {
+				Expect(robotMock.AssertNotCalled(GinkgoT(), "RebootBMServer", mock.Anything, mock.Anything)).To(BeTrue())
+			}
+		}
+
+		DescribeTable("Timeout handling in rescue mode",
 			func(tc testCaseHandleIncompleteBootDifferentTimeouts) {
-				robotMock := robotmock.Client{}
-				robotMock.On("SetBootRescue", mock.Anything, sshFingerprint).Return(nil, nil)
-				robotMock.On("GetBootRescue", mock.Anything).Return(&models.Rescue{Active: true}, nil)
-				robotMock.On("RebootBMServer", mock.Anything, mock.Anything).Return(nil, nil)
-
-				host := helpers.BareMetalHost("test-host", "default",
-					helpers.WithRebootTypes([]infrav1.RebootType{
-						infrav1.RebootTypeSoftware,
-						infrav1.RebootTypeHardware,
-						infrav1.RebootTypePower,
-					}),
-					helpers.WithSSHSpec(),
-					helpers.WithSSHStatus(),
-					helpers.WithError(tc.hostErrorType, "", 1, metav1.Time{Time: tc.lastUpdated}),
-				)
-				service := newTestService(host, &robotMock, nil, nil, nil)
-
-				ctx := context.Background()
-				_, err := service.handleIncompleteBoot(ctx, tc.isRebootIntoRescue, tc.isTimeout, false)
-				Expect(err).To(Succeed())
-				Expect(host.Spec.Status.ErrorType).To(Equal(tc.expectedHostErrorType))
-				if tc.expectedRebootType != infrav1.RebootType("") {
-					Expect(robotMock.AssertCalled(GinkgoT(), "RebootBMServer", mock.Anything, tc.expectedRebootType)).To(BeTrue())
-				} else {
-					Expect(robotMock.AssertNotCalled(GinkgoT(), "RebootBMServer", mock.Anything, mock.Anything)).To(BeTrue())
-				}
+				runTimeoutHandlingTest(true, tc)
 			},
 			Entry("timed out sw reset", testCaseHandleIncompleteBootDifferentTimeouts{
-				isRebootIntoRescue:    true,
 				hostErrorType:         infrav1.ErrorTypeSoftwareRebootTriggered,
 				isTimeout:             true,
 				lastUpdated:           time.Now().Add(-15 * time.Minute),
@@ -610,7 +611,6 @@ var _ = Describe("handleIncompleteBoot", func() {
 				expectedRebootType:    infrav1.RebootTypeHardware,
 			}),
 			Entry("not timed out hw reset", testCaseHandleIncompleteBootDifferentTimeouts{
-				isRebootIntoRescue:    true,
 				hostErrorType:         infrav1.ErrorTypeHardwareRebootTriggered,
 				isTimeout:             true,
 				lastUpdated:           time.Now().Add(-2 * time.Minute),
@@ -618,7 +618,6 @@ var _ = Describe("handleIncompleteBoot", func() {
 				expectedRebootType:    infrav1.RebootType(""),
 			}),
 			Entry("not timed out sw reset", testCaseHandleIncompleteBootDifferentTimeouts{
-				isRebootIntoRescue:    true,
 				hostErrorType:         infrav1.ErrorTypeSoftwareRebootTriggered,
 				isTimeout:             true,
 				lastUpdated:           time.Now().Add(-3 * time.Minute),
@@ -626,15 +625,19 @@ var _ = Describe("handleIncompleteBoot", func() {
 				expectedRebootType:    infrav1.RebootType(""),
 			}),
 			Entry("not timed out rescue ssh reset", testCaseHandleIncompleteBootDifferentTimeouts{
-				isRebootIntoRescue:    true,
 				hostErrorType:         infrav1.ErrorTypeSSHRebootTriggered,
 				isTimeout:             true,
 				lastUpdated:           time.Now().Add(-6 * time.Minute),
 				expectedHostErrorType: infrav1.ErrorTypeSSHRebootTriggered,
 				expectedRebootType:    infrav1.RebootType(""),
 			}),
+		)
+
+		DescribeTable("Timeout handling in node mode",
+			func(tc testCaseHandleIncompleteBootDifferentTimeouts) {
+				runTimeoutHandlingTest(false, tc)
+			},
 			Entry("not timed out node ssh reset", testCaseHandleIncompleteBootDifferentTimeouts{
-				isRebootIntoRescue:    false,
 				hostErrorType:         infrav1.ErrorTypeSSHRebootTriggered,
 				isTimeout:             true,
 				lastUpdated:           time.Now().Add(-6 * time.Minute),
@@ -642,7 +645,6 @@ var _ = Describe("handleIncompleteBoot", func() {
 				expectedRebootType:    infrav1.RebootType(""),
 			}),
 			Entry("timed out node ssh reset", testCaseHandleIncompleteBootDifferentTimeouts{
-				isRebootIntoRescue:    false,
 				hostErrorType:         infrav1.ErrorTypeSSHRebootTriggered,
 				isTimeout:             true,
 				lastUpdated:           time.Now().Add(-9 * time.Minute),
