@@ -107,7 +107,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 
 	newBaseHost := func() *infrav1.HetznerBareMetalHost {
 		commandPath := filepath.Join(GinkgoT().TempDir(), "image-url-command")
-		Expect(os.WriteFile(commandPath, []byte("#!/usr/bin/env bash\n"), 0o700)).To(Succeed())
+		Expect(os.WriteFile(commandPath, []byte("#!/usr/bin/env bash\n"), 0o600)).To(Succeed())
 
 		host := helpers.BareMetalHost(
 			"test-host",
