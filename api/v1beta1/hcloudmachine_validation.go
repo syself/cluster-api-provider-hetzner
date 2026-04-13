@@ -20,8 +20,9 @@ import (
 	"net/url"
 	"reflect"
 
-	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+
+	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
 func validateHCloudMachineSpecUpdate(oldSpec, newSpec HCloudMachineSpec) field.ErrorList {

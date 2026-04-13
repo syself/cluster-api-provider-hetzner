@@ -236,7 +236,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	hcloudImageURLCommandDir = tmpDir
 	commandPath := filepath.Join(hcloudImageURLCommandDir, "image-url-command-test.sh")
-	err = os.WriteFile(commandPath, []byte("#!/bin/sh\nexit 0\n"), 0o700)
+	err = os.WriteFile(commandPath, []byte("#!/bin/sh\nexit 0\n"), 0o600)
 	Expect(err).NotTo(HaveOccurred())
 
 	testEnv = helpers.NewTestEnvironment()
