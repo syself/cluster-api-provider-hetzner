@@ -45,7 +45,6 @@ type MachineScopeParams struct {
 	Machine          *clusterv1.Machine
 	HCloudMachine    *infrav1.HCloudMachine
 	SSHClientFactory sshclient.Factory
-	ImageURLCommand  string
 }
 
 const maxShutDownTime = 2 * time.Minute
@@ -87,7 +86,6 @@ func NewMachineScope(params MachineScopeParams) (*MachineScope, error) {
 		ClusterScope:     *cs,
 		Machine:          params.Machine,
 		HCloudMachine:    params.HCloudMachine,
-		ImageURLCommand:  params.ImageURLCommand,
 		SSHClientFactory: params.SSHClientFactory,
 	}, nil
 }
@@ -97,7 +95,6 @@ type MachineScope struct {
 	ClusterScope
 	Machine          *clusterv1.Machine
 	HCloudMachine    *infrav1.HCloudMachine
-	ImageURLCommand  string
 	SSHClientFactory sshclient.Factory
 }
 

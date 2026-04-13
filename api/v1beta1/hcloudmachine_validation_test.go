@@ -66,13 +66,29 @@ func TestValidateHCloudMachineSpecUpdate(t *testing.T) {
 			name: "Immutable ImageURL",
 			args: args{
 				oldSpec: HCloudMachineSpec{
-					ImageURL: "oci://ghcr.io/example/foo:v1",
+					ImageURL:        "oci://ghcr.io/example/foo:v1",
+					ImageURLCommand: "/shared/image-url-command.sh",
 				},
 				newSpec: HCloudMachineSpec{
-					ImageURL: "oci://ghcr.io/example/foo:v2",
+					ImageURL:        "oci://ghcr.io/example/foo:v2",
+					ImageURLCommand: "/shared/image-url-command.sh",
 				},
 			},
 			want: field.Invalid(field.NewPath("spec", "imageURL"), "oci://ghcr.io/example/foo:v2", "field is immutable"),
+		},
+		{
+			name: "Immutable ImageURLCommand",
+			args: args{
+				oldSpec: HCloudMachineSpec{
+					ImageURL:        "oci://ghcr.io/example/foo:v1",
+					ImageURLCommand: "/shared/image-url-command-v1.sh",
+				},
+				newSpec: HCloudMachineSpec{
+					ImageURL:        "oci://ghcr.io/example/foo:v1",
+					ImageURLCommand: "/shared/image-url-command-v2.sh",
+				},
+			},
+			want: field.Invalid(field.NewPath("spec", "imageURLCommand"), "/shared/image-url-command-v2.sh", "field is immutable"),
 		},
 		{
 			name: "Immutable SSHKeys",
@@ -169,15 +185,34 @@ func createPlacementGroupName(name string) *string {
 
 func TestValidateHCloudMachineSpec(t *testing.T) {
 	allErrs := validateHCloudMachineSpec(HCloudMachineSpec{
-		ImageURL: "not-a-valid-url",
+		ImageURL:        "not-a-valid-url",
+		ImageURLCommand: "/shared/image-url-command.sh",
 	})
 	require.Equal(t, `spec.imageURL: Invalid value: "not-a-valid-url": parse "not-a-valid-url": invalid URI for request`, errorsToString(allErrs))
 
 	allErrs = validateHCloudMachineSpec(HCloudMachineSpec{
-		ImageName: "foo-name",
-		ImageURL:  "oci://ghcr.io/example/foo:v1",
+		ImageName:       "foo-name",
+		ImageURL:        "oci://ghcr.io/example/foo:v1",
+		ImageURLCommand: "/shared/image-url-command.sh",
 	})
 	require.Equal(t, `spec.imageName: Invalid value: "foo-name": imageName and imageURL are mutually exclusive`, errorsToString(allErrs))
+
+	allErrs = validateHCloudMachineSpec(HCloudMachineSpec{
+		ImageURL: "oci://ghcr.io/example/foo:v1",
+	})
+	require.Equal(t, `spec.imageURLCommand: Required value: imageURLCommand must be set when imageURL is set`, errorsToString(allErrs))
+
+	allErrs = validateHCloudMachineSpec(HCloudMachineSpec{
+		ImageName:       "ubuntu-24.04",
+		ImageURLCommand: "/shared/image-url-command.sh",
+	})
+	require.Equal(t, `spec.imageURLCommand: Invalid value: "/shared/image-url-command.sh": imageURLCommand requires imageURL to be set`, errorsToString(allErrs))
+
+	allErrs = validateHCloudMachineSpec(HCloudMachineSpec{
+		ImageURL:        "oci://ghcr.io/example/foo:v1",
+		ImageURLCommand: "/shared/1bad.sh",
+	})
+	require.Equal(t, `spec.imageURLCommand: Invalid value: "/shared/1bad.sh": basename must match the regex ^[a-z][a-z0-9_.-]+[a-z0-9]$`, errorsToString(allErrs))
 }
 
 func errorsToString(allErrs field.ErrorList) string {

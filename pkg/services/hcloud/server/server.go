@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"syscall"
 	"time"
 
@@ -313,14 +314,21 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 	updateHCloudMachineStatusFromServer(hm, server)
 
 	// This is a new machine with imageURL. Do some pre-flight checks.
-	if s.scope.ImageURLCommand == "" {
-		msg := "imageURL is set, but the caph command is missing the --hcloud-image-url-command"
+	imageURLCommand := hm.Spec.ImageURLCommand
+	if imageURLCommand == "" {
+		msg := "imageURL is set, but spec.imageURLCommand is empty"
 		s.scope.Error(nil, msg)
 		conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerAvailableCondition,
 			"ImageURLSetButNoCommandProvided", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
-		// No need for Requeue, because adding the command line argument to the caph deployment,
-		// will restart the controller, and all resources will be reconciled.
+		return reconcile.Result{}, nil
+	}
+	if _, err := os.Stat(imageURLCommand); err != nil {
+		err = fmt.Errorf("imageURLCommand %q is not accessible by the controller pod: %w", imageURLCommand, err)
+		s.scope.Error(err, "")
+		conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerAvailableCondition,
+			"ImageURLCommandNotAccessible", clusterv1.ConditionSeverityWarning,
+			"%s", err.Error())
 		return reconcile.Result{}, nil
 	}
 
@@ -597,12 +605,12 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("hcloud GetRawBootstrapData failed: %w", err)
 	}
-	exitStatus, stdoutStderr, err := sshClient.StartImageURLCommand(ctx, s.scope.ImageURLCommand, hm.Spec.ImageURL, data, s.scope.Name(), []string{"sda"})
+	exitStatus, stdoutStderr, err := sshClient.StartImageURLCommand(ctx, hm.Spec.ImageURLCommand, hm.Spec.ImageURL, data, s.scope.Name(), []string{"sda"})
 	if err != nil {
 		err := fmt.Errorf("StartImageURLCommand failed (retrying): %w", err)
 		// This could be a temporary network error. Retry.
 		s.scope.Error(err, "",
-			"ImageURLCommand", s.scope.ImageURLCommand,
+			"ImageURLCommand", hm.Spec.ImageURLCommand,
 			"exitStatus", exitStatus,
 			"stdoutStderr", stdoutStderr)
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
@@ -614,7 +622,7 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 	if exitStatus != 0 {
 		msg := "StartImageURLCommand failed with non-zero exit status. Deleting machine"
 		s.scope.Error(nil, msg,
-			"ImageURLCommand", s.scope.ImageURLCommand,
+			"ImageURLCommand", hm.Spec.ImageURLCommand,
 			"exitStatus", exitStatus,
 			"stdoutStderr", stdoutStderr)
 		err := s.scope.SetErrorAndRemediate(ctx, msg)
@@ -629,7 +637,7 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 
 	conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 		"HCloudImageURLCommandRunning", clusterv1.ConditionSeverityInfo,
-		"hcloud-image-url-command running")
+		"imageURLCommand running")
 	hm.SetBootState(infrav1.HCloudBootStateRunningImageCommand)
 	return reconcile.Result{RequeueAfter: 55 * time.Second}, nil
 }
@@ -672,7 +680,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 	case sshclient.ImageURLCommandStateRunning:
 		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
 			"HCloudImageURLCommandRunning", clusterv1.ConditionSeverityInfo,
-			"hcloud-image-url-command running")
+			"imageURLCommand running")
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 
 	case sshclient.ImageURLCommandStateFinishedSuccessfully:

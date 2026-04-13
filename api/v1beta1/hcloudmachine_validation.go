@@ -18,10 +18,14 @@ package v1beta1
 
 import (
 	"net/url"
+	"path/filepath"
 	"reflect"
+	"regexp"
 
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
+
+var imageURLCommandBasenameRegex = regexp.MustCompile(`^[a-z][a-z0-9_.-]+[a-z0-9]$`)
 
 func validateHCloudMachineSpecUpdate(oldSpec, newSpec HCloudMachineSpec) field.ErrorList {
 	var allErrs field.ErrorList
@@ -43,6 +47,13 @@ func validateHCloudMachineSpecUpdate(oldSpec, newSpec HCloudMachineSpec) field.E
 	if !reflect.DeepEqual(oldSpec.ImageURL, newSpec.ImageURL) {
 		allErrs = append(allErrs,
 			field.Invalid(field.NewPath("spec", "imageURL"), newSpec.ImageURL, "field is immutable"),
+		)
+	}
+
+	// ImageURLCommand is immutable
+	if !reflect.DeepEqual(oldSpec.ImageURLCommand, newSpec.ImageURLCommand) {
+		allErrs = append(allErrs,
+			field.Invalid(field.NewPath("spec", "imageURLCommand"), newSpec.ImageURLCommand, "field is immutable"),
 		)
 	}
 
@@ -82,6 +93,25 @@ func validateHCloudMachineSpec(spec HCloudMachineSpec) field.ErrorList {
 		if err != nil {
 			allErrs = append(allErrs,
 				field.Invalid(field.NewPath("spec", "imageURL"), spec.ImageURL, err.Error()))
+		}
+	}
+
+	if spec.ImageURL != "" && spec.ImageURLCommand == "" {
+		allErrs = append(allErrs,
+			field.Required(field.NewPath("spec", "imageURLCommand"), "imageURLCommand must be set when imageURL is set"))
+	}
+
+	if spec.ImageURL == "" && spec.ImageURLCommand != "" {
+		allErrs = append(allErrs,
+			field.Invalid(field.NewPath("spec", "imageURLCommand"), spec.ImageURLCommand, "imageURLCommand requires imageURL to be set"))
+	}
+
+	if spec.ImageURLCommand != "" {
+		baseName := filepath.Base(spec.ImageURLCommand)
+		if !imageURLCommandBasenameRegex.MatchString(baseName) {
+			allErrs = append(allErrs,
+				field.Invalid(field.NewPath("spec", "imageURLCommand"), spec.ImageURLCommand,
+					"basename must match the regex "+imageURLCommandBasenameRegex.String()))
 		}
 	}
 
