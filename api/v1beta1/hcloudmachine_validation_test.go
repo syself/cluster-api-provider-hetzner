@@ -185,6 +185,12 @@ func createPlacementGroupName(name string) *string {
 
 func TestValidateHCloudMachineSpec(t *testing.T) {
 	allErrs := validateHCloudMachineSpec(HCloudMachineSpec{
+		ImageURL:        "oci://ghcr.io/example/foo:v1",
+		ImageURLCommand: "image-url-command-foo.sh",
+	})
+	require.Empty(t, allErrs)
+
+	allErrs = validateHCloudMachineSpec(HCloudMachineSpec{
 		ImageURL:        "not-a-valid-url",
 		ImageURLCommand: "image-url-command-foo.sh",
 	})
