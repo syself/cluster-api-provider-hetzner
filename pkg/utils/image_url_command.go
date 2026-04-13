@@ -14,6 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package utils implements some utility functions.
+//
+//revive:disable:var-naming // Keep package name for compatibility with existing imports.
 package utils
 
 import (
