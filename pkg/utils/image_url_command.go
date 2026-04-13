@@ -23,8 +23,6 @@ import (
 	"strings"
 )
 
-const ImageURLCommandPrefix = "image-url-command-"
-
 var imageURLCommandNameRegex = regexp.MustCompile(`^image-url-command-[a-z0-9][a-z0-9._-]*$`)
 
 // ValidateImageURLCommandName validates the user-provided command name. The name must be a
