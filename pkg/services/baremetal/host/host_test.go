@@ -572,7 +572,7 @@ var _ = Describe("handleIncompleteBoot", func() {
 		}
 
 		// Test with reached timeouts
-		DescribeTable("Different timeouts",
+		DescribeTable("Timeout handling",
 			func(tc testCaseHandleIncompleteBootDifferentTimeouts) {
 				robotMock := robotmock.Client{}
 				robotMock.On("SetBootRescue", mock.Anything, sshFingerprint).Return(nil, nil)
@@ -633,11 +633,19 @@ var _ = Describe("handleIncompleteBoot", func() {
 				expectedHostErrorType: infrav1.ErrorTypeSSHRebootTriggered,
 				expectedRebootType:    infrav1.RebootType(""),
 			}),
-			Entry("timed out node ssh reset", testCaseHandleIncompleteBootDifferentTimeouts{
+			Entry("not timed out node ssh reset", testCaseHandleIncompleteBootDifferentTimeouts{
 				isRebootIntoRescue:    false,
 				hostErrorType:         infrav1.ErrorTypeSSHRebootTriggered,
 				isTimeout:             true,
 				lastUpdated:           time.Now().Add(-6 * time.Minute),
+				expectedHostErrorType: infrav1.ErrorTypeSSHRebootTriggered,
+				expectedRebootType:    infrav1.RebootType(""),
+			}),
+			Entry("timed out node ssh reset", testCaseHandleIncompleteBootDifferentTimeouts{
+				isRebootIntoRescue:    false,
+				hostErrorType:         infrav1.ErrorTypeSSHRebootTriggered,
+				isTimeout:             true,
+				lastUpdated:           time.Now().Add(-9 * time.Minute),
 				expectedHostErrorType: infrav1.ErrorTypeSoftwareRebootTriggered,
 				expectedRebootType:    infrav1.RebootTypeSoftware,
 			}),
