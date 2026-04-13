@@ -157,6 +157,18 @@ type InstallImage struct {
 	// Image is the image to be provisioned. It defines the image for baremetal machine.
 	Image Image `json:"image"`
 
+	// ImageURLCommand is the local path of the command which provisions a machine from Image.URL.
+	// The command must be accessible by the controller pod. CAPH copies it into the rescue system
+	// and executes it there.
+	//
+	// Docs: https://syself.com/docs/caph/developers/image-url-command
+	//
+	// ImageURLCommand must be set if the machine should be provisioned from Image.URL without
+	// installimage.
+	// +kubebuilder:validation:Optional
+	// +optional
+	ImageURLCommand string `json:"imageURLCommand,omitempty"`
+
 	// PostInstallScript (Bash) is used for configuring commands that should be executed after installimage.
 	// It is passed along with the installimage command.
 	PostInstallScript string `json:"postInstallScript,omitempty"`
@@ -186,15 +198,15 @@ type InstallImage struct {
 	SwraidLevel int `json:"swraidLevel,omitempty"`
 }
 
+// UsesImageURLCommand reports whether the machine should be provisioned via image-url-command.
+func (installImage InstallImage) UsesImageURLCommand() bool {
+	return installImage.ImageURLCommand != ""
+}
+
 // Image defines the properties for the autosetup config.
 type Image struct {
 	// URL defines the remote URL for downloading a tar, tar.gz, tar.bz, tar.bz2, tar.xz, tgz, tbz, txz image.
 	URL string `json:"url,omitempty"`
-
-	// UseCustomImageURLCommand makes the controller use the command provided by `--baremetal-image-url-command` instead of installimage.
-	// Docs: https://syself.com/docs/caph/developers/image-url-command
-	// +optional
-	UseCustomImageURLCommand bool `json:"useCustomImageURLCommand"`
 
 	// Name defines the archive name after download. This has to be a valid name for Installimage.
 	Name string `json:"name,omitempty"`
@@ -205,10 +217,6 @@ type Image struct {
 
 // GetDetails returns the path of the image and whether the image has to be downloaded.
 func (image Image) GetDetails() (imagePath string, needsDownload bool, errorMessage string) {
-	// If image is set, then the URL is also set and we have to download a remote file
-	if image.UseCustomImageURLCommand {
-		return "", false, "internal error: image.UseCustomImageURLCommand is active. Method GetDetails() should be used for the traditional way (without image-url-command)."
-	}
 	switch {
 	case image.Name != "" && image.URL != "":
 		suffix, err := GetImageSuffix(image.URL)

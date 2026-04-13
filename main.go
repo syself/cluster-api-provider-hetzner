@@ -92,7 +92,6 @@ var (
 	rateLimitWaitTime                  time.Duration
 	preProvisionCommand                string
 	hcloudImageURLCommand              string
-	baremetalImageURLCommand           string
 	skipWebhooks                       bool
 	sshAfterInstallImage               bool
 	skipCRDMigrationPhases             []string
@@ -131,7 +130,6 @@ func main() {
 	fs.BoolVar(&hcloudclient.DebugAPICalls, "debug-hcloud-api-calls", false, "Debug all calls to the hcloud API.")
 	fs.StringVar(&preProvisionCommand, "pre-provision-command", "", "Command to run (in rescue-system) before installing the image on bare metal servers. You can use that to check if the machine is healthy before installing the image. If the exit value is non-zero, the machine is considered unhealthy. This command must be accessible by the controller pod. You can use an initContainer to copy the command to a shared emptyDir.")
 	fs.StringVar(&hcloudImageURLCommand, "hcloud-image-url-command", "", "Command to run (in rescue-system) to provision an hcloud machine. Docs: https://syself.com/docs/caph/developers/image-url-command")
-	fs.StringVar(&baremetalImageURLCommand, "baremetal-image-url-command", "", "Command to run (in rescue-system) to provision an baremetal machine. Docs: https://syself.com/docs/caph/developers/image-url-command")
 	fs.BoolVar(&skipWebhooks, "skip-webhooks", false, "Skip setting up of webhooks. Together with --leader-elect=false, you can use `go run main.go` to run CAPH in a cluster connected via KUBECONFIG. You should scale down the caph deployment to 0 before doing that. This is only for testing!")
 	fs.BoolVar(&sshAfterInstallImage, "baremetal-ssh-after-install-image", true, "Connect to the baremetal machine after install-image and ensure it is provisioned. Current default is true, but we might change that to false. Background: Users might not want the controller to be able to ssh onto the servers")
 	fs.StringSliceVar(&skipCRDMigrationPhases, "skip-crd-migration-phases", []string{}, "List of CRD migration phases to skip. Valid values are: StorageVersionMigration, CleanupManagedFields.")
@@ -169,22 +167,6 @@ func main() {
 		_, err := os.Stat(hcloudImageURLCommand)
 		if err != nil {
 			setupLog.Error(err, "hcloud-image-url-command not found")
-			os.Exit(1)
-		}
-	}
-
-	// If baremetalImageURLCommand is set, check if the file exists and validate the basename.
-	if baremetalImageURLCommand != "" {
-		baseName := filepath.Base(baremetalImageURLCommand)
-		if !commandRegex.MatchString(baseName) {
-			msg := fmt.Sprintf("basename (%s) must match the regex %s", baseName, commandRegex.String())
-			setupLog.Error(errors.New(msg), "")
-			os.Exit(1)
-		}
-
-		_, err := os.Stat(baremetalImageURLCommand)
-		if err != nil {
-			setupLog.Error(err, "baremetal-image-url-command not found")
 			os.Exit(1)
 		}
 	}
@@ -285,7 +267,6 @@ func main() {
 		RateLimitWaitTime:    rateLimitWaitTime,
 		WatchFilterValue:     watchFilterValue,
 		PreProvisionCommand:  preProvisionCommand,
-		ImageURLCommand:      baremetalImageURLCommand,
 		SSHAfterInstallImage: sshAfterInstallImage,
 	}).SetupWithManager(ctx, mgr, controller.Options{MaxConcurrentReconciles: hetznerBareMetalHostConcurrency}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HetznerBareMetalHost")

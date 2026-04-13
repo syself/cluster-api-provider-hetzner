@@ -1164,8 +1164,8 @@ func (s *Service) actionImageInstalling(ctx context.Context) actionResult {
 		return actionStop{}
 	}
 
-	if s.scope.HetznerBareMetalHost.Spec.Status.InstallImage.Image.UseCustomImageURLCommand {
-		return s.actionImageInstallingCustomImageURLCommand(ctx, sshClient)
+	if s.scope.HetznerBareMetalHost.Spec.Status.InstallImage.UsesImageURLCommand() {
+		return s.actionImageInstallingImageURLCommand(ctx, sshClient)
 	}
 	state, err := sshClient.GetInstallImageState()
 	if err != nil {
@@ -1187,7 +1187,7 @@ func (s *Service) actionImageInstalling(ctx context.Context) actionResult {
 	}
 }
 
-func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context, sshClient sshclient.Client) actionResult {
+func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshClient sshclient.Client) actionResult {
 	host := s.scope.HetznerBareMetalHost
 
 	state, logFile, err := sshClient.StateOfImageURLCommand()
@@ -1252,15 +1252,23 @@ func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context
 			return actionError{err: fmt.Errorf("baremetal GetRawBootstrapData failed: %w", err)}
 		}
 
-		if s.scope.ImageURLCommand == "" {
-			err = errors.New("internal error: --baremetal-image-url-command is not set?")
+		command := s.scope.HetznerBareMetalHost.Spec.Status.InstallImage.ImageURLCommand
+		if command == "" {
+			err = errors.New("internal error: spec.status.installImage.imageURLCommand is not set")
 			s.scope.Error(err, "")
 			conditions.MarkFalse(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition,
 				"ImageURLCommandMissing",
 				clusterv1.ConditionSeverityError,
 				"%s", err.Error())
-			// this can only be changed by updating the controller. This will make the
-			// controller reconcile all resources.
+			return actionContinue{delay: time.Hour}
+		}
+		if _, err := os.Stat(command); err != nil {
+			err = fmt.Errorf("imageURLCommand %q is not accessible by the controller pod: %w", command, err)
+			s.scope.Error(err, "")
+			conditions.MarkFalse(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition,
+				"ImageURLCommandNotAccessible",
+				clusterv1.ConditionSeverityWarning,
+				"%s", err.Error())
 			return actionContinue{delay: time.Hour}
 		}
 
@@ -1274,12 +1282,12 @@ func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context
 		// get device names from storage device
 		deviceNames := getDeviceNames(s.scope.HetznerBareMetalHost.Spec.RootDeviceHints.ListOfWWN(), storage)
 
-		exitStatus, stdoutStderr, err := sshClient.StartImageURLCommand(ctx, s.scope.ImageURLCommand, s.scope.HetznerBareMetalHost.Spec.Status.InstallImage.Image.URL, data, s.scope.Hostname(), deviceNames)
+		exitStatus, stdoutStderr, err := sshClient.StartImageURLCommand(ctx, command, s.scope.HetznerBareMetalHost.Spec.Status.InstallImage.Image.URL, data, s.scope.Hostname(), deviceNames)
 		if err != nil {
 			err := fmt.Errorf("StartImageURLCommand failed (retrying): %w", err)
 			// This could be a temporary network error. Retry.
 			s.scope.Error(err, "",
-				"ImageURLCommand", s.scope.ImageURLCommand,
+				"ImageURLCommand", command,
 				"exitStatus", exitStatus,
 				"stdoutStderr", stdoutStderr)
 			conditions.MarkFalse(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition,
@@ -1292,7 +1300,7 @@ func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context
 		if exitStatus != 0 {
 			msg := "StartImageURLCommand failed with non-zero exit status. Deleting machine"
 			s.scope.Error(nil, msg,
-				"ImageURLCommand", s.scope.ImageURLCommand,
+				"ImageURLCommand", command,
 				"exitStatus", exitStatus,
 				"stdoutStderr", stdoutStderr)
 			conditions.MarkFalse(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition,
@@ -1305,7 +1313,7 @@ func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context
 		conditions.MarkFalse(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition,
 			"ImageURLCommandStarted",
 			clusterv1.ConditionSeverityInfo,
-			"baremetal-image-url-command started")
+			"imageURLCommand started")
 
 		return actionContinue{delay: 55 * time.Second}
 

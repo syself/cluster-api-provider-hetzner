@@ -5,8 +5,9 @@ sidebar: image-url-command
 description: Documentation on the CAPH image-url-command
 ---
 
-The `--hcloud-image-url-command` and `--baremtal-image-url-command` for the caph controller can be
-used to execute a custom command to install the node image.
+The hcloud controller flag `--hcloud-image-url-command` and the bare metal field
+`spec.installImage.imageURLCommand` can be used to execute a custom command to install
+the node image.
 
 This provides you a flexible way to create nodes.
 
@@ -14,11 +15,22 @@ The script/binary will be copied into the rescue system and executed.
 
 You need to enable two things:
 
-* The caph binary must get argument. Example:
-  `--[hcloud|baremetal]-image-url-command=/shared/image-url-command.sh`
-* for hcloud: The hcloudmachine resource must have spec.imageURL set (usually via a
+* for hcloud: The caph binary must get the argument
+  `--hcloud-image-url-command=/shared/image-url-command.sh`
+* for hcloud: The hcloudmachine resource must have `spec.imageURL` set (usually via a
   hcloudmachinetemplate)
-* for baremetal: The hetznerbaremetal resource must use `useCustomImageURLCommand: true`.
+* for baremetal: The `HetznerBareMetalMachine` must set
+  `spec.installImage.imageURLCommand`, for example:
+
+```yaml
+spec:
+  installImage:
+    imageURLCommand: /shared/image-url-command.sh
+    image:
+      url: oci://example.com/yourimage:v1
+```
+
+In bare metal custom-command mode, `image.name` and `image.path` must stay empty.
 
 The command will get the imageURL, bootstrap-data, machine-name of the corresponding
 machine and the root devices (seperated by spaces) as argument.
@@ -29,9 +41,10 @@ Example:
 /root/image-url-command oci://example.com/yourimage:v1 /root/bootstrap.data my-md-bm-kh57r-5z2v8-zdfc9 'sda sdb'
 ```
 
-It is up to the command to download from that URL and provision the disk accordingly. This command
+It is up to the command to download from that URL and provision the disk accordingly. The command
 must be accessible by the controller pod. You can use an initContainer to copy the command to a
-shared emptyDir.
+shared emptyDir. For bare metal, the path is configured per machine via
+`imageURLCommand`.
 
 The env var OCI_REGISTRY_AUTH_TOKEN from the caph process will be set for the command, too.
 

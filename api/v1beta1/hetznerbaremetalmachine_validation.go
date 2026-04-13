@@ -18,7 +18,10 @@ package v1beta1
 
 import (
 	"fmt"
+	"net/url"
+	"path/filepath"
 	"reflect"
+	"regexp"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/labels"
@@ -26,23 +29,61 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
+var bareMetalImageURLCommandBasenameRegex = regexp.MustCompile(`^[a-z][a-z0-9_.-]+[a-z0-9]$`)
+
 func validateHetznerBareMetalMachineSpecCreate(spec HetznerBareMetalMachineSpec) field.ErrorList {
 	var allErrs field.ErrorList
+	installImage := spec.InstallImage
+	image := installImage.Image
 
-	if (spec.InstallImage.Image.Name == "" || spec.InstallImage.Image.URL == "") &&
-		spec.InstallImage.Image.Path == "" {
-		allErrs = append(allErrs,
-			field.Invalid(field.NewPath("spec", "installImage", "image"), spec.InstallImage.Image,
-				"have to specify either image name and url or path"),
-		)
-	}
-
-	if spec.InstallImage.Image.URL != "" {
-		if _, err := GetImageSuffix(spec.InstallImage.Image.URL); err != nil {
+	if installImage.UsesImageURLCommand() {
+		if image.URL == "" {
 			allErrs = append(allErrs,
-				field.Invalid(field.NewPath("spec", "installImage", "image", "url"), spec.InstallImage.Image.URL,
-					"unknown image type in URL"),
+				field.Invalid(field.NewPath("spec", "installImage", "image", "url"), image.URL,
+					"url is required when imageURLCommand is set"),
 			)
+		} else if _, err := url.ParseRequestURI(image.URL); err != nil {
+			allErrs = append(allErrs,
+				field.Invalid(field.NewPath("spec", "installImage", "image", "url"), image.URL, err.Error()),
+			)
+		}
+
+		if image.Name != "" {
+			allErrs = append(allErrs,
+				field.Invalid(field.NewPath("spec", "installImage", "image", "name"), image.Name,
+					"name must be empty when imageURLCommand is set"),
+			)
+		}
+
+		if image.Path != "" {
+			allErrs = append(allErrs,
+				field.Invalid(field.NewPath("spec", "installImage", "image", "path"), image.Path,
+					"path must be empty when imageURLCommand is set"),
+			)
+		}
+
+		baseName := filepath.Base(installImage.ImageURLCommand)
+		if !bareMetalImageURLCommandBasenameRegex.MatchString(baseName) {
+			allErrs = append(allErrs,
+				field.Invalid(field.NewPath("spec", "installImage", "imageURLCommand"), installImage.ImageURLCommand,
+					"basename must match the regex "+bareMetalImageURLCommandBasenameRegex.String()),
+			)
+		}
+	} else {
+		if (image.Name == "" || image.URL == "") && image.Path == "" {
+			allErrs = append(allErrs,
+				field.Invalid(field.NewPath("spec", "installImage", "image"), image,
+					"have to specify either image name and url or path"),
+			)
+		}
+
+		if image.URL != "" {
+			if _, err := GetImageSuffix(image.URL); err != nil {
+				allErrs = append(allErrs,
+					field.Invalid(field.NewPath("spec", "installImage", "image", "url"), image.URL,
+						"unknown image type in URL"),
+				)
+			}
 		}
 	}
 

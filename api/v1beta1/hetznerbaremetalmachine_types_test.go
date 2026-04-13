@@ -115,6 +115,11 @@ var _ = Describe("Test Image.GetDetails", func() {
 	)
 })
 
+func TestInstallImageUsesImageURLCommand(t *testing.T) {
+	require.True(t, InstallImage{ImageURLCommand: "/shared/image-url-command.sh"}.UsesImageURLCommand())
+	require.False(t, InstallImage{}.UsesImageURLCommand())
+}
+
 var _ = Describe("Test GetImageSuffix", func() {
 	type testCaseGetImageSuffix struct {
 		url          string

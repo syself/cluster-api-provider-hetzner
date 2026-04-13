@@ -64,7 +64,6 @@ type HetznerBareMetalHostReconciler struct {
 	WatchFilterValue     string
 	PreProvisionCommand  string
 	SSHAfterInstallImage bool
-	ImageURLCommand      string
 
 	// Reconcile only this namespace. Only needed for testing
 	Namespace string
@@ -303,7 +302,6 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		RescueSSHSecret:         rescueSSHSecret,
 		SecretManager:           secretManager,
 		PreProvisionCommand:     r.PreProvisionCommand,
-		ImageURLCommand:         r.ImageURLCommand,
 		SSHAfterInstallImage:    r.SSHAfterInstallImage,
 	})
 	if err != nil {
