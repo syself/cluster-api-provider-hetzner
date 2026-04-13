@@ -160,13 +160,13 @@ var _ = Describe("handleServerStatusOff", func() {
 
 		Expect(res).Should(Equal(reconcile.Result{RequeueAfter: 30 * time.Second}))
 
-		Expect(conditions.GetReason(hcloudMachine, infrav1.ServerAvailableCondition)).To(Equal(infrav1.ServerOffReason))
+		Expect(conditions.GetReason(hcloudMachine, infrav1.ServerProvisionedCondition)).To(Equal(infrav1.ServerOffReason))
 
 		Expect(server.Status).To(Equal(hcloud.ServerStatusRunning))
 	})
 
 	It("tries to power on server again if it is not timed out", func() {
-		conditions.MarkFalse(hcloudMachine, infrav1.ServerAvailableCondition, infrav1.ServerOffReason, clusterv1.ConditionSeverityInfo, "")
+		conditions.MarkFalse(hcloudMachine, infrav1.ServerProvisionedCondition, infrav1.ServerOffReason, clusterv1.ConditionSeverityInfo, "")
 
 		service := newTestService(hcloudMachine, client)
 
@@ -177,16 +177,16 @@ var _ = Describe("handleServerStatusOff", func() {
 
 		Expect(server.Status).To(Equal(hcloud.ServerStatusRunning))
 
-		Expect(conditions.GetReason(hcloudMachine, infrav1.ServerAvailableCondition)).To(Equal(infrav1.ServerOffReason))
+		Expect(conditions.GetReason(hcloudMachine, infrav1.ServerProvisionedCondition)).To(Equal(infrav1.ServerOffReason))
 	})
 
 	It("sets a failure message if it timed out", func() {
-		conditions.MarkFalse(hcloudMachine, infrav1.ServerAvailableCondition, infrav1.ServerOffReason, clusterv1.ConditionSeverityInfo, "")
+		conditions.MarkFalse(hcloudMachine, infrav1.ServerProvisionedCondition, infrav1.ServerOffReason, clusterv1.ConditionSeverityInfo, "")
 
 		// manipulate lastTransitionTime
 		conditionsList := hcloudMachine.GetConditions()
 		for i, c := range conditionsList {
-			if c.Type == infrav1.ServerAvailableCondition {
+			if c.Type == infrav1.ServerProvisionedCondition {
 				conditionsList[i].LastTransitionTime = metav1.NewTime(time.Now().Add(-time.Hour))
 			}
 		}
@@ -206,7 +206,7 @@ var _ = Describe("handleServerStatusOff", func() {
 	})
 
 	It("tries to power on server and sets new condition if different one is set", func() {
-		conditions.MarkTrue(hcloudMachine, infrav1.ServerAvailableCondition)
+		conditions.MarkTrue(hcloudMachine, infrav1.ServerProvisionedCondition)
 
 		service := newTestService(hcloudMachine, client)
 
@@ -215,7 +215,7 @@ var _ = Describe("handleServerStatusOff", func() {
 
 		Expect(res).Should(Equal(reconcile.Result{RequeueAfter: 30 * time.Second}))
 
-		Expect(conditions.GetReason(hcloudMachine, infrav1.ServerAvailableCondition)).To(Equal(infrav1.ServerOffReason))
+		Expect(conditions.GetReason(hcloudMachine, infrav1.ServerProvisionedCondition)).To(Equal(infrav1.ServerOffReason))
 
 		Expect(server.Status).To(Equal(hcloud.ServerStatusRunning))
 	})
