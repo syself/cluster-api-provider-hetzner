@@ -129,7 +129,7 @@ var _ = Describe("SetHCloudMachineV1Beta2SummaryCondition", func() {
 		Expect(summaryMsg).ToNot(BeEmpty(), "Ready summary condition should have a message")
 
 		// The summary message lists issues in ForConditionTypes order.
-		// HCloudTokenAvailable (priority 1) before ServerAvailable (priority 6).
+		// HCloudTokenAvailable (priority 1) before ServerAvailable (priority 5).
 		Expect(summaryMsg).To(MatchRegexp(`(?s)token is invalid.*server is not available`))
 	})
 
@@ -148,7 +148,7 @@ var _ = Describe("SetHCloudMachineV1Beta2SummaryCondition", func() {
 				Reason:  infrav1.HCloudMachineRateLimitExceededV1Beta2Reason,
 				Message: "rate limit exceeded",
 			},
-			// ServerAvailable=False with Deleting reason (priority 6).
+			// ServerAvailable=False with Deleting reason (priority 5).
 			{
 				Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
 				Status:  metav1.ConditionFalse,
@@ -169,7 +169,7 @@ var _ = Describe("SetHCloudMachineV1Beta2SummaryCondition", func() {
 		}
 		Expect(summaryMsg).ToNot(BeEmpty())
 
-		// HCloudRateLimitExceeded (priority 2) before ServerAvailable (priority 6).
+		// HCloudRateLimitExceeded (priority 2) before ServerAvailable (priority 5).
 		Expect(summaryMsg).To(MatchRegexp(`(?s)rate limit exceeded.*machine is deleting`))
 	})
 })

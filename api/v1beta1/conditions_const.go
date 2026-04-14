@@ -286,8 +286,7 @@ const (
 	HCloudMachineServerCreatedV1Beta2Reason = "Created"
 	// HCloudMachineServerNotCreatedV1Beta2Reason surfaces when the HCloud server has not been created.
 	HCloudMachineServerNotCreatedV1Beta2Reason = "NotCreated"
-	// HCloudMachineServerWaitingForBootstrapDataV1Beta2Reason surfaces when the server cannot be created
-	// because bootstrap data is not yet available.
+	// HCloudMachineServerWaitingForBootstrapDataV1Beta2Reason surfaces when the server cannot be created because bootstrap data is not yet available.
 	HCloudMachineServerWaitingForBootstrapDataV1Beta2Reason = clusterv1.WaitingForBootstrapDataV1Beta2Reason
 	// HCloudMachineServerCreateFailedIrrecoverableV1Beta2Reason surfaces an irrecoverable create failure.
 	HCloudMachineServerCreateFailedIrrecoverableV1Beta2Reason = "CreateFailedIrrecoverable"
