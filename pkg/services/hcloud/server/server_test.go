@@ -1229,6 +1229,33 @@ var _ = Describe("Reconcile", func() {
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason)).To(BeTrue())
 	})
 
+	It("requeues for 5 minutes when server creation is not possible while creating a server", func() {
+		By("setting the bootstrap data")
+		err = testEnv.Create(ctx, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "bootstrapsecret",
+				Namespace: testNs.Name,
+			},
+			Data: map[string][]byte{
+				"value": []byte("dummy-bootstrap-data"),
+			},
+		})
+		Expect(err).To(BeNil())
+
+		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
+
+		By("ensuring that the mock hcloud client returns no server type")
+		hcloudClient.On("GetServerType", mock.Anything, mock.Anything).Return(nil, nil).Once()
+
+		By("calling reconcile")
+		res, err := service.Reconcile(ctx)
+		Expect(err).To(BeNil())
+		Expect(res).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Minute}))
+
+		By("ensuring the server type not found condition is set")
+		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.ServerCreateSucceededCondition, infrav1.ServerTypeNotFoundReason)).To(BeTrue())
+	})
+
 	It("sets condition HCloudCredentialsInvalid when HCloud API returns 'unauthorized' error while finding server", func() {
 		By("setting the bootstrap data")
 		err = testEnv.Create(ctx, &corev1.Secret{
