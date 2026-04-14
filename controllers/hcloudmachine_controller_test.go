@@ -404,8 +404,8 @@ var _ = Describe("HCloudMachineReconciler", func() {
 					if c.Reason != infrav1.BootstrapNotReadyReason {
 						return fmt.Errorf("BootstrapNotReadyReason not set. Reason: %q", c.Reason)
 					}
-					if !isPresentAndFalseWithReasonV1Beta2(key, hcloudMachine, infrav1.HCloudMachineBootstrapReadyV1Beta2Condition, infrav1.HCloudMachineBootstrapNotReadyV1Beta2Reason) {
-						return fmt.Errorf("HCloudMachineBootstrapReadyV1Beta2Condition not false with expected reason")
+					if !isPresentAndFalseWithReasonV1Beta2(key, hcloudMachine, infrav1.HCloudMachineServerCreatedV1Beta2Condition, infrav1.HCloudMachineServerWaitingForBootstrapDataV1Beta2Reason) {
+						return fmt.Errorf("ServerCreatedV1Beta2Condition not false with WaitingForBootstrapData reason")
 					}
 					return nil
 				}, timeout, interval).Should(Succeed())
@@ -426,8 +426,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				By("checking that bootstrap condition is ready")
 
 				Eventually(func() bool {
-					return isPresentAndTrue(key, hcloudMachine, infrav1.BootstrapReadyCondition) &&
-						isPresentAndTrueV1Beta2(key, hcloudMachine, infrav1.HCloudMachineBootstrapReadyV1Beta2Condition, infrav1.HCloudMachineBootstrapReadyV1Beta2Reason)
+					return isPresentAndTrue(key, hcloudMachine, infrav1.BootstrapReadyCondition)
 				}, timeout, interval).Should(BeTrue())
 
 				By("listing hcloud servers")

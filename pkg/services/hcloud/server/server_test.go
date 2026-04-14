@@ -876,8 +876,8 @@ var _ = Describe("Reconcile", func() {
 		By("ensuring the BootstrapReady condition is marked as false")
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.BootstrapReadyCondition, infrav1.BootstrapNotReadyReason)).To(BeTrue())
 
-		By("ensuring the v1beta2 BootstrapReady and Ready conditions are false")
-		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudMachineBootstrapReadyV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudMachineBootstrapNotReadyV1Beta2Reason)).To(BeTrue())
+		By("ensuring the v1beta2 ServerCreated condition is false with WaitingForBootstrapData reason")
+		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudMachineServerCreatedV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudMachineServerWaitingForBootstrapDataV1Beta2Reason)).To(BeTrue())
 		Expect(scope.SetHCloudMachineV1Beta2SummaryCondition(service.scope.HCloudMachine)).To(Succeed())
 		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudMachineReadyV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudMachineNotReadyV1Beta2Reason)).To(BeTrue())
 	})

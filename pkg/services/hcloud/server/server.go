@@ -100,20 +100,15 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 			"bootstrap not ready yet",
 		)
 		v1beta2conditions.Set(s.scope.HCloudMachine, metav1.Condition{
-			Type:    infrav1.HCloudMachineBootstrapReadyV1Beta2Condition,
+			Type:    infrav1.HCloudMachineServerCreatedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineBootstrapNotReadyV1Beta2Reason,
+			Reason:  infrav1.HCloudMachineServerWaitingForBootstrapDataV1Beta2Reason,
 			Message: "bootstrap not ready yet",
 		})
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
 	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.BootstrapReadyCondition)
-	v1beta2conditions.Set(s.scope.HCloudMachine, metav1.Condition{
-		Type:   infrav1.HCloudMachineBootstrapReadyV1Beta2Condition,
-		Status: metav1.ConditionTrue,
-		Reason: infrav1.HCloudMachineBootstrapReadyV1Beta2Reason,
-	})
 
 	var server *hcloud.Server
 

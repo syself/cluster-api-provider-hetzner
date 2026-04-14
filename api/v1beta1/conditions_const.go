@@ -280,21 +280,15 @@ const (
 )
 
 const (
-	// HCloudMachineBootstrapReadyV1Beta2Condition reports on whether bootstrap data is ready.
-	HCloudMachineBootstrapReadyV1Beta2Condition = "BootstrapReady"
-	// HCloudMachineBootstrapReadyV1Beta2Reason surfaces when bootstrap data is ready.
-	HCloudMachineBootstrapReadyV1Beta2Reason = "Ready"
-	// HCloudMachineBootstrapNotReadyV1Beta2Reason surfaces when bootstrap data is not ready yet.
-	HCloudMachineBootstrapNotReadyV1Beta2Reason = clusterv1.WaitingForBootstrapDataV1Beta2Reason
-)
-
-const (
 	// HCloudMachineServerCreatedV1Beta2Condition reports on whether the HCloud server was created.
 	HCloudMachineServerCreatedV1Beta2Condition = "ServerCreated"
 	// HCloudMachineServerCreatedV1Beta2Reason surfaces when the HCloud server has been created.
 	HCloudMachineServerCreatedV1Beta2Reason = "Created"
 	// HCloudMachineServerNotCreatedV1Beta2Reason surfaces when the HCloud server has not been created.
 	HCloudMachineServerNotCreatedV1Beta2Reason = "NotCreated"
+	// HCloudMachineServerWaitingForBootstrapDataV1Beta2Reason surfaces when the server cannot be created
+	// because bootstrap data is not yet available.
+	HCloudMachineServerWaitingForBootstrapDataV1Beta2Reason = clusterv1.WaitingForBootstrapDataV1Beta2Reason
 	// HCloudMachineServerCreateFailedIrrecoverableV1Beta2Reason surfaces an irrecoverable create failure.
 	HCloudMachineServerCreateFailedIrrecoverableV1Beta2Reason = "CreateFailedIrrecoverable"
 )
@@ -346,16 +340,14 @@ const (
 // of the highest-priority (earliest) one. The ordering reflects operational importance:
 //  1. HCloudTokenAvailable      - invalid credentials block everything.
 //  2. HCloudRateLimitExceeded   - rate-limit issues (negative polarity).
-//  3. BootstrapReady            - bootstrap data must be ready before provisioning.
-//  4. ServerCreated             - server existence precedes later lifecycle stages.
-//  5. ServerProvisioned         - provisioning precedes availability.
-//  6. ServerAvailable
+//  3. ServerCreated             - server existence precedes later lifecycle stages; bootstrap readiness is folded in as a reason.
+//  4. ServerProvisioned         - provisioning precedes availability.
+//  5. ServerAvailable
 func HCloudMachineV1Beta2OwnedConditions() []string {
 	return []string{
 		HCloudMachineReadyV1Beta2Condition,
 		HCloudMachineHCloudTokenAvailableV1Beta2Condition,
 		HCloudMachineHCloudRateLimitExceededV1Beta2Condition,
-		HCloudMachineBootstrapReadyV1Beta2Condition,
 		HCloudMachineServerCreatedV1Beta2Condition,
 		HCloudMachineServerProvisionedV1Beta2Condition,
 		HCloudMachineServerAvailableV1Beta2Condition,
