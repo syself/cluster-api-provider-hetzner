@@ -34,8 +34,15 @@ const (
 	// AllowEmptyControlPlaneAddressAnnotation allows HetznerCluster Webhook
 	// to skip some validation steps for externally managed control planes.
 	AllowEmptyControlPlaneAddressAnnotation = "capi.syself.com/allow-empty-control-plane-address"
+	// SkipNamespaceAnnotation marks a namespace so CAPH controllers skip reconciliation.
+	SkipNamespaceAnnotation = "capi.syself.com/skip-namespace"
 	// ConstantBareMetalHostnameAnnotation makes hostnames of bare metal servers constant.
 	ConstantBareMetalHostnameAnnotation = "capi.syself.com/constant-bare-metal-hostname"
+
+	// UseHrobotProviderIDForBaremetalAnnotation on a HetznerCluster defines which ProviderID
+	// format to use for baremetal nodes. If "true" "hrobot://" will be used. If not set or empty,
+	// then the old format ("hcloud://bm-") gets used.
+	UseHrobotProviderIDForBaremetalAnnotation = "capi.syself.com/use-hrobot-provider-id-for-baremetal"
 )
 
 // HetznerClusterSpec defines the desired state of HetznerCluster.

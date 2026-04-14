@@ -55,9 +55,6 @@ import (
 // TODO: Implement logic for removal of unpaid servers.
 
 const (
-	// providerIDPrefix is a prefix for ProviderID.
-	providerIDPrefix = "hcloud://"
-
 	// requeueAfter gives the duration of time until the next reconciliation should be performed.
 	requeueAfter = time.Second * 30
 
@@ -65,6 +62,12 @@ const (
 
 	// FailureMessageMaintenanceMode indicates that host is in maintenance mode.
 	FailureMessageMaintenanceMode = "host machine in maintenance mode"
+
+	// prefixRobotLegacy is the prefix used by the Syself ccm.
+	prefixRobotLegacy = "hcloud://bm-"
+
+	// prefixRobotNew is the prefix used by the HCloud ccm.
+	prefixRobotNew = "hrobot://"
 )
 
 // Service defines struct with machine scope to reconcile HetznerBareMetalMachines.
@@ -115,6 +118,20 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	// update the machine
 	host, err := s.update(ctx)
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			// if host doesn't exist, set HostNotFound condition on HetznerBaremetalMachine
+			// and mark the machine object for remediation and stop reconciling.
+			conditions.MarkFalse(
+				s.scope.BareMetalMachine,
+				infrav1.HostReadyCondition,
+				infrav1.HostNotFoundReason,
+				clusterv1.ConditionSeverityError,
+				"associated host not found",
+			)
+
+			return reconcile.Result{}, s.scope.SetRemediateMachineAnnotationToDeleteMachine(ctx, "Reconcile of hbmm: host not found")
+		}
+
 		return checkForRequeueError(err, "failed to update machine")
 	}
 
@@ -140,10 +157,9 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 	// get host - ignore if not found
 	host, helper, err := s.getAssociatedHostAndPatchHelper(ctx)
-	if err != nil {
+	if err != nil && !apierrors.IsNotFound(err) {
 		return reconcile.Result{}, fmt.Errorf("failed to get associated host: %w", err)
 	}
-
 	if host != nil && host.Spec.ConsumerRef != nil {
 		s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhaseDeleting
 
@@ -215,13 +231,9 @@ func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 func (s *Service) update(ctx context.Context) (*infrav1.HetznerBareMetalHost, error) {
 	host, helper, err := s.getAssociatedHostAndPatchHelper(ctx)
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			msg := fmt.Sprintf("host not found for machine %q. Setting error and deleting machine", s.scope.Machine.Name)
-			err = s.scope.SetRemediateMachineAnnotationToDeleteMachine(ctx, msg)
-			return nil, err
-		}
 		return nil, fmt.Errorf("failed to get host: %w", err)
 	}
+
 	if host == nil {
 		err = errors.Join(s.scope.SetRemediateMachineAnnotationToDeleteMachine(ctx, "Reconcile of hbmm: host not found"))
 		return nil, fmt.Errorf("host not found for machine %s: %w", s.scope.Machine.Name, err)
@@ -362,7 +374,7 @@ func (s *Service) associate(ctx context.Context) error {
 }
 
 // getAssociatedHostAndPatchHelper gets the associated host by looking for an annotation on the
-// machine that contains a reference to the host. Returns nil if not found. Assumes the host is in
+// machine that contains a reference to the host. Assumes the host is in
 // the same namespace as the machine. Additionally, a PatchHelper gets returned.
 func (s *Service) getAssociatedHostAndPatchHelper(ctx context.Context) (*infrav1.HetznerBareMetalHost, *patch.Helper, error) {
 	host, err := host.GetAssociatedHost(ctx, s.scope.Client, s.scope.BareMetalMachine)
@@ -680,9 +692,7 @@ func (s *Service) setProviderID(ctx context.Context) error {
 		// no need for requeue error since host update will trigger a reconciliation
 		return nil
 	}
-
-	// set providerID
-	providerID := providerIDFromServerID(host.Spec.ServerID)
+	providerID := generateProviderID(s.scope.HetznerCluster, host.Spec.ServerID)
 	s.scope.BareMetalMachine.Spec.ProviderID = &providerID
 	s.scope.BareMetalMachine.Status.Phase = clusterv1.MachinePhaseRunning
 
@@ -891,10 +901,6 @@ func checkForRequeueError(err error, errMessage string) (res reconcile.Result, r
 	return reconcile.Result{}, fmt.Errorf("%s: %w", errMessage, err)
 }
 
-func providerIDFromServerID(serverID int) string {
-	return fmt.Sprintf("%s%s%d", providerIDPrefix, infrav1.BareMetalHostNamePrefix, serverID)
-}
-
 func analyzePatchError(err error, ignoreNotFound bool) error {
 	if apierrors.IsConflict(err) {
 		return &scope.RequeueAfterError{}
@@ -903,4 +909,16 @@ func analyzePatchError(err error, ignoreNotFound bool) error {
 		return nil
 	}
 	return err
+}
+
+// generateProviderID returns the providerID for the given machine. It uses the old format
+// (hcloud://bm-NNNN) by default. If the annotation
+// `capi.syself.com/use-hrobot-provider-id-for-baremetal` on the HetznerCluster is set to "true"
+// (case-insensitive), then `hrobot://` is used.
+func generateProviderID(hetznerCluster *infrav1.HetznerCluster, serverNumber int) string {
+	annotationValue := strings.TrimSpace(hetznerCluster.Annotations[infrav1.UseHrobotProviderIDForBaremetalAnnotation])
+	if strings.EqualFold(annotationValue, "true") {
+		return fmt.Sprintf("%s%d", prefixRobotNew, serverNumber)
+	}
+	return fmt.Sprintf("%s%d", prefixRobotLegacy, serverNumber)
 }

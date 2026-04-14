@@ -160,13 +160,13 @@ var _ = Describe("handleServerStatusOff", func() {
 
 		Expect(res).Should(Equal(reconcile.Result{RequeueAfter: 30 * time.Second}))
 
-		Expect(conditions.GetReason(hcloudMachine, infrav1.ServerAvailableCondition)).To(Equal(infrav1.ServerOffReason))
+		Expect(conditions.GetReason(hcloudMachine, infrav1.ServerProvisionedCondition)).To(Equal(infrav1.ServerOffReason))
 
 		Expect(server.Status).To(Equal(hcloud.ServerStatusRunning))
 	})
 
 	It("tries to power on server again if it is not timed out", func() {
-		conditions.MarkFalse(hcloudMachine, infrav1.ServerAvailableCondition, infrav1.ServerOffReason, clusterv1.ConditionSeverityInfo, "")
+		conditions.MarkFalse(hcloudMachine, infrav1.ServerProvisionedCondition, infrav1.ServerOffReason, clusterv1.ConditionSeverityInfo, "")
 
 		service := newTestService(hcloudMachine, client)
 
@@ -177,16 +177,16 @@ var _ = Describe("handleServerStatusOff", func() {
 
 		Expect(server.Status).To(Equal(hcloud.ServerStatusRunning))
 
-		Expect(conditions.GetReason(hcloudMachine, infrav1.ServerAvailableCondition)).To(Equal(infrav1.ServerOffReason))
+		Expect(conditions.GetReason(hcloudMachine, infrav1.ServerProvisionedCondition)).To(Equal(infrav1.ServerOffReason))
 	})
 
 	It("sets a failure message if it timed out", func() {
-		conditions.MarkFalse(hcloudMachine, infrav1.ServerAvailableCondition, infrav1.ServerOffReason, clusterv1.ConditionSeverityInfo, "")
+		conditions.MarkFalse(hcloudMachine, infrav1.ServerProvisionedCondition, infrav1.ServerOffReason, clusterv1.ConditionSeverityInfo, "")
 
 		// manipulate lastTransitionTime
 		conditionsList := hcloudMachine.GetConditions()
 		for i, c := range conditionsList {
-			if c.Type == infrav1.ServerAvailableCondition {
+			if c.Type == infrav1.ServerProvisionedCondition {
 				conditionsList[i].LastTransitionTime = metav1.NewTime(time.Now().Add(-time.Hour))
 			}
 		}
@@ -206,7 +206,7 @@ var _ = Describe("handleServerStatusOff", func() {
 	})
 
 	It("tries to power on server and sets new condition if different one is set", func() {
-		conditions.MarkTrue(hcloudMachine, infrav1.ServerAvailableCondition)
+		conditions.MarkTrue(hcloudMachine, infrav1.ServerProvisionedCondition)
 
 		service := newTestService(hcloudMachine, client)
 
@@ -215,9 +215,55 @@ var _ = Describe("handleServerStatusOff", func() {
 
 		Expect(res).Should(Equal(reconcile.Result{RequeueAfter: 30 * time.Second}))
 
-		Expect(conditions.GetReason(hcloudMachine, infrav1.ServerAvailableCondition)).To(Equal(infrav1.ServerOffReason))
+		Expect(conditions.GetReason(hcloudMachine, infrav1.ServerProvisionedCondition)).To(Equal(infrav1.ServerOffReason))
 
 		Expect(server.Status).To(Equal(hcloud.ServerStatusRunning))
+	})
+})
+
+var _ = Describe("Delete", func() {
+	It("returns without querying hcloud when ProviderID is nil", func() {
+		hcloudMachine := &infrav1.HCloudMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-machine",
+				Namespace: "default",
+			},
+		}
+		hcloudClient := &mocks.Client{}
+		service := newTestService(hcloudMachine, hcloudClient)
+
+		res, err := service.Delete(context.Background())
+
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res).To(Equal(reconcile.Result{}))
+		Expect(hcloudMachine.Status.InstanceState).To(Equal(ptr.To(hcloud.ServerStatusDeleting)))
+		Expect(hcloudClient.AssertNotCalled(GinkgoT(), "GetServer", mock.Anything, mock.Anything)).To(BeTrue())
+		Expect(hcloudClient.AssertNotCalled(GinkgoT(), "ListServers", mock.Anything, mock.Anything)).To(BeTrue())
+	})
+	It("sets HCloudTokenAvailable condition to false when HCloud API returns unauthorized error", func() {
+		hcloudMachine := &infrav1.HCloudMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-machine",
+				Namespace: "default",
+			},
+			Spec: infrav1.HCloudMachineSpec{
+				ProviderID: ptr.To("hcloud://1234567"),
+			},
+		}
+		hcloudClient := &mocks.Client{}
+		service := newTestService(hcloudMachine, hcloudClient)
+
+		hcloudClient.On("GetServer", mock.Anything, int64(1234567)).Return(nil, fmt.Errorf("%w: invalid HCloud token", hcloudclient.ErrUnauthorized)).Once()
+
+		res, err := service.Delete(context.Background())
+		Expect(err).To(BeNil())
+		Expect(res).To(Equal(reconcile.Result{}))
+
+		Expect(hcloudMachine.Status.InstanceState).To(Equal(ptr.To(hcloud.ServerStatusDeleting)))
+		Expect(conditions.IsFalse(hcloudMachine, infrav1.HCloudTokenAvailableCondition)).To(BeTrue())
+		Expect(conditions.GetReason(hcloudMachine, infrav1.HCloudTokenAvailableCondition)).To(Equal(infrav1.HCloudCredentialsInvalidReason))
+
+		hcloudClient.AssertExpectations(GinkgoT())
 	})
 })
 
@@ -312,6 +358,98 @@ var _ = Describe("Test handleRateLimit", func() {
 			expectCondition: false,
 		}),
 	)
+})
+
+var _ = Describe("findServer", func() {
+	It("returns wrapped GetServer errors so callers can detect rate limits", func() {
+		hcloudMachine := &infrav1.HCloudMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-machine",
+				Namespace: "default",
+			},
+			Spec: infrav1.HCloudMachineSpec{
+				ProviderID: ptr.To("hcloud://1234567"),
+			},
+		}
+		hcloudClient := mocks.NewClient(GinkgoT())
+		service := newTestService(hcloudMachine, hcloudClient)
+
+		rateLimitErr := hcloud.Error{
+			Code:    hcloud.ErrorCodeRateLimitExceeded,
+			Message: "rate limit exceeded for ip 48.49.48.49",
+		}
+		hcloudClient.On("GetServer", mock.Anything, int64(1234567)).Return(nil, rateLimitErr).Once()
+
+		server, err := service.findServer(context.Background())
+		Expect(server).To(BeNil())
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("failed to get server 1234567"))
+		Expect(hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded)).To(BeTrue())
+		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
+	})
+
+	It("returns wrapped ListServers errors so callers can detect rate limits", func() {
+		hcloudMachine := &infrav1.HCloudMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-machine",
+				Namespace: "default",
+			},
+		}
+		hcloudClient := mocks.NewClient(GinkgoT())
+		service := newTestService(hcloudMachine, hcloudClient)
+		service.scope.HetznerCluster = &infrav1.HetznerCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test-cluster",
+			},
+		}
+
+		rateLimitErr := hcloud.Error{
+			Code:    hcloud.ErrorCodeRateLimitExceeded,
+			Message: "rate limit exceeded for ip 48.49.48.49",
+		}
+		hcloudClient.On("ListServers", mock.Anything, mock.Anything).Return(nil, rateLimitErr).Once()
+
+		server, err := service.findServer(context.Background())
+		Expect(server).To(BeNil())
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("failed to list servers"))
+		Expect(hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded)).To(BeTrue())
+		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
+	})
+})
+
+var _ = Describe("Delete", func() {
+	It("routes findServer rate-limit errors through handleRateLimit", func() {
+		hcloudMachine := &infrav1.HCloudMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:              "my-machine",
+				Namespace:         "default",
+				DeletionTimestamp: &metav1.Time{Time: time.Now()},
+			},
+			Status: infrav1.HCloudMachineStatus{
+				Ready: true,
+			},
+			Spec: infrav1.HCloudMachineSpec{
+				ProviderID: ptr.To("hcloud://1234567"),
+			},
+		}
+		hcloudClient := mocks.NewClient(GinkgoT())
+		service := newTestService(hcloudMachine, hcloudClient)
+
+		rateLimitErr := hcloud.Error{
+			Code:    hcloud.ErrorCodeRateLimitExceeded,
+			Message: "rate limit exceeded for ip 48.49.48.49",
+		}
+		hcloudClient.On("GetServer", mock.Anything, int64(1234567)).Return(nil, rateLimitErr).Once()
+
+		res, err := service.Delete(context.Background())
+		Expect(res).To(Equal(reconcile.Result{}))
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(Equal("failed to find server for deletion: failed to get server 1234567: rate limit exceeded for ip 48.49.48.49 (rate_limit_exceeded)"))
+		Expect(hcloud.IsError(err, hcloud.ErrorCodeRateLimitExceeded)).To(BeTrue())
+		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason)).To(BeTrue())
+		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
+	})
 })
 
 var _ = Describe("getSSHKeys", func() {
@@ -868,9 +1006,9 @@ var _ = Describe("Reconcile", func() {
 			},
 		})
 		Expect(err).To(BeNil())
-		service.scope.ImageURLCommand = "dummy-image-url-command.sh"
 		service.scope.HCloudMachine.Spec.ImageName = ""
 		service.scope.HCloudMachine.Spec.ImageURL = "oci://example.com/repo/image:v1"
+		service.scope.HCloudMachine.Spec.ImageURLCommand = "image-url-command-test.sh"
 
 		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
 
@@ -1091,6 +1229,33 @@ var _ = Describe("Reconcile", func() {
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason)).To(BeTrue())
 	})
 
+	It("requeues for 5 minutes when server creation is not possible while creating a server", func() {
+		By("setting the bootstrap data")
+		err = testEnv.Create(ctx, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "bootstrapsecret",
+				Namespace: testNs.Name,
+			},
+			Data: map[string][]byte{
+				"value": []byte("dummy-bootstrap-data"),
+			},
+		})
+		Expect(err).To(BeNil())
+
+		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
+
+		By("ensuring that the mock hcloud client returns no server type")
+		hcloudClient.On("GetServerType", mock.Anything, mock.Anything).Return(nil, nil).Once()
+
+		By("calling reconcile")
+		res, err := service.Reconcile(ctx)
+		Expect(err).To(BeNil())
+		Expect(res).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Minute}))
+
+		By("ensuring the server type not found condition is set")
+		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.ServerCreateSucceededCondition, infrav1.ServerTypeNotFoundReason)).To(BeTrue())
+	})
+
 	It("sets condition HCloudCredentialsInvalid when HCloud API returns 'unauthorized' error while finding server", func() {
 		By("setting the bootstrap data")
 		err = testEnv.Create(ctx, &corev1.Secret{
@@ -1127,8 +1292,9 @@ var _ = Describe("Reconcile", func() {
 		}).Once()
 
 		By("calling reconcile again")
-		_, err = service.Reconcile(ctx)
-		Expect(err).NotTo(BeNil())
+		res, err := service.Reconcile(ctx)
+		Expect(err).To(BeNil())
+		Expect(res).To(Equal(reconcile.Result{RequeueAfter: 30 * time.Second}))
 
 		By("ensuring conditions HCloudCredentialsInvalid and RateLimitExceeded are set")
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason)).To(BeTrue())

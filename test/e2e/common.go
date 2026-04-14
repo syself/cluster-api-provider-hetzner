@@ -38,12 +38,10 @@ const (
 	CiliumPath          = "CILIUM"
 	CiliumResources     = "CILIUM_RESOURCES"
 
-	// TODO: We should clean up here.
-	// We only support the syself ccm.
-	// To make this clear, we should use the term "syself".
-	// Currently (in this context) "hetzner" means the syself-ccm,
-	// and "hcloud" means the hcloud ccm (which now supports bare-metal, too)
-	// Nevertheless, the hcloud/hetzner ccm is not supported.
+	// TODO: We should clean up these legacy names.
+	// Historically "hetzner" here referred to the baremetal CCM resources.
+	// The baremetal e2e now also uses the upstream hcloud CCM, but the variable
+	// names are kept for compatibility with the existing cluster templates.
 	CCMPath             = "CCM"
 	CCMResources        = "CCM_RESOURCES"
 	CCMNetworkPath      = "CCM_NETWORK"

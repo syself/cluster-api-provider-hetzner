@@ -115,7 +115,7 @@ $(CTLPTL):
 CLUSTERCTL := $(abspath $(TOOLS_BIN_DIR)/clusterctl)
 clusterctl: $(CLUSTERCTL) ## Build a local copy of clusterctl
 $(CLUSTERCTL):
-	go install sigs.k8s.io/cluster-api/cmd/clusterctl@v1.10.9
+	go install sigs.k8s.io/cluster-api/cmd/clusterctl@v1.10.10
 
 HCLOUD := $(abspath $(TOOLS_BIN_DIR)/hcloud)
 hcloud: $(HCLOUD) ## Build a local copy of hcloud
@@ -202,9 +202,10 @@ ifeq ($(BUILD_IN_CONTAINER),true)
 else
 	helm repo add syself https://charts.syself.com
 	helm repo update syself
-	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hetzner --version 2.0.1 \
+	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hetzner --version 2.0.6 \
 	--namespace kube-system \
-	--set privateNetwork.enabled=$(PRIVATE_NETWORK)
+	--set privateNetwork.enabled=$(PRIVATE_NETWORK) \
+	--set-json 'extraEnvVars=[{"name":"HCLOUD_USE_HROBOT_PROVIDER_ID_FOR_BAREMETAL","value":"true"}]'
 	@echo
 	@echo 'run "kubectl --kubeconfig=$(WORKER_CLUSTER_KUBECONFIG) ..." to work with the new target cluster'
 	@echo
@@ -538,6 +539,10 @@ verify-starlark: ## Verify Starlark Code
 verify-manifests:
 	./hack/verify-manifests.sh
 
+.PHONY: verify-capi-version
+verify-capi-version: ## Verify Cluster API versions stay aligned with go.mod
+	./hack/check-capi-version.sh
+
 .PHONY: verify-container-images
 verify-container-images: ## Verify container images
 	trivy image -q --exit-code 1 --ignore-unfixed --severity MEDIUM,HIGH,CRITICAL $(IMAGE_PREFIX)/$(INFRA_SHORT):latest
@@ -593,8 +598,7 @@ else
 	# these from the builder-image now.
 	rm -f ./hack/tools/bin/controller-gen ./hack/tools/bin/helm
 	controller-gen \
-			paths=./api/... \
-			paths=./controllers/... \
+			paths="{./, ./api/..., ./controllers/...}" \
 			crd:crdVersions=v1 \
 			rbac:roleName=manager-role \
 			output:crd:dir=./config/crd/bases \
@@ -724,9 +728,7 @@ ifeq ($(BUILD_IN_CONTAINER),true)
 		-v $(shell pwd):/src/cluster-api-provider-$(INFRA_PROVIDER)$(MOUNT_FLAGS) \
 		$(BUILDER_IMAGE):$(BUILDER_IMAGE_VERSION) $@;
 else
-	@lychee --version
-	@if [ -z "$${GITHUB_TOKEN}" ]; then echo "GITHUB_TOKEN is not set"; exit 1; fi
-	lychee --verbose --config .lychee.toml --root-dir "$$(pwd)" --cache ./*.md ./docs/**/*.md 2>&1 | grep -vP '\[(200|EXCLUDED)\]'
+	./hack/lint-links.sh
 endif
 
 ##@ Main Targets
@@ -753,7 +755,7 @@ endif
 .PHONY: generate
 generate: generate-manifests generate-go-deepcopy generate-boilerplate generate-modules generate-mocks ## Generate Files
 
-ALL_VERIFY_CHECKS = boilerplate shellcheck starlark manifests
+ALL_VERIFY_CHECKS = boilerplate shellcheck starlark manifests capi-version
 .PHONY: verify
 verify: generate lint $(addprefix verify-,$(ALL_VERIFY_CHECKS)) ## Verify all
 

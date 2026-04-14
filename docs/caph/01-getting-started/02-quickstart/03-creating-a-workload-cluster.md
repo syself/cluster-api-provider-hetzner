@@ -73,6 +73,11 @@ clusterctl get kubeconfig my-cluster > $CAPH_WORKER_CLUSTER_KUBECONFIG
 
 Cilium is used as a CNI solution in this guide. The following command deploys it to your cluster:
 
+The file `templates/cilium/values.yaml` is a repo-provided Helm values file in this repository.
+Before running the command, make sure this file exists at that path in your working environment
+(for example, by using it from a local checkout of this repo or copying it from
+`templates/cilium/values.yaml` into your working directory setup).
+
 ```shell
 helm repo add cilium https://helm.cilium.io/
 
@@ -85,23 +90,21 @@ You can, of course, also install an alternative CNI, e.g., calico.
 
 ## Deploy the CCM
 
-### Deploy HCloud Cloud Controller Manager - _hcloud only_
+The CCM (Cloud Controller Manager) runs in the workload cluster and integrates Kubernetes with the
+Hetzner APIs. In practice, it is responsible for tasks such as setting the `ProviderID` on nodes
+and managing load balancers.
 
-The following `make` command will install the CCM in your workload cluster:
+You need to install a CCM in this flow so the workload cluster can properly interact with Hetzner
+infrastructure.
+
+### Deploy Syself Cloud Controller Manager
+
+The following `make` command will install the Syself CCM in your workload cluster:
 
 `make install-ccm-in-wl-cluster`
 
-For a cluster without a private network, use the following command:
-
-```shell
-helm repo add hcloud https://charts.hetzner.cloud
-helm repo update hcloud
-
-KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install hccm hcloud/hcloud-cloud-controller-manager \
-        --namespace kube-system \
-        --set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.name=hetzner \
-        --set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.key=hcloud
-```
+For upstream HCloud CCM instructions and bare-metal ProviderID format details, see [Baremetal
+Docs](/docs/caph/02-topics/05-baremetal/03-creating-workload-cluster.md#deploying-the-hetzner-cloud-controller-manager)
 
 ## Deploying the CSI (optional)
 
@@ -122,15 +125,18 @@ KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install csi hcloud/hcl
 --namespace kube-system -f csi-values.yaml
 ```
 
-## Clean Up
+If you want to continue with the next step and move the Cluster API components to your workload
+cluster (so it becomes the new management cluster), do not run the cleanup command.
 
-Delete the workload cluster and remove all of the components by using:
+## Clean Up (optional)
+
+If you want to stop here, delete the workload cluster and remove all of the components by using:
 
 ```shell
 kubectl delete cluster my-cluster
 ```
 
-> **IMPORTANT**: In order to ensure a proper clean-up of your infrastructure, you must always delete the cluster object. Deleting the entire cluster template with the `kubectl delete -f capi-quickstart.yaml` command might lead to pending resources that have to be cleaned up manually.
+> **IMPORTANT**: In order to ensure a proper clean-up of your infrastructure, you must always delete the cluster object. Deleting the entire cluster template with the `kubectl delete -f my-cluster.yaml` command might lead to pending resources that have to be cleaned up manually.
 
 Delete management cluster with the following command:
 

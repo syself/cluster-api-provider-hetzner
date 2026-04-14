@@ -13,4 +13,10 @@ Therefore, there is the possibility to create a cluster that uses fixed node nam
 
 You can trigger this feature by creating a `Cluster` or `HetznerBareMetalMachine` (you can choose) with the annotation `"capi.syself.com/constant-bare-metal-hostname": "true"`. Of course, `HetznerBareMetalMachines` are not created by the user. However, if you use the `ClusterClass`, then you can add the annotation to a `MachineDeployment`, so that all machines are created with this annotation.
 
+The name follows this pattern:
+
+> bm-CLUSTERNAME-SERVERID
+
+For example: `bm-mycluster-12345678`
+
 This is still an experimental feature but it should be safe to use and to also update existing clusters with this annotation. All new machines will be created with this constant hostname.

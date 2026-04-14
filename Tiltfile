@@ -22,7 +22,7 @@ settings = {
     "deploy_observability": False,
     "preload_images_for_kind": True,
     "kind_cluster_name": "caph",
-    "capi_version": "v1.10.9",
+    "capi_version": "v1.10.10",
     "cabpt_version": "v0.5.6",
     "cacppt_version": "v0.4.11",
     "cert_manager_version": "v1.11.0",
@@ -174,7 +174,7 @@ def caph():
             yaml = str(encode_yaml_stream(yaml_dict))
             yaml = fixup_yaml_empty_arrays(yaml)
 
-    local("cp data/hetzner-installimage-v1.0.7.tgz .tiltbuild/installimage.tgz")
+    local("cp data/hetzner-installimage-v1.0.8.tgz .tiltbuild/installimage.tgz")
 
     # Set up a local_resource build of the provider's manager binary.
 

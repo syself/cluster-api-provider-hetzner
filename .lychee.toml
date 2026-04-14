@@ -19,6 +19,11 @@ max_redirects = 10
 # Do not cache common rate-limit responses
 cache_exclude_status = "403, 429, 503"
 
+# Keep cached responses longer than the default 1d. Our CI cache is often
+# slightly older than 24h, which otherwise forces a full re-check and makes
+# transient upstream outages fail the build.
+max_cache_age = "7d"
+
 
 ###
 ### Requests
@@ -26,8 +31,10 @@ cache_exclude_status = "403, 429, 503"
 # User agent to send with each request
 user_agent = "curl/7.71.1"
 
-# Website timeout from connect to response finished
-timeout = 9
+# Website timeout from connect to response finished. The previous 9s setting
+# was more aggressive than lychee's default and caused flaky failures for slow
+# but healthy upstream sites such as kubernetes.io.
+timeout = 20
 
 # Comma-separated list of accepted status codes for valid links.
 # Omit to accept all response types.
@@ -80,5 +87,6 @@ exclude_link_local = false
 exclude_loopback = true
 
 # Avoid https://docs.hetzner.com/... | Failed: Network error: Connection reset by peer (os error 104)
-max_concurrency = 3
+max_concurrency = 1
+max_retries = 4
 retry_wait_time = 3

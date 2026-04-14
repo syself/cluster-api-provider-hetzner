@@ -275,30 +275,57 @@ spec:
                               Need to specify either HCloudToken or both HetznerRobotUser and HetznerRobotPassword.
                             properties:
                               hcloudToken:
-                                default: hcloud-token
-                                description: HCloudToken defines the name of the key
-                                  where the token for the Hetzner Cloud API is stored.
+                                description: |-
+                                  HCloudToken defines the name of the key where the token for the Hetzner Cloud API is stored.
+                                  The controller reads the token from the management-cluster secret using this key and writes
+                                  it to workload-cluster secrets using the same key. Upstream hcloud-ccm expects the key
+                                  "token", while the legacy Syself ccm fork uses "hcloud". The configured workload-cluster
+                                  secret remains untouched. CAPH only adds the compatibility key "token" inside the
+                                  workload-cluster secret named "hcloud", and only if this field is not already "token". If
+                                  the configured secret name is already "hcloud", the same token value is stored under both
+                                  keys in that single secret. We recommend to use "token".
                                 type: string
                               hetznerRobotPassword:
                                 default: hetzner-robot-password
-                                description: HetznerRobotPassword defines the name
-                                  of the key where the password for the Hetzner Robot
-                                  API is stored.
+                                description: |-
+                                  HetznerRobotPassword defines the name of the key where the password for the Hetzner Robot API
+                                  is stored.  It gets used for reading the credential in the mgt-cluster, and it gets used for
+                                  creating a secret in the wl-cluster. We recommend to use "robot-password", because this is
+                                  the default of upstream hcloud-ccm.
                                 type: string
                               hetznerRobotUser:
                                 default: hetzner-robot-user
-                                description: HetznerRobotUser defines the name of
-                                  the key where the username for the Hetzner Robot
-                                  API is stored.
+                                description: |-
+                                  HetznerRobotUser defines the name of the key where the username for the Hetzner Robot API is
+                                  stored.  It gets used for reading the credential in the mgt-cluster, and it gets used for
+                                  creating a secret in the wl-cluster. We recommend to use "robot-user", because this is the
+                                  default of upstream hcloud-ccm.
                                 type: string
                               sshKey:
                                 default: hcloud-ssh-key-name
-                                description: SSHKey defines the name of the ssh key.
+                                description: |-
+                                  SSHKey defines the name of the ssh key. It is only used in the mgt-cluster. It is not synced
+                                  to the wl-cluster.
                                 type: string
+                            required:
+                            - hcloudToken
                             type: object
                           name:
                             default: hetzner
-                            description: Name defines the name of the secret.
+                            description: |-
+                              Name defines the name of the secret. The controller reads the credential from the
+                              management-cluster secret with this name and creates a workload-cluster secret with the same
+                              name. The upstream hcloud-ccm helm chart expects the secret name "hcloud", while the Syself
+                              ccm fork defaults to "hetzner".
+
+                              To facilitate migrations to the upstream hcloud-ccm, it is ensured that the secret it expects
+                              is created in the proper way. This means that CAPH ensures that in the secret called "hcloud"
+                              there is the hcloud token stored under the key "token". This might lead to the same value
+                              being stored in two different keys of the same secret, depending on the configuration used
+                              here.
+
+                              We recommend to use the value "hcloud". Set `spec.skipCreatingHetznerSecretInWorkloadCluster`
+                              if you don't want workload-cluster secrets to be created.
                             type: string
                         required:
                         - key

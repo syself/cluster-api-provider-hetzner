@@ -33,8 +33,13 @@ Have a question, bug, or feature request? Let us know! https://kind.sigs.k8s.io/
 
 After creating the bootstrap cluster, it is also required to have some variables exported and the name of the variables that needs to be exported can be known by running the following command:
 
-```shell
-$ clusterctl generate cluster my-cluster --list-variables --flavor hetzner-hcloud-control-planes
+```console
+export CAPH_VERSION="v1.0.7"
+clusterctl generate cluster my-cluster \
+--infrastructure hetzner:${CAPH_VERSION} \
+--list-variables \
+--flavor hetzner-hcloud-control-planes
+
 Required Variables:
   - HCLOUD_CONTROL_PLANE_MACHINE_TYPE
   - HCLOUD_REGION
@@ -48,6 +53,15 @@ Optional Variables:
   - WORKER_MACHINE_COUNT         (defaults to 3)
 ```
 
+{% callout %}
+
+`clusterctl` needs a specific infrastructure provider version when rendering provider-specific templates.
+If the version is not already known in your local `clusterctl` state, auto-detection can fail.
+
+You can find available CAPH versions on the [GitHub tags page](https://github.com/syself/cluster-api-provider-hetzner/tags).
+
+{% /callout %}
+
 These variables are used during the deployment of Hetzner infrastructure provider in the cluster.
 
 Installing the Hetzner provider can be done using the following command:
@@ -60,9 +74,9 @@ clusterctl init --infrastructure hetzner
 Fetching providers
 Installing cert-manager Version="v1.14.2"
 Waiting for cert-manager to be available...
-Installing Provider="cluster-api" Version="v1.10.9" TargetNamespace="capi-system"
-Installing Provider="bootstrap-kubeadm" Version="v1.10.9" TargetNamespace="capi-kubeadm-bootstrap-system"
-Installing Provider="control-plane-kubeadm" Version="v1.10.9" TargetNamespace="capi-kubeadm-control-plane-system"
+Installing Provider="cluster-api" Version="v1.10.10" TargetNamespace="capi-system"
+Installing Provider="bootstrap-kubeadm" Version="v1.10.10" TargetNamespace="capi-kubeadm-bootstrap-system"
+Installing Provider="control-plane-kubeadm" Version="v1.10.10" TargetNamespace="capi-kubeadm-control-plane-system"
 Installing Provider="infrastructure-hetzner" Version="v1.0.7" TargetNamespace="caph-system"
 
 Your management cluster has been initialized successfully!
@@ -207,7 +221,7 @@ In the above server, we have not specified the WWN of the server and we have app
 
 After a while, you will see that there is an error in provisioning of `HetznerBareMetalHost` object that you just applied above. The error will look the following:
 
-```shell
+```console
 $ kubectl get hetznerbaremetalhost -A
 default     my-cluster-md-1-tgvl5   my-cluster   default/test-bm-gpu    my-cluster-md-1-t9znj-694hs   Provisioning   23m   ValidationFailed   no root device hints specified
 ```
