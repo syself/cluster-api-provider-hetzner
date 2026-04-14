@@ -563,18 +563,18 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 		if err != nil {
 			err = fmt.Errorf("action %+v failed (wait for rescue enabled): %w", action, err)
 			s.scope.Error(err, "")
-			err := s.scope.SetErrorAndRemediate(ctx, err.Error())
-			if err != nil {
+			actionErrMsg := err.Error()
+			if err := s.scope.SetErrorAndRemediate(ctx, actionErrMsg); err != nil {
 				return reconcile.Result{}, err
 			}
 			conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
 				"EnablingRescueActionFailed", clusterv1.ConditionSeverityWarning,
-				"%s", err.Error())
+				"%s", actionErrMsg)
 			v1beta2conditions.Set(hm, metav1.Condition{
 				Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 				Status:  metav1.ConditionFalse,
 				Reason:  infrav1.HCloudMachineServerNotProvisionedV1Beta2Reason,
-				Message: err.Error(),
+				Message: actionErrMsg,
 			})
 			return reconcile.Result{}, nil
 		}

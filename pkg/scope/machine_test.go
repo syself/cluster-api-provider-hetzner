@@ -140,7 +140,7 @@ var _ = Describe("SetHCloudMachineV1Beta2SummaryCondition", func() {
 		Expect(summaryMsg).To(MatchRegexp(`(?s)token is invalid.*machine is deleting.*server is not available`))
 	})
 
-	It("surfaces HetznerAPIReachable before Deleting when both are unhealthy", func() {
+	It("surfaces RateLimitExceeded before Deleting when both are unhealthy", func() {
 		hcloudMachine := &infrav1.HCloudMachine{
 			Status: infrav1.HCloudMachineStatus{
 				V1Beta2: &infrav1.HCloudMachineV1Beta2Status{},

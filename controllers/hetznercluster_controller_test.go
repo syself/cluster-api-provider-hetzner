@@ -1475,7 +1475,7 @@ var _ = Describe("reconcileRateLimit", func() {
 		Expect(reconcileRateLimit(hetznerCluster, testEnv.RateLimitWaitTime)).To(BeFalse())
 	})
 
-	It("sets v1beta2 HetznerAPIReachable condition on HCloudMachine when wait is over", func() {
+	It("sets v1beta2 RateLimitExceeded condition on HCloudMachine when wait is over", func() {
 		hcloudMachine := &infrav1.HCloudMachine{}
 		conditions.MarkFalse(hcloudMachine, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason, clusterv1.ConditionSeverityWarning, "")
 		conditionList := hcloudMachine.GetConditions()
