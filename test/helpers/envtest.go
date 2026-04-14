@@ -227,10 +227,13 @@ func wrapEnvtestStartError(err error) error {
 		return nil
 	}
 
+	// Check whether the error is about missing binaries in $PATH, for example:
+	//
+	// unable to start control plane itself: failed to start the controlplane.
+	// retried 5 times: exec: "etcd": executable file not found in $PATH"
 	errText := err.Error()
 	if !strings.Contains(errText, "$PATH") {
-		// This is not: unable to start control plane itself: failed to start the controlplane.
-		// retried 5 times: exec: "etcd": executable file not found in $PATH
+		// This looks like another error, so do not add the hint.
 		return err
 	}
 
