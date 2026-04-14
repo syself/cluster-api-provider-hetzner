@@ -113,13 +113,6 @@ var _ = Describe("SetHCloudMachineV1Beta2SummaryCondition", func() {
 				Reason:  infrav1.HCloudMachineTokenInvalidV1Beta2Reason,
 				Message: "token is invalid",
 			},
-			// Deleting=True (negative polarity, mid priority issue).
-			{
-				Type:    infrav1.HCloudMachineDeletingV1Beta2Condition,
-				Status:  metav1.ConditionTrue,
-				Reason:  infrav1.HCloudMachineDeletingV1Beta2Reason,
-				Message: "machine is deleting",
-			},
 		})
 
 		Expect(SetHCloudMachineV1Beta2SummaryCondition(hcloudMachine)).To(Succeed())
@@ -136,11 +129,11 @@ var _ = Describe("SetHCloudMachineV1Beta2SummaryCondition", func() {
 		Expect(summaryMsg).ToNot(BeEmpty(), "Ready summary condition should have a message")
 
 		// The summary message lists issues in ForConditionTypes order.
-		// HCloudTokenAvailable (priority 1) before Deleting (priority 3) before ServerAvailable (priority 7).
-		Expect(summaryMsg).To(MatchRegexp(`(?s)token is invalid.*machine is deleting.*server is not available`))
+		// HCloudTokenAvailable (priority 1) before ServerAvailable (priority 6).
+		Expect(summaryMsg).To(MatchRegexp(`(?s)token is invalid.*server is not available`))
 	})
 
-	It("surfaces RateLimitExceeded before Deleting when both are unhealthy", func() {
+	It("surfaces RateLimitExceeded before ServerAvailable when both are unhealthy", func() {
 		hcloudMachine := &infrav1.HCloudMachine{
 			Status: infrav1.HCloudMachineStatus{
 				V1Beta2: &infrav1.HCloudMachineV1Beta2Status{},
@@ -155,10 +148,10 @@ var _ = Describe("SetHCloudMachineV1Beta2SummaryCondition", func() {
 				Reason:  infrav1.HCloudMachineRateLimitExceededV1Beta2Reason,
 				Message: "rate limit exceeded",
 			},
-			// Deleting=True (negative polarity, priority 3).
+			// ServerAvailable=False with Deleting reason (priority 6).
 			{
-				Type:    infrav1.HCloudMachineDeletingV1Beta2Condition,
-				Status:  metav1.ConditionTrue,
+				Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
 				Reason:  infrav1.HCloudMachineDeletingV1Beta2Reason,
 				Message: "machine is deleting",
 			},
@@ -176,7 +169,7 @@ var _ = Describe("SetHCloudMachineV1Beta2SummaryCondition", func() {
 		}
 		Expect(summaryMsg).ToNot(BeEmpty())
 
-		// HetznerAPIReachable (priority 2) before Deleting (priority 3).
+		// HCloudRateLimitExceeded (priority 2) before ServerAvailable (priority 6).
 		Expect(summaryMsg).To(MatchRegexp(`(?s)rate limit exceeded.*machine is deleting`))
 	})
 })

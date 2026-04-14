@@ -1183,12 +1183,6 @@ func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 	if s.scope.IsControlPlane() && s.scope.HetznerCluster.Spec.ControlPlaneLoadBalancer.Enabled {
 		for _, target := range s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target {
 			if target.Type == infrav1.LoadBalancerTargetTypeServer && target.ServerID == server.ID {
-				v1beta2conditions.Set(s.scope.HCloudMachine, metav1.Condition{
-					Type:    infrav1.HCloudMachineDeletingV1Beta2Condition,
-					Status:  metav1.ConditionTrue,
-					Reason:  infrav1.HCloudMachineDeletingV1Beta2Reason,
-					Message: "Removing server from load balancer",
-				})
 				if err := s.deleteServerOfLoadBalancer(ctx, server); err != nil {
 					return reconcile.Result{}, fmt.Errorf("failed to delete attached server of loadbalancer: %w", err)
 				}
@@ -1825,23 +1819,11 @@ func (s *Service) handleDeleteServerStatusRunning(ctx context.Context, server *h
 			Reason:  infrav1.HCloudMachineDeletingV1Beta2Reason,
 			Message: "Instance has been shut down",
 		})
-		v1beta2conditions.Set(s.scope.HCloudMachine, metav1.Condition{
-			Type:    infrav1.HCloudMachineDeletingV1Beta2Condition,
-			Status:  metav1.ConditionTrue,
-			Reason:  infrav1.HCloudMachineDeletingV1Beta2Reason,
-			Message: "Waiting for server to shut down",
-		})
 
 		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
 	// timeout for shutdown has been reached - delete server
-	v1beta2conditions.Set(s.scope.HCloudMachine, metav1.Condition{
-		Type:    infrav1.HCloudMachineDeletingV1Beta2Condition,
-		Status:  metav1.ConditionTrue,
-		Reason:  infrav1.HCloudMachineDeletingV1Beta2Reason,
-		Message: "Deleting server",
-	})
 	if err := s.scope.HCloudClient.DeleteServer(ctx, server); err != nil {
 		record.Warnf(s.scope.HCloudMachine, "FailedDeleteHCloudServer", "Failed to delete HCloud server %s", s.scope.Name())
 		return reconcile.Result{}, handleRateLimit(s.scope.HCloudMachine, err, "DeleteServer", "failed to delete server")
@@ -1853,12 +1835,6 @@ func (s *Service) handleDeleteServerStatusRunning(ctx context.Context, server *h
 
 func (s *Service) handleDeleteServerStatusOff(ctx context.Context, server *hcloud.Server) (res reconcile.Result, err error) {
 	// server is off and can be deleted
-	v1beta2conditions.Set(s.scope.HCloudMachine, metav1.Condition{
-		Type:    infrav1.HCloudMachineDeletingV1Beta2Condition,
-		Status:  metav1.ConditionTrue,
-		Reason:  infrav1.HCloudMachineDeletingV1Beta2Reason,
-		Message: "Deleting server",
-	})
 	if err := s.scope.HCloudClient.DeleteServer(ctx, server); err != nil {
 		record.Warnf(s.scope.HCloudMachine, "FailedDeleteHCloudServer", "Failed to delete HCloud server %s", s.scope.Name())
 		return reconcile.Result{}, handleRateLimit(s.scope.HCloudMachine, err, "DeleteServer", "failed to delete server")

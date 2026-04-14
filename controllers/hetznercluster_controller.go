@@ -499,24 +499,6 @@ func hcloudTokenErrorResult(
 			Reason:  v1beta2Reason,
 			Message: conditions.GetMessage(hcloudMachine, infrav1.HCloudTokenAvailableCondition),
 		})
-		if !hcloudMachine.DeletionTimestamp.IsZero() {
-			v1beta2conditions.Set(hcloudMachine, metav1.Condition{
-				Type:   infrav1.HCloudMachineDeletingV1Beta2Condition,
-				Status: metav1.ConditionTrue,
-				Reason: infrav1.HCloudMachineDeletingV1Beta2Reason,
-			})
-			v1beta2conditions.Set(hcloudMachine, metav1.Condition{
-				Type:   infrav1.HCloudMachineServerAvailableV1Beta2Condition,
-				Status: metav1.ConditionFalse,
-				Reason: infrav1.HCloudMachineDeletingV1Beta2Reason,
-			})
-		} else {
-			v1beta2conditions.Set(hcloudMachine, metav1.Condition{
-				Type:   infrav1.HCloudMachineDeletingV1Beta2Condition,
-				Status: metav1.ConditionFalse,
-				Reason: infrav1.HCloudMachineNotDeletingV1Beta2Reason,
-			})
-		}
 		if err := scope.SetHCloudMachineV1Beta2SummaryCondition(hcloudMachine); err != nil {
 			return reconcile.Result{}, fmt.Errorf("hcloudTokenErrorResult: failed to set HCloudMachine v1beta2 summary: %w", err)
 		}

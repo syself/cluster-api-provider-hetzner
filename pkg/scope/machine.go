@@ -136,7 +136,6 @@ func SetHCloudMachineV1Beta2SummaryCondition(hcloudMachine *infrav1.HCloudMachin
 	return v1beta2conditions.SetSummaryCondition(hcloudMachine, hcloudMachine, infrav1.HCloudMachineReadyV1Beta2Condition,
 		v1beta2conditions.ForConditionTypes(infrav1.HCloudMachineV1Beta2SummaryConditionTypes()),
 		v1beta2conditions.NegativePolarityConditionTypes{
-			infrav1.HCloudMachineDeletingV1Beta2Condition,
 			infrav1.HCloudMachineHCloudRateLimitExceededV1Beta2Condition,
 		},
 		v1beta2conditions.IgnoreTypesIfMissing{
@@ -149,7 +148,6 @@ func SetHCloudMachineV1Beta2SummaryCondition(hcloudMachine *infrav1.HCloudMachin
 		v1beta2conditions.CustomMergeStrategy{
 			MergeStrategy: v1beta2conditions.DefaultMergeStrategy(
 				v1beta2conditions.GetPriorityFunc(v1beta2conditions.GetDefaultMergePriorityFunc(
-					infrav1.HCloudMachineDeletingV1Beta2Condition,
 					infrav1.HCloudMachineHCloudRateLimitExceededV1Beta2Condition,
 				)),
 				v1beta2conditions.ComputeReasonFunc(v1beta2conditions.GetDefaultComputeMergeReasonFunc(

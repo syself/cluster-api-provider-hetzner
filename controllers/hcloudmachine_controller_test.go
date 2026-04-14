@@ -465,13 +465,11 @@ var _ = Describe("HCloudMachineReconciler", func() {
 						isPresentAndTrueV1Beta2(key, hcloudMachine, infrav1.HCloudMachineServerAvailableV1Beta2Condition, infrav1.HCloudMachineServerAvailableV1Beta2Reason)
 				}, timeout, interval).Should(BeTrue())
 
-				By("checking if the v1beta2 summary and deleting conditions are set")
+				By("checking if the v1beta2 summary condition is set")
 				Eventually(func(g Gomega) {
 					g.Expect(testEnv.Get(ctx, key, hcloudMachine)).To(Succeed())
 					g.Expect(v1beta2conditions.IsTrue(hcloudMachine, infrav1.HCloudMachineReadyV1Beta2Condition)).To(BeTrue())
 					g.Expect(v1beta2conditions.Get(hcloudMachine, infrav1.HCloudMachineReadyV1Beta2Condition).Reason).To(Equal(infrav1.HCloudMachineReadyV1Beta2Reason))
-					g.Expect(v1beta2conditions.IsFalse(hcloudMachine, infrav1.HCloudMachineDeletingV1Beta2Condition)).To(BeTrue())
-					g.Expect(v1beta2conditions.Get(hcloudMachine, infrav1.HCloudMachineDeletingV1Beta2Condition).Reason).To(Equal(infrav1.HCloudMachineNotDeletingV1Beta2Reason))
 				}, timeout, interval).Should(Succeed())
 
 				By("checking if the BootState is now OperatingSystemRunning")
@@ -827,8 +825,7 @@ var _ = Describe("Hetzner secret", func() {
 				return isPresentAndFalseWithReasonV1Beta2(key, hcloudMachine, infrav1.HCloudMachineHCloudTokenAvailableV1Beta2Condition, expectedV1Beta2Reason)
 			}, timeout, interval).Should(BeTrue())
 			Eventually(func() bool {
-				return isPresentAndFalseWithReasonV1Beta2(key, hcloudMachine, infrav1.HCloudMachineDeletingV1Beta2Condition, infrav1.HCloudMachineNotDeletingV1Beta2Reason) &&
-					isPresentAndFalseWithReasonV1Beta2(key, hcloudMachine, infrav1.HCloudMachineReadyV1Beta2Condition, infrav1.HCloudMachineNotReadyV1Beta2Reason)
+				return isPresentAndFalseWithReasonV1Beta2(key, hcloudMachine, infrav1.HCloudMachineReadyV1Beta2Condition, infrav1.HCloudMachineNotReadyV1Beta2Reason)
 			}, timeout, interval).Should(BeTrue())
 			Expect(testEnv.Cleanup(ctx, hetznerSecret)).To(Succeed())
 		},

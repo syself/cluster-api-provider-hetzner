@@ -324,15 +324,8 @@ const (
 	HCloudMachineNetworkAttachFailedV1Beta2Reason = "NetworkAttachFailed"
 	// HCloudMachineLoadBalancerAttachFailedV1Beta2Reason surfaces a load balancer attachment failure.
 	HCloudMachineLoadBalancerAttachFailedV1Beta2Reason = "LoadBalancerAttachFailed"
-)
-
-const (
-	// HCloudMachineDeletingV1Beta2Condition reports on HCloudMachine deletion progress.
-	HCloudMachineDeletingV1Beta2Condition = clusterv1.DeletingV1Beta2Condition
-	// HCloudMachineDeletingV1Beta2Reason surfaces when the HCloudMachine is deleting.
+	// HCloudMachineDeletingV1Beta2Reason surfaces when the HCloudMachine is being deleted.
 	HCloudMachineDeletingV1Beta2Reason = clusterv1.DeletingV1Beta2Reason
-	// HCloudMachineNotDeletingV1Beta2Reason surfaces when the HCloudMachine is not deleting.
-	HCloudMachineNotDeletingV1Beta2Reason = clusterv1.NotDeletingV1Beta2Reason
 )
 
 const (
@@ -353,17 +346,15 @@ const (
 // of the highest-priority (earliest) one. The ordering reflects operational importance:
 //  1. HCloudTokenAvailable      - invalid credentials block everything.
 //  2. HCloudRateLimitExceeded   - rate-limit issues (negative polarity).
-//  3. Deleting                  - deletion state is more important than lifecycle conditions (negative polarity).
-//  4. BootstrapReady            - bootstrap data must be ready before provisioning.
-//  5. ServerCreated             - server existence precedes later lifecycle stages.
-//  6. ServerProvisioned         - provisioning precedes availability.
-//  7. ServerAvailable
+//  3. BootstrapReady            - bootstrap data must be ready before provisioning.
+//  4. ServerCreated             - server existence precedes later lifecycle stages.
+//  5. ServerProvisioned         - provisioning precedes availability.
+//  6. ServerAvailable
 func HCloudMachineV1Beta2OwnedConditions() []string {
 	return []string{
 		HCloudMachineReadyV1Beta2Condition,
 		HCloudMachineHCloudTokenAvailableV1Beta2Condition,
 		HCloudMachineHCloudRateLimitExceededV1Beta2Condition,
-		HCloudMachineDeletingV1Beta2Condition,
 		HCloudMachineBootstrapReadyV1Beta2Condition,
 		HCloudMachineServerCreatedV1Beta2Condition,
 		HCloudMachineServerProvisionedV1Beta2Condition,
