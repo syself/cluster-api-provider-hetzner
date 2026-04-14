@@ -57,8 +57,14 @@ var (
 )
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (*hcloudMachineTemplateWebhook) ValidateCreate(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
-	return nil, nil
+func (*hcloudMachineTemplateWebhook) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
+	r, ok := obj.(*HCloudMachineTemplate)
+	if !ok {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a HCloudMachineTemplate but got a %T", obj))
+	}
+
+	allErrs := validateHCloudMachineSpec(r.Spec.Template.Spec)
+	return nil, aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
 }
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
@@ -80,6 +86,7 @@ func (*hcloudMachineTemplateWebhook) ValidateUpdate(ctx context.Context, oldRaw 
 	if !topology.ShouldSkipImmutabilityChecks(req, newHCloudMachineTemplate) && !reflect.DeepEqual(newHCloudMachineTemplate.Spec, oldHCloudMachineTemplate.Spec) {
 		allErrs = append(allErrs, field.Invalid(field.NewPath("spec"), newHCloudMachineTemplate, "HCloudMachineTemplate.Spec is immutable"))
 	}
+	allErrs = append(allErrs, validateHCloudMachineSpec(newHCloudMachineTemplate.Spec.Template.Spec)...)
 
 	return nil, aggregateObjErrors(newHCloudMachineTemplate.GroupVersionKind().GroupKind(), newHCloudMachineTemplate.Name, allErrs)
 }
