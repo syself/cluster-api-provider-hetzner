@@ -59,7 +59,21 @@ const (
 
 var hcloudImageURLCommandDir = "/shared"
 
-var errServerCreateNotPossible = fmt.Errorf("server create not possible - need action")
+var errServerCreateNotPossible = errors.New("server create not possible - need action")
+
+type serverCreateConditionError struct {
+	reason   string
+	severity clusterv1.ConditionSeverity
+	message  string
+}
+
+func (e *serverCreateConditionError) Error() string {
+	return e.message
+}
+
+func (e *serverCreateConditionError) Unwrap() error {
+	return errServerCreateNotPossible
+}
 
 // Service defines struct with machine scope to reconcile HCloudMachines.
 type Service struct {
@@ -1065,6 +1079,18 @@ func (s *Service) createServerFromImageName(ctx context.Context) (*hcloud.Server
 
 	image, err := s.getServerImage(ctx, hm.Spec.ImageName)
 	if err != nil {
+		var conditionErr *serverCreateConditionError
+		if errors.As(err, &conditionErr) {
+			conditions.MarkFalse(
+				hm,
+				infrav1.ServerCreateSucceededCondition,
+				conditionErr.reason,
+				conditionErr.severity,
+				"%s",
+				conditionErr.message,
+			)
+		}
+
 		err = fmt.Errorf("create server from imageName (%q): %w", hm.Spec.ImageName, err)
 		msg := err.Error()
 		record.Warn(hm, "FailedGetServerImage", msg)
@@ -1273,14 +1299,11 @@ func (s *Service) getServerImage(ctx context.Context, imageName string) (*hcloud
 
 	if serverType == nil {
 		msg := fmt.Sprintf("failed to get server type %q", string(s.scope.HCloudMachine.Spec.Type))
-		conditions.MarkFalse(
-			s.scope.HCloudMachine,
-			infrav1.ServerCreateSucceededCondition,
-			infrav1.ServerTypeNotFoundReason,
-			clusterv1.ConditionSeverityError,
-			"%s", msg,
-		)
-		return nil, fmt.Errorf("%s: %w", msg, errServerCreateNotPossible)
+		return nil, &serverCreateConditionError{
+			reason:   infrav1.ServerTypeNotFoundReason,
+			severity: clusterv1.ConditionSeverityError,
+			message:  msg,
+		}
 	}
 
 	// query for an existing image by label
@@ -1313,24 +1336,20 @@ func (s *Service) getServerImage(ctx context.Context, imageName string) (*hcloud
 		msg := fmt.Sprintf("image is ambiguous - %d images have name %s",
 			len(images), imageName)
 		record.Warn(s.scope.HCloudMachine, "ImageNameAmbiguous", msg)
-		conditions.MarkFalse(s.scope.HCloudMachine,
-			infrav1.ServerCreateSucceededCondition,
-			infrav1.ImageAmbiguousReason,
-			clusterv1.ConditionSeverityError,
-			"%s", msg,
-		)
-		return nil, fmt.Errorf("%s: %w", msg, errServerCreateNotPossible)
+		return nil, &serverCreateConditionError{
+			reason:   infrav1.ImageAmbiguousReason,
+			severity: clusterv1.ConditionSeverityError,
+			message:  msg,
+		}
 	}
 	if len(images) == 0 {
 		msg := fmt.Sprintf("no image found with name %s", s.scope.HCloudMachine.Spec.ImageName)
 		record.Warn(s.scope.HCloudMachine, "ImageNotFound", msg)
-		conditions.MarkFalse(s.scope.HCloudMachine,
-			infrav1.ServerCreateSucceededCondition,
-			infrav1.ImageNotFoundReason,
-			clusterv1.ConditionSeverityError,
-			"%s", msg,
-		)
-		return nil, fmt.Errorf("%s: %w", msg, errServerCreateNotPossible)
+		return nil, &serverCreateConditionError{
+			reason:   infrav1.ImageNotFoundReason,
+			severity: clusterv1.ConditionSeverityError,
+			message:  msg,
+		}
 	}
 
 	return images[0], nil
