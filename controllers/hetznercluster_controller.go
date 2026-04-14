@@ -410,10 +410,9 @@ func reconcileRateLimit(setter conditions.Setter, rateLimitWaitTime time.Duratio
 		conditions.MarkTrue(setter, infrav1.HetznerAPIReachableCondition)
 		if hcloudMachine, ok := setter.(*infrav1.HCloudMachine); ok {
 			v1beta2conditions.Set(hcloudMachine, metav1.Condition{
-				Type:    infrav1.HCloudMachineHCloudRateLimitExceededV1Beta2Condition,
-				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HCloudMachineRateLimitNotExceededV1Beta2Reason,
-				Message: "rate limit wait time is over",
+				Type:   infrav1.HCloudMachineHCloudRateLimitExceededV1Beta2Condition,
+				Status: metav1.ConditionFalse,
+				Reason: infrav1.HCloudMachineRateLimitNotExceededV1Beta2Reason,
 			})
 		}
 	}

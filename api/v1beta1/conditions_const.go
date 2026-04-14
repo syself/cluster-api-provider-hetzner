@@ -272,7 +272,7 @@ const (
 	// HCloudMachineHCloudTokenAvailableV1Beta2Condition reports on whether the HCloud token is available.
 	HCloudMachineHCloudTokenAvailableV1Beta2Condition = "HCloudTokenAvailable"
 	// HCloudMachineTokenAvailableV1Beta2Reason surfaces when the HCloud token is available.
-	HCloudMachineTokenAvailableV1Beta2Reason = "TokenAvailable"
+	HCloudMachineTokenAvailableV1Beta2Reason = "Available"
 	// HCloudMachineTokenSecretUnreachableV1Beta2Reason surfaces when the Hetzner secret cannot be reached.
 	HCloudMachineTokenSecretUnreachableV1Beta2Reason = "SecretUnreachable"
 	// HCloudMachineTokenInvalidV1Beta2Reason surfaces when the HCloud token is invalid.
@@ -283,7 +283,7 @@ const (
 	// HCloudMachineBootstrapReadyV1Beta2Condition reports on whether bootstrap data is ready.
 	HCloudMachineBootstrapReadyV1Beta2Condition = "BootstrapReady"
 	// HCloudMachineBootstrapReadyV1Beta2Reason surfaces when bootstrap data is ready.
-	HCloudMachineBootstrapReadyV1Beta2Reason = "BootstrapReady"
+	HCloudMachineBootstrapReadyV1Beta2Reason = "Ready"
 	// HCloudMachineBootstrapNotReadyV1Beta2Reason surfaces when bootstrap data is not ready yet.
 	HCloudMachineBootstrapNotReadyV1Beta2Reason = clusterv1.WaitingForBootstrapDataV1Beta2Reason
 )
@@ -291,10 +291,10 @@ const (
 const (
 	// HCloudMachineServerCreatedV1Beta2Condition reports on whether the HCloud server was created.
 	HCloudMachineServerCreatedV1Beta2Condition = "ServerCreated"
-	// HCloudMachineServerCreatedV1Beta2Reason surfaces when the HCloud server is provisioned.
-	HCloudMachineServerCreatedV1Beta2Reason = clusterv1.ProvisionedV1Beta2Reason
-	// HCloudMachineServerNotCreatedV1Beta2Reason surfaces when the HCloud server is not provisioned.
-	HCloudMachineServerNotCreatedV1Beta2Reason = clusterv1.NotProvisionedV1Beta2Reason
+	// HCloudMachineServerCreatedV1Beta2Reason surfaces when the HCloud server has been created.
+	HCloudMachineServerCreatedV1Beta2Reason = "Created"
+	// HCloudMachineServerNotCreatedV1Beta2Reason surfaces when the HCloud server has not been created.
+	HCloudMachineServerNotCreatedV1Beta2Reason = "NotCreated"
 	// HCloudMachineServerCreateFailedIrrecoverableV1Beta2Reason surfaces an irrecoverable create failure.
 	HCloudMachineServerCreateFailedIrrecoverableV1Beta2Reason = "CreateFailedIrrecoverable"
 )
@@ -319,7 +319,7 @@ const (
 	// HCloudMachineServerNotAvailableV1Beta2Reason surfaces when the HCloud server is not available.
 	HCloudMachineServerNotAvailableV1Beta2Reason = clusterv1.NotAvailableV1Beta2Reason
 	// HCloudMachineServerNotFoundV1Beta2Reason surfaces when the HCloud server cannot be found.
-	HCloudMachineServerNotFoundV1Beta2Reason = "ServerNotFound"
+	HCloudMachineServerNotFoundV1Beta2Reason = "NotFound"
 	// HCloudMachineNetworkAttachFailedV1Beta2Reason surfaces a network attachment failure.
 	HCloudMachineNetworkAttachFailedV1Beta2Reason = "NetworkAttachFailed"
 	// HCloudMachineLoadBalancerAttachFailedV1Beta2Reason surfaces a load balancer attachment failure.
@@ -333,9 +333,9 @@ const (
 	// has been exceeded (negative polarity: True = rate limited = unhealthy).
 	HCloudMachineHCloudRateLimitExceededV1Beta2Condition = "HCloudRateLimitExceeded"
 	// HCloudMachineRateLimitNotExceededV1Beta2Reason surfaces when the HCloud API rate limit is not exceeded.
-	HCloudMachineRateLimitNotExceededV1Beta2Reason = "RateLimitNotExceeded"
+	HCloudMachineRateLimitNotExceededV1Beta2Reason = "NotExceeded"
 	// HCloudMachineRateLimitExceededV1Beta2Reason surfaces when requests hit the HCloud API rate limit.
-	HCloudMachineRateLimitExceededV1Beta2Reason = "RateLimitExceeded"
+	HCloudMachineRateLimitExceededV1Beta2Reason = "Exceeded"
 )
 
 // HCloudMachineV1Beta2OwnedConditions returns a fresh copy of the v1beta2 conditions
