@@ -45,7 +45,7 @@ func do() error {
 	fs.Usage = func() {
 		fmt.Fprintln(os.Stderr, "Collect logs from a CAPH machine over SSH using the e2e log collector.")
 		fmt.Fprintf(os.Stderr, "Requires environment variable %s to contain base64-encoded private key content.\n", e2e.HetznerPrivateKeyContent)
-		fmt.Fprintf(os.Stderr, "Usage: %s [flags] <host>\n", os.Args[0]) //nolint:gosec // os.Args[0] is displayed in a local CLI usage message only.
+		fmt.Fprintf(os.Stderr, "Usage: %s [flags] <host>\n", os.Args[0]) // #nosec G705 -- os.Args[0] is displayed in a local CLI usage message only.
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(os.Args[1:]); err != nil {
@@ -66,7 +66,7 @@ func do() error {
 		}
 		fmt.Printf("Using env var %s", e2e.HetznerPrivateKeyContent)
 	} else {
-		privKey, err := os.ReadFile(*sshPrivKey) //nolint:gosec // CLI flag is an operator-provided local file path.
+		privKey, err := os.ReadFile(*sshPrivKey) // #nosec G703 -- CLI flag is an operator-provided local file path.
 		if err != nil {
 			return err
 		}
@@ -76,7 +76,7 @@ func do() error {
 		}
 	}
 
-	if err := os.MkdirAll(*outputDir, 0o750); err != nil { //nolint:gosec // CLI flag is an operator-provided local directory path.
+	if err := os.MkdirAll(*outputDir, 0o750); err != nil { // #nosec G703 -- CLI flag is an operator-provided local directory path.
 		return fmt.Errorf("create output directory: %w", err)
 	}
 

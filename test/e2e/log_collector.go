@@ -466,7 +466,7 @@ func formatOutputForError(output string) string {
 }
 
 func moveTempFileIfNonEmpty(tempPath, finalPath string) error {
-	info, err := os.Stat(tempPath) //nolint:gosec // tempPath is produced by this helper within the artifact directory flow.
+	info, err := os.Stat(tempPath) // #nosec G703 -- tempPath is produced by this helper within the artifact directory flow.
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil
@@ -480,7 +480,7 @@ func moveTempFileIfNonEmpty(tempPath, finalPath string) error {
 	if err := os.MkdirAll(filepath.Dir(finalPath), 0o750); err != nil {
 		return err
 	}
-	if err := os.Rename(tempPath, finalPath); err != nil { //nolint:gosec // Paths are managed by this helper within the artifact directory flow.
+	if err := os.Rename(tempPath, finalPath); err != nil { // #nosec G703 -- Paths are managed by this helper within the artifact directory flow.
 		return err
 	}
 	return nil

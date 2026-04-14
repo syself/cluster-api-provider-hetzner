@@ -255,9 +255,11 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		if errors.Is(err, errServerCreateNotPossible) {
 			err = fmt.Errorf("createServerFromImageNameOrURL failed: %w", err)
 			s.scope.Error(err, "")
-			conditions.MarkFalse(hm, infrav1.ServerCreateSucceededCondition,
-				"ServerCreateNotPossible", clusterv1.ConditionSeverityWarning,
-				"%s", err.Error())
+			if !conditions.Has(hm, infrav1.ServerCreateSucceededCondition) {
+				conditions.MarkFalse(hm, infrav1.ServerCreateSucceededCondition,
+					"ServerCreateNotPossible", clusterv1.ConditionSeverityWarning,
+					"%s", err.Error())
+			}
 			return reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
 		}
 		return reconcile.Result{}, fmt.Errorf("failed to create server: %w", err)
