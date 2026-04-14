@@ -39,6 +39,7 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -480,6 +481,41 @@ func isPresentAndTrue(key types.NamespacedName, getter v1beta1conditions.Getter,
 	}
 	objectCondition := v1beta1conditions.Get(getter, condition)
 	return objectCondition.Status == corev1.ConditionTrue
+}
+
+func isV1Beta2ConditionWithStatusAndReason(key types.NamespacedName, getter client.Object, condition string, status metav1.ConditionStatus, reason string) bool {
+	if err := testEnv.Get(ctx, key, getter); err != nil {
+		return false
+	}
+
+	v1beta2Getter, ok := getter.(v1beta2conditions.Getter)
+	if !ok || !v1beta2conditions.Has(v1beta2Getter, condition) {
+		return false
+	}
+
+	objectCondition := v1beta2conditions.Get(v1beta2Getter, condition)
+	return objectCondition.Status == status && objectCondition.Reason == reason
+}
+
+func isPresentAndTrueWithReasonV1Beta2(key types.NamespacedName, getter client.Object, condition string, reason string) bool {
+	return isV1Beta2ConditionWithStatusAndReason(key, getter, condition, metav1.ConditionTrue, reason)
+}
+
+func isPresentAndFalseWithReasonV1Beta2(key types.NamespacedName, getter client.Object, condition string, reason string) bool {
+	return isV1Beta2ConditionWithStatusAndReason(key, getter, condition, metav1.ConditionFalse, reason)
+}
+
+func isAbsentV1Beta2(key types.NamespacedName, getter client.Object, condition string) bool {
+	if err := testEnv.Get(ctx, key, getter); err != nil {
+		return false
+	}
+
+	v1beta2Getter, ok := getter.(v1beta2conditions.Getter)
+	if !ok {
+		return false
+	}
+
+	return !v1beta2conditions.Has(v1beta2Getter, condition)
 }
 
 func hasEvent(ctx context.Context, c client.Client, namespace, involvedObjectName, reason, message string) bool {
