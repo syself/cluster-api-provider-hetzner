@@ -12,11 +12,9 @@ The HCloud cluster works with Kubeadm and supports private networks.
 
 In a cluster that includes bare metal servers there are no private networks, as this feature has not yet been integrated in cluster-api-provider-hetzner. Apart from SSH, the node image has to support cloud-init, which we use to provision the bare metal machines.
 
-{% callout %}
-
-In clusters with bare metal servers, you need to use [this CCM](https://github.com/syself/hetzner-cloud-controller-manager), as the official one does not support bare metal.
-
-{% /callout %}
+For bare-metal clusters, you can use either the Syself CCM or the upstream HCloud CCM. For setup
+details and ProviderID format requirements, see
+[Creating Workload Cluster](/docs/caph/02-topics/05-baremetal/03-creating-workload-cluster.md#deploying-the-hetzner-cloud-controller-manager).
 
 [Here](/docs/caph/02-topics/01-managing-ssh-keys.md) you can find more information regarding the handling of SSH keys. Some of them are specified in `HetznerCluster` to have them cluster-wide, others are machine-scoped.
 

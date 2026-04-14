@@ -66,8 +66,12 @@ const (
 
 // HetznerBareMetalMachineSpec defines the desired state of HetznerBareMetalMachine.
 type HetznerBareMetalMachineSpec struct {
-	// ProviderID will be the hetznerbaremetalmachine which is set by the controller
-	// in the `hcloud://bm-<server-id>` format.
+	// ProviderID is set by the controller to either (new) `hrobot://<server-id>` or (old)
+	// `hcloud://bm-NNNN` format. If the HetznerBareMetalMachineSpec has already a ProviderID, then
+	// this will never change. If the ProviderID is empty, the controller sets it to the old format
+	// by default (hcloud://bm-NNNN), except the Annotation
+	// `capi.syself.com/use-hrobot-provider-id-for-baremetal` on the hetznerCluster is set to
+	// `"true"`.
 	// +optional
 	ProviderID *string `json:"providerID,omitempty"`
 
@@ -305,6 +309,9 @@ type HetznerBareMetalMachineStatus struct {
 	FailureReason *string `json:"failureReason,omitempty"`
 
 	// FailureMessage will be set in the event that there is a terminal problem.
+	//
+	// Deprecated: This field is deprecated and is going to be removed when support for v1beta1 will be dropped. Please see https://github.com/kubernetes-sigs/cluster-api/blob/main/docs/proposals/20240916-improve-status-in-CAPI-resources.md for more details.
+	//
 	// +optional
 	FailureMessage *string `json:"failureMessage,omitempty"`
 

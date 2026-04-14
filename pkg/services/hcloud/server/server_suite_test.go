@@ -20,6 +20,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
@@ -213,6 +215,8 @@ type Resetter struct{}
 
 var _ helpers.Resetter = &Resetter{}
 
+var hcloudImageURLCommandTempDir string
+
 func (r *Resetter) ResetAndInitNamespace(_ string, testEnv *helpers.TestEnvironment, t FullGinkgoTInterface) {
 	rescueSSHClient := &sshmock.Client{}
 	// Register Testify helpers so failed expectations are reported against this test instance.
@@ -230,6 +234,14 @@ var _ = BeforeSuite(func() {
 	utilruntime.Must(infrav1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(clusterv1.AddToScheme(scheme.Scheme))
 
+	tmpDir, err := os.MkdirTemp("", "caph-hcloud-image-url-command-*")
+	Expect(err).NotTo(HaveOccurred())
+	hcloudImageURLCommandTempDir = tmpDir
+	hcloudImageURLCommandDir = tmpDir
+	commandPath := filepath.Join(hcloudImageURLCommandDir, "image-url-command-test.sh")
+	err = os.WriteFile(commandPath, []byte("#!/bin/sh\nexit 0\n"), 0o600)
+	Expect(err).NotTo(HaveOccurred())
+
 	testEnv = helpers.NewTestEnvironment()
 	testEnv.Resetter = &Resetter{}
 	go func() {
@@ -244,6 +256,9 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
+	if hcloudImageURLCommandTempDir != "" {
+		Expect(os.RemoveAll(hcloudImageURLCommandTempDir)).To(Succeed())
+	}
 	Expect(testEnv.Stop()).To(Succeed())
 })
 
