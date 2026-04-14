@@ -36,6 +36,7 @@ import (
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
+	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
 )
 
 var _ = Describe("HCloudRemediationReconciler", func() {
@@ -236,10 +237,14 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				if hcloudRemediation.Status.Phase != infrav1.PhaseDeleting {
 					return fmt.Errorf("hcloudRemediation.Status.Phase is not infrav1.PhaseDeleting")
 				}
-				if !isPresentAndFalseWithReason(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedCondition, clusterv1.WaitingForRemediationReason) {
-					return fmt.Errorf("MachineOwnerRemediatedCondition not set")
-				}
-				return nil
+				return helpers.ConditionFalseWithReasonAtKey(
+					ctx,
+					testEnv,
+					capiMachineKey,
+					capiMachine,
+					clusterv1.MachineOwnerRemediatedCondition,
+					clusterv1.WaitingForRemediationReason,
+				)
 			}, timeout).Should(Succeed())
 		})
 
@@ -320,15 +325,25 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 			Expect(hcloudRemediationPatchHelper.Patch(ctx, hcloudRemediation)).NotTo(HaveOccurred())
 
 			By("checking if hcloudRemediation is in deleting phase and capiMachine has MachineOwnerRemediatedCondition")
-			Eventually(func() bool {
+			Eventually(func() error {
 				if err := testEnv.Get(ctx, hcloudRemediationkey, hcloudRemediation); err != nil {
-					return false
+					return err
 				}
 
 				testEnv.GetLogger().Info("status of hcloudRemediation", "status", hcloudRemediation.Status.Phase)
-				return hcloudRemediation.Status.Phase == infrav1.PhaseDeleting &&
-					isPresentAndFalseWithReason(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedCondition, clusterv1.WaitingForRemediationReason)
-			}, timeout).Should(BeTrue())
+				if hcloudRemediation.Status.Phase != infrav1.PhaseDeleting {
+					return fmt.Errorf("hcloudRemediation.Status.Phase is %q", hcloudRemediation.Status.Phase)
+				}
+
+				return helpers.ConditionFalseWithReasonAtKey(
+					ctx,
+					testEnv,
+					capiMachineKey,
+					capiMachine,
+					clusterv1.MachineOwnerRemediatedCondition,
+					clusterv1.WaitingForRemediationReason,
+				)
+			}, timeout).Should(Succeed())
 		})
 		It("should delete machine if SetErrorAndRemediate() was called", func() {
 			By("Creating Server")

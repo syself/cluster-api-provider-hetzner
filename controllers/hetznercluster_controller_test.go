@@ -967,9 +967,16 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 
 				By("checking that cluster is ready")
 
-				Eventually(func() bool {
-					return isPresentAndFalseWithReason(key, instance, infrav1.LoadBalancerReadyCondition, infrav1.LoadBalancerFailedToOwnReason)
-				}, timeout, time.Second).Should(BeTrue())
+				Eventually(func() error {
+					return helpers.ConditionFalseWithReasonAtKey(
+						ctx,
+						testEnv,
+						key,
+						instance,
+						infrav1.LoadBalancerReadyCondition,
+						infrav1.LoadBalancerFailedToOwnReason,
+					)
+				}, timeout, time.Second).Should(Succeed())
 			})
 
 			It("should set the appropriate condition if a named load balancer is not found", func() {
@@ -980,9 +987,16 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 
 				By("checking that cluster has condition set")
 
-				Eventually(func() bool {
-					return isPresentAndFalseWithReason(key, instance, infrav1.LoadBalancerReadyCondition, infrav1.LoadBalancerFailedToOwnReason)
-				}, timeout, time.Second).Should(BeTrue())
+				Eventually(func() error {
+					return helpers.ConditionFalseWithReasonAtKey(
+						ctx,
+						testEnv,
+						key,
+						instance,
+						infrav1.LoadBalancerReadyCondition,
+						infrav1.LoadBalancerFailedToOwnReason,
+					)
+				}, timeout, time.Second).Should(Succeed())
 			})
 
 			It("should work with capi.syself.com/allow-empty-control-plane-address annotation error condition", func() {
@@ -992,13 +1006,16 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 				instance.Spec.ControlPlaneEndpoint = nil
 				Expect(testEnv.Create(ctx, instance)).To(Succeed())
 
-				Eventually(func() bool {
-					if err := testEnv.Get(ctx, key, instance); err != nil {
-						return false
-					}
-
-					return isPresentAndFalseWithReason(key, instance, infrav1.ControlPlaneEndpointSetCondition, infrav1.ControlPlaneEndpointNotSetReason)
-				}, timeout, time.Second).Should(BeTrue())
+				Eventually(func() error {
+					return helpers.ConditionFalseWithReasonAtKey(
+						ctx,
+						testEnv,
+						key,
+						instance,
+						infrav1.ControlPlaneEndpointSetCondition,
+						infrav1.ControlPlaneEndpointNotSetReason,
+					)
+				}, timeout, time.Second).Should(Succeed())
 			})
 
 			It("should work with capi.syself.com/allow-empty-control-plane-address annotation error condition custom port", func() {
@@ -1011,13 +1028,16 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 				}
 				Expect(testEnv.Create(ctx, instance)).To(Succeed())
 
-				Eventually(func() bool {
-					if err := testEnv.Get(ctx, key, instance); err != nil {
-						return false
-					}
-
-					return isPresentAndFalseWithReason(key, instance, infrav1.ControlPlaneEndpointSetCondition, infrav1.ControlPlaneEndpointNotSetReason)
-				}, timeout, time.Second).Should(BeTrue())
+				Eventually(func() error {
+					return helpers.ConditionFalseWithReasonAtKey(
+						ctx,
+						testEnv,
+						key,
+						instance,
+						infrav1.ControlPlaneEndpointSetCondition,
+						infrav1.ControlPlaneEndpointNotSetReason,
+					)
+				}, timeout, time.Second).Should(Succeed())
 			})
 
 			It("should work with capi.syself.com/allow-empty-control-plane-address annotation success condition", func() {
@@ -1321,9 +1341,16 @@ var _ = Describe("Hetzner secret", func() {
 			hetznerSecret = secretFunc()
 			Expect(testEnv.Create(ctx, hetznerSecret)).To(Succeed())
 
-			Eventually(func() bool {
-				return isPresentAndFalseWithReason(key, hetznerCluster, infrav1.HCloudTokenAvailableCondition, expectedReason)
-			}, timeout, time.Second).Should(BeTrue())
+			Eventually(func() error {
+				return helpers.ConditionFalseWithReasonAtKey(
+					ctx,
+					testEnv,
+					key,
+					hetznerCluster,
+					infrav1.HCloudTokenAvailableCondition,
+					expectedReason,
+				)
+			}, timeout, time.Second).Should(Succeed())
 			Expect(testEnv.Cleanup(ctx, hetznerSecret)).To(Succeed())
 		},
 		Entry("no Hetzner secret/wrong reference", func() *corev1.Secret {

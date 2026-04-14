@@ -756,9 +756,16 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 		})
 
 		It("gives an error", func() {
-			Eventually(func() bool {
-				return isPresentAndFalseWithReason(key, host, infrav1.CredentialsAvailableCondition, infrav1.RescueSSHSecretMissingReason)
-			}, timeout).Should(BeTrue())
+			Eventually(func() error {
+				return helpers.ConditionFalseWithReasonAtKey(
+					ctx,
+					testEnv,
+					key,
+					host,
+					infrav1.CredentialsAvailableCondition,
+					infrav1.RescueSSHSecretMissingReason,
+				)
+			}, timeout).Should(Succeed())
 		})
 
 		It("gives the right error if secret if rescue-ssh is invalid", func() {
@@ -778,9 +785,16 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 				Expect(testEnv.Delete(ctx, rescueSSHSecret)).To(Succeed())
 			}()
 
-			Eventually(func() bool {
-				return isPresentAndFalseWithReason(key, host, infrav1.CredentialsAvailableCondition, infrav1.SSHCredentialsInSecretInvalidReason)
-			}, timeout).Should(BeTrue())
+			Eventually(func() error {
+				return helpers.ConditionFalseWithReasonAtKey(
+					ctx,
+					testEnv,
+					key,
+					host,
+					infrav1.CredentialsAvailableCondition,
+					infrav1.SSHCredentialsInSecretInvalidReason,
+				)
+			}, timeout).Should(Succeed())
 		})
 	})
 
@@ -808,9 +822,16 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 		})
 
 		It("gives the right error if secret is missing", func() {
-			Eventually(func() bool {
-				return isPresentAndFalseWithReason(key, host, infrav1.CredentialsAvailableCondition, infrav1.OSSSHSecretMissingReason)
-			}, timeout).Should(BeTrue())
+			Eventually(func() error {
+				return helpers.ConditionFalseWithReasonAtKey(
+					ctx,
+					testEnv,
+					key,
+					host,
+					infrav1.CredentialsAvailableCondition,
+					infrav1.OSSSHSecretMissingReason,
+				)
+			}, timeout).Should(Succeed())
 		})
 
 		It("gives the right error if secret is invalid", func() {
@@ -830,9 +851,16 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 				Expect(testEnv.Delete(ctx, osSSHSecret)).To(Succeed())
 			}()
 
-			Eventually(func() bool {
-				return isPresentAndFalseWithReason(key, host, infrav1.CredentialsAvailableCondition, infrav1.SSHCredentialsInSecretInvalidReason)
-			}, timeout).Should(BeTrue())
+			Eventually(func() error {
+				return helpers.ConditionFalseWithReasonAtKey(
+					ctx,
+					testEnv,
+					key,
+					host,
+					infrav1.CredentialsAvailableCondition,
+					infrav1.SSHCredentialsInSecretInvalidReason,
+				)
+			}, timeout).Should(Succeed())
 		})
 	})
 
@@ -876,9 +904,16 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 
 		It("should set CredentialsAvailable condition to false if Robot API returned unauthorized", func() {
 			By("making the Robot client return an unauthorized error")
-			Eventually(func() bool {
-				return isPresentAndFalseWithReason(key, host, infrav1.RobotCredentialsAvailableCondition, infrav1.RobotCredentialsInvalidReason)
-			}, timeout).Should(BeTrue())
+			Eventually(func() error {
+				return helpers.ConditionFalseWithReasonAtKey(
+					ctx,
+					testEnv,
+					key,
+					host,
+					infrav1.RobotCredentialsAvailableCondition,
+					infrav1.RobotCredentialsInvalidReason,
+				)
+			}, timeout).Should(Succeed())
 
 			Expect(robotClient.AssertExpectations(GinkgoT())).To(BeTrue())
 		})
@@ -919,9 +954,16 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 		})
 
 		It("sets RobotCredentialsAvailable to false if robot-user is empty", func() {
-			Eventually(func() bool {
-				return isPresentAndFalseWithReason(key, host, infrav1.RobotCredentialsAvailableCondition, infrav1.RobotCredentialsInvalidReason)
-			}, timeout).Should(BeTrue())
+			Eventually(func() error {
+				return helpers.ConditionFalseWithReasonAtKey(
+					ctx,
+					testEnv,
+					key,
+					host,
+					infrav1.RobotCredentialsAvailableCondition,
+					infrav1.RobotCredentialsInvalidReason,
+				)
+			}, timeout).Should(Succeed())
 		})
 	})
 })
