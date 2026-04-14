@@ -513,29 +513,9 @@ var _ = Describe("HCloudMachineReconciler", func() {
 			})
 
 			It("checks that ImageNotFound is visible in conditions if image does not exist", func() {
-				Eventually(func() error {
-					if err := testEnv.Get(ctx, key, hcloudMachine); err != nil {
-						return err
-					}
-
-					c := conditions.Get(hcloudMachine, infrav1.ServerCreateSucceededCondition)
-					if c == nil {
-						return fmt.Errorf("%s not set", infrav1.ServerCreateSucceededCondition)
-					}
-
-					if c.Status != corev1.ConditionFalse || c.Reason != infrav1.ImageNotFoundReason {
-						return fmt.Errorf(
-							"expected %s to be False with reason %q, got status=%q reason=%q message=%q",
-							infrav1.ServerCreateSucceededCondition,
-							infrav1.ImageNotFoundReason,
-							c.Status,
-							c.Reason,
-							c.Message,
-						)
-					}
-
-					return nil
-				}, timeout, interval).Should(Succeed())
+				Eventually(func() bool {
+					return isPresentAndFalseWithReason(key, hcloudMachine, infrav1.ServerCreateSucceededCondition, infrav1.ImageNotFoundReason)
+				}, timeout, interval).Should(BeTrue())
 			})
 		})
 	})
