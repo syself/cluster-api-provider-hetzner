@@ -26,11 +26,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type conditionedObject interface {
-	client.Object
-	conditions.Getter
-}
-
 func conditionFalseWithReason(getter conditions.Getter, condition clusterv1.ConditionType, reason string) error {
 	if !conditions.Has(getter, condition) {
 		return fmt.Errorf("%s not set", condition)
@@ -56,7 +51,10 @@ func ConditionFalseWithReasonAtKey(
 	ctx context.Context,
 	reader client.Reader,
 	key client.ObjectKey,
-	obj conditionedObject,
+	obj interface {
+		client.Object
+		conditions.Getter
+	},
 	condition clusterv1.ConditionType,
 	reason string,
 ) error {
