@@ -25,6 +25,7 @@ import (
 	"path"
 	"path/filepath"
 	goruntime "runtime"
+	"strings"
 	"time"
 
 	g "github.com/onsi/ginkgo/v2"
@@ -146,7 +147,7 @@ func NewTestEnvironment() *TestEnvironment {
 	initializeWebhookInEnvironment()
 
 	if _, err := env.Start(); err != nil {
-		panic(err)
+		panic(wrapEnvtestStartError(err))
 	}
 
 	logLevel := "info"
@@ -219,6 +220,21 @@ func NewTestEnvironment() *TestEnvironment {
 		Config:            mgr.GetConfig(),
 		RateLimitWaitTime: 5 * time.Minute,
 	}
+}
+
+func wrapEnvtestStartError(err error) error {
+	if err == nil {
+		return err
+	}
+
+	errText := err.Error()
+	if !strings.Contains(errText, "$PATH") {
+		// This is not: unable to start control plane itself: failed to start the controlplane.
+		// retried 5 times: exec: "etcd": executable file not found in $PATH
+		return err
+	}
+
+	return fmt.Errorf("%w\nHint: set KUBEBUILDER_ASSETS=$PWD/hack/tools/bin/k8s/1.??.0-linux-amd64", err)
 }
 
 // StartManager starts the manager and sets a cancel function into the testEnv object.
