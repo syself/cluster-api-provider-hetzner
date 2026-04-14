@@ -453,15 +453,14 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 		err = action.Error()
 		if err != nil {
 			err = fmt.Errorf("action %+v failed (wait for rescue enabled): %w", action, err)
-			msg := err.Error()
 			s.scope.Error(err, "")
-			remediateErr := s.scope.SetErrorAndRemediate(ctx, msg)
-			if remediateErr != nil {
-				return reconcile.Result{}, remediateErr
+			err := s.scope.SetErrorAndRemediate(ctx, err.Error())
+			if err != nil {
+				return reconcile.Result{}, err
 			}
 			conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
 				"EnablingRescueActionFailed", clusterv1.ConditionSeverityWarning,
-				"%s", msg)
+				"%s", err.Error())
 			return reconcile.Result{}, nil
 		}
 

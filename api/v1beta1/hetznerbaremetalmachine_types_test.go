@@ -221,7 +221,6 @@ func Test_Image_String(t *testing.T) {
 			},
 			"",
 		},
-		// #nosec G101 -- Test fixture intentionally exercises credential redaction.
 		{
 			Image{
 				URL:  "https://user:pwd@example.com/images/Ubuntu-2404-noble-amd64-custom.tar.gz",

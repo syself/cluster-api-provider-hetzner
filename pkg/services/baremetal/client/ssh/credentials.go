@@ -27,7 +27,7 @@ import (
 type Credentials struct {
 	Name       string
 	PublicKey  string
-	PrivateKey string //nolint:gosec // This struct intentionally carries SSH private key material.
+	PrivateKey string
 }
 
 // Validate returns an error if the ssh credentials are invalid.
