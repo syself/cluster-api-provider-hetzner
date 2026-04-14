@@ -112,7 +112,7 @@ func Test_ExecutePreProvisionCommand_withRealServer(t *testing.T) {
 	t.SkipNow()
 
 	ctx := context.Background()
-	pk, err := os.ReadFile(filepath.Join(os.Getenv("HOME"), ".ssh", "id_rsa"))
+	pk, err := os.ReadFile(filepath.Join(os.Getenv("HOME"), ".ssh", "id_rsa")) //nolint:gosec // This opt-in debug test reads the developer's local SSH key.
 	require.NoError(t, err)
 
 	c := sshClient{

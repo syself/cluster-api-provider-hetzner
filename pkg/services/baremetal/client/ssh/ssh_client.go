@@ -78,7 +78,7 @@ var (
 // Input defines an SSH input.
 type Input struct {
 	IP         string
-	PrivateKey string
+	PrivateKey string //nolint:gosec // This input intentionally carries SSH private key material.
 	Port       int
 }
 

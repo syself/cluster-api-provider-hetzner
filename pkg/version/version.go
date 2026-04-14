@@ -15,6 +15,8 @@ limitations under the License.
 */
 
 // Package version implements version handling code.
+//
+//revive:disable:var-naming // Keep package name for compatibility with existing imports.
 package version
 
 import (

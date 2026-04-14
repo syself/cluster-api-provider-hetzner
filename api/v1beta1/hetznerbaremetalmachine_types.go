@@ -149,7 +149,7 @@ type SSHSecretKeyRef struct {
 	PublicKey string `json:"publicKey"`
 
 	// PrivateKey is the key in the secret's data where the SSH key's private key is stored.
-	PrivateKey string `json:"privateKey"`
+	PrivateKey string `json:"privateKey"` //nolint:gosec // API field name is fixed and intentionally refers to secret data.
 }
 
 // InstallImage defines the configuration for InstallImage.
