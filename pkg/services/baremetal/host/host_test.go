@@ -1602,7 +1602,6 @@ var _ = Describe("actionEnsureProvisioned", func() {
 				helpers.WithIPv4(),
 				helpers.WithConsumerRef(),
 			)
-
 			sshMock := &sshmock.Client{}
 			sshMock.On("GetHostName").Return(in.outSSHClientGetHostName)
 			sshMock.On("CloudInitStatus").Return(in.outSSHClientCloudInitStatus)
@@ -1765,7 +1764,7 @@ var _ = Describe("actionEnsureProvisioned", func() {
 	)
 })
 
-var _ = Describe("actionProvisioned SSHAfterInstallImage=true", func() {
+var _ = Describe("actionProvisioned NoSSHAfterInstallImage=false", func() {
 	type testCaseActionProvisioned struct {
 		shouldHaveRebootAnnotation bool
 		rebooted                   bool
@@ -1785,7 +1784,6 @@ var _ = Describe("actionProvisioned SSHAfterInstallImage=true", func() {
 				helpers.WithIPv4(),
 				helpers.WithConsumerRef(),
 			)
-
 			if tc.shouldHaveRebootAnnotation {
 				host.SetAnnotations(map[string]string{infrav1.RebootAnnotation: "reboot"})
 				host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = fakeBootID
@@ -1851,8 +1849,8 @@ var _ = Describe("actionProvisioned SSHAfterInstallImage=true", func() {
 	)
 })
 
-var _ = Describe("actionProvisioned SSHAfterInstallImage=false", func() {
-	It("test reboot annotation for SSHAfterInstallImage=false, Reboot should be triggered", func() {
+var _ = Describe("actionProvisioned NoSSHAfterInstallImage=true", func() {
+	It("test reboot annotation for NoSSHAfterInstallImage=true, Reboot should be triggered", func() {
 		ctx := context.Background()
 		host := helpers.BareMetalHost(
 			"test-host",
@@ -1866,13 +1864,13 @@ var _ = Describe("actionProvisioned SSHAfterInstallImage=false", func() {
 		host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = fakeBootID
 
 		host.Spec.Status.Rebooted = false
+		host.Spec.Status.SSHSpec.NoSSHAfterInstallImage = true
 
 		robotMock := robotmock.Client{}
 		robotMock.On("RebootBMServer", mock.Anything, mock.Anything).Return(nil, nil).Once()
 
 		service := newTestService(host, &robotMock, nil, helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 		Expect(service.scope.RobotClient).ToNot(BeNil())
-		service.scope.SSHAfterInstallImage = false
 
 		actResult := service.actionProvisioned(ctx)
 		Expect(actResult).Should(BeAssignableToTypeOf(actionContinue{}))
@@ -1882,7 +1880,7 @@ var _ = Describe("actionProvisioned SSHAfterInstallImage=false", func() {
 		Expect(host.Spec.Status.Rebooted).To(BeTrue())
 	})
 
-	It("test reboot annotation for SSHAfterInstallImage=false, reach: Waiting for BootID of Node", func() {
+	It("test reboot annotation for NoSSHAfterInstallImage=true, reach: Waiting for BootID of Node", func() {
 		ctx := context.Background()
 		host := helpers.BareMetalHost(
 			"test-host",
@@ -1895,9 +1893,9 @@ var _ = Describe("actionProvisioned SSHAfterInstallImage=false", func() {
 		host.SetAnnotations(map[string]string{infrav1.RebootAnnotation: "reboot"})
 		host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = fakeBootID
 		host.Spec.Status.Rebooted = true
+		host.Spec.Status.SSHSpec.NoSSHAfterInstallImage = true
 
 		service := newTestService(host, nil, nil, helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
-		service.scope.SSHAfterInstallImage = false
 
 		actResult := service.actionProvisioned(ctx)
 		Expect(actResult).Should(BeAssignableToTypeOf(actionContinue{}))
@@ -1905,7 +1903,7 @@ var _ = Describe("actionProvisioned SSHAfterInstallImage=false", func() {
 		Expect(c.Message).To(ContainSubstring("Waiting for BootID of Node (in wl-cluster) to change"))
 	})
 
-	It("test reboot annotation for SSHAfterInstallImage=false, finished with healthy Condition", func() {
+	It("test reboot annotation for NoSSHAfterInstallImage=true, finished with healthy Condition", func() {
 		// Change BootID
 		ctx := context.Background()
 		host := helpers.BareMetalHost(
@@ -1919,6 +1917,7 @@ var _ = Describe("actionProvisioned SSHAfterInstallImage=false", func() {
 		host.SetAnnotations(map[string]string{infrav1.RebootAnnotation: "reboot"})
 		host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = fakeBootID
 		host.Spec.Status.Rebooted = true
+		host.Spec.Status.SSHSpec.NoSSHAfterInstallImage = true
 
 		node := &corev1.Node{
 			ObjectMeta: metav1.ObjectMeta{

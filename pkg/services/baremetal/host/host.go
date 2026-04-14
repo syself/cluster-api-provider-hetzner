@@ -211,7 +211,7 @@ func (s *Service) actionPreparing(ctx context.Context) actionResult {
 		return actionError{err: fmt.Errorf("failed to enforce rescue mode: %w", err)}
 	}
 
-	if s.scope.SSHAfterInstallImage {
+	if s.scope.SSHAfterInstallImageEnabled() {
 		// We have ssh access to running nodes. Maybe we can reboot via ssh instead of
 		// using the robot API.
 		sshClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
@@ -1693,9 +1693,8 @@ func verifyConnectionRefused(sshClient sshclient.Client, port int) bool {
 func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult) {
 	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StateEnsureProvisioned)
 
-	if !s.scope.SSHAfterInstallImage {
-		// Command line argument `--baremetal-ssh-after-install-image=false` was used.
-		// This mean we do not connect via ssh to the machine after the image got installed.
+	if !s.scope.SSHAfterInstallImageEnabled() {
+		// SSH after installimage is disabled for this machine, so we skip the verification phase.
 		record.Event(s.scope.HetznerBareMetalHost, "ServerProvisioned", "server successfully provisioned ('ensure-provisioned' was skipped)")
 		conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
 		s.scope.HetznerBareMetalHost.ClearError()
@@ -2031,7 +2030,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		// Set current BootID, so we can detect a successful reboot
 		host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = currentBootID
 
-		if s.scope.SSHAfterInstallImage {
+		if s.scope.SSHAfterInstallImageEnabled() {
 			creds := sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, host.Spec.Status.SSHSpec.SecretRef)
 
 			in := sshclient.Input{
@@ -2114,8 +2113,8 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		return actionComplete{}
 	}
 
-	if !s.scope.SSHAfterInstallImage {
-		// s.scope.SSHAfterInstallImage is false: No ssh allowed.
+	if !s.scope.SSHAfterInstallImageEnabled() {
+		// No SSH is allowed for this machine.
 		// We can only wait for the BootID in the wl-cluster to change.
 		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
 			"WaitingForNodeToBeRebooted",
@@ -2232,7 +2231,7 @@ func (s *Service) actionDeprovisioning(_ context.Context) actionResult {
 
 	conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.RobotCredentialsAvailableCondition)
 
-	if s.scope.SSHAfterInstallImage {
+	if s.scope.SSHAfterInstallImageEnabled() {
 		// If has been provisioned completely, stop all running pods
 		if s.scope.OSSSHSecret != nil {
 			sshClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{

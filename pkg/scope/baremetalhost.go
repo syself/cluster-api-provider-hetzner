@@ -49,7 +49,6 @@ type BareMetalHostScopeParams struct {
 	SecretManager           *secretutil.SecretManager
 	PreProvisionCommand     string
 	ImageURLCommand         string
-	SSHAfterInstallImage    bool
 }
 
 // NewBareMetalHostScope creates a new Scope from the supplied parameters.
@@ -95,7 +94,6 @@ func NewBareMetalHostScope(params BareMetalHostScopeParams) (*BareMetalHostScope
 		RescueSSHSecret:         params.RescueSSHSecret,
 		SecretManager:           params.SecretManager,
 		PreProvisionCommand:     params.PreProvisionCommand,
-		SSHAfterInstallImage:    params.SSHAfterInstallImage,
 		WorkloadClusterClientFactory: &realWorkloadClusterClientFactory{
 			logger:         params.Logger,
 			client:         params.Client,
@@ -120,7 +118,6 @@ type BareMetalHostScope struct {
 	OSSSHSecret                  *corev1.Secret
 	RescueSSHSecret              *corev1.Secret
 	PreProvisionCommand          string
-	SSHAfterInstallImage         bool
 	WorkloadClusterClientFactory WorkloadClusterClientFactory
 	ImageURLCommand              string
 }
@@ -169,4 +166,15 @@ func (s *BareMetalHostScope) Hostname() (hostname string) {
 func (s *BareMetalHostScope) hasConstantHostname() bool {
 	return s.Cluster.GetAnnotations()[infrav1.ConstantBareMetalHostnameAnnotation] == "true" ||
 		s.HetznerBareMetalMachine != nil && s.HetznerBareMetalMachine.GetAnnotations()[infrav1.ConstantBareMetalHostnameAnnotation] == "true"
+}
+
+// SSHAfterInstallImageEnabled returns the effective SSH-after-installimage setting for the host.
+func (s *BareMetalHostScope) SSHAfterInstallImageEnabled() bool {
+	if s.HetznerBareMetalHost.Spec.Status.SSHSpec != nil {
+		return !s.HetznerBareMetalHost.Spec.Status.SSHSpec.NoSSHAfterInstallImage
+	}
+	if s.HetznerBareMetalMachine != nil {
+		return !s.HetznerBareMetalMachine.Spec.SSHSpec.NoSSHAfterInstallImage
+	}
+	return true
 }

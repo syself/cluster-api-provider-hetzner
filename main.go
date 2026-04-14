@@ -93,7 +93,6 @@ var (
 	preProvisionCommand                string
 	baremetalImageURLCommand           string
 	skipWebhooks                       bool
-	sshAfterInstallImage               bool
 	skipCRDMigrationPhases             []string
 )
 
@@ -131,7 +130,6 @@ func main() {
 	fs.StringVar(&preProvisionCommand, "pre-provision-command", "", "Command to run (in rescue-system) before installing the image on bare metal servers. You can use that to check if the machine is healthy before installing the image. If the exit value is non-zero, the machine is considered unhealthy. This command must be accessible by the controller pod. You can use an initContainer to copy the command to a shared emptyDir.")
 	fs.StringVar(&baremetalImageURLCommand, "baremetal-image-url-command", "", "Command to run (in rescue-system) to provision an baremetal machine. Docs: https://syself.com/docs/caph/developers/image-url-command")
 	fs.BoolVar(&skipWebhooks, "skip-webhooks", false, "Skip setting up of webhooks. Together with --leader-elect=false, you can use `go run main.go` to run CAPH in a cluster connected via KUBECONFIG. You should scale down the caph deployment to 0 before doing that. This is only for testing!")
-	fs.BoolVar(&sshAfterInstallImage, "baremetal-ssh-after-install-image", true, "Connect to the baremetal machine after install-image and ensure it is provisioned. Current default is true, but we might change that to false. Background: Users might not want the controller to be able to ssh onto the servers")
 	fs.StringSliceVar(&skipCRDMigrationPhases, "skip-crd-migration-phases", []string{}, "List of CRD migration phases to skip. Valid values are: StorageVersionMigration, CleanupManagedFields.")
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
@@ -259,15 +257,14 @@ func main() {
 	}
 
 	if err = (&controllers.HetznerBareMetalHostReconciler{
-		Client:               mgr.GetClient(),
-		RobotClientFactory:   robotclient.NewFactory(),
-		SSHClientFactory:     sshclient.NewFactory(),
-		APIReader:            mgr.GetAPIReader(),
-		RateLimitWaitTime:    rateLimitWaitTime,
-		WatchFilterValue:     watchFilterValue,
-		PreProvisionCommand:  preProvisionCommand,
-		ImageURLCommand:      baremetalImageURLCommand,
-		SSHAfterInstallImage: sshAfterInstallImage,
+		Client:              mgr.GetClient(),
+		RobotClientFactory:  robotclient.NewFactory(),
+		SSHClientFactory:    sshclient.NewFactory(),
+		APIReader:           mgr.GetAPIReader(),
+		RateLimitWaitTime:   rateLimitWaitTime,
+		WatchFilterValue:    watchFilterValue,
+		PreProvisionCommand: preProvisionCommand,
+		ImageURLCommand:     baremetalImageURLCommand,
 	}).SetupWithManager(ctx, mgr, controller.Options{MaxConcurrentReconciles: hetznerBareMetalHostConcurrency}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HetznerBareMetalHost")
 		os.Exit(1)

@@ -118,6 +118,11 @@ type SSHSpec struct {
 	// SecretRef gives reference to the secret where the SSH key is stored.
 	SecretRef SSHSecretRef `json:"secretRef"`
 
+	// NoSSHAfterInstallImage disables SSH access to the machine after installimage
+	// completed successfully.
+	// +optional
+	NoSSHAfterInstallImage bool `json:"noSSHAfterInstallImage,omitempty"`
+
 	// PortAfterInstallImage specifies the port that has to be used to connect to the machine
 	// by reaching the server via SSH after installing the image successfully.
 	// +kubebuilder:default=22
