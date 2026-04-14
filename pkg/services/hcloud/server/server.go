@@ -538,7 +538,7 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 				"%s", err.Error())
 			v1beta2conditions.Set(hm, metav1.Condition{
 				Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
-				Status:  metav1.ConditionFalse,
+				Status:  metav1.ConditionUnknown,
 				Reason:  infrav1.HCloudMachineServerProvisioningV1Beta2Reason,
 				Message: err.Error(),
 			})
@@ -658,7 +658,7 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 			clusterv1.ConditionSeverityWarning, "%s", err.Error())
 		v1beta2conditions.Set(hm, metav1.Condition{
 			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
-			Status:  metav1.ConditionFalse,
+			Status:  metav1.ConditionUnknown,
 			Reason:  infrav1.HCloudMachineServerProvisioningV1Beta2Reason,
 			Message: err.Error(),
 		})
@@ -752,7 +752,7 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 			"%s", err.Error())
 		v1beta2conditions.Set(hm, metav1.Condition{
 			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
-			Status:  metav1.ConditionFalse,
+			Status:  metav1.ConditionUnknown,
 			Reason:  infrav1.HCloudMachineServerProvisioningV1Beta2Reason,
 			Message: err.Error(),
 		})

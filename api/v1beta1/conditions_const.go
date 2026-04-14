@@ -256,9 +256,6 @@ const (
 	RebootSucceededCondition clusterv1.ConditionType = "RebootSucceeded"
 )
 
-// NotYetReconciledV1Beta2Reason surfaces when a condition has not been evaluated yet. Used for conditions that are set to `Unknown` by default.
-const NotYetReconciledV1Beta2Reason = "NotYetReconciled"
-
 // HCloudMachine v1beta2 conditions and reasons.
 const (
 	// HCloudMachineReadyV1Beta2Condition summarizes the readiness of the HCloudMachine.

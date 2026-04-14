@@ -26,7 +26,6 @@ import (
 	"strings"
 	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
@@ -132,28 +131,19 @@ func (m *MachineScope) PatchObject(ctx context.Context, opts ...patch.Option) er
 	return m.patchHelper.Patch(ctx, m.HCloudMachine, opts...)
 }
 
-// SetHCloudMachineV1Beta2SummaryCondition ensures all owned v1beta2 conditions are present
-// and computes the HCloudMachine v1beta2 Ready condition. Conditions not yet set by the
-// reconcile body are initialized to Unknown so consumers always see the full set of
-// conditions the controller tracks (per CAPI/K8s API conventions).
+// SetHCloudMachineV1Beta2SummaryCondition computes the HCloudMachine v1beta2 Ready condition.
 func SetHCloudMachineV1Beta2SummaryCondition(hcloudMachine *infrav1.HCloudMachine) error {
-	for _, condType := range infrav1.HCloudMachineV1Beta2OwnedConditions() {
-		if condType == infrav1.HCloudMachineReadyV1Beta2Condition {
-			continue // Ready is computed by the summary below.
-		}
-		if v1beta2conditions.Get(hcloudMachine, condType) == nil {
-			v1beta2conditions.Set(hcloudMachine, metav1.Condition{
-				Type:   condType,
-				Status: metav1.ConditionUnknown,
-				Reason: infrav1.NotYetReconciledV1Beta2Reason,
-			})
-		}
-	}
-
 	return v1beta2conditions.SetSummaryCondition(hcloudMachine, hcloudMachine, infrav1.HCloudMachineReadyV1Beta2Condition,
 		v1beta2conditions.ForConditionTypes(infrav1.HCloudMachineV1Beta2SummaryConditionTypes()),
 		v1beta2conditions.NegativePolarityConditionTypes{
 			infrav1.HCloudMachineDeletingV1Beta2Condition,
+			infrav1.HCloudMachineHCloudRateLimitExceededV1Beta2Condition,
+		},
+		v1beta2conditions.IgnoreTypesIfMissing{
+			infrav1.HCloudMachineBootstrapReadyV1Beta2Condition,
+			infrav1.HCloudMachineServerCreatedV1Beta2Condition,
+			infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
+			infrav1.HCloudMachineServerAvailableV1Beta2Condition,
 			infrav1.HCloudMachineHCloudRateLimitExceededV1Beta2Condition,
 		},
 		v1beta2conditions.CustomMergeStrategy{
