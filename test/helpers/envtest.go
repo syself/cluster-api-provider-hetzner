@@ -224,7 +224,7 @@ func NewTestEnvironment() *TestEnvironment {
 
 func wrapEnvtestStartError(err error) error {
 	if err == nil {
-		return err
+		return nil
 	}
 
 	errText := err.Error()
