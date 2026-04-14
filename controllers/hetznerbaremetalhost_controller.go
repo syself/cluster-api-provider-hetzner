@@ -475,12 +475,12 @@ func hetznerSecretErrorResult(
 	if errors.As(err, &credValidationErr) {
 		conditions.MarkFalse(
 			bmHost,
-			infrav1.CredentialsAvailableCondition,
+			infrav1.RobotCredentialsAvailableCondition,
 			infrav1.RobotCredentialsInvalidReason,
 			clusterv1.ConditionSeverityError,
 			infrav1.ErrorMessageMissingOrInvalidSecretData,
 		)
-		record.Warnf(bmHost, infrav1.SSHCredentialsInSecretInvalidReason, err.Error())
+		record.Warnf(bmHost, infrav1.RobotCredentialsInvalidReason, err.Error())
 		return res, nil
 	}
 	return reconcile.Result{}, fmt.Errorf("hetznerSecretErrorResult: an unhandled failure occurred: %T %w", err, err)

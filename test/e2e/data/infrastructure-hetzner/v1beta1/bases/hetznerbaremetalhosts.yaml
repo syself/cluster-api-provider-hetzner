@@ -71,7 +71,7 @@ spec:
   maintenanceMode: true #### < --- set to false, when ok.
   description: Test Machine 1751550
 ---
-# 2026-03-12: Support fixed hardware issue. Now working.
+# 2026-04-09: Disabled after CI hit repeated rescue-mode reboot timeouts.
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: HetznerBareMetalHost
 metadata:
@@ -83,5 +83,5 @@ spec:
   serverID: 1763731 # ip: 144.76.101.50
   rootDeviceHints:
     wwn: "0x500a07511756c36d"
-  maintenanceMode: false
+  maintenanceMode: true
   description: Test Machine 1751550

@@ -91,7 +91,6 @@ var (
 	syncPeriod                         time.Duration
 	rateLimitWaitTime                  time.Duration
 	preProvisionCommand                string
-	hcloudImageURLCommand              string
 	baremetalImageURLCommand           string
 	skipWebhooks                       bool
 	sshAfterInstallImage               bool
@@ -130,7 +129,6 @@ func main() {
 	fs.DurationVar(&rateLimitWaitTime, "rate-limit", 5*time.Minute, "The rate limiting for HCloud controller (e.g. 5m)")
 	fs.BoolVar(&hcloudclient.DebugAPICalls, "debug-hcloud-api-calls", false, "Debug all calls to the hcloud API.")
 	fs.StringVar(&preProvisionCommand, "pre-provision-command", "", "Command to run (in rescue-system) before installing the image on bare metal servers. You can use that to check if the machine is healthy before installing the image. If the exit value is non-zero, the machine is considered unhealthy. This command must be accessible by the controller pod. You can use an initContainer to copy the command to a shared emptyDir.")
-	fs.StringVar(&hcloudImageURLCommand, "hcloud-image-url-command", "", "Command to run (in rescue-system) to provision an hcloud machine. Docs: https://syself.com/docs/caph/developers/image-url-command")
 	fs.StringVar(&baremetalImageURLCommand, "baremetal-image-url-command", "", "Command to run (in rescue-system) to provision an baremetal machine. Docs: https://syself.com/docs/caph/developers/image-url-command")
 	fs.BoolVar(&skipWebhooks, "skip-webhooks", false, "Skip setting up of webhooks. Together with --leader-elect=false, you can use `go run main.go` to run CAPH in a cluster connected via KUBECONFIG. You should scale down the caph deployment to 0 before doing that. This is only for testing!")
 	fs.BoolVar(&sshAfterInstallImage, "baremetal-ssh-after-install-image", true, "Connect to the baremetal machine after install-image and ensure it is provisioned. Current default is true, but we might change that to false. Background: Users might not want the controller to be able to ssh onto the servers")
@@ -153,22 +151,6 @@ func main() {
 		_, err := os.Stat(preProvisionCommand)
 		if err != nil {
 			setupLog.Error(err, "pre-provision-command not found")
-			os.Exit(1)
-		}
-	}
-
-	// If hcloudImageURLCommand is set, check if the file exists and validate the basename.
-	if hcloudImageURLCommand != "" {
-		baseName := filepath.Base(hcloudImageURLCommand)
-		if !commandRegex.MatchString(baseName) {
-			msg := fmt.Sprintf("basename (%s) must match the regex %s", baseName, commandRegex.String())
-			setupLog.Error(errors.New(msg), "")
-			os.Exit(1)
-		}
-
-		_, err := os.Stat(hcloudImageURLCommand)
-		if err != nil {
-			setupLog.Error(err, "hcloud-image-url-command not found")
 			os.Exit(1)
 		}
 	}
@@ -260,7 +242,6 @@ func main() {
 		HCloudClientFactory: hcloudClientFactory,
 		SSHClientFactory:    sshclient.NewFactory(),
 		WatchFilterValue:    watchFilterValue,
-		ImageURLCommand:     hcloudImageURLCommand,
 	}).SetupWithManager(ctx, mgr, controller.Options{MaxConcurrentReconciles: hcloudMachineConcurrency}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HCloudMachine")
 		os.Exit(1)

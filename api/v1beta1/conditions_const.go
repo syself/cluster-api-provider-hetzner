@@ -53,14 +53,18 @@ const (
 )
 
 const (
+	// ServerProvisionedCondition reports on whether the HCloud server has completed
+	// boot-time provisioning (rescue boot, image install, OS startup).
+	ServerProvisionedCondition clusterv1.ConditionType = "ServerProvisioned"
+	// ServerOffReason instance is off.
+	ServerOffReason = "ServerOff"
+)
+
+const (
 	// ServerAvailableCondition indicates the instance is in a Running state.
 	ServerAvailableCondition clusterv1.ConditionType = "ServerAvailable"
 	// ServerTerminatingReason instance is in a terminated state.
 	ServerTerminatingReason = "InstanceTerminated"
-	// ServerStartingReason instance is in a terminated state.
-	ServerStartingReason = "ServerStarting"
-	// ServerOffReason instance is off.
-	ServerOffReason = "ServerOff"
 )
 
 const (
@@ -154,8 +158,6 @@ const (
 const (
 	// CredentialsAvailableCondition reports on whether the Hetzner cluster is in ready state.
 	CredentialsAvailableCondition clusterv1.ConditionType = "CredentialsAvailable"
-	// RobotCredentialsInvalidReason indicates that credentials for Robot are invalid.
-	RobotCredentialsInvalidReason = "RobotCredentialsInvalid" // #nosec
 	// SSHCredentialsInSecretInvalidReason indicates that ssh credentials are invalid.
 	SSHCredentialsInSecretInvalidReason = "SSHCredentialsInSecretInvalid" // #nosec
 	// SSHKeyAlreadyExistsReason indicates that the ssh key which is specified in the host spec exists already under a different name in Hetzner robot.
@@ -164,6 +166,13 @@ const (
 	OSSSHSecretMissingReason = "OSSSHSecretMissing"
 	// RescueSSHSecretMissingReason indicates that secret with the rescue ssh key is missing.
 	RescueSSHSecretMissingReason = "RescueSSHSecretMissing"
+)
+
+const (
+	// RobotCredentialsAvailableCondition indicates that the robot credentials are available and valid.
+	RobotCredentialsAvailableCondition clusterv1.ConditionType = "RobotCredentialsAvailable"
+	// RobotCredentialsInvalidReason indicates that credentials for Robot are invalid.
+	RobotCredentialsInvalidReason = "RobotCredentialsInvalid" // #nosec
 )
 
 const (

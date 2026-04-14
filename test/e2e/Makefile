@@ -68,6 +68,7 @@ e2e-cilium-templates:
 
 e2e-ccm-templates:
 	helm repo add hetzner-cloud https://charts.hetzner.cloud
+	helm repo add syself https://charts.syself.com
 
 	helm template ccm hetzner-cloud/hcloud-cloud-controller-manager --version 1.30.1 \
 	--namespace kube-system \
@@ -89,27 +90,20 @@ e2e-ccm-templates:
 	--set networking.network.valueFrom.secretKeyRef.name=hcloud \
 	--set networking.network.valueFrom.secretKeyRef.key=network > $(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm-network.yaml
 
-	helm template ccm hetzner-cloud/hcloud-cloud-controller-manager --version 1.30.1 \
+	helm template ccm syself/ccm-hetzner --version 2.0.6 \
 	--namespace kube-system \
-	--set image.repository=ghcr.io/syself/hcloud-cloud-controller-manager \
-	--set-string env.HCLOUD_DEBUG.value=true \
-	--set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.name=hcloud \
-	--set env.HCLOUD_TOKEN.valueFrom.secretKeyRef.key=token \
-	--set env.ROBOT_USER.valueFrom.secretKeyRef.name=hcloud \
-	--set env.ROBOT_USER.valueFrom.secretKeyRef.key=robot-user \
-	--set env.ROBOT_PASSWORD.valueFrom.secretKeyRef.name=hcloud \
-	--set env.ROBOT_PASSWORD.valueFrom.secretKeyRef.key=robot-password \
-	--set-json 'additionalTolerations=[{"key":"node.cluster.x-k8s.io/uninitialized","operator":"Exists","effect":"NoSchedule"},{"key":"node.cilium.io/agent-not-ready","operator":"Exists","effect":"NoSchedule"}]' \
-	--set args.route-reconciliation-period=null \
-	--set args.feature-gates=null \
-	--set robot.enabled=true \
-	--set nameOverride=ccm-ccm-hetzner \
-	--set networking.enabled=false > $(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm-hetzner.yaml
+	--set env.debug=true \
+	--set pdb.enabled=false \
+	--set privateNetwork.enabled=false \
+	--set secret.name=hcloud \
+	--set-json 'extraEnvVars=[{"name":"HCLOUD_USE_HROBOT_PROVIDER_ID_FOR_BAREMETAL","value":"true"}]' \
+	--set-json 'tolerations=[{"key":"node.cluster.x-k8s.io/uninitialized","operator":"Exists","effect":"NoSchedule"},{"key":"node.cilium.io/agent-not-ready","operator":"Exists","effect":"NoSchedule"}]' \
+	> $(REPO_ROOT)/test/e2e/data/ccm/syself-ccm-hetzner.yaml
 
 	for file in \
 		$(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm.yaml \
 		$(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm-network.yaml \
-		$(REPO_ROOT)/test/e2e/data/ccm/hcloud-ccm-hetzner.yaml; do \
+		$(REPO_ROOT)/test/e2e/data/ccm/syself-ccm-hetzner.yaml; do \
 		tmp_file="$${file}.tmp"; \
 		{ \
 			# Keep the generated-file marker split so boilerplate verification does not classify this Makefile as generated. \

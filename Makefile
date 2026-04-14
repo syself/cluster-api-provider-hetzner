@@ -204,7 +204,8 @@ else
 	helm repo update syself
 	KUBECONFIG=$(WORKER_CLUSTER_KUBECONFIG) helm upgrade --install ccm syself/ccm-hetzner --version 2.0.6 \
 	--namespace kube-system \
-	--set privateNetwork.enabled=$(PRIVATE_NETWORK)
+	--set privateNetwork.enabled=$(PRIVATE_NETWORK) \
+	--set-json 'extraEnvVars=[{"name":"HCLOUD_USE_HROBOT_PROVIDER_ID_FOR_BAREMETAL","value":"true"}]'
 	@echo
 	@echo 'run "kubectl --kubeconfig=$(WORKER_CLUSTER_KUBECONFIG) ..." to work with the new target cluster'
 	@echo
