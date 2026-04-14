@@ -23,7 +23,7 @@ You need to enable two things:
 ```yaml
 spec:
   installImage:
-    imageURLCommand: /shared/image-url-command.sh
+    imageURLCommand: image-url-command-install-foo.sh
     image:
       url: oci://example.com/yourimage:v1
 ```
@@ -55,11 +55,10 @@ Example:
 ```
 
 It is up to the command to download from that URL and provision the disk accordingly. The command
-must be accessible by the controller pod. You can use an initContainer to copy the command to a
-shared emptyDir.
-For hcloud, `spec.imageURLCommand` is only the basename of a command below `/shared`
-and must start with `image-url-command-`. For bare metal, `spec.installImage.imageURLCommand`
-is the command path on the controller pod.
+must be accessible by the controller pod below `/shared`. You can use an initContainer to copy the
+command to a shared emptyDir.
+For both hcloud and bare metal, the command field is only the basename of a command below `/shared`
+and must start with `image-url-command-`.
 
 The env var OCI_REGISTRY_AUTH_TOKEN from the caph process will be set for the command, too.
 

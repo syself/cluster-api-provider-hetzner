@@ -157,14 +157,14 @@ type InstallImage struct {
 	// Image is the image to be provisioned. It defines the image for baremetal machine.
 	Image Image `json:"image"`
 
-	// ImageURLCommand is the local path of the command which provisions a machine from Image.URL.
-	// The command must be accessible by the controller pod. CAPH copies it into the rescue system
-	// and executes it there.
+	// ImageURLCommand is the basename of a command file below /shared on the controller pod which
+	// provisions a machine from Image.URL. CAPH copies that command into the rescue system and
+	// executes it there.
 	//
 	// Docs: https://syself.com/docs/caph/developers/image-url-command
 	//
 	// ImageURLCommand must be set if the machine should be provisioned from Image.URL without
-	// installimage.
+	// installimage. The command name must start with image-url-command-.
 	// +kubebuilder:validation:Optional
 	// +optional
 	ImageURLCommand string `json:"imageURLCommand,omitempty"`

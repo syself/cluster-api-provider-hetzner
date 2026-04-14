@@ -19,17 +19,15 @@ package v1beta1
 import (
 	"fmt"
 	"net/url"
-	"path/filepath"
 	"reflect"
-	"regexp"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-)
 
-var bareMetalImageURLCommandBasenameRegex = regexp.MustCompile(`^[a-z][a-z0-9_.-]+[a-z0-9]$`)
+	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
+)
 
 func validateHetznerBareMetalMachineSpecCreate(spec HetznerBareMetalMachineSpec) field.ErrorList {
 	var allErrs field.ErrorList
@@ -62,11 +60,10 @@ func validateHetznerBareMetalMachineSpecCreate(spec HetznerBareMetalMachineSpec)
 			)
 		}
 
-		baseName := filepath.Base(installImage.ImageURLCommand)
-		if !bareMetalImageURLCommandBasenameRegex.MatchString(baseName) {
+		if err := utils.ValidateImageURLCommandName(installImage.ImageURLCommand); err != nil {
 			allErrs = append(allErrs,
 				field.Invalid(field.NewPath("spec", "installImage", "imageURLCommand"), installImage.ImageURLCommand,
-					"basename must match the regex "+bareMetalImageURLCommandBasenameRegex.String()),
+					err.Error()),
 			)
 		}
 	} else {

@@ -68,7 +68,7 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 			args: args{
 				spec: HetznerBareMetalMachineSpec{
 					InstallImage: InstallImage{
-						ImageURLCommand: "/shared/image-url-command.sh",
+						ImageURLCommand: "image-url-command-bm-test.sh",
 						Image: Image{
 							URL: "oci://ghcr.io/example/ubuntu:v1",
 						},
@@ -107,7 +107,7 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 			args: args{
 				spec: HetznerBareMetalMachineSpec{
 					InstallImage: InstallImage{
-						ImageURLCommand: "/shared/image-url-command.sh",
+						ImageURLCommand: "image-url-command-bm-test.sh",
 						Image:           Image{},
 					},
 				},
@@ -119,7 +119,7 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 			args: args{
 				spec: HetznerBareMetalMachineSpec{
 					InstallImage: InstallImage{
-						ImageURLCommand: "/shared/image-url-command.sh",
+						ImageURLCommand: "image-url-command-bm-test.sh",
 						Image: Image{
 							Name: "ubuntu-24.04",
 							URL:  "oci://ghcr.io/example/ubuntu:v1",
@@ -130,18 +130,46 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 			want: field.Invalid(field.NewPath("spec", "installImage", "image", "name"), "ubuntu-24.04", "name must be empty when imageURLCommand is set"),
 		},
 		{
-			name: "Invalid Image URL Command Basename",
+			name: "Invalid Image URL Command With Slash",
 			args: args{
 				spec: HetznerBareMetalMachineSpec{
 					InstallImage: InstallImage{
-						ImageURLCommand: "/shared/1bad.sh",
+						ImageURLCommand: "/shared/image-url-command-bm-test.sh",
 						Image: Image{
 							URL: "oci://ghcr.io/example/ubuntu:v1",
 						},
 					},
 				},
 			},
-			want: field.Invalid(field.NewPath("spec", "installImage", "imageURLCommand"), "/shared/1bad.sh", "basename must match the regex "+bareMetalImageURLCommandBasenameRegex.String()),
+			want: field.Invalid(field.NewPath("spec", "installImage", "imageURLCommand"), "/shared/image-url-command-bm-test.sh", "must be a basename without slashes"),
+		},
+		{
+			name: "Invalid Image URL Command Without Prefix",
+			args: args{
+				spec: HetznerBareMetalMachineSpec{
+					InstallImage: InstallImage{
+						ImageURLCommand: "my-command.sh",
+						Image: Image{
+							URL: "oci://ghcr.io/example/ubuntu:v1",
+						},
+					},
+				},
+			},
+			want: field.Invalid(field.NewPath("spec", "installImage", "imageURLCommand"), "my-command.sh", "must match the regex ^image-url-command-[a-z0-9][a-z0-9._-]*$"),
+		},
+		{
+			name: "Invalid Image URL Command With Dot Dot",
+			args: args{
+				spec: HetznerBareMetalMachineSpec{
+					InstallImage: InstallImage{
+						ImageURLCommand: "image-url-command-bm..test.sh",
+						Image: Image{
+							URL: "oci://ghcr.io/example/ubuntu:v1",
+						},
+					},
+				},
+			},
+			want: field.Invalid(field.NewPath("spec", "installImage", "imageURLCommand"), "image-url-command-bm..test.sh", "must not contain '..'"),
 		},
 		{
 			name: "Valid HostSelector MatchLabels",
