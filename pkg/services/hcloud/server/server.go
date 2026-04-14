@@ -125,6 +125,12 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 					clusterv1.ConditionSeverityError,
 					"wrong hcloud token",
 				)
+				v1beta2conditions.Set(s.scope.HCloudMachine, metav1.Condition{
+					Type:    infrav1.HCloudMachineHCloudTokenAvailableV1Beta2Condition,
+					Status:  metav1.ConditionFalse,
+					Reason:  infrav1.HCloudMachineTokenInvalidV1Beta2Reason,
+					Message: "wrong hcloud token",
+				})
 
 				return reconcile.Result{}, nil
 			}
@@ -141,6 +147,11 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 		}
 
 		conditions.MarkTrue(s.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition)
+		v1beta2conditions.Set(s.scope.HCloudMachine, metav1.Condition{
+			Type:   infrav1.HCloudMachineHCloudTokenAvailableV1Beta2Condition,
+			Status: metav1.ConditionTrue,
+			Reason: infrav1.HCloudMachineTokenAvailableV1Beta2Reason,
+		})
 
 		// findServer will return both server and error as nil, if the server was not found.
 		if server == nil {
@@ -216,9 +227,9 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 			"HandleBootStateUnsetTimedOut", clusterv1.ConditionSeverityWarning,
 			"%s", msg)
 		v1beta2conditions.Set(hm, metav1.Condition{
-			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
+			Type:    infrav1.HCloudMachineServerCreatedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineServerNotProvisionedV1Beta2Reason,
+			Reason:  infrav1.HCloudMachineServerNotCreatedV1Beta2Reason,
 			Message: msg,
 		})
 		return reconcile.Result{}, nil
@@ -261,6 +272,12 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 				clusterv1.ConditionSeverityError,
 				"wrong hcloud token",
 			)
+			v1beta2conditions.Set(s.scope.HCloudMachine, metav1.Condition{
+				Type:    infrav1.HCloudMachineHCloudTokenAvailableV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav1.HCloudMachineTokenInvalidV1Beta2Reason,
+				Message: "wrong hcloud token",
+			})
 
 			return reconcile.Result{}, nil
 		}
@@ -294,6 +311,11 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 	}
 
 	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition)
+	v1beta2conditions.Set(s.scope.HCloudMachine, metav1.Condition{
+		Type:   infrav1.HCloudMachineHCloudTokenAvailableV1Beta2Condition,
+		Status: metav1.ConditionTrue,
+		Reason: infrav1.HCloudMachineTokenAvailableV1Beta2Reason,
+	})
 
 	updateHCloudMachineStatusFromServer(hm, server)
 
@@ -302,6 +324,11 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 	// If server creation was successful, but reconciliation failed afterward, its
 	// condition might not be true yet.
 	conditions.MarkTrue(hm, infrav1.ServerCreateSucceededCondition)
+	v1beta2conditions.Set(hm, metav1.Condition{
+		Type:   infrav1.HCloudMachineServerCreatedV1Beta2Condition,
+		Status: metav1.ConditionTrue,
+		Reason: infrav1.HCloudMachineServerCreatedV1Beta2Reason,
+	})
 
 	// Provisioning from a hcloud image like ubuntu-YY.MM takes roughly 11 seconds.
 	// Provisioning from a snapshot takes roughly 140 seconds.

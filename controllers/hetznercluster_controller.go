@@ -488,6 +488,14 @@ func hcloudTokenErrorResult(
 			"%s",
 			inerr.Error(),
 		)
+		if hcloudMachine, ok := setter.(*infrav1.HCloudMachine); ok {
+			v1beta2conditions.Set(hcloudMachine, metav1.Condition{
+				Type:    infrav1.HCloudMachineHCloudTokenAvailableV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav1.HCloudMachineTokenInvalidV1Beta2Reason,
+				Message: inerr.Error(),
+			})
+		}
 		return reconcile.Result{}, fmt.Errorf("an unhandled failure occurred with the Hetzner secret: %w", inerr)
 	}
 	conditions.SetSummary(setter)
