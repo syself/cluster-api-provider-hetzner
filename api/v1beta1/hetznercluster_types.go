@@ -154,19 +154,19 @@ func (r *HetznerCluster) SetConditions(conditions clusterv1.Conditions) {
 }
 
 // GetV1Beta2Conditions returns the set of v1beta2 conditions for the HetznerCluster object.
-func (c *HetznerCluster) GetV1Beta2Conditions() []metav1.Condition {
-	if c.Status.V1Beta2 == nil {
+func (r *HetznerCluster) GetV1Beta2Conditions() []metav1.Condition {
+	if r.Status.V1Beta2 == nil {
 		return nil
 	}
-	return c.Status.V1Beta2.Conditions
+	return r.Status.V1Beta2.Conditions
 }
 
 // SetV1Beta2Conditions sets v1beta2 conditions for the HetznerCluster object.
-func (c *HetznerCluster) SetV1Beta2Conditions(conditions []metav1.Condition) {
-	if c.Status.V1Beta2 == nil {
-		c.Status.V1Beta2 = &HetznerClusterV1Beta2Status{}
+func (r *HetznerCluster) SetV1Beta2Conditions(conditions []metav1.Condition) {
+	if r.Status.V1Beta2 == nil {
+		r.Status.V1Beta2 = &HetznerClusterV1Beta2Status{}
 	}
-	c.Status.V1Beta2.Conditions = conditions
+	r.Status.V1Beta2.Conditions = conditions
 }
 
 // ClusterV1Beta2SummaryOpts returns the v1beta2 summary options for a HetznerCluster.

@@ -29,12 +29,12 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/conditions/v1beta2"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
-	v1beta2conditions "sigs.k8s.io/cluster-api/util/conditions/v1beta2"
 )
 
 // ClusterScopeParams defines the input parameters used to create a new scope.
@@ -130,7 +130,7 @@ func (s *ClusterScope) Close(ctx context.Context) error {
 	if err != nil {
 		// Note, this could only happen if we hit edge cases in computing the summary, which should not happen due to the fact
 		// that we are passing a non empty list of ForConditionTypes.
-		s.Logger.Error(err, "Failed to set v1beta2 Ready condition")
+		s.Error(err, "Failed to set v1beta2 Ready condition")
 		unknownReadyCondition := metav1.Condition{
 			Type:   clusterv1.ReadyV1Beta2Condition,
 			Status: metav1.ConditionUnknown,
@@ -221,7 +221,7 @@ func (s *ClusterScope) ListMachines(ctx context.Context) ([]*clusterv1.Machine, 
 	return machineList, hcloudMachineList, nil
 }
 
-// clusterpatchOpts retuns the list of patch.Option for HetznerCluster.
+// clusterpatchOpts returns the list of patch.Option for HetznerCluster.
 func clusterpatchOpts() []patch.Option {
 	return []patch.Option{
 		// owned v1beta1 conditions.

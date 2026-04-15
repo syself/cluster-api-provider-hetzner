@@ -311,7 +311,7 @@ const (
 	LoadBalancerFailedToOwnV1Beta2Reason = "FailedToOwn"
 	// LoadBalancerUpdateFailedV1Beta2Reason indicates that an error occurred during load balancer update.
 	LoadBalancerUpdateFailedV1Beta2Reason = "UpdateFailed"
-	// LoadBalancerDeleteFailedReason indicates that an error occurred during load balancer delete.
+	// LoadBalancerDeleteFailedV1Beta2Reason indicates that an error occurred during load balancer delete.
 	LoadBalancerDeleteFailedV1Beta2Reason = "DeleteFailed"
 )
 
@@ -334,7 +334,7 @@ const (
 )
 
 const (
-	// TargetClusterReadyCondition reports on whether the kubeconfig in the target cluster is ready.
+	// TargetClusterReadyV1Beta2Condition reports on whether the kubeconfig in the target cluster is ready.
 	TargetClusterReadyV1Beta2Condition = "TargetClusterReady"
 	// TargetClusterReadyV1Beta2Reason indicates that the kubeconfig in the target cluster is ready.
 	TargetClusterReadyV1Beta2Reason = clusterv1.ReadyV1Beta2Reason
