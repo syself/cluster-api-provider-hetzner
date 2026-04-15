@@ -263,7 +263,7 @@ var _ = Describe("Delete", func() {
 		Expect(hcloudMachine.Status.InstanceState).To(Equal(ptr.To(hcloud.ServerStatusDeleting)))
 		Expect(conditions.IsFalse(hcloudMachine, infrav1.HCloudTokenAvailableCondition)).To(BeTrue())
 		Expect(conditions.GetReason(hcloudMachine, infrav1.HCloudTokenAvailableCondition)).To(Equal(infrav1.HCloudCredentialsInvalidReason))
-		Expect(isPresentWithStatusAndReasonV1Beta2(hcloudMachine, infrav1.HCloudMachineHCloudTokenAvailableV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudMachineTokenInvalidV1Beta2Reason)).To(BeTrue())
+		Expect(isPresentWithStatusAndReasonV1Beta2(hcloudMachine, infrav1.HCloudTokenAvailableV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudTokenInvalidV1Beta2Reason)).To(BeTrue())
 
 		hcloudClient.AssertExpectations(GinkgoT())
 	})
@@ -289,10 +289,10 @@ var _ = Describe("Test handleRateLimit", func() {
 			}
 			if tc.expectCondition {
 				Expect(isPresentAndFalseWithReason(tc.hm, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason)).To(BeTrue())
-				Expect(isPresentWithStatusAndReasonV1Beta2(tc.hm, infrav1.HCloudMachineHCloudRateLimitExceededV1Beta2Condition, metav1.ConditionTrue, infrav1.HCloudMachineRateLimitExceededV1Beta2Reason)).To(BeTrue())
+				Expect(isPresentWithStatusAndReasonV1Beta2(tc.hm, infrav1.HCloudRateLimitExceededV1Beta2Condition, metav1.ConditionTrue, infrav1.HCloudRateLimitExceededV1Beta2Reason)).To(BeTrue())
 			} else {
 				Expect(conditions.Get(tc.hm, infrav1.HetznerAPIReachableCondition)).To(BeNil())
-				Expect(v1beta2conditions.Get(tc.hm, infrav1.HCloudMachineHCloudRateLimitExceededV1Beta2Condition)).To(BeNil())
+				Expect(v1beta2conditions.Get(tc.hm, infrav1.HCloudRateLimitExceededV1Beta2Condition)).To(BeNil())
 			}
 		},
 		Entry("machine not ready, rate limit exceeded error", testCaseHandleRateLimit{
@@ -1221,7 +1221,7 @@ var _ = Describe("Reconcile", func() {
 
 		By("ensuring condition HCloudCredentialsInvalid is set")
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason)).To(BeTrue())
-		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudMachineHCloudTokenAvailableV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudMachineTokenInvalidV1Beta2Reason)).To(BeTrue())
+		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudTokenAvailableV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudTokenInvalidV1Beta2Reason)).To(BeTrue())
 		Expect(scope.SetHCloudMachineV1Beta2SummaryCondition(service.scope.HCloudMachine)).To(Succeed())
 		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudMachineReadyV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudMachineNotReadyV1Beta2Reason)).To(BeTrue())
 
@@ -1238,9 +1238,9 @@ var _ = Describe("Reconcile", func() {
 
 		By("ensuring conditions HCloudCredentialsInvalid and RateLimitExceeded are set")
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason)).To(BeTrue())
-		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudMachineHCloudTokenAvailableV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudMachineTokenInvalidV1Beta2Reason)).To(BeTrue())
+		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudTokenAvailableV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudTokenInvalidV1Beta2Reason)).To(BeTrue())
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason)).To(BeTrue())
-		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudMachineHCloudRateLimitExceededV1Beta2Condition, metav1.ConditionTrue, infrav1.HCloudMachineRateLimitExceededV1Beta2Reason)).To(BeTrue())
+		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudRateLimitExceededV1Beta2Condition, metav1.ConditionTrue, infrav1.HCloudRateLimitExceededV1Beta2Reason)).To(BeTrue())
 	})
 
 	It("requeues for 5 minutes when server creation is not possible while creating a server", func() {
@@ -1297,7 +1297,7 @@ var _ = Describe("Reconcile", func() {
 
 		By("ensuring condition HCloudCredentialsInvalid is set")
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason)).To(BeTrue())
-		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudMachineHCloudTokenAvailableV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudMachineTokenInvalidV1Beta2Reason)).To(BeTrue())
+		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudTokenAvailableV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudTokenInvalidV1Beta2Reason)).To(BeTrue())
 		Expect(scope.SetHCloudMachineV1Beta2SummaryCondition(service.scope.HCloudMachine)).To(Succeed())
 		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudMachineReadyV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudMachineNotReadyV1Beta2Reason)).To(BeTrue())
 
@@ -1315,9 +1315,9 @@ var _ = Describe("Reconcile", func() {
 
 		By("ensuring conditions HCloudCredentialsInvalid and RateLimitExceeded are set")
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason)).To(BeTrue())
-		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudMachineHCloudTokenAvailableV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudMachineTokenInvalidV1Beta2Reason)).To(BeTrue())
+		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudTokenAvailableV1Beta2Condition, metav1.ConditionFalse, infrav1.HCloudTokenInvalidV1Beta2Reason)).To(BeTrue())
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason)).To(BeTrue())
-		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudMachineHCloudRateLimitExceededV1Beta2Condition, metav1.ConditionTrue, infrav1.HCloudMachineRateLimitExceededV1Beta2Reason)).To(BeTrue())
+		Expect(isPresentWithStatusAndReasonV1Beta2(service.scope.HCloudMachine, infrav1.HCloudRateLimitExceededV1Beta2Condition, metav1.ConditionTrue, infrav1.HCloudRateLimitExceededV1Beta2Reason)).To(BeTrue())
 	})
 })
 

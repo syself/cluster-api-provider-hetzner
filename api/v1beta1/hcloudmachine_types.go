@@ -21,6 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	capierrors "sigs.k8s.io/cluster-api/errors" //nolint:staticcheck // we will handle that, when we update to capi v1.11
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/conditions/v1beta2"
 )
 
 const (
@@ -187,6 +188,7 @@ type HCloudMachineV1Beta2Status struct {
 	// +optional
 	// +listType=map
 	// +listMapKey=type
+	// +kubebuilder:validation:MaxItems=32
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
@@ -241,6 +243,52 @@ func (r *HCloudMachine) SetV1Beta2Conditions(conditions []metav1.Condition) {
 		r.Status.V1Beta2 = &HCloudMachineV1Beta2Status{}
 	}
 	r.Status.V1Beta2.Conditions = conditions
+}
+
+// HCloudMachineV1Beta2SummaryOpts returns the v1beta2 summary options for an HCloudMachine.
+// It is the single source of truth for which conditions contribute to the Ready summary,
+// used both by MachineScope.Close() and by early-exit error paths that bypass the scope.
+//
+// The order of conditions in ForConditionTypes defines the priority for the Ready summary:
+// when multiple conditions are unhealthy, the summary surfaces the message of the
+// highest-priority (earliest) one. The ordering reflects operational importance:
+//  1. HCloudTokenAvailable    - invalid credentials block everything.
+//  2. HCloudRateLimitExceeded - rate-limit issues (negative polarity).
+//  3. ServerCreated           - server existence precedes later lifecycle stages; bootstrap readiness is folded in as a reason.
+//  4. ServerProvisioned       - provisioning precedes availability.
+//  5. ServerAvailable
+func HCloudMachineV1Beta2SummaryOpts() []v1beta2conditions.SummaryOption {
+	return []v1beta2conditions.SummaryOption{
+		v1beta2conditions.ForConditionTypes{
+			HCloudTokenAvailableV1Beta2Condition,
+			HCloudRateLimitExceededV1Beta2Condition,
+			HCloudMachineServerCreatedV1Beta2Condition,
+			HCloudMachineServerProvisionedV1Beta2Condition,
+			HCloudMachineServerAvailableV1Beta2Condition,
+		},
+		v1beta2conditions.NegativePolarityConditionTypes{
+			HCloudRateLimitExceededV1Beta2Condition,
+		},
+		v1beta2conditions.IgnoreTypesIfMissing{
+			HCloudTokenAvailableV1Beta2Condition,
+			HCloudMachineServerCreatedV1Beta2Condition,
+			HCloudMachineServerProvisionedV1Beta2Condition,
+			HCloudMachineServerAvailableV1Beta2Condition,
+			HCloudRateLimitExceededV1Beta2Condition,
+		},
+		v1beta2conditions.CustomMergeStrategy{
+			MergeStrategy: v1beta2conditions.DefaultMergeStrategy(
+				v1beta2conditions.GetPriorityFunc(v1beta2conditions.GetDefaultMergePriorityFunc(
+					HCloudRateLimitExceededV1Beta2Condition,
+				)),
+				v1beta2conditions.ComputeReasonFunc(v1beta2conditions.GetDefaultComputeMergeReasonFunc(
+					HCloudMachineNotReadyV1Beta2Reason,
+					HCloudMachineReadyUnknownV1Beta2Reason,
+					HCloudMachineReadyV1Beta2Reason,
+				)),
+			),
+		},
+	}
 }
 
 // SetBootState sets Status.BootStates and updates Status.BootStateSince.

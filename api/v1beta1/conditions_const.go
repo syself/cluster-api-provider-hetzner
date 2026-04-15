@@ -260,6 +260,33 @@ const (
 	RebootSucceededCondition clusterv1.ConditionType = "RebootSucceeded"
 )
 
+// v1beta2 conditions.
+
+// common conditions used across resource types.
+
+const (
+	// HCloudRateLimitExceededV1Beta2Condition reports on whether the HCloud API rate limit has been exceeded.
+	HCloudRateLimitExceededV1Beta2Condition = "HCloudRateLimitExceeded"
+	// HCloudRateLimitExceededV1Beta2Reason indicates that the HCloud API rate limit has been exceeded.
+	HCloudRateLimitExceededV1Beta2Reason = "RateLimitExceeded"
+)
+
+const (
+	// HCloudTokenAvailableV1Beta2Condition reports on whether the HCloud Token is available.
+	HCloudTokenAvailableV1Beta2Condition = "HCloudTokenAvailable"
+	// HCloudTokenAvailableV1Beta2Reason indicates that the HCloudToken is available.
+	HCloudTokenAvailableV1Beta2Reason = clusterv1.AvailableV1Beta2Reason
+	// HCloudTokenInvalidV1Beta2Reason indicates that the HCloudToken is invalid.
+	HCloudTokenInvalidV1Beta2Reason = "Invalid"
+	// HetznerSecretUnreachableV1Beta2Reason indicates that Hetzner secret is unreachable.
+	HetznerSecretUnreachableV1Beta2Reason = "HetznerSecretUnreachable" // #nosec
+)
+
+const (
+	// InternalErrorV1Beta2Reason indicates an internal error in reconciler.
+	InternalErrorV1Beta2Reason = "InternalError"
+)
+
 // HCloudMachine v1beta2 conditions and reasons.
 const (
 	// HCloudMachineReadyV1Beta2Condition summarizes the readiness of the HCloudMachine.
@@ -270,17 +297,6 @@ const (
 	HCloudMachineNotReadyV1Beta2Reason = clusterv1.NotReadyV1Beta2Reason
 	// HCloudMachineReadyUnknownV1Beta2Reason surfaces when the HCloudMachine readiness is unknown.
 	HCloudMachineReadyUnknownV1Beta2Reason = clusterv1.ReadyUnknownV1Beta2Reason
-)
-
-const (
-	// HCloudMachineHCloudTokenAvailableV1Beta2Condition reports on whether the HCloud token is available.
-	HCloudMachineHCloudTokenAvailableV1Beta2Condition = "HCloudTokenAvailable"
-	// HCloudMachineTokenAvailableV1Beta2Reason surfaces when the HCloud token is available.
-	HCloudMachineTokenAvailableV1Beta2Reason = "Available"
-	// HCloudMachineTokenSecretUnreachableV1Beta2Reason surfaces when the Hetzner secret cannot be reached.
-	HCloudMachineTokenSecretUnreachableV1Beta2Reason = "SecretUnreachable"
-	// HCloudMachineTokenInvalidV1Beta2Reason surfaces when the HCloud token is invalid.
-	HCloudMachineTokenInvalidV1Beta2Reason = "CredentialsInvalid"
 )
 
 const (
@@ -406,47 +422,3 @@ const (
 	HCloudMachineDeletingV1Beta2Reason = clusterv1.DeletingV1Beta2Reason
 )
 
-const (
-	// HCloudMachineHCloudRateLimitExceededV1Beta2Condition reports whether the HCloud API rate limit
-	// has been exceeded (negative polarity: True = rate limited = unhealthy).
-	HCloudMachineHCloudRateLimitExceededV1Beta2Condition = "HCloudRateLimitExceeded"
-	// HCloudMachineRateLimitNotExceededV1Beta2Reason surfaces when the HCloud API rate limit is not exceeded.
-	HCloudMachineRateLimitNotExceededV1Beta2Reason = "NotExceeded"
-	// HCloudMachineRateLimitExceededV1Beta2Reason surfaces when requests hit the HCloud API rate limit.
-	HCloudMachineRateLimitExceededV1Beta2Reason = "Exceeded"
-)
-
-// HCloudMachineV1Beta2OwnedConditions returns a fresh copy of the v1beta2 conditions
-// owned by the HCloudMachine controller.
-//
-// The order of conditions (after Ready) defines the priority for the Ready summary
-// condition: when multiple conditions are unhealthy, the summary surfaces the message
-// of the highest-priority (earliest) one. The ordering reflects operational importance:
-//  1. HCloudTokenAvailable      - invalid credentials block everything.
-//  2. HCloudRateLimitExceeded   - rate-limit issues (negative polarity).
-//  3. ServerCreated             - server existence precedes later lifecycle stages; bootstrap readiness is folded in as a reason.
-//  4. ServerProvisioned         - provisioning precedes availability.
-//  5. ServerAvailable
-func HCloudMachineV1Beta2OwnedConditions() []string {
-	return []string{
-		HCloudMachineReadyV1Beta2Condition,
-		HCloudMachineHCloudTokenAvailableV1Beta2Condition,
-		HCloudMachineHCloudRateLimitExceededV1Beta2Condition,
-		HCloudMachineServerCreatedV1Beta2Condition,
-		HCloudMachineServerProvisionedV1Beta2Condition,
-		HCloudMachineServerAvailableV1Beta2Condition,
-	}
-}
-
-// HCloudMachineV1Beta2SummaryConditionTypes returns the condition types used for computing
-// the Ready summary condition (all owned conditions except Ready itself).
-func HCloudMachineV1Beta2SummaryConditionTypes() []string {
-	owned := HCloudMachineV1Beta2OwnedConditions()
-	types := make([]string, 0, len(owned)-1)
-	for _, c := range owned {
-		if c != HCloudMachineReadyV1Beta2Condition {
-			types = append(types, c)
-		}
-	}
-	return types
-}

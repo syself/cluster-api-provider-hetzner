@@ -108,9 +108,9 @@ var _ = Describe("SetHCloudMachineV1Beta2SummaryCondition", func() {
 			},
 			// Set HCloudTokenAvailable=False (highest priority issue).
 			{
-				Type:    infrav1.HCloudMachineHCloudTokenAvailableV1Beta2Condition,
+				Type:    infrav1.HCloudTokenAvailableV1Beta2Condition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HCloudMachineTokenInvalidV1Beta2Reason,
+				Reason:  infrav1.HCloudTokenInvalidV1Beta2Reason,
 				Message: "token is invalid",
 			},
 		})
@@ -143,9 +143,9 @@ var _ = Describe("SetHCloudMachineV1Beta2SummaryCondition", func() {
 		hcloudMachine.SetV1Beta2Conditions([]metav1.Condition{
 			// HCloudRateLimitExceeded=True (negative polarity, priority 2).
 			{
-				Type:    infrav1.HCloudMachineHCloudRateLimitExceededV1Beta2Condition,
+				Type:    infrav1.HCloudRateLimitExceededV1Beta2Condition,
 				Status:  metav1.ConditionTrue,
-				Reason:  infrav1.HCloudMachineRateLimitExceededV1Beta2Reason,
+				Reason:  infrav1.HCloudRateLimitExceededV1Beta2Reason,
 				Message: "rate limit exceeded",
 			},
 			// ServerAvailable=False with Deleting reason (priority 5).

@@ -812,16 +812,16 @@ var _ = Describe("Hetzner secret", func() {
 			hetznerSecret = secretFunc()
 			Expect(testEnv.Create(ctx, hetznerSecret)).To(Succeed())
 
-			expectedV1Beta2Reason := infrav1.HCloudMachineTokenInvalidV1Beta2Reason
+			expectedV1Beta2Reason := infrav1.HCloudTokenInvalidV1Beta2Reason
 			if expectedReason == infrav1.HetznerSecretUnreachableReason {
-				expectedV1Beta2Reason = infrav1.HCloudMachineTokenSecretUnreachableV1Beta2Reason
+				expectedV1Beta2Reason = infrav1.HetznerSecretUnreachableV1Beta2Reason
 			}
 
 			Eventually(func() bool {
 				return isPresentAndFalseWithReason(key, hcloudMachine, infrav1.HCloudTokenAvailableCondition, expectedReason)
 			}, timeout, interval).Should(BeTrue())
 			Eventually(func() bool {
-				return isPresentAndFalseWithReasonV1Beta2(key, hcloudMachine, infrav1.HCloudMachineHCloudTokenAvailableV1Beta2Condition, expectedV1Beta2Reason)
+				return isPresentAndFalseWithReasonV1Beta2(key, hcloudMachine, infrav1.HCloudTokenAvailableV1Beta2Condition, expectedV1Beta2Reason)
 			}, timeout, interval).Should(BeTrue())
 			Eventually(func() bool {
 				return isPresentAndFalseWithReasonV1Beta2(key, hcloudMachine, infrav1.HCloudMachineReadyV1Beta2Condition, infrav1.HCloudMachineNotReadyV1Beta2Reason)

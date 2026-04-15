@@ -35,7 +35,6 @@ import (
 	"sigs.k8s.io/cluster-api/util/annotations"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	v1beta2conditions "sigs.k8s.io/cluster-api/util/conditions/v1beta2"
-	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -157,7 +156,7 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 
 	hcloudToken, hetznerSecret, err := getAndValidateHCloudToken(ctx, req.Namespace, hetznerCluster, secretManager)
 	if err != nil {
-		return hcloudTokenErrorResult(ctx, err, hcloudMachine, r)
+		return hcloudTokenErrorResult(ctx, err, hcloudMachine, r, infrav1.HCloudMachineV1Beta2SummaryOpts())
 	}
 
 	hcc := r.HCloudClientFactory.NewClient(hcloudToken)
@@ -251,12 +250,6 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
-	// If we passed the rate limit check, the API is not rate limited.
-	v1beta2conditions.Set(hcloudMachine, metav1.Condition{
-		Type:   infrav1.HCloudMachineHCloudRateLimitExceededV1Beta2Condition,
-		Status: metav1.ConditionFalse,
-		Reason: infrav1.HCloudMachineRateLimitNotExceededV1Beta2Reason,
-	})
 
 	if !hcloudMachine.DeletionTimestamp.IsZero() {
 		return r.reconcileDelete(ctx, machineScope)
@@ -298,9 +291,7 @@ func (r *HCloudMachineReconciler) reconcileNormal(ctx context.Context, machineSc
 	controllerutil.RemoveFinalizer(machineScope.HCloudMachine, infrav1.DeprecatedHCloudMachineFinalizer)
 
 	// Register the finalizer immediately to avoid orphaning HCloud resources on delete.
-	if err := machineScope.PatchObject(ctx,
-		patch.WithOwnedV1Beta2Conditions{Conditions: infrav1.HCloudMachineV1Beta2OwnedConditions()},
-	); err != nil {
+	if err := machineScope.PatchObject(ctx); err != nil {
 		return reconcile.Result{}, err
 	}
 

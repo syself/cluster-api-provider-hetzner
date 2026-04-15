@@ -26,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
@@ -101,14 +102,34 @@ type MachineScope struct {
 
 // Close closes the current scope persisting the machine configuration and status.
 func (m *MachineScope) Close(ctx context.Context) error {
+	// set summary for v1beta1 conditions.
 	conditions.SetSummary(m.HCloudMachine)
-	if err := SetHCloudMachineV1Beta2SummaryCondition(m.HCloudMachine); err != nil {
-		return fmt.Errorf("failed to set %s condition: %w", infrav1.HCloudMachineReadyV1Beta2Condition, err)
+
+	// set summary for v1beta2 conditions.
+	readyCondition, err := v1beta2conditions.NewSummaryCondition(
+		m.HCloudMachine,
+		clusterv1.ReadyV1Beta2Condition,
+		infrav1.HCloudMachineV1Beta2SummaryOpts()...,
+	)
+	if err != nil {
+		// Note, this could only happen if we hit edge cases in computing the summary, which should not happen due to the fact
+		// that we are passing a non empty list of ForConditionTypes.
+		m.Error(err, "Failed to set v1beta2 Ready condition")
+		unknownReadyCondition := metav1.Condition{
+			Type:   clusterv1.ReadyV1Beta2Condition,
+			Status: metav1.ConditionUnknown,
+			Reason: infrav1.InternalErrorV1Beta2Reason,
+		}
+
+		v1beta2conditions.Set(m.HCloudMachine, unknownReadyCondition)
+
+		patchErr := m.patchHelper.Patch(ctx, m.HCloudMachine, machinePatchOpts()...)
+		return errors.Join(err, patchErr)
 	}
 
-	return m.patchHelper.Patch(ctx, m.HCloudMachine,
-		patch.WithOwnedV1Beta2Conditions{Conditions: infrav1.HCloudMachineV1Beta2OwnedConditions()},
-	)
+	v1beta2conditions.Set(m.HCloudMachine, *readyCondition)
+
+	return m.patchHelper.Patch(ctx, m.HCloudMachine, machinePatchOpts()...)
 }
 
 // IsControlPlane returns true if the machine is a control plane.
@@ -127,37 +148,30 @@ func (m *MachineScope) Namespace() string {
 }
 
 // PatchObject persists the machine spec and status.
-func (m *MachineScope) PatchObject(ctx context.Context, opts ...patch.Option) error {
-	return m.patchHelper.Patch(ctx, m.HCloudMachine, opts...)
+func (m *MachineScope) PatchObject(ctx context.Context) error {
+	return m.patchHelper.Patch(ctx, m.HCloudMachine, machinePatchOpts()...)
 }
 
 // SetHCloudMachineV1Beta2SummaryCondition computes the HCloudMachine v1beta2 Ready condition.
 func SetHCloudMachineV1Beta2SummaryCondition(hcloudMachine *infrav1.HCloudMachine) error {
 	return v1beta2conditions.SetSummaryCondition(hcloudMachine, hcloudMachine, infrav1.HCloudMachineReadyV1Beta2Condition,
-		v1beta2conditions.ForConditionTypes(infrav1.HCloudMachineV1Beta2SummaryConditionTypes()),
-		v1beta2conditions.NegativePolarityConditionTypes{
-			infrav1.HCloudMachineHCloudRateLimitExceededV1Beta2Condition,
-		},
-		v1beta2conditions.IgnoreTypesIfMissing{
-			infrav1.HCloudMachineHCloudTokenAvailableV1Beta2Condition,
+		infrav1.HCloudMachineV1Beta2SummaryOpts()...,
+	)
+}
+
+// machinePatchOpts returns the list of patch.Option for HCloudMachine.
+func machinePatchOpts() []patch.Option {
+	return []patch.Option{
+		// owned v1beta2 conditions.
+		patch.WithOwnedV1Beta2Conditions{Conditions: []string{
+			clusterv1.ReadyV1Beta2Condition,
+			infrav1.HCloudTokenAvailableV1Beta2Condition,
+			infrav1.HCloudRateLimitExceededV1Beta2Condition,
 			infrav1.HCloudMachineServerCreatedV1Beta2Condition,
 			infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			infrav1.HCloudMachineServerAvailableV1Beta2Condition,
-			infrav1.HCloudMachineHCloudRateLimitExceededV1Beta2Condition,
-		},
-		v1beta2conditions.CustomMergeStrategy{
-			MergeStrategy: v1beta2conditions.DefaultMergeStrategy(
-				v1beta2conditions.GetPriorityFunc(v1beta2conditions.GetDefaultMergePriorityFunc(
-					infrav1.HCloudMachineHCloudRateLimitExceededV1Beta2Condition,
-				)),
-				v1beta2conditions.ComputeReasonFunc(v1beta2conditions.GetDefaultComputeMergeReasonFunc(
-					infrav1.HCloudMachineNotReadyV1Beta2Reason,
-					infrav1.HCloudMachineReadyUnknownV1Beta2Reason,
-					infrav1.HCloudMachineReadyV1Beta2Reason,
-				)),
-			),
-		},
-	)
+		}},
+	}
 }
 
 // SetErrorAndRemediate sets "cluster.x-k8s.io/remediate-machine" annotation on the corresponding

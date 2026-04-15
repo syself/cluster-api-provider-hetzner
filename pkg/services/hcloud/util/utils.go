@@ -91,14 +91,16 @@ func HandleRateLimitExceeded(obj runtimeObjectWithConditions, err error, functio
 			"%s",
 			msg,
 		)
-		if hcloudMachine, ok := obj.(*infrav1.HCloudMachine); ok {
-			v1beta2conditions.Set(hcloudMachine, metav1.Condition{
-				Type:    infrav1.HCloudMachineHCloudRateLimitExceededV1Beta2Condition,
+		// set v1beta2 condition if the object supports it.
+		if setter, ok := obj.(v1beta2conditions.Setter); ok {
+			v1beta2conditions.Set(setter, metav1.Condition{
+				Type:    infrav1.HCloudRateLimitExceededV1Beta2Condition,
 				Status:  metav1.ConditionTrue,
-				Reason:  infrav1.HCloudMachineRateLimitExceededV1Beta2Reason,
+				Reason:  infrav1.HCloudRateLimitExceededV1Beta2Reason,
 				Message: msg,
 			})
 		}
+
 		record.Warnf(obj, "RateLimitExceeded", msg)
 		return true
 	}

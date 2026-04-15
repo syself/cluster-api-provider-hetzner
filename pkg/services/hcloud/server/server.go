@@ -126,9 +126,9 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 					"wrong hcloud token",
 				)
 				v1beta2conditions.Set(s.scope.HCloudMachine, metav1.Condition{
-					Type:    infrav1.HCloudMachineHCloudTokenAvailableV1Beta2Condition,
+					Type:    infrav1.HCloudTokenAvailableV1Beta2Condition,
 					Status:  metav1.ConditionFalse,
-					Reason:  infrav1.HCloudMachineTokenInvalidV1Beta2Reason,
+					Reason:  infrav1.HCloudTokenInvalidV1Beta2Reason,
 					Message: "wrong hcloud token",
 				})
 
@@ -148,9 +148,9 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 
 		conditions.MarkTrue(s.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition)
 		v1beta2conditions.Set(s.scope.HCloudMachine, metav1.Condition{
-			Type:   infrav1.HCloudMachineHCloudTokenAvailableV1Beta2Condition,
+			Type:   infrav1.HCloudTokenAvailableV1Beta2Condition,
 			Status: metav1.ConditionTrue,
-			Reason: infrav1.HCloudMachineTokenAvailableV1Beta2Reason,
+			Reason: infrav1.HCloudTokenAvailableV1Beta2Reason,
 		})
 
 		// findServer will return both server and error as nil, if the server was not found.
@@ -273,9 +273,9 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 				"wrong hcloud token",
 			)
 			v1beta2conditions.Set(s.scope.HCloudMachine, metav1.Condition{
-				Type:    infrav1.HCloudMachineHCloudTokenAvailableV1Beta2Condition,
+				Type:    infrav1.HCloudTokenAvailableV1Beta2Condition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HCloudMachineTokenInvalidV1Beta2Reason,
+				Reason:  infrav1.HCloudTokenInvalidV1Beta2Reason,
 				Message: "wrong hcloud token",
 			})
 
@@ -312,9 +312,9 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 
 	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition)
 	v1beta2conditions.Set(s.scope.HCloudMachine, metav1.Condition{
-		Type:   infrav1.HCloudMachineHCloudTokenAvailableV1Beta2Condition,
+		Type:   infrav1.HCloudTokenAvailableV1Beta2Condition,
 		Status: metav1.ConditionTrue,
-		Reason: infrav1.HCloudMachineTokenAvailableV1Beta2Reason,
+		Reason: infrav1.HCloudTokenAvailableV1Beta2Reason,
 	})
 
 	updateHCloudMachineStatusFromServer(hm, server)
@@ -1177,9 +1177,9 @@ func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 				"wrong hcloud token",
 			)
 			v1beta2conditions.Set(s.scope.HCloudMachine, metav1.Condition{
-				Type:    infrav1.HCloudMachineHCloudTokenAvailableV1Beta2Condition,
+				Type:    infrav1.HCloudTokenAvailableV1Beta2Condition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HCloudMachineTokenInvalidV1Beta2Reason,
+				Reason:  infrav1.HCloudTokenInvalidV1Beta2Reason,
 				Message: "wrong hcloud token",
 			})
 
@@ -1636,9 +1636,9 @@ func (s *Service) getServerImage(ctx context.Context, imageName string) (*hcloud
 				"wrong hcloud token",
 			)
 			v1beta2conditions.Set(s.scope.HCloudMachine, metav1.Condition{
-				Type:    infrav1.HCloudMachineHCloudTokenAvailableV1Beta2Condition,
+				Type:    infrav1.HCloudTokenAvailableV1Beta2Condition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HCloudMachineTokenInvalidV1Beta2Reason,
+				Reason:  infrav1.HCloudTokenInvalidV1Beta2Reason,
 				Message: "wrong hcloud token",
 			})
 			return nil, err
@@ -1649,9 +1649,9 @@ func (s *Service) getServerImage(ctx context.Context, imageName string) (*hcloud
 
 	conditions.MarkTrue(s.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition)
 	v1beta2conditions.Set(s.scope.HCloudMachine, metav1.Condition{
-		Type:   infrav1.HCloudMachineHCloudTokenAvailableV1Beta2Condition,
+		Type:   infrav1.HCloudTokenAvailableV1Beta2Condition,
 		Status: metav1.ConditionTrue,
-		Reason: infrav1.HCloudMachineTokenAvailableV1Beta2Reason,
+		Reason: infrav1.HCloudTokenAvailableV1Beta2Reason,
 	})
 
 	if serverType == nil {
@@ -1916,9 +1916,9 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 					"wrong hcloud token",
 				)
 				v1beta2conditions.Set(s.scope.HCloudMachine, metav1.Condition{
-					Type:    infrav1.HCloudMachineHCloudTokenAvailableV1Beta2Condition,
+					Type:    infrav1.HCloudTokenAvailableV1Beta2Condition,
 					Status:  metav1.ConditionFalse,
-					Reason:  infrav1.HCloudMachineTokenInvalidV1Beta2Reason,
+					Reason:  infrav1.HCloudTokenInvalidV1Beta2Reason,
 					Message: "wrong hcloud token",
 				})
 				return nil, err
@@ -1930,9 +1930,9 @@ func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 
 		conditions.MarkTrue(s.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition)
 		v1beta2conditions.Set(s.scope.HCloudMachine, metav1.Condition{
-			Type:   infrav1.HCloudMachineHCloudTokenAvailableV1Beta2Condition,
+			Type:   infrav1.HCloudTokenAvailableV1Beta2Condition,
 			Status: metav1.ConditionTrue,
-			Reason: infrav1.HCloudMachineTokenAvailableV1Beta2Reason,
+			Reason: infrav1.HCloudTokenAvailableV1Beta2Reason,
 		})
 
 		// if server has been found, return it
