@@ -1942,6 +1942,21 @@ func analyzeSSHOutputProvisioned(out sshclient.Output) (isTimeout, isConnectionR
 
 // previous: EnsureProvisioned
 // next: Stays in Provisioned (final state)
+//
+// actionProvisioned is the steady-state handler for a fully provisioned host.
+// It has two responsibilities:
+//
+//  1. If no reboot annotation is present: clear any leftover reboot state and
+//     return actionComplete{}, which keeps the host in the Provisioned state.
+//
+//  2. If a reboot annotation is present: execute a two-phase reboot cycle.
+//     Phase 1:
+//     Read the current BootID from the node in the workload cluster, store it,
+//     then send the reboot command.
+//     Phase 2:
+//     On every subsequent reconcile, compare the live BootID of the node from the workload
+//     cluster against the stored one. A change means the node completed a full
+//     reboot cycle.
 func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	// set host to provisioned
 
@@ -1950,19 +1965,28 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	host := s.scope.HetznerBareMetalHost
 
 	if !rebootDesired {
+		// No reboot annotation: ensure all reboot-related state is cleared in case
+		// it was left over from a previous cycle (e.g. annotation was removed mid-reboot).
 		host.Spec.Status.Rebooted = false
 		host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = ""
 		host.Spec.Status.ExternalIDs.RebootAnnotationSince.Time = time.Time{}
 		return actionComplete{} // Stays in Provisioned (final state)
 	}
 
-	// The server should be rebooted. The difficult part is to know when the node is up again after
-	// reboot. This gets done by looking at node.Status.NodeInfo.BootID (in wl-cluster).
+	// --- Reboot via annotation ---
 
+	// The hard part is detecting when the node is back up after the reboot.
+	// We do this by watching node.Status.NodeInfo.BootID in the workload cluster:
+	// the kubelet sets a fresh random BootID on every boot, so a changed value
+	// is a signal that a full reboot cycle completed.
+
+	// Record when we first noticed the annotation so we can enforce the timeout.
 	if host.Spec.Status.ExternalIDs.RebootAnnotationSince.IsZero() {
 		host.Spec.Status.ExternalIDs.RebootAnnotationSince = metav1.Now()
 	}
 
+	// Enforce the overall reboot timeout. If the BootID has not changed within
+	// 5 minutes of the annotation being set, something went wrong and we return an error.
 	rebootDuration := time.Since(host.Spec.Status.ExternalIDs.RebootAnnotationSince.Time)
 	if rebootDuration > 5*time.Minute {
 		msg := fmt.Sprintf("Rebooting timed out after: %s", rebootDuration.Round(time.Second))
@@ -1978,6 +2002,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		return s.recordActionFailure(infrav1.FatalError, msg)
 	}
 
+	// Connect to the workload cluster to read node state.
 	wlClient, err := s.scope.WorkloadClusterClientFactory.NewWorkloadClient(ctx)
 	if err != nil {
 		err = fmt.Errorf("actionProvisioned (Reboot via Annotation), failed to get wlClient: %w", err)
@@ -1988,7 +2013,8 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		return actionError{err: err}
 	}
 
-	// Get the capi-machine, so that we can get the Node-name in the wl-cluster.
+	// Fetch the CAPI Machine that owns the HetznerBareMetalMachine. We need it to
+	// look up the Node name in the workload cluster (stored in machine.Status.NodeRef).
 	machine, err := util.GetOwnerMachine(ctx, s.scope.Client, s.scope.HetznerBareMetalMachine.ObjectMeta)
 	if err != nil {
 		err = fmt.Errorf("actionProvisioned (Reboot via Annotation), GetOwnerMachine failed: %w",
@@ -1996,10 +2022,13 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		return actionError{err: err}
 	}
 
+	// NodeRef is expected to be set once the Machine has successfully joined the cluster.
+	// If it is still nil at this stage, it likely indicates that the node never registered
+	// (e.g. kubelet failed to join, bootstrap issues, etc.) which we treat as a permanent error.
+	// The machine would be remediated.
 	if machine.Status.NodeRef == nil {
-		// Very unlikely, but we want to avoid a panic.
-		err = errors.New("machine.Status.NodeRef is nil?")
-		return actionError{err: err}
+		s.scope.HetznerBareMetalHost.SetError(infrav1.PermanentError, "machine.Status.NodeRef is nil")
+		return actionStop{}
 	}
 
 	nodeName := machine.Status.NodeRef.Name
@@ -2014,8 +2043,8 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		return actionError{err: err}
 	}
 
-	// get the current BootId from the wl-cluster. If it has changed, we know that the reboot was
-	// successful.
+	// The BootID is a random UUID the kubelet sets on startup. Comparing the value
+	// before and after a reboot is the way to confirm the node rebooted.
 	currentBootID := node.Status.NodeInfo.BootID
 	if currentBootID == "" {
 		err = errors.New("node.Status.NodeInfo.BootID is empty?")
@@ -2029,13 +2058,18 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 
 	isRebooted := host.Spec.Status.Rebooted
 	if !isRebooted {
-		// First reconcile after the annotation was noticed: store the current BootID and trigger
-		// exactly one reboot, either via SSH or the Robot API.
+		// --- Phase 1: trigger the reboot ---
+		// This branch runs exactly once per reboot annotation. We store the current
+		// BootID so Phase 2 can detect when it changes, then send the reboot command.
 
-		// Set current BootID, so we can detect a successful reboot
+		// Persist the pre-reboot BootID. Phase 2 compares the live BootID against this
+		// value on every reconcile; a difference means the node completed a reboot.
 		host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = currentBootID
 
+		msg := fmt.Sprintf("Rebooting because annotation was set. Old BootID: %s", currentBootID)
+
 		if s.scope.SSHAfterInstallImage {
+			// SSH-based reboot: issue a reboot command directly over SSH.
 			creds := sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, host.Spec.Status.SSHSpec.SecretRef)
 
 			in := sshclient.Input{
@@ -2054,7 +2088,10 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 					err.Error())
 				return actionError{err: err}
 			}
+
+			createSSHRebootEvent(ctx, host, msg)
 		} else {
+			// Hardware reboot: trigger via the Hetzner Robot API.
 			rebootType := infrav1.RebootTypeHardware
 			if _, err := s.scope.RobotClient.RebootBMServer(host.Spec.ServerID, rebootType); err != nil {
 				// If Robot API returned "unauthorized" error - mark condition RobotCredentialsAvailable as false
@@ -2085,23 +2122,25 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 				return actionError{err: err}
 			}
 
+			createHardwareRebootEvent(ctx, host, msg)
+
 			conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.RobotCredentialsAvailableCondition)
 		}
 
-		msg := fmt.Sprintf("Rebooting because annotation was set. Old BootID: %s", currentBootID)
-
-		createSSHRebootEvent(ctx, host, msg)
-
 		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
-			"RebootingMachine",
+			"WaitingForNodeToBeRebooted",
 			clusterv1.ConditionSeverityInfo, "%s",
 			msg)
 		host.Spec.Status.Rebooted = true
 		return actionContinue{delay: 10 * time.Second}
 	}
 
-	// Later reconciles only verify progress. A different BootID means the node completed a full
-	// reboot, so the annotation can be cleared and the host stays Provisioned.
+	// --- Phase 2: verify the reboot ---
+	// The reboot command was already sent in a previous reconcile.
+	// Poll until we confirm the node came back up.
+
+	// Compare the current BootID against the one we stored in Phase 1.
+	// A change signals that the node completed a full reboot cycle.
 	if host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID != currentBootID {
 		// Reboot has been successful
 		s.scope.Info(fmt.Sprintf("BootID changed: %q -> %q", host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID, currentBootID))
@@ -2117,14 +2156,17 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		return actionComplete{}
 	}
 
+	// BootID has not changed yet. The node is either still rebooting or the reboot
+	// command hasn't taken effect yet.
+
 	if !s.scope.SSHAfterInstallImage {
 		// Without SSH access we cannot probe the machine directly, so keep polling the workload
 		// cluster until the BootID changes or the timeout above is hit.
 		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
 			"WaitingForNodeToBeRebooted",
 			clusterv1.ConditionSeverityInfo,
-			"Waiting for BootID of Node (in wl-cluster) to change (%s)",
-			time.Since(host.Spec.Status.ExternalIDs.RebootAnnotationSince.Time).Round(time.Second))
+			"Waiting for BootID of Node in workload cluster to change",
+		)
 		return actionContinue{delay: 10 * time.Second}
 	}
 
@@ -2138,12 +2180,14 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	}
 	sshClient := s.scope.SSHClientFactory.NewClient(in)
 
-	// Check hostname with sshClient
+	// Ask the node for its hostname. If it responds with the expected name, the OS
+	// is up and the reboot succeeded. Although the BootID of the node in the workload cluster
+	// may not have updated yet.
 	out := sshClient.GetHostName()
 	actualHostName := trimLineBreak(out.StdOut)
 	wantHostName := s.scope.Hostname()
 	if actualHostName == wantHostName {
-		// Reboot has been successful
+		// Reboot has been successful.
 		host.Spec.Status.Rebooted = false
 		host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = ""
 		host.Spec.Status.ExternalIDs.RebootAnnotationSince.Time = time.Time{}
@@ -2153,15 +2197,19 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		host.ClearRebootAnnotations()
 		host.ClearError()
 
-		// Wait until (see above)
-		// host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID != currentBootID
+		// SSH confirms the node is up, but the BootID in the workload cluster has not
+		// changed yet. Requeue and let the BootID check above handle the final confirmation.
 		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
 			"SSHAccessSuccessfullButNewNodeIdNotFoundYet",
 			clusterv1.ConditionSeverityInfo, "")
 		return actionContinue{delay: 10 * time.Second}
 	}
 
-	// Reboot has been ongoing
+	// Hostname did not match: the node is not yet back on the expected OS.
+	// analyzeSSHOutputProvisioned classifies the SSH output into one of:
+	//   - timeout (SSH connection timed out: node is mid-reboot)
+	//   - connection refused (SSH not listening yet: node is mid-reboot)
+	//   - unexpected hostname / empty stdout / stderr: something is wrong
 	isTimeout, isSSHConnectionRefusedError, err := analyzeSSHOutputProvisioned(out)
 	if err != nil {
 		if errors.Is(err, errUnexpectedHostName) {
@@ -2177,6 +2225,8 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		return actionError{err: err}
 	}
 
+	// handleIncompleteBoot decides whether the reboot is still in progress or has failed (failed=true).
+	// A definitive failure triggers a PermanentError so that the remediation controller can take over.
 	failed, err := s.handleIncompleteBoot(ctx, false, isTimeout, isSSHConnectionRefusedError)
 	if failed {
 		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
@@ -2194,11 +2244,13 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		return actionError{err: err}
 	}
 
+	// handleIncompleteBoot returned no error and no failure: the node is still
+	// rebooting normally, so keep waiting.
 	conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
 		"WaitingForNodeToBeRebooted",
 		clusterv1.ConditionSeverityInfo,
-		"Waiting for BootID of Node (in wl-cluster) to change (%s)",
-		time.Since(host.Spec.Status.ExternalIDs.RebootAnnotationSince.Time).Round(time.Second))
+		"Waiting for BootID of Node in workload cluster to change",
+	)
 
 	return actionContinue{delay: 10 * time.Second}
 }
@@ -2323,6 +2375,10 @@ func markProvisionPending(host *infrav1.HetznerBareMetalHost, state infrav1.Prov
 
 func createSSHRebootEvent(ctx context.Context, host *infrav1.HetznerBareMetalHost, msg string) {
 	createRebootEvent(ctx, host, infrav1.RebootTypeSSH, msg)
+}
+
+func createHardwareRebootEvent(ctx context.Context, host *infrav1.HetznerBareMetalHost, msg string) {
+	createRebootEvent(ctx, host, infrav1.RebootTypeHardware, msg)
 }
 
 func createRebootEvent(ctx context.Context, host *infrav1.HetznerBareMetalHost, rebootType infrav1.RebootType, msg string) string {
