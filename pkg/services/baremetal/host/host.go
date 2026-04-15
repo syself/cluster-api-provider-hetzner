@@ -2128,8 +2128,8 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		return actionContinue{delay: 10 * time.Second}
 	}
 
-	// With SSH access enabled, fall back to direct host checks while the BootID still has not
-	// changed. This distinguishes "still rebooting" from "reboot failed to start".
+	// With SSH access enabled, we get deeper insights. We can distinguish between "still rebooting"
+	// from "reboot failed to start".
 	creds := sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, host.Spec.Status.SSHSpec.SecretRef)
 	in := sshclient.Input{
 		PrivateKey: creds.PrivateKey,
@@ -2153,7 +2153,12 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		host.ClearRebootAnnotations()
 		host.ClearError()
 
-		return actionComplete{}
+		// Wait until (see above)
+		// host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID != currentBootID
+		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
+			"SSHAccessSuccessfullButNewNodeIdNotFoundYet",
+			clusterv1.ConditionSeverityInfo, "")
+		return actionContinue{delay: 10 * time.Second}
 	}
 
 	// Reboot has been ongoing
