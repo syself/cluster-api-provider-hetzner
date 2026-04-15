@@ -2180,28 +2180,19 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	}
 	sshClient := s.scope.SSHClientFactory.NewClient(in)
 
-	// Ask the node for its hostname. If it responds with the expected name, the OS
-	// is up and the reboot succeeded. Although the BootID of the node in the workload cluster
-	// may not have updated yet.
+	// Ask the node for its hostname to check whether it is still mid-reboot.
 	out := sshClient.GetHostName()
 	actualHostName := trimLineBreak(out.StdOut)
 	wantHostName := s.scope.Hostname()
 	if actualHostName == wantHostName {
-		// Reboot has been successful.
-		host.Spec.Status.Rebooted = false
-		host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = ""
-		host.Spec.Status.ExternalIDs.RebootAnnotationSince.Time = time.Time{}
-
-		conditions.MarkTrue(host, infrav1.RebootSucceededCondition)
-
-		host.ClearRebootAnnotations()
-		host.ClearError()
-
-		// SSH confirms the node is up, but the BootID in the workload cluster has not
-		// changed yet. Requeue and let the BootID check above handle the final confirmation.
+		// The node is responding via SSH with the expected hostname. However, hostname is
+		// identical before and after a reboot, so a matching hostname does NOT confirm that
+		// a reboot actually occurred. Do not clear the annotation or reboot state here.
+		// The BootID change (checked at the top of Phase 2) is the sole completion signal.
 		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
-			"SSHAccessSuccessfullButNewNodeIdNotFoundYet",
-			clusterv1.ConditionSeverityInfo, "")
+			"WaitingForBootIDToChange",
+			clusterv1.ConditionSeverityInfo,
+			"Node is up via SSH but BootID has not yet changed")
 		return actionContinue{delay: 10 * time.Second}
 	}
 
