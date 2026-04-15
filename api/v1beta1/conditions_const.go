@@ -304,8 +304,6 @@ const (
 	HCloudMachineServerCreatedV1Beta2Condition = "ServerCreated"
 	// HCloudMachineServerCreatedV1Beta2Reason surfaces when the HCloud server has been created.
 	HCloudMachineServerCreatedV1Beta2Reason = "Created"
-	// HCloudMachineServerNotCreatedV1Beta2Reason surfaces when the HCloud server has not been created.
-	HCloudMachineServerNotCreatedV1Beta2Reason = "NotCreated"
 	// HCloudMachineServerWaitingForBootstrapDataV1Beta2Reason surfaces when the server cannot be created because bootstrap data is not yet available.
 	HCloudMachineServerWaitingForBootstrapDataV1Beta2Reason = clusterv1.WaitingForBootstrapDataV1Beta2Reason
 	// HCloudMachineServerCreateFailedIrrecoverableV1Beta2Reason surfaces an irrecoverable create failure.
@@ -320,6 +318,8 @@ const (
 	HCloudMachineServerSSHKeyNotFoundV1Beta2Reason = "SSHKeyNotFound"
 	// HCloudMachineServerPlacementGroupNotFoundV1Beta2Reason surfaces when the specified placement group does not exist.
 	HCloudMachineServerPlacementGroupNotFoundV1Beta2Reason = "PlacementGroupNotFound"
+	// HCloudMachineServerCreateFailedV1Beta2Reason surfaces when the HCloud API CreateServer call fails.
+	HCloudMachineServerCreateFailedV1Beta2Reason = "CreateFailed"
 )
 
 const (
@@ -421,4 +421,3 @@ const (
 	// HCloudMachineDeletingV1Beta2Reason surfaces when the HCloudMachine is being deleted.
 	HCloudMachineDeletingV1Beta2Reason = clusterv1.DeletingV1Beta2Reason
 )
-

@@ -91,7 +91,7 @@ var _ = Describe("Test ServerIDFromProviderID", func() {
 })
 
 var _ = Describe("SetHCloudMachineV1Beta2SummaryCondition", func() {
-	It("surfaces the highest-priority unhealthy condition in the summary message", func() {
+	It("lists all unhealthy conditions in priority order in the summary message", func() {
 		hcloudMachine := &infrav1.HCloudMachine{
 			Status: infrav1.HCloudMachineStatus{
 				V1Beta2: &infrav1.HCloudMachineV1Beta2Status{},
@@ -103,8 +103,8 @@ var _ = Describe("SetHCloudMachineV1Beta2SummaryCondition", func() {
 			{
 				Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HCloudMachineServerNotCreatedV1Beta2Reason,
-				Message: "server is not created",
+				Reason:  infrav1.HCloudMachineServerNotFoundV1Beta2Reason,
+				Message: "server is not available",
 			},
 			// Set HCloudTokenAvailable=False (highest priority issue).
 			{
@@ -128,7 +128,7 @@ var _ = Describe("SetHCloudMachineV1Beta2SummaryCondition", func() {
 		}
 		Expect(summaryMsg).ToNot(BeEmpty(), "Ready summary condition should have a message")
 
-		// The summary message lists issues in ForConditionTypes order.
+		// The summary message lists all unhealthy conditions in ForConditionTypes order.
 		// HCloudTokenAvailable (priority 1) before ServerAvailable (priority 5).
 		Expect(summaryMsg).To(MatchRegexp(`(?s)token is invalid.*server is not available`))
 	})

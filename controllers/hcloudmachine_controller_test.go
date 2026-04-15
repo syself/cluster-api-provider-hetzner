@@ -862,6 +862,47 @@ var _ = Describe("Hetzner secret", func() {
 			}
 		}, infrav1.HCloudCredentialsInvalidReason),
 	)
+
+	It("sets InstanceState=Deleting and ServerAvailable=False on delete with missing secret", func() {
+		// Create a wrong secret so token validation fails.
+		hetznerSecret = &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "wrong-name",
+				Namespace: testNs.Name,
+			},
+			Data: map[string][]byte{
+				"hcloud": []byte("my-token"),
+			},
+		}
+		Expect(testEnv.Create(ctx, hetznerSecret)).To(Succeed())
+
+		// Add a finalizer so the object is not immediately removed on delete.
+		Eventually(func(g Gomega) {
+			g.Expect(testEnv.Get(ctx, key, hcloudMachine)).To(Succeed())
+			hcloudMachine.Finalizers = append(hcloudMachine.Finalizers, infrav1.HCloudMachineFinalizer)
+			g.Expect(testEnv.Update(ctx, hcloudMachine)).To(Succeed())
+		}, timeout, interval).Should(Succeed())
+
+		// Delete the machine (sets DeletionTimestamp but keeps it because of the finalizer).
+		Expect(testEnv.Delete(ctx, hcloudMachine)).To(Succeed())
+
+		// InstanceState should be set to Deleting even though the secret is missing.
+		Eventually(func(g Gomega) {
+			g.Expect(testEnv.Get(ctx, key, hcloudMachine)).To(Succeed())
+			g.Expect(hcloudMachine.Status.InstanceState).ToNot(BeNil())
+			g.Expect(*hcloudMachine.Status.InstanceState).To(Equal(hcloud.ServerStatusDeleting))
+		}, timeout, interval).Should(Succeed())
+
+		// ServerAvailable v1beta2 condition should be False with Deleting reason.
+		Eventually(func() bool {
+			return isPresentAndFalseWithReasonV1Beta2(key, hcloudMachine, infrav1.HCloudMachineServerAvailableV1Beta2Condition, infrav1.HCloudMachineDeletingV1Beta2Reason)
+		}, timeout, interval).Should(BeTrue())
+
+		// Token condition should also be False (secret is missing).
+		Eventually(func() bool {
+			return isPresentAndFalseWithReason(key, hcloudMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HetznerSecretUnreachableReason)
+		}, timeout, interval).Should(BeTrue())
+	})
 })
 
 var _ = Describe("HCloudMachine validation", func() {

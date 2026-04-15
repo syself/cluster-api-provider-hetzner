@@ -229,7 +229,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		v1beta2conditions.Set(hm, metav1.Condition{
 			Type:    infrav1.HCloudMachineServerCreatedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineServerNotCreatedV1Beta2Reason,
+			Reason:  infrav1.HCloudMachineBootStateInitializingTimedOutV1Beta2Reason,
 			Message: msg,
 		})
 		return reconcile.Result{}, nil
@@ -1516,7 +1516,7 @@ func (s *Service) createServer(ctx context.Context, userData []byte, image *hclo
 		v1beta2conditions.Set(hm, metav1.Condition{
 			Type:    infrav1.HCloudMachineServerCreatedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineServerNotCreatedV1Beta2Reason,
+			Reason:  infrav1.HCloudMachineServerCreateFailedV1Beta2Reason,
 			Message: msg,
 		})
 		record.Warn(hm, "FailedCreateHCloudServer", msg)

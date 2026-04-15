@@ -26,10 +26,12 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
+	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
@@ -144,9 +146,11 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 	// Create the scope.
 	secretManager := secretutil.NewSecretManager(log, r, r.APIReader)
 
-	// Set ServerAvailable=False before the token check so that early-return
-	// paths (e.g. invalid token) still reflect the deletion state correctly.
+	// Set ServerAvailable=False and InstanceState=Deleting before the token check
+	// so that early-return paths (e.g. invalid token) still reflect the deletion
+	// state correctly in both conditions and phase.
 	if !hcloudMachine.DeletionTimestamp.IsZero() {
+		hcloudMachine.Status.InstanceState = ptr.To(hcloud.ServerStatusDeleting)
 		v1beta2conditions.Set(hcloudMachine, metav1.Condition{
 			Type:   infrav1.HCloudMachineServerAvailableV1Beta2Condition,
 			Status: metav1.ConditionFalse,
@@ -249,7 +253,6 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 	if wait := reconcileRateLimit(hcloudMachine, r.RateLimitWaitTime); wait {
 		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 	}
-
 
 	if !hcloudMachine.DeletionTimestamp.IsZero() {
 		return r.reconcileDelete(ctx, machineScope)

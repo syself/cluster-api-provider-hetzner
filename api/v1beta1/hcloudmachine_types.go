@@ -250,8 +250,8 @@ func (r *HCloudMachine) SetV1Beta2Conditions(conditions []metav1.Condition) {
 // used both by MachineScope.Close() and by early-exit error paths that bypass the scope.
 //
 // The order of conditions in ForConditionTypes defines the priority for the Ready summary:
-// when multiple conditions are unhealthy, the summary surfaces the message of the
-// highest-priority (earliest) one. The ordering reflects operational importance:
+// when multiple conditions are unhealthy, the summary lists all of them in priority
+// order (highest-priority first). The ordering reflects operational importance:
 //  1. HCloudTokenAvailable    - invalid credentials block everything.
 //  2. HCloudRateLimitExceeded - rate-limit issues (negative polarity).
 //  3. ServerCreated           - server existence precedes later lifecycle stages; bootstrap readiness is folded in as a reason.
