@@ -103,8 +103,8 @@ var _ = Describe("SetHCloudMachineV1Beta2SummaryCondition", func() {
 			{
 				Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HCloudMachineServerNotAvailableV1Beta2Reason,
-				Message: "server is not available",
+				Reason:  infrav1.HCloudMachineServerNotCreatedV1Beta2Reason,
+				Message: "server is not created",
 			},
 			// Set HCloudTokenAvailable=False (highest priority issue).
 			{

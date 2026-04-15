@@ -530,7 +530,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 			It("checks that ImageNotFound is visible in conditions if image does not exist", func() {
 				Eventually(func() bool {
 					return isPresentAndFalseWithReason(key, hcloudMachine, infrav1.ServerCreateSucceededCondition, infrav1.ImageNotFoundReason) &&
-						isPresentAndFalseWithReasonV1Beta2(key, hcloudMachine, infrav1.HCloudMachineServerCreatedV1Beta2Condition, infrav1.HCloudMachineServerNotCreatedV1Beta2Reason)
+						isPresentAndFalseWithReasonV1Beta2(key, hcloudMachine, infrav1.HCloudMachineServerCreatedV1Beta2Condition, infrav1.HCloudMachineServerImageNotFoundV1Beta2Reason)
 				}, timeout, interval).Should(BeTrue())
 			})
 		})
@@ -638,7 +638,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 			It("should show the expected reason for server not created", func() {
 				Eventually(func() bool {
 					return isPresentAndFalseWithReason(key, hcloudMachine, infrav1.ServerCreateSucceededCondition, infrav1.InstanceHasNonExistingPlacementGroupReason) &&
-						isPresentAndFalseWithReasonV1Beta2(key, hcloudMachine, infrav1.HCloudMachineServerCreatedV1Beta2Condition, infrav1.HCloudMachineServerNotCreatedV1Beta2Reason)
+						isPresentAndFalseWithReasonV1Beta2(key, hcloudMachine, infrav1.HCloudMachineServerCreatedV1Beta2Condition, infrav1.HCloudMachineServerPlacementGroupNotFoundV1Beta2Reason)
 				}, timeout).Should(BeTrue())
 			})
 		})
