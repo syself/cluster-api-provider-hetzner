@@ -59,7 +59,7 @@ const (
 
 var hcloudImageURLCommandDir = "/shared"
 
-var errServerCreateNotPossible = fmt.Errorf("server create not possible - need action")
+var errServerCreateNotPossible = errors.New("server create not possible - need action")
 
 // Service defines struct with machine scope to reconcile HCloudMachines.
 type Service struct {
@@ -251,13 +251,9 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 			)
 			return reconcile.Result{}, nil
 		}
-
 		if errors.Is(err, errServerCreateNotPossible) {
 			err = fmt.Errorf("createServerFromImageNameOrURL failed: %w", err)
 			s.scope.Error(err, "")
-			conditions.MarkFalse(hm, infrav1.ServerCreateSucceededCondition,
-				"ServerCreateNotPossible", clusterv1.ConditionSeverityWarning,
-				"%s", err.Error())
 			return reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
 		}
 		return reconcile.Result{}, fmt.Errorf("failed to create server: %w", err)
@@ -1457,6 +1453,12 @@ func (s *Service) deleteServerOfLoadBalancer(ctx context.Context, server *hcloud
 	return nil
 }
 
+// findServer attempts to locate the HCloud server for the underlying HCloudMachine.
+// It first tries to find the server by its provider ID. If that fails (e.g., provider ID not yet set),
+// it falls back to searching by labels.
+//
+// It returns server and error as nil when the server is not found because hcloud-go's GetServer returns nil
+// for a non-existent server ID and no server matched the label selector.
 func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 	var server *hcloud.Server
 
