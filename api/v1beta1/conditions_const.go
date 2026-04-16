@@ -324,8 +324,8 @@ const (
 	HCloudMachineServerProvisionedV1Beta2Condition = "ServerProvisioned"
 	// HCloudMachineServerProvisionedV1Beta2Reason surfaces when the boot state machine has completed.
 	HCloudMachineServerProvisionedV1Beta2Reason = clusterv1.ProvisionedV1Beta2Reason
-	// HCloudMachineHandleBootStateUnsetV1Beta2Reason indicates the boot state is being initialized.
-	HCloudMachineHandleBootStateUnsetV1Beta2Reason = "HandleBootStateUnset"
+	// HCloudMachineBootStateInitializingV1Beta2Reason indicates the boot state is being initialized.
+	HCloudMachineBootStateInitializingV1Beta2Reason = "BootStateInitializing"
 	// HCloudMachineBootStateInitializingTimedOutV1Beta2Reason indicates the boot state initialization timed out.
 	HCloudMachineBootStateInitializingTimedOutV1Beta2Reason = "BootStateInitializingTimedOut"
 	// HCloudMachineProvisioningServerV1Beta2Reason indicates the server is being provisioned.

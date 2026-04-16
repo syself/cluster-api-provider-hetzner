@@ -254,7 +254,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		v1beta2conditions.Set(hm, metav1.Condition{
 			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
-			Reason:  infrav1.HCloudMachineHandleBootStateUnsetV1Beta2Reason,
+			Reason:  infrav1.HCloudMachineBootStateInitializingV1Beta2Reason,
 			Message: msg,
 		})
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil

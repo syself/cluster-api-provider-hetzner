@@ -162,6 +162,16 @@ func SetHCloudMachineV1Beta2SummaryCondition(hcloudMachine *infrav1.HCloudMachin
 // machinePatchOpts returns the list of patch.Option for HCloudMachine.
 func machinePatchOpts() []patch.Option {
 	return []patch.Option{
+		// owned v1beta1 conditions.
+		patch.WithOwnedConditions{Conditions: []clusterv1.ConditionType{
+			clusterv1.ReadyCondition,
+			infrav1.BootstrapReadyCondition,
+			infrav1.HCloudTokenAvailableCondition,
+			infrav1.HetznerAPIReachableCondition,
+			infrav1.ServerCreateSucceededCondition,
+			infrav1.ServerProvisionedCondition,
+			infrav1.ServerAvailableCondition,
+		}},
 		// owned v1beta2 conditions.
 		patch.WithOwnedV1Beta2Conditions{Conditions: []string{
 			clusterv1.ReadyV1Beta2Condition,
