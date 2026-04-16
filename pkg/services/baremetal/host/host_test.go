@@ -1823,9 +1823,9 @@ var _ = Describe("actionProvisioned SSHAfterInstallImage=true", func() {
 		Entry("reboot desired, but not performed yet", testCaseActionProvisioned{
 			shouldHaveRebootAnnotation: true,
 			// storedBootID left empty: Phase 1 runs, sends SSH reboot
-			rebootFinished:             false,
-			expectedActionResult:       actionContinue{},
-			expectRebootAnnotation:     true,
+			rebootFinished:         false,
+			expectedActionResult:   actionContinue{},
+			expectRebootAnnotation: true,
 		}),
 		Entry("reboot desired, and already performed, not finished", testCaseActionProvisioned{
 			shouldHaveRebootAnnotation: true,
@@ -1846,7 +1846,7 @@ var _ = Describe("actionProvisioned SSHAfterInstallImage=true", func() {
 		Entry("reboot desired, performed, hostname matches but BootID unchanged", testCaseActionProvisioned{
 			shouldHaveRebootAnnotation: true,
 			storedBootID:               fakeBootID, // Phase 2: same as node BootID
-			rebootFinished:             true,        // SSH returns expected hostname
+			rebootFinished:             true,       // SSH returns expected hostname
 			expectedActionResult:       actionContinue{},
 			expectRebootAnnotation:     true,
 		}),
