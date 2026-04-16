@@ -22,8 +22,10 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/conditions/v1beta2"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -94,10 +96,40 @@ type HCloudRemediationScope struct {
 	HCloudRemediation *infrav1.HCloudRemediation
 }
 
-// Close closes the current scope persisting the cluster configuration and status.
+// Close closes the current scope persisting the remediation configuration and status.
 func (m *HCloudRemediationScope) Close(ctx context.Context, opts ...patch.Option) error {
+	// set summary for v1beta1 conditions.
 	conditions.SetSummary(m.HCloudRemediation)
-	return m.patchHelper.Patch(ctx, m.HCloudRemediation, opts...)
+
+	allOpts := append(opts, HCloudRemediationPatchOpts()...)
+
+	// set summary for v1beta2 conditions.
+
+	readyCondition, err := v1beta2conditions.NewSummaryCondition(
+		m.HCloudRemediation,
+		infrav1.HCloudRemediationReadyV1Beta2Condition,
+		infrav1.HCloudRemediationV1Beta2SummaryOpts()...,
+	)
+	if err != nil {
+		// Note, this could only happen if we hit edge cases in computing the summary, which should not happen due to the fact
+		// that we are passing a non empty list of ForConditionTypes.
+		m.Error(err, "Failed to set v1beta2 Ready condition")
+		unknownReadyCondition := metav1.Condition{
+			Type:   clusterv1.ReadyV1Beta2Condition,
+			Status: metav1.ConditionUnknown,
+			Reason: infrav1.InternalErrorV1Beta2Reason,
+		}
+
+		// set the ready condition with unknown status.
+		v1beta2conditions.Set(m.HCloudRemediation, unknownReadyCondition)
+
+		patchErr := m.patchHelper.Patch(ctx, m.HCloudRemediation, allOpts...)
+		return errors.Join(err, patchErr)
+	}
+
+	v1beta2conditions.Set(m.HCloudRemediation, *readyCondition)
+
+	return m.patchHelper.Patch(ctx, m.HCloudRemediation, allOpts...)
 }
 
 // Name returns the HCloudMachine name.
@@ -116,6 +148,28 @@ func (m *HCloudRemediationScope) ServerIDFromProviderID() (int64, error) {
 }
 
 // PatchObject persists the remediation spec and status.
-func (m *HCloudRemediationScope) PatchObject(ctx context.Context, opts ...patch.Option) error {
-	return m.patchHelper.Patch(ctx, m.HCloudRemediation, opts...)
+func (m *HCloudRemediationScope) PatchObject(ctx context.Context) error {
+	return m.patchHelper.Patch(ctx, m.HCloudRemediation, HCloudRemediationPatchOpts()...)
+}
+
+// HCloudRemediationPatchOpts returns the list of patch.Option for HCloudRemediation.
+// Exported so early-exit paths in the controller (that bypass the scope) can share the
+// same owned-conditions list.
+func HCloudRemediationPatchOpts() []patch.Option {
+	return []patch.Option{
+		// owned v1beta1 conditions.
+		patch.WithOwnedConditions{Conditions: []clusterv1.ConditionType{
+			clusterv1.ReadyCondition,
+			infrav1.HCloudTokenAvailableCondition,
+			infrav1.HetznerAPIReachableCondition,
+			infrav1.RemediationSkippedCondition,
+		}},
+		// owned v1beta2 conditions.
+		patch.WithOwnedV1Beta2Conditions{Conditions: []string{
+			clusterv1.ReadyV1Beta2Condition,
+			infrav1.HCloudTokenAvailableV1Beta2Condition,
+			infrav1.HCloudRateLimitExceededV1Beta2Condition,
+			infrav1.HCloudRemediationSkippedV1Beta2Condition,
+		}},
+	}
 }

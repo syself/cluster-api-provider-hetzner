@@ -19,6 +19,7 @@ package v1beta1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/conditions/v1beta2"
 )
 
 // HCloudRemediationSpec defines the desired state of HCloudRemediation.
@@ -46,6 +47,21 @@ type HCloudRemediationStatus struct {
 	// Conditions defines current service state of the HCloudRemediation.
 	// +optional
 	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
+
+	// v1beta2 groups all the fields that will be added or modified in HCloudRemediation's status with the V1Beta2 version.
+	// +optional
+	V1Beta2 *HCloudRemediationV1Beta2Status `json:"v1beta2,omitempty"`
+}
+
+// HCloudRemediationV1Beta2Status groups all the fields that will be added or modified in HCloudRemediationStatus with the V1Beta2 version.
+type HCloudRemediationV1Beta2Status struct {
+	// conditions represents the observations of a HCloudRemediation's current state.
+	// Known condition types are Ready, HCloudTokenAvailable and HCloudRateLimitExceeded.
+	// +optional
+	// +listType=map
+	// +listMapKey=type
+	// +kubebuilder:validation:MaxItems=32
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -82,6 +98,22 @@ func (r *HCloudRemediation) SetConditions(conditions clusterv1.Conditions) {
 	r.Status.Conditions = conditions
 }
 
+// GetV1Beta2Conditions returns the observations of the operational state of the HCloudRemediation resource.
+func (r *HCloudRemediation) GetV1Beta2Conditions() []metav1.Condition {
+	if r.Status.V1Beta2 == nil {
+		return nil
+	}
+	return r.Status.V1Beta2.Conditions
+}
+
+// SetV1Beta2Conditions sets the underlying v1beta2 service state of the HCloudRemediation.
+func (r *HCloudRemediation) SetV1Beta2Conditions(conditions []metav1.Condition) {
+	if r.Status.V1Beta2 == nil {
+		r.Status.V1Beta2 = &HCloudRemediationV1Beta2Status{}
+	}
+	r.Status.V1Beta2.Conditions = conditions
+}
+
 //+kubebuilder:object:root=true
 
 // HCloudRemediationList contains a list of HCloudRemediation.
@@ -90,6 +122,49 @@ type HCloudRemediationList struct {
 	// +optional
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []HCloudRemediation `json:"items"`
+}
+
+// HCloudRemediationV1Beta2SummaryOpts returns the v1beta2 summary options for HCloudRemediation.
+// It is the single source of truth for which conditions contribute to the Ready summary,
+// used both by HCloudRemediationScope.Close() and by early-exit error paths that bypass the scope.
+//
+// The order of conditions in ForConditionTypes defines the priority for the Ready summary:
+// when multiple conditions are unhealthy, the summary lists all of them in priority order
+// (highest-priority first). The ordering reflects operational importance:
+//  1. HCloudTokenAvailable      - invalid credentials block everything.
+//  2. HCloudRateLimitExceeded   - rate-limit issues (negative polarity).
+//  3. RemediationSkipped        - remediation was skipped due to an irrecoverable
+//     machine state; surfaced for visibility (negative polarity).
+func HCloudRemediationV1Beta2SummaryOpts() []v1beta2conditions.SummaryOption {
+	return []v1beta2conditions.SummaryOption{
+		v1beta2conditions.ForConditionTypes{
+			HCloudTokenAvailableV1Beta2Condition,
+			HCloudRateLimitExceededV1Beta2Condition,
+			HCloudRemediationSkippedV1Beta2Condition,
+		},
+		v1beta2conditions.NegativePolarityConditionTypes{
+			HCloudRateLimitExceededV1Beta2Condition,
+			HCloudRemediationSkippedV1Beta2Condition,
+		},
+		v1beta2conditions.IgnoreTypesIfMissing{
+			HCloudTokenAvailableV1Beta2Condition,
+			HCloudRateLimitExceededV1Beta2Condition,
+			HCloudRemediationSkippedV1Beta2Condition,
+		},
+		v1beta2conditions.CustomMergeStrategy{
+			MergeStrategy: v1beta2conditions.DefaultMergeStrategy(
+				v1beta2conditions.GetPriorityFunc(v1beta2conditions.GetDefaultMergePriorityFunc(
+					HCloudRateLimitExceededV1Beta2Condition,
+					HCloudRemediationSkippedV1Beta2Condition,
+				)),
+				v1beta2conditions.ComputeReasonFunc(v1beta2conditions.GetDefaultComputeMergeReasonFunc(
+					HCloudRemediationNotReadyV1Beta2Reason,
+					HCloudRemediationReadyUnknownV1Beta2Reason,
+					HCloudRemediationReadyV1Beta2Reason,
+				)),
+			),
+		},
+	}
 }
 
 func init() {
