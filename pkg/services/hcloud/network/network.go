@@ -24,8 +24,10 @@ import (
 	"slices"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/conditions/v1beta2"
 	"sigs.k8s.io/cluster-api/util/record"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -65,6 +67,13 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 				"%s",
 				err.Error(),
 			)
+
+			v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
+				Type:    infrav1.NetworkReadyV1Beta2Condition,
+				Status:  metav1.ConditionFalse,
+				Reason:  infrav1.NetworkReconcileFailedV1Beta2Reason,
+				Message: err.Error(),
+			})
 		}
 	}()
 
@@ -81,6 +90,13 @@ func (s *Service) Reconcile(ctx context.Context) (err error) {
 	}
 
 	conditions.MarkTrue(s.scope.HetznerCluster, infrav1.NetworkReadyCondition)
+
+	v1beta2conditions.Set(s.scope.HetznerCluster, metav1.Condition{
+		Type:   infrav1.NetworkReadyV1Beta2Condition,
+		Status: metav1.ConditionTrue,
+		Reason: infrav1.NetworkReadyV1Beta2Reason,
+	})
+
 	s.scope.HetznerCluster.Status.Network = statusFromHCloudNetwork(network)
 
 	return nil
