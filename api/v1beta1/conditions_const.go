@@ -65,10 +65,6 @@ const (
 	ServerAvailableCondition clusterv1.ConditionType = "ServerAvailable"
 	// ServerTerminatingReason instance is in a terminated state.
 	ServerTerminatingReason = "InstanceTerminated"
-	// HCloudMachineImageURLCommandNotAccessibleV1Beta2Reason indicates the image URL command is not accessible.
-	HCloudMachineImageURLCommandNotAccessibleV1Beta2Reason = "ImageURLCommandNotAccessible"
-	// HCloudMachineWaitingForAPIServerV1Beta2Reason indicates waiting for the API server to be healthy.
-	HCloudMachineWaitingForAPIServerV1Beta2Reason = "WaitingForAPIServer"
 )
 
 const (
@@ -380,6 +376,8 @@ const (
 	// HCloudMachineWaitForRescueEnabledToBeFalseV1Beta2Reason indicates waiting for rescue enabled to become false.
 	HCloudMachineWaitForRescueEnabledToBeFalseV1Beta2Reason = "WaitForRescueEnabledToBeFalse"
 
+	// HCloudMachineImageURLCommandNotAccessibleV1Beta2Reason indicates the image URL command is not accessible.
+	HCloudMachineImageURLCommandNotAccessibleV1Beta2Reason = "ImageURLCommandNotAccessible"
 	// HCloudMachineStartImageURLCommandFailedV1Beta2Reason indicates starting the image URL command failed.
 	HCloudMachineStartImageURLCommandFailedV1Beta2Reason = "StartImageURLCommandFailed"
 	// HCloudMachineStartImageURLCommandNoZeroExitCodeV1Beta2Reason indicates the image URL command returned a non-zero exit code.
@@ -416,6 +414,8 @@ const (
 	HCloudMachineServerNotFoundV1Beta2Reason = "NotFound"
 	// HCloudMachineNetworkAttachFailedV1Beta2Reason surfaces a network attachment failure.
 	HCloudMachineNetworkAttachFailedV1Beta2Reason = "NetworkAttachFailed"
+	// HCloudMachineWaitingForAPIServerV1Beta2Reason indicates waiting for the API server to be healthy.
+	HCloudMachineWaitingForAPIServerV1Beta2Reason = "WaitingForAPIServer"
 	// HCloudMachineLoadBalancerAttachFailedV1Beta2Reason surfaces a load balancer attachment failure.
 	HCloudMachineLoadBalancerAttachFailedV1Beta2Reason = "LoadBalancerAttachFailed"
 	// HCloudMachineDeletingV1Beta2Reason surfaces when the HCloudMachine is being deleted.

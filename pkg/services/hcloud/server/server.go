@@ -248,7 +248,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		msg = fmt.Sprintf("Updating old resource (pre BootState) %s", hm.Status.BootState)
 
 		s.scope.Info(msg)
-		conditions.MarkFalse(hm, infrav1.ServerAvailableCondition,
+		conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
 			"HandleBootStateUnset", clusterv1.ConditionSeverityInfo,
 			"%s", msg)
 		v1beta2conditions.Set(hm, metav1.Condition{
@@ -406,11 +406,11 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 	if _, err := utils.ResolveImageURLCommandPath(hcloudImageURLCommandDir, imageURLCommandName); err != nil {
 		err = fmt.Errorf("imageURLCommand %q is invalid or not accessible by the controller pod: %w", imageURLCommandName, err)
 		s.scope.Error(err, "")
-		conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerAvailableCondition,
+		conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerProvisionedCondition,
 			"ImageURLCommandNotAccessible", clusterv1.ConditionSeverityWarning,
 			"%s", err.Error())
 		v1beta2conditions.Set(hm, metav1.Condition{
-			Type:    infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+			Type:    infrav1.HCloudMachineServerProvisionedV1Beta2Condition,
 			Status:  metav1.ConditionFalse,
 			Reason:  infrav1.HCloudMachineImageURLCommandNotAccessibleV1Beta2Reason,
 			Message: err.Error(),
