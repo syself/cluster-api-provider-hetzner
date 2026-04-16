@@ -382,7 +382,7 @@ func (s *Service) handleIncompleteBoot(ctx context.Context, isRebootIntoRescue, 
 	case emptyErrorType:
 		if isTimeout {
 			// A timeout error from SSH indicates that the server did not yet finish rebooting.
-			// As the sevrer has no error set yet, set error message and return.
+			// As the server has no error set yet, set error message and return.
 			s.scope.HetznerBareMetalHost.SetError(infrav1.ErrorTypeSSHRebootTriggered, "ssh timeout error - server has not restarted yet")
 			return false, nil
 		}
@@ -1958,8 +1958,6 @@ func analyzeSSHOutputProvisioned(out sshclient.Output) (isTimeout, isConnectionR
 //     cluster against the stored one. A change means the node completed a full
 //     reboot cycle.
 func (s *Service) actionProvisioned(ctx context.Context) actionResult {
-	// set host to provisioned
-
 	rebootDesired := s.scope.HetznerBareMetalHost.HasRebootAnnotation()
 
 	host := s.scope.HetznerBareMetalHost
@@ -2047,7 +2045,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	// before and after a reboot is the way to confirm the node rebooted.
 	currentBootID := node.Status.NodeInfo.BootID
 	if currentBootID == "" {
-		err = errors.New("node.Status.NodeInfo.BootID is empty?")
+		err = errors.New("node.Status.NodeInfo.BootID is empty")
 		s.scope.Error(err, "")
 		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
 			"NodeInWorkloadClusterHasEmptyBootID",
@@ -2132,7 +2130,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 			clusterv1.ConditionSeverityInfo, "%s",
 			msg)
 		host.Spec.Status.Rebooted = true
-		return actionContinue{delay: 10 * time.Second}
+		return actionContinue{delay: 1 * time.Minute}
 	}
 
 	// --- Phase 2: verify the reboot ---
@@ -2158,85 +2156,6 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 
 	// BootID has not changed yet. The node is either still rebooting or the reboot
 	// command hasn't taken effect yet.
-
-	if !s.scope.SSHAfterInstallImage {
-		// Without SSH access we cannot probe the machine directly, so keep polling the workload
-		// cluster until the BootID changes or the timeout above is hit.
-		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
-			"WaitingForNodeToBeRebooted",
-			clusterv1.ConditionSeverityInfo,
-			"Waiting for BootID of Node in workload cluster to change",
-		)
-		return actionContinue{delay: 10 * time.Second}
-	}
-
-	// With SSH access enabled, we get deeper insights. We can distinguish between "still rebooting"
-	// from "reboot failed to start".
-	creds := sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, host.Spec.Status.SSHSpec.SecretRef)
-	in := sshclient.Input{
-		PrivateKey: creds.PrivateKey,
-		Port:       host.Spec.Status.SSHSpec.PortAfterInstallImage,
-		IP:         host.Spec.Status.GetIPAddress(),
-	}
-	sshClient := s.scope.SSHClientFactory.NewClient(in)
-
-	// Ask the node for its hostname to check whether it is still mid-reboot.
-	out := sshClient.GetHostName()
-	actualHostName := trimLineBreak(out.StdOut)
-	wantHostName := s.scope.Hostname()
-	if actualHostName == wantHostName {
-		// The node is responding via SSH with the expected hostname. However, hostname is
-		// identical before and after a reboot, so a matching hostname does NOT confirm that
-		// a reboot actually occurred. Do not clear the annotation or reboot state here.
-		// The BootID change (checked at the top of Phase 2) is the sole completion signal.
-		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
-			"WaitingForBootIDToChange",
-			clusterv1.ConditionSeverityInfo,
-			"Node is up via SSH but BootID has not yet changed")
-		return actionContinue{delay: 10 * time.Second}
-	}
-
-	// Hostname did not match: the node is not yet back on the expected OS.
-	// analyzeSSHOutputProvisioned classifies the SSH output into one of:
-	//   - timeout (SSH connection timed out: node is mid-reboot)
-	//   - connection refused (SSH not listening yet: node is mid-reboot)
-	//   - unexpected hostname / empty stdout / stderr: something is wrong
-	isTimeout, isSSHConnectionRefusedError, err := analyzeSSHOutputProvisioned(out)
-	if err != nil {
-		if errors.Is(err, errUnexpectedHostName) {
-			// One possible reason: The machine gets used by a second wl-cluster
-			record.Warnf(host, "UnexpectedHostName",
-				"Provisioned: wanted %q. %s", wantHostName, err.Error())
-		}
-		err = fmt.Errorf("failed to handle incomplete boot - actionProvisioned: %w", err)
-		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
-			"FailureGettingHostnameViaSSH",
-			clusterv1.ConditionSeverityWarning, "%s",
-			err.Error())
-		return actionError{err: err}
-	}
-
-	// handleIncompleteBoot decides whether the reboot is still in progress or has failed (failed=true).
-	// A definitive failure triggers a PermanentError so that the remediation controller can take over.
-	failed, err := s.handleIncompleteBoot(ctx, false, isTimeout, isSSHConnectionRefusedError)
-	if failed {
-		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
-			"RebootFailed",
-			clusterv1.ConditionSeverityWarning, "%s",
-			err.Error())
-		return s.recordActionFailure(infrav1.PermanentError, err.Error())
-	}
-	if err != nil {
-		err = fmt.Errorf(errMsgFailedHandlingIncompleteBoot, err)
-		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
-			"RebootFailed",
-			clusterv1.ConditionSeverityWarning, "%s",
-			err.Error())
-		return actionError{err: err}
-	}
-
-	// handleIncompleteBoot returned no error and no failure: the node is still
-	// rebooting normally, so keep waiting.
 	conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
 		"WaitingForNodeToBeRebooted",
 		clusterv1.ConditionSeverityInfo,
