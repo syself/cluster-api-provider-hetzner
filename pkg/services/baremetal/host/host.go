@@ -1965,7 +1965,6 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	if !rebootDesired {
 		// No reboot annotation: ensure all reboot-related state is cleared in case
 		// it was left over from a previous cycle (e.g. annotation was removed mid-reboot).
-		host.Spec.Status.Rebooted = false
 		host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = ""
 		host.Spec.Status.ExternalIDs.RebootAnnotationSince.Time = time.Time{}
 		return actionComplete{} // Stays in Provisioned (final state)
@@ -2045,17 +2044,17 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	// before and after a reboot is the way to confirm the node rebooted.
 	currentBootID := node.Status.NodeInfo.BootID
 	if currentBootID == "" {
-		err = errors.New("node.Status.NodeInfo.BootID is empty")
-		s.scope.Error(err, "")
+		msg := "node.Status.NodeInfo.BootID is empty"
 		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
 			"NodeInWorkloadClusterHasEmptyBootID",
 			clusterv1.ConditionSeverityWarning, "%s",
-			err.Error())
-		return actionError{err: err}
+			msg)
+
+		s.scope.HetznerBareMetalHost.SetError(infrav1.PermanentError, msg)
+		return actionStop{}
 	}
 
-	isRebooted := host.Spec.Status.Rebooted
-	if !isRebooted {
+	if host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID == "" {
 		// --- Phase 1: trigger the reboot ---
 		// This branch runs exactly once per reboot annotation. We store the current
 		// BootID so Phase 2 can detect when it changes, then send the reboot command.
@@ -2129,7 +2128,6 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 			"WaitingForNodeToBeRebooted",
 			clusterv1.ConditionSeverityInfo, "%s",
 			msg)
-		host.Spec.Status.Rebooted = true
 		return actionContinue{delay: 1 * time.Minute}
 	}
 
@@ -2142,7 +2140,6 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	if host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID != currentBootID {
 		// Reboot has been successful
 		s.scope.Info(fmt.Sprintf("BootID changed: %q -> %q", host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID, currentBootID))
-		host.Spec.Status.Rebooted = false
 		host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = ""
 		host.Spec.Status.ExternalIDs.RebootAnnotationSince.Time = time.Time{}
 

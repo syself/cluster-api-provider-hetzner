@@ -315,6 +315,8 @@ type ControllerGeneratedStatus struct {
 	LastUpdated *metav1.Time `json:"lastUpdated,omitempty"`
 
 	// Rebooted shows whether the server is currently being rebooted.
+	//
+	// Deprecated: This field is deprecated and is superseded by ExternalIDs.RebootAnnotationNodeBootID.
 	Rebooted bool `json:"rebooted,omitempty"`
 
 	// Conditions define the current service state of the HetznerBareMetalHost.
