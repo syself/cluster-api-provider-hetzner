@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/conditions"
@@ -98,43 +99,52 @@ type BareMetalMachineScope struct {
 // Close closes the current scope persisting the machine configuration and status.
 func (m *BareMetalMachineScope) Close(ctx context.Context) error {
 	conditions.SetSummary(m.BareMetalMachine)
-	if err := SetHetznerBareMetalMachineV1Beta2SummaryCondition(m.BareMetalMachine); err != nil {
-		return fmt.Errorf("failed to set %s condition: %w", infrav1.HetznerBareMetalMachineReadyV1Beta2Condition, err)
-	}
+	SetHetznerBareMetalMachineV1Beta2ReadySummary(m.BareMetalMachine)
 
-	return m.patchHelper.Patch(ctx, m.BareMetalMachine,
-		patch.WithOwnedV1Beta2Conditions{Conditions: infrav1.HetznerBareMetalMachineV1Beta2OwnedConditions()},
-	)
+	return m.patchHelper.Patch(ctx, m.BareMetalMachine, bareMetalMachinePatchOpts()...)
 }
 
-// SetHetznerBareMetalMachineV1Beta2SummaryCondition sets the Ready summary condition for a HetznerBareMetalMachine.
-func SetHetznerBareMetalMachineV1Beta2SummaryCondition(hbmm *infrav1.HetznerBareMetalMachine) error {
-	return v1beta2conditions.SetSummaryCondition(hbmm, hbmm,
-		infrav1.HetznerBareMetalMachineReadyV1Beta2Condition,
-		v1beta2conditions.ForConditionTypes(infrav1.HetznerBareMetalMachineV1Beta2SummaryConditionTypes()),
-		v1beta2conditions.NegativePolarityConditionTypes{
-			infrav1.HetznerBareMetalMachineDeletingV1Beta2Condition,
-		},
-		v1beta2conditions.IgnoreTypesIfMissing{
-			infrav1.HetznerBareMetalMachineBootstrapReadyV1Beta2Condition,
-			infrav1.HetznerBareMetalMachineHostAssociateSucceededV1Beta2Condition,
-			infrav1.HetznerBareMetalMachineHostReadyV1Beta2Condition,
-		},
-		v1beta2conditions.CustomMergeStrategy{
-			MergeStrategy: v1beta2conditions.DefaultMergeStrategy(
-				v1beta2conditions.GetPriorityFunc(
-					v1beta2conditions.GetDefaultMergePriorityFunc(infrav1.HetznerBareMetalMachineDeletingV1Beta2Condition),
-				),
-				v1beta2conditions.ComputeReasonFunc(
-					v1beta2conditions.GetDefaultComputeMergeReasonFunc(
-						infrav1.HetznerBareMetalMachineNotReadyV1Beta2Reason,
-						infrav1.HetznerBareMetalMachineReadyUnknownV1Beta2Reason,
-						infrav1.HetznerBareMetalMachineReadyV1Beta2Reason,
-					),
-				),
-			),
-		},
+// SetHetznerBareMetalMachineV1Beta2ReadySummary computes and sets the Ready v1beta2 summary
+// condition on the HetznerBareMetalMachine. It is the single source of truth for computing
+// the summary and is called from both BareMetalMachineScope.Close() and controller early-exit
+// paths that bypass the scope (e.g. token validation failures).
+//
+// If the summary cannot be computed, Ready is set to Unknown with InternalError reason so the
+// summary is never silently omitted.
+func SetHetznerBareMetalMachineV1Beta2ReadySummary(hbmm *infrav1.HetznerBareMetalMachine) {
+	readyCondition, err := v1beta2conditions.NewSummaryCondition(
+		hbmm, infrav1.HetznerBareMetalMachineReadyV1Beta2Condition,
+		infrav1.HetznerBareMetalMachineV1Beta2SummaryOpts()...,
 	)
+	if err != nil {
+		v1beta2conditions.Set(hbmm, metav1.Condition{
+			Type:    infrav1.HetznerBareMetalMachineReadyV1Beta2Condition,
+			Status:  metav1.ConditionUnknown,
+			Reason:  infrav1.InternalErrorV1Beta2Reason,
+			Message: err.Error(),
+		})
+		return
+	}
+	v1beta2conditions.Set(hbmm, *readyCondition)
+}
+
+func bareMetalMachinePatchOpts() []patch.Option {
+	return []patch.Option{
+		patch.WithOwnedConditions{Conditions: []clusterv1.ConditionType{
+			clusterv1.ReadyCondition,
+			infrav1.BootstrapReadyCondition,
+			infrav1.HCloudTokenAvailableCondition,
+			infrav1.HetznerAPIReachableCondition,
+			infrav1.HostAssociateSucceededCondition,
+			infrav1.HostReadyCondition,
+		}},
+		patch.WithOwnedV1Beta2Conditions{Conditions: []string{
+			infrav1.HetznerBareMetalMachineReadyV1Beta2Condition,
+			infrav1.HCloudTokenAvailableV1Beta2Condition,
+			infrav1.HetznerBareMetalMachineHostAssociatedV1Beta2Condition,
+			infrav1.HetznerBareMetalMachineHostReadyV1Beta2Condition,
+		}},
+	}
 }
 
 // Name returns the BareMetalMachine name.
@@ -149,7 +159,8 @@ func (m *BareMetalMachineScope) Namespace() string {
 
 // PatchObject persists the machine spec and status.
 func (m *BareMetalMachineScope) PatchObject(ctx context.Context, opts ...patch.Option) error {
-	return m.patchHelper.Patch(ctx, m.BareMetalMachine, opts...)
+	allOpts := append(bareMetalMachinePatchOpts(), opts...)
+	return m.patchHelper.Patch(ctx, m.BareMetalMachine, allOpts...)
 }
 
 // IsControlPlane returns true if the machine is a control plane.

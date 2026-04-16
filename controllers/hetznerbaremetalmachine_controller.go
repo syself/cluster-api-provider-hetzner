@@ -32,7 +32,6 @@ import (
 	"sigs.k8s.io/cluster-api/util/annotations"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	v1beta2conditions "sigs.k8s.io/cluster-api/util/conditions/v1beta2"
-	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -90,7 +89,14 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 	}
 
 	log = log.WithValues("HetznerBareMetalMachine", klog.KObj(hbmMachine))
-	setHetznerBareMetalMachineDeletingV1Beta2Condition(hbmMachine)
+
+	if !hbmMachine.DeletionTimestamp.IsZero() {
+		v1beta2conditions.Set(hbmMachine, metav1.Condition{
+			Type:   infrav1.HetznerBareMetalMachineHostReadyV1Beta2Condition,
+			Status: metav1.ConditionFalse,
+			Reason: infrav1.HetznerBareMetalMachineDeletingV1Beta2Reason,
+		})
+	}
 
 	// Fetch the Machine.
 	capiMachine, err := util.GetOwnerMachine(ctx, r, hbmMachine.ObjectMeta)
@@ -135,34 +141,7 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 	secretManager := secretutil.NewSecretManager(log, r, r.APIReader)
 	hcloudToken, _, err := getAndValidateHCloudToken(ctx, req.Namespace, hetznerCluster, secretManager)
 	if err != nil {
-		switch err.(type) {
-		case *secretutil.ResolveSecretRefError:
-			v1beta2conditions.Set(hbmMachine, metav1.Condition{
-				Type:    infrav1.HetznerBareMetalMachineHCloudTokenAvailableV1Beta2Condition,
-				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HetznerBareMetalMachineSecretUnreachableV1Beta2Reason,
-				Message: "could not find HetznerSecret",
-			})
-		case *secretutil.HCloudTokenValidationError:
-			v1beta2conditions.Set(hbmMachine, metav1.Condition{
-				Type:    infrav1.HetznerBareMetalMachineHCloudTokenAvailableV1Beta2Condition,
-				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HetznerBareMetalMachineCredentialsInvalidV1Beta2Reason,
-				Message: "invalid or not specified hcloud token in Hetzner secret",
-			})
-		default:
-			v1beta2conditions.Set(hbmMachine, metav1.Condition{
-				Type:    infrav1.HetznerBareMetalMachineHCloudTokenAvailableV1Beta2Condition,
-				Status:  metav1.ConditionFalse,
-				Reason:  clusterv1.InternalErrorV1Beta2Reason,
-				Message: err.Error(),
-			})
-		}
-		if summaryErr := scope.SetHetznerBareMetalMachineV1Beta2SummaryCondition(hbmMachine); summaryErr != nil {
-			return reconcile.Result{}, fmt.Errorf("failed to set %s condition: %w", infrav1.HetznerBareMetalMachineReadyV1Beta2Condition, summaryErr)
-		}
-
-		return hcloudTokenErrorResult(ctx, err, hbmMachine, r)
+		return hcloudTokenErrorResult(ctx, err, hbmMachine, r, infrav1.HetznerBareMetalMachineV1Beta2SummaryOpts())
 	}
 
 	hcc := r.HCloudClientFactory.NewClient(hcloudToken)
@@ -185,17 +164,17 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 		if reterr != nil && errors.Is(reterr, hcloudclient.ErrUnauthorized) {
 			conditions.MarkFalse(hbmMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason, clusterv1.ConditionSeverityError, "wrong hcloud token")
 			v1beta2conditions.Set(hbmMachine, metav1.Condition{
-				Type:    infrav1.HetznerBareMetalMachineHCloudTokenAvailableV1Beta2Condition,
+				Type:    infrav1.HCloudTokenAvailableV1Beta2Condition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HetznerBareMetalMachineCredentialsInvalidV1Beta2Reason,
+				Reason:  infrav1.HCloudTokenInvalidV1Beta2Reason,
 				Message: "wrong hcloud token",
 			})
 		} else {
 			conditions.MarkTrue(hbmMachine, infrav1.HCloudTokenAvailableCondition)
 			v1beta2conditions.Set(hbmMachine, metav1.Condition{
-				Type:   infrav1.HetznerBareMetalMachineHCloudTokenAvailableV1Beta2Condition,
+				Type:   infrav1.HCloudTokenAvailableV1Beta2Condition,
 				Status: metav1.ConditionTrue,
-				Reason: infrav1.HetznerBareMetalMachineTokenAvailableV1Beta2Reason,
+				Reason: infrav1.HCloudTokenAvailableV1Beta2Reason,
 			})
 		}
 
@@ -247,9 +226,7 @@ func (r *HetznerBareMetalMachineReconciler) reconcileNormal(ctx context.Context,
 	controllerutil.RemoveFinalizer(machineScope.BareMetalMachine, infrav1.DeprecatedBareMetalMachineFinalizer)
 
 	// Register the finalizer immediately to avoid orphaning HetznerBareMetal resources on delete
-	if err := machineScope.PatchObject(ctx,
-		patch.WithOwnedV1Beta2Conditions{Conditions: infrav1.HetznerBareMetalMachineV1Beta2OwnedConditions()},
-	); err != nil {
+	if err := machineScope.PatchObject(ctx); err != nil {
 		return reconcile.Result{}, err
 	}
 
@@ -261,27 +238,6 @@ func (r *HetznerBareMetalMachineReconciler) reconcileNormal(ctx context.Context,
 	}
 
 	return result, nil
-}
-
-func setHetznerBareMetalMachineDeletingV1Beta2Condition(hbmm *infrav1.HetznerBareMetalMachine) {
-	if !hbmm.DeletionTimestamp.IsZero() {
-		v1beta2conditions.Set(hbmm, metav1.Condition{
-			Type:   infrav1.HetznerBareMetalMachineDeletingV1Beta2Condition,
-			Status: metav1.ConditionTrue,
-			Reason: infrav1.HetznerBareMetalMachineDeletingV1Beta2Reason,
-		})
-		v1beta2conditions.Set(hbmm, metav1.Condition{
-			Type:   infrav1.HetznerBareMetalMachineHostReadyV1Beta2Condition,
-			Status: metav1.ConditionFalse,
-			Reason: infrav1.HetznerBareMetalMachineDeletingV1Beta2Reason,
-		})
-	} else {
-		v1beta2conditions.Set(hbmm, metav1.Condition{
-			Type:   infrav1.HetznerBareMetalMachineDeletingV1Beta2Condition,
-			Status: metav1.ConditionFalse,
-			Reason: infrav1.HetznerBareMetalMachineNotDeletingV1Beta2Reason,
-		})
-	}
 }
 
 // SetupWithManager sets up the controller with the Manager.

@@ -252,6 +252,33 @@ const (
 	RebootSucceededCondition clusterv1.ConditionType = "RebootSucceeded"
 )
 
+// v1beta2 conditions.
+
+// common conditions used across resource types.
+
+const (
+	// HCloudRateLimitExceededV1Beta2Condition reports on whether the HCloud API rate limit has been exceeded.
+	HCloudRateLimitExceededV1Beta2Condition = "HCloudRateLimitExceeded"
+	// HCloudRateLimitExceededV1Beta2Reason indicates that the HCloud API rate limit has been exceeded.
+	HCloudRateLimitExceededV1Beta2Reason = "RateLimitExceeded"
+)
+
+const (
+	// HCloudTokenAvailableV1Beta2Condition reports on whether the HCloud Token is available.
+	HCloudTokenAvailableV1Beta2Condition = "HCloudTokenAvailable"
+	// HCloudTokenAvailableV1Beta2Reason indicates that the HCloudToken is available.
+	HCloudTokenAvailableV1Beta2Reason = clusterv1.AvailableV1Beta2Reason
+	// HCloudTokenInvalidV1Beta2Reason indicates that the HCloudToken is invalid.
+	HCloudTokenInvalidV1Beta2Reason = "Invalid"
+	// HetznerSecretUnreachableV1Beta2Reason indicates that Hetzner secret is unreachable.
+	HetznerSecretUnreachableV1Beta2Reason = "HetznerSecretUnreachable" // #nosec
+)
+
+const (
+	// InternalErrorV1Beta2Reason indicates an internal error in reconciler.
+	InternalErrorV1Beta2Reason = "InternalError"
+)
+
 // HetznerBareMetalMachine v1beta2 condition types.
 
 const (
@@ -269,42 +296,20 @@ const (
 )
 
 const (
-	// HetznerBareMetalMachineHCloudTokenAvailableV1Beta2Condition is true when the HCloud token is available.
-	HetznerBareMetalMachineHCloudTokenAvailableV1Beta2Condition = "HCloudTokenAvailable"
-
-	// HetznerBareMetalMachineTokenAvailableV1Beta2Reason surfaces when the HCloud token is available.
-	HetznerBareMetalMachineTokenAvailableV1Beta2Reason = "TokenAvailable"
-
-	// HetznerBareMetalMachineSecretUnreachableV1Beta2Reason surfaces when the Hetzner secret is unreachable.
-	HetznerBareMetalMachineSecretUnreachableV1Beta2Reason = "SecretUnreachable"
-
-	// HetznerBareMetalMachineCredentialsInvalidV1Beta2Reason surfaces when the HCloud credentials are invalid.
-	HetznerBareMetalMachineCredentialsInvalidV1Beta2Reason = "CredentialsInvalid"
-)
-
-const (
-	// HetznerBareMetalMachineBootstrapReadyV1Beta2Condition is true when the bootstrap data is ready.
-	HetznerBareMetalMachineBootstrapReadyV1Beta2Condition = "BootstrapReady"
-
-	// HetznerBareMetalMachineBootstrapReadyV1Beta2Reason surfaces when bootstrap data is ready.
-	HetznerBareMetalMachineBootstrapReadyV1Beta2Reason = "BootstrapReady"
-
-	// HetznerBareMetalMachineWaitingForBootstrapDataV1Beta2Reason surfaces when waiting for bootstrap data.
-	HetznerBareMetalMachineWaitingForBootstrapDataV1Beta2Reason = clusterv1.WaitingForBootstrapDataV1Beta2Reason
-)
-
-const (
-	// HetznerBareMetalMachineHostAssociateSucceededV1Beta2Condition is true when the host association succeeded.
-	HetznerBareMetalMachineHostAssociateSucceededV1Beta2Condition = "HostAssociateSucceeded"
+	// HetznerBareMetalMachineHostAssociatedV1Beta2Condition is true when the host is associated.
+	HetznerBareMetalMachineHostAssociatedV1Beta2Condition = "HostAssociated"
 
 	// HetznerBareMetalMachineHostAssociatedV1Beta2Reason surfaces when the host is associated.
-	HetznerBareMetalMachineHostAssociatedV1Beta2Reason = "HostAssociated"
+	HetznerBareMetalMachineHostAssociatedV1Beta2Reason = "Associated"
 
 	// HetznerBareMetalMachineNoAvailableHostV1Beta2Reason surfaces when no available host is found.
 	HetznerBareMetalMachineNoAvailableHostV1Beta2Reason = "NoAvailableHost"
 
-	// HetznerBareMetalMachineHostAssociateFailedV1Beta2Reason surfaces when host association failed.
-	HetznerBareMetalMachineHostAssociateFailedV1Beta2Reason = "HostAssociateFailed"
+	// HetznerBareMetalMachineHostAssociationFailedV1Beta2Reason surfaces when host association failed.
+	HetznerBareMetalMachineHostAssociationFailedV1Beta2Reason = "AssociationFailed"
+
+	// HetznerBareMetalMachineWaitingForBootstrapDataV1Beta2Reason surfaces when waiting for bootstrap data.
+	HetznerBareMetalMachineWaitingForBootstrapDataV1Beta2Reason = clusterv1.WaitingForBootstrapDataV1Beta2Reason
 )
 
 const (
@@ -312,47 +317,14 @@ const (
 	HetznerBareMetalMachineHostReadyV1Beta2Condition = "HostReady"
 
 	// HetznerBareMetalMachineHostReadyV1Beta2Reason surfaces when the host is ready.
-	HetznerBareMetalMachineHostReadyV1Beta2Reason = "HostReady"
+	HetznerBareMetalMachineHostReadyV1Beta2Reason = "Ready"
 
 	// HetznerBareMetalMachineHostNotFoundV1Beta2Reason surfaces when the host is not found.
 	HetznerBareMetalMachineHostNotFoundV1Beta2Reason = "HostNotFound"
 
 	// HetznerBareMetalMachineHostNotReadyV1Beta2Reason surfaces when the host is not ready.
-	HetznerBareMetalMachineHostNotReadyV1Beta2Reason = "HostNotReady"
-)
-
-const (
-	// HetznerBareMetalMachineDeletingV1Beta2Condition surfaces when the HetznerBareMetalMachine is being deleted.
-	HetznerBareMetalMachineDeletingV1Beta2Condition = clusterv1.DeletingV1Beta2Condition
+	HetznerBareMetalMachineHostNotReadyV1Beta2Reason = "NotReady"
 
 	// HetznerBareMetalMachineDeletingV1Beta2Reason surfaces when the HetznerBareMetalMachine is being deleted.
 	HetznerBareMetalMachineDeletingV1Beta2Reason = clusterv1.DeletingV1Beta2Reason
-
-	// HetznerBareMetalMachineNotDeletingV1Beta2Reason surfaces when the HetznerBareMetalMachine is not being deleted.
-	HetznerBareMetalMachineNotDeletingV1Beta2Reason = clusterv1.NotDeletingV1Beta2Reason
 )
-
-// HetznerBareMetalMachineV1Beta2OwnedConditions returns the list of conditions owned by the HetznerBareMetalMachine controller.
-func HetznerBareMetalMachineV1Beta2OwnedConditions() []string {
-	return []string{
-		HetznerBareMetalMachineReadyV1Beta2Condition,
-		HetznerBareMetalMachineHCloudTokenAvailableV1Beta2Condition,
-		HetznerBareMetalMachineDeletingV1Beta2Condition,
-		HetznerBareMetalMachineBootstrapReadyV1Beta2Condition,
-		HetznerBareMetalMachineHostAssociateSucceededV1Beta2Condition,
-		HetznerBareMetalMachineHostReadyV1Beta2Condition,
-	}
-}
-
-// HetznerBareMetalMachineV1Beta2SummaryConditionTypes returns the condition types used for computing
-// the Ready summary condition (all owned conditions except Ready itself).
-func HetznerBareMetalMachineV1Beta2SummaryConditionTypes() []string {
-	owned := HetznerBareMetalMachineV1Beta2OwnedConditions()
-	types := make([]string, 0, len(owned)-1)
-	for _, c := range owned {
-		if c != HetznerBareMetalMachineReadyV1Beta2Condition {
-			types = append(types, c)
-		}
-	}
-	return types
-}

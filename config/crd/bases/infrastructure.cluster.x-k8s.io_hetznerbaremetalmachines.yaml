@@ -430,7 +430,7 @@ spec:
                   conditions:
                     description: |-
                       conditions represents the observations of a HetznerBareMetalMachine's current state.
-                      Known condition types are Ready, HCloudTokenAvailable, BootstrapReady, HostAssociateSucceeded, HostReady and Deleting.
+                      Known condition types are Ready, HCloudTokenAvailable, HostAssociated and HostReady.
                     items:
                       description: Condition contains details for one aspect of the
                         current state of this API Resource.
@@ -486,6 +486,7 @@ spec:
                       - status
                       - type
                       type: object
+                    maxItems: 32
                     type: array
                     x-kubernetes-list-map-keys:
                     - type
