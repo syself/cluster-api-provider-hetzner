@@ -255,3 +255,12 @@ const (
 	// RebootSucceededCondition indicates that the machine got rebooted successfully.
 	RebootSucceededCondition clusterv1.ConditionType = "RebootSucceeded"
 )
+
+const (
+	// RemediationSkippedCondition reports that remediation was skipped because
+	// the HCloudMachine has a state that makes remediation unnecessary or impossible.
+	RemediationSkippedCondition clusterv1.ConditionType = "RemediationSkipped"
+	// IrrecoverableServerCreateFailureReason indicates remediation was skipped because
+	// the HCloudMachine failed to create with an irrecoverable error (e.g. invalid_input, resource_unavailable).
+	IrrecoverableServerCreateFailureReason = "IrrecoverableServerCreateFailure"
+)
