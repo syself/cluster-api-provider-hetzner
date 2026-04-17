@@ -2022,7 +2022,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 
 	// NodeRef is expected to be set once the Machine has successfully joined the cluster.
 	// If it is still nil at this stage, it likely indicates that the node never registered
-	// (e.g. kubelet failed to join, bootstrap issues, etc.) which we treat as a permanent error.
+	// (e.g. kubelet failed to join, bootstrap issues, etc.) which we treat as a fatal error.
 	// The machine would be remediated.
 	if machine.Status.NodeRef == nil {
 		msg := "machine.Status.NodeRef is nil"
