@@ -1158,6 +1158,11 @@ func handleRateLimit(hm *infrav1.HCloudMachine, err error, functionName string, 
 func (s *Service) Delete(ctx context.Context) (reconcile.Result, error) {
 	// Set phase to deleting.
 	s.scope.HCloudMachine.Status.InstanceState = ptr.To(hcloud.ServerStatusDeleting)
+	v1beta2conditions.Set(s.scope.HCloudMachine, metav1.Condition{
+		Type:   infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+		Status: metav1.ConditionFalse,
+		Reason: infrav1.HCloudMachineDeletingV1Beta2Reason,
+	})
 
 	// Nothing to do if ProviderID was never set.
 	if s.scope.HCloudMachine.Spec.ProviderID == nil {

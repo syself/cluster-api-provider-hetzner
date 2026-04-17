@@ -146,20 +146,19 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 	// Create the scope.
 	secretManager := secretutil.NewSecretManager(log, r, r.APIReader)
 
-	// Set ServerAvailable=False and InstanceState=Deleting before the token check
-	// so that early-return paths (e.g. invalid token) still reflect the deletion
-	// state correctly in both conditions and phase.
-	if !hcloudMachine.DeletionTimestamp.IsZero() {
-		hcloudMachine.Status.InstanceState = ptr.To(hcloud.ServerStatusDeleting)
-		v1beta2conditions.Set(hcloudMachine, metav1.Condition{
-			Type:   infrav1.HCloudMachineServerAvailableV1Beta2Condition,
-			Status: metav1.ConditionFalse,
-			Reason: infrav1.HCloudMachineDeletingV1Beta2Reason,
-		})
-	}
-
 	hcloudToken, hetznerSecret, err := getAndValidateHCloudToken(ctx, req.Namespace, hetznerCluster, secretManager)
 	if err != nil {
+		// On the token-error early-return, hcloudTokenErrorResult does a full
+		// Status().Update. Set the deletion markers here so they are persisted
+		// (the scope's patchHelper is not created on this path).
+		if !hcloudMachine.DeletionTimestamp.IsZero() {
+			hcloudMachine.Status.InstanceState = ptr.To(hcloud.ServerStatusDeleting)
+			v1beta2conditions.Set(hcloudMachine, metav1.Condition{
+				Type:   infrav1.HCloudMachineServerAvailableV1Beta2Condition,
+				Status: metav1.ConditionFalse,
+				Reason: infrav1.HCloudMachineDeletingV1Beta2Reason,
+			})
+		}
 		return hcloudTokenErrorResult(ctx, err, hcloudMachine, r, infrav1.HCloudMachineV1Beta2SummaryOpts())
 	}
 
