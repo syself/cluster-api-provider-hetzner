@@ -1262,7 +1262,7 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 				"ImageURLCommandMissing",
 				clusterv1.ConditionSeverityError,
 				"%s", err.Error())
-			return actionContinue{delay: time.Hour}
+			return actionStop{}
 		}
 
 		commandPath, err := utils.ResolveImageURLCommandPath(baremetalImageURLCommandDir, command)
@@ -1273,7 +1273,7 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 				"ImageURLCommandNotAccessible",
 				clusterv1.ConditionSeverityWarning,
 				"%s", err.Error())
-			return actionContinue{delay: time.Hour}
+			return actionStop{}
 		}
 
 		// get the information about storage devices again to have the latest names.
