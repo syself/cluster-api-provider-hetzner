@@ -246,7 +246,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 				infrav1.ServerCreateSucceededCondition,
 				infrav1.ServerCreateFailedIrrecoverableErrorReason,
 				clusterv1.ConditionSeverityError,
-				"%s",
+				"Server creation failed with an irrecoverable error: %s. If the requested resources (server type or location) become available again, delete the Machine to trigger a new creation attempt.",
 				err.Error(),
 			)
 			return reconcile.Result{}, nil
@@ -1453,6 +1453,12 @@ func (s *Service) deleteServerOfLoadBalancer(ctx context.Context, server *hcloud
 	return nil
 }
 
+// findServer attempts to locate the HCloud server for the underlying HCloudMachine.
+// It first tries to find the server by its provider ID. If that fails (e.g., provider ID not yet set),
+// it falls back to searching by labels.
+//
+// It returns server and error as nil when the server is not found because hcloud-go's GetServer returns nil
+// for a non-existent server ID and no server matched the label selector.
 func (s *Service) findServer(ctx context.Context) (*hcloud.Server, error) {
 	var server *hcloud.Server
 
