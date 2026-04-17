@@ -1967,6 +1967,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		// it was left over from a previous cycle (e.g. annotation was removed mid-reboot).
 		host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = ""
 		host.Spec.Status.ExternalIDs.RebootAnnotationSince.Time = time.Time{}
+		host.Spec.Status.Rebooted = false
 		return actionComplete{} // Stays in Provisioned (final state)
 	}
 
@@ -2065,6 +2066,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		// Persist the pre-reboot BootID. Phase 2 compares the live BootID against this
 		// value on every reconcile; a difference means the node completed a reboot.
 		host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = currentBootID
+		host.Spec.Status.Rebooted = true
 
 		msg := fmt.Sprintf("Rebooting because annotation was set. Old BootID: %s", currentBootID)
 
@@ -2145,6 +2147,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 		s.scope.Info(fmt.Sprintf("BootID changed: %q -> %q", host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID, currentBootID))
 		host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = ""
 		host.Spec.Status.ExternalIDs.RebootAnnotationSince.Time = time.Time{}
+		host.Spec.Status.Rebooted = false
 
 		conditions.MarkTrue(host, infrav1.RebootSucceededCondition)
 

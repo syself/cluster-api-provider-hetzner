@@ -520,10 +520,8 @@ spec:
                       type: string
                     type: array
                   rebooted:
-                    description: |-
-                      Rebooted shows whether the server is currently being rebooted.
-
-                      Deprecated: This field is deprecated and is superseded by ExternalIDs.RebootAnnotationNodeBootID.
+                    description: Rebooted shows whether the server is currently being
+                      rebooted.
                     type: boolean
                   sshSpec:
                     description: SSHSpec defines specs for SSH.

@@ -1769,6 +1769,7 @@ var _ = Describe("actionProvisioned SSHAfterInstallImage=true", func() {
 	type testCaseActionProvisioned struct {
 		shouldHaveRebootAnnotation bool
 		rebootFinished             bool
+		rebooted                   bool
 		// storedBootID sets RebootAnnotationNodeBootID in host status.
 		// Empty (default) means Phase 1 has not run yet — Phase 1 will execute.
 		// Non-empty means Phase 1 already ran — Phase 2 will execute.
@@ -1776,6 +1777,7 @@ var _ = Describe("actionProvisioned SSHAfterInstallImage=true", func() {
 		storedBootID           string
 		expectedActionResult   actionResult
 		expectRebootAnnotation bool
+		expectRebootInStatus   bool
 	}
 
 	DescribeTable("actionProvisioned",
@@ -1795,6 +1797,7 @@ var _ = Describe("actionProvisioned SSHAfterInstallImage=true", func() {
 					host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = tc.storedBootID
 				}
 			}
+			host.Spec.Status.Rebooted = tc.rebooted
 
 			sshMock := &sshmock.Client{}
 			var hostNameOutput sshclient.Output
@@ -1811,10 +1814,11 @@ var _ = Describe("actionProvisioned SSHAfterInstallImage=true", func() {
 			actResult := service.actionProvisioned(ctx)
 			Expect(actResult).Should(BeAssignableToTypeOf(tc.expectedActionResult))
 			Expect(host.HasRebootAnnotation()).To(Equal(tc.expectRebootAnnotation))
+			Expect(host.Spec.Status.Rebooted).To(Equal(tc.expectRebootInStatus))
 
 			// Phase 1 (storedBootID == ""): SSH Reboot should be called.
 			// Phase 2 (storedBootID != ""): SSH Reboot should not be called again.
-			if tc.shouldHaveRebootAnnotation && tc.storedBootID == "" {
+			if tc.shouldHaveRebootAnnotation && !tc.rebooted {
 				Expect(sshMock.AssertCalled(GinkgoT(), "Reboot")).To(BeTrue())
 			} else {
 				Expect(sshMock.AssertNotCalled(GinkgoT(), "Reboot")).To(BeTrue())
@@ -1822,38 +1826,48 @@ var _ = Describe("actionProvisioned SSHAfterInstallImage=true", func() {
 		},
 		Entry("reboot desired, but not performed yet", testCaseActionProvisioned{
 			shouldHaveRebootAnnotation: true,
+			rebooted:                   false,
 			// storedBootID left empty: Phase 1 runs, sends SSH reboot
 			rebootFinished:         false,
 			expectedActionResult:   actionContinue{},
 			expectRebootAnnotation: true,
+			expectRebootInStatus:   true,
 		}),
 		Entry("reboot desired, and already performed, not finished", testCaseActionProvisioned{
 			shouldHaveRebootAnnotation: true,
+			rebooted:                   true,
 			storedBootID:               fakeBootID, // Phase 2: same as node BootID, still waiting
 			rebootFinished:             false,
 			expectedActionResult:       actionContinue{},
 			expectRebootAnnotation:     true,
+			expectRebootInStatus:       true,
 		}),
 		// BootID changed in the workload cluster: the sole signal that the reboot completed.
 		Entry("reboot desired, performed, BootID changed in workload cluster", testCaseActionProvisioned{
 			shouldHaveRebootAnnotation: true,
+			rebooted:                   true,
 			storedBootID:               "old-boot-id", // Phase 2: differs from fakeBootID the node reports
 			expectedActionResult:       actionComplete{},
 			expectRebootAnnotation:     false,
+			expectRebootInStatus:       false,
 		}),
 		// Hostname matches expected but BootID has not changed yet: keep waiting.
 		// Hostname is the same before and after a reboot so it cannot confirm completion.
 		Entry("reboot desired, performed, hostname matches but BootID unchanged", testCaseActionProvisioned{
 			shouldHaveRebootAnnotation: true,
+			rebooted:                   true,
 			storedBootID:               fakeBootID, // Phase 2: same as node BootID
 			rebootFinished:             true,       // SSH returns expected hostname
 			expectedActionResult:       actionContinue{},
 			expectRebootAnnotation:     true,
+			expectRebootInStatus:       true,
 		}),
 		Entry("no reboot desired", testCaseActionProvisioned{
 			shouldHaveRebootAnnotation: false,
+			rebooted:                   false,
 			expectedActionResult:       actionComplete{},
 			expectRebootAnnotation:     false,
+			expectRebootInStatus:       false,
 		}),
 	)
 })
