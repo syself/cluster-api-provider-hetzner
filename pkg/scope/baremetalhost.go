@@ -170,5 +170,5 @@ func (s *BareMetalHostScope) hasConstantHostname() bool {
 
 // SSHAfterInstallImageEnabled returns the effective SSH-after-installimage setting for the host.
 func (s *BareMetalHostScope) SSHAfterInstallImageEnabled() bool {
-	return !s.HetznerBareMetalMachine.Spec.SSHSpec.NoSSHAfterInstallImage
+	return !s.HetznerBareMetalHost.Spec.Status.SSHSpec.NoSSHAfterInstallImage
 }
