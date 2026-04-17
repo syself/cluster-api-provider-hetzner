@@ -330,6 +330,45 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 					isPresentAndFalseWithReason(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedCondition, clusterv1.WaitingForRemediationReason)
 			}, timeout).Should(BeTrue())
 		})
+		It("should set RemediationSkippedCondition when HCloudMachine has irrecoverable server creation failure", func() {
+			By("waiting for HCloudMachine to be fully provisioned")
+			Eventually(func() error {
+				if err := testEnv.Get(ctx, hcloudMachineKey, hcloudMachine); err != nil {
+					return err
+				}
+				if hcloudMachine.Status.BootState != infrav1.HCloudBootStateOperatingSystemRunning {
+					return fmt.Errorf("expected BootState %q, got %q",
+						infrav1.HCloudBootStateOperatingSystemRunning, hcloudMachine.Status.BootState)
+				}
+				return nil
+			}, timeout).Should(Succeed())
+
+			By("marking HCloudMachine with irrecoverable server creation failure condition")
+			patchHelper, err := patch.NewHelper(hcloudMachine, testEnv.GetClient())
+			Expect(err).NotTo(HaveOccurred())
+			conditions.MarkFalse(
+				hcloudMachine,
+				infrav1.ServerCreateSucceededCondition,
+				infrav1.ServerCreateFailedIrrecoverableErrorReason,
+				clusterv1.ConditionSeverityError,
+				"server type cax31 not available in location fsn1: resource_unavailable",
+			)
+			Expect(patchHelper.Patch(ctx, hcloudMachine)).To(Succeed())
+
+			By("creating the HCloudRemediation")
+			Expect(testEnv.Create(ctx, hcloudRemediation)).To(Succeed())
+
+			By("checking that RemediationSkippedCondition is set with IrrecoverableServerCreateFailureReason")
+			Eventually(func() bool {
+				return isPresentAndFalseWithReason(
+					hcloudRemediationkey,
+					hcloudRemediation,
+					infrav1.RemediationSkippedCondition,
+					infrav1.IrrecoverableServerCreateFailureReason,
+				)
+			}, timeout).Should(BeTrue())
+		})
+
 		It("should delete machine if SetErrorAndRemediate() was called", func() {
 			By("Creating Server")
 
