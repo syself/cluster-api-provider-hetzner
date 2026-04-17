@@ -2024,7 +2024,9 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	// (e.g. kubelet failed to join, bootstrap issues, etc.) which we treat as a permanent error.
 	// The machine would be remediated.
 	if machine.Status.NodeRef == nil {
-		s.scope.HetznerBareMetalHost.SetError(infrav1.PermanentError, "machine.Status.NodeRef is nil")
+		msg := "machine.Status.NodeRef is nil"
+		s.scope.HetznerBareMetalHost.SetError(infrav1.FatalError, msg)
+		s.scope.Error(errors.New(msg), "")
 		return actionStop{}
 	}
 
@@ -2050,7 +2052,8 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 			clusterv1.ConditionSeverityWarning, "%s",
 			msg)
 
-		s.scope.HetznerBareMetalHost.SetError(infrav1.PermanentError, msg)
+		s.scope.HetznerBareMetalHost.SetError(infrav1.FatalError, msg)
+		s.scope.Error(errors.New(msg), "")
 		return actionStop{}
 	}
 
