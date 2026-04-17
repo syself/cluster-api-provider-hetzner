@@ -2128,7 +2128,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 			"WaitingForNodeToBeRebooted",
 			clusterv1.ConditionSeverityInfo, "%s",
 			msg)
-		return actionContinue{delay: 1 * time.Minute}
+		return actionContinue{delay: 30 * time.Second}
 	}
 
 	// --- Phase 2: verify the reboot ---
