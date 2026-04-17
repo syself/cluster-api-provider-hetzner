@@ -21,6 +21,8 @@ import (
 	"reflect"
 
 	"k8s.io/apimachinery/pkg/util/validation/field"
+
+	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
 )
 
 func validateHCloudMachineSpecUpdate(oldSpec, newSpec HCloudMachineSpec) field.ErrorList {
@@ -43,6 +45,13 @@ func validateHCloudMachineSpecUpdate(oldSpec, newSpec HCloudMachineSpec) field.E
 	if !reflect.DeepEqual(oldSpec.ImageURL, newSpec.ImageURL) {
 		allErrs = append(allErrs,
 			field.Invalid(field.NewPath("spec", "imageURL"), newSpec.ImageURL, "field is immutable"),
+		)
+	}
+
+	// ImageURLCommand is immutable
+	if !reflect.DeepEqual(oldSpec.ImageURLCommand, newSpec.ImageURLCommand) {
+		allErrs = append(allErrs,
+			field.Invalid(field.NewPath("spec", "imageURLCommand"), newSpec.ImageURLCommand, "field is immutable"),
 		)
 	}
 
@@ -82,6 +91,26 @@ func validateHCloudMachineSpec(spec HCloudMachineSpec) field.ErrorList {
 		if err != nil {
 			allErrs = append(allErrs,
 				field.Invalid(field.NewPath("spec", "imageURL"), spec.ImageURL, err.Error()))
+		}
+	}
+
+	if spec.ImageURL != "" && spec.ImageURLCommand == "" {
+		allErrs = append(allErrs,
+			field.Required(field.NewPath("spec", "imageURLCommand"), "imageURLCommand must be set when imageURL is set"))
+	}
+
+	if spec.ImageURL == "" && spec.ImageURLCommand != "" {
+		allErrs = append(allErrs,
+			field.Invalid(field.NewPath("spec", "imageURLCommand"), spec.ImageURLCommand, "imageURLCommand requires imageURL to be set"))
+	}
+
+	if spec.ImageURLCommand != "" {
+		// Intentionally validate only the name here. Checking whether the file exists on the
+		// controller pod would make kubectl apply depend on the current controller filesystem state.
+		if err := utils.ValidateImageURLCommandName(spec.ImageURLCommand); err != nil {
+			allErrs = append(allErrs,
+				field.Invalid(field.NewPath("spec", "imageURLCommand"), spec.ImageURLCommand,
+					err.Error()))
 		}
 	}
 

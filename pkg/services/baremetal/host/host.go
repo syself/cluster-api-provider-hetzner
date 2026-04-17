@@ -51,7 +51,7 @@ import (
 
 const (
 	rebootWaitTime           time.Duration = 15 * time.Second
-	sshResetTimeout          time.Duration = 5 * time.Minute
+	sshResetTimeout          time.Duration = 8 * time.Minute
 	softwareResetTimeout     time.Duration = 10 * time.Minute
 	hardwareResetTimeout     time.Duration = 10 * time.Minute
 	connectionRefusedTimeout time.Duration = 10 * time.Minute

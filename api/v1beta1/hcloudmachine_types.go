@@ -61,9 +61,8 @@ type HCloudMachineSpec struct {
 	ImageName string `json:"imageName,omitempty"`
 
 	// ImageURL gets used for installing custom node images. If that field is set, the controller
-	// boots a new HCloud machine into rescue mode. Then the script provided by
-	// --hcloud-image-url-command (which you need to provide to the controller binary) will be
-	// copied into the rescue system and executed.
+	// boots a new HCloud machine into rescue mode. Then the command referenced by
+	// ImageURLCommand will be copied into the rescue system and executed.
 	//
 	// The controller uses url.ParseRequestURI (Go function) to validate the URL.
 	//
@@ -83,6 +82,18 @@ type HCloudMachineSpec struct {
 	// +kubebuilder:validation:Optional
 	// +optional
 	ImageURL string `json:"imageURL,omitempty"`
+
+	// ImageURLCommand is the basename of a command file below /shared on the controller pod which
+	// provisions a machine from ImageURL. CAPH copies that command into the rescue system and
+	// executes it there.
+	//
+	// Docs: https://syself.com/docs/caph/developers/image-url-command
+	//
+	// ImageURLCommand must be set if ImageURL is set. ImageURLCommand must be empty if ImageURL is
+	// empty.
+	// +kubebuilder:validation:Optional
+	// +optional
+	ImageURLCommand string `json:"imageURLCommand,omitempty"`
 
 	// SSHKeys define machine-specific SSH keys and override cluster-wide SSH keys.
 	// +optional
