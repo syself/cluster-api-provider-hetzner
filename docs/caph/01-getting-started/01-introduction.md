@@ -29,17 +29,21 @@ This provider's versions are compatible with the following versions of Cluster A
 
 This provider's versions can install and manage the following versions of Kubernetes:
 
-|                   | Hetzner Provider `v1.0.x` | Hetzner Provider `v1.1.x` | Hetzner Provider `v1.2.x` |
-| ----------------- | ------------------------- | ------------------------- | ------------------------- |
-| Kubernetes 1.31.x | ✅                        | ❌                        | ❌                        |
-| Kubernetes 1.32.x | ✅                        | ✅                        | ✅                        |
-| Kubernetes 1.33.x | ✅                        | ✅                        | ✅                        |
-| Kubernetes 1.34.x | ❔                        | ❌                        | ✅                        |
+|                   | Hetzner Provider `v1.0.x` | Hetzner Provider `v1.1.x`  | Hetzner Provider `v1.2.x` |
+| ----------------- | ------------------------- | -------------------------- | ------------------------- |
+| Kubernetes 1.31.x | ✅                        | ❌                         | ❌                        |
+| Kubernetes 1.32.x | ✅                        | ✅                         | ✅                        |
+| Kubernetes 1.33.x | ✅                        | ✅                         | ✅                        |
+| Kubernetes 1.34.x | ❔                        | ✅ (needs CAPI >= v1.11.1) | ✅                        |
 
 Test status:
 
 - ✅ tested
 - ❔ should work, but we weren't able to test it
+
+Related:
+
+- [Support matrix for the Cluster API core provider](https://cluster-api.sigs.k8s.io/reference/versions.html#core-provider-cluster-api-controller)
 
 Compatibility notes:
 
