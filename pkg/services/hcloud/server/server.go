@@ -246,7 +246,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 				infrav1.ServerCreateSucceededCondition,
 				infrav1.ServerCreateFailedIrrecoverableErrorReason,
 				clusterv1.ConditionSeverityError,
-				"%s",
+				"Server creation failed with an irrecoverable error: %s. If the requested resources (server type or location) become available again, delete the Machine to trigger a new creation attempt.",
 				err.Error(),
 			)
 			return reconcile.Result{}, nil
