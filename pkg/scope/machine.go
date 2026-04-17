@@ -154,7 +154,7 @@ func (m *MachineScope) PatchObject(ctx context.Context) error {
 
 // SetHCloudMachineV1Beta2SummaryCondition computes the HCloudMachine v1beta2 Ready condition.
 func SetHCloudMachineV1Beta2SummaryCondition(hcloudMachine *infrav1.HCloudMachine) error {
-	return v1beta2conditions.SetSummaryCondition(hcloudMachine, hcloudMachine, infrav1.HCloudMachineReadyV1Beta2Condition,
+	return v1beta2conditions.SetSummaryCondition(hcloudMachine, hcloudMachine, clusterv1.ReadyV1Beta2Condition,
 		infrav1.HCloudMachineV1Beta2SummaryOpts()...,
 	)
 }

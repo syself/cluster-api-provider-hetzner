@@ -297,7 +297,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 			v1beta2conditions.Set(s.scope.HCloudMachine, metav1.Condition{
 				Type:    infrav1.HCloudMachineServerCreatedV1Beta2Condition,
 				Status:  metav1.ConditionFalse,
-				Reason:  infrav1.HCloudMachineServerCreateFailedIrrecoverableV1Beta2Reason,
+				Reason:  infrav1.HCloudMachineServerCreateFailedIrrecoverablyV1Beta2Reason,
 				Message: err.Error(),
 			})
 			return reconcile.Result{}, nil

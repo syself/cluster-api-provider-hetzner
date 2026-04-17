@@ -274,8 +274,8 @@ const (
 	HCloudTokenAvailableV1Beta2Reason = clusterv1.AvailableV1Beta2Reason
 	// HCloudTokenInvalidV1Beta2Reason indicates that the HCloudToken is invalid.
 	HCloudTokenInvalidV1Beta2Reason = "Invalid"
-	// HetznerSecretUnreachableV1Beta2Reason indicates that Hetzner secret is unreachable.
-	HetznerSecretUnreachableV1Beta2Reason = "HetznerSecretUnreachable" // #nosec
+	// SecretUnreachableV1Beta2Reason indicates that the Hetzner secret is unreachable.
+	SecretUnreachableV1Beta2Reason = "SecretUnreachable" // #nosec
 )
 
 const (
@@ -283,17 +283,6 @@ const (
 	InternalErrorV1Beta2Reason = "InternalError"
 )
 
-// HCloudMachine v1beta2 conditions and reasons.
-const (
-	// HCloudMachineReadyV1Beta2Condition summarizes the readiness of the HCloudMachine.
-	HCloudMachineReadyV1Beta2Condition = clusterv1.ReadyV1Beta2Condition
-	// HCloudMachineReadyV1Beta2Reason surfaces when the HCloudMachine is ready.
-	HCloudMachineReadyV1Beta2Reason = clusterv1.ReadyV1Beta2Reason
-	// HCloudMachineNotReadyV1Beta2Reason surfaces when the HCloudMachine is not ready.
-	HCloudMachineNotReadyV1Beta2Reason = clusterv1.NotReadyV1Beta2Reason
-	// HCloudMachineReadyUnknownV1Beta2Reason surfaces when the HCloudMachine readiness is unknown.
-	HCloudMachineReadyUnknownV1Beta2Reason = clusterv1.ReadyUnknownV1Beta2Reason
-)
 
 const (
 	// HCloudMachineServerCreatedV1Beta2Condition reports on whether the HCloud server was created.
@@ -302,8 +291,8 @@ const (
 	HCloudMachineServerCreatedV1Beta2Reason = "Created"
 	// HCloudMachineServerWaitingForBootstrapDataV1Beta2Reason surfaces when the server cannot be created because bootstrap data is not yet available.
 	HCloudMachineServerWaitingForBootstrapDataV1Beta2Reason = clusterv1.WaitingForBootstrapDataV1Beta2Reason
-	// HCloudMachineServerCreateFailedIrrecoverableV1Beta2Reason surfaces an irrecoverable create failure.
-	HCloudMachineServerCreateFailedIrrecoverableV1Beta2Reason = "CreateFailedIrrecoverable"
+	// HCloudMachineServerCreateFailedIrrecoverablyV1Beta2Reason surfaces an irrecoverable create failure.
+	HCloudMachineServerCreateFailedIrrecoverablyV1Beta2Reason = "CreateFailedIrrecoverably"
 	// HCloudMachineServerImageNotFoundV1Beta2Reason surfaces when the specified image cannot be found.
 	HCloudMachineServerImageNotFoundV1Beta2Reason = "ImageNotFound"
 	// HCloudMachineServerImageAmbiguousV1Beta2Reason surfaces when multiple images match the specified name.

@@ -276,15 +276,20 @@ func HCloudMachineV1Beta2SummaryOpts() []v1beta2conditions.SummaryOption {
 			HCloudMachineServerAvailableV1Beta2Condition,
 			HCloudRateLimitExceededV1Beta2Condition,
 		},
+		// Customize the Ready summary: flag RateLimitExceeded=True as an issue
+		// (negative-polarity), and report HCloudMachine-specific reasons instead
+		// of CAPI's generic defaults (IssuesReported / UnknownReported / InfoReported).
 		v1beta2conditions.CustomMergeStrategy{
 			MergeStrategy: v1beta2conditions.DefaultMergeStrategy(
+				// Register the rate-limit condition as negative-polarity (True = problem)
+				// so it's bucketed as an issue and drives the Ready summary when firing.
 				v1beta2conditions.GetPriorityFunc(v1beta2conditions.GetDefaultMergePriorityFunc(
 					HCloudRateLimitExceededV1Beta2Condition,
 				)),
 				v1beta2conditions.ComputeReasonFunc(v1beta2conditions.GetDefaultComputeMergeReasonFunc(
-					HCloudMachineNotReadyV1Beta2Reason,
-					HCloudMachineReadyUnknownV1Beta2Reason,
-					HCloudMachineReadyV1Beta2Reason,
+					clusterv1.NotReadyV1Beta2Reason,
+					clusterv1.ReadyUnknownV1Beta2Reason,
+					clusterv1.ReadyV1Beta2Reason,
 				)),
 			),
 		},
