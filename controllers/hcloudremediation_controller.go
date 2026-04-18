@@ -121,11 +121,27 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 	// We return without error so the MHC does not keep retrying remediation.
 	if conditions.IsFalse(hcloudMachine, infrav1.ServerCreateSucceededCondition) &&
 		conditions.GetReason(hcloudMachine, infrav1.ServerCreateSucceededCondition) == infrav1.ServerCreateFailedIrrecoverableErrorReason {
+		irrecoverableMsg := conditions.GetMessage(hcloudMachine, infrav1.ServerCreateSucceededCondition)
 		log.Info("Skipping remediation for machine with irrecoverable creation failure",
-			"reason", conditions.GetMessage(hcloudMachine, infrav1.ServerCreateSucceededCondition),
+			"reason", irrecoverableMsg,
 		)
 
-		// signal remediation done.
+		patchHelper, err := patch.NewHelper(hcloudRemediation, r.Client)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("failed to create patch helper for HCloudRemediation: %w", err)
+		}
+		conditions.MarkFalse(
+			hcloudRemediation,
+			infrav1.RemediationSkippedCondition,
+			infrav1.IrrecoverableServerCreateFailureReason,
+			clusterv1.ConditionSeverityWarning,
+			"Remediation skipped: HCloudMachine has an irrecoverable server creation error. Delete the Machine to trigger a new creation attempt. Error: %s",
+			irrecoverableMsg,
+		)
+		if err := patchHelper.Patch(ctx, hcloudRemediation); err != nil {
+			return reconcile.Result{}, fmt.Errorf("failed to patch HCloudRemediation status: %w", err)
+		}
+
 		return reconcile.Result{}, nil
 	}
 
