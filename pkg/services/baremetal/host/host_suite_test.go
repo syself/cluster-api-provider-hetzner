@@ -132,9 +132,6 @@ func newTestService(
 			Namespace: host.Namespace,
 		},
 	}
-	if host.Spec.Status.SSHSpec != nil {
-		hbmm.Spec.SSHSpec = *host.Spec.Status.SSHSpec
-	}
 
 	hbmm.OwnerReferences = append(hbmm.OwnerReferences, metav1.OwnerReference{
 		APIVersion: capiMachine.APIVersion,
