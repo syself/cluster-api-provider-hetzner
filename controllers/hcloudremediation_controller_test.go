@@ -374,14 +374,16 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 			Expect(testEnv.Create(ctx, hcloudRemediation)).To(Succeed())
 
 			By("checking that RemediationSkippedCondition is set with IrrecoverableServerCreateFailureReason")
-			Eventually(func() bool {
-				return isPresentAndFalseWithReason(
+			Eventually(func() error {
+				return helpers.ConditionFalseWithReasonAtKey(
+					ctx,
+					testEnv,
 					hcloudRemediationkey,
 					hcloudRemediation,
 					infrav1.RemediationSkippedCondition,
 					infrav1.IrrecoverableServerCreateFailureReason,
 				)
-			}, timeout).Should(BeTrue())
+			}, timeout).Should(Succeed())
 		})
 
 		It("should delete machine if SetErrorAndRemediate() was called", func() {
