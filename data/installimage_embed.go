@@ -31,7 +31,7 @@ import (
 // installImageTGZ contains the vendored Hetzner installimage archive that gets
 // uploaded into the rescue system before executing installimage.
 //
-//go:embed hetzner-installimage-v1.0.7.tgz
+//go:embed hetzner-installimage-v1.0.8.tgz
 var installImageTGZ []byte
 
 // RegisterEmbeddedInstallImageTGZ makes the embedded installimage archive
