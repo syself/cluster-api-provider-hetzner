@@ -40,6 +40,9 @@ linters:
     - unused
     - whitespace
   settings:
+    govet:
+      enable:
+        - nilness
     gocritic:
       disabled-checks:
         - appendAssign

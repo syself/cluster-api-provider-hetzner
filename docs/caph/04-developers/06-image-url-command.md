@@ -5,8 +5,8 @@ sidebar: image-url-command
 description: Documentation on the CAPH image-url-command
 ---
 
-The `--hcloud-image-url-command` and `--baremtal-image-url-command` for the caph controller can be
-used to execute a custom command to install the node image.
+The hcloud `spec.imageURLCommand` field and the `--baremetal-image-url-command` controller argument
+can be used to execute a custom command to install the node image.
 
 This provides you a flexible way to create nodes.
 
@@ -14,11 +14,25 @@ The script/binary will be copied into the rescue system and executed.
 
 You need to enable two things:
 
-* The caph binary must get argument. Example:
-  `--[hcloud|baremetal]-image-url-command=/shared/image-url-command.sh`
-* for hcloud: The hcloudmachine resource must have spec.imageURL set (usually via a
-  hcloudmachinetemplate)
+* for hcloud: The HCloudMachine resource must set both `spec.imageURL` and
+  `spec.imageURLCommand` (usually via a HCloudMachineTemplate)
 * for baremetal: The hetznerbaremetal resource must use `useCustomImageURLCommand: true`.
+  The CAPH controller must still get `--baremetal-image-url-command=/shared/image-url-command.sh`.
+
+Example for hcloud:
+
+```yaml
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: HCloudMachineTemplate
+metadata:
+  name: my-hcloud-template
+spec:
+  template:
+    spec:
+      type: cpx22
+      imageURL: oci://example.com/yourimage:v1
+      imageURLCommand: image-url-command-install-foo.sh
+```
 
 The command will get the imageURL, bootstrap-data, machine-name of the corresponding
 machine and the root devices (seperated by spaces) as argument.
@@ -30,8 +44,9 @@ Example:
 ```
 
 It is up to the command to download from that URL and provision the disk accordingly. This command
-must be accessible by the controller pod. You can use an initContainer to copy the command to a
-shared emptyDir.
+must be accessible by the controller pod below `/shared`. You can use an initContainer to copy the
+command to a shared emptyDir. For hcloud, `spec.imageURLCommand` is only the basename and must
+start with `image-url-command-`.
 
 The env var OCI_REGISTRY_AUTH_TOKEN from the caph process will be set for the command, too.
 

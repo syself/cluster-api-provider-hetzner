@@ -53,14 +53,18 @@ const (
 )
 
 const (
+	// ServerProvisionedCondition reports on whether the HCloud server has completed
+	// boot-time provisioning (rescue boot, image install, OS startup).
+	ServerProvisionedCondition clusterv1.ConditionType = "ServerProvisioned"
+	// ServerOffReason instance is off.
+	ServerOffReason = "ServerOff"
+)
+
+const (
 	// ServerAvailableCondition indicates the instance is in a Running state.
 	ServerAvailableCondition clusterv1.ConditionType = "ServerAvailable"
 	// ServerTerminatingReason instance is in a terminated state.
 	ServerTerminatingReason = "InstanceTerminated"
-	// ServerStartingReason instance is in a terminated state.
-	ServerStartingReason = "ServerStarting"
-	// ServerOffReason instance is off.
-	ServerOffReason = "ServerOff"
 )
 
 const (
@@ -250,4 +254,13 @@ const (
 const (
 	// RebootSucceededCondition indicates that the machine got rebooted successfully.
 	RebootSucceededCondition clusterv1.ConditionType = "RebootSucceeded"
+)
+
+const (
+	// RemediationSkippedCondition reports that remediation was skipped because
+	// the HCloudMachine has a state that makes remediation unnecessary or impossible.
+	RemediationSkippedCondition clusterv1.ConditionType = "RemediationSkipped"
+	// IrrecoverableServerCreateFailureReason indicates remediation was skipped because
+	// the HCloudMachine failed to create with an irrecoverable error (e.g. invalid_input, resource_unavailable).
+	IrrecoverableServerCreateFailureReason = "IrrecoverableServerCreateFailure"
 )

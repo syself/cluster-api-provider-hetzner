@@ -61,7 +61,6 @@ type HCloudMachineReconciler struct {
 	HCloudClientFactory hcloudclient.Factory
 	SSHClientFactory    sshclient.Factory
 	WatchFilterValue    string
-	ImageURLCommand     string
 
 	// Reconcile only this namespace. Only needed for testing
 	Namespace string
@@ -162,7 +161,6 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 		Machine:          machine,
 		HCloudMachine:    hcloudMachine,
 		SSHClientFactory: r.SSHClientFactory,
-		ImageURLCommand:  r.ImageURLCommand,
 	})
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %+v", err)
