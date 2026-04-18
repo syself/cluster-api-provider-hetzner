@@ -311,31 +311,25 @@ type ControllerGeneratedStatus struct {
 	ErrorMessage string `json:"errorMessage"`
 
 	// LastUpdated indicates when the provisioning subsystem last updated the host state.
+	//
+	// Deprecated: Superseded by RebootTriggeredAt.
 	// +optional
 	LastUpdated *metav1.Time `json:"lastUpdated,omitempty"`
+
+	// RebootTriggeredAt is the timestamp when the reboot was initiated.
+	// +optional
+	RebootTriggeredAt *metav1.Time `json:"rebootTriggeredAt,omitempty"`
 
 	// Rebooted shows whether the server is currently being rebooted.
 	Rebooted bool `json:"rebooted,omitempty"`
 
+	// NodeBootID reflects the BootID of the corresponding Node resource in the workload-cluster.
+	// +optional
+	NodeBootID string `json:"nodeBootID,omitempty"`
+
 	// Conditions define the current service state of the HetznerBareMetalHost.
 	// +optional
 	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
-
-	// ExternalIDs contains values from external systems.
-	// +optional
-	ExternalIDs ExternalIDs `json:"externalIDs,omitzero"`
-}
-
-// ExternalIDs contains values from external systems.
-type ExternalIDs struct {
-	// RebootAnnotationNodeBootID reflects the BootID of the Node resource in the workload-cluster.
-	// Only set when the machine gets rebooted.
-	// +optional
-	RebootAnnotationNodeBootID string `json:"rebootAnnotationNodeBootID,omitempty"`
-
-	// RebootAnnotationSince indicates when the reboot via Annotation started.
-	// +optional
-	RebootAnnotationSince metav1.Time `json:"rebootAnnotationSince,omitzero"`
 }
 
 // GetIPAddress returns the IPv6 if set, otherwise the IPv4.

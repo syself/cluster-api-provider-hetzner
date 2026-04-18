@@ -49,6 +49,9 @@ type BareMetalHostScopeParams struct {
 	SecretManager           *secretutil.SecretManager
 	PreProvisionCommand     string
 	ImageURLCommand         string
+
+	// WorkloadClusterClientFactory overrides the default real factory. Intended for tests only.
+	WorkloadClusterClientFactory WorkloadClusterClientFactory
 }
 
 // NewBareMetalHostScope creates a new Scope from the supplied parameters.
@@ -94,12 +97,17 @@ func NewBareMetalHostScope(params BareMetalHostScopeParams) (*BareMetalHostScope
 		RescueSSHSecret:         params.RescueSSHSecret,
 		SecretManager:           params.SecretManager,
 		PreProvisionCommand:     params.PreProvisionCommand,
-		WorkloadClusterClientFactory: &realWorkloadClusterClientFactory{
-			logger:         params.Logger,
-			client:         params.Client,
-			cluster:        params.Cluster,
-			hetznerCluster: params.HetznerCluster,
-		},
+		WorkloadClusterClientFactory: func() WorkloadClusterClientFactory {
+			if params.WorkloadClusterClientFactory != nil {
+				return params.WorkloadClusterClientFactory
+			}
+			return &realWorkloadClusterClientFactory{
+				logger:         params.Logger,
+				client:         params.Client,
+				cluster:        params.Cluster,
+				hetznerCluster: params.HetznerCluster,
+			}
+		}(),
 		ImageURLCommand: params.ImageURLCommand,
 	}, nil
 }
