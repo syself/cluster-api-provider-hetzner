@@ -83,7 +83,6 @@ Flags:
       --baremetal-ssh-after-install-image         Connect to the baremetal machine after install-image and ensure it is provisioned. Current default is true, but we might change that to false. Background: Users might not want the controller to be able to ssh onto the servers (default true)
       --debug-hcloud-api-calls                    Debug all calls to the hcloud API.
       --disable-csr-approval                      Disables builtin workload cluster CSR validation and approval.
-      --hcloud-image-url-command string           Command to run (in rescue-system) to provision an hcloud machine. Docs: https://syself.com/docs/caph/developers/image-url-command
       --hcloudmachine-concurrency int             Number of HcloudMachines to process simultaneously (default 1)
       --health-probe-bind-address string          The address the probe endpoint binds to. (default ":9440")
       --hetznerbaremetalhost-concurrency int      Number of HetznerBareMetalHosts to process simultaneously (default 1)
