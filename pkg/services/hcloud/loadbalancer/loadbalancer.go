@@ -323,7 +323,12 @@ func createOptsFromSpec(hc *infrav1.HetznerCluster) hcloud.LoadBalancerCreateOpt
 		network = &hcloud.Network{ID: hc.Status.Network.ID}
 	}
 
-	listenPort := int(hc.Spec.ControlPlaneEndpoint.Port)
+	// ControlPlaneEndpoint is set by CAPH after LB creation, so it may be nil on
+	// the first reconciliation. Fall back to ControlPlaneLoadBalancer.Port in that case.
+	listenPort := int(hc.Spec.ControlPlaneLoadBalancer.Port)
+	if hc.Spec.ControlPlaneEndpoint != nil && hc.Spec.ControlPlaneEndpoint.Port != 0 {
+		listenPort = int(hc.Spec.ControlPlaneEndpoint.Port)
+	}
 	publicInterface := true
 	return hcloud.LoadBalancerCreateOpts{
 		LoadBalancerType: &hcloud.LoadBalancerType{Name: hc.Spec.ControlPlaneLoadBalancer.Type},
