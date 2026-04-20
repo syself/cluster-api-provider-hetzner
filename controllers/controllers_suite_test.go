@@ -196,10 +196,9 @@ var _ = BeforeSuite(func() {
 	Expect(hcloudMachineTemplateReconciler.SetupWithManager(ctx, testEnv, controller.Options{})).To(Succeed())
 
 	hetznerBareMetalHostReconciler := &HetznerBareMetalHostReconciler{
-		Client:               testEnv.GetClient(),
-		APIReader:            testEnv.GetAPIReader(),
-		PreProvisionCommand:  "dummy-pre-provision-command",
-		SSHAfterInstallImage: true,
+		Client:              testEnv.GetClient(),
+		APIReader:           testEnv.GetAPIReader(),
+		PreProvisionCommand: "dummy-pre-provision-command",
 	}
 	Expect(hetznerBareMetalHostReconciler.SetupWithManager(ctx, testEnv, controller.Options{})).To(Succeed())
 

@@ -211,7 +211,7 @@ func (s *Service) actionPreparing(ctx context.Context) actionResult {
 		return actionError{err: fmt.Errorf("failed to enforce rescue mode: %w", err)}
 	}
 
-	if s.scope.SSHAfterInstallImage {
+	if s.scope.SSHAfterInstallImageEnabled() {
 		// We have ssh access to running nodes. Maybe we can reboot via ssh instead of
 		// using the robot API.
 		sshClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
@@ -1693,9 +1693,8 @@ func verifyConnectionRefused(sshClient sshclient.Client, port int) bool {
 func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult) {
 	markProvisionPending(s.scope.HetznerBareMetalHost, infrav1.StateEnsureProvisioned)
 
-	if !s.scope.SSHAfterInstallImage {
-		// Command line argument `--baremetal-ssh-after-install-image=false` was used.
-		// This mean we do not connect via ssh to the machine after the image got installed.
+	if !s.scope.SSHAfterInstallImageEnabled() {
+		// SSH after installimage is disabled for this machine, so we skip the verification phase.
 		record.Event(s.scope.HetznerBareMetalHost, "ServerProvisioned", "server successfully provisioned ('ensure-provisioned' was skipped)")
 		conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
 		s.scope.HetznerBareMetalHost.ClearError()
@@ -2070,7 +2069,7 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 
 		msg := fmt.Sprintf("Rebooting because annotation was set. Old BootID: %s", currentBootID)
 
-		if s.scope.SSHAfterInstallImage {
+		if s.scope.SSHAfterInstallImageEnabled() {
 			// SSH-based reboot: issue a reboot command directly over SSH.
 			creds := sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, host.Spec.Status.SSHSpec.SecretRef)
 
@@ -2207,7 +2206,7 @@ func (s *Service) actionDeprovisioning(_ context.Context) actionResult {
 
 	conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.RobotCredentialsAvailableCondition)
 
-	if s.scope.SSHAfterInstallImage {
+	if s.scope.SSHAfterInstallImageEnabled() {
 		// If has been provisioned completely, stop all running pods
 		if s.scope.OSSSHSecret != nil {
 			sshClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
