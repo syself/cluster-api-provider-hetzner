@@ -18,12 +18,15 @@ package baremetal
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/mock"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,12 +36,15 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
+	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client/mocks"
 )
 
 var _ = Describe("chooseHost", func() {
@@ -847,4 +853,115 @@ var _ = Describe("Test GenerateProviderID", func() {
 			expectedProviderID: "hcloud://bm-5",
 		}),
 	)
+})
+
+var _ = Describe("reconcileLoadBalancerAttachment", func() {
+	newServiceForLoadBalancerAttachment := func(
+		machine *clusterv1.Machine,
+		bareMetalMachine *infrav1.HetznerBareMetalMachine,
+		cluster *clusterv1.Cluster,
+		hetznerCluster *infrav1.HetznerCluster,
+		hcloudClient *mocks.Client,
+	) *Service {
+		return &Service{
+			scope: &scope.BareMetalMachineScope{
+				Machine:          machine,
+				BareMetalMachine: bareMetalMachine,
+				Cluster:          cluster,
+				HetznerCluster:   hetznerCluster,
+				HCloudClient:     hcloudClient,
+			},
+		}
+	}
+
+	newControlPlaneCluster := func() *clusterv1.Cluster {
+		return &clusterv1.Cluster{
+			Spec: clusterv1.ClusterSpec{
+				ControlPlaneRef: &corev1.ObjectReference{Kind: "KubeadmControlPlane"},
+			},
+		}
+	}
+
+	newHost := func(ipv4 string) *infrav1.HetznerBareMetalHost {
+		return &infrav1.HetznerBareMetalHost{
+			Spec: infrav1.HetznerBareMetalHostSpec{
+				ServerID: 42,
+				Status: infrav1.ControllerGeneratedStatus{
+					IPv4: ipv4,
+				},
+			},
+		}
+	}
+
+	It("requeues when another control-plane target exists and the api server pod is not healthy", func() {
+		hcloudClient := mocks.NewClient(GinkgoT())
+		machine := &clusterv1.Machine{}
+		conditions.MarkFalse(
+			machine,
+			controlplanev1.MachineAPIServerPodHealthyCondition,
+			"PodNotHealthy",
+			clusterv1.ConditionSeverityInfo,
+			"kube-apiserver is still starting",
+		)
+
+		bareMetalMachine := &infrav1.HetznerBareMetalMachine{}
+		hetznerCluster := &infrav1.HetznerCluster{
+			Status: infrav1.HetznerClusterStatus{
+				ControlPlaneLoadBalancer: &infrav1.LoadBalancerStatus{
+					ID: 123,
+					Target: []infrav1.LoadBalancerTarget{
+						{Type: infrav1.LoadBalancerTargetTypeIP, IP: "192.0.2.9"},
+					},
+				},
+			},
+		}
+
+		service := newServiceForLoadBalancerAttachment(machine, bareMetalMachine, newControlPlaneCluster(), hetznerCluster, hcloudClient)
+
+		err := service.reconcileLoadBalancerAttachment(context.Background(), newHost("192.0.2.10"))
+		var requeueErr *scope.RequeueAfterError
+		Expect(errors.As(err, &requeueErr)).To(BeTrue())
+		Expect(requeueErr.GetRequeueAfter()).To(Equal(requeueAfter))
+		Expect(conditions.IsFalse(bareMetalMachine, infrav1.ServerAvailableCondition)).To(BeTrue())
+		Expect(conditions.GetReason(bareMetalMachine, infrav1.ServerAvailableCondition)).To(Equal("WaitingForAPIServer"))
+		Expect(hcloudClient.AssertNotCalled(GinkgoT(), "AddIPTargetToLoadBalancer", mock.Anything, mock.Anything, mock.Anything)).To(BeTrue())
+	})
+
+	It("allows the first control-plane target even if the api server pod is not healthy yet", func() {
+		hcloudClient := mocks.NewClient(GinkgoT())
+		machine := &clusterv1.Machine{}
+		conditions.MarkFalse(
+			machine,
+			controlplanev1.MachineAPIServerPodHealthyCondition,
+			"PodNotHealthy",
+			clusterv1.ConditionSeverityInfo,
+			"kube-apiserver is still starting",
+		)
+
+		bareMetalMachine := &infrav1.HetznerBareMetalMachine{}
+		hetznerCluster := &infrav1.HetznerCluster{
+			Status: infrav1.HetznerClusterStatus{
+				ControlPlaneLoadBalancer: &infrav1.LoadBalancerStatus{
+					ID: 123,
+				},
+			},
+		}
+
+		hcloudClient.On(
+			"AddIPTargetToLoadBalancer",
+			mock.Anything,
+			mock.MatchedBy(func(opts hcloud.LoadBalancerAddIPTargetOpts) bool {
+				return opts.IP.String() == "192.0.2.10"
+			}),
+			mock.MatchedBy(func(lb *hcloud.LoadBalancer) bool {
+				return lb.ID == 123
+			}),
+		).Return(nil).Once()
+
+		service := newServiceForLoadBalancerAttachment(machine, bareMetalMachine, newControlPlaneCluster(), hetznerCluster, hcloudClient)
+
+		Expect(service.reconcileLoadBalancerAttachment(context.Background(), newHost("192.0.2.10"))).To(Succeed())
+		Expect(conditions.IsTrue(bareMetalMachine, infrav1.ServerAvailableCondition)).To(BeTrue())
+		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
+	})
 })

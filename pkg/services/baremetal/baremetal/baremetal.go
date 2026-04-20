@@ -39,6 +39,7 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/record"
@@ -571,7 +572,25 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 
 	// if both IPs are already added as target, then do nothing
 	if foundIPv4 && foundIPv6 {
+		conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.ServerAvailableCondition)
 		return nil
+	}
+
+	apiServerPodHealthy := s.scope.Cluster == nil ||
+		s.scope.Cluster.Spec.ControlPlaneRef == nil ||
+		s.scope.Cluster.Spec.ControlPlaneRef.Kind != "KubeadmControlPlane" ||
+		conditions.IsTrue(s.scope.Machine, controlplanev1.MachineAPIServerPodHealthyCondition)
+
+	// Attach only nodes with a healthy kube-apiserver once the load balancer already has a target.
+	if len(s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target) > 0 && !apiServerPodHealthy {
+		conditions.MarkFalse(
+			s.scope.BareMetalMachine,
+			infrav1.ServerAvailableCondition,
+			"WaitingForAPIServer",
+			clusterv1.ConditionSeverityInfo,
+			"reconcile LoadBalancer: apiserver pod not healthy yet.",
+		)
+		return &scope.RequeueAfterError{RequeueAfter: requeueAfter}
 	}
 
 	newIPTargets := make([]string, 0, 2)
@@ -592,6 +611,7 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 		if err := s.scope.HCloudClient.AddIPTargetToLoadBalancer(ctx, opts, lb); err != nil {
 			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "AddIPTargetToLoadBalancer")
 			if hcloud.IsError(err, hcloud.ErrorCodeTargetAlreadyDefined) {
+				conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.ServerAvailableCondition)
 				return nil
 			}
 			return fmt.Errorf("failed to add IP %q as target to load balancer: %w", ip, err)
@@ -603,6 +623,9 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 			ip, host.Spec.ServerID, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID,
 		)
 	}
+
+	conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.ServerAvailableCondition)
+
 	return nil
 }
 

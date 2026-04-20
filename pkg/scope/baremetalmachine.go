@@ -36,6 +36,7 @@ import (
 type BareMetalMachineScopeParams struct {
 	Logger           logr.Logger
 	Client           client.Client
+	Cluster          *clusterv1.Cluster
 	Machine          *clusterv1.Machine
 	BareMetalMachine *infrav1.HetznerBareMetalMachine
 	HetznerCluster   *infrav1.HetznerCluster
@@ -47,6 +48,9 @@ type BareMetalMachineScopeParams struct {
 func NewBareMetalMachineScope(params BareMetalMachineScopeParams) (*BareMetalMachineScope, error) {
 	if params.Client == nil {
 		return nil, fmt.Errorf("cannot create baremetal machine scope without client")
+	}
+	if params.Cluster == nil {
+		return nil, fmt.Errorf("failed to generate new scope from nil Cluster")
 	}
 	if params.Machine == nil {
 		return nil, fmt.Errorf("failed to generate new scope from nil Machine")
@@ -75,6 +79,7 @@ func NewBareMetalMachineScope(params BareMetalMachineScopeParams) (*BareMetalMac
 		Logger:           params.Logger,
 		Client:           params.Client,
 		patchHelper:      patchHelper,
+		Cluster:          params.Cluster,
 		Machine:          params.Machine,
 		BareMetalMachine: params.BareMetalMachine,
 		HetznerCluster:   params.HetznerCluster,
@@ -87,6 +92,7 @@ type BareMetalMachineScope struct {
 	logr.Logger
 	Client           client.Client
 	patchHelper      *patch.Helper
+	Cluster          *clusterv1.Cluster
 	Machine          *clusterv1.Machine
 	BareMetalMachine *infrav1.HetznerBareMetalMachine
 	HetznerCluster   *infrav1.HetznerCluster
