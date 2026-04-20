@@ -173,7 +173,6 @@ type Client interface {
 	GetCloudInitOutput() Output
 	CreateAutoSetup(data string) Output
 
-
 	// DownloadImage is a synchronous process. This means the controller waits until the download is
 	// finished. It is recommended to use StartImageURLCommand() instead. ImageURLCommand is handled
 	// asynchronously.
