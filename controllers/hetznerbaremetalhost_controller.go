@@ -57,14 +57,13 @@ import (
 // HetznerBareMetalHostReconciler reconciles a HetznerBareMetalHost object.
 type HetznerBareMetalHostReconciler struct {
 	client.Client
-	RateLimitWaitTime    time.Duration
-	APIReader            client.Reader
-	RobotClientFactory   robotclient.Factory
-	SSHClientFactory     sshclient.Factory
-	WatchFilterValue     string
-	PreProvisionCommand  string
-	SSHAfterInstallImage bool
-	ImageURLCommand      string
+	RateLimitWaitTime   time.Duration
+	APIReader           client.Reader
+	RobotClientFactory  robotclient.Factory
+	SSHClientFactory    sshclient.Factory
+	WatchFilterValue    string
+	PreProvisionCommand string
+	ImageURLCommand     string
 
 	// Reconcile only this namespace. Only needed for testing
 	Namespace string
@@ -304,7 +303,6 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		SecretManager:           secretManager,
 		PreProvisionCommand:     r.PreProvisionCommand,
 		ImageURLCommand:         r.ImageURLCommand,
-		SSHAfterInstallImage:    r.SSHAfterInstallImage,
 	})
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %w", err)
