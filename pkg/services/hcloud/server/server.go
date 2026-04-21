@@ -822,6 +822,11 @@ func (s *Service) handleOperatingSystemRunning(ctx context.Context, server *hclo
 		return res, reterr
 	}
 
+	// Order matters:
+	// 1. SetReady(true) first so CAPI propagates ProviderID to the Machine.
+	// 2. Return early if reconcileLoadBalancerAttachment requested a requeue,
+	//    so the False reason it set on ServerAvailable is not overwritten.
+	// 3. Mark ServerAvailable=True only on the happy path.
 	s.scope.SetReady(true)
 
 	if res != (reconcile.Result{}) {
