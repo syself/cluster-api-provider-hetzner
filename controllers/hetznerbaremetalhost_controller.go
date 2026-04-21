@@ -26,7 +26,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
@@ -57,17 +56,18 @@ import (
 // HetznerBareMetalHostReconciler reconciles a HetznerBareMetalHost object.
 type HetznerBareMetalHostReconciler struct {
 	client.Client
-	RateLimitWaitTime    time.Duration
-	APIReader            client.Reader
-	RobotClientFactory   robotclient.Factory
-	SSHClientFactory     sshclient.Factory
-	WatchFilterValue     string
-	PreProvisionCommand  string
-	SSHAfterInstallImage bool
-	ImageURLCommand      string
+	RateLimitWaitTime   time.Duration
+	APIReader           client.Reader
+	RobotClientFactory  robotclient.Factory
+	SSHClientFactory    sshclient.Factory
+	WatchFilterValue    string
+	PreProvisionCommand string
+	ImageURLCommand     string
 
 	// Reconcile only this namespace. Only needed for testing
 	Namespace string
+	// WorkloadClusterClientFactory overrides the default real factory. Intended for tests only.
+	WorkloadClusterClientFactory scope.WorkloadClusterClientFactory
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalhosts,verbs=get;list;watch;create;update;patch;delete
@@ -182,12 +182,6 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 			log.Info("Provisioning state changed", "from", initialProvisioningState, "to", bmHost.Spec.Status.ProvisioningState)
 		}
 
-		// Set LastUpdated only if the host actually changed.
-		if !cmp.Equal(initialHost, bmHost) {
-			t := metav1.Now()
-			bmHost.Spec.Status.LastUpdated = &t
-		}
-
 		// remove deprecated conditions.
 		conditions.Delete(bmHost, infrav1.DeprecatedHetznerBareMetalHostReadyCondition)
 		conditions.Delete(bmHost, infrav1.DeprecatedHostProvisionSucceededCondition)
@@ -291,20 +285,20 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 
 	// Create the scope.
 	hostScope, err := scope.NewBareMetalHostScope(scope.BareMetalHostScopeParams{
-		Logger:                  log,
-		Client:                  r,
-		HetznerCluster:          hetznerCluster,
-		Cluster:                 cluster,
-		HetznerBareMetalHost:    bmHost,
-		HetznerBareMetalMachine: hetznerBareMetalMachine,
-		RobotClient:             r.RobotClientFactory.NewClient(robotCreds),
-		SSHClientFactory:        r.SSHClientFactory,
-		OSSSHSecret:             osSSHSecret,
-		RescueSSHSecret:         rescueSSHSecret,
-		SecretManager:           secretManager,
-		PreProvisionCommand:     r.PreProvisionCommand,
-		ImageURLCommand:         r.ImageURLCommand,
-		SSHAfterInstallImage:    r.SSHAfterInstallImage,
+		Logger:                       log,
+		Client:                       r,
+		HetznerCluster:               hetznerCluster,
+		Cluster:                      cluster,
+		HetznerBareMetalHost:         bmHost,
+		HetznerBareMetalMachine:      hetznerBareMetalMachine,
+		RobotClient:                  r.RobotClientFactory.NewClient(robotCreds),
+		SSHClientFactory:             r.SSHClientFactory,
+		OSSSHSecret:                  osSSHSecret,
+		RescueSSHSecret:              rescueSSHSecret,
+		SecretManager:                secretManager,
+		PreProvisionCommand:          r.PreProvisionCommand,
+		ImageURLCommand:              r.ImageURLCommand,
+		WorkloadClusterClientFactory: r.WorkloadClusterClientFactory,
 	})
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %w", err)

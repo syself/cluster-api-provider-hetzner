@@ -389,6 +389,20 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 				return testEnv.Update(ctx, hcloudMachine)
 			}, timeout).Should(Succeed())
 
+			By("Wait until HCloudMachine has reached a stable boot state")
+			Eventually(func() error {
+				err := testEnv.Get(ctx, client.ObjectKeyFromObject(hcloudMachine), hcloudMachine)
+				if err != nil {
+					return err
+				}
+				if hcloudMachine.Status.BootState != infrav1.HCloudBootStateBootingToRealOS &&
+					hcloudMachine.Status.BootState != infrav1.HCloudBootStateOperatingSystemRunning {
+					return fmt.Errorf("expected stable boot state before remediation, got %q",
+						hcloudMachine.Status.BootState)
+				}
+				return nil
+			}, timeout).Should(Succeed())
+
 			By("Call SetRemediateMachineAnnotationToDeleteMachine")
 			Eventually(func() error {
 				err = testEnv.Get(ctx, client.ObjectKeyFromObject(hcloudMachine), hcloudMachine)
@@ -404,7 +418,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 					return err
 				}
 				return nil
-			}).Should(Succeed())
+			}, timeout).Should(Succeed())
 
 			By("Wait until HCloudBootStateProvisioningFailed is set.")
 			Eventually(func() error {
@@ -417,7 +431,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 						hcloudMachine.Status.BootState)
 				}
 				return nil
-			}).Should(Succeed())
+			}, timeout).Should(Succeed())
 
 			By("Do the job of CAPI: Create a HCloudRemediation")
 			rem := &infrav1.HCloudRemediation{
@@ -472,7 +486,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 					return fmt.Errorf("Message is not as expected: %q", c.Message)
 				}
 				return nil
-			}).Should(Succeed())
+			}, timeout).Should(Succeed())
 		})
 	})
 })

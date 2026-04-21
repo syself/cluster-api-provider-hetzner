@@ -449,14 +449,15 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 		err = action.Error()
 		if err != nil {
 			err = fmt.Errorf("action %+v failed (wait for rescue enabled): %w", action, err)
+			msg := err.Error()
 			s.scope.Error(err, "")
-			err := s.scope.SetErrorAndRemediate(ctx, err.Error())
-			if err != nil {
-				return reconcile.Result{}, err
+			remediateErr := s.scope.SetErrorAndRemediate(ctx, msg)
+			if remediateErr != nil {
+				return reconcile.Result{}, remediateErr
 			}
 			conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
 				"EnablingRescueActionFailed", clusterv1.ConditionSeverityWarning,
-				"%s", err.Error())
+				"%s", msg)
 			return reconcile.Result{}, nil
 		}
 
@@ -821,7 +822,22 @@ func (s *Service) handleOperatingSystemRunning(ctx context.Context, server *hclo
 		return res, reterr
 	}
 
+	// Order matters:
+	// 1. SetReady(true) first. This is what makes the Machine become ready and
+	//    lets the Node get linked to it. Otherwise we deadlock:
+	//    reconcileLoadBalancerAttachment only adds this control plane to the
+	//    load balancer once its apiserver pod is marked healthy, and that can
+	//    only happen after the Node is linked to the Machine, which in turn
+	//    requires this call to SetReady.
+	// 2. Return early on a non-zero res so the False reason set on
+	//    ServerAvailable inside reconcileLoadBalancerAttachment is not overwritten.
+	// 3. Mark ServerAvailable=True only on the happy path.
 	s.scope.SetReady(true)
+
+	if res != (reconcile.Result{}) {
+		return res, nil
+	}
+
 	conditions.MarkTrue(hm, infrav1.ServerAvailableCondition)
 	return reconcile.Result{}, nil
 }

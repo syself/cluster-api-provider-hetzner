@@ -239,20 +239,6 @@ spec:
                       ErrorType indicates the type of failure encountered when the
                       OperationalStatus is OperationalStatusError.
                     type: string
-                  externalIDs:
-                    description: ExternalIDs contains values from external systems.
-                    properties:
-                      rebootAnnotationNodeBootID:
-                        description: |-
-                          RebootAnnotationNodeBootID reflects the BootID of the Node resource in the workload-cluster.
-                          Only set when the machine gets rebooted.
-                        type: string
-                      rebootAnnotationSince:
-                        description: RebootAnnotationSince indicates when the reboot
-                          via Annotation started.
-                        format: date-time
-                        type: string
-                    type: object
                   hardwareDetails:
                     description: StatusHardwareDetails are automatically gathered
                       and should not be modified by the user.
@@ -504,12 +490,23 @@ spec:
                     description: IPv6 address of server.
                     type: string
                   lastUpdated:
-                    description: LastUpdated indicates when the provisioning subsystem
-                      last updated the host state.
+                    description: |-
+                      LastUpdated indicates when the provisioning subsystem last updated the host state.
+
+                      Deprecated: Superseded by RebootTriggeredAt.
                     format: date-time
+                    type: string
+                  nodeBootID:
+                    description: NodeBootID reflects the BootID of the corresponding
+                      Node resource in the workload-cluster.
                     type: string
                   provisioningState:
                     description: Information tracked by the provisioner.
+                    type: string
+                  rebootTriggeredAt:
+                    description: RebootTriggeredAt is the timestamp when the reboot
+                      was initiated.
+                    format: date-time
                     type: string
                   rebootTypes:
                     description: RebootTypes is a list of all available reboot types
@@ -526,6 +523,11 @@ spec:
                   sshSpec:
                     description: SSHSpec defines specs for SSH.
                     properties:
+                      noSSHAfterInstallImage:
+                        description: |-
+                          NoSSHAfterInstallImage disables SSH access to the machine after installimage
+                          completed successfully.
+                        type: boolean
                       portAfterCloudInit:
                         description: |-
                           PortAfterCloudInit is deprecated. Since PR Install Cloud-Init-Data via post-install.sh #1407 this field is not functional.
