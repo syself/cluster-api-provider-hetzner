@@ -24,10 +24,11 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
-	"sigs.k8s.io/cluster-api/util/conditions"
-	"sigs.k8s.io/cluster-api/util/patch"
+	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
+	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -81,7 +82,7 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 
 	log = log.WithValues("HCloudMachineTemplate", klog.KObj(machineTemplate))
 
-	patchHelper, err := patch.NewHelper(machineTemplate, r)
+	patchHelper, err := v1beta1patch.NewHelper(machineTemplate, r)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to get patch helper: %w", err)
 	}
@@ -117,7 +118,7 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 	log = log.WithValues("Cluster", klog.KObj(cluster))
 
 	// Requeue if cluster has no infrastructure yet.
-	if cluster.Spec.InfrastructureRef == nil {
+	if !cluster.Spec.InfrastructureRef.IsDefined() {
 		return reconcile.Result{Requeue: true}, nil
 	}
 
@@ -156,9 +157,9 @@ func (r *HCloudMachineTemplateReconciler) Reconcile(ctx context.Context, req rec
 	// Always close the scope when exiting this function so we can persist any HCloudMachine changes.
 	defer func() {
 		if reterr != nil && errors.Is(reterr, hcloudclient.ErrUnauthorized) {
-			conditions.MarkFalse(machineTemplate, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason, clusterv1.ConditionSeverityError, "wrong hcloud token")
+			v1beta1conditions.MarkFalse(machineTemplate, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason, clusterv1beta1.ConditionSeverityError, "wrong hcloud token")
 		} else {
-			conditions.MarkTrue(machineTemplate, infrav1.HCloudTokenAvailableCondition)
+			v1beta1conditions.MarkTrue(machineTemplate, infrav1.HCloudTokenAvailableCondition)
 		}
 	}()
 

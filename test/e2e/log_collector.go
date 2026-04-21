@@ -32,8 +32,8 @@ import (
 
 	"golang.org/x/crypto/ssh"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	expv1 "sigs.k8s.io/cluster-api/exp/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	kinderrors "sigs.k8s.io/kind/pkg/errors"
 
@@ -77,7 +77,7 @@ func CollectMachineLogByExternalIP(ctx context.Context, machineName, externalIP,
 }
 
 // CollectMachinePoolLog implements the CollectMachinePoolLog method of the LogCollector interface.
-func (collector logCollector) CollectMachinePoolLog(_ context.Context, _ client.Client, _ *expv1.MachinePool, _ string) error {
+func (collector logCollector) CollectMachinePoolLog(_ context.Context, _ client.Client, _ *clusterv1.MachinePool, _ string) error {
 	return nil
 }
 
@@ -223,7 +223,7 @@ func infrastructureMachineExternalIP(ctx context.Context, c client.Client, m *cl
 		if err := c.Get(ctx, key, hbmm); err != nil {
 			return "", fmt.Errorf("get HetznerBareMetalMachine %s: %w", key, err)
 		}
-		hostIPAddr := externalIPFromAddresses(hbmm.Status.Addresses)
+		hostIPAddr := externalIPFromAddresses(toV1Beta2Addresses(hbmm.Status.Addresses))
 		if hostIPAddr != "" {
 			return hostIPAddr, nil
 		}
@@ -238,7 +238,7 @@ func infrastructureMachineExternalIP(ctx context.Context, c client.Client, m *cl
 		if err := c.Get(ctx, key, hm); err != nil {
 			return "", fmt.Errorf("get HCloudMachine %s: %w", key, err)
 		}
-		hostIPAddr := externalIPFromAddresses(hm.Status.Addresses)
+		hostIPAddr := externalIPFromAddresses(toV1Beta2Addresses(hm.Status.Addresses))
 		if hostIPAddr == "" {
 			return "", fmt.Errorf("HCloudMachine %s has no ExternalIP in status.addresses: %+v", key, hm.Status.Addresses)
 		}
@@ -301,6 +301,21 @@ func associatedHostFromHBMM(ctx context.Context, c client.Client, hbmm *infrav1.
 	}
 
 	return host, hostKey, nil
+}
+
+// toV1Beta2Addresses converts legacy v1beta1 MachineAddresses (used by our
+// HCloudMachine / HetznerBareMetalMachine status) to the v1beta2 shape that
+// the CAPI 1.11 test framework helpers operate on. The two structs have
+// identical layout; only the containing package differs.
+func toV1Beta2Addresses(in []clusterv1beta1.MachineAddress) []clusterv1.MachineAddress {
+	out := make([]clusterv1.MachineAddress, len(in))
+	for i, a := range in {
+		out[i] = clusterv1.MachineAddress{
+			Type:    clusterv1.MachineAddressType(a.Type),
+			Address: a.Address,
+		}
+	}
+	return out
 }
 
 func externalIPFromAddresses(addresses []clusterv1.MachineAddress) string {

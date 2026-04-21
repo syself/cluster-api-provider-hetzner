@@ -34,7 +34,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -214,7 +215,7 @@ var (
 func (r *GuestCSRReconciler) getMachineAddresses(
 	ctx context.Context,
 	certificateSigningRequest *certificatesv1.CertificateSigningRequest,
-) (machineAddresses []clusterv1.MachineAddress, isHCloudMachine bool, err error) {
+) (machineAddresses []clusterv1beta1.MachineAddress, isHCloudMachine bool, err error) {
 	log := ctrl.LoggerFrom(ctx)
 
 	_, serverID := getServerIDFromConstantHostname(ctx, certificateSigningRequest.Spec.Username, r.clusterName)

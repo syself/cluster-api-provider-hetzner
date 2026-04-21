@@ -31,7 +31,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
-	"sigs.k8s.io/cluster-api/util/conditions"
+	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -142,7 +142,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 
 		res := svc.actionImageInstalling(ctx)
 		Expect(res).To(BeAssignableToTypeOf(actionContinue{}))
-		c := conditions.Get(host, infrav1.ProvisionSucceededCondition)
+		c := v1beta1conditions.Get(host, infrav1.ProvisionSucceededCondition)
 		Expect(c.Message).To(Equal(`host (test-host) is still provisioning - state "image-installing"`))
 	})
 
@@ -164,7 +164,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		Expect(robot.AssertCalled(GinkgoT(), "SetBMServerName", mock.Anything, infrav1.BareMetalHostNamePrefix+host.Spec.ConsumerRef.Name)).To(BeTrue())
 		// error should be cleared
 		Expect(host.Spec.Status.ErrorMessage).To(Equal(""))
-		c := conditions.Get(host, infrav1.ProvisionSucceededCondition)
+		c := v1beta1conditions.Get(host, infrav1.ProvisionSucceededCondition)
 		Expect(c.Message).To(Equal(`host (test-host) is still provisioning - state "image-installing"`))
 	})
 
@@ -177,7 +177,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 		res := svc.actionImageInstalling(ctx)
 		Expect(res).To(BeAssignableToTypeOf(actionFailed{}))
-		c := conditions.Get(host, infrav1.ProvisionSucceededCondition)
+		c := v1beta1conditions.Get(host, infrav1.ProvisionSucceededCondition)
 		Expect(c.Message).To(ContainSubstring("image-url-command failed"))
 	})
 
@@ -234,7 +234,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		}
 		res := svc.actionImageInstalling(ctx)
 		Expect(res).To(BeAssignableToTypeOf(actionFailed{}))
-		c := conditions.Get(host, infrav1.ProvisionSucceededCondition)
+		c := v1beta1conditions.Get(host, infrav1.ProvisionSucceededCondition)
 		Expect(c.Message).To(ContainSubstring("StartImageURLCommand failed with non-zero exit status. Deleting machine"))
 	})
 
@@ -251,7 +251,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 
 		res := svc.actionImageInstalling(ctx)
 		Expect(res).To(BeAssignableToTypeOf(actionFailed{}))
-		c := conditions.Get(host, infrav1.ProvisionSucceededCondition)
+		c := v1beta1conditions.Get(host, infrav1.ProvisionSucceededCondition)
 		Expect(c.Message).To(ContainSubstring("ImageURLCommand timed out"))
 	})
 })
@@ -1945,7 +1945,7 @@ var _ = Describe("actionProvisioned NoSSHAfterInstallImage=true", func() {
 		actResult := service.actionProvisioned(ctx)
 		Expect(actResult).Should(BeAssignableToTypeOf(actionContinue{}))
 		Expect(robotMock.AssertNumberOfCalls(GinkgoT(), "RebootBMServer", 1)).To(BeTrue())
-		c := conditions.Get(host, infrav1.RebootSucceededCondition)
+		c := v1beta1conditions.Get(host, infrav1.RebootSucceededCondition)
 		Expect(c.Message).To(ContainSubstring("Rebooting because annotation was set"))
 	})
 
@@ -1968,7 +1968,7 @@ var _ = Describe("actionProvisioned NoSSHAfterInstallImage=true", func() {
 
 		actResult := service.actionProvisioned(ctx)
 		Expect(actResult).Should(BeAssignableToTypeOf(actionContinue{}))
-		c := conditions.Get(host, infrav1.RebootSucceededCondition)
+		c := v1beta1conditions.Get(host, infrav1.RebootSucceededCondition)
 		Expect(c.Message).To(ContainSubstring("Waiting for BootID of Node in workload cluster to change"))
 	})
 
@@ -2008,7 +2008,7 @@ var _ = Describe("actionProvisioned NoSSHAfterInstallImage=true", func() {
 		Expect(actResult).Should(BeAssignableToTypeOf(actionComplete{}))
 
 		// Condition should be fine
-		c := conditions.Get(host, infrav1.RebootSucceededCondition)
+		c := v1beta1conditions.Get(host, infrav1.RebootSucceededCondition)
 		Expect(c.Message).To(Equal(""))
 		Expect(c.Status).To(Equal(corev1.ConditionTrue))
 		Expect(host.GetAnnotations()).To(BeEmpty())

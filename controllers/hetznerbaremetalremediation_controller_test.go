@@ -28,8 +28,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	"sigs.k8s.io/cluster-api/util/patch"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -82,11 +82,10 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 				Finalizers:   []string{clusterv1.ClusterFinalizer},
 			},
 			Spec: clusterv1.ClusterSpec{
-				InfrastructureRef: &corev1.ObjectReference{
-					APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
-					Kind:       "HetznerCluster",
-					Name:       "hetzner-test1",
-					Namespace:  testNs.Name,
+				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+					APIGroup: "infrastructure.cluster.x-k8s.io",
+					Kind:     "HetznerCluster",
+					Name:     "hetzner-test1",
 				},
 			},
 		}
@@ -103,13 +102,12 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 			},
 			Spec: clusterv1.MachineSpec{
 				ClusterName: capiCluster.Name,
-				InfrastructureRef: corev1.ObjectReference{
-					APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
-					Kind:       "HetznerBareMetalMachine",
-					Name:       machineName,
-					Namespace:  testNs.Name,
-				},
-				FailureDomain: &defaultFailureDomain,
+				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+				APIGroup: "infrastructure.cluster.x-k8s.io",
+				Kind:     "HetznerBareMetalMachine",
+				Name:     machineName,
+			},
+				FailureDomain: defaultFailureDomain,
 				Bootstrap: clusterv1.Bootstrap{
 					DataSecretName: ptr.To("bootstrap-secret"),
 				},
@@ -267,7 +265,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 							return false
 						}
 
-						return isPresentAndFalseWithReason(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedCondition, clusterv1.WaitingForRemediationReason)
+						return isPresentAndFalseWithReasonV2(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason)
 					}, timeout).Should(BeTrue())
 				})
 
@@ -283,7 +281,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 							return false
 						}
 
-						return isPresentAndFalseWithReason(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedCondition, clusterv1.WaitingForRemediationReason)
+						return isPresentAndFalseWithReasonV2(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason)
 					}, timeout).Should(BeTrue())
 				})
 			})
@@ -363,7 +361,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 					Expect(testEnv.Create(ctx, hetznerBareMetalRemediation)).To(Succeed())
 
 					By("updating the status to waiting and setting the last remediation to past")
-					hetznerBaremetalRemediationPatchHelper, err := patch.NewHelper(hetznerBareMetalRemediation, testEnv.GetClient())
+					hetznerBaremetalRemediationPatchHelper, err := v1beta1patch.NewHelper(hetznerBareMetalRemediation, testEnv.GetClient())
 					Expect(err).NotTo(HaveOccurred())
 
 					hetznerBareMetalRemediation.Status.Phase = infrav1.PhaseWaiting
@@ -378,7 +376,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 						}
 
 						return hetznerBareMetalRemediation.Status.Phase == infrav1.PhaseDeleting &&
-							isPresentAndFalseWithReason(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedCondition, clusterv1.WaitingForRemediationReason)
+							isPresentAndFalseWithReasonV2(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason)
 					}, timeout).Should(BeTrue())
 				})
 			})
@@ -418,7 +416,7 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 						return false
 					}
 
-					return isPresentAndFalseWithReason(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedCondition, clusterv1.WaitingForRemediationReason)
+					return isPresentAndFalseWithReasonV2(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedV1Beta1Condition, clusterv1.WaitingForRemediationV1Beta1Reason)
 				}, timeout).Should(BeTrue())
 			})
 		})

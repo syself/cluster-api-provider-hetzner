@@ -30,8 +30,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	"sigs.k8s.io/cluster-api/util/patch"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -100,12 +100,11 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 				Finalizers:   []string{clusterv1.ClusterFinalizer},
 			},
 			Spec: clusterv1.ClusterSpec{
-				InfrastructureRef: &corev1.ObjectReference{
-					APIVersion: infrav1.GroupVersion.String(),
-					Kind:       "HetznerCluster",
-					Name:       hetznerClusterName,
-					Namespace:  testNs.Name,
-				},
+				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+				APIGroup: infrav1.GroupVersion.Group,
+				Kind:     "HetznerCluster",
+				Name:     hetznerClusterName,
+			},
 			},
 		}
 		Expect(testEnv.Create(ctx, capiCluster)).To(Succeed())
@@ -262,12 +261,12 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 				},
 				Spec: clusterv1.MachineSpec{
 					ClusterName: capiCluster.Name,
-					InfrastructureRef: corev1.ObjectReference{
-						APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
-						Kind:       "HetznerBareMetalMachine",
-						Name:       machineName,
-					},
-					FailureDomain: &defaultFailureDomain,
+					InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+				APIGroup: "infrastructure.cluster.x-k8s.io",
+				Kind:     "HetznerBareMetalMachine",
+				Name:     machineName,
+			},
+					FailureDomain: defaultFailureDomain,
 					Bootstrap: clusterv1.Bootstrap{
 						DataSecretName: ptr.To("bootstrap-secret"),
 					},
@@ -326,7 +325,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 			})
 
 			It("reaches the state image installing", func() {
-				ph, err := patch.NewHelper(host, testEnv)
+				ph, err := v1beta1patch.NewHelper(host, testEnv)
 				Expect(err).ShouldNot(HaveOccurred())
 
 				host.Spec.RootDeviceHints = &infrav1.RootDeviceHints{
@@ -334,7 +333,7 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 				}
 
 				Eventually(func() error {
-					return ph.Patch(ctx, host, patch.WithStatusObservedGeneration{})
+					return ph.Patch(ctx, host, v1beta1patch.WithStatusObservedGeneration{})
 				}, timeout, time.Second).Should(BeNil())
 
 				Eventually(func() bool {
@@ -436,12 +435,12 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 				},
 				Spec: clusterv1.MachineSpec{
 					ClusterName: capiCluster.Name,
-					InfrastructureRef: corev1.ObjectReference{
-						APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
-						Kind:       "HetznerBareMetalMachine",
-						Name:       machineName,
-					},
-					FailureDomain: &defaultFailureDomain,
+					InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+				APIGroup: "infrastructure.cluster.x-k8s.io",
+				Kind:     "HetznerBareMetalMachine",
+				Name:     machineName,
+			},
+					FailureDomain: defaultFailureDomain,
 					Bootstrap: clusterv1.Bootstrap{
 						DataSecretName: ptr.To("bootstrap-secret"),
 					},
@@ -520,12 +519,12 @@ var _ = Describe("HetznerBareMetalHostReconciler", func() {
 				},
 				Spec: clusterv1.MachineSpec{
 					ClusterName: capiCluster.Name,
-					InfrastructureRef: corev1.ObjectReference{
-						APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
-						Kind:       "HetznerBareMetalMachine",
-						Name:       machineName,
-					},
-					FailureDomain: &defaultFailureDomain,
+					InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+				APIGroup: "infrastructure.cluster.x-k8s.io",
+				Kind:     "HetznerBareMetalMachine",
+				Name:     machineName,
+			},
+					FailureDomain: defaultFailureDomain,
 					Bootstrap: clusterv1.Bootstrap{
 						DataSecretName: ptr.To("bootstrap-secret"),
 					},
@@ -631,12 +630,11 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 				Finalizers:   []string{clusterv1.ClusterFinalizer},
 			},
 			Spec: clusterv1.ClusterSpec{
-				InfrastructureRef: &corev1.ObjectReference{
-					APIVersion: infrav1.GroupVersion.String(),
-					Kind:       "HetznerCluster",
-					Name:       hetznerClusterName,
-					Namespace:  testNs.Name,
-				},
+				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+				APIGroup: infrav1.GroupVersion.Group,
+				Kind:     "HetznerCluster",
+				Name:     hetznerClusterName,
+			},
 			},
 		}
 		Expect(testEnv.Create(ctx, capiCluster)).To(Succeed())
@@ -670,12 +668,12 @@ var _ = Describe("HetznerBareMetalHostReconciler - missing secrets", func() {
 			},
 			Spec: clusterv1.MachineSpec{
 				ClusterName: capiCluster.Name,
-				InfrastructureRef: corev1.ObjectReference{
-					APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
-					Kind:       "HetznerBareMetalMachine",
-					Name:       machineName,
-				},
-				FailureDomain: &defaultFailureDomain,
+				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+				APIGroup: "infrastructure.cluster.x-k8s.io",
+				Kind:     "HetznerBareMetalMachine",
+				Name:     machineName,
+			},
+				FailureDomain: defaultFailureDomain,
 				Bootstrap: clusterv1.Bootstrap{
 					DataSecretName: ptr.To("bootstrap-secret"),
 				},

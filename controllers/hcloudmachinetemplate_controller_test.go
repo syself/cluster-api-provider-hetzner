@@ -21,7 +21,8 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -54,17 +55,17 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 
 	Context("Basic hcloudmachinetemplate test", func() {
 		Context("ClusterClass test", func() {
-			var capiClusterClass *clusterv1.ClusterClass
+			var capiClusterClass *clusterv1beta1.ClusterClass
 
 			BeforeEach(func() {
-				capiClusterClass = &clusterv1.ClusterClass{
+				capiClusterClass = &clusterv1beta1.ClusterClass{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-cluster-class",
 						Namespace: testNs.Name,
 					},
-					Spec: clusterv1.ClusterClassSpec{
-						ControlPlane: clusterv1.ControlPlaneClass{
-							MachineInfrastructure: &clusterv1.LocalObjectTemplate{
+					Spec: clusterv1beta1.ClusterClassSpec{
+						ControlPlane: clusterv1beta1.ControlPlaneClass{
+							MachineInfrastructure: &clusterv1beta1.LocalObjectTemplate{
 								Ref: &corev1.ObjectReference{
 									APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
 									Kind:       "HCloudMachineTemplate",
@@ -72,7 +73,7 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 									Namespace:  testNs.Name,
 								},
 							},
-							LocalObjectTemplate: clusterv1.LocalObjectTemplate{
+							LocalObjectTemplate: clusterv1beta1.LocalObjectTemplate{
 								Ref: &corev1.ObjectReference{
 									APIVersion: "controlplane.cluster.x-k8s.io/v1beta1",
 									Kind:       "KubeadmControlPlaneTemplate",
@@ -81,7 +82,7 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 								},
 							},
 						},
-						Infrastructure: clusterv1.LocalObjectTemplate{
+						Infrastructure: clusterv1beta1.LocalObjectTemplate{
 							Ref: &corev1.ObjectReference{
 								APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
 								Kind:       "HetznerClusterTemplate",
@@ -150,12 +151,11 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 						Finalizers:   []string{clusterv1.ClusterFinalizer},
 					},
 					Spec: clusterv1.ClusterSpec{
-						InfrastructureRef: &corev1.ObjectReference{
-							APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
-							Kind:       "HetznerCluster",
-							Name:       "hetzner-test",
-							Namespace:  testNs.Name,
-						},
+						InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+					APIGroup: "infrastructure.cluster.x-k8s.io",
+					Kind:     "HetznerCluster",
+					Name:     "hetzner-test",
+				},
 					},
 				}
 				Expect(testEnv.Create(ctx, capiCluster)).To(Succeed())
@@ -309,7 +309,7 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 			It("should succeed for mutable fields", func() {
 				Expect(testEnv.Get(ctx, key, machineTemplate)).To(Succeed())
 
-				hcloudMachineTemplate.Status.Conditions = clusterv1.Conditions{
+				hcloudMachineTemplate.Status.Conditions = clusterv1beta1.Conditions{
 					{
 						Type:    "TestSuccessful",
 						Status:  corev1.ConditionTrue,
