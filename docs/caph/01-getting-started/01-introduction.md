@@ -34,8 +34,8 @@ This provider's versions can install and manage the following versions of Kubern
 | Kubernetes 1.31.x | ✅                        | ❌                         |
 | Kubernetes 1.32.x | ✅                        | ✅                         |
 | Kubernetes 1.33.x | ✅                        | ✅                         |
-| Kubernetes 1.34.x | ✅                        | ✅ (needs CAPI >= v1.11.1) |
-| Kubernetes 1.35.x | ❔                        | ✅ (needs CAPI >= v1.12.1) |
+| Kubernetes 1.34.x | ✅                        | ✅                         |
+| Kubernetes 1.35.x | ❔                        | ✅                         |
 
 Test status:
 
