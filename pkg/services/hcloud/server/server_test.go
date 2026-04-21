@@ -1302,6 +1302,79 @@ var _ = Describe("Reconcile", func() {
 	})
 })
 
+var _ = Describe("handleOperatingSystemRunning", func() {
+	var (
+		hcloudMachine *infrav1.HCloudMachine
+		server        *hcloud.Server
+		service       *Service
+	)
+
+	BeforeEach(func() {
+		client := fakehcloudclient.NewHCloudClientFactory().NewClient("")
+		server = newTestServer()
+
+		hcloudMachine = &infrav1.HCloudMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-machine",
+				Namespace: "default",
+			},
+			Spec: infrav1.HCloudMachineSpec{
+				ImageName: "ubuntu-24.04",
+				Type:      "cpx22",
+			},
+		}
+
+		service = newTestService(hcloudMachine, client)
+
+		// Mark capi Machine as control plane so the load balancer branch runs.
+		service.scope.Machine.Labels = map[string]string{
+			clusterv1.MachineControlPlaneLabel: "",
+		}
+
+		service.scope.Cluster = &clusterv1.Cluster{
+			Spec: clusterv1.ClusterSpec{
+				ControlPlaneRef: &corev1.ObjectReference{
+					Kind: "KubeadmControlPlane",
+				},
+			},
+		}
+		service.scope.HetznerCluster = &infrav1.HetznerCluster{}
+	})
+
+	It("returns early without setting Ready when reconcileLoadBalancerAttachment requeues", func() {
+		// Existing LB target plus an unhealthy kube-apiserver pod makes
+		// reconcileLoadBalancerAttachment return RequeueAfter 30s and mark
+		// ServerAvailableCondition=False. Without the early return in
+		// handleOperatingSystemRunning, that condition would be overwritten to True.
+		service.scope.HetznerCluster.Status.ControlPlaneLoadBalancer = &infrav1.LoadBalancerStatus{
+			ID: 1,
+			Target: []infrav1.LoadBalancerTarget{
+				{
+					Type:     infrav1.LoadBalancerTargetTypeServer,
+					ServerID: server.ID + 1,
+				},
+			},
+		}
+
+		res, err := service.handleOperatingSystemRunning(context.Background(), server)
+		Expect(err).To(Succeed())
+		Expect(res).To(Equal(reconcile.Result{RequeueAfter: 30 * time.Second}))
+
+		Expect(hcloudMachine.Status.Ready).To(BeFalse())
+		Expect(isPresentAndFalseWithReason(hcloudMachine, infrav1.ServerAvailableCondition, "WaitingForAPIServer")).To(BeTrue())
+	})
+
+	It("sets Ready and ServerAvailableCondition when reconcileLoadBalancerAttachment returns an empty Result", func() {
+		// No load balancer → reconcileLoadBalancerAttachment returns an empty Result.
+		res, err := service.handleOperatingSystemRunning(context.Background(), server)
+		Expect(err).To(Succeed())
+		Expect(res).To(Equal(reconcile.Result{}))
+
+		Expect(hcloudMachine.Status.Ready).To(BeTrue())
+		Expect(conditions.IsTrue(hcloudMachine, infrav1.ServerAvailableCondition)).To(BeTrue())
+	})
+})
+
 func isPresentAndFalseWithReason(getter conditions.Getter, condition clusterv1.ConditionType, reason string) bool {
 	if !conditions.Has(getter, condition) {
 		return false
