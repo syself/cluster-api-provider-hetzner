@@ -822,11 +822,12 @@ func (s *Service) handleOperatingSystemRunning(ctx context.Context, server *hclo
 		return res, reterr
 	}
 
+	s.scope.SetReady(true)
+
 	if res != (reconcile.Result{}) {
 		return res, nil
 	}
 
-	s.scope.SetReady(true)
 	conditions.MarkTrue(hm, infrav1.ServerAvailableCondition)
 	return reconcile.Result{}, nil
 }

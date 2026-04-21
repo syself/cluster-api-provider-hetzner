@@ -1341,11 +1341,13 @@ var _ = Describe("handleOperatingSystemRunning", func() {
 		service.scope.HetznerCluster = &infrav1.HetznerCluster{}
 	})
 
-	It("returns early without setting Ready when reconcileLoadBalancerAttachment requeues", func() {
+	It("propagates the requeue and preserves ServerAvailableCondition=False when reconcileLoadBalancerAttachment requeues", func() {
 		// Existing LB target plus an unhealthy kube-apiserver pod makes
 		// reconcileLoadBalancerAttachment return RequeueAfter 30s and mark
 		// ServerAvailableCondition=False. Without the early return in
 		// handleOperatingSystemRunning, that condition would be overwritten to True.
+		// Ready must still flip to true so CAPI can propagate ProviderID and
+		// downstream controllers can observe the apiserver pod health.
 		service.scope.HetznerCluster.Status.ControlPlaneLoadBalancer = &infrav1.LoadBalancerStatus{
 			ID: 1,
 			Target: []infrav1.LoadBalancerTarget{
@@ -1360,7 +1362,7 @@ var _ = Describe("handleOperatingSystemRunning", func() {
 		Expect(err).To(Succeed())
 		Expect(res).To(Equal(reconcile.Result{RequeueAfter: 30 * time.Second}))
 
-		Expect(hcloudMachine.Status.Ready).To(BeFalse())
+		Expect(hcloudMachine.Status.Ready).To(BeTrue())
 		Expect(isPresentAndFalseWithReason(hcloudMachine, infrav1.ServerAvailableCondition, "WaitingForAPIServer")).To(BeTrue())
 	})
 
