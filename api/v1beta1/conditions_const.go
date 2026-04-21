@@ -266,3 +266,14 @@ const (
 	// the HCloudMachine failed to create with an irrecoverable error (e.g. invalid_input, resource_unavailable).
 	IrrecoverableServerCreateFailureReason = "IrrecoverableServerCreateFailure"
 )
+
+const (
+	// NodeBootIDRetrievedCondition reports whether the boot ID of the node was retrieved.
+	NodeBootIDRetrievedCondition clusterv1.ConditionType = "NodeBootIDRetrieved"
+	// GetWorkloadClusterClientFailedReason indicates failure in initializing the workload cluster client.
+	GetWorkloadClusterClientFailedReason = "GetWorkloadClusterClientFailed"
+	// GetNodeInWorkloadClusterFailedReason indicates failure in fetching the node object from the workload cluster.
+	GetNodeInWorkloadClusterFailedReason = "GetNodeInWorkloadClusterFailed"
+	// BootIDEmptyReason indicates that an empty boot ID is present on the node object.
+	BootIDEmptyReason = "BootIDEmpty"
+)

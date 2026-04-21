@@ -34,6 +34,7 @@ import (
 	"golang.org/x/crypto/ssh"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/conditions"
@@ -244,6 +245,7 @@ func (s *Service) actionPreparing(ctx context.Context) actionResult {
 			}
 			msg := "Rebooting into rescue mode."
 			createSSHRebootEvent(ctx, s.scope.HetznerBareMetalHost, msg)
+			s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt = ptr.To(metav1.Now())
 			// we immediately set an error message in the host status to track the reboot we just performed
 			s.scope.HetznerBareMetalHost.SetError(infrav1.ErrorTypeSSHRebootTriggered, fmt.Sprintf("Phase %s, reboot via ssh: %s",
 				s.scope.HetznerBareMetalHost.Spec.Status.ProvisioningState, msg))
@@ -259,6 +261,7 @@ func (s *Service) actionPreparing(ctx context.Context) actionResult {
 		return actionError{err: fmt.Errorf(errMsgFailedReboot, err)}
 	}
 
+	s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt = ptr.To(metav1.Now())
 	msg := createRebootEvent(ctx, s.scope.HetznerBareMetalHost, rebootType, "Reboot into rescue system.")
 	// we immediately set an error message in the host status to track the reboot we just performed.
 	// This is not a real error. Sooner or later we should track the reboots differently.
@@ -361,7 +364,7 @@ func (s *Service) handleIncompleteBoot(ctx context.Context, isRebootIntoRescue, 
 	if isConnectionRefused {
 		if s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeConnectionError {
 			// if error has occurred before, check the timeout
-			if hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated, connectionRefusedTimeout) {
+			if hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt, connectionRefusedTimeout) {
 				msg := "Connection error when targeting server with ssh that might be due to a wrong ssh port. Please check."
 				if isRebootIntoRescue {
 					msg = "Connection error. Can't reach rescue system via ssh."
@@ -387,6 +390,7 @@ func (s *Service) handleIncompleteBoot(ctx context.Context, isRebootIntoRescue, 
 	// ssh gave no connection refused error but it is still saved in host status - we can remove it
 	if s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeConnectionError {
 		s.scope.HetznerBareMetalHost.ClearError()
+		s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt = nil
 	}
 
 	// Check whether there has been an error message already, meaning that the reboot did not finish in time.
@@ -428,7 +432,7 @@ func (s *Service) handleErrorTypeSSHRebootFailed(ctx context.Context, isSSHTimeo
 	if wantsRescue {
 		rebootInto = "rescue mode"
 	}
-	if !isSSHTimeoutError || hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated, sshResetTimeout) {
+	if !isSSHTimeoutError || hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt, sshResetTimeout) {
 		if wantsRescue {
 			// make sure hat we boot into rescue mode if that is necessary
 			if err := s.ensureRescueMode(); err != nil {
@@ -443,6 +447,7 @@ func (s *Service) handleErrorTypeSSHRebootFailed(ctx context.Context, isSSHTimeo
 			s.handleRobotRateLimitExceeded(err, rebootServerStr)
 			return fmt.Errorf(errMsgFailedReboot, err)
 		}
+		s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt = ptr.To(metav1.Now())
 		msg := fmt.Sprintf("Reboot via ssh into %s failed. Now using rebootType %q.",
 			rebootInto, rebootType)
 		msg = createRebootEvent(ctx, s.scope.HetznerBareMetalHost, rebootType, msg)
@@ -478,7 +483,7 @@ func (s *Service) handleErrorTypeSoftwareRebootFailed(ctx context.Context, isSSH
 	// right hostname. This means that the server has not been rebooted and we need to escalate.
 	// If we got a timeout error from ssh, it means that the server has not yet finished rebooting.
 	// If the timeout for software reboots has been reached, then escalate.
-	if !isSSHTimeoutError || hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated, softwareResetTimeout) {
+	if !isSSHTimeoutError || hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt, softwareResetTimeout) {
 		if wantsRescue {
 			// make sure hat we boot into rescue mode if that is necessary
 			if err := s.ensureRescueMode(); err != nil {
@@ -490,6 +495,7 @@ func (s *Service) handleErrorTypeSoftwareRebootFailed(ctx context.Context, isSSH
 			s.handleRobotRateLimitExceeded(err, rebootServerStr)
 			return fmt.Errorf(errMsgFailedReboot, err)
 		}
+		s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt = ptr.To(metav1.Now())
 		msg := fmt.Sprintf("Reboot via type 'software' into %s failed. Now using rebootType %q.",
 			rebootInto, infrav1.RebootTypeHardware)
 		msg = createRebootEvent(ctx, s.scope.HetznerBareMetalHost, infrav1.RebootTypeHardware, msg)
@@ -518,22 +524,19 @@ func (s *Service) handleErrorTypeHardwareRebootFailed(ctx context.Context, isSSH
 			}
 		}
 
-		// as we don't change the status of the host, we manually update LastUpdated
-		t := metav1.Now()
-		s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated = &t
-
 		// we immediately set an error message in the host status to track the reboot we just performed
 		if _, err := s.scope.RobotClient.RebootBMServer(s.scope.HetznerBareMetalHost.Spec.ServerID, infrav1.RebootTypeHardware); err != nil {
 			s.handleRobotRateLimitExceeded(err, rebootServerStr)
 			return false, fmt.Errorf(errMsgFailedReboot, err)
 		}
+		s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt = ptr.To(metav1.Now())
 		msg := fmt.Sprintf("Reboot via ssh into %s failed. Now using rebootType %q.",
 			rebootInto, infrav1.RebootTypeHardware)
 		createRebootEvent(ctx, s.scope.HetznerBareMetalHost, infrav1.RebootTypeHardware, msg)
 	}
 
 	// if hardware reboots time out, we should fail
-	if hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated, hardwareResetTimeout) {
+	if hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt, hardwareResetTimeout) {
 		msg := "reboot to node timed out - please check if server is working properly"
 		if wantsRescue {
 			msg = "The rescue system could not be reached. Please ensure that the machine tries to boot from network before booting from disk. This setting needs to be enabled permanently in the BIOS."
@@ -556,8 +559,12 @@ func (s *Service) handleErrorTypeHardwareRebootFailed(ctx context.Context, isSSH
 }
 
 func hasTimedOut(lastUpdated *metav1.Time, timeout time.Duration) bool {
-	now := metav1.Now()
-	return lastUpdated.Add(timeout).Before(now.Time)
+	if lastUpdated != nil {
+		now := metav1.Now()
+		return lastUpdated.Add(timeout).Before(now.Time)
+	}
+
+	return false
 }
 
 func (s *Service) ensureRescueMode() error {
@@ -618,14 +625,17 @@ func (s *Service) actionRegistering(ctx context.Context) actionResult {
 		}
 
 		timeSinceReboot := "unknown"
-		if s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated != nil {
-			timeSinceReboot = time.Since(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated.Time).Round(time.Second).String()
+		if s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt != nil {
+			timeSinceReboot = time.Since(s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt.Time).Round(time.Second).String()
 		}
 
 		s.scope.Info("Could not reach rescue system. Will retry some seconds later.", "out", out.String(), "hostName", hostName,
 			"isSSHTimeoutError", isSSHTimeoutError, "isSSHConnectionRefusedError", isSSHConnectionRefusedError, "timeSinceReboot", timeSinceReboot)
 		return actionContinue{delay: 10 * time.Second}
 	}
+
+	// we are in resuce mode i.e. reboot was successful, now clear the RebootTriggeredAt timestamp.
+	s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt = nil
 
 	output := sshClient.GetHardwareDetailsDebug()
 	if output.Err != nil {
@@ -1210,7 +1220,11 @@ func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context
 		return actionError{err: fmt.Errorf("StateOfImageURLCommand failed: %w", err)}
 	}
 
-	duration := time.Since(host.Spec.Status.LastUpdated.Time)
+	var duration time.Duration
+	if host.Spec.Status.RebootTriggeredAt != nil {
+		duration = time.Since(host.Spec.Status.RebootTriggeredAt.Time)
+	}
+
 	// Please keep the number (7) in sync with the docstring of ImageURL.
 	if duration > 7*time.Minute {
 		// timeout. Something has failed.
@@ -1244,6 +1258,8 @@ func (s *Service) actionImageInstallingCustomImageURLCommand(ctx context.Context
 			record.Warn(s.scope.HetznerBareMetalHost, "RebootFailed", err.Error())
 			return actionError{err: err}
 		}
+
+		s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt = ptr.To(metav1.Now())
 
 		msg := "machine image and cloud-init data got installed (via image-url-command)"
 		createSSHRebootEvent(ctx, s.scope.HetznerBareMetalHost, msg)
@@ -1559,6 +1575,7 @@ func (s *Service) actionImageInstallingFinished(ctx context.Context, sshClient s
 		record.Warn(s.scope.HetznerBareMetalHost, "RebootFailed", err.Error())
 		return actionError{err: err}
 	}
+	s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt = ptr.To(metav1.Now())
 	createSSHRebootEvent(ctx, s.scope.HetznerBareMetalHost, "machine image and cloud-init data got installed")
 
 	s.scope.Info("RebootAfterInstallimageSucceeded", "stdout", out.StdOut, "stderr", out.StdErr)
@@ -1713,6 +1730,7 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 		record.Event(s.scope.HetznerBareMetalHost, "ServerProvisioned", "server successfully provisioned ('ensure-provisioned' was skipped)")
 		conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition)
 		s.scope.HetznerBareMetalHost.ClearError()
+		s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt = nil
 		return actionComplete{}
 	}
 
@@ -1770,6 +1788,8 @@ func (s *Service) actionEnsureProvisioned(ctx context.Context) (ar actionResult)
 
 	// from now on we know that the machine is reachable and
 	// is no longer in the rescue system.
+
+	s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt = nil
 
 	createEventWithCloudInitOutput := func(ar actionResult) actionResult {
 		// Create an Event which contains the cloud-init-output.
@@ -1864,6 +1884,7 @@ func (s *Service) checkCloudInitStatus(ctx context.Context, sshClient sshclient.
 			return actionError{err: fmt.Errorf("failed to reboot (%s): %w", msg, err)}, ""
 		}
 		createSSHRebootEvent(ctx, s.scope.HetznerBareMetalHost, msg)
+		s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt = ptr.To(metav1.Now())
 		s.scope.HetznerBareMetalHost.SetError(infrav1.ErrorTypeSSHRebootTriggered, "ssh reboot just triggered")
 		record.Warn(s.scope.HetznerBareMetalHost, "SSHRebootAfterCloudInitStatusDisabled", msg)
 		return actionContinue{delay: 5 * time.Second}, "cloud-init was disabled. Triggered a reboot again"
@@ -1909,6 +1930,9 @@ func (s *Service) handleCloudInitNotStarted(ctx context.Context) actionResult {
 		if err := handleSSHError(out); err != nil {
 			return actionError{err: fmt.Errorf("failed to reboot (handleCloudInitNotStarted): %w", err)}
 		}
+
+		s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt = ptr.To(metav1.Now())
+
 		createSSHRebootEvent(ctx, s.scope.HetznerBareMetalHost, "machine image and cloud-init data got installed")
 		record.Eventf(s.scope.HetznerBareMetalHost,
 			"SSHRebootAfterCloudInitSigTermFound", "rebooted via ssh after cloud init logs contained sigterm: %s", trimLineBreak(out.StdOut))
@@ -1976,50 +2000,13 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 
 	host := s.scope.HetznerBareMetalHost
 
-	if !rebootDesired {
-		// No reboot annotation: ensure all reboot-related state is cleared in case
-		// it was left over from a previous cycle (e.g. annotation was removed mid-reboot).
-		host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = ""
-		host.Spec.Status.ExternalIDs.RebootAnnotationSince.Time = time.Time{}
-		host.Spec.Status.Rebooted = false
-		return actionComplete{} // Stays in Provisioned (final state)
-	}
-
-	// --- Reboot via annotation ---
-
-	// The hard part is detecting when the node is back up after the reboot.
-	// We do this by watching node.Status.NodeInfo.BootID in the workload cluster:
-	// the kubelet sets a fresh random BootID on every boot, so a changed value
-	// is a signal that a full reboot cycle completed.
-
-	// Record when we first noticed the annotation so we can enforce the timeout.
-	if host.Spec.Status.ExternalIDs.RebootAnnotationSince.IsZero() {
-		host.Spec.Status.ExternalIDs.RebootAnnotationSince = metav1.Now()
-	}
-
-	// Enforce the overall reboot timeout. If the BootID has not changed within
-	// 5 minutes of the annotation being set, something went wrong and we return an error.
-	rebootDuration := time.Since(host.Spec.Status.ExternalIDs.RebootAnnotationSince.Time)
-	if rebootDuration > 5*time.Minute {
-		msg := fmt.Sprintf("Rebooting timed out after: %s", rebootDuration.Round(time.Second))
-		s.scope.Info(msg)
-		conditions.MarkFalse(
-			s.scope.HetznerBareMetalHost,
-			infrav1.RebootSucceededCondition,
-			"TimedOut",
-			clusterv1.ConditionSeverityError,
-			"%s",
-			msg,
-		)
-		return s.recordActionFailure(infrav1.FatalError, msg)
-	}
-
 	// Connect to the workload cluster to read node state.
 	wlClient, err := s.scope.WorkloadClusterClientFactory.NewWorkloadClient(ctx)
 	if err != nil {
-		err = fmt.Errorf("actionProvisioned (Reboot via Annotation), failed to get wlClient: %w", err)
-		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
-			"GetWorkloadClusterClientFailed",
+		err = fmt.Errorf("actionProvisioned, failed to get wlClient: %w", err)
+		conditions.MarkFalse(host,
+			infrav1.NodeBootIDRetrievedCondition,
+			infrav1.GetWorkloadClusterClientFailedReason,
 			clusterv1.ConditionSeverityWarning, "%s",
 			err.Error())
 		return actionError{err: err}
@@ -2029,8 +2016,13 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	// look up the Node name in the workload cluster (stored in machine.Status.NodeRef).
 	machine, err := util.GetOwnerMachine(ctx, s.scope.Client, s.scope.HetznerBareMetalMachine.ObjectMeta)
 	if err != nil {
-		err = fmt.Errorf("actionProvisioned (Reboot via Annotation), GetOwnerMachine failed: %w",
+		err = fmt.Errorf("actionProvisioned, GetOwnerMachine failed: %w",
 			err)
+		return actionError{err: err}
+	}
+
+	if machine == nil {
+		err := fmt.Errorf("actionProvisioned, owner Machine for HetznerBareMetalMachine not found")
 		return actionError{err: err}
 	}
 
@@ -2040,19 +2032,29 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	// The machine would be remediated.
 	if machine.Status.NodeRef == nil {
 		msg := "machine.Status.NodeRef is nil"
-		s.scope.HetznerBareMetalHost.SetError(infrav1.FatalError, msg)
 		s.scope.Error(errors.New(msg), "")
-		return actionStop{}
+
+		// Without looking at the node object we can't confirm whether a reboot completed, so that is fatal error.
+		// When no reboot is requested the boot ID is non-critical; requeue and wait for kubelet to populate it.
+		if rebootDesired {
+			s.scope.HetznerBareMetalHost.SetError(infrav1.FatalError, msg)
+			return actionStop{}
+		}
+
+		return actionContinue{}
 	}
 
 	nodeName := machine.Status.NodeRef.Name
 	node := &corev1.Node{}
 	err = wlClient.Get(ctx, client.ObjectKey{Name: nodeName}, node)
 	if err != nil {
-		err = fmt.Errorf("getting Node in wl-cluster failed: %w", err)
-		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
-			"GettingNodeInWorkloadClusterFailed",
-			clusterv1.ConditionSeverityWarning, "%s",
+		err = fmt.Errorf("failed to get corresponding Node object from the workload cluster: %w", err)
+		conditions.MarkFalse(
+			host,
+			infrav1.NodeBootIDRetrievedCondition,
+			infrav1.GetNodeInWorkloadClusterFailedReason,
+			clusterv1.ConditionSeverityWarning,
+			"%s",
 			err.Error())
 		return actionError{err: err}
 	}
@@ -2062,25 +2064,70 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	currentBootID := node.Status.NodeInfo.BootID
 	if currentBootID == "" {
 		msg := "node.Status.NodeInfo.BootID is empty"
-		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
-			"NodeInWorkloadClusterHasEmptyBootID",
-			clusterv1.ConditionSeverityWarning, "%s",
+		conditions.MarkFalse(host,
+			infrav1.NodeBootIDRetrievedCondition,
+			infrav1.BootIDEmptyReason,
+			clusterv1.ConditionSeverityWarning,
+			"%s",
 			msg)
 
-		s.scope.HetznerBareMetalHost.SetError(infrav1.FatalError, msg)
 		s.scope.Error(errors.New(msg), "")
-		return actionStop{}
+
+		// Without a boot ID we can't confirm a reboot completed, so that is fatal error.
+		// When no reboot is requested the boot ID is non-critical; requeue and wait for kubelet to populate it.
+		if rebootDesired {
+			s.scope.HetznerBareMetalHost.SetError(infrav1.FatalError, msg)
+			return actionStop{}
+		}
+
+		return actionContinue{}
 	}
 
-	if host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID == "" {
+	conditions.MarkTrue(host, infrav1.NodeBootIDRetrievedCondition)
+
+	if !rebootDesired {
+		// No reboot annotation, ensure all reboot-related state is cleared.
+		host.Spec.Status.Rebooted = false
+		host.Spec.Status.RebootTriggeredAt = nil
+
+		// Populate NodeBootID the first time the host enters Provisioned state.
+		if host.Spec.Status.NodeBootID == "" {
+			host.Spec.Status.NodeBootID = currentBootID
+		}
+
+		return actionComplete{}
+	}
+
+	// --- Reboot via annotation ---
+
+	// The hard part is detecting when the node is back up after the reboot.
+	// We do this by watching node.Status.NodeInfo.BootID in the workload cluster:
+	// the kubelet sets a fresh random BootID on every boot, so a changed value
+	// is a signal that a full reboot cycle completed.
+
+	// Enforce the overall reboot timeout. If the BootID has not changed within
+	// 5 minutes of the annotation being set, something went wrong and we return an error.
+	if host.Spec.Status.RebootTriggeredAt != nil {
+		rebootDuration := time.Since(host.Spec.Status.RebootTriggeredAt.Time)
+		if rebootDuration > 5*time.Minute {
+			msg := fmt.Sprintf("Rebooting timed out after: %s", rebootDuration.Round(time.Second))
+			s.scope.Info(msg)
+			conditions.MarkFalse(
+				s.scope.HetznerBareMetalHost,
+				infrav1.RebootSucceededCondition,
+				"TimedOut",
+				clusterv1.ConditionSeverityError,
+				"%s",
+				msg,
+			)
+			return s.recordActionFailure(infrav1.FatalError, msg)
+		}
+	}
+
+	if !host.Spec.Status.Rebooted {
 		// --- Phase 1: trigger the reboot ---
 		// This branch runs exactly once per reboot annotation. We store the current
 		// BootID so Phase 2 can detect when it changes, then send the reboot command.
-
-		// Persist the pre-reboot BootID. Phase 2 compares the live BootID against this
-		// value on every reconcile; a difference means the node completed a reboot.
-		host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = currentBootID
-		host.Spec.Status.Rebooted = true
 
 		msg := fmt.Sprintf("Rebooting because annotation was set. Old BootID: %s", currentBootID)
 
@@ -2143,6 +2190,12 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 			conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.RobotCredentialsAvailableCondition)
 		}
 
+		// Persist the pre-reboot BootID. Phase 2 compares the live BootID against this
+		// value on every reconcile; a difference means the node completed a reboot.
+		host.Spec.Status.NodeBootID = currentBootID
+		host.Spec.Status.RebootTriggeredAt = ptr.To(metav1.Now())
+		host.Spec.Status.Rebooted = true
+
 		conditions.MarkFalse(host, infrav1.RebootSucceededCondition,
 			"WaitingForNodeToBeRebooted",
 			clusterv1.ConditionSeverityInfo, "%s",
@@ -2156,11 +2209,10 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 
 	// Compare the current BootID against the one we stored in Phase 1.
 	// A change signals that the node completed a full reboot cycle.
-	if host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID != currentBootID {
+	if host.Spec.Status.NodeBootID != currentBootID {
 		// Reboot has been successful
-		s.scope.Info(fmt.Sprintf("BootID changed: %q -> %q", host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID, currentBootID))
-		host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = ""
-		host.Spec.Status.ExternalIDs.RebootAnnotationSince.Time = time.Time{}
+		s.scope.Info(fmt.Sprintf("BootID changed: %q -> %q", host.Spec.Status.NodeBootID, currentBootID))
+		host.Spec.Status.RebootTriggeredAt = nil
 		host.Spec.Status.Rebooted = false
 
 		conditions.MarkTrue(host, infrav1.RebootSucceededCondition)
@@ -2279,7 +2331,7 @@ func (s *Service) hasJustRebooted() bool {
 	return (s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeSSHRebootTriggered ||
 		s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeSoftwareRebootTriggered ||
 		s.scope.HetznerBareMetalHost.Spec.Status.ErrorType == infrav1.ErrorTypeHardwareRebootTriggered) &&
-		!hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.LastUpdated, rebootWaitTime)
+		!hasTimedOut(s.scope.HetznerBareMetalHost.Spec.Status.RebootTriggeredAt, rebootWaitTime)
 }
 
 func markProvisionPendingWithInfo(host *infrav1.HetznerBareMetalHost, state infrav1.ProvisioningState, info string) {
