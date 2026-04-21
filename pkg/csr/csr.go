@@ -26,7 +26,7 @@ import (
 	"reflect"
 	"strings"
 
-	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 )
 
 // nodesPrefix defines the prefix name for a node.
@@ -36,7 +36,7 @@ const nodesPrefix = "system:node:"
 const nodesGroup = "system:nodes"
 
 // ValidateKubeletCSR validates a CSR.
-func ValidateKubeletCSR(csr *x509.CertificateRequest, machineName string, addresses []clusterv1.MachineAddress) error {
+func ValidateKubeletCSR(csr *x509.CertificateRequest, machineName string, addresses []clusterv1beta1.MachineAddress) error {
 	// check signature and exist quickly
 	if err := csr.CheckSignature(); err != nil {
 		return fmt.Errorf("failed to check signature of x509 certificate: %w", err)
@@ -75,7 +75,7 @@ func ValidateKubeletCSR(csr *x509.CertificateRequest, machineName string, addres
 	allowedIPAddresses := make(map[string]struct{})
 	for _, address := range addresses {
 		switch address.Type {
-		case clusterv1.MachineInternalIP, clusterv1.MachineExternalIP:
+		case clusterv1beta1.MachineInternalIP, clusterv1beta1.MachineExternalIP:
 			allowedIPAddresses[strings.Split(address.Address, "/")[0]] = struct{}{}
 		}
 	}

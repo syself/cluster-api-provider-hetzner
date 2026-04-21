@@ -31,8 +31,8 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
-	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -595,10 +595,10 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 				},
 				Spec: clusterv1.ClusterSpec{
 					InfrastructureRef: clusterv1.ContractVersionedObjectReference{
-				APIGroup: infrav1.GroupVersion.Group,
-				Kind:     "HetznerCluster",
-				Name:     hetznerClusterName,
-			},
+						APIGroup: infrav1.GroupVersion.Group,
+						Kind:     "HetznerCluster",
+						Name:     hetznerClusterName,
+					},
 				},
 			}
 			Expect(testEnv.Create(ctx, capiCluster)).To(Succeed())
@@ -1284,10 +1284,10 @@ var _ = Describe("Hetzner secret", func() {
 			},
 			Spec: clusterv1.ClusterSpec{
 				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
-				APIGroup: infrav1.GroupVersion.Group,
-				Kind:     "HetznerCluster",
-				Name:     hetznerClusterName,
-			},
+					APIGroup: infrav1.GroupVersion.Group,
+					Kind:     "HetznerCluster",
+					Name:     hetznerClusterName,
+				},
 			},
 		}
 		Expect(testEnv.Create(ctx, capiCluster)).To(Succeed())

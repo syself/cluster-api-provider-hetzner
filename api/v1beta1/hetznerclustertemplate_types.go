@@ -18,7 +18,7 @@ package v1beta1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 )
 
 // HetznerClusterTemplateSpec defines the desired state of HetznerClusterTemplate.
@@ -55,6 +55,6 @@ func init() {
 // HetznerClusterTemplateResource contains spec for HetznerClusterSpec.
 type HetznerClusterTemplateResource struct {
 	// +optional
-	ObjectMeta clusterv1.ObjectMeta `json:"metadata,omitempty"`
-	Spec       HetznerClusterSpec   `json:"spec"`
+	ObjectMeta clusterv1beta1.ObjectMeta `json:"metadata,omitempty"`
+	Spec       HetznerClusterSpec        `json:"spec"`
 }

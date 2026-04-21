@@ -37,8 +37,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/utils/ptr"
-	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
 	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
@@ -96,10 +96,10 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			},
 			Spec: clusterv1.ClusterSpec{
 				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
-				APIGroup: infrav1.GroupVersion.Group,
-				Kind:     "HetznerCluster",
-				Name:     hetznerClusterName,
-			},
+					APIGroup: infrav1.GroupVersion.Group,
+					Kind:     "HetznerCluster",
+					Name:     hetznerClusterName,
+				},
 			},
 			Status: clusterv1.ClusterStatus{
 				Initialization: clusterv1.ClusterInitializationStatus{
@@ -224,10 +224,17 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					Spec: clusterv1.MachineSpec{
 						ClusterName: capiCluster.Name,
 						InfrastructureRef: clusterv1.ContractVersionedObjectReference{
-				APIGroup: "infrastructure.cluster.x-k8s.io",
-				Kind:     "HetznerBareMetalMachine",
-				Name:     machineName,
-			},
+							APIGroup: "infrastructure.cluster.x-k8s.io",
+							Kind:     "HetznerBareMetalMachine",
+							Name:     machineName,
+						},
+						Bootstrap: clusterv1.Bootstrap{
+							ConfigRef: clusterv1.ContractVersionedObjectReference{
+								APIGroup: "bootstrap.cluster.x-k8s.io",
+								Kind:     "KubeadmConfig",
+								Name:     "my-config",
+							},
+						},
 						FailureDomain: defaultFailureDomain,
 					},
 				}
@@ -303,10 +310,10 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					Spec: clusterv1.MachineSpec{
 						ClusterName: capiCluster.Name,
 						InfrastructureRef: clusterv1.ContractVersionedObjectReference{
-				APIGroup: "infrastructure.cluster.x-k8s.io",
-				Kind:     "HetznerBareMetalMachine",
-				Name:     machineName,
-			},
+							APIGroup: "infrastructure.cluster.x-k8s.io",
+							Kind:     "HetznerBareMetalMachine",
+							Name:     machineName,
+						},
 						FailureDomain: defaultFailureDomain,
 						Bootstrap: clusterv1.Bootstrap{
 							DataSecretName: ptr.To("bootstrap-secret"),
@@ -655,10 +662,10 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					Spec: clusterv1.MachineSpec{
 						ClusterName: capiCluster.Name,
 						InfrastructureRef: clusterv1.ContractVersionedObjectReference{
-				APIGroup: "infrastructure.cluster.x-k8s.io",
-				Kind:     "HetznerBareMetalMachine",
-				Name:     machineName,
-			},
+							APIGroup: "infrastructure.cluster.x-k8s.io",
+							Kind:     "HetznerBareMetalMachine",
+							Name:     machineName,
+						},
 						FailureDomain: defaultFailureDomain,
 						Bootstrap: clusterv1.Bootstrap{
 							DataSecretName: ptr.To("bootstrap-secret"),
@@ -744,10 +751,10 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				Spec: clusterv1.MachineSpec{
 					ClusterName: capiCluster.Name,
 					InfrastructureRef: clusterv1.ContractVersionedObjectReference{
-				APIGroup: "infrastructure.cluster.x-k8s.io",
-				Kind:     "HetznerBareMetalMachine",
-				Name:     machineName,
-			},
+						APIGroup: "infrastructure.cluster.x-k8s.io",
+						Kind:     "HetznerBareMetalMachine",
+						Name:     machineName,
+					},
 					FailureDomain: defaultFailureDomain,
 					Bootstrap: clusterv1.Bootstrap{
 						DataSecretName: ptr.To("bootstrap-secret"),
@@ -828,10 +835,10 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				Spec: clusterv1.MachineSpec{
 					ClusterName: capiCluster.Name,
 					InfrastructureRef: clusterv1.ContractVersionedObjectReference{
-				APIGroup: "infrastructure.cluster.x-k8s.io",
-				Kind:     "HetznerBareMetalMachine",
-				Name:     machineName,
-			},
+						APIGroup: "infrastructure.cluster.x-k8s.io",
+						Kind:     "HetznerBareMetalMachine",
+						Name:     machineName,
+					},
 					FailureDomain: defaultFailureDomain,
 					Bootstrap: clusterv1.Bootstrap{
 						DataSecretName: ptr.To("bootstrap-secret"),
@@ -913,10 +920,10 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				Spec: clusterv1.MachineSpec{
 					ClusterName: capiCluster.Name,
 					InfrastructureRef: clusterv1.ContractVersionedObjectReference{
-				APIGroup: "infrastructure.cluster.x-k8s.io",
-				Kind:     "HetznerBareMetalMachine",
-				Name:     machineName,
-			},
+						APIGroup: "infrastructure.cluster.x-k8s.io",
+						Kind:     "HetznerBareMetalMachine",
+						Name:     machineName,
+					},
 					FailureDomain: defaultFailureDomain,
 					Bootstrap: clusterv1.Bootstrap{
 						DataSecretName: ptr.To("bootstrap-secret"),
@@ -1157,10 +1164,10 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				Spec: clusterv1.MachineSpec{
 					ClusterName: capiCluster.Name,
 					InfrastructureRef: clusterv1.ContractVersionedObjectReference{
-				APIGroup: "infrastructure.cluster.x-k8s.io",
-				Kind:     "HetznerBareMetalMachine",
-				Name:     machineName,
-			},
+						APIGroup: "infrastructure.cluster.x-k8s.io",
+						Kind:     "HetznerBareMetalMachine",
+						Name:     machineName,
+					},
 					FailureDomain: defaultFailureDomain,
 					Bootstrap: clusterv1.Bootstrap{
 						DataSecretName: ptr.To("bootstrap-secret"),
@@ -1203,10 +1210,10 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				Spec: clusterv1.MachineSpec{
 					ClusterName: capiCluster.Name,
 					InfrastructureRef: clusterv1.ContractVersionedObjectReference{
-				APIGroup: "infrastructure.cluster.x-k8s.io",
-				Kind:     "HetznerBareMetalMachine",
-				Name:     bmMachineName2,
-			},
+						APIGroup: "infrastructure.cluster.x-k8s.io",
+						Kind:     "HetznerBareMetalMachine",
+						Name:     bmMachineName2,
+					},
 					Bootstrap: clusterv1.Bootstrap{
 						DataSecretName: ptr.To("bootstrap-secret"),
 					},

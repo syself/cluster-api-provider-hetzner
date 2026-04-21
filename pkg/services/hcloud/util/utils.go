@@ -24,7 +24,7 @@ import (
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	"k8s.io/apimachinery/pkg/runtime"
-	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	"sigs.k8s.io/cluster-api/util/record"
 
@@ -85,7 +85,7 @@ func HandleRateLimitExceeded(obj runtimeObjectWithConditions, err error, functio
 			obj,
 			infrav1.HetznerAPIReachableCondition,
 			infrav1.RateLimitExceededReason,
-			clusterv1.ConditionSeverityWarning,
+			clusterv1beta1.ConditionSeverityWarning,
 			"%s",
 			msg,
 		)

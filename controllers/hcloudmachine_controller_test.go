@@ -27,8 +27,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
-	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -281,10 +281,10 @@ var _ = Describe("HCloudMachineReconciler", func() {
 			Spec: clusterv1.MachineSpec{
 				ClusterName: capiCluster.Name,
 				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
-				APIGroup: "infrastructure.cluster.x-k8s.io",
-				Kind:     "HCloudMachine",
-				Name:     hcloudMachineName,
-			},
+					APIGroup: "infrastructure.cluster.x-k8s.io",
+					Kind:     "HCloudMachine",
+					Name:     hcloudMachineName,
+				},
 				FailureDomain: defaultFailureDomain,
 				Bootstrap: clusterv1.Bootstrap{
 					DataSecretName: ptr.To("bootstrap-secret"),
@@ -324,8 +324,14 @@ var _ = Describe("HCloudMachineReconciler", func() {
 	Context("Basic hcloudmachine test", func() {
 		Context("correct server", func() {
 			BeforeEach(func() {
-				// remove bootstrap infos
-				capiMachine.Spec.Bootstrap = clusterv1.Bootstrap{}
+				// clear DataSecretName to simulate "bootstrap not ready"
+				capiMachine.Spec.Bootstrap = clusterv1.Bootstrap{
+					ConfigRef: clusterv1.ContractVersionedObjectReference{
+						APIGroup: "bootstrap.cluster.x-k8s.io",
+						Kind:     "KubeadmConfig",
+						Name:     "my-config",
+					},
+				}
 				Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
 
 				hcloudMachine = &infrav1.HCloudMachine{
@@ -707,10 +713,10 @@ var _ = Describe("Hetzner secret", func() {
 			},
 			Spec: clusterv1.ClusterSpec{
 				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
-				APIGroup: infrav1.GroupVersion.Group,
-				Kind:     "HetznerCluster",
-				Name:     hetznerClusterName,
-			},
+					APIGroup: infrav1.GroupVersion.Group,
+					Kind:     "HetznerCluster",
+					Name:     hetznerClusterName,
+				},
 			},
 		}
 		Expect(testEnv.Create(ctx, capiCluster)).To(Succeed())
@@ -746,10 +752,10 @@ var _ = Describe("Hetzner secret", func() {
 			Spec: clusterv1.MachineSpec{
 				ClusterName: capiCluster.Name,
 				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
-				APIGroup: "infrastructure.cluster.x-k8s.io",
-				Kind:     "HCloudMachine",
-				Name:     hcloudMachineName,
-			},
+					APIGroup: "infrastructure.cluster.x-k8s.io",
+					Kind:     "HCloudMachine",
+					Name:     hcloudMachineName,
+				},
 				FailureDomain: defaultFailureDomain,
 				Bootstrap: clusterv1.Bootstrap{
 					DataSecretName: ptr.To("bootstrap-secret"),

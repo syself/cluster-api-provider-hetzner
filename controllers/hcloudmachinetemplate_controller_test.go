@@ -21,8 +21,8 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -152,10 +152,10 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 					},
 					Spec: clusterv1.ClusterSpec{
 						InfrastructureRef: clusterv1.ContractVersionedObjectReference{
-					APIGroup: "infrastructure.cluster.x-k8s.io",
-					Kind:     "HetznerCluster",
-					Name:     "hetzner-test",
-				},
+							APIGroup: "infrastructure.cluster.x-k8s.io",
+							Kind:     "HetznerCluster",
+							Name:     "hetzner-test",
+						},
 					},
 				}
 				Expect(testEnv.Create(ctx, capiCluster)).To(Succeed())

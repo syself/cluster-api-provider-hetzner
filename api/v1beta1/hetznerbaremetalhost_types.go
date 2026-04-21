@@ -25,7 +25,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	"sigs.k8s.io/cluster-api/util/record"
 )
 
@@ -329,7 +329,7 @@ type ControllerGeneratedStatus struct {
 
 	// Conditions define the current service state of the HetznerBareMetalHost.
 	// +optional
-	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
+	Conditions clusterv1beta1.Conditions `json:"conditions,omitempty"`
 }
 
 // GetIPAddress returns the IPv6 if set, otherwise the IPv4.
@@ -346,12 +346,12 @@ func (sts ControllerGeneratedStatus) HasFatalError() bool {
 }
 
 // GetConditions returns the observations of the operational state of the HetznerBareMetalHost resource.
-func (host *HetznerBareMetalHost) GetConditions() clusterv1.Conditions {
+func (host *HetznerBareMetalHost) GetConditions() clusterv1beta1.Conditions {
 	return host.Spec.Status.Conditions
 }
 
-// SetConditions sets the underlying service state of the HetznerBareMetalHost to the predescribed clusterv1.Conditions.
-func (host *HetznerBareMetalHost) SetConditions(conditions clusterv1.Conditions) {
+// SetConditions sets the underlying service state of the HetznerBareMetalHost to the predescribed clusterv1beta1.Conditions.
+func (host *HetznerBareMetalHost) SetConditions(conditions clusterv1beta1.Conditions) {
 	host.Spec.Status.Conditions = conditions
 }
 
