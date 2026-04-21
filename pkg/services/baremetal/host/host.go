@@ -182,6 +182,21 @@ func (s *Service) actionPreparing(ctx context.Context) actionResult {
 
 	conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.RobotCredentialsAvailableCondition)
 
+	if server.ServerIP == "" {
+		msg := fmt.Sprintf("bare metal server %d has no IPv4 address assigned", s.scope.HetznerBareMetalHost.Spec.ServerID)
+		conditions.MarkFalse(
+			s.scope.HetznerBareMetalHost,
+			infrav1.ProvisionSucceededCondition,
+			infrav1.ServerHasNoIPv4Reason,
+			clusterv1.ConditionSeverityError,
+			"%s",
+			msg,
+		)
+		record.Warnf(s.scope.HetznerBareMetalHost, infrav1.ServerHasNoIPv4Reason, msg)
+		s.scope.HetznerBareMetalHost.SetError(infrav1.PermanentError, msg)
+		return actionStop{}
+	}
+
 	s.scope.HetznerBareMetalHost.Spec.Status.IPv4 = server.ServerIP
 	s.scope.HetznerBareMetalHost.Spec.Status.IPv6 = server.ServerIPv6Net + "1"
 
