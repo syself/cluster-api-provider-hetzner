@@ -576,8 +576,9 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 		return nil
 	}
 
-	apiServerPodHealthy := s.scope.Cluster == nil ||
-		s.scope.Cluster.Spec.ControlPlaneRef == nil ||
+	// For non-KCP control planes, we skip the kube-apiserver health gate because
+	// MachineAPIServerPodHealthyCondition is KubeadmControlPlane-specific.
+	apiServerPodHealthy := s.scope.Cluster.Spec.ControlPlaneRef == nil ||
 		s.scope.Cluster.Spec.ControlPlaneRef.Kind != "KubeadmControlPlane" ||
 		conditions.IsTrue(s.scope.Machine, controlplanev1.MachineAPIServerPodHealthyCondition)
 
