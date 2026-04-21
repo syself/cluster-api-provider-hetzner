@@ -823,9 +823,14 @@ func (s *Service) handleOperatingSystemRunning(ctx context.Context, server *hclo
 	}
 
 	// Order matters:
-	// 1. SetReady(true) first so CAPI propagates ProviderID to the Machine.
-	// 2. Return early if reconcileLoadBalancerAttachment requested a requeue,
-	//    so the False reason it set on ServerAvailable is not overwritten.
+	// 1. SetReady(true) first. This is what makes the Machine become ready and
+	//    lets the Node get linked to it. Otherwise we deadlock:
+	//    reconcileLoadBalancerAttachment only adds this control plane to the
+	//    load balancer once its apiserver pod is marked healthy, and that can
+	//    only happen after the Node is linked to the Machine, which in turn
+	//    requires this call to SetReady.
+	// 2. Return early on a non-zero res so the False reason set on
+	//    ServerAvailable inside reconcileLoadBalancerAttachment is not overwritten.
 	// 3. Mark ServerAvailable=True only on the happy path.
 	s.scope.SetReady(true)
 
