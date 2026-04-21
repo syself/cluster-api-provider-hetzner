@@ -194,6 +194,8 @@ const (
 	CloudInitNotInstalledReason = "CloudInitNotInstalled"
 	// ServerNotFoundReason indicates that a bare metal server could not be found.
 	ServerNotFoundReason = "ServerNotFound"
+	// ServerHasNoIPv4Reason indicates that a bare metal server has no IPv4 address assigned.
+	ServerHasNoIPv4Reason = "ServerHasNoIPv4"
 	// LinuxOnOtherDiskFoundReason indicates that the server can't be provisioned on the given WWN, since the reboot would fail.
 	LinuxOnOtherDiskFoundReason = "LinuxOnOtherDiskFound"
 	// WipeDiskFailedReason indicates that erasing the disks before provisioning failed.

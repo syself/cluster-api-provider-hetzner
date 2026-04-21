@@ -915,6 +915,37 @@ var _ = Describe("actionPreparing", func() {
 		Expect(robotMock.AssertCalled(GinkgoT(), "DeleteBootRescue", mock.Anything)).To(BeTrue())
 		Expect(robotMock.AssertCalled(GinkgoT(), "SetBootRescue", mock.Anything, sshFingerprint)).To(BeTrue())
 	})
+
+	It("sets a permanent error when the server has no IPv4", func() {
+		host := helpers.BareMetalHost(
+			"test-host",
+			"default",
+			helpers.WithSSHSpecInclPorts(22),
+		)
+
+		robotMock := robotmock.Client{}
+		robotMock.On("GetBMServer", mock.Anything).Return(&models.Server{
+			ServerNumber:  1,
+			ServerIP:      "",
+			ServerIPv6Net: "2a01:4f9:3051:12ce::",
+		}, nil)
+
+		service := newTestService(
+			host,
+			&robotMock,
+			nil,
+			helpers.GetDefaultSSHSecret(osSSHKeyName, "default"),
+			helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"),
+		)
+
+		actResult := service.actionPreparing(context.Background())
+
+		Expect(actResult).To(BeAssignableToTypeOf(actionStop{}))
+		Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.PermanentError))
+		Expect(host.Spec.Status.ErrorMessage).To(ContainSubstring("no IPv4"))
+		Expect(host.Spec.Status.IPv4).To(BeEmpty())
+		Expect(host.Annotations).To(HaveKey(infrav1.PermanentErrorAnnotation))
+	})
 })
 
 var _ = Describe("analyzeSSHOutputInstallImage", func() {
