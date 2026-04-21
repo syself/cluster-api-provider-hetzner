@@ -333,6 +333,13 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				osSSHSecret = helpers.GetDefaultSSHSecret("os-ssh-secret", testNs.Name)
 				Expect(testEnv.Create(ctx, osSSHSecret)).To(Succeed())
 
+				capiMachine.Status.NodeRef = &corev1.ObjectReference{
+					Kind:       "Node",
+					Name:       hostName,
+					APIVersion: "v1",
+				}
+				Expect(testEnv.Status().Update(ctx, capiMachine)).To(Succeed())
+
 				key = client.ObjectKey{Namespace: testNs.Name, Name: machineName}
 			})
 
@@ -448,9 +455,16 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 				Expect(host.Spec.Status.ProvisioningState).To(Equal(infrav1.StateProvisioned))
 
 				By("Setting State to 'ensure-provisioned'")
-				host.Spec.Status.ProvisioningState = infrav1.StateEnsureProvisioned
-				err = testEnv.Update(ctx, host)
-				Expect(err).To(BeNil())
+
+				Eventually(func() error {
+					if err := testEnv.Get(ctx, hostKey, host); err != nil {
+						return err
+					}
+
+					host.Spec.Status.ProvisioningState = infrav1.StateEnsureProvisioned
+
+					return testEnv.Update(ctx, host)
+				}, timeout, time.Second).Should(Succeed())
 
 				Eventually(func() error {
 					err := testEnv.Get(ctx, hostKey, host)
