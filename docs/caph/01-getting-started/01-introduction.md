@@ -33,13 +33,13 @@ This provider's versions are compatible with the following versions of Cluster A
 
 This provider's versions can install and manage the following versions of Kubernetes:
 
-|                   | Hetzner Provider `v1.0.x` | Hetzner Provider `v1.1.x`  | Hetzner Provider `v1.2.x` |
-| ----------------- | ------------------------- | -------------------------- | ------------------------- |
-| Kubernetes 1.31.x | ✅                        | ❌                         | ❌                        |
-| Kubernetes 1.32.x | ✅                        | ✅                         | ✅                        |
-| Kubernetes 1.33.x | ✅                        | ✅                         | ✅                        |
-| Kubernetes 1.34.x | ❔                        | ✅ (needs CAPI >= v1.11.1) | ✅                        |
-| Kubernetes 1.35.x | ❔                        | ✅ (needs CAPI >= v1.12.1) | ✅                        |
+|                   | Hetzner Provider `v1.0.x` | Hetzner Provider `v1.1.x`  |
+| ----------------- | ------------------------- | -------------------------- |
+| Kubernetes 1.31.x | ✅                        | ❌                         |
+| Kubernetes 1.32.x | ✅                        | ✅                         |
+| Kubernetes 1.33.x | ✅                        | ✅                         |
+| Kubernetes 1.34.x | ❔                        | ✅ (needs CAPI >= v1.11.1) |
+| Kubernetes 1.35.x | ❔                        | ✅ (needs CAPI >= v1.12.1) |
 
 Test status:
 
