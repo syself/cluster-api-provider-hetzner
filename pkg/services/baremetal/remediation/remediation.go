@@ -225,6 +225,9 @@ func (s *Service) setOwnerRemediatedConditionToFailed(ctx context.Context, msg s
 	// When machine is still unhealthy after remediation, setting of OwnerRemediatedCondition
 	// moves control to CAPI machine controller. The owning controller will do
 	// preflight checks and handles the Machine deletion.
+	// capiMachine is a CAPI core v1beta2 Machine, so its legacy conditions
+	// live at Status.Deprecated.V1Beta1.Conditions — use deprecatedv1beta1conditions,
+	// not v1beta1conditions. See .golangci.yaml for the full mapping.
 	deprecatedv1beta1conditions.MarkFalse(
 		capiMachine,
 		clusterv1.MachineOwnerRemediatedV1Beta1Condition,

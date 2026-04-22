@@ -202,6 +202,9 @@ func (s *Service) setOwnerRemediatedConditionToFailed(ctx context.Context, msg s
 	}
 
 	// Move control to CAPI machine controller. CAPI will delete the machine.
+	// s.scope.Machine is a CAPI core v1beta2 Machine, so its legacy conditions
+	// live at Status.Deprecated.V1Beta1.Conditions — use deprecatedv1beta1conditions,
+	// not v1beta1conditions. See .golangci.yaml for the full mapping.
 	deprecatedv1beta1conditions.MarkFalse(
 		s.scope.Machine,
 		clusterv1.MachineOwnerRemediatedV1Beta1Condition,

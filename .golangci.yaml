@@ -117,6 +117,18 @@ linters:
         # Legacy-shadow conditions helper for v1beta2 CAPI core objects.
         # Different package path than v1beta1conditions above — aliasing
         # both distinctly avoids accidental swaps.
+        #
+        # Both helpers do the same thing (mark/read conditions) but look at
+        # different fields on the object:
+        #
+        # | Object                         | Old-style conditions field           | Helper                      |
+        # |--------------------------------|--------------------------------------|-----------------------------|
+        # | Our CRDs (HCloudMachine, etc.) | Status.Conditions                    | v1beta1conditions           |
+        # | CAPI core Machine/Cluster      | Status.Deprecated.V1Beta1.Conditions | deprecatedv1beta1conditions |
+        #
+        # CAPI moved its legacy conditions into a nested shadow to free up
+        # Status.Conditions for the new []metav1.Condition shape. Our CRDs
+        # haven't migrated yet, so they still use the top-level field.
         - pkg: sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1
           alias: deprecatedv1beta1conditions
         - pkg: sigs.k8s.io/cluster-api/util/conditions
