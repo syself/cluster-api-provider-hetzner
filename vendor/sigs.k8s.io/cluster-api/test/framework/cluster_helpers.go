@@ -22,20 +22,22 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	clusterctlclient "sigs.k8s.io/cluster-api/cmd/clusterctl/client"
 	cmdtree "sigs.k8s.io/cluster-api/internal/util/tree"
 	. "sigs.k8s.io/cluster-api/test/framework/ginkgoextensions"
 	"sigs.k8s.io/cluster-api/test/framework/internal/log"
-	v1beta2conditions "sigs.k8s.io/cluster-api/util/conditions/v1beta2"
+	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 )
 
@@ -208,7 +210,7 @@ func dumpArtifactsOnDeletionTimeout(ctx context.Context, clusterProxy ClusterPro
 
 	// Try to get more details about why Cluster deletion timed out.
 	if err := clusterProxy.GetClient().Get(ctx, client.ObjectKeyFromObject(cluster), cluster); err == nil {
-		if c := v1beta2conditions.Get(cluster, clusterv1.MachineDeletingV1Beta2Condition); c != nil {
+		if c := conditions.Get(cluster, clusterv1.MachineDeletingCondition); c != nil {
 			return fmt.Sprintf("waiting for cluster deletion timed out:\ncondition: %s\nmessage: %s", c.Type, c.Message)
 		}
 	}
@@ -368,7 +370,6 @@ func DescribeCluster(ctx context.Context, input DescribeClusterInput) {
 		AddTemplateVirtualNode:  true,
 		Echo:                    true,
 		Grouping:                false,
-		V1Beta2:                 true,
 	})
 	Expect(err).ToNot(HaveOccurred(), "Failed to run clusterctl describe")
 
@@ -380,9 +381,9 @@ func DescribeCluster(ctx context.Context, input DescribeClusterInput) {
 	defer f.Close()
 
 	w := bufio.NewWriter(f)
-	cmdtree.PrintObjectTreeV1Beta2(tree, w)
+	cmdtree.PrintObjectTree(tree, w)
 	if CurrentSpecReport().Failed() {
-		cmdtree.PrintObjectTreeV1Beta2(tree, GinkgoWriter)
+		cmdtree.PrintObjectTree(tree, GinkgoWriter)
 	}
 	Expect(w.Flush()).To(Succeed(), "Failed to save clusterctl describe output")
 }
@@ -403,6 +404,19 @@ func DescribeAllCluster(ctx context.Context, input DescribeAllClusterInput) {
 	Expect(input.LogFolder).ToNot(BeEmpty(), "Invalid argument. input.LogFolder can't be empty when calling DescribeAllCluster")
 	Expect(input.Namespace).ToNot(BeNil(), "Invalid argument. input.Namespace can't be nil when calling DescribeAllCluster")
 
+	types := getClusterAPITypes(ctx, input.Lister)
+	clusterAPIVersion := ""
+	for t := range types {
+		if t.Kind == "Cluster" {
+			clusterAPIVersion = t.APIVersion
+			break
+		}
+	}
+	if clusterAPIVersion != clusterv1.GroupVersion.String() {
+		log.Logf("Skipping DescribeCluster because detected Cluster CR in APIVersion %q but require %q", clusterAPIVersion, clusterv1.GroupVersion.String())
+		return
+	}
+
 	clusters := &clusterv1.ClusterList{}
 	Eventually(func() error {
 		return input.Lister.List(ctx, clusters, client.InNamespace(input.Namespace))
@@ -417,4 +431,68 @@ func DescribeAllCluster(ctx context.Context, input DescribeAllClusterInput) {
 			Name:                 c.Name,
 		})
 	}
+}
+
+type VerifyClusterAvailableInput struct {
+	Getter    Getter
+	Name      string
+	Namespace string
+}
+
+// VerifyClusterAvailable verifies that the Cluster's Available condition is set to true.
+func VerifyClusterAvailable(ctx context.Context, input VerifyClusterAvailableInput) {
+	cluster := &clusterv1.Cluster{}
+	key := client.ObjectKey{
+		Name:      input.Name,
+		Namespace: input.Namespace,
+	}
+
+	// Wait for the cluster Available condition to stabilize.
+	Eventually(func(g Gomega) {
+		g.Expect(input.Getter.Get(ctx, key, cluster)).To(Succeed())
+		availableConditionFound := false
+		for _, condition := range cluster.Status.Conditions {
+			if condition.Type == clusterv1.AvailableCondition {
+				availableConditionFound = true
+				g.Expect(condition.Status).To(Equal(metav1.ConditionTrue), "The Available condition on the Cluster should be set to true; message: %s", condition.Message)
+				g.Expect(condition.Message).To(BeEmpty(), "The Available condition on the Cluster should have an empty message")
+				break
+			}
+		}
+		g.Expect(availableConditionFound).To(BeTrue(), "Cluster %q should have an Available condition", input.Name)
+	}, 5*time.Minute, 10*time.Second).Should(Succeed(), "Failed to verify Cluster Available condition for %s", klog.KRef(input.Namespace, input.Name))
+}
+
+type VerifyMachinesReadyInput struct {
+	Lister    Lister
+	Name      string
+	Namespace string
+}
+
+// VerifyMachinesReady verifies that all Machines' Ready condition is set to true.
+func VerifyMachinesReady(ctx context.Context, input VerifyMachinesReadyInput) {
+	machineList := &clusterv1.MachineList{}
+
+	// Wait for all machines to have Ready condition set to true.
+	Eventually(func(g Gomega) {
+		g.Expect(input.Lister.List(ctx, machineList, client.InNamespace(input.Namespace),
+			client.MatchingLabels{
+				clusterv1.ClusterNameLabel: input.Name,
+			})).To(Succeed())
+
+		g.Expect(machineList.Items).ToNot(BeEmpty(), "No machines found for cluster %s", input.Name)
+
+		for _, machine := range machineList.Items {
+			readyConditionFound := false
+			for _, condition := range machine.Status.Conditions {
+				if condition.Type == clusterv1.ReadyCondition {
+					readyConditionFound = true
+					g.Expect(condition.Status).To(Equal(metav1.ConditionTrue), "The Ready condition on Machine %q should be set to true; message: %s", machine.Name, condition.Message)
+					g.Expect(condition.Message).To(BeEmpty(), "The Ready condition on Machine %q should have an empty message", machine.Name)
+					break
+				}
+			}
+			g.Expect(readyConditionFound).To(BeTrue(), "Machine %q should have a Ready condition", machine.Name)
+		}
+	}, 5*time.Minute, 10*time.Second).Should(Succeed(), "Failed to verify Machines Ready condition for Cluster %s", klog.KRef(input.Namespace, input.Name))
 }

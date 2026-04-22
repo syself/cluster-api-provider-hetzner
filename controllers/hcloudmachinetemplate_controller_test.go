@@ -70,6 +70,13 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 								Kind:       "KubeadmControlPlaneTemplate",
 								Name:       "quick-start-control-plane",
 							},
+							MachineInfrastructure: clusterv1.ControlPlaneClassMachineInfrastructureTemplate{
+								TemplateRef: clusterv1.ClusterClassTemplateReference{
+									APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
+									Kind:       "HCloudMachineTemplate",
+									Name:       "hcloud-machine-template",
+								},
+							},
 						},
 						Infrastructure: clusterv1.InfrastructureClass{
 							TemplateRef: clusterv1.ClusterClassTemplateReference{

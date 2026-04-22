@@ -44,7 +44,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util/cache"
 	"sigs.k8s.io/cluster-api/util/contract"
 	"sigs.k8s.io/cluster-api/util/predicates"
@@ -126,7 +126,7 @@ func (r *CRDMigrator) SetupWithManager(ctx context.Context, mgr ctrl.Manager, co
 			// This controller uses a PartialObjectMetadata watch/informer to avoid an informer for CRDs
 			// to reduce memory usage.
 			// Core CAPI also already has an informer on PartialObjectMetadata for CRDs because it uses
-			// conversion.UpdateReferenceAPIContract.
+			// contract.UpdateReferenceAPIContract.
 			builder.OnlyMetadata,
 			builder.WithPredicates(
 				// We filter out all re-sync events. CRDMigrator only has to reconcile a CRD
@@ -563,5 +563,5 @@ type objectEntry struct {
 }
 
 func (r objectEntry) Key() string {
-	return fmt.Sprintf("%s %s %d", r.Kind, r.ObjectKey.String(), r.CRDGeneration)
+	return fmt.Sprintf("%s %s %d", r.Kind, r.String(), r.CRDGeneration)
 }
