@@ -1300,9 +1300,9 @@ func (s *Service) actionImageInstallingImageURLCommand(ctx context.Context, sshC
 		if err != nil {
 			err = fmt.Errorf("imageURLCommand %q is invalid or not accessible by the controller pod: %w", command, err)
 			s.scope.Error(err, "")
-			conditions.MarkFalse(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition,
+			v1beta1conditions.MarkFalse(s.scope.HetznerBareMetalHost, infrav1.ProvisionSucceededCondition,
 				"ImageURLCommandNotAccessible",
-				clusterv1.ConditionSeverityWarning,
+				clusterv1beta1.ConditionSeverityWarning,
 				"%s", err.Error())
 			return actionStop{}
 		}

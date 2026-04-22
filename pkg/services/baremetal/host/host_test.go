@@ -209,7 +209,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		res := svc.actionImageInstalling(ctx)
 		Expect(res).To(BeAssignableToTypeOf(actionContinue{}))
 		Expect(sshMock.AssertCalled(GinkgoT(), "StartImageURLCommand", mock.Anything, commandPath, host.Spec.Status.InstallImage.Image.URL, mock.Anything, svc.scope.Hostname(), []string{"nvme1n1"})).To(BeTrue())
-		c := conditions.Get(host, infrav1.ProvisionSucceededCondition)
+		c := v1beta1conditions.Get(host, infrav1.ProvisionSucceededCondition)
 		Expect(c.Message).To(ContainSubstring(`imageURLCommand started`))
 	})
 
