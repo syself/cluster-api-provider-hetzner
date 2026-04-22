@@ -32,7 +32,8 @@ import (
 	"k8s.io/utils/ptr"
 	controlplanev1 "sigs.k8s.io/cluster-api/api/controlplane/kubeadm/v1beta2"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
-	conditions "sigs.k8s.io/cluster-api/util/conditions"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -144,7 +145,7 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 				*s.scope.HCloudMachine.Spec.ProviderID)
 
 			s.scope.Error(errors.New(msg), msg,
-				"ProviderID", s.scope.HCloudMachine.Spec.ProviderID,
+				"ProviderID", *s.scope.HCloudMachine.Spec.ProviderID,
 				"BootState", s.scope.HCloudMachine.Status.BootState,
 				"BootStateSince", s.scope.HCloudMachine.Status.BootStateSince,
 			)
@@ -960,7 +961,7 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 	}
 
 	// remove server from load balancer if it's being deleted
-	if conditions.Has(s.scope.Machine, string(clusterv1beta1.PreDrainDeleteHookSucceededCondition)) {
+	if deprecatedv1beta1conditions.Has(s.scope.Machine, clusterv1.PreDrainDeleteHookSucceededV1Beta1Condition) {
 		if err := s.deleteServerOfLoadBalancer(ctx, server); err != nil {
 			return reconcile.Result{}, fmt.Errorf("failed to delete server %s with ID %d from loadbalancer: %w", server.Name, server.ID, err)
 		}
@@ -992,7 +993,7 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, server *h
 
 	apiServerPodHealthy := !s.scope.Cluster.Spec.ControlPlaneRef.IsDefined() ||
 		s.scope.Cluster.Spec.ControlPlaneRef.Kind != "KubeadmControlPlane" ||
-		conditions.IsTrue(s.scope.Machine, controlplanev1.KubeadmControlPlaneMachineAPIServerPodHealthyCondition)
+		deprecatedv1beta1conditions.IsTrue(s.scope.Machine, controlplanev1.MachineAPIServerPodHealthyV1Beta1Condition)
 
 	// we attach only nodes with kube-apiserver pod healthy to avoid downtime, skipped for the first node
 	if len(s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target) > 0 && !apiServerPodHealthy {

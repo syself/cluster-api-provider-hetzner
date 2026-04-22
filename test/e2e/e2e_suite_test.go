@@ -44,6 +44,7 @@ import (
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/cluster-api/test/framework/bootstrap"
@@ -854,13 +855,13 @@ func logHCloudMachineStatus(ctx context.Context, c client.Client) error {
 		}
 
 		id := ""
-		if *hm.Spec.ProviderID != "" {
+		if hm.Spec.ProviderID != nil {
 			id = *hm.Spec.ProviderID
 		}
 		log("HCloudMachine: " + hm.Name + " " + id + " " + strings.Join(addresses, " "))
 		log("  ProvisioningState: " + string(*hm.Status.InstanceState))
 
-		readyC := v1beta1conditions.Get(hm, clusterv1.ReadyCondition)
+		readyC := v1beta1conditions.Get(hm, clusterv1beta1.ReadyCondition)
 		msg := ""
 		reason := ""
 		state := "?"
@@ -946,7 +947,7 @@ func logBareMetalHostStatus(ctx context.Context, c client.Client) error {
 			}
 		}
 
-		readyC := v1beta1conditions.Get(hbmh, clusterv1.ReadyCondition)
+		readyC := v1beta1conditions.Get(hbmh, clusterv1beta1.ReadyCondition)
 		msg := ""
 		reason := ""
 		state := "?"

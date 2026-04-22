@@ -409,7 +409,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 				By("checking that the bare metal machine is ready")
 				Eventually(func() bool {
-					return isPresentAndTrue(key, bmMachine, clusterv1.ReadyCondition)
+					return isPresentAndTrue(key, bmMachine, clusterv1beta1.ReadyCondition)
 				}, timeout).Should(BeTrue())
 			})
 
@@ -708,7 +708,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					if err != nil {
 						return err
 					}
-					c := v1beta1conditions.Get(host, clusterv1.ReadyCondition)
+					c := v1beta1conditions.Get(host, clusterv1beta1.ReadyCondition)
 					if c == nil {
 						return fmt.Errorf("ReadyCondition not set on host")
 					}

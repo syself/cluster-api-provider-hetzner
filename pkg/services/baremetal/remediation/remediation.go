@@ -225,10 +225,6 @@ func (s *Service) setOwnerRemediatedConditionToFailed(ctx context.Context, msg s
 	// When machine is still unhealthy after remediation, setting of OwnerRemediatedCondition
 	// moves control to CAPI machine controller. The owning controller will do
 	// preflight checks and handles the Machine deletion.
-	//
-	// Write the legacy-shape condition into status.deprecated.v1beta1.conditions
-	// so the v1beta1 compat layer in MachineHealthCheck sees it. Mirrors the
-	// cluster-api-provider-metal3 approach in metal3remediation_manager.go.
 	deprecatedv1beta1conditions.MarkFalse(
 		capiMachine,
 		clusterv1.MachineOwnerRemediatedV1Beta1Condition,

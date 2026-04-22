@@ -29,6 +29,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
@@ -200,8 +201,8 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 			}
 		}
 
-		readyReason := v1beta1conditions.GetReason(machineScope.HCloudMachine, clusterv1.ReadyCondition)
-		readyMessage := v1beta1conditions.GetMessage(machineScope.HCloudMachine, clusterv1.ReadyCondition)
+		readyReason := v1beta1conditions.GetReason(machineScope.HCloudMachine, clusterv1beta1.ReadyCondition)
+		readyMessage := v1beta1conditions.GetMessage(machineScope.HCloudMachine, clusterv1beta1.ReadyCondition)
 
 		duration := time.Since(startReconcile)
 

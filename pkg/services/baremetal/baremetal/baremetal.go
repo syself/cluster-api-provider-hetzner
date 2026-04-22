@@ -240,7 +240,7 @@ func (s *Service) update(ctx context.Context) (*infrav1.HetznerBareMetalHost, er
 		return nil, fmt.Errorf("host not found for machine %s: %w", s.scope.Machine.Name, err)
 	}
 
-	readyCondition := v1beta1conditions.Get(host, clusterv1.ReadyCondition)
+	readyCondition := v1beta1conditions.Get(host, clusterv1beta1.ReadyCondition)
 	if readyCondition != nil {
 		switch readyCondition.Status {
 		case corev1.ConditionTrue:

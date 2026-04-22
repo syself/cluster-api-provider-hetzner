@@ -55,39 +55,27 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 
 	Context("Basic hcloudmachinetemplate test", func() {
 		Context("ClusterClass test", func() {
-			var capiClusterClass *clusterv1beta1.ClusterClass
+			var capiClusterClass *clusterv1.ClusterClass
 
 			BeforeEach(func() {
-				capiClusterClass = &clusterv1beta1.ClusterClass{
+				capiClusterClass = &clusterv1.ClusterClass{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-cluster-class",
 						Namespace: testNs.Name,
 					},
-					Spec: clusterv1beta1.ClusterClassSpec{
-						ControlPlane: clusterv1beta1.ControlPlaneClass{
-							MachineInfrastructure: &clusterv1beta1.LocalObjectTemplate{
-								Ref: &corev1.ObjectReference{
-									APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
-									Kind:       "HCloudMachineTemplate",
-									Name:       "hcloud-machine-template",
-									Namespace:  testNs.Name,
-								},
-							},
-							LocalObjectTemplate: clusterv1beta1.LocalObjectTemplate{
-								Ref: &corev1.ObjectReference{
-									APIVersion: "controlplane.cluster.x-k8s.io/v1beta1",
-									Kind:       "KubeadmControlPlaneTemplate",
-									Name:       "quick-start-control-plane",
-									Namespace:  testNs.Name,
-								},
+					Spec: clusterv1.ClusterClassSpec{
+						ControlPlane: clusterv1.ControlPlaneClass{
+							TemplateRef: clusterv1.ClusterClassTemplateReference{
+								APIVersion: "controlplane.cluster.x-k8s.io/v1beta2",
+								Kind:       "KubeadmControlPlaneTemplate",
+								Name:       "quick-start-control-plane",
 							},
 						},
-						Infrastructure: clusterv1beta1.LocalObjectTemplate{
-							Ref: &corev1.ObjectReference{
+						Infrastructure: clusterv1.InfrastructureClass{
+							TemplateRef: clusterv1.ClusterClassTemplateReference{
 								APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
 								Kind:       "HetznerClusterTemplate",
 								Name:       "hcloud-cluster-template",
-								Namespace:  testNs.Name,
 							},
 						},
 					},
@@ -100,7 +88,7 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 						Namespace: testNs.Name,
 						OwnerReferences: []metav1.OwnerReference{
 							{
-								APIVersion: "cluster.x-k8s.io/v1beta1",
+								APIVersion: "cluster.x-k8s.io/v1beta2",
 								Kind:       "ClusterClass",
 								Name:       capiClusterClass.Name,
 								UID:        capiClusterClass.UID,

@@ -202,9 +202,6 @@ func (s *Service) setOwnerRemediatedConditionToFailed(ctx context.Context, msg s
 	}
 
 	// Move control to CAPI machine controller. CAPI will delete the machine.
-	// Write the legacy-shape condition into status.deprecated.v1beta1.conditions
-	// so the v1beta1 compat layer in MachineHealthCheck sees it. Mirrors what
-	// cluster-api-provider-metal3 does in baremetal/metal3remediation_manager.go.
 	deprecatedv1beta1conditions.MarkFalse(
 		s.scope.Machine,
 		clusterv1.MachineOwnerRemediatedV1Beta1Condition,
