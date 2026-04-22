@@ -48,7 +48,6 @@ type BareMetalHostScopeParams struct {
 	RescueSSHSecret         *corev1.Secret
 	SecretManager           *secretutil.SecretManager
 	PreProvisionCommand     string
-	ImageURLCommand         string
 
 	// WorkloadClusterClientFactory overrides the default real factory. Intended for tests only.
 	WorkloadClusterClientFactory WorkloadClusterClientFactory
@@ -108,7 +107,6 @@ func NewBareMetalHostScope(params BareMetalHostScopeParams) (*BareMetalHostScope
 				hetznerCluster: params.HetznerCluster,
 			}
 		}(),
-		ImageURLCommand: params.ImageURLCommand,
 	}, nil
 }
 
@@ -127,7 +125,6 @@ type BareMetalHostScope struct {
 	RescueSSHSecret              *corev1.Secret
 	PreProvisionCommand          string
 	WorkloadClusterClientFactory WorkloadClusterClientFactory
-	ImageURLCommand              string
 }
 
 // Name returns the HetznerCluster name.

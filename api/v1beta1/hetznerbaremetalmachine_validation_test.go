@@ -64,6 +64,20 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 			want: nil,
 		},
 		{
+			name: "Valid Image URL Command",
+			args: args{
+				spec: HetznerBareMetalMachineSpec{
+					InstallImage: InstallImage{
+						ImageURLCommand: "image-url-command-bm-test.sh",
+						Image: Image{
+							URL: "oci://ghcr.io/example/ubuntu:v1",
+						},
+					},
+				},
+			},
+			want: nil,
+		},
+		{
 			name: "Invalid Image",
 			args: args{
 				spec: HetznerBareMetalMachineSpec{
@@ -87,6 +101,75 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 				},
 			},
 			want: field.Invalid(field.NewPath("spec", "installImage", "image", "url"), "https://example.com/ubuntu-24.04.invalid", "unknown image type in URL"),
+		},
+		{
+			name: "Invalid Image URL Command Without URL",
+			args: args{
+				spec: HetznerBareMetalMachineSpec{
+					InstallImage: InstallImage{
+						ImageURLCommand: "image-url-command-bm-test.sh",
+						Image:           Image{},
+					},
+				},
+			},
+			want: field.Invalid(field.NewPath("spec", "installImage", "image", "url"), "", "url is required when imageURLCommand is set"),
+		},
+		{
+			name: "Invalid Image URL Command With Image Name",
+			args: args{
+				spec: HetznerBareMetalMachineSpec{
+					InstallImage: InstallImage{
+						ImageURLCommand: "image-url-command-bm-test.sh",
+						Image: Image{
+							Name: "ubuntu-24.04",
+							URL:  "oci://ghcr.io/example/ubuntu:v1",
+						},
+					},
+				},
+			},
+			want: field.Invalid(field.NewPath("spec", "installImage", "image", "name"), "ubuntu-24.04", "name must be empty when imageURLCommand is set"),
+		},
+		{
+			name: "Invalid Image URL Command With Slash",
+			args: args{
+				spec: HetznerBareMetalMachineSpec{
+					InstallImage: InstallImage{
+						ImageURLCommand: "/shared/image-url-command-bm-test.sh",
+						Image: Image{
+							URL: "oci://ghcr.io/example/ubuntu:v1",
+						},
+					},
+				},
+			},
+			want: field.Invalid(field.NewPath("spec", "installImage", "imageURLCommand"), "/shared/image-url-command-bm-test.sh", "must be a basename without slashes"),
+		},
+		{
+			name: "Invalid Image URL Command Without Prefix",
+			args: args{
+				spec: HetznerBareMetalMachineSpec{
+					InstallImage: InstallImage{
+						ImageURLCommand: "my-command.sh",
+						Image: Image{
+							URL: "oci://ghcr.io/example/ubuntu:v1",
+						},
+					},
+				},
+			},
+			want: field.Invalid(field.NewPath("spec", "installImage", "imageURLCommand"), "my-command.sh", "must match the regex ^image-url-command-[a-z0-9][a-z0-9._-]*$"),
+		},
+		{
+			name: "Invalid Image URL Command With Dot Dot",
+			args: args{
+				spec: HetznerBareMetalMachineSpec{
+					InstallImage: InstallImage{
+						ImageURLCommand: "image-url-command-bm..test.sh",
+						Image: Image{
+							URL: "oci://ghcr.io/example/ubuntu:v1",
+						},
+					},
+				},
+			},
+			want: field.Invalid(field.NewPath("spec", "installImage", "imageURLCommand"), "image-url-command-bm..test.sh", "must not contain '..'"),
 		},
 		{
 			name: "Valid HostSelector MatchLabels",
@@ -201,16 +284,12 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := validateHetznerBareMetalMachineSpecCreate(tt.args.spec)
 
-			if len(got) == 0 {
+			if tt.want == nil {
 				assert.Empty(t, got)
+				return
 			}
 
-			if len(got) > 1 {
-				t.Errorf("got length: %d greater than 1", len(got))
-			}
-
-			// assert if length of got is 1
-			if len(got) == 1 {
+			if assert.Len(t, got, 1) {
 				assert.Equal(t, tt.want.Type, got[0].Type)
 				assert.Equal(t, tt.want.Field, got[0].Field)
 				assert.Equal(t, tt.want.Detail, got[0].Detail)

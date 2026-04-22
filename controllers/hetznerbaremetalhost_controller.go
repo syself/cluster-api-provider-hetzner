@@ -62,7 +62,6 @@ type HetznerBareMetalHostReconciler struct {
 	SSHClientFactory    sshclient.Factory
 	WatchFilterValue    string
 	PreProvisionCommand string
-	ImageURLCommand     string
 
 	// Reconcile only this namespace. Only needed for testing
 	Namespace string
@@ -297,7 +296,6 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 		RescueSSHSecret:              rescueSSHSecret,
 		SecretManager:                secretManager,
 		PreProvisionCommand:          r.PreProvisionCommand,
-		ImageURLCommand:              r.ImageURLCommand,
 		WorkloadClusterClientFactory: r.WorkloadClusterClientFactory,
 	})
 	if err != nil {

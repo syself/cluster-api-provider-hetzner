@@ -19,6 +19,8 @@ package host
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -104,6 +106,15 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 	ctx := context.Background()
 
 	newBaseHost := func() *infrav1.HetznerBareMetalHost {
+		commandDir := GinkgoT().TempDir()
+		commandPath := filepath.Join(commandDir, "image-url-command-test.sh")
+		Expect(os.WriteFile(commandPath, []byte("#!/usr/bin/env bash\n"), 0o600)).To(Succeed())
+		oldCommandDir := baremetalImageURLCommandDir
+		baremetalImageURLCommandDir = commandDir
+		DeferCleanup(func() {
+			baremetalImageURLCommandDir = oldCommandDir
+		})
+
 		host := helpers.BareMetalHost(
 			"test-host",
 			"default",
@@ -113,9 +124,9 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		)
 		// Set install image with custom image-url-command mode
 		host.Spec.Status.InstallImage = &infrav1.InstallImage{
+			ImageURLCommand: filepath.Base(commandPath),
 			Image: infrav1.Image{
-				URL:                      "https://example.com/foo/image",
-				UseCustomImageURLCommand: true,
+				URL: "https://example.com/foo/image",
 			},
 		}
 		return host
@@ -184,7 +195,8 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		sshMock.On("StateOfImageURLCommand").Return(sshclient.ImageURLCommandStateNotStarted, "", nil)
 
 		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
-		sshMock.On("StartImageURLCommand", mock.Anything, "image-url-command", host.Spec.Status.InstallImage.Image.URL, mock.Anything, svc.scope.Hostname(), []string{"nvme1n1"}).Return(0, "", nil)
+		commandPath := filepath.Join(baremetalImageURLCommandDir, host.Spec.Status.InstallImage.ImageURLCommand)
+		sshMock.On("StartImageURLCommand", mock.Anything, commandPath, host.Spec.Status.InstallImage.Image.URL, mock.Anything, svc.scope.Hostname(), []string{"nvme1n1"}).Return(0, "", nil)
 		// Create bootstrap secret in fake client with key 'value'
 		secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: host.Spec.Status.UserData.Name, Namespace: host.Spec.Status.UserData.Namespace}, Data: map[string][]byte{"value": []byte("#cloud-config")}}
 		Expect(svc.scope.Client.Create(ctx, secret)).To(Succeed())
@@ -196,9 +208,9 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 
 		res := svc.actionImageInstalling(ctx)
 		Expect(res).To(BeAssignableToTypeOf(actionContinue{}))
-		Expect(sshMock.AssertCalled(GinkgoT(), "StartImageURLCommand", mock.Anything, "image-url-command", host.Spec.Status.InstallImage.Image.URL, mock.Anything, svc.scope.Hostname(), []string{"nvme1n1"})).To(BeTrue())
+		Expect(sshMock.AssertCalled(GinkgoT(), "StartImageURLCommand", mock.Anything, commandPath, host.Spec.Status.InstallImage.Image.URL, mock.Anything, svc.scope.Hostname(), []string{"nvme1n1"})).To(BeTrue())
 		c := conditions.Get(host, infrav1.ProvisionSucceededCondition)
-		Expect(c.Message).To(ContainSubstring(`baremetal-image-url-command started`))
+		Expect(c.Message).To(ContainSubstring(`imageURLCommand started`))
 	})
 
 	It("records failure when StartImageURLCommand returns non-zero exit", func() {
@@ -210,7 +222,8 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		sshMock.On("StateOfImageURLCommand").Return(sshclient.ImageURLCommandStateNotStarted, "", nil)
 
 		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
-		sshMock.On("StartImageURLCommand", mock.Anything, "image-url-command", host.Spec.Status.InstallImage.Image.URL, mock.Anything, svc.scope.Hostname(), []string{"nvme1n1"}).Return(7, "boom", nil)
+		commandPath := filepath.Join(baremetalImageURLCommandDir, host.Spec.Status.InstallImage.ImageURLCommand)
+		sshMock.On("StartImageURLCommand", mock.Anything, commandPath, host.Spec.Status.InstallImage.Image.URL, mock.Anything, svc.scope.Hostname(), []string{"nvme1n1"}).Return(7, "boom", nil)
 
 		secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: host.Spec.Status.UserData.Name, Namespace: host.Spec.Status.UserData.Namespace}, Data: map[string][]byte{"value": []byte("#cloud-config")}}
 		Expect(svc.scope.Client.Create(ctx, secret)).To(Succeed())

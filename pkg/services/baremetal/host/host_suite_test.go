@@ -164,7 +164,6 @@ func newTestService(
 			WorkloadClusterClientFactory: &fakeWorkloadClusterClientFactory{
 				client: c,
 			},
-			ImageURLCommand: "image-url-command",
 		},
 	}
 }

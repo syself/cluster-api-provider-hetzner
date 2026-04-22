@@ -91,7 +91,6 @@ var (
 	syncPeriod                         time.Duration
 	rateLimitWaitTime                  time.Duration
 	preProvisionCommand                string
-	baremetalImageURLCommand           string
 	skipWebhooks                       bool
 	skipCRDMigrationPhases             []string
 )
@@ -128,7 +127,6 @@ func main() {
 	fs.DurationVar(&rateLimitWaitTime, "rate-limit", 5*time.Minute, "The rate limiting for HCloud controller (e.g. 5m)")
 	fs.BoolVar(&hcloudclient.DebugAPICalls, "debug-hcloud-api-calls", false, "Debug all calls to the hcloud API.")
 	fs.StringVar(&preProvisionCommand, "pre-provision-command", "", "Command to run (in rescue-system) before installing the image on bare metal servers. You can use that to check if the machine is healthy before installing the image. If the exit value is non-zero, the machine is considered unhealthy. This command must be accessible by the controller pod. You can use an initContainer to copy the command to a shared emptyDir.")
-	fs.StringVar(&baremetalImageURLCommand, "baremetal-image-url-command", "", "Command to run (in rescue-system) to provision an baremetal machine. Docs: https://syself.com/docs/caph/developers/image-url-command")
 	fs.BoolVar(&skipWebhooks, "skip-webhooks", false, "Skip setting up of webhooks. Together with --leader-elect=false, you can use `go run main.go` to run CAPH in a cluster connected via KUBECONFIG. You should scale down the caph deployment to 0 before doing that. This is only for testing!")
 	fs.StringSliceVar(&skipCRDMigrationPhases, "skip-crd-migration-phases", []string{}, "List of CRD migration phases to skip. Valid values are: StorageVersionMigration, CleanupManagedFields.")
 
@@ -149,22 +147,6 @@ func main() {
 		_, err := os.Stat(preProvisionCommand)
 		if err != nil {
 			setupLog.Error(err, "pre-provision-command not found")
-			os.Exit(1)
-		}
-	}
-
-	// If baremetalImageURLCommand is set, check if the file exists and validate the basename.
-	if baremetalImageURLCommand != "" {
-		baseName := filepath.Base(baremetalImageURLCommand)
-		if !commandRegex.MatchString(baseName) {
-			msg := fmt.Sprintf("basename (%s) must match the regex %s", baseName, commandRegex.String())
-			setupLog.Error(errors.New(msg), "")
-			os.Exit(1)
-		}
-
-		_, err := os.Stat(baremetalImageURLCommand)
-		if err != nil {
-			setupLog.Error(err, "baremetal-image-url-command not found")
 			os.Exit(1)
 		}
 	}
@@ -264,7 +246,6 @@ func main() {
 		RateLimitWaitTime:   rateLimitWaitTime,
 		WatchFilterValue:    watchFilterValue,
 		PreProvisionCommand: preProvisionCommand,
-		ImageURLCommand:     baremetalImageURLCommand,
 	}).SetupWithManager(ctx, mgr, controller.Options{MaxConcurrentReconciles: hetznerBareMetalHostConcurrency}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HetznerBareMetalHost")
 		os.Exit(1)
