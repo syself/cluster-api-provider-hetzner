@@ -24,11 +24,11 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
-	"sigs.k8s.io/cluster-api/util/conditions"
-	"sigs.k8s.io/cluster-api/util/patch"
+	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
+	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -119,22 +119,22 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 	// Skip remediation for machines that failed to create with irrecoverable errors (e.g. invalid_input, resource_unavailable).
 	// These errors cannot be fixed by rebooting or replacing the machine.
 	// We return without error so the MHC does not keep retrying remediation.
-	if conditions.IsFalse(hcloudMachine, infrav1.ServerCreateSucceededCondition) &&
-		conditions.GetReason(hcloudMachine, infrav1.ServerCreateSucceededCondition) == infrav1.ServerCreateFailedIrrecoverableErrorReason {
-		irrecoverableMsg := conditions.GetMessage(hcloudMachine, infrav1.ServerCreateSucceededCondition)
+	if v1beta1conditions.IsFalse(hcloudMachine, infrav1.ServerCreateSucceededCondition) &&
+		v1beta1conditions.GetReason(hcloudMachine, infrav1.ServerCreateSucceededCondition) == infrav1.ServerCreateFailedIrrecoverableErrorReason {
+		irrecoverableMsg := v1beta1conditions.GetMessage(hcloudMachine, infrav1.ServerCreateSucceededCondition)
 		log.Info("Skipping remediation for machine with irrecoverable creation failure",
 			"reason", irrecoverableMsg,
 		)
 
-		patchHelper, err := patch.NewHelper(hcloudRemediation, r.Client)
+		patchHelper, err := v1beta1patch.NewHelper(hcloudRemediation, r.Client)
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("failed to create patch helper for HCloudRemediation: %w", err)
 		}
-		conditions.MarkFalse(
+		v1beta1conditions.MarkFalse(
 			hcloudRemediation,
 			infrav1.RemediationSkippedCondition,
 			infrav1.IrrecoverableServerCreateFailureReason,
-			clusterv1.ConditionSeverityWarning,
+			clusterv1beta1.ConditionSeverityWarning,
 			"Remediation skipped: HCloudMachine has an irrecoverable server creation error. Delete the Machine to trigger a new creation attempt. Error: %s",
 			irrecoverableMsg,
 		)
@@ -194,19 +194,19 @@ func (r *HCloudRemediationReconciler) Reconcile(ctx context.Context, req reconci
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %w", err)
 	}
 
-	conditions.MarkTrue(hcloudRemediation, infrav1.HCloudTokenAvailableCondition)
+	v1beta1conditions.MarkTrue(hcloudRemediation, infrav1.HCloudTokenAvailableCondition)
 
 	// Always close the scope when exiting this function so we can persist any HCloudRemediation changes.
 	defer func() {
 		if reterr != nil && errors.Is(reterr, hcloudclient.ErrUnauthorized) {
-			conditions.MarkFalse(hcloudRemediation, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason, clusterv1.ConditionSeverityError, "wrong hcloud token")
+			v1beta1conditions.MarkFalse(hcloudRemediation, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason, clusterv1beta1.ConditionSeverityError, "wrong hcloud token")
 		} else {
-			conditions.MarkTrue(hcloudRemediation, infrav1.HCloudTokenAvailableCondition)
+			v1beta1conditions.MarkTrue(hcloudRemediation, infrav1.HCloudTokenAvailableCondition)
 		}
 
 		// Always attempt to Patch the Remediation object and status after each reconciliation.
 		// Patch ObservedGeneration only if the reconciliation completed successfully
-		patchOpts := []patch.Option{patch.WithStatusObservedGeneration{}}
+		patchOpts := []v1beta1patch.Option{v1beta1patch.WithStatusObservedGeneration{}}
 
 		if err := remediationScope.Close(ctx, patchOpts...); err != nil {
 			res = reconcile.Result{}

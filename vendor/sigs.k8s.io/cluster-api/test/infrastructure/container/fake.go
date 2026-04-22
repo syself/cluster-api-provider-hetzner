@@ -19,6 +19,8 @@ package container
 import (
 	"context"
 	"io"
+
+	dockersystem "github.com/moby/moby/api/types/system"
 )
 
 var runContainerCallLog []RunContainerArgs
@@ -150,6 +152,10 @@ func (f *FakeRuntime) GetContainerIPs(_ context.Context, containerName string) (
 	return containerName + "IPv4", containerName + "IPv6", nil
 }
 
+func (f *FakeRuntime) GetContainerLogs(_ context.Context, _ string) (string, error) {
+	return "", nil
+}
+
 // ContainerDebugInfo gets the container metadata and logs from the runtime (docker inspect, docker logs).
 func (f *FakeRuntime) ContainerDebugInfo(_ context.Context, _ string, _ io.Writer) error {
 	return nil
@@ -169,4 +175,9 @@ func (f *FakeRuntime) RunContainerCalls() []RunContainerArgs {
 // ResetRunContainerCallLogs clears all existing records of calls to the RunContainer method.
 func (f *FakeRuntime) ResetRunContainerCallLogs() {
 	runContainerCallLog = []RunContainerArgs{}
+}
+
+// GetSystemInfo returns empty docker system info.
+func (f *FakeRuntime) GetSystemInfo(_ context.Context) (dockersystem.Info, error) {
+	return dockersystem.Info{}, nil
 }

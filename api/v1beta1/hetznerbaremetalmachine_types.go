@@ -24,7 +24,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/selection"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 )
 
 const (
@@ -331,7 +331,7 @@ type HetznerBareMetalMachineStatus struct {
 	// Addresses is a list of addresses assigned to the machine.
 	// This field is copied from the infrastructure provider reference.
 	// +optional
-	Addresses []clusterv1.MachineAddress `json:"addresses,omitempty"`
+	Addresses []clusterv1beta1.MachineAddress `json:"addresses,omitempty"`
 
 	// Ready is the state of the hetznerbaremetalmachine.
 	// +optional
@@ -340,11 +340,11 @@ type HetznerBareMetalMachineStatus struct {
 	// Phase represents the current phase of HetznerBareMetalMachineStatus actuation.
 	// E.g. Pending, Running, Terminating, Failed, etc.
 	// +optional
-	Phase clusterv1.MachinePhase `json:"phase,omitempty"`
+	Phase clusterv1beta1.MachinePhase `json:"phase,omitempty"`
 
 	// Conditions define the current service state of the HetznerBareMetalMachine.
 	// +optional
-	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
+	Conditions clusterv1beta1.Conditions `json:"conditions,omitempty"`
 }
 
 // HetznerBareMetalMachine is the Schema for the hetznerbaremetalmachines API.
@@ -371,12 +371,12 @@ type HetznerBareMetalMachine struct {
 }
 
 // GetConditions returns the observations of the operational state of the HetznerBareMetalMachine resource.
-func (hbmm *HetznerBareMetalMachine) GetConditions() clusterv1.Conditions {
+func (hbmm *HetznerBareMetalMachine) GetConditions() clusterv1beta1.Conditions {
 	return hbmm.Status.Conditions
 }
 
-// SetConditions sets the underlying service state of the HetznerBareMetalMachine to the predescribed clusterv1.Conditions.
-func (hbmm *HetznerBareMetalMachine) SetConditions(conditions clusterv1.Conditions) {
+// SetConditions sets the underlying service state of the HetznerBareMetalMachine to the predescribed clusterv1beta1.Conditions.
+func (hbmm *HetznerBareMetalMachine) SetConditions(conditions clusterv1beta1.Conditions) {
 	hbmm.Status.Conditions = conditions
 }
 

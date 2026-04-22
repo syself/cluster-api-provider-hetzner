@@ -24,8 +24,8 @@ import (
 
 	"github.com/go-logr/logr"
 	"k8s.io/klog/v2/textlogger"
-	"sigs.k8s.io/cluster-api/util/conditions"
-	"sigs.k8s.io/cluster-api/util/patch"
+	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
+	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -52,7 +52,7 @@ func NewHCloudMachineTemplateScope(params HCloudMachineTemplateScopeParams) (*HC
 		params.Logger = &logger
 	}
 
-	helper, err := patch.NewHelper(params.HCloudMachineTemplate, params.Client)
+	helper, err := v1beta1patch.NewHelper(params.HCloudMachineTemplate, params.Client)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init patch helper: %w", err)
 	}
@@ -70,7 +70,7 @@ func NewHCloudMachineTemplateScope(params HCloudMachineTemplateScopeParams) (*HC
 type HCloudMachineTemplateScope struct {
 	*logr.Logger
 	Client       client.Client
-	patchHelper  *patch.Helper
+	patchHelper  *v1beta1patch.Helper
 	HCloudClient hcloudclient.Client
 
 	HCloudMachineTemplate *infrav1.HCloudMachineTemplate
@@ -88,7 +88,7 @@ func (s *HCloudMachineTemplateScope) Namespace() string {
 
 // Close closes the current scope persisting the cluster configuration and status.
 func (s *HCloudMachineTemplateScope) Close(ctx context.Context) error {
-	conditions.SetSummary(s.HCloudMachineTemplate)
+	v1beta1conditions.SetSummary(s.HCloudMachineTemplate)
 	return s.patchHelper.Patch(ctx, s.HCloudMachineTemplate)
 }
 
