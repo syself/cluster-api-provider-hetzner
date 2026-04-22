@@ -194,6 +194,8 @@ const (
 	CloudInitNotInstalledReason = "CloudInitNotInstalled"
 	// ServerNotFoundReason indicates that a bare metal server could not be found.
 	ServerNotFoundReason = "ServerNotFound"
+	// ServerHasNoIPv4Reason indicates that a bare metal server has no IPv4 address assigned.
+	ServerHasNoIPv4Reason = "ServerHasNoIPv4"
 	// LinuxOnOtherDiskFoundReason indicates that the server can't be provisioned on the given WWN, since the reboot would fail.
 	LinuxOnOtherDiskFoundReason = "LinuxOnOtherDiskFound"
 	// WipeDiskFailedReason indicates that erasing the disks before provisioning failed.
@@ -263,4 +265,15 @@ const (
 	// IrrecoverableServerCreateFailureReason indicates remediation was skipped because
 	// the HCloudMachine failed to create with an irrecoverable error (e.g. invalid_input, resource_unavailable).
 	IrrecoverableServerCreateFailureReason = "IrrecoverableServerCreateFailure"
+)
+
+const (
+	// NodeBootIDRetrievedCondition reports whether the boot ID of the node was retrieved.
+	NodeBootIDRetrievedCondition clusterv1.ConditionType = "NodeBootIDRetrieved"
+	// GetWorkloadClusterClientFailedReason indicates failure in initializing the workload cluster client.
+	GetWorkloadClusterClientFailedReason = "GetWorkloadClusterClientFailed"
+	// GetNodeInWorkloadClusterFailedReason indicates failure in fetching the node object from the workload cluster.
+	GetNodeInWorkloadClusterFailedReason = "GetNodeInWorkloadClusterFailed"
+	// BootIDEmptyReason indicates that an empty boot ID is present on the node object.
+	BootIDEmptyReason = "BootIDEmpty"
 )

@@ -48,7 +48,9 @@ type BareMetalHostScopeParams struct {
 	RescueSSHSecret         *corev1.Secret
 	SecretManager           *secretutil.SecretManager
 	PreProvisionCommand     string
-	SSHAfterInstallImage    bool
+
+	// WorkloadClusterClientFactory overrides the default real factory. Intended for tests only.
+	WorkloadClusterClientFactory WorkloadClusterClientFactory
 }
 
 // NewBareMetalHostScope creates a new Scope from the supplied parameters.
@@ -94,13 +96,17 @@ func NewBareMetalHostScope(params BareMetalHostScopeParams) (*BareMetalHostScope
 		RescueSSHSecret:         params.RescueSSHSecret,
 		SecretManager:           params.SecretManager,
 		PreProvisionCommand:     params.PreProvisionCommand,
-		SSHAfterInstallImage:    params.SSHAfterInstallImage,
-		WorkloadClusterClientFactory: &realWorkloadClusterClientFactory{
-			logger:         params.Logger,
-			client:         params.Client,
-			cluster:        params.Cluster,
-			hetznerCluster: params.HetznerCluster,
-		},
+		WorkloadClusterClientFactory: func() WorkloadClusterClientFactory {
+			if params.WorkloadClusterClientFactory != nil {
+				return params.WorkloadClusterClientFactory
+			}
+			return &realWorkloadClusterClientFactory{
+				logger:         params.Logger,
+				client:         params.Client,
+				cluster:        params.Cluster,
+				hetznerCluster: params.HetznerCluster,
+			}
+		}(),
 	}, nil
 }
 
@@ -118,7 +124,6 @@ type BareMetalHostScope struct {
 	OSSSHSecret                  *corev1.Secret
 	RescueSSHSecret              *corev1.Secret
 	PreProvisionCommand          string
-	SSHAfterInstallImage         bool
 	WorkloadClusterClientFactory WorkloadClusterClientFactory
 }
 
@@ -166,4 +171,9 @@ func (s *BareMetalHostScope) Hostname() (hostname string) {
 func (s *BareMetalHostScope) hasConstantHostname() bool {
 	return s.Cluster.GetAnnotations()[infrav1.ConstantBareMetalHostnameAnnotation] == "true" ||
 		s.HetznerBareMetalMachine != nil && s.HetznerBareMetalMachine.GetAnnotations()[infrav1.ConstantBareMetalHostnameAnnotation] == "true"
+}
+
+// SSHAfterInstallImageEnabled returns the effective SSH-after-installimage setting for the host.
+func (s *BareMetalHostScope) SSHAfterInstallImageEnabled() bool {
+	return !s.HetznerBareMetalHost.Spec.Status.SSHSpec.NoSSHAfterInstallImage
 }

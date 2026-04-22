@@ -31,6 +31,7 @@ import (
 	"github.com/prometheus/common/expfmt"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/kubectl/pkg/scheme"
@@ -38,10 +39,12 @@ import (
 	"sigs.k8s.io/cluster-api/util/conditions"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks"
 	robotmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/robot"
 	sshmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/ssh"
@@ -154,6 +157,7 @@ func (r *ControllerResetter) ResetAndInitNamespace(namespace string, testEnv *he
 	r.HetznerBareMetalHostReconciler.RobotClientFactory = robotClientFactory
 	r.HetznerBareMetalHostReconciler.SSHClientFactory = baremetalSSHClientFactory
 	r.HetznerBareMetalHostReconciler.Namespace = namespace
+	r.HetznerBareMetalHostReconciler.WorkloadClusterClientFactory = newFakeWorkloadClusterClientFactory()
 
 	r.HCloudRemediationReconciler.HCloudClientFactory = hcloudClientFactory
 	r.HCloudRemediationReconciler.Namespace = namespace
@@ -167,6 +171,35 @@ func (r *ControllerResetter) ResetAndInitNamespace(namespace string, testEnv *he
 		testEnv.GetLogger().Info("Starting test: ===> ===> ===> ===> ===> ===> ===> " + t.Name())
 	}
 }
+
+type fakeWorkloadClusterClientFactory struct {
+	client client.Client
+}
+
+func (f *fakeWorkloadClusterClientFactory) NewWorkloadClient(_ context.Context) (client.Client, error) {
+	return f.client, nil
+}
+
+func newFakeWorkloadClusterClientFactory() *fakeWorkloadClusterClientFactory {
+	s := runtime.NewScheme()
+	utilruntime.Must(corev1.AddToScheme(s))
+
+	c := fakeclient.NewClientBuilder().WithScheme(s).Build()
+
+	node := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{Name: hostName},
+		Status: corev1.NodeStatus{
+			NodeInfo: corev1.NodeSystemInfo{BootID: "test-boot-id"},
+		},
+	}
+	if err := c.Create(context.Background(), node); err != nil {
+		panic(err)
+	}
+
+	return &fakeWorkloadClusterClientFactory{client: c}
+}
+
+var _ scope.WorkloadClusterClientFactory = &fakeWorkloadClusterClientFactory{}
 
 var _ = BeforeSuite(func() {
 	utilruntime.Must(infrav1.AddToScheme(scheme.Scheme))
@@ -196,10 +229,9 @@ var _ = BeforeSuite(func() {
 	Expect(hcloudMachineTemplateReconciler.SetupWithManager(ctx, testEnv, controller.Options{})).To(Succeed())
 
 	hetznerBareMetalHostReconciler := &HetznerBareMetalHostReconciler{
-		Client:               testEnv.GetClient(),
-		APIReader:            testEnv.GetAPIReader(),
-		PreProvisionCommand:  "dummy-pre-provision-command",
-		SSHAfterInstallImage: true,
+		Client:              testEnv.GetClient(),
+		APIReader:           testEnv.GetAPIReader(),
+		PreProvisionCommand: "dummy-pre-provision-command",
 	}
 	Expect(hetznerBareMetalHostReconciler.SetupWithManager(ctx, testEnv, controller.Options{})).To(Succeed())
 

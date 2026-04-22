@@ -258,6 +258,11 @@ spec:
                         description: SSHSpec gives a reference on the secret where
                           SSH details are specified as well as ports for SSH.
                         properties:
+                          noSSHAfterInstallImage:
+                            description: |-
+                              NoSSHAfterInstallImage disables SSH access to the machine after installimage
+                              completed successfully.
+                            type: boolean
                           portAfterCloudInit:
                             description: |-
                               PortAfterCloudInit is deprecated. Since PR Install Cloud-Init-Data via post-install.sh #1407 this field is not functional.

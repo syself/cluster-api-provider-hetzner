@@ -28,7 +28,6 @@ import (
 )
 
 const (
-	bareMetalHostID         = 1
 	sshFingerprint          = "my-fingerprint"
 	defaultOSSSHKeyName     = "os-sshkey"
 	defaultRescueSSHKeyName = "rescue-sshkey"
@@ -65,12 +64,18 @@ func BareMetalHost(name, namespace string, opts ...HostOpts) *infrav1.HetznerBar
 type HostOpts func(*infrav1.HetznerBareMetalHost)
 
 // WithError gives the option to define a host with error in spec.status.
-func WithError(errorType infrav1.ErrorType, errorMessage string, errorCount int, lastUpdated metav1.Time) HostOpts {
+func WithError(errorType infrav1.ErrorType, errorMessage string, errorCount int) HostOpts {
 	return func(host *infrav1.HetznerBareMetalHost) {
 		host.Spec.Status.ErrorType = errorType
 		host.Spec.Status.ErrorMessage = errorMessage
 		host.Spec.Status.ErrorCount = errorCount
-		host.Spec.Status.LastUpdated = &lastUpdated
+	}
+}
+
+// WithRebootTriggeredAt gives the option to define a host with a reboot timestamp set.
+func WithRebootTriggeredAt(t metav1.Time) HostOpts {
+	return func(host *infrav1.HetznerBareMetalHost) {
+		host.Spec.Status.RebootTriggeredAt = &t
 	}
 }
 
