@@ -148,8 +148,21 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 		return reconcile.Result{}, fmt.Errorf("failed to set providerID: %w", err)
 	}
 
-	// set machine ready
+	// Ready=true must be set before the load-balancer attachment below, so that
+	// even when reconcileLoadBalancerAttachment requeues with WaitingForAPIServer,
+	// CAPI still copies ProviderID onto Machine.Spec.ProviderID. Otherwise the
+	// Node is never linked, MachineAPIServerPodHealthy never flips true on the
+	// core Machine, and the attachment would requeue forever.
 	s.scope.BareMetalMachine.Status.Ready = true
+
+	// Do not mark ServerAvailableCondition True after this call:
+	// reconcileLoadBalancerAttachment sets it False/WaitingForAPIServer on the
+	// requeue branch, and a MarkTrue here would overwrite that.
+	if s.scope.IsControlPlane() {
+		if err := s.reconcileLoadBalancerAttachment(ctx, host); err != nil {
+			return checkForRequeueError(err, "failed to reconcile load balancer attachment")
+		}
+	}
 
 	return res, nil
 }
@@ -286,13 +299,6 @@ func (s *Service) update(ctx context.Context) (*infrav1.HetznerBareMetalHost, er
 
 	if err := analyzePatchError(helper.Patch(ctx, host), false); err != nil {
 		return nil, fmt.Errorf("failed to patch host: %w", err)
-	}
-
-	// if machine is a control plane, the host should be set as target of load balancer
-	if s.scope.IsControlPlane() {
-		if err := s.reconcileLoadBalancerAttachment(ctx, host); err != nil {
-			return nil, fmt.Errorf("failed to reconcile load balancer attachment: %w", err)
-		}
 	}
 
 	// ensure annotations are correctly set
