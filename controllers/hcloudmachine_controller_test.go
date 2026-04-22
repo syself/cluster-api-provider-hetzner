@@ -37,6 +37,7 @@ import (
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
+	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
 )
 
 func TestIgnoreInsignificantHCloudMachineStatusUpdates(t *testing.T) {
@@ -513,9 +514,16 @@ var _ = Describe("HCloudMachineReconciler", func() {
 			})
 
 			It("checks that ImageNotFound is visible in conditions if image does not exist", func() {
-				Eventually(func() bool {
-					return isPresentAndFalseWithReason(key, hcloudMachine, infrav1.ServerCreateSucceededCondition, infrav1.ImageNotFoundReason)
-				}, timeout, interval).Should(BeTrue())
+				Eventually(func() error {
+					return helpers.ConditionFalseWithReasonAtKey(
+						ctx,
+						testEnv,
+						key,
+						hcloudMachine,
+						infrav1.ServerCreateSucceededCondition,
+						infrav1.ImageNotFoundReason,
+					)
+				}, timeout, interval).Should(Succeed())
 			})
 		})
 	})
@@ -620,9 +628,16 @@ var _ = Describe("HCloudMachineReconciler", func() {
 			})
 
 			It("should show the expected reason for server not created", func() {
-				Eventually(func() bool {
-					return isPresentAndFalseWithReason(key, hcloudMachine, infrav1.ServerCreateSucceededCondition, infrav1.InstanceHasNonExistingPlacementGroupReason)
-				}, timeout).Should(BeTrue())
+				Eventually(func() error {
+					return helpers.ConditionFalseWithReasonAtKey(
+						ctx,
+						testEnv,
+						key,
+						hcloudMachine,
+						infrav1.ServerCreateSucceededCondition,
+						infrav1.InstanceHasNonExistingPlacementGroupReason,
+					)
+				}, timeout).Should(Succeed())
 			})
 		})
 
@@ -795,9 +810,16 @@ var _ = Describe("Hetzner secret", func() {
 			hetznerSecret = secretFunc()
 			Expect(testEnv.Create(ctx, hetznerSecret)).To(Succeed())
 
-			Eventually(func() bool {
-				return isPresentAndFalseWithReason(key, hcloudMachine, infrav1.HCloudTokenAvailableCondition, expectedReason)
-			}, timeout, interval).Should(BeTrue())
+			Eventually(func() error {
+				return helpers.ConditionFalseWithReasonAtKey(
+					ctx,
+					testEnv,
+					key,
+					hcloudMachine,
+					infrav1.HCloudTokenAvailableCondition,
+					expectedReason,
+				)
+			}, timeout, interval).Should(Succeed())
 			Expect(testEnv.Cleanup(ctx, hetznerSecret)).To(Succeed())
 		},
 		Entry("no Hetzner secret/wrong reference", func() *corev1.Secret {

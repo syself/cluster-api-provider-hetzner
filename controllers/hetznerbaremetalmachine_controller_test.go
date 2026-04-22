@@ -256,9 +256,16 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			})
 
 			It("sets bootstrap condition on false if no bootstrap available", func() {
-				Eventually(func() bool {
-					return isPresentAndFalseWithReason(key, bmMachine, infrav1.BootstrapReadyCondition, infrav1.BootstrapNotReadyReason)
-				}, timeout, time.Second).Should(BeTrue())
+				Eventually(func() error {
+					return helpers.ConditionFalseWithReasonAtKey(
+						ctx,
+						testEnv,
+						key,
+						bmMachine,
+						infrav1.BootstrapReadyCondition,
+						infrav1.BootstrapNotReadyReason,
+					)
+				}, timeout, time.Second).Should(Succeed())
 			})
 
 			It("sets bootstrap condition on true if bootstrap available", func() {
@@ -777,9 +784,16 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 		})
 
 		It("creates the bare metal machine and sets condition that no host is available", func() {
-			Eventually(func() bool {
-				return isPresentAndFalseWithReason(key, bmMachine, infrav1.HostAssociateSucceededCondition, infrav1.NoAvailableHostReason)
-			}, timeout).Should(BeTrue())
+			Eventually(func() error {
+				return helpers.ConditionFalseWithReasonAtKey(
+					ctx,
+					testEnv,
+					key,
+					bmMachine,
+					infrav1.HostAssociateSucceededCondition,
+					infrav1.NoAvailableHostReason,
+				)
+			}, timeout).Should(Succeed())
 		})
 
 		It("checks the hetznerBareMetalMachine status pending phase", func() {
@@ -878,9 +892,16 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 			By("Deleting the host, expect HostReady condition is set to false")
 			Expect(testEnv.Delete(ctx, host)).To(Succeed())
 
-			Eventually(func() bool {
-				return isPresentAndFalseWithReason(bmmKey, bmMachine, infrav1.HostReadyCondition, infrav1.HostNotFoundReason)
-			}, timeout).Should(BeTrue())
+			Eventually(func() error {
+				return helpers.ConditionFalseWithReasonAtKey(
+					ctx,
+					testEnv,
+					bmmKey,
+					bmMachine,
+					infrav1.HostReadyCondition,
+					infrav1.HostNotFoundReason,
+				)
+			}, timeout).Should(Succeed())
 
 			By("ensuring remediate machine annotation is set on CAPI machine")
 			Expect(testEnv.Get(ctx, client.ObjectKeyFromObject(capiMachine), capiMachine)).To(Succeed())

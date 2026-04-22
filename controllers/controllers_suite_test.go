@@ -437,20 +437,6 @@ func getDefaultHetznerBareMetalMachineSpec() infrav1.HetznerBareMetalMachineSpec
 	}
 }
 
-func isPresentAndFalseWithReason(key types.NamespacedName, getter conditions.Getter, condition clusterv1.ConditionType, reason string) bool {
-	err := testEnv.Get(ctx, key, getter)
-	if err != nil {
-		return false
-	}
-
-	if !conditions.Has(getter, condition) {
-		return false
-	}
-	objectCondition := conditions.Get(getter, condition)
-	return objectCondition.Status == corev1.ConditionFalse &&
-		objectCondition.Reason == reason
-}
-
 func isPresentAndTrue(key types.NamespacedName, getter conditions.Getter, condition clusterv1.ConditionType) bool {
 	err := testEnv.Get(ctx, key, getter)
 	if err != nil {

@@ -262,13 +262,16 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 					Expect(testEnv.Create(ctx, hetznerBaremetalMachine)).To(Succeed())
 					Expect(testEnv.Create(ctx, hetznerBareMetalRemediation)).To(Succeed())
 
-					Eventually(func() bool {
-						if err := testEnv.Get(ctx, capiMachineKey, capiMachine); err != nil {
-							return false
-						}
-
-						return isPresentAndFalseWithReason(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedCondition, clusterv1.WaitingForRemediationReason)
-					}, timeout).Should(BeTrue())
+					Eventually(func() error {
+						return helpers.ConditionFalseWithReasonAtKey(
+							ctx,
+							testEnv,
+							capiMachineKey,
+							capiMachine,
+							clusterv1.MachineOwnerRemediatedCondition,
+							clusterv1.WaitingForRemediationReason,
+						)
+					}, timeout).Should(Succeed())
 				})
 
 				It("should not remediate if HetznerBareMetalHost does not exist anymore", func() {
@@ -278,13 +281,16 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 					Expect(testEnv.Create(ctx, hetznerBaremetalMachine)).To(Succeed())
 					Expect(testEnv.Create(ctx, hetznerBareMetalRemediation)).To(Succeed())
 
-					Eventually(func() bool {
-						if err := testEnv.Get(ctx, capiMachineKey, capiMachine); err != nil {
-							return false
-						}
-
-						return isPresentAndFalseWithReason(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedCondition, clusterv1.WaitingForRemediationReason)
-					}, timeout).Should(BeTrue())
+					Eventually(func() error {
+						return helpers.ConditionFalseWithReasonAtKey(
+							ctx,
+							testEnv,
+							capiMachineKey,
+							capiMachine,
+							clusterv1.MachineOwnerRemediatedCondition,
+							clusterv1.WaitingForRemediationReason,
+						)
+					}, timeout).Should(Succeed())
 				})
 			})
 
@@ -372,14 +378,24 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 					Expect(hetznerBaremetalRemediationPatchHelper.Patch(ctx, hetznerBareMetalRemediation)).NotTo(HaveOccurred())
 
 					By("checking if hcloudRemediation is in deleting phase and capiMachine has MachineOwnerRemediatedCondition")
-					Eventually(func() bool {
+					Eventually(func() error {
 						if err := testEnv.Get(ctx, hetznerBaremetalRemediationkey, hetznerBareMetalRemediation); err != nil {
-							return false
+							return err
 						}
 
-						return hetznerBareMetalRemediation.Status.Phase == infrav1.PhaseDeleting &&
-							isPresentAndFalseWithReason(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedCondition, clusterv1.WaitingForRemediationReason)
-					}, timeout).Should(BeTrue())
+						if hetznerBareMetalRemediation.Status.Phase != infrav1.PhaseDeleting {
+							return fmt.Errorf("hetznerBareMetalRemediation.Status.Phase is %q", hetznerBareMetalRemediation.Status.Phase)
+						}
+
+						return helpers.ConditionFalseWithReasonAtKey(
+							ctx,
+							testEnv,
+							capiMachineKey,
+							capiMachine,
+							clusterv1.MachineOwnerRemediatedCondition,
+							clusterv1.WaitingForRemediationReason,
+						)
+					}, timeout).Should(Succeed())
 				})
 			})
 		})
@@ -413,13 +429,16 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 				Expect(testEnv.Create(ctx, hetznerBareMetalRemediation)).To(Succeed())
 
 				By("checking if capiMachine has the MachineOwnerRemediatedCondition")
-				Eventually(func() bool {
-					if err := testEnv.Get(ctx, capiMachineKey, capiMachine); err != nil {
-						return false
-					}
-
-					return isPresentAndFalseWithReason(capiMachineKey, capiMachine, clusterv1.MachineOwnerRemediatedCondition, clusterv1.WaitingForRemediationReason)
-				}, timeout).Should(BeTrue())
+				Eventually(func() error {
+					return helpers.ConditionFalseWithReasonAtKey(
+						ctx,
+						testEnv,
+						capiMachineKey,
+						capiMachine,
+						clusterv1.MachineOwnerRemediatedCondition,
+						clusterv1.WaitingForRemediationReason,
+					)
+				}, timeout).Should(Succeed())
 			})
 		})
 	})
