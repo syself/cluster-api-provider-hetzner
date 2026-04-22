@@ -105,28 +105,7 @@ Flags:
 
 ## 🖇️ Compatibility with Cluster API and Kubernetes Versions
 
-This provider's versions are compatible with the following versions of Cluster API:
-
-|                                      | CAPI `v1beta1` (`v1.8.x`) | CAPI `v1beta1` (`v1.9.x`) | CAPI `v1beta1` (`v1.10.x`) |
-| ------------------------------------ | ------------------------- | ------------------------- | -------------------------- |
-| Hetzner Provider `v1.0.x`            | ✅                        | ✅                        | ✅                         |
-
-
-This provider's versions can install and manage the following versions of Kubernetes:
-
-|                   | Hetzner Provider `v1.0.x` |
-| ----------------- | ------------------------- |
-| Kubernetes 1.31.x | ✅                        |
-| Kubernetes 1.32.x | ✅                        |
-| Kubernetes 1.33.x | ✅                        |
-| Kubernetes 1.34.x | ❔                        |
-
-Test status:
-
-- ✅ tested
-- ❔ should work, but we weren't able to test it
-
-Each version of Cluster API for Hetzner will attempt to support at least two Kubernetes versions.
+[Compatibility Table](./docs/caph/01-getting-started/01-introduction.md#compatibility-with-cluster-api-and-kubernetes-versions)
 
 **NOTE:** As the versioning for this project is tied to the versioning of Cluster API, future modifications to this policy may be made to more closely align with other providers in the Cluster API ecosystem.
 

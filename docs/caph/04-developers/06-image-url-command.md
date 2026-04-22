@@ -5,8 +5,9 @@ sidebar: image-url-command
 description: Documentation on the CAPH image-url-command
 ---
 
-The hcloud `spec.imageURLCommand` field and the `--baremetal-image-url-command` controller argument
-can be used to execute a custom command to install the node image.
+The hcloud `spec.imageURLCommand` field and the bare metal
+`spec.installImage.imageURLCommand` field can be used to execute a custom command to
+install the node image.
 
 This provides you a flexible way to create nodes.
 
@@ -16,8 +17,18 @@ You need to enable two things:
 
 * for hcloud: The HCloudMachine resource must set both `spec.imageURL` and
   `spec.imageURLCommand` (usually via a HCloudMachineTemplate)
-* for baremetal: The hetznerbaremetal resource must use `useCustomImageURLCommand: true`.
-  The CAPH controller must still get `--baremetal-image-url-command=/shared/image-url-command.sh`.
+* for baremetal: The HetznerBareMetalMachine must set
+  `spec.installImage.imageURLCommand`, for example:
+
+```yaml
+spec:
+  installImage:
+    imageURLCommand: image-url-command-install-foo.sh
+    image:
+      url: oci://example.com/yourimage:v1
+```
+
+In bare metal custom-command mode, `image.name` and `image.path` must stay empty.
 
 Example for hcloud:
 
@@ -43,10 +54,11 @@ Example:
 /root/image-url-command oci://example.com/yourimage:v1 /root/bootstrap.data my-md-bm-kh57r-5z2v8-zdfc9 'sda sdb'
 ```
 
-It is up to the command to download from that URL and provision the disk accordingly. This command
+It is up to the command to download from that URL and provision the disk accordingly. The command
 must be accessible by the controller pod below `/shared`. You can use an initContainer to copy the
-command to a shared emptyDir. For hcloud, `spec.imageURLCommand` is only the basename and must
-start with `image-url-command-`.
+command to a shared emptyDir.
+For both hcloud and bare metal, the command field is only the basename of a command below `/shared`
+and must start with `image-url-command-`.
 
 The env var OCI_REGISTRY_AUTH_TOKEN from the caph process will be set for the command, too.
 
