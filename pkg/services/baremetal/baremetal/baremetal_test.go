@@ -35,10 +35,11 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/utils/ptr"
+	controlplanev1 "sigs.k8s.io/cluster-api/api/controlplane/kubeadm/v1beta2"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
-	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
+	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -878,7 +879,7 @@ var _ = Describe("reconcileLoadBalancerAttachment", func() {
 	newControlPlaneCluster := func() *clusterv1.Cluster {
 		return &clusterv1.Cluster{
 			Spec: clusterv1.ClusterSpec{
-				ControlPlaneRef: &corev1.ObjectReference{Kind: "KubeadmControlPlane"},
+				ControlPlaneRef: clusterv1.ContractVersionedObjectReference{Kind: "KubeadmControlPlane"},
 			},
 		}
 	}
@@ -897,13 +898,12 @@ var _ = Describe("reconcileLoadBalancerAttachment", func() {
 	It("requeues when another control-plane target exists and the api server pod is not healthy", func() {
 		hcloudClient := mocks.NewClient(GinkgoT())
 		machine := &clusterv1.Machine{}
-		conditions.MarkFalse(
-			machine,
-			controlplanev1.MachineAPIServerPodHealthyCondition,
-			"PodNotHealthy",
-			clusterv1.ConditionSeverityInfo,
-			"kube-apiserver is still starting",
-		)
+		conditions.Set(machine, metav1.Condition{
+			Type:    controlplanev1.KubeadmControlPlaneMachineAPIServerPodHealthyCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  "PodNotHealthy",
+			Message: "kube-apiserver is still starting",
+		})
 
 		bareMetalMachine := &infrav1.HetznerBareMetalMachine{}
 		hetznerCluster := &infrav1.HetznerCluster{
@@ -923,21 +923,20 @@ var _ = Describe("reconcileLoadBalancerAttachment", func() {
 		var requeueErr *scope.RequeueAfterError
 		Expect(errors.As(err, &requeueErr)).To(BeTrue())
 		Expect(requeueErr.GetRequeueAfter()).To(Equal(requeueAfter))
-		Expect(conditions.IsFalse(bareMetalMachine, infrav1.ServerAvailableCondition)).To(BeTrue())
-		Expect(conditions.GetReason(bareMetalMachine, infrav1.ServerAvailableCondition)).To(Equal("WaitingForAPIServer"))
+		Expect(v1beta1conditions.IsFalse(bareMetalMachine, infrav1.ServerAvailableCondition)).To(BeTrue())
+		Expect(v1beta1conditions.GetReason(bareMetalMachine, infrav1.ServerAvailableCondition)).To(Equal("WaitingForAPIServer"))
 		Expect(hcloudClient.AssertNotCalled(GinkgoT(), "AddIPTargetToLoadBalancer", mock.Anything, mock.Anything, mock.Anything)).To(BeTrue())
 	})
 
 	It("allows the first control-plane target even if the api server pod is not healthy yet", func() {
 		hcloudClient := mocks.NewClient(GinkgoT())
 		machine := &clusterv1.Machine{}
-		conditions.MarkFalse(
-			machine,
-			controlplanev1.MachineAPIServerPodHealthyCondition,
-			"PodNotHealthy",
-			clusterv1.ConditionSeverityInfo,
-			"kube-apiserver is still starting",
-		)
+		conditions.Set(machine, metav1.Condition{
+			Type:    controlplanev1.KubeadmControlPlaneMachineAPIServerPodHealthyCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  "PodNotHealthy",
+			Message: "kube-apiserver is still starting",
+		})
 
 		bareMetalMachine := &infrav1.HetznerBareMetalMachine{}
 		hetznerCluster := &infrav1.HetznerCluster{
@@ -962,7 +961,7 @@ var _ = Describe("reconcileLoadBalancerAttachment", func() {
 		service := newServiceForLoadBalancerAttachment(machine, bareMetalMachine, newControlPlaneCluster(), hetznerCluster, hcloudClient)
 
 		Expect(service.reconcileLoadBalancerAttachment(context.Background(), newHost("192.0.2.10"))).To(Succeed())
-		Expect(conditions.IsTrue(bareMetalMachine, infrav1.ServerAvailableCondition)).To(BeTrue())
+		Expect(v1beta1conditions.IsTrue(bareMetalMachine, infrav1.ServerAvailableCondition)).To(BeTrue())
 		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
 	})
 })
@@ -1020,21 +1019,24 @@ var _ = Describe("Reconcile with control-plane load balancer attachment", func()
 			},
 		}
 		if apiServerHealthy {
-			conditions.MarkTrue(machine, controlplanev1.MachineAPIServerPodHealthyCondition)
+			conditions.Set(machine, metav1.Condition{
+				Type:   controlplanev1.KubeadmControlPlaneMachineAPIServerPodHealthyCondition,
+				Status: metav1.ConditionTrue,
+				Reason: "Healthy",
+			})
 		} else {
-			conditions.MarkFalse(
-				machine,
-				controlplanev1.MachineAPIServerPodHealthyCondition,
-				"PodNotHealthy",
-				clusterv1.ConditionSeverityInfo,
-				"kube-apiserver is still starting",
-			)
+			conditions.Set(machine, metav1.Condition{
+				Type:    controlplanev1.KubeadmControlPlaneMachineAPIServerPodHealthyCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  "PodNotHealthy",
+				Message: "kube-apiserver is still starting",
+			})
 		}
 
 		cluster := &clusterv1.Cluster{
 			ObjectMeta: metav1.ObjectMeta{Name: testCluster, Namespace: testNamespace},
 			Spec: clusterv1.ClusterSpec{
-				ControlPlaneRef: &corev1.ObjectReference{Kind: "KubeadmControlPlane"},
+				ControlPlaneRef: clusterv1.ContractVersionedObjectReference{Kind: "KubeadmControlPlane"},
 			},
 		}
 
@@ -1109,15 +1111,15 @@ var _ = Describe("Reconcile with control-plane load balancer attachment", func()
 
 		Expect(bareMetalMachine.Status.Ready).To(BeTrue())
 		Expect(bareMetalMachine.Spec.ProviderID).NotTo(BeNil())
-		Expect(conditions.IsTrue(bareMetalMachine, infrav1.ServerAvailableCondition)).To(BeTrue())
+		Expect(v1beta1conditions.IsTrue(bareMetalMachine, infrav1.ServerAvailableCondition)).To(BeTrue())
 	})
 })
 
-func isPresentAndFalseWithReason(getter conditions.Getter, condition clusterv1.ConditionType, reason string) bool {
-	if !conditions.Has(getter, condition) {
+func isPresentAndFalseWithReason(getter v1beta1conditions.Getter, condition clusterv1beta1.ConditionType, reason string) bool {
+	if !v1beta1conditions.Has(getter, condition) {
 		return false
 	}
-	objectCondition := conditions.Get(getter, condition)
+	objectCondition := v1beta1conditions.Get(getter, condition)
 	return objectCondition.Status == corev1.ConditionFalse &&
 		objectCondition.Reason == reason
 }

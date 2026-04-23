@@ -38,9 +38,10 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/utils/ptr"
+	controlplanev1 "sigs.k8s.io/cluster-api/api/controlplane/kubeadm/v1beta2"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2
-	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	"sigs.k8s.io/cluster-api/util/conditions"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/cluster-api/util/record"
@@ -579,23 +580,23 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 
 	// if both IPs are already added as target, then do nothing
 	if foundIPv4 && foundIPv6 {
-		conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.ServerAvailableCondition)
+		v1beta1conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.ServerAvailableCondition)
 		return nil
 	}
 
 	// For non-KCP control planes, we skip the kube-apiserver health gate because
 	// MachineAPIServerPodHealthyCondition is KubeadmControlPlane-specific.
-	apiServerPodHealthy := s.scope.Cluster.Spec.ControlPlaneRef == nil ||
+	apiServerPodHealthy := !s.scope.Cluster.Spec.ControlPlaneRef.IsDefined() ||
 		s.scope.Cluster.Spec.ControlPlaneRef.Kind != "KubeadmControlPlane" ||
-		conditions.IsTrue(s.scope.Machine, controlplanev1.MachineAPIServerPodHealthyCondition)
+		conditions.IsTrue(s.scope.Machine, controlplanev1.KubeadmControlPlaneMachineAPIServerPodHealthyCondition)
 
 	// Attach only nodes with a healthy kube-apiserver once the load balancer already has a target.
 	if len(s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target) > 0 && !apiServerPodHealthy {
-		conditions.MarkFalse(
+		v1beta1conditions.MarkFalse(
 			s.scope.BareMetalMachine,
 			infrav1.ServerAvailableCondition,
 			"WaitingForAPIServer",
-			clusterv1.ConditionSeverityInfo,
+			clusterv1beta1.ConditionSeverityInfo,
 			"reconcile LoadBalancer: apiserver pod not healthy yet.",
 		)
 		return &scope.RequeueAfterError{RequeueAfter: requeueAfter}
@@ -619,7 +620,7 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 		if err := s.scope.HCloudClient.AddIPTargetToLoadBalancer(ctx, opts, lb); err != nil {
 			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "AddIPTargetToLoadBalancer")
 			if hcloud.IsError(err, hcloud.ErrorCodeTargetAlreadyDefined) {
-				conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.ServerAvailableCondition)
+				v1beta1conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.ServerAvailableCondition)
 				return nil
 			}
 			return fmt.Errorf("failed to add IP %q as target to load balancer: %w", ip, err)
@@ -632,7 +633,7 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 		)
 	}
 
-	conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.ServerAvailableCondition)
+	v1beta1conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.ServerAvailableCondition)
 
 	return nil
 }
