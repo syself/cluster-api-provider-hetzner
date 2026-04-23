@@ -25,7 +25,7 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -48,7 +48,9 @@ type BareMetalHostScopeParams struct {
 	RescueSSHSecret         *corev1.Secret
 	SecretManager           *secretutil.SecretManager
 	PreProvisionCommand     string
-	ImageURLCommand         string
+
+	// WorkloadClusterClientFactory overrides the default real factory. Intended for tests only.
+	WorkloadClusterClientFactory WorkloadClusterClientFactory
 }
 
 // NewBareMetalHostScope creates a new Scope from the supplied parameters.
@@ -94,13 +96,17 @@ func NewBareMetalHostScope(params BareMetalHostScopeParams) (*BareMetalHostScope
 		RescueSSHSecret:         params.RescueSSHSecret,
 		SecretManager:           params.SecretManager,
 		PreProvisionCommand:     params.PreProvisionCommand,
-		WorkloadClusterClientFactory: &realWorkloadClusterClientFactory{
-			logger:         params.Logger,
-			client:         params.Client,
-			cluster:        params.Cluster,
-			hetznerCluster: params.HetznerCluster,
-		},
-		ImageURLCommand: params.ImageURLCommand,
+		WorkloadClusterClientFactory: func() WorkloadClusterClientFactory {
+			if params.WorkloadClusterClientFactory != nil {
+				return params.WorkloadClusterClientFactory
+			}
+			return &realWorkloadClusterClientFactory{
+				logger:         params.Logger,
+				client:         params.Client,
+				cluster:        params.Cluster,
+				hetznerCluster: params.HetznerCluster,
+			}
+		}(),
 	}, nil
 }
 
@@ -119,7 +125,6 @@ type BareMetalHostScope struct {
 	RescueSSHSecret              *corev1.Secret
 	PreProvisionCommand          string
 	WorkloadClusterClientFactory WorkloadClusterClientFactory
-	ImageURLCommand              string
 }
 
 // Name returns the HetznerCluster name.

@@ -23,7 +23,7 @@ import (
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
@@ -90,7 +90,7 @@ var _ = Describe("createOptsFromSpec", func() {
 					Region:    infrav1.Region(lbRegion),
 					Port:      lbPort,
 				},
-				ControlPlaneEndpoint: &clusterv1.APIEndpoint{Port: int32(controlPlaneEndpointPort)},
+				ControlPlaneEndpoint: &clusterv1beta1.APIEndpoint{Port: int32(controlPlaneEndpointPort)},
 			},
 			Status: infrav1.HetznerClusterStatus{
 				Network: &infrav1.NetworkStatus{ID: networkID},

@@ -22,8 +22,8 @@ import (
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	"sigs.k8s.io/cluster-api/util/conditions"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	"sigs.k8s.io/cluster-api/util/record"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -74,7 +74,7 @@ func (hsm *hostStateMachine) ReconcileState(ctx context.Context) (actionRes acti
 			hsm.log.V(1).Info("changing provisioning state", "old", initialState, "new", hsm.nextState)
 			hsm.host.Spec.Status.ProvisioningState = hsm.nextState
 
-			cond := conditions.Get(hsm.host, infrav1.ProvisionSucceededCondition)
+			cond := v1beta1conditions.Get(hsm.host, infrav1.ProvisionSucceededCondition)
 			if cond != nil && cond.Reason == infrav1.StillProvisioningReason {
 				markProvisionPending(hsm.host, hsm.nextState)
 			}
@@ -91,7 +91,7 @@ func (hsm *hostStateMachine) ReconcileState(ctx context.Context) (actionRes acti
 	}
 
 	// Assume credentials are ready for now. This can be changed while the state is handled.
-	conditions.MarkTrue(hsm.host, infrav1.CredentialsAvailableCondition)
+	v1beta1conditions.MarkTrue(hsm.host, infrav1.CredentialsAvailableCondition)
 
 	// This state was removed. We have to handle the edge-case where
 	// the controller got updated and a machine
@@ -178,11 +178,11 @@ func (hsm *hostStateMachine) updateOSSSHStatusAndValidateKey(osSSHSecret *corev1
 	}
 	if err := validateSSHKey(osSSHSecret, hsm.host.Spec.Status.SSHSpec.SecretRef); err != nil {
 		msg := fmt.Sprintf("ssh credentials are invalid: %s", err.Error())
-		conditions.MarkFalse(
+		v1beta1conditions.MarkFalse(
 			hsm.host,
 			infrav1.CredentialsAvailableCondition,
 			infrav1.SSHCredentialsInSecretInvalidReason,
-			clusterv1.ConditionSeverityError,
+			clusterv1beta1.ConditionSeverityError,
 			"%s",
 			msg,
 		)
@@ -216,11 +216,11 @@ func (hsm *hostStateMachine) updateRescueSSHStatusAndValidateKey(rescueSSHSecret
 	}
 	if err := validateSSHKey(rescueSSHSecret, hsm.reconciler.scope.HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef); err != nil {
 		msg := fmt.Sprintf("ssh credentials for rescue system are invalid: %s", err.Error())
-		conditions.MarkFalse(
+		v1beta1conditions.MarkFalse(
 			hsm.host,
 			infrav1.CredentialsAvailableCondition,
 			infrav1.SSHCredentialsInSecretInvalidReason,
-			clusterv1.ConditionSeverityError,
+			clusterv1beta1.ConditionSeverityError,
 			"%s",
 			msg,
 		)

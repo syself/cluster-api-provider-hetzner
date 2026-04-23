@@ -19,6 +19,8 @@ package host
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -29,7 +31,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
-	"sigs.k8s.io/cluster-api/util/conditions"
+	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -59,7 +61,7 @@ var _ = Describe("SetErrorMessage", func() {
 				host = helpers.BareMetalHost(
 					"test-host",
 					"default",
-					helpers.WithError(infrav1.PreparationError, "first message", 2, metav1.Now()),
+					helpers.WithError(infrav1.PreparationError, "first message", 2),
 				)
 			} else {
 				host = helpers.BareMetalHost(
@@ -104,6 +106,15 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 	ctx := context.Background()
 
 	newBaseHost := func() *infrav1.HetznerBareMetalHost {
+		commandDir := GinkgoT().TempDir()
+		commandPath := filepath.Join(commandDir, "image-url-command-test.sh")
+		Expect(os.WriteFile(commandPath, []byte("#!/usr/bin/env bash\n"), 0o600)).To(Succeed())
+		oldCommandDir := baremetalImageURLCommandDir
+		baremetalImageURLCommandDir = commandDir
+		DeferCleanup(func() {
+			baremetalImageURLCommandDir = oldCommandDir
+		})
+
 		host := helpers.BareMetalHost(
 			"test-host",
 			"default",
@@ -113,14 +124,11 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		)
 		// Set install image with custom image-url-command mode
 		host.Spec.Status.InstallImage = &infrav1.InstallImage{
+			ImageURLCommand: filepath.Base(commandPath),
 			Image: infrav1.Image{
-				URL:                      "https://example.com/foo/image",
-				UseCustomImageURLCommand: true,
+				URL: "https://example.com/foo/image",
 			},
 		}
-		// Ensure LastUpdated is now by default
-		t := metav1.Now()
-		host.Spec.Status.LastUpdated = &t
 		return host
 	}
 
@@ -134,7 +142,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 
 		res := svc.actionImageInstalling(ctx)
 		Expect(res).To(BeAssignableToTypeOf(actionContinue{}))
-		c := conditions.Get(host, infrav1.ProvisionSucceededCondition)
+		c := v1beta1conditions.Get(host, infrav1.ProvisionSucceededCondition)
 		Expect(c.Message).To(Equal(`host (test-host) is still provisioning - state "image-installing"`))
 	})
 
@@ -156,7 +164,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		Expect(robot.AssertCalled(GinkgoT(), "SetBMServerName", mock.Anything, infrav1.BareMetalHostNamePrefix+host.Spec.ConsumerRef.Name)).To(BeTrue())
 		// error should be cleared
 		Expect(host.Spec.Status.ErrorMessage).To(Equal(""))
-		c := conditions.Get(host, infrav1.ProvisionSucceededCondition)
+		c := v1beta1conditions.Get(host, infrav1.ProvisionSucceededCondition)
 		Expect(c.Message).To(Equal(`host (test-host) is still provisioning - state "image-installing"`))
 	})
 
@@ -169,7 +177,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
 		res := svc.actionImageInstalling(ctx)
 		Expect(res).To(BeAssignableToTypeOf(actionFailed{}))
-		c := conditions.Get(host, infrav1.ProvisionSucceededCondition)
+		c := v1beta1conditions.Get(host, infrav1.ProvisionSucceededCondition)
 		Expect(c.Message).To(ContainSubstring("image-url-command failed"))
 	})
 
@@ -187,7 +195,8 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		sshMock.On("StateOfImageURLCommand").Return(sshclient.ImageURLCommandStateNotStarted, "", nil)
 
 		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
-		sshMock.On("StartImageURLCommand", mock.Anything, "image-url-command", host.Spec.Status.InstallImage.Image.URL, mock.Anything, svc.scope.Hostname(), []string{"nvme1n1"}).Return(0, "", nil)
+		commandPath := filepath.Join(baremetalImageURLCommandDir, host.Spec.Status.InstallImage.ImageURLCommand)
+		sshMock.On("StartImageURLCommand", mock.Anything, commandPath, host.Spec.Status.InstallImage.Image.URL, mock.Anything, svc.scope.Hostname(), []string{"nvme1n1"}).Return(0, "", nil)
 		// Create bootstrap secret in fake client with key 'value'
 		secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: host.Spec.Status.UserData.Name, Namespace: host.Spec.Status.UserData.Namespace}, Data: map[string][]byte{"value": []byte("#cloud-config")}}
 		Expect(svc.scope.Client.Create(ctx, secret)).To(Succeed())
@@ -199,9 +208,9 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 
 		res := svc.actionImageInstalling(ctx)
 		Expect(res).To(BeAssignableToTypeOf(actionContinue{}))
-		Expect(sshMock.AssertCalled(GinkgoT(), "StartImageURLCommand", mock.Anything, "image-url-command", host.Spec.Status.InstallImage.Image.URL, mock.Anything, svc.scope.Hostname(), []string{"nvme1n1"})).To(BeTrue())
-		c := conditions.Get(host, infrav1.ProvisionSucceededCondition)
-		Expect(c.Message).To(ContainSubstring(`baremetal-image-url-command started`))
+		Expect(sshMock.AssertCalled(GinkgoT(), "StartImageURLCommand", mock.Anything, commandPath, host.Spec.Status.InstallImage.Image.URL, mock.Anything, svc.scope.Hostname(), []string{"nvme1n1"})).To(BeTrue())
+		c := v1beta1conditions.Get(host, infrav1.ProvisionSucceededCondition)
+		Expect(c.Message).To(ContainSubstring(`imageURLCommand started`))
 	})
 
 	It("records failure when StartImageURLCommand returns non-zero exit", func() {
@@ -213,7 +222,8 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		sshMock.On("StateOfImageURLCommand").Return(sshclient.ImageURLCommandStateNotStarted, "", nil)
 
 		svc := newTestService(host, nil, bmmock.NewSSHFactory(sshMock, sshMock, sshMock), nil, helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
-		sshMock.On("StartImageURLCommand", mock.Anything, "image-url-command", host.Spec.Status.InstallImage.Image.URL, mock.Anything, svc.scope.Hostname(), []string{"nvme1n1"}).Return(7, "boom", nil)
+		commandPath := filepath.Join(baremetalImageURLCommandDir, host.Spec.Status.InstallImage.ImageURLCommand)
+		sshMock.On("StartImageURLCommand", mock.Anything, commandPath, host.Spec.Status.InstallImage.Image.URL, mock.Anything, svc.scope.Hostname(), []string{"nvme1n1"}).Return(7, "boom", nil)
 
 		secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: host.Spec.Status.UserData.Name, Namespace: host.Spec.Status.UserData.Namespace}, Data: map[string][]byte{"value": []byte("#cloud-config")}}
 		Expect(svc.scope.Client.Create(ctx, secret)).To(Succeed())
@@ -224,14 +234,14 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 		}
 		res := svc.actionImageInstalling(ctx)
 		Expect(res).To(BeAssignableToTypeOf(actionFailed{}))
-		c := conditions.Get(host, infrav1.ProvisionSucceededCondition)
+		c := v1beta1conditions.Get(host, infrav1.ProvisionSucceededCondition)
 		Expect(c.Message).To(ContainSubstring("StartImageURLCommand failed with non-zero exit status. Deleting machine"))
 	})
 
 	It("times out after 7 minutes", func() {
 		host := newBaseHost()
 		sevenPlus := metav1.NewTime(time.Now().Add(-8 * time.Minute))
-		host.Spec.Status.LastUpdated = &sevenPlus
+		host.Spec.Status.RebootTriggeredAt = &sevenPlus
 
 		sshMock := &sshmock.Client{}
 		sshMock.On("GetHostName").Return(sshclient.Output{StdOut: "rescue"})
@@ -241,7 +251,7 @@ var _ = Describe("actionImageInstalling (image-url-command)", func() {
 
 		res := svc.actionImageInstalling(ctx)
 		Expect(res).To(BeAssignableToTypeOf(actionFailed{}))
-		c := conditions.Get(host, infrav1.ProvisionSucceededCondition)
+		c := v1beta1conditions.Get(host, infrav1.ProvisionSucceededCondition)
 		Expect(c.Message).To(ContainSubstring("ImageURLCommand timed out"))
 	})
 })
@@ -406,7 +416,7 @@ var _ = Describe("handleIncompleteBoot", func() {
 					}),
 					helpers.WithSSHSpec(),
 					helpers.WithSSHStatus(),
-					helpers.WithError(tc.hostErrorType, "", 1, metav1.Now()),
+					helpers.WithError(tc.hostErrorType, "", 1),
 				)
 				service := newTestService(host, &robotMock, nil, nil, nil)
 				ctx := context.Background()
@@ -497,8 +507,9 @@ var _ = Describe("handleIncompleteBoot", func() {
 				host := helpers.BareMetalHost("test-host", "default",
 					helpers.WithSSHSpec(),
 					helpers.WithSSHStatus(),
-					// Make sure that timeouts are exceeded to trigger escalation step
-					helpers.WithError(tc.hostErrorType, "", 1, metav1.NewTime(time.Now().Add(-time.Hour))),
+					helpers.WithError(tc.hostErrorType, "", 1),
+					// RebootTriggeredAt must be old so timeout checks fire for isTimeOut=true entries
+					helpers.WithRebootTriggeredAt(metav1.NewTime(time.Now().Add(-time.Hour))),
 					helpers.WithRebootTypes(tc.rebootTypes),
 				)
 				service := newTestService(host, &robotMock, nil, nil, nil)
@@ -564,7 +575,7 @@ var _ = Describe("handleIncompleteBoot", func() {
 
 		type testCaseHandleIncompleteBootDifferentTimeouts struct {
 			hostErrorType         infrav1.ErrorType
-			lastUpdated           time.Time
+			rebootTriggeredAt     time.Time
 			expectedHostErrorType infrav1.ErrorType
 			expectedRebootType    infrav1.RebootType
 		}
@@ -585,7 +596,8 @@ var _ = Describe("handleIncompleteBoot", func() {
 					}),
 					helpers.WithSSHSpec(),
 					helpers.WithSSHStatus(),
-					helpers.WithError(tc.hostErrorType, "", 1, metav1.Time{Time: tc.lastUpdated}),
+					helpers.WithError(tc.hostErrorType, "", 1),
+					helpers.WithRebootTriggeredAt(metav1.Time{Time: tc.rebootTriggeredAt}),
 				)
 				service := newTestService(host, &robotMock, nil, nil, nil)
 
@@ -601,19 +613,19 @@ var _ = Describe("handleIncompleteBoot", func() {
 			},
 			Entry("timed out sw reset", testCaseHandleIncompleteBootDifferentTimeouts{
 				hostErrorType:         infrav1.ErrorTypeSoftwareRebootTriggered,
-				lastUpdated:           time.Now().Add(-15 * time.Minute),
+				rebootTriggeredAt:     time.Now().Add(-15 * time.Minute),
 				expectedHostErrorType: infrav1.ErrorTypeHardwareRebootTriggered,
 				expectedRebootType:    infrav1.RebootTypeHardware,
 			}),
 			Entry("not timed out hw reset", testCaseHandleIncompleteBootDifferentTimeouts{
 				hostErrorType:         infrav1.ErrorTypeHardwareRebootTriggered,
-				lastUpdated:           time.Now().Add(-2 * time.Minute),
+				rebootTriggeredAt:     time.Now().Add(-2 * time.Minute),
 				expectedHostErrorType: infrav1.ErrorTypeHardwareRebootTriggered,
 				expectedRebootType:    infrav1.RebootType(""),
 			}),
 			Entry("not timed out sw reset", testCaseHandleIncompleteBootDifferentTimeouts{
 				hostErrorType:         infrav1.ErrorTypeSoftwareRebootTriggered,
-				lastUpdated:           time.Now().Add(-3 * time.Minute),
+				rebootTriggeredAt:     time.Now().Add(-3 * time.Minute),
 				expectedHostErrorType: infrav1.ErrorTypeSoftwareRebootTriggered,
 				expectedRebootType:    infrav1.RebootType(""),
 			}),
@@ -632,7 +644,8 @@ var _ = Describe("handleIncompleteBoot", func() {
 				}),
 				helpers.WithSSHSpec(),
 				helpers.WithSSHStatus(),
-				helpers.WithError(infrav1.ErrorTypeConnectionError, "", 1, metav1.Time{Time: time.Now().Add(-30 * time.Minute)}),
+				helpers.WithError(infrav1.ErrorTypeConnectionError, "", 1),
+				helpers.WithRebootTriggeredAt(metav1.NewTime(time.Now().Add(-30*time.Minute))),
 			)
 			service := newTestService(host, &robotMock, nil, nil, nil)
 
@@ -658,7 +671,8 @@ var _ = Describe("handleIncompleteBoot", func() {
 				}),
 				helpers.WithSSHSpec(),
 				helpers.WithSSHStatus(),
-				helpers.WithError(infrav1.ErrorTypeHardwareRebootTriggered, "", 1, metav1.Time{Time: time.Now().Add(-time.Hour)}),
+				helpers.WithError(infrav1.ErrorTypeHardwareRebootTriggered, "", 1),
+				helpers.WithRebootTriggeredAt(metav1.NewTime(time.Now().Add(-time.Hour))),
 			)
 			service := newTestService(host, &robotMock, nil, nil, nil)
 
@@ -694,7 +708,7 @@ var _ = Describe("handleIncompleteBoot", func() {
 					}),
 					helpers.WithSSHSpec(),
 					helpers.WithSSHStatus(),
-					helpers.WithError(tc.hostErrorType, "", 1, metav1.Now()),
+					helpers.WithError(tc.hostErrorType, "", 1),
 				)
 				service := newTestService(host, &robotMock, nil, nil, nil)
 
@@ -914,6 +928,37 @@ var _ = Describe("actionPreparing", func() {
 		Expect(host.Spec.Status.IPv6).To(Equal("2a01:4f9:3051:12ce::1"))
 		Expect(robotMock.AssertCalled(GinkgoT(), "DeleteBootRescue", mock.Anything)).To(BeTrue())
 		Expect(robotMock.AssertCalled(GinkgoT(), "SetBootRescue", mock.Anything, sshFingerprint)).To(BeTrue())
+	})
+
+	It("sets a permanent error when the server has no IPv4", func() {
+		host := helpers.BareMetalHost(
+			"test-host",
+			"default",
+			helpers.WithSSHSpecInclPorts(22),
+		)
+
+		robotMock := robotmock.Client{}
+		robotMock.On("GetBMServer", mock.Anything).Return(&models.Server{
+			ServerNumber:  1,
+			ServerIP:      "",
+			ServerIPv6Net: "2a01:4f9:3051:12ce::",
+		}, nil)
+
+		service := newTestService(
+			host,
+			&robotMock,
+			nil,
+			helpers.GetDefaultSSHSecret(osSSHKeyName, "default"),
+			helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"),
+		)
+
+		actResult := service.actionPreparing(context.Background())
+
+		Expect(actResult).To(BeAssignableToTypeOf(actionStop{}))
+		Expect(host.Spec.Status.ErrorType).To(Equal(infrav1.PermanentError))
+		Expect(host.Spec.Status.ErrorMessage).To(ContainSubstring("no IPv4"))
+		Expect(host.Spec.Status.IPv4).To(BeEmpty())
+		Expect(host.Annotations).To(HaveKey(infrav1.PermanentErrorAnnotation))
 	})
 })
 
@@ -1773,10 +1818,12 @@ var _ = Describe("actionProvisioned NoSSHAfterInstallImage=false", func() {
 		// Empty (default) means Phase 1 has not run yet — Phase 1 will execute.
 		// Non-empty means Phase 1 already ran — Phase 2 will execute.
 		// Set to a value different from fakeBootID to simulate a completed BootID change.
-		storedBootID           string
-		expectedActionResult   actionResult
-		expectRebootAnnotation bool
-		expectRebootInStatus   bool
+		storedBootID                    string
+		expectedActionResult            actionResult
+		expectRebootAnnotation          bool
+		expectRebootInStatus            bool
+		expectRebootTriggeredAtInStatus bool
+		expectedNodeBootID              string
 	}
 
 	DescribeTable("actionProvisioned",
@@ -1792,10 +1839,14 @@ var _ = Describe("actionProvisioned NoSSHAfterInstallImage=false", func() {
 			if tc.shouldHaveRebootAnnotation {
 				host.SetAnnotations(map[string]string{infrav1.RebootAnnotation: "reboot"})
 				if tc.storedBootID != "" {
-					host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = tc.storedBootID
+					host.Spec.Status.NodeBootID = tc.storedBootID
 				}
 			}
-			host.Spec.Status.Rebooted = tc.rebooted
+
+			if tc.rebooted {
+				host.Spec.Status.Rebooted = tc.rebooted
+				host.Spec.Status.RebootTriggeredAt = ptr.To(metav1.Now())
+			}
 
 			sshMock := &sshmock.Client{}
 			var hostNameOutput sshclient.Output
@@ -1813,6 +1864,8 @@ var _ = Describe("actionProvisioned NoSSHAfterInstallImage=false", func() {
 			Expect(actResult).Should(BeAssignableToTypeOf(tc.expectedActionResult))
 			Expect(host.HasRebootAnnotation()).To(Equal(tc.expectRebootAnnotation))
 			Expect(host.Spec.Status.Rebooted).To(Equal(tc.expectRebootInStatus))
+			Expect(host.Spec.Status.RebootTriggeredAt != nil).To(Equal(tc.expectRebootTriggeredAtInStatus))
+			Expect(host.Spec.Status.NodeBootID).To(Equal(tc.expectedNodeBootID))
 
 			// Phase 1 (storedBootID == ""): SSH Reboot should be called.
 			// Phase 2 (storedBootID != ""): SSH Reboot should not be called again.
@@ -1823,49 +1876,47 @@ var _ = Describe("actionProvisioned NoSSHAfterInstallImage=false", func() {
 			}
 		},
 		Entry("reboot desired, but not performed yet", testCaseActionProvisioned{
-			shouldHaveRebootAnnotation: true,
-			rebooted:                   false,
-			// storedBootID left empty: Phase 1 runs, sends SSH reboot
-			rebootFinished:         false,
-			expectedActionResult:   actionContinue{},
-			expectRebootAnnotation: true,
-			expectRebootInStatus:   true,
+			shouldHaveRebootAnnotation:      true,
+			rebooted:                        false,
+			storedBootID:                    fakeBootID,
+			rebootFinished:                  false,
+			expectedActionResult:            actionContinue{},
+			expectRebootAnnotation:          true,
+			expectRebootInStatus:            true,
+			expectRebootTriggeredAtInStatus: true,
+			expectedNodeBootID:              fakeBootID,
 		}),
 		Entry("reboot desired, and already performed, not finished", testCaseActionProvisioned{
-			shouldHaveRebootAnnotation: true,
-			rebooted:                   true,
-			storedBootID:               fakeBootID, // Phase 2: same as node BootID, still waiting
-			rebootFinished:             false,
-			expectedActionResult:       actionContinue{},
-			expectRebootAnnotation:     true,
-			expectRebootInStatus:       true,
+			shouldHaveRebootAnnotation:      true,
+			rebooted:                        true,
+			storedBootID:                    fakeBootID, // Phase 2: same as node BootID, still waiting
+			rebootFinished:                  false,
+			expectedActionResult:            actionContinue{},
+			expectRebootAnnotation:          true,
+			expectRebootInStatus:            true,
+			expectRebootTriggeredAtInStatus: true,
+			expectedNodeBootID:              fakeBootID,
 		}),
 		// BootID changed in the workload cluster: the sole signal that the reboot completed.
 		Entry("reboot desired, performed, BootID changed in workload cluster", testCaseActionProvisioned{
-			shouldHaveRebootAnnotation: true,
-			rebooted:                   true,
-			storedBootID:               "old-boot-id", // Phase 2: differs from fakeBootID the node reports
-			expectedActionResult:       actionComplete{},
-			expectRebootAnnotation:     false,
-			expectRebootInStatus:       false,
-		}),
-		// Hostname matches expected but BootID has not changed yet: keep waiting.
-		// Hostname is the same before and after a reboot so it cannot confirm completion.
-		Entry("reboot desired, performed, hostname matches but BootID unchanged", testCaseActionProvisioned{
-			shouldHaveRebootAnnotation: true,
-			rebooted:                   true,
-			storedBootID:               fakeBootID, // Phase 2: same as node BootID
-			rebootFinished:             true,       // SSH returns expected hostname
-			expectedActionResult:       actionContinue{},
-			expectRebootAnnotation:     true,
-			expectRebootInStatus:       true,
+			shouldHaveRebootAnnotation:      true,
+			rebooted:                        true,
+			storedBootID:                    "old-boot-id", // Phase 2: differs from fakeBootID the node reports
+			expectedActionResult:            actionComplete{},
+			expectRebootAnnotation:          false,
+			expectRebootInStatus:            false,
+			expectRebootTriggeredAtInStatus: false,
+			expectedNodeBootID:              "old-boot-id",
 		}),
 		Entry("no reboot desired", testCaseActionProvisioned{
-			shouldHaveRebootAnnotation: false,
-			rebooted:                   false,
-			expectedActionResult:       actionComplete{},
-			expectRebootAnnotation:     false,
-			expectRebootInStatus:       false,
+			shouldHaveRebootAnnotation:      false,
+			rebooted:                        false,
+			storedBootID:                    fakeBootID,
+			expectedActionResult:            actionComplete{},
+			expectRebootAnnotation:          false,
+			expectRebootInStatus:            false,
+			expectRebootTriggeredAtInStatus: false,
+			expectedNodeBootID:              fakeBootID,
 		}),
 	)
 })
@@ -1894,7 +1945,7 @@ var _ = Describe("actionProvisioned NoSSHAfterInstallImage=true", func() {
 		actResult := service.actionProvisioned(ctx)
 		Expect(actResult).Should(BeAssignableToTypeOf(actionContinue{}))
 		Expect(robotMock.AssertNumberOfCalls(GinkgoT(), "RebootBMServer", 1)).To(BeTrue())
-		c := conditions.Get(host, infrav1.RebootSucceededCondition)
+		c := v1beta1conditions.Get(host, infrav1.RebootSucceededCondition)
 		Expect(c.Message).To(ContainSubstring("Rebooting because annotation was set"))
 	})
 
@@ -1909,14 +1960,15 @@ var _ = Describe("actionProvisioned NoSSHAfterInstallImage=true", func() {
 		)
 
 		host.SetAnnotations(map[string]string{infrav1.RebootAnnotation: "reboot"})
-		host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = fakeBootID
+		host.Spec.Status.NodeBootID = fakeBootID
 		host.Spec.Status.SSHSpec.NoSSHAfterInstallImage = true
 
 		service := newTestService(host, nil, nil, helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+		host.Spec.Status.Rebooted = true
 
 		actResult := service.actionProvisioned(ctx)
 		Expect(actResult).Should(BeAssignableToTypeOf(actionContinue{}))
-		c := conditions.Get(host, infrav1.RebootSucceededCondition)
+		c := v1beta1conditions.Get(host, infrav1.RebootSucceededCondition)
 		Expect(c.Message).To(ContainSubstring("Waiting for BootID of Node in workload cluster to change"))
 	})
 
@@ -1932,7 +1984,7 @@ var _ = Describe("actionProvisioned NoSSHAfterInstallImage=true", func() {
 		)
 
 		host.SetAnnotations(map[string]string{infrav1.RebootAnnotation: "reboot"})
-		host.Spec.Status.ExternalIDs.RebootAnnotationNodeBootID = fakeBootID
+		host.Spec.Status.NodeBootID = fakeBootID
 		host.Spec.Status.SSHSpec.NoSSHAfterInstallImage = true
 
 		node := &corev1.Node{
@@ -1942,6 +1994,7 @@ var _ = Describe("actionProvisioned NoSSHAfterInstallImage=true", func() {
 		}
 
 		service := newTestService(host, nil, nil, helpers.GetDefaultSSHSecret(osSSHKeyName, "default"), helpers.GetDefaultSSHSecret(rescueSSHKeyName, "default"))
+		host.Spec.Status.Rebooted = true
 
 		err := service.scope.Client.Get(ctx, client.ObjectKeyFromObject(node), node)
 		Expect(err).ToNot(HaveOccurred())
@@ -1955,7 +2008,7 @@ var _ = Describe("actionProvisioned NoSSHAfterInstallImage=true", func() {
 		Expect(actResult).Should(BeAssignableToTypeOf(actionComplete{}))
 
 		// Condition should be fine
-		c := conditions.Get(host, infrav1.RebootSucceededCondition)
+		c := v1beta1conditions.Get(host, infrav1.RebootSucceededCondition)
 		Expect(c.Message).To(Equal(""))
 		Expect(c.Status).To(Equal(corev1.ConditionTrue))
 		Expect(host.GetAnnotations()).To(BeEmpty())

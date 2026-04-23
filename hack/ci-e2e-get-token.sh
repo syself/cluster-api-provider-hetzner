@@ -22,7 +22,12 @@ fi
 
 if [ -e .envrc ]; then
     echo "Updating .envrc"
+    original_envrc=$(<.envrc)
     sed -i "s/^export HCLOUD_TOKEN=.*/export HCLOUD_TOKEN=$newtoken/" .envrc
+    updated_envrc=$(<.envrc)
+    if [[ "$original_envrc" == "$updated_envrc" ]]; then
+        echo "Warning: Updating .envrc had no effect. Check that it contains an export HCLOUD_TOKEN=... line." >&2
+    fi
     if type -P direnv >/dev/null; then
         direnv allow
     fi

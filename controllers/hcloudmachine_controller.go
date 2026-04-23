@@ -29,10 +29,11 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
-	"sigs.k8s.io/cluster-api/util/conditions"
+	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -200,8 +201,8 @@ func (r *HCloudMachineReconciler) Reconcile(ctx context.Context, req reconcile.R
 			}
 		}
 
-		readyReason := conditions.GetReason(machineScope.HCloudMachine, clusterv1.ReadyCondition)
-		readyMessage := conditions.GetMessage(machineScope.HCloudMachine, clusterv1.ReadyCondition)
+		readyReason := v1beta1conditions.GetReason(machineScope.HCloudMachine, clusterv1beta1.ReadyCondition)
+		readyMessage := v1beta1conditions.GetMessage(machineScope.HCloudMachine, clusterv1beta1.ReadyCondition)
 
 		duration := time.Since(startReconcile)
 
@@ -318,7 +319,7 @@ func (r *HCloudMachineReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 		Watches(
 			&clusterv1.Cluster{},
 			handler.EnqueueRequestsFromMapFunc(clusterToObjectFunc),
-			builder.WithPredicates(predicates.ClusterPausedTransitionsOrInfrastructureReady(mgr.GetScheme(), log)),
+			builder.WithPredicates(predicates.ClusterPausedTransitionsOrInfrastructureProvisioned(mgr.GetScheme(), log)),
 		).
 		Complete(r)
 	if err != nil {
@@ -365,7 +366,7 @@ func (r *HCloudMachineReconciler) HetznerClusterToHCloudMachines(_ context.Conte
 		}
 		for _, m := range machineList.Items {
 			log = log.WithValues("machine", m.Name)
-			if m.Spec.InfrastructureRef.GroupVersionKind().Kind != "HCloudMachine" {
+			if m.Spec.InfrastructureRef.Kind != "HCloudMachine" {
 				continue
 			}
 			if m.Spec.InfrastructureRef.Name == "" {

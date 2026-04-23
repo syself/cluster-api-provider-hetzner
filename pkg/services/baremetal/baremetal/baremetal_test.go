@@ -35,7 +35,8 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/utils/ptr"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -375,23 +376,23 @@ var _ = Describe("Test NodeAddresses", func() {
 		IP: "172.0.20.2",
 	}
 
-	addr1 := clusterv1.MachineAddress{
-		Type:    clusterv1.MachineInternalIP,
+	addr1 := clusterv1beta1.MachineAddress{
+		Type:    clusterv1beta1.MachineInternalIP,
 		Address: "192.168.1.1",
 	}
 
-	addr2 := clusterv1.MachineAddress{
-		Type:    clusterv1.MachineInternalIP,
+	addr2 := clusterv1beta1.MachineAddress{
+		Type:    clusterv1beta1.MachineInternalIP,
 		Address: "172.0.20.2",
 	}
 
-	addr3 := clusterv1.MachineAddress{
-		Type:    clusterv1.MachineHostName,
+	addr3 := clusterv1beta1.MachineAddress{
+		Type:    clusterv1beta1.MachineHostName,
 		Address: "bm-machine",
 	}
 
-	addr4 := clusterv1.MachineAddress{
-		Type:    clusterv1.MachineInternalDNS,
+	addr4 := clusterv1beta1.MachineAddress{
+		Type:    clusterv1beta1.MachineInternalDNS,
 		Address: "bm-machine",
 	}
 
@@ -399,7 +400,7 @@ var _ = Describe("Test NodeAddresses", func() {
 		Machine               clusterv1.Machine
 		BareMetalMachine      infrav1.HetznerBareMetalMachine
 		Host                  *infrav1.HetznerBareMetalHost
-		ExpectedNodeAddresses []clusterv1.MachineAddress
+		ExpectedNodeAddresses []clusterv1beta1.MachineAddress
 	}
 
 	DescribeTable("Test NodeAddress",
@@ -419,7 +420,7 @@ var _ = Describe("Test NodeAddresses", func() {
 					},
 				},
 			},
-			ExpectedNodeAddresses: []clusterv1.MachineAddress{addr1, addr3, addr4},
+			ExpectedNodeAddresses: []clusterv1beta1.MachineAddress{addr1, addr3, addr4},
 		}),
 		Entry("Two NICs", testCaseNodeAddress{
 			Host: &infrav1.HetznerBareMetalHost{
@@ -431,7 +432,7 @@ var _ = Describe("Test NodeAddresses", func() {
 					},
 				},
 			},
-			ExpectedNodeAddresses: []clusterv1.MachineAddress{addr1, addr2, addr3, addr4},
+			ExpectedNodeAddresses: []clusterv1beta1.MachineAddress{addr1, addr2, addr3, addr4},
 		}),
 	)
 })

@@ -26,7 +26,7 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	. "sigs.k8s.io/cluster-api/test/framework/ginkgoextensions"
 	"sigs.k8s.io/cluster-api/test/framework/internal/log"
 	"sigs.k8s.io/cluster-api/util/conditions"
@@ -170,7 +170,7 @@ func WaitForControlPlaneMachinesToBeUpgraded(ctx context.Context, input WaitForC
 		upgraded := 0
 		for _, machine := range machines {
 			m := machine
-			if *m.Spec.Version == input.KubernetesUpgradeVersion && conditions.IsTrue(&m, clusterv1.MachineNodeHealthyCondition) {
+			if m.Spec.Version == input.KubernetesUpgradeVersion && conditions.IsTrue(&m, clusterv1.MachineNodeHealthyCondition) {
 				upgraded++
 			}
 		}
@@ -210,7 +210,7 @@ func WaitForMachineDeploymentMachinesToBeUpgraded(ctx context.Context, input Wai
 
 		upgraded := 0
 		for _, machine := range machines {
-			if *machine.Spec.Version == input.KubernetesUpgradeVersion {
+			if machine.Spec.Version == input.KubernetesUpgradeVersion {
 				upgraded++
 			}
 		}
@@ -238,10 +238,10 @@ func PatchNodeCondition(ctx context.Context, input PatchNodeConditionInput) {
 	Expect(input.Machine).ToNot(BeNil(), "Invalid argument. input.Machine can't be nil when calling PatchNodeConditions")
 
 	log.Logf("Patching the node condition to the node")
-	Expect(input.Machine.Status.NodeRef).ToNot(BeNil())
+	Expect(input.Machine.Status.NodeRef.IsDefined()).To(BeTrue())
 	node := &corev1.Node{}
 	Eventually(func() error {
-		return input.ClusterProxy.GetWorkloadCluster(ctx, input.Cluster.Namespace, input.Cluster.Name).GetClient().Get(ctx, types.NamespacedName{Name: input.Machine.Status.NodeRef.Name, Namespace: input.Machine.Status.NodeRef.Namespace}, node)
+		return input.ClusterProxy.GetWorkloadCluster(ctx, input.Cluster.Namespace, input.Cluster.Name).GetClient().Get(ctx, types.NamespacedName{Name: input.Machine.Status.NodeRef.Name}, node)
 	}, retryableOperationTimeout, retryableOperationInterval).Should(Succeed(), "Failed to get node %s", input.Machine.Status.NodeRef.Name)
 	patchHelper, err := patch.NewHelper(node, input.ClusterProxy.GetWorkloadCluster(ctx, input.Cluster.Namespace, input.Cluster.Name).GetClient())
 	Expect(err).ToNot(HaveOccurred())
@@ -289,7 +289,7 @@ func WaitForMachineStatusCheck(ctx context.Context, input WaitForMachineStatusCh
 // MachineNodeRefCheck is a MachineStatusCheck ensuring that a NodeRef is assigned to the machine.
 func MachineNodeRefCheck() MachineStatusCheck {
 	return func(machine *clusterv1.Machine) error {
-		if machine.Status.NodeRef == nil {
+		if !machine.Status.NodeRef.IsDefined() {
 			return errors.Errorf("NodeRef is not assigned to the machine %s", klog.KObj(machine))
 		}
 		return nil
