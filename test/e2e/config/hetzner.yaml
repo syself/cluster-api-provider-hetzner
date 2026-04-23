@@ -164,7 +164,7 @@ variables:
   CONFORMANCE_WORKER_MACHINE_COUNT: 3
   CONFORMANCE_CONTROL_PLANE_MACHINE_COUNT: 3
   KUBETEST_CONFIGURATION: "${KUBETEST_CONF_PATH:=./data/kubetest/conformance.yaml}"
-  NODE_DRAIN_TIMEOUT: "60s"
+  NODE_DRAIN_TIMEOUT_SECONDS: "60"
 
   # Enabling the feature flags by setting the env variables.
   EXP_CLUSTER_RESOURCE_SET: "true"
