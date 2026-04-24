@@ -961,7 +961,6 @@ var _ = Describe("reconcileLoadBalancerAttachment", func() {
 		service := newServiceForLoadBalancerAttachment(machine, bareMetalMachine, newControlPlaneCluster(), hetznerCluster, hcloudClient)
 
 		Expect(service.reconcileLoadBalancerAttachment(context.Background(), newHost("192.0.2.10"))).To(Succeed())
-		Expect(v1beta1conditions.IsTrue(bareMetalMachine, infrav1.ServerAvailableCondition)).To(BeTrue())
 		Expect(hcloudClient.AssertExpectations(GinkgoT())).To(BeTrue())
 	})
 })
@@ -974,7 +973,7 @@ var _ = Describe("Reconcile with control-plane load balancer attachment", func()
 		testCluster   = "test-cluster"
 	)
 
-	buildService := func(lbTargets []infrav1.LoadBalancerTarget, apiServerHealthy bool) (
+	buildService := func(lbTargets []infrav1.LoadBalancerTarget, apiServerHealthy, isControlPlane bool) (
 		*Service, *infrav1.HetznerBareMetalMachine,
 	) {
 		scheme := runtime.NewScheme()
@@ -1003,13 +1002,15 @@ var _ = Describe("Reconcile with control-plane load balancer attachment", func()
 			},
 		}
 
+		machineLabels := map[string]string{}
+		if isControlPlane {
+			machineLabels[clusterv1.MachineControlPlaneLabel] = ""
+		}
 		machine := &clusterv1.Machine{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      testBMMName,
 				Namespace: testNamespace,
-				Labels: map[string]string{
-					clusterv1.MachineControlPlaneLabel: "",
-				},
+				Labels:    machineLabels,
 			},
 			Spec: clusterv1.MachineSpec{
 				Bootstrap: clusterv1.Bootstrap{
@@ -1082,6 +1083,7 @@ var _ = Describe("Reconcile with control-plane load balancer attachment", func()
 				{Type: infrav1.LoadBalancerTargetTypeIP, IP: "192.0.2.9"},
 			},
 			false,
+			true,
 		)
 
 		res, err := service.Reconcile(context.Background())
@@ -1096,14 +1098,30 @@ var _ = Describe("Reconcile with control-plane load balancer attachment", func()
 
 	It("does not requeue on the happy path and marks ServerAvailableCondition=True", func() {
 		// LB target list already contains this host's IPv4, so
-		// reconcileLoadBalancerAttachment marks the condition true and
-		// returns no requeue.
+		// reconcileLoadBalancerAttachment returns no requeue and Reconcile
+		// marks the condition true.
 		service, bareMetalMachine := buildService(
 			[]infrav1.LoadBalancerTarget{
 				{Type: infrav1.LoadBalancerTargetTypeIP, IP: "192.0.2.10"},
 			},
 			true,
+			true,
 		)
+
+		res, err := service.Reconcile(context.Background())
+		Expect(err).To(BeNil())
+		Expect(res).To(Equal(reconcile.Result{}))
+
+		Expect(bareMetalMachine.Status.Ready).To(BeTrue())
+		Expect(bareMetalMachine.Spec.ProviderID).NotTo(BeNil())
+		Expect(v1beta1conditions.IsTrue(bareMetalMachine, infrav1.ServerAvailableCondition)).To(BeTrue())
+	})
+
+	It("marks ServerAvailableCondition=True for worker nodes without touching the load balancer", func() {
+		// Worker nodes never hit reconcileLoadBalancerAttachment, but Reconcile
+		// must still mark the condition true so the condition is meaningful on
+		// non-control-plane HetznerBareMetalMachines too.
+		service, bareMetalMachine := buildService(nil, true, false)
 
 		res, err := service.Reconcile(context.Background())
 		Expect(err).To(BeNil())

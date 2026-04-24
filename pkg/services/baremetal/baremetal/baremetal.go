@@ -157,15 +157,21 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	// core Machine, and the attachment would requeue forever.
 	s.scope.BareMetalMachine.Status.Ready = true
 
-	// Do not mark ServerAvailableCondition True after this call:
-	// reconcileLoadBalancerAttachment sets it False/WaitingForAPIServer on the
-	// requeue branch, and a MarkTrue here would overwrite that.
-	if s.scope.IsControlPlane() {
-		if err := s.reconcileLoadBalancerAttachment(ctx, host); err != nil {
-			return checkForRequeueError(err, "failed to reconcile load balancer attachment")
-		}
+	// Worker nodes have no further blocking step, so mark the condition true here.
+	if !s.scope.IsControlPlane() {
+		v1beta1conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.ServerAvailableCondition)
+		return res, nil
 	}
 
+	// Control planes must be attached to the load balancer. Do not MarkTrue after
+	// this call: on the requeue branch reconcileLoadBalancerAttachment sets
+	// ServerAvailableCondition=False/WaitingForAPIServer and a MarkTrue here
+	// would overwrite that reason.
+	if err := s.reconcileLoadBalancerAttachment(ctx, host); err != nil {
+		return checkForRequeueError(err, "failed to reconcile load balancer attachment")
+	}
+
+	v1beta1conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.ServerAvailableCondition)
 	return res, nil
 }
 
@@ -580,7 +586,6 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 
 	// if both IPs are already added as target, then do nothing
 	if foundIPv4 && foundIPv6 {
-		v1beta1conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.ServerAvailableCondition)
 		return nil
 	}
 
@@ -620,7 +625,6 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 		if err := s.scope.HCloudClient.AddIPTargetToLoadBalancer(ctx, opts, lb); err != nil {
 			hcloudutil.HandleRateLimitExceeded(s.scope.HetznerCluster, err, "AddIPTargetToLoadBalancer")
 			if hcloud.IsError(err, hcloud.ErrorCodeTargetAlreadyDefined) {
-				v1beta1conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.ServerAvailableCondition)
 				return nil
 			}
 			return fmt.Errorf("failed to add IP %q as target to load balancer: %w", ip, err)
@@ -632,8 +636,6 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 			ip, host.Spec.ServerID, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID,
 		)
 	}
-
-	v1beta1conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.ServerAvailableCondition)
 
 	return nil
 }
