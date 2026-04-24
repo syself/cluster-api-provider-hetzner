@@ -548,10 +548,10 @@ func workloadClusterSecretNames(secretName string) []string {
 	return names
 }
 
-// workloadClusterCompatibilityKeys returns the configured key for every secret.
+// keysForWorkloadClusterSecret returns the configured key for every secret.
 // When reconciling the secret named "hcloud", it also returns the compatibility
 // key unless it matches the configured key.
-func workloadClusterCompatibilityKeys(secretName, configuredKey, compatibilityKey string) []string {
+func keysForWorkloadClusterSecret(secretName, configuredKey, compatibilityKey string) []string {
 	if secretName != "hcloud" {
 		// Only the secret named "hcloud" gets the compatibility key.
 		return []string{configuredKey}
@@ -607,18 +607,18 @@ func reconcileOneWorkloadClusterSecret(ctx context.Context, clusterScope *scope.
 			wlSecret.Data = make(map[string][]byte)
 		}
 
-		for _, key := range workloadClusterCompatibilityKeys(name, clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken, "token") {
+		for _, key := range keysForWorkloadClusterSecret(name, clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken, "token") {
 			wlSecret.Data[key] = hcloudToken
 		}
 
 		// Save robot credentials if available
 		if clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser != "" {
 			robotUserName := mgtSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser]
-			for _, key := range workloadClusterCompatibilityKeys(name, clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser, "robot-user") {
+			for _, key := range keysForWorkloadClusterSecret(name, clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser, "robot-user") {
 				wlSecret.Data[key] = robotUserName
 			}
 			robotPassword := mgtSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword]
-			for _, key := range workloadClusterCompatibilityKeys(name, clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword, "robot-password") {
+			for _, key := range keysForWorkloadClusterSecret(name, clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword, "robot-password") {
 				wlSecret.Data[key] = robotPassword
 			}
 		}

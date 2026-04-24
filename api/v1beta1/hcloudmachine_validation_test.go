@@ -48,7 +48,7 @@ func TestValidateHCloudMachineSpecUpdate(t *testing.T) {
 					Type:      "cx21",
 				},
 			},
-			want: field.Invalid(field.NewPath("spec", "type"), "cx21", "field is immutable"),
+			want: field.Forbidden(field.NewPath("spec", "type"), "field is immutable"),
 		},
 		{
 			name: "Immutable ImageName",
@@ -60,7 +60,7 @@ func TestValidateHCloudMachineSpecUpdate(t *testing.T) {
 					ImageName: "centos-7",
 				},
 			},
-			want: field.Invalid(field.NewPath("spec", "imageName"), "centos-7", "field is immutable"),
+			want: field.Forbidden(field.NewPath("spec", "imageName"), "field is immutable"),
 		},
 		{
 			name: "Immutable ImageURL",
@@ -74,7 +74,7 @@ func TestValidateHCloudMachineSpecUpdate(t *testing.T) {
 					ImageURLCommand: "image-url-command-v1.sh",
 				},
 			},
-			want: field.Invalid(field.NewPath("spec", "imageURL"), "oci://ghcr.io/example/foo:v2", "field is immutable"),
+			want: field.Forbidden(field.NewPath("spec", "imageURL"), "field is immutable"),
 		},
 		{
 			name: "Immutable ImageURLCommand",
@@ -88,7 +88,7 @@ func TestValidateHCloudMachineSpecUpdate(t *testing.T) {
 					ImageURLCommand: "image-url-command-v2.sh",
 				},
 			},
-			want: field.Invalid(field.NewPath("spec", "imageURLCommand"), "image-url-command-v2.sh", "field is immutable"),
+			want: field.Forbidden(field.NewPath("spec", "imageURLCommand"), "field is immutable"),
 		},
 		{
 			name: "Immutable SSHKeys",
@@ -116,16 +116,7 @@ func TestValidateHCloudMachineSpecUpdate(t *testing.T) {
 					},
 				},
 			},
-			want: field.Invalid(field.NewPath("spec", "sshKeys"), []SSHKey{
-				{
-					Name:        "ssh-key-1",
-					Fingerprint: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC",
-				},
-				{
-					Name:        "ssh-key-2",
-					Fingerprint: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC",
-				},
-			}, "field is immutable"),
+			want: field.Forbidden(field.NewPath("spec", "sshKeys"), "field is immutable"),
 		},
 		{
 			name: "Immutable PlacementGroupName",
@@ -139,7 +130,7 @@ func TestValidateHCloudMachineSpecUpdate(t *testing.T) {
 					PlacementGroupName: createPlacementGroupName("placement-group-2"),
 				},
 			},
-			want: field.Invalid(field.NewPath("spec", "placementGroupName"), "placement-group-2", "field is immutable"),
+			want: field.Forbidden(field.NewPath("spec", "placementGroupName"), "field is immutable"),
 		},
 		{
 			name: "No Errors",

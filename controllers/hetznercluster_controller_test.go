@@ -331,7 +331,7 @@ func TestWorkloadClusterHCloudTokenKeys(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := workloadClusterCompatibilityKeys(tc.secretName, tc.configuredKey, "token")
+			got := keysForWorkloadClusterSecret(tc.secretName, tc.configuredKey, "token")
 			require.Equal(t, tc.want, got)
 		})
 	}

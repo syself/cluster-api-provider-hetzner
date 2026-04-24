@@ -42,7 +42,7 @@ func (r *HetznerBareMetalRemediationTemplate) SetupWebhookWithManager(mgr ctrl.M
 var _ webhook.CustomDefaulter = &hetznerBareMetalRemediationTemplateWebhook{}
 
 // Default implements webhook.CustomDefaulter so a webhook will be registered for the type.
-func (*hetznerBareMetalRemediationTemplateWebhook) Default(_ context.Context, _ runtime.Object) error {
+func (*hetznerBareMetalRemediationTemplateWebhook) Default(context.Context, runtime.Object) error {
 	return nil
 }
 
@@ -51,7 +51,7 @@ func (*hetznerBareMetalRemediationTemplateWebhook) Default(_ context.Context, _ 
 var _ webhook.CustomValidator = &hetznerBareMetalRemediationTemplateWebhook{}
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (*hetznerBareMetalRemediationTemplateWebhook) ValidateCreate(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
+func (*hetznerBareMetalRemediationTemplateWebhook) ValidateCreate(context.Context, runtime.Object) (admission.Warnings, error) {
 	return nil, nil
 }
 
@@ -61,6 +61,6 @@ func (*hetznerBareMetalRemediationTemplateWebhook) ValidateUpdate(_ context.Cont
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
-func (*hetznerBareMetalRemediationTemplateWebhook) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
+func (*hetznerBareMetalRemediationTemplateWebhook) ValidateDelete(context.Context, runtime.Object) (admission.Warnings, error) {
 	return nil, nil
 }

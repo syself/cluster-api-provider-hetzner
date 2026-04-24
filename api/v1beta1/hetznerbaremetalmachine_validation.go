@@ -37,7 +37,7 @@ func validateHetznerBareMetalMachineSpecCreate(spec HetznerBareMetalMachineSpec)
 	if installImage.UsesImageURLCommand() {
 		if image.URL == "" {
 			allErrs = append(allErrs,
-				field.Invalid(field.NewPath("spec", "installImage", "image", "url"), image.URL,
+				field.Required(field.NewPath("spec", "installImage", "image", "url"),
 					"url is required when imageURLCommand is set"),
 			)
 		} else if _, err := url.ParseRequestURI(image.URL); err != nil {
@@ -110,17 +110,17 @@ func validateHetznerBareMetalMachineSpecUpdate(oldSpec, newSpec HetznerBareMetal
 	var allErrs field.ErrorList
 	if !reflect.DeepEqual(newSpec.InstallImage, oldSpec.InstallImage) {
 		allErrs = append(allErrs,
-			field.Invalid(field.NewPath("spec", "installImage"), newSpec.InstallImage, "installImage immutable"),
+			field.Forbidden(field.NewPath("spec", "installImage"), "installImage is immutable"),
 		)
 	}
 	if !reflect.DeepEqual(newSpec.SSHSpec, oldSpec.SSHSpec) {
 		allErrs = append(allErrs,
-			field.Invalid(field.NewPath("spec", "sshSpec"), newSpec.SSHSpec, "sshSpec immutable"),
+			field.Forbidden(field.NewPath("spec", "sshSpec"), "sshSpec is immutable"),
 		)
 	}
 	if !reflect.DeepEqual(newSpec.HostSelector, oldSpec.HostSelector) {
 		allErrs = append(allErrs,
-			field.Invalid(field.NewPath("spec", "hostSelector"), newSpec.HostSelector, "hostSelector immutable"),
+			field.Forbidden(field.NewPath("spec", "hostSelector"), "hostSelector is immutable"),
 		)
 	}
 
@@ -128,7 +128,7 @@ func validateHetznerBareMetalMachineSpecUpdate(oldSpec, newSpec HetznerBareMetal
 		// once the ProviderID was set, the value must not change.
 		if newSpec.ProviderID == nil || *oldSpec.ProviderID != *newSpec.ProviderID {
 			allErrs = append(allErrs,
-				field.Invalid(field.NewPath("spec", "providerID"), newSpec.ProviderID, "providerID immutable"),
+				field.Forbidden(field.NewPath("spec", "providerID"), "providerID is immutable"),
 			)
 		}
 	}

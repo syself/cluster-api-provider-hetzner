@@ -42,7 +42,7 @@ func (r *HCloudRemediation) SetupWebhookWithManager(mgr ctrl.Manager) error {
 var _ webhook.CustomDefaulter = &hcloudRemediationWebhook{}
 
 // Default implements webhook.CustomDefaulter so a webhook will be registered for the type.
-func (*hcloudRemediationWebhook) Default(_ context.Context, _ runtime.Object) error {
+func (*hcloudRemediationWebhook) Default(context.Context, runtime.Object) error {
 	return nil
 }
 
@@ -51,16 +51,16 @@ func (*hcloudRemediationWebhook) Default(_ context.Context, _ runtime.Object) er
 var _ webhook.CustomValidator = &hcloudRemediationWebhook{}
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (*hcloudRemediationWebhook) ValidateCreate(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
+func (*hcloudRemediationWebhook) ValidateCreate(context.Context, runtime.Object) (admission.Warnings, error) {
 	return nil, nil
 }
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (*hcloudRemediationWebhook) ValidateUpdate(_ context.Context, _ runtime.Object, _ runtime.Object) (admission.Warnings, error) {
+func (*hcloudRemediationWebhook) ValidateUpdate(_ context.Context, _, _ runtime.Object) (admission.Warnings, error) {
 	return nil, nil
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
-func (*hcloudRemediationWebhook) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
+func (*hcloudRemediationWebhook) ValidateDelete(context.Context, runtime.Object) (admission.Warnings, error) {
 	return nil, nil
 }

@@ -769,6 +769,21 @@ func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL 
 			return 0, "", errors.New("deviceName must not be empty")
 		}
 	}
+
+	if command == "" {
+		return 0, "", fmt.Errorf("image-url-command is empty")
+	}
+
+	fdCommand, err := os.Open(command) //nolint:gosec // the variable was valided.
+	if err != nil {
+		return 0, "", fmt.Errorf("error opening image-url-command %q: %w", command, err)
+	}
+	defer func() {
+		if err := fdCommand.Close(); err != nil {
+			c.log.Error(err, "failed to close image-url-command file", "path", command)
+		}
+	}()
+
 	client, err := c.getSSHClient()
 	if err != nil {
 		return 0, "", err
@@ -786,20 +801,6 @@ func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL 
 
 	defer scpClient.Close()
 
-	if command == "" {
-		return 0, "", fmt.Errorf("image-url-command is empty")
-	}
-
-	fdCommand, err := os.Open(command) //nolint:gosec // the variable was valided.
-	if err != nil {
-		return 0, "", fmt.Errorf("error opening image-url-command %q: %w", command, err)
-	}
-	defer func() {
-		if err := fdCommand.Close(); err != nil {
-			c.log.Error(err, "failed to close image-url-command file", "path", command)
-		}
-	}()
-
 	baseName := "image-url-command"
 	dest := "/root/" + baseName
 	err = scpClient.CopyFromFile(ctx, *fdCommand, dest, "0700")
@@ -811,7 +812,7 @@ func (c *sshClient) StartImageURLCommand(ctx context.Context, command, imageURL 
 	dest = "/root/bootstrap.data"
 	err = scpClient.CopyFile(ctx, reader, dest, "0700")
 	if err != nil {
-		return 0, "", fmt.Errorf("error copying boostrap data to %s:%d:%s %w", c.ip, c.port, dest, err)
+		return 0, "", fmt.Errorf("error copying bootstrap data to %s:%d:%s %w", c.ip, c.port, dest, err)
 	}
 
 	cmd := fmt.Sprintf(`#!/usr/bin/bash
