@@ -140,51 +140,15 @@ spec:
         kubeletExtraArgs:
           - name: cloud-provider
             value: external
-          - name: tls-cipher-suites
-            value: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
-          - name: kubeconfig
-            value: /etc/kubernetes/kubelet.conf
-          - name: authentication-token-webhook
-            value: "true"
-          - name: authorization-mode
-            value: Webhook
-          - name: anonymous-auth
-            value: "false"
-          - name: read-only-port
-            value: "0"
-          - name: event-qps
-            value: "5"
-          - name: rotate-server-certificates
-            value: "true"
-          - name: max-pods
-            value: "120"
-          - name: resolv-conf
-            value: /etc/kubernetes/resolv.conf
+          - name: config
+            value: /etc/kubernetes/kubelet/config.yaml
     joinConfiguration:
       nodeRegistration:
         kubeletExtraArgs:
           - name: cloud-provider
             value: external
-          - name: tls-cipher-suites
-            value: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
-          - name: kubeconfig
-            value: /etc/kubernetes/kubelet.conf
-          - name: authentication-token-webhook
-            value: "true"
-          - name: authorization-mode
-            value: Webhook
-          - name: anonymous-auth
-            value: "false"
-          - name: read-only-port
-            value: "0"
-          - name: event-qps
-            value: "5"
-          - name: rotate-server-certificates
-            value: "true"
-          - name: max-pods
-            value: "120"
-          - name: resolv-conf
-            value: /etc/kubernetes/resolv.conf
+          - name: config
+            value: /etc/kubernetes/kubelet/config.yaml
     files:
       - path: /etc/systemd/system/sys-fs-bpf.mount
         owner: "root:root"
@@ -237,6 +201,33 @@ spec:
           nameserver 1.1.1.1
           nameserver 1.0.0.1
           nameserver 2606:4700:4700::1111
+      - path: /etc/kubernetes/kubelet/config.yaml
+        owner: "root:root"
+        permissions: "0644"
+        content: |
+          apiVersion: kubelet.config.k8s.io/v1beta1
+          kind: KubeletConfiguration
+          authentication:
+            anonymous:
+              enabled: false
+            webhook:
+              enabled: true
+          authorization:
+            mode: Webhook
+          eventRecordQPS: 5
+          maxPods: 120
+          readOnlyPort: 0
+          resolvConf: /etc/kubernetes/resolv.conf
+          serverTLSBootstrap: true
+          tlsCipherSuites:
+            - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+            - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+            - TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
+            - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+            - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
+            - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+            - TLS_RSA_WITH_AES_256_GCM_SHA384
+            - TLS_RSA_WITH_AES_128_GCM_SHA256
       - content: |
           # Copyright The containerd Authors.
           #

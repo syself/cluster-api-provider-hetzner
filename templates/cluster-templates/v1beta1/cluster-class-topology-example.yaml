@@ -64,7 +64,7 @@ spec:
           variables:
             overrides:
               - name: hcloudWorkerMachineType
-                value: cx21
+                value: cx23
               # - name: hcloudWorkerMachineImageName
               #   value: ubuntu-24.04
               - name: hcloudWorkerMachinePlacementGroupName
@@ -76,7 +76,7 @@ spec:
           variables:
             overrides:
               - name: hcloudWorkerMachineType
-                value: cx31
+                value: cx33
               # - name: hcloudWorkerMachineImageName
               #   value: ubuntu-24.04
               - name: hcloudWorkerMachinePlacementGroupName

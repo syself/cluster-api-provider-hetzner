@@ -90,7 +90,7 @@ func TestIgnoreInsignificantHCloudMachineStatusUpdates(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: infrav1.HCloudMachineSpec{
-					Type: "cx21",
+					Type: "cx23",
 				},
 			},
 			expected: true,

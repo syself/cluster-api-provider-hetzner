@@ -166,7 +166,7 @@ spec:
       schema:
         openAPIV3Schema:
           type: string
-          default: cx31
+          default: cx33
     - name: hcloudControlPlaneMachineImageName
       required: true
       schema:
@@ -183,7 +183,7 @@ spec:
       schema:
         openAPIV3Schema:
           type: string
-          default: cx21
+          default: cx23
     - name: hcloudWorkerMachineImageName
       required: true
       schema:
@@ -388,7 +388,7 @@ spec:
   template:
     spec:
       imageName: ubuntu-24.04
-      type: cx21
+      type: cx23
 ---
 apiVersion: controlplane.cluster.x-k8s.io/v1beta2
 kind: KubeadmControlPlaneTemplate
@@ -548,56 +548,47 @@ spec:
             owner: root:root
             path: /etc/kubernetes/resolv.conf
             permissions: "0744"
+          - content: |
+              apiVersion: kubelet.config.k8s.io/v1beta1
+              kind: KubeletConfiguration
+              authentication:
+                anonymous:
+                  enabled: false
+                webhook:
+                  enabled: true
+              authorization:
+                mode: Webhook
+              eventRecordQPS: 5
+              maxPods: 120
+              readOnlyPort: 0
+              resolvConf: /etc/kubernetes/resolv.conf
+              serverTLSBootstrap: true
+              tlsCipherSuites:
+                - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+                - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+                - TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
+                - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+                - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
+                - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+                - TLS_RSA_WITH_AES_256_GCM_SHA384
+                - TLS_RSA_WITH_AES_128_GCM_SHA256
+            owner: root:root
+            path: /etc/kubernetes/kubelet/config.yaml
+            permissions: "0644"
         initConfiguration:
           nodeRegistration:
             kubeletExtraArgs:
-              - name: anonymous-auth
-                value: "false"
-              - name: authentication-token-webhook
-                value: "true"
-              - name: authorization-mode
-                value: Webhook
               - name: cloud-provider
                 value: external
-              - name: event-qps
-                value: "5"
-              - name: kubeconfig
-                value: /etc/kubernetes/kubelet.conf
-              - name: max-pods
-                value: "120"
-              - name: read-only-port
-                value: "0"
-              - name: resolv-conf
-                value: /etc/kubernetes/resolv.conf
-              - name: rotate-server-certificates
-                value: "true"
-              - name: tls-cipher-suites
-                value: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
+              - name: config
+                value: /etc/kubernetes/kubelet/config.yaml
         joinConfiguration:
           nodeRegistration:
             kubeletExtraArgs:
-              - name: anonymous-auth
-                value: "false"
-              - name: authentication-token-webhook
-                value: "true"
-              - name: authorization-mode
-                value: Webhook
               - name: cloud-provider
                 value: external
-              - name: event-qps
-                value: "5"
-              - name: kubeconfig
-                value: /etc/kubernetes/kubelet.conf
-              - name: max-pods
-                value: "120"
-              - name: read-only-port
-                value: "0"
-              - name: resolv-conf
-                value: /etc/kubernetes/resolv.conf
-              - name: rotate-server-certificates
-                value: "true"
-              - name: tls-cipher-suites
-                value: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
+              - name: config
+                value: /etc/kubernetes/kubelet/config.yaml
         preKubeadmCommands:
           - grep VERSION= /etc/os-release; uname -a # Show version info in logs.
           - export CONTAINERD=1.7.26
@@ -678,31 +669,40 @@ spec:
           owner: root:root
           path: /etc/kubernetes/resolv.conf
           permissions: "0744"
+        - content: |
+            apiVersion: kubelet.config.k8s.io/v1beta1
+            kind: KubeletConfiguration
+            authentication:
+              anonymous:
+                enabled: false
+              webhook:
+                enabled: true
+            authorization:
+              mode: Webhook
+            eventRecordQPS: 5
+            maxPods: 220
+            readOnlyPort: 0
+            resolvConf: /etc/kubernetes/resolv.conf
+            serverTLSBootstrap: true
+            tlsCipherSuites:
+              - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+              - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+              - TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
+              - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+              - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
+              - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+              - TLS_RSA_WITH_AES_256_GCM_SHA384
+              - TLS_RSA_WITH_AES_128_GCM_SHA256
+          owner: root:root
+          path: /etc/kubernetes/kubelet/config.yaml
+          permissions: "0644"
       joinConfiguration:
         nodeRegistration:
           kubeletExtraArgs:
-            - name: anonymous-auth
-              value: "false"
-            - name: authentication-token-webhook
-              value: "true"
-            - name: authorization-mode
-              value: Webhook
             - name: cloud-provider
               value: external
-            - name: event-qps
-              value: "5"
-            - name: kubeconfig
-              value: /etc/kubernetes/kubelet.conf
-            - name: max-pods
-              value: "220"
-            - name: read-only-port
-              value: "0"
-            - name: resolv-conf
-              value: /etc/kubernetes/resolv.conf
-            - name: rotate-server-certificates
-              value: "true"
-            - name: tls-cipher-suites
-              value: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
+            - name: config
+              value: /etc/kubernetes/kubelet/config.yaml
       preKubeadmCommands:
         - grep VERSION= /etc/os-release; uname -a # Show version info in logs.
         - export CONTAINERD=1.7.26
@@ -840,31 +840,40 @@ spec:
           owner: root:root
           path: /etc/kubernetes/resolv.conf
           permissions: "0744"
+        - content: |
+            apiVersion: kubelet.config.k8s.io/v1beta1
+            kind: KubeletConfiguration
+            authentication:
+              anonymous:
+                enabled: false
+              webhook:
+                enabled: true
+            authorization:
+              mode: Webhook
+            eventRecordQPS: 5
+            maxPods: 220
+            readOnlyPort: 0
+            resolvConf: /etc/kubernetes/resolv.conf
+            serverTLSBootstrap: true
+            tlsCipherSuites:
+              - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+              - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+              - TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
+              - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+              - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
+              - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+              - TLS_RSA_WITH_AES_256_GCM_SHA384
+              - TLS_RSA_WITH_AES_128_GCM_SHA256
+          owner: root:root
+          path: /etc/kubernetes/kubelet/config.yaml
+          permissions: "0644"
       joinConfiguration:
         nodeRegistration:
           kubeletExtraArgs:
-            - name: anonymous-auth
-              value: "false"
-            - name: authentication-token-webhook
-              value: "true"
-            - name: authorization-mode
-              value: Webhook
             - name: cloud-provider
               value: external
-            - name: event-qps
-              value: "5"
-            - name: kubeconfig
-              value: /etc/kubernetes/kubelet.conf
-            - name: max-pods
-              value: "220"
-            - name: read-only-port
-              value: "0"
-            - name: resolv-conf
-              value: /etc/kubernetes/resolv.conf
-            - name: rotate-server-certificates
-              value: "true"
-            - name: tls-cipher-suites
-              value: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
+            - name: config
+              value: /etc/kubernetes/kubelet/config.yaml
       preKubeadmCommands:
         - grep VERSION= /etc/os-release; uname -a # Show version info in logs.
         - export CONTAINERD=1.7.26

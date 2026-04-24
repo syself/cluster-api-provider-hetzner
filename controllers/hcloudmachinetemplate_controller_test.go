@@ -256,7 +256,7 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 					Spec: infrav1.HCloudMachineTemplateSpec{
 						Template: infrav1.HCloudMachineTemplateResource{
 							Spec: infrav1.HCloudMachineSpec{
-								Type:      "cx41",
+								Type:      "cx43",
 								ImageName: "my-hcloud-image",
 							},
 						},
