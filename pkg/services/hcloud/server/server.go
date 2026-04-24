@@ -1044,7 +1044,7 @@ func (s *Service) createServerFromImageURL(ctx context.Context) (*hcloud.Server,
 	if _, err := utils.ResolveImageURLCommandPath(hcloudImageURLCommandDir, imageURLCommandName); err != nil {
 		err = fmt.Errorf("imageURLCommand %q is invalid or not accessible by the controller pod: %w", imageURLCommandName, err)
 		s.scope.Error(err, "")
-		v1beta1conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerAvailableCondition,
+		v1beta1conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerProvisionedCondition,
 			"ImageURLCommandNotAccessible", clusterv1beta1.ConditionSeverityWarning,
 			"%s", err.Error())
 		return nil, nil, errServerCreateStopReconcile
