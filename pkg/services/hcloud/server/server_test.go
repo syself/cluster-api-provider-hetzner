@@ -1308,6 +1308,38 @@ var _ = Describe("Reconcile", func() {
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason)).To(BeTrue())
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason)).To(BeTrue())
 	})
+
+	It("does not create a server when the image-url-command is not available on disk", func() {
+		By("setting the bootstrap data")
+		err = testEnv.Create(ctx, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "bootstrapsecret",
+				Namespace: testNs.Name,
+			},
+			Data: map[string][]byte{
+				"value": []byte("dummy-bootstrap-data"),
+			},
+		})
+		Expect(err).To(BeNil())
+
+		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
+
+		By("setting imageURL and a command that does not exist in the command directory")
+		service.scope.HCloudMachine.Spec.ImageName = ""
+		service.scope.HCloudMachine.Spec.ImageURL = "oci://example.com/repo/image:v1"
+		service.scope.HCloudMachine.Spec.ImageURLCommand = "image-url-command-nonexistent.sh"
+
+		By("calling reconcile — CreateServer must not be called")
+		res, err := service.Reconcile(ctx)
+		Expect(err).To(BeNil())
+		Expect(res).To(Equal(reconcile.Result{}))
+
+		By("ensuring the ImageURLCommandNotAccessible condition is set")
+		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.ServerProvisionedCondition, "ImageURLCommandNotAccessible")).To(BeTrue())
+
+		By("ensuring no hcloud API calls were made to create a server")
+		hcloudClient.AssertNotCalled(GinkgoT(), "CreateServer", mock.Anything, mock.Anything)
+	})
 })
 
 var _ = Describe("handleOperatingSystemRunning", func() {

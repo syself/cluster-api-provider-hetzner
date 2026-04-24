@@ -63,6 +63,8 @@ var hcloudImageURLCommandDir = "/shared"
 
 var errServerCreateNotPossible = errors.New("server create not possible - need action")
 
+var errServerCreateStopReconcile = errors.New("stopped Reconciling")
+
 // Service defines struct with machine scope to reconcile HCloudMachines.
 type Service struct {
 	scope *scope.MachineScope
@@ -260,6 +262,13 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 			s.scope.Error(err, "")
 			return reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
 		}
+
+		if errors.Is(err, errServerCreateStopReconcile) {
+			err = fmt.Errorf("createServerFromImageNameOrURL failed: %w", err)
+			s.scope.Error(err, "")
+			return reconcile.Result{}, nil
+		}
+
 		return reconcile.Result{}, fmt.Errorf("failed to create server: %w", err)
 	}
 
@@ -310,30 +319,6 @@ func (s *Service) handleBootStateInitializing(ctx context.Context, server *hclou
 	}
 
 	updateHCloudMachineStatusFromServer(hm, server)
-
-	// This is a new machine with imageURL. Do some pre-flight checks.
-	imageURLCommandName := hm.Spec.ImageURLCommand
-	if imageURLCommandName == "" {
-		msg := "imageURL is set, but spec.imageURLCommand is empty"
-		s.scope.Error(nil, msg)
-		v1beta1conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerProvisionedCondition,
-			"ImageURLSetButNoCommandProvided", clusterv1beta1.ConditionSeverityWarning,
-			"%s", msg)
-		return reconcile.Result{}, nil
-	}
-
-	// The webhook already validates this, but we check again before any file access because we
-	// never want a HCloudMachine to make CAPH copy arbitrary controller files into the rescue
-	// system, for example service-account tokens. The webhook could also have been disabled
-	// temporarily, so this runtime check is still meaningful.
-	if _, err := utils.ResolveImageURLCommandPath(hcloudImageURLCommandDir, imageURLCommandName); err != nil {
-		err = fmt.Errorf("imageURLCommand %q is invalid or not accessible by the controller pod: %w", imageURLCommandName, err)
-		s.scope.Error(err, "")
-		v1beta1conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerAvailableCondition,
-			"ImageURLCommandNotAccessible", clusterv1beta1.ConditionSeverityWarning,
-			"%s", err.Error())
-		return reconcile.Result{}, nil
-	}
 
 	// Fetch the SSH private key from the secret referenced in HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.
 	// Check that we have valid SSH private key in the secret. A failure could also mean there is a
@@ -1042,8 +1027,31 @@ func (s *Service) createServerFromImageNameOrURL(ctx context.Context) (*hcloud.S
 }
 
 func (s *Service) createServerFromImageURL(ctx context.Context) (*hcloud.Server, *hcloud.Image, error) {
-	// Validate that ImageURLCommand is given
 	hm := s.scope.HCloudMachine
+
+	// This is a new machine with imageURL. Do some pre-flight checks.
+	imageURLCommandName := hm.Spec.ImageURLCommand
+	if imageURLCommandName == "" {
+		msg := "imageURL is set, but spec.imageURLCommand is empty"
+		s.scope.Error(nil, msg)
+		v1beta1conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerProvisionedCondition,
+			"ImageURLSetButNoCommandProvided", clusterv1beta1.ConditionSeverityWarning,
+			"%s", msg)
+		return nil, nil, errServerCreateStopReconcile
+	}
+
+	// The webhook already validates this, but we check again before any file access because we
+	// never want a HCloudMachine to make CAPH copy arbitrary controller files into the rescue
+	// system, for example service-account tokens. The webhook could also have been disabled
+	// temporarily, so this runtime check is still meaningful.
+	if _, err := utils.ResolveImageURLCommandPath(hcloudImageURLCommandDir, imageURLCommandName); err != nil {
+		err = fmt.Errorf("imageURLCommand %q is invalid or not accessible by the controller pod: %w", imageURLCommandName, err)
+		s.scope.Error(err, "")
+		v1beta1conditions.MarkFalse(s.scope.HCloudMachine, infrav1.ServerProvisionedCondition,
+			"ImageURLCommandNotAccessible", clusterv1beta1.ConditionSeverityWarning,
+			"%s", err.Error())
+		return nil, nil, errServerCreateStopReconcile
+	}
 
 	image, err := s.getServerImage(ctx, preRescueOSImage)
 	if err != nil {
