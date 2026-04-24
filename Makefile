@@ -82,7 +82,7 @@ MGT_CLUSTER_KUBECONFIG ?= ".mgt-cluster-kubeconfig.yaml"
 # Kubebuilder.
 # go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 # The command `setup-envtest list` shows the available versions.
-export KUBEBUILDER_ENVTEST_KUBERNETES_VERSION ?= 1.33.0
+export KUBEBUILDER_ENVTEST_KUBERNETES_VERSION ?= 1.34.0
 
 ##@ Binaries
 ############
@@ -132,7 +132,7 @@ KUBECTL := $(abspath $(TOOLS_BIN_DIR)/kubectl)
 kubectl: $(TOOLS_BIN_DIR) $(KUBECTL) ## Build a local copy of kubectl
 $(KUBECTL):
 	mkdir -p $(TOOLS_BIN_DIR)
-	curl -fsSL "https://dl.k8s.io/release/v1.33.6/bin/$$(go env GOOS)/$$(go env GOARCH)/kubectl" -o $(KUBECTL)
+	curl -fsSL "https://dl.k8s.io/release/v1.34.7/bin/$$(go env GOOS)/$$(go env GOARCH)/kubectl" -o $(KUBECTL)
 	chmod a+rx $(KUBECTL)
 
 go-binsize-treemap := $(abspath $(TOOLS_BIN_DIR)/go-binsize-treemap)

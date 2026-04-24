@@ -78,7 +78,7 @@ fi
 
 # Ensure env var KUBERNETES_VERSION is not outdated.
 if [[ -n "${KUBERNETES_VERSION:-}" ]]; then
-  min_kubernetes_version="1.33.6"
+  min_kubernetes_version="1.34.7"
   kubernetes_version="${KUBERNETES_VERSION#v}"
 
   if [[ ! "$kubernetes_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
