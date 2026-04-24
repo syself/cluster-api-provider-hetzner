@@ -112,7 +112,7 @@ func TestValidateHetznerBareMetalMachineSpecCreate(t *testing.T) {
 					},
 				},
 			},
-			want: field.Invalid(field.NewPath("spec", "installImage", "image", "url"), "", "url is required when imageURLCommand is set"),
+			want: field.Required(field.NewPath("spec", "installImage", "image", "url"), "url is required when imageURLCommand is set"),
 		},
 		{
 			name: "Invalid Image URL Command With Image Name",
@@ -328,12 +328,7 @@ func TestValidateHetznerBareMetalMachineSpecUpdate(t *testing.T) {
 					},
 				},
 			},
-			want: field.Invalid(field.NewPath("spec", "installImage"), InstallImage{
-				Image: Image{
-					Name: "centos-7",
-					URL:  "https://example.com/centos-7.tar.gz",
-				},
-			}, "installImage immutable"),
+			want: field.Forbidden(field.NewPath("spec", "installImage"), "installImage is immutable"),
 		},
 		{
 			name: "Immutable SSHSpec",
@@ -365,17 +360,7 @@ func TestValidateHetznerBareMetalMachineSpecUpdate(t *testing.T) {
 					},
 				},
 			},
-			want: field.Invalid(field.NewPath("spec", "sshSpec"), SSHSpec{
-				SecretRef: SSHSecretRef{
-					Name: "ssh-secret-new",
-					Key: SSHSecretKeyRef{
-						Name:       "ssh-key-name-new",
-						PublicKey:  "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC",
-						PrivateKey: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC",
-					},
-				},
-				PortAfterInstallImage: 2222,
-			}, "sshSpec immutable"),
+			want: field.Forbidden(field.NewPath("spec", "sshSpec"), "sshSpec is immutable"),
 		},
 		{
 			name: "Immutable HostSelector",
@@ -409,18 +394,7 @@ func TestValidateHetznerBareMetalMachineSpecUpdate(t *testing.T) {
 					},
 				},
 			},
-			want: field.Invalid(field.NewPath("spec", "hostSelector"), HostSelector{
-				MatchLabels: map[string]string{
-					"key3": "value3",
-				},
-				MatchExpressions: []HostSelectorRequirement{
-					{
-						Key:      "key4",
-						Operator: selection.In,
-						Values:   []string{"value4"},
-					},
-				},
-			}, "hostSelector immutable"),
+			want: field.Forbidden(field.NewPath("spec", "hostSelector"), "hostSelector is immutable"),
 		},
 		{
 			name: "No Errors",
@@ -518,7 +492,7 @@ func TestValidateHetznerBareMetalMachineSpecUpdate_ProviderID(t *testing.T) {
 			ProviderID: ptr.To("provider://foo"),
 		},
 		HetznerBareMetalMachineSpec{})
-	require.Equal(t, `[spec.providerID: Invalid value: "null": providerID immutable]`, fmt.Sprintf("%+v", got))
+	require.Equal(t, `[spec.providerID: Forbidden: providerID is immutable]`, fmt.Sprintf("%+v", got))
 
 	got = validateHetznerBareMetalMachineSpecUpdate(
 		HetznerBareMetalMachineSpec{
@@ -527,7 +501,7 @@ func TestValidateHetznerBareMetalMachineSpecUpdate_ProviderID(t *testing.T) {
 		HetznerBareMetalMachineSpec{
 			ProviderID: ptr.To("provider://bar"),
 		})
-	require.Equal(t, `[spec.providerID: Invalid value: "provider://bar": providerID immutable]`, fmt.Sprintf("%+v", got))
+	require.Equal(t, `[spec.providerID: Forbidden: providerID is immutable]`, fmt.Sprintf("%+v", got))
 
 	// Allowed Updates
 	got = validateHetznerBareMetalMachineSpecUpdate(

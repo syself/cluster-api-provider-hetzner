@@ -2286,7 +2286,7 @@ func (s *Service) actionDeprovisioning(_ context.Context) actionResult {
 	v1beta1conditions.MarkTrue(s.scope.HetznerBareMetalHost, infrav1.RobotCredentialsAvailableCondition)
 
 	if s.scope.SSHAfterInstallImageEnabled() {
-		// If has been provisioned completely, stop all running pods
+		// If it has been provisioned completely, stop all running pods
 		if s.scope.OSSSHSecret != nil {
 			sshClient := s.scope.SSHClientFactory.NewClient(sshclient.Input{
 				PrivateKey: sshclient.CredentialsFromSecret(s.scope.OSSSHSecret, s.scope.HetznerBareMetalHost.Spec.Status.SSHSpec.SecretRef).PrivateKey,

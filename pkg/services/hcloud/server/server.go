@@ -82,6 +82,12 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 	v1beta1conditions.Delete(s.scope.HCloudMachine, infrav1.DeprecatedInstanceBootstrapReadyCondition)
 	v1beta1conditions.Delete(s.scope.HCloudMachine, infrav1.DeprecatedRateLimitExceededCondition)
 
+	if s.scope.HCloudMachine.Status.BootState == infrav1.HCloudBootStateProvisioningFailed {
+		// This hcloud machine will be removed soon.
+		s.scope.Info("hcloudmachine: ProvisioningFailed. Not reconciling this machine.")
+		return reconcile.Result{}, nil
+	}
+
 	// detect failure domain
 	failureDomain, err := s.scope.GetFailureDomain()
 	if err != nil {
@@ -137,18 +143,14 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 
 		v1beta1conditions.MarkTrue(s.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition)
 
-		// findServer will return both server and error as nil, if the server was not found.
+		// findServer returns nil for both server and error if the server was not found.
 		if server == nil {
-			// The server did disappear in HCloud? Maybe it was delete via web-UI.
+			// The server no longer exists in HCloud, it was deleted.
 			// We set MachineError. CAPI will delete machine.
 			msg := fmt.Sprintf("hcloud server (%q) no longer available. Setting MachineError.",
 				*s.scope.HCloudMachine.Spec.ProviderID)
 
-			s.scope.Error(errors.New(msg), msg,
-				"ProviderID", *s.scope.HCloudMachine.Spec.ProviderID,
-				"BootState", s.scope.HCloudMachine.Status.BootState,
-				"BootStateSince", s.scope.HCloudMachine.Status.BootStateSince,
-			)
+			s.scope.Error(errors.New(msg), msg)
 
 			err := s.scope.SetErrorAndRemediate(ctx, msg)
 			if err != nil {
@@ -500,11 +502,11 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
+	// There is a delay between the server reporting StatusRunning and SSH actually becoming
+	// reachable. During this window, ECONNREFUSED is expected, so we retry on that error.
 	err = sshClient.Reboot().Err
 	if err != nil {
 		if errors.Is(err, syscall.ECONNREFUSED) {
-			// ssh connection refused is common while the rescue system starts.
-			// Provide a nice message.
 			v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
 				"RetryingSSHConnection",
 				clusterv1beta1.ConditionSeverityInfo, "Rebooting")
@@ -550,10 +552,13 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 	}
 
 	if server.RescueEnabled {
-		msg := "Waiting until RescueEnabled is false"
+		// RescueEnabled is true until the server completes its reboot into the rescue system.
+		// Once the server has booted into rescue, Hetzner clears this flag automatically.
+		// We wait here until that happens before attempting to SSH.
+		msg := "Server has not yet rebooted into rescue system"
 		s.scope.Info(msg)
 		v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
-			"WaitForRescueEnabledToBeFalse", clusterv1beta1.ConditionSeverityInfo,
+			"WaitingForRebootIntoRescue", clusterv1beta1.ConditionSeverityInfo,
 			"%s", msg)
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 	}
@@ -692,8 +697,6 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 
 	case sshclient.ImageURLCommandStateFinishedSuccessfully:
-		record.Event(hm, "ImageURLCommandSuccessful", logFile)
-
 		// The image got installed. Now reboot in the real operating system.
 		if hcloudSSHClient.Reboot().Err != nil {
 			return reconcile.Result{}, fmt.Errorf("reboot after ImageURLCommand failed: %w",
