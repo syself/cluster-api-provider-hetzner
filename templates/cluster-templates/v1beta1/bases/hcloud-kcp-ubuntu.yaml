@@ -14,141 +14,33 @@ spec:
     clusterConfiguration:
       apiServer:
         extraArgs:
-          # CA certificate for validating API clients.
-          - name: client-ca-file
-            value: /etc/kubernetes/pki/ca.crt # enable X509 Client Certs Auth
-          # TLS certificates for HTTPS serving.
-          - name: tls-cert-file
-            value: /etc/kubernetes/pki/apiserver.crt
-          - name: tls-private-key-file
-            value: /etc/kubernetes/pki/apiserver.key
-          - name: tls-cipher-suites
-            value: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
-          # Required for kubelet communication.
-          - name: kubelet-client-certificate
-            value: /etc/kubernetes/pki/apiserver-kubelet-client.crt
-          - name: kubelet-client-key
-            value: /etc/kubernetes/pki/apiserver-kubelet-client.key
-          # Secure communication to etcd servers.
-          - name: etcd-cafile
-            value: /etc/kubernetes/pki/etcd/ca.crt
-          - name: etcd-certfile
-            value: /etc/kubernetes/pki/etcd/server.crt
-          - name: etcd-keyfile
-            value: /etc/kubernetes/pki/etcd/server.key
-          # Required to validate service account tokens created by controller manager.
-          - name: service-account-lookup
-            value: "true"
-          - name: service-account-key-file
-            value: /etc/kubernetes/pki/sa.pub
-          # Required for aggregation layer
-          - name: requestheader-client-ca-file
-            value: /etc/kubernetes/pki/front-proxy-ca.crt
-          - name: proxy-client-key-file
-            value: /etc/kubernetes/pki/front-proxy-client.key
-          - name: proxy-client-cert-file
-            value: /etc/kubernetes/pki/front-proxy-client.crt
-          - name: requestheader-allowed-names
-            value: front-proxy-client
-          - name: requestheader-extra-headers-prefix
-            value: X-Remote-Extra-
-          - name: requestheader-group-headers
-            value: X-Remote-Group
-          - name: requestheader-username-headers
-            value: X-Remote-User
-          - name: enable-aggregator-routing
-            value: "true"
-          # Additional Configuration
-          - name: authorization-mode
-            value: "Node,RBAC"
           - name: kubelet-preferred-address-types
             value: ExternalIP,Hostname,InternalDNS,ExternalDNS
-          - name: profiling
-            value: "false"
-          - name: enable-bootstrap-token-auth
-            value: "true"
-          - name: default-not-ready-toleration-seconds
-            value: "45"
-          - name: default-unreachable-toleration-seconds
-            value: "45"
       controllerManager:
         extraArgs:
           - name: cloud-provider
             value: external
-          - name: cluster-signing-cert-file
-            value: /etc/kubernetes/pki/ca.crt
-          - name: cluster-signing-key-file
-            value: /etc/kubernetes/pki/ca.key
-          - name: cluster-signing-duration
-            value: 6h0m0s
-          - name: terminated-pod-gc-threshold
-            value: "10"
-          - name: profiling
-            value: "false"
-          - name: use-service-account-credentials
-            value: "true"
-          - name: service-account-private-key-file
-            value: /etc/kubernetes/pki/sa.key
-          - name: root-ca-file
-            value: /etc/kubernetes/pki/ca.crt
-          - name: requestheader-client-ca-file
-            value: /etc/kubernetes/pki/front-proxy-ca.crt
-          - name: kubeconfig
-            value: /etc/kubernetes/controller-manager.conf
-          - name: authentication-kubeconfig
-            value: /etc/kubernetes/controller-manager.conf
-          - name: authorization-kubeconfig
-            value: /etc/kubernetes/controller-manager.conf
-          - name: bind-address
-            value: "0.0.0.0"
-          - name: secure-port
-            value: "10257"
-          - name: allocate-node-cidrs
-            value: "true"
-      scheduler:
-        extraArgs:
-          - name: profiling
-            value: "false"
-          - name: kubeconfig
-            value: /etc/kubernetes/scheduler.conf
-          - name: bind-address
-            value: "0.0.0.0"
-          - name: secure-port
-            value: "10259"
       etcd:
         local:
           dataDir: /var/lib/etcd
-          extraArgs:
-            - name: cipher-suites
-              value: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
-            - name: cert-file
-              value: /etc/kubernetes/pki/etcd/server.crt
-            - name: key-file
-              value: /etc/kubernetes/pki/etcd/server.key
-            - name: client-cert-auth
-              value: "true"
-            - name: auto-tls
-              value: "false"
-            - name: peer-client-cert-auth
-              value: "true"
-            - name: peer-auto-tls
-              value: "false"
-            - name: trusted-ca-file
-              value: /etc/kubernetes/pki/etcd/ca.crt
     initConfiguration:
       nodeRegistration:
         kubeletExtraArgs:
           - name: cloud-provider
             value: external
-          - name: config
-            value: /etc/kubernetes/kubelet/config.yaml
+          - name: max-pods
+            value: "120"
+          - name: resolv-conf
+            value: /etc/kubernetes/resolv.conf
     joinConfiguration:
       nodeRegistration:
         kubeletExtraArgs:
           - name: cloud-provider
             value: external
-          - name: config
-            value: /etc/kubernetes/kubelet/config.yaml
+          - name: max-pods
+            value: "120"
+          - name: resolv-conf
+            value: /etc/kubernetes/resolv.conf
     files:
       - path: /etc/sysctl.d/99-cilium.conf
         owner: "root:root"
@@ -182,33 +74,6 @@ spec:
           nameserver 1.1.1.1
           nameserver 1.0.0.1
           nameserver 2606:4700:4700::1111
-      - path: /etc/kubernetes/kubelet/config.yaml
-        owner: "root:root"
-        permissions: "0644"
-        content: |
-          apiVersion: kubelet.config.k8s.io/v1beta1
-          kind: KubeletConfiguration
-          authentication:
-            anonymous:
-              enabled: false
-            webhook:
-              enabled: true
-          authorization:
-            mode: Webhook
-          eventRecordQPS: 5
-          maxPods: 120
-          readOnlyPort: 0
-          resolvConf: /etc/kubernetes/resolv.conf
-          serverTLSBootstrap: true
-          tlsCipherSuites:
-            - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
-            - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
-            - TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
-            - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
-            - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
-            - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
-            - TLS_RSA_WITH_AES_256_GCM_SHA384
-            - TLS_RSA_WITH_AES_128_GCM_SHA256
       - content: |
           # Copyright The containerd Authors.
           #
