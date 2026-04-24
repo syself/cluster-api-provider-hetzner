@@ -45,7 +45,7 @@ func (r *HCloudMachineTemplate) SetupWebhookWithManager(mgr ctrl.Manager) error 
 type hcloudMachineTemplateWebhook struct{}
 
 // Default implements admission.CustomDefaulter.
-func (*hcloudMachineTemplateWebhook) Default(_ context.Context, _ runtime.Object) error {
+func (*hcloudMachineTemplateWebhook) Default(context.Context, runtime.Object) error {
 	return nil
 }
 
@@ -92,6 +92,6 @@ func (*hcloudMachineTemplateWebhook) ValidateUpdate(ctx context.Context, oldRaw 
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
-func (*hcloudMachineTemplateWebhook) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
+func (*hcloudMachineTemplateWebhook) ValidateDelete(context.Context, runtime.Object) (admission.Warnings, error) {
 	return nil, nil
 }

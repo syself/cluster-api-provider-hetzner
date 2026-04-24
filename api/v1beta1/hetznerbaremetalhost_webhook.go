@@ -52,7 +52,7 @@ func (host *HetznerBareMetalHost) SetupWebhookWithManager(mgr ctrl.Manager) erro
 var _ webhook.CustomDefaulter = &hetznerBareMetalHostWebhook{}
 
 // Default implements webhook.CustomDefaulter so a webhook will be registered for the type.
-func (hw *hetznerBareMetalHostWebhook) Default(_ context.Context, _ runtime.Object) error {
+func (*hetznerBareMetalHostWebhook) Default(context.Context, runtime.Object) error {
 	return nil
 }
 
@@ -86,7 +86,7 @@ func (hw *hetznerBareMetalHostWebhook) ValidateCreate(ctx context.Context, obj r
 }
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (hw *hetznerBareMetalHostWebhook) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+func (*hetznerBareMetalHostWebhook) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	oldHost, ok := oldObj.(*HetznerBareMetalHost)
 	if !ok {
 		return admission.Warnings{}, apierrors.NewBadRequest(fmt.Sprintf("expected an ClusterStack but got a %T", oldObj))
@@ -109,6 +109,6 @@ func (hw *hetznerBareMetalHostWebhook) ValidateUpdate(_ context.Context, oldObj,
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
-func (hw *hetznerBareMetalHostWebhook) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
+func (*hetznerBareMetalHostWebhook) ValidateDelete(context.Context, runtime.Object) (admission.Warnings, error) {
 	return nil, nil
 }
