@@ -205,26 +205,26 @@ var _ = Describe("HetznerBareMetalRemediationReconciler", func() {
 
 		configureRescueSSHClient(rescueSSHClient)
 
-		osSSHClientAfterInstallImage.On("Reboot").Return(sshclient.Output{})
-		osSSHClientAfterInstallImage.On("CloudInitStatus").Return(sshclient.Output{StdOut: "status: done"})
-		osSSHClientAfterInstallImage.On("CheckCloudInitLogsForSigTerm").Return(sshclient.Output{})
-		osSSHClientAfterInstallImage.On("ResetKubeadm").Return(sshclient.Output{})
-		osSSHClientAfterInstallImage.On("GetCloudInitOutput").Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"})
-		osSSHClientAfterInstallImage.On("GetHostName").Return(sshclient.Output{
+		osSSHClientAfterInstallImage.On("Reboot", mock.Anything).Return(sshclient.Output{})
+		osSSHClientAfterInstallImage.On("CloudInitStatus", mock.Anything).Return(sshclient.Output{StdOut: "status: done"})
+		osSSHClientAfterInstallImage.On("CheckCloudInitLogsForSigTerm", mock.Anything).Return(sshclient.Output{})
+		osSSHClientAfterInstallImage.On("ResetKubeadm", mock.Anything).Return(sshclient.Output{})
+		osSSHClientAfterInstallImage.On("GetCloudInitOutput", mock.Anything).Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"})
+		osSSHClientAfterInstallImage.On("GetHostName", mock.Anything).Return(sshclient.Output{
 			StdOut: infrav1.BareMetalHostNamePrefix + machineName,
 			StdErr: "",
 			Err:    nil,
 		})
-		osSSHClientAfterCloudInit.On("Reboot").Return(sshclient.Output{})
-		osSSHClientAfterCloudInit.On("GetHostName").Return(sshclient.Output{
+		osSSHClientAfterCloudInit.On("Reboot", mock.Anything).Return(sshclient.Output{})
+		osSSHClientAfterCloudInit.On("GetHostName", mock.Anything).Return(sshclient.Output{
 			StdOut: infrav1.BareMetalHostNamePrefix + machineName,
 			StdErr: "",
 			Err:    nil,
 		})
-		osSSHClientAfterCloudInit.On("CloudInitStatus").Return(sshclient.Output{StdOut: "status: done"})
-		osSSHClientAfterCloudInit.On("CheckCloudInitLogsForSigTerm").Return(sshclient.Output{})
-		osSSHClientAfterCloudInit.On("ResetKubeadm").Return(sshclient.Output{})
-		osSSHClientAfterCloudInit.On("GetCloudInitOutput").Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"})
+		osSSHClientAfterCloudInit.On("CloudInitStatus", mock.Anything).Return(sshclient.Output{StdOut: "status: done"})
+		osSSHClientAfterCloudInit.On("CheckCloudInitLogsForSigTerm", mock.Anything).Return(sshclient.Output{})
+		osSSHClientAfterCloudInit.On("ResetKubeadm", mock.Anything).Return(sshclient.Output{})
+		osSSHClientAfterCloudInit.On("GetCloudInitOutput", mock.Anything).Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"})
 	})
 
 	AfterEach(func() {

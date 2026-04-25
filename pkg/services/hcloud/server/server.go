@@ -489,7 +489,7 @@ func (s *Service) handleBootStateEnablingRescue(ctx context.Context, server *hcl
 
 	// There is a delay between the server reporting StatusRunning and SSH actually becoming
 	// reachable. During this window, ECONNREFUSED is expected, so we retry on that error.
-	err = sshClient.Reboot().Err
+	err = sshClient.Reboot(ctx).Err
 	if err != nil {
 		if errors.Is(err, syscall.ECONNREFUSED) {
 			v1beta1conditions.MarkFalse(hm, infrav1.ServerProvisionedCondition,
@@ -553,7 +553,7 @@ func (s *Service) handleBootStateBootingToRescue(ctx context.Context, server *hc
 		return reconcile.Result{}, fmt.Errorf("getSSHClient failed (waiting for rescue running): %w", err)
 	}
 
-	output := sshClient.GetHostName()
+	output := sshClient.GetHostName(ctx)
 	err = output.Err
 	if err != nil {
 		var msg string
@@ -650,7 +650,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 		return reconcile.Result{}, fmt.Errorf("getSSHClient failed (wait for image-url-command): %w", err)
 	}
 
-	state, logFile, err := hcloudSSHClient.StateOfImageURLCommand()
+	state, logFile, err := hcloudSSHClient.StateOfImageURLCommand(ctx)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("StateOfImageURLCommand failed: %w", err)
 	}
@@ -683,7 +683,7 @@ func (s *Service) handleBootStateRunningImageCommand(ctx context.Context, server
 
 	case sshclient.ImageURLCommandStateFinishedSuccessfully:
 		// The image got installed. Now reboot in the real operating system.
-		if hcloudSSHClient.Reboot().Err != nil {
+		if hcloudSSHClient.Reboot(ctx).Err != nil {
 			return reconcile.Result{}, fmt.Errorf("reboot after ImageURLCommand failed: %w",
 				err)
 		}
