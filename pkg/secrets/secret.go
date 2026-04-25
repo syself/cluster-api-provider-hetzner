@@ -20,12 +20,15 @@ package secretutil
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -62,51 +65,75 @@ func NewSecretManager(log logr.Logger, cacheClient client.Client, apiReader clie
 
 // claimSecret ensures that the Secret has a label that will ensure it is
 // present in the cache (and that we can watch for changes), and optionally
-// that it has a particular owner reference.
+// that it has a particular owner reference. Concurrent claims from multiple
+// controllers are tolerated by retrying on conflict with a re-fetched copy:
+// the guards below are idempotent, so a retry either fills in whatever the
+// winner did not set or returns early.
 func (sm *SecretManager) claimSecret(ctx context.Context, secret *corev1.Secret, owner client.Object, ownerIsController, addFinalizer bool) error {
-	needsUpdate := false
-	if !metav1.HasLabel(secret.ObjectMeta, LabelEnvironmentName) {
-		metav1.SetMetaDataLabel(&secret.ObjectMeta, LabelEnvironmentName, LabelEnvironmentValue)
-		needsUpdate = true
+	// Backoff matches sigs.k8s.io/cluster-api/util/patch — 5 steps, 100ms with full jitter,
+	// to spread retries when many controllers race on the same Secret at cluster bring-up.
+	backoff := wait.Backoff{
+		Steps:    5,
+		Duration: 100 * time.Millisecond,
+		Jitter:   1.0,
 	}
-	if owner != nil {
-		if ownerIsController {
-			if !metav1.IsControlledBy(secret, owner) {
-				if err := controllerutil.SetControllerReference(owner, secret, sm.client.Scheme()); err != nil {
-					return fmt.Errorf("failed to set secret controller reference: %w", err)
+	err := retry.RetryOnConflict(backoff, func() error {
+		needsUpdate := false
+		if !metav1.HasLabel(secret.ObjectMeta, LabelEnvironmentName) {
+			metav1.SetMetaDataLabel(&secret.ObjectMeta, LabelEnvironmentName, LabelEnvironmentValue)
+			needsUpdate = true
+		}
+		if owner != nil {
+			if ownerIsController {
+				if !metav1.IsControlledBy(secret, owner) {
+					if err := controllerutil.SetControllerReference(owner, secret, sm.client.Scheme()); err != nil {
+						return fmt.Errorf("failed to set secret controller reference: %w", err)
+					}
+					needsUpdate = true
 				}
-				needsUpdate = true
-			}
-		} else {
-			alreadyOwned := false
-			ownerUID := owner.GetUID()
-			for _, ref := range secret.GetOwnerReferences() {
-				if ref.UID == ownerUID {
-					alreadyOwned = true
-					break
+			} else {
+				alreadyOwned := false
+				ownerUID := owner.GetUID()
+				for _, ref := range secret.GetOwnerReferences() {
+					if ref.UID == ownerUID {
+						alreadyOwned = true
+						break
+					}
 				}
-			}
-			if !alreadyOwned {
-				if err := controllerutil.SetOwnerReference(owner, secret, sm.client.Scheme()); err != nil {
-					return fmt.Errorf("failed to set secret owner reference: %w", err)
+				if !alreadyOwned {
+					if err := controllerutil.SetOwnerReference(owner, secret, sm.client.Scheme()); err != nil {
+						return fmt.Errorf("failed to set secret owner reference: %w", err)
+					}
+					needsUpdate = true
 				}
-				needsUpdate = true
 			}
 		}
-	}
 
-	if addFinalizer && (controllerutil.AddFinalizer(secret, SecretFinalizer) ||
-		controllerutil.RemoveFinalizer(secret, DeprecatedSecretFinalizer)) {
-		needsUpdate = true
-	}
-
-	if needsUpdate {
-		if err := sm.client.Update(ctx, secret); err != nil {
-			return fmt.Errorf("failed to update secret %s in namespace %s: %w", secret.Name, secret.Namespace, err)
+		if addFinalizer && (controllerutil.AddFinalizer(secret, SecretFinalizer) ||
+			controllerutil.RemoveFinalizer(secret, DeprecatedSecretFinalizer)) {
+			needsUpdate = true
 		}
-	}
 
-	return nil
+		if !needsUpdate {
+			return nil
+		}
+
+		if updateErr := sm.client.Update(ctx, secret); updateErr != nil {
+			if apierrors.IsConflict(updateErr) {
+				sm.log.V(1).Info("retrying secret claim on conflict", "secret", client.ObjectKeyFromObject(secret))
+				if getErr := sm.apiReader.Get(ctx, client.ObjectKeyFromObject(secret), secret); getErr != nil {
+					return getErr
+				}
+				return updateErr
+			}
+			return fmt.Errorf("failed to update secret %s in namespace %s: %w", secret.Name, secret.Namespace, updateErr)
+		}
+		return nil
+	})
+	if err != nil && apierrors.IsConflict(err) {
+		return fmt.Errorf("failed to update secret %s in namespace %s after retries: %w", secret.Name, secret.Namespace, err)
+	}
+	return err
 }
 
 // findSecret retrieves a Secret from the cache if it is available, and from the
