@@ -1680,7 +1680,7 @@ func analyzeSSHOutputInstallImage(ctx context.Context, out sshclient.Output, ssh
 			if err := handleAuthenticationFailed(ctx, sshClient, port); err != nil {
 				return false, false, fmt.Errorf("original ssh error: %w. err: %w", out.Err, err)
 			}
-			return false, false, handleAuthenticationFailed(ctx, sshClient, port)
+			return false, false, nil
 		case sshclient.IsConnectionRefusedError(out.Err):
 			return false, verifyConnectionRefused(ctx, sshClient, port), nil
 		}
