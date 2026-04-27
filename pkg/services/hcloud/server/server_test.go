@@ -222,6 +222,43 @@ var _ = Describe("handleServerStatusOff", func() {
 	})
 })
 
+var _ = Describe("handleBootStateUnset", func() {
+	var hcloudMachine *infrav1.HCloudMachine
+
+	BeforeEach(func() {
+		hcloudMachine = &infrav1.HCloudMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-machine",
+				Namespace: "default",
+			},
+			Spec: infrav1.HCloudMachineSpec{
+				ImageURL:        "oci://example.com/repo/image:v1",
+				ImageURLCommand: "image-url-command-test.sh",
+				Type:            "cpx32",
+			},
+		}
+	})
+
+	It("marks SSHPrivateKeyAvailableCondition false and requeues when SSH private key secret ref name is empty", func() {
+		service := newTestService(hcloudMachine, mocks.NewClient(GinkgoT()))
+		service.scope.HetznerCluster = &infrav1.HetznerCluster{
+			Spec: infrav1.HetznerClusterSpec{
+				SSHKeys: infrav1.HetznerSSHKeys{
+					RobotRescueSecretRef: infrav1.SSHSecretRef{
+						Name: "", // empty name causes getSSHPrivateKey to fail immediately
+					},
+				},
+			},
+		}
+
+		res, err := service.handleBootStateUnset(context.Background())
+		Expect(err).To(BeNil())
+		Expect(res).To(Equal(reconcile.Result{}))
+
+		Expect(isPresentAndFalseWithReason(hcloudMachine, infrav1.SSHPrivateKeyAvailableCondition, infrav1.SSHPrivateKeySecretRefNotConfiguredReason)).To(BeTrue())
+	})
+})
+
 var _ = Describe("Delete", func() {
 	It("returns without querying hcloud when ProviderID is nil", func() {
 		hcloudMachine := &infrav1.HCloudMachine{
