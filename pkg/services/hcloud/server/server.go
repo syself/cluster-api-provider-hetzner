@@ -66,6 +66,8 @@ var errServerCreateNotPossible = errors.New("server create not possible - need a
 
 var errServerCreateStopReconcile = errors.New("stopped Reconciling")
 
+var errSSHKeyMisconfigured = errors.New("SSH key misconfigured")
+
 // Service defines struct with machine scope to reconcile HCloudMachines.
 type Service struct {
 	scope *scope.MachineScope
@@ -234,6 +236,9 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 	_, err := s.getSSHPrivateKey(ctx)
 	if err != nil {
 		s.scope.Error(err, "")
+		if errors.Is(err, errSSHKeyMisconfigured) {
+			return reconcile.Result{}, nil
+		}
 		return reconcile.Result{RequeueAfter: 1 * time.Minute}, nil
 	}
 	v1beta1conditions.MarkTrue(s.scope.HCloudMachine, infrav1.SSHPrivateKeyAvailableCondition)
@@ -1606,7 +1611,7 @@ func (s *Service) getSSHPrivateKey(ctx context.Context) (string, error) {
 			clusterv1beta1.ConditionSeverityError,
 			"HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Name is empty",
 		)
-		return "", errors.New("HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Name is empty. Can not get ssh client")
+		return "", fmt.Errorf("%w: HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.Name is empty. Can not get ssh client", errSSHKeyMisconfigured)
 	}
 
 	secretManager := secretutil.NewSecretManager(s.scope.Logger, s.scope.Client, s.scope.APIReader)

@@ -253,7 +253,7 @@ var _ = Describe("handleBootStateUnset", func() {
 
 		res, err := service.handleBootStateUnset(context.Background())
 		Expect(err).To(BeNil())
-		Expect(res).To(Equal(reconcile.Result{RequeueAfter: 1 * time.Minute}))
+		Expect(res).To(Equal(reconcile.Result{}))
 
 		Expect(isPresentAndFalseWithReason(hcloudMachine, infrav1.SSHPrivateKeyAvailableCondition, infrav1.SSHPrivateKeySecretRefNotConfiguredReason)).To(BeTrue())
 	})
