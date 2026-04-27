@@ -169,16 +169,16 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 		configureRescueSSHClient(rescueSSHClient)
 
-		osSSHClient.On("Reboot").Return(sshclient.Output{})
-		osSSHClient.On("CloudInitStatus").Return(sshclient.Output{StdOut: "status: done"})
-		osSSHClient.On("CheckCloudInitLogsForSigTerm").Return(sshclient.Output{})
-		osSSHClient.On("ResetKubeadm").Return(sshclient.Output{})
-		osSSHClient.On("GetHostName").Return(sshclient.Output{
+		osSSHClient.On("Reboot", mock.Anything).Return(sshclient.Output{})
+		osSSHClient.On("CloudInitStatus", mock.Anything).Return(sshclient.Output{StdOut: "status: done"})
+		osSSHClient.On("CheckCloudInitLogsForSigTerm", mock.Anything).Return(sshclient.Output{})
+		osSSHClient.On("ResetKubeadm", mock.Anything).Return(sshclient.Output{})
+		osSSHClient.On("GetHostName", mock.Anything).Return(sshclient.Output{
 			StdOut: infrav1.BareMetalHostNamePrefix + machineName,
 			StdErr: "",
 			Err:    nil,
 		})
-		osSSHClient.On("GetCloudInitOutput").Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"})
+		osSSHClient.On("GetCloudInitOutput", mock.Anything).Return(sshclient.Output{StdOut: "dummy content of /var/log/cloud-init-output.log"})
 	})
 
 	AfterEach(func() {
@@ -452,9 +452,9 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					return isPresentAndTrue(key, bmMachine, infrav1.HostReadyCondition)
 				}, timeout).Should(BeTrue())
 
-				osSSHClient.On("GetHostName").Unset()
+				osSSHClient.On("GetHostName", mock.Anything).Unset()
 
-				osSSHClient.On("GetHostName").Return(sshclient.Output{
+				osSSHClient.On("GetHostName", mock.Anything).Return(sshclient.Output{
 					StdOut: "some-unexpected-hostname",
 					StdErr: "",
 					Err:    nil,
@@ -1259,7 +1259,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 
 			// The mock should wait until we know which machine is picked.
 			w := make(chan time.Time)
-			osSSHClient.On("GetHostName").WaitUntil(w)
+			osSSHClient.On("GetHostName", mock.Anything).WaitUntil(w)
 
 			Eventually(func() bool {
 				if err := testEnv.Get(ctx, client.ObjectKeyFromObject(host), host); err != nil {
@@ -1281,7 +1281,7 @@ var _ = Describe("HetznerBareMetalMachineReconciler", func() {
 					// We need to change the mock on-the-fly. There are two
 					// machines, and we need to adapt the mock to the one that is
 					// picked.
-					osSSHClient.On("GetHostName").Return(sshclient.Output{
+					osSSHClient.On("GetHostName", mock.Anything).Return(sshclient.Output{
 						StdOut: infrav1.BareMetalHostNamePrefix + pickedMachine.Name,
 						StdErr: "",
 						Err:    nil,

@@ -22,17 +22,17 @@ func (_m *Client) EXPECT() *Client_Expecter {
 	return &Client_Expecter{mock: &_m.Mock}
 }
 
-// CheckCloudInitLogsForSigTerm provides a mock function with no fields
-func (_m *Client) CheckCloudInitLogsForSigTerm() sshclient.Output {
-	ret := _m.Called()
+// CheckCloudInitLogsForSigTerm provides a mock function with given fields: ctx
+func (_m *Client) CheckCloudInitLogsForSigTerm(ctx context.Context) sshclient.Output {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for CheckCloudInitLogsForSigTerm")
 	}
 
 	var r0 sshclient.Output
-	if rf, ok := ret.Get(0).(func() sshclient.Output); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) sshclient.Output); ok {
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Get(0).(sshclient.Output)
 	}
@@ -46,13 +46,14 @@ type Client_CheckCloudInitLogsForSigTerm_Call struct {
 }
 
 // CheckCloudInitLogsForSigTerm is a helper method to define mock.On call
-func (_e *Client_Expecter) CheckCloudInitLogsForSigTerm() *Client_CheckCloudInitLogsForSigTerm_Call {
-	return &Client_CheckCloudInitLogsForSigTerm_Call{Call: _e.mock.On("CheckCloudInitLogsForSigTerm")}
+//   - ctx context.Context
+func (_e *Client_Expecter) CheckCloudInitLogsForSigTerm(ctx interface{}) *Client_CheckCloudInitLogsForSigTerm_Call {
+	return &Client_CheckCloudInitLogsForSigTerm_Call{Call: _e.mock.On("CheckCloudInitLogsForSigTerm", ctx)}
 }
 
-func (_c *Client_CheckCloudInitLogsForSigTerm_Call) Run(run func()) *Client_CheckCloudInitLogsForSigTerm_Call {
+func (_c *Client_CheckCloudInitLogsForSigTerm_Call) Run(run func(ctx context.Context)) *Client_CheckCloudInitLogsForSigTerm_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run()
+		run(args[0].(context.Context))
 	})
 	return _c
 }
@@ -62,7 +63,7 @@ func (_c *Client_CheckCloudInitLogsForSigTerm_Call) Return(_a0 sshclient.Output)
 	return _c
 }
 
-func (_c *Client_CheckCloudInitLogsForSigTerm_Call) RunAndReturn(run func() sshclient.Output) *Client_CheckCloudInitLogsForSigTerm_Call {
+func (_c *Client_CheckCloudInitLogsForSigTerm_Call) RunAndReturn(run func(context.Context) sshclient.Output) *Client_CheckCloudInitLogsForSigTerm_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -124,17 +125,17 @@ func (_c *Client_CheckDisk_Call) RunAndReturn(run func(context.Context, []string
 	return _c
 }
 
-// CleanCloudInitInstances provides a mock function with no fields
-func (_m *Client) CleanCloudInitInstances() sshclient.Output {
-	ret := _m.Called()
+// CleanCloudInitInstances provides a mock function with given fields: ctx
+func (_m *Client) CleanCloudInitInstances(ctx context.Context) sshclient.Output {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for CleanCloudInitInstances")
 	}
 
 	var r0 sshclient.Output
-	if rf, ok := ret.Get(0).(func() sshclient.Output); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) sshclient.Output); ok {
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Get(0).(sshclient.Output)
 	}
@@ -148,13 +149,14 @@ type Client_CleanCloudInitInstances_Call struct {
 }
 
 // CleanCloudInitInstances is a helper method to define mock.On call
-func (_e *Client_Expecter) CleanCloudInitInstances() *Client_CleanCloudInitInstances_Call {
-	return &Client_CleanCloudInitInstances_Call{Call: _e.mock.On("CleanCloudInitInstances")}
+//   - ctx context.Context
+func (_e *Client_Expecter) CleanCloudInitInstances(ctx interface{}) *Client_CleanCloudInitInstances_Call {
+	return &Client_CleanCloudInitInstances_Call{Call: _e.mock.On("CleanCloudInitInstances", ctx)}
 }
 
-func (_c *Client_CleanCloudInitInstances_Call) Run(run func()) *Client_CleanCloudInitInstances_Call {
+func (_c *Client_CleanCloudInitInstances_Call) Run(run func(ctx context.Context)) *Client_CleanCloudInitInstances_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run()
+		run(args[0].(context.Context))
 	})
 	return _c
 }
@@ -164,22 +166,22 @@ func (_c *Client_CleanCloudInitInstances_Call) Return(_a0 sshclient.Output) *Cli
 	return _c
 }
 
-func (_c *Client_CleanCloudInitInstances_Call) RunAndReturn(run func() sshclient.Output) *Client_CleanCloudInitInstances_Call {
+func (_c *Client_CleanCloudInitInstances_Call) RunAndReturn(run func(context.Context) sshclient.Output) *Client_CleanCloudInitInstances_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// CleanCloudInitLogs provides a mock function with no fields
-func (_m *Client) CleanCloudInitLogs() sshclient.Output {
-	ret := _m.Called()
+// CleanCloudInitLogs provides a mock function with given fields: ctx
+func (_m *Client) CleanCloudInitLogs(ctx context.Context) sshclient.Output {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for CleanCloudInitLogs")
 	}
 
 	var r0 sshclient.Output
-	if rf, ok := ret.Get(0).(func() sshclient.Output); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) sshclient.Output); ok {
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Get(0).(sshclient.Output)
 	}
@@ -193,13 +195,14 @@ type Client_CleanCloudInitLogs_Call struct {
 }
 
 // CleanCloudInitLogs is a helper method to define mock.On call
-func (_e *Client_Expecter) CleanCloudInitLogs() *Client_CleanCloudInitLogs_Call {
-	return &Client_CleanCloudInitLogs_Call{Call: _e.mock.On("CleanCloudInitLogs")}
+//   - ctx context.Context
+func (_e *Client_Expecter) CleanCloudInitLogs(ctx interface{}) *Client_CleanCloudInitLogs_Call {
+	return &Client_CleanCloudInitLogs_Call{Call: _e.mock.On("CleanCloudInitLogs", ctx)}
 }
 
-func (_c *Client_CleanCloudInitLogs_Call) Run(run func()) *Client_CleanCloudInitLogs_Call {
+func (_c *Client_CleanCloudInitLogs_Call) Run(run func(ctx context.Context)) *Client_CleanCloudInitLogs_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run()
+		run(args[0].(context.Context))
 	})
 	return _c
 }
@@ -209,22 +212,22 @@ func (_c *Client_CleanCloudInitLogs_Call) Return(_a0 sshclient.Output) *Client_C
 	return _c
 }
 
-func (_c *Client_CleanCloudInitLogs_Call) RunAndReturn(run func() sshclient.Output) *Client_CleanCloudInitLogs_Call {
+func (_c *Client_CleanCloudInitLogs_Call) RunAndReturn(run func(context.Context) sshclient.Output) *Client_CleanCloudInitLogs_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// CloudInitStatus provides a mock function with no fields
-func (_m *Client) CloudInitStatus() sshclient.Output {
-	ret := _m.Called()
+// CloudInitStatus provides a mock function with given fields: ctx
+func (_m *Client) CloudInitStatus(ctx context.Context) sshclient.Output {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for CloudInitStatus")
 	}
 
 	var r0 sshclient.Output
-	if rf, ok := ret.Get(0).(func() sshclient.Output); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) sshclient.Output); ok {
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Get(0).(sshclient.Output)
 	}
@@ -238,13 +241,14 @@ type Client_CloudInitStatus_Call struct {
 }
 
 // CloudInitStatus is a helper method to define mock.On call
-func (_e *Client_Expecter) CloudInitStatus() *Client_CloudInitStatus_Call {
-	return &Client_CloudInitStatus_Call{Call: _e.mock.On("CloudInitStatus")}
+//   - ctx context.Context
+func (_e *Client_Expecter) CloudInitStatus(ctx interface{}) *Client_CloudInitStatus_Call {
+	return &Client_CloudInitStatus_Call{Call: _e.mock.On("CloudInitStatus", ctx)}
 }
 
-func (_c *Client_CloudInitStatus_Call) Run(run func()) *Client_CloudInitStatus_Call {
+func (_c *Client_CloudInitStatus_Call) Run(run func(ctx context.Context)) *Client_CloudInitStatus_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run()
+		run(args[0].(context.Context))
 	})
 	return _c
 }
@@ -254,22 +258,22 @@ func (_c *Client_CloudInitStatus_Call) Return(_a0 sshclient.Output) *Client_Clou
 	return _c
 }
 
-func (_c *Client_CloudInitStatus_Call) RunAndReturn(run func() sshclient.Output) *Client_CloudInitStatus_Call {
+func (_c *Client_CloudInitStatus_Call) RunAndReturn(run func(context.Context) sshclient.Output) *Client_CloudInitStatus_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// CreateAutoSetup provides a mock function with given fields: data
-func (_m *Client) CreateAutoSetup(data string) sshclient.Output {
-	ret := _m.Called(data)
+// CreateAutoSetup provides a mock function with given fields: ctx, data
+func (_m *Client) CreateAutoSetup(ctx context.Context, data string) sshclient.Output {
+	ret := _m.Called(ctx, data)
 
 	if len(ret) == 0 {
 		panic("no return value specified for CreateAutoSetup")
 	}
 
 	var r0 sshclient.Output
-	if rf, ok := ret.Get(0).(func(string) sshclient.Output); ok {
-		r0 = rf(data)
+	if rf, ok := ret.Get(0).(func(context.Context, string) sshclient.Output); ok {
+		r0 = rf(ctx, data)
 	} else {
 		r0 = ret.Get(0).(sshclient.Output)
 	}
@@ -283,14 +287,15 @@ type Client_CreateAutoSetup_Call struct {
 }
 
 // CreateAutoSetup is a helper method to define mock.On call
+//   - ctx context.Context
 //   - data string
-func (_e *Client_Expecter) CreateAutoSetup(data interface{}) *Client_CreateAutoSetup_Call {
-	return &Client_CreateAutoSetup_Call{Call: _e.mock.On("CreateAutoSetup", data)}
+func (_e *Client_Expecter) CreateAutoSetup(ctx interface{}, data interface{}) *Client_CreateAutoSetup_Call {
+	return &Client_CreateAutoSetup_Call{Call: _e.mock.On("CreateAutoSetup", ctx, data)}
 }
 
-func (_c *Client_CreateAutoSetup_Call) Run(run func(data string)) *Client_CreateAutoSetup_Call {
+func (_c *Client_CreateAutoSetup_Call) Run(run func(ctx context.Context, data string)) *Client_CreateAutoSetup_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(string))
+		run(args[0].(context.Context), args[1].(string))
 	})
 	return _c
 }
@@ -300,22 +305,22 @@ func (_c *Client_CreateAutoSetup_Call) Return(_a0 sshclient.Output) *Client_Crea
 	return _c
 }
 
-func (_c *Client_CreateAutoSetup_Call) RunAndReturn(run func(string) sshclient.Output) *Client_CreateAutoSetup_Call {
+func (_c *Client_CreateAutoSetup_Call) RunAndReturn(run func(context.Context, string) sshclient.Output) *Client_CreateAutoSetup_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// CreatePostInstallScript provides a mock function with given fields: data
-func (_m *Client) CreatePostInstallScript(data string) sshclient.Output {
-	ret := _m.Called(data)
+// CreatePostInstallScript provides a mock function with given fields: ctx, data
+func (_m *Client) CreatePostInstallScript(ctx context.Context, data string) sshclient.Output {
+	ret := _m.Called(ctx, data)
 
 	if len(ret) == 0 {
 		panic("no return value specified for CreatePostInstallScript")
 	}
 
 	var r0 sshclient.Output
-	if rf, ok := ret.Get(0).(func(string) sshclient.Output); ok {
-		r0 = rf(data)
+	if rf, ok := ret.Get(0).(func(context.Context, string) sshclient.Output); ok {
+		r0 = rf(ctx, data)
 	} else {
 		r0 = ret.Get(0).(sshclient.Output)
 	}
@@ -329,14 +334,15 @@ type Client_CreatePostInstallScript_Call struct {
 }
 
 // CreatePostInstallScript is a helper method to define mock.On call
+//   - ctx context.Context
 //   - data string
-func (_e *Client_Expecter) CreatePostInstallScript(data interface{}) *Client_CreatePostInstallScript_Call {
-	return &Client_CreatePostInstallScript_Call{Call: _e.mock.On("CreatePostInstallScript", data)}
+func (_e *Client_Expecter) CreatePostInstallScript(ctx interface{}, data interface{}) *Client_CreatePostInstallScript_Call {
+	return &Client_CreatePostInstallScript_Call{Call: _e.mock.On("CreatePostInstallScript", ctx, data)}
 }
 
-func (_c *Client_CreatePostInstallScript_Call) Run(run func(data string)) *Client_CreatePostInstallScript_Call {
+func (_c *Client_CreatePostInstallScript_Call) Run(run func(ctx context.Context, data string)) *Client_CreatePostInstallScript_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(string))
+		run(args[0].(context.Context), args[1].(string))
 	})
 	return _c
 }
@@ -346,22 +352,22 @@ func (_c *Client_CreatePostInstallScript_Call) Return(_a0 sshclient.Output) *Cli
 	return _c
 }
 
-func (_c *Client_CreatePostInstallScript_Call) RunAndReturn(run func(string) sshclient.Output) *Client_CreatePostInstallScript_Call {
+func (_c *Client_CreatePostInstallScript_Call) RunAndReturn(run func(context.Context, string) sshclient.Output) *Client_CreatePostInstallScript_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// DetectLinuxOnAnotherDisk provides a mock function with given fields: sliceOfWwns
-func (_m *Client) DetectLinuxOnAnotherDisk(sliceOfWwns []string) sshclient.Output {
-	ret := _m.Called(sliceOfWwns)
+// DetectLinuxOnAnotherDisk provides a mock function with given fields: ctx, sliceOfWwns
+func (_m *Client) DetectLinuxOnAnotherDisk(ctx context.Context, sliceOfWwns []string) sshclient.Output {
+	ret := _m.Called(ctx, sliceOfWwns)
 
 	if len(ret) == 0 {
 		panic("no return value specified for DetectLinuxOnAnotherDisk")
 	}
 
 	var r0 sshclient.Output
-	if rf, ok := ret.Get(0).(func([]string) sshclient.Output); ok {
-		r0 = rf(sliceOfWwns)
+	if rf, ok := ret.Get(0).(func(context.Context, []string) sshclient.Output); ok {
+		r0 = rf(ctx, sliceOfWwns)
 	} else {
 		r0 = ret.Get(0).(sshclient.Output)
 	}
@@ -375,14 +381,15 @@ type Client_DetectLinuxOnAnotherDisk_Call struct {
 }
 
 // DetectLinuxOnAnotherDisk is a helper method to define mock.On call
+//   - ctx context.Context
 //   - sliceOfWwns []string
-func (_e *Client_Expecter) DetectLinuxOnAnotherDisk(sliceOfWwns interface{}) *Client_DetectLinuxOnAnotherDisk_Call {
-	return &Client_DetectLinuxOnAnotherDisk_Call{Call: _e.mock.On("DetectLinuxOnAnotherDisk", sliceOfWwns)}
+func (_e *Client_Expecter) DetectLinuxOnAnotherDisk(ctx interface{}, sliceOfWwns interface{}) *Client_DetectLinuxOnAnotherDisk_Call {
+	return &Client_DetectLinuxOnAnotherDisk_Call{Call: _e.mock.On("DetectLinuxOnAnotherDisk", ctx, sliceOfWwns)}
 }
 
-func (_c *Client_DetectLinuxOnAnotherDisk_Call) Run(run func(sliceOfWwns []string)) *Client_DetectLinuxOnAnotherDisk_Call {
+func (_c *Client_DetectLinuxOnAnotherDisk_Call) Run(run func(ctx context.Context, sliceOfWwns []string)) *Client_DetectLinuxOnAnotherDisk_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].([]string))
+		run(args[0].(context.Context), args[1].([]string))
 	})
 	return _c
 }
@@ -392,22 +399,22 @@ func (_c *Client_DetectLinuxOnAnotherDisk_Call) Return(_a0 sshclient.Output) *Cl
 	return _c
 }
 
-func (_c *Client_DetectLinuxOnAnotherDisk_Call) RunAndReturn(run func([]string) sshclient.Output) *Client_DetectLinuxOnAnotherDisk_Call {
+func (_c *Client_DetectLinuxOnAnotherDisk_Call) RunAndReturn(run func(context.Context, []string) sshclient.Output) *Client_DetectLinuxOnAnotherDisk_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// DownloadImage provides a mock function with given fields: path, url
-func (_m *Client) DownloadImage(path string, url string) sshclient.Output {
-	ret := _m.Called(path, url)
+// DownloadImage provides a mock function with given fields: ctx, path, url
+func (_m *Client) DownloadImage(ctx context.Context, path string, url string) sshclient.Output {
+	ret := _m.Called(ctx, path, url)
 
 	if len(ret) == 0 {
 		panic("no return value specified for DownloadImage")
 	}
 
 	var r0 sshclient.Output
-	if rf, ok := ret.Get(0).(func(string, string) sshclient.Output); ok {
-		r0 = rf(path, url)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) sshclient.Output); ok {
+		r0 = rf(ctx, path, url)
 	} else {
 		r0 = ret.Get(0).(sshclient.Output)
 	}
@@ -421,15 +428,16 @@ type Client_DownloadImage_Call struct {
 }
 
 // DownloadImage is a helper method to define mock.On call
+//   - ctx context.Context
 //   - path string
 //   - url string
-func (_e *Client_Expecter) DownloadImage(path interface{}, url interface{}) *Client_DownloadImage_Call {
-	return &Client_DownloadImage_Call{Call: _e.mock.On("DownloadImage", path, url)}
+func (_e *Client_Expecter) DownloadImage(ctx interface{}, path interface{}, url interface{}) *Client_DownloadImage_Call {
+	return &Client_DownloadImage_Call{Call: _e.mock.On("DownloadImage", ctx, path, url)}
 }
 
-func (_c *Client_DownloadImage_Call) Run(run func(path string, url string)) *Client_DownloadImage_Call {
+func (_c *Client_DownloadImage_Call) Run(run func(ctx context.Context, path string, url string)) *Client_DownloadImage_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(string), args[1].(string))
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
 	})
 	return _c
 }
@@ -439,22 +447,22 @@ func (_c *Client_DownloadImage_Call) Return(_a0 sshclient.Output) *Client_Downlo
 	return _c
 }
 
-func (_c *Client_DownloadImage_Call) RunAndReturn(run func(string, string) sshclient.Output) *Client_DownloadImage_Call {
+func (_c *Client_DownloadImage_Call) RunAndReturn(run func(context.Context, string, string) sshclient.Output) *Client_DownloadImage_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// ExecuteInstallImage provides a mock function with given fields: hasPostInstallScript
-func (_m *Client) ExecuteInstallImage(hasPostInstallScript bool) sshclient.Output {
-	ret := _m.Called(hasPostInstallScript)
+// ExecuteInstallImage provides a mock function with given fields: ctx, hasPostInstallScript
+func (_m *Client) ExecuteInstallImage(ctx context.Context, hasPostInstallScript bool) sshclient.Output {
+	ret := _m.Called(ctx, hasPostInstallScript)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ExecuteInstallImage")
 	}
 
 	var r0 sshclient.Output
-	if rf, ok := ret.Get(0).(func(bool) sshclient.Output); ok {
-		r0 = rf(hasPostInstallScript)
+	if rf, ok := ret.Get(0).(func(context.Context, bool) sshclient.Output); ok {
+		r0 = rf(ctx, hasPostInstallScript)
 	} else {
 		r0 = ret.Get(0).(sshclient.Output)
 	}
@@ -468,14 +476,15 @@ type Client_ExecuteInstallImage_Call struct {
 }
 
 // ExecuteInstallImage is a helper method to define mock.On call
+//   - ctx context.Context
 //   - hasPostInstallScript bool
-func (_e *Client_Expecter) ExecuteInstallImage(hasPostInstallScript interface{}) *Client_ExecuteInstallImage_Call {
-	return &Client_ExecuteInstallImage_Call{Call: _e.mock.On("ExecuteInstallImage", hasPostInstallScript)}
+func (_e *Client_Expecter) ExecuteInstallImage(ctx interface{}, hasPostInstallScript interface{}) *Client_ExecuteInstallImage_Call {
+	return &Client_ExecuteInstallImage_Call{Call: _e.mock.On("ExecuteInstallImage", ctx, hasPostInstallScript)}
 }
 
-func (_c *Client_ExecuteInstallImage_Call) Run(run func(hasPostInstallScript bool)) *Client_ExecuteInstallImage_Call {
+func (_c *Client_ExecuteInstallImage_Call) Run(run func(ctx context.Context, hasPostInstallScript bool)) *Client_ExecuteInstallImage_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(bool))
+		run(args[0].(context.Context), args[1].(bool))
 	})
 	return _c
 }
@@ -485,7 +494,7 @@ func (_c *Client_ExecuteInstallImage_Call) Return(_a0 sshclient.Output) *Client_
 	return _c
 }
 
-func (_c *Client_ExecuteInstallImage_Call) RunAndReturn(run func(bool) sshclient.Output) *Client_ExecuteInstallImage_Call {
+func (_c *Client_ExecuteInstallImage_Call) RunAndReturn(run func(context.Context, bool) sshclient.Output) *Client_ExecuteInstallImage_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -554,17 +563,17 @@ func (_c *Client_ExecutePreProvisionCommand_Call) RunAndReturn(run func(context.
 	return _c
 }
 
-// GetCloudInitOutput provides a mock function with no fields
-func (_m *Client) GetCloudInitOutput() sshclient.Output {
-	ret := _m.Called()
+// GetCloudInitOutput provides a mock function with given fields: ctx
+func (_m *Client) GetCloudInitOutput(ctx context.Context) sshclient.Output {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetCloudInitOutput")
 	}
 
 	var r0 sshclient.Output
-	if rf, ok := ret.Get(0).(func() sshclient.Output); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) sshclient.Output); ok {
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Get(0).(sshclient.Output)
 	}
@@ -578,13 +587,14 @@ type Client_GetCloudInitOutput_Call struct {
 }
 
 // GetCloudInitOutput is a helper method to define mock.On call
-func (_e *Client_Expecter) GetCloudInitOutput() *Client_GetCloudInitOutput_Call {
-	return &Client_GetCloudInitOutput_Call{Call: _e.mock.On("GetCloudInitOutput")}
+//   - ctx context.Context
+func (_e *Client_Expecter) GetCloudInitOutput(ctx interface{}) *Client_GetCloudInitOutput_Call {
+	return &Client_GetCloudInitOutput_Call{Call: _e.mock.On("GetCloudInitOutput", ctx)}
 }
 
-func (_c *Client_GetCloudInitOutput_Call) Run(run func()) *Client_GetCloudInitOutput_Call {
+func (_c *Client_GetCloudInitOutput_Call) Run(run func(ctx context.Context)) *Client_GetCloudInitOutput_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run()
+		run(args[0].(context.Context))
 	})
 	return _c
 }
@@ -594,22 +604,22 @@ func (_c *Client_GetCloudInitOutput_Call) Return(_a0 sshclient.Output) *Client_G
 	return _c
 }
 
-func (_c *Client_GetCloudInitOutput_Call) RunAndReturn(run func() sshclient.Output) *Client_GetCloudInitOutput_Call {
+func (_c *Client_GetCloudInitOutput_Call) RunAndReturn(run func(context.Context) sshclient.Output) *Client_GetCloudInitOutput_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// GetHardwareDetailsCPUArch provides a mock function with no fields
-func (_m *Client) GetHardwareDetailsCPUArch() sshclient.Output {
-	ret := _m.Called()
+// GetHardwareDetailsCPUArch provides a mock function with given fields: ctx
+func (_m *Client) GetHardwareDetailsCPUArch(ctx context.Context) sshclient.Output {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetHardwareDetailsCPUArch")
 	}
 
 	var r0 sshclient.Output
-	if rf, ok := ret.Get(0).(func() sshclient.Output); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) sshclient.Output); ok {
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Get(0).(sshclient.Output)
 	}
@@ -623,13 +633,14 @@ type Client_GetHardwareDetailsCPUArch_Call struct {
 }
 
 // GetHardwareDetailsCPUArch is a helper method to define mock.On call
-func (_e *Client_Expecter) GetHardwareDetailsCPUArch() *Client_GetHardwareDetailsCPUArch_Call {
-	return &Client_GetHardwareDetailsCPUArch_Call{Call: _e.mock.On("GetHardwareDetailsCPUArch")}
+//   - ctx context.Context
+func (_e *Client_Expecter) GetHardwareDetailsCPUArch(ctx interface{}) *Client_GetHardwareDetailsCPUArch_Call {
+	return &Client_GetHardwareDetailsCPUArch_Call{Call: _e.mock.On("GetHardwareDetailsCPUArch", ctx)}
 }
 
-func (_c *Client_GetHardwareDetailsCPUArch_Call) Run(run func()) *Client_GetHardwareDetailsCPUArch_Call {
+func (_c *Client_GetHardwareDetailsCPUArch_Call) Run(run func(ctx context.Context)) *Client_GetHardwareDetailsCPUArch_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run()
+		run(args[0].(context.Context))
 	})
 	return _c
 }
@@ -639,22 +650,22 @@ func (_c *Client_GetHardwareDetailsCPUArch_Call) Return(_a0 sshclient.Output) *C
 	return _c
 }
 
-func (_c *Client_GetHardwareDetailsCPUArch_Call) RunAndReturn(run func() sshclient.Output) *Client_GetHardwareDetailsCPUArch_Call {
+func (_c *Client_GetHardwareDetailsCPUArch_Call) RunAndReturn(run func(context.Context) sshclient.Output) *Client_GetHardwareDetailsCPUArch_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// GetHardwareDetailsCPUClockGigahertz provides a mock function with no fields
-func (_m *Client) GetHardwareDetailsCPUClockGigahertz() sshclient.Output {
-	ret := _m.Called()
+// GetHardwareDetailsCPUClockGigahertz provides a mock function with given fields: ctx
+func (_m *Client) GetHardwareDetailsCPUClockGigahertz(ctx context.Context) sshclient.Output {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetHardwareDetailsCPUClockGigahertz")
 	}
 
 	var r0 sshclient.Output
-	if rf, ok := ret.Get(0).(func() sshclient.Output); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) sshclient.Output); ok {
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Get(0).(sshclient.Output)
 	}
@@ -668,13 +679,14 @@ type Client_GetHardwareDetailsCPUClockGigahertz_Call struct {
 }
 
 // GetHardwareDetailsCPUClockGigahertz is a helper method to define mock.On call
-func (_e *Client_Expecter) GetHardwareDetailsCPUClockGigahertz() *Client_GetHardwareDetailsCPUClockGigahertz_Call {
-	return &Client_GetHardwareDetailsCPUClockGigahertz_Call{Call: _e.mock.On("GetHardwareDetailsCPUClockGigahertz")}
+//   - ctx context.Context
+func (_e *Client_Expecter) GetHardwareDetailsCPUClockGigahertz(ctx interface{}) *Client_GetHardwareDetailsCPUClockGigahertz_Call {
+	return &Client_GetHardwareDetailsCPUClockGigahertz_Call{Call: _e.mock.On("GetHardwareDetailsCPUClockGigahertz", ctx)}
 }
 
-func (_c *Client_GetHardwareDetailsCPUClockGigahertz_Call) Run(run func()) *Client_GetHardwareDetailsCPUClockGigahertz_Call {
+func (_c *Client_GetHardwareDetailsCPUClockGigahertz_Call) Run(run func(ctx context.Context)) *Client_GetHardwareDetailsCPUClockGigahertz_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run()
+		run(args[0].(context.Context))
 	})
 	return _c
 }
@@ -684,22 +696,22 @@ func (_c *Client_GetHardwareDetailsCPUClockGigahertz_Call) Return(_a0 sshclient.
 	return _c
 }
 
-func (_c *Client_GetHardwareDetailsCPUClockGigahertz_Call) RunAndReturn(run func() sshclient.Output) *Client_GetHardwareDetailsCPUClockGigahertz_Call {
+func (_c *Client_GetHardwareDetailsCPUClockGigahertz_Call) RunAndReturn(run func(context.Context) sshclient.Output) *Client_GetHardwareDetailsCPUClockGigahertz_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// GetHardwareDetailsCPUCores provides a mock function with no fields
-func (_m *Client) GetHardwareDetailsCPUCores() sshclient.Output {
-	ret := _m.Called()
+// GetHardwareDetailsCPUCores provides a mock function with given fields: ctx
+func (_m *Client) GetHardwareDetailsCPUCores(ctx context.Context) sshclient.Output {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetHardwareDetailsCPUCores")
 	}
 
 	var r0 sshclient.Output
-	if rf, ok := ret.Get(0).(func() sshclient.Output); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) sshclient.Output); ok {
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Get(0).(sshclient.Output)
 	}
@@ -713,13 +725,14 @@ type Client_GetHardwareDetailsCPUCores_Call struct {
 }
 
 // GetHardwareDetailsCPUCores is a helper method to define mock.On call
-func (_e *Client_Expecter) GetHardwareDetailsCPUCores() *Client_GetHardwareDetailsCPUCores_Call {
-	return &Client_GetHardwareDetailsCPUCores_Call{Call: _e.mock.On("GetHardwareDetailsCPUCores")}
+//   - ctx context.Context
+func (_e *Client_Expecter) GetHardwareDetailsCPUCores(ctx interface{}) *Client_GetHardwareDetailsCPUCores_Call {
+	return &Client_GetHardwareDetailsCPUCores_Call{Call: _e.mock.On("GetHardwareDetailsCPUCores", ctx)}
 }
 
-func (_c *Client_GetHardwareDetailsCPUCores_Call) Run(run func()) *Client_GetHardwareDetailsCPUCores_Call {
+func (_c *Client_GetHardwareDetailsCPUCores_Call) Run(run func(ctx context.Context)) *Client_GetHardwareDetailsCPUCores_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run()
+		run(args[0].(context.Context))
 	})
 	return _c
 }
@@ -729,22 +742,22 @@ func (_c *Client_GetHardwareDetailsCPUCores_Call) Return(_a0 sshclient.Output) *
 	return _c
 }
 
-func (_c *Client_GetHardwareDetailsCPUCores_Call) RunAndReturn(run func() sshclient.Output) *Client_GetHardwareDetailsCPUCores_Call {
+func (_c *Client_GetHardwareDetailsCPUCores_Call) RunAndReturn(run func(context.Context) sshclient.Output) *Client_GetHardwareDetailsCPUCores_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// GetHardwareDetailsCPUFlags provides a mock function with no fields
-func (_m *Client) GetHardwareDetailsCPUFlags() sshclient.Output {
-	ret := _m.Called()
+// GetHardwareDetailsCPUFlags provides a mock function with given fields: ctx
+func (_m *Client) GetHardwareDetailsCPUFlags(ctx context.Context) sshclient.Output {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetHardwareDetailsCPUFlags")
 	}
 
 	var r0 sshclient.Output
-	if rf, ok := ret.Get(0).(func() sshclient.Output); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) sshclient.Output); ok {
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Get(0).(sshclient.Output)
 	}
@@ -758,13 +771,14 @@ type Client_GetHardwareDetailsCPUFlags_Call struct {
 }
 
 // GetHardwareDetailsCPUFlags is a helper method to define mock.On call
-func (_e *Client_Expecter) GetHardwareDetailsCPUFlags() *Client_GetHardwareDetailsCPUFlags_Call {
-	return &Client_GetHardwareDetailsCPUFlags_Call{Call: _e.mock.On("GetHardwareDetailsCPUFlags")}
+//   - ctx context.Context
+func (_e *Client_Expecter) GetHardwareDetailsCPUFlags(ctx interface{}) *Client_GetHardwareDetailsCPUFlags_Call {
+	return &Client_GetHardwareDetailsCPUFlags_Call{Call: _e.mock.On("GetHardwareDetailsCPUFlags", ctx)}
 }
 
-func (_c *Client_GetHardwareDetailsCPUFlags_Call) Run(run func()) *Client_GetHardwareDetailsCPUFlags_Call {
+func (_c *Client_GetHardwareDetailsCPUFlags_Call) Run(run func(ctx context.Context)) *Client_GetHardwareDetailsCPUFlags_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run()
+		run(args[0].(context.Context))
 	})
 	return _c
 }
@@ -774,22 +788,22 @@ func (_c *Client_GetHardwareDetailsCPUFlags_Call) Return(_a0 sshclient.Output) *
 	return _c
 }
 
-func (_c *Client_GetHardwareDetailsCPUFlags_Call) RunAndReturn(run func() sshclient.Output) *Client_GetHardwareDetailsCPUFlags_Call {
+func (_c *Client_GetHardwareDetailsCPUFlags_Call) RunAndReturn(run func(context.Context) sshclient.Output) *Client_GetHardwareDetailsCPUFlags_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// GetHardwareDetailsCPUModel provides a mock function with no fields
-func (_m *Client) GetHardwareDetailsCPUModel() sshclient.Output {
-	ret := _m.Called()
+// GetHardwareDetailsCPUModel provides a mock function with given fields: ctx
+func (_m *Client) GetHardwareDetailsCPUModel(ctx context.Context) sshclient.Output {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetHardwareDetailsCPUModel")
 	}
 
 	var r0 sshclient.Output
-	if rf, ok := ret.Get(0).(func() sshclient.Output); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) sshclient.Output); ok {
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Get(0).(sshclient.Output)
 	}
@@ -803,13 +817,14 @@ type Client_GetHardwareDetailsCPUModel_Call struct {
 }
 
 // GetHardwareDetailsCPUModel is a helper method to define mock.On call
-func (_e *Client_Expecter) GetHardwareDetailsCPUModel() *Client_GetHardwareDetailsCPUModel_Call {
-	return &Client_GetHardwareDetailsCPUModel_Call{Call: _e.mock.On("GetHardwareDetailsCPUModel")}
+//   - ctx context.Context
+func (_e *Client_Expecter) GetHardwareDetailsCPUModel(ctx interface{}) *Client_GetHardwareDetailsCPUModel_Call {
+	return &Client_GetHardwareDetailsCPUModel_Call{Call: _e.mock.On("GetHardwareDetailsCPUModel", ctx)}
 }
 
-func (_c *Client_GetHardwareDetailsCPUModel_Call) Run(run func()) *Client_GetHardwareDetailsCPUModel_Call {
+func (_c *Client_GetHardwareDetailsCPUModel_Call) Run(run func(ctx context.Context)) *Client_GetHardwareDetailsCPUModel_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run()
+		run(args[0].(context.Context))
 	})
 	return _c
 }
@@ -819,22 +834,22 @@ func (_c *Client_GetHardwareDetailsCPUModel_Call) Return(_a0 sshclient.Output) *
 	return _c
 }
 
-func (_c *Client_GetHardwareDetailsCPUModel_Call) RunAndReturn(run func() sshclient.Output) *Client_GetHardwareDetailsCPUModel_Call {
+func (_c *Client_GetHardwareDetailsCPUModel_Call) RunAndReturn(run func(context.Context) sshclient.Output) *Client_GetHardwareDetailsCPUModel_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// GetHardwareDetailsCPUThreads provides a mock function with no fields
-func (_m *Client) GetHardwareDetailsCPUThreads() sshclient.Output {
-	ret := _m.Called()
+// GetHardwareDetailsCPUThreads provides a mock function with given fields: ctx
+func (_m *Client) GetHardwareDetailsCPUThreads(ctx context.Context) sshclient.Output {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetHardwareDetailsCPUThreads")
 	}
 
 	var r0 sshclient.Output
-	if rf, ok := ret.Get(0).(func() sshclient.Output); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) sshclient.Output); ok {
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Get(0).(sshclient.Output)
 	}
@@ -848,13 +863,14 @@ type Client_GetHardwareDetailsCPUThreads_Call struct {
 }
 
 // GetHardwareDetailsCPUThreads is a helper method to define mock.On call
-func (_e *Client_Expecter) GetHardwareDetailsCPUThreads() *Client_GetHardwareDetailsCPUThreads_Call {
-	return &Client_GetHardwareDetailsCPUThreads_Call{Call: _e.mock.On("GetHardwareDetailsCPUThreads")}
+//   - ctx context.Context
+func (_e *Client_Expecter) GetHardwareDetailsCPUThreads(ctx interface{}) *Client_GetHardwareDetailsCPUThreads_Call {
+	return &Client_GetHardwareDetailsCPUThreads_Call{Call: _e.mock.On("GetHardwareDetailsCPUThreads", ctx)}
 }
 
-func (_c *Client_GetHardwareDetailsCPUThreads_Call) Run(run func()) *Client_GetHardwareDetailsCPUThreads_Call {
+func (_c *Client_GetHardwareDetailsCPUThreads_Call) Run(run func(ctx context.Context)) *Client_GetHardwareDetailsCPUThreads_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run()
+		run(args[0].(context.Context))
 	})
 	return _c
 }
@@ -864,22 +880,22 @@ func (_c *Client_GetHardwareDetailsCPUThreads_Call) Return(_a0 sshclient.Output)
 	return _c
 }
 
-func (_c *Client_GetHardwareDetailsCPUThreads_Call) RunAndReturn(run func() sshclient.Output) *Client_GetHardwareDetailsCPUThreads_Call {
+func (_c *Client_GetHardwareDetailsCPUThreads_Call) RunAndReturn(run func(context.Context) sshclient.Output) *Client_GetHardwareDetailsCPUThreads_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// GetHardwareDetailsDebug provides a mock function with no fields
-func (_m *Client) GetHardwareDetailsDebug() sshclient.Output {
-	ret := _m.Called()
+// GetHardwareDetailsDebug provides a mock function with given fields: ctx
+func (_m *Client) GetHardwareDetailsDebug(ctx context.Context) sshclient.Output {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetHardwareDetailsDebug")
 	}
 
 	var r0 sshclient.Output
-	if rf, ok := ret.Get(0).(func() sshclient.Output); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) sshclient.Output); ok {
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Get(0).(sshclient.Output)
 	}
@@ -893,13 +909,14 @@ type Client_GetHardwareDetailsDebug_Call struct {
 }
 
 // GetHardwareDetailsDebug is a helper method to define mock.On call
-func (_e *Client_Expecter) GetHardwareDetailsDebug() *Client_GetHardwareDetailsDebug_Call {
-	return &Client_GetHardwareDetailsDebug_Call{Call: _e.mock.On("GetHardwareDetailsDebug")}
+//   - ctx context.Context
+func (_e *Client_Expecter) GetHardwareDetailsDebug(ctx interface{}) *Client_GetHardwareDetailsDebug_Call {
+	return &Client_GetHardwareDetailsDebug_Call{Call: _e.mock.On("GetHardwareDetailsDebug", ctx)}
 }
 
-func (_c *Client_GetHardwareDetailsDebug_Call) Run(run func()) *Client_GetHardwareDetailsDebug_Call {
+func (_c *Client_GetHardwareDetailsDebug_Call) Run(run func(ctx context.Context)) *Client_GetHardwareDetailsDebug_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run()
+		run(args[0].(context.Context))
 	})
 	return _c
 }
@@ -909,22 +926,22 @@ func (_c *Client_GetHardwareDetailsDebug_Call) Return(_a0 sshclient.Output) *Cli
 	return _c
 }
 
-func (_c *Client_GetHardwareDetailsDebug_Call) RunAndReturn(run func() sshclient.Output) *Client_GetHardwareDetailsDebug_Call {
+func (_c *Client_GetHardwareDetailsDebug_Call) RunAndReturn(run func(context.Context) sshclient.Output) *Client_GetHardwareDetailsDebug_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// GetHardwareDetailsNics provides a mock function with no fields
-func (_m *Client) GetHardwareDetailsNics() sshclient.Output {
-	ret := _m.Called()
+// GetHardwareDetailsNics provides a mock function with given fields: ctx
+func (_m *Client) GetHardwareDetailsNics(ctx context.Context) sshclient.Output {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetHardwareDetailsNics")
 	}
 
 	var r0 sshclient.Output
-	if rf, ok := ret.Get(0).(func() sshclient.Output); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) sshclient.Output); ok {
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Get(0).(sshclient.Output)
 	}
@@ -938,13 +955,14 @@ type Client_GetHardwareDetailsNics_Call struct {
 }
 
 // GetHardwareDetailsNics is a helper method to define mock.On call
-func (_e *Client_Expecter) GetHardwareDetailsNics() *Client_GetHardwareDetailsNics_Call {
-	return &Client_GetHardwareDetailsNics_Call{Call: _e.mock.On("GetHardwareDetailsNics")}
+//   - ctx context.Context
+func (_e *Client_Expecter) GetHardwareDetailsNics(ctx interface{}) *Client_GetHardwareDetailsNics_Call {
+	return &Client_GetHardwareDetailsNics_Call{Call: _e.mock.On("GetHardwareDetailsNics", ctx)}
 }
 
-func (_c *Client_GetHardwareDetailsNics_Call) Run(run func()) *Client_GetHardwareDetailsNics_Call {
+func (_c *Client_GetHardwareDetailsNics_Call) Run(run func(ctx context.Context)) *Client_GetHardwareDetailsNics_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run()
+		run(args[0].(context.Context))
 	})
 	return _c
 }
@@ -954,22 +972,22 @@ func (_c *Client_GetHardwareDetailsNics_Call) Return(_a0 sshclient.Output) *Clie
 	return _c
 }
 
-func (_c *Client_GetHardwareDetailsNics_Call) RunAndReturn(run func() sshclient.Output) *Client_GetHardwareDetailsNics_Call {
+func (_c *Client_GetHardwareDetailsNics_Call) RunAndReturn(run func(context.Context) sshclient.Output) *Client_GetHardwareDetailsNics_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// GetHardwareDetailsRAM provides a mock function with no fields
-func (_m *Client) GetHardwareDetailsRAM() sshclient.Output {
-	ret := _m.Called()
+// GetHardwareDetailsRAM provides a mock function with given fields: ctx
+func (_m *Client) GetHardwareDetailsRAM(ctx context.Context) sshclient.Output {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetHardwareDetailsRAM")
 	}
 
 	var r0 sshclient.Output
-	if rf, ok := ret.Get(0).(func() sshclient.Output); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) sshclient.Output); ok {
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Get(0).(sshclient.Output)
 	}
@@ -983,13 +1001,14 @@ type Client_GetHardwareDetailsRAM_Call struct {
 }
 
 // GetHardwareDetailsRAM is a helper method to define mock.On call
-func (_e *Client_Expecter) GetHardwareDetailsRAM() *Client_GetHardwareDetailsRAM_Call {
-	return &Client_GetHardwareDetailsRAM_Call{Call: _e.mock.On("GetHardwareDetailsRAM")}
+//   - ctx context.Context
+func (_e *Client_Expecter) GetHardwareDetailsRAM(ctx interface{}) *Client_GetHardwareDetailsRAM_Call {
+	return &Client_GetHardwareDetailsRAM_Call{Call: _e.mock.On("GetHardwareDetailsRAM", ctx)}
 }
 
-func (_c *Client_GetHardwareDetailsRAM_Call) Run(run func()) *Client_GetHardwareDetailsRAM_Call {
+func (_c *Client_GetHardwareDetailsRAM_Call) Run(run func(ctx context.Context)) *Client_GetHardwareDetailsRAM_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run()
+		run(args[0].(context.Context))
 	})
 	return _c
 }
@@ -999,22 +1018,22 @@ func (_c *Client_GetHardwareDetailsRAM_Call) Return(_a0 sshclient.Output) *Clien
 	return _c
 }
 
-func (_c *Client_GetHardwareDetailsRAM_Call) RunAndReturn(run func() sshclient.Output) *Client_GetHardwareDetailsRAM_Call {
+func (_c *Client_GetHardwareDetailsRAM_Call) RunAndReturn(run func(context.Context) sshclient.Output) *Client_GetHardwareDetailsRAM_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// GetHardwareDetailsStorage provides a mock function with no fields
-func (_m *Client) GetHardwareDetailsStorage() sshclient.Output {
-	ret := _m.Called()
+// GetHardwareDetailsStorage provides a mock function with given fields: ctx
+func (_m *Client) GetHardwareDetailsStorage(ctx context.Context) sshclient.Output {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetHardwareDetailsStorage")
 	}
 
 	var r0 sshclient.Output
-	if rf, ok := ret.Get(0).(func() sshclient.Output); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) sshclient.Output); ok {
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Get(0).(sshclient.Output)
 	}
@@ -1028,13 +1047,14 @@ type Client_GetHardwareDetailsStorage_Call struct {
 }
 
 // GetHardwareDetailsStorage is a helper method to define mock.On call
-func (_e *Client_Expecter) GetHardwareDetailsStorage() *Client_GetHardwareDetailsStorage_Call {
-	return &Client_GetHardwareDetailsStorage_Call{Call: _e.mock.On("GetHardwareDetailsStorage")}
+//   - ctx context.Context
+func (_e *Client_Expecter) GetHardwareDetailsStorage(ctx interface{}) *Client_GetHardwareDetailsStorage_Call {
+	return &Client_GetHardwareDetailsStorage_Call{Call: _e.mock.On("GetHardwareDetailsStorage", ctx)}
 }
 
-func (_c *Client_GetHardwareDetailsStorage_Call) Run(run func()) *Client_GetHardwareDetailsStorage_Call {
+func (_c *Client_GetHardwareDetailsStorage_Call) Run(run func(ctx context.Context)) *Client_GetHardwareDetailsStorage_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run()
+		run(args[0].(context.Context))
 	})
 	return _c
 }
@@ -1044,22 +1064,22 @@ func (_c *Client_GetHardwareDetailsStorage_Call) Return(_a0 sshclient.Output) *C
 	return _c
 }
 
-func (_c *Client_GetHardwareDetailsStorage_Call) RunAndReturn(run func() sshclient.Output) *Client_GetHardwareDetailsStorage_Call {
+func (_c *Client_GetHardwareDetailsStorage_Call) RunAndReturn(run func(context.Context) sshclient.Output) *Client_GetHardwareDetailsStorage_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// GetHostName provides a mock function with no fields
-func (_m *Client) GetHostName() sshclient.Output {
-	ret := _m.Called()
+// GetHostName provides a mock function with given fields: ctx
+func (_m *Client) GetHostName(ctx context.Context) sshclient.Output {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetHostName")
 	}
 
 	var r0 sshclient.Output
-	if rf, ok := ret.Get(0).(func() sshclient.Output); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) sshclient.Output); ok {
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Get(0).(sshclient.Output)
 	}
@@ -1073,13 +1093,14 @@ type Client_GetHostName_Call struct {
 }
 
 // GetHostName is a helper method to define mock.On call
-func (_e *Client_Expecter) GetHostName() *Client_GetHostName_Call {
-	return &Client_GetHostName_Call{Call: _e.mock.On("GetHostName")}
+//   - ctx context.Context
+func (_e *Client_Expecter) GetHostName(ctx interface{}) *Client_GetHostName_Call {
+	return &Client_GetHostName_Call{Call: _e.mock.On("GetHostName", ctx)}
 }
 
-func (_c *Client_GetHostName_Call) Run(run func()) *Client_GetHostName_Call {
+func (_c *Client_GetHostName_Call) Run(run func(ctx context.Context)) *Client_GetHostName_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run()
+		run(args[0].(context.Context))
 	})
 	return _c
 }
@@ -1089,14 +1110,14 @@ func (_c *Client_GetHostName_Call) Return(_a0 sshclient.Output) *Client_GetHostN
 	return _c
 }
 
-func (_c *Client_GetHostName_Call) RunAndReturn(run func() sshclient.Output) *Client_GetHostName_Call {
+func (_c *Client_GetHostName_Call) RunAndReturn(run func(context.Context) sshclient.Output) *Client_GetHostName_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// GetInstallImageState provides a mock function with no fields
-func (_m *Client) GetInstallImageState() (sshclient.InstallImageState, error) {
-	ret := _m.Called()
+// GetInstallImageState provides a mock function with given fields: ctx
+func (_m *Client) GetInstallImageState(ctx context.Context) (sshclient.InstallImageState, error) {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetInstallImageState")
@@ -1104,17 +1125,17 @@ func (_m *Client) GetInstallImageState() (sshclient.InstallImageState, error) {
 
 	var r0 sshclient.InstallImageState
 	var r1 error
-	if rf, ok := ret.Get(0).(func() (sshclient.InstallImageState, error)); ok {
-		return rf()
+	if rf, ok := ret.Get(0).(func(context.Context) (sshclient.InstallImageState, error)); ok {
+		return rf(ctx)
 	}
-	if rf, ok := ret.Get(0).(func() sshclient.InstallImageState); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) sshclient.InstallImageState); ok {
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Get(0).(sshclient.InstallImageState)
 	}
 
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1128,13 +1149,14 @@ type Client_GetInstallImageState_Call struct {
 }
 
 // GetInstallImageState is a helper method to define mock.On call
-func (_e *Client_Expecter) GetInstallImageState() *Client_GetInstallImageState_Call {
-	return &Client_GetInstallImageState_Call{Call: _e.mock.On("GetInstallImageState")}
+//   - ctx context.Context
+func (_e *Client_Expecter) GetInstallImageState(ctx interface{}) *Client_GetInstallImageState_Call {
+	return &Client_GetInstallImageState_Call{Call: _e.mock.On("GetInstallImageState", ctx)}
 }
 
-func (_c *Client_GetInstallImageState_Call) Run(run func()) *Client_GetInstallImageState_Call {
+func (_c *Client_GetInstallImageState_Call) Run(run func(ctx context.Context)) *Client_GetInstallImageState_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run()
+		run(args[0].(context.Context))
 	})
 	return _c
 }
@@ -1144,14 +1166,14 @@ func (_c *Client_GetInstallImageState_Call) Return(_a0 sshclient.InstallImageSta
 	return _c
 }
 
-func (_c *Client_GetInstallImageState_Call) RunAndReturn(run func() (sshclient.InstallImageState, error)) *Client_GetInstallImageState_Call {
+func (_c *Client_GetInstallImageState_Call) RunAndReturn(run func(context.Context) (sshclient.InstallImageState, error)) *Client_GetInstallImageState_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// GetResultOfInstallImage provides a mock function with no fields
-func (_m *Client) GetResultOfInstallImage() (string, error) {
-	ret := _m.Called()
+// GetResultOfInstallImage provides a mock function with given fields: ctx
+func (_m *Client) GetResultOfInstallImage(ctx context.Context) (string, error) {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetResultOfInstallImage")
@@ -1159,17 +1181,17 @@ func (_m *Client) GetResultOfInstallImage() (string, error) {
 
 	var r0 string
 	var r1 error
-	if rf, ok := ret.Get(0).(func() (string, error)); ok {
-		return rf()
+	if rf, ok := ret.Get(0).(func(context.Context) (string, error)); ok {
+		return rf(ctx)
 	}
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) string); ok {
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Get(0).(string)
 	}
 
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1183,13 +1205,14 @@ type Client_GetResultOfInstallImage_Call struct {
 }
 
 // GetResultOfInstallImage is a helper method to define mock.On call
-func (_e *Client_Expecter) GetResultOfInstallImage() *Client_GetResultOfInstallImage_Call {
-	return &Client_GetResultOfInstallImage_Call{Call: _e.mock.On("GetResultOfInstallImage")}
+//   - ctx context.Context
+func (_e *Client_Expecter) GetResultOfInstallImage(ctx interface{}) *Client_GetResultOfInstallImage_Call {
+	return &Client_GetResultOfInstallImage_Call{Call: _e.mock.On("GetResultOfInstallImage", ctx)}
 }
 
-func (_c *Client_GetResultOfInstallImage_Call) Run(run func()) *Client_GetResultOfInstallImage_Call {
+func (_c *Client_GetResultOfInstallImage_Call) Run(run func(ctx context.Context)) *Client_GetResultOfInstallImage_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run()
+		run(args[0].(context.Context))
 	})
 	return _c
 }
@@ -1199,22 +1222,22 @@ func (_c *Client_GetResultOfInstallImage_Call) Return(_a0 string, _a1 error) *Cl
 	return _c
 }
 
-func (_c *Client_GetResultOfInstallImage_Call) RunAndReturn(run func() (string, error)) *Client_GetResultOfInstallImage_Call {
+func (_c *Client_GetResultOfInstallImage_Call) RunAndReturn(run func(context.Context) (string, error)) *Client_GetResultOfInstallImage_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// Reboot provides a mock function with no fields
-func (_m *Client) Reboot() sshclient.Output {
-	ret := _m.Called()
+// Reboot provides a mock function with given fields: ctx
+func (_m *Client) Reboot(ctx context.Context) sshclient.Output {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Reboot")
 	}
 
 	var r0 sshclient.Output
-	if rf, ok := ret.Get(0).(func() sshclient.Output); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) sshclient.Output); ok {
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Get(0).(sshclient.Output)
 	}
@@ -1228,13 +1251,14 @@ type Client_Reboot_Call struct {
 }
 
 // Reboot is a helper method to define mock.On call
-func (_e *Client_Expecter) Reboot() *Client_Reboot_Call {
-	return &Client_Reboot_Call{Call: _e.mock.On("Reboot")}
+//   - ctx context.Context
+func (_e *Client_Expecter) Reboot(ctx interface{}) *Client_Reboot_Call {
+	return &Client_Reboot_Call{Call: _e.mock.On("Reboot", ctx)}
 }
 
-func (_c *Client_Reboot_Call) Run(run func()) *Client_Reboot_Call {
+func (_c *Client_Reboot_Call) Run(run func(ctx context.Context)) *Client_Reboot_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run()
+		run(args[0].(context.Context))
 	})
 	return _c
 }
@@ -1244,22 +1268,22 @@ func (_c *Client_Reboot_Call) Return(_a0 sshclient.Output) *Client_Reboot_Call {
 	return _c
 }
 
-func (_c *Client_Reboot_Call) RunAndReturn(run func() sshclient.Output) *Client_Reboot_Call {
+func (_c *Client_Reboot_Call) RunAndReturn(run func(context.Context) sshclient.Output) *Client_Reboot_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// ResetKubeadm provides a mock function with no fields
-func (_m *Client) ResetKubeadm() sshclient.Output {
-	ret := _m.Called()
+// ResetKubeadm provides a mock function with given fields: ctx
+func (_m *Client) ResetKubeadm(ctx context.Context) sshclient.Output {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ResetKubeadm")
 	}
 
 	var r0 sshclient.Output
-	if rf, ok := ret.Get(0).(func() sshclient.Output); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) sshclient.Output); ok {
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Get(0).(sshclient.Output)
 	}
@@ -1273,13 +1297,14 @@ type Client_ResetKubeadm_Call struct {
 }
 
 // ResetKubeadm is a helper method to define mock.On call
-func (_e *Client_Expecter) ResetKubeadm() *Client_ResetKubeadm_Call {
-	return &Client_ResetKubeadm_Call{Call: _e.mock.On("ResetKubeadm")}
+//   - ctx context.Context
+func (_e *Client_Expecter) ResetKubeadm(ctx interface{}) *Client_ResetKubeadm_Call {
+	return &Client_ResetKubeadm_Call{Call: _e.mock.On("ResetKubeadm", ctx)}
 }
 
-func (_c *Client_ResetKubeadm_Call) Run(run func()) *Client_ResetKubeadm_Call {
+func (_c *Client_ResetKubeadm_Call) Run(run func(ctx context.Context)) *Client_ResetKubeadm_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run()
+		run(args[0].(context.Context))
 	})
 	return _c
 }
@@ -1289,7 +1314,7 @@ func (_c *Client_ResetKubeadm_Call) Return(_a0 sshclient.Output) *Client_ResetKu
 	return _c
 }
 
-func (_c *Client_ResetKubeadm_Call) RunAndReturn(run func() sshclient.Output) *Client_ResetKubeadm_Call {
+func (_c *Client_ResetKubeadm_Call) RunAndReturn(run func(context.Context) sshclient.Output) *Client_ResetKubeadm_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1362,9 +1387,9 @@ func (_c *Client_StartImageURLCommand_Call) RunAndReturn(run func(context.Contex
 	return _c
 }
 
-// StateOfImageURLCommand provides a mock function with no fields
-func (_m *Client) StateOfImageURLCommand() (sshclient.ImageURLCommandState, string, error) {
-	ret := _m.Called()
+// StateOfImageURLCommand provides a mock function with given fields: ctx
+func (_m *Client) StateOfImageURLCommand(ctx context.Context) (sshclient.ImageURLCommandState, string, error) {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for StateOfImageURLCommand")
@@ -1373,23 +1398,23 @@ func (_m *Client) StateOfImageURLCommand() (sshclient.ImageURLCommandState, stri
 	var r0 sshclient.ImageURLCommandState
 	var r1 string
 	var r2 error
-	if rf, ok := ret.Get(0).(func() (sshclient.ImageURLCommandState, string, error)); ok {
-		return rf()
+	if rf, ok := ret.Get(0).(func(context.Context) (sshclient.ImageURLCommandState, string, error)); ok {
+		return rf(ctx)
 	}
-	if rf, ok := ret.Get(0).(func() sshclient.ImageURLCommandState); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) sshclient.ImageURLCommandState); ok {
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Get(0).(sshclient.ImageURLCommandState)
 	}
 
-	if rf, ok := ret.Get(1).(func() string); ok {
-		r1 = rf()
+	if rf, ok := ret.Get(1).(func(context.Context) string); ok {
+		r1 = rf(ctx)
 	} else {
 		r1 = ret.Get(1).(string)
 	}
 
-	if rf, ok := ret.Get(2).(func() error); ok {
-		r2 = rf()
+	if rf, ok := ret.Get(2).(func(context.Context) error); ok {
+		r2 = rf(ctx)
 	} else {
 		r2 = ret.Error(2)
 	}
@@ -1403,13 +1428,14 @@ type Client_StateOfImageURLCommand_Call struct {
 }
 
 // StateOfImageURLCommand is a helper method to define mock.On call
-func (_e *Client_Expecter) StateOfImageURLCommand() *Client_StateOfImageURLCommand_Call {
-	return &Client_StateOfImageURLCommand_Call{Call: _e.mock.On("StateOfImageURLCommand")}
+//   - ctx context.Context
+func (_e *Client_Expecter) StateOfImageURLCommand(ctx interface{}) *Client_StateOfImageURLCommand_Call {
+	return &Client_StateOfImageURLCommand_Call{Call: _e.mock.On("StateOfImageURLCommand", ctx)}
 }
 
-func (_c *Client_StateOfImageURLCommand_Call) Run(run func()) *Client_StateOfImageURLCommand_Call {
+func (_c *Client_StateOfImageURLCommand_Call) Run(run func(ctx context.Context)) *Client_StateOfImageURLCommand_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run()
+		run(args[0].(context.Context))
 	})
 	return _c
 }
@@ -1419,22 +1445,22 @@ func (_c *Client_StateOfImageURLCommand_Call) Return(state sshclient.ImageURLCom
 	return _c
 }
 
-func (_c *Client_StateOfImageURLCommand_Call) RunAndReturn(run func() (sshclient.ImageURLCommandState, string, error)) *Client_StateOfImageURLCommand_Call {
+func (_c *Client_StateOfImageURLCommand_Call) RunAndReturn(run func(context.Context) (sshclient.ImageURLCommandState, string, error)) *Client_StateOfImageURLCommand_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// UntarTGZ provides a mock function with no fields
-func (_m *Client) UntarTGZ() sshclient.Output {
-	ret := _m.Called()
+// UntarTGZ provides a mock function with given fields: ctx
+func (_m *Client) UntarTGZ(ctx context.Context) sshclient.Output {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for UntarTGZ")
 	}
 
 	var r0 sshclient.Output
-	if rf, ok := ret.Get(0).(func() sshclient.Output); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) sshclient.Output); ok {
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Get(0).(sshclient.Output)
 	}
@@ -1448,13 +1474,14 @@ type Client_UntarTGZ_Call struct {
 }
 
 // UntarTGZ is a helper method to define mock.On call
-func (_e *Client_Expecter) UntarTGZ() *Client_UntarTGZ_Call {
-	return &Client_UntarTGZ_Call{Call: _e.mock.On("UntarTGZ")}
+//   - ctx context.Context
+func (_e *Client_Expecter) UntarTGZ(ctx interface{}) *Client_UntarTGZ_Call {
+	return &Client_UntarTGZ_Call{Call: _e.mock.On("UntarTGZ", ctx)}
 }
 
-func (_c *Client_UntarTGZ_Call) Run(run func()) *Client_UntarTGZ_Call {
+func (_c *Client_UntarTGZ_Call) Run(run func(ctx context.Context)) *Client_UntarTGZ_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run()
+		run(args[0].(context.Context))
 	})
 	return _c
 }
@@ -1464,7 +1491,7 @@ func (_c *Client_UntarTGZ_Call) Return(_a0 sshclient.Output) *Client_UntarTGZ_Ca
 	return _c
 }
 
-func (_c *Client_UntarTGZ_Call) RunAndReturn(run func() sshclient.Output) *Client_UntarTGZ_Call {
+func (_c *Client_UntarTGZ_Call) RunAndReturn(run func(context.Context) sshclient.Output) *Client_UntarTGZ_Call {
 	_c.Call.Return(run)
 	return _c
 }

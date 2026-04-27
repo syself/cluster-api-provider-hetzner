@@ -1129,7 +1129,7 @@ var _ = Describe("Reconcile", func() {
 			Status:        hcloud.ServerStatusRunning,
 		}, nil).Once()
 
-		testEnv.HCloudSSHClient.On("Reboot").Return(sshclient.Output{
+		testEnv.HCloudSSHClient.On("Reboot", mock.Anything).Return(sshclient.Output{
 			Err:    nil,
 			StdOut: "ok",
 			StdErr: "",
@@ -1147,7 +1147,7 @@ var _ = Describe("Reconcile", func() {
 			Name:   "hcloudmachinenameWithRescueEnabled",
 			Status: hcloud.ServerStatusRunning,
 		}, nil).Once()
-		testEnv.HCloudSSHClient.On("GetHostName").Return(sshclient.Output{
+		testEnv.HCloudSSHClient.On("GetHostName", mock.Anything).Return(sshclient.Output{
 			StdOut: "rescue",
 			StdErr: "",
 			Err:    nil,
@@ -1162,12 +1162,12 @@ var _ = Describe("Reconcile", func() {
 		startImageURLCommandMock.Parent.AssertNumberOfCalls(GinkgoT(), "StartImageURLCommand", 1)
 
 		By("reconcile again --------------------------------------------------------")
-		testEnv.HCloudSSHClient.On("GetHostName").Return(sshclient.Output{
+		testEnv.HCloudSSHClient.On("GetHostName", mock.Anything).Return(sshclient.Output{
 			StdOut: "rescue",
 			StdErr: "",
 			Err:    nil,
 		})
-		testEnv.HCloudSSHClient.On("StateOfImageURLCommand").Return(sshclient.ImageURLCommandStateFinishedSuccessfully, "output-of-image-url-command", nil)
+		testEnv.HCloudSSHClient.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateFinishedSuccessfully, "output-of-image-url-command", nil)
 		hcloudClient.On("GetServer", mock.Anything, mock.Anything).Return(&hcloud.Server{
 			ID:            1,
 			Name:          "hcloudmachinenameWithRescueEnabled",
