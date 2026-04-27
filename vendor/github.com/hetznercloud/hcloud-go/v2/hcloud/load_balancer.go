@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"slices"
 	"strconv"
 	"time"
 
@@ -226,6 +227,18 @@ func (lb *LoadBalancer) GetDNSPtrForIP(ip net.IP) (string, error) {
 	}
 
 	return "", DNSNotFoundError{ip}
+}
+
+// PrivateNetFor returns the load balancer's network attachment information in the given
+// Network, and nil if no attachment was found.
+func (lb *LoadBalancer) PrivateNetFor(network *Network) *LoadBalancerPrivateNet {
+	index := slices.IndexFunc(lb.PrivateNet, func(o LoadBalancerPrivateNet) bool {
+		return o.Network != nil && o.Network.ID == network.ID
+	})
+	if index < 0 {
+		return nil
+	}
+	return &lb.PrivateNet[index]
 }
 
 // LoadBalancerClient is a client for the Load Balancers API.
@@ -765,6 +778,7 @@ func (c *LoadBalancerClient) ChangeAlgorithm(ctx context.Context, loadBalancer *
 type LoadBalancerAttachToNetworkOpts struct {
 	Network *Network
 	IP      net.IP
+	IPRange *net.IPNet
 }
 
 // AttachToNetwork attaches a Load Balancer to a network.
@@ -779,6 +793,9 @@ func (c *LoadBalancerClient) AttachToNetwork(ctx context.Context, loadBalancer *
 	}
 	if opts.IP != nil {
 		reqBody.IP = Ptr(opts.IP.String())
+	}
+	if opts.IPRange != nil {
+		reqBody.IPRange = Ptr(opts.IPRange.String())
 	}
 
 	respBody, resp, err := postRequest[schema.LoadBalancerActionAttachToNetworkResponse](ctx, c.client, reqPath, reqBody)
@@ -941,7 +958,7 @@ func (c *LoadBalancerClient) GetMetrics(
 	ctx = ctxutil.SetOpPath(ctx, opPath)
 
 	if loadBalancer == nil {
-		return nil, nil, missingArgument("loadBalancer", loadBalancer)
+		return nil, nil, invalidArgument("loadBalancer", loadBalancer, emptyValue(loadBalancer))
 	}
 
 	if err := opts.Validate(); err != nil {
