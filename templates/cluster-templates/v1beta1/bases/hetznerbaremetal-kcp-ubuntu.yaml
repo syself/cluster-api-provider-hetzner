@@ -28,15 +28,19 @@ spec:
         kubeletExtraArgs:
           - name: cloud-provider
             value: external
-          - name: config
-            value: /etc/kubernetes/kubelet/config.yaml
+          - name: max-pods
+            value: "120"
+          - name: resolv-conf
+            value: /etc/kubernetes/resolv.conf
     joinConfiguration:
       nodeRegistration:
         kubeletExtraArgs:
           - name: cloud-provider
             value: external
-          - name: config
-            value: /etc/kubernetes/kubelet/config.yaml
+          - name: max-pods
+            value: "120"
+          - name: resolv-conf
+            value: /etc/kubernetes/resolv.conf
     files:
       - path: /etc/systemd/system/sys-fs-bpf.mount
         owner: "root:root"
@@ -89,24 +93,6 @@ spec:
           nameserver 1.1.1.1
           nameserver 1.0.0.1
           nameserver 2606:4700:4700::1111
-      - path: /etc/kubernetes/kubelet/config.yaml
-        owner: "root:root"
-        permissions: "0644"
-        content: |
-          apiVersion: kubelet.config.k8s.io/v1beta1
-          kind: KubeletConfiguration
-          authentication:
-            anonymous:
-              enabled: false
-            webhook:
-              enabled: true
-          authorization:
-            mode: Webhook
-          eventRecordQPS: 5
-          maxPods: 120
-          readOnlyPort: 0
-          resolvConf: /etc/kubernetes/resolv.conf
-          serverTLSBootstrap: true
       - content: |
           # Copyright The containerd Authors.
           #
