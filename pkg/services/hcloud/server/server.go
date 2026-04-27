@@ -230,7 +230,7 @@ func (s *Service) handleBootStateUnset(ctx context.Context) (reconcile.Result, e
 		return reconcile.Result{RequeueAfter: requeueImmediately}, nil
 	}
 
-	// Fetch the SSH private key from the secret referenced in HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.                    ───────
+	// Fetch the SSH private key from the secret referenced in HetznerCluster.Spec.SSHKeys.RobotRescueSecretRef.
 	// Check that we have valid SSH private key in the secret. A failure could also mean there is a
 	// network failure while trying to access the api-server.
 	if hm.Spec.ImageURL != "" {
