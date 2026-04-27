@@ -620,8 +620,6 @@ var _ = Describe("Hetzner ClusterReconciler", func() {
 				Spec: getDefaultHetznerClusterSpec(),
 			}
 
-			Expect(testEnv.Create(ctx, helpers.GetDefaultSSHSecret("rescue-ssh-secret", testNs.Name))).To(Succeed())
-
 			hetznerSecret = getDefaultHetznerSecret(namespace)
 			Expect(testEnv.Create(ctx, hetznerSecret)).To(Succeed())
 

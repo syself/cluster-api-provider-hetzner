@@ -232,14 +232,14 @@ var _ = Describe("handleBootStateUnset", func() {
 				Namespace: "default",
 			},
 			Spec: infrav1.HCloudMachineSpec{
-				ImageName: "my-control-plane",
-				Type:      "cpx32",
+				ImageURL:        "oci://example.com/repo/image:v1",
+				ImageURLCommand: "image-url-command-test.sh",
+				Type:            "cpx32",
 			},
 		}
 	})
 
 	It("marks SSHPrivateKeyAvailableCondition false and requeues when SSH private key secret ref name is empty", func() {
-		// ImageURL is empty, so the imageURL preflight check is skipped and we reach getSSHPrivateKey.
 		service := newTestService(hcloudMachine, mocks.NewClient(GinkgoT()))
 		service.scope.HetznerCluster = &infrav1.HetznerCluster{
 			Spec: infrav1.HetznerClusterSpec{

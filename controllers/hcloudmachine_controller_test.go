@@ -38,7 +38,6 @@ import (
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	hcloudclient "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/client"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
-	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
 )
 
 func TestIgnoreInsignificantHCloudMachineStatusUpdates(t *testing.T) {
@@ -308,8 +307,6 @@ var _ = Describe("HCloudMachineReconciler", func() {
 			},
 			Spec: getDefaultHetznerClusterSpec(),
 		}
-
-		Expect(testEnv.Create(ctx, helpers.GetDefaultSSHSecret("rescue-ssh-secret", testNs.Name))).To(Succeed())
 
 		hetznerSecret = getDefaultHetznerSecret(testNs.Name)
 		Expect(testEnv.Create(ctx, hetznerSecret)).To(Succeed())

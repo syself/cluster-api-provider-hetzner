@@ -38,7 +38,6 @@ import (
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	hcloudutil "github.com/syself/cluster-api-provider-hetzner/pkg/services/hcloud/util"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/utils"
-	"github.com/syself/cluster-api-provider-hetzner/test/helpers"
 )
 
 var _ = Describe("HCloudRemediationReconciler", func() {
@@ -132,8 +131,6 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 			Spec: getDefaultHetznerClusterSpec(),
 		}
 		Expect(testEnv.Create(ctx, hetznerCluster)).To(Succeed())
-
-		Expect(testEnv.Create(ctx, helpers.GetDefaultSSHSecret("rescue-ssh-secret", testNs.Name))).To(Succeed())
 
 		hcloudMachine = &infrav1.HCloudMachine{
 			ObjectMeta: metav1.ObjectMeta{
