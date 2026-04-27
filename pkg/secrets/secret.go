@@ -77,7 +77,13 @@ func (sm *SecretManager) claimSecret(ctx context.Context, secret *corev1.Secret,
 		Duration: 100 * time.Millisecond,
 		Jitter:   1.0,
 	}
-	err := retry.RetryOnConflict(backoff, func() error {
+	key := client.ObjectKeyFromObject(secret)
+
+	return retry.RetryOnConflict(backoff, func() error {
+		if err := sm.apiReader.Get(ctx, key, secret); err != nil {
+			return err
+		}
+
 		needsUpdate := false
 		if !metav1.HasLabel(secret.ObjectMeta, LabelEnvironmentName) {
 			metav1.SetMetaDataLabel(&secret.ObjectMeta, LabelEnvironmentName, LabelEnvironmentValue)
@@ -118,22 +124,15 @@ func (sm *SecretManager) claimSecret(ctx context.Context, secret *corev1.Secret,
 			return nil
 		}
 
-		if updateErr := sm.client.Update(ctx, secret); updateErr != nil {
-			if apierrors.IsConflict(updateErr) {
-				sm.log.V(1).Info("retrying secret claim on conflict", "secret", client.ObjectKeyFromObject(secret))
-				if getErr := sm.apiReader.Get(ctx, client.ObjectKeyFromObject(secret), secret); getErr != nil {
-					return getErr
-				}
-				return updateErr
+		if err := sm.client.Update(ctx, secret); err != nil {
+			if apierrors.IsConflict(err) {
+				sm.log.V(1).Info("retrying secret claim on conflict", "secret", key)
+				return err
 			}
-			return fmt.Errorf("failed to update secret %s in namespace %s: %w", secret.Name, secret.Namespace, updateErr)
+			return fmt.Errorf("failed to update secret %s in namespace %s: %w", secret.Name, secret.Namespace, err)
 		}
 		return nil
 	})
-	if err != nil && apierrors.IsConflict(err) {
-		return fmt.Errorf("failed to update secret %s in namespace %s after retries: %w", secret.Name, secret.Namespace, err)
-	}
-	return err
 }
 
 // findSecret retrieves a Secret from the cache if it is available, and from the
