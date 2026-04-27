@@ -1,84 +1,90 @@
-apiVersion: cluster.x-k8s.io/v1beta1
+apiVersion: cluster.x-k8s.io/v1beta2
 kind: ClusterClass
 metadata:
   name: quick-start
 spec:
   controlPlane:
-    ref:
-      apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+    templateRef:
+      apiVersion: controlplane.cluster.x-k8s.io/v1beta2
       kind: KubeadmControlPlaneTemplate
       name: quick-start-control-plane
     machineInfrastructure:
-      ref:
-        kind: HCloudMachineTemplate
+      templateRef:
         apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        kind: HCloudMachineTemplate
         name: quick-start-hcloud-machinetemplate
-    machineHealthCheck:
-      maxUnhealthy: 33%
-      nodeStartupTimeout: 15m
-      unhealthyConditions:
-        - type: Ready
-          status: Unknown
-          timeout: 300s
-        - type: Ready
-          status: "False"
-          timeout: 300s
+    healthCheck:
+      checks:
+        nodeStartupTimeoutSeconds: 900
+        unhealthyNodeConditions:
+          - type: Ready
+            status: Unknown
+            timeoutSeconds: 300
+          - type: Ready
+            status: "False"
+            timeoutSeconds: 300
+      remediation:
+        triggerIf:
+          unhealthyLessThanOrEqualTo: 33%
   infrastructure:
-    ref:
+    templateRef:
       apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
       kind: HetznerClusterTemplate
       name: quick-start-cluster
   workers:
     machineDeployments:
       - class: hcloud-worker
-        template:
-          bootstrap:
-            ref:
-              apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
-              kind: KubeadmConfigTemplate
-              name: quick-start-hcloud-worker-bootstraptemplate
-          infrastructure:
-            ref:
-              apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
-              kind: HCloudMachineTemplate
-              name: quick-start-hcloud-machinetemplate
-        machineHealthCheck:
-          unhealthyRange: "[0-2]"
-          nodeStartupTimeout: 10m
-          unhealthyConditions:
-            - type: Ready
-              status: Unknown
-              timeout: 300s
-            - type: Ready
-              status: "False"
-              timeout: 300s
-      - class: baremetal-worker
-        template:
-          bootstrap:
-            ref:
-              apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
-              kind: KubeadmConfigTemplate
-              name: quick-start-baremetal-worker-bootstraptemplate
-          infrastructure:
-            ref:
-              apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
-              kind: HetznerBareMetalMachineTemplate
-              name: quick-start-baremetal-machinetemplate
-        machineHealthCheck:
-          maxUnhealthy: 1
-          nodeStartupTimeout: 15m
-          remediationTemplate:
+        bootstrap:
+          templateRef:
+            apiVersion: bootstrap.cluster.x-k8s.io/v1beta2
+            kind: KubeadmConfigTemplate
+            name: quick-start-hcloud-worker-bootstraptemplate
+        infrastructure:
+          templateRef:
             apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
-            kind: HetznerBareMetalRemediationTemplate
-            name: quick-start-worker-remediation-request
-            namespace: default
-          unhealthyConditions:
-            - type: Ready
-              status: Unknown
-              timeout: 300s
-            - type: Ready
-              status: "False"
-              timeout: 300s
+            kind: HCloudMachineTemplate
+            name: quick-start-hcloud-machinetemplate
+        healthCheck:
+          checks:
+            nodeStartupTimeoutSeconds: 600
+            unhealthyNodeConditions:
+              - type: Ready
+                status: Unknown
+                timeoutSeconds: 300
+              - type: Ready
+                status: "False"
+                timeoutSeconds: 300
+          remediation:
+            triggerIf:
+              unhealthyInRange: "[0-2]"
+      - class: baremetal-worker
+        bootstrap:
+          templateRef:
+            apiVersion: bootstrap.cluster.x-k8s.io/v1beta2
+            kind: KubeadmConfigTemplate
+            name: quick-start-baremetal-worker-bootstraptemplate
+        infrastructure:
+          templateRef:
+            apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+            kind: HetznerBareMetalMachineTemplate
+            name: quick-start-baremetal-machinetemplate
+        healthCheck:
+          checks:
+            nodeStartupTimeoutSeconds: 900
+            unhealthyNodeConditions:
+              - type: Ready
+                status: Unknown
+                timeoutSeconds: 300
+              - type: Ready
+                status: "False"
+                timeoutSeconds: 300
+          remediation:
+            triggerIf:
+              unhealthyLessThanOrEqualTo: 1
+            templateRef:
+              apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+              kind: HetznerBareMetalRemediationTemplate
+              name: quick-start-worker-remediation-request
   variables:
     - name: clusterEndpointHost
       required: false
@@ -160,7 +166,7 @@ spec:
       schema:
         openAPIV3Schema:
           type: string
-          default: cx31
+          default: cx33
     - name: hcloudControlPlaneMachineImageName
       required: true
       schema:
@@ -177,7 +183,7 @@ spec:
       schema:
         openAPIV3Schema:
           type: string
-          default: cx21
+          default: cx23
     - name: hcloudWorkerMachineImageName
       required: true
       schema:
@@ -382,9 +388,9 @@ spec:
   template:
     spec:
       imageName: ubuntu-24.04
-      type: cx21
+      type: cx23
 ---
-apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+apiVersion: controlplane.cluster.x-k8s.io/v1beta2
 kind: KubeadmControlPlaneTemplate
 metadata:
   name: quick-start-control-plane
@@ -395,67 +401,15 @@ spec:
         clusterConfiguration:
           apiServer:
             extraArgs:
-              authorization-mode: Node,RBAC
-              client-ca-file: /etc/kubernetes/pki/ca.crt
-              default-not-ready-toleration-seconds: "45"
-              default-unreachable-toleration-seconds: "45"
-              enable-aggregator-routing: "true"
-              enable-bootstrap-token-auth: "true"
-              etcd-cafile: /etc/kubernetes/pki/etcd/ca.crt
-              etcd-certfile: /etc/kubernetes/pki/etcd/server.crt
-              etcd-keyfile: /etc/kubernetes/pki/etcd/server.key
-              kubelet-client-certificate: /etc/kubernetes/pki/apiserver-kubelet-client.crt
-              kubelet-client-key: /etc/kubernetes/pki/apiserver-kubelet-client.key
-              kubelet-preferred-address-types: ExternalIP,Hostname,InternalDNS,ExternalDNS
-              profiling: "false"
-              proxy-client-cert-file: /etc/kubernetes/pki/front-proxy-client.crt
-              proxy-client-key-file: /etc/kubernetes/pki/front-proxy-client.key
-              requestheader-allowed-names: front-proxy-client
-              requestheader-client-ca-file: /etc/kubernetes/pki/front-proxy-ca.crt
-              requestheader-extra-headers-prefix: X-Remote-Extra-
-              requestheader-group-headers: X-Remote-Group
-              requestheader-username-headers: X-Remote-User
-              service-account-key-file: /etc/kubernetes/pki/sa.pub
-              service-account-lookup: "true"
-              tls-cert-file: /etc/kubernetes/pki/apiserver.crt
-              tls-cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
-              tls-private-key-file: /etc/kubernetes/pki/apiserver.key
+              - name: kubelet-preferred-address-types
+                value: ExternalIP,Hostname,InternalDNS,ExternalDNS
           controllerManager:
             extraArgs:
-              allocate-node-cidrs: "true"
-              authentication-kubeconfig: /etc/kubernetes/controller-manager.conf
-              authorization-kubeconfig: /etc/kubernetes/controller-manager.conf
-              bind-address: 0.0.0.0
-              cloud-provider: external
-              cluster-signing-cert-file: /etc/kubernetes/pki/ca.crt
-              cluster-signing-duration: 6h0m0s
-              cluster-signing-key-file: /etc/kubernetes/pki/ca.key
-              kubeconfig: /etc/kubernetes/controller-manager.conf
-              profiling: "false"
-              requestheader-client-ca-file: /etc/kubernetes/pki/front-proxy-ca.crt
-              root-ca-file: /etc/kubernetes/pki/ca.crt
-              secure-port: "10257"
-              service-account-private-key-file: /etc/kubernetes/pki/sa.key
-              terminated-pod-gc-threshold: "10"
-              use-service-account-credentials: "true"
+              - name: cloud-provider
+                value: external
           etcd:
             local:
               dataDir: /var/lib/etcd
-              extraArgs:
-                auto-tls: "false"
-                cert-file: /etc/kubernetes/pki/etcd/server.crt
-                cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
-                client-cert-auth: "true"
-                key-file: /etc/kubernetes/pki/etcd/server.key
-                peer-auto-tls: "false"
-                peer-client-cert-auth: "true"
-                trusted-ca-file: /etc/kubernetes/pki/etcd/ca.crt
-          scheduler:
-            extraArgs:
-              bind-address: 0.0.0.0
-              kubeconfig: /etc/kubernetes/scheduler.conf
-              profiling: "false"
-              secure-port: "10259"
         files:
           - content: |
               net.ipv4.conf.lxc*.rp_filter = 0
@@ -489,38 +443,41 @@ spec:
             owner: root:root
             path: /etc/kubernetes/resolv.conf
             permissions: "0744"
+          - content: |
+              apiVersion: kubelet.config.k8s.io/v1beta1
+              kind: KubeletConfiguration
+              authentication:
+                anonymous:
+                  enabled: false
+                webhook:
+                  enabled: true
+              authorization:
+                mode: Webhook
+              maxPods: 120
+              readOnlyPort: 0
+              resolvConf: /etc/kubernetes/resolv.conf
+              serverTLSBootstrap: true
+            owner: root:root
+            path: /etc/kubernetes/kubelet/config.yaml
+            permissions: "0644"
         initConfiguration:
           nodeRegistration:
             kubeletExtraArgs:
-              anonymous-auth: "false"
-              authentication-token-webhook: "true"
-              authorization-mode: Webhook
-              cloud-provider: external
-              event-qps: "5"
-              kubeconfig: /etc/kubernetes/kubelet.conf
-              max-pods: "120"
-              read-only-port: "0"
-              resolv-conf: /etc/kubernetes/resolv.conf
-              rotate-server-certificates: "true"
-              tls-cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
+              - name: cloud-provider
+                value: external
+              - name: config
+                value: /etc/kubernetes/kubelet/config.yaml
         joinConfiguration:
           nodeRegistration:
             kubeletExtraArgs:
-              anonymous-auth: "false"
-              authentication-token-webhook: "true"
-              authorization-mode: Webhook
-              cloud-provider: external
-              event-qps: "5"
-              kubeconfig: /etc/kubernetes/kubelet.conf
-              max-pods: "120"
-              read-only-port: "0"
-              resolv-conf: /etc/kubernetes/resolv.conf
-              rotate-server-certificates: "true"
-              tls-cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
+              - name: cloud-provider
+                value: external
+              - name: config
+                value: /etc/kubernetes/kubelet/config.yaml
         preKubeadmCommands:
           - grep VERSION= /etc/os-release; uname -a # Show version info in logs.
-          - export CONTAINERD=1.7.16
-          - export KUBERNETES_VERSION=1.31.6
+          - export CONTAINERD=1.7.26
+          - export KUBERNETES_VERSION=1.34.7
           - export TRIMMED_KUBERNETES_VERSION=$(echo ${KUBERNETES_VERSION} | sed 's/^v//' | awk -F . '{print $1 "." $2}')
           - localectl set-locale LANG=en_US.UTF-8
           - localectl set-locale LANGUAGE=en_US.UTF-8
@@ -557,7 +514,7 @@ spec:
           - apt-get -y autoremove
           - apt-get -y clean all
 ---
-apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+apiVersion: bootstrap.cluster.x-k8s.io/v1beta2
 kind: KubeadmConfigTemplate
 metadata:
   name: quick-start-hcloud-worker-bootstraptemplate
@@ -597,24 +554,34 @@ spec:
           owner: root:root
           path: /etc/kubernetes/resolv.conf
           permissions: "0744"
+        - content: |
+            apiVersion: kubelet.config.k8s.io/v1beta1
+            kind: KubeletConfiguration
+            authentication:
+              anonymous:
+                enabled: false
+              webhook:
+                enabled: true
+            authorization:
+              mode: Webhook
+            maxPods: 220
+            readOnlyPort: 0
+            resolvConf: /etc/kubernetes/resolv.conf
+            serverTLSBootstrap: true
+          owner: root:root
+          path: /etc/kubernetes/kubelet/config.yaml
+          permissions: "0644"
       joinConfiguration:
         nodeRegistration:
           kubeletExtraArgs:
-            anonymous-auth: "false"
-            authentication-token-webhook: "true"
-            authorization-mode: Webhook
-            cloud-provider: external
-            event-qps: "5"
-            kubeconfig: /etc/kubernetes/kubelet.conf
-            max-pods: "220"
-            read-only-port: "0"
-            resolv-conf: /etc/kubernetes/resolv.conf
-            rotate-server-certificates: "true"
-            tls-cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
+            - name: cloud-provider
+              value: external
+            - name: config
+              value: /etc/kubernetes/kubelet/config.yaml
       preKubeadmCommands:
         - grep VERSION= /etc/os-release; uname -a # Show version info in logs.
-        - export CONTAINERD=1.7.16
-        - export KUBERNETES_VERSION=1.31.6
+        - export CONTAINERD=1.7.26
+        - export KUBERNETES_VERSION=1.34.7
         - export TRIMMED_KUBERNETES_VERSION=$(echo ${KUBERNETES_VERSION} | sed 's/^v//' | awk -F . '{print $1 "." $2}')
         - localectl set-locale LANG=en_US.UTF-8
         - localectl set-locale LANGUAGE=en_US.UTF-8
@@ -708,7 +675,7 @@ spec:
             publicKey: ssh-publickey
           name: robot-ssh
 ---
-apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+apiVersion: bootstrap.cluster.x-k8s.io/v1beta2
 kind: KubeadmConfigTemplate
 metadata:
   name: quick-start-baremetal-worker-bootstraptemplate
@@ -748,24 +715,34 @@ spec:
           owner: root:root
           path: /etc/kubernetes/resolv.conf
           permissions: "0744"
+        - content: |
+            apiVersion: kubelet.config.k8s.io/v1beta1
+            kind: KubeletConfiguration
+            authentication:
+              anonymous:
+                enabled: false
+              webhook:
+                enabled: true
+            authorization:
+              mode: Webhook
+            maxPods: 220
+            readOnlyPort: 0
+            resolvConf: /etc/kubernetes/resolv.conf
+            serverTLSBootstrap: true
+          owner: root:root
+          path: /etc/kubernetes/kubelet/config.yaml
+          permissions: "0644"
       joinConfiguration:
         nodeRegistration:
           kubeletExtraArgs:
-            anonymous-auth: "false"
-            authentication-token-webhook: "true"
-            authorization-mode: Webhook
-            cloud-provider: external
-            event-qps: "5"
-            kubeconfig: /etc/kubernetes/kubelet.conf
-            max-pods: "220"
-            read-only-port: "0"
-            resolv-conf: /etc/kubernetes/resolv.conf
-            rotate-server-certificates: "true"
-            tls-cipher-suites: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256
+            - name: cloud-provider
+              value: external
+            - name: config
+              value: /etc/kubernetes/kubelet/config.yaml
       preKubeadmCommands:
         - grep VERSION= /etc/os-release; uname -a # Show version info in logs.
-        - export CONTAINERD=1.7.16
-        - export KUBERNETES_VERSION=1.31.6
+        - export CONTAINERD=1.7.26
+        - export KUBERNETES_VERSION=1.34.7
         - localectl set-locale LANG=en_US.UTF-8
         - localectl set-locale LANGUAGE=en_US.UTF-8
         - apt-get update -y

@@ -45,7 +45,7 @@ func TestValidateHCloudMachineSpecUpdate(t *testing.T) {
 				},
 				newSpec: HCloudMachineSpec{
 					ImageName: "ubuntu-24.04",
-					Type:      "cx21",
+					Type:      "cx23",
 				},
 			},
 			want: field.Forbidden(field.NewPath("spec", "type"), "field is immutable"),

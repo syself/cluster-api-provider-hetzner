@@ -161,7 +161,7 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 						Namespace: testNs.Name,
 						OwnerReferences: []metav1.OwnerReference{
 							{
-								APIVersion: "cluster.x-k8s.io/v1beta1",
+								APIVersion: clusterv1.GroupVersion.String(),
 								Kind:       "Cluster",
 								Name:       capiCluster.Name,
 								UID:        capiCluster.UID,
@@ -256,7 +256,7 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 					Spec: infrav1.HCloudMachineTemplateSpec{
 						Template: infrav1.HCloudMachineTemplateResource{
 							Spec: infrav1.HCloudMachineSpec{
-								Type:      "cx41",
+								Type:      "cx43",
 								ImageName: "my-hcloud-image",
 							},
 						},

@@ -90,7 +90,7 @@ func TestIgnoreInsignificantHCloudMachineStatusUpdates(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: infrav1.HCloudMachineSpec{
-					Type: "cx21",
+					Type: "cx23",
 				},
 			},
 			expected: true,
@@ -298,7 +298,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				Namespace: testNs.Name,
 				OwnerReferences: []metav1.OwnerReference{
 					{
-						APIVersion: "cluster.x-k8s.io/v1beta1",
+						APIVersion: clusterv1.GroupVersion.String(),
 						Kind:       "Cluster",
 						Name:       capiCluster.Name,
 						UID:        capiCluster.UID,
@@ -727,7 +727,7 @@ var _ = Describe("Hetzner secret", func() {
 				Namespace: testNs.Name,
 				OwnerReferences: []metav1.OwnerReference{
 					{
-						APIVersion: "cluster.x-k8s.io/v1beta1",
+						APIVersion: clusterv1.GroupVersion.String(),
 						Kind:       "Cluster",
 						Name:       capiCluster.Name,
 						UID:        capiCluster.UID,

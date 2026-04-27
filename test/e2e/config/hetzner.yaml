@@ -17,7 +17,7 @@ providers:
       - name: v1.11.8
         value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.11.8/core-components.yaml"
         type: "url"
-        contract: v1beta1
+        contract: v1beta2
         files:
           - sourcePath: "../data/shared/v1beta1/metadata.yaml"
         replacements:
@@ -34,7 +34,7 @@ providers:
       - name: v1.11.8
         value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.11.8/bootstrap-components.yaml"
         type: "url"
-        contract: "v1beta1"
+        contract: "v1beta2"
         files:
           - sourcePath: "../data/shared/v1beta1/metadata.yaml"
         replacements:
@@ -51,6 +51,7 @@ providers:
       - name: v1.11.8
         value: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.11.8/control-plane-components.yaml"
         type: "url"
+        contract: v1beta2
         files:
           - sourcePath: "../data/shared/v1beta1/metadata.yaml"
         replacements:
@@ -135,16 +136,16 @@ providers:
 
 variables:
   # Upgrade Test
-  KUBERNETES_VERSION_MANAGEMENT: "v1.33.6"
-  KUBERNETES_VERSION: "${KUBERNETES_VERSION:-v1.33.6}"
-  KUBERNETES_VERSION_UPGRADE_FROM: "v1.32.10"
-  KUBERNETES_VERSION_UPGRADE_TO: "v1.33.6"
+  KUBERNETES_VERSION_MANAGEMENT: "v1.34.7"
+  KUBERNETES_VERSION: "${KUBERNETES_VERSION:-v1.34.7}"
+  KUBERNETES_VERSION_UPGRADE_FROM: "v1.33.6"
+  KUBERNETES_VERSION_UPGRADE_TO: "v1.34.7"
   CONTROL_PLANE_MACHINE_TEMPLATE_UPGRADE_TO: "k8s-upgrade-control-plane"
   WORKERS_MACHINE_TEMPLATE_UPGRADE_TO: "k8s-upgrade-worker"
   KUBERNETES_IMAGE_UPGRADE_FROM: ${KUBERNETES_IMAGE_UPGRADE_FROM:-}
   KUBERNETES_IMAGE_UPGRADE_TO: ${KUBERNETES_IMAGE_UPGRADE_TO:-}
-  ETCD_VERSION_UPGRADE_TO: "3.5.24-0"
-  COREDNS_VERSION_UPGRADE_TO: "v1.12.0"
+  ETCD_VERSION_UPGRADE_TO: "3.6.5-0"
+  COREDNS_VERSION_UPGRADE_TO: "v1.12.1"
   IP_FAMILY: "IPv4"
 
   # NOTE: INIT_WITH_BINARY and INIT_WITH_KUBERNETES_VERSION are only used by the clusterctl upgrade test to initialize
@@ -164,7 +165,7 @@ variables:
   CONFORMANCE_WORKER_MACHINE_COUNT: 3
   CONFORMANCE_CONTROL_PLANE_MACHINE_COUNT: 3
   KUBETEST_CONFIGURATION: "${KUBETEST_CONF_PATH:=./data/kubetest/conformance.yaml}"
-  NODE_DRAIN_TIMEOUT: "60s"
+  NODE_DRAIN_TIMEOUT_SECONDS: "60"
 
   # Enabling the feature flags by setting the env variables.
   EXP_CLUSTER_RESOURCE_SET: "true"
