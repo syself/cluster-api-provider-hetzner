@@ -141,6 +141,7 @@ func (r *HetznerBareMetalMachineReconciler) Reconcile(ctx context.Context, req r
 	machineScope, err := scope.NewBareMetalMachineScope(scope.BareMetalMachineScopeParams{
 		Client:           r,
 		Logger:           log,
+		Cluster:          cluster,
 		Machine:          capiMachine,
 		BareMetalMachine: hbmMachine,
 		HetznerCluster:   hetznerCluster,

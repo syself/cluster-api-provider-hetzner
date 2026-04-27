@@ -38,8 +38,10 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/utils/ptr"
+	controlplanev1 "sigs.k8s.io/cluster-api/api/controlplane/kubeadm/v1beta2"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	conditions "sigs.k8s.io/cluster-api/util/conditions"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/cluster-api/util/record"
@@ -148,9 +150,28 @@ func (s *Service) Reconcile(ctx context.Context) (res reconcile.Result, err erro
 		return reconcile.Result{}, fmt.Errorf("failed to set providerID: %w", err)
 	}
 
-	// set machine ready
+	// Ready=true must be set before the load-balancer attachment below, so that
+	// even when reconcileLoadBalancerAttachment requeues with WaitingForAPIServer,
+	// CAPI still copies ProviderID onto Machine.Spec.ProviderID. Otherwise the
+	// Node is never linked, MachineAPIServerPodHealthy never flips true on the
+	// core Machine, and the attachment would requeue forever.
 	s.scope.BareMetalMachine.Status.Ready = true
 
+	// Worker nodes have no further blocking step, so mark the condition true here.
+	if !s.scope.IsControlPlane() {
+		v1beta1conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.ServerAvailableCondition)
+		return res, nil
+	}
+
+	// Control planes must be attached to the load balancer. Do not MarkTrue after
+	// this call: on the requeue branch reconcileLoadBalancerAttachment sets
+	// ServerAvailableCondition=False/WaitingForAPIServer and a MarkTrue here
+	// would overwrite that reason.
+	if err := s.reconcileLoadBalancerAttachment(ctx, host); err != nil {
+		return checkForRequeueError(err, "failed to reconcile load balancer attachment")
+	}
+
+	v1beta1conditions.MarkTrue(s.scope.BareMetalMachine, infrav1.ServerAvailableCondition)
 	return res, nil
 }
 
@@ -286,13 +307,6 @@ func (s *Service) update(ctx context.Context) (*infrav1.HetznerBareMetalHost, er
 
 	if err := analyzePatchError(helper.Patch(ctx, host), false); err != nil {
 		return nil, fmt.Errorf("failed to patch host: %w", err)
-	}
-
-	// if machine is a control plane, the host should be set as target of load balancer
-	if s.scope.IsControlPlane() {
-		if err := s.reconcileLoadBalancerAttachment(ctx, host); err != nil {
-			return nil, fmt.Errorf("failed to reconcile load balancer attachment: %w", err)
-		}
 	}
 
 	// ensure annotations are correctly set
@@ -575,6 +589,24 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 		return nil
 	}
 
+	// For non-KCP control planes, we skip the kube-apiserver health gate because
+	// MachineAPIServerPodHealthyCondition is KubeadmControlPlane-specific.
+	apiServerPodHealthy := !s.scope.Cluster.Spec.ControlPlaneRef.IsDefined() ||
+		s.scope.Cluster.Spec.ControlPlaneRef.Kind != "KubeadmControlPlane" ||
+		conditions.IsTrue(s.scope.Machine, controlplanev1.KubeadmControlPlaneMachineAPIServerPodHealthyCondition)
+
+	// Attach only nodes with a healthy kube-apiserver once the load balancer already has a target.
+	if len(s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.Target) > 0 && !apiServerPodHealthy {
+		v1beta1conditions.MarkFalse(
+			s.scope.BareMetalMachine,
+			infrav1.ServerAvailableCondition,
+			"WaitingForAPIServer",
+			clusterv1beta1.ConditionSeverityInfo,
+			"reconcile LoadBalancer: apiserver pod not healthy yet.",
+		)
+		return &scope.RequeueAfterError{RequeueAfter: requeueAfter}
+	}
+
 	newIPTargets := make([]string, 0, 2)
 	if !foundIPv4 {
 		newIPTargets = append(newIPTargets, host.Spec.Status.IPv4)
@@ -604,6 +636,7 @@ func (s *Service) reconcileLoadBalancerAttachment(ctx context.Context, host *inf
 			ip, host.Spec.ServerID, s.scope.HetznerCluster.Status.ControlPlaneLoadBalancer.ID,
 		)
 	}
+
 	return nil
 }
 
