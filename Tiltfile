@@ -25,7 +25,7 @@ settings = {
     "capi_version": "v1.12.7",
     "cabpt_version": "v0.5.6",
     "cacppt_version": "v0.4.11",
-    "cert_manager_version": "v1.11.0",
+    "cert_manager_version": "v1.20.2",
     "extra_args": {
         "hetzner": [
             "--log-level=debug",
