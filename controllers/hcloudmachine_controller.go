@@ -26,6 +26,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
@@ -321,6 +322,11 @@ func (r *HCloudMachineReconciler) SetupWithManager(ctx context.Context, mgr ctrl
 			handler.EnqueueRequestsFromMapFunc(clusterToObjectFunc),
 			builder.WithPredicates(predicates.ClusterPausedTransitionsOrInfrastructureProvisioned(mgr.GetScheme(), log)),
 		).
+		Watches(
+			&corev1.Secret{},
+			handler.EnqueueRequestsFromMapFunc(r.HetznerSecretToHCloudMachines(ctx)),
+			builder.WithPredicates(IgnoreInsignificantSecretUpdates(log)),
+		).
 		Complete(r)
 	if err != nil {
 		return fmt.Errorf("error creating controller: %w", err)
@@ -378,6 +384,66 @@ func (r *HCloudMachineReconciler) HetznerClusterToHCloudMachines(_ context.Conte
 		}
 
 		return result
+	}
+}
+
+// HetznerSecretToHCloudMachines is a handler.ToRequestsFunc to be used to enqueue requests for reconciliation
+// of HCloudMachines when the referenced HetznerSecret changes (e.g. after a token rotation).
+func (r *HCloudMachineReconciler) HetznerSecretToHCloudMachines(_ context.Context) handler.MapFunc {
+	return func(ctx context.Context, o client.Object) []reconcile.Request {
+		log := log.FromContext(ctx)
+
+		secret, ok := o.(*corev1.Secret)
+		if !ok {
+			log.Error(fmt.Errorf("expected a Secret but got a %T", o), "failed to get HCloudMachine for Secret")
+			return nil
+		}
+
+		log = log.WithValues("objectMapper", "hetznerSecretToHCloudMachine", "namespace", secret.Namespace, "secret", secret.Name)
+
+		hetznerClusterList := &infrav1.HetznerClusterList{}
+		if err := r.List(ctx, hetznerClusterList, client.InNamespace(secret.Namespace)); err != nil {
+			log.Error(err, "failed to list HetznerClusters, skipping mapping")
+			return nil
+		}
+
+		result := []reconcile.Request{}
+		toRequests := r.HetznerClusterToHCloudMachines(ctx)
+		for i := range hetznerClusterList.Items {
+			hc := &hetznerClusterList.Items[i]
+			if hc.Spec.HetznerSecret.Name != secret.Name {
+				continue
+			}
+			result = append(result, toRequests(ctx, hc)...)
+		}
+		return result
+	}
+}
+
+// IgnoreInsignificantSecretUpdates is a predicate that only fires when the Secret's Data
+// actually changes, so HCloudMachines do not reconcile for ManagedFields or metadata-only
+// Secret updates.
+func IgnoreInsignificantSecretUpdates(logger logr.Logger) predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldSecret, ok := e.ObjectOld.(*corev1.Secret)
+			if !ok {
+				return false
+			}
+			newSecret, ok := e.ObjectNew.(*corev1.Secret)
+			if !ok {
+				return false
+			}
+			if reflect.DeepEqual(oldSecret.Data, newSecret.Data) {
+				return false
+			}
+			logger.V(1).Info("Secret data changed, will enqueue HCloudMachines",
+				"namespace", newSecret.GetNamespace(), "name", newSecret.GetName())
+			return true
+		},
+		CreateFunc:  func(_ event.CreateEvent) bool { return true },
+		DeleteFunc:  func(_ event.DeleteEvent) bool { return true },
+		GenericFunc: func(_ event.GenericEvent) bool { return false },
 	}
 }
 
