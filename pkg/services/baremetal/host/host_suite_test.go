@@ -129,9 +129,11 @@ func newTestService(
 		},
 	}
 
+	// controller-runtime v0.22's fake client strips TypeMeta on Create (matching the
+	// real API server), so capiMachine.APIVersion / Kind would be empty here.
 	hbmm.OwnerReferences = append(hbmm.OwnerReferences, metav1.OwnerReference{
-		APIVersion: capiMachine.APIVersion,
-		Kind:       capiMachine.Kind,
+		APIVersion: clusterv1.GroupVersion.String(),
+		Kind:       "Machine",
 		Name:       capiMachine.Name,
 		UID:        capiMachine.UID,
 	})

@@ -257,7 +257,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 					return fmt.Errorf("hcloudMachine.Status.BootState is not HCloudBootStateOperatingSystemRunning, but: %q", hcloudMachine.Status.BootState)
 				}
 				return nil
-			}).NotTo(HaveOccurred())
+			}, timeout).NotTo(HaveOccurred())
 
 			Expect(testEnv.Create(ctx, hcloudRemediation)).To(Succeed())
 
@@ -291,7 +291,7 @@ var _ = Describe("HCloudRemediationReconciler", func() {
 						hcloudMachine.Status.BootState)
 				}
 				return nil
-			}).NotTo(HaveOccurred())
+			}, timeout).NotTo(HaveOccurred())
 			hcloudRemediation.Status.RetryCount = hcloudRemediation.Spec.Strategy.RetryLimit
 			Expect(testEnv.Create(ctx, hcloudRemediation)).To(Succeed())
 
