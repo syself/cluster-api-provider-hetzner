@@ -70,6 +70,10 @@ type ClusterUpgradeConformanceSpecInput struct {
 	// Allows to inject a function to be run before checking control-plane machines to be upgraded.
 	// If not specified, this is a no-op.
 	PreWaitForControlPlaneToBeUpgraded func(managementClusterProxy framework.ClusterProxy, workloadClusterNamespace, workloadClusterName string)
+
+	// ClusterctlVariables allows injecting variables to the cluster template.
+	// If not specified, this is a no-op.
+	ClusterctlVariables map[string]string
 }
 
 // ClusterUpgradeConformanceSpec implements a spec that upgrades a cluster and runs the Kubernetes conformance suite.
@@ -112,9 +116,11 @@ func ClusterUpgradeConformanceSpec(ctx context.Context, inputGetter func() Clust
 		Expect(input.E2EConfig.Variables).To(HaveKey(KubernetesVersionUpgradeFrom))
 		Expect(input.E2EConfig.Variables).To(HaveKey(KubernetesVersionUpgradeTo))
 
-		Expect(input.E2EConfig.Variables).To(HaveKey(kubetestConfigurationVariable), "% spec requires a %s variable to be defined in the config file", specName, kubetestConfigurationVariable)
-		kubetestConfigFilePath = input.E2EConfig.MustGetVariable(kubetestConfigurationVariable)
-		Expect(kubetestConfigFilePath).To(BeAnExistingFile(), "%s should be a valid kubetest config file")
+		if !input.SkipConformanceTests {
+			Expect(input.E2EConfig.Variables).To(HaveKey(kubetestConfigurationVariable), "% spec requires a %s variable to be defined in the config file", specName, kubetestConfigurationVariable)
+			kubetestConfigFilePath = input.E2EConfig.MustGetVariable(kubetestConfigurationVariable)
+			Expect(kubetestConfigFilePath).To(BeAnExistingFile(), "%s should be a valid kubetest config file")
+		}
 
 		if input.ControlPlaneMachineCount == nil {
 			controlPlaneMachineCount = 1
@@ -151,6 +157,7 @@ func ClusterUpgradeConformanceSpec(ctx context.Context, inputGetter func() Clust
 			ConfigCluster: clusterctl.ConfigClusterInput{
 				LogFolder:                filepath.Join(input.ArtifactFolder, "clusters", input.BootstrapClusterProxy.GetName()),
 				ClusterctlConfigPath:     input.ClusterctlConfigPath,
+				ClusterctlVariables:      input.ClusterctlVariables,
 				KubeconfigPath:           input.BootstrapClusterProxy.GetKubeconfigPath(),
 				InfrastructureProvider:   infrastructureProvider,
 				Flavor:                   ptr.Deref(input.Flavor, "upgrades"),
@@ -171,19 +178,20 @@ func ClusterUpgradeConformanceSpec(ctx context.Context, inputGetter func() Clust
 			// Cluster is using ClusterClass, upgrade via topology.
 			By("Upgrading the Cluster topology")
 			framework.UpgradeClusterTopologyAndWaitForUpgrade(ctx, framework.UpgradeClusterTopologyAndWaitForUpgradeInput{
-				ClusterProxy:                   input.BootstrapClusterProxy,
-				Cluster:                        clusterResources.Cluster,
-				ControlPlane:                   clusterResources.ControlPlane,
-				EtcdImageTag:                   etcdVersionUpgradeTo,
-				DNSImageTag:                    coreDNSVersionUpgradeTo,
-				MachineDeployments:             clusterResources.MachineDeployments,
-				MachinePools:                   clusterResources.MachinePools,
-				KubernetesUpgradeVersion:       input.E2EConfig.MustGetVariable(KubernetesVersionUpgradeTo),
-				WaitForMachinesToBeUpgraded:    input.E2EConfig.GetIntervals(specName, "wait-machine-upgrade"),
-				WaitForMachinePoolToBeUpgraded: input.E2EConfig.GetIntervals(specName, "wait-machine-pool-upgrade"),
-				WaitForKubeProxyUpgrade:        input.E2EConfig.GetIntervals(specName, "wait-machine-upgrade"),
-				WaitForDNSUpgrade:              input.E2EConfig.GetIntervals(specName, "wait-machine-upgrade"),
-				WaitForEtcdUpgrade:             input.E2EConfig.GetIntervals(specName, "wait-machine-upgrade"),
+				ClusterProxy:                         input.BootstrapClusterProxy,
+				Cluster:                              clusterResources.Cluster,
+				ControlPlane:                         clusterResources.ControlPlane,
+				EtcdImageTag:                         etcdVersionUpgradeTo,
+				DNSImageTag:                          coreDNSVersionUpgradeTo,
+				MachineDeployments:                   clusterResources.MachineDeployments,
+				MachinePools:                         clusterResources.MachinePools,
+				KubernetesUpgradeVersion:             input.E2EConfig.MustGetVariable(KubernetesVersionUpgradeTo),
+				WaitForControlPlaneToBeUpgraded:      input.E2EConfig.GetIntervals(specName, "wait-control-plane-upgrade"),
+				WaitForMachineDeploymentToBeUpgraded: input.E2EConfig.GetIntervals(specName, "wait-machine-deployment-upgrade"),
+				WaitForMachinePoolToBeUpgraded:       input.E2EConfig.GetIntervals(specName, "wait-machine-pool-upgrade"),
+				WaitForKubeProxyUpgrade:              input.E2EConfig.GetIntervals(specName, "wait-machine-upgrade"),
+				WaitForDNSUpgrade:                    input.E2EConfig.GetIntervals(specName, "wait-machine-upgrade"),
+				WaitForEtcdUpgrade:                   input.E2EConfig.GetIntervals(specName, "wait-machine-upgrade"),
 				PreWaitForControlPlaneToBeUpgraded: func() {
 					if input.PreWaitForControlPlaneToBeUpgraded != nil {
 						input.PreWaitForControlPlaneToBeUpgraded(input.BootstrapClusterProxy, namespace.Name, clusterName)

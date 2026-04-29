@@ -73,6 +73,7 @@ const (
 	VultrProviderName          = "vultr-vultr"
 	OpenNebulaProviderName     = "opennebula"
 	ScalewayProviderName       = "scaleway"
+	MetalStackProviderName     = "metal-stack"
 )
 
 // Bootstrap providers.
@@ -97,6 +98,7 @@ const (
 	RKE2ControlPlaneProviderName                = "rke2"
 	K0smotronControlPlaneProviderName           = "k0sproject-k0smotron"
 	CanonicalKubernetesControlPlaneProviderName = "canonical-kubernetes"
+	HCPControlPlaneProviderName                 = "hosted-control-plane"
 )
 
 // IPAM providers.
@@ -341,6 +343,11 @@ func (p *providersClient) defaults() []Provider {
 			url:          "https://github.com/scaleway/cluster-api-provider-scaleway/releases/latest/infrastructure-components.yaml",
 			providerType: clusterctlv1.InfrastructureProviderType,
 		},
+		&provider{
+			name:         MetalStackProviderName,
+			url:          "https://github.com/metal-stack/cluster-api-provider-metal-stack/releases/latest/infrastructure-components.yaml",
+			providerType: clusterctlv1.InfrastructureProviderType,
+		},
 
 		// Bootstrap providers
 		&provider{
@@ -423,6 +430,11 @@ func (p *providersClient) defaults() []Provider {
 		&provider{
 			name:         CanonicalKubernetesControlPlaneProviderName,
 			url:          "https://github.com/canonical/cluster-api-k8s/releases/latest/control-plane-components.yaml",
+			providerType: clusterctlv1.ControlPlaneProviderType,
+		},
+		&provider{
+			name:         HCPControlPlaneProviderName,
+			url:          "https://github.com/teutonet/cluster-api-provider-hosted-control-plane/releases/latest/control-plane-components.yaml",
 			providerType: clusterctlv1.ControlPlaneProviderType,
 		},
 

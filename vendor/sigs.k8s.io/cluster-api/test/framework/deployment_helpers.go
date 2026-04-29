@@ -328,7 +328,7 @@ func (eh *watchPodLogsEventHandler) streamPodLogs(pod *corev1.Pod) {
 }
 
 // logMetadata contains metadata about the logs.
-// The format is very similar to the one used by promtail.
+// The format is very similar to the one used by alloy.
 type logMetadata struct {
 	Job       string            `json:"job"`
 	Namespace string            `json:"namespace"`
@@ -412,12 +412,12 @@ func dumpPodMetrics(ctx context.Context, client *kubernetes.Clientset, metricsPa
 		}
 
 		if !errorRetrievingMetrics {
-			Expect(verifyMetrics(data)).To(Succeed())
+			Expect(verifyMetrics(data, &pod)).To(Succeed())
 		}
 	}
 }
 
-func verifyMetrics(data []byte) error {
+func verifyMetrics(data []byte, pod *corev1.Pod) error {
 	var parser expfmt.TextParser
 	mf, err := parser.TextToMetricFamilies(bytes.NewReader(data))
 	if err != nil {
@@ -447,10 +447,18 @@ func verifyMetrics(data []byte) error {
 				}
 			}
 		}
+
+		if metric == "controller_runtime_conversion_webhook_panics_total" {
+			for _, webhookPanicMetric := range metricFamily.Metric {
+				if webhookPanicMetric.Counter != nil && webhookPanicMetric.Counter.Value != nil && *webhookPanicMetric.Counter.Value > 0 {
+					errs = append(errs, fmt.Errorf("%.0f panics occurred in conversion webhooks (check logs for more details)", *webhookPanicMetric.Counter.Value))
+				}
+			}
+		}
 	}
 
 	if len(errs) > 0 {
-		return kerrors.NewAggregate(errs)
+		return errors.WithMessagef(kerrors.NewAggregate(errs), "panics occurred in Pod %s", klog.KObj(pod))
 	}
 
 	return nil
@@ -644,7 +652,7 @@ func generateDeployment(input generateDeploymentInput) *appsv1.Deployment {
 					Containers: []corev1.Container{
 						{
 							Name:  "main",
-							Image: "registry.k8s.io/pause:3.10",
+							Image: "registry.k8s.io/pause:3.10.1",
 						},
 					},
 					Affinity: &corev1.Affinity{
