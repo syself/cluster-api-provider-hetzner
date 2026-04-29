@@ -33,10 +33,9 @@ import (
 // SetupWebhookWithManager initializes webhook manager for HetznerBareMetalMachineTemplate.
 func (r *HetznerBareMetalMachineTemplate) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	w := new(HetznerBareMetalMachineTemplateWebhook)
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(r).
-		WithValidator(w).
-		WithDefaulter(w).
+	return ctrl.NewWebhookManagedBy(mgr, r).
+		WithCustomValidator(w).
+		WithCustomDefaulter(w).
 		Complete()
 }
 

@@ -32,10 +32,9 @@ type hetznerBareMetalMachineWebhook struct{}
 // SetupWebhookWithManager initializes webhook manager for HetznerBareMetalMachine.
 func (hbmm *HetznerBareMetalMachine) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	w := new(hetznerBareMetalMachineWebhook)
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(hbmm).
-		WithValidator(w).
-		WithDefaulter(w).
+	return ctrl.NewWebhookManagedBy(mgr, hbmm).
+		WithCustomValidator(w).
+		WithCustomDefaulter(w).
 		Complete()
 }
 

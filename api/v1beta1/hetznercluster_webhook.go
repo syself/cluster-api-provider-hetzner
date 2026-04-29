@@ -48,10 +48,9 @@ var regionNetworkZoneMap = map[string]string{
 // SetupWebhookWithManager initializes webhook manager for HetznerCluster.
 func (r *HetznerCluster) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	w := new(hetznerClusterWebhook)
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(r).
-		WithValidator(w).
-		WithDefaulter(w).
+	return ctrl.NewWebhookManagedBy(mgr, r).
+		WithCustomValidator(w).
+		WithCustomDefaulter(w).
 		Complete()
 }
 
@@ -59,8 +58,7 @@ func (r *HetznerCluster) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 // SetupWebhookWithManager initializes webhook manager for HetznerClusterList.
 func (r *HetznerClusterList) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(r).
+	return ctrl.NewWebhookManagedBy(mgr, r).
 		Complete()
 }
 

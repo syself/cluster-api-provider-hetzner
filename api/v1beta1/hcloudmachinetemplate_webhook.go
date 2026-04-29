@@ -33,10 +33,9 @@ import (
 // SetupWebhookWithManager initializes webhook manager for HCloudMachineTemplate.
 func (r *HCloudMachineTemplate) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	w := new(hcloudMachineTemplateWebhook)
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(r).
-		WithValidator(w).
-		WithDefaulter(w).
+	return ctrl.NewWebhookManagedBy(mgr, r).
+		WithCustomValidator(w).
+		WithCustomDefaulter(w).
 		Complete()
 }
 

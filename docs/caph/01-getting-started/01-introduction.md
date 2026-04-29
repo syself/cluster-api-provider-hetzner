@@ -26,6 +26,7 @@ This provider's versions are compatible with the following versions of Cluster A
 | `v1.10.x`                                                                                                 | ✅                        | ✅                        |
 | `v1.11.x` [start of beta2](https://cluster-api.sigs.k8s.io/developer/providers/migrations/v1.10-to-v1.11) | ❌                        | ✅                        |
 | `v1.12.x`                                                                                                 | ❌                        | ✅                        |
+| `v1.13.x`                                                                                                 | ❌                        | ✅                        |
 
 This provider's versions can install and manage the following versions of Kubernetes:
 
@@ -36,6 +37,7 @@ This provider's versions can install and manage the following versions of Kubern
 | Kubernetes 1.33.x | ✅                        | ✅                         |
 | Kubernetes 1.34.x | ✅                        | ✅                         |
 | Kubernetes 1.35.x | ❔                        | ✅                         |
+| Kubernetes 1.36.x | ❔                        | ✅                         |
 
 Test status:
 

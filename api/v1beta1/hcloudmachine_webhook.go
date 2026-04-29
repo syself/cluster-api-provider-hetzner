@@ -37,17 +37,15 @@ var hcloudmachinelog = utils.GetDefaultLogger("info").WithName("hcloudmachine-re
 // SetupWebhookWithManager initializes webhook manager for HCloudMachine.
 func (r *HCloudMachine) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	w := new(hcloudMachineWebhook)
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(r).
-		WithDefaulter(w).
-		WithValidator(w).
+	return ctrl.NewWebhookManagedBy(mgr, r).
+		WithCustomDefaulter(w).
+		WithCustomValidator(w).
 		Complete()
 }
 
 // SetupWebhookWithManager initializes webhook manager for HCloudMachineList.
 func (r *HCloudMachineList) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(r).
+	return ctrl.NewWebhookManagedBy(mgr, r).
 		Complete()
 }
 

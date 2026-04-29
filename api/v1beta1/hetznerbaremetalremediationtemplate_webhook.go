@@ -30,10 +30,9 @@ type hetznerBareMetalRemediationTemplateWebhook struct{}
 // SetupWebhookWithManager initializes webhook manager for HetznerBareMetalRemediationTemplate.
 func (r *HetznerBareMetalRemediationTemplate) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	w := new(hetznerBareMetalRemediationTemplateWebhook)
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(r).
-		WithValidator(w).
-		WithDefaulter(w).
+	return ctrl.NewWebhookManagedBy(mgr, r).
+		WithCustomValidator(w).
+		WithCustomDefaulter(w).
 		Complete()
 }
 

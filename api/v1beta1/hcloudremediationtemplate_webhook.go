@@ -30,10 +30,9 @@ type hcloudRemediationTemplateWebhook struct{}
 // SetupWebhookWithManager initializes webhook manager for HCloudRemediationTemplate.
 func (r *HCloudRemediationTemplate) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	w := new(hcloudRemediationTemplateWebhook)
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(r).
-		WithValidator(w).
-		WithDefaulter(w).
+	return ctrl.NewWebhookManagedBy(mgr, r).
+		WithCustomValidator(w).
+		WithCustomDefaulter(w).
 		Complete()
 }
 

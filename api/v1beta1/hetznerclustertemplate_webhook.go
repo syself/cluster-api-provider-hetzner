@@ -38,10 +38,9 @@ var hetznerclustertemplatelog = utils.GetDefaultLogger("info").WithName("hetzner
 // SetupWebhookWithManager initializes webhook manager for HetznerClusterTemplate.
 func (r *HetznerClusterTemplate) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	w := new(hetznerClusterTemplateWebhook)
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(r).
-		WithValidator(w).
-		WithDefaulter(w).
+	return ctrl.NewWebhookManagedBy(mgr, r).
+		WithCustomValidator(w).
+		WithCustomDefaulter(w).
 		Complete()
 }
 

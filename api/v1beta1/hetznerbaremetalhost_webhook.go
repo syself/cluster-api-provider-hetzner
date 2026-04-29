@@ -40,10 +40,9 @@ func (host *HetznerBareMetalHost) SetupWebhookWithManager(mgr ctrl.Manager) erro
 	w := new(hetznerBareMetalHostWebhook)
 	w.c = mgr.GetClient()
 
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(host).
-		WithValidator(w).
-		WithDefaulter(w).
+	return ctrl.NewWebhookManagedBy(mgr, host).
+		WithCustomValidator(w).
+		WithCustomDefaulter(w).
 		Complete()
 }
 
