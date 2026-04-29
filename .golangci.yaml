@@ -214,6 +214,13 @@ linters:
       - linters:
           - staticcheck
         text: 'SA1019: clusterv1\.ConditionType is deprecated'
+      # controller-runtime v0.23 deprecated mgr.GetEventRecorderFor in favor of GetEventRecorder,
+      # but the new API returns events.EventRecorder while CAPI's record.InitFromRecorder still
+      # takes the old client-go record.EventRecorder. Until CAPI migrates, we keep the old call.
+      # Upstream controller-runtime suppresses the same deprecation in its own leader_election.go.
+      - linters:
+          - staticcheck
+        text: 'SA1019: mgr\.GetEventRecorderFor is deprecated'
       - linters:
           - revive
         path: .*(api|types|test)\/.*\/conversion.*\.go$
