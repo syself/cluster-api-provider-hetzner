@@ -196,19 +196,6 @@ linters:
       - linters:
           - staticcheck
         text: 'SA1019: "sigs\.k8s\.io/cluster-api/util/deprecated/v1beta1/(patch|conditions)" is deprecated'
-      # controller-runtime v0.23 introduced typed Defaulter[T]/Validator[T] APIs and deprecated the
-      # untyped CustomDefaulter/CustomValidator forms (and the WithCustom* builder methods). CAPH
-      # keeps the untyped form because our webhook handlers operate on runtime.Object directly while
-      # the v1beta1 contract is retained. Migrate to typed when the v1beta2 contract migration lands.
-      - linters:
-          - staticcheck
-        text: 'SA1019: webhook\.(CustomDefaulter|CustomValidator) is deprecated'
-      - linters:
-          - staticcheck
-        text: 'SA1019: admission\.(CustomDefaulter|CustomValidator) is deprecated'
-      - linters:
-          - staticcheck
-        text: 'WithCustom(Defaulter|Validator) is deprecated'
       # CAPI deprecated clusterv1.ConditionType (the v1beta1 condition typedef) when the v1beta2
       # condition list landed. Test helpers still need it to assert against legacy-shadow conditions.
       - linters:

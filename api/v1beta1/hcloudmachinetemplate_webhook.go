@@ -22,11 +22,9 @@ import (
 	"reflect"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/cluster-api/util/topology"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
@@ -34,8 +32,8 @@ import (
 func (r *HCloudMachineTemplate) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	w := new(hcloudMachineTemplateWebhook)
 	return ctrl.NewWebhookManagedBy(mgr, r).
-		WithCustomValidator(w).
-		WithCustomDefaulter(w).
+		WithValidator(w).
+		WithDefaulter(w).
 		Complete()
 }
 
@@ -43,40 +41,25 @@ func (r *HCloudMachineTemplate) SetupWebhookWithManager(mgr ctrl.Manager) error 
 // +kubebuilder:object:generate=false
 type hcloudMachineTemplateWebhook struct{}
 
+var _ admission.Defaulter[*HCloudMachineTemplate] = &hcloudMachineTemplateWebhook{}
+
 // Default implements admission.CustomDefaulter.
-func (*hcloudMachineTemplateWebhook) Default(context.Context, runtime.Object) error {
+func (*hcloudMachineTemplateWebhook) Default(context.Context, *HCloudMachineTemplate) error {
 	return nil
 }
 
 // +kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta1-hcloudmachinetemplate,mutating=false,sideEffects=None,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hcloudmachinetemplates,verbs=create;update,versions=v1beta1,name=validation.hcloudmachinetemplate.infrastructure.x-k8s.io,admissionReviewVersions=v1;v1beta1
 
-var (
-	_ webhook.CustomValidator = &hcloudMachineTemplateWebhook{}
-	_ webhook.CustomDefaulter = &hcloudMachineTemplateWebhook{}
-)
+var _ admission.Validator[*HCloudMachineTemplate] = &hcloudMachineTemplateWebhook{}
 
-// ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (*hcloudMachineTemplateWebhook) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
-	r, ok := obj.(*HCloudMachineTemplate)
-	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a HCloudMachineTemplate but got a %T", obj))
-	}
-
+// ValidateCreate implements admission.Validator[*HCloudMachineTemplate] so a webhook will be registered for the type.
+func (*hcloudMachineTemplateWebhook) ValidateCreate(_ context.Context, r *HCloudMachineTemplate) (admission.Warnings, error) {
 	allErrs := validateHCloudMachineSpec(r.Spec.Template.Spec)
 	return nil, aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
 }
 
-// ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (*hcloudMachineTemplateWebhook) ValidateUpdate(ctx context.Context, oldRaw runtime.Object, newRaw runtime.Object) (admission.Warnings, error) {
-	newHCloudMachineTemplate, ok := newRaw.(*HCloudMachineTemplate)
-	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a HCloudMachineTemplate but got a %T", newRaw))
-	}
-	oldHCloudMachineTemplate, ok := oldRaw.(*HCloudMachineTemplate)
-	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a HCloudMachineTemplate but got a %T", oldRaw))
-	}
-
+// ValidateUpdate implements admission.Validator[*HCloudMachineTemplate] so a webhook will be registered for the type.
+func (*hcloudMachineTemplateWebhook) ValidateUpdate(ctx context.Context, oldHCloudMachineTemplate *HCloudMachineTemplate, newHCloudMachineTemplate *HCloudMachineTemplate) (admission.Warnings, error) {
 	req, err := admission.RequestFromContext(ctx)
 	if err != nil {
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a admission.Request inside context: %v", err))
@@ -90,7 +73,7 @@ func (*hcloudMachineTemplateWebhook) ValidateUpdate(ctx context.Context, oldRaw 
 	return nil, aggregateObjErrors(newHCloudMachineTemplate.GroupVersionKind().GroupKind(), newHCloudMachineTemplate.Name, allErrs)
 }
 
-// ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
-func (*hcloudMachineTemplateWebhook) ValidateDelete(context.Context, runtime.Object) (admission.Warnings, error) {
+// ValidateDelete implements admission.Validator[*HCloudMachineTemplate] so a webhook will be registered for the type.
+func (*hcloudMachineTemplateWebhook) ValidateDelete(context.Context, *HCloudMachineTemplate) (admission.Warnings, error) {
 	return nil, nil
 }
