@@ -18,22 +18,17 @@ package v1beta1
 
 import (
 	"context"
-	"fmt"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 type hetznerBareMetalMachineWebhook struct{}
 
 // SetupWebhookWithManager initializes webhook manager for HetznerBareMetalMachine.
-func (hbmm *HetznerBareMetalMachine) SetupWebhookWithManager(mgr ctrl.Manager) error {
+func (r *HetznerBareMetalMachine) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	w := new(hetznerBareMetalMachineWebhook)
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(hbmm).
+	return ctrl.NewWebhookManagedBy(mgr, r).
 		WithValidator(w).
 		WithDefaulter(w).
 		Complete()
@@ -41,47 +36,32 @@ func (hbmm *HetznerBareMetalMachine) SetupWebhookWithManager(mgr ctrl.Manager) e
 
 //+kubebuilder:webhook:path=/mutate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalmachine,mutating=true,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalmachines,verbs=create;update,versions=v1beta1,name=mutation.hetznerbaremetalmachine.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
 
-var _ webhook.CustomDefaulter = &hetznerBareMetalMachineWebhook{}
+var _ admission.Defaulter[*HetznerBareMetalMachine] = &hetznerBareMetalMachineWebhook{}
 
-// Default implements webhook.CustomDefaulter so a webhook will be registered for the type.
-func (*hetznerBareMetalMachineWebhook) Default(context.Context, runtime.Object) error {
+// Default implements admission.Defaulter[*HetznerBareMetalMachine] so a webhook will be registered for the type.
+func (*hetznerBareMetalMachineWebhook) Default(context.Context, *HetznerBareMetalMachine) error {
 	return nil
 }
 
 //+kubebuilder:webhook:path=/validate-infrastructure-cluster-x-k8s-io-v1beta1-hetznerbaremetalmachine,mutating=false,failurePolicy=fail,sideEffects=None,groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalmachines,verbs=create;update,versions=v1beta1,name=validation.hetznerbaremetalmachine.infrastructure.cluster.x-k8s.io,admissionReviewVersions={v1,v1beta1}
 
-var _ webhook.CustomValidator = &hetznerBareMetalMachineWebhook{}
+var _ admission.Validator[*HetznerBareMetalMachine] = &hetznerBareMetalMachineWebhook{}
 
-// ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (*hetznerBareMetalMachineWebhook) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
-	r, ok := obj.(*HetznerBareMetalMachine)
-	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected an HetznerBareMetalMachine object but got %T", r))
-	}
-
+// ValidateCreate implements admission.Validator[*HetznerBareMetalMachine] so a webhook will be registered for the type.
+func (*hetznerBareMetalMachineWebhook) ValidateCreate(_ context.Context, r *HetznerBareMetalMachine) (admission.Warnings, error) {
 	allErrs := validateHetznerBareMetalMachineSpecCreate(r.Spec)
 
 	return nil, aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
 }
 
-// ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (*hetznerBareMetalMachineWebhook) ValidateUpdate(_ context.Context, oldObj runtime.Object, newObj runtime.Object) (admission.Warnings, error) {
-	r, ok := newObj.(*HetznerBareMetalMachine)
-	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected an HetznerBareMetalMachine object but got %T", r))
-	}
-
-	oldHetznerBareMetalMachine, ok := oldObj.(*HetznerBareMetalMachine)
-	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected an HetznerBareMetalMachine object but got %T", r))
-	}
-
+// ValidateUpdate implements admission.Validator[*HetznerBareMetalMachine] so a webhook will be registered for the type.
+func (*hetznerBareMetalMachineWebhook) ValidateUpdate(_ context.Context, oldHetznerBareMetalMachine *HetznerBareMetalMachine, r *HetznerBareMetalMachine) (admission.Warnings, error) {
 	allErrs := validateHetznerBareMetalMachineSpecUpdate(oldHetznerBareMetalMachine.Spec, r.Spec)
 
 	return nil, aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
 }
 
-// ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
-func (*hetznerBareMetalMachineWebhook) ValidateDelete(context.Context, runtime.Object) (admission.Warnings, error) {
+// ValidateDelete implements admission.Validator[*HetznerBareMetalMachine] so a webhook will be registered for the type.
+func (*hetznerBareMetalMachineWebhook) ValidateDelete(context.Context, *HetznerBareMetalMachine) (admission.Warnings, error) {
 	return nil, nil
 }

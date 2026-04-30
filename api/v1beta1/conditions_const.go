@@ -318,7 +318,6 @@ const (
 	InternalErrorV1Beta2Reason = "InternalError"
 )
 
-
 const (
 	// HCloudMachineServerCreatedV1Beta2Condition reports on whether the HCloud server was created.
 	HCloudMachineServerCreatedV1Beta2Condition = "ServerCreated"
