@@ -25,7 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 )
 
 type patchType string
@@ -42,11 +42,6 @@ var (
 		"metadata":   true,
 	}
 )
-
-func unstructuredHasStatus(u *unstructured.Unstructured) bool {
-	_, ok := u.Object["status"]
-	return ok
-}
 
 // toUnstructured converts an object to Unstructured.
 // We have to pass in a gvk as we can't rely on GVK being set in a runtime.Object.
@@ -187,7 +182,7 @@ func identifyConditionsFieldsPath(obj runtime.Object) ([]string, []string, error
 			// We assume the type is implemented according to transition guidelines
 			clusterv1ConditionsFields = []string{"status", "deprecated", "v1beta1", "conditions"}
 		} else {
-			if v1Beta1Field := deprecatedElem.FieldByName("V1Beta1"); deprecatedField != (reflect.Value{}) {
+			if v1Beta1Field := deprecatedElem.FieldByName("V1Beta1"); v1Beta1Field != (reflect.Value{}) {
 				if v1Beta1Field.Kind() != reflect.Pointer {
 					return nil, nil, errors.New("obj.status.deprecated.v1beta1 must be a pointer")
 				}

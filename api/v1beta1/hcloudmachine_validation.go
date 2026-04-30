@@ -30,42 +30,42 @@ func validateHCloudMachineSpecUpdate(oldSpec, newSpec HCloudMachineSpec) field.E
 	// Type is immutable
 	if !reflect.DeepEqual(oldSpec.Type, newSpec.Type) {
 		allErrs = append(allErrs,
-			field.Invalid(field.NewPath("spec", "type"), newSpec.Type, "field is immutable"),
+			field.Forbidden(field.NewPath("spec", "type"), "field is immutable"),
 		)
 	}
 
 	// ImageName is immutable
 	if !reflect.DeepEqual(oldSpec.ImageName, newSpec.ImageName) {
 		allErrs = append(allErrs,
-			field.Invalid(field.NewPath("spec", "imageName"), newSpec.ImageName, "field is immutable"),
+			field.Forbidden(field.NewPath("spec", "imageName"), "field is immutable"),
 		)
 	}
 
 	// ImageURL is immutable
 	if !reflect.DeepEqual(oldSpec.ImageURL, newSpec.ImageURL) {
 		allErrs = append(allErrs,
-			field.Invalid(field.NewPath("spec", "imageURL"), newSpec.ImageURL, "field is immutable"),
+			field.Forbidden(field.NewPath("spec", "imageURL"), "field is immutable"),
 		)
 	}
 
 	// ImageURLCommand is immutable
 	if !reflect.DeepEqual(oldSpec.ImageURLCommand, newSpec.ImageURLCommand) {
 		allErrs = append(allErrs,
-			field.Invalid(field.NewPath("spec", "imageURLCommand"), newSpec.ImageURLCommand, "field is immutable"),
+			field.Forbidden(field.NewPath("spec", "imageURLCommand"), "field is immutable"),
 		)
 	}
 
 	// SSHKeys is immutable
 	if !reflect.DeepEqual(oldSpec.SSHKeys, newSpec.SSHKeys) {
 		allErrs = append(allErrs,
-			field.Invalid(field.NewPath("spec", "sshKeys"), newSpec.SSHKeys, "field is immutable"),
+			field.Forbidden(field.NewPath("spec", "sshKeys"), "field is immutable"),
 		)
 	}
 
 	// Placement group name is immutable
 	if !reflect.DeepEqual(oldSpec.PlacementGroupName, newSpec.PlacementGroupName) {
 		allErrs = append(allErrs,
-			field.Invalid(field.NewPath("spec", "placementGroupName"), newSpec.PlacementGroupName, "field is immutable"),
+			field.Forbidden(field.NewPath("spec", "placementGroupName"), "field is immutable"),
 		)
 	}
 

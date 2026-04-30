@@ -49,15 +49,14 @@ import (
 	toolscache "sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
+	controlplanev1 "sigs.k8s.io/cluster-api/api/controlplane/kubeadm/v1beta2"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	. "sigs.k8s.io/cluster-api/test/framework/ginkgoextensions"
 	"sigs.k8s.io/cluster-api/test/framework/internal/log"
 )
 
 const (
-	nodeRoleOldControlPlane = "node-role.kubernetes.io/master" // Deprecated: https://github.com/kubernetes/kubeadm/issues/2200
-	nodeRoleControlPlane    = "node-role.kubernetes.io/control-plane"
+	nodeRoleControlPlane = "node-role.kubernetes.io/control-plane"
 )
 
 // WaitForDeploymentsAvailableInput is the input for WaitForDeploymentsAvailable.
@@ -251,7 +250,7 @@ func (eh *watchPodLogsEventHandler) streamPodLogs(pod *corev1.Pod) {
 		return
 	}
 
-	for _, container := range pod.Spec.Containers {
+	for _, container := range append(pod.Spec.Containers, pod.Spec.InitContainers...) {
 		log.Logf("Creating log watcher for controller %s, pod %s, container %s", klog.KRef(eh.input.Namespace, eh.input.ManagingResourceName), pod.Name, container.Name)
 
 		// Create log metadata file.
@@ -329,7 +328,7 @@ func (eh *watchPodLogsEventHandler) streamPodLogs(pod *corev1.Pod) {
 }
 
 // logMetadata contains metadata about the logs.
-// The format is very similar to the one used by promtail.
+// The format is very similar to the one used by alloy.
 type logMetadata struct {
 	Job       string            `json:"job"`
 	Namespace string            `json:"namespace"`
@@ -413,12 +412,12 @@ func dumpPodMetrics(ctx context.Context, client *kubernetes.Clientset, metricsPa
 		}
 
 		if !errorRetrievingMetrics {
-			Expect(verifyMetrics(data)).To(Succeed())
+			Expect(verifyMetrics(data, &pod)).To(Succeed())
 		}
 	}
 }
 
-func verifyMetrics(data []byte) error {
+func verifyMetrics(data []byte, pod *corev1.Pod) error {
 	var parser expfmt.TextParser
 	mf, err := parser.TextToMetricFamilies(bytes.NewReader(data))
 	if err != nil {
@@ -448,10 +447,18 @@ func verifyMetrics(data []byte) error {
 				}
 			}
 		}
+
+		if metric == "controller_runtime_conversion_webhook_panics_total" {
+			for _, webhookPanicMetric := range metricFamily.Metric {
+				if webhookPanicMetric.Counter != nil && webhookPanicMetric.Counter.Value != nil && *webhookPanicMetric.Counter.Value > 0 {
+					errs = append(errs, fmt.Errorf("%.0f panics occurred in conversion webhooks (check logs for more details)", *webhookPanicMetric.Counter.Value))
+				}
+			}
+		}
 	}
 
 	if len(errs) > 0 {
-		return kerrors.NewAggregate(errs)
+		return errors.WithMessagef(kerrors.NewAggregate(errs), "panics occurred in Pod %s", klog.KObj(pod))
 	}
 
 	return nil
@@ -645,7 +652,7 @@ func generateDeployment(input generateDeploymentInput) *appsv1.Deployment {
 					Containers: []corev1.Container{
 						{
 							Name:  "main",
-							Image: "registry.k8s.io/pause:3.10",
+							Image: "registry.k8s.io/pause:3.10.1",
 						},
 					},
 					Affinity: &corev1.Affinity{

@@ -20,7 +20,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
@@ -121,7 +121,7 @@ var _ = Describe("SetHCloudMachineV1Beta2SummaryCondition", func() {
 		readyCond := hcloudMachine.GetV1Beta2Conditions()
 		var summaryMsg string
 		for _, c := range readyCond {
-			if c.Type == clusterv1.ReadyV1Beta2Condition {
+			if c.Type == clusterv1beta1.ReadyV1Beta2Condition {
 				summaryMsg = c.Message
 				Expect(c.Status).To(Equal(metav1.ConditionFalse))
 				break
@@ -163,7 +163,7 @@ var _ = Describe("SetHCloudMachineV1Beta2SummaryCondition", func() {
 		readyCond := hcloudMachine.GetV1Beta2Conditions()
 		var summaryMsg string
 		for _, c := range readyCond {
-			if c.Type == clusterv1.ReadyV1Beta2Condition {
+			if c.Type == clusterv1beta1.ReadyV1Beta2Condition {
 				summaryMsg = c.Message
 				break
 			}

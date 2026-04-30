@@ -239,20 +239,6 @@ spec:
                       ErrorType indicates the type of failure encountered when the
                       OperationalStatus is OperationalStatusError.
                     type: string
-                  externalIDs:
-                    description: ExternalIDs contains values from external systems.
-                    properties:
-                      rebootAnnotationNodeBootID:
-                        description: |-
-                          RebootAnnotationNodeBootID reflects the BootID of the Node resource in the workload-cluster.
-                          Only set when the machine gets rebooted.
-                        type: string
-                      rebootAnnotationSince:
-                        description: RebootAnnotationSince indicates when the reboot
-                          via Annotation started.
-                        format: date-time
-                        type: string
-                    type: object
                   hardwareDetails:
                     description: StatusHardwareDetails are automatically gathered
                       and should not be modified by the user.
@@ -400,12 +386,18 @@ spec:
                               a tar, tar.gz, tar.bz, tar.bz2, tar.xz, tgz, tbz, txz
                               image.
                             type: string
-                          useCustomImageURLCommand:
-                            description: |-
-                              UseCustomImageURLCommand makes the controller use the command provided by `--baremetal-image-url-command` instead of installimage.
-                              Docs: https://syself.com/docs/caph/developers/image-url-command
-                            type: boolean
                         type: object
+                      imageURLCommand:
+                        description: |-
+                          ImageURLCommand is the basename of a command file below /shared on the controller pod which
+                          provisions a machine from Image.URL. CAPH copies that command into the rescue system and
+                          executes it there.
+
+                          Docs: https://syself.com/docs/caph/developers/image-url-command
+
+                          ImageURLCommand must be set if the machine should be provisioned from Image.URL without
+                          installimage. The command name must start with image-url-command-.
+                        type: string
                       logicalVolumeDefinitions:
                         description: LVMDefinitions defines the logical volume definitions
                           to be created.
@@ -504,12 +496,23 @@ spec:
                     description: IPv6 address of server.
                     type: string
                   lastUpdated:
-                    description: LastUpdated indicates when the provisioning subsystem
-                      last updated the host state.
+                    description: |-
+                      LastUpdated indicates when the provisioning subsystem last updated the host state.
+
+                      Deprecated: Superseded by RebootTriggeredAt.
                     format: date-time
+                    type: string
+                  nodeBootID:
+                    description: NodeBootID reflects the BootID of the corresponding
+                      Node resource in the workload-cluster.
                     type: string
                   provisioningState:
                     description: Information tracked by the provisioner.
+                    type: string
+                  rebootTriggeredAt:
+                    description: RebootTriggeredAt is the timestamp when the reboot
+                      was initiated.
+                    format: date-time
                     type: string
                   rebootTypes:
                     description: RebootTypes is a list of all available reboot types
@@ -526,6 +529,11 @@ spec:
                   sshSpec:
                     description: SSHSpec defines specs for SSH.
                     properties:
+                      noSSHAfterInstallImage:
+                        description: |-
+                          NoSSHAfterInstallImage disables SSH access to the machine after installimage
+                          completed successfully.
+                        type: boolean
                       portAfterCloudInit:
                         description: |-
                           PortAfterCloudInit is deprecated. Since PR Install Cloud-Init-Data via post-install.sh #1407 this field is not functional.

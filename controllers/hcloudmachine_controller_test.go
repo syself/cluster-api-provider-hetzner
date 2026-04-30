@@ -27,10 +27,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	"sigs.k8s.io/cluster-api/util/conditions"
-	v1beta2conditions "sigs.k8s.io/cluster-api/util/conditions/v1beta2"
-	"sigs.k8s.io/cluster-api/util/patch"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
+	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -90,7 +91,7 @@ func TestIgnoreInsignificantHCloudMachineStatusUpdates(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: infrav1.HCloudMachineSpec{
-					Type: "cx21",
+					Type: "cx23",
 				},
 			},
 			expected: true,
@@ -257,11 +258,10 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				Finalizers:   []string{clusterv1.ClusterFinalizer},
 			},
 			Spec: clusterv1.ClusterSpec{
-				InfrastructureRef: &corev1.ObjectReference{
-					APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
-					Kind:       "HetznerCluster",
-					Name:       "hetzner-test1",
-					Namespace:  testNs.Name,
+				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+					APIGroup: "infrastructure.cluster.x-k8s.io",
+					Kind:     "HetznerCluster",
+					Name:     "hetzner-test1",
 				},
 			},
 		}
@@ -281,12 +281,12 @@ var _ = Describe("HCloudMachineReconciler", func() {
 			},
 			Spec: clusterv1.MachineSpec{
 				ClusterName: capiCluster.Name,
-				InfrastructureRef: corev1.ObjectReference{
-					APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
-					Kind:       "HCloudMachine",
-					Name:       hcloudMachineName,
+				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+					APIGroup: "infrastructure.cluster.x-k8s.io",
+					Kind:     "HCloudMachine",
+					Name:     hcloudMachineName,
 				},
-				FailureDomain: &defaultFailureDomain,
+				FailureDomain: defaultFailureDomain,
 				Bootstrap: clusterv1.Bootstrap{
 					DataSecretName: ptr.To("bootstrap-secret"),
 				},
@@ -299,7 +299,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				Namespace: testNs.Name,
 				OwnerReferences: []metav1.OwnerReference{
 					{
-						APIVersion: "cluster.x-k8s.io/v1beta1",
+						APIVersion: clusterv1.GroupVersion.String(),
 						Kind:       "Cluster",
 						Name:       capiCluster.Name,
 						UID:        capiCluster.UID,
@@ -325,8 +325,14 @@ var _ = Describe("HCloudMachineReconciler", func() {
 	Context("Basic hcloudmachine test", func() {
 		Context("correct server", func() {
 			BeforeEach(func() {
-				// remove bootstrap infos
-				capiMachine.Spec.Bootstrap = clusterv1.Bootstrap{}
+				// clear DataSecretName to simulate "bootstrap not ready"
+				capiMachine.Spec.Bootstrap = clusterv1.Bootstrap{
+					ConfigRef: clusterv1.ContractVersionedObjectReference{
+						APIGroup: "bootstrap.cluster.x-k8s.io",
+						Kind:     "KubeadmConfig",
+						Name:     "my-config",
+					},
+				}
 				Expect(testEnv.Create(ctx, capiMachine)).To(Succeed())
 
 				hcloudMachine = &infrav1.HCloudMachine{
@@ -394,7 +400,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 					if err != nil {
 						return err
 					}
-					c := conditions.Get(hcloudMachine, infrav1.BootstrapReadyCondition)
+					c := v1beta1conditions.Get(hcloudMachine, infrav1.BootstrapReadyCondition)
 					if c == nil {
 						return fmt.Errorf("BootstrapReadyCondition not set")
 					}
@@ -412,7 +418,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 
 				By("setting the bootstrap data")
 
-				ph, err := patch.NewHelper(capiMachine, testEnv)
+				ph, err := v1beta1patch.NewHelper(capiMachine, testEnv)
 				Expect(err).ShouldNot(HaveOccurred())
 
 				capiMachine.Spec.Bootstrap = clusterv1.Bootstrap{
@@ -420,7 +426,7 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				}
 
 				Eventually(func() error {
-					return ph.Patch(ctx, capiMachine, patch.WithStatusObservedGeneration{})
+					return ph.Patch(ctx, capiMachine, v1beta1patch.WithStatusObservedGeneration{})
 				}, timeout, interval).Should(BeNil())
 
 				By("checking that bootstrap condition is ready")
@@ -467,8 +473,8 @@ var _ = Describe("HCloudMachineReconciler", func() {
 				By("checking if the v1beta2 summary condition is set")
 				Eventually(func(g Gomega) {
 					g.Expect(testEnv.Get(ctx, key, hcloudMachine)).To(Succeed())
-					g.Expect(v1beta2conditions.IsTrue(hcloudMachine, clusterv1.ReadyV1Beta2Condition)).To(BeTrue())
-					g.Expect(v1beta2conditions.Get(hcloudMachine, clusterv1.ReadyV1Beta2Condition).Reason).To(Equal(clusterv1.ReadyV1Beta2Reason))
+					g.Expect(v1beta2conditions.IsTrue(hcloudMachine, clusterv1beta1.ReadyV1Beta2Condition)).To(BeTrue())
+					g.Expect(v1beta2conditions.Get(hcloudMachine, clusterv1beta1.ReadyV1Beta2Condition).Reason).To(Equal(clusterv1beta1.ReadyV1Beta2Reason))
 				}, timeout, interval).Should(Succeed())
 
 				By("checking if the BootState is now OperatingSystemRunning")
@@ -723,11 +729,10 @@ var _ = Describe("Hetzner secret", func() {
 				Finalizers:   []string{clusterv1.ClusterFinalizer},
 			},
 			Spec: clusterv1.ClusterSpec{
-				InfrastructureRef: &corev1.ObjectReference{
-					APIVersion: infrav1.GroupVersion.String(),
-					Kind:       "HetznerCluster",
-					Name:       hetznerClusterName,
-					Namespace:  testNs.Name,
+				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+					APIGroup: infrav1.GroupVersion.Group,
+					Kind:     "HetznerCluster",
+					Name:     hetznerClusterName,
 				},
 			},
 		}
@@ -739,7 +744,7 @@ var _ = Describe("Hetzner secret", func() {
 				Namespace: testNs.Name,
 				OwnerReferences: []metav1.OwnerReference{
 					{
-						APIVersion: "cluster.x-k8s.io/v1beta1",
+						APIVersion: clusterv1.GroupVersion.String(),
 						Kind:       "Cluster",
 						Name:       capiCluster.Name,
 						UID:        capiCluster.UID,
@@ -763,12 +768,12 @@ var _ = Describe("Hetzner secret", func() {
 			},
 			Spec: clusterv1.MachineSpec{
 				ClusterName: capiCluster.Name,
-				InfrastructureRef: corev1.ObjectReference{
-					APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
-					Kind:       "HCloudMachine",
-					Name:       hcloudMachineName,
+				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+					APIGroup: "infrastructure.cluster.x-k8s.io",
+					Kind:     "HCloudMachine",
+					Name:     hcloudMachineName,
 				},
-				FailureDomain: &defaultFailureDomain,
+				FailureDomain: defaultFailureDomain,
 				Bootstrap: clusterv1.Bootstrap{
 					DataSecretName: ptr.To("bootstrap-secret"),
 				},
@@ -824,7 +829,7 @@ var _ = Describe("Hetzner secret", func() {
 				return isPresentAndFalseWithReasonV1Beta2(key, hcloudMachine, infrav1.HCloudTokenAvailableV1Beta2Condition, expectedV1Beta2Reason)
 			}, timeout, interval).Should(BeTrue())
 			Eventually(func() bool {
-				return isPresentAndFalseWithReasonV1Beta2(key, hcloudMachine, clusterv1.ReadyV1Beta2Condition, clusterv1.NotReadyV1Beta2Reason)
+				return isPresentAndFalseWithReasonV1Beta2(key, hcloudMachine, clusterv1beta1.ReadyV1Beta2Condition, clusterv1beta1.NotReadyV1Beta2Reason)
 			}, timeout, interval).Should(BeTrue())
 			Expect(testEnv.Cleanup(ctx, hetznerSecret)).To(Succeed())
 		},
@@ -970,17 +975,17 @@ var _ = Describe("IgnoreInsignificantHetznerClusterUpdates Predicate", func() {
 			ObjectMeta: metav1.ObjectMeta{Name: "test-predicate", ResourceVersion: "1"},
 			Spec:       getDefaultHetznerClusterSpec(),
 			Status: infrav1.HetznerClusterStatus{
-				Conditions: []clusterv1.Condition{},
+				Conditions: []clusterv1beta1.Condition{},
 			},
 		}
-		conditions.MarkTrue(oldCluster, infrav1.CredentialsAvailableCondition)
+		v1beta1conditions.MarkTrue(oldCluster, infrav1.CredentialsAvailableCondition)
 
 		newCluster = oldCluster.DeepCopy()
 	})
 
 	It("should skip updates to the HetznerCluster conditions", func() {
 		// Make change to conditions & other fields that get changed on every update
-		conditions.MarkFalse(newCluster, infrav1.CredentialsAvailableCondition, infrav1.HCloudCredentialsInvalidReason, clusterv1.ConditionSeverityError, "")
+		v1beta1conditions.MarkFalse(newCluster, infrav1.CredentialsAvailableCondition, infrav1.HCloudCredentialsInvalidReason, clusterv1beta1.ConditionSeverityError, "")
 		newCluster.ResourceVersion = "2"
 		newCluster.SetManagedFields([]metav1.ManagedFieldsEntry{{
 			Manager:   "test",

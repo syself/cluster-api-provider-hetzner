@@ -59,7 +59,7 @@ var _ webhook.CustomDefaulter = &hcloudMachineWebhook{}
 func (*hcloudMachineWebhook) Default(_ context.Context, obj runtime.Object) error {
 	r, ok := obj.(*HCloudMachine)
 	if !ok {
-		return fmt.Errorf("expected an HCloudMachine object but got %T", r)
+		return apierrors.NewBadRequest(fmt.Sprintf("expected an HCloudMachine object but got %T", r))
 	}
 	if r.Spec.PublicNetwork == nil {
 		r.Spec.PublicNetwork = &PublicNetworkSpec{
@@ -78,7 +78,7 @@ var _ webhook.CustomValidator = &hcloudMachineWebhook{}
 func (*hcloudMachineWebhook) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
 	r, ok := obj.(*HCloudMachine)
 	if !ok {
-		return nil, fmt.Errorf("expected an HCloudMachine object but got %T", r)
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected an HCloudMachine object but got %T", r))
 	}
 
 	hcloudmachinelog.V(1).Info("validate create", "name", r.Name)
@@ -107,6 +107,6 @@ func (*hcloudMachineWebhook) ValidateUpdate(_ context.Context, oldObj, newObj ru
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
-func (r *hcloudMachineWebhook) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
+func (*hcloudMachineWebhook) ValidateDelete(context.Context, runtime.Object) (admission.Warnings, error) {
 	return nil, nil
 }

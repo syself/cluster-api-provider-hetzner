@@ -21,7 +21,8 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
@@ -64,29 +65,24 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 					},
 					Spec: clusterv1.ClusterClassSpec{
 						ControlPlane: clusterv1.ControlPlaneClass{
-							MachineInfrastructure: &clusterv1.LocalObjectTemplate{
-								Ref: &corev1.ObjectReference{
+							TemplateRef: clusterv1.ClusterClassTemplateReference{
+								APIVersion: "controlplane.cluster.x-k8s.io/v1beta2",
+								Kind:       "KubeadmControlPlaneTemplate",
+								Name:       "quick-start-control-plane",
+							},
+							MachineInfrastructure: clusterv1.ControlPlaneClassMachineInfrastructureTemplate{
+								TemplateRef: clusterv1.ClusterClassTemplateReference{
 									APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
 									Kind:       "HCloudMachineTemplate",
 									Name:       "hcloud-machine-template",
-									Namespace:  testNs.Name,
-								},
-							},
-							LocalObjectTemplate: clusterv1.LocalObjectTemplate{
-								Ref: &corev1.ObjectReference{
-									APIVersion: "controlplane.cluster.x-k8s.io/v1beta1",
-									Kind:       "KubeadmControlPlaneTemplate",
-									Name:       "quick-start-control-plane",
-									Namespace:  testNs.Name,
 								},
 							},
 						},
-						Infrastructure: clusterv1.LocalObjectTemplate{
-							Ref: &corev1.ObjectReference{
+						Infrastructure: clusterv1.InfrastructureClass{
+							TemplateRef: clusterv1.ClusterClassTemplateReference{
 								APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
 								Kind:       "HetznerClusterTemplate",
 								Name:       "hcloud-cluster-template",
-								Namespace:  testNs.Name,
 							},
 						},
 					},
@@ -99,7 +95,7 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 						Namespace: testNs.Name,
 						OwnerReferences: []metav1.OwnerReference{
 							{
-								APIVersion: "cluster.x-k8s.io/v1beta1",
+								APIVersion: "cluster.x-k8s.io/v1beta2",
 								Kind:       "ClusterClass",
 								Name:       capiClusterClass.Name,
 								UID:        capiClusterClass.UID,
@@ -150,11 +146,10 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 						Finalizers:   []string{clusterv1.ClusterFinalizer},
 					},
 					Spec: clusterv1.ClusterSpec{
-						InfrastructureRef: &corev1.ObjectReference{
-							APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
-							Kind:       "HetznerCluster",
-							Name:       "hetzner-test",
-							Namespace:  testNs.Name,
+						InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+							APIGroup: "infrastructure.cluster.x-k8s.io",
+							Kind:     "HetznerCluster",
+							Name:     "hetzner-test",
 						},
 					},
 				}
@@ -166,7 +161,7 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 						Namespace: testNs.Name,
 						OwnerReferences: []metav1.OwnerReference{
 							{
-								APIVersion: "cluster.x-k8s.io/v1beta1",
+								APIVersion: clusterv1.GroupVersion.String(),
 								Kind:       "Cluster",
 								Name:       capiCluster.Name,
 								UID:        capiCluster.UID,
@@ -261,7 +256,7 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 					Spec: infrav1.HCloudMachineTemplateSpec{
 						Template: infrav1.HCloudMachineTemplateResource{
 							Spec: infrav1.HCloudMachineSpec{
-								Type:      "cx41",
+								Type:      "cx43",
 								ImageName: "my-hcloud-image",
 							},
 						},
@@ -309,7 +304,7 @@ var _ = Describe("HCloudMachineTemplateReconciler", func() {
 			It("should succeed for mutable fields", func() {
 				Expect(testEnv.Get(ctx, key, machineTemplate)).To(Succeed())
 
-				hcloudMachineTemplate.Status.Conditions = clusterv1.Conditions{
+				hcloudMachineTemplate.Status.Conditions = clusterv1beta1.Conditions{
 					{
 						Type:    "TestSuccessful",
 						Status:  corev1.ConditionTrue,
