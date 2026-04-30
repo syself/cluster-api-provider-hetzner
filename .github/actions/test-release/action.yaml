@@ -7,7 +7,7 @@ runs:
       with:
         go-version-file: "go.mod"
 
-    - uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4
+    - uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
       with:
         path: hack/tools/bin
         key: ${{ runner.os }}-tools-bin-release-${{ hashFiles('Makefile') }}
@@ -29,7 +29,7 @@ runs:
       run: make test-release
 
     - name: Upload artifact
-      uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4
+      uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
       if: ${{ !cancelled() }}
       with:
         name: test-release
