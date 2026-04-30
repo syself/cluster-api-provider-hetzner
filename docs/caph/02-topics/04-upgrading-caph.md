@@ -58,9 +58,9 @@ Checking new release availability...
 Latest release available for the v1beta2 API Version of Cluster API (contract):
 
 NAME                     NAMESPACE                           TYPE                     CURRENT VERSION   NEXT VERSION
-bootstrap-kubeadm        capi-kubeadm-bootstrap-system       BootstrapProvider        v1.11.8            v1.12.7
-control-plane-kubeadm    capi-kubeadm-control-plane-system   ControlPlaneProvider     v1.11.8            v1.12.7
-cluster-api              capi-system                         CoreProvider             v1.11.8            v1.12.7
+bootstrap-kubeadm        capi-kubeadm-bootstrap-system       BootstrapProvider        v1.12.7            v1.13.1
+control-plane-kubeadm    capi-kubeadm-control-plane-system   ControlPlaneProvider     v1.12.7            v1.13.1
+cluster-api              capi-system                         CoreProvider             v1.12.7            v1.13.1
 infrastructure-hetzner   caph-system                         InfrastructureProvider   v1.0.7           Already up to date
 
 You can now apply the upgrade by executing the following command:
@@ -80,7 +80,7 @@ You might be surprised that for `infrastructure-hetzner`, you see the "Already u
 
 ## Upgrade cluster-API
 
-We will upgrade cluster API core components to the v1.12.7 version.
+We will upgrade cluster API core components to the v1.13.1 version.
 Use the command, which you saw in the plan:
 
 ```console
@@ -88,15 +88,15 @@ $ clusterctl upgrade apply --contract v1beta2
 Checking cert-manager version...
 Cert-manager is already up to date
 Performing upgrade...
-Scaling down Provider="cluster-api" Version="v1.11.8" Namespace="capi-system"
-Scaling down Provider="bootstrap-kubeadm" Version="v1.11.8" Namespace="capi-kubeadm-bootstrap-system"
-Scaling down Provider="control-plane-kubeadm" Version="v1.11.8" Namespace="capi-kubeadm-control-plane-system"
-Deleting Provider="cluster-api" Version="v1.11.8" Namespace="capi-system"
-Installing Provider="cluster-api" Version="v1.12.7" TargetNamespace="capi-system"
-Deleting Provider="bootstrap-kubeadm" Version="v1.11.8" Namespace="capi-kubeadm-bootstrap-system"
-Installing Provider="bootstrap-kubeadm" Version="v1.12.7" TargetNamespace="capi-kubeadm-bootstrap-system"
-Deleting Provider="control-plane-kubeadm" Version="v1.11.8" Namespace="capi-kubeadm-control-plane-system"
-Installing Provider="control-plane-kubeadm" Version="v1.12.7" TargetNamespace="capi-kubeadm-control-plane-system"
+Scaling down Provider="cluster-api" Version="v1.12.7" Namespace="capi-system"
+Scaling down Provider="bootstrap-kubeadm" Version="v1.12.7" Namespace="capi-kubeadm-bootstrap-system"
+Scaling down Provider="control-plane-kubeadm" Version="v1.12.7" Namespace="capi-kubeadm-control-plane-system"
+Deleting Provider="cluster-api" Version="v1.12.7" Namespace="capi-system"
+Installing Provider="cluster-api" Version="v1.13.1" TargetNamespace="capi-system"
+Deleting Provider="bootstrap-kubeadm" Version="v1.12.7" Namespace="capi-kubeadm-bootstrap-system"
+Installing Provider="bootstrap-kubeadm" Version="v1.13.1" TargetNamespace="capi-kubeadm-bootstrap-system"
+Deleting Provider="control-plane-kubeadm" Version="v1.12.7" Namespace="capi-kubeadm-control-plane-system"
+Installing Provider="control-plane-kubeadm" Version="v1.13.1" TargetNamespace="capi-kubeadm-control-plane-system"
 ```
 
 Great, cluster-API was upgraded.
