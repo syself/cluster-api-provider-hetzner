@@ -190,12 +190,15 @@ linters:
       # helper packages. We intentionally keep these imports while CAPH stays on the
       # v1beta1 Cluster API contract (removed upstream tentatively Aug 2026). Suppress
       # the per-import deprecation warnings so real SA1019 hits still surface.
+      # The conditions/v1beta2 subpath is the v1beta2 helper package designed for
+      # v1beta1-contract resources (HCloudMachine etc. store v1beta2 conditions in a
+      # separate field)
       - linters:
           - staticcheck
         text: 'SA1019: "sigs\.k8s\.io/cluster-api/api/core/v1beta1" is deprecated'
       - linters:
           - staticcheck
-        text: 'SA1019: "sigs\.k8s\.io/cluster-api/util/deprecated/v1beta1/(patch|conditions)" is deprecated'
+        text: 'SA1019: "sigs\.k8s\.io/cluster-api/util/deprecated/v1beta1/(patch|conditions(/v1beta2)?)" is deprecated'
       - linters:
           - revive
         path: .*(api|types|test)\/.*\/conversion.*\.go$
