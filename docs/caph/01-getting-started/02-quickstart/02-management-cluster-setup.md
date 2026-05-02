@@ -22,7 +22,7 @@ There are several tasks that have to be completed before a workload cluster can 
 
 1. Create a new [HCloud project](https://console.hetzner.cloud/projects).
 1. Generate an API token with read and write access. You'll find this if you click on the project and go to "security".
-1. If you want to use it, generate an SSH key, upload the public key to HCloud (also via "security"), and give it a name. Read more about [Managing SSH Keys](/docs/caph/02-topics/01-managing-ssh-keys.md).
+2. Generate an SSH key, upload the public key to HCloud (also via "security"), and give it a name. Read more about [Managing SSH Keys](/docs/caph/02-topics/01-managing-ssh-keys.md).
 
 ## Bootstrap or Management Cluster Installation
 
@@ -107,7 +107,9 @@ Optional Variables:
   - WORKER_MACHINE_COUNT         (defaults to 0)
 ```
 
-## Create a secret for hcloud only
+## Create the HCloud secret
+
+This guide covers the pure HCloud flow (no bare metal), so we only create the HCloud secret here.
 
 In order for the provider integration hetzner to communicate with the Hetzner API ([HCloud API](https://docs.hetzner.cloud/)), we need to create a secret with the access data. The secret must be in the same namespace as the other CRs.
 
@@ -118,13 +120,23 @@ In order for the provider integration hetzner to communicate with the Hetzner AP
 Use the below command to create the required secret with the access data:
 
 ```shell
-kubectl create secret generic hetzner --from-literal=hcloud=$HCLOUD_TOKEN
+kubectl create secret generic hcloud --from-literal=hcloud=$HCLOUD_TOKEN
 ```
 
 Patch the created secret so that it can be automatically moved to the target cluster later. The following command helps you do that:
 
 ```shell
-kubectl patch secret hetzner -p '{"metadata":{"labels":{"clusterctl.cluster.x-k8s.io/move":""}}}'
+kubectl patch secret hcloud -p '{"metadata":{"labels":{"clusterctl.cluster.x-k8s.io/move":""}}}'
 ```
 
-The secret name and the tokens can also be customized in the cluster template.
+Why one secret with one key (`hcloud`) is enough: the cluster template's `hetznerSecretRef` is configured to read the token from key `hcloud`. CAPH then auto-syncs this secret into the workload cluster's `kube-system` namespace and, for backward compatibility, also exposes the token under key `token`. That single secret therefore satisfies the Syself CCM (reads file `hcloud`), the upstream HCloud CCM, and the Hetzner CSI driver (both expect key `token`) — without any per-component overrides. You do not need to create a secret in the workload cluster manually.
+
+## Verify the secret
+
+Before applying the cluster, confirm the secret exists with a non-empty value:
+
+```shell
+kubectl get secret hcloud -o jsonpath='{.data.hcloud}' | base64 -d | wc -c
+```
+
+You should see roughly 64 (the length of an HCloud token). An empty output means the secret name or key is wrong, and the controller will fail to reconcile the cluster.

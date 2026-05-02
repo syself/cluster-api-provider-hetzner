@@ -56,65 +56,81 @@ To verify the first control plane is up, use the following command:
 kubectl get kubeadmcontrolplane
 ```
 
+Wait until the `INITIALIZED` column reports `True` before moving on. The `READY` column will stay `False` until we install a CNI in the next step — that is expected. If you'd like to follow the progression live, run `kubectl get kubeadmcontrolplane -w`.
+
 {% callout %}
 
-The control plane won’t be `ready` until we install a CNI in the next step.
+If you fetch the kubeconfig (next step) before `INITIALIZED` is `True`, kube-apiserver will not be listening yet and `helm` / `kubectl` calls will fail with `Kubernetes cluster unreachable: ... EOF`.
 
 {% /callout %}
 
-After the first control plane node is up and running, we can retrieve the kubeconfig of the workload cluster with:
+Once initialized, retrieve the kubeconfig of the workload cluster:
 
 ```shell
 export CAPH_WORKER_CLUSTER_KUBECONFIG=/tmp/workload-kubeconfig
 clusterctl get kubeconfig my-cluster > $CAPH_WORKER_CLUSTER_KUBECONFIG
 ```
 
+A quick reachability check before installing the CNI:
+
+```shell
+KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG kubectl get --raw='/readyz'
+```
+
+You should see `ok` (a few component-level failures are still acceptable at this stage). If the call hangs or returns an EOF, give it another minute and retry.
+
 ## Deploying the CNI solution
 
-Cilium is used as a CNI solution in this guide. The following command deploys it to your cluster:
-
-The file `templates/cilium/values.yaml` is a repo-provided Helm values file in this repository.
-Before running the command, make sure this file exists at that path in your working environment
-(for example, by using it from a local checkout of this repo or copying it from
-`templates/cilium/values.yaml` into your working directory setup).
+Cilium is used as a CNI solution in this guide. The values file lives in this repo at `templates/cilium/values.yaml`; we install it directly from the raw URL:
 
 ```shell
 helm repo add cilium https://helm.cilium.io/
 
 KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install cilium cilium/cilium \
 --namespace kube-system \
--f templates/cilium/values.yaml
+-f https://raw.githubusercontent.com/syself/cluster-api-provider-hetzner/main/templates/cilium/values.yaml
 ```
 
 You can, of course, also install an alternative CNI, e.g., calico.
 
-## Deploy the CCM
+## Deploy the Cloud Controller Manager (CCM)
 
-The CCM (Cloud Controller Manager) runs in the workload cluster and integrates Kubernetes with the
-Hetzner APIs. In practice, it is responsible for tasks such as setting the `ProviderID` on nodes
-and managing load balancers.
+The CCM runs in the workload cluster and integrates Kubernetes with the Hetzner APIs. In practice, it is responsible for tasks such as setting the `ProviderID` on nodes and managing load balancers. You need to install a CCM in this flow so the workload cluster can properly interact with Hetzner infrastructure.
 
-You need to install a CCM in this flow so the workload cluster can properly interact with Hetzner
-infrastructure.
+CAPH already syncs the `hcloud` secret you created on the previous page into the workload cluster's `kube-system` namespace, so the CCM only needs to be pointed at it (the chart default is `hetzner`, so we override `secret.name`):
 
-### Deploy Syself Cloud Controller Manager
+```shell
+helm repo add syself https://charts.syself.com
+helm repo update syself
 
-The following `make` command will install the Syself CCM in your workload cluster:
+KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install ccm syself/ccm-hetzner \
+  --version 2.0.6 \
+  --namespace kube-system \
+  --set secret.name=hcloud
+```
 
-`make install-ccm-in-wl-cluster`
+### Using the upstream Hetzner CCM instead
 
-For upstream HCloud CCM instructions and bare-metal ProviderID format details, see [Baremetal
-Docs](/docs/caph/02-topics/05-baremetal/03-creating-workload-cluster.md#deploying-the-hetzner-cloud-controller-manager)
+The upstream `hcloud-cloud-controller-manager` static manifest (`deploy/ccm.yaml`) is hardcoded to read the token from secret `hcloud` with key `token`. Even though the management secret you created on the previous page only has the key `hcloud`, CAPH's compatibility shim writes the workload-cluster copy with **both** keys (`hcloud` and `token`) — so the upstream manifest works as-is, no patching required:
+
+```shell
+KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG kubectl apply \
+  -f https://raw.githubusercontent.com/hetznercloud/hcloud-cloud-controller-manager/main/deploy/ccm.yaml
+```
+
+If you install the upstream CCM via its Helm chart instead, the defaults also point at secret `hcloud` / key `token`, so no `--set` overrides are needed.
+
+For upstream CCM details and bare-metal `ProviderID` format, see the [Baremetal Docs](/docs/caph/02-topics/05-baremetal/03-creating-workload-cluster.md#deploying-the-hetzner-cloud-controller-manager).
 
 ## Deploying the CSI (optional)
 
+The Hetzner CSI chart lives in the `hcloud` Helm repo, which we add first. The chart's default `controller.hcloudToken.existingSecret` already points at secret `hcloud` with key `token`, which matches what CAPH wrote into the workload cluster — so no overrides are needed beyond the storage class definition:
+
 ```shell
+helm repo add hcloud https://charts.hetzner.cloud
+helm repo update hcloud
+
 cat << EOF > csi-values.yaml
-controller:
-  hcloudToken:
-    existingSecret:
-      name: hetzner
-      key: hcloud
 storageClasses:
 - name: hcloud-volumes
   defaultStorageClass: true
