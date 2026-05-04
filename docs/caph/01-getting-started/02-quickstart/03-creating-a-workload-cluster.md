@@ -97,6 +97,13 @@ You can, of course, also install an alternative CNI, e.g., calico.
 
 The CCM runs in the workload cluster and integrates Kubernetes with the Hetzner APIs. In practice, it is responsible for tasks such as setting the `ProviderID` on nodes and managing load balancers. You need to install a CCM in this flow so the workload cluster can properly interact with Hetzner infrastructure.
 
+You have two options here:
+
+- **Syself CCM**: the `ccm-hetzner` chart maintained by Syself.
+- **Hetzner CCM**: the upstream `hcloud-cloud-controller-manager` from Hetzner Cloud.
+
+### Syself CCM
+
 CAPH already syncs the `hcloud` secret you created on the previous page into the workload cluster's `kube-system` namespace, so the CCM only needs to be pointed at it (the chart default is `hetzner`, so we override `secret.name`):
 
 ```shell
@@ -109,7 +116,7 @@ KUBECONFIG=$CAPH_WORKER_CLUSTER_KUBECONFIG helm upgrade --install ccm syself/ccm
   --set secret.name=hcloud
 ```
 
-### Using the upstream Hetzner CCM instead
+### Hetzner CCM(upstream)
 
 The upstream `hcloud-cloud-controller-manager` static manifest (`deploy/ccm.yaml`) is hardcoded to read the token from secret `hcloud` with key `token`. Even though the management secret you created on the previous page only has the key `hcloud`, CAPH's compatibility shim writes the workload-cluster copy with **both** keys (`hcloud` and `token`) — so the upstream manifest works as-is, no patching required:
 
