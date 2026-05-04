@@ -129,7 +129,7 @@ Patch the created secret so that it can be automatically moved to the target clu
 kubectl patch secret hcloud -p '{"metadata":{"labels":{"clusterctl.cluster.x-k8s.io/move":""}}}'
 ```
 
-Why one secret with one key (`hcloud`) is enough: the cluster template's `hetznerSecretRef` is configured to read the token from key `hcloud`. CAPH then auto-syncs this secret into the workload cluster's `kube-system` namespace and, for backward compatibility, also exposes the token under key `token`. That single secret therefore satisfies the Syself CCM (reads file `hcloud`), the upstream HCloud CCM, and the Hetzner CSI driver (both expect key `token`) — without any per-component overrides. You do not need to create a secret in the workload cluster manually.
+This is the only secret you need to create. CAPH will copy it into the workload cluster automatically once the cluster is up, so the CCM and CSI installs on the next page can use it directly.
 
 ## Verify the secret
 
