@@ -299,7 +299,7 @@ const (
 	// HCloudRateLimitExceededV1Beta2Condition reports on whether the HCloud API rate limit has been exceeded.
 	HCloudRateLimitExceededV1Beta2Condition = "HCloudRateLimitExceeded"
 	// HCloudRateLimitExceededV1Beta2Reason indicates that the HCloud API rate limit has been exceeded.
-	HCloudRateLimitExceededV1Beta2Reason = "RateLimitExceeded"
+	HCloudRateLimitExceededV1Beta2Reason = "Exceeded"
 )
 
 const (
