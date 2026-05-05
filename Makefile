@@ -82,7 +82,7 @@ MGT_CLUSTER_KUBECONFIG ?= ".mgt-cluster-kubeconfig.yaml"
 # Kubebuilder.
 # go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 # The command `setup-envtest list` shows the available versions.
-export KUBEBUILDER_ENVTEST_KUBERNETES_VERSION ?= 1.35.0
+export KUBEBUILDER_ENVTEST_KUBERNETES_VERSION ?= 1.36.0
 
 ##@ Binaries
 ############
@@ -115,7 +115,7 @@ $(CTLPTL):
 CLUSTERCTL := $(abspath $(TOOLS_BIN_DIR)/clusterctl)
 clusterctl: $(CLUSTERCTL) ## Build a local copy of clusterctl
 $(CLUSTERCTL):
-	go install sigs.k8s.io/cluster-api/cmd/clusterctl@v1.12.7
+	go install sigs.k8s.io/cluster-api/cmd/clusterctl@v1.13.1
 
 HCLOUD := $(abspath $(TOOLS_BIN_DIR)/hcloud)
 hcloud: $(HCLOUD) ## Build a local copy of hcloud
@@ -126,13 +126,13 @@ $(HCLOUD):
 KIND := $(abspath $(TOOLS_BIN_DIR)/kind)
 kind: $(KIND) ## Build a local copy of kind
 $(KIND):
-	go install sigs.k8s.io/kind@v0.30.0
+	go install sigs.k8s.io/kind@v0.31.0
 
 KUBECTL := $(abspath $(TOOLS_BIN_DIR)/kubectl)
 kubectl: $(TOOLS_BIN_DIR) $(KUBECTL) ## Build a local copy of kubectl
 $(KUBECTL):
 	mkdir -p $(TOOLS_BIN_DIR)
-	curl -fsSL "https://dl.k8s.io/release/v1.35.4/bin/$$(go env GOOS)/$$(go env GOARCH)/kubectl" -o $(KUBECTL)
+	curl -fsSL "https://dl.k8s.io/release/v1.36.0/bin/$$(go env GOOS)/$$(go env GOARCH)/kubectl" -o $(KUBECTL)
 	chmod a+rx $(KUBECTL)
 
 go-binsize-treemap := $(abspath $(TOOLS_BIN_DIR)/go-binsize-treemap)
