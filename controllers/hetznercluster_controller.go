@@ -38,11 +38,12 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
-	"sigs.k8s.io/cluster-api/util/conditions"
-	v1beta2conditions "sigs.k8s.io/cluster-api/util/conditions/v1beta2"
+	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -162,9 +163,9 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// Always close the scope when exiting this function so we can persist any HetznerCluster changes.
 	defer func() {
 		if reterr != nil && errors.Is(reterr, hcloudclient.ErrUnauthorized) {
-			conditions.MarkFalse(hetznerCluster, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason, clusterv1.ConditionSeverityError, "wrong hcloud token")
+			v1beta1conditions.MarkFalse(hetznerCluster, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason, clusterv1beta1.ConditionSeverityError, "wrong hcloud token")
 		} else {
-			conditions.MarkTrue(hetznerCluster, infrav1.HCloudTokenAvailableCondition)
+			v1beta1conditions.MarkTrue(hetznerCluster, infrav1.HCloudTokenAvailableCondition)
 		}
 
 		if err := clusterScope.Close(ctx); err != nil {
@@ -174,7 +175,7 @@ func (r *HetznerClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}()
 
 	// delete the deprecated condition from existing cluster objects
-	conditions.Delete(hetznerCluster, infrav1.DeprecatedRateLimitExceededCondition)
+	v1beta1conditions.Delete(hetznerCluster, infrav1.DeprecatedRateLimitExceededCondition)
 
 	// check whether rate limit has been reached and if so, then wait.
 	if wait := reconcileRateLimit(hetznerCluster, r.RateLimitWaitTime); wait {
@@ -228,7 +229,7 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 	processControlPlaneEndpoint(hetznerCluster)
 
 	// delete deprecated conditions of old clusters
-	conditions.Delete(clusterScope.HetznerCluster, infrav1.DeprecatedHetznerClusterTargetClusterReadyCondition)
+	v1beta1conditions.Delete(clusterScope.HetznerCluster, infrav1.DeprecatedHetznerClusterTargetClusterReadyCondition)
 
 	result, err := r.reconcileTargetClusterManager(ctx, clusterScope)
 	if err != nil {
@@ -239,16 +240,16 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 	}
 
 	// target cluster is ready
-	conditions.MarkTrue(hetznerCluster, infrav1.TargetClusterReadyCondition)
+	v1beta1conditions.MarkTrue(hetznerCluster, infrav1.TargetClusterReadyCondition)
 
 	result, err = reconcileWorkloadClusterSecrets(ctx, clusterScope)
 	if err != nil {
 		reterr := fmt.Errorf("failed to reconcile target secret: %w", err)
-		conditions.MarkFalse(
+		v1beta1conditions.MarkFalse(
 			clusterScope.HetznerCluster,
 			infrav1.TargetClusterSecretReadyCondition,
 			infrav1.TargetSecretSyncFailedReason,
-			clusterv1.ConditionSeverityError,
+			clusterv1beta1.ConditionSeverityError,
 			"%s",
 			reterr.Error(),
 		)
@@ -259,7 +260,7 @@ func (r *HetznerClusterReconciler) reconcileNormal(ctx context.Context, clusterS
 	}
 
 	// target cluster secret is ready
-	conditions.MarkTrue(hetznerCluster, infrav1.TargetClusterSecretReadyCondition)
+	v1beta1conditions.MarkTrue(hetznerCluster, infrav1.TargetClusterSecretReadyCondition)
 
 	return reconcile.Result{}, nil
 }
@@ -271,7 +272,7 @@ func processControlPlaneEndpoint(hetznerCluster *infrav1.HetznerCluster) {
 			defaultPort := int32(hetznerCluster.Spec.ControlPlaneLoadBalancer.Port) //nolint:gosec // Validation for the port range (1 to 65535) is already done via kubebuilder.
 
 			if hetznerCluster.Spec.ControlPlaneEndpoint == nil {
-				hetznerCluster.Spec.ControlPlaneEndpoint = &clusterv1.APIEndpoint{
+				hetznerCluster.Spec.ControlPlaneEndpoint = &clusterv1beta1.APIEndpoint{
 					Host: defaultHost,
 					Port: defaultPort,
 				}
@@ -283,27 +284,27 @@ func processControlPlaneEndpoint(hetznerCluster *infrav1.HetznerCluster) {
 					hetznerCluster.Spec.ControlPlaneEndpoint.Port = defaultPort
 				}
 			}
-			conditions.MarkTrue(hetznerCluster, infrav1.ControlPlaneEndpointSetCondition)
+			v1beta1conditions.MarkTrue(hetznerCluster, infrav1.ControlPlaneEndpointSetCondition)
 			hetznerCluster.Status.Ready = true
 		} else {
 			const msg = "enabled LoadBalancer but load balancer not ready yet"
-			conditions.MarkFalse(hetznerCluster,
+			v1beta1conditions.MarkFalse(hetznerCluster,
 				infrav1.ControlPlaneEndpointSetCondition,
 				infrav1.ControlPlaneEndpointNotSetReason,
-				clusterv1.ConditionSeverityWarning,
+				clusterv1beta1.ConditionSeverityWarning,
 				msg)
 			hetznerCluster.Status.Ready = false
 		}
 	} else {
 		if hetznerCluster.Spec.ControlPlaneEndpoint != nil && hetznerCluster.Spec.ControlPlaneEndpoint.Host != "" && hetznerCluster.Spec.ControlPlaneEndpoint.Port != 0 {
-			conditions.MarkTrue(hetznerCluster, infrav1.ControlPlaneEndpointSetCondition)
+			v1beta1conditions.MarkTrue(hetznerCluster, infrav1.ControlPlaneEndpointSetCondition)
 			hetznerCluster.Status.Ready = true
 		} else {
 			const msg = "disabled LoadBalancer and not yet provided ControlPlane endpoint"
-			conditions.MarkFalse(hetznerCluster,
+			v1beta1conditions.MarkFalse(hetznerCluster,
 				infrav1.ControlPlaneEndpointSetCondition,
 				infrav1.ControlPlaneEndpointNotSetReason,
-				clusterv1.ConditionSeverityWarning,
+				clusterv1beta1.ConditionSeverityWarning,
 				msg)
 			hetznerCluster.Status.Ready = false
 		}
@@ -397,8 +398,8 @@ func (r *HetznerClusterReconciler) reconcileDelete(ctx context.Context, clusterS
 
 // reconcileRateLimit checks whether a rate limit has been reached and returns whether
 // the controller should wait a bit more.
-func reconcileRateLimit(setter conditions.Setter, rateLimitWaitTime time.Duration) bool {
-	condition := conditions.Get(setter, infrav1.HetznerAPIReachableCondition)
+func reconcileRateLimit(setter v1beta1conditions.Setter, rateLimitWaitTime time.Duration) bool {
+	condition := v1beta1conditions.Get(setter, infrav1.HetznerAPIReachableCondition)
 	if condition != nil && condition.Status == corev1.ConditionFalse {
 		if time.Now().Before(condition.LastTransitionTime.Add(rateLimitWaitTime)) {
 			// Not yet timed out, reconcile again after timeout
@@ -407,7 +408,7 @@ func reconcileRateLimit(setter conditions.Setter, rateLimitWaitTime time.Duratio
 			return true
 		}
 		// Wait time is over, we continue
-		conditions.MarkTrue(setter, infrav1.HetznerAPIReachableCondition)
+		v1beta1conditions.MarkTrue(setter, infrav1.HetznerAPIReachableCondition)
 	}
 	return false
 }
@@ -447,7 +448,7 @@ func getAndValidateHCloudToken(ctx context.Context, namespace string, hetznerClu
 func hcloudTokenErrorResult(
 	ctx context.Context,
 	inerr error,
-	setter conditions.Setter,
+	setter v1beta1conditions.Setter,
 	client client.Client,
 	v1beta2SummaryOpts []v1beta2conditions.SummaryOption,
 ) (ctrl.Result, error) {
@@ -459,10 +460,10 @@ func hcloudTokenErrorResult(
 	// we requeue the host as we will not know if they create the secret
 	// at some point in the future.
 	case *secretutil.ResolveSecretRefError:
-		conditions.MarkFalse(setter,
+		v1beta1conditions.MarkFalse(setter,
 			infrav1.HCloudTokenAvailableCondition,
 			infrav1.HetznerSecretUnreachableReason,
-			clusterv1.ConditionSeverityError,
+			clusterv1beta1.ConditionSeverityError,
 			"could not find HetznerSecret",
 		)
 		if hasV1Beta2 {
@@ -478,10 +479,10 @@ func hcloudTokenErrorResult(
 
 	// No need to reconcile again, as it will be triggered as soon as the secret is updated.
 	case *secretutil.HCloudTokenValidationError:
-		conditions.MarkFalse(setter,
+		v1beta1conditions.MarkFalse(setter,
 			infrav1.HCloudTokenAvailableCondition,
 			infrav1.HCloudCredentialsInvalidReason,
-			clusterv1.ConditionSeverityError,
+			clusterv1beta1.ConditionSeverityError,
 			"invalid or not specified hcloud token in Hetzner secret",
 		)
 		if hasV1Beta2 {
@@ -494,10 +495,10 @@ func hcloudTokenErrorResult(
 		}
 
 	default:
-		conditions.MarkFalse(setter,
+		v1beta1conditions.MarkFalse(setter,
 			infrav1.HCloudTokenAvailableCondition,
 			infrav1.HCloudCredentialsInvalidReason,
-			clusterv1.ConditionSeverityError,
+			clusterv1beta1.ConditionSeverityError,
 			"%s",
 			inerr.Error(),
 		)
@@ -511,13 +512,12 @@ func hcloudTokenErrorResult(
 		}
 		return reconcile.Result{}, fmt.Errorf("an unhandled failure occurred with the Hetzner secret: %w", inerr)
 	}
-
-	conditions.SetSummary(setter)
+	v1beta1conditions.SetSummary(setter)
 
 	if hasV1Beta2 && len(v1beta2SummaryOpts) > 0 {
 		if readyCondition, err := v1beta2conditions.NewSummaryCondition(
 			v1beta2Setter,
-			clusterv1.ReadyV1Beta2Condition,
+			clusterv1beta1.ReadyV1Beta2Condition,
 			v1beta2SummaryOpts...,
 		); err == nil {
 			v1beta2conditions.Set(v1beta2Setter, *readyCondition)
@@ -553,11 +553,11 @@ func reconcileWorkloadClusterSecrets(ctx context.Context, clusterScope *scope.Cl
 	}
 
 	if err := scope.IsControlPlaneReady(ctx, wlClientConfig); err != nil {
-		conditions.MarkFalse(
+		v1beta1conditions.MarkFalse(
 			clusterScope.HetznerCluster,
 			infrav1.TargetClusterSecretReadyCondition,
 			infrav1.TargetClusterControlPlaneNotReadyReason,
-			clusterv1.ConditionSeverityInfo,
+			clusterv1beta1.ConditionSeverityInfo,
 			"target cluster not ready",
 		)
 		return reconcile.Result{Requeue: true}, nil //nolint:nilerr
@@ -591,10 +591,10 @@ func workloadClusterSecretNames(secretName string) []string {
 	return names
 }
 
-// workloadClusterCompatibilityKeys returns the configured key for every secret.
+// keysForWorkloadClusterSecret returns the configured key for every secret.
 // When reconciling the secret named "hcloud", it also returns the compatibility
 // key unless it matches the configured key.
-func workloadClusterCompatibilityKeys(secretName, configuredKey, compatibilityKey string) []string {
+func keysForWorkloadClusterSecret(secretName, configuredKey, compatibilityKey string) []string {
 	if secretName != "hcloud" {
 		// Only the secret named "hcloud" gets the compatibility key.
 		return []string{configuredKey}
@@ -650,18 +650,18 @@ func reconcileOneWorkloadClusterSecret(ctx context.Context, clusterScope *scope.
 			wlSecret.Data = make(map[string][]byte)
 		}
 
-		for _, key := range workloadClusterCompatibilityKeys(name, clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken, "token") {
+		for _, key := range keysForWorkloadClusterSecret(name, clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HCloudToken, "token") {
 			wlSecret.Data[key] = hcloudToken
 		}
 
 		// Save robot credentials if available
 		if clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser != "" {
 			robotUserName := mgtSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser]
-			for _, key := range workloadClusterCompatibilityKeys(name, clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser, "robot-user") {
+			for _, key := range keysForWorkloadClusterSecret(name, clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotUser, "robot-user") {
 				wlSecret.Data[key] = robotUserName
 			}
 			robotPassword := mgtSecret.Data[clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword]
-			for _, key := range workloadClusterCompatibilityKeys(name, clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword, "robot-password") {
+			for _, key := range keysForWorkloadClusterSecret(name, clusterScope.HetznerCluster.Spec.HetznerSecret.Key.HetznerRobotPassword, "robot-password") {
 				wlSecret.Data[key] = robotPassword
 			}
 		}
@@ -696,11 +696,11 @@ func (r *HetznerClusterReconciler) reconcileTargetClusterManager(ctx context.Con
 		// create a new cluster manager
 		m, err := r.newTargetClusterManager(ctx, clusterScope)
 		if err != nil {
-			conditions.MarkFalse(
+			v1beta1conditions.MarkFalse(
 				clusterScope.HetznerCluster,
 				infrav1.TargetClusterReadyCondition,
 				infrav1.TargetClusterCreateFailedReason,
-				clusterv1.ConditionSeverityError,
+				clusterv1beta1.ConditionSeverityError,
 				"%s",
 				err.Error(),
 			)
@@ -729,11 +729,11 @@ func (r *HetznerClusterReconciler) reconcileTargetClusterManager(ctx context.Con
 
 			if err := m.Start(ctx); err != nil {
 				clusterScope.Error(err, "failed to start a targetClusterManager")
-				conditions.MarkFalse(
+				v1beta1conditions.MarkFalse(
 					clusterScope.HetznerCluster,
 					infrav1.TargetClusterReadyCondition,
 					infrav1.TargetClusterCreateFailedReason,
-					clusterv1.ConditionSeverityError,
+					clusterv1beta1.ConditionSeverityError,
 					"failed to start a targetClusterManager: %s", err.Error(),
 				)
 			} else {
@@ -770,11 +770,11 @@ func (r *HetznerClusterReconciler) newTargetClusterManager(ctx context.Context, 
 	clientConfig, err := clusterScope.ClientConfig(ctx)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			conditions.MarkFalse(
+			v1beta1conditions.MarkFalse(
 				hetznerCluster,
 				infrav1.TargetClusterReadyCondition,
 				infrav1.KubeConfigNotFoundReason,
-				clusterv1.ConditionSeverityInfo,
+				clusterv1beta1.ConditionSeverityInfo,
 				"kubeconfig not found (yet)",
 			)
 			return nil, nil
@@ -783,11 +783,11 @@ func (r *HetznerClusterReconciler) newTargetClusterManager(ctx context.Context, 
 	}
 
 	if err := scope.IsControlPlaneReady(ctx, clientConfig); err != nil {
-		conditions.MarkFalse(
+		v1beta1conditions.MarkFalse(
 			clusterScope.HetznerCluster,
 			infrav1.TargetClusterReadyCondition,
 			infrav1.TargetClusterControlPlaneNotReadyReason,
-			clusterv1.ConditionSeverityInfo,
+			clusterv1beta1.ConditionSeverityInfo,
 			"target cluster not ready",
 		)
 		return nil, nil //nolint:nilerr
@@ -814,11 +814,11 @@ func (r *HetznerClusterReconciler) newTargetClusterManager(ctx context.Context, 
 
 	// Check whether kubeapi server responds
 	if _, err := apiutil.NewDynamicRESTMapper(restConfig, httpClient); err != nil {
-		conditions.MarkFalse(
+		v1beta1conditions.MarkFalse(
 			hetznerCluster,
 			infrav1.TargetClusterReadyCondition,
 			infrav1.KubeAPIServerNotRespondingReason,
-			clusterv1.ConditionSeverityInfo,
+			clusterv1beta1.ConditionSeverityInfo,
 			"kubeapi server not responding (yet)",
 		)
 		return nil, nil //nolint:nilerr
@@ -906,16 +906,16 @@ func (r *HetznerClusterReconciler) clusterToHetznerCluster(ctx context.Context, 
 	}
 
 	// Make sure the ref is set
-	if c.Spec.InfrastructureRef == nil {
+	if !c.Spec.InfrastructureRef.IsDefined() {
 		return nil
 	}
 
-	if c.Spec.InfrastructureRef.GroupVersionKind().Kind != "HetznerCluster" {
+	if c.Spec.InfrastructureRef.Kind != "HetznerCluster" {
 		return nil
 	}
 
 	hetznerCluster := &infrav1.HetznerCluster{}
-	key := types.NamespacedName{Namespace: c.Spec.InfrastructureRef.Namespace, Name: c.Spec.InfrastructureRef.Name}
+	key := types.NamespacedName{Namespace: c.Namespace, Name: c.Spec.InfrastructureRef.Name}
 
 	if err := r.Get(ctx, key, hetznerCluster); err != nil {
 		return nil

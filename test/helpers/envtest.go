@@ -25,6 +25,7 @@ import (
 	"path"
 	"path/filepath"
 	goruntime "runtime"
+	"strings"
 	"time"
 
 	g "github.com/onsi/ginkgo/v2"
@@ -38,8 +39,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	"k8s.io/klog/v2/textlogger"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	bootstrapv1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
+	bootstrapv1 "sigs.k8s.io/cluster-api/api/bootstrap/kubeadm/v1beta2"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/cmd/clusterctl/log"
 	"sigs.k8s.io/cluster-api/util/kubeconfig"
 	"sigs.k8s.io/cluster-api/util/record"
@@ -146,7 +147,7 @@ func NewTestEnvironment() *TestEnvironment {
 	initializeWebhookInEnvironment()
 
 	if _, err := env.Start(); err != nil {
-		panic(err)
+		panic(wrapEnvtestStartError(err))
 	}
 
 	logLevel := "info"
@@ -219,6 +220,24 @@ func NewTestEnvironment() *TestEnvironment {
 		Config:            mgr.GetConfig(),
 		RateLimitWaitTime: 5 * time.Minute,
 	}
+}
+
+func wrapEnvtestStartError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	// Check whether the error is about missing binaries in $PATH, for example:
+	//
+	// unable to start control plane itself: failed to start the controlplane.
+	// retried 5 times: exec: "etcd": executable file not found in $PATH"
+	errText := err.Error()
+	if !strings.Contains(errText, "$PATH") {
+		// This looks like another error, so do not add the hint.
+		return err
+	}
+
+	return fmt.Errorf("%w\nHint: set KUBEBUILDER_ASSETS=$PWD/hack/tools/bin/k8s/1.??.0-linux-amd64", err)
 }
 
 // StartManager starts the manager and sets a cancel function into the testEnv object.

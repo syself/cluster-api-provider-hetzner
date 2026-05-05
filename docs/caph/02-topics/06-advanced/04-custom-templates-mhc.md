@@ -15,28 +15,31 @@ The `HCloudRemediationController` reboots the HCloudMachine directly via the HCl
 Here is an example of how to configure the Machine Health Check and `HetznerBareMetalRemediationTemplate`:
 
 ```yaml
-apiVersion: cluster.x-k8s.io/v1beta1
+apiVersion: cluster.x-k8s.io/v1beta2
 kind: MachineHealthCheck
 metadata:
   name: "cluster123-control-plane-unhealthy-5m"
 spec:
   clusterName: "cluster123"
-  maxUnhealthy: 100%
-  nodeStartupTimeout: 20m
   selector:
     matchLabels:
       cluster.x-k8s.io/control-plane: ""
-  unhealthyConditions:
-    - type: Ready
-      status: Unknown
-      timeout: 300s
-    - type: Ready
-      status: "False"
-      timeout: 300s
-  remediationTemplate: # added infrastructure reference
-    kind: HetznerBareMetalRemediationTemplate
-    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
-    name: control-plane-remediation-request
+  checks:
+    nodeStartupTimeoutSeconds: 1200
+    unhealthyNodeConditions:
+      - type: Ready
+        status: Unknown
+        timeoutSeconds: 300
+      - type: Ready
+        status: "False"
+        timeoutSeconds: 300
+  remediation:
+    triggerIf:
+      unhealthyLessThanOrEqualTo: 100%
+    templateRef: # added infrastructure reference
+      kind: HetznerBareMetalRemediationTemplate
+      apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+      name: control-plane-remediation-request
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: HetznerBareMetalRemediationTemplate

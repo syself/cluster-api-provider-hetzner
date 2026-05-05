@@ -83,9 +83,6 @@ spec:
                     description: port is the port on which the API server is serving.
                     format: int32
                     type: integer
-                required:
-                - host
-                - port
                 type: object
               controlPlaneLoadBalancer:
                 description: ControlPlaneLoadBalancer is an optional configuration
@@ -268,7 +265,7 @@ spec:
                         default: hetzner-robot-user
                         description: |-
                           HetznerRobotUser defines the name of the key where the username for the Hetzner Robot API is
-                          stored.  It gets used for reading the credential in the mgt-cluster, and it gets used for
+                          stored. It gets used for reading the credential in the mgt-cluster, and it gets used for
                           creating a secret in the wl-cluster. We recommend to use "robot-user", because this is the
                           default of upstream hcloud-ccm.
                         type: string

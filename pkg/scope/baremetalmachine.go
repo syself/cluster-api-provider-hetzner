@@ -22,11 +22,12 @@ import (
 
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
-	"sigs.k8s.io/cluster-api/util/conditions"
-	v1beta2conditions "sigs.k8s.io/cluster-api/util/conditions/v1beta2"
-	"sigs.k8s.io/cluster-api/util/patch"
+	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
+	v1beta2conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions/v1beta2"
+	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -38,6 +39,7 @@ import (
 type BareMetalMachineScopeParams struct {
 	Logger           logr.Logger
 	Client           client.Client
+	Cluster          *clusterv1.Cluster
 	Machine          *clusterv1.Machine
 	BareMetalMachine *infrav1.HetznerBareMetalMachine
 	HetznerCluster   *infrav1.HetznerCluster
@@ -49,6 +51,9 @@ type BareMetalMachineScopeParams struct {
 func NewBareMetalMachineScope(params BareMetalMachineScopeParams) (*BareMetalMachineScope, error) {
 	if params.Client == nil {
 		return nil, fmt.Errorf("cannot create baremetal machine scope without client")
+	}
+	if params.Cluster == nil {
+		return nil, fmt.Errorf("failed to generate new scope from nil Cluster")
 	}
 	if params.Machine == nil {
 		return nil, fmt.Errorf("failed to generate new scope from nil Machine")
@@ -68,7 +73,7 @@ func NewBareMetalMachineScope(params BareMetalMachineScopeParams) (*BareMetalMac
 		return nil, fmt.Errorf("failed to generate new scope from nil Logger")
 	}
 
-	patchHelper, err := patch.NewHelper(params.BareMetalMachine, params.Client)
+	patchHelper, err := v1beta1patch.NewHelper(params.BareMetalMachine, params.Client)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init patch helper: %w", err)
 	}
@@ -77,6 +82,7 @@ func NewBareMetalMachineScope(params BareMetalMachineScopeParams) (*BareMetalMac
 		Logger:           params.Logger,
 		Client:           params.Client,
 		patchHelper:      patchHelper,
+		Cluster:          params.Cluster,
 		Machine:          params.Machine,
 		BareMetalMachine: params.BareMetalMachine,
 		HetznerCluster:   params.HetznerCluster,
@@ -88,7 +94,8 @@ func NewBareMetalMachineScope(params BareMetalMachineScopeParams) (*BareMetalMac
 type BareMetalMachineScope struct {
 	logr.Logger
 	Client           client.Client
-	patchHelper      *patch.Helper
+	patchHelper      *v1beta1patch.Helper
+	Cluster          *clusterv1.Cluster
 	Machine          *clusterv1.Machine
 	BareMetalMachine *infrav1.HetznerBareMetalMachine
 	HetznerCluster   *infrav1.HetznerCluster
@@ -98,7 +105,7 @@ type BareMetalMachineScope struct {
 
 // Close closes the current scope persisting the machine configuration and status.
 func (m *BareMetalMachineScope) Close(ctx context.Context) error {
-	conditions.SetSummary(m.BareMetalMachine)
+	v1beta1conditions.SetSummary(m.BareMetalMachine)
 	SetHetznerBareMetalMachineV1Beta2ReadySummary(m.BareMetalMachine)
 
 	return m.patchHelper.Patch(ctx, m.BareMetalMachine, bareMetalMachinePatchOpts()...)
@@ -128,17 +135,17 @@ func SetHetznerBareMetalMachineV1Beta2ReadySummary(hbmm *infrav1.HetznerBareMeta
 	v1beta2conditions.Set(hbmm, *readyCondition)
 }
 
-func bareMetalMachinePatchOpts() []patch.Option {
-	return []patch.Option{
-		patch.WithOwnedConditions{Conditions: []clusterv1.ConditionType{
-			clusterv1.ReadyCondition,
+func bareMetalMachinePatchOpts() []v1beta1patch.Option {
+	return []v1beta1patch.Option{
+		v1beta1patch.WithOwnedConditions{Conditions: []clusterv1beta1.ConditionType{
+			clusterv1beta1.ReadyCondition,
 			infrav1.BootstrapReadyCondition,
 			infrav1.HCloudTokenAvailableCondition,
 			infrav1.HetznerAPIReachableCondition,
 			infrav1.HostAssociateSucceededCondition,
 			infrav1.HostReadyCondition,
 		}},
-		patch.WithOwnedV1Beta2Conditions{Conditions: []string{
+		v1beta1patch.WithOwnedV1Beta2Conditions{Conditions: []string{
 			infrav1.HetznerBareMetalMachineReadyV1Beta2Condition,
 			infrav1.HCloudTokenAvailableV1Beta2Condition,
 			infrav1.HetznerBareMetalMachineHostAssociatedV1Beta2Condition,
@@ -158,7 +165,7 @@ func (m *BareMetalMachineScope) Namespace() string {
 }
 
 // PatchObject persists the machine spec and status.
-func (m *BareMetalMachineScope) PatchObject(ctx context.Context, opts ...patch.Option) error {
+func (m *BareMetalMachineScope) PatchObject(ctx context.Context, opts ...v1beta1patch.Option) error {
 	allOpts := append(bareMetalMachinePatchOpts(), opts...)
 	return m.patchHelper.Patch(ctx, m.BareMetalMachine, allOpts...)
 }

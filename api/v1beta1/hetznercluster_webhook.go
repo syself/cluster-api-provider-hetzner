@@ -69,7 +69,7 @@ func (r *HetznerClusterList) SetupWebhookWithManager(mgr ctrl.Manager) error {
 var _ webhook.CustomDefaulter = &hetznerClusterWebhook{}
 
 // Default implements webhook.CustomDefaulter so a webhook will be registered for the type.
-func (*hetznerClusterWebhook) Default(_ context.Context, _ runtime.Object) error {
+func (*hetznerClusterWebhook) Default(context.Context, runtime.Object) error {
 	return nil
 }
 
@@ -81,7 +81,7 @@ var _ webhook.CustomValidator = &hetznerClusterWebhook{}
 func (*hetznerClusterWebhook) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
 	r, ok := obj.(*HetznerCluster)
 	if !ok {
-		return nil, fmt.Errorf("expected an HetznerCluster object but got %T", r)
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected an HetznerCluster object but got %T", r))
 	}
 	hetznerclusterlog.V(1).Info("validate create", "name", r.Name)
 	var allErrs field.ErrorList
@@ -167,7 +167,7 @@ func isNetworkZoneSameForAllRegions(regions []Region, defaultNetworkZone *string
 func (*hetznerClusterWebhook) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	r, ok := newObj.(*HetznerCluster)
 	if !ok {
-		return nil, fmt.Errorf("expected an HetznerCluster object but got %T", r)
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected an HetznerCluster object but got %T", r))
 	}
 	hetznerclusterlog.V(1).Info("validate update", "name", r.Name)
 	var allErrs field.ErrorList
@@ -237,6 +237,6 @@ func (r *HetznerCluster) validateHetznerSecretKey() *field.Error {
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
-func (*hetznerClusterWebhook) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
+func (*hetznerClusterWebhook) ValidateDelete(context.Context, runtime.Object) (admission.Warnings, error) {
 	return nil, nil
 }

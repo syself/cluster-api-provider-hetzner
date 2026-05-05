@@ -1,6 +1,9 @@
 name: "Lint Pull Request"
 on: # yamllint disable-line rule:truthy
   workflow_dispatch:
+  push:
+    branches:
+      - v1.1.x
   pull_request:
     types: [opened, edited, synchronize, reopened, ready_for_review]
     paths:

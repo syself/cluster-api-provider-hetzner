@@ -1,6 +1,6 @@
 version: "2"
 run:
-  go: "1.22"
+  go: "1.25"
   modules-download-mode: readonly
   allow-parallel-runners: true
 linters:
@@ -40,6 +40,9 @@ linters:
     - unused
     - whitespace
   settings:
+    govet:
+      enable:
+        - nilness
     gocritic:
       disabled-checks:
         - appendAssign
@@ -94,10 +97,42 @@ linters:
           alias: ctrl
         - pkg: k8s.io/apimachinery/pkg/util/runtime
           alias: utilruntime
-        - pkg: sigs.k8s.io/cluster-api/api/v1beta1
+        # CAPI core types: v1beta2 is the primary Go package post-CAPI 1.11.
+        - pkg: sigs.k8s.io/cluster-api/api/core/v1beta2
           alias: clusterv1
-        - pkg: sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1
+        - pkg: sigs.k8s.io/cluster-api/api/core/v1beta1
+          alias: clusterv1beta1
+        - pkg: sigs.k8s.io/cluster-api/api/bootstrap/kubeadm/v1beta2
           alias: bootstrapv1
+        - pkg: sigs.k8s.io/cluster-api/api/controlplane/kubeadm/v1beta2
+          alias: controlplanev1
+        # Deprecated v1beta1 patch + conditions helpers. Prefixed aliases prevent
+        # silent swaps with the non-deprecated util/patch and util/conditions packages
+        # (see CAPI 1.10->1.11 migration guide; wrong helper can drop conditions at
+        # runtime with no compile error).
+        - pkg: sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch
+          alias: v1beta1patch
+        - pkg: sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions
+          alias: v1beta1conditions
+        # Legacy-shadow conditions helper for v1beta2 CAPI core objects.
+        # Different package path than v1beta1conditions above — aliasing
+        # both distinctly avoids accidental swaps.
+        #
+        # Both helpers do the same thing (mark/read conditions) but look at
+        # different fields on the object:
+        #
+        # | Object                         | Old-style conditions field           | Helper                      |
+        # |--------------------------------|--------------------------------------|-----------------------------|
+        # | Our CRDs (HCloudMachine, etc.) | Status.Conditions                    | v1beta1conditions           |
+        # | CAPI core Machine/Cluster      | Status.Deprecated.V1Beta1.Conditions | deprecatedv1beta1conditions |
+        #
+        # CAPI moved its legacy conditions into a nested shadow to free up
+        # Status.Conditions for the new []metav1.Condition shape. Our CRDs
+        # haven't migrated yet, so they still use the top-level field.
+        - pkg: sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1
+          alias: deprecatedv1beta1conditions
+        - pkg: sigs.k8s.io/cluster-api/util/conditions
+          alias: conditions
         - pkg: sigs.k8s.io/controller-runtime/pkg/metrics/server
           alias: metricsserver
         - pkg: sigs.k8s.io/controller-runtime/pkg/client/fake
@@ -151,6 +186,16 @@ linters:
           - staticcheck
         path: pkg/services/baremetal/baremetal/baremetal.go
         text: 'SA1019: .*FailureReason is deprecated'
+      # CAPI v1.11 deprecates the v1beta1 core types and the v1beta1 conditions/patch
+      # helper packages. We intentionally keep these imports while CAPH stays on the
+      # v1beta1 Cluster API contract (removed upstream tentatively Aug 2026). Suppress
+      # the per-import deprecation warnings so real SA1019 hits still surface.
+      - linters:
+          - staticcheck
+        text: 'SA1019: "sigs\.k8s\.io/cluster-api/api/core/v1beta1" is deprecated'
+      - linters:
+          - staticcheck
+        text: 'SA1019: "sigs\.k8s\.io/cluster-api/util/deprecated/v1beta1/(patch|conditions(/v1beta2)?)" is deprecated'
       - linters:
           - revive
         path: .*(api|types|test)\/.*\/conversion.*\.go$

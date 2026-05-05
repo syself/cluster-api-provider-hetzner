@@ -27,7 +27,7 @@ export PATH="${REPO_ROOT}/hack/tools/bin:${PATH}"
 export ARTIFACTS="${ARTIFACTS:-${REPO_ROOT}/_artifacts}"
 
 if ! output=$(curl -fsS -H "Authorization: Bearer $HCLOUD_TOKEN" 'https://api.hetzner.cloud/v1/ssh_keys' 2>&1); then
-    echo "HCLOUD_TOKEN is invalid: $output"
+    echo "HCLOUD_TOKEN is invalid: $output (use ./hack/ci-e2e-get-token.sh ?)"
     exit 1
 else
     echo "HCLOUD_TOKEN with prefix ${HCLOUD_TOKEN:0:5}... is valid"

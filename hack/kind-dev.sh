@@ -19,7 +19,7 @@ trap 'echo -e "\n🤷 🚨 🔥 Warning: A command has failed. Exiting the scrip
 set -Eeuo pipefail
 
 # See `crane ls ghcr.io/fluxcd/kindest/node` for available versions
-K8S_VERSION=v1.33.0
+K8S_VERSION=v1.35.2
 
 REPO_ROOT=$(git rev-parse --show-toplevel)
 cd "${REPO_ROOT}" || exit 1
