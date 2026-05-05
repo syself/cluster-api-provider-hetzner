@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -43,7 +44,7 @@ func (hbmm *HetznerBareMetalMachine) SetupWebhookWithManager(mgr ctrl.Manager) e
 var _ webhook.CustomDefaulter = &hetznerBareMetalMachineWebhook{}
 
 // Default implements webhook.CustomDefaulter so a webhook will be registered for the type.
-func (*hetznerBareMetalMachineWebhook) Default(_ context.Context, _ runtime.Object) error {
+func (*hetznerBareMetalMachineWebhook) Default(context.Context, runtime.Object) error {
 	return nil
 }
 
@@ -55,7 +56,7 @@ var _ webhook.CustomValidator = &hetznerBareMetalMachineWebhook{}
 func (*hetznerBareMetalMachineWebhook) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
 	r, ok := obj.(*HetznerBareMetalMachine)
 	if !ok {
-		return nil, fmt.Errorf("expected an HetznerBareMetalMachine object but got %T", r)
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected an HetznerBareMetalMachine object but got %T", r))
 	}
 
 	allErrs := validateHetznerBareMetalMachineSpecCreate(r.Spec)
@@ -67,10 +68,13 @@ func (*hetznerBareMetalMachineWebhook) ValidateCreate(_ context.Context, obj run
 func (*hetznerBareMetalMachineWebhook) ValidateUpdate(_ context.Context, oldObj runtime.Object, newObj runtime.Object) (admission.Warnings, error) {
 	r, ok := newObj.(*HetznerBareMetalMachine)
 	if !ok {
-		return nil, fmt.Errorf("expected an HetznerBareMetalMachine object but got %T", r)
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected an HetznerBareMetalMachine object but got %T", r))
 	}
 
-	oldHetznerBareMetalMachine := oldObj.(*HetznerBareMetalMachine)
+	oldHetznerBareMetalMachine, ok := oldObj.(*HetznerBareMetalMachine)
+	if !ok {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected an HetznerBareMetalMachine object but got %T", r))
+	}
 
 	allErrs := validateHetznerBareMetalMachineSpecUpdate(oldHetznerBareMetalMachine.Spec, r.Spec)
 
@@ -78,6 +82,6 @@ func (*hetznerBareMetalMachineWebhook) ValidateUpdate(_ context.Context, oldObj 
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
-func (*hetznerBareMetalMachineWebhook) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
+func (*hetznerBareMetalMachineWebhook) ValidateDelete(context.Context, runtime.Object) (admission.Warnings, error) {
 	return nil, nil
 }

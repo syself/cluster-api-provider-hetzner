@@ -22,13 +22,12 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 )
 
 const (
-	bareMetalHostID         = 1
 	sshFingerprint          = "my-fingerprint"
 	defaultOSSSHKeyName     = "os-sshkey"
 	defaultRescueSSHKeyName = "rescue-sshkey"
@@ -65,12 +64,18 @@ func BareMetalHost(name, namespace string, opts ...HostOpts) *infrav1.HetznerBar
 type HostOpts func(*infrav1.HetznerBareMetalHost)
 
 // WithError gives the option to define a host with error in spec.status.
-func WithError(errorType infrav1.ErrorType, errorMessage string, errorCount int, lastUpdated metav1.Time) HostOpts {
+func WithError(errorType infrav1.ErrorType, errorMessage string, errorCount int) HostOpts {
 	return func(host *infrav1.HetznerBareMetalHost) {
 		host.Spec.Status.ErrorType = errorType
 		host.Spec.Status.ErrorMessage = errorMessage
 		host.Spec.Status.ErrorCount = errorCount
-		host.Spec.Status.LastUpdated = &lastUpdated
+	}
+}
+
+// WithRebootTriggeredAt gives the option to define a host with a reboot timestamp set.
+func WithRebootTriggeredAt(t metav1.Time) HostOpts {
+	return func(host *infrav1.HetznerBareMetalHost) {
+		host.Spec.Status.RebootTriggeredAt = &t
 	}
 }
 
@@ -195,7 +200,7 @@ func GetDefaultHetznerClusterSpec() infrav1.HetznerClusterSpec {
 			Region: "fsn1",
 			Type:   "lb11",
 		},
-		ControlPlaneEndpoint: &clusterv1.APIEndpoint{},
+		ControlPlaneEndpoint: &clusterv1beta1.APIEndpoint{},
 		ControlPlaneRegions:  []infrav1.Region{"fsn1"},
 		HCloudNetwork: infrav1.HCloudNetworkSpec{
 			CIDRBlock:       "10.0.0.0/16",

@@ -27,10 +27,10 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
-	"sigs.k8s.io/cluster-api/util/conditions"
-	"sigs.k8s.io/cluster-api/util/patch"
+	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
+	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/cluster-api/util/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -77,7 +77,7 @@ func NewMachineScope(params MachineScopeParams) (*MachineScope, error) {
 		return nil, fmt.Errorf("failed create new cluster scope: %w", err)
 	}
 
-	cs.patchHelper, err = patch.NewHelper(params.HCloudMachine, params.Client)
+	cs.patchHelper, err = v1beta1patch.NewHelper(params.HCloudMachine, params.Client)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init patch helper: %w", err)
 	}
@@ -100,7 +100,7 @@ type MachineScope struct {
 
 // Close closes the current scope persisting the cluster configuration and status.
 func (m *MachineScope) Close(ctx context.Context) error {
-	conditions.SetSummary(m.HCloudMachine)
+	v1beta1conditions.SetSummary(m.HCloudMachine)
 	return m.patchHelper.Patch(ctx, m.HCloudMachine)
 }
 
@@ -177,7 +177,7 @@ func (m *MachineScope) SetProviderID(serverID int64) {
 
 // ServerIDFromProviderID converts the ProviderID (hcloud://NNNN) to the ServerID.
 func (m *MachineScope) ServerIDFromProviderID() (int64, error) {
-	if m.HCloudMachine.Spec.ProviderID == nil || m.HCloudMachine.Spec.ProviderID != nil && *m.HCloudMachine.Spec.ProviderID == "" {
+	if m.HCloudMachine.Spec.ProviderID == nil || *m.HCloudMachine.Spec.ProviderID == "" {
 		return 0, ErrEmptyProviderID
 	}
 	prefix := "hcloud://"
@@ -199,18 +199,18 @@ func (m *MachineScope) SetReady(ready bool) {
 
 // HasServerAvailableCondition checks whether ServerAvailable condition is set on true.
 func (m *MachineScope) HasServerAvailableCondition() bool {
-	return conditions.IsTrue(m.HCloudMachine, infrav1.ServerAvailableCondition)
+	return v1beta1conditions.IsTrue(m.HCloudMachine, infrav1.ServerAvailableCondition)
 }
 
 // HasServerTerminatedCondition checks the whether ServerAvailable condition is false with reason "terminated".
 func (m *MachineScope) HasServerTerminatedCondition() bool {
-	return conditions.IsFalse(m.HCloudMachine, infrav1.ServerAvailableCondition) &&
-		conditions.GetReason(m.HCloudMachine, infrav1.ServerAvailableCondition) == infrav1.ServerTerminatingReason
+	return v1beta1conditions.IsFalse(m.HCloudMachine, infrav1.ServerAvailableCondition) &&
+		v1beta1conditions.GetReason(m.HCloudMachine, infrav1.ServerAvailableCondition) == infrav1.ServerTerminatingReason
 }
 
 // HasShutdownTimedOut checks the whether the HCloud server is terminated.
 func (m *MachineScope) HasShutdownTimedOut() bool {
-	return time.Now().After(conditions.GetLastTransitionTime(m.HCloudMachine, infrav1.ServerAvailableCondition).Add(maxShutDownTime))
+	return time.Now().After(v1beta1conditions.GetLastTransitionTime(m.HCloudMachine, infrav1.ServerAvailableCondition).Add(maxShutDownTime))
 }
 
 // IsBootstrapDataReady checks the readiness of a capi machine's bootstrap data.
@@ -220,18 +220,18 @@ func (m *MachineScope) IsBootstrapDataReady() bool {
 
 // GetFailureDomain returns the machine's failure domain or a default one based on a hash.
 func (m *MachineScope) GetFailureDomain() (string, error) {
-	if m.Machine.Spec.FailureDomain != nil {
-		return *m.Machine.Spec.FailureDomain, nil
+	if m.Machine.Spec.FailureDomain != "" {
+		return m.Machine.Spec.FailureDomain, nil
 	}
 
 	failureDomainNames := make([]string, 0, len(m.Cluster.Status.FailureDomains))
-	for fdName, fd := range m.Cluster.Status.FailureDomains {
+	for _, fd := range m.Cluster.Status.FailureDomains {
 		// filter out zones if we are a control plane and the cluster object
 		// wants to avoid contorl planes in that zone
-		if m.IsControlPlane() && !fd.ControlPlane {
+		if m.IsControlPlane() && (fd.ControlPlane == nil || !*fd.ControlPlane) {
 			continue
 		}
-		failureDomainNames = append(failureDomainNames, fdName)
+		failureDomainNames = append(failureDomainNames, fd.Name)
 	}
 
 	if len(failureDomainNames) == 0 {

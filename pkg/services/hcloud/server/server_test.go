@@ -32,9 +32,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
-	"sigs.k8s.io/cluster-api/util/conditions"
+	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -70,7 +71,7 @@ func Test_statusAddresses(t *testing.T) {
 	require.Equal(t, saved, server)
 
 	// should have the right address types
-	addressTypes := []clusterv1.MachineAddressType{clusterv1.MachineExternalIP, clusterv1.MachineExternalIP, clusterv1.MachineInternalIP}
+	addressTypes := []clusterv1beta1.MachineAddressType{clusterv1beta1.MachineExternalIP, clusterv1beta1.MachineExternalIP, clusterv1beta1.MachineInternalIP}
 	for i, addr := range addresses {
 		require.Equal(t, addressTypes[i], addr.Type)
 	}
@@ -160,13 +161,13 @@ var _ = Describe("handleServerStatusOff", func() {
 
 		Expect(res).Should(Equal(reconcile.Result{RequeueAfter: 30 * time.Second}))
 
-		Expect(conditions.GetReason(hcloudMachine, infrav1.ServerProvisionedCondition)).To(Equal(infrav1.ServerOffReason))
+		Expect(v1beta1conditions.GetReason(hcloudMachine, infrav1.ServerProvisionedCondition)).To(Equal(infrav1.ServerOffReason))
 
 		Expect(server.Status).To(Equal(hcloud.ServerStatusRunning))
 	})
 
 	It("tries to power on server again if it is not timed out", func() {
-		conditions.MarkFalse(hcloudMachine, infrav1.ServerProvisionedCondition, infrav1.ServerOffReason, clusterv1.ConditionSeverityInfo, "")
+		v1beta1conditions.MarkFalse(hcloudMachine, infrav1.ServerProvisionedCondition, infrav1.ServerOffReason, clusterv1beta1.ConditionSeverityInfo, "")
 
 		service := newTestService(hcloudMachine, client)
 
@@ -177,11 +178,11 @@ var _ = Describe("handleServerStatusOff", func() {
 
 		Expect(server.Status).To(Equal(hcloud.ServerStatusRunning))
 
-		Expect(conditions.GetReason(hcloudMachine, infrav1.ServerProvisionedCondition)).To(Equal(infrav1.ServerOffReason))
+		Expect(v1beta1conditions.GetReason(hcloudMachine, infrav1.ServerProvisionedCondition)).To(Equal(infrav1.ServerOffReason))
 	})
 
 	It("sets a failure message if it timed out", func() {
-		conditions.MarkFalse(hcloudMachine, infrav1.ServerProvisionedCondition, infrav1.ServerOffReason, clusterv1.ConditionSeverityInfo, "")
+		v1beta1conditions.MarkFalse(hcloudMachine, infrav1.ServerProvisionedCondition, infrav1.ServerOffReason, clusterv1beta1.ConditionSeverityInfo, "")
 
 		// manipulate lastTransitionTime
 		conditionsList := hcloudMachine.GetConditions()
@@ -206,7 +207,7 @@ var _ = Describe("handleServerStatusOff", func() {
 	})
 
 	It("tries to power on server and sets new condition if different one is set", func() {
-		conditions.MarkTrue(hcloudMachine, infrav1.ServerProvisionedCondition)
+		v1beta1conditions.MarkTrue(hcloudMachine, infrav1.ServerProvisionedCondition)
 
 		service := newTestService(hcloudMachine, client)
 
@@ -215,9 +216,46 @@ var _ = Describe("handleServerStatusOff", func() {
 
 		Expect(res).Should(Equal(reconcile.Result{RequeueAfter: 30 * time.Second}))
 
-		Expect(conditions.GetReason(hcloudMachine, infrav1.ServerProvisionedCondition)).To(Equal(infrav1.ServerOffReason))
+		Expect(v1beta1conditions.GetReason(hcloudMachine, infrav1.ServerProvisionedCondition)).To(Equal(infrav1.ServerOffReason))
 
 		Expect(server.Status).To(Equal(hcloud.ServerStatusRunning))
+	})
+})
+
+var _ = Describe("handleBootStateUnset", func() {
+	var hcloudMachine *infrav1.HCloudMachine
+
+	BeforeEach(func() {
+		hcloudMachine = &infrav1.HCloudMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-machine",
+				Namespace: "default",
+			},
+			Spec: infrav1.HCloudMachineSpec{
+				ImageURL:        "oci://example.com/repo/image:v1",
+				ImageURLCommand: "image-url-command-test.sh",
+				Type:            "cpx32",
+			},
+		}
+	})
+
+	It("marks SSHPrivateKeyAvailableCondition false and requeues when SSH private key secret ref name is empty", func() {
+		service := newTestService(hcloudMachine, mocks.NewClient(GinkgoT()))
+		service.scope.HetznerCluster = &infrav1.HetznerCluster{
+			Spec: infrav1.HetznerClusterSpec{
+				SSHKeys: infrav1.HetznerSSHKeys{
+					RobotRescueSecretRef: infrav1.SSHSecretRef{
+						Name: "", // empty name causes getSSHPrivateKey to fail immediately
+					},
+				},
+			},
+		}
+
+		res, err := service.handleBootStateUnset(context.Background())
+		Expect(err).To(BeNil())
+		Expect(res).To(Equal(reconcile.Result{}))
+
+		Expect(isPresentAndFalseWithReason(hcloudMachine, infrav1.SSHPrivateKeyAvailableCondition, infrav1.SSHPrivateKeySecretRefNotConfiguredReason)).To(BeTrue())
 	})
 })
 
@@ -260,8 +298,8 @@ var _ = Describe("Delete", func() {
 		Expect(res).To(Equal(reconcile.Result{}))
 
 		Expect(hcloudMachine.Status.InstanceState).To(Equal(ptr.To(hcloud.ServerStatusDeleting)))
-		Expect(conditions.IsFalse(hcloudMachine, infrav1.HCloudTokenAvailableCondition)).To(BeTrue())
-		Expect(conditions.GetReason(hcloudMachine, infrav1.HCloudTokenAvailableCondition)).To(Equal(infrav1.HCloudCredentialsInvalidReason))
+		Expect(v1beta1conditions.IsFalse(hcloudMachine, infrav1.HCloudTokenAvailableCondition)).To(BeTrue())
+		Expect(v1beta1conditions.GetReason(hcloudMachine, infrav1.HCloudTokenAvailableCondition)).To(Equal(infrav1.HCloudCredentialsInvalidReason))
 
 		hcloudClient.AssertExpectations(GinkgoT())
 	})
@@ -288,7 +326,7 @@ var _ = Describe("Test handleRateLimit", func() {
 			if tc.expectCondition {
 				Expect(isPresentAndFalseWithReason(tc.hm, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason)).To(BeTrue())
 			} else {
-				Expect(conditions.Get(tc.hm, infrav1.HetznerAPIReachableCondition)).To(BeNil())
+				Expect(v1beta1conditions.Get(tc.hm, infrav1.HetznerAPIReachableCondition)).To(BeNil())
 			}
 		},
 		Entry("machine not ready, rate limit exceeded error", testCaseHandleRateLimit{
@@ -821,13 +859,20 @@ var _ = Describe("Reconcile", func() {
 				Namespace: testNs.Name,
 			},
 			Spec: clusterv1.MachineSpec{
-				InfrastructureRef: corev1.ObjectReference{
-					Name:       hcloudMachine.Name,
-					Kind:       hcloudMachine.Kind,
-					APIVersion: hcloudMachine.APIVersion,
+				InfrastructureRef: clusterv1.ContractVersionedObjectReference{
+					APIGroup: infrav1.GroupVersion.Group,
+					Name:     hcloudMachine.Name,
+					Kind:     hcloudMachine.Kind,
+				},
+				Bootstrap: clusterv1.Bootstrap{
+					ConfigRef: clusterv1.ContractVersionedObjectReference{
+						APIGroup: "bootstrap.cluster.x-k8s.io",
+						Kind:     "KubeadmConfig",
+						Name:     "my-config",
+					},
 				},
 				ClusterName:   "clustername",
-				FailureDomain: ptr.To("nbg1"),
+				FailureDomain: "nbg1",
 			},
 		}
 		Expect(testEnv.Create(ctx, capiMachine)).ShouldNot(HaveOccurred())
@@ -876,8 +921,8 @@ var _ = Describe("Reconcile", func() {
 	It("sets the region in status of hcloudMachine, by fetching the failure domain from cluster.status if machine.spec.failureDomain is empty", func() {
 		By("setting the failure domain in cluster.status")
 		service.scope.Machine.Spec = clusterv1.MachineSpec{}
-		service.scope.Cluster.Status.FailureDomains = clusterv1.FailureDomains{
-			"nbg1": clusterv1.FailureDomainSpec{},
+		service.scope.Cluster.Status.FailureDomains = []clusterv1.FailureDomain{
+			{Name: "nbg1"},
 		}
 
 		By("calling reconcile")
@@ -1121,7 +1166,7 @@ var _ = Describe("Reconcile", func() {
 			Status:        hcloud.ServerStatusRunning,
 		}, nil).Once()
 
-		testEnv.HCloudSSHClient.On("Reboot").Return(sshclient.Output{
+		testEnv.HCloudSSHClient.On("Reboot", mock.Anything).Return(sshclient.Output{
 			Err:    nil,
 			StdOut: "ok",
 			StdErr: "",
@@ -1139,7 +1184,7 @@ var _ = Describe("Reconcile", func() {
 			Name:   "hcloudmachinenameWithRescueEnabled",
 			Status: hcloud.ServerStatusRunning,
 		}, nil).Once()
-		testEnv.HCloudSSHClient.On("GetHostName").Return(sshclient.Output{
+		testEnv.HCloudSSHClient.On("GetHostName", mock.Anything).Return(sshclient.Output{
 			StdOut: "rescue",
 			StdErr: "",
 			Err:    nil,
@@ -1154,12 +1199,12 @@ var _ = Describe("Reconcile", func() {
 		startImageURLCommandMock.Parent.AssertNumberOfCalls(GinkgoT(), "StartImageURLCommand", 1)
 
 		By("reconcile again --------------------------------------------------------")
-		testEnv.HCloudSSHClient.On("GetHostName").Return(sshclient.Output{
+		testEnv.HCloudSSHClient.On("GetHostName", mock.Anything).Return(sshclient.Output{
 			StdOut: "rescue",
 			StdErr: "",
 			Err:    nil,
 		})
-		testEnv.HCloudSSHClient.On("StateOfImageURLCommand").Return(sshclient.ImageURLCommandStateFinishedSuccessfully, "output-of-image-url-command", nil)
+		testEnv.HCloudSSHClient.On("StateOfImageURLCommand", mock.Anything).Return(sshclient.ImageURLCommandStateFinishedSuccessfully, "output-of-image-url-command", nil)
 		hcloudClient.On("GetServer", mock.Anything, mock.Anything).Return(&hcloud.Server{
 			ID:            1,
 			Name:          "hcloudmachinenameWithRescueEnabled",
@@ -1300,13 +1345,120 @@ var _ = Describe("Reconcile", func() {
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HCloudTokenAvailableCondition, infrav1.HCloudCredentialsInvalidReason)).To(BeTrue())
 		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.HetznerAPIReachableCondition, infrav1.RateLimitExceededReason)).To(BeTrue())
 	})
+
+	It("does not create a server when the image-url-command is not available on disk", func() {
+		By("setting the bootstrap data")
+		err = testEnv.Create(ctx, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "bootstrapsecret",
+				Namespace: testNs.Name,
+			},
+			Data: map[string][]byte{
+				"value": []byte("dummy-bootstrap-data"),
+			},
+		})
+		Expect(err).To(BeNil())
+
+		service.scope.Machine.Spec.Bootstrap.DataSecretName = ptr.To("bootstrapsecret")
+
+		By("setting imageURL and a command that does not exist in the command directory")
+		service.scope.HCloudMachine.Spec.ImageName = ""
+		service.scope.HCloudMachine.Spec.ImageURL = "oci://example.com/repo/image:v1"
+		service.scope.HCloudMachine.Spec.ImageURLCommand = "image-url-command-nonexistent.sh"
+
+		By("calling reconcile — CreateServer must not be called")
+		res, err := service.Reconcile(ctx)
+		Expect(err).To(BeNil())
+		Expect(res).To(Equal(reconcile.Result{}))
+
+		By("ensuring the ImageURLCommandNotAccessible condition is set")
+		Expect(isPresentAndFalseWithReason(service.scope.HCloudMachine, infrav1.ServerProvisionedCondition, "ImageURLCommandNotAccessible")).To(BeTrue())
+
+		By("ensuring no hcloud API calls were made to create a server")
+		hcloudClient.AssertNotCalled(GinkgoT(), "CreateServer", mock.Anything, mock.Anything)
+	})
 })
 
-func isPresentAndFalseWithReason(getter conditions.Getter, condition clusterv1.ConditionType, reason string) bool {
-	if !conditions.Has(getter, condition) {
+var _ = Describe("handleOperatingSystemRunning", func() {
+	var (
+		hcloudMachine *infrav1.HCloudMachine
+		server        *hcloud.Server
+		service       *Service
+	)
+
+	BeforeEach(func() {
+		client := fakehcloudclient.NewHCloudClientFactory().NewClient("")
+		server = newTestServer()
+
+		hcloudMachine = &infrav1.HCloudMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-machine",
+				Namespace: "default",
+			},
+			Spec: infrav1.HCloudMachineSpec{
+				ImageName: "ubuntu-24.04",
+				Type:      "cpx22",
+			},
+		}
+
+		service = newTestService(hcloudMachine, client)
+
+		// Mark capi Machine as control plane so the load balancer branch runs.
+		service.scope.Machine.Labels = map[string]string{
+			clusterv1.MachineControlPlaneLabel: "",
+		}
+
+		service.scope.Cluster = &clusterv1.Cluster{
+			Spec: clusterv1.ClusterSpec{
+				ControlPlaneRef: clusterv1.ContractVersionedObjectReference{
+					Kind: "KubeadmControlPlane",
+				},
+			},
+		}
+		service.scope.HetznerCluster = &infrav1.HetznerCluster{}
+	})
+
+	It("propagates the requeue and preserves ServerAvailableCondition=False when reconcileLoadBalancerAttachment requeues", func() {
+		// Existing LB target plus an unhealthy kube-apiserver pod makes
+		// reconcileLoadBalancerAttachment return RequeueAfter 30s and mark
+		// ServerAvailableCondition=False. Without the early return in
+		// handleOperatingSystemRunning, that condition would be overwritten to True.
+		// Ready must still flip to true so CAPI can propagate ProviderID and
+		// downstream controllers can observe the apiserver pod health.
+		service.scope.HetznerCluster.Status.ControlPlaneLoadBalancer = &infrav1.LoadBalancerStatus{
+			ID: 1,
+			Target: []infrav1.LoadBalancerTarget{
+				{
+					Type:     infrav1.LoadBalancerTargetTypeServer,
+					ServerID: server.ID + 1,
+				},
+			},
+		}
+
+		res, err := service.handleOperatingSystemRunning(context.Background(), server)
+		Expect(err).To(Succeed())
+		Expect(res).To(Equal(reconcile.Result{RequeueAfter: 30 * time.Second}))
+
+		Expect(hcloudMachine.Status.Ready).To(BeTrue())
+		Expect(isPresentAndFalseWithReason(hcloudMachine, infrav1.ServerAvailableCondition, "WaitingForAPIServer")).To(BeTrue())
+	})
+
+	It("sets Ready and ServerAvailableCondition when reconcileLoadBalancerAttachment returns an empty Result", func() {
+		// No load balancer → reconcileLoadBalancerAttachment returns an empty Result.
+		res, err := service.handleOperatingSystemRunning(context.Background(), server)
+		Expect(err).To(Succeed())
+		Expect(res).To(Equal(reconcile.Result{}))
+
+		Expect(hcloudMachine.Status.Ready).To(BeTrue())
+		Expect(v1beta1conditions.IsTrue(hcloudMachine, infrav1.ServerAvailableCondition)).To(BeTrue())
+	})
+})
+
+func isPresentAndFalseWithReason(getter v1beta1conditions.Getter, condition clusterv1beta1.ConditionType, reason string) bool {
+	if !v1beta1conditions.Has(getter, condition) {
 		return false
 	}
-	objectCondition := conditions.Get(getter, condition)
+	objectCondition := v1beta1conditions.Get(getter, condition)
 	return objectCondition.Status == corev1.ConditionFalse &&
 		objectCondition.Reason == reason
 }

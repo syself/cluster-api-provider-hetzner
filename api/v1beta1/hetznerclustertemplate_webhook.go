@@ -49,7 +49,7 @@ func (r *HetznerClusterTemplate) SetupWebhookWithManager(mgr ctrl.Manager) error
 var _ webhook.CustomDefaulter = &hetznerClusterTemplateWebhook{}
 
 // Default implements webhook.CustomDefaulter so a webhook will be registered for the type.
-func (*hetznerClusterTemplateWebhook) Default(_ context.Context, _ runtime.Object) error {
+func (*hetznerClusterTemplateWebhook) Default(context.Context, runtime.Object) error {
 	return nil
 }
 
@@ -58,7 +58,7 @@ func (*hetznerClusterTemplateWebhook) Default(_ context.Context, _ runtime.Objec
 var _ webhook.CustomValidator = &hetznerClusterTemplateWebhook{}
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
-func (*hetznerClusterTemplateWebhook) ValidateCreate(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
+func (*hetznerClusterTemplateWebhook) ValidateCreate(context.Context, runtime.Object) (admission.Warnings, error) {
 	return nil, nil
 }
 
@@ -66,7 +66,7 @@ func (*hetznerClusterTemplateWebhook) ValidateCreate(_ context.Context, _ runtim
 func (*hetznerClusterTemplateWebhook) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	r, ok := newObj.(*HetznerClusterTemplate)
 	if !ok {
-		return nil, fmt.Errorf("expected an HetznerClusterTemplate object but got %T", r)
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected an HetznerClusterTemplate object but got %T", r))
 	}
 	hetznerclustertemplatelog.V(1).Info("validate update", "name", r.Name)
 	old, ok := oldObj.(*HetznerClusterTemplate)
@@ -81,6 +81,6 @@ func (*hetznerClusterTemplateWebhook) ValidateUpdate(_ context.Context, oldObj, 
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
-func (*hetznerClusterTemplateWebhook) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
+func (*hetznerClusterTemplateWebhook) ValidateDelete(context.Context, runtime.Object) (admission.Warnings, error) {
 	return nil, nil
 }

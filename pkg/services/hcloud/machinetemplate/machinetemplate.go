@@ -22,7 +22,7 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/cluster-api/util/conditions"
+	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
@@ -44,7 +44,7 @@ func NewService(scope *scope.HCloudMachineTemplateScope) *Service {
 // Reconcile implements reconcilement of HCloudMachinesTemplates.
 func (s *Service) Reconcile(ctx context.Context) error {
 	// delete the deprecated condition from existing machinetemplate objects
-	conditions.Delete(s.scope.HCloudMachineTemplate, infrav1.DeprecatedRateLimitExceededCondition)
+	v1beta1conditions.Delete(s.scope.HCloudMachineTemplate, infrav1.DeprecatedRateLimitExceededCondition)
 
 	if s.scope.HCloudMachineTemplate.Status.Capacity == nil {
 		capacity, err := s.getCapacity(ctx)

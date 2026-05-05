@@ -26,14 +26,13 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
-	"sigs.k8s.io/cluster-api/util/conditions"
-	"sigs.k8s.io/cluster-api/util/patch"
+	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
+	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	"sigs.k8s.io/cluster-api/util/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -57,17 +56,17 @@ import (
 // HetznerBareMetalHostReconciler reconciles a HetznerBareMetalHost object.
 type HetznerBareMetalHostReconciler struct {
 	client.Client
-	RateLimitWaitTime    time.Duration
-	APIReader            client.Reader
-	RobotClientFactory   robotclient.Factory
-	SSHClientFactory     sshclient.Factory
-	WatchFilterValue     string
-	PreProvisionCommand  string
-	SSHAfterInstallImage bool
-	ImageURLCommand      string
+	RateLimitWaitTime   time.Duration
+	APIReader           client.Reader
+	RobotClientFactory  robotclient.Factory
+	SSHClientFactory    sshclient.Factory
+	WatchFilterValue    string
+	PreProvisionCommand string
 
 	// Reconcile only this namespace. Only needed for testing
 	Namespace string
+	// WorkloadClusterClientFactory overrides the default real factory. Intended for tests only.
+	WorkloadClusterClientFactory scope.WorkloadClusterClientFactory
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=hetznerbaremetalhosts,verbs=get;list;watch;create;update;patch;delete
@@ -170,7 +169,7 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 	// End: avoid conflict errors. Wait until local cache is up-to-date
 	// ----------------------------------------------------------------
 
-	patchHelper, err := patch.NewHelper(bmHost, r)
+	patchHelper, err := v1beta1patch.NewHelper(bmHost, r)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to init patch helper: %w", err)
 	}
@@ -182,18 +181,12 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 			log.Info("Provisioning state changed", "from", initialProvisioningState, "to", bmHost.Spec.Status.ProvisioningState)
 		}
 
-		// Set LastUpdated only if the host actually changed.
-		if !cmp.Equal(initialHost, bmHost) {
-			t := metav1.Now()
-			bmHost.Spec.Status.LastUpdated = &t
-		}
-
 		// remove deprecated conditions.
-		conditions.Delete(bmHost, infrav1.DeprecatedHetznerBareMetalHostReadyCondition)
-		conditions.Delete(bmHost, infrav1.DeprecatedHostProvisionSucceededCondition)
-		conditions.Delete(bmHost, infrav1.DeprecatedRateLimitExceededCondition)
+		v1beta1conditions.Delete(bmHost, infrav1.DeprecatedHetznerBareMetalHostReadyCondition)
+		v1beta1conditions.Delete(bmHost, infrav1.DeprecatedHostProvisionSucceededCondition)
+		v1beta1conditions.Delete(bmHost, infrav1.DeprecatedRateLimitExceededCondition)
 
-		conditions.SetSummary(bmHost)
+		v1beta1conditions.SetSummary(bmHost)
 
 		if err := patchHelper.Patch(ctx, bmHost); err != nil {
 			res = reconcile.Result{}
@@ -291,20 +284,19 @@ func (r *HetznerBareMetalHostReconciler) Reconcile(ctx context.Context, req ctrl
 
 	// Create the scope.
 	hostScope, err := scope.NewBareMetalHostScope(scope.BareMetalHostScopeParams{
-		Logger:                  log,
-		Client:                  r,
-		HetznerCluster:          hetznerCluster,
-		Cluster:                 cluster,
-		HetznerBareMetalHost:    bmHost,
-		HetznerBareMetalMachine: hetznerBareMetalMachine,
-		RobotClient:             r.RobotClientFactory.NewClient(robotCreds),
-		SSHClientFactory:        r.SSHClientFactory,
-		OSSSHSecret:             osSSHSecret,
-		RescueSSHSecret:         rescueSSHSecret,
-		SecretManager:           secretManager,
-		PreProvisionCommand:     r.PreProvisionCommand,
-		ImageURLCommand:         r.ImageURLCommand,
-		SSHAfterInstallImage:    r.SSHAfterInstallImage,
+		Logger:                       log,
+		Client:                       r,
+		HetznerCluster:               hetznerCluster,
+		Cluster:                      cluster,
+		HetznerBareMetalHost:         bmHost,
+		HetznerBareMetalMachine:      hetznerBareMetalMachine,
+		RobotClient:                  r.RobotClientFactory.NewClient(robotCreds),
+		SSHClientFactory:             r.SSHClientFactory,
+		OSSSHSecret:                  osSSHSecret,
+		RescueSSHSecret:              rescueSSHSecret,
+		SecretManager:                secretManager,
+		PreProvisionCommand:          r.PreProvisionCommand,
+		WorkloadClusterClientFactory: r.WorkloadClusterClientFactory,
 	})
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to create scope: %w", err)
@@ -365,16 +357,16 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				msg := fmt.Sprintf("%s: %s", infrav1.ErrorMessageMissingOSSSHSecret, err.Error())
-				conditions.MarkFalse(
+				v1beta1conditions.MarkFalse(
 					bmHost,
 					infrav1.CredentialsAvailableCondition,
 					infrav1.OSSSHSecretMissingReason,
-					clusterv1.ConditionSeverityError,
+					clusterv1beta1.ConditionSeverityError,
 					"%s",
 					msg,
 				)
 				record.Warnf(bmHost, infrav1.OSSSHSecretMissingReason, msg)
-				conditions.SetSummary(bmHost)
+				v1beta1conditions.SetSummary(bmHost)
 				return nil, nil, reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
 			}
 			return nil, nil, res, fmt.Errorf("failed to get secret: %w", err)
@@ -384,16 +376,16 @@ func (r *HetznerBareMetalHostReconciler) getSecrets(
 		rescueSSHSecret, err = secretManager.AcquireSecret(ctx, rescueSSHSecretNamespacedName, hetznerCluster, false, hetznerCluster.DeletionTimestamp.IsZero())
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				conditions.MarkFalse(
+				v1beta1conditions.MarkFalse(
 					bmHost,
 					infrav1.CredentialsAvailableCondition,
 					infrav1.RescueSSHSecretMissingReason,
-					clusterv1.ConditionSeverityError,
+					clusterv1beta1.ConditionSeverityError,
 					infrav1.ErrorMessageMissingRescueSSHSecret,
 				)
 
 				record.Warnf(bmHost, infrav1.RescueSSHSecretMissingReason, infrav1.ErrorMessageMissingRescueSSHSecret)
-				conditions.SetSummary(bmHost)
+				v1beta1conditions.SetSummary(bmHost)
 				return nil, nil, reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
 			}
 			return nil, nil, res, fmt.Errorf("failed to acquire secret: %w", err)
@@ -456,16 +448,16 @@ func hetznerSecretErrorResult(
 		// In the event that the reference to the secret is defined, but we cannot find it
 		// we requeue the host as we will not know if they create the secret
 		// at some point in the future.
-		conditions.MarkFalse(
+		v1beta1conditions.MarkFalse(
 			bmHost,
 			infrav1.CredentialsAvailableCondition,
 			infrav1.HetznerSecretUnreachableReason,
-			clusterv1.ConditionSeverityError,
+			clusterv1beta1.ConditionSeverityError,
 			infrav1.ErrorMessageMissingHetznerSecret,
 		)
 
 		record.Warnf(bmHost, infrav1.HetznerSecretUnreachableReason, fmt.Sprintf("%s: %s", infrav1.ErrorMessageMissingHetznerSecret, err.Error()))
-		conditions.SetSummary(bmHost)
+		v1beta1conditions.SetSummary(bmHost)
 
 		// No need to reconcile again, as it will be triggered as soon as the secret is updated.
 		return res, nil
@@ -473,11 +465,11 @@ func hetznerSecretErrorResult(
 
 	credValidationErr := &bmclient.CredentialsValidationError{}
 	if errors.As(err, &credValidationErr) {
-		conditions.MarkFalse(
+		v1beta1conditions.MarkFalse(
 			bmHost,
 			infrav1.RobotCredentialsAvailableCondition,
 			infrav1.RobotCredentialsInvalidReason,
-			clusterv1.ConditionSeverityError,
+			clusterv1beta1.ConditionSeverityError,
 			infrav1.ErrorMessageMissingOrInvalidSecretData,
 		)
 		record.Warnf(bmHost, infrav1.RobotCredentialsInvalidReason, err.Error())
