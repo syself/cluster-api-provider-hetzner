@@ -31,17 +31,22 @@ import (
 	"github.com/prometheus/common/expfmt"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/kubectl/pkg/scheme"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	"sigs.k8s.io/cluster-api/util/conditions"
+	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	deprecatedv1beta1conditions "sigs.k8s.io/cluster-api/util/conditions/deprecated/v1beta1"
+	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	infrav1 "github.com/syself/cluster-api-provider-hetzner/api/v1beta1"
+	"github.com/syself/cluster-api-provider-hetzner/pkg/scope"
 	"github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks"
 	robotmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/robot"
 	sshmock "github.com/syself/cluster-api-provider-hetzner/pkg/services/baremetal/client/mocks/ssh"
@@ -154,6 +159,7 @@ func (r *ControllerResetter) ResetAndInitNamespace(namespace string, testEnv *he
 	r.HetznerBareMetalHostReconciler.RobotClientFactory = robotClientFactory
 	r.HetznerBareMetalHostReconciler.SSHClientFactory = baremetalSSHClientFactory
 	r.HetznerBareMetalHostReconciler.Namespace = namespace
+	r.HetznerBareMetalHostReconciler.WorkloadClusterClientFactory = newFakeWorkloadClusterClientFactory()
 
 	r.HCloudRemediationReconciler.HCloudClientFactory = hcloudClientFactory
 	r.HCloudRemediationReconciler.Namespace = namespace
@@ -167,6 +173,35 @@ func (r *ControllerResetter) ResetAndInitNamespace(namespace string, testEnv *he
 		testEnv.GetLogger().Info("Starting test: ===> ===> ===> ===> ===> ===> ===> " + t.Name())
 	}
 }
+
+type fakeWorkloadClusterClientFactory struct {
+	client client.Client
+}
+
+func (f *fakeWorkloadClusterClientFactory) NewWorkloadClient(_ context.Context) (client.Client, error) {
+	return f.client, nil
+}
+
+func newFakeWorkloadClusterClientFactory() *fakeWorkloadClusterClientFactory {
+	s := runtime.NewScheme()
+	utilruntime.Must(corev1.AddToScheme(s))
+
+	c := fakeclient.NewClientBuilder().WithScheme(s).Build()
+
+	node := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{Name: hostName},
+		Status: corev1.NodeStatus{
+			NodeInfo: corev1.NodeSystemInfo{BootID: "test-boot-id"},
+		},
+	}
+	if err := c.Create(context.Background(), node); err != nil {
+		panic(err)
+	}
+
+	return &fakeWorkloadClusterClientFactory{client: c}
+}
+
+var _ scope.WorkloadClusterClientFactory = &fakeWorkloadClusterClientFactory{}
 
 var _ = BeforeSuite(func() {
 	utilruntime.Must(infrav1.AddToScheme(scheme.Scheme))
@@ -304,7 +339,7 @@ func getDefaultHetznerClusterSpec() infrav1.HetznerClusterSpec {
 			Region: "fsn1",
 			Type:   "lb11",
 		},
-		ControlPlaneEndpoint: &clusterv1.APIEndpoint{},
+		ControlPlaneEndpoint: &clusterv1beta1.APIEndpoint{},
 		ControlPlaneRegions:  []infrav1.Region{"fsn1"},
 		HCloudNetwork: infrav1.HCloudNetworkSpec{
 			CIDRBlock:       "10.0.0.0/16",
@@ -404,30 +439,46 @@ func getDefaultHetznerBareMetalMachineSpec() infrav1.HetznerBareMetalMachineSpec
 	}
 }
 
-func isPresentAndFalseWithReason(key types.NamespacedName, getter conditions.Getter, condition clusterv1.ConditionType, reason string) bool {
+func isPresentAndFalseWithReason(key types.NamespacedName, getter v1beta1conditions.Getter, condition clusterv1beta1.ConditionType, reason string) bool {
 	err := testEnv.Get(ctx, key, getter)
 	if err != nil {
 		return false
 	}
 
-	if !conditions.Has(getter, condition) {
+	if !v1beta1conditions.Has(getter, condition) {
 		return false
 	}
-	objectCondition := conditions.Get(getter, condition)
+	objectCondition := v1beta1conditions.Get(getter, condition)
 	return objectCondition.Status == corev1.ConditionFalse &&
 		objectCondition.Reason == reason
 }
 
-func isPresentAndTrue(key types.NamespacedName, getter conditions.Getter, condition clusterv1.ConditionType) bool {
+// isPresentAndFalseWithReasonV2 reads a legacy-shape condition from a v1beta2
+// CAPI core object (Cluster, Machine) via GetV1Beta1Conditions(), i.e. the
+// status.deprecated.v1beta1.conditions field. This is how CAPI 1.11 exposes
+// legacy conditions on v1beta2 objects under the v1beta1 contract compat layer.
+func isPresentAndFalseWithReasonV2(key types.NamespacedName, obj client.Object, condition clusterv1.ConditionType, reason string) bool {
+	if err := testEnv.Get(ctx, key, obj); err != nil {
+		return false
+	}
+	getter, ok := obj.(deprecatedv1beta1conditions.Getter)
+	if !ok {
+		return false
+	}
+	c := deprecatedv1beta1conditions.Get(getter, condition)
+	return c != nil && c.Status == corev1.ConditionFalse && c.Reason == reason
+}
+
+func isPresentAndTrue(key types.NamespacedName, getter v1beta1conditions.Getter, condition clusterv1beta1.ConditionType) bool {
 	err := testEnv.Get(ctx, key, getter)
 	if err != nil {
 		return false
 	}
 
-	if !conditions.Has(getter, condition) {
+	if !v1beta1conditions.Has(getter, condition) {
 		return false
 	}
-	objectCondition := conditions.Get(getter, condition)
+	objectCondition := v1beta1conditions.Get(getter, condition)
 	return objectCondition.Status == corev1.ConditionTrue
 }
 

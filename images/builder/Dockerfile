@@ -61,7 +61,7 @@ FROM docker.io/library/golang:1.25-bookworm@sha256:38342f3e7a504bf1efad858c18e77
 # Note: We should keep the final layer clean. We could get most tools from wolfi.
 
 # update: datasource=github-tags depName=adrienverge/yamllint versioning=semver
-ENV YAMLLINT_VERSION="v1.36.2"
+ENV YAMLLINT_VERSION="v1.37.1"
 # update: datasource=github-tags depName=opt-nc/yamlfixer versioning=semver
 ENV YAMLFIXER_VERSION="0.9.15"
 

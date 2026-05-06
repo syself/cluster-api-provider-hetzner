@@ -1,4 +1,4 @@
-apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+apiVersion: bootstrap.cluster.x-k8s.io/v1beta2
 kind: KubeadmConfigTemplate
 metadata:
   name: ${CLUSTER_NAME}-md-0
@@ -8,4 +8,5 @@ spec:
       joinConfiguration:
         nodeRegistration:
           kubeletExtraArgs:
-            rotate-server-certificates: "false"
+            - name: rotate-server-certificates
+              value: "false"

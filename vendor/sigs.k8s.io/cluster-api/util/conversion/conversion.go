@@ -18,30 +18,25 @@ limitations under the License.
 package conversion
 
 import (
-	"context"
+	"bytes"
+	"maps"
 	"math/rand"
-	"sort"
-	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	fuzz "github.com/google/gofuzz"
 	"github.com/onsi/gomega"
-	"github.com/pkg/errors"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/apitesting/fuzzer"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metafuzzer "k8s.io/apimachinery/pkg/apis/meta/fuzzer"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	runtimeserializer "k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
-
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	"sigs.k8s.io/cluster-api/util"
+	"sigs.k8s.io/randfill"
 )
 
 const (
@@ -49,52 +44,6 @@ const (
 	// use to retain the data in case of down-conversion from the hub.
 	DataAnnotation = "cluster.x-k8s.io/conversion-data"
 )
-
-var (
-	contract = clusterv1.GroupVersion.String()
-)
-
-// UpdateReferenceAPIContract takes a client and object reference, queries the API Server for
-// the Custom Resource Definition and looks which one is the stored version available.
-//
-// The object passed as input is modified in place if an updated compatible version is found.
-// NOTE: This version depends on CRDs being named correctly as defined by contract.CalculateCRDName.
-func UpdateReferenceAPIContract(ctx context.Context, c client.Client, ref *corev1.ObjectReference) error {
-	gvk := ref.GroupVersionKind()
-
-	metadata, err := util.GetGVKMetadata(ctx, c, gvk)
-	if err != nil {
-		return errors.Wrapf(err, "failed to update apiVersion in ref")
-	}
-
-	chosen, err := getLatestAPIVersionFromContract(metadata)
-	if err != nil {
-		return errors.Wrapf(err, "failed to update apiVersion in ref")
-	}
-
-	// Modify the GroupVersionKind with the new version.
-	if gvk.Version != chosen {
-		gvk.Version = chosen
-		ref.SetGroupVersionKind(gvk)
-	}
-
-	return nil
-}
-
-func getLatestAPIVersionFromContract(metadata metav1.Object) (string, error) {
-	labels := metadata.GetLabels()
-
-	// If there is no label, return early without changing the reference.
-	supportedVersions, ok := labels[contract]
-	if !ok || supportedVersions == "" {
-		return "", errors.Errorf("cannot find any versions matching contract %q for CRD %v as contract version label(s) are either missing or empty (see https://cluster-api.sigs.k8s.io/developer/providers/contracts.html#api-version-labels)", contract, metadata.GetName())
-	}
-
-	// Pick the latest version in the slice and validate it.
-	kubeVersions := util.KubeAwareAPIVersions(strings.Split(supportedVersions, "_"))
-	sort.Sort(kubeVersions)
-	return kubeVersions[len(kubeVersions)-1], nil
-}
 
 // MarshalData stores the source object as json data in the destination object annotations map.
 // It ignores the metadata of the source object.
@@ -109,6 +58,47 @@ func MarshalData(src metav1.Object, dst metav1.Object) error {
 	if err != nil {
 		return err
 	}
+	annotations := dst.GetAnnotations()
+	if annotations == nil {
+		annotations = map[string]string{}
+	}
+	annotations[DataAnnotation] = string(data)
+	dst.SetAnnotations(annotations)
+	return nil
+}
+
+// MarshalDataUnsafeNoCopy stores the source object as json data in the destination object annotations map.
+// It ignores the metadata of the source object.
+// Note: It also mutates the metadata of the source object.
+func MarshalDataUnsafeNoCopy(src metav1.Object, dst metav1.Object) error {
+	// Remove metadata as it's not needed in the conversion annotation.
+	// Note: Directly modifying src to avoid additional memory allocations
+	// This is fine because MarshalDataUnsafeNoCopy is called at the end of ConvertFrom.
+	src.SetNamespace("")
+	src.SetName("")
+	src.SetGenerateName("")
+	src.SetUID("")
+	src.SetResourceVersion("")
+	src.SetGeneration(0)
+	src.SetSelfLink("")
+	src.SetCreationTimestamp(metav1.Time{})
+	src.SetDeletionTimestamp(nil)
+	src.SetDeletionGracePeriodSeconds(nil)
+	src.SetLabels(nil)
+	src.SetAnnotations(nil)
+	src.SetFinalizers(nil)
+	src.SetOwnerReferences(nil)
+	src.SetManagedFields(nil)
+
+	data, err := json.Marshal(src)
+	if err != nil {
+		return err
+	}
+
+	// If omitzero is not set on the ObjectMeta field the above is not enough to avoid metadata entirely.
+	// So we also have to remove an empty metadata element if it exists.
+	data = bytes.Replace(data, []byte(`"metadata":{},`), []byte(``), 1)
+
 	annotations := dst.GetAnnotations()
 	if annotations == nil {
 		annotations = map[string]string{}
@@ -134,7 +124,7 @@ func UnmarshalData(from metav1.Object, to interface{}) (bool, error) {
 }
 
 // GetFuzzer returns a new fuzzer to be used for testing.
-func GetFuzzer(scheme *runtime.Scheme, funcs ...fuzzer.FuzzerFuncs) *fuzz.Fuzzer {
+func GetFuzzer(scheme *runtime.Scheme, funcs ...fuzzer.FuzzerFuncs) *randfill.Filler {
 	funcs = append([]fuzzer.FuzzerFuncs{
 		metafuzzer.Funcs,
 		func(_ runtimeserializer.CodecFactory) []interface{} {
@@ -143,14 +133,34 @@ func GetFuzzer(scheme *runtime.Scheme, funcs ...fuzzer.FuzzerFuncs) *fuzz.Fuzzer
 				// fuzzed and always resulted in `nil` values.
 				// This implementation is somewhat similar to the one provided
 				// in the metafuzzer.Funcs.
-				func(input *metav1.Time, c fuzz.Continue) {
-					if input != nil {
-						var sec, nsec uint32
-						c.Fuzz(&sec)
-						c.Fuzz(&nsec)
-						fuzzed := metav1.Unix(int64(sec), int64(nsec)).Rfc3339Copy()
-						input.Time = fuzzed.Time
+				func(input **metav1.Time, c randfill.Continue) {
+					if c.Bool() {
+						// Leave the Time sometimes nil to also get coverage for this case.
+						return
 					}
+					if c.Bool() {
+						// Set the Time sometimes empty to also get coverage for this case.
+						*input = &metav1.Time{}
+						return
+					}
+					var sec, nsec uint32
+					c.Fill(&sec)
+					c.Fill(&nsec)
+					fuzzed := metav1.Unix(int64(sec), int64(nsec)).Rfc3339Copy()
+					*input = &metav1.Time{Time: fuzzed.Time}
+				},
+				// Custom fuzzer for intstr.IntOrString which does not get fuzzed otherwise.
+				func(in **intstr.IntOrString, c randfill.Continue) {
+					if c.Bool() {
+						// Leave the IntOrString sometimes nil to also get coverage for this case.
+						return
+					}
+					if c.Bool() {
+						// Set the IntOrString sometimes empty to also get coverage for this case.
+						*in = &intstr.IntOrString{}
+						return
+					}
+					*in = ptr.To(intstr.FromInt32(c.Int31n(50)))
 				},
 			}
 		},
@@ -193,7 +203,7 @@ func FuzzTestFunc(input FuzzTestFuncInput) func(*testing.T) {
 			for range 10000 {
 				// Create the spoke and fuzz it
 				spokeBefore := input.Spoke.DeepCopyObject().(conversion.Convertible)
-				fuzzer.Fuzz(spokeBefore)
+				fuzzer.Fill(spokeBefore)
 
 				// First convert spoke to hub
 				hubCopy := input.Hub.DeepCopyObject().(conversion.Hub)
@@ -214,7 +224,10 @@ func FuzzTestFunc(input FuzzTestFuncInput) func(*testing.T) {
 					input.SpokeAfterMutation(spokeAfter)
 				}
 
-				g.Expect(apiequality.Semantic.DeepEqual(spokeBefore, spokeAfter)).To(gomega.BeTrue(), cmp.Diff(spokeBefore, spokeAfter))
+				if !apiequality.Semantic.DeepEqual(spokeBefore, spokeAfter) {
+					diff := cmp.Diff(spokeBefore, spokeAfter)
+					g.Expect(false).To(gomega.BeTrue(), diff)
+				}
 			}
 		})
 		t.Run("hub-spoke-hub", func(t *testing.T) {
@@ -224,11 +237,25 @@ func FuzzTestFunc(input FuzzTestFuncInput) func(*testing.T) {
 			for range 10000 {
 				// Create the hub and fuzz it
 				hubBefore := input.Hub.DeepCopyObject().(conversion.Hub)
-				fuzzer.Fuzz(hubBefore)
+				fuzzer.Fill(hubBefore)
 
 				// First convert hub to spoke
 				dstCopy := input.Spoke.DeepCopyObject().(conversion.Convertible)
-				g.Expect(dstCopy.ConvertFrom(hubBefore)).To(gomega.Succeed())
+				// DeepCopy hubBefore because otherwise the mutations in MarshalDataUnsafeNoCopy would affect
+				// hubBefore and accordingly the comparison between hubBefore and hubAfter below.
+				g.Expect(dstCopy.ConvertFrom(hubBefore.DeepCopyObject().(conversion.Hub))).To(gomega.Succeed())
+
+				// Note: The check here is needed because not all runtime.Objects are metav1.Objects (e.g. CABPK ClusterConfiguration)
+				if _, ok := dstCopy.(metav1.Object); ok {
+					// Sometimes the apiserver sends us objects without a spec (likely in the context of managedField conversion)
+					// This test verifies that the ConvertTo code can handle this scenario (i.e. it doesn't return an error
+					// and it doesn't panic)
+					// Note: It's important that this test is run here, because dstCopy.ConvertTo below clears the restore annotation from dstCopy.
+					dstCopyNoSpec := input.Spoke.DeepCopyObject().(conversion.Convertible)
+					dstCopyNoSpec.(metav1.Object).SetLabels(maps.Clone(dstCopy.(metav1.Object).GetLabels()))
+					dstCopyNoSpec.(metav1.Object).SetAnnotations(maps.Clone(dstCopy.(metav1.Object).GetAnnotations()))
+					g.Expect(dstCopyNoSpec.ConvertTo(input.Hub.DeepCopyObject().(conversion.Hub))).To(gomega.Succeed())
+				}
 
 				// Convert spoke back to hub and check if the resulting hub is equal to the hub before the round trip
 				hubAfter := input.Hub.DeepCopyObject().(conversion.Hub)
@@ -238,7 +265,10 @@ func FuzzTestFunc(input FuzzTestFuncInput) func(*testing.T) {
 					input.HubAfterMutation(hubAfter)
 				}
 
-				g.Expect(apiequality.Semantic.DeepEqual(hubBefore, hubAfter)).To(gomega.BeTrue(), cmp.Diff(hubBefore, hubAfter))
+				if !apiequality.Semantic.DeepEqual(hubBefore, hubAfter) {
+					diff := cmp.Diff(hubBefore, hubAfter)
+					g.Expect(false).To(gomega.BeTrue(), diff)
+				}
 			}
 		})
 	}
