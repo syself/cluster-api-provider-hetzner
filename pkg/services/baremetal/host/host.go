@@ -2248,10 +2248,11 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 
 // next: None
 func (s *Service) actionDeprovisioning(ctx context.Context) actionResult {
-	// Update name in robot API
+	// Update server name via RobotAPI, strip "bm-" from the desired hostname.
+	// Example: If the hostname is "bm-abc-1-2356799" it should be renamed to "abc-1-2356799".
 	if _, err := s.scope.RobotClient.SetBMServerName(
 		s.scope.HetznerBareMetalHost.Spec.ServerID,
-		s.scope.HetznerBareMetalHost.Spec.ConsumerRef.Name,
+		strings.TrimPrefix(s.scope.Hostname(), infrav1.BareMetalHostNamePrefix),
 	); err != nil {
 		if models.IsError(err, models.ErrorCodeUnauthorized) {
 			// If Robot API returned "unauthorized" error while trying to set baremetal server name, then
