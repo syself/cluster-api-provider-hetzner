@@ -2053,7 +2053,6 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 			return actionStop{}
 		}
 
-		s.scope.Info(msg + ", requeueing")
 		return actionContinue{}
 	}
 
