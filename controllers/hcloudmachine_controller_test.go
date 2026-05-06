@@ -27,9 +27,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
+	controlplanev1 "sigs.k8s.io/cluster-api/api/controlplane/kubeadm/v1beta2"
 	clusterv1beta1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
-	controlplanev1beta2 "sigs.k8s.io/cluster-api/api/controlplane/kubeadm/v1beta2"
 	v1beta1conditions "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/conditions"
 	v1beta1patch "sigs.k8s.io/cluster-api/util/deprecated/v1beta1/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -219,7 +219,7 @@ func TestIgnoreInsignificantMachineStatusUpdates(t *testing.T) {
 				Status: clusterv1.MachineStatus{
 					Conditions: []metav1.Condition{
 						{
-							Type:   controlplanev1beta2.KubeadmControlPlaneMachineAPIServerPodHealthyCondition,
+							Type:   controlplanev1.KubeadmControlPlaneMachineAPIServerPodHealthyCondition,
 							Status: metav1.ConditionFalse,
 						},
 					},
@@ -233,7 +233,7 @@ func TestIgnoreInsignificantMachineStatusUpdates(t *testing.T) {
 				Status: clusterv1.MachineStatus{
 					Conditions: []metav1.Condition{
 						{
-							Type:   controlplanev1beta2.KubeadmControlPlaneMachineAPIServerPodHealthyCondition,
+							Type:   controlplanev1.KubeadmControlPlaneMachineAPIServerPodHealthyCondition,
 							Status: metav1.ConditionTrue,
 						},
 					},
