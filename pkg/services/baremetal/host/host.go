@@ -2044,15 +2044,16 @@ func (s *Service) actionProvisioned(ctx context.Context) actionResult {
 	// The machine would be remediated.
 	if machine.Status.NodeRef.Name == "" {
 		msg := "machine.Status.NodeRef.Name is empty"
-		s.scope.Error(errors.New(msg), "")
 
 		// Without looking at the node object we can't confirm whether a reboot completed, so that is fatal error.
 		// When no reboot is requested the boot ID is non-critical; requeue and wait for kubelet to populate it.
 		if rebootDesired {
+			s.scope.Error(errors.New(msg), "")
 			s.scope.HetznerBareMetalHost.SetError(infrav1.FatalError, msg)
 			return actionStop{}
 		}
 
+		s.scope.Info(msg + ", requeueing")
 		return actionContinue{}
 	}
 
