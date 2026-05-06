@@ -25,6 +25,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -668,7 +669,7 @@ func (c *sshClient) runSSH(ctx context.Context, command string) Output {
 		return Output{Err: fmt.Errorf("unable to create new ssh session (%s): %w", c.connectionDetails(), err)}
 	}
 	defer func() {
-		if err := sess.Close(); err != nil {
+		if err := sess.Close(); err != nil && !errors.Is(err, io.EOF) {
 			logger.Error(err, "failed to close ssh session")
 		}
 	}()
