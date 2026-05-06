@@ -175,9 +175,9 @@ type Client interface {
 	GetCloudInitOutput(ctx context.Context) Output
 	CreateAutoSetup(ctx context.Context, data string) Output
 
-	// DownloadImage is a synchronous process. This means the controller waits until the download is
-	// finished. It is recommended to use StartImageURLCommand() instead. ImageURLCommand is handled
-	// asynchronously.
+	// DownloadImage is a synchronous process. This means the controller waits until the
+	// download is finished. Note: We should use StartImageURLCommand(), similar to the handling
+	// of ImageURLCommand.
 	DownloadImage(ctx context.Context, path, url string) Output
 
 	CreatePostInstallScript(ctx context.Context, data string) Output
